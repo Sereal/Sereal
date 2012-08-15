@@ -40,7 +40,7 @@ srl_encoder_t *
 build_encoder_struct(pTHX_ HV *opt)
 {
     srl_encoder_t *enc;
-    SV **svp;
+    /* SV **svp; */
 
     Newx(enc, 1, srl_encoder_t);
     /* Register our structure for destruction on scope exit */
@@ -170,18 +170,9 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
             PTABLE_store(enc->seenhash, src, NULL);
     }
 
-    if (SvOBJECT(src) && (0 == (enc->flags & F_DUMP_OBJECTS_AS_UNBLESSED))) {
-        if (enc->flags & F_UNDEF_BLESSED) {
-            srl_buf_cat_str_s(enc, "undef");
-            goto done;
-        }
-        else if (enc->flags & F_DUMP_OBJECTS_AS_BLESSED) {
-            srl_buf_cat_str_s(enc, "bless(");
-            blessed_object = 1;
-        }
-        else
-          croak("Encountered object '%s', but undef_blessed setting is not enabled",
-                SvPV_nolen(sv_2mortal(newRV_inc(src))));
+    if (SvOBJECT(src)) {
+        croak("Encountered object '%s', but objects are not implemented yet",
+              SvPV_nolen(sv_2mortal(newRV_inc(src))));
     }
 
     if (svt == SVt_PVHV)
@@ -200,7 +191,6 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
                SvPV_nolen(sv_2mortal(newRV_inc(src))));
     }
 
-done:
     /* finish writing the bless(XXX,"classname") call */
     if (blessed_object) {
         /* FIXME this should probably do ' escaping! */
@@ -215,9 +205,11 @@ done:
     /* If we DO allow multiple occurrence of the same ref (default), then
      * we need to drop its seenhash entry as soon as it cannot be a cyclic
      * ref any more. */
-    if (!(enc->flags & F_DISALLOW_MULTI_OCCURRENCE)) {
-        PTABLE_delete(enc->seenhash, src);
-    }
+    /*
+     * if (!(enc->flags & F_DISALLOW_MULTI_OCCURRENCE)) {
+     *   PTABLE_delete(enc->seenhash, src);
+     * }
+     */
 }
 
 
