@@ -1,0 +1,15 @@
+*.swp
+*.swo
+*~
+*.bak
+Makefile
+Makefile.old
+blib/
+pm_to_blib
+MYMETA.*
+Limited.bs
+Limited.so
+Limited.o
+Limited.c
+*.o
+srl_protocol.h
