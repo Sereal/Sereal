@@ -19,6 +19,7 @@ encode_sereal(src, opt = newHV())
     srl_encoder_t *enc;
   PPCODE:
     enc = build_encoder_struct(aTHX_ opt);
+    srl_write_header(aTHX_ enc);
     srl_dump_sv(aTHX_ enc, src);
     /* FIXME optimization: avoid copy by stealing string buffer if
      *                     it is not too large. */

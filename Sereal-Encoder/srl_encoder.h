@@ -15,9 +15,12 @@ typedef struct {
     ptable_ptr seenhash; /* ptr table for avoiding circular refs */
 } srl_encoder_t;
 
+/* constructor; don't need destructor, this sets up a callback */
 srl_encoder_t *build_encoder_struct(pTHX_ HV *opt);
 
-/* entry point */
+/* Write Sereal packet header to output buffer */
+void srl_write_header(pTHX_ srl_encoder_t *enc);
+/* Start dumping a top-level SV */
 void srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src);
 
 #endif

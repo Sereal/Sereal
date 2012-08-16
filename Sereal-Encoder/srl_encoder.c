@@ -70,6 +70,14 @@ build_encoder_struct(pTHX_ HV *opt)
 }
 
 
+void
+srl_write_header(pTHX_ srl_encoder_t *enc)
+{
+    /* works for now: 4 byte magic string + 1 byte varint that indicates zero-length header */
+    srl_buf_cat_str_s(enc, SRL_MAGIC_STRING "\x00");
+}
+
+
 /* Code for serializing floats */
 static inline void
 srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
@@ -113,7 +121,7 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
 }
 
 
-/* Entry point for serialization. Dumps generic SVs and delegates
+/* Entry point for serialization AFTER header. Dumps generic SVs and delegates
  * to more specialized functions for RVs, etc. */
 void
 srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
