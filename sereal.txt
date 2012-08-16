@@ -19,10 +19,10 @@ RESERVED - varint indicates length to skip to if a reader does not handle the ty
          |           1 0 0 | varint      | *reserved*
          |           1 0 1 | varint      | *reserved*
          |           1 1 0 | varint      | *reserved* 
-         |           1 1 1 | 3           | *reserved* (another 24 bits for info if we need it)
+         |           1 1 1 | varint      | *reserved*
 
 NUMLIST  | F 0 1 0 1 s y y | varint pad? | numeric array (s=0 unsigned, s=1 signed), varint=length, pad if needed for alignment
-                     s 0 0 |             | of 8 bit
+                     s 0 0 |             | varint (unsigned) or zipped (signed)
                      s 0 1 |             | of 16 bit
                      s 1 0 |             | of 32 bit
                      s 1 1 |             | of 64 bit
@@ -32,8 +32,9 @@ REF      |           0 0 x | varint?     | ref, x=0 means to next item, x=1 mean
 HASH     |           0 1 0 | varint      | hash, varint=length
 ARRAY    |           0 1 1 | varint      | array, varint=length 
 BLESS    |           1 0 0 | TAG(STR) TAG| bless item into class indicated by TAG
-BLESSV   |           1 0 1 | varint   TAG| bless item into class indicated by varint
-         |           1 1 x |             | *reserved*
+BLESSV   |           1 0 1 | varint   TAG| bless item into class indicated by varint *provisional*
+WEAKEN   |           1 1 0 |             | Following item is a reference and it is weakened
+         |           1 1 1 |             | *reserved*
 
          | F 0 1 1 1 y y y |             | Miscellaneous        
 STRING   |           0 0 x | varint      | string, x= utf8 flag, varint=length
@@ -45,6 +46,8 @@ FLOAT    |           1 1 0 | (FLOAT)     | float
 PAD      |           1 1 1 |             | ignored byte, used by encoder to pad if necessary
 
 ASCII    | F 1 x x x x x x | str         | Short ascii string, x=length
+
+
 
 F = Flag bit to indicate if the item needs to be tracked during deserialization.
     The offset of the tag byte should be remembered, so that it can be referenced
