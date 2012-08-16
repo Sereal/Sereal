@@ -262,8 +262,7 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src)
     BUF_SIZE_ASSERT(enc, 1 + SRL_MAX_VARINT_LENGTH + n);
 
     /* header and num. elements */
-    srl_buf_cat_char_nocheck(enc, SRL_HDR_ARRAY);
-    srl_buf_cat_varint_nocheck(aTHX_ enc, n);
+    srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_ARRAY, n);
 
     if (n == 0)
         return;
@@ -294,8 +293,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src)
     /* heuristic: n = ~min size of n values;
      *            + 2*n = very conservative min size of n hashkeys if all COPY */
     BUF_SIZE_ASSERT(enc, 1 + SRL_MAX_VARINT_LENGTH + 3*n);
-    srl_buf_cat_char_nocheck(enc, SRL_HDR_HASH);
-    srl_buf_cat_varint_nocheck(aTHX_ enc, n);
+    srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_HASH, n);
 
     if (n == 0 && !SvMAGICAL(src))
         return;

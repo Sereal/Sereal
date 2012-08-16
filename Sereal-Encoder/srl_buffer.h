@@ -85,7 +85,7 @@ static inline void
 srl_buf_cat_varint(pTHX_ srl_encoder_t *enc, const char tag, const UV n) {
     /* this implements googles "varint" from google protocol buffers */
     BUF_SIZE_ASSERT(enc, SRL_MAX_VARINT_LENGTH);
-    srl_buf_cat_varint_nocheck(pTHX_ enc, tag, n);
+    srl_buf_cat_varint_nocheck(aTHX_ enc, tag, n);
 }
 
 static inline void
@@ -94,6 +94,7 @@ srl_buf_cat_zigzag_nocheck(pTHX_ srl_encoder_t *enc, const char tag, const IV n)
     srl_buf_cat_varint_nocheck(aTHX_ enc, tag, z);
 }
 
+static inline void
 srl_buf_cat_zigzag(pTHX_ srl_encoder_t *enc, const char tag, const IV n) {
     /*
      * This implements googles "zigzag varints" which effectively interleave negative
@@ -104,7 +105,7 @@ srl_buf_cat_zigzag(pTHX_ srl_encoder_t *enc, const char tag, const IV n) {
      * Note: maybe for negative numbers we should just invert and then treat as a positive?
      *
      */
-    UV z= (n << 1) ^ (n >> (sizeof(IV) * 8 - 1));
+    const UV z= (n << 1) ^ (n >> (sizeof(IV) * 8 - 1));
     srl_buf_cat_varint(aTHX_ enc, tag, z);
 }
 
