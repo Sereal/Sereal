@@ -5,7 +5,16 @@
  * Sereal Protocol version 1, see constants below docs.
  *
  * Generally speaking, structures are serialized depth-first and each item
- * is preceded/defined by a 1-byte control character:
+ * is preceded/defined by a 1-byte control character, see table below.
+ * All packets of Sereal data must be preceded by a header. The header structure
+ * is as follows:
+ * Bytes 1-4: Magic string "srlX" where X is the character of the protocol version,
+ *            in binary. So for protocol version 1, the magic string is "srl\x01".
+ * Next: A varint describing the length of the rest of the header.
+ *       Since in protocol version 1, there is currently nothing else in the header,
+ *       this varint is always 0 (but that will change). Decoders must be able to
+ *       skip the parts of the header that they know nothing about using the total
+ *       header length.
  *
  * +--------+-----------------+-------------+--------------------------------------------------------------------------
  *          |Bit              | follow      | Description
