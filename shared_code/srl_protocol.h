@@ -96,13 +96,12 @@
 
 /* Useful constants */
 /* See also range constants below for the header byte */
-#define SRL_ASCII_SHORT_STRING_MAX_LEN (2 << 5) /* six bits */
-#define SRL_POS_INT_MAX_SIZE           ((2 << 4) - 1) /* five bits */
-#define SRL_NEG_INT_MAX_SIZE           ((2 << 3) - 1) /* four bits */
+#define SRL_ASCII_SHORT_STRING_MAX_LEN 63
+#define SRL_POS_MAX_SIZE           15
+#define SRL_NEG_MIN_SIZE           16
 
-/* FIXME usefulness of the below are a bit unclear*/
 
-/* All with F bit unset! */
+/* All constants have the F bit unset! */
 /* _LOW and _HIGH versions refering to INCLUSIVE range boundaries */
 #define SRL_HDR_ASCII_LOW     ((char)0b01000000)
 #define SRL_HDR_ASCII_HIGH    ((char)0b01111111)
