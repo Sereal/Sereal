@@ -22,8 +22,8 @@
 static void srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src);
 static void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src);
 static void srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src);
-static void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src);
 static void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8);
+static inline void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src);
 static inline void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
 static inline void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
 
