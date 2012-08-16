@@ -67,5 +67,20 @@ srl_buf_cat_char_nocheck_int(pTHX_ srl_encoder_t *enc, const char c)
 }
 #define srl_buf_cat_char_nocheck(enc, c) srl_buf_cat_char_nocheck_int(aTHX_ enc, c)
 
+static inline void
+srl_buf_cat_varint(pTHX_ srl_encoder_t *enc, const UV n) {
+    BUF_SIZE_ASSERT(enc,10);
+    while (n > 0x80) {
+        *enc->pos++ = (n & 0x7f) | 0x80;
+        n = n >> 7;
+    }
+    *enc->pos++ = n;
+}
+
+static inline void
+srl_buf_cat_zigzag(pTHX_ srl_encoder_t *enc, const IV n) {
+    UV z= (n << 1) ^ (n >> (sizeof(IV) * 8 - 1));
+    srl_buf_cat_varint(aTHX_ enc, z);
+}
 
 #endif
