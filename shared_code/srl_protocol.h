@@ -26,7 +26,7 @@
  * 
  *          | F 0 1 0 0 x x x
  * VARINT   |           0 0 0 | varint      | varint
- * ZIPPED   |           0 0 1 | varint      | zipped varint
+ * ZIGZAG   |           0 0 1 | varint      | zigzag encoded varint
  * 
  * RESERVED - varint indicates length to skip to if a reader does not handle the type, with 0 meaning "die".
  *          |           0 1 0 | varint      | *reserved*
@@ -43,14 +43,15 @@
  *                      s 1 1 |             | of 64 bit
  * 
  *          | F 0 1 1 0 y y y |             | Ref/Object(ish)
- * FWDREF   |           0 0 0 |             | scalar ref to next item
- * REF      |           0 0 1 | varint?     | scalar ref to the item indicated by varint
+ * REF      |           0 0 0 |             | scalar ref to next item
+ * REUSE    |           0 0 1 | varint      | second/third/... occurrence of a multiply-occurring
+ *          |                 |             | substructure (always points at a form of reference)
  * HASH     |           0 1 0 | varint      | hash, varint=length
  * ARRAY    |           0 1 1 | varint      | array, varint=length 
  * BLESS    |           1 0 0 | TAG(STR) TAG| bless item into class indicated by TAG
  * BLESSV   |           1 0 1 | varint   TAG| bless item into class indicated by varint *provisional*
  * WEAKEN   |           1 1 0 |             | Following item is a reference and it is weakened
- *          |           1 1 1 |             | *reserved* FIXME what to do with this?
+ *          |           1 1 1 | varint      | *reserved*
  * 
  *          | F 0 1 1 1 y y y |             | Miscellaneous        
  * STRING   |           0 0 x | varint      | string, x= utf8 flag, varint=length
@@ -111,12 +112,13 @@
 #define SRL_HDR_NEG_LOW       ((char)0b00011111) /* -16 */
 
 #define SRL_HDR_VARINT        ((char)0b00100000)
-#define SRL_HDR_ZIPPED        ((char)0b00100001)
+#define SRL_HDR_ZIGZAG        ((char)0b00100001)
 
 /* Note: Can do reserved check with a range now, but as we start using
  *       them, might have to explicit == check later. */
 #define SRL_HDR_RESERVED_LOW  ((char)0b00100010)
 #define SRL_HDR_RESERVED_HIGH ((char)0b00100111)
+/* see also: SRL_HDR_RESERVED_2 in the refs section */
 
 #define SRL_HDR_NUMLIST_VAR_U ((char)0b00101000) /* unsigned varint numlist */
 #define SRL_HDR_NUMLIST_VAR_S ((char)0b00101100) /* signed varint numlist */
@@ -127,14 +129,15 @@
 #define SRL_HDR_NUMLIST_64_U  ((char)0b00101011) /* unsigned 64bit numlist */
 #define SRL_HDR_NUMLIST_64_S  ((char)0b00101111) /* signed 64bit numlist */
 
-#define SRL_HDR_FWDREF        ((char)0b00110000) /* ref to next item */
-#define SRL_HDR_REF           ((char)0b00110001) /* ref with varint offset */
+#define SRL_HDR_REF           ((char)0b00110000) /* scalar ref to next item */
+#define SRL_HDR_REUSE         ((char)0b00110001) /* second/third/... occurrence of a multiply-occurring 
+                                                  * substructure (always points at a form of reference) */
 #define SRL_HDR_HASH          ((char)0b00110010)
 #define SRL_HDR_ARRAY         ((char)0b00110011)
 #define SRL_HDR_BLESS         ((char)0b00110100)
 #define SRL_HDR_BLESSV        ((char)0b00110101) /* provisional */
 #define SRL_HDR_WEAKEN        ((char)0b00110110)
-#define SRL_HDR_FIXME         ((char)0b00110111) /* FIXME do something with this!!! */
+#define SRL_HDR_RESERVED_2    ((char)0b00110111)
 
 #define SRL_HDR_STRING      ((char)0b00111000)
 #define SRL_HDR_STRING_UTF8 ((char)0b00111001)
