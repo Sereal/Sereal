@@ -12,9 +12,6 @@
 #define INITIALIZATION_SIZE 16384
 #define MAX_DEPTH 10000
 
-/* three extra for rounding, sign, and end of string */
-#define IVUV_MAXCHARS (sizeof (UV) * CHAR_BIT * 28 / 93 + 3)
-
 /* define option bits in srl_encoder_t's flags member */
 /* example: #define F_UNDEF_BLESSED                 1UL */
 
