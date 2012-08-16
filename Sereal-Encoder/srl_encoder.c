@@ -288,12 +288,6 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src)
 static void
 srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src)
 {
-    /* FIXME we could scan the string to see whether we could
-     *       skip quoting the string and instead using a fat comma.
-     *       But that's a lot of extra coding work, potentially slow,
-     *       and a small gain.
-     *       Even if that's not done, we can always use the fat comma
-     *       for readability. Maybe make that configurable later? */
     if (HeKLEN(src) == HEf_SVKEY) {
         SV *sv = HeSVKEY(src);
         STRLEN len;
@@ -304,9 +298,8 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src)
 
         srl_dump_pv(aTHX_ enc, str, len, SvUTF8(sv));
     }
-    else {
+    else
         srl_dump_pv(aTHX_ enc, HeKEY(src), HeKLEN(src), HeKUTF8(src));
-    }
 }
 
 static void
