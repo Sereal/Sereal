@@ -46,7 +46,7 @@
  * REF      |           0 0 0 |             | scalar ref to next item
  * REUSE    |           0 0 1 | varint      | second/third/... occurrence of a multiply-occurring
  *          |                 |             | substructure (always points at a form of reference)
- * HASH     |           0 1 0 | varint      | hash, varint=length
+ * HASH     |           0 1 0 | varint      | hash, varint=length (number of hash keys)
  * ARRAY    |           0 1 1 | varint      | array, varint=length 
  * BLESS    |           1 0 0 | TAG(STR) TAG| bless item into class indicated by TAG
  * BLESSV   |           1 0 1 | varint   TAG| bless item into class indicated by varint *provisional*
