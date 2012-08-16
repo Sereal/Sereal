@@ -234,17 +234,22 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src)
     SV **svp;
 
     n = av_len(src)+1;
-    if (n == 0) {
-        srl_buf_cat_str_s(enc, "[]");
-        return;
-    }
 
-    srl_buf_cat_char(enc, '[');
+    /* heuristic: n is virtually the min. size of any element */
+    BUF_SIZE_ASSERT(enc, 1 + SRL_MAX_VARINT_LENGTH + n);
+
+    /* header and num. elements */
+    srl_buf_cat_char_nocheck(enc, SRL_HDR_ARRAY);
+    srl_buf_cat_varint_nocheck(aTHX_ enc, n);
+
+    if (n == 0)
+        return;
 
     svp = av_fetch(src, 0, 0);
-    if (svp == NULL)
-        croak("Got NULL SV from av_fetch");
-    srl_dump_sv(aTHX_ enc, *svp);
+    if (svp != NULL)
+        srl_dump_sv(aTHX_ enc, *svp);
+    else
+        srl_buf_cat_char(enc, SRL_HDR_UNDEF);
 
     for (i = 1; i < n; ++i) {
         srl_buf_cat_char(enc, ',');
@@ -252,10 +257,8 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src)
         if (svp != NULL)
             srl_dump_sv(aTHX_ enc, *svp);
         else
-            srl_buf_cat_str_s(enc, "undef");
+            srl_buf_cat_char(enc, SRL_HDR_UNDEF);
     }
-
-    srl_buf_cat_char(enc, ']');
 }
 
 
