@@ -87,7 +87,8 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
      *      a fair amount of extra implementation work. The decoders won't care and
      *      we're just wasting some space. */
     /* TODO optimize! */
-    if (SvIOK_UV(src)) {
+
+    if (SvIOK_UV(src) || SvIV(src) > 0) { /* FIXME find a way to express this without repeated SvIV/SvUV */
         UV num = SvUV(src); /* FIXME is SvUV_nomg good enough because of the GET magic in dump_sv? SvUVX after having checked the flags? */
         if (num < 16) {
             /* encodable as POS */
