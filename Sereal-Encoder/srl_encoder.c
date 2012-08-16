@@ -82,6 +82,33 @@ srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
 static inline void
 srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
 {
+    char hdr;
+    /* TODO for the time being, we just won't ever use NUMLIST types because that's
+     *      a fair amount of extra implementation work. The decoders won't care and
+     *      we're just wasting some space. */
+    /* TODO optimize! */
+    if (SvIOK_UV(src)) {
+        UV num = SvUV(src); /* FIXME is SvUV_nomg good enough because of the GET magic in dump_sv? SvUVX after having checked the flags? */
+        if (num < 16) {
+            /* encodable as POS */
+            hdr = SRL_HDR_POS_LOW | (unsigned char)num;
+            srl_buf_cat_char(enc, hdr);
+        }
+        else {
+            /* Needs VARINT */
+        }
+    }
+    else {
+        IV num = SvIV(src);
+        if (num > -17) {
+            /* encodable as NEG */
+            hdr = SRL_HDR_NEG_HIGH | (unsigned char)num;
+            srl_buf_cat_char(enc, hdr);
+        }
+        else {
+            /* Needs ZIPPED */
+        }
+    }
 }
 
 
