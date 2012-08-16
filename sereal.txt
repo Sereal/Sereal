@@ -6,8 +6,25 @@ Sereal
          |7 6 5 4 3 2 1 0  | bytes       | 
 ---------+-----------------+-------------+------------------------------------------------------------
 ASCII    | F 0 x x x x x x | str         | Short ascii string, x=length
-POS      | F 1 0 x x x x x | x...        | Positive varint 0 .. ?
-NEG      | F 1 1 0 x x x x | x...        | Negative varint ? .. -1
+
+POS      | F 1 0 0 x x x x | -           | Positive nibble   0 .. 15
+NEG      | F 1 0 1 x x x x | -           | Negative nibble -16 .. -1
+
+VARINT   | F 1 1 0 0 0 0 0 | varint      | varint
+ZIPPED   | F 1 1 0 0 0 0 1 | varint      | zipped varint
+
+RESERVED - varint indicates length to skip to if a reader does not handle the type, with 0 meaning "die".
+         | F 1 1 0 0 0 1 0 | varint      | *reserved*
+         | F 1 1 0 0 0 1 1 | varint      | *reserved*
+         | F 1 1 0 0 1 0 0 | varint      | *reserved*
+         | F 1 1 0 0 1 0 1 | varint      | *reserved*
+         | F 1 1 0 0 1 1 0 | 3           | *reserved* (another 24 bits for info if we need it)
+
+NUMLIST  | F 1 1 0 1 s y y | varint pad? | numeric array (s=0 unsigned, s=1 signed), varint=length, pad if needed for alignment
+                   1 s 0 0 |             | of 8 bit
+                   1 s 0 1 |             | of 16 bit
+                   1 s 1 0 |             | of 32 bit
+                   1 s 1 1 |             | of 64 bit
 
          | F 1 1 1 0 y y y |             | Ref/Object(ish)
 REF      |         0 0 0 x | varint?     | ref, x=0 means to next item, x=1 means to the item indicated by varint
@@ -24,7 +41,8 @@ COPY     |         1 0 1 1 | varint      | copy item at offset
 UNDEF    |         1 1 0 0 | -           | undef
 REGEXP   |         1 1 0 1 | TAG         | next item is a regexp 
 FLOAT    |         1 1 1 0 | (FLOAT)     | float
-         |         1 1 1 1 |             | *reserved*
+
+PAD      | F 1 1 1 1 1 1 1 |             | ignored byte, used by encoder to pad if necessary
 
 F = Flag bit to indicate if the item needs to be tracked during deserialization.
     The offset of the tag byte should be remembered, so that it can be referenced
