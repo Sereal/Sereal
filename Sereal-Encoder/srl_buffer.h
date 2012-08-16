@@ -68,38 +68,44 @@ srl_buf_cat_char_nocheck_int(pTHX_ srl_encoder_t *enc, const char c)
 #define srl_buf_cat_char_nocheck(enc, c) srl_buf_cat_char_nocheck_int(aTHX_ enc, c)
 
 /* define constant for other code to use in preallocations */
-#define SRL_MAX_VARINT_LENGTH 10
-#define SRL_MAX_ZIGZAG_LENGTH SRL_MAX_VARINT_LENGTH
+#define SRL_MAX_VARINT_LENGTH 11
 
 static inline void
-srl_buf_cat_varint_nocheck(pTHX_ srl_encoder_t *enc, UV n) {
-    while (n > 0x80) {
-        *enc->pos++ = (n & 0x7f) | 0x80;
-        n = n >> 7;
+srl_buf_cat_varint_nocheck(pTHX_ srl_encoder_t *enc, const char tag, UV n) {
+    if (tag)
+        *enc->pos++ = tag;
+    while (n > 0x80) {                   /* while we are larger than 7 bits long */
+        *enc->pos++ = (n & 0x7f) | 0x80; /* write out the least significant 7 bits, set the high bit */
+        n = n >> 7;                      /* shift off the 7 least significant bits */
     }
-    *enc->pos++ = n;
+    *enc->pos++ = n;                     /* encode the last 7 bits without the high bit being set */
 }
 
 static inline void
-srl_buf_cat_varint(pTHX_ srl_encoder_t *enc, UV n) {
+srl_buf_cat_varint(pTHX_ srl_encoder_t *enc, const char tag, const UV n) {
+    /* this implements googles "varint" from google protocol buffers */
     BUF_SIZE_ASSERT(enc, SRL_MAX_VARINT_LENGTH);
-    while (n > 0x80) {
-        *enc->pos++ = (n & 0x7f) | 0x80;
-        n = n >> 7;
-    }
-    *enc->pos++ = n;
+    srl_buf_cat_varint_nocheck(pTHX_ enc, tag, n);
 }
 
 static inline void
-srl_buf_cat_zigzag_nocheck(pTHX_ srl_encoder_t *enc, const IV n) {
+srl_buf_cat_zigzag_nocheck(pTHX_ srl_encoder_t *enc, const char tag, const IV n) {
     const UV z= (n << 1) ^ (n >> (sizeof(IV) * 8 - 1));
-    srl_buf_cat_varint_nocheck(aTHX_ enc, z);
+    srl_buf_cat_varint_nocheck(aTHX_ enc, tag, z);
 }
 
-static inline void
-srl_buf_cat_zigzag(pTHX_ srl_encoder_t *enc, const IV n) {
-    const UV z= (n << 1) ^ (n >> (sizeof(IV) * 8 - 1));
-    srl_buf_cat_varint(aTHX_ enc, z);
+srl_buf_cat_zigzag(pTHX_ srl_encoder_t *enc, const char tag, const IV n) {
+    /*
+     * This implements googles "zigzag varints" which effectively interleave negative
+     * and positive numbers.
+     *
+     * see: https://developers.google.com/protocol-buffers/docs/encoding#types
+     *
+     * Note: maybe for negative numbers we should just invert and then treat as a positive?
+     *
+     */
+    UV z= (n << 1) ^ (n >> (sizeof(IV) * 8 - 1));
+    srl_buf_cat_varint(aTHX_ enc, tag, z);
 }
 
 #endif
