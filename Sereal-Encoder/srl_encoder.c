@@ -178,6 +178,10 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
                   SvPV_nolen(sv_2mortal(newRV_inc(src))));
         else
             PTABLE_store(enc->seenhash, src, NULL);
+
+        /* output WEAKEN prefix before the actual item */
+        if (SvWEAKREF(src))
+            srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
     }
 
     if (SvOBJECT(src)) {
