@@ -105,6 +105,9 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
         }
         else {
             /* Needs VARINT */
+            BUF_SIZE_ASSERT(enc, 1 + SRL_MAX_VARINT_LENGTH);
+            srl_buf_cat_char_nocheck(enc, SRL_HDR_VARINT);
+            srl_buf_cat_varint_nocheck(aTHX_ enc, num);
         }
     }
     else {
@@ -115,7 +118,10 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
             srl_buf_cat_char(enc, hdr);
         }
         else {
-            /* Needs ZIPPED */
+            /* Needs ZIGZAG */
+            BUF_SIZE_ASSERT(enc, 1 + SRL_MAX_ZIGZAG_LENGTH);
+            srl_buf_cat_char_nocheck(enc, SRL_HDR_ZIGZAG);
+            srl_buf_cat_zigzag_nocheck(aTHX_ enc, num);
         }
     }
 }
