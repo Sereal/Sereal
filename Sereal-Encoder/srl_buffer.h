@@ -88,8 +88,14 @@ srl_buf_cat_varint(pTHX_ srl_encoder_t *enc, UV n) {
 }
 
 static inline void
+srl_buf_cat_zigzag_nocheck(pTHX_ srl_encoder_t *enc, const IV n) {
+    const UV z= (n << 1) ^ (n >> (sizeof(IV) * 8 - 1));
+    srl_buf_cat_varint_nocheck(aTHX_ enc, z);
+}
+
+static inline void
 srl_buf_cat_zigzag(pTHX_ srl_encoder_t *enc, const IV n) {
-    UV z= (n << 1) ^ (n >> (sizeof(IV) * 8 - 1));
+    const UV z= (n << 1) ^ (n >> (sizeof(IV) * 8 - 1));
     srl_buf_cat_varint(aTHX_ enc, z);
 }
 
