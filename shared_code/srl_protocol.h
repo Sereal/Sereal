@@ -105,10 +105,10 @@
 /* _LOW and _HIGH versions refering to INCLUSIVE range boundaries */
 #define SRL_HDR_ASCII_LOW     ((char)0b01000000)
 #define SRL_HDR_ASCII_HIGH    ((char)0b01111111)
-#define SRL_HDR_POS_LOW       ((char)0b00000000)
-#define SRL_HDR_POS_HIGH      ((char)0b00001111)
-#define SRL_HDR_NEG_LOW       ((char)0b00010000)
-#define SRL_HDR_NEG_HIGH      ((char)0b00011111)
+#define SRL_HDR_POS_LOW       ((char)0b00000000) /* 0 */
+#define SRL_HDR_POS_HIGH      ((char)0b00001111) /* 15 */
+#define SRL_HDR_NEG_HIGH      ((char)0b00010000) /* -1 */
+#define SRL_HDR_NEG_LOW       ((char)0b00011111) /* -16 */
 
 #define SRL_HDR_VARINT        ((char)0b00100000)
 #define SRL_HDR_ZIPPED        ((char)0b00100001)
@@ -147,4 +147,4 @@
  
 /* TODO */
 
-#endi
+#endif
