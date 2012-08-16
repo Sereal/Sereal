@@ -67,9 +67,19 @@ srl_buf_cat_char_nocheck_int(pTHX_ srl_encoder_t *enc, const char c)
 }
 #define srl_buf_cat_char_nocheck(enc, c) srl_buf_cat_char_nocheck_int(aTHX_ enc, c)
 
+#define SRL_MAX_VARINT_LENGTH 10
 static inline void
-srl_buf_cat_varint(pTHX_ srl_encoder_t *enc, const UV n) {
-    BUF_SIZE_ASSERT(enc,10);
+srl_buf_cat_varint_nocheck(pTHX_ srl_encoder_t *enc, UV n) {
+    while (n > 0x80) {
+        *enc->pos++ = (n & 0x7f) | 0x80;
+        n = n >> 7;
+    }
+    *enc->pos++ = n;
+}
+
+static inline void
+srl_buf_cat_varint(pTHX_ srl_encoder_t *enc, UV n) {
+    BUF_SIZE_ASSERT(enc, SRL_MAX_VARINT_LENGTH);
     while (n > 0x80) {
         *enc->pos++ = (n & 0x7f) | 0x80;
         n = n >> 7;
