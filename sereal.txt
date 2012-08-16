@@ -1,12 +1,12 @@
-Barley
+Sereal
 ------
 
 +--------+-----------------+-------------+--------------------------------------------------------------------------
          |Bit              | follow      | Description
          |7 6 5 4 3 2 1 0  | bytes       | 
-----------------+----------+--------------------------------------------------------------------------
-POS      | F 0 x x x x x x | x...        | Positive varint 0 .. ?
-ASCII    | F 1 0 x x x x x | str         | Short ascii string, x=length 
+---------+-----------------+-------------+------------------------------------------------------------
+ASCII    | F 0 x x x x x x | str         | Short ascii string, x=length
+POS      | F 1 0 x x x x x | x...        | Positive varint 0 .. ?
 NEG      | F 1 1 0 x x x x | x...        | Negative varint ? .. -1
 
          | F 1 1 1 0 y y y |             | Ref/Object(ish)
