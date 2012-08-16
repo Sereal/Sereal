@@ -27,6 +27,11 @@ static void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_le
 static inline void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
 static inline void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
 
+/* This is fired when we exit the Perl pseudo-block.
+ * It frees our encoder and all. Put encoder-level cleanup
+ * logic here so that we can simply use croak/longjmp for
+ * exception handling. Makes life vastly easier!
+ */
 void srl_destructor_hook(void *p)
 {
     srl_encoder_t *enc = (srl_encoder_t *)p;
