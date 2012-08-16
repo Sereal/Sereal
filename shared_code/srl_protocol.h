@@ -70,28 +70,28 @@
 
 /* All with F bit unset! */
 /* _LOW and _HIGH versions refering to INCLUSIVE range boundaries */
-#define SRL_HDR_ASCII_LOW   (0b00000000)
-#define SRL_HDR_ASCII_HIGH  (0b01111111)
-#define SRL_HDR_POS_LOW     (0b10000000)
-#define SRL_HDR_POS_HIGH    (0b10111111)
-#define SRL_HDR_NEG_LOW     (0b11000000)
-#define SRL_HDR_NEG_HIGH    (0b11011111)
+#define SRL_HDR_ASCII_LOW   ((char)0b00000000)
+#define SRL_HDR_ASCII_HIGH  ((char)0b01111111)
+#define SRL_HDR_POS_LOW     ((char)0b10000000)
+#define SRL_HDR_POS_HIGH    ((char)0b10111111)
+#define SRL_HDR_NEG_LOW     ((char)0b11000000)
+#define SRL_HDR_NEG_HIGH    ((char)0b11011111)
 
-#define SRL_HDR_REF_FWD     (0b01110000) /* ref to next item */
-#define SRL_HDR_REF         (0b01110000) /* ref with varint offset */
-#define SRL_HDR_HASH        (0b01110010)
-#define SRL_HDR_ARRAY       (0b01110011)
-#define SRL_HDR_BLESS       (0b01110100)
+#define SRL_HDR_REF_FWD     ((char)0b01110000) /* ref to next item */
+#define SRL_HDR_REF         ((char)0b01110000) /* ref with varint offset */
+#define SRL_HDR_HASH        ((char)0b01110010)
+#define SRL_HDR_ARRAY       ((char)0b01110011)
+#define SRL_HDR_BLESS       ((char)0b01110100)
 
-#define SRL_HDR_STRING      (0b011111000)
-#define SRL_HDR_STRING_UTF8 (0b011111001)
-#define SRL_HDR_ALIAS       (0b011111010)
-#define SRL_HDR_COPY        (0b011111011)
-#define SRL_HDR_UNDEF       (0b011111100)
-#define SRL_HDR_REGEXP      (0b011111101)
-#define SRL_HDR_FLOAT       (0b011111110)
+#define SRL_HDR_STRING      ((char)0b011111000)
+#define SRL_HDR_STRING_UTF8 ((char)0b011111001)
+#define SRL_HDR_ALIAS       ((char)0b011111010)
+#define SRL_HDR_COPY        ((char)0b011111011)
+#define SRL_HDR_UNDEF       ((char)0b011111100)
+#define SRL_HDR_REGEXP      ((char)0b011111101)
+#define SRL_HDR_FLOAT       ((char)0b011111110)
 
-#define SRL_HDR_CONTINUE    (0b011111111)
+#define SRL_HDR_CONTINUE    ((char)0b011111111)
  
 /* TODO */
 
