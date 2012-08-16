@@ -201,8 +201,20 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
     }
 
     if (SvOBJECT(src)) {
-        croak("Encountered object '%s', but objects are not implemented yet",
-              SvPV_nolen(sv_2mortal(newRV_inc(src))));
+        /* TODO: support pointing at previously used string for class names */
+        const HV *stash = SvSTASH(src);
+        const char *class_name = HvNAME_get(stash);
+        const size_t len = HvNAMELEN_get(stash);
+        BUF_SIZE_ASSERT(enc, 1 + 2 + len + 2); /* heuristic: header + string + simple value */
+        srl_buf_cat_char(enc, SRL_HDR_BLESS);
+        /* TODO see if we can get HvNAMEUTF8 or HvNAMEUTF8_get (?) into Devel::PPPort */
+#if PERL_VERSION >= 16
+        srl_dump_pv(aTHX_ enc, class_name, len, HvNAMEUTF8(stash));
+#else
+        srl_dump_pv(aTHX_ enc, class_name, len, 0);
+#endif
+
+        /* fallthrough for value*/
     }
 
     if (svt == SVt_PVHV)
