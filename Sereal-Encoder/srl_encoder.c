@@ -134,6 +134,14 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
 {
     SvGETMAGIC(src);
 
+    /* TODO decide when to use the IV, when to use the PV, and when
+     *      to use the NV slots of the SV.
+     *      Safest simple solution seems "prefer string" (fuck dualvars).
+     *      Potentially better but slower: If we would choose the string,
+     *      then try int-to-string (respective float-to-string) conversion
+     *      and strcmp. If same, then use int or float.
+     */
+
     /* dump strings */
     if (SvPOKp(src)) {
         STRLEN len;
