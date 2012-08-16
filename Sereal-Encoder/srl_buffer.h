@@ -67,7 +67,10 @@ srl_buf_cat_char_nocheck_int(pTHX_ srl_encoder_t *enc, const char c)
 }
 #define srl_buf_cat_char_nocheck(enc, c) srl_buf_cat_char_nocheck_int(aTHX_ enc, c)
 
+/* define constant for other code to use in preallocations */
 #define SRL_MAX_VARINT_LENGTH 10
+#define SRL_MAX_ZIGZAG_LENGTH SRL_MAX_VARINT_LENGTH
+
 static inline void
 srl_buf_cat_varint_nocheck(pTHX_ srl_encoder_t *enc, UV n) {
     while (n > 0x80) {
