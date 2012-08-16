@@ -3,46 +3,48 @@ Sereal
 
 +--------+-----------------+-------------+--------------------------------------------------------------------------
          |Bit              | follow      | Description
-         |7 6 5 4 3 2 1 0  | bytes       | 
+         | 7 6 5 4 3 2 1 0 | bytes       | 
 ---------+-----------------+-------------+------------------------------------------------------------
-ASCII    | F 0 x x x x x x | str         | Short ascii string, x=length
+         | F 0 0 s x x x x | -           | tiny ints
+POS      |       0 x x x x | -           | Positive nibble   0 .. 15
+NEG      |       1 x x x x | -           | Negative nibble -16 .. -1
 
-POS      | F 1 0 0 x x x x | -           | Positive nibble   0 .. 15
-NEG      | F 1 0 1 x x x x | -           | Negative nibble -16 .. -1
-
-VARINT   | F 1 1 0 0 0 0 0 | varint      | varint
-ZIPPED   | F 1 1 0 0 0 0 1 | varint      | zipped varint
+         | F 0 1 0 0 x x x
+VARINT   |           0 0 0 | varint      | varint
+ZIPPED   |           0 0 1 | varint      | zipped varint
 
 RESERVED - varint indicates length to skip to if a reader does not handle the type, with 0 meaning "die".
-         | F 1 1 0 0 0 1 0 | varint      | *reserved*
-         | F 1 1 0 0 0 1 1 | varint      | *reserved*
-         | F 1 1 0 0 1 0 0 | varint      | *reserved*
-         | F 1 1 0 0 1 0 1 | varint      | *reserved*
-         | F 1 1 0 0 1 1 0 | 3           | *reserved* (another 24 bits for info if we need it)
+         |           0 1 0 | varint      | *reserved*
+         |           0 1 1 | varint      | *reserved*
+         |           1 0 0 | varint      | *reserved*
+         |           1 0 1 | varint      | *reserved*
+         |           1 1 0 | varint      | *reserved* 
+         |           1 1 1 | 3           | *reserved* (another 24 bits for info if we need it)
 
-NUMLIST  | F 1 1 0 1 s y y | varint pad? | numeric array (s=0 unsigned, s=1 signed), varint=length, pad if needed for alignment
-                   1 s 0 0 |             | of 8 bit
-                   1 s 0 1 |             | of 16 bit
-                   1 s 1 0 |             | of 32 bit
-                   1 s 1 1 |             | of 64 bit
+NUMLIST  | F 0 1 0 1 s y y | varint pad? | numeric array (s=0 unsigned, s=1 signed), varint=length, pad if needed for alignment
+                     s 0 0 |             | of 8 bit
+                     s 0 1 |             | of 16 bit
+                     s 1 0 |             | of 32 bit
+                     s 1 1 |             | of 64 bit
 
-         | F 1 1 1 0 y y y |             | Ref/Object(ish)
-REF      |         0 0 0 x | varint?     | ref, x=0 means to next item, x=1 means to the item indicated by varint
-HASH     |         0 0 1 0 | varint      | hash, varint=length
-ARRAY    |         0 0 1 1 | varint      | array, varint=length 
-BLESS    |         0 1 0 0 | TAG(STR) TAG| bless item into class indicated by TAG
-BLESSV   |         0 1 0 1 | varint   TAG| bless item into class indicated by varint
-         |         0 1 1 x |             | *reserved*
+         | F 0 1 1 0 y y y |             | Ref/Object(ish)
+REF      |           0 0 x | varint?     | ref, x=0 means to next item, x=1 means to the item indicated by varint
+HASH     |           0 1 0 | varint      | hash, varint=length
+ARRAY    |           0 1 1 | varint      | array, varint=length 
+BLESS    |           1 0 0 | TAG(STR) TAG| bless item into class indicated by TAG
+BLESSV   |           1 0 1 | varint   TAG| bless item into class indicated by varint
+         |           1 1 x |             | *reserved*
 
-         | F 1 1 1 1 y y y |             | Miscellaneous        
-STRING   |         1 0 0 x | varint      | string, x= utf8 flag, varint=length
-ALIAS    |         1 0 1 0 | varint      | alias to previous item indicated by varint
-COPY     |         1 0 1 1 | varint      | copy item at offset
-UNDEF    |         1 1 0 0 | -           | undef
-REGEXP   |         1 1 0 1 | TAG         | next item is a regexp 
-FLOAT    |         1 1 1 0 | (FLOAT)     | float
+         | F 0 1 1 1 y y y |             | Miscellaneous        
+STRING   |           0 0 x | varint      | string, x= utf8 flag, varint=length
+ALIAS    |           0 1 0 | varint      | alias to previous item indicated by varint
+COPY     |           0 1 1 | varint      | copy item at offset
+UNDEF    |           1 0 0 | -           | undef
+REGEXP   |           1 0 1 | TAG         | next item is a regexp 
+FLOAT    |           1 1 0 | (FLOAT)     | float
+PAD      |           1 1 1 |             | ignored byte, used by encoder to pad if necessary
 
-PAD      | F 1 1 1 1 1 1 1 |             | ignored byte, used by encoder to pad if necessary
+ASCII    | F 1 x x x x x x | str         | Short ascii string, x=length
 
 F = Flag bit to indicate if the item needs to be tracked during deserialization.
     The offset of the tag byte should be remembered, so that it can be referenced
@@ -63,7 +65,4 @@ ref tag with the "is class" bit set.
 Varints are variable length integers where the high bit of each segment (normally a byte
 but in some cases less) indicates if there is another byte to follow, with the bytes in 
 least significant order first.
-
-
- 
 
