@@ -6,6 +6,7 @@
 
 #include "ptable.h"
 #include "srl_buffer.h"
+#include "srl_protocol.h"
 
 /* General 'config' constants */
 #define INITIALIZATION_SIZE 16384
@@ -23,6 +24,8 @@ static void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src);
 static void srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src);
 static void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src);
 static void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8);
+static inline void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
+static inline void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
 
 void srl_destructor_hook(void *p)
 {
@@ -67,6 +70,20 @@ build_encoder_struct(pTHX_ HV *opt)
 }
 
 
+/* Code for serializing floats */
+static inline void
+srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
+{
+    /* TODO memcpy on little endian 64bit, otherwise manual diddling? */
+}
+
+
+/* Code for serializing any SINGLE integer type */
+static inline void
+srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
+{
+}
+
 
 /* Entry point for serialization. Dumps generic SVs and delegates
  * to more specialized functions for RVs, etc. */
@@ -83,64 +100,21 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
         srl_dump_pv(aTHX_ enc, str, len, SvUTF8(src));
     }
     /* dump floats */
-    else if (SvNOKp(src)) {
-        BUF_SIZE_ASSERT(enc, NV_DIG + 32);
-        Gconvert(SvNVX(src), NV_DIG, 0, enc->pos);
-        enc->pos += strlen(enc->pos);
-    }
+    else if (SvNOKp(src))
+        srl_dump_nv(aTHX_ enc, src);
     /* dump ints */
-    else if (SvIOKp(src)) {
-        /* we assume we can always read an IV as a UV and vice versa
-         * we assume two's complement
-         * we assume no aliasing issues in the union */
-        if (SvIsUV(src) ? SvUVX(src) <= 59000
-                        : SvIVX(src) <= 59000 && SvIVX(src) >= -59000)
-        {
-            /* optimise the "small number case"
-             * code will likely be branchless and use only a single multiplication
-             * works for numbers up to 59074 */
-            I32 i = SvIVX(src);
-            U32 u;
-            char digit, nz = 0;
-
-            BUF_SIZE_ASSERT(enc, 6);
-
-            *enc->pos = '-'; enc->pos += i < 0 ? 1 : 0;
-            u = i < 0 ? -i : i;
-
-            /* convert to 4.28 fixed-point representation */
-            u *= ((0xfffffff + 10000) / 10000); /* 10**5, 5 fractional digits */
-
-            /* now output digit by digit, each time masking out the integer part
-             * and multiplying by 5 while moving the decimal point one to the right,
-             * resulting in a net multiplication by 10.
-             * we always write the digit to memory but conditionally increment
-             * the pointer, to enable the use of conditional move instructions. */
-            digit = u >> 28; *enc->pos = digit + '0'; enc->pos += (nz = nz || digit); u = (u & 0xfffffffUL) * 5;
-            digit = u >> 27; *enc->pos = digit + '0'; enc->pos += (nz = nz || digit); u = (u & 0x7ffffffUL) * 5;
-            digit = u >> 26; *enc->pos = digit + '0'; enc->pos += (nz = nz || digit); u = (u & 0x3ffffffUL) * 5;
-            digit = u >> 25; *enc->pos = digit + '0'; enc->pos += (nz = nz || digit); u = (u & 0x1ffffffUL) * 5;
-            digit = u >> 24; *enc->pos = digit + '0'; enc->pos += 1; /* correctly generate '0' */
-        }
-        else {
-            /* large integer, use the (rather slow) snprintf way. */
-            BUF_SIZE_ASSERT(enc, IVUV_MAXCHARS);
-            enc->pos +=
-               SvIsUV(src)
-                  ? snprintf(enc->pos, IVUV_MAXCHARS, "%"UVuf, (UV)SvUVX(src))
-                  : snprintf(enc->pos, IVUV_MAXCHARS, "%"IVdf, (IV)SvIVX(src));
-        }
-    } /* end is an integer */
+    else if (SvIOKp(src))
+        srl_dump_ivuv(aTHX_ enc, src);
     /* undef */
-    else if (!SvOK(src)) {
-        srl_buf_cat_str_s(enc, "undef");
-    }
+    else if (!SvOK(src))
+        srl_buf_cat_char(enc, SRL_HDR_UNDEF);
     /* dump references */
     else if (SvROK(src))
         srl_dump_rv(aTHX_ enc, SvRV(src));
     else {
         croak("Attempting to dump unsupported or invalid SV");
     }
+    /* TODO what else do we need to support in this many if/else? */
 }
 
 
@@ -515,4 +489,5 @@ srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_ut
         enc->buf_start[quote_ofs]='\'';
     }
 }
+
 
