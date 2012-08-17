@@ -126,7 +126,7 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
     /* TODO optimize! */
 
     if (SvIOK_UV(src) || SvIV(src) >= 0) { /* FIXME find a way to express this without repeated SvIV/SvUV */
-        UV num = SvUV(src); /* FIXME is SvUV_nomg good enough because of the GET magic in dump_sv? SvUVX after having checked the flags? */
+        const UV num = SvUV(src); /* FIXME is SvUV_nomg good enough because of the GET magic in dump_sv? SvUVX after having checked the flags? */
         if (num < 16) {
             /* encodable as POS */
             hdr = SRL_HDR_POS_LOW | (unsigned char)num;
@@ -137,10 +137,10 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
         }
     }
     else {
-        IV num = SvIV(src);
+        const IV num = SvIV(src);
         if (num > -17) {
             /* encodable as NEG */
-            hdr = SRL_HDR_NEG_HIGH | (unsigned char)num;
+            hdr = SRL_HDR_NEG_HIGH | (unsigned char)abs(num)-1;
             srl_buf_cat_char(enc, hdr);
         }
         else {
