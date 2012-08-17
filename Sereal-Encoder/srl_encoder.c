@@ -144,7 +144,7 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
         const IV num = SvIV(src);
         if (num > -17) {
             /* encodable as NEG */
-            hdr = SRL_HDR_NEG_HIGH | (unsigned char)abs(num)-1;
+            hdr = SRL_HDR_NEG_HIGH | ( (unsigned char)abs(num)-1 );
             srl_buf_cat_char(enc, hdr);
         }
         else {
