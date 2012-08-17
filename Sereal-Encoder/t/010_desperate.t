@@ -17,6 +17,9 @@ my @basic_tests = (
   [0, chr(0b0000_0000), "encode 0"],
   [-1, chr(0b0001_0000), "encode -1"],
   [undef, chr(SRL_HDR_UNDEF), "encode undef"],
+  ["", chr(0b0100_0000), "encode empty string"],
+  ["1", chr(0b0100_0001) . "1", "encode string '1'"],
+  ["91a", chr(0b0100_0011) . "91a", "encode string '91a'"],
 );
 
 foreach my $bt (@basic_tests) {
