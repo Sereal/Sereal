@@ -146,7 +146,7 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
         const IV num = SvIV(src);
         if (num > -17) {
             /* encodable as NEG */
-            hdr = SRL_HDR_NEG_HIGH | ( (unsigned char)abs(num)-1 );
+            hdr = SRL_HDR_NEG_HIGH | ((unsigned char)abs(num) - 1);
             srl_buf_cat_char(enc, hdr);
         }
         else {
@@ -219,7 +219,6 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     if (SvPOKp(src)) {
         STRLEN len;
         char *str = SvPV(src, len);
-        BUF_SIZE_ASSERT(enc, 2 + len);
         srl_dump_pv(aTHX_ enc, str, len, SvUTF8(src));
     }
     /* dump floats */
