@@ -97,15 +97,16 @@
 
 /* Useful constants */
 /* See also range constants below for the header byte */
-#define SRL_ASCII_SHORT_STRING_MAX_LEN 63
+#define SRL_MAX_ASCII_LENGTH       63
 #define SRL_POS_MAX_SIZE           15
 #define SRL_NEG_MIN_SIZE           16
 
 
 /* All constants have the F bit unset! */
 /* _LOW and _HIGH versions refering to INCLUSIVE range boundaries */
-#define SRL_HDR_ASCII_LOW     ((char)0b01000000)
-#define SRL_HDR_ASCII_HIGH    ((char)0b01111111)
+#define SRL_HDR_ASCII         ((char)0b01000000)
+#define SRL_HDR_ASCII_LEN_MASK ((char)0b01111111)
+
 #define SRL_HDR_POS_LOW       ((char)0b00000000) /* 0 */
 #define SRL_HDR_POS_HIGH      ((char)0b00001111) /* 15 */
 #define SRL_HDR_NEG_HIGH      ((char)0b00010000) /* -1 */
@@ -113,10 +114,14 @@
 
 #define SRL_HDR_VARINT        ((char)0b00100000)
 #define SRL_HDR_ZIGZAG        ((char)0b00100001)
+#define SRL_HDR_FLOAT         ((char)0b00100010)
+#define SRL_HDR_DOUBLE        ((char)0b00100011)
+#define SRL_HDR_LONG_DOUBLE   ((char)0b00100100)
+
 
 /* Note: Can do reserved check with a range now, but as we start using
  *       them, might have to explicit == check later. */
-#define SRL_HDR_RESERVED_LOW  ((char)0b00100010)
+#define SRL_HDR_RESERVED_LOW  ((char)0b00100101)
 #define SRL_HDR_RESERVED_HIGH ((char)0b00100111)
 /* see also: SRL_HDR_RESERVED_2 in the refs section */
 
@@ -145,7 +150,6 @@
 #define SRL_HDR_COPY        ((char)0b00111011)
 #define SRL_HDR_UNDEF       ((char)0b00111100)
 #define SRL_HDR_REGEXP      ((char)0b00111101)
-#define SRL_HDR_FLOAT       ((char)0b00111110)
 #define SRL_HDR_PAD         ((char)0b00111111)
  
 /* TODO */

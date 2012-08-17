@@ -88,7 +88,29 @@ srl_write_header(pTHX_ srl_encoder_t *enc)
 static inline void
 srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
 {
+    NV nv= SvNV(src);
     /* TODO memcpy on little endian 64bit, otherwise manual diddling? */
+    float f= nv;
+    double d= nv;
+    long double ld= nv;
+    if (f == nv) {
+        BUF_SIZE_ASSERT(enc, 1 + sizeof(f)); /* heuristic: header + string + simple value */
+        srl_buf_cat_char_nocheck(enc,SRL_HDR_FLOAT);
+        Copy((char *)&f, enc->pos, sizeof(f), char);
+        enc->pos += sizeof(f);
+    } else if (d == nv) {
+        BUF_SIZE_ASSERT(enc, 1 + sizeof(d)); /* heuristic: header + string + simple value */
+        srl_buf_cat_char_nocheck(enc,SRL_HDR_DOUBLE);
+        Copy((char *)&d, enc->pos, sizeof(d), char);
+        enc->pos += sizeof(d);
+
+    } else if (ld == nv) {
+        BUF_SIZE_ASSERT(enc, 1 + sizeof(ld)); /* heuristic: header + string + simple value */
+        srl_buf_cat_char_nocheck(enc,SRL_HDR_LONG_DOUBLE);
+        Copy((char *)&ld, enc->pos, sizeof(ld), char);
+        enc->pos += sizeof(ld);
+    }
+
 }
 
 
@@ -218,7 +240,6 @@ static void
 srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
 {
     svtype svt;
-    int blessed_object = 0;
 
     if (++enc->depth > MAX_DEPTH) {
         croak("Reached maximum recursion depth of %u. Aborting", MAX_DEPTH);
@@ -299,7 +320,6 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src)
         srl_buf_cat_char(enc, SRL_HDR_UNDEF);
 
     for (i = 1; i < n; ++i) {
-        srl_buf_cat_char(enc, ',');
         svp = av_fetch(src, i, 0);
         if (svp != NULL)
             srl_dump_sv(aTHX_ enc, *svp);
@@ -355,7 +375,16 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src)
 static void
 srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8)
 {
-    /* TODO */
+    BUF_SIZE_ASSERT(enc, 1 + SRL_MAX_VARINT_LENGTH + src_len); /* overallocate a bit sometimes */
+    if (is_utf8) {
+        srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_STRING_UTF8, src_len);
+    } else if (src_len <= SRL_MAX_ASCII_LENGTH) {
+        srl_buf_cat_char_nocheck(enc, SRL_HDR_ASCII | (char)src_len);
+    } else {
+        srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_STRING, src_len);
+    }
+    Copy(src, enc->pos, src_len, char);
+    enc->pos += src_len;
 }
 
 
