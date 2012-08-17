@@ -23,7 +23,7 @@ encode_sereal(src, opt = newHV())
     srl_dump_sv(aTHX_ enc, src);
     /* FIXME optimization: avoid copy by stealing string buffer if
      *                     it is not too large. */
-    ST(0) = sv_2mortal(newSVpvn_utf8(enc->buf_start, (STRLEN)(enc->pos - enc->buf_start), 1));
+    ST(0) = sv_2mortal(newSVpvn(enc->buf_start, (STRLEN)(enc->pos - enc->buf_start)));
     XSRETURN(1);
 
 
