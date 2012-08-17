@@ -80,7 +80,8 @@ void
 srl_write_header(pTHX_ srl_encoder_t *enc)
 {
     /* works for now: 3 byte magic string + proto version + 1 byte varint that indicates zero-length header */
-    srl_buf_cat_str_s(enc, SRL_MAGIC_STRING "\x01\x00");
+    srl_buf_cat_str_s(enc, SRL_MAGIC_STRING "\x01");
+    srl_buf_cat_char(enc, '\0');
 }
 
 
