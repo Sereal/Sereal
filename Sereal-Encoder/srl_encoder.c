@@ -25,6 +25,8 @@ static inline void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
 static inline void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
 static inline void srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src);
 
+#define SRL_SET_FBIT(ptr) (*ptr |= 0b10000000)
+
 /* This is fired when we exit the Perl pseudo-block.
  * It frees our encoder and all. Put encoder-level cleanup
  * logic here so that we can simply use croak/longjmp for
@@ -134,8 +136,12 @@ srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src)
     const HV *stash = SvSTASH(src);
     char *oldpos = (char *)PTABLE_fetch(enc->str_seenhash, (SV *)stash);
     if (oldpos != NULL) {
-        /* issue COPY instead of literal class name string */
+        /* Issue COPY instead of literal class name string */
         srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)(enc->pos - oldpos));
+
+        /* Now, make sure that the "this is referenced", F bit of the original
+         * string object in the output is set */
+        SRL_SET_FBIT(oldpos);
     }
     else {
         const char *class_name = HvNAME_get(stash);
@@ -154,7 +160,8 @@ srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src)
 
         BUF_SIZE_ASSERT(enc, 1 + 2 + len + 2); /* heuristic: header + string + simple value */
         srl_buf_cat_char(enc, SRL_HDR_BLESS);
-        /* TODO see if we can get HvNAMEUTF8 or HvNAMEUTF8_get (?) into Devel::PPPort */
+
+        /* HvNAMEUTF8 not in older perls and it would be 0 for those anyway */
 #if PERL_VERSION >= 16
         srl_dump_pv(aTHX_ enc, class_name, len, HvNAMEUTF8(stash));
 #else
