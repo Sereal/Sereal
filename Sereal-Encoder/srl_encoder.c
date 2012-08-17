@@ -246,7 +246,8 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
     else if (svt == SVt_PVAV)
         srl_dump_av(aTHX_ enc, (AV *)src);
     else if (svt < SVt_PVAV) {
-        srl_buf_cat_char(enc, '\\');
+        /* scalar ref, is the above check really strictly correct? */
+        srl_buf_cat_char(enc, SRL_HDR_REF);
         srl_dump_sv(aTHX_ enc, src);
     }
     /* else if (enc->json.flags & F_ALLOW_UNKNOWN)
