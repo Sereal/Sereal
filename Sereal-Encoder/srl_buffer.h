@@ -12,7 +12,7 @@
 
 /* Internal debugging macros, used only in DEBUG mode */
 #define DEBUG_ASSERT_BUF_SPACE(enc, len) assert(enc->buf_end - enc->pos > (ptrdiff_t)len)
-#define DEBUG_ASSERT_BUF_SANE(enc) assert(enc->pos - enc->buf_end <= (ptrdiff_t)0)
+#define DEBUG_ASSERT_BUF_SANE(enc) assert(enc->buf_start <= enc->pos && enc->pos <= enc->buf_end)
 
 /* buffer operations */
 #define BUF_POS_OFS(enc) ((enc)->pos - (enc)->buf_start)
