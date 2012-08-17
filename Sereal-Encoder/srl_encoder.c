@@ -224,9 +224,11 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
     if (SvREFCNT(src) > 1 || SvWEAKREF(src)) {
         /* FIXME is the actual sv location the right thing to use? */
         PTABLE_ENTRY_t *entry = PTABLE_find(enc->ref_seenhash, src);
-        if (entry != NULL)
+        if (entry != NULL) {
             croak("Encountered reference multiple times: '%s'",
                   SvPV_nolen(sv_2mortal(newRV_inc(src))));
+            /* TODO implement REUSE here */
+        }
         else
             PTABLE_store(enc->ref_seenhash, src, NULL);
 
@@ -250,23 +252,9 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
         srl_buf_cat_char(enc, SRL_HDR_REF);
         srl_dump_sv(aTHX_ enc, src);
     }
-    /* else if (enc->json.flags & F_ALLOW_UNKNOWN)
-     *    srl_dump_pv(aTHX_ enc, "null", 4, 0);
-     */
     else {
         croak("found %s, but it is not representable by Data::Dumper::Limited serialization",
                SvPV_nolen(sv_2mortal(newRV_inc(src))));
-    }
-
-    /* finish writing the bless(XXX,"classname") call */
-    if (blessed_object) {
-        /* FIXME this should probably do ' escaping! */
-        const char *class_name = HvNAME(SvSTASH(src));
-        const size_t len = strlen(class_name);
-        BUF_SIZE_ASSERT(enc, len + 4);
-        srl_buf_cat_str_s_nocheck(enc, ",");
-        srl_dump_pv(aTHX_ enc,class_name,len,0);
-        srl_buf_cat_str_s_nocheck(enc, ")");
     }
 
     /* If we DO allow multiple occurrence of the same ref (default), then
