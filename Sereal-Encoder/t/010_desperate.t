@@ -32,6 +32,7 @@ my @basic_tests = (
   ["1", chr(0b0100_0001) . "1", "encode string '1'"],
   ["91a", chr(0b0100_0011) . "91a", "encode string '91a'"],
   [\1, chr(SRL_HDR_REF).chr(0b0000_0001), "scalar ref to int"],
+  [[], chr(SRL_HDR_ARRAY).varint(0), "empty array ref"],
   [[1,2,3], chr(SRL_HDR_ARRAY).varint(3).chr(0b0000_0001).chr(0b0000_0010).chr(0b0000_0011), "array ref"],
   [1000, chr(SRL_HDR_VARINT).varint(1000), "large int"],
   [ [1..1000],
@@ -39,6 +40,8 @@ my @basic_tests = (
                                    .join("", map chr(SRL_HDR_VARINT).varint($_), ((SRL_POS_MAX_SIZE+1) .. 1000)),
     "array ref with big ints"
   ],
+  [{}, chr(SRL_HDR_HASH).varint(0), "empty hash ref"],
+  [{foo => "baaaaar"}, chr(SRL_HDR_HASH).varint(1).chr(0b0100_0011)."foo".chr(0b0100_0111)."baaaaar", "simple hash ref"],
 );
 
 foreach my $bt (@basic_tests) {
