@@ -7,6 +7,10 @@
 
 #include "srl_encoder.h"
 
+/* Generated code for exposing C constants to Perl */
+#include "srl_protocol.h"
+#include "const-c.inc"
+
 
 MODULE = Sereal::Encoder        PACKAGE = Sereal::Encoder
 PROTOTYPES: DISABLE
@@ -26,4 +30,9 @@ encode_sereal(src, opt = newHV())
     ST(0) = sv_2mortal(newSVpvn(enc->buf_start, (STRLEN)(enc->pos - enc->buf_start)));
     XSRETURN(1);
 
+
+MODULE = Sereal::Encoder        PACKAGE = Sereal::Constants
+PROTOTYPES: DISABLE
+
+INCLUDE: const-xs.inc
 
