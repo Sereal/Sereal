@@ -23,10 +23,12 @@ encode_sereal(src, opt = newHV())
     srl_encoder_t *enc;
   PPCODE:
     enc = build_encoder_struct(aTHX_ opt);
+    assert(enc != NULL);
     srl_write_header(aTHX_ enc);
     srl_dump_sv(aTHX_ enc, src);
     /* FIXME optimization: avoid copy by stealing string buffer if
      *                     it is not too large. */
+    assert(enc->pos > enc->buf_start);
     ST(0) = sv_2mortal(newSVpvn(enc->buf_start, (STRLEN)(enc->pos - enc->buf_start)));
     XSRETURN(1);
 

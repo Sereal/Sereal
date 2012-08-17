@@ -10,7 +10,7 @@
 
 /* General 'config' constants */
 #ifdef MEMDEBUG
-#   define INITIALIZATION_SIZE 0
+#   define INITIALIZATION_SIZE 1
 #else
 #   define INITIALIZATION_SIZE 16384
 #endif
@@ -62,7 +62,7 @@ build_encoder_struct(pTHX_ HV *opt)
 
     /* Init struct */
     Newx(enc->buf_start, INITIALIZATION_SIZE, char);
-    enc->buf_end = enc->buf_start + INITIALIZATION_SIZE;
+    enc->buf_end = enc->buf_start + INITIALIZATION_SIZE-1;
     enc->pos = enc->buf_start;
     enc->depth = 0;
     enc->flags = 0;
@@ -76,6 +76,7 @@ build_encoder_struct(pTHX_ HV *opt)
           enc->flags |= F_UNDEF_BLESSED;
         */
     }
+    DEBUG_ASSERT_BUF_SANE(enc);
 
     return enc;
 }
@@ -85,6 +86,7 @@ void
 srl_write_header(pTHX_ srl_encoder_t *enc)
 {
     /* works for now: 3 byte magic string + proto version + 1 byte varint that indicates zero-length header */
+    DEBUG_ASSERT_BUF_SANE(enc);
     srl_buf_cat_str_s(enc, SRL_MAGIC_STRING "\x01");
     srl_buf_cat_char(enc, '\0');
 }
