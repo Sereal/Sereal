@@ -93,7 +93,7 @@
 
 /* Note: both indicating protocol version, keep in sync */
 #define SRL_PROTOCOL_VERSION 1
-#define SRL_MAGIC_STRING "srl\x01"
+#define SRL_MAGIC_STRING "srl"
 
 /* Useful constants */
 /* See also range constants below for the header byte */
