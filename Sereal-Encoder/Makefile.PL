@@ -9,14 +9,14 @@ use Config;
 # This fires from a git source tree only.
 # Right now, all devs are on Linux. Feel free to make portable.
 eval {
-  my $shared_dir = "../shared_code";
+  my $shared_dir = "../shared";
   if (-d "../.git" and -d $shared_dir) {
     # overwrite by default
     opendir my $dh, $shared_dir or die $!;
     foreach my $file (grep -f "$shared_dir/$_", readdir($dh)) {
       open my $ifh, "<", "$shared_dir/$file" or die $!;
       open my $ofh, ">", $file or die $!;
-      print $ofh "\n# /* WARNING: GENERATED CODE! DO NOT EDIT! See shared_code/ folder in source repo. */\n\n";
+      print $ofh "\n# /* WARNING: GENERATED CODE! DO NOT EDIT! See shared/ folder in source repo. */\n\n";
       print $ofh $_ for <$ifh>;
     }
     closedir $dh;
