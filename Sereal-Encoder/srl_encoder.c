@@ -35,7 +35,8 @@ void srl_destructor_hook(void *p)
     /* Exception cleanup. Under normal operation, we should have
      * assigned NULL to buf_start after we're done. */
     Safefree(enc->buf_start);
-    PTABLE_free(enc->seenhash);
+    PTABLE_free(enc->ref_seenhash);
+    PTABLE_free(enc->str_seenhash);
     Safefree(enc);
 }
 
@@ -58,8 +59,8 @@ build_encoder_struct(pTHX_ HV *opt)
     enc->depth = 0;
     enc->flags = 0;
 
-    /* TODO: We could do this lazily: Only if there's references with high refcount/weakrefs */
-    enc->seenhash = PTABLE_new();
+    enc->ref_seenhash = PTABLE_new();
+    enc->str_seenhash = PTABLE_new();
 
     /* load options */
     if (opt != NULL) {
@@ -183,12 +184,12 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
     /* Have to check the seen hash if high refcount or a weak ref */
     if (SvREFCNT(src) > 1 || SvWEAKREF(src)) {
         /* FIXME is the actual sv location the right thing to use? */
-        PTABLE_ENTRY_t *entry = PTABLE_find(enc->seenhash, src);
+        PTABLE_ENTRY_t *entry = PTABLE_find(enc->ref_seenhash, src);
         if (entry != NULL)
             croak("Encountered reference multiple times: '%s'",
                   SvPV_nolen(sv_2mortal(newRV_inc(src))));
         else
-            PTABLE_store(enc->seenhash, src, NULL);
+            PTABLE_store(enc->ref_seenhash, src, NULL);
 
         /* output WEAKEN prefix before the actual item */
         if (SvWEAKREF(src))
@@ -198,16 +199,35 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
     if (SvOBJECT(src)) {
         /* TODO: support pointing at previously used string for class names */
         const HV *stash = SvSTASH(src);
-        const char *class_name = HvNAME_get(stash);
-        const size_t len = HvNAMELEN_get(stash);
-        BUF_SIZE_ASSERT(enc, 1 + 2 + len + 2); /* heuristic: header + string + simple value */
-        srl_buf_cat_char(enc, SRL_HDR_BLESS);
-        /* TODO see if we can get HvNAMEUTF8 or HvNAMEUTF8_get (?) into Devel::PPPort */
+        char *oldpos = (char *)PTABLE_fetch(enc->str_seenhash, (SV *)stash);
+        if (oldpos != NULL) {
+            /* issue COPY instead of literal class name string */
+            srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)(enc->pos - oldpos));
+        }
+        else {
+            const char *class_name = HvNAME_get(stash);
+            const size_t len = HvNAMELEN_get(stash);
+
+            /* First save this new string (well, the HV * that it is represented by) into the string
+             * dedupe table.
+             * By saving the ptr to the HV, we only dedupe class names with class names, though
+             * this seems a small price to pay for not having to keep a full string table.
+             * At least, we can safely use the same PTABLE to store the ptrs to hashkeys since
+             * the set of pointers will never collide.
+             * /me bows to Yves for the delightfully evil hack. */
+
+            /* Note that this needs to be done before advancing enc->pos! */
+            PTABLE_store(enc->str_seenhash, (void *)stash, (void *)enc->pos);
+
+            BUF_SIZE_ASSERT(enc, 1 + 2 + len + 2); /* heuristic: header + string + simple value */
+            srl_buf_cat_char(enc, SRL_HDR_BLESS);
+            /* TODO see if we can get HvNAMEUTF8 or HvNAMEUTF8_get (?) into Devel::PPPort */
 #if PERL_VERSION >= 16
-        srl_dump_pv(aTHX_ enc, class_name, len, HvNAMEUTF8(stash));
+            srl_dump_pv(aTHX_ enc, class_name, len, HvNAMEUTF8(stash));
 #else
-        srl_dump_pv(aTHX_ enc, class_name, len, 0);
+            srl_dump_pv(aTHX_ enc, class_name, len, 0);
 #endif
+        }
 
         /* fallthrough for value*/
     }
@@ -244,7 +264,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
      * ref any more. */
     /*
      * if (!(enc->flags & F_DISALLOW_MULTI_OCCURRENCE)) {
-     *   PTABLE_delete(enc->seenhash, src);
+     *   PTABLE_delete(enc->ref_seenhash, src);
      * }
      */
 }

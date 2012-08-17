@@ -6,13 +6,14 @@
 
 typedef struct PTABLE * ptable_ptr;
 typedef struct {
-    char *buf_start;     /* ptr to "physical" start of output buffer */
-    char *buf_end;       /* ptr to end of output buffer */
-    char *pos;           /* ptr to current position within output buffer */
+    char *buf_start;         /* ptr to "physical" start of output buffer */
+    char *buf_end;           /* ptr to end of output buffer */
+    char *pos;               /* ptr to current position within output buffer */
 
-    U32 flags;           /* flag-like options: See F_* defines in srl_encoder.c */
-    unsigned int depth;  /* current Perl-ref recursion depth */
-    ptable_ptr seenhash; /* ptr table for avoiding circular refs */
+    U32 flags;               /* flag-like options: See F_* defines in srl_encoder.c */
+    unsigned int depth;      /* current Perl-ref recursion depth */
+    ptable_ptr ref_seenhash; /* ptr table for avoiding circular refs */
+    ptable_ptr str_seenhash; /* ptr table for issuing COPY commands */
 } srl_encoder_t;
 
 /* constructor; don't need destructor, this sets up a callback */
