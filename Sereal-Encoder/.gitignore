@@ -13,3 +13,4 @@ Encoder.o
 Encoder.c
 *.o
 srl_protocol.h
+ptable.h
