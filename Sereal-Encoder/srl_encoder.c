@@ -23,6 +23,7 @@ static void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_le
 static inline void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src);
 static inline void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
 static inline void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
+static inline void srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src);
 
 /* This is fired when we exit the Perl pseudo-block.
  * It frees our encoder and all. Put encoder-level cleanup
@@ -125,6 +126,44 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
 }
 
 
+/* Outputs a bless header and the class name (as some form of string or COPY).
+ * Caller then has to output the actual reference payload. */
+static inline void
+srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src)
+{
+    const HV *stash = SvSTASH(src);
+    char *oldpos = (char *)PTABLE_fetch(enc->str_seenhash, (SV *)stash);
+    if (oldpos != NULL) {
+        /* issue COPY instead of literal class name string */
+        srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)(enc->pos - oldpos));
+    }
+    else {
+        const char *class_name = HvNAME_get(stash);
+        const size_t len = HvNAMELEN_get(stash);
+
+        /* First save this new string (well, the HV * that it is represented by) into the string
+         * dedupe table.
+         * By saving the ptr to the HV, we only dedupe class names with class names, though
+         * this seems a small price to pay for not having to keep a full string table.
+         * At least, we can safely use the same PTABLE to store the ptrs to hashkeys since
+         * the set of pointers will never collide.
+         * /me bows to Yves for the delightfully evil hack. */
+
+        /* Note that this needs to be done before advancing enc->pos! */
+        PTABLE_store(enc->str_seenhash, (void *)stash, (void *)enc->pos);
+
+        BUF_SIZE_ASSERT(enc, 1 + 2 + len + 2); /* heuristic: header + string + simple value */
+        srl_buf_cat_char(enc, SRL_HDR_BLESS);
+        /* TODO see if we can get HvNAMEUTF8 or HvNAMEUTF8_get (?) into Devel::PPPort */
+#if PERL_VERSION >= 16
+        srl_dump_pv(aTHX_ enc, class_name, len, HvNAMEUTF8(stash));
+#else
+        srl_dump_pv(aTHX_ enc, class_name, len, 0);
+#endif
+    }
+}
+
+
 /* Entry point for serialization AFTER header. Dumps generic SVs and delegates
  * to more specialized functions for RVs, etc. */
 void
@@ -197,38 +236,8 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
     }
 
     if (SvOBJECT(src)) {
-        /* TODO: support pointing at previously used string for class names */
-        const HV *stash = SvSTASH(src);
-        char *oldpos = (char *)PTABLE_fetch(enc->str_seenhash, (SV *)stash);
-        if (oldpos != NULL) {
-            /* issue COPY instead of literal class name string */
-            srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)(enc->pos - oldpos));
-        }
-        else {
-            const char *class_name = HvNAME_get(stash);
-            const size_t len = HvNAMELEN_get(stash);
-
-            /* First save this new string (well, the HV * that it is represented by) into the string
-             * dedupe table.
-             * By saving the ptr to the HV, we only dedupe class names with class names, though
-             * this seems a small price to pay for not having to keep a full string table.
-             * At least, we can safely use the same PTABLE to store the ptrs to hashkeys since
-             * the set of pointers will never collide.
-             * /me bows to Yves for the delightfully evil hack. */
-
-            /* Note that this needs to be done before advancing enc->pos! */
-            PTABLE_store(enc->str_seenhash, (void *)stash, (void *)enc->pos);
-
-            BUF_SIZE_ASSERT(enc, 1 + 2 + len + 2); /* heuristic: header + string + simple value */
-            srl_buf_cat_char(enc, SRL_HDR_BLESS);
-            /* TODO see if we can get HvNAMEUTF8 or HvNAMEUTF8_get (?) into Devel::PPPort */
-#if PERL_VERSION >= 16
-            srl_dump_pv(aTHX_ enc, class_name, len, HvNAMEUTF8(stash));
-#else
-            srl_dump_pv(aTHX_ enc, class_name, len, 0);
-#endif
-        }
-
+        /* Write bless operator with class name */
+        srl_dump_bless(aTHX_ enc, src);
         /* fallthrough for value*/
     }
 
