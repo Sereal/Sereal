@@ -102,6 +102,7 @@ if ($ENV{DEBUG}) {
   $OPTIMIZE .= ' -g';
 }
 
+my $defines = join " ", map "-D$_", grep exists $ENV{$_}, qw(DEBUG MEMDEBUG);
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 WriteMakefile1(
@@ -124,7 +125,7 @@ WriteMakefile1(
     ABSTRACT_FROM => 'lib/Sereal/Encoder.pm',
     AUTHOR => 'Steffen Mueller <smueller@cpan.org>', # FIXME
     LIBS              => [''], # e.g., '-lm'
-    DEFINE            => '', # e.g., '-DHAVE_SOMETHING'
+    DEFINE            => $defines,
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
     OPTIMIZE          => $OPTIMIZE,
     OBJECT            => '$(O_FILES)',

@@ -9,7 +9,12 @@
 #include "srl_protocol.h"
 
 /* General 'config' constants */
-#define INITIALIZATION_SIZE 16384
+#ifdef MEMDEBUG
+#   define INITIALIZATION_SIZE 0
+#else
+#   define INITIALIZATION_SIZE 16384
+#endif
+
 #define MAX_DEPTH 10000
 
 /* define option bits in srl_encoder_t's flags member */
