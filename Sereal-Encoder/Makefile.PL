@@ -90,6 +90,7 @@ elsif (-d $in_source_repo) {
 
 our $OPTIMIZE;
 
+my $defines = join " ", map "-D$_", grep exists $ENV{$_}, qw(DEBUG MEMDEBUG);
 if ($Config{gccversion}) {
     $OPTIMIZE = '-O3 -Wall -W';
 } elsif ($Config{osname} eq 'MSWin32') {
@@ -101,8 +102,10 @@ if ($Config{gccversion}) {
 if ($ENV{DEBUG}) {
   $OPTIMIZE .= ' -g';
 }
+else {
+  $defines .= " -DNDEBUG";
+}
 
-my $defines = join " ", map "-D$_", grep exists $ENV{$_}, qw(DEBUG MEMDEBUG);
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 WriteMakefile1(
