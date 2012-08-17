@@ -93,12 +93,12 @@ PTABLE_find(PTABLE_t *tbl, const void *key) {
 }
 
 /* commented since unused */
-/* static void *
+static inline void *
 PTABLE_fetch(PTABLE_t *tbl, const void *key)
 {
     PTABLE_ENTRY_t const *const tblent = PTABLE_find(tbl, key);
     return tblent ? tblent->value : NULL;
-} */
+}
 
 /* add a new entry to a pointer => pointer table */
 
