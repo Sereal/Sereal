@@ -9,6 +9,17 @@ use Sereal::Constants qw(:all);
 
 use Test::More;
 
+sub varint {
+  my $n = shift;
+  my $out = '';
+  while ($n > 0x80) {
+    $out .= chr( ($n & 0x7f) | 0x80 );
+      $n >>= 7;
+    }
+    $out .= chr($n);
+  return $out;
+}
+
 my $hdr = SRL_MAGIC_STRING . chr(SRL_PROTOCOL_VERSION) . chr(0);
 
 my @basic_tests = (
@@ -20,6 +31,14 @@ my @basic_tests = (
   ["", chr(0b0100_0000), "encode empty string"],
   ["1", chr(0b0100_0001) . "1", "encode string '1'"],
   ["91a", chr(0b0100_0011) . "91a", "encode string '91a'"],
+  [\1, chr(SRL_HDR_REF).chr(0b0000_0001), "scalar ref to int"],
+  [[1,2,3], chr(SRL_HDR_ARRAY).varint(3).chr(0b0000_0001).chr(0b0000_0010).chr(0b0000_0011), "array ref"],
+  [1000, chr(SRL_HDR_VARINT).varint(1000), "large int"],
+  [ [1..1000],
+    chr(SRL_HDR_ARRAY).varint(1000).join("", map chr, (1..SRL_POS_MAX_SIZE))
+                                   .join("", map chr(SRL_HDR_VARINT).varint($_), ((SRL_POS_MAX_SIZE+1) .. 1000)),
+    "array ref with big ints"
+  ],
 );
 
 foreach my $bt (@basic_tests) {
