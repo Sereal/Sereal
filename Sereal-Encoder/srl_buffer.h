@@ -24,6 +24,7 @@
 static inline void
 srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
 {
+  const size_t pos_ofs= BUF_POS_OFS(enc); /* have to store the ofset of pos */
 #ifdef MEMDEBUG
   const size_t new_size = minlen;
 #else
@@ -36,6 +37,7 @@ srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
   Renew(enc->buf_start, new_size, char);
   assert(enc->buf_start != NULL);
   enc->buf_end = (char *)(enc->buf_start + new_size);
+  enc->pos= enc->buf_start + pos_ofs;
   assert(enc->buf_end - enc->buf_start > (ptrdiff_t)0);
 }
 

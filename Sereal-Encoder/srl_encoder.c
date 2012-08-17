@@ -62,7 +62,7 @@ build_encoder_struct(pTHX_ HV *opt)
 
     /* Init struct */
     Newx(enc->buf_start, INITIALIZATION_SIZE, char);
-    enc->buf_end = enc->buf_start + INITIALIZATION_SIZE-1;
+    enc->buf_end = enc->buf_start + INITIALIZATION_SIZE - 1;
     enc->pos = enc->buf_start;
     enc->depth = 0;
     enc->flags = 0;
