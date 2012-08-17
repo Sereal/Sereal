@@ -90,7 +90,6 @@ static inline void
 srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
 {
     NV nv= SvNV(src);
-    /* TODO memcpy on little endian 64bit, otherwise manual diddling? */
     float f= nv;
     double d= nv;
     long double ld= nv;
@@ -231,7 +230,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     else {
         croak("Attempting to dump unsupported or invalid SV");
     }
-    /* TODO what else do we need to support in this many if/else? */
+    /* TODO what else do we need to support in this main if/else? */
 }
 
 
