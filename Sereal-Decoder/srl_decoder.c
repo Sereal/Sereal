@@ -87,16 +87,16 @@ srl_read_sv(pTHX_ srl_decoder_t *dec)
         }
     } else {
         switch (tag & SRL_HDR_TYPE_BITS) {
-            case 0x00:/*varint*/            break;
-            case 0x01:/*zigzag*/            break;
+            case 0x00: srl_read_varint(aTHX_ dec); break;
+            case 0x01: srl_read_zigzag(aTHX_ dec); break;
 
-            case 0x02:/*float*/             break;
-            case 0x03:/*double*/            break;
-            case 0x04:/*long double*/       break;
+            case 0x02: srl_read_float(aTHX_ dec);       break;
+            case 0x03: srl_read_double(aTHX_ dec);      break;
+            case 0x04: srl_read_long_double(aTHX_ dec); break;
 
             case 0x05:
             case 0x06:
-            case 0x07:/* reserved */        break;
+            case 0x07: srl_read_reserved(aTHX_ dec, tag);    break;
 
             case 0x08:
             case 0x09:
@@ -105,26 +105,26 @@ srl_read_sv(pTHX_ srl_decoder_t *dec)
             case 0x0C:
             case 0x0D:
             case 0x0E:
-            case 0x0F: /* array of int */   break;
+            case 0x0F: srl_read_int_array(aTHX_ dec, tag);   break;
 
-            case 0x10: /* ref */            break;
-            case 0x11: /* reuse */          break;
-            case 0x12: /* hash */
-            case 0x13: /* array */          break;
-            case 0x14: /* bless */          break;
-            case 0x15: /* blessv */         break;
-            case 0x16: /* weaken */         break;
-            case 0x17: /* reserved */       break;
+            case 0x10: srl_read_ref(aTHX_ dec);     break;
+            case 0x11: srl_read_reuse(aTHX_ dec);   break;
+            case 0x12: srl_read_hash(aTHX_ dec);    break;
+            case 0x13: srl_read_array(aTHX_ dec);   break;
+            case 0x14: srl_read_bless(aTHX_ dec);   break;
+            case 0x15: srl_read_blessv(aTHX_ dec);  break;
+            case 0x16: srl_read_weaken(aTHX_ dec);  break;
+            case 0x17: srl_read_reserved(aTHX_ dec, tag); break;
             
             case 0x18: 
-            case 0x19: /* string */         break;
+            case 0x19: srl_read_string(aTHX_ dec, tag & 1); break;
 
-            case 0x1A: /* alias */          break;
-            case 0x1B: /* copy */           break;
-            case 0x1C: /* undef */          break;
-            case 0x1D: /* regexp */         break;
-            case 0x1E: /* reserved */       break;
-            case 0x1F: /* pad */            break;
+            case 0x1A: srl_read_alias(aTHX_ dec);   break;
+            case 0x1B: srl_read_copy(aTHX_ dec);    break;
+            case 0x1C: srl_read_undef(aTHX_ dec);   break;
+            case 0x1D: srl_read_regexp(aTHX_ dec);  break;
+            case 0x1E: srl_read_reserved(aTHX_ dec, tag); break;
+            case 0x1F: /* pad XXX reread! */        break;
             default:
                 /* error */
                 break;
