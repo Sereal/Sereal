@@ -27,11 +27,11 @@
  *          | F 0 1 0 0 x x x
  * VARINT   |           0 0 0 | varint      | varint
  * ZIGZAG   |           0 0 1 | varint      | zigzag encoded varint
- * 
+ * FLOAT    |           0 1 0 |             | float
+ * DOUBLE   |           0 1 1 |             | double
+ * LDOUBLE  |           1 0 0 |             | long double
+ *
  * RESERVED - varint indicates length to skip to if a reader does not handle the type, with 0 meaning "die".
- *          |           0 1 0 | varint      | *reserved*
- *          |           0 1 1 | varint      | *reserved*
- *          |           1 0 0 | varint      | *reserved*
  *          |           1 0 1 | varint      | *reserved*
  *          |           1 1 0 | varint      | *reserved* 
  *          |           1 1 1 | varint      | *reserved*
@@ -59,7 +59,7 @@
  * COPY     |           0 1 1 | varint      | copy item at offset
  * UNDEF    |           1 0 0 | -           | undef
  * REGEXP   |           1 0 1 | TAG         | next item is a regexp 
- * FLOAT    |           1 1 0 | (FLOAT)     | float
+ *          |           1 1 0 |             | *reserved*
  * PAD      |           1 1 1 |             | ignored byte, used by encoder to pad if necessary
  * 
  * ASCII    | F 1 x x x x x x | str         | Short ascii string, x=length
