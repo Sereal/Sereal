@@ -26,7 +26,7 @@ our $data = {
 };
 
 my $json_xs  = encode_json($data);
-my $dd       = Dumper($data);
+my $dd       = Data::Dumper->new([$data])->Indent(0)->Dump();
 my $ddl      = DumpLimited($data);
 my $sereal   = encode_sereal($data);
 my $storable = nfreeze($data);
@@ -46,7 +46,7 @@ cmpthese(
   {
     json_xs => '$::x = encode_json($::data) for 1..10;',
     ddl => '$::x = DumpLimited($::data) for 1..10;',
-    dd => '$::x = Dumper($::data) for 1..100;',
+    dd => '$::x = Data::Dumper->new([$::data])->Indent(0)->Dump() for 1..10;',
     sereal => '$::x = encode_sereal($::data) for 1..10;',
     storable => '$::x = nfreeze($::data) for 1..10;',
     mp => '$::x = $::mpo->pack($::data) for 1..10;',
