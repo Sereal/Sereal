@@ -14,7 +14,7 @@ our $mpo = Data::MessagePack->new();
 my @str;
 push @str, join("", map chr(65+int(rand(57))), 1..10) for 1..1000;
 
-our $data = {
+our $data = [
   [1..10000],
   {@str},
   {@str},
@@ -23,7 +23,7 @@ our $data = {
   {@str},
   {@str},
   {@str},
-};
+];
 
 my $json_xs  = encode_json($data);
 my $dd1      = Data::Dumper->new([$data])->Indent(0)->Dump();
@@ -33,6 +33,11 @@ my $sereal   = encode_sereal($data);
 my $storable = nfreeze($data);
 my $mp       = $mpo->pack($data);
 
+
+if(@ARGV){
+    print $sereal;
+    exit;
+}
 require bytes;
 print "JSON::XS:              " . bytes::length($json_xs) . " bytes\n";
 print "Data::Dumper::Limited: " . bytes::length($ddl) . " bytes\n";
