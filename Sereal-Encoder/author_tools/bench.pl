@@ -26,7 +26,8 @@ our $data = {
 };
 
 my $json_xs  = encode_json($data);
-my $dd       = Data::Dumper->new([$data])->Indent(0)->Dump();
+my $dd1      = Data::Dumper->new([$data])->Indent(0)->Dump();
+my $dd2      = Dumper($data);
 my $ddl      = DumpLimited($data);
 my $sereal   = encode_sereal($data);
 my $storable = nfreeze($data);
@@ -35,7 +36,8 @@ my $mp       = $mpo->pack($data);
 require bytes;
 print "JSON::XS:              " . bytes::length($json_xs) . " bytes\n";
 print "Data::Dumper::Limited: " . bytes::length($ddl) . " bytes\n";
-print "Data::Dumper:          " . bytes::length($dd) . " bytes\n";
+print "Data::Dumper (1):      " . bytes::length($dd1) . " bytes\n";
+print "Data::Dumper (2):      " . bytes::length($dd2) . " bytes\n";
 print "Sereal::Encoder:       " . bytes::length($sereal) . " bytes\n";
 print "Storable:              " . bytes::length($storable) . " bytes\n";
 print "Data::MessagePack:     " . bytes::length($mp) . " bytes\n";
@@ -46,7 +48,8 @@ cmpthese(
   {
     json_xs => '$::x = encode_json($::data) for 1..10;',
     ddl => '$::x = DumpLimited($::data) for 1..10;',
-    dd => '$::x = Data::Dumper->new([$::data])->Indent(0)->Dump() for 1..10;',
+    dd1 => '$::x = Data::Dumper->new([$::data])->Indent(0)->Dump() for 1..10;',
+    dd2 => '$::x = Dumper($::data) for 1..10;',
     sereal => '$::x = encode_sereal($::data) for 1..10;',
     storable => '$::x = nfreeze($::data) for 1..10;',
     mp => '$::x = $::mpo->pack($::data) for 1..10;',
