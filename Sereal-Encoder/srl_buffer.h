@@ -10,9 +10,6 @@
  * usable in one place per compilation unit. Drop "static" when necessary.
  * For now, potentially smaller code wins. */
 
-/* Internal debugging macros, used only in DEBUG mode */
-#define DEBUG_ASSERT_BUF_SPACE(enc, len) assert(enc->buf_end - enc->pos > (ptrdiff_t)len)
-#define DEBUG_ASSERT_BUF_SANE(enc) assert(enc->buf_start <= enc->pos && enc->pos <= enc->buf_end)
 
 /* buffer operations */
 #define BUF_POS_OFS(enc) ((enc)->pos - (enc)->buf_start)
@@ -20,6 +17,17 @@
 #define BUF_SIZE(enc) ((enc)->buf_end - (enc)->buf_start)
 #define BUF_NEED_GROW(enc, minlen) ((size_t)BUF_SPACE(enc) <= minlen)
 #define BUF_NEED_GROW_TOTAL(enc, minlen) ((size_t)BUF_SIZE(enc) <= minlen)
+
+/* Internal debugging macros, used only in DEBUG mode */
+#define DEBUG_ASSERT_BUF_SPACE(enc, len) STMT_START { \
+    if((BUF_SPACE(enc) < (ptrdiff_t)(len))) { \
+        warn("failed assertion check - pos: %ld [%p %p %p] %ld < %ld",  \
+                (long)BUF_POS_OFS(enc), (enc)->buf_start, (enc)->pos, (enc)->buf_end, (long)BUF_SPACE(enc),(long)(len)); \
+    } \
+    assert(BUF_SPACE(enc) >= (ptrdiff_t)(len)); \
+} STMT_END
+
+#define DEBUG_ASSERT_BUF_SANE(enc) assert(((enc)->buf_start <= (enc)->pos) && ((enc)->pos <= (enc)->buf_end))
 
 static inline void
 srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
@@ -105,7 +113,7 @@ srl_buf_cat_char_nocheck_int(pTHX_ srl_encoder_t *enc, const char c)
 static inline void
 srl_buf_cat_varint_nocheck(pTHX_ srl_encoder_t *enc, const char tag, UV n) {
     DEBUG_ASSERT_BUF_SANE(enc);
-    DEBUG_ASSERT_BUF_SPACE(enc, (tag==0?1:0) + SRL_MAX_VARINT_LENGTH);
+    DEBUG_ASSERT_BUF_SPACE(enc, (tag==0 ? 0 : 1) + SRL_MAX_VARINT_LENGTH);
     if (tag)
         *enc->pos++ = tag;
     while (n > 0x80) {                   /* while we are larger than 7 bits long */
@@ -119,14 +127,14 @@ srl_buf_cat_varint_nocheck(pTHX_ srl_encoder_t *enc, const char tag, UV n) {
 static inline void
 srl_buf_cat_varint(pTHX_ srl_encoder_t *enc, const char tag, const UV n) {
     /* this implements googles "varint" from google protocol buffers */
-    BUF_SIZE_ASSERT(enc, SRL_MAX_VARINT_LENGTH);
+    BUF_SIZE_ASSERT(enc, SRL_MAX_VARINT_LENGTH + 1); /* always allocate space for the tag, overalloc is harmless */
     srl_buf_cat_varint_nocheck(aTHX_ enc, tag, n);
 }
 
 static inline void
 srl_buf_cat_zigzag_nocheck(pTHX_ srl_encoder_t *enc, const char tag, const IV n) {
     const UV z= (n << 1) ^ (n >> (sizeof(IV) * 8 - 1));
-    srl_buf_cat_varint_nocheck(aTHX_ enc, tag, z);
+    srl_buf_cat_varint(aTHX_ enc, tag, z);
 }
 
 static inline void
