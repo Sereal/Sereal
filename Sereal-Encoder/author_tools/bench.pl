@@ -20,7 +20,7 @@ our $data = [
   {@str},
   [1..10000],
   {@str},
-  {@str},
+  [map rand,1..1000],
   {@str},
   {@str},
 ];
@@ -51,13 +51,13 @@ our $x;
 cmpthese(
   -3,
   {
-    json_xs => '$::x = encode_json($::data) for 1..10;',
-    ddl => '$::x = DumpLimited($::data) for 1..10;',
-    dd1 => '$::x = Data::Dumper->new([$::data])->Indent(0)->Dump() for 1..10;',
-    dd2 => '$::x = Dumper($::data) for 1..10;',
-    sereal => '$::x = encode_sereal($::data) for 1..10;',
-    storable => '$::x = nfreeze($::data) for 1..10;',
-    mp => '$::x = $::mpo->pack($::data) for 1..10;',
+    json_xs => '$::x = encode_json($::data);',
+    ddl => '$::x = DumpLimited($::data);',
+    dd1 => '$::x = Data::Dumper->new([$::data])->Indent(0)->Dump();',
+    dd2 => '$::x = Dumper($::data);',
+    sereal => '$::x = encode_sereal($::data);',
+    storable => '$::x = nfreeze($::data);',
+    mp => '$::x = $::mpo->pack($::data);',
   }
 );
 
