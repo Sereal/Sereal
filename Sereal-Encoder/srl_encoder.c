@@ -30,7 +30,7 @@ static inline void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
 static inline void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
 static inline void srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src);
 
-#define SRL_SET_FBIT(ptr) (*ptr |= 0b10000000)
+#define SRL_SET_FBIT(where) (where |= 0b10000000)
 
 /* This is fired when we exit the Perl pseudo-block.
  * It frees our encoder and all. Put encoder-level cleanup
@@ -163,18 +163,21 @@ static inline void
 srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src)
 {
     const HV *stash = SvSTASH(src);
-    char *oldpos = (char *)PTABLE_fetch(enc->str_seenhash, (SV *)stash);
-    if (oldpos != NULL) {
+    const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->str_seenhash, (SV *)stash);
+
+    if (oldoffset != 0) {
+        char *oldpos = enc->buf_start + oldoffset;
         /* Issue COPY instead of literal class name string */
         srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)(enc->pos - oldpos));
 
         /* Now, make sure that the "this is referenced", F bit of the original
          * string object in the output is set */
-        SRL_SET_FBIT(oldpos);
+        SRL_SET_FBIT(*oldpos);
     }
     else {
         const char *class_name = HvNAME_get(stash);
         const size_t len = HvNAMELEN_get(stash);
+        const ptrdiff_t offset = enc->pos - enc->buf_start;
 
         /* First save this new string (well, the HV * that it is represented by) into the string
          * dedupe table.
@@ -184,11 +187,11 @@ srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src)
          * the set of pointers will never collide.
          * /me bows to Yves for the delightfully evil hack. */
 
-        /* Note that this needs to be done before advancing enc->pos! */
-        PTABLE_store(enc->str_seenhash, (void *)stash, (void *)enc->pos);
+        /* remember current offset before advancing it */
+        PTABLE_store(enc->str_seenhash, (void *)stash, (void *)offset);
 
         BUF_SIZE_ASSERT(enc, 1 + 2 + len + 2); /* heuristic: header + string + simple value */
-        srl_buf_cat_char(enc, SRL_HDR_BLESS);
+        srl_buf_cat_char_nocheck(enc, SRL_HDR_BLESS);
 
         /* HvNAMEUTF8 not in older perls and it would be 0 for those anyway */
 #if PERL_VERSION >= 16
