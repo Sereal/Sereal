@@ -25,7 +25,7 @@ static void srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src);
 static void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src);
 static void srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src);
 static void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8);
-static inline void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src);
+static inline void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys);
 static inline void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
 static inline void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
 static inline void srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src);
@@ -343,6 +343,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src)
 {
     HE *he;
     UV n = hv_iterinit(src);
+    const int do_share_keys = HvSHAREKEYS((SV *)src);
 
     /* heuristic: n = ~min size of n values;
      *            + 2*n = very conservative min size of n hashkeys if all COPY */
@@ -354,7 +355,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src)
 
     if ((he = hv_iternext(src))) {
         for (;;) {
-            srl_dump_hk(aTHX_ enc, he);
+            srl_dump_hk(aTHX_ enc, he, do_share_keys);
             srl_dump_sv(aTHX_ enc, SvMAGICAL(src) ? hv_iterval(src, he) : HeVAL(he));
 
             if (!(he = hv_iternext(src)))
@@ -364,8 +365,8 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src)
 }
 
 
-static void
-srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src)
+static inline void
+srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
 {
     if (HeKLEN(src) == HEf_SVKEY) {
         SV *sv = HeSVKEY(src);
@@ -376,6 +377,31 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src)
         str = SvPV(sv, len);
 
         srl_dump_pv(aTHX_ enc, str, len, SvUTF8(sv));
+    }
+    else if (share_keys) {
+        /* This logic is an optimization for output space: We keep track of
+         * all seen hash key strings that are in perl's shared string storage.
+         * If we see one again, we just emit a COPY instruction.
+         * This means that we only need to keep a ptr table since the strings
+         * don't move in the shared key storage -- otherwise, we'd have to
+         * compare strings / keep a full string hash table. */
+        const char *keystr = HeKEY(src);
+        const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->str_seenhash, keystr);
+        if (oldoffset != 0) {
+            char *oldpos = enc->buf_start + oldoffset;
+            /* Issue COPY instead of literal hash key string */
+            srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)(enc->pos - oldpos));
+
+            /* Now, make sure that the "this is referenced", F bit of the original
+             * string object in the output is set */
+            SRL_SET_FBIT(*oldpos);
+        }
+        else {
+            /* remember current offset before advancing it */
+            const ptrdiff_t offset = enc->pos - enc->buf_start;
+            PTABLE_store(enc->str_seenhash, (void *)keystr, (void *)offset);
+            srl_dump_pv(aTHX_ enc, keystr, HeKLEN(src), HeKUTF8(src));
+        }
     }
     else
         srl_dump_pv(aTHX_ enc, HeKEY(src), HeKLEN(src), HeKUTF8(src));
