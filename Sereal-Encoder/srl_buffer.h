@@ -19,6 +19,7 @@
 #define BUF_NEED_GROW_TOTAL(enc, minlen) ((size_t)BUF_SIZE(enc) <= minlen)
 
 /* Internal debugging macros, used only in DEBUG mode */
+#ifndef NDEBUG
 #define DEBUG_ASSERT_BUF_SPACE(enc, len) STMT_START { \
     if((BUF_SPACE(enc) < (ptrdiff_t)(len))) { \
         warn("failed assertion check - pos: %ld [%p %p %p] %ld < %ld",  \
@@ -26,6 +27,9 @@
     } \
     assert(BUF_SPACE(enc) >= (ptrdiff_t)(len)); \
 } STMT_END
+#else
+#define DEBUG_ASSERT_BUF_SPACE(enc, len) ((void)0)
+#endif
 
 #define DEBUG_ASSERT_BUF_SANE(enc) assert(((enc)->buf_start <= (enc)->pos) && ((enc)->pos <= (enc)->buf_end))
 
