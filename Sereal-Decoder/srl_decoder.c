@@ -14,7 +14,7 @@
  * logic here so that we can simply use croak/longjmp for
  * exception handling. Makes life vastly easier!
  */
-void srl_destructor_hook(void *p)
+void srl_decoder_destructor_hook(void *p)
 {
     srl_decoder_t *dec = (srl_decoder_t *)p;
     /* Exception cleanup. Under normal operation, we should have
@@ -35,7 +35,7 @@ build_decoder_struct(pTHX_ HV *opt, SV *src)
 
     Newx(dec, 1, srl_decoder_t);
     /* Register our structure for destruction on scope exit */
-    SAVEDESTRUCTOR(&srl_destructor_hook, (void *)dec);
+    SAVEDESTRUCTOR(&srl_decoder_destructor_hook, (void *)dec);
     dec->depth = 0;
     dec->flags = 0;
 
