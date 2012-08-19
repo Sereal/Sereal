@@ -44,7 +44,7 @@ if (eval { use ExtUtils::Constant qw(WriteConstants); 1 }) {
   }
   close $fh;
   WriteConstants(
-      NAME => 'Sereal::Decoder',
+      NAME => 'Sereal::Encoder',
       NAMES => \@int_const,
   );
   open my $ofh, ">", "lib/Sereal/Constants.pm" or die $!;
@@ -55,7 +55,7 @@ package Sereal::Constants;
 use strict;
 use warnings;
 use Carp qw(croak);
-use Sereal::Decoder; # for XSLoading
+use Sereal::Encoder; # for XSLoading
 our \@ISA = qw(Exporter);
 require Exporter;
 our \@EXPORT_OK;
@@ -90,7 +90,7 @@ elsif (-d $in_source_repo) {
 
 our $OPTIMIZE;
 
-my $defines = join " ", map "-D$_", grep exists $ENV{$_}, qw(DEBUG MEMDEBUG);
+my $defines = join " ", map "-D$_", grep exists $ENV{$_}, qw(NOINLINE DEBUG MEMDEBUG NDEBUG);
 if ($Config{gccversion}) {
     $OPTIMIZE = '-O3 -Wall -W';
 } elsif ($Config{osname} eq 'MSWin32') {
