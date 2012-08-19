@@ -16,48 +16,50 @@
  *       skip the parts of the header that they know nothing about using the total
  *       header length.
  *
- * +--------+-----------------+-------------+--------------------------------------------------------------------------
- *          |Bit              | follow      | Description
- *          | 7 6 5 4 3 2 1 0 | bytes       | 
- * ---------+-----------------+-------------+------------------------------------------------------------
- *          | F 0 0 s x x x x | -           | tiny ints
- * POS      |       0 x x x x | -           | Positive nibble   0 .. 15
- * NEG      |       1 x x x x | -           | Negative nibble -16 .. -1
+ * +--------+-----------------+-----------------+--------------------------------------------------------------------------
+ *          |Bit              | follow          | Description
+ *          | 7 6 5 4 3 2 1 0 | bytes           |
+ * ---------+-----------------+-----------------+--------------------------------------------------------------------------
+ *          | F 0 0 s x x x x | -               | tiny ints
+ * POS      |       0 x x x x | -               | Positive nibble   0 .. 15
+ * NEG      |       1 x x x x | -               | Negative nibble -16 .. -1
  * 
- *          | F 0 1 0 0 x x x
- * VARINT   |           0 0 0 | varint      | varint
- * ZIGZAG   |           0 0 1 | varint      | zigzag encoded varint
- * FLOAT    |           0 1 0 |             | float
- * DOUBLE   |           0 1 1 |             | double
- * LDOUBLE  |           1 0 0 |             | long double
- *
- * RESERVED - varint indicates length to skip to if a reader does not handle the type, with 0 meaning "die".
- *          |           1 0 1 | varint      | *reserved*
- *          |           1 1 0 | varint      | *reserved* 
- *          |           1 1 1 | varint      | *reserved*
- *          | F 0 1 0 1 x x x | varint      | *reserved*
+ *          | F 0 1 x x x x x |
+ *----------|-----------------+-----------------+---------------------------------------------------------------------------
+ *          |       0 0 x x x |                 |
+ * VARINT   |           0 0 0 | varint          | varint
+ * ZIGZAG   |           0 0 1 | varint          | zigzag encoded varint
+ * FLOAT    |           0 1 0 |                 | float
+ * DOUBLE   |           0 1 1 |                 | double
+ * LDOUBLE  |           1 0 0 |                 | long double
+ * UNDEF    |           1 0 1 | -               | undef
+ * STR      |           1 1 0 | varint          | string, whatever, varint=length
+ * STR_UTF8 |           1 1 1 | varint          | string, utf8, varint=length
+ *          |                 |                 |
+ *          |       0 1 X X X |                 | Ref/Object(ish)
+ * REF      |           0 0 0 |                 | scalar ref to next item
+ * REUSE    |           0 0 1 | varint          | second/third/... occurrence of a multiply-occurring
+ *          |                 |                 | substructure (always points at a form of reference)
+ * HASH     |           0 1 0 | nkeys V/K* TAIL | hash, nkeys=varint, contents are in VALUE, KEY tuples, with TAIL as suffix.
+ * ARRAY    |           0 1 1 | varint V* TAIL  | array, varint=length, TAIL follows values
+ * BLESS    |           1 0 0 | TAG(STR) TAG    | bless item into class indicated by TAG
+ * BLESSV   |           1 0 1 | varint   TAG    | bless item into class indicated by varint *provisional*
+ * ALIAS    |           1 1 0 | varint          | alias to previous item indicated by varint
+ * COPY     |           1 1 1 | varint          | copy item at offset
  * 
- *          | F 0 1 1 0 y y y |             | Ref/Object(ish)
- * REF      |           0 0 0 |             | scalar ref to next item
- * REUSE    |           0 0 1 | varint      | second/third/... occurrence of a multiply-occurring
- *          |                 |             | substructure (always points at a form of reference)
- * HASH     |           0 1 0 | varint      | hash, varint=length (number of hash keys)
- * ARRAY    |           0 1 1 | varint      | array, varint=length 
- * BLESS    |           1 0 0 | TAG(STR) TAG| bless item into class indicated by TAG
- * BLESSV   |           1 0 1 | varint   TAG| bless item into class indicated by varint *provisional*
- * WEAKEN   |           1 1 0 |             | Following item is a reference and it is weakened
- *          |           1 1 1 | varint      | *reserved*
- * 
- *          | F 0 1 1 1 y y y |             | Miscellaneous        
- * STRING   |           0 0 x | varint      | string, x= utf8 flag, varint=length
- * ALIAS    |           0 1 0 | varint      | alias to previous item indicated by varint
- * COPY     |           0 1 1 | varint      | copy item at offset
- * UNDEF    |           1 0 0 | -           | undef
- * REGEXP   |           1 0 1 | TAG         | next item is a regexp 
- * LIST     |           1 1 0 | tbyte vint pad | numeric array (s=0 unsigned, s=1 signed), varint=length, pad if needed for alignment
- * PAD      |           1 1 1 |             | ignored byte, used by encoder to pad if necessary
- * 
- * ASCII    | F 1 x x x x x x | str         | Short ascii string, x=length
+ *          |       1 0 y y y |                 | Miscellaneous
+ * EXTEND   |           0 0 0 | tbyte           | tbyte indicates action.
+ * LIST     |           0 0 1 | tbyte vint pad  | numeric array (s=0 unsigned, s=1 signed), varint=length, pad if needed for alignment
+ * WEAKEN   |           0 1 0 |                 | Following item is a reference and it is weakened
+ * REGEXP   |           0 1 1 | TAG             | next item is a regexp
+ * TAIL     |           1 0 0 | -               | mark "tail" of composite structure, for sanity checking
+ * PAD      |           1 0 1 | -               | ignored byte, used by encoder to pad if necessary
+ *          |                 |                 |
+ * RESERVED |           1 1 0 | varint          |
+ * RESERVED |           1 1 1 | varint          |
+ * RESERVED |       1 1 x x x | varint          | *reserved*
+ * ---------+-----------------+-----------------+---------------------------------------------------------------------------------------
+ * ASCII    | F 1 x x x x x x | str             | Short ascii string, x=length
  * 
  * 
  * 
@@ -101,8 +103,11 @@
 
 /* All constants have the F bit unset! */
 /* _LOW and _HIGH versions refering to INCLUSIVE range boundaries */
+
+#define SRL_HDR_TRACK_FLAG      ((char)0b10000000)
+
 #define SRL_HDR_ASCII           ((char)0b01000000)
-#define SRL_HDR_ASCII_LEN_MASK  ((char)0b01111111)
+#define SRL_HDR_ASCII_LEN_MASK  ((char)0b00111111)
 
 #define SRL_HDR_POS_LOW         ((char)0b00000000) /* 0 */
 #define SRL_HDR_POS_HIGH        ((char)0b00001111) /* 15 */
@@ -117,31 +122,33 @@
 #define SRL_HDR_FLOAT           ((char)0b00100010)
 #define SRL_HDR_DOUBLE          ((char)0b00100011)
 #define SRL_HDR_LONG_DOUBLE     ((char)0b00100100)
+#define SRL_HDR_UNDEF           ((char)0b00100101)
+#define SRL_HDR_STRING          ((char)0b00100110)
+#define SRL_HDR_STRING_UTF8     ((char)0b00100111)
 
-
-/* Note: Can do reserved check with a range now, but as we start using
- *       them, might have to explicit == check later. */
-#define SRL_HDR_RESERVED_LOW    ((char)0b00100101)
-#define SRL_HDR_RESERVED_HIGH   ((char)0b00101111)
-
-#define SRL_HDR_REF             ((char)0b00110000) /* scalar ref to next item */
-#define SRL_HDR_REUSE           ((char)0b00110001) /* second/third/... occurrence of a multiply-occurring
+#define SRL_HDR_REF             ((char)0b00101000) /* scalar ref to next item */
+#define SRL_HDR_REUSE           ((char)0b00101001) /* second/third/... occurrence of a multiply-occurring
                                                   * substructure (always points at a form of reference) */
-#define SRL_HDR_HASH            ((char)0b00110010)
-#define SRL_HDR_ARRAY           ((char)0b00110011)
-#define SRL_HDR_BLESS           ((char)0b00110100)
-#define SRL_HDR_BLESSV          ((char)0b00110101) /* provisional */
-#define SRL_HDR_WEAKEN          ((char)0b00110110)
-#define SRL_HDR_LIST            ((char)0b00110111)
+#define SRL_HDR_HASH            ((char)0b00101010)
+#define SRL_HDR_ARRAY           ((char)0b00101011)
+#define SRL_HDR_BLESS           ((char)0b00101100)
+#define SRL_HDR_BLESSV          ((char)0b00101101) /* provisional */
+#define SRL_HDR_ALIAS           ((char)0b00101110)
+#define SRL_HDR_COPY            ((char)0b00101111)
 
-#define SRL_HDR_STRING          ((char)0b00111000)
-#define SRL_HDR_STRING_UTF8     ((char)0b00111001)
-#define SRL_HDR_ALIAS           ((char)0b00111010)
-#define SRL_HDR_COPY            ((char)0b00111011)
-#define SRL_HDR_UNDEF           ((char)0b00111100)
-#define SRL_HDR_REGEXP          ((char)0b00111101)
-#define SRL_HDR_LIST            ((char)0b00111110)
-#define SRL_HDR_PAD             ((char)0b00111111)
+#define SRL_HDR_EXTEND          ((char)0b00110000)
+#define SRL_HDR_LIST            ((char)0b00110001)
+
+#define SRL_HDR_WEAKEN          ((char)0b00110010)
+#define SRL_HDR_REGEXP          ((char)0b00110011)
+
+#define SRL_HDR_LIST            ((char)0b00110100)
+#define SRL_HDR_PAD             ((char)0b00110101)
+
+ /* Note: Can do reserved check with a range now, but as we start using
+ *       them, might have to explicit == check later. */
+#define SRL_HDR_RESERVED_LOW    ((char)0b00110110)
+#define SRL_HDR_RESERVED_HIGH   ((char)0b00111111)
  
 /* TODO */
 
