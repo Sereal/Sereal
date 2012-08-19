@@ -134,7 +134,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec) {
     UV idx;
     av_extend(av, len+1);
     for (idx = 0; idx <= len; len++) {
-        if (*dec->pos
+        if (*dec->pos = SRL_HDR_
         SV *got= srl_read_single_value(aTHX_ dec);
         av_push(av, got);
 
@@ -190,19 +190,21 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec)
     tag= tag & ~SRL_TRACK_FLAG;
 
     while (BUF_NOT_DONE(dec) && ret == NULL) {
+        if ( tag <= SRL_HDR_POS_HIGH ) {
+            ret= newSVuv(tag);
+        }
+        else
+        if ( tag <= SRL_HDR_NEG_LOW) {
+            ret= newSViv( -tag + 15));
+        }
+        else
         if (tag & SRL_HDR_ASCII) {
             len= (STRLEN)(tag & SRL_HDR_ASCI_LEN_MASK);
             BUF_READ_ASSERT(len);
             ret= newSVpvn(dec->pos,len);
             dec->pos += len;
-        } else if ( tag & SRL_HDR_TINYINT_KEY_MASK == 0) {
-            U8 v= tag & SRL_HDR_TINYINT_VAL_MASK;
-            if (tag & SRL_TINYINT_SIGN) {
-                ret= newSViv(-v);
-            } else {
-                ret= newSVuv(v);
-            }
-        } else {
+        }
+        else{
             switch (tag & SRL_HDR_TYPE_BITS) {
                 case 0x00: ret= srl_read_varint(aTHX_ dec); break;
                 case 0x01: ret= srl_read_zigzag(aTHX_ dec); break;
