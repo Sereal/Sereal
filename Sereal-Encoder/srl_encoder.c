@@ -5,6 +5,7 @@
 #define PERL_NO_GET_CONTEXT
 
 #include "ptable.h"
+#include "srl_inline.h"
 #include "srl_buffer.h"
 #include "srl_protocol.h"
 
@@ -25,10 +26,10 @@ static void srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src);
 static void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src);
 static void srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src);
 static void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8);
-static inline void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys);
-static inline void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
-static inline void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
-static inline void srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src);
+static SRL_INLINE void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys);
+static SRL_INLINE void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
+static SRL_INLINE void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
+static SRL_INLINE void srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src);
 
 #define SRL_SET_FBIT(where) (where |= 0b10000000)
 
@@ -93,7 +94,7 @@ srl_write_header(pTHX_ srl_encoder_t *enc)
 
 
 /* Code for serializing floats */
-static inline void
+static SRL_INLINE void
 srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
 {
     NV nv= SvNV(src);
@@ -122,7 +123,7 @@ srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
 
 
 /* Code for serializing any SINGLE integer type */
-static inline void
+static SRL_INLINE void
 srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
 {
     char hdr;
@@ -159,7 +160,7 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
 
 /* Outputs a bless header and the class name (as some form of string or COPY).
  * Caller then has to output the actual reference payload. */
-static inline void
+static SRL_INLINE void
 srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src)
 {
     const HV *stash = SvSTASH(src);
@@ -365,7 +366,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src)
 }
 
 
-static inline void
+static SRL_INLINE void
 srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
 {
     if (HeKLEN(src) == HEf_SVKEY) {
