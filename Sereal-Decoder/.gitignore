@@ -17,3 +17,4 @@ ptable.h
 const-c.inc
 const-xs.inc
 lib/Sereal/Constants.pm
+srl_inline.h
