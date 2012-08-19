@@ -16,10 +16,12 @@ eval {
     # overwrite by default
     opendir my $dh, $shared_dir or die $!;
     foreach my $file (grep -f "$shared_dir/$_", readdir($dh)) {
-      open my $ifh, "<", "$shared_dir/$file" or die $!;
-      open my $ofh, ">", $file or die $!;
-      print $ofh "\n# /* WARNING: GENERATED CODE! DO NOT EDIT! See shared/ folder in source repo. */\n\n";
-      print $ofh $_ for <$ifh>;
+      if (!-e $file || !-l $file) {
+        open my $ifh, "<", "$shared_dir/$file" or die $!;
+        open my $ofh, ">", $file or die $!;
+        print $ofh "\n# /* WARNING: GENERATED CODE! DO NOT EDIT! See shared/ folder in source repo. */\n\n";
+        print $ofh $_ for <$ifh>;
+      }
     }
     closedir $dh;
   }
