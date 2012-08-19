@@ -35,12 +35,7 @@
  *          |           1 0 1 | varint      | *reserved*
  *          |           1 1 0 | varint      | *reserved* 
  *          |           1 1 1 | varint      | *reserved*
- * 
- * NUMLIST  | F 0 1 0 1 s y y | varint pad? | numeric array (s=0 unsigned, s=1 signed), varint=length, pad if needed for alignment
- *                      s 0 0 |             | varint (unsigned) or zipped (signed)
- *                      s 0 1 |             | of 16 bit
- *                      s 1 0 |             | of 32 bit
- *                      s 1 1 |             | of 64 bit
+ *          | F 0 1 0 1 x x x | varint      | *reserved*
  * 
  *          | F 0 1 1 0 y y y |             | Ref/Object(ish)
  * REF      |           0 0 0 |             | scalar ref to next item
@@ -59,7 +54,7 @@
  * COPY     |           0 1 1 | varint      | copy item at offset
  * UNDEF    |           1 0 0 | -           | undef
  * REGEXP   |           1 0 1 | TAG         | next item is a regexp 
- *          |           1 1 0 |             | *reserved*
+ * LIST     |           1 1 0 | tbyte vint pad | numeric array (s=0 unsigned, s=1 signed), varint=length, pad if needed for alignment
  * PAD      |           1 1 1 |             | ignored byte, used by encoder to pad if necessary
  * 
  * ASCII    | F 1 x x x x x x | str         | Short ascii string, x=length

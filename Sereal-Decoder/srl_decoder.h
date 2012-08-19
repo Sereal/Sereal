@@ -4,6 +4,8 @@
 #include "EXTERN.h"
 #include "perl.h"
 
+
+
 typedef struct PTABLE * ptable_ptr;
 typedef struct {
     unsigned char *buf_start;         /* ptr to "physical" start of input buffer */
@@ -14,6 +16,9 @@ typedef struct {
     unsigned int depth;      /* current Perl-ref recursion depth */
     ptable_ptr ref_seenhash; /* ptr table for avoiding circular refs */
     ptable_ptr str_seenhash; /* ptr table for issuing COPY commands */
+
+    U32 val_stack_size;
+    SV  **val_stack;
 } srl_decoder_t;
 
 /* constructor; don't need destructor, this sets up a callback */
