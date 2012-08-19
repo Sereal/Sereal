@@ -361,7 +361,7 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src)
     }
     /* add on a tail element so that we can sanity check things during
      * deserialization */
-    srl_buf_cat_char_nocheck(aTHX_ enc, SRL_HDR_TAIL);
+    srl_buf_cat_char_nocheck(enc, SRL_HDR_TAIL);
 }
 
 
@@ -377,23 +377,17 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src)
     BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
     srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_HASH, n);
 
-    if (n == 0 && !SvMAGICAL(src))
-        return;
-
-    if ((he = hv_iternext(src))) {
-        for (;;) {
+    if (n > 0 || SvMAGICAL(src)) {
+        while ((he = hv_iternext(src))) {
             /* note we dump the values first, this makes deserializing a little easier
              * given how perls hash api works */
             srl_dump_sv(aTHX_ enc, SvMAGICAL(src) ? hv_iterval(src, he) : HeVAL(he));
             srl_dump_hk(aTHX_ enc, he, do_share_keys);
-
-            if (!(he = hv_iternext(src)))
-                break;
         }
     }
     /* add on a tail element so that we can sanity check things during
      * deserialization */
-    srl_buf_cat_char_nocheck(aTHX_ enc, SRL_HDR_TAIL);
+    srl_buf_cat_char_nocheck(enc, SRL_HDR_TAIL);
 }
 
 

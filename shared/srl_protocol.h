@@ -142,7 +142,7 @@
 #define SRL_HDR_WEAKEN          ((char)0b00110010)
 #define SRL_HDR_REGEXP          ((char)0b00110011)
 
-#define SRL_HDR_LIST            ((char)0b00110100)
+#define SRL_HDR_TAIL            ((char)0b00110100)
 #define SRL_HDR_PAD             ((char)0b00110101)
 
  /* Note: Can do reserved check with a range now, but as we start using

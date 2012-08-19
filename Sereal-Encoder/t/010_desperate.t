@@ -33,15 +33,26 @@ my @basic_tests = (
   ["91a", chr(0b0100_0011) . "91a", "encode string '91a'"],
   [\1, chr(SRL_HDR_REF).chr(0b0000_0001), "scalar ref to int"],
   [[], chr(SRL_HDR_ARRAY).varint(0), "empty array ref"],
-  [[1,2,3], chr(SRL_HDR_ARRAY).varint(3).chr(0b0000_0001).chr(0b0000_0010).chr(0b0000_0011), "array ref"],
+  [[1,2,3], chr(SRL_HDR_ARRAY)
+           .varint(3)
+           .chr(0b0000_0001)
+           .chr(0b0000_0010)
+           .chr(0b0000_0011)
+           .chr(SRL_HDR_TAIL), "array ref"],
   [1000, chr(SRL_HDR_VARINT).varint(1000), "large int"],
   [ [1..1000],
     chr(SRL_HDR_ARRAY).varint(1000).join("", map chr, (1..SRL_POS_MAX_SIZE))
-                                   .join("", map chr(SRL_HDR_VARINT).varint($_), ((SRL_POS_MAX_SIZE+1) .. 1000)),
+                                   .join("", map chr(SRL_HDR_VARINT) . varint($_), ((SRL_POS_MAX_SIZE+1) .. 1000))
+                                   .chr(SRL_HDR_TAIL),
     "array ref with big ints"
   ],
-  [{}, chr(SRL_HDR_HASH).varint(0), "empty hash ref"],
-  [{foo => "baaaaar"}, chr(SRL_HDR_HASH).varint(1).chr(0b0100_0011)."foo".chr(0b0100_0111)."baaaaar", "simple hash ref"],
+  [{}, chr(SRL_HDR_HASH).varint(0).chr(SRL_HDR_TAIL), "empty hash ref"],
+  [{foo => "baaaaar"},
+       chr(SRL_HDR_HASH).varint(1)
+      .chr(0b0100_0111)."baaaaar"
+      .chr(0b0100_0011)."foo"
+      .chr(SRL_HDR_TAIL)
+      , "simple hash ref"],
 );
 
 run_tests("plain");
