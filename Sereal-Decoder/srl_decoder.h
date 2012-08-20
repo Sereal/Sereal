@@ -26,7 +26,7 @@ srl_decoder_t *build_decoder_struct(pTHX_ HV *opt, SV *src);
 int srl_read_header(pTHX_ srl_decoder_t *dec);
 
 /* Start deserializing a top-level SV */
-SV *srl_read_sv(pTHX_ srl_decoder_t *dec);
+SV *srl_read_single_value(pTHX_ srl_decoder_t *dec);
 
 #define BUF_POS(dec) ((dec)->pos)
 #define BUF_SPACE(dec) ((dec)->buf_end - (dec)->pos)

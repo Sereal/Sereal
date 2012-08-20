@@ -8,7 +8,7 @@
 #include "srl_protocol.h"
 
 /* declare some of the in-file functions to avoid ordering issues */
-static SV *srl_read_single_value(pTHX_ srl_decoder_t *dec);
+SV *srl_read_single_value(pTHX_ srl_decoder_t *dec);
 static HV *srl_read_hash(pTHX_ srl_decoder_t *dec);
 static AV *srl_read_array(pTHX_ srl_decoder_t *dec);
 static SV *srl_read_long_double(pTHX_ srl_decoder_t *dec);
@@ -283,7 +283,7 @@ static SV *srl_read_extend(pTHX_ srl_decoder_t *dec)
 }
 
 
-static SV *
+SV *
 srl_read_single_value(pTHX_ srl_decoder_t *dec)
 {
     STRLEN len;
