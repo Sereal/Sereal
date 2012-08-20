@@ -9,6 +9,29 @@
 
 #define SRL_SET_FBIT(ptr) (*ptr |= 0b10000000)
 
+/* declare some of the in-file functions to avoid ordering issues */
+static SV *srl_read_single_value(pTHX_ srl_decoder_t *dec);
+static AV *srl_read_hash(pTHX_ srl_decoder_t *dec);
+static AV *srl_read_array(pTHX_ srl_decoder_t *dec);
+static SV *srl_read_long_double(pTHX_ srl_decoder_t *dec);
+static SV *srl_read_double(pTHX_ srl_decoder_t *dec);
+static SV *srl_read_float(pTHX_ srl_decoder_t *dec);
+static SV *srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8);
+static SV *srl_read_varint(pTHX_ srl_decoder_t *dec);
+static SV *srl_read_zigzag(pTHX_ srl_decoder_t *dec);
+static UV srl_read_varint_uv(pTHX_ srl_decoder_t *dec);
+
+/* FIXME unimplemented!!! */
+static SV *srl_read_ref(pTHX_ srl_decoder_t *dec);
+static SV *srl_read_reuse(pTHX_ srl_decoder_t *dec);
+static SV *srl_read_bless(pTHX_ srl_decoder_t *dec);
+static SV *srl_read_blessv(pTHX_ srl_decoder_t *dec);
+static SV *srl_read_alias(pTHX_ srl_decoder_t *dec);
+static SV *srl_read_copy(pTHX_ srl_decoder_t *dec);
+static SV *srl_read_weaken(pTHX_ srl_decoder_t *dec);
+static SV *srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag);
+static SV *srl_read_regexp(pTHX_ srl_decoder_t *dec);
+
 /* This is fired when we exit the Perl pseudo-block.
  * It frees our decoder and all. Put decoder-level cleanup
  * logic here so that we can simply use croak/longjmp for
@@ -70,7 +93,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec)
     return 0;
 }
 
-uv
+static UV
 srl_read_varint_uv(pTHX_ srl_decoder_t *dec)
 {
     UV uv= 0;
@@ -85,21 +108,21 @@ srl_read_varint_uv(pTHX_ srl_decoder_t *dec)
     return uv;
 }
 
-SV *
+static SV *
 srl_read_varint(pTHX_ srl_decoder_t *dec)
 {
     return newSVuv(srl_read_varint_uv(dec));
 }
 
-SV *
+static SV *
 srl_read_zigzag(pTHX_ srl_decoder_t *dec)
 {
     UV uv= srl_read_varint_uv(dec);
     return uv & 1 ? newSViv((IV)-( 1 + (uv >> 1) )) : newSVuv(uv >> 1);
 }
 
-SV *
-srl_read_string(pTHX_ srl_decoder_t *dec, is_utf8)
+static SV *
+srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8)
 {
     UV len= srl_read_varint_uv(dec);
     SV *ret= newSVpvn_utf8(dec->pos,len,is_utf8);
@@ -107,7 +130,7 @@ srl_read_string(pTHX_ srl_decoder_t *dec, is_utf8)
     return ret;
 }
 
-SV *
+static SV *
 srl_read_float(pTHX_ srl_decoder_t *dec)
 {
     SV *ret= newSVnv((NV)*((float *)dec->pos));
@@ -115,7 +138,7 @@ srl_read_float(pTHX_ srl_decoder_t *dec)
     return ret;
 }
 
-SV *
+static SV *
 srl_read_double(pTHX_ srl_decoder_t *dec)
 {
     SV *ret= newSVnv((NV)*((double *)dec->pos));
@@ -123,7 +146,7 @@ srl_read_double(pTHX_ srl_decoder_t *dec)
     return ret;
 }
 
-SV *
+static SV *
 srl_read_long_double(pTHX_ srl_decoder_t *dec)
 {
     SV *ret= newSVnv((NV)*((long double *)dec->pos));
@@ -131,7 +154,7 @@ srl_read_long_double(pTHX_ srl_decoder_t *dec)
     return ret;
 }
 
-AV *
+static AV *
 srl_read_array(pTHX_ srl_decoder_t *dec) {
     UV len= srl_read_varint_uv(aTHX_ dec);
     AV *av= newAV();
@@ -153,7 +176,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec) {
     return av;
 }
 
-AV *
+static AV *
 srl_read_hash(pTHX_ srl_decoder_t *dec) {
     UV keys= srl_read_varint_uv(dec);
     HV *hv= newHV();
@@ -163,7 +186,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec) {
     for (idx = 0; idx <= len; len++) {
         STRLEN key_len;
         SV *key_sv;
-        SV *got_sv= srl_read_single_value(pTHX_ srl_decoder_t *dec);
+        SV *got_sv= srl_read_single_value(aTHX_ dec);
 
         ASSERT_BUF_SPACE(1);
       read_key:
@@ -208,7 +231,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec) {
 }
 
 
-SV *
+static SV *
 srl_read_single_value(pTHX_ srl_decoder_t *dec)
 {
     STRLEN len;
