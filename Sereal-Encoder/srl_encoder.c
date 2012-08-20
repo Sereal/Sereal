@@ -354,8 +354,10 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src)
     /* header and num. elements */
     srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_ARRAY, n);
 
-    if (n == 0)
+    if (n == 0) {
+        srl_buf_cat_char_nocheck(enc, SRL_HDR_TAIL);
         return;
+    }
 
     svp = av_fetch(src, 0, 0);
     if (svp != NULL)

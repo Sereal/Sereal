@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Sereal::Encoder qw(encode_sereal);
 use Sereal::Constants qw(:all);
+use Scalar::Util qw(weaken);
 
 use constant FBIT => 128;
 
@@ -10,6 +11,14 @@ use constant FBIT => 128;
 # for basic sanity testing during development.
 
 use Test::More;
+
+sub array {
+  chr(SRL_HDR_ARRAY) . varint(0+@_) . join("", @_) . chr(SRL_HDR_TAIL)
+}
+
+sub array_fbit {
+  chr(SRL_HDR_ARRAY+FBIT) . varint(0+@_) . join("", @_) . chr(SRL_HDR_TAIL)
+}
 
 sub varint {
   my $n = shift;
@@ -38,18 +47,14 @@ my @basic_tests = (
   ["1", chr(0b0100_0001) . "1", "encode string '1'"],
   ["91a", chr(0b0100_0011) . "91a", "encode string '91a'"],
   [\1, chr(SRL_HDR_REF).chr(0b0000_0001), "scalar ref to int"],
-  [[], chr(SRL_HDR_ARRAY).varint(0), "empty array ref"],
-  [[1,2,3], chr(SRL_HDR_ARRAY)
-           .varint(3)
-           .chr(0b0000_0001)
-           .chr(0b0000_0010)
-           .chr(0b0000_0011)
-           .chr(SRL_HDR_TAIL), "array ref"],
+  [[], array(), "empty array ref"],
+  [[1,2,3], array(chr(0b0000_0001), chr(0b0000_0010), chr(0b0000_0011)), "array ref"],
   [1000, chr(SRL_HDR_VARINT).varint(1000), "large int"],
   [ [1..1000],
-    chr(SRL_HDR_ARRAY).varint(1000).join("", map chr, (1..SRL_POS_MAX_SIZE))
-                                   .join("", map chr(SRL_HDR_VARINT) . varint($_), ((SRL_POS_MAX_SIZE+1) .. 1000))
-                                   .chr(SRL_HDR_TAIL),
+    array(
+      (map chr, (1..SRL_POS_MAX_SIZE)),
+      (map chr(SRL_HDR_VARINT) . varint($_), ((SRL_POS_MAX_SIZE+1) .. 1000))
+    ),
     "array ref with big ints"
   ],
   [{}, chr(SRL_HDR_HASH).varint(0).chr(SRL_HDR_TAIL), "empty hash ref"],
@@ -76,11 +81,7 @@ my @basic_tests = (
       my $content = chr(SRL_HDR_ARRAY)
                     .varint(2);
       my $pos = length($hdr) + length($content);
-      $content   .= chr(SRL_HDR_ARRAY + FBIT)
-                    .varint(2)
-                    .chr(0b0000_0101)
-                    .chr(0b0000_0110)
-                    .chr(SRL_HDR_TAIL)
+      $content   .= array_fbit(chr(0b0000_0101), chr(0b0000_0110))
                     .chr(SRL_HDR_REUSE)
                     .varint($pos)
                     .chr(SRL_HDR_TAIL);
@@ -92,17 +93,8 @@ my @basic_tests = (
                     .varint(2)
                     .chr(SRL_HDR_REF);
       my $pos = length($hdr) + length($content);
-      $content   .= chr(SRL_HDR_ARRAY + FBIT)
-                    .varint(2)
-                    .chr(0b0000_0101)
-                    .chr(0b0000_0110)
-                    .chr(SRL_HDR_TAIL)
-                    .chr(SRL_HDR_ARRAY)
-                    .varint(2)
-                    .chr(0b0000_0001)
-                    .chr(SRL_HDR_REUSE)
-                    .varint($pos)
-                    .chr(SRL_HDR_TAIL)
+      $content   .= array_fbit(chr(0b0000_0101), chr(0b0000_0110))
+                    .array(chr(0b0000_0001), chr(SRL_HDR_REUSE).varint($pos))
                     .chr(SRL_HDR_TAIL);
       $content
     }, "repeated substructure (REUSE): asymmetric"],
