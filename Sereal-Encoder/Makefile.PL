@@ -90,7 +90,9 @@ elsif (-d $in_source_repo) {
 
 our $OPTIMIZE;
 
-my $defines = join " ", map "-D$_", grep exists $ENV{$_}, qw(NOINLINE DEBUG MEMDEBUG NDEBUG);
+my $defines = join " ", map "-D$_", grep exists $ENV{$_},
+              qw(NOINLINE DEBUG MEMDEBUG NDEBUG ENABLE_DANGEROUS_HACKS);
+
 if ($Config{gccversion}) {
     $OPTIMIZE = '-O3 -Wall -W';
 } elsif ($Config{osname} eq 'MSWin32') {

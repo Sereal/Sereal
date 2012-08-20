@@ -16,10 +16,33 @@
 #   define INITIALIZATION_SIZE 16384
 #endif
 
+/* The ENABLE_DANGEROUS_HACKS (passed through from ENV via Makefile.PL) enables
+ * optimizations that may make the code so cozy with a particular version of the
+ * Perl core that the code is no longer portable and/or compatible.
+ * It would be great to determine where these hacks are safe and enable them
+ * where possible. Gut feeling as for portability is that most things will be
+ * ok on Unixes, but fail on the stricter Win32. As for compatibility with old
+ * versions of perl, all bets are off.
+ */
+#ifdef ENABLE_DANGEROUS_HACKS
+    /* It's unclear why DO_SHARED_HASH_ENTRY_REFCOUNT_CHECK doesn't
+     * help much. It basically means breaking perl's encapsulation to
+     * check whether a HE (hash entry) that is shared has a refcount > 1
+     * and only bothers inserting key into our ptr table if that's the
+     * case. Benchmarks don't show much of a difference and it's a high
+     * price to pay to break encapsulation for something that's not
+     * measureable.
+     */
+#   define DO_SHARED_HASH_ENTRY_REFCOUNT_CHECK 1
+#else
+#   define DO_SHARED_HASH_ENTRY_REFCOUNT_CHECK 0
+#endif
+
 #define MAX_DEPTH 10000
 
 /* define option bits in srl_encoder_t's flags member */
-/* example: #define F_UNDEF_BLESSED                 1UL */
+#define SRL_F_SHARED_HASHKEYS                1UL
+#define SRL_HAVE_OPTION(enc, flag_num) ((enc)->flags & flag_num)
 
 /* some static function declarations */
 static void srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src);
@@ -55,7 +78,7 @@ srl_encoder_t *
 build_encoder_struct(pTHX_ HV *opt)
 {
     srl_encoder_t *enc;
-    /* SV **svp; */
+    SV **svp;
 
     Newx(enc, 1, srl_encoder_t);
     /* Register our structure for destruction on scope exit */
@@ -73,9 +96,9 @@ build_encoder_struct(pTHX_ HV *opt)
 
     /* load options */
     if (opt != NULL) {
-        /* if ( (svp = hv_fetchs(opt, "undef_blessed", 0)) && SvTRUE(*svp))
-          enc->flags |= F_UNDEF_BLESSED;
-        */
+        /* SRL_F_SHARED_HASHKEYS on by default */
+        if ( !((svp = hv_fetchs(opt, "no_shared_hashkeys", 0)) && SvTRUE(*svp)) )
+          enc->flags |= SRL_F_SHARED_HASHKEYS;
     }
     DEBUG_ASSERT_BUF_SANE(enc);
 
@@ -387,22 +410,29 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
          * don't move in the shared key storage -- otherwise, we'd have to
          * compare strings / keep a full string hash table. */
         const char *keystr = HeKEY(src);
-        const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->str_seenhash, keystr);
-        if (oldoffset != 0) {
-            char *oldpos = enc->buf_start + oldoffset;
-            /* Issue COPY instead of literal hash key string */
-            srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)(enc->pos - oldpos));
+        if ( SRL_HAVE_OPTION(enc, SRL_F_SHARED_HASHKEYS) /* only enter branch if shared hk's enabled */
+             && (!DO_SHARED_HASH_ENTRY_REFCOUNT_CHECK
+                || src->he_valu.hent_refcount > 1) )
+        {
+            const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->str_seenhash, keystr);
+            if (oldoffset != 0) {
+                char *oldpos = enc->buf_start + oldoffset;
+                /* Issue COPY instead of literal hash key string */
+                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)(enc->pos - oldpos));
 
-            /* Now, make sure that the "this is referenced", F bit of the original
-             * string object in the output is set */
-            SRL_SET_FBIT(*oldpos);
+                /* Now, make sure that the "this is referenced", F bit of the original
+                 * string object in the output is set */
+                SRL_SET_FBIT(*oldpos);
+            }
+            else {
+                /* remember current offset before advancing it */
+                const ptrdiff_t offset = enc->pos - enc->buf_start;
+                PTABLE_store(enc->str_seenhash, (void *)keystr, (void *)offset);
+                srl_dump_pv(aTHX_ enc, keystr, HeKLEN(src), HeKUTF8(src));
+            }
         }
-        else {
-            /* remember current offset before advancing it */
-            const ptrdiff_t offset = enc->pos - enc->buf_start;
-            PTABLE_store(enc->str_seenhash, (void *)keystr, (void *)offset);
+        else
             srl_dump_pv(aTHX_ enc, keystr, HeKLEN(src), HeKUTF8(src));
-        }
     }
     else
         srl_dump_pv(aTHX_ enc, HeKEY(src), HeKLEN(src), HeKUTF8(src));

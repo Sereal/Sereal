@@ -44,14 +44,20 @@ my @basic_tests = (
   [{foo => "baaaaar"}, chr(SRL_HDR_HASH).varint(1).chr(0b0100_0011)."foo".chr(0b0100_0111)."baaaaar", "simple hash ref"],
 );
 
-foreach my $bt (@basic_tests) {
-  my ($in, $exp, $name) = @$bt;
-  $exp = "$hdr$exp";
-  my $out = encode_sereal($in);
-  ok(defined $out, "defined: $name");
-  #is(length($out), length($exp));
-  is($out, $exp, "correct: $name");
-}
-
+run_tests("plain");
+run_tests("no_shared_hk", {no_shared_hashkeys => 1});
 done_testing();
+
+
+sub run_tests {
+  my ($extra_name, $opt_hash) = @_;
+  foreach my $bt (@basic_tests) {
+    my ($in, $exp, $name) = @$bt;
+    $exp = "$hdr$exp";
+    my $out = encode_sereal($in, $opt_hash ? ($opt_hash) : ());
+    ok(defined $out, "($extra_name) defined: $name");
+    #is(length($out), length($exp));
+    is($out, $exp, "($extra_name) correct: $name");
+  }
+}
 
