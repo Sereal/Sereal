@@ -190,9 +190,9 @@ srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src)
     const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->str_seenhash, (SV *)stash);
 
     if (oldoffset != 0) {
-        char *oldpos = enc->buf_start + oldoffset;
+        char *oldpos = (char *)(enc->buf_start + oldoffset);
         /* Issue COPY instead of literal class name string */
-        srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)(enc->pos - oldpos));
+        srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)(enc->pos - enc->buf_start));
 
         /* Now, make sure that the "this is referenced", F bit of the original
          * string object in the output is set */
@@ -272,11 +272,13 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
 static void
 srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
 {
+    /* Warning: This function has a second return path:
+     *          It short-circuits for REUSE references. */
+
     svtype svt;
 
-    if (++enc->depth > MAX_DEPTH) {
+    if (++enc->depth > MAX_DEPTH)
         croak("Reached maximum recursion depth of %u. Aborting", MAX_DEPTH);
-    }
 
     SvGETMAGIC(src);
     svt = SvTYPE(src);
@@ -284,18 +286,27 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
     /* Have to check the seen hash if high refcount or a weak ref */
     if (SvREFCNT(src) > 1 || SvWEAKREF(src)) {
         /* FIXME is the actual sv location the right thing to use? */
-        PTABLE_ENTRY_t *entry = PTABLE_find(enc->ref_seenhash, src);
-        if (entry != NULL) {
-            croak("Encountered reference multiple times: '%s'",
-                  SvPV_nolen(sv_2mortal(newRV_inc(src))));
-            /* TODO implement REUSE here */
-        }
-        else
-            PTABLE_store(enc->ref_seenhash, src, NULL);
+        const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, src);
 
         /* output WEAKEN prefix before the actual item */
         if (SvWEAKREF(src))
             srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
+
+        if (oldoffset != 0) {
+            /* Issue REUSE instead of recursing down the structure again */
+            srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REUSE, (UV)oldoffset);
+
+            /* Now, make sure that the "this is referenced", F bit of the original
+             * reference object in the output is set */
+            SRL_SET_FBIT(*(enc->buf_start + oldoffset));
+
+            return;
+        }
+        else {
+            const ptrdiff_t offset = enc->pos - enc->buf_start;
+            PTABLE_store(enc->ref_seenhash, src, (void *)offset);
+            /* fall through */
+        }
     }
 
     if (SvOBJECT(src)) {
@@ -385,6 +396,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src)
             srl_dump_hk(aTHX_ enc, he, do_share_keys);
         }
     }
+
     /* add on a tail element so that we can sanity check things during
      * deserialization */
     srl_buf_cat_char_nocheck(enc, SRL_HDR_TAIL);
@@ -416,15 +428,15 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
              && (!DO_SHARED_HASH_ENTRY_REFCOUNT_CHECK
                 || src->he_valu.hent_refcount > 1) )
         {
-            ptrdiff_t offset = (ptrdiff_t)PTABLE_fetch(enc->str_seenhash, keystr);
-            if (offset != 0) {
+            const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->str_seenhash, keystr);
+            if (oldoffset != 0) {
                 /* Issue COPY instead of literal hash key string */
-                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)offset);
+                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)oldoffset);
             }
             else {
                 /* remember current offset before advancing it */
-                ptrdiff_t offset = enc->pos - enc->buf_start;
-                PTABLE_store(enc->str_seenhash, (void *)keystr, (void *)offset);
+                const ptrdiff_t newoffset = enc->pos - enc->buf_start;
+                PTABLE_store(enc->str_seenhash, (void *)keystr, (void *)newoffset);
                 srl_dump_pv(aTHX_ enc, keystr, HeKLEN(src), HeKUTF8(src));
             }
         }

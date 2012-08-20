@@ -4,6 +4,8 @@ use warnings;
 use Sereal::Encoder qw(encode_sereal);
 use Sereal::Constants qw(:all);
 
+use constant FBIT => 128;
+
 # These tests are extraordinarily basic, badly-done and really just
 # for basic sanity testing during development.
 
@@ -21,6 +23,10 @@ sub varint {
 }
 
 my $hdr = SRL_MAGIC_STRING . chr(SRL_PROTOCOL_VERSION) . chr(0);
+
+
+my $ary_ref_for_repeating = [5,6];
+my $scalar_ref_for_repeating = \9;
 
 my @basic_tests = (
   # warning: this hardcodes the POS/NEG headers
@@ -53,6 +59,33 @@ my @basic_tests = (
       .chr(0b0100_0011)."foo"
       .chr(SRL_HDR_TAIL)
       , "simple hash ref"],
+  [$scalar_ref_for_repeating, chr(SRL_HDR_REF).chr(0b0000_1001), "scalar ref to constant"],
+  [[$scalar_ref_for_repeating, $scalar_ref_for_repeating],
+    do {
+      my $content = chr(SRL_HDR_ARRAY)
+                    .varint(2);
+      my $pos = length($hdr) + length($content);
+      $content   .= chr(SRL_HDR_REF + FBIT).chr(0b0000_1001)
+                    .chr(SRL_HDR_REUSE)
+                    .varint($pos)
+                    .chr(SRL_HDR_TAIL);
+      $content
+    }, "repeated substructure (REUSE): scalar ref"],
+  [[$ary_ref_for_repeating, $ary_ref_for_repeating],
+    do {
+      my $content = chr(SRL_HDR_ARRAY)
+                    .varint(2);
+      my $pos = length($hdr) + length($content);
+      $content   .= chr(SRL_HDR_ARRAY + FBIT)
+                    .varint(2)
+                    .chr(0b0000_0101)
+                    .chr(0b0000_0110)
+                    .chr(SRL_HDR_TAIL)
+                    .chr(SRL_HDR_REUSE)
+                    .varint($pos)
+                    .chr(SRL_HDR_TAIL);
+      $content
+    }, "repeated substructure (REUSE): array"],
 );
 
 run_tests("plain");
