@@ -319,7 +319,6 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
     refcount = SvREFCNT(src);
     PULL_WEAK_REFCOUNT(refcount, value_is_weak_referent, src);
 
-    printf("Before: src=%p rv=%p refcnt=%i weakened=%i\n", src, rv, SvREFCNT(src), SvWEAKREF(rv));
     /* Have to check the seen hash if high refcount or a weak ref */
     if (refcount > 1) {
         /* FIXME is the actual sv location the right thing to use? */
@@ -356,7 +355,6 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
         }
     }
 
-    printf("After:  src=%p rv=%p refcnt=%i weakened=%i\n", src, rv, SvREFCNT(src), SvWEAKREF(rv));
     if (SvOBJECT(src)) {
         /* Write bless operator with class name */
         srl_dump_bless(aTHX_ enc, src);
