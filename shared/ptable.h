@@ -277,6 +277,7 @@ PTABLE_iter_new(PTABLE_t *tbl)
         return iter;
     }
     PTABLE_ITER_NEXT_ELEM(iter, tbl);
+    return iter;
 }
 
 /* Return next item from hash, NULL if at end */
