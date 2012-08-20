@@ -6,9 +6,6 @@
 
 #include "ptable.h"
 #include "srl_protocol.h"
-#include "srl_buffer.h"
-
-#define SRL_SET_FBIT(ptr) (*ptr |= 0b10000000)
 
 /* declare some of the in-file functions to avoid ordering issues */
 static SV *srl_read_single_value(pTHX_ srl_decoder_t *dec);
@@ -101,14 +98,14 @@ static UV
 srl_read_varint_uv(pTHX_ srl_decoder_t *dec)
 {
     UV uv= 0;
-    int shift= 0;
+    int lshift= 0;
 
     while (BUF_NOT_DONE(dec) && *dec->pos & 0x80) {
-        uv += (*pos->dec++ & 0x7F) << shift;
-        shift += 7;
+        uv += (*dec->pos++ & 0x7F) << lshift;
+        lshift += 7;
     }
-    if (BUF_NOT_DONE) {
-        uv+= (*pos->dec++) << shift;
+    if (BUF_NOT_DONE(dec)) {
+        uv+= (*dec->pos++) << lshift;
     } else {
         ERROR("varint terminated prematurely");
     }
@@ -132,7 +129,7 @@ static SV *
 srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8)
 {
     UV len= srl_read_varint_uv(aTHX_ dec);
-    SV *ret= newSVpvn_utf8(dec->pos,len,is_utf8);
+    SV *ret= newSVpvn_utf8((char *)dec->pos,len,is_utf8);
     dec->pos+= len;
     return ret;
 }
@@ -174,7 +171,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec) {
         SV *got= srl_read_single_value(aTHX_ dec);
         av_push(av, got);
     }
-    ASSERT_BUF_SPACE(1);
+    ASSERT_BUF_SPACE(dec,1);
     if (*dec->pos == SRL_HDR_TAIL) {
         dec->pos++;
     } else {
@@ -185,30 +182,30 @@ srl_read_array(pTHX_ srl_decoder_t *dec) {
 
 static HV *
 srl_read_hash(pTHX_ srl_decoder_t *dec) {
-    UV keys= srl_read_varint_uv(aTHX_ dec);
+    IV num_keys= srl_read_varint_uv(aTHX_ dec);
     HV *hv= newHV();
-    hv_ksplit(hv, len+1); /* make sure we have enough room */
+    hv_ksplit(hv, num_keys); /* make sure we have enough room */
     /* NOTE: contents of hash are stored VALUE/KEY, reverse from normal perl
      * storage, this is because it simplifies the hash storage logic somewhat */
-    for (idx = 0; idx <= len; len++) {
+    for (; num_keys > 0 ; num_keys--) {
         STRLEN key_len;
         SV *key_sv;
         SV *got_sv= srl_read_single_value(aTHX_ dec);
 
-        ASSERT_BUF_SPACE(1);
+        ASSERT_BUF_SPACE(dec,1);
       read_key:
         if (*dec->pos == SRL_HDR_STRING_UTF8) {
             key_len= srl_read_varint_uv(aTHX_ dec);
             key_sv= newSVpvn_flags((char*)dec->pos,key_len,1);
             if (!hv_store_ent(hv,key_sv,got_sv,0)) {
                 SvREFCNT_dec(key_sv); /* throw away the key */
-                ERROR_PANIC(dec);
+                ERROR_PANIC(dec,"failed to hv_store_ent");
             } else {
                 SvREFCNT_dec(key_sv);
             }
         } else {
             if (*dec->pos & SRL_HDR_ASCII) {
-                key_len= (dec->pos++) & SRL_HDR_ASCII_LEN_MASK;
+                key_len= (*dec->pos++) & SRL_HDR_ASCII_LEN_MASK;
             } else if (*dec->pos == SRL_HDR_STRING) {
                 key_len= srl_read_varint_uv(aTHX_ dec);
             } else if (*dec->pos == SRL_HDR_COPY) {
@@ -221,10 +218,10 @@ srl_read_hash(pTHX_ srl_decoder_t *dec) {
                     goto read_key;
                 }
             } else {
-                ERROR_UNEXPECTED(dec);
+                ERROR_UNEXPECTED(dec,"a stringish type");
             }
             if (!hv_store(hv,(char *)dec->pos,key_len,got_sv,0)) {
-                ERROR_PANIC(dec);
+                ERROR_PANIC(dec,"failed to hv_store");
             }
         }
         if (dec->save_pos) {
@@ -234,7 +231,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec) {
             dec->pos += key_len;
         }
     }
-    ASSERT_BUF_SPACE(1);
+    ASSERT_BUF_SPACE(dec,1);
     if (*dec->pos == SRL_HDR_TAIL) {
         dec->pos++;
     } else {
@@ -243,51 +240,46 @@ srl_read_hash(pTHX_ srl_decoder_t *dec) {
     return hv;
 }
 
-#define ERROR_UNIMPLEMENTED() STMT_START {      \
-    croak("unimplemented");                     \
-    return NULL;                                \
-} STMT_END 
-
 /* FIXME unimplemented!!! */
 static SV *srl_read_ref(pTHX_ srl_decoder_t *dec)
 {
-    ERROR_UNIMPLEMENTED();
+    ERROR_UNIMPLEMENTED(dec,SRL_HDR_REF);
 }
 static SV *srl_read_reuse(pTHX_ srl_decoder_t *dec)
 {
-    ERROR_UNIMPLEMENTED();
+    ERROR_UNIMPLEMENTED(dec,SRL_HDR_REUSE);
 }
 static SV *srl_read_bless(pTHX_ srl_decoder_t *dec)
 {
-    ERROR_UNIMPLEMENTED();
+    ERROR_UNIMPLEMENTED(dec,SRL_HDR_BLESS);
 }
 static SV *srl_read_blessv(pTHX_ srl_decoder_t *dec)
 {
-    ERROR_UNIMPLEMENTED();
+    ERROR_UNIMPLEMENTED(dec,SRL_HDR_BLESSV);
 }
 static SV *srl_read_alias(pTHX_ srl_decoder_t *dec)
 {
-    ERROR_UNIMPLEMENTED();
+    ERROR_UNIMPLEMENTED(dec,SRL_HDR_ALIAS);
 }
 static SV *srl_read_copy(pTHX_ srl_decoder_t *dec)
 {
-    ERROR_UNIMPLEMENTED();
+    ERROR_UNIMPLEMENTED(dec,SRL_HDR_COPY);
 }
 static SV *srl_read_weaken(pTHX_ srl_decoder_t *dec)
 {
-    ERROR_UNIMPLEMENTED();
+    ERROR_UNIMPLEMENTED(dec,SRL_HDR_WEAKEN);
 }
 static SV *srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag)
 {
-    ERROR_UNIMPLEMENTED();
+    ERROR_UNIMPLEMENTED(dec,tag);
 }
 static SV *srl_read_regexp(pTHX_ srl_decoder_t *dec)
 {
-    ERROR_UNIMPLEMENTED();
+    ERROR_UNIMPLEMENTED(dec,SRL_HDR_REGEXP);
 }
 static SV *srl_read_extend(pTHX_ srl_decoder_t *dec)
 {
-    ERROR_UNIMPLEMENTED();
+    ERROR_UNIMPLEMENTED(dec,SRL_HDR_EXTEND);
 }
 
 
@@ -309,7 +301,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec)
             ret= newSViv( -tag + 15);
         } else if (tag & SRL_HDR_ASCII) {
             len= (STRLEN)(tag & SRL_HDR_ASCII_LEN_MASK);
-            BUF_READ_ASSERT(len);
+            ASSERT_BUF_SPACE(dec,len);
             ret= newSVpvn((char*)dec->pos,len);
             dec->pos += len;
         }
@@ -342,7 +334,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec)
                 case SRL_HDR_REGEXP:        ret= srl_read_regexp(aTHX_ dec);        break;
 
                 case SRL_HDR_TAIL:          ERROR_UNEXPECTED(dec,tag);              break;
-                case SRL_HDR_PAD:           NO_OP(dec,tag);                         break;
+                case SRL_HDR_PAD:           /* no op */                             break;
 
                 default:
                     if (SRL_HDR_RESERVED_LOW <= tag && tag <= SRL_HDR_RESERVED_HIGH) {

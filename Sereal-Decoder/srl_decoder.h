@@ -28,16 +28,28 @@ int srl_read_header(pTHX_ srl_decoder_t *dec);
 /* Start deserializing a top-level SV */
 SV *srl_read_sv(pTHX_ srl_decoder_t *dec);
 
-#define BUF_POS(enc) ((enc)->pos)
-#define BUF_SPACE(enc) ((enc)->buf_end - (enc)->pos)
-#define BUF_POS_OFS(enc) ((enc)->pos - (enc)->buf_start)
-#define BUF_SIZE(enc) ((enc)->buf_end - (enc)->buf_start)
-#define BUF_NOT_DONE(enc) ((enc)->pos < (enc)->buf_end)
+#define BUF_POS(dec) ((dec)->pos)
+#define BUF_SPACE(dec) ((dec)->buf_end - (dec)->pos)
+#define BUF_POS_OFS(dec) ((dec)->pos - (dec)->buf_start)
+#define BUF_SIZE(dec) ((dec)->buf_end - (dec)->buf_start)
+#define BUF_NOT_DONE(dec) ((dec)->pos < (dec)->buf_end)
 
-#define ASSERT_BUF_SPACE(enc,len) STMT_START {      \
-    if ((UV)BUF_SPACE((enc)) < (UV)(len)) {                   \
+#define ERROR(msg) croak("Error: %s", msg)
+#define ERROR_UNIMPLEMENTED(dec,tag) STMT_START {      \
+    croak("Error: tag %c is uimplemented at ofs: %d", tag, BUF_POS_OFS(dec)); \
+    return NULL;                                \
+} STMT_END 
+#define ERROR_UNTERMINATED(dec, tag) croak("Error: tag %c was not terminated properly", tag)
+#define ERROR_BAD_COPY(dec, tag) croak("Error: while processing tag %c encountered a bad COPY tag", tag)
+#define ERROR_UNEXPECTED(dec, msg) croak("Error: unexpected tag %c while expecting %s", *(dec)->pos, msg)
+#define ERROR_PANIC(dec, msg) croak("Panic: %s", msg);
+
+#define ASSERT_BUF_SPACE(dec,len) STMT_START {      \
+    if ((UV)BUF_SPACE((dec)) < (UV)(len)) {                   \
         croak("Unexpected termination of packet");  \
     }                                               \
 } STMT_END
+
+
 
 #endif
