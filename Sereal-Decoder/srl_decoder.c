@@ -113,20 +113,20 @@ srl_read_varint_uv(pTHX_ srl_decoder_t *dec)
 static SV *
 srl_read_varint(pTHX_ srl_decoder_t *dec)
 {
-    return newSVuv(srl_read_varint_uv(dec));
+    return newSVuv(srl_read_varint_uv(aTHX_ dec));
 }
 
 static SV *
 srl_read_zigzag(pTHX_ srl_decoder_t *dec)
 {
-    UV uv= srl_read_varint_uv(dec);
+    UV uv= srl_read_varint_uv(aTHX_ dec);
     return uv & 1 ? newSViv((IV)-( 1 + (uv >> 1) )) : newSVuv(uv >> 1);
 }
 
 static SV *
 srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8)
 {
-    UV len= srl_read_varint_uv(dec);
+    UV len= srl_read_varint_uv(aTHX_ dec);
     SV *ret= newSVpvn_utf8(dec->pos,len,is_utf8);
     dec->pos+= len;
     return ret;
@@ -163,7 +163,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec) {
     UV idx;
     av_extend(av, len+1);
     for (idx = 0; idx <= len; len++) {
-        if (*dec->pos = SRL_HDR_LIST) {
+        if ( (*dec->pos = SRL_HDR_LIST) ) {
             ERROR_UNIMPLEMENTED(dec, SRL_HDR_LIST);
         }
         SV *got= srl_read_single_value(aTHX_ dec);
@@ -180,7 +180,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec) {
 
 static HV *
 srl_read_hash(pTHX_ srl_decoder_t *dec) {
-    UV keys= srl_read_varint_uv(dec);
+    UV keys= srl_read_varint_uv(aTHX_ dec);
     HV *hv= newHV();
     hv_ksplit(hv, len+1); /* make sure we have enough room */
     /* NOTE: contents of hash are stored VALUE/KEY, reverse from normal perl
