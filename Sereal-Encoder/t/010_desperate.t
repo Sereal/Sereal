@@ -98,6 +98,26 @@ my @basic_tests = (
                     .chr(SRL_HDR_TAIL);
       $content
     }, "repeated substructure (REUSE): asymmetric"],
+  [
+    do {
+      my $x;
+      $x = [\$x, 1];
+      weaken($x->[0]);
+      $x
+    },
+    do {
+      my $content = chr(SRL_HDR_ARRAY + FBIT)
+                    .varint(2)
+                    .chr(SRL_HDR_WEAKEN)
+                    .chr(SRL_HDR_REF)
+                    .chr(SRL_HDR_REUSE)
+                    .varint(length($hdr))
+                    .chr(0b0000_0001)
+                    .chr(SRL_HDR_TAIL);
+      $content
+    },
+    "weaken"
+  ],
 );
 
 run_tests("plain");
