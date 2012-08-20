@@ -416,19 +416,14 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
              && (!DO_SHARED_HASH_ENTRY_REFCOUNT_CHECK
                 || src->he_valu.hent_refcount > 1) )
         {
-            const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->str_seenhash, keystr);
-            if (oldoffset != 0) {
-                char *oldpos = enc->buf_start + oldoffset;
+            ptrdiff_t offset = (ptrdiff_t)PTABLE_fetch(enc->str_seenhash, keystr);
+            if (offset != 0) {
                 /* Issue COPY instead of literal hash key string */
-                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)(enc->pos - oldpos));
-
-                /* Now, make sure that the "this is referenced", F bit of the original
-                 * string object in the output is set */
-                SRL_SET_FBIT(*oldpos);
+                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)offset);
             }
             else {
                 /* remember current offset before advancing it */
-                const ptrdiff_t offset = enc->pos - enc->buf_start;
+                ptrdiff_t offset = enc->pos - enc->buf_start;
                 PTABLE_store(enc->str_seenhash, (void *)keystr, (void *)offset);
                 srl_dump_pv(aTHX_ enc, keystr, HeKLEN(src), HeKUTF8(src));
             }
