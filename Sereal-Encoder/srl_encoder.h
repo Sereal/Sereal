@@ -13,6 +13,7 @@ typedef struct {
     U32 flags;               /* flag-like options: See F_* defines in srl_encoder.c */
     unsigned int depth;      /* current Perl-ref recursion depth */
     ptable_ptr ref_seenhash; /* ptr table for avoiding circular refs */
+    ptable_ptr weak_seenhash; /* ptr table for avoiding dangling weakrefs */
     ptable_ptr str_seenhash; /* ptr table for issuing COPY commands */
 } srl_encoder_t;
 
@@ -22,6 +23,6 @@ srl_encoder_t *build_encoder_struct(pTHX_ HV *opt);
 /* Write Sereal packet header to output buffer */
 void srl_write_header(pTHX_ srl_encoder_t *enc);
 /* Start dumping a top-level SV */
-void srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src);
+void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
 
 #endif

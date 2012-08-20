@@ -45,16 +45,33 @@
 #define SRL_HAVE_OPTION(enc, flag_num) ((enc)->flags & flag_num)
 
 /* some static function declarations */
-static void srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src);
-static void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src);
-static void srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src);
+static void srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src);
 static void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8);
+static SRL_INLINE void srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv);
+static SRL_INLINE void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src);
+static SRL_INLINE void srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src);
 static SRL_INLINE void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys);
 static SRL_INLINE void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
 static SRL_INLINE void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
 static SRL_INLINE void srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src);
 
 #define SRL_SET_FBIT(where) (where |= 0b10000000)
+
+#define PULL_WEAK_REFCOUNT(refcnt, is_weak, sv)             \
+    STMT_START {                                            \
+        MAGIC *mg = NULL;                                   \
+        if( SvMAGICAL(sv)                                   \
+            && (mg = mg_find(sv, PERL_MAGIC_backref) ) )    \
+        {                                                   \
+            is_weak = 1;                                    \
+            SV **svp = (SV**)mg->mg_obj;                    \
+            if (svp && *svp) {                              \
+                (refcnt) += SvTYPE(*svp) == SVt_PVAV        \
+                          ? av_len((AV*)*svp)+1             \
+                          : 1;                              \
+                }                                           \
+        }                                                   \
+    } STMT_END
 
 /* This is fired when we exit the Perl pseudo-block.
  * It frees our encoder and all. Put encoder-level cleanup
@@ -69,6 +86,7 @@ void srl_destructor_hook(void *p)
     Safefree(enc->buf_start);
     PTABLE_free(enc->ref_seenhash);
     PTABLE_free(enc->str_seenhash);
+    PTABLE_free(enc->weak_seenhash);
     Safefree(enc);
 }
 
@@ -91,8 +109,13 @@ build_encoder_struct(pTHX_ HV *opt)
     enc->depth = 0;
     enc->flags = 0;
 
-    enc->ref_seenhash = PTABLE_new();
-    enc->str_seenhash = PTABLE_new();
+    /* prealloc'ing large ref and str tables saves reallocs at the
+     * expense of a larger malloc. prealloc'ing a large weak ref table
+     * costs O(n) at the end of the serialization since we need to check
+     * all buckets for weakrefs. */
+    enc->ref_seenhash = PTABLE_new_size(8); /* size in powers of 2 */
+    enc->str_seenhash = PTABLE_new_size(8);
+    enc->weak_seenhash = PTABLE_new_size(3);
 
     /* load options */
     if (opt != NULL) {
@@ -227,9 +250,18 @@ srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src)
 }
 
 
-/* Entry point for serialization AFTER header. Dumps generic SVs and delegates
- * to more specialized functions for RVs, etc. */
 void
+srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
+{
+    srl_write_header(aTHX_ enc);
+    srl_dump_sv(aTHX_ enc, src);
+    /* FIXME weak-ref hash traversal and fixup missing here! */
+}
+
+
+/* Dumps generic SVs and delegates
+ * to more specialized functions for RVs, etc. */
+static void
 srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
 {
     SvGETMAGIC(src);
@@ -259,7 +291,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
         srl_buf_cat_char(enc, SRL_HDR_UNDEF);
     /* dump references */
     else if (SvROK(src))
-        srl_dump_rv(aTHX_ enc, SvRV(src));
+        srl_dump_rv(aTHX_ enc, src);
     else {
         croak("Attempting to dump unsupported or invalid SV");
     }
@@ -269,28 +301,43 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
 
 /* Dump references, delegates to more specialized functions for
  * arrays, hashes, etc. */
-static void
-srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
+static SRL_INLINE void
+srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
 {
     /* Warning: This function has a second return path:
      *          It short-circuits for REUSE references. */
-
+    unsigned int refcount;
+    U8 value_is_weak_referent = 0;
     svtype svt;
+    SV *src = SvRV(rv);
 
     if (++enc->depth > MAX_DEPTH)
         croak("Reached maximum recursion depth of %u. Aborting", MAX_DEPTH);
 
     SvGETMAGIC(src);
     svt = SvTYPE(src);
+    refcount = SvREFCNT(src);
+    PULL_WEAK_REFCOUNT(refcount, value_is_weak_referent, src);
 
+    printf("Before: src=%p rv=%p refcnt=%i weakened=%i\n", src, rv, SvREFCNT(src), SvWEAKREF(rv));
     /* Have to check the seen hash if high refcount or a weak ref */
-    if (SvREFCNT(src) > 1 || SvWEAKREF(src)) {
+    if (refcount > 1) {
         /* FIXME is the actual sv location the right thing to use? */
         const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, src);
 
-        /* output WEAKEN prefix before the actual item */
-        if (SvWEAKREF(src))
-            srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
+        if (value_is_weak_referent) {
+            /* output WEAKEN prefix before the actual item if the current
+             * referrer is one of the weakrefs */
+            if (SvWEAKREF(rv))
+                srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
+
+            /* set or increment this weakref's refcount */
+            PTABLE_ENTRY_t *pe;
+            if ( (pe = PTABLE_fetch(enc->weak_seenhash, src)) == NULL)
+                PTABLE_store(enc->weak_seenhash, src, (void *)1UL);
+            else
+                pe->value = (void *)((unsigned long)pe->value + 1UL);
+        }
 
         if (oldoffset != 0) {
             /* Issue REUSE instead of recursing down the structure again */
@@ -303,12 +350,13 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
             return;
         }
         else {
-            const ptrdiff_t offset = enc->pos - enc->buf_start;
-            PTABLE_store(enc->ref_seenhash, src, (void *)offset);
+            const ptrdiff_t newoffset = enc->pos - enc->buf_start;
+            PTABLE_store(enc->ref_seenhash, src, (void *)newoffset);
             /* fall through */
         }
     }
 
+    printf("After:  src=%p rv=%p refcnt=%i weakened=%i\n", src, rv, SvREFCNT(src), SvWEAKREF(rv));
     if (SvOBJECT(src)) {
         /* Write bless operator with class name */
         srl_dump_bless(aTHX_ enc, src);
@@ -328,6 +376,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
         croak("found %s, but it is not representable by Data::Dumper::Limited serialization",
                SvPV_nolen(sv_2mortal(newRV_inc(src))));
     }
+    /* TODO support for regexps */
 
     /* If we DO allow multiple occurrence of the same ref (default), then
      * we need to drop its seenhash entry as soon as it cannot be a cyclic
@@ -340,7 +389,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *src)
 }
 
 
-static void
+static SRL_INLINE void
 srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src)
 {
     UV i, n;
@@ -378,7 +427,7 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src)
 }
 
 
-static void
+static SRL_INLINE void
 srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src)
 {
     HE *he;
