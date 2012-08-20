@@ -122,6 +122,7 @@ WriteMakefile1(
     BUILD_REQUIRES => {
         'Test::More' => 0.88,
         #'ExtUtils::Constant' => '0.23',
+        'Scalar::Util' => 0,
     },
     NAME              => 'Sereal::Encoder',
     VERSION_FROM      => 'lib/Sereal/Encoder.pm', # finds $VERSION
