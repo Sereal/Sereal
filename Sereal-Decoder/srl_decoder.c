@@ -6,6 +6,7 @@
 
 #include "ptable.h"
 #include "srl_protocol.h"
+#include "srl_buffer.h"
 
 #define SRL_SET_FBIT(ptr) (*ptr |= 0b10000000)
 
@@ -45,7 +46,7 @@ void srl_decoder_destructor_hook(void *p)
      * assigned NULL to buf_start after we're done. */
     PTABLE_free(dec->ref_seenhash);
     PTABLE_free(dec->str_seenhash);
-    Safefree(dec->val_stack);
+
     Safefree(dec);
 }
 
@@ -59,8 +60,7 @@ build_decoder_struct(pTHX_ HV *opt, SV *src)
     /* SV **svp; */
 
     Newx(dec, 1, srl_decoder_t);
-    dec->val_stack_size= 1000;
-    Newx(dec->val_stack, dec->val_stack_size, SV *);
+
     /* Register our structure for destruction on scope exit */
     SAVEDESTRUCTOR(&srl_decoder_destructor_hook, (void *)dec);
     dec->depth = 0;
@@ -86,12 +86,14 @@ build_decoder_struct(pTHX_ HV *opt, SV *src)
 int
 srl_read_header(pTHX_ srl_decoder_t *dec)
 {
-    /* TODO implement */
-    /* works for now: 3 byte magic string + proto version + 1 byte varint that indicates zero-length header 
-    DEBUG_ASSERT_BUF_SANE(dec);
-    srl_buf_cat_str_s(dec, SRL_MAGIC_STRING "\x01");
-    srl_buf_cat_char(dec, '\0');
-    */
+    /* works for now: 3 byte magic string + proto version + 1 byte varint that indicates zero-length header */
+    ASSERT_BUF_SPACE(dec, sizeof(SRL_MAGIC_STRING "\x01") ); /* sizeof returns the size for the 0, so we dont need to add 1 for the varint */
+    if (strEQ((char*)dec->pos, SRL_MAGIC_STRING "\x01")) {
+        dec->pos += sizeof(SRL_MAGIC_STRING "\x01") - 1;
+        dec->pos += srl_read_varint_uv(aTHX_ dec);
+    } else {
+        ERROR("bad header");
+    }
     return 0;
 }
 
@@ -99,11 +101,14 @@ static UV
 srl_read_varint_uv(pTHX_ srl_decoder_t *dec)
 {
     UV uv= 0;
-    while (BUF_NOT_DONE(dec) && *pos->dec & 0x80) {
-        uv+= *pos->dec++ & 0x7F;
+    int shift= 0;
+
+    while (BUF_NOT_DONE(dec) && *dec->pos & 0x80) {
+        uv += (*pos->dec++ & 0x7F) << shift;
+        shift += 7;
     }
     if (BUF_NOT_DONE) {
-        uv+= *pos->dec++;
+        uv+= (*pos->dec++) << shift;
     } else {
         ERROR("varint terminated prematurely");
     }

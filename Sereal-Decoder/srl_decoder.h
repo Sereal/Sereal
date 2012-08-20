@@ -1,10 +1,9 @@
-#ifndef DDL_ENC_H_
-#define DDL_ENC_H_
+#ifndef SRL_DECODER_H_
+#define SRL_DECODER_H_
 
 #include "EXTERN.h"
 #include "perl.h"
-
-
+#include "assert.h"
 
 typedef struct PTABLE * ptable_ptr;
 typedef struct {
@@ -28,5 +27,17 @@ int srl_read_header(pTHX_ srl_decoder_t *dec);
 
 /* Start deserializing a top-level SV */
 SV *srl_read_sv(pTHX_ srl_decoder_t *dec);
+
+#define BUF_POS(enc) ((enc)->pos)
+#define BUF_SPACE(enc) ((enc)->buf_end - (enc)->pos)
+#define BUF_POS_OFS(enc) ((enc)->pos - (enc)->buf_start)
+#define BUF_SIZE(enc) ((enc)->buf_end - (enc)->buf_start)
+#define BUF_NOT_DONE(enc) ((enc)->pos < (enc)->buf_end)
+
+#define ASSERT_BUF_SPACE(enc,len) STMT_START {      \
+    if ((UV)BUF_SPACE((enc)) < (UV)(len)) {                   \
+        croak("Unexpected termination of packet");  \
+    }                                               \
+} STMT_END
 
 #endif
