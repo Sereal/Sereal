@@ -230,6 +230,11 @@ srl_read_hash(pTHX_ srl_decoder_t *dec) {
     return hv;
 }
 
+#define ERROR_UNIMPLEMENTED() STMT_START {      \
+    croak("unimplemented");                     \
+    return NULL;                                \
+} STMT_END 
+
 /* FIXME unimplemented!!! */
 static SV *srl_read_ref(pTHX_ srl_decoder_t *dec)
 {
@@ -277,16 +282,16 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec)
 
     while (BUF_NOT_DONE(dec) && ret == NULL) {
         U8 tag= *dec->pos++;
-        U8 track= tag & SRL_TRACK_FLAG;
+        U8 track= tag & SRL_HDR_TRACK_FLAG;
         if (track)
-            tag= tag & ~SRL_TRACK_FLAG;
+            tag= tag & ~SRL_HDR_TRACK_FLAG;
 
         if ( tag <= SRL_HDR_POS_HIGH ) {
             ret= newSVuv(tag);
         } else if ( tag <= SRL_HDR_NEG_LOW) {
             ret= newSViv( -tag + 15);
         } else if (tag & SRL_HDR_ASCII) {
-            len= (STRLEN)(tag & SRL_HDR_ASCI_LEN_MASK);
+            len= (STRLEN)(tag & SRL_HDR_ASCII_LEN_MASK);
             BUF_READ_ASSERT(len);
             ret= newSVpvn(dec->pos,len);
             dec->pos += len;
