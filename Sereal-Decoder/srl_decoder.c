@@ -166,6 +166,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec) {
         SV *got_sv= srl_read_single_value(pTHX_ srl_decoder_t *dec);
 
         ASSERT_BUF_SPACE(1);
+      read_key:
         if (*dec->pos == SRL_HDR_STRING_UTF8) {
             key_len= srl_read_varint_uv(dec);
             key_sv= newSVpvn(dec->pos,key_len,1);
@@ -177,11 +178,25 @@ srl_read_hash(pTHX_ srl_decoder_t *dec) {
             } else if (*dec->pos == SRL_HDR_STRING) {
                 key_len= srl_read_varint_uv(dec);
             } else if (*dec->pos == SRL_HDR_COPY) {
-                ERROR_UNIMPLEMENTED(dec, *dec->pos);
+                UV ofs= srl_read_varint_uv(dec);
+                if (dec->save_pos) {
+                    ERROR_BAD_COPY(dec, SRL_HDR_HASH, save_pos);
+                } else {
+                    dec->save_pos= dec->pos;
+                    dec->pos= dec->buf_start + ofs;
+                    goto read_key;
+                }
+            } else {
+                ERROR_UNEXPECTED(dec);
             }
             hv_store(hv,dec->pos,key_len,got_val,0);
         }
-        dec->pos += key_len;
+        if (dec->save_pos) {
+            dec->pos= save_sv;
+            dec->save_sv= NULL;
+        } else {
+            dec->pos += key_len;
+        }
     }
     ASSERT_BUF_SPACE(1);
     if (*dec->pos == SRL_HDR_TAIL) {
