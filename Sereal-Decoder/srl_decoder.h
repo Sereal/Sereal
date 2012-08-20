@@ -11,14 +11,13 @@ typedef struct {
     unsigned char *buf_start;         /* ptr to "physical" start of input buffer */
     unsigned char *buf_end;           /* ptr to end of input buffer */
     unsigned char *pos;               /* ptr to current position within input buffer */
+    unsigned char *save_pos;
 
     U32 flags;               /* flag-like options: See F_* defines in srl_decoder.c */
     unsigned int depth;      /* current Perl-ref recursion depth */
     ptable_ptr ref_seenhash; /* ptr table for avoiding circular refs */
     ptable_ptr str_seenhash; /* ptr table for issuing COPY commands */
 
-    U32 val_stack_size;
-    SV  **val_stack;
 } srl_decoder_t;
 
 /* constructor; don't need destructor, this sets up a callback */

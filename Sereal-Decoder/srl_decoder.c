@@ -31,6 +31,7 @@ static SV *srl_read_copy(pTHX_ srl_decoder_t *dec);
 static SV *srl_read_weaken(pTHX_ srl_decoder_t *dec);
 static SV *srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag);
 static SV *srl_read_regexp(pTHX_ srl_decoder_t *dec);
+static SV *srl_read_extend(pTHX_ srl_decoder_t *dec);
 
 /* This is fired when we exit the Perl pseudo-block.
  * It frees our decoder and all. Put decoder-level cleanup
@@ -64,6 +65,7 @@ build_decoder_struct(pTHX_ HV *opt, SV *src)
     SAVEDESTRUCTOR(&srl_decoder_destructor_hook, (void *)dec);
     dec->depth = 0;
     dec->flags = 0;
+    dec->save_pos= NULL;
 
     dec->ref_seenhash = PTABLE_new();
     dec->str_seenhash = PTABLE_new();
@@ -191,19 +193,23 @@ srl_read_hash(pTHX_ srl_decoder_t *dec) {
         ASSERT_BUF_SPACE(1);
       read_key:
         if (*dec->pos == SRL_HDR_STRING_UTF8) {
-            key_len= srl_read_varint_uv(dec);
-            key_sv= newSVpvn(dec->pos,key_len,1);
-            hv_store_ent(hv,key_sv,got_val,0);
-            SvREFCNT_dec(key_sv); /* throw away the key */
+            key_len= srl_read_varint_uv(aTHX_ dec);
+            key_sv= newSVpvn_flags((char*)dec->pos,key_len,1);
+            if (!hv_store_ent(hv,key_sv,got_sv,0)) {
+                SvREFCNT_dec(key_sv); /* throw away the key */
+                ERROR_PANIC(dec);
+            } else {
+                SvREFCNT_dec(key_sv);
+            }
         } else {
             if (*dec->pos & SRL_HDR_ASCII) {
-                key_len= (dec->pos++) & SRL_HDR_HDR_ASCII_LEN_MASK;
+                key_len= (dec->pos++) & SRL_HDR_ASCII_LEN_MASK;
             } else if (*dec->pos == SRL_HDR_STRING) {
-                key_len= srl_read_varint_uv(dec);
+                key_len= srl_read_varint_uv(aTHX_ dec);
             } else if (*dec->pos == SRL_HDR_COPY) {
-                UV ofs= srl_read_varint_uv(dec);
+                UV ofs= srl_read_varint_uv(aTHX_ dec);
                 if (dec->save_pos) {
-                    ERROR_BAD_COPY(dec, SRL_HDR_HASH, save_pos);
+                    ERROR_BAD_COPY(dec, SRL_HDR_HASH);
                 } else {
                     dec->save_pos= dec->pos;
                     dec->pos= dec->buf_start + ofs;
@@ -212,11 +218,13 @@ srl_read_hash(pTHX_ srl_decoder_t *dec) {
             } else {
                 ERROR_UNEXPECTED(dec);
             }
-            hv_store(hv,dec->pos,key_len,got_val,0);
+            if (!hv_store(hv,(char *)dec->pos,key_len,got_sv,0)) {
+                ERROR_PANIC(dec);
+            }
         }
         if (dec->save_pos) {
-            dec->pos= save_sv;
-            dec->save_sv= NULL;
+            dec->pos= dec->save_pos;
+            dec->save_pos= NULL;
         } else {
             dec->pos += key_len;
         }
@@ -272,6 +280,10 @@ static SV *srl_read_regexp(pTHX_ srl_decoder_t *dec)
 {
     ERROR_UNIMPLEMENTED();
 }
+static SV *srl_read_extend(pTHX_ srl_decoder_t *dec)
+{
+    ERROR_UNIMPLEMENTED();
+}
 
 
 static SV *
@@ -293,7 +305,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec)
         } else if (tag & SRL_HDR_ASCII) {
             len= (STRLEN)(tag & SRL_HDR_ASCII_LEN_MASK);
             BUF_READ_ASSERT(len);
-            ret= newSVpvn(dec->pos,len);
+            ret= newSVpvn((char*)dec->pos,len);
             dec->pos += len;
         }
         else{
@@ -305,7 +317,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec)
                 case SRL_HDR_DOUBLE:        ret= srl_read_double(aTHX_ dec);        break;
                 case SRL_HDR_LONG_DOUBLE:   ret= srl_read_long_double(aTHX_ dec);   break;
 
-                case SRL_HDR_UNDEF:         ret= newSVsv(PL_sv_undef);              break;
+                case SRL_HDR_UNDEF:         ret= newSVsv(&PL_sv_undef);             break;
                 case SRL_HDR_STRING:        ret= srl_read_string(aTHX_ dec, 0);     break;
                 case SRL_HDR_STRING_UTF8:   ret= srl_read_string(aTHX_ dec, 1);     break;
                 case SRL_HDR_REF:           ret= srl_read_ref(aTHX_ dec);           break;
