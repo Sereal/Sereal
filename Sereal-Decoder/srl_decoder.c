@@ -134,10 +134,17 @@ srl_read_array(pTHX_ srl_decoder_t *dec) {
     UV idx;
     av_extend(av, len+1);
     for (idx = 0; idx <= len; len++) {
-        if (*dec->pos = SRL_HDR_
+        if (*dec->pos = SRL_HDR_LIST) {
+            ERROR_UNIMPLEMENTED(dec, SRL_HDR_LIST);
+        }
         SV *got= srl_read_single_value(aTHX_ dec);
         av_push(av, got);
-
+    }
+    ASSERT_BUF_SPACE(1);
+    if (*dec->pos == SRL_HDR_TAIL) {
+        dec->pos++;
+    } else {
+        ERROR_UNTERMINATED(dec,SRL_HDR_ARRAY);
     }
     return av;
 }
@@ -147,34 +154,36 @@ srl_read_hash(pTHX_ srl_decoder_t *dec) {
     UV keys= srl_read_varint_uv(dec);
     HV *hv= newHV();
     hv_ksplit(hv, len+1); /* make sure we have enough room */
-    /* this code would be much simpler if we put the value
-     * in front of the key. IE, instead of the traditional
-     * KEY => VALUE, we did VALUE KEY. This is becase VALUE
-     * can be almost anything, but key not, and also because
-     * of how perls hash logic works. If we know we have to
-     * make an SV for it, we can. */
+    /* NOTE: contents of hash are stored VALUE/KEY, reverse from normal perl
+     * storage, this is because it simplifies the hash storage logic somewhat */
     for (idx = 0; idx <= len; len++) {
         STRLEN key_len;
-        SV *key_sv= NULL
+        SV *key_sv;
+        SV *got_sv= srl_read_single_value(pTHX_ srl_decoder_t *dec);
 
-        if (*dec->pos & SRL_HDR_ASCII) {
-            key_len= (dec->pos++) & SRL_HDR_HDR_ASCII_LEN_MASK;
-        } else if (*dec->pos == SRL_HDR_STRING) {
-            key_len= srl_read_varint_uv(dec);
-        } else if (*dec->pos == SRL_HDR_STRING_UTF8) {
+        ASSERT_BUF_SPACE(1);
+        if (*dec->pos == SRL_HDR_STRING_UTF8) {
             key_len= srl_read_varint_uv(dec);
             key_sv= newSVpvn(dec->pos,key_len,1);
-        } else {
-            ERROR;
-        }
-        dec->pos += key_len;
-        SV *got_sv= srl_read_single_value(pTHX_ srl_decoder_t *dec);
-        if (key_sv) {
             hv_store_ent(hv,key_sv,got_val,0);
             SvREFCNT_dec(key_sv); /* throw away the key */
         } else {
-            hv_store(hv,key,key_len,got_val,0);
+            if (*dec->pos & SRL_HDR_ASCII) {
+                key_len= (dec->pos++) & SRL_HDR_HDR_ASCII_LEN_MASK;
+            } else if (*dec->pos == SRL_HDR_STRING) {
+                key_len= srl_read_varint_uv(dec);
+            } else if (*dec->pos == SRL_HDR_COPY) {
+                ERROR_UNIMPLEMENTED(dec, *dec->pos);
+            }
+            hv_store(hv,dec->pos,key_len,got_val,0);
         }
+        dec->pos += key_len;
+    }
+    ASSERT_BUF_SPACE(1);
+    if (*dec->pos == SRL_HDR_TAIL) {
+        dec->pos++;
+    } else {
+        ERROR_UNTERMINATED(dec,SRL_HDR_HASH);
     }
     return hv;
 }
@@ -185,69 +194,61 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec)
 {
     STRLEN len;
     SV *ret= NULL;
-    U8 tag= *dec->pos++;
-    U8 track= tag & SRL_TRACK_FLAG;
-    tag= tag & ~SRL_TRACK_FLAG;
 
     while (BUF_NOT_DONE(dec) && ret == NULL) {
+        U8 tag= *dec->pos++;
+        U8 track= tag & SRL_TRACK_FLAG;
+        if (track)
+            tag= tag & ~SRL_TRACK_FLAG;
+
         if ( tag <= SRL_HDR_POS_HIGH ) {
             ret= newSVuv(tag);
-        }
-        else
-        if ( tag <= SRL_HDR_NEG_LOW) {
-            ret= newSViv( -tag + 15));
-        }
-        else
-        if (tag & SRL_HDR_ASCII) {
+        } else if ( tag <= SRL_HDR_NEG_LOW) {
+            ret= newSViv( -tag + 15);
+        } else if (tag & SRL_HDR_ASCII) {
             len= (STRLEN)(tag & SRL_HDR_ASCI_LEN_MASK);
             BUF_READ_ASSERT(len);
             ret= newSVpvn(dec->pos,len);
             dec->pos += len;
         }
         else{
-            switch (tag & SRL_HDR_TYPE_BITS) {
-                case 0x00: ret= srl_read_varint(aTHX_ dec); break;
-                case 0x01: ret= srl_read_zigzag(aTHX_ dec); break;
+            switch (tag) {
+                case SRL_HDR_VARINT:        ret= srl_read_varint(aTHX_ dec);        break;
+                case SRL_HDR_ZIGZAG:        ret= srl_read_zigzag(aTHX_ dec);        break;
 
-                case 0x02: ret= srl_read_float(aTHX_ dec);       break;
-                case 0x03: ret= srl_read_double(aTHX_ dec);      break;
-                case 0x04: ret= srl_read_long_double(aTHX_ dec); break;
+                case SRL_HDR_FLOAT:         ret= srl_read_float(aTHX_ dec);         break;
+                case SRL_HDR_DOUBLE:        ret= srl_read_double(aTHX_ dec);        break;
+                case SRL_HDR_LONG_DOUBLE:   ret= srl_read_long_double(aTHX_ dec);   break;
 
-                case 0x05:
-                case 0x06:
-                case 0x07: srl_read_reserved_in_sv_context(aTHX_ dec, tag);    break;
+                case SRL_HDR_UNDEF:         ret= newSVsv(PL_sv_undef);              break;
+                case SRL_HDR_STRING:        ret= srl_read_string(aTHX_ dec, 0);     break;
+                case SRL_HDR_STRING_UTF8:   ret= srl_read_string(aTHX_ dec, 1);     break;
+                case SRL_HDR_REF:           ret= srl_read_ref(aTHX_ dec);           break;
+                case SRL_HDR_REUSE:         ret= srl_read_reuse(aTHX_ dec);         break;
 
-                case 0x08:
-                case 0x09:
-                case 0x0A:
-                case 0x0B:
-                case 0x0C:
-                case 0x0D:
-                case 0x0E:
-                case 0x0F: srl_read_int_array_in_sv_context(aTHX_ dec, tag);   break;
+                case SRL_HDR_HASH:          ret= (SV*)srl_read_hash(aTHX_ dec);     break;
+                case SRL_HDR_ARRAY:         ret= (SV*)srl_read_array(aTHX_ dec);    break;
+                case SRL_HDR_BLESS:         ret= srl_read_bless(aTHX_ dec);         break;
+                case SRL_HDR_BLESSV:        ret= srl_read_blessv(aTHX_ dec);        break;
+                case SRL_HDR_ALIAS:         ret= srl_read_alias(aTHX_ dec);         break;
+                case SRL_HDR_COPY:          ret= srl_read_copy(aTHX_ dec);          break;
 
-                case 0x10: ret= srl_read_ref(aTHX_ dec);     break;
-                case 0x11: ret= srl_read_reuse(aTHX_ dec);   break;
-                case 0x12: ret= (SV*)srl_read_hash(aTHX_ dec);    break;
-                case 0x13: ret= (SV*)srl_read_array(aTHX_ dec);   break;
-                case 0x14: ret= srl_read_bless(aTHX_ dec);   break;
-                case 0x15: ret= srl_read_blessv(aTHX_ dec);  break;
-                case 0x16: ret= srl_read_weaken(aTHX_ dec);  break;
-                case 0x17: ret= srl_read_reserved_in_sv_context(aTHX_ dec, tag); break;
+                case SRL_HDR_EXTEND:        ret= srl_read_extend(aTHX_ dec);        break;
+                case SRL_HDR_LIST:          ERROR_UNEXPECTED(dec,tag);              break;
 
-                case 0x18:
-                case 0x19: ret= srl_read_string(aTHX_ dec, tag & 1); break;
+                case SRL_HDR_WEAKEN:        ret= srl_read_weaken(aTHX_ dec);        break;
+                case SRL_HDR_REGEXP:        ret= srl_read_regexp(aTHX_ dec);        break;
 
-                case 0x1A: ret= srl_read_alias(aTHX_ dec);   break;
-                case 0x1B: ret= srl_read_copy(aTHX_ dec);    break;
-                case 0x1C: ret= &PL_sv_undef;                break;
-                case 0x1D: ret= srl_read_regexp(aTHX_ dec);  break;
+                case SRL_HDR_TAIL:          ERROR_UNEXPECTED(dec,tag);              break;
+                case SRL_HDR_PAD:           NO_OP(dec,tag);                         break;
 
-                case 0x1E: ret= srl_read_reserved_in_sv_context(aTHX_ dec, tag); break;
-                case 0x1F: /* pad XXX reread! */        break;
                 default:
-                    /* error */
-                    break;
+                    if (SRL_HDR_RESERVED_LOW <= tag && tag <= SRL_HDR_RESERVED_HIGH) {
+                        ret= srl_read_reserved(aTHX_ dec, tag);
+                    } else {
+                        ERROR_PANIC(dec,tag);
+                    }
+                break;
             }
         }
     }
