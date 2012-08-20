@@ -11,7 +11,7 @@
 
 /* declare some of the in-file functions to avoid ordering issues */
 static SV *srl_read_single_value(pTHX_ srl_decoder_t *dec);
-static AV *srl_read_hash(pTHX_ srl_decoder_t *dec);
+static HV *srl_read_hash(pTHX_ srl_decoder_t *dec);
 static AV *srl_read_array(pTHX_ srl_decoder_t *dec);
 static SV *srl_read_long_double(pTHX_ srl_decoder_t *dec);
 static SV *srl_read_double(pTHX_ srl_decoder_t *dec);
@@ -176,7 +176,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec) {
     return av;
 }
 
-static AV *
+static HV *
 srl_read_hash(pTHX_ srl_decoder_t *dec) {
     UV keys= srl_read_varint_uv(dec);
     HV *hv= newHV();
@@ -228,6 +228,44 @@ srl_read_hash(pTHX_ srl_decoder_t *dec) {
         ERROR_UNTERMINATED(dec,SRL_HDR_HASH);
     }
     return hv;
+}
+
+/* FIXME unimplemented!!! */
+static SV *srl_read_ref(pTHX_ srl_decoder_t *dec)
+{
+    ERROR_UNIMPLEMENTED();
+}
+static SV *srl_read_reuse(pTHX_ srl_decoder_t *dec)
+{
+    ERROR_UNIMPLEMENTED();
+}
+static SV *srl_read_bless(pTHX_ srl_decoder_t *dec)
+{
+    ERROR_UNIMPLEMENTED();
+}
+static SV *srl_read_blessv(pTHX_ srl_decoder_t *dec)
+{
+    ERROR_UNIMPLEMENTED();
+}
+static SV *srl_read_alias(pTHX_ srl_decoder_t *dec)
+{
+    ERROR_UNIMPLEMENTED();
+}
+static SV *srl_read_copy(pTHX_ srl_decoder_t *dec)
+{
+    ERROR_UNIMPLEMENTED();
+}
+static SV *srl_read_weaken(pTHX_ srl_decoder_t *dec)
+{
+    ERROR_UNIMPLEMENTED();
+}
+static SV *srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag)
+{
+    ERROR_UNIMPLEMENTED();
+}
+static SV *srl_read_regexp(pTHX_ srl_decoder_t *dec)
+{
+    ERROR_UNIMPLEMENTED();
 }
 
 
