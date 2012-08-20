@@ -25,7 +25,7 @@ decode_sereal(src, opt = newHV())
     dec = build_decoder_struct(aTHX_ opt, src);
     assert(dec != NULL);
     if (0 == srl_read_header(aTHX_ dec)) {
-        ST(0)= srl_read_sv(aTHX_ dec);
+        ST(0)= srl_read_single_value(aTHX_ dec);
     }
     assert(dec->pos == dec->buf_end);
     XSRETURN(1);
