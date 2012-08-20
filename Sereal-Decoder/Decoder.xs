@@ -6,9 +6,9 @@
 #include "ppport.h"
 
 #include "srl_decoder.h"
+#include "srl_protocol.h"
 
 /* Generated code for exposing C constants to Perl */
-#include "srl_protocol.h"
 #include "const-c.inc"
 
 
@@ -27,8 +27,6 @@ decode_sereal(src, opt = newHV())
     if (0 == srl_read_header(aTHX_ dec)) {
         ST(0)= srl_read_sv(aTHX_ dec);
     }
-    /* FIXME optimization: avoid copy by stealing string buffer if
-     *                     it is not too large. */
     assert(dec->pos == dec->buf_end);
     XSRETURN(1);
 

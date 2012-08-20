@@ -23,7 +23,6 @@ void srl_decoder_destructor_hook(void *p)
     PTABLE_free(dec->str_seenhash);
     Safefree(dec->val_stack);
     Safefree(dec);
-
 }
 
 /* Builds the C-level configuration and state struct.
@@ -62,11 +61,13 @@ build_decoder_struct(pTHX_ HV *opt, SV *src)
 int
 srl_read_header(pTHX_ srl_decoder_t *dec)
 {
+    /* TODO implement */
     /* works for now: 3 byte magic string + proto version + 1 byte varint that indicates zero-length header 
     DEBUG_ASSERT_BUF_SANE(dec);
     srl_buf_cat_str_s(dec, SRL_MAGIC_STRING "\x01");
     srl_buf_cat_char(dec, '\0');
     */
+    return 0;
 }
 
 uv
@@ -111,6 +112,7 @@ srl_read_float(pTHX_ srl_decoder_t *dec)
 {
     SV *ret= newSVnv((NV)*((float *)dec->pos));
     dec->pos+= sizeof(float);
+    return ret;
 }
 
 SV *
@@ -118,6 +120,7 @@ srl_read_double(pTHX_ srl_decoder_t *dec)
 {
     SV *ret= newSVnv((NV)*((double *)dec->pos));
     dec->pos+= sizeof(double);
+    return ret;
 }
 
 SV *
@@ -125,6 +128,7 @@ srl_read_long_double(pTHX_ srl_decoder_t *dec)
 {
     SV *ret= newSVnv((NV)*((long double *)dec->pos));
     dec->pos+= sizeof(long double);
+    return ret;
 }
 
 AV *
