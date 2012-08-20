@@ -37,7 +37,8 @@
  * STR_UTF8 |           1 1 1 | varint          | string, utf8, varint=length
  *          |                 |                 |
  *          |       0 1 X X X |                 | Ref/Object(ish)
- * REF      |           0 0 0 |                 | scalar ref to next item
+ * REF      |           0 0 0 | varint          | scalar ref - if varint is 0 then it is to the next item, if otherwise it is to a
+ *          |                 |                 | previously emitted scalar (which will be tagged).
  * REUSE    |           0 0 1 | varint          | second/third/... occurrence of a multiply-occurring
  *          |                 |                 | substructure (always points at a form of reference)
  * HASH     |           0 1 0 | nkeys V/K* TAIL | hash, nkeys=varint, contents are in VALUE, KEY tuples, with TAIL as suffix.
