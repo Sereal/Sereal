@@ -11,6 +11,7 @@
 #include "srl_protocol.h"
 #include "const-c.inc"
 
+#include "ptable.h"
 
 MODULE = Sereal::Encoder        PACKAGE = Sereal::Encoder
 PROTOTYPES: DISABLE
@@ -38,3 +39,38 @@ PROTOTYPES: DISABLE
 
 INCLUDE: const-xs.inc
 
+MODULE = Sereal::Encoder        PACKAGE = Sereal::Encoder::_ptabletest
+
+void
+test()
+  PREINIT:
+    PTABLE_t *tbl;
+    PTABLE_ITER_t *iter;
+    PTABLE_ENTRY_t *ent;
+    UV i, n = 20;
+    char *check[20];
+    char fail[5] = "not ";
+    char noop[1] = "";
+  CODE:
+    tbl = PTABLE_new_size(10);
+    for (i = 0; i < (UV)n; ++i) {
+      PTABLE_store(tbl, (void *)(1000+i), (void *)(1000+i));
+      check[i] = fail;
+    }
+    for (i = 0; i < (UV)n; ++i) {
+      const UV res = (UV)PTABLE_fetch(tbl, (void *)(1000+i));
+      printf("%sok %u - fetch %u\n", (res == (UV)(1000+i)) ? noop : fail, (unsigned int)(1+i), (unsigned int)(i+1));
+    }
+    iter = PTABLE_iter_new(tbl);
+    while ( NULL != (ent = PTABLE_iter_next(iter)) ) {
+      const UV res = ((UV)ent->value) - 1000;
+      if (res < 20)
+        check[res] = noop;
+      else
+        abort();
+    }
+    for (i = 0; i < (UV)n; ++i) {
+      printf("%sok %u - iter %u\n", check[i], (unsigned int)(21+i), (unsigned int)(i+1));
+    }
+    PTABLE_iter_free(iter);
+    PTABLE_free(tbl);

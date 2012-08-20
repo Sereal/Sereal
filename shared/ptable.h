@@ -6,6 +6,9 @@
  * This is a customized version of the pointer table implementation in sv.c
  */
 
+#ifndef PTABLE_H_
+#define PTABLE_H_
+
 #include "ppport.h"
 #include <limits.h>
 
@@ -14,7 +17,7 @@
      * This is one of Thomas Wang's hash functions for 64-bit integers from:
      * http://www.concentric.net/~Ttwang/tech/inthash.htm
      */
-    U32 ptr_hash(PTRV u) {
+    static U32 ptr_hash(PTRV u) {
         u = (~u) + (u << 18);
         u = u ^ (u >> 31);
         u = u * 21;
@@ -28,7 +31,7 @@
      * This is one of Bob Jenkins' hash functions for 32-bit integers
      * from: http://burtleburtle.net/bob/hash/integer.html
      */
-    U32 ptr_hash(PTRV u) {
+    static U32 ptr_hash(PTRV u) {
         u = (u + 0x7ed55d16) + (u << 12);
         u = (u ^ 0xc761c23c) ^ (u >> 19);
         u = (u + 0x165667b1) + (u << 5);
@@ -257,6 +260,10 @@ PTABLE_free(PTABLE_t *tbl)
         else {                                                              \
             do {                                                            \
                 (iter)->cur_entry = (tbl)->tbl_ary[(iter)->bucket_num++];   \
+                if ((iter)->bucket_num > (tbl)->tbl_max) {                  \
+                    (iter)->cur_entry = NULL;                               \
+                    break;                                                  \
+                }                                                           \
             } while ((iter)->cur_entry == NULL);                            \
         }                                                                   \
     } STMT_END
@@ -277,6 +284,7 @@ PTABLE_iter_new(PTABLE_t *tbl)
         return iter;
     }
     PTABLE_ITER_NEXT_ELEM(iter, tbl);
+    assert(iter->cur_entry != NULL);
     return iter;
 }
 
@@ -289,7 +297,6 @@ PTABLE_iter_next(PTABLE_ITER_t *iter)
     PTABLE_ITER_NEXT_ELEM(iter, tbl);
     return retval;
 }
-#undef PTABLE_ITER_NEXT_ELEM
 
 /* Free iterator object */
 static void
@@ -297,3 +304,6 @@ PTABLE_iter_free(PTABLE_ITER_t *iter)
 {
     Safefree(iter);
 }
+
+
+#endif
