@@ -7,6 +7,7 @@
  */
 
 #include "ppport.h"
+#include <limits.h>
 
 #if PTRSIZE == 8
     /*
@@ -52,34 +53,50 @@ struct PTABLE {
     UV                      tbl_items;
 };
 
+struct PTABLE_iter {
+    struct PTABLE           *table;
+    UV                      bucket_num;
+    struct PTABLE_entry     *cur_entry;
+};
+
 typedef struct PTABLE_entry PTABLE_ENTRY_t;
-typedef struct PTABLE            PTABLE_t;
+typedef struct PTABLE       PTABLE_t;
+typedef struct PTABLE_iter  PTABLE_ITER_t;
+
 
 static PTABLE_t * PTABLE_new(void);
+static PTABLE_t * PTABLE_new_size(const U8 size_base2_exponent);
 static PTABLE_ENTRY_t * PTABLE_find(PTABLE_t *tbl, const void *key);
-/* commented since unused */
-/* static void * PTABLE_fetch(PTABLE_t *tbl, const void *key); */
+static void * PTABLE_fetch(PTABLE_t *tbl, const void *key);
 static void PTABLE_store(PTABLE_t *tbl, void *key, void *value);
 static void PTABLE_delete(PTABLE_t *tbl, void *key);
 static void PTABLE_grow(PTABLE_t *tbl);
 static void PTABLE_clear(PTABLE_t *tbl);
 static void PTABLE_free(PTABLE_t *tbl);
 
+static PTABLE_ITER_t * PTABLE_iter_new(PTABLE_t *tbl);
+static PTABLE_ENTRY_t * PTABLE_iter_next(PTABLE_ITER_t *iter);
+static void PTABLE_iter_free(PTABLE_ITER_t *iter);
+
 /* create a new pointer => pointer table */
+static inline PTABLE_t *
+PTABLE_new(void)
+{
+    return PTABLE_new_size(9);
+}
 
 static PTABLE_t *
-PTABLE_new(void)
+PTABLE_new_size(const U8 size_base2_exponent)
 {
     PTABLE_t *tbl;
     Newxz(tbl, 1, PTABLE_t);
-    tbl->tbl_max = 511;
+    tbl->tbl_max = (1 << size_base2_exponent) - 1;
     tbl->tbl_items = 0;
     Newxz(tbl->tbl_ary, tbl->tbl_max + 1, PTABLE_ENTRY_t*);
     return tbl;
 }
 
 /* map an existing pointer using a table */
-
 static PTABLE_ENTRY_t *
 PTABLE_find(PTABLE_t *tbl, const void *key) {
     PTABLE_ENTRY_t *tblent;
@@ -92,7 +109,6 @@ PTABLE_find(PTABLE_t *tbl, const void *key) {
     return NULL;
 }
 
-/* commented since unused */
 static inline void *
 PTABLE_fetch(PTABLE_t *tbl, const void *key)
 {
@@ -227,4 +243,56 @@ PTABLE_free(PTABLE_t *tbl)
     PTABLE_clear(tbl);
     Safefree(tbl->tbl_ary);
     Safefree(tbl);
+}
+
+
+#define PTABLE_ITER_NEXT_ELEM(iter, tbl)                                    \
+    STMT_START {                                                            \
+        if ((iter)->cur_entry && (iter)->cur_entry->next) {                 \
+            (iter)->cur_entry = (iter)->cur_entry->next;                    \
+        }                                                                   \
+        else if ((iter)->bucket_num > (tbl)->tbl_max) {                     \
+            (iter)->cur_entry = NULL;                                       \
+        }                                                                   \
+        else {                                                              \
+            do {                                                            \
+                (iter)->cur_entry = (tbl)->tbl_ary[(iter)->bucket_num++];   \
+            } while ((iter)->cur_entry == NULL);                            \
+        }                                                                   \
+    } STMT_END
+
+/* Create new iterator object */
+static PTABLE_ITER_t *
+PTABLE_iter_new(PTABLE_t *tbl)
+{
+    PTABLE_ITER_t *iter;
+    Newx(iter, 1, PTABLE_ITER_t);
+    iter->table = tbl;
+    iter->bucket_num = 0;
+    iter->cur_entry = NULL;
+    if (tbl->tbl_items == 0) {
+        /* Prevent hash bucket scanning.
+         * This can be a significant optimization on large, empty hashes. */
+        iter->bucket_num = INT_MAX;
+        return iter;
+    }
+    PTABLE_ITER_NEXT_ELEM(iter, tbl);
+}
+
+/* Return next item from hash, NULL if at end */
+static PTABLE_ENTRY_t *
+PTABLE_iter_next(PTABLE_ITER_t *iter)
+{
+    PTABLE_ENTRY_t *retval = iter->cur_entry;
+    PTABLE_t *tbl = iter->table;
+    PTABLE_ITER_NEXT_ELEM(iter, tbl);
+    return retval;
+}
+#undef PTABLE_ITER_NEXT_ELEM
+
+/* Free iterator object */
+static void
+PTABLE_iter_free(PTABLE_ITER_t *iter)
+{
+    Safefree(iter);
 }
