@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use Sereal::Encoder qw(encode_sereal);
-use Sereal::Constants qw(:all);
+use Sereal::Encoder::Constants qw(:all);
 
 # Test a couple of the basic constants
 
