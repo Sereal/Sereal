@@ -119,6 +119,8 @@ WriteMakefile1(
     },
     BUILD_REQUIRES => {
         'Test::More' => 0.88,
+        'File::Find' => 0,
+        'Scalar::Util' => 0,
         #'ExtUtils::Constant' => '0.23',
     },
     NAME              => 'Sereal::Decoder',

@@ -123,6 +123,7 @@ WriteMakefile1(
         'Test::More' => 0.88,
         #'ExtUtils::Constant' => '0.23',
         'Scalar::Util' => 0,
+        'File::Find' => 0,
     },
     NAME              => 'Sereal::Encoder',
     VERSION_FROM      => 'lib/Sereal/Encoder.pm', # finds $VERSION
