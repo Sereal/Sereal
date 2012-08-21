@@ -95,6 +95,9 @@ sub parse_sv {
   elsif ($o == SRL_HDR_ARRAY) {
     parse_av($dr, $ri, $ind);
   }
+  elsif ($o == SRL_HDR_HASH) {
+    parse_hv($dr, $ri, $ind);
+  }
   elsif ($o == SRL_HDR_TAIL) {
     printf "%06u, %sTAIL\n", $p, $ind;
     return 1;
@@ -119,8 +122,8 @@ sub parse_av {
   my $p = $$ri;
   my $len = varint($dr, $ri);
   printf "%06u, %sARRAY(%u)\n", $p, $ind, $len;
-  $$ri += $len;
   $ind .= "  ";
+  $$ri++;
   while (1) {
     my $t = substr($$dr, 0, 1);
     my $o = ord($t);
@@ -135,6 +138,12 @@ sub parse_av {
     }
   }
 }
+
+sub parse_hv {
+# FIXME implement
+  die;
+}
+
 
 # super inefficient
 sub varint {
