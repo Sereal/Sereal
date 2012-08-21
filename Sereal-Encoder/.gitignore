@@ -18,3 +18,4 @@ const-c.inc
 const-xs.inc
 lib/Sereal/Encoder/Constants.pm
 srl_inline.h
+ppport.h
