@@ -33,9 +33,9 @@ sub parse_header {
   my $dr = shift;
   $$dr =~ s/^srl.// or die "invalid header";
   my $len = varint($dr);
-  my $hdr = substr($$dr, $len);
+  my $hdr = substr($$dr, 0, $len);
   if (defined $hdr and length($hdr)) {
-    print "Header: " . join(" ", map ord, split //, $hdr) . "\n";
+    print "Header($len): " . join(" ", map ord, split //, $hdr) . "\n";
   }
   else {
     print "Empty Header.\n";
@@ -87,12 +87,17 @@ sub parse_sv {
     print $ind, "COPY($len)\n";
   }
   elsif ($o == SRL_HDR_ARRAY) {
-    print $ind, "ARRAY\n";
-    parse_av($dr, $ind."  ");
+    parse_av($dr, $ind);
   }
   elsif ($o == SRL_HDR_TAIL) {
     print $ind, "TAIL\n";
     return 1;
+  }
+  elsif ($o == SRL_HDR_WEAKEN) {
+    print $ind, "WEAKEN\n";
+  }
+  elsif ($o == SRL_HDR_PAD) {
+    print $ind, "PAD\n";
   }
   else {
     die "unsupported type: $o ($t): $const_names{$o}";
@@ -102,6 +107,9 @@ sub parse_sv {
 
 sub parse_av {
   my ($dr, $ind) = @_;
+  my $len = varint($dr);
+  print $ind, "ARRAY($len)\n";
+  $ind .= "  ";
   while (1) {
     my $t = substr($$dr, 0, 1);
     my $o = ord($t);
