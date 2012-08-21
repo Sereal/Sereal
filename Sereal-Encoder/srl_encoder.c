@@ -361,7 +361,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
 
             /* set or increment this weakref's refcount */
             PTABLE_ENTRY_t *pe;
-            if ( (pe = PTABLE_fetch(enc->weak_seenhash, src)) == NULL)
+            if ( (pe = PTABLE_find(enc->weak_seenhash, src)) == NULL)
                 PTABLE_store(enc->weak_seenhash, src, (void *)1UL);
             else
                 pe->value = (void *)((unsigned long)pe->value + 1UL);
