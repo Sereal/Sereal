@@ -31,7 +31,7 @@ decode_sereal(src, opt = newHV())
     XSRETURN(1);
 
 
-MODULE = Sereal::Decoder        PACKAGE = Sereal::Constants
+MODULE = Sereal::Decoder        PACKAGE = Sereal::Decoder::Constants
 PROTOTYPES: DISABLE
 
 INCLUDE: const-xs.inc
