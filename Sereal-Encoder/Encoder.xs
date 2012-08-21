@@ -33,7 +33,7 @@ encode_sereal(src, opt = newHV())
     XSRETURN(1);
 
 
-MODULE = Sereal::Encoder        PACKAGE = Sereal::Constants
+MODULE = Sereal::Encoder        PACKAGE = Sereal::Encoder::Constants
 PROTOTYPES: DISABLE
 
 INCLUDE: const-xs.inc

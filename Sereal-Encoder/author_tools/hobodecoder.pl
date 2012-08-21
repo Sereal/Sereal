@@ -3,7 +3,7 @@ use warnings;
 use Data::Dumper;
 
 use Sereal::Encoder;
-use Sereal::Constants qw(:all);
+use Sereal::Encoder::Constants qw(:all);
 
 $| = 1;
 

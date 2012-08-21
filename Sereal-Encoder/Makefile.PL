@@ -9,86 +9,12 @@ use Config;
 my $shared_dir = "../shared";
 my $in_source_repo = -d "../.git" and -d $shared_dir;
 
-# This fires from a git source tree only.
-# Right now, all devs are on Linux. Feel free to make portable.
-eval {
-  if (-d "../.git" and -d $shared_dir) {
-    # overwrite by default
-    opendir my $dh, $shared_dir or die $!;
-    foreach my $file (grep -f "$shared_dir/$_", readdir($dh)) {
-      if (!-e $file || !-l $file) {
-        open my $ifh, "<", "$shared_dir/$file" or die $!;
-        open my $ofh, ">", $file or die $!;
-        print $ofh "\n# /* WARNING: GENERATED CODE! DO NOT EDIT! See shared/ folder in source repo. */\n\n";
-        print $ofh $_ for <$ifh>;
-      }
-    }
-    closedir $dh;
-  }
-  1
-} or warn $@;
+my $module = "Sereal::Encoder";
 
-
-# This section deals with extracting constants from the protocol
-# definition and including them as Perl constants. Not pretty, I know.
-# Regenerate constants if module available.
-# TODO move to shared area. Get out of Makefile.PL
-if (eval { use ExtUtils::Constant qw(WriteConstants); 1 }) {
-  print "Generating constant exports for Perl...\n";
-  open my $fh, "<", "srl_protocol.h" or die $!;
-  my (@string_const, @int_const);
-  while (<$fh>) {
-    if (/^#\s*define\s*(SRL_\w+)\s*(.*)$/) {
-      my ($name, $value) = ($1, $2);
-      next if $name =~ /_H_$/ or $value =~ /"/;
-      push @int_const, $name;
-    }
-  }
-  close $fh;
-  WriteConstants(
-      NAME => 'Sereal::Encoder',
-      NAMES => \@int_const,
-  );
-  open my $ofh, ">", "lib/Sereal/Constants.pm" or die $!;
-  print $ofh <<HERE;
-# Genereated code! Do not modify! See Makefile.PL.
-
-package Sereal::Constants;
-use strict;
-use warnings;
-use Carp qw(croak);
-use Sereal::Encoder; # for XSLoading
-our \@ISA = qw(Exporter);
-require Exporter;
-our \@EXPORT_OK;
-BEGIN { \@EXPORT_OK = qw(
-HERE
-  print $ofh "    $_\n" for (@int_const);
-  print $ofh <<'HERE';
-  );
-  my $code;
-  foreach my $constname (@EXPORT_OK) {
-    my ($error, $val) = constant($constname);
-    if ($error) { croak($error); }
-    $code .= "sub $constname () {$val}\n";
-  }
-  eval "$code\n1;" or do {
-    my $err = $@ || 'Zombie error';
-    die "Failed to generate constant subs: $err\n Code was:\n$code\n";
-  };
-}
-
-sub SRL_MAGIC_STRING () {"srl"}
-push @EXPORT_OK, "SRL_MAGIC_STRING";
-our %EXPORT_TAGS=(all => \@EXPORT_OK);
-HERE
-  close $ofh;
-}
-elsif (-d $in_source_repo) {
-  warn "Please install ExtUtils::Constant since you appear to be running out of the source repository.\n";
-}
-
-# END of constant-related crap
+unshift @INC, '.';
+require inc::Sereal::BuildTools;
+inc::Sereal::BuildTools::link_files($shared_dir) if $in_source_repo;
+inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
 
 our $OPTIMIZE;
 
@@ -125,7 +51,7 @@ WriteMakefile1(
         'Scalar::Util' => 0,
         'File::Find' => 0,
     },
-    NAME              => 'Sereal::Encoder',
+    NAME              => $module,
     VERSION_FROM      => 'lib/Sereal/Encoder.pm', # finds $VERSION
     PREREQ_PM         => {
         'XSLoader' => 0,
