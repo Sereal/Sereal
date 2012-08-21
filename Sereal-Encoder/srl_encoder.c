@@ -47,6 +47,7 @@
 /* some static function declarations */
 static void srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src);
 static void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8);
+static SRL_INLINE void srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc);
 static SRL_INLINE void srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv);
 static SRL_INLINE void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src);
 static SRL_INLINE void srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src);
@@ -255,7 +256,35 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
 {
     srl_write_header(aTHX_ enc);
     srl_dump_sv(aTHX_ enc, src);
+    srl_fixup_weakrefs(aTHX_ enc);
     /* FIXME weak-ref hash traversal and fixup missing here! */
+}
+
+static SRL_INLINE void
+srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
+{
+    PTABLE_ITER_t *it = PTABLE_iter_new(enc->weak_seenhash);
+    PTABLE_ENTRY_t *ent;
+
+    /* FIXME it's arguable whether this should issue PTABLE_delete's
+     * for each processed case of a weakref. But since this function can
+     * really only be run once anyway, that's somewhat wasteful.
+     */
+    while ( NULL != (ent = PTABLE_iter_next(it)) ) {
+        if ( (UV)ent->value < 2 ) {
+            const ptrdiff_t offset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, ent->key);
+            /* -1 is because we need to munge the byte BEFORE the
+             * original offset (so, we need to replace the WEAKEN tag) */
+            char *pos = enc->buf_start + offset - 1;
+            assert(offset != 0);
+            assert(pos >= enc->buf_start);
+            assert(pos <= enc->buf_end);
+            assert(*pos == SRL_HDR_PAD);
+            *pos = SRL_HDR_PAD;
+        }
+    }
+
+    PTABLE_iter_free(it);
 }
 
 
