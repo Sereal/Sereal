@@ -47,6 +47,7 @@
 /* some static function declarations */
 static void srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src);
 static void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8);
+static SRL_INLINE void srl_dump_alias(pTHX_ srl_encoder_t *enc, SV *src, const ptrdiff_t oldoffset);
 static SRL_INLINE void srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc);
 static SRL_INLINE void srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv);
 static SRL_INLINE void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src);
@@ -293,6 +294,9 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
 static void
 srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
 {
+    UV refcount;
+    U8 value_is_weak_referent= 0;
+
     SvGETMAGIC(src);
 
     /* TODO decide when to use the IV, when to use the PV, and when
@@ -302,6 +306,19 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
      *      then try int-to-string (respective float-to-string) conversion
      *      and strcmp. If same, then use int or float.
      */
+    refcount = SvREFCNT(src);
+    PULL_WEAK_REFCOUNT(refcount, value_is_weak_referent, src);
+
+    if (refcount > 1) {
+        const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, src);
+        if (!oldoffset) {
+            PTABLE_store(enc->ref_seenhash, src, (void *)BUF_POS_OFS(enc));
+        } else {
+            srl_dump_alias(aTHX_ enc, src, oldoffset);
+            SRL_SET_FBIT(*(enc->buf_start + oldoffset));
+            return;
+        }
+    }
 
     /* dump strings */
     if (SvPOKp(src)) {
@@ -348,6 +365,8 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
     refcount = SvREFCNT(src);
     PULL_WEAK_REFCOUNT(refcount, value_is_weak_referent, src);
 
+    /* printf("RV=%p VAL=%p REFCNT=%u TOTREFCNT=%u\n", rv, src, SvREFCNT(src), refcount); */
+
     /* Have to check the seen hash if high refcount or a weak ref */
     if (refcount > 1) {
         /* FIXME is the actual sv location the right thing to use? */
@@ -386,6 +405,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
 
     if (SvOBJECT(src)) {
         /* Write bless operator with class name */
+        /* FIXME reuse/ref/... should INCLUDE the bless stuff. */
         srl_dump_bless(aTHX_ enc, src);
         /* fallthrough for value*/
     }
@@ -395,9 +415,15 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
     else if (svt == SVt_PVAV)
         srl_dump_av(aTHX_ enc, (AV *)src);
     else if (svt < SVt_PVAV) {
-        /* scalar ref, is the above check really strictly correct? */
-        srl_buf_cat_char(enc, SRL_HDR_REF);
-        srl_dump_sv(aTHX_ enc, src);
+        /* FIXME scalar ref, is the above check really strictly correct? */
+        if (refcount > 1) {
+            const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, src);
+            srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REF, (UV)oldoffset);
+        }
+        else {
+            srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REF, 0);
+            srl_dump_sv(aTHX_ enc, src);
+        }
     }
     else {
         croak("found %s, but it is not representable by Data::Dumper::Limited serialization",
@@ -525,6 +551,7 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
         srl_dump_pv(aTHX_ enc, HeKEY(src), HeKLEN(src), HeKUTF8(src));
 }
 
+
 static void
 srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8)
 {
@@ -540,4 +567,10 @@ srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_ut
     enc->pos += src_len;
 }
 
+
+static SRL_INLINE void
+srl_dump_alias(pTHX_ srl_encoder_t *enc, SV *src, const ptrdiff_t oldoffset)
+{
+    srl_buf_cat_varint(aTHX_ enc, SRL_HDR_ALIAS, (UV)oldoffset);
+}
 
