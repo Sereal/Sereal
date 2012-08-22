@@ -371,9 +371,11 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
      *          It short-circuits for REUSE references. */
     unsigned int refcount;
     U8 value_is_weak_referent = 0;
+    ptrdiff_t oldoffset= 0;
     svtype svt;
     SV *src = SvRV(rv);
-    /* sv_dump(rv); / * enabled this line to see a dump of each item as we go */
+    if (0) sv_dump(rv); /* enabled this line to see a dump of each item as we go */
+
 
     if (++enc->depth > MAX_DEPTH)
         croak("Reached maximum recursion depth of %u. Aborting", MAX_DEPTH);
@@ -387,7 +389,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
     /* Have to check the seen hash if high refcount or a weak ref */
     if (refcount > 1) {
         /* FIXME is the actual sv location the right thing to use? */
-        const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, src);
+        oldoffset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, src);
 
         if (value_is_weak_referent) {
             /* output WEAKEN prefix before the actual item if the current
@@ -402,49 +404,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
             else
                 pe->value = (void *)((unsigned long)pe->value + 1UL);
         }
-
-        if (oldoffset != 0) {
-            /* see sv_reftype in sv.c */
-            switch (svt) {
-                case SVt_NULL:
-                case SVt_IV:
-                case SVt_NV:
-                case SVt_PV:
-                case SVt_PVIV:
-                case SVt_PVNV:
-                case SVt_PVMG:
-                case SVt_PVLV:
-                case SVt_REGEXP:
-                    /* Issue REUSE instead of recursing down the structure again */
-                    srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REF, (UV)oldoffset);
-                    break;
-                case SVt_PVAV:
-                case SVt_PVHV:
-                    /* And in this case we have to issues a reuse */
-                    srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REUSE, (UV)oldoffset);
-                    break;
-
-                case SVt_PVCV:
-                case SVt_PVGV:
-                case SVt_PVFM:
-                case SVt_PVIO:
-                case SVt_BIND:
-                default:
-                    croak("found %s(0x%p), but it is not representable by the Sereal encoding format", sv_reftype(src,0),src);
-            }
-
-            /* Now, make sure that the "this is referenced", F bit of the original
-             * reference object in the output is set */
-            SRL_SET_FBIT(*(enc->buf_start + oldoffset));
-            return;
-        }
-        else {
-            const ptrdiff_t newoffset = enc->pos - enc->buf_start;
-            PTABLE_store(enc->ref_seenhash, src, (void *)newoffset);
-            /* fall through */
-        }
     }
-
     if (SvOBJECT(src)) {
         /* Write bless operator with class name */
         /* FIXME reuse/ref/... should INCLUDE the bless stuff. */
@@ -452,34 +412,56 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
         /* fallthrough for value*/
     }
 
-    if (svt == SVt_PVHV)
-        srl_dump_hv(aTHX_ enc, (HV *)src);
-    else if (svt == SVt_PVAV)
-        srl_dump_av(aTHX_ enc, (AV *)src);
-    else if (svt < SVt_PVAV) {
-        /* FIXME scalar ref, is the above check really strictly correct? */
-        if (refcount > 1) {
-            const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, src);
+    /* see sv_reftype in sv.c */
+    switch (svt) {
+        case SVt_NULL:
+        case SVt_IV:
+        case SVt_NV:
+        case SVt_PV:
+        case SVt_PVIV:
+        case SVt_PVNV:
+        case SVt_PVMG:
+        case SVt_PVLV:
+        case SVt_REGEXP:
             srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REF, (UV)oldoffset);
-        }
-        else {
-            srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REF, 0);
-            srl_dump_sv(aTHX_ enc, src);
-        }
+            if (oldoffset) {
+                SRL_SET_FBIT(*(enc->buf_start + oldoffset));
+            } else {
+                srl_dump_sv(aTHX_ enc, src);
+            }
+            break;
+        case SVt_PVAV:
+            if (oldoffset) {
+                SRL_SET_FBIT(*(enc->buf_start + oldoffset));
+                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REUSE, (UV)oldoffset);
+            } else {
+                if (refcount>1) {
+                    const ptrdiff_t newoffset = enc->pos - enc->buf_start;
+                    PTABLE_store(enc->ref_seenhash, src, (void *)newoffset);
+                }
+                srl_dump_av(aTHX_ enc, (AV *)src);
+            }
+            break;
+        case SVt_PVHV:
+            if (oldoffset) {
+                SRL_SET_FBIT(*(enc->buf_start + oldoffset));
+                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REUSE, (UV)oldoffset);
+            } else {
+                if (refcount>1) {
+                    const ptrdiff_t newoffset = enc->pos - enc->buf_start;
+                    PTABLE_store(enc->ref_seenhash, src, (void *)newoffset);
+                }
+                srl_dump_hv(aTHX_ enc, (HV *)src);
+            }
+            break;
+        case SVt_PVCV:
+        case SVt_PVGV:
+        case SVt_PVFM:
+        case SVt_PVIO:
+        case SVt_BIND:
+        default:
+            croak("found %s(0x%p), but it is not representable by the Sereal encoding format", sv_reftype(src,0),src);
     }
-    else {
-        croak("found %s(0x%p), but it is not representable by the Sereal encoding format", sv_reftype(src,0));
-    }
-    /* TODO support for regexps */
-
-    /* If we DO allow multiple occurrence of the same ref (default), then
-     * we need to drop its seenhash entry as soon as it cannot be a cyclic
-     * ref any more. */
-    /*
-     * if (!(enc->flags & F_DISALLOW_MULTI_OCCURRENCE)) {
-     *   PTABLE_delete(enc->ref_seenhash, src);
-     * }
-     */
 }
 
 

@@ -102,9 +102,11 @@ sub parse_sv {
     printf "%06u, %sCOPY(%u)\n", $p, $ind, $len;
   }
   elsif ($o == SRL_HDR_ARRAY) {
+    printf "%06u, %sARRAY", $p, $ind;
     parse_av($dr, $ri, $ind);
   }
   elsif ($o == SRL_HDR_HASH) {
+    printf "%06u, %sHASH", $p, $ind;
     parse_hv($dr, $ri, $ind);
   }
   elsif ($o == SRL_HDR_TAIL) {
@@ -134,7 +136,7 @@ sub parse_av {
   my ($dr, $ri, $ind) = @_;
   my $p = $$ri;
   my $len = varint($dr, $ri);
-  printf "%06u, %sARRAY(%u)\n", $p, $ind, $len;
+  printf "(%u)\n", $len;
   $ind .= "  ";
   $$ri++;
   while (1) {
@@ -156,7 +158,7 @@ sub parse_hv {
   my ($dr, $ri, $ind) = @_;
   my $p = $$ri;
   my $len = varint($dr, $ri);
-  printf "%06u, %sHASH(%u)\n", $p, $ind, $len;
+  printf "(%u)\n", $len;
   $ind .= "  ";
   $$ri++; # for the hash type token
   my $flipflop = 0;

@@ -67,11 +67,13 @@ my @basic_tests = (
   [$scalar_ref_for_repeating, chr(SRL_HDR_REF).varint(0).chr(0b0000_1001), "scalar ref to constant"],
   [[$scalar_ref_for_repeating, $scalar_ref_for_repeating],
     do {
-      my $content = chr(SRL_HDR_ARRAY)
-                    .varint(2);
+      my $content = chr(SRL_HDR_ARRAY) .varint(2);
+      $content   .= chr(SRL_HDR_REF);
+      $content   .= chr(0);
       my $pos = length($hdr) + length($content);
-      $content   .= chr(SRL_HDR_REF + FBIT).chr(0b0000_1001)
-                    .chr(SRL_HDR_REUSE)
+
+      $content    .= chr(0b1000_1001)
+                    .chr(SRL_HDR_REF)
                     .varint($pos)
                     .chr(SRL_HDR_TAIL);
       $content
