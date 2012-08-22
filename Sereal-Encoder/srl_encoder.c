@@ -288,7 +288,6 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
     PTABLE_iter_free(it);
 }
 
-
 /* Dumps generic SVs and delegates
  * to more specialized functions for RVs, etc. */
 static void
@@ -309,16 +308,20 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     refcount = SvREFCNT(src);
     PULL_WEAK_REFCOUNT(refcount, value_is_weak_referent, src);
 
+    /* check if we have seen this scalar before, and track it so
+     * if we see it again we recognize it */
     if (refcount > 1) {
         const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, src);
         if (!oldoffset) {
             PTABLE_store(enc->ref_seenhash, src, (void *)BUF_POS_OFS(enc));
         } else {
+            /* it must be an alias */
             srl_dump_alias(aTHX_ enc, src, oldoffset);
             SRL_SET_FBIT(*(enc->buf_start + oldoffset));
             return;
         }
     }
+    /* if we got here we have not seen this scalar before */
 
     /* dump strings */
     if (SvPOKp(src)) {
@@ -356,6 +359,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
     U8 value_is_weak_referent = 0;
     svtype svt;
     SV *src = SvRV(rv);
+    /* sv_dump(rv); / * enabled this line to see a dump of each item as we go */
 
     if (++enc->depth > MAX_DEPTH)
         croak("Reached maximum recursion depth of %u. Aborting", MAX_DEPTH);
@@ -365,7 +369,6 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
     refcount = SvREFCNT(src);
     PULL_WEAK_REFCOUNT(refcount, value_is_weak_referent, src);
 
-    /* printf("RV=%p VAL=%p REFCNT=%u TOTREFCNT=%u\n", rv, src, SvREFCNT(src), refcount); */
 
     /* Have to check the seen hash if high refcount or a weak ref */
     if (refcount > 1) {
@@ -387,13 +390,38 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
         }
 
         if (oldoffset != 0) {
-            /* Issue REUSE instead of recursing down the structure again */
-            srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REUSE, (UV)oldoffset);
+            /* see sv_reftype in sv.c */
+            switch (svt) {
+                case SVt_NULL:
+                case SVt_IV:
+                case SVt_NV:
+                case SVt_PV:
+                case SVt_PVIV:
+                case SVt_PVNV:
+                case SVt_PVMG:
+                case SVt_PVLV:
+                case SVt_REGEXP:
+                    /* Issue REUSE instead of recursing down the structure again */
+                    srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REF, (UV)oldoffset);
+                    break;
+                case SVt_PVAV:
+                case SVt_PVHV:
+                    /* And in this case we have to issues a reuse */
+                    srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REUSE, (UV)oldoffset);
+                    break;
+
+                case SVt_PVCV:
+                case SVt_PVGV:
+                case SVt_PVFM:
+                case SVt_PVIO:
+                case SVt_BIND:
+                default:
+                    croak("found %s(0x%p), but it is not representable by the Sereal encoding format", sv_reftype(src,0),src);
+            }
 
             /* Now, make sure that the "this is referenced", F bit of the original
              * reference object in the output is set */
             SRL_SET_FBIT(*(enc->buf_start + oldoffset));
-
             return;
         }
         else {
@@ -426,8 +454,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
         }
     }
     else {
-        croak("found %s, but it is not representable by Data::Dumper::Limited serialization",
-               SvPV_nolen(sv_2mortal(newRV_inc(src))));
+        croak("found %s(0x%p), but it is not representable by the Sereal encoding format", sv_reftype(src,0));
     }
     /* TODO support for regexps */
 
