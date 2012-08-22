@@ -1,0 +1,17 @@
+Encoder todo:
+- Fix all ref/alias/reuse/weaken/etc corner cases
+- Tests for the above
+- PV vs. IV vs. NV choices
+- testing bless
+- float sizes
+- float dumping endianness
+- regexps
+- Tests for the above
+
+v2:
+- optimize dumpiv?
+- blessv
+- NUMLIST?
+- stable hash order option
+
+
