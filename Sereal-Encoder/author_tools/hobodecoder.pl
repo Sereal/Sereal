@@ -32,7 +32,7 @@ print "\n\nTotal length: " . length($data) . "\n\n";
 
 my $dref = \$data;
 my $indent = "";
-my $pos = -1;
+my $pos = 0;
 parse_header($dref, \$pos);
 while (defined $data and $data ne '') {
   my $done = parse_sv($dref, \$pos, $indent);

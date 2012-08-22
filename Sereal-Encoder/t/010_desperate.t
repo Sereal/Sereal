@@ -92,26 +92,29 @@ my @basic_tests = (
   [[\$ary_ref_for_repeating, [1, $ary_ref_for_repeating]],
     do {
       my $content = chr(SRL_HDR_ARRAY)
-                    .varint(2)
-                    .chr(SRL_HDR_REF);
+                    . varint(2)
+                    . chr(SRL_HDR_REF)
+                    . chr(0);
       my $pos = length($hdr) + length($content);
-      $content   .= array_fbit(chr(0b0000_0101), chr(0b0000_0110))
-                    .array(chr(0b0000_0001), chr(SRL_HDR_REUSE).varint($pos))
-                    .chr(SRL_HDR_TAIL);
+      $content   .= array_fbit(
+                        chr(0b0000_0101),
+                        chr(0b0000_0110)
+                    )
+                 . array(
+                        chr(0b0000_0001),
+                        chr(SRL_HDR_REUSE) . varint($pos)
+                   )
+                 . chr(SRL_HDR_TAIL);
       $content
     }, "repeated substructure (REUSE): asymmetric"],
   [
-    do {
-      my $x;
-      $x = [\$x, 1];
-      weaken($x->[0]);
-      $x
-    },
+    do { my $x; $x = [\$x, 1]; weaken($x->[0]); $x},
     do {
       my $content = chr(SRL_HDR_ARRAY + FBIT)
                     .varint(2)
                     .chr(SRL_HDR_WEAKEN)
                     .chr(SRL_HDR_REF)
+                    .varint(0)
                     .chr(SRL_HDR_REUSE)
                     .varint(length($hdr))
                     .chr(0b0000_0001)

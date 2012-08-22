@@ -152,7 +152,7 @@ srl_write_header(pTHX_ srl_encoder_t *enc)
     /* works for now: 3 byte magic string + proto version + 1 byte varint that indicates zero-length header */
     DEBUG_ASSERT_BUF_SANE(enc);
     srl_buf_cat_str_s(enc, SRL_MAGIC_STRING "\x01");
-    srl_buf_cat_char(enc, '\0');
+    srl_buf_cat_char(enc,'\0');
 }
 
 
@@ -295,7 +295,7 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
             assert(offset != 0);
             assert(pos >= enc->buf_start);
             assert(pos <= enc->buf_end);
-            assert(*pos == SRL_HDR_PAD);
+            assert(*pos == SRL_HDR_WEAKEN);
             *pos = SRL_HDR_PAD;
         }
     }
@@ -386,32 +386,32 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
     PULL_WEAK_REFCOUNT_IS_WEAK(refcount, value_is_weak_referent, src);
 
 
-    /* Have to check the seen hash if high refcount or a weak ref */
-    if (refcount > 1) {
-        /* FIXME is the actual sv location the right thing to use? */
+    if (refcount > 1){
         oldoffset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, src);
 
         if (value_is_weak_referent) {
-            /* output WEAKEN prefix before the actual item if the current
-             * referrer is one of the weakrefs */
-            if (SvWEAKREF(rv))
-                srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
-
             /* set or increment this weakref's refcount */
             PTABLE_ENTRY_t *pe;
             if ( (pe = PTABLE_find(enc->weak_seenhash, src)) == NULL)
                 PTABLE_store(enc->weak_seenhash, src, (void *)1UL);
             else
                 pe->value = (void *)((unsigned long)pe->value + 1UL);
+
+            if (SvWEAKREF(rv)) {
+                /* FIXME: what happens if this is the only reference? we need
+                 * to track it and update it later if there isnt a ref to the
+                 * value later */
+                srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
+            }
         }
     }
+
     if (SvOBJECT(src)) {
         /* Write bless operator with class name */
         /* FIXME reuse/ref/... should INCLUDE the bless stuff. */
         srl_dump_bless(aTHX_ enc, src);
         /* fallthrough for value*/
     }
-
     /* see sv_reftype in sv.c */
     switch (svt) {
         case SVt_NULL:
