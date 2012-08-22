@@ -47,7 +47,7 @@
 /* some static function declarations */
 static void srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src);
 static void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8);
-static SRL_INLINE void srl_dump_alias(pTHX_ srl_encoder_t *enc, SV *src, const ptrdiff_t oldoffset);
+static SRL_INLINE void srl_dump_alias(pTHX_ srl_encoder_t *enc, const ptrdiff_t oldoffset);
 static SRL_INLINE void srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc);
 static SRL_INLINE void srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv);
 static SRL_INLINE void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src);
@@ -59,13 +59,28 @@ static SRL_INLINE void srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src);
 
 #define SRL_SET_FBIT(where) (where |= 0b10000000)
 
-#define PULL_WEAK_REFCOUNT(refcnt, is_weak, sv)             \
+#define PULL_WEAK_REFCOUNT_IS_WEAK(refcnt, is_weak, sv)     \
     STMT_START {                                            \
         MAGIC *mg = NULL;                                   \
         if( SvMAGICAL(sv)                                   \
             && (mg = mg_find(sv, PERL_MAGIC_backref) ) )    \
         {                                                   \
             is_weak = 1;                                    \
+            SV **svp = (SV**)mg->mg_obj;                    \
+            if (svp && *svp) {                              \
+                (refcnt) += SvTYPE(*svp) == SVt_PVAV        \
+                          ? av_len((AV*)*svp)+1             \
+                          : 1;                              \
+                }                                           \
+        }                                                   \
+    } STMT_END
+
+#define PULL_WEAK_REFCOUNT(refcnt, sv)                      \
+    STMT_START {                                            \
+        MAGIC *mg = NULL;                                   \
+        if( SvMAGICAL(sv)                                   \
+            && (mg = mg_find(sv, PERL_MAGIC_backref) ) )    \
+        {                                                   \
             SV **svp = (SV**)mg->mg_obj;                    \
             if (svp && *svp) {                              \
                 (refcnt) += SvTYPE(*svp) == SVt_PVAV        \
@@ -294,7 +309,6 @@ static void
 srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
 {
     UV refcount;
-    U8 value_is_weak_referent= 0;
 
     SvGETMAGIC(src);
 
@@ -306,7 +320,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
      *      and strcmp. If same, then use int or float.
      */
     refcount = SvREFCNT(src);
-    PULL_WEAK_REFCOUNT(refcount, value_is_weak_referent, src);
+    PULL_WEAK_REFCOUNT(refcount, src);
 
     /* check if we have seen this scalar before, and track it so
      * if we see it again we recognize it */
@@ -316,7 +330,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
             PTABLE_store(enc->ref_seenhash, src, (void *)BUF_POS_OFS(enc));
         } else {
             /* it must be an alias */
-            srl_dump_alias(aTHX_ enc, src, oldoffset);
+            srl_dump_alias(aTHX_ enc, oldoffset);
             SRL_SET_FBIT(*(enc->buf_start + oldoffset));
             return;
         }
@@ -367,7 +381,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
     SvGETMAGIC(src);
     svt = SvTYPE(src);
     refcount = SvREFCNT(src);
-    PULL_WEAK_REFCOUNT(refcount, value_is_weak_referent, src);
+    PULL_WEAK_REFCOUNT_IS_WEAK(refcount, value_is_weak_referent, src);
 
 
     /* Have to check the seen hash if high refcount or a weak ref */
@@ -596,7 +610,7 @@ srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_ut
 
 
 static SRL_INLINE void
-srl_dump_alias(pTHX_ srl_encoder_t *enc, SV *src, const ptrdiff_t oldoffset)
+srl_dump_alias(pTHX_ srl_encoder_t *enc, const ptrdiff_t oldoffset)
 {
     srl_buf_cat_varint(aTHX_ enc, SRL_HDR_ALIAS, (UV)oldoffset);
 }
