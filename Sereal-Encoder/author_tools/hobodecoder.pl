@@ -140,8 +140,27 @@ sub parse_av {
 }
 
 sub parse_hv {
-# FIXME implement
-  die;
+  my ($dr, $ri, $ind) = @_;
+  my $p = $$ri;
+  my $len = varint($dr, $ri);
+  printf "%06u, %sHASH(%u)\n", $p, $ind, $len;
+  $ind .= "  ";
+  $$ri++; # for the hash type token
+  my $flipflop = 0;
+  while (1) {
+    my $t = substr($$dr, 0, 1);
+    my $o = ord($t);
+    if ($o == SRL_HDR_TAIL) {
+      printf "%06u, %sTAIL\n", $$ri, $ind;
+      substr($$dr, 0, 1, "");
+      $$ri++;
+      last;
+    }
+    else {
+      print( "        ", $ind, ($flipflop++ % 2 == 0 ? "VALUE" : "KEY"), ":\n" );
+      parse_sv($dr, $ri, $ind."  ");
+    }
+  }
 }
 
 
