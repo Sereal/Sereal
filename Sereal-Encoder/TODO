@@ -7,8 +7,10 @@ Encoder todo:
 - float dumping endianness
 - regexps
 - Tests for the above
+- Testing on 5.8.5
 
 v2:
+- more profiling?
 - optimize dumpiv?
 - blessv
 - NUMLIST?
