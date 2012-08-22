@@ -25,9 +25,9 @@ sub varint {
   my $out = '';
   while ($n > 0x80) {
     $out .= chr( ($n & 0x7f) | 0x80 );
-      $n >>= 7;
-    }
-    $out .= chr($n);
+    $n >>= 7;
+  }
+  $out .= chr($n);
   return $out;
 }
 
@@ -46,7 +46,7 @@ my @basic_tests = (
   ["", chr(0b0100_0000), "encode empty string"],
   ["1", chr(0b0100_0001) . "1", "encode string '1'"],
   ["91a", chr(0b0100_0011) . "91a", "encode string '91a'"],
-  [\1, chr(SRL_HDR_REF).chr(0b0000_0001), "scalar ref to int"],
+  [\1, chr(SRL_HDR_REF).varint(0).chr(0b0000_0001), "scalar ref to int"],
   [[], array(), "empty array ref"],
   [[1,2,3], array(chr(0b0000_0001), chr(0b0000_0010), chr(0b0000_0011)), "array ref"],
   [1000, chr(SRL_HDR_VARINT).varint(1000), "large int"],
@@ -64,7 +64,7 @@ my @basic_tests = (
       .chr(0b0100_0011)."foo"
       .chr(SRL_HDR_TAIL)
       , "simple hash ref"],
-  [$scalar_ref_for_repeating, chr(SRL_HDR_REF).chr(0b0000_1001), "scalar ref to constant"],
+  [$scalar_ref_for_repeating, chr(SRL_HDR_REF).varint(0).chr(0b0000_1001), "scalar ref to constant"],
   [[$scalar_ref_for_repeating, $scalar_ref_for_repeating],
     do {
       my $content = chr(SRL_HDR_ARRAY)
@@ -133,7 +133,21 @@ sub run_tests {
     my $out = encode_sereal($in, $opt_hash ? ($opt_hash) : ());
     ok(defined $out, "($extra_name) defined: $name");
     #is(length($out), length($exp));
-    is($out, $exp, "($extra_name) correct: $name");
+    is($out, $exp, "($extra_name) correct: $name")
+      or do {
+        if ($ENV{DEBUG_SEREAL}) {
+          print STDERR "\nEXPECTED:\n";
+          hobodecode($exp);
+          print STDERR "\nGOT:\n";
+          hobodecode($out);
+          print STDERR "\n";
+        }
+      };
   }
 }
 
+sub hobodecode {
+  open my $fh, "| $^X -Mblib author_tools/hobodecoder.pl -e" or die $!;
+  print $fh @_;
+  close $fh;
+}

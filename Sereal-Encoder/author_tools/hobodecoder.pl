@@ -2,10 +2,19 @@ use strict;
 use warnings;
 use Data::Dumper;
 
+use Getopt::Long qw(GetOptions);
 use Sereal::Encoder;
 use Sereal::Encoder::Constants qw(:all);
 
+GetOptions(
+  my $opt = {},
+  'e|stderr',
+);
+
 $| = 1;
+if ($opt->{e}) {
+  select(STDERR);
+}
 
 my %const_names = map {$_ => eval "$_"} @Sereal::Constants::EXPORT_OK;
 #print Dumper \%const_names; exit;
