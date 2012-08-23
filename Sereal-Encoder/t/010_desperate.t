@@ -36,6 +36,9 @@ my $hdr = SRL_MAGIC_STRING . chr(SRL_PROTOCOL_VERSION) . chr(0);
 
 my $ary_ref_for_repeating = [5,6];
 my $scalar_ref_for_repeating = \9;
+my $weak_thing;
+$weak_thing = [\$weak_thing, 1];
+weaken($weak_thing->[0]);
 
 my @basic_tests = (
   # warning: this hardcodes the POS/NEG headers
@@ -108,21 +111,54 @@ my @basic_tests = (
       $content
     }, "repeated substructure (REUSE): asymmetric"],
   [
-    do { my $x; $x = [\$x, 1]; weaken($x->[0]); $x},
-    do {
-      my $content = chr(SRL_HDR_ARRAY + FBIT)
-                    .varint(2)
-                    .chr(SRL_HDR_WEAKEN)
-                    .chr(SRL_HDR_REF)
-                    .varint(0)
-                    .chr(SRL_HDR_REUSE)
-                    .varint(length($hdr))
-                    .chr(0b0000_0001)
-                    .chr(SRL_HDR_TAIL);
-      $content
-    },
-    "weaken"
+    $weak_thing,
+    chr(SRL_HDR_ARRAY + FBIT)
+    .varint(2)
+    .chr(SRL_HDR_PAD)
+    .chr(SRL_HDR_REF)
+    .varint(0)
+    .chr(SRL_HDR_REUSE)
+    .varint(5)
+    .chr(0b0000_0001)
+    .chr(SRL_HDR_TAIL),
+    "weak thing copy (requires PAD)"
   ],
+  [
+    \$weak_thing,
+    chr(SRL_HDR_REF)
+    .varint(0)
+    .chr(SRL_HDR_ARRAY + FBIT)
+    .varint(2)
+    .chr(SRL_HDR_WEAKEN)
+    .chr(SRL_HDR_REF)
+    .varint(7)
+    .chr(0b0000_0001)
+    .chr(SRL_HDR_TAIL),
+    "weak thing ref"
+  ],
+  sub { \@_ } ->(
+    $weak_thing,
+    chr(SRL_HDR_ARRAY + FBIT)
+    .varint(2)
+    .chr(SRL_HDR_WEAKEN)
+    .chr(SRL_HDR_REF)
+    .varint(5)
+    .chr(0b0000_0001)
+    .chr(SRL_HDR_TAIL),
+    "weak thing alias"
+   ),
+  [
+    do { my @array; $array[0]=\$array[1]; $array[1]=\$array[0]; \@array },
+    .chr(SRL_HDR_ARRAY)
+    .varint(2)
+    .chr(SRL_HDR_WEAKEN)
+    .chr(SRL_HDR_REF)
+    .varint(5)
+    .chr(0b0000_0001)
+    .chr(SRL_HDR_TAIL),
+    "weak thing ref"
+  ],
+
 );
 
 run_tests("plain");
@@ -135,7 +171,7 @@ sub run_tests {
   foreach my $bt (@basic_tests) {
     my ($in, $exp, $name) = @$bt;
     $exp = "$hdr$exp";
-    my $out = encode_sereal($in, $opt_hash ? ($opt_hash) : ());
+    my $out = encode_sereal($bt->[0], $opt_hash ? ($opt_hash) : ()); # must use bt here or we get a copy
     ok(defined $out, "($extra_name) defined: $name");
     #is(length($out), length($exp));
     is($out, $exp, "($extra_name) correct: $name")

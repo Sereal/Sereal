@@ -274,7 +274,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
 {
     srl_write_header(aTHX_ enc);
     srl_dump_sv(aTHX_ enc, src);
-    if (1) srl_fixup_weakrefs(aTHX_ enc);
+    srl_fixup_weakrefs(aTHX_ enc);
     /* FIXME weak-ref hash traversal and fixup missing here! */
 }
 
@@ -306,6 +306,7 @@ static void
 srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
 {
     UV refcount;
+    U8 value_is_weak_referent = 0;
 
     SvGETMAGIC(src);
 
@@ -317,15 +318,44 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
      *      and strcmp. If same, then use int or float.
      */
     refcount = SvREFCNT(src);
-    PULL_WEAK_REFCOUNT(refcount, src);
+    PULL_WEAK_REFCOUNT_IS_WEAK(refcount, value_is_weak_referent, src);
 
     /* check if we have seen this scalar before, and track it so
      * if we see it again we recognize it */
     if (refcount > 1) {
         const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, src);
+        PTABLE_ENTRY_t *pe = PTABLE_find(enc->weak_seenhash, src);
         if (!oldoffset) {
             PTABLE_store(enc->ref_seenhash, src, (void *)BUF_POS_OFS(enc));
+            if (value_is_weak_referent) {
+                /* we have never seen it before at all (or oldoffset would tell us so)
+                 * so if we have seen it before in the weak_seenhash it is because
+                 * we are reaching it for the first time via a (weak)ref. On the other
+                 * hand if we havent seen it before we might find a weakref to it later,
+                 * and since the item is referenced implicitly, either by being our return
+                 * value, or because we are a value in a composite, we dont need to worry
+                 * about any subsequent weakres.
+                 */
+                if (!pe) {
+                    if (DEBUGHACK) warn("scalar %p - is weak referent, storing 0", src);
+                    PTABLE_store(enc->weak_seenhash, src, NULL);
+                } else {
+                    if (DEBUGHACK) warn("scalar %p - is weak referent, seen before", src);
+                }
+            }
         } else {
+            /* We have seen it before, and now we have seen it again as an sv. The only
+             * way this can happen is if we have an alias (either explicit or implicit)
+             * in a composite structure. This means that the composite has a "refcount"
+             * on the item, so any weakrefs to it are "safe". */
+            if (pe) {
+                if (DEBUGHACK) warn("scalar %p - is weak referent and we have seen it before storing 0", src);
+                pe->value= NULL;
+            } else {
+                /* I am pretty sure this should never happen */
+                if (DEBUGHACK) warn("scalar %p - is weak referent, but we havent seen any refs to it yet, storing 0", src);
+                PTABLE_store(enc->weak_seenhash, src, NULL);
+            }
             /* it must be an alias */
             srl_dump_alias(aTHX_ enc, oldoffset);
             SRL_SET_FBIT(*(enc->buf_start + oldoffset));
@@ -394,10 +424,10 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
              * If we later see a real ref we will set the value to 0. */
             if (SvWEAKREF(rv)) {
                 if (!pe)  {
-                    if (DEBUGHACK) warn("weakref - storing");
+                    if (DEBUGHACK) warn("weakref %p - storing", src);
                     PTABLE_store(enc->weak_seenhash, src, (void *)BUF_POS_OFS(enc));
                 } else {
-                    if (DEBUGHACK) warn("weakref - previous weakref seen");
+                    if (DEBUGHACK) warn("weakref %p - previous weakref seen", src);
                 }
                 /* FIXME: what happens if this is the only reference? we need
                  * to track it and update it later if there isnt a ref to the
@@ -408,10 +438,10 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
                  * so we can clear the pe value - we do not delete, as we want to
                  * track it so later weakrefs "know" the item is "safe". */
                 if (pe) {
-                    if (DEBUGHACK) warn("ref - seen weakref before, setting to 0");
+                    if (DEBUGHACK) warn("ref %p - seen weakref before, setting to 0", src);
                     pe->value = NULL;
                 } else {
-                    if (DEBUGHACK) warn("ref - to weak referent, storing 0");
+                    if (DEBUGHACK) warn("ref %p - to weak referent, storing 0", src);
                     PTABLE_store(enc->weak_seenhash, src, NULL);
                 }
             }

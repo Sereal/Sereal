@@ -57,70 +57,72 @@ sub parse_sv {
   my $t = substr($data, 0, 1, '');
   $done .= $t;
   my $o = ord($t);
+  my $bv= $o;
   my $high = $o > 128;
   $o -= 128 if $high;
   if ($o == SRL_HDR_VARINT) {
-    printf "%06u, %sVARINT: %u\n", $p, $ind, varint();
+    printf "%06u: %02x %03s %sVARINT: %u\n", $p, $o, $bv, $ind, varint();
   }
   elsif ($o <= 15) {
-    printf "%06u, %sPOS: %u\n", $p, $ind, $o;
+    printf "%06u: %02x %03s %sPOS: %u\n", $p, $o, $bv, $ind, $o;
   }
   elsif ($o <= 31) {
     $o = 15-$o;
-    printf "%06u, %sNEG: %i\n", $p, $ind, $o;
+    printf "%06u: %02x %03s %sNEG: %i\n", $p, $o, $bv, $ind, $o;
   }
   elsif ($o > 64) {
     $o -= 64;
     my $len = $o;
     my $str = substr($data, 0, $len, '');
     $done .= $str;
-    printf "%06u, %sASCII(%u): '%s'\n", $p, $ind, $len, $str;
+    printf "%06u: %02x %03s %sASCII(%u): '%s'\n", $p, $o, $bv, $ind, $len, $str;
   }
   elsif ($o == SRL_HDR_STRING || $o == SRL_HDR_STRING_UTF8) {
     my $l = varint();
     my $str = substr($data, 0, $l, ""); # fixme UTF8
     $done .= $str;
-    printf "%06u, %sSTRING".($o == SRL_HDR_STRING_UTF8 ? "_UTF8" : "")."(%u): '%s'\n", $p, $ind, $l, $str;
+    printf "%06u: %02x %03s %sSTRING".($o == SRL_HDR_STRING_UTF8 ? "_UTF8" : "")."(%u): '%s'\n", $p, $o, $bv, $ind, $l, $str;
   }
   elsif ($o == SRL_HDR_REF) {
     my $whence = varint();
-    printf "%06u, %sREF(%u)\n", $p, $ind, $whence;
+    printf "%06u: %02x %03s %sREF(%u)\n", $p, $o, $bv, $ind, $whence;
     if ($whence == 0) {
       parse_sv($ind . "  ");
     }
   }
   elsif ($o == SRL_HDR_REUSE) {
     my $len = varint();
-    printf "%06u, %sREUSE(%u)\n", $p, $ind, $len;
+    printf "%06u: %02x %03s %sREUSE(%u)\n", $p, $o, $bv, $ind, $len;
   }
   elsif ($o == SRL_HDR_COPY) {
     my $len = varint();
-    printf "%06u, %sCOPY(%u)\n", $p, $ind, $len;
+    printf "%06u: %02x %03s %sCOPY(%u)\n", $p, $o, $bv, $ind, $len;
   }
   elsif ($o == SRL_HDR_ARRAY) {
-    printf "%06u, %sARRAY", $p, $ind;
+    printf "%06u: %02x %03s %sARRAY", $p, $o, $bv, $ind;
     parse_av($ind);
   }
   elsif ($o == SRL_HDR_HASH) {
-    printf "%06u, %sHASH", $p, $ind;
+    printf "%06u: %02x %03s %sHASH", $p, $o, $bv, $ind;
     parse_hv($ind);
   }
   elsif ($o == SRL_HDR_TAIL) {
-    printf "%06u, %sTAIL\n", $p, $ind;
+    printf "%06u: %02x %03s %sTAIL\n", $p, $o, $bv, $ind;
     return 1;
   }
   elsif ($o == SRL_HDR_UNDEF) {
-    printf "%06u, %sUNDEF\n", $p, $ind;
+    printf "%06u: %02x %03s %sUNDEF\n", $p, $o, $bv, $ind;
   }
   elsif ($o == SRL_HDR_WEAKEN) {
-    printf "%06u, %sWEAKEN\n", $p, $ind;
+    printf "%06u: %02x %03s %sWEAKEN\n", $p, $o, $bv, $ind;
+    parse_sv($ind);
   }
   elsif ($o == SRL_HDR_PAD) {
-    printf "%06u, %sPAD\n", $p, $ind;
+    printf "%06u: %02x %03s %sPAD\n", $p, $o, $bv, $ind;
   }
   elsif ($o == SRL_HDR_ALIAS) {
     my $ofs= varint();
-    printf "%06u, %sALIAS(%u)\n", $p, $ind, $ofs;
+    printf "%06u: %02x %03s %sALIAS(%u)\n", $p, $o, $bv, $ind, $ofs;
   }
   else {
     die "unsupported type: $o ($t): $const_names{$o}";
@@ -137,7 +139,7 @@ sub parse_av {
     my $t = substr($data, 0, 1);
     my $o = ord($t);
     if ($o == SRL_HDR_TAIL) {
-      printf "%06u, %sTAIL\n", length($done), $ind;
+      printf "%06u: %02x %03s %sTAIL\n", length($done), SRL_HDR_TAIL, SRL_HDR_TAIL, $ind;
       $done .= substr($data, 0, 1, "");
       last;
     }
@@ -157,7 +159,7 @@ sub parse_hv {
     my $t = substr($data, 0, 1);
     my $o = ord($t);
     if ($o == SRL_HDR_TAIL) {
-      printf "%06u, %sTAIL\n", length($done), $ind;
+      printf "%06u: %02x %03s %sTAIL\n", length($done), SRL_HDR_TAIL, SRL_HDR_TAIL, $ind;
       $done .= substr($data, 0, 1, "");
       last;
     }

@@ -28,7 +28,7 @@ encode_sereal(src, opt = newHV())
     srl_dump_data_structure(aTHX_ enc, src);
     /* FIXME optimization: avoid copy by stealing string buffer if
      *                     it is not too large. */
-    assert(enc->pos > enc->buf_start);
+    assert(enc->buf_start < enc->pos);
     ST(0) = sv_2mortal(newSVpvn(enc->buf_start, (STRLEN)(enc->pos - enc->buf_start)));
     XSRETURN(1);
 
