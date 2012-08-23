@@ -40,6 +40,8 @@
 
 #define MAX_DEPTH 10000
 
+#define DEBUGHACK 0
+
 /* define option bits in srl_encoder_t's flags member */
 #define SRL_F_SHARED_HASHKEYS                1UL
 #define SRL_HAVE_OPTION(enc, flag_num) ((enc)->flags & flag_num)
@@ -132,7 +134,7 @@ build_encoder_struct(pTHX_ HV *opt)
      * all buckets for weakrefs. */
     enc->ref_seenhash = PTABLE_new_size(8); /* size in powers of 2 */
     enc->str_seenhash = PTABLE_new_size(8);
-    enc->weak_seenhash = PTABLE_new_size(3);
+    enc->weak_seenhash = PTABLE_new_size(4);
 
     /* load options */
     if (opt != NULL) {
@@ -272,7 +274,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
 {
     srl_write_header(aTHX_ enc);
     srl_dump_sv(aTHX_ enc, src);
-    srl_fixup_weakrefs(aTHX_ enc);
+    if (1) srl_fixup_weakrefs(aTHX_ enc);
     /* FIXME weak-ref hash traversal and fixup missing here! */
 }
 
@@ -282,19 +284,14 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
     PTABLE_ITER_t *it = PTABLE_iter_new(enc->weak_seenhash);
     PTABLE_ENTRY_t *ent;
 
-    /* FIXME it's arguable whether this should issue PTABLE_delete's
-     * for each processed case of a weakref. But since this function can
-     * really only be run once anyway, that's somewhat wasteful.
-     */
+    /* we now walk the weak_seenhash and set any tags it points
+     * at to the PAD opcode, this basically turns the first weakref
+     * we encountered into a normal ref when there is only a weakref
+     * pointing at the structure. */
     while ( NULL != (ent = PTABLE_iter_next(it)) ) {
-        if ( (UV)ent->value < 2 ) {
-            const ptrdiff_t offset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, ent->key);
-            /* -1 is because we need to munge the byte BEFORE the
-             * original offset (so, we need to replace the WEAKEN tag) */
-            char *pos = enc->buf_start + offset - 1;
-            assert(offset != 0);
-            assert(pos >= enc->buf_start);
-            assert(pos <= enc->buf_end);
+        const ptrdiff_t offset = (ptrdiff_t)ent->value;
+        if ( offset ) {
+            char *pos = enc->buf_start + offset;
             assert(*pos == SRL_HDR_WEAKEN);
             *pos = SRL_HDR_PAD;
         }
@@ -376,7 +373,6 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
     SV *src = SvRV(rv);
     if (0) sv_dump(rv); /* enabled this line to see a dump of each item as we go */
 
-
     if (++enc->depth > MAX_DEPTH)
         croak("Reached maximum recursion depth of %u. Aborting", MAX_DEPTH);
 
@@ -389,19 +385,35 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
     if (refcount > 1){
         oldoffset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, src);
 
+        /* it is possible rv is a weakref, or that src is the target of a weakref
+         * so we have to do some extra bookkeeping */
         if (value_is_weak_referent) {
-            /* set or increment this weakref's refcount */
-            PTABLE_ENTRY_t *pe;
-            if ( (pe = PTABLE_find(enc->weak_seenhash, src)) == NULL)
-                PTABLE_store(enc->weak_seenhash, src, (void *)1UL);
-            else
-                pe->value = (void *)((unsigned long)pe->value + 1UL);
-
+            PTABLE_ENTRY_t *pe = PTABLE_find(enc->weak_seenhash, src);
+            /* If we have not see this item before then it is possible the only
+             * reference to it is a weakref, so we track the first one we see.
+             * If we later see a real ref we will set the value to 0. */
             if (SvWEAKREF(rv)) {
+                if (!pe)  {
+                    if (DEBUGHACK) warn("weakref - storing");
+                    PTABLE_store(enc->weak_seenhash, src, (void *)BUF_POS_OFS(enc));
+                } else {
+                    if (DEBUGHACK) warn("weakref - previous weakref seen");
+                }
                 /* FIXME: what happens if this is the only reference? we need
                  * to track it and update it later if there isnt a ref to the
                  * value later */
                 srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
+            } else {
+                /* good - we are dumping at least one "real" ref to this object.
+                 * so we can clear the pe value - we do not delete, as we want to
+                 * track it so later weakrefs "know" the item is "safe". */
+                if (pe) {
+                    if (DEBUGHACK) warn("ref - seen weakref before, setting to 0");
+                    pe->value = NULL;
+                } else {
+                    if (DEBUGHACK) warn("ref - to weak referent, storing 0");
+                    PTABLE_store(enc->weak_seenhash, src, NULL);
+                }
             }
         }
     }
