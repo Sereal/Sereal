@@ -30,41 +30,37 @@ close $fh;
 
 print "\n\nTotal length: " . length($data) . "\n\n";
 
-my $dref = \$data;
 my $indent = "";
-my $pos = 0;
-parse_header($dref, \$pos);
-while (defined $data and $data ne '') {
-  my $done = parse_sv($dref, \$pos, $indent);
-  last if $done;
+my $done;
+parse_header();
+while (length $data) {
+  my $done = parse_sv("");
 }
 
 sub parse_header {
-  my $dr = shift;
-  my $ri = shift;
-  $$dr =~ s/^srl.// or die "invalid header";
-  my $len = varint($dr, $ri);
-  my $hdr = substr($$dr, 0, $len);
-  if (defined $hdr and length($hdr)) {
+  $data =~ s/^(srl.)// or die "invalid header";
+  $done .= $1;
+  my $len = varint();
+  my $hdr = substr($data, 0, $len);
+  if (length($hdr)) {
     print "Header($len): " . join(" ", map ord, split //, $hdr) . "\n";
   }
   else {
     print "Empty Header.\n";
   }
-  $$ri += $len + 4;
 }
 
 sub parse_sv {
-  my ($dr, $ri, $ind) = @_;
+  my ($ind) = @_;
 
-  my $p = $$ri;
-  my $t = substr($$dr, 0, 1, '');
-  $$ri++;
+  my $p= length($done);
+  my $t = substr($data, 0, 1, '');
+  $done .= $t;
   my $o = ord($t);
   my $high = $o > 128;
   $o -= 128 if $high;
   if ($o == SRL_HDR_VARINT) {
-    printf "%06u, %sVARINT: %u\n", $p, $ind, varint($dr, $ri);
+    printf "%06u, %sVARINT: %u\n", $p, $ind, varint();
   }
   elsif ($o <= 15) {
     printf "%06u, %sPOS: %u\n", $p, $ind, $o;
@@ -76,38 +72,38 @@ sub parse_sv {
   elsif ($o > 64) {
     $o -= 64;
     my $len = $o;
-    $$ri += $len;
-    my $str = substr($$dr, 0, $len, '');
+    my $str = substr($data, 0, $len, '');
+    $done .= $str;
     printf "%06u, %sASCII(%u): '%s'\n", $p, $ind, $len, $str;
   }
   elsif ($o == SRL_HDR_STRING || $o == SRL_HDR_STRING_UTF8) {
-    my $l = varint($dr, $ri);
-    my $str = substr($$dr, 0, $l, ""); # fixme UTF8
+    my $l = varint();
+    my $str = substr($data, 0, $l, ""); # fixme UTF8
+    $done .= $str;
     printf "%06u, %sSTRING".($o == SRL_HDR_STRING_UTF8 ? "_UTF8" : "")."(%u): '%s'\n", $p, $ind, $l, $str;
-    $$ri += $l;
   }
   elsif ($o == SRL_HDR_REF) {
-    my $whence = varint($dr, $ri);
+    my $whence = varint();
     printf "%06u, %sREF(%u)\n", $p, $ind, $whence;
     if ($whence == 0) {
-      parse_sv($dr, $ri, $ind."  ");
+      parse_sv($ind . "  ");
     }
   }
   elsif ($o == SRL_HDR_REUSE) {
-    my $len = varint($dr, $ri);
+    my $len = varint();
     printf "%06u, %sREUSE(%u)\n", $p, $ind, $len;
   }
   elsif ($o == SRL_HDR_COPY) {
-    my $len = varint($dr);
+    my $len = varint();
     printf "%06u, %sCOPY(%u)\n", $p, $ind, $len;
   }
   elsif ($o == SRL_HDR_ARRAY) {
     printf "%06u, %sARRAY", $p, $ind;
-    parse_av($dr, $ri, $ind);
+    parse_av($ind);
   }
   elsif ($o == SRL_HDR_HASH) {
     printf "%06u, %sHASH", $p, $ind;
-    parse_hv($dr, $ri, $ind);
+    parse_hv($ind);
   }
   elsif ($o == SRL_HDR_TAIL) {
     printf "%06u, %sTAIL\n", $p, $ind;
@@ -123,7 +119,7 @@ sub parse_sv {
     printf "%06u, %sPAD\n", $p, $ind;
   }
   elsif ($o == SRL_HDR_ALIAS) {
-    my $ofs= varint($dr);
+    my $ofs= varint();
     printf "%06u, %sALIAS(%u)\n", $p, $ind, $ofs;
   }
   else {
@@ -133,47 +129,41 @@ sub parse_sv {
 }
 
 sub parse_av {
-  my ($dr, $ri, $ind) = @_;
-  my $p = $$ri;
-  my $len = varint($dr, $ri);
+  my ($ind) = @_;
+  my $len = varint();
   printf "(%u)\n", $len;
   $ind .= "  ";
-  $$ri++;
   while (1) {
-    my $t = substr($$dr, 0, 1);
+    my $t = substr($data, 0, 1);
     my $o = ord($t);
     if ($o == SRL_HDR_TAIL) {
-      printf "%06u, %sTAIL\n", $$ri, $ind;
-      substr($$dr, 0, 1, "");
-      $$ri++;
+      printf "%06u, %sTAIL\n", length($done), $ind;
+      $done .= substr($data, 0, 1, "");
       last;
     }
     else {
-      parse_sv($dr, $ri, $ind);
+      parse_sv($ind);
     }
   }
 }
 
 sub parse_hv {
-  my ($dr, $ri, $ind) = @_;
-  my $p = $$ri;
-  my $len = varint($dr, $ri);
+  my ($ind) = @_;
+  my $len = varint();
   printf "(%u)\n", $len;
   $ind .= "  ";
-  $$ri++; # for the hash type token
   my $flipflop = 0;
   while (1) {
-    my $t = substr($$dr, 0, 1);
+    my $t = substr($data, 0, 1);
     my $o = ord($t);
     if ($o == SRL_HDR_TAIL) {
-      printf "%06u, %sTAIL\n", $$ri, $ind;
-      substr($$dr, 0, 1, "");
-      $$ri++;
+      printf "%06u, %sTAIL\n", length($done), $ind;
+      $done .= substr($data, 0, 1, "");
       last;
     }
     else {
       print( "        ", $ind, ($flipflop++ % 2 == 0 ? "VALUE" : "KEY"), ":\n" );
-      parse_sv($dr, $ri, $ind."  ");
+      parse_sv($ind."  ");
     }
   }
 }
@@ -181,19 +171,17 @@ sub parse_hv {
 
 # super inefficient
 sub varint {
-  my $dr = shift;
-  my $ri = shift;
   my $x = 0;
   my $lshift = 0;
-  while (length($$dr) && ord(substr($$dr, 0, 1)) & 0x80) {
-    my $c = ord(substr($$dr, 0, 1, ''));
-    ++$$ri if $ri;
+  while (length($data) && ord(substr($data, 0, 1)) & 0x80) {
+    my $c = ord(substr($data, 0, 1, ''));
+    $done .= chr($c);
     $x += ($c & 0x7F) << $lshift;
     $lshift += 7;
   }
-  if (length($$dr)) {
-    ++$$ri if $ri;
-    my $c = ord(substr($$dr, 0, 1, ''));
+  if (length($data)) {
+    my $c = ord(substr($data, 0, 1, ''));
+    $done .= chr($c);
     $x += $c << $lshift;
   }
   else {
