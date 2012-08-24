@@ -326,6 +326,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
         const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, src);
         PTABLE_ENTRY_t *pe = PTABLE_find(enc->weak_seenhash, src);
         if (!oldoffset) {
+            if (DEBUGHACK) warn("storing %p as %lu", src, BUF_POS_OFS(enc));
             PTABLE_store(enc->ref_seenhash, src, (void *)BUF_POS_OFS(enc));
             if (value_is_weak_referent) {
                 /* we have never seen it before at all (or oldoffset would tell us so)
@@ -380,7 +381,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     else if (!SvOK(src))
         srl_buf_cat_char(enc, SRL_HDR_UNDEF);
     /* dump references */
-    else if (SvROK(src))
+    else if (SvROK(src)) 
         srl_dump_rv(aTHX_ enc, src);
     else {
         croak("Attempting to dump unsupported or invalid SV");

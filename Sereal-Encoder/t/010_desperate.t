@@ -4,6 +4,7 @@ use warnings;
 use Sereal::Encoder qw(encode_sereal);
 use Sereal::Encoder::Constants qw(:all);
 use Scalar::Util qw(weaken);
+use Data::Dumper;
 
 use constant FBIT => 128;
 
@@ -23,7 +24,7 @@ sub array_fbit {
 sub varint {
   my $n = shift;
   my $out = '';
-  while ($n > 0x80) {
+  while ($n >= 0x80) {
     $out .= chr( ($n & 0x7f) | 0x80 );
     $n >>= 7;
   }
@@ -148,15 +149,32 @@ my @basic_tests = (
     "weak thing alias"
    ),
   [
-    do { my @array; $array[0]=\$array[1]; $array[1]=\$array[0]; \@array },
-    .chr(SRL_HDR_ARRAY)
+    do { my @array; $array[0]=\$array[1]; $array[1]=\$array[0]; weaken($array[1]); weaken($array[0]); \@array },
+    chr(SRL_HDR_ARRAY)
     .varint(2)
-    .chr(SRL_HDR_WEAKEN)
+    .chr(SRL_HDR_WEAKEN + FBIT)
     .chr(SRL_HDR_REF)
-    .varint(5)
-    .chr(0b0000_0001)
+    .varint(0)
+    .chr(SRL_HDR_WEAKEN + FBIT)
+    .chr(SRL_HDR_REF)
+    .varint(7)
+    .chr(SRL_HDR_ALIAS)
+    .varint(10)
     .chr(SRL_HDR_TAIL),
-    "weak thing ref"
+    "weak scalar cross"
+  ],
+  [
+    do { my @array; $array[0]=\$array[1]; $array[1]=\$array[0]; \@array },
+    chr(SRL_HDR_ARRAY)
+    .varint(2)
+    .chr(SRL_HDR_REF + FBIT)
+    .varint(0)
+    .chr(SRL_HDR_REF + FBIT)
+    .varint(7)
+    .chr(SRL_HDR_ALIAS)
+    .varint(9)
+    .chr(SRL_HDR_TAIL),
+    "weak scalar cross"
   ],
 
 );
@@ -174,7 +192,7 @@ sub run_tests {
     my $out = encode_sereal($bt->[0], $opt_hash ? ($opt_hash) : ()); # must use bt here or we get a copy
     ok(defined $out, "($extra_name) defined: $name");
     #is(length($out), length($exp));
-    is($out, $exp, "($extra_name) correct: $name")
+    is(Data::Dumper::qquote($out), Data::Dumper::qquote($exp), "($extra_name) correct: $name")
       or do {
         if ($ENV{DEBUG_SEREAL}) {
           print STDERR "\nEXPECTED:\n";
