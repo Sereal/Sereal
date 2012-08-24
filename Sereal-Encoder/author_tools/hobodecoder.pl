@@ -125,6 +125,11 @@ sub parse_sv {
     my $ofs= varint();
     printf "%06u: %02x %03s %sALIAS(%u)\n", $p, $o, $bv, $ind, $ofs;
   }
+  elsif ($o == SRL_HDR_BLESS) {
+    printf "%06u: %02x %03s %sBLESS\n", $p, $o, $bv, $ind;
+    parse_sv($ind."  ");
+    parse_sv($ind."  ");
+  }
   else {
     die "unsupported type: $o ($t): $const_names{$o}";
   }
