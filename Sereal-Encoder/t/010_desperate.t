@@ -161,7 +161,7 @@ my @basic_tests = (
     .chr(SRL_HDR_ALIAS)
     .varint(10)
     .chr(SRL_HDR_TAIL),
-    "weak scalar cross"
+    "scalar cross"
   ],
   [
     do { my @array; $array[0]=\$array[1]; $array[1]=\$array[0]; \@array },

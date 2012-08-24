@@ -8,25 +8,27 @@
 #include "srl_protocol.h"
 
 /* declare some of the in-file functions to avoid ordering issues */
-SV *srl_read_single_value(pTHX_ srl_decoder_t *dec);
+static UV srl_read_varint_uv(pTHX_ srl_decoder_t *dec);
+
+SV *srl_read_single_value(pTHX_ srl_decoder_t *dec, U8 *track_pos);
 static SV *srl_read_hash(pTHX_ srl_decoder_t *dec, U8 *track_pos);
 static SV *srl_read_array(pTHX_ srl_decoder_t *dec, U8 *track_pos);
+static SV *srl_read_ref(pTHX_ srl_decoder_t *dec, U8 *track_pos);
+static SV *srl_read_weaken(pTHX_ srl_decoder_t *dec, U8 *track_pos);
+
 static SV *srl_read_long_double(pTHX_ srl_decoder_t *dec);
 static SV *srl_read_double(pTHX_ srl_decoder_t *dec);
 static SV *srl_read_float(pTHX_ srl_decoder_t *dec);
 static SV *srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8);
 static SV *srl_read_varint(pTHX_ srl_decoder_t *dec);
 static SV *srl_read_zigzag(pTHX_ srl_decoder_t *dec);
-static UV srl_read_varint_uv(pTHX_ srl_decoder_t *dec);
+static SV *srl_read_copy(pTHX_ srl_decoder_t *dec);
+static SV *srl_read_reuse(pTHX_ srl_decoder_t *dec);
+static SV *srl_read_alias(pTHX_ srl_decoder_t *dec);
 
 /* FIXME unimplemented!!! */
-static SV *srl_read_ref(pTHX_ srl_decoder_t *dec, U8 *track_pos);
-static SV *srl_read_reuse(pTHX_ srl_decoder_t *dec);
 static SV *srl_read_bless(pTHX_ srl_decoder_t *dec);
 static SV *srl_read_blessv(pTHX_ srl_decoder_t *dec);
-static SV *srl_read_alias(pTHX_ srl_decoder_t *dec);
-static SV *srl_read_copy(pTHX_ srl_decoder_t *dec);
-static SV *srl_read_weaken(pTHX_ srl_decoder_t *dec);
 static SV *srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag);
 static SV *srl_read_regexp(pTHX_ srl_decoder_t *dec);
 static SV *srl_read_extend(pTHX_ srl_decoder_t *dec);
@@ -42,7 +44,6 @@ void srl_decoder_destructor_hook(void *p)
     /* Exception cleanup. Under normal operation, we should have
      * assigned NULL to buf_start after we're done. */
     PTABLE_free(dec->ref_seenhash);
-    PTABLE_free(dec->str_seenhash);
 
     Safefree(dec);
 }
@@ -56,16 +57,12 @@ build_decoder_struct(pTHX_ HV *opt, SV *src)
     srl_decoder_t *dec;
     /* SV **svp; */
 
-    Newx(dec, 1, srl_decoder_t);
+    Newxz(dec, 1, srl_decoder_t);
 
     /* Register our structure for destruction on scope exit */
     SAVEDESTRUCTOR(&srl_decoder_destructor_hook, (void *)dec);
-    dec->depth = 0;
-    dec->flags = 0;
-    dec->save_pos= NULL;
 
     dec->ref_seenhash = PTABLE_new();
-    dec->str_seenhash = PTABLE_new();
     dec->buf_start= dec->pos= (unsigned char*)SvPV(src, len);
     dec->buf_end= dec->buf_start + len;
 
@@ -178,7 +175,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
         if ( (*dec->pos == SRL_HDR_LIST) ) {
             ERROR_UNIMPLEMENTED(dec, SRL_HDR_LIST, "LIST");
         }
-        SV *got= srl_read_single_value(aTHX_ dec);
+        SV *got= srl_read_single_value(aTHX_ dec, NULL);
         av_push(av, got);
     }
     ASSERT_BUF_SPACE(dec,1);
@@ -203,7 +200,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
     for (; num_keys > 0 ; num_keys--) {
         STRLEN key_len;
         SV *key_sv;
-        SV *got_sv= srl_read_single_value(aTHX_ dec);
+        SV *got_sv= srl_read_single_value(aTHX_ dec, NULL);
 
         ASSERT_BUF_SPACE(dec,1);
       read_key:
@@ -277,15 +274,13 @@ static SV *srl_read_ref(pTHX_ srl_decoder_t *dec, U8 *track_pos)
         referent= srl_fetch_item(aTHX_ dec, item, "REF");
         ret= newRV_inc(referent);
     } else {
-        ret= newSV(0);
+        ret= newRV_noinc(newSV(0));
     }
     if (track_pos)
         srl_track_sv(aTHX_ dec, track_pos, ret);
     if (!referent) {
-        referent= srl_read_single_value(aTHX_ dec);
-        sv_upgrade(ret, SVt_IV); /*is this required? */
+        referent= srl_read_single_value(aTHX_ dec, NULL);
         SvRV_set(ret, referent);
-        SvROK_on(ret);
     }
     return ret;
 }
@@ -317,9 +312,26 @@ static SV *srl_read_copy(pTHX_ srl_decoder_t *dec)
     }
     dec->save_pos= dec->pos;
     dec->pos= dec->buf_start + item;
-    ret= srl_read_single_value(aTHX_ dec);
+    ret= srl_read_single_value(aTHX_ dec, NULL);
     dec->pos= dec->save_pos;
     dec->save_pos= 0;
+    return ret;
+}
+
+static SV *srl_read_weaken(pTHX_ srl_decoder_t *dec, U8 *track_pos)
+{
+    SV* ret= srl_read_single_value(aTHX_ dec, track_pos);
+    if (!SvROK(ret))
+        ERROR("WEAKEN op");
+    if (SvREFCNT(ret)==1) {
+        if (!dec->weakref_av) {
+            dec->weakref_av= newAV();
+            SAVEFREESV(dec->weakref_av);
+        }
+        SvREFCNT_inc(ret);
+        av_push(dec->weakref_av, ret);
+    }
+    sv_rvweaken(ret);
     return ret;
 }
 
@@ -330,10 +342,6 @@ static SV *srl_read_bless(pTHX_ srl_decoder_t *dec)
 static SV *srl_read_blessv(pTHX_ srl_decoder_t *dec)
 {
     ERROR_UNIMPLEMENTED(dec,SRL_HDR_BLESSV,"BLESSV");
-}
-static SV *srl_read_weaken(pTHX_ srl_decoder_t *dec)
-{
-    ERROR_UNIMPLEMENTED(dec,SRL_HDR_WEAKEN,"WEAKEN");
 }
 static SV *srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag)
 {
@@ -350,17 +358,19 @@ static SV *srl_read_extend(pTHX_ srl_decoder_t *dec)
 
 
 SV *
-srl_read_single_value(pTHX_ srl_decoder_t *dec)
+srl_read_single_value(pTHX_ srl_decoder_t *dec, U8 *track_pos)
 {
     STRLEN len;
     SV *ret= NULL;
     U8 tag= 0;
-    U8 *track_pos= 0;
 
     while (BUF_NOT_DONE(dec) && ret == NULL) {
         tag= *dec->pos++;
         if (tag & SRL_HDR_TRACK_FLAG) {
-            track_pos= dec->pos - 1;
+            if (track_pos == 0 )
+                track_pos= dec->pos - 1;
+            else
+                ERROR("bad tracking");
             tag= tag & ~SRL_HDR_TRACK_FLAG;
         }
         if ( tag <= SRL_HDR_POS_HIGH ) {
@@ -399,7 +409,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec)
                 case SRL_HDR_EXTEND:        ret= srl_read_extend(aTHX_ dec);        break;
                 case SRL_HDR_LIST:          ERROR_UNEXPECTED(dec,tag);              break;
 
-                case SRL_HDR_WEAKEN:        ret= srl_read_weaken(aTHX_ dec);        break;
+                case SRL_HDR_WEAKEN:        ret= srl_read_weaken(aTHX_ dec, track_pos); break;
                 case SRL_HDR_REGEXP:        ret= srl_read_regexp(aTHX_ dec);        break;
 
                 case SRL_HDR_TAIL:          ERROR_UNEXPECTED(dec,tag);              break;

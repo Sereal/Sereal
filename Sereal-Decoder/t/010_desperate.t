@@ -152,12 +152,29 @@ my @basic_tests = (
     do { my @array; $array[0]=\$array[1]; $array[1]=\$array[0]; \@array },
     chr(SRL_HDR_ARRAY)
     .varint(2)
-    .chr(SRL_HDR_WEAKEN)
-    .chr(SRL_HDR_REF)
-    .varint(5)
-    .chr(0b0000_0001)
+    .chr(SRL_HDR_REF + FBIT)
+    .varint(0)
+    .chr(SRL_HDR_REF + FBIT)
+    .varint(7)
+    .chr(SRL_HDR_ALIAS)
+    .varint(9)
     .chr(SRL_HDR_TAIL),
-    "weak thing ref"
+    "scalar cross"
+  ],
+  [
+    do { my @array; $array[0]=\$array[1]; $array[1]=\$array[0]; weaken($array[1]); weaken($array[0]); \@array },
+    chr(SRL_HDR_ARRAY)
+    .varint(2)
+    .chr(SRL_HDR_WEAKEN + FBIT)
+    .chr(SRL_HDR_REF)
+    .varint(0)
+    .chr(SRL_HDR_WEAKEN + FBIT)
+    .chr(SRL_HDR_REF)
+    .varint(7)
+    .chr(SRL_HDR_ALIAS)
+    .varint(10)
+    .chr(SRL_HDR_TAIL),
+    "weak scalar cross"
   ],
 
 );

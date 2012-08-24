@@ -15,8 +15,7 @@ typedef struct {
     U32 flags;               /* flag-like options: See F_* defines in srl_decoder.c */
     unsigned int depth;      /* current Perl-ref recursion depth */
     ptable_ptr ref_seenhash; /* ptr table for avoiding circular refs */
-    ptable_ptr str_seenhash; /* ptr table for issuing COPY commands */
-
+    AV* weakref_av;
 } srl_decoder_t;
 
 /* constructor; don't need destructor, this sets up a callback */
@@ -26,7 +25,7 @@ srl_decoder_t *build_decoder_struct(pTHX_ HV *opt, SV *src);
 int srl_read_header(pTHX_ srl_decoder_t *dec);
 
 /* Start deserializing a top-level SV */
-SV *srl_read_single_value(pTHX_ srl_decoder_t *dec);
+SV *srl_read_single_value(pTHX_ srl_decoder_t *dec, U8* track_pos);
 
 #define BUF_POS(dec) ((dec)->pos)
 #define BUF_SPACE(dec) ((dec)->buf_end - (dec)->pos)
