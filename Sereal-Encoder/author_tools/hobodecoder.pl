@@ -39,7 +39,7 @@ while (length $data) {
 }
 
 sub parse_header {
-  $data =~ s/^(srl.)// or die "invalid header";
+  $data =~ s/^(srl.)// or die "invalid header: $data";
   $done .= $1;
   my $len = varint();
   my $hdr = substr($data, 0, $len);

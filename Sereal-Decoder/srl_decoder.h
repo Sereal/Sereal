@@ -35,13 +35,15 @@ SV *srl_read_single_value(pTHX_ srl_decoder_t *dec);
 #define BUF_NOT_DONE(dec) ((dec)->pos < (dec)->buf_end)
 
 #define ERROR(msg) croak("Error: %s", msg)
-#define ERROR_UNIMPLEMENTED(dec,tag) STMT_START {      \
-    croak("Error: tag %c is uimplemented at ofs: %d", tag, BUF_POS_OFS(dec)); \
+#define ERRORf1(fmt,var) croak("Error: " fmt, (var))
+#define ERRORf2(fmt,var1,var2) croak("Error: " fmt, (var1),(var2))
+#define ERROR_UNIMPLEMENTED(dec,tag,str) STMT_START {      \
+    croak("Error: tag %u %s is unimplemented at ofs: %d", tag,str, BUF_POS_OFS(dec)); \
     return NULL;                                \
 } STMT_END 
-#define ERROR_UNTERMINATED(dec, tag) croak("Error: tag %c was not terminated properly", tag)
-#define ERROR_BAD_COPY(dec, tag) croak("Error: while processing tag %c encountered a bad COPY tag", tag)
-#define ERROR_UNEXPECTED(dec, msg) croak("Error: unexpected tag %c while expecting %s", *(dec)->pos, msg)
+#define ERROR_UNTERMINATED(dec, tag,str) croak("Error: tag %u %s was not terminated properly at ofs %lu with %lu to go", tag, str,dec->pos - dec->buf_start,dec->buf_end - dec->pos)
+#define ERROR_BAD_COPY(dec, tag) croak("Error: while processing tag %u encountered a bad COPY tag", tag)
+#define ERROR_UNEXPECTED(dec, msg) croak("Error: unexpected tag %u while expecting %s", *(dec)->pos, msg)
 #define ERROR_PANIC(dec, msg) croak("Panic: %s", msg);
 
 #define ASSERT_BUF_SPACE(dec,len) STMT_START {      \
