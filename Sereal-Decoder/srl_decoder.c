@@ -96,6 +96,37 @@ srl_read_header(pTHX_ srl_decoder_t *dec)
     return 0;
 }
 
+int srl_finalize_structure(pTHX_ srl_decoder_t *dec)
+{
+    if (dec->ref_stashes) {
+        PTABLE_ITER_t *it = PTABLE_iter_new(dec->ref_stashes);
+        PTABLE_ENTRY_t *ent;
+
+        /* we now walk the weak_seenhash and set any tags it points
+         * at to the PAD opcode, this basically turns the first weakref
+         * we encountered into a normal ref when there is only a weakref
+         * pointing at the structure. */
+        while ( NULL != (ent = PTABLE_iter_next(it)) ) {
+            HV *stash = (HV* )ent->value;
+            AV *ref_bless_av  = PTABLE_fetch(dec->ref_bless_av, ent->key);
+            I32 len;
+            if (!stash || !ref_bless_av) {
+                ERROR("missing stash or ref_bless_av!");
+            }
+            for( len= av_len(ref_bless_av) + 1 ; len > 0 ; len-- ) {
+                SV* obj= av_pop(ref_bless_av);
+                if (obj)
+                    sv_bless(obj, stash);
+                else
+                    ERROR("object missing from ref_bless_av array?");
+            }
+        }
+
+        PTABLE_iter_free(it);
+    }
+    return 0;
+}
+
 static UV
 srl_read_varint_uv(pTHX_ srl_decoder_t *dec)
 {
@@ -113,6 +144,23 @@ srl_read_varint_uv(pTHX_ srl_decoder_t *dec)
     }
     return uv;
 }
+
+static inline void
+srl_track_sv(pTHX_ srl_decoder_t *dec, U8 *track_pos, SV *sv) {
+    PTABLE_store(dec->ref_seenhash, (void *)(track_pos - dec->buf_start), (void *)sv);
+}
+
+static SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name) {
+    SV *sv= (SV *)PTABLE_fetch(dec->ref_seenhash, (void *)item);
+    if (!sv)
+        ERRORf2("%s(%d) references an unknown item", tag_name, item);
+    return sv;
+}
+
+/****************************************************************************
+ * implementation of various opcodes                                        *
+ ****************************************************************************/
+
 
 static SV *
 srl_read_varint(pTHX_ srl_decoder_t *dec)
@@ -160,10 +208,6 @@ srl_read_long_double(pTHX_ srl_decoder_t *dec)
     return ret;
 }
 
-static inline void
-srl_track_sv(pTHX_ srl_decoder_t *dec, U8 *track_pos, SV *sv) {
-    PTABLE_store(dec->ref_seenhash, (void *)(track_pos - dec->buf_start), (void *)sv);
-}
 
 static SV *
 srl_read_array(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
@@ -253,14 +297,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
     return rv;
 }
 
-static SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name) {
-    SV *sv= (SV *)PTABLE_fetch(dec->ref_seenhash, (void *)item);
-    if (!sv)
-        ERRORf2("%s(%d) references an unknown item", tag_name, item);
-    return sv;
-}
 
-/* FIXME unimplemented!!! */
 static SV *srl_read_ref(pTHX_ srl_decoder_t *dec, U8 *track_pos)
 {
     UV item= srl_read_varint_uv(aTHX_ dec);
@@ -424,37 +461,87 @@ static SV *srl_read_bless(pTHX_ srl_decoder_t *dec)
     return ret;
 }
 
-int srl_finalize_structure(pTHX_ srl_decoder_t *dec)
+
+
+SV *
+srl_read_single_value(pTHX_ srl_decoder_t *dec, U8 *track_pos)
 {
-    if (dec->ref_stashes) {
-        PTABLE_ITER_t *it = PTABLE_iter_new(dec->ref_stashes);
-        PTABLE_ENTRY_t *ent;
+    STRLEN len;
+    SV *ret;
+    U8 tag;
 
-        /* we now walk the weak_seenhash and set any tags it points
-         * at to the PAD opcode, this basically turns the first weakref
-         * we encountered into a normal ref when there is only a weakref
-         * pointing at the structure. */
-        while ( NULL != (ent = PTABLE_iter_next(it)) ) {
-            HV *stash = (HV* )ent->value;
-            AV *ref_bless_av  = PTABLE_fetch(dec->ref_bless_av, ent->key);
-            I32 len;
-            if (!stash || !ref_bless_av) {
-                ERROR("missing stash or ref_bless_av!");
-            }
-            for( len= av_len(ref_bless_av) + 1 ; len > 0 ; len-- ) {
-                SV* obj= av_pop(ref_bless_av);
-                if (obj)
-                    sv_bless(obj, stash);
-                else
-                    ERROR("object missing from ref_bless_av array?");
-            }
-        }
+  read_again:
+    if (BUF_DONE(dec))
+        ERROR("unexpected end of input stream while expecting a single value");
 
-        PTABLE_iter_free(it);
+    tag= *dec->pos++;
+    if (tag & SRL_HDR_TRACK_FLAG) {
+        if (track_pos == 0 )
+            track_pos= dec->pos - 1;
+        else
+            ERROR("bad tracking");
+        tag= tag & ~SRL_HDR_TRACK_FLAG;
     }
-    return 0;
+    if ( tag <= SRL_HDR_POS_HIGH ) {
+        ret= newSVuv(tag);
+    } else if ( tag <= SRL_HDR_NEG_LOW) {
+        ret= newSViv( -tag + 15);
+    } else if (tag & SRL_HDR_ASCII) {
+        len= (STRLEN)(tag & SRL_HDR_ASCII_LEN_MASK);
+        ASSERT_BUF_SPACE(dec,len);
+        ret= newSVpvn((char*)dec->pos,len);
+        dec->pos += len;
+    }
+    else{
+        switch (tag) {
+            case SRL_HDR_VARINT:        ret= srl_read_varint(aTHX_ dec);        break;
+            case SRL_HDR_ZIGZAG:        ret= srl_read_zigzag(aTHX_ dec);        break;
+
+            case SRL_HDR_FLOAT:         ret= srl_read_float(aTHX_ dec);         break;
+            case SRL_HDR_DOUBLE:        ret= srl_read_double(aTHX_ dec);        break;
+            case SRL_HDR_LONG_DOUBLE:   ret= srl_read_long_double(aTHX_ dec);   break;
+
+            case SRL_HDR_UNDEF:         ret= newSVsv(&PL_sv_undef);             break;
+            case SRL_HDR_STRING:        ret= srl_read_string(aTHX_ dec, 0);     break;
+            case SRL_HDR_STRING_UTF8:   ret= srl_read_string(aTHX_ dec, 1);     break;
+            case SRL_HDR_REUSE:         ret= srl_read_reuse(aTHX_ dec);         break;
+
+            case SRL_HDR_REF:           ret= srl_read_ref(aTHX_ dec, track_pos);   break;
+            case SRL_HDR_HASH:          ret= srl_read_hash(aTHX_ dec, track_pos);  break;
+            case SRL_HDR_ARRAY:         ret= srl_read_array(aTHX_ dec, track_pos); break;
+
+            case SRL_HDR_BLESS:         ret= srl_read_bless(aTHX_ dec);         break;
+            case SRL_HDR_BLESSV:        ret= srl_read_blessv(aTHX_ dec);        break;
+            case SRL_HDR_ALIAS:         ret= srl_read_alias(aTHX_ dec);         break;
+            case SRL_HDR_COPY:          ret= srl_read_copy(aTHX_ dec);          break;
+
+            case SRL_HDR_EXTEND:        ret= srl_read_extend(aTHX_ dec);        break;
+            case SRL_HDR_LIST:          ERROR_UNEXPECTED(dec,tag);              break;
+
+            case SRL_HDR_WEAKEN:        ret= srl_read_weaken(aTHX_ dec, track_pos); break;
+            case SRL_HDR_REGEXP:        ret= srl_read_regexp(aTHX_ dec);        break;
+
+            case SRL_HDR_TAIL:          ERROR_UNEXPECTED(dec,tag);              break;
+            case SRL_HDR_PAD:           /* no op */                             
+                while (BUF_NOT_DONE(dec) && *dec->pos == SRL_HDR_PAD)
+                    dec->pos++;
+                goto read_again;
+            break;
+            default:
+                if (SRL_HDR_RESERVED_LOW <= tag && tag <= SRL_HDR_RESERVED_HIGH) {
+                    ret= srl_read_reserved(aTHX_ dec, tag);
+                } else {
+                    ERROR_PANIC(dec,tag);
+                }
+            break;
+        }
+    }
+    if (track_pos)
+        srl_track_sv(aTHX_ dec, track_pos, ret);
+    return ret;
 }
 
+/* FIXME unimplemented!!! */
 static SV *srl_read_blessv(pTHX_ srl_decoder_t *dec)
 {
     ERROR_UNIMPLEMENTED(dec,SRL_HDR_BLESSV,"BLESSV");
@@ -472,77 +559,4 @@ static SV *srl_read_extend(pTHX_ srl_decoder_t *dec)
     ERROR_UNIMPLEMENTED(dec,SRL_HDR_EXTEND,"EXTEND");
 }
 
-
-SV *
-srl_read_single_value(pTHX_ srl_decoder_t *dec, U8 *track_pos)
-{
-    STRLEN len;
-    SV *ret= NULL;
-    U8 tag= 0;
-
-    while (BUF_NOT_DONE(dec) && ret == NULL) {
-        tag= *dec->pos++;
-        if (tag & SRL_HDR_TRACK_FLAG) {
-            if (track_pos == 0 )
-                track_pos= dec->pos - 1;
-            else
-                ERROR("bad tracking");
-            tag= tag & ~SRL_HDR_TRACK_FLAG;
-        }
-        if ( tag <= SRL_HDR_POS_HIGH ) {
-            ret= newSVuv(tag);
-        } else if ( tag <= SRL_HDR_NEG_LOW) {
-            ret= newSViv( -tag + 15);
-        } else if (tag & SRL_HDR_ASCII) {
-            len= (STRLEN)(tag & SRL_HDR_ASCII_LEN_MASK);
-            ASSERT_BUF_SPACE(dec,len);
-            ret= newSVpvn((char*)dec->pos,len);
-            dec->pos += len;
-        }
-        else{
-            switch (tag) {
-                case SRL_HDR_VARINT:        ret= srl_read_varint(aTHX_ dec);        break;
-                case SRL_HDR_ZIGZAG:        ret= srl_read_zigzag(aTHX_ dec);        break;
-
-                case SRL_HDR_FLOAT:         ret= srl_read_float(aTHX_ dec);         break;
-                case SRL_HDR_DOUBLE:        ret= srl_read_double(aTHX_ dec);        break;
-                case SRL_HDR_LONG_DOUBLE:   ret= srl_read_long_double(aTHX_ dec);   break;
-
-                case SRL_HDR_UNDEF:         ret= newSVsv(&PL_sv_undef);             break;
-                case SRL_HDR_STRING:        ret= srl_read_string(aTHX_ dec, 0);     break;
-                case SRL_HDR_STRING_UTF8:   ret= srl_read_string(aTHX_ dec, 1);     break;
-                case SRL_HDR_REUSE:         ret= srl_read_reuse(aTHX_ dec);         break;
-
-                case SRL_HDR_REF:           ret= srl_read_ref(aTHX_ dec, track_pos);   break;
-                case SRL_HDR_HASH:          ret= srl_read_hash(aTHX_ dec, track_pos);  break;
-                case SRL_HDR_ARRAY:         ret= srl_read_array(aTHX_ dec, track_pos); break;
-
-                case SRL_HDR_BLESS:         ret= srl_read_bless(aTHX_ dec);         break;
-                case SRL_HDR_BLESSV:        ret= srl_read_blessv(aTHX_ dec);        break;
-                case SRL_HDR_ALIAS:         ret= srl_read_alias(aTHX_ dec);         break;
-                case SRL_HDR_COPY:          ret= srl_read_copy(aTHX_ dec);          break;
-
-                case SRL_HDR_EXTEND:        ret= srl_read_extend(aTHX_ dec);        break;
-                case SRL_HDR_LIST:          ERROR_UNEXPECTED(dec,tag);              break;
-
-                case SRL_HDR_WEAKEN:        ret= srl_read_weaken(aTHX_ dec, track_pos); break;
-                case SRL_HDR_REGEXP:        ret= srl_read_regexp(aTHX_ dec);        break;
-
-                case SRL_HDR_TAIL:          ERROR_UNEXPECTED(dec,tag);              break;
-                case SRL_HDR_PAD:           /* no op */                             break;
-
-                default:
-                    if (SRL_HDR_RESERVED_LOW <= tag && tag <= SRL_HDR_RESERVED_HIGH) {
-                        ret= srl_read_reserved(aTHX_ dec, tag);
-                    } else {
-                        ERROR_PANIC(dec,tag);
-                    }
-                break;
-            }
-        }
-    }
-    if (track_pos)
-        srl_track_sv(aTHX_ dec, track_pos, ret);
-    return ret;
-}
 

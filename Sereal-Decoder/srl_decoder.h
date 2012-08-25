@@ -37,6 +37,7 @@ int srl_finalize_structure(pTHX_ srl_decoder_t *dec);
 #define BUF_POS_OFS(dec) ((dec)->pos - (dec)->buf_start)
 #define BUF_SIZE(dec) ((dec)->buf_end - (dec)->buf_start)
 #define BUF_NOT_DONE(dec) ((dec)->pos < (dec)->buf_end)
+#define BUF_DONE(dec) ((dec)->pos >= (dec)->buf_end)
 
 #define ERROR(msg) croak("Error: %s", msg)
 #define ERRORf1(fmt,var) croak("Error: " fmt, (var))

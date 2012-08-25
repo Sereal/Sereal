@@ -49,16 +49,22 @@ if (!SEREAL_ONLY) {
 
 print($sereal), exit if $dump;
 
+my $sereal_len= bytes::length($sereal);
 require bytes;
 if (!SEREAL_ONLY) {
-  print "JSON::XS:              " . bytes::length($json_xs) . " bytes\n";
-  print "Data::Dumper::Limited: " . bytes::length($ddl) . " bytes\n";
-  print "Data::Dumper (1):      " . bytes::length($dd1) . " bytes\n";
-  print "Data::Dumper (2):      " . bytes::length($dd2) . " bytes\n";
-  print "Storable:              " . bytes::length($storable) . " bytes\n";
-  print "Data::MessagePack:     " . bytes::length($mp) . " bytes\n";
+    for my $tuple (
+        ["JSON::XS",  bytes::length($json_xs)],
+        ["Data::Dumper::Limited", bytes::length($ddl)],
+        ["Data::Dumper (1)", bytes::length($dd1)],
+        ["Data::Dumper (2)", bytes::length($dd2)],
+        ["Storable" , bytes::length($storable)],
+        ["Data::MessagePack" ,bytes::length($mp)],
+        ["Sereal::Encoder",  bytes::length($sereal)],
+    ) {
+        my ($name, $size) = @$tuple;
+        printf "%-40s %12d bytes %.2f%% of sereal\n", $name, $size, $size/$sereal_len *100;
+    }
 }
-print "Sereal::Encoder:       " . bytes::length($sereal) . " bytes\n";
 
 our $x;
 cmpthese(
