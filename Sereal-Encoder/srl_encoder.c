@@ -42,10 +42,6 @@
 
 #define DEBUGHACK 0
 
-/* define option bits in srl_encoder_t's flags member */
-#define SRL_F_SHARED_HASHKEYS                1UL
-#define SRL_HAVE_OPTION(enc, flag_num) ((enc)->flags & flag_num)
-
 /* some static function declarations */
 static void srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src);
 static void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8);
@@ -116,8 +112,42 @@ static SRL_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
 void srl_destructor_hook(void *p)
 {
     srl_encoder_t *enc = (srl_encoder_t *)p;
-    /* Exception cleanup. Under normal operation, we should have
-     * assigned NULL to buf_start after we're done. */
+    /* Do not auto-destroy encoder if set to be re-used */
+    if (!SRL_HAVE_OPTION(enc, SRL_F_REUSE_ENCODER)) {
+        /* Exception cleanup. Under normal operation, we should have
+         * assigned NULL to buf_start after we're done. */
+        Safefree(enc->buf_start);
+        if (enc->ref_seenhash != NULL)
+            PTABLE_free(enc->ref_seenhash);
+        if (enc->str_seenhash != NULL)
+            PTABLE_free(enc->str_seenhash);
+        if (enc->weak_seenhash != NULL)
+            PTABLE_free(enc->weak_seenhash);
+        Safefree(enc);
+    }
+    else {
+        srl_clear_encoder(enc);
+    }
+}
+
+void
+srl_clear_encoder(srl_encoder_t *enc)
+{
+    if (enc->pos > enc->buf_start) {
+        enc->depth = 0;
+        if (enc->ref_seenhash != NULL)
+            PTABLE_clear(enc->ref_seenhash);
+        if (enc->str_seenhash != NULL)
+            PTABLE_clear(enc->str_seenhash);
+        if (enc->weak_seenhash != NULL)
+            PTABLE_clear(enc->weak_seenhash);
+        enc->pos = enc->buf_start;
+    }
+}
+
+void
+srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
+{
     Safefree(enc->buf_start);
     if (enc->ref_seenhash != NULL)
         PTABLE_free(enc->ref_seenhash);
@@ -131,7 +161,7 @@ void srl_destructor_hook(void *p)
 /* Builds the C-level configuration and state struct.
  * Automatically freed at scope boundary. */
 srl_encoder_t *
-build_encoder_struct(pTHX_ HV *opt)
+srl_build_encoder_struct(pTHX_ HV *opt)
 {
     srl_encoder_t *enc;
     SV **svp;

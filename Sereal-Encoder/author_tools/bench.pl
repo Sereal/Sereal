@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use blib;
 use Sereal::Encoder qw(encode_sereal);
-use Benchmark qw(cmpthese);
+use Benchmark qw(cmpthese :hireswallclock);
 use JSON::XS qw(encode_json);
 use Data::Dumper qw(Dumper);
 use Data::Dumper::Limited qw(DumpLimited);
@@ -33,11 +33,12 @@ $data{$_}= [
   [map rand,1..1000],
   {@str},
   {@str},
-] for qw(sereal dd1 dd2 ddl mp json_xs storable);
+] for qw(sereal sereal_func dd1 dd2 ddl mp json_xs storable);
 
+our $enc = Sereal::Encoder->new(\%opt);
 my ($json_xs, $dd1, $dd2, $ddl, $sereal, $storable, $mp);
 # do this first before any of the other dumpers "contaminate" the iv/pv issue
-$sereal   = encode_sereal($data{sereal}, \%opt);
+$sereal   = $enc->encode($data{sereal});
 if (!SEREAL_ONLY) {
   $json_xs  = encode_json($data{json_xs});
   $dd1      = Data::Dumper->new([$data{dd1}])->Indent(0)->Dump();
@@ -79,7 +80,8 @@ cmpthese(
         storable => '$::x = nfreeze($::data{storable});',
         mp => '$::x = $::mpo->pack($::data{mp});',
       ) : ()),
-    sereal => '$::x = encode_sereal($::data{sereal}, \%::opt);',
+    sereal_func => '$::x = encode_sereal($::data{sereal_func}, \%::opt);',
+    sereal => '$::x = $::enc->encode($::data{sereal});',
   }
 );
 

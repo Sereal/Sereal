@@ -18,11 +18,21 @@ typedef struct {
 } srl_encoder_t;
 
 /* constructor; don't need destructor, this sets up a callback */
-srl_encoder_t *build_encoder_struct(pTHX_ HV *opt);
+srl_encoder_t *srl_build_encoder_struct(pTHX_ HV *opt);
+
+void srl_clear_encoder(srl_encoder_t *enc);
+
+/* Explicit destructor */
+void srl_destroy_encoder(pTHX_ srl_encoder_t *enc);
 
 /* Write Sereal packet header to output buffer */
 void srl_write_header(pTHX_ srl_encoder_t *enc);
 /* Start dumping a top-level SV */
 void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
+
+/* define option bits in srl_encoder_t's flags member */
+#define SRL_F_SHARED_HASHKEYS                1UL
+#define SRL_F_REUSE_ENCODER                  2UL
+#define SRL_HAVE_OPTION(enc, flag_num) ((enc)->flags & flag_num)
 
 #endif

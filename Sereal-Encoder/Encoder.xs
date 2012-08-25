@@ -16,14 +16,43 @@
 MODULE = Sereal::Encoder        PACKAGE = Sereal::Encoder
 PROTOTYPES: DISABLE
 
+srl_encoder_t *
+new(CLASS, opt = NULL)
+    char *CLASS;
+    HV *opt;
+  CODE:
+    RETVAL = srl_build_encoder_struct(aTHX_ opt);
+    RETVAL->flags |= SRL_F_REUSE_ENCODER;
+  OUTPUT: RETVAL
+
 void
-encode_sereal(src, opt = newHV())
+DESTROY(enc)
+    srl_encoder_t *enc;
+  CODE:
+    srl_destroy_encoder(aTHX_ enc);
+
+void
+encode(enc, src)
+    srl_encoder_t *enc;
+    SV *src;
+  PPCODE:
+    assert(enc != NULL);
+    srl_dump_data_structure(aTHX_ enc, src);
+    /* FIXME optimization: avoid copy by stealing string buffer if
+     *                     it is not too large. */
+    assert(enc->pos > enc->buf_start);
+    ST(0) = sv_2mortal(newSVpvn(enc->buf_start, (STRLEN)(enc->pos - enc->buf_start)));
+    srl_clear_encoder(enc);
+    XSRETURN(1);
+
+void
+encode_sereal(src, opt = NULL)
     SV *src;
     HV *opt;
   PREINIT:
     srl_encoder_t *enc;
   PPCODE:
-    enc = build_encoder_struct(aTHX_ opt);
+    enc = srl_build_encoder_struct(aTHX_ opt);
     assert(enc != NULL);
     srl_dump_data_structure(aTHX_ enc, src);
     /* FIXME optimization: avoid copy by stealing string buffer if

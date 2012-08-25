@@ -40,7 +40,6 @@ run_tests("plain");
 run_tests("no_shared_hk", {no_shared_hashkeys => 1});
 done_testing();
 
-
 sub run_tests {
   my ($extra_name, $opt_hash) = @_;
   foreach my $bt (@basic_tests) {
@@ -49,7 +48,8 @@ sub run_tests {
     #next unless $name=~/PAD/;
 
     $exp = "$hdr$exp";
-    my $out = encode_sereal($bt->[0], $opt_hash ? ($opt_hash) : ()); # must use bt here or we get a copy
+    my $enc = Sereal::Encoder->new($opt_hash ? $opt_hash : ());
+    my $out = $enc->encode($bt->[0]); # must use bt here or we get a copy
     ok(defined $out, "($extra_name) defined: $name");
     #is(length($out), length($exp));
     is(Data::Dumper::qquote($out), Data::Dumper::qquote($exp), "($extra_name) correct: $name")
