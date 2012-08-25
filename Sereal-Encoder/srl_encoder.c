@@ -272,10 +272,11 @@ srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src)
 void
 srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
 {
+    if (DEBUGHACK) warn("== start dump");
     srl_write_header(aTHX_ enc);
     srl_dump_sv(aTHX_ enc, src);
     srl_fixup_weakrefs(aTHX_ enc);
-    /* FIXME weak-ref hash traversal and fixup missing here! */
+    if (DEBUGHACK) warn("== end dump");
 }
 
 static SRL_INLINE void
@@ -293,6 +294,7 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
         if ( offset ) {
             char *pos = enc->buf_start + offset;
             assert(*pos == SRL_HDR_WEAKEN);
+            if (DEBUGHACK) warn("setting %lu to PAD", offset);
             *pos = SRL_HDR_PAD;
         }
     }
@@ -425,7 +427,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
              * If we later see a real ref we will set the value to 0. */
             if (SvWEAKREF(rv)) {
                 if (!pe)  {
-                    if (DEBUGHACK) warn("weakref %p - storing", src);
+                    if (DEBUGHACK) warn("weakref %p - storing %lu", src, BUF_POS_OFS(enc));
                     PTABLE_store(enc->weak_seenhash, src, (void *)BUF_POS_OFS(enc));
                 } else {
                     if (DEBUGHACK) warn("weakref %p - previous weakref seen", src);
