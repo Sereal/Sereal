@@ -58,6 +58,22 @@ static SRL_INLINE void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int 
 static SRL_INLINE void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
 static SRL_INLINE void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
 static SRL_INLINE void srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src);
+static SRL_INLINE void srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src);
+static SRL_INLINE PTABLE_t *srl_init_string_hash(srl_encoder_t *enc);
+static SRL_INLINE PTABLE_t *srl_init_ref_hash(srl_encoder_t *enc);
+static SRL_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
+
+#define SRL_GET_STR_SEENHASH(enc) ( (enc)->str_seenhash == NULL     \
+                                    ? srl_init_string_hash(enc)     \
+                                   : (enc)->str_seenhash )
+
+#define SRL_GET_REF_SEENHASH(enc) ( (enc)->ref_seenhash == NULL     \
+                                    ? srl_init_ref_hash(enc)        \
+                                   : (enc)->ref_seenhash )
+
+#define SRL_GET_WEAK_SEENHASH(enc) ( (enc)->weak_seenhash == NULL   \
+                                    ? srl_init_weak_hash(enc)       \
+                                   : (enc)->weak_seenhash )
 
 #define SRL_SET_FBIT(where) (where |= 0b10000000)
 
@@ -103,9 +119,12 @@ void srl_destructor_hook(void *p)
     /* Exception cleanup. Under normal operation, we should have
      * assigned NULL to buf_start after we're done. */
     Safefree(enc->buf_start);
-    PTABLE_free(enc->ref_seenhash);
-    PTABLE_free(enc->str_seenhash);
-    PTABLE_free(enc->weak_seenhash);
+    if (enc->ref_seenhash != NULL)
+        PTABLE_free(enc->ref_seenhash);
+    if (enc->str_seenhash != NULL)
+        PTABLE_free(enc->str_seenhash);
+    if (enc->weak_seenhash != NULL)
+        PTABLE_free(enc->weak_seenhash);
     Safefree(enc);
 }
 
@@ -128,13 +147,9 @@ build_encoder_struct(pTHX_ HV *opt)
     enc->depth = 0;
     enc->flags = 0;
 
-    /* prealloc'ing large ref and str tables saves reallocs at the
-     * expense of a larger malloc. prealloc'ing a large weak ref table
-     * costs O(n) at the end of the serialization since we need to check
-     * all buckets for weakrefs. */
-    enc->ref_seenhash = PTABLE_new_size(8); /* size in powers of 2 */
-    enc->str_seenhash = PTABLE_new_size(8);
-    enc->weak_seenhash = PTABLE_new_size(4);
+    enc->weak_seenhash = NULL;
+    enc->str_seenhash = NULL;
+    enc->ref_seenhash = NULL;
 
     /* load options */
     if (opt != NULL) {
@@ -145,6 +160,27 @@ build_encoder_struct(pTHX_ HV *opt)
     DEBUG_ASSERT_BUF_SANE(enc);
 
     return enc;
+}
+
+static SRL_INLINE PTABLE_t *
+srl_init_string_hash(srl_encoder_t *enc)
+{
+    enc->str_seenhash = PTABLE_new_size(4);
+    return enc->str_seenhash;
+}
+
+static SRL_INLINE PTABLE_t *
+srl_init_ref_hash(srl_encoder_t *enc)
+{
+    enc->ref_seenhash = PTABLE_new_size(4);
+    return enc->ref_seenhash;
+}
+
+static SRL_INLINE PTABLE_t *
+srl_init_weak_hash(srl_encoder_t *enc)
+{
+    enc->weak_seenhash = PTABLE_new_size(3);
+    return enc->weak_seenhash;
 }
 
 
@@ -229,7 +265,8 @@ static SRL_INLINE void
 srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
 {
     const HV *stash = SvSTASH(src);
-    const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->str_seenhash, (SV *)stash);
+    PTABLE_t *string_seenhash = SRL_GET_STR_SEENHASH(enc);
+    const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, (SV *)stash);
 
     if (oldoffset != 0) {
         char *oldpos = (char *)(enc->buf_start + oldoffset);
@@ -250,7 +287,7 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
          * /me bows to Yves for the delightfully evil hack. */
 
         /* remember current offset before advancing it */
-        PTABLE_store(enc->str_seenhash, (void *)stash, (void *)offset);
+        PTABLE_store(string_seenhash, (void *)stash, (void *)offset);
 
         /* HvNAMEUTF8 not in older perls and it would be 0 for those anyway */
 #if PERL_VERSION >= 16
@@ -275,7 +312,8 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
 static SRL_INLINE void
 srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
 {
-    PTABLE_ITER_t *it = PTABLE_iter_new(enc->weak_seenhash);
+    PTABLE_t *weak_seenhash = SRL_GET_WEAK_SEENHASH(enc);
+    PTABLE_ITER_t *it = PTABLE_iter_new(weak_seenhash);
     PTABLE_ENTRY_t *ent;
 
     /* we now walk the weak_seenhash and set any tags it points
@@ -318,11 +356,13 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     /* check if we have seen this scalar before, and track it so
      * if we see it again we recognize it */
     if (refcount > 1) {
-        const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, src);
-        PTABLE_ENTRY_t *pe = PTABLE_find(enc->weak_seenhash, src);
+        PTABLE_t *ref_seenhash = SRL_GET_REF_SEENHASH(enc);
+        PTABLE_t *weak_seenhash = SRL_GET_WEAK_SEENHASH(enc);
+        const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(ref_seenhash, src);
+        PTABLE_ENTRY_t *pe = PTABLE_find(weak_seenhash, src);
         if (!oldoffset) {
             if (DEBUGHACK) warn("storing %p as %lu", src, BUF_POS_OFS(enc));
-            PTABLE_store(enc->ref_seenhash, src, (void *)BUF_POS_OFS(enc));
+            PTABLE_store(ref_seenhash, src, (void *)BUF_POS_OFS(enc));
             if (value_is_weak_referent) {
                 /* we have never seen it before at all (or oldoffset would tell us so)
                  * so if we have seen it before in the weak_seenhash it is because
@@ -334,7 +374,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
                  */
                 if (!pe) {
                     if (DEBUGHACK) warn("scalar %p - is weak referent, storing 0", src);
-                    PTABLE_store(enc->weak_seenhash, src, NULL);
+                    PTABLE_store(weak_seenhash, src, NULL);
                 } else {
                     if (DEBUGHACK) warn("scalar %p - is weak referent, seen before", src);
                 }
@@ -350,7 +390,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
             } else {
                 /* I am pretty sure this should never happen */
                 if (DEBUGHACK) warn("scalar %p - is weak referent, but we havent seen any refs to it yet, storing 0", src);
-                PTABLE_store(enc->weak_seenhash, src, NULL);
+                PTABLE_store(weak_seenhash, src, NULL);
             }
             /* it must be an alias */
             srl_dump_alias(aTHX_ enc, oldoffset);
@@ -409,19 +449,21 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
 
 
     if (refcount > 1){
-        oldoffset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, src);
+        PTABLE_t *ref_seenhash = SRL_GET_REF_SEENHASH(enc);
+        oldoffset = (ptrdiff_t)PTABLE_fetch(ref_seenhash, src);
 
         /* it is possible rv is a weakref, or that src is the target of a weakref
          * so we have to do some extra bookkeeping */
         if (value_is_weak_referent) {
-            PTABLE_ENTRY_t *pe = PTABLE_find(enc->weak_seenhash, src);
+            PTABLE_t *weak_seenhash = SRL_GET_WEAK_SEENHASH(enc);
+            PTABLE_ENTRY_t *pe = PTABLE_find(weak_seenhash, src);
             /* If we have not see this item before then it is possible the only
              * reference to it is a weakref, so we track the first one we see.
              * If we later see a real ref we will set the value to 0. */
             if (SvWEAKREF(rv)) {
                 if (!pe)  {
                     if (DEBUGHACK) warn("weakref %p - storing %lu", src, BUF_POS_OFS(enc));
-                    PTABLE_store(enc->weak_seenhash, src, (void *)BUF_POS_OFS(enc));
+                    PTABLE_store(weak_seenhash, src, (void *)BUF_POS_OFS(enc));
                 } else {
                     if (DEBUGHACK) warn("weakref %p - previous weakref seen", src);
                 }
@@ -438,7 +480,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
                     pe->value = NULL;
                 } else {
                     if (DEBUGHACK) warn("ref %p - to weak referent, storing 0", src);
-                    PTABLE_store(enc->weak_seenhash, src, NULL);
+                    PTABLE_store(weak_seenhash, src, NULL);
                 }
             }
         }
@@ -475,7 +517,8 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
             } else {
                 if (refcount>1) {
                     const ptrdiff_t newoffset = enc->pos - enc->buf_start;
-                    PTABLE_store(enc->ref_seenhash, src, (void *)newoffset);
+                    PTABLE_t *ref_seenhash = SRL_GET_REF_SEENHASH(enc);
+                    PTABLE_store(ref_seenhash, src, (void *)newoffset);
                 }
                 srl_dump_av(aTHX_ enc, (AV *)src);
             }
@@ -487,7 +530,8 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
             } else {
                 if (refcount>1) {
                     const ptrdiff_t newoffset = enc->pos - enc->buf_start;
-                    PTABLE_store(enc->ref_seenhash, src, (void *)newoffset);
+                    PTABLE_t *ref_seenhash = SRL_GET_REF_SEENHASH(enc);
+                    PTABLE_store(ref_seenhash, src, (void *)newoffset);
                 }
                 srl_dump_hv(aTHX_ enc, (HV *)src);
             }
@@ -596,7 +640,8 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
              && (!DO_SHARED_HASH_ENTRY_REFCOUNT_CHECK
                 || src->he_valu.hent_refcount > 1) )
         {
-            const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->str_seenhash, keystr);
+            PTABLE_t *string_seenhash = SRL_GET_STR_SEENHASH(enc);
+            const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, keystr);
             if (oldoffset != 0) {
                 /* Issue COPY instead of literal hash key string */
                 srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)oldoffset);
@@ -604,7 +649,7 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
             else {
                 /* remember current offset before advancing it */
                 const ptrdiff_t newoffset = enc->pos - enc->buf_start;
-                PTABLE_store(enc->str_seenhash, (void *)keystr, (void *)newoffset);
+                PTABLE_store(string_seenhash, (void *)keystr, (void *)newoffset);
                 srl_dump_pv(aTHX_ enc, keystr, HeKLEN(src), HeKUTF8(src));
             }
         }
