@@ -127,15 +127,17 @@ int srl_finalize_structure(pTHX_ srl_decoder_t *dec)
     return 0;
 }
 
-static UV
-srl_read_varint_uv(pTHX_ srl_decoder_t *dec)
+static inline UV
+srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec)
 {
     UV uv= 0;
-    int lshift= 0;
+    unsigned int lshift= 0;
 
     while (BUF_NOT_DONE(dec) && *dec->pos & 0x80) {
         uv += (*dec->pos++ & 0x7F) << lshift;
         lshift += 7;
+        if (lshift > (sizeof(UV) * 8))
+            ERROR("varint too big");
     }
     if (BUF_NOT_DONE(dec)) {
         uv += (*dec->pos++) << lshift;
@@ -143,6 +145,31 @@ srl_read_varint_uv(pTHX_ srl_decoder_t *dec)
         ERROR("varint terminated prematurely");
     }
     return uv;
+}
+
+static inline UV
+srl_read_varint_uv_nocheck(pTHX_ srl_decoder_t *dec)
+{
+    UV uv= 0;
+    unsigned int lshift= 0;
+
+    while (*dec->pos & 0x80) {
+        uv += (*dec->pos++ & 0x7F) << lshift;
+        lshift += 7;
+        if (lshift > (sizeof(UV) * 8))
+            ERROR("varint too big");
+    }
+    uv += (*dec->pos++) << lshift;
+    return uv;
+}
+
+static inline UV
+srl_read_varint_uv(pTHX_ srl_decoder_t *dec)
+{
+    if (dec->buf_end - dec->pos > 10)
+        return srl_read_varint_uv_nocheck(aTHX_ dec);
+    else
+        return srl_read_varint_uv_safe(aTHX_ dec);
 }
 
 static inline void
@@ -179,7 +206,9 @@ static SV *
 srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8)
 {
     UV len= srl_read_varint_uv(aTHX_ dec);
-    SV *ret= newSVpvn_utf8((char *)dec->pos,len,is_utf8);
+    SV *ret;
+    ASSERT_BUF_SPACE(dec, len);
+    ret= newSVpvn_utf8((char *)dec->pos,len,is_utf8);
     dec->pos+= len;
     return ret;
 }
@@ -187,7 +216,9 @@ srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8)
 static SV *
 srl_read_float(pTHX_ srl_decoder_t *dec)
 {
-    SV *ret= newSVnv((NV)*((float *)dec->pos));
+    SV *ret;
+    ASSERT_BUF_SPACE(dec, sizeof(float));
+    ret= newSVnv((NV)*((float *)dec->pos));
     dec->pos+= sizeof(float);
     return ret;
 }
@@ -195,7 +226,9 @@ srl_read_float(pTHX_ srl_decoder_t *dec)
 static SV *
 srl_read_double(pTHX_ srl_decoder_t *dec)
 {
-    SV *ret= newSVnv((NV)*((double *)dec->pos));
+    SV *ret;
+    ASSERT_BUF_SPACE(dec, sizeof(double));
+    ret= newSVnv((NV)*((double *)dec->pos));
     dec->pos+= sizeof(double);
     return ret;
 }
@@ -203,7 +236,9 @@ srl_read_double(pTHX_ srl_decoder_t *dec)
 static SV *
 srl_read_long_double(pTHX_ srl_decoder_t *dec)
 {
-    SV *ret= newSVnv((NV)*((long double *)dec->pos));
+    SV *ret;
+    ASSERT_BUF_SPACE(dec, sizeof(long double));
+    ret= newSVnv((NV)*((long double *)dec->pos));
     dec->pos+= sizeof(long double);
     return ret;
 }
@@ -249,10 +284,11 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
         SV *key_sv;
         SV *got_sv= srl_read_single_value(aTHX_ dec, NULL);
 
-        ASSERT_BUF_SPACE(dec,1);
       read_key:
+        ASSERT_BUF_SPACE(dec,1);
         if (*dec->pos == SRL_HDR_STRING_UTF8) {
             key_len= srl_read_varint_uv(aTHX_ dec);
+            ASSERT_BUF_SPACE(dec,key_len);
             key_sv= newSVpvn_flags((char*)dec->pos,key_len,1);
             if (!hv_store_ent(hv,key_sv,got_sv,0)) {
                 SvREFCNT_dec(key_sv); /* throw away the key */
@@ -277,6 +313,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
             } else {
                 ERROR_UNEXPECTED(dec,"a stringish type");
             }
+            ASSERT_BUF_SPACE(dec,key_len);
             if (!hv_store(hv,(char *)dec->pos,key_len,got_sv,0)) {
                 ERROR_PANIC(dec,"failed to hv_store");
             }
@@ -388,6 +425,7 @@ static SV *srl_read_bless(pTHX_ srl_decoder_t *dec)
      * we could also have a copy of a previously mentioned class
      * name. We have to handle both, which leads to some non-linear
      * code flow in the below code */
+    ASSERT_BUF_SPACE(dec,1);
     if (*dec->pos == SRL_HDR_COPY) {
         ofs= srl_read_varint_uv(aTHX_ dec);
         if (dec->ref_stashes) {
@@ -420,6 +458,8 @@ static SV *srl_read_bless(pTHX_ srl_decoder_t *dec)
             if (dec->save_pos) {
                 ERROR_BAD_COPY(dec, SRL_HDR_HASH);
             } else {
+                if (dec->buf_end - dec->buf_start < (IV)ofs)
+                    ERROR("unexpected end of buffer");
                 dec->save_pos= dec->pos;
                 dec->pos= dec->buf_start + ofs;
                 goto read_class;
@@ -428,11 +468,11 @@ static SV *srl_read_bless(pTHX_ srl_decoder_t *dec)
         } else {
             ERROR_UNEXPECTED(dec,"a class name");
         }
+        ASSERT_BUF_SPACE(dec, key_len);
         if (!dec->ref_stashes) {
             dec->ref_stashes = PTABLE_new();
             dec->ref_bless_av = PTABLE_new();
         }
-
         stash= gv_stashpvn((char *)dec->pos, key_len, flags);
         if (dec->save_pos) {
             dec->pos= dec->save_pos;
