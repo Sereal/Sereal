@@ -140,6 +140,7 @@ PTABLE_store(PTABLE_t *tbl, void *key, void *value)
         if (tblent->next && (tbl->tbl_items > tbl->tbl_max))
             PTABLE_grow(tbl);
     }
+
 }
 
 /* double the hash bucket size of an existing ptr table */
@@ -254,16 +255,13 @@ PTABLE_free(PTABLE_t *tbl)
         if ((iter)->cur_entry && (iter)->cur_entry->next) {                 \
             (iter)->cur_entry = (iter)->cur_entry->next;                    \
         }                                                                   \
-        else if ((iter)->bucket_num > (tbl)->tbl_max) {                     \
-            (iter)->cur_entry = NULL;                                       \
-        }                                                                   \
         else {                                                              \
             do {                                                            \
-                (iter)->cur_entry = (tbl)->tbl_ary[(iter)->bucket_num++];   \
                 if ((iter)->bucket_num > (tbl)->tbl_max) {                  \
                     (iter)->cur_entry = NULL;                               \
                     break;                                                  \
                 }                                                           \
+                (iter)->cur_entry = (tbl)->tbl_ary[(iter)->bucket_num++];   \
             } while ((iter)->cur_entry == NULL);                            \
         }                                                                   \
     } STMT_END
