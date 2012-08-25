@@ -176,6 +176,16 @@ my @basic_tests = (
     .chr(SRL_HDR_TAIL),
     "weak scalar cross"
   ],
+  [
+    bless([],"foo"),
+    chr(SRL_HDR_BLESS)
+    .chr( 3 + 0x40)
+    ."foo"
+    .chr(SRL_HDR_ARRAY)
+    .varint(0)
+    .chr(SRL_HDR_TAIL),
+    "bless [], 'foo'"
+  ],
 
 );
 
@@ -188,6 +198,9 @@ sub run_tests {
   my ($extra_name, $opt_hash) = @_;
   foreach my $bt (@basic_tests) {
     my ($in, $exp, $name) = @$bt;
+
+    #next unless $name=~/PAD/;
+
     $exp = "$hdr$exp";
     my $out = encode_sereal($bt->[0], $opt_hash ? ($opt_hash) : ()); # must use bt here or we get a copy
     ok(defined $out, "($extra_name) defined: $name");
