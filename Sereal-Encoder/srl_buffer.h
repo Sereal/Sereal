@@ -6,7 +6,11 @@
 #include "srl_inline.h"
 #include "srl_encoder.h"
 
-#define BUFFER_GROWTH_FACTOR 1.5
+#ifdef MEMDEBUG
+#   define BUFFER_GROWTH_FACTOR 1
+#else
+#   define BUFFER_GROWTH_FACTOR 2
+#endif
 
 /* The static's below plus the ifndef sort of make this header only
  * usable in one place per compilation unit. Drop "static" when necessary.
