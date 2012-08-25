@@ -7,14 +7,16 @@
 
 typedef struct PTABLE * ptable_ptr;
 typedef struct {
-    unsigned char *buf_start;         /* ptr to "physical" start of input buffer */
-    unsigned char *buf_end;           /* ptr to end of input buffer */
-    unsigned char *pos;               /* ptr to current position within input buffer */
+    unsigned char *buf_start;           /* ptr to "physical" start of input buffer */
+    unsigned char *buf_end;             /* ptr to end of input buffer */
+    unsigned char *pos;                 /* ptr to current position within input buffer */
     unsigned char *save_pos;
 
-    U32 flags;               /* flag-like options: See F_* defines in srl_decoder.c */
-    unsigned int depth;      /* current Perl-ref recursion depth */
-    ptable_ptr ref_seenhash; /* ptr table for avoiding circular refs */
+    U32 flags;                          /* flag-like options: See F_* defines in srl_decoder.c */
+    unsigned int depth;                 /* current Perl-ref recursion depth */
+    ptable_ptr ref_seenhash;            /* ptr table for avoiding circular refs */
+    ptable_ptr ref_stashes;             /* ptr table for tracking stashes we will bless into - key: ofs, value: stash */
+    ptable_ptr ref_bless_av;            /* ptr table for tracking which objects need to be bless - key: ofs, value: mortal AV (of refs)  */
     AV* weakref_av;
 } srl_decoder_t;
 
@@ -26,6 +28,9 @@ int srl_read_header(pTHX_ srl_decoder_t *dec);
 
 /* Start deserializing a top-level SV */
 SV *srl_read_single_value(pTHX_ srl_decoder_t *dec, U8* track_pos);
+
+/* Read Sereal packet header from buffer */
+int srl_finalize_structure(pTHX_ srl_decoder_t *dec);
 
 #define BUF_POS(dec) ((dec)->pos)
 #define BUF_SPACE(dec) ((dec)->buf_end - (dec)->pos)

@@ -20,12 +20,18 @@ decode_sereal(src, opt = newHV())
     SV *src;
     HV *opt;
   PREINIT:
-    srl_decoder_t *dec;
+    srl_decoder_t *dec= NULL;
+    SV *ret= NULL;
   PPCODE:
     dec = build_decoder_struct(aTHX_ opt, src);
     assert(dec != NULL);
     if (0 == srl_read_header(aTHX_ dec)) {
-        ST(0)= srl_read_single_value(aTHX_ dec, NULL);
+        ret= srl_read_single_value(aTHX_ dec, NULL);
+    }
+    if ( 0 == srl_finalize_structure(aTHX_ dec) ) {
+        ST(0)= ret;
+    } else {
+        ERROR("finalize failed");
     }
     assert(dec->pos == dec->buf_end);
     XSRETURN(1);

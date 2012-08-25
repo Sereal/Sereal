@@ -146,11 +146,11 @@ our @basic_tests = (
   [
     bless([],"foo"),
     chr(SRL_HDR_BLESS)
-    .chr( 3 + 0x40)
-    ."foo"
     .chr(SRL_HDR_ARRAY)
     .varint(0)
-    .chr(SRL_HDR_TAIL),
+    .chr(SRL_HDR_TAIL)
+    .chr( 3 + 0x40 )
+    ."foo",
     "bless [], 'foo'"
   ],
 );

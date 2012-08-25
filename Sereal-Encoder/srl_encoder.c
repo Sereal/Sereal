@@ -57,7 +57,7 @@ static SRL_INLINE void srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src);
 static SRL_INLINE void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys);
 static SRL_INLINE void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
 static SRL_INLINE void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
-static SRL_INLINE void srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src);
+static SRL_INLINE void srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src);
 
 #define SRL_SET_FBIT(where) (where |= 0b10000000)
 
@@ -226,7 +226,7 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
 /* Outputs a bless header and the class name (as some form of string or COPY).
  * Caller then has to output the actual reference payload. */
 static SRL_INLINE void
-srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src)
+srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
 {
     const HV *stash = SvSTASH(src);
     const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(enc->str_seenhash, (SV *)stash);
@@ -235,10 +235,6 @@ srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src)
         char *oldpos = (char *)(enc->buf_start + oldoffset);
         /* Issue COPY instead of literal class name string */
         srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)(enc->pos - enc->buf_start));
-
-        /* Now, make sure that the "this is referenced", F bit of the original
-         * string object in the output is set */
-        SRL_SET_FBIT(*oldpos);
     }
     else {
         const char *class_name = HvNAME_get(stash);
@@ -255,9 +251,6 @@ srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src)
 
         /* remember current offset before advancing it */
         PTABLE_store(enc->str_seenhash, (void *)stash, (void *)offset);
-
-        BUF_SIZE_ASSERT(enc, 1 + 2 + len + 2); /* heuristic: header + string + simple value */
-        srl_buf_cat_char_nocheck(enc, SRL_HDR_BLESS);
 
         /* HvNAMEUTF8 not in older perls and it would be 0 for those anyway */
 #if PERL_VERSION >= 16
@@ -454,9 +447,9 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
     if (SvOBJECT(src)) {
         /* Write bless operator with class name */
         /* FIXME reuse/ref/... should INCLUDE the bless stuff. */
-        srl_dump_bless(aTHX_ enc, src);
-        /* fallthrough for value*/
+        srl_buf_cat_char(enc, SRL_HDR_BLESS);
     }
+    /* fallthrough for value*/
     /* see sv_reftype in sv.c */
     switch (svt) {
         case SVt_NULL:
@@ -506,6 +499,9 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
         case SVt_BIND:
         default:
             croak("found %s(0x%p), but it is not representable by the Sereal encoding format", sv_reftype(src,0),src);
+    }
+    if (SvOBJECT(src)) {
+        srl_dump_classname(aTHX_ enc, src);
     }
 }
 

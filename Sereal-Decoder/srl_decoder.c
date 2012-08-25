@@ -44,7 +44,10 @@ void srl_decoder_destructor_hook(void *p)
     /* Exception cleanup. Under normal operation, we should have
      * assigned NULL to buf_start after we're done. */
     PTABLE_free(dec->ref_seenhash);
-
+    if (dec->ref_stashes) {
+        PTABLE_free(dec->ref_stashes);
+        PTABLE_free(dec->ref_bless_av);
+    }
     Safefree(dec);
 }
 
@@ -337,8 +340,121 @@ static SV *srl_read_weaken(pTHX_ srl_decoder_t *dec, U8 *track_pos)
 
 static SV *srl_read_bless(pTHX_ srl_decoder_t *dec)
 {
-    ERROR_UNIMPLEMENTED(dec,SRL_HDR_BLESS,"BLESS");
+    HV *stash= NULL;
+    AV *av= NULL;
+    STRLEN storepos= 0;
+    UV ofs= 0;
+    /* first deparse the thing we are going to bless */
+    SV* ret= srl_read_single_value(aTHX_ dec, NULL);
+    /* now find the class name - first check if this is a copy op
+     * this is bit tricky, as we could have a copy of a raw string
+     * we could also have a copy of a previously mentioned class
+     * name. We have to handle both, which leads to some non-linear
+     * code flow in the below code */
+    if (*dec->pos == SRL_HDR_COPY) {
+        ofs= srl_read_varint_uv(aTHX_ dec);
+        if (dec->ref_stashes) {
+            stash= PTABLE_fetch(dec->ref_seenhash, (void *)ofs);
+        }
+        if (!stash)
+            goto read_copy;
+        else
+            storepos= ofs;
+        /* we should have seen this item before as a class name */
+    } else {
+        U32 key_len;
+        I32 flags= GV_ADD;
+        U8 tag;
+        /* we now expect either a STRING type or a COPY type */
+      read_class:
+        storepos= BUF_POS_OFS(dec);
+        tag= *dec->pos++;
+
+        if (tag == SRL_HDR_STRING_UTF8) {
+            flags = flags | SVf_UTF8;
+            key_len= srl_read_varint_uv(aTHX_ dec);
+        } else if (tag & SRL_HDR_ASCII) {
+            key_len= tag & SRL_HDR_ASCII_LEN_MASK;
+        } else if (tag == SRL_HDR_STRING) {
+            key_len= srl_read_varint_uv(aTHX_ dec);
+        } else if (tag == SRL_HDR_COPY) {
+            ofs= srl_read_varint_uv(aTHX_ dec);
+          read_copy:
+            if (dec->save_pos) {
+                ERROR_BAD_COPY(dec, SRL_HDR_HASH);
+            } else {
+                dec->save_pos= dec->pos;
+                dec->pos= dec->buf_start + ofs;
+                goto read_class;
+            }
+            /* NOTREACHED */
+        } else {
+            ERROR_UNEXPECTED(dec,"a class name");
+        }
+        if (!dec->ref_stashes) {
+            dec->ref_stashes = PTABLE_new();
+            dec->ref_bless_av = PTABLE_new();
+        }
+
+        stash= gv_stashpvn((char *)dec->pos, key_len, flags);
+        if (dec->save_pos) {
+            dec->pos= dec->save_pos;
+            dec->save_pos= NULL;
+        } else {
+            dec->pos += key_len;
+        }
+    }
+    if (!storepos)
+        ERROR("Bad bless: no storepos");
+    if (!stash)
+        ERROR("Bad bless: no stash");
+
+    PTABLE_store(dec->ref_stashes, (void *)storepos, (void *)stash);
+    if (NULL == (av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)ofs)) ) {
+        av= newAV();
+        SAVEFREESV((SV*)av);
+        PTABLE_store(dec->ref_bless_av, (void *)storepos, (void *)av);
+    }
+    av_push(av, ret);
+    /* we now have a stash and a value, so we can bless... except that
+     * we dont actually want to do so right now. We want to defer blessing
+     * until the full packet has been read. Yes it is more overhead, but
+     * we really dont want to trigger DESTROY methods from a partial
+     * deparse. */
+    return ret;
 }
+
+int srl_finalize_structure(pTHX_ srl_decoder_t *dec)
+{
+    if (dec->ref_stashes) {
+        PTABLE_ITER_t *it = PTABLE_iter_new(dec->ref_stashes);
+        PTABLE_ENTRY_t *ent;
+
+        /* we now walk the weak_seenhash and set any tags it points
+         * at to the PAD opcode, this basically turns the first weakref
+         * we encountered into a normal ref when there is only a weakref
+         * pointing at the structure. */
+        while ( NULL != (ent = PTABLE_iter_next(it)) ) {
+            HV *stash = (HV* )ent->value;
+            AV *ref_bless_av  = PTABLE_fetch(dec->ref_bless_av, ent->key);
+            I32 len;
+            if (!stash || !ref_bless_av) {
+                ERROR("missing stash or ref_bless_av!");
+            }
+            for( len= av_len(ref_bless_av) + 1 ; len > 0 ; len-- ) {
+                SV* obj= av_pop(ref_bless_av);
+                if (obj)
+                    sv_bless(obj, stash);
+                else
+                    ERROR("object missing from ref_bless_av array?");
+            }
+        }
+
+        PTABLE_iter_free(it);
+    }
+    return 0;
+}
+
 static SV *srl_read_blessv(pTHX_ srl_decoder_t *dec)
 {
     ERROR_UNIMPLEMENTED(dec,SRL_HDR_BLESSV,"BLESSV");
