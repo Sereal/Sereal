@@ -1,0 +1,85 @@
+=pod
+
+=head1 NAME
+
+Sereal - A binary serialization format
+
+=head1 SYNOPSIS
+
+This repository is the home of the Sereal data serialization format. This
+format was started because the authors had technical reasons for producing
+a better storable.
+
+Before we embarked on this project we had a look at various prior art. This
+included a review of Google Protocol Buffers and of the MessagePack protocol.
+Neither suited our needs so we designed this, liberally borrowing ideas from
+the other projects.
+
+=head1 DESCRIPTION
+
+=head2 OBJECTIVES
+
+=over 4
+
+=item References
+
+We wanted to be able serialize shared references properly. Many
+serialization formats do not support this out of the box. 
+
+=item Weak References
+
+Perl has the concept of a special type of reference called a
+"weakref" which is used to create cyclic reference structures which do
+not leak memory. We need to handle these structures.
+
+=item Aliases
+
+Perl supports aliases which are a special kind of reference which is 
+effectively a C level pointer instead of a Perl level RV. We needed 
+to be able to represent these as well.
+
+=item Objects
+
+Blessing a reference can be dangerous in some circumstances. We needed 
+to be able to serialize objects safely and reliably, and we wanted a
+sane control mechanism for doing so.
+
+=item Regexp Objects
+
+In perl a regexp is a native type. We wanted to be able serialize these
+at a native level without losing data such as modifiers.
+
+=item Space Efficiencies
+
+We want to be able to represent common structures as small as is
+reasonable. Although not to the extreme that this make the protocol 
+error prone. This includes such thing as removing redundancy from the
+serialized strcuture (such as hash keys or classnames) automatically.
+
+=item Speed Efficiencies
+
+We want to be able to serialize and deserialize quickly. Parts of the
+protocol are chose because they should make
+
+=item Separate Decoder and Encoder
+
+We wanted to separate the functions of serializing from deserializing
+so they could be upgraded independently.
+
+=item Forward/Backward Compatibility
+
+We wanted the protocol to be robust to forward/backwards compatability
+issues. It should be possible to partially read new formats with an
+old decoder, and possibly output old formats with a new decoder.
+
+=back
+
+
+
+=head1 AUTHOR
+
+Yves Orton
+Steffen Mueller
+Damian Gryski
+
+=cut
