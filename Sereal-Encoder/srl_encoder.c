@@ -13,7 +13,7 @@
 #ifdef MEMDEBUG
 #   define INITIALIZATION_SIZE 1
 #else
-#   define INITIALIZATION_SIZE 16384
+#   define INITIALIZATION_SIZE 64
 #endif
 
 /* The ENABLE_DANGEROUS_HACKS (passed through from ENV via Makefile.PL) enables
