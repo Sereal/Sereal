@@ -292,7 +292,7 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
 
     if (oldoffset != 0) {
         /* Issue COPY instead of literal class name string */
-        srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (void *)oldoffset);
+        srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)oldoffset);
     }
     else {
         const char *class_name = HvNAME_get(stash);
