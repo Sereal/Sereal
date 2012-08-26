@@ -4,6 +4,7 @@
 
 #define PERL_NO_GET_CONTEXT
 
+#include "srl_inline.h"
 #include "ptable.h"
 #include "srl_protocol.h"
 
@@ -11,27 +12,27 @@
 static UV srl_read_varint_uv(pTHX_ srl_decoder_t *dec);
 
 SV *srl_read_single_value(pTHX_ srl_decoder_t *dec, U8 *track_pos);
-static SV *srl_read_hash(pTHX_ srl_decoder_t *dec, U8 *track_pos);
-static SV *srl_read_array(pTHX_ srl_decoder_t *dec, U8 *track_pos);
-static SV *srl_read_ref(pTHX_ srl_decoder_t *dec, U8 *track_pos);
-static SV *srl_read_weaken(pTHX_ srl_decoder_t *dec, U8 *track_pos);
+static SRL_INLINE SV *srl_read_hash(pTHX_ srl_decoder_t *dec, U8 *track_pos);
+static SRL_INLINE SV *srl_read_array(pTHX_ srl_decoder_t *dec, U8 *track_pos);
+static SRL_INLINE SV *srl_read_ref(pTHX_ srl_decoder_t *dec, U8 *track_pos);
+static SRL_INLINE SV *srl_read_weaken(pTHX_ srl_decoder_t *dec, U8 *track_pos);
 
-static SV *srl_read_long_double(pTHX_ srl_decoder_t *dec);
-static SV *srl_read_double(pTHX_ srl_decoder_t *dec);
-static SV *srl_read_float(pTHX_ srl_decoder_t *dec);
-static SV *srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8);
-static SV *srl_read_varint(pTHX_ srl_decoder_t *dec);
-static SV *srl_read_zigzag(pTHX_ srl_decoder_t *dec);
-static SV *srl_read_copy(pTHX_ srl_decoder_t *dec);
-static SV *srl_read_reuse(pTHX_ srl_decoder_t *dec);
-static SV *srl_read_alias(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE SV *srl_read_long_double(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE SV *srl_read_double(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE SV *srl_read_float(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE SV *srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8);
+static SRL_INLINE SV *srl_read_varint(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE SV *srl_read_zigzag(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE SV *srl_read_copy(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE SV *srl_read_reuse(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE SV *srl_read_alias(pTHX_ srl_decoder_t *dec);
 
 /* FIXME unimplemented!!! */
-static SV *srl_read_bless(pTHX_ srl_decoder_t *dec);
-static SV *srl_read_blessv(pTHX_ srl_decoder_t *dec);
-static SV *srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag);
-static SV *srl_read_regexp(pTHX_ srl_decoder_t *dec);
-static SV *srl_read_extend(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE SV *srl_read_bless(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE SV *srl_read_blessv(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE SV *srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag);
+static SRL_INLINE SV *srl_read_regexp(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec);
 
 /* This is fired when we exit the Perl pseudo-block.
  * It frees our decoder and all. Put decoder-level cleanup
@@ -189,20 +190,20 @@ static SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *t
  ****************************************************************************/
 
 
-static SV *
+static SRL_INLINE SV *
 srl_read_varint(pTHX_ srl_decoder_t *dec)
 {
     return newSVuv(srl_read_varint_uv(aTHX_ dec));
 }
 
-static SV *
+static SRL_INLINE SV *
 srl_read_zigzag(pTHX_ srl_decoder_t *dec)
 {
-    UV uv= srl_read_varint_uv(aTHX_ dec);
+    const UV uv= srl_read_varint_uv(aTHX_ dec);
     return uv & 1 ? newSViv((IV)-( 1 + (uv >> 1) )) : newSVuv(uv >> 1);
 }
 
-static SV *
+static SRL_INLINE SV *
 srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8)
 {
     UV len= srl_read_varint_uv(aTHX_ dec);
@@ -213,7 +214,7 @@ srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8)
     return ret;
 }
 
-static SV *
+static SRL_INLINE SV *
 srl_read_float(pTHX_ srl_decoder_t *dec)
 {
     SV *ret;
@@ -223,7 +224,7 @@ srl_read_float(pTHX_ srl_decoder_t *dec)
     return ret;
 }
 
-static SV *
+static SRL_INLINE SV *
 srl_read_double(pTHX_ srl_decoder_t *dec)
 {
     SV *ret;
@@ -233,7 +234,7 @@ srl_read_double(pTHX_ srl_decoder_t *dec)
     return ret;
 }
 
-static SV *
+static SRL_INLINE SV *
 srl_read_long_double(pTHX_ srl_decoder_t *dec)
 {
     SV *ret;
@@ -244,7 +245,7 @@ srl_read_long_double(pTHX_ srl_decoder_t *dec)
 }
 
 
-static SV *
+static SRL_INLINE SV *
 srl_read_array(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
     UV len= srl_read_varint_uv(aTHX_ dec);
     AV *av= newAV();
@@ -269,7 +270,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
     return rv;
 }
 
-static SV *
+static SRL_INLINE SV *
 srl_read_hash(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
     IV num_keys= srl_read_varint_uv(aTHX_ dec);
     HV *hv= newHV();
@@ -335,7 +336,8 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
 }
 
 
-static SV *srl_read_ref(pTHX_ srl_decoder_t *dec, U8 *track_pos)
+static SRL_INLINE SV *
+srl_read_ref(pTHX_ srl_decoder_t *dec, U8 *track_pos)
 {
     UV item= srl_read_varint_uv(aTHX_ dec);
     SV *ret= NULL;
@@ -362,14 +364,16 @@ static SV *srl_read_ref(pTHX_ srl_decoder_t *dec, U8 *track_pos)
     return ret;
 }
 
-static SV *srl_read_reuse(pTHX_ srl_decoder_t *dec)
+static SRL_INLINE SV *
+srl_read_reuse(pTHX_ srl_decoder_t *dec)
 {
     UV item= srl_read_varint_uv(aTHX_ dec);
     SV *referent= srl_fetch_item(aTHX_ dec, item, "REUSE");
     return newSVsv(referent);
 }
 
-static SV *srl_read_alias(pTHX_ srl_decoder_t *dec)
+static SRL_INLINE SV *
+srl_read_alias(pTHX_ srl_decoder_t *dec)
 {
     UV item= srl_read_varint_uv(aTHX_ dec);
     SV *referent= srl_fetch_item(aTHX_ dec, item, "ALIAS");
@@ -377,7 +381,7 @@ static SV *srl_read_alias(pTHX_ srl_decoder_t *dec)
     return referent;
 }
 
-static SV *srl_read_copy(pTHX_ srl_decoder_t *dec)
+static SRL_INLINE SV *srl_read_copy(pTHX_ srl_decoder_t *dec)
 {
     UV item= srl_read_varint_uv(aTHX_ dec);
     SV *ret;
@@ -395,7 +399,8 @@ static SV *srl_read_copy(pTHX_ srl_decoder_t *dec)
     return ret;
 }
 
-static SV *srl_read_weaken(pTHX_ srl_decoder_t *dec, U8 *track_pos)
+static SRL_INLINE SV *
+srl_read_weaken(pTHX_ srl_decoder_t *dec, U8 *track_pos)
 {
     SV* ret= srl_read_single_value(aTHX_ dec, track_pos);
     if (!SvROK(ret))
@@ -412,7 +417,8 @@ static SV *srl_read_weaken(pTHX_ srl_decoder_t *dec, U8 *track_pos)
     return ret;
 }
 
-static SV *srl_read_bless(pTHX_ srl_decoder_t *dec)
+static SRL_INLINE SV *
+srl_read_bless(pTHX_ srl_decoder_t *dec)
 {
     HV *stash= NULL;
     AV *av= NULL;
@@ -582,19 +588,23 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, U8 *track_pos)
 }
 
 /* FIXME unimplemented!!! */
-static SV *srl_read_blessv(pTHX_ srl_decoder_t *dec)
+static SRL_INLINE SV *
+srl_read_blessv(pTHX_ srl_decoder_t *dec)
 {
     ERROR_UNIMPLEMENTED(dec,SRL_HDR_BLESSV,"BLESSV");
 }
-static SV *srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag)
+static SRL_INLINE SV *
+srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag)
 {
     ERROR_UNIMPLEMENTED(dec,tag,"RESERVED");
 }
-static SV *srl_read_regexp(pTHX_ srl_decoder_t *dec)
+static SRL_INLINE SV *
+srl_read_regexp(pTHX_ srl_decoder_t *dec)
 {
     ERROR_UNIMPLEMENTED(dec,SRL_HDR_REGEXP,"REGEXP");
 }
-static SV *srl_read_extend(pTHX_ srl_decoder_t *dec)
+static SRL_INLINE SV *
+srl_read_extend(pTHX_ srl_decoder_t *dec)
 {
     ERROR_UNIMPLEMENTED(dec,SRL_HDR_EXTEND,"EXTEND");
 }
