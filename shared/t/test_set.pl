@@ -168,5 +168,22 @@ our @basic_tests = (
         chr(SRL_HDR_TAIL)
     ),
     "blessed regexp with reuse"
-  ]
+  ],
+  [
+    do { my $o1=bless [], "foo"; my $o2=bless [], "foo"; [ $o1, $o2, $o1, $o2 ] },
+    join("",
+        chr(SRL_HDR_ARRAY),
+            varint(4),
+            chr(SRL_HDR_BLESS),
+                chr(SRL_HDR_ARRAY + FBIT),varint(0),chr(SRL_HDR_TAIL),
+                chr(0b0100_0011)."foo",
+            chr(SRL_HDR_BLESS),
+                chr(SRL_HDR_ARRAY + FBIT),varint(0),chr(SRL_HDR_TAIL),
+                chr(SRL_HDR_COPY),varint(11),
+            chr(SRL_HDR_REUSE),varint(8),
+            chr(SRL_HDR_REUSE),varint(16),
+            chr(SRL_HDR_TAIL)
+    ),
+    "blessed arrays with reuse"
+  ],
 );
