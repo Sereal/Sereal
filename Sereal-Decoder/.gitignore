@@ -21,3 +21,4 @@ srl_inline.h
 ppport.h
 t/test_set.pl
 et
+t/lib/Sereal/TestSet.pm

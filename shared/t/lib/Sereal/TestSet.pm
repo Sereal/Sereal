@@ -1,14 +1,76 @@
+package # Hide from PAUSE
+  Sereal::TestSet;
+
 use strict;
 use warnings;
+
+use Scalar::Util qw(weaken);
+
+# Dynamically load constants from whatever is being tested
+BEGIN {
+  my $class;
+  if (defined $INC{"Sereal/Encoder.pm"}
+      and $INC{"Sereal/Encoder.pm"} =~ /\bblib\b/)
+  {
+    $class = 'Sereal::Encoder::Constants';
+  }
+  else {
+    $class = 'Sereal::Decoder::Constants';
+  }
+  eval "use $class ':all'; 1"
+  or do {
+    my $err = $@ || 'Zombie Error';
+    die "Failed to load/import constants from '$class': $err";
+  };
+}
+
+use Exporter;
+our @ISA = qw(Exporter);
+our @EXPORT_OK = qw(
+  $Header @BasicTests
+  FBIT
+  hobodecode
+  varint array array_fbit
+);
+
+our %EXPORT_TAGS = (all => \@EXPORT_OK);
+
+use constant FBIT => 128;
+
+sub hobodecode {
+  open my $fh, "| $^X -Mblib author_tools/hobodecoder.pl -e" or die $!;
+  print $fh @_;
+  close $fh;
+}
+
+sub array {
+  chr(SRL_HDR_ARRAY) . varint(0+@_) . join("", @_) . chr(SRL_HDR_TAIL)
+}
+
+sub array_fbit {
+  chr(SRL_HDR_ARRAY+FBIT) . varint(0+@_) . join("", @_) . chr(SRL_HDR_TAIL)
+}
+
+sub varint {
+  my $n = shift;
+  my $out = '';
+  while ($n >= 0x80) {
+    $out .= chr( ($n & 0x7f) | 0x80 );
+    $n >>= 7;
+  }
+  $out .= chr($n);
+  return $out;
+}
+
 
 my $ary_ref_for_repeating = [5,6];
 my $scalar_ref_for_repeating = \9;
 my $weak_thing;
-our $hdr = SRL_MAGIC_STRING . chr(SRL_PROTOCOL_VERSION) . chr(0);
+our $Header = SRL_MAGIC_STRING . chr(SRL_PROTOCOL_VERSION) . chr(0);
 $weak_thing = [\$weak_thing, 1];
 weaken($weak_thing->[0]);
 
-our @basic_tests = (
+our @BasicTests = (
   # warning: this hardcodes the POS/NEG headers
   [1, chr(0b0000_0001), "encode 1"],
   [0, chr(0b0000_0000), "encode 0"],
@@ -41,7 +103,7 @@ our @basic_tests = (
       my $content = chr(SRL_HDR_ARRAY) .varint(2);
       $content   .= chr(SRL_HDR_REF);
       $content   .= chr(0);
-      my $pos = length($hdr) + length($content);
+      my $pos = length($Header) + length($content);
 
       $content    .= chr(0b1000_1001)
                     .chr(SRL_HDR_REF)
@@ -53,7 +115,7 @@ our @basic_tests = (
     do {
       my $content = chr(SRL_HDR_ARRAY)
                     .varint(2);
-      my $pos = length($hdr) + length($content);
+      my $pos = length($Header) + length($content);
       $content   .= array_fbit(chr(0b0000_0101), chr(0b0000_0110))
                     .chr(SRL_HDR_REUSE)
                     .varint($pos)
@@ -66,7 +128,7 @@ our @basic_tests = (
                     . varint(2)
                     . chr(SRL_HDR_REF)
                     . chr(0);
-      my $pos = length($hdr) + length($content);
+      my $pos = length($Header) + length($content);
       $content   .= array_fbit(
                         chr(0b0000_0101),
                         chr(0b0000_0110)
@@ -187,3 +249,5 @@ our @basic_tests = (
     "blessed arrays with reuse"
   ],
 );
+
+1;
