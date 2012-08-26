@@ -44,6 +44,7 @@ WriteMakefile1(
         },
     },
     BUILD_REQUIRES => {
+        'XSLoader' => 0,
         'Test::More' => 0.88,
         'File::Find' => 0,
         'Scalar::Util' => 0,

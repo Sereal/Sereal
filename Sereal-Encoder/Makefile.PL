@@ -55,6 +55,11 @@ WriteMakefile1(
     VERSION_FROM      => 'lib/Sereal/Encoder.pm', # finds $VERSION
     PREREQ_PM         => {
         'XSLoader' => 0,
+        'File::Spec' => 0,
+        'Test::More' => '0.88',
+        'Scalar::Util' => 0,
+        'File::Path' => 0,
+        'File::Find' => 0,
     }, # e.g., Module::Name => 1.1
     LICENSE => 'perl',
     ABSTRACT_FROM => 'lib/Sereal/Encoder.pm',
