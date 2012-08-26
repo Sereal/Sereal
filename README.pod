@@ -8,7 +8,7 @@ Sereal - A binary serialization format
 
 This repository is the home of the Sereal data serialization format. This
 format was started because the authors had technical reasons for producing
-a better storable.
+a better Storable.
 
 Before we embarked on this project we had a look at various prior art. This
 included a review of Google Protocol Buffers and of the MessagePack protocol.
@@ -46,7 +46,7 @@ sane control mechanism for doing so.
 
 =item Regexp Objects
 
-In perl a regexp is a native type. We wanted to be able serialize these
+In Perl, a regexp is a native type. We wanted to be able serialize these
 at a native level without losing data such as modifiers.
 
 =item Space Efficiencies
@@ -58,8 +58,8 @@ serialized strcuture (such as hash keys or classnames) automatically.
 
 =item Speed Efficiencies
 
-We want to be able to serialize and deserialize quickly. Parts of the
-protocol are chose because they should make
+We want to be able to serialize and deserialize quickly. Some of the design
+decisions and trade-offs were aimed squarely at performance.
 
 =item Separate Decoder and Encoder
 
