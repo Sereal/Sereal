@@ -593,11 +593,21 @@ srl_read_blessv(pTHX_ srl_decoder_t *dec)
 {
     ERROR_UNIMPLEMENTED(dec,SRL_HDR_BLESSV,"BLESSV");
 }
+
 static SRL_INLINE SV *
 srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag)
 {
-    ERROR_UNIMPLEMENTED(dec,tag,"RESERVED");
+    (void)tag; /* unused as of now */
+    const UV len = srl_read_varint_uv(aTHX_ dec);
+    if (dec->buf_end - dec->pos < (ptrdiff_t)len) { /* FIXME double-check for off-by-one error */
+        dec->pos += len; /* discard */
+    }
+    else {
+        ERROR("unexpected end of buffer");
+    }
+    return &PL_sv_undef;
 }
+
 static SRL_INLINE SV *
 srl_read_regexp(pTHX_ srl_decoder_t *dec)
 {
