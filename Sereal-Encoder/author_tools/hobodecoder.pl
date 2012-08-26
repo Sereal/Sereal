@@ -71,7 +71,7 @@ sub parse_sv {
     $o = 15-$o;
     printf "%06u: %02x %03s %sNEG: %i\n", $p, $o, $bv, $ind, $o;
   }
-  elsif ($o > 64) {
+  elsif ($o >= 64) {
     $o -= 64;
     my $len = $o;
     my $str = substr($data, 0, $len, '');
@@ -127,6 +127,11 @@ sub parse_sv {
   }
   elsif ($o == SRL_HDR_BLESS) {
     printf "%06u: %02x %03s %sBLESS\n", $p, $o, $bv, $ind;
+    parse_sv($ind."  ");
+    parse_sv($ind."  ");
+  }
+  elsif ($o == SRL_HDR_REGEXP) {
+    printf "%06u: %02x %03s %sREGEXP\n", $p, $o, $bv, $ind;
     parse_sv($ind."  ");
     parse_sv($ind."  ");
   }

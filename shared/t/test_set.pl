@@ -153,4 +153,20 @@ our @basic_tests = (
     ."foo",
     "bless [], 'foo'"
   ],
+  [
+    do { my $qr= bless qr/foo/ix,"bar"; [ $qr, $qr ] },
+    join("",
+        chr(SRL_HDR_ARRAY),
+        varint(2),
+        chr(SRL_HDR_BLESS),
+        chr(SRL_HDR_REGEXP + FBIT),
+        chr(0b0100_0011)."foo",
+        chr(0b0100_0010)."ix",
+        chr(0b0100_0011)."bar",
+        chr(SRL_HDR_REUSE),
+        varint(8),
+        chr(SRL_HDR_TAIL)
+    ),
+    "blessed regexp with reuse"
+  ]
 );

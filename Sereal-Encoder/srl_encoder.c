@@ -54,7 +54,6 @@ static SRL_INLINE void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int 
 static SRL_INLINE void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
 static SRL_INLINE void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
 static SRL_INLINE void srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src);
-static SRL_INLINE void srl_dump_bless(pTHX_ srl_encoder_t *enc, SV *src);
 static SRL_INLINE PTABLE_t *srl_init_string_hash(srl_encoder_t *enc);
 static SRL_INLINE PTABLE_t *srl_init_ref_hash(srl_encoder_t *enc);
 static SRL_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
@@ -299,14 +298,12 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
     const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, (SV *)stash);
 
     if (oldoffset != 0) {
-        char *oldpos = (char *)(enc->buf_start + oldoffset);
         /* Issue COPY instead of literal class name string */
-        srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)(enc->pos - enc->buf_start));
+        srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (void *)oldoffset);
     }
     else {
         const char *class_name = HvNAME_get(stash);
         const size_t len = HvNAMELEN_get(stash);
-        const ptrdiff_t offset = enc->pos - enc->buf_start;
 
         /* First save this new string (well, the HV * that it is represented by) into the string
          * dedupe table.
@@ -317,7 +314,7 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
          * /me bows to Yves for the delightfully evil hack. */
 
         /* remember current offset before advancing it */
-        PTABLE_store(string_seenhash, (void *)stash, (void *)offset);
+        PTABLE_store(string_seenhash, (void *)stash, (void *)(enc->pos - enc->buf_start));
 
         /* HvNAMEUTF8 not in older perls and it would be 0 for those anyway */
 #if PERL_VERSION >= 16
@@ -453,6 +450,58 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     }
     /* TODO what else do we need to support in this main if/else? */
 }
+#ifndef MAX_CHARSET_NAME_LENGTH
+#define MAX_CHARSET_NAME_LENGTH 2
+#endif
+static inline void
+srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
+{
+    STRLEN left = 0;
+    char reflags[sizeof(INT_PAT_MODS) + MAX_CHARSET_NAME_LENGTH];
+    const char *fptr;
+    char ch;
+    U16 match_flags;
+    REGEXP *re= SvRX(sv);
+    /*
+       we are in list context so stringify
+       the modifiers that apply. We ignore "negative
+       modifiers" in this scenario, and the default character set
+    */
+
+#ifdef REGEXP_DEPENDS_CHARSET
+    if (get_regex_charset(RX_EXTFLAGS(re)) != REGEX_DEPENDS_CHARSET) {
+        STRLEN len;
+        const char* const name = get_regex_charset_name(RX_EXTFLAGS(re),
+                                                        &len);
+        Copy(name, reflags + left, len, char);
+        left += len;
+    }
+#endif
+    fptr = INT_PAT_MODS;
+    match_flags = (U16)((RX_EXTFLAGS(re) & RXf_PMf_COMPILETIME)
+                            >> RXf_PMf_STD_PMMOD_SHIFT);
+
+    while((ch = *fptr++)) {
+        if(match_flags & 1) {
+            reflags[left++] = ch;
+        }
+        match_flags >>= 1;
+    }
+
+    srl_buf_cat_char(enc, SRL_HDR_REGEXP);
+    srl_dump_pv(aTHX_ enc, RX_PRECOMP(re),RX_PRELEN(re), (RX_UTF8(re) ? SVf_UTF8 : 0));
+    srl_dump_pv(aTHX_ enc, reflags, left, 0);
+    return;
+}
+
+#define TRACK_REFCOUNT(enc, src, refcount)                      \
+STMT_START {                                                    \
+    if (refcount>1) {                                           \
+        const ptrdiff_t newoffset = enc->pos - enc->buf_start;  \
+        PTABLE_t *ref_seenhash = SRL_GET_REF_SEENHASH(enc);     \
+        PTABLE_store(ref_seenhash, src, (void *)newoffset);     \
+    }                                                           \
+} STMT_END
 
 
 /* Dump references, delegates to more specialized functions for
@@ -516,7 +565,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
         }
     }
 
-    if (SvOBJECT(src)) {
+    if (oldoffset == 0 && SvOBJECT(src)) {
         /* Write bless operator with class name */
         /* FIXME reuse/ref/... should INCLUDE the bless stuff. */
         srl_buf_cat_char(enc, SRL_HDR_BLESS);
@@ -532,7 +581,6 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
         case SVt_PVNV:
         case SVt_PVMG:
         case SVt_PVLV:
-        case SVt_REGEXP:
             srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REF, (UV)oldoffset);
             if (oldoffset) {
                 SRL_SET_FBIT(*(enc->buf_start + oldoffset));
@@ -540,16 +588,21 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
                 srl_dump_sv(aTHX_ enc, src);
             }
             break;
+        case SVt_REGEXP:
+            if (oldoffset) {
+                SRL_SET_FBIT(*(enc->buf_start + oldoffset));
+                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REUSE, (UV)oldoffset);
+            } else {
+                TRACK_REFCOUNT(enc, src, refcount);
+                srl_dump_regexp(aTHX_ enc, src);
+            }
+            break;
         case SVt_PVAV:
             if (oldoffset) {
                 SRL_SET_FBIT(*(enc->buf_start + oldoffset));
                 srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REUSE, (UV)oldoffset);
             } else {
-                if (refcount>1) {
-                    const ptrdiff_t newoffset = enc->pos - enc->buf_start;
-                    PTABLE_t *ref_seenhash = SRL_GET_REF_SEENHASH(enc);
-                    PTABLE_store(ref_seenhash, src, (void *)newoffset);
-                }
+                TRACK_REFCOUNT(enc, src, refcount);
                 srl_dump_av(aTHX_ enc, (AV *)src);
             }
             break;
@@ -558,11 +611,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
                 SRL_SET_FBIT(*(enc->buf_start + oldoffset));
                 srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REUSE, (UV)oldoffset);
             } else {
-                if (refcount>1) {
-                    const ptrdiff_t newoffset = enc->pos - enc->buf_start;
-                    PTABLE_t *ref_seenhash = SRL_GET_REF_SEENHASH(enc);
-                    PTABLE_store(ref_seenhash, src, (void *)newoffset);
-                }
+                TRACK_REFCOUNT(enc, src, refcount);
                 srl_dump_hv(aTHX_ enc, (HV *)src);
             }
             break;
@@ -574,7 +623,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
         default:
             croak("found %s(0x%p), but it is not representable by the Sereal encoding format", sv_reftype(src,0),src);
     }
-    if (SvOBJECT(src)) {
+    if (!oldoffset && SvOBJECT(src)) {
         srl_dump_classname(aTHX_ enc, src);
     }
 }

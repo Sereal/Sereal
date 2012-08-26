@@ -44,7 +44,7 @@ sub run_tests {
   my ($extra_name, $opt_hash) = @_;
   foreach my $bt (@basic_tests) {
     my ($in, $exp, $name) = @$bt;
-
+    $name="unnamed";
     #next unless $name=~/PAD/;
 
     $exp = "$hdr$exp";
