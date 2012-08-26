@@ -4,6 +4,13 @@
 #include "EXTERN.h"
 #include "perl.h"
 
+/* General 'config' constants */
+#ifdef MEMDEBUG
+#   define INITIALIZATION_SIZE 1
+#else
+#   define INITIALIZATION_SIZE 64
+#endif
+
 typedef struct PTABLE * ptable_ptr;
 typedef struct {
     char *buf_start;         /* ptr to "physical" start of output buffer */

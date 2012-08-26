@@ -9,13 +9,6 @@
 #include "srl_buffer.h"
 #include "srl_protocol.h"
 
-/* General 'config' constants */
-#ifdef MEMDEBUG
-#   define INITIALIZATION_SIZE 1
-#else
-#   define INITIALIZATION_SIZE 64
-#endif
-
 /* The ENABLE_DANGEROUS_HACKS (passed through from ENV via Makefile.PL) enables
  * optimizations that may make the code so cozy with a particular version of the
  * Perl core that the code is no longer portable and/or compatible.

@@ -6,6 +6,7 @@
 #include "ppport.h"
 
 #include "srl_encoder.h"
+#include "srl_buffer.h"
 
 /* Generated code for exposing C constants to Perl */
 #include "srl_protocol.h"
@@ -38,10 +39,11 @@ encode(enc, src)
   PPCODE:
     assert(enc != NULL);
     srl_dump_data_structure(aTHX_ enc, src);
-    /* FIXME optimization: avoid copy by stealing string buffer if
-     *                     it is not too large. */
     assert(enc->pos > enc->buf_start);
-    ST(0) = sv_2mortal(newSVpvn(enc->buf_start, (STRLEN)(enc->pos - enc->buf_start)));
+    /* We always copy the string since we might reuse the string buffer. That means
+     * we already have to do a malloc and we might as well use the opportunity to
+     * allocate only as much memory as we really need to hold the output. */
+    ST(0) = sv_2mortal(newSVpvn(enc->buf_start, (STRLEN)BUF_POS_OFS(enc)));
     srl_clear_encoder(enc);
     XSRETURN(1);
 
@@ -55,10 +57,22 @@ encode_sereal(src, opt = NULL)
     enc = srl_build_encoder_struct(aTHX_ opt);
     assert(enc != NULL);
     srl_dump_data_structure(aTHX_ enc, src);
-    /* FIXME optimization: avoid copy by stealing string buffer if
-     *                     it is not too large. */
+    /* Avoid copy by stealing string buffer if it is not too large.
+     * This makes sense in the functional interface since the string
+     * buffer isn't ever going to be reused. */
     assert(enc->buf_start < enc->pos);
-    ST(0) = sv_2mortal(newSVpvn(enc->buf_start, (STRLEN)(enc->pos - enc->buf_start)));
+    if (BUF_POS_OFS(enc) > 20 && BUF_SPACE(enc) < BUF_POS_OFS(enc) ) {
+      /* If not wasting more than 2x memory - FIXME fungible */
+      SV *sv = sv_2mortal(newSV_type(SVt_PV));
+      ST(0) = sv;
+      SvPV_set(sv, enc->buf_start);
+      SvLEN_set(sv, BUF_SIZE(enc));
+      SvCUR_set(sv, BUF_POS_OFS(enc));
+      enc->buf_start = enc->pos = NULL; /* no need to free these guys now */
+    }
+    else {
+      ST(0) = sv_2mortal(newSVpvn(enc->buf_start, (STRLEN)BUF_POS_OFS(enc)));
+    }
     XSRETURN(1);
 
 
