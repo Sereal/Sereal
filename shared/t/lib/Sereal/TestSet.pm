@@ -31,6 +31,7 @@ our @EXPORT_OK = qw(
   FBIT
   hobodecode
   varint array array_fbit
+  hash dump_bless
 );
 
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
@@ -61,9 +62,13 @@ sub dump_bless {
   chr(SRL_HDR_BLESS)
   .$_[0]
   .(
-    length($_[1]) >= 2**6
-    ? chr(SRL_HDR_STRING).varint(length($_[1])).$_[1]
-    : chr(length($_[1]) + 0x40).$_[1]
+    ref($_[1])
+    ? chr(SRL_HDR_COPY).varint(${$_[1]})
+    : (
+      (length($_[1]) >= 2**6)
+      ? chr(SRL_HDR_STRING).varint(length($_[1])).$_[1]
+      : chr(length($_[1]) + 0x40).$_[1]
+    )
   )
 }
 
@@ -258,6 +263,32 @@ our @BasicTests = (
             chr(SRL_HDR_TAIL)
     ),
     "blessed arrays with reuse"
+  ],
+  [
+    [bless([], "foo"), bless([], "foo")],
+    do {
+      my $content = chr(SRL_HDR_ARRAY).varint(2)
+                    .chr(SRL_HDR_BLESS).array();
+      my $pos = length($Header) + length($content);
+      $content .= chr(3 + 0x40)."foo"
+                  .dump_bless( array(), \$pos )
+                  .chr(SRL_HDR_TAIL);
+      $content
+    },
+    "[bless([], 'foo'), bless([], 'foo')]"
+  ],
+  [
+    bless([bless {}, "foo"], "foo"),
+    do {
+      my $content = chr(SRL_HDR_BLESS)
+                    .chr(SRL_HDR_ARRAY)
+                    .varint(1)
+                    .dump_bless(hash(), "foo");
+      my $pos = length($Header) + length($content) - 4;
+      $content .= chr(SRL_HDR_TAIL).chr(SRL_HDR_COPY).varint($pos);
+      $content
+    },
+    "bless [bless {}, 'foo'], 'foo'"
   ],
 );
 
