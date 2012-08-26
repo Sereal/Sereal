@@ -51,6 +51,22 @@ sub array_fbit {
   chr(SRL_HDR_ARRAY+FBIT) . varint(0+@_) . join("", @_) . chr(SRL_HDR_TAIL)
 }
 
+sub hash {
+  chr(SRL_HDR_HASH) . varint(int(@_/2)) . join("", @_) . chr(SRL_HDR_TAIL)
+}
+
+sub dump_bless {
+  # this hack does not support UTF8 class names, but that's not supported by
+  # most releases of perl anyway
+  chr(SRL_HDR_BLESS)
+  .$_[0]
+  .(
+    length($_[1]) >= 2**6
+    ? chr(SRL_HDR_STRING).varint(length($_[1])).$_[1]
+    : chr(length($_[1]) + 0x40).$_[1]
+  )
+}
+
 sub varint {
   my $n = shift;
   my $out = '';
@@ -207,13 +223,8 @@ our @BasicTests = (
   ],
   [
     bless([],"foo"),
-    chr(SRL_HDR_BLESS)
-    .chr(SRL_HDR_ARRAY)
-    .varint(0)
-    .chr(SRL_HDR_TAIL)
-    .chr( 3 + 0x40 )
-    ."foo",
-    "bless [], 'foo'"
+    dump_bless(array(), "foo"),
+    "bless [], 'foo' (2)"
   ],
   [
     do { my $qr= bless qr/foo/ix,"bar"; [ $qr, $qr ] },
