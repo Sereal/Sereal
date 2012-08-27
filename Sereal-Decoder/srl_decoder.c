@@ -613,7 +613,7 @@ static SRL_INLINE SV *
 srl_read_regexp(pTHX_ srl_decoder_t *dec)
 {
     SV *pat= srl_read_single_value(aTHX_ dec, NULL);
-    REGEXP *re= NULL; /* this will definitely have to change for backwards compatibility */
+    SV *ret= NULL;
     ASSERT_BUF_SPACE(dec, 2);
     /* For now we will serialize the flags as ascii strings. Maybe we should use
      * something else but this is easy to debug and understand - since the modifiers
@@ -621,6 +621,7 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec)
     if (*dec->pos & SRL_HDR_ASCII) {
         U8 len= *dec->pos++ & SRL_HDR_ASCII_LEN_MASK;
         U32 flags= 0;
+        REGEXP *re= NULL;
         ASSERT_BUF_SPACE(dec,len);
         while (len > 0) {
             len--;
@@ -646,11 +647,20 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec)
             }
         }
         re= CALLREGCOMP(pat, flags);
+#ifdef SvRX
+        ret= newRV_noinc((SV*)re);
+#else
+        {
+            SV *sv= newSVpv("",0);
+            sv_magic(sv, (SV*)re, PERL_MAGIC_qr, 0, 0);
+            ret= newRV_noinc(sv);
+        }
+#endif
     }
     else {
         ERROR("Expecting SRL_HDR_ASCII for modifiers of regexp");
     }
-    return newRV_noinc((SV*)re);
+    return ret;
 }
 
 static SRL_INLINE SV *
