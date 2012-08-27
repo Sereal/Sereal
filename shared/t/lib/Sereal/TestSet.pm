@@ -8,6 +8,7 @@ use File::Spec;
 use Scalar::Util qw(weaken);
 use Test::More;
 use Test::LongString;
+use Data::Dumper;
 
 # Dynamically load constants from whatever is being tested
 our ($Class, $ConstClass);
@@ -338,17 +339,31 @@ sub have_encoder_and_decoder {
 
 our @RoundtripTests = (
   # name, structure
+  ["undef", undef],
   ["small int", 3],
   ["small negative int", -8],
   ["largeish int", 100000],
   ["largeish negative int", -302001],
+  ["float", 0.2],
+  ["short ascii string", "fooo"],
+  ["short latin1 string", "Müller"],
+  ["short utf8 string", do {use utf8; " עדיין ח"}],
+  ["long ascii string", do{"abc" x 1000}],
+  ["long latin1 string", "üll" x 1000],
+  ["long utf8 string", do {use utf8; " עדיין חשב" x 1000}],
+  ["long utf8 string with only ascii", do {use utf8; "foo" x 1000}],
+  ["long utf8 string with only latin1 subset", do {use utf8; "üll" x 1000}],
 );
 
 sub run_roundtrip_tests {
   foreach my $rt (@RoundtripTests) {
     my ($name, $data) = @$rt;
     my $s = Sereal::Encoder::encode_sereal($data);
-    ok(defined $s, "$name (defined)");
+    ok(defined $s, "$name (defined)")
+      or do {
+        note(Data::Dumper::Dumper($data));
+        next;
+      };
     my $d = Sereal::Decoder::decode_sereal($s);
     ok(defined($d) || !defined($data), "$name (defined2)");
     my $s2 = Sereal::Encoder::encode_sereal($d);
