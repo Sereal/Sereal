@@ -433,6 +433,7 @@ srl_read_bless(pTHX_ srl_decoder_t *dec)
      * code flow in the below code */
     ASSERT_BUF_SPACE(dec,1);
     if (*dec->pos == SRL_HDR_COPY) {
+        dec->pos++;
         ofs= srl_read_varint_uv(aTHX_ dec);
         if (dec->ref_stashes) {
             stash= PTABLE_fetch(dec->ref_seenhash, (void *)ofs);
@@ -465,7 +466,7 @@ srl_read_bless(pTHX_ srl_decoder_t *dec)
                 ERROR_BAD_COPY(dec, SRL_HDR_HASH);
             } else {
                 if (dec->buf_end - dec->buf_start < (IV)ofs)
-                    ERROR("unexpected end of buffer");
+                    ERRORf1("copy command points at tag outside of buffer, offset=%"UVuf, ofs);
                 dec->save_pos= dec->pos;
                 dec->pos= dec->buf_start + ofs;
                 goto read_class;
