@@ -20,6 +20,7 @@ use constant SEREAL_ONLY => 0;
 
 our $mpo = Data::MessagePack->new();
 
+srand(0);
 my @str;
 push @str, join("", map chr(65+int(rand(57))), 1..10) for 1..1000;
 
