@@ -255,7 +255,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
     if (len > 8)
         av_extend(av, len+1);
     while ( len-- > 0) {
-        if ( (*dec->pos == SRL_HDR_LIST) ) {
+        if ( *dec->pos == SRL_HDR_LIST ) {
             ERROR_UNIMPLEMENTED(dec, SRL_HDR_LIST, "LIST");
         }
         SV *got= srl_read_single_value(aTHX_ dec, NULL);
