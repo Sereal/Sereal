@@ -4,34 +4,40 @@ package # Hide from PAUSE
 use strict;
 use warnings;
 
+use File::Spec;
 use Scalar::Util qw(weaken);
+use Test::More;
+use Test::LongString;
 
 # Dynamically load constants from whatever is being tested
+our ($Class, $ConstClass);
 BEGIN {
-  my $class;
   if (defined $INC{"Sereal/Encoder.pm"}
       and $INC{"Sereal/Encoder.pm"} =~ /\bblib\b/)
   {
-    $class = 'Sereal::Encoder::Constants';
+    $Class = 'Sereal::Encoder';
   }
   else {
-    $class = 'Sereal::Decoder::Constants';
+    $Class = 'Sereal::Decoder';
   }
-  eval "use $class ':all'; 1"
+  $ConstClass = $Class . "::Constants";
+  eval "use $ConstClass ':all'; 1"
   or do {
     my $err = $@ || 'Zombie Error';
-    die "Failed to load/import constants from '$class': $err";
+    die "Failed to load/import constants from '$ConstClass': $err";
   };
 }
 
 use Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
-  $Header @BasicTests
+  $Header @BasicTests $Class $ConstClass
   FBIT
   hobodecode
   varint array array_fbit
   hash dump_bless
+  have_encoder_and_decoder
+  run_roundtrip_tests
 );
 
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
@@ -291,5 +297,67 @@ our @BasicTests = (
     "bless [bless {}, 'foo'], 'foo'"
   ],
 );
+
+sub get_git_top_dir {
+  my @dirs = (0, 1, 2);
+  for my $d (@dirs) {
+    my $tdir = File::Spec->catdir(map File::Spec->updir, 1..$d);
+    my $gdir = File::Spec->catdir($tdir, '.git');
+    if (-d $gdir) {
+      return $tdir;
+    }
+  }
+  return();
+}
+
+sub have_encoder_and_decoder {
+  my $need = $Class =~ /Encoder/ ? "Decoder" : "Encoder";
+  my $need_class = "Sereal::$need";
+  my $v = $Class->VERSION;
+
+  if (defined(my $top_dir = get_git_top_dir())) {
+    my $blib_dir = File::Spec->catdir($top_dir, "Sereal-$need", "blib");
+    if (-d $blib_dir) {
+      require blib;
+      blib->import($blib_dir);
+    }
+  }
+
+  eval "use $need_class; 1"
+  or do {
+    note("Could not locate $need_class for testing");
+    return();
+  };
+  my $cmp_v = $need_class->VERSION;
+  if (not defined $cmp_v or not $cmp_v eq $v) {
+    note("Could not load correct version of $need_class for testing (got: $cmp_v, needed $v)");
+    return();
+  }
+  return 1;
+}
+
+our @RoundtripTests = (
+  # name, structure
+  ["small int", 3],
+  ["small negative int", -8],
+  ["largeish int", 100000],
+  ["largeish negative int", -302001],
+);
+
+sub run_roundtrip_tests {
+  foreach my $rt (@RoundtripTests) {
+    my ($name, $data) = @$rt;
+    my $s = Sereal::Encoder::encode_sereal($data);
+    ok(defined $s, "$name (defined)");
+    my $d = Sereal::Decoder::decode_sereal($s);
+    ok(defined($d) || !defined($data), "$name (defined2)");
+    my $s2 = Sereal::Encoder::encode_sereal($d);
+    ok(defined $s2, "$name (defined3)");
+    is_deeply($d, $data, "$name (deeply)");
+    is_string($s2, $s, "$name (serialized)");
+  }
+}
+
+
 
 1;
