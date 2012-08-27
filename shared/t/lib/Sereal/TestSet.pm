@@ -359,9 +359,11 @@ our @ScalarRoundtripTests = (
 our @RoundtripTests = (
   @ScalarRoundtripTests,
   (map {["scalar ref to " . $_->[0], \($_->[1])]} @ScalarRoundtripTests),
+  (map {["nested scalar ref to " . $_->[0], \\($_->[1])]} @ScalarRoundtripTests),
   (map {["array ref to " . $_->[0], [$_->[1]]]} @ScalarRoundtripTests),
   (map {["hash ref to " . $_->[0], {foo => $_->[1]}]} @ScalarRoundtripTests),
   (map {["array ref to duplicate " . $_->[0], [$_->[1], $_->[1]]]} @ScalarRoundtripTests),
+  (map {["array ref to aliases " . $_->[0], sub {\@_}->($_->[1], $_->[1])]} @ScalarRoundtripTests),
   (map {["array ref to scalar refs to same " . $_->[0], [\($_->[1]), \($_->[1])]]} @ScalarRoundtripTests),
 );
 
