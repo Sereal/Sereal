@@ -446,6 +446,11 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
 #ifndef MAX_CHARSET_NAME_LENGTH
 #define MAX_CHARSET_NAME_LENGTH 2
 #endif
+
+#ifdef SvRX
+#define MODERN_REGEXP
+#endif
+
 static inline void
 srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
 {
@@ -454,7 +459,17 @@ srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
     const char *fptr;
     char ch;
     U16 match_flags;
+#ifdef MODERN_REGEXP
     REGEXP *re= SvRX(sv);
+#else
+#define INT_PAT_MODS "msix"
+#define RXf_PMf_STD_PMMOD_SHIFT 12
+#define RX_PRECOMP(re) ((re)->precomp)
+#define RX_PRELEN(re) ((re)->prelen)
+#define RX_UTF8(re) ((re)->reganch & ROPT_UTF8)
+#define RX_EXTFLAGS(re) ((re)->reganch)
+    regexp *re = (regexp *)mg->mg_obj;
+#endif
     /*
        we are in list context so stringify
        the modifiers that apply. We ignore "negative
@@ -573,6 +588,27 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
         case SVt_PVIV:
         case SVt_PVNV:
         case SVt_PVMG:
+#ifndef MODERN_REGEXP
+        {
+            MAGIC *mg;
+            if ( ((SvFLAGS(src) &
+                   (SVs_OBJECT|SVf_OK|SVs_GMG|SVs_SMG|SVs_RMG))
+                  == (SVs_OBJECT|BFD_Svs_SMG_OR_RMG))
+                 && (mg = mg_find(sv, PERL_MAGIC_qr)))
+            {
+                /* Housten, we have a regex! */
+                if (oldoffset) {
+                    SRL_SET_FBIT(*(enc->buf_start + oldoffset));
+                    srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REUSE, (UV)oldoffset);
+                } else {
+                    srl_dump_regexp(aTHX_ enc, src);
+                }
+                break;
+
+            }
+
+        }
+#endif
         case SVt_PVLV:
             srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REF, (UV)oldoffset);
             if (oldoffset) {
@@ -581,6 +617,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
                 srl_dump_sv(aTHX_ enc, src);
             }
             break;
+#ifdef MODERN_REGEXP
         case SVt_REGEXP:
             if (oldoffset) {
                 SRL_SET_FBIT(*(enc->buf_start + oldoffset));
@@ -590,6 +627,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
                 srl_dump_regexp(aTHX_ enc, src);
             }
             break;
+#endif
         case SVt_PVAV:
             if (oldoffset) {
                 SRL_SET_FBIT(*(enc->buf_start + oldoffset));
