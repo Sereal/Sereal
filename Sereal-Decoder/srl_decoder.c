@@ -612,8 +612,47 @@ srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag)
 static SRL_INLINE SV *
 srl_read_regexp(pTHX_ srl_decoder_t *dec)
 {
-    ERROR_UNIMPLEMENTED(dec,SRL_HDR_REGEXP,"REGEXP");
+    SV *pat= srl_read_single_value(aTHX_ dec, NULL);
+    REGEXP *re= NULL; /* this will definitely have to change for backwards compatibility */
+    ASSERT_BUF_SPACE(dec, 2);
+    /* For now we will serialize the flags as ascii strings. Maybe we should use
+     * something else but this is easy to debug and understand - since the modifiers
+     * are tagged it doesn't matter much, we can add other tags later */
+    if (*dec->pos & SRL_HDR_ASCII) {
+        U8 len= *dec->pos++ & SRL_HDR_ASCII_LEN_MASK;
+        U32 flags= 0;
+        ASSERT_BUF_SPACE(dec,len);
+        while (len > 0) {
+            len--;
+            switch (*dec->pos++) {
+                case 'm':
+                    flags= flags | PMf_MULTILINE;
+                    break;
+                case 's':
+                    flags= flags | PMf_SINGLELINE;
+                    break;
+                case 'i':
+                    flags= flags | PMf_FOLD;
+                    break;
+                case 'x':
+                    flags= flags | PMf_EXTENDED;
+                    break;
+                case 'p':
+                    flags = flags | PMf_KEEPCOPY;
+                    break;
+                default:
+                    ERROR("bad modifier");
+                    break;
+            }
+        }
+        re= CALLREGCOMP(pat, flags);
+    }
+    else {
+        ERROR("Expecting SRL_HDR_ASCII for modifiers of regexp");
+    }
+    return newRV_noinc((SV*)re);
 }
+
 static SRL_INLINE SV *
 srl_read_extend(pTHX_ srl_decoder_t *dec)
 {
