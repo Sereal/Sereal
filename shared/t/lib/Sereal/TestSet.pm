@@ -107,6 +107,7 @@ our @BasicTests = (
   ["", chr(0b0100_0000), "encode empty string"],
   ["1", chr(0b0100_0001) . "1", "encode string '1'"],
   ["91a", chr(0b0100_0011) . "91a", "encode string '91a'"],
+  ["x" x 10000, chr(SRL_HDR_STRING).varint(10000).("x" x 10000), "long ASCII string"],
   [\1, chr(SRL_HDR_REF).varint(0).chr(0b0000_0001), "scalar ref to int"],
   [[], array(), "empty array ref"],
   [[1,2,3], array(chr(0b0000_0001), chr(0b0000_0010), chr(0b0000_0011)), "array ref"],
