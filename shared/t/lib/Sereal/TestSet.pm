@@ -107,7 +107,7 @@ our @BasicTests = (
   ["", chr(0b0100_0000), "encode empty string"],
   ["1", chr(0b0100_0001) . "1", "encode string '1'"],
   ["91a", chr(0b0100_0011) . "91a", "encode string '91a'"],
-  ["x" x 10000, chr(SRL_HDR_STRING).varint(10000).("x" x 10000), "long ASCII string"],
+  ["abc" x 1000, chr(SRL_HDR_STRING).varint(3000).("abc" x 1000), "long ASCII string"],
   [\1, chr(SRL_HDR_REF).varint(0).chr(0b0000_0001), "scalar ref to int"],
   [[], array(), "empty array ref"],
   [[1,2,3], array(chr(0b0000_0001), chr(0b0000_0010), chr(0b0000_0011)), "array ref"],
@@ -367,21 +367,39 @@ our @RoundtripTests = (
 
 
 sub run_roundtrip_tests {
-  foreach my $rt (@RoundtripTests) {
-    my ($name, $data) = @$rt;
-    my $s = Sereal::Encoder::encode_sereal($data);
-    ok(defined $s, "$name (defined)")
-      or do {
-        note(Data::Dumper::Dumper($data)) if defined $ENV{DEBUG_SEREAL};
-        next;
-      };
-    my $d = Sereal::Decoder::decode_sereal($s);
-    ok(defined($d) || !defined($data), "$name (defined2)");
-    my $s2 = Sereal::Encoder::encode_sereal($d);
-    ok(defined $s2, "$name (defined3)");
-    is_deeply($d, $data, "$name (deeply)");
-    is_string($s2, $s, "$name (serialized)");
-  }
+  #my $decoder = Sereal::Decoder->new;
+  my $encoder = Sereal::Encoder->new;
+
+  foreach my $meth (
+                    ['functional',
+                      sub {Sereal::Encoder::encode_sereal(shift)},
+                      sub {Sereal::Decoder::decode_sereal(shift)}],
+                    ['object-oriented',
+                      sub {$encoder->encode(shift)},
+                      sub {Sereal::Decoder::decode_sereal(shift)}], # no OO version of Decoder yet
+                    )
+  {
+    my ($mname, $enc, $dec) = @$meth;
+
+    foreach my $rt (@RoundtripTests) {
+      my ($name, $data) = @$rt;
+      my $s = $enc->($data);
+      ok(defined $s, "$name ($mname, defined)")
+        or do {
+          if (defined $ENV{DEBUG_SEREAL}) {
+            note("Data was: " . Data::Dumper::Dumper($data));
+            note("Output was: " . (defined($s) ? $s : "<undef>"));
+          }
+          next;
+        };
+      my $d = $dec->($s);
+      ok(defined($d) || !defined($data), "$name ($mname, defined2)");
+      my $s2 = $enc->($d);
+      ok(defined $s2, "$name ($mname, defined3)");
+      is_deeply($d, $data, "$name ($mname, deeply)");
+      is_string($s2, $s, "$name ($mname, serialized)");
+    }
+  } # end serialization method iteration
 }
 
 
