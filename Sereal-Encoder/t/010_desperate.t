@@ -28,7 +28,7 @@ sub run_tests {
   my ($extra_name, $opt_hash) = @_;
   foreach my $bt (@BasicTests) {
     my ($in, $exp, $name) = @$bt;
-    $name="unnamed";
+    $name="unnamed" if not defined $name;
     #next unless $name=~/PAD/;
 
     $exp = "$Header$exp";
