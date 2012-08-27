@@ -337,7 +337,7 @@ sub have_encoder_and_decoder {
   return 1;
 }
 
-our @RoundtripTests = (
+our @ScalarRoundtripTests = (
   # name, structure
   ["undef", undef],
   ["small int", 3],
@@ -355,13 +355,23 @@ our @RoundtripTests = (
   ["long utf8 string with only latin1 subset", do {use utf8; "üll" x 1000}],
 );
 
+our @RoundtripTests = (
+  @ScalarRoundtripTests,
+  (map {["scalar ref to " . $_->[0], \($_->[1])]} @ScalarRoundtripTests),
+  (map {["array ref to " . $_->[0], [$_->[1]]]} @ScalarRoundtripTests),
+  (map {["hash ref to " . $_->[0], {foo => $_->[1]}]} @ScalarRoundtripTests),
+  (map {["array ref to duplicate " . $_->[0], [$_->[1], $_->[1]]]} @ScalarRoundtripTests),
+  (map {["array ref to scalar refs to same " . $_->[0], [\($_->[1]), \($_->[1])]]} @ScalarRoundtripTests),
+);
+
+
 sub run_roundtrip_tests {
   foreach my $rt (@RoundtripTests) {
     my ($name, $data) = @$rt;
     my $s = Sereal::Encoder::encode_sereal($data);
     ok(defined $s, "$name (defined)")
       or do {
-        note(Data::Dumper::Dumper($data));
+        note(Data::Dumper::Dumper($data)) if defined $ENV{DEBUG_SEREAL};
         next;
       };
     my $d = Sereal::Decoder::decode_sereal($s);
