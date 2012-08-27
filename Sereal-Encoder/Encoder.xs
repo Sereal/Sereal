@@ -68,6 +68,7 @@ encode_sereal(src, opt = NULL)
       SvPV_set(sv, enc->buf_start);
       SvLEN_set(sv, BUF_SIZE(enc));
       SvCUR_set(sv, BUF_POS_OFS(enc));
+      SvPOK_on(sv);
       enc->buf_start = enc->pos = NULL; /* no need to free these guys now */
     }
     else {
