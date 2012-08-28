@@ -284,10 +284,12 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
         STRLEN key_len;
         SV *key_sv;
         SV *got_sv= srl_read_single_value(aTHX_ dec, NULL);
+        U8 tag;
 
       read_key:
         ASSERT_BUF_SPACE(dec,1);
-        if (*dec->pos == SRL_HDR_STRING_UTF8) {
+        tag= *dec->pos++;
+        if (tag == SRL_HDR_STRING_UTF8) {
             key_len= srl_read_varint_uv(aTHX_ dec);
             ASSERT_BUF_SPACE(dec,key_len);
             key_sv= newSVpvn_flags((char*)dec->pos,key_len,1);
@@ -298,11 +300,11 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
                 SvREFCNT_dec(key_sv);
             }
         } else {
-            if (*dec->pos & SRL_HDR_ASCII) {
-                key_len= (*dec->pos++) & SRL_HDR_ASCII_LEN_MASK;
-            } else if (*dec->pos == SRL_HDR_STRING) {
+            if (tag & SRL_HDR_ASCII) {
+                key_len= tag & SRL_HDR_ASCII_LEN_MASK;
+            } else if (tag == SRL_HDR_STRING) {
                 key_len= srl_read_varint_uv(aTHX_ dec);
-            } else if (*dec->pos == SRL_HDR_COPY) {
+            } else if (tag == SRL_HDR_COPY) {
                 UV ofs= srl_read_varint_uv(aTHX_ dec);
                 if (dec->save_pos) {
                     ERROR_BAD_COPY(dec, SRL_HDR_HASH);
