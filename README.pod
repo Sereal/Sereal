@@ -74,12 +74,12 @@ old decoder, and possibly output old formats with a new decoder.
 
 =back
 
-
-
 =head1 AUTHOR
 
-Yves Orton
-Steffen Mueller
+Yves Orton E<lt>demerphq@gmail.comE<gt>
+
 Damian Gryski
+
+Steffen Mueller E<lt>smueller@cpan.orgE<gt>
 
 =cut
