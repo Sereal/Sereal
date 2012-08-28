@@ -350,7 +350,27 @@ our @BasicTests = (
     ),
     "qr/foo/i"
   ],
+  [
+    [{foo => 1}, {foo => 2}],
+    sub {
+      my $opt = shift;
+      if ($opt->{no_shared_hashkeys}) {
+        return array(
+          hash(integer(1), short_string("foo")),
+          hash(integer(2), short_string("foo")),
+        );
+      }
+      else {
+        return array(
+          hash(integer(1), short_string("foo")),
+          hash(integer(2), chr(SRL_HDR_COPY).varint(12)),
+        );
+      }
+    },
+    "duplicate hash keys"
+  ],
 );
+
 
 sub get_git_top_dir {
   my @dirs = (0, 1, 2);
@@ -413,6 +433,10 @@ our @ScalarRoundtripTests = (
 
 our @RoundtripTests = (
   @ScalarRoundtripTests,
+
+  ["[{foo => 1}, {foo => 2}] - repeated hash keys",
+    [{foo => 1}, {foo => 2}] ],
+
   (map {["scalar ref to " . $_->[0], \($_->[1])]} @ScalarRoundtripTests),
   (map {["nested scalar ref to " . $_->[0], \\($_->[1])]} @ScalarRoundtripTests),
   (map {["array ref to " . $_->[0], [$_->[1]]]} @ScalarRoundtripTests),
