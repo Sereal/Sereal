@@ -57,7 +57,7 @@ sub read_files {
 
 if (!@ARGV) {
     my $total= read_files(sub { return 1 });
-    plan( tests => $total + 1 );
+    plan( tests => $total * 2 + 1 );
     my $read= 0;
     my $eval_ok= read_files(sub {
         print STDERR "# read $read\n" unless ++$read % 1000;
