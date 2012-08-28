@@ -26,7 +26,7 @@ BEGIN {
 }
 our $CORPUS;
 BEGIN {
-    $CORPUS||= $ENV{CORPUS} || "corpus";
+    $CORPUS||= $ENV{CORPUS} || File::Spec->catfile(qw(t data corpus));
 }
 my @corpus;
 my @js_corpus;
