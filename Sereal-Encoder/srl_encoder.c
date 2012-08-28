@@ -1,6 +1,42 @@
-#include "srl_encoder.h"
-
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "EXTERN.h"
+#include "perl.h"
+#include "XSUB.h"
 #include "ppport.h"
+#ifdef __cplusplus
+}
+#endif
+
+#ifndef PERL_VERSION
+#    include <patchlevel.h>
+#    if !(defined(PERL_VERSION) || (PERL_SUBVERSION > 0 && defined(PATCHLEVEL)))
+#        include <could_not_find_Perl_patchlevel.h>
+#    endif
+#    define PERL_REVISION       5
+#    define PERL_VERSION        PATCHLEVEL
+#    define PERL_SUBVERSION     PERL_SUBVERSION
+#endif
+#if PERL_VERSION < 8
+#   define PERL_MAGIC_qr                  'r' /* precompiled qr// regex */
+#   define BFD_Svs_SMG_OR_RMG SVs_RMG
+#elif ((PERL_VERSION==8) && (PERL_SUBVERSION >= 1) || (PERL_VERSION>8))
+#   define BFD_Svs_SMG_OR_RMG SVs_SMG
+#   define MY_PLACEHOLDER PL_sv_placeholder
+#else
+#   define BFD_Svs_SMG_OR_RMG SVs_RMG
+#   define MY_PLACEHOLDER PL_sv_undef
+#endif
+#if (((PERL_VERSION == 9) && (PERL_SUBVERSION >= 4)) || (PERL_VERSION > 9))
+#   define NEW_REGEX_ENGINE 1
+#endif
+#if (((PERL_VERSION == 8) && (PERL_SUBVERSION >= 1)) || (PERL_VERSION > 8))
+#define MY_CAN_FIND_PLACEHOLDERS
+#define HAS_SV2OBJ
+#endif
+
+#include "srl_encoder.h"
 
 #define PERL_NO_GET_CONTEXT
 
@@ -63,8 +99,6 @@ static SRL_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
 #define SRL_GET_WEAK_SEENHASH(enc) ( (enc)->weak_seenhash == NULL   \
                                     ? srl_init_weak_hash(enc)       \
                                    : (enc)->weak_seenhash )
-
-#define SRL_SET_FBIT(where) (where |= 0b10000000)
 
 #define PULL_WEAK_REFCOUNT_IS_WEAK(refcnt, is_weak, sv)     \
     STMT_START {                                            \
@@ -461,7 +495,6 @@ static inline void
 srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
 {
     STRLEN left = 0;
-    char reflags[sizeof(INT_PAT_MODS) + MAX_CHARSET_NAME_LENGTH];
     const char *fptr;
     char ch;
     U16 match_flags;
@@ -474,8 +507,11 @@ srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
 #define RX_PRELEN(re) ((re)->prelen)
 #define RX_UTF8(re) ((re)->reganch & ROPT_UTF8)
 #define RX_EXTFLAGS(re) ((re)->reganch)
-    regexp *re = (regexp *)mg->mg_obj;
+#define RXf_PMf_COMPILETIME  PMf_COMPILETIME
+    regexp *re = (regexp *)(((MAGIC*)sv)->mg_obj);
 #endif
+    char reflags[sizeof(INT_PAT_MODS) + MAX_CHARSET_NAME_LENGTH];
+
     /*
        we are in list context so stringify
        the modifiers that apply. We ignore "negative
@@ -607,7 +643,8 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
                     SRL_SET_FBIT(*(enc->buf_start + oldoffset));
                     srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REUSE, (UV)oldoffset);
                 } else {
-                    srl_dump_regexp(aTHX_ enc, src);
+                    TRACK_REFCOUNT(enc, src, refcount);
+                    srl_dump_regexp(aTHX_ enc, (SV*)mg); /* yes the SV* cast makes me feel dirty too */
                 }
                 break;
 

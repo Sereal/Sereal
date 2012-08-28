@@ -17,9 +17,10 @@ sub link_files {
           wanted => sub {
             my $f = $_;
             s/^\Q$shared_dir\E\/?// or die $_;
-            return if $_ eq '';
+            return unless $_;
+            
             if (-d $f) {
-              File::Path::mkpath($_);
+              File::Path::mkpath($_)
             }
             elsif (-f $f) {
               my @d = File::Spec->splitdir($_);

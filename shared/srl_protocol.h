@@ -99,58 +99,57 @@
 #define SRL_POS_MAX_SIZE           15
 #define SRL_NEG_MIN_SIZE           16
 
-
-
-
-/* All constants have the F bit unset! */
+/* All constants have the F bit (SRL_HDR_TRACK_FLAG) unset! */
 /* _LOW and _HIGH versions refering to INCLUSIVE range boundaries */
 
-#define SRL_HDR_TRACK_FLAG      ((char)0b10000000)
+#define SRL_HDR_TRACK_FLAG      ((char)128)        /* 0b10000000 */
 
-#define SRL_HDR_ASCII           ((char)0b01000000)
-#define SRL_HDR_ASCII_LEN_MASK  ((char)0b00111111)
+#define SRL_HDR_ASCII           ((char)64)        /* 0b01000000 */
+#define SRL_HDR_ASCII_LEN_MASK  ((char)63)        /* 0b00111111 */
 
-#define SRL_HDR_POS_LOW         ((char)0b00000000) /* 0 */
-#define SRL_HDR_POS_HIGH        ((char)0b00001111) /* 15 */
-#define SRL_HDR_NEG_HIGH        ((char)0b00010000) /* -1  [16] */
-#define SRL_HDR_NEG_LOW         ((char)0b00011111) /* -16 [31]*/
+#define SRL_HDR_POS_LOW         ((char)0)        /* 0b00000000 */         /* 0 */
+#define SRL_HDR_POS_HIGH        ((char)15)        /* 0b00001111 */         /* 15 */
+#define SRL_HDR_NEG_HIGH        ((char)16)        /* 0b00010000 */         /* -1  [16] */
+#define SRL_HDR_NEG_LOW         ((char)31)        /* 0b00011111 */         /* -16 [31]*/
 
-#define STL_HDR_TYPE_MASK       ((char)0b00111111)
+#define STL_HDR_TYPE_MASK       ((char)63)        /* 0b00111111 */
 
 
-#define SRL_HDR_VARINT          ((char)0b00100000)
-#define SRL_HDR_ZIGZAG          ((char)0b00100001)
-#define SRL_HDR_FLOAT           ((char)0b00100010)
-#define SRL_HDR_DOUBLE          ((char)0b00100011)
-#define SRL_HDR_LONG_DOUBLE     ((char)0b00100100)
-#define SRL_HDR_UNDEF           ((char)0b00100101)
-#define SRL_HDR_STRING          ((char)0b00100110)
-#define SRL_HDR_STRING_UTF8     ((char)0b00100111)
+#define SRL_HDR_VARINT          ((char)32)        /* 0b00100000 */
+#define SRL_HDR_ZIGZAG          ((char)33)        /* 0b00100001 */
+#define SRL_HDR_FLOAT           ((char)34)        /* 0b00100010 */
+#define SRL_HDR_DOUBLE          ((char)35)        /* 0b00100011 */
+#define SRL_HDR_LONG_DOUBLE     ((char)36)        /* 0b00100100 */
+#define SRL_HDR_UNDEF           ((char)37)        /* 0b00100101 */
+#define SRL_HDR_STRING          ((char)38)        /* 0b00100110 */
+#define SRL_HDR_STRING_UTF8     ((char)39)        /* 0b00100111 */
 
-#define SRL_HDR_REF             ((char)0b00101000) /* scalar ref to next item */
-#define SRL_HDR_REUSE           ((char)0b00101001) /* second/third/... occurrence of a multiply-occurring
+#define SRL_HDR_REF             ((char)40)        /* 0b00101000 */         /* scalar ref to next item */
+#define SRL_HDR_REUSE           ((char)41)        /* 0b00101001 */         /* second/third/... occurrence of a multiply-occurring
                                                   * substructure (always points at a form of reference) */
-#define SRL_HDR_HASH            ((char)0b00101010)
-#define SRL_HDR_ARRAY           ((char)0b00101011)
-#define SRL_HDR_BLESS           ((char)0b00101100)
-#define SRL_HDR_BLESSV          ((char)0b00101101) /* provisional */
-#define SRL_HDR_ALIAS           ((char)0b00101110)
-#define SRL_HDR_COPY            ((char)0b00101111)
+#define SRL_HDR_HASH            ((char)42)        /* 0b00101010 */
+#define SRL_HDR_ARRAY           ((char)43)        /* 0b00101011 */
+#define SRL_HDR_BLESS           ((char)44)        /* 0b00101100 */
+#define SRL_HDR_BLESSV          ((char)45)        /* 0b00101101 */         /* provisional */
+#define SRL_HDR_ALIAS           ((char)46)        /* 0b00101110 */
+#define SRL_HDR_COPY            ((char)47)        /* 0b00101111 */
 
-#define SRL_HDR_EXTEND          ((char)0b00110000)
-#define SRL_HDR_LIST            ((char)0b00110001)
+#define SRL_HDR_EXTEND          ((char)48)        /* 0b00110000 */
+#define SRL_HDR_LIST            ((char)49)        /* 0b00110001 */
 
-#define SRL_HDR_WEAKEN          ((char)0b00110010)
-#define SRL_HDR_REGEXP          ((char)0b00110011)
+#define SRL_HDR_WEAKEN          ((char)50)        /* 0b00110010 */
+#define SRL_HDR_REGEXP          ((char)51)        /* 0b00110011 */
 
-#define SRL_HDR_TAIL            ((char)0b00110100)
-#define SRL_HDR_PAD             ((char)0b00110101)
+#define SRL_HDR_TAIL            ((char)52)        /* 0b00110100 */
+#define SRL_HDR_PAD             ((char)53)        /* 0b00110101 */
 
  /* Note: Can do reserved check with a range now, but as we start using
  *       them, might have to explicit == check later. */
-#define SRL_HDR_RESERVED_LOW    ((char)0b00110110)
-#define SRL_HDR_RESERVED_HIGH   ((char)0b00111111)
+#define SRL_HDR_RESERVED_LOW    ((char)54)        /* 0b00110110 */
+#define SRL_HDR_RESERVED_HIGH   ((char)63)        /* 0b00111111 */
  
 /* TODO */
+
+#define SRL_SET_FBIT(where) ((where) |= SRL_HDR_TRACK_FLAG)
 
 #endif
