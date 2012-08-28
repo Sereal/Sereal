@@ -27,7 +27,10 @@ sub run_tests {
   my ($extra_name, $opt_hash) = @_;
   foreach my $bt (@BasicTests) {
     my ($in, $exp, $name) = @$bt;
+
+    $exp = $exp->($opt_hash) if ref($exp) eq 'CODE';
     $exp = "$Header$exp";
+
     my $out;
     my $ok= eval { $out = decode_sereal($exp); 1};
     ok($ok,"($extra_name) did not die: $name")

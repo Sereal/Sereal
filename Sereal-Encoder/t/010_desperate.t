@@ -28,6 +28,8 @@ sub run_tests {
   my ($extra_name, $opt_hash) = @_;
   foreach my $bt (@BasicTests) {
     my ($in, $exp, $name) = @$bt;
+
+    $exp = $exp->($opt_hash) if ref($exp) eq 'CODE';
     $name="unnamed" if not defined $name;
     #next unless $name=~/PAD/;
 
