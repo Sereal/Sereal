@@ -177,8 +177,13 @@ srl_build_encoder_struct(pTHX_ HV *opt)
     /* load options */
     if (opt != NULL) {
         /* SRL_F_SHARED_HASHKEYS on by default */
-        if ( !((svp = hv_fetchs(opt, "no_shared_hashkeys", 0)) && SvTRUE(*svp)) )
+        svp = hv_fetchs(opt, "no_shared_hashkeys", 0);
+        if ( !svp || !SvTRUE(*svp) )
           enc->flags |= SRL_F_SHARED_HASHKEYS;
+    }
+    else {
+        /* SRL_F_SHARED_HASHKEYS on by default */
+        enc->flags |= SRL_F_SHARED_HASHKEYS;
     }
     DEBUG_ASSERT_BUF_SANE(enc);
 
