@@ -363,7 +363,7 @@ our @BasicTests = (
       else {
         return array(
           hash(integer(1), short_string("foo")),
-          hash(integer(2), chr(SRL_HDR_COPY).varint(12)),
+          hash(integer(2), chr(SRL_HDR_COPY).varint(10)),
         );
       }
     },
