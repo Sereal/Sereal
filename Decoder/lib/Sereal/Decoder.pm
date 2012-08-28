@@ -7,6 +7,7 @@ use XSLoader;
 
 our $VERSION = '0.01';
 use Exporter 'import';
+
 our @EXPORT_OK = qw(decode_sereal);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
@@ -18,7 +19,7 @@ __END__
 
 =head1 NAME
 
-Sereal::Decoder - bla blah
+Sereal::Decoder - Module to decode Sereal data structures.
 
 =head1 SYNOPSIS
 
