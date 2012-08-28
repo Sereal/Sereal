@@ -698,7 +698,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
         case SVt_BIND:
 #endif
         default:
-            croak("found %s(0x%p), but it is not representable by the Sereal encoding format", sv_reftype(src,0),src);
+            croak("found type %u %s(0x%p), but it is not representable by the Sereal encoding format", svt, sv_reftype(src,0),src);
     }
     if (!oldoffset && SvOBJECT(src)) {
         srl_dump_classname(aTHX_ enc, src);

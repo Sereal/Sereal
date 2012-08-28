@@ -35,7 +35,11 @@ sub run_tests {
 
     $exp = "$Header$exp";
     my $enc = Sereal::Encoder->new($opt_hash ? $opt_hash : ());
-    my $out = $enc->encode($bt->[0]); # must use bt here or we get a copy
+    my $out;
+    eval{
+        $out= $enc->encode($bt->[0]); # must use bt here or we get a copy
+        1;
+    } or die "Failed to encode: \n$@\n". Data::Dumper::Dumper($bt->[0]);
     ok(defined $out, "($extra_name) defined: $name");
     #is(length($out), length($exp));
     is(Data::Dumper::qquote($out), Data::Dumper::qquote($exp), "($extra_name) correct: $name")
