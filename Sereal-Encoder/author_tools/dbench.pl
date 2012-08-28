@@ -38,7 +38,6 @@ $data{$_}= [
   {@str},
 ] for qw(sereal sereal_func dd1 dd2 ddl mp json_xs storable);
 
-$opt{no_shared_hashkeys} = 1; # FIXME decoder bug!
 our $enc = Sereal::Encoder->new(\%opt);
 our ($json_xs, $dd1, $dd2, $ddl, $sereal, $storable, $mp);
 # do this first before any of the other dumpers "contaminate" the iv/pv issue
