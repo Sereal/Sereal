@@ -17,6 +17,7 @@ sub link_files {
           wanted => sub {
             my $f = $_;
             s/^\Q$shared_dir\E\/?// or die $_;
+            return if $_ eq '';
             if (-d $f) {
               File::Path::mkpath($_);
             }
