@@ -1,0 +1,19 @@
+Encoder todo:
+- PV vs. IV vs. NV choices (could be pushed off by defaulting to PV if necessary)
+- float sizes
+- float dumping endianness
+- Testing on 5.8.5
+- More tests
+- checksumming
+- protocol version handling / exposure
+- OO interface for decoder
+
+v2 / optional in v1:
+- optimize decoder
+- more profiling?
+- optimize dumpiv?
+- blessv
+- NUMLIST?
+- stable hash order option
+
+
