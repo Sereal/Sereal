@@ -630,6 +630,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
         case SVt_PVIV:
         case SVt_PVNV:
         case SVt_PVMG:
+        case SVt_RV:
 #ifndef MODERN_REGEXP
         {
             MAGIC *mg;
