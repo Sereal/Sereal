@@ -26,6 +26,7 @@
      * price to pay to break encapsulation for something that's not
      * measureable.
      */
+    /* DO_SHARED_HASH_ENTRY_REFCOUNT_CHECK only works on 5.10 and better */
 #   define DO_SHARED_HASH_ENTRY_REFCOUNT_CHECK 1
 #else
 #   define DO_SHARED_HASH_ENTRY_REFCOUNT_CHECK 0
@@ -594,7 +595,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
             if ( ((SvFLAGS(src) &
                    (SVs_OBJECT|SVf_OK|SVs_GMG|SVs_SMG|SVs_RMG))
                   == (SVs_OBJECT|BFD_Svs_SMG_OR_RMG))
-                 && (mg = mg_find(sv, PERL_MAGIC_qr)))
+                 && (mg = mg_find(src, PERL_MAGIC_qr)))
             {
                 /* Housten, we have a regex! */
                 if (oldoffset) {
@@ -650,7 +651,9 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
         case SVt_PVGV:
         case SVt_PVFM:
         case SVt_PVIO:
+#if PERL_VERSION >= 10
         case SVt_BIND:
+#endif
         default:
             croak("found %s(0x%p), but it is not representable by the Sereal encoding format", sv_reftype(src,0),src);
     }
@@ -747,8 +750,11 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
          * compare strings / keep a full string hash table. */
         const char *keystr = HeKEY(src);
         if ( SRL_HAVE_OPTION(enc, SRL_F_SHARED_HASHKEYS) /* only enter branch if shared hk's enabled */
+#if PERL_VERSION >= 10
              && (!DO_SHARED_HASH_ENTRY_REFCOUNT_CHECK
-                || src->he_valu.hent_refcount > 1) )
+                || src->he_valu.hent_refcount > 1)
+#endif
+            )
         {
             PTABLE_t *string_seenhash = SRL_GET_STR_SEENHASH(enc);
             const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, keystr);
