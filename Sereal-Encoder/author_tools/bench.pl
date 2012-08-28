@@ -23,6 +23,7 @@ our $mpo = Data::MessagePack->new();
 srand(0);
 my @str;
 push @str, join("", map chr(65+int(rand(57))), 1..10) for 1..1000;
+my @rand = map rand,1..1000;
 
 our %data;
 $data{$_}= [
@@ -31,7 +32,7 @@ $data{$_}= [
   {@str},
   [1..10000],
   {@str},
-  [map rand,1..1000],
+  [@rand],
   {@str},
   {@str},
 ] for qw(sereal sereal_func dd1 dd2 ddl mp json_xs storable);
