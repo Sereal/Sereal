@@ -4,7 +4,6 @@ extern "C" {
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
-#define NEED_newSV_type
 #define NEED_newSVpvn_flags
 #include "ppport.h"
 #ifdef __cplusplus
