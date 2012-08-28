@@ -623,14 +623,7 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
     /* fallthrough for value*/
     /* see sv_reftype in sv.c */
     switch (svt) {
-        case SVt_NULL:
-        case SVt_IV:
-        case SVt_NV:
-        case SVt_PV:
-        case SVt_PVIV:
-        case SVt_PVNV:
         case SVt_PVMG:
-        case SVt_RV:
 #ifndef MODERN_REGEXP
         {
             MAGIC *mg;
@@ -650,9 +643,16 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
                 break;
 
             }
-
         }
+        /* fallthrough */
+        case SVt_RV:
 #endif
+        case SVt_NULL:
+        case SVt_IV:
+        case SVt_NV:
+        case SVt_PV:
+        case SVt_PVIV:
+        case SVt_PVNV:
         case SVt_PVLV:
             srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REF, (UV)oldoffset);
             if (oldoffset) {
