@@ -35,7 +35,7 @@ our @EXPORT_OK = qw(
   $Header @BasicTests $Class $ConstClass
   FBIT
   hobodecode
-  varint array array_fbit
+  integer short_string varint array array_fbit
   hash dump_bless
   have_encoder_and_decoder
   run_roundtrip_tests
@@ -77,6 +77,24 @@ sub dump_bless {
       : chr(length($_[1]) + 0x40).$_[1]
     )
   )
+}
+
+sub short_string {
+  die if length($_[0]) > 2**6-1;
+  return chr(0b0100_0000 + length($_[0])).$_[0];
+}
+
+sub integer {
+  if ($_[0] < 0) {
+    return $_[0] < -16
+            ? die("zigzag not implemented in test suite")
+            : chr(0b0001_0000 + abs($_[0]));
+  }
+  else {
+    return $_[0] > 15
+            ? varint($_[0])
+            : chr(0b0000_0000 + $_[0]);
+  }
 }
 
 sub varint {
