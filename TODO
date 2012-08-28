@@ -8,6 +8,53 @@ Encoder todo:
 - protocol version handling / exposure
 - OO interface for decoder
 
+Decoder todo:
+- Review for memory leaks. Need a way to make sure allocated SV's are freed
+  appropriately on error without using sv_2mortal on everything.
+- Review for refcount leaks: Need to make sure that we arent returning things
+  with artificially high refcounts.
+- Related to refcount leaks: Why do regexps SvPVMG's end up with a refcount of
+  two when we return? See below:
+
+    $ make; perl -MDevel::Peek -Mblib=../Decoder/blib -Mblib=../Encoder/blib -MSereal::Encoder=encode_sereal \
+                -MSereal::Decoder=decode_sereal -le'print my $enc= encode_sereal(my $o= qr/foo/); my $dump= 
+                eval { decode_sereal($enc) };  Dump($dump); 0 and Dump($o); print STDERR "Got : $dump\nWant: $o\n";' \
+                | perl -Mblib=../Decoder/blib -Mblib=../Encoder/blib ../Encoder/author_tools/hobodecoder.pl 
+    SV = RV(0x109d54a8) at 0x109c52d0
+      REFCNT = 1
+      FLAGS = (PADBUSY,PADMY,ROK)
+      RV = 0x109b9ff0
+      SV = PVMG(0x10a803e0) at 0x109b9ff0
+        REFCNT = 2
+        FLAGS = (OBJECT,SMG)
+        IV = 0
+        NV = 0
+        PV = 0
+        MAGIC = 0x109bab60
+          MG_VIRTUAL = 0x2b3ab8a302a0
+          MG_TYPE = PERL_MAGIC_qr(r)
+          MG_OBJ = 0x109c5ef0
+        STASH = 0x109bd1e0  "Regexp"
+    Got : (?-xism:foo)
+    Want: (?-xism:foo)
+
+    0000000 115 114 108   1   0  44  51  67 102 111 111  64  70  82 101 103
+              s   r   l 001  \0   ,   3   C   f   o   o   @   F   R   e   g
+    0000020 101 120 112
+              e   x   p
+    0000023
+
+
+    Total length: 19
+
+    Empty Header.
+    000005: 2c 044 BLESS
+    000006: 33 051   REGEXP
+    000007: 03 067     ASCII(3): 'foo'
+    000011: 00 064     ASCII(0): ''
+    000012: 06 070   ASCII(6): 'Regexp'
+
+
 v2 / optional in v1:
 - optimize decoder
 - more profiling?
