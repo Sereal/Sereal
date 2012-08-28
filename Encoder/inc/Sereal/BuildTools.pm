@@ -1,1 +1,1 @@
-../../../Sereal-Decoder/inc/Sereal/BuildTools.pm
+../../../Decoder/inc/Sereal/BuildTools.pm
