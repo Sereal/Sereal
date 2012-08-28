@@ -67,8 +67,9 @@ if (!@ARGV) {
             $undump= decode_sereal($dump);
             1;
         };
-        ok($ok,"Error return is empty: '$@'")
-            or return $ok;
+        my $err = $@ || 'Zombie error';
+        ok($ok,"Error return is empty")
+            or diag("Error was: '$err'"), return $ok;
 
         my $eval_dump= Data::Dumper->new([ $_[0] ])->Sortkeys(1)->Dump();
         my $undump_dump= Data::Dumper->new([ $undump ])->Sortkeys(1)->Dump();
