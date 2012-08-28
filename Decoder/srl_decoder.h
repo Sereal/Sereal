@@ -39,21 +39,23 @@ int srl_finalize_structure(pTHX_ srl_decoder_t *dec);
 #define BUF_NOT_DONE(dec) ((dec)->pos < (dec)->buf_end)
 #define BUF_DONE(dec) ((dec)->pos >= (dec)->buf_end)
 
-#define ERROR(msg) croak("Error: %s", msg)
-#define ERRORf1(fmt,var) croak("Error: " fmt, (var))
-#define ERRORf2(fmt,var1,var2) croak("Error: " fmt, (var1),(var2))
+
+#define MYCROAK(fmt, args...) croak("Sereal: Error in %s line %u: " fmt, __FILE__, __LINE__ , ## args)
+#define ERROR(msg) MYCROAK("%s", msg)
+#define ERRORf1(fmt,var) MYCROAK(fmt, (var))
+#define ERRORf2(fmt,var1,var2) MYCROAK(fmt, (var1),(var2))
 #define ERROR_UNIMPLEMENTED(dec,tag,str) STMT_START {      \
-    croak("Error: tag %u %s is unimplemented at ofs: %d", tag,str, BUF_POS_OFS(dec)); \
+    MYCROAK("Tag %u %s is unimplemented at ofs: %d", tag,str, BUF_POS_OFS(dec)); \
     return NULL;                                \
 } STMT_END 
-#define ERROR_UNTERMINATED(dec, tag,str) croak("Error: tag %u %s was not terminated properly at ofs %lu with %lu to go", tag, str,dec->pos - dec->buf_start,dec->buf_end - dec->pos)
-#define ERROR_BAD_COPY(dec, tag) croak("Error: while processing tag %u encountered a bad COPY tag", tag)
-#define ERROR_UNEXPECTED(dec, msg) croak("Error: unexpected tag %u while expecting %s", *(dec)->pos, msg)
-#define ERROR_PANIC(dec, msg) croak("Panic: %s", msg);
+#define ERROR_UNTERMINATED(dec, tag,str) MYCROAK("Tag %u %s was not terminated properly at ofs %lu with %lu to go", tag, str,dec->pos - dec->buf_start,dec->buf_end - dec->pos)
+#define ERROR_BAD_COPY(dec, tag) MYCROAK("While processing tag %u encountered a bad COPY tag", tag)
+#define ERROR_UNEXPECTED(dec, msg) MYCROAK("Unexpected tag %u while expecting %s", *(dec)->pos, msg)
+#define ERROR_PANIC(dec, msg) MYCROAK("Panic: %s", msg);
 
 #define ASSERT_BUF_SPACE(dec,len) STMT_START {      \
     if ((UV)BUF_SPACE((dec)) < (UV)(len)) {                   \
-        croak("Unexpected termination of packet, want %lu bytes, only have %lu available at %s line %d", (UV)(len), (UV)BUF_SPACE((dec)), __FILE__, __LINE__ );  \
+        MYCROAK("Unexpected termination of packet, want %lu bytes, only have %lu available", (UV)(len), (UV)BUF_SPACE((dec)));  \
     }                                               \
 } STMT_END
 
