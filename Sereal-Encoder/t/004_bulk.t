@@ -53,7 +53,7 @@ if (!@ARGV) {
             $undump= decode_sereal($dump);
             1;
         };
-        ok($ok && ("$@"||"Zombie error"),"Error: $@")
+        ok($ok,"Error return is empty: '$@'")
             or return $ok;
 
         my $eval_dump= Data::Dumper->new([ $_[0] ])->Sortkeys(1)->Dump();
