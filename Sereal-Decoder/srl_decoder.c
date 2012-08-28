@@ -135,13 +135,13 @@ srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec)
     unsigned int lshift= 0;
 
     while (BUF_NOT_DONE(dec) && *dec->pos & 0x80) {
-        uv += (*dec->pos++ & 0x7F) << lshift;
+        uv |= ((UV)(*dec->pos++ & 0x7F) << lshift);
         lshift += 7;
         if (lshift > (sizeof(UV) * 8))
             ERROR("varint too big");
     }
     if (BUF_NOT_DONE(dec)) {
-        uv += (*dec->pos++) << lshift;
+        uv |= ((UV)*dec->pos++ << lshift);
     } else {
         ERROR("varint terminated prematurely");
     }
@@ -155,12 +155,12 @@ srl_read_varint_uv_nocheck(pTHX_ srl_decoder_t *dec)
     unsigned int lshift= 0;
 
     while (*dec->pos & 0x80) {
-        uv += (*dec->pos++ & 0x7F) << lshift;
+        uv |= ((UV)(*dec->pos++ & 0x7F) << lshift);
         lshift += 7;
         if (lshift > (sizeof(UV) * 8))
             ERROR("varint too big");
     }
-    uv += (*dec->pos++) << lshift;
+    uv |= ((UV)(*dec->pos++) << lshift);
     return uv;
 }
 
