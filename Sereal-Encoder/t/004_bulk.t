@@ -2,10 +2,24 @@ use strict;
 use warnings;
 use Benchmark qw(cmpthese);
 use Data::Dumper;
+use File::Spec;
 use Test::More;
 use Test::LongString;
 use Sereal::Encoder qw(encode_sereal);
-use Sereal::Decoder qw(decode_sereal);
+
+use lib File::Spec->catdir(qw(t lib));
+BEGIN { lib->import('lib') if !-d 't'; }
+use Sereal::TestSet qw(:all);
+
+my $ok = have_encoder_and_decoder();
+if (not $ok) {
+    plan skip_all => 'Did not find right version of decoder';
+}
+else {
+    require Sereal::Decoder;
+    Sereal::Decoder->import(qw(decode_sereal));
+}
+
 our $HAVE_JSON_XS;
 BEGIN {
     $HAVE_JSON_XS= eval "use JSON::XS; 1";
