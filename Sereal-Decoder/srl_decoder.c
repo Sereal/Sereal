@@ -1,6 +1,44 @@
-#include "srl_decoder.h"
-
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "EXTERN.h"
+#include "perl.h"
+#include "XSUB.h"
+#define NEED_newSV_type
+#define NEED_newSVpvn_flags
 #include "ppport.h"
+#ifdef __cplusplus
+}
+#endif
+
+#ifndef PERL_VERSION
+#    include <patchlevel.h>
+#    if !(defined(PERL_VERSION) || (PERL_SUBVERSION > 0 && defined(PATCHLEVEL)))
+#        include <could_not_find_Perl_patchlevel.h>
+#    endif
+#    define PERL_REVISION       5
+#    define PERL_VERSION        PATCHLEVEL
+#    define PERL_SUBVERSION     PERL_SUBVERSION
+#endif
+#if PERL_VERSION < 8
+#   define PERL_MAGIC_qr                  'r' /* precompiled qr// regex */
+#   define BFD_Svs_SMG_OR_RMG SVs_RMG
+#elif ((PERL_VERSION==8) && (PERL_SUBVERSION >= 1) || (PERL_VERSION>8))
+#   define BFD_Svs_SMG_OR_RMG SVs_SMG
+#   define MY_PLACEHOLDER PL_sv_placeholder
+#else
+#   define BFD_Svs_SMG_OR_RMG SVs_RMG
+#   define MY_PLACEHOLDER PL_sv_undef
+#endif
+#if (((PERL_VERSION == 9) && (PERL_SUBVERSION >= 4)) || (PERL_VERSION > 9))
+#   define NEW_REGEX_ENGINE 1
+#endif
+#if (((PERL_VERSION == 8) && (PERL_SUBVERSION >= 1)) || (PERL_VERSION > 8))
+#define MY_CAN_FIND_PLACEHOLDERS
+#define HAS_SV2OBJ
+#endif
+
+#include "srl_decoder.h"
 
 #define PERL_NO_GET_CONTEXT
 
@@ -9,7 +47,7 @@
 #include "srl_protocol.h"
 
 /* declare some of the in-file functions to avoid ordering issues */
-static UV srl_read_varint_uv(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE UV srl_read_varint_uv(pTHX_ srl_decoder_t *dec);
 
 SV *srl_read_single_value(pTHX_ srl_decoder_t *dec, U8 *track_pos);
 static SRL_INLINE SV *srl_read_hash(pTHX_ srl_decoder_t *dec, U8 *track_pos);
@@ -116,13 +154,13 @@ int srl_finalize_structure(pTHX_ srl_decoder_t *dec)
             }
             for( len= av_len(ref_bless_av) + 1 ; len > 0 ; len-- ) {
                 SV* obj= av_pop(ref_bless_av);
-                if (obj)
+                if (obj) {
                     sv_bless(obj, stash);
-                else
+                } else {
                     ERROR("object missing from ref_bless_av array?");
+                }
             }
         }
-
         PTABLE_iter_free(it);
     }
     return 0;
@@ -410,7 +448,7 @@ srl_read_weaken(pTHX_ srl_decoder_t *dec, U8 *track_pos)
     if (SvREFCNT(ret)==1) {
         if (!dec->weakref_av) {
             dec->weakref_av= newAV();
-            SAVEFREESV(dec->weakref_av);
+            sv_2mortal((SV*)dec->weakref_av);
         }
         SvREFCNT_inc(ret);
         av_push(dec->weakref_av, ret);
@@ -498,7 +536,7 @@ srl_read_bless(pTHX_ srl_decoder_t *dec)
     PTABLE_store(dec->ref_stashes, (void *)storepos, (void *)stash);
     if (NULL == (av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)ofs)) ) {
         av= newAV();
-        SAVEFREESV((SV*)av);
+        sv_2mortal((SV*)av);
         PTABLE_store(dec->ref_bless_av, (void *)storepos, (void *)av);
     }
     av_push(av, ret);
@@ -611,22 +649,25 @@ srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag)
     return &PL_sv_undef;
 }
 
+#ifdef SvRX
+#define MODERN_REGEXP
+#endif
+
 static SRL_INLINE SV *
 srl_read_regexp(pTHX_ srl_decoder_t *dec)
 {
-    SV *pat= srl_read_single_value(aTHX_ dec, NULL);
+    SV *sv_pat= srl_read_single_value(aTHX_ dec, NULL);
     SV *ret= NULL;
-    ASSERT_BUF_SPACE(dec, 2);
+    ASSERT_BUF_SPACE(dec, 1);
     /* For now we will serialize the flags as ascii strings. Maybe we should use
      * something else but this is easy to debug and understand - since the modifiers
      * are tagged it doesn't matter much, we can add other tags later */
     if (*dec->pos & SRL_HDR_ASCII) {
-        U8 len= *dec->pos++ & SRL_HDR_ASCII_LEN_MASK;
+        U8 mod_len= *dec->pos++ & SRL_HDR_ASCII_LEN_MASK;
         U32 flags= 0;
-        REGEXP *re= NULL;
-        ASSERT_BUF_SPACE(dec,len);
-        while (len > 0) {
-            len--;
+        ASSERT_BUF_SPACE(dec, mod_len);
+        while (mod_len > 0) {
+            mod_len--;
             switch (*dec->pos++) {
                 case 'm':
                     flags= flags | PMf_MULTILINE;
@@ -640,22 +681,38 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec)
                 case 'x':
                     flags= flags | PMf_EXTENDED;
                     break;
+#ifdef MODERN_REGEXP
                 case 'p':
                     flags = flags | PMf_KEEPCOPY;
                     break;
+#endif
                 default:
                     ERROR("bad modifier");
                     break;
             }
         }
-        re= CALLREGCOMP(pat, flags);
 #ifdef SvRX
-        ret= newRV_noinc((SV*)re);
+        {
+            REGEXP *re= CALLREGCOMP(sv_pat, flags);
+            ret= newRV_noinc((SV*)re);
+        }
 #else
         {
-            SV *sv= newSVpv("",0);
-            sv_magic(sv, (SV*)re, PERL_MAGIC_qr, 0, 0);
+            PMOP pm; /* grr */
+            STRLEN pat_len;
+            REGEXP *re;
+            SV *sv= newSV(0);
+            char *pat= SvPV(sv_pat, pat_len);
+
+            Zero(&pm,1,PMOP);
+            pm.op_pmdynflags= SvUTF8(sv_pat) ? PMdf_CMP_UTF8 : 0;
+            pm.op_pmflags= flags;
+
+            re= CALLREGCOMP(aTHX_ pat, pat + pat_len, &pm);
+            sv_magic( sv, (SV*)re, PERL_MAGIC_qr, 0, 0);
+            SvFLAGS(sv) |= SVs_SMG;
             ret= newRV_noinc(sv);
+            SvREFCNT_dec(sv_pat);
         }
 #endif
     }

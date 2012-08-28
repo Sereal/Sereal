@@ -53,7 +53,7 @@ int srl_finalize_structure(pTHX_ srl_decoder_t *dec);
 
 #define ASSERT_BUF_SPACE(dec,len) STMT_START {      \
     if ((UV)BUF_SPACE((dec)) < (UV)(len)) {                   \
-        croak("Unexpected termination of packet");  \
+        croak("Unexpected termination of packet, want %lu bytes, only have %lu available at %s line %d", (UV)(len), (UV)BUF_SPACE((dec)), __FILE__, __LINE__ );  \
     }                                               \
 } STMT_END
 
