@@ -298,6 +298,40 @@ our @BasicTests = (
     },
     "bless [bless {}, 'foo'], 'foo'"
   ],
+  [
+    qr/foo/,
+    dump_bless(
+      chr(SRL_HDR_REGEXP)
+      .chr(0b0100_0011)
+      ."foo"
+      .chr(0b0100_0000),
+      "Regexp"
+    ),
+    "qr/foo/"
+  ],
+  [
+    qr/(?i-xsm:foo)/,
+    dump_bless(
+      chr(SRL_HDR_REGEXP)
+      .chr(0b0100_1100)
+      ."(?i-xsm:foo)"
+      .chr(0b0100_0000),
+      "Regexp"
+    ),
+    "qr/(?i-xsm:foo)/"
+  ],
+  [
+    qr/foo/i,
+    dump_bless(
+      chr(SRL_HDR_REGEXP)
+      .chr(0b0100_0011)
+      ."foo"
+      .chr(0b0100_0001)
+      ."i",
+      "Regexp"
+    ),
+    "qr/foo/i"
+  ],
 );
 
 sub get_git_top_dir {
@@ -354,6 +388,9 @@ our @ScalarRoundtripTests = (
   ["long utf8 string", do {use utf8; " עדיין חשב" x 1000}],
   ["long utf8 string with only ascii", do {use utf8; "foo" x 1000}],
   ["long utf8 string with only latin1 subset", do {use utf8; "üll" x 1000}],
+  ["simple regexp", qr/foo/],
+  ["regexp with inline modifiers", qr/(?i-xsm:foo)/],
+  ["regexp with modifiers", qr/foo/i],
 );
 
 our @RoundtripTests = (
