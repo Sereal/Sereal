@@ -390,7 +390,7 @@ sub have_encoder_and_decoder {
   my $v = $Class->VERSION;
 
   if (defined(my $top_dir = get_git_top_dir())) {
-    my $blib_dir = File::Spec->catdir($top_dir, "Sereal-$need", "blib");
+    my $blib_dir = File::Spec->catdir($top_dir, $need, "blib");
     if (-d $blib_dir) {
       require blib;
       blib->import($blib_dir);
