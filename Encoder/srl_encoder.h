@@ -40,6 +40,6 @@ void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
 /* define option bits in srl_encoder_t's flags member */
 #define SRL_F_SHARED_HASHKEYS                1UL
 #define SRL_F_REUSE_ENCODER                  2UL
-#define SRL_HAVE_OPTION(enc, flag_num) ((enc)->flags & flag_num)
+#define SRL_ENC_HAVE_OPTION(enc, flag_num) ((enc)->flags & flag_num)
 
 #endif

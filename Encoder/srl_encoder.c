@@ -140,7 +140,7 @@ void srl_destructor_hook(void *p)
 {
     srl_encoder_t *enc = (srl_encoder_t *)p;
     /* Do not auto-destroy encoder if set to be re-used */
-    if (!SRL_HAVE_OPTION(enc, SRL_F_REUSE_ENCODER)) {
+    if (!SRL_ENC_HAVE_OPTION(enc, SRL_F_REUSE_ENCODER)) {
         /* Exception cleanup. Under normal operation, we should have
          * assigned NULL to buf_start after we're done. */
         Safefree(enc->buf_start);
@@ -792,7 +792,7 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
          * don't move in the shared key storage -- otherwise, we'd have to
          * compare strings / keep a full string hash table. */
         const char *keystr = HeKEY(src);
-        if ( SRL_HAVE_OPTION(enc, SRL_F_SHARED_HASHKEYS) /* only enter branch if shared hk's enabled */
+        if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_SHARED_HASHKEYS) /* only enter branch if shared hk's enabled */
 #if PERL_VERSION >= 10
              && (!DO_SHARED_HASH_ENTRY_REFCOUNT_CHECK
                 || src->he_valu.hent_refcount > 1)
