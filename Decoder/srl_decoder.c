@@ -71,6 +71,13 @@ static SRL_INLINE SV *srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag);
 static SRL_INLINE SV *srl_read_regexp(pTHX_ srl_decoder_t *dec);
 static SRL_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec);
 
+#define ASSERT_BUF_SPACE(dec,len) STMT_START {              \
+    if (expect_false( (UV)BUF_SPACE((dec)) < (UV)(len) )) { \
+        MYCROAK("Unexpected termination of packet, want %lu bytes, only have %lu available", (UV)(len), (UV)BUF_SPACE((dec)));  \
+    }                                                       \
+} STMT_END
+
+
 /* Explicit destructor */
 void
 srl_destroy_decoder(pTHX_ srl_decoder_t *dec)
@@ -163,7 +170,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec)
     UV len;
     /* works for now: 3 byte magic string + proto version + 1 byte varint that indicates zero-length header */
     ASSERT_BUF_SPACE(dec, sizeof(SRL_MAGIC_STRING "\x01") ); /* sizeof returns the size for the 0, so we dont need to add 1 for the varint */
-    if (strEQ((char*)dec->pos, SRL_MAGIC_STRING "\x01")) {
+    if (expect_true( strEQ((char*)dec->pos, SRL_MAGIC_STRING "\x01") )) {
         dec->pos += sizeof(SRL_MAGIC_STRING "\x01") - 1;
         len= srl_read_varint_uv(aTHX_ dec); /* must do this via a temporary as it modifes dec->pos itself */
         dec->pos += len;
@@ -187,12 +194,12 @@ int srl_finalize_structure(pTHX_ srl_decoder_t *dec)
             HV *stash = (HV* )ent->value;
             AV *ref_bless_av  = PTABLE_fetch(dec->ref_bless_av, ent->key);
             I32 len;
-            if (!stash || !ref_bless_av) {
+            if (expect_false( !stash || !ref_bless_av )) {
                 ERROR("missing stash or ref_bless_av!");
             }
             for( len= av_len(ref_bless_av) + 1 ; len > 0 ; len-- ) {
                 SV* obj= av_pop(ref_bless_av);
-                if (obj) {
+                if (expect_true( obj )) {
                     sv_bless(obj, stash);
                 } else {
                     ERROR("object missing from ref_bless_av array?");
@@ -204,7 +211,7 @@ int srl_finalize_structure(pTHX_ srl_decoder_t *dec)
     return 0;
 }
 
-static inline UV
+static SRL_INLINE UV
 srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec)
 {
     UV uv= 0;
@@ -216,7 +223,7 @@ srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec)
         if (lshift > (sizeof(UV) * 8))
             ERROR("varint too big");
     }
-    if (BUF_NOT_DONE(dec)) {
+    if (expect_true( BUF_NOT_DONE(dec) )) {
         uv |= ((UV)*dec->pos++ << lshift);
     } else {
         ERROR("varint terminated prematurely");
@@ -224,7 +231,7 @@ srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec)
     return uv;
 }
 
-static inline UV
+static SRL_INLINE UV
 srl_read_varint_uv_nocheck(pTHX_ srl_decoder_t *dec)
 {
     UV uv= 0;
@@ -233,30 +240,30 @@ srl_read_varint_uv_nocheck(pTHX_ srl_decoder_t *dec)
     while (*dec->pos & 0x80) {
         uv |= ((UV)(*dec->pos++ & 0x7F) << lshift);
         lshift += 7;
-        if (lshift > (sizeof(UV) * 8))
+        if (expect_false( lshift > (sizeof(UV) * 8) ))
             ERROR("varint too big");
     }
     uv |= ((UV)(*dec->pos++) << lshift);
     return uv;
 }
 
-static inline UV
+static SRL_INLINE UV
 srl_read_varint_uv(pTHX_ srl_decoder_t *dec)
 {
-    if (dec->buf_end - dec->pos > 10)
+    if (expect_true( dec->buf_end - dec->pos > 10 ))
         return srl_read_varint_uv_nocheck(aTHX_ dec);
     else
         return srl_read_varint_uv_safe(aTHX_ dec);
 }
 
-static inline void
+static SRL_INLINE void
 srl_track_sv(pTHX_ srl_decoder_t *dec, U8 *track_pos, SV *sv) {
     PTABLE_store(dec->ref_seenhash, (void *)(track_pos - dec->buf_start), (void *)sv);
 }
 
 static SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name) {
     SV *sv= (SV *)PTABLE_fetch(dec->ref_seenhash, (void *)item);
-    if (!sv)
+    if (expect_false( !sv ))
         ERRORf2("%s(%d) references an unknown item", tag_name, item);
     return sv;
 }
@@ -326,19 +333,19 @@ srl_read_array(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
     UV len= srl_read_varint_uv(aTHX_ dec);
     AV *av= newAV();
     SV *rv= newRV_noinc((SV *)av);
-    if (track_pos)
+    if (expect_false( track_pos ))
         srl_track_sv(aTHX_ dec, track_pos, (SV*)rv);
-    if (len > 8)
+    if (expect_false( len > 8 ))
         av_extend(av, len+1);
     while ( len-- > 0) {
-        if ( *dec->pos == SRL_HDR_LIST ) {
+        if (expect_false( *dec->pos == SRL_HDR_LIST )) {
             ERROR_UNIMPLEMENTED(dec, SRL_HDR_LIST, "LIST");
         }
         SV *got= srl_read_single_value(aTHX_ dec, NULL);
         av_push(av, got);
     }
     ASSERT_BUF_SPACE(dec,1);
-    if (*dec->pos == SRL_HDR_TAIL) {
+    if (expect_true( *dec->pos == SRL_HDR_TAIL )) {
         dec->pos++;
     } else {
         ERROR_UNTERMINATED(dec,SRL_HDR_ARRAY,"ARRAY");
@@ -354,7 +361,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
     hv_ksplit(hv, num_keys); /* make sure we have enough room */
     /* NOTE: contents of hash are stored VALUE/KEY, reverse from normal perl
      * storage, this is because it simplifies the hash storage logic somewhat */
-    if (track_pos)
+    if (expect_false( track_pos ))
         srl_track_sv(aTHX_ dec, track_pos, (SV*)rv);
     for (; num_keys > 0 ; num_keys--) {
         STRLEN key_len;
@@ -369,7 +376,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
             key_len= srl_read_varint_uv(aTHX_ dec);
             ASSERT_BUF_SPACE(dec,key_len);
             key_sv= newSVpvn_flags((char*)dec->pos,key_len,1);
-            if (!hv_store_ent(hv,key_sv,got_sv,0)) {
+            if (expect_false( !hv_store_ent(hv,key_sv,got_sv,0))) {
                 SvREFCNT_dec(key_sv); /* throw away the key */
                 ERROR_PANIC(dec,"failed to hv_store_ent");
             } else {
@@ -382,7 +389,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
                 key_len= srl_read_varint_uv(aTHX_ dec);
             } else if (tag == SRL_HDR_COPY) {
                 UV ofs= srl_read_varint_uv(aTHX_ dec);
-                if (dec->save_pos) {
+                if (expect_false( dec->save_pos )) {
                     ERROR_BAD_COPY(dec, SRL_HDR_HASH);
                 } else {
                     dec->save_pos= dec->pos;
@@ -393,7 +400,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
                 ERROR_UNEXPECTED(dec,"a stringish type");
             }
             ASSERT_BUF_SPACE(dec,key_len);
-            if (!hv_store(hv,(char *)dec->pos,key_len,got_sv,0)) {
+            if (expect_false( !hv_store(hv,(char *)dec->pos,key_len,got_sv,0) )) {
                 ERROR_PANIC(dec,"failed to hv_store");
             }
         }
@@ -405,7 +412,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, U8 *track_pos) {
         }
     }
     ASSERT_BUF_SPACE(dec,1);
-    if (*dec->pos == SRL_HDR_TAIL) {
+    if (expect_true( *dec->pos == SRL_HDR_TAIL )) {
         dec->pos++;
     } else {
         ERROR_UNTERMINATED(dec,SRL_HDR_HASH,"HASH");
@@ -459,14 +466,15 @@ srl_read_alias(pTHX_ srl_decoder_t *dec)
     return referent;
 }
 
-static SRL_INLINE SV *srl_read_copy(pTHX_ srl_decoder_t *dec)
+static SRL_INLINE SV *
+srl_read_copy(pTHX_ srl_decoder_t *dec)
 {
     UV item= srl_read_varint_uv(aTHX_ dec);
     SV *ret;
-    if (dec->save_pos) {
+    if (expect_false( dec->save_pos )) {
         ERRORf1("COPY(%d) called during parse", item);
     }
-    if ((IV)item > dec->buf_end - dec->buf_start) {
+    if (expect_false( (IV)item > dec->buf_end - dec->buf_start )) {
         ERRORf1("COPY(%d) points out of packet",item);
     }
     dec->save_pos= dec->pos;
@@ -481,10 +489,10 @@ static SRL_INLINE SV *
 srl_read_weaken(pTHX_ srl_decoder_t *dec, U8 *track_pos)
 {
     SV* ret= srl_read_single_value(aTHX_ dec, track_pos);
-    if (!SvROK(ret))
+    if (expect_false( !SvROK(ret) ))
         ERROR("WEAKEN op");
-    if (SvREFCNT(ret)==1) {
-        if (!dec->weakref_av)
+    if (expect_true( SvREFCNT(ret)==1 )) {
+        if (expect_false( !dec->weakref_av ))
             dec->weakref_av= newAV();
         SvREFCNT_inc(ret);
         av_push(dec->weakref_av, ret);
@@ -538,10 +546,10 @@ srl_read_bless(pTHX_ srl_decoder_t *dec)
         } else if (tag == SRL_HDR_COPY) {
             ofs= srl_read_varint_uv(aTHX_ dec);
           read_copy:
-            if (dec->save_pos) {
+            if (expect_false( dec->save_pos )) {
                 ERROR_BAD_COPY(dec, SRL_HDR_HASH);
             } else {
-                if (dec->buf_end - dec->buf_start < (IV)ofs)
+                if (expect_false( dec->buf_end - dec->buf_start < (IV)ofs ) )
                     ERRORf1("copy command points at tag outside of buffer, offset=%"UVuf, ofs);
                 dec->save_pos= dec->pos;
                 dec->pos= dec->buf_start + ofs;
@@ -552,7 +560,7 @@ srl_read_bless(pTHX_ srl_decoder_t *dec)
             ERROR_UNEXPECTED(dec,"a class name");
         }
         ASSERT_BUF_SPACE(dec, key_len);
-        if (!dec->ref_stashes) {
+        if (expect_false( !dec->ref_stashes )) {
             dec->ref_stashes = PTABLE_new();
             dec->ref_bless_av = PTABLE_new();
         }
@@ -564,9 +572,9 @@ srl_read_bless(pTHX_ srl_decoder_t *dec)
             dec->pos += key_len;
         }
     }
-    if (!storepos)
+    if (expect_false( !storepos ))
         ERROR("Bad bless: no storepos");
-    if (!stash)
+    if (expect_false( !stash ))
         ERROR("Bad bless: no stash");
 
     PTABLE_store(dec->ref_stashes, (void *)storepos, (void *)stash);
@@ -594,12 +602,12 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, U8 *track_pos)
     U8 tag;
 
   read_again:
-    if (BUF_DONE(dec))
+    if (expect_false( BUF_DONE(dec) ))
         ERROR("unexpected end of input stream while expecting a single value");
 
     tag= *dec->pos++;
     if (tag & SRL_HDR_TRACK_FLAG) {
-        if (track_pos == 0 )
+        if (expect_true( track_pos == 0 ))
             track_pos= dec->pos - 1;
         else
             ERROR("bad tracking");
@@ -615,7 +623,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, U8 *track_pos)
         ret= newSVpvn((char*)dec->pos,len);
         dec->pos += len;
     }
-    else{
+    else {
         switch (tag) {
             case SRL_HDR_VARINT:        ret= srl_read_varint(aTHX_ dec);        break;
             case SRL_HDR_ZIGZAG:        ret= srl_read_zigzag(aTHX_ dec);        break;
@@ -651,7 +659,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, U8 *track_pos)
                 goto read_again;
             break;
             default:
-                if (SRL_HDR_RESERVED_LOW <= tag && tag <= SRL_HDR_RESERVED_HIGH) {
+                if (expect_true( SRL_HDR_RESERVED_LOW <= tag && tag <= SRL_HDR_RESERVED_HIGH )) {
                     ret= srl_read_reserved(aTHX_ dec, tag);
                 } else {
                     ERROR_PANIC(dec,tag);
@@ -659,7 +667,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, U8 *track_pos)
             break;
         }
     }
-    if (track_pos)
+    if (expect_false( track_pos ))
         srl_track_sv(aTHX_ dec, track_pos, ret);
     return ret;
 }
@@ -676,12 +684,8 @@ srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag)
 {
     (void)tag; /* unused as of now */
     const UV len = srl_read_varint_uv(aTHX_ dec);
-    if (dec->buf_end - dec->pos < (ptrdiff_t)len) { /* FIXME double-check for off-by-one error */
-        dec->pos += len; /* discard */
-    }
-    else {
-        ERROR("unexpected end of buffer");
-    }
+    ASSERT_BUF_SPACE(dec, len);
+    dec->pos += len; /* discard */
     return &PL_sv_undef;
 }
 
@@ -698,7 +702,7 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec)
     /* For now we will serialize the flags as ascii strings. Maybe we should use
      * something else but this is easy to debug and understand - since the modifiers
      * are tagged it doesn't matter much, we can add other tags later */
-    if (*dec->pos & SRL_HDR_ASCII) {
+    if (expect_true( *dec->pos & SRL_HDR_ASCII )) {
         U8 mod_len= *dec->pos++ & SRL_HDR_ASCII_LEN_MASK;
         U32 flags= 0;
         ASSERT_BUF_SPACE(dec, mod_len);

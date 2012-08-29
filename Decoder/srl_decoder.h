@@ -60,12 +60,6 @@ int srl_finalize_structure(pTHX_ srl_decoder_t *dec);
 #define ERROR_UNEXPECTED(dec, msg) MYCROAK("Unexpected tag %u while expecting %s", *(dec)->pos, msg)
 #define ERROR_PANIC(dec, msg) MYCROAK("Panic: %s", msg);
 
-#define ASSERT_BUF_SPACE(dec,len) STMT_START {      \
-    if ((UV)BUF_SPACE((dec)) < (UV)(len)) {                   \
-        MYCROAK("Unexpected termination of packet, want %lu bytes, only have %lu available", (UV)(len), (UV)BUF_SPACE((dec)));  \
-    }                                               \
-} STMT_END
-
 /* if set, the decoder struct needs to be cleared instead of freed at
  * the end of a deserialization operation */
 #define SRL_F_REUSE_DECODER 1UL

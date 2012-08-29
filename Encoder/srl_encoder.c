@@ -40,8 +40,8 @@ extern "C" {
 
 #define PERL_NO_GET_CONTEXT
 
+#include "srl_common.h"
 #include "ptable.h"
-#include "srl_inline.h"
 #include "srl_buffer.h"
 #include "srl_protocol.h"
 
