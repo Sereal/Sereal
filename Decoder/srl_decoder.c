@@ -1,3 +1,5 @@
+#define PERL_NO_GET_CONTEXT
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -39,9 +41,7 @@ extern "C" {
 
 #include "srl_decoder.h"
 
-#define PERL_NO_GET_CONTEXT
-
-#include "srl_inline.h"
+#include "srl_common.h"
 #include "ptable.h"
 #include "srl_protocol.h"
 
@@ -107,33 +107,17 @@ srl_clear_decoder(pTHX_ srl_decoder_t *dec)
  * logic here so that we can simply use croak/longjmp for
  * exception handling. Makes life vastly easier!
  */
-void srl_decoder_destructor_hook(void *p)
+void srl_decoder_destructor_hook(pTHX_ void *p)
 {
     srl_decoder_t *dec = (srl_decoder_t *)p;
 
     /* Only free decoder if not for reuse */
     if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_REUSE_DECODER)) {
-        PTABLE_free(dec->ref_seenhash);
-        if (dec->ref_stashes) {
-            PTABLE_free(dec->ref_stashes);
-            PTABLE_free(dec->ref_bless_av);
-        }
-        if (dec->weakref_av)
-            SvREFCNT_dec(dec->weakref_av);
-        Safefree(dec);
+        srl_destroy_decoder(aTHX_ dec);
     }
     else {
         /* Clear instead - decoder reused */
-        dec->depth = 0;
-        dec->buf_start = dec->buf_end = dec->pos = dec->save_pos = NULL;
-        if (dec->weakref_av)
-            av_clear(dec->weakref_av);
-
-        PTABLE_clear(dec->ref_seenhash);
-        if (dec->ref_stashes) {
-            PTABLE_clear(dec->ref_stashes);
-            PTABLE_clear(dec->ref_bless_av);
-        }
+        srl_clear_decoder(aTHX_ dec);
     }
 }
 
@@ -159,7 +143,7 @@ srl_build_decoder_struct(pTHX_ HV *opt)
 
     dec->buf_start = NULL;
     /* Register our structure for destruction on scope exit */
-    SAVEDESTRUCTOR(&srl_decoder_destructor_hook, (void *)dec);
+    SAVEDESTRUCTOR_X(&srl_decoder_destructor_hook, (void *)dec);
 
     dec->ref_seenhash = PTABLE_new();
     /* load options */

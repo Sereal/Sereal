@@ -23,3 +23,4 @@ t/test_set.pl
 dt
 t/lib/Sereal/TestSet.pm
 typemap
+srl_common.h
