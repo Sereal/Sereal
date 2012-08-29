@@ -71,6 +71,37 @@ static SRL_INLINE SV *srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag);
 static SRL_INLINE SV *srl_read_regexp(pTHX_ srl_decoder_t *dec);
 static SRL_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec);
 
+/* Explicit destructor */
+void
+srl_destroy_decoder(pTHX_ srl_decoder_t *dec)
+{
+    PTABLE_free(dec->ref_seenhash);
+    if (dec->ref_stashes) {
+        PTABLE_free(dec->ref_stashes);
+        PTABLE_free(dec->ref_bless_av);
+    }
+    if (dec->weakref_av)
+        SvREFCNT_dec(dec->weakref_av);
+    Safefree(dec);
+}
+
+
+void
+srl_clear_decoder(pTHX_ srl_decoder_t *dec)
+{
+    dec->depth = 0;
+    dec->buf_start = dec->buf_end = dec->pos = dec->save_pos = NULL;
+    if (dec->weakref_av)
+        av_clear(dec->weakref_av);
+
+    PTABLE_clear(dec->ref_seenhash);
+    if (dec->ref_stashes) {
+        PTABLE_clear(dec->ref_stashes);
+        PTABLE_clear(dec->ref_bless_av);
+    }
+}
+
+
 /* This is fired when we exit the Perl pseudo-block.
  * It frees our decoder and all. Put decoder-level cleanup
  * logic here so that we can simply use croak/longjmp for
@@ -79,34 +110,58 @@ static SRL_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec);
 void srl_decoder_destructor_hook(void *p)
 {
     srl_decoder_t *dec = (srl_decoder_t *)p;
-    /* Exception cleanup. Under normal operation, we should have
-     * assigned NULL to buf_start after we're done. */
-    PTABLE_free(dec->ref_seenhash);
-    if (dec->ref_stashes) {
-        PTABLE_free(dec->ref_stashes);
-        PTABLE_free(dec->ref_bless_av);
+
+    /* Only free decoder if not for reuse */
+    if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_REUSE_DECODER)) {
+        PTABLE_free(dec->ref_seenhash);
+        if (dec->ref_stashes) {
+            PTABLE_free(dec->ref_stashes);
+            PTABLE_free(dec->ref_bless_av);
+        }
+        if (dec->weakref_av)
+            SvREFCNT_dec(dec->weakref_av);
+        Safefree(dec);
     }
-    Safefree(dec);
+    else {
+        /* Clear instead - decoder reused */
+        dec->depth = 0;
+        dec->buf_start = dec->buf_end = dec->pos = dec->save_pos = NULL;
+        if (dec->weakref_av)
+            av_clear(dec->weakref_av);
+
+        PTABLE_clear(dec->ref_seenhash);
+        if (dec->ref_stashes) {
+            PTABLE_clear(dec->ref_stashes);
+            PTABLE_clear(dec->ref_bless_av);
+        }
+    }
 }
+
+
+void
+srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src)
+{
+    STRLEN len;
+    dec->buf_start= dec->pos= (unsigned char*)SvPV(src, len);
+    dec->buf_end= dec->buf_start + len;
+}
+
 
 /* Builds the C-level configuration and state struct.
  * Automatically freed at scope boundary. */
 srl_decoder_t *
-build_decoder_struct(pTHX_ HV *opt, SV *src)
+srl_build_decoder_struct(pTHX_ HV *opt)
 {
-    STRLEN len;
     srl_decoder_t *dec;
     /* SV **svp; */
 
     Newxz(dec, 1, srl_decoder_t);
 
+    dec->buf_start = NULL;
     /* Register our structure for destruction on scope exit */
     SAVEDESTRUCTOR(&srl_decoder_destructor_hook, (void *)dec);
 
     dec->ref_seenhash = PTABLE_new();
-    dec->buf_start= dec->pos= (unsigned char*)SvPV(src, len);
-    dec->buf_end= dec->buf_start + len;
-
     /* load options */
     if (opt != NULL) {
         /* if ( (svp = hv_fetchs(opt, "undef_blessed", 0)) && SvTRUE(*svp))
@@ -445,10 +500,8 @@ srl_read_weaken(pTHX_ srl_decoder_t *dec, U8 *track_pos)
     if (!SvROK(ret))
         ERROR("WEAKEN op");
     if (SvREFCNT(ret)==1) {
-        if (!dec->weakref_av) {
+        if (!dec->weakref_av)
             dec->weakref_av= newAV();
-            sv_2mortal((SV*)dec->weakref_av);
-        }
         SvREFCNT_inc(ret);
         av_push(dec->weakref_av, ret);
     }

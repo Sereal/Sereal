@@ -21,7 +21,14 @@ typedef struct {
 } srl_decoder_t;
 
 /* constructor; don't need destructor, this sets up a callback */
-srl_decoder_t *build_decoder_struct(pTHX_ HV *opt, SV *src);
+srl_decoder_t *srl_build_decoder_struct(pTHX_ HV *opt);
+/* Set data for a decoding operation */
+void srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src);
+
+/* Explicit destructor */
+void srl_destroy_decoder(pTHX_ srl_decoder_t *dec);
+/* Clear decoder for reuse */
+void srl_clear_decoder(pTHX_ srl_decoder_t *dec);
 
 /* Read Sereal packet header from buffer */
 int srl_read_header(pTHX_ srl_decoder_t *dec);
@@ -59,6 +66,10 @@ int srl_finalize_structure(pTHX_ srl_decoder_t *dec);
     }                                               \
 } STMT_END
 
+/* if set, the decoder struct needs to be cleared instead of freed at
+ * the end of a deserialization operation */
+#define SRL_F_REUSE_DECODER 1UL
+#define SRL_DEC_HAVE_OPTION(dec, flag_num) ((dec)->flags & flag_num)
 
 
 #endif

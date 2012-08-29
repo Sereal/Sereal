@@ -25,22 +25,35 @@ note("All done folks!");
 
 sub run_tests {
   my ($extra_name, $opt_hash) = @_;
+  my $dec = Sereal::Decoder->new($opt_hash ? $opt_hash : ());
   foreach my $bt (@BasicTests) {
     my ($in, $exp, $name) = @$bt;
 
     $exp = $exp->($opt_hash) if ref($exp) eq 'CODE';
     $exp = "$Header$exp";
 
-    my $out;
+    my ($out, $out2);
     my $ok= eval { $out = decode_sereal($exp); 1};
+    my $err = $@ || 'Zombie error';
+    my $ok2= eval { $out2 = $dec->decode($exp); 1 };
+    my $err2 = $@ || 'Zombie error';
+
     ok($ok,"($extra_name) did not die: $name")
         or do {
-            diag "$@"||"Zombie error";
+            diag $err;
+            diag "input=", Data::Dumper::qquote($exp);
+            next;
+        };
+    ok($ok2,"($extra_name, OO) did not die: $name")
+        or do {
+            diag $err2;
             diag "input=", Data::Dumper::qquote($exp);
             next;
         };
     ok(defined($out)==defined($in), "($extra_name) defined: $name");
+    ok(defined($out2)==defined($in), "($extra_name, OO) defined: $name");
     is_deeply($out, $in,"($extra_name) is_deeply: $name");
+    is_deeply($out2, $in,"($extra_name, OO) is_deeply: $name");
   }
 }
 
