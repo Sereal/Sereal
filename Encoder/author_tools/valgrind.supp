@@ -1,0 +1,77 @@
+## Catch various leaks during dlopen...
+{
+   calloc
+   Memcheck:Leak
+   fun:calloc
+   obj:/lib/ld-2.*.so
+}
+{
+   malloc
+   Memcheck:Leak
+   fun:malloc
+   obj:/lib/ld-2.*.so
+}
+{
+   realloc
+   Memcheck:Leak
+   fun:malloc
+   fun:realloc
+   obj:/lib/ld-2.*.so
+}
+{
+   calloc
+   Memcheck:Leak
+   fun:calloc
+   obj:/lib/libdl-2.*.so
+}
+{
+   malloc
+   Memcheck:Leak
+   fun:malloc
+   obj:/lib/libdl-2.*.so
+}
+{
+   realloc
+   Memcheck:Leak
+   fun:malloc
+   fun:realloc
+   obj:/lib/libdl-2.*.so
+}
+{
+   dlopen
+   Memcheck:Addr4
+   obj:/lib/ld-2.*.so
+}
+## Some perl-specific suppressions to avoid too much unrelated noise
+{
+   ignore_parsing
+   Memcheck:Cond
+   ...
+   fun:Perl_yyparse
+}
+{
+   ignore_parsing_leak
+   Memcheck:Leak
+   ...
+   fun:Perl_yyparse
+}
+{
+   ignore_parsing_leak2
+   Memcheck:Leak
+   ...
+   fun:perl_parse
+}
+{
+   ignore_parsing_leak3
+   Memcheck:Leak
+   ...
+   fun:perl_construct
+}
+{
+   ignore_parsing_leak4
+   Memcheck:Leak
+   ...
+   fun:Perl_pmruntime
+}
+
+
