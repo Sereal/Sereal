@@ -48,7 +48,7 @@ decode(dec, src)
         ret= srl_read_single_value(aTHX_ dec, NULL);
     }
     if ( 0 == srl_finalize_structure(aTHX_ dec) ) {
-        ST(0)= ret;
+        ST(0)= sv_2mortal(ret);
     } else {
         srl_clear_decoder(aTHX_ dec);
         ERROR("finalize failed");
@@ -73,7 +73,7 @@ decode_sereal(src, opt = NULL)
         ret= srl_read_single_value(aTHX_ dec, NULL);
     }
     if ( 0 == srl_finalize_structure(aTHX_ dec) ) {
-        ST(0)= ret;
+        ST(0)= sv_2mortal(ret);
     } else {
         ERROR("finalize failed");
     }
