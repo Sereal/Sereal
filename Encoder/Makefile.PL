@@ -47,19 +47,18 @@ WriteMakefile1(
     },
     BUILD_REQUIRES => {
         'Test::More' => 0.88,
-        #'ExtUtils::Constant' => '0.23',
         'Scalar::Util' => 0,
         'File::Find' => 0,
+        'File::Spec' => 0,
+        'Scalar::Util' => 0,
+        'File::Path' => 0,
+        'ExtUtils::Typemaps' => '1.00',
+        'ExtUtils::ParseXS' => '3.15',
     },
     NAME              => $module,
     VERSION_FROM      => 'lib/Sereal/Encoder.pm', # finds $VERSION
     PREREQ_PM         => {
         'XSLoader' => 0,
-        'File::Spec' => 0,
-        'Test::More' => '0.88',
-        'Scalar::Util' => 0,
-        'File::Path' => 0,
-        'File::Find' => 0,
     }, # e.g., Module::Name => 1.1
     LICENSE => 'perl',
     ABSTRACT_FROM => 'lib/Sereal/Encoder.pm',

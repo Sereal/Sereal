@@ -15,6 +15,10 @@
 MODULE = Sereal::Decoder        PACKAGE = Sereal::Decoder
 PROTOTYPES: DISABLE
 
+TYPEMAP: <<HERE
+srl_decoder_t*	O_OBJECT
+HERE
+
 void
 decode_sereal(src, opt = newHV())
     SV *src;

@@ -2,11 +2,6 @@
 
 # O_OBJECT	-> link an opaque C or C++ object to a blessed Perl object.
 
-TYPEMAP
-
-srl_encoder_t*	O_OBJECT
-
-
 ######################################################################
 OUTPUT
 

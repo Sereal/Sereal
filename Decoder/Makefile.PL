@@ -50,7 +50,8 @@ WriteMakefile1(
         'Scalar::Util' => 0,
         'File::Spec' => 0,
         'File::Path' => 0,
-        #'ExtUtils::Constant' => '0.23',
+        'ExtUtils::Typemaps' => '1.00',
+        'ExtUtils::ParseXS' => '3.15',
     },
     NAME              => $module,
     VERSION_FROM      => 'lib/Sereal/Decoder.pm', # finds $VERSION
