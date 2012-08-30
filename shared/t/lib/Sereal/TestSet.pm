@@ -46,7 +46,7 @@ our %EXPORT_TAGS = (all => \@EXPORT_OK);
 use constant FBIT => 128;
 
 sub hobodecode {
-  open my $fh, "| $^X -Mblib author_tools/hobodecoder.pl -e" or die $!;
+  open my $fh, "| $^X -Mblib=../Encoder -Mblib=../Decoder author_tools/hobodecoder.pl -e" or die $!;
   print $fh @_;
   close $fh;
 }
