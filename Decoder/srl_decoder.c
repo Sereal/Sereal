@@ -89,8 +89,10 @@ srl_destroy_decoder(pTHX_ srl_decoder_t *dec)
         PTABLE_free(dec->ref_stashes);
         PTABLE_free(dec->ref_bless_av);
     }
-    if (dec->weakref_av)
+    if (dec->weakref_av) {
         SvREFCNT_dec(dec->weakref_av);
+        dec->weakref_av = NULL;
+    }
     Safefree(dec);
 }
 
