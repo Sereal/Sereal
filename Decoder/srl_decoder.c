@@ -757,7 +757,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
         sv_setuv(into, tag);
     } else if ( tag <= SRL_HDR_NEG_LOW) {
         sv_setiv(into, -tag + 15);
-    } else if (tag & SRL_HDR_ASCII) {
+    } else if ( tag & SRL_HDR_ASCII ) {
         len= (STRLEN)(tag & SRL_HDR_ASCII_LEN_MASK);
         ASSERT_BUF_SPACE(dec,len, " while reading ascii string");
         sv_setpvn(into,(char*)dec->pos,len);
