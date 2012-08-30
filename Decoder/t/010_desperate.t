@@ -36,7 +36,7 @@ sub run_tests {
     $exp = "$Header$exp";
 
     my ($out, $out2);
-    my $ok= eval { $out = decode_sereal($exp); 1};
+    my $ok= eval { decode_sereal($exp, {}, $out); 1};
     my $err = $@ || 'Zombie error';
 
     ok($ok,"($extra_name) did not die: $name")
@@ -53,7 +53,7 @@ sub run_tests {
     #Dump($out);
 
     if (0) {
-      my $ok2= eval { $out2 = $dec->decode($exp); 1 };
+      my $ok2= eval { $out2 = $dec->decode($exp,$out); 1 };
       my $err2 = $@ || 'Zombie error';
       ok($ok2,"($extra_name, OO) did not die: $name")
           or do {
