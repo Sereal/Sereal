@@ -45,8 +45,7 @@ decode(dec, src, into = NULL)
     srl_begin_decoding(aTHX_ dec, src);
     if (0 == srl_read_header(aTHX_ dec)) {
         if (!into) {
-            into= newSV_type(SVt_NULL);
-            //SAVEFREESV(into);
+            into= sv_2mortal(newSV_type(SVt_NULL));
         }
         (void)srl_read_single_value(aTHX_ dec, into);
     }
@@ -74,8 +73,7 @@ decode_sereal(src, opt = NULL, into = NULL)
     assert(dec != NULL);
     if (0 == srl_read_header(aTHX_ dec)) {
         if (!into) {
-            into= newSV_type(SVt_NULL);
-            //SAVEFREESV(into);
+            into= sv_2mortal(newSV_type(SVt_NULL));
         }
         (void)srl_read_single_value(aTHX_ dec, into);
     }
