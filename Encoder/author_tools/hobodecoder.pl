@@ -175,7 +175,7 @@ sub parse_hv {
       last;
     }
     else {
-      print( "        ", $ind, ($flipflop++ % 2 == 0 ? "VALUE" : "KEY"), ":\n" );
+      print( "               ", $ind, ($flipflop++ % 2 == 0 ? "VALUE" : "KEY"), ":\n" );
       parse_sv($ind."  ");
     }
   }
