@@ -482,7 +482,7 @@ srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into)
      * For instance this may be aliased or reused later by a non-weakref
      * which will "fix" the refcount, however we need to be able to deserialize
      * in the opposite order, so if the referent's refcount is 1
-     * we increment it ad stuff it in the weakref_av before we call
+     * we increment it and stuff it in the weakref_av before we call
      * sv_rvweaken(), right before we exit we clear any items from
      * that hash, which does the REFCNT_dec for us, and everything
      * works out ok. */
