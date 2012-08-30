@@ -449,6 +449,7 @@ srl_read_ref(pTHX_ srl_decoder_t *dec, SV* into)
     if (item) {
         /* something we did before */
         referent= srl_fetch_item(aTHX_ dec, item, "REF");
+        SvREFCNT_inc(referent);
     } else {
         referent= srl_read_single_value(aTHX_ dec, NULL);
     }
@@ -582,6 +583,7 @@ srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into)
         sv_2mortal((SV*)av);
         PTABLE_store(dec->ref_bless_av, (void *)storepos, (void *)av);
     }
+    SvREFCNT_inc(into);
     av_push(av, into);
 }
 
