@@ -52,7 +52,7 @@ sub run_tests {
     #warn("Dumping got");
     #Dump($out);
 
-    if (0) {
+    if (1) {
       my $ok2= eval { $out2 = $dec->decode($exp,$out); 1 };
       my $err2 = $@ || 'Zombie error';
       ok($ok2,"($extra_name, OO) did not die: $name")

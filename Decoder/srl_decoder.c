@@ -73,9 +73,9 @@ static SRL_INLINE void srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_blessv(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 
-#define ASSERT_BUF_SPACE(dec,len) STMT_START {              \
+#define ASSERT_BUF_SPACE(dec,len,msg) STMT_START {              \
     if (expect_false( (UV)BUF_SPACE((dec)) < (UV)(len) )) { \
-        MYCROAK("Unexpected termination of packet, want %lu bytes, only have %lu available", (UV)(len), (UV)BUF_SPACE((dec)));  \
+        MYCROAK("Unexpected termination of packet%s, want %lu bytes, only have %lu available", (msg), (UV)(len), (UV)BUF_SPACE((dec)));  \
     }                                                       \
 } STMT_END
 
@@ -173,7 +173,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec)
 {
     UV len;
     /* works for now: 3 byte magic string + proto version + 1 byte varint that indicates zero-length header */
-    ASSERT_BUF_SPACE(dec, sizeof(SRL_MAGIC_STRING "\x01") ); /* sizeof returns the size for the 0, so we dont need to add 1 for the varint */
+    ASSERT_BUF_SPACE(dec, sizeof(SRL_MAGIC_STRING "\x01")," while reading header"); /* sizeof returns the size for the 0, so we dont need to add 1 for the varint */
     if (expect_true( strEQ((char*)dec->pos, SRL_MAGIC_STRING "\x01") )) {
         dec->pos += sizeof(SRL_MAGIC_STRING "\x01") - 1;
         len= srl_read_varint_uv(aTHX_ dec); /* must do this via a temporary as it modifes dec->pos itself */
@@ -302,7 +302,7 @@ static SRL_INLINE void
 srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
 {
     UV len= srl_read_varint_uv(aTHX_ dec);
-    ASSERT_BUF_SPACE(dec, len);
+    ASSERT_BUF_SPACE(dec, len, " while reading string");
     sv_setpvn(into,(char *)dec->pos,len);
     if (is_utf8) {
         SvUTF8_on(into);
@@ -316,7 +316,7 @@ srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
 static SRL_INLINE void
 srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    ASSERT_BUF_SPACE(dec, sizeof(float));
+    ASSERT_BUF_SPACE(dec, sizeof(float), " while reading float");
     sv_setnv(into, (NV)*((float *)dec->pos));
     dec->pos+= sizeof(float);
 }
@@ -325,7 +325,7 @@ srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
 static SRL_INLINE void
 srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    ASSERT_BUF_SPACE(dec, sizeof(double));
+    ASSERT_BUF_SPACE(dec, sizeof(double)," while reading double");
     sv_setnv(into, (NV)*((double *)dec->pos));
     dec->pos+= sizeof(double);
 }
@@ -334,7 +334,7 @@ srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
 static SRL_INLINE void
 srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    ASSERT_BUF_SPACE(dec, sizeof(long double));
+    ASSERT_BUF_SPACE(dec, sizeof(long double)," while reading long double");
     sv_setnv(into, (NV)*((long double *)dec->pos));
     dec->pos+= sizeof(long double);
 }
@@ -361,7 +361,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV* into) {
             av_push(av, got);
         }
     }
-    ASSERT_BUF_SPACE(dec,1);
+    ASSERT_BUF_SPACE(dec,1," while expecting tail of array");
     if (expect_true( *dec->pos == SRL_HDR_TAIL )) {
         dec->pos++;
     } else {
@@ -391,11 +391,11 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
         U8 tag;
 
       read_key:
-        ASSERT_BUF_SPACE(dec,1);
+        ASSERT_BUF_SPACE(dec,1," while reading key tag");
         tag= *dec->pos++;
         if (tag == SRL_HDR_STRING_UTF8) {
             key_len= srl_read_varint_uv(aTHX_ dec);
-            ASSERT_BUF_SPACE(dec,key_len);
+            ASSERT_BUF_SPACE(dec,key_len," while reading utf8 key");
             key_sv= newSVpvn_flags((char*)dec->pos,key_len,1);
             if (expect_false( !hv_store_ent(hv,key_sv,got_sv,0))) {
                 SvREFCNT_dec(key_sv); /* throw away the key */
@@ -420,7 +420,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
             } else {
                 ERROR_UNEXPECTED(dec,tag,"a stringish type");
             }
-            ASSERT_BUF_SPACE(dec,key_len);
+            ASSERT_BUF_SPACE(dec,key_len, " while reading key");
             if (expect_false( !hv_store(hv,(char *)dec->pos,key_len,got_sv,0) )) {
                 ERROR_PANIC(dec,"failed to hv_store");
             }
@@ -432,7 +432,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
             dec->pos += key_len;
         }
     }
-    ASSERT_BUF_SPACE(dec,1);
+    ASSERT_BUF_SPACE(dec,1," while expecting tail of hash");
     if (expect_true( *dec->pos == SRL_HDR_TAIL )) {
         dec->pos++;
     } else {
@@ -510,7 +510,7 @@ srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into)
      * we could also have a copy of a previously mentioned class
      * name. We have to handle both, which leads to some non-linear
      * code flow in the below code */
-    ASSERT_BUF_SPACE(dec,1);
+    ASSERT_BUF_SPACE(dec,1," while reading classname tag");
     if (*dec->pos == SRL_HDR_COPY) {
         dec->pos++;
         ofs= srl_read_varint_uv(aTHX_ dec);
@@ -554,7 +554,7 @@ srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into)
         } else {
             ERROR_UNEXPECTED(dec,tag, "a class name");
         }
-        ASSERT_BUF_SPACE(dec, key_len);
+        ASSERT_BUF_SPACE(dec, key_len, " while reading classname");
         if (expect_false( !dec->ref_stashes )) {
             dec->ref_stashes = PTABLE_new();
             dec->ref_bless_av = PTABLE_new();
@@ -593,7 +593,7 @@ srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into)
 {
     (void)tag; /* unused as of now */
     const UV len = srl_read_varint_uv(aTHX_ dec);
-    ASSERT_BUF_SPACE(dec, len);
+    ASSERT_BUF_SPACE(dec, len, " while reading reserved");
     dec->pos += len; /* discard */
     sv_setsv(into, &PL_sv_undef);
 }
@@ -607,14 +607,14 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 {
     SV *sv_pat= srl_read_single_value(aTHX_ dec, NULL);
     SV *referent= NULL;
-    ASSERT_BUF_SPACE(dec, 1);
+    ASSERT_BUF_SPACE(dec, 1, " while reading regexp modifer tag");
     /* For now we will serialize the flags as ascii strings. Maybe we should use
      * something else but this is easy to debug and understand - since the modifiers
      * are tagged it doesn't matter much, we can add other tags later */
     if (expect_true( *dec->pos & SRL_HDR_ASCII )) {
         U8 mod_len= *dec->pos++ & SRL_HDR_ASCII_LEN_MASK;
         U32 flags= 0;
-        ASSERT_BUF_SPACE(dec, mod_len);
+        ASSERT_BUF_SPACE(dec, mod_len, " while reading regexp modifiers");
         while (mod_len > 0) {
             mod_len--;
             switch (*dec->pos++) {
@@ -728,9 +728,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
 {
     STRLEN len;
     U8 tag;
-    if (!into) {
-        into= newSV_type(SVt_NULL);
-    }
+    U8 track;
 
   read_again:
     if (expect_false( BUF_DONE(dec) ))
@@ -738,7 +736,11 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
 
     tag= *dec->pos;
     if (tag & SRL_HDR_TRACK_FLAG) {
+        track= tag;
         tag= tag & ~SRL_HDR_TRACK_FLAG;
+        if (!into) {
+            into= newSV_type(SVt_NULL);
+        }
         srl_track_sv(aTHX_ dec, dec->pos, into);
     }
     dec->pos++;
@@ -747,14 +749,17 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
             ERROR("got an alias in an unexpected position");
         }
         return srl_read_alias(aTHX_ dec);
+    } else if(!into) {
+        into= newSV_type(SVt_NULL);
     }
+
     if ( tag <= SRL_HDR_POS_HIGH ) {
         sv_setuv(into, tag);
     } else if ( tag <= SRL_HDR_NEG_LOW) {
         sv_setiv(into, -tag + 15);
     } else if (tag & SRL_HDR_ASCII) {
         len= (STRLEN)(tag & SRL_HDR_ASCII_LEN_MASK);
-        ASSERT_BUF_SPACE(dec,len);
+        ASSERT_BUF_SPACE(dec,len, " while reading ascii string");
         sv_setpvn(into,(char*)dec->pos,len);
         dec->pos += len;
     }

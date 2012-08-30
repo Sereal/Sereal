@@ -19,7 +19,7 @@ use Sereal::TestSet qw(:all);
 # bad input. This obviously shouldn't segfault and neither leak
 # memory.
 
-plan tests => 17;
+plan tests => 19;
 my ($ok, $out, $err);
 
 SCOPE: {
@@ -29,7 +29,7 @@ SCOPE: {
   check_fail($badheaderpacket, qr/bad header/i, "Packet with invalid header blows up");
 
   my $bad_nested_packet = $Header . array(integer(1), 7777);
-  check_fail($bad_nested_packet, undef, "Random crap in packet");
+  check_fail($bad_nested_packet, qr/termination of packet/, "Random crap in packet");
 }
 
 pass("Alive"); # done
