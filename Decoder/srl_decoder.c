@@ -63,6 +63,7 @@ static SRL_INLINE SV *srl_read_zigzag(pTHX_ srl_decoder_t *dec);
 static SRL_INLINE SV *srl_read_copy(pTHX_ srl_decoder_t *dec);
 static SRL_INLINE SV *srl_read_reuse(pTHX_ srl_decoder_t *dec);
 static SRL_INLINE SV *srl_read_alias(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name);
 
 /* FIXME unimplemented!!! */
 static SRL_INLINE SV *srl_read_bless(pTHX_ srl_decoder_t *dec);
@@ -261,7 +262,8 @@ srl_track_sv(pTHX_ srl_decoder_t *dec, U8 *track_pos, SV *sv) {
     PTABLE_store(dec->ref_seenhash, (void *)(track_pos - dec->buf_start), (void *)sv);
 }
 
-static SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name) {
+static SRL_INLINE SV *
+srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name) {
     SV *sv= (SV *)PTABLE_fetch(dec->ref_seenhash, (void *)item);
     if (expect_false( !sv ))
         ERRORf2("%s(%d) references an unknown item", tag_name, item);
