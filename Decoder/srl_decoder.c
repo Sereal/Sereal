@@ -485,7 +485,7 @@ srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into)
      * in the opposite order, so if the referent's refcount is 1
      * we increment it and stuff it in the weakref_av before we call
      * sv_rvweaken(), right before we exit we clear any items from
-     * that hash, which does the REFCNT_dec for us, and everything
+     * that array, which does the REFCNT_dec for us, and everything
      * works out ok. */
     if (expect_true( SvREFCNT(referent)==1 )) {
         if (expect_false( !dec->weakref_av ))
