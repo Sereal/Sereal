@@ -52,9 +52,9 @@ at a native level without losing data such as modifiers.
 =item Space Efficiencies
 
 We want to be able to represent common structures as small as is
-reasonable. Although not to the extreme that this make the protocol 
+reasonable. Although not to the extreme that this makes the protocol
 error prone. This includes such thing as removing redundancy from the
-serialized strcuture (such as hash keys or classnames) automatically.
+serialized structure (such as hash keys or classnames) automatically.
 
 =item Speed Efficiencies
 
@@ -68,7 +68,7 @@ so they could be upgraded independently.
 
 =item Forward/Backward Compatibility
 
-We wanted the protocol to be robust to forward/backwards compatability
+We wanted the protocol to be robust to forward/backwards compatibility
 issues. It should be possible to partially read new formats with an
 old decoder, and possibly output old formats with a new decoder.
 
