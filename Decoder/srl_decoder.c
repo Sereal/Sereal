@@ -49,9 +49,9 @@ extern "C" {
 static SRL_INLINE UV srl_read_varint_uv(pTHX_ srl_decoder_t *dec);
 static SRL_INLINE SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name);
 
-SV *srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into);
-static SRL_INLINE SV *srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE SV *srl_read_alias(pTHX_ srl_decoder_t *dec);
+void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into);
+static SRL_INLINE void srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into);
 
 static SRL_INLINE void srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_array(pTHX_ srl_decoder_t *dec, SV* into);
@@ -354,11 +354,16 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV* into) {
     if (expect_false( len > 8 ))
         av_extend(av, len+1);
     while ( len-- > 0) {
-        if (expect_false( *dec->pos == SRL_HDR_LIST )) {
-            ERROR_UNIMPLEMENTED(dec, SRL_HDR_LIST, "LIST");
-        }else {
-            SV *got= srl_read_single_value(aTHX_ dec, NULL);
-            av_push(av, got);
+        U8 tag= *dec->pos;
+        if (expect_false( tag == SRL_HDR_LIST )) {
+            ERROR_UNIMPLEMENTED(dec, tag, "LIST");
+        } else if ( expect_false( tag == SRL_HDR_ALIAS ) ) {
+            dec->pos++;
+            av_push(av, srl_read_alias(aTHX_ dec));
+        } else {
+            SV *elem= newSV_type(SVt_NULL);
+            srl_read_single_value(aTHX_ dec, elem);
+            av_push(av, elem);
         }
     }
     ASSERT_BUF_SPACE(dec,1," while expecting tail of array");
@@ -387,8 +392,16 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
     for (; num_keys > 0 ; num_keys--) {
         STRLEN key_len;
         SV *key_sv;
-        SV *got_sv= srl_read_single_value(aTHX_ dec, NULL);
-        U8 tag;
+        SV *got_sv;
+        U8 tag= *dec->pos;
+
+        if ( expect_false( tag == SRL_HDR_ALIAS ) ) {
+            dec->pos++;
+            got_sv= srl_read_alias(aTHX_ dec);
+        } else {
+            got_sv= newSV_type(SVt_NULL);
+            srl_read_single_value(aTHX_ dec, got_sv);
+        }
 
       read_key:
         ASSERT_BUF_SPACE(dec,1," while reading key tag");
@@ -451,7 +464,8 @@ srl_read_ref(pTHX_ srl_decoder_t *dec, SV* into)
         referent= srl_fetch_item(aTHX_ dec, item, "REF");
         SvREFCNT_inc(referent);
     } else {
-        referent= srl_read_single_value(aTHX_ dec, NULL);
+        referent= newSV(SVt_NULL);
+        srl_read_single_value(aTHX_ dec, referent);
     }
     if (SvTYPE(into) < SVt_PV) {
         sv_upgrade(into, SVt_IV);
@@ -605,8 +619,9 @@ srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into)
 static SRL_INLINE void
 srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    SV *sv_pat= srl_read_single_value(aTHX_ dec, NULL);
+    SV *sv_pat= newSV_type(SVt_NULL);
     SV *referent= NULL;
+    srl_read_single_value(aTHX_ dec, sv_pat);
     ASSERT_BUF_SPACE(dec, 1, " while reading regexp modifer tag");
     /* For now we will serialize the flags as ascii strings. Maybe we should use
      * something else but this is easy to debug and understand - since the modifiers
@@ -704,11 +719,10 @@ srl_read_alias(pTHX_ srl_decoder_t *dec)
     return referent;
 }
 
-static SRL_INLINE SV *
+static SRL_INLINE void
 srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
 {
     UV item= srl_read_varint_uv(aTHX_ dec);
-    SV *ret;
     if (expect_false( dec->save_pos )) {
         ERRORf1("COPY(%d) called during parse", item);
     }
@@ -717,41 +731,27 @@ srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
     }
     dec->save_pos= dec->pos;
     dec->pos= dec->buf_start + item;
-    ret= srl_read_single_value(aTHX_ dec, into);
+    srl_read_single_value(aTHX_ dec, into);
     dec->pos= dec->save_pos;
     dec->save_pos= 0;
-    return ret;
 }
 
-SV *
+void
 srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
 {
     STRLEN len;
     U8 tag;
-    U8 track;
 
   read_again:
     if (expect_false( BUF_DONE(dec) ))
         ERROR("unexpected end of input stream while expecting a single value");
 
     tag= *dec->pos;
-    if (tag & SRL_HDR_TRACK_FLAG) {
-        track= tag;
+    if (expect_false(tag & SRL_HDR_TRACK_FLAG)) {
         tag= tag & ~SRL_HDR_TRACK_FLAG;
-        if (!into) {
-            into= newSV_type(SVt_NULL);
-        }
         srl_track_sv(aTHX_ dec, dec->pos, into);
     }
     dec->pos++;
-    if ( expect_false(tag == SRL_HDR_ALIAS) ) {
-        if (into) {
-            ERROR("got an alias in an unexpected position");
-        }
-        return srl_read_alias(aTHX_ dec);
-    } else if(!into) {
-        into= newSV_type(SVt_NULL);
-    }
 
     if ( tag <= SRL_HDR_POS_HIGH ) {
         sv_setuv(into, tag);
@@ -806,6 +806,5 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
             break;
         }
     }
-    return into;
 }
 

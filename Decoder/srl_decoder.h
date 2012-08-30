@@ -34,7 +34,7 @@ void srl_clear_decoder(pTHX_ srl_decoder_t *dec);
 int srl_read_header(pTHX_ srl_decoder_t *dec);
 
 /* Start deserializing a top-level SV */
-SV *srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into);
+void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into);
 
 /* Read Sereal packet header from buffer */
 int srl_finalize_structure(pTHX_ srl_decoder_t *dec);
