@@ -108,13 +108,12 @@ sub varint {
   return $out;
 }
 
+our $Header = SRL_MAGIC_STRING . chr(SRL_PROTOCOL_VERSION) . chr(0);
 
 my $ary_ref_for_repeating = [5,6];
 my $scalar_ref_for_repeating = \9;
-my $weak_thing;
-our $Header = SRL_MAGIC_STRING . chr(SRL_PROTOCOL_VERSION) . chr(0);
-$weak_thing = [\$weak_thing, 1];
-weaken($weak_thing->[0]);
+
+my $weak_thing; $weak_thing = [\$weak_thing, 1]; weaken($weak_thing->[0]);
 
 our @BasicTests = (
   # warning: this hardcodes the POS/NEG headers

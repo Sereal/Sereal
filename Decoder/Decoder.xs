@@ -36,19 +36,21 @@ DESTROY(dec)
 
 
 void
-decode(dec, src)
+decode(dec, src, into = NULL)
     srl_decoder_t *dec;
     SV *src;
-  PREINIT:
-    SV *ret= NULL;
+    SV *into;
   PPCODE:
     assert(dec != NULL);
     srl_begin_decoding(aTHX_ dec, src);
     if (0 == srl_read_header(aTHX_ dec)) {
-        ret= srl_read_single_value(aTHX_ dec, NULL);
+        if (!into)
+            into= sv_2mortal(newSV_type(SVt_NULL));
+        (void)srl_read_single_value(aTHX_ dec, into);
+        sv_dump(into);
     }
     if ( 0 == srl_finalize_structure(aTHX_ dec) ) {
-        ST(0)= sv_2mortal(ret);
+        ST(0)= into;
     } else {
         srl_clear_decoder(aTHX_ dec);
         ERROR("finalize failed");
@@ -59,21 +61,23 @@ decode(dec, src)
 
 
 void
-decode_sereal(src, opt = NULL)
+decode_sereal(src, opt = NULL, into = NULL)
     SV *src;
     HV *opt;
+    SV *into;
   PREINIT:
     srl_decoder_t *dec= NULL;
-    SV *ret= NULL;
   PPCODE:
     dec = srl_build_decoder_struct(aTHX_ opt);
     srl_begin_decoding(aTHX_ dec, src);
     assert(dec != NULL);
     if (0 == srl_read_header(aTHX_ dec)) {
-        ret= srl_read_single_value(aTHX_ dec, NULL);
+        if (!into)
+            into= sv_2mortal(newSV(0));
+        (void)srl_read_single_value(aTHX_ dec, into);
     }
     if ( 0 == srl_finalize_structure(aTHX_ dec) ) {
-        ST(0)= sv_2mortal(ret);
+        ST(0)= into;
     } else {
         ERROR("finalize failed");
     }

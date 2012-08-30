@@ -34,7 +34,7 @@ void srl_clear_decoder(pTHX_ srl_decoder_t *dec);
 int srl_read_header(pTHX_ srl_decoder_t *dec);
 
 /* Start deserializing a top-level SV */
-SV *srl_read_single_value(pTHX_ srl_decoder_t *dec, U8* track_pos);
+SV *srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into);
 
 /* Read Sereal packet header from buffer */
 int srl_finalize_structure(pTHX_ srl_decoder_t *dec);
@@ -51,13 +51,11 @@ int srl_finalize_structure(pTHX_ srl_decoder_t *dec);
 #define ERROR(msg) MYCROAK("%s", msg)
 #define ERRORf1(fmt,var) MYCROAK(fmt, (var))
 #define ERRORf2(fmt,var1,var2) MYCROAK(fmt, (var1),(var2))
-#define ERROR_UNIMPLEMENTED(dec,tag,str) STMT_START {      \
-    MYCROAK("Tag %u %s is unimplemented at ofs: %d", tag,str, BUF_POS_OFS(dec)); \
-    return NULL;                                \
-} STMT_END 
+#define ERROR_UNIMPLEMENTED(dec,tag,str) \
+    MYCROAK("Tag %u %s is unimplemented at ofs: %d", tag,str, BUF_POS_OFS(dec)); 
 #define ERROR_UNTERMINATED(dec, tag,str) MYCROAK("Tag %u %s was not terminated properly at ofs %lu with %lu to go", tag, str,dec->pos - dec->buf_start,dec->buf_end - dec->pos)
 #define ERROR_BAD_COPY(dec, tag) MYCROAK("While processing tag %u encountered a bad COPY tag", tag)
-#define ERROR_UNEXPECTED(dec, msg) MYCROAK("Unexpected tag %u while expecting %s", *(dec)->pos, msg)
+#define ERROR_UNEXPECTED(dec, tag, msg) MYCROAK("Unexpected tag %u while expecting %s", (tag || *(dec)->pos), msg)
 #define ERROR_PANIC(dec, msg) MYCROAK("Panic: %s", msg);
 
 /* if set, the decoder struct needs to be cleared instead of freed at
