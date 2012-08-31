@@ -27,15 +27,15 @@ my @str;
 push @str, join("", map chr(65+int(rand(57))), 1..10) for 1..1000;
 my @rand = map rand,1..1000;
 our %data;
-$data{$_}= [
-    [1..10000],
-    {@str},
-    {@str},
-    [1..10000],
-    {@str},
-    [@rand],
-    {@str},
-    {@str},
+$data{$_}= 1 ? { foo=> 1, bar => [100,101,102], str => "this is a \x{df} string which has to be serialized" }: [
+  [1..10000],
+  {@str},
+  {@str},
+  [1..10000],
+  {@str},
+  [@rand],
+  {@str},
+  {@str},
 ] for qw(sereal sereal_func dd1 dd2 ddl mp json_xs storable);
 
 our $enc = Sereal::Encoder->new(\%opt);
