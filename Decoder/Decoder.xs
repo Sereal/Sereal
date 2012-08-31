@@ -40,22 +40,7 @@ decode(dec, src, into = NULL)
     SV *src;
     SV *into;
   PPCODE:
-    assert(dec != NULL);
-    srl_begin_decoding(aTHX_ dec, src);
-    if (0 == srl_read_header(aTHX_ dec)) {
-        if (!into) {
-            into= sv_2mortal(newSV_type(SVt_NULL));
-        }
-        srl_read_single_value(aTHX_ dec, into);
-    }
-    if ( 0 == srl_finalize_structure(aTHX_ dec) ) {
-        ST(0)= into;
-    } else {
-        srl_clear_decoder(aTHX_ dec);
-        ERROR("finalize failed");
-    }
-    assert(dec->pos == dec->buf_end);
-    srl_clear_decoder(aTHX_ dec);
+    ST(0)= srl_decode_into(aTHX_ dec, src, into);
     XSRETURN(1);
 
 
@@ -78,20 +63,7 @@ decode_sereal(src, opt = NULL, into = NULL)
             croak("Options are neither undef nor hash reference");
     }
     dec = srl_build_decoder_struct(aTHX_ (HV *)opt);
-    srl_begin_decoding(aTHX_ dec, src);
-    assert(dec != NULL);
-    if (0 == srl_read_header(aTHX_ dec)) {
-        if (!into) {
-            into= sv_2mortal(newSV_type(SVt_NULL));
-        }
-        srl_read_single_value(aTHX_ dec, into);
-    }
-    if ( 0 == srl_finalize_structure(aTHX_ dec) ) {
-        ST(0)= into;
-    } else {
-        ERROR("finalize failed");
-    }
-    assert(dec->pos == dec->buf_end);
+    ST(0)= srl_decode_into(aTHX_ dec, src, into);
     XSRETURN(1);
 
 

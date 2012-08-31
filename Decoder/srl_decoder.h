@@ -5,6 +5,8 @@
 #include "perl.h"
 #include "assert.h"
 
+#define SRL_DECODER_NEEDS_FINALIZE 1
+
 typedef struct PTABLE * ptable_ptr;
 typedef struct {
     unsigned char *buf_start;           /* ptr to "physical" start of input buffer */
@@ -22,22 +24,15 @@ typedef struct {
 
 /* constructor; don't need destructor, this sets up a callback */
 srl_decoder_t *srl_build_decoder_struct(pTHX_ HV *opt);
-/* Set data for a decoding operation */
-void srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src);
+
+/* main routine */
+SV *srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV *into);
 
 /* Explicit destructor */
 void srl_destroy_decoder(pTHX_ srl_decoder_t *dec);
-/* Clear decoder for reuse */
-void srl_clear_decoder(pTHX_ srl_decoder_t *dec);
 
-/* Read Sereal packet header from buffer */
-int srl_read_header(pTHX_ srl_decoder_t *dec);
-
-/* Start deserializing a top-level SV */
-void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into);
-
-/* Read Sereal packet header from buffer */
-int srl_finalize_structure(pTHX_ srl_decoder_t *dec);
+/* destructor hook - called automagically */
+void srl_decoder_destructor_hook(pTHX_ void *p);
 
 #define BUF_POS(dec) ((dec)->pos)
 #define BUF_SPACE(dec) ((dec)->buf_end - (dec)->pos)

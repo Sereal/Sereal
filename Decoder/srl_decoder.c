@@ -47,19 +47,30 @@ extern "C" {
 #include "ptable.h"
 #include "srl_protocol.h"
 
-/* declare some of the in-file functions to avoid ordering issues */
+/* predeclare all our subs so we have one definitive authority for their signatures */
 static SRL_INLINE UV srl_read_varint_uv(pTHX_ srl_decoder_t *dec);
 static SRL_INLINE SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name);
 
-static SRL_INLINE SV *srl_read_alias(pTHX_ srl_decoder_t *dec);
-void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into);
-static SRL_INLINE void srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into);
+/* these three are "Public" */
+srl_decoder_t *srl_build_decoder_struct(pTHX_ HV *opt);             /* constructor - called from ->new() */
+void srl_destroy_decoder(pTHX_ srl_decoder_t *dec);                 /* destructor  - called from ->DESTROY() */
+void srl_decoder_destructor_hook(pTHX_ void *p);                    /* destructor hook - called automagically */
+SV* srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV *into);   /* main decode routine */
 
+/* the top level components of the decode process - called by srl_decode_into() */
+static SRL_INLINE void srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src);       /* set up the decoder to handle a given var */
+static SRL_INLINE void srl_read_header(pTHX_ srl_decoder_t *dec);                    /* validate header */
+static SRL_INLINE void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into);   /* main recursive dump routine */
+static SRL_INLINE void srl_finalize_structure(pTHX_ srl_decoder_t *dec);             /* optional finalize structure logic */
+static SRL_INLINE void srl_clear_decoder(pTHX_ srl_decoder_t *dec);                 /* clean up decoder after a dump */
+
+/* the internal routines to handle each kind of object we have to deserialize */
+static SRL_INLINE SV *srl_read_alias(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE void srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_array(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_ref(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into);
-
 static SRL_INLINE void srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_double(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_float(pTHX_ srl_decoder_t *dec, SV* into);
@@ -82,67 +93,7 @@ static SRL_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 } STMT_END
 
 
-/* Explicit destructor */
-void
-srl_destroy_decoder(pTHX_ srl_decoder_t *dec)
-{
-    PTABLE_free(dec->ref_seenhash);
-    if (dec->ref_stashes) {
-        PTABLE_free(dec->ref_stashes);
-        PTABLE_free(dec->ref_bless_av);
-    }
-    if (dec->weakref_av) {
-        SvREFCNT_dec(dec->weakref_av);
-        dec->weakref_av = NULL;
-    }
-    Safefree(dec);
-}
-
-
-void
-srl_clear_decoder(pTHX_ srl_decoder_t *dec)
-{
-    dec->depth = 0;
-    dec->buf_start = dec->buf_end = dec->pos = dec->save_pos = NULL;
-    if (dec->weakref_av)
-        av_clear(dec->weakref_av);
-
-    PTABLE_clear(dec->ref_seenhash);
-    if (dec->ref_stashes) {
-        PTABLE_clear(dec->ref_stashes);
-        PTABLE_clear(dec->ref_bless_av);
-    }
-}
-
-
-/* This is fired when we exit the Perl pseudo-block.
- * It frees our decoder and all. Put decoder-level cleanup
- * logic here so that we can simply use croak/longjmp for
- * exception handling. Makes life vastly easier!
- */
-void srl_decoder_destructor_hook(pTHX_ void *p)
-{
-    srl_decoder_t *dec = (srl_decoder_t *)p;
-
-    /* Only free decoder if not for reuse */
-    if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_REUSE_DECODER)) {
-        srl_destroy_decoder(aTHX_ dec);
-    }
-    else {
-        /* Clear instead - decoder reused */
-        srl_clear_decoder(aTHX_ dec);
-    }
-}
-
-
-void
-srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src)
-{
-    STRLEN len;
-    dec->buf_start= dec->pos= (unsigned char*)SvPV(src, len);
-    dec->buf_end= dec->buf_start + len;
-}
-
+/* PUBLIC ROUTINES ROUTINES */
 
 /* Builds the C-level configuration and state struct.
  * Automatically freed at scope boundary. */
@@ -169,8 +120,89 @@ srl_build_decoder_struct(pTHX_ HV *opt)
     return dec;
 }
 
+/* Explicit destructor */
+void
+srl_destroy_decoder(pTHX_ srl_decoder_t *dec)
+{
+    PTABLE_free(dec->ref_seenhash);
+    if (dec->ref_stashes) {
+        PTABLE_free(dec->ref_stashes);
+        PTABLE_free(dec->ref_bless_av);
+    }
+    if (dec->weakref_av) {
+        SvREFCNT_dec(dec->weakref_av);
+        dec->weakref_av = NULL;
+    }
+    Safefree(dec);
+}
 
-int
+/* This is fired when we exit the Perl pseudo-block.
+ * It frees our decoder and all. Put decoder-level cleanup
+ * logic here so that we can simply use croak/longjmp for
+ * exception handling. Makes life vastly easier!
+ */
+void
+srl_decoder_destructor_hook(pTHX_ void *p)
+{
+    srl_decoder_t *dec = (srl_decoder_t *)p;
+
+    /* Only free decoder if not for reuse */
+    if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_REUSE_DECODER)) {
+        srl_destroy_decoder(aTHX_ dec);
+    }
+    else {
+        /* Clear instead - decoder reused */
+        srl_clear_decoder(aTHX_ dec);
+    }
+}
+
+/* This is the main routine to deserialize a structure.
+ * It rolls up all the other "top level" routines into one
+ */
+SV *
+srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into) {
+    assert(dec != NULL);
+    srl_begin_decoding(aTHX_ dec, src);
+    srl_read_header(aTHX_ dec);
+    if (expect_true(!into)) {
+        into= sv_2mortal(newSV_type(SVt_NULL));
+    }
+    srl_read_single_value(aTHX_ dec, into);
+    assert(dec->pos == dec->buf_end);
+    if (expect_false(dec->flags & SRL_DECODER_NEEDS_FINALIZE)) {
+        srl_finalize_structure(aTHX_ dec);
+    }
+    srl_clear_decoder(aTHX_ dec);
+    return into;
+}
+
+/* TOP LEVEL PRIVATE ROUTINES */
+
+static SRL_INLINE void
+srl_clear_decoder(pTHX_ srl_decoder_t *dec)
+{
+    dec->flags= dec->depth = 0;
+    dec->buf_start = dec->buf_end = dec->pos = dec->save_pos = NULL;
+    if (dec->weakref_av)
+        av_clear(dec->weakref_av);
+
+    PTABLE_clear(dec->ref_seenhash);
+    if (dec->ref_stashes) {
+        PTABLE_clear(dec->ref_stashes);
+        PTABLE_clear(dec->ref_bless_av);
+    }
+}
+
+static SRL_INLINE void
+srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src)
+{
+    STRLEN len;
+    dec->flags= dec->depth= 0;
+    dec->buf_start= dec->pos= (unsigned char*)SvPV(src, len);
+    dec->buf_end= dec->buf_start + len;
+}
+
+static SRL_INLINE void
 srl_read_header(pTHX_ srl_decoder_t *dec)
 {
     UV len;
@@ -183,10 +215,10 @@ srl_read_header(pTHX_ srl_decoder_t *dec)
     } else {
         ERROR("bad header");
     }
-    return 0;
 }
 
-int srl_finalize_structure(pTHX_ srl_decoder_t *dec)
+static SRL_INLINE void
+srl_finalize_structure(pTHX_ srl_decoder_t *dec)
 {
     if (dec->weakref_av)
         av_clear(dec->weakref_av);
@@ -216,8 +248,9 @@ int srl_finalize_structure(pTHX_ srl_decoder_t *dec)
         }
         PTABLE_iter_free(it);
     }
-    return 0;
 }
+
+/* PRIVATE UTILITY FUNCTIONS */
 
 static SRL_INLINE UV
 srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec)
@@ -278,7 +311,7 @@ srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name) {
 }
 
 /****************************************************************************
- * implementation of various opcodes                                        *
+ * PRIVATE WORKER SUBS FOR DEPARSING                                        *
  ****************************************************************************/
 
 static SRL_INLINE void
@@ -508,6 +541,7 @@ srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into)
             dec->weakref_av= newAV();
         SvREFCNT_inc(referent);
         av_push(dec->weakref_av, referent);
+        dec->flags |= SRL_DECODER_NEEDS_FINALIZE;
     }
     sv_rvweaken(into);
 }
@@ -593,12 +627,14 @@ srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into)
      * until the full packet has been read. Yes it is more overhead, but
      * we really dont want to trigger DESTROY methods from a partial
      * deparse. */
+    dec->flags |= SRL_DECODER_NEEDS_FINALIZE;
     PTABLE_store(dec->ref_stashes, (void *)storepos, (void *)stash);
     if (NULL == (av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)ofs)) ) {
         av= newAV();
         sv_2mortal((SV*)av);
         PTABLE_store(dec->ref_bless_av, (void *)storepos, (void *)av);
     }
+
     SvREFCNT_inc(into);
     av_push(av, into);
 }
@@ -738,7 +774,11 @@ srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
     dec->save_pos= 0;
 }
 
-void
+/****************************************************************************
+ * MAIN DISPATCH SUB - ALL ROADS LEAD HERE                                  *
+ ****************************************************************************/
+
+static SRL_INLINE void
 srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
 {
     STRLEN len;
@@ -809,4 +849,3 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
         }
     }
 }
-
