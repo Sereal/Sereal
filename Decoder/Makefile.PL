@@ -52,6 +52,7 @@ WriteMakefile1(
         'File::Path' => 0,
         'ExtUtils::Typemaps' => '1.00',
         'ExtUtils::ParseXS' => '3.15',
+        'Test::LongString' => '0',
     },
     NAME              => $module,
     VERSION_FROM      => 'lib/Sereal/Decoder.pm', # finds $VERSION
