@@ -75,7 +75,7 @@ gain if you plan to serialize multiple similar data structures, but destroy
 it if you serialize a single very large data structure just once to free
 the memory.
 
-=head1 INSTANCE METHOD
+=head1 INSTANCE METHODS
 
 =head2 encode
 

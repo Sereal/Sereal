@@ -44,7 +44,59 @@ Sereal::Decoder - Fast, compact, powerful binary deserialization
 B<This is an experimental module. The interface may change without notice.
 Before using it in production, please get in touch with the authors!>
 
-TODO
+This library implements a deserializer for an efficient, compact-output,
+and feature-rich binary protocol called I<Sereal>.
+Its sister module L<Sereal::Encoder> implements an encoder for this format.
+The two are released separately to allow for independent and safer upgrading.
+
+The Sereal protocol version that is compatible with this decoder implementation
+is currently protocol version 1. As it stands, it will refuse to attempt to
+decode future versions of the protocol, but there is likely going to be an
+option to decode the parts of the input that are compatible with version 1
+of the protocol. The protocol was designed to allow for this.
+
+Right now, the protocol specification can be found in the F<srl_protocol.h>
+header file within this distribution. The specification might be moved to
+documentation at a later date.
+
+=head1 CLASS METHODS
+
+=head2 new
+
+Constructor. Optionally takes a hash reference as first parameter. This hash
+reference may contain any number of options that influence the behaviour of the
+encoder. Currently, no such options are defined, but will be in a later release.
+
+=head1 INSTANCE METHODS
+
+=head2 decode
+
+Given a byte string of Sereal data, the C<decode> call derializes that data
+structure. The result can be obtained in one of two ways: C<decode> accepts
+a second parameter, which is a scalar to write the result to, AND C<decode>
+will return the resulting data structure.
+
+The two are subtly different in case of data structures that contain weak
+references to the root element. In that case, the return value will be
+a (non-recursive) copy of the weakened reference. The pass-in style is
+more correct. In other words,
+
+  $decoder->decode($sereal_string, my $out);
+  # is almost the same but safer than:
+  my $out = $decoder->decode($sereal_string);
+
+=head1 EXPORTABLE FUNCTIONS
+
+=head2 decode_sereal
+
+The functional interface that is equivalent to using C<new> and C<decode>.
+Expects a byte string to deserialize as first argument, optionally followed
+by a hash reference of options (see documentation for C<new()>). Finally,
+C<decode_sereal> supports a third parameter, which is the output scalar
+to write to. See the documentation for C<decode> above for details.
+
+The functional interface is marginally slower than the OO interface since
+it cannot reuse the decoder object.
 
 =head1 PERFORMANCE
 
