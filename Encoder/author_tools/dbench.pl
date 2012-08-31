@@ -39,6 +39,7 @@ $data{$_}= [
 ] for qw(sereal sereal_func dd1 dd2 ddl mp json_xs storable);
 
 our $enc = Sereal::Encoder->new(\%opt);
+our $dec = Sereal::Decoder->new();
 our ($json_xs, $dd1, $dd2, $ddl, $sereal, $storable, $mp);
 # do this first before any of the other dumpers "contaminate" the iv/pv issue
 $sereal   = $enc->encode($data{sereal});
@@ -83,7 +84,7 @@ cmpthese(
         mp => '$::x = $::mpo->unpack($::mp);',
       ) : ()),
     sereal_func => '$::x = decode_sereal($::sereal, \%::opt);',
-    #sereal => '$::x = $::enc->encode($::sereal);',
+    sereal => '$::x = $::dec->decode($::sereal);',
   }
 );
 
