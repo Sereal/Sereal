@@ -1,5 +1,7 @@
 =pod
 
+=encoding utf8
+
 =head1 NAME
 
 Sereal - A binary serialization format
@@ -81,5 +83,9 @@ Yves Orton E<lt>demerphq@gmail.comE<gt>
 Damian Gryski
 
 Steffen Mueller E<lt>smueller@cpan.orgE<gt>
+
+Rafaël Garcia-Suarez
+
+Ævar Arnfjörð Bjarmason
 
 =cut
