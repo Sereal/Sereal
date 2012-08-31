@@ -701,8 +701,8 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
             PMOP pm; /* grr */
             STRLEN pat_len;
             REGEXP *re;
-            SV *sv= newSV_type(SVt_NULL);
             char *pat= SvPV(sv_pat, pat_len);
+            referent= newSV_type(SVt_NULL);
 
             Zero(&pm,1,PMOP);
             pm.op_pmdynflags= SvUTF8(sv_pat) ? PMdf_CMP_UTF8 : 0;
@@ -710,9 +710,8 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 
             re= CALLREGCOMP(aTHX_ pat, pat + pat_len, &pm);
             SvREFCNT_dec(sv_pat);
-            sv_magic( sv, (SV*)re, PERL_MAGIC_qr, 0, 0);
-            SvFLAGS(sv) |= SVs_SMG;
-            referent= sv;
+            sv_magic( referent, (SV*)re, PERL_MAGIC_qr, 0, 0);
+            SvFLAGS(referent) |= SVs_SMG;
         }
 #endif
         SRL_ASSERT_TYPE_FOR_RV(into);
