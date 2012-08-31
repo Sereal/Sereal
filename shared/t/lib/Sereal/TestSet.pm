@@ -99,6 +99,7 @@ sub integer {
 
 sub varint {
   my $n = shift;
+  die "varint cannot be negative" if $n < 0;
   my $out = '';
   while ($n >= 0x80) {
     $out .= chr( ($n & 0x7f) | 0x80 );
