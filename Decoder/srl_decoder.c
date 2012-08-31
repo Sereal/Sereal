@@ -92,6 +92,21 @@ static SRL_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
     }                                                       \
 } STMT_END
 
+/* Macro to assert that the type of an SV is complex enough to
+ * be an RV. Differs on old perls since there used to be an RV type.
+ */
+#if PERL_VERSION < 12
+#   define SRL_ASSERT_TYPE_FOR_RV(sv) STMT_START {  \
+            if (SvTYPE(sv) < SVt_PV)                \
+                sv_upgrade(into, SVt_RV);           \
+        } STMT_END
+#else
+#   define SRL_ASSERT_TYPE_FOR_RV(sv) STMT_START {  \
+            if (SvTYPE(sv) < SVt_PV)                \
+                sv_upgrade(into, SVt_IV);           \
+        } STMT_END
+#endif
+
 
 /* PUBLIC ROUTINES ROUTINES */
 
@@ -379,9 +394,8 @@ static SRL_INLINE void
 srl_read_array(pTHX_ srl_decoder_t *dec, SV* into) {
     UV len= srl_read_varint_uv(aTHX_ dec);
     AV *av= newAV();
-    if (SvTYPE(into) < SVt_PV) {
-        sv_upgrade(into, SVt_IV);
-    }
+
+    SRL_ASSERT_TYPE_FOR_RV(into);
     SvTEMP_off(av);
     SvRV_set(into, (SV*)av);
     SvROK_on(into);
@@ -409,9 +423,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
     IV num_keys= srl_read_varint_uv(aTHX_ dec);
     HV *hv= newHV();
 
-    if (SvTYPE(into) < SVt_PV) {
-        sv_upgrade(into, SVt_IV);
-    }
+    SRL_ASSERT_TYPE_FOR_RV(into);
     SvTEMP_off(hv);
     SvRV_set(into, (SV*)hv);
     SvROK_on(into);
@@ -490,9 +502,7 @@ srl_read_ref(pTHX_ srl_decoder_t *dec, SV* into)
         referent= newSV(SVt_NULL);
         srl_read_single_value(aTHX_ dec, referent);
     }
-    if (SvTYPE(into) < SVt_PV) {
-        sv_upgrade(into, SVt_IV);
-    }
+    SRL_ASSERT_TYPE_FOR_RV(into);
     SvTEMP_off(referent);
     SvRV_set(into, referent);
     SvROK_on(into);
@@ -704,9 +714,7 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
             referent= sv;
         }
 #endif
-        if (SvTYPE(into) < SVt_PV) {
-            sv_upgrade(into, SVt_IV);
-        }
+        SRL_ASSERT_TYPE_FOR_RV(into);
         SvTEMP_off(referent);
         SvRV_set(into, referent);
         SvROK_on(into);
