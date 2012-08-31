@@ -41,6 +41,59 @@ serializer using a binary protocol called I<Sereal>.
 Its sister module L<Sereal::Decoder> implements a decoder for this format.
 The two are released separately to allow for independent and safer upgrading.
 
+The Sereal protocol version emitted by this encoder implementation is currently
+protocol version 1.
+
+Right now, the protocol specification can be found in the F<srl_protocol.h>
+header file within this distribution. The specification might be moved to
+documentation at a later date.
+
+=head1 CLASS METHODS
+
+=head2 new
+
+Constructor. Optionally takes a hash reference as first parameter. This hash
+reference may contain any number of options that influence the behaviour of the
+encoder. Currently, the following options are recognized:
+
+=over 2
+
+=item no_shared_hashkeys
+
+When the C<no_shared_hashkeys> option is set ot a true value, then
+the encoder will disable the detection and elimination of repeated hash
+keys. This only has an effect for serializing structures containing hashes.
+By skipping the detection of repeated hash keys, performance goes up a bit,
+but the size of the output can potentially be much larger.
+Do not disable this unless you have a reason to.
+
+=back
+
+The thusly allocated encoder object and its output buffer will be reused
+between invocations of C<encode()>, so hold on to it for an efficiency
+gain if you plan to serialize multiple similar data structures, but destroy
+it if you serialize a single very large data structure just once to free
+the memory.
+
+=head1 INSTANCE METHOD
+
+=head2 encode
+
+Given a Perl data structure, serializes that data structure and returns a
+binary string that can be turned back into the original data structure by
+L<Sereal::Decoder>.
+
+=head1 EXPORTABLE FUNCTIONS
+
+=head2 encode_sereal
+
+The functional interface that is equivalent to using C<new> and C<encode>.
+Expects a data structure to serialize as first argument, optionally followed
+by a hash reference of options (see documentation for C<new()>).
+
+The functional interface is marginally slower than the OO interface since
+it cannot reuse the encoder object.
+
 =head1 PERFORMANCE
 
 The exact performance in time and space depends heavily on the data structure
