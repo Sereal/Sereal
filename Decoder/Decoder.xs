@@ -1,4 +1,6 @@
+/* Must be defined before including Perl header files or we slow down by 2x! */
 #define PERL_NO_GET_CONTEXT
+
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
