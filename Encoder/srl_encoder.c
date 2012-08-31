@@ -264,8 +264,7 @@ srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
     NV nv= SvNV(src);
     float f= nv;
     double d= nv;
-    long double ld= nv;
-    if (f == nv) {
+    if ( f == nv || nv != nv ) {
         BUF_SIZE_ASSERT(enc, 1 + sizeof(f)); /* heuristic: header + string + simple value */
         srl_buf_cat_char_nocheck(enc,SRL_HDR_FLOAT);
         Copy((char *)&f, enc->pos, sizeof(f), char);
@@ -275,14 +274,12 @@ srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
         srl_buf_cat_char_nocheck(enc,SRL_HDR_DOUBLE);
         Copy((char *)&d, enc->pos, sizeof(d), char);
         enc->pos += sizeof(d);
-
-    } else if (ld == nv) {
-        BUF_SIZE_ASSERT(enc, 1 + sizeof(ld)); /* heuristic: header + string + simple value */
+    } else {
+        BUF_SIZE_ASSERT(enc, 1 + sizeof(nv)); /* heuristic: header + string + simple value */
         srl_buf_cat_char_nocheck(enc,SRL_HDR_LONG_DOUBLE);
-        Copy((char *)&ld, enc->pos, sizeof(ld), char);
-        enc->pos += sizeof(ld);
+        Copy((char *)&nv, enc->pos, sizeof(nv), char);
+        enc->pos += sizeof(nv);
     }
-
 }
 
 
