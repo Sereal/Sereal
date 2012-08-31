@@ -63,12 +63,22 @@ decode(dec, src, into = NULL)
 void
 decode_sereal(src, opt = NULL, into = NULL)
     SV *src;
-    HV *opt;
+    SV *opt;
     SV *into;
   PREINIT:
     srl_decoder_t *dec= NULL;
   PPCODE:
-    dec = srl_build_decoder_struct(aTHX_ opt);
+    /* Support no opt at all, undef, hashref */
+    if (opt != NULL) {
+      SvGETMAGIC(opt);
+      if (!SvOK(opt))
+        opt = NULL;
+      else if (SvROK(opt) && SvTYPE(SvRV(opt)) == SVt_PVHV)
+        opt = (SV *)SvRV(opt);
+      else
+        croak("Options are neither undef nor hash reference");
+    }
+    dec = srl_build_decoder_struct(aTHX_ (HV *)opt);
     srl_begin_decoding(aTHX_ dec, src);
     assert(dec != NULL);
     if (0 == srl_read_header(aTHX_ dec)) {
