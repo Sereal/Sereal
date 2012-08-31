@@ -52,15 +52,15 @@ sub hobodecode {
 }
 
 sub array {
-  chr(SRL_HDR_ARRAY) . varint(0+@_) . join("", @_) . chr(SRL_HDR_TAIL)
+  chr(SRL_HDR_ARRAY) . varint(0+@_) . join("", @_)
 }
 
 sub array_fbit {
-  chr(SRL_HDR_ARRAY+FBIT) . varint(0+@_) . join("", @_) . chr(SRL_HDR_TAIL)
+  chr(SRL_HDR_ARRAY+FBIT) . varint(0+@_) . join("", @_)
 }
 
 sub hash {
-  chr(SRL_HDR_HASH) . varint(int(@_/2)) . join("", @_) . chr(SRL_HDR_TAIL)
+  chr(SRL_HDR_HASH) . varint(int(@_/2)) . join("", @_)
 }
 
 sub dump_bless {
@@ -137,12 +137,11 @@ our @BasicTests = (
     ),
     "array ref with pos and varints"
   ],
-  [{}, chr(SRL_HDR_HASH).varint(0).chr(SRL_HDR_TAIL), "empty hash ref"],
+  [{}, chr(SRL_HDR_HASH).varint(0), "empty hash ref"],
   [{foo => "baaaaar"},
        chr(SRL_HDR_HASH).varint(1)
       .chr(0b0100_0111)."baaaaar"
       .chr(0b0100_0011)."foo"
-      .chr(SRL_HDR_TAIL)
       , "simple hash ref"],
   [$scalar_ref_for_repeating, chr(SRL_HDR_REF).varint(0).chr(0b0000_1001), "scalar ref to constant"],
   [[$scalar_ref_for_repeating, $scalar_ref_for_repeating],
@@ -155,7 +154,7 @@ our @BasicTests = (
       $content    .= chr(0b1000_1001)
                     .chr(SRL_HDR_REF)
                     .varint($pos)
-                    .chr(SRL_HDR_TAIL);
+      ;
       $content
     }, "repeated substructure (REUSE): scalar ref"],
   [[$ary_ref_for_repeating, $ary_ref_for_repeating],
@@ -166,7 +165,7 @@ our @BasicTests = (
       $content   .= array_fbit(chr(0b0000_0101), chr(0b0000_0110))
                     .chr(SRL_HDR_REUSE)
                     .varint($pos)
-                    .chr(SRL_HDR_TAIL);
+      ;
       $content
     }, "repeated substructure (REUSE): array"],
   [[\$ary_ref_for_repeating, [1, $ary_ref_for_repeating]],
@@ -184,7 +183,7 @@ our @BasicTests = (
                         chr(0b0000_0001),
                         chr(SRL_HDR_REUSE) . varint($pos)
                    )
-                 . chr(SRL_HDR_TAIL);
+      ;
       $content
     }, "repeated substructure (REUSE): asymmetric"],
   [
@@ -197,7 +196,7 @@ our @BasicTests = (
     .chr(SRL_HDR_REUSE)
     .varint(5)
     .chr(0b0000_0001)
-    .chr(SRL_HDR_TAIL),
+    ,
     "weak thing copy (requires PAD)"
   ],
   [
@@ -210,7 +209,7 @@ our @BasicTests = (
     .chr(SRL_HDR_REF)
     .varint(7)
     .chr(0b0000_0001)
-    .chr(SRL_HDR_TAIL),
+    ,
     "weak thing ref"
   ],
   sub { \@_ } ->(
@@ -221,7 +220,7 @@ our @BasicTests = (
     .chr(SRL_HDR_REF)
     .varint(5)
     .chr(0b0000_0001)
-    .chr(SRL_HDR_TAIL),
+    ,
     "weak thing alias"
    ),
   [
@@ -234,7 +233,7 @@ our @BasicTests = (
     .varint(7)
     .chr(SRL_HDR_ALIAS)
     .varint(9)
-    .chr(SRL_HDR_TAIL),
+    ,
     "scalar cross"
   ],
   [
@@ -249,7 +248,7 @@ our @BasicTests = (
     .varint(7)
     .chr(SRL_HDR_ALIAS)
     .varint(10)
-    .chr(SRL_HDR_TAIL),
+    ,
     "weak scalar cross"
   ],
   [
@@ -269,7 +268,6 @@ our @BasicTests = (
         chr(0b0100_0011)."bar",
         chr(SRL_HDR_REUSE),
         varint(8),
-        chr(SRL_HDR_TAIL)
     ),
     "blessed regexp with reuse"
   ],
@@ -279,14 +277,13 @@ our @BasicTests = (
         chr(SRL_HDR_ARRAY),
             varint(4),
             chr(SRL_HDR_BLESS),
-                chr(SRL_HDR_ARRAY + FBIT),varint(0),chr(SRL_HDR_TAIL),
+                chr(SRL_HDR_ARRAY + FBIT),varint(0),
                 chr(0b0100_0011)."foo",
             chr(SRL_HDR_BLESS),
-                chr(SRL_HDR_ARRAY + FBIT),varint(0),chr(SRL_HDR_TAIL),
-                chr(SRL_HDR_COPY),varint(11),
+                chr(SRL_HDR_ARRAY + FBIT),varint(0),
+                chr(SRL_HDR_COPY),varint(10),
             chr(SRL_HDR_REUSE),varint(8),
-            chr(SRL_HDR_REUSE),varint(16),
-            chr(SRL_HDR_TAIL)
+            chr(SRL_HDR_REUSE),varint(15),
     ),
     "blessed arrays with reuse"
   ],
@@ -298,7 +295,7 @@ our @BasicTests = (
       my $pos = length($Header) + length($content);
       $content .= chr(3 + 0x40)."foo"
                   .dump_bless( array(), \$pos )
-                  .chr(SRL_HDR_TAIL);
+      ;
       $content
     },
     "[bless([], 'foo'), bless([], 'foo')]"
@@ -311,7 +308,7 @@ our @BasicTests = (
                     .varint(1)
                     .dump_bless(hash(), "foo");
       my $pos = length($Header) + length($content) - 4;
-      $content .= chr(SRL_HDR_TAIL).chr(SRL_HDR_COPY).varint($pos);
+      $content .= chr(SRL_HDR_COPY).varint($pos);
       $content
     },
     "bless [bless {}, 'foo'], 'foo'"

@@ -107,10 +107,6 @@ sub parse_sv {
     printf "%06u: %02x %03s %sHASH", $p, $o, $bv, $ind;
     parse_hv($ind);
   }
-  elsif ($o == SRL_HDR_TAIL) {
-    printf "%06u: %02x %03s %sTAIL\n", $p, $o, $bv, $ind;
-    return 1;
-  }
   elsif ($o == SRL_HDR_UNDEF) {
     printf "%06u: %02x %03s %sUNDEF\n", $p, $o, $bv, $ind;
   }
@@ -146,38 +142,24 @@ sub parse_av {
   my $len = varint();
   printf "(%u)\n", $len;
   $ind .= "  ";
-  while (1) {
+  while ($len--) {
     my $t = substr($data, 0, 1);
     my $o = ord($t);
-    if ($o == SRL_HDR_TAIL) {
-      printf "%06u: %02x %03s %sTAIL\n", length($done), SRL_HDR_TAIL, SRL_HDR_TAIL, $ind;
-      $done .= substr($data, 0, 1, "");
-      last;
-    }
-    else {
       parse_sv($ind);
-    }
   }
 }
 
 sub parse_hv {
   my ($ind) = @_;
-  my $len = varint();
+  my $len = varint() * 2;
   printf "(%u)\n", $len;
   $ind .= "  ";
   my $flipflop = 0;
-  while (1) {
+  while ($len--) {
     my $t = substr($data, 0, 1);
     my $o = ord($t);
-    if ($o == SRL_HDR_TAIL) {
-      printf "%06u: %02x %03s %sTAIL\n", length($done), SRL_HDR_TAIL, SRL_HDR_TAIL, $ind;
-      $done .= substr($data, 0, 1, "");
-      last;
-    }
-    else {
-      print( "               ", $ind, ($flipflop++ % 2 == 0 ? "VALUE" : "KEY"), ":\n" );
-      parse_sv($ind."  ");
-    }
+    print( "               ", $ind, ($flipflop++ % 2 == 0 ? "VALUE" : "KEY"), ":\n" );
+    parse_sv($ind."  ");
   }
 }
 

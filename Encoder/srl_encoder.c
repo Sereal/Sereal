@@ -722,7 +722,6 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src)
     srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_ARRAY, n);
 
     if (n == 0) {
-        srl_buf_cat_char_nocheck(enc, SRL_HDR_TAIL);
         return;
     }
 
@@ -739,9 +738,6 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src)
         else
             srl_buf_cat_char(enc, SRL_HDR_UNDEF);
     }
-    /* add on a tail element so that we can sanity check things during
-     * deserialization */
-    srl_buf_cat_char_nocheck(enc, SRL_HDR_TAIL);
 }
 
 
@@ -766,9 +762,6 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src)
         }
     }
 
-    /* add on a tail element so that we can sanity check things during
-     * deserialization */
-    srl_buf_cat_char_nocheck(enc, SRL_HDR_TAIL);
 }
 
 

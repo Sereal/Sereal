@@ -401,12 +401,6 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV* into) {
             av_push(av, elem);
         }
     }
-    ASSERT_BUF_SPACE(dec,1," while expecting tail of array");
-    if (expect_true( *dec->pos == SRL_HDR_TAIL )) {
-        dec->pos++;
-    } else {
-        ERROR_UNTERMINATED(dec,SRL_HDR_ARRAY,"ARRAY");
-    }
 }
 
 
@@ -479,12 +473,6 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
         } else {
             dec->pos += key_len;
         }
-    }
-    ASSERT_BUF_SPACE(dec,1," while expecting tail of hash");
-    if (expect_true( *dec->pos == SRL_HDR_TAIL )) {
-        dec->pos++;
-    } else {
-        ERROR_UNTERMINATED(dec,SRL_HDR_HASH,"HASH");
     }
 }
 
@@ -833,7 +821,6 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
             case SRL_HDR_WEAKEN:        srl_read_weaken(aTHX_ dec, into); break;
             case SRL_HDR_REGEXP:        srl_read_regexp(aTHX_ dec, into);        break;
 
-            case SRL_HDR_TAIL:          ERROR_UNEXPECTED(dec,tag," single value");  break;
             case SRL_HDR_PAD:           /* no op */
                 while (BUF_NOT_DONE(dec) && *dec->pos == SRL_HDR_PAD)
                     dec->pos++;

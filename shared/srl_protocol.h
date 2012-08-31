@@ -41,8 +41,8 @@
  *          |                 |                 | previously emitted scalar (which will be tagged).
  * REUSE    |           0 0 1 | varint          | second/third/... occurrence of a multiply-occurring
  *          |                 |                 | substructure (always points at a form of reference)
- * HASH     |           0 1 0 | nkeys V/K* TAIL | hash, nkeys=varint, contents are in VALUE, KEY tuples, with TAIL as suffix.
- * ARRAY    |           0 1 1 | varint V* TAIL  | array, varint=length, TAIL follows values
+ * HASH     |           0 1 0 | nkeys V/K*      | hash, nkeys=varint, contents are in VALUE, KEY tuples
+ * ARRAY    |           0 1 1 | varint V*       | array, varint=length
  * BLESS    |           1 0 0 | TAG(STR) TAG    | bless item into class indicated by TAG
  * BLESSV   |           1 0 1 | varint   TAG    | bless item into class indicated by varint *provisional*
  * ALIAS    |           1 1 0 | varint          | alias to previous item indicated by varint
@@ -53,10 +53,9 @@
  * LIST     |           0 0 1 | tbyte vint pad  | numeric array (s=0 unsigned, s=1 signed), varint=length, pad if needed for alignment
  * WEAKEN   |           0 1 0 |                 | Following item is a reference and it is weakened
  * REGEXP   |           0 1 1 | TAG             | next item is a regexp
- * TAIL     |           1 0 0 | -               | mark "tail" of composite structure, for sanity checking
- * PAD      |           1 0 1 | -               | ignored byte, used by encoder to pad if necessary
+ * PAD      |           1 0 0 | -               | ignored byte, used by encoder to pad if necessary
  *          |                 |                 |
- * RESERVED |           1 1 0 | varint          |
+ * RESERVED |           1 0 1 | varint          |
  * RESERVED |           1 1 1 | varint          |
  * RESERVED |       1 1 x x x | varint          | *reserved*
  * ---------+-----------------+-----------------+---------------------------------------------------------------------------------------
@@ -140,12 +139,11 @@
 #define SRL_HDR_WEAKEN          ((char)50)        /* 0b00110010 */
 #define SRL_HDR_REGEXP          ((char)51)        /* 0b00110011 */
 
-#define SRL_HDR_TAIL            ((char)52)        /* 0b00110100 */
-#define SRL_HDR_PAD             ((char)53)        /* 0b00110101 */
+#define SRL_HDR_PAD             ((char)52)        /* 0b00110101 */
 
  /* Note: Can do reserved check with a range now, but as we start using
  *       them, might have to explicit == check later. */
-#define SRL_HDR_RESERVED_LOW    ((char)54)        /* 0b00110110 */
+#define SRL_HDR_RESERVED_LOW    ((char)53)        /* 0b00110110 */
 #define SRL_HDR_RESERVED_HIGH   ((char)63)        /* 0b00111111 */
  
 /* TODO */
