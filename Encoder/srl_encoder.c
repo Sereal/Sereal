@@ -1,3 +1,6 @@
+/* Must be defined before including Perl header files or we slow down by 2x! */
+#define PERL_NO_GET_CONTEXT
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -37,8 +40,6 @@ extern "C" {
 #endif
 
 #include "srl_encoder.h"
-
-#define PERL_NO_GET_CONTEXT
 
 #include "srl_common.h"
 #include "ptable.h"
