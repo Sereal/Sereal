@@ -254,6 +254,7 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
             }
             for( len= av_len(ref_bless_av) + 1 ; len > 0 ; len-- ) {
                 SV* obj= av_pop(ref_bless_av);
+                SvREFCNT_dec(obj); /* is this really necessary? */
                 if (expect_true( obj )) {
                     sv_bless(obj, stash);
                 } else {
