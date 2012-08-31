@@ -17,10 +17,6 @@
 MODULE = Sereal::Decoder        PACKAGE = Sereal::Decoder
 PROTOTYPES: DISABLE
 
-TYPEMAP: <<HERE
-srl_decoder_t*	O_OBJECT
-HERE
-
 srl_decoder_t *
 new(CLASS, opt = NULL)
     char *CLASS;

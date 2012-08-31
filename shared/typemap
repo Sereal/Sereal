@@ -1,6 +1,8 @@
 # from "perlobject.map"  Dean Roehrich, version 19960302
 
 # O_OBJECT	-> link an opaque C or C++ object to a blessed Perl object.
+srl_encoder_t * O_OBJECT
+srl_decoder_t * O_OBJECT
 
 ######################################################################
 OUTPUT

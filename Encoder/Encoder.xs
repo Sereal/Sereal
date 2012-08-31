@@ -20,10 +20,6 @@
 MODULE = Sereal::Encoder        PACKAGE = Sereal::Encoder
 PROTOTYPES: DISABLE
 
-TYPEMAP: <<HERE
-srl_encoder_t * O_OBJECT
-HERE
-
 srl_encoder_t *
 new(CLASS, opt = NULL)
     char *CLASS;
