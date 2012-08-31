@@ -70,13 +70,13 @@ decode_sereal(src, opt = NULL, into = NULL)
   PPCODE:
     /* Support no opt at all, undef, hashref */
     if (opt != NULL) {
-      SvGETMAGIC(opt);
-      if (!SvOK(opt))
-        opt = NULL;
-      else if (SvROK(opt) && SvTYPE(SvRV(opt)) == SVt_PVHV)
-        opt = (SV *)SvRV(opt);
-      else
-        croak("Options are neither undef nor hash reference");
+        SvGETMAGIC(opt);
+        if (!SvOK(opt))
+            opt = NULL;
+        else if (SvROK(opt) && SvTYPE(SvRV(opt)) == SVt_PVHV)
+            opt = (SV *)SvRV(opt);
+        else
+            croak("Options are neither undef nor hash reference");
     }
     dec = srl_build_decoder_struct(aTHX_ (HV *)opt);
     srl_begin_decoding(aTHX_ dec, src);
