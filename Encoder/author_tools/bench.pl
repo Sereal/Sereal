@@ -25,6 +25,7 @@ my @str;
 push @str, join("", map chr(65+int(rand(57))), 1..10) for 1..1000;
 my @rand = map rand,1..1000;
 
+# Independent, virgin data set for each serializer
 our %data;
 $data{$_}= [
   [1..10000],
@@ -39,7 +40,6 @@ $data{$_}= [
 
 our $enc = Sereal::Encoder->new(\%opt);
 my ($json_xs, $dd1, $dd2, $ddl, $sereal, $storable, $mp);
-# do this first before any of the other dumpers "contaminate" the iv/pv issue
 $sereal   = $enc->encode($data{sereal});
 if (!SEREAL_ONLY) {
   $json_xs  = encode_json($data{json_xs});
