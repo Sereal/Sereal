@@ -61,7 +61,7 @@ sub run_tests {
 
         SKIP: {
             skip "Weak thing alias test cannot work without pass-down", 1
-                if $name eq 'weak thing alias';
+                if $name eq 'weak thing (aliased root)';
             my $ok3= eval { $out3 = decode_sereal($exp); 1};
             my $err3 = $@ || 'Zombie error';
 

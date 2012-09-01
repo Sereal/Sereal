@@ -68,9 +68,9 @@ static SRL_INLINE void srl_clear_decoder(pTHX_ srl_decoder_t *dec);             
 static SRL_INLINE SV *srl_read_alias(pTHX_ srl_decoder_t *dec);
 static SRL_INLINE void srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into);
 
-static SRL_INLINE HV *srl_read_hash(pTHX_ srl_decoder_t *dec);
-static SRL_INLINE AV *srl_read_array(pTHX_ srl_decoder_t *dec);
-static SRL_INLINE SV *srl_read_regexp(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE void srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into);
+static SRL_INLINE void srl_read_array(pTHX_ srl_decoder_t *dec, SV* into);
+static SRL_INLINE void srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into);
 
 static SRL_INLINE void srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into);
@@ -408,26 +408,22 @@ srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 static SRL_INLINE void
 srl_read_array(pTHX_ srl_decoder_t *dec, SV *into) {
     UV len= srl_read_varint_uv(aTHX_ dec);
-    AV *av= newAV();
 
-    SRL_ASSERT_TYPE_FOR_RV(into);
-    SvTEMP_off(av);
-    SvRV_set(into, (SV*)av);
-    SvROK_on(into);
+    SvUPGRADE(into, SVt_PVAV);
 
     if (expect_false( len > 8 ))
-        av_extend(av, len+1);
+        av_extend((AV*)into, len+1);
     while ( len-- > 0) {
         U8 tag= *dec->pos;
         if (expect_false( tag == SRL_HDR_LIST )) {
             ERROR_UNIMPLEMENTED(dec, tag, "LIST");
         } else if ( expect_false( tag == SRL_HDR_ALIAS ) ) {
             dec->pos++;
-            av_push(av, srl_read_alias(aTHX_ dec));
+            av_push((AV*)into, srl_read_alias(aTHX_ dec));
         } else {
             SV *elem= newSV_type(SVt_NULL);
+            av_push((AV*)into, elem);
             srl_read_single_value(aTHX_ dec, elem);
-            av_push(av, elem);
         }
     }
 }
@@ -436,13 +432,10 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into) {
 static SRL_INLINE void
 srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
     IV num_keys= srl_read_varint_uv(aTHX_ dec);
-    HV *hv= newHV();
 
-    SRL_ASSERT_TYPE_FOR_RV(into);
-    SvTEMP_off(hv);
-    SvRV_set(into, (SV*)hv);
-    SvROK_on(into);
-    hv_ksplit(hv, num_keys); /* make sure we have enough room */
+    SvUPGRADE(into, SVt_PVHV);
+
+    hv_ksplit((HV *)into, num_keys); /* make sure we have enough room */
     /* NOTE: contents of hash are stored VALUE/KEY, reverse from normal perl
      * storage, this is because it simplifies the hash storage logic somewhat */
     for (; num_keys > 0 ; num_keys--) {
@@ -466,7 +459,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
             key_len= srl_read_varint_uv(aTHX_ dec);
             ASSERT_BUF_SPACE(dec,key_len," while reading utf8 key");
             key_sv= newSVpvn_flags((char*)dec->pos,key_len,1);
-            if (expect_false( !hv_store_ent(hv,key_sv,got_sv,0))) {
+            if (expect_false( !hv_store_ent((HV *)into,key_sv,got_sv,0))) {
                 SvREFCNT_dec(key_sv); /* throw away the key */
                 ERROR_PANIC(dec,"failed to hv_store_ent");
             } else {
@@ -490,7 +483,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
                 ERROR_UNEXPECTED(dec,tag,"a stringish type");
             }
             ASSERT_BUF_SPACE(dec,key_len, " while reading key");
-            if (expect_false( !hv_store(hv,(char *)dec->pos,key_len,got_sv,0) )) {
+            if (expect_false( !hv_store((HV*)into,(char *)dec->pos,key_len,got_sv,0) )) {
                 ERROR_PANIC(dec,"failed to hv_store");
             }
         }
@@ -509,32 +502,12 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
 {
     SV *referent;
     ASSERT_BUF_SPACE(dec, 1, " while reading REFN referent");
-    tag= *dec->pos;
-    if (tag == SRL_HDR_ARRAY) {
-        dec->pos++;
-        referent= (SV *) srl_read_array(aTHX_ dec);
-    }
-    else
-    if (tag == SRL_HDR_HASH) {
-        dec->pos++;
-        referent= (SV *) srl_read_hash(aTHX_ dec);
-
-    }
-    else
-    if (tag == SRL_HDR_REGEXP) {
-        dec->pos++;
-        referent= (SV *) srl_read_regexp(aTHX_ dec);
-    }
-    else
-    {
-        referent= newSV(SVt_NULL);
-        sv_dump(referent);
-        SRL_ASSERT_TYPE_FOR_RV(into);
-        SvTEMP_off(referent);
-        SvRV_set(into, referent);
-        SvROK_on(into);
-        srl_read_single_value(aTHX_ dec, referent);
-    }
+    referent= newSV(SVt_NULL);
+    SRL_ASSERT_TYPE_FOR_RV(into);
+    SvTEMP_off(referent);
+    SvRV_set(into, referent);
+    SvROK_on(into);
+    srl_read_single_value(aTHX_ dec, referent);
 }
 
 static SRL_INLINE void
@@ -687,11 +660,10 @@ srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into)
 #define MODERN_REGEXP
 #endif
 
-static SRL_INLINE SV *
+static SRL_INLINE void
 srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 {
     SV *sv_pat= newSV_type(SVt_NULL);
-    SV *referent= NULL;
     srl_read_single_value(aTHX_ dec, sv_pat);
     ASSERT_BUF_SPACE(dec, 1, " while reading regexp modifer tag");
     /* For now we will serialize the flags as ascii strings. Maybe we should use
@@ -728,7 +700,35 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
         }
 #ifdef SvRX
         {
-            referent= (SV*)CALLREGCOMP(sv_pat, flags);
+            /* This is ugly. We have to swap out the insides of our SV
+             * with the one we get back from CALLREGCOMP, as there is no
+             * way to get it to fill our SV.
+             *
+             * As far as I understand this works because of how the SV
+             * is laid out. Needs to be verified with someone who knows
+             * better.
+             */
+
+            /* compile the regex */
+            SV *referent= (SV*)CALLREGCOMP(sv_pat, flags);
+            SV tmp;
+
+            /* make sure the SV came from us (it should) and
+             * is bodyless */
+            assert(svtype(into)==SVt_NULL);
+
+#define SWAP_DEBUG 0
+            if (SWAP_DEBUG) { warn("before swap:"); sv_dump(into); sv_dump(referent); }
+
+            /* Swap the contents of the two heads. */
+            Copy(into, &tmp, 1, SV);
+            Copy((SV*)referent, into, 1, SV);
+            Copy(&tmp, (SV*)referent, 1, SV);
+
+            if (SWAP_DEBUG) { warn("after swap:"); sv_dump(into); sv_dump(referent); }
+
+            /* and now throw away the head we got from the regexp engine. */
+            SvREFCNT_dec(referent);
         }
 #else
         {
@@ -736,7 +736,6 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
             STRLEN pat_len;
             REGEXP *re;
             char *pat= SvPV(sv_pat, pat_len);
-            referent= newSV_type(SVt_NULL);
 
             Zero(&pm,1,PMOP);
             pm.op_pmdynflags= SvUTF8(sv_pat) ? PMdf_CMP_UTF8 : 0;
@@ -744,16 +743,14 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 
             re= CALLREGCOMP(aTHX_ pat, pat + pat_len, &pm);
             SvREFCNT_dec(sv_pat);
-            sv_magic( referent, (SV*)re, PERL_MAGIC_qr, 0, 0);
-            SvFLAGS(referent) |= SVs_SMG;
+            sv_magic( into, (SV*)re, PERL_MAGIC_qr, 0, 0);
+            SvFLAGS( into ) |= SVs_SMG;
         }
 #endif
-        return referent;
     }
     else {
         ERROR("Expecting SRL_HDR_ASCII for modifiers of regexp");
     }
-    return NULL;
 }
 
 
@@ -855,10 +852,11 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
             case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into);             break;
             case SRL_HDR_EXTEND:        srl_read_extend(aTHX_ dec, into);           break;
 
-            case SRL_HDR_HASH:          ERROR_UNEXPECTED(dec,tag," single value");  break;
-            case SRL_HDR_ARRAY:         ERROR_UNEXPECTED(dec,tag," single value");  break;
+            case SRL_HDR_HASH:          srl_read_hash(aTHX_ dec, into);             break;
+            case SRL_HDR_ARRAY:         srl_read_array(aTHX_ dec, into);            break;
+            case SRL_HDR_REGEXP:        srl_read_regexp(aTHX_ dec, into);           break;
+
             case SRL_HDR_LIST:          ERROR_UNEXPECTED(dec,tag, " single value"); break;
-            case SRL_HDR_REGEXP:        ERROR_UNEXPECTED(dec,tag," single value");  break;
             case SRL_HDR_PAD:           /* no op */
                 while (BUF_NOT_DONE(dec) && *dec->pos == SRL_HDR_PAD)
                     dec->pos++;
