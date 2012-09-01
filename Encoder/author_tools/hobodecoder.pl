@@ -23,8 +23,6 @@ my %const_names = map {$_ => eval "$_"} @Sereal::Constants::EXPORT_OK;
 local $/ = undef;
 my $data = <STDIN>;
 
-$data =~ s/\s*$//m;
-$data =~ s/^\s*//s;
 open my $fh, "| od -tu1c" or die $!;
 print $fh $data;
 close $fh;
@@ -84,16 +82,13 @@ sub parse_sv {
     $done .= $str;
     printf "%06u: %02x %03s %sSTRING".($o == SRL_HDR_STRING_UTF8 ? "_UTF8" : "")."(%u): '%s'\n", $p, $o, $bv, $ind, $l, $str;
   }
-  elsif ($o == SRL_HDR_REF) {
-    my $whence = varint();
-    printf "%06u: %02x %03s %sREF(%u)\n", $p, $o, $bv, $ind, $whence;
-    if ($whence == 0) {
-      parse_sv($ind . "  ");
-    }
+  elsif ($o == SRL_HDR_REFN) {
+    printf "%06u: %02x %03s %sREFN\n", $p, $o, $bv, $ind;
+    parse_sv($ind . "  ");
   }
-  elsif ($o == SRL_HDR_REUSE) {
+  elsif ($o == SRL_HDR_REFP) {
     my $len = varint();
-    printf "%06u: %02x %03s %sREUSE(%u)\n", $p, $o, $bv, $ind, $len;
+    printf "%06u: %02x %03s %sREFP(%u)\n", $p, $o, $bv, $ind, $len;
   }
   elsif ($o == SRL_HDR_COPY) {
     my $len = varint();
@@ -123,8 +118,10 @@ sub parse_sv {
   }
   elsif ($o == SRL_HDR_BLESS) {
     printf "%06u: %02x %03s %sBLESS\n", $p, $o, $bv, $ind;
-    parse_sv($ind."  ");
-    parse_sv($ind."  ");
+    printf  "%6s  %2s %3s %s  Value:\n",("") x 3, $ind."  ";
+    parse_sv($ind."    ");
+    printf  "%6s  %2s %3s %s  Class:\n",("") x 3, $ind."  ";
+    parse_sv($ind."    ");
   }
   elsif ($o == SRL_HDR_REGEXP) {
     printf "%06u: %02x %03s %sREGEXP\n", $p, $o, $bv, $ind;

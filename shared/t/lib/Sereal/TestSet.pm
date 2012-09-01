@@ -52,14 +52,17 @@ sub hobodecode {
 }
 
 sub array {
+  chr(SRL_HDR_REFN).
   chr(SRL_HDR_ARRAY) . varint(0+@_) . join("", @_)
 }
 
 sub array_fbit {
+  chr(SRL_HDR_REFN).
   chr(SRL_HDR_ARRAY+FBIT) . varint(0+@_) . join("", @_)
 }
 
 sub hash {
+  chr(SRL_HDR_REFN).
   chr(SRL_HDR_HASH) . varint(int(@_/2)) . join("", @_)
 }
 
@@ -126,7 +129,7 @@ our @BasicTests = (
   ["1", chr(0b0100_0001) . "1", "encode string '1'"],
   ["91a", chr(0b0100_0011) . "91a", "encode string '91a'"],
   ["abc" x 1000, chr(SRL_HDR_STRING).varint(3000).("abc" x 1000), "long ASCII string"],
-  [\1, chr(SRL_HDR_REF).varint(0).chr(0b0000_0001), "scalar ref to int"],
+  [\1, chr(SRL_HDR_REFN).chr(0b0000_0001), "scalar ref to int"],
   [[], array(), "empty array ref"],
   [[1,2,3], array(chr(0b0000_0001), chr(0b0000_0010), chr(0b0000_0011)), "array ref"],
   [1000, chr(SRL_HDR_VARINT).varint(1000), "large int"],
@@ -137,100 +140,91 @@ our @BasicTests = (
     ),
     "array ref with pos and varints"
   ],
-  [{}, chr(SRL_HDR_HASH).varint(0), "empty hash ref"],
+
+  [{}, chr(SRL_HDR_REFN).chr(SRL_HDR_HASH).varint(0), "empty hash ref"],
   [{foo => "baaaaar"},
-       chr(SRL_HDR_HASH).varint(1)
+       chr(SRL_HDR_REFN).chr(SRL_HDR_HASH).varint(1)
       .chr(0b0100_0111)."baaaaar"
       .chr(0b0100_0011)."foo"
       , "simple hash ref"],
-  [$scalar_ref_for_repeating, chr(SRL_HDR_REF).varint(0).chr(0b0000_1001), "scalar ref to constant"],
+  [$scalar_ref_for_repeating, chr(SRL_HDR_REFN).chr(0b0000_1001), "scalar ref to constant"],
   [[$scalar_ref_for_repeating, $scalar_ref_for_repeating],
     do {
-      my $content = chr(SRL_HDR_ARRAY) .varint(2);
-      $content   .= chr(SRL_HDR_REF);
-      $content   .= chr(0);
+      my $content = chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY) .varint(2);
+      $content   .= chr(SRL_HDR_REFN);
       my $pos = length($Header) + length($content);
 
       $content    .= chr(0b1000_1001)
-                    .chr(SRL_HDR_REF)
+                    .chr(SRL_HDR_REFP)
                     .varint($pos)
       ;
       $content
     }, "repeated substructure (REUSE): scalar ref"],
   [[$ary_ref_for_repeating, $ary_ref_for_repeating],
     do {
-      my $content = chr(SRL_HDR_ARRAY)
+      my $content = chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY)
                     .varint(2);
-      my $pos = length($Header) + length($content);
+      my $pos = length($Header) + length($content) + 1;
       $content   .= array_fbit(chr(0b0000_0101), chr(0b0000_0110))
-                    .chr(SRL_HDR_REUSE)
+                    .chr(SRL_HDR_REFP)
                     .varint($pos)
       ;
       $content
     }, "repeated substructure (REUSE): array"],
   [[\$ary_ref_for_repeating, [1, $ary_ref_for_repeating]],
     do {
-      my $content = chr(SRL_HDR_ARRAY)
-                    . varint(2)
-                    . chr(SRL_HDR_REF)
-                    . chr(0);
-      my $pos = length($Header) + length($content);
-      $content   .= array_fbit(
+      my $content = chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY) . varint(2)
+                    . chr(SRL_HDR_REFN);
+      my $pos = length($Header) + length($content) + 1;
+      $content .= array_fbit(
                         chr(0b0000_0101),
                         chr(0b0000_0110)
                     )
-                 . array(
+                    . array(
                         chr(0b0000_0001),
-                        chr(SRL_HDR_REUSE) . varint($pos)
-                   )
+                        chr(SRL_HDR_REFP) . varint(10)
+                    )
       ;
       $content
     }, "repeated substructure (REUSE): asymmetric"],
   [
     $weak_thing,
-    chr(SRL_HDR_ARRAY + FBIT)
+    chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + FBIT)
     .varint(2)
     .chr(SRL_HDR_PAD)
-    .chr(SRL_HDR_REF)
-    .varint(0)
-    .chr(SRL_HDR_REUSE)
-    .varint(5)
+    .chr(SRL_HDR_REFN)
+    .chr(SRL_HDR_REFP)
+    .varint(6)
     .chr(0b0000_0001)
     ,
     "weak thing copy (requires PAD)"
   ],
   [
     \$weak_thing,
-    chr(SRL_HDR_REF)
-    .varint(0)
-    .chr(SRL_HDR_ARRAY + FBIT)
-    .varint(2)
-    .chr(SRL_HDR_WEAKEN)
-    .chr(SRL_HDR_REF)
-    .varint(7)
-    .chr(0b0000_0001)
+    chr(SRL_HDR_REFN)
+    . chr(SRL_HDR_REFN + FBIT)
+        . chr(SRL_HDR_ARRAY) . varint(2)
+            .chr(SRL_HDR_WEAKEN) . chr(SRL_HDR_REFP) . varint(6)
+            .chr(0b0000_0001)
     ,
     "weak thing ref"
   ],
   sub { \@_ } ->(
     $weak_thing,
-    chr(SRL_HDR_ARRAY + FBIT)
-    .varint(2)
-    .chr(SRL_HDR_WEAKEN)
-    .chr(SRL_HDR_REF)
-    .varint(5)
-    .chr(0b0000_0001)
+    chr(SRL_HDR_REFN + FBIT)
+        .chr(SRL_HDR_ARRAY).varint(2)
+            .chr(SRL_HDR_WEAKEN).chr(SRL_HDR_REFP).varint(5)
+            .chr(0b0000_0001)
     ,
-    "weak thing alias"
+    "weak thing (aliased root)"
    ),
   [
     do { my @array; $array[0]=\$array[1]; $array[1]=\$array[0]; \@array },
-    chr(SRL_HDR_ARRAY)
+    chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY)
     .varint(2)
-    .chr(SRL_HDR_REF + FBIT)
-    .varint(0)
-    .chr(SRL_HDR_REF + FBIT)
-    .varint(7)
+    .chr(SRL_HDR_REFN + FBIT)
+    .chr(SRL_HDR_REFP + FBIT)
+    .varint(8)
     .chr(SRL_HDR_ALIAS)
     .varint(9)
     ,
@@ -238,14 +232,13 @@ our @BasicTests = (
   ],
   [
     do { my @array; $array[0]=\$array[1]; $array[1]=\$array[0]; weaken($array[1]); weaken($array[0]); \@array },
-    chr(SRL_HDR_ARRAY)
+    chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY)
     .varint(2)
     .chr(SRL_HDR_WEAKEN + FBIT)
-    .chr(SRL_HDR_REF)
-    .varint(0)
+    .chr(SRL_HDR_REFN)
     .chr(SRL_HDR_WEAKEN + FBIT)
-    .chr(SRL_HDR_REF)
-    .varint(7)
+    .chr(SRL_HDR_REFP)
+    .varint(8)
     .chr(SRL_HDR_ALIAS)
     .varint(10)
     ,
@@ -259,38 +252,39 @@ our @BasicTests = (
   [
     do { my $qr= bless qr/foo/ix,"bar"; [ $qr, $qr ] },
     join("",
-        chr(SRL_HDR_ARRAY),
+        chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY),
         varint(2),
         chr(SRL_HDR_BLESS),
+        chr(SRL_HDR_REFN),
         chr(SRL_HDR_REGEXP + FBIT),
         chr(0b0100_0011)."foo",
         chr(0b0100_0010)."ix",
         chr(0b0100_0011)."bar",
-        chr(SRL_HDR_REUSE),
-        varint(8),
+        chr(SRL_HDR_REFP),
+        varint(10),
     ),
     "blessed regexp with reuse"
   ],
   [
     do { my $o1=bless [], "foo"; my $o2=bless [], "foo"; [ $o1, $o2, $o1, $o2 ] },
     join("",
-        chr(SRL_HDR_ARRAY),
+        chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY),
             varint(4),
             chr(SRL_HDR_BLESS),
-                chr(SRL_HDR_ARRAY + FBIT),varint(0),
+                chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + FBIT),varint(0),
                 chr(0b0100_0011)."foo",
             chr(SRL_HDR_BLESS),
-                chr(SRL_HDR_ARRAY + FBIT),varint(0),
-                chr(SRL_HDR_COPY),varint(10),
-            chr(SRL_HDR_REUSE),varint(8),
-            chr(SRL_HDR_REUSE),varint(15),
+                chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + FBIT),varint(0),
+                chr(SRL_HDR_COPY),varint(12),
+            chr(SRL_HDR_REFP),varint(10),
+            chr(SRL_HDR_REFP),varint(18),
     ),
     "blessed arrays with reuse"
   ],
   [
     [bless([], "foo"), bless([], "foo")],
     do {
-      my $content = chr(SRL_HDR_ARRAY).varint(2)
+      my $content = chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY) . varint(2)
                     .chr(SRL_HDR_BLESS).array();
       my $pos = length($Header) + length($content);
       $content .= chr(3 + 0x40)."foo"
@@ -304,7 +298,7 @@ our @BasicTests = (
     bless([bless {}, "foo"], "foo"),
     do {
       my $content = chr(SRL_HDR_BLESS)
-                    .chr(SRL_HDR_ARRAY)
+                    .chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY)
                     .varint(1)
                     .dump_bless(hash(), "foo");
       my $pos = length($Header) + length($content) - 4;
@@ -316,7 +310,9 @@ our @BasicTests = (
   [
     qr/foo/,
     dump_bless(
-      chr(SRL_HDR_REGEXP)
+
+      chr(SRL_HDR_REFN)
+      .chr(SRL_HDR_REGEXP)
       .chr(0b0100_0011)
       ."foo"
       .chr(0b0100_0000),
@@ -327,7 +323,8 @@ our @BasicTests = (
   [
     qr/(?i-xsm:foo)/,
     dump_bless(
-      chr(SRL_HDR_REGEXP)
+      chr(SRL_HDR_REFN)
+      .chr(SRL_HDR_REGEXP)
       .chr(0b0100_1100)
       ."(?i-xsm:foo)"
       .chr(0b0100_0000),
@@ -338,7 +335,8 @@ our @BasicTests = (
   [
     qr/foo/i,
     dump_bless(
-      chr(SRL_HDR_REGEXP)
+      chr(SRL_HDR_REFN)
+      .chr(SRL_HDR_REGEXP)
       .chr(0b0100_0011)
       ."foo"
       .chr(0b0100_0001)
@@ -360,7 +358,7 @@ our @BasicTests = (
       else {
         return array(
           hash(integer(1), short_string("foo")),
-          hash(integer(2), chr(SRL_HDR_COPY).varint(10)),
+          hash(integer(2), chr(SRL_HDR_COPY).varint(12)),
         );
       }
     },

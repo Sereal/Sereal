@@ -67,9 +67,13 @@ static SRL_INLINE void srl_clear_decoder(pTHX_ srl_decoder_t *dec);             
 /* the internal routines to handle each kind of object we have to deserialize */
 static SRL_INLINE SV *srl_read_alias(pTHX_ srl_decoder_t *dec);
 static SRL_INLINE void srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into);
-static SRL_INLINE void srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into);
-static SRL_INLINE void srl_read_array(pTHX_ srl_decoder_t *dec, SV* into);
-static SRL_INLINE void srl_read_ref(pTHX_ srl_decoder_t *dec, SV* into);
+
+static SRL_INLINE HV *srl_read_hash(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE AV *srl_read_array(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE SV *srl_read_regexp(pTHX_ srl_decoder_t *dec);
+
+static SRL_INLINE void srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into);
+static SRL_INLINE void srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_double(pTHX_ srl_decoder_t *dec, SV* into);
@@ -77,9 +81,7 @@ static SRL_INLINE void srl_read_float(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into);
 static SRL_INLINE void srl_read_varint(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_zigzag(pTHX_ srl_decoder_t *dec, SV* into);
-static SRL_INLINE void srl_read_reuse(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into);
-static SRL_INLINE void srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into);
 
 /* FIXME unimplemented!!! */
@@ -404,7 +406,7 @@ srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 
 
 static SRL_INLINE void
-srl_read_array(pTHX_ srl_decoder_t *dec, SV* into) {
+srl_read_array(pTHX_ srl_decoder_t *dec, SV *into) {
     UV len= srl_read_varint_uv(aTHX_ dec);
     AV *av= newAV();
 
@@ -503,32 +505,52 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
 
 
 static SRL_INLINE void
-srl_read_ref(pTHX_ srl_decoder_t *dec, SV* into)
+srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    UV item= srl_read_varint_uv(aTHX_ dec);
-    SV *referent= NULL;
-    if (item) {
-        /* something we did before */
-        referent= srl_fetch_item(aTHX_ dec, item, "REF");
-        SvREFCNT_inc(referent);
-    } else {
+    SV *referent;
+    ASSERT_BUF_SPACE(dec, 1, " while reading REFN referent");
+    tag= *dec->pos;
+    if (tag == SRL_HDR_ARRAY) {
+        dec->pos++;
+        referent= (SV *) srl_read_array(aTHX_ dec);
+    }
+    else
+    if (tag == SRL_HDR_HASH) {
+        dec->pos++;
+        referent= (SV *) srl_read_hash(aTHX_ dec);
+
+    }
+    else
+    if (tag == SRL_HDR_REGEXP) {
+        dec->pos++;
+        referent= (SV *) srl_read_regexp(aTHX_ dec);
+    }
+    else
+    {
         referent= newSV(SVt_NULL);
+        sv_dump(referent);
+        SRL_ASSERT_TYPE_FOR_RV(into);
+        SvTEMP_off(referent);
+        SvRV_set(into, referent);
+        SvROK_on(into);
         srl_read_single_value(aTHX_ dec, referent);
     }
+}
+
+static SRL_INLINE void
+srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into)
+{
+    /* something we did before */
+    UV item= srl_read_varint_uv(aTHX_ dec);
+    SV *referent= srl_fetch_item(aTHX_ dec, item, "REF");
+    SvREFCNT_inc(referent);
+
     SRL_ASSERT_TYPE_FOR_RV(into);
     SvTEMP_off(referent);
     SvRV_set(into, referent);
     SvROK_on(into);
 }
 
-
-static SRL_INLINE void
-srl_read_reuse(pTHX_ srl_decoder_t *dec, SV* into)
-{
-    UV item= srl_read_varint_uv(aTHX_ dec);
-    SV *referent= srl_fetch_item(aTHX_ dec, item, "REUSE");
-    sv_setsv(into, referent);
-}
 
 static SRL_INLINE void
 srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into)
@@ -665,7 +687,7 @@ srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into)
 #define MODERN_REGEXP
 #endif
 
-static SRL_INLINE void
+static SRL_INLINE SV *
 srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 {
     SV *sv_pat= newSV_type(SVt_NULL);
@@ -726,15 +748,14 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
             SvFLAGS(referent) |= SVs_SMG;
         }
 #endif
-        SRL_ASSERT_TYPE_FOR_RV(into);
-        SvTEMP_off(referent);
-        SvRV_set(into, referent);
-        SvROK_on(into);
+        return referent;
     }
     else {
         ERROR("Expecting SRL_HDR_ASCII for modifiers of regexp");
     }
+    return NULL;
 }
+
 
 static SRL_INLINE void
 srl_read_blessv(pTHX_ srl_decoder_t *dec, SV* into)
@@ -815,32 +836,29 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
     }
     else {
         switch (tag) {
-            case SRL_HDR_VARINT:        srl_read_varint(aTHX_ dec, into);        break;
-            case SRL_HDR_ZIGZAG:        srl_read_zigzag(aTHX_ dec, into);        break;
+            case SRL_HDR_VARINT:        srl_read_varint(aTHX_ dec, into);           break;
+            case SRL_HDR_ZIGZAG:        srl_read_zigzag(aTHX_ dec, into);           break;
 
-            case SRL_HDR_FLOAT:         srl_read_float(aTHX_ dec, into);         break;
-            case SRL_HDR_DOUBLE:        srl_read_double(aTHX_ dec, into);        break;
-            case SRL_HDR_LONG_DOUBLE:   srl_read_long_double(aTHX_ dec, into);   break;
+            case SRL_HDR_FLOAT:         srl_read_float(aTHX_ dec, into);            break;
+            case SRL_HDR_DOUBLE:        srl_read_double(aTHX_ dec, into);           break;
+            case SRL_HDR_LONG_DOUBLE:   srl_read_long_double(aTHX_ dec, into);      break;
 
-            case SRL_HDR_UNDEF:         sv_setsv(into, &PL_sv_undef);             break;
-            case SRL_HDR_STRING:        srl_read_string(aTHX_ dec, 0, into);     break;
-            case SRL_HDR_STRING_UTF8:   srl_read_string(aTHX_ dec, 1, into);     break;
-            case SRL_HDR_REUSE:         srl_read_reuse(aTHX_ dec, into);         break;
+            case SRL_HDR_UNDEF:         sv_setsv(into, &PL_sv_undef);               break;
+            case SRL_HDR_STRING:        srl_read_string(aTHX_ dec, 0, into);        break;
+            case SRL_HDR_STRING_UTF8:   srl_read_string(aTHX_ dec, 1, into);        break;
 
-            case SRL_HDR_REF:           srl_read_ref(aTHX_ dec, into);   break;
-            case SRL_HDR_HASH:          srl_read_hash(aTHX_ dec, into);  break;
-            case SRL_HDR_ARRAY:         srl_read_array(aTHX_ dec, into); break;
+            case SRL_HDR_WEAKEN:        srl_read_weaken(aTHX_ dec, into);           break;
+            case SRL_HDR_REFN:          srl_read_refn(aTHX_ dec, into);             break;
+            case SRL_HDR_REFP:          srl_read_refp(aTHX_ dec, into);             break;
+            case SRL_HDR_BLESS:         srl_read_bless(aTHX_ dec, into);            break;
+            case SRL_HDR_BLESSV:        srl_read_blessv(aTHX_ dec, into);           break;
+            case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into);             break;
+            case SRL_HDR_EXTEND:        srl_read_extend(aTHX_ dec, into);           break;
 
-            case SRL_HDR_BLESS:         srl_read_bless(aTHX_ dec, into);         break;
-            case SRL_HDR_BLESSV:        srl_read_blessv(aTHX_ dec, into);        break;
-            case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into);          break;
-
-            case SRL_HDR_EXTEND:        srl_read_extend(aTHX_ dec, into);        break;
-            case SRL_HDR_LIST:          ERROR_UNEXPECTED(dec,tag, " single value");              break;
-
-            case SRL_HDR_WEAKEN:        srl_read_weaken(aTHX_ dec, into); break;
-            case SRL_HDR_REGEXP:        srl_read_regexp(aTHX_ dec, into);        break;
-
+            case SRL_HDR_HASH:          ERROR_UNEXPECTED(dec,tag," single value");  break;
+            case SRL_HDR_ARRAY:         ERROR_UNEXPECTED(dec,tag," single value");  break;
+            case SRL_HDR_LIST:          ERROR_UNEXPECTED(dec,tag, " single value"); break;
+            case SRL_HDR_REGEXP:        ERROR_UNEXPECTED(dec,tag," single value");  break;
             case SRL_HDR_PAD:           /* no op */
                 while (BUF_NOT_DONE(dec) && *dec->pos == SRL_HDR_PAD)
                     dec->pos++;

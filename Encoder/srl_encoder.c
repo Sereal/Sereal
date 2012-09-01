@@ -618,85 +618,66 @@ srl_dump_rv(pTHX_ srl_encoder_t *enc, SV *rv)
         /* FIXME reuse/ref/... should INCLUDE the bless stuff. */
         srl_buf_cat_char(enc, SRL_HDR_BLESS);
     }
+    if (oldoffset) {
+        srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REFP, (UV)oldoffset);
+        SRL_SET_FBIT(*(enc->buf_start + oldoffset));
+    } else {
     /* fallthrough for value*/
     /* see sv_reftype in sv.c */
-    switch (svt) {
-        case SVt_PVMG:
+        srl_buf_cat_char(enc, SRL_HDR_REFN);
+        switch (svt) {
+            case SVt_PVMG:
 #ifndef MODERN_REGEXP
-        {
-            MAGIC *mg;
-            if ( ((SvFLAGS(src) &
-                   (SVs_OBJECT|SVf_OK|SVs_GMG|SVs_SMG|SVs_RMG))
-                  == (SVs_OBJECT|BFD_Svs_SMG_OR_RMG))
-                 && (mg = mg_find(src, PERL_MAGIC_qr)))
             {
-                /* Housten, we have a regex! */
-                if (oldoffset) {
-                    SRL_SET_FBIT(*(enc->buf_start + oldoffset));
-                    srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REUSE, (UV)oldoffset);
-                } else {
+                MAGIC *mg;
+                if ( ((SvFLAGS(src) &
+                       (SVs_OBJECT|SVf_OK|SVs_GMG|SVs_SMG|SVs_RMG))
+                      == (SVs_OBJECT|BFD_Svs_SMG_OR_RMG))
+                     && (mg = mg_find(src, PERL_MAGIC_qr)))
+                {
+                    /* Housten, we have a regex! */
                     TRACK_REFCOUNT(enc, src, refcount);
                     srl_dump_regexp(aTHX_ enc, (SV*)mg); /* yes the SV* cast makes me feel dirty too */
-                }
-                break;
+                    break;
 
+                }
             }
-        }
-        /* fallthrough */
-        case SVt_RV:
+            /* fallthrough */
+            case SVt_RV:
 #endif
-        case SVt_NULL:
-        case SVt_IV:
-        case SVt_NV:
-        case SVt_PV:
-        case SVt_PVIV:
-        case SVt_PVNV:
-        case SVt_PVLV:
-            srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REF, (UV)oldoffset);
-            if (oldoffset) {
-                SRL_SET_FBIT(*(enc->buf_start + oldoffset));
-            } else {
+            case SVt_NULL:
+            case SVt_IV:
+            case SVt_NV:
+            case SVt_PV:
+            case SVt_PVIV:
+            case SVt_PVNV:
+            case SVt_PVLV:
                 srl_dump_sv(aTHX_ enc, src);
-            }
-            break;
+                break;
 #ifdef MODERN_REGEXP
-        case SVt_REGEXP:
-            if (oldoffset) {
-                SRL_SET_FBIT(*(enc->buf_start + oldoffset));
-                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REUSE, (UV)oldoffset);
-            } else {
+            case SVt_REGEXP:
                 TRACK_REFCOUNT(enc, src, refcount);
                 srl_dump_regexp(aTHX_ enc, src);
-            }
-            break;
+                break;
 #endif
-        case SVt_PVAV:
-            if (oldoffset) {
-                SRL_SET_FBIT(*(enc->buf_start + oldoffset));
-                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REUSE, (UV)oldoffset);
-            } else {
+            case SVt_PVAV:
                 TRACK_REFCOUNT(enc, src, refcount);
                 srl_dump_av(aTHX_ enc, (AV *)src);
-            }
-            break;
-        case SVt_PVHV:
-            if (oldoffset) {
-                SRL_SET_FBIT(*(enc->buf_start + oldoffset));
-                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REUSE, (UV)oldoffset);
-            } else {
+                break;
+            case SVt_PVHV:
                 TRACK_REFCOUNT(enc, src, refcount);
                 srl_dump_hv(aTHX_ enc, (HV *)src);
-            }
-            break;
-        case SVt_PVCV:
-        case SVt_PVGV:
-        case SVt_PVFM:
-        case SVt_PVIO:
+                break;
+            case SVt_PVCV:
+            case SVt_PVGV:
+            case SVt_PVFM:
+            case SVt_PVIO:
 #if PERL_VERSION >= 10
-        case SVt_BIND:
+            case SVt_BIND:
 #endif
-        default:
-            croak("found type %u %s(0x%p), but it is not representable by the Sereal encoding format", svt, sv_reftype(src,0),src);
+            default:
+                croak("found type %u %s(0x%p), but it is not representable by the Sereal encoding format", svt, sv_reftype(src,0),src);
+        }
     }
     if (!oldoffset && SvOBJECT(src)) {
         srl_dump_classname(aTHX_ enc, src);

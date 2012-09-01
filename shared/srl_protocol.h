@@ -123,8 +123,8 @@
 #define SRL_HDR_STRING          ((char)38)        /* 0b00100110 */
 #define SRL_HDR_STRING_UTF8     ((char)39)        /* 0b00100111 */
 
-#define SRL_HDR_REF             ((char)40)        /* 0b00101000 */         /* scalar ref to next item */
-#define SRL_HDR_REUSE           ((char)41)        /* 0b00101001 */         /* second/third/... occurrence of a multiply-occurring
+#define SRL_HDR_REFP            ((char)40)        /* 0b00101000 */         /* scalar ref to next item */
+#define SRL_HDR_REFN            ((char)41)        /* 0b00101001 */         /* second/third/... occurrence of a multiply-occurring
                                                   * substructure (always points at a form of reference) */
 #define SRL_HDR_HASH            ((char)42)        /* 0b00101010 */
 #define SRL_HDR_ARRAY           ((char)43)        /* 0b00101011 */
