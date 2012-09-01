@@ -121,9 +121,6 @@ srl_build_decoder_struct(pTHX_ HV *opt)
     Newxz(dec, 1, srl_decoder_t);
 
     dec->buf_start = NULL;
-    /* Register our structure for destruction on scope exit */
-    SAVEDESTRUCTOR_X(&srl_decoder_destructor_hook, (void *)dec);
-
     dec->ref_seenhash = PTABLE_new();
     /* load options */
     if (opt != NULL) {
@@ -161,6 +158,9 @@ srl_decoder_destructor_hook(pTHX_ void *p)
 {
     srl_decoder_t *dec = (srl_decoder_t *)p;
 
+    assert(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DESTRUCTOR_OK));
+    SRL_DEC_UNSET_OPTION(dec, SRL_F_DECODER_DESTRUCTOR_OK);
+
     /* Only free decoder if not for reuse */
     if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_REUSE_DECODER)) {
         srl_destroy_decoder(aTHX_ dec);
@@ -184,7 +184,7 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into) {
     }
     srl_read_single_value(aTHX_ dec, into);
     assert(dec->pos == dec->buf_end);
-    if (expect_false(dec->flags & SRL_DECODER_NEEDS_FINALIZE)) {
+    if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE))) {
         srl_finalize_structure(aTHX_ dec);
     }
     srl_clear_decoder(aTHX_ dec);
@@ -196,7 +196,11 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into) {
 static SRL_INLINE void
 srl_clear_decoder(pTHX_ srl_decoder_t *dec)
 {
-    dec->flags= dec->depth = 0;
+    if (dec->buf_start == dec->buf_end)
+        return;
+
+    dec->depth = 0;
+    SRL_DEC_RESET_VOLATILE_FLAGS(dec);
     dec->buf_start = dec->buf_end = dec->pos = dec->save_pos = NULL;
     if (dec->weakref_av)
         av_clear(dec->weakref_av);
@@ -212,7 +216,15 @@ static SRL_INLINE void
 srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src)
 {
     STRLEN len;
-    dec->flags= dec->depth= 0;
+    /* Assert that we did not push a destructor before */
+    assert(!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DESTRUCTOR_OK));
+    /* Push destructor, set destructor-is-pushed flag */
+    SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_DESTRUCTOR_OK);
+    /* Register our structure for destruction on scope exit */
+    SAVEDESTRUCTOR_X(&srl_decoder_destructor_hook, (void *)dec);
+
+    dec->depth= 0;
+    SRL_DEC_RESET_VOLATILE_FLAGS(dec);
     dec->buf_start= dec->pos= (unsigned char*)SvPV(src, len);
     dec->buf_end= dec->buf_start + len;
 }
@@ -540,7 +552,7 @@ srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into)
             dec->weakref_av= newAV();
         SvREFCNT_inc(referent);
         av_push(dec->weakref_av, referent);
-        dec->flags |= SRL_DECODER_NEEDS_FINALIZE;
+        SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE);
     }
     sv_rvweaken(into);
 }
@@ -626,7 +638,7 @@ srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into)
      * until the full packet has been read. Yes it is more overhead, but
      * we really dont want to trigger DESTROY methods from a partial
      * deparse. */
-    dec->flags |= SRL_DECODER_NEEDS_FINALIZE;
+    SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE);
     PTABLE_store(dec->ref_stashes, (void *)storepos, (void *)stash);
     if (NULL == (av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)ofs)) ) {
         av= newAV();

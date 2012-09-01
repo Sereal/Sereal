@@ -5,8 +5,6 @@
 #include "perl.h"
 #include "assert.h"
 
-#define SRL_DECODER_NEEDS_FINALIZE 1
-
 typedef struct PTABLE * ptable_ptr;
 typedef struct {
     unsigned char *buf_start;           /* ptr to "physical" start of input buffer */
@@ -53,10 +51,19 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define ERROR_UNEXPECTED(dec, tag, msg) MYCROAK("Unexpected tag %u while expecting %s", (tag || *(dec)->pos), msg)
 #define ERROR_PANIC(dec, msg) MYCROAK("Panic: %s", msg);
 
-/* if set, the decoder struct needs to be cleared instead of freed at
+/* If set, the decoder struct needs to be cleared instead of freed at
  * the end of a deserialization operation */
 #define SRL_F_REUSE_DECODER 1UL
-#define SRL_DEC_HAVE_OPTION(dec, flag_num) ((dec)->flags & flag_num)
+/* If set, then the decoder destructor was already pushed to the
+ * callback stack */
+#define SRL_F_DECODER_DESTRUCTOR_OK 2UL
+/* Non-persistent flag! */
+#define SRL_F_DECODER_NEEDS_FINALIZE 4UL
 
+#define SRL_DEC_HAVE_OPTION(dec, flag_num) ((dec)->flags & flag_num)
+#define SRL_DEC_SET_OPTION(dec, flag_num) ((dec)->flags |= flag_num)
+#define SRL_DEC_UNSET_OPTION(dec, flag_num) ((dec)->flags &= ~flag_num)
+#define SRL_DEC_VOLATILE_FLAGS (SRL_F_DECODER_NEEDS_FINALIZE)
+#define SRL_DEC_RESET_VOLATILE_FLAGS(dec) ((dec)->flags &= ~SRL_DEC_VOLATILE_FLAGS)
 
 #endif
