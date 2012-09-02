@@ -118,9 +118,9 @@ sub parse_sv {
   }
   elsif ($o == SRL_HDR_BLESS) {
     printf "%06u: %02x %03s %sBLESS\n", $p, $o, $bv, $ind;
-    printf  "%6s  %2s %3s %s  Value:\n",("") x 3, $ind."  ";
-    parse_sv($ind."    ");
     printf  "%6s  %2s %3s %s  Class:\n",("") x 3, $ind."  ";
+    parse_sv($ind."    ");
+    printf  "%6s  %2s %3s %s  Value:\n",("") x 3, $ind."  ";
     parse_sv($ind."    ");
   }
   elsif ($o == SRL_HDR_REGEXP) {

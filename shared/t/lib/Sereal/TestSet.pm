@@ -70,7 +70,6 @@ sub dump_bless {
   # this hack does not support UTF8 class names, but that's not supported by
   # most releases of perl anyway
   chr(SRL_HDR_BLESS)
-  .$_[0]
   .(
     ref($_[1])
     ? chr(SRL_HDR_COPY).varint(${$_[1]})
@@ -80,6 +79,7 @@ sub dump_bless {
       : chr(length($_[1]) + 0x40).$_[1]
     )
   )
+  . $_[0]
 }
 
 sub short_string {
@@ -255,13 +255,13 @@ our @BasicTests = (
         chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY),
         varint(2),
         chr(SRL_HDR_BLESS),
+        chr(0b0100_0011)."bar",
         chr(SRL_HDR_REFN),
         chr(SRL_HDR_REGEXP + FBIT),
         chr(0b0100_0011)."foo",
         chr(0b0100_0010)."ix",
-        chr(0b0100_0011)."bar",
         chr(SRL_HDR_REFP),
-        varint(10),
+        varint(14),
     ),
     "blessed regexp with reuse"
   ],
@@ -271,13 +271,13 @@ our @BasicTests = (
         chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY),
             varint(4),
             chr(SRL_HDR_BLESS),
-                chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + FBIT),varint(0),
                 chr(0b0100_0011)."foo",
-            chr(SRL_HDR_BLESS),
                 chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + FBIT),varint(0),
-                chr(SRL_HDR_COPY),varint(12),
-            chr(SRL_HDR_REFP),varint(10),
-            chr(SRL_HDR_REFP),varint(18),
+            chr(SRL_HDR_BLESS),
+                chr(SRL_HDR_COPY),varint(9),
+                chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + FBIT),varint(0),
+            chr(SRL_HDR_REFP),varint(14),
+            chr(SRL_HDR_REFP),varint(20),
     ),
     "blessed arrays with reuse"
   ],
@@ -285,27 +285,31 @@ our @BasicTests = (
     [bless([], "foo"), bless([], "foo")],
     do {
       my $content = chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY) . varint(2)
-                    .chr(SRL_HDR_BLESS).array();
+                    .chr(SRL_HDR_BLESS);
       my $pos = length($Header) + length($content);
       $content .= chr(3 + 0x40)."foo"
-                  .dump_bless( array(), \$pos )
+                  . array()
+                  . dump_bless( array(), \$pos )
       ;
       $content
     },
-    "[bless([], 'foo'), bless([], 'foo')]"
+    "reused classname empty array"
   ],
   [
     bless([bless {}, "foo"], "foo"),
     do {
-      my $content = chr(SRL_HDR_BLESS)
-                    .chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY)
-                    .varint(1)
-                    .dump_bless(hash(), "foo");
-      my $pos = length($Header) + length($content) - 4;
-      $content .= chr(SRL_HDR_COPY).varint($pos);
+      my $content = chr(SRL_HDR_BLESS);
+      my $pos = length($Header) + length($content);
+      $content .= chr(0b0100_0011)
+                  ."foo"
+                  . chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY) . varint(1)
+                    . chr(SRL_HDR_BLESS)
+                    . chr(SRL_HDR_COPY) . varint($pos)
+                    . chr(SRL_HDR_REFN) . chr(SRL_HDR_HASH) . varint(0)
+      ;
       $content
     },
-    "bless [bless {}, 'foo'], 'foo'"
+    "wrapped objects"
   ],
   [
     qr/foo/,
