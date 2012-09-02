@@ -424,7 +424,7 @@ srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
 static SRL_INLINE void
 srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src)
 {
-    UV i, n;
+    UV n;
     SV **svp;
 
     n = av_len(src)+1;
@@ -438,19 +438,26 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src)
     if (n == 0) {
         return;
     }
-
-    svp = av_fetch(src, 0, 0);
-    if (svp != NULL)
-        srl_dump_sv(aTHX_ enc, *svp);
-    else
-        srl_buf_cat_char(enc, SRL_HDR_UNDEF);
-
-    for (i = 1; i < n; ++i) {
-        svp = av_fetch(src, i, 0);
-        if (svp != NULL)
-            srl_dump_sv(aTHX_ enc, *svp);
-        else
-            srl_buf_cat_char(enc, SRL_HDR_UNDEF);
+    /* I can't decide if this should make me feel dirty */
+    if (SvMAGICAL(src)) {
+        UV i;
+        for (i = 0; i < n; ++i) {
+            svp = av_fetch(src, i, 0);
+            if ( svp )
+                srl_dump_sv(aTHX_ enc, *svp);
+            else
+                srl_buf_cat_char(enc, SRL_HDR_UNDEF);
+        }
+    } else {
+        SV **end;
+        svp= AvARRAY(src);
+        end= svp + n;
+        for ( ; svp < end ; svp++) {
+            if ( *svp )
+                srl_dump_sv(aTHX_ enc, *svp);
+            else
+                srl_buf_cat_char(enc, SRL_HDR_UNDEF);
+        }
     }
 }
 
@@ -561,6 +568,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     MAGIC *mg;
     UV weakref_ofs= 0;              /* preserved between loops */
     char *ref_rewrite_pos= NULL;    /* preserved between loops */
+    assert(src);
 
 redo_dump:
     svt = SvTYPE(src);
