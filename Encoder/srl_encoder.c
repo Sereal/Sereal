@@ -556,36 +556,19 @@ srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_ut
 static void
 srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
 {
+    UV refcount;
+    svtype svt;
+    MAGIC *mg;
     UV weakref_ofs= 0;              /* preserved between loops */
     char *ref_rewrite_pos= NULL;    /* preserved between loops */
-    UV refcount;
-    U8 is_weak_referent;
-    svtype svt;
-    MAGIC *mg= NULL;
 
 redo_dump:
     svt = SvTYPE(src);
     refcount = SvREFCNT(src);
 
-    if (expect_false( SvMAGICAL(src) ) ) {
+    if ( SvMAGICAL(src) ) {
         SvGETMAGIC(src);
-        if ( mg = mg_find(src, PERL_MAGIC_backref) ) {
-            is_weak_referent = 1;
-            SV **svp = (SV**)mg->mg_obj;
-            if (svp && *svp) {
-                (refcount) += SvTYPE(*svp) == SVt_PVAV
-                          ? av_len((AV*)*svp)+1
-                          : 1;
-            }
-        }
-    }
-
-    /* check if we have seen this scalar before, and track it so
-     * if we see it again we recognize it */
-    if ( expect_false(refcount > 1) ) {
-        PTABLE_t *ref_seenhash= SRL_GET_REF_SEENHASH(enc);
-        const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(ref_seenhash, src);
-        if ( expect_false( is_weak_referent ) ) {
+        if ( ( mg = mg_find(src, PERL_MAGIC_backref) ) ) {
             PTABLE_t *weak_seenhash= SRL_GET_WEAK_SEENHASH(enc);
             PTABLE_ENTRY_t *pe= PTABLE_find(weak_seenhash, src);
             if (!pe) {
@@ -599,7 +582,16 @@ redo_dump:
                 if (pe->value)
                     pe->value= (void *)weakref_ofs;
             }
+            refcount++;
+            weakref_ofs= 0;
         }
+    }
+
+    /* check if we have seen this scalar before, and track it so
+     * if we see it again we recognize it */
+    if ( expect_false( refcount > 1 ) ) {
+        PTABLE_t *ref_seenhash= SRL_GET_REF_SEENHASH(enc);
+        const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(ref_seenhash, src);
         if (expect_false(oldoffset)) {
             if (ref_rewrite_pos) {
                 if (DEBUGHACK) warn("ref to %p as %lu", src, oldoffset);
@@ -612,10 +604,9 @@ redo_dump:
             SRL_SET_FBIT(*(enc->buf_start + oldoffset));
             return;
         }
+        ref_rewrite_pos= NULL;
         if (DEBUGHACK) warn("storing %p as %lu", src, BUF_POS_OFS(enc));
         PTABLE_store(ref_seenhash, src, (void *)BUF_POS_OFS(enc));
-        weakref_ofs= 0;
-        ref_rewrite_pos= 0;
     }
     assert(weakref_ofs == 0);
     assert(is_ref == 0);
