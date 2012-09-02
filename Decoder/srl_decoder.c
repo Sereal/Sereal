@@ -559,8 +559,6 @@ srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into)
     AV *av= NULL;
     STRLEN storepos= 0;
     UV ofs= 0;
-    /* first deparse the thing we are going to bless */
-    srl_read_single_value(aTHX_ dec, into);
     /* now find the class name - first check if this is a copy op
      * this is bit tricky, as we could have a copy of a raw string
      * we could also have a copy of a previously mentioned class
@@ -628,6 +626,9 @@ srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into)
     if (expect_false( !stash ))
         ERROR("Bad bless: no stash");
 
+    /* now deparse the thing we are going to bless */
+    srl_read_single_value(aTHX_ dec, into);
+
     /* we now have a stash and a value, so we can bless... except that
      * we dont actually want to do so right now. We want to defer blessing
      * until the full packet has been read. Yes it is more overhead, but
@@ -640,6 +641,7 @@ srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into)
         sv_2mortal((SV*)av);
         PTABLE_store(dec->ref_bless_av, (void *)storepos, (void *)av);
     }
+
 
     SvREFCNT_inc(into);
     av_push(av, into);
