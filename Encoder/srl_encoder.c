@@ -391,6 +391,76 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
     PTABLE_iter_free(it);
 }
 
+#ifndef MAX_CHARSET_NAME_LENGTH
+#define MAX_CHARSET_NAME_LENGTH 2
+#endif
+
+#ifdef SvRX
+#define MODERN_REGEXP
+#endif
+
+static inline void
+srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
+{
+    STRLEN left = 0;
+    const char *fptr;
+    char ch;
+    U16 match_flags;
+#ifdef MODERN_REGEXP
+    REGEXP *re= SvRX(sv);
+#else
+#define INT_PAT_MODS "msix"
+#define RXf_PMf_STD_PMMOD_SHIFT 12
+#define RX_PRECOMP(re) ((re)->precomp)
+#define RX_PRELEN(re) ((re)->prelen)
+#define RX_UTF8(re) ((re)->reganch & ROPT_UTF8)
+#define RX_EXTFLAGS(re) ((re)->reganch)
+#define RXf_PMf_COMPILETIME  PMf_COMPILETIME
+    regexp *re = (regexp *)(((MAGIC*)sv)->mg_obj);
+#endif
+    char reflags[sizeof(INT_PAT_MODS) + MAX_CHARSET_NAME_LENGTH];
+
+    /*
+       we are in list context so stringify
+       the modifiers that apply. We ignore "negative
+       modifiers" in this scenario, and the default character set
+    */
+
+#ifdef REGEXP_DEPENDS_CHARSET
+    if (get_regex_charset(RX_EXTFLAGS(re)) != REGEX_DEPENDS_CHARSET) {
+        STRLEN len;
+        const char* const name = get_regex_charset_name(RX_EXTFLAGS(re),
+                                                        &len);
+        Copy(name, reflags + left, len, char);
+        left += len;
+    }
+#endif
+    fptr = INT_PAT_MODS;
+    match_flags = (U16)((RX_EXTFLAGS(re) & RXf_PMf_COMPILETIME)
+                            >> RXf_PMf_STD_PMMOD_SHIFT);
+
+    while((ch = *fptr++)) {
+        if(match_flags & 1) {
+            reflags[left++] = ch;
+        }
+        match_flags >>= 1;
+    }
+
+    srl_buf_cat_char(enc, SRL_HDR_REGEXP);
+    srl_dump_pv(aTHX_ enc, RX_PRECOMP(re),RX_PRELEN(re), (RX_UTF8(re) ? SVf_UTF8 : 0));
+    srl_dump_pv(aTHX_ enc, reflags, left, 0);
+    return;
+}
+
+#define TRACK_REFCOUNT(enc, src, refcount)                      \
+STMT_START {                                                    \
+    if (refcount>1) {                                           \
+        const ptrdiff_t newoffset = enc->pos - enc->buf_start;  \
+        PTABLE_t *ref_seenhash = SRL_GET_REF_SEENHASH(enc);     \
+        PTABLE_store(ref_seenhash, src, (void *)newoffset);     \
+    }                                                           \
+} STMT_END
+
 /* Dumps generic SVs and delegates
  * to more specialized functions for RVs, etc. */
 static void
@@ -481,76 +551,6 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     }
     /* TODO what else do we need to support in this main if/else? */
 }
-#ifndef MAX_CHARSET_NAME_LENGTH
-#define MAX_CHARSET_NAME_LENGTH 2
-#endif
-
-#ifdef SvRX
-#define MODERN_REGEXP
-#endif
-
-static inline void
-srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
-{
-    STRLEN left = 0;
-    const char *fptr;
-    char ch;
-    U16 match_flags;
-#ifdef MODERN_REGEXP
-    REGEXP *re= SvRX(sv);
-#else
-#define INT_PAT_MODS "msix"
-#define RXf_PMf_STD_PMMOD_SHIFT 12
-#define RX_PRECOMP(re) ((re)->precomp)
-#define RX_PRELEN(re) ((re)->prelen)
-#define RX_UTF8(re) ((re)->reganch & ROPT_UTF8)
-#define RX_EXTFLAGS(re) ((re)->reganch)
-#define RXf_PMf_COMPILETIME  PMf_COMPILETIME
-    regexp *re = (regexp *)(((MAGIC*)sv)->mg_obj);
-#endif
-    char reflags[sizeof(INT_PAT_MODS) + MAX_CHARSET_NAME_LENGTH];
-
-    /*
-       we are in list context so stringify
-       the modifiers that apply. We ignore "negative
-       modifiers" in this scenario, and the default character set
-    */
-
-#ifdef REGEXP_DEPENDS_CHARSET
-    if (get_regex_charset(RX_EXTFLAGS(re)) != REGEX_DEPENDS_CHARSET) {
-        STRLEN len;
-        const char* const name = get_regex_charset_name(RX_EXTFLAGS(re),
-                                                        &len);
-        Copy(name, reflags + left, len, char);
-        left += len;
-    }
-#endif
-    fptr = INT_PAT_MODS;
-    match_flags = (U16)((RX_EXTFLAGS(re) & RXf_PMf_COMPILETIME)
-                            >> RXf_PMf_STD_PMMOD_SHIFT);
-
-    while((ch = *fptr++)) {
-        if(match_flags & 1) {
-            reflags[left++] = ch;
-        }
-        match_flags >>= 1;
-    }
-
-    srl_buf_cat_char(enc, SRL_HDR_REGEXP);
-    srl_dump_pv(aTHX_ enc, RX_PRECOMP(re),RX_PRELEN(re), (RX_UTF8(re) ? SVf_UTF8 : 0));
-    srl_dump_pv(aTHX_ enc, reflags, left, 0);
-    return;
-}
-
-#define TRACK_REFCOUNT(enc, src, refcount)                      \
-STMT_START {                                                    \
-    if (refcount>1) {                                           \
-        const ptrdiff_t newoffset = enc->pos - enc->buf_start;  \
-        PTABLE_t *ref_seenhash = SRL_GET_REF_SEENHASH(enc);     \
-        PTABLE_store(ref_seenhash, src, (void *)newoffset);     \
-    }                                                           \
-} STMT_END
-
 
 /* Dump references, delegates to more specialized functions for
  * arrays, hashes, etc. */
