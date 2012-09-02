@@ -99,36 +99,7 @@ static SRL_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
                                     ? srl_init_weak_hash(enc)       \
                                    : (enc)->weak_seenhash )
 
-#define PULL_WEAK_REFCOUNT_IS_WEAK(refcnt, is_weak, sv)     \
-    STMT_START {                                            \
-        MAGIC *mg = NULL;                                   \
-        if( SvMAGICAL(sv)                                   \
-            && (mg = mg_find(sv, PERL_MAGIC_backref) ) )    \
-        {                                                   \
-            is_weak = 1;                                    \
-            SV **svp = (SV**)mg->mg_obj;                    \
-            if (svp && *svp) {                              \
-                (refcnt) += SvTYPE(*svp) == SVt_PVAV        \
-                          ? av_len((AV*)*svp)+1             \
-                          : 1;                              \
-                }                                           \
-        }                                                   \
-    } STMT_END
 
-#define PULL_WEAK_REFCOUNT(refcnt, sv)                      \
-    STMT_START {                                            \
-        MAGIC *mg = NULL;                                   \
-        if( SvMAGICAL(sv)                                   \
-            && (mg = mg_find(sv, PERL_MAGIC_backref) ) )    \
-        {                                                   \
-            SV **svp = (SV**)mg->mg_obj;                    \
-            if (svp && *svp) {                              \
-                (refcnt) += SvTYPE(*svp) == SVt_PVAV        \
-                          ? av_len((AV*)*svp)+1             \
-                          : 1;                              \
-                }                                           \
-        }                                                   \
-    } STMT_END
 
 /* This is fired when we exit the Perl pseudo-block.
  * It frees our encoder and all. Put encoder-level cleanup
@@ -575,37 +546,46 @@ srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_ut
 
 /* Dumps generic SVs and delegates
  * to more specialized functions for RVs, etc. */
+/* TODO decide when to use the IV, when to use the PV, and when
+ *      to use the NV slots of the SV.
+ *      Safest simple solution seems "prefer string" (fuck dualvars).
+ *      Potentially better but slower: If we would choose the string,
+ *      then try int-to-string (respective float-to-string) conversion
+ *      and strcmp. If same, then use int or float.
+ */
 static void
 srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
 {
-    UV weakref_ofs= 0; /* preserved between loops */
-    char *ref_rewrite_pos= NULL; /* preserved between loops */
+    UV weakref_ofs= 0;              /* preserved between loops */
+    char *ref_rewrite_pos= NULL;    /* preserved between loops */
     UV refcount;
     U8 is_weak_referent;
     svtype svt;
+    MAGIC *mg= NULL;
 
 redo_dump:
     svt = SvTYPE(src);
-    refcount= is_weak_referent= 0;
-
-    SvGETMAGIC(src);
-
-    /* TODO decide when to use the IV, when to use the PV, and when
-     *      to use the NV slots of the SV.
-     *      Safest simple solution seems "prefer string" (fuck dualvars).
-     *      Potentially better but slower: If we would choose the string,
-     *      then try int-to-string (respective float-to-string) conversion
-     *      and strcmp. If same, then use int or float.
-     */
     refcount = SvREFCNT(src);
-    PULL_WEAK_REFCOUNT_IS_WEAK(refcount, is_weak_referent, src);
+
+    if (expect_false( SvMAGICAL(src) ) ) {
+        SvGETMAGIC(src);
+        if ( mg = mg_find(src, PERL_MAGIC_backref) ) {
+            is_weak_referent = 1;
+            SV **svp = (SV**)mg->mg_obj;
+            if (svp && *svp) {
+                (refcount) += SvTYPE(*svp) == SVt_PVAV
+                          ? av_len((AV*)*svp)+1
+                          : 1;
+            }
+        }
+    }
 
     /* check if we have seen this scalar before, and track it so
      * if we see it again we recognize it */
-    if ( refcount > 1 ) {
+    if ( expect_false(refcount > 1) ) {
         PTABLE_t *ref_seenhash= SRL_GET_REF_SEENHASH(enc);
         const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(ref_seenhash, src);
-        if (is_weak_referent) {
+        if ( expect_false( is_weak_referent ) ) {
             PTABLE_t *weak_seenhash= SRL_GET_WEAK_SEENHASH(enc);
             PTABLE_ENTRY_t *pe= PTABLE_find(weak_seenhash, src);
             if (!pe) {
@@ -620,7 +600,7 @@ redo_dump:
                     pe->value= (void *)weakref_ofs;
             }
         }
-        if (oldoffset) {
+        if (expect_false(oldoffset)) {
             if (ref_rewrite_pos) {
                 if (DEBUGHACK) warn("ref to %p as %lu", src, oldoffset);
                 enc->pos= ref_rewrite_pos;
@@ -640,91 +620,76 @@ redo_dump:
     assert(weakref_ofs == 0);
     assert(is_ref == 0);
 
-    switch (svt) {
-        case SVt_PVMG:
+    if (SvPOKp(src)) {
 #ifndef MODERN_REGEXP
-        {
-            MAGIC *mg;
-            if ( ((SvFLAGS(src) &
-                   (SVs_OBJECT|SVf_OK|SVs_GMG|SVs_SMG|SVs_RMG))
-                  == (SVs_OBJECT|BFD_Svs_SMG_OR_RMG))
-                 && (mg = mg_find(src, PERL_MAGIC_qr)))
-            {
+        if (expect_false(
+            svt == SVt_PVMG &&
+            ((SvFLAGS(src) & (SVs_OBJECT|SVf_OK|SVs_GMG|SVs_SMG|SVs_RMG)) == (SVs_OBJECT|BFD_Svs_SMG_OR_RMG)) &&
+            (mg = mg_find(src, PERL_MAGIC_qr))
+        ) ) {
                 /* Housten, we have a regex! */
-                TRACK_REFCOUNT(enc, src, refcount);
-                srl_dump_regexp(aTHX_ enc, (SV*)mg); /* yes the SV* cast makes me feel dirty too */
-                break;
-
-            }
+            srl_dump_regexp(aTHX_ enc, (SV*)mg); /* yes the SV* cast makes me feel dirty too */
         }
-        /* fallthrough */
-        case SVt_RV:
-#endif
-        case SVt_IV:
-        case SVt_NULL:
-        case SVt_NV:
-        case SVt_PV:
-        case SVt_PVIV:
-        case SVt_PVNV:
-        case SVt_PVLV:
-            if (SvPOKp(src)) {
-                STRLEN len;
-                char *str = SvPV(src, len);
-                srl_dump_pv(aTHX_ enc, str, len, SvUTF8(src));
-            }
-            /* dump floats */
-            else if (SvNOKp(src))
-                srl_dump_nv(aTHX_ enc, src);
-            /* dump ints */
-            else if (SvIOKp(src))
-                srl_dump_ivuv(aTHX_ enc, src);
-            /* undef */
-            else if (!SvOK(src))
-                srl_buf_cat_char(enc, SRL_HDR_UNDEF);
-            /* dump references */
-            else if (SvROK(src)) {
-                SV *referent= SvRV(src);
-                if (SvWEAKREF(src)) {
-                    weakref_ofs= BUF_POS_OFS(enc);
-                    srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
-                }
-                ref_rewrite_pos= enc->pos;
-                if (sv_isobject(src)) {
-                    /* Write bless operator with class name */
-                    /* FIXME reuse/ref/... should INCLUDE the bless stuff. */
-                    srl_buf_cat_char(enc, SRL_HDR_BLESS);
-                    srl_dump_classname(aTHX_ enc, referent);
-                }
-                srl_buf_cat_char(enc, SRL_HDR_REFN);
-                src= referent;
-                goto redo_dump;
-            } else {
-                goto error;
-            }
-            break;
-#ifdef MODERN_REGEXP
-        case SVt_REGEXP:
+        else
+#else
+        if (expect_false( svt == SVt_REGEXP ) ) {
             srl_dump_regexp(aTHX_ enc, src);
-            break;
+        }
+        else
 #endif
-        case SVt_PVAV:
-            srl_dump_av(aTHX_ enc, (AV *)src);
-            break;
-        case SVt_PVHV:
-            srl_dump_hv(aTHX_ enc, (HV *)src);
-            break;
-        case SVt_PVCV:
-        case SVt_PVGV:
-        case SVt_PVFM:
-        case SVt_PVIO:
-#if PERL_VERSION >= 10
-        case SVt_BIND:
-#endif
-        default:
-        error:
+        {
+            STRLEN len;
+            char *str = SvPV(src, len);
+            srl_dump_pv(aTHX_ enc, str, len, SvUTF8(src));
+        }
+    }
+    else
+    if (SvNOKp(src)) {
+        /* dump floats */
+        srl_dump_nv(aTHX_ enc, src);
+    }
+    else
+    if (SvIOKp(src)) {
+        /* dump ints */
+        srl_dump_ivuv(aTHX_ enc, src);
+    }
+    else
+    if (SvROK(src)) {
+        /* dump references */
+        SV *referent= SvRV(src);
+        if (SvWEAKREF(src)) {
+            weakref_ofs= BUF_POS_OFS(enc);
+            srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
+        }
+        ref_rewrite_pos= enc->pos;
+        if (sv_isobject(src)) {
+            /* Write bless operator with class name */
+            /* FIXME reuse/ref/... should INCLUDE the bless stuff. */
+            srl_buf_cat_char(enc, SRL_HDR_BLESS);
+            srl_dump_classname(aTHX_ enc, referent);
+        }
+        srl_buf_cat_char(enc, SRL_HDR_REFN);
+        src= referent;
+        goto redo_dump;
+    }
+    else
+    if (svt == SVt_PVHV) {
+        srl_dump_hv(aTHX_ enc, (HV *)src);
+    }
+    else
+    if (svt == SVt_PVAV) {
+        srl_dump_av(aTHX_ enc, (AV *)src);
+    }
+    else
+    if (!SvOK(src)) {
+        /* undef */
+        srl_buf_cat_char(enc, SRL_HDR_UNDEF);
+    }
+    else
+    {
             croak("found type %u %s(0x%p), but it is not representable by the Sereal encoding format", svt, sv_reftype(src,0),src);
     }
-    /* TODO what else do we need to support in this main if/else? */
+
 }
 
 
