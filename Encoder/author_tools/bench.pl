@@ -20,17 +20,19 @@ my (
     $tiny_data,
     $small_data,
     $medium_data,
+    $nobless,
 );
 BEGIN {
     my $sereal_only = 0;
     GetOptions(
-        'duration=i' => \($duration=-3),
+        'duration=f' => \($duration=-3),
         'encoder'   => \$encoder,
         'decoder'   => \$decoder,
         'dump|d'    => \$dump,
         'tiny'      => \$tiny_data,
         'small'     => \$small_data,
         'medium'    => \$medium_data,
+        'no_bless|no-bless|nobless'    => \$nobless,
         'sereal_only|sereal-only|serealonly' => \$sereal_only,
     );
     eval "sub SEREAL_ONLY () { $sereal_only }";
@@ -61,11 +63,11 @@ our ($json_xs, $dd1, $dd2, $ddl, $sereal, $storable, $mp);
 # do this first before any of the other dumpers "contaminate" the iv/pv issue
 $sereal   = $enc->encode($data{sereal});
 if (!SEREAL_ONLY) {
-    $json_xs  = encode_json($data{json_xs});
+    $json_xs  = encode_json($data{json_xs}) if !$medium_data or $nobless;
     $dd1      = Data::Dumper->new([$data{dd1}])->Indent(0)->Dump();
     $dd2      = Dumper($data{dd2});
-    $ddl      = DumpLimited($data{ddl});
-    $mp       = $mpo->pack($data{mp});
+    $ddl      = DumpLimited($data{ddl}) if !$medium_data or $nobless;
+    $mp       = $mpo->pack($data{mp}) if !$medium_data or $nobless;
     $storable = nfreeze($data{storable}); # must be last
 }
 print($sereal), exit if $dump;
@@ -74,12 +76,14 @@ my $sereal_len= bytes::length($sereal);
 require bytes;
 if (!SEREAL_ONLY) {
     for my $tuple (
-        ["JSON::XS",  bytes::length($json_xs)],
-        ["Data::Dumper::Limited", bytes::length($ddl)],
+        (($medium_data && !$nobless) ? () : (
+            ["JSON::XS",  bytes::length($json_xs)],
+            ["Data::Dumper::Limited", bytes::length($ddl)],
+            ["Data::MessagePack", bytes::length($mp)],
+        )),
         ["Data::Dumper (1)", bytes::length($dd1)],
         ["Data::Dumper (2)", bytes::length($dd2)],
-        ["Storable" , bytes::length($storable)],
-        ["Data::MessagePack" ,bytes::length($mp)],
+        ["Storable", bytes::length($storable)],
         ["Sereal::Encoder",  bytes::length($sereal)],
     ) {
         my ($name, $size) = @$tuple;
@@ -94,14 +98,17 @@ if ($encoder) {
         {
             (!SEREAL_ONLY
                 ? (
-                    json_xs => '$::x = decode_json($::json_xs);',
-                    undump_ddl => '$::x = Data::Undump::undump($::ddl);',
-                    eval_ddl => '$::x = eval $::ddl;',
-                    storable => '$::x = thaw($::storable);',
-                    mp => '$::x = $::mpo->unpack($::mp);',
+                    ($medium_data && !$nobless ? () : (
+                        json_xs => '$::x = encode_json($::data{json_xs});',
+                        ddl => '$::x = DumpLimited($::data{ddl});',
+                        mp => '$::x = $::mpo->pack($::data{mp});',
+                    )),
+                    dd1 => '$::x = Data::Dumper->new([$::data{dd1}])->Indent(0)->Dump();',
+                    dd2 => '$::x = Dumper($::data{dd2});',
+                    storable => '$::x = nfreeze($::data{storable});',
                 ) : ()),
-            sereal_func => '$::x = decode_sereal($::sereal, \%::opt);',
-            sereal => '$::x = $::dec->decode($::sereal);',
+            sereal_func => '$::x = encode_sereal($::data{sereal_func}, \%::opt);',
+            sereal => '$::x = $::enc->encode($::data{sereal});',
         }
     );
 }
@@ -112,15 +119,16 @@ if ($decoder) {
         {
             (!SEREAL_ONLY
                 ? (
-                    json_xs => '$::x = encode_json($::data{json_xs});',
-                    ddl => '$::x = DumpLimited($::data{ddl});',
-                    dd1 => '$::x = Data::Dumper->new([$::data{dd1}])->Indent(0)->Dump();',
-                    dd2 => '$::x = Dumper($::data{dd2});',
-                    storable => '$::x = nfreeze($::data{storable});',
-                    mp => '$::x = $::mpo->pack($::data{mp});',
+                    ($medium_data && !$nobless ? () : (
+                        json_xs => '$::x = decode_json($::json_xs);',
+                        undump_ddl => '$::x = Data::Undump::undump($::ddl);',
+                        mp => '$::x = $::mpo->unpack($::mp);',
+                    )),
+                    eval_dd => '$::x = eval $::dd1;',
+                    storable => '$::x = thaw($::storable);',
                 ) : ()),
-            sereal_func => '$::x = encode_sereal($::data{sereal_func}, \%::opt);',
-            sereal => '$::x = $::enc->encode($::data{sereal});',
+            sereal_func => '$::x = decode_sereal($::sereal, \%::opt);',
+            sereal => '$::x = $::dec->decode($::sereal);',
         }
     );
 }
@@ -134,19 +142,23 @@ sub make_data {
     }
     elsif ($medium_data) {
         my @obj = (
-            bless({ foo => 1, bar => [100,101,102], str => "this is a \x{df} string which has to be serialized" } => "Baz"),
-            bless({ foo => 2, bar => [103,103,106,999], str2 => "this is a \x{df} aaaaaastring which has to be serialized" } => "Baz"),
-            bless({ foozle => 3, bar => [100], str3 => "this is a \x{df} string which haaaaadsadas to be serialized" } => "Baz3"),
-            bless({ foozle => 3, bar => [], st4r => "this is a \x{df} string which has to be sdassdaerialized" } => "Baz2"),
-            bless({ foo => 1, bar => [100,101,102], s5tr => "this is a \x{df} string which has to be serialized" } => "Baz"),
-            bless({ foo => 2, bar => [103,103,106,999], str => "this is a \x{df} aaaaaastring which has to be serialized" } => "Baz"),
-            bless({ foozle => 3, bar => [100], str => "this is a \x{df} string which haaaaadsadas to be serialized" } => "Baz3"),
-            bless({ foozle => 3, bar => [], str2 => "this is a \x{df} string which has to be sdassdaerialized" } => "Baz2"),
-            bless({ foo2 => -99999, bar => [100,101,102], str2 => "this is a \x{df} string which has to be serialized" } => "Baz"),
-            bless({ foo2 => 213, bar => [103,103,106,999], str => "this is a \x{df} aaaaaastring which has to be serialized" } => "Baz"),
-            bless({ foozle2 => undef, bar => [100], str => "this is a \x{df} string which haaaaadsadas to be serialized" } => "Baz3"),
-            bless({ foozle2 => undef, bar => [1..20], str => "this is a \x{df} string which has to be sdassdaerialized" } => "Baz2"),
+            { foo => 1, bar => [100,101,102], str => "this is a \x{df} string which has to be serialized" },
+            { foo => 2, bar => [103,103,106,999], str2 => "this is a \x{df} aaaaaastring which has to be serialized" },
+            { foozle => 3, bar => [100], str3 => "this is a \x{df} string which haaaaadsadas to be serialized" },
+            { foozle => 3, bar => [], st4r => "this is a \x{df} string which has to be sdassdaerialized" },
+            { foo => 1, bar => [100,101,102], s5tr => "this is a \x{df} string which has to be serialized" },
+            { foo => 2, bar => [103,103,106,999], str => "this is a \x{df} aaaaaastring which has to be serialized" },
+            { foozle => 3, bar => [100], str => "this is a \x{df} string which haaaaadsadas to be serialized" },
+            { foozle => 3, bar => [], str2 => "this is a \x{df} string which has to be sdassdaerialized" },
+            { foo2 => -99999, bar => [100,101,102], str2 => "this is a \x{df} string which has to be serialized" },
+            { foo2 => 213, bar => [103,103,106,999], str => "this is a \x{df} aaaaaastring which has to be serialized" },
+            { foozle2 => undef, bar => [100], str => "this is a \x{df} string which haaaaadsadas to be serialized" },
+            { foozle2 => undef, bar => [1..20], str => "this is a \x{df} string which has to be sdassdaerialized" },
         );
+        my @classes = qw(Baz Baz Baz3 Baz2 Baz Baz Baz3 Baz2 Baz Baz Baz3 Baz2);
+        if (!$nobless) {
+            bless($obj[$_], $classes[$_]) for 0..$#obj;
+        }
         foreach my $i (1..$#obj) {
             $obj[$i]->{parent} = $obj[$i-1];
         }
