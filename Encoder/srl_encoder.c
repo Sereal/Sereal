@@ -99,6 +99,37 @@ static SRL_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
                                     ? srl_init_weak_hash(enc)       \
                                    : (enc)->weak_seenhash )
 
+#define CALL_SRL_DUMP_SV(enc, src) STMT_START {                         \
+    if (!(src)) {                                                       \
+        srl_buf_cat_char((enc), SRL_HDR_UNDEF);                         \
+    }                                                                   \
+    else                                                                \
+    if (SvTYPE((src)) < SVt_PVMG &&                                     \
+        SvREFCNT((src)) == 1 &&                                         \
+        !SvROK((src))                                                   \
+    ) {                                                                 \
+        if (SvPOKp((src))) {                                            \
+            STRLEN len;                                                 \
+            char *str = SvPV((src), len);                               \
+            srl_dump_pv(aTHX_ (enc), str, len, SvUTF8((src)));          \
+        }                                                               \
+        else                                                            \
+        if (SvNOKp((src))) {                                            \
+            /* dump floats */                                           \
+            srl_dump_nv(aTHX_ (enc), (src));                            \
+        }                                                               \
+        else                                                            \
+        if (SvIOKp((src))) {                                            \
+            /* dump ints */                                             \
+            srl_dump_ivuv(aTHX_ (enc), (src));                          \
+        }                                                               \
+        else {                                                          \
+            srl_dump_sv(aTHX_ (enc), (src));                            \
+        }                                                               \
+    } else {                                                            \
+        srl_dump_sv(aTHX_ (enc), (src));                                \
+    }                                                                   \
+} STMT_END
 
 
 /* This is fired when we exit the Perl pseudo-block.
@@ -443,20 +474,14 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src)
         UV i;
         for (i = 0; i < n; ++i) {
             svp = av_fetch(src, i, 0);
-            if ( svp )
-                srl_dump_sv(aTHX_ enc, *svp);
-            else
-                srl_buf_cat_char(enc, SRL_HDR_UNDEF);
+            CALL_SRL_DUMP_SV(enc, *svp);
         }
     } else {
         SV **end;
         svp= AvARRAY(src);
         end= svp + n;
         for ( ; svp < end ; svp++) {
-            if ( *svp )
-                srl_dump_sv(aTHX_ enc, *svp);
-            else
-                srl_buf_cat_char(enc, SRL_HDR_UNDEF);
+            CALL_SRL_DUMP_SV(enc, *svp);
         }
     }
 }
@@ -476,9 +501,10 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src)
         BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
         srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_HASH, n);
         while ((he = hv_iternext(src))) {
+            SV *v= HeVAL(he);
             /* note we dump the values first, this makes deserializing a little easier
              * given how perls hash api works */
-            srl_dump_sv(aTHX_ enc, hv_iterval(src, he));
+            CALL_SRL_DUMP_SV(enc, v);
             srl_dump_hk(aTHX_ enc, he, do_share_keys);
         }
     } else {
@@ -490,8 +516,9 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src)
             HE **he_end= he_ptr + HvMAX(src) + 1;
             do {
                 for (he= *he_ptr++; he; he= HeNEXT(he) ) {
-                    if (HeVAL(he) != &PL_sv_placeholder) {
-                        srl_dump_sv(aTHX_ enc, HeVAL(he));
+                    SV *v= HeVAL(he);
+                    if (v != &PL_sv_placeholder) {
+                        CALL_SRL_DUMP_SV(enc, v);
                         srl_dump_hk(aTHX_ enc, he, do_share_keys);
                         if (--n == 0) {
                             he_ptr= he_end;
@@ -568,6 +595,8 @@ srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_ut
     Copy(src, enc->pos, src_len, char);
     enc->pos += src_len;
 }
+
+
 
 
 /* Dumps generic SVs and delegates
