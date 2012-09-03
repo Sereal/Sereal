@@ -5,13 +5,13 @@ use Data::Dumper;
 
 use Getopt::Long qw(GetOptions);
 BEGIN {
-    eval {
+    eval '
         use Sereal::Encoder::Constants qw(:all);
         1;
-    } or eval {
+    ' or do { warn $@; eval '
         use Sereal::Decoder::Constants qw(:all);
         1;
-    } or die "No encoder/decoder constants!";
+    ' } or die "No encoder/decoder constants: $@";
 }
 
 GetOptions(
@@ -162,7 +162,7 @@ sub parse_hv {
   while ($len--) {
     my $t = substr($data, 0, 1);
     my $o = ord($t);
-    print( "               ", $ind, ($flipflop++ % 2 == 0 ? "VALUE" : "KEY"), ":\n" );
+    print( "               ", $ind, ($flipflop++ % 2 == 1 ? "VALUE" : "KEY"), ":\n" );
     parse_sv($ind."  ");
   }
 }

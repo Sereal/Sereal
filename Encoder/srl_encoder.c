@@ -502,10 +502,8 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src)
         srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_HASH, n);
         while ((he = hv_iternext(src))) {
             SV *v= HeVAL(he);
-            /* note we dump the values first, this makes deserializing a little easier
-             * given how perls hash api works */
-            CALL_SRL_DUMP_SV(enc, v);
             srl_dump_hk(aTHX_ enc, he, do_share_keys);
+            CALL_SRL_DUMP_SV(enc, v);
         }
     } else {
         UV n= HvUSEDKEYS(src);
@@ -518,8 +516,8 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src)
                 for (he= *he_ptr++; he; he= HeNEXT(he) ) {
                     SV *v= HeVAL(he);
                     if (v != &PL_sv_placeholder) {
-                        CALL_SRL_DUMP_SV(enc, v);
                         srl_dump_hk(aTHX_ enc, he, do_share_keys);
+                        CALL_SRL_DUMP_SV(enc, v);
                         if (--n == 0) {
                             he_ptr= he_end;
                             break;

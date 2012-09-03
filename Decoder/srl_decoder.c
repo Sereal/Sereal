@@ -358,18 +358,34 @@ srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name) {
 static SRL_INLINE void
 srl_read_varint(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    sv_setuv(into, srl_read_varint_uv(aTHX_ dec));
+    UV uv= srl_read_varint_uv(aTHX_ dec);
+    if (uv <= (UV)IV_MAX) {
+        sv_setiv(into, (IV)uv);
+    } else {
+        /* grr, this is ridiculous! */
+        sv_setiv(into, 0);
+        SvIsUV_on(into);
+        SvUV_set(into, uv);
+    }
 }
 
 
 static SRL_INLINE void
 srl_read_zigzag(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    const UV uv= srl_read_varint_uv(aTHX_ dec);
+    UV uv= srl_read_varint_uv(aTHX_ dec);
     if (uv & 1) {
         sv_setiv(into, (IV)( -( 1 + (uv >> 1) ) ) );
     } else {
-        sv_setuv(into, uv >> 1);
+        uv = uv >> 1;
+        if (uv <= (UV)IV_MAX) {
+            sv_setiv(into, (IV)uv);
+        } else {
+            /* grr, this is ridiculous! */
+            sv_setiv(into, 0);
+            SvIsUV_on(into);
+            SvUV_set(into, uv);
+        }
     }
 }
 
@@ -422,18 +438,21 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into) {
 
     (void)SvUPGRADE(into, SVt_PVAV);
 
-    av_extend((AV*)into, len+1);
-    while ( len-- > 0) {
-        U8 tag= *dec->pos;
-        if (expect_false( tag == SRL_HDR_LIST )) {
-            ERROR_UNIMPLEMENTED(dec, tag, "LIST");
-        } else if ( expect_false( tag == SRL_HDR_ALIAS ) ) {
-            dec->pos++;
-            av_push((AV*)into, srl_read_alias(aTHX_ dec));
-        } else {
-            SV *elem= newSV_type(SVt_NULL);
-            av_push((AV*)into, elem);
-            srl_read_single_value(aTHX_ dec, elem);
+    if (len) {
+        SV **av_array;
+        SV **av_end;
+
+        /* we cheat and store undef in the array - we will overwrite it later */
+        av_store((AV*)into, len-1, &PL_sv_undef);
+        for ( av_array= AvARRAY((AV*)into), av_end= av_array + len ; av_array < av_end ; av_array++) {
+            U8 tag= *dec->pos;
+            if ( expect_false( tag == SRL_HDR_ALIAS ) ) {
+                dec->pos++;
+                *av_array= srl_read_alias(aTHX_ dec);
+            } else {
+                *av_array= newSV_type(SVt_NULL);
+                srl_read_single_value(aTHX_ dec, *av_array);
+            }
         }
     }
 }
@@ -451,59 +470,50 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
     /* NOTE: contents of hash are stored VALUE/KEY, reverse from normal perl
      * storage, this is because it simplifies the hash storage logic somewhat */
     for (; num_keys > 0 ; num_keys--) {
+        U32 flags= 0;
+        HE *he;
         STRLEN key_len;
-        SV *key_sv;
-        SV *got_sv;
-        U8 tag= *dec->pos;
-
-        if ( expect_false( tag == SRL_HDR_ALIAS ) ) {
-            dec->pos++;
-            got_sv= srl_read_alias(aTHX_ dec);
-        } else {
-            got_sv= newSV_type(SVt_NULL);
-            srl_read_single_value(aTHX_ dec, got_sv);
-        }
+        U8 tag;
 
       read_key:
         ASSERT_BUF_SPACE(dec,1," while reading key tag");
         tag= *dec->pos++;
-        if (tag == SRL_HDR_STRING_UTF8) {
+        if (tag & SRL_HDR_ASCII) {
+            key_len= tag & SRL_HDR_ASCII_LEN_MASK;
+        } else if (tag == SRL_HDR_STRING) {
             key_len= srl_read_varint_uv(aTHX_ dec);
-            ASSERT_BUF_SPACE(dec,key_len," while reading utf8 key");
-            key_sv= newSVpvn_flags((char*)dec->pos,key_len,1);
-            if (expect_false( !hv_store_ent((HV *)into,key_sv,got_sv,0))) {
-                SvREFCNT_dec(key_sv); /* throw away the key */
-                ERROR_PANIC(dec,"failed to hv_store_ent");
+        } else if (tag == SRL_HDR_STRING_UTF8) {
+            flags= HVhek_UTF8;
+            key_len= srl_read_varint_uv(aTHX_ dec);
+        } else if (tag == SRL_HDR_COPY) {
+            UV ofs= srl_read_varint_uv(aTHX_ dec);
+            if (expect_false( dec->save_pos )) {
+                ERROR_BAD_COPY(dec, SRL_HDR_HASH);
             } else {
-                SvREFCNT_dec(key_sv);
+                dec->save_pos= dec->pos;
+                dec->pos= dec->buf_start + ofs;
+                goto read_key;
             }
         } else {
-            if (tag & SRL_HDR_ASCII) {
-                key_len= tag & SRL_HDR_ASCII_LEN_MASK;
-            } else if (tag == SRL_HDR_STRING) {
-                key_len= srl_read_varint_uv(aTHX_ dec);
-            } else if (tag == SRL_HDR_COPY) {
-                UV ofs= srl_read_varint_uv(aTHX_ dec);
-                if (expect_false( dec->save_pos )) {
-                    ERROR_BAD_COPY(dec, SRL_HDR_HASH);
-                } else {
-                    dec->save_pos= dec->pos;
-                    dec->pos= dec->buf_start + ofs;
-                    goto read_key;
-                }
-            } else {
-                ERROR_UNEXPECTED(dec,tag,"a stringish type");
-            }
-            ASSERT_BUF_SPACE(dec,key_len, " while reading key");
-            if (expect_false( !hv_store((HV*)into,(char *)dec->pos,key_len,got_sv,0) )) {
-                ERROR_PANIC(dec,"failed to hv_store");
-            }
+            ERROR_UNEXPECTED(dec,tag,"a stringish type");
+        }
+        ASSERT_BUF_SPACE(dec,key_len, " while reading key");
+        he= hv_common((HV *)into, NULL, (char *)dec->pos, key_len, flags, HV_FETCH_LVALUE, NULL, 0);
+        if (!he) {
+            ERROR_PANIC(dec,"failed to hv_store");
         }
         if (dec->save_pos) {
             dec->pos= dec->save_pos;
             dec->save_pos= NULL;
         } else {
             dec->pos += key_len;
+        }
+        if ( expect_false( tag == SRL_HDR_ALIAS ) ) {
+            dec->pos++;
+            SvREFCNT_dec(HeVAL(he));
+            HeVAL(he)= srl_read_alias(aTHX_ dec);
+        } else {
+            srl_read_single_value(aTHX_ dec, HeVAL(he));
         }
     }
 }
@@ -837,7 +847,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
     dec->pos++;
 
     if ( tag <= SRL_HDR_POS_HIGH ) {
-        sv_setuv(into, tag);
+        sv_setiv(into, tag); /* it will fit in an iv and they are faster */
     } else if ( tag <= SRL_HDR_NEG_LOW) {
         sv_setiv(into, -tag + 15);
     } else if ( tag & SRL_HDR_ASCII ) {

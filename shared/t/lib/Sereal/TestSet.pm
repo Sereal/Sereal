@@ -145,8 +145,8 @@ our @BasicTests = (
   [{}, chr(SRL_HDR_REFN).chr(SRL_HDR_HASH).varint(0), "empty hash ref"],
   [{foo => "baaaaar"},
        chr(SRL_HDR_REFN).chr(SRL_HDR_HASH).varint(1)
-      .chr(0b0100_0111)."baaaaar"
       .chr(0b0100_0011)."foo"
+      .chr(0b0100_0111)."baaaaar"
       , "simple hash ref"],
   [$scalar_ref_for_repeating, chr(SRL_HDR_REFN).chr(0b0000_1001), "scalar ref to constant"],
   [[$scalar_ref_for_repeating, $scalar_ref_for_repeating],
@@ -356,14 +356,26 @@ our @BasicTests = (
       my $opt = shift;
       if ($opt->{no_shared_hashkeys}) {
         return array(
-          hash(integer(1), short_string("foo")),
-          hash(integer(2), short_string("foo")),
+          hash(
+              short_string("foo"),
+              integer(1),
+          ),
+          hash(
+              short_string("foo"),
+              integer(2),
+          ),
         );
       }
       else {
         return array(
-          hash(integer(1), short_string("foo")),
-          hash(integer(2), chr(SRL_HDR_COPY).varint(12)),
+          hash(
+              short_string("foo"),
+              integer(1),
+          ),
+          hash(
+              chr(SRL_HDR_COPY).varint(11),
+              integer(2),
+          ),
         );
       }
     },
