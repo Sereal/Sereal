@@ -27,3 +27,4 @@ srl_common.h
 MANIFEST
 Sereal-Decoder-*.tar.gz
 callgrind.out.*
+author_tools
