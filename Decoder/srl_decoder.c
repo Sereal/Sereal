@@ -48,6 +48,9 @@ extern "C" {
 #include "srl_protocol.h"
 
 /* predeclare all our subs so we have one definitive authority for their signatures */
+static SRL_INLINE UV srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE UV srl_read_varint_uv_nocheck(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE UV srl_read_varint_uv_from_nocheck(pTHX_ U8 *from);
 static SRL_INLINE UV srl_read_varint_uv(pTHX_ srl_decoder_t *dec);
 static SRL_INLINE SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name);
 
@@ -310,6 +313,22 @@ srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec)
     } else {
         ERROR("varint terminated prematurely");
     }
+    return uv;
+}
+
+static SRL_INLINE UV
+srl_read_varint_uv_from_nocheck(pTHX_ U8 *from)
+{
+    UV uv= 0;
+    unsigned int lshift= 0;
+
+    while (*from & 0x80) {
+        uv |= ((UV)(*from++ & 0x7F) << lshift);
+        lshift += 7;
+        if (expect_false( lshift > (sizeof(UV) * 8) ))
+            ERROR("varint too big");
+    }
+    uv |= ((UV)(*from) << lshift);
     return uv;
 }
 
