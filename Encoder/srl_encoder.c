@@ -466,23 +466,42 @@ static SRL_INLINE void
 srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src)
 {
     HE *he;
-    UV n = hv_iterinit(src);
     const int do_share_keys = HvSHAREKEYS((SV *)src);
 
     /* heuristic: n = ~min size of n values;
      *            + 2*n = very conservative min size of n hashkeys if all COPY */
-    BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
-    srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_HASH, n);
 
-    if (n > 0 || SvMAGICAL(src)) {
+    if ( SvMAGICAL(src) ) {
+        UV n= hv_iterinit(src);
+        BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
+        srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_HASH, n);
         while ((he = hv_iternext(src))) {
             /* note we dump the values first, this makes deserializing a little easier
              * given how perls hash api works */
-            srl_dump_sv(aTHX_ enc, SvMAGICAL(src) ? hv_iterval(src, he) : HeVAL(he));
+            srl_dump_sv(aTHX_ enc, hv_iterval(src, he));
             srl_dump_hk(aTHX_ enc, he, do_share_keys);
         }
+    } else {
+        UV n= HvUSEDKEYS(src);
+        BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
+        srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_HASH, n);
+        if (n) {
+            HE **he_ptr= HvARRAY(src);
+            HE **he_end= he_ptr + HvMAX(src) + 1;
+            do {
+                for (he= *he_ptr++; he; he= HeNEXT(he) ) {
+                    if (HeVAL(he) != &PL_sv_placeholder) {
+                        srl_dump_sv(aTHX_ enc, HeVAL(he));
+                        srl_dump_hk(aTHX_ enc, he, do_share_keys);
+                        if (--n == 0) {
+                            he_ptr= he_end;
+                            break;
+                        }
+                    }
+                }
+            } while ( he_ptr < he_end );
+        }
     }
-
 }
 
 
