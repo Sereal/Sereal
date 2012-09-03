@@ -24,3 +24,6 @@ et
 t/lib/Sereal/TestSet.pm
 typemap
 srl_common.h
+MANIFEST
+Sereal-Decoder-*.tar.gz
+callgrind.out.*
