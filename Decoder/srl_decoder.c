@@ -267,13 +267,24 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
                 ERROR("missing stash or ref_bless_av!");
             }
             for( len= av_len(ref_bless_av) + 1 ; len > 0 ; len-- ) {
-                SV* obj= av_pop(ref_bless_av);
-                SvREFCNT_dec(obj); /* is this really necessary? */
-                if (expect_true( obj )) {
-                    sv_bless(obj, stash);
+                SV* obj= av_pop(ref_bless_av); /*note that av_pop does NOT refcnt dec the sv*/
+                if (SvREFCNT(obj)>1) {
+                    /* It is possible that someone handcrafts a hash with a key collision,
+                     * which could trick us into effectively blessing an object and then
+                     * calling DESTROY on it. So we track the refcount of the objects
+                     * popped off the ref_bless_av, and only bless if their refcount *before*
+                     * we refcount dec is higher than 1. If it is 1 then we just destroy the 
+                     * object.
+                     * */
+                    if (expect_true( obj )) {
+                        sv_bless(obj, stash);
+                    } else {
+                        ERROR("object missing from ref_bless_av array?");
+                    }
                 } else {
-                    ERROR("object missing from ref_bless_av array?");
+                    warn("serialization contains a duplicated key, ignoring");
                 }
+                SvREFCNT_dec(obj);
             }
         }
         PTABLE_iter_free(it);
