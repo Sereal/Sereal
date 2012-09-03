@@ -77,15 +77,15 @@ sub dump_bless {
     : (
       (length($_[1]) >= 2**6)
       ? chr(SRL_HDR_STRING).varint(length($_[1])).$_[1]
-      : chr(length($_[1]) + 0x40).$_[1]
+      : chr(length($_[1]) + SRL_HDR_ASCII).$_[1]
     )
   )
   . $_[0]
 }
 
 sub short_string {
-  die if length($_[0]) > 2**6-1;
-  return chr(0b0100_0000 + length($_[0])).$_[0];
+  die if length($_[0]) > SRL_HDR_ASCII_LEN_MASK;
+  return chr(SRL_HDR_ASCII + length($_[0])) . $_[0];
 }
 
 sub integer {
@@ -145,8 +145,8 @@ our @BasicTests = (
   [{}, chr(SRL_HDR_REFN).chr(SRL_HDR_HASH).varint(0), "empty hash ref"],
   [{foo => "baaaaar"},
        chr(SRL_HDR_REFN).chr(SRL_HDR_HASH).varint(1)
-      .chr(0b0100_0011)."foo"
-      .chr(0b0100_0111)."baaaaar"
+      .short_string("foo")
+      .short_string("baaaaar")
       , "simple hash ref"],
   [$scalar_ref_for_repeating, chr(SRL_HDR_REFN).chr(0b0000_1001), "scalar ref to constant"],
   [[$scalar_ref_for_repeating, $scalar_ref_for_repeating],
@@ -256,11 +256,11 @@ our @BasicTests = (
         chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY),
         varint(2),
         chr(SRL_HDR_BLESS),
-        chr(0b0100_0011)."bar",
+        short_string("bar"),
         chr(SRL_HDR_REFN),
         chr(SRL_HDR_REGEXP + FBIT),
-        chr(0b0100_0011)."foo",
-        chr(0b0100_0010)."ix",
+        short_string("foo"),
+        short_string("ix"),
         chr(SRL_HDR_REFP),
         varint(14),
     ),
@@ -272,7 +272,7 @@ our @BasicTests = (
         chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY),
             varint(4),
             chr(SRL_HDR_BLESS),
-                chr(0b0100_0011)."foo",
+                short_string("foo"),
                 chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + FBIT),varint(0),
             chr(SRL_HDR_BLESS),
                 chr(SRL_HDR_COPY),varint(9),
@@ -288,7 +288,7 @@ our @BasicTests = (
       my $content = chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY) . varint(2)
                     .chr(SRL_HDR_BLESS);
       my $pos = length($Header) + length($content);
-      $content .= chr(3 + 0x40)."foo"
+      $content .= short_string("foo")
                   . array()
                   . dump_bless( array(), \$pos )
       ;
@@ -301,8 +301,7 @@ our @BasicTests = (
     do {
       my $content = chr(SRL_HDR_BLESS);
       my $pos = length($Header) + length($content);
-      $content .= chr(0b0100_0011)
-                  ."foo"
+      $content .= short_string("foo")
                   . chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY) . varint(1)
                     . chr(SRL_HDR_BLESS)
                     . chr(SRL_HDR_COPY) . varint($pos)
@@ -318,9 +317,8 @@ our @BasicTests = (
 
       chr(SRL_HDR_REFN)
       .chr(SRL_HDR_REGEXP)
-      .chr(0b0100_0011)
-      ."foo"
-      .chr(0b0100_0000),
+      .short_string("foo")
+      .short_string(""),
       "Regexp"
     ),
     "qr/foo/"
@@ -330,9 +328,8 @@ our @BasicTests = (
     dump_bless(
       chr(SRL_HDR_REFN)
       .chr(SRL_HDR_REGEXP)
-      .chr(0b0100_1100)
-      ."(?i-xsm:foo)"
-      .chr(0b0100_0000),
+      .short_string("(?i-xsm:foo)")
+      .short_string(""),
       "Regexp"
     ),
     "qr/(?i-xsm:foo)/"
@@ -342,10 +339,8 @@ our @BasicTests = (
     dump_bless(
       chr(SRL_HDR_REFN)
       .chr(SRL_HDR_REGEXP)
-      .chr(0b0100_0011)
-      ."foo"
-      .chr(0b0100_0001)
-      ."i",
+      .short_string("foo")
+      .short_string("i"),
       "Regexp"
     ),
     "qr/foo/i"
