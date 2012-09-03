@@ -411,8 +411,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into) {
 
     SvUPGRADE(into, SVt_PVAV);
 
-    if (expect_false( len > 8 ))
-        av_extend((AV*)into, len+1);
+    av_extend((AV*)into, len+1);
     while ( len-- > 0) {
         U8 tag= *dec->pos;
         if (expect_false( tag == SRL_HDR_LIST )) {
