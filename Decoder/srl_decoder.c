@@ -409,7 +409,7 @@ static SRL_INLINE void
 srl_read_array(pTHX_ srl_decoder_t *dec, SV *into) {
     UV len= srl_read_varint_uv(aTHX_ dec);
 
-    SvUPGRADE(into, SVt_PVAV);
+    (void)SvUPGRADE(into, SVt_PVAV);
 
     av_extend((AV*)into, len+1);
     while ( len-- > 0) {
@@ -432,7 +432,7 @@ static SRL_INLINE void
 srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
     IV num_keys= srl_read_varint_uv(aTHX_ dec);
 
-    SvUPGRADE(into, SVt_PVHV);
+    (void)SvUPGRADE(into, SVt_PVHV);
 
     hv_ksplit((HV *)into, num_keys); /* make sure we have enough room */
     /* NOTE: contents of hash are stored VALUE/KEY, reverse from normal perl
