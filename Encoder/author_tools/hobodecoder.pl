@@ -4,8 +4,15 @@ use warnings;
 use Data::Dumper;
 
 use Getopt::Long qw(GetOptions);
-use Sereal::Encoder;
-use Sereal::Encoder::Constants qw(:all);
+BEGIN {
+    eval {
+        use Sereal::Encoder::Constants qw(:all);
+        1;
+    } or eval {
+        use Sereal::Decoder::Constants qw(:all);
+        1;
+    } or die "No encoder/decoder constants!";
+}
 
 GetOptions(
   my $opt = {},

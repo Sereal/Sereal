@@ -7,6 +7,8 @@ use XSLoader;
 
 our $VERSION = '0.01';
 use Exporter 'import';
+our @EXPORT;
+BEGIN { push @EXPORT,"encode_sereal" if $0=~/-e/}
 our @EXPORT_OK = qw(encode_sereal);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 

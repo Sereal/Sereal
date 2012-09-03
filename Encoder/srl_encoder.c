@@ -668,17 +668,7 @@ redo_dump:
     assert(is_ref == 0);
 
     if (SvPOKp(src)) {
-#ifndef MODERN_REGEXP
-        if (expect_false(
-            svt == SVt_PVMG &&
-            ((SvFLAGS(src) & (SVs_OBJECT|SVf_OK|SVs_GMG|SVs_SMG|SVs_RMG)) == (SVs_OBJECT|BFD_Svs_SMG_OR_RMG)) &&
-            (mg = mg_find(src, PERL_MAGIC_qr))
-        ) ) {
-                /* Housten, we have a regex! */
-            srl_dump_regexp(aTHX_ enc, (SV*)mg); /* yes the SV* cast makes me feel dirty too */
-        }
-        else
-#else
+#ifdef MODERN_REGEXP
         if (expect_false( svt == SVt_REGEXP ) ) {
             srl_dump_regexp(aTHX_ enc, src);
         }
@@ -720,6 +710,17 @@ redo_dump:
         goto redo_dump;
     }
     else
+#ifndef MODERN_REGEXP
+    if (
+        svt == SVt_PVMG &&
+        ((SvFLAGS(src) & (SVs_OBJECT|SVf_OK|SVs_GMG|SVs_SMG|SVs_RMG)) == (SVs_OBJECT|BFD_Svs_SMG_OR_RMG)) &&
+        (mg = mg_find(src, PERL_MAGIC_qr))
+    ) {
+            /* Housten, we have a regex! */
+        srl_dump_regexp(aTHX_ enc, (SV*)mg); /* yes the SV* cast makes me feel dirty too */
+    }
+    else
+#endif
     if (svt == SVt_PVHV) {
         srl_dump_hv(aTHX_ enc, (HV *)src);
     }

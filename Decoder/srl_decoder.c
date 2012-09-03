@@ -434,6 +434,8 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
 
     (void)SvUPGRADE(into, SVt_PVHV);
 
+    HvSHAREKEYS_on(into); /* apparently required on older perls */
+
     hv_ksplit((HV *)into, num_keys); /* make sure we have enough room */
     /* NOTE: contents of hash are stored VALUE/KEY, reverse from normal perl
      * storage, this is because it simplifies the hash storage logic somewhat */
@@ -502,6 +504,7 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
     SV *referent;
     ASSERT_BUF_SPACE(dec, 1, " while reading REFN referent");
     referent= newSV(SVt_NULL);
+
     SRL_ASSERT_TYPE_FOR_RV(into);
     SvTEMP_off(referent);
     SvRV_set(into, referent);

@@ -9,6 +9,7 @@ use Scalar::Util qw(weaken);
 use Test::More;
 use Test::LongString;
 use Data::Dumper;
+use Devel::Peek;
 
 # Dynamically load constants from whatever is being tested
 our ($Class, $ConstClass);
@@ -463,21 +464,30 @@ sub run_roundtrip_tests {
 
     foreach my $rt (@RoundtripTests) {
       my ($name, $data) = @$rt;
-      my $s = $enc->($data);
-      ok(defined $s, "$name ($mname, defined)")
+      my $encoded = $enc->($data);
+      ok(defined $encoded, "$name ($mname, encoded defined)")
         or do {
           if (defined $ENV{DEBUG_SEREAL}) {
             note("Data was: " . Data::Dumper::Dumper($data));
-            note("Output was: " . (defined($s) ? $s : "<undef>"));
+            note("Output was: " . (defined($encoded) ? $encoded : "<undef>"));
           }
           next;
         };
-      my $d = $dec->($s);
-      ok(defined($d) || !defined($data), "$name ($mname, defined2)");
-      my $s2 = $enc->($d);
-      ok(defined $s2, "$name ($mname, defined3)");
-      is_deeply($d, $data, "$name ($mname, deeply)");
-      is_string($s2, $s, "$name ($mname, serialized)");
+      my $decoded= $dec->($encoded);
+      ok(defined($decoded) || !defined($data), "$name ($mname, decoded definedness)");
+      my $encoded2 = $enc->($decoded);
+      ok(defined $encoded2, "$name ($mname, encoded2 defined)");
+      is_deeply($decoded, $data, "$name ($mname, decoded vs data)")
+        or do {
+            Dump($decoded);
+            Dump($data);
+        };
+      is_string($encoded2, $encoded, "$name ($mname, encoded2 vs encoded)")
+        or do {
+            Dump($decoded);
+            Dump($data);
+        };
+
     }
   } # end serialization method iteration
 }
