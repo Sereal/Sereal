@@ -447,7 +447,7 @@ our @RoundtripTests = (
 
 
 sub run_roundtrip_tests {
-  #my $decoder = Sereal::Decoder->new;
+  my $decoder = Sereal::Decoder->new;
   my $encoder = Sereal::Encoder->new;
 
   foreach my $meth (
@@ -456,7 +456,7 @@ sub run_roundtrip_tests {
                       sub {Sereal::Decoder::decode_sereal(shift)}],
                     ['object-oriented',
                       sub {$encoder->encode(shift)},
-                      sub {Sereal::Decoder::decode_sereal(shift)}], # no OO version of Decoder yet
+                      sub {$decoder->decode(shift)}],
                     )
   {
     my ($mname, $enc, $dec) = @$meth;
