@@ -10,6 +10,7 @@ use Test::More;
 use Test::LongString;
 use Data::Dumper;
 use Devel::Peek;
+use Encode qw(encode_utf8);
 
 # Dynamically load constants from whatever is being tested
 our ($Class, $ConstClass);
@@ -119,6 +120,9 @@ my $ary_ref_for_repeating = [5,6];
 my $scalar_ref_for_repeating = \9;
 
 my $weak_thing; $weak_thing = [\$weak_thing, 1]; weaken($weak_thing->[0]);
+
+my $unicode1= "Ba\xDF Ba\xDF"; my $unicode2= "\x{168}nix! \x{263a}"; utf8::upgrade($unicode1); utf8::upgrade($unicode2);
+
 
 our @BasicTests = (
   # warning: this hardcodes the POS/NEG headers
@@ -376,6 +380,14 @@ our @BasicTests = (
     },
     "duplicate hash keys"
   ],
+  [
+      { $unicode1 => $unicode2 },
+      hash(
+          chr(SRL_HDR_STRING_UTF8) . varint(bytes::length($unicode1)) . encode_utf8($unicode1),
+          chr(SRL_HDR_STRING_UTF8) . varint(bytes::length($unicode2)) . encode_utf8($unicode2),
+      ),
+      "simple unicode hash key and value"
+  ]
 );
 
 

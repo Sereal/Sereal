@@ -537,25 +537,27 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src)
 static SRL_INLINE void
 srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
 {
+    char *str;
+    STRLEN len;
+    char mode;
+
     if (HeKLEN(src) == HEf_SVKEY) {
         SV *sv = HeSVKEY(src);
-        STRLEN len;
-        char *str;
 
         SvGETMAGIC(sv);
         str = SvPV(sv, len);
+        mode= SvUTF8(sv) ? 1 : 0;
 
-        srl_dump_pv(aTHX_ enc, str, len, SvUTF8(sv));
     }
-    else if (share_keys) {
+    else {
+        str = HeKEY(src);
         /* This logic is an optimization for output space: We keep track of
          * all seen hash key strings that are in perl's shared string storage.
          * If we see one again, we just emit a COPY instruction.
          * This means that we only need to keep a ptr table since the strings
          * don't move in the shared key storage -- otherwise, we'd have to
          * compare strings / keep a full string hash table. */
-        const char *keystr = HeKEY(src);
-        if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_SHARED_HASHKEYS) /* only enter branch if shared hk's enabled */
+        if ( share_keys && SRL_ENC_HAVE_OPTION(enc, SRL_F_SHARED_HASHKEYS) /* only enter branch if shared hk's enabled */
 #if PERL_VERSION >= 10
              && (!DO_SHARED_HASH_ENTRY_REFCOUNT_CHECK
                 || src->he_valu.hent_refcount > 1)
@@ -563,23 +565,28 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
             )
         {
             PTABLE_t *string_seenhash = SRL_GET_STR_SEENHASH(enc);
-            const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, keystr);
+            const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, str);
             if (oldoffset != 0) {
                 /* Issue COPY instead of literal hash key string */
                 srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)oldoffset);
+                return;
             }
             else {
                 /* remember current offset before advancing it */
                 const ptrdiff_t newoffset = enc->pos - enc->buf_start;
-                PTABLE_store(string_seenhash, (void *)keystr, (void *)newoffset);
-                srl_dump_pv(aTHX_ enc, keystr, HeKLEN(src), HeKUTF8(src));
+                PTABLE_store(string_seenhash, (void *)str, (void *)newoffset);
             }
         }
-        else
-            srl_dump_pv(aTHX_ enc, keystr, HeKLEN(src), HeKUTF8(src));
+        len= HeKLEN(src);
+        mode= HeKWASUTF8(src) ? 2 :  HeKUTF8(src) ? 1 : 0;
     }
-    else
-        srl_dump_pv(aTHX_ enc, HeKEY(src), HeKLEN(src), HeKUTF8(src));
+    if (mode == 2) { /* must convert back to utf8 */
+        char* utf8= Perl_bytes_to_utf8(aTHX_ str, &len);
+        srl_dump_pv(aTHX_ enc, utf8, len, 1);
+        Safefree(utf8);
+    } else {
+        srl_dump_pv(aTHX_ enc, str, len, mode);
+    }
 }
 
 
