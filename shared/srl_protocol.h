@@ -16,6 +16,10 @@
  *       skip the parts of the header that they know nothing about using the total
  *       header length.
  *
+ * Note - any discrepancy between this chart and the code is to be decided in the favour
+ * of the working code and tests. This chart will be updated and/or replaced soon with
+ * something that is definitively correct. (We believe it is mostly correct.)
+ *
  * +--------+-----------------+-----------------+--------------------------------------------------------------------------
  *          |Bit              | follow          | Description
  *          | 7 6 5 4 3 2 1 0 | bytes           |
@@ -58,8 +62,9 @@
  * RESERVED |           1 0 1 | varint          |
  * RESERVED |           1 1 1 | varint          |
  * RESERVED |       1 1 x x x | varint          | *reserved*
+ * RESERVED | F 1 0 x x x x x |                 | *reserved*
  * ---------+-----------------+-----------------+---------------------------------------------------------------------------------------
- * ASCII    | F 1 x x x x x x | str             | Short ascii string, x=length
+ * ASCII    | F 1 1 x x x x x | str             | Short ascii string, x=length
  * 
  * 
  * 
@@ -100,19 +105,12 @@
 /* All constants have the F bit (SRL_HDR_TRACK_FLAG) unset! */
 /* _LOW and _HIGH versions refering to INCLUSIVE range boundaries */
 
-#define SRL_HDR_TRACK_FLAG      ((char)128)        /* 0b10000000 */
 
-#define SRL_HDR_ASCII_LOW       ((char)64)        /* 0b01000000 */
-#define SRL_HDR_ASCII_HIGH      ((char)127)       /* 0b01111111 */
-#define SRL_MASK_ASCII_LEN      ((char)63)        /* 0b00111111 */
 
 #define SRL_HDR_POS_LOW         ((char)0)        /* 0b00000000 */         /* 0 */
 #define SRL_HDR_POS_HIGH        ((char)15)        /* 0b00001111 */         /* 15 */
 #define SRL_HDR_NEG_LOW         ((char)16)        /* 0b00010000 */         /* -1  [16] */
 #define SRL_HDR_NEG_HIGH        ((char)31)        /* 0b00011111 */         /* -16 [31]*/
-
-#define STL_HDR_TYPE_MASK       ((char)63)        /* 0b00111111 */
-
 
 #define SRL_HDR_VARINT          ((char)32)        /* 0b00100000 */
 #define SRL_HDR_ZIGZAG          ((char)33)        /* 0b00100001 */
@@ -144,7 +142,13 @@
  /* Note: Can do reserved check with a range now, but as we start using
  *       them, might have to explicit == check later. */
 #define SRL_HDR_RESERVED_LOW    ((char)53)        /* 0b00110110 */
-#define SRL_HDR_RESERVED_HIGH   ((char)63)        /* 0b00111111 */
+#define SRL_HDR_RESERVED_HIGH   ((char)95)        /* 0b00111111 */
+
+#define SRL_MASK_ASCII_LEN      ((char)31)        /* 0b00011111 */
+#define SRL_HDR_ASCII_LOW       ((char)96)        /* 0b01100000 */
+#define SRL_HDR_ASCII_HIGH      ((char)127)       /* 0b01111111 */
+
+#define SRL_HDR_TRACK_FLAG      ((char)128)        /* 0b10000000 */
  
 /* TODO */
 
