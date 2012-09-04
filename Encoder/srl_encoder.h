@@ -38,8 +38,17 @@ void srl_write_header(pTHX_ srl_encoder_t *enc);
 void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
 
 /* define option bits in srl_encoder_t's flags member */
+
+/* Will default to "on". If set, hash keys will be shared using COPY.
+ * Corresponds to the inverse of constructor option "no_shared_hashkeys" */
 #define SRL_F_SHARED_HASHKEYS                1UL
+/* If set, then we're using the OO interface and we shouldn't destroy the
+ * encoder struct during SAVEDESTRUCTOR time */
 #define SRL_F_REUSE_ENCODER                  2UL
+/* If set in flags, then we rather croak than serialize an object.
+ * Corresponds to the 'croak_on_bless' option to the Perl constructor. */
+#define SRL_F_CROAK_ON_BLESS                 4UL
+
 #define SRL_ENC_HAVE_OPTION(enc, flag_num) ((enc)->flags & flag_num)
 
 #endif

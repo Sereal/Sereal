@@ -215,6 +215,10 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         svp = hv_fetchs(opt, "no_shared_hashkeys", 0);
         if ( !svp || !SvTRUE(*svp) )
           enc->flags |= SRL_F_SHARED_HASHKEYS;
+
+        svp = hv_fetchs(opt, "croak_on_bless", 0);
+        if ( svp && SvTRUE(*svp) )
+          enc->flags |= SRL_F_CROAK_ON_BLESS;
     }
     else {
         /* SRL_F_SHARED_HASHKEYS on by default */
@@ -698,8 +702,14 @@ redo_dump:
         }
         ref_rewrite_pos= enc->pos;
         if (sv_isobject(src)) {
-            /* Write bless operator with class name */
+            /* Check that we actually want to support objects */
+            if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_CROAK_ON_BLESS)) ) {
+                croak("Attempted to serialize blessed reference. Serializing objects "
+                      "using Sereal::Encoder was explicitly disabled using the "
+                      "'croak_on_bless' option.");
+            }
             /* FIXME reuse/ref/... should INCLUDE the bless stuff. */
+            /* Write bless operator with class name */
             srl_buf_cat_char(enc, SRL_HDR_BLESS);
             srl_dump_classname(aTHX_ enc, referent);
         }
@@ -733,9 +743,8 @@ redo_dump:
     }
     else
     {
-            croak("found type %u %s(0x%p), but it is not representable by the Sereal encoding format", svt, sv_reftype(src,0),src);
+        croak("found type %u %s(0x%p), but it is not representable by the Sereal encoding format", svt, sv_reftype(src,0),src);
     }
-
 }
 
 
