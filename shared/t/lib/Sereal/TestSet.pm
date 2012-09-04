@@ -390,7 +390,6 @@ our @BasicTests = (
   ]
 );
 
-
 sub get_git_top_dir {
   my @dirs = (0, 1, 2);
   for my $d (@dirs) {
@@ -450,6 +449,7 @@ our @ScalarRoundtripTests = (
   ["regexp with modifiers", qr/foo/i],
 );
 
+
 our @RoundtripTests = (
   @ScalarRoundtripTests,
 
@@ -464,6 +464,19 @@ our @RoundtripTests = (
   (map {["array ref to aliases " . $_->[0], sub {\@_}->($_->[1], $_->[1])]} @ScalarRoundtripTests),
   (map {["array ref to scalar refs to same " . $_->[0], [\($_->[1]), \($_->[1])]]} @ScalarRoundtripTests),
 );
+
+if (eval "use Array::RefElem (av_store hv_store); 1") {
+    my $x= "alias!";
+    my (@av,%hv);
+    av_store(@av,0,$x);
+    av_store(@av,1,$x);
+    hv_store(%hv,"x", $x);
+    hv_store(%hv,"y", $x);
+    push @RoundtripTests,
+        [\@av,"alias in array"],
+        [\%hv,"alias in hash"],
+        [[\@av,\%hv,\$x], "alias hell"];
+}
 
 
 sub run_roundtrip_tests {
