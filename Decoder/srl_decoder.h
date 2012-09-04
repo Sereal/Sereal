@@ -66,8 +66,56 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_DEC_VOLATILE_FLAGS (SRL_F_DECODER_NEEDS_FINALIZE)
 #define SRL_DEC_RESET_VOLATILE_FLAGS(dec) ((dec)->flags &= ~SRL_DEC_VOLATILE_FLAGS)
 
-/*
-perl -MData::Dumper -lne'BEGIN{$Data::Dumper::Sortkeys=1}if(/^#define\s+SRL_HDR_(\S+)\s+\(\(char\)(\d+)\)/i) { $sym{$1}=$2; $val{$2}= $1; } sub f { my $pfx= shift; for my $i ($sym{$pfx . "_LOW"} .. $sym{$pfx . "_HIGH"}) { next if $val{$i}; $sym{$pfx."_".$i}=$i; $val{$i}= $pfx . "_". $i; }} END{foreach my $pfx (keys %sym) { if ($pfx=~/^(.*)_LOW/) { f($1) }} print "static const char * const tag_name[] = {\n".join(",\n",map { sprintf qq(\t/).qq(* %3d *).qq(/ "%s"),$_,$val{$_} } 0..127)."\n};\n"}' srl_protocol.h 
+/*/ run this script with: perl -x srl_decoder.h
+#!perl -w
+use strict;
+my (%sym, %val);
+sub f {
+    my $pfx= shift;
+    for my $i ($sym{$pfx . "_LOW"} .. $sym{$pfx . "_HIGH"}) {
+            next if $val{$i};
+            $sym{$pfx."_".$i}=$i;
+            $val{$i}= $pfx . "_". $i;
+    }
+}
+{
+    open my $fh,"<", "srl_protocol.h"
+        or die "srl_protocol.h: $!";
+    while (<$fh>) {
+        if(/^#define\s+SRL_HDR_(\S+)\s+\(\(char\)(\d+)\)/i) {
+            $sym{$1}=$2;
+            $val{$2}= $1;
+        }
+    }
+    close $fh;
+    foreach my $pfx (keys %sym) {
+        if ($pfx=~/^(.*)_LOW/) {
+                f($1)
+        }
+    }
+}
+{
+    open my $fh,"<", $0
+        or die "$0:$!";
+    rename $0,"$0.bak";
+    open my $out,">", $0
+        or die "$0:$!";
+    while (<$fh>) {
+        print $out $_;
+        last if /^static const char \* const tag_name/;
+    }
+
+    print $out join(",\n",map {
+                    sprintf qq(\t/).qq(* # %3d 0x%02x 0b%08b *).qq(/ "%s"),$_,$_,$_,$val{$_}
+            } 0 .. 127 )
+            . "\n};\n#endif\n/"."* do not put anything below the #endif! *"."/\n";
+    close $out;
+    close $fh;
+}
+__END__
+
+The above perl script can be used to regenerate the following data structure.
+Have fun. ;-)
 */
 static const char * const tag_name[] = {
         /*   0 */ "POS_LOW",
