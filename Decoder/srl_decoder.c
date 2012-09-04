@@ -476,6 +476,10 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into) {
     }
 }
 
+#ifndef HV_FETCH_LVALUE
+#define OLDHASH
+#define IS_LVALUE 1
+#endif
 
 static SRL_INLINE void
 srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
@@ -489,11 +493,14 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
     /* NOTE: contents of hash are stored VALUE/KEY, reverse from normal perl
      * storage, this is because it simplifies the hash storage logic somewhat */
     for (; num_keys > 0 ; num_keys--) {
-        U32 flags= 0;
-        HE *he;
-        STRLEN key_len;
         U8 tag;
-
+        SV **fetched_sv;
+#ifdef OLDHASH
+        I32 key_len;
+#else
+        U32 flags= 0;
+        U32 key_len;
+#endif
       read_key:
         ASSERT_BUF_SPACE(dec,1," while reading key tag");
         tag= *dec->pos++;
@@ -502,8 +509,12 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
         } else if (tag == SRL_HDR_STRING) {
             key_len= srl_read_varint_uv(aTHX_ dec);
         } else if (tag == SRL_HDR_STRING_UTF8) {
+#ifdef OLDHASH
+            key_len= -((IV)srl_read_varint_uv(aTHX_ dec));
+#else
             flags= HVhek_UTF8;
             key_len= srl_read_varint_uv(aTHX_ dec);
+#endif
         } else if (tag == SRL_HDR_COPY) {
             UV ofs= srl_read_varint_uv(aTHX_ dec);
             if (expect_false( dec->save_pos )) {
@@ -517,8 +528,12 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
             ERROR_UNEXPECTED(dec,tag,"a stringish type");
         }
         ASSERT_BUF_SPACE(dec,key_len, " while reading key");
-        he= hv_common((HV *)into, NULL, (char *)dec->pos, key_len, flags, HV_FETCH_LVALUE, NULL, 0);
-        if (!he) {
+#ifdef OLDHASH
+        fetched_sv= hv_fetch((HV *)into, (char *)dec->pos, key_len, IS_LVALUE);
+#else
+        fetched_sv= hv_common((HV *)into, NULL, (char *)dec->pos, key_len, flags, HV_FETCH_LVALUE|HV_FETCH_JUST_SV, NULL, 0);
+#endif
+        if (!fetched_sv) {
             ERROR_PANIC(dec,"failed to hv_store");
         }
         if (dec->save_pos) {
@@ -530,10 +545,10 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
 
         if ( expect_false( *dec->pos == SRL_HDR_ALIAS ) ) {
             dec->pos++;
-            SvREFCNT_dec(HeVAL(he));
-            HeVAL(he)= srl_read_alias(aTHX_ dec);
+            SvREFCNT_dec(*fetched_sv);
+            *fetched_sv= srl_read_alias(aTHX_ dec);
         } else {
-            srl_read_single_value(aTHX_ dec, HeVAL(he));
+            srl_read_single_value(aTHX_ dec, *fetched_sv);
         }
     }
 }
