@@ -509,8 +509,8 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
       read_key:
         ASSERT_BUF_SPACE(dec,1," while reading key tag");
         tag= *dec->pos++;
-        if (tag & SRL_HDR_ASCII) {
-            key_len= tag & SRL_HDR_ASCII_LEN_MASK;
+        if (tag & SRL_HDR_ASCII_LOW) {
+            key_len= tag & SRL_MASK_ASCII_LEN;
         } else if (tag == SRL_HDR_STRING) {
             key_len= srl_read_varint_uv(aTHX_ dec);
         } else if (tag == SRL_HDR_STRING_UTF8) {
@@ -651,8 +651,8 @@ srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into)
         if (tag == SRL_HDR_STRING_UTF8) {
             flags = flags | SVf_UTF8;
             key_len= srl_read_varint_uv(aTHX_ dec);
-        } else if (tag & SRL_HDR_ASCII) {
-            key_len= tag & SRL_HDR_ASCII_LEN_MASK;
+        } else if (tag & SRL_HDR_ASCII_LOW) {
+            key_len= tag & SRL_MASK_ASCII_LEN;
         } else if (tag == SRL_HDR_STRING) {
             key_len= srl_read_varint_uv(aTHX_ dec);
         } else if (tag == SRL_HDR_COPY) {
@@ -734,8 +734,8 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
     /* For now we will serialize the flags as ascii strings. Maybe we should use
      * something else but this is easy to debug and understand - since the modifiers
      * are tagged it doesn't matter much, we can add other tags later */
-    if (expect_true( *dec->pos & SRL_HDR_ASCII )) {
-        U8 mod_len= *dec->pos++ & SRL_HDR_ASCII_LEN_MASK;
+    if (expect_true( *dec->pos & SRL_HDR_ASCII_LOW )) {
+        U8 mod_len= *dec->pos++ & SRL_MASK_ASCII_LEN;
         U32 flags= 0;
         ASSERT_BUF_SPACE(dec, mod_len, " while reading regexp modifiers");
         while (mod_len > 0) {
@@ -888,10 +888,10 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
 
     if ( tag <= SRL_HDR_POS_HIGH ) {
         sv_setiv(into, tag); /* it will fit in an iv and they are faster */
-    } else if ( tag <= SRL_HDR_NEG_LOW) {
+    } else if ( tag <= SRL_HDR_NEG_HIGH) {
         sv_setiv(into, -tag + 15);
-    } else if ( tag & SRL_HDR_ASCII ) {
-        len= (STRLEN)(tag & SRL_HDR_ASCII_LEN_MASK);
+    } else if ( tag & SRL_HDR_ASCII_LOW ) {
+        len= (STRLEN)(tag & SRL_MASK_ASCII_LEN);
         ASSERT_BUF_SPACE(dec,len, " while reading ascii string");
         sv_setpvn(into,(char*)dec->pos,len);
         dec->pos += len;

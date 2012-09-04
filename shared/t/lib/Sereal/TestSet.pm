@@ -77,15 +77,15 @@ sub dump_bless {
     : (
       (length($_[1]) >= 2**6)
       ? chr(SRL_HDR_STRING).varint(length($_[1])).$_[1]
-      : chr(length($_[1]) + SRL_HDR_ASCII).$_[1]
+      : chr(length($_[1]) + SRL_HDR_ASCII_LOW).$_[1]
     )
   )
   . $_[0]
 }
 
 sub short_string {
-  die if length($_[0]) > SRL_HDR_ASCII_LEN_MASK;
-  return chr(SRL_HDR_ASCII + length($_[0])) . $_[0];
+  die if length($_[0]) > SRL_MASK_ASCII_LEN;
+  return chr(SRL_HDR_ASCII_LOW + length($_[0])) . $_[0];
 }
 
 sub integer {

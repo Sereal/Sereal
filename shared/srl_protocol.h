@@ -94,7 +94,6 @@
 
 /* Useful constants */
 /* See also range constants below for the header byte */
-#define SRL_MAX_ASCII_LENGTH       63
 #define SRL_POS_MAX_SIZE           15
 #define SRL_NEG_MIN_SIZE           16
 
@@ -103,13 +102,14 @@
 
 #define SRL_HDR_TRACK_FLAG      ((char)128)        /* 0b10000000 */
 
-#define SRL_HDR_ASCII           ((char)64)        /* 0b01000000 */
-#define SRL_HDR_ASCII_LEN_MASK  ((char)63)        /* 0b00111111 */
+#define SRL_HDR_ASCII_LOW       ((char)64)        /* 0b01000000 */
+#define SRL_HDR_ASCII_HIGH      ((char)127)       /* 0b01111111 */
+#define SRL_MASK_ASCII_LEN      ((char)63)        /* 0b00111111 */
 
 #define SRL_HDR_POS_LOW         ((char)0)        /* 0b00000000 */         /* 0 */
 #define SRL_HDR_POS_HIGH        ((char)15)        /* 0b00001111 */         /* 15 */
-#define SRL_HDR_NEG_HIGH        ((char)16)        /* 0b00010000 */         /* -1  [16] */
-#define SRL_HDR_NEG_LOW         ((char)31)        /* 0b00011111 */         /* -16 [31]*/
+#define SRL_HDR_NEG_LOW         ((char)16)        /* 0b00010000 */         /* -1  [16] */
+#define SRL_HDR_NEG_HIGH        ((char)31)        /* 0b00011111 */         /* -16 [31]*/
 
 #define STL_HDR_TYPE_MASK       ((char)63)        /* 0b00111111 */
 
