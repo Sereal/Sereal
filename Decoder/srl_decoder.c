@@ -538,8 +538,12 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
             } else if (tag == SRL_HDR_STRING) {
                 SET_UV_FROM_VARINT(key_len, from);
             } else if (tag == SRL_HDR_STRING_UTF8) {
-                flags= HVhek_UTF8;
                 SET_UV_FROM_VARINT(key_len, from);
+#ifdef OLDHASH
+                key_len= -key_len;
+#else
+                flags= HVhek_UTF8;
+#endif
             } else {
                 ERROR_BAD_COPY(dec, SRL_HDR_HASH);
             }
