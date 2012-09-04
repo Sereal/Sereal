@@ -527,7 +527,8 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
         } else {
             dec->pos += key_len;
         }
-        if ( expect_false( tag == SRL_HDR_ALIAS ) ) {
+
+        if ( expect_false( *dec->pos == SRL_HDR_ALIAS ) ) {
             dec->pos++;
             SvREFCNT_dec(HeVAL(he));
             HeVAL(he)= srl_read_alias(aTHX_ dec);
