@@ -56,6 +56,27 @@ sub parse_header {
   }
 }
 
+my ($len_f, $len_d, $len_D);
+sub parse_float {
+    $len_f||= length(pack("f",0));
+    my $v= substr($data,0,$len_f,"");
+    $done .= $v;
+    return unpack("f",$v);
+}
+sub parse_double {
+    $len_d||= length(pack("d",0));
+    my $v= substr($data,0,$len_d,"");
+    $done .= $v;
+    return unpack("d",$v);
+}
+sub parse_long_double {
+    $len_D||= eval { length(pack("D",0)) };
+    die "Long double not supported" unless $len_D;
+    my $v= substr($data,0,$len_D,"");
+    $done .= $v;
+    return unpack("D",$v);
+}
+
 sub parse_sv {
   my ($ind) = @_;
 
@@ -76,7 +97,7 @@ sub parse_sv {
     $o = 15-$o;
     printf "%06u: %02x %03s %sNEG: %i\n", $p, $o, $bv, $ind, $o;
   }
-  elsif ($o >= 64) {
+  elsif ($o >= SRL_HDR_ASCII_LOW) {
     $o -= 64;
     my $len = $o;
     my $str = substr($data, 0, $len, '');
@@ -88,6 +109,15 @@ sub parse_sv {
     my $str = substr($data, 0, $l, ""); # fixme UTF8
     $done .= $str;
     printf "%06u: %02x %03s %sSTRING".($o == SRL_HDR_STRING_UTF8 ? "_UTF8" : "")."(%u): '%s'\n", $p, $o, $bv, $ind, $l, $str;
+  }
+  elsif ($o == SRL_HDR_FLOAT) {
+    printf "%06u: %02x %03s %sFLOAT(%f)\n", $p, $o, $bv, $ind, parse_float();
+  }
+  elsif ($o == SRL_HDR_DOUBLE) {
+    printf "%06u: %02x %03s %sDOUBLE(%f)\n", $p, $o, $bv, $ind, parse_double();
+  }
+  elsif ($o == SRL_HDR_LONG_DOUBLE) {
+    printf "%06u: %02x %03s %sLONG_DOUBLE(%f)\n", $p, $o, $bv, $ind, parse_long_double();
   }
   elsif ($o == SRL_HDR_REFN) {
     printf "%06u: %02x %03s %sREFN\n", $p, $o, $bv, $ind;

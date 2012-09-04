@@ -447,6 +447,50 @@ our @ScalarRoundtripTests = (
   ["simple regexp", qr/foo/],
   ["regexp with inline modifiers", qr/(?i-xsm:foo)/],
   ["regexp with modifiers", qr/foo/i],
+  ["float", 123013.139],
+  ["negative float",-1234.59],
+  ["small float",0.41],
+  ["negative small float",-0.13],
+  ["small int", 123],
+  ["empty string", ''],
+  ["simple array", []],
+  ["empty hash", {}],
+  ["simple hash", { foo => 'bar' }],
+  ["undef value", { foo => bar => baz => undef }],
+  ["simple array", [ 1 ]],
+  ["nested simple", [ 1, [ 2 ] ] ],
+  ["deep nest", [1,2,[3,4,{5=>6,7=>{8=>[]},9=>{}},{},[]]]],
+  ["complex hash", {
+    foo => 123,
+    bar => -159.23 ,
+    'baz' =>"foo",
+    'bop \''=> "\10"
+    ,'bop \'\\'=> "\x{100}" ,
+    'bop \'x\\x'    =>"x\x{100}"   , 'bing' =>   "x\x{100}",
+    x=>'y', z => 'p', i=> '1', l=>" \10", m=>"\10 ", n => " \10 ",
+  }],
+  ["more complex", {
+    foo => [123],
+    "bar" => [-159.23 , { 'baz' => "foo", }, ],
+    'bop \''=> { "\10" => { 'bop \'\\'=> "\x{100}", h=>{
+    'bop \'x\\x'    =>"x\x{100}"   , 'bing' =>   "x\x{100}",
+    x=>'y',}, z => 'p' ,   }   ,
+    i    =>  '1' ,}, l=>" \10", m=>"\10 ", n => " \10 ",
+    o => undef ,p=>undef,
+  }],
+  ['var strings', [ "\$", "\@", "\%" ]],
+  [ "quote keys", { "" => '"', "'" => "" }],
+  [ "ref to foo", \"foo" ],
+  [ "double ref to foo", \\"foo"],
+  [ "refy array", \\["foo"]],
+  [ "reffy hash", \\\{foo=>\"bar"}],
+  [ "blessed array", bless(\[],"foo")],
+  [ "utf8 string", "123\\277ABC\\x{DF}456"],
+  [ "escaped string", "\\012\345\267\145123\\277ABC\\x{DF}456"],
+  [ "more escapes", "\\0123\0124"],
+  [ "ref to undef", \undef],
+  [ "negative big num", -4123456789],
+  [ "positive big num", 4123456789],
 );
 
 
@@ -511,15 +555,31 @@ sub run_roundtrip_tests {
       ok(defined $encoded2, "$name ($mname, encoded2 defined)");
       is_deeply($decoded, $data, "$name ($mname, decoded vs data)")
         or do {
-            Dump($decoded);
-            Dump($data);
+            if ($ENV{DEBUG_DUMP}) {
+                Dump($decoded);
+                Dump($data);
+            }
         };
-      is_string($encoded2, $encoded, "$name ($mname, encoded2 vs encoded)")
-        or do {
-            Dump($decoded);
-            Dump($data);
-        };
-
+      if ($name=~/complex/) {
+          is(length($encoded2), length($encoded),"$name ($mname, length encoded2 vs length encoded)");
+      } else {
+          is_string($encoded2, $encoded, "$name ($mname, encoded2 vs encoded)")
+            or do {
+                if ($ENV{DEBUG_DUMP}) {
+                    Dump($decoded);
+                    Dump($data);
+                } elsif ($ENV{DEBUG_HOBO}) {
+                    open my $pipe,"| perl -Mblib=../Encoder/blib -Mblib=../Decoder/blib author_tools/hobodecoder.pl -e"
+                        or die "Dead: $!";
+                    print $pipe $encoded;
+                    close $pipe;
+                    open $pipe,"| perl -Mblib=../Encoder/blib -Mblib=../Decoder/blib author_tools/hobodecoder.pl -e"
+                        or die "Dead: $!";
+                    print $pipe $encoded2;
+                    close $pipe;
+                }
+            };
+      }
     }
   } # end serialization method iteration
 }
