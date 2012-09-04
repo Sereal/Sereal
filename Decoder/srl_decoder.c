@@ -55,7 +55,6 @@ extern "C" {
 /* predeclare all our subs so we have one definitive authority for their signatures */
 static SRL_INLINE UV srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec);
 static SRL_INLINE UV srl_read_varint_uv_nocheck(pTHX_ srl_decoder_t *dec);
-static SRL_INLINE UV srl_read_varint_uv_from_nocheck(pTHX_ U8 *from);
 static SRL_INLINE UV srl_read_varint_uv(pTHX_ srl_decoder_t *dec);
 static SRL_INLINE SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name);
 
@@ -101,6 +100,9 @@ static SRL_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
         MYCROAK("Unexpected termination of packet%s, want %lu bytes, only have %lu available", (msg), (UV)(len), (UV)BUF_SPACE((dec)));  \
     }                                                       \
 } STMT_END
+
+#define IS_SRL_HDR_ASCII(tag) (((tag) & SRL_HDR_ASCII_LOW) == SRL_HDR_ASCII_LOW)
+#define SRL_HDR_ASCII_LEN_FROM_TAG(tag) ((tag) & SRL_MASK_ASCII_LEN)
 
 /* Macro to assert that the type of an SV is complex enough to
  * be an RV. Differs on old perls since there used to be an RV type.
@@ -321,21 +323,19 @@ srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec)
     return uv;
 }
 
-static SRL_INLINE UV
-srl_read_varint_uv_from_nocheck(pTHX_ U8 *from)
-{
-    UV uv= 0;
-    unsigned int lshift= 0;
-
-    while (*from & 0x80) {
-        uv |= ((UV)(*from++ & 0x7F) << lshift);
-        lshift += 7;
-        if (expect_false( lshift > (sizeof(UV) * 8) ))
-            ERROR("varint too big");
-    }
-    uv |= ((UV)(*from) << lshift);
-    return uv;
-}
+#define SET_UV_FROM_VARINT(uv, from) STMT_START {      \
+    if (*from < 0x80) {                                             \
+        uv= (UV)*from++;                                            \
+    } else {                                                        \
+        unsigned int lshift= 7;                                     \
+        uv= (UV)(*from++ & 0x7f);                                   \
+        while (*from & 0x80){                                       \
+            uv |= ((UV)(*from++ & 0x7F) << lshift);                 \
+            lshift += 7;                                            \
+        }                                                           \
+        uv |= ((UV)(*from++) << lshift);                            \
+    }                                                               \
+} STMT_END
 
 static SRL_INLINE UV
 srl_read_varint_uv_nocheck(pTHX_ srl_decoder_t *dec)
@@ -498,56 +498,62 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
     /* NOTE: contents of hash are stored VALUE/KEY, reverse from normal perl
      * storage, this is because it simplifies the hash storage logic somewhat */
     for (; num_keys > 0 ; num_keys--) {
+        U8 *from;
         U8 tag;
         SV **fetched_sv;
-#ifdef OLDHASH
         I32 key_len;
-#else
+#ifndef OLDHASH
         U32 flags= 0;
-        U32 key_len;
 #endif
-      read_key:
         ASSERT_BUF_SPACE(dec,1," while reading key tag");
         tag= *dec->pos++;
-        if (tag & SRL_HDR_ASCII_LOW) {
-            key_len= tag & SRL_MASK_ASCII_LEN;
+        if (IS_SRL_HDR_ASCII(tag)) {
+            key_len= (IV)SRL_HDR_ASCII_LEN_FROM_TAG(tag);
+            ASSERT_BUF_SPACE(dec,key_len," while reading ascii key");
+            from= dec->pos;
+            dec->pos += key_len;
         } else if (tag == SRL_HDR_STRING) {
-            key_len= srl_read_varint_uv(aTHX_ dec);
+            key_len= (IV)srl_read_varint_uv(aTHX_ dec);
+            ASSERT_BUF_SPACE(dec,key_len," while reading string key");
+            from= dec->pos;
+            dec->pos += key_len;
         } else if (tag == SRL_HDR_STRING_UTF8) {
+            key_len= (IV)srl_read_varint_uv(aTHX_ dec);
+            ASSERT_BUF_SPACE(dec,key_len," while reading utf8 key");
+            from= dec->pos;
+            dec->pos += key_len;
 #ifdef OLDHASH
-            key_len= -((IV)srl_read_varint_uv(aTHX_ dec));
+            key_len= -key_len;
 #else
             flags= HVhek_UTF8;
-            key_len= srl_read_varint_uv(aTHX_ dec);
 #endif
         } else if (tag == SRL_HDR_COPY) {
             UV ofs= srl_read_varint_uv(aTHX_ dec);
-            if (expect_false( dec->save_pos )) {
-                ERROR_BAD_COPY(dec, SRL_HDR_HASH);
+            from= dec->buf_start + ofs;
+            if ( from >= dec->pos)
+                ERROR("bad copy op");
+            tag= *from++;
+            if (IS_SRL_HDR_ASCII(tag)) {
+                key_len= SRL_HDR_ASCII_LEN_FROM_TAG(tag);
+            } else if (tag == SRL_HDR_STRING) {
+                SET_UV_FROM_VARINT(key_len, from);
+            } else if (tag == SRL_HDR_STRING_UTF8) {
+                flags= HVhek_UTF8;
+                SET_UV_FROM_VARINT(key_len, from);
             } else {
-                dec->save_pos= dec->pos;
-                dec->pos= dec->buf_start + ofs;
-                goto read_key;
+                ERROR_BAD_COPY(dec, SRL_HDR_HASH);
             }
         } else {
             ERROR_UNEXPECTED(dec,tag,"a stringish type");
         }
-        ASSERT_BUF_SPACE(dec,key_len, " while reading key");
 #ifdef OLDHASH
-        fetched_sv= hv_fetch((HV *)into, (char *)dec->pos, key_len, IS_LVALUE);
+        fetched_sv= hv_fetch((HV *)into, (char *)from, key_len, IS_LVALUE);
 #else
-        fetched_sv= hv_common((HV *)into, NULL, (char *)dec->pos, key_len, flags, HV_FETCH_LVALUE|HV_FETCH_JUST_SV, NULL, 0);
+        fetched_sv= hv_common((HV *)into, NULL, (char *)from, key_len, flags, HV_FETCH_LVALUE|HV_FETCH_JUST_SV, NULL, 0);
 #endif
         if (!fetched_sv) {
             ERROR_PANIC(dec,"failed to hv_store");
         }
-        if (dec->save_pos) {
-            dec->pos= dec->save_pos;
-            dec->save_pos= NULL;
-        } else {
-            dec->pos += key_len;
-        }
-
         if ( expect_false( *dec->pos == SRL_HDR_ALIAS ) ) {
             dec->pos++;
             SvREFCNT_dec(*fetched_sv);
@@ -651,8 +657,8 @@ srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into)
         if (tag == SRL_HDR_STRING_UTF8) {
             flags = flags | SVf_UTF8;
             key_len= srl_read_varint_uv(aTHX_ dec);
-        } else if (tag & SRL_HDR_ASCII_LOW) {
-            key_len= tag & SRL_MASK_ASCII_LEN;
+        } else if (IS_SRL_HDR_ASCII(tag)) {
+            key_len= SRL_HDR_ASCII_LEN_FROM_TAG(tag);
         } else if (tag == SRL_HDR_STRING) {
             key_len= srl_read_varint_uv(aTHX_ dec);
         } else if (tag == SRL_HDR_COPY) {
@@ -734,8 +740,8 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
     /* For now we will serialize the flags as ascii strings. Maybe we should use
      * something else but this is easy to debug and understand - since the modifiers
      * are tagged it doesn't matter much, we can add other tags later */
-    if (expect_true( *dec->pos & SRL_HDR_ASCII_LOW )) {
-        U8 mod_len= *dec->pos++ & SRL_MASK_ASCII_LEN;
+    if ( expect_true( IS_SRL_HDR_ASCII(*dec->pos) ) ) {
+        U8 mod_len= SRL_HDR_ASCII_LEN_FROM_TAG(*dec->pos++);
         U32 flags= 0;
         ASSERT_BUF_SPACE(dec, mod_len, " while reading regexp modifiers");
         while (mod_len > 0) {
@@ -890,9 +896,9 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
         sv_setiv(into, tag); /* it will fit in an iv and they are faster */
     } else if ( tag <= SRL_HDR_NEG_HIGH) {
         sv_setiv(into, -tag + 15);
-    } else if ( tag & SRL_HDR_ASCII_LOW ) {
-        len= (STRLEN)(tag & SRL_MASK_ASCII_LEN);
-        ASSERT_BUF_SPACE(dec,len, " while reading ascii string");
+    } else if ( IS_SRL_HDR_ASCII(tag) ) {
+        len= (STRLEN)SRL_HDR_ASCII_LEN_FROM_TAG(tag);
+        ASSERT_BUF_SPACE(dec, len, " while reading ascii string");
         sv_setpvn(into,(char*)dec->pos,len);
         dec->pos += len;
     }
