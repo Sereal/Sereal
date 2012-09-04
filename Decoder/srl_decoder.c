@@ -41,11 +41,6 @@ extern "C" {
 #define HAS_SV2OBJ
 #endif
 
-/* Not exported on old perls */
-#ifndef HV_FETCH_LVALUE
-#  define HV_FETCH_LVALUE 0x04
-#endif
-
 #include "srl_decoder.h"
 
 #include "srl_common.h"
