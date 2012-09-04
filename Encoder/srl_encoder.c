@@ -581,7 +581,7 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
         mode= HeKWASUTF8(src) ? 2 :  HeKUTF8(src) ? 1 : 0;
     }
     if (mode == 2) { /* must convert back to utf8 */
-        char* utf8= Perl_bytes_to_utf8(aTHX_ str, &len);
+        char* utf8= (char *)Perl_bytes_to_utf8(aTHX_ (U8 *)str, &len);
         srl_dump_pv(aTHX_ enc, utf8, len, 1);
         Safefree(utf8);
     } else {
