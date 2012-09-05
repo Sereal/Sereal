@@ -35,7 +35,7 @@ void srl_clear_encoder(srl_encoder_t *enc);
 void srl_destroy_encoder(pTHX_ srl_encoder_t *enc);
 
 /* Write Sereal packet header to output buffer */
-void srl_write_header(pTHX_ srl_encoder_t *enc, unsigned int payload_length);
+void srl_write_header(pTHX_ srl_encoder_t *enc);
 /* Start dumping a top-level SV */
 void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
 

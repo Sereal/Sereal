@@ -47,6 +47,8 @@ extern "C" {
 #include "ptable.h"
 #include "srl_protocol.h"
 
+#include "snappy/csnappy_decompress.c"
+
 /* predeclare all our subs so we have one definitive authority for their signatures */
 static SRL_INLINE UV srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec);
 static SRL_INLINE UV srl_read_varint_uv_nocheck(pTHX_ srl_decoder_t *dec);
@@ -61,7 +63,7 @@ SV* srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV *into);   /* main deco
 
 /* the top level components of the decode process - called by srl_decode_into() */
 static SRL_INLINE void srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src);       /* set up the decoder to handle a given var */
-static SRL_INLINE STRLEN srl_read_header(pTHX_ srl_decoder_t *dec);                    /* validate header */
+static SRL_INLINE void srl_read_header(pTHX_ srl_decoder_t *dec);                    /* validate header */
 static SRL_INLINE void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into);   /* main recursive dump routine */
 static SRL_INLINE void srl_finalize_structure(pTHX_ srl_decoder_t *dec);             /* optional finalize structure logic */
 static SRL_INLINE void srl_clear_decoder(pTHX_ srl_decoder_t *dec);                 /* clean up decoder after a dump */
@@ -183,10 +185,21 @@ srl_decoder_destructor_hook(pTHX_ void *p)
  */
 SV *
 srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into) {
-    STRLEN uncompressed_payload_size;
     assert(dec != NULL);
     srl_begin_decoding(aTHX_ dec, src);
-    uncompressed_payload_size = srl_read_header(aTHX_ dec); /* may be 0 if not compressed */
+    srl_read_header(aTHX_ dec); /* may be 0 if not compressed */
+    if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY)) {
+        /* uncompress */
+/*        RETVAL = newSV(dest_len);
+        dest = SvPVX(RETVAL);
+        if (! dest)
+            XSRETURN_UNDEF;
+        if (csnappy_decompress_noheader(src + header_len, src_len - header_len,
+                                        dest, &dest_len))
+            XSRETURN_UNDEF;
+*/
+    }
+
     if (expect_true(!into)) {
         into= sv_2mortal(newSV_type(SVt_NULL));
     }
@@ -237,12 +250,11 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src)
     dec->buf_end= dec->buf_start + len;
 }
 
-static SRL_INLINE STRLEN
+static SRL_INLINE void
 srl_read_header(pTHX_ srl_decoder_t *dec)
 {
     UV header_len;
     U8 proto_version_and_flags;
-    STRLEN uncompressed_payload_size = 0;
 
     /* 4 byte magic string + version/flags + hdr len at least */
     ASSERT_BUF_SPACE(dec, 4 + 1 + 1," while reading header");
@@ -252,17 +264,13 @@ srl_read_header(pTHX_ srl_decoder_t *dec)
         if (expect_false( (proto_version_and_flags & SRL_PROTOCOL_VERSION_MASK) != 1 ))
             ERRORf1("Unsupported Sereal protocol version %u",
                     proto_version_and_flags & SRL_PROTOCOL_VERSION_MASK);
-        if (proto_version_and_flags & SRL_F_SNAPPY) {
+        if (proto_version_and_flags & SRL_F_SNAPPY)
             dec->flags |= SRL_F_DECODER_DECOMPRESS_SNAPPY;
-            uncompressed_payload_size = srl_read_varint_uv(aTHX_ dec);
-        }
         header_len= srl_read_varint_uv(aTHX_ dec); /* must do this via a temporary as it modifes dec->pos itself */
         dec->pos += header_len;
     } else {
         ERROR("bad header");
     }
-
-    return uncompressed_payload_size;
 }
 
 static SRL_INLINE void

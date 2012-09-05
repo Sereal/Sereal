@@ -261,7 +261,7 @@ srl_init_weak_hash(srl_encoder_t *enc)
 
 
 void
-srl_write_header(pTHX_ srl_encoder_t *enc, unsigned int payload_length)
+srl_write_header(pTHX_ srl_encoder_t *enc)
 {
     /* 4th to 8th bit are flags. Using 4th for snappy flag. FIXME needs to go in spec. */
     const U8 version_and_flags = SRL_PROTOCOL_VERSION
@@ -273,11 +273,9 @@ srl_write_header(pTHX_ srl_encoder_t *enc, unsigned int payload_length)
     /* 4 byte magic string + proto version
      * + potentially uncompressed size varint
      * +  1 byte varint that indicates zero-length header */
-    BUF_SIZE_ASSERT(enc, sizeof(SRL_MAGIC_STRING) + 1 + 1 + SRL_MAX_VARINT_LENGTH);
+    BUF_SIZE_ASSERT(enc, sizeof(SRL_MAGIC_STRING) + 1 + 1);
     srl_buf_cat_str_s_nocheck(enc, SRL_MAGIC_STRING);
     srl_buf_cat_char_nocheck(enc, version_and_flags);
-    if (SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY))
-        srl_buf_cat_varint_nocheck(aTHX_ enc, 0, payload_length);
     srl_buf_cat_char_nocheck(enc, '\0'); /* variable header length (0 right now) */
 }
 
@@ -385,11 +383,9 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
 void
 srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
 {
-    char *payload_start;
     if (DEBUGHACK) warn("== start dump");
     if (!SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY)) {
-        srl_write_header(aTHX_ enc, 0);
-        payload_start = enc->pos;
+        srl_write_header(aTHX_ enc);
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
     }
@@ -398,7 +394,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
         const STRLEN max_header_len = sizeof(SRL_MAGIC_STRING)-1 + 1 + SRL_MAX_VARINT_LENGTH + 1;
         STRLEN uncompressed_length;
         char *old_buf;
-        STRLEN dest_len;
+        uint32_t dest_len;
 
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
@@ -422,7 +418,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
         enc->pos = enc->buf_start;
         enc->buf_end = enc->buf_start + dest_len;
 
-        srl_write_header(aTHX_ enc, uncompressed_length);
+        srl_write_header(aTHX_ enc);
         csnappy_compress(old_buf, (uint32_t)uncompressed_length, enc->pos, &dest_len,
                          enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
         Safefree(old_buf);

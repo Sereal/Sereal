@@ -12,8 +12,6 @@
  * Byte 5: low bits: The protocol version. high bits: flags
  *         Flags defined are:
  *          - lowest flag bit (5): Payload uses Snappy compression
- * If using Snappy compression, next comes a varint indicating the length of
- * the UNCOMPRESSED payload (payload == anything after the header).
  * Next: A varint describing the length of the rest of the header.
  *       Since in protocol version 1, there is currently nothing else in the header,
  *       this varint is always 0 (but that will change). Decoders must be able to
