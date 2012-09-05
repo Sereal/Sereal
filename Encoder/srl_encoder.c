@@ -46,6 +46,8 @@ extern "C" {
 #include "srl_buffer.h"
 #include "srl_protocol.h"
 
+#include "snappy/csnappy_compress.c"
+
 /* The ENABLE_DANGEROUS_HACKS (passed through from ENV via Makefile.PL) enables
  * optimizations that may make the code so cozy with a particular version of the
  * Perl core that the code is no longer portable and/or compatible.
@@ -219,6 +221,10 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         svp = hv_fetchs(opt, "croak_on_bless", 0);
         if ( svp && SvTRUE(*svp) )
           enc->flags |= SRL_F_CROAK_ON_BLESS;
+
+        svp = hv_fetchs(opt, "snappy", 0);
+        if ( svp && SvTRUE(*svp) )
+          enc->flags |= SRL_F_COMPRESS_SNAPPY;
     }
     else {
         /* SRL_F_SHARED_HASHKEYS on by default */
@@ -252,12 +258,24 @@ srl_init_weak_hash(srl_encoder_t *enc)
 
 
 void
-srl_write_header(pTHX_ srl_encoder_t *enc)
+srl_write_header(pTHX_ srl_encoder_t *enc, unsigned int payload_length)
 {
-    /* works for now: 3 byte magic string + proto version + 1 byte varint that indicates zero-length header */
-    DEBUG_ASSERT_BUF_SANE(enc);
-    srl_buf_cat_str_s(enc, SRL_MAGIC_STRING "\x01");
-    srl_buf_cat_char(enc,'\0');
+    /* 4th to 8th bit are flags. Using 4th for snappy flag. FIXME needs to go in spec. */
+    const U8 version_and_flags = SRL_PROTOCOL_VERSION
+                                 | (
+                                    SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY)
+                                    ? SRL_F_SNAPPY : 0
+                                 );
+
+    /* 4 byte magic string + proto version
+     * + potentially uncompressed size varint
+     * +  1 byte varint that indicates zero-length header */
+    BUF_SIZE_ASSERT(enc, sizeof(SRL_MAGIC_STRING) + 1 + 1 + SRL_MAX_VARINT_LENGTH);
+    srl_buf_cat_str_s_nocheck(enc, SRL_MAGIC_STRING);
+    srl_buf_cat_char_nocheck(enc, version_and_flags);
+    if (SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY))
+        srl_buf_cat_varint_nocheck(aTHX_ enc, 0, payload_length);
+    srl_buf_cat_char_nocheck(enc, '\0'); /* variable header length (0 right now) */
 }
 
 
@@ -361,13 +379,56 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
 }
 
 
+static SRL_INLINE int
+srl_run_snappy_compression(pTHX_ srl_encoder_t *enc, char *startpos)
+{
+    char *dest;
+    uint32_t dest_len;
+    void *working_memory;
+    const ptrdiff_t uncompressed_length = enc->pos - startpos;
+
+    /* FIXME some buffers (like working memory) could potentially live in the encoder struct,
+     *       lazily allocated */
+    dest_len = csnappy_max_compressed_length(uncompressed_length);
+
+    Newx(working_memory, CSNAPPY_WORKMEM_BYTES, void *);
+    if (!working_memory)
+        croak("Out of memory!");
+    Newx(dest, dest_len, char);
+    if (!dest) {
+        Safefree(working_memory);
+        croak("Out of memory!");
+    }
+
+    csnappy_compress(startpos, (uint32_t)uncompressed_length, dest, &dest_len, working_memory,
+                     CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
+    Safefree(working_memory);
+
+    /* If output larger than uncompressed */
+    if (expect_false( (STRLEN)uncompressed_length < dest_len)) {
+        Safefree(dest);
+        return 1;
+    }
+
+    Copy(dest, startpos, dest_len, char);
+    enc->pos = startpos + dest_len;
+    Safefree(dest);
+
+    return 0;
+}
+
 void
 srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
 {
+    char *payload_start;
     if (DEBUGHACK) warn("== start dump");
-    srl_write_header(aTHX_ enc);
+    srl_write_header(aTHX_ enc, 0);
+    payload_start = enc->pos;
     srl_dump_sv(aTHX_ enc, src);
     srl_fixup_weakrefs(aTHX_ enc);
+    if (!SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY)) {
+        //int compress_fail = srl_run_snappy_compression(aTHX_ enc, payload_start);
+    }
     if (DEBUGHACK) warn("== end dump");
 }
 

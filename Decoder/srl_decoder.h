@@ -59,11 +59,13 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_F_DECODER_DESTRUCTOR_OK 2UL
 /* Non-persistent flag! */
 #define SRL_F_DECODER_NEEDS_FINALIZE 4UL
+/* Non-persistent flag! */
+#define SRL_F_DECODER_DECOMPRESS_SNAPPY 8UL
 
 #define SRL_DEC_HAVE_OPTION(dec, flag_num) ((dec)->flags & flag_num)
 #define SRL_DEC_SET_OPTION(dec, flag_num) ((dec)->flags |= flag_num)
 #define SRL_DEC_UNSET_OPTION(dec, flag_num) ((dec)->flags &= ~flag_num)
-#define SRL_DEC_VOLATILE_FLAGS (SRL_F_DECODER_NEEDS_FINALIZE)
+#define SRL_DEC_VOLATILE_FLAGS (SRL_F_DECODER_NEEDS_FINALIZE|SRL_F_DECODER_DECOMPRESS_SNAPPY)
 #define SRL_DEC_RESET_VOLATILE_FLAGS(dec) ((dec)->flags &= ~SRL_DEC_VOLATILE_FLAGS)
 
 /*/ run this script with: perl -x srl_decoder.h

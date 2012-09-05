@@ -33,7 +33,7 @@ void srl_clear_encoder(srl_encoder_t *enc);
 void srl_destroy_encoder(pTHX_ srl_encoder_t *enc);
 
 /* Write Sereal packet header to output buffer */
-void srl_write_header(pTHX_ srl_encoder_t *enc);
+void srl_write_header(pTHX_ srl_encoder_t *enc, unsigned int payload_length);
 /* Start dumping a top-level SV */
 void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
 
@@ -48,6 +48,10 @@ void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
 /* If set in flags, then we rather croak than serialize an object.
  * Corresponds to the 'croak_on_bless' option to the Perl constructor. */
 #define SRL_F_CROAK_ON_BLESS                 4UL
+
+/* WARNING: This is different from the protocol bit SRL_F_SNAPPY in that it's
+ *          a flag on the encoder struct indicating that we want to use Snappy. */
+#define SRL_F_COMPRESS_SNAPPY                8UL
 
 #define SRL_ENC_HAVE_OPTION(enc, flag_num) ((enc)->flags & flag_num)
 

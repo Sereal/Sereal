@@ -8,8 +8,12 @@
  * is preceded/defined by a 1-byte control character, see table below.
  * All packets of Sereal data must be preceded by a header. The header structure
  * is as follows:
- * Bytes 1-4: Magic string "srlX" where X is the character of the protocol version,
- *            in binary. So for protocol version 1, the magic string is "srl\x01".
+ * Bytes 1-4: Magic string "=srl".
+ * Byte 5: low bits: The protocol version. high bits: flags
+ *         Flags defined are:
+ *          - lowest flag bit (5): Payload uses Snappy compression
+ * If using Snappy compression, next comes a varint indicating the length of
+ * the UNCOMPRESSED payload (payload == anything after the header).
  * Next: A varint describing the length of the rest of the header.
  *       Since in protocol version 1, there is currently nothing else in the header,
  *       this varint is always 0 (but that will change). Decoders must be able to
@@ -88,8 +92,12 @@
  * TODO: What's with floats?
  */
 
-/* Note: both indicating protocol version, keep in sync */
+/* protocol version */
 #define SRL_PROTOCOL_VERSION 1
+#define SRL_PROTOCOL_VERSION_MASK (~(16 + 32 + 64 + 128))
+
+/* Flag bits in the protocol-version & flags byte of the header */
+#define SRL_F_SNAPPY (1<<4) /* 5th bit */
 
 /* Useful constants */
 /* See also range constants below for the header byte */
