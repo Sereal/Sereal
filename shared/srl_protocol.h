@@ -106,60 +106,78 @@
 /* _LOW and _HIGH versions refering to INCLUSIVE range boundaries */
 
 
-#define SRL_HDR_POS_LOW         ((char)0)         /* 0b00000000 */         /* 0 */
-#define SRL_HDR_POS_HIGH        ((char)15)        /* 0b00001111 */         /* 15 */
-#define SRL_HDR_NEG_LOW         ((char)16)        /* 0b00010000 */         /* -1  [16] */
-#define SRL_HDR_NEG_HIGH        ((char)31)        /* 0b00011111 */         /* -16 [31]*/
+#define SRL_HDR_POS             ((char)0)       /* small positive integer - value in low 4 bits (identity) */
+#define SRL_HDR_POS_LOW         ((char)0)       /* small positive integer - value in low 4 bits (identity) */
+#define SRL_HDR_POS_HIGH        ((char)15)      /* small positive integer - value in low 4 bits (identity) */
 
-#define SRL_HDR_VARINT          ((char)32)        /* 0b00100000 */
-#define SRL_HDR_ZIGZAG          ((char)33)        /* 0b00100001 */
-#define SRL_HDR_FLOAT           ((char)34)        /* 0b00100010 */
-#define SRL_HDR_DOUBLE          ((char)35)        /* 0b00100011 */
-#define SRL_HDR_LONG_DOUBLE     ((char)36)        /* 0b00100100 */
-#define SRL_HDR_UNDEF           ((char)37)        /* 0b00100101 */
-#define SRL_HDR_STRING          ((char)38)        /* 0b00100110 */
-#define SRL_HDR_STRING_UTF8     ((char)39)        /* 0b00100111 */
+#define SRL_HDR_NEG             ((char)16)      /* small negative integer - value in low 4 bits (-k+15) */
+#define SRL_HDR_NEG_LOW         ((char)16)      /* small negative integer - value in low 4 bits (-k+15) */
+#define SRL_HDR_NEG_HIGH        ((char)31)      /* small negative integer - value in low 4 bits (-k+15) */
 
-#define SRL_HDR_REFP            ((char)40)        /* 0b00101000 */         /* scalar ref to next item */
-#define SRL_HDR_REFN            ((char)41)        /* 0b00101001 */         /* second/third/... occurrence of a multiply-occurring
-                                                  * substructure (always points at a form of reference) */
-#define SRL_HDR_HASH            ((char)42)        /* 0b00101010 */
-#define SRL_HDR_ARRAY           ((char)43)        /* 0b00101011 */
-#define SRL_HDR_BLESS           ((char)44)        /* 0b00101100 */
-#define SRL_HDR_BLESSV          ((char)45)        /* 0b00101101 */         /* provisional */
-#define SRL_HDR_ALIAS           ((char)46)        /* 0b00101110 */
-#define SRL_HDR_COPY            ((char)47)        /* 0b00101111 */
+#define SRL_HDR_VARINT          ((char)32)      /* <VARINT> - Varint variable length integer */
+#define SRL_HDR_ZIGZAG          ((char)33)      /* <ZIGZAG-VARINT> - Zigzag variable length integer */
+#define SRL_HDR_FLOAT           ((char)34)      /* <IEEE-FLOAT> */
+#define SRL_HDR_DOUBLE          ((char)35)      /* <IEEE-DOUBLE> */
+#define SRL_HDR_LONG_DOUBLE     ((char)36)      /* <IEEE-LONG-DOUBLE> */
+#define SRL_HDR_UNDEF           ((char)37)      /* None - Perl undef */
+#define SRL_HDR_STRING          ((char)38)      /* <LEN-VARINT> <BYTES> - binary/(latin1) string */
+#define SRL_HDR_STRING_UTF8     ((char)39)      /* <LEN-VARINT> <UTF8> - utf8 string */
 
-#define SRL_HDR_WEAKEN          ((char)48)        /* 0b00110010 */
-#define SRL_HDR_REGEXP          ((char)49)        /* 0b00110011 */
+#define SRL_HDR_REFN            ((char)40)      /* <ITEM-TAG>    - ref to next item */
+#define SRL_HDR_REFP            ((char)41)      /* <OFFSET-VARINT> - ref to previous item stored at offset */
+#define SRL_HDR_HASH            ((char)42)      /* <COUNT-VARINT> [<KEY-TAG> <ITEM-TAG> ...] - count followed by key/value pairs */
+#define SRL_HDR_ARRAY           ((char)43)      /* <COUNT-VARINT> [<ITEM-TAG> ...] - count followed by items */
+#define SRL_HDR_BLESS           ((char)44)      /* <ITEM-TAG> <STR-TAG> - item / class */
+#define SRL_HDR_BLESSV          ((char)45)      /* <OFFSET-VARINT> <ITEM-TAG> - class at offset - item to bless */
+#define SRL_HDR_ALIAS           ((char)46)      /* <OFFSET-VARINT> - alias to item defined at offset */
+#define SRL_HDR_COPY            ((char)47)      /* <OFFSET-VARINT> - copy of alias defined at offset */
 
- /* Note: Can do reserved check with a range now, but as we start using
+#define SRL_HDR_WEAKEN          ((char)48)      /* <REF-TAG> - Weaken the following reference */
+#define SRL_HDR_REGEXP          ((char)49)      /* <PATTERN-STR-TAG> <MODIFIERS-STR-TAG>*/
+
+/* Note: Can do reserved check with a range now, but as we start using
  *       them, might have to explicit == check later. */
-#define SRL_HDR_RESERVED1_LOW    ((char)50)        /* 0b00110110 */
-#define SRL_HDR_RESERVED1_HIGH   ((char)59)        /* 0b00111111 */
+#define SRL_HDR_INT1            ((char)50)      /* <BYTE>  - one byte integer   #proposed# */
+#define SRL_HDR_INT2            ((char)51)      /* <BYTES> - two byte integer   #proposed# */
+#define SRL_HDR_INT3            ((char)52)      /* <BYTES> - three byte integer #proposed# */
+#define SRL_HDR_INT4            ((char)53)      /* <BYTES> - four byte integer  #proposed# */
 
+#define SRL_HDR_UINT1           ((char)54)      /* <BYTE>  - one byte unsigned integer   #proposed# */
+#define SRL_HDR_UINT2           ((char)55)      /* <BYTES> - two byte unsigned integer   #proposed# */
+#define SRL_HDR_UINT3           ((char)56)      /* <BYTES> - three byte unsigned integer #proposed# */
+#define SRL_HDR_UINT4           ((char)57)      /* <BYTES> - four byte unsigned integer  #proposed# */
 
-#define SRL_HDR_EXTEND          ((char)60)          /* 0b00111100 */
-#define SRL_HDR_PACKET_START    ((char)61)          /* 0b00111101 (first bytes of magic string in header '=') */
+#define SRL_HDR_FALSE           ((char)58)      /* false #proposed# */
+#define SRL_HDR_TRUE            ((char)59)      /* true  #proposed# */
 
-#define SRL_MAGIC_STRING            "=srl"          /* Magic string for header. Every packet starts with this */
-#define SRL_MAGIC_STRING_LILIPUTIAN 0x6c72733d      /* SRL_MAGIC_STRING as a little endian integer */
+#define SRL_HDR_REPEATED        ((char)60)      /* <LEN-VARINT> <TAG-BYTE> <TAG-DATA> - repeated tag (unimplemented) */
+#define SRL_HDR_PACKET_START    ((char)61)      /* (first byte of magic string in header) */
 
- /* Note: Can do reserved check with a range now, but as we start using
+#define SRL_MAGIC_STRING         "=srl"         /* Magic string for header. Every packet starts with this */
+#define SRL_MAGIC_STRING_LILIPUTIAN 0x6c72733d  /* SRL_MAGIC_STRING as a little endian integer */
+
+#define SRL_HDR_EXTEND          ((char)62)      /* <BYTE> - for additional tags */
+#define SRL_HDR_PAD             ((char)63)      /* (ignored tag, skip to next byte) */
+
+/* Note: Can do reserved check with a range now, but as we start using
  *       them, might have to explicit == check later. */
-#define SRL_HDR_LIST            ((char)62)          /* 0b00111110 */
-#define SRL_HDR_PAD             ((char)63)          /* 0b00111111 */
+#define SRL_HDR_ARRAYREF        ((char)64)      /* [<ITEM-TAG> ...] - count of itmes in low 4 bits */
+#define SRL_MASK_ARRAYREF_COUNT ((char)15)      /* mask to get low bits from tag */
+#define SRL_HDR_ARRAYREF_LOW    ((char)64)
+#define SRL_HDR_ARRAYREF_HIGH   ((char)79)
 
 
-#define SRL_HDR_RESERVED2_LOW    ((char)64)        /* 0b01000000 */
-#define SRL_HDR_RESERVED2_HIGH   ((char)95)        /* 0b01011111 */
+#define SRL_HDR_HASHREF         ((char)80)      /* [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs */
+#define SRL_MASK_HASHREF_COUNT  ((char)15)      /* mask to get low bits from tag */
+#define SRL_HDR_HASHREF_LOW     ((char)80)
+#define SRL_HDR_HASHREF_HIGH    ((char)95)
 
+#define SRL_HDR_ASCII           ((char)96)      /* <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
+#define SRL_HDR_ASCII_LOW       ((char)96)
+#define SRL_HDR_ASCII_HIGH      ((char)127)
+#define SRL_MASK_ASCII_LEN      ((char)31)      /* mask to get length of SRL_HDR_ASCII type tags */
 
-#define SRL_HDR_ASCII_LOW       ((char)96)          /* 0b01100000 */
-#define SRL_HDR_ASCII_HIGH      ((char)127)         /* 0b01111111 */
-#define SRL_MASK_ASCII_LEN      ((char)31)          /* 0b00011111 */
-
-#define SRL_HDR_TRACK_FLAG      ((char)128)         /* 0b10000000 */
+#define SRL_HDR_TRACK_FLAG      ((char)128)         /* if this bit is set track the item */
 
 /* TODO */
 

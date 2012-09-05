@@ -981,21 +981,13 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
             case SRL_HDR_ARRAY:         srl_read_array(aTHX_ dec, into);            break;
             case SRL_HDR_REGEXP:        srl_read_regexp(aTHX_ dec, into);           break;
 
-            case SRL_HDR_LIST:          ERROR_UNEXPECTED(dec,tag, " single value"); break;
             case SRL_HDR_PAD:           /* no op */
                 while (BUF_NOT_DONE(dec) && *dec->pos == SRL_HDR_PAD)
                     dec->pos++;
                 goto read_again;
             break;
             default:
-                if ( expect_true(
-                    (SRL_HDR_RESERVED1_LOW <= tag && tag <= SRL_HDR_RESERVED1_HIGH) ||
-                    (SRL_HDR_RESERVED2_LOW <= tag && tag <= SRL_HDR_RESERVED2_HIGH) )
-                ) {
-                    srl_read_reserved(aTHX_ dec, tag, into);
-                } else {
-                    ERROR_PANIC(dec,tag);
-                }
+                ERROR_UNEXPECTED(dec,tag, " single value");
             break;
         }
     }
