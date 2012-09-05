@@ -22,6 +22,8 @@ typedef struct {
     ptable_ptr ref_seenhash; /* ptr table for avoiding circular refs */
     ptable_ptr weak_seenhash; /* ptr table for avoiding dangling weakrefs */
     ptable_ptr str_seenhash; /* ptr table for issuing COPY commands */
+
+    void *snappy_workmem;    /* lazily allocated if and only if using Snappy */
 } srl_encoder_t;
 
 /* constructor; don't need destructor, this sets up a callback */

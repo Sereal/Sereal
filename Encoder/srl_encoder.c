@@ -146,6 +146,7 @@ void srl_destructor_hook(void *p)
     if (!SRL_ENC_HAVE_OPTION(enc, SRL_F_REUSE_ENCODER)) {
         /* Exception cleanup. Under normal operation, we should have
          * assigned NULL to buf_start after we're done. */
+        Safefree(enc->snappy_workmem);
         Safefree(enc->buf_start);
         if (enc->ref_seenhash != NULL)
             PTABLE_free(enc->ref_seenhash);
@@ -179,6 +180,7 @@ void
 srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
 {
     Safefree(enc->buf_start);
+    Safefree(enc->snappy_workmem);
     if (enc->ref_seenhash != NULL)
         PTABLE_free(enc->ref_seenhash);
     if (enc->str_seenhash != NULL)
@@ -210,6 +212,7 @@ srl_build_encoder_struct(pTHX_ HV *opt)
     enc->weak_seenhash = NULL;
     enc->str_seenhash = NULL;
     enc->ref_seenhash = NULL;
+    enc->snappy_workmem = NULL;
 
     /* load options */
     if (opt != NULL) {
@@ -379,55 +382,52 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
 }
 
 
-static SRL_INLINE int
-srl_run_snappy_compression(pTHX_ srl_encoder_t *enc, char *startpos)
-{
-    char *dest;
-    uint32_t dest_len;
-    void *working_memory;
-    const ptrdiff_t uncompressed_length = enc->pos - startpos;
-
-    /* FIXME some buffers (like working memory) could potentially live in the encoder struct,
-     *       lazily allocated */
-    dest_len = csnappy_max_compressed_length(uncompressed_length);
-
-    Newx(working_memory, CSNAPPY_WORKMEM_BYTES, void *);
-    if (!working_memory)
-        croak("Out of memory!");
-    Newx(dest, dest_len, char);
-    if (!dest) {
-        Safefree(working_memory);
-        croak("Out of memory!");
-    }
-
-    csnappy_compress(startpos, (uint32_t)uncompressed_length, dest, &dest_len, working_memory,
-                     CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
-    Safefree(working_memory);
-
-    /* If output larger than uncompressed */
-    if (expect_false( (STRLEN)uncompressed_length < dest_len)) {
-        Safefree(dest);
-        return 1;
-    }
-
-    Copy(dest, startpos, dest_len, char);
-    enc->pos = startpos + dest_len;
-    Safefree(dest);
-
-    return 0;
-}
-
 void
 srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
 {
     char *payload_start;
     if (DEBUGHACK) warn("== start dump");
-    srl_write_header(aTHX_ enc, 0);
-    payload_start = enc->pos;
-    srl_dump_sv(aTHX_ enc, src);
-    srl_fixup_weakrefs(aTHX_ enc);
     if (!SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY)) {
-        //int compress_fail = srl_run_snappy_compression(aTHX_ enc, payload_start);
+        srl_write_header(aTHX_ enc, 0);
+        payload_start = enc->pos;
+        srl_dump_sv(aTHX_ enc, src);
+        srl_fixup_weakrefs(aTHX_ enc);
+    }
+    else {
+        /* sizeof includes \0 in count */
+        const STRLEN max_header_len = sizeof(SRL_MAGIC_STRING)-1 + 1 + SRL_MAX_VARINT_LENGTH + 1;
+        STRLEN uncompressed_length;
+        char *old_buf;
+        STRLEN dest_len;
+
+        srl_dump_sv(aTHX_ enc, src);
+        srl_fixup_weakrefs(aTHX_ enc);
+
+        uncompressed_length = BUF_SIZE(enc);
+        dest_len = csnappy_max_compressed_length(uncompressed_length) + max_header_len + 1;
+
+        if (expect_false( enc->snappy_workmem == NULL )) {
+            /* Cleaned up automatically by the cleanup handler */
+            Newx(enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES, char);
+            if (enc->snappy_workmem == NULL)
+                croak("Out of memory!");
+        }
+
+        old_buf = enc->buf_start;
+        Newx(enc->buf_start, dest_len, char);
+        if (!enc->buf_start) {
+            enc->buf_start = old_buf;
+            croak("Out of memory!");
+        }
+        enc->pos = enc->buf_start;
+        enc->buf_end = enc->buf_start + dest_len;
+
+        srl_write_header(aTHX_ enc, uncompressed_length);
+        csnappy_compress(old_buf, (uint32_t)uncompressed_length, enc->pos, &dest_len,
+                         enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
+        Safefree(old_buf);
+        /* FIXME could check whether output larger than uncompressed and revert... */
+        enc->pos += dest_len;
     }
     if (DEBUGHACK) warn("== end dump");
 }
