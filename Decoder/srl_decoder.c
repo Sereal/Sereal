@@ -794,6 +794,8 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
             Copy(into, &tmp, 1, SV);
             Copy((SV*)referent, into, 1, SV);
             Copy(&tmp, (SV*)referent, 1, SV);
+            SvREFCNT(referent)= SvREFCNT(into);
+            SvREFCNT(into)= SvREFCNT(&tmp);
 
             if (SWAP_DEBUG) { warn("after swap:"); sv_dump(into); sv_dump(referent); }
 
