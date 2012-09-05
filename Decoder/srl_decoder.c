@@ -935,7 +935,10 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
                 goto read_again;
             break;
             default:
-                if (expect_true( SRL_HDR_RESERVED_LOW <= tag && tag <= SRL_HDR_RESERVED_HIGH )) {
+                if ( expect_true(
+                    (SRL_HDR_RESERVED1_LOW <= tag && tag <= SRL_HDR_RESERVED1_HIGH) ||
+                    (SRL_HDR_RESERVED2_LOW <= tag && tag <= SRL_HDR_RESERVED2_HIGH) )
+                ) {
                     srl_read_reserved(aTHX_ dec, tag, into);
                 } else {
                     ERROR_PANIC(dec,tag);

@@ -90,7 +90,6 @@
 
 /* Note: both indicating protocol version, keep in sync */
 #define SRL_PROTOCOL_VERSION 1
-#define SRL_MAGIC_STRING "srl"
 
 /* Useful constants */
 /* See also range constants below for the header byte */
@@ -100,19 +99,11 @@
 /* All constants have the F bit (SRL_HDR_TRACK_FLAG) unset! */
 /* _LOW and _HIGH versions refering to INCLUSIVE range boundaries */
 
-#define SRL_HDR_TRACK_FLAG      ((char)128)        /* 0b10000000 */
 
-#define SRL_HDR_ASCII_LOW       ((char)64)        /* 0b01000000 */
-#define SRL_HDR_ASCII_HIGH      ((char)127)       /* 0b01111111 */
-#define SRL_MASK_ASCII_LEN      ((char)63)        /* 0b00111111 */
-
-#define SRL_HDR_POS_LOW         ((char)0)        /* 0b00000000 */         /* 0 */
+#define SRL_HDR_POS_LOW         ((char)0)         /* 0b00000000 */         /* 0 */
 #define SRL_HDR_POS_HIGH        ((char)15)        /* 0b00001111 */         /* 15 */
 #define SRL_HDR_NEG_LOW         ((char)16)        /* 0b00010000 */         /* -1  [16] */
 #define SRL_HDR_NEG_HIGH        ((char)31)        /* 0b00011111 */         /* -16 [31]*/
-
-#define STL_HDR_TYPE_MASK       ((char)63)        /* 0b00111111 */
-
 
 #define SRL_HDR_VARINT          ((char)32)        /* 0b00100000 */
 #define SRL_HDR_ZIGZAG          ((char)33)        /* 0b00100001 */
@@ -133,19 +124,37 @@
 #define SRL_HDR_ALIAS           ((char)46)        /* 0b00101110 */
 #define SRL_HDR_COPY            ((char)47)        /* 0b00101111 */
 
-#define SRL_HDR_EXTEND          ((char)48)        /* 0b00110000 */
-#define SRL_HDR_LIST            ((char)49)        /* 0b00110001 */
-
-#define SRL_HDR_WEAKEN          ((char)50)        /* 0b00110010 */
-#define SRL_HDR_REGEXP          ((char)51)        /* 0b00110011 */
-
-#define SRL_HDR_PAD             ((char)52)        /* 0b00110101 */
+#define SRL_HDR_WEAKEN          ((char)48)        /* 0b00110010 */
+#define SRL_HDR_REGEXP          ((char)49)        /* 0b00110011 */
 
  /* Note: Can do reserved check with a range now, but as we start using
  *       them, might have to explicit == check later. */
-#define SRL_HDR_RESERVED_LOW    ((char)53)        /* 0b00110110 */
-#define SRL_HDR_RESERVED_HIGH   ((char)63)        /* 0b00111111 */
- 
+#define SRL_HDR_RESERVED1_LOW    ((char)50)        /* 0b00110110 */
+#define SRL_HDR_RESERVED1_HIGH   ((char)59)        /* 0b00111111 */
+
+
+#define SRL_HDR_EXTEND          ((char)60)          /* 0b00111100 */
+#define SRL_HDR_PACKET_START    ((char)61)          /* 0b00111101 (first bytes of magic string in header '=') */
+
+#define SRL_MAGIC_STRING            "=srl"          /* Magic string for header. Every packet starts with this */
+#define SRL_MAGIC_STRING_LILIPUTIAN 0x6c72733d      /* SRL_MAGIC_STRING as a little endian integer */
+
+ /* Note: Can do reserved check with a range now, but as we start using
+ *       them, might have to explicit == check later. */
+#define SRL_HDR_LIST            ((char)62)          /* 0b00111110 */
+#define SRL_HDR_PAD             ((char)63)          /* 0b00111111 */
+
+
+#define SRL_HDR_RESERVED2_LOW    ((char)64)        /* 0b01000000 */
+#define SRL_HDR_RESERVED2_HIGH   ((char)95)        /* 0b01011111 */
+
+
+#define SRL_HDR_ASCII_LOW       ((char)96)          /* 0b01100000 */
+#define SRL_HDR_ASCII_HIGH      ((char)127)         /* 0b01111111 */
+#define SRL_MASK_ASCII_LEN      ((char)31)          /* 0b00011111 */
+
+#define SRL_HDR_TRACK_FLAG      ((char)128)         /* 0b10000000 */
+
 /* TODO */
 
 #define SRL_SET_FBIT(where) ((where) |= SRL_HDR_TRACK_FLAG)

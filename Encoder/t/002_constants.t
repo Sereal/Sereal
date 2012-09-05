@@ -8,6 +8,6 @@ use Sereal::Encoder::Constants qw(:all);
 
 use Test::More tests => 2;
 
-is(SRL_MAGIC_STRING, "srl", "check magic string");
+is(SRL_MAGIC_STRING, "=srl", "check magic string");
 is(SRL_HDR_UNDEF, 37, "check arbitrary header constant");
 

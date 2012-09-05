@@ -100,7 +100,7 @@ HERE
   };
 }
 
-sub SRL_MAGIC_STRING () {"srl"}
+sub SRL_MAGIC_STRING () {"=srl"}
 push @EXPORT_OK, "SRL_MAGIC_STRING";
 our %EXPORT_TAGS=(all => \@EXPORT_OK);
 HERE
