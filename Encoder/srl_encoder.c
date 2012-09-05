@@ -399,7 +399,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
 
-        uncompressed_length = BUF_SIZE(enc);
+        uncompressed_length = enc->pos - enc->buf_start;
         dest_len = csnappy_max_compressed_length(uncompressed_length) + max_header_len + 1;
 
         if (expect_false( enc->snappy_workmem == NULL )) {
