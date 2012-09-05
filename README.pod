@@ -95,7 +95,7 @@ floats.
 
 A header consists of multiple components:
 
-   <MAGIC> <VERSION-TYPE> <DATA-SIZE> <HEADER-SUFFIX-SIZE> <OPT-SUFFIX>
+   <MAGIC> <VERSION-TYPE> <HEADER-SUFFIX-SIZE> <OPT-SUFFIX>
 
 =over 4
 
@@ -130,15 +130,6 @@ Compressed Sereal format, using Google's Snappy compression internally.
 
 Additional compression types are envisaged and will be assigned type
 numbers by the maintainers of the protocol.
-
-=item DATA-SIZE
-
-This is a varint representing the size of the *uncompressed* body.
-
-This value may be 0 in which case the value can be disregarded. It is
-recommended that any compressed form of the data include this value
-so that decompressors know much buffer space to allocate for the unpacked
-body.
 
 =item HEADER-SUFFIX-SIZE
 
@@ -182,6 +173,11 @@ ASCII) or in a varint following the tag (such as for STRING).
 
 =back
 
+=head3 Tags
+
+=for autoupdater start
+
+=for autoupdater stop
 
 =head1 AUTHOR
 
