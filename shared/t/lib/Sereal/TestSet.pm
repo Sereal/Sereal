@@ -187,7 +187,7 @@ our @BasicTests = (
                     )
                     . array(
                         chr(0b0000_0001),
-                        chr(SRL_HDR_REFP) . varint(10)
+                        chr(SRL_HDR_REFP) . varint($pos)
                     )
       ;
       $content
@@ -199,7 +199,7 @@ our @BasicTests = (
     .chr(SRL_HDR_PAD)
     .chr(SRL_HDR_REFN)
     .chr(SRL_HDR_REFP)
-    .varint(6)
+    .varint(length($Header)+1)
     .chr(0b0000_0001)
     ,
     "weak thing copy (requires PAD)"
@@ -209,7 +209,7 @@ our @BasicTests = (
     chr(SRL_HDR_REFN)
     . chr(SRL_HDR_REFN + FBIT)
         . chr(SRL_HDR_ARRAY) . varint(2)
-            .chr(SRL_HDR_WEAKEN) . chr(SRL_HDR_REFP) . varint(6)
+            .chr(SRL_HDR_WEAKEN) . chr(SRL_HDR_REFP) . varint(length($Header)+1)
             .chr(0b0000_0001)
     ,
     "weak thing ref"
@@ -218,20 +218,19 @@ our @BasicTests = (
     $weak_thing,
     chr(SRL_HDR_REFN + FBIT)
         .chr(SRL_HDR_ARRAY).varint(2)
-            .chr(SRL_HDR_WEAKEN).chr(SRL_HDR_REFP).varint(5)
+            .chr(SRL_HDR_WEAKEN).chr(SRL_HDR_REFP).varint(length($Header))
             .chr(0b0000_0001)
     ,
     "weak thing (aliased root)"
    ),
   [
     do { my @array; $array[0]=\$array[1]; $array[1]=\$array[0]; \@array },
-    chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY)
-    .varint(2)
+    chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY) . varint(2)
     .chr(SRL_HDR_REFN + FBIT)
     .chr(SRL_HDR_REFP + FBIT)
-    .varint(8)
+    .varint(length($Header)+3)
     .chr(SRL_HDR_ALIAS)
-    .varint(9)
+    .varint(length($Header)+4)
     ,
     "scalar cross"
   ],
@@ -243,9 +242,9 @@ our @BasicTests = (
     .chr(SRL_HDR_REFN)
     .chr(SRL_HDR_WEAKEN + FBIT)
     .chr(SRL_HDR_REFP)
-    .varint(8)
+    .varint(length($Header)+3)
     .chr(SRL_HDR_ALIAS)
-    .varint(10)
+    .varint(length($Header)+5)
     ,
     "weak scalar cross"
   ],
@@ -266,7 +265,7 @@ our @BasicTests = (
         short_string("foo"),
         short_string("ix"),
         chr(SRL_HDR_REFP),
-        varint(14),
+        varint(length($Header)+9),
     ),
     "blessed regexp with reuse"
   ],
@@ -279,10 +278,10 @@ our @BasicTests = (
                 short_string("foo"),
                 chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + FBIT),varint(0),
             chr(SRL_HDR_BLESS),
-                chr(SRL_HDR_COPY),varint(9),
+                chr(SRL_HDR_COPY),varint(length($Header)+4),
                 chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + FBIT),varint(0),
-            chr(SRL_HDR_REFP),varint(14),
-            chr(SRL_HDR_REFP),varint(20),
+            chr(SRL_HDR_REFP),varint(length($Header)+9),
+            chr(SRL_HDR_REFP),varint(length($Header)+15),
     ),
     "blessed arrays with reuse"
   ],
@@ -372,7 +371,7 @@ our @BasicTests = (
               integer(1),
           ),
           hash(
-              chr(SRL_HDR_COPY).varint(11),
+              chr(SRL_HDR_COPY).varint(length($Header)+6),
               integer(2),
           ),
         );
