@@ -28,3 +28,5 @@ MANIFEST
 Sereal-Decoder-*.tar.gz
 callgrind.out.*
 author_tools
+t/data
+t/lib
