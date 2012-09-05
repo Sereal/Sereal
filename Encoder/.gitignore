@@ -30,3 +30,4 @@ callgrind.out.*
 author_tools
 t/data
 t/lib
+inc/Devel/CheckLib.pm

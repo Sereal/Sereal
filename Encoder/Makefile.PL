@@ -11,7 +11,7 @@ my $in_source_repo = -d "../.git" and -d $shared_dir;
 
 my $module = "Sereal::Encoder";
 
-unshift @INC, '.';
+unshift @INC, '.', 'inc';
 require inc::Sereal::BuildTools;
 inc::Sereal::BuildTools::link_files($shared_dir) if $in_source_repo;
 inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
@@ -35,6 +35,14 @@ if ($ENV{DEBUG}) {
 else {
   $defines .= " -DNDEBUG";
 }
+
+# from Compress::Snappy
+require Devel::CheckLib;
+my $ctz = Devel::CheckLib::check_lib(
+    lib      => 'c',
+    function => 'return (__builtin_ctzll(0x100000000LL) != 32);'
+) ? '-DHAVE_BUILTIN_CTZ' : '';
+$defines .= " $ctz" if $ctz;
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
