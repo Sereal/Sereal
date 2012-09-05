@@ -32,7 +32,7 @@ Sereal::Decoder - Fast, compact, powerful binary deserialization
   my $structure;
   $decoder->decode($blob, $structure); # deserializes into $structure
   
-  # or if you don't have weakrefs to the top level structure, this works, too:
+  # or if you don't have references to the top level structure, this works, too:
   $structure = $decoder->decode($blob);
   
   # alternatively functional interface:
@@ -76,14 +76,17 @@ structure. The result can be obtained in one of two ways: C<decode> accepts
 a second parameter, which is a scalar to write the result to, AND C<decode>
 will return the resulting data structure.
 
-The two are subtly different in case of data structures that contain weak
+The two are subtly different in case of data structures that contain
 references to the root element. In that case, the return value will be
-a (non-recursive) copy of the weakened reference. The pass-in style is
-more correct. In other words,
+a (non-recursive) copy of the reference. The pass-in style is more correct.
+In other words,
 
   $decoder->decode($sereal_string, my $out);
   # is almost the same but safer than:
   my $out = $decoder->decode($sereal_string);
+
+This is an unfortunate side-effect of perls standard copy semantics of
+assignment. Possibly one day we will have an alternative to this.
 
 =head1 EXPORTABLE FUNCTIONS
 
@@ -124,16 +127,17 @@ problem domain.
 
 =head1 ACKNOWLEDGMENT
 
-This module was originally developed for booking.com.
-With approval from booking.com, this module was generalized
+This module was originally developed for Booking.com.
+With approval from Booking.com, this module was generalized
 and published on CPAN, for which the authors would like to express
 their gratitude.
 
 =head1 COPYRIGHT AND LICENSE
 
 Copyright (C) 2012 by Steffen Mueller
+Copyright (C) 2012 by Yves Orton
 
-Except portions taken from Marc Lehmann's code for the JSON::XS
+Excluding portions taken from Marc Lehmann's code for the JSON::XS
 module. The license for JSON::XS is the same as for this module:
 
 This library is free software; you can redistribute it and/or modify

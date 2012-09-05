@@ -74,7 +74,114 @@ We wanted the protocol to be robust to forward/backwards compatibility
 issues. It should be possible to partially read new formats with an
 old decoder, and possibly output old formats with a new decoder.
 
+=item Language Agnosticism
+
+We want the format to be usable by other languages, especially dynamic
+languages. We hope to have a Java port soon, right Eric?
+
 =back
+
+=head1 SPECIFICATION
+
+A serialized structure is converted into a "document". A document is made
+up of two parts, the header and the body.
+
+=head2 General Points
+
+Sereal is a little-endian data structure. Additionally it uses IEEE 754
+floats.
+
+=head2 Header Format
+
+A header consists of multiple components:
+
+   <MAGIC> <VERSION-TYPE> <DATA-SIZE> <HEADER-SUFFIX-SIZE> <OPT-SUFFIX>
+
+=over 4
+
+=item MAGIC
+
+A "magic string" that identifies a document as being in the Sereal format.
+The value of this string is "=srl", and when decoded as an unsigned 32 bit
+integer on a little endian machine has a value of 0x6c72733d.
+
+=item VERSION-TYPE
+
+A single byte, of which the high 4 bits are used to represent the "type"
+of the document, and the low 4 bits used to represent the version of the
+Sereal protocol the document complies with.
+
+Up until now there has only been one version of sereal released so the
+low bits will be 1.
+
+Currently only two types are defined:
+
+=over 4
+
+=item 0
+
+Raw Sereal format. The data can be processed verbatim.
+
+=item 1
+
+Compressed Sereal format, using Google's Snappy compression internally.
+
+=back
+
+Additional compression types are envisaged and will be assigned type
+numbers by the maintainers of the protocol.
+
+=item DATA-SIZE
+
+This is a varint representing the size of the *uncompressed* body.
+
+This value may be 0 in which case the value can be disregarded. It is
+recommended that any compressed form of the data include this value
+so that decompressors know much buffer space to allocate for the unpacked
+body.
+
+=item HEADER-SUFFIX-SIZE
+
+The header includes support for additional arbitrary data to be embedded
+in the header. This is accomplished by specifying the length of the suffix
+in the header with a varint. Headers with no suffix will set this to 0.
+
+=item OPT-SUFFIX
+
+The suffix may contain whatever data the encoder wishes to embed in the
+header. In version 1 of the protocol the decoder will never look inside
+this data. Later versions may introduce new rules for this field.
+
+=back
+
+=head2 Body Format
+
+The body is made up of one or more tagged data items:
+
+    <TAG> <OPT-DATA>
+
+=over 4
+
+=item TAG
+
+A tag is a single byte which specifies the type of the data being decoded.
+
+The high bit of each tag is used to signal to the decoder that the
+deserialized data needs to be stored and tracked and will be reused again
+elsewhere in the serialization.
+
+Some tags, such as POS, NEG and ASCII contain embedded in them either
+the data (in the case of POS and NEG) or the length of the OPT-DATA
+section (in the case of ASCII).
+
+=item OPT-DATA
+
+This field may contain an arbitrary set of bytes, either determined
+implicitly by the tag (such as for FLOAT), explicitly in the tag (as in
+ASCII) or in a varint following the tag (such as for STRING).
+
+=back
+
 
 =head1 AUTHOR
 
@@ -88,4 +195,16 @@ Rafaël Garcia-Suarez
 
 Ævar Arnfjörð Bjarmason
 
+=head1 ACKNOWLEDGMENT
+
+This protocol was originally developed for Booking.com. With approval
+from Booking.com, this module was generalized and published on CPAN,
+for which the authors would like to express their gratitude.
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2012 by Steffen Mueller
+Copyright (C) 2012 by Yves Orton
+
 =cut
+
