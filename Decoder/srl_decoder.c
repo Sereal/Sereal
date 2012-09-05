@@ -187,17 +187,48 @@ SV *
 srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into) {
     assert(dec != NULL);
     srl_begin_decoding(aTHX_ dec, src);
-    srl_read_header(aTHX_ dec); /* may be 0 if not compressed */
+    srl_read_header(aTHX_ dec);
     if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY)) {
         /* uncompress */
-/*        RETVAL = newSV(dest_len);
-        dest = SvPVX(RETVAL);
-        if (! dest)
-            XSRETURN_UNDEF;
-        if (csnappy_decompress_noheader(src + header_len, src_len - header_len,
-                                        dest, &dest_len))
-            XSRETURN_UNDEF;
-*/
+        uint32_t dest_len;
+        SV *buf_sv;
+        unsigned char *buf;
+        unsigned char *old_pos;
+        const ptrdiff_t compressed_packet_len = dec->buf_end - dec->pos + 1;
+        const ptrdiff_t sereal_header_len = dec->pos - dec->buf_start;
+
+        int header_len = csnappy_get_uncompressed_length(
+                            (char *)dec->pos,
+                            dec->buf_end - dec->pos,
+                            &dest_len
+                         );
+        if (header_len == CSNAPPY_E_HEADER_BAD)
+            ERROR("Invalid Snappy header in Snappy-compressed Sereal packet");
+
+        /* Let perl clean this up. yes, it's not the most efficient thing
+         * ever, but it's just one mortal per full decompression, so not
+         * a bottle-neck. */
+        buf_sv = sv_2mortal( newSV(sereal_header_len + dest_len) );
+        buf = (unsigned char *)SvPVX(buf_sv);
+
+        /* FIXME probably unnecessary to copy the Sereal header! */
+        Copy(dec->buf_start, buf, sereal_header_len, unsigned char);
+
+        old_pos = dec->pos;
+        dec->buf_start = buf;
+        dec->pos = buf + sereal_header_len;
+        dec->buf_end = dec->pos + dest_len;
+
+printf("%u %u %u %u - %u\n", compressed_packet_len, header_len, sereal_header_len, (unsigned int)(dest_len), *(old_pos+header_len));
+        if (expect_false(
+                csnappy_decompress_noheader((char *)(old_pos + header_len),
+                                            compressed_packet_len - header_len,
+                                            (char *)dec->pos,
+                                            &dest_len)
+            ))
+        {
+            ERROR("Snappy decompression of Sereal packet payload failed!");
+        }
     }
 
     if (expect_true(!into)) {
