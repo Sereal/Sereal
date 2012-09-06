@@ -427,6 +427,24 @@ sub have_encoder_and_decoder {
   return 1;
 }
 
+
+# max iv/uv logic taken from Storable tests
+my $max_uv = ~0;
+my $max_uv_m1 = ~0 ^ 1;
+# Express it in this way so as not to use any addition, as 5.6 maths would
+# do this in NVs on 64 bit machines, and we're overflowing IVs so can't use
+# use integer.
+my $max_iv_p1 = $max_uv ^ ($max_uv >> 1);
+my $lots_of_9C = do {
+  my $temp = sprintf "%#x", ~0;
+  $temp =~ s/ff/9c/g;
+  local $^W;
+  no warnings;
+  eval $temp;
+};
+my $max_iv = ~0 >> 1;
+my $min_iv = do {use integer; -$max_iv-1}; # 2s complement assumption
+
 our @ScalarRoundtripTests = (
   # name, structure
   ["undef", undef],
@@ -434,6 +452,23 @@ our @ScalarRoundtripTests = (
   ["small negative int", -8],
   ["largeish int", 100000],
   ["largeish negative int", -302001],
+
+  (
+      map {["integer: $_", $_]} (
+          # IV bounds of 8 bits
+          -1, 0, 1, -127, -128, -129, 42, 126, 127, 128, 129, 254, 255, 256, 257,
+          # IV bounds of 32 bits
+          -2147483647, -2147483648, -2147483649, 2147483646, 2147483647, 2147483648,
+          # IV bounds
+          $min_iv, do {use integer; $min_iv + 1}, do {use integer; $max_iv - 1},
+          $max_iv,
+          # UV bounds at 32 bits
+          0x7FFFFFFF, 0x80000000, 0x80000001, 0xFFFFFFFF, 0xDEADBEEF,
+          # UV bounds
+          $max_iv_p1, $max_uv_m1, $max_uv, $lots_of_9C,
+      )
+  ),
+
   ["float", 0.2],
   ["short ascii string", "fooo"],
   ["short latin1 string", "Müller"],
