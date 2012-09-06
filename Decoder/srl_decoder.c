@@ -186,7 +186,8 @@ srl_decoder_destructor_hook(pTHX_ void *p)
  * It rolls up all the other "top level" routines into one
  */
 SV *
-srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into) {
+srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into)
+{
     assert(dec != NULL);
     srl_begin_decoding(aTHX_ dec, src);
     srl_read_header(aTHX_ dec);
@@ -240,6 +241,10 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into) {
     if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE))) {
         srl_finalize_structure(aTHX_ dec);
     }
+
+    /* Remember the number of bytes used for the user to query */
+    dec->bytes_consumed = dec->pos - dec->buf_start;
+
     srl_clear_decoder(aTHX_ dec);
     return into;
 }
@@ -281,6 +286,7 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src)
     dec->buf_start= dec->pos= (unsigned char*)SvPV(src, len);
     dec->buf_end= dec->buf_start + len;
     dec->buf_len= len;
+    dec->bytes_consumed = 0;
 }
 
 static SRL_INLINE void

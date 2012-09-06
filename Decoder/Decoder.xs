@@ -67,6 +67,14 @@ decode_sereal(src, opt = NULL, into = NULL)
     XSRETURN(1);
 
 
+UV
+bytes_consumed(dec)
+    srl_decoder_t *dec;
+  CODE:
+    RETVAL = dec->bytes_consumed;
+  OUTPUT: RETVAL
+
+
 MODULE = Sereal::Decoder        PACKAGE = Sereal::Decoder::Constants
 PROTOTYPES: DISABLE
 
