@@ -5,13 +5,14 @@ use Data::Dumper;
 
 use Getopt::Long qw(GetOptions);
 BEGIN {
+    my $err;
     eval '
         use Sereal::Encoder::Constants qw(:all);
         1;
-    ' or do { warn $@; eval '
+    ' or do { $err= $@; eval '
         use Sereal::Decoder::Constants qw(:all);
         1;
-    ' } or die "No encoder/decoder constants: $@";
+    ' } or die "No encoder/decoder constants: $err\n$@";
 }
 
 GetOptions(
@@ -96,15 +97,15 @@ sub parse_sv {
   if ($o == SRL_HDR_VARINT) {
     printf "%06u: %02x %03s %sVARINT: %u\n", $p, $o, $bv, $ind, varint();
   }
-  elsif ($o <= 15) {
+  elsif (SRL_HDR_POS_LOW <= $o && $o <= SRL_HDR_POS_HIGH) {
     printf "%06u: %02x %03s %sPOS: %u\n", $p, $o, $bv, $ind, $o;
   }
-  elsif ($o <= 31) {
+  elsif (SRL_HDR_NEG_LOW <= $o && $o <= SRL_HDR_NEG_HIGH) {
     $o = 15-$o;
     printf "%06u: %02x %03s %sNEG: %i\n", $p, $o, $bv, $ind, $o;
   }
   elsif ($o >= SRL_HDR_ASCII_LOW) {
-    $o -= 64;
+    $o -= SRL_HDR_ASCII_LOW;
     my $len = $o;
     my $str = substr($data, 0, $len, '');
     $done .= $str;
