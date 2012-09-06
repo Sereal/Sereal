@@ -51,7 +51,7 @@ csnappy_compress_fragment(
  * REQUIRES: working_memory has (1 << workmem_bytes_power_of_two) bytes.
  * REQUIRES: 9 <= workmem_bytes_power_of_two <= 15.
  *
- * Takes the data stored in "input[0..input_length]" and stores
+ * Takes the data stored in "input[0..input_length-1]" and stores
  * it in the array pointed to by "compressed".
  *
  * "*out_compressed_length" is set to the length of the compressed output.
