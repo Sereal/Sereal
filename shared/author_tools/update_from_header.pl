@@ -80,8 +80,8 @@ sub update_srl_decoder_h {
                     $len+3, qq("$v2n{$_}") . ($_==127 ? " " : ","), $str, $_, $_, $_
             } 0 .. 127 ),
             "};",
+            "/*",
             "* NOTE the above section is auto-updated by $0",
-            "*/",
         )
     )
 }

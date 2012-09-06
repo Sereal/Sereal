@@ -211,6 +211,9 @@ static const char * const tag_name[] = {
 	"ASCII_30",      /* "~"  126 0x7e 0b01111110 */
 	"ASCII_31"       /*      127 0x7f 0b01111111 */
 };
+/*
 * NOTE the above section is auto-updated by author_tools/update_from_header.pl
+
+=for autoupdater stop
 */
 
