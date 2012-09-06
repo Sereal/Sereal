@@ -236,7 +236,7 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into, UV start_offset)
         into= sv_2mortal(newSV_type(SVt_NULL));
     }
     srl_read_single_value(aTHX_ dec, into);
-    assert(dec->pos == dec->buf_end);
+    /* assert(dec->pos == dec->buf_end); For now we disable this */
     if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE))) {
         srl_finalize_structure(aTHX_ dec);
     }
@@ -450,9 +450,17 @@ srl_read_varint_uv_length(pTHX_ srl_decoder_t *dec, const char * const errstr)
     return len;
 }
 
-/* this is just a define stub for now, in case later we want to validate
- * count UV's in some kind of intelligent way */
-#define srl_read_varint_uv_count(dec, errstr) srl_read_varint_uv(aTHX_ dec)
+static SRL_INLINE UV
+srl_read_varint_uv_count(pTHX_ srl_decoder_t *dec, const char * const errstr)
+{
+    UV len= srl_read_varint_uv(aTHX_ dec);
+    if (len > I32_MAX) {
+        ERRORf3("Corrupterd packet%s. Count %lu exceeds I32_MAX (%li), which is impossible.",
+                errstr, len, I32_MAX);
+    }
+    return len;
+}
+
 
 static SRL_INLINE void
 srl_track_sv(pTHX_ srl_decoder_t *dec, U8 *track_pos, SV *sv) {
@@ -549,7 +557,7 @@ srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 
 static SRL_INLINE void
 srl_read_array(pTHX_ srl_decoder_t *dec, SV *into) {
-    UV len= srl_read_varint_uv_count(dec," while reading ARRAY");
+    UV len= srl_read_varint_uv_count(aTHX_ dec," while reading ARRAY");
 
     (void)SvUPGRADE(into, SVt_PVAV);
 
@@ -579,7 +587,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into) {
 
 static SRL_INLINE void
 srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
-    IV num_keys= srl_read_varint_uv_count(dec," while reading HASH");
+    IV num_keys= srl_read_varint_uv_count(aTHX_ dec," while reading HASH");
 
     (void)SvUPGRADE(into, SVt_PVHV);
 
