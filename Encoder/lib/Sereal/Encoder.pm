@@ -69,6 +69,25 @@ By skipping the detection of repeated hash keys, performance goes up a bit,
 but the size of the output can potentially be much larger.
 Do not disable this unless you have a reason to.
 
+=item croak_on_bless
+
+If this option is set, then the encoder will refuse to serialize blessed
+references and throw an exception instead.
+
+This can be important because blessed references can mean executing
+a destructor on a remote system or generally executing code based on
+data.
+
+=item snappy
+
+If set, the main payload of the Sereal document will be compressed using
+Google's Snappy algorithm. This can yield anywhere from no effect
+to significant savings on output size at rather low run time cost.
+If in doubt, test with your data whether this helps or not.
+
+The decoder (version 0.04 and up) will know how to handle Snappy-compressed
+Sereal documents transparently.
+
 =back
 
 The thusly allocated encoder object and its output buffer will be reused
