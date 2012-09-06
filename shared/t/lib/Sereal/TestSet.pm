@@ -371,7 +371,7 @@ our @BasicTests = (
               integer(1),
           ),
           hash(
-              chr(SRL_HDR_COPY).varint(length($Header)+6),
+              chr(SRL_HDR_COPY) . varint(length($Header)+6),
               integer(2),
           ),
         );
