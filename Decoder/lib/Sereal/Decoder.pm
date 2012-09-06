@@ -65,7 +65,16 @@ documentation at a later date.
 
 Constructor. Optionally takes a hash reference as first parameter. This hash
 reference may contain any number of options that influence the behaviour of the
-encoder. Currently, no such options are defined, but will be in a later release.
+encoder. These options are currently valid:
+
+=over 2
+
+=item refuse_snappy
+
+If set, the decoder will refuse Snappy-compressed input data. This can be
+desirable for robustness. See the section C<ROBUSTNESS> below.
+
+=back
 
 =head1 INSTANCE METHODS
 

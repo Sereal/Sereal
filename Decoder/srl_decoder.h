@@ -65,6 +65,8 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_F_DECODER_NEEDS_FINALIZE 4UL
 /* Non-persistent flag! */
 #define SRL_F_DECODER_DECOMPRESS_SNAPPY 8UL
+/* Persistent flag: Make the decoder REFUSE compressed documents */
+#define SRL_F_DECODER_REFUSE_SNAPPY 16UL
 
 #define SRL_DEC_HAVE_OPTION(dec, flag_num) ((dec)->flags & flag_num)
 #define SRL_DEC_SET_OPTION(dec, flag_num) ((dec)->flags |= flag_num)

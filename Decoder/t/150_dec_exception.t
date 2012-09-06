@@ -19,7 +19,7 @@ use Sereal::TestSet qw(:all);
 # bad input. This obviously shouldn't segfault and neither leak
 # memory.
 
-plan tests => 19;
+plan tests => 20;
 my ($ok, $out, $err);
 
 SCOPE: {
@@ -30,6 +30,11 @@ SCOPE: {
 
     my $bad_nested_packet = $Header . array(integer(1), 7777);
     check_fail($bad_nested_packet, qr/Sereal: Error/, "Random crap in packet");
+
+    my $d = Sereal::Decoder->new({refuse_snappy => 1});
+    # strictly speaking not entirely correct; also: +16 for the snappy flag isn't exactly API
+    my $h = SRL_MAGIC_STRING . chr(1+16) . chr(0) . chr(SRL_HDR_UNDEF);
+    ok(!eval {$d->decode($h)} && $@ =~ /Snappy/i);
 }
 
 pass("Alive"); # done

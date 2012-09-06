@@ -127,16 +127,15 @@ srl_decoder_t *
 srl_build_decoder_struct(pTHX_ HV *opt)
 {
     srl_decoder_t *dec;
-    /* SV **svp; */
+    SV **svp;
 
     Newxz(dec, 1, srl_decoder_t);
 
     dec->ref_seenhash = PTABLE_new();
     /* load options */
     if (opt != NULL) {
-        /* if ( (svp = hv_fetchs(opt, "undef_blessed", 0)) && SvTRUE(*svp))
-          dec->flags |= F_UNDEF_BLESSED;
-        */
+        if ( (svp = hv_fetchs(opt, "refuse_snappy", 0)) && SvTRUE(*svp))
+          dec->flags |= SRL_F_DECODER_REFUSE_SNAPPY;
     }
 
     return dec;
@@ -309,8 +308,13 @@ srl_read_header(pTHX_ srl_decoder_t *dec)
         if (expect_false( (proto_version_and_flags & SRL_PROTOCOL_VERSION_MASK) != 1 ))
             ERRORf1("Unsupported Sereal protocol version %u",
                     proto_version_and_flags & SRL_PROTOCOL_VERSION_MASK);
-        if (proto_version_and_flags & SRL_F_SNAPPY)
+        if (proto_version_and_flags & SRL_F_SNAPPY) {
             dec->flags |= SRL_F_DECODER_DECOMPRESS_SNAPPY;
+            if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_SNAPPY) )) {
+                ERROR("Sereal document is compressed with Snappy, "
+                      "but this decoder is configured to refuse Snappy-compressed input.");
+            }
+        }
         header_len= srl_read_varint_uv_length(aTHX_ dec," while reading header"); /* must do this via a temporary as it modifes dec->pos itself */
         dec->pos += header_len;
     } else {
