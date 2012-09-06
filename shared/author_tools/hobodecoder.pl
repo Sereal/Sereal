@@ -172,6 +172,13 @@ sub parse_sv {
     parse_sv($ind."  ");
     parse_sv($ind."  ");
   }
+  elsif ($o == SRL_HDR_FALSE) {
+    printf "%06u: %02x %03s %sFALSE\n", $p, $o, $bv, $ind;
+  }
+  elsif ($o == SRL_HDR_TRUE) {
+    printf "%06u: %02x %03s %sTRUE\n", $p, $o, $bv, $ind;
+
+  }
   else {
     die "unsupported type: $o ($t): $const_names{$o}";
   }

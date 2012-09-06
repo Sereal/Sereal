@@ -386,6 +386,11 @@ our @BasicTests = (
           chr(SRL_HDR_STRING_UTF8) . varint(bytes::length($unicode2)) . encode_utf8($unicode2),
       ),
       "simple unicode hash key and value"
+  ],
+  [
+      sub { \@_ }->(!1,!0),
+      array(chr(SRL_HDR_FALSE),chr(SRL_HDR_TRUE)),
+      "true/false"
   ]
 );
 

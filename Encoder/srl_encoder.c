@@ -751,26 +751,36 @@ redo_dump:
     /* check if we have seen this scalar before, and track it so
      * if we see it again we recognize it */
     if ( expect_false( refcount > 1 ) ) {
-        PTABLE_t *ref_seenhash= SRL_GET_REF_SEENHASH(enc);
-        const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(ref_seenhash, src);
-        if (expect_false(oldoffset)) {
-            if (ref_rewrite_pos) {
-                if (DEBUGHACK) warn("ref to %p as %lu", src, oldoffset);
-                enc->pos= ref_rewrite_pos;
-                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REFP, (UV)oldoffset);
-            } else {
-                if (DEBUGHACK) warn("alias to %p as %lu", src, oldoffset);
-                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_ALIAS, (UV)oldoffset);
-            }
-            SRL_SET_FBIT(*(enc->buf_start + oldoffset));
+        if (src == &PL_sv_yes) {
+            srl_buf_cat_char(enc, SRL_HDR_TRUE);
             return;
         }
-        ref_rewrite_pos= NULL;
-        if (DEBUGHACK) warn("storing %p as %lu", src, BUF_POS_OFS(enc));
-        PTABLE_store(ref_seenhash, src, (void *)BUF_POS_OFS(enc));
+        else
+        if (src == &PL_sv_no) {
+            srl_buf_cat_char(enc, SRL_HDR_FALSE);
+            return;
+        }
+        else {
+            PTABLE_t *ref_seenhash= SRL_GET_REF_SEENHASH(enc);
+            const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(ref_seenhash, src);
+            if (expect_false(oldoffset)) {
+                if (ref_rewrite_pos) {
+                    if (DEBUGHACK) warn("ref to %p as %lu", src, oldoffset);
+                    enc->pos= ref_rewrite_pos;
+                    srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REFP, (UV)oldoffset);
+                } else {
+                    if (DEBUGHACK) warn("alias to %p as %lu", src, oldoffset);
+                    srl_buf_cat_varint(aTHX_ enc, SRL_HDR_ALIAS, (UV)oldoffset);
+                }
+                SRL_SET_FBIT(*(enc->buf_start + oldoffset));
+                return;
+            }
+            ref_rewrite_pos= NULL;
+            if (DEBUGHACK) warn("storing %p as %lu", src, BUF_POS_OFS(enc));
+            PTABLE_store(ref_seenhash, src, (void *)BUF_POS_OFS(enc));
+        }
     }
     assert(weakref_ofs == 0);
-
     if (SvPOKp(src)) {
 #ifdef MODERN_REGEXP
         if (expect_false( svt == SVt_REGEXP ) ) {
