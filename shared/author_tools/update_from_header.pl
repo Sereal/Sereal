@@ -10,7 +10,7 @@ sub fill_ranges {
     defined(my $ofs= $n2v{$pfx})
         or die "unknown $pfx";
     for my $i ( $n2v{$pfx . "_LOW"} .. $n2v{$pfx . "_HIGH"}) {
-        my $n= $pfx=~/NEG/ ? abs(-$i+15) : $i - $ofs;
+        my $n= $pfx=~/NEG/ ? abs($i - 32) : $i - $ofs;
         $n2v{ $pfx . "_" . $n } ||= $i;
         $v2n{ $i } = $pfx . "_". $n;
         $v2c{ $i } ||= '';

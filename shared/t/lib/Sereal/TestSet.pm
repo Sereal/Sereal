@@ -142,7 +142,7 @@ our @BasicTests = (
   # warning: this hardcodes the POS/NEG headers
   [1, chr(0b0000_0001), "encode 1"],
   [0, chr(0b0000_0000), "encode 0"],
-  [-1, chr(0b0001_0000), "encode -1"],
+  [-1, chr(0b0001_1111), "encode -1"],
   [undef, chr(SRL_HDR_UNDEF), "encode undef"],
   ["", short_string(""), "encode empty string"],
   ["1", short_string("1"), "encode string '1'"],

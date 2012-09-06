@@ -1033,7 +1033,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
     }
     else
     if ( tag <= SRL_HDR_NEG_HIGH) {
-        sv_setiv(into, -tag + 15);
+        sv_setiv(into, (IV)(tag - 32));
     }
     else
     if ( IS_SRL_HDR_ASCII(tag) ) {

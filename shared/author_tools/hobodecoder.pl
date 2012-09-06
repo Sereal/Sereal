@@ -101,7 +101,7 @@ sub parse_sv {
     printf "%06u: %02x %03s %sPOS: %u\n", $p, $o, $bv, $ind, $o;
   }
   elsif (SRL_HDR_NEG_LOW <= $o && $o <= SRL_HDR_NEG_HIGH) {
-    $o = 15-$o;
+    $o = $o - 32;
     printf "%06u: %02x %03s %sNEG: %i\n", $p, $o, $bv, $ind, $o;
   }
   elsif ($o >= SRL_HDR_ASCII_LOW) {

@@ -110,9 +110,9 @@
 #define SRL_HDR_POS_LOW         ((char)0)       /* small positive integer - value in low 4 bits (identity) */
 #define SRL_HDR_POS_HIGH        ((char)15)      /* small positive integer - value in low 4 bits (identity) */
 
-#define SRL_HDR_NEG             ((char)16)      /* small negative integer - value in low 4 bits (-k+15) */
-#define SRL_HDR_NEG_LOW         ((char)16)      /* small negative integer - value in low 4 bits (-k+15) */
-#define SRL_HDR_NEG_HIGH        ((char)31)      /* small negative integer - value in low 4 bits (-k+15) */
+#define SRL_HDR_NEG             ((char)16)      /* small negative integer - value in low 4 bits (k+32) */
+#define SRL_HDR_NEG_LOW         ((char)16)      /* small negative integer - value in low 4 bits (k+32) */
+#define SRL_HDR_NEG_HIGH        ((char)31)      /* small negative integer - value in low 4 bits (k+32) */
 
 #define SRL_HDR_VARINT          ((char)32)      /* <VARINT> - Varint variable length integer */
 #define SRL_HDR_ZIGZAG          ((char)33)      /* <ZIGZAG-VARINT> - Zigzag variable length integer */
