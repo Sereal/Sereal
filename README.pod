@@ -332,6 +332,7 @@ for which the authors would like to express their gratitude.
 =head1 COPYRIGHT AND LICENSE
 
 Copyright (C) 2012 by Steffen Mueller
+
 Copyright (C) 2012 by Yves Orton
 
 =cut
