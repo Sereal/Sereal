@@ -105,6 +105,23 @@ to catch it.
 Chances are that if you do this, you're violating UNIX philosophy
 in "be strict in what you emit but lenient in what you accept".
 
+You can also use this to deserialize a list of Sereal documents that
+is concatenated into the same string (code not very robust...):
+
+  my @out;
+  eval {
+    while (1) {
+      push @out, $decoder->decode($sereal_string);
+      substr($sereal_string, 0, $decoder->bytes_consumed, '');
+      last if not length($sereal_string)
+           or not $decoder->bytes_consumed;
+    }
+  };
+
+This could be made much more efficient if the decoder API had a
+start-offset parameter instead of using C<substr>. Consider that
+a To-Do.
+
 =head1 EXPORTABLE FUNCTIONS
 
 =head2 decode_sereal
