@@ -570,7 +570,10 @@ sub run_roundtrip_tests_internal {
         };
       my $ret;
       if ($name=~/complex/) {
-          $ret = is(length($encoded2), length($encoded),"$name ($ename, $mname, length encoded2 vs length encoded)");
+          SKIP: {
+              skip "Encoded string length tests for complex hashes and compression depends on hash key ordering", 1 if $opt->{snappy};
+              $ret = is(length($encoded2), length($encoded),"$name ($ename, $mname, length encoded2 vs length encoded)");
+          }
       } else {
           $ret = is_string($encoded2, $encoded, "$name ($ename, $mname, encoded2 vs encoded)");
       }
