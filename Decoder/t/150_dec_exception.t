@@ -29,7 +29,7 @@ SCOPE: {
     check_fail($badheaderpacket, qr/bad header/i, "Packet with invalid header blows up");
 
     my $bad_nested_packet = $Header . array(integer(1), 7777);
-    check_fail($bad_nested_packet, qr/termination of packet/, "Random crap in packet");
+    check_fail($bad_nested_packet, qr/Sereal: Error/, "Random crap in packet");
 }
 
 pass("Alive"); # done
