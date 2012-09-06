@@ -139,6 +139,31 @@ to write to. See the documentation for C<decode> above for details.
 The functional interface is marginally slower than the OO interface since
 it cannot reuse the decoder object.
 
+=head1 ROBUSTNESS
+
+This implementation of a Sereal decoder tries to be as robust to invalid
+input data as reasonably possible. This means that it should never
+(though read on) segfault. It may, however, cause a large malloc
+to fail. Generally speaking, invalid data should cause a Perl-trappable
+exception. The one exception is that for Snappy-compressed Sereal documents,
+the Snappy library may cause segmentation faults (invalid reads orwrites).
+This should only be a problem if you do not checksum your data (internal
+checksum support is a To-Do) or if you accept data from potentially
+malicious sources.
+
+It requires a lot of run-time boundary checks to prevent decoder
+segmentation faults on invalid data. We implemented them in the
+lightest way possible. Adding robustness against running out of memory
+would cause an very significant run-time overhead. In most cases of
+random garbage (with valid header no less) when a malloc() fails due
+to invalid data, the problem was caused by a very large array or
+string length. This kind of very large malloc can then fail, being
+trappable from Perl. Only when packet causes many repeated allocations
+do you risk causing a hard OOM error from the kernel that cannot be
+trapped because Perl may require some small allocations to succeed
+before the now-invalid memory is released. It is at least not entirely
+trivial to craft a Sereal document that causes this behaviour.
+
 =head1 PERFORMANCE
 
 The exact performance in time and space depends heavily on the data structure
