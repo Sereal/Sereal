@@ -79,8 +79,8 @@ extern "C" {
 static void srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src);
 static void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8);
 static SRL_INLINE void srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc);
-static SRL_INLINE void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src);
-static SRL_INLINE void srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src);
+static SRL_INLINE void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcnt);
+static SRL_INLINE void srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcnt);
 static SRL_INLINE void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys);
 static SRL_INLINE void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
 static SRL_INLINE void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
@@ -553,7 +553,7 @@ srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
 }
 
 static SRL_INLINE void
-srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src)
+srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
 {
     UV n;
     SV **svp;
@@ -563,12 +563,15 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src)
     /* heuristic: n is virtually the min. size of any element */
     BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + n);
 
-    /* header and num. elements */
-    srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_ARRAY, n);
-
-    if (n == 0) {
-        return;
+    if (n < 16 && refcount == 1) {
+        enc->pos--; /* backup over previous REFN */
+        srl_buf_cat_char_nocheck(enc, SRL_HDR_ARRAYREF + n);
+    } else {
+        /* header and num. elements */
+        srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_ARRAY, n);
     }
+    if (!n)
+        return;
     /* I can't decide if this should make me feel dirty */
     if (SvMAGICAL(src)) {
         UV i;
@@ -588,27 +591,40 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src)
 
 
 static SRL_INLINE void
-srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src)
+srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 {
     HE *he;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
-
-    /* heuristic: n = ~min size of n values;
-     *            + 2*n = very conservative min size of n hashkeys if all COPY */
+    UV n;
 
     if ( SvMAGICAL(src) ) {
-        UV n= hv_iterinit(src);
+        /* can we trust this if the hash is a tie? */
+        n= hv_iterinit(src);
+        /* heuristic: n = ~min size of n values;
+             *            + 2*n = very conservative min size of n hashkeys if all COPY */
         BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
-        srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_HASH, n);
+        if (n < 16 && refcount == 1) {
+            enc->pos--; /* back up over the previous REFN */
+            srl_buf_cat_char_nocheck(enc, SRL_HDR_HASHREF + n);
+        } else {
+            srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_HASH, n);
+        }
         while ((he = hv_iternext(src))) {
             SV *v= HeVAL(he);
             srl_dump_hk(aTHX_ enc, he, do_share_keys);
             CALL_SRL_DUMP_SV(enc, v);
         }
     } else {
-        UV n= HvUSEDKEYS(src);
+        n= HvUSEDKEYS(src);
+        /* heuristic: n = ~min size of n values;
+             *            + 2*n = very conservative min size of n hashkeys if all COPY */
         BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
-        srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_HASH, n);
+        if (n < 16 && refcount == 1) {
+            enc->pos--; /* backup over the previous REFN */
+            srl_buf_cat_char_nocheck(enc, SRL_HDR_HASHREF + n);
+        } else {
+            srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_HASH, n);
+        }
         if (n) {
             HE **he_ptr= HvARRAY(src);
             HE **he_end= he_ptr + HvMAX(src) + 1;
@@ -764,6 +780,7 @@ redo_dump:
             PTABLE_t *ref_seenhash= SRL_GET_REF_SEENHASH(enc);
             const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(ref_seenhash, src);
             if (expect_false(oldoffset)) {
+                /* we have seen it before, so we do not need to bless it again */
                 if (ref_rewrite_pos) {
                     if (DEBUGHACK) warn("ref to %p as %lu", src, oldoffset);
                     enc->pos= ref_rewrite_pos;
@@ -842,11 +859,11 @@ redo_dump:
     else
 #endif
     if (svt == SVt_PVHV) {
-        srl_dump_hv(aTHX_ enc, (HV *)src);
+        srl_dump_hv(aTHX_ enc, (HV *)src, refcount);
     }
     else
     if (svt == SVt_PVAV) {
-        srl_dump_av(aTHX_ enc, (AV *)src);
+        srl_dump_av(aTHX_ enc, (AV *)src, refcount);
     }
     else
     if (!SvOK(src)) {

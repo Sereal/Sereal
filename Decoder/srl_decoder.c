@@ -74,8 +74,8 @@ static SRL_INLINE void srl_clear_decoder(pTHX_ srl_decoder_t *dec);             
 static SRL_INLINE SV *srl_read_alias(pTHX_ srl_decoder_t *dec);
 static SRL_INLINE void srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into);
 
-static SRL_INLINE void srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into);
-static SRL_INLINE void srl_read_array(pTHX_ srl_decoder_t *dec, SV* into);
+static SRL_INLINE void srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag);
+static SRL_INLINE void srl_read_array(pTHX_ srl_decoder_t *dec, SV* into, U8 tag);
 static SRL_INLINE void srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into);
 
 static SRL_INLINE void srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into);
@@ -100,6 +100,8 @@ static SRL_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
     }                                                       \
 } STMT_END
 
+#define IS_SRL_HDR_ARRAYREF(tag) (((tag) & SRL_HDR_ARRAYREF) == SRL_HDR_ARRAYREF)
+#define IS_SRL_HDR_HASHREF(tag) (((tag) & SRL_HDR_HASHREF) == SRL_HDR_HASHREF)
 #define IS_SRL_HDR_ASCII(tag) (((tag) & SRL_HDR_ASCII_LOW) == SRL_HDR_ASCII_LOW)
 #define SRL_HDR_ASCII_LEN_FROM_TAG(tag) ((tag) & SRL_MASK_ASCII_LEN)
 
@@ -556,10 +558,20 @@ srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 
 
 static SRL_INLINE void
-srl_read_array(pTHX_ srl_decoder_t *dec, SV *into) {
-    UV len= srl_read_varint_uv_count(aTHX_ dec," while reading ARRAY");
-
-    (void)SvUPGRADE(into, SVt_PVAV);
+srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
+    UV len;
+    if (tag) {
+        SV *referent= (SV *)newAV();
+        len= tag & 15;
+        SRL_ASSERT_TYPE_FOR_RV(into);
+        SvTEMP_off(referent);
+        SvRV_set(into, referent);
+        SvROK_on(into);
+        into= referent;
+    } else {
+        len= srl_read_varint_uv_count(aTHX_ dec," while reading ARRAY");
+        (void)SvUPGRADE(into, SVt_PVAV);
+    }
 
     if (len) {
         SV **av_array;
@@ -588,10 +600,20 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into) {
 #endif
 
 static SRL_INLINE void
-srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
-    IV num_keys= srl_read_varint_uv_count(aTHX_ dec," while reading HASH");
-
-    (void)SvUPGRADE(into, SVt_PVHV);
+srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
+    IV num_keys;
+    if (tag) {
+        SV *referent= (SV *)newHV();
+        num_keys= tag & 15;
+        SRL_ASSERT_TYPE_FOR_RV(into);
+        SvTEMP_off(referent);
+        SvRV_set(into, referent);
+        SvROK_on(into);
+        into= referent;
+    } else {
+        num_keys= srl_read_varint_uv_count(aTHX_ dec," while reading HASH");
+        (void)SvUPGRADE(into, SVt_PVHV);
+    }
 
     HvSHAREKEYS_on(into); /* apparently required on older perls */
 
@@ -1008,13 +1030,25 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
 
     if ( tag <= SRL_HDR_POS_HIGH ) {
         sv_setiv(into, tag); /* it will fit in an iv and they are faster */
-    } else if ( tag <= SRL_HDR_NEG_HIGH) {
+    }
+    else
+    if ( tag <= SRL_HDR_NEG_HIGH) {
         sv_setiv(into, -tag + 15);
-    } else if ( IS_SRL_HDR_ASCII(tag) ) {
+    }
+    else
+    if ( IS_SRL_HDR_ASCII(tag) ) {
         len= (STRLEN)SRL_HDR_ASCII_LEN_FROM_TAG(tag);
         ASSERT_BUF_SPACE(dec, len, " while reading ascii string");
         sv_setpvn(into,(char*)dec->pos,len);
         dec->pos += len;
+    }
+    else
+    if ( IS_SRL_HDR_HASHREF(tag) ) {
+        srl_read_hash(aTHX_ dec, into, tag);
+    }
+    else
+    if ( IS_SRL_HDR_ARRAYREF(tag) ) {
+        srl_read_array(aTHX_ dec, into, tag);
     }
     else {
         switch (tag) {
@@ -1038,9 +1072,8 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
             case SRL_HDR_BLESSV:        srl_read_blessv(aTHX_ dec, into);           break;
             case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into);             break;
             case SRL_HDR_EXTEND:        srl_read_extend(aTHX_ dec, into);           break;
-
-            case SRL_HDR_HASH:          srl_read_hash(aTHX_ dec, into);             break;
-            case SRL_HDR_ARRAY:         srl_read_array(aTHX_ dec, into);            break;
+            case SRL_HDR_HASH:          srl_read_hash(aTHX_ dec, into, 0);          break;
+            case SRL_HDR_ARRAY:         srl_read_array(aTHX_ dec, into, 0);         break;
             case SRL_HDR_REGEXP:        srl_read_regexp(aTHX_ dec, into);           break;
 
             case SRL_HDR_PAD:           /* no op */

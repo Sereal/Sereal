@@ -147,8 +147,8 @@
 #define SRL_HDR_UINT3           ((char)56)      /* <BYTES> - three byte unsigned integer #proposed# */
 #define SRL_HDR_UINT4           ((char)57)      /* <BYTES> - four byte unsigned integer  #proposed# */
 
-#define SRL_HDR_FALSE           ((char)58)      /* false #proposed# */
-#define SRL_HDR_TRUE            ((char)59)      /* true  #proposed# */
+#define SRL_HDR_FALSE           ((char)58)      /* false (PL_sv_no)  */
+#define SRL_HDR_TRUE            ((char)59)      /* true  (PL_sv_yes) */
 
 #define SRL_HDR_REPEATED        ((char)60)      /* <LEN-VARINT> <TAG-BYTE> <TAG-DATA> - repeated tag (unimplemented) */
 #define SRL_HDR_PACKET_START    ((char)61)      /* (first byte of magic string in header) */
@@ -161,13 +161,13 @@
 
 /* Note: Can do reserved check with a range now, but as we start using
  *       them, might have to explicit == check later. */
-#define SRL_HDR_ARRAYREF        ((char)64)      /* [<ITEM-TAG> ...] - count of itmes in low 4 bits */
+#define SRL_HDR_ARRAYREF        ((char)64)      /* [<ITEM-TAG> ...] - count of itmes in low 4 bits (ARRAY must be refcnt=1)*/
 #define SRL_MASK_ARRAYREF_COUNT ((char)15)      /* mask to get low bits from tag */
 #define SRL_HDR_ARRAYREF_LOW    ((char)64)
 #define SRL_HDR_ARRAYREF_HIGH   ((char)79)
 
 
-#define SRL_HDR_HASHREF         ((char)80)      /* [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs */
+#define SRL_HDR_HASHREF         ((char)80)      /* [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt= 1)*/
 #define SRL_MASK_HASHREF_COUNT  ((char)15)      /* mask to get low bits from tag */
 #define SRL_HDR_HASHREF_LOW     ((char)80)
 #define SRL_HDR_HASHREF_HIGH    ((char)95)

@@ -53,9 +53,15 @@ sub hobodecode {
   close $fh;
 }
 
+sub array_head {
+    if ($_[0]>=16) {
+        return chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY) . varint($_[0])
+    } else {
+        return chr(SRL_HDR_ARRAYREF + $_[0])
+    }
+}
 sub array {
-  chr(SRL_HDR_REFN).
-  chr(SRL_HDR_ARRAY) . varint(0+@_) . join("", @_)
+    array_head( 0+@_ ) . join("", @_)
 }
 
 sub array_fbit {
@@ -63,9 +69,17 @@ sub array_fbit {
   chr(SRL_HDR_ARRAY+FBIT) . varint(0+@_) . join("", @_)
 }
 
+sub hash_head {
+    my $ret;
+    my $len= int $_[0]/2;
+    if ($len >= 16) {
+        return chr(SRL_HDR_REFN) . chr(SRL_HDR_HASH) . varint($len)
+    } else {
+        return chr(SRL_HDR_HASHREF + $len)
+    }
+}
 sub hash {
-  chr(SRL_HDR_REFN).
-  chr(SRL_HDR_HASH) . varint(int(@_/2)) . join("", @_)
+    hash_head(0+@_) . join("", @_)
 }
 
 sub dump_bless {
@@ -140,25 +154,20 @@ our @BasicTests = (
   [1000, chr(SRL_HDR_VARINT).varint(1000), "large int"],
   [ [1..1000],
     array(
-      (map chr, (1..SRL_POS_MAX_SIZE)),
+      (map chr, (1 .. SRL_POS_MAX_SIZE)),
       (map chr(SRL_HDR_VARINT) . varint($_), ((SRL_POS_MAX_SIZE+1) .. 1000))
     ),
     "array ref with pos and varints"
   ],
 
-  [{}, chr(SRL_HDR_REFN).chr(SRL_HDR_HASH).varint(0), "empty hash ref"],
-  [{foo => "baaaaar"},
-       chr(SRL_HDR_REFN).chr(SRL_HDR_HASH).varint(1)
-      .short_string("foo")
-      .short_string("baaaaar")
-      , "simple hash ref"],
+  [{}, hash(), "empty hash ref"],
+  [{foo => "baaaaar"}, hash(short_string("foo"),short_string("baaaaar")), "simple hash ref"],
   [$scalar_ref_for_repeating, chr(SRL_HDR_REFN).chr(0b0000_1001), "scalar ref to constant"],
   [[$scalar_ref_for_repeating, $scalar_ref_for_repeating],
     do {
-      my $content = chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY) .varint(2);
+      my $content = array_head(2);
       $content   .= chr(SRL_HDR_REFN);
       my $pos = length($Header) + length($content);
-
       $content    .= chr(0b1000_1001)
                     .chr(SRL_HDR_REFP)
                     .varint($pos)
@@ -167,8 +176,7 @@ our @BasicTests = (
     }, "repeated substructure (REUSE): scalar ref"],
   [[$ary_ref_for_repeating, $ary_ref_for_repeating],
     do {
-      my $content = chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY)
-                    .varint(2);
+      my $content = array_head(2);
       my $pos = length($Header) + length($content) + 1;
       $content   .= array_fbit(chr(0b0000_0101), chr(0b0000_0110))
                     .chr(SRL_HDR_REFP)
@@ -178,8 +186,7 @@ our @BasicTests = (
     }, "repeated substructure (REUSE): array"],
   [[\$ary_ref_for_repeating, [1, $ary_ref_for_repeating]],
     do {
-      my $content = chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY) . varint(2)
-                    . chr(SRL_HDR_REFN);
+      my $content = array_head(2) . chr(SRL_HDR_REFN);
       my $pos = length($Header) + length($content) + 1;
       $content .= array_fbit(
                         chr(0b0000_0101),
@@ -194,8 +201,7 @@ our @BasicTests = (
     }, "repeated substructure (REUSE): asymmetric"],
   [
     $weak_thing,
-    chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + FBIT)
-    .varint(2)
+    chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY + FBIT) . varint(2)
     .chr(SRL_HDR_PAD)
     .chr(SRL_HDR_REFN)
     .chr(SRL_HDR_REFP)
@@ -225,27 +231,32 @@ our @BasicTests = (
    ),
   [
     do { my @array; $array[0]=\$array[1]; $array[1]=\$array[0]; \@array },
-    chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY) . varint(2)
-    .chr(SRL_HDR_REFN + FBIT)
-    .chr(SRL_HDR_REFP + FBIT)
-    .varint(length($Header)+3)
-    .chr(SRL_HDR_ALIAS)
-    .varint(length($Header)+4)
-    ,
+    do {
+        my $content= array_head(2);
+        my $pos= length($content);
+        $content
+        . chr(SRL_HDR_REFN + FBIT)
+        . chr(SRL_HDR_REFP + FBIT)
+        . varint(length($Header) + $pos )
+        . chr(SRL_HDR_ALIAS)
+        . varint(length($Header) + $pos + 1)
+    },
     "scalar cross"
   ],
   [
     do { my @array; $array[0]=\$array[1]; $array[1]=\$array[0]; weaken($array[1]); weaken($array[0]); \@array },
-    chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY)
-    .varint(2)
-    .chr(SRL_HDR_WEAKEN + FBIT)
-    .chr(SRL_HDR_REFN)
-    .chr(SRL_HDR_WEAKEN + FBIT)
-    .chr(SRL_HDR_REFP)
-    .varint(length($Header)+3)
-    .chr(SRL_HDR_ALIAS)
-    .varint(length($Header)+5)
-    ,
+    do {
+        my $content= array_head(2);
+        my $pos= length($content);
+        $content
+        . chr(SRL_HDR_WEAKEN + FBIT)
+        . chr(SRL_HDR_REFN)
+        . chr(SRL_HDR_WEAKEN + FBIT)
+        . chr(SRL_HDR_REFP)
+        . varint(length($Header)+$pos)
+        . chr(SRL_HDR_ALIAS)
+        . varint(length($Header)+$pos+2)
+    },
     "weak scalar cross"
   ],
   [
@@ -255,41 +266,43 @@ our @BasicTests = (
   ],
   [
     do { my $qr= bless qr/foo/ix,"bar"; [ $qr, $qr ] },
-    join("",
-        chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY),
-        varint(2),
-        chr(SRL_HDR_BLESS),
-        short_string("bar"),
-        chr(SRL_HDR_REFN),
-        chr(SRL_HDR_REGEXP + FBIT),
-        short_string("foo"),
-        short_string("ix"),
-        chr(SRL_HDR_REFP),
-        varint(length($Header)+9),
-    ),
+    do {
+        my $content= array_head(2);
+        my $pos= length($content);
+        join("", $content,
+            chr(SRL_HDR_BLESS),
+            short_string("bar"),
+            chr(SRL_HDR_REFN),
+            chr(SRL_HDR_REGEXP + FBIT),
+            short_string("foo"),
+            short_string("ix"),
+            chr(SRL_HDR_REFP),
+            varint(length($Header) + $pos + 6 ),
+        )
+    },
     "blessed regexp with reuse"
   ],
   [
     do { my $o1=bless [], "foo"; my $o2=bless [], "foo"; [ $o1, $o2, $o1, $o2 ] },
-    join("",
-        chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY),
-            varint(4),
-            chr(SRL_HDR_BLESS),
+    do {
+        my $content= array_head(4). chr(SRL_HDR_BLESS);
+        my $pos= length($content);
+        join("",$content,
                 short_string("foo"),
                 chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + FBIT),varint(0),
             chr(SRL_HDR_BLESS),
-                chr(SRL_HDR_COPY),varint(length($Header)+4),
-                chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + FBIT),varint(0),
-            chr(SRL_HDR_REFP),varint(length($Header)+9),
-            chr(SRL_HDR_REFP),varint(length($Header)+15),
-    ),
+                chr(SRL_HDR_COPY),varint(length($Header) + $pos),
+                chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY  + FBIT),varint(0),
+            chr(SRL_HDR_REFP),varint(length($Header) + $pos + 5),
+            chr(SRL_HDR_REFP),varint(length($Header) + $pos + 11),
+        )
+    },
     "blessed arrays with reuse"
   ],
   [
     [bless([], "foo"), bless([], "foo")],
     do {
-      my $content = chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY) . varint(2)
-                    .chr(SRL_HDR_BLESS);
+      my $content = array_head(2) . chr(SRL_HDR_BLESS);
       my $pos = length($Header) + length($content);
       $content .= short_string("foo")
                   . array()
@@ -305,10 +318,10 @@ our @BasicTests = (
       my $content = chr(SRL_HDR_BLESS);
       my $pos = length($Header) + length($content);
       $content .= short_string("foo")
-                  . chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY) . varint(1)
+                  . array_head(1)
                     . chr(SRL_HDR_BLESS)
                     . chr(SRL_HDR_COPY) . varint($pos)
-                    . chr(SRL_HDR_REFN) . chr(SRL_HDR_HASH) . varint(0)
+                    . hash()
       ;
       $content
     },
@@ -365,16 +378,17 @@ our @BasicTests = (
         );
       }
       else {
-        return array(
+        my $content= array_head(2);
+        join "", $content.
           hash(
               short_string("foo"),
               integer(1),
           ),
           hash(
-              chr(SRL_HDR_COPY) . varint(length($Header)+6),
+              chr(SRL_HDR_COPY) . varint(length($Header)+length($content)+1),
               integer(2),
           ),
-        );
+
       }
     },
     "duplicate hash keys"
@@ -532,20 +546,20 @@ our @ScalarRoundtripTests = (
   [ "positive big num", 4123456789],
 );
 
-
+use Storable qw(dclone);
 our @RoundtripTests = (
   @ScalarRoundtripTests,
 
   ["[{foo => 1}, {foo => 2}] - repeated hash keys",
     [{foo => 1}, {foo => 2}] ],
 
-  (map {["scalar ref to " . $_->[0], \($_->[1])]} @ScalarRoundtripTests),
-  (map {["nested scalar ref to " . $_->[0], \\($_->[1])]} @ScalarRoundtripTests),
-  (map {["array ref to " . $_->[0], [$_->[1]]]} @ScalarRoundtripTests),
-  (map {["hash ref to " . $_->[0], {foo => $_->[1]}]} @ScalarRoundtripTests),
-  (map {["array ref to duplicate " . $_->[0], [$_->[1], $_->[1]]]} @ScalarRoundtripTests),
-  (map {["array ref to aliases " . $_->[0], sub {\@_}->($_->[1], $_->[1])]} @ScalarRoundtripTests),
-  (map {["array ref to scalar refs to same " . $_->[0], [\($_->[1]), \($_->[1])]]} @ScalarRoundtripTests),
+  (map {["scalar ref to " . $_->[0], (\($_->[1]))]} @ScalarRoundtripTests),
+  (map {["nested scalar ref to " . $_->[0], (\\($_->[1]))]} @ScalarRoundtripTests),
+  (map {["array ref to " . $_->[0], ([$_->[1]])]} @ScalarRoundtripTests),
+  (map {["hash ref to " . $_->[0], ({foo => $_->[1]})]} @ScalarRoundtripTests),
+  (map {["array ref to duplicate " . $_->[0], ([$_->[1], $_->[1]])]} @ScalarRoundtripTests),
+  (map {["array ref to aliases " . $_->[0], (sub {\@_}->($_->[1], $_->[1]))]} @ScalarRoundtripTests),
+  (map {["array ref to scalar refs to same " . $_->[0], ([\($_->[1]), \($_->[1])])]} @ScalarRoundtripTests),
 );
 
 if (eval "use Array::RefElem (av_store hv_store); 1") {
@@ -598,9 +612,14 @@ sub run_roundtrip_tests_internal {
           next;
         };
       my $decoded= $dec->($encoded);
-      ok(defined($decoded) || !defined($data), "$name ($ename, $mname, decoded definedness)");
+      ok( defined($decoded) == defined($data), "$name ($ename, $mname, decoded definedness)")
+        or next;
       my $encoded2 = $enc->($decoded);
-      ok(defined $encoded2, "$name ($ename, $mname, encoded2 defined)");
+      ok(defined $encoded2, "$name ($ename, $mname, encoded2 defined)")
+        or next;
+      my $decoded2 = $dec->($encoded2);
+      ok(defined($decoded2) == defined($data), "$name ($ename, $mname, decoded2 defined)")
+        or next;
       is_deeply($decoded, $data, "$name ($ename, $mname, decoded vs data)")
         or do {
           if ($ENV{DEBUG_DUMP}) {
@@ -608,30 +627,51 @@ sub run_roundtrip_tests_internal {
             Dump($data);
           }
         };
-      my $ret;
-      if ($name=~/complex/) {
-          SKIP: {
-              skip "Encoded string length tests for complex hashes and compression depends on hash key ordering", 1 if $opt->{snappy};
-              $ret = is(length($encoded2), length($encoded),"$name ($ename, $mname, length encoded2 vs length encoded)");
+      is_deeply($decoded2, $data, "$name ($ename, $mname, decoded2 vs data)")
+        or do {
+          if ($ENV{DEBUG_DUMP}) {
+            Dump($decoded2);
+            Dump($data);
           }
-      } else {
-          $ret = is_string($encoded2, $encoded, "$name ($ename, $mname, encoded2 vs encoded)");
+        };
+      is_deeply($decoded, $decoded2, "$name ($ename, $mname, decoded vs decoded2)")
+        or do {
+          if ($ENV{DEBUG_DUMP}) {
+            Dump($decoded);
+            Dump($decoded2);
+          }
+        };
+      if (0) {
+          # It isnt really safe to test this way right now. The exact output
+          # of two runs of Sereal is not guaranteed to be the same due to the effect of
+          # refcounts. We could disable ARRAYREF/HASHREF as an option,
+          # and then skip these tests. We should probably do that just to test
+          # that we can handle both representations properly at all times.
+          my $ret;
+          if ($name=~/complex/) {
+              SKIP: {
+                  skip "Encoded string length tests for complex hashes and compression depends on hash key ordering", 1 if $opt->{snappy};
+                  $ret = is(length($encoded2), length($encoded),"$name ($ename, $mname, length encoded2 vs length encoded)");
+              }
+          } else {
+              $ret = is_string($encoded2, $encoded, "$name ($ename, $mname, encoded2 vs encoded)");
+          }
+          $ret or do {
+            if ($ENV{DEBUG_DUMP}) {
+              Dump($decoded);
+              Dump($data);
+            } elsif ($ENV{DEBUG_HOBO}) {
+              open my $pipe,"| perl -Mblib=../Encoder/blib -Mblib=../Decoder/blib author_tools/hobodecoder.pl -e"
+                or die "Dead: $!";
+              print $pipe $encoded;
+              close $pipe;
+              open $pipe,"| perl -Mblib=../Encoder/blib -Mblib=../Decoder/blib author_tools/hobodecoder.pl -e"
+                or die "Dead: $!";
+              print $pipe $encoded2;
+              close $pipe;
+            }
+          };
       }
-      $ret or do {
-        if ($ENV{DEBUG_DUMP}) {
-          Dump($decoded);
-          Dump($data);
-        } elsif ($ENV{DEBUG_HOBO}) {
-          open my $pipe,"| perl -Mblib=../Encoder/blib -Mblib=../Decoder/blib author_tools/hobodecoder.pl -e"
-            or die "Dead: $!";
-          print $pipe $encoded;
-          close $pipe;
-          open $pipe,"| perl -Mblib=../Encoder/blib -Mblib=../Decoder/blib author_tools/hobodecoder.pl -e"
-            or die "Dead: $!";
-          print $pipe $encoded2;
-          close $pipe;
-        }
-      };
     }
   } # end serialization method iteration
 }

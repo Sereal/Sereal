@@ -138,9 +138,17 @@ sub parse_sv {
     my $len = varint();
     printf "%06u: %02x %03s %sCOPY(%u)\n", $p, $o, $bv, $ind, $len;
   }
+  elsif (SRL_HDR_ARRAYREF_LOW <= $o && $o <= SRL_HDR_ARRAYREF_HIGH) {
+    printf "%06u: %02x %03s %sARRAYREF", $p, $o, $bv, $ind;
+    parse_av($ind,$o);
+  }
   elsif ($o == SRL_HDR_ARRAY) {
     printf "%06u: %02x %03s %sARRAY", $p, $o, $bv, $ind;
     parse_av($ind);
+  }
+  elsif (SRL_HDR_HASHREF_LOW <= $o && $o <= SRL_HDR_HASHREF_HIGH) {
+    printf "%06u: %02x %03s %sHASHREF", $p, $o, $bv, $ind;
+    parse_hv($ind,$o);
   }
   elsif ($o == SRL_HDR_HASH) {
     printf "%06u: %02x %03s %sHASH", $p, $o, $bv, $ind;
@@ -186,8 +194,8 @@ sub parse_sv {
 }
 
 sub parse_av {
-  my ($ind) = @_;
-  my $len = varint();
+  my ($ind,$o) = @_;
+  my $len = defined $o ? $o & 15 : varint();
   printf "(%u)\n", $len;
   $ind .= "  ";
   while ($len--) {
@@ -198,8 +206,8 @@ sub parse_av {
 }
 
 sub parse_hv {
-  my ($ind) = @_;
-  my $len = varint() * 2;
+  my ($ind, $o) = @_;
+  my $len = (defined $o ? $o & 15 : varint()) * 2;
   printf "(%u)\n", $len;
   $ind .= "  ";
   my $flipflop = 0;
