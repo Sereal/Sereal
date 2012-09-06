@@ -391,17 +391,23 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
     }
     else {
         /* sizeof includes \0 in count */
-        const STRLEN max_header_len = sizeof(SRL_MAGIC_STRING)-1 + 1 + SRL_MAX_VARINT_LENGTH + 1;
         STRLEN uncompressed_length;
         char *old_buf;
+        ptrdiff_t sereal_header_len;
         uint32_t dest_len;
 
+        /* Alas, have to write entire packet first since the header length
+         * will determine offsets. */
+        srl_write_header(aTHX_ enc);
+        sereal_header_len = enc->pos - enc->buf_start;
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
 
-        uncompressed_length = enc->pos - enc->buf_start;
-        dest_len = csnappy_max_compressed_length(uncompressed_length) + max_header_len + 1;
+        /* Get uncompressed payload and total packet output (after compression) lengths */
+        uncompressed_length = BUF_POS_OFS(enc) - sereal_header_len;
+        dest_len = csnappy_max_compressed_length(uncompressed_length) + sereal_header_len + 1;
 
+        /* Lazy working buffer alloc */
         if (expect_false( enc->snappy_workmem == NULL )) {
             /* Cleaned up automatically by the cleanup handler */
             Newx(enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES, char);
@@ -409,21 +415,30 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
                 croak("Out of memory!");
         }
 
+        /* Back up old buffer and allocate new one with correct size */
         old_buf = enc->buf_start;
         Newx(enc->buf_start, dest_len, char);
         if (!enc->buf_start) {
-            enc->buf_start = old_buf;
+            enc->buf_start = old_buf; /* for cleanup */
             croak("Out of memory!");
         }
         enc->pos = enc->buf_start;
         enc->buf_end = enc->buf_start + dest_len;
 
-        srl_write_header(aTHX_ enc);
-        csnappy_compress(old_buf, (uint32_t)uncompressed_length, enc->pos, &dest_len,
+        /* Copy Sereal header */
+        Copy(old_buf, enc->pos, sereal_header_len, unsigned char);
+        enc->pos += sereal_header_len;
+
+        /*
+         * fprintf(stderr, "'%u' %u %u\n", enc->pos - enc->buf_start, uncompressed_length, (uncompressed_length+sereal_header_len));
+         * fprintf(stdout, "%7s!%1s\n", old_buf, old_buf+6);
+         */
+        csnappy_compress(old_buf+sereal_header_len, (uint32_t)uncompressed_length, enc->pos, &dest_len,
                          enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
+        /* fprintf(stderr, "%u, %u %u %u\n", dest_len, enc->pos[0], enc->pos[1], enc->pos[2]); */
         Safefree(old_buf);
-        /* FIXME could check whether output larger than uncompressed and revert... */
         enc->pos += dest_len;
+        /* FIXME could check whether output larger than uncompressed and revert... */
     }
     if (DEBUGHACK) warn("== end dump");
 }
