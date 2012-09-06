@@ -88,6 +88,23 @@ In other words,
 This is an unfortunate side-effect of perls standard copy semantics of
 assignment. Possibly one day we will have an alternative to this.
 
+=head2 bytes_consumed
+
+After using the C<decode> method, C<bytes_consumed> can return the
+number of bytes of the input string that were actually consumed by
+the decoder. That is, if you append random garbage to a valid
+Sereal document, C<decode> will happily decode the data and ignore the
+garbage. If that is an error in your use case, you can use C<bytes_consumed>
+to catch it.
+
+  my $out = $decoder->decode($sereal_string);
+  if (length($sereal_string) != $decoder->bytes_consumed) {
+    die "Not all input data was consumed!";
+  }
+
+Chances are that if you do this, you're violating UNIX philosophy
+in "be strict in what you emit but lenient in what you accept".
+
 =head1 EXPORTABLE FUNCTIONS
 
 =head2 decode_sereal
