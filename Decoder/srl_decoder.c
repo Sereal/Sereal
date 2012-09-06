@@ -567,9 +567,11 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into) {
 
         /* we cheat and store undef in the array - we will overwrite it later */
         av_store((AV*)into, len-1, &PL_sv_undef);
-        for ( av_array= AvARRAY((AV*)into), av_end= av_array + len ; av_array < av_end ; av_array++) {
-            U8 tag= *dec->pos;
-            if ( expect_false( tag == SRL_HDR_ALIAS ) ) {
+        av_array= AvARRAY((AV*)into);
+        av_end= av_array + len;
+
+        for ( ; av_array < av_end ; av_array++) {
+            if ( expect_false( *dec->pos == SRL_HDR_ALIAS ) ) {
                 dec->pos++;
                 *av_array= srl_read_alias(aTHX_ dec);
             } else {
