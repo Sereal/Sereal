@@ -746,7 +746,6 @@ redo_dump:
         PTABLE_store(ref_seenhash, src, (void *)BUF_POS_OFS(enc));
     }
     assert(weakref_ofs == 0);
-    assert(is_ref == 0);
 
     if (SvPOKp(src)) {
 #ifdef MODERN_REGEXP

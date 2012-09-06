@@ -53,6 +53,9 @@ extern "C" {
 static SRL_INLINE UV srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec);
 static SRL_INLINE UV srl_read_varint_uv_nocheck(pTHX_ srl_decoder_t *dec);
 static SRL_INLINE UV srl_read_varint_uv(pTHX_ srl_decoder_t *dec);
+static SRL_INLINE UV srl_read_varint_uv_offset(pTHX_ srl_decoder_t *dec, const char * const errstr);
+static SRL_INLINE UV srl_read_varint_uv_length(pTHX_ srl_decoder_t *dec, const char * const errstr);
+
 static SRL_INLINE SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name);
 
 /* these three are "Public" */
@@ -129,7 +132,6 @@ srl_build_decoder_struct(pTHX_ HV *opt)
 
     Newxz(dec, 1, srl_decoder_t);
 
-    dec->buf_start = NULL;
     dec->ref_seenhash = PTABLE_new();
     /* load options */
     if (opt != NULL) {
@@ -278,6 +280,7 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src)
     SRL_DEC_RESET_VOLATILE_FLAGS(dec);
     dec->buf_start= dec->pos= (unsigned char*)SvPV(src, len);
     dec->buf_end= dec->buf_start + len;
+    dec->buf_len= len;
 }
 
 static SRL_INLINE void
@@ -296,7 +299,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec)
                     proto_version_and_flags & SRL_PROTOCOL_VERSION_MASK);
         if (proto_version_and_flags & SRL_F_SNAPPY)
             dec->flags |= SRL_F_DECODER_DECOMPRESS_SNAPPY;
-        header_len= srl_read_varint_uv(aTHX_ dec); /* must do this via a temporary as it modifes dec->pos itself */
+        header_len= srl_read_varint_uv_length(aTHX_ dec," while reading header"); /* must do this via a temporary as it modifes dec->pos itself */
         dec->pos += header_len;
     } else {
         ERROR("bad header");
@@ -409,6 +412,32 @@ srl_read_varint_uv(pTHX_ srl_decoder_t *dec)
         return srl_read_varint_uv_safe(aTHX_ dec);
 }
 
+static SRL_INLINE UV
+srl_read_varint_uv_offset(pTHX_ srl_decoder_t *dec, const char * const errstr)
+{
+    UV len= srl_read_varint_uv(aTHX_ dec);
+
+    if (dec->buf_start + len >= dec->pos) {
+        ERRORf4("Corrupted packet%s. Offset %lu points past current position %lu in packet with length of %lu bytes long",
+                errstr, len, BUF_POS_OFS(dec), dec->buf_len);
+    }
+    return len;
+}
+
+static SRL_INLINE UV
+srl_read_varint_uv_length(pTHX_ srl_decoder_t *dec, const char * const errstr)
+{
+    UV len= srl_read_varint_uv(aTHX_ dec);
+
+    ASSERT_BUF_SPACE(dec, len, errstr);
+
+    return len;
+}
+
+/* this is just a define stub for now, in case later we want to validate
+ * count UV's in some kind of intelligent way */
+#define srl_read_varint_uv_count(dec, errstr) srl_read_varint_uv(aTHX_ dec)
+
 static SRL_INLINE void
 srl_track_sv(pTHX_ srl_decoder_t *dec, U8 *track_pos, SV *sv) {
     PTABLE_store(dec->ref_seenhash, (void *)(track_pos - dec->buf_start), (void *)sv);
@@ -464,8 +493,7 @@ srl_read_zigzag(pTHX_ srl_decoder_t *dec, SV* into)
 static SRL_INLINE void
 srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
 {
-    UV len= srl_read_varint_uv(aTHX_ dec);
-    ASSERT_BUF_SPACE(dec, len, " while reading string");
+    UV len= srl_read_varint_uv_length(aTHX_ dec, " while reading string");
     sv_setpvn(into,(char *)dec->pos,len);
     if (is_utf8) {
         SvUTF8_on(into);
@@ -479,7 +507,7 @@ srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
 static SRL_INLINE void
 srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    ASSERT_BUF_SPACE(dec, sizeof(float), " while reading float");
+    ASSERT_BUF_SPACE(dec, sizeof(float), " while reading FLOAT");
     sv_setnv(into, (NV)*((float *)dec->pos));
     dec->pos+= sizeof(float);
 }
@@ -488,7 +516,7 @@ srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
 static SRL_INLINE void
 srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    ASSERT_BUF_SPACE(dec, sizeof(double)," while reading double");
+    ASSERT_BUF_SPACE(dec, sizeof(double)," while reading DOUBLE");
     sv_setnv(into, (NV)*((double *)dec->pos));
     dec->pos+= sizeof(double);
 }
@@ -497,7 +525,7 @@ srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
 static SRL_INLINE void
 srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    ASSERT_BUF_SPACE(dec, sizeof(long double)," while reading long double");
+    ASSERT_BUF_SPACE(dec, sizeof(long double)," while reading LONG_DOUBLE");
     sv_setnv(into, (NV)*((long double *)dec->pos));
     dec->pos+= sizeof(long double);
 }
@@ -505,7 +533,7 @@ srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 
 static SRL_INLINE void
 srl_read_array(pTHX_ srl_decoder_t *dec, SV *into) {
-    UV len= srl_read_varint_uv(aTHX_ dec);
+    UV len= srl_read_varint_uv_count(dec," while reading ARRAY");
 
     (void)SvUPGRADE(into, SVt_PVAV);
 
@@ -535,7 +563,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into) {
 
 static SRL_INLINE void
 srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
-    IV num_keys= srl_read_varint_uv(aTHX_ dec);
+    IV num_keys= srl_read_varint_uv_count(dec," while reading HASH");
 
     (void)SvUPGRADE(into, SVt_PVHV);
 
@@ -552,21 +580,19 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
 #ifndef OLDHASH
         U32 flags= 0;
 #endif
-        ASSERT_BUF_SPACE(dec,1," while reading key tag");
+        ASSERT_BUF_SPACE(dec,1," while reading key tag byte for HASH");
         tag= *dec->pos++;
         if (IS_SRL_HDR_ASCII(tag)) {
             key_len= (IV)SRL_HDR_ASCII_LEN_FROM_TAG(tag);
-            ASSERT_BUF_SPACE(dec,key_len," while reading ascii key");
+            ASSERT_BUF_SPACE(dec,key_len," while reading ASCII key");
             from= dec->pos;
             dec->pos += key_len;
         } else if (tag == SRL_HDR_STRING) {
-            key_len= (IV)srl_read_varint_uv(aTHX_ dec);
-            ASSERT_BUF_SPACE(dec,key_len," while reading string key");
+            key_len= (IV)srl_read_varint_uv_length(aTHX_ dec, " while reading STRING key");
             from= dec->pos;
             dec->pos += key_len;
         } else if (tag == SRL_HDR_STRING_UTF8) {
-            key_len= (IV)srl_read_varint_uv(aTHX_ dec);
-            ASSERT_BUF_SPACE(dec,key_len," while reading utf8 key");
+            key_len= (IV)srl_read_varint_uv_length(aTHX_ dec, " while reading UTF8 key");
             from= dec->pos;
             dec->pos += key_len;
 #ifdef OLDHASH
@@ -575,23 +601,28 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into) {
             flags= HVhek_UTF8;
 #endif
         } else if (tag == SRL_HDR_COPY) {
-            UV ofs= srl_read_varint_uv(aTHX_ dec);
+            UV ofs= srl_read_varint_uv_offset(aTHX_ dec, " while reading COPY tag");
             from= dec->buf_start + ofs;
-            if ( from >= dec->pos)
-                ERROR("bad copy op");
             tag= *from++;
+            /* note we do NOT validate these items, as we have alread read them
+             * and if they were a problem we would not be here to process them! */
             if (IS_SRL_HDR_ASCII(tag)) {
                 key_len= SRL_HDR_ASCII_LEN_FROM_TAG(tag);
-            } else if (tag == SRL_HDR_STRING) {
+            }
+            else
+            if (tag == SRL_HDR_STRING) {
                 SET_UV_FROM_VARINT(key_len, from);
-            } else if (tag == SRL_HDR_STRING_UTF8) {
+            }
+            else
+            if (tag == SRL_HDR_STRING_UTF8) {
                 SET_UV_FROM_VARINT(key_len, from);
 #ifdef OLDHASH
                 key_len= -key_len;
 #else
                 flags= HVhek_UTF8;
 #endif
-            } else {
+            }
+            else {
                 ERROR_BAD_COPY(dec, SRL_HDR_HASH);
             }
         } else {
@@ -634,8 +665,8 @@ static SRL_INLINE void
 srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into)
 {
     /* something we did before */
-    UV item= srl_read_varint_uv(aTHX_ dec);
-    SV *referent= srl_fetch_item(aTHX_ dec, item, "REF");
+    UV item= srl_read_varint_uv_offset(aTHX_ dec, " while reading REFP tag");
+    SV *referent= srl_fetch_item(aTHX_ dec, item, "REFP");
     SvREFCNT_inc(referent);
 
     SRL_ASSERT_TYPE_FOR_RV(into);
@@ -687,7 +718,7 @@ srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into)
     ASSERT_BUF_SPACE(dec,1," while reading classname tag");
     if (*dec->pos == SRL_HDR_COPY) {
         dec->pos++;
-        ofs= srl_read_varint_uv(aTHX_ dec);
+        ofs= srl_read_varint_uv_offset(aTHX_ dec," while reading COPY classname");
         if (dec->ref_stashes) {
             stash= PTABLE_fetch(dec->ref_seenhash, (void *)ofs);
         }
@@ -705,21 +736,25 @@ srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into)
         storepos= BUF_POS_OFS(dec);
         tag= *dec->pos++;
 
+        if (IS_SRL_HDR_ASCII(tag)) {
+            key_len= SRL_HDR_ASCII_LEN_FROM_TAG(tag);
+        }
+        else
         if (tag == SRL_HDR_STRING_UTF8) {
             flags = flags | SVf_UTF8;
-            key_len= srl_read_varint_uv(aTHX_ dec);
-        } else if (IS_SRL_HDR_ASCII(tag)) {
-            key_len= SRL_HDR_ASCII_LEN_FROM_TAG(tag);
-        } else if (tag == SRL_HDR_STRING) {
-            key_len= srl_read_varint_uv(aTHX_ dec);
-        } else if (tag == SRL_HDR_COPY) {
-            ofs= srl_read_varint_uv(aTHX_ dec);
+            key_len= srl_read_varint_uv_length(aTHX_ dec, " while reading UTF8 class name");
+        }
+        else
+        if (tag == SRL_HDR_STRING) {
+            key_len= srl_read_varint_uv_length(aTHX_ dec, " while reading STRING class name");
+        }
+        else
+        if (tag == SRL_HDR_COPY) {
+            ofs= srl_read_varint_uv_offset(aTHX_ dec, " while reading COPY class name");
           read_copy:
             if (expect_false( dec->save_pos )) {
                 ERROR_BAD_COPY(dec, SRL_HDR_HASH);
             } else {
-                if (expect_false( dec->buf_end - dec->buf_start < (IV)ofs ) )
-                    ERRORf1("copy command points at tag outside of buffer, offset=%"UVuf, ofs);
                 dec->save_pos= dec->pos;
                 dec->pos= dec->buf_start + ofs;
                 goto read_class;
@@ -728,7 +763,7 @@ srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into)
         } else {
             ERROR_UNEXPECTED(dec,tag, "a class name");
         }
-        ASSERT_BUF_SPACE(dec, key_len, " while reading classname");
+        ASSERT_BUF_SPACE(dec, key_len, " while reading class name text");
         if (expect_false( !dec->ref_stashes )) {
             dec->ref_stashes = PTABLE_new();
             dec->ref_bless_av = PTABLE_new();
@@ -737,7 +772,8 @@ srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into)
         if (dec->save_pos) {
             dec->pos= dec->save_pos;
             dec->save_pos= NULL;
-        } else {
+        }
+        else {
             dec->pos += key_len;
         }
     }
@@ -772,8 +808,7 @@ static SRL_INLINE void
 srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into)
 {
     (void)tag; /* unused as of now */
-    const UV len = srl_read_varint_uv(aTHX_ dec);
-    ASSERT_BUF_SPACE(dec, len, " while reading reserved");
+    const UV len = srl_read_varint_uv_length(aTHX_ dec, " while reading reserved");
     dec->pos += len; /* discard */
     sv_setsv(into, &PL_sv_undef);
 }
@@ -837,7 +872,7 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 
             /* make sure the SV came from us (it should) and
              * is bodyless */
-            assert(svtype(into)==SVt_NULL);
+            assert( SvTYPE(into) == SVt_NULL );
 
 #define SWAP_DEBUG 0
             if (SWAP_DEBUG) { warn("before swap:"); sv_dump(into); sv_dump(referent); }
@@ -901,7 +936,7 @@ srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into)
 static SRL_INLINE SV *
 srl_read_alias(pTHX_ srl_decoder_t *dec)
 {
-    UV item= srl_read_varint_uv(aTHX_ dec);
+    UV item= srl_read_varint_uv_offset(aTHX_ dec," while reading ALIAS tag");
     SV *referent= srl_fetch_item(aTHX_ dec, item, "ALIAS");
     SvREFCNT_inc(referent);
     return referent;
@@ -910,7 +945,7 @@ srl_read_alias(pTHX_ srl_decoder_t *dec)
 static SRL_INLINE void
 srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    UV item= srl_read_varint_uv(aTHX_ dec);
+    UV item= srl_read_varint_uv_offset(aTHX_ dec, " while reading COPY tag");
     if (expect_false( dec->save_pos )) {
         ERRORf1("COPY(%d) called during parse", item);
     }
