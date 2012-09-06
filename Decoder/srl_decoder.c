@@ -194,7 +194,7 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into) {
         SV *buf_sv;
         unsigned char *buf;
         unsigned char *old_pos;
-        const ptrdiff_t compressed_packet_len = dec->buf_end - dec->pos + 1;
+        const ptrdiff_t compressed_packet_len = dec->buf_end - dec->pos;
         const ptrdiff_t sereal_header_len = dec->pos - dec->buf_start;
         int decompress_ok;
 
@@ -206,11 +206,10 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into) {
         if (header_len == CSNAPPY_E_HEADER_BAD)
             ERROR("Invalid Snappy header in Snappy-compressed Sereal packet");
 
-        ++dest_len;
         /* Let perl clean this up. Yes, it's not the most efficient thing
          * ever, but it's just one mortal per full decompression, so not
          * a bottle-neck. */
-        buf_sv = sv_2mortal( newSV(sereal_header_len + dest_len) );
+        buf_sv = sv_2mortal( newSV(sereal_header_len + dest_len + 1 ));
         buf = (unsigned char *)SvPVX(buf_sv);
 
         /* FIXME probably unnecessary to copy the Sereal header! */
@@ -222,7 +221,7 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into) {
         dec->buf_end = dec->pos + dest_len;
 
         decompress_ok = csnappy_decompress_noheader((char *)(old_pos + header_len),
-                                                    compressed_packet_len - header_len + 1,
+                                                    compressed_packet_len - header_len,
                                                     (char *)dec->pos,
                                                     &dest_len);
         if (expect_false( decompress_ok != 0 ))
