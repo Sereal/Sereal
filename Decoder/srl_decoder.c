@@ -196,6 +196,7 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into) {
         unsigned char *old_pos;
         const ptrdiff_t compressed_packet_len = dec->buf_end - dec->pos + 1;
         const ptrdiff_t sereal_header_len = dec->pos - dec->buf_start;
+        int decompress_ok;
 
         int header_len = csnappy_get_uncompressed_length(
                             (char *)dec->pos,
@@ -220,14 +221,13 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into) {
         dec->pos = buf + sereal_header_len;
         dec->buf_end = dec->pos + dest_len;
 
-        if (expect_false(
-                csnappy_decompress_noheader((char *)(old_pos + header_len),
-                                            compressed_packet_len - header_len + 1,
-                                            (char *)dec->pos,
-                                            &dest_len)
-            ))
+        decompress_ok = csnappy_decompress_noheader((char *)(old_pos + header_len),
+                                                    compressed_packet_len - header_len + 1,
+                                                    (char *)dec->pos,
+                                                    &dest_len);
+        if (expect_false( decompress_ok != 0 ))
         {
-            ERROR("Snappy decompression of Sereal packet payload failed!");
+            ERRORf1("Snappy decompression of Sereal packet payload failed with error %i!", decompress_ok);
         }
     }
 
