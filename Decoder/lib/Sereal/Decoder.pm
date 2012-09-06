@@ -88,6 +88,13 @@ In other words,
 This is an unfortunate side-effect of perls standard copy semantics of
 assignment. Possibly one day we will have an alternative to this.
 
+=head2 decode_with_offset
+
+Same as the C<decode> method, except as second parameter, you must
+pass an integer offset into the input string, at which the decoding is
+to start. The optional "pass-in" style scalar (see C<decode> above)
+is relegated to being the third parameter.
+
 =head2 bytes_consumed
 
 After using the C<decode> method, C<bytes_consumed> can return the
@@ -109,18 +116,15 @@ You can also use this to deserialize a list of Sereal documents that
 is concatenated into the same string (code not very robust...):
 
   my @out;
+  my $pos = 0;
   eval {
     while (1) {
-      push @out, $decoder->decode($sereal_string);
-      substr($sereal_string, 0, $decoder->bytes_consumed, '');
-      last if not length($sereal_string)
+      push @out, $decoder->decode_with_offset($sereal_string, 0);
+      $pos += $decoder->bytes_consumed;
+      last if $pos >= length($sereal_string)
            or not $decoder->bytes_consumed;
     }
   };
-
-This could be made much more efficient if the decoder API had a
-start-offset parameter instead of using C<substr>. Consider that
-a To-Do.
 
 =head1 EXPORTABLE FUNCTIONS
 

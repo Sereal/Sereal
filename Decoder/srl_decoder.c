@@ -62,10 +62,9 @@ static SRL_INLINE SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const ch
 srl_decoder_t *srl_build_decoder_struct(pTHX_ HV *opt);             /* constructor - called from ->new() */
 void srl_destroy_decoder(pTHX_ srl_decoder_t *dec);                 /* destructor  - called from ->DESTROY() */
 void srl_decoder_destructor_hook(pTHX_ void *p);                    /* destructor hook - called automagically */
-SV* srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV *into);   /* main decode routine */
 
 /* the top level components of the decode process - called by srl_decode_into() */
-static SRL_INLINE void srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src);       /* set up the decoder to handle a given var */
+static SRL_INLINE void srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset);       /* set up the decoder to handle a given var */
 static SRL_INLINE void srl_read_header(pTHX_ srl_decoder_t *dec);                    /* validate header */
 static SRL_INLINE void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into);   /* main recursive dump routine */
 static SRL_INLINE void srl_finalize_structure(pTHX_ srl_decoder_t *dec);             /* optional finalize structure logic */
@@ -186,10 +185,10 @@ srl_decoder_destructor_hook(pTHX_ void *p)
  * It rolls up all the other "top level" routines into one
  */
 SV *
-srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into)
+srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into, UV start_offset)
 {
     assert(dec != NULL);
-    srl_begin_decoding(aTHX_ dec, src);
+    srl_begin_decoding(aTHX_ dec, src, start_offset);
     srl_read_header(aTHX_ dec);
     if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY)) {
         /* uncompress */
@@ -222,6 +221,7 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into)
         dec->buf_start = buf;
         dec->pos = buf + sereal_header_len;
         dec->buf_end = dec->pos + dest_len;
+        dec->buf_len = dest_len + sereal_header_len;
 
         decompress_ok = csnappy_decompress_noheader((char *)(old_pos + header_len),
                                                     compressed_packet_len - header_len,
@@ -271,9 +271,11 @@ srl_clear_decoder(pTHX_ srl_decoder_t *dec)
 }
 
 static SRL_INLINE void
-srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src)
+srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset)
 {
     STRLEN len;
+    unsigned char *tmp;
+
     /* Assert that we did not push a destructor before */
     assert(!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DESTRUCTOR_OK));
     /* Push destructor, set destructor-is-pushed flag */
@@ -283,9 +285,13 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src)
 
     dec->depth= 0;
     SRL_DEC_RESET_VOLATILE_FLAGS(dec);
-    dec->buf_start= dec->pos= (unsigned char*)SvPV(src, len);
-    dec->buf_end= dec->buf_start + len;
-    dec->buf_len= len;
+    tmp = (unsigned char*)SvPV(src, len);
+    if (expect_false( start_offset > len )) {
+        ERROR("Start offset is beyond input string length");
+    }
+    dec->buf_start= dec->pos= tmp + start_offset;
+    dec->buf_end= dec->buf_start + len - start_offset;
+    dec->buf_len= len - start_offset;
     dec->bytes_consumed = 0;
 }
 

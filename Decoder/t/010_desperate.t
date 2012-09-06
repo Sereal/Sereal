@@ -20,15 +20,6 @@ use Sereal::TestSet qw(:all);
 
 use Test::More;
 
-# Run one simple test to see whether we can get the number of bytes consumed
-SCOPE: {
-    my $d = Sereal::Decoder->new();
-    my $data = SRL_MAGIC_STRING . chr(1).chr(0).chr(SRL_HDR_UNDEF);
-    ok(!defined($d->decode($data. "GARBAGE")), "can decode with appended garbage");
-    is($d->bytes_consumed, length($data), "consumed right number of bytes");
-}
-
-
 run_tests("plain");
 done_testing();
 note("All done folks!");

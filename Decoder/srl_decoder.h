@@ -27,7 +27,7 @@ typedef struct {
 srl_decoder_t *srl_build_decoder_struct(pTHX_ HV *opt);
 
 /* main routine */
-SV *srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV *into);
+SV *srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV *into, UV start_offset);
 
 /* Explicit destructor */
 void srl_destroy_decoder(pTHX_ srl_decoder_t *dec);

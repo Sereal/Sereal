@@ -40,8 +40,20 @@ decode(dec, src, into = NULL)
     SV *src;
     SV *into;
   PPCODE:
-    ST(0)= srl_decode_into(aTHX_ dec, src, into);
+    ST(0)= srl_decode_into(aTHX_ dec, src, into, 0);
     XSRETURN(1);
+
+
+void
+decode_with_offset(dec, src, offset, into = NULL)
+    srl_decoder_t *dec;
+    SV *src;
+    UV offset;
+    SV *into;
+  PPCODE:
+    ST(0)= srl_decode_into(aTHX_ dec, src, into, offset);
+    XSRETURN(1);
+
 
 
 void
@@ -63,7 +75,7 @@ decode_sereal(src, opt = NULL, into = NULL)
             croak("Options are neither undef nor hash reference");
     }
     dec = srl_build_decoder_struct(aTHX_ (HV *)opt);
-    ST(0)= srl_decode_into(aTHX_ dec, src, into);
+    ST(0)= srl_decode_into(aTHX_ dec, src, into, 0);
     XSRETURN(1);
 
 
