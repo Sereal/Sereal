@@ -563,31 +563,32 @@ sub run_roundtrip_tests_internal {
       ok(defined $encoded2, "$name ($ename, $mname, encoded2 defined)");
       is_deeply($decoded, $data, "$name ($ename, $mname, decoded vs data)")
         or do {
-            if ($ENV{DEBUG_DUMP}) {
-                Dump($decoded);
-                Dump($data);
-            }
+          if ($ENV{DEBUG_DUMP}) {
+            Dump($decoded);
+            Dump($data);
+          }
         };
+      my $ret;
       if ($name=~/complex/) {
-          is(length($encoded2), length($encoded),"$name ($ename, $mname, length encoded2 vs length encoded)");
+          $ret = is(length($encoded2), length($encoded),"$name ($ename, $mname, length encoded2 vs length encoded)");
       } else {
-          is_string($encoded2, $encoded, "$name ($ename, $mname, encoded2 vs encoded)")
-            or do {
-                if ($ENV{DEBUG_DUMP}) {
-                    Dump($decoded);
-                    Dump($data);
-                } elsif ($ENV{DEBUG_HOBO}) {
-                    open my $pipe,"| perl -Mblib=../Encoder/blib -Mblib=../Decoder/blib author_tools/hobodecoder.pl -e"
-                        or die "Dead: $!";
-                    print $pipe $encoded;
-                    close $pipe;
-                    open $pipe,"| perl -Mblib=../Encoder/blib -Mblib=../Decoder/blib author_tools/hobodecoder.pl -e"
-                        or die "Dead: $!";
-                    print $pipe $encoded2;
-                    close $pipe;
-                }
-            };
+          $ret = is_string($encoded2, $encoded, "$name ($ename, $mname, encoded2 vs encoded)");
       }
+      $ret or do {
+        if ($ENV{DEBUG_DUMP}) {
+          Dump($decoded);
+          Dump($data);
+        } elsif ($ENV{DEBUG_HOBO}) {
+          open my $pipe,"| perl -Mblib=../Encoder/blib -Mblib=../Decoder/blib author_tools/hobodecoder.pl -e"
+            or die "Dead: $!";
+          print $pipe $encoded;
+          close $pipe;
+          open $pipe,"| perl -Mblib=../Encoder/blib -Mblib=../Decoder/blib author_tools/hobodecoder.pl -e"
+            or die "Dead: $!";
+          print $pipe $encoded2;
+          close $pipe;
+        }
+      };
     }
   } # end serialization method iteration
 }
