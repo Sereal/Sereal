@@ -523,8 +523,17 @@ if (eval "use Array::RefElem (av_store hv_store); 1") {
 
 
 sub run_roundtrip_tests {
-  my $decoder = Sereal::Decoder->new;
-  my $encoder = Sereal::Encoder->new;
+  for my $opt (['plain', {}],
+               ['snappy', {snappy => 1}])
+  {
+    run_roundtrip_tests_internal(@$opt);
+  }
+}
+
+sub run_roundtrip_tests_internal {
+  my ($ename, $opt) = @_;
+  my $decoder = Sereal::Decoder->new($opt);
+  my $encoder = Sereal::Encoder->new($opt);
 
   foreach my $meth (
                     ['functional',
@@ -540,7 +549,7 @@ sub run_roundtrip_tests {
     foreach my $rt (@RoundtripTests) {
       my ($name, $data) = @$rt;
       my $encoded = $enc->($data);
-      ok(defined $encoded, "$name ($mname, encoded defined)")
+      ok(defined $encoded, "$name ($ename, $mname, encoded defined)")
         or do {
           if (defined $ENV{DEBUG_SEREAL}) {
             note("Data was: " . Data::Dumper::Dumper($data));
@@ -549,10 +558,10 @@ sub run_roundtrip_tests {
           next;
         };
       my $decoded= $dec->($encoded);
-      ok(defined($decoded) || !defined($data), "$name ($mname, decoded definedness)");
+      ok(defined($decoded) || !defined($data), "$name ($ename, $mname, decoded definedness)");
       my $encoded2 = $enc->($decoded);
-      ok(defined $encoded2, "$name ($mname, encoded2 defined)");
-      is_deeply($decoded, $data, "$name ($mname, decoded vs data)")
+      ok(defined $encoded2, "$name ($ename, $mname, encoded2 defined)");
+      is_deeply($decoded, $data, "$name ($ename, $mname, decoded vs data)")
         or do {
             if ($ENV{DEBUG_DUMP}) {
                 Dump($decoded);
@@ -560,9 +569,9 @@ sub run_roundtrip_tests {
             }
         };
       if ($name=~/complex/) {
-          is(length($encoded2), length($encoded),"$name ($mname, length encoded2 vs length encoded)");
+          is(length($encoded2), length($encoded),"$name ($ename, $mname, length encoded2 vs length encoded)");
       } else {
-          is_string($encoded2, $encoded, "$name ($mname, encoded2 vs encoded)")
+          is_string($encoded2, $encoded, "$name ($ename, $mname, encoded2 vs encoded)")
             or do {
                 if ($ENV{DEBUG_DUMP}) {
                     Dump($decoded);
