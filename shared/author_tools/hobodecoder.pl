@@ -47,16 +47,18 @@ sub parse_header {
   $data =~ s/^(=srl)(.)// or die "invalid header: $data";
   $done .= $1 . $2;
   my $flags = $2;
-  if (ord($flags) & SRL_F_SNAPPY) {
-    varint(); # uncompressed length
-  }
   my $len = varint();
-  my $hdr = substr($data, 0, $len);
+  my $hdr = substr($data, 0, $len, '');
   if (length($hdr)) {
     print "Header($len): " . join(" ", map ord, split //, $hdr) . "\n";
   }
   else {
     print "Empty Header.\n";
+  }
+  if (ord($flags) & SRL_F_SNAPPY) {
+    require Compress::Snappy;
+    my $out = Compress::Snappy::decompress($data);
+    $data = $out;
   }
 }
 
