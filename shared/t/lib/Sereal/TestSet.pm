@@ -537,8 +537,8 @@ sub run_roundtrip_tests_internal {
 
   foreach my $meth (
                     ['functional',
-                      sub {Sereal::Encoder::encode_sereal(shift)},
-                      sub {Sereal::Decoder::decode_sereal(shift)}],
+                      sub {Sereal::Encoder::encode_sereal(shift, $opt)},
+                      sub {Sereal::Decoder::decode_sereal(shift, $opt)}],
                     ['object-oriented',
                       sub {$encoder->encode(shift)},
                       sub {$decoder->decode(shift)}],
