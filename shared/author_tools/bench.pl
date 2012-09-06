@@ -54,14 +54,16 @@ push @str, join("", map chr(65+int(rand(57))), 1..10) for 1..1000;
 my @rand = map rand,1..1000;
 our %data;
 
-$data{$_}= make_data() for qw(sereal sereal_func dd1 dd2 ddl mp json_xs storable);
+$data{$_}= make_data() for qw(sereal sereal_func dd1 dd2 ddl mp json_xs storable sereal_snappy);
 
 our $enc = Sereal::Encoder->new(\%opt);
+our $enc_snappy = Sereal::Encoder->new({%opt, snappy => 1});
 our $dec = Sereal::Decoder->new(\%opt);
 
-our ($json_xs, $dd1, $dd2, $ddl, $sereal, $storable, $mp);
+our ($json_xs, $dd1, $dd2, $ddl, $sereal, $storable, $mp, $sereal_snappy);
 # do this first before any of the other dumpers "contaminate" the iv/pv issue
 $sereal   = $enc->encode($data{sereal});
+$sereal_snappy   = $enc_snappy->encode($data{sereal_snappy});
 if (!SEREAL_ONLY) {
     $json_xs  = encode_json($data{json_xs}) if !$medium_data or $nobless;
     $dd1      = Data::Dumper->new([$data{dd1}])->Indent(0)->Dump();
@@ -85,6 +87,7 @@ if (!SEREAL_ONLY) {
         ["Data::Dumper (2)", bytes::length($dd2)],
         ["Storable", bytes::length($storable)],
         ["Sereal::Encoder",  bytes::length($sereal)],
+        ["Sereal::Encoder, Snappy",  bytes::length($sereal_snappy)],
     ) {
         my ($name, $size) = @$tuple;
         printf "%-40s %12d bytes %.2f%% of sereal\n", $name, $size, $size/$sereal_len *100;
@@ -109,6 +112,7 @@ if ($encoder) {
                 ) : ()),
             sereal_func => '$::x = encode_sereal($::data{sereal_func}, \%::opt);',
             sereal => '$::x = $::enc->encode($::data{sereal});',
+            sereal_snappy => '$::x = $::enc_snappy->encode($::data{sereal_snappy});',
         }
     );
 }
@@ -129,6 +133,7 @@ if ($decoder) {
                 ) : ()),
             sereal_func => '$::x = decode_sereal($::sereal, \%::opt);',
             sereal => '$::x = $::dec->decode($::sereal);',
+            sereal_snappy => '$::x = $::dec->decode($::sereal_snappy);',
         }
     );
 }
