@@ -79,7 +79,7 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 /* 
 =for autoupdater start
 
-* NOTE this section is autoupdated by ../shared/author_tools/update_from_header.pl
+* NOTE this section is autoupdated by author_tools/update_from_header.pl
 */
 static const char * const tag_name[] = {
 	"POS_0",         /*        0 0x00 0b00000000 */
@@ -211,7 +211,6 @@ static const char * const tag_name[] = {
 	"ASCII_30",      /* "~"  126 0x7e 0b01111110 */
 	"ASCII_31"       /*      127 0x7f 0b01111111 */
 };
-/*
-* NOTE the above section is auto-updated by ../shared/author_tools/update_from_header.pl
+* NOTE the above section is auto-updated by author_tools/update_from_header.pl
 */
-#endif
+

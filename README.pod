@@ -238,13 +238,13 @@ ASCII) or in a varint following the tag (such as for STRING).
     UINT2         | "7"  |  55 | 0x37 | 0b00110111 | <BYTES> - two byte unsigned integer   #proposed#
     UINT3         | "8"  |  56 | 0x38 | 0b00111000 | <BYTES> - three byte unsigned integer #proposed#
     UINT4         | "9"  |  57 | 0x39 | 0b00111001 | <BYTES> - four byte unsigned integer  #proposed#
-    FALSE         | ":"  |  58 | 0x3a | 0b00111010 | false #proposed#
-    TRUE          | ";"  |  59 | 0x3b | 0b00111011 | true  #proposed#
+    FALSE         | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no)
+    TRUE          | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes)
     REPEATED      | "<"  |  60 | 0x3c | 0b00111100 | <LEN-VARINT> <TAG-BYTE> <TAG-DATA> - repeated tag (unimplemented)
     PACKET_START  | "="  |  61 | 0x3d | 0b00111101 | (first byte of magic string in header)
     EXTEND        | ">"  |  62 | 0x3e | 0b00111110 | <BYTE> - for additional tags
     PAD           | "?"  |  63 | 0x3f | 0b00111111 | (ignored tag, skip to next byte)
-    ARRAYREF_0    | "\@" |  64 | 0x40 | 0b01000000 | [<ITEM-TAG> ...] - count of itmes in low 4 bits
+    ARRAYREF_0    | "\@" |  64 | 0x40 | 0b01000000 | [<ITEM-TAG> ...] - count of itmes in low 4 bits (ARRAY must be refcnt=1)
     ARRAYREF_1    | "A"  |  65 | 0x41 | 0b01000001 |
     ARRAYREF_2    | "B"  |  66 | 0x42 | 0b01000010 |
     ARRAYREF_3    | "C"  |  67 | 0x43 | 0b01000011 |
@@ -259,8 +259,8 @@ ASCII) or in a varint following the tag (such as for STRING).
     ARRAYREF_12   | "L"  |  76 | 0x4c | 0b01001100 |
     ARRAYREF_13   | "M"  |  77 | 0x4d | 0b01001101 |
     ARRAYREF_14   | "N"  |  78 | 0x4e | 0b01001110 |
-    ARRAYREF_15   | "O"  |  79 | 0x4f | 0b01001111 | [<ITEM-TAG> ...] - count of itmes in low 4 bits
-    HASHREF_0     | "P"  |  80 | 0x50 | 0b01010000 | [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs
+    ARRAYREF_15   | "O"  |  79 | 0x4f | 0b01001111 | [<ITEM-TAG> ...] - count of itmes in low 4 bits (ARRAY must be refcnt=1)
+    HASHREF_0     | "P"  |  80 | 0x50 | 0b01010000 | [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt= 1)
     HASHREF_1     | "Q"  |  81 | 0x51 | 0b01010001 |
     HASHREF_2     | "R"  |  82 | 0x52 | 0b01010010 |
     HASHREF_3     | "S"  |  83 | 0x53 | 0b01010011 |
@@ -275,7 +275,7 @@ ASCII) or in a varint following the tag (such as for STRING).
     HASHREF_12    | "\\" |  92 | 0x5c | 0b01011100 |
     HASHREF_13    | "]"  |  93 | 0x5d | 0b01011101 |
     HASHREF_14    | "^"  |  94 | 0x5e | 0b01011110 |
-    HASHREF_15    | "_"  |  95 | 0x5f | 0b01011111 | [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs
+    HASHREF_15    | "_"  |  95 | 0x5f | 0b01011111 | [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt= 1)
     ASCII_0       | "`"  |  96 | 0x60 | 0b01100000 | <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag
     ASCII_1       | "a"  |  97 | 0x61 | 0b01100001 |
     ASCII_2       | "b"  |  98 | 0x62 | 0b01100010 |
