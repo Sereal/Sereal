@@ -104,18 +104,18 @@ sub parse_sv {
     $o = $o - 32;
     printf "%06u: %02x %03s %sNEG: %i\n", $p, $o, $bv, $ind, $o;
   }
-  elsif ($o >= SRL_HDR_ASCII_LOW) {
-    $o -= SRL_HDR_ASCII_LOW;
+  elsif ($o >= SRL_HDR_SHORT_BINARY_LOW) {
+    $o -= SRL_HDR_SHORT_BINARY_LOW;
     my $len = $o;
     my $str = substr($data, 0, $len, '');
     $done .= $str;
-    printf "%06u: %02x %03s %sASCII(%u): '%s'\n", $p, $o, $bv, $ind, $len, $str;
+    printf "%06u: %02x %03s %sSHORT_BINARY(%u): '%s'\n", $p, $o, $bv, $ind, $len, $str;
   }
-  elsif ($o == SRL_HDR_STRING || $o == SRL_HDR_STRING_UTF8) {
+  elsif ($o == SRL_HDR_BINARY || $o == SRL_HDR_STR_UTF8) {
     my $l = varint();
     my $str = substr($data, 0, $l, ""); # fixme UTF8
     $done .= $str;
-    printf "%06u: %02x %03s %sSTRING".($o == SRL_HDR_STRING_UTF8 ? "_UTF8" : "")."(%u): '%s'\n", $p, $o, $bv, $ind, $l, $str;
+    printf "%06u: %02x %03s %s".($o == SRL_HDR_STR_UTF8 ? "STR_UTF8" : "BINARY")."(%u): '%s'\n", $p, $o, $bv, $ind, $l, $str;
   }
   elsif ($o == SRL_HDR_FLOAT) {
     printf "%06u: %02x %03s %sFLOAT(%f)\n", $p, $o, $bv, $ind, parse_float();

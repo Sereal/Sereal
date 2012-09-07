@@ -92,16 +92,16 @@ sub dump_bless {
     ? chr(SRL_HDR_COPY).varint(${$_[1]})
     : (
       (length($_[1]) >= 2**6)
-      ? chr(SRL_HDR_STRING).varint(length($_[1])).$_[1]
-      : chr(length($_[1]) + SRL_HDR_ASCII_LOW).$_[1]
+      ? chr(SRL_HDR_BINARY).varint(length($_[1])).$_[1]
+      : chr(length($_[1]) + SRL_HDR_SHORT_BINARY_LOW).$_[1]
     )
   )
   . $_[0]
 }
 
 sub short_string {
-  die if length($_[0]) > SRL_MASK_ASCII_LEN;
-  return chr(SRL_HDR_ASCII_LOW + length($_[0])) . $_[0];
+  die if length($_[0]) > SRL_MASK_SHORT_BINARY_LEN;
+  return chr(SRL_HDR_SHORT_BINARY_LOW + length($_[0])) . $_[0];
 }
 
 sub integer {
@@ -150,7 +150,7 @@ our @BasicTests = (
   ["", short_string(""), "encode empty string"],
   ["1", short_string("1"), "encode string '1'"],
   ["91a", short_string("91a"), "encode string '91a'"],
-  ["abc" x 1000, chr(SRL_HDR_STRING).varint(3000).("abc" x 1000), "long ASCII string"],
+  ["abc" x 1000, chr(SRL_HDR_BINARY).varint(3000).("abc" x 1000), "long ASCII string"],
   [\1, chr(SRL_HDR_REFN).chr(0b0000_0001), "scalar ref to int"],
   [[], array(), "empty array ref"],
   [[1,2,3], array(chr(0b0000_0001), chr(0b0000_0010), chr(0b0000_0011)), "array ref"],
@@ -399,8 +399,8 @@ our @BasicTests = (
   [
       { $unicode1 => $unicode2 },
       hash(
-          chr(SRL_HDR_STRING_UTF8) . varint(bytes::length($unicode1)) . encode_utf8($unicode1),
-          chr(SRL_HDR_STRING_UTF8) . varint(bytes::length($unicode2)) . encode_utf8($unicode2),
+          chr(SRL_HDR_STR_UTF8) . varint(bytes::length($unicode1)) . encode_utf8($unicode1),
+          chr(SRL_HDR_STR_UTF8) . varint(bytes::length($unicode2)) . encode_utf8($unicode2),
       ),
       "simple unicode hash key and value"
   ],

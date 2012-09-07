@@ -35,7 +35,7 @@
  * DOUBLE   |           0 1 1 |                 | double
  * LDOUBLE  |           1 0 0 |                 | long double
  * UNDEF    |           1 0 1 | -               | undef
- * STR      |           1 1 0 | varint          | string, whatever, varint=length
+ * BINARY   |           1 1 0 | varint          | string, whatever, varint=length
  * STR_UTF8 |           1 1 1 | varint          | string, utf8, varint=length
  *          |                 |                 |
  *          |       0 1 X X X |                 | Ref/Object(ish)
@@ -61,7 +61,7 @@
  * RESERVED |           1 1 1 | varint          |
  * RESERVED |       1 1 x x x | varint          | *reserved*
  * ---------+-----------------+-----------------+---------------------------------------------------------------------------------------
- * ASCII    | F 1 x x x x x x | str             | Short ascii string, x=length
+ * SHORT_B..| F 1 x x x x x x | str             | Short binary string, x=length
  * 
  * 
  * 
@@ -120,8 +120,8 @@
 #define SRL_HDR_DOUBLE          ((char)35)      /* <IEEE-DOUBLE> */
 #define SRL_HDR_LONG_DOUBLE     ((char)36)      /* <IEEE-LONG-DOUBLE> */
 #define SRL_HDR_UNDEF           ((char)37)      /* None - Perl undef */
-#define SRL_HDR_STRING          ((char)38)      /* <LEN-VARINT> <BYTES> - binary/(latin1) string */
-#define SRL_HDR_STRING_UTF8     ((char)39)      /* <LEN-VARINT> <UTF8> - utf8 string */
+#define SRL_HDR_BINARY          ((char)38)      /* <LEN-VARINT> <BYTES> - binary/(latin1) string */
+#define SRL_HDR_STR_UTF8        ((char)39)      /* <LEN-VARINT> <UTF8> - utf8 string */
 
 #define SRL_HDR_REFN            ((char)40)      /* <ITEM-TAG>    - ref to next item */
 #define SRL_HDR_REFP            ((char)41)      /* <OFFSET-VARINT> - ref to previous item stored at offset */
@@ -172,10 +172,10 @@
 #define SRL_HDR_HASHREF_LOW     ((char)80)
 #define SRL_HDR_HASHREF_HIGH    ((char)95)
 
-#define SRL_HDR_ASCII           ((char)96)      /* <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
-#define SRL_HDR_ASCII_LOW       ((char)96)
-#define SRL_HDR_ASCII_HIGH      ((char)127)
-#define SRL_MASK_ASCII_LEN      ((char)31)      /* mask to get length of SRL_HDR_ASCII type tags */
+#define SRL_HDR_SHORT_BINARY    ((char)96)      /* <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
+#define SRL_HDR_SHORT_BINARY_LOW       ((char)96)
+#define SRL_HDR_SHORT_BINARY_HIGH      ((char)127)
+#define SRL_MASK_SHORT_BINARY_LEN      ((char)31)      /* mask to get length of SRL_HDR_SHORT_BINARY type tags */
 
 #define SRL_HDR_TRACK_FLAG      ((char)128)         /* if this bit is set track the item */
 

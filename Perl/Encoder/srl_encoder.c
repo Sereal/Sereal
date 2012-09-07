@@ -707,11 +707,11 @@ srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_ut
 {
     BUF_SIZE_ASSERT(enc, 1 + SRL_MAX_VARINT_LENGTH + src_len); /* overallocate a bit sometimes */
     if (is_utf8) {
-        srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_STRING_UTF8, src_len);
-    } else if (src_len <= SRL_MASK_ASCII_LEN) {
-        srl_buf_cat_char_nocheck(enc, SRL_HDR_ASCII_LOW | (char)src_len);
+        srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_STR_UTF8, src_len);
+    } else if (src_len <= SRL_MASK_SHORT_BINARY_LEN) {
+        srl_buf_cat_char_nocheck(enc, SRL_HDR_SHORT_BINARY_LOW | (char)src_len);
     } else {
-        srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_STRING, src_len);
+        srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_BINARY, src_len);
     }
     Copy(src, enc->pos, src_len, char);
     enc->pos += src_len;

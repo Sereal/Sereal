@@ -102,8 +102,8 @@ static SRL_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 
 #define IS_SRL_HDR_ARRAYREF(tag) (((tag) & SRL_HDR_ARRAYREF) == SRL_HDR_ARRAYREF)
 #define IS_SRL_HDR_HASHREF(tag) (((tag) & SRL_HDR_HASHREF) == SRL_HDR_HASHREF)
-#define IS_SRL_HDR_ASCII(tag) (((tag) & SRL_HDR_ASCII_LOW) == SRL_HDR_ASCII_LOW)
-#define SRL_HDR_ASCII_LEN_FROM_TAG(tag) ((tag) & SRL_MASK_ASCII_LEN)
+#define IS_SRL_HDR_SHORT_BINARY(tag) (((tag) & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW)
+#define SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) ((tag) & SRL_MASK_SHORT_BINARY_LEN)
 
 /* Macro to assert that the type of an SV is complex enough to
  * be an RV. Differs on old perls since there used to be an RV type.
@@ -630,16 +630,16 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
 #endif
         ASSERT_BUF_SPACE(dec,1," while reading key tag byte for HASH");
         tag= *dec->pos++;
-        if (IS_SRL_HDR_ASCII(tag)) {
-            key_len= (IV)SRL_HDR_ASCII_LEN_FROM_TAG(tag);
-            ASSERT_BUF_SPACE(dec,key_len," while reading ASCII key");
+        if (IS_SRL_HDR_SHORT_BINARY(tag)) {
+            key_len= (IV)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+            ASSERT_BUF_SPACE(dec,key_len," while reading string/SHORT_BINARY key");
             from= dec->pos;
             dec->pos += key_len;
-        } else if (tag == SRL_HDR_STRING) {
-            key_len= (IV)srl_read_varint_uv_length(aTHX_ dec, " while reading STRING key");
+        } else if (tag == SRL_HDR_BINARY) {
+            key_len= (IV)srl_read_varint_uv_length(aTHX_ dec, " while reading string/BINARY key");
             from= dec->pos;
             dec->pos += key_len;
-        } else if (tag == SRL_HDR_STRING_UTF8) {
+        } else if (tag == SRL_HDR_STR_UTF8) {
             key_len= (IV)srl_read_varint_uv_length(aTHX_ dec, " while reading UTF8 key");
             from= dec->pos;
             dec->pos += key_len;
@@ -654,15 +654,15 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
             tag= *from++;
             /* note we do NOT validate these items, as we have alread read them
              * and if they were a problem we would not be here to process them! */
-            if (IS_SRL_HDR_ASCII(tag)) {
-                key_len= SRL_HDR_ASCII_LEN_FROM_TAG(tag);
+            if (IS_SRL_HDR_SHORT_BINARY(tag)) {
+                key_len= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
             }
             else
-            if (tag == SRL_HDR_STRING) {
+            if (tag == SRL_HDR_BINARY) {
                 SET_UV_FROM_VARINT(key_len, from);
             }
             else
-            if (tag == SRL_HDR_STRING_UTF8) {
+            if (tag == SRL_HDR_STR_UTF8) {
                 SET_UV_FROM_VARINT(key_len, from);
 #ifdef OLDHASH
                 key_len= -key_len;
@@ -779,22 +779,22 @@ srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into)
         U32 key_len;
         I32 flags= GV_ADD;
         U8 tag;
-        /* we now expect either a STRING type or a COPY type */
+        /* we now expect either a BINARY type or a COPY type */
       read_class:
         storepos= BUF_POS_OFS(dec);
         tag= *dec->pos++;
 
-        if (IS_SRL_HDR_ASCII(tag)) {
-            key_len= SRL_HDR_ASCII_LEN_FROM_TAG(tag);
+        if (IS_SRL_HDR_SHORT_BINARY(tag)) {
+            key_len= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
         }
         else
-        if (tag == SRL_HDR_STRING_UTF8) {
+        if (tag == SRL_HDR_STR_UTF8) {
             flags = flags | SVf_UTF8;
             key_len= srl_read_varint_uv_length(aTHX_ dec, " while reading UTF8 class name");
         }
         else
-        if (tag == SRL_HDR_STRING) {
-            key_len= srl_read_varint_uv_length(aTHX_ dec, " while reading STRING class name");
+        if (tag == SRL_HDR_BINARY) {
+            key_len= srl_read_varint_uv_length(aTHX_ dec, " while reading string/BINARY class name");
         }
         else
         if (tag == SRL_HDR_COPY) {
@@ -874,8 +874,8 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
     /* For now we will serialize the flags as ascii strings. Maybe we should use
      * something else but this is easy to debug and understand - since the modifiers
      * are tagged it doesn't matter much, we can add other tags later */
-    if ( expect_true( IS_SRL_HDR_ASCII(*dec->pos) ) ) {
-        U8 mod_len= SRL_HDR_ASCII_LEN_FROM_TAG(*dec->pos++);
+    if ( expect_true( IS_SRL_HDR_SHORT_BINARY(*dec->pos) ) ) {
+        U8 mod_len= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(*dec->pos++);
         U32 flags= 0;
         ASSERT_BUF_SPACE(dec, mod_len, " while reading regexp modifiers");
         while (mod_len > 0) {
@@ -956,7 +956,7 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 #endif
     }
     else {
-        ERROR("Expecting SRL_HDR_ASCII for modifiers of regexp");
+        ERROR("Expecting SRL_HDR_SHORT_BINARY for modifiers of regexp");
     }
 }
 
@@ -1036,8 +1036,8 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
         sv_setiv(into, (IV)(tag - 32));
     }
     else
-    if ( IS_SRL_HDR_ASCII(tag) ) {
-        len= (STRLEN)SRL_HDR_ASCII_LEN_FROM_TAG(tag);
+    if ( IS_SRL_HDR_SHORT_BINARY(tag) ) {
+        len= (STRLEN)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
         ASSERT_BUF_SPACE(dec, len, " while reading ascii string");
         sv_setpvn(into,(char*)dec->pos,len);
         dec->pos += len;
@@ -1062,8 +1062,8 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
             case SRL_HDR_TRUE:          sv_setsv(into, &PL_sv_yes);                 break;
             case SRL_HDR_FALSE:         sv_setsv(into, &PL_sv_no);                  break;
             case SRL_HDR_UNDEF:         sv_setsv(into, &PL_sv_undef);               break;
-            case SRL_HDR_STRING:        srl_read_string(aTHX_ dec, 0, into);        break;
-            case SRL_HDR_STRING_UTF8:   srl_read_string(aTHX_ dec, 1, into);        break;
+            case SRL_HDR_BINARY:        srl_read_string(aTHX_ dec, 0, into);        break;
+            case SRL_HDR_STR_UTF8:      srl_read_string(aTHX_ dec, 1, into);        break;
 
             case SRL_HDR_WEAKEN:        srl_read_weaken(aTHX_ dec, into);           break;
             case SRL_HDR_REFN:          srl_read_refn(aTHX_ dec, into);             break;
