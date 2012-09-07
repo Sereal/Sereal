@@ -20,6 +20,8 @@ my (
     $tiny_data,
     $small_data,
     $medium_data,
+    $large_data,
+    $very_large_data,
     $nobless,
     $diagrams,
     $diagram_output_dir,
@@ -34,6 +36,8 @@ BEGIN {
         'tiny'      => \$tiny_data,
         'small'     => \$small_data,
         'medium'    => \$medium_data,
+        'large'     => \$large_data,
+        'very_large|very-large|verylarge' => \$very_large_data,
         'no_bless|no-bless|nobless'    => \$nobless,
         'sereal_only|sereal-only|serealonly' => \$sereal_only,
         'diagrams'  => \$diagrams,
@@ -42,9 +46,9 @@ BEGIN {
     eval "sub SEREAL_ONLY () { $sereal_only }";
 }
 
-my $fail = do {no warnings; $tiny_data + $small_data + $medium_data - 1};
+my $fail = do {no warnings; $tiny_data + $small_data + $medium_data + $very_large_data + $large_data - 1};
 if ($fail and $fail > 0) {
-    die "Only one of --tiny, --small, --medium allowed!";
+    die "Only one of --tiny, --small, --medium, --large, --very-large allowed!";
 }
 $encoder = 1 if not $encoder and not $decoder;
 
@@ -184,7 +188,17 @@ sub make_data {
         }
         return \@obj;
     }
-    else {
+    elsif ($very_large_data) { # "large data"
+        $data_set_name = "large data structure";
+        my @refs = (
+            [1..10000], {@str}, {@str}, [1..10000],
+            {@str}, [@rand], {@str}, {@str},
+        );
+        return [
+            \@refs, \@refs, [map {[reverse 1..100]} (0..1000)], [map {+{foo => "bar", baz => "buz"}} 1..2000]
+        ]
+    }
+    else { # "large data"
         $data_set_name = "large data structure";
         return [
             [1..10000], {@str}, {@str}, [1..10000],
@@ -211,7 +225,14 @@ if ($diagrams) {
         make_bar_chart(
             substr($title, 0, 3),
             $d,
-            {title => $title}
+            {
+                title => $title,
+                filename => do {
+                    my $x = $title;
+                    $x =~ s/\[1\/s\]/per second/;
+                    $data_set_name . " - " . $x
+                },
+            }
         );
     }
 
@@ -234,6 +255,7 @@ if ($diagrams) {
         {
             title => "Encoded output sizes [bytes]",
             color => kRed(),
+            filename => $data_set_name . " - Encoded output sizes in bytes",
         },
     );
     SOOT->Run;
