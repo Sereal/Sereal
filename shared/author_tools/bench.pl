@@ -189,7 +189,7 @@ sub make_data {
         return \@obj;
     }
     elsif ($very_large_data) { # "large data"
-        $data_set_name = "large data structure";
+        $data_set_name = "really rather large data structure";
         my @refs = (
             [1..10000], {@str}, {@str}, [1..10000],
             {@str}, [@rand], {@str}, {@str},
