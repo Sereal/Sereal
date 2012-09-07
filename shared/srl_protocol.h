@@ -127,10 +127,10 @@
 #define SRL_HDR_REFP            ((char)41)      /* <OFFSET-VARINT> - ref to previous item stored at offset */
 #define SRL_HDR_HASH            ((char)42)      /* <COUNT-VARINT> [<KEY-TAG> <ITEM-TAG> ...] - count followed by key/value pairs */
 #define SRL_HDR_ARRAY           ((char)43)      /* <COUNT-VARINT> [<ITEM-TAG> ...] - count followed by items */
-#define SRL_HDR_BLESS           ((char)44)      /* <ITEM-TAG> <STR-TAG> - item / class */
-#define SRL_HDR_BLESSV          ((char)45)      /* <OFFSET-VARINT> <ITEM-TAG> - class at offset - item to bless */
+#define SRL_HDR_BLESS           ((char)44)      /* <STR-TAG> <ITEM-TAG> - class, object-item */
+#define SRL_HDR_BLESSV          ((char)45)      /* <OFFSET-VARINT> <ITEM-TAG> - class name at offset - item to bless */
 #define SRL_HDR_ALIAS           ((char)46)      /* <OFFSET-VARINT> - alias to item defined at offset */
-#define SRL_HDR_COPY            ((char)47)      /* <OFFSET-VARINT> - copy of alias defined at offset */
+#define SRL_HDR_COPY            ((char)47)      /* <OFFSET-VARINT> - copy of item defined at offset */
 
 #define SRL_HDR_WEAKEN          ((char)48)      /* <REF-TAG> - Weaken the following reference */
 #define SRL_HDR_REGEXP          ((char)49)      /* <PATTERN-STR-TAG> <MODIFIERS-STR-TAG>*/
