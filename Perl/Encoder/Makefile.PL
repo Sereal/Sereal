@@ -7,7 +7,7 @@ use ExtUtils::MakeMaker;
 use Config;
 
 my $shared_dir = "../shared";
-my $in_source_repo = -d "../.git" and -d $shared_dir;
+my $in_source_repo = -d "../../.git" and -d $shared_dir;
 
 my $module = "Sereal::Encoder";
 
