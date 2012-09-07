@@ -967,7 +967,7 @@ srl_read_blessv(pTHX_ srl_decoder_t *dec, SV* into)
     SV *copy= into;
     into= copy;
     /* FIXME unimplemented!!! */
-    ERROR_UNIMPLEMENTED(dec,SRL_HDR_BLESSV,"BLESSV");
+    ERROR_UNIMPLEMENTED(dec,SRL_HDR_OBJECTV,"OBJECTV");
 }
 
 
@@ -1068,8 +1068,8 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
             case SRL_HDR_WEAKEN:        srl_read_weaken(aTHX_ dec, into);           break;
             case SRL_HDR_REFN:          srl_read_refn(aTHX_ dec, into);             break;
             case SRL_HDR_REFP:          srl_read_refp(aTHX_ dec, into);             break;
-            case SRL_HDR_BLESS:         srl_read_bless(aTHX_ dec, into);            break;
-            case SRL_HDR_BLESSV:        srl_read_blessv(aTHX_ dec, into);           break;
+            case SRL_HDR_OBJECT:        srl_read_bless(aTHX_ dec, into);            break;
+            case SRL_HDR_OBJECTV:       srl_read_blessv(aTHX_ dec, into);           break;
             case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into);             break;
             case SRL_HDR_EXTEND:        srl_read_extend(aTHX_ dec, into);           break;
             case SRL_HDR_HASH:          srl_read_hash(aTHX_ dec, into, 0);          break;

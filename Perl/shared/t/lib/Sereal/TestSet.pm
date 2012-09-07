@@ -85,7 +85,7 @@ sub hash {
 sub dump_bless {
   # this hack does not support UTF8 class names, but that's not supported by
   # most releases of perl anyway
-  chr(SRL_HDR_BLESS)
+  chr(SRL_HDR_OBJECT)
   .(
     ref($_[1])
     ? chr(SRL_HDR_COPY).varint(${$_[1]})
@@ -272,7 +272,7 @@ our @BasicTests = (
         my $content= array_head(2);
         my $pos= length($content);
         join("", $content,
-            chr(SRL_HDR_BLESS),
+            chr(SRL_HDR_OBJECT),
             short_string("bar"),
             chr(SRL_HDR_REFN),
             chr(SRL_HDR_REGEXP + FBIT),
@@ -287,12 +287,12 @@ our @BasicTests = (
   [
     do { my $o1=bless [], "foo"; my $o2=bless [], "foo"; [ $o1, $o2, $o1, $o2 ] },
     do {
-        my $content= array_head(4). chr(SRL_HDR_BLESS);
+        my $content= array_head(4). chr(SRL_HDR_OBJECT);
         my $pos= length($content);
         join("",$content,
                 short_string("foo"),
                 chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + FBIT),varint(0),
-            chr(SRL_HDR_BLESS),
+            chr(SRL_HDR_OBJECT),
                 chr(SRL_HDR_COPY),varint(length($Header) + $pos),
                 chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY  + FBIT),varint(0),
             chr(SRL_HDR_REFP),varint(length($Header) + $pos + 5),
@@ -304,7 +304,7 @@ our @BasicTests = (
   [
     [bless([], "foo"), bless([], "foo")],
     do {
-      my $content = array_head(2) . chr(SRL_HDR_BLESS);
+      my $content = array_head(2) . chr(SRL_HDR_OBJECT);
       my $pos = length($Header) + length($content);
       $content .= short_string("foo")
                   . array()
@@ -317,11 +317,11 @@ our @BasicTests = (
   [
     bless([bless {}, "foo"], "foo"),
     do {
-      my $content = chr(SRL_HDR_BLESS);
+      my $content = chr(SRL_HDR_OBJECT);
       my $pos = length($Header) + length($content);
       $content .= short_string("foo")
                   . array_head(1)
-                    . chr(SRL_HDR_BLESS)
+                    . chr(SRL_HDR_OBJECT)
                     . chr(SRL_HDR_COPY) . varint($pos)
                     . hash()
       ;
@@ -428,7 +428,7 @@ sub have_encoder_and_decoder {
   my $v = $Class->VERSION;
 
   if (defined(my $top_dir = get_git_top_dir())) {
-    my $blib_dir = File::Spec->catdir($top_dir, $need, "blib");
+    my $blib_dir = File::Spec->catdir($top_dir, 'Perl', $need, "blib");
     if (-d $blib_dir) {
       require blib;
       blib->import($blib_dir);

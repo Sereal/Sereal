@@ -45,8 +45,8 @@
  *          |                 |                 | substructure (always points at a form of reference)
  * HASH     |           0 1 0 | nkeys V/K*      | hash, nkeys=varint, contents are in VALUE, KEY tuples
  * ARRAY    |           0 1 1 | varint V*       | array, varint=length
- * BLESS    |           1 0 0 | TAG(STR) TAG    | bless item into class indicated by TAG
- * BLESSV   |           1 0 1 | varint   TAG    | bless item into class indicated by varint *provisional*
+ * OBJECT   |           1 0 0 | TAG(STR) TAG    | item that is instance of class indicated by TAG
+ * OBJECTV  |           1 0 1 | varint   TAG    | item that is instance of class indicated by varint *provisional*
  * ALIAS    |           1 1 0 | varint          | alias to previous item indicated by varint
  * COPY     |           1 1 1 | varint          | copy item at offset
  * 
@@ -127,8 +127,8 @@
 #define SRL_HDR_REFP            ((char)41)      /* <OFFSET-VARINT> - ref to previous item stored at offset */
 #define SRL_HDR_HASH            ((char)42)      /* <COUNT-VARINT> [<KEY-TAG> <ITEM-TAG> ...] - count followed by key/value pairs */
 #define SRL_HDR_ARRAY           ((char)43)      /* <COUNT-VARINT> [<ITEM-TAG> ...] - count followed by items */
-#define SRL_HDR_BLESS           ((char)44)      /* <STR-TAG> <ITEM-TAG> - class, object-item */
-#define SRL_HDR_BLESSV          ((char)45)      /* <OFFSET-VARINT> <ITEM-TAG> - class name at offset - item to bless */
+#define SRL_HDR_OBJECT          ((char)44)      /* <STR-TAG> <ITEM-TAG> - class, object-item */
+#define SRL_HDR_OBJECTV         ((char)45)      /* <OFFSET-VARINT> <ITEM-TAG> - class name at offset - object-item */
 #define SRL_HDR_ALIAS           ((char)46)      /* <OFFSET-VARINT> - alias to item defined at offset */
 #define SRL_HDR_COPY            ((char)47)      /* <OFFSET-VARINT> - copy of item defined at offset */
 

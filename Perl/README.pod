@@ -224,8 +224,8 @@ ASCII) or in a varint following the tag (such as for STRING).
     REFP          | ")"  |  41 | 0x29 | 0b00101001 | <OFFSET-VARINT> - ref to previous item stored at offset
     HASH          | "*"  |  42 | 0x2a | 0b00101010 | <COUNT-VARINT> [<KEY-TAG> <ITEM-TAG> ...] - count followed by key/value pairs
     ARRAY         | "+"  |  43 | 0x2b | 0b00101011 | <COUNT-VARINT> [<ITEM-TAG> ...] - count followed by items
-    BLESS         | ","  |  44 | 0x2c | 0b00101100 | <STR-TAG> <ITEM-TAG> - class, object-item
-    BLESSV        | "-"  |  45 | 0x2d | 0b00101101 | <OFFSET-VARINT> <ITEM-TAG> - class name at offset - item to bless
+    OBJECT        | ","  |  44 | 0x2c | 0b00101100 | <STR-TAG> <ITEM-TAG> - class, object-item
+    OBJECTV       | "-"  |  45 | 0x2d | 0b00101101 | <OFFSET-VARINT> <ITEM-TAG> - class name at offset - object-item
     ALIAS         | "."  |  46 | 0x2e | 0b00101110 | <OFFSET-VARINT> - alias to item defined at offset
     COPY          | "/"  |  47 | 0x2f | 0b00101111 | <OFFSET-VARINT> - copy of item defined at offset
     WEAKEN        | "0"  |  48 | 0x30 | 0b00110000 | <REF-TAG> - Weaken the following reference

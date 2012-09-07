@@ -839,7 +839,7 @@ redo_dump:
             }
             /* FIXME reuse/ref/... should INCLUDE the bless stuff. */
             /* Write bless operator with class name */
-            srl_buf_cat_char(enc, SRL_HDR_BLESS);
+            srl_buf_cat_char(enc, SRL_HDR_OBJECT);
             srl_dump_classname(aTHX_ enc, referent);
         }
         srl_buf_cat_char(enc, SRL_HDR_REFN);
