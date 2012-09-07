@@ -22,6 +22,7 @@ my (
     $medium_data,
     $nobless,
     $diagrams,
+    $diagram_output_dir,
 );
 BEGIN {
     my $sereal_only = 0;
@@ -36,6 +37,7 @@ BEGIN {
         'no_bless|no-bless|nobless'    => \$nobless,
         'sereal_only|sereal-only|serealonly' => \$sereal_only,
         'diagrams'  => \$diagrams,
+        'diagram_output=s' => \$diagram_output_dir,
     );
     eval "sub SEREAL_ONLY () { $sereal_only }";
 }
@@ -50,10 +52,12 @@ our %opt = @ARGV;
 
 our $mpo = Data::MessagePack->new();
 
+my $data_set_name;
 srand(0);
+my $chars = join("", "a".."z", "A".."Z") x 2;
 my @str;
-push @str, join("", map chr(65+int(rand(57))), 1..10) for 1..1000;
-my @rand = map rand,1..1000;
+push @str, substr($chars, int(rand(int(length($chars)/2+1))), 10) for 1..1000;
+my @rand = map rand, 1..1000;
 our %data;
 
 $data{$_}= make_data() for qw(sereal sereal_func dd1 dd2 ddl mp json_xs storable sereal_snappy);
@@ -145,9 +149,11 @@ if ($decoder) {
 
 sub make_data {
     if ($tiny_data) {
+        $data_set_name = "empty hash";
         return {};
     }
     elsif ($small_data) {
+        $data_set_name = "small hash";
         return { foo=> 1, bar => [100,101,102], str => "this is a \x{df} string which has to be serialized" };
     }
     elsif ($medium_data) {
@@ -168,6 +174,10 @@ sub make_data {
         my @classes = qw(Baz Baz Baz3 Baz2 Baz Baz Baz3 Baz2 Baz Baz Baz3 Baz2);
         if (!$nobless) {
             bless($obj[$_], $classes[$_]) for 0..$#obj;
+            $data_set_name = "array of small objects with relations";
+        }
+        else {
+            $data_set_name = "array of small hashes with relations";
         }
         foreach my $i (1..$#obj) {
             $obj[$i]->{parent} = $obj[$i-1];
@@ -175,6 +185,7 @@ sub make_data {
         return \@obj;
     }
     else {
+        $data_set_name = "large data structure";
         return [
             [1..10000], {@str}, {@str}, [1..10000],
             {@str}, [@rand], {@str}, {@str},
@@ -251,6 +262,12 @@ sub make_bar_chart {
     $c->GetPad(0)->SetRightMargin(0.115);
     $c->GetPad(0)->SetGrid();
     $h->Draw("bar2");
+    if ($diagram_output_dir) {
+        require File::Path;
+        File::Path::mkpath($diagram_output_dir);
+        my $file = $opts->{filename} || do {my $f = $opts->{title}; $f =~ s/[^a-zA-Z0-9_\ ]/_/g; $f};
+        $c->SaveAs("$diagram_output_dir/$file.png");
+    }
 }
 
 sub cmpthese_to_sanity {
