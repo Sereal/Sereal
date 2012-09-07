@@ -7,7 +7,7 @@ sub link_files {
   # This fires from a git source tree only.
   # Right now, all devs are on Linux. Feel free to make portable.
   eval {
-    if (-d "../.git" and -d $shared_dir) {
+    if (-d "../../.git" and -d $shared_dir) {
       # overwrite by default
       require File::Find;
       require File::Path;
