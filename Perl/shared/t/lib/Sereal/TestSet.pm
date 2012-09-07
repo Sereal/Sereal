@@ -41,6 +41,7 @@ our @EXPORT_OK = qw(
   hash dump_bless
   have_encoder_and_decoder
   run_roundtrip_tests
+  write_test_files
 );
 
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
@@ -410,6 +411,8 @@ our @BasicTests = (
   ]
 );
 
+
+
 sub get_git_top_dir {
   my @dirs = (0, 1, 2);
   for my $d (@dirs) {
@@ -678,6 +681,39 @@ sub run_roundtrip_tests_internal {
   } # end serialization method iteration
 }
 
+
+# dumb data-to-file dumper
+sub _write_file {
+  my ($file, $data) = @_;
+  open my $fh, ">", $file
+    or die "Failed to open file '$file' for writing: $!";
+  binmode($fh);
+  print $fh $data;
+  close $fh;
+}
+
+# For bootstrapping other language implementations' tests
+sub write_test_files {
+  my $dir = shift;
+  require File::Path;
+  File::Path::mkpath($dir);
+  my $make_data_file_name = sub {File::Spec->catfile($dir, sprintf("test_data_%05u", shift))};
+  my $make_name_file_name = sub {File::Spec->catfile($dir, sprintf("test_name_%05u", shift))};
+
+  foreach my $testno (1..@BasicTests) {
+    my $t = $BasicTests[$testno-1];
+    _write_file($make_data_file_name->($testno), $t->[1]);
+    _write_file($make_name_file_name->($testno), $t->[2] . "\n");
+  }
+
+  my $encoder = Sereal::Encoder->new;
+  foreach my $i (0..$#RoundtripTests) {
+    my $testno = @BasicTests + $i + 1;
+    my $t = $RoundtripTests[$i];
+    _write_file($make_data_file_name->($testno), $encoder->encode($t->[1]));
+    _write_file($make_name_file_name->($testno), $t->[0] . "\n");
+  }
+}
 
 
 1;
