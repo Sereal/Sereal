@@ -258,7 +258,7 @@ if ($diagrams) {
             filename => $data_set_name . " - Encoded output sizes in bytes",
         },
     );
-    SOOT->Run;
+    SOOT->Run if not $diagram_output_dir;
 }
 
 sub make_bar_chart {
