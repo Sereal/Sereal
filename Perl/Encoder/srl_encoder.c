@@ -598,22 +598,40 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
     UV n;
 
     if ( SvMAGICAL(src) ) {
+        UV i;
         /* can we trust this if the hash is a tie? */
-        n= hv_iterinit(src);
+        /* for tied hashes, we have to iterate to find the number of entries. Alas... */
+        (void)hv_iterinit(src); /* return value not reliable according to API docs */
+        n = 0;
+        while ((he = hv_iternext(src))) { ++n; }
+
         /* heuristic: n = ~min size of n values;
              *            + 2*n = very conservative min size of n hashkeys if all COPY */
         BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
+
         if (n < 16 && refcount == 1) {
             enc->pos--; /* back up over the previous REFN */
             srl_buf_cat_char_nocheck(enc, SRL_HDR_HASHREF + n);
         } else {
             srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_HASH, n);
         }
+
+        (void)hv_iterinit(src); /* return value not reliable according to API docs */
+        i = 0;
         while ((he = hv_iternext(src))) {
-            SV *v= HeVAL(he);
+            SV *v;
+            if (expect_false( i == n ))
+                croak("Trying to dump a tied hash that has a different number of keys in each iteration is just daft. Do not do that.");
+            v= hv_iterval(src, he);
+            if (SvMAGICAL(v))
+                mg_get(v);
             srl_dump_hk(aTHX_ enc, he, do_share_keys);
             CALL_SRL_DUMP_SV(enc, v);
+            ++i;
         }
+        if (expect_false( i != n ))
+            croak("Trying to dump a tied hash that has a different number of keys in each iteration is just daft. Do not do that.");
+
     } else {
         n= HvUSEDKEYS(src);
         /* heuristic: n = ~min size of n values;
