@@ -97,6 +97,36 @@ ok($ok, "deserializing tied array did not die")
 ok(defined $data, "deserializing tied array yields defined output");
 is_deeply($data, \@testarray, "deserializing tied array yields expected output");
 
+
+# Now tied scalars.
+
+SCOPE: {
+  package TiedScalar;
+  require Tie::Scalar;
+  our @ISA = qw(Tie::StdScalar);
+}
+
+my $testscalar = [qw(foo bar baz)];
+my $tied_scalar;
+tie $tied_scalar => 'TiedScalar';
+${tied($tied_scalar)} = $testscalar;
+is_deeply($tied_scalar, $testscalar);
+
+$ok = eval {$out = encode_sereal(\$tied_scalar); 1};
+$err = $@ || 'Zombie error';
+ok($ok, "serializing tied scalar did not die")
+  or note("Error was '$err'");
+ok(defined $out, "serializing tied scalar returns string");
+
+hobodecode($out) if $ENV{DEBUG_SEREAL};
+
+$ok = eval {$data = decode_sereal($out); 1;};
+$err = $@ || 'Zombie error';
+ok($ok, "deserializing tied scalar did not die")
+  or note("Error was '$err', data was:\n"), hobodecode($out);
+ok(defined $data, "deserializing tied scalar yields defined output");
+is_deeply($data, \$testscalar, "deserializing tied scalar yields expected output");
+
 pass("Alive at end");
 done_testing();
 
