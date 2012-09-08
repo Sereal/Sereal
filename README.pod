@@ -83,7 +83,8 @@ languages. We hope to have a Java port soon, right Eric?
 
 =head1 SPECIFICATION
 
-You can find the specification at L<sereal_spec.pod|sereal_spec.pod>
+You can find the specification at
+L<sereal_spec.pod|https://github.com/Sereal/Sereal/blob/master/sereal_spec.pod>
 
 =head1 AUTHOR
 
