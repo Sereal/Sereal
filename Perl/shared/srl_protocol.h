@@ -52,7 +52,7 @@
     HASH              | "*"  |  42 | 0x2a | 0b00101010 | <COUNT-VARINT> [<KEY-TAG> <ITEM-TAG> ...] - count followed by key/value pairs
     ARRAY             | "+"  |  43 | 0x2b | 0b00101011 | <COUNT-VARINT> [<ITEM-TAG> ...] - count followed by items
     OBJECT            | ","  |  44 | 0x2c | 0b00101100 | <STR-TAG> <ITEM-TAG> - class, object-item
-    OBJECTV           | "-"  |  45 | 0x2d | 0b00101101 | <OFFSET-VARINT> <ITEM-TAG> - class name at offset - object-item
+    OBJECTV           | "-"  |  45 | 0x2d | 0b00101101 | <OFFSET-VARINT> <ITEM-TAG> - offset of previously used classname tag - object-item
     ALIAS             | "."  |  46 | 0x2e | 0b00101110 | <OFFSET-VARINT> - alias to item defined at offset
     COPY              | "/"  |  47 | 0x2f | 0b00101111 | <OFFSET-VARINT> - copy of item defined at offset
     WEAKEN            | "0"  |  48 | 0x30 | 0b00110000 | <REF-TAG> - Weaken the following reference
@@ -184,7 +184,7 @@
 #define SRL_HDR_HASH            ((char)42)      /* <COUNT-VARINT> [<KEY-TAG> <ITEM-TAG> ...] - count followed by key/value pairs */
 #define SRL_HDR_ARRAY           ((char)43)      /* <COUNT-VARINT> [<ITEM-TAG> ...] - count followed by items */
 #define SRL_HDR_OBJECT          ((char)44)      /* <STR-TAG> <ITEM-TAG> - class, object-item */
-#define SRL_HDR_OBJECTV         ((char)45)      /* <OFFSET-VARINT> <ITEM-TAG> - class name at offset - object-item */
+#define SRL_HDR_OBJECTV         ((char)45)      /* <OFFSET-VARINT> <ITEM-TAG> - offset of previously used classname tag - object-item */
 #define SRL_HDR_ALIAS           ((char)46)      /* <OFFSET-VARINT> - alias to item defined at offset */
 #define SRL_HDR_COPY            ((char)47)      /* <OFFSET-VARINT> - copy of item defined at offset */
 

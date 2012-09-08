@@ -177,7 +177,7 @@ SHORT_BINARY) or in a varint following the tag (such as for STRING).
     HASH              | "*"  |  42 | 0x2a | 0b00101010 | <COUNT-VARINT> [<KEY-TAG> <ITEM-TAG> ...] - count followed by key/value pairs
     ARRAY             | "+"  |  43 | 0x2b | 0b00101011 | <COUNT-VARINT> [<ITEM-TAG> ...] - count followed by items
     OBJECT            | ","  |  44 | 0x2c | 0b00101100 | <STR-TAG> <ITEM-TAG> - class, object-item
-    OBJECTV           | "-"  |  45 | 0x2d | 0b00101101 | <OFFSET-VARINT> <ITEM-TAG> - class name at offset - object-item
+    OBJECTV           | "-"  |  45 | 0x2d | 0b00101101 | <OFFSET-VARINT> <ITEM-TAG> - offset of previously used classname tag - object-item
     ALIAS             | "."  |  46 | 0x2e | 0b00101110 | <OFFSET-VARINT> - alias to item defined at offset
     COPY              | "/"  |  47 | 0x2f | 0b00101111 | <OFFSET-VARINT> - copy of item defined at offset
     WEAKEN            | "0"  |  48 | 0x30 | 0b00110000 | <REF-TAG> - Weaken the following reference
@@ -291,11 +291,39 @@ was inserted into the packet stream as a replacement for the COPY tag.
 Note, that in this case the track flag is B<not> set. It is assumed the
 decoder can jump back to reread the tag from its location alone.
 
+Copy tags are forbidden from referring to another COPY tag, and are also
+forbidden from referring to anything containing a COPY tag, with the
+exception that a COPY tag used as a value may refer to an tag that uses
+a COPY tag for a classname or hash key.
+
+=head4 String Types
+
+Sereal supports three string representations. Two are "encodingless" and
+are SHORT_BINARY and STR_BINARY, where binary means "raw bytes". The other
+is STR_UTF8 which is expected to contain valid canonical UTF8 encoded
+unicode text data. Under normal circumstances a decoder is not expected
+to validate that this is actually the case, and is allowed to simply
+extract the data verbatim.
+
+SHORT_BINARY stores the length of the string in the tag itself and is used
+for strings of less than 32 characters long. Both STR_BINARY and STR_UTF8
+use a varint to indicate the number of B<bytes> (octets) in the string.
+
+=head4 Hash Keys
+
+Hashs keys are always one of the string types, or a COPY tag referencing a
+string.
+
 =head4 Handling objects
 
 Objects are serialized as a class name and a tag which represents the
 objects data. In Perl land this will always be a reference. Mapping perl
 objects to other languages is left to the future.
+
+Note that classnames MUST be a string, or a COPY tag referencing a string.
+
+OBJECTV varints MUST reference a previously used classname, and not an
+arbitrary string.
 
 =head1 AUTHOR
 
