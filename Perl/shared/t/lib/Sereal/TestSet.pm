@@ -42,9 +42,11 @@ our @EXPORT_OK = qw(
   have_encoder_and_decoder
   run_roundtrip_tests
   write_test_files
+  $use_objectv
 );
 
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
+our $use_objectv = 1;
 
 use constant FBIT => 128;
 
@@ -86,12 +88,17 @@ sub hash {
 sub dump_bless {
   # this hack does not support UTF8 class names, but that's not supported by
   # most releases of perl anyway
-  chr(SRL_HDR_OBJECT)
-  .(
+  (
     ref($_[1])
-    ? chr(SRL_HDR_COPY).varint(${$_[1]})
-    : (
-      (length($_[1]) >= 2**6)
+    ? (
+        $use_objectv
+        ? chr(SRL_HDR_OBJECTV) . varint(${$_[1]})
+        : chr(SRL_HDR_OBJECT) . chr(SRL_HDR_COPY) . varint(${$_[1]})
+      )
+    :
+    chr(SRL_HDR_OBJECT).
+    (
+      (length($_[1]) >= SRL_MASK_SHORT_BINARY_LEN)
       ? chr(SRL_HDR_BINARY).varint(length($_[1])).$_[1]
       : chr(length($_[1]) + SRL_HDR_SHORT_BINARY_LOW).$_[1]
     )
@@ -291,14 +298,14 @@ our @BasicTests = (
         my $content= array_head(4). chr(SRL_HDR_OBJECT);
         my $pos= length($content);
         join("",$content,
-                short_string("foo"),
-                chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + FBIT),varint(0),
-            chr(SRL_HDR_OBJECT),
-                chr(SRL_HDR_COPY),varint(length($Header) + $pos),
-                chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY  + FBIT),varint(0),
-            chr(SRL_HDR_REFP),varint(length($Header) + $pos + 5),
-            chr(SRL_HDR_REFP),varint(length($Header) + $pos + 11),
-        )
+                    short_string("foo"),
+                    chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + FBIT),varint(0),
+                chr( SRL_HDR_OBJECT + $use_objectv),
+                    $use_objectv ? () : chr(SRL_HDR_COPY), varint(length($Header) + $pos),
+                    chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY  + FBIT), varint(0),
+                chr(SRL_HDR_REFP),varint(length($Header) + $pos + 5),
+                chr(SRL_HDR_REFP),varint(length($Header) + $pos + 10),
+            )
     },
     "blessed arrays with reuse"
   ],
@@ -322,9 +329,7 @@ our @BasicTests = (
       my $pos = length($Header) + length($content);
       $content .= short_string("foo")
                   . array_head(1)
-                    . chr(SRL_HDR_OBJECT)
-                    . chr(SRL_HDR_COPY) . varint($pos)
-                    . hash()
+                    . dump_bless(hash(), \$pos);
       ;
       $content
     },

@@ -88,10 +88,10 @@ static SRL_INLINE void srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV
 static SRL_INLINE void srl_read_varint(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_zigzag(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE void srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into);
-static SRL_INLINE void srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into);
+static SRL_INLINE void srl_read_object(pTHX_ srl_decoder_t *dec, SV* into);
 
 /* FIXME unimplemented!!! */
-static SRL_INLINE void srl_read_blessv(pTHX_ srl_decoder_t *dec, SV* into);
+static SRL_INLINE void srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into);
 static SRL_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 
 #define ASSERT_BUF_SPACE(dec,len,msg) STMT_START {              \
@@ -258,7 +258,6 @@ srl_clear_decoder(pTHX_ srl_decoder_t *dec)
     if (dec->buf_start == dec->buf_end)
         return;
 
-    dec->depth = 0;
     SRL_DEC_RESET_VOLATILE_FLAGS(dec);
     dec->buf_start = dec->buf_end = dec->pos = dec->save_pos = NULL;
     if (dec->weakref_av)
@@ -284,7 +283,6 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset)
     /* Register our structure for destruction on scope exit */
     SAVEDESTRUCTOR_X(&srl_decoder_destructor_hook, (void *)dec);
 
-    dec->depth= 0;
     SRL_DEC_RESET_VOLATILE_FLAGS(dec);
     tmp = (unsigned char*)SvPV(src, len);
     if (expect_false( start_offset > len )) {
@@ -760,103 +758,120 @@ srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into)
 }
 
 static SRL_INLINE void
-srl_read_bless(pTHX_ srl_decoder_t *dec, SV* into)
+srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into)
+{
+    AV *av= NULL;
+    STRLEN ofs= srl_read_varint_uv_offset(aTHX_ dec," while reading OBJECTV classname");
+
+    if ( !dec->ref_bless_av)
+        ERROR("Corrupt packet. OBJECTV used without preceding OBJECTV of any kind");
+    av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)ofs);
+    if (NULL == av) {
+        ERRORf1("Corrupt packet. OBJECTV references unknown classname offset: %lu", ofs);
+    }
+    /* now deparse the thing we are going to bless */
+    srl_read_single_value(aTHX_ dec, into);
+
+    /* and also stuff it into the av - we dont have to do any more book-keeping */
+    SvREFCNT_inc(into);
+    av_push(av, into);
+}
+
+static SRL_INLINE void
+srl_read_object(pTHX_ srl_decoder_t *dec, SV* into)
 {
     HV *stash= NULL;
     AV *av= NULL;
     STRLEN storepos= 0;
     UV ofs= 0;
+    U32 key_len;
+    I32 flags= GV_ADD;
+    U8 tag;
+    U8 *from;
     /* now find the class name - first check if this is a copy op
      * this is bit tricky, as we could have a copy of a raw string
      * we could also have a copy of a previously mentioned class
      * name. We have to handle both, which leads to some non-linear
      * code flow in the below code */
     ASSERT_BUF_SPACE(dec,1," while reading classname tag");
-    if (*dec->pos == SRL_HDR_COPY) {
-        dec->pos++;
-        ofs= srl_read_varint_uv_offset(aTHX_ dec," while reading COPY classname");
-        if (dec->ref_stashes) {
+
+    storepos= BUF_POS_OFS(dec);
+    tag= *dec->pos++;
+    if (IS_SRL_HDR_SHORT_BINARY(tag)) {
+        key_len= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+        from= dec->pos;
+        dec->pos += key_len;
+    }
+    else
+    if (tag == SRL_HDR_STR_UTF8) {
+        key_len= srl_read_varint_uv_length(aTHX_ dec, " while reading UTF8 class name");
+        flags = flags | SVf_UTF8;
+        from= dec->pos;
+        dec->pos += key_len;
+    }
+    else
+    if (tag == SRL_HDR_BINARY) {
+        key_len= srl_read_varint_uv_length(aTHX_ dec, " while reading string/BINARY class name");
+        from= dec->pos;
+        dec->pos += key_len;
+    }
+    else
+    if (tag == SRL_HDR_COPY) {
+        ofs= srl_read_varint_uv_offset(aTHX_ dec, " while reading COPY class name");
+        storepos= ofs;
+        if (dec->ref_seenhash) {
             stash= PTABLE_fetch(dec->ref_seenhash, (void *)ofs);
         }
-        if (!stash)
-            goto read_copy;
-        else
-            storepos= ofs;
-        /* we should have seen this item before as a class name */
-    } else {
-        U32 key_len;
-        I32 flags= GV_ADD;
-        U8 tag;
-        /* we now expect either a BINARY type or a COPY type */
-      read_class:
-        storepos= BUF_POS_OFS(dec);
-        tag= *dec->pos++;
-
-        if (IS_SRL_HDR_SHORT_BINARY(tag)) {
-            key_len= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
-        }
-        else
-        if (tag == SRL_HDR_STR_UTF8) {
-            flags = flags | SVf_UTF8;
-            key_len= srl_read_varint_uv_length(aTHX_ dec, " while reading UTF8 class name");
-        }
-        else
-        if (tag == SRL_HDR_BINARY) {
-            key_len= srl_read_varint_uv_length(aTHX_ dec, " while reading string/BINARY class name");
-        }
-        else
-        if (tag == SRL_HDR_COPY) {
-            ofs= srl_read_varint_uv_offset(aTHX_ dec, " while reading COPY class name");
-          read_copy:
-            if (expect_false( dec->save_pos )) {
-                ERROR_BAD_COPY(dec, SRL_HDR_HASH);
-            } else {
-                dec->save_pos= dec->pos;
-                dec->pos= dec->buf_start + ofs;
-                goto read_class;
+        if (!stash) {
+            from= dec->buf_start + ofs;
+            tag= *from++;
+            /* note we do NOT validate these items, as we have alread read them
+             * and if they were a problem we would not be here to process them! */
+            if (IS_SRL_HDR_SHORT_BINARY(tag)) {
+                key_len= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
             }
-            /* NOTREACHED */
-        } else {
-            ERROR_UNEXPECTED(dec,tag, "a class name");
+            else
+            if (tag == SRL_HDR_BINARY) {
+                SET_UV_FROM_VARINT(key_len, from);
+            }
+            else
+            if (tag == SRL_HDR_STR_UTF8) {
+                SET_UV_FROM_VARINT(key_len, from);
+                flags = flags | SVf_UTF8;
+            }
+            else {
+                ERROR_BAD_COPY(dec, SRL_HDR_OBJECT);
+            }
         }
-        ASSERT_BUF_SPACE(dec, key_len, " while reading class name text");
+        /* NOTREACHED */
+    } else {
+        ERROR_UNEXPECTED(dec,tag, "a class name");
+    }
+    if (!stash) {
         if (expect_false( !dec->ref_stashes )) {
             dec->ref_stashes = PTABLE_new();
             dec->ref_bless_av = PTABLE_new();
         }
-        stash= gv_stashpvn((char *)dec->pos, key_len, flags);
-        if (dec->save_pos) {
-            dec->pos= dec->save_pos;
-            dec->save_pos= NULL;
-        }
-        else {
-            dec->pos += key_len;
-        }
-    }
-    if (expect_false( !storepos ))
-        ERROR("Bad bless: no storepos");
-    if (expect_false( !stash ))
-        ERROR("Bad bless: no stash");
-
-    /* now deparse the thing we are going to bless */
-    srl_read_single_value(aTHX_ dec, into);
-
-    /* we now have a stash and a value, so we can bless... except that
-     * we dont actually want to do so right now. We want to defer blessing
-     * until the full packet has been read. Yes it is more overhead, but
-     * we really dont want to trigger DESTROY methods from a partial
-     * deparse. */
-    SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE);
-    PTABLE_store(dec->ref_stashes, (void *)storepos, (void *)stash);
-    if (NULL == (av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)ofs)) ) {
+        stash= gv_stashpvn((char *)from, key_len, flags);
+        PTABLE_store(dec->ref_stashes, (void *)storepos, (void *)stash);
         av= newAV();
         sv_2mortal((SV*)av);
         PTABLE_store(dec->ref_bless_av, (void *)storepos, (void *)av);
+    } else if (NULL == (av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)storepos)) ) {
+        ERRORf1("Panic, no ref_bless_av for %lu",storepos);
     }
 
-
+    /* we now have a stash so we /could/ bless... except that
+     * we don't actually want to do so right now. We want to defer blessing
+     * until the full packet has been read. Yes it is more overhead, but
+     * we really dont want to trigger DESTROY methods from a partial
+     * deparse. So we insert the item into an array to be blessed later */
+    SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE);
     SvREFCNT_inc(into);
     av_push(av, into);
+
+    /* now deparse the thing we are going to bless */
+    srl_read_single_value(aTHX_ dec, into);
 }
 
 
@@ -969,14 +984,6 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 }
 
 
-static SRL_INLINE void
-srl_read_blessv(pTHX_ srl_decoder_t *dec, SV* into)
-{
-    SV *copy= into;
-    into= copy;
-    /* FIXME unimplemented!!! */
-    ERROR_UNIMPLEMENTED(dec,SRL_HDR_OBJECTV,"OBJECTV");
-}
 
 
 static SRL_INLINE SV *
@@ -1076,8 +1083,8 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
             case SRL_HDR_WEAKEN:        srl_read_weaken(aTHX_ dec, into);           break;
             case SRL_HDR_REFN:          srl_read_refn(aTHX_ dec, into);             break;
             case SRL_HDR_REFP:          srl_read_refp(aTHX_ dec, into);             break;
-            case SRL_HDR_OBJECT:        srl_read_bless(aTHX_ dec, into);            break;
-            case SRL_HDR_OBJECTV:       srl_read_blessv(aTHX_ dec, into);           break;
+            case SRL_HDR_OBJECT:        srl_read_object(aTHX_ dec, into);           break;
+            case SRL_HDR_OBJECTV:       srl_read_objectv(aTHX_ dec, into);          break;
             case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into);             break;
             case SRL_HDR_EXTEND:        srl_read_extend(aTHX_ dec, into);           break;
             case SRL_HDR_HASH:          srl_read_hash(aTHX_ dec, into, 0);          break;

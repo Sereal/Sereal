@@ -354,7 +354,7 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
 
     if (oldoffset != 0) {
         /* Issue COPY instead of literal class name string */
-        srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)oldoffset);
+        srl_buf_cat_varint(aTHX_ enc, SRL_HDR_OBJECTV, (UV)oldoffset);
     }
     else {
         const char *class_name = HvNAME_get(stash);
@@ -367,6 +367,7 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
          * At least, we can safely use the same PTABLE to store the ptrs to hashkeys since
          * the set of pointers will never collide.
          * /me bows to Yves for the delightfully evil hack. */
+        srl_buf_cat_char(enc, SRL_HDR_OBJECT);
 
         /* remember current offset before advancing it */
         PTABLE_store(string_seenhash, (void *)stash, (void *)(enc->pos - enc->buf_start));
@@ -860,7 +861,6 @@ redo_dump:
             }
             /* FIXME reuse/ref/... should INCLUDE the bless stuff. */
             /* Write bless operator with class name */
-            srl_buf_cat_char(enc, SRL_HDR_OBJECT);
             srl_dump_classname(aTHX_ enc, referent);
         }
         srl_buf_cat_char(enc, SRL_HDR_REFN);

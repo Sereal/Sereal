@@ -172,6 +172,12 @@ sub parse_sv {
     my $ofs= varint();
     printf "%06u: %02x %03s %sALIAS(%u)\n", $p, $o, $bv, $ind, $ofs;
   }
+  elsif ($o == SRL_HDR_OBJECTV) {
+    my $ofs= varint();
+    printf "%06u: %02x %03s %sOBJECTV(%d)\n", $p, $o, $bv, $ind, $ofs;
+    printf  "%6s  %2s %3s %s  Value:\n",("") x 3, $ind."  ";
+    parse_sv($ind."    ");
+  }
   elsif ($o == SRL_HDR_OBJECT) {
     printf "%06u: %02x %03s %sOBJECT\n", $p, $o, $bv, $ind;
     printf  "%6s  %2s %3s %s  Class:\n",("") x 3, $ind."  ";
