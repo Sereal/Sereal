@@ -2,93 +2,10 @@
 #define SRL_PROTOCOL_H_
 
 /*
- * Sereal Protocol version 1, see constants below docs.
- *
- * Generally speaking, structures are serialized depth-first and each item
- * is preceded/defined by a 1-byte control character, see table below.
- * All packets of Sereal data must be preceded by a header. The header structure
- * is as follows:
- * Bytes 1-4: Magic string "=srl".
- * Byte 5: low bits: The protocol version. high bits: flags
- *         Flags defined are:
- *          - lowest flag bit (5): Payload uses Snappy compression
- * Next: A varint describing the length of the rest of the header.
- *       Since in protocol version 1, there is currently nothing else in the header,
- *       this varint is always 0 (but that will change). Decoders must be able to
- *       skip the parts of the header that they know nothing about using the total
- *       header length.
- *
- * +--------+-----------------+-----------------+--------------------------------------------------------------------------
- *          |Bit              | follow          | Description
- *          | 7 6 5 4 3 2 1 0 | bytes           |
- * ---------+-----------------+-----------------+--------------------------------------------------------------------------
- *          | F 0 0 s x x x x | -               | tiny ints
- * POS      |       0 x x x x | -               | Positive nibble   0 .. 15
- * NEG      |       1 x x x x | -               | Negative nibble -16 .. -1
- * 
- *          | F 0 1 x x x x x |
- *----------|-----------------+-----------------+---------------------------------------------------------------------------
- *          |       0 0 x x x |                 |
- * VARINT   |           0 0 0 | varint          | varint
- * ZIGZAG   |           0 0 1 | varint          | zigzag encoded varint
- * FLOAT    |           0 1 0 |                 | float
- * DOUBLE   |           0 1 1 |                 | double
- * LDOUBLE  |           1 0 0 |                 | long double
- * UNDEF    |           1 0 1 | -               | undef
- * BINARY   |           1 1 0 | varint          | string, whatever, varint=length
- * STR_UTF8 |           1 1 1 | varint          | string, utf8, varint=length
- *          |                 |                 |
- *          |       0 1 X X X |                 | Ref/Object(ish)
- * REF      |           0 0 0 | varint          | scalar ref - if varint is 0 then it is to the next item, if otherwise it is to a
- *          |                 |                 | previously emitted scalar (which will be tagged).
- * REUSE    |           0 0 1 | varint          | second/third/... occurrence of a multiply-occurring
- *          |                 |                 | substructure (always points at a form of reference)
- * HASH     |           0 1 0 | nkeys V/K*      | hash, nkeys=varint, contents are in VALUE, KEY tuples
- * ARRAY    |           0 1 1 | varint V*       | array, varint=length
- * OBJECT   |           1 0 0 | TAG(STR) TAG    | item that is instance of class indicated by TAG
- * OBJECTV  |           1 0 1 | varint   TAG    | item that is instance of class indicated by varint *provisional*
- * ALIAS    |           1 1 0 | varint          | alias to previous item indicated by varint
- * COPY     |           1 1 1 | varint          | copy item at offset
- * 
- *          |       1 0 y y y |                 | Miscellaneous
- * EXTEND   |           0 0 0 | tbyte           | tbyte indicates action.
- * LIST     |           0 0 1 | tbyte vint pad  | numeric array (s=0 unsigned, s=1 signed), varint=length, pad if needed for alignment
- * WEAKEN   |           0 1 0 |                 | Following item is a reference and it is weakened
- * REGEXP   |           0 1 1 | TAG             | next item is a regexp
- * PAD      |           1 0 0 | -               | ignored byte, used by encoder to pad if necessary
- *          |                 |                 |
- * RESERVED |           1 0 1 | varint          |
- * RESERVED |           1 1 1 | varint          |
- * RESERVED |       1 1 x x x | varint          | *reserved*
- * ---------+-----------------+-----------------+---------------------------------------------------------------------------------------
- * SHORT_B..| F 1 x x x x x x | str             | Short binary string, x=length
- * 
- * 
- * 
- * F = Flag bit to indicate if the item needs to be tracked during deserialization.
- *     The offset of the tag byte should be remembered, so that it can be referenced
- *     later.
- * 
- * * Dealing with self referential and cyclic structures:
- * While dumping any item with a refcount>1 (including weakrefs) the offset of the tag
- * needs to be tracked. The items F flag is NOT set. Should the item later be encountered
- * during dumping an alias or ref item will be generated with the offset in a varint, and
- * the F flag will be set. 
- * 
- * * Handling objects
- * During dumping the dumper is expected to maintain a mapping of class name to id. Whenever
- * it encounters a new class name it emits a "declare class tag" and then emits the appropriate
- * ref tag with the "is class" bit set.
- *    
- * * Varints
- * Varints are variable length integers where the high bit of each segment (normally a byte
- * but in some cases less) indicates if there is another byte to follow, with the bytes in 
- * least significant order first.
- *
- *
- * TODO: FALSE?
- * TODO: What's with floats?
- */
+=for autoupdater start
+
+=for autoupdater stop
+* /
 
 /* protocol version */
 #define SRL_PROTOCOL_VERSION 1

@@ -88,8 +88,28 @@ up of two parts, the header and the body.
 
 =head2 General Points
 
-Sereal is a little-endian data structure. Additionally it uses IEEE 754
-floats.
+=over 4
+
+=item Little Endian
+
+All numeric data is in little endian format.
+
+=item IEEE Floats
+
+Floating points types are in IEEE format.
+
+=item Varints
+
+Heavy use is made of a variable length integer encoding commonly called
+a "varint" (Google calls it a Varint128). This encoding uses the high bit
+of each byte to signal there is another byte worth of data coming, and the
+last byte always having the high bit off. The data is in little endian
+order with the low seven bits in the first byte, and the next 7 in the
+next etc.
+
+See L<googles description|https://developers.google.com/protocol-buffers/docs/encoding#varints>
+
+=back
 
 =head2 Header Format
 
@@ -159,7 +179,10 @@ A tag is a single byte which specifies the type of the data being decoded.
 
 The high bit of each tag is used to signal to the decoder that the
 deserialized data needs to be stored and tracked and will be reused again
-elsewhere in the serialization.
+elsewhere in the serialization. This is sometimes called the "track flag"
+or the "F-bit" in code and documentation. Its status should be ignored
+when processing a tag, meaning code should mask off the high bit and
+only use the low 7 bits.
 
 Some tags, such as POS, NEG and SHORT_BINARY contain embedded in them
 either the data (in the case of POS and NEG) or the length of the
@@ -310,6 +333,40 @@ SHORT_BINARY) or in a varint following the tag (such as for STRING).
     SHORT_BINARY_31   |      | 127 | 0x7f | 0b01111111 | <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag
 
 =for autoupdater stop
+
+=head4 The Track Bit And Cyclic Data Structures
+
+The protocol uses a combination of the offset of a tracked tag and the
+flag bit to be able to encode and reconstruct cyclic structures in a single
+pass.
+
+An encoder must track duplicated items and generate the appropriate ALIAS or
+REFP tags to reconstruct them, and when it does so ensure that the high
+bit of the original tag has been set.
+
+When a decoder encounters a tag with its flag set it will remember the
+offset of the tag in the output packet and the item that was decoded from
+that tag. At a later point in the packet there will be an ALIAS or REFP
+instruction which will refer to the item by its offset, and the decoder
+will reuse it as needed.
+
+=head4 The COPY Tag
+
+Sometimes it is convenient to be able to reuse a previously emitted
+sequence in the packet to reduce duplication. For instance a data
+structure with many hashes with the same keys. The COPY tag is used for
+this. Its argument is a varint which is the offset of a previously
+emitted tag, and decoders are to behave as though the tag it references
+was inserted into the packet stream as a replacement for the COPY tag.
+
+Note, that in this case the track flag is B<not> set. It is assumed the
+decoder can jump back to reread the tag from its location alone.
+
+=head4 Handling objects
+
+Objects are serialized as a class name and a tag which represents the
+objects data. In Perl land this will always be a reference. Mapping perl
+objects to other languages is left to the future.
 
 =head1 AUTHOR
 
