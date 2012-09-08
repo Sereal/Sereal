@@ -108,8 +108,9 @@ sub update_readme_pod {
 
 my $git_dir = `git rev-parse --git-dir`
     or die; # we will get a message from rev-parse iirc
+chomp($git_dir);
 chdir "$git_dir/.."
-    or die "Failed to chdir to root of repo";
+    or die "Failed to chdir to root of repo '$git_dir/..': $!";
 read_protocol();
 update_srl_decoder_h();
 update_readme_pod();
