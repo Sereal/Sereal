@@ -267,7 +267,8 @@ srl_write_header(pTHX_ srl_encoder_t *enc)
     const U8 version_and_flags = SRL_PROTOCOL_VERSION
                                  | (
                                     SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY)
-                                    ? SRL_F_SNAPPY : 0
+                                    ? SRL_PROTOCOL_ENCODING_SNAPPY
+                                    : SRL_PROTOCOL_ENCODING_RAW
                                  );
 
     /* 4 byte magic string + proto version
@@ -404,7 +405,8 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
             /* sizeof(const char *) includes a count ofr \0 */
             char *flags_and_version_byte = enc->buf_start + sizeof(SRL_MAGIC_STRING) - 1;
             /* disable snappy flag in header */
-            *flags_and_version_byte &= ~SRL_F_SNAPPY;
+            *flags_and_version_byte = SRL_PROTOCOL_ENCODING_RAW |
+                                      (*flags_and_version_byte & SRL_PROTOCOL_VERSION_MASK);
         }
         else {
             STRLEN uncompressed_length;
@@ -456,7 +458,8 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
                 enc->pos = old_buf + sereal_header_len + uncompressed_length;
                 /* disable snappy flag in header */
                 flags_and_version_byte = enc->buf_start + sizeof(SRL_MAGIC_STRING) - 1;
-                flags_and_version_byte &= ~SRL_F_SNAPPY;
+                flags_and_version_byte = SRL_PROTOCOL_ENCODING_RAW |
+                                      (flags_and_version_byte & SRL_PROTOCOL_VERSION_MASK);
             }
             else {
                 Safefree(old_buf);

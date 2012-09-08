@@ -56,10 +56,14 @@ sub parse_header {
   else {
     print "Empty Header.\n";
   }
-  if (ord($flags) & SRL_F_SNAPPY) {
+  my $encoding= ord($flags) & SRL_PROTOCOL_ENCODING_MASK;
+
+  if ($encoding == SRL_PROTOCOL_ENCODING_SNAPPY) {
     require Compress::Snappy;
     my $out = Compress::Snappy::decompress($data);
     $data = $out;
+  } elsif ($encoding) {
+    die "Invalid encoding";
   }
 }
 

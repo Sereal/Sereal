@@ -79,7 +79,7 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 /* 
 =for autoupdater start
 
-* NOTE this section is autoupdated by shared/author_tools/update_from_header.pl
+* NOTE this section is autoupdated by author_tools/update_from_header.pl
 */
 static const char * const tag_name[] = {
 	"POS_0",             /*        0 0x00 0b00000000 */
@@ -132,17 +132,17 @@ static const char * const tag_name[] = {
 	"COPY",              /* "/"   47 0x2f 0b00101111 */
 	"WEAKEN",            /* "0"   48 0x30 0b00110000 */
 	"REGEXP",            /* "1"   49 0x31 0b00110001 */
-	"INT1",              /* "2"   50 0x32 0b00110010 */
-	"INT2",              /* "3"   51 0x33 0b00110011 */
-	"INT3",              /* "4"   52 0x34 0b00110100 */
-	"INT4",              /* "5"   53 0x35 0b00110101 */
-	"UINT1",             /* "6"   54 0x36 0b00110110 */
-	"UINT2",             /* "7"   55 0x37 0b00110111 */
-	"UINT3",             /* "8"   56 0x38 0b00111000 */
-	"UINT4",             /* "9"   57 0x39 0b00111001 */
+	"RESERVED_0",        /* "2"   50 0x32 0b00110010 */
+	"RESERVED_1",        /* "3"   51 0x33 0b00110011 */
+	"RESERVED_2",        /* "4"   52 0x34 0b00110100 */
+	"RESERVED_3",        /* "5"   53 0x35 0b00110101 */
+	"RESERVED_4",        /* "6"   54 0x36 0b00110110 */
+	"RESERVED_5",        /* "7"   55 0x37 0b00110111 */
+	"RESERVED_6",        /* "8"   56 0x38 0b00111000 */
+	"RESERVED_7",        /* "9"   57 0x39 0b00111001 */
 	"FALSE",             /* ":"   58 0x3a 0b00111010 */
 	"TRUE",              /* ";"   59 0x3b 0b00111011 */
-	"REPEATED",          /* "<"   60 0x3c 0b00111100 */
+	"MANY",              /* "<"   60 0x3c 0b00111100 */
 	"PACKET_START",      /* "="   61 0x3d 0b00111101 */
 	"EXTEND",            /* ">"   62 0x3e 0b00111110 */
 	"PAD",               /* "?"   63 0x3f 0b00111111 */
@@ -212,7 +212,7 @@ static const char * const tag_name[] = {
 	"SHORT_BINARY_31"    /*      127 0x7f 0b01111111 */
 };
 /*
-* NOTE the above section is auto-updated by shared/author_tools/update_from_header.pl
+* NOTE the above section is auto-updated by author_tools/update_from_header.pl
 
 =for autoupdater stop
 */

@@ -51,7 +51,7 @@ void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
  * Corresponds to the 'croak_on_bless' option to the Perl constructor. */
 #define SRL_F_CROAK_ON_BLESS                 4UL
 
-/* WARNING: This is different from the protocol bit SRL_F_SNAPPY in that it's
+/* WARNING: This is different from the protocol bit SRL_PROTOCOL_ENCODING_SNAPPY in that it's
  *          a flag on the encoder struct indicating that we want to use Snappy. */
 #define SRL_F_COMPRESS_SNAPPY                8UL
 

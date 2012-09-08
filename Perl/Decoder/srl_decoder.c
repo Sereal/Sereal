@@ -310,12 +310,20 @@ srl_read_header(pTHX_ srl_decoder_t *dec)
         if (expect_false( (proto_version_and_flags & SRL_PROTOCOL_VERSION_MASK) != 1 ))
             ERRORf1("Unsupported Sereal protocol version %u",
                     proto_version_and_flags & SRL_PROTOCOL_VERSION_MASK);
-        if (proto_version_and_flags & SRL_F_SNAPPY) {
+        if ((proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_RAW) {
+            /* no op */
+        }
+        else
+        if (( proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK ) == SRL_PROTOCOL_ENCODING_SNAPPY) {
             dec->flags |= SRL_F_DECODER_DECOMPRESS_SNAPPY;
             if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_SNAPPY) )) {
                 ERROR("Sereal document is compressed with Snappy, "
                       "but this decoder is configured to refuse Snappy-compressed input.");
             }
+        }
+        else
+        {
+            ERRORf1("Serial document encoded in an unknown format '%d'", ( proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK ) >> 4 );
         }
         header_len= srl_read_varint_uv_length(aTHX_ dec," while reading header"); /* must do this via a temporary as it modifes dec->pos itself */
         dec->pos += header_len;
