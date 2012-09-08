@@ -86,8 +86,8 @@ sub update_srl_decoder_h {
     )
 }
 
-sub update_readme_pod {
-    replace_block("README.pod",
+sub update_table {
+    replace_block($_[0],
         join("\n",
             "",
             sprintf(qq(    %*s | %-4s | %3s | %4s | %10s | %s),
@@ -113,5 +113,7 @@ chdir "$git_dir/.."
     or die "Failed to chdir to root of repo '$git_dir/..': $!";
 read_protocol();
 update_srl_decoder_h();
-update_readme_pod();
+update_table("README.pod");
+update_table("Perl/shared/srl_protocol.h");
+
 
