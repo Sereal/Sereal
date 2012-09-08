@@ -113,7 +113,7 @@ chdir "$git_dir/.."
     or die "Failed to chdir to root of repo '$git_dir/..': $!";
 read_protocol();
 update_srl_decoder_h();
-update_table("README.pod");
+update_table("sereal_spec.pod");
 update_table("Perl/shared/srl_protocol.h");
 
 
