@@ -18,8 +18,8 @@ sub fill_ranges {
     $v2c{ $n2v{$pfx . "_HIGH"} } = $v2c{ $ofs };
 }
 sub read_protocol {
-    open my $fh,"<", "srl_protocol.h"
-        or die "srl_protocol.h: $!";
+    open my $fh,"<", "Perl/shared/srl_protocol.h"
+        or die "Perl/shared/srl_protocol.h: $!";
     my @fill;
     while (<$fh>) {
         if(m!^#define\s+SRL_HDR_(\S+)\s+\(\(char\)(\d+)\)\s*(?:/\*\s*(.*?)\s*\*/)?\s*\z!i) {
@@ -68,7 +68,7 @@ sub replace_block {
     close $in;
 }
 sub update_srl_decoder_h {
-    replace_block("srl_decoder.h",
+    replace_block("Perl/Decoder/srl_decoder.h",
         join("\n",
             "* NOTE this section is autoupdated by $0",
             "*/",
@@ -87,7 +87,7 @@ sub update_srl_decoder_h {
 }
 
 sub update_readme_pod {
-    replace_block("../README.pod",
+    replace_block("README.pod",
         join("\n",
             "",
             sprintf(qq(    %*s | %-4s | %3s | %4s | %10s | %s),
@@ -106,7 +106,10 @@ sub update_readme_pod {
     )
 }
 
-
+my $git_dir = `git rev-parse --git-dir`
+    or die; # we will get a message from rev-parse iirc
+chdir "$git_dir/.."
+    or die "Failed to chdir to root of repo";
 read_protocol();
 update_srl_decoder_h();
 update_readme_pod();
