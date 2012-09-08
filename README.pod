@@ -77,7 +77,10 @@ old decoder, and possibly output old formats with a new decoder.
 =item Language Agnosticism
 
 We want the format to be usable by other languages, especially dynamic
-languages. We hope to have a Java port soon, right Eric?
+languages. We hope to have a Java port soon, right Eric? In aim of making
+this easier we have structured our repo so that implementations from other
+languages can be easily added, and we would welcome any contributions
+along these lines that might come our way.
 
 =back
 
