@@ -82,12 +82,18 @@ this easier we have structured our repo so that implementations from other
 languages can be easily added, and we would welcome any contributions
 along these lines that might come our way.
 
+=item Performance Graphs
+
+There are some graphs of how the Perl implementations Sereal performs as
+compared to the alternatives at L<Sereal Performance Graphs|https://github.com/Sereal/Sereal/wiki/Sereal-Comparison-Graphs>
+
 =back
 
 =head1 SPECIFICATION
 
 You can find the specification at
 L<sereal_spec.pod|https://github.com/Sereal/Sereal/blob/master/sereal_spec.pod>
+
 
 =head1 AUTHOR
 
