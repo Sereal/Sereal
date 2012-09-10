@@ -30,33 +30,43 @@ serialization formats do not support this out of the box.
 
 =item Weak References
 
+Given that perl uses a reference counting garbage collection scheme,
 Perl has the concept of a special type of reference called a
 "weakref" which is used to create cyclic reference structures which do
-not leak memory. We need to handle these structures.
+not leak memory. Unlike most of the existing solutions, we need to handle
+these structures correctly, thus avoiding a perfectly valid data structure
+to be converted to one that will cause a memory leak on a remote system.
+For cross-language compatibility, weak references can very easily
+be ignored by other decoder implementations.
 
 =item Aliases
 
-Perl supports aliases which are a special kind of reference which is 
-effectively a C level pointer instead of a Perl level RV. We needed 
-to be able to represent these as well.
+Perl supports aliases. These are a special kind of reference which is 
+effectively a C level pointer instead of a Perl language-level
+reference. We needed to be able to represent these as well.
 
 =item Objects
 
-Blessing a reference can be dangerous in some circumstances. We needed 
+Promoting a plain data structure reference to an object, as is customary
+in dynamic languages, can be dangerous in some circumstances. We needed 
 to be able to serialize objects safely and reliably, and we wanted a
 sane control mechanism for doing so.
 
-=item Regexp Objects
+=item Regular Expression Objects
 
-In Perl, a regexp is a native type. We wanted to be able serialize these
-at a native level without losing data such as modifiers.
+In Perl, a regular expression is a native type. We wanted to be
+able serialize these at a native level without losing data
+such as modifiers.
 
 =item Space Efficiencies
 
 We want to be able to represent common structures as small as is
 reasonable. Although not to the extreme that this makes the protocol
-error prone. This includes such thing as removing redundancy from the
-serialized structure (such as hash keys or classnames) automatically.
+error prone and ludicrously difficult to implement. The steps taken
+include removing redundancy from the serialized structure
+(such as hash keys or classnames) automatically. The protocol supports
+this kind of redundancy removal, but an encoder implementation can
+choose to which extent it makes use of the technique.
 
 =item Speed Efficiencies
 
@@ -72,7 +82,7 @@ so they could be upgraded independently.
 
 We wanted the protocol to be robust to forward/backwards compatibility
 issues. It should be possible to partially read new formats with an
-old decoder, and possibly output old formats with a new decoder.
+old decoder, and output old formats with a new encoder.
 
 =item Language Agnosticism
 
@@ -80,20 +90,20 @@ We want the format to be usable by other languages, especially dynamic
 languages. We hope to have a Java port soon, right Eric? In aim of making
 this easier we have structured our repo so that implementations from other
 languages can be easily added, and we would welcome any contributions
-along these lines that might come our way.
-
-=item Performance Graphs
-
-There are some graphs of how the Perl implementations Sereal performs as
-compared to the alternatives at L<Sereal Performance Graphs|https://github.com/Sereal/Sereal/wiki/Sereal-Comparison-Graphs>
+along these lines.
 
 =back
+
+=head2 Performance Analysis
+
+There are some graphs of how the Perl implementations Sereal performs as
+compared to the alternatives at
+L<Sereal Performance Graphs|https://github.com/Sereal/Sereal/wiki/Sereal-Comparison-Graphs>
 
 =head1 SPECIFICATION
 
 You can find the specification at
 L<sereal_spec.pod|https://github.com/Sereal/Sereal/blob/master/sereal_spec.pod>
-
 
 =head1 AUTHOR
 
