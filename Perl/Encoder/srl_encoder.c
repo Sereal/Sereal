@@ -673,8 +673,6 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
             if (expect_false( i == n ))
                 croak("Panic: Trying to dump a tied hash that has a different number of keys in each iteration is just daft. Do not do that.");
             v= hv_iterval(src, he);
-            if (SvMAGICAL(v))
-                mg_get(v);
             srl_dump_hk(aTHX_ enc, he, do_share_keys);
             CALL_SRL_DUMP_SV(enc, v);
             ++i;
@@ -926,8 +924,6 @@ redo_dump:
     else
 #endif
     if (svt == SVt_PVHV) {
-        printf("Hash: %p\n", src);
-            sv_dump(src);
         srl_dump_hv(aTHX_ enc, (HV *)src, refcount);
     }
     else
@@ -936,8 +932,7 @@ redo_dump:
     }
     else
     if (!SvOK(src)) { /* undef and weird shit */
-        if (svt >= SVt_PVMG) {
-            sv_dump(src);
+        if ( svt > SVt_PVMG ) {  /* we exclude magic, because magic sv's can be undef too */
             SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt);
         }
         else {
@@ -948,6 +943,5 @@ redo_dump:
         SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt);
     }
 }
-
 
 
