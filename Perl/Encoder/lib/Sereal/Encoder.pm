@@ -73,15 +73,6 @@ By skipping the detection of repeated hash keys, performance goes up a bit,
 but the size of the output can potentially be much larger.
 Do not disable this unless you have a reason to.
 
-=item croak_on_bless
-
-If this option is set, then the encoder will refuse to serialize blessed
-references and throw an exception instead.
-
-This can be important because blessed references can mean executing
-a destructor on a remote system or generally executing code based on
-data.
-
 =item snappy
 
 If set, the main payload of the Sereal document will be compressed using
@@ -91,6 +82,38 @@ If in doubt, test with your data whether this helps or not.
 
 The decoder (version 0.04 and up) will know how to handle Snappy-compressed
 Sereal documents transparently.
+
+=item croak_on_bless
+
+If this option is set, then the encoder will refuse to serialize blessed
+references and throw an exception instead.
+
+This can be important because blessed references can mean executing
+a destructor on a remote system or generally executing code based on
+data.
+
+=item undef_unknown
+
+If set, unknown/unsupported data structures will be encoded as C<undef>
+instead of throwing an exception.
+
+Mutually exclusive with C<stringify_unknown>.
+See also C<warn_unknown> below.
+
+=item stringify_unknown
+
+If set, unknown/unsupported data structures will be stringified and
+encoded as that string instead of throwing an exception. The
+stringification may cause a warning to be emitted by perl.
+
+Mutually exclusive with C<undef_unknown>.
+See also C<warn_unknown> below.
+
+=item warn_unknown
+
+If set, any unknown/unsupported data structure encountered will emit a
+warning. Only has an effect if C<undef_unknown> or C<stringify_unknown>
+are enabled.
 
 =back
 

@@ -216,25 +216,44 @@ srl_build_encoder_struct(pTHX_ HV *opt)
 
     /* load options */
     if (opt != NULL) {
+        int undef_unknown = 0;
         /* SRL_F_SHARED_HASHKEYS on by default */
         svp = hv_fetchs(opt, "no_shared_hashkeys", 0);
         if ( !svp || !SvTRUE(*svp) )
-          enc->flags |= SRL_F_SHARED_HASHKEYS;
+            enc->flags |= SRL_F_SHARED_HASHKEYS;
 
         svp = hv_fetchs(opt, "croak_on_bless", 0);
         if ( svp && SvTRUE(*svp) )
-          enc->flags |= SRL_F_CROAK_ON_BLESS;
+            enc->flags |= SRL_F_CROAK_ON_BLESS;
 
         svp = hv_fetchs(opt, "snappy", 0);
         if ( svp && SvTRUE(*svp) )
-          enc->flags |= SRL_F_COMPRESS_SNAPPY;
+            enc->flags |= SRL_F_COMPRESS_SNAPPY;
+
+        svp = hv_fetchs(opt, "undef_unknown", 0);
+        if ( svp && SvTRUE(*svp) ) {
+            undef_unknown = 1;
+            enc->flags |= SRL_F_UNDEF_UNKNOWN;
+        }
+
+        svp = hv_fetchs(opt, "stringify_unknown", 0);
+        if ( svp && SvTRUE(*svp) ) {
+            if (expect_false( undef_unknown )) {
+                croak("'undef_unknown' and 'stringify_unknown' "
+                      "options are mutually exclusive");
+            }
+            enc->flags |= SRL_F_STRINGIFY_UNKNOWN;
+        }
+
+        svp = hv_fetchs(opt, "warn_unknown", 0);
+        if ( svp && SvTRUE(*svp) )
+            enc->flags |= SRL_F_WARN_UNKNOWN;
     }
     else {
         /* SRL_F_SHARED_HASHKEYS on by default */
         enc->flags |= SRL_F_SHARED_HASHKEYS;
     }
     DEBUG_ASSERT_BUF_SANE(enc);
-
     return enc;
 }
 
@@ -624,7 +643,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
         while ((he = hv_iternext(src))) {
             SV *v;
             if (expect_false( i == n ))
-                croak("Trying to dump a tied hash that has a different number of keys in each iteration is just daft. Do not do that.");
+                croak("Panic: Trying to dump a tied hash that has a different number of keys in each iteration is just daft. Do not do that.");
             v= hv_iterval(src, he);
             if (SvMAGICAL(v))
                 mg_get(v);
@@ -633,7 +652,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
             ++i;
         }
         if (expect_false( i != n ))
-            croak("Trying to dump a tied hash that has a different number of keys in each iteration is just daft. Do not do that.");
+            croak("Panic: Trying to dump a tied hash that has a different number of keys in each iteration is just daft. Do not do that.");
 
     } else {
         n= HvUSEDKEYS(src);
@@ -886,13 +905,34 @@ redo_dump:
         srl_dump_av(aTHX_ enc, (AV *)src, refcount);
     }
     else
-    if (!SvOK(src)) {
-        /* undef */
+    if (!SvOK(src)) { /* undef */
         srl_buf_cat_char(enc, SRL_HDR_UNDEF);
     }
     else
+    if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_UNDEF_UNKNOWN) ) {
+        if (SRL_ENC_HAVE_OPTION(enc, SRL_F_WARN_UNKNOWN))
+            warn("Found type %u %s(0x%p), but it is not representable "
+                 " by the Sereal encoding format; will encode as an "
+                 "undefined value", svt, sv_reftype(src,0),src);
+
+        srl_buf_cat_char(enc, SRL_HDR_UNDEF);
+    }
+    else
+    if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_STRINGIFY_UNKNOWN) ) {
+        STRLEN len;
+        char *str;
+        if (SRL_ENC_HAVE_OPTION(enc, SRL_F_WARN_UNKNOWN))
+            warn("Found type %u %s(0x%p), but it is not representable "
+                 " by the Sereal encoding format; will encode as a "
+                 "stringified form", svt, sv_reftype(src,0),src);
+
+        str = SvPV(src, len);
+        srl_dump_pv(aTHX_ enc, str, len, SvUTF8(src));
+    }
+    else
     {
-        croak("found type %u %s(0x%p), but it is not representable by the Sereal encoding format", svt, sv_reftype(src,0),src);
+        croak("Found type %u %s(0x%p), but it is not representable "
+              "by the Sereal encoding format", svt, sv_reftype(src,0),src);
     }
 }
 

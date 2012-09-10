@@ -50,10 +50,20 @@ void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
 /* If set in flags, then we rather croak than serialize an object.
  * Corresponds to the 'croak_on_bless' option to the Perl constructor. */
 #define SRL_F_CROAK_ON_BLESS                 4UL
+/* If set in flags, then we will emit <undef> for all data types
+ * that aren't supported.  Corresponds to the 'undef_unknown' option. */
+#define SRL_F_UNDEF_UNKNOWN                  8UL
+/* If set in flags, then we will stringify (SvPV) all data types
+ * that aren't supported.  Corresponds to the 'stringify_unknown' option. */
+#define SRL_F_STRINGIFY_UNKNOWN              16UL
+/* If set in flags, then we warn() when trying to serialize an unsupported
+ * data structure.  Applies only if stringify_unknown or undef_unknown are
+ * set since we otherwise croak.  Corresponds to the 'warn_unknown' option. */
+#define SRL_F_WARN_UNKNOWN                   32UL
 
 /* WARNING: This is different from the protocol bit SRL_PROTOCOL_ENCODING_SNAPPY in that it's
  *          a flag on the encoder struct indicating that we want to use Snappy. */
-#define SRL_F_COMPRESS_SNAPPY                8UL
+#define SRL_F_COMPRESS_SNAPPY                64UL
 
 #define SRL_ENC_HAVE_OPTION(enc, flag_num) ((enc)->flags & flag_num)
 
