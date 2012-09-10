@@ -23,6 +23,7 @@ sub link_files {
               File::Path::mkpath($_)
             }
             elsif (-f $f) {
+              return if $f =~ /(?:\.bak|\.sw[po]|~)$/;
               my @d = File::Spec->splitdir($_);
               my $fname = pop @d;
               my $ref = join "/", ("..") x scalar(@d);
