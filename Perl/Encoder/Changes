@@ -15,3 +15,7 @@ Revision history for Perl extension Sereal-Encoder
 0.05  Fri Sep  7 14:00 2012
   - internal release.
 
+0.06  Mon Sep 10 11:00 2012
+  - First public release (CPAN).
+  - Beta quality software.
+
