@@ -46,9 +46,13 @@ The two are released separately to allow for independent and safer upgrading.
 The Sereal protocol version emitted by this encoder implementation is currently
 protocol version 1.
 
-Right now, the protocol specification can be found in the F<srl_protocol.h>
-header file within this distribution. The specification might be moved to
-documentation at a later date.
+The protocol specification and many other bits of documentation
+can be found in the github repository. Right now, the specification is at
+L<https://github.com/Sereal/Sereal/blob/master/sereal_spec.pod>,
+there is a discussion of the design objectives in
+L<https://github.com/Sereal/Sereal/blob/master/README.pod>, and the output
+of our benchmarks can be seen at
+L<https://github.com/Sereal/Sereal/wiki/Sereal-Comparison-Graphs>.
 
 =head1 CLASS METHODS
 

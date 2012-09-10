@@ -55,9 +55,13 @@ decode future versions of the protocol, but there is likely going to be an
 option to decode the parts of the input that are compatible with version 1
 of the protocol. The protocol was designed to allow for this.
 
-Right now, the protocol specification can be found in the F<srl_protocol.h>
-header file within this distribution. The specification might be moved to
-documentation at a later date.
+The protocol specification and many other bits of documentation
+can be found in the github repository. Right now, the specification is at
+L<https://github.com/Sereal/Sereal/blob/master/sereal_spec.pod>,
+there is a discussion of the design objectives in
+L<https://github.com/Sereal/Sereal/blob/master/README.pod>, and the output
+of our benchmarks can be seen at
+L<https://github.com/Sereal/Sereal/wiki/Sereal-Comparison-Graphs>.
 
 =head1 CLASS METHODS
 
