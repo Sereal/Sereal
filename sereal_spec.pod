@@ -36,7 +36,7 @@ last byte always having the high bit off. The data is in little endian
 order with the low seven bits in the first byte, and the next 7 in the
 next etc.
 
-See L<googles description|https://developers.google.com/protocol-buffers/docs/encoding#varints>
+See L<Google's description|https://developers.google.com/protocol-buffers/docs/encoding#varints>.
 
 =back
 
@@ -60,7 +60,7 @@ A single byte, of which the high 4 bits are used to represent the "type"
 of the document, and the low 4 bits used to represent the version of the
 Sereal protocol the document complies with.
 
-Up until now there has only been one version of sereal released so the
+Up until now there has only been one version of Sereal released so the
 low bits will be 1.
 
 Currently only two types are defined:
@@ -82,9 +82,12 @@ numbers by the maintainers of the protocol.
 
 =item HEADER-SUFFIX-SIZE
 
-The header includes support for additional arbitrary data to be embedded
-in the header. This is accomplished by specifying the length of the suffix
-in the header with a varint. Headers with no suffix will set this to 0.
+The structure of the header includes support for embedding additional data.
+This is accomplished by specifying the length of the suffix
+in the header with a varint. Headers with no suffix will set this to a
+binary 0. This is intended for future format extensions that retain some
+level of compatibility for old decoders (which know how to skip the
+extended header due to the embedded length).
 
 =item OPT-SUFFIX
 
@@ -340,14 +343,17 @@ Rafaël Garcia-Suarez
 =head1 ACKNOWLEDGMENT
 
 This protocol was originally developed for Booking.com. With approval
-from Booking.com, this module was generalized and published on CPAN,
-for which the authors would like to express their gratitude.
+from Booking.com, this document was generalized and published on github
+and CPAN, for which the authors would like to express their gratitude.
 
 =head1 COPYRIGHT AND LICENSE
 
 Copyright (C) 2012 by Steffen Mueller
 
 Copyright (C) 2012 by Yves Orton
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
 
 =cut
 
