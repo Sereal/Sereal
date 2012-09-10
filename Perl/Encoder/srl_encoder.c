@@ -134,6 +134,34 @@ static SRL_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
 } STMT_END
 
 
+/* called when we find an unsupported type/reference. May either throw exception
+ * or write ONE (nested or single) item to the buffer. */
+#define SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt)                                 \
+STMT_START {                                                                       \
+    if ( SRL_ENC_HAVE_OPTION((enc), SRL_F_UNDEF_UNKNOWN) ) {                       \
+        if (SRL_ENC_HAVE_OPTION((enc), SRL_F_WARN_UNKNOWN))                        \
+            warn("Found type %u %s(0x%p), but it is not representable "            \
+                 " by the Sereal encoding format; will encode as an "              \
+                 "undefined value", (svt), sv_reftype((src),0),(src));             \
+        srl_buf_cat_char((enc), SRL_HDR_UNDEF);                                    \
+    }                                                                              \
+    else if ( SRL_ENC_HAVE_OPTION((enc), SRL_F_STRINGIFY_UNKNOWN) ) {              \
+        STRLEN len;                                                                \
+        char *str;                                                                 \
+        if (SRL_ENC_HAVE_OPTION((enc), SRL_F_WARN_UNKNOWN))                        \
+            warn("Found type %u %s(0x%p), but it is not representable "            \
+                 " by the Sereal encoding format; will encode as a "               \
+                 "stringified form", (svt), sv_reftype((src),0),(src));            \
+        str = SvPV((src), len);                                                    \
+        srl_dump_pv(aTHX_ (enc), (str), len, SvUTF8(src));                         \
+    }                                                                              \
+    else {                                                                         \
+        croak("Found type %u %s(0x%p), but it is not representable "               \
+              "by the Sereal encoding format", (svt), sv_reftype((src),0),(src));  \
+    }                                                                              \
+} STMT_END
+
+
 /* This is fired when we exit the Perl pseudo-block.
  * It frees our encoder and all. Put encoder-level cleanup
  * logic here so that we can simply use croak/longjmp for
@@ -898,6 +926,8 @@ redo_dump:
     else
 #endif
     if (svt == SVt_PVHV) {
+        printf("Hash: %p\n", src);
+            sv_dump(src);
         srl_dump_hv(aTHX_ enc, (HV *)src, refcount);
     }
     else
@@ -905,34 +935,17 @@ redo_dump:
         srl_dump_av(aTHX_ enc, (AV *)src, refcount);
     }
     else
-    if (!SvOK(src)) { /* undef */
-        srl_buf_cat_char(enc, SRL_HDR_UNDEF);
+    if (!SvOK(src)) { /* undef and weird shit */
+        if (svt >= SVt_PVMG) {
+            sv_dump(src);
+            SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt);
+        }
+        else {
+            srl_buf_cat_char(enc, SRL_HDR_UNDEF);
+        }
     }
-    else
-    if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_UNDEF_UNKNOWN) ) {
-        if (SRL_ENC_HAVE_OPTION(enc, SRL_F_WARN_UNKNOWN))
-            warn("Found type %u %s(0x%p), but it is not representable "
-                 " by the Sereal encoding format; will encode as an "
-                 "undefined value", svt, sv_reftype(src,0),src);
-
-        srl_buf_cat_char(enc, SRL_HDR_UNDEF);
-    }
-    else
-    if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_STRINGIFY_UNKNOWN) ) {
-        STRLEN len;
-        char *str;
-        if (SRL_ENC_HAVE_OPTION(enc, SRL_F_WARN_UNKNOWN))
-            warn("Found type %u %s(0x%p), but it is not representable "
-                 " by the Sereal encoding format; will encode as a "
-                 "stringified form", svt, sv_reftype(src,0),src);
-
-        str = SvPV(src, len);
-        srl_dump_pv(aTHX_ enc, str, len, SvUTF8(src));
-    }
-    else
-    {
-        croak("Found type %u %s(0x%p), but it is not representable "
-              "by the Sereal encoding format", svt, sv_reftype(src,0),src);
+    else {
+        SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt);
     }
 }
 
