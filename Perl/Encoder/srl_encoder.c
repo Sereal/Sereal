@@ -603,7 +603,6 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 
     if ( SvMAGICAL(src) ) {
         UV i;
-        /* can we trust this if the hash is a tie? */
         /* for tied hashes, we have to iterate to find the number of entries. Alas... */
         (void)hv_iterinit(src); /* return value not reliable according to API docs */
         n = 0;
