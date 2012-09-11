@@ -54,7 +54,7 @@ SCOPE: {
     $ok = eval {$out = $e->encode($sub); 1};
     $err = $@ || 'Zombie error';
     ok($ok, "undef_unknown makes CODE encoding not fail");
-    local $TODO = "We still output \\string instead of string";
+
     my $str = $e->encode("$sub");
     is($out, $str, "output is stringified ref")
     or do {
