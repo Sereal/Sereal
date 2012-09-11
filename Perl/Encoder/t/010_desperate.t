@@ -4,7 +4,6 @@ use warnings;
 # most be loaded before Sereal::TestSet
 use Sereal::Encoder qw(encode_sereal);
 use Sereal::Encoder::Constants qw(:all);
-use Data::Dumper;
 use File::Spec;
 
 use lib File::Spec->catdir(qw(t lib));
@@ -14,6 +13,8 @@ BEGIN {
 }
 
 use Sereal::TestSet qw(:all);
+
+use Data::Dumper; # must be loaded AFTER the test set (bug in perl)
 
 # These tests are extraordinarily basic, badly-done and really just
 # for basic sanity testing during development.

@@ -8,7 +8,7 @@ use File::Spec;
 use Scalar::Util qw(weaken);
 use Test::More;
 use Test::LongString;
-use Data::Dumper;
+#use Data::Dumper; # MUST BE LOADED *AFTER* THIS FILE (BUG IN PERL)
 use Devel::Peek;
 use Encode qw(encode_utf8);
 

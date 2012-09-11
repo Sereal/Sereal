@@ -3,7 +3,6 @@ use strict;
 use warnings;
 use Sereal::Decoder qw(decode_sereal);
 use Sereal::Decoder::Constants qw(:all);
-use Data::Dumper;
 use File::Spec;
 use Devel::Peek;
 
@@ -14,6 +13,8 @@ BEGIN {
 }
 
 use Sereal::TestSet qw(:all);
+
+use Data::Dumper; # this thing seems to change the meaning of true?!
 
 # These tests are extraordinarily basic, badly-done and really just
 # for basic sanity testing during development.
