@@ -133,16 +133,17 @@ static SRL_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
     }                                                                   \
 } STMT_END
 
-
 /* called when we find an unsupported type/reference. May either throw exception
  * or write ONE (nested or single) item to the buffer. */
-#define SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt)                                 \
+#define SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt, refsv)                          \
 STMT_START {                                                                       \
     if ( SRL_ENC_HAVE_OPTION((enc), SRL_F_UNDEF_UNKNOWN) ) {                       \
         if (SRL_ENC_HAVE_OPTION((enc), SRL_F_WARN_UNKNOWN))                        \
             warn("Found type %u %s(0x%p), but it is not representable "            \
                  " by the Sereal encoding format; will encode as an "              \
                  "undefined value", (svt), sv_reftype((src),0),(src));             \
+        if (ref_rewrite_pos)                                                       \
+            enc->pos= ref_rewrite_pos;                                             \
         srl_buf_cat_char((enc), SRL_HDR_UNDEF);                                    \
     }                                                                              \
     else if ( SRL_ENC_HAVE_OPTION((enc), SRL_F_STRINGIFY_UNKNOWN) ) {              \
@@ -152,7 +153,11 @@ STMT_START {                                                                    
             warn("Found type %u %s(0x%p), but it is not representable "            \
                  " by the Sereal encoding format; will encode as a "               \
                  "stringified form", (svt), sv_reftype((src),0),(src));            \
-        str = SvPV((src), len);                                                    \
+        if (refsv) {                                                               \
+            enc->pos= ref_rewrite_pos;                                             \
+            str = SvPV((refsv), len);                                              \
+        } else                                                                     \
+            str = SvPV((src), len);                                                \
         srl_dump_pv(aTHX_ (enc), (str), len, SvUTF8(src));                         \
     }                                                                              \
     else {                                                                         \
@@ -801,6 +806,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     UV refcount;
     svtype svt;
     MAGIC *mg;
+    SV* refsv= NULL;
     UV weakref_ofs= 0;              /* preserved between loops */
     char *ref_rewrite_pos= NULL;    /* preserved between loops */
     assert(src);
@@ -858,7 +864,6 @@ redo_dump:
                 SRL_SET_FBIT(*(enc->buf_start + oldoffset));
                 return;
             }
-            ref_rewrite_pos= NULL;
             if (DEBUGHACK) warn("storing %p as %lu", src, BUF_POS_OFS(enc));
             PTABLE_store(ref_seenhash, src, (void *)BUF_POS_OFS(enc));
         }
@@ -908,6 +913,7 @@ redo_dump:
             srl_dump_classname(aTHX_ enc, referent);
         }
         srl_buf_cat_char(enc, SRL_HDR_REFN);
+        refsv= src;
         src= referent;
         goto redo_dump;
     }
@@ -933,15 +939,15 @@ redo_dump:
     else
     if (!SvOK(src)) { /* undef and weird shit */
         if ( svt > SVt_PVMG ) {  /* we exclude magic, because magic sv's can be undef too */
-            SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt);
+            SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt, refsv);
         }
         else {
             srl_buf_cat_char(enc, SRL_HDR_UNDEF);
         }
     }
     else {
-        SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt);
+        SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt, refsv);
     }
 }
-
+#undef SRL_HANDLE_UNSUPPORTED_TYPE
 
