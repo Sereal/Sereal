@@ -14,7 +14,8 @@ BEGIN {
 
 use Sereal::TestSet qw(:all);
 
-use Test::More tests => 9;
+use Test::More tests => 14;
+
 my ($ok, $err, $out);
 
 # croak_on_bless test
@@ -72,6 +73,46 @@ SCOPE: {
             $ok = eval {$out = $e->encode($sub); 1};
         }
         qr/Sereal/;
+}
+
+# test that blessed code refs with stringify_unknown don't throw exceptions
+SCOPE: {
+    my $e = Sereal::Encoder->new({stringify_unknown => 1});
+    my $sub = bless(sub {}, "Foo");
+    $ok = eval {$out = $e->encode($sub); 1};
+    $err = $@ || 'Zombie error';
+    ok($ok, "stringify_unknown makes CODE encoding not fail");
+
+    my $str = $e->encode("$sub");
+    is($out, $str, "output is stringified ref")
+    or do {
+        hobodecode($out), hobodecode($str) if $ENV{DEBUG_SEREAL};
+    }
+}
+
+# dito for string overloading
+SCOPE: {
+    SCOPE2: {
+        package BlessedCodeRef;
+        use overload '""' => sub {$_[0]->()};
+        sub new {
+            my ($class, $data) = @_;
+            bless sub {return $data} => __PACKAGE__;
+        }
+    }
+    my $e = Sereal::Encoder->new({stringify_unknown => 1});
+    my $sub = BlessedCodeRef->new("hello");
+    is("$sub", "hello", "BlessedCodeRef stringification actually works as designed");
+
+    $ok = eval {$out = $e->encode($sub); 1};
+    $err = $@ || 'Zombie error';
+    ok($ok, "stringify_unknown makes CODE encoding not fail");
+
+    my $str = $e->encode("$sub");
+    is($out, $str, "output is stringified ref")
+    or do {
+        hobodecode($out), hobodecode($str) if $ENV{DEBUG_SEREAL};
+    }
 }
 
 
