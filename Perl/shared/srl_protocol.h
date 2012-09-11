@@ -71,7 +71,7 @@
     PACKET_START      | "="  |  61 | 0x3d | 0b00111101 | (first byte of magic string in header)
     EXTEND            | ">"  |  62 | 0x3e | 0b00111110 | <BYTE> - for additional tags
     PAD               | "?"  |  63 | 0x3f | 0b00111111 | (ignored tag, skip to next byte)
-    ARRAYREF_0        | "\@" |  64 | 0x40 | 0b01000000 | [<ITEM-TAG> ...] - count of itmes in low 4 bits (ARRAY must be refcnt=1)
+    ARRAYREF_0        | "\@" |  64 | 0x40 | 0b01000000 | [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1)
     ARRAYREF_1        | "A"  |  65 | 0x41 | 0b01000001 |
     ARRAYREF_2        | "B"  |  66 | 0x42 | 0b01000010 |
     ARRAYREF_3        | "C"  |  67 | 0x43 | 0b01000011 |
@@ -212,7 +212,7 @@
 #define SRL_HDR_ARRAYREF_HIGH   ((char)79)
 
 
-#define SRL_HDR_HASHREF         ((char)80)      /* [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt= 1)*/
+#define SRL_HDR_HASHREF         ((char)80)      /* [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1)*/
 #define SRL_MASK_HASHREF_COUNT  ((char)15)      /* mask to get low bits from tag */
 #define SRL_HDR_HASHREF_LOW     ((char)80)
 #define SRL_HDR_HASHREF_HIGH    ((char)95)
