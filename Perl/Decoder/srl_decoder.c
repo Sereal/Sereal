@@ -339,10 +339,9 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
         PTABLE_ITER_t *it = PTABLE_iter_new(dec->ref_stashes);
         PTABLE_ENTRY_t *ent;
 
-        /* we now walk the weak_seenhash and set any tags it points
-         * at to the PAD opcode, this basically turns the first weakref
-         * we encountered into a normal ref when there is only a weakref
-         * pointing at the structure. */
+        /* We have gotten here without error, so bless all the objects.
+         * We defer to the end like this so that we only bless data structures
+         * if the entire deserialization completes. */
         while ( NULL != (ent = PTABLE_iter_next(it)) ) {
             HV *stash = (HV* )ent->value;
             AV *ref_bless_av  = PTABLE_fetch(dec->ref_bless_av, ent->key);
