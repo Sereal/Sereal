@@ -19,3 +19,16 @@ Revision history for Perl extension Sereal-Encoder
   - First public release (CPAN).
   - Beta quality software.
 
+0.07  Tue Sep 11 14:00 2012
+  - "undef_unknown" option will cause unsupported Perl types to be
+    encoded as "undef" instead of throwing an exception.
+  - Similarly, "stringify_unknown" will make those unsupported types
+    be stringified instead. The two options are mutually exclusive.
+  - "warn_unknown" option (only meaningful if "stringify_unknown" or
+    "undef_unknown" are active) will cause a warning to be issued when
+    an unsupported type is encoded as a string or as undef.
+  - Bug fixes for encoding the contents of tied hashes (the tiedness
+    itself is not preserved by design).
+  - Solaris build fix.
+  - Test fixes for threaded perls (likely working around a bug in Perl
+  - Improved documentation.

@@ -19,3 +19,7 @@ Revision history for Perl extension Sereal-Decoder
   - First public release (CPAN).
   - Beta quality software.
 
+0.07  Tue Sep 11 14:00 2012
+  - Improved robustness to bad input data.
+  - Test fixes for threaded perls (likely working around a bug in Perl)
+  - Improved documentation.
