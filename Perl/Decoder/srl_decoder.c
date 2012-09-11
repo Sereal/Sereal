@@ -583,6 +583,8 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
         SV **av_array;
         SV **av_end;
 
+        ASSERT_BUF_SPACE(dec,len,"while reading array contents, insuffienct remaining tags for specified array size");
+
         /* we cheat and store undef in the array - we will overwrite it later */
         av_store((AV*)into, len-1, &PL_sv_undef);
         av_array= AvARRAY((AV*)into);
@@ -620,6 +622,8 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         num_keys= srl_read_varint_uv_count(aTHX_ dec," while reading HASH");
         (void)SvUPGRADE(into, SVt_PVHV);
     }
+
+    ASSERT_BUF_SPACE(dec,num_keys*2,"while reading hash contents, insuffienct remaining tags for number of keys specified");
 
     HvSHAREKEYS_on(into); /* apparently required on older perls */
 
