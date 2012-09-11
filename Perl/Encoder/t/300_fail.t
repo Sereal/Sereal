@@ -41,9 +41,7 @@ SCOPE: {
     $ok = eval {$out = $e->encode(sub{}); 1};
     $err = $@ || 'Zombie error';
     ok($ok, "undef_unknown makes CODE encoding not fail");
-    local $TODO = "We still output \\undef instead of undef";
-    is($out, $Header . chr(0) . chr(SRL_HDR_UNDEF),
-       "output is undef")
+    is($out, $Header . chr(SRL_HDR_UNDEF), "output is undef")
     or do {
         hobodecode($out) if $ENV{DEBUG_SEREAL};
     }
@@ -51,15 +49,15 @@ SCOPE: {
 
 # test that code refs with stringify_unknown don't throw exceptions
 SCOPE: {
-    my $e = Sereal::Encoder->new({undef_unknown => 1});
+    my $e = Sereal::Encoder->new({stringify_unknown => 1});
     my $sub = sub{};
     $ok = eval {$out = $e->encode($sub); 1};
     $err = $@ || 'Zombie error';
     ok($ok, "undef_unknown makes CODE encoding not fail");
-    local $TODO = "We still output \\undef instead of undef";
+    local $TODO = "We still output \\string instead of string";
     my $str = $e->encode("$sub");
     is($out, $str, "output is stringified ref")
     or do {
-        hobodecode($out) if $ENV{DEBUG_SEREAL};
+        hobodecode($out), hobodecode($str) if $ENV{DEBUG_SEREAL};
     }
 }
