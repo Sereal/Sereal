@@ -21,9 +21,6 @@ ok($ok, "Non-blessed hash does not throw exception");
 
 
 # test that code refs throw exception
-TODO: {
-    local $TODO = "Serializing CODE refs should probably fail instead of serializing to \\undef";
-    $ok = eval {$out = $e->encode(sub {}); 1};
-    ok(!$ok, "Code ref throws exception");
-}
+$ok = eval {$out = $e->encode(sub {}); 1};
+ok(!$ok, "Code ref throws exception");
 
