@@ -57,8 +57,6 @@ ok($ok, "serializing tied hash did not die")
   or note("Error was '$err'");
 ok(defined $out, "serializing tied hash returns string");
 
-hobodecode($out) if $ENV{DEBUG_SEREAL};
-
 $ok = eval {$data = decode_sereal($out); 1;};
 $err = $@ || 'Zombie error';
 ok($ok, "deserializing tied hash did not die")
@@ -88,8 +86,6 @@ ok($ok, "serializing tied array did not die")
   or note("Error was '$err'");
 ok(defined $out, "serializing tied array returns string");
 
-hobodecode($out) if $ENV{DEBUG_SEREAL};
-
 $ok = eval {$data = decode_sereal($out); 1;};
 $err = $@ || 'Zombie error';
 ok($ok, "deserializing tied array did not die")
@@ -117,8 +113,6 @@ $err = $@ || 'Zombie error';
 ok($ok, "serializing tied scalar did not die")
   or note("Error was '$err'");
 ok(defined $out, "serializing tied scalar returns string");
-
-hobodecode($out) if $ENV{DEBUG_SEREAL};
 
 $ok = eval {$data = decode_sereal($out); 1;};
 $err = $@ || 'Zombie error';
