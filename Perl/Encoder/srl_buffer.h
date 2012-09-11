@@ -47,7 +47,8 @@ srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
   const size_t new_size = minlen;
 #else
   const size_t cur_size = BUF_SIZE(enc);
-  const size_t new_size = 100 + MAX(minlen, (size_t)(cur_size * BUFFER_GROWTH_FACTOR));
+  const size_t grown_len = (size_t)(cur_size * BUFFER_GROWTH_FACTOR);
+  const size_t new_size = 100 + (minlen > grown_len ? minlen : grown_len);
 #endif
   DEBUG_ASSERT_BUF_SANE(enc);
   /* assert that Renew means GROWING the buffer */
