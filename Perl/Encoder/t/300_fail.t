@@ -4,6 +4,7 @@ use warnings;
 use Sereal::Encoder;
 use Sereal::Encoder::Constants qw(:all);
 use File::Spec;
+use Test::Warn;
 
 use lib File::Spec->catdir(qw(t lib));
 BEGIN {
@@ -13,7 +14,7 @@ BEGIN {
 
 use Sereal::TestSet qw(:all);
 
-use Test::More tests => 8;
+use Test::More tests => 9;
 my ($ok, $err, $out);
 
 # croak_on_bless test
@@ -53,7 +54,7 @@ SCOPE: {
     my $sub = sub{};
     $ok = eval {$out = $e->encode($sub); 1};
     $err = $@ || 'Zombie error';
-    ok($ok, "undef_unknown makes CODE encoding not fail");
+    ok($ok, "stringify_unknown makes CODE encoding not fail");
 
     my $str = $e->encode("$sub");
     is($out, $str, "output is stringified ref")
@@ -61,3 +62,16 @@ SCOPE: {
         hobodecode($out), hobodecode($str) if $ENV{DEBUG_SEREAL};
     }
 }
+
+# test that code refs with warn_unknown do warn
+SCOPE: {
+    my $e = Sereal::Encoder->new({stringify_unknown => 1, warn_unknown => 1});
+    my $sub = sub{};
+    warning_like
+        {
+            $ok = eval {$out = $e->encode($sub); 1};
+        }
+        qr/Sereal/;
+}
+
+
