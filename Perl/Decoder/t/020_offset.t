@@ -15,7 +15,7 @@ BEGIN {
 
 use Sereal::TestSet qw(:all);
 
-use Test::More tests => 8;
+use Test::More tests => 8 + 31;
 
 # Simple test to see whether we can get the number of bytes consumed
 # and whether offset works
@@ -33,5 +33,37 @@ SCOPE: {
 
     ok(!defined($d->decode_with_offset("GARBAGE" . $data . "TRAILING", length("GARBAGE"))), "can decode with offset and trailing garbage");
     is($d->bytes_consumed, length($data), "consumed right number of bytes");
+}
+
+SKIP: {
+    my $have_enc = have_encoder_and_decoder();
+    if (not $have_enc) {
+        skip "Need encoder for chunk tests", 31;
+        die;
+    }
+    require Sereal::Encoder;
+    Sereal::Encoder->import("encode_sereal");
+
+    my $data;
+    my $n = 30;
+    $data .= encode_sereal($_) for 1..$n;
+    my $decoder = Sereal::Decoder->new;
+    my @out;
+    my $pos = 0;
+    my $ok = eval {
+        while (1) {
+            push @out, $decoder->decode_with_offset($data, $pos);
+            $pos += $decoder->bytes_consumed;
+            last if $pos >= length($data)
+                 or not $decoder->bytes_consumed;
+        }
+        1
+    };
+    my $err = $@ || 'Zombie error';
+    ok($ok, "decoder had no hissy fit")
+        or note("Error: $err");
+
+    is($out[$_-1], $_, "Decoding multiple packets from single string works ($_)")
+        for 1..$n;
 }
 
