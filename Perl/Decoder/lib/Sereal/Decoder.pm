@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 use Exporter 'import';
 
 our @EXPORT_OK = qw(decode_sereal);

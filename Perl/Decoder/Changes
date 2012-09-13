@@ -23,3 +23,7 @@ Revision history for Perl extension Sereal-Decoder
   - Improved robustness to bad input data.
   - Test fixes for threaded perls (likely working around a bug in Perl)
   - Improved documentation.
+
+0.08  Thu Sep 13 17:00 2012
+  - Documentation fixes
+  - Better tests

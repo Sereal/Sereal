@@ -32,3 +32,8 @@ Revision history for Perl extension Sereal-Encoder
   - Solaris build fix.
   - Test fixes for threaded perls (likely working around a bug in Perl
   - Improved documentation.
+
+0.08  Thu Sep 13 17:00 2012
+  - 'snappy_threshold' option which controls at which minimum packet size
+    we start compressing with Snappy at all (if Snappy enabled)
+  - More tests.
