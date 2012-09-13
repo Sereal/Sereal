@@ -41,20 +41,24 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define BUF_NOT_DONE(dec) ((dec)->pos < (dec)->buf_end)
 #define BUF_DONE(dec) ((dec)->pos >= (dec)->buf_end)
 
-/* THIS is probably going to upset H. Merijn Brand, but we will fix it once he complains. */
-#define MYCROAK(fmt, args...) croak("Sereal: Error in %s line %u: " fmt, __FILE__, __LINE__ , ## args)
+#define SRL_BASE_ERROR_FORMAT "Sereal: Error in %s line %u: "
+#define SRL_BASE_ERROR_ARGS __FILE__, __LINE__
 
-#define ERROR(msg)                          MYCROAK("%s", msg)
-#define ERRORf1(fmt,var)                    MYCROAK(fmt, (var))
-#define ERRORf2(fmt,var1,var2)              MYCROAK(fmt, (var1),(var2))
-#define ERRORf3(fmt,var1,var2,var3)         MYCROAK(fmt, (var1),(var2),(var3))
-#define ERRORf4(fmt,var1,var2,var3,var4)    MYCROAK(fmt, (var1),(var2),(var3),(var4))
+#define ERROR(msg)                          croak(SRL_BASE_ERROR_FORMAT "%s", SRL_BASE_ERROR_ARGS, (msg))
+#define ERRORf1(fmt,var)                    croak(SRL_BASE_ERROR_FORMAT fmt, SRL_BASE_ERROR_ARGS, (var))
+#define ERRORf2(fmt,var1,var2)              croak(SRL_BASE_ERROR_FORMAT fmt, SRL_BASE_ERROR_ARGS, (var1),(var2))
+#define ERRORf3(fmt,var1,var2,var3)         croak(SRL_BASE_ERROR_FORMAT fmt, SRL_BASE_ERROR_ARGS, (var1),(var2),(var3))
+#define ERRORf4(fmt,var1,var2,var3,var4)    croak(SRL_BASE_ERROR_FORMAT fmt, SRL_BASE_ERROR_ARGS, (var1),(var2),(var3),(var4))
 #define ERROR_UNIMPLEMENTED(dec,tag,str) \
-    MYCROAK("Tag %u %s is unimplemented at ofs: %d", tag,str, BUF_POS_OFS(dec)); 
-#define ERROR_UNTERMINATED(dec, tag,str) MYCROAK("Tag SRL_HDR_%s %s was not terminated properly at ofs %lu with %lu to go", tag_name[tag & 127], str,dec->pos - dec->buf_start,dec->buf_end - dec->pos)
-#define ERROR_BAD_COPY(dec, tag) MYCROAK("While processing tag SRL_HDR_%s encountered a bad COPY tag", tag_name[tag & 127])
-#define ERROR_UNEXPECTED(dec, tag, msg) MYCROAK("Unexpected tag %s while expecting %s", tag_name[(tag || *(dec)->pos) & 127], msg)
-#define ERROR_PANIC(dec, msg) MYCROAK("Panic: %s", msg);
+    ERRORf3("Tag %u %s is unimplemented at ofs: %d", (tag), (str), BUF_POS_OFS(dec))
+#define ERROR_UNTERMINATED(dec,tag,str) \
+    ERRORf4("Tag SRL_HDR_%s %s was not terminated properly at ofs %lu with %lu to go", \
+            tag_name[(tag) & 127], (str), (dec)->pos - (dec)->buf_start, (dec)->buf_end - (dec)->pos)
+#define ERROR_BAD_COPY(dec, tag) \
+    ERRORf1("While processing tag SRL_HDR_%s encountered a bad COPY tag", tag_name[(tag) & 127])
+#define ERROR_UNEXPECTED(dec, tag, msg) \
+    ERRORf2("Unexpected tag %s while expecting %s", tag_name[(tag || *(dec)->pos) & 127], msg)
+#define ERROR_PANIC(dec, msg) ERRORf1("Panic: %s", msg);
 
 /* If set, the decoder struct needs to be cleared instead of freed at
  * the end of a deserialization operation */
