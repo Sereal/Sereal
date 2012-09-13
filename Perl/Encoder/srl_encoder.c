@@ -249,6 +249,12 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         svp = hv_fetchs(opt, "warn_unknown", 0);
         if ( svp && SvTRUE(*svp) )
             enc->flags |= SRL_F_WARN_UNKNOWN;
+
+        svp = hv_fetchs(opt, "snappy_threshold", 0);
+        if ( svp && SvOK(*svp) )
+            enc->snappy_threshold = SvIV(*svp);
+        else
+            enc->snappy_threshold = 1024;
     }
     else {
         /* SRL_F_SHARED_HASHKEYS on by default */
@@ -421,8 +427,10 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
 
-        /* Don't bother with snappy compression at all if we have less than 100 bytes of payload */
-        if (enc->pos - enc->buf_start - sereal_header_len < 100) {
+        /* Don't bother with snappy compression at all if we have less than $threshold bytes of payload */
+        if (enc->snappy_threshold > 0
+            && enc->pos - enc->buf_start - sereal_header_len < enc->snappy_threshold)
+        {
             /* sizeof(const char *) includes a count ofr \0 */
             char *flags_and_version_byte = enc->buf_start + sizeof(SRL_MAGIC_STRING) - 1;
             /* disable snappy flag in header */

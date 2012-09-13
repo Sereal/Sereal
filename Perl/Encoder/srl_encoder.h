@@ -24,6 +24,7 @@ typedef struct {
     ptable_ptr str_seenhash; /* ptr table for issuing COPY commands */
 
     void *snappy_workmem;    /* lazily allocated if and only if using Snappy */
+    IV snappy_threshold;     /* do not compress things smaller than this even if Snappy enabled */
 } srl_encoder_t;
 
 /* constructor; don't need destructor, this sets up a callback */
