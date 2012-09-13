@@ -1,0 +1,10 @@
+Java1.6 required.
+
+Run the decoder on a single file:
+java6 -Djava.util.logging.ConsoleHandler.level=FINE -cp bin/ com.booking.sereal.Example ../Perl/test_data/test_data_00659
+(loglevel FINE tells you about every tag and byte)
+
+Run it on all files to see a useful report for developing:
+java6 -cp bin/ com.booking.sereal.Example ../Perl/test_data
+
+Working with Eclipse is strongly recommended, but if you don't want to: make sure everything is compiled to the bin/ directory and that it is on your classpath
