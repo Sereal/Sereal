@@ -37,3 +37,7 @@ Revision history for Perl extension Sereal-Encoder
   - 'snappy_threshold' option which controls at which minimum packet size
     we start compressing with Snappy at all (if Snappy enabled)
   - More tests.
+
+0.09  Fri Sep 14 10:00 2012
+  - Export functions by default when loaded from one liner
+  - More liberal set of decoder versions that we can run full tests against

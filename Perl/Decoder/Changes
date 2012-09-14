@@ -27,3 +27,10 @@ Revision history for Perl extension Sereal-Decoder
 0.08  Thu Sep 13 17:00 2012
   - Documentation fixes
   - Better tests
+
+0.09  Fri Sep 14 09:40 2012
+  - Removes use of variadic macros for compatibility with inferior
+    compilers.
+  - "looks_like_sereal" method/function for a quick way to check for
+    valid Sereal *headers*.
+  - More liberal set of encoder versions we run the full tests with.

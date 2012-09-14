@@ -5,11 +5,17 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '0.08';
-use Exporter 'import';
+our $VERSION = '0.09';
 
+# not for public consumption, just for testing.
+my $TestCompat = [qw( 0.08 0.07 0.06 )];
+sub _test_compat {return(@$TestCompat, $VERSION)}
+
+use Exporter 'import';
 our @EXPORT_OK = qw(decode_sereal looks_like_sereal);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
+# export by default if run from command line
+our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
 
 XSLoader::load('Sereal::Decoder', $VERSION);
 

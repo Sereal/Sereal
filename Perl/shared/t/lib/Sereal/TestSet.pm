@@ -431,9 +431,10 @@ sub get_git_top_dir {
 }
 
 sub have_encoder_and_decoder {
+  # $Class is the already-loaded class, so the one we're testing
   my $need = $Class =~ /Encoder/ ? "Decoder" : "Encoder";
   my $need_class = "Sereal::$need";
-  my $v = $Class->VERSION;
+  my %compat_versions = map {$_ => 1} $Class->_test_compat();
 
   if (defined(my $top_dir = get_git_top_dir())) {
     my $blib_dir = File::Spec->catdir($top_dir, 'Perl', $need, "blib");
@@ -445,14 +446,16 @@ sub have_encoder_and_decoder {
 
   eval "use $need_class; 1"
   or do {
-    note("Could not locate $need_class for testing");
+    note("Could not locate $need_class for testing" . ($@ ? " (Exception: $@)" : ""));
     return();
   };
   my $cmp_v = $need_class->VERSION;
-  if (not defined $cmp_v or not $cmp_v eq $v) {
-    note("Could not load correct version of $need_class for testing (got: $cmp_v, needed $v)");
+  if (not defined $cmp_v or not exists $compat_versions{$cmp_v}) {
+    note("Could not load correct version of $need_class for testing "
+         ."(got: $cmp_v, needed any of ".join(", ", keys %compat_versions).")");
     return();
   }
+
   return 1;
 }
 
