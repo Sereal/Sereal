@@ -462,7 +462,7 @@ srl_read_varint_uv_count(pTHX_ srl_decoder_t *dec, const char * const errstr)
 {
     UV len= srl_read_varint_uv(aTHX_ dec);
     if (len > I32_MAX) {
-        ERRORf3("Corrupterd packet%s. Count %lu exceeds I32_MAX (%i), which is impossible.",
+        ERRORf3("Corrupted packet%s. Count %lu exceeds I32_MAX (%i), which is impossible.",
                 errstr, len, I32_MAX);
     }
     return len;
@@ -766,10 +766,10 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into)
     STRLEN ofs= srl_read_varint_uv_offset(aTHX_ dec," while reading OBJECTV classname");
 
     if ( !dec->ref_bless_av)
-        ERROR("Corrupt packet. OBJECTV used without preceding OBJECTV of any kind");
+        ERROR("Corrupted packet. OBJECTV used without preceding OBJECTV of any kind");
     av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)ofs);
     if (NULL == av) {
-        ERRORf1("Corrupt packet. OBJECTV references unknown classname offset: %lu", ofs);
+        ERRORf1("Corrupted packet. OBJECTV references unknown classname offset: %lu", ofs);
     }
     /* now deparse the thing we are going to bless */
     srl_read_single_value(aTHX_ dec, into);
