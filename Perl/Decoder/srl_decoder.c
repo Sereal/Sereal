@@ -462,7 +462,7 @@ srl_read_varint_uv_count(pTHX_ srl_decoder_t *dec, const char * const errstr)
 {
     UV len= srl_read_varint_uv(aTHX_ dec);
     if (len > I32_MAX) {
-        ERRORf3("Corrupterd packet%s. Count %lu exceeds I32_MAX (%li), which is impossible.",
+        ERRORf3("Corrupterd packet%s. Count %lu exceeds I32_MAX (%i), which is impossible.",
                 errstr, len, I32_MAX);
     }
     return len;
