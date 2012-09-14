@@ -724,7 +724,7 @@ srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into)
     /* something we did before */
     UV item= srl_read_varint_uv_offset(aTHX_ dec, " while reading REFP tag");
     SV *referent= srl_fetch_item(aTHX_ dec, item, "REFP");
-    SvREFCNT_inc(referent);
+    (void)SvREFCNT_inc(referent);
 
     SRL_ASSERT_TYPE_FOR_RV(into);
     SvTEMP_off(referent);
@@ -753,8 +753,7 @@ srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into)
     if (expect_true( SvREFCNT(referent)==1 )) {
         if (expect_false( !dec->weakref_av ))
             dec->weakref_av= newAV();
-        SvREFCNT_inc(referent);
-        av_push(dec->weakref_av, referent);
+        av_push(dec->weakref_av, SvREFCNT_inc(referent));
         SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE);
     }
     sv_rvweaken(into);
@@ -776,8 +775,7 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into)
     srl_read_single_value(aTHX_ dec, into);
 
     /* and also stuff it into the av - we dont have to do any more book-keeping */
-    SvREFCNT_inc(into);
-    av_push(av, into);
+    av_push(av, SvREFCNT_inc(into));
 }
 
 static SRL_INLINE void
@@ -870,8 +868,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into)
      * we really dont want to trigger DESTROY methods from a partial
      * deparse. So we insert the item into an array to be blessed later */
     SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE);
-    SvREFCNT_inc(into);
-    av_push(av, into);
+    av_push(av, SvREFCNT_inc(into));
 
     /* now deparse the thing we are going to bless */
     srl_read_single_value(aTHX_ dec, into);
@@ -1004,8 +1001,7 @@ srl_read_alias(pTHX_ srl_decoder_t *dec)
 {
     UV item= srl_read_varint_uv_offset(aTHX_ dec," while reading ALIAS tag");
     SV *referent= srl_fetch_item(aTHX_ dec, item, "ALIAS");
-    SvREFCNT_inc(referent);
-    return referent;
+    return SvREFCNT_inc(referent);
 }
 
 static SRL_INLINE void
