@@ -78,6 +78,32 @@ decode_sereal(src, opt = NULL, into = NULL)
     ST(0)= srl_decode_into(aTHX_ dec, src, into, 0);
     XSRETURN(1);
 
+IV
+looks_like_sereal(...)
+  PREINIT:
+    SV *data;
+    char *strdata;
+    STRLEN len;
+    const STRLEN magic_len = strlen(SRL_MAGIC_STRING);
+  CODE:
+    RETVAL = 1;
+    if (items > 2 || items == 0) {
+        croak("Invalid number of parameters to looks_like_sereal: "
+              "Need one data parameter, possibly preceded by an invocant.");
+    }
+    data = ST(items-1); /* 1 or two items, use the last parameter as data */
+    if (!SvOK(data))
+        RETVAL = 0;
+    else {
+        strdata = SvPV(data, len);
+        if (len < magic_len+3 /* at least one version/flag byte, one byte for header len, one type byte (smallest payload) */
+            || strnNE(strdata, SRL_MAGIC_STRING, magic_len)
+            || strdata[magic_len] == (U8)0) /* FIXME this check could be much better using the proto versions and all*/
+        {
+            RETVAL = 0;
+        }
+    }
+  OUTPUT: RETVAL
 
 UV
 bytes_consumed(dec)

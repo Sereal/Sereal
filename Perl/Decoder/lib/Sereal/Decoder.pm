@@ -8,7 +8,7 @@ use XSLoader;
 our $VERSION = '0.08';
 use Exporter 'import';
 
-our @EXPORT_OK = qw(decode_sereal);
+our @EXPORT_OK = qw(decode_sereal looks_like_sereal);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 
 XSLoader::load('Sereal::Decoder', $VERSION);
@@ -25,7 +25,7 @@ Sereal::Decoder - Fast, compact, powerful binary deserialization
 
 =head1 SYNOPSIS
 
-  use Sereal::Decoder qw(decode_sereal);
+  use Sereal::Decoder qw(decode_sereal looks_like_sereal);
   
   my $decoder = Sereal::Decoder->new({...options...});
   
@@ -38,6 +38,11 @@ Sereal::Decoder - Fast, compact, powerful binary deserialization
   # alternatively functional interface:
   decode_sereal($blob, {... options ...}, $structure);
   $structure = decode_sereal($blob, {... options ...});
+  
+  # Not a full validation, but just a quick check for a reasonable header:
+  my $is_likely_sereal = looks_like_sereal($some_string);
+  # or:
+  $is_likely_sereal = $decoder->looks_like_sereal($some_string);
 
 =head1 DESCRIPTION
 
@@ -139,6 +144,15 @@ is concatenated into the same string (code not very robust...):
     }
   };
 
+=head2 looks_like_sereal
+
+Given a string (or undef), checks whether it looks like it starts
+with a valid Sereal packet. This is not a full-blown validation.
+Instead, this just checks the magic string and some header properties
+to provide a quick and efficient way to distinguish multiple well-formed
+serialization methods instead of really making sure it's valid Sereal.
+For reference, sereal's magic string is a four byte string C<=srl>.
+
 =head1 EXPORTABLE FUNCTIONS
 
 =head2 decode_sereal
@@ -151,6 +165,10 @@ to write to. See the documentation for C<decode> above for details.
 
 The functional interface is marginally slower than the OO interface since
 it cannot reuse the decoder object.
+
+=head2 looks_like_sereal
+
+Same as the object method of the same name.
 
 =head1 ROBUSTNESS
 
