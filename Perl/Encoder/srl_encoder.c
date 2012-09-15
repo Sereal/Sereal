@@ -552,9 +552,13 @@ srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
     const char *fptr;
     char ch;
     U16 match_flags;
-#ifdef MODERN_REGEXP
+#if (defined MODERN_REGEXP && PERL_VERSION != 10)
     REGEXP *re= SvRX(sv);
 #else
+    regexp *re = (regexp *)(((MAGIC*)sv)->mg_obj);
+#endif
+
+#if (!defined MODERN_REGEXP ) 
 #define INT_PAT_MODS "msix"
 #define RXf_PMf_STD_PMMOD_SHIFT 12
 #define RX_PRECOMP(re) ((re)->precomp)
@@ -562,7 +566,6 @@ srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
 #define RX_UTF8(re) ((re)->reganch & ROPT_UTF8)
 #define RX_EXTFLAGS(re) ((re)->reganch)
 #define RXf_PMf_COMPILETIME  PMf_COMPILETIME
-    regexp *re = (regexp *)(((MAGIC*)sv)->mg_obj);
 #endif
     char reflags[sizeof(INT_PAT_MODS) + MAX_CHARSET_NAME_LENGTH];
 
