@@ -531,6 +531,20 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
 #define MODERN_REGEXP
 #endif
 
+#if PERL_VERSION == 10
+/*
+	Apparently regexes in 5.10 are "modern" but with 5.8 internals
+*/
+#define RXf_PMf_STD_PMMOD_SHIFT 12
+#define RX_EXTFLAGS(re)	((re)->extflags)
+#define RX_PRECOMP(re) ((re)->precomp)
+#define RX_PRELEN(re) ((re)->prelen)
+
+// Maybe this is only on OS X, where SvUTF8(sv) exists but looks at flags that don't exist
+#define RX_UTF8(re) (RX_EXTFLAGS(re) & RXf_UTF8)
+
+#endif
+
 static inline void
 srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
 {
@@ -846,11 +860,11 @@ redo_dump:
     }
     assert(weakref_ofs == 0);
     if (SvPOKp(src)) {
-#ifdef MODERN_REGEXP
+#if (defined MODERN_REGEXP && PERL_VERSION != 10)
         if (expect_false( svt == SVt_REGEXP ) ) {
             srl_dump_regexp(aTHX_ enc, src);
         }
-        else
+        else        
 #endif
         {
             STRLEN len;
@@ -894,7 +908,7 @@ redo_dump:
         goto redo_dump;
     }
     else
-#ifndef MODERN_REGEXP
+#if (defined MODERN_REGEXP || PERL_VERSION == 10)
     if (
         svt == SVt_PVMG &&
         ((SvFLAGS(src) & (SVs_OBJECT|SVf_OK|SVs_GMG|SVs_SMG|SVs_RMG)) == (SVs_OBJECT|BFD_Svs_SMG_OR_RMG)) &&
