@@ -11,9 +11,6 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
 
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
-
 /**
  * WIP Decoder for Sereal WIP
  */
