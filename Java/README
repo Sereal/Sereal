@@ -1,7 +1,7 @@
 Java1.6 required.
 
 Run the decoder on a single file:
-java6 -Djava.util.logging.ConsoleHandler.level=FINE -cp bin/ com.booking.sereal.Example ../Perl/test_data/test_data_00659
+java6 -cp bin/ com.booking.sereal.Example ../Perl/test_data/test_data_00659
 (loglevel FINE tells you about every tag and byte)
 
 Run it on all files to see a useful report for developing:
