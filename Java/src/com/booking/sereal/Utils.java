@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.regex.Pattern;
 
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
@@ -350,6 +351,21 @@ public class Utils {
 
 			sb.append( ind ).append( "]" );
 			return sb.toString();
+		}
+		else if ( o instanceof Pattern) {
+			Pattern pat = (Pattern) o;
+			return "/" + pat.pattern() + "/" 
+					+ (((pat.flags() & Pattern.CANON_EQ) > 0) ? "c" : "")
+					+ (((pat.flags() & Pattern.CASE_INSENSITIVE) > 0) ? "i" : "")
+					+ (((pat.flags() & Pattern.COMMENTS) > 0) ? "x" : "")
+					+ (((pat.flags() & Pattern.DOTALL) > 0) ? "s" : "")
+					+ (((pat.flags() & Pattern.LITERAL) > 0) ? "q" : "")
+					+ (((pat.flags() & Pattern.MULTILINE) > 0) ? "m" : "")
+					+ (((pat.flags() & Pattern.UNICODE_CASE) > 0) ? "l" : "")
+					+ (((pat.flags() & Pattern.UNIX_LINES) > 0) ? "u" : "")
+					;
+			
+		
 		} else {
 			// ad system ident hascode (which is normally memory location) so you
 			// can see if things point to the same
