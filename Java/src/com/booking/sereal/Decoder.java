@@ -330,6 +330,11 @@ public class Decoder implements SerealHeader {
 				log.fine( "Read varint: " + l );
 				out = l;
 				break;
+			case SRL_HDR_ZIGZAG:
+				long zz = read_zigzag();
+				log.fine("Read zigzag: " + zz);
+				out = zz;
+				break;
 			case SRL_HDR_DOUBLE:
 				double d = data.getDouble();
 				log.fine( "Read double: " + d );
@@ -391,6 +396,13 @@ public class Decoder implements SerealHeader {
 
 		return out;
 
+	}
+
+	private long read_zigzag() {
+		
+		long n = read_varint();
+		
+		return (n >>> 1) ^ (-(n & 1)); // note the unsigned right shift
 	}
 
 	private Pattern read_regex() throws SerealException {
