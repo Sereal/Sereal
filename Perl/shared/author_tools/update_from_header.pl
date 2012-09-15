@@ -86,6 +86,35 @@ sub update_srl_decoder_h {
     )
 }
 
+sub update_JavaSerealHeader {
+
+    open my $fh,"<", "Perl/shared/srl_protocol.h"
+        or die "Perl/shared/srl_protocol.h: $!";
+    
+    my (%name_value, %value_comment);
+        
+    while (<$fh>) {
+        if(m!^#define\s+SRL_HDR_(\S+)\s+\(\(char\)(\d+)\)\s*(?:/\*\s*(.*?)\s*\*/)?\s*\z!i) {
+            $name_value{$1}= $2;
+            $value_comment{$2} ||= $3;
+        }
+    }
+    close $fh;
+
+	my $declarations = "* NOTE this section is autoupdated by $0 */\n";
+
+	for my $name (sort { $name_value{$a} <=> $name_value{$b} } keys %name_value) {
+		my $byte = $name_value{$name};
+		my $decl = sprintf("static final byte SRL_HDR_%-*s = (byte) %3d;", 18, $name, $byte);
+		$declarations .= sprintf("\t%s /* %3d 0x%02x 0b%08b %s */\n", $decl, $byte, $byte, $byte, $value_comment{$byte}||"");
+	}
+
+	$declarations .= "/*\n* NOTE the above section is auto-updated by $0";
+
+    replace_block("Java/src/com/booking/sereal/SerealHeader.java", $declarations);
+
+}
+
 sub update_table {
     replace_block($_[0],
         join("\n",
@@ -115,5 +144,5 @@ read_protocol();
 update_srl_decoder_h();
 update_table("sereal_spec.pod");
 update_table("Perl/shared/srl_protocol.h");
-
+update_JavaSerealHeader();
 
