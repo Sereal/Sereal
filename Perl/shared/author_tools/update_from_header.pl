@@ -2,20 +2,26 @@
 use strict;
 use warnings;
 use Data::Dumper;
-my (%n2v, %v2n, %v2c);
-my $len= 0;
+my (
+    %name_to_value,             # just the names in the srl_protocol.h
+    %name_to_value_expanded,    # names from srl_protocol, but with the LOW/HIGH data expanded
+    %value_to_name_expanded,    # values from srl_protocol_expanded, mapping back, note value points at FIRST name
+    %value_to_comment_expanded  # values from srl_protocol_expanded, with comments from file.
+);
+my $max_name_length= 0;
+
 sub fill_ranges {
     my $pfx= shift;
     $pfx=~s/_LOW//;
-    defined(my $ofs= $n2v{$pfx})
+    defined(my $ofs= $name_to_value_expanded{$pfx})
         or die "unknown $pfx";
-    for my $i ( $n2v{$pfx . "_LOW"} .. $n2v{$pfx . "_HIGH"}) {
+    for my $i ( $name_to_value_expanded{$pfx . "_LOW"} .. $name_to_value_expanded{$pfx . "_HIGH"}) {
         my $n= $pfx=~/NEG/ ? abs($i - 32) : $i - $ofs;
-        $n2v{ $pfx . "_" . $n } ||= $i;
-        $v2n{ $i } = $pfx . "_". $n;
-        $v2c{ $i } ||= '';
+        $name_to_value_expanded{ $pfx . "_" . $n } ||= $i;
+        $value_to_name_expanded{ $i } = $pfx . "_". $n;
+        $value_to_comment_expanded{ $i } ||= '';
     }
-    $v2c{ $n2v{$pfx . "_HIGH"} } = $v2c{ $ofs };
+    $value_to_comment_expanded{ $name_to_value_expanded{$pfx . "_HIGH"} } = $value_to_comment_expanded{ $ofs };
 }
 sub read_protocol {
     open my $fh,"<", "Perl/shared/srl_protocol.h"
@@ -23,16 +29,17 @@ sub read_protocol {
     my @fill;
     while (<$fh>) {
         if(m!^#define\s+SRL_HDR_(\S+)\s+\(\(char\)(\d+)\)\s*(?:/\*\s*(.*?)\s*\*/)?\s*\z!i) {
-            $n2v{$1}= $2;
-            $v2n{$2} ||= $1;
-            $v2c{$2} ||= $3;
+            $name_to_value{$1}= $2;
+            $name_to_value_expanded{$1}= $2;
+            $value_to_name_expanded{$2} ||= $1;
+            $value_to_comment_expanded{$2} ||= $3;
             push @fill, $1 if substr($1,-4) eq '_LOW';
         }
     }
     close $fh;
     fill_ranges($_) for @fill;
-    foreach my $pfx (keys %n2v) {
-        $len= length($pfx) if $len < length($pfx);
+    foreach my $pfx (keys %name_to_value_expanded) {
+        $max_name_length= length($pfx) if $max_name_length < length($pfx);
     }
 }
 sub open_swap {
@@ -77,7 +84,7 @@ sub update_srl_decoder_h {
                 my $str= Data::Dumper::qquote(chr($_));
                 if ($str=~/^"\\[0-9]+"\z/) { $str="";}
                 sprintf qq(\t%-*s /* %-4s %3d 0x%02x 0b%08b */),
-                    $len+3, qq("$v2n{$_}") . ($_==127 ? " " : ","), $str, $_, $_, $_
+                    $max_name_length+3, qq("$value_to_name_expanded{$_}") . ($_==127 ? " " : ","), $str, $_, $_, $_
             } 0 .. 127 ),
             "};",
             "/*",
@@ -87,29 +94,16 @@ sub update_srl_decoder_h {
 }
 
 sub update_JavaSerealHeader {
+    my $declarations = "* NOTE this section is autoupdated by $0 */\n";
 
-    open my $fh,"<", "Perl/shared/srl_protocol.h"
-        or die "Perl/shared/srl_protocol.h: $!";
-    
-    my (%name_value, %value_comment);
-        
-    while (<$fh>) {
-        if(m!^#define\s+SRL_HDR_(\S+)\s+\(\(char\)(\d+)\)\s*(?:/\*\s*(.*?)\s*\*/)?\s*\z!i) {
-            $name_value{$1}= $2;
-            $value_comment{$2} ||= $3;
-        }
+    for my $name (sort { $name_to_value{$a} <=> $name_to_value{$b} } keys %name_to_value) {
+        my $byte = $name_to_value{$name};
+        my $decl = sprintf("static final byte SRL_HDR_%-*s = (byte) %3d;", 18, $name, $byte);
+        $declarations .= sprintf("\t%-*s /* %3d 0x%02x 0b%08b %s */\n",
+            $max_name_length+3, $decl, $byte, $byte, $byte, $value_to_comment_expanded{$byte}||"");
     }
-    close $fh;
 
-	my $declarations = "* NOTE this section is autoupdated by $0 */\n";
-
-	for my $name (sort { $name_value{$a} <=> $name_value{$b} } keys %name_value) {
-		my $byte = $name_value{$name};
-		my $decl = sprintf("static final byte SRL_HDR_%-*s = (byte) %3d;", 18, $name, $byte);
-		$declarations .= sprintf("\t%s /* %3d 0x%02x 0b%08b %s */\n", $decl, $byte, $byte, $byte, $value_comment{$byte}||"");
-	}
-
-	$declarations .= "/*\n* NOTE the above section is auto-updated by $0";
+    $declarations .= "/*\n* NOTE the above section is auto-updated by $0";
 
     replace_block("Java/src/com/booking/sereal/SerealHeader.java", $declarations);
 
@@ -120,14 +114,14 @@ sub update_table {
         join("\n",
             "",
             sprintf(qq(    %*s | %-4s | %3s | %4s | %10s | %s),
-                $len,qw(Tag       Char Dec Hex  Binary     Follow  )),
+                $max_name_length,qw(Tag       Char Dec Hex  Binary     Follow  )),
             sprintf(qq(    %*s-+-%-4s-+-%3s-+-%4s-+-%10s |-%s),
-                $len,"-" x $len, "-" x 4, "-" x 3, "-" x 4, "-" x 10, "-" x 40),
+                $max_name_length,"-" x $max_name_length, "-" x 4, "-" x 3, "-" x 4, "-" x 10, "-" x 40),
             ( map {
                 my $str= Data::Dumper::qquote(chr($_));
                 if ($str=~/^"\\[0-9]+"\z/) { $str="";}
                 sprintf qq(    %-*s | %-4s | %3d | 0x%02x | 0b%08b | %s),
-                    $len, $v2n{$_}, $str, $_, $_, $_, $v2c{$_} || ""
+                    $max_name_length, $value_to_name_expanded{$_}, $str, $_, $_, $_, $value_to_comment_expanded{$_} || ""
             } 0 .. 127 ),
             "",
             "",
