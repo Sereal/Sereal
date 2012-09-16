@@ -16,6 +16,12 @@ import java.util.regex.Pattern;
  */
 public class Decoder implements SerealHeader {
 
+	public enum ObjectType {
+		PERL_OBJECT, // Perl style object (name + hash)
+		POJO // Dynamically compile a Plain Old Java Object
+	}
+	
+	
 	// set up logging: be compatible with log4j etc but not suffer so much :)
 	interface Log {
 		void info(String info);
@@ -102,13 +108,18 @@ public class Decoder implements SerealHeader {
 	// where we track items for REFP purposes
 	private Map<String, Object> tracked = new HashMap<String, Object>();
 
+	private ObjectType objectType;
+
 	/**
 	 * Create a new Decoder
 	 * 
 	 * @param options
+	 * 		object_type: ObjectType (defaults to PERL_OBJECT)
 	 */
 	public Decoder(Map<String, Object> options) {
 		this.options = options == null ? new HashMap<String, Object>() : options;
+		
+		objectType = options.containsKey("object_type") ? ((ObjectType)options.get("object_type")) : ObjectType.PERL_OBJECT;
 	}
 
 	private void checkHeader() throws SerealException {
