@@ -285,7 +285,7 @@ public class Decoder implements SerealHeader {
 
 		byte b = data.get();
 		while( data.hasRemaining() && (b < 0) ) {
-			uv |= b & 127 << lshift; // add 7 bits
+			uv |= (b & 127) << lshift; // add 7 bits
 			lshift += 7;
 			b = data.get();
 		}
