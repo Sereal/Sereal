@@ -766,7 +766,7 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into)
     STRLEN ofs= srl_read_varint_uv_offset(aTHX_ dec," while reading OBJECTV classname");
 
     if ( !dec->ref_bless_av)
-        ERROR("Corrupted packet. OBJECTV used without preceding OBJECTV of any kind");
+        ERROR("Corrupted packet. OBJECTV used without preceding OBJECT to define classname");
     av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)ofs);
     if (NULL == av) {
         ERRORf1("Corrupted packet. OBJECTV references unknown classname offset: %lu", ofs);
