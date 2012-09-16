@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -321,8 +322,7 @@ public class Decoder implements SerealHeader {
 			log.fine( "Short binary, length: " + length );
 			byte[] buf = new byte[length];
 			data.get( buf );
-			// data.position( data.position() + length); // advance
-			String str = new String( buf );
+			String str = Charset.forName("US-ASCII").decode(ByteBuffer.wrap(buf)).toString();
 			log.fine( "Read short binary: " + str + " length " + buf.length );
 			out = str;
 		} else if( (tag & SRL_HDR_HASHREF) == SRL_HDR_HASHREF ) {
