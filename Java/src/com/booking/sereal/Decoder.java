@@ -360,6 +360,11 @@ public class Decoder implements SerealHeader {
 				log.fine( "Read binary: " + Utils.hexStringFromByteArray( bytes ) );
 				out = bytes;
 				break;
+			case SRL_HDR_STR_UTF8:
+				String utf8 = read_UTF8();
+				log.fine("Read UTF8: " + utf8);
+				out = utf8;
+				break;
 			case SRL_HDR_REFN:
 				log.fine( "Reading ref to next" );
 				Object o = readSingleValue();
@@ -407,6 +412,13 @@ public class Decoder implements SerealHeader {
 
 		return out;
 
+	}
+
+	private String read_UTF8() {
+		int length = (int) read_varint();
+		byte[] buf = new byte[length];
+		data.get(buf);
+		return Charset.forName("UTF-8").decode(ByteBuffer.wrap(buf)).toString();
 	}
 
 	private long read_zigzag() {
