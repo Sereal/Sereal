@@ -98,7 +98,7 @@ sub update_JavaSerealHeader {
 
     for my $name (sort { $name_to_value{$a} <=> $name_to_value{$b} } keys %name_to_value) {
         my $byte = $name_to_value{$name};
-        my $decl = sprintf("static final byte SRL_HDR_%-*s = (byte) %3d;", $max_name_length+1, $name, $byte);
+        my $decl = sprintf("static final byte SRL_HDR_%-*s = (byte) %3d;", $max_name_length, $name, $byte);
         $declarations .= sprintf("\t%s /* %3d 0x%02x 0b%08b %s */\n",
             $decl, $byte, $byte, $byte, $value_to_comment_expanded{$byte}||"");
     }
