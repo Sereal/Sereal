@@ -14,7 +14,7 @@ public interface SerealHeader {
 	
 =for autoupdater start
 
-* NOTE this section is autoupdated by Perl/shared/author_tools/update_from_header.pl */
+* NOTE this section is autoupdated by author_tools/update_from_header.pl */
 	static final byte SRL_HDR_POS                = (byte)   0; /*   0 0x00 0b00000000 small positive integer - value in low 4 bits (identity) */
 	static final byte SRL_HDR_POS_LOW            = (byte)   0; /*   0 0x00 0b00000000 small positive integer - value in low 4 bits (identity) */
 	static final byte SRL_HDR_POS_HIGH           = (byte)  15; /*  15 0x0f 0b00001111 small positive integer - value in low 4 bits (identity) */
@@ -41,25 +41,25 @@ public interface SerealHeader {
 	static final byte SRL_HDR_REGEXP             = (byte)  49; /*  49 0x31 0b00110001 <PATTERN-STR-TAG> <MODIFIERS-STR-TAG> */
 	static final byte SRL_HDR_RESERVED           = (byte)  50; /*  50 0x32 0b00110010 reserved */
 	static final byte SRL_HDR_RESERVED_LOW       = (byte)  50; /*  50 0x32 0b00110010 reserved */
-	static final byte SRL_HDR_RESERVED_HIGH      = (byte)  57; /*  57 0x39 0b00111001  */
+	static final byte SRL_HDR_RESERVED_HIGH      = (byte)  57; /*  57 0x39 0b00111001 reserved */
 	static final byte SRL_HDR_FALSE              = (byte)  58; /*  58 0x3a 0b00111010 false (PL_sv_no) */
 	static final byte SRL_HDR_TRUE               = (byte)  59; /*  59 0x3b 0b00111011 true  (PL_sv_yes) */
 	static final byte SRL_HDR_MANY               = (byte)  60; /*  60 0x3c 0b00111100 <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 2) */
 	static final byte SRL_HDR_PACKET_START       = (byte)  61; /*  61 0x3d 0b00111101 (first byte of magic string in header) */
 	static final byte SRL_HDR_EXTEND             = (byte)  62; /*  62 0x3e 0b00111110 <BYTE> - for additional tags */
 	static final byte SRL_HDR_PAD                = (byte)  63; /*  63 0x3f 0b00111111 (ignored tag, skip to next byte) */
-	static final byte SRL_HDR_ARRAYREF_LOW       = (byte)  64; /*  64 0x40 0b01000000 [<ITEM-TAG> ...] - count of itmes in low 4 bits (ARRAY must be refcnt=1) */
-	static final byte SRL_HDR_ARRAYREF           = (byte)  64; /*  64 0x40 0b01000000 [<ITEM-TAG> ...] - count of itmes in low 4 bits (ARRAY must be refcnt=1) */
-	static final byte SRL_HDR_ARRAYREF_HIGH      = (byte)  79; /*  79 0x4f 0b01001111  */
+	static final byte SRL_HDR_ARRAYREF_LOW       = (byte)  64; /*  64 0x40 0b01000000 [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1) */
+	static final byte SRL_HDR_ARRAYREF           = (byte)  64; /*  64 0x40 0b01000000 [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1) */
+	static final byte SRL_HDR_ARRAYREF_HIGH      = (byte)  79; /*  79 0x4f 0b01001111 [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1) */
 	static final byte SRL_HDR_HASHREF_LOW        = (byte)  80; /*  80 0x50 0b01010000 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
 	static final byte SRL_HDR_HASHREF            = (byte)  80; /*  80 0x50 0b01010000 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
-	static final byte SRL_HDR_HASHREF_HIGH       = (byte)  95; /*  95 0x5f 0b01011111  */
+	static final byte SRL_HDR_HASHREF_HIGH       = (byte)  95; /*  95 0x5f 0b01011111 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
 	static final byte SRL_HDR_SHORT_BINARY       = (byte)  96; /*  96 0x60 0b01100000 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
 	static final byte SRL_HDR_SHORT_BINARY_LOW   = (byte)  96; /*  96 0x60 0b01100000 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
-	static final byte SRL_HDR_SHORT_BINARY_HIGH  = (byte) 127; /* 127 0x7f 0b01111111  */
+	static final byte SRL_HDR_SHORT_BINARY_HIGH  = (byte) 127; /* 127 0x7f 0b01111111 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
 	static final byte SRL_HDR_TRACK_FLAG         = (byte) 128; /* 128 0x80 0b10000000 if this bit is set track the item */
 /*
-* NOTE the above section is auto-updated by Perl/shared/author_tools/update_from_header.pl
+* NOTE the above section is auto-updated by author_tools/update_from_header.pl
 
 =for autoupdater stop
 	*/

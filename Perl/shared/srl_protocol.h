@@ -86,8 +86,8 @@
     ARRAYREF_12       | "L"  |  76 | 0x4c | 0b01001100 |
     ARRAYREF_13       | "M"  |  77 | 0x4d | 0b01001101 |
     ARRAYREF_14       | "N"  |  78 | 0x4e | 0b01001110 |
-    ARRAYREF_15       | "O"  |  79 | 0x4f | 0b01001111 | [<ITEM-TAG> ...] - count of itmes in low 4 bits (ARRAY must be refcnt=1)
-    HASHREF_0         | "P"  |  80 | 0x50 | 0b01010000 | [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt= 1)
+    ARRAYREF_15       | "O"  |  79 | 0x4f | 0b01001111 | [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1)
+    HASHREF_0         | "P"  |  80 | 0x50 | 0b01010000 | [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1)
     HASHREF_1         | "Q"  |  81 | 0x51 | 0b01010001 |
     HASHREF_2         | "R"  |  82 | 0x52 | 0b01010010 |
     HASHREF_3         | "S"  |  83 | 0x53 | 0b01010011 |
@@ -102,7 +102,7 @@
     HASHREF_12        | "\\" |  92 | 0x5c | 0b01011100 |
     HASHREF_13        | "]"  |  93 | 0x5d | 0b01011101 |
     HASHREF_14        | "^"  |  94 | 0x5e | 0b01011110 |
-    HASHREF_15        | "_"  |  95 | 0x5f | 0b01011111 | [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt= 1)
+    HASHREF_15        | "_"  |  95 | 0x5f | 0b01011111 | [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1)
     SHORT_BINARY_0    | "`"  |  96 | 0x60 | 0b01100000 | <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag
     SHORT_BINARY_1    | "a"  |  97 | 0x61 | 0b01100001 |
     SHORT_BINARY_2    | "b"  |  98 | 0x62 | 0b01100010 |
@@ -206,7 +206,7 @@
 
 #define SRL_HDR_EXTEND          ((char)62)      /* <BYTE> - for additional tags */
 #define SRL_HDR_PAD             ((char)63)      /* (ignored tag, skip to next byte) */
-#define SRL_HDR_ARRAYREF        ((char)64)      /* [<ITEM-TAG> ...] - count of itmes in low 4 bits (ARRAY must be refcnt=1)*/
+#define SRL_HDR_ARRAYREF        ((char)64)      /* [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1)*/
 #define SRL_MASK_ARRAYREF_COUNT ((char)15)      /* mask to get low bits from tag */
 #define SRL_HDR_ARRAYREF_LOW    ((char)64)
 #define SRL_HDR_ARRAYREF_HIGH   ((char)79)
