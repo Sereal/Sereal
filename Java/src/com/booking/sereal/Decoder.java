@@ -477,13 +477,21 @@ public class Decoder implements SerealHeader {
 		Object structure = readSingleValue();
 		if( structure instanceof Map) {
 			// now "bless" this into a class, perl style
+			@SuppressWarnings("unchecked")
+			Map<String, Object> classData = (Map<String, Object>)structure;
 			try {
 				// either an existing java class
-				Class c = Class.forName( className );
-				return Utils.bless( c, (Map<String, Object>)structure );
+				Class<?> c = Class.forName( className );
+				return Utils.bless( c, classData );
 			} catch (ClassNotFoundException e) {
 				// or we make a new one
-				return Utils.bless( className, (Map<String, Object>)structure );
+				if( objectType == ObjectType.POJO) {
+					return Utils.bless( className, classData );					
+				} else {
+					// or we make a Perl-style one
+					return new PerlObject(className, classData);
+				}
+				
 			}
 		}
 		
