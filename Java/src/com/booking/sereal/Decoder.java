@@ -119,7 +119,7 @@ public class Decoder implements SerealHeader {
 	public Decoder(Map<String, Object> options) {
 		this.options = options == null ? new HashMap<String, Object>() : options;
 		
-		objectType = options.containsKey("object_type") ? ((ObjectType)options.get("object_type")) : ObjectType.PERL_OBJECT;
+		objectType = this.options.containsKey("object_type") ? ((ObjectType)this.options.get("object_type")) : ObjectType.PERL_OBJECT;
 	}
 
 	private void checkHeader() throws SerealException {
