@@ -238,7 +238,7 @@ public class Decoder implements SerealHeader {
 		return out;
 	}
 
-	private byte[] read_binary() {
+	byte[] read_binary() {
 
 		int length = (int) read_varint();
 		byte[] out = new byte[length];
@@ -278,7 +278,7 @@ public class Decoder implements SerealHeader {
 	}
 
 	// top bit set (0x80) means next byte is 7 bits more more varint
-	private long read_varint() {
+	long read_varint() {
 
 		long uv = 0;
 		int lshift = 0;
@@ -428,11 +428,11 @@ public class Decoder implements SerealHeader {
 		return (n >>> 1) ^ (-(n & 1)); // note the unsigned right shift
 	}
 
-	private Pattern read_regex() throws SerealException {
+	Pattern read_regex() throws SerealException {
 
 		int flags = 0;
 		String regex = (String) readSingleValue();
-		log.info( "Read pattern: " + regex );
+		log.fine( "Read pattern: " + regex );
 
 		// now read modifiers
 		byte tag = data.get();
