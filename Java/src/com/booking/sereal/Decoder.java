@@ -382,6 +382,12 @@ public class Decoder implements SerealHeader {
 				log.fine( "Read object: " + obj );
 				out = obj;
 				break;
+			case SRL_HDR_COPY:
+				log.fine( "Reading a copy" );
+				Object copy = read_copy();
+				log.fine( "Read copy: " + copy );
+				out = copy;
+				break;
 			case SRL_HDR_HASH:
 				Object hash = read_hash( (byte) 0 );
 				log.fine( "Read hash: " + hash );
@@ -411,6 +417,33 @@ public class Decoder implements SerealHeader {
 
 		return out;
 
+	}
+
+	/**
+	 * From the spec:
+	 * Sometimes it is convenient to be able to reuse a previously emitted sequence in the packet to reduce duplication. For instance a data structure with many
+	 * hashes with the same keys. The COPY tag is used for this. Its argument is a varint which is the offset of a previously emitted tag, and decoders are to
+	 * behave as though the tag it references was inserted into the packet stream as a replacement for the COPY tag.
+	 * 
+	 * Note, that in this case the track flag is not set. It is assumed the decoder can jump back to reread the tag from its location alone.
+	 * 
+	 * Copy tags are forbidden from referring to another COPY tag, and are also forbidden from referring to anything containing a COPY tag, with the exception
+	 * that a COPY tag used as a value may refer to an tag that uses a COPY tag for a classname or hash key.
+	 * 
+	 * @return
+	 * @throws SerealException 
+	 */
+	Object read_copy() throws SerealException {
+		
+		int originalPosition = (int) read_varint();
+		int currentPosition = data.position(); // remember where we parked
+		
+		// note: you might think you'd like to use mark() and reset(), but setting position(..) discards the mark
+		data.position( originalPosition );
+		Object copy = readSingleValue();
+		data.position( currentPosition ); // go back to where we were
+
+		return copy;
 	}
 
 	private String read_UTF8() {
