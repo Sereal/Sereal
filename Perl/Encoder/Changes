@@ -41,3 +41,7 @@ Revision history for Perl extension Sereal-Encoder
 0.09  Fri Sep 14 10:00 2012
   - Export functions by default when loaded from one liner
   - More liberal set of decoder versions that we can run full tests against
+
+0.10  Mon Sep 17 14:00 2012
+  - Perl 5.10 regular-expression-related build fixes.
+
