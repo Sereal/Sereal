@@ -228,7 +228,7 @@ public class Decoder implements SerealHeader {
 		for(int i = 0; i < length; i++) {
 			// could be an alias or a single value
 			if( data.get( data.position() ) == SRL_HDR_ALIAS ) {
-				out[i] = read_previous();
+				out[i] = new Alias(read_previous());
 			} else {
 				out[i] = readSingleValue();
 			}

@@ -365,7 +365,8 @@ public class Utils {
 					+ (((pat.flags() & Pattern.UNIX_LINES) > 0) ? "u" : "")
 					;
 			
-		
+		} else if( o instanceof Alias ) {
+			return "ALIAS: " + dump( ((Alias)o).value );
 		} else {
 			// ad system ident hascode (which is normally memory location) so you
 			// can see if things point to the same
