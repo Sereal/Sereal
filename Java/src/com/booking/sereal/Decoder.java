@@ -21,8 +21,7 @@ public class Decoder implements SerealHeader {
 		PERL_OBJECT, // Perl style object (name + hash)
 		POJO // Dynamically compile a Plain Old Java Object
 	}
-	
-	
+
 	// set up logging: be compatible with log4j etc but not suffer so much :)
 	interface Log {
 		void info(String info);
@@ -115,12 +114,12 @@ public class Decoder implements SerealHeader {
 	 * Create a new Decoder
 	 * 
 	 * @param options
-	 * 		object_type: ObjectType (defaults to PERL_OBJECT)
+	 *           object_type: ObjectType (defaults to PERL_OBJECT)
 	 */
 	public Decoder(Map<String, Object> options) {
 		this.options = options == null ? new HashMap<String, Object>() : options;
-		
-		objectType = this.options.containsKey("object_type") ? ((ObjectType)this.options.get("object_type")) : ObjectType.PERL_OBJECT;
+
+		objectType = this.options.containsKey( "object_type" ) ? ((ObjectType) this.options.get( "object_type" )) : ObjectType.PERL_OBJECT;
 	}
 
 	private void checkHeader() throws SerealException {
@@ -228,7 +227,7 @@ public class Decoder implements SerealHeader {
 		for(int i = 0; i < length; i++) {
 			// could be an alias or a single value
 			if( data.get( data.position() ) == SRL_HDR_ALIAS ) {
-				out[i] = new Alias(read_previous());
+				out[i] = new Alias( read_previous() );
 			} else {
 				out[i] = readSingleValue();
 			}
@@ -322,7 +321,7 @@ public class Decoder implements SerealHeader {
 			log.fine( "Short binary, length: " + length );
 			byte[] buf = new byte[length];
 			data.get( buf );
-			String str = Charset.forName("US-ASCII").decode(ByteBuffer.wrap(buf)).toString();
+			String str = Charset.forName( "US-ASCII" ).decode( ByteBuffer.wrap( buf ) ).toString();
 			log.fine( "Read short binary: " + str + " length " + buf.length );
 			out = str;
 		} else if( (tag & SRL_HDR_HASHREF) == SRL_HDR_HASHREF ) {
@@ -343,7 +342,7 @@ public class Decoder implements SerealHeader {
 				break;
 			case SRL_HDR_ZIGZAG:
 				long zz = read_zigzag();
-				log.fine("Read zigzag: " + zz);
+				log.fine( "Read zigzag: " + zz );
 				out = zz;
 				break;
 			case SRL_HDR_DOUBLE:
@@ -362,7 +361,7 @@ public class Decoder implements SerealHeader {
 				break;
 			case SRL_HDR_STR_UTF8:
 				String utf8 = read_UTF8();
-				log.fine("Read UTF8: " + utf8);
+				log.fine( "Read UTF8: " + utf8 );
 				out = utf8;
 				break;
 			case SRL_HDR_REFN:
@@ -407,7 +406,7 @@ public class Decoder implements SerealHeader {
 		if( track != 0 ) {
 			track_stuff( track, out );
 		}
-
+		log.fine( "pos: " + data.position() );
 		log.fine( "readSingleValue: " + out );
 
 		return out;
@@ -417,14 +416,14 @@ public class Decoder implements SerealHeader {
 	private String read_UTF8() {
 		int length = (int) read_varint();
 		byte[] buf = new byte[length];
-		data.get(buf);
-		return Charset.forName("UTF-8").decode(ByteBuffer.wrap(buf)).toString();
+		data.get( buf );
+		return Charset.forName( "UTF-8" ).decode( ByteBuffer.wrap( buf ) ).toString();
 	}
 
 	private long read_zigzag() {
-		
+
 		long n = read_varint();
-		
+
 		return (n >>> 1) ^ (-(n & 1)); // note the unsigned right shift
 	}
 
@@ -487,26 +486,26 @@ public class Decoder implements SerealHeader {
 
 		// now read the struct (better be a hash!)
 		Object structure = readSingleValue();
-		if( structure instanceof Map) {
+		if( structure instanceof Map ) {
 			// now "bless" this into a class, perl style
 			@SuppressWarnings("unchecked")
-			Map<String, Object> classData = (Map<String, Object>)structure;
+			Map<String, Object> classData = (Map<String, Object>) structure;
 			try {
 				// either an existing java class
 				Class<?> c = Class.forName( className );
 				return Utils.bless( c, classData );
 			} catch (ClassNotFoundException e) {
 				// or we make a new one
-				if( objectType == ObjectType.POJO) {
-					return Utils.bless( className, classData );					
+				if( objectType == ObjectType.POJO ) {
+					return Utils.bless( className, classData );
 				} else {
 					// or we make a Perl-style one
-					return new PerlObject(className, classData);
+					return new PerlObject( className, classData );
 				}
-				
+
 			}
 		}
-		
+
 		// it's a regexp for example
 		return structure;
 
