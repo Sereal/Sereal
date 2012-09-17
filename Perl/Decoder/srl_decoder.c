@@ -137,7 +137,10 @@ srl_build_decoder_struct(pTHX_ HV *opt)
     /* load options */
     if (opt != NULL) {
         if ( (svp = hv_fetchs(opt, "refuse_snappy", 0)) && SvTRUE(*svp))
-          dec->flags |= SRL_F_DECODER_REFUSE_SNAPPY;
+          SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_SNAPPY);
+
+        if ( (svp = hv_fetchs(opt, "refuse_objects", 0)) && SvTRUE(*svp))
+          SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS);
     }
 
     return dec;
@@ -763,7 +766,12 @@ static SRL_INLINE void
 srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into)
 {
     AV *av= NULL;
-    STRLEN ofs= srl_read_varint_uv_offset(aTHX_ dec," while reading OBJECTV classname");
+    STRLEN ofs;
+
+    if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS))
+        ERROR_REFUSE_OBJECT();
+
+    ofs= srl_read_varint_uv_offset(aTHX_ dec," while reading OBJECTV classname");
 
     if ( !dec->ref_bless_av)
         ERROR("Corrupted packet. OBJECTV used without preceding OBJECT to define classname");
@@ -789,6 +797,10 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into)
     I32 flags= GV_ADD;
     U8 tag;
     U8 *from;
+
+    if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS))
+        ERROR_REFUSE_OBJECT();
+
     /* now find the class name - first check if this is a copy op
      * this is bit tricky, as we could have a copy of a raw string
      * we could also have a copy of a previously mentioned class

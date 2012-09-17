@@ -58,6 +58,8 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
     ERRORf1("While processing tag SRL_HDR_%s encountered a bad COPY tag", tag_name[(tag) & 127])
 #define ERROR_UNEXPECTED(dec, tag, msg) \
     ERRORf2("Unexpected tag %s while expecting %s", tag_name[(tag || *(dec)->pos) & 127], msg)
+#define ERROR_REFUSE_OBJECT() \
+    ERROR("Encountered object in input, but the 'refuse_objects' option is in effect");
 #define ERROR_PANIC(dec, msg) ERRORf1("Panic: %s", msg);
 
 /* If set, the decoder struct needs to be cleared instead of freed at
@@ -72,6 +74,8 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_F_DECODER_DECOMPRESS_SNAPPY 8UL
 /* Persistent flag: Make the decoder REFUSE compressed documents */
 #define SRL_F_DECODER_REFUSE_SNAPPY 16UL
+/* Persistent flag: Make the decoder REFUSE opjects */
+#define SRL_F_DECODER_REFUSE_OBJECTS 32UL
 
 #define SRL_DEC_HAVE_OPTION(dec, flag_num) ((dec)->flags & flag_num)
 #define SRL_DEC_SET_OPTION(dec, flag_num) ((dec)->flags |= flag_num)

@@ -89,6 +89,11 @@ encoder. These options are currently valid:
 If set, the decoder will refuse Snappy-compressed input data. This can be
 desirable for robustness. See the section C<ROBUSTNESS> below.
 
+=item refuse_objects
+
+If set, the decoder will refuse deserializing any objects in the input stream and
+instead throw and exception. Defaults to off. See the section C<ROBUSTNESS> below.
+
 =back
 
 =head1 INSTANCE METHODS
@@ -200,6 +205,12 @@ do you risk causing a hard OOM error from the kernel that cannot be
 trapped because Perl may require some small allocations to succeed
 before the now-invalid memory is released. It is at least not entirely
 trivial to craft a Sereal document that causes this behaviour.
+
+Finally, deserializing proper objects is potentially a problem because
+classes can define a destructor. Thus, the data fed to the decoder can
+cause the (deferred) execution of any destructor in your application.
+That's why the C<refuse_objects> option exists. Later on, we may or may
+not provide a facility to whitelist classes.
 
 =head1 PERFORMANCE
 

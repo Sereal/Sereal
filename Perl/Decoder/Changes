@@ -34,3 +34,9 @@ Revision history for Perl extension Sereal-Decoder
   - "looks_like_sereal" method/function for a quick way to check for
     valid Sereal *headers*.
   - More liberal set of encoder versions we run the full tests with.
+
+0.10...
+  - New 'refuse_objects' option causes the decoder to throw an
+    exception when encountering objects in the input data.
+    See the "ROBUSTNESS" section in the documentation for why that
+    is a good idea.

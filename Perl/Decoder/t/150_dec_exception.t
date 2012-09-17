@@ -19,7 +19,7 @@ use Sereal::TestSet qw(:all);
 # bad input. This obviously shouldn't segfault and neither leak
 # memory.
 
-plan tests => 20;
+plan tests => 31;
 my ($ok, $out, $err);
 
 SCOPE: {
@@ -31,22 +31,25 @@ SCOPE: {
     my $bad_nested_packet = $Header . array(integer(1), 7777);
     check_fail($bad_nested_packet, qr/Sereal: Error/, "Random crap in packet");
 
-    my $d = Sereal::Decoder->new({refuse_snappy => 1});
+    my $obj_packet = $Header . chr(SRL_HDR_OBJECT).short_string("Foo").chr(SRL_HDR_REFN).integer(1);
+    check_fail($obj_packet, qr/refuse_obj/, "refusing objects option", {refuse_objects => 1});
+
     # strictly speaking not entirely correct; also: +16 for the snappy flag isn't exactly API
     my $h = SRL_MAGIC_STRING . chr(1+16) . chr(0) . chr(SRL_HDR_UNDEF);
-    ok(!eval {$d->decode($h)} && $@ =~ /Snappy/i);
+    check_fail($h, qr/Snappy/, "refusing Snappy option", {refuse_snappy => 1});
 }
 
 pass("Alive"); # done
 
 
 sub check_fail {
-    my ($data, $err_like, $name) = @_;
+    my ($data, $err_like, $name, $options) = @_;
+    $options ||= {};
 
     my ($ok, $out, $err);
-    ($ok, $out, $err) = dec_func($data);
+    ($ok, $out, $err) = dec_func($data, $options);
     expect_fail($ok, $out, $err, $err_like, $name . "(func)");
-    ($ok, $out, $err) = dec_obj($data);
+    ($ok, $out, $err) = dec_obj($data, $options);
     expect_fail($ok, $out, $err, $err_like, $name . "(OO)");
 }
 
@@ -65,7 +68,7 @@ sub expect_fail {
 sub dec_func {
     my ($ok, $out);
     $ok = eval {
-        $out = decode_sereal($_[0]);
+        $out = decode_sereal(@_);
         1
     };
     my $err = $@ || 'Zombie error';
@@ -75,9 +78,9 @@ sub dec_func {
 
 sub dec_obj {
     my ($ok, $out);
-    my $obj = @_ > 1 ? shift : Sereal::Decoder->new;
+    my $obj = Sereal::Decoder->new(@_ > 1 ? $_[1] : {});
     $ok = eval {
-        $out = $obj->decode($_[0]);
+        $out = $obj->decode(@_);
         1
     };
     my $err = $@ || 'Zombie error';
