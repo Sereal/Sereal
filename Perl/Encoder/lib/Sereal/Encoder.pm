@@ -5,10 +5,10 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 
 # not for public consumption, just for testing.
-my $TestCompat = [qw( 0.09 0.08 0.07 0.06 )];
+my $TestCompat = [qw( 0.10 0.09 0.08 0.07 0.06 )];
 sub _test_compat {return(@$TestCompat, $VERSION)}
 
 use Exporter 'import';

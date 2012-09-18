@@ -35,10 +35,14 @@ Revision history for Perl extension Sereal-Decoder
     valid Sereal *headers*.
   - More liberal set of encoder versions we run the full tests with.
 
-0.1  Mon Sep 17 13:40 20120
+0.10  Mon Sep 17 13:40 20120
   - New 'refuse_objects' option causes the decoder to throw an
     exception when encountering objects in the input data.
     See the "ROBUSTNESS" section in the documentation for why that
     is a good idea.
   - Fixes to error messages.
   - Compiler warning fixes.
+
+0.11  Tue Sep 18 13:00 2012
+  - 5.8.5 fixes.
+  - Fixes to other languages' reference data output.
