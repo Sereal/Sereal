@@ -148,7 +148,7 @@ srl_destructor_hook(pTHX_ void *p)
     if (!SRL_ENC_HAVE_OPTION(enc, SRL_F_REUSE_ENCODER)) {
         /* Exception cleanup. Under normal operation, we should have
          * assigned NULL to buf_start after we're done. */
-        srl_destroy_encoder(aTHX, enc);
+        srl_destroy_encoder(aTHX_ enc);
     }
     else {
         srl_clear_encoder(aTHX_ enc);
