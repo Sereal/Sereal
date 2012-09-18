@@ -710,7 +710,7 @@ sub write_test_files {
 
   foreach my $testno (1..@BasicTests) {
     my $t = $BasicTests[$testno-1];
-    _write_file($make_data_file_name->($testno), $t->[1]);
+    _write_file($make_data_file_name->($testno), $Header.$t->[1]);
     _write_file($make_name_file_name->($testno), $t->[2] . "\n");
   }
 
