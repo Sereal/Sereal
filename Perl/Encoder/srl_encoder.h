@@ -30,7 +30,7 @@ typedef struct {
 /* constructor; don't need destructor, this sets up a callback */
 srl_encoder_t *srl_build_encoder_struct(pTHX_ HV *opt);
 
-void srl_clear_encoder(srl_encoder_t *enc);
+void srl_clear_encoder(pTHX_ srl_encoder_t *enc);
 
 /* Explicit destructor */
 void srl_destroy_encoder(pTHX_ srl_encoder_t *enc);

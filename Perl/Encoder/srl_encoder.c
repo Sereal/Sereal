@@ -140,30 +140,23 @@ static SRL_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
  * logic here so that we can simply use croak/longjmp for
  * exception handling. Makes life vastly easier!
  */
-void srl_destructor_hook(void *p)
+void
+srl_destructor_hook(pTHX_ void *p)
 {
     srl_encoder_t *enc = (srl_encoder_t *)p;
     /* Do not auto-destroy encoder if set to be re-used */
     if (!SRL_ENC_HAVE_OPTION(enc, SRL_F_REUSE_ENCODER)) {
         /* Exception cleanup. Under normal operation, we should have
          * assigned NULL to buf_start after we're done. */
-        Safefree(enc->snappy_workmem);
-        Safefree(enc->buf_start);
-        if (enc->ref_seenhash != NULL)
-            PTABLE_free(enc->ref_seenhash);
-        if (enc->str_seenhash != NULL)
-            PTABLE_free(enc->str_seenhash);
-        if (enc->weak_seenhash != NULL)
-            PTABLE_free(enc->weak_seenhash);
-        Safefree(enc);
+        srl_destroy_encoder(aTHX, enc);
     }
     else {
-        srl_clear_encoder(enc);
+        srl_clear_encoder(aTHX_ enc);
     }
 }
 
 void
-srl_clear_encoder(srl_encoder_t *enc)
+srl_clear_encoder(pTHX_ srl_encoder_t *enc)
 {
     if (enc->pos > enc->buf_start) {
         enc->depth = 0;
@@ -201,7 +194,7 @@ srl_build_encoder_struct(pTHX_ HV *opt)
 
     Newx(enc, 1, srl_encoder_t);
     /* Register our structure for destruction on scope exit */
-    SAVEDESTRUCTOR(&srl_destructor_hook, (void *)enc);
+    SAVEDESTRUCTOR_X(&srl_destructor_hook, (void *)enc);
 
     /* Init struct */
     Newx(enc->buf_start, INITIALIZATION_SIZE, char);
