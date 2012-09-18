@@ -527,10 +527,6 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
 #define MAX_CHARSET_NAME_LENGTH 2
 #endif
 
-#ifdef SvRX
-#define MODERN_REGEXP
-#endif
-
 #if PERL_VERSION == 10
 /*
 	Apparently regexes in 5.10 are "modern" but with 5.8 internals
@@ -543,22 +539,9 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
 // Maybe this is only on OS X, where SvUTF8(sv) exists but looks at flags that don't exist
 #define RX_UTF8(re) (RX_EXTFLAGS(re) & RXf_UTF8)
 
-#endif
-
-static inline void
-srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
-{
-    STRLEN left = 0;
-    const char *fptr;
-    char ch;
-    U16 match_flags;
-#if (defined MODERN_REGEXP && PERL_VERSION != 10)
-    REGEXP *re= SvRX(sv);
+#elif defined(SvRX)
+#define MODERN_REGEXP
 #else
-    regexp *re = (regexp *)(((MAGIC*)sv)->mg_obj);
-#endif
-
-#if (!defined MODERN_REGEXP ) 
 #define INT_PAT_MODS "msix"
 #define RXf_PMf_STD_PMMOD_SHIFT 12
 #define RX_PRECOMP(re) ((re)->precomp)
@@ -567,6 +550,21 @@ srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
 #define RX_EXTFLAGS(re) ((re)->reganch)
 #define RXf_PMf_COMPILETIME  PMf_COMPILETIME
 #endif
+
+
+static inline void
+srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
+{
+    STRLEN left = 0;
+    const char *fptr;
+    char ch;
+    U16 match_flags;
+#ifdef MODERN_REGEXP
+    REGEXP *re= SvRX(sv);
+#else
+    regexp *re = (regexp *)(((MAGIC*)sv)->mg_obj);
+#endif
+
     char reflags[sizeof(INT_PAT_MODS) + MAX_CHARSET_NAME_LENGTH];
 
     /*
@@ -863,7 +861,7 @@ redo_dump:
     }
     assert(weakref_ofs == 0);
     if (SvPOKp(src)) {
-#if (defined MODERN_REGEXP && PERL_VERSION != 10)
+#ifdef MODERN_REGEXP
         if (expect_false( svt == SVt_REGEXP ) ) {
             srl_dump_regexp(aTHX_ enc, src);
         }
@@ -911,7 +909,7 @@ redo_dump:
         goto redo_dump;
     }
     else
-#if (defined MODERN_REGEXP || PERL_VERSION == 10)
+#ifndef MODERN_REGEXP
     if (
         svt == SVt_PVMG &&
         ((SvFLAGS(src) & (SVs_OBJECT|SVf_OK|SVs_GMG|SVs_SMG|SVs_RMG)) == (SVs_OBJECT|BFD_Svs_SMG_OR_RMG)) &&
