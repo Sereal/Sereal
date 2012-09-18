@@ -134,6 +134,33 @@ static SRL_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
 } STMT_END
 
 
+static SRL_INLINE int
+srl_PVIV_equality_check(register UV i, char *ref_str, STRLEN ref_len)
+{
+    register char *ref_ptr = ref_str + ref_len-1;
+    char test_char;
+
+    while(1) {
+        test_char = i % 10 + 0x30;
+        if ( !(i /= 10) )
+            break;
+        if (DEBUGHACK) printf("!%c! !%c!\n", test_char, *ref_ptr);
+        if ( *ref_ptr-- != test_char ) {
+            if (DEBUGHACK) printf("NOT SAME: '%c' '%c'\n", test_char, ref_ptr[1]);
+            return 0;
+        }
+    }
+
+    if (DEBUGHACK) printf("!!! ref_str='%p' ref_ptr='%p' test_char='%c' ref-char='%c'\n", ref_str, ref_ptr, test_char, *ref_ptr);
+    if ( (*ref_ptr != test_char) || (ref_str != ref_ptr) )
+    {
+        if (DEBUGHACK) printf("NOT SAME: '%c' '%c'\n", test_char, ref_ptr[1]);
+        return 0;
+    }
+
+    return 1;
+}
+
 
 /* This is fired when we exit the Perl pseudo-block.
  * It frees our encoder and all. Put encoder-level cleanup
@@ -860,26 +887,40 @@ redo_dump:
         }
     }
     assert(weakref_ofs == 0);
-    if (SvPOKp(src)) {
+    if (SvPOK(src)) {
 #ifdef MODERN_REGEXP
         if (expect_false( svt == SVt_REGEXP ) ) {
             srl_dump_regexp(aTHX_ enc, src);
         }
-        else        
+        else
 #endif
         {
+            char *str;
             STRLEN len;
-            char *str = SvPV(src, len);
+            str = SvPV(src, len);
+            if (SvIOK(src) && !SvNOK(src))/* blacklist NOKs since check for those not done */
+            {
+                /* got PVIV or equivalent */
+                if (    (SvIOK_UV(src) && 1==srl_PVIV_equality_check((UV)SvUVX(src), str, len))
+                     || (SvIVX(src) > 0 && 1==srl_PVIV_equality_check((UV)SvIVX(src), str, len))
+                     || (str[0] == '-' && 1==srl_PVIV_equality_check((UV)(-SvIVX(src)), str+1, len-1)) )
+                {
+                    srl_dump_ivuv(aTHX_ enc, src); /* FIXME could know more about sign here */
+                    return;
+                }
+                /* fallthrough */
+            }
             srl_dump_pv(aTHX_ enc, str, len, SvUTF8(src));
+            return;
         }
     }
     else
-    if (SvNOKp(src)) {
+    if (SvNOK(src)) {
         /* dump floats */
         srl_dump_nv(aTHX_ enc, src);
     }
     else
-    if (SvIOKp(src)) {
+    if (SvIOK(src)) {
         /* dump ints */
         srl_dump_ivuv(aTHX_ enc, src);
     }
@@ -969,8 +1010,11 @@ redo_dump:
         }
     }
     else {
+        sv_dump(src);
         SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt, refsv, ref_rewrite_pos);
 #undef SRL_HANDLE_UNSUPPORTED_TYPE
     }
+
+    /* not always reached */
 }
 
