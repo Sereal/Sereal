@@ -32,16 +32,19 @@ public class Encoder {
 
 		private Level level = Level.INFO;
 
+		@Override
 		public void info(String info) {
 			System.out.println( "INFO: " + info );
 		}
 
+		@Override
 		public void fine(String info) {
 			if( level.intValue() <= Level.FINE.intValue() ) {
 				System.out.println( "FINE: " + info );
 			}
 		}
 
+		@Override
 		public void setLevel(Level lvl) {
 			this.level = lvl;
 		}
@@ -49,7 +52,7 @@ public class Encoder {
 	};
 
 	// end logging
-	
+
 	// so we don't need to allocate this every time we encode a varint
 	private byte[] varint_buf = new byte[12];
 
@@ -85,12 +88,12 @@ public class Encoder {
 
 		data.add( new byte[] { 0x00 } ); // no header suffix
 		size++;
-		
+
 	}
 
 	/**
 	 * Returns the encoded data as a ByteBuffer
-	 * 
+	 *
 	 * @return
 	 */
 	public ByteBuffer getData() {
@@ -108,7 +111,7 @@ public class Encoder {
 			buf.position( offset );
 			buf.put( (byte) (buf.get( offset ) | SerealHeader.SRL_HDR_TRACK_FLAG) );
 		}
-		
+
 		buf.rewind();
 
 		return buf;
@@ -116,10 +119,10 @@ public class Encoder {
 
 	/**
 	 * Write an integer as a varint
-	 * 
+	 *
 	 * Note: sometimes the next thing while decoding is know to be a varint, sometimes there must be a tag
-	 * that denotes the next item *is* a varint. So don't forget to write that tag. 
-	 * 
+	 * that denotes the next item *is* a varint. So don't forget to write that tag.
+	 *
 	 * @param n
 	 *           positive integer
 	 * @return
@@ -142,7 +145,7 @@ public class Encoder {
 
 	/**
 	 * Encode a number as zigzag
-	 * 
+	 *
 	 * @param n
 	 * @return
 	 */
@@ -153,7 +156,7 @@ public class Encoder {
 
 	/**
 	 * Encode a short ascii string
-	 * 
+	 *
 	 * @param s
 	 *           String to encode as US-ASCII bytes
 	 * @throws SerealException
@@ -162,7 +165,7 @@ public class Encoder {
 	void write_short_binary(String s) throws SerealException {
 
 		log.fine( "Writing short binary: " + s );
-		
+
 		// maybe we can just COPY
 		if( tracked.containsKey( s ) ) {
 			write_copy( s );
@@ -190,7 +193,7 @@ public class Encoder {
 
 		data.add( new byte[]{ SerealHeader.SRL_HDR_COPY} );
 		size++;
-		
+
 		write_varint( tracked.get( s ) );
 
 		// do not track since spec says no
@@ -198,7 +201,7 @@ public class Encoder {
 
 	/**
 	 * Encode a regex
-	 * 
+	 *
 	 * @param p
 	 *           regex pattern. Only support flags "smix": DOTALL | MULTILINE | CASE_INSENSITIVE | COMMENTS
 	 * @throws SerealException
@@ -207,7 +210,7 @@ public class Encoder {
 	void write_regex(Pattern p) throws SerealException {
 
 		log.fine( "Writing a Pattern: " + Utils.dump( p ) );
-		
+
 		String flags = "";
 		flags += (p.flags() & Pattern.MULTILINE) != 0 ? "m" : "";
 		flags += (p.flags() & Pattern.DOTALL) != 0 ? "s" : "";
@@ -221,14 +224,14 @@ public class Encoder {
 
 			data.add( new byte[] { SerealHeader.SRL_HDR_REGEXP } );
 			size++;
-			
+
 			// make array with bytes for (pattern + pattern length tag) + space for flags length tag + flags
 			write_short_binary( pattern );
 			data.add( new byte[]{ (byte) (flags.length() | SerealHeader.SRL_HDR_SHORT_BINARY) } );
 			size++;
 			data.add( flags.getBytes( Charset.forName( "US-ASCII" ) ) );
 			size += flags.length();
-			
+
 		} else {
 			throw new SerealException( "Don't know how to write a pattern of length " + length );
 		}
@@ -236,14 +239,14 @@ public class Encoder {
 
 	/**
 	 * Encodes a byte array
-	 * 
+	 *
 	 * @param in
 	 * @return
 	 */
 	byte[] write_bytearray(byte[] in) {
 
 		write_varint( in.length );
-		
+
 		data.add( in );
 		size += in.length;
 
@@ -259,7 +262,7 @@ public class Encoder {
 
 	/**
 	 * Write something to the encoder.
-	 * 
+	 *
 	 * @param obj
 	 * @return a buffer with the encoded data
 	 * @throws SerealException
@@ -274,20 +277,20 @@ public class Encoder {
 	private void encode(Object obj) throws SerealException {
 
 		int obj_location = size; // location where we start putting this item
-		
+
 		if( tracked.containsKey( obj )) {
 			int prev_location = tracked.get( obj );
 			log.fine("Track: We saw this before: " + Utils.dump( obj ) + " at location " + prev_location);
 			write_ref_previous( prev_location );
 			return;
 		}
-		
+
 		// this needs to be first for obvious reasons :)
 		if( obj == null ) {
 			data.add( new byte[] { SerealHeader.SRL_HDR_UNDEF } );
 			size++;
 			return;
-		} 
+		}
 
 		Class<? extends Object> type = obj.getClass();
 		log.fine( "Encoding type: " + type );
@@ -304,10 +307,10 @@ public class Encoder {
 		} else if( type == Pattern.class ) {
 			write_regex( (Pattern)obj );
 		} else if( type == PerlReference.class ) {
-			
+
 			// it could have been a REPF at some point, meaning it points to something we already emitted
 			// So if it is a ref to something we've emitted, we must emit a REFP for that item,
-			// but if it's jsut a ref then we must emit REFN
+			// but if it's just a ref then we must emit REFN
 			PerlReference ref = (PerlReference)obj;
 			if( tracked.containsKey( ref.value )) {
 				int prev_location = tracked.get( ref.value );
@@ -316,8 +319,9 @@ public class Encoder {
 			} else {
 				write_ref( ref.value );
 			}
+			return;// do not track refs to avoid chaining them (example: [\6,\6,\6] should not be [\6,REFP(\6), REFP(REFP(\6))])
 		}
-		
+
 		// track it (for COPY and REFP tags)
 		log.fine("Tracking " + Utils.dump( obj ) + " at location " + obj_location);
 		tracked.put( obj, obj_location );
@@ -331,20 +335,20 @@ public class Encoder {
 	private void write_ref_previous(int prev_location) {
 
 		log.fine( "Setting a REFP for location " + prev_location );
-		
+
 		data.add( new byte[]{ SerealHeader.SRL_HDR_REFP } );
 		size++;
-		
+
 		write_varint( prev_location );
-		
+
 		tracked_and_used.add( prev_location );
 	}
 
 	private void write_hash(HashMap<String, Object> hash) throws SerealException {
 
 		log.fine("Writing hash: " + Utils.dump( hash ));
-		
-		
+
+
 		int count = hash.size();
 		if( count < 16 ) { // store size in lower 4 bits
 			data.add( new byte[]{ (byte) (SerealHeader.SRL_HDR_HASHREF_LOW | count) });
@@ -354,29 +358,29 @@ public class Encoder {
 			size++;
 			write_varint( count );
 		}
-		
+
 		for(Entry<String, Object> entry : hash.entrySet()) {
 			encode( entry.getKey() );
 			encode( entry.getValue() );
 		}
-		
+
 	}
 
 	private void write_ref(Object value) throws SerealException {
 
 		log.fine( "Setting a REFN for " + Utils.dump( value ) );
-		
+
 		data.add( new byte[]{ (SerealHeader.SRL_HDR_REFN) });
 		size++;
-		
+
 		encode(value);
-		
+
 	}
 
 	private void write_array(Object obj) throws SerealException {
 
 		log.fine( "Writing an array of type " + obj.getClass().getComponentType() );
-		
+
 		// checking length without casting to Object[] since they might primitives
 		int count = Array.getLength( obj );
 
@@ -387,9 +391,9 @@ public class Encoder {
 			write_bytearray( (byte[]) obj );
 			return;
 		}
-		
-		
-		if( count < 16 ) { // write arrayref for some reason
+
+		int refcount = 0; // dummy until I figure out what is up with the arrayrefs
+		if( count < 16 && refcount == 1) { // write arrayref for some reason
 			data.add( new byte[]{ (byte) (SerealHeader.SRL_HDR_ARRAYREF + count) });
 			size++;
 		} else {
@@ -402,7 +406,7 @@ public class Encoder {
 		for(int index=0; index<count; index++) {
 			encode( Array.get( obj, index ));
 		}
-		
+
 	}
 
 	private void write_string_type(String str) throws SerealException {
@@ -447,7 +451,7 @@ public class Encoder {
 		}
 
 	}
-	
+
 	/**
 	 * Discard all previous tracking clear the buffers etc
 	 * Call this when you reuse the encoder

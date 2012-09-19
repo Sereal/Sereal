@@ -6,7 +6,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
@@ -35,16 +34,19 @@ public class Decoder implements SerealHeader {
 
 		private Level level = Level.INFO;
 
+		@Override
 		public void info(String info) {
 			System.out.println( "INFO: " + info );
 		}
 
+		@Override
 		public void fine(String info) {
 			if( level.intValue() <= Level.FINE.intValue() ) {
 				System.out.println( "FINE: " + info );
 			}
 		}
 
+		@Override
 		public void setLevel(Level lvl) {
 			this.level = lvl;
 		}
@@ -55,7 +57,7 @@ public class Decoder implements SerealHeader {
 
 	/**
 	 * Decodes a sereal
-	 * 
+	 *
 	 * @param f
 	 *           data to decode
 	 * @param options
@@ -114,7 +116,7 @@ public class Decoder implements SerealHeader {
 
 	/**
 	 * Create a new Decoder
-	 * 
+	 *
 	 * @param options
 	 *           object_type: ObjectType (defaults to PERL_OBJECT)
 	 *           use_perl_refs: if true wraps things in References to we can "perfectly" roundtrip
@@ -182,7 +184,7 @@ public class Decoder implements SerealHeader {
 	}
 
 	/**
-	 * 
+	 *
 	 * @return deserealized object
 	 * @throws SerealException
 	 */
@@ -209,7 +211,7 @@ public class Decoder implements SerealHeader {
 	/**
 	 * if tag == 0, next is varint for number of elements,
 	 * otherwise lower 4 bits are length
-	 * 
+	 *
 	 * @param tag
 	 *           : lower 4 bits is length or 0 for next varint is length
 	 * @return
@@ -411,8 +413,9 @@ public class Decoder implements SerealHeader {
 				out = hash;
 				break;
 			case SRL_HDR_ARRAY:
+				log.fine( "Reading array" );
 				Object[] arr = read_array( (byte) 0 );
-				log.fine( "Read array: " + Arrays.asList( arr ).toString() );
+				log.fine( "Read array: " + Utils.dump( arr ) );
 				out = arr;
 				break;
 			case SRL_HDR_REGEXP:
@@ -457,20 +460,20 @@ public class Decoder implements SerealHeader {
 	 * Sometimes it is convenient to be able to reuse a previously emitted sequence in the packet to reduce duplication. For instance a data structure with many
 	 * hashes with the same keys. The COPY tag is used for this. Its argument is a varint which is the offset of a previously emitted tag, and decoders are to
 	 * behave as though the tag it references was inserted into the packet stream as a replacement for the COPY tag.
-	 * 
+	 *
 	 * Note, that in this case the track flag is not set. It is assumed the decoder can jump back to reread the tag from its location alone.
-	 * 
+	 *
 	 * Copy tags are forbidden from referring to another COPY tag, and are also forbidden from referring to anything containing a COPY tag, with the exception
 	 * that a COPY tag used as a value may refer to an tag that uses a COPY tag for a classname or hash key.
-	 * 
+	 *
 	 * @return
-	 * @throws SerealException 
+	 * @throws SerealException
 	 */
 	Object read_copy() throws SerealException {
-		
+
 		int originalPosition = (int) read_varint();
 		int currentPosition = data.position(); // remember where we parked
-		
+
 		// note: you might think you'd like to use mark() and reset(), but setting position(..) discards the mark
 		data.position( originalPosition );
 		Object copy = readSingleValue();
@@ -581,7 +584,7 @@ public class Decoder implements SerealHeader {
 	 * Set the data to deserealize
 	 * (for calling decode multiple times when there are concatenated packets)
 	 * (never tested)
-	 * 
+	 *
 	 * @param blob
 	 */
 	public void setData(ByteBuffer blob) {

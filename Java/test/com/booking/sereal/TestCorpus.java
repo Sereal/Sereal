@@ -6,17 +6,26 @@ import java.io.FileNotFoundException;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.logging.Level;
 
 import org.junit.Assert;
 
 import com.booking.sereal.Utils.Function;
 
+/**
+ * To make the corpus of test files:
+ * perl -I Perl/shared/t/lib/ -MSereal::TestSet -MSereal::Encoder -e'Sereal::TestSet::write_test_files("test_dir")'
+ *
+ * This runs the Decoder/Encoder over every file in the supplied directory and tells you when the bytes the encoder
+ * outputs do not match the bytes in the test file. The purpose is to check if roundtripping to Perl type
+ * datastructures works.
+ *
+ * If you pass a file as parameter it will do the same but do more detailed logging.
+ *
+ */
 public class TestCorpus {
 
 	private static Decoder dec;
@@ -37,32 +46,27 @@ public class TestCorpus {
 	 */
 	public static void main(String[] args) throws IOException {
 
-		if( args.length == 0 ) {
+		String manual =  "../test_dir/test_data_00020";
+
+		if( args.length == 0 && manual == null ) {
 			throw new UnsupportedOperationException( "Usage: Example [test_dir OR test_data_00XXXX]" );
 		}
 
-		final File target = new File( args[0] ).getCanonicalFile();
+		final File target = new File( (manual == null ? args[0] : manual) ).getCanonicalFile(); // to absorb ".." in paths
 
 		if( !target.exists() ) {
 			throw new FileNotFoundException( "No such file or directory: " + target.getAbsolutePath() );
 		}
 
 		if( target.isDirectory() ) {
-			System.out.println( "Running decoder on all test files" );
+			System.out.println( "Running decoder on all test files in " + target.getCanonicalPath() );
 			decodeAllTests( target );
 		} else {
 			System.out.println( "Decoding a single file: " + target.getAbsolutePath() );
+			// more logging
 			dec.log.setLevel( Level.FINE );
 			enc.log.setLevel( Level.FINE );
-			try {
-				Object result = dec.decodeFile( target );
-				System.out.println( "Success!" );
-				System.out.println( Utils.dump( result ) );
-				// now compare to input after encoding
-				roundtrip( target );
-			} catch (SerealException e) {
-				e.printStackTrace();
-			}
+			roundtrip( target );
 		}
 
 	}
@@ -70,12 +74,12 @@ public class TestCorpus {
 	private static boolean roundtrip(File target) {
 
 		enc.reset();
-		
+
 		try {
 			System.out.println( "Roundtrip encoding " + target.getName() );
 
 			Object data = dec.decodeFile( target );
-			dec.log.fine( "Data: " + Utils.dump( data ) );
+			dec.log.fine( "****Decoding Done: " + Utils.dump( data ) );
 			ByteBuffer encoded = enc.write( data );
 
 			FileInputStream fis = new FileInputStream( target );
@@ -101,18 +105,17 @@ public class TestCorpus {
 	}
 
 	protected static void decodeAllTests(final File test_dir) throws IOException {
-		Map<String, String> fileToError = new HashMap<String, String>();
-		Map<String, List<String>> results = new HashMap<String, List<String>>();
-		results.put( "Success", new ArrayList<String>() );
 
+		// get all files called test_data_...
 		String[] filenames = test_dir.list( new FilenameFilter() {
 
 			@Override
 			public boolean accept(File arg0, String arg1) {
-				return arg1.contains( "_data_" );
+				return arg1.contains( "test_data_" );
 			}
 		} );
 
+		// turn them into Files
 		List<File> tests = Utils.map( filenames, new Function<String, File>() {
 
 			@Override
@@ -122,49 +125,12 @@ public class TestCorpus {
 
 		} );
 
-		for(File f : tests) {
-			try {
-				Decoder.decode_sereal( f, null );
-				results.get( "Success" ).add( f.getName() );
-			} catch (SerealException se) {
-				System.out.println( se.getMessage() );
-				List<String> files = results.get( se.getMessage() );
-				files = files == null ? new ArrayList<String>() : files;
-				files.add( f.getName() );
-				results.put( se.getMessage(), files );
-				fileToError.put( f.getName(), se.getMessage() );
-			}
-		}
-
-		System.out.println( "\nFile - error\n\n" );
-		for(Entry<String, String> entry : fileToError.entrySet()) {
-			System.out.println( entry.getKey() + " -> " + entry.getValue() );
-		}
-
-		System.out.println( "\n\nResults:" );
-		for(String msg : results.keySet()) {
-			System.err.println( "\n" + msg + ":\t count=" + results.get( msg ).size() );
-			if( results.get( msg ).size() < 20 ) {
-				System.err.println( "\tFiles:\t" + results.get( msg ) );
-			}
-
-		}
-
-		// now take all successes and run them through the encoder and see if the bytes are the same
-		// as the file contents
-		roundtrip( test_dir, results.get( "Success" ) );
-
-	}
-
-	private static void roundtrip(File test_dir, List<String> list) {
-
 		int win = 0;
-		for(String fn : list) {
+		for(File test : tests) {
 
-			File test = new File( test_dir, fn );
 			if( !roundtrip( test ) ) {
 				System.out.println( "Aborting after first error" );
-				System.out.printf( "Ratio: %d/%d = %.2f%%\n", win, list.size(), ((double)win/list.size()));
+				System.out.printf( "Ratio: %d/%d = %.2f%%\n", win, tests.size(), ((double) win / tests.size()) );
 				return;
 			}
 			win++;
