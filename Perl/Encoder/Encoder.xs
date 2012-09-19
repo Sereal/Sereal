@@ -47,7 +47,6 @@ encode(enc, src)
      * we already have to do a malloc and we might as well use the opportunity to
      * allocate only as much memory as we really need to hold the output. */
     ST(0) = sv_2mortal(newSVpvn(enc->buf_start, (STRLEN)BUF_POS_OFS(enc)));
-    srl_clear_encoder(aTHX_ enc);
     XSRETURN(1);
 
 void

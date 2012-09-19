@@ -31,9 +31,7 @@ SCOPE: {
     ok(!$ok, "Object throws exception");
     ok($err =~ /object/i, 'Exception refers to object');
 
-    {local $TODO = "Encoder may get corrupted by exception: Needs serious attention.";
     is($e->encode(1), $Header.integer(1), "Encoder works after exception");
-    }
 
     $ok =  eval {$out = $e->encode({}); 1};
     ok($ok, "Non-blessed hash does not throw exception");
@@ -78,7 +76,8 @@ SCOPE: {
         {
             $ok = eval {$out = $e->encode($sub); 1};
         }
-        qr/Sereal/;
+        qr/Sereal/,
+        "warn_unknown warns about stringified sub";
 }
 
 # test that blessed code refs with stringify_unknown don't throw exceptions

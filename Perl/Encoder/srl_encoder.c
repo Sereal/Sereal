@@ -193,8 +193,6 @@ srl_build_encoder_struct(pTHX_ HV *opt)
     SV **svp;
 
     Newx(enc, 1, srl_encoder_t);
-    /* Register our structure for destruction on scope exit */
-    SAVEDESTRUCTOR_X(&srl_destructor_hook, (void *)enc);
 
     /* Init struct */
     Newx(enc->buf_start, INITIALIZATION_SIZE, char);
@@ -405,6 +403,10 @@ void
 srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
 {
     if (DEBUGHACK) warn("== start dump");
+
+    /* Register our structure for destruction on scope exit */
+    SAVEDESTRUCTOR_X(&srl_destructor_hook, (void *)enc);
+
     if (!SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY)) {
         srl_write_header(aTHX_ enc);
         srl_dump_sv(aTHX_ enc, src);
