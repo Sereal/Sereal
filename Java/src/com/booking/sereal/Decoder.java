@@ -110,16 +110,20 @@ public class Decoder implements SerealHeader {
 
 	private ObjectType objectType;
 
+	private boolean perlRefs = false;
+
 	/**
 	 * Create a new Decoder
 	 * 
 	 * @param options
 	 *           object_type: ObjectType (defaults to PERL_OBJECT)
+	 *           use_perl_refs: if true wraps things in References to we can "perfectly" roundtrip
 	 */
 	public Decoder(Map<String, Object> options) {
 		this.options = options == null ? new HashMap<String, Object>() : options;
 
 		objectType = this.options.containsKey( "object_type" ) ? ((ObjectType) this.options.get( "object_type" )) : ObjectType.PERL_OBJECT;
+		perlRefs = this.options.containsKey( "use_perl_refs" ) ? ((Boolean) this.options.get( "use_perl_refs" )) : false;
 	}
 
 	private void checkHeader() throws SerealException {
@@ -231,12 +235,16 @@ public class Decoder implements SerealHeader {
 			} else {
 				out[i] = readSingleValue();
 			}
-			log.fine( "Read array element " + i + ": " + out[i] );
+			log.fine( "Read array element " + i + ": " + Utils.dump( out[i] ) );
 		}
 
 		return out;
 	}
 
+	/**
+	 * Reads a byte array, but was called read_binary in C, so for grepping porposes I kept the name
+	 * @return
+	 */
 	byte[] read_binary() {
 
 		int length = (int) read_varint();
@@ -294,7 +302,7 @@ public class Decoder implements SerealHeader {
 
 	}
 
-	private Object readSingleValue() throws SerealException {
+	Object readSingleValue() throws SerealException {
 
 		checkNoEOD();
 
@@ -317,13 +325,9 @@ public class Decoder implements SerealHeader {
 			log.fine( "Read small negative int:" + (tag - 32) );
 			out = tag - 32;
 		} else if( (tag & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW ) {
-			int length = tag & SRL_MASK_SHORT_BINARY_LEN;
-			log.fine( "Short binary, length: " + length );
-			byte[] buf = new byte[length];
-			data.get( buf );
-			String str = Charset.forName( "US-ASCII" ).decode( ByteBuffer.wrap( buf ) ).toString();
-			log.fine( "Read short binary: " + str + " length " + buf.length );
-			out = str;
+			String short_binary = read_short_binary( tag );
+			log.fine( "Read short binary: " + short_binary + " length " + short_binary.length() );
+			out = short_binary;
 		} else if( (tag & SRL_HDR_HASHREF) == SRL_HDR_HASHREF ) {
 			Map<String, Object> hash = read_hash( tag );
 			log.fine( "Read hash: " + hash );
@@ -350,6 +354,14 @@ public class Decoder implements SerealHeader {
 				log.fine( "Read double: " + d );
 				out = d;
 				break;
+			case SRL_HDR_TRUE:
+				log.fine( "Read: TRUE" );
+				out = true;
+				break;
+			case SRL_HDR_FALSE:
+				log.fine( "Read: FALSE" );
+				out = false;
+				break;
 			case SRL_HDR_UNDEF:
 				log.fine( "Read a null/undef" );
 				out = null;
@@ -366,14 +378,19 @@ public class Decoder implements SerealHeader {
 				break;
 			case SRL_HDR_REFN:
 				log.fine( "Reading ref to next" );
-				Object o = readSingleValue();
-				log.fine( "Read ref: " + o );
+				Object o = perlRefs ? new PerlReference(readSingleValue()) : readSingleValue();
+				log.fine( "Read ref: " + Utils.dump( o ) );
 				out = o;
 				break;
 			case SRL_HDR_REFP:
 				log.fine( "Reading REFP (ref to prev)" );
-				Object prev = read_previous();
-				log.fine( "Read prev: " + prev );
+				long offset_prev = read_varint();
+				if( !tracked.containsKey( "track_" + offset_prev ) ) {
+					throw new SerealException( "REFP to offset " + offset_prev + "which is not tracked" );
+				}
+				Object prv_value = tracked.get( "track_" + offset_prev );
+				Object prev = perlRefs ? new PerlReference(prv_value) : prv_value;
+				log.fine( "Read prev: " + Utils.dump( prev ) );
 				out = prev;
 				break;
 			case SRL_HDR_OBJECT:
@@ -404,6 +421,9 @@ public class Decoder implements SerealHeader {
 				log.fine( "Read regexp: " + pattern );
 				out = pattern;
 				break;
+			case SRL_HDR_PAD:
+				log.fine("Padding byte: skip");
+				return readSingleValue();
 			default:
 				throw new SerealException( "Tag not supported: " + tag );
 			}
@@ -417,6 +437,19 @@ public class Decoder implements SerealHeader {
 
 		return out;
 
+	}
+
+	/**
+	 * Read a short binary ASCII string, the lower bits of the tag hold the length
+	 * @param tag
+	 * @return
+	 */
+	String read_short_binary(byte tag) {
+		int length = tag & SRL_MASK_SHORT_BINARY_LEN;
+		log.fine( "Short binary, length: " + length );
+		byte[] buf = new byte[length];
+		data.get( buf );
+		return Charset.forName( "US-ASCII" ).decode( ByteBuffer.wrap( buf ) ).toString();
 	}
 
 	/**
@@ -453,7 +486,7 @@ public class Decoder implements SerealHeader {
 		return Charset.forName( "UTF-8" ).decode( ByteBuffer.wrap( buf ) ).toString();
 	}
 
-	private long read_zigzag() {
+	long read_zigzag() {
 
 		long n = read_varint();
 

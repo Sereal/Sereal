@@ -367,6 +367,8 @@ public class Utils {
 			
 		} else if( o instanceof Alias ) {
 			return "ALIAS: " + dump( ((Alias)o).value );
+		} else if( o instanceof PerlReference ) {
+			return "PERLREF@" + System.identityHashCode( o ) +": " + dump( ((PerlReference)o).value );
 		} else {
 			// ad system ident hascode (which is normally memory location) so you
 			// can see if things point to the same
