@@ -46,3 +46,5 @@ Revision history for Perl extension Sereal-Decoder
 0.11  Tue Sep 18 13:00 2012
   - 5.8.5 fixes.
   - Fixes to other languages' reference data output.
+
+0.12 - unreleased

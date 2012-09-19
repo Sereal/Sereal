@@ -48,3 +48,9 @@ Revision history for Perl extension Sereal-Encoder
 0.11  Tue Sep 18 13:00 2012
   - 5.8.5 fixes.
   - Fixes to other languages' reference data output.
+
+0.12  Wed Sep 19 08:00 2012
+  * Important bug fix *
+  - Under certain circumstances, an encoder object could be left
+    in an unclean state when an encoding operation failed via
+    an exception.
