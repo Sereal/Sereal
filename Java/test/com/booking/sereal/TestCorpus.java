@@ -129,14 +129,15 @@ public class TestCorpus {
 		int win = 0;
 		for(File test : tests) {
 
-			if( !roundtrip( test ) ) {
+			boolean success = roundtrip( test );
+			if( false && !success ) {
 				System.out.println( "Aborting after first error" );
-				System.out.printf( "Ratio: %d/%d = %.2f%%\n", win, tests.size(), ((double) win / tests.size()) );
 				return;
 			}
-			win++;
+			win += success ? 1 : 0;
 
 		}
+		System.out.printf( "Ratio: %d/%d = %.2f%%\n", win, tests.size(), ((double) 100*win / tests.size()) );
 
 	}
 
