@@ -69,6 +69,8 @@ public class Encoder {
 
 	private List<Integer> tracked_and_used = new ArrayList<Integer>();
 
+	private Map<Object, Integer> arrayrefs = new HashMap<Object, Integer>();
+
 	public Encoder(Map<String, Object> options) {
 
 		this.options = options == null ? new HashMap<String, Object>() : options;
@@ -279,9 +281,8 @@ public class Encoder {
 		int obj_location = size; // location where we start putting this item
 
 		if( tracked.containsKey( obj )) {
-			int prev_location = tracked.get( obj );
-			log.fine("Track: We saw this before: " + Utils.dump( obj ) + " at location " + prev_location);
-			write_ref_previous( prev_location );
+			log.fine("Track: We saw this before: " + Utils.dump( obj ) + " at location " + tracked.get( obj ));
+			write_ref_previous( obj );
 			return;
 		}
 
@@ -315,7 +316,7 @@ public class Encoder {
 			if( tracked.containsKey( ref.value )) {
 				int prev_location = tracked.get( ref.value );
 				log.fine("Track(ref): We saw this before: " + Utils.dump( ref.value ) + " at location " + prev_location);
-				write_ref_previous( prev_location );
+				write_ref_previous( ref.value );
 			} else {
 				write_ref( ref.value );
 			}
@@ -332,10 +333,26 @@ public class Encoder {
 
 	}
 
-	private void write_ref_previous(int prev_location) {
+	private void write_ref_previous(Object obj) {
 
+		int prev_location = tracked.get( obj );
 		log.fine( "Setting a REFP for location " + prev_location );
 
+		if( arrayrefs.containsKey( obj )) {
+			log.fine( "Ref to previous ARRAYREF, converting it to REFN ARRAY COUNT" );
+			int segment = arrayrefs.get( obj );
+			byte[] tag_data = data.get( segment );
+			if( tag_data.length == 1 ) { // not did this before?
+				// we already have the REFN set
+				data.set( segment, new byte[]{ 
+						SerealHeader.SRL_HDR_ARRAY | SerealHeader.SRL_HDR_TRACK_FLAG, // track it 
+						(byte) (tag_data[0] & ~SerealHeader.SRL_HDR_ARRAYREF_LOW)} // varints < 16 are always a byte :) 
+				);
+				size += 1;// we added 1 byte
+				log.fine( "Converted to: " + Utils.hexStringFromByteArray( data.get( segment ) ) );
+			}
+		}
+		
 		data.add( new byte[]{ SerealHeader.SRL_HDR_REFP } );
 		size++;
 
@@ -392,10 +409,30 @@ public class Encoder {
 			return;
 		}
 
-		int refcount = 0; // dummy until I figure out what is up with the arrayrefs
-		if( count < 16 && refcount == 1) { // write arrayref for some reason
+		/*
+		 * So in Perl country, you always have arrayrefs.
+		 * This means either outputting REFN ARRAY
+		 * or as an optimization ARRAY_REF (if it's smaller than 16 elements)
+		 * The problem is: if the refcount of the array is > 1, we need to always
+		 * output REFN ARRAY (with the tracking bit set on the array) so the Perl
+		 * decoder can keep track of refcounts.
+		 * 
+		 * Needless to say, things get hairy.
+		 * What I'm doing for now: we default to emitting ARRAYREF for small arrays,
+		 * and keep track of every one we do, then whenever we see another ref to that item
+		 * replace the ARRAYREF with a REFN ARRAY (with tracking bit)
+		 * This uses more memory but avoids having to either
+		 * a) iterate over the entire data structure manually counting refs, or
+		 * b) Having the Decoder in "perl-compat-mode" emit a {data: object, refs: refcounts}
+		 * so we can pass that around. (which would be a nightmare to deal with as any change means
+		 * you manually need to keep the refcount data up to date and if we wanted to do that we'd be doing
+		 * COM programming :)
+		 */
+		if( count < 16 ) {
 			data.add( new byte[]{ (byte) (SerealHeader.SRL_HDR_ARRAYREF + count) });
 			size++;
+			arrayrefs.put(obj, data.size()-1 ); // track the segment we optimistically emitted an ARRAYREF for
+			log.fine("Tracking ARRAYREF: segment=" +  (data.size()-1) + " byte=" + Utils.hexStringFromByteArray( data.get( data.size()-1 )) );
 		} else {
 			data.add( new byte[]{ SerealHeader.SRL_HDR_ARRAY });
 			size++;
