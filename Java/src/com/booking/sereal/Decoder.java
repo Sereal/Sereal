@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
@@ -355,7 +356,10 @@ public class Decoder implements SerealHeader {
 				out = zz;
 				break;
 			case SRL_HDR_DOUBLE:
+				// Java defaults to BE, maybe we can jsut do this generally, don't know yet (but think so)
+				data.order( ByteOrder.LITTLE_ENDIAN );
 				double d = data.getDouble();
+				data.order( ByteOrder.BIG_ENDIAN );
 				log.fine( "Read double: " + d );
 				out = d;
 				break;
