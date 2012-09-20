@@ -482,7 +482,8 @@ public class Encoder {
 		// there must be a simpler way but this will do for now :)
 		Charset charset_ascii = Charset.forName( "US-ASCII" );
 		Charset charset_utf8 = Charset.forName( "UTF-8" );
-		boolean encodableAsASCII = charset_ascii.encode( str ).equals( ByteBuffer.wrap( str.getBytes( charset_utf8 ) ) );
+		byte[] utf8 = str.getBytes( charset_utf8 );
+		boolean encodableAsASCII = charset_ascii.encode( str ).equals( ByteBuffer.wrap( utf8 ) );
 
 		if( encodableAsASCII ) {
 
@@ -493,7 +494,14 @@ public class Encoder {
 			}
 
 		} else {
-			throw new SerealException( "Can't write UTF8 yet" );
+			
+			data.add( new byte[]{ SerealHeader.SRL_HDR_STR_UTF8 } );
+			size++;
+			
+			write_varint( utf8.length );
+			
+			data.add( utf8 );
+			size += utf8.length;
 		}
 
 	}
