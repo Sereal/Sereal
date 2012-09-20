@@ -10,10 +10,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import javax.tools.Diagnostic;
@@ -276,12 +278,23 @@ public class Utils {
 
 	public static String dump(Object o) {
 
-		return dump( o, 0 );
+		String d = dump( o, 0 );
+		already_output.clear();
+		return d;
 	}
 
+	// so we can not overflow our stack with ciruclar refs
+	private static Set<Integer> already_output = new HashSet<Integer>(); 
+	
 	@SuppressWarnings({ "rawtypes", "deprecation" })
 	private static String dump(Object o, int indent) {
 
+		if( o != null && already_output.contains( System.identityHashCode( o ) ) ) {
+			return "@" + System.identityHashCode( o );
+		} else if( o != null) {
+			already_output.add( System.identityHashCode( o ) );
+		}
+		
 		String ind = "";
 		for(int i = 0; i < indent; i++) {
 			ind += "\t";
@@ -303,7 +316,7 @@ public class Utils {
 				// implement Comparable)
 			}
 			for(Object key : array) {
-				sb.append( ind + dump( key ) );
+				sb.append( ind + dump( key, indent + 1 ) );
 				sb.append( " => " );
 				sb.append( dump( map.get( key ), indent + 1 ) );
 				sb.append( "\n" );
@@ -366,7 +379,7 @@ public class Utils {
 					;
 			
 		} else if( o instanceof Alias ) {
-			return "ALIAS: " + dump( ((Alias)o).value );
+			return ind + "ALIAS: " + dump( ((Alias)o).value, indent );
 		} else if( o instanceof PerlReference ) {
 			return ind + "PERLREF@" + System.identityHashCode( o ) +": " + dump( ((PerlReference)o).value, indent);
 		} else if( o instanceof Padded ) {

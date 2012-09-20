@@ -277,7 +277,7 @@ public class Encoder {
 	}
 
 	private void encode(Object obj) throws SerealException {
-
+		
 		int obj_location = size; // location where we start putting this item
 
 		if( tracked.containsKey( obj )) {
@@ -317,6 +317,8 @@ public class Encoder {
 			encode( obj );
 		} else if( type == PerlReference.class ) {
 
+			log.fine("Tracked so far: " + Utils.dump( tracked ));
+			
 			// it could have been a REPF at some point, meaning it points to something we already emitted
 			// So if it is a ref to something we've emitted, we must emit a REFP for that item,
 			// but if it's just a ref then we must emit REFN
@@ -406,6 +408,7 @@ public class Encoder {
 
 		log.fine( "Writing an array of type " + obj.getClass().getComponentType() );
 
+		
 		// checking length without casting to Object[] since they might primitives
 		int count = Array.getLength( obj );
 
@@ -416,6 +419,10 @@ public class Encoder {
 			write_bytearray( (byte[]) obj );
 			return;
 		}
+
+		// double tracking (but not for byte arrays!)
+		log.fine("Tracking " + Utils.dump( obj ) + " at location " + size);
+		tracked.put( obj, size );
 
 		/*
 		 * So in Perl country, you always have arrayrefs.

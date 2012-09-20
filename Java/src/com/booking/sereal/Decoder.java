@@ -218,10 +218,11 @@ public class Decoder implements SerealHeader {
 	 *
 	 * @param tag
 	 *           : lower 4 bits is length or 0 for next varint is length
+	 * @param track we might need to track since array elements could refer to us
 	 * @return
 	 * @throws SerealException
 	 */
-	private Object[] read_array(byte tag) throws SerealException {
+	private Object[] read_array(byte tag, int track) throws SerealException {
 
 		int length = 0;
 		if( tag == 0 ) {
@@ -233,7 +234,10 @@ public class Decoder implements SerealHeader {
 		log.fine( "Array length: " + length );
 
 		Object[] out = new Object[length];
-
+		if( track != 0 ) { // track ourself
+			track_stuff( track, out );
+		}
+		
 		for(int i = 0; i < length; i++) {
 			// could be an alias or a single value
 			if( data.get( data.position() ) == SRL_HDR_ALIAS ) {
@@ -340,7 +344,7 @@ public class Decoder implements SerealHeader {
 			out = hash;
 		} else if( (tag & SRL_HDR_ARRAYREF) == SRL_HDR_ARRAYREF ) {
 			log.fine( "Reading arrayref" );
-			Object[] arr = read_array( tag );
+			Object[] arr = read_array( tag, track );
 			log.fine( "Read arrayref: " + arr );
 			out = arr;
 		} else {
@@ -421,7 +425,7 @@ public class Decoder implements SerealHeader {
 				break;
 			case SRL_HDR_ARRAY:
 				log.fine( "Reading array" );
-				Object[] arr = read_array( (byte) 0 );
+				Object[] arr = read_array( (byte) 0, track );
 				log.fine( "Read array: " + Utils.dump( arr ) );
 				out = arr;
 				break;
@@ -433,13 +437,13 @@ public class Decoder implements SerealHeader {
 				break;
 			case SRL_HDR_PAD:
 				log.fine("Padding byte: skip");
-				return readSingleValue();
+				return preservePadding ? new Padded(readSingleValue()) : readSingleValue();
 			default:
 				throw new SerealException( "Tag not supported: " + tag );
 			}
 		}
 
-		if( track != 0 ) {
+		if( track != 0 ) { // we double-track arrays ATM (but they just overwrite)
 			track_stuff( track, out );
 		}
 		log.fine( "pos: " + data.position() );
