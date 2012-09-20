@@ -307,6 +307,8 @@ public class Encoder {
 			write_array( obj );
 		} else if( type == Pattern.class ) {
 			write_regex( (Pattern)obj );
+		} else if( type == Double.class ) {
+			write_double( (Double)obj );
 		} else if( type == Padded.class ) {
 			// emit pad bytes until we hit a real object
 			while( obj instanceof Padded ) {
@@ -331,16 +333,30 @@ public class Encoder {
 				write_ref( ref.value );
 			}
 			return;// do not track refs to avoid chaining them (example: [\6,\6,\6] should not be [\6,REFP(\6), REFP(REFP(\6))])
-		}
-
+		} 
+		
 		// track it (for COPY and REFP tags)
 		log.fine("Tracking " + Utils.dump( obj ) + " at location " + obj_location);
 		tracked.put( obj, obj_location );
-
+		
 		if( size == obj_location ) {  // didn't write anything
 			throw new SerealException( "Don't know how to encode: " + type.getName() + " = " + obj.toString() );
 		}
 
+	}
+
+	private void write_double(Double d) {
+
+		data.add( new byte[]{ SerealHeader.SRL_HDR_DOUBLE} );
+		size++;
+		
+		long bits = Double.doubleToLongBits(d); // very convienent, thanks Java guys! :)
+		byte[] db = new byte[8];
+		for(int i=0; i<8; i++) {
+			db[i] = (byte) ((bits >> (i*8)) & 0xff);  
+		}
+		data.add( db );
+		size += 8;
 	}
 
 	private void write_ref_previous(Object obj) {
