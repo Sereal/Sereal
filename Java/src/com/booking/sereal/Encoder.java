@@ -307,6 +307,14 @@ public class Encoder {
 			write_array( obj );
 		} else if( type == Pattern.class ) {
 			write_regex( (Pattern)obj );
+		} else if( type == Padded.class ) {
+			// emit pad bytes until we hit a real object
+			while( obj instanceof Padded ) {
+				data.add( new byte[]{ SerealHeader.SRL_HDR_PAD } );
+				size++;
+				obj = ((Padded)obj).value;
+			}
+			encode( obj );
 		} else if( type == PerlReference.class ) {
 
 			// it could have been a REPF at some point, meaning it points to something we already emitted

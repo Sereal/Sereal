@@ -114,6 +114,8 @@ public class Decoder implements SerealHeader {
 
 	private boolean perlRefs = false;
 
+	private boolean preservePadding = false;
+
 	/**
 	 * Create a new Decoder
 	 *
@@ -126,6 +128,7 @@ public class Decoder implements SerealHeader {
 
 		objectType = this.options.containsKey( "object_type" ) ? ((ObjectType) this.options.get( "object_type" )) : ObjectType.PERL_OBJECT;
 		perlRefs = this.options.containsKey( "use_perl_refs" ) ? ((Boolean) this.options.get( "use_perl_refs" )) : false;
+		preservePadding = this.options.containsKey( "preserve_pad_tags" ) ? ((Boolean) this.options.get( "preserve_pad_tags" )) : false;
 	}
 
 	private void checkHeader() throws SerealException {
