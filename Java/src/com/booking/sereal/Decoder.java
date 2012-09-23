@@ -609,6 +609,8 @@ public class Decoder implements SerealHeader {
 		} else if( structure.getClass().isArray() ) {
 			// nothing we can really do here except make Perl objects..
 			return new PerlObject( className, (Object[])structure );
+		} else if( structure instanceof PerlReference ) {
+			return new PerlObject( className, (PerlReference) structure);
 		}
 
 		// it's a regexp for example

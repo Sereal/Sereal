@@ -384,7 +384,17 @@ public class Encoder {
 
 			write_string_type( po.getName() );
 
-			encode( po.isHash() ? po.hashdata : po.arraydata );
+			//ugly and awful
+			if( po.isHash() ) {
+				encode( po.hashdata );
+			}
+			if( po.isArray() ) {
+				encode( po.arraydata );
+			}
+			if( po.isReference() ) {
+				encode( po.refdata );
+			}
+
 		}
 
 
