@@ -3,6 +3,7 @@ package com.booking.sereal;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.net.URI;
@@ -31,7 +32,7 @@ public class Utils {
 
 	/**
 	 * Join a list of strings with a separator
-	 * 
+	 *
 	 * @param items
 	 * @param seperator
 	 * @return the joined list or null if it was empty
@@ -48,7 +49,7 @@ public class Utils {
 
 	/**
 	 * Right reduce a list
-	 * 
+	 *
 	 * @param <V>
 	 * @param items
 	 *           List of V items
@@ -70,7 +71,7 @@ public class Utils {
 
 	/**
 	 * Right fold a list
-	 * 
+	 *
 	 * @param <V>
 	 * @param items
 	 * @param initial
@@ -90,7 +91,7 @@ public class Utils {
 
 	/**
 	 * The thing Java lacks and I need.
-	 * 
+	 *
 	 * @param <IN>
 	 *           Type of the elements in the source
 	 * @param <OUT>
@@ -107,7 +108,7 @@ public class Utils {
 
 	/**
 	 * The thing Java lacks and I need.
-	 * 
+	 *
 	 * @param <IN>
 	 *           Type of the elements in the source
 	 * @param <OUT>
@@ -131,7 +132,7 @@ public class Utils {
 
 	/**
 	 * Combine two items of type T into one.
-	 * 
+	 *
 	 * @param <T>
 	 */
 	public static interface Combiner<T> {
@@ -142,7 +143,7 @@ public class Utils {
 
 		/**
 		 * We don't have function literals which sucks
-		 * 
+		 *
 		 * @param o
 		 * @return
 		 */
@@ -152,7 +153,7 @@ public class Utils {
 
 	/**
 	 * Returns a list of items that match the criteria
-	 * 
+	 *
 	 * @param items
 	 *           list of items
 	 * @param criteria
@@ -170,7 +171,7 @@ public class Utils {
 
 	/**
 	 * Returns a list of items that match all filter criteria
-	 * 
+	 *
 	 * @param <T>
 	 * @param items
 	 * @param filters
@@ -191,7 +192,7 @@ public class Utils {
 
 		/**
 		 * Creates a new filter filtering on some value
-		 * 
+		 *
 		 * @param value
 		 */
 		public Filter(V value) {
@@ -200,7 +201,7 @@ public class Utils {
 
 		/**
 		 * Returns true if item meets some criteria
-		 * 
+		 *
 		 * @param item
 		 * @return
 		 */
@@ -208,7 +209,7 @@ public class Utils {
 
 		/**
 		 * Return the value of this filter
-		 * 
+		 *
 		 * @return
 		 */
 		public V getValue() {
@@ -246,10 +247,10 @@ public class Utils {
 	/**
 	 * Grep a collection of things and produce a new collection of things that
 	 * match the criteria.
-	 * 
+	 *
 	 * Modifying elements in the resulting list will modify those in the original
 	 * list.
-	 * 
+	 *
 	 * @param <T>
 	 * @param items
 	 * @param criteria
@@ -284,8 +285,8 @@ public class Utils {
 	}
 
 	// so we can not overflow our stack with ciruclar refs
-	private static Set<Integer> already_output = new HashSet<Integer>(); 
-	
+	private static Set<Integer> already_output = new HashSet<Integer>();
+
 	@SuppressWarnings({ "rawtypes", "deprecation" })
 	private static String dump(Object o, int indent) {
 
@@ -294,7 +295,7 @@ public class Utils {
 		} else if( o != null) {
 			already_output.add( System.identityHashCode( o ) );
 		}
-		
+
 		String ind = "";
 		for(int i = 0; i < indent; i++) {
 			ind += "\t";
@@ -355,7 +356,7 @@ public class Utils {
 
 		} else if( o.getClass().isArray() ) {
 
-			StringBuilder sb = new StringBuilder( ind + "[\n" );
+			StringBuilder sb = new StringBuilder( ind + "Array@" + System.identityHashCode( o )+" [\n" );
 			int length = Array.getLength( o );
 			for(int i = 0; i < length; i++) {
 				sb.append( dump( Array.get( o, i ), indent + 1 ) );
@@ -367,7 +368,7 @@ public class Utils {
 		}
 		else if ( o instanceof Pattern) {
 			Pattern pat = (Pattern) o;
-			return "/" + pat.pattern() + "/" 
+			return "/" + pat.pattern() + "/"
 					+ (((pat.flags() & Pattern.CANON_EQ) > 0) ? "c" : "")
 					+ (((pat.flags() & Pattern.CASE_INSENSITIVE) > 0) ? "i" : "")
 					+ (((pat.flags() & Pattern.COMMENTS) > 0) ? "x" : "")
@@ -377,13 +378,15 @@ public class Utils {
 					+ (((pat.flags() & Pattern.UNICODE_CASE) > 0) ? "l" : "")
 					+ (((pat.flags() & Pattern.UNIX_LINES) > 0) ? "u" : "")
 					;
-			
+
 		} else if( o instanceof Alias ) {
-			return ind + "ALIAS: " + dump( ((Alias)o).value, indent );
+			return ind + "Alias: " + dump( ((Alias)o).value, indent );
 		} else if( o instanceof PerlReference ) {
-			return ind + "PERLREF@" + System.identityHashCode( o ) +": " + dump( ((PerlReference)o).value, indent);
+			return ind + "Perlref@" + System.identityHashCode( o ) +": " + dump( ((PerlReference)o).value, indent);
 		} else if( o instanceof Padded ) {
 			return ind + "(PAD) " + dump( ((Padded)o).value, 0);
+		} else if( o instanceof WeakReference) {
+			return ind + "(weakref@" + System.identityHashCode( o ) + ") " + dump( ((WeakReference)o).get(), 0 );
 		} else {
 			// ad system ident hascode (which is normally memory location) so you
 			// can see if things point to the same
@@ -392,13 +395,21 @@ public class Utils {
 
 	}
 
-	public static String hexStringFromByteArray(byte[] in) {
+	public static String hexStringFromByteArray(byte[] in, int... grouping) {
 		String out = "";
 
+		int group = -1;//no group;
+		if( grouping.length > 0) {
+			group = grouping[0];
+		}
+
+		int count =0;
 		for(byte b : in) {
 			// System.out.println(b + " -> " + (b & 0xFF));
 			out += ((b & 0xFF) < 16 ? "0" : "") + Integer.toHexString( b & 0xFF );
-
+			if( group > 0 && (++count % group == 0) ) {
+				out += " ";
+			}
 		}
 
 		return "0x" + out;
@@ -437,7 +448,7 @@ public class Utils {
 				Field f = c.getDeclaredField( entry.getKey() );
 				f.set( instance, entry.getValue() );
 			}
-			
+
 		} catch (InstantiationException e) {
 			e.printStackTrace();
 		} catch (IllegalAccessException e) {
@@ -459,7 +470,7 @@ public class Utils {
 		public Object makeClass(String name, Map<String, Object> data) {
 			/* Creating dynamic java source code file object */
 
-				
+
 			String code = "package "+root_package+";\n" + "public class " + name + " {\n ";
 			for(Entry<String, Object> entry : data.entrySet()) {
 				code += "public "  + entry.getValue().getClass().getCanonicalName() + " " + entry.getKey() + ";\n";
@@ -467,7 +478,7 @@ public class Utils {
 			code += "}";
 
 			System.err.println("CODE: " + code);
-			
+
 			SimpleJavaFileObject fileObject = new DynamicJavaSourceCodeObject( name, code );
 
 			// new DynamicJavaSourceCodeObject
@@ -482,7 +493,7 @@ public class Utils {
 			 * used to provide
 			 * basic building block for customizing how a compiler reads and writes
 			 * to files.
-			 * 
+			 *
 			 * The same file manager can be reopened for another compiler task.
 			 * Thus we reduce the overhead of scanning through file system and jar
 			 * files each time
@@ -552,7 +563,7 @@ public class Utils {
 					e.printStackTrace();
 				}
 			}
-			
+
 			try {
 				stdFileManager.close();// Close the file manager
 			} catch (IOException e) {
@@ -569,8 +580,8 @@ public class Utils {
 			/**
 			 * Converts the name to an URI, as that is the format expected by
 			 * JavaFileObject
-			 * 
-			 * 
+			 *
+			 *
 			 * @param fully
 			 *           qualified name given to the class file
 			 * @param code
