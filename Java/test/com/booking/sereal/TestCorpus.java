@@ -3,6 +3,7 @@ package com.booking.sereal;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -28,8 +29,10 @@ import com.booking.sereal.Utils.Function;
  */
 public class TestCorpus {
 
+	private static StructureDecoder sd = new StructureDecoder();
 	private static Decoder dec;
 	private static Encoder enc;
+	static boolean writeEncoded = false;
 
 	static {
 		Map<String, Object> decoder_options = new HashMap<String, Object>();
@@ -47,7 +50,7 @@ public class TestCorpus {
 	 */
 	public static void main(String[] args) throws IOException {
 
-		String manual =  "../test_dir/test_data_00020";
+		String manual = null; //"../test_dir/test_data_00026";
 
 		if( args.length == 0 && manual == null ) {
 			throw new UnsupportedOperationException( "Usage: Example [test_dir OR test_data_00XXXX]" );
@@ -79,9 +82,17 @@ public class TestCorpus {
 		try {
 			System.out.println( "Roundtrip encoding " + target.getName() );
 
+			System.out.println("For the puny humans: " + sd.decodeFile( target ));
+
 			Object data = dec.decodeFile( target );
-			dec.log.fine( "****Decoding Done: " + Utils.dump( data ) );
+			System.out.println( "\nDecoding Done: " + Utils.dump( data ) + "\n");
 			ByteBuffer encoded = enc.write( data );
+
+			if( writeEncoded ) {
+				FileOutputStream fos = new FileOutputStream( new File(target.getAbsolutePath() + "_java_encoded") );
+				fos.write( encoded.array() );
+				fos.close();
+			}
 
 			FileInputStream fis = new FileInputStream( target );
 			ByteBuffer buf = ByteBuffer.allocate( (int) target.length() );
@@ -130,7 +141,7 @@ public class TestCorpus {
 		for(File test : tests) {
 
 			boolean success = roundtrip( test );
-			if( false && !success ) {
+			if( !success ) {
 				System.out.println( "Aborting after first error" );
 				return;
 			}
