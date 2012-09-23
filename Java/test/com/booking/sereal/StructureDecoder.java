@@ -31,7 +31,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 public class StructureDecoder {
 	private ByteBuffer buf;
@@ -138,6 +137,7 @@ public class StructureDecoder {
 				break;
 			case SRL_HDR_OBJECT:
 				sb.append("object");
+				read_object();
 				break;
 			case SRL_HDR_COPY:
 				sb.append("copy offset=" + read_varint());
@@ -175,9 +175,11 @@ public class StructureDecoder {
 
 	}
 
-	private Pattern read_regex() {
-		// TODO Auto-generated method stub
-		return null;
+	private void read_regex() {
+		read(); // string pattern
+		sb.append("=pattern");
+		read_short_binary( buf.get() ); // modifiers
+		sb.append("=modifiers");
 	}
 
 	private Object read_copy() {
@@ -185,9 +187,9 @@ public class StructureDecoder {
 		return null;
 	}
 
-	private Object read_object() {
-		// TODO Auto-generated method stub
-		return null;
+	private void read_object() {
+		read(); //string name
+		read(); // data;
 	}
 
 	private void track_stuff(int track, PerlReference refn) {
@@ -236,6 +238,7 @@ public class StructureDecoder {
 		}
 		sb.append( " count=" + length );
 		for(int i=0; i<length; i++) {
+			sb.append(" item: " + i);
 			read();
 		}
 	}
