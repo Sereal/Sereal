@@ -33,6 +33,7 @@ public class TestCorpus {
 	private static Decoder dec;
 	private static Encoder enc;
 	static boolean writeEncoded = false;
+	static boolean abortOnFirstError = true;
 
 	static {
 		Map<String, Object> decoder_options = new HashMap<String, Object>();
@@ -50,7 +51,7 @@ public class TestCorpus {
 	 */
 	public static void main(String[] args) throws IOException {
 
-		String manual = null; //"../test_dir/test_data_00026";
+		String manual = "../test_dir/test_data_00035";
 
 		if( args.length == 0 && manual == null ) {
 			throw new UnsupportedOperationException( "Usage: Example [test_dir OR test_data_00XXXX]" );
@@ -97,8 +98,8 @@ public class TestCorpus {
 			FileInputStream fis = new FileInputStream( target );
 			ByteBuffer buf = ByteBuffer.allocate( (int) target.length() );
 			fis.getChannel().read( buf );
-			System.out.println( "From file: " + Utils.hexStringFromByteArray( buf.array() ) );
-			System.out.println( "Encoded  : " + Utils.hexStringFromByteArray( encoded.array() ) );
+			System.out.println( "From file: " + Utils.hexStringFromByteArray( buf.array(), 4 ) );
+			System.out.println( "Encoded  : " + Utils.hexStringFromByteArray( encoded.array(), 4 ) );
 			Assert.assertArrayEquals( "Roundtrip fail for: " + target.getName(), buf.array(), encoded.array() );
 			System.out.println( "Roundtrip Success!" );
 		} catch (SerealException e) {
@@ -109,6 +110,9 @@ public class TestCorpus {
 			return false;
 		} catch (AssertionError a) {
 			System.out.println( a.getMessage() );
+			return false;
+		} catch (Exception e) {
+			System.out.println( e.getMessage() );
 			return false;
 		}
 
@@ -141,7 +145,7 @@ public class TestCorpus {
 		for(File test : tests) {
 
 			boolean success = roundtrip( test );
-			if( !success ) {
+			if( abortOnFirstError && !success ) {
 				System.out.println( "Aborting after first error" );
 				return;
 			}

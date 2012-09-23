@@ -41,24 +41,12 @@ public class RoundtripTest {
 		int t = 1 * 1000 * 1000; // test a million random ints
 		while( t-- > 0 ) {
 			int n = rand.nextInt( Integer.MAX_VALUE );
-			decoder.setData( ByteBuffer.wrap( encoder.write_varint( n ) ) );
+			decoder.setData( ByteBuffer.wrap( encoder.varintFromLong(n) ) );
 			assertTrue( "Varint not decoded correctly: " + n, decoder.read_varint() == n );
 		}
 
 	}
 
-	@Test
-	public void zigzag() {
-
-		// iterate like 0, -1, 1, -2, 2, ...
-		for(long n = 0; n < 100 * 1000; n++) {
-			decoder.setData( ByteBuffer.wrap( encoder.write_zigzag( n ) ) );
-			assertEquals( "Zigzag not decoded correctly: " + n, decoder.read_zigzag(), n );
-			decoder.setData( ByteBuffer.wrap( encoder.write_zigzag( -n ) ) );
-			assertEquals( "Zigzag not decoded correctly: " + (-n), decoder.read_zigzag(), -n );
-		}
-
-	}
 
 	@Test
 	public void regex() {
@@ -75,7 +63,7 @@ public class RoundtripTest {
 
 			try {
 				encoder.reset();
-				
+
 				decoder.setData( encoder.write( p ) );
 				Pattern actual = (Pattern) decoder.decode();
 
@@ -96,7 +84,7 @@ public class RoundtripTest {
 		while( n-- > 0 ) {
 
 			encoder.reset();
-			
+
 			// make some random bytes
 			byte[] pre = new byte[rand.nextInt( 100 )];
 			rand.nextBytes( pre );

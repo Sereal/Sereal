@@ -11,6 +11,7 @@ import static com.booking.sereal.SerealHeader.SRL_HDR_HASH;
 import static com.booking.sereal.SerealHeader.SRL_HDR_HASHREF;
 import static com.booking.sereal.SerealHeader.SRL_HDR_NEG_HIGH;
 import static com.booking.sereal.SerealHeader.SRL_HDR_OBJECT;
+import static com.booking.sereal.SerealHeader.SRL_HDR_OBJECTV;
 import static com.booking.sereal.SerealHeader.SRL_HDR_PAD;
 import static com.booking.sereal.SerealHeader.SRL_HDR_POS_HIGH;
 import static com.booking.sereal.SerealHeader.SRL_HDR_REFN;
@@ -131,6 +132,7 @@ public class StructureDecoder {
 				break;
 			case SRL_HDR_REFN:
 				sb.append( "refn" );
+				read();
 				break;
 			case SRL_HDR_REFP:
 				sb.append("refp to " + read_varint());
@@ -138,6 +140,10 @@ public class StructureDecoder {
 			case SRL_HDR_OBJECT:
 				sb.append("object");
 				read_object();
+				break;
+			case SRL_HDR_OBJECTV:
+				sb.append("objectv at " + read_varint()); // offset to classname!
+				read(); // actual item
 				break;
 			case SRL_HDR_COPY:
 				sb.append("copy offset=" + read_varint());
