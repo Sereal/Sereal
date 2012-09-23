@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
@@ -43,7 +44,7 @@ public class Decoder implements SerealHeader {
 		@Override
 		public void fine(String info) {
 			if( level.intValue() <= Level.FINE.intValue() ) {
-				System.out.println( "FINE: " + info );
+				System.out.println( info );
 			}
 		}
 
@@ -237,14 +238,9 @@ public class Decoder implements SerealHeader {
 		if( track != 0 ) { // track ourself
 			track_stuff( track, out );
 		}
-		
+
 		for(int i = 0; i < length; i++) {
-			// could be an alias or a single value
-			if( data.get( data.position() ) == SRL_HDR_ALIAS ) {
-				out[i] = new Alias( read_previous() );
-			} else {
-				out[i] = readSingleValue();
-			}
+			out[i] = readSingleValue();
 			log.fine( "Read array element " + i + ": " + Utils.dump( out[i] ) );
 		}
 
@@ -287,7 +283,7 @@ public class Decoder implements SerealHeader {
 		return hash;
 	}
 
-	private Object read_previous() {
+	private Object get_tracked_item() {
 		long offset = read_varint();
 		log.fine( "Creating ref to item previously read at offset: " + offset + " which is: " + tracked.get( "track_" + offset ) );
 		log.fine( "keys: " + tracked.keySet() + " vals: " + tracked.values() );
@@ -391,15 +387,23 @@ public class Decoder implements SerealHeader {
 				break;
 			case SRL_HDR_REFN:
 				log.fine( "Reading ref to next" );
-				Object o = perlRefs ? new PerlReference(readSingleValue()) : readSingleValue();
-				log.fine( "Read ref: " + Utils.dump( o ) );
-				out = o;
+				if( perlRefs ) {
+					PerlReference refn = new PerlReference();
+					if( track != 0 ) {
+						track_stuff( track, refn );
+					}
+					refn.value = readSingleValue();
+					out = refn;
+				} else {
+					out = readSingleValue();
+				}
+				log.fine( "Read ref: " + Utils.dump( out ) );
 				break;
 			case SRL_HDR_REFP:
 				log.fine( "Reading REFP (ref to prev)" );
 				long offset_prev = read_varint();
 				if( !tracked.containsKey( "track_" + offset_prev ) ) {
-					throw new SerealException( "REFP to offset " + offset_prev + "which is not tracked" );
+					throw new SerealException( "REFP to offset " + offset_prev + ", which is not tracked" );
 				}
 				Object prv_value = tracked.get( "track_" + offset_prev );
 				Object prev = perlRefs ? new PerlReference(prv_value) : prv_value;
@@ -417,6 +421,23 @@ public class Decoder implements SerealHeader {
 				Object copy = read_copy();
 				log.fine( "Read copy: " + copy );
 				out = copy;
+				break;
+			case SRL_HDR_ALIAS:
+				log.fine("Reading an alias");
+				Object alias = new Alias(get_tracked_item());
+				log.fine( "Read alias: " + Utils.dump( alias ) );
+				out = alias;
+				break;
+			case SRL_HDR_WEAKEN:
+				log.fine("Weakening the next thing");
+				// so the next thing HAS to be a ref (afaict) which means we can track it
+				PerlReference placeHolder = new PerlReference();
+				WeakReference wref = new WeakReference( placeHolder );
+				if( track != 0 ) {
+					track_stuff( track, wref );
+				}
+				placeHolder.value = ((PerlReference)readSingleValue()).value;
+				out = wref;
 				break;
 			case SRL_HDR_HASH:
 				Object hash = read_hash( (byte) 0 );
@@ -446,12 +467,12 @@ public class Decoder implements SerealHeader {
 		if( track != 0 ) { // we double-track arrays ATM (but they just overwrite)
 			track_stuff( track, out );
 		}
-		log.fine( "pos: " + data.position() );
-		log.fine( "readSingleValue: " + out );
+		log.fine( "returning: " + out );
 
 		return out;
 
 	}
+
 
 	/**
 	 * Read a short binary ASCII string, the lower bits of the tag hold the length
