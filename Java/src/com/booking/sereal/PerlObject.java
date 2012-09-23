@@ -11,29 +11,11 @@ import java.util.Map;
 public class PerlObject {
 
 	private String name;
-	public final Map<String, Object> hashdata;
-	public final Object[] arraydata;
-	public final PerlReference refdata;
+	public final Object data;
 
-	public PerlObject(String name, Map<String, Object> data) {
-		this.name = name;
-		this.hashdata = data;
-		this.arraydata = null;
-		this.refdata = null;
-	}
-
-	public PerlObject(String name, Object[] data) {
-		this.name = name;
-		this.arraydata = data;
-		this.hashdata = null;
-		this.refdata = null;
-	}
-
-	public PerlObject(String name, PerlReference data) {
-		this.name = name;
-		this.arraydata = null;
-		this.hashdata = null;
-		this.refdata = data;
+	public PerlObject(String className, Object obj) {
+		this.name = className;
+		this.data = obj;
 	}
 
 	public String getName() {
@@ -41,14 +23,14 @@ public class PerlObject {
 	}
 
 	public boolean isHash() {
-		return hashdata != null;
+		return data.getClass() == Map.class;
 	}
 
 	public boolean isArray() {
-		return arraydata != null;
+		return data.getClass().isArray();
 	}
 
 	public boolean isReference() {
-		return refdata != null;
+		return !isHash() && !isArray();
 	}
 }
