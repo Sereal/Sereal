@@ -587,6 +587,7 @@ public class Decoder implements SerealHeader {
 
 		// now read the struct (better be a hash!)
 		Object structure = readSingleValue();
+		log.fine( "Type: " + structure.getClass().getName() );
 		if( structure instanceof Map ) {
 			// now "bless" this into a class, perl style
 			@SuppressWarnings("unchecked")
@@ -605,6 +606,9 @@ public class Decoder implements SerealHeader {
 				}
 
 			}
+		} else if( structure.getClass().isArray() ) {
+			// nothing we can really do here except make Perl objects..
+			return new PerlObject( className, (Object[])structure );
 		}
 
 		// it's a regexp for example

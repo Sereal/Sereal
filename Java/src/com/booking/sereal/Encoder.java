@@ -375,6 +375,16 @@ public class Encoder {
 
 			write_alias( ((Alias)obj).value );
 
+		} else if( type == PerlObject.class ) {
+
+			PerlObject po = (PerlObject) obj;
+
+			data.add( new byte[]{ SerealHeader.SRL_HDR_OBJECT } );
+			size++;
+
+			write_string_type( po.getName() );
+
+			encode( po.isHash() ? po.hashdata : po.arraydata );
 		}
 
 
