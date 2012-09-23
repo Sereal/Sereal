@@ -389,7 +389,7 @@ public class Utils {
 			return ind + "(weakref@" + System.identityHashCode( o ) + ") " + dump( ((WeakReference)o).get(), 0 );
 		} else if( o instanceof PerlObject) {
 			PerlObject po = (PerlObject) o;
-			return ind + "Object("+(po.isHash()?"hash":(po.isArray()?"array":"reference"))+"):" + po.getName() + "= " + dump( po.isHash() ? po.hashdata : po.arraydata, 0 );
+			return ind + "Object("+(po.isHash()?"hash":(po.isArray()?"array":"reference"))+"):" + po.getName() + "= " + dump( po.data, 0 );
 		} else {
 			// ad system ident hascode (which is normally memory location) so you
 			// can see if things point to the same
