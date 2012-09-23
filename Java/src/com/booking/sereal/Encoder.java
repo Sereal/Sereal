@@ -59,6 +59,8 @@ public class Encoder {
 
 	private final Map<String, Object> options;
 
+	private final Map<String, Integer> saved_classnames = new HashMap<String, Integer>();
+
 	private final byte[] HEADER = ByteBuffer.allocate( 4 ).putInt( SerealHeader.MAGIC ).array();
 
 	// track things we've encoded so we can emit refs and copies
@@ -73,6 +75,8 @@ public class Encoder {
 	private Map<Object, Integer> refcounts = new HashMap<Object, Integer>();
 
 	private Map<Object, Integer> arrayrefs = new HashMap<Object, Integer>();
+
+	private Map<Integer, Integer> refp_segments = new HashMap<Integer, Integer>();
 
 	public Encoder(Map<String, Object> options) {
 
@@ -103,35 +107,63 @@ public class Encoder {
 	 */
 	public ByteBuffer getData() {
 
+		/**
+		 * If anything needs overhaul, this is it. Optimistically emitting ARRAYREF tags for small arrays
+		 * and the changing them to REFN ARRAYs after encoding everything looks nice, but it requires
+		 * patching up offsets of REFP and ALIAS which is ugly (emitting a placeholder for the REFP offset,
+		 * saving the REFP, saving the segment it points to, then figuring out the actual offset to that
+		 * segment after the arrayref/array nonsense).
+		 *
+		 * Maybe: figure out refcounts for arrays in a different way
+		 * Maybe: track offsets in a different way
+		 * Maybe: convince people the whole ARRAYREF/REFN ARRAY is BS when ARRAYREF is reused if it's refcount
+		 * equals 1 to save a byte.
+		 */
+
+
+		// set tracking bits for everything we tracked
+		for(int segment : tracked_and_used) {
+			byte[] tag_data = data.get( segment );
+			log.fine( "Setting a tracking bit for " +  Utils.hexStringFromByteArray( tag_data ) + ", segment: " + segment );
+			tag_data[0] |= SerealHeader.SRL_HDR_TRACK_FLAG;
+			log.fine( "Setting a tracking bit for " +  Utils.hexStringFromByteArray( tag_data ) + ", segment: " + segment );
+		}
 
 		// now that everything is encoded, we have correct refcounts of arrays,
-		// so we should convert any that are SRL_HDR_ARRAYREF to SRL_HDR_ARRAY+count if their refcount != 1
+		// so we should convert any that are SRL_HDR_ARRAYREF to SRL_HDR_ARRAY+count if their refcount > 1
 		log.fine("Refcounts: " + Utils.dump( refcounts ));
 		for(Entry<Object, Integer> entry : arrayrefs.entrySet()){
 			int segment = entry.getValue();
 			log.fine("Arrayref fixups: segment="+segment + " refcount:" + refcounts.get( entry.getKey() ) + " array= " + Utils.dump( entry.getKey() ));
 			if( refcounts.containsKey( entry.getKey() ) && refcounts.get( entry.getKey() ) > 1) {
 				byte[] tag_data = data.get( segment );
+				byte track_mask = (byte) (tag_data[0] & SerealHeader.SRL_HDR_TRACK_FLAG);
+				byte count = (byte) (tag_data[0] & ~SerealHeader.SRL_HDR_TRACK_FLAG);
 				// we already have the REFN set
 				data.set( segment, new byte[]{
-						SerealHeader.SRL_HDR_ARRAY,
-						(byte) (tag_data[0] & ~SerealHeader.SRL_HDR_ARRAYREF_LOW)} // varints < 16 are always a byte :)
+						(byte) (SerealHeader.SRL_HDR_ARRAY | track_mask),
+						(byte) (count & ~SerealHeader.SRL_HDR_ARRAYREF_LOW)} // varints < 16 are always a byte :)
 				);
 				size += 1;// we added 1 byte
-				log.fine( "Converted to: " + Utils.hexStringFromByteArray( data.get( segment ) ) );
+				log.fine( "Converted " + Utils.hexStringFromByteArray( tag_data ) + " to: " + Utils.hexStringFromByteArray( data.get( segment ) ) );
 			}
+		}
+
+		// now that possible expansions have happened, we need to take all REFPs (that point to segments)
+		// and translate them to offsets. FUBAR
+		for(Entry<Integer, Integer> entry : refp_segments.entrySet() ) { // segment where the refp is
+			log.fine( "Translating segment to offset for refp segment: " + entry.getKey() + " pointing to segment: " + entry.getValue());
+
+			int offset = 0;
+			for(int s=0; s<entry.getValue(); s++) {
+				offset += data.get( s ).length;
+			}
+			log.fine( "Offset is: " + offset );
+			data.set( entry.getKey(), varintFromLong( offset ) );
 		}
 
 		// concat all the segments
 		ByteBuffer buf = concatSegments();
-
-		// set tracking bits for everything we tracked
-		for(int offset : tracked_and_used) {
-			log.fine( "Setting a tracking bit for " +  Utils.hexStringFromByteArray( new byte[]{ buf.get( offset )} ) + " at offset " + offset );
-			buf.position( offset );
-			buf.put( (byte) (buf.get( offset ) | SerealHeader.SRL_HDR_TRACK_FLAG) );
-		}
-
 
 		buf.rewind();
 
@@ -140,8 +172,9 @@ public class Encoder {
 
 	private ByteBuffer concatSegments() {
 		ByteBuffer buf = ByteBuffer.allocate( size );
+		int s = 0;
 		for(byte[] segment : data) {
-			log.fine("getData(): Segment: " + Utils.hexStringFromByteArray( segment ));
+			log.fine("getData(): Segment " + (s++) + ": " + Utils.hexStringFromByteArray( segment ));
 			buf.put( segment );
 		}
 		return buf;
@@ -157,8 +190,14 @@ public class Encoder {
 	 *           positive integer
 	 * @return
 	 */
-	byte[] write_varint(long n) {
+	void write_varint(long n) {
 
+		byte[] copy = varintFromLong( n );
+		data.add( copy );
+		size += copy.length;
+	}
+
+	byte[] varintFromLong(long n) {
 		int length = 0;
 
 		while( n > 127 ) {
@@ -168,8 +207,6 @@ public class Encoder {
 		varint_buf[length++] = (byte) n;
 
 		byte[] copy = Arrays.copyOf( varint_buf, length );
-		data.add( copy );
-		size += copy.length;
 		return copy;
 	}
 
@@ -179,9 +216,9 @@ public class Encoder {
 	 * @param n
 	 * @return
 	 */
-	byte[] write_zigzag(long n) {
+	void write_zigzag(long n) {
 
-		return write_varint( (n << 1) ^ (n >> 63) ); // note the unsigned right shift
+		write_varint( (n << 1) ^ (n >> 63) ); // note the unsigned right shift
 	}
 
 	/**
@@ -197,7 +234,7 @@ public class Encoder {
 		log.fine( "Writing short binary: " + s );
 
 		// maybe we can just COPY (but obviously not emit a copy tag for ourselves)
-		if( isTracked( s ) && getTrackedItem( s ) != size ) {
+		if( isTracked( s ) && getTrackedItem( s ) != data.size() ) {
 			write_copy( s );
 			return;
 		}
@@ -308,7 +345,6 @@ public class Encoder {
 
 	private void encode(Object obj) throws SerealException {
 
-		int obj_location = size; // location where we start putting this item
 
 		log.fine("Currently tracked: " + Utils.dump( tracked ));
 
@@ -330,6 +366,7 @@ public class Encoder {
 
 
 		// track it (for COPY and REFP tags)
+		int obj_location = data.size(); // segment where we start putting this item
 		track( obj, obj_location );
 
 		// this is ugly :)
@@ -379,21 +416,7 @@ public class Encoder {
 
 			PerlObject po = (PerlObject) obj;
 
-			data.add( new byte[]{ SerealHeader.SRL_HDR_OBJECT } );
-			size++;
-
-			write_string_type( po.getName() );
-
-			//ugly and awful
-			if( po.isHash() ) {
-				encode( po.hashdata );
-			}
-			if( po.isArray() ) {
-				encode( po.arraydata );
-			}
-			if( po.isReference() ) {
-				encode( po.refdata );
-			}
+			write_object( po );
 
 		}
 
@@ -402,6 +425,31 @@ public class Encoder {
 		if( size == obj_location ) {  // didn't write anything
 			throw new SerealException( "Don't know how to encode: " + type.getName() + " = " + obj.toString() );
 		}
+
+	}
+
+	private void write_object(PerlObject po) throws SerealException {
+
+		if( saved_classnames.containsKey( po.getName() ) ) {
+			log.fine("Already emitted this classname, making objectv for " + po.getName());
+
+			data.add( new byte[]{ SerealHeader.SRL_HDR_OBJECTV } );
+			size++;
+
+			write_varint( saved_classnames.get( po.getName() ) ); // offset of the string of the classname
+
+		} else {
+
+			data.add( new byte[]{ SerealHeader.SRL_HDR_OBJECT } );
+			size++;
+
+			saved_classnames.put( po.getName(), size );
+
+			write_string_type( po.getName() );
+		}
+
+		// write the data structure
+		encode( po.data );
 
 	}
 
@@ -445,6 +493,7 @@ public class Encoder {
 		data.add( new byte[]{ SerealHeader.SRL_HDR_REFP } );
 		size++;
 
+		refp_segments.put( data.size(), prev_location );
 		write_varint( prev_location );
 
 		tracked_and_used.add( prev_location );
@@ -458,6 +507,7 @@ public class Encoder {
 		data.add( new byte[]{ SerealHeader.SRL_HDR_ALIAS } );
 		size++;
 
+		refp_segments.put( data.size(), prev_location );
 		write_varint( prev_location );
 
 		tracked_and_used.add( prev_location );
@@ -531,7 +581,7 @@ public class Encoder {
 		}
 
 		// double tracking (but not for byte arrays!)
-		track(obj, size);
+		track(obj, data.size());
 
 		refcount(obj, 1); // in Perl arrays are always implicitly refs
 
@@ -635,6 +685,8 @@ public class Encoder {
 		tracked.clear();
 		tracked_and_used.clear();
 		refcounts.clear();
+		saved_classnames.clear();
+		refp_segments.clear();
 		init();
 	}
 
