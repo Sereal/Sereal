@@ -416,6 +416,12 @@ public class Decoder implements SerealHeader {
 				log.fine( "Read object: " + obj );
 				out = obj;
 				break;
+			case SRL_HDR_OBJECTV:
+				log.fine( "Reading an objectv" );
+				String className = (String) get_tracked_item();
+				log.fine( "Read an objectv of class: " + className);
+				out = new PerlObject( className, readSingleValue() );
+				break;
 			case SRL_HDR_COPY:
 				log.fine( "Reading a copy" );
 				Object copy = read_copy();
@@ -573,6 +579,8 @@ public class Decoder implements SerealHeader {
 	private Object read_object() throws SerealException {
 
 		// first read the classname
+		// Maybe we should have some kind of read_string() method?
+		int position = data.position();
 		byte tag = data.get();
 		String className;
 		if( (tag & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW ) {
@@ -583,11 +591,14 @@ public class Decoder implements SerealHeader {
 		} else {
 			throw new SerealException( "Don't know how to read classname from tag" + tag );
 		}
-		log.fine( "Classname: " + className );
+		// apparently class names do not need a track_bit set to be the target of objectv's. WTF
+		track_stuff( position, className );
+
+		log.fine( "Object Classname: " + className );
 
 		// now read the struct (better be a hash!)
 		Object structure = readSingleValue();
-		log.fine( "Type: " + structure.getClass().getName() );
+		log.fine( "Object Type: " + structure.getClass().getName() );
 		if( structure instanceof Map ) {
 			// now "bless" this into a class, perl style
 			@SuppressWarnings("unchecked")
@@ -608,9 +619,9 @@ public class Decoder implements SerealHeader {
 			}
 		} else if( structure.getClass().isArray() ) {
 			// nothing we can really do here except make Perl objects..
-			return new PerlObject( className, (Object[])structure );
+			return new PerlObject( className, structure );
 		} else if( structure instanceof PerlReference ) {
-			return new PerlObject( className, (PerlReference) structure);
+			return new PerlObject( className, structure);
 		}
 
 		// it's a regexp for example
