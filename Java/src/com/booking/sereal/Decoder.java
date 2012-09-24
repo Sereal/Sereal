@@ -9,6 +9,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.Charset;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
@@ -270,7 +271,7 @@ public class Decoder implements SerealHeader {
 			num_keys = tag & 15;
 		}
 
-		Map<String, Object> hash = new HashMap<String, Object>( (int) num_keys );
+		Map<String, Object> hash = new LinkedHashMap<String, Object>( (int) num_keys );
 
 		log.fine( "Reading " + num_keys + " hash elements" );
 
@@ -481,7 +482,7 @@ public class Decoder implements SerealHeader {
 
 
 	/**
-	 * Read a short binary ASCII string, the lower bits of the tag hold the length
+	 * Read a short binary ISO-8859-1 (latin1) string, the lower bits of the tag hold the length
 	 * @param tag
 	 * @return
 	 */
@@ -490,7 +491,7 @@ public class Decoder implements SerealHeader {
 		log.fine( "Short binary, length: " + length );
 		byte[] buf = new byte[length];
 		data.get( buf );
-		return Charset.forName( "US-ASCII" ).decode( ByteBuffer.wrap( buf ) ).toString();
+		return Charset.forName( "ISO-8859-1" ).decode( ByteBuffer.wrap( buf ) ).toString();
 	}
 
 	/**
