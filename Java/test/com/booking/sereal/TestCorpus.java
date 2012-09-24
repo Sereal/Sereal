@@ -33,7 +33,8 @@ public class TestCorpus {
 	private static Decoder dec;
 	private static Encoder enc;
 	static boolean writeEncoded = false;
-	static boolean abortOnFirstError = true;
+	static boolean abortOnFirstError = false;
+	static boolean verbose = false;
 
 	static {
 		Map<String, Object> decoder_options = new HashMap<String, Object>();
@@ -45,13 +46,18 @@ public class TestCorpus {
 	}
 
 	/**
+	 * Broken tests atm:
+	 * 00035: I don't even...
+	 * 00036: broken: unicode string that is actually latin1
+	 * 00085: long unicode string that contains only latin1, so we can't roundtrip...
+	 *
 	 * @param args
 	 * @throws IOException
 	 * @throws SerealException
 	 */
 	public static void main(String[] args) throws IOException {
 
-		String manual = "../test_dir/test_data_00035";
+		String manual = null;//"../test_dir/test_data_00101";
 
 		if( args.length == 0 && manual == null ) {
 			throw new UnsupportedOperationException( "Usage: Example [test_dir OR test_data_00XXXX]" );
@@ -67,6 +73,7 @@ public class TestCorpus {
 			System.out.println( "Running decoder on all test files in " + target.getCanonicalPath() );
 			decodeAllTests( target );
 		} else {
+			verbose = true;
 			System.out.println( "Decoding a single file: " + target.getAbsolutePath() );
 			// more logging
 			dec.log.setLevel( Level.FINE );
@@ -81,16 +88,16 @@ public class TestCorpus {
 		enc.reset();
 
 		try {
-			System.out.println( "Roundtrip encoding " + target.getName() );
-
-			System.out.println("For the puny humans: " + sd.decodeFile( target ));
+			System.out.print( "Roundtrip encoding " + target.getName() );
 
 			Object data = dec.decodeFile( target );
-			System.out.println( "\nDecoding Done: " + Utils.dump( data ) + "\n");
+			if( verbose ) {
+				System.out.println( "\nDecoding Done: " + Utils.dump( data ) + "\n" );
+			}
 			ByteBuffer encoded = enc.write( data );
 
 			if( writeEncoded ) {
-				FileOutputStream fos = new FileOutputStream( new File(target.getAbsolutePath() + "_java_encoded") );
+				FileOutputStream fos = new FileOutputStream( new File( target.getAbsolutePath() + "_java_encoded" ) );
 				fos.write( encoded.array() );
 				fos.close();
 			}
@@ -98,10 +105,13 @@ public class TestCorpus {
 			FileInputStream fis = new FileInputStream( target );
 			ByteBuffer buf = ByteBuffer.allocate( (int) target.length() );
 			fis.getChannel().read( buf );
-			System.out.println( "From file: " + Utils.hexStringFromByteArray( buf.array(), 4 ) );
-			System.out.println( "Encoded  : " + Utils.hexStringFromByteArray( encoded.array(), 4 ) );
+			if( verbose ) {
+				System.out.println( "From file: " + Utils.hexStringFromByteArray( buf.array(), 4 ) );
+				System.out.println( "Encoded  : " + Utils.hexStringFromByteArray( encoded.array(), 4 ) );
+				System.out.println( "\nStructure: " + sd.decodeFile( target ) );
+			}
 			Assert.assertArrayEquals( "Roundtrip fail for: " + target.getName(), buf.array(), encoded.array() );
-			System.out.println( "Roundtrip Success!" );
+			System.out.println( ": Success!" );
 		} catch (SerealException e) {
 			e.printStackTrace( System.out );
 			return false;
@@ -109,10 +119,18 @@ public class TestCorpus {
 			e.printStackTrace();
 			return false;
 		} catch (AssertionError a) {
-			System.out.println( a.getMessage() );
+			if( verbose ) {
+				System.out.println( a.getMessage() );
+			} else {
+				System.out.println( ": Fail" );
+			}
 			return false;
 		} catch (Exception e) {
-			System.out.println( e.getMessage() );
+			if( verbose ) {
+				e.printStackTrace();
+			} else {
+				System.out.println( ": Fail" );
+			}
 			return false;
 		}
 
@@ -152,7 +170,7 @@ public class TestCorpus {
 			win += success ? 1 : 0;
 
 		}
-		System.out.printf( "Ratio: %d/%d = %.2f%%\n", win, tests.size(), ((double) 100*win / tests.size()) );
+		System.out.printf( "Ratio: %d/%d = %.2f%%\n", win, tests.size(), ((double) 100 * win / tests.size()) );
 
 	}
 
