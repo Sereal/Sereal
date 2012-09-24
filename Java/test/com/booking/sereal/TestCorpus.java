@@ -57,7 +57,7 @@ public class TestCorpus {
 	 */
 	public static void main(String[] args) throws IOException {
 
-		String manual = null;//"../test_dir/test_data_00101";
+		String manual = "../test_dir/test_data_00096";
 
 		if( args.length == 0 && manual == null ) {
 			throw new UnsupportedOperationException( "Usage: Example [test_dir OR test_data_00XXXX]" );
