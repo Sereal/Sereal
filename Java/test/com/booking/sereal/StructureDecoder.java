@@ -31,14 +31,10 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Map;
 
 public class StructureDecoder {
 	private ByteBuffer buf;
 	private StringBuilder sb;
-	private String[] tag2name;
-	private boolean perlRefs;
-	private boolean preservePadding;
 
 	public Object decodeFile(File f) throws SerealException, IOException {
 
@@ -60,9 +56,8 @@ public class StructureDecoder {
 
 		sb = new StringBuilder();
 
-		sb.append("Bytes: " + Utils.hexStringFromByteArray( buf.array(), 4 ));
-		sb.append("\n");
-
+		sb.append( "Bytes: " + Utils.hexStringFromByteArray( buf.array(), 4 ) );
+		sb.append( "\n" );
 
 		buf.position( 6 );
 
@@ -78,7 +73,7 @@ public class StructureDecoder {
 		byte tag = buf.get();
 
 		String hex = Utils.hexStringFromByteArray( new byte[] { tag } );
-		sb.append( ", " + hex + "=" );
+		sb.append( "\n" + hex + "=" );
 
 		int track = 0;
 		if( (tag & SRL_HDR_TRACK_FLAG) != 0 ) {
@@ -91,10 +86,10 @@ public class StructureDecoder {
 		} else if( tag <= SRL_HDR_NEG_HIGH ) {
 			sb.append( "neg: " + (tag - 32) );
 		} else if( (tag & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW ) {
-			sb.append("short_binary");
+			sb.append( "short_binary" );
 			read_short_binary( tag );
 		} else if( (tag & SRL_HDR_HASHREF) == SRL_HDR_HASHREF ) {
-			sb.append("hashref");
+			sb.append( "hashref" );
 			read_hash( tag );
 		} else if( (tag & SRL_HDR_ARRAYREF) == SRL_HDR_ARRAYREF ) {
 			sb.append( "arrayref" );
@@ -102,32 +97,32 @@ public class StructureDecoder {
 		} else {
 			switch (tag) {
 			case SRL_HDR_VARINT:
-				sb.append("varint");
+				sb.append( "varint" );
 				read_varint();
 				break;
 			case SRL_HDR_ZIGZAG:
-				sb.append("zigzag");
+				sb.append( "zigzag" );
 				read_zigzag();
 				break;
 			case SRL_HDR_DOUBLE:
-				sb.append("double");
+				sb.append( "double" );
 				buf.getDouble();
 				break;
 			case SRL_HDR_TRUE:
-				sb.append("true");
+				sb.append( "true" );
 				break;
 			case SRL_HDR_FALSE:
-				sb.append("false");
+				sb.append( "false" );
 				break;
 			case SRL_HDR_UNDEF:
-				sb.append("undef");
+				sb.append( "undef" );
 				break;
 			case SRL_HDR_BINARY:
-				sb.append("bytes");
-				byte[] bytes = read_binary();
+				sb.append( "bytes" );
+				read_binary();
 				break;
 			case SRL_HDR_STR_UTF8:
-				sb.append("UTF8");
+				sb.append( "UTF8" );
 				read_UTF8();
 				break;
 			case SRL_HDR_REFN:
@@ -135,28 +130,28 @@ public class StructureDecoder {
 				read();
 				break;
 			case SRL_HDR_REFP:
-				sb.append("refp to " + read_varint());
+				sb.append( "refp to " + read_varint() );
 				break;
 			case SRL_HDR_OBJECT:
-				sb.append("object");
+				sb.append( "object" );
 				read_object();
 				break;
 			case SRL_HDR_OBJECTV:
-				sb.append("objectv at " + read_varint()); // offset to classname!
+				sb.append( "objectv at " + read_varint() ); // offset to classname!
 				read(); // actual item
 				break;
 			case SRL_HDR_COPY:
-				sb.append("copy offset=" + read_varint());
+				sb.append( "copy offset=" + read_varint() );
 				break;
 			case SRL_HDR_ALIAS:
-				sb.append("alias offset=" + read_varint());
+				sb.append( "alias offset=" + read_varint() );
 				break;
 			case SRL_HDR_WEAKEN:
-				sb.append("weaken");
+				sb.append( "weaken" );
 				read();
 				break;
 			case SRL_HDR_HASH:
-				sb.append("hash");
+				sb.append( "hash" );
 				read_hash( (byte) 0 );
 				break;
 			case SRL_HDR_ARRAY:
@@ -164,14 +159,14 @@ public class StructureDecoder {
 				read_array( (byte) 0 );
 				break;
 			case SRL_HDR_REGEXP:
-				sb.append("regex");
+				sb.append( "regex" );
 				read_regex();
 				break;
 			case SRL_HDR_PAD:
-				sb.append("pad");
+				sb.append( "pad" );
 				break;
 			default:
-				sb.append("UNKNOWN!");
+				sb.append( "UNKNOWN!" );
 			}
 		}
 
@@ -183,9 +178,9 @@ public class StructureDecoder {
 
 	private void read_regex() {
 		read(); // string pattern
-		sb.append("=pattern");
+		sb.append( "=pattern" );
 		read_short_binary( buf.get() ); // modifiers
-		sb.append("=modifiers");
+		sb.append( "=modifiers" );
 	}
 
 	private Object read_copy() {
@@ -194,7 +189,7 @@ public class StructureDecoder {
 	}
 
 	private void read_object() {
-		read(); //string name
+		read(); // string name
 		read(); // data;
 	}
 
@@ -203,9 +198,10 @@ public class StructureDecoder {
 
 	}
 
-	private String read_UTF8() {
-		// TODO Auto-generated method stub
-		return null;
+	private void read_UTF8() {
+		long length = read_varint();
+		sb.append( " length=" + length );
+		buf.position( (int) (buf.position() + length));
 	}
 
 	private byte[] read_binary() {
@@ -243,20 +239,30 @@ public class StructureDecoder {
 			length = tag & 15;
 		}
 		sb.append( " count=" + length );
-		for(int i=0; i<length; i++) {
-			sb.append(" item: " + i);
+		for(int i = 0; i < length; i++) {
+			sb.append( "\n array item: " + i);
 			read();
 		}
 	}
 
-	private Map<String, Object> read_hash(byte tag) {
-		// TODO Auto-generated method stub
-		return null;
+	private void read_hash(byte tag) {
+		int length = 0;
+		if( tag == 0 ) {
+			length = (int) read_varint();
+		} else {
+			length = tag & 15;
+		}
+		sb.append( " count=" + length );
+		for(int i = 0; i < length; i++) {
+			sb.append( "\n hash item: " + i );
+			read(); // key
+			read(); // value
+		}
 	}
 
 	private void read_short_binary(byte tag) {
 		int length = tag & SerealHeader.SRL_MASK_SHORT_BINARY_LEN;
-		sb.append(" length="+length );
+		sb.append( " length=" + length );
 		buf.position( buf.position() + length );
 	}
 }
