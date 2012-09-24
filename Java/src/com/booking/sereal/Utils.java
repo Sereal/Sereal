@@ -307,7 +307,7 @@ public class Utils {
 																			// easiest to see an
 																			// actual time :)
 		} else if( o instanceof Map ) {
-			StringBuilder sb = new StringBuilder( ind + "{\n" );
+			StringBuilder sb = new StringBuilder( ind + "Map@" + System.identityHashCode( o )  +" {\n" );
 			Map map = (Map) o;
 			Object[] array = map.keySet().toArray();
 			try {
