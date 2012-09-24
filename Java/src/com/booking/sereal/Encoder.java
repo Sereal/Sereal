@@ -218,6 +218,9 @@ public class Encoder {
 	 */
 	void write_zigzag(long n) {
 
+		data.add( new byte[]{ SerealHeader.SRL_HDR_ZIGZAG } );
+		size++;
+
 		write_varint( (n << 1) ^ (n >> 63) ); // note the unsigned right shift
 	}
 
@@ -372,6 +375,11 @@ public class Encoder {
 		// this is ugly :)
 		if( type == Long.class || type == Integer.class || type == Byte.class ) {
 			write_integer_type( ((Number) obj).longValue() );
+		} else if( type == Boolean.class ) {
+
+			data.add(  new byte[]{ (Boolean)obj ? SerealHeader.SRL_HDR_TRUE : SerealHeader.SRL_HDR_FALSE } );
+			size++;
+
 		} else if( type == HashMap.class ) {
 			write_hash( (HashMap<String, Object>)obj ); // we only allow string keys afaict
 		} else if( type == String.class ) {
