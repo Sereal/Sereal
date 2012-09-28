@@ -50,7 +50,13 @@ use overload '""' => sub {
 HERE
 
 # decode object
+# Yves: Move this to where the class wasn't loaded yet, and the tests fail
+#       (which indicates overload hooking into bless and adding magic to the
+#        object {{citation required}})
 my $obj = $decoder->decode($s);
+# FOR YVES:
+#use Devel::Peek;
+#Dump($obj);
 
 # see if overload magic is on object
 is("$obj", 123, "Deserialized object serializes fine");
