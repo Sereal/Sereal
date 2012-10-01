@@ -28,8 +28,8 @@ if (not $ok) {
 require Sereal::Encoder;
 
 my $encoder = Sereal::Encoder->new({
-  stringify_unknown => 1,
-  warn_unknown => 1,
+    stringify_unknown => 1,
+    warn_unknown => 1,
 });
 
 # encode before any overload is known
@@ -44,8 +44,8 @@ package Str;
 use vars '$Called';
 $Called = 0;
 use overload '""' => sub {
-  $Called++;
-  return $_[0]->{foo};
+    $Called++;
+    return $_[0]->{foo};
 };
 HERE
 
@@ -60,8 +60,36 @@ my $obj = $decoder->decode($s);
 
 # see if overload magic is on object
 is("$obj", 123, "Deserialized object serializes fine");
+$Str::Called = $Str::Called; # silence warning
 is($Str::Called, 1, "overload invoked once");
 
-pass();
+
+# Second try at breaking things
+SCOPE: {
+    my $enc = Sereal::Encoder->new({
+        warn_unknown => 1,
+        stringify_unknown => 1,
+    });
+
+    my $dec = Sereal::Decoder->new;
+
+    package Foo;
+    use overload '""' => sub {return $_[0]->{str}};
+
+    package main;
+
+    my $p = bless({str => "asd"} => 'Foo');
+    my $h = [ $p, $p ];
+    my $s = $enc->encode($h);
+    my $d = $dec->decode($s);
+
+    #warn "$_" for @$d;
+    my $x = join ",", @$d;
+    is($x, "asd,asd", "overload stringification works for second object occurrence");
+
+    #warn $x;
+}
+
+pass("Alive");
 done_testing();
 
