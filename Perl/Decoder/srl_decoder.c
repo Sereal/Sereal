@@ -744,6 +744,8 @@ static SRL_INLINE void
 srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into)
 {
     SV* referent;
+    /* TODO This really just wants a subset of the states that srl_read_single_value covers, right?
+     *      Optimization opportunity? Or robustness against invalid packets issue? */
     srl_read_single_value(aTHX_ dec, into);
     if (expect_false( !SvROK(into) ))
         ERROR("WEAKEN op");
