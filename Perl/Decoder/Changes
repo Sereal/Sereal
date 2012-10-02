@@ -48,3 +48,20 @@ Revision history for Perl extension Sereal-Decoder
   - Fixes to other languages' reference data output.
 
 0.12 - unreleased
+
+0.13  Tue Oct  2 15:00 2012
+  * Important bug fix, important gotcha! *
+  - Work around bug in perls <= 5.8.8:
+      Multiple references to the same object that has overloading were
+      dropping overloadedness on the second and following occurrence.
+    => The work-around for this old perl bug means that we have to
+       bless objects as we find them during deserialization. By default,
+       on newer perls, we only do the bless()ing once after being done
+       with serialization. We normally do this for security reasons
+       (destructors!). This means that for perls <= 5.8.8, we necessarily
+       have the same (very limited) security problem that Storable has
+       at all times. Sucks, but better to have it working on 5.8.8 at all.
+    => For newer perls, we DO NOT have that security problem!
+    => The work-around also slows down operation on 5.8.8 and older. Keep
+       that in mind when comparing serialization techniques. Thank you.
+

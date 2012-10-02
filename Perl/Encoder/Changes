@@ -54,3 +54,5 @@ Revision history for Perl extension Sereal-Encoder
   - Under certain circumstances, an encoder object could be left
     in an unclean state when an encoding operation failed via
     an exception.
+
+0.13 - unreleased
