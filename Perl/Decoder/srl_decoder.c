@@ -460,6 +460,7 @@ srl_read_varint_uv_length(pTHX_ srl_decoder_t *dec, const char * const errstr)
     return len;
 }
 
+
 static SRL_INLINE UV
 srl_read_varint_uv_count(pTHX_ srl_decoder_t *dec, const char * const errstr)
 {
@@ -473,12 +474,15 @@ srl_read_varint_uv_count(pTHX_ srl_decoder_t *dec, const char * const errstr)
 
 
 static SRL_INLINE void
-srl_track_sv(pTHX_ srl_decoder_t *dec, U8 *track_pos, SV *sv) {
+srl_track_sv(pTHX_ srl_decoder_t *dec, U8 *track_pos, SV *sv)
+{
     PTABLE_store(dec->ref_seenhash, (void *)(track_pos - dec->buf_start), (void *)sv);
 }
 
+
 static SRL_INLINE SV *
-srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name) {
+srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name)
+{
     SV *sv= (SV *)PTABLE_fetch(dec->ref_seenhash, (void *)item);
     if (expect_false( !sv ))
         ERRORf2("%s(%d) references an unknown item", tag_name, item);
