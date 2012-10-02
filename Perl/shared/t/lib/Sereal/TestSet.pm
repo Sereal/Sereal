@@ -183,7 +183,7 @@ our @BasicTests = (
                     .varint($pos)
       ;
       $content
-    }, "repeated substructure (REUSE): scalar ref"],
+    }, "repeated substructure (REFP): scalar ref"],
   [[$ary_ref_for_repeating, $ary_ref_for_repeating],
     do {
       my $content = array_head(2);
@@ -193,7 +193,7 @@ our @BasicTests = (
                     .varint($pos)
       ;
       $content
-    }, "repeated substructure (REUSE): array"],
+    }, "repeated substructure (REFP): array"],
   [[\$ary_ref_for_repeating, [1, $ary_ref_for_repeating]],
     do {
       my $content = array_head(2) . chr(SRL_HDR_REFN);
@@ -208,7 +208,7 @@ our @BasicTests = (
                     )
       ;
       $content
-    }, "repeated substructure (REUSE): asymmetric"],
+    }, "repeated substructure (REFP): asymmetric"],
   [
     $weak_thing,
     chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY + FBIT) . varint(2)
