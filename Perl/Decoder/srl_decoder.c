@@ -49,6 +49,32 @@ extern "C" {
 
 #include "snappy/csnappy_decompress.c"
 
+/* 5.8.8 and earlier have a nasty bug in their handling of overloading:
+ * The overload-flag is set on the referer of the blessed object instead of
+ * the referent. That means that our late-bless logic breaks for
+ * multiply-occurring objects.
+ * So for 5.8.8 and earlier, the easiest workaround is to bless as we go
+ * instead of blessing at the end of a decode run. Additionally, on repeatedly
+ * encountered objects (REFP), we have to check the stash of the referent for
+ * overloadedness and set the OVERLOAD flag (AMAGIC_on) on the NEW referer.
+ *
+ * Details on the perl bug in perl589delta.pod,
+ * see "Reblessing overloaded objects now works".
+ *
+ * This is potentially a security problem (destructors!), but we really need
+ * this to work on 5.8.5 for now, so let's make it work.
+ * Another way of making it work might be to keep track of all occurrences
+ * of objects and fix them up afterwards. That seems even more intrusive.
+ * Please prove us wrong, though, since it's semantically a better fix.
+ *
+ * --Eric and Steffen
+ */
+#if ((PERL_VERSION == 8) && (PERL_SUBVERSION >= 9) || (PERL_VERSION > 8))
+#  define USE_588_WORKAROUND 0
+#else
+#  define USE_588_WORKAROUND 1
+#endif
+
 /* predeclare all our subs so we have one definitive authority for their signatures */
 static SRL_INLINE UV srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec);
 static SRL_INLINE UV srl_read_varint_uv_nocheck(pTHX_ srl_decoder_t *dec);
@@ -363,7 +389,11 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
                      * object.
                      * */
                     if (expect_true( obj )) {
+#if USE_588_WORKAROUND
+                        /* was blessed early, don't rebless */
+#else
                         sv_bless(obj, stash);
+#endif
                     } else {
                         ERROR("object missing from ref_bless_av array?");
                     }
@@ -737,6 +767,15 @@ srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into)
     SvTEMP_off(referent);
     SvRV_set(into, referent);
     SvROK_on(into);
+
+#if USE_588_WORKAROUND
+    /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */
+    if (SvOBJECT(referent)) {
+        HV *stash = SvSTASH(referent);
+        if (Gv_AMG(stash))
+            SvAMAGIC_on(into);
+    }
+#endif
 }
 
 
@@ -773,6 +812,9 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into)
 {
     AV *av= NULL;
     STRLEN ofs;
+#if USE_588_WORKAROUND
+    HV *stash= NULL;
+#endif
 
     if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS))
         ERROR_REFUSE_OBJECT();
@@ -787,6 +829,14 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into)
     }
     /* now deparse the thing we are going to bless */
     srl_read_single_value(aTHX_ dec, into);
+
+#if USE_588_WORKAROUND
+    /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */
+    stash= PTABLE_fetch(dec->ref_stashes, (void *)ofs);
+    if (stash == NULL)
+        ERROR("Corrupted packet. OBJECTV used without preceding OBJECT to define classname");
+    sv_bless(into, stash);
+#endif
 
     /* and also stuff it into the av - we dont have to do any more book-keeping */
     av_push(av, SvREFCNT_inc(into));
@@ -890,6 +940,11 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into)
 
     /* now deparse the thing we are going to bless */
     srl_read_single_value(aTHX_ dec, into);
+
+#if USE_588_WORKAROUND
+    /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */
+    sv_bless(into, stash);
+#endif
 }
 
 
