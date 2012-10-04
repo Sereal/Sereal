@@ -710,7 +710,9 @@ sub write_test_files {
 
     foreach my $testno (1..@BasicTests) {
         my $t = $BasicTests[$testno-1];
-        _write_file($make_data_file_name->($testno), $Header.$t->[1]);
+        my $data = ref($t->[1]) eq 'CODE' ? $t->[1]->() : $t->[1];
+
+        _write_file($make_data_file_name->($testno), $Header.$data);
         _write_file($make_name_file_name->($testno), $t->[2] . "\n");
     }
 
@@ -718,6 +720,7 @@ sub write_test_files {
     foreach my $i (0..$#RoundtripTests) {
         my $testno = @BasicTests + $i + 1;
         my $t = $RoundtripTests[$i];
+
         _write_file($make_data_file_name->($testno), $encoder->encode($t->[1]));
         _write_file($make_name_file_name->($testno), $t->[0] . "\n");
     }
