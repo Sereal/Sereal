@@ -65,3 +65,5 @@ Revision history for Perl extension Sereal-Decoder
     => The work-around also slows down operation on 5.8.8 and older. Keep
        that in mind when comparing serialization techniques. Thank you.
 
+0.14 - unreleased
+

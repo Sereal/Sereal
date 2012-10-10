@@ -56,3 +56,8 @@ Revision history for Perl extension Sereal-Encoder
     an exception.
 
 0.13 - unreleased
+
+0.14  Wed Oct 10 11:11 2012
+  - The 'warn_unknown' option now optionally does NOT emit a warning
+    if the unsupported item is a blessed object with string overloading.
+
