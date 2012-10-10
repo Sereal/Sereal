@@ -66,6 +66,10 @@ void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
  *          a flag on the encoder struct indicating that we want to use Snappy. */
 #define SRL_F_COMPRESS_SNAPPY                64UL
 
+/* Only meaningful if SRL_F_WARN_UNKNOWN also set. If this one is set, then we don't warn
+ * if the unsupported item has string overloading. */
+#define SRL_F_NOWARN_UNKNOWN_OVERLOAD        128UL
+
 #define SRL_ENC_HAVE_OPTION(enc, flag_num) ((enc)->flags & flag_num)
 
 #endif

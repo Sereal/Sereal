@@ -238,8 +238,11 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         }
 
         svp = hv_fetchs(opt, "warn_unknown", 0);
-        if ( svp && SvTRUE(*svp) )
+        if ( svp && SvTRUE(*svp) ) {
             enc->flags |= SRL_F_WARN_UNKNOWN;
+            if (SvIV(*svp) < 0)
+                enc->flags |= SRL_F_NOWARN_UNKNOWN_OVERLOAD;
+        }
 
         svp = hv_fetchs(opt, "snappy_threshold", 0);
         if ( svp && SvOK(*svp) )
@@ -932,7 +935,7 @@ redo_dump:
                 if ( SRL_ENC_HAVE_OPTION((enc), SRL_F_UNDEF_UNKNOWN) ) {                       \
                     if (SRL_ENC_HAVE_OPTION((enc), SRL_F_WARN_UNKNOWN))                        \
                         warn("Found type %u %s(0x%p), but it is not representable "            \
-                             " by the Sereal encoding format; will encode as an "              \
+                             "by the Sereal encoding format; will encode as an "               \
                              "undefined value", (svt), sv_reftype((src),0),(src));             \
                     if (ref_rewrite_pos)                                                       \
                         enc->pos= ref_rewrite_pos;                                             \
@@ -941,10 +944,22 @@ redo_dump:
                 else if ( SRL_ENC_HAVE_OPTION((enc), SRL_F_STRINGIFY_UNKNOWN) ) {              \
                     STRLEN len;                                                                \
                     char *str;                                                                 \
-                    if (SRL_ENC_HAVE_OPTION((enc), SRL_F_WARN_UNKNOWN))                        \
-                        warn("Found type %u %s(0x%p), but it is not representable "            \
-                             " by the Sereal encoding format; will encode as a "               \
-                             "stringified form", (svt), sv_reftype((src),0),(src));            \
+                    if (SRL_ENC_HAVE_OPTION((enc), SRL_F_WARN_UNKNOWN)) {                      \
+                        /* In theory, we need to warn about stringifying this unsupported      \
+                         * item. However, if the SRL_F_NOWARN_UNKNOWN_OVERLOAD option is set,  \
+                         * then we DO NOT warn about stringifying this unsupported item if     \
+                         * it is an object with string overloading (assuming it's done on      \
+                         * purpose to stringify in cases like these).                          \
+                         */                                                                    \
+                        if (!SRL_ENC_HAVE_OPTION((enc), SRL_F_NOWARN_UNKNOWN_OVERLOAD)         \
+                             || !SvOBJECT(src)                                                 \
+                             || !Gv_AMG(SvSTASH(src)))                                         \
+                        {                                                                      \
+                            warn("Found type %u %s(0x%p), but it is not representable "        \
+                                 "by the Sereal encoding format; will encode as a "            \
+                                 "stringified form", (svt), sv_reftype((src),0),(src));        \
+                        }                                                                      \
+                    }                                                                          \
                     if (refsv) {                                                               \
                         enc->pos= ref_rewrite_pos;                                             \
                         str = SvPV((refsv), len);                                              \

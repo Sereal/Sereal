@@ -123,9 +123,15 @@ See also C<warn_unknown> below.
 
 =item warn_unknown
 
-If set, any unknown/unsupported data structure encountered will emit a
-warning. Only has an effect if C<undef_unknown> or C<stringify_unknown>
+Only has an effect if C<undef_unknown> or C<stringify_unknown>
 are enabled.
+
+If set to a positive integer,
+any unknown/unsupported data structure encountered will emit a
+warning. If set to a negative integer, it will warn for unsupported
+data structures just the same as for a positive value with one
+exception: For blessed, unsupported items that have string overloading,
+we silently stringify without warning.
 
 =back
 

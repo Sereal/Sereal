@@ -14,7 +14,7 @@ BEGIN {
 
 use Sereal::TestSet qw(:all);
 
-use Test::More tests => 17;
+use Test::More tests => 19;
 
 my ($ok, $err, $out);
 
@@ -98,16 +98,23 @@ SCOPE: {
 # dito for string overloading
 SCOPE: {
     SCOPE2: {
-        package BlessedCodeRef;
+        package BlessedCodeRefOverload;
         use overload '""' => sub {$_[0]->()};
         sub new {
             my ($class, $data) = @_;
             bless sub {return $data} => __PACKAGE__;
         }
     }
+    SCOPE3: {
+        package BlessedCodeRef;
+        sub new {
+            my ($class, $data) = @_;
+            bless sub {return $data} => __PACKAGE__;
+        }
+    }
     my $e = Sereal::Encoder->new({stringify_unknown => 1});
-    my $sub = BlessedCodeRef->new("hello");
-    is("$sub", "hello", "BlessedCodeRef stringification actually works as designed");
+    my $sub = BlessedCodeRefOverload->new("hello");
+    is("$sub", "hello", "BlessedCodeRefOverload stringification actually works as designed");
 
     $ok = eval {$out = $e->encode($sub); 1};
     $err = $@ || 'Zombie error';
@@ -127,6 +134,23 @@ SCOPE: {
         }
         qr/Sereal/,
         "warn_unknown warns about stringified sub despite overloading";
+
+    # Test that we do NOT get a warning with warn_unknown set to -1
+    # FIXME Test::Warn doesn't have a "no_warnings" function, so let's just
+    #       run this for now and hope the user will be spooked by the warning
+    #       if there is one. Duh.
+    $e = Sereal::Encoder->new({stringify_unknown => 1, warn_unknown => -1});
+    $out = $e->encode($sub);
+    ok(defined $out && $out !~ /CODE/ && $out !~ "Blessed", "RV of encode makes some sense");
+
+    # Test that we DO get a warning for non-overloaded unsupported stuff
+    my $sub2 = BlessedCodeRef->new("hello");
+    warning_like
+        {
+            $ok = eval {$out = $e->encode($sub2); 1};
+        }
+        qr/Sereal/,
+        "warn_unknown == -1 warns about stringified sub without overloading";
 }
 
 
