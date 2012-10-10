@@ -14,7 +14,7 @@ BEGIN {
 
 use Sereal::TestSet qw(:all);
 
-use Test::More tests => 16;
+use Test::More tests => 17;
 
 my ($ok, $err, $out);
 
@@ -117,7 +117,16 @@ SCOPE: {
     is($out, $str, "output is stringified ref")
     or do {
         hobodecode($out), hobodecode($str) if $ENV{DEBUG_SEREAL};
-    }
+    };
+
+    # test that we get a warning with warn_unknown
+    $e = Sereal::Encoder->new({stringify_unknown => 1, warn_unknown => 1});
+    warning_like
+        {
+            $ok = eval {$out = $e->encode($sub); 1};
+        }
+        qr/Sereal/,
+        "warn_unknown warns about stringified sub despite overloading";
 }
 
 
