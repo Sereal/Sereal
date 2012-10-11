@@ -127,9 +127,9 @@ public class RoundtripTest {
 	@Test
 	public void short_binary() {
 
-		String str = "Hello, Sereal!";
+		Latin1String str = new Latin1String( "Hello, Sereal!" );
 		try {
-			encoder.write_short_binary( str );
+			encoder.write_short_binary( str.getBytes() );
 		} catch (SerealException e) {
 			fail( e.getMessage() );
 		}

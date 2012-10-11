@@ -263,7 +263,7 @@ public class Decoder implements SerealHeader {
 		return out;
 	}
 
-	private Map<String, Object> read_hash(byte tag) throws SerealException {
+	private Map<CharSequence, Object> read_hash(byte tag) throws SerealException {
 		long num_keys = 0;
 		if( tag == 0 ) {
 			num_keys = read_varint();
@@ -271,12 +271,12 @@ public class Decoder implements SerealHeader {
 			num_keys = tag & 15;
 		}
 
-		Map<String, Object> hash = new LinkedHashMap<String, Object>( (int) num_keys );
+		Map<CharSequence, Object> hash = new LinkedHashMap<CharSequence, Object>( (int) num_keys );
 
 		log.fine( "Reading " + num_keys + " hash elements" );
 
 		for(int i = 0; i < num_keys; i++) {
-			String key = (String) readSingleValue();
+			CharSequence key = (CharSequence) readSingleValue();
 			Object val = readSingleValue();
 			hash.put( key, val );
 		}
@@ -332,11 +332,11 @@ public class Decoder implements SerealHeader {
 			log.fine( "Read small negative int:" + (tag - 32) );
 			out = tag - 32;
 		} else if( (tag & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW ) {
-			String short_binary = read_short_binary( tag );
+			CharSequence short_binary = read_short_binary( tag );
 			log.fine( "Read short binary: " + short_binary + " length " + short_binary.length() );
 			out = short_binary;
 		} else if( (tag & SRL_HDR_HASHREF) == SRL_HDR_HASHREF ) {
-			Map<String, Object> hash = read_hash( tag );
+			Map<CharSequence, Object> hash = read_hash( tag );
 			log.fine( "Read hash: " + hash );
 			out = hash;
 		} else if( (tag & SRL_HDR_ARRAYREF) == SRL_HDR_ARRAYREF ) {
@@ -419,9 +419,9 @@ public class Decoder implements SerealHeader {
 				break;
 			case SRL_HDR_OBJECTV:
 				log.fine( "Reading an objectv" );
-				String className = (String) get_tracked_item();
+				CharSequence className = (CharSequence) get_tracked_item();
 				log.fine( "Read an objectv of class: " + className);
-				out = new PerlObject( className, readSingleValue() );
+				out = new PerlObject( ((Latin1String)className).getString(), readSingleValue() );
 				break;
 			case SRL_HDR_COPY:
 				log.fine( "Reading a copy" );
@@ -486,12 +486,12 @@ public class Decoder implements SerealHeader {
 	 * @param tag
 	 * @return
 	 */
-	String read_short_binary(byte tag) {
+	CharSequence read_short_binary(byte tag) {
 		int length = tag & SRL_MASK_SHORT_BINARY_LEN;
 		log.fine( "Short binary, length: " + length );
 		byte[] buf = new byte[length];
 		data.get( buf );
-		return Charset.forName( "ISO-8859-1" ).decode( ByteBuffer.wrap( buf ) ).toString();
+		return new Latin1String( Charset.forName( "ISO-8859-1" ).decode( ByteBuffer.wrap( buf ) ).toString() );
 	}
 
 	/**
@@ -538,7 +538,8 @@ public class Decoder implements SerealHeader {
 	Pattern read_regex() throws SerealException {
 
 		int flags = 0;
-		String regex = (String) readSingleValue();
+		Object str = readSingleValue();
+		String regex = str instanceof Latin1String ? ((Latin1String)str).getString() : (String) str;
 		log.fine( "Read pattern: " + regex );
 
 		// now read modifiers
@@ -583,12 +584,12 @@ public class Decoder implements SerealHeader {
 		// Maybe we should have some kind of read_string() method?
 		int position = data.position();
 		byte tag = data.get();
-		String className;
+		Latin1String className;
 		if( (tag & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW ) {
 			int length = tag & SRL_MASK_SHORT_BINARY_LEN;
 			byte[] buf = new byte[length];
 			data.get( buf );
-			className = new String( buf );
+			className = new Latin1String( new String( buf ) );
 		} else {
 			throw new SerealException( "Don't know how to read classname from tag" + tag );
 		}
@@ -606,23 +607,23 @@ public class Decoder implements SerealHeader {
 			Map<String, Object> classData = (Map<String, Object>) structure;
 			try {
 				// either an existing java class
-				Class<?> c = Class.forName( className );
+				Class<?> c = Class.forName( className.getString() );
 				return Utils.bless( c, classData );
 			} catch (ClassNotFoundException e) {
 				// or we make a new one
 				if( objectType == ObjectType.POJO ) {
-					return Utils.bless( className, classData );
+					return Utils.bless( className.getString(), classData );
 				} else {
 					// or we make a Perl-style one
-					return new PerlObject( className, classData );
+					return new PerlObject( className.getString(), classData );
 				}
 
 			}
 		} else if( structure.getClass().isArray() ) {
 			// nothing we can really do here except make Perl objects..
-			return new PerlObject( className, structure );
+			return new PerlObject( className.getString(), structure );
 		} else if( structure instanceof PerlReference ) {
-			return new PerlObject( className, structure);
+			return new PerlObject( className.getString(), structure);
 		}
 
 		// it's a regexp for example

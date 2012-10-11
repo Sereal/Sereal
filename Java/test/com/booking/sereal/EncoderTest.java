@@ -35,7 +35,7 @@ public class EncoderTest {
 	public void short_binary() {
 
 		try {
-			encoder.write_short_binary( "foo" );
+			encoder.write_short_binary( new Latin1String("foo").getBytes() );
 		} catch (SerealException e) {
 			fail( e.getMessage() );
 		}
@@ -56,7 +56,7 @@ public class EncoderTest {
 
 			encoder.write_bytearray( new byte[] { 0x66, 0x6f, 0x6f } );
 			encoder.write_regex( Pattern.compile( "(?:foo)[0-9]{3}\\z", Pattern.CASE_INSENSITIVE ) );
-			encoder.write_short_binary( "Hello, Sereal!" );
+			encoder.write_short_binary( new Latin1String("Hello, Sereal!").getBytes() );
 			encoder.write_varint( 2395846 );
 			encoder.write_zigzag( -345 );
 
@@ -73,9 +73,9 @@ public class EncoderTest {
 
 		// write 3 copies of a string (that should be copied)
 		try {
-			encoder.write_short_binary( "This is quite a long string" );
-			encoder.write_short_binary( "This is quite a long string" );
-			encoder.write_short_binary( "This is quite a long string" );
+			encoder.write_short_binary( new Latin1String("This is quite a long string").getBytes() );
+			encoder.write_short_binary( new Latin1String("This is quite a long string").getBytes() );
+			encoder.write_short_binary( new Latin1String("This is quite a long string").getBytes() );
 		} catch (SerealException e) {
 			fail( e.getMessage() );
 		}

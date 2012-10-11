@@ -4,7 +4,6 @@ import java.lang.ref.WeakReference;
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.nio.charset.CharsetEncoder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -235,46 +234,45 @@ public class Encoder {
 	/**
 	 * Encode a short ascii string
 	 * 
-	 * @param s
+	 * @param latin1
 	 *           String to encode as US-ASCII bytes
 	 * @throws SerealException
 	 *            if the string is not short enough
 	 */
-	void write_short_binary(String s) throws SerealException {
+	void write_short_binary(byte[] latin1) throws SerealException {
 
-		log.fine( "Writing short binary: " + s );
+		log.fine( "Writing short binary: " + latin1 );
 
 		// maybe we can just COPY (but obviously not emit a copy tag for ourselves)
-		if( isTracked( s ) && getTrackedItem( s ) != data.size() ) {
-			write_copy( s );
+		if( isTracked( latin1 ) && getTrackedItem( latin1 ) != data.size() ) {
+			write_copy( latin1 );
 			return;
 		}
 
-		int length = s.length();
+		int length = latin1.length;
 
 		if( length > 31 ) {
-			throw new SerealException( "Cannot create short binary for " + s + ": too long" );
+			throw new SerealException( "Cannot create short binary for " + latin1 + ": too long" );
 		}
 
-		// 0 reserves space for the length byte
-		byte[] out = Charset.forName( "ISO-8859-1" ).encode( 0 + s ).array();
 		// length of string
-		out[0] = (byte) (length | SerealHeader.SRL_HDR_SHORT_BINARY);
+		data.add( new byte[]{ (byte) (length | SerealHeader.SRL_HDR_SHORT_BINARY) } );
+		size++;
 
 		// save it
-		data.add( out );
-		size += out.length;
+		data.add( latin1 );
+		size += length;
 
 	}
 
-	protected void write_copy(String s) {
+	protected void write_copy(byte[] latin1) {
 
-		log.fine( "Emitting a copy for: '" + s + "'" );
+		log.fine( "Emitting a copy for: '" + latin1 + "'" );
 
 		data.add( new byte[] { SerealHeader.SRL_HDR_COPY } );
 		size++;
 
-		write_varint( getTrackedItem( s ) );
+		write_varint( getTrackedItem( latin1 ) );
 
 		// do not track since spec says no
 	}
@@ -297,7 +295,7 @@ public class Encoder {
 		flags += (p.flags() & Pattern.CASE_INSENSITIVE) != 0 ? "i" : "";
 		flags += (p.flags() & Pattern.COMMENTS) != 0 ? "x" : "";
 
-		String pattern = p.pattern();
+		Latin1String pattern = new Latin1String( p.pattern() );
 
 		int length = pattern.length();
 		if( length < 32 ) {
@@ -306,7 +304,7 @@ public class Encoder {
 			size++;
 
 			// make array with bytes for (pattern + pattern length tag) + space for flags length tag + flags
-			write_short_binary( pattern );
+			write_short_binary( pattern.getBytes() );
 			data.add( new byte[] { (byte) (flags.length() | SerealHeader.SRL_HDR_SHORT_BINARY) } );
 			size++;
 			data.add( flags.getBytes( Charset.forName( "US-ASCII" ) ) );
@@ -391,6 +389,8 @@ public class Encoder {
 			write_hash( (HashMap<String, Object>) obj ); // we only allow string keys afaict
 		} else if( type == String.class ) {
 			write_string_type( (String) obj );
+		} else if( type == Latin1String.class ) {
+			write_string_type( (Latin1String) obj );
 		} else if( type.isArray() ) {
 			write_array( obj );
 		} else if( type == Pattern.class ) {
@@ -458,7 +458,7 @@ public class Encoder {
 
 			saved_classnames.put( po.getName(), size );
 
-			write_string_type( po.getName() );
+			write_string_type( new Latin1String( po.getName() ) );
 		}
 
 		// write the data structure
@@ -645,19 +645,15 @@ public class Encoder {
 
 	}
 
-	private Charset charset_latin1 = Charset.forName( "ISO-8859-1" );
 	private Charset charset_utf8 = Charset.forName( "UTF-8" );
 
-	private void write_string_type(String str) throws SerealException {
+	private void write_string_type(CharSequence str) throws SerealException {
 
-		CharsetEncoder cl = charset_latin1.newEncoder();
-		boolean encodableAsLatin1 = cl.canEncode( str );
-
-		if( encodableAsLatin1 ) {
+		if( str instanceof Latin1String ) {
 			log.fine( "Encoding as latin1: " + str );
-			byte[] latin1 = str.getBytes( charset_latin1 );
+			byte[] latin1 = ((Latin1String)str).getBytes();
 			if( str.length() < SerealHeader.SRL_MASK_SHORT_BINARY_LEN ) {
-				write_short_binary( str );
+				write_short_binary( latin1 );
 			} else {
 				write_bytearray( latin1 );
 			}
@@ -667,7 +663,7 @@ public class Encoder {
 			data.add( new byte[] { SerealHeader.SRL_HDR_STR_UTF8 } );
 			size++;
 
-			byte[] utf8 = str.getBytes( charset_utf8 );
+			byte[] utf8 = ((String)str).getBytes( charset_utf8 );
 			write_varint( utf8.length );
 
 			data.add( utf8 );
