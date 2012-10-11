@@ -302,19 +302,19 @@ a COPY tag for a classname or hash key.
 =head4 String Types
 
 Sereal supports three string representations. Two are "encodingless" and
-are SHORT_BINARY and STR_BINARY, where binary means "raw bytes". The other
+are SHORT_BINARY and BINARY, where binary means "raw bytes". The other
 is STR_UTF8 which is expected to contain valid canonical UTF8 encoded
 unicode text data. Under normal circumstances a decoder is not expected
 to validate that this is actually the case, and is allowed to simply
 extract the data verbatim.
 
 SHORT_BINARY stores the length of the string in the tag itself and is used
-for strings of less than 32 characters long. Both STR_BINARY and STR_UTF8
+for strings of less than 32 characters long. Both BINARY and STR_UTF8
 use a varint to indicate the number of B<bytes> (octets) in the string.
 
 =head4 Hash Keys
 
-Hashs keys are always one of the string types, or a COPY tag referencing a
+Hash keys are always one of the string types, or a COPY tag referencing a
 string.
 
 =head4 Handling objects
