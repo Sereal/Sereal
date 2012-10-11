@@ -637,7 +637,7 @@ public class Encoder {
 
 		// write the objects (works for both Objects and primitives)
 		for(int index = 0; index < count; index++) {
-			log.fine( "Emitting array index " + index + " (" + Array.get( obj, index ).getClass().getSimpleName() + ")");
+			log.fine( "Emitting array index " + index + " (" + (Array.get( obj, index ) == null ? " NULL/undef" : Array.get( obj, index ).getClass().getSimpleName()) + ")");
 			encode( Array.get( obj, index ) );
 		}
 
