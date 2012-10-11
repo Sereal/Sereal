@@ -13,6 +13,10 @@ Decoder todo:
   appropriately on error without using sv_2mortal on everything.
 - Review for refcount leaks: Need to make sure that we arent returning things
   with artificially high refcounts.
+- should have a way to prevent corrupted utf8, maybe via a validation level:
+    0: no validation
+    1: utf8 well-formedness validation (invalid byte sequences)
+    2: utf8 code point validation (invalid code points)
 
 v2 / optional in v1:
 - optimize decoder
@@ -21,5 +25,4 @@ v2 / optional in v1:
 - blessv
 - NUMLIST?
 - stable hash order option
-
-
+- MANY
