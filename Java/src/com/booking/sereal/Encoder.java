@@ -566,6 +566,11 @@ public class Encoder {
 
 	private void refcount(Object value, int change) {
 
+		if( value == null ) {
+			log.fine( "Not bothering with refcounts for NULL/undef");
+			return;
+		}
+		
 		if( !value.getClass().isArray() && value.getClass() != HashMap.class && value.getClass() != LinkedHashMap.class) {
 			log.fine( "Not bothering with refcounts for: " + value.getClass().getSimpleName() );
 			return;
