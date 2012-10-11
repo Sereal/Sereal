@@ -1,28 +1,21 @@
-Encoder todo:
-- PV vs. IV vs. NV choices (could be pushed off by defaulting to PV if necessary)
+- PV vs. IV vs. NV choices (defaulting to PV if necessary now)
 - float sizes
 - float dumping endianness
-- Testing on 5.8.5
-- More tests
-- checksumming
-- protocol version handling / exposure
-- OO interface for decoder
+- checksumming?
+- Gather experience with protocol version handling / exposure
 
-Decoder todo:
-- Review for memory leaks. Need a way to make sure allocated SV's are freed
-  appropriately on error without using sv_2mortal on everything.
-- Review for refcount leaks: Need to make sure that we arent returning things
-  with artificially high refcounts.
-- should have a way to prevent corrupted utf8, maybe via a validation level:
+- Decoder should have a way to prevent corrupted utf8,
+  maybe via a UTF8 validation level option:
     0: no validation
     1: utf8 well-formedness validation (invalid byte sequences)
     2: utf8 code point validation (invalid code points)
 
-v2 / optional in v1:
-- optimize decoder
+- full, performant java implementation
+
+v2:
 - more profiling?
 - optimize dumpiv?
-- blessv
 - NUMLIST?
 - stable hash order option
-- MANY
+- limited streaming support?
+
