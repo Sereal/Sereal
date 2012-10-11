@@ -105,7 +105,7 @@ public class Encoder {
 
 	/**
 	 * Returns the encoded data as a ByteBuffer
-	 *
+	 * 
 	 * @return
 	 */
 	public ByteBuffer getData() {
@@ -116,7 +116,7 @@ public class Encoder {
 		 * patching up offsets of REFP and ALIAS which is ugly (emitting a placeholder for the REFP offset,
 		 * saving the REFP, saving the segment it points to, then figuring out the actual offset to that
 		 * segment after the arrayref/array nonsense).
-		 *
+		 * 
 		 * Maybe: figure out refcounts for arrays in a different way
 		 * Maybe: track offsets in a different way
 		 * Maybe: convince people the whole ARRAYREF/REFN ARRAY is BS when ARRAYREF is reused if it's refcount
@@ -172,7 +172,8 @@ public class Encoder {
 						(byte) (count & ~(array ? SerealHeader.SRL_HDR_ARRAYREF_LOW : SerealHeader.SRL_HDR_HASHREF_LOW)) } // varints < 16 are always a byte :)
 				);
 				size += 1;// we added 1 byte
-				log.fine( "Converted segment " + segment +": " + Utils.hexStringFromByteArray( tag_data ) + " to: " + Utils.hexStringFromByteArray( data.get( segment ) ) );
+				log.fine( "Converted segment " + segment + ": " + Utils.hexStringFromByteArray( tag_data ) + " to: "
+						+ Utils.hexStringFromByteArray( data.get( segment ) ) );
 			}
 		}
 	}
@@ -189,10 +190,10 @@ public class Encoder {
 
 	/**
 	 * Write an integer as a varint
-	 *
+	 * 
 	 * Note: sometimes the next thing while decoding is know to be a varint, sometimes there must be a tag
 	 * that denotes the next item *is* a varint. So don't forget to write that tag.
-	 *
+	 * 
 	 * @param n
 	 *           positive integer
 	 * @return
@@ -219,7 +220,7 @@ public class Encoder {
 
 	/**
 	 * Encode a number as zigzag
-	 *
+	 * 
 	 * @param n
 	 * @return
 	 */
@@ -233,7 +234,7 @@ public class Encoder {
 
 	/**
 	 * Encode a short ascii string
-	 *
+	 * 
 	 * @param s
 	 *           String to encode as US-ASCII bytes
 	 * @throws SerealException
@@ -280,7 +281,7 @@ public class Encoder {
 
 	/**
 	 * Encode a regex
-	 *
+	 * 
 	 * @param p
 	 *           regex pattern. Only support flags "smix": DOTALL | MULTILINE | CASE_INSENSITIVE | COMMENTS
 	 * @throws SerealException
@@ -318,7 +319,7 @@ public class Encoder {
 
 	/**
 	 * Encodes a byte array
-	 *
+	 * 
 	 * @param in
 	 * @return
 	 */
@@ -341,7 +342,7 @@ public class Encoder {
 
 	/**
 	 * Write something to the encoder.
-	 *
+	 * 
 	 * @param obj
 	 * @return a buffer with the encoded data
 	 * @throws SerealException
@@ -363,8 +364,13 @@ public class Encoder {
 			return;
 		}
 
+		// track it (for COPY and REFP tags)
+		int obj_location = data.size(); // segment where we start putting this item
+		track( obj, obj_location );
+
 		// this needs to be first for obvious reasons :)
 		if( obj == null ) {
+			log.fine( "Emitting a NULL/undef" );
 			data.add( new byte[] { SerealHeader.SRL_HDR_UNDEF } );
 			size++;
 			return;
@@ -372,10 +378,6 @@ public class Encoder {
 
 		Class<? extends Object> type = obj.getClass();
 		log.fine( "Encoding type: " + type );
-
-		// track it (for COPY and REFP tags)
-		int obj_location = data.size(); // segment where we start putting this item
-		track( obj, obj_location );
 
 		// this is ugly :)
 		if( type == Long.class || type == Integer.class || type == Byte.class ) {
@@ -465,7 +467,7 @@ public class Encoder {
 	}
 
 	/**
-	 *
+	 * 
 	 * @param obj
 	 * @return location in bytestream of object
 	 */
@@ -478,7 +480,7 @@ public class Encoder {
 	}
 
 	private void track(Object obj, int obj_location) {
-		log.fine( "Tracking " + obj.getClass().getName() + "@" + System.identityHashCode( obj ) + " at location " + obj_location );
+		log.fine( "Tracking " + (obj == null ? "NULL/undef" : obj.getClass().getName()) + "@" + System.identityHashCode( obj ) + " at location " + obj_location );
 		tracked.put( System.identityHashCode( obj ), obj_location );
 	}
 
@@ -567,11 +569,11 @@ public class Encoder {
 	private void refcount(Object value, int change) {
 
 		if( value == null ) {
-			log.fine( "Not bothering with refcounts for NULL/undef");
+			log.fine( "Not bothering with refcounts for NULL/undef" );
 			return;
 		}
-		
-		if( !value.getClass().isArray() && value.getClass() != HashMap.class && value.getClass() != LinkedHashMap.class) {
+
+		if( !value.getClass().isArray() && value.getClass() != HashMap.class && value.getClass() != LinkedHashMap.class ) {
 			log.fine( "Not bothering with refcounts for: " + value.getClass().getSimpleName() );
 			return;
 		}
@@ -584,7 +586,6 @@ public class Encoder {
 	}
 
 	private void write_array(Object obj) throws SerealException {
-
 
 		// checking length without casting to Object[] since they might primitives
 		int count = Array.getLength( obj );
@@ -611,7 +612,7 @@ public class Encoder {
 		 * The problem is: if the refcount of the array is > 1, we need to always
 		 * output REFN ARRAY (with the tracking bit set on the array) so the Perl
 		 * decoder can keep track of refcounts.
-		 *
+		 * 
 		 * Needless to say, things get hairy.
 		 * What I'm doing for now: we default to emitting ARRAYREF for small arrays,
 		 * and keep track of every one we do, then whenever we see another ref to that item
@@ -637,7 +638,8 @@ public class Encoder {
 
 		// write the objects (works for both Objects and primitives)
 		for(int index = 0; index < count; index++) {
-			log.fine( "Emitting array index " + index + " (" + (Array.get( obj, index ) == null ? " NULL/undef" : Array.get( obj, index ).getClass().getSimpleName()) + ")");
+			log.fine( "Emitting array index " + index + " ("
+					+ (Array.get( obj, index ) == null ? " NULL/undef" : Array.get( obj, index ).getClass().getSimpleName()) + ")" );
 			encode( Array.get( obj, index ) );
 		}
 
