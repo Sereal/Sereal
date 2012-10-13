@@ -167,6 +167,9 @@ srl_build_decoder_struct(pTHX_ HV *opt)
 
         if ( (svp = hv_fetchs(opt, "refuse_objects", 0)) && SvTRUE(*svp))
           SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS);
+
+        if ( (svp = hv_fetchs(opt, "validate_utf8", 0)) && SvTRUE(*svp))
+          SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8);
     }
 
     return dec;
@@ -562,6 +565,12 @@ static SRL_INLINE void
 srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
 {
     UV len= srl_read_varint_uv_length(aTHX_ dec, " while reading string");
+    if (is_utf8 && SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8)) {
+        /* checks for invalid byte sequences. */
+        if (!is_utf8_string((U8*)dec->pos, len)) {
+            ERROR("Invalid UTF8 byte sequence");
+        }
+    }
     sv_setpvn(into,(char *)dec->pos,len);
     if (is_utf8) {
         SvUTF8_on(into);

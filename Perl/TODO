@@ -3,13 +3,6 @@
 - float dumping endianness
 - checksumming?
 - Gather experience with protocol version handling / exposure
-
-- Decoder should have a way to prevent corrupted utf8,
-  maybe via a UTF8 validation level option:
-    0: no validation
-    1: utf8 well-formedness validation (invalid byte sequences)
-    2: utf8 code point validation (invalid code points)
-
 - full, performant java implementation
 
 v2:

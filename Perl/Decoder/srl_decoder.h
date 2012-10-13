@@ -76,6 +76,8 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_F_DECODER_REFUSE_SNAPPY 16UL
 /* Persistent flag: Make the decoder REFUSE opjects */
 #define SRL_F_DECODER_REFUSE_OBJECTS 32UL
+/* Persistent flag: Make the decoder validate UTT8 strings */
+#define SRL_F_DECODER_VALIDATE_UTF8 64UL
 
 #define SRL_DEC_HAVE_OPTION(dec, flag_num) ((dec)->flags & flag_num)
 #define SRL_DEC_SET_OPTION(dec, flag_num) ((dec)->flags |= flag_num)
