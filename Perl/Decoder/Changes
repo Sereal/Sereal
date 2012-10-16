@@ -67,3 +67,10 @@ Revision history for Perl extension Sereal-Decoder
 
 0.14 - unreleased
 
+0.15  Tue Oct 16 13:00 2012
+  - Decoder option validate_utf8
+    With this option (turned off by default for performance reasons)
+    the decoder will emit an error on malformed UTF-8. This will
+    *not* check for invalid code points; this can be added later, but Perls
+    that are recent enough will warn on those anyway.
+
