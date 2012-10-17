@@ -4,6 +4,7 @@
 \bDecoder\.c$
 \bt\.pl$
 \bt\.c$
+MYMETA\..*$
 
 \bt\.c$
 \bt\.pl$
