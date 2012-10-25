@@ -10,19 +10,19 @@ use File::Spec;
 
 use lib File::Spec->catdir(qw(t lib));
 BEGIN {
-  lib->import('lib')
-    if !-d 't';
+    lib->import('lib')
+        if !-d 't';
 }
 
 use Sereal::TestSet qw(:all);
 use Test::More;
 
 if (not have_encoder_and_decoder()) {
-  plan skip_all => 'Did not find right version of decoder';
+    plan skip_all => 'Did not find right version of decoder';
 }
 else {
-  require Sereal::Decoder;
-  Sereal::Decoder->import(":all");
+    require Sereal::Decoder;
+    Sereal::Decoder->import(":all");
 }
 
 
@@ -32,16 +32,16 @@ else {
 # tiedness in the output.
 
 SCOPE: {
-  package TiedHash;
-  require Tie::Hash;
-  our @ISA = qw(Tie::StdHash);
+    package TiedHash;
+    require Tie::Hash;
+    our @ISA = qw(Tie::StdHash);
 }
 
 my %testhash = (
-  foo => [qw(a b c)],
-  baz => 123,
-  dfvgbnhmjk => "345ty6ujh",
-  a => undef,
+    foo => [qw(a b c)],
+    baz => 123,
+    dfvgbnhmjk => "345ty6ujh",
+    a => undef,
 );
 
 my %tied_hash;
@@ -54,13 +54,13 @@ my ($out, $ok, $err, $data);
 $ok = eval {$out = encode_sereal(\%tied_hash); 1};
 $err = $@ || 'Zombie error';
 ok($ok, "serializing tied hash did not die")
-  or note("Error was '$err'");
+    or note("Error was '$err'");
 ok(defined $out, "serializing tied hash returns string");
 
 $ok = eval {$data = decode_sereal($out); 1;};
 $err = $@ || 'Zombie error';
 ok($ok, "deserializing tied hash did not die")
-  or note("Error was '$err', data was:\n"), hobodecode($out);
+    or note("Error was '$err', data was:\n"), hobodecode($out);
 ok(defined $data, "deserializing tied hash yields defined output");
 is_deeply($data, \%testhash, "deserializing tied hash yields expected output");
 
@@ -69,9 +69,9 @@ is_deeply($data, \%testhash, "deserializing tied hash yields expected output");
 # Now tied arrays.
 
 SCOPE: {
-  package TiedArray;
-  require Tie::Array;
-  our @ISA = qw(Tie::StdArray);
+    package TiedArray;
+    require Tie::Array;
+    our @ISA = qw(Tie::StdArray);
 }
 
 my @testarray = (1, 2, "foo", "bar", []);
@@ -83,13 +83,13 @@ is_deeply(\@tied_array, \@testarray);
 $ok = eval {$out = encode_sereal(\@tied_array); 1};
 $err = $@ || 'Zombie error';
 ok($ok, "serializing tied array did not die")
-  or note("Error was '$err'");
+    or note("Error was '$err'");
 ok(defined $out, "serializing tied array returns string");
 
 $ok = eval {$data = decode_sereal($out); 1;};
 $err = $@ || 'Zombie error';
 ok($ok, "deserializing tied array did not die")
-  or note("Error was '$err', data was:\n"), hobodecode($out);
+    or note("Error was '$err', data was:\n"), hobodecode($out);
 ok(defined $data, "deserializing tied array yields defined output");
 is_deeply($data, \@testarray, "deserializing tied array yields expected output");
 
@@ -97,9 +97,9 @@ is_deeply($data, \@testarray, "deserializing tied array yields expected output")
 # Now tied scalars.
 
 SCOPE: {
-  package TiedScalar;
-  require Tie::Scalar;
-  our @ISA = qw(Tie::StdScalar);
+    package TiedScalar;
+    require Tie::Scalar;
+    our @ISA = qw(Tie::StdScalar);
 }
 
 my $testscalar = [qw(foo bar baz)];
