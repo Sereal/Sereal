@@ -445,6 +445,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
     if (SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY)) {
         srl_encoder_t * const proto = enc;
         enc = srl_build_encoder_struct_alike(aTHX_ proto);
+        SRL_ENC_RESET_OPTION(enc, SRL_F_REUSE_ENCODER);
     }
     /* Set to being in use */;
     SRL_ENC_SET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);

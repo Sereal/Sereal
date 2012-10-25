@@ -78,6 +78,8 @@ void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
 #define SRL_OF_ENCODER_DIRTY                 1UL
 
 #define SRL_ENC_HAVE_OPTION(enc, flag_num) ((enc)->flags & flag_num)
+#define SRL_ENC_SET_OPTION(enc, flag_num) STMT_START {(enc)->flags |= (flag_num);}STMT_END
+#define SRL_ENC_RESET_OPTION(enc, flag_num) STMT_START {(enc)->flags &= ~(flag_num);}STMT_END
 
 #define SRL_ENC_HAVE_OPER_FLAG(enc, flag_num) ((enc)->operational_flags & (flag_num))
 #define SRL_ENC_SET_OPER_FLAG(enc, flag_num) STMT_START {(enc)->operational_flags |= (flag_num);}STMT_END
