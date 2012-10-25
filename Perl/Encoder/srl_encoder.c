@@ -158,7 +158,7 @@ srl_destructor_hook(pTHX_ void *p)
 void
 srl_clear_encoder(pTHX_ srl_encoder_t *enc)
 {
-    if (enc->pos == enc->buf_start) {
+    if (!SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY)) {
         warn("Sereal Encoder being cleared but in virgin state. That is unexpected.");
     }
 
@@ -170,6 +170,8 @@ srl_clear_encoder(pTHX_ srl_encoder_t *enc)
     if (enc->weak_seenhash != NULL)
         PTABLE_clear(enc->weak_seenhash);
     enc->pos = enc->buf_start;
+
+    SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);
 }
 
 void
@@ -186,27 +188,44 @@ srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
     Safefree(enc);
 }
 
-/* Builds the C-level configuration and state struct.
- * Automatically freed at scope boundary. */
+/* allocate an empty encoder struct - flags still to be set up */
+static SRL_INLINE srl_encoder_t *
+srl_empty_encoder_struct(pTHX)
+{
+    srl_encoder_t *enc;
+    Newx(enc, 1, srl_encoder_t);
+    if (enc == NULL)
+        croak("Out of memory");
+
+    /* Init struct */
+    Newx(enc->buf_start, INITIALIZATION_SIZE, char);
+    if (enc->buf_start == NULL) {
+        Safefree(enc);
+        croak("Out of memory");
+    }
+    enc->buf_end = enc->buf_start + INITIALIZATION_SIZE - 1;
+    enc->pos = enc->buf_start;
+    enc->depth = 0;
+    enc->operational_flags = 0;
+    /*enc->flags = 0;*/ /* to be set elsewhere */
+
+    enc->weak_seenhash = NULL;
+    enc->str_seenhash = NULL;
+    enc->ref_seenhash = NULL;
+    enc->snappy_workmem = NULL;
+
+    return enc;
+}
+
+/* Builds the C-level configuration and state struct. */
 srl_encoder_t *
 srl_build_encoder_struct(pTHX_ HV *opt)
 {
     srl_encoder_t *enc;
     SV **svp;
 
-    Newx(enc, 1, srl_encoder_t);
-
-    /* Init struct */
-    Newx(enc->buf_start, INITIALIZATION_SIZE, char);
-    enc->buf_end = enc->buf_start + INITIALIZATION_SIZE - 1;
-    enc->pos = enc->buf_start;
-    enc->depth = 0;
+    enc = srl_empty_encoder_struct(aTHX);
     enc->flags = 0;
-
-    enc->weak_seenhash = NULL;
-    enc->str_seenhash = NULL;
-    enc->ref_seenhash = NULL;
-    enc->snappy_workmem = NULL;
 
     /* load options */
     if (opt != NULL) {
@@ -256,6 +275,18 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         /* SRL_F_SHARED_HASHKEYS on by default */
         enc->flags |= SRL_F_SHARED_HASHKEYS;
     }
+
+    DEBUG_ASSERT_BUF_SANE(enc);
+    return enc;
+}
+
+/* clone an encoder without current state */
+srl_encoder_t *
+srl_build_encoder_struct_alike(pTHX_ srl_encoder_t *proto)
+{
+    srl_encoder_t *enc;
+    enc = srl_empty_encoder_struct(aTHX);
+    enc->flags = proto->flags;
     DEBUG_ASSERT_BUF_SANE(enc);
     return enc;
 }
@@ -409,6 +440,15 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
 {
     if (DEBUGHACK) warn("== start dump");
 
+    /* Check whether encoder is in use and create a new one on the
+     * fly if necessary. Should only happen in bizarre edge cases... hopefully. */
+    if (SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY)) {
+        srl_encoder_t * const proto = enc;
+        enc = srl_build_encoder_struct_alike(aTHX_ proto);
+    }
+    /* Set to being in use */;
+    SRL_ENC_SET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);
+
     /* Register our structure for destruction on scope exit */
     SAVEDESTRUCTOR_X(&srl_destructor_hook, (void *)enc);
 
@@ -496,6 +536,10 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
 #endif
         }
     }
+
+    /* NOT doing a
+     *   SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);
+     * here because we're relying on the SAVEDESTRUCTOR_X call. */
     if (DEBUGHACK) warn("== end dump");
 }
 

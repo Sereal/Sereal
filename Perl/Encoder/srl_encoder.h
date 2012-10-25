@@ -17,6 +17,7 @@ typedef struct {
     char *buf_end;           /* ptr to end of output buffer */
     char *pos;               /* ptr to current position within output buffer */
 
+    U32 operational_flags;   /* flags that pertain to one encode run (rather than being options): See SRL_OF_* defines */
     U32 flags;               /* flag-like options: See SRL_F_* defines */
     unsigned int depth;      /* current Perl-ref recursion depth */
     ptable_ptr ref_seenhash; /* ptr table for avoiding circular refs */
@@ -27,8 +28,10 @@ typedef struct {
     IV snappy_threshold;     /* do not compress things smaller than this even if Snappy enabled */
 } srl_encoder_t;
 
-/* constructor; don't need destructor, this sets up a callback */
+/* constructor from options */
 srl_encoder_t *srl_build_encoder_struct(pTHX_ HV *opt);
+/* clone; "constructor from prototype" */
+srl_encoder_t *srl_build_encoder_struct_alike(pTHX_ srl_encoder_t *proto);
 
 void srl_clear_encoder(pTHX_ srl_encoder_t *enc);
 
@@ -39,6 +42,7 @@ void srl_destroy_encoder(pTHX_ srl_encoder_t *enc);
 void srl_write_header(pTHX_ srl_encoder_t *enc);
 /* Start dumping a top-level SV */
 void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
+
 
 /* define option bits in srl_encoder_t's flags member */
 
@@ -70,6 +74,13 @@ void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
  * if the unsupported item has string overloading. */
 #define SRL_F_NOWARN_UNKNOWN_OVERLOAD        128UL
 
+/* Set while the encoder is in active use / dirty */
+#define SRL_OF_ENCODER_DIRTY                 1UL
+
 #define SRL_ENC_HAVE_OPTION(enc, flag_num) ((enc)->flags & flag_num)
+
+#define SRL_ENC_HAVE_OPER_FLAG(enc, flag_num) ((enc)->operational_flags & (flag_num))
+#define SRL_ENC_SET_OPER_FLAG(enc, flag_num) STMT_START {(enc)->operational_flags |= (flag_num);}STMT_END
+#define SRL_ENC_RESET_OPER_FLAG(enc, flag_num) STMT_START {(enc)->operational_flags &= ~(flag_num);}STMT_END
 
 #endif
