@@ -121,6 +121,22 @@ ok($ok, "deserializing tied scalar did not die")
 ok(defined $data, "deserializing tied scalar yields defined output");
 is_deeply($data, \$testscalar, "deserializing tied scalar yields expected output");
 
+
+# Now test re-entrancy. DO NOT DO THIS AT HOME!
+SCOPE: {
+    my $enc = Sereal::Encoder->new;
+    my $die_run = 0;
+    eval {
+        local $SIG{__DIE__} = sub {
+            $die_run++;
+            ok(defined($enc->encode("foo")), "encode does not segfault");
+            $die_run++;
+        };
+        $enc->encode(["foo", sub{}]);
+    };
+    ok($die_run == 2, "__DIE__ called, encode 2 did not die");
+}
+
 pass("Alive at end");
 done_testing();
 
