@@ -17,7 +17,7 @@ typedef struct {
     char *buf_end;           /* ptr to end of output buffer */
     char *pos;               /* ptr to current position within output buffer */
 
-    U32 flags;               /* flag-like options: See F_* defines in srl_encoder.c */
+    U32 flags;               /* flag-like options: See SRL_F_* defines */
     unsigned int depth;      /* current Perl-ref recursion depth */
     ptable_ptr ref_seenhash; /* ptr table for avoiding circular refs */
     ptable_ptr weak_seenhash; /* ptr table for avoiding dangling weakrefs */
