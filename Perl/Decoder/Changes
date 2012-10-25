@@ -76,3 +76,4 @@ Revision history for Perl extension Sereal-Decoder
   - Thread-safety fix on Perls >= 5.8.7. Sereal is still not thread-safe
     on older Perls 
 
+0.16 - unreleased

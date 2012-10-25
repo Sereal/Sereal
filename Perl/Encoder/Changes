@@ -64,3 +64,9 @@ Revision history for Perl extension Sereal-Encoder
 0.15  Wed Oct 17 13:00 2012
   - Thread-safety fix on Perls >= 5.8.7. Sereal is still not thread-safe
     on older Perls 
+
+0.16  Thu Oct 25 12:00 2012
+  - Re-entrancy fix for obscure cases like calling into Sereal from
+    $SIG{__DIE__} if the exception was thrown from within Sereal.
+    (A bit of a "don't do that" case)
+
