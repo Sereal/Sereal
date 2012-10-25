@@ -158,16 +158,18 @@ srl_destructor_hook(pTHX_ void *p)
 void
 srl_clear_encoder(pTHX_ srl_encoder_t *enc)
 {
-    if (enc->pos > enc->buf_start) {
-        enc->depth = 0;
-        if (enc->ref_seenhash != NULL)
-            PTABLE_clear(enc->ref_seenhash);
-        if (enc->str_seenhash != NULL)
-            PTABLE_clear(enc->str_seenhash);
-        if (enc->weak_seenhash != NULL)
-            PTABLE_clear(enc->weak_seenhash);
-        enc->pos = enc->buf_start;
+    if (enc->pos == enc->buf_start) {
+        warn("Sereal Encoder being cleared but in virgin state. That is unexpected.");
     }
+
+    enc->depth = 0;
+    if (enc->ref_seenhash != NULL)
+        PTABLE_clear(enc->ref_seenhash);
+    if (enc->str_seenhash != NULL)
+        PTABLE_clear(enc->str_seenhash);
+    if (enc->weak_seenhash != NULL)
+        PTABLE_clear(enc->weak_seenhash);
+    enc->pos = enc->buf_start;
 }
 
 void
