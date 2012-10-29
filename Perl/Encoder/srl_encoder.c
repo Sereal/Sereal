@@ -460,6 +460,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
     }
     else {
         ptrdiff_t sereal_header_len;
+        STRLEN uncompressed_body_length;
 
         /* Alas, have to write entire packet first since the header length
          * will determine offsets. */
@@ -467,25 +468,24 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
         sereal_header_len = enc->pos - enc->buf_start;
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
+        uncompressed_body_length = BUF_POS_OFS(enc) - sereal_header_len;
 
         /* Don't bother with snappy compression at all if we have less than $threshold bytes of payload */
         if (enc->snappy_threshold > 0
-            && enc->pos - enc->buf_start - sereal_header_len < enc->snappy_threshold)
+            && uncompressed_body_length < (STRLEN)enc->snappy_threshold)
         {
-            /* sizeof(const char *) includes a count ofr \0 */
+            /* sizeof(const char *) includes a count of \0 */
             char *flags_and_version_byte = enc->buf_start + sizeof(SRL_MAGIC_STRING) - 1;
             /* disable snappy flag in header */
             *flags_and_version_byte = SRL_PROTOCOL_ENCODING_RAW |
                                       (*flags_and_version_byte & SRL_PROTOCOL_VERSION_MASK);
         }
         else {
-            STRLEN uncompressed_length;
             char *old_buf;
             uint32_t dest_len;
 
             /* Get uncompressed payload and total packet output (after compression) lengths */
-            uncompressed_length = BUF_POS_OFS(enc) - sereal_header_len;
-            dest_len = csnappy_max_compressed_length(uncompressed_length) + sereal_header_len + 1;
+            dest_len = csnappy_max_compressed_length(uncompressed_body_length) + sereal_header_len + 1;
 
             /* Lazy working buffer alloc */
             if (expect_false( enc->snappy_workmem == NULL )) {
@@ -510,10 +510,10 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
             enc->pos += sereal_header_len;
 
             /*
-             * fprintf(stderr, "'%u' %u %u\n", enc->pos - enc->buf_start, uncompressed_length, (uncompressed_length+sereal_header_len));
+             * fprintf(stderr, "'%u' %u %u\n", enc->pos - enc->buf_start, uncompressed_body_length, (uncompressed_body_length+sereal_header_len));
              * fprintf(stdout, "%7s!%1s\n", old_buf, old_buf+6);
              */
-            csnappy_compress(old_buf+sereal_header_len, (uint32_t)uncompressed_length, enc->pos, &dest_len,
+            csnappy_compress(old_buf+sereal_header_len, (uint32_t)uncompressed_body_length, enc->pos, &dest_len,
                              enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
             /* fprintf(stderr, "%u, %u %u %u\n", dest_len, enc->pos[0], enc->pos[1], enc->pos[2]); */
             Safefree(old_buf);
