@@ -37,7 +37,17 @@
 #define DEBUG_ASSERT_BUF_SPACE(enc, len) ((void)0)
 #endif
 
+#ifndef NDEBUG
+#define DEBUG_ASSERT_BUF_SANE(enc) STMT_START { \
+    if(!(((enc)->buf_start <= (enc)->pos) && ((enc)->pos <= (enc)->buf_end))){\
+        warn("failed sanity assertion check - pos: %ld [%p %p %p] %ld",  \
+                (long)BUF_POS_OFS(enc), (enc)->buf_start, (enc)->pos, (enc)->buf_end, (long)BUF_SPACE(enc)); \
+    } \
+    assert(((enc)->buf_start <= (enc)->pos) && ((enc)->pos <= (enc)->buf_end));\
+} STMT_END
+#else
 #define DEBUG_ASSERT_BUF_SANE(enc) assert(((enc)->buf_start <= (enc)->pos) && ((enc)->pos <= (enc)->buf_end))
+#endif
 
 static SRL_INLINE void
 srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
