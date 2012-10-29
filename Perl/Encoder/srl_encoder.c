@@ -468,6 +468,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
         sereal_header_len = enc->pos - enc->buf_start;
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
+        assert(BUF_POS_OFS(enc) > sereal_header_len);
         uncompressed_body_length = BUF_POS_OFS(enc) - sereal_header_len;
 
         /* Don't bother with snappy compression at all if we have less than $threshold bytes of payload */
@@ -506,7 +507,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
             enc->buf_end = enc->buf_start + dest_len;
 
             /* Copy Sereal header */
-            Copy(old_buf, enc->pos, sereal_header_len, unsigned char);
+            Copy(old_buf, enc->pos, sereal_header_len, char);
             enc->pos += sereal_header_len;
 
             /*
@@ -516,8 +517,10 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
             csnappy_compress(old_buf+sereal_header_len, (uint32_t)uncompressed_body_length, enc->pos, &dest_len,
                              enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
             /* fprintf(stderr, "%u, %u %u %u\n", dest_len, enc->pos[0], enc->pos[1], enc->pos[2]); */
+            assert(dest_len != 0);
             Safefree(old_buf);
             enc->pos += dest_len;
+            assert(enc->pos <= enc->buf_end);
 
 #if 0
             if (expect_false( dest_len >= uncompressed_length )) {
@@ -850,7 +853,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
 redo_dump:
     svt = SvTYPE(src);
     refcount = SvREFCNT(src);
-
+    DEBUG_ASSERT_BUF_SANE(enc);
     if ( SvMAGICAL(src) ) {
         SvGETMAGIC(src);
         if ( ( mg = mg_find(src, PERL_MAGIC_backref) ) ) {
