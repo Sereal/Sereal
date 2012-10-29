@@ -847,7 +847,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     MAGIC *mg;
     SV* refsv= NULL;
     UV weakref_ofs= 0;              /* preserved between loops */
-    size_t ref_rewrite_pos= 0;      /* preserved between loops */
+    ssize_t ref_rewrite_pos= 0;      /* preserved between loops */
     assert(src);
 
 redo_dump:
