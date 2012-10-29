@@ -52,23 +52,23 @@
 static SRL_INLINE void
 srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
 {
-  const size_t pos_ofs= BUF_POS_OFS(enc); /* have to store the ofset of pos */
+    const size_t pos_ofs= BUF_POS_OFS(enc); /* have to store the offset of pos */
 #ifdef MEMDEBUG
-  const size_t new_size = minlen;
+    const size_t new_size = minlen;
 #else
-  const size_t cur_size = BUF_SIZE(enc);
-  const size_t grown_len = (size_t)(cur_size * BUFFER_GROWTH_FACTOR);
-  const size_t new_size = 100 + (minlen > grown_len ? minlen : grown_len);
+    const size_t cur_size = BUF_SIZE(enc);
+    const size_t grown_len = (size_t)(cur_size * BUFFER_GROWTH_FACTOR);
+    const size_t new_size = 100 + (minlen > grown_len ? minlen : grown_len);
 #endif
-  DEBUG_ASSERT_BUF_SANE(enc);
-  /* assert that Renew means GROWING the buffer */
-  assert(enc->buf_start + new_size > enc->buf_end);
-  Renew(enc->buf_start, new_size, char);
-  if (enc->buf_start == NULL)
-      croak("Out of memory!");
-  enc->buf_end = (char *)(enc->buf_start + new_size);
-  enc->pos= enc->buf_start + pos_ofs;
-  assert(enc->buf_end - enc->buf_start > (ptrdiff_t)0);
+    DEBUG_ASSERT_BUF_SANE(enc);
+    /* assert that Renew means GROWING the buffer */
+    assert(enc->buf_start + new_size > enc->buf_end);
+    Renew(enc->buf_start, new_size, char);
+    if (enc->buf_start == NULL)
+        croak("Out of memory!");
+    enc->buf_end = (char *)(enc->buf_start + new_size);
+    enc->pos= enc->buf_start + pos_ofs;
+    assert(enc->buf_end - enc->buf_start > (ptrdiff_t)0);
 }
 
 #define BUF_SIZE_ASSERT(enc, minlen) \
@@ -90,10 +90,10 @@ srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
 static SRL_INLINE void
 srl_buf_cat_str_int(pTHX_ srl_encoder_t *enc, const char *str, size_t len)
 {
-  BUF_SIZE_ASSERT(enc, len);
-  Copy(str, enc->pos, len, char);
-  enc->pos += len;
-  DEBUG_ASSERT_BUF_SANE(enc);
+    BUF_SIZE_ASSERT(enc, len);
+    Copy(str, enc->pos, len, char);
+    enc->pos += len;
+    DEBUG_ASSERT_BUF_SANE(enc);
 }
 #define srl_buf_cat_str(enc, str, len) srl_buf_cat_str_int(aTHX_ enc, str, len)
 #define srl_buf_cat_str_s(enc, str) srl_buf_cat_str(enc, ("" str), strlen("" str))
@@ -101,11 +101,11 @@ srl_buf_cat_str_int(pTHX_ srl_encoder_t *enc, const char *str, size_t len)
 static SRL_INLINE void
 srl_buf_cat_str_nocheck_int(pTHX_ srl_encoder_t *enc, const char *str, size_t len)
 {
-  DEBUG_ASSERT_BUF_SANE(enc);
-  DEBUG_ASSERT_BUF_SPACE(enc, len);
-  Copy(str, enc->pos, len, char);
-  enc->pos += len;
-  DEBUG_ASSERT_BUF_SANE(enc);
+    DEBUG_ASSERT_BUF_SANE(enc);
+    DEBUG_ASSERT_BUF_SPACE(enc, len);
+    Copy(str, enc->pos, len, char);
+    enc->pos += len;
+    DEBUG_ASSERT_BUF_SANE(enc);
 }
 #define srl_buf_cat_str_nocheck(enc, str, len) srl_buf_cat_str_nocheck_int(aTHX_ enc, str, len)
 #define srl_buf_cat_str_s_nocheck(enc, str) srl_buf_cat_str_nocheck(enc, ("" str), strlen("" str))
@@ -113,19 +113,21 @@ srl_buf_cat_str_nocheck_int(pTHX_ srl_encoder_t *enc, const char *str, size_t le
 static SRL_INLINE void
 srl_buf_cat_char_int(pTHX_ srl_encoder_t *enc, const char c)
 {
-  BUF_SIZE_ASSERT(enc, 1);
-  *enc->pos++ = c;
-  DEBUG_ASSERT_BUF_SANE(enc);
+    DEBUG_ASSERT_BUF_SANE(enc);
+    BUF_SIZE_ASSERT(enc, 1);
+    DEBUG_ASSERT_BUF_SPACE(enc, 1);
+    *enc->pos++ = c;
+    DEBUG_ASSERT_BUF_SANE(enc);
 }
 #define srl_buf_cat_char(enc, c) srl_buf_cat_char_int(aTHX_ enc, c)
 
 static SRL_INLINE void
 srl_buf_cat_char_nocheck_int(pTHX_ srl_encoder_t *enc, const char c)
 {
-  DEBUG_ASSERT_BUF_SANE(enc);
-  DEBUG_ASSERT_BUF_SPACE(enc, 1);
-  *enc->pos++ = c;
-  DEBUG_ASSERT_BUF_SANE(enc);
+    DEBUG_ASSERT_BUF_SANE(enc);
+    DEBUG_ASSERT_BUF_SPACE(enc, 1);
+    *enc->pos++ = c;
+    DEBUG_ASSERT_BUF_SANE(enc);
 }
 #define srl_buf_cat_char_nocheck(enc, c) srl_buf_cat_char_nocheck_int(aTHX_ enc, c)
 
@@ -148,7 +150,8 @@ srl_buf_cat_varint_nocheck(pTHX_ srl_encoder_t *enc, const char tag, UV n) {
 
 static SRL_INLINE void
 srl_buf_cat_varint(pTHX_ srl_encoder_t *enc, const char tag, const UV n) {
-    /* this implements googles "varint" from google protocol buffers */
+    /* this implements "varint" from google protocol buffers */
+    DEBUG_ASSERT_BUF_SANE(enc);
     BUF_SIZE_ASSERT(enc, SRL_MAX_VARINT_LENGTH + 1); /* always allocate space for the tag, overalloc is harmless */
     srl_buf_cat_varint_nocheck(aTHX_ enc, tag, n);
 }
@@ -156,7 +159,7 @@ srl_buf_cat_varint(pTHX_ srl_encoder_t *enc, const char tag, const UV n) {
 static SRL_INLINE void
 srl_buf_cat_zigzag_nocheck(pTHX_ srl_encoder_t *enc, const char tag, const IV n) {
     const UV z= (n << 1) ^ (n >> (sizeof(IV) * 8 - 1));
-    srl_buf_cat_varint(aTHX_ enc, tag, z);
+    srl_buf_cat_varint_nocheck(aTHX_ enc, tag, z);
 }
 
 static SRL_INLINE void
