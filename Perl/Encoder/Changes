@@ -70,3 +70,9 @@ Revision history for Perl extension Sereal-Encoder
     $SIG{__DIE__} if the exception was thrown from within Sereal.
     (A bit of a "don't do that" case)
 
+0.17  Mon Oct 29 12:00 2012
+  * This release contains critical bug fixes *
+  - Fix pointer-stashing-broken-by-realloc-from-under-it problem by
+    using offsets instead.
+    This bug could cause you Perl to segfault.
+
