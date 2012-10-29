@@ -64,7 +64,8 @@ srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
   /* assert that Renew means GROWING the buffer */
   assert(enc->buf_start + new_size > enc->buf_end);
   Renew(enc->buf_start, new_size, char);
-  assert(enc->buf_start != NULL);
+  if (enc->buf_start == NULL)
+      croak("Out of memory!");
   enc->buf_end = (char *)(enc->buf_start + new_size);
   enc->pos= enc->buf_start + pos_ofs;
   assert(enc->buf_end - enc->buf_start > (ptrdiff_t)0);
