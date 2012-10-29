@@ -847,7 +847,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     MAGIC *mg;
     SV* refsv= NULL;
     UV weakref_ofs= 0;              /* preserved between loops */
-    char *ref_rewrite_pos= NULL;    /* preserved between loops */
+    size_t ref_rewrite_pos= 0;      /* preserved between loops */
     assert(src);
 
 redo_dump:
@@ -894,7 +894,7 @@ redo_dump:
                 /* we have seen it before, so we do not need to bless it again */
                 if (ref_rewrite_pos) {
                     if (DEBUGHACK) warn("ref to %p as %lu", src, oldoffset);
-                    enc->pos= ref_rewrite_pos;
+                    enc->pos= enc->buf_start + ref_rewrite_pos;
                     srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REFP, (UV)oldoffset);
                 } else {
                     if (DEBUGHACK) warn("alias to %p as %lu", src, oldoffset);
@@ -939,7 +939,7 @@ redo_dump:
             weakref_ofs= BUF_POS_OFS(enc);
             srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
         }
-        ref_rewrite_pos= enc->pos;
+        ref_rewrite_pos= BUF_POS_OFS(enc);
         if (sv_isobject(src)) {
             /* Check that we actually want to support objects */
             if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_CROAK_ON_BLESS)) ) {
@@ -988,7 +988,7 @@ redo_dump:
                              "by the Sereal encoding format; will encode as an "               \
                              "undefined value", (svt), sv_reftype((src),0),(src));             \
                     if (ref_rewrite_pos)                                                       \
-                        enc->pos= ref_rewrite_pos;                                             \
+                        enc->pos= enc->buf_start + ref_rewrite_pos;                            \
                     srl_buf_cat_char((enc), SRL_HDR_UNDEF);                                    \
                 }                                                                              \
                 else if ( SRL_ENC_HAVE_OPTION((enc), SRL_F_STRINGIFY_UNKNOWN) ) {              \
@@ -1011,7 +1011,7 @@ redo_dump:
                         }                                                                      \
                     }                                                                          \
                     if (refsv) {                                                               \
-                        enc->pos= ref_rewrite_pos;                                             \
+                        enc->pos= enc->buf_start + ref_rewrite_pos;                            \
                         str = SvPV((refsv), len);                                              \
                     } else                                                                     \
                         str = SvPV((src), len);                                                \
