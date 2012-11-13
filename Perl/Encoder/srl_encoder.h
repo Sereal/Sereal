@@ -1,5 +1,5 @@
-#ifndef DDL_ENC_H_
-#define DDL_ENC_H_
+#ifndef SRL_ENC_H_
+#define SRL_ENC_H_
 
 #include "EXTERN.h"
 #include "perl.h"

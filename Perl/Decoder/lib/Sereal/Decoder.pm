@@ -246,7 +246,7 @@ Steffen Mueller E<lt>smueller@cpan.orgE<gt>
 
 Rafaël Garcia-Suarez
 
-Ævar Arnfjörð Bjarmason
+Ævar Arnfjörð Bjarmason E<lt>avar@cpan.orgE<gt>
 
 Some inspiration and code was taken from Marc Lehmann's
 excellent JSON::XS module due to obvious overlap in
