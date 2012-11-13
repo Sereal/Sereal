@@ -963,7 +963,7 @@ redo_dump:
         ((SvFLAGS(src) & (SVs_OBJECT|SVf_OK|SVs_GMG|SVs_SMG|SVs_RMG)) == (SVs_OBJECT|BFD_Svs_SMG_OR_RMG)) &&
         (mg = mg_find(src, PERL_MAGIC_qr))
     ) {
-            /* Housten, we have a regex! */
+            /* Houston, we have a regex! */
         srl_dump_regexp(aTHX_ enc, (SV*)mg); /* yes the SV* cast makes me feel dirty too */
     }
     else
