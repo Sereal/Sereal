@@ -1,9 +1,11 @@
 <?php namespace Sereal;
 
-class ReservedWord  extends \Exception { };
-class Unimplemented extends \Exception { };
-class Malformed     extends \Exception { };
-class UnexpectedEnd extends Malformed  { };
+class Unimplemented   extends \Exception      { };
+class ReservedWord    extends Unimplemented   { };
+class Malformed       extends \Exception      { };
+class UnexpectedEnd   extends Malformed       { };
+class UntrackedOffset extends Malformed       { };
+class ForwardOffset   extends UntrackedOffset { };
 
 # probably pretty slow
 function varint_get (&$str, $wantarray=false)
@@ -34,6 +36,29 @@ function varint_get (&$str, $wantarray=false)
 	return bindec($number);
 }
 
+function build_regexp ($pattern, $modifiers)
+{
+	$pattern = str_replace("/", "\\/", $pattern);
+	return "/$pattern/$modifiers";
+}
+
+function build_weaken (&$ref)
+{
+	return $ref;
+}
+
+function build_str_utf8 ($bytes)
+{
+	return $bytes;
+}
+
+function build_object ($class, $data)
+{
+	if (is_array($data))
+		$data['__CLASS__'] = $class;
+	return (object)$data;
+}
+
 class Decoder
 {
 	protected $bytes;
@@ -41,10 +66,15 @@ class Decoder
 	protected $offset_map;
 	protected $header;
 	
+	public $build_regexp   = 'Sereal\build_regexp';
+	public $build_weaken   = 'Sereal\build_weaken';
+	public $build_str_utf8 = 'Sereal\build_str_utf8';
+	public $build_object   = 'Sereal\build_object';
+	
 	static protected $_constants = array(
-		'25' => null,
-		'3A' => false,
-		'3B' => true,
+		'25' => null,     # TAG:UNDEF
+		'3A' => false,    # TAG:FALSE
+		'3B' => true,     # TAG:TRUE
 	);
 	
 	static protected $_track_replace = array(
@@ -85,14 +115,17 @@ class Decoder
 	
 	protected function _decode ()
 	{
-		$char = strtoupper( bin2hex( substr($this->bytes, 0, 1) ) );
-		$this->bytes = substr($this->bytes, 1);
-		$offset = $this->offset++;
+		$offset = $this->offset;
+		$char   = strtoupper( bin2hex($this->_take(1)) );
 		
 		$track = false;
 		if (preg_match('/^([89A-F])(.)$/', $char, $match)) {
 			$track = true;
 			$char  = self::$_track_replace[ $match[1] ] . $match[2];
+		}
+		
+		if ($char == '?') {  # TAG:PAD
+			return $this->_decoded();
 		}
 		
 		# By God, isn't PHP code "beautiful"...
@@ -104,6 +137,19 @@ class Decoder
 			$this->offset_map[$offset] =& $decoded;
 		
 		return $decoded;
+	}
+	
+	protected function _get_offset ($offset)
+	{
+		if ($offset >= $this->offset) {
+			throw new ForwardOffset("Offset $offset requested, but it's too far ahead");
+		}
+		if (array_key_exists($offset, $this->offset_map)) {
+			return $this->offset_map[$offset];
+		}
+		else {
+			throw new UntrackedOffset("Offset $offset requested, but that offset didn't have the track bit set");
+		}
 	}
 	
 	protected function _take ($n)
@@ -134,14 +180,19 @@ class Decoder
 		return $a;
 	}
 
-	public function _d_20 ()  # VARINT
+	public function _d_20 ()  # TAG:VARINT
 	{
 		list($number, $length) = varint_get($this->bytes, true);
 		$this->offset += $length;
 		return $number;
 	}
 	
-	public function _d_26 ()  # BINARY
+	# TAG:ZIGZAG
+	# TAG:FLOAT
+	# TAG:DOUBLE
+	# TAG:LONG_DOUBLE
+	
+	public function _d_26 ()  # TAG:BINARY
 	{
 		$length = $this->_d_20();
 		return $this->_take($length);
@@ -151,54 +202,100 @@ class Decoder
 	# BINARY in PHP. PHP 5 has no mechanism for flagging a
 	# string as UTF8; and PHP 6 is not forthcoming.
 	#
-	public function _d_27 ()  # STR_UTF8
+	public function _d_27 ()  # TAG:STR_UTF8
 	{
 		$length = $this->_d_20();
-		return $this->_take($length);
+		return call_user_func($this->build_str_utf8, $this->_take($length));
 	}
 
-	public function _d_28 ()  # REFN
+	public function _d_28 ()  # TAG:REFN
 	{
 		$next =& $this->_decode();
 		return $next;
 	}
 
-	public function _d_29 ()  # REFP
+	public function _d_29 ()  # TAG:REFP
 	{
 		$offset = $this->_d_20();
-		return $this->offset_map[$offset];
+		return $this->_get_offset($offset);
 	}
 
-	public function _d_2A ()  # HASH
+	public function _d_2A ()  # TAG:HASH
 	{
 		$length = $this->_d_20();
 		return $this->_take_hash($length);
 	}
 
-	public function _d_2B ()  # ARRAY
+	public function _d_2B ()  # TAG:ARRAY
 	{
 		$length = $this->_d_20();
 		return $this->_take_array($length);
 	}
 
+	public function _d_2C ()  # TAG:OBJECT
+	{
+		$class = $this->_decode();
+		$data  = $this->_decode();
+		return call_user_func($this->build_object, $class, $data);
+	}
+	
+	public function _d_2D ()  # TAG:OBJECTV
+	{
+		$class_offset = $this->_decode();
+		$class = $this->_get_offset($offset);
+		$data  = $this->_decode();
+		return call_user_func($this->build_object, $class, $data);
+	}
+	
+	# TAG:ALIAS
+	# TAG:COPY
+	
+	public function _d_30 ()  # TAG:WEAKEN
+	{
+		return call_user_func($this->build_weaken, $this->_decode());
+	}
+	
+	public function _d_31 ()  # TAG:REGEXP
+	{
+		$pattern   = $this->_decode();
+		$modifiers = $this->_decode();
+		return call_user_func($this->build_regexp, $pattern, $modifiers);
+	}
+
+	public function _d_3C ()  # TAG:MANY
+	{
+		throw new Unimplemented("version 2 feature");
+	}
+
+	public function _d_3D ()  # TAG:PACKET_START
+	{
+		throw new Malformed("unexpected PACKET_START");
+	}
+
+	public function _d_3E ()  # TAG:EXTEND
+	{
+		$ext = strtoupper( bin2hex($this->_take(1)) );
+		throw new Unimplemented("unimplemented exception '$ext'");
+	}
+
 	public function __call ($name, $args)
 	{
-		if (preg_match('/^_d_0([A-F0-9])$/', $name, $match)) {
+		if (preg_match('/^_d_0([A-F0-9])$/', $name, $match)) {  # TAG:POS_<n>
 			return hexdec( $match[1] );
 		}
-		if (preg_match('/^_d_1([A-F0-9])$/', $name, $match)) {
+		if (preg_match('/^_d_1([A-F0-9])$/', $name, $match)) {  # TAG:NEG_<n>
 			return hexdec( $match[1] ) - 16;
 		}
-		if (preg_match('/^_d_(3[2-9])$/', $name, $match)) {
+		if (preg_match('/^_d_(3[2-9])$/', $name, $match)) {  # TAG:RESERVED_<n>
 			throw new ReservedWord("reserved tag ${match[1]} used");
 		}
-		if (preg_match('/^_d_(4[A-F0-9])$/', $name, $match)) {
+		if (preg_match('/^_d_(4[A-F0-9])$/', $name, $match)) {  # TAG:ARRAYREF_<n>
 			return $this->_take_array(hexdec( $match[1] ) - 64);
 		}
-		if (preg_match('/^_d_(5[A-F0-9])$/', $name, $match)) {
+		if (preg_match('/^_d_(5[A-F0-9])$/', $name, $match)) {  # TAG:HASHREF_<n>
 			return $this->_take_hash(hexdec( $match[1] ) - 80);
 		}
-		if (preg_match('/^_d_([67][A-F0-9])$/', $name, $match)) {
+		if (preg_match('/^_d_([67][A-F0-9])$/', $name, $match)) {  # TAG:SHORT_BINARY_<n>
 			return $this->_take(hexdec( $match[1] ) - 96);
 		}
 		if (preg_match('/^_d_([A-F0-9]{2})$/', $name, $match)) {
@@ -215,4 +312,4 @@ $d = new Decoder;
 
 print_r( $d->decode("=srl\x01\x00Bb12\xE3123x") );
 print_r( $d->decode("=srl\x01\x00(Qb12\xE3123x") );
-
+print_r( $d->decode("=srl\x01\x00B,cFooRcfoo\x01cbar\x02,cBar\x03") );
