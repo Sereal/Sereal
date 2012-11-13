@@ -59,12 +59,17 @@ function build_object ($class, $data)
 	return (object)$data;
 }
 
+function deep_copy ($o)
+{
+	return unserialize(serialize($o)); 
+}
+
 class Decoder
 {
-	protected $bytes;
+	protected $bytes;       public function remaining  () { return $this->bytes; }
 	protected $offset;
-	protected $offset_map;
-	protected $header;
+	protected $offset_map;  public function offset_map () { return $this->offset_map; }
+	protected $header;      public function header     () { return $this->header; }
 	
 	public $build_regexp   = 'Sereal\build_regexp';
 	public $build_weaken   = 'Sereal\build_weaken';
@@ -109,7 +114,7 @@ class Decoder
 			throw new Malformed("unsupported Sereal version");
 		}
 		
-		$header_size = $this->_d_20();
+		$header_size = $this->_take_varint();
 		$this->header = $this->_take($header_size);
 	}
 	
@@ -155,6 +160,9 @@ class Decoder
 	protected function _take ($n)
 	{
 		$string = substr($this->bytes, 0, $n);
+		if (strlen($string) < $n)
+			throw new UnexpectedEnd("tried to read $n bytes but only found ".strlen($string));
+		
 		$this->bytes = substr($this->bytes, $n);
 		$this->offset += $n;
 		return $string;
@@ -179,12 +187,17 @@ class Decoder
 		}
 		return $a;
 	}
-
-	public function _d_20 ()  # TAG:VARINT
+	
+	protected function _take_varint ()
 	{
 		list($number, $length) = varint_get($this->bytes, true);
 		$this->offset += $length;
 		return $number;
+	}
+
+	public function _d_20 ()  # TAG:VARINT
+	{
+		return $this->_take_varint;
 	}
 	
 	# TAG:ZIGZAG
@@ -194,7 +207,7 @@ class Decoder
 	
 	public function _d_26 ()  # TAG:BINARY
 	{
-		$length = $this->_d_20();
+		$length = $this->_take_varint();
 		return $this->_take($length);
 	}
 	
@@ -204,7 +217,7 @@ class Decoder
 	#
 	public function _d_27 ()  # TAG:STR_UTF8
 	{
-		$length = $this->_d_20();
+		$length = $this->_take_varint();
 		return call_user_func($this->build_str_utf8, $this->_take($length));
 	}
 
@@ -216,19 +229,19 @@ class Decoder
 
 	public function _d_29 ()  # TAG:REFP
 	{
-		$offset = $this->_d_20();
+		$offset = $this->_take_varint();
 		return $this->_get_offset($offset);
 	}
 
 	public function _d_2A ()  # TAG:HASH
 	{
-		$length = $this->_d_20();
+		$length = $this->_take_varint();
 		return $this->_take_hash($length);
 	}
 
 	public function _d_2B ()  # TAG:ARRAY
 	{
-		$length = $this->_d_20();
+		$length = $this->_take_varint();
 		return $this->_take_array($length);
 	}
 
@@ -241,14 +254,19 @@ class Decoder
 	
 	public function _d_2D ()  # TAG:OBJECTV
 	{
-		$class_offset = $this->_decode();
+		$class_offset = $this->_take_varint();
 		$class = $this->_get_offset($offset);
 		$data  = $this->_decode();
 		return call_user_func($this->build_object, $class, $data);
 	}
 	
 	# TAG:ALIAS
-	# TAG:COPY
+	
+	public function _d_2F ()  # TAG:COPY
+	{
+		$offset = $this->_take_varint();
+		return deep_copy( $this->_get_offset($offset) );
+	}
 	
 	public function _d_30 ()  # TAG:WEAKEN
 	{
@@ -310,6 +328,6 @@ class Decoder
 
 $d = new Decoder;
 
-print_r( $d->decode("=srl\x01\x00Bb12\xE3123x") );
-print_r( $d->decode("=srl\x01\x00(Qb12\xE3123x") );
-print_r( $d->decode("=srl\x01\x00B,cFooRcfoo\x01cbar\x02,cBar\x03") );
+#print_r( $d->decode("=srl\x01\x00Bb12\xE3123x") );
+#print_r( $d->decode("=srl\x01\x00(Qb12\xE3123x") );
+print_r( $d->decode("=srl\x01\x00B,\xE3FooRcfoo\x01cbar\x02,cBar/\x08") );
