@@ -23,6 +23,7 @@ function sereal_test ($orig, $name=null)
 
 sereal_test_json('[1,2,3,4,5]');
 sereal_test_json('["a", "bc", "def", "hijk", "lmnop", "qrstuv"]');
+sereal_test_json('{"abc":123,"def":true,"ghi":false,"jkl":null}');
 sereal_test_json(file_get_contents('corpus.json'), 'corpus.json');
 
 done_testing();
