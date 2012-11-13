@@ -200,10 +200,19 @@ class Decoder
 		return $this->_take_varint;
 	}
 	
-	# TAG:ZIGZAG
-	# TAG:FLOAT
-	# TAG:DOUBLE
-	# TAG:LONG_DOUBLE
+	# TAG:ZIGZAG - not implemented
+	
+	public function _d_22 ()  # TAG:FLOAT
+	{
+		return unpack('f', $this->_take(4));
+	}
+	
+	public function _d_23 ()  # TAG:DOUBLE
+	{
+		return unpack('d', $this->_take(8));
+	}
+	
+	# TAG:LONG_DOUBLE - not implemented
 	
 	public function _d_26 ()  # TAG:BINARY
 	{
@@ -260,7 +269,7 @@ class Decoder
 		return call_user_func($this->build_object, $class, $data);
 	}
 	
-	# TAG:ALIAS
+	# TAG:ALIAS - not implemented
 	
 	public function _d_2F ()  # TAG:COPY
 	{
