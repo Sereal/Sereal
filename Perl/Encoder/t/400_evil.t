@@ -137,6 +137,18 @@ SCOPE: {
     ok($die_run == 2, "__DIE__ called, encode 2 did not die");
 }
 
+# github Sereal/Sereal issue 7 regression test:
+SCOPE: {
+    my $data = [sub {}];
+    $data->[1] = $data->[0];
+
+    my $encode = encode_sereal($data, {stringify_unknown => 1});
+    # Before 48d5cdc3dc07fd29ac7be05678a0b614244fec4f, we'd
+    # die here because $data->[1] is a ref to something that doesn't exist anymore
+    my $decode = decode_sereal($encode);
+    is($decode->[0], $decode->[1]);
+}
+
 pass("Alive at end");
 done_testing();
 
