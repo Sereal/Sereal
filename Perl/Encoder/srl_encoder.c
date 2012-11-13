@@ -987,8 +987,13 @@ redo_dump:
                         warn("Found type %u %s(0x%p), but it is not representable "            \
                              "by the Sereal encoding format; will encode as an "               \
                              "undefined value", (svt), sv_reftype((src),0),(src));             \
-                    if (ref_rewrite_pos)                                                       \
+                    if (ref_rewrite_pos) {                                                     \
+                        /* make sure we don't keep a reference to the thing that we do not     \
+                         * want to serialize around for REFP and ALIAS output */               \
+                        PTABLE_t *ref_seenhash= SRL_GET_REF_SEENHASH(enc);                     \
+                        PTABLE_delete(ref_seenhash, src);                                      \
                         enc->pos= enc->buf_start + ref_rewrite_pos;                            \
+                    }                                                                          \
                     srl_buf_cat_char((enc), SRL_HDR_UNDEF);                                    \
                 }                                                                              \
                 else if ( SRL_ENC_HAVE_OPTION((enc), SRL_F_STRINGIFY_UNKNOWN) ) {              \
@@ -1010,7 +1015,11 @@ redo_dump:
                                  "stringified form", (svt), sv_reftype((src),0),(src));        \
                         }                                                                      \
                     }                                                                          \
-                    if (refsv) {                                                               \
+                    if (ref_rewrite_pos) {                                                     \
+                        /* make sure we don't keep a reference to the thing that we do not     \
+                         * want to serialize around for REFP and ALIAS output */               \
+                        PTABLE_t *ref_seenhash= SRL_GET_REF_SEENHASH(enc);                     \
+                        PTABLE_delete(ref_seenhash, src);                                      \
                         enc->pos= enc->buf_start + ref_rewrite_pos;                            \
                         str = SvPV((refsv), len);                                              \
                     } else                                                                     \
