@@ -7,6 +7,11 @@ class UnexpectedEnd   extends Malformed       { };
 class UntrackedOffset extends Malformed       { };
 class ForwardOffset   extends UntrackedOffset { };
 
+function deep_copy ($o)
+{
+	return unserialize(serialize($o)); 
+}
+
 # probably pretty slow
 function varint_get (&$str, $wantarray=false)
 {
@@ -47,6 +52,12 @@ function build_weaken (&$ref)
 	return $ref;
 }
 
+# It's not entirely clear how/if this should differ from
+# BINARY in PHP. PHP 5 has no mechanism for flagging a
+# string as UTF8; and PHP 6 is not forthcoming. People
+# may want to use a callback to promote it into a
+# particular class or something though.
+#
 function build_str_utf8 ($bytes)
 {
 	return $bytes;
@@ -57,11 +68,6 @@ function build_object ($class, $data)
 	if (is_array($data))
 		$data['__CLASS__'] = $class;
 	return (object)$data;
-}
-
-function deep_copy ($o)
-{
-	return unserialize(serialize($o)); 
 }
 
 class Decoder
@@ -220,10 +226,6 @@ class Decoder
 		return $this->_take($length);
 	}
 	
-	# It's not entirely clear how/if this should differ from
-	# BINARY in PHP. PHP 5 has no mechanism for flagging a
-	# string as UTF8; and PHP 6 is not forthcoming.
-	#
 	public function _d_27 ()  # TAG:STR_UTF8
 	{
 		$length = $this->_take_varint();
