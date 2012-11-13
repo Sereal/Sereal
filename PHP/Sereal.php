@@ -7,9 +7,31 @@ class UnexpectedEnd   extends Malformed       { };
 class UntrackedOffset extends Malformed       { };
 class ForwardOffset   extends UntrackedOffset { };
 
+define('Sereal\TAG_UNDEF',  "\x25");
+define('Sereal\TAG_FALSE',  "\x3A");
+define('Sereal\TAG_TRUE',   "\x3B");
+
 function deep_copy ($o)
 {
 	return unserialize(serialize($o)); 
+}
+
+function varint ($i)
+{
+	$rv = "";
+	do {
+		$v = $i & 0x7F;
+		$i = $i >> 7;
+		if ($i != 0)
+			$v |= 0x80;
+		$rv .= chr($v);
+	} while ($i != 0);
+	return $rv;
+}
+
+function zigzag ($n)
+{
+	return ($n < 0) ? varint(-$n*2 - 1) : varint($n*2);
 }
 
 # probably pretty slow
@@ -78,6 +100,109 @@ function build_object ($class, $data)
 	if (is_array($data))
 		$data['__CLASS__'] = $class;
 	return (object)$data;
+}
+
+class Encoder
+{
+	public function encode ($obj, $include_header=true)
+	{
+		$sereal = '';
+		if ($include_header)
+			$sereal = $this->_make_header();
+			
+		$sereal .= $this->_encode($obj);
+		
+		return $sereal;
+	}
+	
+	protected function _make_header ()
+	{
+		return "=srl\x01\x00";
+	}
+	
+	protected function _encode ($x)
+	{
+		if (is_int($x) || is_long($x)) {
+			return $this->_encode_integer($x);
+		}
+		elseif (is_bool($x)) {
+			return $x ? TAG_TRUE : TAG_FALSE;
+		}
+		elseif (is_null($x)) {
+			return TAG_UNDEF;
+		}
+		elseif (is_string($x)) {
+			return $this->_encode_string($x);
+		}
+		elseif (is_float($x)) {
+			return $this->_encode_float($x);
+		}
+		elseif (is_array($x) && count($x) && (array_keys($x) !== range(0, sizeof($x) - 1))) {
+			return $this->_encode_hash($x);
+		}
+		elseif (is_array($x)) {
+			return $this->_encode_array($x);
+		}
+	}
+	
+	protected function _encode_integer ($i)
+	{
+		if ($i >= 0 && $i < 16) {
+			return chr($i);
+		}
+		elseif ($i < 0 && $i > -16) {
+			return chr(32 + $i);
+		}
+		
+		if ($i < 0) {
+			return "!".zigzag($i);
+		}
+		else {
+			return " ".varint($i);
+		}
+	}
+	
+	protected function _encode_string ($bytes)
+	{
+		$sereal = "+" . varint(strlen($bytes));
+		if (strlen($bytes) < 32)
+			$sereal = chr(96 + strlen($bytes));
+		
+		$sereal .= $bytes;
+		
+		return $sereal;
+	}
+	
+	protected function _encode_array ($arr)
+	{
+		$sereal = "+" . varint(count($arr));
+		if (count($arr) < 16)
+			$sereal = chr(64 + count($arr));
+		
+		for ($i = 0; $i < count($arr); $i++)
+			$sereal .= $this->_encode($arr[$i]);
+		
+		return $sereal;
+	}
+
+	protected function _encode_hash ($arr)
+	{
+		$sereal = "*" . varint(count($arr));
+		if (count($arr) < 16)
+			$sereal = chr(80 + count($arr));
+		
+		foreach ($arr as $k => $v) {
+			$sereal .= $this->_encode($k);
+			$sereal .= $this->_encode($v);
+		}
+		
+		return $sereal;
+	}
+	
+	protected function _encode_float ($n)
+	{
+		return '"'.pack('f', $n);
+	}
 }
 
 class Decoder
@@ -358,8 +483,3 @@ class Decoder
 	}
 }
 
-$d = new Decoder;
-
-#print_r( $d->decode("=srl\x01\x00Bb12\xE3123x") );
-#print_r( $d->decode("=srl\x01\x00(Qb12\xE3123x") );
-print_r( $d->decode("=srl\x01\x00B,\xE3FooRcfoo\x01cbar\x02,cBar/\x08") );
