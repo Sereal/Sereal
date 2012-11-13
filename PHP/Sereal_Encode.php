@@ -16,13 +16,21 @@ function varint ($i) {
 	return $rv;
 }
 
+function zigzag ($n)
+{
+	return ($n < 0) ? varint(-$n*2 - 1) : varint($n*2);
+}
+
 class Encoder
 {
-	public function encode ($obj)
+	public function encode ($obj, $include_header=true)
 	{
 		$sereal = '';
-		$sereal .= $this->_make_header();
+		if ($include_header)
+			$sereal = $this->_make_header();
+			
 		$sereal .= $this->_encode($obj);
+		
 		return $sereal;
 	}
 	
@@ -65,7 +73,12 @@ class Encoder
 			return chr(32 + $i);
 		}
 		
-		return varint($i);
+		if ($i < 0) {
+			return "!".zigzag($i);
+		}
+		else {
+			return " ".varint($i);
+		}
 	}
 	
 	protected function _encode_string ($bytes)
@@ -107,11 +120,11 @@ class Encoder
 	
 	protected function _encode_float ($n)
 	{
-		die("TODO");
+		return '"'.pack('f', $n);
 	}
 }
 
 $e = new Encoder;
 
-print str_replace('%', '\\x', urlencode( $e->encode(array(1,2,array("foo"=>"bar","baz"=>"quux"))) ));
+print str_replace('%', '\\x', urlencode( $e->encode(array(1,-44,array("foo"=>"bar","baz"=>"quux","xyzzy"=>4.567))) ));
 print "\n";

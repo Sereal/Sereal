@@ -41,6 +41,16 @@ function varint_get (&$str, $wantarray=false)
 	return bindec($number);
 }
 
+
+function zigzag_get (&$str, $wantarray=false)
+{
+	list($n, $length) = varint_get($str, true);
+	$n = ($n % 2) ? -ceil($n/2) : floor($n/2);
+	if ($wantarray)
+		return array($n, $length);
+	return $n;
+}
+
 function build_regexp ($pattern, $modifiers)
 {
 	$pattern = str_replace("/", "\\/", $pattern);
@@ -109,7 +119,12 @@ class Decoder
 		$this->_decode_header();
 		return $this->_decode();
 	}
-	
+
+	public function decode_remaining ()
+	{
+		return $this->_decode();
+	}
+
 	protected function _decode_header ()
 	{
 		if ($this->_take(4) != "=srl") {
@@ -201,69 +216,74 @@ class Decoder
 		return $number;
 	}
 
-	public function _d_20 ()  # TAG:VARINT
+	protected function _d_20 ()  # TAG:VARINT
 	{
 		return $this->_take_varint;
 	}
 	
-	# TAG:ZIGZAG - not implemented
+	protected function _d_21 ()  # TAG:ZIGZAG
+	{
+		list($number, $length) = zigzag_get($this->bytes, true);
+		$this->offset += $length;
+		return $number;
+	}
 	
-	public function _d_22 ()  # TAG:FLOAT
+	protected function _d_22 ()  # TAG:FLOAT
 	{
 		return unpack('f', $this->_take(4));
 	}
 	
-	public function _d_23 ()  # TAG:DOUBLE
+	protected function _d_23 ()  # TAG:DOUBLE
 	{
 		return unpack('d', $this->_take(8));
 	}
 	
 	# TAG:LONG_DOUBLE - not implemented
 	
-	public function _d_26 ()  # TAG:BINARY
+	protected function _d_26 ()  # TAG:BINARY
 	{
 		$length = $this->_take_varint();
 		return $this->_take($length);
 	}
 	
-	public function _d_27 ()  # TAG:STR_UTF8
+	protected function _d_27 ()  # TAG:STR_UTF8
 	{
 		$length = $this->_take_varint();
 		return call_user_func($this->build_str_utf8, $this->_take($length));
 	}
 
-	public function _d_28 ()  # TAG:REFN
+	protected function _d_28 ()  # TAG:REFN
 	{
 		$next =& $this->_decode();
 		return $next;
 	}
 
-	public function _d_29 ()  # TAG:REFP
+	protected function _d_29 ()  # TAG:REFP
 	{
 		$offset = $this->_take_varint();
 		return $this->_get_offset($offset);
 	}
 
-	public function _d_2A ()  # TAG:HASH
+	protected function _d_2A ()  # TAG:HASH
 	{
 		$length = $this->_take_varint();
 		return $this->_take_hash($length);
 	}
 
-	public function _d_2B ()  # TAG:ARRAY
+	protected function _d_2B ()  # TAG:ARRAY
 	{
 		$length = $this->_take_varint();
 		return $this->_take_array($length);
 	}
 
-	public function _d_2C ()  # TAG:OBJECT
+	protected function _d_2C ()  # TAG:OBJECT
 	{
 		$class = $this->_decode();
 		$data  = $this->_decode();
 		return call_user_func($this->build_object, $class, $data);
 	}
 	
-	public function _d_2D ()  # TAG:OBJECTV
+	protected function _d_2D ()  # TAG:OBJECTV
 	{
 		$class_offset = $this->_take_varint();
 		$class = $this->_get_offset($offset);
@@ -273,40 +293,41 @@ class Decoder
 	
 	# TAG:ALIAS - not implemented
 	
-	public function _d_2F ()  # TAG:COPY
+	protected function _d_2F ()  # TAG:COPY
 	{
 		$offset = $this->_take_varint();
 		return deep_copy( $this->_get_offset($offset) );
 	}
 	
-	public function _d_30 ()  # TAG:WEAKEN
+	protected function _d_30 ()  # TAG:WEAKEN
 	{
 		return call_user_func($this->build_weaken, $this->_decode());
 	}
 	
-	public function _d_31 ()  # TAG:REGEXP
+	protected function _d_31 ()  # TAG:REGEXP
 	{
 		$pattern   = $this->_decode();
 		$modifiers = $this->_decode();
 		return call_user_func($this->build_regexp, $pattern, $modifiers);
 	}
 
-	public function _d_3C ()  # TAG:MANY
+	protected function _d_3C ()  # TAG:MANY
 	{
 		throw new Unimplemented("version 2 feature");
 	}
 
-	public function _d_3D ()  # TAG:PACKET_START
+	protected function _d_3D ()  # TAG:PACKET_START
 	{
 		throw new Malformed("unexpected PACKET_START");
 	}
 
-	public function _d_3E ()  # TAG:EXTEND
+	protected function _d_3E ()  # TAG:EXTEND
 	{
 		$ext = strtoupper( bin2hex($this->_take(1)) );
 		throw new Unimplemented("unimplemented exception '$ext'");
 	}
 
+	# public ... meh
 	public function __call ($name, $args)
 	{
 		if (preg_match('/^_d_0([A-F0-9])$/', $name, $match)) {  # TAG:POS_<n>
