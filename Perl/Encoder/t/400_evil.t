@@ -139,14 +139,27 @@ SCOPE: {
 
 # github Sereal/Sereal issue 7 regression test:
 SCOPE: {
-    my $data = [sub {}];
+    {
+        package # hide from PAUSE
+            My::Lazy::String;
+        use overload '""' => sub { shift->() };
+        sub new { bless $_[1] => $_[0] }
+    }
+    my $data;
+    $data->[0] = sub {};
     $data->[1] = $data->[0];
+    $data->[2] = bless sub { "hello there" } => 'My::Lazy::String';
+    $data->[3] = $data->[2];
+    $data->[4] = bless sub { \"hello there" } => 'My::Lazy::String';
+    $data->[5] = $data->[4];
 
     my $encode = encode_sereal($data, {stringify_unknown => 1});
     # Before 48d5cdc3dc07fd29ac7be05678a0b614244fec4f, we'd
     # die here because $data->[1] is a ref to something that doesn't exist anymore
     my $decode = decode_sereal($encode);
     is($decode->[0], $decode->[1]);
+    is($decode->[2], $decode->[3]);
+    is($decode->[4], $decode->[5]);
 }
 
 pass("Alive at end");
