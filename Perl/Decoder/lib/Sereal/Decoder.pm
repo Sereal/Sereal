@@ -82,7 +82,10 @@ L<https://github.com/Sereal/Sereal/wiki/Sereal-Comparison-Graphs>.
 
 Constructor. Optionally takes a hash reference as first parameter. This hash
 reference may contain any number of options that influence the behaviour of the
-encoder. These options are currently valid:
+encoder.
+
+Currently, the following options are recognized, none of them are on
+by default.
 
 =head3 refuse_snappy
 
