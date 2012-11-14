@@ -84,25 +84,21 @@ Constructor. Optionally takes a hash reference as first parameter. This hash
 reference may contain any number of options that influence the behaviour of the
 encoder. These options are currently valid:
 
-=over 2
-
-=item refuse_snappy
+=head3 refuse_snappy
 
 If set, the decoder will refuse Snappy-compressed input data. This can be
 desirable for robustness. See the section C<ROBUSTNESS> below.
 
-=item refuse_objects
+=head3 refuse_objects
 
 If set, the decoder will refuse deserializing any objects in the input stream and
 instead throw and exception. Defaults to off. See the section C<ROBUSTNESS> below.
 
-=item validate_utf8
+=head3 validate_utf8
 
 If set, the decoder will refuse invalid UTF-8 byte sequences. This is off
 by default, but it's strongly encouraged to be turned on if you're dealing
 with any data that has been encoded by an external source (e.g. http cookies).
-
-=back
 
 =head1 INSTANCE METHODS
 

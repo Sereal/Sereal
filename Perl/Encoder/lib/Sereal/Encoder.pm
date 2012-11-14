@@ -69,9 +69,7 @@ Constructor. Optionally takes a hash reference as first parameter. This hash
 reference may contain any number of options that influence the behaviour of the
 encoder. Currently, the following options are recognized:
 
-=over 2
-
-=item no_shared_hashkeys
+=head3 no_shared_hashkeys
 
 When the C<no_shared_hashkeys> option is set ot a true value, then
 the encoder will disable the detection and elimination of repeated hash
@@ -80,7 +78,7 @@ By skipping the detection of repeated hash keys, performance goes up a bit,
 but the size of the output can potentially be much larger.
 Do not disable this unless you have a reason to.
 
-=item snappy
+=head3 snappy
 
 If set, the main payload of the Sereal document will be compressed using
 Google's Snappy algorithm. This can yield anywhere from no effect
@@ -90,14 +88,14 @@ If in doubt, test with your data whether this helps or not.
 The decoder (version 0.04 and up) will know how to handle Snappy-compressed
 Sereal documents transparently.
 
-=item snappy_threshold
+=head3 snappy_threshold
 
 The size threshold (in bytes) of the uncompressed output below which
 snappy compression is not even attempted even if enabled.
 Defaults to one kilobyte (1024 bytes). Set to 0 and C<snappy> to enabled
 to always compress.
 
-=item croak_on_bless
+=head3 croak_on_bless
 
 If this option is set, then the encoder will refuse to serialize blessed
 references and throw an exception instead.
@@ -106,7 +104,7 @@ This can be important because blessed references can mean executing
 a destructor on a remote system or generally executing code based on
 data.
 
-=item undef_unknown
+=head3 undef_unknown
 
 If set, unknown/unsupported data structures will be encoded as C<undef>
 instead of throwing an exception.
@@ -114,7 +112,7 @@ instead of throwing an exception.
 Mutually exclusive with C<stringify_unknown>.
 See also C<warn_unknown> below.
 
-=item stringify_unknown
+=head3 stringify_unknown
 
 If set, unknown/unsupported data structures will be stringified and
 encoded as that string instead of throwing an exception. The
@@ -123,7 +121,7 @@ stringification may cause a warning to be emitted by perl.
 Mutually exclusive with C<undef_unknown>.
 See also C<warn_unknown> below.
 
-=item warn_unknown
+=head3 warn_unknown
 
 Only has an effect if C<undef_unknown> or C<stringify_unknown>
 are enabled.
@@ -134,8 +132,6 @@ warning. If set to a negative integer, it will warn for unsupported
 data structures just the same as for a positive value with one
 exception: For blessed, unsupported items that have string overloading,
 we silently stringify without warning.
-
-=back
 
 The thusly allocated encoder object and its output buffer will be reused
 between invocations of C<encode()>, so hold on to it for an efficiency
