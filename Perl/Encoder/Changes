@@ -76,3 +76,7 @@ Revision history for Perl extension Sereal-Encoder
     using offsets instead.
     This bug could cause you Perl to segfault.
 
+0.18  Wed Nov 14 07:30 2012
+  * This release contains critical bug fixes *
+  - Fix output data corruption in encoder when serializing an incompatible
+    data structure with refcount > 1 with the "stringify_unknown" option.
