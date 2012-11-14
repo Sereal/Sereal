@@ -17,17 +17,15 @@ up of two parts, the header and the body.
 
 =head2 General Points
 
-=over 4
-
-=item Little Endian
+=head3 Little Endian
 
 All numeric data is in little endian format.
 
-=item IEEE Floats
+=head3 IEEE Floats
 
 Floating points types are in IEEE format.
 
-=item Varints
+=head3 Varints
 
 Heavy use is made of a variable length integer encoding commonly called
 a "varint" (Google calls it a Varint128). This encoding uses the high bit
@@ -38,23 +36,19 @@ next etc.
 
 See L<Google's description|https://developers.google.com/protocol-buffers/docs/encoding#varints>.
 
-=back
-
 =head2 Header Format
 
 A header consists of multiple components:
 
    <MAGIC> <VERSION-TYPE> <HEADER-SUFFIX-SIZE> <OPT-SUFFIX>
 
-=over 4
-
-=item MAGIC
+=head3 MAGIC
 
 A "magic string" that identifies a document as being in the Sereal format.
 The value of this string is "=srl", and when decoded as an unsigned 32 bit
 integer on a little endian machine has a value of 0x6c72733d.
 
-=item VERSION-TYPE
+=head3 VERSION-TYPE
 
 A single byte, of which the high 4 bits are used to represent the "type"
 of the document, and the low 4 bits used to represent the version of the
@@ -80,7 +74,7 @@ Compressed Sereal format, using Google's Snappy compression internally.
 Additional compression types are envisaged and will be assigned type
 numbers by the maintainers of the protocol.
 
-=item HEADER-SUFFIX-SIZE
+=head3 HEADER-SUFFIX-SIZE
 
 The structure of the header includes support for embedding additional data.
 This is accomplished by specifying the length of the suffix
@@ -89,13 +83,11 @@ binary 0. This is intended for future format extensions that retain some
 level of compatibility for old decoders (which know how to skip the
 extended header due to the embedded length).
 
-=item OPT-SUFFIX
+=head3 OPT-SUFFIX
 
 The suffix may contain whatever data the encoder wishes to embed in the
 header. In version 1 of the protocol the decoder will never look inside
 this data. Later versions may introduce new rules for this field.
-
-=back
 
 =head2 Body Format
 
@@ -107,9 +99,7 @@ Tagged items can be containers that hold other tagged items.
 At the top level, the body holds only ONE tagged item (often
 an array or hash) that holds others.
 
-=over 4
-
-=item TAG
+=head3 TAG
 
 A tag is a single byte which specifies the type of the data being decoded.
 
@@ -124,13 +114,11 @@ Some tags, such as POS, NEG and SHORT_BINARY contain embedded in them
 either the data (in the case of POS and NEG) or the length of the
 OPT-DATA section (in the case of SHORT_BINARY).
 
-=item OPT-DATA
+=head3 OPT-DATA
 
 This field may contain an arbitrary set of bytes, either determined
 implicitly by the tag (such as for FLOAT), explicitly in the tag (as in
 SHORT_BINARY) or in a varint following the tag (such as for STRING).
-
-=back
 
 When referring to an offset below, what's meant is a varint encoded
 absolute integer byte position. That is, an offset of 10 refers to the
@@ -274,7 +262,7 @@ tenth byte in the Sereal document (including its header).
 
 =for autoupdater stop
 
-=head4 The Track Bit And Cyclic Data Structures
+=head3 The Track Bit And Cyclic Data Structures
 
 The protocol uses a combination of the offset of a tracked tag and the
 flag bit to be able to encode and reconstruct cyclic structures in a single
@@ -290,7 +278,7 @@ that tag. At a later point in the packet there will be an ALIAS or REFP
 instruction which will refer to the item by its offset, and the decoder
 will reuse it as needed.
 
-=head4 The COPY Tag
+=head3 The COPY Tag
 
 Sometimes it is convenient to be able to reuse a previously emitted
 sequence in the packet to reduce duplication. For instance a data
@@ -307,7 +295,7 @@ forbidden from referring to anything containing a COPY tag, with the
 exception that a COPY tag used as a value may refer to an tag that uses
 a COPY tag for a classname or hash key.
 
-=head4 String Types
+=head3 String Types
 
 Sereal supports three string representations. Two are "encodingless" and
 are SHORT_BINARY and BINARY, where binary means "raw bytes". The other
@@ -320,12 +308,12 @@ SHORT_BINARY stores the length of the string in the tag itself and is used
 for strings of less than 32 characters long. Both BINARY and STR_UTF8
 use a varint to indicate the number of B<bytes> (octets) in the string.
 
-=head4 Hash Keys
+=head3 Hash Keys
 
 Hash keys are always one of the string types, or a COPY tag referencing a
 string.
 
-=head4 Handling objects
+=head3 Handling objects
 
 Objects are serialized as a class name and a tag which represents the
 objects data. In Perl land this will always be a reference. Mapping perl

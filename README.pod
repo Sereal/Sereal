@@ -21,14 +21,12 @@ the other projects.
 
 =head2 OBJECTIVES
 
-=over 4
-
-=item References
+=head3 References
 
 We wanted to be able serialize shared references properly. Many
 serialization formats do not support this out of the box. 
 
-=item Weak References
+=head3 Weak References
 
 Given that perl uses a reference counting garbage collection scheme,
 Perl has the concept of a special type of reference called a
@@ -39,26 +37,26 @@ to be converted to one that will cause a memory leak on a remote system.
 For cross-language compatibility, weak references can very easily
 be ignored by other decoder implementations.
 
-=item Aliases
+=head3 Aliases
 
 Perl supports aliases. These are a special kind of reference which is 
 effectively a C level pointer instead of a Perl language-level
 reference. We needed to be able to represent these as well.
 
-=item Objects
+=head3 Objects
 
 Promoting a plain data structure reference to an object, as is customary
 in dynamic languages, can be dangerous in some circumstances. We needed 
 to be able to serialize objects safely and reliably, and we wanted a
 sane control mechanism for doing so.
 
-=item Regular Expression Objects
+=head3 Regular Expression Objects
 
 In Perl, a regular expression is a native type. We wanted to be
 able serialize these at a native level without losing data
 such as modifiers.
 
-=item Space Efficiencies
+=head3 Space Efficiencies
 
 We want to be able to represent common structures as small as is
 reasonable. Although not to the extreme that this makes the protocol
@@ -68,31 +66,29 @@ include removing redundancy from the serialized structure
 this kind of redundancy removal, but an encoder implementation can
 choose to which extent it makes use of the technique.
 
-=item Speed Efficiencies
+=head3 Speed Efficiencies
 
 We want to be able to serialize and deserialize quickly. Some of the design
 decisions and trade-offs were aimed squarely at performance.
 
-=item Separate Decoder and Encoder
+=head3 Separate Decoder and Encoder
 
 We wanted to separate the functions of serializing from deserializing
 so they could be upgraded independently.
 
-=item Forward/Backward Compatibility
+=head3 Forward/Backward Compatibility
 
 We wanted the protocol to be robust to forward/backwards compatibility
 issues. It should be possible to partially read new formats with an
 old decoder, and output old formats with a new encoder.
 
-=item Language Agnosticism
+=head3 Language Agnosticism
 
 We want the format to be usable by other languages, especially dynamic
 languages. We hope to have a Java port soon, right Eric? In aim of making
 this easier we have structured our repo so that implementations from other
 languages can be easily added, and we would welcome any contributions
 along these lines.
-
-=back
 
 =head2 Performance Analysis
 
