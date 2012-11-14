@@ -128,6 +128,10 @@ SHORT_BINARY) or in a varint following the tag (such as for STRING).
 
 =back
 
+When referring to an offset below, what's meant is a varint encoded
+absolute integer byte position. That is, an offset of 10 refers to the
+tenth byte in the Sereal document (including its header).
+
 =head3 Tags
 
 =for autoupdater start
