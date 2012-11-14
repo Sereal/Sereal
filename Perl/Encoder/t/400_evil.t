@@ -4,6 +4,7 @@ use warnings;
 use Sereal::Encoder qw(:all);
 use Data::Dumper;
 use File::Spec;
+use Scalar::Util qw(blessed);
 
 # These tests use an installed Decoder to do testing on horrific
 # Perl data structures such as overloaded and tied structures.
@@ -141,25 +142,57 @@ SCOPE: {
 SCOPE: {
     {
         package # hide from PAUSE
-            My::Lazy::String;
+            Blessed::Sub::With::Overload;
         use overload '""' => sub { shift->() };
         sub new { bless $_[1] => $_[0] }
+    }
+    {
+        package # hide from PAUSE
+            Blessed::Sub::With::Lazy::Overload;
+        use overload '""' => sub {
+            my ($self) = @_;
+            return $self->[1] if defined $self->[1];
+            return "OH NOES WE DON'T HAVE A SUB" unless ref $self->[0] eq 'CODE';
+            return ($self->[1] = $self->[0]->());
+        };
+        sub new {
+            bless [
+                # The callback
+                $_[1],
+                # Cached value
+                undef
+            ] => $_[0]
+        }
     }
     my $data;
     $data->[0] = sub {};
     $data->[1] = $data->[0];
-    $data->[2] = bless sub { "hello there" } => 'My::Lazy::String';
+    $data->[2] = Blessed::Sub::With::Overload->new(sub { "hello there" });
     $data->[3] = $data->[2];
-    $data->[4] = bless sub { \"hello there" } => 'My::Lazy::String';
+    $data->[4] = Blessed::Sub::With::Overload->new(sub { \"hello there" });
     $data->[5] = $data->[4];
+    my $called;
+    $data->[6] = Blessed::Sub::With::Overload->new(sub { $called++; "hello there" });
+    $data->[7] = $data->[6];
+    $data->[8] = $data->[6];
+    $data->[9] = $data->[6];
+    $data->[10] = Blessed::Sub::With::Lazy::Overload->new(sub { "hello there" });
+    $data->[11] = $data->[10];
 
     my $encode = encode_sereal($data, {stringify_unknown => 1});
     # Before 48d5cdc3dc07fd29ac7be05678a0b614244fec4f, we'd
     # die here because $data->[1] is a ref to something that doesn't exist anymore
     my $decode = decode_sereal($encode);
+
     is($decode->[0], $decode->[1]);
     is($decode->[2], $decode->[3]);
     is($decode->[4], $decode->[5]);
+    is($decode->[6], $decode->[$_]) for 7..9;
+    is($called, 4, "We'll call the sub every time, and won't re-use the initial return value");
+    ok(blessed($decode->[10]), "We won't be stringifying objects");
+    like($decode->[10]->[0], qr/^CODE\(.*?\)$/, "And the subroutine we have will just be stringified as usual in Perl");
+    is("$decode->[10]", "OH NOES WE DON'T HAVE A SUB", "So our subroutine won't survive the roundtrip, our object is broken");
+    is_deeply($decode->[10], $decode->[11], "Both the original and the reference to it are equally screwed");
 }
 
 pass("Alive at end");
