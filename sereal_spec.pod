@@ -99,9 +99,13 @@ this data. Later versions may introduce new rules for this field.
 
 =head2 Body Format
 
-The body is made up of one or more tagged data items:
+The body is made up of tagged data items:
 
     <TAG> <OPT-DATA>
+
+Tagged items can be containers that hold other tagged items.
+At the top level, the body holds only ONE tagged item (often
+an array or hash) that holds others.
 
 =over 4
 
