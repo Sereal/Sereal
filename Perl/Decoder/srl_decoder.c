@@ -221,6 +221,8 @@ SV *
 srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into, UV start_offset)
 {
     assert(dec != NULL);
+    if (SvUTF8(src))
+        sv_utf8_downgrade(src, 0);
     srl_begin_decoding(aTHX_ dec, src, start_offset);
     srl_read_header(aTHX_ dec);
     if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY)) {
