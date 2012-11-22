@@ -102,6 +102,17 @@ If set, the decoder will refuse invalid UTF-8 byte sequences. This is off
 by default, but it's strongly encouraged to be turned on if you're dealing
 with any data that has been encoded by an external source (e.g. http cookies).
 
+=item max_recursion_depth
+
+C<Sereal::Decoder> is recursive. If you pass it a Sereal document that is deeply
+nested, it will eventually exhaust the C stack. Therefore, there is a limit on
+the depth of recursion that is accepted. It defaults to 10000 nested calls. You
+may choose to override this value with the C<max_recursion_depth> option.
+Beware that setting it too high can cause hard crashes.
+
+Do note that the setting is somewhat approximate. Setting it to 10000 may break at
+somewhere between 9997 and 10003 nested structures depending on their types.
+
 =back
 
 =head1 INSTANCE METHODS

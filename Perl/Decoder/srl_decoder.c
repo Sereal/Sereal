@@ -41,6 +41,8 @@ extern "C" {
 #define HAS_SV2OBJ
 #endif
 
+#define DEFAULT_MAX_RECUR_DEPTH 10000
+
 #include "srl_decoder.h"
 
 #include "srl_common.h"
@@ -160,16 +162,21 @@ srl_build_decoder_struct(pTHX_ HV *opt)
     Newxz(dec, 1, srl_decoder_t);
 
     dec->ref_seenhash = PTABLE_new();
+    dec->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
     /* load options */
     if (opt != NULL) {
         if ( (svp = hv_fetchs(opt, "refuse_snappy", 0)) && SvTRUE(*svp))
-          SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_SNAPPY);
+            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_SNAPPY);
 
         if ( (svp = hv_fetchs(opt, "refuse_objects", 0)) && SvTRUE(*svp))
-          SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS);
+            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS);
 
         if ( (svp = hv_fetchs(opt, "validate_utf8", 0)) && SvTRUE(*svp))
-          SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8);
+            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8);
+
+        if ( (svp = hv_fetchs(opt, "max_recursion_depth", 0)) && SvTRUE(*svp)) {
+            dec->max_recursion_depth = SvUV(*svp);
+        }
     }
 
     return dec;
@@ -302,6 +309,8 @@ srl_clear_decoder(pTHX_ srl_decoder_t *dec)
         PTABLE_clear(dec->ref_stashes);
         PTABLE_clear(dec->ref_bless_av);
     }
+
+    dec->recursion_depth = 0;
 }
 
 static SRL_INLINE void
@@ -1114,6 +1123,10 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
 {
     STRLEN len;
     U8 tag;
+    if (++dec->recursion_depth > dec->max_recursion_depth) {
+        ERRORf1("Reached recursion limit (%lu) during deserialization",
+                (unsigned long)dec->max_recursion_depth);
+    }
 
   read_again:
     if (expect_false( BUF_DONE(dec) ))
@@ -1184,4 +1197,6 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
             break;
         }
     }
+
+    dec->recursion_depth--;
 }
