@@ -80,3 +80,5 @@ Revision history for Perl extension Sereal-Encoder
   * This release contains critical bug fixes *
   - Fix output data corruption in encoder when serializing an incompatible
     data structure with refcount > 1 with the "stringify_unknown" option.
+
+0.19 - unreleased
