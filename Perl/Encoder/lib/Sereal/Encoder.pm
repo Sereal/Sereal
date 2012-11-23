@@ -135,6 +135,19 @@ data structures just the same as for a positive value with one
 exception: For blessed, unsupported items that have string overloading,
 we silently stringify without warning.
 
+=item max_recursion_depth
+
+C<Sereal::Encoder> is recursive. If you pass it a Perl data structure
+that is deeply nested, it will eventually exhaust the C stack. Therefore,
+there is a limit on the depth of recursion that is accepted. It defaults
+to 10000 nested calls. You may choose to override this value with the
+C<max_recursion_depth> option. Beware that setting it too high can
+cause hard crashes, so only do that if you B<KNOW> that it is safe to
+do so.
+
+Do note that the setting is somewhat approximate. Setting it to 10000 may break at
+somewhere between 9997 and 10003 nested structures depending on their types.
+
 =back
 
 The thusly allocated encoder object and its output buffer will be reused

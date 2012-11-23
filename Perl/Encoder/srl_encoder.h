@@ -19,7 +19,9 @@ typedef struct {
 
     U32 operational_flags;   /* flags that pertain to one encode run (rather than being options): See SRL_OF_* defines */
     U32 flags;               /* flag-like options: See SRL_F_* defines */
-    unsigned int depth;      /* current Perl-ref recursion depth */
+    UV max_recursion_depth;  /* Configurable limit on the number of recursive calls we're willing to make */
+
+    UV recursion_depth;      /* current Perl-ref recursion depth */
     ptable_ptr ref_seenhash; /* ptr table for avoiding circular refs */
     ptable_ptr weak_seenhash; /* ptr table for avoiding dangling weakrefs */
     ptable_ptr str_seenhash; /* ptr table for issuing COPY commands */

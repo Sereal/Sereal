@@ -71,7 +71,7 @@ extern "C" {
 #   define DO_SHARED_HASH_ENTRY_REFCOUNT_CHECK 0
 #endif
 
-#define MAX_DEPTH 10000
+#define DEFAULT_MAX_RECUR_DEPTH 10000
 
 #define DEBUGHACK 0
 
@@ -162,7 +162,7 @@ srl_clear_encoder(pTHX_ srl_encoder_t *enc)
         warn("Sereal Encoder being cleared but in virgin state. That is unexpected.");
     }
 
-    enc->depth = 0;
+    enc->recursion_depth = 0;
     if (enc->ref_seenhash != NULL)
         PTABLE_clear(enc->ref_seenhash);
     if (enc->str_seenhash != NULL)
@@ -205,7 +205,8 @@ srl_empty_encoder_struct(pTHX)
     }
     enc->buf_end = enc->buf_start + INITIALIZATION_SIZE - 1;
     enc->pos = enc->buf_start;
-    enc->depth = 0;
+    enc->recursion_depth = 0;
+    enc->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
     enc->operational_flags = 0;
     /*enc->flags = 0;*/ /* to be set elsewhere */
 
@@ -270,6 +271,10 @@ srl_build_encoder_struct(pTHX_ HV *opt)
             enc->snappy_threshold = SvIV(*svp);
         else
             enc->snappy_threshold = 1024;
+
+        svp = hv_fetchs(opt, "max_recursion_depth", 0);
+        if ( svp && SvTRUE(*svp))
+            enc->max_recursion_depth = SvUV(*svp);
     }
     else {
         /* SRL_F_SHARED_HASHKEYS on by default */
@@ -851,6 +856,11 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     ssize_t ref_rewrite_pos= 0;      /* preserved between loops */
     assert(src);
 
+    if (++enc->recursion_depth == enc->max_recursion_depth) {
+        croak("Hit maximum recursion depth (%lu), aborting serialization",
+              (unsigned long)enc->max_recursion_depth);
+    }
+
 redo_dump:
     mg= NULL;
     backrefs= NULL;
@@ -887,11 +897,13 @@ redo_dump:
     if ( expect_false( refcount > 1 ) ) {
         if (src == &PL_sv_yes) {
             srl_buf_cat_char(enc, SRL_HDR_TRUE);
+            --enc->recursion_depth;
             return;
         }
         else
         if (src == &PL_sv_no) {
             srl_buf_cat_char(enc, SRL_HDR_FALSE);
+            --enc->recursion_depth;
             return;
         }
         else {
@@ -908,6 +920,7 @@ redo_dump:
                     srl_buf_cat_varint(aTHX_ enc, SRL_HDR_ALIAS, (UV)oldoffset);
                 }
                 SRL_SET_FBIT(*(enc->buf_start + oldoffset));
+                --enc->recursion_depth;
                 return;
             }
             if (DEBUGHACK) warn("storing %p as %lu", src, BUF_POS_OFS(enc));
@@ -1055,5 +1068,6 @@ redo_dump:
         SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt, refsv, ref_rewrite_pos);
 #undef SRL_HANDLE_UNSUPPORTED_TYPE
     }
+    --enc->recursion_depth;
 }
 
