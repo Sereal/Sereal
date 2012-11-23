@@ -82,3 +82,6 @@ Revision history for Perl extension Sereal-Encoder
     data structure with refcount > 1 with the "stringify_unknown" option.
 
 0.19 - unreleased
+
+
+  - Configurable recursion limit for the Encoder.
