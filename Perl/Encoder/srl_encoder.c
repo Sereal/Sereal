@@ -845,34 +845,41 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     UV refcount;
     svtype svt;
     MAGIC *mg;
+    AV **backrefs;
     SV* refsv= NULL;
     UV weakref_ofs= 0;              /* preserved between loops */
     ssize_t ref_rewrite_pos= 0;      /* preserved between loops */
     assert(src);
 
 redo_dump:
+    mg= NULL;
+    backrefs= NULL;
     svt = SvTYPE(src);
     refcount = SvREFCNT(src);
     DEBUG_ASSERT_BUF_SANE(enc);
     if ( SvMAGICAL(src) ) {
         SvGETMAGIC(src);
-        if ( ( mg = mg_find(src, PERL_MAGIC_backref) ) ) {
-            PTABLE_t *weak_seenhash= SRL_GET_WEAK_SEENHASH(enc);
-            PTABLE_ENTRY_t *pe= PTABLE_find(weak_seenhash, src);
-            if (!pe) {
-                /* not seen it before */
-                if (DEBUGHACK) warn("scalar %p - is weak referent, storing %lu", src, weakref_ofs);
-                /* if weakref_ofs is false we got here some way that holds a refcount on this item */
-                PTABLE_store(weak_seenhash, src, (void *)weakref_ofs);
-            } else {
-                if (DEBUGHACK) warn("scalar %p - is weak referent, seen before value:%lu weakref_ofs:%lu",
-                        src, (UV)pe->value, (UV)weakref_ofs);
-                if (pe->value)
-                    pe->value= (void *)weakref_ofs;
-            }
-            refcount++;
-            weakref_ofs= 0;
+        if (svt != SVt_PVHV)
+            mg = mg_find(src, PERL_MAGIC_backref);
+    }
+    if (svt == SVt_PVHV)
+        backrefs= Perl_hv_backreferences_p(aTHX_ MUTABLE_HV(src));
+    if ( mg || ( backrefs && *backrefs ) ) {
+        PTABLE_t *weak_seenhash= SRL_GET_WEAK_SEENHASH(enc);
+        PTABLE_ENTRY_t *pe= PTABLE_find(weak_seenhash, src);
+        if (!pe) {
+            /* not seen it before */
+            if (DEBUGHACK) warn("scalar %p - is weak referent, storing %lu", src, weakref_ofs);
+            /* if weakref_ofs is false we got here some way that holds a refcount on this item */
+            PTABLE_store(weak_seenhash, src, (void *)weakref_ofs);
+        } else {
+            if (DEBUGHACK) warn("scalar %p - is weak referent, seen before value:%lu weakref_ofs:%lu",
+                    src, (UV)pe->value, (UV)weakref_ofs);
+            if (pe->value)
+                pe->value= (void *)weakref_ofs;
         }
+        refcount++;
+        weakref_ofs= 0;
     }
 
     /* check if we have seen this scalar before, and track it so
