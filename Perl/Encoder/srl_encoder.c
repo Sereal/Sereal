@@ -845,7 +845,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     UV refcount;
     svtype svt;
     MAGIC *mg;
-    AV **backrefs;
+    AV *backrefs;
     SV* refsv= NULL;
     UV weakref_ofs= 0;              /* preserved between loops */
     ssize_t ref_rewrite_pos= 0;      /* preserved between loops */
@@ -863,8 +863,8 @@ redo_dump:
             mg = mg_find(src, PERL_MAGIC_backref);
     }
     if (svt == SVt_PVHV)
-        backrefs= Perl_hv_backreferences_p(aTHX_ MUTABLE_HV(src));
-    if ( mg || ( backrefs && *backrefs ) ) {
+        backrefs= *Perl_hv_backreferences_p(aTHX_ MUTABLE_HV(src));
+    if ( mg || backrefs ) {
         PTABLE_t *weak_seenhash= SRL_GET_WEAK_SEENHASH(enc);
         PTABLE_ENTRY_t *pe= PTABLE_find(weak_seenhash, src);
         if (!pe) {
