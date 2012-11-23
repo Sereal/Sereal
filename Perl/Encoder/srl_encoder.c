@@ -907,7 +907,10 @@ redo_dump:
             PTABLE_store(ref_seenhash, src, (void *)BUF_POS_OFS(enc));
         }
     }
-    assert(weakref_ofs == 0);
+    if (weakref_ofs != 0) {
+        sv_dump(src);
+        assert(weakref_ofs == 0);
+    }
     if (SvPOKp(src)) {
 #ifdef MODERN_REGEXP
         if (expect_false( svt == SVt_REGEXP ) ) {
@@ -935,6 +938,10 @@ redo_dump:
     if (SvROK(src)) {
         /* dump references */
         SV *referent= SvRV(src);
+        if (!referent) {
+            sv_dump(src);
+            assert(referent);
+        }
         if (SvWEAKREF(src)) {
             weakref_ofs= BUF_POS_OFS(enc);
             srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
