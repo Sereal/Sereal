@@ -83,5 +83,10 @@ Revision history for Perl extension Sereal-Encoder
 
 0.19 - unreleased
 
-
+0.20  Fri Nov 23 15:35 2012
   - Configurable recursion limit for the Encoder.
+  - Fix hard-crash issue with weak-refs to certain data structures
+    (issue #11 on github). Thanks to Andrew Yates for helping us debug
+    the problem!
+    => Regression tests still pending.
+

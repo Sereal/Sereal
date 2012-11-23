@@ -84,3 +84,4 @@ Revision history for Perl extension Sereal-Decoder
   - Add configurable recursion limit to the decoder
   - Downgrade UTF8 Sereal serialized strings before decoding them
 
+0.20 - unreleased
