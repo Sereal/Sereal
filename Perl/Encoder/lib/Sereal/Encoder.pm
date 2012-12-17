@@ -209,8 +209,8 @@ problem domain.
 
 =head1 ACKNOWLEDGMENT
 
-This module was originally developed for booking.com.
-With approval from booking.com, this module was generalized
+This module was originally developed for Booking.com.
+With approval from Booking.com, this module was generalized
 and published on CPAN, for which the authors would like to express
 their gratitude.
 
