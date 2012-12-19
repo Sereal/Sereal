@@ -4,7 +4,7 @@ use strict;
 use warnings;
 our $VERSION;
 BEGIN {
-    $VERSION = '0.20';
+    $VERSION = '0.201';
 }
 use Sereal::Encoder 0.20 qw(encode_sereal);
 use Sereal::Decoder 0.19 qw(decode_sereal looks_like_sereal);
