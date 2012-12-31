@@ -1,4 +1,4 @@
-require './lib/sereal'
+require 'sereal'
 require 'json'
 require 'bson'
 require 'msgpack'
