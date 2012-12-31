@@ -1,4 +1,4 @@
-#include <sereal.h>
+#include "sereal.h"
 
 VALUE Sereal = Qnil;
 void Init_sereal();
