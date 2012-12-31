@@ -1,4 +1,4 @@
-#include "main.h"
+#include <sereal.h>
 #include "snappy/csnappy_decompress.c"
 static VALUE sereal_to_rb_object(sereal_t *s);
 

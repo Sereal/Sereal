@@ -1,4 +1,4 @@
-#include "main.h"
+#include <sereal.h>
 #include "snappy/csnappy_compress.c"
 static void rb_object_to_sereal(sereal_t *s, VALUE object);
 
@@ -200,8 +200,6 @@ static void rb_object_to_sereal(sereal_t *s, VALUE object) {
         }
         S_RECURSE_DEC(s);
 }
-
-//.VALUE method_sereal_encode(VALUE self, VALUE payload, VALUE compress) {
 
 VALUE method_sereal_encode(VALUE self, VALUE args) {
         sereal_t *s = s_create();

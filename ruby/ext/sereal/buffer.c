@@ -1,4 +1,4 @@
-#include "main.h"
+#include <sereal.h>
 
 void *alloc_or_raise(u32 s) {
         u8 *buf = malloc(s);
