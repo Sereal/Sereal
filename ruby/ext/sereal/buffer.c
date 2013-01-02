@@ -15,8 +15,8 @@ sereal_t * s_create(void) {
         s->level = 0;
         s->pos = 0;
         int i;
-        for (i = 0; i < S_CALLBACK_COUNT; i++)
-                s->reader[i] = DEFAULT_CALLBACK;
+        for (i = 0; i < S_READERS_COUNT; i++)
+                s->reader[i] = s_default_reader;
         return s;
 }
 void s_register(sereal_t *s, u8 pos, VALUE (*c)(sereal_t *,u8)) {

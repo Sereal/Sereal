@@ -25,7 +25,7 @@ class Test::Unit::TestCase
     assert Sereal.encode(obj,true).length < Sereal.encode(obj,false).length
   end
   def test_numbers
-    [0,1,2,3,4,16,17,2**31,2**32,2**60,0.1,Float(2**64)].each do |x|
+    [0,1,2,3,4,16,17,2**31,2**32,2**60,2*64,0.1,Float(2**64)].each do |x|
       assert_equal recode(x),x
       if x > 0
         neg = -x

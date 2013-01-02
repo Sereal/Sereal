@@ -119,9 +119,8 @@ static VALUE s_read_rb_string_bang(sereal_t *s,u8 t) {
                 RETURN_STRING((t & SRL_MASK_SHORT_BINARY_LEN),
                               rb_str_new(s_get_p(s), len));
         }
-                rb_raise(rb_eTypeError, "undefined string type %d",t);
-        #undef CREATE_STRING
-        return Qnil;
+        #undef RETURN_STRING
+        rb_raise(rb_eTypeError, "undefined string type %d",t);
 }
 
 static VALUE s_read_next_rb_string_bang(sereal_t *s) {

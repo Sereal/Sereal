@@ -140,8 +140,12 @@ static inline void s_append_integer(sereal_t *s, VALUE object) {
         if (v >= 0) {
                 if (v < 16) 
                         s_append_u8(s,SRL_HDR_POS_LOW | (u8) v);
-                else
-                        s_append_hdr_with_varint(s,SRL_HDR_VARINT,v);
+                else {
+                        unsigned long long ullv = NUM2ULL(object);
+                        if (ullv == v)
+                                ullv = 0;
+                        s_append_hdr_with_varint(s,SRL_HDR_VARINT,(ullv > 0 ? ullv : v));
+                }
         } else {
                 if (v > -17)
                         s_append_u8(s,SRL_HDR_NEG_LOW | ((u8) v + 32));
