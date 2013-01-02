@@ -5,10 +5,10 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '0.20';
+our $VERSION = '0.21';
 
 # not for public consumption, just for testing.
-my $TestCompat = [map sprintf("%.2f", $_/100), reverse(6..19)]; # compat with 0.06 to ...
+my $TestCompat = [map sprintf("%.2f", $_/100), reverse(6..20)]; # compat with 0.06 to ...
 sub _test_compat {return(@$TestCompat, $VERSION)}
 
 use Exporter 'import';
@@ -216,7 +216,7 @@ their gratitude.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2012 by Steffen Mueller
+Copyright (C) 2012, 2013 by Steffen Mueller
 
 The license for the code in this distribution is the following,
 with the exceptions listed below:
