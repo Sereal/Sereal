@@ -40,7 +40,7 @@ SCOPE: {
 
     # Tests for limiting number of acceptable hash entries
     my $hash_packet = $Header . hash(map short_string($_), 1..2000);
-    my $h = decode_sereal($hash_packet);
+    $h = decode_sereal($hash_packet);
     is(ref($h), "HASH", "Deserializes as hash");
     is(scalar(keys(%$h)), 1000, "Hash has 1000 entries");
     $h = decode_sereal($hash_packet, {max_num_hash_entries => 0});
