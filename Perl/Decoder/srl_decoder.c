@@ -163,6 +163,8 @@ srl_build_decoder_struct(pTHX_ HV *opt)
 
     dec->ref_seenhash = PTABLE_new();
     dec->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
+    dec->max_num_hash_entries = 0; /* 0 == any number */
+
     /* load options */
     if (opt != NULL) {
         if ( (svp = hv_fetchs(opt, "refuse_snappy", 0)) && SvTRUE(*svp))
@@ -174,9 +176,11 @@ srl_build_decoder_struct(pTHX_ HV *opt)
         if ( (svp = hv_fetchs(opt, "validate_utf8", 0)) && SvTRUE(*svp))
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8);
 
-        if ( (svp = hv_fetchs(opt, "max_recursion_depth", 0)) && SvTRUE(*svp)) {
+        if ( (svp = hv_fetchs(opt, "max_recursion_depth", 0)) && SvTRUE(*svp))
             dec->max_recursion_depth = SvUV(*svp);
-        }
+
+        if ( (svp = hv_fetchs(opt, "max_num_hash_entries", 0)) && SvTRUE(*svp))
+            dec->max_num_hash_entries = SvUV(*svp);
     }
 
     return dec;
@@ -677,6 +681,12 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
     } else {
         num_keys= srl_read_varint_uv_count(aTHX_ dec," while reading HASH");
         (void)SvUPGRADE(into, SVt_PVHV);
+    }
+
+    /* Limit the maximum number of hash keys that we accept to whetever was configured */
+    if (dec->max_num_hash_entries != 0 && num_keys > dec->max_num_hash_entries) {
+        ERRORf2("Got input hash with %u entries, but the configured maximum is just %u",
+                num_keys, dec->max_num_hash_entries);
     }
 
     ASSERT_BUF_SPACE(dec,num_keys*2,"while reading hash contents, insuffienct remaining tags for number of keys specified");

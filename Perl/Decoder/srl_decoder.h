@@ -15,6 +15,7 @@ typedef struct {
 
     U32 flags;                          /* flag-like options: See F_* defines in srl_decoder.c */
     UV max_recursion_depth;             /* Configurable limit on the number of recursive calls we're willing to make */
+    UV max_num_hash_entries;            /* Configured maximum number of acceptable entries in a hash */
     ptable_ptr ref_seenhash;            /* ptr table for avoiding circular refs */
     ptable_ptr ref_stashes;             /* ptr table for tracking stashes we will bless into - key: ofs, value: stash */
     ptable_ptr ref_bless_av;            /* ptr table for tracking which objects need to be bless - key: ofs, value: mortal AV (of refs)  */
