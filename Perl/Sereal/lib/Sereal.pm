@@ -4,10 +4,10 @@ use strict;
 use warnings;
 our $VERSION;
 BEGIN {
-    $VERSION = '0.201';
+    $VERSION = '0.210';
 }
 use Sereal::Encoder 0.20 qw(encode_sereal);
-use Sereal::Decoder 0.19 qw(decode_sereal looks_like_sereal);
+use Sereal::Decoder 0.21 qw(decode_sereal looks_like_sereal);
 
 use Exporter 'import';
 our @EXPORT_OK = qw(encode_sereal decode_sereal looks_like_sereal);
@@ -84,6 +84,6 @@ their gratitude.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2012 by Steffen Mueller
+Copyright (C) 2012, 2013 by Steffen Mueller
 
 =cut
