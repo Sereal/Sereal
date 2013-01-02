@@ -19,7 +19,7 @@ use Sereal::TestSet qw(:all);
 # bad input. This obviously shouldn't segfault and neither leak
 # memory.
 
-plan tests => 31;
+plan tests => 47;
 my ($ok, $out, $err);
 
 SCOPE: {
@@ -37,6 +37,19 @@ SCOPE: {
     # strictly speaking not entirely correct; also: +16 for the snappy flag isn't exactly API
     my $h = SRL_MAGIC_STRING . chr(1+16) . chr(0) . chr(SRL_HDR_UNDEF);
     check_fail($h, qr/Snappy/, "refusing Snappy option", {refuse_snappy => 1});
+
+    # Tests for limiting number of acceptable hash entries
+    my $hash_packet = $Header . hash(map short_string($_), 1..2000);
+    my $h = decode_sereal($hash_packet);
+    is(ref($h), "HASH", "Deserializes as hash");
+    is(scalar(keys(%$h)), 1000, "Hash has 1000 entries");
+    $h = decode_sereal($hash_packet, {max_num_hash_entries => 0});
+    is(ref($h), "HASH", "Deserializes as hash (2)");
+    $h = decode_sereal($hash_packet, {max_num_hash_entries => 1000});
+    is(ref($h), "HASH", "Deserializes as hash (3)");
+
+    check_fail($hash_packet, qr/Sereal: Error/, "Setting hash limit option (1)", {max_num_hash_entries => 1});
+    check_fail($hash_packet, qr/Sereal: Error/, "Setting hash limit option (999)", {max_num_hash_entries => 999});
 }
 
 pass("Alive"); # done
