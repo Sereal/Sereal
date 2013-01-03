@@ -4,7 +4,6 @@
 #include <ruby/encoding.h>
 #include <string.h>     /* memcpy */
 #include "proto.h"
-
 typedef unsigned long long      u64;
 typedef unsigned int            u32;
 typedef unsigned short          u16;
@@ -46,22 +45,6 @@ struct _sereal {
 
 VALUE method_sereal_encode(VALUE self, VALUE args);
 VALUE method_sereal_decode(VALUE self, VALUE payload);
-
-inline void *alloc_or_raise(u32 s);
-inline sereal_t * s_create(void);
-inline void s_register(sereal_t *s, u8 pos, VALUE (*c)(sereal_t *,u8));
-inline void s_destroy(sereal_t *s);
-inline void s_alloc(sereal_t *s, u32 len);
-inline void s_append(sereal_t *s, void *suffix, u32 s_len);
-inline void s_append_u8(sereal_t *s,u8 b);
-inline void s_append_u32(sereal_t *s,u32 b);
-
-inline void *s_get_p_at_pos(sereal_t *s, u32 pos, u32 req);
-inline void *s_get_p(sereal_t *s);
-inline u8 s_get_u8(sereal_t *s);
-inline u8 s_get_u8_bang(sereal_t *s);
-
-void s_dump(sereal_t *s);
 
 #define S_RECURSE_INC(s)                                          \
 do {                                                              \

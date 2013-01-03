@@ -1,5 +1,6 @@
 #include "sereal.h"
 #include "encode.h"
+
 VALUE Sereal = Qnil;
 void Init_sereal();
 void Init_sereal() {

@@ -1,4 +1,5 @@
 #include "sereal.h"
+#include "buffer.h"
 #include "decode.h"
 #include "snappy/csnappy_decompress.c"
 
