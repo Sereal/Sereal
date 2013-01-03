@@ -1,4 +1,8 @@
-require 'sereal'
+begin
+  require 'sereal'
+rescue LoadError
+  require './lib/sereal'
+end
 require 'json'
 require 'bson'
 require 'msgpack'
@@ -20,6 +24,7 @@ class ZXC
 end
 [
   1,
+  127,
   'a',
   [1,{'a' => 'b'},3,'aaa'],
   ZXC.new,

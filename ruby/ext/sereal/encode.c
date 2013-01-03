@@ -1,6 +1,30 @@
 #include "sereal.h"
+#include "encode.h"
 #include "snappy/csnappy_compress.c"
-static void rb_object_to_sereal(sereal_t *s, VALUE object);
+
+/* function pointer array */
+void (*WRITER[sizeof(T_FIXNUM)])(sereal_t *,VALUE);
+void s_init_writers(void) {
+        u32 i;
+        for (i = 0; i < sizeof(T_FIXNUM); i++) 
+                WRITER[i] = s_default_writer;
+        WRITER[T_FIXNUM] = s_append_integer;
+        WRITER[T_BIGNUM] = s_append_integer;
+        WRITER[T_FLOAT]  = s_append_double;
+        WRITER[T_OBJECT] = s_append_object;
+        WRITER[T_REGEXP] = s_append_regexp;
+        WRITER[T_STRING] = s_append_rb_string;
+        WRITER[T_ARRAY]  = s_append_array;
+        WRITER[T_HASH]   = s_append_hash;
+        WRITER[T_SYMBOL] = s_append_symbol;
+        WRITER[T_TRUE]   = s_append_true;
+        WRITER[T_FALSE]  = s_append_false;
+        WRITER[T_NIL]    = s_append_nil;
+}
+
+static void s_default_writer(sereal_t *s, VALUE object) {
+        rb_raise(rb_eTypeError, "invalid type for input %s",rb_obj_classname(object));
+}
 
 
 static inline void s_append_varint(sereal_t *s,u64 n) {
@@ -17,7 +41,8 @@ static inline void s_append_hdr_with_varint(sereal_t *s,u8 hdr, u64 n) {
 }
 
 static inline void s_append_zigzag(sereal_t *s,u64 n) {
-        s_append_hdr_with_varint(s,SRL_HDR_ZIGZAG,(n << 1) ^ (n >> (sizeof(long) * 8 - 1)));
+        s_append_hdr_with_varint(s,SRL_HDR_ZIGZAG,
+                                 (n << 1) ^ (n >> (sizeof(long) * 8 - 1)));
 }
 
 static inline void s_append_string(sereal_t *s,u8 *string, u32 len,u8 is_utf8) {
@@ -33,7 +58,7 @@ static inline void s_append_string(sereal_t *s,u8 *string, u32 len,u8 is_utf8) {
         s_append(s,string,len);
 }
 
-static inline void s_append_rb_string(sereal_t *s, VALUE object) {
+static void s_append_rb_string(sereal_t *s, VALUE object) {
         s_append_string(s,RSTRING_PTR(object),
                         RSTRING_LEN(object),
                         (is_ascii_string(object) ? FALSE : TRUE));
@@ -46,7 +71,7 @@ do {                                                    \
         else                                            \
                 s_append_hdr_with_varint(s,high,len);   \
 } while(0);
-static inline void s_append_array(sereal_t *s, VALUE object) {
+static void s_append_array(sereal_t *s, VALUE object) {
         u32 i,len = RARRAY_LEN(object);
         REF_THRESH(SRL_MASK_ARRAYREF_COUNT,SRL_HDR_ARRAYREF,SRL_HDR_ARRAY);
         
@@ -62,11 +87,12 @@ int s_hash_foreach(VALUE key, VALUE value, VALUE sereal_t_object) {
         rb_object_to_sereal((sereal_t *) sereal_t_object,value);
         return ST_CONTINUE;
 }
-static inline void s_append_hash(sereal_t *s, VALUE object) {
+static void s_append_hash(sereal_t *s, VALUE object) {
         u32 len = RHASH_SIZE(object);
         REF_THRESH(SRL_MASK_HASHREF_COUNT,SRL_HDR_HASHREF,SRL_HDR_HASH);
         rb_hash_foreach(object, s_hash_foreach, (VALUE) s);
 }
+#undef REF_THRESH
 
 /* 
   not standartized, we are using RESERVED_LOW as SRL_HDR_SYM
@@ -75,7 +101,7 @@ static inline void s_append_hash(sereal_t *s, VALUE object) {
         len <VARINT>
         value - <len> bytes
 */
-static inline void s_append_symbol(sereal_t *s, VALUE object) {
+static void s_append_symbol(sereal_t *s, VALUE object) {
         u32 len;
         VALUE string  = rb_sym_to_s(object);
         len = RSTRING_LEN(string);
@@ -95,7 +121,7 @@ static inline void s_append_symbol(sereal_t *s, VALUE object) {
                 instance variable value <ITEM> 
 
 */
-static inline void s_append_object(sereal_t *s, VALUE object) {
+static void s_append_object(sereal_t *s, VALUE object) {
         u32 i,len;
         VALUE ivars = rb_obj_instance_variables(object);
 
@@ -115,7 +141,7 @@ static inline void s_append_object(sereal_t *s, VALUE object) {
 
 
 // <PATTERN-STR-TAG> <MODIFIERS-STR-TAG>
-static inline void s_append_regexp(sereal_t *s, VALUE object) {
+static void s_append_regexp(sereal_t *s, VALUE object) {
         s_append_u8(s,SRL_HDR_REGEXP);
         rb_encoding *enc = rb_enc_get(object);
 
@@ -134,16 +160,17 @@ static inline void s_append_regexp(sereal_t *s, VALUE object) {
 }
 
 
-static inline void s_append_integer(sereal_t *s, VALUE object) {
-        long long v = NUM2LL(object);
+static void s_append_integer(sereal_t *s, VALUE object) {
+        long long v = FIXNUM_P(object) ? FIX2LONG(object) : rb_num2ll(v);
         if (v >= 0) {
                 if (v < 16) 
                         s_append_u8(s,SRL_HDR_POS_LOW | (u8) v);
                 else {
-                        unsigned long long ullv = NUM2ULL(object);
-                        if (ullv == v)
-                                ullv = 0;
-                        s_append_hdr_with_varint(s,SRL_HDR_VARINT,(ullv > 0 ? ullv : v));
+                        unsigned long long ullv = 0;
+                        if (!FIXNUM_P(object))
+                                s_append_hdr_with_varint(s,SRL_HDR_VARINT,NUM2ULL(object));
+                        else
+                                s_append_hdr_with_varint(s,SRL_HDR_VARINT,v);
                 }
         } else {
                 if (v > -17)
@@ -152,55 +179,26 @@ static inline void s_append_integer(sereal_t *s, VALUE object) {
                         s_append_zigzag(s,v);                        
         }
 }
-static inline void s_append_double(sereal_t *s, VALUE object) {
+static void s_append_double(sereal_t *s, VALUE object) {
         double d = NUM2DBL(object);
         s_append_u8(s,SRL_HDR_DOUBLE);
         s_append(s,&d,sizeof(d));
 }
+static void s_append_true(sereal_t *s, VALUE object) {
+        s_append_u8(s,SRL_HDR_TRUE);
+}
+static void s_append_false(sereal_t *s, VALUE object) {
+        s_append_u8(s,SRL_HDR_FALSE);
+}
+static void s_append_nil(sereal_t *s, VALUE object) {
+        s_append_u8(s,SRL_HDR_UNDEF);
+}
+
+/* writer function pointers */
 
 static void rb_object_to_sereal(sereal_t *s, VALUE object) {
         S_RECURSE_INC(s);
-        switch(TYPE(object)) {
-                case T_FIXNUM:
-                        s_append_integer(s,object);
-                        break;
-                case T_BIGNUM:
-                        s_append_integer(s,object);
-                        break;
-                case T_FLOAT:
-                        s_append_double(s,object);
-                        break;
-                case T_ARRAY:
-                        s_append_array(s,object);
-                        break;
-                case T_HASH:
-                        s_append_hash(s,object);
-                        break;
-                case T_STRING:
-                        s_append_rb_string(s,object);
-                        break;
-                case T_SYMBOL:
-                        s_append_symbol(s,object);
-                        break;
-                case T_TRUE:
-                        s_append_u8(s,SRL_HDR_TRUE);
-                        break;
-                case T_FALSE:
-                        s_append_u8(s,SRL_HDR_FALSE);
-                        break;
-                case T_NIL:
-                        s_append_u8(s,SRL_HDR_UNDEF);   
-                        break;
-                case T_REGEXP:
-                        s_append_regexp(s,object);
-                        break;
-                case T_OBJECT:
-                        s_append_object(s,object);
-                        break;
-                default:
-                        rb_raise(rb_eTypeError, "invalid type for input %s",rb_obj_classname(object));
-                        break;
-        }
+        (*WRITER[TYPE(object)])(s,object);
         S_RECURSE_DEC(s);
 }
 
