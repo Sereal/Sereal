@@ -17,8 +17,7 @@ static inline void s_append_hdr_with_varint(sereal_t *s,u8 hdr, u64 n) {
 }
 
 static inline void s_append_zigzag(sereal_t *s,u64 n) {
-        s_append_u8(s,SRL_HDR_ZIGZAG);
-        s_append_varint(s, (n << 1) ^ (n >> (sizeof(long) * 8 - 1)));
+        s_append_hdr_with_varint(s,SRL_HDR_ZIGZAG,(n << 1) ^ (n >> (sizeof(long) * 8 - 1)));
 }
 
 static inline void s_append_string(sereal_t *s,u8 *string, u32 len,u8 is_utf8) {
@@ -37,7 +36,7 @@ static inline void s_append_string(sereal_t *s,u8 *string, u32 len,u8 is_utf8) {
 static inline void s_append_rb_string(sereal_t *s, VALUE object) {
         s_append_string(s,RSTRING_PTR(object),
                         RSTRING_LEN(object),
-                       (is_ascii_string(object) ? FALSE : TRUE));
+                        (is_ascii_string(object) ? FALSE : TRUE));
 }
 
 #define REF_THRESH(thresh,low,high)                     \

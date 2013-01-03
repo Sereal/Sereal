@@ -1,7 +1,14 @@
 #include "sereal.h"
+#include "decode.h"
 #include "snappy/csnappy_decompress.c"
-static VALUE sereal_to_rb_object(sereal_t *s);
 
+static VALUE s_default_reader(sereal_t *s, u8 tag) {
+        // s_dump(s);
+        rb_raise(rb_eTypeError,"unsupported tag %d",tag);
+        return Qnil;
+}
+
+/* VARINT */
 static u64 s_get_varint_bang(sereal_t *s) {
         u64 uv = 0;
         unsigned int lshift = 0;
@@ -98,7 +105,6 @@ static VALUE s_read_hash(sereal_t *s, u8 tag) {
 static VALUE s_read_hashref(sereal_t *s, u8 tag) {
         return s_read_hash_with_len(s,tag  & SRL_MASK_HASHREF_COUNT);
 }
-
 static VALUE s_read_rb_string_bang(sereal_t *s,u8 t) {
         u32 len = 0;
         VALUE string;
@@ -111,7 +117,8 @@ static VALUE s_read_rb_string_bang(sereal_t *s,u8 t) {
         } while(0);
         if (t == SRL_HDR_STR_UTF8) {
                 RETURN_STRING(s_get_varint_bang(s),
-                              rb_enc_str_new(s_get_p(s),len,rb_utf8_encoding()));
+                              rb_enc_str_new(s_get_p(s),len,
+                              rb_utf8_encoding()));
         } else if (t == SRL_HDR_BINARY || t == SRL_HDR_SYM) {
                 RETURN_STRING(s_get_varint_bang(s),
                               rb_str_new(s_get_p(s),len));
@@ -124,8 +131,7 @@ static VALUE s_read_rb_string_bang(sereal_t *s,u8 t) {
 }
 
 static VALUE s_read_next_rb_string_bang(sereal_t *s) {
-        u8 t = s_get_u8_bang(s);
-        return s_read_rb_string_bang(s,t);
+        return s_read_rb_string_bang(s,s_get_u8_bang(s));
 }
 
 static VALUE s_read_object(sereal_t *s,u8 tag) {
@@ -136,7 +142,7 @@ static VALUE s_read_object(sereal_t *s,u8 tag) {
         VALUE object = rb_class_new_instance(0, argv, klass);
         len = s_get_varint_bang(s);
         for (i = 0; i < len; i++) {
-                VALUE iv_key = sereal_to_rb_object(s);
+                VALUE iv_key = s_read_next_rb_string_bang(s); 
                 VALUE iv_value = sereal_to_rb_object(s);
                 rb_ivar_set(object,rb_intern_str(iv_key),iv_value);
         }
@@ -175,7 +181,15 @@ static VALUE s_read_false(sereal_t *s, u8 tag) {
         return Qfalse;
 }
 
-static VALUE sereal_to_rb_object(sereal_t *s) {
+static VALUE s_read_pad(sereal_t *s, u8 tag) {
+        /* just skip this byte and go forward */
+        return sereal_to_rb_object(s);
+}
+static VALUE s_read_extend(sereal_t *s, u8 tag) {
+        rb_raise(rb_eArgError,"extend tags are not supported");
+}
+
+VALUE sereal_to_rb_object(sereal_t *s) {
         u8 t;
         u32 varint,i,len;
         S_RECURSE_INC(s);
@@ -184,7 +198,7 @@ static VALUE sereal_to_rb_object(sereal_t *s) {
                 if (t & SRL_HDR_TRACK_FLAG)
                         rb_raise(rb_eArgError, "trackable objects are not supported");
                 S_RECURSE_DEC(s);
-                return (*s->reader[t])(s,t);
+                return (*READERS[t])(s,t);
         }
         return Qnil;
 }
@@ -224,40 +238,6 @@ VALUE method_sereal_decode(VALUE self, VALUE payload) {
                 s->pos = 0;
         }
 
-        #define REGISTER(s,min,max,fx)          \
-        do {                                    \
-                int i;                          \
-                for (i = min; i <= max; i++)    \
-                        s_register(s,i,fx);     \
-        } while(0);
-
-
-        REGISTER(s,SRL_HDR_POS_LOW,SRL_HDR_POS_HIGH,s_read_small_positive_int);
-        REGISTER(s,SRL_HDR_NEG_LOW,SRL_HDR_NEG_HIGH,s_read_small_negative_int);
-        s_register(s,SRL_HDR_VARINT,s_read_varint);
-        s_register(s,SRL_HDR_DOUBLE,s_read_double);
-        s_register(s,SRL_HDR_LONG_DOUBLE,s_read_long_double);
-        s_register(s,SRL_HDR_FLOAT,s_read_float);
-        s_register(s,SRL_HDR_ZIGZAG,s_read_zigzag);
-
-        s_register(s,SRL_HDR_REGEXP,s_read_regexp);
-        s_register(s,SRL_HDR_UNDEF,s_read_nil);
-        s_register(s,SRL_HDR_TRUE,s_read_true);
-        s_register(s,SRL_HDR_FALSE,s_read_false);
-        s_register(s,SRL_HDR_RB_OBJ,s_read_object); 
-
-        s_register(s,SRL_HDR_SYM,s_read_sym);
-        s_register(s,SRL_HDR_BINARY,s_read_rb_string_bang);
-        s_register(s,SRL_HDR_STR_UTF8,s_read_rb_string_bang);
-        REGISTER(s,SRL_HDR_SHORT_BINARY_LOW,SRL_HDR_SHORT_BINARY_HIGH,s_read_rb_string_bang);
-
-        s_register(s,SRL_HDR_HASH,s_read_hash);
-        REGISTER(s,SRL_HDR_HASHREF_LOW,SRL_HDR_HASHREF_HIGH,s_read_hashref);
-        
-        s_register(s,SRL_HDR_ARRAY,s_read_array);
-        REGISTER(s,SRL_HDR_ARRAYREF_LOW,SRL_HDR_ARRAYREF_HIGH,s_read_arrayref);
-
-        #undef REGISTER
         VALUE result = sereal_to_rb_object(s); 
         if (is_compressed)
                 s_destroy(s);

@@ -1,10 +1,12 @@
 #include "sereal.h"
-
-void *alloc_or_raise(u32 s) {
-        u8 *buf = malloc(s);
+void *realloc_or_raise(void *p, u32 s) {
+        u8 *buf = realloc(p,s);
         if (!buf)
                 rb_raise(rb_eNoMemError,"memory allocation failure for %d bytes",s);
         return buf;
+}
+void *alloc_or_raise(u32 s) {
+        return realloc_or_raise(NULL,s);
 }
 
 sereal_t * s_create(void) {
@@ -14,13 +16,7 @@ sereal_t * s_create(void) {
         s->rsize = 0;
         s->level = 0;
         s->pos = 0;
-        int i;
-        for (i = 0; i < S_READERS_COUNT; i++)
-                s->reader[i] = s_default_reader;
         return s;
-}
-void s_register(sereal_t *s, u8 pos, VALUE (*c)(sereal_t *,u8)) {
-        s->reader[pos] = c;
 }
 
 void s_destroy(sereal_t *s) {
@@ -34,13 +30,9 @@ inline void s_alloc(sereal_t *s, u32 len) {
                 return;
 
         u32 size = s->size + len + 512; // every time allocate 512b more, so we wont alloc for a while
-        u8 *buf = realloc(s->data,size); 
-        if (!buf)
-                rb_raise(rb_eNoMemError,"memory allocation failure");
-        else {
-                s->data = buf;
-                s->rsize = size;
-        }
+        u8 *buf = realloc_or_raise(s->data,size); 
+        s->data = buf;
+        s->rsize = size;
 }
 
 inline void s_append(sereal_t *s, void *suffix, u32 s_len) {
@@ -66,26 +58,26 @@ inline void *s_get_p_at_pos(sereal_t *s, u32 pos,u32 req) {
         return &s->data[pos];
 }
 
-void *s_get_p(sereal_t *s) {
+inline void *s_get_p(sereal_t *s) {
         return s_get_p_at_pos(s,s->pos,0);
 }
-u8 s_get_u8(sereal_t *s) {
+inline u8 s_get_u8(sereal_t *s) {
         return *((u8 *) s_get_p(s));
 }
 
-u8 s_get_u8_bang(sereal_t *s) {
+inline u8 s_get_u8_bang(sereal_t *s) {
         u8 r = s_get_u8(s);
         s->pos++;
         return r;
 }
 
-u32 s_get_u32_bang(sereal_t *s) {
+inline u32 s_get_u32_bang(sereal_t *s) {
         u32 *r = (u32 *) s_get_p_at_pos(s,s->pos,sizeof(u32) - 1); /* current position + 3 bytes */
         s->pos += sizeof(u32);
         return *r;
 }
 
-u32 s_shift_position_bang(sereal_t *s, u32 len) {
+inline u32 s_shift_position_bang(sereal_t *s, u32 len) {
         s->pos += len;
         return len;
 }
@@ -99,3 +91,4 @@ void s_dump(sereal_t *s) {
         }
         fprintf(stderr,"\n");
 }
+

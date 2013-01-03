@@ -36,40 +36,32 @@ typedef struct _track_entry     track_t;
 #define MULTILINE RE_OPTION_MULTILINE
 #define EXTENDED RE_OPTION_EXTENDED
 #endif
-#define S_READERS_COUNT 255
 struct _sereal {
         u8 *data;
         u32 size;
         u32 pos;
         u32 rsize;
         u32 level;
-        VALUE (*reader[S_READERS_COUNT])(sereal_t *, u8);
 };
 
 VALUE method_sereal_encode(VALUE self, VALUE args);
 VALUE method_sereal_decode(VALUE self, VALUE payload);
 
-void *alloc_or_raise(u32 s);
-sereal_t * s_create(void);
-void s_register(sereal_t *s, u8 pos, VALUE (*c)(sereal_t *,u8));
-void s_destroy(sereal_t *s);
-void s_alloc(sereal_t *s, u32 len);
-void s_append(sereal_t *s, void *suffix, u32 s_len);
-void s_append_u8(sereal_t *s,u8 b);
-void s_append_u32(sereal_t *s,u32 b);
+inline void *alloc_or_raise(u32 s);
+inline sereal_t * s_create(void);
+inline void s_register(sereal_t *s, u8 pos, VALUE (*c)(sereal_t *,u8));
+inline void s_destroy(sereal_t *s);
+inline void s_alloc(sereal_t *s, u32 len);
+inline void s_append(sereal_t *s, void *suffix, u32 s_len);
+inline void s_append_u8(sereal_t *s,u8 b);
+inline void s_append_u32(sereal_t *s,u32 b);
 
-void *s_get_p_at_pos(sereal_t *s, u32 pos, u32 req);
-void *s_get_p(sereal_t *s);
-u8 s_get_u8(sereal_t *s);
-u8 s_get_u8_bang(sereal_t *s);
+inline void *s_get_p_at_pos(sereal_t *s, u32 pos, u32 req);
+inline void *s_get_p(sereal_t *s);
+inline u8 s_get_u8(sereal_t *s);
+inline u8 s_get_u8_bang(sereal_t *s);
 
 void s_dump(sereal_t *s);
-
-static VALUE s_default_reader(sereal_t *s, u8 tag) {
-        // s_dump(s);
-        rb_raise(rb_eTypeError,"unsupported tag %d",tag);
-        return Qnil;
-}
 
 #define S_RECURSE_INC(s)                                          \
 do {                                                              \
