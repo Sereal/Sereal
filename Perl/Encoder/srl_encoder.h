@@ -71,10 +71,11 @@ void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
 /* WARNING: This is different from the protocol bit SRL_PROTOCOL_ENCODING_SNAPPY in that it's
  *          a flag on the encoder struct indicating that we want to use Snappy. */
 #define SRL_F_COMPRESS_SNAPPY                64UL
+#define SRL_F_COMPRESS_SNAPPY_INCREMENTAL   128UL
 
 /* Only meaningful if SRL_F_WARN_UNKNOWN also set. If this one is set, then we don't warn
  * if the unsupported item has string overloading. */
-#define SRL_F_NOWARN_UNKNOWN_OVERLOAD        128UL
+#define SRL_F_NOWARN_UNKNOWN_OVERLOAD        256UL
 
 /* Set while the encoder is in active use / dirty */
 #define SRL_OF_ENCODER_DIRTY                 1UL

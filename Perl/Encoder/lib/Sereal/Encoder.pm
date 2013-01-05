@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '0.21';
+our $VERSION = '0.22';
 
 # not for public consumption, just for testing.
 my $TestCompat = [map sprintf("%.2f", $_/100), reverse(6..20)]; # compat with 0.06 to ...
@@ -89,6 +89,14 @@ If in doubt, test with your data whether this helps or not.
 
 The decoder (version 0.04 and up) will know how to handle Snappy-compressed
 Sereal documents transparently.
+
+B<NOTE 1:> Do not use this if you want to parse multiple Sereal packets
+from the same buffer. Instead use C<snappy_incr> instead.
+
+=item snappy_incr
+
+Enables a version of the snappy protocol which is suitable for incremental
+parsing of packets. See also the C<snappy> option above for more details.
 
 =item snappy_threshold
 

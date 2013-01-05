@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '0.21';
+our $VERSION = '0.22';
 
 # not for public consumption, just for testing.
 my $TestCompat = [map sprintf("%.2f", $_/100), reverse(6..20)]; # compat with 0.06 to ...

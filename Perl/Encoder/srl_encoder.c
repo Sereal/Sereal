@@ -244,6 +244,10 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         if ( svp && SvTRUE(*svp) )
             enc->flags |= SRL_F_COMPRESS_SNAPPY;
 
+        svp = hv_fetchs(opt, "snappy_incr", 0);
+        if ( svp && SvTRUE(*svp) )
+            enc->flags |= SRL_F_COMPRESS_SNAPPY_INCREMENTAL;
+
         svp = hv_fetchs(opt, "undef_unknown", 0);
         if ( svp && SvTRUE(*svp) ) {
             undef_unknown = 1;
@@ -326,6 +330,8 @@ srl_write_header(pTHX_ srl_encoder_t *enc)
                                  | (
                                     SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY)
                                     ? SRL_PROTOCOL_ENCODING_SNAPPY
+                                    : SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL)
+                                    ? SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL
                                     : SRL_PROTOCOL_ENCODING_RAW
                                  );
 
@@ -458,7 +464,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
     /* Register our structure for destruction on scope exit */
     SAVEDESTRUCTOR_X(&srl_destructor_hook, (void *)enc);
 
-    if (!SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY)) {
+    if (!SRL_ENC_HAVE_OPTION(enc, (SRL_F_COMPRESS_SNAPPY | SRL_F_COMPRESS_SNAPPY_INCREMENTAL))) {
         srl_write_header(aTHX_ enc);
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
@@ -488,10 +494,16 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
         }
         else {
             char *old_buf;
+            char *varint_start= NULL;
+            char *varint_end;
             uint32_t dest_len;
 
             /* Get uncompressed payload and total packet output (after compression) lengths */
             dest_len = csnappy_max_compressed_length(uncompressed_body_length) + sereal_header_len + 1;
+
+            if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL ) ) {
+                dest_len += SRL_MAX_VARINT_LENGTH;
+            }
 
             /* Lazy working buffer alloc */
             if (expect_false( enc->snappy_workmem == NULL )) {
@@ -515,12 +527,43 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
             Copy(old_buf, enc->pos, sereal_header_len, char);
             enc->pos += sereal_header_len;
 
+            if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL ) ) {
+                varint_start= enc->pos;
+                srl_buf_cat_varint_nocheck(aTHX_ enc, 0, dest_len);
+                varint_end= enc->pos - 1;
+            }
+
             /*
              * fprintf(stderr, "'%u' %u %u\n", enc->pos - enc->buf_start, uncompressed_body_length, (uncompressed_body_length+sereal_header_len));
              * fprintf(stdout, "%7s!%1s\n", old_buf, old_buf+6);
              */
             csnappy_compress(old_buf+sereal_header_len, (uint32_t)uncompressed_body_length, enc->pos, &dest_len,
                              enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
+
+            if ( varint_start ) {
+                /* overwrite the max size varint with the real size of the compressed data */
+                UV n= dest_len;
+                while (n >= 0x80) {                      /* while we are larger than 7 bits long */
+                    *varint_start++ = (n & 0x7f) | 0x80; /* write out the least significant 7 bits, set the high bit */
+                    n = n >> 7;                          /* shift off the 7 least significant bits */
+                }
+                /* if it is the same size we can use a canonical varint */
+                if ( varint_start == varint_end ) {
+                    *varint_start = n;                     /* encode the last 7 bits without the high bit being set */
+                } else {
+                    /* if not we produce a non-canonical varint, basically we stuff
+                     * 0 bits (via 0x80) into the "tail" of the varint, until we can
+                     * stick in a null to terminate the sequence. This means that the
+                     * varint is effectively "self-padding", and we only need special
+                     * logic in the encoder - a decoder will happily process a non-canonical
+                     * varint with no problem */
+                    *varint_start++ = (n & 0x7f) | 0x80;
+                    while ( varint_start < varint_end )
+                        *varint_start++ = 0x80;
+                    *varint_start= 0;
+                }
+            }
+
             /* fprintf(stderr, "%u, %u %u %u\n", dest_len, enc->pos[0], enc->pos[1], enc->pos[2]); */
             assert(dest_len != 0);
             Safefree(old_buf);

@@ -11,7 +11,7 @@ use Sereal::Decoder;
 # Snappy compression was broken by assuming remaining document length
 # is the same as compressed-data-length.
 
-my $encoder = Sereal::Encoder->new( { snappy => 1, snappy_threshold => 1 } );
+my $encoder = Sereal::Encoder->new( { snappy_incr => 1, snappy_threshold => 1 } );
 my $decoder = Sereal::Decoder->new();
 
 # establish base behaviour

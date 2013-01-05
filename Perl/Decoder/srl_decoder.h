@@ -23,6 +23,7 @@ typedef struct {
 
     UV bytes_consumed;
     UV recursion_depth;                 /* Recursion depth of current decoder */
+    U8 proto_version_and_flags;
 } srl_decoder_t;
 
 /* constructor; don't need destructor, this sets up a callback */

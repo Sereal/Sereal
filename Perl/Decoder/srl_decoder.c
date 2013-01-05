@@ -242,13 +242,17 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into, UV start_offset)
         SV *buf_sv;
         unsigned char *buf;
         unsigned char *old_pos;
-        const ptrdiff_t compressed_packet_len = dec->buf_end - dec->pos;
         const ptrdiff_t sereal_header_len = dec->pos - dec->buf_start;
+        const STRLEN compressed_packet_len =
+                ( dec->proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK ) == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL
+                ? (STRLEN)srl_read_varint_uv_length(aTHX_ dec, " while reading compressed packet size")
+                : (STRLEN)(dec->buf_end - dec->pos);
         int decompress_ok;
+        dec->bytes_consumed= compressed_packet_len + (dec->pos - dec->buf_start);
 
         int header_len = csnappy_get_uncompressed_length(
                             (char *)dec->pos,
-                            dec->buf_end - dec->pos,
+                            compressed_packet_len,
                             &dest_len
                          );
         if (header_len == CSNAPPY_E_HEADER_BAD)
@@ -288,8 +292,11 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into, UV start_offset)
         srl_finalize_structure(aTHX_ dec);
     }
 
-    /* Remember the number of bytes used for the user to query */
-    dec->bytes_consumed = dec->pos - dec->buf_start;
+    /* If we aren't reading from a decompressed buffer we have to remember the number
+     * of bytes used for the user to query. */
+    if (dec->bytes_consumed == 0)
+        dec->bytes_consumed = dec->pos - dec->buf_start;
+
 
     srl_clear_decoder(aTHX_ dec);
     return into;
@@ -345,30 +352,34 @@ static SRL_INLINE void
 srl_read_header(pTHX_ srl_decoder_t *dec)
 {
     UV header_len;
-    U8 proto_version_and_flags;
 
     /* 4 byte magic string + version/flags + hdr len at least */
     ASSERT_BUF_SPACE(dec, 4 + 1 + 1," while reading header");
     if (strnEQ((char*)dec->pos, SRL_MAGIC_STRING, 4)) {
         dec->pos += 4;
-        proto_version_and_flags = *dec->pos++;
-        if (expect_false( (proto_version_and_flags & SRL_PROTOCOL_VERSION_MASK) != 1 ))
+        dec->proto_version_and_flags = *dec->pos++;
+
+        if (expect_false( (dec->proto_version_and_flags & SRL_PROTOCOL_VERSION_MASK) != 1 ))
             ERRORf1("Unsupported Sereal protocol version %u",
-                    proto_version_and_flags & SRL_PROTOCOL_VERSION_MASK);
-        if ((proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_RAW) {
+                    dec->proto_version_and_flags & SRL_PROTOCOL_VERSION_MASK);
+        if ((dec->proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_RAW) {
             /* no op */
         }
         else
-        if (( proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK ) == SRL_PROTOCOL_ENCODING_SNAPPY) {
-            dec->flags |= SRL_F_DECODER_DECOMPRESS_SNAPPY;
+        if (
+                ( dec->proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK ) == SRL_PROTOCOL_ENCODING_SNAPPY
+                ||
+                ( dec->proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK ) == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL
+        ) {
             if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_SNAPPY) )) {
                 ERROR("Sereal document is compressed with Snappy, "
                       "but this decoder is configured to refuse Snappy-compressed input.");
             }
+            dec->flags |= SRL_F_DECODER_DECOMPRESS_SNAPPY;
         }
         else
         {
-            ERRORf1("Serial document encoded in an unknown format '%d'", ( proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK ) >> 4 );
+            ERRORf1("Serial document encoded in an unknown format '%d'", ( dec->proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK ) >> 4 );
         }
         header_len= srl_read_varint_uv_length(aTHX_ dec," while reading header"); /* must do this via a temporary as it modifes dec->pos itself */
         dec->pos += header_len;
@@ -669,7 +680,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
 
 static SRL_INLINE void
 srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
-    IV num_keys;
+    UV num_keys;
     if (tag) {
         SV *referent= (SV *)newHV();
         num_keys= tag & 15;

@@ -590,9 +590,11 @@ if (eval "use Array::RefElem (av_store hv_store); 1") {
 
 
 sub run_roundtrip_tests {
-    for my $opt (['plain', {}],
-                 ['snappy', {snappy => 1}])
-    {
+    for my $opt (
+        ['plain',       {                  } ],
+        ['snappy',      { snappy => 1      } ],
+        ['snappy_incr', { snappy_incr => 1 } ],
+    ) {
         run_roundtrip_tests_internal(@$opt);
     }
 }
