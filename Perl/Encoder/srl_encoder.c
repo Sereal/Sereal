@@ -12,6 +12,8 @@ extern "C" {
 }
 #endif
 
+#include <stdlib.h>
+
 #ifndef PERL_VERSION
 #    include <patchlevel.h>
 #    if !(defined(PERL_VERSION) || (PERL_SUBVERSION > 0 && defined(PATCHLEVEL)))
@@ -252,6 +254,12 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         if ( svp && SvTRUE(*svp) ) {
             undef_unknown = 1;
             enc->flags |= SRL_F_UNDEF_UNKNOWN;
+        }
+
+        svp = hv_fetchs(opt, "sort_keys", 0);
+        if ( svp && SvTRUE(*svp) ) {
+            undef_unknown = 1;
+            enc->flags |= SRL_F_SORT_KEYS;
         }
 
         svp = hv_fetchs(opt, "stringify_unknown", 0);
@@ -732,6 +740,36 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
     }
 }
 
+/* compare hash entries, used when all keys are bytestrings */
+static int
+he_cmp_fast(const void *a_, const void *b_)
+{
+    /* even though we are called as a callback from qsort there is
+     * no need for a dTHX here, we don't use anything that needs it */
+    int cmp;
+
+    HE *a = *(HE **)a_;
+    HE *b = *(HE **)b_;
+
+    STRLEN la = HeKLEN (a);
+    STRLEN lb = HeKLEN (b);
+
+    if (!(cmp = memcmp (HeKEY (b), HeKEY (a), lb < la ? lb : la)))
+        cmp = lb - la;
+
+    return cmp;
+}
+
+/* compare hash entries, used when some keys are sv's or utf8 */
+static int
+he_cmp_slow(const void *a, const void *b)
+{
+    /* we are called as a callback from qsort, so no pTHX
+     * is possible in our argument signature, so we need to do a
+     * dTHX; here ourselves. */
+    dTHX;
+    return sv_cmp( HeSVKEY_force( *(HE **)b), HeSVKEY_force( *(HE **)a ) );
+}
 
 static SRL_INLINE void
 srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
@@ -740,7 +778,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
     const int do_share_keys = HvSHAREKEYS((SV *)src);
     UV n;
 
-    if ( SvMAGICAL(src) ) {
+    if ( SvMAGICAL(src) || SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS) ) {
         UV i;
         /* for tied hashes, we have to iterate to find the number of entries. Alas... */
         (void)hv_iterinit(src); /* return value not reliable according to API docs */
@@ -760,18 +798,58 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 
         (void)hv_iterinit(src); /* return value not reliable according to API docs */
         i = 0;
-        while ((he = hv_iternext(src))) {
-            SV *v;
-            if (expect_false( i == n ))
+        if (SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS)) {
+            HE **he_array;
+            int fast = 1;
+            Newxz(he_array, n, HE*);
+            SAVEFREEPV(he_array);
+            while ((he = hv_iternext(src))) {
+                if (expect_false( i == n ))
+                    croak("Panic: Trying to dump a tied hash that has a different number of keys in each iteration is just daft. Do not do that.");
+                he_array[i++]= he;
+                if (HeKLEN (he) < 0 || HeKUTF8 (he))
+                    fast = 0;
+            }
+            if (expect_false( i != n ))
                 croak("Panic: Trying to dump a tied hash that has a different number of keys in each iteration is just daft. Do not do that.");
-            v= hv_iterval(src, he);
-            srl_dump_hk(aTHX_ enc, he, do_share_keys);
-            CALL_SRL_DUMP_SV(enc, v);
-            ++i;
-        }
-        if (expect_false( i != n ))
-            croak("Panic: Trying to dump a tied hash that has a different number of keys in each iteration is just daft. Do not do that.");
+            if (fast) {
+                qsort(he_array, n, sizeof (HE *), he_cmp_fast);
+            } else {
+                /* hack to forcefully disable "use bytes" */
+                COP cop= *PL_curcop;
+                cop.op_private= 0;
 
+                ENTER;
+                SAVETMPS;
+
+                SAVEVPTR (PL_curcop);
+                PL_curcop= &cop;
+
+                qsort(he_array, n, sizeof (HE *), he_cmp_slow);
+
+                FREETMPS;
+                LEAVE;
+            }
+            for ( i= 0; i < n ; i++ ) {
+                SV *v;
+                he= he_array[i];
+                v= hv_iterval(src, he);
+                srl_dump_hk(aTHX_ enc, he, do_share_keys);
+                CALL_SRL_DUMP_SV(enc, v);
+            }
+        } else {
+            while ((he = hv_iternext(src))) {
+                SV *v;
+                if (expect_false( i == n ))
+                    croak("Panic: Trying to dump a tied hash that has a different number of keys in each iteration is just daft. Do not do that.");
+                v= hv_iterval(src, he);
+                srl_dump_hk(aTHX_ enc, he, do_share_keys);
+                CALL_SRL_DUMP_SV(enc, v);
+                ++i;
+            }
+            if (expect_false( i != n ))
+                croak("Panic: Trying to dump a tied hash that has a different number of keys in each iteration is just daft. Do not do that.");
+        }
     } else {
         n= HvUSEDKEYS(src);
         /* heuristic: n = ~min size of n values;

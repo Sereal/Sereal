@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '0.22';
+our $VERSION = '0.23';
 
 # not for public consumption, just for testing.
 my $TestCompat = [map sprintf("%.2f", $_/100), reverse(6..20)]; # compat with 0.06 to ...
@@ -292,6 +292,7 @@ it under the same terms as Perl itself.
 
 Except portions taken from Marc Lehmann's code for the JSON::XS
 module, which is licensed under the same terms as this module.
+(Many thanks to Marc for inspiration, and code.)
 
 Also except the code for Snappy compression library, whose license
 is reproduced below and which, to the best of our knowledge,

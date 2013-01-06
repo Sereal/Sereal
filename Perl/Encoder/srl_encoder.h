@@ -75,7 +75,11 @@ void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
 
 /* Only meaningful if SRL_F_WARN_UNKNOWN also set. If this one is set, then we don't warn
  * if the unsupported item has string overloading. */
-#define SRL_F_NOWARN_UNKNOWN_OVERLOAD        256UL
+#define SRL_F_NOWARN_UNKNOWN_OVERLOAD       256UL
+
+/* Only meaningful if SRL_F_WARN_UNKNOWN also set. If this one is set, then we don't warn
+ * if the unsupported item has string overloading. */
+#define SRL_F_SORT_KEYS                     512UL
 
 /* Set while the encoder is in active use / dirty */
 #define SRL_OF_ENCODER_DIRTY                 1UL

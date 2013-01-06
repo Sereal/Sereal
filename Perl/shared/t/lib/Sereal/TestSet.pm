@@ -594,6 +594,7 @@ sub run_roundtrip_tests {
         ['plain',       {                  } ],
         ['snappy',      { snappy => 1      } ],
         ['snappy_incr', { snappy_incr => 1 } ],
+        ['sort_keys',   { sort_keys => 1   } ],
     ) {
         run_roundtrip_tests_internal(@$opt);
     }

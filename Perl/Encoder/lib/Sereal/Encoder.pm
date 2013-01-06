@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '0.22';
+our $VERSION = '0.23';
 
 # not for public consumption, just for testing.
 my $TestCompat = [map sprintf("%.2f", $_/100), reverse(6..20)]; # compat with 0.06 to ...
@@ -155,6 +155,21 @@ do so.
 
 Do note that the setting is somewhat approximate. Setting it to 10000 may break at
 somewhere between 9997 and 10003 nested structures depending on their types.
+
+=item sort_keys
+
+Normally C<Sereal::Encoder> will output hashes in whatever order is convenient,
+generally that used by perl to actually store the hash, or whatever order
+was returned by a tied hash.
+
+If this option is enabled then the Encoder will sort the keys before outputting
+them. It uses more memory, and is quite a bit slower than the default.
+
+Generally speaking this should mean that a hash and a copy should produce the
+same output. Nevertheless the user is warned that Perl has a way of "morphing"
+variables on use, and some of its rules are a little arcane (for instance utf8
+keys), and so two hashes that might appear to be the same might still produce
+different output as far as Sereal is concerned.
 
 =back
 
