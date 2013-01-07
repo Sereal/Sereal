@@ -69,6 +69,9 @@ Constructor. Optionally takes a hash reference as first parameter. This hash
 reference may contain any number of options that influence the behaviour of the
 encoder. Currently, the following options are recognized:
 
+=for comments
+Using =head3 insted of =item would be preferable so they can be linked to and would appear in the table of contents
+
 =over 2
 
 =item no_shared_hashkeys
@@ -213,6 +216,75 @@ C<Sereal::Encoder> is thread-safe on Perl's 5.8.7 and higher. This means
 C<Sereal::Encoder> objects will become a reference to undef in the new
 thread. This might change in a future release to become a full clone
 of the encoder object.
+
+=head1 NON-CANONICAL 
+
+You might want to compare two data structures by comparing their serialized
+byte strings.  For that to work reliably the serialization must take extra
+steps to ensure that identical data structures are encoded into identical
+serialized byte strings (a so-called "canonical representation").
+
+Currently the Sereal encoder I<does not> provide a mode that will reliably
+generate a canonical representation of a data structure. The reasons are many
+and sometimes subtle.
+
+Sereal does support some use-cases however. In this section we attempt to outline
+the issues well enough for you to decide if it is suitable for your needs.
+
+=over 4
+
+=item Sereal serializes the flags used for the encoder.
+
+So even if you have the same data structure they'll compare differently
+stringwise if they were encoded with different settings, even settings which
+don't affect the representation.  This may not be a problem for you if you can
+ensure the same settings are used.
+
+=item Sereal doesn't order the hash keys by default.
+
+This can be enable via C<sort_keys>.
+
+=item There are multiple valid Sereal documents that you can produce for the same Perl data structure.
+
+Just sorting hash keys is not enough. A trivial example is PAD bytes which
+mean nothing and are skipped. They mostly exist for encoder optimizations to
+prevent certain nasty backtracking situations from becoming O(n) at the cost of
+one byte of output. An explicit canonical mode would have to outlaw them (or
+add more of them) and thus require a much more complicated implementation of
+refcount/weakref handing in the encoder while at the same time causing some
+operations to go from O(1) to a full memcpy of everything after the point of
+where we backtracked to. Nasty.
+
+Another example is COPY. The COPY tag indicates that the next element is an
+identical copy of a previous element (which is itself forbidden from including
+COPY's other than for class names). COPY is purely internal. The Perl/XS
+implementation uses it to share hash keys and class names. One could use it for
+other strings (theoretically), but doesn't for time-efficiency reasons. We'd
+have to outlaw the use of this (significant) optimization of canonicalization.
+
+ARRAYREF and ARRAY-with-length-up-to-15 are identical. ARRAYREF is another optimization. [XXX I don't understand that. Needs more info]
+
+HASHREF [XXX same]
+
+Multiple ways of doing integer encoding. [XXX same]
+
+Perl's ambiguity in whether to encode the PV,NV,IV? [XXX same]
+
+Floating point values can appear to be the same but serialize to different byte
+strings due to insignificant 'noise' in the floating point representation.
+
+These issues are especially relevant when considering language interoperability.
+
+=back
+
+Often, people don't actually care about "canonical" in the strict sense
+required for real I<identity> checking. They just require a best-effort sort of
+thing for caching. But it's a slippery slope!
+
+In a nutshell, the C<sort_keys> option may be sufficient for an application
+which is simply serializing a cache key, and thus there's little harm in an
+occasional false-negative, but think carefully before applying Sereal in other
+use-cases.
 
 =head1 AUTHOR
 
