@@ -273,7 +273,14 @@ could be represented in two different, yet perfectly valid forms. ARRAYREF would
 have to be outlawed for a properly canonical form. The exact same logic
 applies to HASH vs. HASHREF.
 
-Multiple ways of doing integer encoding. [XXX same]
+Similar to how Sereal can represent arrays and hashes in a full and a compact
+form. For small integers (between -16 and +15 inclusive), Sereal emits only
+one byte including the encoding of the type of data. For larger integers,
+it can use either varints (positive only) or zigzag encoding, which can also
+represent negative numbers. For a canonical mode, the space optimizations
+would have to be turned off and it would have to be explicitly specified
+whether varint or zigzag encoding is to be used for encoding positive
+integers.
 
 Perl's ambiguity in whether to encode the PV,NV,IV? [XXX same]
 
