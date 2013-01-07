@@ -282,7 +282,17 @@ would have to be turned off and it would have to be explicitly specified
 whether varint or zigzag encoding is to be used for encoding positive
 integers.
 
-Perl's ambiguity in whether to encode the PV,NV,IV? [XXX same]
+Perl may choose to retain multiple representations of a scalar. Specifically,
+it can convert integers, floating point numbers, and strings on the fly and
+will aggressively cache the results. Normally, it remembers which of the
+representations can be considered canonical, that means, which can be used
+to recreate the others reliably. For example, C<0> and C<"0">
+can both be considered canonical since they naturally transform into each
+other. Beyond intrinsic ambiguity, there are ways to
+trick Perl into allowing a single scalar to have distinct string, integer,
+and floating point representations that are all flagged as canonical, but can't
+be transformed into each other. These are the so-called dualvars. Sereal
+cannot represent dualvars (and that's a good thing).
 
 Floating point values can appear to be the same but serialize to different byte
 strings due to insignificant 'noise' in the floating point representation. Sereal
@@ -317,8 +327,8 @@ Rafaël Garcia-Suarez
 Tim Bunce
 
 Some inspiration and code was taken from Marc Lehmann's
-excellent JSON::XS module due to obvious overlap in
-problem domain.
+excellent L<JSON::XS> module due to obvious overlap in
+problem domain. Thank you!
 
 =head1 ACKNOWLEDGMENT
 
