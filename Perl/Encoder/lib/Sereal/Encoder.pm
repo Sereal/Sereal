@@ -241,7 +241,7 @@ ensure the same settings are used.
 
 =item Sereal doesn't order the hash keys by default.
 
-This can be enabled via C<sort_keys>.
+This can be enabled via C<sort_keys>, see above.
 
 =item There are multiple valid Sereal documents that you can produce for the same Perl data structure.
 
@@ -261,16 +261,26 @@ implementation uses it to share hash keys and class names. One could use it for
 other strings (theoretically), but doesn't for time-efficiency reasons. We'd
 have to outlaw the use of this (significant) optimization of canonicalization.
 
-ARRAYREF and ARRAY-with-length-up-to-15 are identical. ARRAYREF is another optimization. [XXX I don't understand that. Needs more info]
-
-HASHREF [XXX same]
+Sereal represents a reference to an array as a sequence of
+tags which, in its simplest form, reads I<REF, ARRAY $array_length TAG1 TAG2 ...>.
+The separation of "REF" and "ARRAY" is necessary to properly implement all of
+Perl's referencing and aliasing semantics correctly. Quite frequently, however,
+your array is only reference once and plainly so. If it's also at most 15 elements
+long, Sereal optimizes all of the "REF" and "ARRAY" tags, as well as the length
+into a special one byte ARRAYREF tag. This is a very significant optimization
+for common cases. This, however, does mean that most arrays up to 15 elements
+could be represented in two different, yet perfectly valid forms. ARRAYREF would
+have to be outlawed for a properly canonical form. The exact same logic
+applies to HASH vs. HASHREF.
 
 Multiple ways of doing integer encoding. [XXX same]
 
 Perl's ambiguity in whether to encode the PV,NV,IV? [XXX same]
 
 Floating point values can appear to be the same but serialize to different byte
-strings due to insignificant 'noise' in the floating point representation.
+strings due to insignificant 'noise' in the floating point representation. Sereal
+supports different floating point precisions and will generally choose the most
+compact that can represent your floating point number correctly.
 
 These issues are especially relevant when considering language interoperability.
 
@@ -296,6 +306,8 @@ Steffen Mueller E<lt>smueller@cpan.orgE<gt>
 Rafaël Garcia-Suarez
 
 Ævar Arnfjörð Bjarmason E<lt>avar@cpan.orgE<gt>
+
+Tim Bunce
 
 Some inspiration and code was taken from Marc Lehmann's
 excellent JSON::XS module due to obvious overlap in
