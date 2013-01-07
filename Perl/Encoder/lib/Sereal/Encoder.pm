@@ -232,13 +232,6 @@ the issues well enough for you to decide if it is suitable for your needs.
 
 =over 4
 
-=item Sereal serializes the flags used for the encoder.
-
-So even if you have the same data structure they'll compare differently
-stringwise if they were encoded with different settings, even settings which
-don't affect the representation.  This may not be a problem for you if you can
-ensure the same settings are used.
-
 =item Sereal doesn't order the hash keys by default.
 
 This can be enabled via C<sort_keys>, see above.
