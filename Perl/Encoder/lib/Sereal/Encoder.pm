@@ -242,7 +242,7 @@ ensure the same settings are used.
 
 =item Sereal doesn't order the hash keys by default.
 
-This can be enable via C<sort_keys>.
+This can be enabled via C<sort_keys>.
 
 =item There are multiple valid Sereal documents that you can produce for the same Perl data structure.
 
