@@ -89,3 +89,11 @@ Revision history for Perl extension Sereal-Decoder
 0.21 Wed Jan 02 08:00 2013
   - Option 'max_num_hash_entries' to limit the number of accepted
     hash entries.
+
+0.22 - unreleased
+
+0.23
+  - Important: support for the incremental-parsing Snappy format that
+    is enabled with the encoder's (versions 0.23 and up)
+    'snappy_incr' option.
+

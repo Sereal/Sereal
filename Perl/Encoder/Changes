@@ -91,3 +91,26 @@ Revision history for Perl extension Sereal-Encoder
     => Regression tests still pending.
 
 0.21 - unreleased
+0.22 - unreleased
+
+0.23
+  * Warning *
+    Before using the incremental Snappy mode described below, you must
+    upgrade the Sereal::Decoder to version 0.23 or higher!
+  - Support for the 'snappy_incr' option, which uses a new Snappy
+    compression format that is suitable for parsing multiple Sereal
+    documents from a large buffer. A bug in the previous implementation
+    of Snappy-compression resulted in the Decoder failing if the
+    buffer (Perl input string) extended beyond the length of the
+    Snappy-compressed Sereal document.
+    If this confuses you, then:
+      => If you're not using Snappy compression, move on.
+      => If you are, but you're not extracting Sereal documents
+         from larger strings, consider upgrading or move on.
+      => If you're using Snappy compression and might want to extract
+         Sereal documents from larger strings, then please:
+         1) Upgrade Sereal::Decoder and Sereal::Encoder everywhere.
+         2) Then swap the "snappy" option of the encoder for the
+            "snappy_incr" option.
+  - Support for the 'sort_keys' option, which outputs hash keys in
+    consistent order (but see gotchas in documentation).
