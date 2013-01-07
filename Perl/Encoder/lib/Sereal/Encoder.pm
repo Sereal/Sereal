@@ -178,6 +178,9 @@ gain if you plan to serialize multiple similar data structures, but destroy
 it if you serialize a single very large data structure just once to free
 the memory.
 
+See L</NON-CANONICAL> for why you might want to use this, and for the
+various caveats involved.
+
 =head1 INSTANCE METHODS
 
 =head2 encode
@@ -242,7 +245,7 @@ This can be enabled via C<sort_keys>.
 
 =item There are multiple valid Sereal documents that you can produce for the same Perl data structure.
 
-Just sorting hash keys is not enough. A trivial example is PAD bytes which
+Just L<sorting hash keys|/sort_keys> is not enough. A trivial example is PAD bytes which
 mean nothing and are skipped. They mostly exist for encoder optimizations to
 prevent certain nasty backtracking situations from becoming O(n) at the cost of
 one byte of output. An explicit canonical mode would have to outlaw them (or
