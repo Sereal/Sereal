@@ -1,8 +1,8 @@
 #!perl
-use strict; 
+use strict;
 use warnings;
 use Sereal::Encoder qw(encode_sereal);
-use List::Util qw(shuffle); 
+use List::Util qw(shuffle);
 use Test::More;
 
 # Try and find 15 hash collisions in "A".."Z"
@@ -11,24 +11,24 @@ use Test::More;
 # which we will use to test the "sort_keys" logic.
 
 my $max= 15;
-my %hash; 
-my (%i, %j); 
-keys %i = $max; 
-keys %j = $max; 
+my %hash;
+my (%i, %j);
+keys %i = $max;
+keys %j = $max;
 
-LOOP: 
+LOOP:
 for my $x ("A" .. "Z") {
     for my $y ( chr(ord($x)+1) .. "Z" ) {
         %i= ();
-        %j= ();        
-        $i{$x}= 1; $i{$y}= 1; 
-        $j{$y}= 1; $j{$x}= 1; 
+        %j= ();
+        $i{$x}= 1; $i{$y}= 1;
+        $j{$y}= 1; $j{$x}= 1;
         if ("@{[keys %i]}" ne "@{[keys %j]}") {  # collission?
-            $hash{$x}= 1; 
-            last LOOP if keys %hash == $max; 
-            $hash{$y}= 1; 
+            $hash{$x}= 1;
             last LOOP if keys %hash == $max;
-        } 
+            $hash{$y}= 1;
+            last LOOP if keys %hash == $max;
+        }
     }
 }
 
@@ -42,7 +42,7 @@ my %shuffled;
 $shuffled{$_}= $hash{$_} for shuffle keys %hash;
 
 my %encoded;
-my %encoded_unsorted;    
+my %encoded_unsorted;
 for ( \%hash, \%copy, \%bigger, \%shuffled ) {
     my $keys= join "", keys %$_;
     $encoded{$keys} ||= encode_sereal($_, { sort_keys => 1 } );
@@ -62,6 +62,4 @@ foreach my $x ( 0 .. $#keys ) {
         isnt($encoded_unsorted{$keys[$x]}, $encoded_unsorted{$keys[$y]},"$keys[$x] vs $keys[$y] (different: no sort_keys)");
     }
 }
-
-
 

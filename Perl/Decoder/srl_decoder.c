@@ -379,9 +379,14 @@ srl_read_header(pTHX_ srl_decoder_t *dec)
         }
         else
         {
-            ERRORf1("Serial document encoded in an unknown format '%d'", ( dec->proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK ) >> 4 );
+            ERRORf1( "Serial document encoded in an unknown format '%d'",
+                     (dec->proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK) >> 4 );
         }
-        header_len= srl_read_varint_uv_length(aTHX_ dec," while reading header"); /* must do this via a temporary as it modifes dec->pos itself */
+
+        /* Must do this via a temporary as it modifes dec->pos itself */
+        header_len= srl_read_varint_uv_length(aTHX_ dec, " while reading header");
+        /* Skip header since we don't have any defined header-content in this
+         * protocol version. */
         dec->pos += header_len;
     } else {
         ERROR("bad header");
