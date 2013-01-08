@@ -10,6 +10,13 @@ Sereal - Protocol definition
 
 This document describes the format and encoding of a Sereal data packet.
 
+=head1 VERSION
+
+This is the Sereal specification version 1.01.
+
+The integer part of the document version corresponds to
+the Sereal protocol version.
+
 =head1 DESCRIPTION
 
 A serialized structure is converted into a "document". A document is made
@@ -57,7 +64,7 @@ Sereal protocol the document complies with.
 Up until now there has only been one version of Sereal released so the
 low bits will be 1.
 
-Currently only two types are defined:
+Currently only three types are defined:
 
 =over 4
 
@@ -68,6 +75,21 @@ Raw Sereal format. The data can be processed verbatim.
 =item 1
 
 Compressed Sereal format, using Google's Snappy compression internally.
+Prefer I<2> wherever possible.
+
+=item 2
+
+Compressed Sereal format, using Google's Snappy compression internally as
+format I<1>, but supporting incremental-parsing. Preferred over I<1> as this
+is considered a bug fix in the Snappy compression support.
+
+The format is:
+
+  <Varint><Snappy Blob>
+
+where the varint signifies the length of the Snappy-compressed blob
+following it. See L</"NOTES ON IMPLEMENTATION"> below for a discussion on
+how to implement this efficiently.
 
 =back
 
@@ -324,6 +346,45 @@ Note that classnames MUST be a string, or a COPY tag referencing a string.
 OBJECTV varints MUST reference a previously used classname, and not an
 arbitrary string.
 
+
+=head1 NOTES ON IMPLEMENTATION
+
+=head2 Encoding the Length of Compressed Documents
+
+With Sereal body format type 2 (see above), you need to encode (as a varint)
+the length of the Snappy-compressed document as a prefix to the document body.
+This is somewhat tricky to do efficiently since at first sight,
+the amount of space required to encode a varint depends on the size of the
+output. This means that you need to do the normal Sereal-encoding of the
+document body, then compress the output of that, then append the varint
+encoded length of the compressed data to a Sereal header, then append the
+compressed data. In this naive way of implementing this Snappy compression
+support, you may end up having to copy around the entire document up to three
+times (and may end up having to allocate 3x the space, too). That is very
+inefficient.
+
+There is a better way, though, that's just a tiny bit subtle.
+Thankfully, you have an upper bound on the
+size of the compressed blob. It's the uncompressed blob plus the size of
+the Snappy header (a Snappy library call can tell you what that is in
+practice). What you can do is before compressing, you allocate a varint
+that is long enough to encode an integer that is big enough to represent
+the upper limit on the compressed output size. Then you proceed to
+point the compressor into the buffer right after the thusly preallocated
+varint. After compression, you'll know the real size of the compressed
+blob. Now, you go back to the varint and fill it in. If the reserved
+space for the varint is B<larger> than what you actually need, then
+thanks to the way varints work, you can simply set the high bit on the
+last byte of the varint, and continue to set the high bits of all following
+padding bytes B<except the last>, which you set to 0 (NUL). For details
+on why that works, please refer to the Google ProtoBuf documentation
+referenced earlier. With this specially crafted varint, any normal
+varint parsing function will treat it as a single varint and skip right
+to the start of theSnappy-compressed blob. The varint is a correct
+varint, just not in the canonical form. With this modified plan, you
+should only need one extra malloc, and (beyond that which the Snappy
+implementation does), no extra, large memcpy operations.
+
 =head1 AUTHOR
 
 Yves Orton E<lt>demerphq@gmail.comE<gt>
@@ -344,9 +405,9 @@ and CPAN, for which the authors would like to express their gratitude.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2012 by Steffen Mueller
+Copyright (C) 2012, 2013 by Steffen Mueller
 
-Copyright (C) 2012 by Yves Orton
+Copyright (C) 2012, 2013 by Yves Orton
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
