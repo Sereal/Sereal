@@ -38,7 +38,7 @@ SCOPE: {
 SKIP: {
     my $have_enc = have_encoder_and_decoder();
     if (not $have_enc) {
-        skip "Need encoder for chunk tests", 31;
+        skip "Need encoder for chunk tests", 31*2;
         die;
     }
     require Sereal::Encoder;
