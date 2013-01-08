@@ -93,7 +93,8 @@ Revision history for Perl extension Sereal-Encoder
 0.21 - unreleased
 0.22 - unreleased
 
-0.23
+0.23 Tue Jan 08 07:23 2013
+  * Important bug fix release *
   * Warning *
     Before using the incremental Snappy mode described below, you must
     upgrade the Sereal::Decoder to version 0.23 or higher!

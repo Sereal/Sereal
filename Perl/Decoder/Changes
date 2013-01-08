@@ -92,7 +92,8 @@ Revision history for Perl extension Sereal-Decoder
 
 0.22 - unreleased
 
-0.23
+0.23 Tue Jan 08 07:23 2013
+  * Important bug fix release *
   - Important: support for the incremental-parsing Snappy format that
     is enabled with the encoder's (versions 0.23 and up)
     'snappy_incr' option.
