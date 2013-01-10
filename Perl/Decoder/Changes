@@ -98,3 +98,6 @@ Revision history for Perl extension Sereal-Decoder
     is enabled with the encoder's (versions 0.23 and up)
     'snappy_incr' option.
 
+0.24 Thu Jan 10 08:42 2013
+  - Test logic fixes: These prevented builds if the encoder wasn't
+    installed (or updated) before.
