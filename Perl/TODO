@@ -9,6 +9,5 @@ v2:
 - more profiling?
 - optimize dumpiv?
 - NUMLIST?
-- stable hash order option
 - limited streaming support?
 
