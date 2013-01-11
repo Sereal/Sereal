@@ -115,3 +115,6 @@ Revision history for Perl extension Sereal-Encoder
             "snappy_incr" option.
   - Support for the 'sort_keys' option, which outputs hash keys in
     consistent order (but see gotchas in documentation).
+
+0.24 - unreleased
+
