@@ -41,12 +41,11 @@ extern "C" {
 #define HAS_SV2OBJ
 #endif
 
+#include "srl_protocol.h"
 #include "srl_encoder.h"
-
 #include "srl_common.h"
 #include "ptable.h"
 #include "srl_buffer.h"
-#include "srl_protocol.h"
 
 #include "snappy/csnappy_compress.c"
 
