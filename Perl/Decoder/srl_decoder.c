@@ -509,7 +509,7 @@ srl_read_varint_uv_offset(pTHX_ srl_decoder_t *dec, const char * const errstr)
 
     if (dec->buf_start + len >= dec->pos) {
         ERRORf4("Corrupted packet%s. Offset %lu points past current position %lu in packet with length of %lu bytes long",
-                errstr, len, BUF_POS_OFS(dec), dec->buf_len);
+                errstr, (unsigned long)len, (unsigned long)BUF_POS_OFS(dec), (unsigned long)dec->buf_len);
     }
     return len;
 }
@@ -549,7 +549,7 @@ srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name)
 {
     SV *sv= (SV *)PTABLE_fetch(dec->ref_seenhash, (void *)item);
     if (expect_false( !sv ))
-        ERRORf2("%s(%d) references an unknown item", tag_name, item);
+        ERRORf2("%s(%d) references an unknown item", tag_name, (int)item);
     return sv;
 }
 
@@ -702,7 +702,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
     /* Limit the maximum number of hash keys that we accept to whetever was configured */
     if (dec->max_num_hash_entries != 0 && num_keys > dec->max_num_hash_entries) {
         ERRORf2("Got input hash with %u entries, but the configured maximum is just %u",
-                num_keys, dec->max_num_hash_entries);
+                (int)num_keys, (int)dec->max_num_hash_entries);
     }
 
     ASSERT_BUF_SPACE(dec,num_keys*2,"while reading hash contents, insuffienct remaining tags for number of keys specified");
@@ -871,7 +871,7 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into)
         ERROR("Corrupted packet. OBJECTV used without preceding OBJECT to define classname");
     av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)ofs);
     if (NULL == av) {
-        ERRORf1("Corrupted packet. OBJECTV references unknown classname offset: %lu", ofs);
+        ERRORf1("Corrupted packet. OBJECTV references unknown classname offset: %lu", (unsigned long)ofs);
     }
     /* now deparse the thing we are going to bless */
     srl_read_single_value(aTHX_ dec, into);
@@ -973,7 +973,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into)
         sv_2mortal((SV*)av);
         PTABLE_store(dec->ref_bless_av, (void *)storepos, (void *)av);
     } else if (NULL == (av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)storepos)) ) {
-        ERRORf1("Panic, no ref_bless_av for %lu",storepos);
+        ERRORf1("Panic, no ref_bless_av for %lu", (unsigned long)storepos);
     }
 
     /* we now have a stash so we /could/ bless... except that
@@ -1128,10 +1128,10 @@ srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
 {
     UV item= srl_read_varint_uv_offset(aTHX_ dec, " while reading COPY tag");
     if (expect_false( dec->save_pos )) {
-        ERRORf1("COPY(%d) called during parse", item);
+        ERRORf1("COPY(%d) called during parse", (int)item);
     }
     if (expect_false( (IV)item > dec->buf_end - dec->buf_start )) {
-        ERRORf1("COPY(%d) points out of packet",item);
+        ERRORf1("COPY(%d) points out of packet", (int)item);
     }
     dec->save_pos= dec->pos;
     dec->pos= dec->buf_start + item;
