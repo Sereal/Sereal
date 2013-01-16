@@ -619,7 +619,7 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
         if ( offset ) {
             char *pos = enc->buf_start + offset;
             assert(*pos == SRL_HDR_WEAKEN);
-            if (DEBUGHACK) warn("setting %lu to PAD", offset);
+            if (DEBUGHACK) warn("setting %lu to PAD", (long unsigned int)offset);
             *pos = SRL_HDR_PAD;
         }
     }
@@ -1033,18 +1033,18 @@ redo_dump:
             if (expect_false(oldoffset)) {
                 /* we have seen it before, so we do not need to bless it again */
                 if (ref_rewrite_pos) {
-                    if (DEBUGHACK) warn("ref to %p as %lu", src, oldoffset);
+                    if (DEBUGHACK) warn("ref to %p as %lu", src, (long unsigned int)oldoffset);
                     enc->pos= enc->buf_start + ref_rewrite_pos;
                     srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REFP, (UV)oldoffset);
                 } else {
-                    if (DEBUGHACK) warn("alias to %p as %lu", src, oldoffset);
+                    if (DEBUGHACK) warn("alias to %p as %lu", src, (long unsigned int)oldoffset);
                     srl_buf_cat_varint(aTHX_ enc, SRL_HDR_ALIAS, (UV)oldoffset);
                 }
                 SRL_SET_FBIT(*(enc->buf_start + oldoffset));
                 --enc->recursion_depth;
                 return;
             }
-            if (DEBUGHACK) warn("storing %p as %lu", src, BUF_POS_OFS(enc));
+            if (DEBUGHACK) warn("storing %p as %lu", src, (long unsigned int)BUF_POS_OFS(enc));
             PTABLE_store(ref_seenhash, src, (void *)BUF_POS_OFS(enc));
         }
     }
