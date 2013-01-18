@@ -994,7 +994,7 @@ redo_dump:
             mg = mg_find(src, PERL_MAGIC_backref);
     }
     if (svt == SVt_PVHV)
-        backrefs= *Perl_hv_backreferences_p(aTHX_ MUTABLE_HV(src));
+        backrefs= *Perl_hv_backreferences_p(aTHX_ (HV *)src);
     if ( mg || backrefs ) {
         PTABLE_t *weak_seenhash= SRL_GET_WEAK_SEENHASH(enc);
         PTABLE_ENTRY_t *pe= PTABLE_find(weak_seenhash, src);
