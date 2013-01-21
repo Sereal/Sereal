@@ -1003,8 +1003,15 @@ srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into)
     sv_setsv(into, &PL_sv_undef);
 }
 
-#ifdef SvRX
-#define MODERN_REGEXP
+#if ((PERL_VERSION > 10) || (PERL_VERSION == 10 && PERL_SUBVERSION > 0 ))
+#	define MODERN_REGEXP
+#	define REGEXP_HAS_P_MODIFIER
+#elif PERL_VERSION==10
+#	define TRANSITION_REGEXP
+#	define REGEXP_HAS_P_MODIFIER
+#else
+#	warning "OLD REGEXP"
+#	define OLD_REGEXP
 #endif
 
 static SRL_INLINE void
@@ -1035,7 +1042,7 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
                 case 'x':
                     flags= flags | PMf_EXTENDED;
                     break;
-#ifdef MODERN_REGEXP
+#ifdef REGEXP_HAS_P_MODIFIER
                 case 'p':
                     flags = flags | PMf_KEEPCOPY;
                     break;
@@ -1045,7 +1052,7 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
                     break;
             }
         }
-#ifdef SvRX
+#ifdef MODERN_REGEXP
         {
             /* This is ugly. We have to swap out the insides of our SV
              * with the one we get back from CALLREGCOMP, as there is no
@@ -1076,8 +1083,16 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 
             if (SWAP_DEBUG) { warn("after swap:"); sv_dump(into); sv_dump(referent); }
 
+            SvREFCNT_dec(sv_pat); /* I think we need this or we leak */
             /* and now throw away the head we got from the regexp engine. */
             SvREFCNT_dec(referent);
+        }
+#elif defined( TRANSITION_REGEXP )
+        {
+            REGEXP *referent = CALLREGCOMP(aTHX_ sv_pat, flags);
+            SvREFCNT_dec(sv_pat);
+            sv_magic( into, (SV*)referent, PERL_MAGIC_qr, 0, 0);
+            SvFLAGS( into ) |= SVs_SMG;
         }
 #else
         {
