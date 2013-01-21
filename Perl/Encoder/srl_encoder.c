@@ -989,11 +989,15 @@ redo_dump:
     DEBUG_ASSERT_BUF_SANE(enc);
     if ( SvMAGICAL(src) ) {
         SvGETMAGIC(src);
+#ifdef Perl_hv_backreferences_p
         if (svt != SVt_PVHV)
+#endif
             mg = mg_find(src, PERL_MAGIC_backref);
     }
+#ifdef Perl_hv_backreferences_p
     if (svt == SVt_PVHV)
         backrefs= *Perl_hv_backreferences_p(aTHX_ (HV *)src);
+#endif
     if ( mg || backrefs ) {
         PTABLE_t *weak_seenhash= SRL_GET_WEAK_SEENHASH(enc);
         PTABLE_ENTRY_t *pe= PTABLE_find(weak_seenhash, src);
