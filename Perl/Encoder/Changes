@@ -118,3 +118,10 @@ Revision history for Perl extension Sereal-Encoder
 
 0.24 - unreleased
 
+0.25 Tue Jan 22 18:00 2013
+  - Various compatibility fixes with old versions of Perl.
+    Specifically, fixes to regular expression handling that should help
+    with 5.10 support, as well as fixes that should improve the status
+    quo on 5.8.
+  - Potential fix for a leak wrt. regular expression support.
+  - Fewer compiler warnings on 32bit/gcc.

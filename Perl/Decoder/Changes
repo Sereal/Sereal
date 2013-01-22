@@ -101,3 +101,11 @@ Revision history for Perl extension Sereal-Decoder
 0.24 Thu Jan 10 08:42 2013
   - Test logic fixes: These prevented builds if the encoder wasn't
     installed (or updated) before.
+
+0.25 Tue Jan 22 18:00 2013
+  - Various compatibility fixes with old versions of Perl.
+    Specifically, fixes to regular expression handling that should help
+    with 5.10 support, as well as fixes that should improve the status
+    quo on 5.8.
+  - Potential fix for a leak wrt. regular expression support.
+  - Fewer compiler warnings on 32bit/gcc.
