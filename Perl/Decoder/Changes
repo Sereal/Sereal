@@ -1,53 +1,53 @@
 Revision history for Perl extension Sereal-Decoder
 
-0.01  Tue Aug  8 17:09 2012
-  - original version; internal release.
+  - Fixed Changelog order (why would I ever have listed oldest first?)
 
-0.02  Tue Aug  8 17:09 2012
-  - internal release.
+0.26 - unreleased
 
-0.03  Tue Sep  4 17:09 2012
-  - internal release.
+0.25 Tue Jan 22 18:00 2013
+  - Various compatibility fixes with old versions of Perl.
+    Specifically, fixes to regular expression handling that should help
+    with 5.10 support, as well as fixes that should improve the status
+    quo on 5.8.
+  - Potential fix for a leak wrt. regular expression support.
+  - Fewer compiler warnings on 32bit/gcc.
 
-0.04  Thu Sep  6 16:00 2012
-  - internal release.
+0.24 Thu Jan 10 08:42 2013
+  - Test logic fixes: These prevented builds if the encoder wasn't
+    installed (or updated) before.
 
-0.05  Fri Sep  7 14:00 2012
-  - internal release.
+0.23 Tue Jan 08 07:23 2013
+  * Important bug fix release *
+  - Important: support for the incremental-parsing Snappy format that
+    is enabled with the encoder's (versions 0.23 and up)
+    'snappy_incr' option.
 
-0.06  Mon Sep 10 11:00 2012
-  - First public release (CPAN).
-  - Beta quality software.
+0.22 - unreleased
 
-0.07  Tue Sep 11 14:00 2012
-  - Improved robustness to bad input data.
-  - Test fixes for threaded perls (likely working around a bug in Perl)
-  - Improved documentation.
+0.21 Wed Jan 02 08:00 2013
+  - Option 'max_num_hash_entries' to limit the number of accepted
+    hash entries.
 
-0.08  Thu Sep 13 17:00 2012
-  - Documentation fixes
-  - Better tests
+0.20 - unreleased
 
-0.09  Fri Sep 14 09:40 2012
-  - Removes use of variadic macros for compatibility with inferior
-    compilers.
-  - "looks_like_sereal" method/function for a quick way to check for
-    valid Sereal *headers*.
-  - More liberal set of encoder versions we run the full tests with.
+0.19  Thu Nov 23 07:00 2012
+  - Add configurable recursion limit to the decoder
+  - Downgrade UTF8 Sereal serialized strings before decoding them
 
-0.10  Mon Sep 17 13:40 20120
-  - New 'refuse_objects' option causes the decoder to throw an
-    exception when encountering objects in the input data.
-    See the "ROBUSTNESS" section in the documentation for why that
-    is a good idea.
-  - Fixes to error messages.
-  - Compiler warning fixes.
+0.18 - unreleased
+0.17 - unreleased
+0.16 - unreleased
 
-0.11  Tue Sep 18 13:00 2012
-  - 5.8.5 fixes.
-  - Fixes to other languages' reference data output.
+0.15  Wed Oct 17 13:00 2012
+  - Decoder option validate_utf8
+    With this option (turned off by default for performance reasons)
+    the decoder will emit an error on malformed UTF-8. This will
+    *not* check for invalid code points; this can be added later, but Perls
+    that are recent enough will warn on those anyway.
+  - Thread-safety fix on Perls >= 5.8.7. Sereal is still not thread-safe
+    on older Perls 
 
-0.12 - unreleased
+0.14 - unreleased
 
 0.13  Tue Oct  2 15:00 2012
   * Important bug fix, important gotcha! *
@@ -65,47 +65,51 @@ Revision history for Perl extension Sereal-Decoder
     => The work-around also slows down operation on 5.8.8 and older. Keep
        that in mind when comparing serialization techniques. Thank you.
 
-0.14 - unreleased
+0.12 - unreleased
 
-0.15  Wed Oct 17 13:00 2012
-  - Decoder option validate_utf8
-    With this option (turned off by default for performance reasons)
-    the decoder will emit an error on malformed UTF-8. This will
-    *not* check for invalid code points; this can be added later, but Perls
-    that are recent enough will warn on those anyway.
-  - Thread-safety fix on Perls >= 5.8.7. Sereal is still not thread-safe
-    on older Perls 
+0.11  Tue Sep 18 13:00 2012
+  - 5.8.5 fixes.
+  - Fixes to other languages' reference data output.
 
-0.16 - unreleased
-0.17 - unreleased
-0.18 - unreleased
+0.10  Mon Sep 17 13:40 20120
+  - New 'refuse_objects' option causes the decoder to throw an
+    exception when encountering objects in the input data.
+    See the "ROBUSTNESS" section in the documentation for why that
+    is a good idea.
+  - Fixes to error messages.
+  - Compiler warning fixes.
 
-0.19  Thu Nov 23 07:00 2012
-  - Add configurable recursion limit to the decoder
-  - Downgrade UTF8 Sereal serialized strings before decoding them
+0.09  Fri Sep 14 09:40 2012
+  - Removes use of variadic macros for compatibility with inferior
+    compilers.
+  - "looks_like_sereal" method/function for a quick way to check for
+    valid Sereal *headers*.
+  - More liberal set of encoder versions we run the full tests with.
 
-0.20 - unreleased
+0.08  Thu Sep 13 17:00 2012
+  - Documentation fixes
+  - Better tests
 
-0.21 Wed Jan 02 08:00 2013
-  - Option 'max_num_hash_entries' to limit the number of accepted
-    hash entries.
+0.07  Tue Sep 11 14:00 2012
+  - Improved robustness to bad input data.
+  - Test fixes for threaded perls (likely working around a bug in Perl)
+  - Improved documentation.
 
-0.22 - unreleased
+0.06  Mon Sep 10 11:00 2012
+  - First public release (CPAN).
+  - Beta quality software.
 
-0.23 Tue Jan 08 07:23 2013
-  * Important bug fix release *
-  - Important: support for the incremental-parsing Snappy format that
-    is enabled with the encoder's (versions 0.23 and up)
-    'snappy_incr' option.
+0.05  Fri Sep  7 14:00 2012
+  - internal release.
 
-0.24 Thu Jan 10 08:42 2013
-  - Test logic fixes: These prevented builds if the encoder wasn't
-    installed (or updated) before.
+0.04  Thu Sep  6 16:00 2012
+  - internal release.
 
-0.25 Tue Jan 22 18:00 2013
-  - Various compatibility fixes with old versions of Perl.
-    Specifically, fixes to regular expression handling that should help
-    with 5.10 support, as well as fixes that should improve the status
-    quo on 5.8.
-  - Potential fix for a leak wrt. regular expression support.
-  - Fewer compiler warnings on 32bit/gcc.
+0.03  Tue Sep  4 17:09 2012
+  - internal release.
+
+0.02  Tue Aug  8 17:09 2012
+  - internal release.
+
+0.01  Tue Aug  8 17:09 2012
+  - original version; internal release.

@@ -1,97 +1,19 @@
 Revision history for Perl extension Sereal-Encoder
 
-0.01  Tue Aug  8 17:09 2012
-  - original version; internal release.
+0.26 Sun Feb 03 13:45 2013
+  - Compatibility with perl 5.17.6 (5.18-to-be) regarding regular
+    expression encoding.
+  - Fixed Changelog order (why would I ever have listed oldest first?)
 
-0.02  Tue Aug  8 17:09 2012
-  - internal release.
+0.25 Tue Jan 22 18:00 2013
+  - Various compatibility fixes with old versions of Perl.
+    Specifically, fixes to regular expression handling that should help
+    with 5.10 support, as well as fixes that should improve the status
+    quo on 5.8.
+  - Potential fix for a leak wrt. regular expression support.
+  - Fewer compiler warnings on 32bit/gcc.
 
-0.03  Tue Sep  4 17:09 2012
-  - internal release.
-
-0.04  Thu Sep  6 16:00 2012
-  - internal release.
-
-0.05  Fri Sep  7 14:00 2012
-  - internal release.
-
-0.06  Mon Sep 10 11:00 2012
-  - First public release (CPAN).
-  - Beta quality software.
-
-0.07  Tue Sep 11 14:00 2012
-  - "undef_unknown" option will cause unsupported Perl types to be
-    encoded as "undef" instead of throwing an exception.
-  - Similarly, "stringify_unknown" will make those unsupported types
-    be stringified instead. The two options are mutually exclusive.
-  - "warn_unknown" option (only meaningful if "stringify_unknown" or
-    "undef_unknown" are active) will cause a warning to be issued when
-    an unsupported type is encoded as a string or as undef.
-  - Bug fixes for encoding the contents of tied hashes (the tiedness
-    itself is not preserved by design).
-  - Solaris build fix.
-  - Test fixes for threaded perls (likely working around a bug in Perl
-  - Improved documentation.
-
-0.08  Thu Sep 13 17:00 2012
-  - 'snappy_threshold' option which controls at which minimum packet size
-    we start compressing with Snappy at all (if Snappy enabled)
-  - More tests.
-
-0.09  Fri Sep 14 10:00 2012
-  - Export functions by default when loaded from one liner
-  - More liberal set of decoder versions that we can run full tests against
-
-0.10  Mon Sep 17 14:00 2012
-  - Perl 5.10 regular-expression-related build fixes.
-
-0.11  Tue Sep 18 13:00 2012
-  - 5.8.5 fixes.
-  - Fixes to other languages' reference data output.
-
-0.12  Wed Sep 19 08:00 2012
-  * Important bug fix *
-  - Under certain circumstances, an encoder object could be left
-    in an unclean state when an encoding operation failed via
-    an exception.
-
-0.13 - unreleased
-
-0.14  Wed Oct 10 11:11 2012
-  - The 'warn_unknown' option now optionally does NOT emit a warning
-    if the unsupported item is a blessed object with string overloading.
-
-0.15  Wed Oct 17 13:00 2012
-  - Thread-safety fix on Perls >= 5.8.7. Sereal is still not thread-safe
-    on older Perls 
-
-0.16  Thu Oct 25 12:00 2012
-  - Re-entrancy fix for obscure cases like calling into Sereal from
-    $SIG{__DIE__} if the exception was thrown from within Sereal.
-    (A bit of a "don't do that" case)
-
-0.17  Mon Oct 29 12:00 2012
-  * This release contains critical bug fixes *
-  - Fix pointer-stashing-broken-by-realloc-from-under-it problem by
-    using offsets instead.
-    This bug could cause you Perl to segfault.
-
-0.18  Wed Nov 14 07:30 2012
-  * This release contains critical bug fixes *
-  - Fix output data corruption in encoder when serializing an incompatible
-    data structure with refcount > 1 with the "stringify_unknown" option.
-
-0.19 - unreleased
-
-0.20  Fri Nov 23 15:35 2012
-  - Configurable recursion limit for the Encoder.
-  - Fix hard-crash issue with weak-refs to certain data structures
-    (issue #11 on github). Thanks to Andrew Yates for helping us debug
-    the problem!
-    => Regression tests still pending.
-
-0.21 - unreleased
-0.22 - unreleased
+0.24 - unreleased
 
 0.23 Tue Jan 08 07:23 2013
   * Important bug fix release *
@@ -116,12 +38,95 @@ Revision history for Perl extension Sereal-Encoder
   - Support for the 'sort_keys' option, which outputs hash keys in
     consistent order (but see gotchas in documentation).
 
-0.24 - unreleased
+0.22 - unreleased
+0.21 - unreleased
 
-0.25 Tue Jan 22 18:00 2013
-  - Various compatibility fixes with old versions of Perl.
-    Specifically, fixes to regular expression handling that should help
-    with 5.10 support, as well as fixes that should improve the status
-    quo on 5.8.
-  - Potential fix for a leak wrt. regular expression support.
-  - Fewer compiler warnings on 32bit/gcc.
+0.20  Fri Nov 23 15:35 2012
+  - Configurable recursion limit for the Encoder.
+  - Fix hard-crash issue with weak-refs to certain data structures
+    (issue #11 on github). Thanks to Andrew Yates for helping us debug
+    the problem!
+    => Regression tests still pending.
+
+0.19 - unreleased
+
+0.18  Wed Nov 14 07:30 2012
+  * This release contains critical bug fixes *
+  - Fix output data corruption in encoder when serializing an incompatible
+    data structure with refcount > 1 with the "stringify_unknown" option.
+
+0.17  Mon Oct 29 12:00 2012
+  * This release contains critical bug fixes *
+  - Fix pointer-stashing-broken-by-realloc-from-under-it problem by
+    using offsets instead.
+    This bug could cause you Perl to segfault.
+
+0.16  Thu Oct 25 12:00 2012
+  - Re-entrancy fix for obscure cases like calling into Sereal from
+    $SIG{__DIE__} if the exception was thrown from within Sereal.
+    (A bit of a "don't do that" case)
+
+0.15  Wed Oct 17 13:00 2012
+  - Thread-safety fix on Perls >= 5.8.7. Sereal is still not thread-safe
+    on older Perls 
+
+0.14  Wed Oct 10 11:11 2012
+  - The 'warn_unknown' option now optionally does NOT emit a warning
+    if the unsupported item is a blessed object with string overloading.
+
+0.13 - unreleased
+
+0.12  Wed Sep 19 08:00 2012
+  * Important bug fix *
+  - Under certain circumstances, an encoder object could be left
+    in an unclean state when an encoding operation failed via
+    an exception.
+
+0.11  Tue Sep 18 13:00 2012
+  - 5.8.5 fixes.
+  - Fixes to other languages' reference data output.
+
+0.10  Mon Sep 17 14:00 2012
+  - Perl 5.10 regular-expression-related build fixes.
+
+0.09  Fri Sep 14 10:00 2012
+  - Export functions by default when loaded from one liner
+  - More liberal set of decoder versions that we can run full tests against
+
+0.08  Thu Sep 13 17:00 2012
+  - 'snappy_threshold' option which controls at which minimum packet size
+    we start compressing with Snappy at all (if Snappy enabled)
+  - More tests.
+
+0.07  Tue Sep 11 14:00 2012
+  - "undef_unknown" option will cause unsupported Perl types to be
+    encoded as "undef" instead of throwing an exception.
+  - Similarly, "stringify_unknown" will make those unsupported types
+    be stringified instead. The two options are mutually exclusive.
+  - "warn_unknown" option (only meaningful if "stringify_unknown" or
+    "undef_unknown" are active) will cause a warning to be issued when
+    an unsupported type is encoded as a string or as undef.
+  - Bug fixes for encoding the contents of tied hashes (the tiedness
+    itself is not preserved by design).
+  - Solaris build fix.
+  - Test fixes for threaded perls (likely working around a bug in Perl
+  - Improved documentation.
+
+0.06  Mon Sep 10 11:00 2012
+  - First public release (CPAN).
+  - Beta quality software.
+
+0.05  Fri Sep  7 14:00 2012
+  - internal release.
+
+0.04  Thu Sep  6 16:00 2012
+  - internal release.
+
+0.03  Tue Sep  4 17:09 2012
+  - internal release.
+
+0.02  Tue Aug  8 17:09 2012
+  - internal release.
+
+0.01  Tue Aug  8 17:09 2012
+  - original version; internal release.

@@ -5,10 +5,10 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '0.25'; # Don't forget to update the TestCompat set for testing against installed decoders!
+our $VERSION = '0.26'; # Don't forget to update the TestCompat set for testing against installed decoders!
 
 # not for public consumption, just for testing.
-my $TestCompat = [map sprintf("%.2f", $_/100), reverse(23..24)]; # compat with 0.23 to ...
+my $TestCompat = [map sprintf("%.2f", $_/100), reverse(23..25)]; # compat with 0.23 to ...
 sub _test_compat {return(@$TestCompat, $VERSION)}
 
 use Exporter 'import';
