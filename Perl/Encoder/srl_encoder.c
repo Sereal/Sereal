@@ -627,31 +627,31 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
 }
 
 #ifndef MAX_CHARSET_NAME_LENGTH
-#define MAX_CHARSET_NAME_LENGTH 2
+#    define MAX_CHARSET_NAME_LENGTH 2
 #endif
 
 #if PERL_VERSION == 10
 /*
 	Apparently regexes in 5.10 are "modern" but with 5.8 internals
 */
-#define RXf_PMf_STD_PMMOD_SHIFT 12
-#define RX_EXTFLAGS(re)	((re)->extflags)
-#define RX_PRECOMP(re) ((re)->precomp)
-#define RX_PRELEN(re) ((re)->prelen)
+#    define RXf_PMf_STD_PMMOD_SHIFT 12
+#    define RX_EXTFLAGS(re)	((re)->extflags)
+#    define RX_PRECOMP(re) ((re)->precomp)
+#    define RX_PRELEN(re) ((re)->prelen)
 
 // Maybe this is only on OS X, where SvUTF8(sv) exists but looks at flags that don't exist
-#define RX_UTF8(re) (RX_EXTFLAGS(re) & RXf_UTF8)
+#    define RX_UTF8(re) (RX_EXTFLAGS(re) & RXf_UTF8)
 
 #elif defined(SvRX)
-#define MODERN_REGEXP
+#    define MODERN_REGEXP
 #else
-#define INT_PAT_MODS "msix"
-#define RXf_PMf_STD_PMMOD_SHIFT 12
-#define RX_PRECOMP(re) ((re)->precomp)
-#define RX_PRELEN(re) ((re)->prelen)
-#define RX_UTF8(re) ((re)->reganch & ROPT_UTF8)
-#define RX_EXTFLAGS(re) ((re)->reganch)
-#define RXf_PMf_COMPILETIME  PMf_COMPILETIME
+#    define INT_PAT_MODS "msix"
+#    define RXf_PMf_STD_PMMOD_SHIFT 12
+#    define RX_PRECOMP(re) ((re)->precomp)
+#    define RX_PRELEN(re) ((re)->prelen)
+#    define RX_UTF8(re) ((re)->reganch & ROPT_UTF8)
+#    define RX_EXTFLAGS(re) ((re)->reganch)
+#    define RXf_PMf_COMPILETIME  PMf_COMPILETIME
 #endif
 
 
