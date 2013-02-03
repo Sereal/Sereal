@@ -1,5 +1,8 @@
 Revision history for Perl extension Sereal
 
+0.250  Tue Jan 22 18:00 2013
+  - New encoder and decoder releases, dependency version change.
+
 0.230  Tue Jan 08 07:38 2013
   - New encoder and decoder releases, dependency version change.
 
