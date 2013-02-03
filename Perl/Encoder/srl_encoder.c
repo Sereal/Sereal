@@ -644,6 +644,14 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
 
 #elif defined(SvRX)
 #    define MODERN_REGEXP
+     /* With commit 8d919b0a35f2b57a6bed2f8355b25b19ac5ad0c5 (perl.git) and
+      * release 5.17.6, regular expression are no longer SvPOK (IOW are no longer
+      * considered to be containing a string).
+      * This breaks some of the REGEXP detection logic in srl_dump_sv, so
+      * we need yet another CPP define. */
+#    if PERL_VERSION > 17 || (PERL_VERSION == 17 && PERL_SUBVERSION >= 6)
+#        define REGEXP_NO_LONGER_POK
+#    endif
 #else
 #    define INT_PAT_MODS "msix"
 #    define RXf_PMf_STD_PMMOD_SHIFT 12
@@ -1056,11 +1064,13 @@ redo_dump:
         assert(weakref_ofs == 0);
     }
     if (SvPOKp(src)) {
-#ifdef MODERN_REGEXP
+#if defined(MODERN_REGEXP) && !defined(REGEXP_NO_LONGER_POK)
+        /* Only need to enter here if we have rather modern regexps, but they're
+         * still POK (pre 5.17.6). */
         if (expect_false( svt == SVt_REGEXP ) ) {
             srl_dump_regexp(aTHX_ enc, src);
         }
-        else        
+        else
 #endif
         {
             STRLEN len;
@@ -1069,6 +1079,14 @@ redo_dump:
         }
     }
     else
+#if defined(MODERN_REGEXP) && defined(REGEXP_NO_LONGER_POK)
+    /* Only need to enter here if we have rather modern regexps AND they're
+     * NO LONGER POK (5.17.6 and up). */
+    if (expect_false( svt == SVt_REGEXP ) ) {
+        srl_dump_regexp(aTHX_ enc, src);
+    }
+    else
+#endif
     if (SvNOKp(src)) {
         /* dump floats */
         srl_dump_nv(aTHX_ enc, src);
