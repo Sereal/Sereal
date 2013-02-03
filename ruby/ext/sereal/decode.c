@@ -136,6 +136,8 @@ static VALUE s_read_next_rb_string_bang(sereal_t *s) {
 }
 
 static VALUE s_read_object(sereal_t *s,u8 tag) {
+        if (s->flags & FLAG_SAFE) 
+                rb_raise(rb_eTypeError, "decoding raw objects is forbidden in safe mode use Sereal.decode(payload,false) to disable it.");
         u32 len,i;
         VALUE klass_name = s_read_next_rb_string_bang(s);
         VALUE klass = rb_const_get(rb_cObject,rb_intern_str(klass_name));
@@ -204,7 +206,14 @@ VALUE sereal_to_rb_object(sereal_t *s) {
         return Qnil;
 }
 
-VALUE method_sereal_decode(VALUE self, VALUE payload) {
+VALUE method_sereal_decode(VALUE self, VALUE args) {
+        u32 argc = RARRAY_LEN(args);
+        if (argc < 1)
+                rb_raise(rb_eArgError,"need at least 1 argument (object)");
+        VALUE payload = rb_ary_shift(args);
+        VALUE safe = Qtrue;
+        if (argc == 2)
+                safe = rb_ary_shift(args);
         if (TYPE(payload) != T_STRING) 
                 rb_raise(rb_eTypeError,"can not decode objects of type %s",rb_obj_classname(payload));
 
@@ -214,6 +223,9 @@ VALUE method_sereal_decode(VALUE self, VALUE payload) {
 
         if (s->size < 6 || s_get_u32_bang(s) != 0x6c72733d) 
                 rb_raise(rb_eTypeError,"invalid header"); 
+
+        if (safe == Qtrue)
+                s->flags |= FLAG_SAFE;
 
         u8 version = s_get_u8_bang(s);
         u8 suffix = s_get_varint_bang(s);

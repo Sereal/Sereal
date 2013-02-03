@@ -35,12 +35,14 @@ typedef struct _track_entry     track_t;
 #define MULTILINE RE_OPTION_MULTILINE
 #define EXTENDED RE_OPTION_EXTENDED
 #endif
+#define FLAG_SAFE 1
 struct _sereal {
         u8 *data;
         u32 size;
         u32 pos;
         u32 rsize;
         u32 level;
+        u8 flags;
 };
 
 VALUE method_sereal_encode(VALUE self, VALUE args);

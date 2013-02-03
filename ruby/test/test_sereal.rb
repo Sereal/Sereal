@@ -16,8 +16,8 @@ class ZXC
   end
 end
 class Test::Unit::TestCase
-  def recode(obj)
-    Sereal.decode(Sereal.encode(obj,false))
+  def recode(obj,safe = false)
+    Sereal.decode(Sereal.encode(obj,false),safe)
   end
   def test_compress
     obj = {"aaaaasdjkhaksjdhakjshdkjahsdkjhaskjhadkjshdkjashdkjhas" => "b"}
@@ -33,7 +33,14 @@ class Test::Unit::TestCase
       end
     end
   end
-
+  def test_unsafe
+    assert_raise(TypeError)do
+      recode(ZXC.new,true)
+    end
+    assert_nothing_raised do
+      recode(ZXC.new,false)
+    end
+  end
   def test_nil
     assert_equal recode(nil),nil
   end

@@ -16,6 +16,7 @@ static inline sereal_t * s_create(void) {
         s->rsize = 0;
         s->level = 0;
         s->pos = 0;
+        s->flags = 0;
         return s;
 }
 
