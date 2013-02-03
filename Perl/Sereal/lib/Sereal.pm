@@ -4,9 +4,9 @@ use strict;
 use warnings;
 our $VERSION;
 BEGIN {
-    $VERSION = '0.250';
+    $VERSION = '0.260';
 }
-use Sereal::Encoder 0.25 qw(encode_sereal);
+use Sereal::Encoder 0.26 qw(encode_sereal);
 use Sereal::Decoder 0.25 qw(decode_sereal looks_like_sereal);
 
 use Exporter 'import';
