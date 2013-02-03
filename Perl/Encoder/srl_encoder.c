@@ -1082,10 +1082,13 @@ redo_dump:
     if (SvROK(src)) {
         /* dump references */
         SV *referent= SvRV(src);
+/* assert()-like hack to be compiled out by default */
+#ifndef NDEBUG
         if (!referent) {
             sv_dump(src);
             assert(referent);
         }
+#endif
         if (SvWEAKREF(src)) {
             weakref_ofs= BUF_POS_OFS(enc);
             srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
@@ -1114,7 +1117,7 @@ redo_dump:
         ((SvFLAGS(src) & (SVs_OBJECT|SVf_OK|SVs_GMG|SVs_SMG|SVs_RMG)) == (SVs_OBJECT|BFD_Svs_SMG_OR_RMG)) &&
         (mg = mg_find(src, PERL_MAGIC_qr))
     ) {
-            /* Houston, we have a regex! */
+        /* Houston, we have a regex! */
         srl_dump_regexp(aTHX_ enc, (SV*)mg); /* yes the SV* cast makes me feel dirty too */
     }
     else
