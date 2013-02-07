@@ -151,6 +151,8 @@ func encodeMap(by []byte, m reflect.Value) []byte {
 	keys := m.MapKeys()
 
 	for _, k := range keys {
+		// FIXME: key must be a string type, or coercible to one
+		// Do we coerce or simply force all maps to be map[string]interface{} ?
 		by, _ = encode(by, k)
 		v := m.MapIndex(k)
 		by, _ = encode(by, v)
