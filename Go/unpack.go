@@ -241,7 +241,7 @@ func stringOf(v reflect.Value) string {
 	panic("bad value for stringOf")
 }
 
-func varintdecode(by []byte) (n int, sz uint) {
+func varintdecode(by []byte) (n int, sz int) {
 
 	s := uint(0) // shift count
 	for i, b := range by {
@@ -249,7 +249,7 @@ func varintdecode(by []byte) (n int, sz uint) {
 		s += 7
 
 		if (b & 0x80) == 0 {
-			return n, uint(i) + 1
+			return n, i + 1
 		}
 	}
 
