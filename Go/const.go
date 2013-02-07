@@ -12,6 +12,8 @@ const (
 
 type TypeTag byte
 
+const TrackFlag = byte(0x80)
+
 const (
 	TypeVARINT         = 0x20
 	TypeZIGZAG         = 0x21

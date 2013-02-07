@@ -28,7 +28,9 @@ func Unmarshal(b []byte, v interface{}) error {
 
 	idx := 6
 
-	ptr, _, err := decode(b, idx)
+	tracked := make(map[int]reflect.Value)
+
+	ptr, _, err := decode(b, idx, tracked)
 
 	if err != nil {
 		return err
@@ -48,7 +50,7 @@ func indent(idx int) {
 	fmt.Println("^")
 }
 
-func decode(b []byte, idx int) (reflect.Value, int, error) {
+func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, int, error) {
 
 	startIdx := idx
 
@@ -61,7 +63,13 @@ func decode(b []byte, idx int) (reflect.Value, int, error) {
 
 	var ptr reflect.Value
 
-	switch tag := b[idx]; {
+	tag := b[idx]
+
+	trackme := (tag & TrackFlag) == TrackFlag
+
+	tag &^= TrackFlag
+
+	switch {
 	case tag < TypeVARINT:
 		idx++
 		neg := (tag & 0x10) == 0x10
@@ -124,7 +132,7 @@ func decode(b []byte, idx int) (reflect.Value, int, error) {
 
 	case tag == TypeREFN:
 		idx++
-		e, sz, _ := decode(b, idx)
+		e, sz, _ := decode(b, idx, tracked)
 		idx += sz
 
 		// FIXME: this is not technically correct
@@ -142,9 +150,9 @@ func decode(b []byte, idx int) (reflect.Value, int, error) {
 
 		for i := 0; i < ln; i++ {
 			// key
-			k, sz, _ := decode(b, idx)
+			k, sz, _ := decode(b, idx, tracked)
 			idx += sz
-			v, sz, _ := decode(b, idx)
+			v, sz, _ := decode(b, idx, tracked)
 			idx += sz
 
 			s := stringOf(k)
@@ -162,7 +170,7 @@ func decode(b []byte, idx int) (reflect.Value, int, error) {
 		ptr = reflect.ValueOf(&a)
 
 		for i := 0; i < ln; i++ {
-			e, sz, _ := decode(b, idx)
+			e, sz, _ := decode(b, idx, tracked)
 			idx += sz
 			ptr.Elem().Index(i).Set(e.Elem())
 		}
@@ -182,7 +190,7 @@ func decode(b []byte, idx int) (reflect.Value, int, error) {
 		ptr = reflect.ValueOf(&a)
 
 		for i := 0; i < ln; i++ {
-			e, sz, _ := decode(b, idx)
+			e, sz, _ := decode(b, idx, tracked)
 			idx += sz
 			ptr.Elem().Index(i).Set(e.Elem())
 		}
@@ -197,9 +205,9 @@ func decode(b []byte, idx int) (reflect.Value, int, error) {
 
 		for i := 0; i < ln; i++ {
 			// key
-			k, sz, _ := decode(b, idx)
+			k, sz, _ := decode(b, idx, tracked)
 			idx += sz
-			v, sz, _ := decode(b, idx)
+			v, sz, _ := decode(b, idx, tracked)
 			idx += sz
 			s := stringOf(k.Elem())
 			ptr.Elem().SetMapIndex(reflect.ValueOf(s), v.Elem())
@@ -216,8 +224,29 @@ func decode(b []byte, idx int) (reflect.Value, int, error) {
 
 		idx += ln
 
+	case tag == TypeALIAS:
+		idx++
+
+		offs, sz := varintdecode(b[idx:])
+		idx += int(sz)
+
+		ptr = tracked[offs]
+
+	case tag == TypeCOPY:
+		idx++
+
+		offs, sz := varintdecode(b[idx:])
+		idx += int(sz)
+
+		p, _, _ := decode(b, offs, tracked)
+		ptr = p.Elem()
+
 	default:
 		panic("unknown tag byte: " + strconv.Itoa(int(tag)))
+	}
+
+	if trackme {
+		tracked[startIdx] = ptr
 	}
 
 	return ptr, idx - startIdx, nil
