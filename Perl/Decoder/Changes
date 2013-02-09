@@ -1,5 +1,9 @@
 Revision history for Perl extension Sereal-Decoder
 
+0.29 Sat Feb 09 18:09 2013 (AMS time)
+  - Change a gcc'ism, #warning to #pragma message
+    (which also works on my machines gcc)
+
 0.28 Sat Feb 09 16:20 2013 (AMS time)
   - More fixups for building on Win32/C89 compilers
   - Fix up handling of regexps on perl 5.10.1

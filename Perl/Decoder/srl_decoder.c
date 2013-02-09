@@ -1009,16 +1009,16 @@ srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into)
 }
 
 #if ((PERL_VERSION > 10) || (PERL_VERSION == 10 && PERL_SUBVERSION > 1 ))
-#	define MODERN_REGEXP
-#	define REGEXP_HAS_P_MODIFIER
-#	warning "MODERN REGEXP"
-#elif PERL_VERSION==10
-#	define TRANSITION_REGEXP
-#	define REGEXP_HAS_P_MODIFIER
-#	warning "TRANSITION REGEXP"
+#   define MODERN_REGEXP
+#   define REGEXP_HAS_P_MODIFIER
+#   pragma message ( "MODERN_REGEXP" )
+#elif PERL_VERSION == 10
+#   define TRANSITION_REGEXP
+#   define REGEXP_HAS_P_MODIFIER
+#   pragma message ( "TRANSITION_REGEXP" )
 #else
-#	warning "OLD REGEXP"
-#	define OLD_REGEXP
+#   define OLD_REGEXP
+#   pragma message ( "OLD_REGEXP" )
 #endif
 
 SRL_STATIC_INLINE void

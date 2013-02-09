@@ -15,14 +15,14 @@ WriteMakefile1(
     },
     BUILD_REQUIRES => {
         'Test::More' => 0.88,
-        'Sereal::Encoder' => '0.27',
-        'Sereal::Decoder' => '0.27',
+        'Sereal::Encoder' => '0.29',
+        'Sereal::Decoder' => '0.29',
     },
     NAME              => 'Sereal',
     VERSION_FROM      => 'lib/Sereal.pm', # finds $VERSION
     PREREQ_PM         => {
-        'Sereal::Encoder' => '0.27',
-        'Sereal::Decoder' => '0.27',
+        'Sereal::Encoder' => '0.29',
+        'Sereal::Decoder' => '0.29',
     }, # e.g., Module::Name => 1.1
     LICENSE => 'perl',
     ABSTRACT_FROM => 'lib/Sereal.pm',
