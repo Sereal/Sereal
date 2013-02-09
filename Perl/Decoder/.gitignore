@@ -32,3 +32,4 @@ t/data
 t/lib
 inc/Devel/CheckLib.pm
 snappy
+.gdb_history
