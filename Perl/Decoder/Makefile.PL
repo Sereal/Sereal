@@ -89,6 +89,6 @@ sub WriteMakefile1 {  #Written by Alexandr Ciornii, version 0.20. Added by eumm-
     delete $params{AUTHOR} if $] < 5.005;
     delete $params{ABSTRACT_FROM} if $] < 5.005;
     delete $params{BINARY_LOCATION} if $] < 5.005;
-
+    delete $params{OPTIMIZE} if $^O eq 'MSWin32';
     WriteMakefile(%params);
 }
