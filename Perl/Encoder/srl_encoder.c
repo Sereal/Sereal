@@ -359,6 +359,7 @@ srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
     NV nv= SvNV(src);
     float f= (float)nv;
     double d= (double)nv;
+    /* TODO: this logic could be reworked to not duplicate so much code, which will help on win32 */
     if ( f == nv || nv != nv ) {
         BUF_SIZE_ASSERT(enc, 1 + sizeof(f)); /* heuristic: header + string + simple value */
         srl_buf_cat_char_nocheck(enc,SRL_HDR_FLOAT);
