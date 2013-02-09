@@ -96,7 +96,8 @@ srl_buf_cat_str_int(pTHX_ srl_encoder_t *enc, const char *str, size_t len)
     DEBUG_ASSERT_BUF_SANE(enc);
 }
 #define srl_buf_cat_str(enc, str, len) srl_buf_cat_str_int(aTHX_ enc, str, len)
-#define srl_buf_cat_str_s(enc, str) srl_buf_cat_str(enc, ("" str), strlen("" str))
+/* see perl.git:handy.h STR_WITH_LEN macro for explanation of the below code */
+#define srl_buf_cat_str_s(enc, str) srl_buf_cat_str(enc, ("" str ""), sizeof(str)-1)
 
 SRL_STATIC_INLINE void
 srl_buf_cat_str_nocheck_int(pTHX_ srl_encoder_t *enc, const char *str, size_t len)
@@ -108,7 +109,8 @@ srl_buf_cat_str_nocheck_int(pTHX_ srl_encoder_t *enc, const char *str, size_t le
     DEBUG_ASSERT_BUF_SANE(enc);
 }
 #define srl_buf_cat_str_nocheck(enc, str, len) srl_buf_cat_str_nocheck_int(aTHX_ enc, str, len)
-#define srl_buf_cat_str_s_nocheck(enc, str) srl_buf_cat_str_nocheck(enc, ("" str), strlen("" str))
+/* see perl.git:handy.h STR_WITH_LEN macro for explanation of the below code */
+#define srl_buf_cat_str_s_nocheck(enc, str) srl_buf_cat_str_nocheck(enc, ("" str ""), sizeof(str)-1)
 
 SRL_STATIC_INLINE void
 srl_buf_cat_char_int(pTHX_ srl_encoder_t *enc, const char c)
