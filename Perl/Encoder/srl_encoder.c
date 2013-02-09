@@ -357,8 +357,8 @@ SRL_STATIC_INLINE void
 srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
 {
     NV nv= SvNV(src);
-    float f= nv;
-    double d= nv;
+    float f= (float)nv;
+    double d= (double)nv;
     if ( f == nv || nv != nv ) {
         BUF_SIZE_ASSERT(enc, 1 + sizeof(f)); /* heuristic: header + string + simple value */
         srl_buf_cat_char_nocheck(enc,SRL_HDR_FLOAT);
@@ -981,7 +981,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     AV *backrefs;
     SV* refsv= NULL;
     UV weakref_ofs= 0;              /* preserved between loops */
-    ssize_t ref_rewrite_pos= 0;      /* preserved between loops */
+    SSize_t ref_rewrite_pos= 0;      /* preserved between loops - note SSize_t is a perl define */
     assert(src);
 
     if (++enc->recursion_depth == enc->max_recursion_depth) {

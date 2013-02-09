@@ -36,12 +36,16 @@ Zeev Tarantov <zeev.tarantov@gmail.com>
 #ifndef CSNAPPY_INTERNAL_USERSPACE_H_
 #define CSNAPPY_INTERNAL_USERSPACE_H_
 
-#if defined(_MSC_VER) && (_MSC_VER <= 1300)
+/*note the original version of this file checked for MS version, but MS will *never* support
+ * anything but C89, so the version check is bogus. */
+#if defined(_MSC_VER)
 typedef unsigned __int8  uint8_t;
 typedef unsigned __int16 uint16_t;
 typedef unsigned __int32 uint32_t;
 typedef unsigned __int64 uint64_t;
 typedef __int32 int32_t; /* Sereal specific change, see csnappy_decompress.c(271) : error C2065: 'int32_t' : undeclared identifier */
+/* the following define is Sereal specific, as MS C89 compilers do not know about "inline" */
+#define inline __inline
 #else
 #include <stdint.h>
 #endif
