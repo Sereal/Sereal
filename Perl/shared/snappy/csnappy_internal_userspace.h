@@ -41,6 +41,7 @@ typedef unsigned __int8  uint8_t;
 typedef unsigned __int16 uint16_t;
 typedef unsigned __int32 uint32_t;
 typedef unsigned __int64 uint64_t;
+typedef __int32 int32_t; /* Sereal specific change, see csnappy_decompress.c(271) : error C2065: 'int32_t' : undeclared identifier */
 #else
 #include <stdint.h>
 #endif
