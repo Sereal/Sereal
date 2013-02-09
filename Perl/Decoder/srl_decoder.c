@@ -1008,12 +1008,14 @@ srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into)
     sv_setsv(into, &PL_sv_undef);
 }
 
-#if ((PERL_VERSION > 10) || (PERL_VERSION == 10 && PERL_SUBVERSION > 0 ))
+#if ((PERL_VERSION > 10) || (PERL_VERSION == 10 && PERL_SUBVERSION > 1 ))
 #	define MODERN_REGEXP
 #	define REGEXP_HAS_P_MODIFIER
+#	warning "MODERN REGEXP"
 #elif PERL_VERSION==10
 #	define TRANSITION_REGEXP
 #	define REGEXP_HAS_P_MODIFIER
+#	warning "TRANSITION REGEXP"
 #else
 #	warning "OLD REGEXP"
 #	define OLD_REGEXP
