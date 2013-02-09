@@ -1,5 +1,9 @@
 Revision history for Perl extension Sereal-Encoder
 
+0.27 Sat Feb 09 12:58 2013
+  - Various fixups to improve building on Win32
+  - Fix C89 violations
+
 0.26 Sun Feb 03 13:45 2013
   - Compatibility with perl 5.17.6 (5.18-to-be) regarding regular
     expression encoding.
