@@ -49,7 +49,7 @@
 #define DEBUG_ASSERT_BUF_SANE(enc) assert(((enc)->buf_start <= (enc)->pos) && ((enc)->pos <= (enc)->buf_end))
 #endif
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
 {
     const size_t pos_ofs= BUF_POS_OFS(enc); /* have to store the offset of pos */
@@ -87,7 +87,7 @@ srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
     DEBUG_ASSERT_BUF_SANE(enc); \
   } STMT_END
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_buf_cat_str_int(pTHX_ srl_encoder_t *enc, const char *str, size_t len)
 {
     BUF_SIZE_ASSERT(enc, len);
@@ -98,7 +98,7 @@ srl_buf_cat_str_int(pTHX_ srl_encoder_t *enc, const char *str, size_t len)
 #define srl_buf_cat_str(enc, str, len) srl_buf_cat_str_int(aTHX_ enc, str, len)
 #define srl_buf_cat_str_s(enc, str) srl_buf_cat_str(enc, ("" str), strlen("" str))
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_buf_cat_str_nocheck_int(pTHX_ srl_encoder_t *enc, const char *str, size_t len)
 {
     DEBUG_ASSERT_BUF_SANE(enc);
@@ -110,7 +110,7 @@ srl_buf_cat_str_nocheck_int(pTHX_ srl_encoder_t *enc, const char *str, size_t le
 #define srl_buf_cat_str_nocheck(enc, str, len) srl_buf_cat_str_nocheck_int(aTHX_ enc, str, len)
 #define srl_buf_cat_str_s_nocheck(enc, str) srl_buf_cat_str_nocheck(enc, ("" str), strlen("" str))
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_buf_cat_char_int(pTHX_ srl_encoder_t *enc, const char c)
 {
     DEBUG_ASSERT_BUF_SANE(enc);
@@ -121,7 +121,7 @@ srl_buf_cat_char_int(pTHX_ srl_encoder_t *enc, const char c)
 }
 #define srl_buf_cat_char(enc, c) srl_buf_cat_char_int(aTHX_ enc, c)
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_buf_cat_char_nocheck_int(pTHX_ srl_encoder_t *enc, const char c)
 {
     DEBUG_ASSERT_BUF_SANE(enc);
@@ -134,7 +134,7 @@ srl_buf_cat_char_nocheck_int(pTHX_ srl_encoder_t *enc, const char c)
 /* define constant for other code to use in preallocations */
 #define SRL_MAX_VARINT_LENGTH 11
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_buf_cat_varint_nocheck(pTHX_ srl_encoder_t *enc, const char tag, UV n) {
     DEBUG_ASSERT_BUF_SANE(enc);
     DEBUG_ASSERT_BUF_SPACE(enc, (tag==0 ? 0 : 1) + SRL_MAX_VARINT_LENGTH);
@@ -148,7 +148,7 @@ srl_buf_cat_varint_nocheck(pTHX_ srl_encoder_t *enc, const char tag, UV n) {
     DEBUG_ASSERT_BUF_SANE(enc);
 }
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_buf_cat_varint(pTHX_ srl_encoder_t *enc, const char tag, const UV n) {
     /* this implements "varint" from google protocol buffers */
     DEBUG_ASSERT_BUF_SANE(enc);
@@ -156,13 +156,13 @@ srl_buf_cat_varint(pTHX_ srl_encoder_t *enc, const char tag, const UV n) {
     srl_buf_cat_varint_nocheck(aTHX_ enc, tag, n);
 }
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_buf_cat_zigzag_nocheck(pTHX_ srl_encoder_t *enc, const char tag, const IV n) {
     const UV z= (n << 1) ^ (n >> (sizeof(IV) * 8 - 1));
     srl_buf_cat_varint_nocheck(aTHX_ enc, tag, z);
 }
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_buf_cat_zigzag(pTHX_ srl_encoder_t *enc, const char tag, const IV n) {
     /*
      * This implements googles "zigzag varints" which effectively interleave negative

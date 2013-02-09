@@ -78,13 +78,13 @@ extern "C" {
 #endif
 
 /* predeclare all our subs so we have one definitive authority for their signatures */
-static SRL_INLINE UV srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec);
-static SRL_INLINE UV srl_read_varint_uv_nocheck(pTHX_ srl_decoder_t *dec);
-static SRL_INLINE UV srl_read_varint_uv(pTHX_ srl_decoder_t *dec);
-static SRL_INLINE UV srl_read_varint_uv_offset(pTHX_ srl_decoder_t *dec, const char * const errstr);
-static SRL_INLINE UV srl_read_varint_uv_length(pTHX_ srl_decoder_t *dec, const char * const errstr);
+SRL_STATIC_INLINE UV srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec);
+SRL_STATIC_INLINE UV srl_read_varint_uv_nocheck(pTHX_ srl_decoder_t *dec);
+SRL_STATIC_INLINE UV srl_read_varint_uv(pTHX_ srl_decoder_t *dec);
+SRL_STATIC_INLINE UV srl_read_varint_uv_offset(pTHX_ srl_decoder_t *dec, const char * const errstr);
+SRL_STATIC_INLINE UV srl_read_varint_uv_length(pTHX_ srl_decoder_t *dec, const char * const errstr);
 
-static SRL_INLINE SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name);
+SRL_STATIC_INLINE SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name);
 
 /* these three are "Public" */
 srl_decoder_t *srl_build_decoder_struct(pTHX_ HV *opt);             /* constructor - called from ->new() */
@@ -92,35 +92,35 @@ void srl_destroy_decoder(pTHX_ srl_decoder_t *dec);                 /* destructo
 void srl_decoder_destructor_hook(pTHX_ void *p);                    /* destructor hook - called automagically */
 
 /* the top level components of the decode process - called by srl_decode_into() */
-static SRL_INLINE void srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset);       /* set up the decoder to handle a given var */
-static SRL_INLINE void srl_read_header(pTHX_ srl_decoder_t *dec);                    /* validate header */
-static SRL_INLINE void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into);   /* main recursive dump routine */
-static SRL_INLINE void srl_finalize_structure(pTHX_ srl_decoder_t *dec);             /* optional finalize structure logic */
-static SRL_INLINE void srl_clear_decoder(pTHX_ srl_decoder_t *dec);                 /* clean up decoder after a dump */
+SRL_STATIC_INLINE void srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset);       /* set up the decoder to handle a given var */
+SRL_STATIC_INLINE void srl_read_header(pTHX_ srl_decoder_t *dec);                    /* validate header */
+SRL_STATIC_INLINE void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into);   /* main recursive dump routine */
+SRL_STATIC_INLINE void srl_finalize_structure(pTHX_ srl_decoder_t *dec);             /* optional finalize structure logic */
+SRL_STATIC_INLINE void srl_clear_decoder(pTHX_ srl_decoder_t *dec);                 /* clean up decoder after a dump */
 
 /* the internal routines to handle each kind of object we have to deserialize */
-static SRL_INLINE SV *srl_read_alias(pTHX_ srl_decoder_t *dec);
-static SRL_INLINE void srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into);
+SRL_STATIC_INLINE SV *srl_read_alias(pTHX_ srl_decoder_t *dec);
+SRL_STATIC_INLINE void srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into);
 
-static SRL_INLINE void srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag);
-static SRL_INLINE void srl_read_array(pTHX_ srl_decoder_t *dec, SV* into, U8 tag);
-static SRL_INLINE void srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into);
+SRL_STATIC_INLINE void srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag);
+SRL_STATIC_INLINE void srl_read_array(pTHX_ srl_decoder_t *dec, SV* into, U8 tag);
+SRL_STATIC_INLINE void srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into);
 
-static SRL_INLINE void srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into);
-static SRL_INLINE void srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into);
-static SRL_INLINE void srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into);
-static SRL_INLINE void srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into);
-static SRL_INLINE void srl_read_double(pTHX_ srl_decoder_t *dec, SV* into);
-static SRL_INLINE void srl_read_float(pTHX_ srl_decoder_t *dec, SV* into);
-static SRL_INLINE void srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into);
-static SRL_INLINE void srl_read_varint(pTHX_ srl_decoder_t *dec, SV* into);
-static SRL_INLINE void srl_read_zigzag(pTHX_ srl_decoder_t *dec, SV* into);
-static SRL_INLINE void srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into);
-static SRL_INLINE void srl_read_object(pTHX_ srl_decoder_t *dec, SV* into);
+SRL_STATIC_INLINE void srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into);
+SRL_STATIC_INLINE void srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into);
+SRL_STATIC_INLINE void srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into);
+SRL_STATIC_INLINE void srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into);
+SRL_STATIC_INLINE void srl_read_double(pTHX_ srl_decoder_t *dec, SV* into);
+SRL_STATIC_INLINE void srl_read_float(pTHX_ srl_decoder_t *dec, SV* into);
+SRL_STATIC_INLINE void srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into);
+SRL_STATIC_INLINE void srl_read_varint(pTHX_ srl_decoder_t *dec, SV* into);
+SRL_STATIC_INLINE void srl_read_zigzag(pTHX_ srl_decoder_t *dec, SV* into);
+SRL_STATIC_INLINE void srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into);
+SRL_STATIC_INLINE void srl_read_object(pTHX_ srl_decoder_t *dec, SV* into);
 
 /* FIXME unimplemented!!! */
-static SRL_INLINE void srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into);
-static SRL_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
+SRL_STATIC_INLINE void srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into);
+SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 
 #define ASSERT_BUF_SPACE(dec,len,msg) STMT_START {              \
     if (expect_false( (UV)BUF_SPACE((dec)) < (UV)(len) )) { \
@@ -304,7 +304,7 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into, UV start_offset)
 
 /* TOP LEVEL PRIVATE ROUTINES */
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_clear_decoder(pTHX_ srl_decoder_t *dec)
 {
     if (dec->buf_start == dec->buf_end)
@@ -324,7 +324,7 @@ srl_clear_decoder(pTHX_ srl_decoder_t *dec)
     dec->recursion_depth = 0;
 }
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset)
 {
     STRLEN len;
@@ -348,7 +348,7 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset)
     dec->bytes_consumed = 0;
 }
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_header(pTHX_ srl_decoder_t *dec)
 {
     UV header_len;
@@ -393,7 +393,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec)
     }
 }
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_finalize_structure(pTHX_ srl_decoder_t *dec)
 {
     if (dec->weakref_av)
@@ -443,7 +443,7 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
 
 /* PRIVATE UTILITY FUNCTIONS */
 
-static SRL_INLINE UV
+SRL_STATIC_INLINE UV
 srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec)
 {
     UV uv= 0;
@@ -477,7 +477,7 @@ srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec)
     }                                                               \
 } STMT_END
 
-static SRL_INLINE UV
+SRL_STATIC_INLINE UV
 srl_read_varint_uv_nocheck(pTHX_ srl_decoder_t *dec)
 {
     UV uv= 0;
@@ -493,7 +493,7 @@ srl_read_varint_uv_nocheck(pTHX_ srl_decoder_t *dec)
     return uv;
 }
 
-static SRL_INLINE UV
+SRL_STATIC_INLINE UV
 srl_read_varint_uv(pTHX_ srl_decoder_t *dec)
 {
     if (expect_true( dec->buf_end - dec->pos > 10 ))
@@ -502,7 +502,7 @@ srl_read_varint_uv(pTHX_ srl_decoder_t *dec)
         return srl_read_varint_uv_safe(aTHX_ dec);
 }
 
-static SRL_INLINE UV
+SRL_STATIC_INLINE UV
 srl_read_varint_uv_offset(pTHX_ srl_decoder_t *dec, const char * const errstr)
 {
     UV len= srl_read_varint_uv(aTHX_ dec);
@@ -514,7 +514,7 @@ srl_read_varint_uv_offset(pTHX_ srl_decoder_t *dec, const char * const errstr)
     return len;
 }
 
-static SRL_INLINE UV
+SRL_STATIC_INLINE UV
 srl_read_varint_uv_length(pTHX_ srl_decoder_t *dec, const char * const errstr)
 {
     UV len= srl_read_varint_uv(aTHX_ dec);
@@ -525,7 +525,7 @@ srl_read_varint_uv_length(pTHX_ srl_decoder_t *dec, const char * const errstr)
 }
 
 
-static SRL_INLINE UV
+SRL_STATIC_INLINE UV
 srl_read_varint_uv_count(pTHX_ srl_decoder_t *dec, const char * const errstr)
 {
     UV len= srl_read_varint_uv(aTHX_ dec);
@@ -537,14 +537,14 @@ srl_read_varint_uv_count(pTHX_ srl_decoder_t *dec, const char * const errstr)
 }
 
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_track_sv(pTHX_ srl_decoder_t *dec, U8 *track_pos, SV *sv)
 {
     PTABLE_store(dec->ref_seenhash, (void *)(track_pos - dec->buf_start), (void *)sv);
 }
 
 
-static SRL_INLINE SV *
+SRL_STATIC_INLINE SV *
 srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name)
 {
     SV *sv= (SV *)PTABLE_fetch(dec->ref_seenhash, (void *)item);
@@ -557,7 +557,7 @@ srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name)
  * PRIVATE WORKER SUBS FOR DEPARSING                                        *
  ****************************************************************************/
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_varint(pTHX_ srl_decoder_t *dec, SV* into)
 {
     UV uv= srl_read_varint_uv(aTHX_ dec);
@@ -572,7 +572,7 @@ srl_read_varint(pTHX_ srl_decoder_t *dec, SV* into)
 }
 
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_zigzag(pTHX_ srl_decoder_t *dec, SV* into)
 {
     UV uv= srl_read_varint_uv(aTHX_ dec);
@@ -592,7 +592,7 @@ srl_read_zigzag(pTHX_ srl_decoder_t *dec, SV* into)
 }
 
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
 {
     UV len= srl_read_varint_uv_length(aTHX_ dec, " while reading string");
@@ -612,7 +612,7 @@ srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
 }
 
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
 {
     ASSERT_BUF_SPACE(dec, sizeof(float), " while reading FLOAT");
@@ -621,7 +621,7 @@ srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
 }
 
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     ASSERT_BUF_SPACE(dec, sizeof(double)," while reading DOUBLE");
@@ -630,7 +630,7 @@ srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
 }
 
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     ASSERT_BUF_SPACE(dec, sizeof(long double)," while reading LONG_DOUBLE");
@@ -639,7 +639,7 @@ srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 }
 
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
     UV len;
     if (tag) {
@@ -683,7 +683,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
 #define IS_LVALUE 1
 #endif
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
     UV num_keys;
     if (tag) {
@@ -787,7 +787,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
 }
 
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
 {
     SV *referent;
@@ -801,7 +801,7 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
     srl_read_single_value(aTHX_ dec, referent);
 }
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into)
 {
     /* something we did before */
@@ -825,7 +825,7 @@ srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into)
 }
 
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into)
 {
     SV* referent;
@@ -853,7 +853,7 @@ srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into)
     sv_rvweaken(into);
 }
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into)
 {
     AV *av= NULL;
@@ -888,7 +888,7 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into)
     av_push(av, SvREFCNT_inc(into));
 }
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_object(pTHX_ srl_decoder_t *dec, SV* into)
 {
     HV *stash= NULL;
@@ -994,7 +994,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into)
 }
 
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into)
 {
     (void)tag; /* unused as of now */
@@ -1014,7 +1014,7 @@ srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into)
 #	define OLD_REGEXP
 #endif
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 {
     SV *sv_pat= newSV_type(SVt_NULL);
@@ -1120,7 +1120,7 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 
 
 
-static SRL_INLINE SV *
+SRL_STATIC_INLINE SV *
 srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into)
 {
     /* FIXME unimplemented!!! */
@@ -1130,7 +1130,7 @@ srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into)
 
 /* these are all special */
 
-static SRL_INLINE SV *
+SRL_STATIC_INLINE SV *
 srl_read_alias(pTHX_ srl_decoder_t *dec)
 {
     UV item= srl_read_varint_uv_offset(aTHX_ dec," while reading ALIAS tag");
@@ -1138,7 +1138,7 @@ srl_read_alias(pTHX_ srl_decoder_t *dec)
     return SvREFCNT_inc(referent);
 }
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
 {
     UV item= srl_read_varint_uv_offset(aTHX_ dec, " while reading COPY tag");
@@ -1159,7 +1159,7 @@ srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
  * MAIN DISPATCH SUB - ALL ROADS LEAD HERE                                  *
  ****************************************************************************/
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
 {
     STRLEN len;

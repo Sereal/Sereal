@@ -79,16 +79,16 @@ extern "C" {
 /* some static function declarations */
 static void srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src);
 static void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8);
-static SRL_INLINE void srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc);
-static SRL_INLINE void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcnt);
-static SRL_INLINE void srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcnt);
-static SRL_INLINE void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys);
-static SRL_INLINE void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
-static SRL_INLINE void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
-static SRL_INLINE void srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src);
-static SRL_INLINE PTABLE_t *srl_init_string_hash(srl_encoder_t *enc);
-static SRL_INLINE PTABLE_t *srl_init_ref_hash(srl_encoder_t *enc);
-static SRL_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
+SRL_STATIC_INLINE void srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc);
+SRL_STATIC_INLINE void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcnt);
+SRL_STATIC_INLINE void srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcnt);
+SRL_STATIC_INLINE void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys);
+SRL_STATIC_INLINE void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
+SRL_STATIC_INLINE void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
+SRL_STATIC_INLINE void srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src);
+SRL_STATIC_INLINE PTABLE_t *srl_init_string_hash(srl_encoder_t *enc);
+SRL_STATIC_INLINE PTABLE_t *srl_init_ref_hash(srl_encoder_t *enc);
+SRL_STATIC_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
 
 #define SRL_GET_STR_SEENHASH(enc) ( (enc)->str_seenhash == NULL     \
                                     ? srl_init_string_hash(enc)     \
@@ -190,7 +190,7 @@ srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
 }
 
 /* allocate an empty encoder struct - flags still to be set up */
-static SRL_INLINE srl_encoder_t *
+SRL_STATIC_INLINE srl_encoder_t *
 srl_empty_encoder_struct(pTHX)
 {
     srl_encoder_t *enc;
@@ -307,21 +307,21 @@ srl_build_encoder_struct_alike(pTHX_ srl_encoder_t *proto)
     return enc;
 }
 
-static SRL_INLINE PTABLE_t *
+SRL_STATIC_INLINE PTABLE_t *
 srl_init_string_hash(srl_encoder_t *enc)
 {
     enc->str_seenhash = PTABLE_new_size(4);
     return enc->str_seenhash;
 }
 
-static SRL_INLINE PTABLE_t *
+SRL_STATIC_INLINE PTABLE_t *
 srl_init_ref_hash(srl_encoder_t *enc)
 {
     enc->ref_seenhash = PTABLE_new_size(4);
     return enc->ref_seenhash;
 }
 
-static SRL_INLINE PTABLE_t *
+SRL_STATIC_INLINE PTABLE_t *
 srl_init_weak_hash(srl_encoder_t *enc)
 {
     enc->weak_seenhash = PTABLE_new_size(3);
@@ -353,7 +353,7 @@ srl_write_header(pTHX_ srl_encoder_t *enc)
 
 
 /* Code for serializing floats */
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
 {
     NV nv= SvNV(src);
@@ -379,7 +379,7 @@ srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
 
 
 /* Code for serializing any SINGLE integer type */
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
 {
     char hdr;
@@ -416,7 +416,7 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
 
 /* Outputs a bless header and the class name (as some form of string or COPY).
  * Caller then has to output the actual reference payload. */
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
 {
     const HV *stash = SvSTASH(src);
@@ -602,7 +602,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
     if (DEBUGHACK) warn("== end dump");
 }
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
 {
     PTABLE_t *weak_seenhash = SRL_GET_WEAK_SEENHASH(enc);
@@ -710,7 +710,7 @@ srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
     return;
 }
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
 {
     UV n;
@@ -778,7 +778,7 @@ he_cmp_slow(const void *a, const void *b)
     return sv_cmp( HeSVKEY_force( *(HE **)b), HeSVKEY_force( *(HE **)a ) );
 }
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 {
     HE *he;
@@ -889,7 +889,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 }
 
 
-static SRL_INLINE void
+SRL_STATIC_INLINE void
 srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
 {
     char *str;

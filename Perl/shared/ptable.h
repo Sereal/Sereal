@@ -17,7 +17,7 @@
      * This is one of Thomas Wang's hash functions for 64-bit integers from:
      * http://www.concentric.net/~Ttwang/tech/inthash.htm
      */
-    static U32 ptr_hash(PTRV u) {
+    STATIC U32 ptr_hash(PTRV u) {
         u = (~u) + (u << 18);
         u = u ^ (u >> 31);
         u = u * 21;
@@ -31,7 +31,7 @@
      * This is one of Bob Jenkins' hash functions for 32-bit integers
      * from: http://burtleburtle.net/bob/hash/integer.html
      */
-    static U32 ptr_hash(PTRV u) {
+    STATIC U32 ptr_hash(PTRV u) {
         u = (u + 0x7ed55d16) + (u << 12);
         u = (u ^ 0xc761c23c) ^ (u >> 19);
         u = (u + 0x165667b1) + (u << 5);
@@ -67,28 +67,28 @@ typedef struct PTABLE       PTABLE_t;
 typedef struct PTABLE_iter  PTABLE_ITER_t;
 
 
-static PTABLE_t * PTABLE_new(void);
-static PTABLE_t * PTABLE_new_size(const U8 size_base2_exponent);
-static PTABLE_ENTRY_t * PTABLE_find(PTABLE_t *tbl, const void *key);
-static void * PTABLE_fetch(PTABLE_t *tbl, const void *key);
-static void PTABLE_store(PTABLE_t *tbl, void *key, void *value);
-static void PTABLE_delete(PTABLE_t *tbl, void *key);
-static void PTABLE_grow(PTABLE_t *tbl);
-static void PTABLE_clear(PTABLE_t *tbl);
-static void PTABLE_free(PTABLE_t *tbl);
+STATIC PTABLE_t * PTABLE_new(void);
+STATIC PTABLE_t * PTABLE_new_size(const U8 size_base2_exponent);
+STATIC PTABLE_ENTRY_t * PTABLE_find(PTABLE_t *tbl, const void *key);
+STATIC void * PTABLE_fetch(PTABLE_t *tbl, const void *key);
+STATIC void PTABLE_store(PTABLE_t *tbl, void *key, void *value);
+STATIC void PTABLE_delete(PTABLE_t *tbl, void *key);
+STATIC void PTABLE_grow(PTABLE_t *tbl);
+STATIC void PTABLE_clear(PTABLE_t *tbl);
+STATIC void PTABLE_free(PTABLE_t *tbl);
 
-static PTABLE_ITER_t * PTABLE_iter_new(PTABLE_t *tbl);
-static PTABLE_ENTRY_t * PTABLE_iter_next(PTABLE_ITER_t *iter);
-static void PTABLE_iter_free(PTABLE_ITER_t *iter);
+STATIC PTABLE_ITER_t * PTABLE_iter_new(PTABLE_t *tbl);
+STATIC PTABLE_ENTRY_t * PTABLE_iter_next(PTABLE_ITER_t *iter);
+STATIC void PTABLE_iter_free(PTABLE_ITER_t *iter);
 
 /* create a new pointer => pointer table */
-static inline PTABLE_t *
+SRL_STATIC_INLINE PTABLE_t *
 PTABLE_new(void)
 {
     return PTABLE_new_size(9);
 }
 
-static PTABLE_t *
+STATIC PTABLE_t *
 PTABLE_new_size(const U8 size_base2_exponent)
 {
     PTABLE_t *tbl;
@@ -100,7 +100,7 @@ PTABLE_new_size(const U8 size_base2_exponent)
 }
 
 /* map an existing pointer using a table */
-static PTABLE_ENTRY_t *
+STATIC PTABLE_ENTRY_t *
 PTABLE_find(PTABLE_t *tbl, const void *key) {
     PTABLE_ENTRY_t *tblent;
     const UV hash = PTABLE_HASH(key);
@@ -112,7 +112,7 @@ PTABLE_find(PTABLE_t *tbl, const void *key) {
     return NULL;
 }
 
-static inline void *
+SRL_STATIC_INLINE void *
 PTABLE_fetch(PTABLE_t *tbl, const void *key)
 {
     PTABLE_ENTRY_t const *const tblent = PTABLE_find(tbl, key);
@@ -121,7 +121,7 @@ PTABLE_fetch(PTABLE_t *tbl, const void *key)
 
 /* add a new entry to a pointer => pointer table */
 
-static void
+STATIC void
 PTABLE_store(PTABLE_t *tbl, void *key, void *value)
 {
     PTABLE_ENTRY_t *tblent = PTABLE_find(tbl, key);
@@ -145,7 +145,7 @@ PTABLE_store(PTABLE_t *tbl, void *key, void *value)
 
 /* double the hash bucket size of an existing ptr table */
 
-static void
+STATIC void
 PTABLE_grow(PTABLE_t *tbl)
 {
     PTABLE_ENTRY_t **ary = tbl->tbl_ary;
@@ -178,7 +178,7 @@ PTABLE_grow(PTABLE_t *tbl)
 
 /* remove all the entries from a ptr table */
 
-static void
+STATIC void
 PTABLE_clear(PTABLE_t *tbl)
 {
     if (tbl && tbl->tbl_items) {
@@ -208,7 +208,7 @@ PTABLE_clear(PTABLE_t *tbl)
 
 /* remove one entry from a ptr table */
 
-static void
+STATIC void
 PTABLE_delete(PTABLE_t *tbl, void *key)
 {
     PTABLE_ENTRY_t *tblent;
@@ -238,7 +238,7 @@ PTABLE_delete(PTABLE_t *tbl, void *key)
 
 /* clear and free a ptr table */
 
-static void
+STATIC void
 PTABLE_free(PTABLE_t *tbl)
 {
     if (!tbl) {
@@ -267,7 +267,7 @@ PTABLE_free(PTABLE_t *tbl)
     } STMT_END
 
 /* Create new iterator object */
-static PTABLE_ITER_t *
+STATIC PTABLE_ITER_t *
 PTABLE_iter_new(PTABLE_t *tbl)
 {
     PTABLE_ITER_t *iter;
@@ -287,7 +287,7 @@ PTABLE_iter_new(PTABLE_t *tbl)
 }
 
 /* Return next item from hash, NULL if at end */
-static PTABLE_ENTRY_t *
+STATIC PTABLE_ENTRY_t *
 PTABLE_iter_next(PTABLE_ITER_t *iter)
 {
     PTABLE_ENTRY_t *retval = iter->cur_entry;
@@ -297,7 +297,7 @@ PTABLE_iter_next(PTABLE_ITER_t *iter)
 }
 
 /* Free iterator object */
-static void
+STATIC void
 PTABLE_iter_free(PTABLE_ITER_t *iter)
 {
     Safefree(iter);
