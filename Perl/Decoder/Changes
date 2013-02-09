@@ -1,6 +1,10 @@
 Revision history for Perl extension Sereal-Decoder
 
-0.27 Sat Feb 09 12:58 2013
+0.28 Sat Feb 09 16:20 2013 (AMS time)
+  - More fixups for building on Win32/C89 compilers
+  - Fix up handling of regexps on perl 5.10.1
+
+0.27 Sat Feb 09 12:58 2013 (AMS time)
   - Various fixups to improve building on Win32
   - Fix C89 violations
   - Fixed Changelog order (why would I ever have listed oldest first?)

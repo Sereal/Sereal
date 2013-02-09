@@ -4,10 +4,10 @@ use strict;
 use warnings;
 our $VERSION;
 BEGIN {
-    $VERSION = '0.270';
+    $VERSION = '0.280';
 }
-use Sereal::Encoder 0.27 qw(encode_sereal);
-use Sereal::Decoder 0.27 qw(decode_sereal looks_like_sereal);
+use Sereal::Encoder 0.28 qw(encode_sereal);
+use Sereal::Decoder 0.28 qw(decode_sereal looks_like_sereal);
 
 use Exporter 'import';
 our @EXPORT_OK = qw(encode_sereal decode_sereal looks_like_sereal);
