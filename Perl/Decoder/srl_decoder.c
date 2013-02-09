@@ -248,9 +248,13 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into, UV start_offset)
                 ? (STRLEN)srl_read_varint_uv_length(aTHX_ dec, " while reading compressed packet size")
                 : (STRLEN)(dec->buf_end - dec->pos);
         int decompress_ok;
+        int header_len;
+
+        /* all decl's above here, or we break C89 compilers */
+
         dec->bytes_consumed= compressed_packet_len + (dec->pos - dec->buf_start);
 
-        int header_len = csnappy_get_uncompressed_length(
+        header_len = csnappy_get_uncompressed_length(
                             (char *)dec->pos,
                             compressed_packet_len,
                             &dest_len
