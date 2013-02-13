@@ -1,5 +1,8 @@
 Revision history for Perl extension Sereal-Decoder
 
+0.30 Wed Feb 09 06:24 2013 (AMS time)
+  - dummy release to keep in sync with encoder.
+
 0.29 Sat Feb 09 18:09 2013 (AMS time)
   - Change a gcc'ism, #warning to #pragma message
     (which also works on my machines gcc)

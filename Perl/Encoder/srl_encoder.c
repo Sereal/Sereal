@@ -351,14 +351,40 @@ srl_write_header(pTHX_ srl_encoder_t *enc)
     srl_buf_cat_char_nocheck(enc, '\0'); /* variable header length (0 right now) */
 }
 
+/* The following is to handle the fact that under normal build options
+ * VC6 will compare all floating point at 80 bits of precision, regardless
+ * regardless of the type.
+ * By setting the vars to "volatile" we avoid this behavior.
+ * Hopefully this fixes various remaining Win32 test failures we see.
+ *
+ * Note this patch could not have been written without Bulk88's help.
+ * Thanks a lot man!
+ *
+ * Comment from Bulk88:
+ * -O1 and -O2 tested and both of those 2 "failed"
+ * -Op - Improve Float Consistency does not have the bug
+ * Problem not seen in VC 2003
+ * I (Bulk88) don't have a VC 2002 to test v13 officially
+ *
+ */
+#if defined(_MSC_VER)
+#   if _MSC_VER < 1300
+#       define MS_VC6_WORKAROUND_VOLATILE volatile
+#   else
+#       define MS_VC6_WORKAROUND_VOLATILE
+#   endif
+#else
+#   define MS_VC6_WORKAROUND_VOLATILE
+#endif
+
 
 /* Code for serializing floats */
 SRL_STATIC_INLINE void
 srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
 {
     NV nv= SvNV(src);
-    float f= (float)nv;
-    double d= (double)nv;
+    MS_VC6_WORKAROUND_VOLATILE float f= (float)nv;
+    MS_VC6_WORKAROUND_VOLATILE double d= (double)nv;
     /* TODO: this logic could be reworked to not duplicate so much code, which will help on win32 */
     if ( f == nv || nv != nv ) {
         BUF_SIZE_ASSERT(enc, 1 + sizeof(f)); /* heuristic: header + string + simple value */

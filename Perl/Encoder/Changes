@@ -1,5 +1,11 @@
 Revision history for Perl extension Sereal-Encoder
 
+0.30 Wed Feb 13 06:21 2013 (AMS time)
+  - Found a work around for VC6 Windows 32 bit builds
+    Compile was "optimizing" float comparisons to use 80 bit precision
+    regardless of type, this release uses a workaround of marking the
+    relevant vars "volatile".
+
 0.29 Sat Feb 09 18:09 2013 (AMS time)
   - Dummy release to keep Encoder in sync with Decoder.
 
