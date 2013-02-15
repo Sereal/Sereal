@@ -30,6 +30,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 File modified for the Linux Kernel by
 Zeev Tarantov <zeev.tarantov@gmail.com>
+
+File modified for Sereal by
+Steffen Mueller <smueller@cpan.org>
 */
 
 #include "csnappy_internal.h"
@@ -194,7 +197,7 @@ static const uint16_t char_table[256] = {
  * Note that this does not match the semantics of either memcpy()
  * or memmove().
  */
-static inline void IncrementalCopy(const char *src, char *op, int len)
+static INLINE void IncrementalCopy(const char *src, char *op, int len)
 {
 	DCHECK_GT(len, 0);
 	do {
@@ -235,7 +238,7 @@ static inline void IncrementalCopy(const char *src, char *op, int len)
  * position 1. Thus, ten excess bytes.
  */
 static const int kMaxIncrementCopyOverflow = 10;
-static inline void IncrementalCopyFastPath(const char *src, char *op, int len)
+static INLINE void IncrementalCopyFastPath(const char *src, char *op, int len)
 {
 	while (op - src < 8) {
 		UnalignedCopy64(src, op);
@@ -258,7 +261,7 @@ struct SnappyArrayWriter {
 	char *op_limit;
 };
 
-static inline int
+static INLINE int
 SAW__AppendFastPath(struct SnappyArrayWriter *this,
 		    const char *ip, uint32_t len)
 {
@@ -276,7 +279,7 @@ SAW__AppendFastPath(struct SnappyArrayWriter *this,
 	return CSNAPPY_E_OK;
 }
 
-static inline int
+static INLINE int
 SAW__Append(struct SnappyArrayWriter *this,
 	    const char *ip, uint32_t len)
 {
@@ -289,7 +292,7 @@ SAW__Append(struct SnappyArrayWriter *this,
 	return CSNAPPY_E_OK;
 }
 
-static inline int
+static INLINE int
 SAW__AppendFromSelf(struct SnappyArrayWriter *this,
 		    uint32_t offset, uint32_t len)
 {

@@ -31,6 +31,9 @@ Various stubs for the open-source version of Snappy.
 
 File modified by
 Zeev Tarantov <zeev.tarantov@gmail.com>
+
+File modified for Sereal by
+Steffen Mueller <smueller@cpan.org>
 */
 
 #ifndef CSNAPPY_INTERNAL_USERSPACE_H_
@@ -93,6 +96,8 @@ typedef __int32 int32_t; /* Sereal specific change, see csnappy_decompress.c(271
 #else
 #define DCHECK(cond)
 #endif
+
+#include "csnappy_compat.h"
 
 /*
 Uses code from http://code.google.com/p/exfat/source/browse/trunk/libexfat/byteorder.h
@@ -202,13 +207,13 @@ Albert Lee
 struct una_u64 { uint64_t x; };
 #pragma pack()
 
-static inline uint64_t UNALIGNED_LOAD64(const void *p)
+static INLINE uint64_t UNALIGNED_LOAD64(const void *p)
 {
 	const struct una_u64 *ptr = (const struct una_u64 *)p;
 	return ptr->x;
 }
 
-static inline void UNALIGNED_STORE64(void *p, uint64_t v)
+static INLINE void UNALIGNED_STORE64(void *p, uint64_t v)
 {
 	struct una_u64 *ptr = (struct una_u64 *)p;
 	ptr->x = v;
@@ -222,37 +227,37 @@ struct una_u32 { uint32_t x; };
 struct una_u64 { uint64_t x; };
 #pragma pack()
 
-static inline uint16_t UNALIGNED_LOAD16(const void *p)
+static INLINE uint16_t UNALIGNED_LOAD16(const void *p)
 {
 	const struct una_u16 *ptr = (const struct una_u16 *)p;
 	return ptr->x;
 }
 
-static inline uint32_t UNALIGNED_LOAD32(const void *p)
+static INLINE uint32_t UNALIGNED_LOAD32(const void *p)
 {
 	const struct una_u32 *ptr = (const struct una_u32 *)p;
 	return ptr->x;
 }
 
-static inline uint64_t UNALIGNED_LOAD64(const void *p)
+static INLINE uint64_t UNALIGNED_LOAD64(const void *p)
 {
 	const struct una_u64 *ptr = (const struct una_u64 *)p;
 	return ptr->x;
 }
 
-static inline void UNALIGNED_STORE16(void *p, uint16_t v)
+static INLINE void UNALIGNED_STORE16(void *p, uint16_t v)
 {
 	struct una_u16 *ptr = (struct una_u16 *)p;
 	ptr->x = v;
 }
 
-static inline void UNALIGNED_STORE32(void *p, uint32_t v)
+static INLINE void UNALIGNED_STORE32(void *p, uint32_t v)
 {
 	struct una_u32 *ptr = (struct una_u32 *)p;
 	ptr->x = v;
 }
 
-static inline void UNALIGNED_STORE64(void *p, uint64_t v)
+static INLINE void UNALIGNED_STORE64(void *p, uint64_t v)
 {
 	struct una_u64 *ptr = (struct una_u64 *)p;
 	ptr->x = v;
@@ -265,21 +270,21 @@ static inline void UNALIGNED_STORE64(void *p, uint64_t v)
 #define get_unaligned_le32(p)           UNALIGNED_LOAD32(p)
 #define put_unaligned_le16(v, p)        UNALIGNED_STORE16(p, v)
 #elif __BYTE_ORDER == __BIG_ENDIAN
-static inline uint32_t get_unaligned_le32(const void *p)
+static INLINE uint32_t get_unaligned_le32(const void *p)
 {
   return bswap_32(UNALIGNED_LOAD32(p));
 }
-static inline void put_unaligned_le16(uint16_t val, void *p)
+static INLINE void put_unaligned_le16(uint16_t val, void *p)
 {
   UNALIGNED_STORE16(p, bswap_16(val));
 }
 #else
-static inline uint32_t get_unaligned_le32(const void *p)
+static INLINE uint32_t get_unaligned_le32(const void *p)
 {
   const uint8_t *b = (const uint8_t *)p;
   return b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24);
 }
-static inline void put_unaligned_le16(uint16_t val, void *p)
+static INLINE void put_unaligned_le16(uint16_t val, void *p)
 {
   uint8_t *b = (uint8_t *)p;
   b[0] = val & 255;
@@ -290,19 +295,19 @@ static inline void put_unaligned_le16(uint16_t val, void *p)
 
 #if defined(HAVE_BUILTIN_CTZ)
 
-static inline int FindLSBSetNonZero(uint32_t n)
+static INLINE int FindLSBSetNonZero(uint32_t n)
 {
 	return __builtin_ctz(n);
 }
 
-static inline int FindLSBSetNonZero64(uint64_t n)
+static INLINE int FindLSBSetNonZero64(uint64_t n)
 {
 	return __builtin_ctzll(n);
 }
 
 #else /* Portable versions. */
 
-static inline int FindLSBSetNonZero(uint32_t n)
+static INLINE int FindLSBSetNonZero(uint32_t n)
 {
 	int rc = 31, i, shift;
 	uint32_t x;
@@ -318,7 +323,7 @@ static inline int FindLSBSetNonZero(uint32_t n)
 }
 
 /* FindLSBSetNonZero64() is defined in terms of FindLSBSetNonZero(). */
-static inline int FindLSBSetNonZero64(uint64_t n)
+static INLINE int FindLSBSetNonZero64(uint64_t n)
 {
 	const uint32_t bottombits = (uint32_t)n;
 	if (bottombits == 0) {
