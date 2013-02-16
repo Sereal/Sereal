@@ -77,6 +77,10 @@ Zeev Tarantov <zeev.tarantov@gmail.com>
 
 #endif /* __KERNEL__ */
 
+#if (!defined(__LITTLE_ENDIAN) && !defined(__BIG_ENDIAN)) || ! defined(__BYTE_ORDER)
+#  error either __LITTLE_ENDIAN or __BIG_ENDIAN, plus __BYTE_ORDER must be defined
+#endif
+
 #define ARCH_ARM_HAVE_UNALIGNED \
     defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) || defined(__ARM_ARCH_6K__) || defined(__ARM_ARCH_6Z__) || defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6T2__) || defined(__ARMV6__) || \
     defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7R__) || defined(__ARM_ARCH_7M__)

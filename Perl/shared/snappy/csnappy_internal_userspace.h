@@ -46,6 +46,25 @@ typedef unsigned __int64 uint64_t;
 typedef __int32 int32_t; /* Sereal specific change, see csnappy_decompress.c(271) : error C2065: 'int32_t' : undeclared identifier */
 /* the following define is Sereal specific, as MS C89 compilers do not know about "inline" */
 #define inline __inline
+#ifdef _M_X64
+#  define __x86_64__
+#  define __x86_64
+#  define __amd64__
+#  define __amd64
+#endif
+#ifdef _M_IX86
+#  define __i386__
+#  define __i386
+#  define i386
+#  define _X86_
+#endif
+#ifdef _M_IA64
+#  define __ia64__
+#  define __ia64
+#  define __IA64__
+#  define __itanium__
+#endif
+
 #else
 #include <stdint.h>
 #endif
@@ -87,6 +106,9 @@ Albert Lee
 #define bswap_16(x) _byteswap_ushort(x)
 #define bswap_32(x) _byteswap_ulong(x)
 #define bswap_64(x) _byteswap_uint64(x)
+#define __BIG_ENDIAN	4321
+#define __LITTLE_ENDIAN	1234
+#define __BYTE_ORDER	LITTLE_ENDIAN
 
 #elif defined(__GLIBC__) || defined(__ANDROID__) || defined(__CYGWIN__)
 
@@ -137,6 +159,12 @@ Albert Lee
 #else
 #define __BYTE_ORDER __BIG_ENDIAN
 #endif
+
+#elif defined(__MINGW32__)
+#include <sys/param.h>
+#define __BYTE_ORDER BYTE_ORDER
+#define __LITTLE_ENDIAN LITTLE_ENDIAN
+#define __BIG_ENDIAN BIG_ENDIAN
 
 #endif
 
