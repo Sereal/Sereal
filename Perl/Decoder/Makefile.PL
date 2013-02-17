@@ -61,7 +61,7 @@ WriteMakefile1(
     }, # e.g., Module::Name => 1.1
     LICENSE => 'perl',
     ABSTRACT_FROM => 'lib/Sereal/Decoder.pm',
-    AUTHOR => 'Steffen Mueller <smueller@cpan.org>', # FIXME
+    AUTHOR => 'Steffen Mueller <smueller@cpan.org>, Yves Orton <yves@cpan.org>',
     LIBS              => [''], # e.g., '-lm'
     DEFINE            => $defines,
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'

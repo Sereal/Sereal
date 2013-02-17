@@ -1,5 +1,12 @@
 Revision history for Perl extension Sereal-Decoder
 
+0.31 Sun Feb 17 15:06 2013 (AMS time)
+  - Daniel Dragan <bulk88@hotmail.com> spent a bunch of time
+    digging into the weird problems we were having with Snappy
+    encoded data on Windows on certain builds. Turned out that
+    it was right broken, and worked sometimes purely by chance.
+    He kindly provided a patch.
+
 0.30 Wed Feb 09 06:24 2013 (AMS time)
   - dummy release to keep in sync with encoder.
 
