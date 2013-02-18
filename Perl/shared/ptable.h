@@ -17,7 +17,7 @@
      * This is one of Thomas Wang's hash functions for 64-bit integers from:
      * http://www.concentric.net/~Ttwang/tech/inthash.htm
      */
-    STATIC U32 ptr_hash(PTRV u) {
+    SRL_STATIC_INLINE U32 ptr_hash(PTRV u) {
         u = (~u) + (u << 18);
         u = u ^ (u >> 31);
         u = u * 21;
@@ -31,7 +31,7 @@
      * This is one of Bob Jenkins' hash functions for 32-bit integers
      * from: http://burtleburtle.net/bob/hash/integer.html
      */
-    STATIC U32 ptr_hash(PTRV u) {
+    SRL_STATIC_INLINE U32 ptr_hash(PTRV u) {
         u = (u + 0x7ed55d16) + (u << 12);
         u = (u ^ 0xc761c23c) ^ (u >> 19);
         u = (u + 0x165667b1) + (u << 5);
