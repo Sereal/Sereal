@@ -51,6 +51,7 @@ WriteMakefile1(
     META_MERGE => {
         resources => {
             repository => 'git://github.com/Sereal/Sereal.git'
+            bugtracker => 'https://github.com/Sereal/Sereal/issues',
         },
     },
     BUILD_REQUIRES => {
