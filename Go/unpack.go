@@ -243,7 +243,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		idx += int(sz)
 
 		p, _, _ := decode(b, offs, tracked)
-		ptr = p.Elem()
+		ptr = p
 
 	default:
 		panic("unknown tag byte: " + strconv.Itoa(int(tag)))
