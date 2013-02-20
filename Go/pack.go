@@ -2,6 +2,7 @@ package sereal
 
 import (
 	"math"
+	"fmt"
 	"reflect"
 )
 
@@ -72,7 +73,7 @@ func encode(b []byte, rv reflect.Value, strTable map[string]int) ([]byte, error)
 		}
 
 	default:
-		panic("no support for type")
+		panic(fmt.Sprintf("no support for type '%s'", rk.String()))
 	}
 
 	return b, nil
