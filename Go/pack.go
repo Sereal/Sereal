@@ -2,6 +2,7 @@ package sereal
 
 import (
 	"math"
+	"code.google.com/p/snappy-go/snappy"
 	"encoding/binary"
 	"fmt"
 	"reflect"
@@ -17,9 +18,33 @@ func reflectValueOf(v interface{}) reflect.Value {
 
 }
 
+func snappify(b []byte) ([]byte, error) {
+	b[4] |= (2 << 4) // set the document type to '2' (incr snappy)
+
+	optHeaderLength, optHeaderSize := varintdecode(b[5:])
+	optHeaderLength += optHeaderSize
+
+	// XXX this could be more efficient!  I'm creating a new buffer to
+	//     store the compressed document, which isn't necessary.  You
+	//     could probably write directly to the slice after the header
+	//     and after the varint holding the length
+	compressed, err  := snappy.Encode(nil, b[5 + optHeaderLength:])
+	if err != nil {
+		return nil, err
+	}
+	compressedLength := len(varint(b[5 + optHeaderLength:], uint(len(compressed))))
+
+	bytesCopied := copy(b[5 + optHeaderLength + compressedLength:], compressed)
+
+	// XXX should we verify that bytesCopied == len(compressed)?
+
+	return b[0:bytesCopied], nil
+}
+
 func Marshal(v interface{}) (b []byte, err error) {
 
-	b = make([]byte, 6, 32)
+	headerLength := 6
+	b             = make([]byte, headerLength, 32)
 
 	binary.LittleEndian.PutUint32(b[:4], Magic)
 	b[4] = 1 /* version */
@@ -29,8 +54,21 @@ func Marshal(v interface{}) (b []byte, err error) {
 
 	strTable := make(map[string]int)
 
-	return encode(b, rv, strTable)
+	encoded, err := encode(b, rv, strTable)
 
+	if err != nil {
+		return nil, err
+	}
+
+	if len(encoded) >= SnappyThreshold + headerLength {
+		encoded, err = snappify(encoded)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return encoded, nil
 }
 
 func encode(b []byte, rv reflect.Value, strTable map[string]int) ([]byte, error) {
