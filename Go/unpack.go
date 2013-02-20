@@ -1,7 +1,7 @@
 package sereal
 
 import (
-	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -29,12 +29,9 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 		}
 	}()
 
-	// header must match
-	magic := []byte{'=', 's', 'r', 'l'}
-
 	vPtrValue := reflect.ValueOf(v)
 
-	if !bytes.Equal(magic, b[:4]) {
+	if binary.LittleEndian.Uint32(b[:4]) != Magic {
 		return errors.New("bad header")
 	}
 
