@@ -6,10 +6,24 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"runtime"
 	"strconv"
 )
 
-func Unmarshal(b []byte, v interface{}) error {
+func Unmarshal(b []byte, v interface{}) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(runtime.Error); ok {
+				panic(r)
+			}
+
+			if s, ok := r.(string); ok {
+				err = errors.New(s)
+			} else {
+				err = r.(error)
+			}
+		}
+	}()
 
 	// header must match
 	header := []byte{'=', 's', 'r', 'l', 1 /* version */, 0 /* header size */}
