@@ -44,3 +44,4 @@ const (
 	TypeSHORT_BINARY_0 = 0x60
 )
 
+const SnappyThreshold = 1024
