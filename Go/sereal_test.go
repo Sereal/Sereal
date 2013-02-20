@@ -3,6 +3,7 @@ package sereal
 import (
 	"errors"
 	"io/ioutil"
+	"path/filepath"
 	"fmt"
 	"reflect"
 	"testing"
@@ -73,17 +74,17 @@ func unmarshalSafely(contents []byte, dest interface{}) (err error) {
  *
  */
 func TestCorpus(t *testing.T) {
-	corpusFiles, err := ioutil.ReadDir("test_dir")
+	corpusFiles, err := filepath.Glob("test_dir/test_data_*")
 	if err != nil {
 	    t.Errorf("error opening test_dir: %v", err)
 	    return
 	}
 
 	for _, corpusFile := range corpusFiles {
-		contents, err := ioutil.ReadFile("test_dir/" + corpusFile.Name())
+		contents, err := ioutil.ReadFile(corpusFile)
 
 		if err != nil {
-			t.Errorf("error opening test_dir/%s: %v", corpusFile.Name(), err)
+			t.Errorf("error opening test_dir/%s: %v", corpusFile, err)
 			return
 		}
 		var value interface{}
@@ -91,7 +92,7 @@ func TestCorpus(t *testing.T) {
 		err = unmarshalSafely(contents, &value)
 
 		if err != nil {
-			t.Errorf("unpacking %s generated an error: %v", corpusFile.Name(), err)
+			t.Errorf("unpacking %s generated an error: %v", corpusFile, err)
 		}
 	}
 }
