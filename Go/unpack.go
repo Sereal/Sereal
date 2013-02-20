@@ -1,23 +1,80 @@
 package sereal
 
 import (
-	"bytes"
+	"code.google.com/p/snappy-go/snappy"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
 	"reflect"
+	"runtime"
 	"strconv"
 )
 
-func Unmarshal(b []byte, v interface{}) error {
+func getDocumentTypeAndVersion(b byte) (VersionType, byte) {
+	return VersionType(b >> 4), b & 0xF
+}
 
-	// header must match
-	header := []byte{'=', 's', 'r', 'l', 1 /* version */, 0 /* header size */}
+func handleHeader(b []byte) int {
+	// no op for now
+	ln, sz := varintdecode(b[5:])
+	return ln + sz
+}
+
+func Unmarshal(b []byte, v interface{}) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(runtime.Error); ok {
+				panic(r)
+			}
+
+			if s, ok := r.(string); ok {
+				err = errors.New(s)
+			} else {
+				err = r.(error)
+			}
+		}
+	}()
 
 	vPtrValue := reflect.ValueOf(v)
 
-	if !bytes.Equal(header, b[:6]) {
+	if binary.LittleEndian.Uint32(b[:4]) != Magic {
 		return errors.New("bad header")
+	}
+
+	docType, version := getDocumentTypeAndVersion(b[4])
+	headerLength     := handleHeader(b)
+
+	var idx int
+
+	/* XXX instead of creating an uncompressed copy of the document,
+	 *     it would be more flexible to use a sort of "Reader" interface */
+	switch docType {
+
+	case VersionRaw:
+		idx = 5 + headerLength
+	case VersionSnappy:
+		b, err = snappy.Decode(nil, b[5 + headerLength:])
+		idx    = 0
+
+		if err != nil {
+			return err
+		}
+	case VersionSnappyLength:
+		ln, sz := varintdecode(b[5 + headerLength:])
+		b, err  = snappy.Decode(nil, b[5 + headerLength + sz : 5 + headerLength + sz + ln])
+		idx     = 0
+
+		if err != nil {
+			return err
+		}
+	default:
+		return errors.New(fmt.Sprintf("Document type '%v' not yet supported", docType))
+
+	}
+
+	if version != 1 {
+		return errors.New(fmt.Sprintf("Document version '%d' not yet supported", version))
 	}
 
 	if reflect.TypeOf(v).Kind() != reflect.Ptr {
@@ -25,8 +82,6 @@ func Unmarshal(b []byte, v interface{}) error {
 	}
 
 	// just unpack everything into an interface{} for now -- worry about schema stuff later
-
-	idx := 6
 
 	tracked := make(map[int]reflect.Value)
 

@@ -1,6 +1,9 @@
 package sereal
 
 import (
+	"code.google.com/p/snappy-go/snappy"
+	"encoding/binary"
+	"fmt"
 	"reflect"
 )
 
@@ -14,18 +17,60 @@ func reflectValueOf(v interface{}) reflect.Value {
 
 }
 
+func snappify(b []byte) ([]byte, error) {
+	b[4] |= (2 << 4) // set the document type to '2' (incr snappy)
+
+	optHeaderLength, optHeaderSize := varintdecode(b[5:])
+	optHeaderLength += optHeaderSize
+
+	// XXX this could be more efficient!  I'm creating a new buffer to
+	//     store the compressed document, which isn't necessary.  You
+	//     could probably write directly to the slice after the header
+	//     and after the varint holding the length
+	compressed, err  := snappy.Encode(nil, b[5 + optHeaderLength:])
+	if err != nil {
+		return nil, err
+	}
+        // XXX I'm sure that this could be using a slice of b rather than nil
+        //     so we don't need to copy, but my Go-fu is too low to do it.
+        compressedLength := varint(nil, uint(len(compressed)))
+        copy(b[5 + optHeaderLength:], compressedLength)
+
+	bytesCopied := copy(b[5 + optHeaderLength + len(compressedLength):], compressed)
+
+	// XXX should we verify that bytesCopied == len(compressed)?
+
+	return b[0:bytesCopied], nil
+}
+
 func Marshal(v interface{}) (b []byte, err error) {
 
-	b = make([]byte, 0, 32)
+	headerLength := 6
+	b             = make([]byte, headerLength, 32)
 
-	b = append(b, []byte{'=', 's', 'r', 'l', 1 /* version */, 0 /* header size */}...)
+	binary.LittleEndian.PutUint32(b[:4], Magic)
+	b[4] = 1 /* version */
+	b[5] = 0 /* header size */
 
 	rv := reflectValueOf(v)
 
 	strTable := make(map[string]int)
 
-	return encode(b, rv, strTable)
+	encoded, err := encode(b, rv, strTable)
 
+	if err != nil {
+		return nil, err
+	}
+
+	if len(encoded) >= SnappyThreshold + headerLength {
+		encoded, err = snappify(encoded)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return encoded, nil
 }
 
 func encode(b []byte, rv reflect.Value, strTable map[string]int) ([]byte, error) {
@@ -56,7 +101,7 @@ func encode(b []byte, rv reflect.Value, strTable map[string]int) ([]byte, error)
 		b = encodeStruct(b, rv, strTable)
 
 	default:
-		panic("no support for type")
+		panic(fmt.Sprintf("no support for type '%s'", rk.String()))
 	}
 
 	return b, nil
