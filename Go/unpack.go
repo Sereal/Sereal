@@ -14,6 +14,12 @@ func getDocumentTypeAndVersion(b byte) (VersionType, byte) {
 	return VersionType(b >> 4), b & 0xF
 }
 
+func handleHeader(b []byte) int {
+	// no op for now
+	// actually parse out header size
+	return 0
+}
+
 func Unmarshal(b []byte, v interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -36,6 +42,7 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 	}
 
 	docType, version := getDocumentTypeAndVersion(b[4])
+	headerLength     := handleHeader(b)
 
 	switch docType {
 
@@ -60,7 +67,6 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 	}
 
 	// just unpack everything into an interface{} for now -- worry about schema stuff later
-	headerLength := int(b[5])
 
 	idx := 6
 	idx += headerLength
