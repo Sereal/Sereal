@@ -142,6 +142,14 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		// FIXME: this is not technically correct
 		ptr = e
 
+	case tag == TypeREFP:
+		idx++
+
+		offs, sz := varintdecode(b[idx:])
+		idx += int(sz)
+
+		ptr = tracked[offs]
+
 	case tag == TypeHASH:
 
 		idx++
