@@ -32,9 +32,12 @@ func snappify(b []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	compressedLength := len(varint(b[5 + optHeaderLength:], uint(len(compressed))))
+        // XXX I'm sure that this could be using a slice of b rather than nil
+        //     so we don't need to copy, but my Go-fu is too low to do it.
+        compressedLength := varint(nil, uint(len(compressed)))
+        copy(b[5 + optHeaderLength:], compressedLength)
 
-	bytesCopied := copy(b[5 + optHeaderLength + compressedLength:], compressed)
+	bytesCopied := copy(b[5 + optHeaderLength + len(compressedLength):], compressed)
 
 	// XXX should we verify that bytesCopied == len(compressed)?
 
@@ -60,7 +63,6 @@ func Marshal(v interface{}) (b []byte, err error) {
 		return nil, err
 	}
 
-/*
 	if len(encoded) >= SnappyThreshold + headerLength {
 		encoded, err = snappify(encoded)
 
@@ -68,7 +70,6 @@ func Marshal(v interface{}) (b []byte, err error) {
 			return nil, err
 		}
 	}
-*/
 
 	return encoded, nil
 }
