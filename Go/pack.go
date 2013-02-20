@@ -22,11 +22,13 @@ func Marshal(v interface{}) (b []byte, err error) {
 
 	rv := reflectValueOf(v)
 
-	return encode(b, rv)
+	strTable := make(map[string]int)
+
+	return encode(b, rv, strTable)
 
 }
 
-func encode(b []byte, rv reflect.Value) ([]byte, error) {
+func encode(b []byte, rv reflect.Value, strTable map[string]int) ([]byte, error) {
 
 	switch rk := rv.Kind(); rk {
 
@@ -37,21 +39,21 @@ func encode(b []byte, rv reflect.Value) ([]byte, error) {
 	case reflect.Uint8, reflect.Uint64, reflect.Uint, reflect.Uint32, reflect.Uint16:
 		b = encodeInt(b, int64(rv.Uint()))
 	case reflect.String:
-		b = encodeString(b, rv.String())
+		b = encodeString(b, rv.String(), strTable)
 	case reflect.Array, reflect.Slice:
 		if rv.Len() == 0 && rv.Type().Elem().Kind() == reflect.Uint8 {
-			b = encodeBytes(b, rv.Bytes())
+			b = encodeBytes(b, rv.Bytes(), strTable)
 		} else if rv.Index(0).Kind() == reflect.Uint8 {
-			b = encodeBytes(b, rv.Bytes())
+			b = encodeBytes(b, rv.Bytes(), strTable)
 		} else {
-			b = encodeArray(b, rv)
+			b = encodeArray(b, rv, strTable)
 		}
 
 	case reflect.Map:
-		b = encodeMap(b, rv)
+		b = encodeMap(b, rv, strTable)
 
 	case reflect.Struct:
-		b = encodeStruct(b, rv)
+		b = encodeStruct(b, rv, strTable)
 
 	default:
 		panic("no support for type")
@@ -71,7 +73,7 @@ func varint(by []byte, n uint) []uint8 {
 	return append(by, byte(n))
 }
 
-func encodeArray(by []byte, arr reflect.Value) []byte {
+func encodeArray(by []byte, arr reflect.Value, strTable map[string]int) []byte {
 
 	l := arr.Len()
 
@@ -83,7 +85,7 @@ func encodeArray(by []byte, arr reflect.Value) []byte {
 	}
 
 	for i := 0; i < l; i++ {
-		by, _ = encode(by, arr.Index(i))
+		by, _ = encode(by, arr.Index(i), strTable)
 	}
 
 	return by
@@ -102,11 +104,27 @@ func encodeBool(by []byte, bo bool) []byte {
 	return by
 }
 
-func encodeBytes(by []byte, byt []byte) []byte {
+func encodeBytes(by []byte, byt []byte, strTable map[string]int) []byte {
 
 	l := len(byt)
 
 	if l < 32 {
+
+		// track short byte strTable
+
+		s := string(byt)
+
+		copy_offs, ok := strTable[s]
+
+		if ok {
+			by = append(by, TypeCOPY)
+			by = varint(by, uint(copy_offs))
+			return by
+		}
+
+		// save for later
+		strTable[s] = len(by)
+
 		by = append(by, TypeSHORT_BINARY_0+byte(l))
 	} else {
 		by = append(by, TypeBINARY)
@@ -137,7 +155,7 @@ func encodeInt(by []byte, i int64) []byte {
 	return by
 }
 
-func encodeMap(by []byte, m reflect.Value) []byte {
+func encodeMap(by []byte, m reflect.Value, strTable map[string]int) []byte {
 
 	l := m.Len()
 
@@ -153,15 +171,26 @@ func encodeMap(by []byte, m reflect.Value) []byte {
 	for _, k := range keys {
 		// FIXME: key must be a string type, or coercible to one
 		// Do we coerce or simply force all maps to be map[string]interface{} ?
-		by, _ = encode(by, k)
+		by, _ = encode(by, k, strTable)
 		v := m.MapIndex(k)
-		by, _ = encode(by, v)
+		by, _ = encode(by, v, strTable)
 	}
 
 	return by
 }
 
-func encodeString(by []byte, s string) []byte {
+func encodeString(by []byte, s string, strTable map[string]int) []byte {
+
+	copy_offs, ok := strTable[s]
+
+	if ok {
+		by = append(by, TypeCOPY)
+		by = varint(by, uint(copy_offs))
+		return by
+	}
+
+	// save for later
+	strTable[s] = len(by)
 
 	by = append(by, TypeSTR_UTF8)
 	by = varint(by, uint(len(s)))
@@ -170,13 +199,13 @@ func encodeString(by []byte, s string) []byte {
 	return by
 }
 
-func encodeStruct(by []byte, st reflect.Value) []byte {
+func encodeStruct(by []byte, st reflect.Value, strTable map[string]int) []byte {
 
 	by = append(by, TypeOBJECT)
 
 	typ := st.Type()
 
-	by = encodeString(by, typ.Name())
+	by = encodeString(by, typ.Name(), strTable)
 
 	l := typ.NumField()
 
@@ -188,7 +217,7 @@ func encodeStruct(by []byte, st reflect.Value) []byte {
 	}
 
 	for i := 0; i < l; i++ {
-		by, _ = encode(by, st.Field(i))
+		by, _ = encode(by, st.Field(i), strTable)
 	}
 
 	return by
