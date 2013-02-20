@@ -10,6 +10,10 @@ import (
 	"strconv"
 )
 
+func getDocumentTypeAndVersion(b byte) (VersionType, byte) {
+	return VersionType(b >> 4), b & 0xF
+}
+
 func Unmarshal(b []byte, v interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -26,12 +30,22 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 	}()
 
 	// header must match
-	header := []byte{'=', 's', 'r', 'l', 1 /* version */, 0 /* header size */}
+	magic := []byte{'=', 's', 'r', 'l'}
 
 	vPtrValue := reflect.ValueOf(v)
 
-	if !bytes.Equal(header, b[:6]) {
+	if !bytes.Equal(magic, b[:4]) {
 		return errors.New("bad header")
+	}
+
+	docType, version := getDocumentTypeAndVersion(b[4])
+
+	if docType != VersionRaw {
+		return errors.New(fmt.Sprintf("Document type '%v' not yet supported", docType))
+	}
+
+	if version != 1 {
+		return errors.New(fmt.Sprintf("Document version '%d' not yet supported", version))
 	}
 
 	if reflect.TypeOf(v).Kind() != reflect.Ptr {
