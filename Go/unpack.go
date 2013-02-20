@@ -61,7 +61,13 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 			return err
 		}
 	case VersionSnappyLength:
-		fallthrough
+		ln, sz := varintdecode(b[6 + headerLength:])
+		b, err  = snappy.Decode(nil, b[6 + headerLength + sz : 6 + headerLength + sz + ln])
+		idx     = 0
+
+		if err != nil {
+			return err
+		}
 	default:
 		return errors.New(fmt.Sprintf("Document type '%v' not yet supported", docType))
 
