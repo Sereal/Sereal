@@ -1,6 +1,7 @@
 package sereal
 
 import (
+	"math"
 	"reflect"
 )
 
@@ -54,6 +55,12 @@ func encode(b []byte, rv reflect.Value, strTable map[string]int) ([]byte, error)
 
 	case reflect.Struct:
 		b = encodeStruct(b, rv, strTable)
+
+	case reflect.Float32:
+		b = encodeFloat(b, float32(rv.Float()))
+
+	case reflect.Float64:
+		b = encodeDouble(b, float64(rv.Float()))
 
 	default:
 		panic("no support for type")
@@ -133,6 +140,34 @@ func encodeBytes(by []byte, byt []byte, strTable map[string]int) []byte {
 
 	by = append(by, byt...)
 
+	return by
+}
+
+func encodeDouble(by []byte, f float64) []byte {
+
+	var u uint64
+	u = math.Float64bits(f)
+	by = append(by, TypeDOUBLE)
+	by = append(by, byte(u))
+	by = append(by, byte(u>>8))
+	by = append(by, byte(u>>16))
+	by = append(by, byte(u>>24))
+	by = append(by, byte(u>>32))
+	by = append(by, byte(u>>40))
+	by = append(by, byte(u>>48))
+	by = append(by, byte(u>>56))
+	return by
+}
+
+func encodeFloat(by []byte, f float32) []byte {
+
+	var u uint32
+	u = math.Float32bits(f)
+	by = append(by, TypeFLOAT)
+	by = append(by, byte(u))
+	by = append(by, byte(u>>8))
+	by = append(by, byte(u>>16))
+	by = append(by, byte(u>>24))
 	return by
 }
 

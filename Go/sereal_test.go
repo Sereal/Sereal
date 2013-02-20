@@ -16,7 +16,9 @@ var roundtrips = []interface{}{
 	"hello",
 	"hello, world",
 	"twas brillig and the slithy toves and gyre and gimble in the wabe",
-//        []interface{}{1,100,1000,2000,0xdeadbeef},
+	2.2,
+	9891234567890.098,
+	//        []interface{}{1,100,1000,2000,0xdeadbeef},
 }
 
 func TestRoundtrip(t *testing.T) {
@@ -29,7 +31,7 @@ func TestRoundtrip(t *testing.T) {
 		var unp interface{}
 		Unmarshal(b, &unp)
 		if !reflect.DeepEqual(v, unp) {
-                    t.Errorf("failed roundtripping: %#v: got %#v\n", v, unp)
+			t.Errorf("failed roundtripping: %#v: got %#v\n", v, unp)
 		}
 	}
 }
