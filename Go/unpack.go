@@ -17,8 +17,8 @@ func getDocumentTypeAndVersion(b byte) (VersionType, byte) {
 
 func handleHeader(b []byte) int {
 	// no op for now
-	// actually parse out header size
-	return 0
+	ln, sz := varintdecode(b[5:])
+	return ln + sz
 }
 
 func Unmarshal(b []byte, v interface{}) (err error) {
@@ -52,17 +52,17 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 	switch docType {
 
 	case VersionRaw:
-		idx = 6 + headerLength
+		idx = 5 + headerLength
 	case VersionSnappy:
-		b, err = snappy.Decode(nil, b[6 + headerLength:])
+		b, err = snappy.Decode(nil, b[5 + headerLength:])
 		idx    = 0
 
 		if err != nil {
 			return err
 		}
 	case VersionSnappyLength:
-		ln, sz := varintdecode(b[6 + headerLength:])
-		b, err  = snappy.Decode(nil, b[6 + headerLength + sz : 6 + headerLength + sz + ln])
+		ln, sz := varintdecode(b[5 + headerLength:])
+		b, err  = snappy.Decode(nil, b[5 + headerLength + sz : 5 + headerLength + sz + ln])
 		idx     = 0
 
 		if err != nil {
