@@ -1,6 +1,7 @@
 package sereal
 
 import (
+	"code.google.com/p/snappy-go/snappy"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -44,13 +45,19 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 	docType, version := getDocumentTypeAndVersion(b[4])
 	headerLength     := handleHeader(b)
 
+	var idx int
+
 	switch docType {
 
 	case VersionRaw:
-		// do nothing
-
+		idx = 6 + headerLength
 	case VersionSnappy:
-		fallthrough
+		b, err = snappy.Decode(nil, b[6 + headerLength:])
+		idx    = 0
+
+		if err != nil {
+			return err
+		}
 	case VersionSnappyLength:
 		fallthrough
 	default:
@@ -67,9 +74,6 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 	}
 
 	// just unpack everything into an interface{} for now -- worry about schema stuff later
-
-	idx := 6
-	idx += headerLength
 
 	tracked := make(map[int]reflect.Value)
 
