@@ -1,6 +1,7 @@
 package sereal
 
 import (
+	"encoding/binary"
 	"fmt"
 	"reflect"
 )
@@ -17,9 +18,11 @@ func reflectValueOf(v interface{}) reflect.Value {
 
 func Marshal(v interface{}) (b []byte, err error) {
 
-	b = make([]byte, 0, 32)
+	b = make([]byte, 6, 32)
 
-	b = append(b, []byte{'=', 's', 'r', 'l', 1 /* version */, 0 /* header size */}...)
+	binary.LittleEndian.PutUint32(b[:4], Magic)
+	b[4] = 1 /* version */
+	b[5] = 0 /* header size */
 
 	rv := reflectValueOf(v)
 
