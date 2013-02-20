@@ -10,7 +10,7 @@ WriteMakefile1(
     MIN_PERL_VERSION => '5.008',
     META_MERGE => {
         resources => {
-            repository => 'git://github.com/Sereal/Sereal.git'
+            repository => 'git://github.com/Sereal/Sereal.git',
             bugtracker => 'https://github.com/Sereal/Sereal/issues',
         },
     },
