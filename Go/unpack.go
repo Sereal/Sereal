@@ -60,8 +60,10 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 	}
 
 	// just unpack everything into an interface{} for now -- worry about schema stuff later
+	headerLength := int(b[5])
 
 	idx := 6
+	idx += headerLength
 
 	tracked := make(map[int]reflect.Value)
 
