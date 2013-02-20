@@ -47,6 +47,8 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 
 	var idx int
 
+	/* XXX instead of creating an uncompressed copy of the document,
+	 *     it would be more flexible to use a sort of "Reader" interface */
 	switch docType {
 
 	case VersionRaw:
