@@ -99,6 +99,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		bits := uint32(b[idx]) | uint32(b[idx+1])<<8 | uint32(b[idx+2])<<16 | uint32(b[idx+3])<<24
 		f = math.Float32frombits(bits)
 		idx += 4
+		ptr.Elem().SetFloat(float64(f))
 
 	case tag == TypeDOUBLE:
 		idx++
@@ -109,6 +110,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		bits := uint64(b[idx]) | uint64(b[idx+1])<<8 | uint64(b[idx+2])<<16 | uint64(b[idx+3])<<24 | uint64(b[idx+4])<<32 | uint64(b[idx+5])<<40 | uint64(b[idx+6])<<48 | uint64(b[idx+7])<<56
 		f = math.Float64frombits(bits)
 		idx += 8
+		ptr.Elem().SetFloat(f)
 
 	case tag == TypeBINARY:
 
