@@ -130,6 +130,8 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		ptr = reflect.New(reflect.TypeOf(""))
 		ptr.Elem().SetString(string(b[idx : idx+ln]))
 
+		idx += ln
+
 	case tag == TypeREFN:
 		idx++
 		e, sz, _ := decode(b, idx, tracked)
