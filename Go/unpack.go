@@ -37,8 +37,18 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 
 	docType, version := getDocumentTypeAndVersion(b[4])
 
-	if docType != VersionRaw {
+	switch docType {
+
+	case VersionRaw:
+		// do nothing
+
+	case VersionSnappy:
+		fallthrough
+	case VersionSnappyLength:
+		fallthrough
+	default:
 		return errors.New(fmt.Sprintf("Document type '%v' not yet supported", docType))
+
 	}
 
 	if version != 1 {
