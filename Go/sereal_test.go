@@ -83,3 +83,59 @@ func TestCorpus(t *testing.T) {
 		}
 	}
 }
+
+func TestSnappyEndToEndString(t *testing.T) {
+	hugeString := ""
+
+	for i := 0; i < 2048; i++ {
+		hugeString  += "a"
+	}
+
+	encoded, err := Marshal(hugeString)
+
+	if err != nil {
+		t.Errorf("encoding a huge string generated an error: %v", err)
+		return
+	}
+
+	var decoded string
+	err = Unmarshal(encoded, &decoded)
+
+	if err != nil {
+		t.Errorf("decoding a huge string generated an error: %v", err)
+		return
+	}
+
+	if hugeString != decoded {
+		t.Errorf("end-to-end encoding + decoding of huge string didn't work")
+		return
+	}
+}
+
+func TestSnappyEndToEndArray(t *testing.T) {
+	hugeArray  := make([]int, 2048)
+
+	for i := 0; i < 2048; i++ {
+		hugeArray[i] = 4
+	}
+
+	encoded, err := Marshal(hugeArray)
+
+	if err != nil {
+		t.Errorf("encoding a huge array generated an error: %v", err)
+		return
+	}
+
+	var decoded []int
+	err = Unmarshal(encoded, &decoded)
+
+	if err != nil {
+		t.Errorf("decoding a huge array generated an error: %v", err)
+		return
+	}
+
+	if !reflect.DeepEqual(hugeArray, decoded) {
+		t.Errorf("end-to-end encoding + decoding of huge array didn't work")
+		return
+	}
+}
