@@ -1,8 +1,14 @@
 /* c-basic-offset: 4;  indent-tabs-mode: nil */
-#ifndef _SRL_ENCODER_MODULE_H_
-#define _SRL_ENCODER_MODULE_H_
+#ifndef _UTIL_H_
+#define _UTIL_H_
 
-static inline  void print_description(PyObject *obj, char *name)
+#include "srl_inline.h"
+
+/* Set If and Only If */
+/* Be aware that flag and bitmask are evaluated twice */
+#define SET_IFF(pred,flag,bitmask) ((flag) = (pred) ? (flag | (bitmask)) : (flag & ~(bitmask)))
+
+SRL_STATIC_INLINE  void print_description(PyObject *obj, char *name)
 #ifdef NDEBUG
 {}
 #else

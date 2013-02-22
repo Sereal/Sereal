@@ -3,7 +3,8 @@ from distutils.core import setup, Extension
 modules = [
     Extension('srlencoder',
               sources=['srl_encoder_module.c','srl_encoder.c'],
-              depends=['srl_encoder_module.h','srl_encoder.h','util.h'],
+              depends=['srl_encoder.h','srl_inline.h','srl_buffer.h','util.h'],
+              include_dirs=['../shared/'],
               ),
     ]
 

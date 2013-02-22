@@ -1,10 +1,10 @@
 /* c-basic-offset: 4;  indent-tabs-mode: nil */
 #include <Python.h>
 #include "util.h"
+#include "srl_inline.h"
 #include "srl_encoder.h"
-#include "srl_encoder_module.h"
 
-static inline int  encoder_args_from_dict(PyObject *dict, srl_encoder_ctor_args *out_args);
+SRL_STATIC_INLINE int  encoder_args_from_dict(PyObject *dict, srl_encoder_ctor_args *out_args);
 static PyObject *encode(PyObject *self, PyObject *args, PyObject *kwargs);
 
 static PyMethodDef srl_encoder_methods[] = 
@@ -32,7 +32,7 @@ PyObject *encode(PyObject *self, PyObject *args, PyObject *kwargs)
     /*
       signature: encode(obj,**config)
     */
-    srl_encoder *enc;
+    srl_encoder_t *enc;
     srl_encoder_ctor_args enc_args;
     PyObject *obj, *ret;
 
@@ -81,8 +81,8 @@ int encoder_args_from_dict(PyObject *dict, srl_encoder_ctor_args *out_args)
     if (dict) {
         ONKEY("no_shared_hashkeys",
               {
-                  SET_IFF(!PyObject_IsTrue(val), 
-                          args.operational_flags, SRL_F_SHARED_HASHKEYS);
+                  SET_IFF(!PyObject_IsTrue(val), args.
+                          flags, SRL_F_SHARED_HASHKEYS);
               });
         ONKEY("max_recursion_depth",
               {
@@ -123,12 +123,12 @@ int encoder_args_from_dict(PyObject *dict, srl_encoder_ctor_args *out_args)
         ONKEY("snappy",
               {
                   SET_IFF(PyObject_IsTrue(val), 
-                          args.operational_flags, SRL_F_COMPRESS_SNAPPY);
+                          args.flags, SRL_F_COMPRESS_SNAPPY);
               });
         ONKEY("snappy_incr",
               {
                   SET_IFF(PyObject_IsTrue(val),
-                          args.operational_flags, 
+                          args.flags, 
                           SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
               });
         ONKEY("snappy_threshold",
@@ -141,29 +141,29 @@ int encoder_args_from_dict(PyObject *dict, srl_encoder_ctor_args *out_args)
         ONKEY("sort_keys",
               {
                   SET_IFF(PyObject_IsTrue(val), 
-                          args.operational_flags, SRL_F_SORT_KEYS);
+                          args.flags, SRL_F_SORT_KEYS);
               });
 
         ONKEY("stringify_unknown",
               {
                   SET_IFF(PyObject_IsTrue(val), 
-                          args.operational_flags, SRL_F_STRINGIFY_UNKNOWN);
+                          args.flags, SRL_F_STRINGIFY_UNKNOWN);
               });
         ONKEY("undef_unknown",
               {
                   SET_IFF(PyObject_IsTrue(val), 
-                          args.operational_flags, SRL_F_UNDEF_UNKNOWN);
+                          args.flags, SRL_F_UNDEF_UNKNOWN);
               });
         ONKEY("warn_unknown",
               {
                   SET_IFF(PyObject_IsTrue(val), 
-                          args.operational_flags, SRL_F_WARN_UNKNOWN);
+                          args.flags, SRL_F_WARN_UNKNOWN);
               });
         /*
           undef_unknown && stringify_unknown options are mutually exclusive
         */
-        if ((args.operational_flags & SRL_F_UNDEF_UNKNOWN) && 
-            (args.operational_flags & SRL_F_STRINGIFY_UNKNOWN))
+        if ((args.flags & SRL_F_UNDEF_UNKNOWN) && 
+            (args.flags & SRL_F_STRINGIFY_UNKNOWN))
         {
             PyErr_SetString(PyExc_TypeError, 
                             "'undef_unknown' and 'stringify_unknown' options"

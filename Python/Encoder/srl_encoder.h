@@ -2,12 +2,13 @@
 #ifndef _SRL_ENCODER_H_
 #define _SRL_ENCODER_H_
 
-
 #include <stdint.h>
+
+#define INITIAL_BUFFER_SIZE 64U
 
 typedef struct {
     char *buf_start;               /* ptr to "physical" start of output buffer */
-    char *buf_end;                 /* ptr to end of output buffer */
+    char *buf_end;                 /* ptr to end of output buffer  */
     char *pos;                     /* ptr to current position within output buffer */
     uint32_t operational_flags;    /* flags that pertain to one encode run
                                       (rather than being options): 
@@ -16,21 +17,24 @@ typedef struct {
     unsigned max_recursion_depth;  /* Configurable limit on the number of
                                       recursive calls we're willing to make */
     unsigned recursion_depth;      /* current recursion depth */
-} srl_encoder;
+} srl_encoder_t;
 
 typedef struct srl_encoder_ctor_args {
-    uint32_t operational_flags;
+    uint32_t flags;
     unsigned long max_recursion_depth; /* Set max_recursion_depth to 0 for 
                                           the default python recursion depth */
 } srl_encoder_ctor_args;
 
 extern const srl_encoder_ctor_args default_encoder_ctor_args;
 
-srl_encoder *srl_encoder_new(const srl_encoder_ctor_args *);
-void srl_encoder_delete(srl_encoder *);
-int  srl_encoder_ctor(srl_encoder *, const srl_encoder_ctor_args *);
-void srl_encoder_dtor(srl_encoder *);
-PyObject *srl_encoder_dump(srl_encoder *, PyObject *);
+srl_encoder_t *srl_encoder_new(const srl_encoder_ctor_args *);
+void srl_encoder_delete(srl_encoder_t *);
+int  srl_encoder_ctor(srl_encoder_t *, const srl_encoder_ctor_args *);
+void srl_encoder_dtor(srl_encoder_t *);
+PyObject *srl_encoder_dump(srl_encoder_t *, PyObject *);
+
+
+#define SRL_ENC_HAVE_OPTION(enc, bitmask) ((enc)->flags & bitmask)
 
 /* Will default to "on". If set, hash keys will be shared using COPY.
  * Corresponds to the inverse of constructor option "no_shared_hashkeys" */
@@ -62,9 +66,11 @@ PyObject *srl_encoder_dump(srl_encoder *, PyObject *);
 #define SRL_F_COMPRESS_SNAPPY                64UL
 #define SRL_F_COMPRESS_SNAPPY_INCREMENTAL   128UL
 
+
 /* Only meaningful if SRL_F_WARN_UNKNOWN also set. If this one is set, then we don't warn
- * if the unsupported item has string overloading. */
+ * if the unsupported item has string overloading. 
 #define SRL_F_NOWARN_UNKNOWN_OVERLOAD       256UL
+*/
 
 /* Only meaningful if SRL_F_WARN_UNKNOWN also set. If this one is set, then we don't warn
  * if the unsupported item has string overloading. */
