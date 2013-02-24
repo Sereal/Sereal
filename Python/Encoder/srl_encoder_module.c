@@ -86,39 +86,17 @@ int encoder_args_from_dict(PyObject *dict, srl_encoder_ctor_args *out_args)
               });
         ONKEY("max_recursion_depth",
               {
-                  PyObject *py_depth;
                   long depth;
-                  int overflow;
 
-                  py_depth = PyNumber_Long(val);
-                  if (py_depth) {
-                      PyErr_Clear(); /* To know if -1 from PyLong_AsLong
-                                        represents an error or a number*/
-                      depth = PyLong_AsLong(py_depth);
-                      overflow = 
-                          -1 == depth && 
-                          PyErr_Occurred() &&
-                          PyErr_ExceptionMatches(PyExc_OverflowError)
-                          ? 1 : 0;
-                      Py_DECREF(py_depth);
-
-                      if (!overflow && depth >= 0)
-                          args.max_recursion_depth = depth;
-                  } 
-
-                  if (!py_depth) {
-                      PyErr_WarnEx(PyExc_RuntimeWarning, 
-                                   "Non-number value given for max_recursion_depth,"
-                                   " using default", 0);
-                  } else if (overflow) {
-                      PyErr_WarnEx(PyExc_RuntimeWarning, 
-                                   "Value given for max_recursion_depth overflows,"
-                                   " using default", 0);
-                  } else if (depth < 0) {
-                      PyErr_WarnEx(PyExc_RuntimeWarning, 
-                                   "Negative value given for max_recursion_depth,"
-                                   " using default", 0);
+                  depth = PyInt_AsLong(val);
+                  if (depth == -1 && PyErr_Occurred()) {
+                      PyErr_SetString(
+                          PyErr_Occurred(), 
+                          "max_recursion_depth requires an integer");
+                      return -1;
                   }
+
+                  args.max_recursion_depth = depth;
               });
         ONKEY("snappy",
               {
