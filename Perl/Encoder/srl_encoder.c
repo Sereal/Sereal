@@ -257,7 +257,6 @@ srl_build_encoder_struct(pTHX_ HV *opt)
 
         svp = hv_fetchs(opt, "sort_keys", 0);
         if ( svp && SvTRUE(*svp) ) {
-            undef_unknown = 1;
             enc->flags |= SRL_F_SORT_KEYS;
         }
 
