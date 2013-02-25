@@ -62,6 +62,15 @@ func encode(b []byte, rv reflect.Value, strTable map[string]int) ([]byte, error)
 	case reflect.Float64:
 		b = encodeDouble(b, float64(rv.Float()))
 
+	case reflect.Interface:
+		// recurse until we get a concrete type
+		// could be optmized into a tail call
+		var err error
+		b, err = encode(b, rv.Elem(), strTable)
+		if err != nil {
+			return nil, err
+		}
+
 	default:
 		panic("no support for type")
 	}

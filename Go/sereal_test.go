@@ -20,7 +20,8 @@ var roundtrips = []interface{}{
 	float32(9891234567890.098),
 	float64(2.2),
 	float64(9891234567890.098),
-	//        []interface{}{1,100,1000,2000,0xdeadbeef},
+	[]interface{}{1, 100, 1000, 2000, 0xdeadbeef},
+	map[string]interface{}{"foo": 1, "bar": 2, "baz": "qux"},
 }
 
 func TestRoundtrip(t *testing.T) {
