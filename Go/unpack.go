@@ -1,7 +1,7 @@
 package sereal
 
 import (
-	"code.google.com/p/snappy-go/snappy"
+	//"code.google.com/p/snappy-go/snappy"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -45,22 +45,26 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 	docType, version := getDocumentTypeAndVersion(b[4])
 	headerLength     := handleHeader(b)
 
-	var idx int
+	idx := 5 + headerLength
 
 	/* XXX instead of creating an uncompressed copy of the document,
 	 *     it would be more flexible to use a sort of "Reader" interface */
 	switch docType {
 
 	case VersionRaw:
-		idx = 5 + headerLength
+		/* no-op */
 	case VersionSnappy:
+/*
 		b, err = snappy.Decode(nil, b[5 + headerLength:])
 		idx    = 0
 
 		if err != nil {
 			return err
 		}
+*/
+		fallthrough
 	case VersionSnappyLength:
+/*
 		ln, sz := varintdecode(b[5 + headerLength:])
 		b, err  = snappy.Decode(nil, b[5 + headerLength + sz : 5 + headerLength + sz + ln])
 		idx     = 0
@@ -68,6 +72,8 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 		if err != nil {
 			return err
 		}
+*/
+		fallthrough
 	default:
 		return errors.New(fmt.Sprintf("Document type '%v' not yet supported", docType))
 
