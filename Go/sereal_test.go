@@ -141,3 +141,36 @@ func TestSnappyEndToEndArray(t *testing.T) {
 	}
 }
 */
+
+func TestSnappyArray(t *testing.T) {
+	hugeString := ""
+
+	for i := 0; i < 2048; i++ {
+		hugeString  += "a"
+	}
+
+	hugeArray   := make([]string, 2)
+	hugeArray[0] = hugeString
+	hugeArray[1] = hugeString
+
+	encoded, err := Marshal(hugeArray)
+
+	if err != nil {
+		t.Errorf("encoding a huge array generated an error: %v", err)
+		return
+	}
+
+	var decoded []interface{}
+	err = Unmarshal(encoded, &decoded)
+
+	if err != nil {
+		t.Errorf("decoding a huge array generated an error: %v", err)
+		return
+	}
+
+	// XXX I think these should be the same object in memory as well
+	if decoded[0].(string) != decoded[1].(string) {
+		t.Errorf("decoding an array of two identical strings resulted in two different strings")
+	}
+	// XXX we should also test two structurally identical (but identically different) strings
+}
