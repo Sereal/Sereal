@@ -16,8 +16,10 @@ var roundtrips = []interface{}{
 	"hello",
 	"hello, world",
 	"twas brillig and the slithy toves and gyre and gimble in the wabe",
-	2.2,
-	9891234567890.098,
+	float32(2.2),
+	float32(9891234567890.098),
+	float64(2.2),
+	float64(9891234567890.098),
 	//        []interface{}{1,100,1000,2000,0xdeadbeef},
 }
 
