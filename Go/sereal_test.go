@@ -2,10 +2,11 @@ package sereal
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 )
 
@@ -76,8 +77,8 @@ func unmarshalSafely(contents []byte, dest interface{}) (err error) {
 func TestCorpus(t *testing.T) {
 	corpusFiles, err := filepath.Glob("test_dir/test_data_*")
 	if err != nil {
-	    t.Errorf("error opening test_dir: %v", err)
-	    return
+		t.Errorf("error opening test_dir: %v", err)
+		return
 	}
 
 	for _, corpusFile := range corpusFiles {
@@ -101,7 +102,7 @@ func TestSnappyEndToEndString(t *testing.T) {
 	hugeString := ""
 
 	for i := 0; i < 2048; i++ {
-		hugeString  += "a"
+		hugeString += "a"
 	}
 
 	encoded, err := Marshal(hugeString)
@@ -125,9 +126,8 @@ func TestSnappyEndToEndString(t *testing.T) {
 	}
 }
 
-/*
 func TestSnappyEndToEndArray(t *testing.T) {
-	hugeArray  := make([]int, 2048)
+	hugeArray := make([]interface{}, 2048)
 
 	for i := 0; i < 2048; i++ {
 		hugeArray[i] = 4
@@ -140,7 +140,7 @@ func TestSnappyEndToEndArray(t *testing.T) {
 		return
 	}
 
-	var decoded []int
+	var decoded []interface{}
 	err = Unmarshal(encoded, &decoded)
 
 	if err != nil {
@@ -153,18 +153,15 @@ func TestSnappyEndToEndArray(t *testing.T) {
 		return
 	}
 }
-*/
 
 func TestSnappyArray(t *testing.T) {
 	hugeString := ""
 
 	for i := 0; i < 2048; i++ {
-		hugeString  += "a"
+		hugeString += "a"
 	}
 
-	hugeArray   := make([]string, 2)
-	hugeArray[0] = hugeString
-	hugeArray[1] = hugeString
+	hugeArray := []string{hugeString, hugeString}
 
 	encoded, err := Marshal(hugeArray)
 
@@ -186,4 +183,22 @@ func TestSnappyArray(t *testing.T) {
 		t.Errorf("decoding an array of two identical strings resulted in two different strings")
 	}
 	// XXX we should also test two structurally identical (but identically different) strings
+
+	// test many duplicated strings -- this uses both the string table and snappy compressiong
+	// this ensures we're not messing up the offsets when decoding
+	manydups := make([]string, 2048)
+	for i := 0; i < len(manydups); i++ {
+		manydups[i] = "hello, world " + strconv.Itoa(i%10)
+	}
+
+	encoded, _ = Marshal(manydups)
+	Unmarshal(encoded, &decoded)
+
+	for i := 0; i < 2048; i++ {
+		s, ok := decoded[i].(string)
+		expected := "hello, world " + strconv.Itoa(i%10)
+		if !ok || s != expected {
+			t.Errorf("failed decompressing many-dup string: ok=%v s=%s expected=%s", ok, s, expected)
+		}
+	}
 }

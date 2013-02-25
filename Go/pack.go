@@ -1,10 +1,10 @@
 package sereal
 
 import (
-	"math"
 	"code.google.com/p/snappy-go/snappy"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"reflect"
 )
 
@@ -28,16 +28,16 @@ func snappify(b []byte) ([]byte, error) {
 	//     store the compressed document, which isn't necessary.  You
 	//     could probably write directly to the slice after the header
 	//     and after the varint holding the length
-	compressed, err  := snappy.Encode(nil, b[5 + optHeaderLength:])
+	compressed, err := snappy.Encode(nil, b[5+optHeaderLength:])
 	if err != nil {
 		return nil, err
 	}
-        // XXX I'm sure that this could be using a slice of b rather than nil
-        //     so we don't need to copy, but my Go-fu is too low to do it.
-        compressedLength := varint(nil, uint(len(compressed)))
-        copy(b[5 + optHeaderLength:], compressedLength)
+	// XXX I'm sure that this could be using a slice of b rather than nil
+	//     so we don't need to copy, but my Go-fu is too low to do it.
+	compressedLength := varint(nil, uint(len(compressed)))
+	copy(b[5+optHeaderLength:], compressedLength)
 
-	bytesCopied := copy(b[5 + optHeaderLength + len(compressedLength):], compressed)
+	bytesCopied := copy(b[5+optHeaderLength+len(compressedLength):], compressed)
 
 	// XXX should we verify that bytesCopied == len(compressed)?
 
@@ -47,7 +47,7 @@ func snappify(b []byte) ([]byte, error) {
 func Marshal(v interface{}) (b []byte, err error) {
 
 	headerLength := 6
-	b             = make([]byte, headerLength, 32)
+	b = make([]byte, headerLength, 32)
 
 	binary.LittleEndian.PutUint32(b[:4], Magic)
 	b[4] = 1 /* version */
@@ -63,15 +63,13 @@ func Marshal(v interface{}) (b []byte, err error) {
 		return nil, err
 	}
 
-/*
-	if len(encoded) >= SnappyThreshold + headerLength {
+	if len(encoded) >= SnappyThreshold+headerLength {
 		encoded, err = snappify(encoded)
 
 		if err != nil {
 			return nil, err
 		}
 	}
-*/
 
 	return encoded, nil
 }
