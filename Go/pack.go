@@ -62,6 +62,7 @@ func Marshal(v interface{}) (b []byte, err error) {
 		return nil, err
 	}
 
+/*
 	if len(encoded) >= SnappyThreshold + headerLength {
 		encoded, err = snappify(encoded)
 
@@ -69,6 +70,7 @@ func Marshal(v interface{}) (b []byte, err error) {
 			return nil, err
 		}
 	}
+*/
 
 	return encoded, nil
 }
