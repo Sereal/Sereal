@@ -175,6 +175,13 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		idx += 8
 		ptr.Elem().SetFloat(f)
 
+	case tag == TypeUNDEF:
+		idx++
+
+		u := &PerlUndef{}
+
+		ptr = reflect.ValueOf(u)
+
 	case tag == TypeBINARY:
 
 		idx++
@@ -250,6 +257,30 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 			ptr.Elem().Index(i).Set(e.Elem())
 		}
 
+	case tag == TypeOBJECT:
+		idx++
+
+		className, sz, _ := decode(b, idx, tracked)
+		idx += sz
+		ref, sz, _ := decode(b, idx, tracked)
+		idx += sz
+
+		s := stringOf(className)
+		o := &PerlObject{s, ref.Elem().Interface()}
+		ptr = reflect.ValueOf(o)
+
+	case tag == TypeOBJECTV:
+		idx++
+		offs, sz := varintdecode(b[idx:])
+		idx += sz
+		className, _, _ := decode(b, offs, tracked)
+		ref, sz, _ := decode(b, idx, tracked)
+		idx += sz
+
+		s := stringOf(className)
+		o := &PerlObject{s, ref.Elem().Interface()}
+		ptr = reflect.ValueOf(o)
+
 	case tag == TypeTRUE, tag == TypeFALSE:
 		idx++
 		ptr = reflect.New(reflect.TypeOf(false))
@@ -315,6 +346,25 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 
 		p, _, _ := decode(b, offs, tracked)
 		ptr = p
+
+	case tag == TypeWEAKEN:
+		idx++
+
+		r, sz, _ := decode(b, idx, tracked)
+		idx += sz
+		w := PerlWeakRef{r}
+		ptr = reflect.ValueOf(w)
+
+	case tag == TypeREGEXP:
+		idx++
+		pattern, sz, _ := decode(b, idx, tracked)
+		idx += sz
+		modifiers, sz, _ := decode(b, idx, tracked)
+		idx += sz
+
+		re := &PerlRegexp{pattern.Elem().String(), modifiers.Elem().String()}
+
+		ptr = reflect.ValueOf(re)
 
 	default:
 		panic("unknown tag byte: " + strconv.Itoa(int(tag)))
