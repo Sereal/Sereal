@@ -122,6 +122,12 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 
 	tag := b[idx]
 
+	// skip over any padding bytes
+	for tag == TypePAD {
+		idx++
+		tag = b[idx]
+	}
+
 	trackme := (tag & TrackFlag) == TrackFlag
 
 	tag &^= TrackFlag
