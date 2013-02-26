@@ -146,7 +146,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		ptr = reflect.New(reflect.TypeOf(int(0)))
 		idx++
 		i, sz := varintdecode(b[idx:])
-		idx += int(sz)
+		idx += sz
 		if tag == TypeZIGZAG {
 			i = -(1 + (i >> 1)) // un-zigzag
 		}
@@ -186,7 +186,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 
 		idx++
 		ln, sz := varintdecode(b[idx:])
-		idx += int(sz)
+		idx += sz
 
 		ptr = reflect.MakeSlice(reflect.TypeOf([]byte{0}), ln, ln)
 		reflect.Copy(ptr.Elem(), reflect.ValueOf(b[idx:idx+ln]))
@@ -197,7 +197,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 
 		idx++
 		ln, sz := varintdecode(b[idx:])
-		idx += int(sz)
+		idx += sz
 
 		ptr = reflect.New(reflect.TypeOf(""))
 		ptr.Elem().SetString(string(b[idx : idx+ln]))
@@ -216,7 +216,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		idx++
 
 		offs, sz := varintdecode(b[idx:])
-		idx += int(sz)
+		idx += sz
 
 		ptr = tracked[offs]
 
@@ -225,7 +225,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		idx++
 
 		ln, sz := varintdecode(b[idx:])
-		idx += int(sz)
+		idx += sz
 
 		m := make(map[string]interface{})
 		ptr = reflect.ValueOf(&m)
@@ -245,7 +245,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 
 		idx++
 		ln, sz := varintdecode(b[idx:])
-		idx += int(sz)
+		idx += sz
 
 		a := make([]interface{}, ln)
 
@@ -334,7 +334,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		idx++
 
 		offs, sz := varintdecode(b[idx:])
-		idx += int(sz)
+		idx += sz
 
 		ptr = tracked[offs]
 
@@ -342,7 +342,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		idx++
 
 		offs, sz := varintdecode(b[idx:])
-		idx += int(sz)
+		idx += sz
 
 		p, _, _ := decode(b, offs, tracked)
 		ptr = p
