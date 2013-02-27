@@ -1,44 +1,5 @@
-/* c-basic-offset: 4;  indent-tabs-mode: nil */
-#ifndef _SRL_ENCODER_H_
-#define _SRL_ENCODER_H_
-
-#include <stdint.h>
-#include "srl_inline.h"
-
-#define INITIAL_BUFFER_SIZE 64U
-
-typedef struct {
-    char *buf_start;               /* ptr to "physical" start of output buffer */
-    char *buf_end;                 /* ptr to end of output buffer  */
-    char *pos;                     /* ptr to current position within output buffer */
-    uint32_t operational_flags;    /* flags that pertain to one encode run
-                                      (rather than being options): 
-                                      See SRL_OF_* defines */
-    uint32_t flags;                 /* flag-like options: See SRL_F_* defines */
-    unsigned max_recursion_depth;  /* Configurable limit on the number of
-                                      recursive calls we're willing to make */
-    unsigned recursion_depth;      /* current recursion depth */
-} srl_encoder_t;
-
-typedef struct srl_encoder_ctor_args {
-    uint32_t flags;
-    unsigned long max_recursion_depth; /* Set max_recursion_depth to 0 for 
-                                          the default python recursion depth */
-} srl_encoder_ctor_args;
-
-extern const srl_encoder_ctor_args default_encoder_ctor_args;
-
-srl_encoder_t *srl_encoder_new(const srl_encoder_ctor_args *);
-void srl_encoder_delete(srl_encoder_t *);
-int  srl_encoder_ctor(srl_encoder_t *, const srl_encoder_ctor_args *);
-void srl_encoder_dtor(srl_encoder_t *);
-PyObject *srl_encoder_dump(srl_encoder_t *, PyObject *);
-
-SRL_STATIC_INLINE int
-SRL_ENC_HAVE_OPTION(const srl_encoder_t *enc, uint32_t bitmask)
-{
-    return enc->flags & bitmask;
-}
+#ifndef _SRL_ENCODER_FLAGS_H_
+#define _SRL_ENCODER_FLAGS_H_
 
 /* Will default to "on". If set, hash keys will be shared using COPY.
  * Corresponds to the inverse of constructor option "no_shared_hashkeys" */
