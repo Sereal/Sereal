@@ -32,23 +32,31 @@ PyObject *encode(PyObject *self, PyObject *args, PyObject *kwargs)
     /*
       signature: encode(obj,**config)
     */
+    PyObject *obj,*ret;
     srl_encoder_t *enc;
     srl_encoder_ctor_args enc_args;
-    PyObject *obj, *ret;
+
+    enc = NULL;
+    ret = obj = NULL;
 
     if (!PyArg_ParseTuple(args, "O:encode", &obj)) 
-        return NULL;
+        goto finally;
+
+    Py_INCREF(obj);
 
     if (-1 == encoder_args_from_dict(kwargs, &enc_args))
-        return NULL;
+        goto finally;
 
     enc = srl_encoder_new(&enc_args);
     if (!enc)
-        return NULL;
+        goto finally;
 
     ret = srl_encoder_dump(enc, obj);
-    srl_encoder_delete(enc);
 
+finally:
+    Py_XDECREF(obj);
+    if (enc)
+        srl_encoder_delete(enc);
     return ret;
 }
 
