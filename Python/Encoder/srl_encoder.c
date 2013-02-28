@@ -126,10 +126,11 @@ void srl_write_header(srl_encoder_t *enc)
 
 /*
   srl_dump_pyobj delegates to serialize:
-  Strings,
-  Integers,
-  Lists,
-  Dictionaries,
+  PyString,
+  PyUnicode,
+  PyInt,
+  PyBool, (as a subclass of PyInt)
+  PyFloat,
 */
 int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
 {
@@ -152,9 +153,10 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
     /*
       At the moment we do not support structures containing:
         PyLong
-        PyFloat
         PyComplex
         PyByteArray
+        PyList
+        PyDictionary
      */
     /*
       First we do fast exact checks for the base types.
