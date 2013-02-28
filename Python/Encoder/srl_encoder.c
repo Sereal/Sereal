@@ -228,6 +228,7 @@ int srl_dump_pyfloat(srl_encoder_t *enc, PyObject *obj)
 {
     assert(enc);
     assert(obj);
+    assert(PyFloat_Check(obj));
 
     return srl_buf_cat_double(enc, SRL_HDR_DOUBLE, PyFloat_AS_DOUBLE(obj));
 }
@@ -240,6 +241,7 @@ int srl_dump_pystring(srl_encoder_t *enc, PyObject *obj)
 
     assert(enc);
     assert(obj);
+    assert(PyString_Check(objc));
 
     if (-1 == PyString_AsStringAndSize(obj, &p, &n))
         return -1;
@@ -256,6 +258,7 @@ int srl_dump_pyunicode(srl_encoder_t *enc, PyObject *obj)
 
     assert(enc);
     assert(obj);
+    assert(PyUnicode_Check(obj));
 
     ret = -1;
     utf8 = PyUnicode_AsUTF8String(obj);
