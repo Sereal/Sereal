@@ -154,7 +154,6 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
         PyFloat
         PyComplex
         PyByteArray
-        PyUnicode
      */
     /*
       First we do fast exact checks for the base types.
