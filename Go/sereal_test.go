@@ -63,6 +63,17 @@ func unmarshalSafely(contents []byte, dest interface{}) (err error) {
 	return err
 }
 
+func marshalSafely(src interface{}) (b []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.New(fmt.Sprintf("Recovered %v", r))
+		}
+	}()
+
+	b, err = Marshal(src)
+	return b, err
+}
+
 /*
  * To make the corpus of test files:
  * perl -I Perl/shared/t/lib/ -MSereal::TestSet -MSereal::Encoder -e'Sereal::TestSet::write_test_files("test_dir")'
@@ -94,7 +105,17 @@ func TestCorpus(t *testing.T) {
 
 		if err != nil {
 			t.Errorf("unpacking %s generated an error: %v", corpusFile, err)
+			continue
 		}
+
+		b, err := marshalSafely(value)
+
+		if err != nil {
+			t.Errorf("packing %s generated an error: %v", corpusFile, err)
+			continue
+		}
+
+		ioutil.WriteFile(corpusFile+"-go.out", b, 0600)
 	}
 }
 
