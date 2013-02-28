@@ -36,6 +36,8 @@ PyObject *encode(PyObject *self, PyObject *args, PyObject *kwargs)
     srl_encoder_t *enc;
     srl_encoder_ctor_args enc_args;
 
+    (void)self; //unused
+
     enc = NULL;
     ret = obj = NULL;
 

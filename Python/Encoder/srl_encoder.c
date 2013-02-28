@@ -7,12 +7,13 @@
 #include "srl_buffer.h"
 
 
-SRL_STATIC_INLINE int SRL_ENTER_RECURSIVE_CALL(srl_encoder_t *enc, const char *msg);
+SRL_STATIC_INLINE int SRL_ENTER_RECURSIVE_CALL(srl_encoder_t *enc, char *msg);
 SRL_STATIC_INLINE void SRL_LEAVE_RECURSIVE_CALL(srl_encoder_t *enc);
 SRL_STATIC_INLINE void srl_write_header(srl_encoder_t *enc);
 SRL_STATIC_INLINE int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj);
 SRL_STATIC_INLINE int srl_dump_long(srl_encoder_t *enc, long n);
 SRL_STATIC_INLINE int srl_dump_binary(srl_encoder_t *enc, const char *, Py_ssize_t);
+SRL_STATIC_INLINE int srl_dump_pyfloat(srl_encoder_t *enc, PyObject *obj);
 SRL_STATIC_INLINE int srl_dump_pystring(srl_encoder_t *enc, PyObject *obj);
 SRL_STATIC_INLINE int srl_dump_pyunicode(srl_encoder_t *enc, PyObject *obj);
 
@@ -185,6 +186,10 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
             if (-1 == srl_dump_pyunicode(enc, obj))
                 goto finally;
             break;
+        case FLOAT:
+            if (-1 == srl_dump_pyfloat(enc, obj))
+                goto finally;
+            break;
         default:
             PyErr_Format(PyExc_NotImplementedError,
                          "srl_dump_pyobjc: %s dumping not implemented yet",
@@ -217,11 +222,23 @@ int srl_dump_long(srl_encoder_t *enc, long n)
 }
 
 SRL_STATIC_INLINE
+int srl_dump_pyfloat(srl_encoder_t *enc, PyObject *obj)
+{
+    assert(enc);
+    assert(obj);
+
+    return srl_buf_cat_double(enc, SRL_HDR_DOUBLE, PyFloat_AS_DOUBLE(obj));
+}
+
+SRL_STATIC_INLINE
 int srl_dump_pystring(srl_encoder_t *enc, PyObject *obj)
 {
-
     char *p;
     Py_ssize_t n;
+
+    assert(enc);
+    assert(obj);
+
     if (-1 == PyString_AsStringAndSize(obj, &p, &n))
         return -1;
     return srl_dump_binary(enc, p, n);
@@ -235,6 +252,9 @@ int srl_dump_pyunicode(srl_encoder_t *enc, PyObject *obj)
     Py_ssize_t n;
     int ret;
 
+    assert(enc);
+    assert(obj);
+
     ret = -1;
     utf8 = PyUnicode_AsUTF8String(obj);
     if (!utf8)
@@ -242,6 +262,9 @@ int srl_dump_pyunicode(srl_encoder_t *enc, PyObject *obj)
 
     if (-1 == PyString_AsStringAndSize(utf8, &p, &n))
         goto finally;
+
+    assert(p);
+    assert(n >= 0);
 
     /* overallocate a bit sometimes */
     if (-1 == BUF_SIZE_ASSERT(enc, 1 + SRL_MAX_VARINT_LENGTH + n))
@@ -279,12 +302,12 @@ int srl_dump_binary(srl_encoder_t *enc, const char *p, Py_ssize_t n)
 
 
 SRL_STATIC_INLINE
-int SRL_ENTER_RECURSIVE_CALL(srl_encoder_t *enc, const char *msg)
+int SRL_ENTER_RECURSIVE_CALL(srl_encoder_t *enc, char *msg)
 {
     assert(enc);
     assert(msg);
 
-    if (-1 == Py_EnterRecursiveCall(" aborting serialization"))
+    if (-1 == Py_EnterRecursiveCall(msg))
         return -1;
 
     enc->recursion_depth++;
