@@ -12,7 +12,9 @@ SRL_STATIC_INLINE void SRL_LEAVE_RECURSIVE_CALL(srl_encoder_t *enc);
 SRL_STATIC_INLINE void srl_write_header(srl_encoder_t *enc);
 SRL_STATIC_INLINE int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj);
 SRL_STATIC_INLINE int srl_dump_long(srl_encoder_t *enc, long n);
-SRL_STATIC_INLINE int srl_dump_bytes(srl_encoder_t *enc, const char *p, Py_ssize_t n);
+SRL_STATIC_INLINE int srl_dump_binary(srl_encoder_t *enc, const char *, Py_ssize_t);
+SRL_STATIC_INLINE int srl_dump_pystring(srl_encoder_t *enc, PyObject *obj);
+SRL_STATIC_INLINE int srl_dump_pyunicode(srl_encoder_t *enc, PyObject *obj);
 
 const srl_encoder_ctor_args default_encoder_ctor_args = 
 {
@@ -177,15 +179,13 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
                 goto finally;
             break;
         case BYTES:
-        {
-            char *p;
-            Py_ssize_t n;
-            if (-1 == PyString_AsStringAndSize(obj, &p, &n))
-                goto finally;
-            if (-1 == srl_dump_bytes(enc, p, n))
+            if (-1 == srl_dump_pystring(enc, obj))
                 goto finally;
             break;
-        }
+        case UNICODE:
+            if (-1 == srl_dump_pyunicode(enc, obj))
+                goto finally;
+            break;
         default:
             PyErr_Format(PyExc_NotImplementedError,
                          "srl_dump_pyobjc: %s dumping not implemented yet",
@@ -217,8 +217,49 @@ int srl_dump_long(srl_encoder_t *enc, long n)
             : srl_buf_cat_zigzag(enc, SRL_HDR_ZIGZAG, n);
 }
 
+SRL_STATIC_INLINE
+int srl_dump_pystring(srl_encoder_t *enc, PyObject *obj)
+{
+
+    char *p;
+    Py_ssize_t n;
+    if (-1 == PyString_AsStringAndSize(obj, &p, &n))
+        return -1;
+    return srl_dump_binary(enc, p, n);
+}
+
+SRL_STATIC_INLINE
+int srl_dump_pyunicode(srl_encoder_t *enc, PyObject *obj)
+{
+    PyObject *utf8;
+    char *p;
+    Py_ssize_t n;
+    int ret;
+
+    ret = -1;
+    utf8 = PyUnicode_AsUTF8String(obj);
+    if (!utf8)
+        goto finally;
+
+    if (-1 == PyString_AsStringAndSize(utf8, &p, &n))
+        goto finally;
+
+    /* overallocate a bit sometimes */
+    if (-1 == BUF_SIZE_ASSERT(enc, 1 + SRL_MAX_VARINT_LENGTH + n))
+        goto finally;
+
+    srl_buf_cat_varint_nocheck(enc, SRL_HDR_STR_UTF8, n);
+    srl_buf_cat_str_nocheck(enc, p, n);
+
+    ret = 0;
+finally:
+    Py_XDECREF(utf8);
+    return ret;
+}
+
+
 SRL_STATIC_INLINE 
-int srl_dump_bytes(srl_encoder_t *enc, const char *p, Py_ssize_t n)
+int srl_dump_binary(srl_encoder_t *enc, const char *p, Py_ssize_t n)
 {
     assert(enc);
     assert(p);
