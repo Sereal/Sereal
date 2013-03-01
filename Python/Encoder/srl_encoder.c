@@ -130,10 +130,9 @@ void srl_write_header(srl_encoder_t *enc)
     PyString
     PyUnicode
     PyInt
-    PyBool (as a subclass of PyInt)
+    PyBool
     PyFloat
     PyList
-
 
   At the moment we do not support structures containing:
       PyLong
@@ -145,7 +144,6 @@ void srl_write_header(srl_encoder_t *enc)
   Also, we do not use:
     <REFP>,<COPY>,<ALIAS>,<OBJECT>,<OBJECTV>
     <WEAKEN>,<REGEXP>,
-    <FALSE>,<TRUE>  I should encode PyBool with those instead of <POS_0>,<POS_1>
     <EXTEND>,<PAD>
     
 */
@@ -153,7 +151,7 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
 {
     int ret;
     enum {
-        NONE,INT,FLOAT,BYTES,UNICODE,LIST
+        NONE,BOOL,INT,FLOAT,BYTES,UNICODE,LIST
     } type;
 
     assert(enc);
@@ -168,7 +166,7 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
 
     /*
       First we do fast exact checks for the base types.
-      If those fail then we do slow sub-type checks.
+      If those fail then we do slow subclass checks.
      */
     if (PyInt_CheckExact(obj))          type = INT;
     else if (PyFloat_CheckExact(obj))   type = FLOAT;
@@ -176,7 +174,8 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
     else if (PyUnicode_CheckExact(obj)) type = UNICODE;
     else if (PyList_CheckExact(obj))    type = LIST;
     else {
-        if (PyInt_Check(obj))          type = INT;
+        if (PyBool_Check(obj))         type = BOOL; /*Bool a subclass of Int*/
+        else if (PyInt_Check(obj))     type = INT;  /*so we check it first  */
         else if (PyFloat_Check(obj))   type = FLOAT;
         else if (PyString_Check(obj))  type = BYTES;
         else if (PyUnicode_Check(obj)) type = UNICODE;
@@ -186,6 +185,13 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
     switch (type) {
         case INT:
             if (-1 == srl_dump_long(enc, PyInt_AS_LONG(obj)))
+                goto finally;
+            break;
+        case BOOL:
+            if (-1 == srl_buf_cat_char(enc, 
+                                       obj == Py_True
+                                       ? SRL_HDR_TRUE 
+                                       : SRL_HDR_FALSE))
                 goto finally;
             break;
         case BYTES:
