@@ -92,7 +92,6 @@ PyObject *srl_encoder_dump (srl_encoder_t *enc, PyObject *obj)
         srl_write_header(enc);
         if (-1 == srl_dump_pyobj(enc, obj))
             return NULL;
-        /*fixup weakrefs*/
     } else {
         PyErr_SetString(PyExc_NotImplementedError,
                         "Snappy compression not implemented yet");
@@ -166,7 +165,6 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
 
     ret = -1;
     type = NONE;
-    Py_INCREF(obj);
 
     /*
       First we do fast exact checks for the base types.
@@ -215,7 +213,6 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
 
     ret = 0;
 finally:
-    Py_DECREF(obj);
     SRL_LEAVE_RECURSIVE_CALL(enc);
     return ret;
 }
