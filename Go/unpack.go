@@ -64,12 +64,13 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 		ln, sz := varintdecode(b[5+headerLength:])
 		decoded, err := snappy.Decode(nil, b[5+headerLength+sz:5+headerLength+sz+ln])
 
-		b = b[:5+headerLength]    // shorten data to just the header
-		b = append(b, decoded...) // and stuff the uncompressed data on
-
 		if err != nil {
 			return err
 		}
+
+		b = b[:5+headerLength]    // shorten data to just the header
+		b = append(b, decoded...) // and stuff the uncompressed data on
+
 	default:
 		return errors.New(fmt.Sprintf("Document type '%v' not yet supported", docType))
 
