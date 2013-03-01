@@ -338,6 +338,26 @@ func encodeStruct(by []byte, st reflect.Value, strTable map[string]int, ptrTable
 
 	typ := st.Type()
 
+	// first test if it's one of our internal SerealPerl structs
+	switch val := st.Interface().(type) {
+	case PerlUndef:
+		_ = val
+		by = append(by, TypeUNDEF)
+		return by
+	case PerlObject:
+		by = append(by, TypeOBJECT)
+		by = encodeString(by, val.Class, strTable)
+		by, _ = encode(by, reflect.ValueOf(val.Reference), strTable, ptrTable)
+		return by
+	case PerlRegexp:
+		by = append(by, TypeREGEXP)
+		by = encodeString(by, val.Pattern, strTable)
+		by = encodeBytes(by, []byte(val.Modifiers), strTable)
+		return by
+	}
+
+	by = append(by, TypeOBJECT)
+
 	by = encodeString(by, typ.Name(), strTable)
 
 	l := typ.NumField()
