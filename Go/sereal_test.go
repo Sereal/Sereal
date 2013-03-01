@@ -62,7 +62,7 @@ func TestRoundtrip(t *testing.T) {
  *
  */
 func TestCorpus(t *testing.T) {
-	corpusFiles, err := filepath.Glob("test_dir/test_data_*")
+	corpusFiles, err := filepath.Glob("test_dir/test_data_?????")
 	if err != nil {
 		t.Errorf("error opening test_dir: %v", err)
 		return
