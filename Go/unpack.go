@@ -68,8 +68,12 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 			return err
 		}
 
-		b = b[:5+headerLength]    // shorten data to just the header
-		b = append(b, decoded...) // and stuff the uncompressed data on
+		// we want to treat the passed-in buffer as read-only here
+		// if we just used append, we'd overwrite any data past the end of the underlying array, which wouldn't be nice
+		d := make([]byte, 0, len(decoded)+5+headerLength)
+		d = append(d, b[:5+headerLength]...)
+		d = append(d, decoded...)
+		b = d
 
 	default:
 		return errors.New(fmt.Sprintf("Document type '%v' not yet supported", docType))
