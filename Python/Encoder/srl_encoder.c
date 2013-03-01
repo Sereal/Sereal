@@ -16,6 +16,8 @@ SRL_STATIC_INLINE int srl_dump_binary(srl_encoder_t *enc, const char *, Py_ssize
 SRL_STATIC_INLINE int srl_dump_pyfloat(srl_encoder_t *enc, PyObject *obj);
 SRL_STATIC_INLINE int srl_dump_pystring(srl_encoder_t *enc, PyObject *obj);
 SRL_STATIC_INLINE int srl_dump_pyunicode(srl_encoder_t *enc, PyObject *obj);
+SRL_STATIC_INLINE int srl_dump_pylist(srl_encoder_t *enc, PyObject *obj);
+
 
 const srl_encoder_ctor_args default_encoder_ctor_args = 
 {
@@ -126,11 +128,27 @@ void srl_write_header(srl_encoder_t *enc)
 
 /*
   srl_dump_pyobj delegates to serialize:
-  PyString,
-  PyUnicode,
-  PyInt,
-  PyBool, (as a subclass of PyInt)
-  PyFloat,
+    PyString
+    PyUnicode
+    PyInt
+    PyBool (as a subclass of PyInt)
+    PyFloat
+    PyList
+
+
+  At the moment we do not support structures containing:
+      PyLong
+      PyComplex
+      PyByteArray
+      PyTuple       
+      PyDictionary  
+
+  Also, we do not use:
+    <REFP>,<COPY>,<ALIAS>,<OBJECT>,<OBJECTV>
+    <WEAKEN>,<REGEXP>,
+    <FALSE>,<TRUE>  I should encode PyBool with those instead of <POS_0>,<POS_1>
+    <EXTEND>,<PAD>
+    
 */
 int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
 {
@@ -150,14 +168,6 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
     type = NONE;
     Py_INCREF(obj);
 
-    /*
-      At the moment we do not support structures containing:
-        PyLong
-        PyComplex
-        PyByteArray
-        PyList
-        PyDictionary
-     */
     /*
       First we do fast exact checks for the base types.
       If those fail then we do slow sub-type checks.
@@ -190,6 +200,10 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
             break;
         case FLOAT:
             if (-1 == srl_dump_pyfloat(enc, obj))
+                goto finally;
+            break;
+        case LIST:
+            if (-1 == srl_dump_pylist(enc, obj))
                 goto finally;
             break;
         default:
@@ -303,6 +317,62 @@ int srl_dump_binary(srl_encoder_t *enc, const char *p, Py_ssize_t n)
 
     srl_buf_cat_str_nocheck(enc, p, n);
     return 0;
+}
+
+SRL_STATIC_INLINE
+int srl_dump_pylist(srl_encoder_t *enc, PyObject *obj)
+{
+    Py_ssize_t len;
+    int ret;
+
+    assert(enc);
+    assert(obj);
+    assert(PyList_Check(obj));
+
+    if (-1 == SRL_ENTER_RECURSIVE_CALL(enc, " serializing list"))
+        return -1;
+
+    ret = -1;
+
+    /* Need reference tracking */
+#if 0
+    long offs = track_find(enc, obj);
+    if (-1 != offs) {  /* Found tracked item at offs */
+        enc->buf_start[offs] |= SRL_HDR_TRACK_FLAG;
+        ret = srl_buffer_cat_varint(enc, SRL_HDR_REFP, offs);
+        goto finally;
+    }
+
+    if (-1 == track(enc, obj)) /* Track obj offset for later <REFP> */
+        goto finally;
+#endif
+
+    len = PyList_GET_SIZE(obj);
+    assert(len >= 0);
+    if (len <= SRL_MASK_ARRAYREF_COUNT) {
+        int i;
+        /* <ARRAYREF_N>[<ITEM_TAG> ...] */
+        if (-1 == srl_buf_cat_char(enc, SRL_HDR_ARRAYREF_LOW+(char)len))
+            goto finally;
+        for (i = 0; i < len; i++)
+            if (-1 == srl_dump_pyobj(enc, PyList_GET_ITEM(obj, i)))
+                goto finally;
+    } else {
+        /* <REFN><ARRAY><COUNT-VARINT>[<ITEM-TAG> ... ] */
+        int i;
+        if (-1 == BUF_SIZE_ASSERT(enc, 1+1+SRL_MAX_VARINT_LENGTH))
+            goto finally;
+        srl_buf_cat_char_nocheck(enc, SRL_HDR_REFN);
+        srl_buf_cat_varint_nocheck(enc, SRL_HDR_ARRAY, len);
+        for (i = 0; i < len; i++)
+            if (-1 == srl_dump_pyobj(enc, PyList_GET_ITEM(obj, i)))
+                goto finally;
+    }
+
+    ret = 0;
+finally:
+    SRL_LEAVE_RECURSIVE_CALL(enc);
+    return ret;
 }
 
 
