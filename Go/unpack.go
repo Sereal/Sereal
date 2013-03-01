@@ -54,11 +54,16 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 	case VersionRaw:
 		// nothing
 	case VersionSnappy:
-		b, err = snappy.Decode(nil, b[5+headerLength:])
+		decoded, err := snappy.Decode(nil, b[5+headerLength:])
 
 		if err != nil {
 			return err
 		}
+
+		d := make([]byte, 0, len(decoded)+5+headerLength)
+		d = append(d, b[:5+headerLength]...)
+		d = append(d, decoded...)
+		b = d
 
 	case VersionSnappyLength:
 		ln, sz := varintdecode(b[5+headerLength:])
