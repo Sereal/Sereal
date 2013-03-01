@@ -53,8 +53,9 @@ func Marshal(v interface{}) (b []byte, err error) {
 	rv := reflectValueOf(v)
 
 	strTable := make(map[string]int)
+	ptrTable := make(map[uintptr]int)
 
-	encoded, err := encode(b, rv, strTable)
+	encoded, err := encode(b, rv, strTable, ptrTable)
 
 	if err != nil {
 		return nil, err
@@ -71,7 +72,7 @@ func Marshal(v interface{}) (b []byte, err error) {
 	return encoded, nil
 }
 
-func encode(b []byte, rv reflect.Value, strTable map[string]int) ([]byte, error) {
+func encode(b []byte, rv reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
 
 	switch rk := rv.Kind(); rk {
 
@@ -89,14 +90,14 @@ func encode(b []byte, rv reflect.Value, strTable map[string]int) ([]byte, error)
 		} else if rv.Index(0).Kind() == reflect.Uint8 {
 			b = encodeBytes(b, rv.Bytes(), strTable)
 		} else {
-			b = encodeArray(b, rv, strTable)
+			b = encodeArray(b, rv, strTable, ptrTable)
 		}
 
 	case reflect.Map:
-		b = encodeMap(b, rv, strTable)
+		b = encodeMap(b, rv, strTable, ptrTable)
 
 	case reflect.Struct:
-		b = encodeStruct(b, rv, strTable)
+		b = encodeStruct(b, rv, strTable, ptrTable)
 
 	case reflect.Float32:
 		b = encodeFloat(b, float32(rv.Float()))
@@ -108,9 +109,26 @@ func encode(b []byte, rv reflect.Value, strTable map[string]int) ([]byte, error)
 		// recurse until we get a concrete type
 		// could be optmized into a tail call
 		var err error
-		b, err = encode(b, rv.Elem(), strTable)
+		b, err = encode(b, rv.Elem(), strTable, ptrTable)
 		if err != nil {
 			return nil, err
+		}
+
+	case reflect.Ptr:
+		offs, ok := ptrTable[rv.Pointer()]
+
+		if ok { // seen this before
+			b = append(b, TypeREFP)
+			b = varint(b, uint(offs))
+			b[offs] |= TrackFlag // original offset now tracked
+		} else {
+			b = append(b, TypeREFN)
+			ptrTable[rv.Pointer()] = len(b)
+			var err error
+			b, err = encode(b, rv.Elem(), strTable, ptrTable)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 	default:
@@ -131,19 +149,32 @@ func varint(by []byte, n uint) []uint8 {
 	return append(by, byte(n))
 }
 
-func encodeArray(by []byte, arr reflect.Value, strTable map[string]int) []byte {
+func encodeArrayRef(by []byte, arr reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
+	l := arr.Len()
+
+	if l >= 16 {
+		by = append(by, TypeREFN)
+		return encodeArray(by, arr, strTable, ptrTable)
+	}
+
+	by = append(by, TypeARRAYREF_0+byte(l))
+
+	for i := 0; i < l; i++ {
+		by, _ = encode(by, arr.Index(i), strTable, ptrTable)
+	}
+
+	return by
+}
+
+func encodeArray(by []byte, arr reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
 
 	l := arr.Len()
 
-	if l < 16 {
-		by = append(by, TypeARRAYREF_0+byte(l))
-	} else {
-		by = append(by, TypeARRAY)
-		by = varint(by, uint(l))
-	}
+	by = append(by, TypeARRAY)
+	by = varint(by, uint(l))
 
 	for i := 0; i < l; i++ {
-		by, _ = encode(by, arr.Index(i), strTable)
+		by, _ = encode(by, arr.Index(i), strTable, ptrTable)
 	}
 
 	return by
@@ -241,25 +272,43 @@ func encodeInt(by []byte, i int64) []byte {
 	return by
 }
 
-func encodeMap(by []byte, m reflect.Value, strTable map[string]int) []byte {
+func encodeMapRef(by []byte, m reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
+	keys := m.MapKeys()
 
-	l := m.Len()
+	l := len(keys)
 
-	if l < 16 {
-		by = append(by, TypeHASHREF_0+byte(l))
-	} else {
-		by = append(by, TypeHASH)
-		by = varint(by, uint(l))
+	if l >= 16 {
+		by = append(by, TypeREFN)
+		return encodeMap(by, m, strTable, ptrTable)
 	}
 
-	keys := m.MapKeys()
+	by = append(by, TypeHASHREF_0+byte(l))
 
 	for _, k := range keys {
 		// FIXME: key must be a string type, or coercible to one
 		// Do we coerce or simply force all maps to be map[string]interface{} ?
-		by, _ = encode(by, k, strTable)
+
+		by, _ = encode(by, k, strTable, ptrTable)
 		v := m.MapIndex(k)
-		by, _ = encode(by, v, strTable)
+		by, _ = encode(by, v, strTable, ptrTable)
+	}
+
+	return by
+}
+
+func encodeMap(by []byte, m reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
+
+	keys := m.MapKeys()
+
+	l := len(keys)
+
+	by = append(by, TypeHASH)
+	by = varint(by, uint(l))
+
+	for _, k := range keys {
+		by, _ = encode(by, k, strTable, ptrTable)
+		v := m.MapIndex(k)
+		by, _ = encode(by, v, strTable, ptrTable)
 	}
 
 	return by
@@ -285,9 +334,7 @@ func encodeString(by []byte, s string, strTable map[string]int) []byte {
 	return by
 }
 
-func encodeStruct(by []byte, st reflect.Value, strTable map[string]int) []byte {
-
-	by = append(by, TypeOBJECT)
+func encodeStruct(by []byte, st reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
 
 	typ := st.Type()
 
@@ -303,7 +350,7 @@ func encodeStruct(by []byte, st reflect.Value, strTable map[string]int) []byte {
 	}
 
 	for i := 0; i < l; i++ {
-		by, _ = encode(by, st.Field(i), strTable)
+		by, _ = encode(by, st.Field(i), strTable, ptrTable)
 	}
 
 	return by
