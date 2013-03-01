@@ -188,8 +188,11 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		ln, sz := varintdecode(b[idx:])
 		idx += sz
 
-		ptr = reflect.MakeSlice(reflect.TypeOf([]byte{0}), ln, ln)
-		reflect.Copy(ptr.Elem(), reflect.ValueOf(b[idx:idx+ln]))
+		e := reflect.MakeSlice(reflect.TypeOf([]byte{0}), ln, ln)
+		reflect.Copy(e.Slice(0, ln), reflect.ValueOf(b[idx:idx+ln]))
+
+		ptr = reflect.New(e.Type())
+		ptr.Elem().Set(e)
 
 		idx += ln
 
@@ -209,8 +212,8 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		e, sz, _ := decode(b, idx, tracked)
 		idx += sz
 
-		// FIXME: this is not technically correct
-		ptr = e
+		ptr = reflect.New(e.Type())
+		ptr.Elem().Set(e)
 
 	case tag == TypeREFP:
 		idx++
@@ -218,7 +221,10 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		offs, sz := varintdecode(b[idx:])
 		idx += sz
 
-		ptr = tracked[offs]
+		e := tracked[offs]
+
+		ptr = reflect.New(e.Type())
+		ptr.Elem().Set(e)
 
 	case tag == TypeHASH:
 
@@ -248,13 +254,12 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		idx += sz
 
 		a := make([]interface{}, ln)
-
 		ptr = reflect.ValueOf(&a)
 
 		for i := 0; i < ln; i++ {
 			e, sz, _ := decode(b, idx, tracked)
 			idx += sz
-			ptr.Elem().Index(i).Set(e.Elem())
+			a[i] = e.Elem().Interface()
 		}
 
 	case tag == TypeOBJECT:
@@ -293,13 +298,16 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 
 		a := make([]interface{}, ln)
 
-		ptr = reflect.ValueOf(&a)
-
 		for i := 0; i < ln; i++ {
 			e, sz, _ := decode(b, idx, tracked)
 			idx += sz
-			ptr.Elem().Index(i).Set(e.Elem())
+			a[i] = e.Elem().Interface()
 		}
+		e := reflect.ValueOf(a)
+		pe := reflect.New(e.Type())
+		pe.Elem().Set(e)
+		ptr = reflect.New(reflect.PtrTo(e.Type()))
+		ptr.Elem().Set(pe)
 
 	case tag >= TypeHASHREF_0 && tag < TypeHASHREF_0+16:
 
@@ -316,8 +324,13 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 			v, sz, _ := decode(b, idx, tracked)
 			idx += sz
 			s := stringOf(k.Elem())
-			ptr.Elem().SetMapIndex(reflect.ValueOf(s), v.Elem())
+			m[s] = v.Elem().Interface()
 		}
+		e := reflect.ValueOf(m)
+		pe := reflect.New(e.Type())
+		pe.Elem().Set(e)
+		ptr = reflect.New(reflect.PtrTo(e.Type()))
+		ptr.Elem().Set(pe)
 
 	case tag >= TypeSHORT_BINARY_0 && tag < TypeSHORT_BINARY_0+32:
 		ln := int(tag & 0x1F) // get length from tag
