@@ -16,7 +16,15 @@ sub slurp {
     return $d;
 }
 
+my %skip = map { $_ => 1 } qw(28);
+
 for my $n (glob("test_dir/test_data_?????")) {
+
+    (my $test_number = $n) =~ s/.*test_data_0*//;
+
+#    print("test number $test_number\n");
+
+    do { fail($n) ; next } if $skip{$test_number};
 
     if (not -f "$n-go.out") {
         print "No Go test output for $n -- skipping\n";
