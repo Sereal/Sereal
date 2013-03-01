@@ -3,9 +3,11 @@ package sereal
 import (
 	"code.google.com/p/snappy-go/snappy"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
+	"runtime"
 )
 
 func reflectValueOf(v interface{}) reflect.Value {
@@ -42,6 +44,19 @@ func snappify(b []byte) ([]byte, error) {
 }
 
 func Marshal(v interface{}) (b []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(runtime.Error); ok {
+				panic(r)
+			}
+
+			if s, ok := r.(string); ok {
+				err = errors.New(s)
+			} else {
+				err = r.(error)
+			}
+		}
+	}()
 
 	headerLength := 6
 	b = make([]byte, headerLength, 32)

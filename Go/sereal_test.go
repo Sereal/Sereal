@@ -1,8 +1,6 @@
 package sereal
 
 import (
-	"errors"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
@@ -52,28 +50,6 @@ func TestRoundtrip(t *testing.T) {
 	}
 }
 
-func unmarshalSafely(contents []byte, dest interface{}) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = errors.New(fmt.Sprintf("Recovered %v", r))
-		}
-	}()
-
-	err = Unmarshal(contents, dest)
-	return err
-}
-
-func marshalSafely(src interface{}) (b []byte, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = errors.New(fmt.Sprintf("Recovered %v", r))
-		}
-	}()
-
-	b, err = Marshal(src)
-	return b, err
-}
-
 /*
  * To make the corpus of test files:
  * perl -I Perl/shared/t/lib/ -MSereal::TestSet -MSereal::Encoder -e'Sereal::TestSet::write_test_files("test_dir")'
@@ -99,16 +75,17 @@ func TestCorpus(t *testing.T) {
 			t.Errorf("error opening test_dir/%s: %v", corpusFile, err)
 			return
 		}
+
 		var value interface{}
 
-		err = unmarshalSafely(contents, &value)
+		err = Unmarshal(contents, &value)
 
 		if err != nil {
 			t.Errorf("unpacking %s generated an error: %v", corpusFile, err)
 			continue
 		}
 
-		b, err := marshalSafely(value)
+		b, err := Marshal(value)
 
 		if err != nil {
 			t.Errorf("packing %s generated an error: %v", corpusFile, err)
