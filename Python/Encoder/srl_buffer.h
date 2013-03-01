@@ -185,12 +185,14 @@ srl_buf_cat_varint(srl_encoder_t *enc, const char tag, const UV n) {
 SRL_STATIC_INLINE int
 srl_buf_cat_double(srl_encoder_t *enc, const char tag, double d)
 {
+    DEBUG_ASSERT_BUF_SANE(enc);
     /* heuristic: header + string + simple value */
     if (-1 == BUF_SIZE_ASSERT(enc, 1 + sizeof(d)))
         return -1; /* OOM */
     srl_buf_cat_char_nocheck(enc,tag);
     memcpy(enc->pos, (char *)&d, sizeof(d));
     enc->pos += sizeof(d);
+    DEBUG_ASSERT_BUF_SANE(enc);
     return 0;
 }
 
