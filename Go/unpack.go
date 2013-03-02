@@ -120,7 +120,6 @@ func indent(idx int) {
 func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, int, error) {
 
 	startIdx := idx
-
 	/*
 		fmt.Printf("b=   % x\n", b)
 		fmt.Printf("  ")
@@ -246,6 +245,10 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		m := make(map[string]interface{})
 		ptr = reflect.ValueOf(&m)
 
+		if trackme {
+			tracked[startIdx] = ptr
+		}
+
 		for i := 0; i < ln; i++ {
 			// key
 			k, sz, _ := decode(b, idx, tracked)
@@ -266,6 +269,10 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		a := make([]interface{}, ln)
 		ptr = reflect.ValueOf(&a)
 
+		if trackme {
+			tracked[startIdx] = ptr
+		}
+
 		for i := 0; i < ln; i++ {
 			e, sz, _ := decode(b, idx, tracked)
 			idx += sz
@@ -275,6 +282,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 	case tag == TypeOBJECT:
 		idx++
 
+		// FIXME: track before recurse?
 		className, sz, _ := decode(b, idx, tracked)
 		idx += sz
 		ref, sz, _ := decode(b, idx, tracked)
@@ -308,16 +316,21 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 
 		a := make([]interface{}, ln)
 
-		for i := 0; i < ln; i++ {
-			e, sz, _ := decode(b, idx, tracked)
-			idx += sz
-			a[i] = e.Elem().Interface()
-		}
 		e := reflect.ValueOf(a)
 		pe := reflect.New(e.Type())
 		pe.Elem().Set(e)
 		ptr = reflect.New(reflect.PtrTo(e.Type()))
 		ptr.Elem().Set(pe)
+
+		if trackme {
+			tracked[startIdx] = ptr
+		}
+
+		for i := 0; i < ln; i++ {
+			e, sz, _ := decode(b, idx, tracked)
+			idx += sz
+			a[i] = e.Elem().Interface()
+		}
 
 	case tag >= TypeHASHREF_0 && tag < TypeHASHREF_0+16:
 
@@ -325,10 +338,19 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		ln := int(tag & 0x0f)
 
 		m := make(map[string]interface{})
-		ptr = reflect.ValueOf(&m)
+
+		e := reflect.ValueOf(m)
+		pe := reflect.New(e.Type())
+		pe.Elem().Set(e)
+		ptr = reflect.New(reflect.PtrTo(e.Type()))
+		ptr.Elem().Set(pe)
+
+		if trackme {
+			tracked[startIdx] = ptr
+		}
 
 		for i := 0; i < ln; i++ {
-			// key
+			// FIXME: track before recurse?
 			k, sz, _ := decode(b, idx, tracked)
 			idx += sz
 			v, sz, _ := decode(b, idx, tracked)
@@ -336,11 +358,6 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 			s := stringOf(k.Elem())
 			m[s] = v.Elem().Interface()
 		}
-		e := reflect.ValueOf(m)
-		pe := reflect.New(e.Type())
-		pe.Elem().Set(e)
-		ptr = reflect.New(reflect.PtrTo(e.Type()))
-		ptr.Elem().Set(pe)
 
 	case tag >= TypeSHORT_BINARY_0 && tag < TypeSHORT_BINARY_0+32:
 		ln := int(tag & 0x1F) // get length from tag
@@ -380,6 +397,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 
 	case tag == TypeREGEXP:
 		idx++
+		// FIXME: track before recurse?
 		pattern, sz, _ := decode(b, idx, tracked)
 		idx += sz
 		modifiers, sz, _ := decode(b, idx, tracked)
