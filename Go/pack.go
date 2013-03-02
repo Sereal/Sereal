@@ -100,9 +100,7 @@ func encode(b []byte, rv reflect.Value, strTable map[string]int, ptrTable map[ui
 	case reflect.String:
 		b = encodeString(b, rv.String(), strTable)
 	case reflect.Array, reflect.Slice:
-		if rv.Len() == 0 && rv.Type().Elem().Kind() == reflect.Uint8 {
-			b = encodeBytes(b, rv.Bytes(), strTable)
-		} else if rv.Index(0).Kind() == reflect.Uint8 {
+		if rv.Type().Elem().Kind() == reflect.Uint8 {
 			b = encodeBytes(b, rv.Bytes(), strTable)
 		} else {
 			b = encodeArray(b, rv, strTable, ptrTable)
