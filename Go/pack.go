@@ -359,19 +359,19 @@ func encodeStruct(by []byte, st reflect.Value, strTable map[string]int, ptrTable
 		return by
 	case PerlObject:
 		by = append(by, TypeOBJECT)
-		by = encodeString(by, val.Class, strTable)
+		by = encodeBytes(by, []byte(val.Class), strTable)
 		by, _ = encode(by, reflect.ValueOf(val.Reference), strTable, ptrTable)
 		return by
 	case PerlRegexp:
 		by = append(by, TypeREGEXP)
-		by = encodeString(by, val.Pattern, strTable)
+		by = encodeBytes(by, []byte(val.Pattern), strTable)
 		by = encodeBytes(by, []byte(val.Modifiers), strTable)
 		return by
 	}
 
 	by = append(by, TypeOBJECT)
 
-	by = encodeString(by, typ.Name(), strTable)
+	by = encodeBytes(by, []byte(typ.Name()), strTable)
 
 	l := typ.NumField()
 
