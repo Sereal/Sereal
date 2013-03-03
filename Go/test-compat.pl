@@ -22,12 +22,14 @@ for my $n (glob("test_dir/test_data_?????")) {
 
     (my $test_number = $n) =~ s/.*test_data_0*//;
 
+    chomp(my $name = slurp(sprintf("test_dir/test_name_%05d", $test_number)));
+
 #    print("test number $test_number\n");
 
     do { fail($n) ; next } if $skip{$test_number};
 
     if (not -f "$n-go.out") {
-        print "No Go test output for $n -- skipping\n";
+        print "No Go test output for $n ($name) -- skipping\n";
         fail($n);
         next;
     }
@@ -56,8 +58,13 @@ for my $n (glob("test_dir/test_data_?????")) {
         fail($n);
         next;
     };
+
+
+    if (!is_deeply($g, $p, $name)) {
+#        die sprintf ("Got:%s\nWanted:%s\n", Dumper($g), Dumper($p));
+    }
+
     
-    printf ("Got:%s\nWanted:%s\n", Dumper($g), Dumper($p)) unless is_deeply($g, $p, $n);
 }
 
 done_testing();
