@@ -11,8 +11,8 @@
 #include "srl_inline.h"
 #include "srl_encoder.h"
 
-typedef unsigned long UV;
-typedef long IV;
+#define UV unsigned long
+#define IV long
 
 #ifdef MEMDEBUG
 #   define BUFFER_GROWTH_FACTOR 1
@@ -216,5 +216,8 @@ srl_buf_cat_zigzag(srl_encoder_t *enc, const char tag, const IV n) {
     const UV z= (n << 1) ^ (n >> (sizeof(IV) * 8 - 1));
     return srl_buf_cat_varint(enc, tag, z);
 }
+
+#undef UV
+#undef IV
 
 #endif
