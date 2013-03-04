@@ -8,7 +8,9 @@ modules = [
               depends=['srl_encoder.h',
                        'srl_buffer.h',
                        os.path.join(srl_py_root, 'shared', 'srl_inline.h'),
-                       os.path.join(srl_py_root, 'shared', 'util.h')],
+                       os.path.join(srl_py_root, 'shared', 'util.h'),
+                       os.path.join(srl_py_root, 'shared', 'ptable.h'),
+                       ],
               include_dirs=[os.path.join(srl_py_root, 'shared')],
               ),
     ]

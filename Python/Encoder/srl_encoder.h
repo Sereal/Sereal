@@ -7,6 +7,7 @@
 
 #define INITIAL_BUFFER_SIZE 64U
 
+struct PTABLE;
 typedef struct {
     char *buf_start;               /* ptr to "physical" start of output buffer */
     char *buf_end;                 /* ptr to end of output buffer  */
@@ -14,10 +15,12 @@ typedef struct {
     uint32_t operational_flags;    /* flags that pertain to one encode run
                                       (rather than being options): 
                                       See SRL_OF_* defines */
-    uint32_t flags;                 /* flag-like options: See SRL_F_* defines */
+    uint32_t flags;                /* flag-like options: See SRL_F_* defines */
     unsigned max_recursion_depth;  /* Configurable limit on the number of
                                       recursive calls we're willing to make */
     unsigned recursion_depth;      /* current recursion depth */
+
+    struct PTABLE *obj_seenhash;
 } srl_encoder_t;
 
 typedef struct srl_encoder_ctor_args {
