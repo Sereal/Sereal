@@ -18,14 +18,14 @@ SRL_STATIC_INLINE int srl_dump_long(srl_encoder_t *enc, long n);
 SRL_STATIC_INLINE int srl_dump_binary(srl_encoder_t *enc, const char *, Py_ssize_t);
 
 SRL_STATIC_INLINE int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj);
-SRL_STATIC_INLINE int srl_dump_pyint(srl_encoder_t *enc, PyObject *obj, char *pos);
-SRL_STATIC_INLINE int srl_dump_pyfloat(srl_encoder_t *enc, PyObject *obj, char *pos);
-SRL_STATIC_INLINE int srl_dump_pystring(srl_encoder_t *enc, PyObject *obj, char *pos);
-SRL_STATIC_INLINE int srl_dump_pyunicode(srl_encoder_t *enc, PyObject *obj, char *pos);
-SRL_STATIC_INLINE int srl_dump_pylist(srl_encoder_t *enc, PyObject *obj, char *pos);
+SRL_STATIC_INLINE int srl_dump_pyint(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs);
+SRL_STATIC_INLINE int srl_dump_pyfloat(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs);
+SRL_STATIC_INLINE int srl_dump_pystring(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs);
+SRL_STATIC_INLINE int srl_dump_pyunicode(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs);
+SRL_STATIC_INLINE int srl_dump_pylist(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs);
 
 SRL_STATIC_INLINE int srl_track_obj(srl_encoder_t *enc, PyObject *obj);
-SRL_STATIC_INLINE char *srl_find_obj(srl_encoder_t *enc, PyObject *obj);
+SRL_STATIC_INLINE ptrdiff_t srl_find_obj(srl_encoder_t *enc, PyObject *obj);
 
 const srl_encoder_ctor_args default_encoder_ctor_args = 
 {
@@ -162,7 +162,7 @@ void srl_write_header(srl_encoder_t *enc)
 int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
 {
     int ret;
-    char *pos;
+    ptrdiff_t offs;
 
     enum {
         NONE,
@@ -179,6 +179,7 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
     }
 
     ret = -1;
+    offs = 0;
     type = NONE;
 
     /*
@@ -208,8 +209,8 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
      */
 
     if (type != BOOL) {
-        pos = srl_find_obj(enc, obj);
-        if (!pos) {
+        offs = srl_find_obj(enc, obj);
+        if (!offs) {
             if (-1 == srl_track_obj(enc, obj))
                 goto finally;
         }
@@ -217,7 +218,7 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
 
     switch (type) {
         case INT:
-            if (-1 == srl_dump_pyint(enc, obj, pos))
+            if (-1 == srl_dump_pyint(enc, obj, offs))
                 goto finally;
             break;
         case BOOL:
@@ -228,19 +229,19 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
                 goto finally;
             break;
         case STRING:
-            if (-1 == srl_dump_pystring(enc, obj, pos))
+            if (-1 == srl_dump_pystring(enc, obj, offs))
                 goto finally;
             break;
         case UNICODE:
-            if (-1 == srl_dump_pyunicode(enc, obj, pos))
+            if (-1 == srl_dump_pyunicode(enc, obj, offs))
                 goto finally;
             break;
         case FLOAT:
-            if (-1 == srl_dump_pyfloat(enc, obj, pos))
+            if (-1 == srl_dump_pyfloat(enc, obj, offs))
                 goto finally;
             break;
         case LIST:
-            if (-1 == srl_dump_pylist(enc, obj, pos))
+            if (-1 == srl_dump_pylist(enc, obj, offs))
                 goto finally;
             break;
         default:
@@ -257,7 +258,7 @@ finally:
 }
 
 SRL_STATIC_INLINE
-int srl_dump_pyint(srl_encoder_t *enc, PyObject *obj, char *pos)
+int srl_dump_pyint(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs)
 {
     long l;
 
@@ -266,25 +267,23 @@ int srl_dump_pyint(srl_encoder_t *enc, PyObject *obj, char *pos)
     assert(PyInt_Check(obj));
 
     l = PyInt_AS_LONG(obj);
-    if (pos) {
+    if (offs) {
         /*  Only <COPY> if it saves space,
             so we store the shorter <VARINT>
          */
-        unsigned long d;
         unsigned long zz;
-        d = pos - enc->buf_start;
 
         if (l > 0) {  /* varint */
             /* each byte of VARINT encodes 7-bits 
                this test has false-negatives,
                we can miss a <COPY> that saves 1-byte
              */
-            if (VARINT_LEN(l) > VARINT_LEN(d))
-                return srl_buf_cat_varint(enc, SRL_HDR_COPY, d);
+            if (VARINT_LEN(l) > VARINT_LEN(offs))
+                return srl_buf_cat_varint(enc, SRL_HDR_COPY, offs);
         } else { /* zigzag */
             zz = (l << 1) ^ (l >> (sizeof(long) * 8 - 1));
-            if (VARINT_LEN(zz) > VARINT_LEN(d))
-                return srl_buf_cat_varint(enc, SRL_HDR_COPY, d);
+            if (VARINT_LEN(zz) > VARINT_LEN(offs))
+                return srl_buf_cat_varint(enc, SRL_HDR_COPY, offs);
         }
     }
     return srl_dump_long(enc, l);
@@ -308,24 +307,20 @@ int srl_dump_long(srl_encoder_t *enc, long n)
 }
 
 SRL_STATIC_INLINE
-int srl_dump_pyfloat(srl_encoder_t *enc, PyObject *obj, char *pos)
+int srl_dump_pyfloat(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs)
 {
     assert(enc);
     assert(obj);
     assert(PyFloat_Check(obj));
 
-    if (pos) {
-        unsigned long d;
-        d = pos - enc->buf_start;
-        if (VARINT_LEN(d) < sizeof(double))
-            return srl_buf_cat_varint(enc, SRL_HDR_COPY, d);
-    }
+    if (offs && VARINT_LEN(offs) < sizeof(double))
+        return srl_buf_cat_varint(enc, SRL_HDR_COPY, offs);
 
     return srl_buf_cat_double(enc, SRL_HDR_DOUBLE, PyFloat_AS_DOUBLE(obj));
 }
 
 SRL_STATIC_INLINE
-int srl_dump_pystring(srl_encoder_t *enc, PyObject *obj, char *pos)
+int srl_dump_pystring(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs)
 {
     char *p;
     Py_ssize_t n;
@@ -337,18 +332,14 @@ int srl_dump_pystring(srl_encoder_t *enc, PyObject *obj, char *pos)
     if (-1 == PyString_AsStringAndSize(obj, &p, &n))
         return -1;
 
-    if (pos) {
-        long d;
-        d = pos - enc->buf_start;
-        if (VARINT_LEN(d) < (unsigned)n)
-            return srl_buf_cat_varint(enc, SRL_HDR_COPY, d);
-    }
+    if (offs && VARINT_LEN(offs) < (unsigned)n)
+        return srl_buf_cat_varint(enc, SRL_HDR_COPY, offs);
 
     return srl_dump_binary(enc, p, n);
 }
 
 SRL_STATIC_INLINE
-int srl_dump_pyunicode(srl_encoder_t *enc, PyObject *obj, char *pos)
+int srl_dump_pyunicode(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs)
 {
     PyObject *utf8;
     char *p;
@@ -370,13 +361,9 @@ int srl_dump_pyunicode(srl_encoder_t *enc, PyObject *obj, char *pos)
     assert(p);
     assert(n >= 0);
 
-    if (pos) {
-        unsigned long d;
-        d = pos - enc->buf_start;
-        if (VARINT_LEN(d) < (unsigned)n) {
-            ret = srl_buf_cat_varint(enc, SRL_HDR_COPY, d);
-            goto finally;
-        }
+    if (offs && VARINT_LEN(offs) < (unsigned)n) {
+        ret = srl_buf_cat_varint(enc, SRL_HDR_COPY, offs);
+        goto finally;
     }
 
     /* overallocate a bit sometimes */
@@ -414,7 +401,7 @@ int srl_dump_binary(srl_encoder_t *enc, const char *p, Py_ssize_t n)
 }
 
 SRL_STATIC_INLINE
-int srl_dump_pylist(srl_encoder_t *enc, PyObject *obj, char *pos)
+int srl_dump_pylist(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs)
 {
     Py_ssize_t len;
     int ret;
@@ -430,15 +417,15 @@ int srl_dump_pylist(srl_encoder_t *enc, PyObject *obj, char *pos)
 
     len = PyList_GET_SIZE(obj);
     assert(len >= 0);
-    if (pos) {
+    if (offs) {
         /* <REFP> to <ARRAYREF_N> 
            or
            <REFP> one past <REFN><ARRAY>
         */
         if (len > SRL_MASK_ARRAYREF_COUNT) 
-            pos++;
-        SRL_SET_FBIT(*pos);
-        ret = srl_buf_cat_varint(enc, SRL_HDR_REFP, pos - enc->buf_start);
+            offs++;
+        SRL_SET_FBIT(*(enc->buf_start + offs));
+        ret = srl_buf_cat_varint(enc, SRL_HDR_REFP, offs);
         goto finally;
     }
 
@@ -474,15 +461,15 @@ int srl_track_obj(srl_encoder_t *enc, PyObject *obj)
         /* magic const from Perl module */
         if (!(enc->obj_seenhash = PTABLE_new_size(4)))
             return -1;
-    return PTABLE_store(enc->obj_seenhash, obj, enc->pos);
+    return PTABLE_store(enc->obj_seenhash, obj, (void *)(enc->pos-enc->buf_start));
 }
 
 SRL_STATIC_INLINE
-char *srl_find_obj(srl_encoder_t *enc, PyObject *obj)
+ptrdiff_t srl_find_obj(srl_encoder_t *enc, PyObject *obj)
 {
     if (!enc->obj_seenhash)
-        return NULL;
-    return PTABLE_fetch(enc->obj_seenhash, obj);
+        return 0;
+    return (ptrdiff_t)PTABLE_fetch(enc->obj_seenhash, obj);
 }
 
 SRL_STATIC_INLINE
