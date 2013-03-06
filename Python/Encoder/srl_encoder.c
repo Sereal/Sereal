@@ -443,20 +443,19 @@ int srl_dump_pylist(srl_encoder_t *enc, PyObject *obj, char *pos)
     }
 
     if (len <= SRL_MASK_ARRAYREF_COUNT) {
-        /* <ARRAYREF_N>[<ITEM_TAG> ...] */
-        int i;
+        /* <ARRAYREF_N> */
         if (-1 == srl_buf_cat_char(enc, SRL_HDR_ARRAYREF_LOW+(char)len))
             goto finally;
-        for (i = 0; i < len; i++)
-            if (-1 == srl_dump_pyobj(enc, PyList_GET_ITEM(obj, i)))
-                goto finally;
     } else {
-        /* <REFN><ARRAY><COUNT-VARINT>[<ITEM-TAG> ... ] */
-        int i;
+        /* <REFN><ARRAY><COUNT-VARINT> */
         if (-1 == BUF_SIZE_ASSERT(enc, 1+1+SRL_MAX_VARINT_LENGTH))
             goto finally;
         srl_buf_cat_char_nocheck(enc, SRL_HDR_REFN);
         srl_buf_cat_varint_nocheck(enc, SRL_HDR_ARRAY, len);
+    }
+    /* [<ITEM-TAG> ... ] */
+    {
+        int i;
         for (i = 0; i < len; i++)
             if (-1 == srl_dump_pyobj(enc, PyList_GET_ITEM(obj, i)))
                 goto finally;
