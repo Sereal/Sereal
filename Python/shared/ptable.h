@@ -36,7 +36,7 @@
 #define PTR2nat(p) (PTRV)(p)
 #define Newx(p,n,t)  ((p) = PyMem_Malloc((n)*sizeof(t)))
 #define Newxz(p,n,t) (Newx((p), n, t), ((p) && memset((p), 0, (n)*sizeof(t))), (p))
-#define Renew(p,n,t) PyMem_Realloc((p), (n)*sizeof(t))
+#define Renew(p,n,t) PyMem_Resize((p), t, (n))
 #define Safefree(p)  PyMem_Free(p)
 #define Zero(p,n,t)  memset(p,0,(n)*sizeof(t))
 #define STMT_START /* EMPTY ON PURPOSE */
