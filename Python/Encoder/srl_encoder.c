@@ -23,6 +23,7 @@ SRL_STATIC_INLINE int srl_dump_pyfloat(srl_encoder_t *enc, PyObject *obj, ptrdif
 SRL_STATIC_INLINE int srl_dump_pystring(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs);
 SRL_STATIC_INLINE int srl_dump_pyunicode(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs);
 SRL_STATIC_INLINE int srl_dump_pylist(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs);
+SRL_STATIC_INLINE int srl_dump_pydict(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs);
 
 SRL_STATIC_INLINE int srl_track_obj(srl_encoder_t *enc, PyObject *obj);
 SRL_STATIC_INLINE ptrdiff_t srl_find_obj(srl_encoder_t *enc, PyObject *obj);
@@ -168,7 +169,8 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
         NONE,
         BOOL,INT,FLOAT,
         STRING,UNICODE,
-        LIST
+        LIST,
+        DICT
     } type;
 
     assert(enc);
@@ -191,6 +193,7 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
     else if (PyString_CheckExact(obj))  type = STRING;
     else if (PyUnicode_CheckExact(obj)) type = UNICODE;
     else if (PyList_CheckExact(obj))    type = LIST;
+    else if (PyDict_CheckExact(obj))    type = DICT;
     else {
         if (PyBool_Check(obj))         type = BOOL; /*Bool a subclass of Int*/
         else if (PyInt_Check(obj))     type = INT;  /*so we check it first  */
@@ -198,6 +201,7 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
         else if (PyString_Check(obj))  type = STRING;
         else if (PyUnicode_Check(obj)) type = UNICODE;
         else if (PyList_Check(obj))    type = LIST;
+        else if (PyDict_Check(obj))    type = DICT;
     }
 
     /*
@@ -242,6 +246,10 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
             break;
         case LIST:
             if (-1 == srl_dump_pylist(enc, obj, offs))
+                goto finally;
+            break;
+        case DICT:
+            if (-1 == srl_dump_pydict(enc, obj, offs))
                 goto finally;
             break;
         default:
@@ -446,6 +454,88 @@ int srl_dump_pylist(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs)
         for (i = 0; i < len; i++)
             if (-1 == srl_dump_pyobj(enc, PyList_GET_ITEM(obj, i)))
                 goto finally;
+    }
+
+    ret = 0;
+finally:
+    SRL_LEAVE_RECURSIVE_CALL(enc);
+    return ret;
+}
+
+SRL_STATIC_INLINE
+int srl_dump_pydict(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs)
+{
+    Py_ssize_t n;
+    int ret;
+
+    assert(enc);
+    assert(obj);
+    assert(PyDict_Check(obj));
+
+    if (-1 == SRL_ENTER_RECURSIVE_CALL(enc, " serializing dict"))
+        return -1;
+
+    ret = -1;
+
+    n = PyDict_Size(obj);
+    assert(n > 0);
+
+    if (offs) {
+        if (n > SRL_MASK_HASHREF_COUNT)
+            offs++;
+        SRL_SET_FBIT(*(enc->buf_start + offs));
+        ret = srl_buf_cat_varint(enc, SRL_HDR_REFP, offs);
+        goto finally;
+    }
+
+    /*
+      Heuristic: <REFN><HASH><COUNT_VARINT>[<KEY><VAL> ..]
+    */
+    if (-1 == BUF_SIZE_ASSERT(enc, 2+SRL_MAX_VARINT_LENGTH+2*n))
+        goto finally;
+
+    if (n <= SRL_MASK_HASHREF_COUNT) {
+        /* <HASHREF_N> */
+        srl_buf_cat_char_nocheck(enc, SRL_HDR_HASHREF_LOW | (char)n);
+    } else {
+        /* <REFN><HASH><COUNT_VARINT> */
+        srl_buf_cat_char_nocheck(enc, SRL_HDR_REFN);
+        srl_buf_cat_varint_nocheck(enc, SRL_HDR_HASH, n);
+    }
+    /* [<KEY><VAL> ... ] */
+    {
+        PyObject *key, *val;
+        Py_ssize_t pos;
+
+        pos = 0;
+        while (PyDict_Next(obj, &pos, &key, &val)) {
+            ptrdiff_t key_offs;
+
+            key_offs = 0;
+
+            if (SRL_ENC_HAVE_OPTION(enc, SRL_F_SHARED_HASHKEYS)) {
+                key_offs = srl_find_obj(enc, key);
+                if (!pos) {
+                    if (-1 == srl_track_obj(enc, key))
+                        goto finally;
+                }
+            }
+
+            if (PyString_Check(key)) {
+                if (-1 == srl_dump_pystring(enc, key, key_offs))
+                    goto finally;
+            } else if (PyUnicode_Check(key)) {
+                if (-1 == srl_dump_pyunicode(enc, key, key_offs))
+                    goto finally;
+            } else {
+                PyErr_SetString(PyExc_RuntimeError,
+                                "encoder error: using non-string as hash key");
+                goto finally;
+            }
+
+            if (-1 == srl_dump_pyobj(enc, val))
+                goto finally;
+        }
     }
 
     ret = 0;
