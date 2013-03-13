@@ -254,6 +254,7 @@ void srl_write_header(srl_encoder_t *enc)
     PyBool
     PyFloat
     PyList
+    PyNone
 
   At the moment we do not support structures containing:
       PyLong
@@ -274,7 +275,8 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
     ptrdiff_t offs;
 
     enum {
-        NONE,
+        NO_TYPE = 0,
+        UNDEF,
         BOOL,INT,FLOAT,
         STRING,UNICODE,
         LIST,
@@ -290,7 +292,7 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
 
     ret = -1;
     offs = 0;
-    type = NONE;
+    type = NO_TYPE;
 
     /*
       First we do fast exact checks for the base types.
@@ -302,6 +304,7 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
     else if (PyUnicode_CheckExact(obj)) type = UNICODE;
     else if (PyList_CheckExact(obj))    type = LIST;
     else if (PyDict_CheckExact(obj))    type = DICT;
+    else if (Py_None == obj)            type = UNDEF;
     else {
         if (PyBool_Check(obj))         type = BOOL; /*Bool a subclass of Int*/
         else if (PyInt_Check(obj))     type = INT;  /*so we check it first  */
@@ -320,7 +323,7 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
         List(,Dictionary,ByteArray - not impl)
      */
 
-    if (type != BOOL) {
+    if (type && type != BOOL && type != UNDEF) {
         offs = srl_find_obj(enc, obj);
         if (!offs) {
             if (-1 == srl_track_obj(enc, obj))
@@ -338,6 +341,10 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
                                        obj == Py_True
                                        ? SRL_HDR_TRUE 
                                        : SRL_HDR_FALSE))
+                goto finally;
+            break;
+        case UNDEF:
+            if (-1 == srl_buf_cat_char(enc, SRL_HDR_UNDEF))
                 goto finally;
             break;
         case STRING:
