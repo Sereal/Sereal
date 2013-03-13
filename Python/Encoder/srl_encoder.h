@@ -21,12 +21,16 @@ typedef struct {
     unsigned recursion_depth;      /* current recursion depth */
 
     struct PTABLE *obj_seenhash;
+
+    char *snappy_workmem;          /* scratchpad for snappy */
+    unsigned snappy_threshold;     /* never compress dumps smaller than this */
 } srl_encoder_t;
 
 typedef struct srl_encoder_ctor_args {
     uint32_t flags;
     unsigned long max_recursion_depth; /* Set max_recursion_depth to 0 for 
                                           the default python recursion depth */
+    unsigned snappy_threshold;         /* Set snappy_threshold to 0 for no threshold */
 } srl_encoder_ctor_args;
 
 extern const srl_encoder_ctor_args default_encoder_ctor_args;

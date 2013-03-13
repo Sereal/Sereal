@@ -121,10 +121,16 @@ int encoder_args_from_dict(PyObject *dict, srl_encoder_ctor_args *out_args)
               });
         ONKEY("snappy_threshold",
               {
-                  /*
-                    Read a number from Python, 
-                    similar gymnastics as for max_recursion_depth.
-                   */
+                  long l;
+
+                  l = PyInt_AsLong(val);
+                  if (l == -1 && PyErr_Occurred()) {
+                      PyErr_SetString(
+                          PyErr_Occurred(), 
+                          "snappy_threshold requires an integer");
+                      return -1;
+                  }
+                  args.snappy_threshold = l;
               });
         ONKEY("sort_keys",
               {

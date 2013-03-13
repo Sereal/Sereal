@@ -6,6 +6,7 @@
 #include "srl_protocol.h"
 #include "srl_buffer.h"
 #include "ptable.h"
+#include "snappy/csnappy_compress.c"
 
 SRL_STATIC_INLINE unsigned VARINT_LEN(unsigned long x) { return 1 + (x / (1<<7)); }
 
@@ -32,6 +33,7 @@ const srl_encoder_ctor_args default_encoder_ctor_args =
 {
     SRL_F_SHARED_HASHKEYS, /* Default flags */
     0,                     /* Default max recursion depth */
+    1024,                  /* Default snappy threshold */
 };
 
 srl_encoder_t *srl_encoder_new(const srl_encoder_ctor_args *args)
@@ -75,11 +77,18 @@ int srl_encoder_ctor(srl_encoder_t *enc, const srl_encoder_ctor_args *args)
     enc->operational_flags = 0;
 
     enc->flags = args->flags;
+    /* SNAPPY_INCREMENTAL trumps SNAPPY  */
+    if ((enc->flags & SRL_F_COMPRESS_SNAPPY) &&
+        (enc->flags & SRL_F_COMPRESS_SNAPPY_INCREMENTAL))
+        enc->flags &= ~SRL_F_COMPRESS_SNAPPY;
+
     enc->max_recursion_depth = args->max_recursion_depth;
 
     enc->recursion_depth = 0;
 
     enc->obj_seenhash = NULL;
+    enc->snappy_workmem = NULL;
+    enc->snappy_threshold = args->snappy_threshold;
 
     return 0;
 }
@@ -91,6 +100,8 @@ void srl_encoder_dtor(srl_encoder_t *enc)
     PyMem_Free(enc->buf_start);
     if (enc->obj_seenhash)
         PTABLE_free(enc->obj_seenhash);
+    if (enc->snappy_workmem)
+        PyMem_Free(enc->snappy_workmem);
     enc->buf_start = enc->buf_end = enc->pos = NULL;
 }
 
@@ -106,9 +117,106 @@ PyObject *srl_encoder_dump (srl_encoder_t *enc, PyObject *obj)
         if (-1 == srl_dump_pyobj(enc, obj))
             return NULL;
     } else {
-        PyErr_SetString(PyExc_NotImplementedError,
-                        "Snappy compression not implemented yet");
-        return NULL;
+        unsigned long sereal_header_len;
+        unsigned long uncompressed_body_len;
+
+        srl_write_header(enc);
+        sereal_header_len = enc->pos - enc->buf_start;
+        if (-1 == srl_dump_pyobj(enc, obj))
+            return NULL;
+        assert(BUF_POS_OFS(enc) > sereal_header_len);
+        uncompressed_body_len = BUF_POS_OFS(enc) - sereal_header_len;
+
+        if (enc->snappy_threshold > 0
+            && uncompressed_body_len < enc->snappy_threshold)
+        {
+            char *flags_and_version_byte = enc->buf_start + sizeof(SRL_MAGIC_STRING) - 1;
+            /* disable snappy flag in header */
+            *flags_and_version_byte = SRL_PROTOCOL_ENCODING_RAW |
+                                      (*flags_and_version_byte & SRL_PROTOCOL_VERSION_MASK);
+        } else {
+            /* Snappy or Snappy Incremental
+
+               Snappy: <SRL_HDR><COMPRESSED DATA>
+               Snappy Incremental: <SRL_HDR><VARINT><COMPRESSED DATA>
+             */
+            uint32_t dest_len;
+            char *uncompressed;
+            char *varint_start;
+            char *varint_end;
+
+            varint_start = varint_end = NULL;
+
+            dest_len =
+                csnappy_max_compressed_length(uncompressed_body_len)
+                + sereal_header_len + 1;
+
+            /*
+              We do not know the final compressed size before hand.
+              So we allocate SRL_MAX_VARINT_LENGTH and fill in the correct
+              value after compressing the dump
+            */
+            if (SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL))
+                dest_len += SRL_MAX_VARINT_LENGTH;
+
+            uncompressed = enc->buf_start;
+            enc->buf_start = PyMem_Malloc(dest_len); /*freed by dtor*/
+            enc->buf_end = enc->buf_start + dest_len;
+            enc->pos = enc->buf_start;
+
+            if (!enc->snappy_workmem)
+                enc->snappy_workmem = PyMem_Malloc(CSNAPPY_WORKMEM_BYTES); /*freed by dtor*/
+
+            if (!enc->buf_start || !enc->snappy_workmem) {
+                if (uncompressed)
+                    PyMem_Free(uncompressed);
+                return PyErr_NoMemory();
+            }
+
+            memcpy(enc->pos, uncompressed, sereal_header_len);
+            enc->pos += sereal_header_len;
+
+            if (SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL)) {
+                varint_start = enc->pos;
+                srl_buf_cat_varint_nocheck(enc, 0, dest_len);
+                varint_end = enc->pos - 1;
+            }
+
+            csnappy_compress(
+                uncompressed+sereal_header_len, uncompressed_body_len,
+                enc->pos, &dest_len,
+                enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
+
+            enc->pos += dest_len;
+            PyMem_Free(uncompressed);
+
+            /*
+              Fill in the correct length value
+             */
+            if (varint_start) {
+                /* overwrite the max size varint with the real size of the compressed data */
+                uint32_t n = dest_len;
+                while (n >= 0x80) {                      /* while we are larger than 7 bits long */
+                    *varint_start++ = (n & 0x7f) | 0x80; /* write out the least significant 7 bits, set the high bit */
+                    n = n >> 7;                          /* shift off the 7 least significant bits */
+                }
+                /* if it is the same size we can use a canonical varint */
+                if ( varint_start == varint_end ) {
+                    *varint_start = n;                     /* encode the last 7 bits without the high bit being set */
+                } else {
+                    /* if not we produce a non-canonical varint, basically we stuff
+                     * 0 bits (via 0x80) into the "tail" of the varint, until we can
+                     * stick in a null to terminate the sequence. This means that the
+                     * varint is effectively "self-padding", and we only need special
+                     * logic in the encoder - a decoder will happily process a non-canonical
+                     * varint with no problem */
+                    *varint_start++ = (n & 0x7f) | 0x80;
+                    while ( varint_start < varint_end )
+                        *varint_start++ = 0x80;
+                    *varint_start= 0;
+                }
+            }
+        }
     }
 
     return PyString_FromStringAndSize(enc->buf_start, BUF_POS_OFS(enc));
