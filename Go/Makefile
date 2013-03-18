@@ -1,5 +1,8 @@
 test: test_dir
-	go test
+	-go test
+
+compat: test
+	perl ./test-compat.pl
 
 ../Perl/Decoder/blib:
 	cd ../Perl/Decoder/ ; perl Makefile.PL
