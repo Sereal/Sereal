@@ -132,11 +132,11 @@ func encode(b []byte, rv reflect.Value, strTable map[string]int, ptrTable map[ui
 		offs, ok := ptrTable[rv.Pointer()]
 
 		if ok { // seen this before
-			b = append(b, TypeREFP)
+			b = append(b, typeREFP)
 			b = varint(b, uint(offs))
 			b[offs] |= TrackFlag // original offset now tracked
 		} else {
-			b = append(b, TypeREFN)
+			b = append(b, typeREFN)
 			ptrTable[rv.Pointer()] = len(b)
 			var err error
 			b, err = encode(b, rv.Elem(), strTable, ptrTable)
@@ -167,11 +167,11 @@ func encodeArrayRef(by []byte, arr reflect.Value, strTable map[string]int, ptrTa
 	l := arr.Len()
 
 	if l >= 16 {
-		by = append(by, TypeREFN)
+		by = append(by, typeREFN)
 		return encodeArray(by, arr, strTable, ptrTable)
 	}
 
-	by = append(by, TypeARRAYREF_0+byte(l))
+	by = append(by, typeARRAYREF_0+byte(l))
 
 	for i := 0; i < l; i++ {
 		by, _ = encode(by, arr.Index(i), strTable, ptrTable)
@@ -184,7 +184,7 @@ func encodeArray(by []byte, arr reflect.Value, strTable map[string]int, ptrTable
 
 	l := arr.Len()
 
-	by = append(by, TypeARRAY)
+	by = append(by, typeARRAY)
 	by = varint(by, uint(l))
 
 	for i := 0; i < l; i++ {
@@ -198,10 +198,10 @@ func encodeArray(by []byte, arr reflect.Value, strTable map[string]int, ptrTable
 func encodeBool(by []byte, bo bool) []byte {
 
 	if bo {
-		by = append(by, TypeTRUE)
+		by = append(by, typeTRUE)
 	} else {
 
-		by = append(by, TypeFALSE)
+		by = append(by, typeFALSE)
 	}
 
 	return by
@@ -220,7 +220,7 @@ func encodeBytes(by []byte, byt []byte, strTable map[string]int) []byte {
 		copy_offs, ok := strTable[s]
 
 		if ok {
-			by = append(by, TypeCOPY)
+			by = append(by, typeCOPY)
 			by = varint(by, uint(copy_offs))
 			return by
 		}
@@ -228,9 +228,9 @@ func encodeBytes(by []byte, byt []byte, strTable map[string]int) []byte {
 		// save for later
 		strTable[s] = len(by)
 
-		by = append(by, TypeSHORT_BINARY_0+byte(l))
+		by = append(by, typeSHORT_BINARY_0+byte(l))
 	} else {
-		by = append(by, TypeBINARY)
+		by = append(by, typeBINARY)
 		by = varint(by, uint(l))
 	}
 
@@ -243,7 +243,7 @@ func encodeDouble(by []byte, f float64) []byte {
 
 	var u uint64
 	u = math.Float64bits(f)
-	by = append(by, TypeDOUBLE)
+	by = append(by, typeDOUBLE)
 	by = append(by, byte(u))
 	by = append(by, byte(u>>8))
 	by = append(by, byte(u>>16))
@@ -259,7 +259,7 @@ func encodeFloat(by []byte, f float32) []byte {
 
 	var u uint32
 	u = math.Float32bits(f)
-	by = append(by, TypeFLOAT)
+	by = append(by, typeFLOAT)
 	by = append(by, byte(u))
 	by = append(by, byte(u>>8))
 	by = append(by, byte(u>>16))
@@ -275,10 +275,10 @@ func encodeInt(by []byte, i int64) []byte {
 	case -16 <= i && i < 0:
 		by = append(by, 0x010|(byte(i)&0x0f))
 	case i > 15:
-		by = append(by, TypeVARINT)
+		by = append(by, typeVARINT)
 		by = varint(by, uint(i))
 	case i < 0:
-		by = append(by, TypeZIGZAG)
+		by = append(by, typeZIGZAG)
 		n := (i << 1) ^ (i >> 63)
 		by = varint(by, uint(n))
 	}
@@ -292,11 +292,11 @@ func encodeMapRef(by []byte, m reflect.Value, strTable map[string]int, ptrTable 
 	l := len(keys)
 
 	if l >= 16 {
-		by = append(by, TypeREFN)
+		by = append(by, typeREFN)
 		return encodeMap(by, m, strTable, ptrTable)
 	}
 
-	by = append(by, TypeHASHREF_0+byte(l))
+	by = append(by, typeHASHREF_0+byte(l))
 
 	for _, k := range keys {
 		// FIXME: key must be a string type, or coercible to one
@@ -316,7 +316,7 @@ func encodeMap(by []byte, m reflect.Value, strTable map[string]int, ptrTable map
 
 	l := len(keys)
 
-	by = append(by, TypeHASH)
+	by = append(by, typeHASH)
 	by = varint(by, uint(l))
 
 	for _, k := range keys {
@@ -333,7 +333,7 @@ func encodeString(by []byte, s string, strTable map[string]int) []byte {
 	copy_offs, ok := strTable[s]
 
 	if ok {
-		by = append(by, TypeCOPY)
+		by = append(by, typeCOPY)
 		by = varint(by, uint(copy_offs))
 		return by
 	}
@@ -341,7 +341,7 @@ func encodeString(by []byte, s string, strTable map[string]int) []byte {
 	// save for later
 	strTable[s] = len(by)
 
-	by = append(by, TypeSTR_UTF8)
+	by = append(by, typeSTR_UTF8)
 	by = varint(by, uint(len(s)))
 	by = append(by, []byte(s)...)
 
@@ -356,30 +356,30 @@ func encodeStruct(by []byte, st reflect.Value, strTable map[string]int, ptrTable
 	switch val := st.Interface().(type) {
 	case PerlUndef:
 		_ = val
-		by = append(by, TypeUNDEF)
+		by = append(by, typeUNDEF)
 		return by
 	case PerlObject:
-		by = append(by, TypeOBJECT)
+		by = append(by, typeOBJECT)
 		by = encodeBytes(by, []byte(val.Class), strTable)
 		by, _ = encode(by, reflect.ValueOf(val.Reference), strTable, ptrTable)
 		return by
 	case PerlRegexp:
-		by = append(by, TypeREGEXP)
+		by = append(by, typeREGEXP)
 		by = encodeBytes(by, []byte(val.Pattern), strTable)
 		by = encodeBytes(by, []byte(val.Modifiers), strTable)
 		return by
 	}
 
-	by = append(by, TypeOBJECT)
+	by = append(by, typeOBJECT)
 
 	by = encodeBytes(by, []byte(typ.Name()), strTable)
 
 	l := typ.NumField()
 
 	if l < 16 {
-		by = append(by, TypeARRAYREF_0+byte(l))
+		by = append(by, typeARRAYREF_0+byte(l))
 	} else {
-		by = append(by, TypeARRAY)
+		by = append(by, typeARRAY)
 		by = varint(by, uint(l))
 	}
 

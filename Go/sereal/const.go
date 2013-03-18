@@ -10,38 +10,38 @@ const (
 	VersionSnappyLength
 )
 
-type TypeTag byte
+type typeTag byte
 
 const TrackFlag = byte(0x80)
 
 const (
-	TypeVARINT         = 0x20
-	TypeZIGZAG         = 0x21
-	TypeFLOAT          = 0x22
-	TypeDOUBLE         = 0x23
-	TypeLONG_DOUBLE    = 0x24
-	TypeUNDEF          = 0x25
-	TypeBINARY         = 0x26
-	TypeSTR_UTF8       = 0x27
-	TypeREFN           = 0x28
-	TypeREFP           = 0x29
-	TypeHASH           = 0x2a
-	TypeARRAY          = 0x2b
-	TypeOBJECT         = 0x2c
-	TypeOBJECTV        = 0x2d
-	TypeALIAS          = 0x2e
-	TypeCOPY           = 0x2f
-	TypeWEAKEN         = 0x30
-	TypeREGEXP         = 0x31
-	TypeFALSE          = 0x3a
-	TypeTRUE           = 0x3b
-	TypeMANY           = 0x3c
-	TypePACKET_START   = 0x3d
-	TypeEXTEND         = 0x3e
-	TypePAD            = 0x3f
-	TypeARRAYREF_0     = 0x40
-	TypeHASHREF_0      = 0x50
-	TypeSHORT_BINARY_0 = 0x60
+	typeVARINT         = 0x20
+	typeZIGZAG         = 0x21
+	typeFLOAT          = 0x22
+	typeDOUBLE         = 0x23
+	typeLONG_DOUBLE    = 0x24
+	typeUNDEF          = 0x25
+	typeBINARY         = 0x26
+	typeSTR_UTF8       = 0x27
+	typeREFN           = 0x28
+	typeREFP           = 0x29
+	typeHASH           = 0x2a
+	typeARRAY          = 0x2b
+	typeOBJECT         = 0x2c
+	typeOBJECTV        = 0x2d
+	typeALIAS          = 0x2e
+	typeCOPY           = 0x2f
+	typeWEAKEN         = 0x30
+	typeREGEXP         = 0x31
+	typeFALSE          = 0x3a
+	typeTRUE           = 0x3b
+	typeMANY           = 0x3c
+	typePACKET_START   = 0x3d
+	typeEXTEND         = 0x3e
+	typePAD            = 0x3f
+	typeARRAYREF_0     = 0x40
+	typeHASHREF_0      = 0x50
+	typeSHORT_BINARY_0 = 0x60
 )
 
 const SnappyThreshold = 1024

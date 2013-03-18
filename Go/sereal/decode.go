@@ -133,7 +133,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 	tag := b[idx]
 
 	// skip over any padding bytes
-	for tag == TypePAD {
+	for tag == typePAD {
 		idx++
 		tag = b[idx]
 	}
@@ -143,7 +143,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 	tag &^= TrackFlag
 
 	switch {
-	case tag < TypeVARINT:
+	case tag < typeVARINT:
 		idx++
 		neg := (tag & 0x10) == 0x10
 		ptr = reflect.New(reflect.TypeOf(int(0)))
@@ -152,18 +152,18 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 			i -= 32
 		}
 		ptr.Elem().SetInt(int64(i))
-	case tag == TypeVARINT, tag == TypeZIGZAG:
+	case tag == typeVARINT, tag == typeZIGZAG:
 		ptr = reflect.New(reflect.TypeOf(int(0)))
 		idx++
 		i, sz := varintdecode(b[idx:])
 		idx += sz
-		if tag == TypeZIGZAG {
+		if tag == typeZIGZAG {
 			i = -(1 + (i >> 1)) // un-zigzag
 		}
 
 		ptr.Elem().SetInt(int64(i))
 
-	case tag == TypeFLOAT:
+	case tag == typeFLOAT:
 		idx++
 
 		var f float32
@@ -174,7 +174,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		idx += 4
 		ptr.Elem().SetFloat(float64(f))
 
-	case tag == TypeDOUBLE:
+	case tag == typeDOUBLE:
 		idx++
 
 		var f float64
@@ -185,14 +185,14 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		idx += 8
 		ptr.Elem().SetFloat(f)
 
-	case tag == TypeUNDEF:
+	case tag == typeUNDEF:
 		idx++
 
 		u := &PerlUndef{}
 
 		ptr = reflect.ValueOf(u)
 
-	case tag == TypeBINARY:
+	case tag == typeBINARY:
 
 		idx++
 		ln, sz := varintdecode(b[idx:])
@@ -206,7 +206,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 
 		idx += ln
 
-	case tag == TypeSTR_UTF8:
+	case tag == typeSTR_UTF8:
 
 		idx++
 		ln, sz := varintdecode(b[idx:])
@@ -217,7 +217,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 
 		idx += ln
 
-	case tag == TypeREFN:
+	case tag == typeREFN:
 		idx++
 		e, sz, _ := decode(b, idx, tracked)
 		idx += sz
@@ -225,7 +225,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		ptr = reflect.New(e.Type())
 		ptr.Elem().Set(e)
 
-	case tag == TypeREFP:
+	case tag == typeREFP:
 		idx++
 
 		offs, sz := varintdecode(b[idx:])
@@ -236,7 +236,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		ptr = reflect.New(e.Type())
 		ptr.Elem().Set(e)
 
-	case tag == TypeHASH:
+	case tag == typeHASH:
 
 		idx++
 
@@ -261,7 +261,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 			ptr.Elem().SetMapIndex(reflect.ValueOf(s), v.Elem())
 		}
 
-	case tag == TypeARRAY:
+	case tag == typeARRAY:
 
 		idx++
 		ln, sz := varintdecode(b[idx:])
@@ -280,7 +280,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 			a[i] = e.Elem().Interface()
 		}
 
-	case tag == TypeOBJECT:
+	case tag == typeOBJECT:
 		idx++
 
 		// FIXME: track before recurse?
@@ -293,7 +293,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		o := &PerlObject{s, ref.Elem().Interface()}
 		ptr = reflect.ValueOf(o)
 
-	case tag == TypeOBJECTV:
+	case tag == typeOBJECTV:
 		idx++
 		offs, sz := varintdecode(b[idx:])
 		idx += sz
@@ -305,12 +305,12 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		o := &PerlObject{s, ref.Elem().Interface()}
 		ptr = reflect.ValueOf(o)
 
-	case tag == TypeTRUE, tag == TypeFALSE:
+	case tag == typeTRUE, tag == typeFALSE:
 		idx++
 		ptr = reflect.New(reflect.TypeOf(false))
-		ptr.Elem().SetBool(tag == TypeTRUE)
+		ptr.Elem().SetBool(tag == typeTRUE)
 
-	case tag >= TypeARRAYREF_0 && tag < TypeARRAYREF_0+16:
+	case tag >= typeARRAYREF_0 && tag < typeARRAYREF_0+16:
 
 		idx++
 		ln := int(tag & 0x0f)
@@ -333,7 +333,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 			a[i] = e.Elem().Interface()
 		}
 
-	case tag >= TypeHASHREF_0 && tag < TypeHASHREF_0+16:
+	case tag >= typeHASHREF_0 && tag < typeHASHREF_0+16:
 
 		idx++
 		ln := int(tag & 0x0f)
@@ -360,7 +360,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 			m[s] = v.Elem().Interface()
 		}
 
-	case tag >= TypeSHORT_BINARY_0 && tag < TypeSHORT_BINARY_0+32:
+	case tag >= typeSHORT_BINARY_0 && tag < typeSHORT_BINARY_0+32:
 		ln := int(tag & 0x1F) // get length from tag
 		idx++
 
@@ -371,7 +371,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 
 		idx += ln
 
-	case tag == TypeALIAS:
+	case tag == typeALIAS:
 		idx++
 
 		offs, sz := varintdecode(b[idx:])
@@ -379,7 +379,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 
 		ptr = tracked[offs]
 
-	case tag == TypeCOPY:
+	case tag == typeCOPY:
 		idx++
 
 		offs, sz := varintdecode(b[idx:])
@@ -388,7 +388,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		p, _, _ := decode(b, offs, tracked)
 		ptr = p
 
-	case tag == TypeWEAKEN:
+	case tag == typeWEAKEN:
 		idx++
 
 		r, sz, _ := decode(b, idx, tracked)
@@ -396,7 +396,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		w := PerlWeakRef{r}
 		ptr = reflect.ValueOf(w)
 
-	case tag == TypeREGEXP:
+	case tag == typeREGEXP:
 		idx++
 		// FIXME: track before recurse?
 		pattern, sz, _ := decode(b, idx, tracked)
