@@ -21,6 +21,7 @@ func handleHeader(b []byte) int {
 	return ln + sz
 }
 
+// Unmarshal parses the Sereal-encoded buffer b and stores the result in the value pointed to by v
 func Unmarshal(b []byte, v interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {

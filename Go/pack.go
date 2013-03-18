@@ -43,6 +43,7 @@ func snappify(b []byte) ([]byte, error) {
 	return b, nil
 }
 
+// Marshal returns the Sereal encoding of v
 func Marshal(v interface{}) (b []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
