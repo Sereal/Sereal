@@ -11,8 +11,8 @@ import (
 	"strconv"
 )
 
-func getDocumentTypeAndVersion(b byte) (VersionType, byte) {
-	return VersionType(b >> 4), b & 0xF
+func getDocumentTypeAndVersion(b byte) (versionType, byte) {
+	return versionType(b >> 4), b & 0xF
 }
 
 func handleHeader(b []byte) int {
@@ -39,7 +39,7 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 
 	vPtrValue := reflect.ValueOf(v)
 
-	if binary.LittleEndian.Uint32(b[:4]) != Magic {
+	if binary.LittleEndian.Uint32(b[:4]) != magicHeaderBytes {
 		return errors.New("bad header")
 	}
 
@@ -52,9 +52,9 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 	 *     it would be more flexible to use a sort of "Reader" interface */
 	switch docType {
 
-	case VersionRaw:
+	case versionRaw:
 		// nothing
-	case VersionSnappy:
+	case versionSnappy:
 		decoded, err := snappy.Decode(nil, b[5+headerLength:])
 
 		if err != nil {
@@ -66,7 +66,7 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 		d = append(d, decoded...)
 		b = d
 
-	case VersionSnappyLength:
+	case versionSnappyLength:
 		ln, sz := varintdecode(b[5+headerLength:])
 		decoded, err := snappy.Decode(nil, b[5+headerLength+sz:5+headerLength+sz+ln])
 
@@ -138,9 +138,9 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		tag = b[idx]
 	}
 
-	trackme := (tag & TrackFlag) == TrackFlag
+	trackme := (tag & trackFlag) == trackFlag
 
-	tag &^= TrackFlag
+	tag &^= trackFlag
 
 	switch {
 	case tag < typeVARINT:

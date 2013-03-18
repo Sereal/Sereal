@@ -1,7 +1,4 @@
    TODO:
-    - rename pack.go -> encoder.go, unpack.go -> decoder.go
-    - rearrange github directories so we can 'go get' it:
-    - export fewer constants
     - better test infrastructure: table-driven tests that use Perl's test cases
     - create tracked references during pack (circular structures)
     - how do we handle hashes?

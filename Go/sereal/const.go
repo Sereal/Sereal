@@ -1,18 +1,18 @@
 package sereal
 
-const Magic = uint32(0x6c72733d)
+const magicHeaderBytes = uint32(0x6c72733d)
 
-type VersionType byte
+type versionType byte
 
 const (
-	VersionRaw VersionType = iota
-	VersionSnappy
-	VersionSnappyLength
+	versionRaw versionType = iota
+	versionSnappy
+	versionSnappyLength
 )
 
 type typeTag byte
 
-const TrackFlag = byte(0x80)
+const trackFlag = byte(0x80)
 
 const (
 	typeVARINT         = 0x20
@@ -44,4 +44,4 @@ const (
 	typeSHORT_BINARY_0 = 0x60
 )
 
-const SnappyThreshold = 1024
+const snappyThreshold = 1024

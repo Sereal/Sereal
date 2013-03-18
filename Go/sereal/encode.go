@@ -62,7 +62,7 @@ func Marshal(v interface{}) (b []byte, err error) {
 	headerLength := 6
 	b = make([]byte, headerLength, 32)
 
-	binary.LittleEndian.PutUint32(b[:4], Magic)
+	binary.LittleEndian.PutUint32(b[:4], magicHeaderBytes)
 	b[4] = 1 /* version */
 	b[5] = 0 /* header size */
 
@@ -77,7 +77,7 @@ func Marshal(v interface{}) (b []byte, err error) {
 		return nil, err
 	}
 
-	if len(encoded) >= SnappyThreshold+headerLength {
+	if len(encoded) >= snappyThreshold+headerLength {
 		encoded, err = snappify(encoded)
 
 		if err != nil {
@@ -134,7 +134,7 @@ func encode(b []byte, rv reflect.Value, strTable map[string]int, ptrTable map[ui
 		if ok { // seen this before
 			b = append(b, typeREFP)
 			b = varint(b, uint(offs))
-			b[offs] |= TrackFlag // original offset now tracked
+			b[offs] |= trackFlag // original offset now tracked
 		} else {
 			b = append(b, typeREFN)
 			ptrTable[rv.Pointer()] = len(b)
