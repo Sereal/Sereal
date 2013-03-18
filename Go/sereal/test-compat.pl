@@ -1,8 +1,8 @@
 #!/usr/bin/env perl
 
-use blib "../Perl/Decoder/blib/";
-use blib "../Perl/Encoder/blib/";
-use lib "../Perl/shared/t/lib/";
+use blib "../../Perl/Decoder/blib/";
+use blib "../../Perl/Encoder/blib/";
+use lib "../../Perl/shared/t/lib/";
 
 use Sereal::Decoder qw(decode_sereal);
 use Test::More;
