@@ -9,8 +9,9 @@
 #ifndef PTABLE_H_
 #define PTABLE_H_
 
-#include "ppport.h"
+#include <assert.h>
 #include <limits.h>
+#include "ppport.h"
 
 #if PTRSIZE == 8
     /*
