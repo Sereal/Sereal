@@ -264,17 +264,18 @@ int srl_write_header(srl_encoder_t *enc)
     PyFloat
     PyList
     PyNone
+    PyDict
+    Regex Patterns from 're' module
 
   At the moment we do not support structures containing:
       PyLong
       PyComplex
       PyByteArray
       PyTuple       
-      PyDictionary  
 
   Also, we do not use:
-    <REFP>,<COPY>,<ALIAS>,<OBJECT>,<OBJECTV>
-    <WEAKEN>,<REGEXP>,
+    <ALIAS>,<OBJECT>,<OBJECTV>,
+    <WEAKEN>,
     <EXTEND>,<PAD>
     
 */
