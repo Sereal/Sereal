@@ -13,7 +13,7 @@ SRL_STATIC_INLINE unsigned VARINT_LEN(unsigned long x) { return 1 + (x / (1<<7))
 SRL_STATIC_INLINE int SRL_ENTER_RECURSIVE_CALL(srl_encoder_t *enc, char *msg);
 SRL_STATIC_INLINE void SRL_LEAVE_RECURSIVE_CALL(srl_encoder_t *enc);
 
-SRL_STATIC_INLINE void srl_write_header(srl_encoder_t *enc);
+SRL_STATIC_INLINE int srl_write_header(srl_encoder_t *enc);
 
 SRL_STATIC_INLINE int srl_dump_long(srl_encoder_t *enc, long n);
 SRL_STATIC_INLINE int srl_dump_binary(srl_encoder_t *enc, const char *, Py_ssize_t);
@@ -119,7 +119,8 @@ PyObject *srl_encoder_dump (srl_encoder_t *enc, PyObject *obj)
                              SRL_F_COMPRESS_SNAPPY |
                              SRL_F_COMPRESS_SNAPPY_INCREMENTAL))
     {
-        srl_write_header(enc);
+        if(-1 == srl_write_header(enc))
+            return NULL;
         if (-1 == srl_dump_pyobj(enc, obj))
             return NULL;
     } else {
@@ -228,7 +229,7 @@ PyObject *srl_encoder_dump (srl_encoder_t *enc, PyObject *obj)
     return PyString_FromStringAndSize(enc->buf_start, BUF_POS_OFS(enc));
 }
 
-void srl_write_header(srl_encoder_t *enc)
+int srl_write_header(srl_encoder_t *enc)
 {
     /*
       <MAGIC> <VERSION-TYPE> <HEADER-SUFFIX-SIZE> <OPT-SUFFIX>
@@ -246,10 +247,12 @@ void srl_write_header(srl_encoder_t *enc)
     /* 4 byte magic string + proto version
      * + potentially uncompressed size varint
      * +  1 byte varint that indicates zero-length header */
-    BUF_SIZE_ASSERT(enc, sizeof(SRL_MAGIC_STRING) + 1 + 1);
+    if (-1 == BUF_SIZE_ASSERT(enc, sizeof(SRL_MAGIC_STRING) + 1 + 1))
+        return -1;
     srl_buf_cat_str_s_nocheck(enc, SRL_MAGIC_STRING);
     srl_buf_cat_char_nocheck(enc, version_and_flags);
     srl_buf_cat_char_nocheck(enc, '\0'); /* variable header length (0 right now) */
+    return 0;
 }
 
 /*
