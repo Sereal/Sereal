@@ -24,6 +24,16 @@ typedef struct {
 
     char *snappy_workmem;          /* scratchpad for snappy */
     unsigned snappy_threshold;     /* never compress dumps smaller than this */
+
+    struct {
+        PyObject *module;         /* 're' module is imported if we need */
+        long DOTALL;              /* the modifier flags */
+        long IGNORECASE;
+        long LOCALE;
+        long MULTILINE;
+        long UNICODE;
+        long VERBOSE;
+    } re;
 } srl_encoder_t;
 
 typedef struct srl_encoder_ctor_args {

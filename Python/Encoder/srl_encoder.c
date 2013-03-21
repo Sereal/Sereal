@@ -25,9 +25,12 @@ SRL_STATIC_INLINE int srl_dump_pystring(srl_encoder_t *enc, PyObject *obj, ptrdi
 SRL_STATIC_INLINE int srl_dump_pyunicode(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs);
 SRL_STATIC_INLINE int srl_dump_pylist(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs);
 SRL_STATIC_INLINE int srl_dump_pydict(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs);
+SRL_STATIC_INLINE int srl_dump_re(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs);
 
 SRL_STATIC_INLINE int srl_track_obj(srl_encoder_t *enc, PyObject *obj);
 SRL_STATIC_INLINE ptrdiff_t srl_find_obj(srl_encoder_t *enc, PyObject *obj);
+
+SRL_STATIC_INLINE int srl_import_re(srl_encoder_t *enc);
 
 const srl_encoder_ctor_args default_encoder_ctor_args = 
 {
@@ -90,6 +93,8 @@ int srl_encoder_ctor(srl_encoder_t *enc, const srl_encoder_ctor_args *args)
     enc->snappy_workmem = NULL;
     enc->snappy_threshold = args->snappy_threshold;
 
+    memset(&enc->re, 0, sizeof(enc->re));
+
     return 0;
 }
 
@@ -102,6 +107,7 @@ void srl_encoder_dtor(srl_encoder_t *enc)
         PTABLE_free(enc->obj_seenhash);
     if (enc->snappy_workmem)
         PyMem_Free(enc->snappy_workmem);
+    Py_XDECREF(enc->re.module);
     enc->buf_start = enc->buf_end = enc->pos = NULL;
 }
 
@@ -280,7 +286,8 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
         BOOL,INT,FLOAT,
         STRING,UNICODE,
         LIST,
-        DICT
+        DICT,
+        REGEX
     } type;
 
     assert(enc);
@@ -313,6 +320,18 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
         else if (PyUnicode_Check(obj)) type = UNICODE;
         else if (PyList_Check(obj))    type = LIST;
         else if (PyDict_Check(obj))    type = DICT;
+    }
+
+    if (!type) {
+        /* Dirty Hack:
+           I don't have any handle to a regex pattern TypeObject
+           before importing the 're' module. So to avoid importing
+           the module unless absolutely necessary I abuse the fact
+           that the pattern type-name is '_sre.SRE_Pattern'.
+         */
+        char sre_name[] = "_sre.SRE_Pattern";
+        if (!strncmp(Py_TYPE(obj)->tp_name, sre_name, sizeof(sre_name)))
+            type = REGEX;
     }
 
     /*
@@ -365,6 +384,10 @@ int srl_dump_pyobj(srl_encoder_t *enc, PyObject *obj)
             break;
         case DICT:
             if (-1 == srl_dump_pydict(enc, obj, offs))
+                goto finally;
+            break;
+        case REGEX:
+            if (-1 == srl_dump_re(enc, obj, offs))
                 goto finally;
             break;
         default:
@@ -660,6 +683,58 @@ finally:
 }
 
 SRL_STATIC_INLINE
+int srl_dump_re(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs)
+{
+    /* <SRL_HDR_REGEXP> <PATTERN-STR-TAG> <MODIFIERS-STR-TAG> */
+    PyObject *pypattern;
+    PyObject *pyflags;
+    char *p, modifiers[7];
+    long flags;
+    int ret;
+
+    assert(enc);
+    assert(obj);
+
+    pypattern = pyflags = NULL;
+    ret = -1;
+
+    if (offs) {
+        ret = srl_buf_cat_varint(enc, SRL_HDR_COPY, offs);
+        goto finally;
+    }
+
+    if (-1 == srl_import_re(enc))
+        goto finally;
+
+    pypattern = PyObject_GetAttrString(obj, "pattern");
+    pyflags = PyObject_GetAttrString(obj, "flags");
+
+    if (!pypattern && !pyflags)
+        goto finally;
+
+    flags = PyInt_AS_LONG(pyflags);
+
+    p = &modifiers[0];
+    if (flags & enc->re.IGNORECASE) *p++ = 'i';
+    if (flags & enc->re.LOCALE)     *p++ = 'l';
+    if (flags & enc->re.MULTILINE)  *p++ = 'm';
+    if (flags & enc->re.DOTALL)     *p++ = 's';
+    if (flags & enc->re.UNICODE)    *p++ = 'u';
+    if (flags & enc->re.VERBOSE)    *p++ = 'x';
+    *p = '\0';
+
+    srl_buf_cat_char(enc, SRL_HDR_REGEXP);
+    srl_dump_pystring(enc, pypattern, 0);
+    srl_dump_binary(enc, modifiers, p - modifiers);
+
+    ret = 0;
+finally:
+    Py_XDECREF(pypattern);
+    Py_XDECREF(pyflags);
+    return ret;
+}
+
+SRL_STATIC_INLINE
 int srl_track_obj(srl_encoder_t *enc, PyObject *obj)
 {
     if (!enc->obj_seenhash)
@@ -708,3 +783,26 @@ void SRL_LEAVE_RECURSIVE_CALL(srl_encoder_t *enc)
     enc->recursion_depth--;
 }
 
+SRL_STATIC_INLINE int srl_import_re(srl_encoder_t *enc)
+{
+    if (!enc->re.module) {
+        PyObject *m, *d;
+
+        m = PyImport_ImportModule("re");
+        if (!m)
+            return -1;
+        d = PyModule_GetDict(m);
+
+        enc->re.module = m;
+#define GETFLAG(name) PyInt_AS_LONG(PyDict_GetItemString(d, name))
+        enc->re.DOTALL     = GETFLAG("DOTALL");
+        enc->re.IGNORECASE = GETFLAG("IGNORECASE");
+        enc->re.LOCALE     = GETFLAG("LOCALE");
+        enc->re.MULTILINE  = GETFLAG("MULTILINE");
+        enc->re.UNICODE    = GETFLAG("UNICODE");
+        enc->re.VERBOSE    = GETFLAG("VERBOSE");
+#undef GETFLAG
+    }
+
+    return 0;
+}
