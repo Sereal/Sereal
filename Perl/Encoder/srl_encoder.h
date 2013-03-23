@@ -22,9 +22,10 @@ typedef struct {
     UV max_recursion_depth;  /* Configurable limit on the number of recursive calls we're willing to make */
 
     UV recursion_depth;      /* current Perl-ref recursion depth */
-    ptable_ptr ref_seenhash; /* ptr table for avoiding circular refs */
+    ptable_ptr ref_seenhash;  /* ptr table for avoiding circular refs */
     ptable_ptr weak_seenhash; /* ptr table for avoiding dangling weakrefs */
-    ptable_ptr str_seenhash; /* ptr table for issuing COPY commands */
+    ptable_ptr str_seenhash;  /* ptr table for issuing COPY commands based on PTRS (used for classnames and keys) */
+    HV *string_deduper_hv;    /* track strings we have seen before, by content */
 
     void *snappy_workmem;    /* lazily allocated if and only if using Snappy */
     IV snappy_threshold;     /* do not compress things smaller than this even if Snappy enabled */
@@ -50,36 +51,38 @@ void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
 
 /* Will default to "on". If set, hash keys will be shared using COPY.
  * Corresponds to the inverse of constructor option "no_shared_hashkeys" */
-#define SRL_F_SHARED_HASHKEYS                1UL
+#define SRL_F_SHARED_HASHKEYS                0x00001UL
 /* If set, then we're using the OO interface and we shouldn't destroy the
  * encoder struct during SAVEDESTRUCTOR_X time */
-#define SRL_F_REUSE_ENCODER                  2UL
+#define SRL_F_REUSE_ENCODER                  0x00002UL
 /* If set in flags, then we rather croak than serialize an object.
  * Corresponds to the 'croak_on_bless' option to the Perl constructor. */
-#define SRL_F_CROAK_ON_BLESS                 4UL
+#define SRL_F_CROAK_ON_BLESS                 0x00004UL
 /* If set in flags, then we will emit <undef> for all data types
  * that aren't supported.  Corresponds to the 'undef_unknown' option. */
-#define SRL_F_UNDEF_UNKNOWN                  8UL
+#define SRL_F_UNDEF_UNKNOWN                  0x00008UL
 /* If set in flags, then we will stringify (SvPV) all data types
  * that aren't supported.  Corresponds to the 'stringify_unknown' option. */
-#define SRL_F_STRINGIFY_UNKNOWN              16UL
+#define SRL_F_STRINGIFY_UNKNOWN              0x00010UL
 /* If set in flags, then we warn() when trying to serialize an unsupported
  * data structure.  Applies only if stringify_unknown or undef_unknown are
  * set since we otherwise croak.  Corresponds to the 'warn_unknown' option. */
-#define SRL_F_WARN_UNKNOWN                   32UL
+#define SRL_F_WARN_UNKNOWN                   0x00020UL
 
 /* WARNING: This is different from the protocol bit SRL_PROTOCOL_ENCODING_SNAPPY in that it's
  *          a flag on the encoder struct indicating that we want to use Snappy. */
-#define SRL_F_COMPRESS_SNAPPY                64UL
-#define SRL_F_COMPRESS_SNAPPY_INCREMENTAL   128UL
+#define SRL_F_COMPRESS_SNAPPY                0x00040UL
+#define SRL_F_COMPRESS_SNAPPY_INCREMENTAL    0x00080UL
 
 /* Only meaningful if SRL_F_WARN_UNKNOWN also set. If this one is set, then we don't warn
  * if the unsupported item has string overloading. */
-#define SRL_F_NOWARN_UNKNOWN_OVERLOAD       256UL
+#define SRL_F_NOWARN_UNKNOWN_OVERLOAD        0x00100UL
 
 /* Only meaningful if SRL_F_WARN_UNKNOWN also set. If this one is set, then we don't warn
  * if the unsupported item has string overloading. */
-#define SRL_F_SORT_KEYS                     512UL
+#define SRL_F_SORT_KEYS                      0x00200UL
+
+#define SRL_F_DEDUPE_STRINGS                 0x00400UL
 
 /* Set while the encoder is in active use / dirty */
 #define SRL_OF_ENCODER_DIRTY                 1UL

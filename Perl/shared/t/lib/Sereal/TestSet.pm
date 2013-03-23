@@ -595,6 +595,7 @@ sub run_roundtrip_tests {
         ['snappy',      { snappy => 1      } ],
         ['snappy_incr', { snappy_incr => 1 } ],
         ['sort_keys',   { sort_keys => 1   } ],
+        ['dedupe_strings',   { dedupe_strings => 1 } ],
     ) {
         run_roundtrip_tests_internal(@$opt);
     }

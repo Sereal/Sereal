@@ -78,7 +78,8 @@ extern "C" {
 
 /* some static function declarations */
 static void srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src);
-static void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8);
+SRL_STATIC_INLINE void srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src);
+SRL_STATIC_INLINE void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8);
 SRL_STATIC_INLINE void srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc);
 SRL_STATIC_INLINE void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcnt);
 SRL_STATIC_INLINE void srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcnt);
@@ -89,8 +90,13 @@ SRL_STATIC_INLINE void srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src);
 SRL_STATIC_INLINE PTABLE_t *srl_init_string_hash(srl_encoder_t *enc);
 SRL_STATIC_INLINE PTABLE_t *srl_init_ref_hash(srl_encoder_t *enc);
 SRL_STATIC_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
+SRL_STATIC_INLINE HV *srl_init_string_deduper_hv(pTHX_ srl_encoder_t *enc);
 
-#define SRL_GET_STR_SEENHASH(enc) ( (enc)->str_seenhash == NULL     \
+#define SRL_GET_STR_DEDUPER_HV(enc) ( (enc)->string_deduper_hv == NULL     \
+                                    ? srl_init_string_deduper_hv(aTHX_ enc)     \
+                                   : (enc)->string_deduper_hv )
+
+#define SRL_GET_STR_PTR_SEENHASH(enc) ( (enc)->str_seenhash == NULL     \
                                     ? srl_init_string_hash(enc)     \
                                    : (enc)->str_seenhash )
 
@@ -112,9 +118,7 @@ SRL_STATIC_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
         !SvROK((src))                                                   \
     ) {                                                                 \
         if (SvPOKp((src))) {                                            \
-            STRLEN len;                                                 \
-            char *str = SvPV((src), len);                               \
-            srl_dump_pv(aTHX_ (enc), str, len, SvUTF8((src)));          \
+            srl_dump_svpv(aTHX_ (enc), (src));                          \
         }                                                               \
         else                                                            \
         if (SvNOKp((src))) {                                            \
@@ -170,6 +174,8 @@ srl_clear_encoder(pTHX_ srl_encoder_t *enc)
         PTABLE_clear(enc->str_seenhash);
     if (enc->weak_seenhash != NULL)
         PTABLE_clear(enc->weak_seenhash);
+    if (enc->string_deduper_hv != NULL)
+        hv_clear(enc->string_deduper_hv);
     enc->pos = enc->buf_start;
 
     SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);
@@ -186,6 +192,8 @@ srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
         PTABLE_free(enc->str_seenhash);
     if (enc->weak_seenhash != NULL)
         PTABLE_free(enc->weak_seenhash);
+    if (enc->string_deduper_hv != NULL)
+        SvREFCNT_dec(enc->string_deduper_hv);
     Safefree(enc);
 }
 
@@ -215,6 +223,7 @@ srl_empty_encoder_struct(pTHX)
     enc->str_seenhash = NULL;
     enc->ref_seenhash = NULL;
     enc->snappy_workmem = NULL;
+    enc->string_deduper_hv = NULL;
 
     return enc;
 }
@@ -258,6 +267,11 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         svp = hv_fetchs(opt, "sort_keys", 0);
         if ( svp && SvTRUE(*svp) ) {
             enc->flags |= SRL_F_SORT_KEYS;
+        }
+
+        svp = hv_fetchs(opt, "dedupe_strings", 0);
+        if ( svp && SvTRUE(*svp) ) {
+            enc->flags |= SRL_F_DEDUPE_STRINGS;
         }
 
         svp = hv_fetchs(opt, "stringify_unknown", 0);
@@ -327,6 +341,12 @@ srl_init_weak_hash(srl_encoder_t *enc)
     return enc->weak_seenhash;
 }
 
+SRL_STATIC_INLINE HV *
+srl_init_string_deduper_hv(pTHX_ srl_encoder_t *enc)
+{
+    enc->string_deduper_hv = newHV();
+    return enc->string_deduper_hv;
+}
 
 void
 srl_write_header(pTHX_ srl_encoder_t *enc)
@@ -446,7 +466,7 @@ SRL_STATIC_INLINE void
 srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
 {
     const HV *stash = SvSTASH(src);
-    PTABLE_t *string_seenhash = SRL_GET_STR_SEENHASH(enc);
+    PTABLE_t *string_seenhash = SRL_GET_STR_PTR_SEENHASH(enc);
     const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, (SV *)stash);
 
     if (oldoffset != 0) {
@@ -945,7 +965,7 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
 #endif
             )
         {
-            PTABLE_t *string_seenhash = SRL_GET_STR_SEENHASH(enc);
+            PTABLE_t *string_seenhash = SRL_GET_STR_PTR_SEENHASH(enc);
             const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, str);
             if (oldoffset != 0) {
                 /* Issue COPY instead of literal hash key string */
@@ -970,8 +990,34 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
     }
 }
 
+SRL_STATIC_INLINE void
+srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src)
+{
+    STRLEN len;
+    const char const *str= SvPV(src, len);
+    if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_DEDUPE_STRINGS) && len > 3 ) {
+        HV *string_deduper_hv= SRL_GET_STR_DEDUPER_HV(enc);
+        HE *dupe_offset_he= hv_fetch_ent(string_deduper_hv, src, 1, 0);
+        if (!dupe_offset_he) {
+            croak("out of memory (hv_fetch_ent returned NULL)");
+        } else {
+            SV *ofs_sv= HeVAL(dupe_offset_he);
+            if (SvIOK(ofs_sv)) {
+                /* emit copy */
+                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, SvIV(ofs_sv));
+                return;
+            } else if (SvUOK(ofs_sv)) {
+                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, SvUV(ofs_sv));
+                return;
+            } else {
+                sv_setuv(ofs_sv, (UV)BUF_POS_OFS(enc));
+            }
+        }
+    }
+    srl_dump_pv(aTHX_ enc, str, len, SvUTF8(src));
+}
 
-static void
+SRL_STATIC_INLINE void
 srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8)
 {
     BUF_SIZE_ASSERT(enc, 1 + SRL_MAX_VARINT_LENGTH + src_len); /* overallocate a bit sometimes */
@@ -985,9 +1031,6 @@ srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_ut
     Copy(src, enc->pos, src_len, char);
     enc->pos += src_len;
 }
-
-
-
 
 /* Dumps generic SVs and delegates
  * to more specialized functions for RVs, etc. */
@@ -1098,11 +1141,7 @@ redo_dump:
         }
         else
 #endif
-        {
-            STRLEN len;
-            char *str = SvPV(src, len);
-            srl_dump_pv(aTHX_ enc, str, len, SvUTF8(src));
-        }
+        srl_dump_svpv(aTHX_ enc, src);
     }
     else
 #if defined(MODERN_REGEXP) && defined(REGEXP_NO_LONGER_POK)

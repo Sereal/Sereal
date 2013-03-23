@@ -135,7 +135,7 @@ SCOPE: {
         };
         $enc->encode(["foo", sub{}]);
     };
-    ok($die_run == 2, "__DIE__ called, encode 2 did not die");
+    ok($die_run == 2, "__DIE__ called, encode 2 did not die ($die_run)");
 }
 
 # github Sereal/Sereal issue 7 regression test:

@@ -1,5 +1,10 @@
 Revision history for Perl extension Sereal-Encoder
 
+0.32 Sun Feb 17 15:06 2013 (AMS time)
+  - Add "dedupe_strings" option, which will make
+    the encoder do extra work to dedupe string values
+    in the serialized output.
+
 0.31 Sun Feb 17 15:06 2013 (AMS time)
   - Daniel Dragan <bulk88@hotmail.com> spent a bunch of time
     digging into the weird problems we were having with Snappy

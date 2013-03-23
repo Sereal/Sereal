@@ -5,10 +5,10 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '0.31'; # Don't forget to update the TestCompat set for testing against installed decoders!
+our $VERSION = '0.32'; # Don't forget to update the TestCompat set for testing against installed decoders!
 
 # not for public consumption, just for testing.
-my $TestCompat = [map sprintf("%.2f", $_/100), reverse(23..31)]; # compat with 0.23 to ...
+my $TestCompat = [map sprintf("%.2f", $_/100), reverse(23..32)]; # compat with 0.23 to ...
 sub _test_compat {return(@$TestCompat, $VERSION)}
 
 use Exporter 'import';
@@ -180,6 +180,23 @@ the memory.
 
 See L</NON-CANONICAL> for why you might want to use this, and for the
 various caveats involved.
+
+=head3 dedupe_strings
+
+If true Sereal will use a hash to dedupe strings during serialization. This
+has a peformance and memory penalty so it defaults to off, but data structures
+with many duplicated strings will see a significant reduction in the size of
+the encoded form. Currently only strings longer than 3 characters will be
+deduped, however this may change in the future.
+
+Note that Sereal will perform certain types of deduping automatically even
+without this option. In particular class names and hash keys are deduped
+regardless of this option. Only enable this if you have good reason to
+believe that there are many duplicated strings as values in your data
+structure.
+
+Use of this option does not require an upgraded decoder. The deduping
+is performed in such a way that older decoders should handle it just fine.
 
 =head1 INSTANCE METHODS
 

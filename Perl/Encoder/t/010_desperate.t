@@ -23,6 +23,7 @@ use Test::More;
 
 run_tests("plain");
 run_tests("no_shared_hk", {no_shared_hashkeys => 1});
+run_tests("dedupe_strings", {dedupe_strings => 1});
 done_testing();
 
 sub run_tests {
