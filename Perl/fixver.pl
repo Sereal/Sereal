@@ -31,3 +31,14 @@ foreach my $file (@files) {
         print $out $_;
     }
 }
+
+__END__
+
+for d in Encoder/ Decoder/; do pushd $d; perl Makefile.PL; make test; make distcheck; make dist; popd; done; pushd Sereal/; PERL5OPT="-Mblib=../Encoder/ -Mblib=../Decoder/" perl Makefile.PL; PERL5OPT="-Mblib=../Encoder/ -Mblib=../Decoder/" make test; make distcheck; make dist; popd;
+cpan-upload-http -verbose Encoder/Sereal-Encoder-0.33.tar.gz Decoder/Sereal-Decoder-0.33.tar.gz Sereal/Sereal-0.330.tar.gz
+git commit -a -m'Release v0.33 to fix issue #27 - Issue with weakref'
+git tag Sereal-Decoder-0.33 -m'Release Sereal::Decoder version 0.33 (encoder release sync)'
+git tag Sereal-Encoder-0.33 -m'Release Sereal::Encoder version 0.33 (fix weakref problem)'
+git tag Sereal-0.330 -m'Sereal v0.330 - Update encoder (fix weakref problem)'
+git push
+git push --tags
