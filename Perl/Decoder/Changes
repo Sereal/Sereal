@@ -1,5 +1,8 @@
 Revision history for Perl extension Sereal-Decoder
 
+0.33 Sun Feb 17 17:26 2013 (AMS time)
+  - dummy release to keep in sync with encoder.
+
 0.32 Sun Feb 17 15:06 2013 (AMS time)
   - dummy release to keep in sync with encoder.
 

@@ -1,5 +1,8 @@
 Revision history for Perl extension Sereal-Encoder
 
+0.33 Sun Feb 17 17:26 2013 (AMS time)
+  - Fix problem with hv_backrefs (Issue #27)
+
 0.32 Sun Feb 17 15:06 2013 (AMS time)
   - Add "dedupe_strings" option, which will make
     the encoder do extra work to dedupe string values
