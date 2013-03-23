@@ -40,6 +40,9 @@ extern "C" {
 #define MY_CAN_FIND_PLACEHOLDERS
 #define HAS_SV2OBJ
 #endif
+#if (PERL_VERSION >= 10)
+#define HAS_HV_BACKREFS
+#endif
 
 #include "srl_protocol.h"
 #include "srl_encoder.h"
@@ -1066,14 +1069,16 @@ redo_dump:
     DEBUG_ASSERT_BUF_SANE(enc);
     if ( SvMAGICAL(src) ) {
         SvGETMAGIC(src);
-#ifdef Perl_hv_backreferences_p
+#ifdef HAS_HV_BACKREFS
         if (svt != SVt_PVHV)
 #endif
             mg = mg_find(src, PERL_MAGIC_backref);
     }
-#ifdef Perl_hv_backreferences_p
-    if (svt == SVt_PVHV)
+#ifdef HAS_HV_BACKREFS
+    if (svt == SVt_PVHV) {
         backrefs= *Perl_hv_backreferences_p(aTHX_ (HV *)src);
+        if (DEBUGHACK) warn("backreferences %p", src);
+    }
 #endif
     if ( mg || backrefs ) {
         PTABLE_t *weak_seenhash= SRL_GET_WEAK_SEENHASH(enc);
@@ -1130,7 +1135,7 @@ redo_dump:
     }
     if (weakref_ofs != 0) {
         sv_dump(src);
-        assert(weakref_ofs == 0);
+        croak("Corrupted weakref? weakref_ofs=0 (this should not happen)");
     }
     if (SvPOKp(src)) {
 #if defined(MODERN_REGEXP) && !defined(REGEXP_NO_LONGER_POK)
@@ -1173,6 +1178,7 @@ redo_dump:
         }
 #endif
         if (SvWEAKREF(src)) {
+            if (DEBUGHACK) warn("Is weakref %p", src);
             weakref_ofs= BUF_POS_OFS(enc);
             srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
         }
@@ -1191,6 +1197,7 @@ redo_dump:
         srl_buf_cat_char(enc, SRL_HDR_REFN);
         refsv= src;
         src= referent;
+        if (DEBUGHACK) warn("Going to redo %p", src);
         goto redo_dump;
     }
     else
