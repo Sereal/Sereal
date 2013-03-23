@@ -4,6 +4,8 @@ use warnings;
 
 use ExtUtils::MakeMaker;
 
+our $VERSION = '0.32';
+
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 WriteMakefile1(
@@ -16,14 +18,14 @@ WriteMakefile1(
     },
     BUILD_REQUIRES => {
         'Test::More' => 0.88,
-        'Sereal::Encoder' => '0.32',
-        'Sereal::Decoder' => '0.32',
+        'Sereal::Encoder' => $VERSION,
+        'Sereal::Decoder' => $VERSION,
     },
     NAME              => 'Sereal',
     VERSION_FROM      => 'lib/Sereal.pm', # finds $VERSION
     PREREQ_PM         => {
-        'Sereal::Encoder' => '0.32',
-        'Sereal::Decoder' => '0.32',
+        'Sereal::Encoder' => $VERSION,
+        'Sereal::Decoder' => $VERSION,
     }, # e.g., Module::Name => 1.1
     LICENSE => 'perl',
     ABSTRACT_FROM => 'lib/Sereal.pm',
