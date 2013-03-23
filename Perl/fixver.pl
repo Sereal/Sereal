@@ -8,16 +8,21 @@ my @files= qw(
     Sereal/lib/Sereal.pm
     Sereal/Makefile.PL
 );
-my %special= (
-    'Sereal/lib/Sereal.pm' => '%.3f'
-);
 
 my $to= shift @ARGV;
 
-die "usage: $0 VERSION" if !$to;
+die "usage: $0 VERSION REASON" if !$to;
+my $reason= join " ", @ARGV;
+die "usage: $0 VERSION REASON" if !$reason;
+
+$to= sprintf "%.2f", $to;
+my $to_long= sprintf("%.3f", $to),
+my %special= (
+    'Sereal/lib/Sereal.pm' => $to_long
+);
 
 foreach my $file (@files) {
-    my $to_str= sprintf $special{$file}||"%.2f", $to;
+    my $to_str= $special{$file}||$to;
     open my $in, "<", $file
         or die "Failed to open for read '$file': $!";
     unlink $file;
@@ -32,13 +37,19 @@ foreach my $file (@files) {
     }
 }
 
-__END__
+print <<"EOF_TEXT";
 
-for d in Encoder/ Decoder/; do pushd $d; perl Makefile.PL; make test; make distcheck; make dist; popd; done; pushd Sereal/; PERL5OPT="-Mblib=../Encoder/ -Mblib=../Decoder/" perl Makefile.PL; PERL5OPT="-Mblib=../Encoder/ -Mblib=../Decoder/" make test; make distcheck; make dist; popd;
-cpan-upload-http -verbose Encoder/Sereal-Encoder-0.33.tar.gz Decoder/Sereal-Decoder-0.33.tar.gz Sereal/Sereal-0.330.tar.gz
-git commit -a -m'Release v0.33 to fix issue #27 - Issue with weakref'
-git tag Sereal-Decoder-0.33 -m'Release Sereal::Decoder version 0.33 (encoder release sync)'
-git tag Sereal-Encoder-0.33 -m'Release Sereal::Encoder version 0.33 (fix weakref problem)'
-git tag Sereal-0.330 -m'Sereal v0.330 - Update encoder (fix weakref problem)'
+for d in Encoder/ Decoder/; do pushd \$d; perl Makefile.PL; make test; make manifest; make disttest; make dist; popd; done;
+
+export PERL5OPT="-Mblib=/home/yorton/git_tree/Sereal/Perl/Encoder/ -Mblib=/home/yorton/git_tree/Sereal/Perl/Decoder/"; pushd Sereal; perl Makefile.PL; make test; make disttest; make dist; popd; unset PERL5OPT;
+
+git commit -a -m'Release v$to - $reason'
+git tag Sereal-Decoder-$to -m'Release Sereal::Decoder version $to ($reason)'
+git tag Sereal-Encoder-$to -m'Release Sereal::Encoder version $to ($reason)'
+git tag Sereal-$to_long -m'Sereal v$to_long - Update encoder ($reason)'
 git push
 git push --tags
+
+cpan-upload-http -verbose Encoder/Sereal-Encoder-$to.tar.gz Decoder/Sereal-Decoder-$to.tar.gz Sereal/Sereal-$to_long.tar.gz
+EOF_TEXT
+
