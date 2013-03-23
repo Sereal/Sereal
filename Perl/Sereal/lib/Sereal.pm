@@ -2,10 +2,7 @@ package Sereal;
 use 5.008;
 use strict;
 use warnings;
-our $VERSION;
-BEGIN {
-    $VERSION = '0.320';
-}
+our $VERSION = '0.320';
 use Sereal::Encoder 0.32 qw(encode_sereal);
 use Sereal::Decoder 0.32 qw(decode_sereal looks_like_sereal);
 
