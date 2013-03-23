@@ -16,7 +16,7 @@ my $reason= join " ", @ARGV;
 die "usage: $0 VERSION REASON" if !$reason;
 
 $to= sprintf "%.2f", $to;
-my $to_long= sprintf("%.3f", $to),
+my $to_long= sprintf("%.3f", $to);
 my %special= (
     'Sereal/lib/Sereal.pm' => $to_long
 );
