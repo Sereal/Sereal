@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '0.33'; # Don't forget to update the TestCompat set for testing against installed encoders!
+our $VERSION = '0.34'; # Don't forget to update the TestCompat set for testing against installed encoders!
 
 # not for public consumption, just for testing.
 my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 23 .. int($VERSION * 100) ) ]; # compat with 0.23 to ...
