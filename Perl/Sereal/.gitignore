@@ -17,5 +17,4 @@ ppport.h
 dt
 typemap
 srl_common.h
-MANIFEST
 Sereal-*.tar.gz
