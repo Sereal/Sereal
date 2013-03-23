@@ -18,6 +18,6 @@ type PerlWeakRef struct {
 type PerlUndef struct{}
 
 type PerlRegexp struct {
-	Pattern   string
-	Modifiers string
+	Pattern   []byte
+	Modifiers []byte
 }

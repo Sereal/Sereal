@@ -364,10 +364,9 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		ln := int(tag & 0x1F) // get length from tag
 		idx++
 
-		// assume these are strings
-
-		ptr = reflect.New(reflect.TypeOf(""))
-		ptr.Elem().SetString(string(b[idx : idx+ln]))
+		a := make([]byte, ln)
+		copy(a, b[idx:idx+ln])
+		ptr = reflect.ValueOf(&a)
 
 		idx += ln
 
@@ -404,7 +403,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		modifiers, sz, _ := decode(b, idx, tracked)
 		idx += sz
 
-		re := &PerlRegexp{pattern.Elem().String(), modifiers.Elem().String()}
+		re := &PerlRegexp{pattern.Elem().Bytes(), modifiers.Elem().Bytes()}
 
 		ptr = reflect.ValueOf(re)
 
