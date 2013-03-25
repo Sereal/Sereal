@@ -97,6 +97,11 @@ desirable for robustness. See the section C<ROBUSTNESS> below.
 If set, the decoder will refuse deserializing any objects in the input stream and
 instead throw and exception. Defaults to off. See the section C<ROBUSTNESS> below.
 
+=head3 nobless_objects
+
+If set, the decoder will deserialize any objects in the input stream but without
+blessing them. Defaults to off. See the section C<ROBUSTNESS> below.
+
 =head3 validate_utf8
 
 If set, the decoder will refuse invalid UTF-8 byte sequences. This is off
@@ -236,8 +241,9 @@ trivial to craft a Sereal document that causes this behaviour.
 Finally, deserializing proper objects is potentially a problem because
 classes can define a destructor. Thus, the data fed to the decoder can
 cause the (deferred) execution of any destructor in your application.
-That's why the C<refuse_objects> option exists. Later on, we may or may
-not provide a facility to whitelist classes.
+That's why the C<refuse_objects> option exists and what the C<nobless_objects>
+can be used for as well. Later on, we may or may not provide a facility to
+whitelist classes.
 
 =head1 PERFORMANCE
 
