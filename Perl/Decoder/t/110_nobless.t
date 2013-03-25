@@ -1,24 +1,21 @@
 #!perl
 use strict;
 use warnings;
-
+use Sereal::Decoder;
 use File::Spec;
 use Scalar::Util qw( blessed );
-use Test::More;
-
 use lib File::Spec->catdir(qw(t lib));
 BEGIN {
     lib->import('lib')
         if !-d 't';
 }
 
-my $ok = eval "
-    use Sereal::Encoder;
-    use Sereal::Decoder 0.34;
-    1;
-";
+use Sereal::TestSet qw(:all);
+use Test::More;
+
+my $ok = have_encoder_and_decoder();
 if (not $ok) {
-    plan skip_all => 'Did not find right version of encoder: '.$@;
+    plan skip_all => 'Did not find right version of encoder';
 }
 else {
     my $class = 'MyFoo';
