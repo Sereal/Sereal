@@ -84,6 +84,10 @@ void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
 
 #define SRL_F_DEDUPE_STRINGS                 0x00400UL
 
+/* If set in flags, then we serialize objects without class information.
+ * Corresponds to the 'nobless_objects' flag found in the Decoder. */
+#define SRL_F_NOBLESS_OBJECTS                0x00800UL
+
 /* Set while the encoder is in active use / dirty */
 #define SRL_OF_ENCODER_DIRTY                 1UL
 
