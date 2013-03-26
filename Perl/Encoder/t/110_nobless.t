@@ -25,7 +25,7 @@ else {
 
     # do not bless anything
     {
-        my $enc = Sereal::Encoder->new({ nobless_objects => 1 });
+        my $enc = Sereal::Encoder->new({ no_bless_objects => 1 });
         my $blob = $enc->encode( $object );
 
         my $data = $dec->decode( $blob );

@@ -115,11 +115,11 @@ This can be important because blessed references can mean executing
 a destructor on a remote system or generally executing code based on
 data.
 
-See also C<nobless_objects> to skip the blessing of objects.
+See also C<no_bless_objects> to skip the blessing of objects.
 When both flags are set, C<croak_on_bless> has a higher precedence then
-C<nobless_objects>.
+C<no_bless_objects>.
 
-=head3 nobless_objects
+=head3 no_bless_objects
 
 If this option is set, then the encoder will serialize blessed references
 without the bless information and provide plain data structures instead.

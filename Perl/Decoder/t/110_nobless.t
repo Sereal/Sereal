@@ -26,7 +26,7 @@ else {
 
     # do not bless anything
     {
-        my $dec = Sereal::Decoder->new({ nobless_objects => 1 });
+        my $dec = Sereal::Decoder->new({ no_bless_objects => 1 });
         my $data = $dec->decode( $blob );
 
         ok( ref( $data ) && !blessed( $data ), 'reference without class' );

@@ -173,8 +173,8 @@ srl_build_decoder_struct(pTHX_ HV *opt)
         if ( (svp = hv_fetchs(opt, "refuse_objects", 0)) && SvTRUE(*svp))
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS);
 
-        if ( (svp = hv_fetchs(opt, "nobless_objects", 0)) && SvTRUE(*svp))
-            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NOBLESS_OBJECTS);
+        if ( (svp = hv_fetchs(opt, "no_bless_objects", 0)) && SvTRUE(*svp))
+            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS);
 
         if ( (svp = hv_fetchs(opt, "validate_utf8", 0)) && SvTRUE(*svp))
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8);
@@ -403,7 +403,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec)
 SRL_STATIC_INLINE void
 srl_finalize_structure(pTHX_ srl_decoder_t *dec)
 {
-    int nobless = SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NOBLESS_OBJECTS);
+    int nobless = SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS);
     if (dec->weakref_av)
         av_clear(dec->weakref_av);
     if (dec->ref_stashes) {
@@ -890,7 +890,7 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into)
     stash= PTABLE_fetch(dec->ref_stashes, (void *)ofs);
     if (stash == NULL)
         SRL_ERROR("Corrupted packet. OBJECTV used without preceding OBJECT to define classname");
-    if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NOBLESS_OBJECTS))
+    if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS))
         sv_bless(into, stash);
 #endif
 
@@ -999,7 +999,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into)
 
 #if USE_588_WORKAROUND
     /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */
-    if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NOBLESS_OBJECTS))
+    if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS))
         sv_bless(into, stash);
 #endif
 }
