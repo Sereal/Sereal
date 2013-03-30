@@ -1,5 +1,8 @@
 #!/usr/bin/env perl
 
+use strict;
+use warnings;
+
 use blib "../../Perl/Decoder/blib/";
 use blib "../../Perl/Encoder/blib/";
 use lib "../../Perl/shared/t/lib/";
@@ -63,8 +66,6 @@ for my $n (glob("test_dir/test_data_?????")) {
     if (!is_deeply($g, $p, $name)) {
 #        die sprintf ("Got:%s\nWanted:%s\n", Dumper($g), Dumper($p));
     }
-
-    
 }
 
 done_testing();
