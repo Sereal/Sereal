@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '0.34'; # Don't forget to update the TestCompat set for testing against installed decoders!
+our $VERSION = '0.35'; # Don't forget to update the TestCompat set for testing against installed decoders!
 
 # not for public consumption, just for testing.
 my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 23 .. int($VERSION * 100) ) ]; # compat with 0.23 to ...
@@ -114,6 +114,17 @@ references and throw an exception instead.
 This can be important because blessed references can mean executing
 a destructor on a remote system or generally executing code based on
 data.
+
+See also C<no_bless_objects> to skip the blessing of objects.
+When both flags are set, C<croak_on_bless> has a higher precedence then
+C<no_bless_objects>.
+
+=head3 no_bless_objects
+
+If this option is set, then the encoder will serialize blessed references
+without the bless information and provide plain data structures instead.
+
+See also the C<croak_on_bless> option above for more details.
 
 =head3 undef_unknown
 
