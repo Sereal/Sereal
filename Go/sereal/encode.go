@@ -377,13 +377,18 @@ func encodeStruct(by []byte, st reflect.Value, strTable map[string]int, ptrTable
 	l := typ.NumField()
 
 	if l < 16 {
-		by = append(by, typeARRAYREF_0+byte(l))
+		by = append(by, typeHASHREF_0+byte(l))
 	} else {
-		by = append(by, typeARRAY)
+		by = append(by, typeHASH)
 		by = varint(by, uint(l))
 	}
 
 	for i := 0; i < l; i++ {
+		fty := typ.Field(i)
+		if fty.PkgPath != "" {
+			continue // skip unexported names
+		}
+		by = encodeString(by, fty.Name, strTable)
 		by, _ = encode(by, st.Field(i), strTable, ptrTable)
 	}
 
