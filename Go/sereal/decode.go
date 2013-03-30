@@ -21,8 +21,12 @@ func handleHeader(b []byte) int {
 	return ln + sz
 }
 
+type Decoder struct {
+	// empty, for now
+}
+
 // Unmarshal parses the Sereal-encoded buffer b and stores the result in the value pointed to by v
-func Unmarshal(b []byte, v interface{}) (err error) {
+func (d *Decoder) Unmarshal(b []byte, v interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(runtime.Error); ok {
@@ -98,7 +102,7 @@ func Unmarshal(b []byte, v interface{}) (err error) {
 
 	tracked := make(map[int]reflect.Value)
 
-	ptr, _, err := decode(b, idx, tracked)
+	ptr, _, err := d.decode(b, idx, tracked)
 
 	if err != nil {
 		return err
@@ -118,7 +122,7 @@ func indent(idx int) {
 	fmt.Println("^")
 }
 
-func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, int, error) {
+func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, int, error) {
 
 	startIdx := idx
 	/*
@@ -219,7 +223,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 
 	case tag == typeREFN:
 		idx++
-		e, sz, _ := decode(b, idx, tracked)
+		e, sz, _ := d.decode(b, idx, tracked)
 		idx += sz
 
 		ptr = reflect.New(e.Type())
@@ -252,9 +256,9 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 
 		for i := 0; i < ln; i++ {
 			// key
-			k, sz, _ := decode(b, idx, tracked)
+			k, sz, _ := d.decode(b, idx, tracked)
 			idx += sz
-			v, sz, _ := decode(b, idx, tracked)
+			v, sz, _ := d.decode(b, idx, tracked)
 			idx += sz
 
 			s := stringOf(k)
@@ -275,7 +279,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		}
 
 		for i := 0; i < ln; i++ {
-			e, sz, _ := decode(b, idx, tracked)
+			e, sz, _ := d.decode(b, idx, tracked)
 			idx += sz
 			a[i] = e.Elem().Interface()
 		}
@@ -284,9 +288,9 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		idx++
 
 		// FIXME: track before recurse?
-		className, sz, _ := decode(b, idx, tracked)
+		className, sz, _ := d.decode(b, idx, tracked)
 		idx += sz
-		ref, sz, _ := decode(b, idx, tracked)
+		ref, sz, _ := d.decode(b, idx, tracked)
 		idx += sz
 
 		s := stringOf(className)
@@ -297,8 +301,8 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		idx++
 		offs, sz := varintdecode(b[idx:])
 		idx += sz
-		className, _, _ := decode(b, offs, tracked)
-		ref, sz, _ := decode(b, idx, tracked)
+		className, _, _ := d.decode(b, offs, tracked)
+		ref, sz, _ := d.decode(b, idx, tracked)
 		idx += sz
 
 		s := stringOf(className)
@@ -328,7 +332,7 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		}
 
 		for i := 0; i < ln; i++ {
-			e, sz, _ := decode(b, idx, tracked)
+			e, sz, _ := d.decode(b, idx, tracked)
 			idx += sz
 			a[i] = e.Elem().Interface()
 		}
@@ -352,9 +356,9 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 
 		for i := 0; i < ln; i++ {
 			// FIXME: track before recurse?
-			k, sz, _ := decode(b, idx, tracked)
+			k, sz, _ := d.decode(b, idx, tracked)
 			idx += sz
-			v, sz, _ := decode(b, idx, tracked)
+			v, sz, _ := d.decode(b, idx, tracked)
 			idx += sz
 			s := stringOf(k.Elem())
 			m[s] = v.Elem().Interface()
@@ -384,13 +388,13 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 		offs, sz := varintdecode(b[idx:])
 		idx += sz
 
-		p, _, _ := decode(b, offs, tracked)
+		p, _, _ := d.decode(b, offs, tracked)
 		ptr = p
 
 	case tag == typeWEAKEN:
 		idx++
 
-		r, sz, _ := decode(b, idx, tracked)
+		r, sz, _ := d.decode(b, idx, tracked)
 		idx += sz
 		w := PerlWeakRef{r}
 		ptr = reflect.ValueOf(w)
@@ -398,9 +402,9 @@ func decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, in
 	case tag == typeREGEXP:
 		idx++
 		// FIXME: track before recurse?
-		pattern, sz, _ := decode(b, idx, tracked)
+		pattern, sz, _ := d.decode(b, idx, tracked)
 		idx += sz
-		modifiers, sz, _ := decode(b, idx, tracked)
+		modifiers, sz, _ := d.decode(b, idx, tracked)
 		idx += sz
 
 		re := &PerlRegexp{pattern.Elem().Bytes(), modifiers.Elem().Bytes()}

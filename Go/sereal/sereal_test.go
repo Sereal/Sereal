@@ -37,13 +37,16 @@ var roundtrips = []interface{}{
 
 func TestRoundtrip(t *testing.T) {
 
+	e := &Encoder{}
+	d := &Decoder{}
+
 	for _, v := range roundtrips {
-		b, err := Marshal(v)
+		b, err := e.Marshal(v)
 		if err != nil {
 			t.Errorf("failed marshalling : %v\n", v)
 		}
 		var unp interface{}
-		Unmarshal(b, &unp)
+		d.Unmarshal(b, &unp)
 		if !reflect.DeepEqual(v, unp) {
 			t.Errorf("failed roundtripping: %#v: got %#v\n", v, unp)
 		}
@@ -62,6 +65,10 @@ func TestRoundtrip(t *testing.T) {
  *
  */
 func TestCorpus(t *testing.T) {
+
+	e := &Encoder{}
+	d := &Decoder{}
+
 	corpusFiles, err := filepath.Glob("test_dir/test_data_?????")
 	if err != nil {
 		t.Errorf("error opening test_dir: %v", err)
@@ -78,14 +85,14 @@ func TestCorpus(t *testing.T) {
 
 		var value interface{}
 
-		err = Unmarshal(contents, &value)
+		err = d.Unmarshal(contents, &value)
 
 		if err != nil {
 			t.Errorf("unpacking %s generated an error: %v", corpusFile, err)
 			continue
 		}
 
-		b, err := Marshal(value)
+		b, err := e.Marshal(value)
 
 		if err != nil {
 			t.Errorf("packing %s generated an error: %v", corpusFile, err)
@@ -97,13 +104,17 @@ func TestCorpus(t *testing.T) {
 }
 
 func TestSnappyEndToEndString(t *testing.T) {
+
+	e := &Encoder{}
+	d := &Decoder{}
+
 	hugeString := ""
 
 	for i := 0; i < 2048; i++ {
 		hugeString += "a"
 	}
 
-	encoded, err := Marshal(hugeString)
+	encoded, err := e.Marshal(hugeString)
 
 	if err != nil {
 		t.Errorf("encoding a huge string generated an error: %v", err)
@@ -111,7 +122,7 @@ func TestSnappyEndToEndString(t *testing.T) {
 	}
 
 	var decoded string
-	err = Unmarshal(encoded, &decoded)
+	err = d.Unmarshal(encoded, &decoded)
 
 	if err != nil {
 		t.Errorf("decoding a huge string generated an error: %v", err)
@@ -125,13 +136,17 @@ func TestSnappyEndToEndString(t *testing.T) {
 }
 
 func TestSnappyEndToEndArray(t *testing.T) {
+
+	e := &Encoder{}
+	d := &Decoder{}
+
 	hugeArray := make([]interface{}, 2048)
 
 	for i := 0; i < 2048; i++ {
 		hugeArray[i] = 4
 	}
 
-	encoded, err := Marshal(hugeArray)
+	encoded, err := e.Marshal(hugeArray)
 
 	if err != nil {
 		t.Errorf("encoding a huge array generated an error: %v", err)
@@ -139,7 +154,7 @@ func TestSnappyEndToEndArray(t *testing.T) {
 	}
 
 	var decoded []interface{}
-	err = Unmarshal(encoded, &decoded)
+	err = d.Unmarshal(encoded, &decoded)
 
 	if err != nil {
 		t.Errorf("decoding a huge array generated an error: %v", err)
@@ -153,6 +168,10 @@ func TestSnappyEndToEndArray(t *testing.T) {
 }
 
 func TestSnappyArray(t *testing.T) {
+
+	e := &Encoder{}
+	d := &Decoder{}
+
 	hugeString := ""
 
 	for i := 0; i < 2048; i++ {
@@ -161,7 +180,7 @@ func TestSnappyArray(t *testing.T) {
 
 	hugeArray := []string{hugeString, hugeString}
 
-	encoded, err := Marshal(hugeArray)
+	encoded, err := e.Marshal(hugeArray)
 
 	if err != nil {
 		t.Errorf("encoding a huge array generated an error: %v", err)
@@ -169,7 +188,7 @@ func TestSnappyArray(t *testing.T) {
 	}
 
 	var decoded []interface{}
-	err = Unmarshal(encoded, &decoded)
+	err = d.Unmarshal(encoded, &decoded)
 
 	if err != nil {
 		t.Errorf("decoding a huge array generated an error: %v", err)
@@ -189,8 +208,8 @@ func TestSnappyArray(t *testing.T) {
 		manydups[i] = "hello, world " + strconv.Itoa(i%10)
 	}
 
-	encoded, _ = Marshal(manydups)
-	Unmarshal(encoded, &decoded)
+	encoded, _ = e.Marshal(manydups)
+	d.Unmarshal(encoded, &decoded)
 
 	for i := 0; i < 2048; i++ {
 		s, ok := decoded[i].(string)

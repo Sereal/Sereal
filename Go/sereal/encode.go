@@ -43,8 +43,12 @@ func snappify(b []byte) ([]byte, error) {
 	return b, nil
 }
 
+type Encoder struct {
+	// empty, for now
+}
+
 // Marshal returns the Sereal encoding of v
-func Marshal(v interface{}) (b []byte, err error) {
+func (e *Encoder) Marshal(v interface{}) (b []byte, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(runtime.Error); ok {
@@ -71,7 +75,7 @@ func Marshal(v interface{}) (b []byte, err error) {
 	strTable := make(map[string]int)
 	ptrTable := make(map[uintptr]int)
 
-	encoded, err := encode(b, rv, strTable, ptrTable)
+	encoded, err := e.encode(b, rv, strTable, ptrTable)
 
 	if err != nil {
 		return nil, err
@@ -88,42 +92,42 @@ func Marshal(v interface{}) (b []byte, err error) {
 	return encoded, nil
 }
 
-func encode(b []byte, rv reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
+func (e *Encoder) encode(b []byte, rv reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
 
 	switch rk := rv.Kind(); rk {
 
 	case reflect.Bool:
-		b = encodeBool(b, rv.Bool())
+		b = e.encodeBool(b, rv.Bool())
 	case reflect.Int, reflect.Int8, reflect.Int64, reflect.Int32, reflect.Int16:
-		b = encodeInt(b, rv.Int())
+		b = e.encodeInt(b, rv.Int())
 	case reflect.Uint8, reflect.Uint64, reflect.Uint, reflect.Uint32, reflect.Uint16:
-		b = encodeInt(b, int64(rv.Uint()))
+		b = e.encodeInt(b, int64(rv.Uint()))
 	case reflect.String:
-		b = encodeString(b, rv.String(), strTable)
+		b = e.encodeString(b, rv.String(), strTable)
 	case reflect.Array, reflect.Slice:
 		if rv.Type().Elem().Kind() == reflect.Uint8 {
-			b = encodeBytes(b, rv.Bytes(), strTable)
+			b = e.encodeBytes(b, rv.Bytes(), strTable)
 		} else {
-			b = encodeArray(b, rv, strTable, ptrTable)
+			b = e.encodeArray(b, rv, strTable, ptrTable)
 		}
 
 	case reflect.Map:
-		b = encodeMap(b, rv, strTable, ptrTable)
+		b = e.encodeMap(b, rv, strTable, ptrTable)
 
 	case reflect.Struct:
-		b = encodeStruct(b, rv, strTable, ptrTable)
+		b = e.encodeStruct(b, rv, strTable, ptrTable)
 
 	case reflect.Float32:
-		b = encodeFloat(b, float32(rv.Float()))
+		b = e.encodeFloat(b, float32(rv.Float()))
 
 	case reflect.Float64:
-		b = encodeDouble(b, float64(rv.Float()))
+		b = e.encodeDouble(b, float64(rv.Float()))
 
 	case reflect.Interface:
 		// recurse until we get a concrete type
 		// could be optmized into a tail call
 		var err error
-		b, err = encode(b, rv.Elem(), strTable, ptrTable)
+		b, err = e.encode(b, rv.Elem(), strTable, ptrTable)
 		if err != nil {
 			return nil, err
 		}
@@ -139,7 +143,7 @@ func encode(b []byte, rv reflect.Value, strTable map[string]int, ptrTable map[ui
 			b = append(b, typeREFN)
 			ptrTable[rv.Pointer()] = len(b)
 			var err error
-			b, err = encode(b, rv.Elem(), strTable, ptrTable)
+			b, err = e.encode(b, rv.Elem(), strTable, ptrTable)
 			if err != nil {
 				return nil, err
 			}
@@ -163,24 +167,24 @@ func varint(by []byte, n uint) []uint8 {
 	return append(by, byte(n))
 }
 
-func encodeArrayRef(by []byte, arr reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
+func (e *Encoder) encodeArrayRef(by []byte, arr reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
 	l := arr.Len()
 
 	if l >= 16 {
 		by = append(by, typeREFN)
-		return encodeArray(by, arr, strTable, ptrTable)
+		return e.encodeArray(by, arr, strTable, ptrTable)
 	}
 
 	by = append(by, typeARRAYREF_0+byte(l))
 
 	for i := 0; i < l; i++ {
-		by, _ = encode(by, arr.Index(i), strTable, ptrTable)
+		by, _ = e.encode(by, arr.Index(i), strTable, ptrTable)
 	}
 
 	return by
 }
 
-func encodeArray(by []byte, arr reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
+func (e *Encoder) encodeArray(by []byte, arr reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
 
 	l := arr.Len()
 
@@ -188,14 +192,14 @@ func encodeArray(by []byte, arr reflect.Value, strTable map[string]int, ptrTable
 	by = varint(by, uint(l))
 
 	for i := 0; i < l; i++ {
-		by, _ = encode(by, arr.Index(i), strTable, ptrTable)
+		by, _ = e.encode(by, arr.Index(i), strTable, ptrTable)
 	}
 
 	return by
 
 }
 
-func encodeBool(by []byte, bo bool) []byte {
+func (e *Encoder) encodeBool(by []byte, bo bool) []byte {
 
 	if bo {
 		by = append(by, typeTRUE)
@@ -207,7 +211,7 @@ func encodeBool(by []byte, bo bool) []byte {
 	return by
 }
 
-func encodeBytes(by []byte, byt []byte, strTable map[string]int) []byte {
+func (e *Encoder) encodeBytes(by []byte, byt []byte, strTable map[string]int) []byte {
 
 	l := len(byt)
 
@@ -239,7 +243,7 @@ func encodeBytes(by []byte, byt []byte, strTable map[string]int) []byte {
 	return by
 }
 
-func encodeDouble(by []byte, f float64) []byte {
+func (e *Encoder) encodeDouble(by []byte, f float64) []byte {
 
 	var u uint64
 	u = math.Float64bits(f)
@@ -255,7 +259,7 @@ func encodeDouble(by []byte, f float64) []byte {
 	return by
 }
 
-func encodeFloat(by []byte, f float32) []byte {
+func (e *Encoder) encodeFloat(by []byte, f float32) []byte {
 
 	var u uint32
 	u = math.Float32bits(f)
@@ -267,7 +271,7 @@ func encodeFloat(by []byte, f float32) []byte {
 	return by
 }
 
-func encodeInt(by []byte, i int64) []byte {
+func (e *Encoder) encodeInt(by []byte, i int64) []byte {
 
 	switch {
 	case 0 <= i && i <= 15:
@@ -286,14 +290,14 @@ func encodeInt(by []byte, i int64) []byte {
 	return by
 }
 
-func encodeMapRef(by []byte, m reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
+func (e *Encoder) encodeMapRef(by []byte, m reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
 	keys := m.MapKeys()
 
 	l := len(keys)
 
 	if l >= 16 {
 		by = append(by, typeREFN)
-		return encodeMap(by, m, strTable, ptrTable)
+		return e.encodeMap(by, m, strTable, ptrTable)
 	}
 
 	by = append(by, typeHASHREF_0+byte(l))
@@ -302,15 +306,15 @@ func encodeMapRef(by []byte, m reflect.Value, strTable map[string]int, ptrTable 
 		// FIXME: key must be a string type, or coercible to one
 		// Do we coerce or simply force all maps to be map[string]interface{} ?
 
-		by, _ = encode(by, k, strTable, ptrTable)
+		by, _ = e.encode(by, k, strTable, ptrTable)
 		v := m.MapIndex(k)
-		by, _ = encode(by, v, strTable, ptrTable)
+		by, _ = e.encode(by, v, strTable, ptrTable)
 	}
 
 	return by
 }
 
-func encodeMap(by []byte, m reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
+func (e *Encoder) encodeMap(by []byte, m reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
 
 	keys := m.MapKeys()
 
@@ -320,15 +324,15 @@ func encodeMap(by []byte, m reflect.Value, strTable map[string]int, ptrTable map
 	by = varint(by, uint(l))
 
 	for _, k := range keys {
-		by, _ = encode(by, k, strTable, ptrTable)
+		by, _ = e.encode(by, k, strTable, ptrTable)
 		v := m.MapIndex(k)
-		by, _ = encode(by, v, strTable, ptrTable)
+		by, _ = e.encode(by, v, strTable, ptrTable)
 	}
 
 	return by
 }
 
-func encodeString(by []byte, s string, strTable map[string]int) []byte {
+func (e *Encoder) encodeString(by []byte, s string, strTable map[string]int) []byte {
 
 	copy_offs, ok := strTable[s]
 
@@ -348,7 +352,7 @@ func encodeString(by []byte, s string, strTable map[string]int) []byte {
 	return by
 }
 
-func encodeStruct(by []byte, st reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
+func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
 
 	typ := st.Type()
 
@@ -360,19 +364,19 @@ func encodeStruct(by []byte, st reflect.Value, strTable map[string]int, ptrTable
 		return by
 	case PerlObject:
 		by = append(by, typeOBJECT)
-		by = encodeBytes(by, []byte(val.Class), strTable)
-		by, _ = encode(by, reflect.ValueOf(val.Reference), strTable, ptrTable)
+		by = e.encodeBytes(by, []byte(val.Class), strTable)
+		by, _ = e.encode(by, reflect.ValueOf(val.Reference), strTable, ptrTable)
 		return by
 	case PerlRegexp:
 		by = append(by, typeREGEXP)
-		by = encodeBytes(by, []byte(val.Pattern), strTable)
-		by = encodeBytes(by, []byte(val.Modifiers), strTable)
+		by = e.encodeBytes(by, []byte(val.Pattern), strTable)
+		by = e.encodeBytes(by, []byte(val.Modifiers), strTable)
 		return by
 	}
 
 	by = append(by, typeOBJECT)
 
-	by = encodeBytes(by, []byte(typ.Name()), strTable)
+	by = e.encodeBytes(by, []byte(typ.Name()), strTable)
 
 	l := typ.NumField()
 
@@ -388,8 +392,8 @@ func encodeStruct(by []byte, st reflect.Value, strTable map[string]int, ptrTable
 		if fty.PkgPath != "" {
 			continue // skip unexported names
 		}
-		by = encodeString(by, fty.Name, strTable)
-		by, _ = encode(by, st.Field(i), strTable, ptrTable)
+		by = e.encodeString(by, fty.Name, strTable)
+		by, _ = e.encode(by, st.Field(i), strTable, ptrTable)
 	}
 
 	return by
