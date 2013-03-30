@@ -253,6 +253,10 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         if ( svp && SvTRUE(*svp) )
             enc->flags |= SRL_F_CROAK_ON_BLESS;
 
+        svp = hv_fetchs(opt, "no_bless_objects", 0);
+        if ( svp && SvTRUE(*svp) )
+            enc->flags |= SRL_F_NO_BLESS_OBJECTS;
+
         svp = hv_fetchs(opt, "snappy", 0);
         if ( svp && SvTRUE(*svp) )
             enc->flags |= SRL_F_COMPRESS_SNAPPY;
@@ -1055,6 +1059,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     UV weakref_ofs= 0;              /* preserved between loops */
     SSize_t ref_rewrite_pos= 0;      /* preserved between loops - note SSize_t is a perl define */
     assert(src);
+    int nobless = SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS);
 
     if (++enc->recursion_depth == enc->max_recursion_depth) {
         croak("Hit maximum recursion depth (%lu), aborting serialization",
@@ -1192,7 +1197,8 @@ redo_dump:
             }
             /* FIXME reuse/ref/... should INCLUDE the bless stuff. */
             /* Write bless operator with class name */
-            srl_dump_classname(aTHX_ enc, referent);
+            if (!nobless)
+                srl_dump_classname(aTHX_ enc, referent);
         }
         srl_buf_cat_char(enc, SRL_HDR_REFN);
         refsv= src;
