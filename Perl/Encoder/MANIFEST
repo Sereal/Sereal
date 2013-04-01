@@ -35,6 +35,7 @@ t/010_desperate.t
 t/020_sort_keys.t
 t/021_sort_keys_option.t
 t/100_roundtrip.t
+t/110_nobless.t
 t/160_recursion.t
 t/200_bulk.t
 t/300_fail.t

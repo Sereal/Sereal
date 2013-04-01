@@ -1,5 +1,11 @@
 Revision history for Perl extension Sereal-Decoder
 
+0.35 Mon Apr 1 11:50 2013 (AMS time)
+  - Add new no_bless_objects option from Simon Bertrang.
+
+0.34 Sat Mar 23 18:59:18 2013 (AMS time)
+  - Fixup Manifest
+
 0.33 Sun Feb 17 17:26 2013 (AMS time)
   - dummy release to keep in sync with encoder.
 
