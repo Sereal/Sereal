@@ -42,8 +42,8 @@ static VALUE s_read_varint(sereal_t *s, u8 tag) {
 
 /* FLOAT */
 static VALUE s_read_float(sereal_t *s, u8 tag) {
-        float *d = (float *) s_get_p_at_pos(s,s->pos,sizeof(*d));
-        return FLT2NUM(*d);
+        float *f = (float *) s_get_p_at_pos(s,s->pos,sizeof(*f));
+        return DBL2NUM((double) *f);
 }
 
 /* DOUBLE */
@@ -71,7 +71,7 @@ static VALUE s_read_small_negative_int(sereal_t *s, u8 tag) {
 /* ARRAY */ 
 static inline VALUE s_read_array_with_len(sereal_t *s, u32 len) {
         VALUE arr[len];
-        register int i;
+        register u32 i;
         for (i = 0; i < len; i++)
                 arr[i] = sereal_to_rb_object(s);
         return rb_ary_new4(len,arr);
@@ -90,7 +90,7 @@ static VALUE s_read_arrayref(sereal_t *s, u8 tag) {
 /* HASH */ 
 static inline VALUE s_read_hash_with_len(sereal_t *s, u32 len) {
         VALUE hash = rb_hash_new();
-        register int i;
+        register u32 i;
         for (i = 0; i < len; i++) {
                 VALUE key = sereal_to_rb_object(s);
                 VALUE value = sereal_to_rb_object(s);
@@ -194,7 +194,6 @@ static VALUE s_read_extend(sereal_t *s, u8 tag) {
 
 VALUE sereal_to_rb_object(sereal_t *s) {
         u8 t;
-        u32 varint,i,len;
         S_RECURSE_INC(s);
         while (s->pos < s->size) {
                 t = s_get_u8_bang(s);

@@ -3,11 +3,57 @@
 #include "encode.h"
 #include "snappy/csnappy_compress.c"
 
+#define W_SIZE 32
+#if T_FIXNUM > W_SIZE
+	#define W_SIZE T_FIXNUM
+#elif T_BIGNUM > W_SIZE
+	#define W_SIZE T_BIGNUM
+#elif T_FLOAT > W_SIZE
+	#define W_SIZE T_FLOAT
+#elif T_OBJECT > W_SIZE
+	#define W_SIZE T_OBJECT
+#elif T_REGEXP > W_SIZE
+	#define W_SIZE T_REGEXP
+#elif T_STRING > W_SIZE
+	#define W_SIZE T_STRING
+#elif T_ARRAY > W_SIZE
+	#define W_SIZE T_ARRAY
+#elif T_HASH > W_SIZE
+	#define W_SIZE T_HASH
+#elif T_SYMBOL > W_SIZE
+	#define W_SIZE T_SYMBOL
+#elif T_TRUE > W_SIZE
+	#define W_SIZE T_TRUE
+#elif T_FALSE > W_SIZE
+	#define W_SIZE T_FALSE
+#elif T_NIL > W_SIZE
+	#define W_SIZE T_NIL
+#endif
+
 /* function pointer array */
-void (*WRITER[sizeof(T_FIXNUM)])(sereal_t *,VALUE);
+void (*WRITER[W_SIZE])(sereal_t *,VALUE);
+
+static void rb_object_to_sereal(sereal_t *s, VALUE object);
+static void s_append_varint(sereal_t *s,u64 n);
+static void s_append_hdr_with_varint(sereal_t *s,u8 hdr, u64 n);
+static void s_append_zigzag(sereal_t *s,u64 n);
+static void s_append_string(sereal_t *s,u8 *string, u32 len,u8 is_utf8);
+static void s_append_rb_string(sereal_t *s, VALUE object);
+static void s_append_array(sereal_t *s, VALUE object);
+static void s_append_hash(sereal_t *s, VALUE object);
+static void s_append_symbol(sereal_t *s, VALUE object);
+static void s_append_object(sereal_t *s, VALUE object);
+static void s_append_regexp(sereal_t *s, VALUE object);
+static void s_append_integer(sereal_t *s, VALUE object);
+static void s_append_double(sereal_t *s, VALUE object);
+static void s_append_true(sereal_t *s, VALUE object);
+static void s_append_false(sereal_t *s, VALUE object);
+static void s_append_nil(sereal_t *s, VALUE object);
+static void s_default_writer(sereal_t *s, VALUE object);
+
 void s_init_writers(void) {
         u32 i;
-        for (i = 0; i < sizeof(T_FIXNUM); i++) 
+        for (i = 0; i < sizeof(WRITER)/sizeof(WRITER[0]); i++) 
                 WRITER[i] = s_default_writer;
         WRITER[T_FIXNUM] = s_append_integer;
         WRITER[T_BIGNUM] = s_append_integer;
@@ -162,12 +208,11 @@ static void s_append_regexp(sereal_t *s, VALUE object) {
 
 
 static void s_append_integer(sereal_t *s, VALUE object) {
-        long long v = FIXNUM_P(object) ? FIX2LONG(object) : rb_num2ll(v);
+        long long v = FIXNUM_P(object) ? FIX2LONG(object) : rb_num2ll(object);
         if (v >= 0) {
                 if (v < 16) 
                         s_append_u8(s,SRL_HDR_POS_LOW | (u8) v);
                 else {
-                        unsigned long long ullv = 0;
                         if (!FIXNUM_P(object))
                                 s_append_hdr_with_varint(s,SRL_HDR_VARINT,NUM2ULL(object));
                         else

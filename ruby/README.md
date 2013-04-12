@@ -4,6 +4,10 @@ This is incomplete implementation, it does not have support for REFP,REFN and AL
 
 There is also usage of RESERVED and RESERVED+1 tags, for ruby symbol and ruby object.
 
+#### requirements
+
+* rake compiler - [gem install rake-compiler](https://github.com/luislavena/rake-compiler)
+
 ### install
 ```
 $ git clone https://github.com/jackdoe/Sereal
@@ -21,6 +25,8 @@ Sereal.encode(object)
 Sereal.decode(Sereal.encode(object))
 ```
 `Sereal.encode(object,true)` uses [snappy](http://code.google.com/p/snappy/) compression, disabled by default
+
+`Sereal.decode(object,false)` will decode and spawn arbitrary objects (disabled by defailt)
 
 ### speed
 

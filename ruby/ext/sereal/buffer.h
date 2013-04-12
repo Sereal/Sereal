@@ -83,7 +83,7 @@ static inline u32 s_shift_position_bang(sereal_t *s, u32 len) {
         return len;
 }
 static inline void s_dump(sereal_t *s) {
-        int i;
+        u32 i;
         for (i = 0; i < s->size; i++) {
                 if (i == s->pos) 
                         fprintf(stderr," [%c %d] ",s->data[i],s->data[i]);
