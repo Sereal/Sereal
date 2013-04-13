@@ -1,7 +1,9 @@
 test: test_dir
 	-go test
 
-compat: test
+compat: test_dir
+	-rm -f test_dir/test_data_*-go.out
+	-go test -test.run=TestCorpus
 	perl ./test-compat.pl
 
 ../../Perl/Decoder/blib:
