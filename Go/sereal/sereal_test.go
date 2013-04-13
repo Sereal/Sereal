@@ -1,6 +1,8 @@
 package sereal
 
 import (
+	"encoding/hex"
+	"github.com/davecgh/go-spew/spew"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
@@ -66,16 +68,26 @@ func TestRoundtrip(t *testing.T) {
  */
 func TestCorpus(t *testing.T) {
 
-	e := &Encoder{}
-	d := &Decoder{}
+	e := &Encoder{PerlCompat: true}
+	d := &Decoder{PerlCompat: true}
+
+	_ = e
+
+	debug := false
 
 	corpusFiles, err := filepath.Glob("test_dir/test_data_?????")
+
+	//	corpusFiles, err = filepath.Glob("test_dir/test_data_00028")
+	//	debug = true
+
 	if err != nil {
 		t.Errorf("error opening test_dir: %v", err)
 		return
 	}
 
 	for _, corpusFile := range corpusFiles {
+
+		t.Log("processing:", corpusFile)
 		contents, err := ioutil.ReadFile(corpusFile)
 
 		if err != nil {
@@ -85,14 +97,32 @@ func TestCorpus(t *testing.T) {
 
 		var value interface{}
 
+		if debug {
+			t.Log("unmarshalling..")
+			t.Log(hex.Dump(contents))
+		}
 		err = d.Unmarshal(contents, &value)
+
+		if debug {
+			t.Log("done")
+		}
 
 		if err != nil {
 			t.Errorf("unpacking %s generated an error: %v", corpusFile, err)
 			continue
 		}
 
+		if debug {
+			t.Log("marshalling")
+			t.Log("value=", spew.Sdump(value))
+			t.Logf("    =%#v\n", value)
+		}
 		b, err := e.Marshal(value)
+
+		if debug {
+			t.Log("done")
+			t.Log(hex.Dump(b))
+		}
 
 		if err != nil {
 			t.Errorf("packing %s generated an error: %v", corpusFile, err)
@@ -208,14 +238,23 @@ func TestSnappyArray(t *testing.T) {
 		manydups[i] = "hello, world " + strconv.Itoa(i%10)
 	}
 
-	encoded, _ = e.Marshal(manydups)
-	d.Unmarshal(encoded, &decoded)
+	for i := range decoded {
+		decoded[i] = nil
+	}
 
-	for i := 0; i < 2048; i++ {
-		s, ok := decoded[i].(string)
-		expected := "hello, world " + strconv.Itoa(i%10)
-		if !ok || s != expected {
-			t.Errorf("failed decompressing many-dup string: ok=%v s=%s expected=%s", ok, s, expected)
+	encoded, _ = e.Marshal(manydups)
+	var decodedHW []interface{}
+	d.Unmarshal(encoded, &decodedHW)
+
+	if len(decodedHW) != 2048 {
+		t.Errorf("got wrong number of elements back: wanted=%d got=%d\n", 2048, len(decodedHW))
+	} else {
+		for i := 0; i < 2048; i++ {
+			s, ok := decodedHW[i].(string)
+			expected := "hello, world " + strconv.Itoa(i%10)
+			if !ok || s != expected {
+				t.Errorf("failed decompressing many-dup string: ok=%v s=%s expected=%s", ok, s, expected)
+			}
 		}
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"math"
 	"reflect"
 	"runtime"
+	"unsafe"
 )
 
 func reflectValueOf(v interface{}) reflect.Value {
@@ -44,12 +45,13 @@ func snappify(b []byte) ([]byte, error) {
 }
 
 type Encoder struct {
-	// empty, for now
+	PerlCompat bool
 }
 
 // Marshal returns the Sereal encoding of v
 func (e *Encoder) Marshal(v interface{}) (b []byte, err error) {
 	defer func() {
+		//return
 		if r := recover(); r != nil {
 			if _, ok := r.(runtime.Error); ok {
 				panic(r)
@@ -133,19 +135,60 @@ func (e *Encoder) encode(b []byte, rv reflect.Value, strTable map[string]int, pt
 		}
 
 	case reflect.Ptr:
-		offs, ok := ptrTable[rv.Pointer()]
+
+		if rv.Elem().Kind() == reflect.Struct {
+
+			switch rv.Elem().Interface().(type) {
+			case PerlRegexp:
+				b = e.encodeStruct(b, rv.Elem(), strTable, ptrTable)
+				return b, nil
+			case PerlUndef:
+				b = e.encodeStruct(b, rv.Elem(), strTable, ptrTable)
+				return b, nil
+			case PerlObject:
+				b = e.encodeStruct(b, rv.Elem(), strTable, ptrTable)
+				return b, nil
+			case PerlWeakRef:
+				b = e.encodeStruct(b, rv.Elem(), strTable, ptrTable)
+				return b, nil
+			}
+		}
+
+		rvptr := rv.Pointer()
+		rvptr2 := getPointer(rv.Elem())
+
+		offs, ok := ptrTable[rvptr]
+
+		if !ok && rvptr2 != 0 {
+			offs, ok = ptrTable[rvptr2]
+			if ok {
+				rvptr = rvptr2
+			} else {
+			}
+		}
 
 		if ok { // seen this before
 			b = append(b, typeREFP)
 			b = varint(b, uint(offs))
 			b[offs] |= trackFlag // original offset now tracked
 		} else {
+
+			lenbOrig := len(b)
+
 			b = append(b, typeREFN)
-			ptrTable[rv.Pointer()] = len(b)
+
+			ptrTable[rvptr] = lenbOrig
+
 			var err error
+
 			b, err = e.encode(b, rv.Elem(), strTable, ptrTable)
 			if err != nil {
 				return nil, err
+			}
+
+			if rvptr2 != 0 {
+				// The thing this this points to starts one after the current pointer
+				ptrTable[rvptr2] = lenbOrig + 1
 			}
 		}
 
@@ -154,6 +197,26 @@ func (e *Encoder) encode(b []byte, rv reflect.Value, strTable map[string]int, pt
 	}
 
 	return b, nil
+}
+
+func getPointer(rv reflect.Value) uintptr {
+
+	var rvptr uintptr
+
+	switch rv.Kind() {
+	case reflect.Map, reflect.Slice:
+		rvptr = rv.Pointer()
+	case reflect.Interface:
+		// FIXME: still needed?
+		return getPointer(rv.Elem())
+	case reflect.Ptr:
+		rvptr = rv.Pointer()
+	case reflect.String:
+		ps := (*reflect.StringHeader)(unsafe.Pointer(rv.UnsafeAddr()))
+		rvptr = ps.Data
+	}
+
+	return rvptr
 }
 
 func varint(by []byte, n uint) []uint8 {
@@ -178,7 +241,11 @@ func (e *Encoder) encodeArrayRef(by []byte, arr reflect.Value, strTable map[stri
 	by = append(by, typeARRAYREF_0+byte(l))
 
 	for i := 0; i < l; i++ {
-		by, _ = e.encode(by, arr.Index(i), strTable, ptrTable)
+		if e.PerlCompat {
+			by = e.encodeScalar(by, arr.Index(i), strTable, ptrTable)
+		} else {
+			by, _ = e.encode(by, arr.Index(i), strTable, ptrTable)
+		}
 	}
 
 	return by
@@ -192,7 +259,12 @@ func (e *Encoder) encodeArray(by []byte, arr reflect.Value, strTable map[string]
 	by = varint(by, uint(l))
 
 	for i := 0; i < l; i++ {
-		by, _ = e.encode(by, arr.Index(i), strTable, ptrTable)
+		v := arr.Index(i)
+		if e.PerlCompat {
+			by = e.encodeScalar(by, v, strTable, ptrTable)
+		} else {
+			by, _ = e.encode(by, v, strTable, ptrTable)
+		}
 	}
 
 	return by
@@ -217,20 +289,23 @@ func (e *Encoder) encodeBytes(by []byte, byt []byte, strTable map[string]int) []
 
 	if l < 32 {
 
-		// track short byte strTable
+		if strTable != nil {
 
-		s := string(byt)
+			// track short byte strTable
 
-		copy_offs, ok := strTable[s]
+			s := string(byt)
 
-		if ok {
-			by = append(by, typeCOPY)
-			by = varint(by, uint(copy_offs))
-			return by
+			copy_offs, ok := strTable[s]
+
+			if ok {
+				by = append(by, typeCOPY)
+				by = varint(by, uint(copy_offs))
+				return by
+			}
+
+			// save for later
+			strTable[s] = len(by)
 		}
-
-		// save for later
-		strTable[s] = len(by)
 
 		by = append(by, typeSHORT_BINARY_0+byte(l))
 	} else {
@@ -308,10 +383,35 @@ func (e *Encoder) encodeMapRef(by []byte, m reflect.Value, strTable map[string]i
 
 		by, _ = e.encode(by, k, strTable, ptrTable)
 		v := m.MapIndex(k)
-		by, _ = e.encode(by, v, strTable, ptrTable)
+		if e.PerlCompat {
+			by = e.encodeScalar(by, v, strTable, ptrTable)
+		} else {
+			by, _ = e.encode(by, v, strTable, ptrTable)
+		}
 	}
 
 	return by
+}
+
+func (e *Encoder) encodeScalar(by []byte, rv reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
+
+	switch rv.Kind() {
+	case reflect.Array, reflect.Slice:
+		if rv.Type().Elem().Kind() == reflect.Uint8 {
+			by = e.encodeBytes(by, rv.Bytes(), strTable)
+		} else {
+			by = e.encodeArrayRef(by, rv, strTable, ptrTable)
+		}
+	case reflect.Map:
+		by = e.encodeMapRef(by, rv, strTable, ptrTable)
+	case reflect.Interface:
+		by = e.encodeScalar(by, rv.Elem(), strTable, ptrTable)
+	default:
+		by, _ = e.encode(by, rv, strTable, ptrTable)
+	}
+
+	return by
+
 }
 
 func (e *Encoder) encodeMap(by []byte, m reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
@@ -326,7 +426,12 @@ func (e *Encoder) encodeMap(by []byte, m reflect.Value, strTable map[string]int,
 	for _, k := range keys {
 		by, _ = e.encode(by, k, strTable, ptrTable)
 		v := m.MapIndex(k)
-		by, _ = e.encode(by, v, strTable, ptrTable)
+		if e.PerlCompat {
+			// only scalars allowed in arrays
+			by = e.encodeScalar(by, v, strTable, ptrTable)
+		} else {
+			by, _ = e.encode(by, v, strTable, ptrTable)
+		}
 	}
 
 	return by
@@ -364,13 +469,18 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]
 		return by
 	case PerlObject:
 		by = append(by, typeOBJECT)
-		by = e.encodeBytes(by, []byte(val.Class), strTable)
+		// nil strTable because classnames need their own namespace
+		by = e.encodeBytes(by, []byte(val.Class), nil)
 		by, _ = e.encode(by, reflect.ValueOf(val.Reference), strTable, ptrTable)
 		return by
 	case PerlRegexp:
 		by = append(by, typeREGEXP)
 		by = e.encodeBytes(by, []byte(val.Pattern), strTable)
 		by = e.encodeBytes(by, []byte(val.Modifiers), strTable)
+		return by
+	case PerlWeakRef:
+		by = append(by, typeWEAKEN)
+		by, _ = e.encode(by, reflect.ValueOf(val.Reference), strTable, ptrTable)
 		return by
 	}
 

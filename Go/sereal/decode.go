@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"runtime"
 	"strconv"
+	"strings"
 )
 
 func getDocumentTypeAndVersion(b byte) (versionType, byte) {
@@ -22,7 +23,7 @@ func handleHeader(b []byte) int {
 }
 
 type Decoder struct {
-	// empty, for now
+	PerlCompat bool
 }
 
 // Unmarshal parses the Sereal-encoded buffer b and stores the result in the value pointed to by v
@@ -98,41 +99,21 @@ func (d *Decoder) Unmarshal(b []byte, v interface{}) (err error) {
 		return errors.New("expected pointer")
 	}
 
-	// just unpack everything into an interface{} for now -- worry about schema stuff later
-
 	tracked := make(map[int]reflect.Value)
 
-	ptr, _, err := d.decode(b, idx, tracked)
+	_, err = d.decode(b, idx, tracked, vPtrValue.Elem())
 
 	if err != nil {
 		return err
 	}
 
-	vPtrValue.Elem().Set(ptr.Elem())
-
 	return nil
 
 }
 
-func indent(idx int) {
-	for i := 1; i < idx; i++ {
-		fmt.Print("~~~")
-	}
-
-	fmt.Println("^")
-}
-
-func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value) (reflect.Value, int, error) {
+func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr reflect.Value) (int, error) {
 
 	startIdx := idx
-	/*
-		fmt.Printf("b=   % x\n", b)
-		fmt.Printf("  ")
-		indent(2 + idx)
-		fmt.Printf("tag=%x\n", b[idx])
-	*/
-
-	var ptr reflect.Value
 
 	tag := b[idx]
 
@@ -150,51 +131,48 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value) (refl
 	case tag < typeVARINT:
 		idx++
 		neg := (tag & 0x10) == 0x10
-		ptr = reflect.New(reflect.TypeOf(int(0)))
 		i := int(tag)
 		if neg {
 			i -= 32
 		}
-		ptr.Elem().SetInt(int64(i))
+		setInt(ptr, int(i))
+
 	case tag == typeVARINT, tag == typeZIGZAG:
-		ptr = reflect.New(reflect.TypeOf(int(0)))
 		idx++
 		i, sz := varintdecode(b[idx:])
 		idx += sz
 		if tag == typeZIGZAG {
 			i = -(1 + (i >> 1)) // un-zigzag
 		}
-
-		ptr.Elem().SetInt(int64(i))
+		setInt(ptr, int(i))
 
 	case tag == typeFLOAT:
 		idx++
 
-		var f float32
-
-		ptr = reflect.New(reflect.TypeOf(f))
 		bits := uint32(b[idx]) | uint32(b[idx+1])<<8 | uint32(b[idx+2])<<16 | uint32(b[idx+3])<<24
-		f = math.Float32frombits(bits)
+		f := math.Float32frombits(bits)
 		idx += 4
-		ptr.Elem().SetFloat(float64(f))
+		setFloat(ptr, reflect.Float32, float64(f))
 
 	case tag == typeDOUBLE:
 		idx++
 
-		var f float64
-
-		ptr = reflect.New(reflect.TypeOf(f))
 		bits := uint64(b[idx]) | uint64(b[idx+1])<<8 | uint64(b[idx+2])<<16 | uint64(b[idx+3])<<24 | uint64(b[idx+4])<<32 | uint64(b[idx+5])<<40 | uint64(b[idx+6])<<48 | uint64(b[idx+7])<<56
-		f = math.Float64frombits(bits)
+		f := math.Float64frombits(bits)
 		idx += 8
-		ptr.Elem().SetFloat(f)
+		setFloat(ptr, reflect.Float64, float64(f))
 
 	case tag == typeUNDEF:
 		idx++
 
-		u := &PerlUndef{}
-
-		ptr = reflect.ValueOf(u)
+		if d.PerlCompat {
+			ptr.Set(reflect.ValueOf(&PerlUndef{}))
+		} else {
+			switch ptr.Kind() {
+			case reflect.Interface, reflect.Ptr, reflect.Map, reflect.Slice:
+				ptr.Set(reflect.Zero(ptr.Type()))
+			}
+		}
 
 	case tag == typeBINARY:
 
@@ -202,12 +180,25 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value) (refl
 		ln, sz := varintdecode(b[idx:])
 		idx += sz
 
-		e := reflect.MakeSlice(reflect.TypeOf([]byte{0}), ln, ln)
-		reflect.Copy(e.Slice(0, ln), reflect.ValueOf(b[idx:idx+ln]))
+		var slice reflect.Value
 
-		ptr = reflect.New(e.Type())
-		ptr.Elem().Set(e)
+		switch {
 
+		case ptr.Kind() == reflect.Interface && ptr.IsNil():
+			e := make([]byte, ln, ln)
+			slice = reflect.ValueOf(e)
+			ptr.Set(slice)
+
+		case ptr.Kind() == reflect.Slice && ptr.Type().Elem().Kind() == reflect.Uint8 && ptr.IsNil():
+			e := make([]byte, ln, ln)
+			slice = reflect.ValueOf(e)
+			ptr.Set(slice)
+
+		case ptr.Kind() == reflect.Slice || ptr.Kind() == reflect.Array || ptr.Kind() == reflect.String:
+			slice = ptr
+		}
+
+		setString(slice, b[idx:idx+ln])
 		idx += ln
 
 	case tag == typeSTR_UTF8:
@@ -216,18 +207,58 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value) (refl
 		ln, sz := varintdecode(b[idx:])
 		idx += sz
 
-		ptr = reflect.New(reflect.TypeOf(""))
-		ptr.Elem().SetString(string(b[idx : idx+ln]))
-
+		s := string(b[idx : idx+ln])
 		idx += ln
+
+		p := reflect.ValueOf(s)
+
+		switch {
+		case ptr.Kind() == reflect.Interface && ptr.IsNil():
+			ptr.Set(p)
+		case ptr.Kind() == reflect.String:
+			ptr.SetString(s)
+		default:
+			panic("bad type for string: " + ptr.Kind().String())
+		}
+
+		if trackme  {
+			tracked[startIdx] = p
+		}
 
 	case tag == typeREFN:
 		idx++
-		e, sz, _ := d.decode(b, idx, tracked)
-		idx += sz
 
-		ptr = reflect.New(e.Type())
-		ptr.Elem().Set(e)
+		if d.PerlCompat {
+			var e interface{}
+			re := reflect.ValueOf(&e)
+
+			var p reflect.Value
+
+			if trackme {
+				// we're tracked, but we don't yet know what it is we are
+				// so, create a pointer to 'something' and store it for later
+				p = reflect.New(re.Elem().Type())
+				p.Elem().Set(re)
+				tracked[startIdx] = p
+			}
+
+			sz, _ := d.decode(b, idx, tracked, re.Elem())
+			idx += sz
+
+			// replace p with a more accurate pointer type
+			if !p.IsValid() {
+				p = reflect.New(re.Elem().Elem().Type())
+			}
+			p.Elem().Set(re.Elem().Elem())
+			ptr.Set(p)
+			if trackme {
+				tracked[startIdx] = p
+			}
+		} else {
+			// references are flattened, same as gob
+			sz, _ := d.decode(b, idx, tracked, ptr)
+			idx += sz
+		}
 
 	case tag == typeREFP:
 		idx++
@@ -237,8 +268,9 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value) (refl
 
 		e := tracked[offs]
 
-		ptr = reflect.New(e.Type())
-		ptr.Elem().Set(e)
+		p := reflect.New(e.Type())
+		p.Elem().Set(e)
+		ptr.Set(p)
 
 	case tag == typeHASH:
 
@@ -247,22 +279,24 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value) (refl
 		ln, sz := varintdecode(b[idx:])
 		idx += sz
 
-		m := make(map[string]interface{})
-		ptr = reflect.ValueOf(&m)
+		if ptr.Kind() == reflect.Interface && ptr.IsNil() {
+			m := make(map[string]interface{})
+			ptr.Set(reflect.ValueOf(m))
+		}
 
 		if trackme {
 			tracked[startIdx] = ptr
 		}
 
 		for i := 0; i < ln; i++ {
-			// key
-			k, sz, _ := d.decode(b, idx, tracked)
+			var key string
+			rkey := reflect.ValueOf(&key)
+			sz, _ := d.decode(b, idx, tracked, rkey.Elem())
 			idx += sz
-			v, sz, _ := d.decode(b, idx, tracked)
+			rval, _ := getValue(ptr, key)
+			sz, _ = d.decode(b, idx, tracked, rval)
 			idx += sz
-
-			s := stringOf(k)
-			ptr.Elem().SetMapIndex(reflect.ValueOf(s), v.Elem())
+			setKeyValue(ptr, key, rval)
 		}
 
 	case tag == typeARRAY:
@@ -271,70 +305,154 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value) (refl
 		ln, sz := varintdecode(b[idx:])
 		idx += sz
 
-		a := make([]interface{}, ln)
-		ptr = reflect.ValueOf(&a)
+		var slice reflect.Value
+
+		switch {
+
+		case ptr.Kind() == reflect.Interface && ptr.IsNil():
+			var e []interface{}
+			if ln == 0 {
+				e = make([]interface{}, 0, 1)
+			} else {
+				e = make([]interface{}, ln, ln)
+			}
+			slice = reflect.ValueOf(e)
+			ptr.Set(slice)
+
+		case ptr.Kind() == reflect.Slice && ptr.IsNil():
+			slice = reflect.MakeSlice(ptr.Type(), ln, ln)
+			ptr.Set(slice)
+
+		case (ptr.Kind() == reflect.Slice && ptr.Len() > 0) || ptr.Kind() == reflect.Array:
+			slice = ptr
+		default:
+			panic("unhandled type: " + ptr.Kind().String())
+		}
 
 		if trackme {
 			tracked[startIdx] = ptr
 		}
 
 		for i := 0; i < ln; i++ {
-			e, sz, _ := d.decode(b, idx, tracked)
+			var e reflect.Value
+			if i < slice.Len() {
+				e = slice.Index(i)
+			} else {
+				var iface interface{}
+				e = reflect.ValueOf(&iface).Elem()
+			}
+			sz, _ := d.decode(b, idx, tracked, e)
+
 			idx += sz
-			a[i] = e.Elem().Interface()
 		}
 
 	case tag == typeOBJECT:
 		idx++
 
 		// FIXME: track before recurse?
-		className, sz, _ := d.decode(b, idx, tracked)
-		idx += sz
-		ref, sz, _ := d.decode(b, idx, tracked)
+		var s string
+		className := reflect.ValueOf(&s)
+		sz, _ := d.decode(b, idx, tracked, className.Elem())
 		idx += sz
 
-		s := stringOf(className)
-		o := &PerlObject{s, ref.Elem().Interface()}
-		ptr = reflect.ValueOf(o)
+		if d.PerlCompat {
+			var ref interface{}
+			rref := reflect.ValueOf(&ref)
+			sz, _ := d.decode(b, idx, tracked, rref.Elem())
+			idx += sz
+
+			s := stringOf(className)
+			o := &PerlObject{s, ref}
+			ptr.Set(reflect.ValueOf(o))
+		} else {
+			sz, _ := d.decode(b, idx, tracked, ptr)
+			idx += sz
+
+			// FIXME: stuff className somewhere if map/struct?
+		}
 
 	case tag == typeOBJECTV:
 		idx++
 		offs, sz := varintdecode(b[idx:])
 		idx += sz
-		className, _, _ := d.decode(b, offs, tracked)
-		ref, sz, _ := d.decode(b, idx, tracked)
-		idx += sz
+		var s string
+		className := reflect.ValueOf(&s)
+		sz, _ = d.decode(b, offs, tracked, className.Elem())
 
-		s := stringOf(className)
-		o := &PerlObject{s, ref.Elem().Interface()}
-		ptr = reflect.ValueOf(o)
+		if d.PerlCompat {
+			var ref interface{}
+			rref := reflect.ValueOf(&ref)
+			sz, _ := d.decode(b, idx, tracked, rref.Elem())
+			idx += sz
+
+			s := stringOf(className)
+			o := &PerlObject{s, ref}
+			ptr.Set(reflect.ValueOf(o))
+		} else {
+			sz, _ := d.decode(b, idx, tracked, ptr)
+			idx += sz
+		}
 
 	case tag == typeTRUE, tag == typeFALSE:
 		idx++
-		ptr = reflect.New(reflect.TypeOf(false))
-		ptr.Elem().SetBool(tag == typeTRUE)
+		bol := tag == typeTRUE
+
+		if ptr.Kind() == reflect.Interface && ptr.IsNil() {
+			ptr.Set(reflect.ValueOf(bol))
+		} else {
+			ptr.SetBool(bol)
+		}
 
 	case tag >= typeARRAYREF_0 && tag < typeARRAYREF_0+16:
 
 		idx++
 		ln := int(tag & 0x0f)
 
-		a := make([]interface{}, ln)
+		var slice reflect.Value
 
-		e := reflect.ValueOf(a)
-		pe := reflect.New(e.Type())
-		pe.Elem().Set(e)
-		ptr = reflect.New(reflect.PtrTo(e.Type()))
-		ptr.Elem().Set(pe)
+		switch {
+
+		case ptr.Kind() == reflect.Interface && ptr.IsNil():
+			var e []interface{}
+			if ln == 0 {
+				e = make([]interface{}, 0, 1)
+			} else {
+				e = make([]interface{}, ln, ln)
+			}
+			slice = reflect.ValueOf(e)
+
+			if d.PerlCompat {
+				p := reflect.New(reflect.TypeOf(e))
+				p.Elem().Set(slice)
+				ptr.Set(p)
+			} else {
+				ptr.Set(slice)
+			}
+
+		case ptr.Kind() == reflect.Slice && ptr.IsNil():
+			slice = reflect.MakeSlice(ptr.Type(), ln, ln)
+			ptr.Set(slice)
+
+		case ptr.Kind() == reflect.Slice || ptr.Kind() == reflect.Array:
+			slice = ptr
+
+		default:
+		}
 
 		if trackme {
 			tracked[startIdx] = ptr
 		}
 
 		for i := 0; i < ln; i++ {
-			e, sz, _ := d.decode(b, idx, tracked)
+			var e reflect.Value
+			if i < slice.Len() {
+				e = slice.Index(i)
+			} else {
+				var iface interface{}
+				e = reflect.ValueOf(&iface).Elem()
+			}
+			sz, _ := d.decode(b, idx, tracked, e)
 			idx += sz
-			a[i] = e.Elem().Interface()
 		}
 
 	case tag >= typeHASHREF_0 && tag < typeHASHREF_0+16:
@@ -342,36 +460,69 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value) (refl
 		idx++
 		ln := int(tag & 0x0f)
 
-		m := make(map[string]interface{})
+		// FIXME:
+		// 1) this is now identical to the typeHASH case
+		// 2) how does this affect PerlCompat mode?
 
-		e := reflect.ValueOf(m)
-		pe := reflect.New(e.Type())
-		pe.Elem().Set(e)
-		ptr = reflect.New(reflect.PtrTo(e.Type()))
-		ptr.Elem().Set(pe)
+		var href reflect.Value
+
+		if ptr.Kind() == reflect.Interface && ptr.IsNil() {
+			m := make(map[string]interface{})
+			rm := reflect.ValueOf(m)
+
+			if d.PerlCompat {
+				p := reflect.New(rm.Type())
+				p.Elem().Set(rm)
+				ptr.Set(p)
+			} else {
+				ptr.Set(rm)
+			}
+
+			href = rm
+		} else {
+			href = ptr
+		}
 
 		if trackme {
 			tracked[startIdx] = ptr
 		}
 
 		for i := 0; i < ln; i++ {
-			// FIXME: track before recurse?
-			k, sz, _ := d.decode(b, idx, tracked)
+			var key string
+			rkey := reflect.ValueOf(&key)
+			sz, _ := d.decode(b, idx, tracked, rkey.Elem())
 			idx += sz
-			v, sz, _ := d.decode(b, idx, tracked)
+			rval, _ := getValue(ptr, key)
+			sz, _ = d.decode(b, idx, tracked, rval)
 			idx += sz
-			s := stringOf(k.Elem())
-			m[s] = v.Elem().Interface()
+			setKeyValue(href, key, rval)
 		}
 
 	case tag >= typeSHORT_BINARY_0 && tag < typeSHORT_BINARY_0+32:
 		ln := int(tag & 0x1F) // get length from tag
 		idx++
 
-		a := make([]byte, ln)
-		copy(a, b[idx:idx+ln])
-		ptr = reflect.ValueOf(&a)
+		// identical to BINARY
+		// very similar to ARRAY
+		var slice reflect.Value
 
+		switch {
+
+		case ptr.Kind() == reflect.Interface && ptr.IsNil():
+			e := make([]byte, ln, ln)
+			slice = reflect.ValueOf(e)
+			ptr.Set(slice)
+
+		case ptr.Kind() == reflect.Slice && ptr.Type().Elem().Kind() == reflect.Uint8 && ptr.IsNil():
+			e := make([]byte, ln, ln)
+			slice = reflect.ValueOf(e)
+			ptr.Set(slice)
+
+		case ptr.Kind() == reflect.Slice || ptr.Kind() == reflect.Array || ptr.Kind() == reflect.String:
+			slice = ptr
+		}
+
+		setString(slice, b[idx:idx+ln])
 		idx += ln
 
 	case tag == typeALIAS:
@@ -380,7 +531,11 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value) (refl
 		offs, sz := varintdecode(b[idx:])
 		idx += sz
 
-		ptr = tracked[offs]
+		// FIXME: not technically correct, but better than nothing
+		// also, better than panicking
+
+		e := tracked[offs]
+		ptr.Set(e)
 
 	case tag == typeCOPY:
 		idx++
@@ -388,39 +543,153 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value) (refl
 		offs, sz := varintdecode(b[idx:])
 		idx += sz
 
-		p, _, _ := d.decode(b, offs, tracked)
-		ptr = p
+		d.decode(b, offs, tracked, ptr)
 
 	case tag == typeWEAKEN:
 		idx++
 
-		r, sz, _ := d.decode(b, idx, tracked)
+		var r interface{}
+		rr := reflect.ValueOf(&r).Elem()
+
+		// FIXME: track before recurse?, as with REFN?
+
+		sz, _ := d.decode(b, idx, tracked, rr)
 		idx += sz
-		w := PerlWeakRef{r}
-		ptr = reflect.ValueOf(w)
+		if d.PerlCompat {
+			w := PerlWeakRef{r}
+			ptr.Set(reflect.ValueOf(w))
+		} else {
+			ptr.Set(rr.Elem())
+		}
 
 	case tag == typeREGEXP:
 		idx++
 		// FIXME: track before recurse?
-		pattern, sz, _ := d.decode(b, idx, tracked)
+		var pat string
+		rpat := reflect.ValueOf(&pat)
+		sz, _ := d.decode(b, idx, tracked, rpat.Elem())
 		idx += sz
-		modifiers, sz, _ := d.decode(b, idx, tracked)
+		var mod []byte
+		rmod := reflect.ValueOf(&mod)
+		sz, _ = d.decode(b, idx, tracked, rmod.Elem())
 		idx += sz
 
-		re := &PerlRegexp{pattern.Elem().Bytes(), modifiers.Elem().Bytes()}
+		re := &PerlRegexp{[]byte(pat), mod}
 
-		ptr = reflect.ValueOf(re)
+		rre := reflect.ValueOf(re)
+
+		if trackme {
+			tracked[startIdx] = rre
+		}
+
+		ptr.Set(rre)
 
 	default:
 		panic("unknown tag byte: " + strconv.Itoa(int(tag)))
 	}
 
-	if trackme {
+	if _, ok := tracked[startIdx]; !ok && trackme {
 		tracked[startIdx] = ptr
 	}
 
-	return ptr, idx - startIdx, nil
+	return idx - startIdx, nil
 
+}
+
+func setInt(v reflect.Value, i int) {
+	if v.Kind() == reflect.Interface && v.IsNil() {
+		v.Set(reflect.ValueOf(i))
+		return
+	}
+
+	switch v.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		v.SetInt(int64(i))
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		v.SetUint(uint64(i))
+	}
+}
+
+func setFloat(v reflect.Value, k reflect.Kind, f float64) {
+
+	if v.Kind() == reflect.Interface && v.IsNil() {
+		switch k {
+		case reflect.Float32:
+			v.Set(reflect.ValueOf(float32(f)))
+		case reflect.Float64:
+			v.Set(reflect.ValueOf(float64(f)))
+		}
+		return
+	}
+
+	v.SetFloat(f)
+}
+
+func getValue(ptr reflect.Value, key string) (reflect.Value, bool) {
+	if ptr.Kind() == reflect.Map {
+		return reflect.New(ptr.Type().Elem()).Elem(), true
+	}
+
+	if ptr.Kind() == reflect.Struct {
+		f := ptr.FieldByName(key)
+		if f.IsValid() {
+			return f, true
+		}
+		f = ptr.FieldByName(strings.Title(key))
+		if f.IsValid() {
+			return f, true
+		}
+	}
+
+	var iface interface{}
+
+	return reflect.ValueOf(&iface).Elem(), false
+}
+
+func setKeyValue(ptr reflect.Value, key string, val reflect.Value) {
+
+	if ptr.Kind() == reflect.Map {
+		if ptr.IsNil() {
+			ptr.Set(reflect.MakeMap(ptr.Type()))
+		}
+		ptr.SetMapIndex(reflect.ValueOf(key), val)
+		return
+	}
+
+	if ptr.Kind() == reflect.Struct {
+		f := ptr.FieldByName(key)
+		if !f.IsValid() {
+			f = ptr.FieldByName(strings.Title(key))
+		}
+
+		if !f.IsValid() {
+			return
+		}
+
+		f.Set(val)
+		return
+	}
+
+	if ptr.Kind() == reflect.Interface && ptr.Elem().Kind() == reflect.Map {
+		ptr.Elem().SetMapIndex(reflect.ValueOf(key), val)
+		return
+	}
+
+	panic("unknown type for setKeyValue: " + ptr.Kind().String())
+
+}
+
+func setString(slice reflect.Value, b []byte) {
+
+	switch slice.Kind() {
+
+	case reflect.Array, reflect.Slice:
+		reflect.Copy(slice.Slice(0, slice.Len()), reflect.ValueOf(b))
+	case reflect.String:
+		slice.SetString(string(b))
+	default:
+		panic("bad type for setString: " + slice.Kind().String())
+	}
 }
 
 func stringOf(v reflect.Value) string {
