@@ -11,6 +11,9 @@ use Sereal::Decoder qw(decode_sereal);
 use Test::More;
 use Data::Dumper;
 
+$Data::Dumper::Indent = 0;
+$Data::Dumper::Sortkeys = 1;
+
 sub slurp {
     my $n = shift;
     open (my $fh, "<", $n) or die "can't open $n: $!\n";
@@ -19,7 +22,7 @@ sub slurp {
     return $d;
 }
 
-my %skip = map { $_ => 1 } qw(28);
+my %skip = map { $_ => 1 } qw(); # 513..591; # alias tests
 
 for my $n (glob("test_dir/test_data_?????")) {
 
@@ -27,13 +30,14 @@ for my $n (glob("test_dir/test_data_?????")) {
 
     chomp(my $name = slurp(sprintf("test_dir/test_name_%05d", $test_number)));
 
-#    print("test number $test_number\n");
+    print("test number $test_number\n");
 
     do { fail($n) ; next } if $skip{$test_number};
 
     if (not -f "$n-go.out") {
         print "No Go test output for $n ($name) -- skipping\n";
         fail($n);
+#        die;
         next;
     }
 
@@ -62,9 +66,12 @@ for my $n (glob("test_dir/test_data_?????")) {
         next;
     };
 
+    my $dg = Dumper($g);
+    my $dp = Dumper($p);
 
-    if (!is_deeply($g, $p, $name)) {
-#        die sprintf ("Got:%s\nWanted:%s\n", Dumper($g), Dumper($p));
+    if (!ok($dg eq $dp, $name)) {
+        print "Got: $dg\nExp: $dp\n";
+#        die;
     }
 }
 
