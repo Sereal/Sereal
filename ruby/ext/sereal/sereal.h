@@ -3,18 +3,22 @@
 #include <ruby.h>
 #include <ruby/encoding.h>
 #include <ruby/st.h>
-#include <string.h>     /* memcpy */
+#include <string.h>     /* memcpy,memset */
 #include "proto.h"
+
 typedef unsigned long long      u64;
 typedef unsigned int            u32;
 typedef unsigned short          u16;
 typedef unsigned char           u8;
 typedef struct _sereal          sereal_t;
 typedef struct _track_entry     track_t;
+
 #define TRUE 1
 #define FALSE 0
 #define MAX_RECURSION_DEPTH 100
 #define COPY(src,dst,len) memcpy((dst),(src),len)
+#define ZERO(src,len) memset((src),0,len)
+
 #define is_ascii_string(str) (rb_enc_str_coderange(str) == ENC_CODERANGE_7BIT)
 #define THRESH(x,min,max) ((x) >= (min) && (x) <= (max))
 
@@ -28,13 +32,13 @@ typedef struct _track_entry     track_t;
 #define _D(fmt,arg...) fprintf(stderr,"%s(): " fmt "\n",__func__,##arg)
 
 #ifdef ONIGURUMA_H
-#define IGNORECASE ONIG_OPTION_IGNORECASE
-#define MULTILINE ONIG_OPTION_MULTILINE
-#define EXTENDED ONIG_OPTION_EXTEND
+	#define IGNORECASE ONIG_OPTION_IGNORECASE
+	#define MULTILINE ONIG_OPTION_MULTILINE
+	#define EXTENDED ONIG_OPTION_EXTEND
 #else
-#define IGNORECASE RE_OPTION_IGNORECASE
-#define MULTILINE RE_OPTION_MULTILINE
-#define EXTENDED RE_OPTION_EXTENDED
+	#define IGNORECASE RE_OPTION_IGNORECASE
+	#define MULTILINE RE_OPTION_MULTILINE
+	#define EXTENDED RE_OPTION_EXTENDED
 #endif
 #define FLAG_SAFE 1
 struct _sereal {
@@ -59,11 +63,10 @@ do {                                                              \
 
 #define S_RECURSE_DEC(s) ((s)->level--)
 
-#endif
-
 #ifdef RUBINIUS
-#define rb_intern_str(string) SYM2ID(rb_str_intern(string))
-#define rb_obj_instance_variables(object) rb_funcall(object, rb_intern("instance_variables"), 0)
-#define rb_sym_to_s(object) rb_funcall(object,rb_intern("to_s"),0)
+	#define rb_intern_str(string) SYM2ID(rb_str_intern(string))
+	#define rb_obj_instance_variables(object) rb_funcall(object, rb_intern("instance_variables"), 0)
+	#define rb_sym_to_s(object) rb_funcall(object,rb_intern("to_s"),0)
 #endif
 
+#endif

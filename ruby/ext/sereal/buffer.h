@@ -1,8 +1,8 @@
 #include "sereal.h"
-static inline void *realloc_or_raise(void *p, u32 s) {
-        u8 *buf = realloc(p,s);
+static inline void *realloc_or_raise(void *p, u32 n) {
+        u8 *buf = realloc(p,n);
         if (!buf)
-                rb_raise(rb_eNoMemError,"memory allocation failure for %d bytes",s);
+                rb_raise(rb_eNoMemError,"memory allocation failure for %d bytes",n);
         return buf;
 }
 static inline void *alloc_or_raise(u32 s) {
@@ -11,18 +11,14 @@ static inline void *alloc_or_raise(u32 s) {
 
 static inline sereal_t * s_create(void) {
         sereal_t *s = alloc_or_raise(sizeof(*s));
-        s->data = NULL;
-        s->size = 0;
-        s->rsize = 0;
-        s->level = 0;
-        s->pos = 0;
-        s->flags = 0;
+	ZERO(s,sizeof(*s));
         return s;
 }
 
 static inline void s_destroy(sereal_t *s) {
         if (s->data)
                 free(s->data);
+
         free(s);
 }
 
@@ -52,10 +48,8 @@ static inline void s_append_u32(sereal_t *s,u32 b) {
 }
 
 static inline void *s_get_p_at_pos(sereal_t *s, u32 pos,u32 req) {
-        if (pos + req > s->size) {
+        if (pos + req > s->size) 
                 rb_raise(rb_eRangeError,"position is out of bounds (%d + %d >  %d)",pos,req,s->size);
-                return NULL;
-        }
         return &s->data[pos];
 }
 
