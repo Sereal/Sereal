@@ -61,10 +61,9 @@ do {                                                              \
 
 #endif
 
-#ifndef rb_intern_str
+#ifdef RUBINIUS
 #define rb_intern_str(string) SYM2ID(rb_str_intern(string))
+#define rb_obj_instance_variables(object) rb_funcall(object, rb_intern("instance_variables"), 0)
+#define rb_sym_to_s(object) rb_funcall(object,rb_intern("to_s"),0)
 #endif
 
-#ifndef rb_obj_instance_variables
-#define rb_obj_instance_variables(object) rb_funcall(object, rb_intern("instance_variables"), 0)
-#endif
