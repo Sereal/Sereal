@@ -7,6 +7,7 @@ There is also usage of RESERVED and RESERVED+1 tags, for ruby symbol and ruby ob
 #### requirements
 
 * rake compiler - [gem install rake-compiler](https://github.com/luislavena/rake-compiler)
+* ruby 1.9+ or rubinius supporting 1.9+
 
 ### install
 ```

@@ -50,6 +50,15 @@ static void s_append_true(sereal_t *s, VALUE object);
 static void s_append_false(sereal_t *s, VALUE object);
 static void s_append_nil(sereal_t *s, VALUE object);
 static void s_default_writer(sereal_t *s, VALUE object);
+static inline VALUE rb_sym_to_string_portable(VALUE object);
+
+static inline VALUE rb_sym_to_string_portable(VALUE object) {
+	#ifdef RUBINIUS
+		return rb_funcall(object,rb_intern("to_s"),0);
+	#else
+		return rb_sym_to_s(object);
+	#endif
+}
 
 void s_init_writers(void) {
         u32 i;
@@ -149,9 +158,8 @@ static void s_append_hash(sereal_t *s, VALUE object) {
         value - <len> bytes
 */
 static void s_append_symbol(sereal_t *s, VALUE object) {
-        u32 len;
-        VALUE string  = rb_sym_to_s(object);
-        len = RSTRING_LEN(string);
+	VALUE string = rb_sym_to_string_portable(object);
+        u32 len = RSTRING_LEN(string);
 
         s_append_hdr_with_varint(s,SRL_HDR_SYM,len);
         s_append(s,RSTRING_PTR(string),len);
@@ -181,7 +189,7 @@ static void s_append_object(sereal_t *s, VALUE object) {
         for (i = 0; i < len; i++) {
                 VALUE var_name_sym = rb_ary_entry(ivars,i);
                 VALUE iv = rb_ivar_get(object,SYM2ID(var_name_sym));
-                s_append_rb_string(s,rb_sym_to_s(var_name_sym));
+                s_append_rb_string(s,rb_sym_to_string_portable(var_name_sym));
                 rb_object_to_sereal(s,iv);
         }
 }
@@ -191,8 +199,13 @@ static void s_append_object(sereal_t *s, VALUE object) {
 static void s_append_regexp(sereal_t *s, VALUE object) {
         s_append_u8(s,SRL_HDR_REGEXP);
         rb_encoding *enc = rb_enc_get(object);
-
-        VALUE pattern = rb_enc_str_new(RREGEXP_SRC_PTR(object),RREGEXP_SRC_LEN(object), enc);
+	VALUE pattern;
+#ifdef RUBINIUS
+	VALUE string = RREGEXP_SRC(object);
+	pattern = rb_enc_str_new(RSTRING_PTR(string),RSTRING_LEN(string),enc);
+#else
+        pattern = rb_enc_str_new(RREGEXP_SRC_PTR(object),RREGEXP_SRC_LEN(object), enc);
+#endif
         s_append_rb_string(s,pattern);
 
         int flags = rb_reg_options(object);

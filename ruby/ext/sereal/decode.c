@@ -164,8 +164,11 @@ static VALUE s_read_regexp(sereal_t *s, u8 tag) {
 
         if (strchr(RSTRING_PTR(modifiers),'x')) 
                 flags |= EXTENDED;
-
-        return rb_reg_new_str(pattern,flags);
+	#ifdef RUBINIUS
+		return rb_reg_new(RSTRING_PTR(pattern),RSTRING_LEN(pattern),flags);
+	#else
+		return rb_reg_new_str(pattern,flags);
+	#endif
 }
 
 static VALUE s_read_sym(sereal_t *s,u8 tag) {

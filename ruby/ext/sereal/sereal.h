@@ -2,6 +2,7 @@
 #define _MAIN_H
 #include <ruby.h>
 #include <ruby/encoding.h>
+#include <ruby/st.h>
 #include <string.h>     /* memcpy */
 #include "proto.h"
 typedef unsigned long long      u64;
@@ -58,4 +59,12 @@ do {                                                              \
 
 #define S_RECURSE_DEC(s) ((s)->level--)
 
+#endif
+
+#ifndef rb_intern_str
+#define rb_intern_str(string) SYM2ID(rb_str_intern(string))
+#endif
+
+#ifndef rb_obj_instance_variables
+#define rb_obj_instance_variables(object) rb_funcall(object, rb_intern("instance_variables"), 0)
 #endif

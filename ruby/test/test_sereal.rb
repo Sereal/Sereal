@@ -1,7 +1,7 @@
 # encoding: utf-8
 
 require 'test/unit'
-require 'sereal'
+require ENV['USE_CURRENT_DIRECTORY'] ? File.absolute_path(File.join(File.dirname(__FILE__),'..','lib','sereal')) : 'sereal'
 
 class ZXC
   attr_accessor :z,:x,:c
