@@ -258,3 +258,60 @@ func TestSnappyArray(t *testing.T) {
 		}
 	}
 }
+
+func TestNoCompatStruct(t *testing.T) {
+
+	type A struct {
+		Name     string
+		Phone    string
+		Siblings int
+		Spouse   bool
+		Money    float64
+	}
+
+	a := A{
+		"mr foo",
+		"12345",
+		10,
+		true,
+		123.45,
+	}
+
+	e := &Encoder{}
+	d := &Decoder{}
+
+	x, err := e.Marshal(&a)
+	if err != nil {
+		panic(err)
+	}
+
+	var ua A
+	err = d.Unmarshal(x, &ua)
+	if err != nil {
+		t.Errorf("struct unmarshalling failed: %s\n", err)
+	}
+
+	if !reflect.DeepEqual(a, ua) {
+		t.Errorf("struct unmarshalling mismatch: got:%#v expected: %#v\n", ua, a)
+	}
+
+	// check we can unmarshal into a map too
+	m := make(map[string]interface{})
+	m["Name"] = a.Name
+	m["Phone"] = a.Phone
+	m["Siblings"] = a.Siblings
+	m["Spouse"] = a.Spouse
+	m["Money"] = a.Money
+
+	var um map[string]interface{}
+
+	err = d.Unmarshal(x, &um)
+	if err != nil {
+		t.Errorf("map unmarshalling failed: %s\n", err)
+	}
+
+	if !reflect.DeepEqual(m, um) {
+		t.Errorf("map unmarshalling mismatch: got:%#v expected: %#v\n", um, m)
+	}
+
+}
