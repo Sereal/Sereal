@@ -319,7 +319,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 			slice = reflect.ValueOf(e)
 			ptr.Set(slice)
 
-		case ptr.Kind() == reflect.Slice && ptr.IsNil():
+		case ptr.Kind() == reflect.Slice && (ptr.IsNil() || ptr.Len() == 0):
 			slice = reflect.MakeSlice(ptr.Type(), ln, ln)
 			ptr.Set(slice)
 

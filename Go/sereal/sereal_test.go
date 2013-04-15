@@ -240,6 +240,12 @@ func TestStructs(t *testing.T) {
 			&semiprivate{},
 			&semiprivate{Bool: true, String: "world"},
 		},
+		{
+			"array of structs",
+			[]A{{"mr foo", "12345", 10, true, 123.45}, {"mr bar", "54321", 5, false, 321.45}, {"mr baz", "15243", 20, true, 543.21}},
+			&[]A{},
+			&[]A{{"mr foo", "12345", 10, true, 123.45}, {"mr bar", "54321", 5, false, 321.45}, {"mr baz", "15243", 20, true, 543.21}},
+		},
 	}
 
 	e := &Encoder{}
