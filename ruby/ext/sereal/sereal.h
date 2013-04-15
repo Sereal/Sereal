@@ -63,10 +63,11 @@ do {                                                              \
 
 #define S_RECURSE_DEC(s) ((s)->level--)
 
-#ifdef RUBINIUS
-	#define rb_intern_str(string) SYM2ID(rb_str_intern(string))
-	#define rb_obj_instance_variables(object) rb_funcall(object, rb_intern("instance_variables"), 0)
-	#define rb_sym_to_s(object) rb_funcall(object,rb_intern("to_s"),0)
+#ifndef HAVE_RB_INTERN_STR
+#define rb_intern_str(string) SYM2ID(rb_str_intern(string))
+#endif
+#ifndef HAVE_RB_SYM_TO_S
+#define rb_sym_to_s(object) rb_funcall(object,rb_intern("to_s"),0)
 #endif
 
 #endif
