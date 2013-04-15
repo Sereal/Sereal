@@ -190,6 +190,22 @@ func TestStructs(t *testing.T) {
 		Money    float64
 	}
 
+	// some people
+	Afoo := A{"mr foo", "12345", 10, true, 123.45}
+	Abar := A{"mr bar", "54321", 5, false, 321.45}
+	Abaz := A{"mr baz", "15243", 20, true, 543.21}
+	pAbaz := &Abaz
+
+	type B struct {
+		Person1 A
+		Person2 *A
+		Person3 **A
+	}
+
+	type C struct {
+		FieldB B
+	}
+
 	type private struct {
 		pbool bool
 		pstr  string
@@ -212,13 +228,13 @@ func TestStructs(t *testing.T) {
 	}{
 		{
 			"struct with fields",
-			&A{"mr foo", "12345", 10, true, 123.45},
+			&Afoo,
 			&A{},
-			&A{"mr foo", "12345", 10, true, 123.45},
+			&Afoo,
 		},
 		{
 			"struct with fields into map",
-			A{"mr foo", "12345", 10, true, 123.45},
+			Afoo,
 			&map[string]interface{}{},
 			&map[string]interface{}{
 				"Name":     "mr foo",
@@ -242,9 +258,21 @@ func TestStructs(t *testing.T) {
 		},
 		{
 			"array of structs",
-			[]A{{"mr foo", "12345", 10, true, 123.45}, {"mr bar", "54321", 5, false, 321.45}, {"mr baz", "15243", 20, true, 543.21}},
+			[]A{Afoo, Abar, Abaz},
 			&[]A{},
-			&[]A{{"mr foo", "12345", 10, true, 123.45}, {"mr bar", "54321", 5, false, 321.45}, {"mr baz", "15243", 20, true, 543.21}},
+			&[]A{Afoo, Abar, Abaz},
+		},
+		{
+			"references",
+			B{Afoo, &Abar, &pAbaz},
+			&B{},
+			&B{Afoo, &Abar, &pAbaz},
+		},
+		{
+			"nested structs",
+			C{B{Person1: Afoo}},
+			&C{},
+			&C{B{Person1: Afoo}},
 		},
 	}
 
