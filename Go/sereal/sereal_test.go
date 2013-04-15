@@ -255,7 +255,7 @@ func TestSnappyArray(t *testing.T) {
 	}
 }
 
-func TestNoCompatStruct(t *testing.T) {
+func TestStructs(t *testing.T) {
 
 	type A struct {
 		Name     string
@@ -265,49 +265,79 @@ func TestNoCompatStruct(t *testing.T) {
 		Money    float64
 	}
 
-	a := A{
-		"mr foo",
-		"12345",
-		10,
-		true,
-		123.45,
+	type private struct {
+		pbool bool
+		pstr  string
+		pint  int
+	}
+
+	type semiprivate struct {
+		Bool   bool
+		pbool  bool
+		String string
+		pstr   string
+		pint   int
+	}
+
+	tests := []struct {
+		what     string
+		input    interface{}
+		outvar   interface{}
+		expected interface{}
+	}{
+		{
+			"struct with fields",
+			&A{"mr foo", "12345", 10, true, 123.45},
+			&A{},
+			&A{"mr foo", "12345", 10, true, 123.45},
+		},
+		{
+			"struct with fields into map",
+			A{"mr foo", "12345", 10, true, 123.45},
+			&map[string]interface{}{},
+			&map[string]interface{}{
+				"Name":     "mr foo",
+				"Phone":    "12345",
+				"Siblings": 10,
+				"Spouse":   true,
+				"Money":    123.45,
+			},
+		},
+		{
+			"struct with private fields",
+			private{false, "hello", 3},
+			&private{}, // zero value for struct
+			&private{},
+		},
+		{
+			"semi-private struct",
+			semiprivate{Bool: true, pbool: false, String: "world", pstr: "hello", pint: 3},
+			&semiprivate{},
+			&semiprivate{Bool: true, String: "world"},
+		},
 	}
 
 	e := &Encoder{}
 	d := &Decoder{}
 
-	x, err := e.Marshal(&a)
-	if err != nil {
-		panic(err)
+	for _, v := range tests {
+
+		rinput := reflect.ValueOf(v.input)
+
+		x, err := e.Marshal(rinput.Interface())
+		if err != nil {
+			t.Errorf("error marshalling %s: %s\n", v.what, err)
+		}
+
+		routvar := reflect.ValueOf(&v.outvar)
+
+		err = d.Unmarshal(x, routvar.Elem().Interface())
+		if err != nil {
+			t.Errorf("error unmarshalling %s: %s\n", v.what, err)
+		}
+
+		if !reflect.DeepEqual(v.outvar, v.expected) {
+			t.Errorf("roundtrip mismatch for %s: got: %#v expected: %#v\n", v.what, v.outvar, v.expected)
+		}
 	}
-
-	var ua A
-	err = d.Unmarshal(x, &ua)
-	if err != nil {
-		t.Errorf("struct unmarshalling failed: %s\n", err)
-	}
-
-	if !reflect.DeepEqual(a, ua) {
-		t.Errorf("struct unmarshalling mismatch: got:%#v expected: %#v\n", ua, a)
-	}
-
-	// check we can unmarshal into a map too
-	m := make(map[string]interface{})
-	m["Name"] = a.Name
-	m["Phone"] = a.Phone
-	m["Siblings"] = a.Siblings
-	m["Spouse"] = a.Spouse
-	m["Money"] = a.Money
-
-	var um map[string]interface{}
-
-	err = d.Unmarshal(x, &um)
-	if err != nil {
-		t.Errorf("map unmarshalling failed: %s\n", err)
-	}
-
-	if !reflect.DeepEqual(m, um) {
-		t.Errorf("map unmarshalling mismatch: got:%#v expected: %#v\n", um, m)
-	}
-
 }

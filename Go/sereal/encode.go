@@ -489,12 +489,22 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]
 	by = e.encodeBytes(by, []byte(typ.Name()), strTable)
 
 	l := typ.NumField()
+	publicFields := 0
+	for i := 0; i < l; i++ {
+		fty := typ.Field(i)
+		if fty.PkgPath != "" {
+			continue // skip unexported names
+		}
+		publicFields++
+	}
 
-	if l < 16 {
-		by = append(by, typeHASHREF_0+byte(l))
+	// count public fields
+
+	if publicFields < 16 {
+		by = append(by, typeHASHREF_0+byte(publicFields))
 	} else {
 		by = append(by, typeHASH)
-		by = varint(by, uint(l))
+		by = varint(by, uint(publicFields))
 	}
 
 	for i := 0; i < l; i++ {
