@@ -142,47 +142,18 @@ static void s_append_hash(sereal_t *s, VALUE object) {
 #undef REF_THRESH
 
 /* 
-  not standartized, we are using RESERVED_LOW as SRL_HDR_SYM
-  protocol is the same as LATIN1 strings but with different tag:
-        SRL_HDR_SYM TAG
-        len <VARINT>
-        value - <len> bytes
+	convert symbols to strings
 */
 static void s_append_symbol(sereal_t *s, VALUE object) {
 	VALUE string = rb_sym_to_s(object);
-        u32 len = RSTRING_LEN(string);
-
-        s_append_hdr_with_varint(s,SRL_HDR_SYM,len);
-        s_append(s,RSTRING_PTR(string),len);
+	s_append_rb_string(s,string);
 }
 
 /*
-  this is not standartized, we are using (RESERVED_LOW + 1) tag as SRL_HDR_RB_OBJ
-  and the protocol is as follows:
-        SRL_HDR_RB_OBJ TAG
-        class name <STR>
-        instance variables count <VARINT>
-        0..count
-                instance variable name <STR>
-                instance variable value <ITEM> 
-
+	call object.to_srl and serialize the result
 */
 static void s_append_object(sereal_t *s, VALUE object) {
-        u32 i,len;
-        VALUE ivars = rb_obj_instance_variables(object);
-
-        s_append_u8(s,SRL_HDR_RB_OBJ);
-        s_append_rb_string(s,rb_obj_as_string(rb_obj_class(object)));
-
-        len = RARRAY_LEN(ivars);
-        s_append_varint(s,len);
-
-        for (i = 0; i < len; i++) {
-                VALUE var_name_sym = rb_ary_entry(ivars,i);
-                VALUE iv = rb_ivar_get(object,SYM2ID(var_name_sym));
-                s_append_rb_string(s,rb_sym_to_s(var_name_sym));
-                rb_object_to_sereal(s,iv);
-        }
+	rb_object_to_sereal(s,rb_funcall(object,rb_intern("to_srl"),0));
 }
 
 
@@ -245,7 +216,6 @@ static void s_append_nil(sereal_t *s, VALUE object) {
 }
 
 /* writer function pointers */
-
 static void rb_object_to_sereal(sereal_t *s, VALUE object) {
         S_RECURSE_INC(s);
         (*WRITER[TYPE(object)])(s,object);

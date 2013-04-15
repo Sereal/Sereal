@@ -3,6 +3,8 @@
 require 'test/unit'
 require ENV['USE_CURRENT_DIRECTORY'] ? File.absolute_path(File.join(File.dirname(__FILE__),'..','lib','sereal')) : 'sereal'
 
+class ZXCNOSRL
+end
 class ZXC
   attr_accessor :z,:x,:c
   def initialize
@@ -10,9 +12,8 @@ class ZXC
     @x = 'x'
     @c = 'c'
   end
-  def ==(o)
-    return false if o.nil?
-    @z == o.z && @x == o.x && @c == o.c
+  def to_srl
+    { "z" => @z, "x" => @x, "c" => @c }
   end
 end
 class Test::Unit::TestCase
@@ -25,20 +26,12 @@ class Test::Unit::TestCase
     assert Sereal.encode(obj,true).length < Sereal.encode(obj,false).length
   end
   def test_numbers
-    [0,1,2,3,4,16,17,2**31,2**32,2**60,2*64,0.1,Float(2**64)].each do |x|
+    [0,1,2,3,4,16,17,2**31,2**32,2**60,2*64,0.1,Float(2**64),2.1**956].each do |x|
       assert_equal recode(x),x
       if x > 0
         neg = -x
         assert_equal recode(neg),neg
       end
-    end
-  end
-  def test_unsafe
-    assert_raise(TypeError)do
-      recode(ZXC.new,true)
-    end
-    assert_nothing_raised do
-      recode(ZXC.new,false)
     end
   end
   def test_nil
@@ -57,8 +50,16 @@ class Test::Unit::TestCase
     a = ["a"]
     assert_equal recode(a),a
   end
+  def test_zxc
+    x = ZXC.new
+    assert_equal recode(x),x.to_srl
+    assert_raise(NoMethodError) do
+        recode(ZXCNOSRL.new)
+    end
+  end
   def test_sym
-    assert_equal :x, recode(:x)
+    #symbols are converted
+    assert_equal "x", recode(:x)
   end
   def test_hash
     a = {"a" => "b"}
@@ -76,23 +77,9 @@ class Test::Unit::TestCase
     ascii = "a".encode("ASCII-8BIT")
     assert_equal recode(ascii).encoding,ascii.encoding
   end
-  def test_zxc
-    x = ZXC.new
-    s = ZXC.new
-    s.x = "inside";
-    x.z = "1"
-    x.x = s
-    x.c = {"a" => "b"}
-    r = recode(x);
-    assert_equal x,r
-    assert_equal x.x.x, "inside"
-  end
   def test_recursion
-    x = ZXC.new
-    y = ZXC.new
-
-    x.x = y
-    y.x = x
+    x = []
+    x[0] = x
     assert_raise(ArgumentError) do 
       recode(x)
     end

@@ -73,8 +73,8 @@ static VALUE (*READERS[256])(sereal_t *, u8) = {
         s_default_reader, /* XXX */                     // 47   SRL_HDR_COPY
         s_default_reader, /* XXX */                     // 48   SRL_HDR_WEAKEN
         s_read_regexp,                                  // 49   SRL_HDR_REGEXP
-        s_read_sym,                                     // 50   SRL_HDR_RESERVED_LOW - translated as SRL_SYM
-        s_read_object,                                  // 51   SRL_HDR_RESERVED_LOW + 1 - translated as SRL_RB_OBJECT
+        s_default_reader, /* XXX */                     // 50   SRL_HDR_RESERVED_LOW
+        s_default_reader, /* XXX */                     // 51
         s_default_reader, /* XXX */                     // 52
         s_default_reader, /* XXX */                     // 53
         s_default_reader, /* XXX */                     // 54
