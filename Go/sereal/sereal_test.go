@@ -133,124 +133,49 @@ func TestCorpus(t *testing.T) {
 	}
 }
 
-func TestSnappyEndToEndString(t *testing.T) {
-
-	e := &Encoder{}
-	d := &Decoder{}
-
-	hugeString := ""
-
-	for i := 0; i < 2048; i++ {
-		hugeString += "a"
-	}
-
-	encoded, err := e.Marshal(hugeString)
-
-	if err != nil {
-		t.Errorf("encoding a huge string generated an error: %v", err)
-		return
-	}
-
-	var decoded string
-	err = d.Unmarshal(encoded, &decoded)
-
-	if err != nil {
-		t.Errorf("decoding a huge string generated an error: %v", err)
-		return
-	}
-
-	if hugeString != decoded {
-		t.Errorf("end-to-end encoding + decoding of huge string didn't work")
-		return
-	}
-}
-
-func TestSnappyEndToEndArray(t *testing.T) {
-
-	e := &Encoder{}
-	d := &Decoder{}
-
-	hugeArray := make([]interface{}, 2048)
-
-	for i := 0; i < 2048; i++ {
-		hugeArray[i] = 4
-	}
-
-	encoded, err := e.Marshal(hugeArray)
-
-	if err != nil {
-		t.Errorf("encoding a huge array generated an error: %v", err)
-		return
-	}
-
-	var decoded []interface{}
-	err = d.Unmarshal(encoded, &decoded)
-
-	if err != nil {
-		t.Errorf("decoding a huge array generated an error: %v", err)
-		return
-	}
-
-	if !reflect.DeepEqual(hugeArray, decoded) {
-		t.Errorf("end-to-end encoding + decoding of huge array didn't work")
-		return
-	}
-}
-
 func TestSnappyArray(t *testing.T) {
 
 	e := &Encoder{}
 	d := &Decoder{}
 
-	hugeString := ""
-
-	for i := 0; i < 2048; i++ {
-		hugeString += "a"
-	}
-
-	hugeArray := []string{hugeString, hugeString}
-
-	encoded, err := e.Marshal(hugeArray)
-
-	if err != nil {
-		t.Errorf("encoding a huge array generated an error: %v", err)
-		return
-	}
-
-	var decoded []interface{}
-	err = d.Unmarshal(encoded, &decoded)
-
-	if err != nil {
-		t.Errorf("decoding a huge array generated an error: %v", err)
-		return
-	}
-
-	// XXX I think these should be the same object in memory as well
-	if decoded[0].(string) != decoded[1].(string) {
-		t.Errorf("decoding an array of two identical strings resulted in two different strings")
-	}
-	// XXX we should also test two structurally identical (but identically different) strings
-
 	// test many duplicated strings -- this uses both the string table and snappy compressiong
 	// this ensures we're not messing up the offsets when decoding
+
 	manydups := make([]string, 2048)
 	for i := 0; i < len(manydups); i++ {
 		manydups[i] = "hello, world " + strconv.Itoa(i%10)
 	}
 
-	encoded, _ = e.Marshal(manydups)
-	var decodedHW []interface{}
-	d.Unmarshal(encoded, &decodedHW)
+	encoded, err := e.Marshal(manydups)
+	if err != nil {
+		t.Errorf("encoding a large array generated an error: %v", err)
+		return
+	}
 
-	if len(decodedHW) != 2048 {
-		t.Errorf("got wrong number of elements back: wanted=%d got=%d\n", 2048, len(decodedHW))
-	} else {
-		for i := 0; i < 2048; i++ {
-			s, ok := decodedHW[i].(string)
-			expected := "hello, world " + strconv.Itoa(i%10)
-			if !ok || s != expected {
-				t.Errorf("failed decompressing many-dup string: ok=%v s=%s expected=%s", ok, s, expected)
-			}
+	e.UseSnappy = true
+	e.SnappyThreshold = 0 // always compress
+	snencoded, err := e.Marshal(manydups)
+
+	if err != nil {
+		t.Fatalf("snappy encoding a large array generated an error: %v", err)
+	}
+
+	if len(encoded) <= len(snencoded) {
+		t.Fatalf("snappy failed to compress redundant array: encoded=%d snappy=%d\n", len(encoded), len(snencoded))
+	}
+
+	var decoded []string
+	d.Unmarshal(snencoded, &decoded)
+
+	if len(decoded) != 2048 {
+		t.Fatalf("got wrong number of elements back: wanted=%d got=%d\n", len(manydups), len(decoded))
+	}
+
+	for i := 0; i < 2048; i++ {
+		s := decoded[i]
+		expected := "hello, world " + strconv.Itoa(i%10)
+		if s != expected {
+			t.Errorf("failed decompressing many-dup string: s=%s expected=%s", s, expected)
 		}
 	}
 }

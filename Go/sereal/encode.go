@@ -45,7 +45,18 @@ func snappify(b []byte) ([]byte, error) {
 }
 
 type Encoder struct {
-	PerlCompat bool
+	PerlCompat      bool // try to mimic Perl's structure as much as possible
+	UseSnappy       bool // should we enable snappy compression
+	SnappyThreshold int // threshold in bytes above which snappy compression is attempted: 1024 bytes by default
+}
+
+// NewEncoder returns a new Encoder struct with default values
+func NewEncoder() *Encoder {
+	return &Encoder{
+		PerlCompat:      false,
+		UseSnappy:       false,
+		SnappyThreshold: 1024,
+	}
 }
 
 // Marshal returns the Sereal encoding of v
@@ -83,7 +94,7 @@ func (e *Encoder) Marshal(v interface{}) (b []byte, err error) {
 		return nil, err
 	}
 
-	if len(encoded) >= snappyThreshold+headerLength {
+	if e.UseSnappy && (e.SnappyThreshold == 0 || len(encoded) >= e.SnappyThreshold) {
 		encoded, err = snappify(encoded)
 
 		if err != nil {
