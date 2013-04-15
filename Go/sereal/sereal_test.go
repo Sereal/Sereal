@@ -238,10 +238,6 @@ func TestSnappyArray(t *testing.T) {
 		manydups[i] = "hello, world " + strconv.Itoa(i%10)
 	}
 
-	for i := range decoded {
-		decoded[i] = nil
-	}
-
 	encoded, _ = e.Marshal(manydups)
 	var decodedHW []interface{}
 	d.Unmarshal(encoded, &decodedHW)
