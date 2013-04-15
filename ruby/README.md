@@ -27,8 +27,6 @@ Sereal.decode(Sereal.encode(object))
 ```
 `Sereal.encode(object,true)` uses [snappy](http://code.google.com/p/snappy/) compression, disabled by default
 
-`Sereal.decode(object,false)` will decode and spawn arbitrary objects (disabled by defailt)
-
 ### speed
 
 currently it is on par with msgpack, you can run the benchmarks in tools/bm.rb
