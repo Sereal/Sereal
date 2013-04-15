@@ -192,6 +192,9 @@ func (e *Encoder) encode(b []byte, rv reflect.Value, strTable map[string]int, pt
 			}
 		}
 
+	case reflect.Invalid:
+		b = append(b, typeUNDEF)
+
 	default:
 		panic(fmt.Sprintf("no support for type '%s'", rk.String()))
 	}
