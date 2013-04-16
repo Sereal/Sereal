@@ -43,5 +43,3 @@ const (
 	typeHASHREF_0      = 0x50
 	typeSHORT_BINARY_0 = 0x60
 )
-
-const snappyThreshold = 1024

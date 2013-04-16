@@ -47,7 +47,7 @@ func snappify(b []byte) ([]byte, error) {
 type Encoder struct {
 	PerlCompat      bool // try to mimic Perl's structure as much as possible
 	UseSnappy       bool // should we enable snappy compression
-	SnappyThreshold int // threshold in bytes above which snappy compression is attempted: 1024 bytes by default
+	SnappyThreshold int  // threshold in bytes above which snappy compression is attempted: 1024 bytes by default
 }
 
 // NewEncoder returns a new Encoder struct with default values
