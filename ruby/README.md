@@ -2,8 +2,6 @@
 
 This is incomplete implementation, it does not have support for REFP,REFN and ALIAS tags. 
 
-There is also usage of RESERVED and RESERVED+1 tags, for ruby symbol and ruby object.
-
 #### requirements
 
 * rake compiler - [gem install rake-compiler](https://github.com/luislavena/rake-compiler)
