@@ -26,6 +26,8 @@ var roundtrips = []interface{}{
 	16,
 	17,
 	-17,
+	-2613115362782646504,
+	uint(0xdbbc596c24396f18),
 	"hello",
 	"hello, world",
 	"twas brillig and the slithy toves and gyre and gimble in the wabe",

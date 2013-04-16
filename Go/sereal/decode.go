@@ -135,16 +135,24 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		if neg {
 			i -= 32
 		}
-		setInt(ptr, int(i))
+		setInt(ptr, reflect.Int, i)
 
 	case tag == typeVARINT, tag == typeZIGZAG:
 		idx++
 		i, sz := varintdecode(b[idx:])
 		idx += sz
-		if tag == typeZIGZAG {
+		if tag == typeVARINT {
+			// varints are unsigned, but we returned a signed int if possible
+			if i < 0 {
+				setInt(ptr, reflect.Uint, i)
+			} else {
+				setInt(ptr, reflect.Int, i)
+			}
+		} else {
+			// zigzag
 			i = -(1 + (i >> 1)) // un-zigzag
+			setInt(ptr, reflect.Int, i)
 		}
-		setInt(ptr, int(i))
 
 	case tag == typeFLOAT:
 		idx++
@@ -596,9 +604,14 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 
 }
 
-func setInt(v reflect.Value, i int) {
+func setInt(v reflect.Value, k reflect.Kind, i int) {
 	if v.Kind() == reflect.Interface && v.IsNil() {
-		v.Set(reflect.ValueOf(i))
+		switch k {
+		case reflect.Uint:
+			v.Set(reflect.ValueOf(uint(i)))
+		case reflect.Int:
+			v.Set(reflect.ValueOf(i))
+		}
 		return
 	}
 

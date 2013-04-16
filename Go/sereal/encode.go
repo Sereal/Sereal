@@ -112,9 +112,9 @@ func (e *Encoder) encode(b []byte, rv reflect.Value, strTable map[string]int, pt
 	case reflect.Bool:
 		b = e.encodeBool(b, rv.Bool())
 	case reflect.Int, reflect.Int8, reflect.Int64, reflect.Int32, reflect.Int16:
-		b = e.encodeInt(b, rv.Int())
+		b = e.encodeInt(b, reflect.Int, rv.Int())
 	case reflect.Uint8, reflect.Uint64, reflect.Uint, reflect.Uint32, reflect.Uint16:
-		b = e.encodeInt(b, int64(rv.Uint()))
+		b = e.encodeInt(b, reflect.Uint, int64(rv.Uint()))
 	case reflect.String:
 		b = e.encodeString(b, rv.String(), strTable)
 	case reflect.Array, reflect.Slice:
@@ -360,7 +360,7 @@ func (e *Encoder) encodeFloat(by []byte, f float32) []byte {
 	return by
 }
 
-func (e *Encoder) encodeInt(by []byte, i int64) []byte {
+func (e *Encoder) encodeInt(by []byte, k reflect.Kind, i int64) []byte {
 
 	switch {
 	case 0 <= i && i <= 15:
@@ -371,8 +371,13 @@ func (e *Encoder) encodeInt(by []byte, i int64) []byte {
 		by = append(by, typeVARINT)
 		by = varint(by, uint(i))
 	case i < 0:
-		by = append(by, typeZIGZAG)
-		n := (i << 1) ^ (i >> 63)
+		n := uint(i)
+		if k == reflect.Int {
+			by = append(by, typeZIGZAG)
+			n = uint((i << 1) ^ (i >> 63))
+		} else {
+			by = append(by, typeVARINT)
+		}
 		by = varint(by, uint(n))
 	}
 
