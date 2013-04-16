@@ -4,8 +4,6 @@
        : only string keys are supported -- do we call value.String() or panic()?
     - what other coersions (ints <-> strings)
     - add decoder and encoder options:
-        snappy threshold,
-        snappy on/off,
         string vs. byte array handling?
     - "header size" -> "optional header size"
     - roundtrip test: perl obj -> perl-sereal stream -> go1 obj -> go-sereal stream -> go2 obj, DeepEqual(go1, go2)
@@ -15,5 +13,5 @@
            encodeArray/Ref and encodeMap/Ref should each be combined
     - match 'ptr->array':ARRAYREF and 'ptr->hash':HASHREF
            still need to track pointers
+    - we use len() and generate HASHREF/ARRAYREF, other times HASH/ARRAY
     - class names need their own string table (for OBJECTV)
-    - test filling in of nested structures
