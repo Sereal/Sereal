@@ -276,9 +276,15 @@ srl_build_encoder_struct(pTHX_ HV *opt)
             enc->flags |= SRL_F_SORT_KEYS;
         }
 
-        svp = hv_fetchs(opt, "dedupe_strings", 0);
+        svp = hv_fetchs(opt, "aliased_dedupe_strings", 0);
         if ( svp && SvTRUE(*svp) ) {
-            enc->flags |= SRL_F_DEDUPE_STRINGS;
+            enc->flags |= SRL_F_ALIASED_DEDUPE_STRINGS | SRL_F_DEDUPE_STRINGS;
+        }
+        else {
+            svp = hv_fetchs(opt, "dedupe_strings", 0);
+            if ( svp && SvTRUE(*svp) ) {
+                enc->flags |= SRL_F_DEDUPE_STRINGS;
+            }
         }
 
         svp = hv_fetchs(opt, "stringify_unknown", 0);
@@ -1008,15 +1014,19 @@ srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src)
         if (!dupe_offset_he) {
             croak("out of memory (hv_fetch_ent returned NULL)");
         } else {
+            const char out_tag= SRL_ENC_HAVE_OPTION(enc, SRL_F_ALIASED_DEDUPE_STRINGS)
+                                ? SRL_HDR_ALIAS
+                                : SRL_HDR_COPY;
             SV *ofs_sv= HeVAL(dupe_offset_he);
             if (SvIOK(ofs_sv)) {
-                /* emit copy */
-                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, SvIV(ofs_sv));
+                /* emit copy or alias */
+                srl_buf_cat_varint(aTHX_ enc, out_tag, SvIV(ofs_sv));
                 return;
             } else if (SvUOK(ofs_sv)) {
-                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, SvUV(ofs_sv));
+                srl_buf_cat_varint(aTHX_ enc, out_tag, SvUV(ofs_sv));
                 return;
             } else {
+                /* start tracking this string */
                 sv_setuv(ofs_sv, (UV)BUF_POS_OFS(enc));
             }
         }

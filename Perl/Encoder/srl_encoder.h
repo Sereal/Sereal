@@ -82,11 +82,18 @@ void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
  * if the unsupported item has string overloading. */
 #define SRL_F_SORT_KEYS                      0x00200UL
 
+/* If set, use a hash to emit COPY() tags for all duplicated strings
+ * (slow, but great compression) */
 #define SRL_F_DEDUPE_STRINGS                 0x00400UL
+
+/* Like SRL_F_DEDUPE_STRINGS but emits ALIAS() instead of COPY() for
+ * non-class-name, non-hash-key strings that are deduped. If set,
+ * supersedes SRL_F_DEDUPE_STRINGS. */
+#define SRL_F_ALIASED_DEDUPE_STRINGS           0x00800UL
 
 /* If set in flags, then we serialize objects without class information.
  * Corresponds to the 'no_bless_objects' flag found in the Decoder. */
-#define SRL_F_NO_BLESS_OBJECTS                0x00800UL
+#define SRL_F_NO_BLESS_OBJECTS                0x01000UL
 
 /* Set while the encoder is in active use / dirty */
 #define SRL_OF_ENCODER_DIRTY                 1UL
