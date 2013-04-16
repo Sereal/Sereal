@@ -196,16 +196,13 @@ func TestStructs(t *testing.T) {
 	Afoo := A{"mr foo", "12345", 10, true, 123.45}
 	Abar := A{"mr bar", "54321", 5, false, 321.45}
 	Abaz := A{"mr baz", "15243", 20, true, 543.21}
-	pAbaz := &Abaz
 
-	type B struct {
-		Person1 A
-		Person2 *A
-		Person3 **A
+	type nested1 struct {
+		Person A
 	}
 
-	type C struct {
-		FieldB B
+	type nested struct {
+		Nested1 nested1
 	}
 
 	type private struct {
@@ -277,16 +274,10 @@ func TestStructs(t *testing.T) {
 			[]A{Afoo},
 		},
 		{
-			"references",
-			B{Afoo, &Abar, &pAbaz},
-			B{},
-			B{Afoo, &Abar, &pAbaz},
-		},
-		{
-			"nested structs",
-			C{B{Person1: Afoo}},
-			C{},
-			C{B{Person1: Afoo}},
+			"nested",
+			nested{nested1{Afoo}},
+			nested{},
+			nested{nested1{Afoo}},
 		},
 	}
 
