@@ -230,15 +230,15 @@ func TestStructs(t *testing.T) {
 	}{
 		{
 			"struct with fields",
-			&Afoo,
-			&A{},
-			&Afoo,
+			Afoo,
+			A{},
+			Afoo,
 		},
 		{
 			"struct with fields into map",
 			Afoo,
-			&map[string]interface{}{},
-			&map[string]interface{}{
+			map[string]interface{}{},
+			map[string]interface{}{
 				"Name":     "mr foo",
 				"Phone":    "12345",
 				"Siblings": 10,
@@ -249,32 +249,44 @@ func TestStructs(t *testing.T) {
 		{
 			"struct with private fields",
 			private{false, "hello", 3},
-			&private{}, // zero value for struct
-			&private{},
+			private{}, // zero value for struct
+			private{},
 		},
 		{
 			"semi-private struct",
 			semiprivate{Bool: true, pbool: false, String: "world", pstr: "hello", pint: 3},
-			&semiprivate{},
-			&semiprivate{Bool: true, String: "world"},
+			semiprivate{},
+			semiprivate{Bool: true, String: "world"},
 		},
 		{
-			"array of structs",
+			"nil slice of structs",
 			[]A{Afoo, Abar, Abaz},
-			&[]A{},
-			&[]A{Afoo, Abar, Abaz},
+			[]A(nil),
+			[]A{Afoo, Abar, Abaz},
+		},
+		{
+			"0-length slice of structs",
+			[]A{Afoo, Abar, Abaz},
+			[]A{},
+			[]A{Afoo, Abar, Abaz},
+		},
+		{
+			"1-length slice of structs",
+			[]A{Afoo, Abar, Abaz},
+			[]A{A{}},
+			[]A{Afoo},
 		},
 		{
 			"references",
 			B{Afoo, &Abar, &pAbaz},
-			&B{},
-			&B{Afoo, &Abar, &pAbaz},
+			B{},
+			B{Afoo, &Abar, &pAbaz},
 		},
 		{
 			"nested structs",
 			C{B{Person1: Afoo}},
-			&C{},
-			&C{B{Person1: Afoo}},
+			C{},
+			C{B{Person1: Afoo}},
 		},
 	}
 
@@ -288,17 +300,20 @@ func TestStructs(t *testing.T) {
 		x, err := e.Marshal(rinput.Interface())
 		if err != nil {
 			t.Errorf("error marshalling %s: %s\n", v.what, err)
+			continue
 		}
 
-		routvar := reflect.ValueOf(&v.outvar)
+		routvar := reflect.New(reflect.TypeOf(v.outvar))
+		routvar.Elem().Set(reflect.ValueOf(v.outvar))
 
-		err = d.Unmarshal(x, routvar.Elem().Interface())
+		err = d.Unmarshal(x, routvar.Interface())
 		if err != nil {
 			t.Errorf("error unmarshalling %s: %s\n", v.what, err)
+			continue
 		}
 
-		if !reflect.DeepEqual(v.outvar, v.expected) {
-			t.Errorf("roundtrip mismatch for %s: got: %#v expected: %#v\n", v.what, v.outvar, v.expected)
+		if !reflect.DeepEqual(routvar.Elem().Interface(), v.expected) {
+			t.Errorf("roundtrip mismatch for %s: got: %#v expected: %#v\n", v.what, routvar.Elem().Interface(), v.expected)
 		}
 	}
 }
