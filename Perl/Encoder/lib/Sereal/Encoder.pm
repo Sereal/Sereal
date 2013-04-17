@@ -194,11 +194,12 @@ various caveats involved.
 
 =head3 dedupe_strings
 
-If true Sereal will use a hash to dedupe strings during serialization. This
-has a peformance and memory penalty so it defaults to off, but data structures
-with many duplicated strings will see a significant reduction in the size of
-the encoded form. Currently only strings longer than 3 characters will be
-deduped, however this may change in the future.
+If this is option is enabled/true then Sereal will use a hash to encode duplicates
+of strings during serialization efficiently using (internal) backreferences. This
+has a peformance and memory penalty during encoding so it defaults to off.
+On the other hand, data structures with many duplicated strings will see a
+significant reduction in the size of the encoded form. Currently only strings
+longer than 3 characters will be deduped, however this may change in the future.
 
 Note that Sereal will perform certain types of deduping automatically even
 without this option. In particular class names and hash keys are deduped
@@ -208,6 +209,28 @@ structure.
 
 Use of this option does not require an upgraded decoder. The deduping
 is performed in such a way that older decoders should handle it just fine.
+In other words, the output of a Sereal B<decoder> should not depend on
+whether this option was used during B<encoding>. See also below:
+I<aliased_dedupe_strings>.
+
+=head3 aliased_dedupe_strings
+
+This is an advanced option that should be used only after fully understanding
+its ramifications.
+
+This option enables a mode of operation that is similar to I<dedupe_strings>
+and if both options are set, I<aliased_dedupe_strings> takes precedence.
+
+The behaviour of I<aliased_dedupe_strings> differs from I<dedupe_strings>
+in that the duplicate occurrances of strings are emitted as Perl language
+level B<aliases> instead of as Sereal-internal backreferences. This means
+that using this option actually produces a different output data structure
+when decoding. The upshot is that with this option, the application
+using (decoding) the data may save a lot of memory in some situations
+but at the cost of potential action at a distance due to the aliasing.
+
+Beware: The test suite currently does not cover this option as well as it
+probably should. Patches welcome.
 
 =head1 INSTANCE METHODS
 
