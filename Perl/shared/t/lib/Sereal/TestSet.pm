@@ -183,6 +183,13 @@ our @BasicTests = (
                     . chr(SRL_HDR_COPY) . varint($pos);
               return $d;
           }
+          elsif ($opt->{aliased_dedupe_strings}) {
+              my $d = array_head(3);
+              my $pos = length($Header) + length($d);
+              $d .= short_string("foooo") . chr(SRL_HDR_ALIAS) . varint($pos)
+                    . chr(SRL_HDR_ALIAS) . varint($pos);
+              return $d;
+          }
           else {
               return array(short_string("foooo"),short_string("foooo"), short_string("foooo"));
           }
