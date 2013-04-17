@@ -11,8 +11,9 @@
     - '5' == 'sereal-header-size'
     - lots of duplicatish code to remove:
            encodeArray/Ref and encodeMap/Ref should each be combined
+           decode cases are similar too: array/ref, map/ref/ array/binary/short-binary
     - match 'ptr->array':ARRAYREF and 'ptr->hash':HASHREF
-           still need to track pointers
+        - go can't do this in one-pass: we don't have ref counts
     - we use len() and generate HASHREF/ARRAYREF, other times HASH/ARRAY
        - (same with objects/structs)
     - class names need their own string table (for OBJECTV)
