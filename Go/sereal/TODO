@@ -14,4 +14,6 @@
     - match 'ptr->array':ARRAYREF and 'ptr->hash':HASHREF
            still need to track pointers
     - we use len() and generate HASHREF/ARRAYREF, other times HASH/ARRAY
+       - (same with objects/structs)
     - class names need their own string table (for OBJECTV)
+    - string table should have hash keys only (unless dedup strings is true?)

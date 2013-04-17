@@ -174,7 +174,6 @@ func (e *Encoder) encode(b []byte, rv reflect.Value, strTable map[string]int, pt
 			offs, ok = ptrTable[rvptr2]
 			if ok {
 				rvptr = rvptr2
-			} else {
 			}
 		}
 
