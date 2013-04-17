@@ -176,18 +176,12 @@ our @BasicTests = (
       [qw(foooo foooo foooo)],
       sub {
           my $opt = shift;
-          if ($opt->{dedupe_strings}) {
+          if ($opt->{dedupe_strings} || $opt->{aliased_dedupe_strings}) {
               my $d = array_head(3);
               my $pos = length($Header) + length($d);
-              $d .= short_string("foooo") . chr(SRL_HDR_COPY) . varint($pos)
-                    . chr(SRL_HDR_COPY) . varint($pos);
-              return $d;
-          }
-          elsif ($opt->{aliased_dedupe_strings}) {
-              my $d = array_head(3);
-              my $pos = length($Header) + length($d);
-              $d .= short_string("foooo") . chr(SRL_HDR_ALIAS) . varint($pos)
-                    . chr(SRL_HDR_ALIAS) . varint($pos);
+              my $tag = $opt->{aliased_dedupe_strings} ? SRL_HDR_ALIAS : SRL_HDR_COPY;
+              $d .= short_string("foooo") . chr($tag) . varint($pos)
+                    . chr($tag) . varint($pos);
               return $d;
           }
           else {
@@ -195,6 +189,32 @@ our @BasicTests = (
           }
       },
       "ary ref with repeated string"
+    ],
+    [
+      [{foooo => "barrr"}, {barrr => "foooo"}],
+      array(hash(short_string("foooo"), short_string("barrr")),
+            hash(short_string("barrr"), short_string("foooo"))),
+      "ary ref of hash refs without repeated strings"
+    ],
+    [
+      [{foooo => "foooo"}, {foooo2 => "foooo"}],
+      sub {
+          my $opt = shift;
+          if ($opt->{dedupe_strings} || $opt->{aliased_dedupe_strings}) {
+              my $tag = $opt->{aliased_dedupe_strings} ? SRL_HDR_ALIAS : SRL_HDR_COPY;
+              my $d = array_head(2) . hash_head(2) . short_string("foooo");
+              my $pos = length($Header) + length($d);
+              $d .= short_string("foooo") . hash_head(2)
+                    . short_string("foooo2")
+                    . chr($tag) . varint($pos);
+              return $d;
+          }
+          else {
+              return array(hash(short_string("foooo"), short_string("foooo")),
+                           hash(short_string("foooo2"), short_string("foooo"))),
+          }
+      },
+      "ary ref of hash refs with repeated strings"
     ],
     [$scalar_ref_for_repeating, chr(SRL_HDR_REFN).chr(0b0000_1001), "scalar ref to constant"],
     [[$scalar_ref_for_repeating, $scalar_ref_for_repeating],
