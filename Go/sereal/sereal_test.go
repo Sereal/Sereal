@@ -35,25 +35,83 @@ var roundtrips = []interface{}{
 	float32(9891234567890.098),
 	float64(2.2),
 	float64(9891234567890.098),
+	[]interface{}{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
+	[]interface{}{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+	[]interface{}{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
 	[]interface{}{1, 100, 1000, 2000, 0xdeadbeef, float32(2.2), "hello, world", map[string]interface{}{"foo": []interface{}{1, 2, 3}}},
 	map[string]interface{}{"foo": 1, "bar": 2, "baz": "qux"},
 }
 
-func TestRoundtrip(t *testing.T) {
+func TestRoundtripGo(t *testing.T) {
+	testRoundtrip(t, false)
+}
 
-	e := &Encoder{}
-	d := &Decoder{}
+func TestRoundtripPerl(t *testing.T) {
+	testRoundtrip(t, true)
+}
+
+func testRoundtrip(t *testing.T, perlCompat bool) {
+
+	e := &Encoder{PerlCompat: perlCompat}
+	d := &Decoder{PerlCompat: false}
 
 	for _, v := range roundtrips {
 		b, err := e.Marshal(v)
 		if err != nil {
-			t.Errorf("failed marshalling : %v\n", v)
+			t.Errorf("failed marshalling with perlCompat=%t : %v\n", perlCompat, v)
 		}
 		var unp interface{}
+
 		d.Unmarshal(b, &unp)
 		if !reflect.DeepEqual(v, unp) {
-			t.Errorf("failed roundtripping: %#v: got %#v\n", v, unp)
+			t.Errorf("failed roundtripping with perlCompat=%t: %#v: got %#v\n", perlCompat, v, unp)
 		}
+	}
+}
+
+func TestRoundtripCompat(t *testing.T) {
+
+	input := []interface{}{map[string]interface{}{"foo": []interface{}{1, 2, 3}}}
+	expectGo := []interface{}{map[string]interface{}{"foo": []interface{}{1, 2, 3}}}
+	expectPerlCompat := []interface{}{&map[string]interface{}{"foo": &[]interface{}{1, 2, 3}}}
+
+	e := &Encoder{}
+	d := &Decoder{}
+
+	noCompat, _ := e.Marshal(input)
+
+	e.PerlCompat = true
+	perlCompat, _ := e.Marshal(input)
+
+	// no perl compat on encode, no perl compat on decode
+	var nono interface{}
+	d.Unmarshal(noCompat, &nono)
+	if !reflect.DeepEqual(expectGo, nono) {
+		t.Errorf("perl compat: no no failed: got %#v\n", nono)
+	}
+
+	// perl compat on encode, no perl compat on decode
+	var yesno interface{}
+	d.Unmarshal(perlCompat, &yesno)
+	if !reflect.DeepEqual(expectGo, yesno) {
+		t.Errorf("perl compat: yes no failed: got %#v\n", yesno)
+	}
+
+	d.PerlCompat = true
+
+	// no perl compat on encode, perl compat on decode
+	var noyes interface{}
+	d.Unmarshal(noCompat, &noyes)
+	if !reflect.DeepEqual(expectGo, noyes) {
+		t.Errorf("perl compat: no yes failed: got %#v\n", noyes)
+	}
+
+	// perl compat on encode, yes perl compat on decode
+	var yesyes interface{}
+
+	d.Unmarshal(perlCompat, &yesyes)
+	if !reflect.DeepEqual(expectPerlCompat, yesyes) {
+		t.Errorf("perl compat: yes yes failed: got %#v\n", yesyes)
 	}
 }
 
@@ -89,7 +147,6 @@ func TestCorpus(t *testing.T) {
 
 	for _, corpusFile := range corpusFiles {
 
-		t.Log("processing:", corpusFile)
 		contents, err := ioutil.ReadFile(corpusFile)
 
 		if err != nil {
