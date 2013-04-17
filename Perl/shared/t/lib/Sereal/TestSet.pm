@@ -172,6 +172,23 @@ our @BasicTests = (
 
     [{}, hash(), "empty hash ref"],
     [{foo => "baaaaar"}, hash(short_string("foo"),short_string("baaaaar")), "simple hash ref"],
+    [
+      [qw(foooo foooo foooo)],
+      sub {
+          my $opt = shift;
+          if ($opt->{dedupe_strings}) {
+              my $d = array_head(3);
+              my $pos = length($Header) + length($d);
+              $d .= short_string("foooo") . chr(SRL_HDR_COPY) . varint($pos)
+                    . chr(SRL_HDR_COPY) . varint($pos);
+              return $d;
+          }
+          else {
+              return array(short_string("foooo"),short_string("foooo"), short_string("foooo"));
+          }
+      },
+      "ary ref with repeated string"
+    ],
     [$scalar_ref_for_repeating, chr(SRL_HDR_REFN).chr(0b0000_1001), "scalar ref to constant"],
     [[$scalar_ref_for_repeating, $scalar_ref_for_repeating],
         do {
