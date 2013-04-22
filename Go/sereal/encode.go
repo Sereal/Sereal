@@ -243,27 +243,6 @@ func varint(by []byte, n uint) []uint8 {
 	return append(by, byte(n))
 }
 
-func (e *Encoder) encodeArrayRef(by []byte, arr reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
-	l := arr.Len()
-
-	if l >= 16 {
-		by = append(by, typeREFN)
-		return e.encodeArray(by, arr, strTable, ptrTable)
-	}
-
-	by = append(by, typeARRAYREF_0+byte(l))
-
-	for i := 0; i < l; i++ {
-		if e.PerlCompat {
-			by = e.encodeScalar(by, arr.Index(i), strTable, ptrTable)
-		} else {
-			by, _ = e.encode(by, arr.Index(i), strTable, ptrTable)
-		}
-	}
-
-	return by
-}
-
 func (e *Encoder) encodeArray(by []byte, arr reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
 
 	l := arr.Len()
@@ -383,34 +362,6 @@ func (e *Encoder) encodeInt(by []byte, k reflect.Kind, i int64) []byte {
 	return by
 }
 
-func (e *Encoder) encodeMapRef(by []byte, m reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
-	keys := m.MapKeys()
-
-	l := len(keys)
-
-	if l >= 16 {
-		by = append(by, typeREFN)
-		return e.encodeMap(by, m, strTable, ptrTable)
-	}
-
-	by = append(by, typeHASHREF_0+byte(l))
-
-	for _, k := range keys {
-		// FIXME: key must be a string type, or coercible to one
-		// Do we coerce or simply force all maps to be map[string]interface{} ?
-
-		by, _ = e.encode(by, k, strTable, ptrTable)
-		v := m.MapIndex(k)
-		if e.PerlCompat {
-			by = e.encodeScalar(by, v, strTable, ptrTable)
-		} else {
-			by, _ = e.encode(by, v, strTable, ptrTable)
-		}
-	}
-
-	return by
-}
-
 func (e *Encoder) encodeScalar(by []byte, rv reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
 
 	switch rv.Kind() {
@@ -418,10 +369,12 @@ func (e *Encoder) encodeScalar(by []byte, rv reflect.Value, strTable map[string]
 		if rv.Type().Elem().Kind() == reflect.Uint8 {
 			by = e.encodeBytes(by, rv.Bytes(), strTable)
 		} else {
-			by = e.encodeArrayRef(by, rv, strTable, ptrTable)
+			by = append(by, typeREFN)
+			by = e.encodeArray(by, rv, strTable, ptrTable)
 		}
 	case reflect.Map:
-		by = e.encodeMapRef(by, rv, strTable, ptrTable)
+		by = append(by, typeREFN)
+		by = e.encodeMap(by, rv, strTable, ptrTable)
 	case reflect.Interface:
 		by = e.encodeScalar(by, rv.Elem(), strTable, ptrTable)
 	default:
@@ -516,14 +469,13 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]
 		publicFields++
 	}
 
-	// count public fields
-
-	if publicFields < 16 {
-		by = append(by, typeHASHREF_0+byte(publicFields))
-	} else {
-		by = append(by, typeHASH)
-		by = varint(by, uint(publicFields))
+	if e.PerlCompat {
+		// must be a reference
+		by = append(by, typeREFN)
 	}
+
+	by = append(by, typeHASH)
+	by = varint(by, uint(publicFields))
 
 	for i := 0; i < l; i++ {
 		fty := typ.Field(i)
