@@ -16,7 +16,7 @@ func getDocumentTypeAndVersion(b byte) (versionType, byte) {
 	return versionType(b >> 4), b & 0xF
 }
 
-func handleHeader(b []byte) int {
+func readHeader(b []byte) int {
 	// no op for now
 	ln, sz := varintdecode(b[5:])
 	return ln + sz
@@ -49,7 +49,7 @@ func (d *Decoder) Unmarshal(b []byte, v interface{}) (err error) {
 	}
 
 	docType, version := getDocumentTypeAndVersion(b[4])
-	headerLength := handleHeader(b)
+	headerLength := readHeader(b)
 
 	idx := 5 + headerLength // where the data starts
 
