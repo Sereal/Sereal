@@ -386,7 +386,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec)
         }
         else
         {
-            SRL_ERRORf1( "Serial document encoded in an unknown format '%d'",
+            SRL_ERRORf1( "Sereal document encoded in an unknown format '%d'",
                      (dec->proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK) >> 4 );
         }
 
