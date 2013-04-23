@@ -48,10 +48,11 @@ func (d *Decoder) Unmarshal(b []byte, v interface{}) (err error) {
 		return errors.New("bad header")
 	}
 
-	docType, version := getDocumentTypeAndVersion(b[4])
 	headerLength := readHeader(b)
+	docType, version := getDocumentTypeAndVersion(b[4])
 
-	idx := 5 + headerLength // where the data starts
+	// magic bytes plus flags
+	idx := 4 + 1 + headerLength
 
 	/* XXX instead of creating an uncompressed copy of the document,
 	 *     it would be more flexible to use a sort of "Reader" interface */

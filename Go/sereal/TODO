@@ -5,10 +5,8 @@
     - what other coersions (ints <-> strings)
     - add decoder and encoder options:
         string vs. byte array handling?
-    - "header size" -> "optional header size"
     - roundtrip test: perl obj -> perl-sereal stream -> go1 obj -> go-sereal stream -> go2 obj, DeepEqual(go1, go2)
     - we should treat input buffer as read-only when unpacking
-    - '5' == 'sereal-header-size'
     - lots of duplicatish code to remove:
            decode cases are similar too: array/ref, map/ref/ array/binary/short-binary
     - match 'ptr->array':ARRAYREF and 'ptr->hash':HASHREF
