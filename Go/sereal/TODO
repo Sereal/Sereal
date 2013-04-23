@@ -1,15 +1,13 @@
    TODO:
-    - better test infrastructure: table-driven tests that use Perl's test cases
-    - how do we handle hashes?
-       : only string keys are supported -- do we call value.String() or panic()?
-    - what other coersions (ints <-> strings)
-    - add decoder and encoder options:
-        string vs. byte array handling?
-    - roundtrip test: perl obj -> perl-sereal stream -> go1 obj -> go-sereal stream -> go2 obj, DeepEqual(go1, go2)
-    - we should treat input buffer as read-only when unpacking
     - lots of duplicatish code to remove:
            decode cases are similar too: array/ref, map/ref/ array/binary/short-binary
+    - how do we handle hashes?
+       : only string keys are supported -- do we call value.String() or panic()?
+       : what other coersions (ints <-> strings)
+    - roundtrip test: perl obj -> perl-sereal stream -> go1 obj -> go-sereal stream -> go2 obj, DeepEqual(go1, go2)
+    - we should treat input buffer as read-only when unpacking
+    - class names need their own string table (for OBJECTV)
+    - string table should have hash keys only? (unless dedup strings is true?)
+    - string vs. byte array handling?
     - match 'ptr->array':ARRAYREF and 'ptr->hash':HASHREF
         - go can't do this in one-pass: we don't have ref counts
-    - class names need their own string table (for OBJECTV)
-    - string table should have hash keys only (unless dedup strings is true?)
