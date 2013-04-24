@@ -63,9 +63,7 @@ func (d *Decoder) Unmarshal(b []byte, v interface{}) (err error) {
 		return err
 	}
 
-	// idx is the start of the sereal body
-	// 5 == magic bytes plus flags
-	idx := 4 + 1 + header.suffixSize
+	bodyStart := headerSize + header.suffixSize
 
 	/* XXX instead of creating an uncompressed copy of the document,
 	 *     it would be more flexible to use a sort of "Reader" interface */
@@ -74,20 +72,20 @@ func (d *Decoder) Unmarshal(b []byte, v interface{}) (err error) {
 	case serealRaw:
 		// nothing
 	case serealSnappy:
-		decoded, err := snappy.Decode(nil, b[idx:])
+		decoded, err := snappy.Decode(nil, b[bodyStart:])
 
 		if err != nil {
 			return err
 		}
 
-		d := make([]byte, 0, len(decoded)+idx)
-		d = append(d, b[:idx]...)
+		d := make([]byte, 0, len(decoded)+bodyStart)
+		d = append(d, b[:bodyStart]...)
 		d = append(d, decoded...)
 		b = d
 
 	case serealSnappyLength:
-		ln, sz := varintdecode(b[idx:])
-		decoded, err := snappy.Decode(nil, b[idx+sz:idx+sz+ln])
+		ln, sz := varintdecode(b[bodyStart:])
+		decoded, err := snappy.Decode(nil, b[bodyStart+sz:bodyStart+sz+ln])
 
 		if err != nil {
 			return err
@@ -95,8 +93,8 @@ func (d *Decoder) Unmarshal(b []byte, v interface{}) (err error) {
 
 		// we want to treat the passed-in buffer as read-only here
 		// if we just used append, we'd overwrite any data past the end of the underlying array, which wouldn't be nice
-		d := make([]byte, 0, len(decoded)+idx)
-		d = append(d, b[:idx]...)
+		d := make([]byte, 0, len(decoded)+bodyStart)
+		d = append(d, b[:bodyStart]...)
 		d = append(d, decoded...)
 		b = d
 
@@ -115,7 +113,7 @@ func (d *Decoder) Unmarshal(b []byte, v interface{}) (err error) {
 
 	tracked := make(map[int]reflect.Value)
 
-	_, err = d.decode(b, idx, tracked, vPtrValue.Elem())
+	_, err = d.decode(b, bodyStart, tracked, vPtrValue.Elem())
 
 	if err != nil {
 		return err
