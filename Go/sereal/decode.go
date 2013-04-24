@@ -241,7 +241,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 			panic("bad type for string: " + ptr.Kind().String())
 		}
 
-		if trackme  {
+		if trackme {
 			tracked[startIdx] = p
 		}
 
