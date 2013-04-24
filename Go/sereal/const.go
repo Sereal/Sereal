@@ -1,13 +1,14 @@
 package sereal
 
 const magicHeaderBytes = uint32(0x6c72733d)
+const headerSize = 5 // 4 magic + 1 flag
 
-type versionType byte
+type documentType int
 
 const (
-	versionRaw versionType = iota
-	versionSnappy
-	versionSnappyLength
+	serealRaw documentType = iota
+	serealSnappy
+	serealSnappyLength
 )
 
 type typeTag byte

@@ -12,14 +12,27 @@ import (
 	"strings"
 )
 
-func getDocumentTypeAndVersion(b byte) (versionType, byte) {
-	return versionType(b >> 4), b & 0xF
+type serealHeader struct {
+	doctype    documentType
+	version    byte
+	suffixSize int
 }
 
-func readHeader(b []byte) int {
-	// no op for now
+func readHeader(b []byte) (serealHeader, error) {
+
+	if binary.LittleEndian.Uint32(b[:4]) != magicHeaderBytes {
+		return serealHeader{}, errors.New("bad header")
+	}
+
+	var h serealHeader
+
+	h.doctype = documentType(b[4] >> 4)
+	h.version = b[4] & 0x0f
+
 	ln, sz := varintdecode(b[5:])
-	return ln + sz
+	h.suffixSize = ln + sz
+
+	return h, nil
 }
 
 type Decoder struct {
@@ -44,37 +57,37 @@ func (d *Decoder) Unmarshal(b []byte, v interface{}) (err error) {
 
 	vPtrValue := reflect.ValueOf(v)
 
-	if binary.LittleEndian.Uint32(b[:4]) != magicHeaderBytes {
-		return errors.New("bad header")
+	header, err := readHeader(b)
+
+	if err != nil {
+		return err
 	}
 
-	headerLength := readHeader(b)
-	docType, version := getDocumentTypeAndVersion(b[4])
-
-	// magic bytes plus flags
-	idx := 4 + 1 + headerLength
+	// idx is the start of the sereal body
+	// 5 == magic bytes plus flags
+	idx := 4 + 1 + header.suffixSize
 
 	/* XXX instead of creating an uncompressed copy of the document,
 	 *     it would be more flexible to use a sort of "Reader" interface */
-	switch docType {
+	switch header.doctype {
 
-	case versionRaw:
+	case serealRaw:
 		// nothing
-	case versionSnappy:
-		decoded, err := snappy.Decode(nil, b[5+headerLength:])
+	case serealSnappy:
+		decoded, err := snappy.Decode(nil, b[idx:])
 
 		if err != nil {
 			return err
 		}
 
-		d := make([]byte, 0, len(decoded)+5+headerLength)
-		d = append(d, b[:5+headerLength]...)
+		d := make([]byte, 0, len(decoded)+idx)
+		d = append(d, b[:idx]...)
 		d = append(d, decoded...)
 		b = d
 
-	case versionSnappyLength:
-		ln, sz := varintdecode(b[5+headerLength:])
-		decoded, err := snappy.Decode(nil, b[5+headerLength+sz:5+headerLength+sz+ln])
+	case serealSnappyLength:
+		ln, sz := varintdecode(b[idx:])
+		decoded, err := snappy.Decode(nil, b[idx+sz:idx+sz+ln])
 
 		if err != nil {
 			return err
@@ -82,18 +95,18 @@ func (d *Decoder) Unmarshal(b []byte, v interface{}) (err error) {
 
 		// we want to treat the passed-in buffer as read-only here
 		// if we just used append, we'd overwrite any data past the end of the underlying array, which wouldn't be nice
-		d := make([]byte, 0, len(decoded)+5+headerLength)
-		d = append(d, b[:5+headerLength]...)
+		d := make([]byte, 0, len(decoded)+idx)
+		d = append(d, b[:idx]...)
 		d = append(d, decoded...)
 		b = d
 
 	default:
-		return errors.New(fmt.Sprintf("Document type '%v' not yet supported", docType))
+		return errors.New(fmt.Sprintf("Document type '%d' not yet supported", header.doctype))
 
 	}
 
-	if version != 1 {
-		return errors.New(fmt.Sprintf("Document version '%d' not yet supported", version))
+	if header.version != 1 {
+		return errors.New(fmt.Sprintf("Document version '%d' not yet supported", header.version))
 	}
 
 	if reflect.TypeOf(v).Kind() != reflect.Ptr {
