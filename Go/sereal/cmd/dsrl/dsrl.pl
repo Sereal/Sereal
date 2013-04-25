@@ -10,18 +10,9 @@ use Data::Dumper;
 $Data::Dumper::Indent = 1;
 $Data::Dumper::Sortkeys = 1;
 
-sub slurp {
-    my $n = shift;
-    open (my $fh, "<", $n) or die "can't open $n: $!\n";
-    local $/ = undef;
-    my $d = <$fh>;
-    return $d;
+$/ = undef;
+
+while(<>) {
+    my $o = decode_sereal($_);
+    print Dumper($o), "\n";
 }
-
-my $fname = shift;
-
-my $s = slurp($fname);
-
-my $o = decode_sereal($s);
-
-print Dumper($o), "\n";
