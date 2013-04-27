@@ -398,7 +398,7 @@ func (e *Encoder) encodeMap(by []byte, m reflect.Value, strTable map[string]int,
 		by, _ = e.encode(by, k, strTable, ptrTable)
 		v := m.MapIndex(k)
 		if e.PerlCompat {
-			// only scalars allowed in arrays
+			// only scalars allowed in maps
 			by = e.encodeScalar(by, v, strTable, ptrTable)
 		} else {
 			by, _ = e.encode(by, v, strTable, ptrTable)
