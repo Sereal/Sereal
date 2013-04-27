@@ -304,6 +304,8 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 			ptr.Set(reflect.ValueOf(m))
 		}
 
+		structTags := getStructTags(ptr)
+
 		if trackme {
 			tracked[startIdx] = ptr
 		}
@@ -313,10 +315,10 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 			rkey := reflect.ValueOf(&key)
 			sz, _ := d.decode(b, idx, tracked, rkey.Elem())
 			idx += sz
-			rval, _ := getValue(ptr, key)
+			rval, _ := getValue(ptr, key, structTags)
 			sz, _ = d.decode(b, idx, tracked, rval)
 			idx += sz
-			setKeyValue(ptr, key, rval)
+			setKeyValue(ptr, key, rval, structTags)
 		}
 
 	case tag == typeARRAY:
@@ -507,15 +509,17 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 			tracked[startIdx] = ptr
 		}
 
+		structTags := getStructTags(ptr)
+
 		for i := 0; i < ln; i++ {
 			var key string
 			rkey := reflect.ValueOf(&key)
 			sz, _ := d.decode(b, idx, tracked, rkey.Elem())
 			idx += sz
-			rval, _ := getValue(ptr, key)
+			rval, _ := getValue(ptr, key, structTags)
 			sz, _ = d.decode(b, idx, tracked, rval)
 			idx += sz
-			setKeyValue(href, key, rval)
+			setKeyValue(href, key, rval, structTags)
 		}
 
 	case tag >= typeSHORT_BINARY_0 && tag < typeSHORT_BINARY_0+32:
@@ -650,12 +654,40 @@ func setFloat(v reflect.Value, k reflect.Kind, f float64) {
 	v.SetFloat(f)
 }
 
-func getValue(ptr reflect.Value, key string) (reflect.Value, bool) {
+func getStructTags(ptr reflect.Value) map[string]int {
+	if ptr.Kind() != reflect.Struct {
+		return nil
+	}
+
+	m := make(map[string]int)
+
+	t := ptr.Type()
+
+	l := t.NumField()
+	for i := 0; i < l; i++ {
+		field := t.Field(i).Tag.Get("sereal")
+		m[field] = i
+	}
+
+	return m
+}
+
+func getValue(ptr reflect.Value, key string, structTags map[string]int) (reflect.Value, bool) {
 	if ptr.Kind() == reflect.Map {
 		return reflect.New(ptr.Type().Elem()).Elem(), true
 	}
 
 	if ptr.Kind() == reflect.Struct {
+
+		if structTags != nil {
+			i, ok := structTags[key]
+			if !ok {
+				var iface interface{}
+				return reflect.ValueOf(&iface).Elem(), false
+			}
+			return ptr.Field(i), true
+		}
+
 		f := ptr.FieldByName(key)
 		if f.IsValid() {
 			return f, true
@@ -671,7 +703,7 @@ func getValue(ptr reflect.Value, key string) (reflect.Value, bool) {
 	return reflect.ValueOf(&iface).Elem(), false
 }
 
-func setKeyValue(ptr reflect.Value, key string, val reflect.Value) {
+func setKeyValue(ptr reflect.Value, key string, val reflect.Value, structTags map[string]int) {
 
 	if ptr.Kind() == reflect.Map {
 		if ptr.IsNil() {
@@ -682,6 +714,17 @@ func setKeyValue(ptr reflect.Value, key string, val reflect.Value) {
 	}
 
 	if ptr.Kind() == reflect.Struct {
+
+		if structTags != nil {
+			i, ok := structTags[key]
+			if !ok {
+				return
+			}
+			f := ptr.Field(i)
+			f.Set(val)
+			return
+		}
+
 		f := ptr.FieldByName(key)
 		if !f.IsValid() {
 			f = ptr.FieldByName(strings.Title(key))
