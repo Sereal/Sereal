@@ -461,12 +461,23 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]
 
 	l := typ.NumField()
 	publicFields := 0
-	for i := 0; i < l; i++ {
-		fty := typ.Field(i)
-		if fty.PkgPath != "" {
-			continue // skip unexported names
+
+	structTags := getStructTags(st)
+
+	if structTags != nil {
+		publicFields = len(structTags)
+	} else {
+
+		for i := 0; i < l; i++ {
+			fty := typ.Field(i)
+			if fty.PkgPath != "" {
+				continue // skip unexported names
+			}
+			if structTags != nil {
+
+			}
+			publicFields++
 		}
-		publicFields++
 	}
 
 	if e.PerlCompat {
@@ -477,13 +488,20 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]
 	by = append(by, typeHASH)
 	by = varint(by, uint(publicFields))
 
-	for i := 0; i < l; i++ {
-		fty := typ.Field(i)
-		if fty.PkgPath != "" {
-			continue // skip unexported names
+	if structTags != nil {
+		for f, i := range structTags {
+			by = e.encodeString(by, f, strTable)
+			by, _ = e.encode(by, st.Field(i), strTable, ptrTable)
 		}
-		by = e.encodeString(by, fty.Name, strTable)
-		by, _ = e.encode(by, st.Field(i), strTable, ptrTable)
+	} else {
+		for i := 0; i < l; i++ {
+			fty := typ.Field(i)
+			if fty.PkgPath != "" {
+				continue // skip unexported names
+			}
+			by = e.encodeString(by, fty.Name, strTable)
+			by, _ = e.encode(by, st.Field(i), strTable, ptrTable)
+		}
 	}
 
 	return by
