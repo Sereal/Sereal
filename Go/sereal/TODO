@@ -1,6 +1,9 @@
    TODO:
     - lots of duplicatish code to remove:
            decode cases are similar too: array/ref, map/ref/ array/binary/short-binary
+    - discard values that don't need to be built
+        - profiling shows that we can spend a lot of time setting values in maps that we might throw away
+        - if we don't need to keep the value, we should try to not actually create it in memory
     - how do we handle hashes?
        : only string keys are supported -- do we call value.String() or panic()?
        : what other coersions (ints <-> strings)
