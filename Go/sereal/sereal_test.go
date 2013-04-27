@@ -276,6 +276,12 @@ func TestStructs(t *testing.T) {
 		pint   int
 	}
 
+	type ATags struct {
+		Name     string `sereal:"Phone"`
+		Phone    string `sereal:"Name"`
+		Siblings int    // no tag, isn't unpacked
+	}
+
 	tests := []struct {
 		what     string
 		input    interface{}
@@ -299,6 +305,12 @@ func TestStructs(t *testing.T) {
 				"Spouse":   true,
 				"Money":    123.45,
 			},
+		},
+		{
+			"struct with tags",
+			Afoo,
+			ATags{},
+			ATags{Name: "12345", Phone: "mr foo", Siblings: 0},
 		},
 		{
 			"struct with private fields",

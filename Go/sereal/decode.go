@@ -664,9 +664,17 @@ func getStructTags(ptr reflect.Value) map[string]int {
 	t := ptr.Type()
 
 	l := t.NumField()
+	numTags := 0
 	for i := 0; i < l; i++ {
 		field := t.Field(i).Tag.Get("sereal")
-		m[field] = i
+		if field != "" {
+			m[field] = i
+			numTags++
+		}
+	}
+
+	if numTags == 0 {
+		return nil
 	}
 
 	return m
