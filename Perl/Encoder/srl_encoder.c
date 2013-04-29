@@ -248,65 +248,61 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         /* SRL_F_SHARED_HASHKEYS on by default */
         svp = hv_fetchs(opt, "no_shared_hashkeys", 0);
         if ( !svp || !SvTRUE(*svp) )
-            enc->flags |= SRL_F_SHARED_HASHKEYS;
+            SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
 
         svp = hv_fetchs(opt, "croak_on_bless", 0);
         if ( svp && SvTRUE(*svp) )
-            enc->flags |= SRL_F_CROAK_ON_BLESS;
+            SRL_ENC_SET_OPTION(enc, SRL_F_CROAK_ON_BLESS);
 
         svp = hv_fetchs(opt, "no_bless_objects", 0);
         if ( svp && SvTRUE(*svp) )
-            enc->flags |= SRL_F_NO_BLESS_OBJECTS;
+            SRL_ENC_SET_OPTION(enc, SRL_F_NO_BLESS_OBJECTS);
 
         svp = hv_fetchs(opt, "snappy", 0);
         if ( svp && SvTRUE(*svp) ) {
             snappy = 1;
-            enc->flags |= SRL_F_COMPRESS_SNAPPY;
+            SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY);
         }
 
         svp = hv_fetchs(opt, "snappy_incr", 0);
         if ( svp && SvTRUE(*svp) ) {
             if (snappy)
                 croak("'snappy' and 'snappy_incr' options are mutually exclusive");
-            enc->flags |= SRL_F_COMPRESS_SNAPPY_INCREMENTAL;
+            SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
         }
 
         svp = hv_fetchs(opt, "undef_unknown", 0);
         if ( svp && SvTRUE(*svp) ) {
             undef_unknown = 1;
-            enc->flags |= SRL_F_UNDEF_UNKNOWN;
+            SRL_ENC_SET_OPTION(enc, SRL_F_UNDEF_UNKNOWN);
         }
 
         svp = hv_fetchs(opt, "sort_keys", 0);
-        if ( svp && SvTRUE(*svp) ) {
-            enc->flags |= SRL_F_SORT_KEYS;
-        }
+        if ( svp && SvTRUE(*svp) )
+            SRL_ENC_SET_OPTION(enc, SRL_F_SORT_KEYS);
 
         svp = hv_fetchs(opt, "aliased_dedupe_strings", 0);
-        if ( svp && SvTRUE(*svp) ) {
-            enc->flags |= SRL_F_ALIASED_DEDUPE_STRINGS | SRL_F_DEDUPE_STRINGS;
-        }
+        if ( svp && SvTRUE(*svp) )
+            SRL_ENC_SET_OPTION(enc, SRL_F_ALIASED_DEDUPE_STRINGS | SRL_F_DEDUPE_STRINGS);
         else {
             svp = hv_fetchs(opt, "dedupe_strings", 0);
-            if ( svp && SvTRUE(*svp) ) {
-                enc->flags |= SRL_F_DEDUPE_STRINGS;
-            }
+            if ( svp && SvTRUE(*svp) )
+                SRL_ENC_SET_OPTION(enc, SRL_F_DEDUPE_STRINGS);
         }
 
         svp = hv_fetchs(opt, "stringify_unknown", 0);
         if ( svp && SvTRUE(*svp) ) {
-            if (expect_false( undef_unknown )) {
+            if (expect_false( undef_unknown ))
                 croak("'undef_unknown' and 'stringify_unknown' "
                       "options are mutually exclusive");
-            }
-            enc->flags |= SRL_F_STRINGIFY_UNKNOWN;
+            SRL_ENC_SET_OPTION(enc, SRL_F_STRINGIFY_UNKNOWN);
         }
 
         svp = hv_fetchs(opt, "warn_unknown", 0);
         if ( svp && SvTRUE(*svp) ) {
-            enc->flags |= SRL_F_WARN_UNKNOWN;
+            SRL_ENC_SET_OPTION(enc, SRL_F_WARN_UNKNOWN);
             if (SvIV(*svp) < 0)
-                enc->flags |= SRL_F_NOWARN_UNKNOWN_OVERLOAD;
+                SRL_ENC_SET_OPTION(enc, SRL_F_NOWARN_UNKNOWN_OVERLOAD);
         }
 
         svp = hv_fetchs(opt, "snappy_threshold", 0);
@@ -321,7 +317,7 @@ srl_build_encoder_struct(pTHX_ HV *opt)
     }
     else {
         /* SRL_F_SHARED_HASHKEYS on by default */
-        enc->flags |= SRL_F_SHARED_HASHKEYS;
+        SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
     }
 
     DEBUG_ASSERT_BUF_SANE(enc);
@@ -600,7 +596,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
         /* Alas, have to write entire packet first since the header length
          * will determine offsets. */
         srl_write_header(aTHX_ enc);
-        sereal_header_len = enc->pos - enc->buf_start;
+        sereal_header_len = BUF_POS_OFS(enc);
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
         assert(BUF_POS_OFS(enc) > sereal_header_len);
