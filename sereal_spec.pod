@@ -12,7 +12,7 @@ This document describes the format and encoding of a Sereal data packet.
 
 =head1 VERSION
 
-This is the Sereal specification version 1.01.
+This is the Sereal specification version 1.02.
 
 The integer part of the document version corresponds to
 the Sereal protocol version.
@@ -108,8 +108,16 @@ extended header due to the embedded length).
 =head3 OPT-SUFFIX
 
 The suffix may contain whatever data the encoder wishes to embed in the
-header. In version 1 of the protocol the decoder will never look inside
-this data. Later versions may introduce new rules for this field.
+header. Up to version 1.01 of the protocol the decoder would never look inside
+this data. Later versions introduce new rules for this field.
+
+Version 1.02 of the protocol added chunked document support. It is backward
+compatible to earlier minor versions of the protocol. A chunked Sereal
+document contains a single byte (of flags) at the start of the header.
+A Sereal document is chunked if the first (least significant) flag
+is set. It is not chunked if that flag is unset or the byte does not
+exist. For further details on chunked documents,
+see L</"Chunked Sereal Documents"> below.
 
 =head2 Body Format
 
@@ -346,6 +354,37 @@ Note that classnames MUST be a string, or a COPY tag referencing a string.
 OBJECTV varints MUST reference a previously used classname, and not an
 arbitrary string.
 
+=head2 Chunked Sereal Documents
+
+Version 1.02 of the Sereal protocol introduces chunked documents. That is,
+documents that were constructed such that they can be partially decoded.
+For example, this may be useful for embedding routing information or
+other "header" type application data in a large Sereal document such that
+only the routing information is decoded by intermediaries and only the final
+recipients need to decode the entire document.
+
+A chunked Sereal document is identified by the a flag in the Sereal header,
+see above. FIXME At the top level, a chunked Sereal document will be a
+Sereal ARRAY containing alternating VARINTs indicating the length (in bytes)
+of the next chunk, and Sereal chunks. In other words, the body of a chunked
+document looks like:
+
+  ARRAY <ARRAYLEN-VARINT> <CHUNKLEN-VARINT> <CHUNK-SUBDOCUMENT>
+                  <CHUNKLEN-VARINT> <CHUNK-SUBDOCUMENT> ...
+
+A chunked Sereal document, when passed to a pre-1.02 decoder, will simply
+be decoded as a normal document, with a bit of a peculiar top level structure
+as per above. For example the following Perl data structure could ensue from
+decoding a chunked Sereal document:
+
+  [
+    5, # chunk length
+    "fooo", # chunk
+    1, # chunk length
+    4, # chunk
+    XXX, # chunk length, too painful to calculate by hand
+    {bar => "baz", foo => 123}, # chunk
+  ]
 
 =head1 NOTES ON IMPLEMENTATION
 
