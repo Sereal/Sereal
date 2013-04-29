@@ -361,6 +361,20 @@ srl_init_string_deduper_hv(pTHX_ srl_encoder_t *enc)
     return enc->string_deduper_hv;
 }
 
+/* Lazy working buffer alloc */
+SRL_STATIC_INLINE void
+srl_init_snappy_workmem(pTHX_ srl_encoder_t *enc)
+{
+    /* Lazy working buffer alloc */
+    if (expect_false( enc->snappy_workmem == NULL )) {
+        /* Cleaned up automatically by the cleanup handler */
+        Newx(enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES, char);
+        if (enc->snappy_workmem == NULL)
+            croak("Out of memory!");
+    }
+}
+
+
 void
 srl_write_header(pTHX_ srl_encoder_t *enc)
 {
@@ -535,10 +549,37 @@ srl_prepare_encoder(pTHX_ srl_encoder_t *enc)
 }
 
 
+/* Update a varint anywhere in the output stream with defined start and end
+ * positions. This can produce non-canonical varints and is useful for filling
+ * pre-allocated varints. */
+void
+srl_update_varint_from_to(pTHX_ char *varint_start, char *varint_end, UV number)
+{
+    while (number >= 0x80) {                      /* while we are larger than 7 bits long */
+        *varint_start++ = (number & 0x7f) | 0x80; /* write out the least significant 7 bits, set the high bit */
+        number = number >> 7;                     /* shift off the 7 least significant bits */
+    }
+    /* if it is the same size we can use a canonical varint */
+    if ( varint_start == varint_end ) {
+        *varint_start = number;                   /* encode the last 7 bits without the high bit being set */
+    } else {
+        /* if not we produce a non-canonical varint, basically we stuff
+         * 0 bits (via 0x80) into the "tail" of the varint, until we can
+         * stick in a null to terminate the sequence. This means that the
+         * varint is effectively "self-padding", and we only need special
+         * logic in the encoder - a decoder will happily process a non-canonical
+         * varint with no problem */
+        *varint_start++ = (number & 0x7f) | 0x80;
+        while ( varint_start < varint_end )
+            *varint_start++ = 0x80;
+        *varint_start= 0;
+    }
+}
+
+
 void
 srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
 {
-    if (DEBUGHACK) warn("== start dump");
     enc = srl_prepare_encoder(aTHX_ enc);
 
     if (!SRL_ENC_HAVE_OPTION(enc, (SRL_F_COMPRESS_SNAPPY | SRL_F_COMPRESS_SNAPPY_INCREMENTAL))) {
@@ -569,7 +610,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
             *flags_and_version_byte = SRL_PROTOCOL_ENCODING_RAW |
                                       (*flags_and_version_byte & SRL_PROTOCOL_VERSION_MASK);
         }
-        else {
+        else { /* do snappy compression of body */
             char *old_buf;
             char *varint_start= NULL;
             char *varint_end;
@@ -578,17 +619,12 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
             /* Get uncompressed payload and total packet output (after compression) lengths */
             dest_len = csnappy_max_compressed_length(uncompressed_body_length) + sereal_header_len + 1;
 
+            /* Will have to embed compressed packet length as varint if in incremental mode */
             if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL ) ) {
                 dest_len += SRL_MAX_VARINT_LENGTH;
             }
 
-            /* Lazy working buffer alloc */
-            if (expect_false( enc->snappy_workmem == NULL )) {
-                /* Cleaned up automatically by the cleanup handler */
-                Newx(enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES, char);
-                if (enc->snappy_workmem == NULL)
-                    croak("Out of memory!");
-            }
+            srl_init_snappy_workmem(aTHX_ enc);
 
             /* Back up old buffer and allocate new one with correct size */
             old_buf = enc->buf_start;
@@ -604,45 +640,21 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
             Copy(old_buf, enc->pos, sereal_header_len, char);
             enc->pos += sereal_header_len;
 
+            /* Embed compressed packet length */
             if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL ) ) {
                 varint_start= enc->pos;
                 srl_buf_cat_varint_nocheck(aTHX_ enc, 0, dest_len);
                 varint_end= enc->pos - 1;
             }
 
-            /*
-             * fprintf(stderr, "'%u' %u %u\n", enc->pos - enc->buf_start, uncompressed_body_length, (uncompressed_body_length+sereal_header_len));
-             * fprintf(stdout, "%7s!%1s\n", old_buf, old_buf+6);
-             */
             csnappy_compress(old_buf+sereal_header_len, (uint32_t)uncompressed_body_length, enc->pos, &dest_len,
                              enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
-
-            if ( varint_start ) {
-                /* overwrite the max size varint with the real size of the compressed data */
-                UV n= dest_len;
-                while (n >= 0x80) {                      /* while we are larger than 7 bits long */
-                    *varint_start++ = (n & 0x7f) | 0x80; /* write out the least significant 7 bits, set the high bit */
-                    n = n >> 7;                          /* shift off the 7 least significant bits */
-                }
-                /* if it is the same size we can use a canonical varint */
-                if ( varint_start == varint_end ) {
-                    *varint_start = n;                     /* encode the last 7 bits without the high bit being set */
-                } else {
-                    /* if not we produce a non-canonical varint, basically we stuff
-                     * 0 bits (via 0x80) into the "tail" of the varint, until we can
-                     * stick in a null to terminate the sequence. This means that the
-                     * varint is effectively "self-padding", and we only need special
-                     * logic in the encoder - a decoder will happily process a non-canonical
-                     * varint with no problem */
-                    *varint_start++ = (n & 0x7f) | 0x80;
-                    while ( varint_start < varint_end )
-                        *varint_start++ = 0x80;
-                    *varint_start= 0;
-                }
-            }
-
-            /* fprintf(stderr, "%u, %u %u %u\n", dest_len, enc->pos[0], enc->pos[1], enc->pos[2]); */
             assert(dest_len != 0);
+
+            /* overwrite the max size varint with the real size of the compressed data */
+            if (varint_start)
+                srl_update_varint_from_to(aTHX_ varint_start, varint_end, dest_len);
+
             Safefree(old_buf);
             enc->pos += dest_len;
             assert(enc->pos <= enc->buf_end);
@@ -664,13 +676,12 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
                 enc->pos += dest_len;
             }
 #endif
-        }
-    } /* end of "need snappy compression?" */
+        } /* end of "actually do snappy compression" */
+    } /* end of "want snappy compression?" */
 
     /* NOT doing a
      *   SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);
      * here because we're relying on the SAVEDESTRUCTOR_X call. */
-    if (DEBUGHACK) warn("== end dump");
 }
 
 SRL_STATIC_INLINE void
