@@ -512,11 +512,12 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
 }
 
 
-void
-srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
+/* Prepare encoder for encoding: Clone if already in use since
+ * encoders aren't "reentrant". Set as in use and register cleanup
+ * routine with Perl. */
+SRL_STATIC_INLINE srl_encoder_t *
+srl_prepare_encoder(pTHX_ srl_encoder_t *enc)
 {
-    if (DEBUGHACK) warn("== start dump");
-
     /* Check whether encoder is in use and create a new one on the
      * fly if necessary. Should only happen in bizarre edge cases... hopefully. */
     if (SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY)) {
@@ -529,6 +530,16 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
 
     /* Register our structure for destruction on scope exit */
     SAVEDESTRUCTOR_X(&srl_destructor_hook, (void *)enc);
+
+    return enc;
+}
+
+
+void
+srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
+{
+    if (DEBUGHACK) warn("== start dump");
+    enc = srl_prepare_encoder(aTHX_ enc);
 
     if (!SRL_ENC_HAVE_OPTION(enc, (SRL_F_COMPRESS_SNAPPY | SRL_F_COMPRESS_SNAPPY_INCREMENTAL))) {
         srl_write_header(aTHX_ enc);
@@ -651,9 +662,10 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
             else {
                 Safefree(old_buf);
                 enc->pos += dest_len;
+            }
 #endif
         }
-    }
+    } /* end of "need snappy compression?" */
 
     /* NOT doing a
      *   SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);
