@@ -244,6 +244,7 @@ srl_build_encoder_struct(pTHX_ HV *opt)
     /* load options */
     if (opt != NULL) {
         int undef_unknown = 0;
+        int snappy = 0;
         /* SRL_F_SHARED_HASHKEYS on by default */
         svp = hv_fetchs(opt, "no_shared_hashkeys", 0);
         if ( !svp || !SvTRUE(*svp) )
@@ -258,12 +259,17 @@ srl_build_encoder_struct(pTHX_ HV *opt)
             enc->flags |= SRL_F_NO_BLESS_OBJECTS;
 
         svp = hv_fetchs(opt, "snappy", 0);
-        if ( svp && SvTRUE(*svp) )
+        if ( svp && SvTRUE(*svp) ) {
+            snappy = 1;
             enc->flags |= SRL_F_COMPRESS_SNAPPY;
+        }
 
         svp = hv_fetchs(opt, "snappy_incr", 0);
-        if ( svp && SvTRUE(*svp) )
+        if ( svp && SvTRUE(*svp) ) {
+            if (snappy)
+                croak("'snappy' and 'snappy_incr' options are mutually exclusive");
             enc->flags |= SRL_F_COMPRESS_SNAPPY_INCREMENTAL;
+        }
 
         svp = hv_fetchs(opt, "undef_unknown", 0);
         if ( svp && SvTRUE(*svp) ) {
