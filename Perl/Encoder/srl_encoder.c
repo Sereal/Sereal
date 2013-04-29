@@ -552,7 +552,7 @@ srl_prepare_encoder(pTHX_ srl_encoder_t *enc)
 /* Update a varint anywhere in the output stream with defined start and end
  * positions. This can produce non-canonical varints and is useful for filling
  * pre-allocated varints. */
-void
+SRL_STATIC_INLINE void
 srl_update_varint_from_to(pTHX_ char *varint_start, char *varint_end, UV number)
 {
     while (number >= 0x80) {                      /* while we are larger than 7 bits long */
