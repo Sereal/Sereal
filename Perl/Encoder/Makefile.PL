@@ -31,6 +31,8 @@ if ($Config{gccversion}) {
 
 if ($ENV{DEBUG}) {
   $OPTIMIZE .= ' -g';
+  $OPTIMIZE .= ' -Wextra' if $ENV{DEBUG} > 1 && $Config{gccversion};
+  $OPTIMIZE .= ' -pedantic' if $ENV{DEBUG} > 5 && $Config{gccversion}; # not pretty
 }
 else {
   $defines .= " -DNDEBUG";
