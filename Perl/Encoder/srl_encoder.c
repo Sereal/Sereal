@@ -141,8 +141,6 @@ SRL_STATIC_INLINE HV *srl_init_string_deduper_hv(pTHX_ srl_encoder_t *enc);
     }                                                                   \
 } STMT_END
 
-
-
 /* This is fired when we exit the Perl pseudo-block.
  * It frees our encoder and all. Put encoder-level cleanup
  * logic here so that we can simply use croak/longjmp for
@@ -180,6 +178,7 @@ srl_clear_encoder(pTHX_ srl_encoder_t *enc)
     if (enc->string_deduper_hv != NULL)
         hv_clear(enc->string_deduper_hv);
     enc->pos = enc->buf_start;
+    SRL_SET_BODY_POS(enc, enc->buf_start);
 
     SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);
 }
@@ -217,6 +216,7 @@ srl_empty_encoder_struct(pTHX)
     }
     enc->buf_end = enc->buf_start + INITIALIZATION_SIZE - 1;
     enc->pos = enc->buf_start;
+    SRL_SET_BODY_POS(enc, enc->buf_start);
     enc->recursion_depth = 0;
     enc->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
     enc->operational_flags = 0;
@@ -241,6 +241,7 @@ srl_build_encoder_struct(pTHX_ HV *opt)
     enc = srl_empty_encoder_struct(aTHX);
     enc->flags = 0;
 
+        SRL_ENC_SET_OPTION(enc, SRL_F_USE_PROTO_V1); /* FIXME */
     /* load options */
     if (opt != NULL) {
         int undef_unknown = 0;
@@ -249,6 +250,10 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         svp = hv_fetchs(opt, "no_shared_hashkeys", 0);
         if ( !svp || !SvTRUE(*svp) )
             SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
+
+        svp = hv_fetchs(opt, "use_v1", 0);
+        if ( svp && SvTRUE(*svp) )
+            SRL_ENC_SET_OPTION(enc, SRL_F_USE_PROTO_V1);
 
         svp = hv_fetchs(opt, "croak_on_bless", 0);
         if ( svp && SvTRUE(*svp) )
@@ -516,7 +521,7 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
         srl_buf_cat_char(enc, SRL_HDR_OBJECT);
 
         /* remember current offset before advancing it */
-        PTABLE_store(string_seenhash, (void *)stash, (void *)(enc->pos - enc->buf_start));
+        PTABLE_store(string_seenhash, (void *)stash, (void *)BODY_POS_OFS(enc));
 
         /* HvNAMEUTF8 not in older perls and it would be 0 for those anyway */
 #if PERL_VERSION >= 16
@@ -599,6 +604,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
 
     if (!SRL_ENC_HAVE_OPTION(enc, (SRL_F_COMPRESS_SNAPPY | SRL_F_COMPRESS_SNAPPY_INCREMENTAL))) {
         srl_write_header(aTHX_ enc);
+        SRL_UPDATE_BODY_POS(enc);
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
     }
@@ -610,6 +616,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
          * will determine offsets. */
         srl_write_header(aTHX_ enc);
         sereal_header_len = BUF_POS_OFS(enc);
+        SRL_UPDATE_BODY_POS(enc);
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
         assert(BUF_POS_OFS(enc) > sereal_header_len);
@@ -649,6 +656,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
             /* Copy Sereal header */
             Copy(old_buf, enc->pos, sereal_header_len, char);
             enc->pos += sereal_header_len;
+            SRL_UPDATE_BODY_POS(enc); /* will do the right thing wrt. protocol V1 / V2 */
 
             /* Embed compressed packet length */
             if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL ) ) {
@@ -692,9 +700,9 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
     while ( NULL != (ent = PTABLE_iter_next(it)) ) {
         const ptrdiff_t offset = (ptrdiff_t)ent->value;
         if ( offset ) {
-            char *pos = enc->buf_start + offset;
+            char *pos = enc->body_pos + offset;
             assert(*pos == SRL_HDR_WEAKEN);
-            if (DEBUGHACK) warn("setting %lu to PAD", (long unsigned int)offset);
+            if (DEBUGHACK) warn("setting byte at offset %lu to PAD", (long unsigned int)offset);
             *pos = SRL_HDR_PAD;
         }
     }
@@ -1004,7 +1012,7 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
             }
             else {
                 /* remember current offset before advancing it */
-                const ptrdiff_t newoffset = enc->pos - enc->buf_start;
+                const ptrdiff_t newoffset = BODY_POS_OFS(enc);
                 PTABLE_store(string_seenhash, (void *)str, (void *)newoffset);
             }
         }
@@ -1044,7 +1052,7 @@ srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src)
                 return;
             } else {
                 /* start tracking this string */
-                sv_setuv(ofs_sv, (UV)BUF_POS_OFS(enc));
+                sv_setuv(ofs_sv, (UV)BODY_POS_OFS(enc));
             }
         }
     }
@@ -1151,18 +1159,18 @@ redo_dump:
                 /* we have seen it before, so we do not need to bless it again */
                 if (ref_rewrite_pos) {
                     if (DEBUGHACK) warn("ref to %p as %lu", src, (long unsigned int)oldoffset);
-                    enc->pos= enc->buf_start + ref_rewrite_pos;
+                    enc->pos= enc->body_pos + ref_rewrite_pos;
                     srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REFP, (UV)oldoffset);
                 } else {
                     if (DEBUGHACK) warn("alias to %p as %lu", src, (long unsigned int)oldoffset);
                     srl_buf_cat_varint(aTHX_ enc, SRL_HDR_ALIAS, (UV)oldoffset);
                 }
-                SRL_SET_FBIT(*(enc->buf_start + oldoffset));
+                SRL_SET_FBIT(*(enc->body_pos + oldoffset));
                 --enc->recursion_depth;
                 return;
             }
-            if (DEBUGHACK) warn("storing %p as %lu", src, (long unsigned int)BUF_POS_OFS(enc));
-            PTABLE_store(ref_seenhash, src, (void *)BUF_POS_OFS(enc));
+            if (DEBUGHACK) warn("storing %p as %lu", src, (long unsigned int)BODY_POS_OFS(enc));
+            PTABLE_store(ref_seenhash, src, (void *)BODY_POS_OFS(enc));
         }
     }
     if (weakref_ofs != 0) {
@@ -1211,10 +1219,10 @@ redo_dump:
 #endif
         if (SvWEAKREF(src)) {
             if (DEBUGHACK) warn("Is weakref %p", src);
-            weakref_ofs= BUF_POS_OFS(enc);
+            weakref_ofs= BODY_POS_OFS(enc);
             srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
         }
-        ref_rewrite_pos= BUF_POS_OFS(enc);
+        ref_rewrite_pos= BODY_POS_OFS(enc);
         if (sv_isobject(src)) {
             /* Check that we actually want to support objects */
             if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_CROAK_ON_BLESS)) ) {
@@ -1269,7 +1277,7 @@ redo_dump:
                          * want to serialize around for REFP and ALIAS output */               \
                         PTABLE_t *ref_seenhash= SRL_GET_REF_SEENHASH(enc);                     \
                         PTABLE_delete(ref_seenhash, src);                                      \
-                        enc->pos= enc->buf_start + ref_rewrite_pos;                            \
+                        enc->pos= enc->body_pos + ref_rewrite_pos;                             \
                     }                                                                          \
                     srl_buf_cat_char((enc), SRL_HDR_UNDEF);                                    \
                 }                                                                              \
@@ -1297,7 +1305,7 @@ redo_dump:
                          * want to serialize around for REFP and ALIAS output */               \
                         PTABLE_t *ref_seenhash= SRL_GET_REF_SEENHASH(enc);                     \
                         PTABLE_delete(ref_seenhash, src);                                      \
-                        enc->pos= enc->buf_start + ref_rewrite_pos;                            \
+                        enc->pos= enc->body_pos + ref_rewrite_pos;                             \
                         str = SvPV((refsv), len);                                              \
                     } else                                                                     \
                         str = SvPV((src), len);                                                \

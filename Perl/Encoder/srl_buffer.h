@@ -24,6 +24,22 @@
 #define BUF_NEED_GROW(enc, minlen) ((size_t)BUF_SPACE(enc) <= minlen)
 #define BUF_NEED_GROW_TOTAL(enc, minlen) ((size_t)BUF_SIZE(enc) <= minlen)
 
+
+/* body-position/size related operations */
+#define BODY_POS_OFS(enc) ((enc)->pos - (enc)->body_pos)
+
+/* these are mostly for right between (de)serializing the header and the body */
+#define SRL_SET_BODY_POS(enc, pos_ptr) ((enc)->body_pos = pos_ptr)
+#define SRL_UPDATE_BODY_POS(enc)                                            \
+    STMT_START {                                                            \
+        if (expect_false(SRL_ENC_HAVE_OPTION((enc), SRL_F_USE_PROTO_V1))) { \
+            SRL_SET_BODY_POS(enc, (enc)->buf_start);                        \
+        } else {                                                            \
+            SRL_SET_BODY_POS(enc, (enc)->pos);                              \
+        }                                                                   \
+    } STMT_END
+
+
 /* Internal debugging macros, used only in DEBUG mode */
 #ifndef NDEBUG
 #define DEBUG_ASSERT_BUF_SPACE(enc, len) STMT_START { \
@@ -53,6 +69,7 @@ SRL_STATIC_INLINE void
 srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
 {
     const size_t pos_ofs= BUF_POS_OFS(enc); /* have to store the offset of pos */
+    const size_t body_ofs= enc->body_pos - enc->buf_start; /* have to store the offset of the body */
 #ifdef MEMDEBUG
     const size_t new_size = minlen;
 #else
@@ -60,15 +77,22 @@ srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
     const size_t grown_len = (size_t)(cur_size * BUFFER_GROWTH_FACTOR);
     const size_t new_size = 100 + (minlen > grown_len ? minlen : grown_len);
 #endif
+
     DEBUG_ASSERT_BUF_SANE(enc);
     /* assert that Renew means GROWING the buffer */
     assert(enc->buf_start + new_size > enc->buf_end);
+
     Renew(enc->buf_start, new_size, char);
     if (enc->buf_start == NULL)
         croak("Out of memory!");
     enc->buf_end = (char *)(enc->buf_start + new_size);
     enc->pos= enc->buf_start + pos_ofs;
+    SRL_SET_BODY_POS(enc, enc->buf_start + body_ofs);
+
+    DEBUG_ASSERT_BUF_SANE(enc);
     assert(enc->buf_end - enc->buf_start > (ptrdiff_t)0);
+    assert(enc->pos - enc->buf_start >= (ptrdiff_t)0);
+    assert(enc->body_pos - enc->buf_start >= (ptrdiff_t)0);
 }
 
 #define BUF_SIZE_ASSERT(enc, minlen) \

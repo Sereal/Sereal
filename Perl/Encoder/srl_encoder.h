@@ -16,6 +16,7 @@ typedef struct {
     char *buf_start;         /* ptr to "physical" start of output buffer */
     char *buf_end;           /* ptr to end of output buffer */
     char *pos;               /* ptr to current position within output buffer */
+    char *body_pos;          /* ptr to start of body within output buffer for protocol V2 encoding */
 
     U32 operational_flags;   /* flags that pertain to one encode run (rather than being options): See SRL_OF_* defines */
     U32 flags;               /* flag-like options: See SRL_F_* defines */
@@ -94,6 +95,9 @@ void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
 /* If set in flags, then we serialize objects without class information.
  * Corresponds to the 'no_bless_objects' flag found in the Decoder. */
 #define SRL_F_NO_BLESS_OBJECTS                0x01000UL
+
+/* If set in flags, then we serialize using Sereal protocol version 1. */
+#define SRL_F_USE_PROTO_V1                    0x02000UL
 
 /* Set while the encoder is in active use / dirty */
 #define SRL_OF_ENCODER_DIRTY                 1UL
