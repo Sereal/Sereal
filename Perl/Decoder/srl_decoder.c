@@ -405,7 +405,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec)
          * protocol version. */
         dec->pos += header_len;
     } else {
-        SRL_ERROR("bad header");
+        SRL_ERROR("Bad Sereal header: Does not start with Sereal magic");
     }
 }
 

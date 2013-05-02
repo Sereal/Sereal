@@ -26,7 +26,7 @@ SCOPE: {
     check_fail($Header, qr/unexpected end of input/i, "Cannot decode just header");
 
     my $badheaderpacket = "srX".chr(SRL_PROTOCOL_VERSION) . chr(0) . integer(1);
-    check_fail($badheaderpacket, qr/bad header/i, "Packet with invalid header blows up");
+    check_fail($badheaderpacket, qr/Bad Sereal header/i, "Packet with invalid header blows up");
 
     my $bad_nested_packet = $Header . array(integer(1), 7777);
     check_fail($bad_nested_packet, qr/Sereal: Error/, "Random crap in packet");
