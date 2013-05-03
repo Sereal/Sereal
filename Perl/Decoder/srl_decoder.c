@@ -149,7 +149,23 @@ SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 #endif
 
 
-/* PUBLIC ROUTINES ROUTINES */
+STATIC void
+srl_ptable_debug_callback(PTABLE_ENTRY_t *e)
+{
+    dTHX;
+    printf("KEY=%lu\nVALUE:\n", (unsigned long)e->key);
+    sv_dump((SV *)e->value);
+    printf("\n");
+}
+
+STATIC void
+srl_ptable_debug_dump(pTHX_ PTABLE_t *tbl)
+{
+    PTABLE_debug_dump(tbl, srl_ptable_debug_callback);
+}
+
+
+/* PUBLIC ROUTINES */
 
 /* Builds the C-level configuration and state struct.
  * Automatically freed at scope boundary. */
@@ -553,7 +569,6 @@ srl_read_varint_uv_count(pTHX_ srl_decoder_t *dec, const char * const errstr)
     }
     return len;
 }
-
 
 SRL_STATIC_INLINE void
 srl_track_sv(pTHX_ srl_decoder_t *dec, U8 *track_pos, SV *sv)

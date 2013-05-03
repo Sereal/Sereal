@@ -305,5 +305,15 @@ PTABLE_iter_free(PTABLE_ITER_t *iter)
     Safefree(iter);
 }
 
+STATIC void
+PTABLE_debug_dump(PTABLE_t *tbl, void (*func)(PTABLE_ENTRY_t *e))
+{
+    PTABLE_ENTRY_t *e;
+    PTABLE_ITER_t *iter = PTABLE_iter_new(tbl);
+    while (NULL != (e = PTABLE_iter_next(iter))) {
+        func(e);
+    }
+    PTABLE_iter_free(iter);
+}
 
 #endif
