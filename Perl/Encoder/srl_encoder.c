@@ -241,7 +241,6 @@ srl_build_encoder_struct(pTHX_ HV *opt)
     enc = srl_empty_encoder_struct(aTHX);
     enc->flags = 0;
 
-        SRL_ENC_SET_OPTION(enc, SRL_F_USE_PROTO_V1); /* FIXME */
     /* load options */
     if (opt != NULL) {
         int undef_unknown = 0;
@@ -251,7 +250,7 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         if ( !svp || !SvTRUE(*svp) )
             SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
 
-        svp = hv_fetchs(opt, "use_v1", 0);
+        svp = hv_fetchs(opt, "use_protocol_v1", 0);
         if ( svp && SvTRUE(*svp) )
             SRL_ENC_SET_OPTION(enc, SRL_F_USE_PROTO_V1);
 
@@ -386,7 +385,7 @@ void
 srl_write_header(pTHX_ srl_encoder_t *enc)
 {
     /* 4th to 8th bit are flags. Using 4th for snappy flag. FIXME needs to go in spec. */
-    const U8 version_and_flags = SRL_PROTOCOL_VERSION
+    const U8 version_and_flags = (SRL_ENC_HAVE_OPTION(enc, SRL_F_USE_PROTO_V1) ? 1 : SRL_PROTOCOL_VERSION)
                                  | (
                                     SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY)
                                     ? SRL_PROTOCOL_ENCODING_SNAPPY

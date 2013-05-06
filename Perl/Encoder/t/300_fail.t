@@ -24,14 +24,14 @@ SCOPE: {
         croak_on_bless => 1,
     });
 
-    is($e->encode(1), $Header.integer(1), "Encoder works before exception");
+    is($e->encode(1), Header().integer(1), "Encoder works before exception");
     $ok = eval{$out = $e->encode(bless({}, "Foo")); 1};
     $err = $@ || 'Zombie error';
 
     ok(!$ok, "Object throws exception");
     ok($err =~ /object/i, 'Exception refers to object');
 
-    is($e->encode(1), $Header.integer(1), "Encoder works after exception");
+    is($e->encode(1), Header().integer(1), "Encoder works after exception");
 
     $ok =  eval {$out = $e->encode({}); 1};
     ok($ok, "Non-blessed hash does not throw exception");
@@ -47,7 +47,7 @@ SCOPE: {
     $ok = eval {$out = $e->encode(sub{}); 1};
     $err = $@ || 'Zombie error';
     ok($ok, "undef_unknown makes CODE encoding not fail");
-    is($out, $Header . chr(SRL_HDR_UNDEF), "output is undef")
+    is($out, Header() . chr(SRL_HDR_UNDEF), "output is undef")
     or do {
         hobodecode($out) if $ENV{DEBUG_SEREAL};
     }

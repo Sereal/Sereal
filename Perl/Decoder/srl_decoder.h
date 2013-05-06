@@ -11,6 +11,7 @@ typedef struct {
     unsigned char *buf_end;             /* ptr to end of input buffer */
     unsigned char *pos;                 /* ptr to current position within input buffer */
     unsigned char *save_pos;            /* used for COPY tags */
+    unsigned char *body_pos;            /* in Sereal V2, all offsets are relative to the body */
     STRLEN buf_len;
 
     U32 flags;                          /* flag-like options: See F_* defines in srl_decoder.c */
@@ -44,6 +45,20 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define BUF_SIZE(dec) ((dec)->buf_end - (dec)->buf_start)
 #define BUF_NOT_DONE(dec) ((dec)->pos < (dec)->buf_end)
 #define BUF_DONE(dec) ((dec)->pos >= (dec)->buf_end)
+
+#define BODY_POS_OFS(enc) ((dec)->pos - (dec)->body_pos)
+
+/* these are mostly for right between deserializing the header and the body */
+#define SRL_SET_BODY_POS(dec, pos_ptr) ((dec)->body_pos = pos_ptr)
+#define SRL_UPDATE_BODY_POS(dec)                                                    \
+    STMT_START {                                                                    \
+        if (expect_false(SRL_DEC_HAVE_OPTION((dec), SRL_F_DECODER_PROTOCOL_V1))) {  \
+            SRL_SET_BODY_POS(dec, (dec)->buf_start);                                \
+        } else {                                                                    \
+            SRL_SET_BODY_POS(dec, (dec)->pos);                                      \
+        }                                                                           \
+    } STMT_END
+
 
 #define SRL_BASE_ERROR_FORMAT "Sereal: Error in %s line %u: "
 #define SRL_BASE_ERROR_ARGS __FILE__, __LINE__
@@ -86,12 +101,13 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_F_DECODER_NO_BLESS_OBJECTS 128UL
 /* Persistent flag: Destructive incremental parsing */
 #define SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL 256UL
-
+/* Non-persistent flag: The current packet is using protocol version 1 */
+#define SRL_F_DECODER_PROTOCOL_V1 512UL
 
 #define SRL_DEC_HAVE_OPTION(dec, flag_num) ((dec)->flags & flag_num)
 #define SRL_DEC_SET_OPTION(dec, flag_num) ((dec)->flags |= flag_num)
 #define SRL_DEC_UNSET_OPTION(dec, flag_num) ((dec)->flags &= ~flag_num)
-#define SRL_DEC_VOLATILE_FLAGS (SRL_F_DECODER_NEEDS_FINALIZE|SRL_F_DECODER_DECOMPRESS_SNAPPY)
+#define SRL_DEC_VOLATILE_FLAGS (SRL_F_DECODER_NEEDS_FINALIZE|SRL_F_DECODER_DECOMPRESS_SNAPPY|SRL_F_DECODER_PROTOCOL_V1)
 #define SRL_DEC_RESET_VOLATILE_FLAGS(dec) ((dec)->flags &= ~SRL_DEC_VOLATILE_FLAGS)
 
 /* 

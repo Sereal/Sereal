@@ -36,7 +36,7 @@ sub run_tests {
     $name="unnamed" if not defined $name;
     #next unless $name=~/PAD/;
 
-    $exp = "$Header$exp";
+    $exp = Header(). $exp;
     my $enc = Sereal::Encoder->new($opt_hash ? $opt_hash : ());
     my $out;
     eval{
