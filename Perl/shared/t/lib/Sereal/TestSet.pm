@@ -34,7 +34,8 @@ BEGIN {
 use Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
-    $Header @BasicTests $Class $ConstClass
+    @BasicTests $Class $ConstClass
+    Header
     FBIT
     hobodecode
     integer short_string varint array array_fbit
@@ -136,7 +137,10 @@ sub varint {
     return $out;
 }
 
-our $Header = SRL_MAGIC_STRING . chr(SRL_PROTOCOL_VERSION) . chr(0);
+sub Header {
+  my $proto_version = shift;
+  return SRL_MAGIC_STRING . chr($proto_version||SRL_PROTOCOL_VERSION) . chr(0);
+}
 
 my $ary_ref_for_repeating = [5,6];
 my $scalar_ref_for_repeating = \9;
@@ -178,7 +182,7 @@ our @BasicTests = (
           my $opt = shift;
           if ($opt->{dedupe_strings} || $opt->{aliased_dedupe_strings}) {
               my $d = array_head(3);
-              my $pos = length($Header) + length($d);
+              my $pos = length($d);
               my $tag = $opt->{aliased_dedupe_strings} ? SRL_HDR_ALIAS : SRL_HDR_COPY;
               $d .= short_string("foooo") . chr($tag) . varint($pos)
                     . chr($tag) . varint($pos);
@@ -203,7 +207,7 @@ our @BasicTests = (
           if ($opt->{dedupe_strings} || $opt->{aliased_dedupe_strings}) {
               my $tag = $opt->{aliased_dedupe_strings} ? SRL_HDR_ALIAS : SRL_HDR_COPY;
               my $d = array_head(2) . hash_head(2) . short_string("foooo");
-              my $pos = length($Header) + length($d);
+              my $pos = length($d);
               $d .= short_string("foooo") . hash_head(2)
                     . short_string("foooo2")
                     . chr($tag) . varint($pos);
@@ -221,7 +225,7 @@ our @BasicTests = (
         do {
             my $content = array_head(2);
             $content   .= chr(SRL_HDR_REFN);
-            my $pos = length($Header) + length($content);
+            my $pos = length($content);
             $content    .= chr(0b1000_1001)
                           .chr(SRL_HDR_REFP)
                           .varint($pos)
@@ -231,7 +235,7 @@ our @BasicTests = (
     [[$ary_ref_for_repeating, $ary_ref_for_repeating],
         do {
             my $content = array_head(2);
-            my $pos = length($Header) + length($content) + 1;
+            my $pos = length($content) + 1;
             $content   .= array_fbit(chr(0b0000_0101), chr(0b0000_0110))
                           .chr(SRL_HDR_REFP)
                           .varint($pos)
@@ -241,7 +245,7 @@ our @BasicTests = (
     [[\$ary_ref_for_repeating, [1, $ary_ref_for_repeating]],
         do {
             my $content = array_head(2) . chr(SRL_HDR_REFN);
-            my $pos = length($Header) + length($content) + 1;
+            my $pos = length($content) + 1;
             $content .= array_fbit(
                               chr(0b0000_0101),
                               chr(0b0000_0110)
@@ -259,7 +263,7 @@ our @BasicTests = (
         .chr(SRL_HDR_PAD)
         .chr(SRL_HDR_REFN)
         .chr(SRL_HDR_REFP)
-        .varint(length($Header)+1)
+        .varint(1)
         .chr(0b0000_0001)
         ,
         "weak thing copy (requires PAD)"
@@ -269,7 +273,7 @@ our @BasicTests = (
         chr(SRL_HDR_REFN)
         . chr(SRL_HDR_REFN + FBIT)
             . chr(SRL_HDR_ARRAY) . varint(2)
-                .chr(SRL_HDR_WEAKEN) . chr(SRL_HDR_REFP) . varint(length($Header)+1)
+                .chr(SRL_HDR_WEAKEN) . chr(SRL_HDR_REFP) . varint(1)
                 .chr(0b0000_0001)
         ,
         "weak thing ref"
@@ -278,7 +282,7 @@ our @BasicTests = (
         $weak_thing,
         chr(SRL_HDR_REFN + FBIT)
             .chr(SRL_HDR_ARRAY).varint(2)
-                .chr(SRL_HDR_WEAKEN).chr(SRL_HDR_REFP).varint(length($Header))
+                .chr(SRL_HDR_WEAKEN).chr(SRL_HDR_REFP).varint(0)
                 .chr(0b0000_0001)
         ,
         "weak thing (aliased root)"
@@ -291,9 +295,9 @@ our @BasicTests = (
             $content
             . chr(SRL_HDR_REFN + FBIT)
             . chr(SRL_HDR_REFP + FBIT)
-            . varint(length($Header) + $pos )
+            . varint($pos )
             . chr(SRL_HDR_ALIAS)
-            . varint(length($Header) + $pos + 1)
+            . varint($pos + 1)
         },
         "scalar cross"
     ],
@@ -307,9 +311,9 @@ our @BasicTests = (
             . chr(SRL_HDR_REFN)
             . chr(SRL_HDR_WEAKEN + FBIT)
             . chr(SRL_HDR_REFP)
-            . varint(length($Header)+$pos)
+            . varint($pos)
             . chr(SRL_HDR_ALIAS)
-            . varint(length($Header)+$pos+2)
+            . varint($pos+2)
         },
         "weak scalar cross"
     ],
@@ -331,7 +335,7 @@ our @BasicTests = (
                 short_string("foo"),
                 short_string("ix"),
                 chr(SRL_HDR_REFP),
-                varint(length($Header) + $pos + 6 ),
+                varint($pos + 6 ),
             )
         },
         "blessed regexp with reuse"
@@ -345,10 +349,10 @@ our @BasicTests = (
                         short_string("foo"),
                         chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + FBIT),varint(0),
                     chr( SRL_HDR_OBJECT + $use_objectv),
-                        $use_objectv ? () : chr(SRL_HDR_COPY), varint(length($Header) + $pos),
+                        $use_objectv ? () : chr(SRL_HDR_COPY), varint($pos),
                         chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY  + FBIT), varint(0),
-                    chr(SRL_HDR_REFP),varint(length($Header) + $pos + 5),
-                    chr(SRL_HDR_REFP),varint(length($Header) + $pos + 10),
+                    chr(SRL_HDR_REFP),varint($pos + 5),
+                    chr(SRL_HDR_REFP),varint($pos + 10),
                 )
         },
         "blessed arrays with reuse"
@@ -357,7 +361,7 @@ our @BasicTests = (
         [bless([], "foo"), bless([], "foo")],
         do {
             my $content = array_head(2) . chr(SRL_HDR_OBJECT);
-            my $pos = length($Header) + length($content);
+            my $pos = length($content);
             $content .= short_string("foo")
                         . array()
                         . dump_bless( array(), \$pos )
@@ -370,7 +374,7 @@ our @BasicTests = (
         bless([bless {}, "foo"], "foo"),
         do {
             my $content = chr(SRL_HDR_OBJECT);
-            my $pos = length($Header) + length($content);
+            my $pos = length($content);
             $content .= short_string("foo")
                         . array_head(1)
                           . dump_bless(hash(), \$pos);
@@ -438,7 +442,7 @@ our @BasicTests = (
                         integer(1),
                     ),
                     hash(
-                        chr(SRL_HDR_COPY) . varint(length($Header)+length($content)+1),
+                        chr(SRL_HDR_COPY) . varint(length($content)+1),
                         integer(2),
                     ),
                 )
@@ -634,14 +638,21 @@ if (eval "use Array::RefElem (av_store hv_store); 1") {
 
 
 sub run_roundtrip_tests {
-    for my $opt (
-        ['plain',       {                  } ],
-        ['snappy',      { snappy => 1      } ],
-        ['snappy_incr', { snappy_incr => 1 } ],
-        ['sort_keys',   { sort_keys => 1   } ],
-        ['dedupe_strings',   { dedupe_strings => 1 } ],
-    ) {
-        run_roundtrip_tests_internal(@$opt);
+    for my $proto_version (qw(2 1)) {
+        my $suffix = $proto_version == 1 ? "_v1" : "";
+
+        for my $opt (
+            ['plain',          {                  } ],
+            ['snappy',         { snappy         => 1 } ],
+            ['snappy_incr',    { snappy_incr    => 1 } ],
+            ['sort_keys',      { sort_keys      => 1 } ],
+            ['dedupe_strings', { dedupe_strings => 1 } ],
+        ) {
+            my ($name, $opts) = @$opt;
+            $name .= $suffix;
+            $opts->{use_protocol_v1} = 1 if $proto_version == 1;
+            run_roundtrip_tests_internal($name, $opts);
+        }
     }
 }
 
@@ -674,35 +685,35 @@ sub run_roundtrip_tests_internal {
                 };
             my $decoded= $dec->($encoded);
             ok( defined($decoded) == defined($data), "$name ($ename, $mname, decoded definedness)")
-              or next;
+                or next;
             my $encoded2 = $enc->($decoded);
             ok(defined $encoded2, "$name ($ename, $mname, encoded2 defined)")
-              or next;
+                or next;
             my $decoded2 = $dec->($encoded2);
             ok(defined($decoded2) == defined($data), "$name ($ename, $mname, decoded2 defined)")
-              or next;
+                or next;
             is_deeply($decoded, $data, "$name ($ename, $mname, decoded vs data)")
-              or do {
-                  if ($ENV{DEBUG_DUMP}) {
-                      Dump($decoded);
-                      Dump($data);
-                  }
-              };
+                or do {
+                    if ($ENV{DEBUG_DUMP}) {
+                        Dump($decoded);
+                        Dump($data);
+                    }
+                };
             is_deeply($decoded2, $data, "$name ($ename, $mname, decoded2 vs data)")
-              or do {
-                  if ($ENV{DEBUG_DUMP}) {
-                      Dump($decoded2);
-                      Dump($data);
-                  }
-              };
+                or do {
+                    if ($ENV{DEBUG_DUMP}) {
+                        Dump($decoded2);
+                        Dump($data);
+                    }
+                };
             is_deeply($decoded, $decoded2, "$name ($ename, $mname, decoded vs decoded2)")
-              or do {
-                  if ($ENV{DEBUG_DUMP}) {
-                      Dump($decoded);
-                      Dump($decoded2);
-                  }
-              };
-            
+                or do {
+                    if ($ENV{DEBUG_DUMP}) {
+                        Dump($decoded);
+                        Dump($decoded2);
+                    }
+                };
+
             if (0) {
                 # It isnt really safe to test this way right now. The exact output
                 # of two runs of Sereal is not guaranteed to be the same due to the effect of
@@ -761,7 +772,7 @@ sub write_test_files {
         my $t = $BasicTests[$testno-1];
         my $data = ref($t->[1]) eq 'CODE' ? $t->[1]->() : $t->[1];
 
-        _write_file($make_data_file_name->($testno), $Header.$data);
+        _write_file($make_data_file_name->($testno), Header().$data);
         _write_file($make_name_file_name->($testno), $t->[2] . "\n");
     }
 

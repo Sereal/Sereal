@@ -23,15 +23,15 @@ plan tests => 47;
 my ($ok, $out, $err);
 
 SCOPE: {
-    check_fail($Header, qr/unexpected end of input/i, "Cannot decode just header");
+    check_fail(Header(), qr/unexpected end of input/i, "Cannot decode just header");
 
     my $badheaderpacket = "srX".chr(SRL_PROTOCOL_VERSION) . chr(0) . integer(1);
     check_fail($badheaderpacket, qr/Bad Sereal header/i, "Packet with invalid header blows up");
 
-    my $bad_nested_packet = $Header . array(integer(1), 7777);
+    my $bad_nested_packet = Header() . array(integer(1), 7777);
     check_fail($bad_nested_packet, qr/Sereal: Error/, "Random crap in packet");
 
-    my $obj_packet = $Header . chr(SRL_HDR_OBJECT).short_string("Foo").chr(SRL_HDR_REFN).integer(1);
+    my $obj_packet = Header() . chr(SRL_HDR_OBJECT).short_string("Foo").chr(SRL_HDR_REFN).integer(1);
     check_fail($obj_packet, qr/refuse_obj/, "refusing objects option", {refuse_objects => 1});
 
     # strictly speaking not entirely correct; also: +16 for the snappy flag isn't exactly API
@@ -39,7 +39,7 @@ SCOPE: {
     check_fail($h, qr/Snappy/, "refusing Snappy option", {refuse_snappy => 1});
 
     # Tests for limiting number of acceptable hash entries
-    my $hash_packet = $Header . hash(map short_string($_), 1..2000);
+    my $hash_packet = Header() . hash(map short_string($_), 1..2000);
     $h = decode_sereal($hash_packet);
     is(ref($h), "HASH", "Deserializes as hash");
     is(scalar(keys(%$h)), 1000, "Hash has 1000 entries");

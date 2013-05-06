@@ -34,7 +34,7 @@ sub run_tests {
         next if $ENV{SEREAL_TEST} and $ENV{SEREAL_TEST} ne $name;
 
         $exp = $exp->($opt_hash) if ref($exp) eq 'CODE';
-        $exp = "$Header$exp";
+        $exp = Header() . $exp;
 
         my ($out, $out2, $out3);
         my $ok= eval { decode_sereal($exp, $opt_hash ? $opt_hash : undef, $out); 1};

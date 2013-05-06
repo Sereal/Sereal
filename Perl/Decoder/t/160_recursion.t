@@ -16,7 +16,7 @@ use Sereal::TestSet qw(:all);
 use Test::More;
 
 my $recur_depth = 1000;
-my $s = $Header;
+my $s = Header();
 $s .= chr(SRL_HDR_ARRAYREF + 1) for 1..$recur_depth;
 $s .= integer(1);
 
