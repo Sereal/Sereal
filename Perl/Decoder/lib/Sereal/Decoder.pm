@@ -54,9 +54,6 @@ Sereal::Decoder - Fast, compact, powerful binary deserialization
 
 =head1 DESCRIPTION
 
-B<This is an experimental module. The interface may change without notice.
-Before using it in production, please get in touch with the authors!>
-
 This library implements a deserializer for an efficient, compact-output,
 and feature-rich binary protocol called I<Sereal>.
 Its sister module L<Sereal::Encoder> implements an encoder for this format.
