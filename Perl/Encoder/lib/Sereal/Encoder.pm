@@ -42,9 +42,6 @@ Sereal::Encoder - Fast, compact, powerful binary serialization
 
 =head1 DESCRIPTION
 
-B<This is an experimental module. The interface may change without notice.
-Before using it in production, please get in touch with the authors!>
-
 This library implements an efficient, compact-output, and feature-rich
 serializer using a binary protocol called I<Sereal>.
 Its sister module L<Sereal::Decoder> implements a decoder for this format.
