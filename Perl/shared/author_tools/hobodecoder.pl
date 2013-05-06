@@ -50,6 +50,9 @@ sub parse_header {
   my $flags = $2;
   my $len = varint();
   my $hdr = substr($data, 0, $len, '');
+
+  my $proto_version = ord($flags) & SRL_PROTOCOL_VERSION_MASK;
+  print "Sereal protocol version: $proto_version\n";
   if (length($hdr)) {
     print "Header($len): " . join(" ", map ord, split //, $hdr) . "\n";
   }
@@ -59,11 +62,15 @@ sub parse_header {
   my $encoding= ord($flags) & SRL_PROTOCOL_ENCODING_MASK;
 
   if ($encoding == SRL_PROTOCOL_ENCODING_SNAPPY) {
+    print "Header says: Document body is Snappy-compressed.\n";
     require Compress::Snappy;
     my $out = Compress::Snappy::decompress($data);
     $data = $out;
-  } elsif ($encoding) {
-    die "Invalid encoding";
+  } elsif ($encoding == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL) {
+    die "Incremental Snappy encoding not implemented in hobodecoder. (yet. It's easy to do.)";
+  }
+  elsif ($encoding) {
+    die "Invalid encoding '" . ($encoding >> SRL_PROTOCOL_VERSION_BITS) . "'";
   }
 }
 
