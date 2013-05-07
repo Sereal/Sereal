@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '0.35'; # Don't forget to update the TestCompat set for testing against installed encoders!
+our $VERSION = '0.36'; # Don't forget to update the TestCompat set for testing against installed encoders!
 
 # not for public consumption, just for testing.
 my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 23 .. int($VERSION * 100) ) ]; # compat with 0.23 to ...
@@ -127,6 +127,20 @@ that number of entries. This is to be able to respond quickly to any future
 hash-collision attacks on Perl's hash function. Chances are, you don't want
 or need this. For a gentle introduction to the topic from the cryptographic
 point of view, see L<http://en.wikipedia.org/wiki/Collision_attack>.
+
+=head3 incremental
+
+If set to a non-zero value (default: 0), then C<Sereal::Decoder> will
+destructively parse Sereal documents out of a variable. Every time a Sereal
+document is successfully parsed it is removed from the front of the string
+it is parsed from.
+
+This means you can do this:
+
+    while (length $buffer) {
+        my $data= decode_sereal($buffer,{incremental=>1});
+    }
+
 
 =head1 INSTANCE METHODS
 

@@ -672,36 +672,37 @@ sub run_roundtrip_tests_internal {
                     }
                     next;
                 };
-              my $decoded= $dec->($encoded);
-              ok( defined($decoded) == defined($data), "$name ($ename, $mname, decoded definedness)")
-                  or next;
-              my $encoded2 = $enc->($decoded);
-              ok(defined $encoded2, "$name ($ename, $mname, encoded2 defined)")
-                  or next;
-              my $decoded2 = $dec->($encoded2);
-              ok(defined($decoded2) == defined($data), "$name ($ename, $mname, decoded2 defined)")
-                  or next;
-              is_deeply($decoded, $data, "$name ($ename, $mname, decoded vs data)")
-                  or do {
-                      if ($ENV{DEBUG_DUMP}) {
-                          Dump($decoded);
-                          Dump($data);
-                      }
-                  };
-              is_deeply($decoded2, $data, "$name ($ename, $mname, decoded2 vs data)")
-                  or do {
-                      if ($ENV{DEBUG_DUMP}) {
-                          Dump($decoded2);
-                          Dump($data);
-                      }
-                  };
-              is_deeply($decoded, $decoded2, "$name ($ename, $mname, decoded vs decoded2)")
-                  or do {
-                      if ($ENV{DEBUG_DUMP}) {
-                          Dump($decoded);
-                          Dump($decoded2);
-                      }
-                  };
+            my $decoded= $dec->($encoded);
+            ok( defined($decoded) == defined($data), "$name ($ename, $mname, decoded definedness)")
+              or next;
+            my $encoded2 = $enc->($decoded);
+            ok(defined $encoded2, "$name ($ename, $mname, encoded2 defined)")
+              or next;
+            my $decoded2 = $dec->($encoded2);
+            ok(defined($decoded2) == defined($data), "$name ($ename, $mname, decoded2 defined)")
+              or next;
+            is_deeply($decoded, $data, "$name ($ename, $mname, decoded vs data)")
+              or do {
+                  if ($ENV{DEBUG_DUMP}) {
+                      Dump($decoded);
+                      Dump($data);
+                  }
+              };
+            is_deeply($decoded2, $data, "$name ($ename, $mname, decoded2 vs data)")
+              or do {
+                  if ($ENV{DEBUG_DUMP}) {
+                      Dump($decoded2);
+                      Dump($data);
+                  }
+              };
+            is_deeply($decoded, $decoded2, "$name ($ename, $mname, decoded vs decoded2)")
+              or do {
+                  if ($ENV{DEBUG_DUMP}) {
+                      Dump($decoded);
+                      Dump($decoded2);
+                  }
+              };
+            
             if (0) {
                 # It isnt really safe to test this way right now. The exact output
                 # of two runs of Sereal is not guaranteed to be the same due to the effect of
