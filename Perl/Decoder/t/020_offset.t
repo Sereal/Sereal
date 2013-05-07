@@ -15,7 +15,7 @@ BEGIN {
 
 use Sereal::TestSet qw(:all);
 
-use Test::More tests => 8 + ( 31 * 2 );
+use Test::More tests => 8 + 6 + ( 31 * 2 );
 
 # Simple test to see whether we can get the number of bytes consumed
 # and whether offset works
@@ -33,6 +33,19 @@ SCOPE: {
 
     ok(!defined($d->decode_with_offset("GARBAGE" . $data . "TRAILING", length("GARBAGE"))), "can decode with offset and trailing garbage");
     is($d->bytes_consumed, length($data), "consumed right number of bytes");
+}
+
+SCOPE: {
+    my $d = Sereal::Decoder->new({incremental => 1});
+    my $data = '';
+    $data .= SRL_MAGIC_STRING . chr(1).chr(0).chr(SRL_HDR_POS | $_) for 1..5;
+
+    for (1..5) {
+      my $out = $d->decode($data);
+      is("$out", "$_", "Incremental section no. $_ yields right output");
+    }
+
+    is($data, '', "Data is gone after incremental parsing");
 }
 
 SKIP: {
