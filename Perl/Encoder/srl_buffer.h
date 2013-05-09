@@ -35,7 +35,7 @@
         if (expect_false(SRL_ENC_HAVE_OPTION((enc), SRL_F_USE_PROTO_V1))) { \
             SRL_SET_BODY_POS(enc, (enc)->buf_start);                        \
         } else {                                                            \
-            SRL_SET_BODY_POS(enc, (enc)->pos);                              \
+            SRL_SET_BODY_POS(enc, (enc)->pos-1);                            \
         }                                                                   \
     } STMT_END
 

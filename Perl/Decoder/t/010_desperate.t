@@ -28,6 +28,7 @@ note("All done folks!");
 sub run_tests {
     my ($extra_name, $opt_hash) = @_;
     my $dec = Sereal::Decoder->new($opt_hash ? $opt_hash : ());
+    setup_tests(2);
     foreach my $bt (@BasicTests) {
         my ($in, $exp, $name) = @$bt;
 
