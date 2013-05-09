@@ -55,7 +55,7 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
         if (expect_false(SRL_DEC_HAVE_OPTION((dec), SRL_F_DECODER_PROTOCOL_V1))) {  \
             SRL_SET_BODY_POS(dec, (dec)->buf_start);                                \
         } else {                                                                    \
-            SRL_SET_BODY_POS(dec, (dec)->pos);                                      \
+            SRL_SET_BODY_POS(dec, (dec)->pos-1);                                    \
         }                                                                           \
     } STMT_END
 
