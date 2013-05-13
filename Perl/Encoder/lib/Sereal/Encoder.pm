@@ -88,13 +88,18 @@ If in doubt, test with your data whether this helps or not.
 The decoder (version 0.04 and up) will know how to handle Snappy-compressed
 Sereal documents transparently.
 
-B<NOTE 1:> Do not use this if you want to parse multiple Sereal packets
-from the same buffer. Instead use C<snappy_incr> instead.
+B<Note:> The C<snappy_incr> and C<snappy> options are identical in
+Sereal protocol V2 (the default). If using the C<use_protocol_v1> option
+to emit Sereal V1 documents, this emits non-incrementally decodable
+documents. See C<snappy_incr> in those cases.
 
 =head3 snappy_incr
 
-Enables a version of the snappy protocol which is suitable for incremental
-parsing of packets. See also the C<snappy> option above for more details.
+Same as the C<snappy> option for default (Sereal V2) operation.
+
+In Sereal V1, enables a version of the snappy protocol which is suitable for
+incremental parsing of packets. See also the C<snappy> option above for
+more details.
 
 =head3 snappy_threshold
 
