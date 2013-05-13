@@ -12,15 +12,16 @@ This document describes the format and encoding of a Sereal data packet.
 
 =head1 VERSION
 
-This is the Sereal specification version 1.01.
+This is the Sereal specification version 2.00.
 
 The integer part of the document version corresponds to
-the Sereal protocol version.
+the Sereal protocol version. For details on incompatible changes between
+major protocol versions, see the L</"PROTOCOL CHANGES"> below.
 
 =head1 DESCRIPTION
 
 A serialized structure is converted into a "document". A document is made
-up of two parts, the header and the body.
+up of two parts, the document header and the document body.
 
 =head2 General Points
 
@@ -61,8 +62,8 @@ A single byte, of which the high 4 bits are used to represent the "type"
 of the document, and the low 4 bits used to represent the version of the
 Sereal protocol the document complies with.
 
-Up until now there has only been one version of Sereal released so the
-low bits will be 1.
+Up until now there have been versions 1 and 2 of the Sereal protocol.
+So the low four bits will be 1 or 2.
 
 Currently only three types are defined:
 
@@ -143,8 +144,11 @@ implicitly by the tag (such as for FLOAT), explicitly in the tag (as in
 SHORT_BINARY) or in a varint following the tag (such as for STRING).
 
 When referring to an offset below, what's meant is a varint encoded
-absolute integer byte position. That is, an offset of 10 refers to the
-tenth byte in the Sereal document (including its header).
+absolute integer byte position in the document body.
+That is, an offset of 10 refers to the
+tenth byte in the Sereal document body (ie. excluding its header).
+Sereal version 1 used to mandate offsets from the start of the document
+header.
 
 =head3 Tags
 
@@ -312,7 +316,7 @@ was inserted into the packet stream as a replacement for the COPY tag.
 Note, that in this case the track flag is B<not> set. It is assumed the
 decoder can jump back to reread the tag from its location alone.
 
-Copy tags are forbidden from referring to another COPY tag, and are also
+COPY tags are forbidden from referring to another COPY tag, and are also
 forbidden from referring to anything containing a COPY tag, with the
 exception that a COPY tag used as a value may refer to an tag that uses
 a COPY tag for a classname or hash key.
@@ -346,6 +350,14 @@ Note that classnames MUST be a string, or a COPY tag referencing a string.
 OBJECTV varints MUST reference a previously used classname, and not an
 arbitrary string.
 
+=head1 PROTOCOL CHANGES
+
+=head2 Protocol Version 2
+
+In Sereal protocol version 2, offsets were changed from being relative to
+the start of the document (including header) to being relative to the start
+of the document body (ie. excluding the document header). This means that
+Sereal document bodies are now self-contained - relocatable within the document.
 
 =head1 NOTES ON IMPLEMENTATION
 
