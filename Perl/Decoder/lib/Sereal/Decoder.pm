@@ -59,10 +59,10 @@ and feature-rich binary protocol called I<Sereal>.
 Its sister module L<Sereal::Encoder> implements an encoder for this format.
 The two are released separately to allow for independent and safer upgrading.
 
-The Sereal protocol version that is compatible with this decoder implementation
-is currently protocol version 1. As it stands, it will refuse to attempt to
+The Sereal protocol versions that are compatible with this decoder implementation
+are currently protocol versions 1 and 2. As it stands, it will refuse to attempt to
 decode future versions of the protocol, but there is likely going to be an
-option to decode the parts of the input that are compatible with version 1
+option to decode the parts of the input that are compatible with version 2
 of the protocol. The protocol was designed to allow for this.
 
 The protocol specification and many other bits of documentation

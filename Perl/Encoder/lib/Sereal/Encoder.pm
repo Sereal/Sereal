@@ -48,7 +48,7 @@ Its sister module L<Sereal::Decoder> implements a decoder for this format.
 The two are released separately to allow for independent and safer upgrading.
 
 The Sereal protocol version emitted by this encoder implementation is currently
-protocol version 1.
+protocol version 2 by default.
 
 The protocol specification and many other bits of documentation
 can be found in the github repository. Right now, the specification is at
@@ -226,8 +226,14 @@ when decoding. The upshot is that with this option, the application
 using (decoding) the data may save a lot of memory in some situations
 but at the cost of potential action at a distance due to the aliasing.
 
-Beware: The test suite currently does not cover this option as well as it
+I<Beware:> The test suite currently does not cover this option as well as it
 probably should. Patches welcome.
+
+=head3 use_protocol_v1
+
+If set, the encoder will emit Sereal documents following protocol version 1.
+This is strongly discouraged except for temporary
+compatibility/migration purposes.
 
 =head1 INSTANCE METHODS
 
