@@ -244,12 +244,13 @@ srl_build_encoder_struct(pTHX_ HV *opt)
     /* load options */
     if (opt != NULL) {
         int undef_unknown = 0;
-        int snappy = 0;
+        int snappy_nonincr = 0;
         /* SRL_F_SHARED_HASHKEYS on by default */
         svp = hv_fetchs(opt, "no_shared_hashkeys", 0);
         if ( !svp || !SvTRUE(*svp) )
             SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
 
+        /* Needs to be before the snappy options */
         svp = hv_fetchs(opt, "use_protocol_v1", 0);
         if ( svp && SvTRUE(*svp) )
             SRL_ENC_SET_OPTION(enc, SRL_F_USE_PROTO_V1);
@@ -264,13 +265,18 @@ srl_build_encoder_struct(pTHX_ HV *opt)
 
         svp = hv_fetchs(opt, "snappy", 0);
         if ( svp && SvTRUE(*svp) ) {
-            snappy = 1;
-            SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY);
+            /* incremental is the new black in V2 */
+            if (expect_true( !SRL_ENC_HAVE_OPTION(enc, SRL_F_USE_PROTO_V1) ))
+                SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
+            else {
+                snappy_nonincr = 1;
+                SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY);
+            }
         }
 
         svp = hv_fetchs(opt, "snappy_incr", 0);
         if ( svp && SvTRUE(*svp) ) {
-            if (snappy)
+            if (snappy_nonincr)
                 croak("'snappy' and 'snappy_incr' options are mutually exclusive");
             SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
         }
