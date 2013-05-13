@@ -75,14 +75,18 @@ Raw Sereal format. The data can be processed verbatim.
 
 =item 1
 
-Compressed Sereal format, using Google's Snappy compression internally.
-Prefer I<2> wherever possible.
+B<This is not a valid document type for Sereal protocol version 2!>
+
+In Sereal protocol version 1, this used to be
+"Compressed Sereal format, using Google's Snappy compression internally."
+It has long been advised to prefer I<2>, "incremental-decoding-enabled
+compressed Sereal," wherever possible.
 
 =item 2
 
 Compressed Sereal format, using Google's Snappy compression internally as
-format I<1>, but supporting incremental-parsing. Preferred over I<1> as this
-is considered a bug fix in the Snappy compression support.
+format I<1>, but supporting incremental-parsing. Long preferred over
+I<1> as this is considered a bug fix in the Snappy compression support.
 
 The format is:
 
