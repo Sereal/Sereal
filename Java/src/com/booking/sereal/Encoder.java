@@ -58,8 +58,6 @@ public class Encoder {
 	// so we don't need to allocate this every time we encode a varint
 	private byte[] varint_buf = new byte[12];
 
-	private final Map<String, Object> options;
-
 	private final Map<String, Integer> saved_classnames = new HashMap<String, Integer>();
 
 	private final byte[] HEADER = ByteBuffer.allocate( 4 ).putInt( SerealHeader.MAGIC ).array();
@@ -82,7 +80,6 @@ public class Encoder {
 
 	public Encoder(Map<String, Object> options) {
 
-		this.options = options == null ? new HashMap<String, Object>() : options;
 		data = new ArrayList<byte[]>();
 
 		init();
@@ -352,6 +349,7 @@ public class Encoder {
 		return getData();
 	}
 
+	@SuppressWarnings("unchecked")
 	private void encode(Object obj) throws SerealException {
 
 		log.fine( "Currently tracked: " + Utils.dump( tracked ) );
@@ -419,7 +417,7 @@ public class Encoder {
 			data.add( new byte[] { SerealHeader.SRL_HDR_WEAKEN } );
 			size++;
 
-			PerlReference wref = (PerlReference) ((WeakReference) obj).get(); // pretend weakref is a marker
+			PerlReference wref = (PerlReference) ((WeakReference<PerlReference>) obj).get(); // pretend weakref is a marker
 			refcount( wref.value, -1 ); // since the following ref will increment it (weakref is more of a marker in perl)
 			encode( wref );
 

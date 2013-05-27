@@ -88,7 +88,9 @@ public class Decoder implements SerealHeader {
 		int size = (int) f.length(); // yeah yeah truncate
 		log.fine( "File size: " + size );
 		ByteBuffer buf = ByteBuffer.allocate( size );
-		new FileInputStream( f ).getChannel().read( buf );
+		FileInputStream fi = new FileInputStream( f );
+		fi.getChannel().read( buf );
+		fi.close();
 		log.fine( "Raw: " + new String( buf.array() ) );
 
 		setData( buf );
@@ -439,7 +441,7 @@ public class Decoder implements SerealHeader {
 				log.fine("Weakening the next thing");
 				// so the next thing HAS to be a ref (afaict) which means we can track it
 				PerlReference placeHolder = new PerlReference();
-				WeakReference wref = new WeakReference( placeHolder );
+				WeakReference<PerlReference> wref = new WeakReference<PerlReference>( placeHolder );
 				if( track != 0 ) {
 					track_stuff( track, wref );
 				}

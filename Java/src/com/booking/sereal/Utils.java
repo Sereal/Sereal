@@ -443,7 +443,7 @@ public class Utils {
 		return o;
 	}
 
-	public static Object bless(Class c, Map<String, Object> data) {
+	public static Object bless(Class<?> c, Map<String, Object> data) {
 		Object instance = null;
 		try {
 			instance = c.newInstance();
@@ -531,13 +531,13 @@ public class Utils {
 			Object instance = null;
 			if( !status ) {// If compilation error occurs
 				/* Iterate through each compilation problem and print it */
-				for(Diagnostic diagnostic : diagnostics.getDiagnostics()) {
+				for(Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
 					System.out.format( "Error on line %d in %s", diagnostic.getLineNumber(), diagnostic );
 				}
 			} else {
 				// make our object
 				try {
-					Class c = Class.forName( root_package + "." + name );
+					Class<?> c = Class.forName( root_package + "." + name );
 					instance = c.newInstance();
 					// set its fields
 					System.out.println("all");
@@ -577,7 +577,6 @@ public class Utils {
 		}
 
 		class DynamicJavaSourceCodeObject extends SimpleJavaFileObject {
-			private String qualifiedName;
 			private String sourceCode;
 
 			/**
@@ -592,29 +591,12 @@ public class Utils {
 			 */
 			protected DynamicJavaSourceCodeObject(String name, String code) {
 				super( URI.create( "string:///" + name.replaceAll( "\\.", "/" ) + Kind.SOURCE.extension ), Kind.SOURCE );
-				this.qualifiedName = name;
 				this.sourceCode = code;
 			}
 
 			@Override
 			public CharSequence getCharContent(boolean ignoreEncodingErrors) throws IOException {
 				return sourceCode;
-			}
-
-			public String getQualifiedName() {
-				return qualifiedName;
-			}
-
-			public void setQualifiedName(String qualifiedName) {
-				this.qualifiedName = qualifiedName;
-			}
-
-			public String getSourceCode() {
-				return sourceCode;
-			}
-
-			public void setSourceCode(String sourceCode) {
-				this.sourceCode = sourceCode;
 			}
 		}
 
