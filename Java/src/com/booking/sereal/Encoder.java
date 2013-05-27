@@ -64,6 +64,7 @@ public class Encoder {
 
 	// track things we've encoded so we can emit refs and copies
 	private Map<Object, Integer> tracked = new HashMap<Object, Integer>();
+	private Map<Object, Integer> tracked_copy = new HashMap<Object, Integer>();
 
 	// where we store the various encoded things
 	private final ArrayList<byte[]> data;
@@ -77,6 +78,7 @@ public class Encoder {
 	private Map<Object, Integer> hashrefs = new HashMap<Object, Integer>();
 
 	private Map<Integer, Integer> refp_segments = new HashMap<Integer, Integer>();
+	private Map<Integer, Integer> copy_segments = new HashMap<Integer, Integer>();
 
 	public Encoder(Map<String, Object> options) {
 
@@ -136,8 +138,20 @@ public class Encoder {
 
 		// now that possible expansions have happened, we need to take all REFPs (that point to segments)
 		// and translate them to offsets. FUBAR
-		for(Entry<Integer, Integer> entry : refp_segments.entrySet()) { // segment where the refp is
-			log.fine( "Translating segment to offset for refp segment: " + entry.getKey() + " pointing to segment: " + entry.getValue() );
+		fixOffsets( refp_segments );
+		fixOffsets( copy_segments );
+
+		// concat all the segments
+		ByteBuffer buf = concatSegments();
+
+		buf.rewind();
+
+		return buf;
+	}
+
+	private void fixOffsets(Map<Integer, Integer> segmentMap) {
+		for(Entry<Integer, Integer> entry : segmentMap.entrySet()) { // segment where the refp is
+			log.fine( "Translating segment to offset for copy segment: " + entry.getKey() + " pointing to segment: " + entry.getValue() );
 
 			int offset = 0;
 			for(int s = 0; s < entry.getValue(); s++) {
@@ -146,13 +160,6 @@ public class Encoder {
 			log.fine( "Offset is: " + offset );
 			data.set( entry.getKey(), varintFromLong( offset ) );
 		}
-
-		// concat all the segments
-		ByteBuffer buf = concatSegments();
-
-		buf.rewind();
-
-		return buf;
 	}
 
 	private void fixrefs(boolean array) {
@@ -228,6 +235,19 @@ public class Encoder {
 		write_varint( (n << 1) ^ (n >> 63) ); // note the unsigned right shift
 	}
 
+	private int getAHashCode(Object obj) {
+		if( obj == null ) {
+			return 0;
+		}
+		if( obj.getClass().isInstance( new byte[0] ) ) {
+			return java.util.Arrays.hashCode( (byte[]) obj );
+		}
+		if( obj.getClass().isPrimitive() ) {
+			return System.identityHashCode( obj );
+		}
+		return obj.hashCode();
+	}
+
 	/**
 	 * Encode a short ascii string
 	 * 
@@ -241,35 +261,40 @@ public class Encoder {
 		log.fine( "Writing short binary: " + latin1 );
 
 		// maybe we can just COPY (but obviously not emit a copy tag for ourselves)
-		if( isTracked( latin1 ) && getTrackedItem( latin1 ) != data.size() ) {
+		if( isTrackedForCopy( latin1 ) && getTrackedItemCopy( latin1 ) != data.size() ) {
 			write_copy( latin1 );
 			return;
 		}
 
 		int length = latin1.length;
+		int location = data.size();
 
 		if( length > 31 ) {
 			throw new SerealException( "Cannot create short binary for " + latin1 + ": too long" );
 		}
 
 		// length of string
-		data.add( new byte[]{ (byte) (length | SerealHeader.SRL_HDR_SHORT_BINARY) } );
+		data.add( new byte[] { (byte) (length | SerealHeader.SRL_HDR_SHORT_BINARY) } );
 		size++;
 
 		// save it
 		data.add( latin1 );
 		size += length;
 
+		track(latin1, location);
+		trackForCopy(latin1, location);
 	}
 
-	protected void write_copy(byte[] latin1) {
+	protected void write_copy(Object obj) {
 
-		log.fine( "Emitting a copy for: '" + latin1 + "'" );
-
+		int prevLocation = getTrackedItemCopy(obj);
+		log.fine( "Emitting a COPY for location " + prevLocation );
+		
 		data.add( new byte[] { SerealHeader.SRL_HDR_COPY } );
 		size++;
 
-		write_varint( getTrackedItem( latin1 ) );
+		copy_segments.put( data.size(), prevLocation );
+		write_varint(prevLocation);
 
 		// do not track since spec says no
 	}
@@ -473,13 +498,26 @@ public class Encoder {
 		return tracked.get( System.identityHashCode( obj ) );
 	}
 
+	private Integer getTrackedItemCopy(Object obj) {
+		return tracked_copy.get(getAHashCode(obj));
+	}
+	
 	private boolean isTracked(Object obj) {
 		return tracked.containsKey( System.identityHashCode( obj ) );
 	}
 
+	private boolean isTrackedForCopy(Object obj) {
+		return tracked.containsKey( getAHashCode( obj ) );
+	}
+	
 	private void track(Object obj, int obj_location) {
 		log.fine( "Tracking " + (obj == null ? "NULL/undef" : obj.getClass().getName()) + "@" + System.identityHashCode( obj ) + " at location " + obj_location );
 		tracked.put( System.identityHashCode( obj ), obj_location );
+	}
+	
+	private void trackForCopy(Object obj, int obj_location) {
+		log.fine( "Tracking " + (obj == null ? "NULL/undef" : obj.getClass().getName()) + "@" + getAHashCode( obj ) + " at location " + obj_location );
+		tracked.put( getAHashCode( obj ), obj_location );
 	}
 
 	private void write_double(Double d) {
@@ -649,7 +687,7 @@ public class Encoder {
 
 		if( str instanceof Latin1String ) {
 			log.fine( "Encoding as latin1: " + str );
-			byte[] latin1 = ((Latin1String)str).getBytes();
+			byte[] latin1 = ((Latin1String) str).getBytes();
 			if( str.length() < SerealHeader.SRL_MASK_SHORT_BINARY_LEN ) {
 				write_short_binary( latin1 );
 			} else {
@@ -661,7 +699,7 @@ public class Encoder {
 			data.add( new byte[] { SerealHeader.SRL_HDR_STR_UTF8 } );
 			size++;
 
-			byte[] utf8 = ((String)str).getBytes( charset_utf8 );
+			byte[] utf8 = ((String) str).getBytes( charset_utf8 );
 			write_varint( utf8.length );
 
 			data.add( utf8 );
@@ -700,6 +738,7 @@ public class Encoder {
 		size = 0;
 		data.clear();
 		tracked.clear();
+		tracked_copy.clear();
 		tracked_and_used.clear();
 		refcounts.clear();
 		saved_classnames.clear();
