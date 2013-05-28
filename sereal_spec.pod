@@ -44,7 +44,7 @@ next etc.
 
 See L<Google's description|https://developers.google.com/protocol-buffers/docs/encoding#varints>.
 
-=head2 Header Format
+=head2 Document Header Format
 
 A header consists of multiple components:
 
@@ -113,10 +113,38 @@ extended header due to the embedded length).
 =head3 OPT-SUFFIX
 
 The suffix may contain whatever data the encoder wishes to embed in the
-header. In version 1 of the protocol the decoder will never look inside
-this data. Later versions may introduce new rules for this field.
+header. In version 1 of the protocol the decoder never looked inside
+this data. Later versions may introduce additional rules for this field.
+In version 2 of the protocol, this variable-length part of the header
+may be empty or have the following format:
 
-=head2 Body Format
+    <8bit-BITFIELD> <OPT-USER-META-DATA>
+
+=over 2
+
+=item 8bit-BITFIELD
+
+If not present, all bits are assumed off. In version 2 of the protocol,
+only the least significant bit is meaningful: If set, the bitfield is
+followed by the C<E<lt>USER-META-DATAE<gt>>. If not set, there is
+no user meta data.
+
+=item OPT-USER-META-DATA
+
+If the least significant bit of the preceding bitfield is set, this
+may be an arbitrary Sereal document body. Like any other Sereal
+document body, it is self-contained and can be deserialized independently
+from any other document bodies in the Sereal document. This document
+body is NEVER compressed.
+
+This is intended for embedding small amounts of meta data, such as
+routing information, in a document that allows users to avoid
+deserializing very large document bodies needlessly or having to
+call into decompression logic.
+
+=back
+
+=head2 Document Body Format
 
 The body is made up of tagged data items:
 
@@ -362,6 +390,10 @@ In Sereal protocol version 2, offsets were changed from being relative to
 the start of the document (including header) to being relative to the start
 of the document body (ie. excluding the document header). This means that
 Sereal document bodies are now self-contained - relocatable within the document.
+
+Additionally, protocol version 2 introduced the 8bit bit-field (8bit-BITFIELD)
+in the variable-length/optional header part (OPT-SUFFIX) of the document
+and the user-meta-data section (OPT-USER-META-DATA) of the variable-length header.
 
 =head1 NOTES ON IMPLEMENTATION
 
