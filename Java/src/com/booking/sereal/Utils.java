@@ -380,16 +380,16 @@ public class Utils {
 					+ "@" + System.identityHashCode( o );
 
 		} else if( o instanceof Alias ) {
-			return ind + "Alias: " + dump( ((Alias)o).value, indent );
+			return ind + "Alias: " + dump( ((Alias)o).getValue(), indent );
 		} else if( o instanceof PerlReference ) {
-			return ind + "Perlref@" + System.identityHashCode( o ) +": " + dump( ((PerlReference)o).value, indent);
+			return ind + "Perlref@" + System.identityHashCode( o ) +": " + dump( ((PerlReference)o).getValue(), indent);
 		} else if( o instanceof Padded ) {
-			return ind + "(PAD) " + dump( ((Padded)o).value, 0);
+			return ind + "(PAD) " + dump( ((Padded)o).getValue(), 0);
 		} else if( o instanceof WeakReference) {
 			return ind + "(weakref@" + System.identityHashCode( o ) + ") " + dump( ((WeakReference)o).get(), 0 );
 		} else if( o instanceof PerlObject) {
 			PerlObject po = (PerlObject) o;
-			return ind + "Object("+(po.isHash()?"hash":(po.isArray()?"array":"reference"))+"):" + po.getName() + "= " + dump( po.data, 0 );
+			return ind + "Object("+(po.isHash()?"hash":(po.isArray()?"array":"reference"))+"):" + po.getName() + "= " + dump( po.getData(), 0 );
 		} else {
 			// ad system ident hascode (which is normally memory location) so you
 			// can see if things point to the same

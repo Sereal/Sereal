@@ -4,8 +4,8 @@ import java.nio.charset.Charset;
 
 public class Latin1String implements CharSequence {
 
-	private Charset charset_latin1 = Charset.forName( "ISO-8859-1" );
-	private String s;
+	private final Charset charset_latin1 = Charset.forName( "ISO-8859-1" );
+	private final String s;
 
 	public Latin1String(String s) {
 		this.s = s;

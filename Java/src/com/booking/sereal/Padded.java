@@ -6,10 +6,14 @@ package com.booking.sereal;
  */
 public final class Padded {
 
-	public final Object value;
+	private final Object value;
 
 	public Padded(Object value) {
 		this.value = value;
+	}
+
+	public Object getValue() {
+		return value;
 	}
 
 }

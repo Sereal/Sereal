@@ -424,11 +424,10 @@ public class Decoder implements SerealHeader {
 			case SRL_HDR_REFN:
 				log.fine( "Reading ref to next" );
 				if( perlRefs ) {
-					PerlReference refn = new PerlReference();
+					PerlReference refn = new PerlReference(readSingleValue());
 					if( track != 0 ) {
 						track_stuff( track, refn );
 					}
-					refn.value = readSingleValue();
 					out = refn;
 				} else {
 					out = readSingleValue();
@@ -473,12 +472,11 @@ public class Decoder implements SerealHeader {
 			case SRL_HDR_WEAKEN:
 				log.fine("Weakening the next thing");
 				// so the next thing HAS to be a ref (afaict) which means we can track it
-				PerlReference placeHolder = new PerlReference();
+				PerlReference placeHolder = new PerlReference(((PerlReference)readSingleValue()).getValue());
 				WeakReference<PerlReference> wref = new WeakReference<PerlReference>( placeHolder );
 				if( track != 0 ) {
 					track_stuff( track, wref );
 				}
-				placeHolder.value = ((PerlReference)readSingleValue()).value;
 				out = wref;
 				break;
 			case SRL_HDR_HASH:

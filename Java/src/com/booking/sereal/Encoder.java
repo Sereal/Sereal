@@ -425,14 +425,14 @@ public class Encoder {
 			while( obj instanceof Padded ) {
 				data.add( new byte[] { SerealHeader.SRL_HDR_PAD } );
 				size++;
-				obj = ((Padded) obj).value;
+				obj = ((Padded) obj).getValue();
 			}
 			encode( obj );
 		} else if( type == PerlReference.class ) {
 
 			PerlReference ref = (PerlReference) obj;
-			if( isTracked( ref.value ) ) {
-				write_ref_previous( ref.value );
+			if( isTracked( ref.getValue() ) ) {
+				write_ref_previous( ref.getValue() );
 			} else {
 				write_ref( ref );
 			}
@@ -443,12 +443,12 @@ public class Encoder {
 			size++;
 
 			PerlReference wref = (PerlReference) ((WeakReference<PerlReference>) obj).get(); // pretend weakref is a marker
-			refcount( wref.value, -1 ); // since the following ref will increment it (weakref is more of a marker in perl)
+			refcount( wref.getValue(), -1 ); // since the following ref will increment it (weakref is more of a marker in perl)
 			encode( wref );
 
 		} else if( type == Alias.class ) {
 
-			write_alias( ((Alias) obj).value );
+			write_alias( ((Alias) obj).getValue() );
 
 		} else if( type == PerlObject.class ) {
 
@@ -485,7 +485,7 @@ public class Encoder {
 		}
 
 		// write the data structure
-		encode( po.data );
+		encode( po.getData() );
 
 	}
 
@@ -591,14 +591,14 @@ public class Encoder {
 
 	private void write_ref(PerlReference ref) throws SerealException {
 
-		log.fine( "Emitting a REFN for @" + System.identityHashCode( ref ) + " -> @" + System.identityHashCode( ref.value ) );
+		log.fine( "Emitting a REFN for @" + System.identityHashCode( ref ) + " -> @" + System.identityHashCode( ref.getValue() ) );
 
-		refcount( ref.value, 1 );
+		refcount( ref.getValue(), 1 );
 
 		data.add( new byte[] { (SerealHeader.SRL_HDR_REFN) } );
 		size++;
 
-		encode( ref.value );
+		encode( ref.getValue() );
 
 	}
 
