@@ -12,6 +12,11 @@ public class Latin1String implements CharSequence {
 	}
 
 	@Override
+	public String toString() {
+		return  s;
+	}
+	
+	@Override
 	public char charAt(int index) {
 		return s.charAt( index );
 	}

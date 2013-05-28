@@ -14,6 +14,8 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
 
+import org.xerial.snappy.Snappy;
+
 /**
  * WIP Decoder for Sereal WIP
  */
@@ -121,6 +123,8 @@ public class Decoder implements SerealHeader {
 
 	private boolean preservePadding = false;
 
+	private ByteBuffer realData;
+
 	/**
 	 * Create a new Decoder
 	 *
@@ -182,11 +186,14 @@ public class Decoder implements SerealHeader {
 		}
 		properties.put( "protocol_version", protocolVersion );
 
-		int encoding = protoAndFlags & ~15;
+		int encoding = (protoAndFlags & ~15) >> 4;
 		log.fine( "Encoding: " + encoding );
-		if( encoding == 1 && options.containsKey( "snappy_support" ) ) {
+		if((encoding == 1 || encoding == 2) && !options.containsKey( "snappy_support" ) ) {
 			throw new SerealException( "Unsupported encoding: Snappy" );
+		} else if(encoding < 0 || encoding > 2) {
+			throw new SerealException( "Unsupported encoding: unknown");
 		}
+		
 		properties.put( "encoding", encoding );
 
 	}
@@ -195,8 +202,9 @@ public class Decoder implements SerealHeader {
 	 *
 	 * @return deserealized object
 	 * @throws SerealException
+	 * @throws IOException 
 	 */
-	public Object decode() throws SerealException {
+	public Object decode() throws SerealException, IOException {
 
 		if( data == null ) {
 			throw new SerealException( "No data set" );
@@ -208,12 +216,35 @@ public class Decoder implements SerealHeader {
 		checkProtoAndFlags();
 		checkHeaderSuffix();
 
+		realData = data;
+		int encoding = (Integer) properties.get( "encoding" );
+		if( encoding == 1 || encoding == 2 ) {
+			uncompressSnappy();
+		}
 		Object out = readSingleValue();
 
 		log.fine( "Read: " + out );
-		log.fine( "Data left: " + (data.limit() - data.position()) );
+		log.fine( "Data left: " + (realData.limit() - realData.position()) );
 
 		return out;
+	}
+
+	private void uncompressSnappy() throws IOException, SerealException {
+		int len = realData.limit() - realData.position() -1;
+		
+		if((Integer) properties.get("encoding") == 2) {
+			len = (int) read_varint();
+		}
+		int pos = realData.position();
+		byte[] compressed = new byte[len];
+		realData.get( compressed, 0, len );
+		byte[] uncompressed = new byte[pos + Snappy.uncompressedLength( compressed, 0, len ) ];
+		if(!Snappy.isValidCompressedBuffer( compressed)) {
+			throw new SerealException("Invalid snappy data");
+		}
+		Snappy.uncompress( compressed, 0, len, uncompressed, pos );
+		this.data = ByteBuffer.wrap( uncompressed );
+		this.data.position(pos);
 	}
 
 	/**
@@ -251,10 +282,12 @@ public class Decoder implements SerealHeader {
 	}
 
 	/**
-	 * Reads a byte array, but was called read_binary in C, so for grepping porposes I kept the name
+	 * Reads a byte array, but was called read_binary in C, so for grepping purposes I kept the name
+	 * 
+	 * For some reason we call them Latin1Strings.
 	 * @return
 	 */
-	byte[] read_binary() {
+	Latin1String read_binary() {
 
 		int length = (int) read_varint();
 		byte[] out = new byte[length];
@@ -262,7 +295,7 @@ public class Decoder implements SerealHeader {
 			out[i] = data.get();
 		}
 
-		return out;
+		return new Latin1String( Charset.forName( "ISO-8859-1" ).decode( ByteBuffer.wrap( out ) ).toString() );
 	}
 
 	private Map<CharSequence, Object> read_hash(byte tag) throws SerealException {
@@ -379,8 +412,8 @@ public class Decoder implements SerealHeader {
 				out = null;
 				break;
 			case SRL_HDR_BINARY:
-				byte[] bytes = read_binary();
-				log.fine( "Read binary: " + Utils.hexStringFromByteArray( bytes ) );
+				Latin1String bytes = read_binary();
+				log.fine( "Read binary: " + bytes );
 				out = bytes;
 				break;
 			case SRL_HDR_STR_UTF8:

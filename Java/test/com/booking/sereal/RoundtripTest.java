@@ -5,6 +5,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
@@ -49,7 +50,7 @@ public class RoundtripTest {
 
 
 	@Test
-	public void regex() {
+	public void regex() throws IOException {
 
 		Pattern[] patterns = new Pattern[] { Pattern.compile( "foo" ), Pattern.compile( "foo", Pattern.DOTALL ),
 				Pattern.compile( "foo", Pattern.DOTALL | Pattern.MULTILINE ), Pattern.compile( "foo", Pattern.DOTALL | Pattern.MULTILINE | Pattern.COMMENTS ),
@@ -78,7 +79,7 @@ public class RoundtripTest {
 	}
 
 	@Test
-	public void byte_array() {
+	public void byte_array() throws IOException {
 
 		int n = 10 * 1000;
 		while( n-- > 0 ) {
@@ -101,7 +102,7 @@ public class RoundtripTest {
 	}
 
 	@Test
-	public void copy() {
+	public void copy() throws IOException {
 		// write 3 copies of a string (that should be copied)
 		String str = "This is quite a long string";
 		try {
@@ -125,7 +126,7 @@ public class RoundtripTest {
 	}
 
 	@Test
-	public void short_binary() {
+	public void short_binary() throws IOException {
 
 		Latin1String str = new Latin1String( "Hello, Sereal!" );
 		try {
@@ -143,7 +144,7 @@ public class RoundtripTest {
 	}
 
 	@Test
-	public void booleans() {
+	public void booleans() throws IOException {
 
 		encoder.write_boolean( true );
 		decoder.setData( encoder.getData() );
