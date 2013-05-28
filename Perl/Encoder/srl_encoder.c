@@ -715,7 +715,7 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
 #    define RX_PRECOMP(re) ((re)->precomp)
 #    define RX_PRELEN(re) ((re)->prelen)
 
-// Maybe this is only on OS X, where SvUTF8(sv) exists but looks at flags that don't exist
+/* Maybe this is only on OS X, where SvUTF8(sv) exists but looks at flags that don't exist */
 #    define RX_UTF8(re) (RX_EXTFLAGS(re) & RXf_UTF8)
 
 #elif defined(SvRX)
