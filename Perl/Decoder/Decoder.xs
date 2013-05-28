@@ -84,7 +84,6 @@ looks_like_sereal(...)
     SV *data;
     char *strdata;
     STRLEN len;
-    const STRLEN magic_len = strlen(SRL_MAGIC_STRING);
   CODE:
     RETVAL = 1;
     if (items > 2 || items == 0) {
@@ -96,9 +95,9 @@ looks_like_sereal(...)
         RETVAL = 0;
     else {
         strdata = SvPV(data, len);
-        if (len < magic_len+3 /* at least one version/flag byte, one byte for header len, one type byte (smallest payload) */
-            || strnNE(strdata, SRL_MAGIC_STRING, magic_len)
-            || strdata[magic_len] == (U8)0) /* FIXME this check could be much better using the proto versions and all*/
+        if (len < SRL_MAGIC_STRLEN+3 /* at least one version/flag byte, one byte for header len, one type byte (smallest payload) */
+            || strnNE(strdata, SRL_MAGIC_STRING, SRL_MAGIC_STRLEN)
+            || strdata[SRL_MAGIC_STRLEN] == (U8)0) /* FIXME this check could be much better using the proto versions and all*/
         {
             RETVAL = 0;
         }
