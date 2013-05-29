@@ -9,10 +9,14 @@ This is incomplete implementation, it does not have support for REFP,REFN and AL
 
 ### install
 ```
-$ git clone https://github.com/jackdoe/Sereal
+$ gem install sereal
+
+# or you can build it from github
+
+$ git clone https://github.com/Sereal/Sereal
 $ cd Sereal/ruby
 $ gem build sereal.gemspec 
-$ gem install sereal-0.0.1.gem 
+$ gem install sereal-0.0.2.gem 
 ```
 
 ### examples
