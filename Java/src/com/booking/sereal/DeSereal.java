@@ -18,7 +18,7 @@ public class DeSereal {
 
 		Map<String, Object> decoder_options = new HashMap<String, Object>();
 		decoder_options.put( "snappy_support", true );
-		decoder_options.put( "use_perl_refs", true ); // so ref to int will give a Reference object and not just an int
+		decoder_options.put( "use_perl_refs", false ); // so ref to int will give a Reference object and not just an int
 		decoder_options.put( "preserve_pad_tags", true ); // so pad bytes are saved
         decoder_options.put("prefer_latin1", true); // Use latin1 instead of byte[] if possible
 

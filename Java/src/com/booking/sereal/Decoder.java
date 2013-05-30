@@ -301,7 +301,7 @@ public class Decoder implements SerealHeader {
 		return out;
 	}
 
-	private Map<String, Object> read_hash(byte tag) throws SerealException {
+	private Map<String, Object> read_hash(byte tag, int track) throws SerealException {
 		long num_keys = 0;
 		if( tag == 0 ) {
 			num_keys = read_varint();
@@ -310,6 +310,9 @@ public class Decoder implements SerealHeader {
 		}
 
 		Map<String, Object> hash = new HashMap<String, Object>( (int) num_keys );
+        if( track != 0 ) { // track ourself
+            track_stuff( track, hash );
+        }
 
 		log.fine( "Reading " + num_keys + " hash elements" );
 
@@ -382,7 +385,7 @@ public class Decoder implements SerealHeader {
 			log.fine( "Read short binary: " + short_binary + " length " + short_binary.length );
             out = prefer_latin1 ? new Latin1String(short_binary) : short_binary;
 		} else if( (tag & SRL_HDR_HASHREF) == SRL_HDR_HASHREF ) {
-			Map<String, Object> hash = read_hash( tag );
+			Map<String, Object> hash = read_hash( tag, track );
 			log.fine( "Read hash: " + hash );
 			out = hash;
 		} else if( (tag & SRL_HDR_ARRAYREF) == SRL_HDR_ARRAYREF ) {
@@ -434,14 +437,11 @@ public class Decoder implements SerealHeader {
 				break;
 			case SRL_HDR_REFN:
 				log.fine( "Reading ref to next" );
+                PerlReference refn = new PerlReference(readSingleValue());
 				if( perlRefs ) {
-					PerlReference refn = new PerlReference(readSingleValue());
-					if( track != 0 ) {
-						track_stuff( track, refn );
-					}
 					out = refn;
 				} else {
-					out = readSingleValue();
+					out = refn.getValue();
 				}
 				log.fine( "Read ref: " + Utils.dump( out ) );
 				break;
@@ -485,13 +485,10 @@ public class Decoder implements SerealHeader {
 				// so the next thing HAS to be a ref (afaict) which means we can track it
 				PerlReference placeHolder = new PerlReference(((PerlReference)readSingleValue()).getValue());
 				WeakReference<PerlReference> wref = new WeakReference<PerlReference>( placeHolder );
-				if( track != 0 ) {
-					track_stuff( track, wref );
-				}
 				out = wref;
 				break;
 			case SRL_HDR_HASH:
-				Object hash = read_hash( (byte) 0 );
+				Object hash = read_hash( (byte) 0, track );
 				log.fine( "Read hash: " + hash );
 				out = hash;
 				break;
