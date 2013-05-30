@@ -7,6 +7,7 @@ import static org.junit.Assert.fail;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -88,12 +89,13 @@ public class RoundtripTest {
 
 			// make some random bytes
 			byte[] pre = new byte[rand.nextInt( 100 )];
-			rand.nextBytes( pre );
+            rand.nextBytes( pre );
 
 			try {
 				decoder.setData( encoder.write( pre ) );
-				byte[] post = (byte[]) decoder.decode();
-				Assert.assertArrayEquals( pre, post );
+				Object post = decoder.decode();
+                Assert.assertTrue(post instanceof byte[]);
+				Assert.assertArrayEquals(pre, (byte[]) post);
 			} catch (SerealException e) {
 				fail( e.getMessage() );
 			}
@@ -137,7 +139,9 @@ public class RoundtripTest {
 
 		decoder.setData( encoder.getData() );
 		try {
-			assertEquals( str, decoder.decode() );
+            Object obj = decoder.decode();
+            assertTrue(obj instanceof byte[]);
+			assertEquals( str, new Latin1String((byte[]) obj) );
 		} catch (SerealException e) {
 			fail( e.getMessage() );
 		}

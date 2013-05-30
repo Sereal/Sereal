@@ -16,4 +16,9 @@ public class PerlReference {
 	public Object getValue() {
 		return value;
 	}
+
+    @Override
+    public String toString() {
+         return "Reference to: " + (value == null ? "null" : value.toString());
+    }
 }

@@ -23,7 +23,7 @@ public class PerlObject {
 	}
 
 	public boolean isHash() {
-		return getData().getClass() == Map.class;
+		return getData() instanceof Map;
 	}
 
 	public boolean isArray() {

@@ -64,7 +64,7 @@ public class Encoder {
 
 	// track things we've encoded so we can emit refs and copies
 	private Map<Object, Integer> tracked = new HashMap<Object, Integer>();
-	private Map<Object, Integer> tracked_copy = new HashMap<Object, Integer>();
+	private Map<Object, Integer> trackedCopy = new HashMap<Object, Integer>();
 
 	// where we store the various encoded things
 	private final ArrayList<byte[]> data;
@@ -261,7 +261,7 @@ public class Encoder {
 		log.fine( "Writing short binary: " + latin1 );
 
 		// maybe we can just COPY (but obviously not emit a copy tag for ourselves)
-		if( isTrackedForCopy( latin1 ) && getTrackedItemCopy( latin1 ) != data.size() ) {
+		if( isTrackedForCopy( latin1 ) && getTrackedItemCopy( latin1 ) != this.data.size() ) {
 			write_copy( latin1 );
 			return;
 		}
@@ -397,7 +397,7 @@ public class Encoder {
 			return;
 		}
 
-		Class<? extends Object> type = obj.getClass();
+		Class<?> type = obj.getClass();
 		log.fine( "Encoding type: " + type );
 
 		// this is ugly :)
@@ -499,7 +499,7 @@ public class Encoder {
 	}
 
 	private Integer getTrackedItemCopy(Object obj) {
-		return tracked_copy.get(getAHashCode(obj));
+		return trackedCopy.get(getAHashCode(obj));
 	}
 	
 	private boolean isTracked(Object obj) {
@@ -507,7 +507,7 @@ public class Encoder {
 	}
 
 	private boolean isTrackedForCopy(Object obj) {
-		return tracked.containsKey( getAHashCode( obj ) );
+		return trackedCopy.containsKey( getAHashCode( obj ) );
 	}
 	
 	private void track(Object obj, int obj_location) {
@@ -517,7 +517,7 @@ public class Encoder {
 	
 	private void trackForCopy(Object obj, int obj_location) {
 		log.fine( "Tracking " + (obj == null ? "NULL/undef" : obj.getClass().getName()) + "@" + getAHashCode( obj ) + " at location " + obj_location );
-		tracked.put( getAHashCode( obj ), obj_location );
+		trackedCopy.put(getAHashCode(obj), obj_location);
 	}
 
 	private void write_double(Double d) {
@@ -738,7 +738,7 @@ public class Encoder {
 		size = 0;
 		data.clear();
 		tracked.clear();
-		tracked_copy.clear();
+		trackedCopy.clear();
 		tracked_and_used.clear();
 		refcounts.clear();
 		saved_classnames.clear();
