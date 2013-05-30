@@ -355,8 +355,6 @@ public class Utils {
 			return sb.toString();
 
 		} else if( o.getClass().isArray() ) {
-
-            System.out.println("Hi!");
 			StringBuilder sb = new StringBuilder( ind + "Array@" + System.identityHashCode( o )+" [\n" );
 			int length = Array.getLength( o );
 			for(int i = 0; i < length; i++) {
