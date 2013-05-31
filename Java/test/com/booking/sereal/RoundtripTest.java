@@ -5,7 +5,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -49,7 +51,7 @@ public class RoundtripTest {
 
 
 	@Test
-	public void regex() {
+	public void regex() throws IOException {
 
 		Pattern[] patterns = new Pattern[] { Pattern.compile( "foo" ), Pattern.compile( "foo", Pattern.DOTALL ),
 				Pattern.compile( "foo", Pattern.DOTALL | Pattern.MULTILINE ), Pattern.compile( "foo", Pattern.DOTALL | Pattern.MULTILINE | Pattern.COMMENTS ),
@@ -78,7 +80,7 @@ public class RoundtripTest {
 	}
 
 	@Test
-	public void byte_array() {
+	public void byte_array() throws IOException {
 
 		int n = 10 * 1000;
 		while( n-- > 0 ) {
@@ -87,12 +89,13 @@ public class RoundtripTest {
 
 			// make some random bytes
 			byte[] pre = new byte[rand.nextInt( 100 )];
-			rand.nextBytes( pre );
+            rand.nextBytes( pre );
 
 			try {
 				decoder.setData( encoder.write( pre ) );
-				byte[] post = (byte[]) decoder.decode();
-				Assert.assertArrayEquals( pre, post );
+				Object post = decoder.decode();
+                Assert.assertTrue(post instanceof byte[]);
+				Assert.assertArrayEquals(pre, (byte[]) post);
 			} catch (SerealException e) {
 				fail( e.getMessage() );
 			}
@@ -101,7 +104,7 @@ public class RoundtripTest {
 	}
 
 	@Test
-	public void copy() {
+	public void copy() throws IOException {
 		// write 3 copies of a string (that should be copied)
 		String str = "This is quite a long string";
 		try {
@@ -125,7 +128,7 @@ public class RoundtripTest {
 	}
 
 	@Test
-	public void short_binary() {
+	public void short_binary() throws IOException {
 
 		Latin1String str = new Latin1String( "Hello, Sereal!" );
 		try {
@@ -136,14 +139,16 @@ public class RoundtripTest {
 
 		decoder.setData( encoder.getData() );
 		try {
-			assertEquals( str, decoder.decode() );
+            Object obj = decoder.decode();
+            assertTrue(obj instanceof byte[]);
+			assertEquals( str, new Latin1String((byte[]) obj) );
 		} catch (SerealException e) {
 			fail( e.getMessage() );
 		}
 	}
 
 	@Test
-	public void booleans() {
+	public void booleans() throws IOException {
 
 		encoder.write_boolean( true );
 		decoder.setData( encoder.getData() );

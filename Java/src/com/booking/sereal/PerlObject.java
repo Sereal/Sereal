@@ -11,7 +11,7 @@ import java.util.Map;
 public class PerlObject {
 
 	private String name;
-	public final Object data;
+	private final Object data;
 
 	public PerlObject(String className, Object obj) {
 		this.name = className;
@@ -23,14 +23,18 @@ public class PerlObject {
 	}
 
 	public boolean isHash() {
-		return data.getClass() == Map.class;
+		return getData() instanceof Map;
 	}
 
 	public boolean isArray() {
-		return data.getClass().isArray();
+		return getData().getClass().isArray();
 	}
 
 	public boolean isReference() {
 		return !isHash() && !isArray();
+	}
+
+	public Object getData() {
+		return data;
 	}
 }

@@ -7,13 +7,18 @@ package com.booking.sereal;
  */
 public class PerlReference {
 
-	public Object value;
+	private final Object value;
 
 	public PerlReference(Object value) {
 		this.value = value;
 	}
 
-	public PerlReference() {
+	public Object getValue() {
+		return value;
 	}
 
+    @Override
+    public String toString() {
+         return "Reference to: " + (value == null ? "null" : value.toString());
+    }
 }

@@ -45,7 +45,9 @@ public class StructureDecoder {
 		// read everything
 		int size = (int) f.length(); // yeah yeah truncate
 		buf = ByteBuffer.allocate( size );
-		new FileInputStream( f ).getChannel().read( buf );
+		FileInputStream fi = new FileInputStream( f );
+		fi.getChannel().read( buf );
+		fi.close();
 
 		String structure = decode();
 
@@ -183,19 +185,9 @@ public class StructureDecoder {
 		sb.append( "=modifiers" );
 	}
 
-	private Object read_copy() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
 	private void read_object() {
 		read(); // string name
 		read(); // data;
-	}
-
-	private void track_stuff(int track, PerlReference refn) {
-		// TODO Auto-generated method stub
-
 	}
 
 	private void read_UTF8() {

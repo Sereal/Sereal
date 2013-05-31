@@ -8,10 +8,14 @@ package com.booking.sereal;
  */
 public class Alias {
 
-	public final Object value;
+	private final Object value;
 	
 	public Alias(Object value) {
 		this.value = value;
+	}
+	
+	public Object getValue() {
+		return value;
 	}
 
 }

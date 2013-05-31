@@ -2,4 +2,4 @@
 *.swo
 *~
 *.bak
-Java/bin/
+Java/target/
