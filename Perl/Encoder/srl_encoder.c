@@ -652,7 +652,6 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
         }
         else { /* do snappy compression of body */
             srl_buffer_t old_buf;
-            //char *old_buf;
             char *varint_start= NULL;
             char *varint_end;
             uint32_t dest_len;
