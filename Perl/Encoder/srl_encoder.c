@@ -686,15 +686,22 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
                              enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
             assert(dest_len != 0);
 
-            /* overwrite the max size varint with the real size of the compressed data */
-            if (varint_start)
-                srl_update_varint_from_to(aTHX_ varint_start, varint_end, dest_len);
+            /* If compression didn't help, swap back to old, uncompressed buffer */
+            if (dest_len >= uncompressed_body_length) {
+                /* swap in old, uncompressed buffer */
+                srl_buf_swap_buffer(aTHX_ &enc->buf, &old_buf);
+                /* disable snappy flag */
+                srl_reset_snappy_header_flag(enc);
+            }
+            else { /* go ahead with Snappy and do final fixups */
+                /* overwrite the max size varint with the real size of the compressed data */
+                if (varint_start)
+                    srl_update_varint_from_to(aTHX_ varint_start, varint_end, dest_len);
+                enc->buf.pos += dest_len;
+            }
 
             srl_buf_free_buffer(aTHX_ &old_buf);
-            enc->buf.pos += dest_len;
             assert(enc->buf.pos <= enc->buf.end);
-
-            /* TODO If compression didn't help, swap back to old, uncompressed buffer */
         } /* end of "actually do snappy compression" */
     } /* end of "want snappy compression?" */
 
