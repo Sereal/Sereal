@@ -96,20 +96,20 @@ srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
     assert(enc->buf.body_pos - enc->buf.start >= (ptrdiff_t)0);
 }
 
-#define BUF_SIZE_ASSERT(enc, minlen) \
-  STMT_START { \
-    DEBUG_ASSERT_BUF_SANE(enc); \
-    if (BUF_NEED_GROW(enc->buf, minlen)) \
+#define BUF_SIZE_ASSERT(enc, minlen)                                    \
+  STMT_START {                                                          \
+    DEBUG_ASSERT_BUF_SANE(enc);                                         \
+    if (BUF_NEED_GROW(enc->buf, minlen))                                \
       srl_buf_grow_nocheck(aTHX_ (enc), (BUF_SIZE(enc->buf) + minlen)); \
-    DEBUG_ASSERT_BUF_SANE(enc); \
+    DEBUG_ASSERT_BUF_SANE(enc);                                         \
   } STMT_END
 
-#define BUF_SIZE_ASSERT_TOTAL(enc, minlen) \
-  STMT_START { \
-    DEBUG_ASSERT_BUF_SANE(enc); \
-    if (BUF_NEED_GROW_TOTAL(enc->buf, minlen)) \
-      srl_buf_grow_nocheck(aTHX_ (enc), (minlen)); \
-    DEBUG_ASSERT_BUF_SANE(enc); \
+#define BUF_SIZE_ASSERT_TOTAL(enc, minlen)                              \
+  STMT_START {                                                          \
+    DEBUG_ASSERT_BUF_SANE(enc);                                         \
+    if (BUF_NEED_GROW_TOTAL(enc->buf, minlen))                          \
+      srl_buf_grow_nocheck(aTHX_ (enc), (minlen));                      \
+    DEBUG_ASSERT_BUF_SANE(enc);                                         \
   } STMT_END
 
 SRL_STATIC_INLINE void
