@@ -4,7 +4,10 @@
 #include "assert.h"
 
 #include "srl_inline.h"
+#include "srl_common.h"
 #include "srl_encoder.h"
+
+#include "srl_buffer_types.h"
 
 #ifdef MEMDEBUG
 #   define BUFFER_GROWTH_FACTOR 1
@@ -15,8 +18,6 @@
 /* The static's below plus the ifndef sort of make this header only
  * usable in one place per compilation unit. Drop "static" when necessary.
  * For now, potentially smaller code wins. */
-
-#include "srl_buffer_types.h"
 
 /* buffer operations */
 #define BUF_POS_OFS(buf) (((buf).pos) - ((buf).start))
@@ -65,6 +66,44 @@
 #else
 #define DEBUG_ASSERT_BUF_SANE(enc) assert(((enc)->buf.start <= (enc)->buf.pos) && ((enc)->buf.pos <= (enc)->buf.end))
 #endif
+
+/* Allocate a virgin buffer (but not the buffer struct) */
+SRL_STATIC_INLINE int
+srl_buf_init_buffer(pTHX_ srl_buffer_t *buf, const STRLEN init_size)
+{
+    Newx(buf->start, init_size, char);
+    if (expect_false( buf->start == NULL ))
+        return 1;
+    buf->end = buf->start + init_size - 1;
+    buf->pos = buf->start;
+    buf->body_pos = buf->start; /* SRL_SET_BODY_POS(enc, enc->buf.start) equiv */
+    return 0;
+}
+
+/* Free a buffer (but not the buffer struct) */
+SRL_STATIC_INLINE void
+srl_buf_free_buffer(pTHX_ srl_buffer_t *buf)
+{
+    Safefree(buf->start);
+}
+
+/* Copy one buffer to another (shallowly!) */
+SRL_STATIC_INLINE void
+srl_buf_copy_buffer(pTHX_ srl_buffer_t *src, srl_buffer_t *dest)
+{
+    Copy(src, dest, 1, srl_buffer_t);
+}
+
+/* Swap two buffers */
+SRL_STATIC_INLINE void
+srl_buf_swap_buffer(pTHX_ srl_buffer_t *buf1, srl_buffer_t *buf2)
+{
+    srl_buffer_t tmp;
+    Copy(buf1, &tmp, 1, srl_buffer_t);
+    Copy(buf2, buf1, 1, srl_buffer_t);
+    Copy(&tmp, buf2, 1, srl_buffer_t);
+}
+
 
 SRL_STATIC_INLINE void
 srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)

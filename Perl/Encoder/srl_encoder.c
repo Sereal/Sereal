@@ -194,7 +194,8 @@ srl_clear_encoder(pTHX_ srl_encoder_t *enc)
 void
 srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
 {
-    Safefree(enc->buf.start);
+    srl_buf_free_buffer(aTHX_ &(enc->buf));
+
     Safefree(enc->snappy_workmem);
     if (enc->ref_seenhash != NULL)
         PTABLE_free(enc->ref_seenhash);
@@ -216,15 +217,12 @@ srl_empty_encoder_struct(pTHX)
     if (enc == NULL)
         croak("Out of memory");
 
-    /* Init struct */
-    Newx(enc->buf.start, INITIALIZATION_SIZE, char);
-    if (enc->buf.start == NULL) {
+    /* Init buffer struct */
+    if (expect_false( srl_buf_init_buffer(aTHX_ &(enc->buf), INITIALIZATION_SIZE) != 0 )) {
         Safefree(enc);
         croak("Out of memory");
     }
-    enc->buf.end = enc->buf.start + INITIALIZATION_SIZE - 1;
-    enc->buf.pos = enc->buf.start;
-    SRL_SET_BODY_POS(enc, enc->buf.start);
+
     enc->recursion_depth = 0;
     enc->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
     enc->operational_flags = 0;
