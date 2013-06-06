@@ -17,18 +17,18 @@ typedef struct PTABLE * ptable_ptr;
 typedef struct {
     srl_buffer_t buf;
 
-    U32 operational_flags;   /* flags that pertain to one encode run (rather than being options): See SRL_OF_* defines */
-    U32 flags;               /* flag-like options: See SRL_F_* defines */
-    UV max_recursion_depth;  /* Configurable limit on the number of recursive calls we're willing to make */
+    U32 operational_flags;    /* flags that pertain to one encode run (rather than being options): See SRL_OF_* defines */
+    U32 flags;                /* flag-like options: See SRL_F_* defines */
+    UV max_recursion_depth;   /* Configurable limit on the number of recursive calls we're willing to make */
 
-    UV recursion_depth;      /* current Perl-ref recursion depth */
+    UV recursion_depth;       /* current Perl-ref recursion depth */
     ptable_ptr ref_seenhash;  /* ptr table for avoiding circular refs */
     ptable_ptr weak_seenhash; /* ptr table for avoiding dangling weakrefs */
     ptable_ptr str_seenhash;  /* ptr table for issuing COPY commands based on PTRS (used for classnames and keys) */
     HV *string_deduper_hv;    /* track strings we have seen before, by content */
 
-    void *snappy_workmem;    /* lazily allocated if and only if using Snappy */
-    IV snappy_threshold;     /* do not compress things smaller than this even if Snappy enabled */
+    void *snappy_workmem;     /* lazily allocated if and only if using Snappy */
+    IV snappy_threshold;      /* do not compress things smaller than this even if Snappy enabled */
 } srl_encoder_t;
 
 /* constructor from options */
