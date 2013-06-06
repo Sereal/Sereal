@@ -204,7 +204,7 @@ SRL_STATIC_INLINE void
 srl_buf_cat_varint_nocheck(pTHX_ srl_encoder_t *enc, const char tag, UV n) {
     DEBUG_ASSERT_BUF_SANE(enc);
     DEBUG_ASSERT_BUF_SPACE(enc, (tag==0 ? 0 : 1) + SRL_MAX_VARINT_LENGTH);
-    if (tag)
+    if (expect_true( tag ))
         *enc->buf.pos++ = tag;
     while (n >= 0x80) {                      /* while we are larger than 7 bits long */
         *enc->buf.pos++ = (n & 0x7f) | 0x80; /* write out the least significant 7 bits, set the high bit */
