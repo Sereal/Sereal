@@ -651,7 +651,8 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
             srl_reset_snappy_header_flag(enc);
         }
         else { /* do snappy compression of body */
-            char *old_buf;
+            srl_buffer_t old_buf;
+            //char *old_buf;
             char *varint_start= NULL;
             char *varint_end;
             uint32_t dest_len;
@@ -666,17 +667,11 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
             srl_init_snappy_workmem(aTHX_ enc);
 
             /* Back up old buffer and allocate new one with correct size */
-            old_buf = enc->buf.start;
-            Newx(enc->buf.start, dest_len, char);
-            if (!enc->buf.start) {
-                enc->buf.start = old_buf; /* for cleanup */
-                croak("Out of memory!");
-            }
-            enc->buf.pos = enc->buf.start;
-            enc->buf.end = enc->buf.start + dest_len;
+            srl_buf_copy_buffer(aTHX_ &enc->buf, &old_buf);
+            srl_buf_init_buffer(aTHX_ &enc->buf, dest_len);
 
             /* Copy Sereal header */
-            Copy(old_buf, enc->buf.pos, sereal_header_len, char);
+            Copy(old_buf.start, enc->buf.pos, sereal_header_len, char);
             enc->buf.pos += sereal_header_len;
             SRL_UPDATE_BODY_POS(enc); /* will do the right thing wrt. protocol V1 / V2 */
 
@@ -687,7 +682,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
                 varint_end= enc->buf.pos - 1;
             }
 
-            csnappy_compress(old_buf+sereal_header_len, (uint32_t)uncompressed_body_length, enc->buf.pos, &dest_len,
+            csnappy_compress(old_buf.start + sereal_header_len, (uint32_t)uncompressed_body_length, enc->buf.pos, &dest_len,
                              enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
             assert(dest_len != 0);
 
@@ -695,7 +690,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
             if (varint_start)
                 srl_update_varint_from_to(aTHX_ varint_start, varint_end, dest_len);
 
-            Safefree(old_buf);
+            srl_buf_free_buffer(aTHX_ &old_buf);
             enc->buf.pos += dest_len;
             assert(enc->buf.pos <= enc->buf.end);
 
