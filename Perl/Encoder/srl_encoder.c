@@ -624,7 +624,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
 {
     enc = srl_prepare_encoder(aTHX_ enc);
 
-    if (!SRL_ENC_HAVE_OPTION(enc, (SRL_F_COMPRESS_SNAPPY | SRL_F_COMPRESS_SNAPPY_INCREMENTAL))) {
+    if (expect_true( !SRL_ENC_HAVE_OPTION(enc, (SRL_F_COMPRESS_SNAPPY | SRL_F_COMPRESS_SNAPPY_INCREMENTAL)) )) {
         srl_write_header(aTHX_ enc, user_header_src);
         SRL_UPDATE_BODY_POS(enc);
         srl_dump_sv(aTHX_ enc, src);
