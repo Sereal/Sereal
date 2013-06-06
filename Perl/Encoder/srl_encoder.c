@@ -186,6 +186,9 @@ srl_clear_encoder(pTHX_ srl_encoder_t *enc)
     srl_clear_seen_hashes(aTHX_ enc);
 
     enc->buf.pos = enc->buf.start;
+    if (enc->tmp_buf.start != NULL)
+        enc->tmp_buf.pos = enc->tmp_buf.start;
+
     SRL_SET_BODY_POS(enc, enc->buf.start);
 
     SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);
@@ -194,7 +197,11 @@ srl_clear_encoder(pTHX_ srl_encoder_t *enc)
 void
 srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
 {
-    srl_buf_free_buffer(aTHX_ &(enc->buf));
+    srl_buf_free_buffer(aTHX_ &enc->buf);
+
+    /* Free tmp buffer only if it was allocated at all. */
+    if (enc->tmp_buf.start != NULL)
+        srl_buf_free_buffer(aTHX_ &enc->tmp_buf);
 
     Safefree(enc->snappy_workmem);
     if (enc->ref_seenhash != NULL)
@@ -222,6 +229,10 @@ srl_empty_encoder_struct(pTHX)
         Safefree(enc);
         croak("Out of memory");
     }
+
+    /* Set the tmp buffer struct's char buffer to NULL so we don't free
+     * something nasty if it's unused. */
+    enc->tmp_buf.start = NULL;
 
     enc->recursion_depth = 0;
     enc->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
@@ -416,13 +427,38 @@ srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src)
         srl_buf_cat_char_nocheck(enc, '\0'); /* variable header length (0 right now) */
     }
     else {
-        srl_buffer_t tmp_buf;
+        STRLEN user_data_len;
 
         if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_USE_PROTO_V1) ))
             croak("Cannot serialize user header data in Sereal protocol V1 mode!");
 
-        /* write document body (for header) into separate buffer */
-        abort(); /* FIXME */
+        /* Allocate tmp buffer for swapping if necessary,
+         * will be cleaned up automatically */
+        if (enc->tmp_buf.start == NULL)
+            srl_buf_init_buffer(aTHX_ &enc->tmp_buf, INITIALIZATION_SIZE);
+
+        /* Write document body (for header) into separate buffer */
+        srl_buf_swap_buffer(aTHX_ &enc->tmp_buf, &enc->buf);
+        SRL_UPDATE_BODY_POS(enc);
+        srl_dump_sv(aTHX_ enc, user_header_src);
+        srl_fixup_weakrefs(aTHX_ enc); /* more bodies to follow */
+        srl_clear_seen_hashes(aTHX_ enc); /* more bodies to follow */
+
+        /* Swap main buffer back in, encode header length&bitfield, copy user header data */
+        user_data_len = BUF_POS_OFS(enc->tmp_buf);
+        srl_buf_swap_buffer(aTHX_ &enc->buf, &enc->tmp_buf);
+
+        BUF_SIZE_ASSERT(enc, user_data_len + 1 + SRL_MAX_VARINT_LENGTH); /* +1 for bit field, +X for header len */
+
+        /* Encode header length */
+        srl_buf_cat_varint_nocheck(aTHX_ enc, 0, (UV)(user_data_len + 1)); /* +1 for bit field */
+        /* Encode bitfield */
+        srl_buf_cat_char_nocheck(enc, '\1');
+        /* Copy user header data */
+        Copy(enc->tmp_buf.start, enc->buf.pos, user_data_len, char);
+        enc->buf.pos += user_data_len;
+
+        enc->tmp_buf.pos = enc->tmp_buf.start; /* reset tmp buffer just to be clean */
     }
 }
 
@@ -651,7 +687,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
             srl_reset_snappy_header_flag(enc);
         }
         else { /* do snappy compression of body */
-            srl_buffer_t old_buf;
+            srl_buffer_t old_buf; /* TODO can we use the enc->tmp_buf here to avoid allocations? */
             char *varint_start= NULL;
             char *varint_end;
             uint32_t dest_len;
