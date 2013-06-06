@@ -16,6 +16,7 @@
 typedef struct PTABLE * ptable_ptr;
 typedef struct {
     srl_buffer_t buf;
+    srl_buffer_t tmp_buf;     /* temporary buffer for swapping */
 
     U32 operational_flags;    /* flags that pertain to one encode run (rather than being options): See SRL_OF_* defines */
     U32 flags;                /* flag-like options: See SRL_F_* defines */
