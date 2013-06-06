@@ -42,9 +42,9 @@ void srl_clear_encoder(pTHX_ srl_encoder_t *enc);
 void srl_destroy_encoder(pTHX_ srl_encoder_t *enc);
 
 /* Write Sereal packet header to output buffer */
-void srl_write_header(pTHX_ srl_encoder_t *enc);
+void srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src);
 /* Start dumping a top-level SV */
-void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src);
+void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src);
 
 
 /* define option bits in srl_encoder_t's flags member */

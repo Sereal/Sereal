@@ -80,6 +80,7 @@ extern "C" {
 #define DEBUGHACK 0
 
 /* some static function declarations */
+SRL_STATIC_INLINE void srl_clear_seen_hashes(pTHX_ srl_encoder_t *enc);
 static void srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src);
 SRL_STATIC_INLINE void srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src);
 SRL_STATIC_INLINE void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8);
@@ -161,14 +162,9 @@ srl_destructor_hook(pTHX_ void *p)
     }
 }
 
-void
-srl_clear_encoder(pTHX_ srl_encoder_t *enc)
+SRL_STATIC_INLINE void
+srl_clear_seen_hashes(pTHX_ srl_encoder_t *enc)
 {
-    if (!SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY)) {
-        warn("Sereal Encoder being cleared but in virgin state. That is unexpected.");
-    }
-
-    enc->recursion_depth = 0;
     if (enc->ref_seenhash != NULL)
         PTABLE_clear(enc->ref_seenhash);
     if (enc->str_seenhash != NULL)
@@ -177,6 +173,18 @@ srl_clear_encoder(pTHX_ srl_encoder_t *enc)
         PTABLE_clear(enc->weak_seenhash);
     if (enc->string_deduper_hv != NULL)
         hv_clear(enc->string_deduper_hv);
+}
+
+void
+srl_clear_encoder(pTHX_ srl_encoder_t *enc)
+{
+    if (!SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY)) {
+        warn("Sereal Encoder being cleared but in virgin state. That is unexpected.");
+    }
+
+    enc->recursion_depth = 0;
+    srl_clear_seen_hashes(aTHX_ enc);
+
     enc->buf.pos = enc->buf.start;
     SRL_SET_BODY_POS(enc, enc->buf.start);
 
@@ -388,7 +396,7 @@ srl_init_snappy_workmem(pTHX_ srl_encoder_t *enc)
 
 
 void
-srl_write_header(pTHX_ srl_encoder_t *enc)
+srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src)
 {
     /* 4th to 8th bit are flags. Using 4th for snappy flag. FIXME needs to go in spec. */
     const U8 version_and_flags = (SRL_ENC_HAVE_OPTION(enc, SRL_F_USE_PROTO_V1) ? 1 : SRL_PROTOCOL_VERSION)
@@ -406,7 +414,18 @@ srl_write_header(pTHX_ srl_encoder_t *enc)
     BUF_SIZE_ASSERT(enc, sizeof(SRL_MAGIC_STRING) + 1 + 1);
     srl_buf_cat_str_s_nocheck(enc, SRL_MAGIC_STRING);
     srl_buf_cat_char_nocheck(enc, version_and_flags);
-    srl_buf_cat_char_nocheck(enc, '\0'); /* variable header length (0 right now) */
+    if (user_header_src == NULL) {
+        srl_buf_cat_char_nocheck(enc, '\0'); /* variable header length (0 right now) */
+    }
+    else {
+        srl_buffer_t tmp_buf;
+
+        if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_USE_PROTO_V1) ))
+            croak("Cannot serialize user header data in Sereal protocol V1 mode!");
+
+        /* write document body (for header) into separate buffer */
+        abort(); /* FIXME */
+    }
 }
 
 /* The following is to handle the fact that under normal build options
@@ -603,12 +622,12 @@ srl_reset_snappy_header_flag(srl_encoder_t *enc)
 }
 
 void
-srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
+srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
 {
     enc = srl_prepare_encoder(aTHX_ enc);
 
     if (!SRL_ENC_HAVE_OPTION(enc, (SRL_F_COMPRESS_SNAPPY | SRL_F_COMPRESS_SNAPPY_INCREMENTAL))) {
-        srl_write_header(aTHX_ enc);
+        srl_write_header(aTHX_ enc, user_header_src);
         SRL_UPDATE_BODY_POS(enc);
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
@@ -619,7 +638,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src)
 
         /* Alas, have to write entire packet first since the header length
          * will determine offsets. */
-        srl_write_header(aTHX_ enc);
+        srl_write_header(aTHX_ enc, user_header_src);
         sereal_header_len = BUF_POS_OFS(enc->buf);
         SRL_UPDATE_BODY_POS(enc);
         srl_dump_sv(aTHX_ enc, src);
