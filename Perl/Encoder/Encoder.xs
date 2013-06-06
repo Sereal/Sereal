@@ -42,11 +42,11 @@ encode(enc, src)
   PPCODE:
     assert(enc != NULL);
     srl_dump_data_structure(aTHX_ enc, src);
-    assert(enc->pos > enc->buf_start);
+    assert(enc->buf.pos > enc->buf.start);
     /* We always copy the string since we might reuse the string buffer. That means
      * we already have to do a malloc and we might as well use the opportunity to
      * allocate only as much memory as we really need to hold the output. */
-    ST(0) = sv_2mortal(newSVpvn(enc->buf_start, (STRLEN)BUF_POS_OFS(enc)));
+    ST(0) = sv_2mortal(newSVpvn(enc->buf.start, (STRLEN)BUF_POS_OFS(enc->buf)));
     XSRETURN(1);
 
 void
@@ -62,20 +62,20 @@ encode_sereal(src, opt = NULL)
     /* Avoid copy by stealing string buffer if it is not too large.
      * This makes sense in the functional interface since the string
      * buffer isn't ever going to be reused. */
-    assert(enc->buf_start < enc->pos);
-    if (BUF_POS_OFS(enc) > 20 && BUF_SPACE(enc) < BUF_POS_OFS(enc) ) {
+    assert(enc->buf.start < enc->buf.pos);
+    if (BUF_POS_OFS(enc->buf) > 20 && BUF_SPACE(enc->buf) < BUF_POS_OFS(enc->buf) ) {
       /* If not wasting more than 2x memory - FIXME fungible */
       SV *sv = sv_2mortal(newSV_type(SVt_PV));
       ST(0) = sv;
-      SvPV_set(sv, enc->buf_start);
-      SvLEN_set(sv, BUF_SIZE(enc));
-      SvCUR_set(sv, BUF_POS_OFS(enc));
+      SvPV_set(sv, enc->buf.start);
+      SvLEN_set(sv, BUF_SIZE(enc->buf));
+      SvCUR_set(sv, BUF_POS_OFS(enc->buf));
       SvPOK_on(sv);
 
-      enc->buf_start = enc->pos = NULL; /* no need to free these guys now */
+      enc->buf.start = enc->buf.pos = NULL; /* no need to free these guys now */
     }
     else {
-      ST(0) = sv_2mortal(newSVpvn(enc->buf_start, (STRLEN)BUF_POS_OFS(enc)));
+      ST(0) = sv_2mortal(newSVpvn(enc->buf.start, (STRLEN)BUF_POS_OFS(enc->buf)));
     }
     XSRETURN(1);
 

@@ -11,12 +11,11 @@
 #   define INITIALIZATION_SIZE 64
 #endif
 
+#include "srl_buffer_types.h"
+
 typedef struct PTABLE * ptable_ptr;
 typedef struct {
-    char *buf_start;         /* ptr to "physical" start of output buffer */
-    char *buf_end;           /* ptr to end of output buffer */
-    char *pos;               /* ptr to current position within output buffer */
-    char *body_pos;          /* ptr to start of body within output buffer for protocol V2 encoding */
+    srl_buffer_t buf;
 
     U32 operational_flags;   /* flags that pertain to one encode run (rather than being options): See SRL_OF_* defines */
     U32 flags;               /* flag-like options: See SRL_F_* defines */
