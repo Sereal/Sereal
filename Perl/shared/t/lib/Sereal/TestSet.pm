@@ -141,8 +141,15 @@ sub varint {
 our $PROTO_VERSION;
 
 sub Header {
-  my $proto_version = shift || $PROTO_VERSION;
-  return SRL_MAGIC_STRING . chr($proto_version||SRL_PROTOCOL_VERSION) . chr(0);
+    my $proto_version = shift || $PROTO_VERSION;
+    my $user_data_blob = shift;
+    my $hdr_base = SRL_MAGIC_STRING . chr($proto_version||SRL_PROTOCOL_VERSION);
+    if (defined $user_data_blob) {
+        return $hdr_base . varint(1 + length($user_data_blob)) . chr(1) . $user_data_blob;
+    }
+    else {
+        return $hdr_base . chr(0);
+    }
 }
 
 sub offset {

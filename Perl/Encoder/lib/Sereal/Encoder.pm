@@ -12,7 +12,7 @@ my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 23 .. int($VERSION * 10
 sub _test_compat {return(@$TestCompat, $VERSION)}
 
 use Exporter 'import';
-our @EXPORT_OK = qw(encode_sereal);
+our @EXPORT_OK = qw(encode_sereal encode_sereal_with_header_data);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 # export by default if run from command line
 our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
