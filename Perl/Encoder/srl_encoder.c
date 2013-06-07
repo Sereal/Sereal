@@ -445,7 +445,7 @@ srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src)
         srl_clear_seen_hashes(aTHX_ enc); /* more bodies to follow */
 
         /* Swap main buffer back in, encode header length&bitfield, copy user header data */
-        user_data_len = BUF_POS_OFS(enc->tmp_buf);
+        user_data_len = BUF_POS_OFS(enc->buf);
         srl_buf_swap_buffer(aTHX_ &enc->buf, &enc->tmp_buf);
 
         BUF_SIZE_ASSERT(enc, user_data_len + 1 + SRL_MAX_VARINT_LENGTH); /* +1 for bit field, +X for header len */
