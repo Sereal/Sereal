@@ -55,6 +55,14 @@ sub parse_header {
   print "Sereal protocol version: $proto_version\n";
   if (length($hdr)) {
     print "Header($len): " . join(" ", map ord, split //, $hdr) . "\n";
+    if ($proto_version >= 2 && (ord(substr($hdr, 0, 1)) & 1) ) { # if first bit set => user header data
+      print "Found user data in header:\n";
+      my $tmp_data = $data; # dance necessary because $data is treated as a global :( hobo, hobo, hobo!
+      $data = substr($hdr, 1);
+      parse_sv("  ");
+      $data = $tmp_data;
+      print "End of user data in header. Body:\n";
+    }
   }
   else {
     print "Empty Header.\n";
