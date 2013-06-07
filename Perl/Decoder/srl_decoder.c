@@ -97,6 +97,7 @@ SRL_STATIC_INLINE void srl_read_header(pTHX_ srl_decoder_t *dec);               
 SRL_STATIC_INLINE void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into);   /* main recursive dump routine */
 SRL_STATIC_INLINE void srl_finalize_structure(pTHX_ srl_decoder_t *dec);             /* optional finalize structure logic */
 SRL_STATIC_INLINE void srl_clear_decoder(pTHX_ srl_decoder_t *dec);                 /* clean up decoder after a dump */
+SRL_STATIC_INLINE void srl_clear_decoder_body_state(pTHX_ srl_decoder_t *dec);      /* clean up after each document body */
 
 /* the internal routines to handle each kind of object we have to deserialize */
 SRL_STATIC_INLINE SV *srl_read_alias(pTHX_ srl_decoder_t *dec);
@@ -311,11 +312,11 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into, UV start_offset)
         }
     }
 
+    /* The actual document body deserialization: */
     if (expect_true(!into)) {
         into= sv_2mortal(newSV_type(SVt_NULL));
     }
     srl_read_single_value(aTHX_ dec, into);
-    /* assert(dec->pos == dec->buf_end); For now we disable this */
     if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE))) {
         srl_finalize_structure(aTHX_ dec);
     }
@@ -344,8 +345,16 @@ srl_clear_decoder(pTHX_ srl_decoder_t *dec)
     if (dec->buf_start == dec->buf_end)
         return;
 
+    srl_clear_decoder_body_state(aTHX_ dec);
     SRL_DEC_RESET_VOLATILE_FLAGS(dec);
     dec->body_pos = dec->buf_start = dec->buf_end = dec->pos = dec->save_pos = NULL;
+}
+
+SRL_STATIC_INLINE void
+srl_clear_decoder_body_state(pTHX_ srl_decoder_t *dec)
+{
+    SRL_DEC_UNSET_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE);
+
     if (dec->weakref_av)
         av_clear(dec->weakref_av);
 
@@ -427,9 +436,30 @@ srl_read_header(pTHX_ srl_decoder_t *dec)
 
         /* Must do this via a temporary as it modifes dec->pos itself */
         header_len= srl_read_varint_uv_length(aTHX_ dec, " while reading header");
-        /* Skip header since we don't have any defined header-content in this
-         * protocol version. */
-        dec->pos += header_len;
+
+        if (proto_version > 1 && header_len) {
+            /* We have a protocol V2 extensible header:
+             *  - 8bit bitfield
+             *  - if lowest bit set, we have custom-header-user-data after the bitfield */
+            const U8 bitfield = *(dec->pos++);
+            if (bitfield & 1) {
+                /* Do an actual document body deserialization for the user data: */
+                SV *into;
+                if (expect_true(!into)) {
+                    into= sv_2mortal(newSV_type(SVt_NULL));
+                }
+                srl_read_single_value(aTHX_ dec, into);
+                if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE))) {
+                    srl_finalize_structure(aTHX_ dec);
+                }
+                srl_clear_decoder_body_state(aTHX_ dec); /* clean up for the main body decode */
+            }
+        }
+        else {
+            /* Skip header since we don't have any defined header-content in this
+             * protocol version. */
+            dec->pos += header_len;
+        }
     } else {
         SRL_ERROR("Bad Sereal header: Does not start with Sereal magic");
     }
