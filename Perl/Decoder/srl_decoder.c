@@ -262,15 +262,14 @@ srl_decode_header_into(pTHX_ srl_decoder_t *dec, SV *src, SV* header_into, UV st
     return header_into;
 }
 
-/* This is the main routine to deserialize Sereal document. */
-SV *
-srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into, UV start_offset)
+SRL_STATIC_INLINE void
+srl_decode_into_internal(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV *body_into, UV start_offset)
 {
     assert(dec != NULL);
     if (SvUTF8(src))
         sv_utf8_downgrade(src, 0);
     srl_begin_decoding(aTHX_ dec, src, start_offset);
-    srl_read_header(aTHX_ dec, NULL);
+    srl_read_header(aTHX_ dec, header_into);
     SRL_UPDATE_BODY_POS(dec);
     if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY)) {
         /* uncompress */
@@ -325,10 +324,7 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into, UV start_offset)
     }
 
     /* The actual document body deserialization: */
-    if (expect_true(!into)) {
-        into= sv_2mortal(newSV_type(SVt_NULL));
-    }
-    srl_read_single_value(aTHX_ dec, into);
+    srl_read_single_value(aTHX_ dec, body_into);
     if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE))) {
         srl_finalize_structure(aTHX_ dec);
     }
@@ -346,8 +342,26 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into, UV start_offset)
     }
 
     srl_clear_decoder(aTHX_ dec);
+}
+
+/* This is the main routine to deserialize a Sereal document w/o data in header. */
+SV *
+srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into, UV start_offset)
+{
+    if (expect_true(!into))
+        into= sv_2mortal(newSV_type(SVt_NULL));
+    srl_decode_into_internal(aTHX_ dec, src, NULL, into, start_offset);
     return into;
 }
+
+void
+srl_decode_all_into(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV *body_into, UV start_offset)
+{
+    assert(header_into != NULL);
+    assert(body_into != NULL);
+    (void)srl_decode_into_internal(aTHX_ dec, src, header_into, body_into, start_offset);
+}
+
 
 /* TOP LEVEL PRIVATE ROUTINES */
 
