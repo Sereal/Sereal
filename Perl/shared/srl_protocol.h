@@ -153,7 +153,9 @@
 #define SRL_PROTOCOL_ENCODING_SNAPPY    ( 1 << SRL_PROTOCOL_VERSION_BITS )
 #define SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL    ( 2 << SRL_PROTOCOL_VERSION_BITS )
 
-
+/* Bits in the header bitfield */
+#define SRL_PROTOCOL_HDR_USER_DATA      ( 1 )
+#define SRL_PROTOCOL_HDR_CONTINUE       ( 8 ) /* TODO Describe in spec - not urgent since not meaningful yet */
 
 /* Useful constants */
 /* See also range constants below for the header byte */
