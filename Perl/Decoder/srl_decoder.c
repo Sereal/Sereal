@@ -248,9 +248,21 @@ srl_decoder_destructor_hook(pTHX_ void *p)
     }
 }
 
-/* This is the main routine to deserialize a structure.
- * It rolls up all the other "top level" routines into one
- */
+/* This is the main routine to deserialize just the header of a document. */
+SV *
+srl_decode_header_into(pTHX_ srl_decoder_t *dec, SV *src, SV* header_into, UV start_offset)
+{
+    assert(dec != NULL);
+    if (SvUTF8(src))
+        sv_utf8_downgrade(src, 0);
+    srl_begin_decoding(aTHX_ dec, src, start_offset);
+    if (header_into == NULL)
+        header_into = sv_newmortal();
+    srl_read_header(aTHX_ dec, header_into);
+    return header_into;
+}
+
+/* This is the main routine to deserialize Sereal document. */
 SV *
 srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into, UV start_offset)
 {

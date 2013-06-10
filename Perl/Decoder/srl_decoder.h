@@ -30,8 +30,11 @@ typedef struct {
 /* constructor; don't need destructor, this sets up a callback */
 srl_decoder_t *srl_build_decoder_struct(pTHX_ HV *opt);
 
-/* main routine */
+/* main routines */
+/* will return a mortal or the new contents of into if that isn't NULL */
 SV *srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV *into, UV start_offset);
+/* will return a mortal or the new contents of header_into if that isn't NULL */
+SV *srl_decode_header_into(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, UV start_offset);
 
 /* Explicit destructor */
 void srl_destroy_decoder(pTHX_ srl_decoder_t *dec);
