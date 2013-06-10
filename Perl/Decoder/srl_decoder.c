@@ -93,7 +93,7 @@ void srl_decoder_destructor_hook(pTHX_ void *p);                    /* destructo
 
 /* the top level components of the decode process - called by srl_decode_into() */
 SRL_STATIC_INLINE void srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset);       /* set up the decoder to handle a given var */
-SRL_STATIC_INLINE void srl_read_header(pTHX_ srl_decoder_t *dec);                    /* validate header */
+SRL_STATIC_INLINE void srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data); /* read/validate header */
 SRL_STATIC_INLINE void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into);   /* main recursive dump routine */
 SRL_STATIC_INLINE void srl_finalize_structure(pTHX_ srl_decoder_t *dec);             /* optional finalize structure logic */
 SRL_STATIC_INLINE void srl_clear_decoder(pTHX_ srl_decoder_t *dec);                 /* clean up decoder after a dump */
@@ -258,7 +258,7 @@ srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into, UV start_offset)
     if (SvUTF8(src))
         sv_utf8_downgrade(src, 0);
     srl_begin_decoding(aTHX_ dec, src, start_offset);
-    srl_read_header(aTHX_ dec);
+    srl_read_header(aTHX_ dec, NULL);
     SRL_UPDATE_BODY_POS(dec);
     if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY)) {
         /* uncompress */
@@ -393,7 +393,7 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset)
 }
 
 SRL_STATIC_INLINE void
-srl_read_header(pTHX_ srl_decoder_t *dec)
+srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
 {
     UV header_len;
 
@@ -440,15 +440,12 @@ srl_read_header(pTHX_ srl_decoder_t *dec)
         if (proto_version > 1 && header_len) {
             /* We have a protocol V2 extensible header:
              *  - 8bit bitfield
-             *  - if lowest bit set, we have custom-header-user-data after the bitfield */
+             *  - if lowest bit set, we have custom-header-user-data after the bitfield
+             *  => Only read header user data if an SV* was passed in to fill. */
             const U8 bitfield = *(dec->pos++);
-            if (bitfield & 1) {
+            if (bitfield & SRL_PROTOCOL_HDR_USER_DATA && header_user_data != NULL) {
                 /* Do an actual document body deserialization for the user data: */
-                SV *into;
-                if (expect_true(!into)) {
-                    into= sv_2mortal(newSV_type(SVt_NULL));
-                }
-                srl_read_single_value(aTHX_ dec, into);
+                srl_read_single_value(aTHX_ dec, header_user_data);
                 if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE))) {
                     srl_finalize_structure(aTHX_ dec);
                 }
