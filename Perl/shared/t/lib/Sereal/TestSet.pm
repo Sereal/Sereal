@@ -171,6 +171,23 @@ sub offseti {
     }
 }
 
+sub debug_checks {
+    my ($data_ref, $encoded_ref, $decoded_ref) = @_;
+    if (defined $ENV{DEBUG_SEREAL}) {
+        note("Original data was: " . Data::Dumper::Dumper($$data_ref)) if defined $data_ref;
+        note("Encoded data is: " . (defined($$encoded_ref) ? $$encoded_ref : "<undef>")) if defined $encoded_ref;
+        note("Decoded data was: " . Data::Dumper::Dumper($$decoded_ref)) if defined $decoded_ref;
+    }
+    if (defined $ENV{DEBUG_DUMP}) {
+        Dump($$encoded_ref) if defined $encoded_ref;
+        Dump($$decoded_ref) if defined $decoded_ref;
+    }
+    if (defined $ENV{DEBUG_HOBO}) {
+        hobodecode($$encoded_ref) if defined $encoded_ref;
+    }
+    exit() if $ENV{DEBUG_FAIL_FATAL};
+}
+
 our @BasicTests;
 sub setup_tests {
     my ($proto_version)=@_;
@@ -691,7 +708,7 @@ sub run_roundtrip_tests {
 }
 
 sub run_roundtrip_tests_internal {
-    my ($ename, $opt) = @_;
+    my ($ename, $opt, $encode_decode_callbacks) = @_;
     my $decoder = Sereal::Decoder->new($opt);
     my $encoder = Sereal::Encoder->new($opt);
 
@@ -702,50 +719,74 @@ sub run_roundtrip_tests_internal {
                       ['object-oriented',
                         sub {$encoder->encode(shift)},
                         sub {$decoder->decode(shift)}],
+                      ['header-body',
+                        sub {$encoder->encode(shift, 123456789)}, # header data is abitrary to stand out for debugging
+                        sub {$decoder->decode(shift)}],
+                      ['header-only',
+                        sub {$encoder->encode(987654321, shift)}, # body data is abitrary to stand out for debugging
+                        sub {$decoder->decode_only_header(shift)}],
                       )
     {
         my ($mname, $enc, $dec) = @$meth;
 
         foreach my $rt (@RoundtripTests) {
             my ($name, $data) = @$rt;
-            my $encoded = $enc->($data);
+            my $encoded;
+            eval {$encoded = $enc->($data); 1}
+                or do {
+                    my $err = $@ || 'Zombie error';
+                    diag("Got error while encoding: $err");
+                };
             ok(defined $encoded, "$name ($ename, $mname, encoded defined)")
                 or do {
-                    if (defined $ENV{DEBUG_SEREAL}) {
-                        note("Data was: " . Data::Dumper::Dumper($data));
-                        note("Output was: " . (defined($encoded) ? $encoded : "<undef>"));
-                    }
+                    debug_checks(\$data, \$encoded, undef);
                     next;
                 };
-            my $decoded= $dec->($encoded);
+            my $decoded;
+            eval {$decoded = $dec->($encoded); 1}
+                or do {
+                    my $err = $@ || 'Zombie error';
+                    diag("Got error while decoding: $err");
+                };
             ok( defined($decoded) == defined($data), "$name ($ename, $mname, decoded definedness)")
-                or next;
-            my $encoded2 = $enc->($decoded);
+                or do {
+                    debug_checks(\$data, \$encoded, undef);
+                    next;
+                };
+
+            # Second roundtrip
+            my $encoded2;
+            eval {$encoded2 = $enc->($decoded); 1}
+                or do {
+                    my $err = $@ || 'Zombie error';
+                    diag("Got error while encoding the second time: $err");
+                };
             ok(defined $encoded2, "$name ($ename, $mname, encoded2 defined)")
-                or next;
-            my $decoded2 = $dec->($encoded2);
+                or do {
+                    debug_checks(\$data, \$encoded, \$decoded);
+                    next;
+                };
+
+            my $decoded2;
+            eval {$decoded2 = $dec->($encoded2); 1}
+                or do {
+                    my $err = $@ || 'Zombie error';
+                    diag("Got error while encoding the second time: $err");
+                };
+
             ok(defined($decoded2) == defined($data), "$name ($ename, $mname, decoded2 defined)")
                 or next;
             is_deeply($decoded, $data, "$name ($ename, $mname, decoded vs data)")
                 or do {
-                    if ($ENV{DEBUG_DUMP}) {
-                        Dump($decoded);
-                        Dump($data);
-                    }
+                    debug_checks(\$data, \$encoded2, \$decoded2);
                 };
             is_deeply($decoded2, $data, "$name ($ename, $mname, decoded2 vs data)")
                 or do {
-                    if ($ENV{DEBUG_DUMP}) {
-                        Dump($decoded2);
-                        Dump($data);
-                    }
+                    debug_checks(\$data, \$encoded2, \$decoded2);
                 };
             is_deeply($decoded, $decoded2, "$name ($ename, $mname, decoded vs decoded2)")
                 or do {
-                    if ($ENV{DEBUG_DUMP}) {
-                        Dump($decoded);
-                        Dump($decoded2);
-                    }
+                    debug_checks(\$data, \$encoded2, \$decoded2);
                 };
 
             if (0) {
@@ -764,19 +805,7 @@ sub run_roundtrip_tests_internal {
                     $ret = is_string($encoded2, $encoded, "$name ($ename, $mname, encoded2 vs encoded)");
                 }
                 $ret or do {
-                    if ($ENV{DEBUG_DUMP}) {
-                        Dump($decoded);
-                        Dump($data);
-                    } elsif ($ENV{DEBUG_HOBO}) {
-                        open my $pipe,"| perl -Mblib=../Encoder/blib -Mblib=../Decoder/blib author_tools/hobodecoder.pl -e"
-                          or die "Dead: $!";
-                        print $pipe $encoded;
-                        close $pipe;
-                        open $pipe,"| perl -Mblib=../Encoder/blib -Mblib=../Decoder/blib author_tools/hobodecoder.pl -e"
-                          or die "Dead: $!";
-                        print $pipe $encoded2;
-                        close $pipe;
-                    }
+                    debug_checks(\$data, \$encoded, \$decoded);
                 };
             }
         }
