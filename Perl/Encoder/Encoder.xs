@@ -85,8 +85,8 @@ encode_sereal(src, opt = NULL)
 void
 encode_sereal_with_header_data(src, hdr_user_data_src, opt = NULL)
     SV *src;
-    HV *opt;
     SV *hdr_user_data_src;
+    HV *opt;
   PREINIT:
     srl_encoder_t *enc;
   PPCODE:
