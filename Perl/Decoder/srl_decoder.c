@@ -481,6 +481,10 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
                 }
                 srl_clear_decoder_body_state(aTHX_ dec); /* clean up for the main body decode */
             }
+            else {
+                /* Either off in bitfield or no user data wanted, skip to end of header */
+                dec->pos += header_len - 1; /* header_len includes bitfield */
+            }
         }
         else {
             /* Skip header since we don't have any defined header-content in this
