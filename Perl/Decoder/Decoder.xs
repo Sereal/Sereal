@@ -137,6 +137,38 @@ decode_sereal(src, opt = NULL, into = NULL)
     ST(0)= srl_decode_into(aTHX_ dec, src, into, 0);
     XSRETURN(1);
 
+AV *
+decode_sereal_with_header_data(src, opt = NULL, body_into = NULL, header_into = NULL)
+    SV *src;
+    SV *opt;
+    SV *body_into;
+    SV *header_into;
+  PREINIT:
+    srl_decoder_t *dec= NULL;
+  CODE:
+    /* Support no opt at all, undef, hashref */
+    if (opt != NULL) {
+        SvGETMAGIC(opt);
+        if (!SvOK(opt))
+            opt = NULL;
+        else if (SvROK(opt) && SvTYPE(SvRV(opt)) == SVt_PVHV)
+            opt = (SV *)SvRV(opt);
+        else
+            croak("Options are neither undef nor hash reference");
+    }
+    dec = srl_build_decoder_struct(aTHX_ (HV *)opt);
+    if (body_into == NULL)
+      body_into = sv_newmortal();
+    if (header_into == NULL)
+      header_into = sv_newmortal();
+    srl_decode_all_into(aTHX_ dec, src, header_into, body_into, 0);
+    RETVAL = newAV();
+    sv_2mortal((SV *)RETVAL);
+    av_extend(RETVAL, 1);
+    av_store(RETVAL, 0, header_into);
+    av_store(RETVAL, 1, body_into);
+  OUTPUT: RETVAL
+
 IV
 looks_like_sereal(...)
   PREINIT:
