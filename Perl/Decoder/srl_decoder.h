@@ -32,7 +32,7 @@ srl_decoder_t *srl_build_decoder_struct(pTHX_ HV *opt);
 
 /* main routines */
 /* will return a mortal or the new contents of into if that isn't NULL */
-SV *srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV *into, UV start_offset);
+SV *srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV *body_into, UV start_offset);
 /* will return a mortal or the new contents of header_into if that isn't NULL */
 SV *srl_decode_header_into(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, UV start_offset);
 /* decode both header and body - must pass in two SVs to write into */

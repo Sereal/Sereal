@@ -248,20 +248,7 @@ srl_decoder_destructor_hook(pTHX_ void *p)
     }
 }
 
-/* This is the main routine to deserialize just the header of a document. */
-SV *
-srl_decode_header_into(pTHX_ srl_decoder_t *dec, SV *src, SV* header_into, UV start_offset)
-{
-    assert(dec != NULL);
-    if (SvUTF8(src))
-        sv_utf8_downgrade(src, 0);
-    srl_begin_decoding(aTHX_ dec, src, start_offset);
-    if (header_into == NULL)
-        header_into = sv_newmortal();
-    srl_read_header(aTHX_ dec, header_into);
-    return header_into;
-}
-
+/* Logic shared by the various decoder entry points. */
 SRL_STATIC_INLINE void
 srl_decode_into_internal(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV *body_into, UV start_offset)
 {
@@ -344,16 +331,33 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV 
     srl_clear_decoder(aTHX_ dec);
 }
 
-/* This is the main routine to deserialize a Sereal document w/o data in header. */
+/* This is the main routine to deserialize just the header of a document. */
 SV *
-srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* into, UV start_offset)
+srl_decode_header_into(pTHX_ srl_decoder_t *dec, SV *src, SV* header_into, UV start_offset)
 {
-    if (expect_true(!into))
-        into= sv_2mortal(newSV_type(SVt_NULL));
-    srl_decode_into_internal(aTHX_ dec, src, NULL, into, start_offset);
-    return into;
+    assert(dec != NULL);
+    if (SvUTF8(src))
+        sv_utf8_downgrade(src, 0);
+    srl_begin_decoding(aTHX_ dec, src, start_offset);
+    if (header_into == NULL)
+        header_into = sv_newmortal();
+    srl_read_header(aTHX_ dec, header_into);
+    return header_into;
 }
 
+/* This is the main routine to deserialize a Sereal document
+ * w/o data in header. */
+SV *
+srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* body_into, UV start_offset)
+{
+    if (expect_true(!body_into))
+        body_into= sv_2mortal(newSV_type(SVt_NULL));
+    srl_decode_into_internal(aTHX_ dec, src, NULL, body_into, start_offset);
+    return body_into;
+}
+
+/* This is the main routine to deserialize Sereal document body
+ * and header all at once. */
 void
 srl_decode_all_into(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV *body_into, UV start_offset)
 {
