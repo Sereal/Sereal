@@ -43,6 +43,56 @@ decode(dec, src, into = NULL)
     ST(0)= srl_decode_into(aTHX_ dec, src, into, 0);
     XSRETURN(1);
 
+AV *
+decode_with_header(dec, src, body_into = NULL, header_into = NULL)
+    srl_decoder_t *dec;
+    SV *src;
+    SV *body_into;
+    SV *header_into;
+  CODE:
+    if (header_into == NULL)
+        header_into = sv_newmortal();
+    if (body_into == NULL)
+        body_into = sv_newmortal();
+    srl_decode_all_into(aTHX_ dec, src, header_into, body_into, 0);
+    RETVAL = newAV();
+    sv_2mortal((SV *)RETVAL);
+    av_extend(RETVAL, 1);
+    av_store(RETVAL, 0, header_into);
+    av_store(RETVAL, 1, body_into);
+  OUTPUT: RETVAL
+
+AV *
+decode_with_header_and_offset(dec, src, offset, body_into = NULL, header_into = NULL)
+    srl_decoder_t *dec;
+    SV *src;
+    UV offset;
+    SV *body_into;
+    SV *header_into;
+  CODE:
+    if (header_into == NULL)
+        header_into = sv_newmortal();
+    if (body_into == NULL)
+        body_into = sv_newmortal();
+    srl_decode_all_into(aTHX_ dec, src, header_into, body_into, offset);
+    RETVAL = newAV();
+    sv_2mortal((SV *)RETVAL);
+    av_extend(RETVAL, 1);
+    av_store(RETVAL, 0, header_into);
+    av_store(RETVAL, 1, body_into);
+  OUTPUT: RETVAL
+
+
+
+void
+decode_only_header(dec, src, header_into = NULL)
+    srl_decoder_t *dec;
+    SV *src;
+    SV *header_into;
+  PPCODE:
+    ST(0)= srl_decode_header_into(aTHX_ dec, src, header_into, 0);
+    XSRETURN(1);
+
 
 void
 decode_with_offset(dec, src, offset, into = NULL)
@@ -54,6 +104,15 @@ decode_with_offset(dec, src, offset, into = NULL)
     ST(0)= srl_decode_into(aTHX_ dec, src, into, offset);
     XSRETURN(1);
 
+void
+decode_only_header_with_offset(dec, src, offset, header_into = NULL)
+    srl_decoder_t *dec;
+    SV *src;
+    UV offset;
+    SV *header_into;
+  PPCODE:
+    ST(0)= srl_decode_header_into(aTHX_ dec, src, header_into, offset);
+    XSRETURN(1);
 
 
 void
