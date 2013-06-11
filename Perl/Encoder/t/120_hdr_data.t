@@ -22,10 +22,20 @@ if (not $ok) {
     skip 'Did not find right version of decoder' => 1;
 }
 else {
+    my $dec = Sereal::Decoder->new;
     my $encoded = encode_sereal_with_header_data(-16, 12);
-    my $decoded = Sereal::Decoder->new->decode($encoded);
+    my $decoded = $dec->decode($encoded);
     is($decoded, -16, "-16 decoded correctly");
+    $decoded = $dec->decode_only_header($encoded);
+    is($decoded, 12, "12 decoded correctly");
+
+    my $munged = "X" . $encoded;
+    $decoded = $dec->decode_with_offset($munged, 1);
+    is($decoded, -16, "-16 decoded correctly (offset)");
+    $decoded = $dec->decode_only_header_with_offset($munged, 1);
+    is($decoded, 12, "12 decoded correctly (offset)");
 }
 
+pass("Alive at end");
 done_testing();
 
