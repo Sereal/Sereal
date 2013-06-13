@@ -65,8 +65,8 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
     } STMT_END
 
 
-#define SRL_BASE_ERROR_FORMAT "Sereal: Error in %s line %u: "
-#define SRL_BASE_ERROR_ARGS __FILE__, __LINE__
+#define SRL_BASE_ERROR_FORMAT "Sereal: Error in %s line %u and char %i of input: "
+#define SRL_BASE_ERROR_ARGS __FILE__, __LINE__, (int)(1 + dec->pos - dec->buf_start)
 
 #define SRL_ERROR(msg)                          croak(SRL_BASE_ERROR_FORMAT "%s", SRL_BASE_ERROR_ARGS, (msg))
 #define SRL_ERRORf1(fmt,var)                    croak(SRL_BASE_ERROR_FORMAT fmt, SRL_BASE_ERROR_ARGS, (var))
