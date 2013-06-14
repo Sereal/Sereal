@@ -475,6 +475,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
             const U8 bitfield = *(dec->pos++);
             if (bitfield & SRL_PROTOCOL_HDR_USER_DATA && header_user_data != NULL) {
                 /* Do an actual document body deserialization for the user data: */
+                SRL_UPDATE_BODY_POS(dec);
                 srl_read_single_value(aTHX_ dec, header_user_data);
                 if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE))) {
                     srl_finalize_structure(aTHX_ dec);
