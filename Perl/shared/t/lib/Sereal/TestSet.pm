@@ -728,6 +728,7 @@ sub run_roundtrip_tests_internal {
                       )
     {
         my ($mname, $enc, $dec) = @$meth;
+        next if $mname =~ /header/ and $opt->{use_protocol_v1};
 
         foreach my $rt (@RoundtripTests) {
             my ($name, $data) = @$rt;
