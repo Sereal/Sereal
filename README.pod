@@ -101,6 +101,13 @@ L<Sereal Performance Graphs|https://github.com/Sereal/Sereal/wiki/Sereal-Compari
 You can find the specification at
 L<sereal_spec.pod|https://github.com/Sereal/Sereal/blob/master/sereal_spec.pod>
 
+=head1 DISCUSSION GROUPS
+
+There is an low-traffic announcement mailing list
+L<sereal-announce|https://groups.google.com/forum/?fromgroups#!forum/sereal-announce>
+as well as a more general development list
+L<sereal-dev|https://groups.google.com/forum/?fromgroups#!forum/sereal-dev>
+
 =head1 AUTHOR
 
 Yves Orton E<lt>demerphq@gmail.comE<gt>
