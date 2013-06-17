@@ -27,7 +27,7 @@ srl_common.h
 Sereal-Decoder-*.tar.gz
 callgrind.out.*
 author_tools
-t/data
+t/data/corpus
 t/lib
 inc/Devel/CheckLib.pm
 snappy
