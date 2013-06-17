@@ -132,7 +132,11 @@ srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
     DEBUG_ASSERT_BUF_SANE(enc);
     assert(enc->buf.end - enc->buf.start > (ptrdiff_t)0);
     assert(enc->buf.pos - enc->buf.start >= (ptrdiff_t)0);
-    assert(enc->buf.body_pos - enc->buf.start >= (ptrdiff_t)0);
+    /* The following is checking against -1 because SRL_UPDATE_BODY_POS
+     * will actually set the body_pos to pos-1, where pos can be 0.
+     * This works out fine in the end, but is admittedly a bit shady.
+     * FIXME */
+    assert(enc->buf.body_pos - enc->buf.start >= (ptrdiff_t)-1);
 }
 
 #define BUF_SIZE_ASSERT(enc, minlen)                                    \
