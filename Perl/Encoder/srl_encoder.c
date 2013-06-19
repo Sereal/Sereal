@@ -689,7 +689,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
         else { /* do snappy compression of body */
             srl_buffer_t old_buf; /* TODO can we use the enc->tmp_buf here to avoid allocations? */
             char *varint_start= NULL;
-            char *varint_end;
+            char *varint_end= NULL;
             uint32_t dest_len;
 
             /* Get uncompressed payload and total packet output (after compression) lengths */
