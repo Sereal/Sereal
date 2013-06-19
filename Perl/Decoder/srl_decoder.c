@@ -885,7 +885,6 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         }
         if (expect_false( *dec->pos == SRL_HDR_ALIAS )) {
             dec->pos++;
-            SvREFCNT_dec(*fetched_sv);
             *fetched_sv= srl_read_alias(aTHX_ dec);
         } else {
             srl_read_single_value(aTHX_ dec, *fetched_sv);
