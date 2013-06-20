@@ -511,8 +511,8 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
     if (dec->weakref_av)
         av_clear(dec->weakref_av);
     if (dec->ref_stashes) {
-        /* FIXME the iterator may be leaked on exceptions! */
-        PTABLE_ITER_t *it = PTABLE_iter_new(dec->ref_stashes);
+        /* The iterator could be leaked on exceptions if not for PTABLE_FLAG_AUTOCLEAN. */
+        PTABLE_ITER_t *it = PTABLE_iter_new_flags(dec->ref_stashes, PTABLE_FLAG_AUTOCLEAN);
         PTABLE_ENTRY_t *ent;
 
         /* We have gotten here without error, so bless all the objects.
@@ -527,7 +527,6 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
                 SRL_ERROR("missing stash or ref_bless_av!");
             }
             for( len= av_len(ref_bless_av) + 1 ; len > 0 ; len-- ) {
-                /* FIXME can av_pop throw exceptions? The iterator may be leaked then... */
                 SV* obj= av_pop(ref_bless_av); /*note that av_pop does NOT refcnt dec the sv*/
                 if (SvREFCNT(obj)>1) {
                     /* It is possible that someone handcrafts a hash with a key collision,
@@ -541,7 +540,6 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
 #if USE_588_WORKAROUND
                         /* was blessed early, don't rebless */
 #else
-                        /* FIXME can sv_bless throw exceptions? The iterator may be leaked then... */
                         if (!nobless)
                             sv_bless(obj, stash);
 #endif
@@ -550,10 +548,8 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
                         SRL_ERROR("object missing from ref_bless_av array?");
                     }
                 } else {
-                    /* FIXME can warn throw exceptions? The iterator may be leaked then... */
                     warn("serialization contains a duplicated key, ignoring");
                 }
-                /* FIXME can SvREFCNT_dec throw exceptions? The iterator may be leaked then... */
                 SvREFCNT_dec(obj);
             }
         }
