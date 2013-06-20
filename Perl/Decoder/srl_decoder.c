@@ -149,6 +149,13 @@ SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
         } STMT_END
 #endif
 
+#define SRL_ASSERT_REF_PTR_TABLES(dec) STMT_START {     \
+            if (expect_false( !(dec)->ref_stashes )) {  \
+                (dec)->ref_stashes = PTABLE_new();      \
+                (dec)->ref_bless_av = PTABLE_new();     \
+            }                                           \
+        } STMT_END
+
 
 STATIC void
 srl_ptable_debug_callback(PTABLE_ENTRY_t *e)
@@ -1070,17 +1077,16 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into)
         SRL_ERROR_UNEXPECTED(dec,tag, "a class name");
     }
     if (!stash) {
-        if (expect_false( !dec->ref_stashes )) {
-            dec->ref_stashes = PTABLE_new();
-            dec->ref_bless_av = PTABLE_new();
-        }
+        SRL_ASSERT_REF_PTR_TABLES(dec);
         stash= gv_stashpvn((char *)from, key_len, flags);
         PTABLE_store(dec->ref_stashes, (void *)storepos, (void *)stash);
         av= newAV();
         sv_2mortal((SV*)av);
         PTABLE_store(dec->ref_bless_av, (void *)storepos, (void *)av);
-    } else if (NULL == (av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)storepos)) ) {
-        SRL_ERRORf1("Panic, no ref_bless_av for %lu", (unsigned long)storepos);
+    } else {
+        SRL_ASSERT_REF_PTR_TABLES(dec);
+        if (NULL == (av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)storepos)) )
+            SRL_ERRORf1("Panic, no ref_bless_av for %lu", (unsigned long)storepos);
     }
 
     /* we now have a stash so we /could/ bless... except that
