@@ -45,6 +45,12 @@
 
 #define PTABLE_HASH(ptr) ptr_hash(PTR2nat(ptr))
 
+#define PTABLE_FLAG_AUTOCLEAN 1
+
+typedef struct PTABLE_entry PTABLE_ENTRY_t;
+typedef struct PTABLE       PTABLE_t;
+typedef struct PTABLE_iter  PTABLE_ITER_t;
+
 struct PTABLE_entry {
     struct PTABLE_entry     *next;
     void                    *key;
@@ -55,6 +61,7 @@ struct PTABLE {
     struct PTABLE_entry     **tbl_ary;
     UV                      tbl_max;
     UV                      tbl_items;
+    PTABLE_ITER_t           *cur_iter; /* one iterator at a time can be auto-freed */
 };
 
 struct PTABLE_iter {
@@ -62,10 +69,6 @@ struct PTABLE_iter {
     UV                      bucket_num;
     struct PTABLE_entry     *cur_entry;
 };
-
-typedef struct PTABLE_entry PTABLE_ENTRY_t;
-typedef struct PTABLE       PTABLE_t;
-typedef struct PTABLE_iter  PTABLE_ITER_t;
 
 
 STATIC PTABLE_t * PTABLE_new(void);
@@ -79,6 +82,7 @@ STATIC void PTABLE_clear(PTABLE_t *tbl);
 STATIC void PTABLE_free(PTABLE_t *tbl);
 
 STATIC PTABLE_ITER_t * PTABLE_iter_new(PTABLE_t *tbl);
+STATIC PTABLE_ITER_t * PTABLE_iter_new_flags(PTABLE_t *tbl, int flags);
 STATIC PTABLE_ENTRY_t * PTABLE_iter_next(PTABLE_ITER_t *iter);
 STATIC void PTABLE_iter_free(PTABLE_ITER_t *iter);
 
@@ -96,6 +100,7 @@ PTABLE_new_size(const U8 size_base2_exponent)
     Newxz(tbl, 1, PTABLE_t);
     tbl->tbl_max = (1 << size_base2_exponent) - 1;
     tbl->tbl_items = 0;
+    tbl->cur_iter = NULL;
     Newxz(tbl->tbl_ary, tbl->tbl_max + 1, PTABLE_ENTRY_t*);
     return tbl;
 }
@@ -243,10 +248,15 @@ PTABLE_delete(PTABLE_t *tbl, void *key)
 STATIC void
 PTABLE_free(PTABLE_t *tbl)
 {
-    if (!tbl) {
+    if (!tbl)
         return;
-    }
+
     PTABLE_clear(tbl);
+    if (tbl->cur_iter) {
+        PTABLE_ITER_t *it = tbl->cur_iter;
+        tbl->cur_iter = NULL; /* avoid circular checks */
+        PTABLE_iter_free(it);
+    }
     Safefree(tbl->tbl_ary);
     Safefree(tbl);
 }
@@ -272,11 +282,20 @@ PTABLE_free(PTABLE_t *tbl)
 STATIC PTABLE_ITER_t *
 PTABLE_iter_new(PTABLE_t *tbl)
 {
+    return PTABLE_iter_new_flags(tbl, 0);
+}
+
+STATIC PTABLE_ITER_t *
+PTABLE_iter_new_flags(PTABLE_t *tbl, int flags)
+{
     PTABLE_ITER_t *iter;
     Newx(iter, 1, PTABLE_ITER_t);
     iter->table = tbl;
     iter->bucket_num = 0;
     iter->cur_entry = NULL;
+
+    if (flags & PTABLE_FLAG_AUTOCLEAN)
+        tbl->cur_iter = iter;
     if (tbl->tbl_items == 0) {
         /* Prevent hash bucket scanning.
          * This can be a significant optimization on large, empty hashes. */
@@ -302,6 +321,11 @@ PTABLE_iter_next(PTABLE_ITER_t *iter)
 STATIC void
 PTABLE_iter_free(PTABLE_ITER_t *iter)
 {
+    /* If we're the iterator that can be auto-cleaned by the PTABLE,
+     * then unregister. */
+    if (iter->table->cur_iter == iter)
+        iter->table->cur_iter = NULL;
+
     Safefree(iter);
 }
 
