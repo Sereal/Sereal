@@ -272,7 +272,20 @@ C<Sereal::Decoder> objects will become a reference to undef in the new
 thread. This might change in a future release to become a full clone
 of the decoder object.
 
-=head1 AUTHOR
+=head1 BUGS, CONTACT AND SUPPORT
+
+For reporting bugs, please use the github bug tracker at
+L<http://github.com/Sereal/Sereal/issues>.
+
+For support and discussion of Sereal, there are two Google Groups:
+
+Announcements around Sereal (extremely low volume):
+L<https://groups.google.com/forum/?fromgroups#!forum/sereal-announce>
+
+Sereal development list:
+L<https://groups.google.com/forum/?fromgroups#!forum/sereal-dev>
+
+=head1 AUTHORS
 
 Yves Orton E<lt>demerphq@gmail.comE<gt>
 
