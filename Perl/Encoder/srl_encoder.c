@@ -40,7 +40,9 @@ extern "C" {
 #define MY_CAN_FIND_PLACEHOLDERS
 #define HAS_SV2OBJ
 #endif
-#if (PERL_VERSION >= 10)
+
+/* hv_backreferences_p is not marked as exported in embed.fnc in any perl */
+#if (PERL_VERSION >= 10 && !defined(WIN32) && !defined(_WIN32))
 #define HAS_HV_BACKREFS
 #endif
 
@@ -1151,9 +1153,10 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     AV *backrefs;
     SV* refsv= NULL;
     UV weakref_ofs= 0;              /* preserved between loops */
+    int nobless;
     SSize_t ref_rewrite_pos= 0;      /* preserved between loops - note SSize_t is a perl define */
     assert(src);
-    int nobless = SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS);
+    nobless = SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS);
 
     if (++enc->recursion_depth == enc->max_recursion_depth) {
         croak("Hit maximum recursion depth (%lu), aborting serialization",
