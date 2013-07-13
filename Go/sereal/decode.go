@@ -125,6 +125,10 @@ func (d *Decoder) Unmarshal(b []byte, v interface{}) (err error) {
 
 func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr reflect.Value) (int, error) {
 
+	if idx < 0 || idx >= len(b) {
+		return 0, errors.New("truncated document")
+	}
+
 	startIdx := idx
 
 	tag := b[idx]
@@ -133,6 +137,10 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 	for tag == typePAD {
 		idx++
 		tag = b[idx]
+
+		if idx > len(b) {
+			return 0, errors.New("truncated document")
+		}
 	}
 
 	trackme := (tag & trackFlag) == trackFlag
@@ -169,6 +177,10 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 	case tag == typeFLOAT:
 		idx++
 
+		if idx+3 >= len(b) {
+			return 0, errors.New("truncated document")
+		}
+
 		bits := uint32(b[idx]) | uint32(b[idx+1])<<8 | uint32(b[idx+2])<<16 | uint32(b[idx+3])<<24
 		f := math.Float32frombits(bits)
 		idx += 4
@@ -176,6 +188,10 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 
 	case tag == typeDOUBLE:
 		idx++
+
+		if idx+7 >= len(b) {
+			return 0, errors.New("truncated document")
+		}
 
 		bits := uint64(b[idx]) | uint64(b[idx+1])<<8 | uint64(b[idx+2])<<16 | uint64(b[idx+3])<<24 | uint64(b[idx+4])<<32 | uint64(b[idx+5])<<40 | uint64(b[idx+6])<<48 | uint64(b[idx+7])<<56
 		f := math.Float64frombits(bits)
@@ -198,6 +214,11 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 
 		idx++
 		ln, sz := varintdecode(b[idx:])
+
+		if ln < 0 || ln > math.MaxInt32 {
+			return 0, errors.New("bad size for slice")
+		}
+
 		idx += sz
 
 		var slice reflect.Value
@@ -218,6 +239,10 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 			slice = ptr
 		}
 
+		if idx+ln >= len(b) {
+			return 0, errors.New("truncated document")
+		}
+
 		setString(slice, b[idx:idx+ln])
 		idx += ln
 
@@ -226,6 +251,14 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		idx++
 		ln, sz := varintdecode(b[idx:])
 		idx += sz
+
+		if ln < 0 {
+			return 0, errors.New("bad length")
+		}
+
+		if idx+ln > len(b) {
+			return 0, errors.New("truncated document")
+		}
 
 		s := string(b[idx : idx+ln])
 		idx += ln
@@ -286,7 +319,11 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		offs, sz := varintdecode(b[idx:])
 		idx += sz
 
-		e := tracked[offs]
+		e, ok := tracked[offs]
+
+		if !ok {
+			return 0, errors.New("bad offset in document")
+		}
 
 		p := reflect.New(e.Type())
 		p.Elem().Set(e)
@@ -313,10 +350,17 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		for i := 0; i < ln; i++ {
 			var key string
 			rkey := reflect.ValueOf(&key)
-			sz, _ := d.decode(b, idx, tracked, rkey.Elem())
+			sz, err := d.decode(b, idx, tracked, rkey.Elem())
+			if err != nil {
+				return 0, err
+			}
+
 			idx += sz
 			rval, _ := getValue(ptr, key, structTags)
-			sz, _ = d.decode(b, idx, tracked, rval)
+			sz, err = d.decode(b, idx, tracked, rval)
+			if err != nil {
+				return 0, err
+			}
 			idx += sz
 			setKeyValue(ptr, key, rval, structTags)
 		}
@@ -325,6 +369,11 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 
 		idx++
 		ln, sz := varintdecode(b[idx:])
+
+		if ln < 0 || ln > math.MaxInt32 {
+			return 0, errors.New("bad size for slice")
+		}
+
 		idx += sz
 
 		var slice reflect.Value
@@ -363,7 +412,10 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 				var iface interface{}
 				e = reflect.ValueOf(&iface).Elem()
 			}
-			sz, _ := d.decode(b, idx, tracked, e)
+			sz, err := d.decode(b, idx, tracked, e)
+			if err != nil {
+				return 0, err
+			}
 
 			idx += sz
 		}
@@ -374,20 +426,33 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		// FIXME: track before recurse?
 		var s string
 		className := reflect.ValueOf(&s)
-		sz, _ := d.decode(b, idx, tracked, className.Elem())
+		if !isStringish(b[idx:]) {
+			return 0, errors.New("expected stringish for classname")
+		}
+		sz, err := d.decode(b, idx, tracked, className.Elem())
+		if err != nil {
+			return 0, err
+		}
 		idx += sz
 
 		if d.PerlCompat {
 			var ref interface{}
 			rref := reflect.ValueOf(&ref)
-			sz, _ := d.decode(b, idx, tracked, rref.Elem())
+			sz, err := d.decode(b, idx, tracked, rref.Elem())
+			if err != nil {
+				return 0, err
+			}
 			idx += sz
 
 			s := stringOf(className)
 			o := &PerlObject{s, ref}
 			ptr.Set(reflect.ValueOf(o))
 		} else {
-			sz, _ := d.decode(b, idx, tracked, ptr)
+			sz, err := d.decode(b, idx, tracked, ptr)
+			if err != nil {
+				return 0, err
+			}
+
 			idx += sz
 
 			// FIXME: stuff className somewhere if map/struct?
@@ -396,22 +461,38 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 	case tag == typeOBJECTV:
 		idx++
 		offs, sz := varintdecode(b[idx:])
+		if offs > len(b) {
+			return 0, errors.New("bad offset")
+		}
 		idx += sz
 		var s string
 		className := reflect.ValueOf(&s)
-		sz, _ = d.decode(b, offs, tracked, className.Elem())
+		if !isStringish(b[offs:]) {
+			return 0, errors.New("expected stringish for classname")
+		}
+		sz, err := d.decode(b, offs, tracked, className.Elem())
+		fmt.Println("objectv: ", className, "err=", err)
+		if err != nil {
+			return 0, err
+		}
 
 		if d.PerlCompat {
 			var ref interface{}
 			rref := reflect.ValueOf(&ref)
-			sz, _ := d.decode(b, idx, tracked, rref.Elem())
+			sz, err := d.decode(b, idx, tracked, rref.Elem())
+			if err != nil {
+				return 0, err
+			}
 			idx += sz
 
 			s := stringOf(className)
 			o := &PerlObject{s, ref}
 			ptr.Set(reflect.ValueOf(o))
 		} else {
-			sz, _ := d.decode(b, idx, tracked, ptr)
+			sz, err := d.decode(b, idx, tracked, ptr)
+			if err != nil {
+				return 0, err
+			}
 			idx += sz
 		}
 
@@ -459,6 +540,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 			slice = ptr
 
 		default:
+			panic("unhandled type: " + ptr.Kind().String())
 		}
 
 		if trackme {
@@ -473,7 +555,10 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 				var iface interface{}
 				e = reflect.ValueOf(&iface).Elem()
 			}
-			sz, _ := d.decode(b, idx, tracked, e)
+			sz, err := d.decode(b, idx, tracked, e)
+			if err != nil {
+				return 0, err
+			}
 			idx += sz
 		}
 
@@ -514,10 +599,16 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		for i := 0; i < ln; i++ {
 			var key string
 			rkey := reflect.ValueOf(&key)
-			sz, _ := d.decode(b, idx, tracked, rkey.Elem())
+			sz, err := d.decode(b, idx, tracked, rkey.Elem())
+			if err != nil {
+				return 0, err
+			}
 			idx += sz
 			rval, _ := getValue(ptr, key, structTags)
-			sz, _ = d.decode(b, idx, tracked, rval)
+			sz, err = d.decode(b, idx, tracked, rval)
+			if err != nil {
+				return 0, err
+			}
 			idx += sz
 			setKeyValue(href, key, rval, structTags)
 		}
@@ -546,6 +637,10 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 			slice = ptr
 		}
 
+		if idx+ln > len(b) {
+			return 0, errors.New("truncated document")
+		}
+
 		setString(slice, b[idx:idx+ln])
 		idx += ln
 
@@ -567,7 +662,14 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		offs, sz := varintdecode(b[idx:])
 		idx += sz
 
-		d.decode(b, offs, tracked, ptr)
+		if offs < 0 || offs >= len(b) {
+			return 0, errors.New("bad offset")
+		}
+
+		sz, err := d.decode(b, offs, tracked, ptr)
+		if err != nil {
+			return 0, err
+		}
 
 	case tag == typeWEAKEN:
 		idx++
@@ -609,7 +711,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		ptr.Set(rre)
 
 	default:
-		panic("unknown tag byte: " + strconv.Itoa(int(tag)))
+		return 0, errors.New("unknown tag byte: " + strconv.Itoa(int(tag)))
 	}
 
 	if _, ok := tracked[startIdx]; !ok && trackme {
@@ -636,6 +738,8 @@ func setInt(v reflect.Value, k reflect.Kind, i int) {
 		v.SetInt(int64(i))
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		v.SetUint(uint64(i))
+	default:
+		panic("bad type for setInt")
 	}
 }
 
@@ -783,6 +887,29 @@ func stringOf(v reflect.Value) string {
 	}
 
 	panic("bad value for stringOf")
+}
+
+func isStringish(b []byte) bool {
+
+	if len(b) == 0 {
+		return false
+	}
+
+	idx := 0
+	tag := b[idx]
+
+	// skip over any padding bytes
+	for tag == typePAD {
+		idx++
+		tag = b[idx]
+		if idx > len(b) {
+			return false
+		}
+	}
+
+	tag &^= trackFlag
+
+	return tag == typeBINARY || tag == typeSTR_UTF8 || (tag >= typeSHORT_BINARY_0 && tag <= typeSHORT_BINARY_0+31)
 }
 
 func varintdecode(by []byte) (n int, sz int) {
