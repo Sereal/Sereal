@@ -471,7 +471,6 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 			return 0, errors.New("expected stringish for classname")
 		}
 		sz, err := d.decode(b, offs, tracked, className.Elem())
-		fmt.Println("objectv: ", className, "err=", err)
 		if err != nil {
 			return 0, err
 		}
