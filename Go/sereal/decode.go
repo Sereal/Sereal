@@ -37,6 +37,7 @@ func readHeader(b []byte) (serealHeader, error) {
 
 type Decoder struct {
 	PerlCompat bool
+	copyDepth  int
 }
 
 // Unmarshal parses the Sereal-encoded buffer b and stores the result in the value pointed to by v
@@ -658,11 +659,18 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 	case tag == typeCOPY:
 		idx++
 
+		d.copyDepth++
+		defer func() { d.copyDepth-- }()
+
 		offs, sz := varintdecode(b[idx:])
 		idx += sz
 
 		if offs < 0 || offs >= len(b) {
 			return 0, errors.New("bad offset")
+		}
+
+		if d.copyDepth > 0 && !isStringish(b[offs:]) {
+			return 0, errors.New("bad nested copy tag")
 		}
 
 		sz, err := d.decode(b, offs, tracked, ptr)
