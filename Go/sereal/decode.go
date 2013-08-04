@@ -137,11 +137,12 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 	// skip over any padding bytes
 	for tag == typePAD {
 		idx++
-		tag = b[idx]
 
-		if idx > len(b) {
+		if idx >= len(b) {
 			return 0, errors.New("truncated document")
 		}
+
+		tag = b[idx]
 	}
 
 	trackme := (tag & trackFlag) == trackFlag
@@ -908,10 +909,10 @@ func isStringish(b []byte) bool {
 	// skip over any padding bytes
 	for tag == typePAD {
 		idx++
-		tag = b[idx]
-		if idx > len(b) {
+		if idx >= len(b) {
 			return false
 		}
+		tag = b[idx]
 	}
 
 	tag &^= trackFlag
