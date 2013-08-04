@@ -241,7 +241,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 			slice = ptr
 		}
 
-		if idx+ln >= len(b) {
+		if idx+ln > len(b) {
 			return 0, errors.New("truncated document")
 		}
 
@@ -463,7 +463,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 	case tag == typeOBJECTV:
 		idx++
 		offs, sz := varintdecode(b[idx:])
-		if offs > len(b) {
+		if offs >= len(b) {
 			return 0, errors.New("bad offset")
 		}
 		idx += sz
