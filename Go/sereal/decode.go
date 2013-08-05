@@ -371,12 +371,16 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 
 		idx++
 		ln, sz := varintdecode(b[idx:])
+		idx += sz
 
 		if ln < 0 || ln > math.MaxInt32 {
 			return 0, errors.New("bad size for slice")
 		}
 
-		idx += sz
+		if ln > len(b[idx:]) {
+			// not enough sereal tags remaining
+			return 0, errors.New("truncated document")
+		}
 
 		var slice reflect.Value
 
@@ -651,10 +655,18 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		offs, sz := varintdecode(b[idx:])
 		idx += sz
 
+		if offs < 0 || offs >= len(b) {
+			return 0, errors.New("bad offset")
+		}
+
+		e, ok := tracked[offs]
+		if !ok {
+			return 0, errors.New("bad offset for alias")
+		}
+
 		// FIXME: not technically correct, but better than nothing
 		// also, better than panicking
 
-		e := tracked[offs]
 		ptr.Set(e)
 
 	case tag == typeCOPY:
