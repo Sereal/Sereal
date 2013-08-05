@@ -911,7 +911,7 @@ func stringOf(v reflect.Value) string {
 
 func isStringish(b []byte, idx int) bool {
 
-	if len(b) == 0 {
+	if idx < 0 || idx >= len(b) {
 		return false
 	}
 
