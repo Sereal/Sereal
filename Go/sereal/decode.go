@@ -428,7 +428,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		// FIXME: track before recurse?
 		var s string
 		className := reflect.ValueOf(&s)
-		if !isStringish(b[idx:]) {
+		if !isStringish(b, idx) {
 			return 0, errors.New("expected stringish for classname")
 		}
 		sz, err := d.decode(b, idx, tracked, className.Elem())
@@ -469,7 +469,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		idx += sz
 		var s string
 		className := reflect.ValueOf(&s)
-		if !isStringish(b[offs:]) {
+		if !isStringish(b, offs) {
 			return 0, errors.New("expected stringish for classname")
 		}
 		sz, err := d.decode(b, offs, tracked, className.Elem())
@@ -670,7 +670,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 			return 0, errors.New("bad offset")
 		}
 
-		if d.copyDepth > 0 && !isStringish(b[offs:]) {
+		if d.copyDepth > 0 && !isStringish(b, offs) {
 			return 0, errors.New("bad nested copy tag")
 		}
 
@@ -897,13 +897,12 @@ func stringOf(v reflect.Value) string {
 	panic("bad value for stringOf")
 }
 
-func isStringish(b []byte) bool {
+func isStringish(b []byte, idx int) bool {
 
 	if len(b) == 0 {
 		return false
 	}
 
-	idx := 0
 	tag := b[idx]
 
 	// skip over any padding bytes
@@ -916,6 +915,17 @@ func isStringish(b []byte) bool {
 	}
 
 	tag &^= trackFlag
+
+	if tag == typeCOPY {
+
+		offs, sz := varintdecode(b[idx:])
+		idx += sz
+
+		if offs < 0 || offs >= len(b) {
+			return false
+		}
+		return isStringish(b, offs)
+	}
 
 	return tag == typeBINARY || tag == typeSTR_UTF8 || (tag >= typeSHORT_BINARY_0 && tag <= typeSHORT_BINARY_0+31)
 }
