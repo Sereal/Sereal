@@ -336,7 +336,7 @@ func TestStructs(t *testing.T) {
 			"encode struct with tags",
 			ATags{Name: "12345", Phone: "mr foo", Siblings: 10},
 			A{},
-                        A{Name: "mr foo", Phone: "12345"},
+			A{Name: "mr foo", Phone: "12345"},
 		},
 		{
 			"struct with private fields",
