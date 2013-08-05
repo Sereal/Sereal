@@ -940,6 +940,11 @@ func varintdecode(by []byte) (n int, sz int) {
 		if (b & 0x80) == 0 {
 			return n, i + 1
 		}
+
+		if s > 63 {
+			// too many continuation bits
+			panic("bad varint")
+		}
 	}
 
 	// byte without continuation bit
