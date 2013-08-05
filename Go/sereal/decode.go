@@ -135,7 +135,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 	tag := b[idx]
 
 	// skip over any padding bytes
-	for tag == typePAD {
+	for tag == typePAD || tag == typePAD|trackFlag {
 		idx++
 
 		if idx >= len(b) {
