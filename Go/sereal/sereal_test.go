@@ -62,7 +62,10 @@ func testRoundtrip(t *testing.T, perlCompat bool) {
 		}
 		var unp interface{}
 
-		d.Unmarshal(b, &unp)
+		err = d.Unmarshal(b, &unp)
+		if err != nil {
+			t.Errorf("perl compat: error during unmarshall: %s\n", err)
+		}
 		if !reflect.DeepEqual(v, unp) {
 			t.Errorf("failed roundtripping with perlCompat=%t: %#v: got %#v\n", perlCompat, v, unp)
 		}
@@ -85,14 +88,20 @@ func TestRoundtripCompat(t *testing.T) {
 
 	// no perl compat on encode, no perl compat on decode
 	var nono interface{}
-	d.Unmarshal(noCompat, &nono)
+	err := d.Unmarshal(noCompat, &nono)
+	if err != nil {
+		t.Errorf("perl compat: error during unmarshall: %s\n", err)
+	}
 	if !reflect.DeepEqual(expectGo, nono) {
 		t.Errorf("perl compat: no no failed: got %#v\n", nono)
 	}
 
 	// perl compat on encode, no perl compat on decode
 	var yesno interface{}
-	d.Unmarshal(perlCompat, &yesno)
+	err = d.Unmarshal(perlCompat, &yesno)
+	if err != nil {
+		t.Errorf("perl compat: error during unmarshall: %s\n", err)
+	}
 	if !reflect.DeepEqual(expectGo, yesno) {
 		t.Errorf("perl compat: yes no failed: got %#v\n", yesno)
 	}
@@ -101,7 +110,11 @@ func TestRoundtripCompat(t *testing.T) {
 
 	// no perl compat on encode, perl compat on decode
 	var noyes interface{}
-	d.Unmarshal(noCompat, &noyes)
+	err = d.Unmarshal(noCompat, &noyes)
+	if err != nil {
+		t.Errorf("perl compat: error during unmarshall: %s\n", err)
+	}
+
 	if !reflect.DeepEqual(expectGo, noyes) {
 		t.Errorf("perl compat: no yes failed: got %#v\n", noyes)
 	}
@@ -109,7 +122,11 @@ func TestRoundtripCompat(t *testing.T) {
 	// perl compat on encode, yes perl compat on decode
 	var yesyes interface{}
 
-	d.Unmarshal(perlCompat, &yesyes)
+	err = d.Unmarshal(perlCompat, &yesyes)
+	if err != nil {
+		t.Errorf("perl compat: error during unmarshall: %s\n", err)
+	}
+
 	if !reflect.DeepEqual(expectPerlCompat, yesyes) {
 		t.Errorf("perl compat: yes yes failed: got %#v\n", yesyes)
 	}
@@ -224,7 +241,10 @@ func TestSnappyArray(t *testing.T) {
 	}
 
 	var decoded []string
-	d.Unmarshal(snencoded, &decoded)
+	err = d.Unmarshal(snencoded, &decoded)
+	if err != nil {
+		t.Fatalf("snappy decoding generated error: %v", err)
+	}
 
 	if len(decoded) != 2048 {
 		t.Fatalf("got wrong number of elements back: wanted=%d got=%d\n", len(manydups), len(decoded))
