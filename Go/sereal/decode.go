@@ -338,6 +338,15 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		ln, sz := varintdecode(b[idx:])
 		idx += sz
 
+		if ln < 0 || ln > math.MaxInt32 {
+			return 0, errors.New("bad size for hash")
+		}
+
+		if 2*ln > len(b[idx:]) {
+			// not enough sereal tags remaining
+			return 0, errors.New("truncated document")
+		}
+
 		if ptr.Kind() == reflect.Interface && ptr.IsNil() {
 			m := make(map[string]interface{})
 			ptr.Set(reflect.ValueOf(m))
