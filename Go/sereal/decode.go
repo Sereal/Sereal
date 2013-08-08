@@ -927,7 +927,7 @@ func isStringish(b []byte, idx int) bool {
 	tag := b[idx]
 
 	// skip over any padding bytes
-	for tag == typePAD {
+	for tag == typePAD || tag == typePAD|trackFlag {
 		idx++
 		if idx >= len(b) {
 			return false
