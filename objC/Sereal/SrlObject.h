@@ -8,7 +8,7 @@
 
 #import <Foundation/Foundation.h>
 
-@interface SrlObject : NSObject
+@interface SrlObject : NSObject <NSCopying>
 
 + (id)srlObject:(NSString *)className data:(id)data;
 - (id)initWithName:(NSString *)className data:(id)data;

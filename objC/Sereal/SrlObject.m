@@ -34,4 +34,10 @@
 {
     return [NSString stringWithFormat:@"%@ : %@", self.className, self.objData];
 }
+
+- (id)copyWithZone:(NSZone *)zone
+{
+    return [SrlObject srlObject:self.className data:self.objData];
+}
+
 @end
