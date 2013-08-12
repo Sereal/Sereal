@@ -40,4 +40,14 @@
     return [SrlObject srlObject:self.className data:self.objData];
 }
 
+- (id)valueForUndefinedKey:(NSString *)key
+{
+    return [self.objData valueForKey:key];
+}
+
+- (void)setValue:(id)value forUndefinedKey:(NSString *)key
+{
+    [self.objData setValue:value forKey:key];
+}
+
 @end
