@@ -50,4 +50,11 @@
     [self.objData setValue:value forKey:key];
 }
 
+- (BOOL)respondsToSelector:(SEL)aSelector
+{
+    BOOL ret = [super respondsToSelector:aSelector];
+    if (!ret)
+        ret = [self.objData respondsToSelector:aSelector];
+    return ret;
+}
 @end
