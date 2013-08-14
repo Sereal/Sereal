@@ -16,7 +16,7 @@
 		AA14DA4B17B5FF8A0063B3CD /* SrlObject.h in Headers */ = {isa = PBXBuildFile; fileRef = AA14DA4917B5FF8A0063B3CD /* SrlObject.h */; };
 		AA14DA4C17B5FF8A0063B3CD /* SrlObject.m in Sources */ = {isa = PBXBuildFile; fileRef = AA14DA4A17B5FF8A0063B3CD /* SrlObject.m */; };
 		AADA652817B5234F0055792A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = AADA652717B5234F0055792A /* main.m */; };
-		AADA652A17B5234F0055792A /* srl_decode.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AADA652917B5234F0055792A /* srl_decode.1 */; };
+		AADA652A17B5234F0055792A /* srl_test.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = AADA652917B5234F0055792A /* srl_test.1 */; };
 		AADA653817B5249D0055792A /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AADA653717B5249D0055792A /* Cocoa.framework */; };
 		AADA654217B5249D0055792A /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = AADA654017B5249D0055792A /* InfoPlist.strings */; };
 		AADA654617B5249D0055792A /* Sereal.m in Sources */ = {isa = PBXBuildFile; fileRef = AADA654517B5249D0055792A /* Sereal.m */; };
@@ -47,7 +47,7 @@
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
-				AADA652A17B5234F0055792A /* srl_decode.1 in CopyFiles */,
+				AADA652A17B5234F0055792A /* srl_test.1 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -75,7 +75,7 @@
 		AAA4C72617B3C0C80076EACA /* Sereal-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Sereal-Prefix.pch"; sourceTree = "<group>"; };
 		AADA652517B5234F0055792A /* srl_decode */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = srl_decode; sourceTree = BUILT_PRODUCTS_DIR; };
 		AADA652717B5234F0055792A /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		AADA652917B5234F0055792A /* srl_decode.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = srl_decode.1; sourceTree = "<group>"; };
+		AADA652917B5234F0055792A /* srl_test.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = srl_test.1; sourceTree = "<group>"; };
 		AADA653617B5249D0055792A /* Sereal.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Sereal.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AADA653717B5249D0055792A /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		AADA653A17B5249D0055792A /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
@@ -126,8 +126,8 @@
 			children = (
 				AA14DA3C17B5F24D0063B3CD /* Snappy */,
 				AAA4C72017B3C0C80076EACA /* Sereal */,
-				AADA652617B5234F0055792A /* srl_decode */,
 				AADA653D17B5249D0055792A /* Sereal */,
+				AADA652617B5234F0055792A /* srl_test */,
 				AAA4C71D17B3C0C80076EACA /* Frameworks */,
 				AAA4C71C17B3C0C80076EACA /* Products */,
 			);
@@ -187,13 +187,13 @@
 			name = Src;
 			sourceTree = "<group>";
 		};
-		AADA652617B5234F0055792A /* srl_decode */ = {
+		AADA652617B5234F0055792A /* srl_test */ = {
 			isa = PBXGroup;
 			children = (
 				AADA652717B5234F0055792A /* main.m */,
-				AADA652917B5234F0055792A /* srl_decode.1 */,
+				AADA652917B5234F0055792A /* srl_test.1 */,
 			);
-			path = srl_decode;
+			path = srl_test;
 			sourceTree = "<group>";
 		};
 		AADA653917B5249D0055792A /* Other Frameworks */ = {
@@ -248,9 +248,9 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
-		AADA652417B5234F0055792A /* srl_decode */ = {
+		AADA652417B5234F0055792A /* srl_test */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = AADA652D17B5234F0055792A /* Build configuration list for PBXNativeTarget "srl_decode" */;
+			buildConfigurationList = AADA652D17B5234F0055792A /* Build configuration list for PBXNativeTarget "srl_test" */;
 			buildPhases = (
 				AADA652117B5234F0055792A /* Sources */,
 				AADA652217B5234F0055792A /* Frameworks */,
@@ -261,7 +261,7 @@
 			dependencies = (
 				AADA655217B524C00055792A /* PBXTargetDependency */,
 			);
-			name = srl_decode;
+			name = srl_test;
 			productName = srl_decode;
 			productReference = AADA652517B5234F0055792A /* srl_decode */;
 			productType = "com.apple.product-type.tool";
@@ -306,7 +306,7 @@
 			projectRoot = "";
 			targets = (
 				AADA653517B5249D0055792A /* Sereal */,
-				AADA652417B5234F0055792A /* srl_decode */,
+				AADA652417B5234F0055792A /* srl_test */,
 			);
 		};
 /* End PBXProject section */
@@ -492,7 +492,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		AADA652D17B5234F0055792A /* Build configuration list for PBXNativeTarget "srl_decode" */ = {
+		AADA652D17B5234F0055792A /* Build configuration list for PBXNativeTarget "srl_test" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				AADA652B17B5234F0055792A /* Debug */,

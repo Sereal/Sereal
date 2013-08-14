@@ -6,6 +6,12 @@
 //  Copyright (c) 2013 Andrea Guzzo. All rights reserved.
 //
 
+#import <Foundation/Foundation.h>
+
 @interface SrlEncoder : NSObject
+
+- (NSData *)encode:(id)obj;
+
+@property (nonatomic, assign) BOOL skipCompression;
 
 @end
