@@ -169,7 +169,7 @@ static void _encode(srl_encoder_t *enc, id obj)
         _encode(&enc, obj);
         char vtype = 0x02; // version 2 no compression
         // check if it's worth using compression
-        if (!self.skipCompression) {
+        if (!self.skipCompression && enc.len > self.compressionThreshold) {
             uint32_t compressed_length = csnappy_max_compressed_length(enc.len);
             char *compressed_buffer = malloc(compressed_length);
             char *working_memory = malloc(1 << 12);

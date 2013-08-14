@@ -13,5 +13,6 @@
 - (NSData *)encode:(id)obj;
 
 @property (nonatomic, assign) BOOL skipCompression;
+@property (nonatomic, assign) NSUInteger compressionThreshold;
 
 @end
