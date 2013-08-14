@@ -169,6 +169,7 @@ static void _create_decoders_lookup()
         NSString *str = [[NSString alloc] initWithBytes:dec->hdr + *dec->ofx
                                                  length:bytes
                                                encoding:NSUTF8StringEncoding];
+        (*dec->ofx) += bytes;
         return str;
     };
     
@@ -319,7 +320,7 @@ static void _create_decoders_lookup()
     for (int i = SRL_HDR_SHORT_BINARY; i < SRL_HDR_SHORT_BINARY+SRL_MASK_SHORT_BINARY_LEN; i++) {
         decoders[i] = ^id (srl_decoder_t *dec) {
             int nBytes = dec->hdr[(*dec->ofx)++]&SRL_MASK_SHORT_BINARY_LEN;
-            if (dec->len < nBytes + 1) {
+            if (dec->len < *dec->ofx + nBytes + 1) {
                 @throw [NSException exceptionWithName:@"BadBinaryData"
                                                reason:@"Buffer shorter than declared length"
                                              userInfo:nil];
