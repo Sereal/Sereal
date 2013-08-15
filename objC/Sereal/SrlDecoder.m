@@ -29,7 +29,8 @@ static NSMutableDictionary *trackingDictionary = nil;
     *dec->ofx += __size;\
     if (*dec->ofx >= dec->len) {\
         @throw [NSException exceptionWithName:@"BufferOverrun"\
-                                       reason:@"Buffer overrun (truncated?)"\
+                                       reason:[NSString stringWithFormat:@"%s (%s:%d) : %@",\
+                                                __FUNCTION__, __FILE__, __LINE__, @"Buffer overrun (truncated?)"]\
                                      userInfo:nil];\
     }\
 }

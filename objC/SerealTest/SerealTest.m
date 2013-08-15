@@ -9,7 +9,20 @@
 #import "SerealTest.h"
 #import "SrlEncoder.h"
 #import "SrlDecoder.h"
+#import "SrlObject.h"
 
+/* encoded buffer generated from perl running:
+ ---
+ use Sereal::Encoder qw(encode_sereal);
+ 
+ 
+ my $encoder = Sereal::Encoder->new({ snappy => 0, snappy_threshold => 0 });
+ $hash = { a => 1, b => [2,3,4,5], c => undef, d => "CIAO" };
+ 
+ my $out = $encoder->encode([$hash, { %$hash, c => "kakka", m => qr/some\s+regexp\s+pattern/i }, $encoder]);
+ print $out;
+ ---
+ */
 static char encoded_test[] = {
     0x3d, 0x73, 0x72, 0x6c, 0x22, 0x00, 0xf2, 0x00, 0x73, 0xf0, 0x40, 0x43, 0x28, 0x2a, 0x04, 0x61,
     0x63, 0x25, 0x61, 0x61, 0x01, 0x61, 0x62, 0x28, 0xab, 0x04, 0x02, 0x03, 0x04, 0x05, 0x61, 0x64,
@@ -60,6 +73,26 @@ static char encoded_test[] = {
     SrlDecoder *decoder = [[SrlDecoder alloc] init];
     id obj = [decoder decode:data];
     STAssertNotNil(obj, @"Can't decode a simple message");
+    STAssertTrue([obj isKindOfClass:[NSArray class]], @"Decoded object is not an array");
+    STAssertTrue([obj count] == 3, @"Array count doesn't match");
+    STAssertTrue([[obj objectAtIndex:2] isKindOfClass:[SrlObject class]], @"Last element is not an SrlObject");
+    NSDictionary *dict1 = [obj objectAtIndex:0];
+    STAssertTrue([dict1 isKindOfClass:[NSDictionary class]], @"Decoded object is not a dictionary");
+
+    NSDictionary *dict2 = [obj objectAtIndex:1];
+    STAssertTrue([dict2 isKindOfClass:[NSDictionary class]], @"Decoded object is not a dictionary");
+    
+    NSArray *ar1 = [dict1 objectForKey:@"b"];
+    STAssertTrue([ar1 isKindOfClass:[NSArray class]], @"Decoded object is not an array");
+
+    NSArray *ar2 = [dict2 objectForKey:@"b"];
+    STAssertTrue([ar2 isKindOfClass:[NSArray class]], @"Decoded object is not an array");
+    
+    STAssertTrue(ar1 == ar2, @"The two arrays are not the same instance");
+    
+    STAssertTrue([dict1 objectForKey:@"c"] == [NSNull null], @"'c' is not null in the first dictionary");
+    
+    STAssertTrue([[dict2 objectForKey:@"c"] isEqual:@"kakka"], @"'c' is not what expected in the second dictionary");
 }
 
 - (void)testRoundTrip
