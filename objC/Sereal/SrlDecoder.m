@@ -128,15 +128,15 @@ static void create_decoders_lookup()
     
     decoders[SRL_HDR_FLOAT] = ^id (srl_decoder_t *dec) {
         (*dec->ofx)++;
-        Float32 flNumber = ((Float32)*(dec->hdr + *dec->ofx));
-        *dec->ofx += sizeof(Float32);
+        float flNumber = *((float *)(dec->hdr + *dec->ofx));
+        *dec->ofx += sizeof(float);
         NSNumber *number = [NSNumber numberWithFloat:flNumber];
         return number;
     };
     
     decoders[SRL_HDR_DOUBLE] = ^id (srl_decoder_t *dec) {
         (*dec->ofx)++;
-        double dNumber = ((double)*(dec->hdr + *dec->ofx));
+        double dNumber = *((double *)(dec->hdr + *dec->ofx));
         *dec->ofx += sizeof(double);
         NSNumber *number = [NSNumber numberWithDouble:dNumber];
         return number;
@@ -144,9 +144,9 @@ static void create_decoders_lookup()
     
     decoders[SRL_HDR_LONG_DOUBLE] = ^id (srl_decoder_t *dec) {
         (*dec->ofx)++;
-        long double ldNumber = ((long double)*(dec->hdr + ++(*dec->ofx)));
+        long double ldNumber = *((long double *)(dec->hdr + *dec->ofx));
         *dec->ofx += sizeof(long double);
-        NSNumber *number = [NSNumber numberWithLongLong:ldNumber];
+        NSNumber *number = [NSNumber numberWithDouble:ldNumber];
         return number;
     };
     

@@ -72,6 +72,8 @@ static char encoded_test[] = {
                           [@"CIAO" mutableCopy], @"copy",
                           @"CIAO", @"refp",
                           date, @"date",
+                          [NSNumber numberWithFloat:34.5], @"float",
+                          [NSNumber numberWithDouble:45.7], @"double",
                           [NSArray arrayWithObjects:@"BLAH", @"DIOKANE", date, nil], @"array",
                           nil];
     NSData *data = [encoder encode:dict];
@@ -98,5 +100,15 @@ static char encoded_test[] = {
     id arrayObj = [obj objectForKey:@"array"];
     STAssertTrue([arrayObj isKindOfClass:[NSArray class]], @"Can't get back an array object");
     STAssertTrue([arrayObj count] == 3, @"Didn't get the same amount of items inside the array object");
+    
+    id floatObj = [obj objectForKey:@"float"];
+    STAssertTrue([floatObj isKindOfClass:[NSNumber class]], @"Can't get a number for 'float'");
+    STAssertTrue(strcmp([floatObj objCType], @encode(float)) == 0, @"Can't get a float back");
+    STAssertTrue(34.5 == [floatObj floatValue], @"Can't get the correct float value back");
+    
+    id doubleObj = [obj objectForKey:@"double"];
+    STAssertTrue([doubleObj isKindOfClass:[NSNumber class]], @"Can't get a number for 'double'");
+    STAssertTrue(strcmp([doubleObj objCType], @encode(double)) == 0, @"Can't get a double back");
+    STAssertTrue(45.7 == [doubleObj doubleValue], @"Can't get the correct double value back");
 }
 @end

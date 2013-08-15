@@ -97,12 +97,31 @@ static void srl_encode(srl_encoder_t *enc, id obj)
             srl_encode(enc, value);
         }
     } else if ([obj isKindOfClass:[NSNumber class]]) {
-        long long value = [obj longLongValue];
-        if (value > -16 && value < 16) {
+        // NOTE: objective C doesn't support long double encoding
+        // ( https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtTypeEncodings.html )
+        const char *ctype = [obj objCType];
+        if (strcmp(ctype, @encode(float)) == 0) {
             EXPAND_BUFFER(enc, 1);
-            enc->hdr[(*enc->ofx)++] = ((value >= 0) ? SRL_HDR_POS : SRL_HDR_NEG) | value;
+            enc->hdr[(*enc->ofx)++] = SRL_HDR_FLOAT;
+            EXPAND_BUFFER(enc, sizeof(float));
+            float fval = [obj floatValue];
+            memcpy(enc->hdr + *enc->ofx, &fval, sizeof(float));
+            *enc->ofx += sizeof(float);
+        } else if (strcmp(ctype, @encode(double)) == 0) {
+            EXPAND_BUFFER(enc, 1);
+            enc->hdr[(*enc->ofx)++] = SRL_HDR_DOUBLE;
+            EXPAND_BUFFER(enc, sizeof(double));
+            double fval = [obj doubleValue];
+            memcpy(enc->hdr + *enc->ofx, &fval, sizeof(double));
+            *enc->ofx += sizeof(double);
         } else {
-            append_varint(enc, value);
+            long long value = [obj longLongValue];
+            if (value > -16 && value < 16) {
+                EXPAND_BUFFER(enc, 1);
+                enc->hdr[(*enc->ofx)++] = ((value >= 0) ? SRL_HDR_POS : SRL_HDR_NEG) | value;
+            } else {
+                append_varint(enc, value);
+            }
         }
     } else if ([obj isKindOfClass:[NSString class]]) {
         NSNumber *offset = [encodedStrings objectForKey:obj];
@@ -160,14 +179,17 @@ static void srl_encode(srl_encoder_t *enc, id obj)
         .ofx = &encoder_offset
     };
     
-    if (!encodedStrings)
+    if (!encodedStrings) {
         encodedStrings = [[NSMutableDictionary alloc] init];
-    else
+    } else {
         [encodedStrings removeAllObjects];
+    }
     
-    if (!encodedInstances)
+    if (!encodedInstances) {
         encodedInstances = [[NSMutableDictionary alloc] init];
-    [encodedInstances removeAllObjects];
+    } else {
+        [encodedInstances removeAllObjects];
+    }
     
     @try {
         srl_encode(&enc, obj);
@@ -185,7 +207,7 @@ static void srl_encode(srl_encoder_t *enc, id obj)
                 free(enc.hdr);
                 enc.hdr = compressed_buffer;
                 enc.len = compressed_length;
-                vtype |= 0x02 << 4;
+                vtype |= 0x02 << SRL_PROTOCOL_VERSION_BITS; // enable compression
             } else {
                 free(compressed_buffer);
             }
@@ -195,8 +217,9 @@ static void srl_encode(srl_encoder_t *enc, id obj)
         output_length = 6;
         ssize_t vsize = 5;
         char varint[vsize];
-        
-        if ((vtype&0xf0) == 0x02<<4) {
+        BOOL is_compressed = vtype & SRL_PROTOCOL_ENCODING_MASK;
+
+        if (is_compressed) {
             encode_varint(varint, &vsize, enc.len);
             output_length += vsize;
         }
@@ -205,10 +228,10 @@ static void srl_encode(srl_encoder_t *enc, id obj)
         output_buffer = calloc(1, output_length);
         *((uint32_t *)output_buffer) = SRL_MAGIC_STRING_LILIPUTIAN;
         offset += 4;
-        output_buffer[offset++] = vtype; // version is 2 ... uncompressed for now
+        output_buffer[offset++] = vtype;
         output_buffer[offset++] = 0x00; // no extra header options
         
-        if ((vtype&0xf0) == 0x02<<4) {
+        if (is_compressed) {
             memcpy(output_buffer + offset, varint, vsize);
             offset += vsize - 1;
         }
