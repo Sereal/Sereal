@@ -25,19 +25,27 @@ typedef id (^srl_decoder)(srl_decoder_t *);
 static srl_decoder decoders[128];
 static NSMutableDictionary *trackingDictionary = nil;
 
+#define ADVANCE_OFFSET(__dec, __size) {\
+    *dec->ofx += __size;\
+    if (*dec->ofx >= dec->len) {\
+        @throw [NSException exceptionWithName:@"BufferOverrun"\
+                                       reason:@"Buffer overrun (truncated?)"\
+                                     userInfo:nil];\
+    }\
+}
+
 static long long read_varint(srl_decoder_t *dec)
 {
     unsigned lshift = 0;
-    ssize_t index = (*dec->ofx)++;
+    ADVANCE_OFFSET(dec, 1);
+    ssize_t index = *dec->ofx;
     unsigned long long number = (dec->hdr[index] & 0x7f);
-    
     while (index < dec->len - 1 && dec->hdr[index] & 0x80) {
-        index = (*dec->ofx)++;
+        ADVANCE_OFFSET(dec, 1);
+        index = *dec->ofx;
         lshift += 7;
         int maxbits = sizeof(long long) * 8;
         if (lshift > maxbits) {
-//            NSLog(@"Varint is bigger than possible representation on this architecture. "
-//                  @"Truncating to %d bits.", maxbits);
             @throw [NSException exceptionWithName:@"VarintOverflow"
                                            reason:@"Varint is bigger than possible representation on this architecture"
                                          userInfo:nil];
@@ -51,14 +59,10 @@ static long long read_varint(srl_decoder_t *dec)
 static id srl_decode(srl_decoder_t *dec)
 {
     id obj = nil;
+    ADVANCE_OFFSET(dec, 1);
     // NOTE: the tracking flag will be ignored if we are decoding a copy command
     BOOL track = (dec->hdr[*dec->ofx] & SRL_HDR_TRACK_FLAG && !dec->cpy);
     ssize_t ofx = *dec->ofx;
-    if (*dec->ofx >= dec->len) {
-        @throw [NSException exceptionWithName:@"BufferOverrun"
-                                       reason:@"Buffer overrun (truncated?)"
-                                     userInfo:nil];
-    }
     char hdr = dec->hdr[*dec->ofx] & ~SRL_HDR_TRACK_FLAG;
     srl_decoder decoder = decoders[hdr];
     if (decoder) {
@@ -102,7 +106,7 @@ static void create_decoders_lookup()
 
     for (int i = 0; i < SRL_HDR_VARINT; i++) {
         decoders[i] = ^id (srl_decoder_t *dec) {
-            char hdr = dec->hdr[(*dec->ofx)++];
+            char hdr = dec->hdr[*dec->ofx];
             int val = hdr & 0x0f;
             NSNumber *number = [NSNumber numberWithInt:(hdr < 16) ? val : -val];
 
@@ -111,15 +115,12 @@ static void create_decoders_lookup()
     }
     
     decoders[SRL_HDR_VARINT] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
         long long varint = read_varint(dec);
         NSNumber *number = [NSNumber numberWithLongLong:varint];
         return number;
     };
     
     decoders[SRL_HDR_ZIGZAG] = ^id (srl_decoder_t *dec) {
-        
-        (*dec->ofx)++;
         long long varint = read_varint(dec);
         varint = -(1 + (varint >> 1)); // unzigzag
         NSNumber *number = [NSNumber numberWithLongLong:varint];
@@ -127,61 +128,58 @@ static void create_decoders_lookup()
     };
     
     decoders[SRL_HDR_FLOAT] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
+        ADVANCE_OFFSET(dec, 1);
         float flNumber = *((float *)(dec->hdr + *dec->ofx));
-        *dec->ofx += sizeof(float);
+        ADVANCE_OFFSET(dec, sizeof(float) - 1);
         NSNumber *number = [NSNumber numberWithFloat:flNumber];
         return number;
     };
     
     decoders[SRL_HDR_DOUBLE] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
+        ADVANCE_OFFSET(dec, 1);
         double dNumber = *((double *)(dec->hdr + *dec->ofx));
-        *dec->ofx += sizeof(double);
+        ADVANCE_OFFSET(dec, sizeof(double) - 1);
         NSNumber *number = [NSNumber numberWithDouble:dNumber];
         return number;
     };
     
     decoders[SRL_HDR_LONG_DOUBLE] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
+        ADVANCE_OFFSET(dec, 1);
         long double ldNumber = *((long double *)(dec->hdr + *dec->ofx));
-        *dec->ofx += sizeof(long double);
+        ADVANCE_OFFSET(dec, sizeof(long double) - 1);
         NSNumber *number = [NSNumber numberWithDouble:ldNumber];
         return number;
     };
     
     decoders[SRL_HDR_UNDEF] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
         return [NSNull null];
     };
     
     decoders[SRL_HDR_BINARY] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
         long long bytes = read_varint(dec);
+        ADVANCE_OFFSET(dec, 1);
         NSData *data = [NSData dataWithBytes:(dec->hdr + *dec->ofx) length:bytes];
-        (*dec->ofx) += bytes;
+        ADVANCE_OFFSET(dec, bytes - 1);
         return data;
     };
     
     decoders[SRL_HDR_STR_UTF8] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
         long long bytes = read_varint(dec);
+        ADVANCE_OFFSET(dec, 1);
         NSString *str = [[NSString alloc] initWithBytes:dec->hdr + *dec->ofx
                                                  length:bytes
                                                encoding:NSUTF8StringEncoding];
-        (*dec->ofx) += bytes;
+        ADVANCE_OFFSET(dec, bytes - 1);
         return str;
     };
     
     decoders[SRL_HDR_REFN] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
         id obj = srl_decode(dec);
         return obj;
     };
     
     decoders[SRL_HDR_REFP] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
-        long long offset = read_varint(dec) + dec->bdy - 1;
+        long long offset = read_varint(dec) + dec->bdy;
         if (offset >= *dec->ofx)
             @throw [NSException exceptionWithName:@"BadRefp"
                                            reason:@"Offset to reference data is past the current offset"
@@ -193,7 +191,6 @@ static void create_decoders_lookup()
     decoders[SRL_HDR_ALIAS] = decoders[SRL_HDR_REFP];
     
     decoders[SRL_HDR_WEAKEN] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
         // TODO - implement
         return srl_decode(dec);
     };
@@ -203,14 +200,12 @@ static void create_decoders_lookup()
             // TODO - we are already inside a copy ... we need to throw an exception
             @throw [NSException exceptionWithName:@"nested_copy" reason:@"Can't nest COPY headers" userInfo:nil];
         }
-        (*dec->ofx)++;
         ssize_t offset = read_varint(dec) + dec->bdy - 1;
         srl_decoder_t copy_dec = COPY_DECODER(dec, offset);
         return srl_decode(&copy_dec);
     };
     
     decoders[SRL_HDR_HASH] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
         long long count = read_varint(dec);
         NSMutableDictionary *dict = [[NSMutableDictionary alloc] initWithCapacity:count];
         FILL_DICTIONARY(dict, (int)count, dec);
@@ -218,7 +213,6 @@ static void create_decoders_lookup()
     };
     
     decoders[SRL_HDR_ARRAY] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
         long long count = read_varint(dec);
         NSMutableArray * array = [[NSMutableArray alloc] initWithCapacity:count];
         FILL_ARRAY(array, (int)count, dec);
@@ -226,7 +220,6 @@ static void create_decoders_lookup()
     };
     
     decoders[SRL_HDR_OBJECT] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
         NSString *className = srl_decode(dec);
         id object = srl_decode(dec);
         if ([object isKindOfClass:[NSData class]]) {
@@ -246,16 +239,27 @@ static void create_decoders_lookup()
     };
     
     decoders[SRL_HDR_OBJECTV] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
         ssize_t offset = read_varint(dec) + dec->bdy - 1;
         srl_decoder_t copy_dec = COPY_DECODER(dec, offset);
         NSString *className = srl_decode(&copy_dec);
         id object = srl_decode(dec);
+        if ([object isKindOfClass:[NSData class]]) {
+            id unarchivedObject = nil;
+            @try {
+                unarchivedObject = [NSUnarchiver unarchiveObjectWithData:object];
+            }
+            @catch (NSException *exception) {
+                NSLog(@"Can't unarchive data for object of type: %@", className);
+            }
+            @finally {
+                return unarchivedObject;
+            }
+            
+        }
         return [SrlObject srlObject:className data:object];
     };
     
     decoders[SRL_HDR_REGEXP] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
         id patternVal = srl_decode(dec);
         id modifiersVal = srl_decode(dec);
         NSString *pattern = nil;
@@ -288,17 +292,14 @@ static void create_decoders_lookup()
     };
     
     decoders[SRL_HDR_FALSE] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
         return [NSNumber numberWithBool:NO];
     };
     
     decoders[SRL_HDR_TRUE] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
         return [NSNumber numberWithBool:YES];
     };
     
     decoders[SRL_HDR_PAD] = ^id (srl_decoder_t *dec) {
-        (*dec->ofx)++;
         return srl_decode(dec);
     };
     
@@ -314,7 +315,7 @@ static void create_decoders_lookup()
     
     for (int i = SRL_HDR_ARRAYREF; i <= SRL_HDR_ARRAYREF+SRL_MASK_ARRAYREF_COUNT; i++) {
         decoders[i] = ^id (srl_decoder_t *dec) {
-            int nItems = dec->hdr[(*dec->ofx)++]&SRL_MASK_ARRAYREF_COUNT;
+            int nItems = dec->hdr[*dec->ofx]&SRL_MASK_ARRAYREF_COUNT;
             NSMutableArray *array = [[NSMutableArray alloc] initWithCapacity:nItems];
             FILL_ARRAY(array, nItems, dec);
             return array;
@@ -323,7 +324,7 @@ static void create_decoders_lookup()
     
     for (int i = SRL_HDR_HASHREF; i <= SRL_HDR_HASHREF+SRL_MASK_HASHREF_COUNT; i++) {
         decoders[i] = ^id (srl_decoder_t *dec) {
-            int nItems = dec->hdr[(*dec->ofx)++]&SRL_MASK_HASHREF_COUNT;
+            int nItems = dec->hdr[*dec->ofx]&SRL_MASK_HASHREF_COUNT;
             NSMutableDictionary *dict = [[NSMutableDictionary alloc] initWithCapacity:nItems];
             FILL_DICTIONARY(dict, nItems, dec);
             return dict;
@@ -332,14 +333,16 @@ static void create_decoders_lookup()
     
     for (int i = SRL_HDR_SHORT_BINARY; i < SRL_HDR_SHORT_BINARY+SRL_MASK_SHORT_BINARY_LEN; i++) {
         decoders[i] = ^id (srl_decoder_t *dec) {
-            int nBytes = dec->hdr[(*dec->ofx)++]&SRL_MASK_SHORT_BINARY_LEN;
+            int nBytes = dec->hdr[*dec->ofx]&SRL_MASK_SHORT_BINARY_LEN;
+            ADVANCE_OFFSET(dec, 1);
             if (dec->len < *dec->ofx + nBytes + 1) {
                 @throw [NSException exceptionWithName:@"BadBinaryData"
                                                reason:@"Buffer shorter than declared length"
                                              userInfo:nil];
             }
             NSString *string = [[NSString alloc] initWithBytes:&dec->hdr[*dec->ofx] length:nBytes encoding:NSUTF8StringEncoding]; // Note: bytes are copied here
-            (*dec->ofx) += nBytes;
+            ADVANCE_OFFSET(dec, nBytes - 1);
+
             return string;
         };
     }
@@ -368,7 +371,7 @@ static void create_decoders_lookup()
     }
     
     index +=4;
-    char vtype = bytes[index++];
+    char vtype = bytes[index];
     
     char version = vtype&0x0f;
     
@@ -395,7 +398,7 @@ static void create_decoders_lookup()
         ssize_t blen = read_varint(&dec);
         if (blen) {
             uint32_t ulen = 0;
-            
+            index++;
             int ret = csnappy_get_uncompressed_length(bytes+index, blen, &ulen);
             if (ret == CSNAPPY_E_HEADER_BAD) {
                 NSLog(@"Malformed csnappy header");
@@ -411,7 +414,8 @@ static void create_decoders_lookup()
             }
             
             dec.hdr = uncompressed;
-            index = 0;
+            dec.len = ulen;
+            index = -1;
         } else {
             NSLog(@"Can't read the length for the compressed buffer");
             return nil;

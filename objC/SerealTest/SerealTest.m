@@ -66,11 +66,12 @@ static char encoded_test[] = {
 {
     SrlEncoder *encoder = [[SrlEncoder alloc] init];
     NSDate *date = [NSDate date];
+    NSString *ciao = @"CIAO";
     NSDictionary *dict = [NSDictionary dictionaryWithObjectsAndKeys:
-                          @"CIAO", @"key",
+                          ciao, @"key",
                           @"1", @"key2",
-                          [@"CIAO" mutableCopy], @"copy",
-                          @"CIAO", @"refp",
+                          [ciao mutableCopy], @"copy",
+                          ciao, @"refp",
                           date, @"date",
                           [NSNumber numberWithFloat:34.5], @"float",
                           [NSNumber numberWithDouble:45.7], @"double",
@@ -80,19 +81,20 @@ static char encoded_test[] = {
     
     SrlDecoder *decoder = [[SrlDecoder alloc] init];
     id obj = [decoder decode:data];
-    
+    NSLog(@"%@", obj);
+
     STAssertTrue([obj isKindOfClass:[NSDictionary class]], @"Didn't get back a dictionary");
     STAssertTrue([obj count] == [dict count], @"Didn't get the same amount of items in the decoded dictionary");
 
-    NSString *ciao = [obj objectForKey:@"key"];
-    STAssertEqualObjects(ciao, @"CIAO", @"Didn't get the same value for 'key'");
+    NSString *ciaostr = [obj objectForKey:@"key"];
+    STAssertEqualObjects(ciaostr, ciao, @"Didn't get the same value for 'key'");
     NSString *ciaoref = [obj objectForKey:@"refp"];
     //STAssertEquals(ciaoref, ciao, @"Didn't get the same instance for 'refp'");
-    STAssertTrue(ciao == ciaoref, @"Didn't get the same instance for 'refp'");
+    STAssertTrue(ciaostr == ciaoref, @"Didn't get the same instance for 'refp'");
 
     NSString *ciaocopy = [obj objectForKey:@"copy"];
-    STAssertFalse(ciao == ciaocopy, @"Got the same instance for 'copy'");
-    STAssertEqualObjects(ciao, ciaocopy, @"Didn't get the same value for 'copy'");
+    STAssertFalse(ciaostr == ciaocopy, @"Got the same instance for 'copy'");
+    STAssertEqualObjects(ciaostr, ciaocopy, @"Didn't get the same value for 'copy'");
     
     id dateObj = [obj objectForKey:@"date"];
     STAssertTrue([dateObj isKindOfClass:[NSDate class]], @"Can't get back an object for 'date'");
