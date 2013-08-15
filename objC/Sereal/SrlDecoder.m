@@ -48,7 +48,7 @@ static long long read_varint(srl_decoder_t *dec)
     return number;
 }
 
-static id _decode(srl_decoder_t *dec)
+static id srl_decode(srl_decoder_t *dec)
 {
     id obj = nil;
     // NOTE: the tracking flag will be ignored if we are decoding a copy command
@@ -84,19 +84,19 @@ static id _decode(srl_decoder_t *dec)
 
 #define FILL_ARRAY(__array, __items, __dec) \
 for (int i = 0; i < __items; i++) {\
-    id obj = _decode(__dec);\
+    id obj = srl_decode(__dec);\
     [__array addObject:obj];\
 }\
 
 #define FILL_DICTIONARY(__dict, __items, __dec) \
 for (int i = 0; i < __items; i++) {\
-    id key = _decode(__dec);\
-    id value = _decode(__dec);\
+    id key = srl_decode(__dec);\
+    id value = srl_decode(__dec);\
     if (value)\
         [__dict setObject:value forKey:key];\
 }
 
-static void _create_decoders_lookup()
+static void create_decoders_lookup()
 {
     memset(decoders, 0, sizeof(decoders));
 
@@ -175,7 +175,7 @@ static void _create_decoders_lookup()
     
     decoders[SRL_HDR_REFN] = ^id (srl_decoder_t *dec) {
         (*dec->ofx)++;
-        id obj = _decode(dec);
+        id obj = srl_decode(dec);
         return obj;
     };
     
@@ -195,7 +195,7 @@ static void _create_decoders_lookup()
     decoders[SRL_HDR_WEAKEN] = ^id (srl_decoder_t *dec) {
         (*dec->ofx)++;
         // TODO - implement
-        return _decode(dec);
+        return srl_decode(dec);
     };
     
     decoders[SRL_HDR_COPY] = ^id (srl_decoder_t *dec) {
@@ -206,7 +206,7 @@ static void _create_decoders_lookup()
         (*dec->ofx)++;
         ssize_t offset = read_varint(dec) + dec->bdy - 1;
         srl_decoder_t copy_dec = COPY_DECODER(dec, offset);
-        return _decode(&copy_dec);
+        return srl_decode(&copy_dec);
     };
     
     decoders[SRL_HDR_HASH] = ^id (srl_decoder_t *dec) {
@@ -227,8 +227,21 @@ static void _create_decoders_lookup()
     
     decoders[SRL_HDR_OBJECT] = ^id (srl_decoder_t *dec) {
         (*dec->ofx)++;
-        NSString *className = _decode(dec);
-        id object = _decode(dec);
+        NSString *className = srl_decode(dec);
+        id object = srl_decode(dec);
+        if ([object isKindOfClass:[NSData class]]) {
+            id unarchivedObject = nil;
+            @try {
+                unarchivedObject = [NSUnarchiver unarchiveObjectWithData:object];
+            }
+            @catch (NSException *exception) {
+                NSLog(@"Can't unarchive data for object of type: %@", className);
+            }
+            @finally {
+                return unarchivedObject;
+            }
+            
+        }
         return [SrlObject srlObject:className data:object];
     };
     
@@ -236,15 +249,15 @@ static void _create_decoders_lookup()
         (*dec->ofx)++;
         ssize_t offset = read_varint(dec) + dec->bdy - 1;
         srl_decoder_t copy_dec = COPY_DECODER(dec, offset);
-        NSString *className = _decode(&copy_dec);
-        id object = _decode(dec);
+        NSString *className = srl_decode(&copy_dec);
+        id object = srl_decode(dec);
         return [SrlObject srlObject:className data:object];
     };
     
     decoders[SRL_HDR_REGEXP] = ^id (srl_decoder_t *dec) {
         (*dec->ofx)++;
-        id patternVal = _decode(dec);
-        id modifiersVal = _decode(dec);
+        id patternVal = srl_decode(dec);
+        id modifiersVal = srl_decode(dec);
         NSString *pattern = nil;
         NSString *modifiers = nil;
         if ([patternVal isKindOfClass:[NSString class]]) {
@@ -286,7 +299,7 @@ static void _create_decoders_lookup()
     
     decoders[SRL_HDR_PAD] = ^id (srl_decoder_t *dec) {
         (*dec->ofx)++;
-        return _decode(dec);
+        return srl_decode(dec);
     };
     
     decoders[SRL_HDR_MANY] = ^id (srl_decoder_t *dec) {
@@ -336,7 +349,7 @@ static void _create_decoders_lookup()
 
 + (void)initialize
 {
-    _create_decoders_lookup();
+    create_decoders_lookup();
 }
 
 - (id)decode:(NSData *)someData
@@ -414,7 +427,7 @@ static void _create_decoders_lookup()
     
     id object = nil;
     @try {
-        object = _decode(&dec);
+        object = srl_decode(&dec);
     }
     @catch (NSException *exception) {
         NSLog(@"Can't decode: %@", exception);

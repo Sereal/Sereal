@@ -31,3 +31,15 @@
 + (id)stringWithSrlData:(NSData *)data;
 
 @end
+
+@interface NSDictionary (SrlAdditions) <Sereal>
+
++ (id)dictionaryWithSrlData:(NSData *)data;
+
+@end
+
+@interface NSArray (SrlAdditions) <Sereal>
+
++ (id)arrayWithSrlData:(NSData *)data;
+
+@end
