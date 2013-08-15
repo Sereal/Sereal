@@ -82,7 +82,8 @@ static char encoded_test[] = {
     id obj = [decoder decode:data];
     
     STAssertTrue([obj isKindOfClass:[NSDictionary class]], @"Didn't get back a dictionary");
-    
+    STAssertTrue([obj count] == [dict count], @"Didn't get the same amount of items in the decoded dictionary");
+
     NSString *ciao = [obj objectForKey:@"key"];
     STAssertEqualObjects(ciao, @"CIAO", @"Didn't get the same value for 'key'");
     NSString *ciaoref = [obj objectForKey:@"refp"];
@@ -101,6 +102,11 @@ static char encoded_test[] = {
     STAssertTrue([arrayObj isKindOfClass:[NSArray class]], @"Can't get back an array object");
     STAssertTrue([arrayObj count] == 3, @"Didn't get the same amount of items inside the array object");
     
+    id dateRef = [arrayObj lastObject];
+    STAssertTrue([dateRef isKindOfClass:[NSDate class]], @"Can't get a date object as last element of the array");
+    STAssertTrue(dateRef == dateObj, @"Didn't get the same instance for second date object (should be a refp)");
+
+    
     id floatObj = [obj objectForKey:@"float"];
     STAssertTrue([floatObj isKindOfClass:[NSNumber class]], @"Can't get a number for 'float'");
     STAssertTrue(strcmp([floatObj objCType], @encode(float)) == 0, @"Can't get a float back");
@@ -111,4 +117,5 @@ static char encoded_test[] = {
     STAssertTrue(strcmp([doubleObj objCType], @encode(double)) == 0, @"Can't get a double back");
     STAssertTrue(45.7 == [doubleObj doubleValue], @"Can't get the correct double value back");
 }
+
 @end
