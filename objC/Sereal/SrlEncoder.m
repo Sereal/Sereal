@@ -29,13 +29,11 @@ static NSMutableDictionary *encodedInstances = nil;
     }\
 }
 
-static void encode_varint(char *buf, ssize_t *size, long long value, BOOL zigzag)
+static void encode_varint(char *buf, ssize_t *size, long long value)
 {
     int offset = 0;
     *buf = 0;
-    if (zigzag)
-        value = (value << 1) ^ (value >> 63);
-    
+
     while (value) {
         buf[offset] =  value & 0x7f;
         value >>= 7;
@@ -50,17 +48,7 @@ static void append_varint(srl_encoder_t *enc, long long value)
 {
     ssize_t len = 5;
     char buf[len];
-    encode_varint(buf, &len, value, NO);
-    EXPAND_BUFFER(enc, len);
-    memcpy(enc->hdr + *enc->ofx, buf, len);
-    (*enc->ofx) += len - 1;
-}
-
-static void append_zigzag(srl_encoder_t *enc, long long value)
-{
-    ssize_t len = 5;
-    char buf[len];
-    encode_varint(buf, &len, value, YES);
+    encode_varint(buf, &len, value);
     EXPAND_BUFFER(enc, len);
     memcpy(enc->hdr + *enc->ofx, buf, len);
     (*enc->ofx) += len - 1;
@@ -139,11 +127,11 @@ static void srl_encode(srl_encoder_t *enc, id obj)
                 EXPAND_BUFFER(enc, 1);
                 if (value >= 0) {
                     enc->hdr[(*enc->ofx)++] = SRL_HDR_VARINT;
-                    append_varint(enc, value);
                 } else {
                     enc->hdr[(*enc->ofx)++] = SRL_HDR_ZIGZAG;
-                    append_zigzag(enc, value);
+                    value = (value << 1) ^ (value >> 63);
                 }
+                append_varint(enc, value);
             }
         }
     } else if ([obj isKindOfClass:[NSString class]]) {
@@ -243,7 +231,7 @@ static void srl_encode(srl_encoder_t *enc, id obj)
         BOOL is_compressed = vtype & SRL_PROTOCOL_ENCODING_MASK;
 
         if (is_compressed) {
-            encode_varint(varint, &vsize, enc.len, NO);
+            encode_varint(varint, &vsize, enc.len);
             output_length += vsize;
         }
         
