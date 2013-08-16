@@ -26,8 +26,8 @@ static srl_decoder decoders[128];
 static NSMutableDictionary *trackingDictionary = nil;
 
 #define ADVANCE_OFFSET(__dec, __size) {\
-    *dec->ofx += __size;\
-    if (*dec->ofx >= dec->len) {\
+    *__dec->ofx += __size;\
+    if (*__dec->ofx >= __dec->len) {\
         @throw [NSException exceptionWithName:@"BufferOverrun"\
                                        reason:[NSString stringWithFormat:@"%s (%s:%d) : %@",\
                                                 __FUNCTION__, __FILE__, __LINE__, @"Buffer overrun (truncated?)"]\
@@ -109,7 +109,7 @@ static void create_decoders_lookup()
         decoders[i] = ^id (srl_decoder_t *dec) {
             char hdr = dec->hdr[*dec->ofx];
             int val = hdr & 0x0f;
-            NSNumber *number = [NSNumber numberWithInt:(hdr < 16) ? val : -val];
+            NSNumber *number = [NSNumber numberWithInt:(hdr < 16) ? val : (val - 16)];
 
             return number;
         };
@@ -215,7 +215,7 @@ static void create_decoders_lookup()
     
     decoders[SRL_HDR_ARRAY] = ^id (srl_decoder_t *dec) {
         long long count = read_varint(dec);
-        NSMutableArray * array = [[NSMutableArray alloc] initWithCapacity:count];
+        NSMutableArray *array = [[NSMutableArray alloc] initWithCapacity:count];
         FILL_ARRAY(array, (int)count, dec);
         return array;
     };
