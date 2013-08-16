@@ -153,6 +153,15 @@ static char encoded_test[] = {
     STAssertTrue([doubleObj isKindOfClass:[NSNumber class]], @"Can't get a number for 'double'");
     STAssertTrue(strcmp([doubleObj objCType], @encode(double)) == 0, @"Can't get a double back");
     STAssertTrue(45.7 == [doubleObj doubleValue], @"Can't get the correct double value back");
+
+    NSArray *array2 = [obj objectForKey:@"array2"];
+    STAssertTrue([array2 isKindOfClass:[NSArray class]], @"Can't get back an array object");
+    STAssertTrue([array2 count] == 35, @"Didn't get the same amount of items inside the array object");
+    for (int i = -17; i <= 17; i++) {
+        NSNumber *num = [array2 objectAtIndex:(i + 17)];
+        STAssertTrue([num isKindOfClass:[NSNumber class]], @"Can't get a number from array2");
+        STAssertTrue([num intValue] == i, @"Wrong number found in array2");
+    }
 }
 
 @end
