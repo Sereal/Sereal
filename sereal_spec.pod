@@ -396,6 +396,8 @@ In Sereal protocol version 2, offsets were changed from being relative to
 the start of the document (including header) to being relative to the start
 of the document body (ie. excluding the document header). This means that
 Sereal document bodies are now self-contained - relocatable within the document.
+Note that the offset is 1-based, which means that to point the first byte
+of the body its value must be 1.
 
 Additionally, protocol version 2 introduced the 8bit bit-field (8bit-BITFIELD)
 in the variable-length/optional header part (OPT-SUFFIX) of the document

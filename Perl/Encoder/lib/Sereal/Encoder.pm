@@ -107,6 +107,8 @@ The size threshold (in bytes) of the uncompressed output below which
 snappy compression is not even attempted even if enabled.
 Defaults to one kilobyte (1024 bytes). Set to 0 and C<snappy> to enabled
 to always compress.
+Note that the document will not be compressed if the resulting size
+will be bigger than the original size (even if snappy_threshold is 0).
 
 =head3 croak_on_bless
 
