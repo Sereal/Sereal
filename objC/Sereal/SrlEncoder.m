@@ -129,7 +129,7 @@ static void srl_encode(srl_encoder_t *enc, id obj)
                     enc->hdr[(*enc->ofx)++] = SRL_HDR_VARINT;
                 } else {
                     enc->hdr[(*enc->ofx)++] = SRL_HDR_ZIGZAG;
-                    value = (value << 1) ^ (value >> 63);
+                    value = (value << 1) ^ (value >> 63); // zigzag
                 }
                 append_varint(enc, value);
             }

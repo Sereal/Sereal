@@ -123,7 +123,7 @@ static void create_decoders_lookup()
     
     decoders[SRL_HDR_ZIGZAG] = ^id (srl_decoder_t *dec) {
         long long varint = read_varint(dec);
-        varint = -(1 + (varint >> 1)); // unzigzag
+        varint = (varint >> 1) ^ -(varint & 0x01); // -(1 + (varint >> 1)); // unzigzag
         NSNumber *number = [NSNumber numberWithLongLong:varint];
         return number;
     };
