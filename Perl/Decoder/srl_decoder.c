@@ -783,7 +783,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
         av_array= AvARRAY((AV*)into);
         av_end= av_array + len;
 
-        for ( ; av_array < av_end ; av_array++) {
+        for ( ; av_array != av_end ; av_array++) {
             if ( expect_false( *dec->pos == SRL_HDR_ALIAS ) ) {
                 dec->pos++;
                 *av_array= srl_read_alias(aTHX_ dec);
