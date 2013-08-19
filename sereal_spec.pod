@@ -25,6 +25,12 @@ up of two parts, the document header and the document body.
 
 =head2 General Points
 
+=head3 Strictness
+
+A compliant Sereal decoder must detect invalid documents and handle them
+as a safe exception in the respective implementation language.
+That is to say, without a crash or worse.
+
 =head3 Little Endian
 
 All numeric data is in little endian format.
