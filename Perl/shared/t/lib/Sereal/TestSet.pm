@@ -138,6 +138,32 @@ sub varint {
     return $out;
 }
 
+sub many_head {
+  my ($n, $tag) = @_;
+  my $out = '';
+  $out .= chr(SRL_HDR_MANY);
+  $out .= varint($n);
+  $out .= $tag;
+  return $out;
+}
+
+sub many_strip {
+  my ($n, $tag, @data) = @_;
+  my $out = many_head($n, $tag);
+  for (@data) {
+    s/^.//;
+    $out .= $_;
+  }
+  return $out;
+}
+
+sub many {
+  my ($n, $tag, @data) = @_;
+  my $out = many_head($n, $tag);
+  $out .= $_ for @data;
+  return $out;
+}
+
 our $PROTO_VERSION;
 
 sub Header {
@@ -511,7 +537,12 @@ sub setup_tests {
             sub { \@_ }->(!1,!0),
             array(chr(SRL_HDR_FALSE),chr(SRL_HDR_TRUE)),
             "true/false"
-        ]
+        ],
+        [ [10000 .. 10001],
+            array_head(2) . 
+            many(2, chr(SRL_HDR_VARINT), map {varint($_)} (10000 .. 10001)),
+            "array ref 'many' varints"
+        ],
     );
 }
 

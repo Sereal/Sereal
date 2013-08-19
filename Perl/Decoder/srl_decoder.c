@@ -787,6 +787,38 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
             if ( expect_false( *dec->pos == SRL_HDR_ALIAS ) ) {
                 dec->pos++;
                 *av_array= srl_read_alias(aTHX_ dec);
+            } else if ( expect_false( *dec->pos == SRL_HDR_MANY ) ) {
+                /* MANY tag implementation for within an array. The logic here is
+                 * nothing short of disgusting and I wish there were a more elegant
+                 * way that doesn't slow everything else down or have similarly dire
+                 * consequences for elegance. */
+                /* FIXME either way, this isn't good enough even if we're accepting
+                 *       the incredibly hackish way of this implementation. During
+                 *       exceptions, this can leave the original document corrupted
+                 *       due to the tmp-overwrite hack. */
+                UV count = srl_read_varint_uv_count(aTHX_ dec, " while reading MANY");
+                UV i;
+                U8 tag, tmp;
+                dec->pos++; /* shift off MANY */
+                if ( expect_false( count == 0 ) )
+                    SRL_ERROR("Got empty item count for MANY tag");
+                else if ( expect_false( (av_end-av_array) < count ) ) {
+                    SRL_ERRORf2("Got MANY tag with %lu entries, but the remaining number of entries to "
+                                "fill in this array are just %lu.",
+                                (unsigned long)count, (unsigned long)(av_end-av_array));
+                }
+                tag= *(dec->pos);
+                *av_array= newSV_type(SVt_NULL);
+                srl_read_single_value(aTHX_ dec, *av_array);
+                av_array++;
+                for (i = 0; i < count; ++i, av_array++) {
+                    *av_array= newSV_type(SVt_NULL);
+                    --dec->pos;
+                    tmp = *(dec->pos);
+                    *(dec->pos) = tag;
+                    srl_read_single_value(aTHX_ dec, *av_array);
+                    *(dec->pos) = tmp;
+                }
             } else {
                 *av_array= newSV_type(SVt_NULL);
                 srl_read_single_value(aTHX_ dec, *av_array);
