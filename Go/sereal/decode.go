@@ -255,7 +255,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		idx += sz
 
 		if ln < 0 {
-			return 0, errors.New("bad length")
+			return 0, errors.New("bad size for string")
 		}
 
 		if idx+ln > len(b) {
@@ -321,10 +321,14 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		offs, sz := varintdecode(b[idx:])
 		idx += sz
 
+                if offs < 0 || offs > len(b) {
+			return 0, errors.New("bad offset")
+                }
+
 		e, ok := tracked[offs]
 
 		if !ok {
-			return 0, errors.New("bad offset in document")
+			return 0, errors.New("untracked offset for REFP")
 		}
 
 		p := reflect.New(e.Type())
@@ -670,7 +674,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 
 		e, ok := tracked[offs]
 		if !ok {
-			return 0, errors.New("bad offset for alias")
+			return 0, errors.New("untracked offset for alias")
 		}
 
 		// FIXME: not technically correct, but better than nothing
