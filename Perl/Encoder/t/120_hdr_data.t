@@ -19,7 +19,7 @@ is(Sereal::Encoder->new->encode(-16, 12), $ref, "OO: Encode 12 in header, -16 in
 
 my $ok = have_encoder_and_decoder();
 if (not $ok) {
-    skip 'Did not find right version of decoder' => 1;
+    SKIP: { skip 'Did not find right version of decoder' => 1 }
 }
 else {
     my $dec = Sereal::Decoder->new;
