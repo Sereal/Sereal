@@ -13,14 +13,15 @@
 		AA14DA4617B5F2600063B3CD /* csnappy_internal_userspace.h in Headers */ = {isa = PBXBuildFile; fileRef = AA14DA4017B5F2600063B3CD /* csnappy_internal_userspace.h */; };
 		AA14DA4717B5F2600063B3CD /* csnappy_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = AA14DA4117B5F2600063B3CD /* csnappy_internal.h */; };
 		AA14DA4817B5F2600063B3CD /* csnappy.h in Headers */ = {isa = PBXBuildFile; fileRef = AA14DA4217B5F2600063B3CD /* csnappy.h */; };
-		AA14DA4B17B5FF8A0063B3CD /* SrlObject.h in Headers */ = {isa = PBXBuildFile; fileRef = AA14DA4917B5FF8A0063B3CD /* SrlObject.h */; };
+		AA14DA4B17B5FF8A0063B3CD /* SrlObject.h in Headers */ = {isa = PBXBuildFile; fileRef = AA14DA4917B5FF8A0063B3CD /* SrlObject.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		AA14DA4C17B5FF8A0063B3CD /* SrlObject.m in Sources */ = {isa = PBXBuildFile; fileRef = AA14DA4A17B5FF8A0063B3CD /* SrlObject.m */; };
+		AAC06AD817D09332000194BB /* Sereal.h in Headers */ = {isa = PBXBuildFile; fileRef = AADA654417B5249D0055792A /* Sereal.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		AADA653817B5249D0055792A /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AADA653717B5249D0055792A /* Cocoa.framework */; };
 		AADA654617B5249D0055792A /* Sereal.m in Sources */ = {isa = PBXBuildFile; fileRef = AADA654517B5249D0055792A /* Sereal.m */; };
 		AADA654A17B524B50055792A /* srl_protocol.h in Headers */ = {isa = PBXBuildFile; fileRef = AA394A3E17B3C17D007BA2AF /* srl_protocol.h */; };
-		AADA654B17B524B50055792A /* SrlEncoder.h in Headers */ = {isa = PBXBuildFile; fileRef = AA394A3F17B3C200007BA2AF /* SrlEncoder.h */; };
+		AADA654B17B524B50055792A /* SrlEncoder.h in Headers */ = {isa = PBXBuildFile; fileRef = AA394A3F17B3C200007BA2AF /* SrlEncoder.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		AADA654C17B524B50055792A /* SrlEncoder.m in Sources */ = {isa = PBXBuildFile; fileRef = AA394A4017B3C200007BA2AF /* SrlEncoder.m */; };
-		AADA654D17B524B50055792A /* SrlDecoder.h in Headers */ = {isa = PBXBuildFile; fileRef = AA394A4217B3C20D007BA2AF /* SrlDecoder.h */; };
+		AADA654D17B524B50055792A /* SrlDecoder.h in Headers */ = {isa = PBXBuildFile; fileRef = AA394A4217B3C20D007BA2AF /* SrlDecoder.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		AADA654E17B524B50055792A /* SrlDecoder.m in Sources */ = {isa = PBXBuildFile; fileRef = AA394A4317B3C20D007BA2AF /* SrlDecoder.m */; };
 		AADA654F17B524B50055792A /* SrlAdditions.h in Headers */ = {isa = PBXBuildFile; fileRef = AA394A4517B3C6A3007BA2AF /* SrlAdditions.h */; };
 		AADA655017B524B50055792A /* SrlAdditions.m in Sources */ = {isa = PBXBuildFile; fileRef = AA394A4617B3C6A3007BA2AF /* SrlAdditions.m */; };
@@ -217,15 +218,16 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AADA654A17B524B50055792A /* srl_protocol.h in Headers */,
+				AAC06AD817D09332000194BB /* Sereal.h in Headers */,
 				AADA654B17B524B50055792A /* SrlEncoder.h in Headers */,
 				AADA654D17B524B50055792A /* SrlDecoder.h in Headers */,
+				AA14DA4B17B5FF8A0063B3CD /* SrlObject.h in Headers */,
+				AADA654A17B524B50055792A /* srl_protocol.h in Headers */,
 				AADA654F17B524B50055792A /* SrlAdditions.h in Headers */,
 				AA14DA4317B5F2600063B3CD /* csnappy_compat.h in Headers */,
 				AA14DA4617B5F2600063B3CD /* csnappy_internal_userspace.h in Headers */,
 				AA14DA4717B5F2600063B3CD /* csnappy_internal.h in Headers */,
 				AA14DA4817B5F2600063B3CD /* csnappy.h in Headers */,
-				AA14DA4B17B5FF8A0063B3CD /* SrlObject.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -528,6 +530,7 @@
 				AADA657917BCD51E0055792A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
