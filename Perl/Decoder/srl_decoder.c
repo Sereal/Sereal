@@ -838,7 +838,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         U32 flags= 0;
 #endif
         ASSERT_BUF_SPACE(dec,1," while reading key tag byte for HASH");
-        tag= *dec->pos++;
+        tag= (*dec->pos++)&127;
         if (IS_SRL_HDR_SHORT_BINARY(tag)) {
             key_len= (IV)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
             ASSERT_BUF_SPACE(dec,key_len," while reading string/SHORT_BINARY key");
