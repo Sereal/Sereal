@@ -13,9 +13,10 @@ import (
 )
 
 type serealHeader struct {
-	doctype    documentType
-	version    byte
-	suffixSize int
+	doctype     documentType
+	version     byte
+	suffixStart int
+	suffixSize  int
 }
 
 func readHeader(b []byte) (serealHeader, error) {
@@ -31,6 +32,7 @@ func readHeader(b []byte) (serealHeader, error) {
 
 	ln, sz := varintdecode(b[5:])
 	h.suffixSize = ln + sz
+	h.suffixStart = headerSize + sz + 1
 
 	return h, nil
 }
@@ -41,7 +43,16 @@ type Decoder struct {
 }
 
 // Unmarshal parses the Sereal-encoded buffer b and stores the result in the value pointed to by v
+func (d *Decoder) UnmarshalHeader(b []byte, header interface{}) (err error) {
+	return d.UnmarshalHeaderBody(b, header, nil)
+}
+
 func (d *Decoder) Unmarshal(b []byte, v interface{}) (err error) {
+	return d.UnmarshalHeaderBody(b, nil, v)
+}
+
+func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody interface{}) (err error) {
+
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(runtime.Error); ok {
@@ -56,8 +67,6 @@ func (d *Decoder) Unmarshal(b []byte, v interface{}) (err error) {
 		}
 	}()
 
-	vPtrValue := reflect.ValueOf(v)
-
 	header, err := readHeader(b)
 
 	if err != nil {
@@ -66,6 +75,15 @@ func (d *Decoder) Unmarshal(b []byte, v interface{}) (err error) {
 
 	bodyStart := headerSize + header.suffixSize
 
+	switch header.version {
+	case 1:
+		break
+	case 2:
+		break
+	default:
+		return errors.New(fmt.Sprintf("Document version '%d' not yet supported", header.version))
+	}
+
 	/* XXX instead of creating an uncompressed copy of the document,
 	 *     it would be more flexible to use a sort of "Reader" interface */
 	switch header.doctype {
@@ -73,6 +91,11 @@ func (d *Decoder) Unmarshal(b []byte, v interface{}) (err error) {
 	case serealRaw:
 		// nothing
 	case serealSnappy:
+
+		if header.version != 1 {
+			return errors.New("snappy compression only valid for v1 documents")
+		}
+
 		decoded, err := snappy.Decode(nil, b[bodyStart:])
 
 		if err != nil {
@@ -101,27 +124,45 @@ func (d *Decoder) Unmarshal(b []byte, v interface{}) (err error) {
 
 	default:
 		return errors.New(fmt.Sprintf("Document type '%d' not yet supported", header.doctype))
-
 	}
 
-	if header.version != 1 {
-		return errors.New(fmt.Sprintf("Document version '%d' not yet supported", header.version))
+	if vheader != nil && header.suffixSize != 1 {
+		tracked := make(map[int]reflect.Value)
+		if reflect.TypeOf(vheader).Kind() != reflect.Ptr {
+			return errors.New("expected pointer for header")
+		}
+
+		headerPtrValue := reflect.ValueOf(vheader)
+
+		_, err = d.decode(b[header.suffixStart:], 0, tracked, headerPtrValue.Elem())
+
+		if err != nil {
+			return err
+		}
 	}
 
-	if reflect.TypeOf(v).Kind() != reflect.Ptr {
-		return errors.New("expected pointer")
-	}
+	if err == nil && vbody != nil {
+		tracked := make(map[int]reflect.Value)
 
-	tracked := make(map[int]reflect.Value)
+		if reflect.TypeOf(vbody).Kind() != reflect.Ptr {
+			return errors.New("expected pointer for body")
+		}
 
-	_, err = d.decode(b, bodyStart, tracked, vPtrValue.Elem())
+		bodyPtrValue := reflect.ValueOf(vbody)
 
-	if err != nil {
-		return err
+		if header.version == 1 {
+			_, err = d.decode(b, bodyStart, tracked, bodyPtrValue.Elem())
+		} else {
+			//  serealv2 documents have 1-based offsets :/
+			_, err = d.decode(b[bodyStart-1:], 1, tracked, bodyPtrValue.Elem())
+		}
+
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
-
 }
 
 func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr reflect.Value) (int, error) {
