@@ -321,9 +321,9 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		offs, sz := varintdecode(b[idx:])
 		idx += sz
 
-                if offs < 0 || offs > len(b) {
+		if offs < 0 || offs > len(b) {
 			return 0, errors.New("bad offset")
-                }
+		}
 
 		e, ok := tracked[offs]
 
