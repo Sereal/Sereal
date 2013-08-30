@@ -81,7 +81,7 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 	case 2:
 		break
 	default:
-		return errors.New(fmt.Sprintf("Document version '%d' not yet supported", header.version))
+		return fmt.Errorf("Document version '%d' not yet supported", header.version)
 	}
 
 	/* XXX instead of creating an uncompressed copy of the document,
@@ -123,7 +123,7 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 		b = d
 
 	default:
-		return errors.New(fmt.Sprintf("Document type '%d' not yet supported", header.doctype))
+		return fmt.Errorf("Document type '%d' not yet supported", header.doctype)
 	}
 
 	if vheader != nil && header.suffixSize != 1 {
