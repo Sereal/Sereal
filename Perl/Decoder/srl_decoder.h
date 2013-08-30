@@ -81,7 +81,7 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_ERROR_BAD_COPY(dec, tag) \
     SRL_ERRORf1("While processing tag SRL_HDR_%s encountered a bad COPY tag", tag_name[(tag) & 127])
 #define SRL_ERROR_UNEXPECTED(dec, tag, msg) \
-    SRL_ERRORf2("Unexpected tag %s while expecting %s", tag_name[(tag || *(dec)->pos) & 127], msg)
+    SRL_ERRORf2("Unexpected tag %s while expecting %s", tag_name[(tag) & 127], msg)
 #define SRL_ERROR_REFUSE_OBJECT() \
     SRL_ERROR("Encountered object in input, but the 'refuse_objects' option is in effect");
 #define SRL_ERROR_PANIC(dec, msg) SRL_ERRORf1("Panic: %s", msg);
