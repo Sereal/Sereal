@@ -7,9 +7,12 @@
 //
 
 #import "SerealTest.h"
-#import "SrlEncoder.h"
-#import "SrlDecoder.h"
+#import "Sereal.h"
 #import "SrlObject.h"
+
+#import <Foundation/Foundation.h>
+
+static Sereal *sereal = nil;
 
 /* encoded buffer generated from perl running:
  ---
@@ -39,7 +42,7 @@ static char encoded_test[] = {
 - (void)setUp
 {
     [super setUp];
-    
+    sereal = [[Sereal alloc] init];
     // Set-up code here.
 }
 
@@ -52,7 +55,6 @@ static char encoded_test[] = {
 
 - (void)testEncoding
 {
-    SrlEncoder *encoder = [[SrlEncoder alloc] init];
     NSDate *date = [NSDate date];
     NSDictionary *dict = [NSDictionary dictionaryWithObjectsAndKeys:
                           @"CIAO", @"key",
@@ -62,7 +64,7 @@ static char encoded_test[] = {
                           date, @"date",
                           [NSArray arrayWithObjects:@"BLAH", @"DIOKANE", date, nil], @"array",
                           nil];
-    NSData *data = [encoder encode:dict];
+    NSData *data = [sereal encode:dict];
 
     STAssertNotNil(data, @"Can't encode a simple structure");
 }
@@ -70,8 +72,8 @@ static char encoded_test[] = {
 - (void)testDecoding
 {
     NSData *data = [NSData dataWithBytesNoCopy:encoded_test length:sizeof(encoded_test) freeWhenDone:NO];
-    SrlDecoder *decoder = [[SrlDecoder alloc] init];
-    id obj = [decoder decode:data];
+    sereal.decodeBinaryAsLatin1 = YES;
+    id obj = [sereal decode:data];
     STAssertNotNil(obj, @"Can't decode a simple message");
     STAssertTrue([obj isKindOfClass:[NSArray class]], @"Decoded object is not an array");
     STAssertTrue([obj count] == 3, @"Array count doesn't match");
@@ -93,11 +95,11 @@ static char encoded_test[] = {
     STAssertTrue([dict1 objectForKey:@"c"] == [NSNull null], @"'c' is not null in the first dictionary");
     
     STAssertTrue([[dict2 objectForKey:@"c"] isEqual:@"kakka"], @"'c' is not what expected in the second dictionary");
+    sereal.decodeBinaryAsLatin1 = NO;
 }
 
 - (void)testRoundTrip
 {
-    SrlEncoder *encoder = [[SrlEncoder alloc] init];
     NSDate *date = [NSDate date];
     NSString *ciao = @"CIAO";
     NSDictionary *dict = [NSDictionary dictionaryWithObjectsAndKeys:
@@ -112,10 +114,9 @@ static char encoded_test[] = {
                           [NSArray arrayWithObjects:@-17, @-16, @-15, @-14, @-13, @-12, @-11, @-10, @-9, @-8, @-7, @-6, @-5, @-4, @-3, @-2, @-1,
                            @0, @1, @2, @3, @4, @5, @6, @7, @8, @9, @10, @11, @12, @13, @14, @15, @16, @17, nil], @"array2",
                           nil];
-    NSData *data = [encoder encode:dict];
+    NSData *data = [sereal encode:dict];
     
-    SrlDecoder *decoder = [[SrlDecoder alloc] init];
-    id obj = [decoder decode:data];
+    id obj = [sereal decode:data];
     NSLog(@"%@", obj);
 
     STAssertTrue([obj isKindOfClass:[NSDictionary class]], @"Didn't get back a dictionary");
@@ -162,6 +163,8 @@ static char encoded_test[] = {
         STAssertTrue([num isKindOfClass:[NSNumber class]], @"Can't get a number from array2");
         STAssertTrue([num intValue] == i, @"Wrong number found in array2");
     }
+    
+    // TODO - test encoding/decoding of SrlObjects VS native objects
 }
 
 @end
