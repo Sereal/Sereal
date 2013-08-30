@@ -18,6 +18,7 @@ typedef struct __srl_decoder_t {
     ssize_t *ofx;
     ssize_t bdy;
     BOOL    cpy;
+    BOOL    b2s;
 } srl_decoder_t;
 
 typedef id (^srl_decoder)(srl_decoder_t *);
@@ -38,22 +39,25 @@ static NSMutableDictionary *trackingDictionary = nil;
 static long long read_varint(srl_decoder_t *dec)
 {
     unsigned lshift = 0;
+    int maxbits = sizeof(long long) * 8;
+
     ADVANCE_OFFSET(dec, 1);
-    ssize_t index = *dec->ofx;
-    unsigned long long number = (dec->hdr[index] & 0x7f);
-    while (index < dec->len - 1 && dec->hdr[index] & 0x80) {
-        ADVANCE_OFFSET(dec, 1);
-        index = *dec->ofx;
+    unsigned long long number = 0;
+    //(dec->hdr[*dec->ofx] & 0x7f);
+    while (*dec->ofx < dec->len - 1) {
+        number |= ((unsigned long long)(dec->hdr[*dec->ofx] & 0x7f)) << lshift;
         lshift += 7;
-        int maxbits = sizeof(long long) * 8;
-        if (lshift > maxbits) {
+        if (!(dec->hdr[*dec->ofx] & 0x80))
+            break;
+        if (lshift >= maxbits) {
             @throw [NSException exceptionWithName:@"VarintOverflow"
                                            reason:@"Varint is bigger than possible representation on this architecture"
                                          userInfo:nil];
             break;
         }
-        number |= (dec->hdr[index] & 0x7f) << lshift;
+        ADVANCE_OFFSET(dec, 1);
     }
+    //ADVANCE_OFFSET(dec, 1);
     return number;
 }
 
@@ -84,7 +88,8 @@ static id srl_decode(srl_decoder_t *dec)
     .len = __src->len,\
     .ofx = &__ofx,\
     .bdy = __src->bdy,\
-    .cpy = YES\
+    .cpy = YES,\
+    .b2s = __src->b2s\
 }\
 
 #define FILL_ARRAY(__array, __items, __dec) \
@@ -116,8 +121,8 @@ static void create_decoders_lookup()
     }
     
     decoders[SRL_HDR_VARINT] = ^id (srl_decoder_t *dec) {
-        long long varint = read_varint(dec);
-        NSNumber *number = [NSNumber numberWithLongLong:varint];
+        unsigned long long varint = read_varint(dec);
+        NSNumber *number = [NSNumber numberWithUnsignedLongLong:varint];
         return number;
     };
     
@@ -161,6 +166,11 @@ static void create_decoders_lookup()
         ADVANCE_OFFSET(dec, 1);
         NSData *data = [NSData dataWithBytes:(dec->hdr + *dec->ofx) length:bytes];
         ADVANCE_OFFSET(dec, bytes - 1);
+        if (dec->b2s) {
+            NSString *string = [[NSString alloc] initWithData:data encoding:NSISOLatin1StringEncoding];
+            if (string && strlen(string.UTF8String) == bytes)
+                return string;
+        }
         return data;
     };
     
@@ -332,28 +342,42 @@ static void create_decoders_lookup()
         };
     }
     
-    for (int i = SRL_HDR_SHORT_BINARY; i < SRL_HDR_SHORT_BINARY+SRL_MASK_SHORT_BINARY_LEN; i++) {
+    for (int i = SRL_HDR_SHORT_BINARY; i <= SRL_HDR_SHORT_BINARY+SRL_MASK_SHORT_BINARY_LEN; i++) {
         decoders[i] = ^id (srl_decoder_t *dec) {
             int nBytes = dec->hdr[*dec->ofx]&SRL_MASK_SHORT_BINARY_LEN;
-            ADVANCE_OFFSET(dec, 1);
             if (dec->len < *dec->ofx + nBytes + 1) {
                 @throw [NSException exceptionWithName:@"BadBinaryData"
                                                reason:@"Buffer shorter than declared length"
                                              userInfo:nil];
             }
-            NSString *string = [[NSString alloc] initWithBytes:&dec->hdr[*dec->ofx] length:nBytes encoding:NSUTF8StringEncoding]; // Note: bytes are copied here
+            ADVANCE_OFFSET(dec, 1);
+            NSData *data = [NSData dataWithBytes:(dec->hdr + *dec->ofx) length:nBytes];
             ADVANCE_OFFSET(dec, nBytes - 1);
-
-            return string;
+            if (dec->b2s) {
+                NSString *string = [[NSString alloc] initWithData:data encoding:NSISOLatin1StringEncoding];
+                if (string && strlen(string.UTF8String) == nBytes)
+                    return string;
+            }
+            return data;
         };
     }
 }
 
 @implementation SrlDecoder
 
+@synthesize error;
+
 + (void)initialize
 {
     create_decoders_lookup();
+}
+
+- (id)decode:(NSData *)someData error:(NSError **)err
+{
+    id obj = [self decode:someData];
+    if (err)
+        *err = self.error;
+    return obj;
 }
 
 - (id)decode:(NSData *)someData
@@ -387,7 +411,8 @@ static void create_decoders_lookup()
         .len = someData.length,
         .ofx = &index,
         .bdy = 0,
-        .cpy = NO
+        .cpy = NO,
+        .b2s = self.decodeBinaryAsLatin1
     };
     
     // header suffix
@@ -433,12 +458,14 @@ static void create_decoders_lookup()
     id object = nil;
     @try {
         object = srl_decode(&dec);
+        error = nil;
     }
     @catch (NSException *exception) {
-        NSLog(@"Can't decode: %@", exception);
-    }
-    @finally {
-        
+        NSString *errorMessage = [NSString stringWithFormat:@"Can't decode: %@", exception];
+        error = [NSError errorWithDomain:@"SrlDecoder"
+                                    code:-1
+                                userInfo:[NSDictionary dictionaryWithObject:errorMessage
+                                                                     forKey:NSLocalizedDescriptionKey]];
     }
     return object;
 }
