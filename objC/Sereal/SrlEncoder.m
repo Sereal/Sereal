@@ -7,6 +7,7 @@
 //
 
 #import "SrlEncoder.h"
+#import "SrlObject.h"
 
 #include "srl_protocol.h"
 #include "csnappy.h"
@@ -16,6 +17,7 @@ typedef struct __srl_encoder_t {
     char    *hdr;
     ssize_t len;
     ssize_t *ofx;
+    BOOL    shk;
 } srl_encoder_t;
 
 static NSMutableDictionary *encodedStrings = nil;
@@ -29,24 +31,25 @@ static NSMutableDictionary *encodedInstances = nil;
     }\
 }
 
-static void encode_varint(char *buf, ssize_t *size, long long value)
+static void encode_varint(char *buf, ssize_t *size, unsigned long long value)
 {
     int offset = 0;
     *buf = 0;
-
-    while (value) {
+    
+    do {
         buf[offset] =  value & 0x7f;
         value >>= 7;
         if (value)
             buf[offset] |= 0x80;
         offset++;
-    }
+    } while (value && offset < *size);
+
     *size = offset + 1;
 }
 
-static void append_varint(srl_encoder_t *enc, long long value)
+static void append_varint(srl_encoder_t *enc, unsigned long long value)
 {
-    ssize_t len = 5;
+    ssize_t len = sizeof(unsigned long long) + 1;
     char buf[len];
     encode_varint(buf, &len, value);
     EXPAND_BUFFER(enc, len);
@@ -59,11 +62,12 @@ static void srl_encode(srl_encoder_t *enc, id obj)
     NSNumber *encodedKey = [NSNumber numberWithInt:(int)obj];
     NSNumber *encodedOffset = [encodedInstances objectForKey:encodedKey];
     if (encodedOffset) {
+        EXPAND_BUFFER(enc, 1);
         enc->hdr[(*enc->ofx)++] = SRL_HDR_REFP;
         append_varint(enc, [encodedOffset longLongValue]);
         enc->hdr[[encodedOffset longLongValue] - 1] |= SRL_HDR_TRACK_FLAG;
         return;
-    } else {
+    } else if (![obj isKindOfClass:[NSNumber class]] && !(enc->shk && [obj isKindOfClass:[NSString class]])) {
         encodedOffset = [NSNumber numberWithLongLong:*enc->ofx + 1];
         [encodedInstances setObject:encodedOffset forKey:encodedKey];
     }
@@ -79,7 +83,11 @@ static void srl_encode(srl_encoder_t *enc, id obj)
             append_varint(enc, [obj count]);
         }
         for (id key in [obj allKeys]) {
-            srl_encode(enc, key);
+            if (enc->shk) {
+                srl_encode(enc, [NSString stringWithFormat:@"%@", key]);
+            } else {
+                srl_encode(enc, key);
+            }
             id value = [obj objectForKey:key];
             srl_encode(enc, value);
         }
@@ -114,6 +122,11 @@ static void srl_encode(srl_encoder_t *enc, id obj)
             double fval = [obj doubleValue];
             memcpy(enc->hdr + *enc->ofx, &fval, sizeof(double));
             *enc->ofx += sizeof(double);
+        } else if (strcmp(ctype, @encode(unsigned long long)) == 0) {
+            unsigned long long value = [obj longLongValue];
+            EXPAND_BUFFER(enc, 1);
+            enc->hdr[(*enc->ofx)++] = SRL_HDR_VARINT;
+            append_varint(enc, value);
         } else {
             long long value = [obj longLongValue];
             if (value >= -16 && value < 16) {
@@ -135,7 +148,7 @@ static void srl_encode(srl_encoder_t *enc, id obj)
             }
         }
     } else if ([obj isKindOfClass:[NSString class]]) {
-        NSNumber *offset = [encodedStrings objectForKey:obj];
+        NSNumber *offset = ([obj length] > 5) ? [encodedStrings objectForKey:obj] : nil;
         if (offset) {
             EXPAND_BUFFER(enc, 1);
             enc->hdr[(*enc->ofx)++] = SRL_HDR_COPY;
@@ -149,11 +162,20 @@ static void srl_encode(srl_encoder_t *enc, id obj)
             EXPAND_BUFFER(enc, length);
             memcpy(enc->hdr + *enc->ofx, [obj UTF8String], length);
             (*enc->ofx) += length;
-            [encodedStrings setObject:[NSNumber numberWithInteger:currentOffset+1] forKey:obj];
+            if ([obj length] > 5)
+                [encodedStrings setObject:[NSNumber numberWithInteger:currentOffset+1] forKey:obj];
         }
     } else {
-        NSData *data = [NSArchiver archivedDataWithRootObject:obj];
-        NSString *className = [obj className];
+        NSData *data = nil;
+        NSString *className = nil;
+        
+        if ([obj isKindOfClass:[SrlObject class]]) {
+            data = ((SrlObject *)obj).objData;
+            className = ((SrlObject *)obj).className;
+        } else {
+            data = [NSArchiver archivedDataWithRootObject:obj];
+            className = [obj className];
+        }
         NSNumber *offset = [encodedStrings objectForKey:className];
         if (offset) {
             EXPAND_BUFFER(enc, 1);
@@ -165,16 +187,33 @@ static void srl_encode(srl_encoder_t *enc, id obj)
             srl_encode(enc, [obj className]);
         }
         EXPAND_BUFFER(enc, 1);
-        enc->hdr[(*enc->ofx)++] = SRL_HDR_BINARY;
-        NSInteger length = [data length];
-        append_varint(enc, length);
-        EXPAND_BUFFER(enc, length);
-        memcpy(enc->hdr + *enc->ofx, [data bytes], length);
-        (*enc->ofx) += length;
+        enc->hdr[(*enc->ofx)++] = SRL_HDR_REFN;
+        if ([data isKindOfClass:[NSData class]]) {
+            EXPAND_BUFFER(enc, 1);
+            enc->hdr[(*enc->ofx)++] = SRL_HDR_BINARY;
+            NSInteger length = [data length];
+            append_varint(enc, length);
+            EXPAND_BUFFER(enc, length);
+            memcpy(enc->hdr + *enc->ofx, [data bytes], length);
+            (*enc->ofx) += length;
+        } else {
+            srl_encode(enc, data);
+        }
+
     }
 }
 
 @implementation SrlEncoder
+
+@synthesize error;
+
+- (NSData *)encode:(id)obj error:(NSError **)err
+{
+    NSData *data = [self encode:obj];
+    if (err)
+        *err = self.error;
+    return data;
+}
 
 - (NSData *)encode:(id)obj
 {
@@ -187,7 +226,8 @@ static void srl_encode(srl_encoder_t *enc, id obj)
     srl_encoder_t enc = {
         .hdr = calloc(1, buffer_length),
         .len = buffer_length,
-        .ofx = &encoder_offset
+        .ofx = &encoder_offset,
+        .shk = self.strictHashKeys
     };
     
     if (!encodedStrings) {
@@ -204,10 +244,10 @@ static void srl_encode(srl_encoder_t *enc, id obj)
     
     @try {
         srl_encode(&enc, obj);
-        enc.len = *enc.ofx + 1;
+        enc.len = *enc.ofx;
         char vtype = 0x02; // version 2 no compression
         // check if it's worth using compression
-        if (!self.skipCompression && enc.len > self.compressionThreshold) {
+        if (self.compress && enc.len > self.compressionThreshold) {
             uint32_t compressed_length = csnappy_max_compressed_length(enc.len);
             char *compressed_buffer = malloc(compressed_length);
             char *working_memory = malloc(1 << 12);
@@ -247,12 +287,15 @@ static void srl_encode(srl_encoder_t *enc, id obj)
             offset += vsize - 1;
         }
         memcpy(output_buffer + offset, enc.hdr, enc.len);
+        error = nil;
+        data = [NSData dataWithBytesNoCopy:output_buffer length:output_length freeWhenDone:YES];
     }
     @catch (NSException *exception) {
-        NSLog(@"Can't encode obj %@ : %@", obj, exception);
-    }
-    @finally {
-        data = [NSData dataWithBytesNoCopy:output_buffer length:output_length freeWhenDone:YES];
+        NSString *errorMessage = [NSString stringWithFormat:@"Can't encode obj %@ : %@", obj, exception];
+        error = [NSError errorWithDomain:@"SrlEncoder"
+                                    code:-1
+                                userInfo:[NSDictionary dictionaryWithObject:errorMessage
+                                                                     forKey:NSLocalizedDescriptionKey]];
     }
     
     free(enc.hdr);

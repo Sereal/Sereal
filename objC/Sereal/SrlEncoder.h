@@ -10,9 +10,12 @@
 
 @interface SrlEncoder : NSObject
 
+- (NSData *)encode:(id)obj error:(NSError **)err;
 - (NSData *)encode:(id)obj;
 
-@property (nonatomic, assign) BOOL skipCompression;
+@property (nonatomic, readonly) NSError *error;
+@property (nonatomic, assign) BOOL compress;
+@property (nonatomic, assign) BOOL strictHashKeys;
 @property (nonatomic, assign) NSUInteger compressionThreshold;
 
 @end
