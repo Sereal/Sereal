@@ -395,6 +395,8 @@ func (e *Encoder) encodeMap(by []byte, m reflect.Value, strTable map[string]int,
 	by = varint(by, uint(l))
 
 	for _, k := range keys {
+		// FIXME: perl compat mode needs to puke if key type isn't stringable
+		// FIXME: add extra String() calls to values if types are 'reasonable' ?
 		by, _ = e.encode(by, k, strTable, ptrTable)
 		v := m.MapIndex(k)
 		if e.PerlCompat {
