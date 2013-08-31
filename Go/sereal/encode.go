@@ -48,6 +48,7 @@ type Encoder struct {
 	PerlCompat      bool // try to mimic Perl's structure as much as possible
 	UseSnappy       bool // should we enable snappy compression
 	SnappyThreshold int  // threshold in bytes above which snappy compression is attempted: 1024 bytes by default
+	version         int  // default version to encode
 }
 
 // NewEncoder returns a new Encoder struct with default values
@@ -56,11 +57,26 @@ func NewEncoder() *Encoder {
 		PerlCompat:      false,
 		UseSnappy:       false,
 		SnappyThreshold: 1024,
+		version:         1,
 	}
 }
 
-// Marshal returns the Sereal encoding of v
+// NewEncoderV2 returns a new Encoder that encodes version 2
+func NewEncoderV2() *Encoder {
+	return &Encoder{
+		PerlCompat:      false,
+		UseSnappy:       false,
+		SnappyThreshold: 1024,
+		version:         2,
+	}
+}
+
 func (e *Encoder) Marshal(v interface{}) (b []byte, err error) {
+	return e.MarshalWithHeader(nil, v)
+}
+
+// Marshal returns the Sereal encoding of body with
+func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []byte, err error) {
 	defer func() {
 		//return
 		if r := recover(); r != nil {
@@ -76,19 +92,49 @@ func (e *Encoder) Marshal(v interface{}) (b []byte, err error) {
 		}
 	}()
 
-	headerLength := 6
+	headerLength := 5
 	b = make([]byte, headerLength, 32)
 
 	binary.LittleEndian.PutUint32(b[:4], magicHeaderBytes)
-	b[4] = 1 /* version */
-	b[5] = 0 /* header size */
 
-	rv := reflectValueOf(v)
+	b[4] = byte(e.version)
+
+	if header != nil && e.version >= 2 {
+		strTable := make(map[string]int)
+		ptrTable := make(map[uintptr]int)
+		rv := reflectValueOf(header)
+		henv := []byte{0}
+		// hack to make encoder use 1-based offsets
+		encoded, err := e.encode(henv, rv, strTable, ptrTable)
+		encoded = encoded[1:] // trim first byte we stuffed in
+
+		if err != nil {
+			return nil, err
+		}
+
+		varint(b, uint(len(encoded)))
+		b = append(b, encoded...)
+	} else {
+		/* header size */
+		b = append(b, 0)
+	}
+
+	rv := reflectValueOf(body)
 
 	strTable := make(map[string]int)
 	ptrTable := make(map[uintptr]int)
 
-	encoded, err := e.encode(b, rv, strTable, ptrTable)
+	var encoded []byte
+
+	switch e.version {
+	case 1:
+		encoded, err = e.encode(b, rv, strTable, ptrTable)
+	case 2:
+		benc := []byte{0} // hack for 1-based offsets
+		encoded, err = e.encode(benc, rv, strTable, ptrTable)
+		encoded = encoded[1:] // trim hacky first byte
+		encoded = append(b, encoded...)
+	}
 
 	if err != nil {
 		return nil, err
