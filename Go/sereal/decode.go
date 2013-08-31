@@ -726,6 +726,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 	case tag == typeCOPY:
 		idx++
 
+		// FIXME: copyDepth isn't reset properly on decoder start -- move it somewhere else?
 		d.copyDepth++
 		defer func() { d.copyDepth-- }()
 
