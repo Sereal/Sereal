@@ -44,6 +44,7 @@ func snappify(b []byte) ([]byte, error) {
 	return b, nil
 }
 
+// An Encoder encodes Go data structures into Sereal byte streams
 type Encoder struct {
 	PerlCompat      bool // try to mimic Perl's structure as much as possible
 	UseSnappy       bool // should we enable snappy compression
@@ -71,11 +72,12 @@ func NewEncoderV2() *Encoder {
 	}
 }
 
-func (e *Encoder) Marshal(v interface{}) (b []byte, err error) {
-	return e.MarshalWithHeader(nil, v)
+// Marshal returns the Sereal encoding of body
+func (e *Encoder) Marshal(body interface{}) (b []byte, err error) {
+	return e.MarshalWithHeader(nil, body)
 }
 
-// Marshal returns the Sereal encoding of body with
+// MarshalWithHeader returns the Sereal encoding of body with header data
 func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []byte, err error) {
 	defer func() {
 		//return
@@ -333,11 +335,11 @@ func (e *Encoder) encodeBytes(by []byte, byt []byte, strTable map[string]int) []
 
 			s := string(byt)
 
-			copy_offs, ok := strTable[s]
+			copyOffs, ok := strTable[s]
 
 			if ok {
 				by = append(by, typeCOPY)
-				by = varint(by, uint(copy_offs))
+				by = varint(by, uint(copyOffs))
 				return by
 			}
 
@@ -458,11 +460,11 @@ func (e *Encoder) encodeMap(by []byte, m reflect.Value, strTable map[string]int,
 
 func (e *Encoder) encodeString(by []byte, s string, strTable map[string]int) []byte {
 
-	copy_offs, ok := strTable[s]
+	copyOffs, ok := strTable[s]
 
 	if ok {
 		by = append(by, typeCOPY)
-		by = varint(by, uint(copy_offs))
+		by = varint(by, uint(copyOffs))
 		return by
 	}
 

@@ -37,20 +37,23 @@ func readHeader(b []byte) (serealHeader, error) {
 	return h, nil
 }
 
+// A Decoder reads and decodes Sereal objects from an input buffer
 type Decoder struct {
 	PerlCompat bool
 	copyDepth  int
 }
 
-// Unmarshal parses the Sereal-encoded buffer b and stores the result in the value pointed to by v
-func (d *Decoder) UnmarshalHeader(b []byte, header interface{}) (err error) {
-	return d.UnmarshalHeaderBody(b, header, nil)
+// UnmarshalHeader parses the Sereal-v2-encoded buffer b and stores the header data into the variable pointed to by vheader
+func (d *Decoder) UnmarshalHeader(b []byte, vheader interface{}) (err error) {
+	return d.UnmarshalHeaderBody(b, vheader, nil)
 }
 
-func (d *Decoder) Unmarshal(b []byte, v interface{}) (err error) {
-	return d.UnmarshalHeaderBody(b, nil, v)
+// Unmarshal parses the Sereal-encoded buffer b and stores the result in the value pointed to by vbody
+func (d *Decoder) Unmarshal(b []byte, vbody interface{}) (err error) {
+	return d.UnmarshalHeaderBody(b, nil, vbody)
 }
 
+// UnmarshalHeaderBody parses the Sereal-encoded buffer b extracts the header and body data into vheader and vbody, respectively
 func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody interface{}) (err error) {
 
 	defer func() {

@@ -1,9 +1,6 @@
 /*
+Package sereal implements the Sereal serialization format
 
-Sereal library for Go.
-
-
-This library is an implementation of the Sereal serialization format.
 It follows the standard Go Marshal/Unmarshal interface.
 
 For more information on Sereal, please see
