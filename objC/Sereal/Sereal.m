@@ -69,12 +69,31 @@
 
 - (BOOL)decodeBinaryAsLatin1
 {
-    return decoder.decodeBinaryAsLatin1;
+    return (decoder.binaryStrings && encoder.binaryStrings);
 }
 
-- (void)setDecodeBinaryAsLatin1:(BOOL)decodeBinaryAsLatin1
+- (void)setBinaryStrings:(BOOL)binaryStrings
 {
-    decoder.decodeBinaryAsLatin1 = decodeBinaryAsLatin1;
+    decoder.binaryStrings = encoder.binaryStrings = binaryStrings;
 }
 
+- (BOOL)strictHashKeys
+{
+    return encoder.strictHashKeys;
+}
+
+- (void)setStrictHashKeys:(BOOL)strictHashKeys
+{
+    encoder.strictHashKeys = strictHashKeys;
+}
+
+- (BOOL)perlCompatible
+{
+    return (self.binaryStrings && self.strictHashKeys);
+}
+
+- (void)setPerlCompatible:(BOOL)perlCompatible
+{
+    self.strictHashKeys = self.binaryStrings = perlCompatible;
+}
 @end

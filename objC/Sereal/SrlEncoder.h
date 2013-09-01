@@ -14,8 +14,13 @@
 - (NSData *)encode:(id)obj;
 
 @property (nonatomic, readonly) NSError *error;
+
 @property (nonatomic, assign) BOOL compress;
-@property (nonatomic, assign) BOOL strictHashKeys;
 @property (nonatomic, assign) NSUInteger compressionThreshold;
+
+// force hash keys to be string
+@property (nonatomic, assign) BOOL strictHashKeys;
+// assume binary/shortbinary contains strings (perl compatibility)
+@property (nonatomic, assign) BOOL binaryStrings;
 
 @end

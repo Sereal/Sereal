@@ -14,5 +14,7 @@
 - (id)decode:(NSData *)someData error:(NSError **)err;
 
 @property (nonatomic, readonly) NSError *error;
-@property (nonatomic, assign) BOOL decodeBinaryAsLatin1; // for compatibility with strings encoded from perl
+
+// assume binary/shortbinary contains strings (perl compatibility)
+@property (nonatomic, assign) BOOL binaryStrings;
 @end

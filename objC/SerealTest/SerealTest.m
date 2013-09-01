@@ -9,7 +9,7 @@
 #import "SerealTest.h"
 #import "Sereal.h"
 #import "SrlObject.h"
-
+#import "SrlEncoder.h"
 #import <Foundation/Foundation.h>
 
 static Sereal *sereal = nil;
@@ -72,7 +72,7 @@ static char encoded_test[] = {
 - (void)testDecoding
 {
     NSData *data = [NSData dataWithBytesNoCopy:encoded_test length:sizeof(encoded_test) freeWhenDone:NO];
-    sereal.decodeBinaryAsLatin1 = YES;
+    sereal.binaryStrings = YES;
     id obj = [sereal decode:data];
     STAssertNotNil(obj, @"Can't decode a simple message");
     STAssertTrue([obj isKindOfClass:[NSArray class]], @"Decoded object is not an array");
@@ -95,19 +95,24 @@ static char encoded_test[] = {
     STAssertTrue([dict1 objectForKey:@"c"] == [NSNull null], @"'c' is not null in the first dictionary");
     
     STAssertTrue([[dict2 objectForKey:@"c"] isEqual:@"kakka"], @"'c' is not what expected in the second dictionary");
-    sereal.decodeBinaryAsLatin1 = NO;
+    sereal.binaryStrings = NO;
 }
 
 - (void)testRoundTrip
 {
     NSDate *date = [NSDate date];
     NSString *ciao = @"CIAO";
+    char bytes[6] = { 'a', 'b', 'c', 'd', 'e', 'f' };
+    NSData *dataref = [NSData dataWithBytes:bytes length:6];
     NSDictionary *dict = [NSDictionary dictionaryWithObjectsAndKeys:
                           ciao, @"key",
                           @"1", @"key2",
                           [ciao mutableCopy], @"copy",
                           ciao, @"refp",
                           date, @"date",
+                          dataref, @"data1",
+                          dataref, @"data2",
+                          [dataref mutableCopy], @"data3",
                           [NSNumber numberWithFloat:34.5], @"float",
                           [NSNumber numberWithDouble:45.7], @"double",
                           [NSArray arrayWithObjects:@"BLAH", @"DIOKANE", date, nil], @"array",
@@ -164,7 +169,49 @@ static char encoded_test[] = {
         STAssertTrue([num intValue] == i, @"Wrong number found in array2");
     }
     
+    NSData *data1 = [obj objectForKey:@"data1"];
+    STAssertTrue([data1 isKindOfClass:[NSData class]], @"Can't get back a NSData object");
+
+    NSData *data2 = [obj objectForKey:@"data2"];
+    STAssertTrue([data2 isKindOfClass:[NSData class]], @"Can't get back a NSData object");
+    STAssertTrue(data1 == data2, @"NSData objects are not the same instances");
+    
+    NSData *data3 = [obj objectForKey:@"data3"];
+    STAssertTrue([data3 isKindOfClass:[NSData class]], @"Can't get back a NSData object");
+    STAssertTrue(data1 != data3, @"NSData objects are not the same instances");
+    STAssertEqualObjects(data1, data3, @"NSData objects differ");
+
     // TODO - test encoding/decoding of SrlObjects VS native objects
 }
 
+- (void)testProcessEvents
+{
+    NSError *err = nil;
+    sereal.perlCompatible = YES;
+    NSString *eventsDir = @"/Users/xant/src/events";
+    NSFileManager *fm = [NSFileManager defaultManager];
+    NSArray *files = [fm contentsOfDirectoryAtPath:eventsDir error:&err];
+    if (!files && err) {
+        STFail(@"Can't open eventsDir %@ : %@",eventsDir, err);
+    }
+    for (NSString *fName in files) {
+//        if (![fName isEqualToString:@"test_000816.in"])
+//            continue;
+        NSString *fullPath = [NSString stringWithFormat:@"%@/%@", eventsDir, fName];
+        if (![fullPath hasSuffix:@".in"])
+            continue;
+        NSData *data = [fm contentsAtPath:fullPath];
+        id obj = [sereal decode:data error:&err];
+        if (!obj && err) {
+            STFail(@"Can't decode: %@", err);
+        }
+        NSData *encodedData = [sereal encode:obj error:&err];
+        if (!encodedData && err) {
+            STFail(@"Can't encode: %@", err);
+        }
+        
+        NSString *newFileName = [fName stringByReplacingCharactersInRange:NSMakeRange(fName.length - 3, 3) withString:@".out"];
+        [encodedData writeToFile:[NSString stringWithFormat:@"%@/%@", eventsDir, newFileName] atomically:YES];
+    }
+}
 @end

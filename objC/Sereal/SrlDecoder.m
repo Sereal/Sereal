@@ -44,7 +44,7 @@ static long long read_varint(srl_decoder_t *dec)
     ADVANCE_OFFSET(dec, 1);
     unsigned long long number = 0;
     //(dec->hdr[*dec->ofx] & 0x7f);
-    while (*dec->ofx < dec->len - 1) {
+    while (*dec->ofx < dec->len) {
         number |= ((unsigned long long)(dec->hdr[*dec->ofx] & 0x7f)) << lshift;
         lshift += 7;
         if (!(dec->hdr[*dec->ofx] & 0x80))
@@ -92,18 +92,22 @@ static id srl_decode(srl_decoder_t *dec)
     .b2s = __src->b2s\
 }\
 
-#define FILL_ARRAY(__array, __items, __dec) \
-for (int i = 0; i < __items; i++) {\
-    id obj = srl_decode(__dec);\
-    [__array addObject:obj];\
-}\
+static inline void fill_array(NSMutableArray *array, int items, srl_decoder_t *dec)
+{
+    for (int i = 0; i < items; i++) {
+        id obj = srl_decode(dec);
+        [array addObject:obj];
+    }
+}
 
-#define FILL_DICTIONARY(__dict, __items, __dec) \
-for (int i = 0; i < __items; i++) {\
-    id key = srl_decode(__dec);\
-    id value = srl_decode(__dec);\
-    if (value)\
-        [__dict setObject:value forKey:key];\
+static inline void fill_dictionary(NSMutableDictionary *dict, int items, srl_decoder_t *dec)
+{
+    for (int i = 0; i < items; i++) {
+        id key = srl_decode(dec);
+        id value = srl_decode(dec);
+        if (value)
+            [dict setObject:value forKey:key];
+    }
 }
 
 static void create_decoders_lookup()
@@ -219,14 +223,14 @@ static void create_decoders_lookup()
     decoders[SRL_HDR_HASH] = ^id (srl_decoder_t *dec) {
         long long count = read_varint(dec);
         NSMutableDictionary *dict = [[NSMutableDictionary alloc] initWithCapacity:count];
-        FILL_DICTIONARY(dict, (int)count, dec);
+        fill_dictionary(dict, (int)count, dec);
         return dict;
     };
     
     decoders[SRL_HDR_ARRAY] = ^id (srl_decoder_t *dec) {
         long long count = read_varint(dec);
         NSMutableArray *array = [[NSMutableArray alloc] initWithCapacity:count];
-        FILL_ARRAY(array, (int)count, dec);
+        fill_array(array, (int)count, dec);
         return array;
     };
     
@@ -328,7 +332,7 @@ static void create_decoders_lookup()
         decoders[i] = ^id (srl_decoder_t *dec) {
             int nItems = dec->hdr[*dec->ofx]&SRL_MASK_ARRAYREF_COUNT;
             NSMutableArray *array = [[NSMutableArray alloc] initWithCapacity:nItems];
-            FILL_ARRAY(array, nItems, dec);
+            fill_array(array, nItems, dec);
             return array;
         };
     }
@@ -337,7 +341,7 @@ static void create_decoders_lookup()
         decoders[i] = ^id (srl_decoder_t *dec) {
             int nItems = dec->hdr[*dec->ofx]&SRL_MASK_HASHREF_COUNT;
             NSMutableDictionary *dict = [[NSMutableDictionary alloc] initWithCapacity:nItems];
-            FILL_DICTIONARY(dict, nItems, dec);
+            fill_dictionary(dict, nItems, dec);
             return dict;
         };
     }
@@ -412,7 +416,7 @@ static void create_decoders_lookup()
         .ofx = &index,
         .bdy = 0,
         .cpy = NO,
-        .b2s = self.decodeBinaryAsLatin1
+        .b2s = self.binaryStrings
     };
     
     // header suffix

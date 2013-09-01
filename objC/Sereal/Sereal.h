@@ -14,7 +14,11 @@
 @interface Sereal : NSObject
 
 @property (assign) BOOL compress;
-@property (nonatomic, assign) BOOL decodeBinaryAsLatin1;
+@property (nonatomic, assign) BOOL binaryStrings;
+@property (nonatomic, assign) BOOL strictHashKeys;
+
+@property (nonatomic, assign) BOOL perlCompatible;
+
 @property (nonatomic, assign) NSUInteger compressionThreshold;
 
 @property (readonly) SrlEncoder *encoder;
