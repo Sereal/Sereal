@@ -110,16 +110,15 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		strTable := make(map[string]int)
 		ptrTable := make(map[uintptr]int)
 		rv := reflectValueOf(header)
-		henv := []byte{0}
-		// hack to make encoder use 1-based offsets
+		// this is both the flag byte (== "there is user data") and also a hack to make 1-based offsets work
+		henv := []byte{0x01} // flag byte == "there is user data"
 		encoded, err := e.encode(henv, rv, strTable, ptrTable)
-		encoded = encoded[1:] // trim first byte we stuffed in
 
 		if err != nil {
 			return nil, err
 		}
 
-		varint(b, uint(len(encoded)))
+		b = varint(b, uint(len(encoded)))
 		b = append(b, encoded...)
 	} else {
 		/* header size */

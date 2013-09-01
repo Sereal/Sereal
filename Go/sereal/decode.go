@@ -17,6 +17,7 @@ type serealHeader struct {
 	version     byte
 	suffixStart int
 	suffixSize  int
+	suffixFlags uint8
 }
 
 func readHeader(b []byte) (serealHeader, error) {
@@ -32,7 +33,7 @@ func readHeader(b []byte) (serealHeader, error) {
 
 	ln, sz := varintdecode(b[5:])
 	h.suffixSize = ln + sz
-	h.suffixStart = headerSize + sz + 1
+	h.suffixStart = headerSize + sz
 
 	return h, nil
 }
@@ -142,10 +143,15 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 
 		headerPtrValue := reflect.ValueOf(vheader)
 
-		_, err = d.decode(b[header.suffixStart:], 0, tracked, headerPtrValue.Elem())
+		header.suffixFlags = b[header.suffixStart]
 
-		if err != nil {
-			return err
+		if header.suffixFlags&1 == 1 {
+			_, err = d.decode(b[header.suffixStart+1:bodyStart], 0, tracked, headerPtrValue.Elem())
+
+			if err != nil {
+				return err
+			}
+
 		}
 	}
 
