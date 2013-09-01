@@ -14,15 +14,15 @@
 
 #define ENCODING_BUFFER_THRESHOLD 512 // in bytes
 typedef struct __srl_encoder_t {
-    char    *hdr; // header
-    ssize_t len;  // len
-    ssize_t *ofx; // offset
-    BOOL    shk;  // strict hash keys
-    BOOL    bs;   // binary strings
+    char      *hdr; // header
+    ssize_t    len; // len
+    ssize_t   *ofx; // offset
+    BOOL       shk; // strict hash keys
+    BOOL        bs; // binary strings
+    CFTypeRef   es; // encoded strings
+    CFTypeRef   eb; // encoded binary data
+    CFTypeRef   ei; // encoded instances
 } srl_encoder_t;
-
-static NSMutableDictionary *encodedStrings = nil;
-static NSMutableDictionary *encodedInstances = nil;
 
 static void srl_encode(srl_encoder_t *enc, id obj);
 
@@ -62,6 +62,7 @@ static void append_varint(srl_encoder_t *enc, unsigned long long value)
 
 static BOOL reuse_object(srl_encoder_t *enc, id obj)
 {
+    NSMutableDictionary *encodedInstances = (__bridge NSMutableDictionary *)(enc->ei);
     NSNumber *encodedKey = [NSNumber numberWithInt:(int)obj];
     NSNumber *encodedOffset = [encodedInstances objectForKey:encodedKey];
     if (encodedOffset) {
@@ -181,6 +182,8 @@ static void encode_number(srl_encoder_t *enc, NSNumber *obj)
 
 static void encode_string(srl_encoder_t *enc, NSString *obj)
 {
+    NSMutableDictionary *encodedStrings = (__bridge NSMutableDictionary *)(enc->es);
+
     NSNumber *offset = ([obj length] > 5) ? [encodedStrings objectForKey:obj] : nil;
     if (offset) {
         EXPAND_BUFFER(enc, 1);
@@ -202,6 +205,9 @@ static void encode_string(srl_encoder_t *enc, NSString *obj)
 
 static void encode_binary(srl_encoder_t *enc, id obj)
 {
+    NSMutableDictionary *encodedStrings = (__bridge NSMutableDictionary *)(enc->es);
+    NSMutableDictionary *encodedBinaryData = (__bridge NSMutableDictionary *)(enc->eb);
+
     NSData *data = obj;
     BOOL copied = NO;
     if ([obj isKindOfClass:[NSString class]]) {
@@ -229,6 +235,17 @@ static void encode_binary(srl_encoder_t *enc, id obj)
                 [encodedStrings setObject:[NSNumber numberWithInteger:(*enc->ofx)+1] forKey:obj];
         }
         data = [obj dataUsingEncoding:NSISOLatin1StringEncoding];
+    } else {
+        NSNumber *offset = ([obj length] > 5) ? [encodedBinaryData objectForKey:obj] : nil;
+        if (offset) {
+            EXPAND_BUFFER(enc, 1);
+            enc->hdr[(*enc->ofx)++] = SRL_HDR_COPY;
+            append_varint(enc, [offset longLongValue]);
+            copied = YES;
+        } else {
+            if ([obj length] > 5)
+                [encodedBinaryData setObject:[NSNumber numberWithInteger:(*enc->ofx)+1] forKey:obj];
+        }
     }
     if (!copied) {
         int length = [data length];
@@ -249,6 +266,8 @@ static void encode_binary(srl_encoder_t *enc, id obj)
 
 static void encode_object(srl_encoder_t *enc, id obj)
 {
+    NSMutableDictionary *encodedStrings = (__bridge NSMutableDictionary *)(enc->es);
+
     NSData *data = nil;
     NSString *className = nil;
     
@@ -341,19 +360,10 @@ static void srl_encode(srl_encoder_t *enc, id obj)
         .ofx = &encoder_offset,
         .shk = self.strictHashKeys,
         .bs  = self.binaryStrings,
+        .es = CFBridgingRetain([[NSMutableDictionary alloc] init]),
+        .ei = CFBridgingRetain([[NSMutableDictionary alloc] init]),
+        .eb = CFBridgingRetain([[NSMutableDictionary alloc] init]),
     };
-    
-    if (!encodedStrings) {
-        encodedStrings = [[NSMutableDictionary alloc] init];
-    } else {
-        [encodedStrings removeAllObjects];
-    }
-    
-    if (!encodedInstances) {
-        encodedInstances = [[NSMutableDictionary alloc] init];
-    } else {
-        [encodedInstances removeAllObjects];
-    }
     
     @try {
         srl_encode(&enc, obj);
@@ -410,7 +420,9 @@ static void srl_encode(srl_encoder_t *enc, id obj)
                                 userInfo:[NSDictionary dictionaryWithObject:errorMessage
                                                                      forKey:NSLocalizedDescriptionKey]];
     }
-    
+    CFBridgingRelease(enc.ei);
+    CFBridgingRelease(enc.es);
+    CFBridgingRelease(enc.eb);
     free(enc.hdr);
     return data;
 }

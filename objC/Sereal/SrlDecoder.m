@@ -14,17 +14,17 @@
 
 typedef struct __srl_decoder_t {
     char    *hdr;
-    ssize_t len;
+    ssize_t  len;
     ssize_t *ofx;
-    ssize_t bdy;
-    BOOL    cpy;
-    BOOL    b2s;
+    ssize_t  bdy;
+    BOOL     cpy;
+    BOOL     b2s;
+    CFTypeRef td;
 } srl_decoder_t;
 
 typedef id (^srl_decoder)(srl_decoder_t *);
 
 static srl_decoder decoders[128];
-static NSMutableDictionary *trackingDictionary = nil;
 
 #define ADVANCE_OFFSET(__dec, __size) {\
     *__dec->ofx += __size;\
@@ -43,7 +43,6 @@ static long long read_varint(srl_decoder_t *dec)
 
     ADVANCE_OFFSET(dec, 1);
     unsigned long long number = 0;
-    //(dec->hdr[*dec->ofx] & 0x7f);
     while (*dec->ofx < dec->len) {
         number |= ((unsigned long long)(dec->hdr[*dec->ofx] & 0x7f)) << lshift;
         lshift += 7;
@@ -57,12 +56,13 @@ static long long read_varint(srl_decoder_t *dec)
         }
         ADVANCE_OFFSET(dec, 1);
     }
-    //ADVANCE_OFFSET(dec, 1);
     return number;
 }
 
 static id srl_decode(srl_decoder_t *dec)
 {
+    NSMutableDictionary *trackingDictionary = (__bridge NSMutableDictionary *)(dec->td);
+
     id obj = nil;
     ADVANCE_OFFSET(dec, 1);
     // NOTE: the tracking flag will be ignored if we are decoding a copy command
@@ -194,6 +194,7 @@ static void create_decoders_lookup()
     };
     
     decoders[SRL_HDR_REFP] = ^id (srl_decoder_t *dec) {
+        NSMutableDictionary *trackingDictionary = (__bridge NSMutableDictionary *)(dec->td);
         long long offset = read_varint(dec) + dec->bdy;
         if (offset >= *dec->ofx)
             @throw [NSException exceptionWithName:@"BadRefp"
@@ -416,7 +417,8 @@ static void create_decoders_lookup()
         .ofx = &index,
         .bdy = 0,
         .cpy = NO,
-        .b2s = self.binaryStrings
+        .b2s = self.binaryStrings,
+        .td  = CFBridgingRetain([[NSMutableDictionary alloc] init])
     };
     
     // header suffix
@@ -455,10 +457,6 @@ static void create_decoders_lookup()
     if (version > 1)
         dec.bdy = index;
     // from here bytes points to the uncompressed body
-    if (!trackingDictionary)
-        trackingDictionary = [[NSMutableDictionary alloc] init];
-    [trackingDictionary removeAllObjects];
-    
     id object = nil;
     @try {
         object = srl_decode(&dec);
@@ -471,6 +469,7 @@ static void create_decoders_lookup()
                                 userInfo:[NSDictionary dictionaryWithObject:errorMessage
                                                                      forKey:NSLocalizedDescriptionKey]];
     }
+    CFBridgingRelease(dec.td);
     return object;
 }
 
