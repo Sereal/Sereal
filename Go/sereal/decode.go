@@ -828,7 +828,7 @@ func setInt(v reflect.Value, k reflect.Kind, i int) {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		v.SetUint(uint64(i))
 	default:
-		panic("bad type for setInt")
+		panic("bad type for setInt: " + v.Kind().String())
 	}
 }
 
