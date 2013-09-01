@@ -7,6 +7,7 @@
 //
 
 #import <Foundation/Foundation.h>
+#import "SrlAdditions.h"
 
 @class SrlEncoder;
 @class SrlDecoder;

@@ -64,7 +64,7 @@ static char encoded_test[] = {
                           date, @"date",
                           [NSArray arrayWithObjects:@"BLAH", @"DIOKANE", date, nil], @"array",
                           nil];
-    NSData *data = [sereal encode:dict];
+    NSData *data = [dict encodeSrl];//[sereal encode:dict];
 
     STAssertNotNil(data, @"Can't encode a simple structure");
 }
@@ -72,8 +72,11 @@ static char encoded_test[] = {
 - (void)testDecoding
 {
     NSData *data = [NSData dataWithBytesNoCopy:encoded_test length:sizeof(encoded_test) freeWhenDone:NO];
-    sereal.binaryStrings = YES;
-    id obj = [sereal decode:data];
+    
+    [NSData setPerlCompatible:YES]; // sereal.perlCompatible = YES;
+    id obj = [data decodeSrl]; // [sereal decode:data];
+    [NSData setPerlCompatible:NO]; // sereal.perlCompatible = NO;
+
     STAssertNotNil(obj, @"Can't decode a simple message");
     STAssertTrue([obj isKindOfClass:[NSArray class]], @"Decoded object is not an array");
     STAssertTrue([obj count] == 3, @"Array count doesn't match");
@@ -95,7 +98,6 @@ static char encoded_test[] = {
     STAssertTrue([dict1 objectForKey:@"c"] == [NSNull null], @"'c' is not null in the first dictionary");
     
     STAssertTrue([[dict2 objectForKey:@"c"] isEqual:@"kakka"], @"'c' is not what expected in the second dictionary");
-    sereal.binaryStrings = NO;
 }
 
 - (void)testRoundTrip
@@ -119,9 +121,9 @@ static char encoded_test[] = {
                           [NSArray arrayWithObjects:@-17, @-16, @-15, @-14, @-13, @-12, @-11, @-10, @-9, @-8, @-7, @-6, @-5, @-4, @-3, @-2, @-1,
                            @0, @1, @2, @3, @4, @5, @6, @7, @8, @9, @10, @11, @12, @13, @14, @15, @16, @17, nil], @"array2",
                           nil];
-    NSData *data = [sereal encode:dict];
+    NSData *data = [dict encodeSrl];//[sereal encode:dict];
     
-    id obj = [sereal decode:data];
+    id obj = [data decodeSrl];//[sereal decode:data];
     NSLog(@"%@", obj);
 
     STAssertTrue([obj isKindOfClass:[NSDictionary class]], @"Didn't get back a dictionary");
@@ -184,34 +186,34 @@ static char encoded_test[] = {
     // TODO - test encoding/decoding of SrlObjects VS native objects
 }
 
-- (void)testProcessEvents
-{
-    NSError *err = nil;
-    sereal.perlCompatible = YES;
-    NSString *eventsDir = @"/Users/xant/src/events";
-    NSFileManager *fm = [NSFileManager defaultManager];
-    NSArray *files = [fm contentsOfDirectoryAtPath:eventsDir error:&err];
-    if (!files && err) {
-        STFail(@"Can't open eventsDir %@ : %@",eventsDir, err);
-    }
-    for (NSString *fName in files) {
-//        if (![fName isEqualToString:@"test_000816.in"])
+//- (void)testProcessEvents
+//{
+//    NSError *err = nil;
+//    sereal.perlCompatible = YES;
+//    NSString *eventsDir = @"/Users/xant/src/events";
+//    NSFileManager *fm = [NSFileManager defaultManager];
+//    NSArray *files = [fm contentsOfDirectoryAtPath:eventsDir error:&err];
+//    if (!files && err) {
+//        STFail(@"Can't open eventsDir %@ : %@",eventsDir, err);
+//    }
+//    for (NSString *fName in files) {
+////        if (![fName isEqualToString:@"test_000816.in"])
+////            continue;
+//        NSString *fullPath = [NSString stringWithFormat:@"%@/%@", eventsDir, fName];
+//        if (![fullPath hasSuffix:@".in"])
 //            continue;
-        NSString *fullPath = [NSString stringWithFormat:@"%@/%@", eventsDir, fName];
-        if (![fullPath hasSuffix:@".in"])
-            continue;
-        NSData *data = [fm contentsAtPath:fullPath];
-        id obj = [sereal decode:data error:&err];
-        if (!obj && err) {
-            STFail(@"Can't decode: %@", err);
-        }
-        NSData *encodedData = [sereal encode:obj error:&err];
-        if (!encodedData && err) {
-            STFail(@"Can't encode: %@", err);
-        }
-        
-        NSString *newFileName = [fName stringByReplacingCharactersInRange:NSMakeRange(fName.length - 3, 3) withString:@".out"];
-        [encodedData writeToFile:[NSString stringWithFormat:@"%@/%@", eventsDir, newFileName] atomically:YES];
-    }
-}
+//        NSData *data = [fm contentsAtPath:fullPath];
+//        id obj = [sereal decode:data error:&err];
+//        if (!obj && err) {
+//            STFail(@"Can't decode: %@", err);
+//        }
+//        NSData *encodedData = [sereal encode:obj error:&err];
+//        if (!encodedData && err) {
+//            STFail(@"Can't encode: %@", err);
+//        }
+//        
+//        NSString *newFileName = [fName stringByReplacingCharactersInRange:NSMakeRange(fName.length - 3, 3) withString:@".out"];
+//        [encodedData writeToFile:[NSString stringWithFormat:@"%@/%@", eventsDir, newFileName] atomically:YES];
+//    }
+//}
 @end

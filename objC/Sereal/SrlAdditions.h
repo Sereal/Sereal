@@ -8,38 +8,19 @@
 
 #import <Foundation/Foundation.h>
 
-@protocol Sereal
-@required
+
+
+@interface NSObject (SrlAdditions)
++ (void)setBinaryStrings:(BOOL)binaryStrings;
++ (void)setStrictHashKeys:(BOOL)strictHashKeys;
++ (void)setPerlCompatible:(BOOL)perlCompatible;
++ (void)setCompress:(BOOL)compress;
++ (void)setCompressionThreshold:(NSUInteger)compressionThreshold;
+
 - (NSData *)encodeSrl;
-- (id)decodeSrl:(NSData *)data;
-- (id)initWithSrlData:(NSData *)data;
++ (id)decodeSrl:(NSData *)data;
 @end
 
-@interface NSObject (SrlAdditions) <Sereal>
-
-@end
-
-
-@interface NSNumber (SrlAdditions) <Sereal>
-
-+ (id)numberWithSrlData:(NSData *)data;
-
-@end
-
-@interface NSString (SrlAdditions) <Sereal>
-
-+ (id)stringWithSrlData:(NSData *)data;
-
-@end
-
-@interface NSDictionary (SrlAdditions) <Sereal>
-
-+ (id)dictionaryWithSrlData:(NSData *)data;
-
-@end
-
-@interface NSArray (SrlAdditions) <Sereal>
-
-+ (id)arrayWithSrlData:(NSData *)data;
-
+@interface NSData (SrlAdditions)
+- (id)decodeSrl;
 @end

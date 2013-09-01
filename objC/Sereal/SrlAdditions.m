@@ -7,43 +7,65 @@
 //
 
 #import "SrlAdditions.h"
+#import "Sereal.h"
+
+static Sereal *__sereal = nil;
 
 @implementation NSObject (SrlAdditions)
++ (Sereal *)sereal
+{
+    if (!__sereal)
+        __sereal = [[Sereal alloc] init];
+    return __sereal;
+}
+
++ (void)setBinaryStrings:(BOOL)binaryStrings
+{
+    [[self sereal] setBinaryStrings:binaryStrings];
+}
+
++ (void)setStrictHashKeys:(BOOL)strictHashKeys
+{
+    [[self sereal] setStrictHashKeys:strictHashKeys];
+}
+
++ (void)setPerlCompatible:(BOOL)perlCompatible
+{
+    [[self sereal] setPerlCompatible:perlCompatible];
+
+}
+
++ (void)setCompress:(BOOL)compress
+{
+    [[self sereal] setCompress:compress];
+}
+
++ (void)setCompressionThreshold:(NSUInteger)compressionThreshold
+{
+    [[self sereal] setCompressionThreshold:compressionThreshold];
+}
+
++ (id)decodeSrl:(NSData *)data
+{
+    return [[self sereal] decode:data];
+}
 
 - (NSData *)encodeSrl
 {
-    return nil;
-}
-
-- (id)decodeSrl:(NSData *)data
-{
-    return self;
-}
-
-- (id)initWithSrlData:(NSData *)data
-{
-    return self;
+    return [[NSObject sereal] encode:self];
 }
 
 @end
 
+@implementation NSData (SrlAdditions)
 
+- (id)decodeSrl
+{
+    return [[NSObject sereal] decode:self];
+}
+
+@end
 
 @implementation NSNumber (SrlAdditions)
-
-+ (id)numberWithSrlData:(NSData *)data
-{
-    return [[self alloc] initWithSrlData:data];
-}
-
-@end
-
-
-@implementation NSString (SrlAdditions)
-
-+ (id)stringWithSrlData:(NSData *)data
-{
-    return [[self alloc] initWithSrlData:data];
-}
 
 @end

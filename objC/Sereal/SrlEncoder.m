@@ -210,6 +210,8 @@ static void encode_binary(srl_encoder_t *enc, id obj)
 
     NSData *data = obj;
     BOOL copied = NO;
+    // in perl compatibility mode (or if binaryStrings is true)
+    // the binary encoder is used for strings as well
     if ([obj isKindOfClass:[NSString class]]) {
         
         if (![obj canBeConvertedToEncoding:NSISOLatin1StringEncoding])
@@ -236,6 +238,7 @@ static void encode_binary(srl_encoder_t *enc, id obj)
         }
         data = [obj dataUsingEncoding:NSISOLatin1StringEncoding];
     } else {
+        // check if we already encoded the same binary payload earlier in the message
         NSNumber *offset = ([obj length] > 5) ? [encodedBinaryData objectForKey:obj] : nil;
         if (offset) {
             EXPAND_BUFFER(enc, 1);
@@ -311,8 +314,8 @@ static void encode_object(srl_encoder_t *enc, id obj)
 
 static void srl_encode(srl_encoder_t *enc, id obj)
 {
-    // check if we already encoded an instance of obj and in case
-    // just output a refp or an alias to the previous instance
+    // check if we already encoded an instance of obj
+    // which we can reuse as REFP/ALIAS
     if (reuse_object(enc, obj))
         return;
     
