@@ -94,6 +94,11 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		}
 	}()
 
+	// uninitialized encoder? set to version 1
+	if e.version == 0 {
+		e.version = 1
+	}
+
 	headerLength := 5
 	b = make([]byte, headerLength, 32)
 

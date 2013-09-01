@@ -43,22 +43,24 @@ var roundtrips = []interface{}{
 }
 
 func TestRoundtripGo(t *testing.T) {
-	testRoundtrip(t, false)
+	testRoundtrip(t, false, 1)
+	testRoundtrip(t, false, 2)
 }
 
 func TestRoundtripPerl(t *testing.T) {
-	testRoundtrip(t, true)
+	testRoundtrip(t, true, 1)
+	testRoundtrip(t, true, 2)
 }
 
-func testRoundtrip(t *testing.T, perlCompat bool) {
+func testRoundtrip(t *testing.T, perlCompat bool, version int) {
 
-	e := &Encoder{PerlCompat: perlCompat}
+	e := &Encoder{PerlCompat: perlCompat, version: version}
 	d := &Decoder{PerlCompat: false}
 
 	for _, v := range roundtrips {
 		b, err := e.Marshal(v)
 		if err != nil {
-			t.Errorf("failed marshalling with perlCompat=%t : %v\n", perlCompat, v)
+			t.Errorf("failed marshalling with perlCompat=%t : %v: %s\n", perlCompat, v, err)
 		}
 		var unp interface{}
 
