@@ -43,6 +43,11 @@ type Decoder struct {
 	copyDepth  int
 }
 
+// NewDecoder returns a decoder with default flags
+func NewDecoder() *Decoder {
+	return &Decoder{}
+}
+
 // UnmarshalHeader parses the Sereal-v2-encoded buffer b and stores the header data into the variable pointed to by vheader
 func (d *Decoder) UnmarshalHeader(b []byte, vheader interface{}) (err error) {
 	return d.UnmarshalHeaderBody(b, vheader, nil)
