@@ -2,6 +2,8 @@
 
 =encoding utf8
 
+=for html <img src="https://travis-ci.org/Sereal/Sereal.png?branch=master">
+
 =head1 NAME
 
 Sereal - A binary serialization format
@@ -85,7 +87,7 @@ old decoder, and output old formats with a new encoder.
 =head3 Language Agnosticism
 
 We want the format to be usable by other languages, especially dynamic
-languages. We hope to have a Java port soon, right Eric? In aim of making
+languages. In aim of making
 this easier we have structured our repo so that implementations from other
 languages can be easily added, and we would welcome any contributions
 along these lines.
@@ -112,7 +114,7 @@ L<sereal-dev|https://groups.google.com/forum/?fromgroups#!forum/sereal-dev>
 
 Yves Orton E<lt>demerphq@gmail.comE<gt>
 
-Damian Gryski
+Damian Gryski E<lt>damian@gryski.comE<gt>
 
 Steffen Mueller E<lt>smueller@cpan.orgE<gt>
 
