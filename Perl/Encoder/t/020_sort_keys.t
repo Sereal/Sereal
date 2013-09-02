@@ -59,7 +59,10 @@ if ( @keys > 1 ) {
 foreach my $x ( 0 .. $#keys ) {
     foreach my $y ($x + 1 .. $#keys) {
         is($encoded{$keys[$x]}, $encoded{$keys[$y]},"$keys[$x] vs $keys[$y] (same: sort_keys)");
-        isnt($encoded_unsorted{$keys[$x]}, $encoded_unsorted{$keys[$y]},"$keys[$x] vs $keys[$y] (different: no sort_keys)");
+        SKIP: {
+            skip "test causes random false failures", 1;
+            isnt($encoded_unsorted{$keys[$x]}, $encoded_unsorted{$keys[$y]},"$keys[$x] vs $keys[$y] (different: no sort_keys)");
+        }
     }
 }
 
