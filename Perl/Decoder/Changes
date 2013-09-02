@@ -1,5 +1,18 @@
 Revision history for Perl extension Sereal-Decoder
 
+0.37 Mon Sep 2 07:40 2013 (AMS time)
+  - Remove spurious SvREFCOUNT_dec, previously causing
+    memory management problems on some vary invalid
+    input data.
+  - Fixed a memory leak on exception.
+
+0.36 Tue May 7 12:00 2013 (AMS time)
+  [changelog for encoder and decoder both]
+  - Add "incremental" option to decoder for easier decoding of
+    multiple sereal documents in one buffer.
+  - Make snappy and snappy_incr options mutually exclusive.
+  - Feature: Implement aliasing for deduping (aliased_dedupe_strings)
+
 0.35 Mon Apr 1 11:50 2013 (AMS time)
   - Add new no_bless_objects option from Simon Bertrang.
 
