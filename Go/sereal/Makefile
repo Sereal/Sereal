@@ -4,7 +4,7 @@ test: test_dir
 compat: test_dir
 	-rm -f test_dir/test_data_*-go.out
 	-go test -test.run=TestCorpus
-	perl ./test-compat.pl
+	perl ./test-compat.pl 2>&1 1>/dev/null |grep "Looks like you failed" | tee /dev/stderr |grep "you failed 97"
 
 ../../Perl/Decoder/blib:
 	cd ../../Perl/Decoder/ ; perl Makefile.PL
@@ -15,4 +15,4 @@ compat: test_dir
 	make -C ../../Perl/Encoder
 
 test_dir: ../../Perl/Decoder/blib/ ../../Perl/Encoder/blib
-	perl -Mblib=../../Perl/Decoder/blib/ -Mblib=../../Perl/Encoder/blib -I../../Perl/shared/t/lib/ -MSereal::TestSet -MSereal::Encoder -e'Sereal::TestSet::write_test_files("test_dir")'
+	perl -Mblib=../../Perl/Decoder/blib/ -Mblib=../../Perl/Encoder/blib -I../../Perl/shared/t/lib/ -MSereal::TestSet -MSereal::Encoder -e'$$Sereal::TestSet::PROTO_VERSION=1;Sereal::TestSet::write_test_files("test_dir")'
