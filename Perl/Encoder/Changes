@@ -1,5 +1,16 @@
 Revision history for Perl extension Sereal-Encoder
 
+0.37 Mon Sep 2 07:40 2013 (AMS time)
+  - Windows and C89 fixes
+  - Band-aid: Skip test failing due to hash-randomization [Zefram]
+
+0.36 Tue May 7 12:00 2013 (AMS time)
+  [changelog for encoder and decoder both]
+  - Add "incremental" option to decoder for easier decoding of
+    multiple sereal documents in one buffer.
+  - Make snappy and snappy_incr options mutually exclusive.
+  - Feature: Implement aliasing for deduping (aliased_dedupe_strings)
+
 0.35 Mon Apr 1 11:50 2013 (AMS time)
   - Add new no_bless_objects option from Simon Bertrang.
 

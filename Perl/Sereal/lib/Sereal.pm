@@ -2,9 +2,9 @@ package Sereal;
 use 5.008;
 use strict;
 use warnings;
-our $VERSION = '0.360';
-use Sereal::Encoder 0.36 qw(encode_sereal);
-use Sereal::Decoder 0.36 qw(decode_sereal looks_like_sereal);
+our $VERSION = '0.370';
+use Sereal::Encoder 0.37 qw(encode_sereal);
+use Sereal::Decoder 0.37 qw(decode_sereal looks_like_sereal);
 
 use Exporter 'import';
 our @EXPORT_OK = qw(encode_sereal decode_sereal looks_like_sereal);
@@ -27,9 +27,6 @@ Sereal - Fast, compact, powerful binary (de-)serialization
   use Sereal qw(encode_sereal decode_sereal looks_like_sereal);
   
 =head1 DESCRIPTION
-
-B<This is an experimental module.
-Before using it in production, please get in touch with the authors!>
 
 I<Sereal> is an efficient, compact-output, binary and feature-rich
 serialization protocol. The Perl encoder is implemented as the
