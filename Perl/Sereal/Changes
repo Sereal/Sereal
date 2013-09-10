@@ -1,5 +1,12 @@
 Revision history for Perl extension Sereal
 
+Sereal is a dependency package that pulls in the real Sereal::Encoder
+and Sereal::Decoder.  For the actual changes between Sereal releases,
+please see the Encoder and Decoder changelogs:
+   * https://github.com/Sereal/Sereal/blob/master/Perl/Decoder/Changes
+   * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
+
+
 0.370 Mon Sep 2 07:47 2013 (AMS time)
   - New decoder/encoder release, dependency version change.
 
