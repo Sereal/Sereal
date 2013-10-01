@@ -19,6 +19,7 @@ Revision history for Perl extension Sereal-Decoder
   - Remove warning about Sereal not being production-grade
     (because it IS).
   - C89/Windows fixes (bulk88)
+  - 5.18 compat: Skip test failing due to hash-randomization (Zefram)
 
 0.37 Mon Sep 2 07:40 2013 (AMS time)
   - Remove spurious SvREFCOUNT_dec, previously causing
