@@ -125,8 +125,9 @@ Rafaël Garcia-Suarez
 =head1 ACKNOWLEDGMENT
 
 This protocol was originally developed for Booking.com. With approval
-from Booking.com, this module was generalized and published on CPAN,
-for which the authors would like to express their gratitude.
+from Booking.com, the code and specification were generalized and
+published as Open Source on github and CPAN, for which the authors
+would like to express their gratitude.
 
 =head1 COPYRIGHT AND LICENSE
 
