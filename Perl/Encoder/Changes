@@ -1,5 +1,27 @@
 Revision history for Perl extension Sereal-Encoder
 
+* Warning: For a seamless upgrade, upgrade to version 2
+*          of the decoder before upgrading to version 2 of the
+*          encoder!
+2.00_01 tue Oct 1 07:34 2013 (AMS time)
+  - NEW PROTOCOL VERSION: V2
+  - User-data in header functionality: You may embed arbitrary
+    Sereal-serializable data in a document header. The document
+    header isn't compressed, so this is ideal for retrieving
+    small chunks of meta-data (eg. routing information) without
+    having to deserialize the entire document.
+  - Relocatable Sereal document bodies
+  - Encoder never emits non-incremental Snappy encoding for V2
+  - Offsets now 1-based in relocatable format, not 0
+  - Fixed VERY obscure (and rare) memory leak.
+  - Improved error messages
+  - Remove warning about Sereal not being production-grade
+    (because it IS).
+  - Detect when the Snappy compression was net negative in size
+    and back out
+  - C89/Windows fixes (bulk88)
+  - 5.18 compat: Skip test failing due to hash-randomization (Zefram)
+
 0.37 Mon Sep 2 07:40 2013 (AMS time)
   - Windows and C89 fixes
   - Band-aid: Skip test failing due to hash-randomization [Zefram]

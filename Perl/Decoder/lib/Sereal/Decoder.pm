@@ -5,10 +5,11 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '0.37'; # Don't forget to update the TestCompat set for testing against installed encoders!
+our $VERSION = '2.00_01'; # Don't forget to update the TestCompat set for testing against installed encoders!
 
 # not for public consumption, just for testing.
-my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 23 .. int($VERSION * 100) ) ]; # compat with 0.23 to ...
+(my $num_version = $VERSION) =~ s/_//;
+my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 200 .. int($num_version * 100) ) ]; # compat with 0.23 to ...
 sub _test_compat {return(@$TestCompat, $VERSION)}
 
 use Exporter 'import';
@@ -61,9 +62,9 @@ The two are released separately to allow for independent and safer upgrading.
 
 The Sereal protocol versions that are compatible with this decoder implementation
 are currently protocol versions 1 and 2. As it stands, it will refuse to attempt to
-decode future versions of the protocol, but there is likely going to be an
-option to decode the parts of the input that are compatible with version 2
-of the protocol. The protocol was designed to allow for this.
+decode future versions of the protocol, but if necessary there is likely
+going to be an option to decode the parts of the input that are compatible
+with version 2 of the protocol. The protocol was designed to allow for this.
 
 The protocol specification and many other bits of documentation
 can be found in the github repository. Right now, the specification is at
