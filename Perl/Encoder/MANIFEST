@@ -23,6 +23,7 @@ snappy/csnappy_decompress.c
 snappy/csnappy_internal.h
 snappy/csnappy_internal_userspace.h
 srl_buffer.h
+srl_buffer_types.h
 srl_common.h
 srl_encoder.c
 srl_encoder.h
@@ -36,6 +37,7 @@ t/020_sort_keys.t
 t/021_sort_keys_option.t
 t/100_roundtrip.t
 t/110_nobless.t
+t/120_hdr_data.t
 t/160_recursion.t
 t/200_bulk.t
 t/300_fail.t

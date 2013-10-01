@@ -41,6 +41,7 @@ t/400_utf8validate.t
 t/500_utf8decoding.t
 t/800_threads.t
 t/900_regr_issue_15.t
+t/901_regr_segv.t
 t/data/corpus
 t/lib/Sereal/BulkTest.pm
 t/lib/Sereal/TestSet.pm
