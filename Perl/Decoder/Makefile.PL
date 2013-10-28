@@ -54,6 +54,7 @@ WriteMakefile1(
         'ExtUtils::ParseXS' => '2.21',
         'Test::LongString' => '0',
         'Data::Dumper' => '0',
+        'Test::Warn' => '0',
     },
     NAME              => $module,
     VERSION_FROM      => 'lib/Sereal/Decoder.pm', # finds $VERSION
