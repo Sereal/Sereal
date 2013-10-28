@@ -3,6 +3,9 @@ Revision history for Perl extension Sereal-Encoder
 * Warning: For a seamless upgrade, upgrade to version 2
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
+2.00_02 Mon Oct 28 19:32 2013 (AMS time)
+  - Fix Test::Warn dependency problem of 2.00_01.
+
 2.00_01 tue Oct 1 07:34 2013 (AMS time)
   - NEW PROTOCOL VERSION: V2
   - User-data in header functionality: You may embed arbitrary
