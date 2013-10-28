@@ -547,6 +547,8 @@ sub have_encoder_and_decoder {
         return();
     };
     my $cmp_v = $need_class->VERSION;
+    $cmp_v =~ s/_//;
+    $cmp_v = sprintf("%.2f", int($cmp_v*100)/100);
     if (not defined $cmp_v or not exists $compat_versions{$cmp_v}) {
         note("Could not load correct version of $need_class for testing "
              ."(got: $cmp_v, needed any of ".join(", ", keys %compat_versions).")");
