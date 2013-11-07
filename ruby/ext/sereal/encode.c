@@ -259,6 +259,7 @@ VALUE method_sereal_encode(VALUE self, VALUE args) {
                                  working_buf, 
                                  CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
                 free(s->data);
+                free(working_buf);
                 s->data = compressed;
                 s->size = compressed_len + s_header_len;
         }
