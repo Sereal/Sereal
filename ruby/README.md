@@ -16,7 +16,7 @@ $ gem install sereal
 $ git clone https://github.com/Sereal/Sereal
 $ cd Sereal/ruby
 $ gem build sereal.gemspec 
-$ gem install sereal-0.0.2.gem 
+$ gem install sereal-0.0.3.gem 
 ```
 
 ### examples
