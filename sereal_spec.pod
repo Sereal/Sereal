@@ -12,7 +12,7 @@ This document describes the format and encoding of a Sereal data packet.
 
 =head1 VERSION
 
-This is the Sereal specification version 2.00.
+This is the Sereal specification version 2.01.
 
 The integer part of the document version corresponds to
 the Sereal protocol version. For details on incompatible changes between
@@ -101,6 +101,17 @@ The format is:
 where the varint signifies the length of the Snappy-compressed blob
 following it. See L</"NOTES ON IMPLEMENTATION"> below for a discussion on
 how to implement this efficiently.
+
+=item 3
+
+Compressed Sereal format, using LZ4 compression
+(L<https://code.google.com/p/lz4/>). Does the same framing as the
+incremental Snappy format.
+
+=item 4
+
+Same as format I<3>, but using LZ4_HC (the high-compression
+variant of LZ4).
 
 =back
 
@@ -402,6 +413,8 @@ of the body its value must be 1.
 Additionally, protocol version 2 introduced the 8bit bit-field (8bit-BITFIELD)
 in the variable-length/optional header part (OPT-SUFFIX) of the document
 and the user-meta-data section (OPT-USER-META-DATA) of the variable-length header.
+
+Version 2.01 added support for LZ4 and LZ4_HC compression.
 
 =head1 NOTES ON IMPLEMENTATION
 
