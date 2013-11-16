@@ -108,11 +108,6 @@ Compressed Sereal format, using LZ4 compression
 (L<https://code.google.com/p/lz4/>). Does the same framing as the
 incremental Snappy format.
 
-=item 4
-
-Same as format I<3>, but using LZ4_HC (the high-compression
-variant of LZ4).
-
 =back
 
 Additional compression types are envisaged and will be assigned type
