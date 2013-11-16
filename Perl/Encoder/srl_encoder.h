@@ -75,7 +75,7 @@ void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_
 #define SRL_F_COMPRESS_SNAPPY                0x00040UL
 #define SRL_F_COMPRESS_SNAPPY_INCREMENTAL    0x00080UL
 
-/* WARNING: This is different from the protocol bit SRL_PROTOCOL_ENCODING_LZ4(_HC) in that it's
+/* WARNING: This is different from the protocol bit SRL_PROTOCOL_ENCODING_LZ4 in that it's
  *          a flag on the encoder struct indicating that we want to use LZ4 (HC). */
 #define SRL_F_COMPRESS_LZ4                   0x00100UL
 #define SRL_F_COMPRESS_LZ4_HC                0x00200UL
