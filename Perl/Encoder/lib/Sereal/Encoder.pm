@@ -12,8 +12,19 @@ our $VERSION = '2.00_02'; # Don't forget to update the TestCompat set for testin
 my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 200 .. int($num_version * 100) ) ]; # compat with 2.00 to ...
 sub _test_compat {return(@$TestCompat, $VERSION)}
 
+use constant SRL_UNCOMPRESSED => 0;
+use constant SRL_SNAPPY       => 1;
+use constant SRL_LZ4          => 2;
+use constant SRL_LZ4_HC       => 3;
+
 use Exporter 'import';
-our @EXPORT_OK = qw(encode_sereal encode_sereal_with_header_data);
+our @EXPORT_OK = qw(
+  encode_sereal encode_sereal_with_header_data
+  SRL_UNCOMPRESSED
+  SRL_SNAPPY
+  SRL_LZ4
+  SRL_LZ4_HC
+);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 # export by default if run from command line
 our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
@@ -69,6 +80,8 @@ encoder.
 
 Currently, the following options are recognized, none of them are on
 by default.
+
+FIXME document "compress" option and how it supersedes "snappy" and "snappy_incr"!
 
 =head3 no_shared_hashkeys
 
