@@ -3,7 +3,7 @@ use warnings;
 use blib;
 use Benchmark qw(cmpthese :hireswallclock);
 use Sereal::Decoder qw(decode_sereal);
-use Sereal::Encoder qw(encode_sereal);
+use Sereal::Encoder qw(encode_sereal SRL_LZ4 SRL_LZ4_HC SRL_SNAPPY);
 use JSON::XS qw(decode_json encode_json);
 use Storable qw(nfreeze thaw);
 use Data::Undump qw(undump);
@@ -11,6 +11,8 @@ use Data::Dumper qw(Dumper);
 use Data::Dumper::Limited qw(DumpLimited);
 use Data::MessagePack;
 use Getopt::Long qw(GetOptions);
+use Compress::LZ4 qw();
+#use Compress::Snappy qw();
 
 my (
     $duration,
@@ -64,16 +66,24 @@ push @str, substr($chars, int(rand(int(length($chars)/2+1))), 10) for 1..1000;
 my @rand = map rand, 1..1000;
 our %data;
 
-$data{$_}= make_data() for qw(sereal sereal_func dd1 dd2 ddl mp json_xs storable sereal_snappy);
+$data{$_}= make_data()
+  for qw(sereal sereal_func dd1 dd2 ddl mp
+         json_xs storable
+         sereal_snappy sereal_lz4 sereal_lz4hc);
 
-our $enc = Sereal::Encoder->new(\%opt);
-our $enc_snappy = Sereal::Encoder->new({%opt, snappy => 1});
+our $enc        = Sereal::Encoder->new(\%opt);
+our $enc_snappy = Sereal::Encoder->new({%opt, compress => SRL_SNAPPY, compress_threshold => 800});
+our $enc_lz4    = Sereal::Encoder->new({%opt, compress => SRL_LZ4,    compress_threshold => 800});
+our $enc_lz4hc  = Sereal::Encoder->new({%opt, compress => SRL_LZ4_HC, compress_threshold => 800});
 our $dec = Sereal::Decoder->new(\%opt);
 
-our ($json_xs, $dd1, $dd2, $ddl, $sereal, $storable, $mp, $sereal_snappy);
+our ($json_xs, $dd1, $dd2, $ddl, $sereal, $storable, $mp,
+     $sereal_snappy, $sereal_lz4, $sereal_lz4hc);
 # do this first before any of the other dumpers "contaminate" the iv/pv issue
-$sereal   = $enc->encode($data{sereal});
-$sereal_snappy   = $enc_snappy->encode($data{sereal_snappy});
+$sereal        = $enc->encode($data{sereal});
+$sereal_snappy = $enc_snappy->encode($data{sereal_snappy});
+$sereal_lz4    = $enc_lz4->encode($data{sereal_lz4});
+$sereal_lz4hc  = $enc_lz4hc->encode($data{sereal_lz4hc});
 if (!SEREAL_ONLY) {
     $json_xs  = encode_json($data{json_xs}) if !$medium_data or $nobless;
     $dd1      = Data::Dumper->new([$data{dd1}])->Indent(0)->Dump();
@@ -99,6 +109,8 @@ if (!SEREAL_ONLY) {
         ["Storable", bytes::length($storable)],
         ["Sereal::Encoder",  bytes::length($sereal)],
         ["Sereal::Encoder, Snappy",  bytes::length($sereal_snappy)],
+        ["Sereal::Encoder, LZ4",  bytes::length($sereal_lz4)],
+        ["Sereal::Encoder, LZ4HC",  bytes::length($sereal_lz4hc)],
     );
     for my $tuple (@size_datasets) {
         my ($name, $size) = @$tuple;
@@ -126,6 +138,8 @@ if ($encoder) {
             sereal_func => '$::x = encode_sereal($::data{sereal_func}, \%::opt);',
             sereal => '$::x = $::enc->encode($::data{sereal});',
             sereal_snappy => '$::x = $::enc_snappy->encode($::data{sereal_snappy});',
+            sereal_lz4 => '$::x = $::enc_lz4->encode($::data{sereal_lz4});',
+            sereal_lz4hc => '$::x = $::enc_lz4hc->encode($::data{sereal_lz4hc});',
         }
     );
 }
@@ -147,6 +161,8 @@ if ($decoder) {
             sereal_func => '$::x = decode_sereal($::sereal, \%::opt);',
             sereal => '$::x = $::dec->decode($::sereal);',
             sereal_snappy => '$::x = $::dec->decode($::sereal_snappy);',
+            sereal_lz4 => '$::x = $::dec->decode($::sereal_lz4);',
+            sereal_lz4hc => '$::x = $::dec->decode($::sereal_lz4hc);',
         }
     );
 }
@@ -245,6 +261,8 @@ if ($diagrams) {
         "Storable" => 'storable',
         "Sereal::Encoder" => 'sereal',
         "Sereal::Encoder, Snappy" => 'sereal, snappy',
+        "Sereal::Encoder, LZ4" => 'sereal, lz4',
+        "Sereal::Encoder, LZ4HC" => 'sereal, lz4hc',
     );
 
     make_bar_chart(
