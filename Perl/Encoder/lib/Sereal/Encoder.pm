@@ -84,8 +84,6 @@ encoder.
 Currently, the following options are recognized, none of them are on
 by default.
 
-FIXME document "compress" option and how it supersedes "snappy" and "snappy_incr"!
-
 =head3 no_shared_hashkeys
 
 When the C<no_shared_hashkeys> option is set ot a true value, then
@@ -95,7 +93,33 @@ By skipping the detection of repeated hash keys, performance goes up a bit,
 but the size of the output can potentially be much larger.
 Do not disable this unless you have a reason to.
 
+=head3 compress
+
+If this option provided and true, compression of the document body is enabled.
+As of Sereal version 2, three different compression techniques are supported
+and can be enabled by setting C<compress> to the respective named
+constants (exportable from the C<Sereal::Encoder> module):
+Snappy (named constant: C<SRL_SNAPPY>),
+LZ4 (C<SRL_LZ4>), and LZ4 high-compression mode (C<SRL_LZ4_HC>).
+For your convenience, there is also a C<SRL_UNCOMPRESSED>
+constant.
+
+If this option is set, then the Snappy-related options below
+are ignored. They are otherwise recognized for compatibility only.
+
+=head3 compress_threshold
+
+The size threshold (in bytes) of the uncompressed output below which
+compression is not even attempted even if enabled.
+Defaults to one kilobyte (1024 bytes). Set this to 0 and C<compress> to
+a non-zero value to always attempt to compress.
+Note that the document will not be compressed if the resulting size
+will be bigger than the original size (even if C<compress_threshold> is 0).
+
 =head3 snappy
+
+See also the C<compress> option. This option is provided only for
+compatibility with Sereal V1.
 
 If set, the main payload of the Sereal document will be compressed using
 Google's Snappy algorithm. This can yield anywhere from no effect
@@ -112,6 +136,9 @@ documents. See C<snappy_incr> in those cases.
 
 =head3 snappy_incr
 
+See also the C<compress> option. This option is provided only for
+compatibility with Sereal V1.
+
 Same as the C<snappy> option for default (Sereal V2) operation.
 
 In Sereal V1, enables a version of the snappy protocol which is suitable for
@@ -120,12 +147,11 @@ more details.
 
 =head3 snappy_threshold
 
-The size threshold (in bytes) of the uncompressed output below which
-snappy compression is not even attempted even if enabled.
-Defaults to one kilobyte (1024 bytes). Set to 0 and C<snappy> to enabled
-to always compress.
-Note that the document will not be compressed if the resulting size
-will be bigger than the original size (even if snappy_threshold is 0).
+See also the C<compress> option. This option is provided only for
+compatibility with Sereal V1.
+
+This option is a synonym for the C<compress_threshold> option,
+but only if Snappy compression is enabled.
 
 =head3 croak_on_bless
 
