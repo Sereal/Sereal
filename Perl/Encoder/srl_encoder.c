@@ -284,7 +284,7 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         if ( svp && SvTRUE(*svp) )
             SRL_ENC_SET_OPTION(enc, SRL_F_NO_BLESS_OBJECTS);
 
-        svp = hv_fetchs(opt, "compression", 0);
+        svp = hv_fetchs(opt, "compress", 0);
         if (svp) {
             compression_format = SvIV(*svp);
 
@@ -326,13 +326,21 @@ srl_build_encoder_struct(pTHX_ HV *opt)
             }
         }
 
-        /* compression_format==1 is some sort of snappy */
-        if (compression_format == 1) {
-            svp = hv_fetchs(opt, "snappy_threshold", 0);
+        /* Only recognize compression threshold options if
+         * compression is even enabled at all. */
+        if (compression_format) {
+            enc->compress_threshold = 1024;
+
+            svp = hv_fetchs(opt, "compress_threshold", 0);
             if ( svp && SvOK(*svp) )
                 enc->compress_threshold = SvIV(*svp);
-            else
-                enc->compress_threshold = 1024;
+            else if (compression_format == 1) {
+                /* Compat mode with V1 "snappy_threshold" setting */
+                /* compression_format==1 is some sort of Snappy */
+                svp = hv_fetchs(opt, "snappy_threshold", 0);
+                if ( svp && SvOK(*svp) )
+                    enc->compress_threshold = SvIV(*svp);
+            }
         }
 
         svp = hv_fetchs(opt, "undef_unknown", 0);
