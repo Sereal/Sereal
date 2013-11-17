@@ -80,6 +80,22 @@ sub parse_header {
     require Compress::Snappy;
     my $out = Compress::Snappy::decompress($data);
     $data = $out;
+  } elsif ($encoding == SRL_PROTOCOL_ENCODING_LZ4) {
+    print "Header says: Document body is LZ4-compressed.\n";
+    my $uncompressed_len = varint();
+    my $compressed_len = varint();
+    require Compress::LZ4;
+    # FIXME Compress::LZ4 adds a length before the data.
+    # I'd consider that a bug - let's work around it.
+    #my $int = pack("N", $uncompressed_len);
+    my $int = pack("CCCC",
+      $uncompressed_len & 0xff,
+      ($uncompressed_len>>8) & 0xff,
+      ($uncompressed_len>>16) & 0xff,
+      ($uncompressed_len>>24) & 0xff,
+    );
+    my $out = Compress::LZ4::decompress($int . $data);
+    $data = $out;
   } elsif ($encoding) {
     die "Invalid encoding '" . ($encoding >> SRL_PROTOCOL_VERSION_BITS) . "'";
   }
