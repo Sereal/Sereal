@@ -75,9 +75,12 @@ sub parse_header {
     my $out = Compress::Snappy::decompress($data);
     $data = $out;
   } elsif ($encoding == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL) {
-    die "Incremental Snappy encoding not implemented in hobodecoder. (yet. It's easy to do.)";
-  }
-  elsif ($encoding) {
+    print "Header says: Document body is Snappy-compressed (incremental).\n";
+    my $compressed_len = varint();
+    require Compress::Snappy;
+    my $out = Compress::Snappy::decompress($data);
+    $data = $out;
+  } elsif ($encoding) {
     die "Invalid encoding '" . ($encoding >> SRL_PROTOCOL_VERSION_BITS) . "'";
   }
 }
