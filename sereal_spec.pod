@@ -105,8 +105,16 @@ how to implement this efficiently.
 =item 3
 
 Compressed Sereal format, using LZ4 compression
-(L<https://code.google.com/p/lz4/>). Does the same framing as the
-incremental Snappy format.
+(L<https://code.google.com/p/lz4/>). Uses similar framing as the
+incremental Snappy format, but adds a second varint:
+
+  <Varint1><Varint2><LZ4 Blob>
+
+where the first varint indicates the length of the I<uncompressed>
+document body and the second varint signifies the
+length of the LZ4-compressed blob following it.
+See L</"NOTES ON IMPLEMENTATION"> below for a discussion on how to
+implement this efficiently.
 
 =back
 
