@@ -12,6 +12,9 @@ our $VERSION = '2.00_02'; # Don't forget to update the TestCompat set for testin
 my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 200 .. int($num_version * 100) ) ]; # compat with 2.00 to ...
 sub _test_compat {return(@$TestCompat, $VERSION)}
 
+# Make sure to keep these constants in sync with the C code in srl_encoder.c.
+# I know they could be exported from C using things like ExtUtils::Constant,
+# but that's too much of a hassle for just four numbers.
 use constant SRL_UNCOMPRESSED => 0;
 use constant SRL_SNAPPY       => 1;
 use constant SRL_LZ4          => 2;
