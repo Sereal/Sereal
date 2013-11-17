@@ -693,9 +693,12 @@ sub run_roundtrip_tests {
         my $suffix = $proto_version == 1 ? "_v1" : "";
 
         for my $opt (
-            ['plain',          {                  } ],
+            ['plain',          {                     } ],
             ['snappy',         { snappy         => 1 } ],
-            ['snappy_incr',    { snappy_incr    => 1 } ],
+            ['snappy_incr',    { compress       => Sereal::Encoder::SRL_SNAPPY } ],
+            ['lz4',            { compress       => Sereal::Encoder::SRL_LZ4 } ],
+            ['lz4_force',      { compress       => Sereal::Encoder::SRL_LZ4, compress_threshold => 0 } ],
+            ['lz4hc',          { compress       => Sereal::Encoder::SRL_LZ4_HC } ],
             ['sort_keys',      { sort_keys      => 1 } ],
             ['dedupe_strings', { dedupe_strings => 1 } ],
         ) {
@@ -703,6 +706,7 @@ sub run_roundtrip_tests {
             $name .= $suffix;
             $opts->{use_protocol_v1} = 1 if $proto_version == 1;
             $PROTO_VERSION= $proto_version;
+            next if $proto_version == 1 and exists ${$opt->[1]}{compress};
             setup_tests();
             run_roundtrip_tests_internal($name, $opts);
         }
