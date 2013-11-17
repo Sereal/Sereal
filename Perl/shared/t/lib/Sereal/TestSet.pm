@@ -695,10 +695,10 @@ sub run_roundtrip_tests {
         for my $opt (
             ['plain',          {                     } ],
             ['snappy',         { snappy         => 1 } ],
-            ['snappy_incr',    { compress       => Sereal::Encoder::SRL_SNAPPY } ],
-            ['lz4',            { compress       => Sereal::Encoder::SRL_LZ4 } ],
-            ['lz4_force',      { compress       => Sereal::Encoder::SRL_LZ4, compress_threshold => 0 } ],
-            ['lz4hc',          { compress       => Sereal::Encoder::SRL_LZ4_HC } ],
+            ['snappy_incr',    { compress       => Sereal::Encoder::SRL_SNAPPY() } ],
+            ['lz4',            { compress       => Sereal::Encoder::SRL_LZ4() } ],
+            ['lz4_force',      { compress       => Sereal::Encoder::SRL_LZ4(), compress_threshold => 0 } ],
+            ['lz4hc',          { compress       => Sereal::Encoder::SRL_LZ4_HC() } ],
             ['sort_keys',      { sort_keys      => 1 } ],
             ['dedupe_strings', { dedupe_strings => 1 } ],
         ) {
