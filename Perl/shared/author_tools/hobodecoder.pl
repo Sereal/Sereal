@@ -84,6 +84,7 @@ sub parse_header {
     print "Header says: Document body is LZ4-compressed.\n";
     my $uncompressed_len = varint();
     my $compressed_len = varint();
+    print "Uncompressed body length: $uncompressed_len; Compressed packet length: $compressed_len\n";
     require Compress::LZ4;
     # FIXME Compress::LZ4 adds a length before the data.
     # I'd consider that a bug - let's work around it.
