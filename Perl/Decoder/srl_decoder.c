@@ -268,8 +268,8 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV 
     srl_read_header(aTHX_ dec, header_into);
     SRL_UPDATE_BODY_POS(dec);
 
-    if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY)) {
-        /* uncompress */
+    if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY) )) {
+        /* Decompress Snappy */
         uint32_t dest_len;
         SV *buf_sv;
         unsigned char *buf;
@@ -317,6 +317,52 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV 
         if (expect_false( decompress_ok != 0 ))
         {
             SRL_ERRORf1("Snappy decompression of Sereal packet payload failed with error %i!", decompress_ok);
+        }
+    } /* End if need to decompress Snappy */
+    else if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_LZ4) )) {
+        /* Decompress LZ4 / LZ4HC */
+
+        SV *buf_sv;
+        unsigned char *buf;
+        unsigned char *old_pos;
+        int decompress_length;
+
+        const ptrdiff_t sereal_header_len = dec->pos - dec->buf_start;
+
+        const STRLEN uncompressed_doc_body_len =
+                (STRLEN)srl_read_varint_uv_length(aTHX_ dec, " while reading uncompressed packet size");
+        const STRLEN compressed_packet_len =
+                (STRLEN)srl_read_varint_uv_length(aTHX_ dec, " while reading compressed packet size");
+
+        /* all decl's above here, or we break C89 compilers */
+
+        dec->bytes_consumed= compressed_packet_len + (dec->pos - dec->buf_start);
+
+        /* Let perl clean this up. Yes, it's not the most efficient thing
+         * ever, but it's just one mortal per full decompression, so not
+         * a bottle-neck. */
+        buf_sv = sv_2mortal( newSV(sereal_header_len + uncompressed_doc_body_len + 1 ));
+        buf = (unsigned char *)SvPVX(buf_sv);
+
+        /* FIXME probably unnecessary to copy the Sereal header! */
+        Copy(dec->buf_start, buf, sereal_header_len, unsigned char);
+
+        /* Swap in the new buffer into the decoder, keeping the
+         * old buffer around for decompressing from it. */
+        old_pos = dec->pos;
+        dec->buf_start = buf;
+        dec->pos = buf + sereal_header_len;
+        SRL_UPDATE_BODY_POS(dec);
+        dec->buf_end = dec->pos + uncompressed_doc_body_len;
+        dec->buf_len = uncompressed_doc_body_len + sereal_header_len;
+
+        decompress_length = LZ4_decompress_safe((const char *)old_pos,
+                                                (char *)dec->pos,
+                                                (int)compressed_packet_len,
+                                                (int)uncompressed_doc_body_len);
+        if (expect_false( decompress_length == 0 ))
+        {
+            SRL_ERROR("LZ4 decompression of Sereal packet payload failed!");
         }
     }
 
@@ -441,6 +487,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
     ASSERT_BUF_SPACE(dec, 4 + 1 + 1," while reading header");
     if (strnEQ((char*)dec->pos, SRL_MAGIC_STRING, 4)) {
         unsigned int proto_version;
+        U8 encoding_flags;
 
         dec->pos += 4;
         dec->proto_version_and_flags = *dec->pos++;
@@ -452,20 +499,24 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
             SRL_ERRORf1("Unsupported Sereal protocol version %u",
                     dec->proto_version_and_flags & SRL_PROTOCOL_VERSION_MASK);
 
-        if ((dec->proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_RAW) {
+        encoding_flags = dec->proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK;
+
+        if (encoding_flags == SRL_PROTOCOL_ENCODING_RAW) {
             /* no op */
         }
         else
-        if (
-                ( dec->proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK ) == SRL_PROTOCOL_ENCODING_SNAPPY
-                ||
-                ( dec->proto_version_and_flags & SRL_PROTOCOL_ENCODING_MASK ) == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL
-        ) {
+        if ( encoding_flags & (SRL_PROTOCOL_ENCODING_SNAPPY|SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL) )
+        {
             if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_SNAPPY) )) {
                 SRL_ERROR("Sereal document is compressed with Snappy, "
                       "but this decoder is configured to refuse Snappy-compressed input.");
             }
             dec->flags |= SRL_F_DECODER_DECOMPRESS_SNAPPY;
+        }
+        else
+        if ( encoding_flags & SRL_PROTOCOL_ENCODING_LZ4)
+        {
+            dec->flags |= SRL_F_DECODER_DECOMPRESS_LZ4;
         }
         else
         {
