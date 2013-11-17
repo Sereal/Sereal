@@ -805,7 +805,6 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
                 if (SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_LZ4)) {
                     dest_len = LZ4_compress(old_buf.start + sereal_header_len, enc->buf.pos,
                                             (int)uncompressed_body_length);
-
                 }
                 else { /* LZ4HC */
                     dest_len = LZ4_compressHC(old_buf.start + sereal_header_len, enc->buf.pos,
@@ -816,13 +815,13 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
 
             /* If compression didn't help, swap back to old, uncompressed buffer */
             if (dest_len >= uncompressed_body_length) {
-                /* swap in old, uncompressed buffer */
+                /* Swap in old, uncompressed buffer */
                 srl_buf_swap_buffer(aTHX_ &enc->buf, &old_buf);
-                /* disable compression flags */
+                /* Disable compression flags */
                 srl_reset_compression_header_flag(enc);
             }
-            else { /* go ahead with Snappy and do final fixups */
-                /* overwrite the max size varint with the real size of the compressed data */
+            else { /* Go ahead with compression and do final fixups */
+                /* Overwrite the max size varint with the real size of the compressed data */
                 if (varint_start)
                     srl_update_varint_from_to(aTHX_ varint_start, varint_end, dest_len);
                 enc->buf.pos += dest_len;
