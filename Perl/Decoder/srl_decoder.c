@@ -329,7 +329,7 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV 
 
         const ptrdiff_t sereal_header_len = dec->pos - dec->buf_start;
         const STRLEN uncompressed_doc_body_len =
-                (STRLEN)srl_read_varint_uv_length(aTHX_ dec, " while reading uncompressed packet size");
+                (STRLEN)srl_read_varint_uv(aTHX_ dec);
         const STRLEN compressed_packet_len =
                 (STRLEN)srl_read_varint_uv_length(aTHX_ dec, " while reading compressed packet size");
 
