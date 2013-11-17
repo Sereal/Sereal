@@ -31,4 +31,5 @@ t/data/corpus
 t/lib
 inc/Devel/CheckLib.pm
 snappy
+lz4
 .gdb_history

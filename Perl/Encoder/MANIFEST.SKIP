@@ -54,3 +54,5 @@ MYMETA\..*$
 \B\._
 callgrind\.out\..*$
 \.gdb_history
+
+lz4/
