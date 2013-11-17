@@ -363,7 +363,7 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV 
         {
             SRL_ERROR("LZ4 decompression of Sereal packet payload failed!");
         }
-    }
+    } /* End if have LZ4 compression */
 
     /* The actual document body deserialization: */
     srl_read_single_value(aTHX_ dec, body_into);
