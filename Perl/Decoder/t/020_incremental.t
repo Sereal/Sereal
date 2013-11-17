@@ -15,7 +15,7 @@ BEGIN {
 
 use Sereal::TestSet qw(:all);
 
-use Test::More tests => 8 + 6 + ( 31 * 2 );
+use Test::More tests => 8 + 6 + ( 31 * 3 );
 
 # Simple test to see whether we can get the number of bytes consumed
 # and whether offset works
@@ -57,7 +57,12 @@ SKIP: {
         require Sereal::Encoder;
         Sereal::Encoder->import("encode_sereal");
 
-        for my $tuple ( ['raw' => [] ], [ snappy_incr => [ { snappy_incr => 1 } ] ] ) {
+        for my $tuple (
+                        ['raw' => [] ],
+                        [ snappy_incr => [ { snappy_incr => 1 } ] ],
+                        [ lz4 => [ { compress => 'lz4', compress_threshold => 0 } ] ],
+                      )
+        {
             my ($name, $opts)= @$tuple;
             my $data;
             my $n = 30;
