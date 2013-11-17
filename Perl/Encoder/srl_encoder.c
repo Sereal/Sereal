@@ -725,7 +725,17 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
             /* Don't bother with compression at all if we have less than $threshold bytes of payload */
             srl_reset_compression_header_flag(enc);
         }
-        else { /* Do Snappy or LZ4(HC) compression of body */
+        else {
+            /* Do Snappy or LZ4(HC) compression of body */
+
+            /* Reminder from the spec: Snappy blob is prefixed
+             * with the compressed blob length as a varint
+             * (it has the uncompressed document body length
+             * embedded in the Snappy blob). LZ4(HC) is prefixed
+             * with first the uncompressed document body length,
+             * then the compressed document body length (as with
+             * Snappy). */
+
             const int is_snappy
                 = SRL_ENC_HAVE_OPTION(enc, (  SRL_F_COMPRESS_SNAPPY
                                             | SRL_F_COMPRESS_SNAPPY_INCREMENTAL));
@@ -745,11 +755,17 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
             /* Will have to embed compressed packet length as varint if not
              * in traditional Snappy mode. (So needs to be added for any of
              * LZ4, LZ4HC, incremental Snappy.) */
-            if ( !is_traditional_snappy )
-                dest_len += SRL_MAX_VARINT_LENGTH;
-
-            if ( is_snappy )
+            if ( is_snappy ) {
                 srl_init_snappy_workmem(aTHX_ enc);
+
+                if ( !is_traditional_snappy)
+                    dest_len += SRL_MAX_VARINT_LENGTH;
+            }
+            else {
+                /* Simply over-reserve a full varint length for the uncompressed
+                 * body length as well. Simplicity trumps (space) efficiency here. */
+                dest_len += SRL_MAX_VARINT_LENGTH + SRL_MAX_VARINT_LENGTH;
+            }
 
             /* Back up old buffer and allocate new one with correct size */
             srl_buf_copy_buffer(aTHX_ &enc->buf, &old_buf);
@@ -760,8 +776,12 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
             enc->buf.pos += sereal_header_len;
             SRL_UPDATE_BODY_POS(enc); /* will do the right thing wrt. protocol V1 / V2 */
 
-            /* Embed compressed packet length */
             if ( !is_traditional_snappy ) {
+                /* Embed uncompressed packet length for LZ4 */
+                if ( !is_snappy )
+                    srl_buf_cat_varint_nocheck(aTHX_ enc, 0, uncompressed_body_length);
+
+                /* Embed compressed packet length */
                 varint_start= enc->buf.pos;
                 srl_buf_cat_varint_nocheck(aTHX_ enc, 0, dest_len);
                 varint_end= enc->buf.pos - 1;
