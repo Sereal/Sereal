@@ -1,1 +1,1 @@
-../shared/lz4/lz4hc.c
+lz4/lz4hc.c
