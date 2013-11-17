@@ -50,6 +50,8 @@ extern "C" {
 #include "srl_protocol.h"
 
 #include "snappy/csnappy_decompress.c"
+#include "lz4.h"
+#include "lz4hc.h"
 
 /* 5.8.8 and earlier have a nasty bug in their handling of overloading:
  * The overload-flag is set on the referer of the blessed object instead of
@@ -265,6 +267,7 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV 
     srl_begin_decoding(aTHX_ dec, src, start_offset);
     srl_read_header(aTHX_ dec, header_into);
     SRL_UPDATE_BODY_POS(dec);
+
     if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY)) {
         /* uncompress */
         uint32_t dest_len;

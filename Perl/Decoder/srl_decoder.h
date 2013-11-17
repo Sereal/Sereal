@@ -108,6 +108,8 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL 256UL
 /* Non-persistent flag: The current packet is using protocol version 1 */
 #define SRL_F_DECODER_PROTOCOL_V1 512UL
+/* Non-persistent flag! */
+#define SRL_F_DECODER_DECOMPRESS_LZ4 1024UL
 
 #define SRL_DEC_HAVE_OPTION(dec, flag_num) ((dec)->flags & flag_num)
 #define SRL_DEC_SET_OPTION(dec, flag_num) ((dec)->flags |= flag_num)
