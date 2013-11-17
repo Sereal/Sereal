@@ -328,7 +328,6 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV 
         int decompress_length;
 
         const ptrdiff_t sereal_header_len = dec->pos - dec->buf_start;
-
         const STRLEN uncompressed_doc_body_len =
                 (STRLEN)srl_read_varint_uv_length(aTHX_ dec, " while reading uncompressed packet size");
         const STRLEN compressed_packet_len =
@@ -505,7 +504,8 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
             /* no op */
         }
         else
-        if ( encoding_flags & (SRL_PROTOCOL_ENCODING_SNAPPY|SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL) )
+        if (    encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
+             || encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL )
         {
             if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_SNAPPY) )) {
                 SRL_ERROR("Sereal document is compressed with Snappy, "
@@ -514,7 +514,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
             dec->flags |= SRL_F_DECODER_DECOMPRESS_SNAPPY;
         }
         else
-        if ( encoding_flags & SRL_PROTOCOL_ENCODING_LZ4)
+        if ( encoding_flags == SRL_PROTOCOL_ENCODING_LZ4)
         {
             dec->flags |= SRL_F_DECODER_DECOMPRESS_LZ4;
         }
