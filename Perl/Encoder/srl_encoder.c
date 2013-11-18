@@ -750,7 +750,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
             const int is_traditional_snappy
                 = (SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY));
 
-            srl_buffer_t old_buf; /* TODO can we use the enc->tmp_buf here to avoid allocations? */
+            srl_buffer_t old_buf;
             char *varint_start= NULL;
             char *varint_end= NULL;
             size_t dest_len;
