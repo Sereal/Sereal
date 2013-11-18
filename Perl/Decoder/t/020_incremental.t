@@ -55,12 +55,12 @@ SKIP: {
     }
     else {
         require Sereal::Encoder;
-        Sereal::Encoder->import("encode_sereal");
+        Sereal::Encoder->import("encode_sereal", "SRL_LZ4");
 
         for my $tuple (
                         ['raw' => [] ],
                         [ snappy_incr => [ { snappy_incr => 1 } ] ],
-                        [ lz4 => [ { compress => 'lz4', compress_threshold => 0 } ] ],
+                        [ lz4 => [ { compress => SRL_LZ4(), compress_threshold => 0 } ] ],
                       )
         {
             my ($name, $opts)= @$tuple;
