@@ -188,8 +188,8 @@ srl_clear_encoder(pTHX_ srl_encoder_t *enc)
     srl_clear_seen_hashes(aTHX_ enc);
 
     enc->buf.pos = enc->buf.start;
-    if (enc->tmp_buf.start != NULL)
-        enc->tmp_buf.pos = enc->tmp_buf.start;
+    /* tmp_buf.start may be NULL for an unused tmp_buf, but so what? */
+    enc->tmp_buf.pos = enc->tmp_buf.start;
 
     SRL_SET_BODY_POS(enc, enc->buf.start);
 
