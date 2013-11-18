@@ -31,16 +31,43 @@ Various stubs for the open-source version of Snappy.
 
 File modified by
 Zeev Tarantov <zeev.tarantov@gmail.com>
+
+File modified for Sereal by
+Steffen Mueller <smueller@cpan.org>
 */
 
 #ifndef CSNAPPY_INTERNAL_USERSPACE_H_
 #define CSNAPPY_INTERNAL_USERSPACE_H_
 
-#if defined(_MSC_VER) && (_MSC_VER <= 1300)
+/*note the original version of this file checked for MS version, but MS will *never* support
+ * anything but C89, so the version check is bogus. */
+#if defined(_MSC_VER)
 typedef unsigned __int8  uint8_t;
 typedef unsigned __int16 uint16_t;
 typedef unsigned __int32 uint32_t;
 typedef unsigned __int64 uint64_t;
+typedef __int32 int32_t; /* Sereal specific change, see csnappy_decompress.c(271) : error C2065: 'int32_t' : undeclared identifier */
+/* the following define is Sereal specific, as MS C89 compilers do not know about "inline" */
+#define inline __inline
+#ifdef _M_X64
+#  define __x86_64__
+#  define __x86_64
+#  define __amd64__
+#  define __amd64
+#endif
+#ifdef _M_IX86
+#  define __i386__
+#  define __i386
+#  define i386
+#  define _X86_
+#endif
+#ifdef _M_IA64
+#  define __ia64__
+#  define __ia64
+#  define __IA64__
+#  define __itanium__
+#endif
+
 #else
 #include <stdint.h>
 #endif
@@ -70,6 +97,8 @@ typedef unsigned __int64 uint64_t;
 #define DCHECK(cond)
 #endif
 
+#include "csnappy_compat.h"
+
 /*
 Uses code from http://code.google.com/p/exfat/source/browse/trunk/libexfat/byteorder.h
 with 3-clause BSD license instead of GPL, with permission from:
@@ -82,6 +111,9 @@ Albert Lee
 #define bswap_16(x) _byteswap_ushort(x)
 #define bswap_32(x) _byteswap_ulong(x)
 #define bswap_64(x) _byteswap_uint64(x)
+#define __BIG_ENDIAN	4321
+#define __LITTLE_ENDIAN	1234
+#define __BYTE_ORDER	LITTLE_ENDIAN
 
 #elif defined(__GLIBC__) || defined(__ANDROID__) || defined(__CYGWIN__)
 
@@ -99,7 +131,7 @@ Albert Lee
 #define __LITTLE_ENDIAN LITTLE_ENDIAN
 #define __BIG_ENDIAN BIG_ENDIAN
 
-#elif defined(__FreeBSD__) || defined(__DragonFlyBSD__) || defined(__NetBSD__)
+#elif defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
 
 #include <sys/endian.h>
 #define bswap_16(x) bswap16(x)
@@ -132,6 +164,12 @@ Albert Lee
 #else
 #define __BYTE_ORDER __BIG_ENDIAN
 #endif
+
+#elif defined(__MINGW32__)
+#include <sys/param.h>
+#define __BYTE_ORDER BYTE_ORDER
+#define __LITTLE_ENDIAN LITTLE_ENDIAN
+#define __BIG_ENDIAN BIG_ENDIAN
 
 #endif
 
@@ -169,13 +207,13 @@ Albert Lee
 struct una_u64 { uint64_t x; };
 #pragma pack()
 
-static inline uint64_t UNALIGNED_LOAD64(const void *p)
+static INLINE uint64_t UNALIGNED_LOAD64(const void *p)
 {
 	const struct una_u64 *ptr = (const struct una_u64 *)p;
 	return ptr->x;
 }
 
-static inline void UNALIGNED_STORE64(void *p, uint64_t v)
+static INLINE void UNALIGNED_STORE64(void *p, uint64_t v)
 {
 	struct una_u64 *ptr = (struct una_u64 *)p;
 	ptr->x = v;
@@ -189,37 +227,37 @@ struct una_u32 { uint32_t x; };
 struct una_u64 { uint64_t x; };
 #pragma pack()
 
-static inline uint16_t UNALIGNED_LOAD16(const void *p)
+static INLINE uint16_t UNALIGNED_LOAD16(const void *p)
 {
 	const struct una_u16 *ptr = (const struct una_u16 *)p;
 	return ptr->x;
 }
 
-static inline uint32_t UNALIGNED_LOAD32(const void *p)
+static INLINE uint32_t UNALIGNED_LOAD32(const void *p)
 {
 	const struct una_u32 *ptr = (const struct una_u32 *)p;
 	return ptr->x;
 }
 
-static inline uint64_t UNALIGNED_LOAD64(const void *p)
+static INLINE uint64_t UNALIGNED_LOAD64(const void *p)
 {
 	const struct una_u64 *ptr = (const struct una_u64 *)p;
 	return ptr->x;
 }
 
-static inline void UNALIGNED_STORE16(void *p, uint16_t v)
+static INLINE void UNALIGNED_STORE16(void *p, uint16_t v)
 {
 	struct una_u16 *ptr = (struct una_u16 *)p;
 	ptr->x = v;
 }
 
-static inline void UNALIGNED_STORE32(void *p, uint32_t v)
+static INLINE void UNALIGNED_STORE32(void *p, uint32_t v)
 {
 	struct una_u32 *ptr = (struct una_u32 *)p;
 	ptr->x = v;
 }
 
-static inline void UNALIGNED_STORE64(void *p, uint64_t v)
+static INLINE void UNALIGNED_STORE64(void *p, uint64_t v)
 {
 	struct una_u64 *ptr = (struct una_u64 *)p;
 	ptr->x = v;
@@ -232,21 +270,21 @@ static inline void UNALIGNED_STORE64(void *p, uint64_t v)
 #define get_unaligned_le32(p)           UNALIGNED_LOAD32(p)
 #define put_unaligned_le16(v, p)        UNALIGNED_STORE16(p, v)
 #elif __BYTE_ORDER == __BIG_ENDIAN
-static inline uint32_t get_unaligned_le32(const void *p)
+static INLINE uint32_t get_unaligned_le32(const void *p)
 {
   return bswap_32(UNALIGNED_LOAD32(p));
 }
-static inline void put_unaligned_le16(uint16_t val, void *p)
+static INLINE void put_unaligned_le16(uint16_t val, void *p)
 {
   UNALIGNED_STORE16(p, bswap_16(val));
 }
 #else
-static inline uint32_t get_unaligned_le32(const void *p)
+static INLINE uint32_t get_unaligned_le32(const void *p)
 {
   const uint8_t *b = (const uint8_t *)p;
   return b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24);
 }
-static inline void put_unaligned_le16(uint16_t val, void *p)
+static INLINE void put_unaligned_le16(uint16_t val, void *p)
 {
   uint8_t *b = (uint8_t *)p;
   b[0] = val & 255;
@@ -257,19 +295,19 @@ static inline void put_unaligned_le16(uint16_t val, void *p)
 
 #if defined(HAVE_BUILTIN_CTZ)
 
-static inline int FindLSBSetNonZero(uint32_t n)
+static INLINE int FindLSBSetNonZero(uint32_t n)
 {
 	return __builtin_ctz(n);
 }
 
-static inline int FindLSBSetNonZero64(uint64_t n)
+static INLINE int FindLSBSetNonZero64(uint64_t n)
 {
 	return __builtin_ctzll(n);
 }
 
 #else /* Portable versions. */
 
-static inline int FindLSBSetNonZero(uint32_t n)
+static INLINE int FindLSBSetNonZero(uint32_t n)
 {
 	int rc = 31, i, shift;
 	uint32_t x;
@@ -285,7 +323,7 @@ static inline int FindLSBSetNonZero(uint32_t n)
 }
 
 /* FindLSBSetNonZero64() is defined in terms of FindLSBSetNonZero(). */
-static inline int FindLSBSetNonZero64(uint64_t n)
+static INLINE int FindLSBSetNonZero64(uint64_t n)
 {
 	const uint32_t bottombits = (uint32_t)n;
 	if (bottombits == 0) {

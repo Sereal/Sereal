@@ -31,10 +31,15 @@ Various stubs for the open-source version of Snappy.
 
 File modified for the Linux Kernel by
 Zeev Tarantov <zeev.tarantov@gmail.com>
+
+File modified for Sereal by
+Steffen Mueller <smueller@cpan.org>
 */
 
 #ifndef CSNAPPY_INTERNAL_H_
 #define CSNAPPY_INTERNAL_H_
+
+#include "csnappy_compat.h"
 
 #ifndef __KERNEL__
 #include "csnappy_internal_userspace.h"
@@ -77,11 +82,15 @@ Zeev Tarantov <zeev.tarantov@gmail.com>
 
 #endif /* __KERNEL__ */
 
+#if (!defined(__LITTLE_ENDIAN) && !defined(__BIG_ENDIAN)) || ! defined(__BYTE_ORDER)
+#  error either __LITTLE_ENDIAN or __BIG_ENDIAN, plus __BYTE_ORDER must be defined
+#endif
+
 #define ARCH_ARM_HAVE_UNALIGNED \
     defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) || defined(__ARM_ARCH_6K__) || defined(__ARM_ARCH_6Z__) || defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6T2__) || defined(__ARMV6__) || \
     defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7R__) || defined(__ARM_ARCH_7M__)
 
-static inline void UnalignedCopy64(const void *src, void *dst) {
+static INLINE void UnalignedCopy64(const void *src, void *dst) {
 #if defined(__i386__) || defined(__x86_64__) || defined(__powerpc__) || ARCH_ARM_HAVE_UNALIGNED
   if ((sizeof(void *) == 8) || (sizeof(long) == 8)) {
     UNALIGNED_STORE64(dst, UNALIGNED_LOAD64(src));
@@ -110,7 +119,7 @@ static inline void UnalignedCopy64(const void *src, void *dst) {
 
 #if defined(__arm__)
   #if ARCH_ARM_HAVE_UNALIGNED
-     static inline uint32_t get_unaligned_le(const void *p, uint32_t n)
+     static INLINE uint32_t get_unaligned_le(const void *p, uint32_t n)
      {
        uint32_t wordmask = (1U << (8 * n)) - 1;
        return get_unaligned_le32(p) & wordmask;
@@ -120,7 +129,7 @@ static inline void UnalignedCopy64(const void *src, void *dst) {
      #define get_unaligned_le get_unaligned_le_armv5
   #endif
 #else
-  static inline uint32_t get_unaligned_le(const void *p, uint32_t n)
+  static INLINE uint32_t get_unaligned_le(const void *p, uint32_t n)
   {
     /* Mapping from i in range [0,4] to a mask to extract the bottom 8*i bits */
     static const uint32_t wordmask[] = {
