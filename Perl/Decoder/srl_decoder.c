@@ -258,14 +258,39 @@ srl_decoder_destructor_hook(pTHX_ void *p)
 }
 
 
+/* Creates a new buffer of size header_len+body_len+1 and swaps it
+ * into place of the current decoder's buffer. Sets decoder
+ * position to right after the header and makes the decoder state
+ * internally consistent.
+ * The buffer is owned by a mortal SV. */
+SRL_STATIC_INLINE void
+srl_realloc_empty_buffer(pTHX_ srl_decoder_t *dec,
+                         const STRLEN header_len,
+                         const STRLEN body_len)
+{
+  SV *buf_sv;
+  unsigned char *buf;
+
+  /* Let perl clean this up. Yes, it's not the most efficient thing
+   * ever, but it's just one mortal per full decompression, so not
+   * a bottle-neck. */
+  buf_sv = sv_2mortal( newSV(header_len + body_len + 1 ));
+  buf = (unsigned char *)SvPVX(buf_sv);
+
+  dec->buf_start = buf;
+  dec->pos = buf + header_len;
+  SRL_UPDATE_BODY_POS(dec);
+  dec->buf_end = dec->pos + body_len;
+  dec->buf_len = body_len + header_len;
+}
+
+
 /* Decompress a Snappy-compressed document body and put the resulting
  * document body back in the place of the old compressed blob. */
 SRL_STATIC_INLINE void
 srl_decompress_body_snappy(pTHX_ srl_decoder_t *dec)
 {
   uint32_t dest_len;
-  SV *buf_sv;
-  unsigned char *buf;
   unsigned char *old_pos;
   const ptrdiff_t sereal_header_len = dec->pos - dec->buf_start;
   const STRLEN compressed_packet_len =
@@ -275,7 +300,7 @@ srl_decompress_body_snappy(pTHX_ srl_decoder_t *dec)
   int decompress_ok;
   int header_len;
 
-  /* all decl's above here, or we break C89 compilers */
+  /* All decl's above here, or we break C89 compilers */
 
   dec->bytes_consumed= compressed_packet_len + (dec->pos - dec->buf_start);
 
@@ -287,21 +312,9 @@ srl_decompress_body_snappy(pTHX_ srl_decoder_t *dec)
   if (header_len == CSNAPPY_E_HEADER_BAD)
       SRL_ERROR("Invalid Snappy header in Snappy-compressed Sereal packet");
 
-  /* Let perl clean this up. Yes, it's not the most efficient thing
-   * ever, but it's just one mortal per full decompression, so not
-   * a bottle-neck. */
-  buf_sv = sv_2mortal( newSV(sereal_header_len + dest_len + 1 ));
-  buf = (unsigned char *)SvPVX(buf_sv);
-
-  /* probably unnecessary to copy the Sereal header! */
-  /* Copy(dec->buf_start, buf, sereal_header_len, unsigned char); */
-
   old_pos = dec->pos;
-  dec->buf_start = buf;
-  dec->pos = buf + sereal_header_len;
-  SRL_UPDATE_BODY_POS(dec);
-  dec->buf_end = dec->pos + dest_len;
-  dec->buf_len = dest_len + sereal_header_len;
+  /* Allocate output buffer and swap it into place within the decoder. */
+  srl_realloc_empty_buffer(aTHX_ dec, sereal_header_len, dest_len);
 
   decompress_ok = csnappy_decompress_noheader((char *)(old_pos + header_len),
                                               compressed_packet_len - header_len,
@@ -319,8 +332,6 @@ srl_decompress_body_snappy(pTHX_ srl_decoder_t *dec)
 SRL_STATIC_INLINE void
 srl_decompress_body_lz4(pTHX_ srl_decoder_t *dec)
 {
-  SV *buf_sv;
-  unsigned char *buf;
   unsigned char *old_pos;
   int decompress_length;
 
@@ -330,27 +341,13 @@ srl_decompress_body_lz4(pTHX_ srl_decoder_t *dec)
   const STRLEN compressed_packet_len =
           (STRLEN)srl_read_varint_uv_length(aTHX_ dec, " while reading compressed packet size");
 
-  /* all decl's above here, or we break C89 compilers */
+  /* All decl's above here, or we break C89 compilers */
 
   dec->bytes_consumed= compressed_packet_len + (dec->pos - dec->buf_start);
 
-  /* Let perl clean this up. Yes, it's not the most efficient thing
-   * ever, but it's just one mortal per full decompression, so not
-   * a bottle-neck. */
-  buf_sv = sv_2mortal( newSV(sereal_header_len + uncompressed_doc_body_len + 1 ));
-  buf = (unsigned char *)SvPVX(buf_sv);
-
-  /* probably unnecessary to copy the Sereal header! */
-  /*Copy(dec->buf_start, buf, sereal_header_len, unsigned char);*/
-
-  /* Swap in the new buffer into the decoder, keeping the
-   * old buffer around for decompressing from it. */
   old_pos = dec->pos;
-  dec->buf_start = buf;
-  dec->pos = buf + sereal_header_len;
-  SRL_UPDATE_BODY_POS(dec);
-  dec->buf_end = dec->pos + uncompressed_doc_body_len;
-  dec->buf_len = uncompressed_doc_body_len + sereal_header_len;
+  /* Allocate output buffer and swap it into place within the decoder. */
+  srl_realloc_empty_buffer(aTHX_ dec, sereal_header_len, uncompressed_doc_body_len);
 
   decompress_length = LZ4_decompress_safe((const char *)old_pos,
                                           (char *)dec->pos,
@@ -374,6 +371,7 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV 
     srl_read_header(aTHX_ dec, header_into);
     SRL_UPDATE_BODY_POS(dec);
 
+    /* Decompression support */
     if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY) )) {
       srl_decompress_body_snappy(aTHX_ dec);
     }
