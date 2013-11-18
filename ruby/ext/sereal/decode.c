@@ -193,46 +193,92 @@ VALUE method_sereal_decode(VALUE self, VALUE args) {
         if (argc < 1)
                 rb_raise(rb_eArgError,"need at least 1 argument (object)");
         VALUE payload = rb_ary_shift(args);
-        VALUE safe = Qtrue;
         if (TYPE(payload) != T_STRING) 
                 rb_raise(rb_eTypeError,"can not decode objects of type %s",rb_obj_classname(payload));
 
         sereal_t *s = s_create();
-        s->data = RSTRING_PTR(payload);
-        s->size = RSTRING_LEN(payload);
-
-        if (s->size < 6 || s_get_u32_bang(s) != 0x6c72733d) 
+        u64 offset = 0;
+again: 
+        if (offset >= RSTRING_LEN(payload)) {
+            free(s);
+            return Qnil;
+        }
+        s->data = RSTRING_PTR(payload) + offset;
+        s->size = RSTRING_LEN(payload) - offset;
+        s->pos = 0;
+        if (s->size < 6 || s_get_u32_bang(s) != SRL_MAGIC_STRING_LILIPUTIAN) 
                 rb_raise(rb_eTypeError,"invalid header"); 
 
         u8 version = s_get_u8_bang(s);
         u8 suffix = s_get_varint_bang(s);
-        int is_compressed = (version & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_SNAPPY ? TRUE : FALSE;
+        u8 is_compressed;
 
+        if ((version & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_SNAPPY)
+                is_compressed = __SNAPPY;
+        else if ((version & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_SNAPPY_INCR)
+                is_compressed = __SNAPPY_INCR;
+        else if ((version & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_LZ4_INCR)
+                is_compressed = __LZ4_INCR;
+        else
+                is_compressed = __RAW;
         if (is_compressed) {
                 u32 uncompressed_len;
-                int snappy_header_len = csnappy_get_uncompressed_length(s_get_p(s),
-                                                                        (s->size - s->pos),
-                                                                        &uncompressed_len);
-                if (snappy_header_len == CSNAPPY_E_HEADER_BAD) 
-                        rb_raise(rb_eTypeError,"invalid snappy header");
+                u32 compressed_len;
 
+                if (is_compressed == __LZ4_INCR) {
+                        uncompressed_len = s_get_varint_bang(s);
+                        if (!uncompressed_len)
+                                rb_raise(rb_eTypeError,"LZ4 compression requires <varint uncompressed size><varint compressed size><blob>, unable to get uncompressed_len");
+
+                        compressed_len = s_get_varint_bang(s);
+                } else {
+                        if (is_compressed == __SNAPPY_INCR) {
+                                compressed_len = s_get_varint_bang(s);
+                        } else {
+                                compressed_len = s->size - s->pos;
+                        }
+
+                        int snappy_header_len = csnappy_get_uncompressed_length(s_get_p(s),
+                                                                                compressed_len,
+                                                                                &uncompressed_len);
+                        if (snappy_header_len == CSNAPPY_E_HEADER_BAD) 
+                                rb_raise(rb_eTypeError,"invalid snappy header");
+                }
                 u8 *uncompressed = alloc_or_raise(uncompressed_len);
-                int done = csnappy_decompress(s_get_p(s),
-                                              (s->size - s->pos),
+                int done;
+                if (is_compressed == __LZ4_INCR) {
+                        done = LZ4_decompress_safe(s_get_p(s),
+                                                   uncompressed,
+                                                   compressed_len,
+                                                   uncompressed_len) == uncompressed_len ? 1 : 0;
+                } else {
+                        done = csnappy_decompress(s_get_p(s),
+                                              compressed_len,
                                               uncompressed,
-                                              uncompressed_len);
-                if (done)
-                        rb_raise(rb_eTypeError, "snappy decompression failed error: %d",done);
+                                              uncompressed_len) == CSNAPPY_E_OK ? 1 : 0;
+                }
+                if (!done)
+                        rb_raise(rb_eTypeError, "decompression failed error: %d type: %d, unompressed size: %d compressed size: %d",done,is_compressed,uncompressed_len,compressed_len);
+
+                offset += s->pos + compressed_len;
                 s->data = uncompressed;
                 s->size = uncompressed_len;
                 s->pos = 0;
         }
 
-        VALUE result = sereal_to_rb_object(s); 
+        VALUE result = sereal_to_rb_object(s);
+        if (is_compressed && rb_block_given_p()) {
+                free(s->data);
+                s->data = NULL;
+                rb_yield(result);
+                goto again;
+        }
+
         if (is_compressed)
                 s_destroy(s);
         else
                 free(s); // we do not destroy because it will free s->data which is RSTRING_PTR(payload) 
+
         return result;
 }
 

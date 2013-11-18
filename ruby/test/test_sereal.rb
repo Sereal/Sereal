@@ -21,8 +21,20 @@ class Test::Unit::TestCase
     Sereal.decode(Sereal.encode(obj,false),safe)
   end
   def test_compress
-    obj = {"aaaaasdjkhaksjdhakjshdkjahsdkjhaskjhadkjshdkjashdkjhas" => "b"}
-    assert_equal Sereal.decode(Sereal.encode(obj,true)), recode(obj)
+    obj = {"aaaaasdjkhaksjdhakjshdkjahsdkjhaskjhadkjshdkjashdkjhas"*20 => "b" * 100000}
+    [Sereal::SNAPPY_INCR,Sereal::LZ4,Sereal::LZ4HC].each do |c|
+        concat = ""
+        10.times do 
+            concat << Sereal.encode(obj,c)
+        end
+        Sereal.decode(concat) do |x|
+            assert_equal x,obj
+        end
+    end
+    assert_equal Sereal.decode(Sereal.encode(obj,Sereal::SNAPPY)), recode(obj)
+    assert_equal Sereal.decode(Sereal.encode(obj,Sereal::SNAPPY_INCR)), recode(obj)
+    assert_equal Sereal.decode(Sereal.encode(obj,Sereal::LZ4)), recode(obj)
+    assert_equal Sereal.decode(Sereal.encode(obj,Sereal::LZ4HC)), recode(obj)
     assert Sereal.encode(obj,true).length < Sereal.encode(obj,false).length
   end
   def test_numbers

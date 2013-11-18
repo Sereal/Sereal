@@ -2,7 +2,8 @@
 #include "buffer.h"
 #include "encode.h"
 #include "snappy/csnappy_compress.c"
-
+#include "lz4/lz4.h"
+#include "lz4/lz4hc.h"
 #define W_SIZE 32
 #if T_FIXNUM > W_SIZE
 	#define W_SIZE T_FIXNUM
@@ -222,6 +223,22 @@ static void rb_object_to_sereal(sereal_t *s, VALUE object) {
         S_RECURSE_DEC(s);
 }
 
+// https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/srl_encoder.c#L623
+void fixup_varint_from_to(u8 *varint_start, u8 *varint_end, u32 number) {
+    while (number >= 0x80) {
+        *varint_start++ = (number & 0x7f) | 0x80;
+        number = number >> 7;
+    }
+    if ( varint_start == varint_end ) {
+        *varint_start = number;
+    } else {
+        *varint_start++ = (number & 0x7f) | 0x80;
+        while ( varint_start < varint_end )
+            *varint_start++ = 0x80;
+        *varint_start= 0;
+    }
+}
+
 VALUE method_sereal_encode(VALUE self, VALUE args) {
         sereal_t *s = s_create();
         u32 argc = RARRAY_LEN(args);
@@ -231,37 +248,108 @@ VALUE method_sereal_encode(VALUE self, VALUE args) {
         VALUE compress = Qfalse;
         if (argc == 2) 
                 compress = rb_ary_shift(args);
-        int do_compress = (compress == Qtrue ? TRUE : FALSE);
+        u8 do_compress;
+        u8 version = SRL_PROTOCOL_VERSION;
 
+        if (TYPE(compress) == T_FIXNUM) {
+            do_compress = (u8) FIX2LONG(compress);
+        } else {
+            do_compress = (compress == Qtrue ? 1 : 0);
+        }
+
+        switch(do_compress) {
+            case __SNAPPY:
+                version |= SRL_PROTOCOL_ENCODING_SNAPPY;
+                break;
+            case __SNAPPY_INCR:
+                version |= SRL_PROTOCOL_ENCODING_SNAPPY_INCR;
+                break;
+            case __LZ4HC_INCR:
+            case __LZ4_INCR:
+                version |= SRL_PROTOCOL_ENCODING_LZ4_INCR;
+                break;
+            case __RAW:
+            default:
+                version |= SRL_PROTOCOL_ENCODING_RAW;
+        }
         // setup header
         s_append_u32(s,SRL_MAGIC_STRING_LILIPUTIAN);
-        s_append_u8(s,SRL_PROTOCOL_VERSION | (do_compress ? SRL_PROTOCOL_ENCODING_SNAPPY : SRL_PROTOCOL_ENCODING_RAW));
+        s_append_u8(s,version);
         s_append_u8(s,0x0);
         u32 s_header_len = s->pos;
         
         // serialize
         rb_object_to_sereal(s,payload);
-
         // compress
         if (do_compress) {
+                u8 *start_compressed_varint = NULL, *start_un_compressed_varint= NULL, *compressed, *end;
+                u32 compressed_len = 0;
+                u32 compressed_len_varint = 0;
+                u32 un_compressed_len_varint = 0;
                 u32 s_body_len = s->size - s_header_len;
-                u32 compressed_len = csnappy_max_compressed_length(s_body_len);
+                // snappy <compressed blob>
+                // snappy incr <varint blob len><compressed blob>
+                // lz4 <varint uncompressed len><varint blob len><compressed blob>
+                if (do_compress == __SNAPPY || do_compress == __SNAPPY_INCR) {
+                        compressed_len = csnappy_max_compressed_length(s_body_len);
+                } else {
+                        compressed_len = LZ4_compressBound(s_body_len);
+                        start_un_compressed_varint = s_get_p(s);
+                        s_append_varint(s,s_body_len);
+                        end = s_get_p(s);
+                        un_compressed_len_varint = end - start_un_compressed_varint;
+                }
 
-                u8 *working_buf = alloc_or_raise(CSNAPPY_WORKMEM_BYTES);
-                u8 *compressed = alloc_or_raise(compressed_len + s_header_len);
+                if (do_compress == __SNAPPY_INCR || do_compress == __LZ4_INCR || do_compress == __LZ4HC_INCR) {
+                        start_compressed_varint = s_get_p(s);
+                        s_append_varint(s,compressed_len);
+                        end = s_get_p(s);
+                        compressed_len_varint = end - start_compressed_varint;
+                }
 
+                compressed = alloc_or_raise(compressed_len + s_header_len + compressed_len_varint + un_compressed_len_varint);
                 COPY(s_get_p_at_pos(s,0,0),compressed,s_header_len);
-                
-                csnappy_compress(s_get_p_at_pos(s,s_header_len,1), 
-                                 s_body_len,
-                                 (compressed + s_header_len),
-                                 &compressed_len,
-                                 working_buf, 
-                                 CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
+
+                if (start_un_compressed_varint)
+                        COPY(start_un_compressed_varint,
+                            compressed + s_header_len,
+                            un_compressed_len_varint);
+                if (start_compressed_varint)
+                        COPY(start_compressed_varint,
+                             compressed + s_header_len + un_compressed_len_varint,
+                             compressed_len_varint);
+
+                u8 *start = s_get_p_at_pos(s,s_header_len,1);
+                if (do_compress == __LZ4_INCR) {
+                        compressed_len = LZ4_compress(start, 
+                                     (compressed + s_header_len + compressed_len_varint + un_compressed_len_varint),
+                                     s_body_len);
+                } else if (do_compress == __LZ4HC_INCR) {
+                        compressed_len = LZ4_compressHC(start, 
+                                     (compressed + s_header_len + compressed_len_varint + un_compressed_len_varint),
+                                     s_body_len);
+
+                } else {
+                        u8 *working_buf = alloc_or_raise(CSNAPPY_WORKMEM_BYTES);
+                        csnappy_compress(start, 
+                                         s_body_len,
+                                         (compressed + s_header_len + compressed_len_varint + un_compressed_len_varint),
+                                         &compressed_len,
+                                         working_buf, 
+                                         CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
+
+                        free(working_buf);
+                }
+                if (compressed_len == 0)
+                    rb_raise(rb_eTypeError,"failed to compress");
+                if (start_compressed_varint)
+                        fixup_varint_from_to(compressed + s_header_len + un_compressed_len_varint, 
+                                             compressed + s_header_len + un_compressed_len_varint + compressed_len_varint - 1,
+                                             compressed_len);
                 free(s->data);
-                free(working_buf);
                 s->data = compressed;
-                s->size = compressed_len + s_header_len;
+                s->size = compressed_len + s_header_len + compressed_len_varint + un_compressed_len_varint;
+                s->pos = s->size;
         }
 
         VALUE result = rb_str_new(s->data,s->size);

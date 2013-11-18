@@ -40,6 +40,12 @@ typedef struct _track_entry     track_t;
 	#define MULTILINE RE_OPTION_MULTILINE
 	#define EXTENDED RE_OPTION_EXTENDED
 #endif
+#define f_raise(what,ex,arg...)         \
+do {                                    \
+    free(what);                         \
+    rb_raise(ex,##arg);                 \
+while(0);
+
 #define FLAG_SAFE 1
 struct _sereal {
         u8 *data;
@@ -69,5 +75,11 @@ do {                                                              \
 #ifndef HAVE_RB_SYM_TO_S
 #define rb_sym_to_s(object) rb_funcall(object,rb_intern("to_s"),0)
 #endif
+
+#define __RAW           0
+#define __SNAPPY        1
+#define __SNAPPY_INCR   2
+#define __LZ4_INCR      3
+#define __LZ4HC_INCR    4
 
 #endif
