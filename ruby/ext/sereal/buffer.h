@@ -16,7 +16,7 @@ static inline sereal_t * s_create(void) {
 }
 
 static inline void s_destroy(sereal_t *s) {
-        if (s->data)
+        if (s->data && (s->flags & FLAG_NOT_MINE) == 0)
                 free(s->data);
 
         free(s);

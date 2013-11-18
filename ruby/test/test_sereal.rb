@@ -18,24 +18,29 @@ class ZXC
 end
 class Test::Unit::TestCase
   def recode(obj,safe = false)
-    Sereal.decode(Sereal.encode(obj,false),safe)
+    Sereal.decode(Sereal.encode(obj),safe)
   end
   def test_compress
     obj = {"aaaaasdjkhaksjdhakjshdkjahsdkjhaskjhadkjshdkjashdkjhas"*20 => "b" * 100000}
     [Sereal::SNAPPY_INCR,Sereal::LZ4,Sereal::LZ4HC].each do |c|
-        concat = ""
-        10.times do 
-            concat << Sereal.encode(obj,c)
-        end
-        Sereal.decode(concat) do |x|
-            assert_equal x,obj
-        end
+      concat = ""
+      10.times do 
+          concat << Sereal.encode(obj,c)
+      end
+      Sereal.decode(concat) do |x|
+        assert_equal x,obj
+      end
     end
     assert_equal Sereal.decode(Sereal.encode(obj,Sereal::SNAPPY)), recode(obj)
     assert_equal Sereal.decode(Sereal.encode(obj,Sereal::SNAPPY_INCR)), recode(obj)
     assert_equal Sereal.decode(Sereal.encode(obj,Sereal::LZ4)), recode(obj)
     assert_equal Sereal.decode(Sereal.encode(obj,Sereal::LZ4HC)), recode(obj)
     assert Sereal.encode(obj,true).length < Sereal.encode(obj,false).length
+  end
+  def test_invalid
+    assert_raise(TypeError) do 
+      Sereal.decode("=srl")
+    end
   end
   def test_numbers
     [0,1,2,3,4,16,17,2**31,2**32,2**60,2*64,0.1,Float(2**64),2.1**956].each do |x|

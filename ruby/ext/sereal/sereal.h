@@ -40,13 +40,13 @@ typedef struct _track_entry     track_t;
 	#define MULTILINE RE_OPTION_MULTILINE
 	#define EXTENDED RE_OPTION_EXTENDED
 #endif
-#define f_raise(what,ex,arg...)         \
+#define s_raise(what,ex,arg...)         \
 do {                                    \
-    free(what);                         \
+    s_destroy(what);                    \
     rb_raise(ex,##arg);                 \
-while(0);
+} while(0);
 
-#define FLAG_SAFE 1
+#define FLAG_NOT_MINE 1
 struct _sereal {
         u8 *data;
         u32 size;

@@ -71,7 +71,7 @@ void s_init_writers(void) {
 }
 
 static void s_default_writer(sereal_t *s, VALUE object) {
-        rb_raise(rb_eTypeError, "invalid type for input %s",rb_obj_classname(object));
+        s_raise(s,rb_eTypeError, "invalid type for input %s",rb_obj_classname(object));
 }
 
 
@@ -240,10 +240,11 @@ void fixup_varint_from_to(u8 *varint_start, u8 *varint_end, u32 number) {
 }
 
 VALUE method_sereal_encode(VALUE self, VALUE args) {
-        sereal_t *s = s_create();
         u32 argc = RARRAY_LEN(args);
         if (argc < 1)
                 rb_raise(rb_eArgError,"need at least 1 argument (object)");
+
+        sereal_t *s = s_create();
         VALUE payload = rb_ary_shift(args);
         VALUE compress = Qfalse;
         if (argc == 2) 
@@ -341,7 +342,7 @@ VALUE method_sereal_encode(VALUE self, VALUE args) {
                         free(working_buf);
                 }
                 if (compressed_len == 0)
-                    rb_raise(rb_eTypeError,"failed to compress");
+                    s_raise(s,rb_eTypeError,"failed to compress");
                 if (start_compressed_varint)
                         fixup_varint_from_to(compressed + s_header_len + un_compressed_len_varint, 
                                              compressed + s_header_len + un_compressed_len_varint + compressed_len_varint - 1,

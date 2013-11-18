@@ -5,7 +5,7 @@
 
 static VALUE s_default_reader(sereal_t *s, u8 tag) {
         // s_dump(s);
-        rb_raise(rb_eTypeError,"unsupported tag %d",tag);
+        s_raise(s,rb_eTypeError,"unsupported tag %d",tag);
         return Qnil;
 }
 
@@ -16,8 +16,8 @@ static u64 s_get_varint_bang(sereal_t *s) {
         while (s_get_u8(s) & 0x80) {
                 uv |= ((u64)(s_get_u8_bang(s) & 0x7F) << lshift);
                 lshift += 7;
-                if (lshift > (sizeof(uv) * 8)) 
-                        rb_raise(rb_eTypeError, "varint too big");
+                if (lshift > (sizeof(uv) * 8))
+                        s_raise(s,rb_eTypeError, "varint too big");
         }
         uv |= ((u64)(s_get_u8_bang(s)) << lshift);
         return uv;
@@ -128,7 +128,7 @@ static VALUE s_read_rb_string_bang(sereal_t *s,u8 t) {
                               rb_str_new(s_get_p(s), len));
         }
         #undef RETURN_STRING
-        rb_raise(rb_eTypeError, "undefined string type %d",t);
+        s_raise(s,rb_eTypeError, "undefined string type %d",t);
 }
 
 static VALUE s_read_next_rb_string_bang(sereal_t *s) {
@@ -172,7 +172,7 @@ static VALUE s_read_pad(sereal_t *s, u8 tag) {
         return sereal_to_rb_object(s);
 }
 static VALUE s_read_extend(sereal_t *s, u8 tag) {
-        rb_raise(rb_eArgError,"extend tags are not supported");
+        s_raise(s,rb_eArgError,"extend tags are not supported");
 }
 
 VALUE sereal_to_rb_object(sereal_t *s) {
@@ -181,7 +181,7 @@ VALUE sereal_to_rb_object(sereal_t *s) {
         while (s->pos < s->size) {
                 t = s_get_u8_bang(s);
                 if (t & SRL_HDR_TRACK_FLAG)
-                        rb_raise(rb_eArgError, "trackable objects are not supported");
+                        s_raise(s,rb_eArgError, "trackable objects are not supported");
                 S_RECURSE_DEC(s);
                 return (*READERS[t])(s,t);
         }
@@ -203,11 +203,12 @@ again:
             free(s);
             return Qnil;
         }
+        s->flags |= FLAG_NOT_MINE;
         s->data = RSTRING_PTR(payload) + offset;
         s->size = RSTRING_LEN(payload) - offset;
         s->pos = 0;
         if (s->size < 6 || s_get_u32_bang(s) != SRL_MAGIC_STRING_LILIPUTIAN) 
-                rb_raise(rb_eTypeError,"invalid header"); 
+                s_raise(s,rb_eTypeError,"invalid header"); 
 
         u8 version = s_get_u8_bang(s);
         u8 suffix = s_get_varint_bang(s);
@@ -258,12 +259,13 @@ again:
                                               uncompressed_len) == CSNAPPY_E_OK ? 1 : 0;
                 }
                 if (!done)
-                        rb_raise(rb_eTypeError, "decompression failed error: %d type: %d, unompressed size: %d compressed size: %d",done,is_compressed,uncompressed_len,compressed_len);
+                        s_raise(s,rb_eTypeError, "decompression failed error: %d type: %d, unompressed size: %d compressed size: %d",done,is_compressed,uncompressed_len,compressed_len);
 
                 offset += s->pos + compressed_len;
                 s->data = uncompressed;
                 s->size = uncompressed_len;
                 s->pos = 0;
+                s->flags &= ~FLAG_NOT_MINE;
         }
 
         VALUE result = sereal_to_rb_object(s);
@@ -273,11 +275,7 @@ again:
                 rb_yield(result);
                 goto again;
         }
-
-        if (is_compressed)
-                s_destroy(s);
-        else
-                free(s); // we do not destroy because it will free s->data which is RSTRING_PTR(payload) 
+        s_destroy(s);
 
         return result;
 }
