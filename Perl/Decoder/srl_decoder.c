@@ -293,8 +293,8 @@ srl_decompress_body_snappy(pTHX_ srl_decoder_t *dec)
   buf_sv = sv_2mortal( newSV(sereal_header_len + dest_len + 1 ));
   buf = (unsigned char *)SvPVX(buf_sv);
 
-  /* FIXME probably unnecessary to copy the Sereal header! */
-  Copy(dec->buf_start, buf, sereal_header_len, unsigned char);
+  /* probably unnecessary to copy the Sereal header! */
+  /* Copy(dec->buf_start, buf, sereal_header_len, unsigned char); */
 
   old_pos = dec->pos;
   dec->buf_start = buf;
@@ -340,8 +340,8 @@ srl_decompress_body_lz4(pTHX_ srl_decoder_t *dec)
   buf_sv = sv_2mortal( newSV(sereal_header_len + uncompressed_doc_body_len + 1 ));
   buf = (unsigned char *)SvPVX(buf_sv);
 
-  /* FIXME probably unnecessary to copy the Sereal header! */
-  Copy(dec->buf_start, buf, sereal_header_len, unsigned char);
+  /* probably unnecessary to copy the Sereal header! */
+  /*Copy(dec->buf_start, buf, sereal_header_len, unsigned char);*/
 
   /* Swap in the new buffer into the decoder, keeping the
    * old buffer around for decompressing from it. */
