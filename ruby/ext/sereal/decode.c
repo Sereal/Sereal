@@ -195,7 +195,7 @@ VALUE method_sereal_decode(VALUE self, VALUE args) {
         VALUE payload = rb_ary_shift(args);
         if (TYPE(payload) != T_STRING) 
                 rb_raise(rb_eTypeError,"can not decode objects of type %s",rb_obj_classname(payload));
-
+        u8 have_block = rb_block_given_p();
         sereal_t *s = s_create();
         u64 offset = 0;
 again: 
@@ -269,14 +269,17 @@ again:
         }
 
         VALUE result = sereal_to_rb_object(s);
-        if (is_compressed && rb_block_given_p()) {
+        if (is_compressed && have_block) {
                 free(s->data);
                 s->data = NULL;
                 rb_yield(result);
                 goto again;
         }
         s_destroy(s);
-
+        if (have_block) {
+            rb_yield(result);
+            return Qnil;
+        }
         return result;
 }
 

@@ -1,0 +1,18 @@
+#!/usr/bin/env ruby
+require 'sereal'
+
+content = ARGF.read
+compress = Sereal::RAW
+
+{'Sereal_LZ4' => Sereal::LZ4, 'Sereal_SNAPPY' => Sereal::SNAPPY,'Sereal_SNAPPY_INCR' => Sereal::SNAPPY_INCR,'Sereal_LZ4HC' => Sereal::LZ4HC }.each do |k,v|
+  if ENV[k]
+    compress = v
+  end
+end
+if content[0..3] == '=srl'
+  Sereal.decode(content) do |x|
+    STDOUT.write(x)
+  end
+else
+  STDOUT.write(Sereal.encode(content, compress))
+end

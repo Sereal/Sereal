@@ -53,6 +53,15 @@ Sereal.decode(Sereal.encode(object))
  */
 ```
 
+it also creates the executable 'rsrl' which can be used like:
+
+```
+$ cat /tmp/file | Sereal_LZ4=1 rsrl > lz4_compressed_incremental_sereal_binary # encode
+
+$ rsrl lz4_compressed_incremental_sereal_binary # decode
+
+```
+
 ### speed
 
 currently it is on par with msgpack, you can run the benchmarks in tools/bm.rb
