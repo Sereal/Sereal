@@ -79,7 +79,5 @@ do {                                                              \
 #define __RAW           0
 #define __SNAPPY        1
 #define __SNAPPY_INCR   2
-#define __LZ4_INCR      3
-#define __LZ4HC_INCR    4
 
 #endif

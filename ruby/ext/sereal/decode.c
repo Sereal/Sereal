@@ -218,46 +218,28 @@ again:
                 is_compressed = __SNAPPY;
         else if ((version & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_SNAPPY_INCR)
                 is_compressed = __SNAPPY_INCR;
-        else if ((version & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_LZ4_INCR)
-                is_compressed = __LZ4_INCR;
         else
                 is_compressed = __RAW;
         if (is_compressed) {
                 u32 uncompressed_len;
                 u32 compressed_len;
 
-                if (is_compressed == __LZ4_INCR) {
-                        uncompressed_len = s_get_varint_bang(s);
-                        if (!uncompressed_len)
-                                rb_raise(rb_eTypeError,"LZ4 compression requires <varint uncompressed size><varint compressed size><blob>, unable to get uncompressed_len");
-
+                if (is_compressed == __SNAPPY_INCR) {
                         compressed_len = s_get_varint_bang(s);
                 } else {
-                        if (is_compressed == __SNAPPY_INCR) {
-                                compressed_len = s_get_varint_bang(s);
-                        } else {
-                                compressed_len = s->size - s->pos;
-                        }
-
-                        int snappy_header_len = csnappy_get_uncompressed_length(s_get_p(s),
-                                                                                compressed_len,
-                                                                                &uncompressed_len);
-                        if (snappy_header_len == CSNAPPY_E_HEADER_BAD) 
-                                rb_raise(rb_eTypeError,"invalid snappy header");
+                        compressed_len = s->size - s->pos;
                 }
+
+                int snappy_header_len = csnappy_get_uncompressed_length(s_get_p(s),
+                                                                        compressed_len,
+                                                                        &uncompressed_len);
+                if (snappy_header_len == CSNAPPY_E_HEADER_BAD) 
+                    rb_raise(rb_eTypeError,"invalid snappy header");
                 u8 *uncompressed = alloc_or_raise(uncompressed_len);
-                int done;
-                if (is_compressed == __LZ4_INCR) {
-                        done = LZ4_decompress_safe(s_get_p(s),
-                                                   uncompressed,
-                                                   compressed_len,
-                                                   uncompressed_len) == uncompressed_len ? 1 : 0;
-                } else {
-                        done = csnappy_decompress(s_get_p(s),
+                int done = csnappy_decompress(s_get_p(s),
                                               compressed_len,
                                               uncompressed,
                                               uncompressed_len) == CSNAPPY_E_OK ? 1 : 0;
-                }
                 if (!done)
                         s_raise(s,rb_eTypeError, "decompression failed error: %d type: %d, unompressed size: %d compressed size: %d",done,is_compressed,uncompressed_len,compressed_len);
 

@@ -4,7 +4,7 @@ require 'sereal'
 content = ARGF.read
 compress = Sereal::RAW
 
-{'Sereal_LZ4' => Sereal::LZ4, 'Sereal_SNAPPY' => Sereal::SNAPPY,'Sereal_SNAPPY_INCR' => Sereal::SNAPPY_INCR,'Sereal_LZ4HC' => Sereal::LZ4HC }.each do |k,v|
+{'Sereal_SNAPPY' => Sereal::SNAPPY,'Sereal_SNAPPY_INCR' => Sereal::SNAPPY_INCR }.each do |k,v|
   if ENV[k]
     compress = v
   end

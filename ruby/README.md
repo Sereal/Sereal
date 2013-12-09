@@ -32,17 +32,15 @@ Sereal.decode(Sereal.encode(object))
  * https://github.com/Sereal/Sereal/blob/master/sereal_spec.pod
  *
  *   Sereal.encode(object) -> serialized blob
- *   Sereal.encode(object,Sereal::LZ4) -> LZ4 compressed blob
- *   Sereal.encode(object,Sereal::LZ4HC) -> LZ4HC compressed blob
  *   Sereal.encode(object,Sereal::SNAPPY_INCR) -> snappy compressed blob
  *   Sereal.encode(object,Sereal::SNAPPY) -> snappy compressed blob
  *
- * LZ4 LZ4HC and SNAPPY_INCR can be appended into one output and then the
+ * SNAPPY_INCR can be appended into one output and then the
  * decoder will know what to do.
  *
  *   Sereal.decode(blob) - returns the decoded object
  *   
- * If the blob contains multiple compressed(with LZ4* or SNAPPY_INCR) 
+ * If the blob contains multiple compressed(SNAPPY_INCR) 
  * sub-blobs you should call it with:
  *       
  *    Sereal.decode(blob) do |decoded|
@@ -56,9 +54,9 @@ Sereal.decode(Sereal.encode(object))
 it also creates the executable 'rsrl' which can be used like:
 
 ```
-$ cat /tmp/file | Sereal_LZ4=1 rsrl > lz4_compressed_incremental_sereal_binary # encode
+$ cat /tmp/file | Sereal_SNAPPY_INCR=1 rsrl > snappy_incr_compressed_incremental_sereal_binary # encode
 
-$ rsrl lz4_compressed_incremental_sereal_binary # decode
+$ rsrl snappy_incr_compressed_incremental_sereal_binary # decode
 
 ```
 
@@ -75,4 +73,14 @@ msg-e   0.080000   0.000000   0.080000 (  0.080496)
 msg-d  0.100000   0.000000   0.100000 (  0.105858)
 jsn-e   0.530000   0.000000   0.530000 (  0.526243)
 jsn-d  0.600000   0.010000   0.610000 (  0.608191)
+```
+
+### LZ4
+
+For brief period (version 0.0.5 to 0.0.6) there was a support for LZ4 and LZ4HC, which was pushed to the master branch by mistake. if you are depending on it please convert yout data using `bin/rsrl` or just use `0.0.5` version of the sereal gem.
+
+```
+gem 'sereal', '= 0.0.5'
+#or
+$ gem install sereal -v 0.0.5
 ```

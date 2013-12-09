@@ -9,7 +9,6 @@
 #define SRL_PROTOCOL_ENCODING_RAW         ( 0 << SRL_PROTOCOL_VERSION_BITS )
 #define SRL_PROTOCOL_ENCODING_SNAPPY      ( 1 << SRL_PROTOCOL_VERSION_BITS )
 #define SRL_PROTOCOL_ENCODING_SNAPPY_INCR ( 2 << SRL_PROTOCOL_VERSION_BITS )
-#define SRL_PROTOCOL_ENCODING_LZ4_INCR    ( 3 << SRL_PROTOCOL_VERSION_BITS )
 
 #define SRL_HDR_POS             ((char)0)       /* small positive integer - value in low 4 bits (identity) */
 #define SRL_HDR_POS_LOW         ((char)0)       /* small positive integer - value in low 4 bits (identity) */
