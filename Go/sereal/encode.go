@@ -533,9 +533,6 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]
 			if fty.PkgPath != "" {
 				continue // skip unexported names
 			}
-			if structTags != nil {
-
-			}
 			publicFields++
 		}
 	}
