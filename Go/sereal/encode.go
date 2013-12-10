@@ -72,6 +72,12 @@ func NewEncoderV2() *Encoder {
 	}
 }
 
+var defaultEncoder = NewEncoderV2()
+
+func Marshal(body interface{}) ([]byte, error) {
+	return defaultEncoder.MarshalWithHeader(nil, body)
+}
+
 // Marshal returns the Sereal encoding of body
 func (e *Encoder) Marshal(body interface{}) (b []byte, err error) {
 	return e.MarshalWithHeader(nil, body)

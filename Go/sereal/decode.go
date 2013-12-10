@@ -49,6 +49,12 @@ func NewDecoder() *Decoder {
 	return &Decoder{}
 }
 
+var defaultDecoder = NewDecoder()
+
+func Unmarshal(b []byte, body interface{}) error {
+	return defaultDecoder.UnmarshalHeaderBody(b, nil, body)
+}
+
 // UnmarshalHeader parses the Sereal-v2-encoded buffer b and stores the header data into the variable pointed to by vheader
 func (d *Decoder) UnmarshalHeader(b []byte, vheader interface{}) (err error) {
 	return d.UnmarshalHeaderBody(b, vheader, nil)
