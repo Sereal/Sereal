@@ -84,7 +84,7 @@ SRL_STATIC_INLINE UV srl_read_varint_uv(pTHX_ srl_decoder_t *dec);
 SRL_STATIC_INLINE UV srl_read_varint_uv_offset(pTHX_ srl_decoder_t *dec, const char * const errstr);
 SRL_STATIC_INLINE UV srl_read_varint_uv_length(pTHX_ srl_decoder_t *dec, const char * const errstr);
 
-SRL_STATIC_INLINE SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name);
+SRL_STATIC_INLINE SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char * const tag_name);
 
 /* these three are "Public" */
 srl_decoder_t *srl_build_decoder_struct(pTHX_ HV *opt);             /* constructor - called from ->new() */
@@ -660,7 +660,7 @@ srl_track_sv(pTHX_ srl_decoder_t *dec, U8 *track_pos, SV *sv)
 
 
 SRL_STATIC_INLINE SV *
-srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char const *tag_name)
+srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char * const tag_name)
 {
     SV *sv= (SV *)PTABLE_fetch(dec->ref_seenhash, (void *)item);
     if (expect_false( !sv )) {
