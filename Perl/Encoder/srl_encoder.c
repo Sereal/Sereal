@@ -282,6 +282,10 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         if ( svp && SvTRUE(*svp) )
             SRL_ENC_SET_OPTION(enc, SRL_F_NO_BLESS_OBJECTS);
 
+        svp = hv_fetchs(opt, "no_undef_hash_values", 0);
+        if ( svp && SvTRUE(*svp) )
+            SRL_ENC_SET_OPTION(enc, SRL_F_NO_UNDEF_HASH_VALUES);
+
         svp = hv_fetchs(opt, "snappy", 0);
         if ( svp && SvTRUE(*svp) ) {
             /* incremental is the new black in V2 */
@@ -928,6 +932,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 {
     HE *he;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
+    const int no_undef_hash_values = SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_UNDEF_HASH_VALUES);
     UV n;
 
     if ( SvMAGICAL(src) || SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS) ) {
@@ -986,8 +991,10 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
                 SV *v;
                 he= he_array[i];
                 v= hv_iterval(src, he);
-                srl_dump_hk(aTHX_ enc, he, do_share_keys);
-                CALL_SRL_DUMP_SV(enc, v);
+                if (!no_undef_hash_values || SvOK(v)) {
+                    srl_dump_hk(aTHX_ enc, he, do_share_keys);
+                    CALL_SRL_DUMP_SV(enc, v);
+                }
             }
         } else {
             while ((he = hv_iternext(src))) {
@@ -995,8 +1002,10 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
                 if (expect_false( i == n ))
                     croak("Panic: Trying to dump a tied hash that has a different number of keys in each iteration is just daft. Do not do that.");
                 v= hv_iterval(src, he);
-                srl_dump_hk(aTHX_ enc, he, do_share_keys);
-                CALL_SRL_DUMP_SV(enc, v);
+                if (!no_undef_hash_values || SvOK(v)) {
+                    srl_dump_hk(aTHX_ enc, he, do_share_keys);
+                    CALL_SRL_DUMP_SV(enc, v);
+                }
                 ++i;
             }
             if (expect_false( i != n ))
@@ -1019,7 +1028,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
             do {
                 for (he= *he_ptr++; he; he= HeNEXT(he) ) {
                     SV *v= HeVAL(he);
-                    if (v != &PL_sv_placeholder) {
+                    if (v != &PL_sv_placeholder && !(no_undef_hash_values && !SvOK(v))) {
                         srl_dump_hk(aTHX_ enc, he, do_share_keys);
                         CALL_SRL_DUMP_SV(enc, v);
                         if (--n == 0) {

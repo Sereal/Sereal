@@ -99,6 +99,9 @@ void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_
 /* If set in flags, then we serialize using Sereal protocol version 1. */
 #define SRL_F_USE_PROTO_V1                    0x02000UL
 
+/* If set in flags, skip hash keys associated to an undefined value. */
+#define SRL_F_NO_UNDEF_HASH_VALUES            0x04000UL
+
 /* Set while the encoder is in active use / dirty */
 #define SRL_OF_ENCODER_DIRTY                 1UL
 

@@ -131,6 +131,14 @@ without the bless information and provide plain data structures instead.
 
 See also the C<croak_on_bless> option above for more details.
 
+=head3 no_undef_hash_values
+
+If this option is set, the encoder will skip keys associated to C<undef>
+values in hashes. Of course, in this case, a round-trip encoder/decoder
+will not work anymore in all cases, but this might save some space
+when you are really, really sure that it's OK to forget about undefined
+hash values.
+
 =head3 undef_unknown
 
 If set, unknown/unsupported data structures will be encoded as C<undef>
