@@ -1093,7 +1093,7 @@ SRL_STATIC_INLINE void
 srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src)
 {
     STRLEN len;
-    const char const *str= SvPV(src, len);
+    const char * const str= SvPV(src, len);
     if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_DEDUPE_STRINGS) && len > 3 ) {
         HV *string_deduper_hv= SRL_GET_STR_DEDUPER_HV(enc);
         HE *dupe_offset_he= hv_fetch_ent(string_deduper_hv, src, 1, 0);
