@@ -12,7 +12,7 @@ This document describes the format and encoding of a Sereal data packet.
 
 =head1 VERSION
 
-This is the Sereal specification version 2.00.
+This is the Sereal specification version 2.01.
 
 The integer part of the document version corresponds to
 the Sereal protocol version. For details on incompatible changes between
@@ -245,13 +245,13 @@ header.
     COPY              | "/"  |  47 | 0x2f | 0b00101111 | <OFFSET-VARINT> - copy of item defined at offset
     WEAKEN            | "0"  |  48 | 0x30 | 0b00110000 | <REF-TAG> - Weaken the following reference
     REGEXP            | "1"  |  49 | 0x31 | 0b00110001 | <PATTERN-STR-TAG> <MODIFIERS-STR-TAG>
-    RESERVED_0        | "2"  |  50 | 0x32 | 0b00110010 | reserved
-    RESERVED_1        | "3"  |  51 | 0x33 | 0b00110011 |
-    RESERVED_2        | "4"  |  52 | 0x34 | 0b00110100 |
-    RESERVED_3        | "5"  |  53 | 0x35 | 0b00110101 |
-    RESERVED_4        | "6"  |  54 | 0x36 | 0b00110110 |
-    RESERVED_5        | "7"  |  55 | 0x37 | 0b00110111 |
-    RESERVED_6        | "8"  |  56 | 0x38 | 0b00111000 |
+    OBJECT_FREEZE     | "2"  |  50 | 0x32 | 0b00110010 | <STR-TAG> <ITEM-TAG> - class, object-item. Need to call "THAW" method on class after decoding
+    OBJECTV_FREEZE    | "3"  |  51 | 0x33 | 0b00110011 | <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT)
+    RESERVED_2        | "4"  |  52 | 0x34 | 0b00110100 | reserved
+    RESERVED_3        | "5"  |  53 | 0x35 | 0b00110101 | reserved
+    RESERVED_4        | "6"  |  54 | 0x36 | 0b00110110 | reserved
+    RESERVED_5        | "7"  |  55 | 0x37 | 0b00110111 | reserved
+    RESERVED_6        | "8"  |  56 | 0x38 | 0b00111000 | reserved
     RESERVED_7        | "9"  |  57 | 0x39 | 0b00111001 | reserved
     FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no)
     TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes)
@@ -377,16 +377,43 @@ use a varint to indicate the number of B<bytes> (octets) in the string.
 Hash keys are always one of the string types, or a COPY tag referencing a
 string.
 
-=head3 Handling objects
+=head3 Handling Objects
 
 Objects are serialized as a class name and a tag which represents the
-objects data. In Perl land this will always be a reference. Mapping perl
-objects to other languages is left to the future.
+objects data. In Perl land this will always be a reference. Mapping Perl
+objects to other languages is left to the future, but the OBJECT_FREEZE
+and OBJECTV_FREEZE tags provide a basic method of doing that, see below.
 
 Note that classnames MUST be a string, or a COPY tag referencing a string.
 
 OBJECTV varints MUST reference a previously used classname, and not an
 arbitrary string.
+
+Sereal implementations may choose to allow authors of classes to provide
+hooks for custom object serialization. Depending on the Sereal
+implementation, this feature may require enabling with an encoder
+option on the encoding side, but compliant decoders must
+at least recognize the OBJECT_FREEZE and OBJECTV_FREEZE tags. The
+interface shall be such that if enabled in the encoder, for each
+object in the input, the encoder will invoke a C<FREEZE> method
+on the object and pass in the string C<Sereal> to allow distinguishing
+from other serializers (this is inspired by the CBOR::XS CBOR
+implementation). If there is no C<FREEZE> method available, then
+a normal OBJECT or OBJECTV tag is emitted, serializing the object
+content normally. If invoked, the C<FREEZE> method must return
+a single data structure that is serializable by Sereal. The encoder
+shall emit an OBJECT_FREEZE or OBJECTV_FREEZE tag followed by
+the Sereal encoding of the returned data structure.
+
+Upon decoding OBJECT_FREEZE or OBJECTV_FREEZE, a compliant decoder
+(unless explicitly instructed not to) will invoke the C<THAW>
+class method of the given class. (Likely, implementations should
+throw a fatal error if no such method exists.) Arguments to that
+method will be the string C<Sereal> as first argument, and the
+decoded data structure that was returned from the C<FREEZE> call.
+The return value of that C<THAW> call needs
+to be included in the final output structure. See the documentation
+of the Perl Sereal implemenation for examples of FREEZE/THAW methods.
 
 =head1 PROTOCOL CHANGES
 
@@ -402,6 +429,12 @@ of the body its value must be 1.
 Additionally, protocol version 2 introduced the 8bit bit-field (8bit-BITFIELD)
 in the variable-length/optional header part (OPT-SUFFIX) of the document
 and the user-meta-data section (OPT-USER-META-DATA) of the variable-length header.
+
+Protocol version 2 introduces the OBJECT_FREEZE and OBJECTV_FREEZE tags in
+place of two previously reserved tags. The meaning and implementation of these
+two tags is described in the L</"Handling Objects"> section of this document.
+In a nutshell, it allows application developers to have custom hooks for
+serializing and deserializing the instances of their classes.
 
 =head1 NOTES ON IMPLEMENTATION
 
