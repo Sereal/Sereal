@@ -39,12 +39,14 @@ public interface SerealHeader {
 	static final byte SRL_HDR_COPY              = (byte)  47; /*  47 0x2f 0b00101111 <OFFSET-VARINT> - copy of item defined at offset */
 	static final byte SRL_HDR_WEAKEN            = (byte)  48; /*  48 0x30 0b00110000 <REF-TAG> - Weaken the following reference */
 	static final byte SRL_HDR_REGEXP            = (byte)  49; /*  49 0x31 0b00110001 <PATTERN-STR-TAG> <MODIFIERS-STR-TAG> */
-	static final byte SRL_HDR_RESERVED          = (byte)  50; /*  50 0x32 0b00110010 reserved */
-	static final byte SRL_HDR_RESERVED_LOW      = (byte)  50; /*  50 0x32 0b00110010 reserved */
+	static final byte SRL_HDR_OBJECT_FREEZE     = (byte)  50; /*  50 0x32 0b00110010 <STR-TAG> <ITEM-TAG> - class, object-item. Need to call "THAW" method on class after decoding */
+	static final byte SRL_HDR_OBJECTV_FREEZE    = (byte)  51; /*  51 0x33 0b00110011 <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT) */
+	static final byte SRL_HDR_RESERVED          = (byte)  52; /*  52 0x34 0b00110100 reserved */
+	static final byte SRL_HDR_RESERVED_LOW      = (byte)  52; /*  52 0x34 0b00110100 reserved */
 	static final byte SRL_HDR_RESERVED_HIGH     = (byte)  57; /*  57 0x39 0b00111001 reserved */
 	static final byte SRL_HDR_FALSE             = (byte)  58; /*  58 0x3a 0b00111010 false (PL_sv_no) */
 	static final byte SRL_HDR_TRUE              = (byte)  59; /*  59 0x3b 0b00111011 true  (PL_sv_yes) */
-	static final byte SRL_HDR_MANY              = (byte)  60; /*  60 0x3c 0b00111100 <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 2) */
+	static final byte SRL_HDR_MANY              = (byte)  60; /*  60 0x3c 0b00111100 <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3) */
 	static final byte SRL_HDR_PACKET_START      = (byte)  61; /*  61 0x3d 0b00111101 (first byte of magic string in header) */
 	static final byte SRL_HDR_EXTEND            = (byte)  62; /*  62 0x3e 0b00111110 <BYTE> - for additional tags */
 	static final byte SRL_HDR_PAD               = (byte)  63; /*  63 0x3f 0b00111111 (ignored tag, skip to next byte) */

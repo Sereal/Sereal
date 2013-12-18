@@ -57,17 +57,17 @@
     COPY              | "/"  |  47 | 0x2f | 0b00101111 | <OFFSET-VARINT> - copy of item defined at offset
     WEAKEN            | "0"  |  48 | 0x30 | 0b00110000 | <REF-TAG> - Weaken the following reference
     REGEXP            | "1"  |  49 | 0x31 | 0b00110001 | <PATTERN-STR-TAG> <MODIFIERS-STR-TAG>
-    RESERVED_0        | "2"  |  50 | 0x32 | 0b00110010 | reserved
-    RESERVED_1        | "3"  |  51 | 0x33 | 0b00110011 |
-    RESERVED_2        | "4"  |  52 | 0x34 | 0b00110100 |
-    RESERVED_3        | "5"  |  53 | 0x35 | 0b00110101 |
-    RESERVED_4        | "6"  |  54 | 0x36 | 0b00110110 |
-    RESERVED_5        | "7"  |  55 | 0x37 | 0b00110111 |
-    RESERVED_6        | "8"  |  56 | 0x38 | 0b00111000 |
-    RESERVED_7        | "9"  |  57 | 0x39 | 0b00111001 | reserved
+    OBJECT_FREEZE     | "2"  |  50 | 0x32 | 0b00110010 | <STR-TAG> <ITEM-TAG> - class, object-item. Need to call "THAW" method on class after decoding
+    OBJECTV_FREEZE    | "3"  |  51 | 0x33 | 0b00110011 | <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT)
+    RESERVED_0        | "4"  |  52 | 0x34 | 0b00110100 | reserved
+    RESERVED_1        | "5"  |  53 | 0x35 | 0b00110101 |
+    RESERVED_2        | "6"  |  54 | 0x36 | 0b00110110 |
+    RESERVED_3        | "7"  |  55 | 0x37 | 0b00110111 |
+    RESERVED_4        | "8"  |  56 | 0x38 | 0b00111000 |
+    RESERVED_5        | "9"  |  57 | 0x39 | 0b00111001 | reserved
     FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no)
     TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes)
-    MANY              | "<"  |  60 | 0x3c | 0b00111100 | <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 2)
+    MANY              | "<"  |  60 | 0x3c | 0b00111100 | <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3)
     PACKET_START      | "="  |  61 | 0x3d | 0b00111101 | (first byte of magic string in header)
     EXTEND            | ">"  |  62 | 0x3e | 0b00111110 | <BYTE> - for additional tags
     PAD               | "?"  |  63 | 0x3f | 0b00111111 | (ignored tag, skip to next byte)
@@ -195,16 +195,19 @@
 #define SRL_HDR_WEAKEN          ((char)48)      /* <REF-TAG> - Weaken the following reference */
 #define SRL_HDR_REGEXP          ((char)49)      /* <PATTERN-STR-TAG> <MODIFIERS-STR-TAG>*/
 
+#define SRL_HDR_OBJECT_FREEZE   ((char)50)      /* <STR-TAG> <ITEM-TAG> - class, object-item. Need to call "THAW" method on class after decoding */
+#define SRL_HDR_OBJECTV_FREEZE  ((char)51)      /* <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT) */
+
 /* Note: Can do reserved check with a range now, but as we start using
  *       them, might have to explicit == check later. */
-#define SRL_HDR_RESERVED        ((char)50)      /* reserved */
-#define SRL_HDR_RESERVED_LOW    ((char)50)
+#define SRL_HDR_RESERVED        ((char)52)      /* reserved */
+#define SRL_HDR_RESERVED_LOW    ((char)52)
 #define SRL_HDR_RESERVED_HIGH   ((char)57)
 
 #define SRL_HDR_FALSE           ((char)58)      /* false (PL_sv_no)  */
 #define SRL_HDR_TRUE            ((char)59)      /* true  (PL_sv_yes) */
 
-#define SRL_HDR_MANY            ((char)60)      /* <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 2) */
+#define SRL_HDR_MANY            ((char)60)      /* <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3) */
 #define SRL_HDR_PACKET_START    ((char)61)      /* (first byte of magic string in header) */
 
 
