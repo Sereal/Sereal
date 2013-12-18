@@ -10,6 +10,7 @@ use Data::Undump qw(undump);
 use Data::Dumper qw(Dumper);
 use Data::Dumper::Limited qw(DumpLimited);
 use Data::MessagePack;
+use CBOR::XS qw(encode_cbor decode_cbor);
 use Getopt::Long qw(GetOptions);
 
 my (
@@ -64,13 +65,13 @@ push @str, substr($chars, int(rand(int(length($chars)/2+1))), 10) for 1..1000;
 my @rand = map rand, 1..1000;
 our %data;
 
-$data{$_}= make_data() for qw(sereal sereal_func dd1 dd2 ddl mp json_xs storable sereal_snappy);
+$data{$_}= make_data() for qw(sereal sereal_func dd1 dd2 ddl mp json_xs storable sereal_snappy cbor);
 
 our $enc = Sereal::Encoder->new(\%opt);
 our $enc_snappy = Sereal::Encoder->new({%opt, snappy => 1});
 our $dec = Sereal::Decoder->new(\%opt);
 
-our ($json_xs, $dd1, $dd2, $ddl, $sereal, $storable, $mp, $sereal_snappy);
+our ($json_xs, $dd1, $dd2, $ddl, $sereal, $storable, $mp, $sereal_snappy, $cbor);
 # do this first before any of the other dumpers "contaminate" the iv/pv issue
 $sereal   = $enc->encode($data{sereal});
 $sereal_snappy   = $enc_snappy->encode($data{sereal_snappy});
@@ -80,7 +81,8 @@ if (!SEREAL_ONLY) {
     $dd2      = Dumper($data{dd2});
     $ddl      = DumpLimited($data{ddl}) if !$medium_data or $nobless;
     $mp       = $mpo->pack($data{mp}) if !$medium_data or $nobless;
-    $storable = nfreeze($data{storable}); # must be last
+    $cbor     = encode_cbor($data{cbor}) if !$medium_data or $nobless;
+    $storable = nfreeze($data{storable});
 }
 print($sereal), exit if $dump;
 
@@ -93,6 +95,7 @@ if (!SEREAL_ONLY) {
             ["JSON::XS",  bytes::length($json_xs)],
             ["Data::Dumper::Limited", bytes::length($ddl)],
             ["Data::MessagePack", bytes::length($mp)],
+            ["CBOR",  bytes::length($cbor)],
         )),
         ["Data::Dumper (1)", bytes::length($dd1)],
         ["Data::Dumper (2)", bytes::length($dd2)],
@@ -118,6 +121,7 @@ if ($encoder) {
                         json_xs => '$::x = encode_json($::data{json_xs});',
                         ddl => '$::x = DumpLimited($::data{ddl});',
                         msgpack => '$::x = $::mpo->pack($::data{mp});',
+                        cbor => '$::x = encode_cbor($::data{cbor});',
                     )),
                     dd_noindent => '$::x = Data::Dumper->new([$::data{dd1}])->Indent(0)->Dump();',
                     dd => '$::x = Dumper($::data{dd2});',
@@ -140,6 +144,7 @@ if ($decoder) {
                         json_xs => '$::x = decode_json($::json_xs);',
                         undump_ddl => '$::x = Data::Undump::undump($::ddl);',
                         msgpack => '$::x = $::mpo->unpack($::mp);',
+                        cbor => '$::x = decode_cbor($::cbor);',
                     )),
                     eval_dd => '$::x = eval $::dd1;',
                     storable => '$::x = thaw($::storable);',
