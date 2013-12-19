@@ -196,8 +196,21 @@ sub parse_sv {
     printf  "%6s  %2s %3s %s  Value:\n",("") x 3, $ind."  ";
     parse_sv($ind."    ");
   }
+  elsif ($o == SRL_HDR_OBJECTV_FREEZE) {
+    my $ofs= varint();
+    printf "%06u: %02x %03s %sOBJECTV_FREEZE(%d)\n", $p, $o, $bv, $ind, $ofs;
+    printf  "%6s  %2s %3s %s  Value:\n",("") x 3, $ind."  ";
+    parse_sv($ind."    ");
+  }
   elsif ($o == SRL_HDR_OBJECT) {
     printf "%06u: %02x %03s %sOBJECT\n", $p, $o, $bv, $ind;
+    printf  "%6s  %2s %3s %s  Class:\n",("") x 3, $ind."  ";
+    parse_sv($ind."    ");
+    printf  "%6s  %2s %3s %s  Value:\n",("") x 3, $ind."  ";
+    parse_sv($ind."    ");
+  }
+  elsif ($o == SRL_HDR_OBJECT_FREEZE) {
+    printf "%06u: %02x %03s %sOBJECT_FREEZE\n", $p, $o, $bv, $ind;
     printf  "%6s  %2s %3s %s  Class:\n",("") x 3, $ind."  ";
     parse_sv($ind."    ");
     printf  "%6s  %2s %3s %s  Value:\n",("") x 3, $ind."  ";

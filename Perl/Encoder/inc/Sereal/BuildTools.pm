@@ -61,7 +61,7 @@ sub generate_constant_includes {
     open my $fh, "<", "srl_protocol.h" or die $!;
     my (@string_const, @int_const);
     while (<$fh>) {
-      if (/^#\s*define\s*(SRL_\w+)\s*(.*)$/) {
+      if (/^#\s*define\s*(SRL_\w+)\s*(.*?)(?:\/\*|$)/) {
         my ($name, $value) = ($1, $2);
         next if $name =~ /_H_$/ or $name =~ /SET/ or $value =~ /"/;
         push @int_const, $name;

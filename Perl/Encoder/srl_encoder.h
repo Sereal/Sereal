@@ -30,6 +30,10 @@ typedef struct {
 
     void *snappy_workmem;     /* lazily allocated if and only if using Snappy */
     IV snappy_threshold;      /* do not compress things smaller than this even if Snappy enabled */
+
+    /*HV *freeze_cb_cache;*/      /* cache of callbacks for FREEZE methods: classname => CV*.
+                               * only used if SRL_F_ENABLE_FREEZE_SUPPORT is set. */
+    SV *sereal_string_sv;     /* SV that says "Sereal" for FREEZE support */
 } srl_encoder_t;
 
 /* constructor from options */
@@ -98,6 +102,9 @@ void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_
 
 /* If set in flags, then we serialize using Sereal protocol version 1. */
 #define SRL_F_USE_PROTO_V1                    0x02000UL
+
+/* If set in flags, then support calling FREEZE method on objects. */
+#define SRL_F_ENABLE_FREEZE_SUPPORT           0x04000UL
 
 /* Set while the encoder is in active use / dirty */
 #define SRL_OF_ENCODER_DIRTY                 1UL

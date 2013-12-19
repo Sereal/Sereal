@@ -117,10 +117,11 @@ SRL_STATIC_INLINE void srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV
 SRL_STATIC_INLINE void srl_read_varint(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_zigzag(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into);
-SRL_STATIC_INLINE void srl_read_object(pTHX_ srl_decoder_t *dec, SV* into);
+SRL_STATIC_INLINE void srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag);
+SRL_STATIC_INLINE void srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag);
+SRL_STATIC_INLINE void srl_thaw_callback(pTHX_ srl_decoder_t *dec, SV *into, HV *class_stash);
 
 /* FIXME unimplemented!!! */
-SRL_STATIC_INLINE void srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 
 #define ASSERT_BUF_SPACE(dec,len,msg) STMT_START {              \
@@ -970,13 +971,10 @@ srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into)
 }
 
 SRL_STATIC_INLINE void
-srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into)
+srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
 {
     AV *av= NULL;
     STRLEN ofs;
-#if USE_588_WORKAROUND
-    HV *stash= NULL;
-#endif
 
     if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS) ))
         SRL_ERROR_REFUSE_OBJECT();
@@ -989,42 +987,54 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into)
     if (expect_false( NULL == av )) {
         SRL_ERRORf1("Corrupted packet. OBJECTV references unknown classname offset: %lu", (unsigned long)ofs);
     }
-    /* now deparse the thing we are going to bless */
-    srl_read_single_value(aTHX_ dec, into);
+
+
+    if (expect_false( obj_tag == SRL_HDR_OBJECT_FREEZE )) {
+        HV *stash= PTABLE_fetch(dec->ref_stashes, (void *)ofs);
+        if (expect_false( stash == NULL ))
+            SRL_ERROR("Corrupted packet. OBJECTV used without preceding OBJECT to define classname");
+        srl_thaw_callback(aTHX_ dec, into, stash);
+    }
+    else { /* No THAW callback needed (this is SRL_HDR_OBJECTV) */
+        /* now deparse the thing we are going to bless */
+        srl_read_single_value(aTHX_ dec, into);
 
 #if USE_588_WORKAROUND
-    /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */
-    stash= PTABLE_fetch(dec->ref_stashes, (void *)ofs);
-    if (expect_false( stash == NULL ))
-        SRL_ERROR("Corrupted packet. OBJECTV used without preceding OBJECT to define classname");
-    if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS))
-        sv_bless(into, stash);
+        {
+            /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */
+            HV *stash= PTABLE_fetch(dec->ref_stashes, (void *)ofs);
+            if (expect_false( stash == NULL ))
+                SRL_ERROR("Corrupted packet. OBJECTV used without preceding OBJECT to define classname");
+            if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS))
+                sv_bless(into, stash);
+        }
 #endif
 
-    /* and also stuff it into the av - we dont have to do any more book-keeping */
-    av_push(av, SvREFCNT_inc(into));
+        /* and also stuff it into the av - we dont have to do any more book-keeping */
+        av_push(av, SvREFCNT_inc(into));
+    }
 }
 
 SRL_STATIC_INLINE void
-srl_read_object(pTHX_ srl_decoder_t *dec, SV* into)
+srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
 {
-    HV *stash= NULL;
+    HV *class_stash= NULL;
     AV *av= NULL;
     STRLEN storepos= 0;
     UV ofs= 0;
-    U32 key_len;
     I32 flags= GV_ADD;
     U8 tag;
-    U8 *from;
+    U32 key_len = 0;
+    U8 *from = NULL;
 
     if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS) ))
         SRL_ERROR_REFUSE_OBJECT();
 
-    /* now find the class name - first check if this is a copy op
-     * this is bit tricky, as we could have a copy of a raw string
-     * we could also have a copy of a previously mentioned class
+    /* Now find the class name - first check if this is a copy op
+     * this is bit tricky, as we could have a copy of a raw string.
+     * We could also have a copy of a previously mentioned class
      * name. We have to handle both, which leads to some non-linear
-     * code flow in the below code */
+     * code flow in the below code. */
     ASSERT_BUF_SPACE(dec,1," while reading classname tag");
 
     /* Now read the class name and cache it */
@@ -1053,12 +1063,12 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into)
         ofs= srl_read_varint_uv_offset(aTHX_ dec, " while reading COPY class name");
         storepos= ofs;
         if (LIKELY( dec->ref_seenhash != NULL )) {
-            stash= PTABLE_fetch(dec->ref_seenhash, (void *)ofs);
+            class_stash= PTABLE_fetch(dec->ref_seenhash, (void *)ofs);
         }
-        if (!stash) {
+        if (!class_stash) {
             from= dec->body_pos + ofs;
             tag= *from++;
-            /* note we do NOT validate these items, as we have alread read them
+            /* Note we do NOT validate these items, as we have already read them
              * and if they were a problem we would not be here to process them! */
             if (IS_SRL_HDR_SHORT_BINARY(tag)) {
                 key_len= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
@@ -1080,35 +1090,93 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into)
     } else {
         SRL_ERROR_UNEXPECTED(dec,tag, "a class name");
     }
-    if (!stash) {
-        SRL_ASSERT_REF_PTR_TABLES(dec);
-        stash= gv_stashpvn((char *)from, key_len, flags);
-        PTABLE_store(dec->ref_stashes, (void *)storepos, (void *)stash);
+
+    SRL_ASSERT_REF_PTR_TABLES(dec);
+    if (!class_stash) {
+        class_stash= gv_stashpvn((char *)from, key_len, flags);
+        PTABLE_store(dec->ref_stashes, (void *)storepos, (void *)class_stash);
         av= newAV();
         sv_2mortal((SV*)av);
         PTABLE_store(dec->ref_bless_av, (void *)storepos, (void *)av);
     } else {
-        SRL_ASSERT_REF_PTR_TABLES(dec);
         if (NULL == (av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)storepos)) )
             SRL_ERRORf1("Panic, no ref_bless_av for %lu", (unsigned long)storepos);
     }
 
-    /* we now have a stash so we /could/ bless... except that
-     * we don't actually want to do so right now. We want to defer blessing
-     * until the full packet has been read. Yes it is more overhead, but
-     * we really dont want to trigger DESTROY methods from a partial
-     * deparse. So we insert the item into an array to be blessed later */
-    SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE);
-    av_push(av, SvREFCNT_inc(into));
+    if (expect_false( obj_tag == SRL_HDR_OBJECT_FREEZE )) {
+        srl_thaw_callback(aTHX_ dec, into, class_stash);
+    }
+    else { /* this is SRL_HDR_OBJECT, no THAW call */
+        /* We now have a stash so we /could/ bless... except that
+         * we don't actually want to do so right now. We want to defer blessing
+         * until the full packet has been read. Yes it is more overhead, but
+         * we really dont want to trigger DESTROY methods from a partial
+         * deparse. So we insert the item into an array to be blessed later. */
+        SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE);
+        av_push(av, SvREFCNT_inc(into));
 
-    /* now deparse the thing we are going to bless */
-    srl_read_single_value(aTHX_ dec, into);
+        /* now deparse the thing we are going to bless */
+        srl_read_single_value(aTHX_ dec, into);
 
 #if USE_588_WORKAROUND
-    /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */
-    if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS))
-        sv_bless(into, stash);
+        /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */
+        if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS))
+            sv_bless(into, stash);
 #endif
+    }
+}
+
+
+/* Invoke a THAW callback on the given class. Pass in the next item in the
+ * decoder stream. This is implementing the FREEZE/THAW part of
+ * SRL_HDR_OBJECT_FREEZE and SRL_HDR_OBJECTV_FREEZE. */
+SRL_STATIC_INLINE void
+srl_thaw_callback(pTHX_ srl_decoder_t *dec, SV *into, HV *class_stash)
+{
+    /* Need to make a THAW call if possible */
+    char *classname;
+    SV *tmp_into = sv_2mortal(newSV(0)); /* FIXME ugh, a new mortal each time */
+
+    /* Get the data structure for THAW from the Sereal stream */
+    srl_read_single_value(aTHX_ dec, tmp_into);
+
+    GV *method = gv_fetchmethod_autoload(class_stash, "THAW", 0);
+
+    if (expect_false( method == NULL ))
+        SRL_ERRORf1("No THAW method defined for class '%s'", HvNAME(class_stash));
+
+    classname = HvNAME(class_stash);
+
+    {
+        int count;
+        dSP;
+
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+
+        EXTEND(SP, 3);
+        /* TODO Consider more caching for some of this */
+        PUSHs(sv_2mortal(newSVpvn(classname, strlen(classname)))); 
+        /* FIXME do not recreate the following SV. That's dumb and wasteful! */
+        PUSHs(sv_2mortal(newSVpvs("Sereal")));
+        PUSHs(tmp_into);
+
+        PUTBACK;
+        count = call_sv((SV *)GvCV(method), G_SCALAR);
+        /* TODO explore method lookup caching */
+        SPAGAIN;
+
+        if (LIKELY( count == 1 )) {
+            SV *tmpsv = POPs;
+            sv_setsv(into, tmpsv); /* copy to output SV */
+        }
+        /* If count is not 1, then it's 0. Then into is already undef. */
+
+        PUTBACK;
+        FREETMPS;
+        LEAVE;
+    }
 }
 
 
@@ -1341,8 +1409,10 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
             case SRL_HDR_WEAKEN:        srl_read_weaken(aTHX_ dec, into);           break;
             case SRL_HDR_REFN:          srl_read_refn(aTHX_ dec, into);             break;
             case SRL_HDR_REFP:          srl_read_refp(aTHX_ dec, into);             break;
-            case SRL_HDR_OBJECT:        srl_read_object(aTHX_ dec, into);           break;
-            case SRL_HDR_OBJECTV:       srl_read_objectv(aTHX_ dec, into);          break;
+            case SRL_HDR_OBJECT_FREEZE:
+            case SRL_HDR_OBJECT:        srl_read_object(aTHX_ dec, into, tag);      break;
+            case SRL_HDR_OBJECTV_FREEZE:
+            case SRL_HDR_OBJECTV:       srl_read_objectv(aTHX_ dec, into, tag);     break;
             case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into);             break;
             case SRL_HDR_EXTEND:        srl_read_extend(aTHX_ dec, into);           break;
             case SRL_HDR_HASH:          srl_read_hash(aTHX_ dec, into, 0);          break;

@@ -697,10 +697,11 @@ sub run_roundtrip_tests {
 
         for my $opt (
             ['plain',          {                  } ],
-            ['snappy',         { snappy         => 1 } ],
-            ['snappy_incr',    { snappy_incr    => 1 } ],
-            ['sort_keys',      { sort_keys      => 1 } ],
-            ['dedupe_strings', { dedupe_strings => 1 } ],
+            ['snappy',         { snappy           => 1 } ],
+            ['snappy_incr',    { snappy_incr      => 1 } ],
+            ['sort_keys',      { sort_keys        => 1 } ],
+            ['dedupe_strings', { dedupe_strings   => 1 } ],
+            ['freeze/thaw',    { freeze_callbacks => 1 } ],
         ) {
             my ($name, $opts) = @$opt;
             $name .= $suffix;

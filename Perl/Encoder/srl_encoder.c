@@ -92,7 +92,8 @@ SRL_STATIC_INLINE void srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcnt
 SRL_STATIC_INLINE void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys);
 SRL_STATIC_INLINE void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
 SRL_STATIC_INLINE void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
-SRL_STATIC_INLINE void srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src);
+SRL_STATIC_INLINE void srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src, int use_freeze);
+SRL_STATIC_INLINE SV *srl_dump_object(pTHX_ srl_encoder_t *enc, SV *referent, SV *obj);
 SRL_STATIC_INLINE PTABLE_t *srl_init_string_hash(srl_encoder_t *enc);
 SRL_STATIC_INLINE PTABLE_t *srl_init_ref_hash(srl_encoder_t *enc);
 SRL_STATIC_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
@@ -214,6 +215,9 @@ srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
         PTABLE_free(enc->weak_seenhash);
     if (enc->string_deduper_hv != NULL)
         SvREFCNT_dec(enc->string_deduper_hv);
+
+    SvREFCNT_dec(enc->sereal_string_sv);
+
     Safefree(enc);
 }
 
@@ -246,6 +250,7 @@ srl_empty_encoder_struct(pTHX)
     enc->ref_seenhash = NULL;
     enc->snappy_workmem = NULL;
     enc->string_deduper_hv = NULL;
+    enc->sereal_string_sv = NULL;
 
     return enc;
 }
@@ -281,6 +286,15 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         svp = hv_fetchs(opt, "no_bless_objects", 0);
         if ( svp && SvTRUE(*svp) )
             SRL_ENC_SET_OPTION(enc, SRL_F_NO_BLESS_OBJECTS);
+
+        svp = hv_fetchs(opt, "freeze_callbacks", 0);
+        if ( svp && SvTRUE(*svp) ) {
+            if (SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS))
+                croak("The no_bless_objects and freeze_callback_support "
+                      "options are mutually exclusive");
+            SRL_ENC_SET_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT);
+            enc->sereal_string_sv = newSVpvs("Sereal");
+        }
 
         svp = hv_fetchs(opt, "snappy", 0);
         if ( svp && SvTRUE(*svp) ) {
@@ -557,7 +571,7 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
 /* Outputs a bless header and the class name (as some form of string or COPY).
  * Caller then has to output the actual reference payload. */
 SRL_STATIC_INLINE void
-srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
+srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src, int use_freeze)
 {
     const HV *stash = SvSTASH(src);
     PTABLE_t *string_seenhash = SRL_GET_STR_PTR_SEENHASH(enc);
@@ -565,7 +579,9 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
 
     if (oldoffset != 0) {
         /* Issue COPY instead of literal class name string */
-        srl_buf_cat_varint(aTHX_ enc, SRL_HDR_OBJECTV, (UV)oldoffset);
+        srl_buf_cat_varint(aTHX_ enc,
+                                 UNLIKELY(use_freeze) ? SRL_HDR_OBJECTV_FREEZE : SRL_HDR_OBJECTV,
+                                 (UV)oldoffset);
     }
     else {
         const char *class_name = HvNAME_get(stash);
@@ -578,7 +594,7 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src)
          * At least, we can safely use the same PTABLE to store the ptrs to hashkeys since
          * the set of pointers will never collide.
          * /me bows to Yves for the delightfully evil hack. */
-        srl_buf_cat_char(enc, SRL_HDR_OBJECT);
+        srl_buf_cat_char(enc, UNLIKELY(use_freeze) ? SRL_HDR_OBJECT_FREEZE : SRL_HDR_OBJECT);
 
         /* remember current offset before advancing it */
         PTABLE_store(string_seenhash, (void *)stash, (void *)BODY_POS_OFS(enc->buf));
@@ -1135,6 +1151,86 @@ srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_ut
     enc->buf.pos += src_len;
 }
 
+
+/* Dumps the tag and class name of an object doing all necessary callbacks or
+ * exception-throwing.
+ * The provided SV must already have been identified as a Perl object
+ * using sv_isobject().
+ * If the return value is not NULL, then it's the actual object content that
+ * needs to be serialized by the caller. */
+SRL_STATIC_INLINE SV *
+srl_dump_object(pTHX_ srl_encoder_t *enc, SV *referent, SV *obj)
+{
+    SV *object_content = obj;
+
+    assert(sv_isobject(obj)); /* duplicate asserts are "free" */
+
+    /* Check that we actually want to support objects */
+    if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_CROAK_ON_BLESS)) ) {
+        croak("Attempted to serialize blessed reference. Serializing objects "
+                "using Sereal::Encoder was explicitly disabled using the "
+                "'croak_on_bless' option.");
+    }
+
+    /* FIXME reuse/ref/... should INCLUDE the bless stuff. */
+
+    /* Check for FREEZE support */
+    if (UNLIKELY( SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT) )) {
+        HV *stash = SvSTASH(referent);
+        assert(stash != NULL);
+        GV *method = gv_fetchmethod_autoload(stash, "FREEZE", 0);
+
+        if (UNLIKELY( method != NULL )) {
+            int count;
+            dSP;
+            ENTER;
+            SAVETMPS;
+            PUSHMARK(SP);
+
+            EXTEND(SP, 2);
+            PUSHs(obj);
+            PUSHs(enc->sereal_string_sv); /* not NULL if SRL_F_ENABLE_FREEZE_SUPPORT is set */
+
+            PUTBACK;
+            count = call_sv((SV *)GvCV(method), G_SCALAR);
+            /* TODO explore method lookup caching */
+            SPAGAIN;
+
+            if (LIKELY( count == 1 )) {
+                object_content = POPs;
+                SvREFCNT_inc(object_content);
+            }
+            else
+                object_content = &PL_sv_undef;
+
+            PUTBACK;
+            FREETMPS;
+            LEAVE;
+
+            /* Write bless operator with class name */
+            srl_dump_classname(aTHX_ enc, referent, 1); /* 1 == have freeze call */
+            /* Dump object_content */
+            srl_dump_sv(aTHX_ enc, object_content);
+            SvREFCNT_dec(object_content);
+            object_content = NULL;
+        }
+        else {
+            /* No FREEZE method defined */
+            /* Write bless operator with class name */
+            srl_dump_classname(aTHX_ enc, referent, 0); /* 0 == no freeze call */
+            object_content = obj;
+        }
+    }
+    /* If we have SRL_F_NO_BLESS_OBJECTS, then do nothing. Otherwise, emit OBJECT* tag */
+    else if (LIKELY( !SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS) )) {
+        srl_dump_classname(aTHX_ enc, referent, 0); /* 0 == no freeze call */
+        object_content = obj;
+    }
+
+    return object_content;
+}
+
+
 /* Dumps generic SVs and delegates
  * to more specialized functions for RVs, etc. */
 /* TODO decide when to use the IV, when to use the PV, and when
@@ -1153,10 +1249,8 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     AV *backrefs;
     SV* refsv= NULL;
     UV weakref_ofs= 0;              /* preserved between loops */
-    int nobless;
     SSize_t ref_rewrite_pos= 0;      /* preserved between loops - note SSize_t is a perl define */
     assert(src);
-    nobless = SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS);
 
     if (++enc->recursion_depth == enc->max_recursion_depth) {
         croak("Hit maximum recursion depth (%lu), aborting serialization",
@@ -1285,21 +1379,17 @@ redo_dump:
             srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
         }
         ref_rewrite_pos= BODY_POS_OFS(enc->buf);
-        if (sv_isobject(src)) {
-            /* Check that we actually want to support objects */
-            if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_CROAK_ON_BLESS)) ) {
-                croak("Attempted to serialize blessed reference. Serializing objects "
-                      "using Sereal::Encoder was explicitly disabled using the "
-                      "'croak_on_bless' option.");
-            }
-            /* FIXME reuse/ref/... should INCLUDE the bless stuff. */
-            /* Write bless operator with class name */
-            if (!nobless)
-                srl_dump_classname(aTHX_ enc, referent);
+
+        if (expect_false( sv_isobject(src) )) {
+            src = srl_dump_object(aTHX_ enc, referent, src);
+            if (expect_false( src == NULL )) /* SRL_HDR_OBJECT_FREEZE */
+                return;
         }
+
         srl_buf_cat_char(enc, SRL_HDR_REFN);
         refsv= src;
         src= referent;
+
         if (DEBUGHACK) warn("Going to redo %p", src);
         goto redo_dump;
     }
