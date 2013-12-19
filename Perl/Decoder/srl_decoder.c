@@ -1027,6 +1027,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into)
      * code flow in the below code */
     ASSERT_BUF_SPACE(dec,1," while reading classname tag");
 
+    /* Now read the class name and cache it */
     storepos= BODY_POS_OFS(dec);
     tag= *dec->pos++;
     if (IS_SRL_HDR_SHORT_BINARY(tag)) {
@@ -1051,7 +1052,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into)
     if (tag == SRL_HDR_COPY) {
         ofs= srl_read_varint_uv_offset(aTHX_ dec, " while reading COPY class name");
         storepos= ofs;
-        if (dec->ref_seenhash) {
+        if (LIKELY( dec->ref_seenhash != NULL )) {
             stash= PTABLE_fetch(dec->ref_seenhash, (void *)ofs);
         }
         if (!stash) {
