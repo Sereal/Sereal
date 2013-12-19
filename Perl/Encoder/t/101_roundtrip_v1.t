@@ -29,7 +29,7 @@ if (not $ok) {
   plan skip_all => 'Did not find right version of decoder';
 }
 else {
-  run_roundtrip_tests(2); # 2 is "run for proto version 2 only"
+  run_roundtrip_tests(1); # 1 is "run for proto-version 1 only"
 }
 
 

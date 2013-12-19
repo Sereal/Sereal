@@ -689,7 +689,10 @@ if (eval "use Array::RefElem (av_store hv_store); 1") {
 
 
 sub run_roundtrip_tests {
-    for my $proto_version (qw(2 1)) {
+    my ($proto_version) = @_;
+    my @proto_versions = ($proto_version ? ($proto_version) : qw(2 1));
+
+    for my $proto_version ($proto_version) {
         my $suffix = $proto_version == 1 ? "_v1" : "";
 
         for my $opt (
