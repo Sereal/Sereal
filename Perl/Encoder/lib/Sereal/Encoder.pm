@@ -70,15 +70,6 @@ encoder.
 Currently, the following options are recognized, none of them are on
 by default.
 
-=head3 no_shared_hashkeys
-
-When the C<no_shared_hashkeys> option is set ot a true value, then
-the encoder will disable the detection and elimination of repeated hash
-keys. This only has an effect for serializing structures containing hashes.
-By skipping the detection of repeated hash keys, performance goes up a bit,
-but the size of the output can potentially be much larger.
-Do not disable this unless you have a reason to.
-
 =head3 snappy
 
 If set, the main payload of the Sereal document will be compressed using
@@ -197,6 +188,16 @@ the memory.
 See L</NON-CANONICAL> for why you might want to use this, and for the
 various caveats involved.
 
+=head3 no_shared_hashkeys
+
+When the C<no_shared_hashkeys> option is set ot a true value, then
+the encoder will disable the detection and elimination of repeated hash
+keys. This only has an effect for serializing structures containing hashes.
+By skipping the detection of repeated hash keys, performance goes up a bit,
+but the size of the output can potentially be much larger.
+
+Do not disable this unless you have a reason to.
+
 =head3 dedupe_strings
 
 If this is option is enabled/true then Sereal will use a hash to encode duplicates
@@ -207,12 +208,14 @@ significant reduction in the size of the encoded form. Currently only strings
 longer than 3 characters will be deduped, however this may change in the future.
 
 Note that Sereal will perform certain types of deduping automatically even
-without this option. In particular class names and hash keys are deduped
+without this option. In particular class names and hash keys (see also the
+C<no_shared_hashkeys> setting) are deduped
 regardless of this option. Only enable this if you have good reason to
 believe that there are many duplicated strings as values in your data
 structure.
 
-Use of this option does not require an upgraded decoder. The deduping
+Use of this option does not require an upgraded decoder (this option was added in
+Sereal::Encoder 0.32). The deduping
 is performed in such a way that older decoders should handle it just fine.
 In other words, the output of a Sereal B<decoder> should not depend on
 whether this option was used during B<encoding>. See also below:
