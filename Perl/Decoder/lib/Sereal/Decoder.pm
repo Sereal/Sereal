@@ -255,7 +255,11 @@ classes can define a destructor. Thus, the data fed to the decoder can
 cause the (deferred) execution of any destructor in your application.
 That's why the C<refuse_objects> option exists and what the C<no_bless_objects>
 can be used for as well. Later on, we may or may not provide a facility to
-whitelist classes.
+whitelist classes. Furthermore, if the encoder emitted any objects using
+C<FREEZE> callbacks, the C<THAW> class method may be invoked on the
+respective classes. If you can't trust the source of your Sereal documents,
+you may want to use the C<refuse_objects> option. For more details on
+the C<FREEZE/THAW> mechanism, please refer to L<Sereal::Encoder>.
 
 =head1 PERFORMANCE
 
