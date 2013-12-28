@@ -115,6 +115,21 @@ See also C<no_bless_objects> to skip the blessing of objects.
 When both flags are set, C<croak_on_bless> has a higher precedence then
 C<no_bless_objects>.
 
+=head3 freeze_callbacks
+
+This option is new in Sereal v2 and needs a Sereal v2 decoder.
+
+If this option is set, the encoder will check for and possibly invoke
+the C<FREEZE> method on any object in the input data. An object that
+was serialized using its C<FREEZE> method will have its corresponding
+C<THAW> class method called during deserialization. The exact semantics
+are documented below under L</"FREEZE/THAW CALLBACK MECHANISM">.
+
+Beware that using this functionality means a significant slowdown for
+object serialization. Even when serializing objects without a C<FREEZE>
+method, the additional method look up will cost a small amount of runtime.
+Yes, C<Sereal::Encoder> is so fast that is may make a difference.
+
 =head3 no_bless_objects
 
 If this option is set, then the encoder will serialize blessed references
@@ -272,6 +287,70 @@ to be serialized. For ready-made comparison scripts, see the
 F<author_tools/bench.pl> and F<author_tools/dbench.pl> programs that are part
 of this distribution. Suffice to say that this library is easily competitive
 in both time and space efficiency with the best alternatives.
+
+=head1 FREEZE/THAW CALLBACK MECHANISM
+
+This mechanism is enabled using the C<freeze_callbacks> option of the encoder.
+It is inspired by the equivalent mechanism in L<CBOR::XS> and differs only
+in one minor detail, explained below. The general mechanism is documented
+in the I<A GENERIC OBJECT SERIALIATION PROTOCOL> section of L<Types::Serializer>.
+Similar to CBOR using C<CBOR>, Sereal uses the string C<Sereal> as a serializer
+identifier for the callbacks.
+
+The one difference to the mechanism as supported by CBOR is that in Sereal,
+the C<FREEZE> callback must return a single value. That value can be any
+data structure supported by Sereal (hopefully without causing infinite recursion
+by including the original object). But C<FREEZE> can't return a list as with CBOR.
+This should not be any practical limitation whatsoever. Just return an array
+reference instead of a list.
+
+Here is a contrived example of a class implementing the C<FREEZE> / C<THAW> mechansim.
+
+  package
+    File;
+  
+  use Moo;
+  
+  has 'path' => (is => 'ro');
+  has 'fh' => (is => 'rw');
+  
+  # open file handle if necessary and return it
+  sub get_fh {
+    my $self = shift;
+    # This could also with fancier Moo(se) syntax
+    my $fh = $self->fh;
+    if (not $fh) {
+      open $fh, "<", $self->path or die $!;
+      $self->fh($fh);
+    }
+    return $fh;
+  }
+  
+  sub FREEZE {
+    my ($self, $serializer) = @_;
+    # Could switch on $serializer here: JSON, CBOR, Sereal, ...
+    # But this case is so simple that it will work with ALL of them.
+    # Do not try to serialize our file handle! Path will be enough
+    # to recreate.
+    return $self->path;
+  }
+  
+  sub THAW {
+    my ($class, $serializer, $data) = @_;
+    # Turn back into object.
+    return $class->new(path => $data);
+  }
+
+Why is the C<FREEZE>/C<THAW> mechanism important here? Our contrived C<File>
+class may contain a file handle which can't be serialized. So C<FREEZE> not
+only returns just the path (which is more compact than encoding the actual
+object contents), but it strips the file handle which can be lazily reopened
+on the other side of the serialization/deserialization pipe.
+But this example also shows that a naive implementation can easily end up
+with subtle bugs. A file handle itself has state (position in file, etc).
+Thus the deserialization in the above example won't accurately reproduce
+the original state. It can't, of course, if it's deserialized in a different
+environment anyway.
 
 =head1 THREAD-SAFETY
 
