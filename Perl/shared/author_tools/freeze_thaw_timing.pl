@@ -33,6 +33,10 @@ my $data_big = [];
 for (1..100) {
   push @$data_big, Foo->new(name => "blargh");
 }
+my $data_big_nocb = [];
+for (1..100) {
+  push @$data_big_nocb, bless({name => "blargh"} => "Bar");
+}
 
 my $frozen_nocb = $enc_nocb->encode($data);
 my $frozen_cb = $enc_cb->encode($data);
@@ -55,8 +59,10 @@ print "Comparing big serialization with/out callbacks...\n";
 cmpthese(
   $timing,
   {
-    cb    => sub {$enc_cb->encode($data_big)},
-    no_cb => sub {$enc_nocb->encode($data_big)},
+    cb             => sub {$enc_cb->encode($data_big)},
+    no_cb          => sub {$enc_nocb->encode($data_big)},
+    cb_nocbdata    => sub {$enc_cb->encode($data_big_nocb)},
+    no_cb_nocbdata => sub {$enc_nocb->encode($data_big_nocb)},
   }
 );
 
