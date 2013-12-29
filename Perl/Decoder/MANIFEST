@@ -1,4 +1,5 @@
 author_tools/bench.pl
+author_tools/freeze_thaw_timing.pl
 author_tools/hobodecoder.pl
 author_tools/numeric_str_length.c
 author_tools/stringify_test.c
@@ -32,6 +33,7 @@ t/010_desperate.t
 t/020_incremental.t
 t/030_looks_like_sereal.t
 t/100_roundtrip.t
+t/101_roundtrip_v1.t
 t/110_nobless.t
 t/150_dec_exception.t
 t/160_recursion.t

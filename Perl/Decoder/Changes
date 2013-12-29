@@ -3,6 +3,11 @@ Revision history for Perl extension Sereal-Decoder
 * Warning: For a seamless upgrade, upgrade to version 2
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
+
+2.00_03 Sun Dec 29 10:33 2013 (AMS time)
+  - FREEZE/THAW hooks for object serialization.
+  - Test improvements (allowing for partial parallel run)
+
 2.00_02 Mon Oct 28 19:23 2013 (AMS time)
   - Fix Test::Warn dependency problem of 2.00_01.
 
