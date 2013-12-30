@@ -580,7 +580,7 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src, int use_freeze)
     if (oldoffset != 0) {
         /* Issue COPY instead of literal class name string */
         srl_buf_cat_varint(aTHX_ enc,
-                                 UNLIKELY(use_freeze) ? SRL_HDR_OBJECTV_FREEZE : SRL_HDR_OBJECTV,
+                                 expect_false(use_freeze) ? SRL_HDR_OBJECTV_FREEZE : SRL_HDR_OBJECTV,
                                  (UV)oldoffset);
     }
     else {
@@ -594,7 +594,7 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src, int use_freeze)
          * At least, we can safely use the same PTABLE to store the ptrs to hashkeys since
          * the set of pointers will never collide.
          * /me bows to Yves for the delightfully evil hack. */
-        srl_buf_cat_char(enc, UNLIKELY(use_freeze) ? SRL_HDR_OBJECT_FREEZE : SRL_HDR_OBJECT);
+        srl_buf_cat_char(enc, expect_false(use_freeze) ? SRL_HDR_OBJECT_FREEZE : SRL_HDR_OBJECT);
 
         /* remember current offset before advancing it */
         PTABLE_store(string_seenhash, (void *)stash, (void *)BODY_POS_OFS(enc->buf));
@@ -1175,12 +1175,12 @@ srl_dump_object(pTHX_ srl_encoder_t *enc, SV *referent, SV *obj)
     /* FIXME reuse/ref/... should INCLUDE the bless stuff. */
 
     /* Check for FREEZE support */
-    if (UNLIKELY( SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT) )) {
+    if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT) )) {
         HV *stash = SvSTASH(referent);
         assert(stash != NULL);
         GV *method = gv_fetchmethod_autoload(stash, "FREEZE", 0);
 
-        if (UNLIKELY( method != NULL )) {
+        if (expect_false( method != NULL )) {
             int count;
             dSP;
             ENTER;
@@ -1196,7 +1196,7 @@ srl_dump_object(pTHX_ srl_encoder_t *enc, SV *referent, SV *obj)
             /* TODO explore method lookup caching */
             SPAGAIN;
 
-            if (LIKELY( count == 1 )) {
+            if (expect_true( count == 1 )) {
                 object_content = POPs;
                 SvREFCNT_inc(object_content);
             }
@@ -1222,7 +1222,7 @@ srl_dump_object(pTHX_ srl_encoder_t *enc, SV *referent, SV *obj)
         }
     }
     /* If we have SRL_F_NO_BLESS_OBJECTS, then do nothing. Otherwise, emit OBJECT* tag */
-    else if (LIKELY( !SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS) )) {
+    else if (expect_true( !SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS) )) {
         srl_dump_classname(aTHX_ enc, referent, 0); /* 0 == no freeze call */
         object_content = obj;
     }
