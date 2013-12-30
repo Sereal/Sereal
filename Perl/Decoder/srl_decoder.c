@@ -1062,7 +1062,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
     if (tag == SRL_HDR_COPY) {
         ofs= srl_read_varint_uv_offset(aTHX_ dec, " while reading COPY class name");
         storepos= ofs;
-        if (LIKELY( dec->ref_seenhash != NULL )) {
+        if (expect_true( dec->ref_seenhash != NULL )) {
             class_stash= PTABLE_fetch(dec->ref_seenhash, (void *)ofs);
         }
         if (!class_stash) {
@@ -1167,7 +1167,7 @@ srl_thaw_callback(pTHX_ srl_decoder_t *dec, SV *into, HV *class_stash)
         /* TODO explore method lookup caching */
         SPAGAIN;
 
-        if (LIKELY( count == 1 )) {
+        if (expect_true( count == 1 )) {
             SV *tmpsv = POPs;
             sv_setsv(into, tmpsv); /* copy to output SV */
         }
