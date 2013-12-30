@@ -542,7 +542,8 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
      *      we're just wasting some space. */
     /* TODO optimize! */
 
-    if (SvIOK_UV(src) || SvIV(src) >= 0) { /* FIXME find a way to express this without repeated SvIV/SvUV */
+    /* FIXME find a way to express the condition without repeated SvIV/SvUV */
+    if (expect_true( SvIOK_UV(src) || SvIV(src) >= 0 )) {
         const UV num = SvUV(src); /* FIXME is SvUV_nomg good enough because of the GET magic in dump_sv? SvUVX after having checked the flags? */
         if (num < 16) {
             /* encodable as POS */
@@ -1252,7 +1253,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     SSize_t ref_rewrite_pos= 0;      /* preserved between loops - note SSize_t is a perl define */
     assert(src);
 
-    if (++enc->recursion_depth == enc->max_recursion_depth) {
+    if (expect_false( ++enc->recursion_depth == enc->max_recursion_depth )) {
         croak("Hit maximum recursion depth (%lu), aborting serialization",
               (unsigned long)enc->max_recursion_depth);
     }
@@ -1276,7 +1277,7 @@ redo_dump:
         if (DEBUGHACK) warn("backreferences %p", src);
     }
 #endif
-    if ( mg || backrefs ) {
+    if (expect_false( mg || backrefs )) {
         PTABLE_t *weak_seenhash= SRL_GET_WEAK_SEENHASH(enc);
         PTABLE_ENTRY_t *pe= PTABLE_find(weak_seenhash, src);
         if (!pe) {
@@ -1329,7 +1330,7 @@ redo_dump:
             PTABLE_store(ref_seenhash, src, (void *)BODY_POS_OFS(enc->buf));
         }
     }
-    if (weakref_ofs != 0) {
+    if (expect_false( weakref_ofs != 0 )) {
         sv_dump(src);
         croak("Corrupted weakref? weakref_ofs=0 (this should not happen)");
     }
@@ -1373,7 +1374,7 @@ redo_dump:
             assert(referent);
         }
 #endif
-        if (SvWEAKREF(src)) {
+        if (expect_false( SvWEAKREF(src) )) {
             if (DEBUGHACK) warn("Is weakref %p", src);
             weakref_ofs= BODY_POS_OFS(enc->buf);
             srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
