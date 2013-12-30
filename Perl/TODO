@@ -2,12 +2,7 @@
 - float sizes
 - float dumping endianness
 - checksumming?
-- Gather experience with protocol version handling / exposure
-- full, performant java implementation
 
-v2:
-- more profiling?
 - optimize dumpiv?
 - NUMLIST?
-- limited streaming support?
 
