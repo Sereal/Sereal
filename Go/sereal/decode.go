@@ -1,7 +1,7 @@
 package sereal
 
 import (
-	"code.google.com/p/snappy-go/snappy"
+	"encoding"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -10,6 +10,9 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
+
+	"code.google.com/p/snappy-go/snappy"
 )
 
 type serealHeader struct {
@@ -805,6 +808,84 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 
 		ptr.Set(rre)
 
+	case tag == typeOBJECT_FREEZE:
+		idx++
+
+		var class string
+		rclass := reflect.ValueOf(&class)
+		sz, err := d.decode(b, idx, tracked, rclass.Elem())
+		if err != nil {
+			return 0, err
+		}
+		idx += sz
+
+		// spec says 'any object', but we only support byte slices
+		var data []byte
+		rdata := reflect.ValueOf(&data)
+		sz, err = d.decode(b, idx, tracked, rdata.Elem())
+		if err != nil {
+			return 0, err
+		}
+		idx += sz
+
+		var rfreeze reflect.Value
+
+		if d.PerlCompat {
+			freeze := &PerlFreeze{class, data}
+			rfreeze = reflect.ValueOf(freeze)
+		} else {
+
+			if obj, ok := findUnmarshaler(ptr); ok {
+				err := obj.UnmarshalBinary(data)
+				if err != nil {
+					return 0, err
+				}
+				rfreeze = ptr
+			} else {
+
+				switch {
+
+				case ptr.Kind() == reflect.Interface && ptr.IsNil():
+
+					// do we have a registered handler for this type?
+					registerLock.Lock()
+					concreteClass, ok := nameToType[class]
+					registerLock.Unlock()
+
+					if ok {
+						rzero := instantiateZero(concreteClass)
+						obj, ok := findUnmarshaler(rzero)
+
+						if !ok {
+							// only things that have an unmarshaler should have been put into the map
+							panic(fmt.Sprintf("unable to find unmarshaler for %s", rzero))
+						}
+
+						err := obj.UnmarshalBinary(data)
+						if err != nil {
+							return 0, err
+						}
+
+						rfreeze = reflect.ValueOf(obj)
+					} else {
+						rfreeze = reflect.ValueOf(&PerlFreeze{class, data})
+					}
+
+				case ptr.Kind() == reflect.Slice && ptr.Type().Elem().Kind() == reflect.Uint8 && ptr.IsNil():
+					rfreeze = reflect.ValueOf(data)
+
+				default:
+					return 0, fmt.Errorf("can't unpack FROZEN object into %v", ptr.Type())
+				}
+			}
+		}
+
+		if trackme {
+			tracked[startIdx] = rfreeze
+		}
+
+		ptr.Set(rfreeze)
+
 	default:
 		return 0, errors.New("unknown tag byte: " + strconv.Itoa(int(tag)))
 	}
@@ -1036,4 +1117,52 @@ func varintdecode(by []byte) (n int, sz int) {
 
 	// byte without continuation bit
 	panic("bad varint")
+}
+
+func findUnmarshaler(ptr reflect.Value) (encoding.BinaryUnmarshaler, bool) {
+
+	if obj, ok := ptr.Interface().(encoding.BinaryUnmarshaler); ok {
+		return obj, true
+	}
+
+	pptr := ptr.Addr()
+
+	if obj, ok := pptr.Interface().(encoding.BinaryUnmarshaler); ok {
+		return obj, true
+	}
+
+	return nil, false
+}
+
+var nameToType map[string]reflect.Type = make(map[string]reflect.Type)
+var registerLock sync.Mutex
+
+func RegisterName(name string, value interface{}) {
+	registerLock.Lock()
+	defer registerLock.Unlock()
+
+	rv := reflect.ValueOf(value)
+
+	if _, ok := rv.Interface().(encoding.BinaryUnmarshaler); ok {
+		nameToType[name] = rv.Type()
+		return
+	}
+
+	prv := rv.Addr()
+	if _, ok := prv.Interface().(encoding.BinaryUnmarshaler); ok {
+		nameToType[name] = prv.Type()
+		return
+	}
+
+	panic(fmt.Sprintf("unable to register type %s: not encoding.BinaryUnmarshaler", rv.Type()))
+}
+
+func instantiateZero(typ reflect.Type) reflect.Value {
+
+	if typ.Kind() == reflect.Ptr {
+		return reflect.New(typ.Elem())
+	}
+
+	v := reflect.New(typ)
+	return v.Addr()
 }

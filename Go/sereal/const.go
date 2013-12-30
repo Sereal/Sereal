@@ -34,6 +34,8 @@ const (
 	typeCOPY           = 0x2f
 	typeWEAKEN         = 0x30
 	typeREGEXP         = 0x31
+	typeOBJECT_FREEZE  = 0x32
+	typeOBJECTV_FREEZE = 0x33
 	typeFALSE          = 0x3a
 	typeTRUE           = 0x3b
 	typeMANY           = 0x3c

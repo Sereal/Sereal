@@ -1,13 +1,17 @@
 package sereal
 
 import (
+	"bytes"
 	"encoding/hex"
-	"github.com/davecgh/go-spew/spew"
+	"errors"
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
 	"strconv"
 	"testing"
+	"time"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 var roundtrips = []interface{}{
@@ -403,5 +407,108 @@ func TestStructs(t *testing.T) {
 		if !reflect.DeepEqual(routvar.Elem().Interface(), v.expected) {
 			t.Errorf("roundtrip mismatch for %s: got: %#v expected: %#v\n", v.what, routvar.Elem().Interface(), v.expected)
 		}
+	}
+}
+
+type ErrorBinaryUnmarshaler int
+
+var errUnmarshaler = errors.New("error binary unmarshaler")
+
+func (e *ErrorBinaryUnmarshaler) UnmarshalBinary(data []byte) error {
+	return errUnmarshaler
+}
+
+func TestBinaryMarshaller(t *testing.T) {
+
+	// our data
+	now := time.Now()
+
+	e := &Encoder{}
+	d := &Decoder{}
+
+	x, err := e.Marshal(now)
+	if err != nil {
+		t.Errorf("error marshalling %s", err)
+	}
+
+	var tm time.Time
+
+	// unpack into something that expects the bytes
+	err = d.Unmarshal(x, &tm)
+
+	if err != nil {
+		t.Errorf("error unmarshalling: %s", err)
+	}
+
+	if !now.Equal(tm) {
+		t.Errorf("failed unpacking: got=%v wanted=%v\n", tm, now)
+	}
+
+	// unpack into something that produces an error
+	var errunmarshaler ErrorBinaryUnmarshaler
+	err = d.Unmarshal(x, &errunmarshaler)
+	if err == nil {
+		t.Errorf("failed propagating error from unmarshaler")
+	}
+
+	// unpack into something that isn't a marshaller
+	var i int
+	err = d.Unmarshal(x, &i)
+	if err == nil {
+		t.Errorf("failed to generate error trying to unpack into non-slice/unmashaler")
+	}
+
+	// unpack into a byte slice
+	bdata, _ := now.MarshalBinary()
+
+	var data []byte
+	err = d.Unmarshal(x, &data)
+
+	if !bytes.Equal(bdata, data) {
+		t.Errorf("failed unpacking into byte-slice: got=%v wanted=%v\n", tm, now)
+	}
+
+	// unpack into a nil interface
+	var intf interface{}
+	err = d.Unmarshal(x, &intf)
+
+	var pfreeze *PerlFreeze
+	var ok bool
+
+	if pfreeze, ok = intf.(*PerlFreeze); !ok {
+		t.Errorf("failed unpacking into nil interface : got=%v", intf)
+	}
+
+	if pfreeze.Class != "time.Time" || !bytes.Equal(pfreeze.Data, bdata) {
+		t.Errorf("failed unpacking into nil interface : got=%v", pfreeze)
+	}
+
+	// check that registering a type works
+	var registerTime time.Time
+	RegisterName("time.Time", &registerTime)
+
+	// unpack into a nil interface should return a time.Time
+	var tintf interface{}
+	err = d.Unmarshal(x, &tintf)
+	if err != nil {
+		t.Errorf("error unpacking registered type: %s", err)
+	}
+
+	var rtime *time.Time
+	if rtime, ok = tintf.(*time.Time); ok {
+		if !now.Equal(*rtime) {
+			t.Errorf("failed unpacking registered type: got=%v wanted=%v\n", rtime, now)
+		}
+	} else {
+		t.Errorf("failed unpacking registered nil interface : got=%v", tintf)
+	}
+
+	// overwrite with our error type
+	RegisterName("time.Time", &errunmarshaler)
+	var eintf interface{}
+
+	err = d.Unmarshal(x, &eintf)
+	if err != errUnmarshaler {
+		t.Errorf("failed to error unpacking registered error type: %s", err)
 	}
 }

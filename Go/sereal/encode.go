@@ -1,7 +1,7 @@
 package sereal
 
 import (
-	"code.google.com/p/snappy-go/snappy"
+	"encoding"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"runtime"
 	"unsafe"
+
+	"code.google.com/p/snappy-go/snappy"
 )
 
 func reflectValueOf(v interface{}) reflect.Value {
@@ -164,6 +166,28 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 }
 
 func (e *Encoder) encode(b []byte, rv reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
+
+	if m, ok := rv.Interface().(encoding.BinaryMarshaler); ok {
+		by, err := m.MarshalBinary()
+		if err != nil {
+			return nil, err
+		}
+
+		name := concreteName(rv)
+
+		b = append(b, typeOBJECT_FREEZE)
+		b, err = e.encode(b, reflect.ValueOf(name), strTable, ptrTable)
+		if err != nil {
+			return nil, err
+		}
+
+		b, err = e.encode(b, reflect.ValueOf(by), strTable, ptrTable)
+		if err != nil {
+			return nil, err
+		}
+		return b, nil
+
+	}
 
 	switch rk := rv.Kind(); rk {
 
@@ -562,4 +586,9 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]
 	}
 
 	return by
+}
+
+func concreteName(value reflect.Value) string {
+	name := value.Type().PkgPath() + "." + value.Type().Name()
+	return name
 }

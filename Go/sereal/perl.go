@@ -26,3 +26,9 @@ type PerlRegexp struct {
 	Pattern   []byte
 	Modifiers []byte
 }
+
+// PerlFreeze represents an object's custom Freeze implementation
+type PerlFreeze struct {
+	Class string
+	Data  []byte
+}
