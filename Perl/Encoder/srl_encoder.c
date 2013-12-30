@@ -883,17 +883,19 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
     /* heuristic: n is virtually the min. size of any element */
     BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + n);
 
-    if (n < 16 && refcount == 1) {
+    if (expect_true( n < 16 && refcount == 1 )) {
         enc->buf.pos--; /* backup over previous REFN */
         srl_buf_cat_char_nocheck(enc, SRL_HDR_ARRAYREF + n);
     } else {
         /* header and num. elements */
         srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_ARRAY, n);
     }
-    if (!n)
+
+    if (expect_false( !n ))
         return;
+
     /* I can't decide if this should make me feel dirty */
-    if (SvMAGICAL(src)) {
+    if (expect_false( SvMAGICAL(src) )) {
         UV i;
         for (i = 0; i < n; ++i) {
             svp = av_fetch(src, i, 0);
@@ -947,7 +949,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
     const int do_share_keys = HvSHAREKEYS((SV *)src);
     UV n;
 
-    if ( SvMAGICAL(src) || SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS) ) {
+    if (expect_false( SvMAGICAL(src) || SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS) )) {
         UV i;
         /* for tied hashes, we have to iterate to find the number of entries. Alas... */
         (void)hv_iterinit(src); /* return value not reliable according to API docs */
@@ -1024,22 +1026,24 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
         /* heuristic: n = ~min size of n values;
              *            + 2*n = very conservative min size of n hashkeys if all COPY */
         BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
-        if (n < 16 && refcount == 1) {
+        if (expect_true( n < 16 && refcount == 1 )) {
             enc->buf.pos--; /* backup over the previous REFN */
             srl_buf_cat_char_nocheck(enc, SRL_HDR_HASHREF + n);
         } else {
             srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_HASH, n);
         }
-        if (n) {
+
+        /* unrolled HE iteration for performance */
+        if (expect_true(n)) {
             HE **he_ptr= HvARRAY(src);
             HE **he_end= he_ptr + HvMAX(src) + 1;
             do {
                 for (he= *he_ptr++; he; he= HeNEXT(he) ) {
                     SV *v= HeVAL(he);
-                    if (v != &PL_sv_placeholder) {
+                    if (expect_true( v != &PL_sv_placeholder )) {
                         srl_dump_hk(aTHX_ enc, he, do_share_keys);
                         CALL_SRL_DUMP_SV(enc, v);
-                        if (--n == 0) {
+                        if (expect_false( --n == 0 )) {
                             he_ptr= he_end;
                             break;
                         }
