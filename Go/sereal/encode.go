@@ -167,26 +167,27 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 
 func (e *Encoder) encode(b []byte, rv reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
 
-	if m, ok := rv.Interface().(encoding.BinaryMarshaler); ok {
-		by, err := m.MarshalBinary()
-		if err != nil {
-			return nil, err
+	if rv.Kind() != reflect.Invalid {
+		if m, ok := rv.Interface().(encoding.BinaryMarshaler); ok {
+			by, err := m.MarshalBinary()
+			if err != nil {
+				return nil, err
+			}
+
+			name := concreteName(rv)
+
+			b = append(b, typeOBJECT_FREEZE)
+			b, err = e.encode(b, reflect.ValueOf(name), strTable, ptrTable)
+			if err != nil {
+				return nil, err
+			}
+
+			b, err = e.encode(b, reflect.ValueOf(by), strTable, ptrTable)
+			if err != nil {
+				return nil, err
+			}
+			return b, nil
 		}
-
-		name := concreteName(rv)
-
-		b = append(b, typeOBJECT_FREEZE)
-		b, err = e.encode(b, reflect.ValueOf(name), strTable, ptrTable)
-		if err != nil {
-			return nil, err
-		}
-
-		b, err = e.encode(b, reflect.ValueOf(by), strTable, ptrTable)
-		if err != nil {
-			return nil, err
-		}
-		return b, nil
-
 	}
 
 	switch rk := rv.Kind(); rk {
