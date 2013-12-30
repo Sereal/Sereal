@@ -1,1 +1,4 @@
+language: go
+go:
+    - 1.2
 script: travis/all.sh
