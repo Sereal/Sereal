@@ -298,8 +298,8 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV 
         buf_sv = sv_2mortal( newSV(sereal_header_len + dest_len + 1 ));
         buf = (unsigned char *)SvPVX(buf_sv);
 
-        /* FIXME probably unnecessary to copy the Sereal header! */
-        Copy(dec->buf_start, buf, sereal_header_len, unsigned char);
+        /* not necessary to copy the Sereal header! */
+        /* Copy(dec->buf_start, buf, sereal_header_len, unsigned char); */
 
         old_pos = dec->pos;
         dec->buf_start = buf;
