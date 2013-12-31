@@ -96,6 +96,7 @@ SRL_STATIC_INLINE void srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src, int
 SRL_STATIC_INLINE SV *srl_dump_object(pTHX_ srl_encoder_t *enc, SV *referent, SV *obj);
 SRL_STATIC_INLINE PTABLE_t *srl_init_string_hash(srl_encoder_t *enc);
 SRL_STATIC_INLINE PTABLE_t *srl_init_ref_hash(srl_encoder_t *enc);
+SRL_STATIC_INLINE PTABLE_t *srl_init_freezeobj_hash(srl_encoder_t *enc);
 SRL_STATIC_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
 SRL_STATIC_INLINE HV *srl_init_string_deduper_hv(pTHX_ srl_encoder_t *enc);
 
@@ -114,6 +115,10 @@ SRL_STATIC_INLINE HV *srl_init_string_deduper_hv(pTHX_ srl_encoder_t *enc);
 #define SRL_GET_WEAK_SEENHASH(enc) ( (enc)->weak_seenhash == NULL   \
                                     ? srl_init_weak_hash(enc)       \
                                    : (enc)->weak_seenhash )
+
+#define SRL_GET_FREEZEOBJ_SEENHASH(enc) ( (enc)->freezeobj_seenhash == NULL \
+                                        ? srl_init_freezeobj_hash(enc)      \
+                                        : (enc)->freezeobj_seenhash )
 
 #define CALL_SRL_DUMP_SV(enc, src) STMT_START {                         \
     if (!(src)) {                                                       \
@@ -170,6 +175,8 @@ srl_clear_seen_hashes(pTHX_ srl_encoder_t *enc)
 {
     if (enc->ref_seenhash != NULL)
         PTABLE_clear(enc->ref_seenhash);
+    if (enc->freezeobj_seenhash != NULL)
+        PTABLE_clear(enc->freezeobj_seenhash);
     if (enc->str_seenhash != NULL)
         PTABLE_clear(enc->str_seenhash);
     if (enc->weak_seenhash != NULL)
@@ -209,6 +216,8 @@ srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
     Safefree(enc->snappy_workmem);
     if (enc->ref_seenhash != NULL)
         PTABLE_free(enc->ref_seenhash);
+    if (enc->freezeobj_seenhash != NULL)
+        PTABLE_free(enc->freezeobj_seenhash);
     if (enc->str_seenhash != NULL)
         PTABLE_free(enc->str_seenhash);
     if (enc->weak_seenhash != NULL)
@@ -248,6 +257,7 @@ srl_empty_encoder_struct(pTHX)
     enc->weak_seenhash = NULL;
     enc->str_seenhash = NULL;
     enc->ref_seenhash = NULL;
+    enc->freezeobj_seenhash = NULL;
     enc->snappy_workmem = NULL;
     enc->string_deduper_hv = NULL;
     enc->sereal_string_sv = NULL;
@@ -397,6 +407,13 @@ srl_init_weak_hash(srl_encoder_t *enc)
 {
     enc->weak_seenhash = PTABLE_new_size(3);
     return enc->weak_seenhash;
+}
+
+SRL_STATIC_INLINE PTABLE_t *
+srl_init_freezeobj_hash(srl_encoder_t *enc)
+{
+    enc->freezeobj_seenhash = PTABLE_new_size(3);
+    return enc->freezeobj_seenhash;
 }
 
 SRL_STATIC_INLINE HV *
@@ -1177,8 +1194,24 @@ srl_dump_object(pTHX_ srl_encoder_t *enc, SV *referent, SV *obj)
 
     /* Check for FREEZE support */
     if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT) )) {
-        HV *stash = SvSTASH(referent);
+        HV *stash;
         GV *method;
+
+        /* Check whether we've already frozen this very object */
+        if (SvREFCNT(referent) > 1) {
+            PTABLE_t *freezeobj_seenhash = SRL_GET_FREEZEOBJ_SEENHASH(enc);
+            const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(freezeobj_seenhash, referent);
+            if (expect_false(oldoffset)) {
+                /* we have seen it before, so we do not need to bless it again */
+                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REFP, (UV)oldoffset);
+                SRL_SET_FBIT(*(enc->buf.body_pos + oldoffset));
+                return NULL;
+            }
+
+            PTABLE_store(freezeobj_seenhash, referent, (void *)BODY_POS_OFS(enc->buf)+1);
+        }
+
+        stash = SvSTASH(referent);
         assert(stash != NULL);
         method = gv_fetchmethod_autoload(stash, "FREEZE", 0);
 
@@ -1380,6 +1413,7 @@ redo_dump:
             weakref_ofs= BODY_POS_OFS(enc->buf);
             srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
         }
+
         ref_rewrite_pos= BODY_POS_OFS(enc->buf);
 
         if (expect_false( sv_isobject(src) )) {
