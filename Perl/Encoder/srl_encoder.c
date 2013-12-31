@@ -1178,8 +1178,9 @@ srl_dump_object(pTHX_ srl_encoder_t *enc, SV *referent, SV *obj)
     /* Check for FREEZE support */
     if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT) )) {
         HV *stash = SvSTASH(referent);
+        GV *method;
         assert(stash != NULL);
-        GV *method = gv_fetchmethod_autoload(stash, "FREEZE", 0);
+        method = gv_fetchmethod_autoload(stash, "FREEZE", 0);
 
         if (expect_false( method != NULL )) {
             int count;
