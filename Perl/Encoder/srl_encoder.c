@@ -1383,8 +1383,11 @@ redo_dump:
 
         if (expect_false( sv_isobject(src) )) {
             src = srl_dump_object(aTHX_ enc, referent, src);
-            if (expect_false( src == NULL )) /* SRL_HDR_OBJECT_FREEZE short-circuits */
+            if (expect_false( src == NULL )) {
+                /* SRL_HDR_OBJECT_FREEZE short-circuits */
+                --enc->recursion_depth;
                 return;
+            }
         }
 
         srl_buf_cat_char(enc, SRL_HDR_REFN);
