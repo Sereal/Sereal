@@ -1136,11 +1136,12 @@ srl_thaw_callback(pTHX_ srl_decoder_t *dec, SV *into, HV *class_stash)
     /* Need to make a THAW call if possible */
     char *classname;
     SV *tmp_into = sv_2mortal(newSV(0)); /* FIXME ugh, a new mortal each time */
+    GV *method;
 
     /* Get the data structure for THAW from the Sereal stream */
     srl_read_single_value(aTHX_ dec, tmp_into);
 
-    GV *method = gv_fetchmethod_autoload(class_stash, "THAW", 0);
+    method = gv_fetchmethod_autoload(class_stash, "THAW", 0);
 
     if (expect_false( method == NULL ))
         SRL_ERRORf1("No THAW method defined for class '%s'", HvNAME(class_stash));
