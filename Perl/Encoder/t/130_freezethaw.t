@@ -43,14 +43,24 @@ my $enc = Sereal::Encoder->new({freeze_callbacks => 1});
 my $srl = $enc->encode(Foo->new());
 ok($freeze_called, "FREEZE was invoked");
 
-my $ok = have_encoder_and_decoder();
-if ($ok) {
+
+my $run_decoder_tests = have_encoder_and_decoder();
+if ($run_decoder_tests) {
+  # Simple round-trip test
   my $dec = Sereal::Decoder->new;
   my $obj = $dec->decode($srl);
   ok(defined($obj));
   isa_ok($obj, "Foo");
   is($obj->{data}, "frozen object");
   is($obj->{bar}, 1);
+
+  # Test referential integrity
+  my $foo = Foo->new;
+  my $data = [$foo, $foo];
+  my $srl = $enc->encode($data);
+  my $out = $dec->decode($enc->encode($data));
+  cmp_ok($out->[0], "eq", $out->[1],
+         "Referential integrity: multiple RVs do not turn into clones");
 }
 
 done_testing();
