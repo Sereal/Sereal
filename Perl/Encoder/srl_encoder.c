@@ -1221,7 +1221,7 @@ srl_dump_object(pTHX_ srl_encoder_t *enc, SV *referent, SV *obj)
             srl_dump_classname(aTHX_ enc, referent, 0); /* 0 == no freeze call */
             object_content = obj;
         }
-    }
+    } /* end "if we need to support FREEZE" */
     /* If we have SRL_F_NO_BLESS_OBJECTS, then do nothing. Otherwise, emit OBJECT* tag */
     else if (expect_true( !SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS) )) {
         srl_dump_classname(aTHX_ enc, referent, 0); /* 0 == no freeze call */
@@ -1383,7 +1383,7 @@ redo_dump:
 
         if (expect_false( sv_isobject(src) )) {
             src = srl_dump_object(aTHX_ enc, referent, src);
-            if (expect_false( src == NULL )) /* SRL_HDR_OBJECT_FREEZE */
+            if (expect_false( src == NULL )) /* SRL_HDR_OBJECT_FREEZE short-circuits */
                 return;
         }
 
