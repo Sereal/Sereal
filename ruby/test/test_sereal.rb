@@ -1,5 +1,6 @@
 # encoding: utf-8
-
+require 'socket'
+require 'thread'
 require 'test/unit'
 require ENV['USE_CURRENT_DIRECTORY'] ? File.absolute_path(File.join(File.dirname(__FILE__),'..','lib','sereal')) : 'sereal'
 
@@ -47,12 +48,6 @@ class Test::Unit::TestCase
         neg = -x
         assert_equal recode(neg),neg
       end
-    end
-  end
-  def test_example
-    decoded = {"bbb"=>[0.123213, 1, 2, 3, "bzbz"], "aaa"=>[0.123213, 1, 2, 3, "bzbz"], "巴黎"=>{"123123"=>"巴黎"}}  
-    Sereal.decode(File.open(File.join(File.dirname(__FILE__),"example.srl")).read) do |x|
-      assert_equal(x.inspect,decoded.inspect)
     end
   end
 
@@ -123,5 +118,43 @@ class Test::Unit::TestCase
     arr = recode(arr)
     assert_equal arr.first.object_id,arr.last.object_id
     assert_equal arr.first.first.object_id,arr.last.last.object_id
+  end
+  def test_stream
+    bzbz = "bzbz"
+    decoded = {"bbb"=>[0.123213, 1, 2, 3, "bzbz"], "aaa"=>[0.123213, 1, 2, 3, "bzbz"], "巴黎"=>{"123123"=>"巴黎"}}  
+    Sereal.decode(File.open(File.join(File.dirname(__FILE__),"example.srl")).read) do |x|
+      assert_equal(x,decoded)
+    end
+    decoded = {"bbb"=>[0.123213, 1, 2, 3, bzbz * 100], "aaa"=>[0.123213, 1, 2, 3, bzbz * 100], "巴黎"=>{"123123"=>"巴黎"}}  
+
+    ['example-stream-snappy-i.srl','example-stream-no-snappy-i.srl'].each do |f|
+      i = 1
+      prev = nil
+      Sereal.decode(File.open(File.join(File.dirname(__FILE__),f)).read) do |x|
+        if (prev)
+          assert_not_equal(prev,x["bbb"].object_id)
+        end
+        assert_equal(x["bbb"].object_id,x["aaa"].object_id)
+        decoded["i"] = i
+        assert_equal(decoded,x)
+        i += 1
+        prev = x["bbb"].object_id
+      end
+      i = 1
+      assert_raise(TypeError) do
+        x = Sereal.decode(File.open(File.join(File.dirname(__FILE__),f)))
+      end
+      prev = nil
+      Sereal.decode(File.open(File.join(File.dirname(__FILE__),f))) do |x|
+        if (prev)
+          assert_not_equal(prev,x["bbb"].object_id)
+        end
+        assert_equal(x["bbb"].object_id,x["aaa"].object_id)
+        decoded["i"] = i
+        assert_equal(decoded,x)
+        i += 1
+        prev = x["bbb"].object_id
+      end
+    end
   end
 end

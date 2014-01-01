@@ -1,6 +1,6 @@
 ## implementation
 
-This is incomplete implementation, it does not have support for REFP,REFN and ALIAS tags. 
+This is incomplete implementation, it does not have support for REFP,REFN and ALIAS tags 
 
 #### requirements
 
@@ -84,3 +84,45 @@ gem 'sereal', '= 0.0.5'
 #or
 $ gem install sereal -v 0.0.5
 ```
+
+### Stream support for the decoder (only in trunk)
+
+```
+Sereal.decode(STDIN) do |decoded|
+  p decoded
+end
+
+```
+
+As you can see it is really simple to use, it works both with `incremental snappy` and with just combined sereal packets, it also works with sockets
+
+```
+s = TCPSocket.new 'localhost', 2000
+Sereal.decode(s) do |decoded|
+  p decoded
+end
+
+# or any file
+Sereal.decode(File.open('example-stream-snappy-i.srl')) do |decoded|
+  p decoded
+end
+
+```
+
+However it requires a block to be given when you are reading from a stream. And you can not put non-incremental Snappy packets in the stream.
+
+### more then 1 packet in the buffer
+
+It is easy to parse more then 1 packet a buffer:
+
+```
+buf = ""
+buf << Sereal.encode([1,2,3],Sereal::SNAPPY_INCR)
+buf << Sereal.encode([3,4,5])
+buf << Sereal.encode([7,8,9],Sereal::SNAPPY_INCR)
+Sereal.decode(buf) do |decoded|
+  p decoded
+end
+```
+
+However you can do that with non-incremental Snappy packets

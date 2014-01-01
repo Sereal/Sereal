@@ -5,7 +5,7 @@ rescue LoadError
   require 'sereal'
 end
 
-content = ARGF.read
+content = ENV['Sereal_STREAM'] ? STDIN : ARGF.read
 compress = Sereal::RAW
 
 {'Sereal_SNAPPY' => Sereal::SNAPPY,'Sereal_SNAPPY_INCR' => Sereal::SNAPPY_INCR }.each do |k,v|
@@ -13,9 +13,10 @@ compress = Sereal::RAW
     compress = v
   end
 end
-if content[0..3] == '=srl'
+if ENV['Sereal_STREAM'] || content[0..3] == '=srl'
   Sereal.decode(content) do |x|
     STDOUT.write(x)
+    puts
   end
 else
   STDOUT.write(Sereal.encode(eval(content), compress))

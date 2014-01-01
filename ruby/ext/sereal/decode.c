@@ -4,7 +4,6 @@
 #include "snappy/csnappy_decompress.c"
 
 static VALUE s_default_reader(sereal_t *s, u8 tag) {
-        // s_dump(s);
         s_raise(s,rb_eTypeError,"unsupported tag %d [ 0x%x ]",tag,tag);
         return Qnil;
 }
@@ -42,20 +41,17 @@ static VALUE s_read_varint(sereal_t *s, u8 tag) {
 
 /* FLOAT */
 static VALUE s_read_float(sereal_t *s, u8 tag) {
-        float *f = (float *) s_get_p_at_pos_bang(s,s->pos,sizeof(*f));
-        return DBL2NUM((double) *f);
+        return DBL2NUM(s_get_float_bang(s));
 }
 
 /* DOUBLE */
 static VALUE s_read_double(sereal_t *s, u8 tag) {
-        double *d = (double *) s_get_p_at_pos_bang(s,s->pos,sizeof(*d));
-        return DBL2NUM(*d);
+        return DBL2NUM(s_get_double_bang(s));
 }
 
 /* LONG DOUBLE */
 static VALUE s_read_long_double(sereal_t *s, u8 tag) {
-        long double *d = (long double *) s_get_p_at_pos_bang(s,s->pos,sizeof(*d));
-        return DBL2NUM((double) *d);
+        return DBL2NUM((double) s_get_long_double(s));
 }
 
 /* POS */
@@ -112,24 +108,26 @@ static VALUE s_read_hashref(sereal_t *s, u8 tag) {
 static VALUE s_read_rb_string_bang(sereal_t *s,u8 t) {
         u32 len = 0;
         VALUE string;
-#define RETURN_STRING(fx_l,fx_gen)              \
-        do {                                    \
-                len = fx_l;                     \
-                string = fx_gen;                \
-                s_shift_position_bang(s,len);   \
-                return string;                  \
+// len - 1: we also use the current byte, similar to u32,float.. casts
+#define RETURN_STRING(fx_l,fx_gen)                                     \
+        do {                                                           \
+                len = fx_l;                                            \
+                u8 *ptr = len == 0 ? 0 : s_get_p_req_inclusive(s,len); \
+                string = fx_gen;                                       \
+                s_shift_position_bang(s,len);                          \
+                return string;                                         \
         } while(0);
 
         if (t == SRL_HDR_STR_UTF8) {
                 RETURN_STRING(s_get_varint_bang(s),
-                              rb_enc_str_new(s_get_p(s),len,
+                              rb_enc_str_new(ptr,len,
                               rb_utf8_encoding()));
         } else if (t == SRL_HDR_BINARY || t == SRL_HDR_SYM) {
                 RETURN_STRING(s_get_varint_bang(s),
-                              rb_str_new(s_get_p(s),len));
+                              rb_str_new(ptr,len));
         } else if (IS_SHORT_BINARY(t)) {
                 RETURN_STRING((t & SRL_MASK_SHORT_BINARY_LEN),
-                              rb_str_new(s_get_p(s), len));
+                              rb_str_new(ptr, len));
         }
 #undef RETURN_STRING
         s_raise(s,rb_eTypeError, "undefined string type %d",t);
@@ -196,7 +194,7 @@ VALUE sereal_to_rb_object(sereal_t *s) {
         u8 t, tracked;
         S_RECURSE_INC(s);
         u32 pos;
-        while (s->pos < s->size) {
+        while (s->pos < s->size || (s->flags & FLAG_STREAM)) {
                 t = s_get_u8_bang(s);
                 tracked = (t & SRL_HDR_TRACK_FLAG ? 1 : 0);
                 t &= ~SRL_HDR_TRACK_FLAG;
@@ -223,23 +221,50 @@ VALUE method_sereal_decode(VALUE self, VALUE args) {
         if (argc < 1)
                 rb_raise(rb_eArgError,"need at least 1 argument (object)");
         VALUE payload = rb_ary_shift(args);
-        if (TYPE(payload) != T_STRING) 
-                rb_raise(rb_eTypeError,"can not decode objects of type %s",rb_obj_classname(payload));
         u8 have_block = rb_block_given_p();
         sereal_t *s = s_create();
         u64 offset = 0;
-again: 
-        if (offset >= RSTRING_LEN(payload)) {
-            free(s);
-            return Qnil;
+        if (TYPE(payload) == T_FILE) {
+                if (!have_block)
+                        s_raise(s,rb_eTypeError,"block is required when reading from a stream")
+
+                rb_io_t *fptr;
+                GetOpenFile(payload, fptr);
+                s->flags |= FLAG_STREAM;
+                s->fd = fptr->fd;
+        } else if (TYPE(payload) != T_STRING) {
+                rb_raise(rb_eTypeError,"can not decode objects of type %s",rb_obj_classname(payload));
         }
-        s->flags |= FLAG_NOT_MINE;
-        s->data = RSTRING_PTR(payload) + offset;
-        s->size = RSTRING_LEN(payload) - offset;
+
+again: 
         s->pos = 0;
-        s->tracked = Qnil;
-        if (s->size < 6 || s_get_u32_bang(s) != SRL_MAGIC_STRING_LILIPUTIAN) 
-                s_raise(s,rb_eTypeError,"invalid header"); 
+        s_reset_tracker(s);
+
+        if (s->flags & FLAG_STREAM) {
+                s->size = 0;
+                s->rsize = 0;
+                if (s_read_stream(s,__MIN_SIZE) < 0) {
+                        s_destroy(s);
+                        return Qnil;
+                }
+
+        } else {
+                u32 size = RSTRING_LEN(payload) - offset;
+                if (offset > RSTRING_LEN(payload) || (offset > 0 && size < __MIN_SIZE)) {
+                        s_destroy(s);
+                        return Qnil;
+                }
+                if (size < __MIN_SIZE)
+                    s_raise(s,rb_eTypeError,"size(%d) is less then min packet size %d, offset: %d",size,__MIN_SIZE,offset);
+
+                s->flags |= FLAG_NOT_MINE;
+                s->data = RSTRING_PTR(payload) + offset;
+                s->size = size;
+        }
+
+        u32 magic = s_get_u32_bang(s);
+        if (magic != SRL_MAGIC_STRING_LILIPUTIAN)
+                s_raise(s,rb_eTypeError,"invalid header: %d (%x)",magic,magic); 
 
         u8 version = s_get_u8_bang(s);
         u8 suffix = s_get_varint_bang(s);
@@ -251,6 +276,7 @@ again:
                 is_compressed = __SNAPPY_INCR;
         else
                 is_compressed = __RAW;
+
         if (is_compressed) {
                 u32 uncompressed_len;
                 u32 compressed_len;
@@ -258,41 +284,51 @@ again:
                 if (is_compressed == __SNAPPY_INCR) {
                         compressed_len = s_get_varint_bang(s);
                 } else {
+                        if (s->flags & FLAG_STREAM)
+                                s_raise(s,rb_eTypeError,"parsing non incremental compressed objects, from stream of data, is not supported");
+
                         compressed_len = s->size - s->pos;
                 }
 
-                int snappy_header_len = csnappy_get_uncompressed_length(s_get_p(s),
+                if (s->flags & FLAG_STREAM)
+                        s_get_p_req_inclusive(s,compressed_len);
+
+                int snappy_header_len = csnappy_get_uncompressed_length(s_get_p_req_inclusive(s,compressed_len),
                                                                         compressed_len,
                                                                         &uncompressed_len);
                 if (snappy_header_len == CSNAPPY_E_HEADER_BAD) 
-                    rb_raise(rb_eTypeError,"invalid snappy header");
-                u8 *uncompressed = alloc_or_raise(uncompressed_len);
-                int done = csnappy_decompress(s_get_p(s),
+                        s_raise(s,rb_eTypeError,"invalid snappy header");
+                u8 *uncompressed = s_alloc_or_raise(s,uncompressed_len);
+
+                int done = csnappy_decompress(s_get_p_req_inclusive(s,compressed_len),
                                               compressed_len,
                                               uncompressed,
                                               uncompressed_len) == CSNAPPY_E_OK ? 1 : 0;
                 if (!done)
-                        s_raise(s,rb_eTypeError, "decompression failed error: %d type: %d, unompressed size: %d compressed size: %d",done,is_compressed,uncompressed_len,compressed_len);
+                        s_raise(s,rb_eTypeError, "decompression failed error: %d type: %d, unompressed size: %d compressed size: %d",
+                                                  done,is_compressed,uncompressed_len,compressed_len);
 
-                offset += s->pos + compressed_len;
+                s_free_data_if_not_mine(s);
                 s->data = uncompressed;
                 s->size = uncompressed_len;
+                offset += s->pos + compressed_len;
                 s->pos = 0;
                 s->flags &= ~FLAG_NOT_MINE;
         }
         s->hdr_end = s->pos;
         VALUE result = sereal_to_rb_object(s);
-        if (is_compressed && have_block) {
-                free(s->data);
-                s->data = NULL;
-                rb_yield(result);
-                goto again;
-        }
-        s_destroy(s);
+        if (!is_compressed)
+            offset += s->pos;
         if (have_block) {
-            rb_yield(result);
-            return Qnil;
+                rb_yield(result);
+                s_free_data_if_not_mine(s);
+                goto again;
+        } else {
+            if (s->pos < s->size) {
+                s_raise(s,rb_eTypeError,"there is still some data left in the buffer, use block read, otherwise we are losing it");
+            }
+            s_destroy(s);
+            return result;
         }
-        return result;
 }
 

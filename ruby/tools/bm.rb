@@ -4,7 +4,6 @@ rescue LoadError
   require './lib/sereal'
 end
 require 'json'
-require 'bson'
 require 'msgpack'
 require 'benchmark/ips'
 def rs
@@ -15,6 +14,9 @@ aa = [a,a,a,a]
 class ZXC
   @x = "a"
   @y = "b"
+  def to_srl
+    {x: @x, y: @y}
+  end
   def to_json
     {x: @x, y: @y}.to_json
   end
@@ -56,7 +58,5 @@ end
     x.report("msg-d") {  MessagePack.unpack(v) }
     x.report("jsn-e ") { v = t.to_json } unless t.kind_of?(String) || t.kind_of?(Fixnum)
     x.report("jsn-d") {  JSON.parse(v) } unless t.kind_of?(String) || t.kind_of?(Fixnum)
-    x.report("BSN-e ") { v = CBson.serialize(t,false,nil,10000) }  if t.kind_of?(Hash)
-    x.report("BSN-d ") { CBson.deserialize(v) }  if t.kind_of?(Hash)
   end
 end

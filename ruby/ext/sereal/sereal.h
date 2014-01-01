@@ -2,6 +2,7 @@
 #define _MAIN_H
 #include <ruby.h>
 #include <ruby/encoding.h>
+#include <ruby/io.h>
 #include <ruby/st.h>
 #include <string.h>     /* memcpy,memset */
 #include "proto.h"
@@ -40,6 +41,11 @@ typedef struct _track_entry     track_t;
 	#define MULTILINE RE_OPTION_MULTILINE
 	#define EXTENDED RE_OPTION_EXTENDED
 #endif
+
+#define FORMAT(fmt,arg...) fmt " [%s():%s:%d @ %u]\n",##arg,__func__,__FILE__,__LINE__,(unsigned int) time(NULL)
+#define E(fmt,arg...) fprintf(stderr,FORMAT(fmt,##arg))
+#define D(fmt,arg...) printf(FORMAT(fmt,##arg))
+
 #define s_raise(what,ex,arg...)         \
 do {                                    \
     s_destroy(what);                    \
@@ -47,6 +53,7 @@ do {                                    \
 } while(0);
 
 #define FLAG_NOT_MINE 1
+#define FLAG_STREAM   2
 struct _sereal {
         u8 *data;
         u32 size;
@@ -56,6 +63,7 @@ struct _sereal {
         u8 flags;
         VALUE tracked;
         u32 hdr_end;
+        int fd;
 };
 
 VALUE method_sereal_encode(VALUE self, VALUE args);
@@ -70,7 +78,6 @@ do {                                                              \
 } while(0);
 
 #define S_RECURSE_DEC(s) ((s)->level--)
-
 #ifndef HAVE_RB_INTERN_STR
 #define rb_intern_str(string) SYM2ID(rb_str_intern(string))
 #endif
@@ -81,5 +88,5 @@ do {                                                              \
 #define __RAW           0
 #define __SNAPPY        1
 #define __SNAPPY_INCR   2
-
+#define __MIN_SIZE      6
 #endif

@@ -272,9 +272,10 @@ VALUE method_sereal_encode(VALUE self, VALUE args) {
         s_append_u8(s,version);
         s_append_u8(s,0x0);
         u32 s_header_len = s->pos;
-        
+
         // serialize
         rb_object_to_sereal(s,payload);
+
         // compress
         if (do_compress) {
                 u8 *start_compressed_varint = NULL, *start_un_compressed_varint= NULL, *compressed, *end;
@@ -284,19 +285,19 @@ VALUE method_sereal_encode(VALUE self, VALUE args) {
                 u32 s_body_len = s->size - s_header_len;
                 // snappy <compressed blob>
                 // snappy incr <varint blob len><compressed blob>
-                // lz4 <varint uncompressed len><varint blob len><compressed blob>
                 if (do_compress == __SNAPPY || do_compress == __SNAPPY_INCR) {
                         compressed_len = csnappy_max_compressed_length(s_body_len);
                 }
 
                 if (do_compress == __SNAPPY_INCR) {
-                        start_compressed_varint = s_get_p(s);
+                        start_compressed_varint = s_end_p(s);
                         s_append_varint(s,compressed_len);
-                        end = s_get_p(s);
+                        end = s_end_p(s);
                         compressed_len_varint = end - start_compressed_varint;
                 }
 
-                compressed = alloc_or_raise(compressed_len + s_header_len + compressed_len_varint + un_compressed_len_varint);
+                compressed = s_alloc_or_raise(s,compressed_len + s_header_len + compressed_len_varint + un_compressed_len_varint);
+
                 COPY(s_get_p_at_pos(s,0,0),compressed,s_header_len);
 
                 if (start_un_compressed_varint)
@@ -309,7 +310,7 @@ VALUE method_sereal_encode(VALUE self, VALUE args) {
                              compressed_len_varint);
 
                 u8 *start = s_get_p_at_pos(s,s_header_len,1);
-                u8 *working_buf = alloc_or_raise(CSNAPPY_WORKMEM_BYTES);
+                u8 *working_buf = s_alloc_or_raise(s,CSNAPPY_WORKMEM_BYTES);
                 csnappy_compress(start, 
                                  s_body_len,
                                  (compressed + s_header_len + compressed_len_varint + un_compressed_len_varint),
@@ -319,7 +320,7 @@ VALUE method_sereal_encode(VALUE self, VALUE args) {
 
                 free(working_buf);
                 if (compressed_len == 0)
-                    s_raise(s,rb_eTypeError,"failed to compress");
+                        s_raise(s,rb_eTypeError,"failed to compress");
                 if (start_compressed_varint)
                         fixup_varint_from_to(compressed + s_header_len + un_compressed_len_varint, 
                                              compressed + s_header_len + un_compressed_len_varint + compressed_len_varint - 1,
