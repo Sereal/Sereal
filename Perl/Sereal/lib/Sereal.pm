@@ -2,7 +2,7 @@ package Sereal;
 use 5.008;
 use strict;
 use warnings;
-our $VERSION = '2.010';
+our $VERSION = '2.011';
 use Sereal::Encoder 2.01 qw(encode_sereal);
 use Sereal::Decoder 2.01 qw(decode_sereal looks_like_sereal);
 
@@ -91,6 +91,6 @@ their gratitude.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2012, 2013 by Steffen Mueller
+Copyright (C) 2012, 2013, 2014 by Steffen Mueller
 
 =cut
