@@ -1190,30 +1190,32 @@ srl_dump_object(pTHX_ srl_encoder_t *enc, SV *referent, SV *obj)
                 "'croak_on_bless' option.");
     }
 
+    if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS) ))
+        return object_content;
+
     /* FIXME reuse/ref/... should INCLUDE the bless stuff. */
 
     /* Check for FREEZE support */
     if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT) )) {
         HV *stash;
-        GV *method;
-
-        /* Check whether we've already frozen this very object */
-        if (SvREFCNT(referent) > 1) {
-            PTABLE_t *freezeobj_seenhash = SRL_GET_FREEZEOBJ_SEENHASH(enc);
-            const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(freezeobj_seenhash, referent);
-            if (expect_false(oldoffset)) {
-                /* we have seen it before, so we do not need to bless it again */
-                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REFP, (UV)oldoffset);
-                SRL_SET_FBIT(*(enc->buf.body_pos + oldoffset));
-                return NULL;
-            }
-
-            PTABLE_store(freezeobj_seenhash, referent, (void *)BODY_POS_OFS(enc->buf)+1);
-        }
+        GV *method = NULL;
+        PTABLE_t *freezeobj_seenhash= NULL;
 
         stash = SvSTASH(referent);
         assert(stash != NULL);
         method = gv_fetchmethod_autoload(stash, "FREEZE", 0);
+
+
+        /* Check whether we've already frozen this very object */
+        if (method && SvREFCNT(obj) > 1) {
+            freezeobj_seenhash = SRL_GET_FREEZEOBJ_SEENHASH(enc);
+            SV *replacement= PTABLE_fetch(freezeobj_seenhash, obj);
+            if (replacement) {
+                object_content= replacement;
+                method = NULL;
+            }
+        }
+
 
         if (expect_false( method != NULL )) {
             int count;
@@ -1242,26 +1244,14 @@ srl_dump_object(pTHX_ srl_encoder_t *enc, SV *referent, SV *obj)
             FREETMPS;
             LEAVE;
 
-            /* Write bless operator with class name */
-            srl_dump_classname(aTHX_ enc, referent, 1); /* 1 == have freeze call */
-            /* Dump object_content */
-            srl_dump_sv(aTHX_ enc, object_content);
-            SvREFCNT_dec(object_content);
-            object_content = NULL;
+            if (freezeobj_seenhash)
+                PTABLE_store(freezeobj_seenhash, obj, object_content);
         }
-        else {
-            /* No FREEZE method defined */
-            /* Write bless operator with class name */
-            srl_dump_classname(aTHX_ enc, referent, 0); /* 0 == no freeze call */
-            object_content = obj;
-        }
-    } /* end "if we need to support FREEZE" */
-    /* If we have SRL_F_NO_BLESS_OBJECTS, then do nothing. Otherwise, emit OBJECT* tag */
-    else if (expect_true( !SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS) )) {
-        srl_dump_classname(aTHX_ enc, referent, 0); /* 0 == no freeze call */
-        object_content = obj;
+        srl_dump_classname(aTHX_ enc, referent, 1); /* 1 == have freeze call */
+    } else {
+        /* Write bless operator with class name */
+        srl_dump_classname(aTHX_ enc, referent, 0); /* 1 == have freeze call */
     }
-
     return object_content;
 }
 
