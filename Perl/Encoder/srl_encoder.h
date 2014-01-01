@@ -26,7 +26,7 @@ typedef struct {
     ptable_ptr ref_seenhash;  /* ptr table for avoiding circular refs */
     ptable_ptr weak_seenhash; /* ptr table for avoiding dangling weakrefs */
     ptable_ptr str_seenhash;  /* ptr table for issuing COPY commands based on PTRS (used for classnames and keys) */
-    ptable_ptr freezeobj_seenhash; /* ptr table for tracking objects that were previously frozen via FREEZE */
+    ptable_ptr freezeobj_svhash; /* ptr table for tracking objects and their frozen replacments via FREEZE */
     HV *string_deduper_hv;    /* track strings we have seen before, by content */
 
     void *snappy_workmem;     /* lazily allocated if and only if using Snappy */
