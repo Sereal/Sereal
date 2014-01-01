@@ -1208,7 +1208,7 @@ srl_dump_object(pTHX_ srl_encoder_t *enc, SV *referent, SV *obj)
                 return NULL;
             }
 
-            PTABLE_store(freezeobj_seenhash, referent, (void *)BODY_POS_OFS(enc->buf)+1);
+            PTABLE_store(freezeobj_seenhash, referent, (void *)BODY_POS_OFS(enc->buf));
         }
 
         stash = SvSTASH(referent);
