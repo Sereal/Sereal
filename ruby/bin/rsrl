@@ -1,5 +1,9 @@
 #!/usr/bin/env ruby
-require 'sereal'
+begin
+  require './lib/sereal'
+rescue LoadError
+  require 'sereal'
+end
 
 content = ARGF.read
 compress = Sereal::RAW
@@ -14,5 +18,5 @@ if content[0..3] == '=srl'
     STDOUT.write(x)
   end
 else
-  STDOUT.write(Sereal.encode(content, compress))
+  STDOUT.write(Sereal.encode(eval(content), compress))
 end

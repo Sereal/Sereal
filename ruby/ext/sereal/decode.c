@@ -5,7 +5,7 @@
 
 static VALUE s_default_reader(sereal_t *s, u8 tag) {
         // s_dump(s);
-        s_raise(s,rb_eTypeError,"unsupported tag %d",tag);
+        s_raise(s,rb_eTypeError,"unsupported tag %d [ 0x%x ]",tag,tag);
         return Qnil;
 }
 
@@ -42,19 +42,19 @@ static VALUE s_read_varint(sereal_t *s, u8 tag) {
 
 /* FLOAT */
 static VALUE s_read_float(sereal_t *s, u8 tag) {
-        float *f = (float *) s_get_p_at_pos(s,s->pos,sizeof(*f));
+        float *f = (float *) s_get_p_at_pos_bang(s,s->pos,sizeof(*f));
         return DBL2NUM((double) *f);
 }
 
 /* DOUBLE */
 static VALUE s_read_double(sereal_t *s, u8 tag) {
-        double *d = (double *) s_get_p_at_pos(s,s->pos,sizeof(*d));
+        double *d = (double *) s_get_p_at_pos_bang(s,s->pos,sizeof(*d));
         return DBL2NUM(*d);
 }
 
 /* LONG DOUBLE */
 static VALUE s_read_long_double(sereal_t *s, u8 tag) {
-        long double *d = (long double *) s_get_p_at_pos(s,s->pos,sizeof(*d));
+        long double *d = (long double *) s_get_p_at_pos_bang(s,s->pos,sizeof(*d));
         return DBL2NUM((double) *d);
 }
 
@@ -68,7 +68,7 @@ static VALUE s_read_small_negative_int(sereal_t *s, u8 tag) {
         return INT2FIX(tag - 32);
 }
 
-/* ARRAY */ 
+/* ARRAY */
 static inline VALUE s_read_array_with_len(sereal_t *s, u32 len) {
         VALUE arr[len];
         register u32 i;
@@ -98,24 +98,28 @@ static inline VALUE s_read_hash_with_len(sereal_t *s, u32 len) {
         }
         return hash;
 }
+
 /* HASH */ 
 static VALUE s_read_hash(sereal_t *s, u8 tag) {
         return s_read_hash_with_len(s,s_get_varint_bang(s));
 }
+
 /* HASH */ 
 static VALUE s_read_hashref(sereal_t *s, u8 tag) {
         return s_read_hash_with_len(s,tag  & SRL_MASK_HASHREF_COUNT);
 }
+
 static VALUE s_read_rb_string_bang(sereal_t *s,u8 t) {
         u32 len = 0;
         VALUE string;
-        #define RETURN_STRING(fx_l,fx_gen)              \
-        do {                                            \
-                len = fx_l;                             \
-                string = fx_gen;                        \
-                s_shift_position_bang(s,len);           \
-                return string;                          \
+#define RETURN_STRING(fx_l,fx_gen)              \
+        do {                                    \
+                len = fx_l;                     \
+                string = fx_gen;                \
+                s_shift_position_bang(s,len);   \
+                return string;                  \
         } while(0);
+
         if (t == SRL_HDR_STR_UTF8) {
                 RETURN_STRING(s_get_varint_bang(s),
                               rb_enc_str_new(s_get_p(s),len,
@@ -127,7 +131,7 @@ static VALUE s_read_rb_string_bang(sereal_t *s,u8 t) {
                 RETURN_STRING((t & SRL_MASK_SHORT_BINARY_LEN),
                               rb_str_new(s_get_p(s), len));
         }
-        #undef RETURN_STRING
+#undef RETURN_STRING
         s_raise(s,rb_eTypeError, "undefined string type %d",t);
 }
 
@@ -171,20 +175,46 @@ static VALUE s_read_pad(sereal_t *s, u8 tag) {
         /* just skip this byte and go forward */
         return sereal_to_rb_object(s);
 }
+
 static VALUE s_read_extend(sereal_t *s, u8 tag) {
         s_raise(s,rb_eArgError,"extend tags are not supported");
 }
 
+static VALUE s_read_ref(sereal_t *s, u8 tag) {
+        u64 off = s_get_varint_bang(s);
+        if (s->tracked == Qnil)
+                s_raise(s,rb_eArgError,"there are no references stored");
+        return rb_hash_aref(s->tracked,INT2FIX(off + s->hdr_end));
+}
+
+static VALUE s_read_copy(sereal_t *s, u8 tag) {
+        VALUE ref = s_red_ref(s,tag);
+        return rb_obj_dup(ref);
+}
+
 VALUE sereal_to_rb_object(sereal_t *s) {
-        u8 t;
+        u8 t, tracked;
         S_RECURSE_INC(s);
+        u32 pos;
         while (s->pos < s->size) {
                 t = s_get_u8_bang(s);
-                if (t & SRL_HDR_TRACK_FLAG)
-                        s_raise(s,rb_eArgError, "trackable objects are not supported");
+                tracked = (t & SRL_HDR_TRACK_FLAG ? 1 : 0);
+                t &= ~SRL_HDR_TRACK_FLAG;
+                pos = s->pos;
+
                 S_RECURSE_DEC(s);
-                return (*READERS[t])(s,t);
+
+                VALUE decoded = (*READERS[t])(s,t);
+                if (tracked) {
+                        if (s->tracked == Qnil) {
+                                s->tracked = rb_hash_new();
+                                rb_gc_register_address(&s->tracked);
+                        }
+                        rb_hash_aset(s->tracked,INT2FIX(pos),decoded);
+                }
+                return decoded;
         }
+        s_raise(s,rb_eArgError,"bad packet, or broken decoder");
         return Qnil;
 }
 
@@ -207,6 +237,7 @@ again:
         s->data = RSTRING_PTR(payload) + offset;
         s->size = RSTRING_LEN(payload) - offset;
         s->pos = 0;
+        s->tracked = Qnil;
         if (s->size < 6 || s_get_u32_bang(s) != SRL_MAGIC_STRING_LILIPUTIAN) 
                 s_raise(s,rb_eTypeError,"invalid header"); 
 
@@ -249,7 +280,7 @@ again:
                 s->pos = 0;
                 s->flags &= ~FLAG_NOT_MINE;
         }
-
+        s->hdr_end = s->pos;
         VALUE result = sereal_to_rb_object(s);
         if (is_compressed && have_block) {
                 free(s->data);

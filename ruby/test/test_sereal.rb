@@ -49,6 +49,13 @@ class Test::Unit::TestCase
       end
     end
   end
+  def test_example
+    decoded = {"bbb"=>[0.123213, 1, 2, 3, "bzbz"], "aaa"=>[0.123213, 1, 2, 3, "bzbz"], "巴黎"=>{"123123"=>"巴黎"}}  
+    Sereal.decode(File.open(File.join(File.dirname(__FILE__),"example.srl")).read) do |x|
+      assert_equal(x.inspect,decoded.inspect)
+    end
+  end
+
   def test_nil
     assert_equal recode(nil),nil
   end

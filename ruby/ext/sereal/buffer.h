@@ -16,6 +16,8 @@ static inline sereal_t * s_create(void) {
 }
 
 static inline void s_destroy(sereal_t *s) {
+        if (s->tracked != Qnil)
+                rb_gc_unregister_address(&s->tracked);
         if (s->data && (s->flags & FLAG_NOT_MINE) == 0)
                 free(s->data);
 
@@ -53,9 +55,16 @@ static inline void *s_get_p_at_pos(sereal_t *s, u32 pos,u32 req) {
         return &s->data[pos];
 }
 
+static inline void *s_get_p_at_pos_bang(sereal_t *s, u32 pos,u32 req) {
+        void *p = s_get_p_at_pos(s,pos,req);
+        s->pos += req;
+        return p;
+}
+
 static inline void *s_get_p(sereal_t *s) {
         return s_get_p_at_pos(s,s->pos,0);
 }
+
 static inline u8 s_get_u8(sereal_t *s) {
         return *((u8 *) s_get_p(s));
 }

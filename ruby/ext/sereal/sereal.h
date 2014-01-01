@@ -54,6 +54,8 @@ struct _sereal {
         u32 rsize;
         u32 level;
         u8 flags;
+        VALUE tracked;
+        u32 hdr_end;
 };
 
 VALUE method_sereal_encode(VALUE self, VALUE args);
@@ -62,9 +64,9 @@ VALUE method_sereal_decode(VALUE self, VALUE payload);
 #define S_RECURSE_INC(s)                                          \
 do {                                                              \
         if((s)->level++ > MAX_RECURSION_DEPTH)                    \
-                rb_raise(rb_eArgError,                            \
-                         "max recursion depth reached: %d",       \
-                         MAX_RECURSION_DEPTH);                    \
+            s_raise((s),rb_eArgError,                             \
+                    "max recursion depth reached: %d (level: %d)",\
+                    MAX_RECURSION_DEPTH, s->level);               \
 } while(0);
 
 #define S_RECURSE_DEC(s) ((s)->level--)

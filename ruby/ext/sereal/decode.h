@@ -21,6 +21,8 @@ static VALUE s_read_true(sereal_t *s, u8 tag);
 static VALUE s_read_false(sereal_t *s, u8 tag);
 static VALUE s_read_pad(sereal_t *s, u8 tag);
 static VALUE s_read_extend(sereal_t *s, u8 tag);
+static VALUE s_read_ref(sereal_t *s, u8 tag);
+static VALUE s_read_copy(sereal_t *s, u8 tag);
 
 static VALUE (*READERS[256])(sereal_t *, u8) = {
         s_read_small_positive_int,                      // 0    SRL_HDR_POS_LOW
@@ -63,14 +65,14 @@ static VALUE (*READERS[256])(sereal_t *, u8) = {
         s_read_nil,                                     // 37   SRL_HDR_UNDEF
         s_read_rb_string_bang,                          // 38   SRL_HDR_BINARY
         s_read_rb_string_bang,                          // 39   SRL_HDR_STR_UTF8
-        s_default_reader, /* XXX */                     // 40   SRL_HDR_REFN
-        s_default_reader, /* XXX */                     // 41   SRL_HDR_REFP
+        s_read_pad,                                     // 40   SRL_HDR_REFN
+        s_read_ref,                                     // 41   SRL_HDR_REFP
         s_read_hash,                                    // 42   SRL_HDR_HASH
         s_read_array,                                   // 43   SRL_HDR_ARRAY
         s_default_reader, /* XXX */                     // 44   SRL_HDR_OBJECT
         s_default_reader, /* XXX */                     // 45   SRL_HDR_OBJECTV
-        s_default_reader, /* XXX */                     // 46   SRL_HDR_ALIAS
-        s_default_reader, /* XXX */                     // 47   SRL_HDR_COPY
+        s_read_ref,                                     // 46   SRL_HDR_ALIAS
+        s_read_copy,                                    // 47   SRL_HDR_COPY
         s_default_reader, /* XXX */                     // 48   SRL_HDR_WEAKEN
         s_read_regexp,                                  // 49   SRL_HDR_REGEXP
         s_default_reader, /* XXX */                     // 50   SRL_HDR_RESERVED_LOW
