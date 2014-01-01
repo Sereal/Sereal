@@ -508,7 +508,7 @@ func (e *Encoder) encodeString(by []byte, s string, strTable map[string]int) []b
 
 	by = append(by, typeSTR_UTF8)
 	by = varint(by, uint(len(s)))
-	by = append(by, []byte(s)...)
+	by = append(by, s...)
 
 	return by
 }
