@@ -934,14 +934,20 @@ func setFloat(v reflect.Value, k reflect.Kind, f float64) {
 	v.SetFloat(f)
 }
 
+var structTagsCache = make(map[reflect.Type]map[string]int)
+
 func getStructTags(ptr reflect.Value) map[string]int {
 	if ptr.Kind() != reflect.Struct {
 		return nil
 	}
 
-	m := make(map[string]int)
-
 	t := ptr.Type()
+
+	if m, ok := structTagsCache[t]; ok {
+		return m
+	}
+
+	m := make(map[string]int)
 
 	l := t.NumField()
 	numTags := 0
@@ -953,11 +959,28 @@ func getStructTags(ptr reflect.Value) map[string]int {
 		}
 	}
 
-	if numTags == 0 {
-		return nil
+	if numTags != 0 {
+		structTagsCache[t] = m
+		return m
 	}
 
-	return m
+	// build one from the public names
+	for i := 0; i < l; i++ {
+		pkgpath := t.Field(i).PkgPath
+		if pkgpath == "" { // exported
+			field := t.Field(i).Name
+			m[field] = i
+			numTags++
+		}
+	}
+
+	if numTags != 0 {
+		structTagsCache[t] = m
+		return m
+	}
+
+	structTagsCache[t] = nil
+	return nil
 }
 
 func getValue(ptr reflect.Value, key string, structTags map[string]int) (reflect.Value, bool) {
