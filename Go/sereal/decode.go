@@ -420,7 +420,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 			ptr.Set(reflect.ValueOf(m))
 		}
 
-		structTags := getStructTags(ptr)
+		tags := getStructTags(ptr)
 
 		if trackme {
 			tracked[startIdx] = ptr
@@ -435,13 +435,13 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 			}
 
 			idx += sz
-			rval, _ := getValue(ptr, key, structTags)
+			rval, _ := getValue(ptr, key, tags)
 			sz, err = d.decode(b, idx, tracked, rval)
 			if err != nil {
 				return 0, err
 			}
 			idx += sz
-			setKeyValue(ptr, key, rval, structTags)
+			setKeyValue(ptr, key, rval, tags)
 		}
 
 	case tag == typeARRAY:
@@ -983,30 +983,26 @@ func getStructTags(ptr reflect.Value) map[string]int {
 	return nil
 }
 
-func getValue(ptr reflect.Value, key string, structTags map[string]int) (reflect.Value, bool) {
+func getValue(ptr reflect.Value, key string, tags map[string]int) (reflect.Value, bool) {
 	if ptr.Kind() == reflect.Map {
 		return reflect.New(ptr.Type().Elem()).Elem(), true
 	}
 
 	if ptr.Kind() == reflect.Struct {
 
-		if structTags != nil {
-			i, ok := structTags[key]
-			if !ok {
-				var iface interface{}
-				return reflect.ValueOf(&iface).Elem(), false
-			}
+		if tags == nil {
+			// struct has no public fields
+			var iface interface{}
+			return reflect.ValueOf(&iface).Elem(), false
+		}
+
+		if i, ok := tags[key]; ok {
 			return ptr.Field(i), true
 		}
 
-		f := ptr.FieldByName(key)
-		if f.IsValid() {
-			return f, true
-		}
-		f = ptr.FieldByName(strings.Title(key))
-		if f.IsValid() {
-			return f, true
-		}
+		// unknown field name
+		var iface interface{}
+		return reflect.ValueOf(&iface).Elem(), false
 	}
 
 	var iface interface{}
@@ -1014,7 +1010,7 @@ func getValue(ptr reflect.Value, key string, structTags map[string]int) (reflect
 	return reflect.ValueOf(&iface).Elem(), false
 }
 
-func setKeyValue(ptr reflect.Value, key string, val reflect.Value, structTags map[string]int) {
+func setKeyValue(ptr reflect.Value, key string, val reflect.Value, tags map[string]int) {
 
 	if ptr.Kind() == reflect.Map {
 		if ptr.IsNil() {
@@ -1026,26 +1022,27 @@ func setKeyValue(ptr reflect.Value, key string, val reflect.Value, structTags ma
 
 	if ptr.Kind() == reflect.Struct {
 
-		if structTags != nil {
-			i, ok := structTags[key]
-			if !ok {
-				return
-			}
+		if tags == nil {
+			// no public fields, nothing to set
+			return
+		}
+
+		// look for the key we know
+		if i, ok := tags[key]; ok {
 			f := ptr.Field(i)
 			f.Set(val)
 			return
 		}
 
-		f := ptr.FieldByName(key)
-		if !f.IsValid() {
-			f = ptr.FieldByName(strings.Title(key))
-		}
-
-		if !f.IsValid() {
+		// look for the title-cased key
+		tkey := strings.Title(key)
+		if i, ok := tags[tkey]; ok {
+			f := ptr.Field(i)
+			f.Set(val)
 			return
 		}
 
-		f.Set(val)
+		// not found
 		return
 	}
 

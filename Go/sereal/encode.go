@@ -544,23 +544,8 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]
 
 	by = e.encodeBytes(by, []byte(typ.Name()), strTable)
 
-	l := typ.NumField()
-	publicFields := 0
-
-	structTags := getStructTags(st)
-
-	if structTags != nil {
-		publicFields = len(structTags)
-	} else {
-
-		for i := 0; i < l; i++ {
-			fty := typ.Field(i)
-			if fty.PkgPath != "" {
-				continue // skip unexported names
-			}
-			publicFields++
-		}
-	}
+	tags := getStructTags(st)
+	publicFields := len(tags)
 
 	if e.PerlCompat {
 		// must be a reference
@@ -570,18 +555,9 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]
 	by = append(by, typeHASH)
 	by = varint(by, uint(publicFields))
 
-	if structTags != nil {
-		for f, i := range structTags {
+	if tags != nil {
+		for f, i := range tags {
 			by = e.encodeString(by, f, strTable)
-			by, _ = e.encode(by, st.Field(i), strTable, ptrTable)
-		}
-	} else {
-		for i := 0; i < l; i++ {
-			fty := typ.Field(i)
-			if fty.PkgPath != "" {
-				continue // skip unexported names
-			}
-			by = e.encodeString(by, fty.Name, strTable)
 			by, _ = e.encode(by, st.Field(i), strTable, ptrTable)
 		}
 	}
