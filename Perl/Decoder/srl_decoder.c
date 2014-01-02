@@ -120,10 +120,12 @@ SRL_STATIC_INLINE void srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* i
 SRL_STATIC_INLINE void srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag);
 SRL_STATIC_INLINE void srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag);
 
+SRL_STATIC_INLINE void srl_track_sv(pTHX_ srl_decoder_t *dec, U8 *track_pos, SV *sv);
+SRL_STATIC_INLINE void srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into);
+
 /* FIXME unimplemented!!! */
 SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 
-SRL_STATIC_INLINE void srl_track_sv(pTHX_ srl_decoder_t *dec, U8 *track_pos, SV *sv);
 
 #define ASSERT_BUF_SPACE(dec,len,msg) STMT_START {              \
     if (expect_false( (UV)BUF_SPACE((dec)) < (UV)(len) )) { \
@@ -1135,7 +1137,8 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
  * SRL_HDR_OBJECT_FREEZE and SRL_HDR_OBJECTV_FREEZE. */
 
 SRL_STATIC_INLINE void
-srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into) {
+srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
+{
     GV *method = gv_fetchmethod_autoload(class_stash, "THAW", 0);
     char *classname = HvNAME(class_stash);
     SV* referent;
