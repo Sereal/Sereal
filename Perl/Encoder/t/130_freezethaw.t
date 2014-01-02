@@ -34,7 +34,7 @@ sub THAW {
   my ($class, $serializer, $data) = @_;
   $thaw_called = 1;
 
-  return Foo->new(data => $data);
+  return Foo->new();
 }
 
 package main;
@@ -51,16 +51,17 @@ if ($run_decoder_tests) {
   my $obj = $dec->decode($srl);
   ok(defined($obj));
   isa_ok($obj, "Foo");
-  is($obj->{data}, "frozen object");
-  is($obj->{bar}, 1);
+  is(eval{$obj->{bar}}, 1) or diag Dumper($obj);
 
   # Test referential integrity
   my $foo = Foo->new;
   my $data = [$foo, $foo];
   my $srl = $enc->encode($data);
-  my $out = $dec->decode($enc->encode($data));
+  my $out = $dec->decode($srl);
+  use Data::Dumper;
   cmp_ok($out->[0], "eq", $out->[1],
-         "Referential integrity: multiple RVs do not turn into clones");
+         "Referential integrity: multiple RVs do not turn into clones")
+         or diag(Dumper($data,$out));
 }
 
 done_testing();

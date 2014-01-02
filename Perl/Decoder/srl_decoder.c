@@ -119,10 +119,11 @@ SRL_STATIC_INLINE void srl_read_zigzag(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into);
 SRL_STATIC_INLINE void srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag);
 SRL_STATIC_INLINE void srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag);
-SRL_STATIC_INLINE void srl_thaw_callback(pTHX_ srl_decoder_t *dec, SV *into, HV *class_stash);
 
 /* FIXME unimplemented!!! */
 SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
+
+SRL_STATIC_INLINE void srl_track_sv(pTHX_ srl_decoder_t *dec, U8 *track_pos, SV *sv);
 
 #define ASSERT_BUF_SPACE(dec,len,msg) STMT_START {              \
     if (expect_false( (UV)BUF_SPACE((dec)) < (UV)(len) )) { \
@@ -558,6 +559,7 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
     }
 }
 
+
 /* PRIVATE UTILITY FUNCTIONS */
 
 SRL_STATIC_INLINE UV
@@ -990,28 +992,28 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
 
 
     if (expect_false( obj_tag == SRL_HDR_OBJECT_FREEZE )) {
-        HV *stash= PTABLE_fetch(dec->ref_stashes, (void *)ofs);
-        if (expect_false( stash == NULL ))
+        HV *class_stash= PTABLE_fetch(dec->ref_stashes, (void *)ofs);
+        if (expect_false( class_stash == NULL ))
             SRL_ERROR("Corrupted packet. OBJECTV used without preceding OBJECT to define classname");
-        srl_thaw_callback(aTHX_ dec, into, stash);
-    }
-    else { /* No THAW callback needed (this is SRL_HDR_OBJECTV) */
+        srl_read_frozen_object(aTHX_ dec, class_stash, into);
+    }  else {
+
         /* now deparse the thing we are going to bless */
         srl_read_single_value(aTHX_ dec, into);
+
+        /* and also stuff it into the av - we dont have to do any more book-keeping */
+        av_push(av, SvREFCNT_inc(into));
 
 #if USE_588_WORKAROUND
         {
             /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */
-            HV *stash= PTABLE_fetch(dec->ref_stashes, (void *)ofs);
-            if (expect_false( stash == NULL ))
+            HV *class_stash= PTABLE_fetch(dec->ref_stashes, (void *)ofs);
+            if (expect_false( class_stash == NULL ))
                 SRL_ERROR("Corrupted packet. OBJECTV used without preceding OBJECT to define classname");
             if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS))
-                sv_bless(into, stash);
+                sv_bless(into, class_stash);
         }
 #endif
-
-        /* and also stuff it into the av - we dont have to do any more book-keeping */
-        av_push(av, SvREFCNT_inc(into));
     }
 }
 
@@ -1104,9 +1106,10 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
     }
 
     if (expect_false( obj_tag == SRL_HDR_OBJECT_FREEZE )) {
-        srl_thaw_callback(aTHX_ dec, into, class_stash);
-    }
-    else { /* this is SRL_HDR_OBJECT, no THAW call */
+        srl_read_frozen_object(aTHX_ dec, class_stash, into);
+    }  else {
+
+
         /* We now have a stash so we /could/ bless... except that
          * we don't actually want to do so right now. We want to defer blessing
          * until the full packet has been read. Yes it is more overhead, but
@@ -1121,32 +1124,36 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
 #if USE_588_WORKAROUND
         /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */
         if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS))
-            sv_bless(into, stash);
+            sv_bless(into, class_stash);
 #endif
+
     }
 }
-
 
 /* Invoke a THAW callback on the given class. Pass in the next item in the
  * decoder stream. This is implementing the FREEZE/THAW part of
  * SRL_HDR_OBJECT_FREEZE and SRL_HDR_OBJECTV_FREEZE. */
+
 SRL_STATIC_INLINE void
-srl_thaw_callback(pTHX_ srl_decoder_t *dec, SV *into, HV *class_stash)
-{
-    /* Need to make a THAW call if possible */
-    char *classname;
-    SV *tmp_into = sv_2mortal(newSV(0)); /* FIXME ugh, a new mortal each time */
-    GV *method;
+srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into) {
+    GV *method = gv_fetchmethod_autoload(class_stash, "THAW", 0);
+    char *classname = HvNAME(class_stash);
+    SV* referent;
+    SV *replacement;
+    
+    /* At this point in the input stream we should have REFN WHATEVER. The WHATEVER
+     * may be referenced from multiple RV's in the data structure, which means that
+     * srl_read_single_value() will cache the *unthawed* representation when we finally
+     * process it. So we need to do some special bookkeeping here and then overwrite
+     * that representation in the refs hash.
+     */
 
-    /* Get the data structure for THAW from the Sereal stream */
-    srl_read_single_value(aTHX_ dec, tmp_into);
-
-    method = gv_fetchmethod_autoload(class_stash, "THAW", 0);
+    unsigned char *fixup_pos= dec->pos + 1; /* get the tag for the WHATEVER */
 
     if (expect_false( method == NULL ))
         SRL_ERRORf1("No THAW method defined for class '%s'", HvNAME(class_stash));
 
-    classname = HvNAME(class_stash);
+    srl_read_single_value(aTHX_ dec, into);
 
     {
         int count;
@@ -1158,10 +1165,10 @@ srl_thaw_callback(pTHX_ srl_decoder_t *dec, SV *into, HV *class_stash)
 
         EXTEND(SP, 3);
         /* TODO Consider more caching for some of this */
-        PUSHs(sv_2mortal(newSVpvn(classname, strlen(classname)))); 
+        PUSHs(sv_2mortal(newSVpvn(classname, strlen(classname))));
         /* FIXME do not recreate the following SV. That's dumb and wasteful! */
         PUSHs(sv_2mortal(newSVpvs("Sereal")));
-        PUSHs(tmp_into);
+        PUSHs(into);
 
         PUTBACK;
         count = call_sv((SV *)GvCV(method), G_SCALAR);
@@ -1170,7 +1177,15 @@ srl_thaw_callback(pTHX_ srl_decoder_t *dec, SV *into, HV *class_stash)
 
         if (expect_true( count == 1 )) {
             SV *tmpsv = POPs;
-            sv_setsv(into, tmpsv); /* copy to output SV */
+            if (SvRV(tmpsv)) {
+                replacement= SvRV(tmpsv);
+                SvREFCNT_inc(replacement);
+                /*tmpsv is mortal  the thing it points at 'replacement' isn't */
+            } else {
+                replacement= tmpsv;
+            }
+        } else {
+            replacement = &PL_sv_undef;
         }
         /* If count is not 1, then it's 0. Then into is already undef. */
 
@@ -1178,7 +1193,20 @@ srl_thaw_callback(pTHX_ srl_decoder_t *dec, SV *into, HV *class_stash)
         FREETMPS;
         LEAVE;
     }
+    /* At this point "into" is an SvRV pointing at the *unthawed* representation.
+     * This means we need to a) remove the old unthawed item and dispose of it
+     * and b) make "into" point at the replacement, and c) if necessary store the
+     * replacement in the sv tracking hash so that future references to this item
+     * point at the *thawed* version. */
+
+    referent= SvRV(into);
+    SvREFCNT_inc(replacement);
+    SvRV_set(into, replacement);
+    SvREFCNT_dec(referent);
+    if (*fixup_pos & SRL_HDR_TRACK_FLAG) 
+        srl_track_sv(aTHX_ dec, fixup_pos, replacement);
 }
+
 
 
 SRL_STATIC_INLINE void
