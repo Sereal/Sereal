@@ -71,14 +71,18 @@ static inline int s_read_stream(sereal_t *s, u32 end) {
      u32 pos = s->pos;
      while (s->size < end) {
         u32 req = end - s->size;
-        u8 *buf = s_alloc_or_raise(s,s->size - req);
-        int rc = read(s->fd,buf,req);
-        if (rc <= 0) {
-            free(buf);
-            return -1;
+        u32 left = s->buffer.size - s->buffer.pos;
+        if (left == 0) {
+            int rc = read(s->fd,s->buffer.data,BUFSIZ);
+            if (rc <= 0)
+                return -1;
+            s->buffer.size = rc;
+            s->buffer.pos = 0;
+            left = rc;
         }
-        s_append(s,buf,rc);
-        free(buf);
+        left = left > req ? req : left;
+        s_append(s,s->buffer.data + s->buffer.pos,left);
+        s->buffer.pos += left;
     };
     s->pos = pos;
     return 1;

@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 begin
-  require './lib/sereal'
+  require File.join(File.dirname(__FILE__),'..','lib','sereal')
 rescue LoadError
   require 'sereal'
 end
@@ -13,6 +13,7 @@ compress = Sereal::RAW
     compress = v
   end
 end
+
 if ENV['Sereal_STREAM'] || content[0..3] == '=srl'
   Sereal.decode(content) do |x|
     STDOUT.write(x)

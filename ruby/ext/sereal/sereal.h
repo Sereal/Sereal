@@ -63,6 +63,11 @@ struct _sereal {
     VALUE tracked;
     u32 hdr_end;
     int fd;
+    struct buffer {
+        u8 data[BUFSIZ];
+        u32 pos;
+        u32 size;
+    } buffer;
 };
 
 VALUE method_sereal_encode(VALUE self, VALUE args);

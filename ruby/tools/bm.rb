@@ -1,8 +1,9 @@
 begin
-  require 'sereal'
+  require File.join(File.dirname(__FILE__),'..','lib','sereal')
 rescue LoadError
-  require './lib/sereal'
+  require 'sereal'
 end
+
 require 'json'
 require 'msgpack'
 require 'benchmark/ips'
