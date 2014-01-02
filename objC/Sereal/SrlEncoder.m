@@ -274,21 +274,24 @@ static void encode_object(srl_encoder_t *enc, id obj)
     NSData *data = nil;
     NSString *className = nil;
     
+    BOOL frozen = NO;
+    
     if ([obj isKindOfClass:[SrlObject class]]) {
         data = ((SrlObject *)obj).objData;
         className = ((SrlObject *)obj).className;
     } else {
         data = [NSArchiver archivedDataWithRootObject:obj];
         className = [obj className];
+        frozen = YES;
     }
     NSNumber *offset = [encodedStrings objectForKey:className];
     if (offset) {
         EXPAND_BUFFER(enc, 1);
-        enc->hdr[(*enc->ofx)++] = SRL_HDR_OBJECTV;
+        enc->hdr[(*enc->ofx)++] = frozen ? SRL_HDR_OBJECTV_FREEZE : SRL_HDR_OBJECTV;
         append_varint(enc, [offset longLongValue]);
     } else {
         EXPAND_BUFFER(enc, 1);
-        enc->hdr[(*enc->ofx)++] = SRL_HDR_OBJECT;
+        enc->hdr[(*enc->ofx)++] = frozen ? SRL_HDR_OBJECT_FREEZE : SRL_HDR_OBJECT;
         srl_encode(enc, [obj className]);
     }
     if ([data isKindOfClass:[NSData class]]) {

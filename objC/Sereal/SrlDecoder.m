@@ -235,7 +235,7 @@ static void create_decoders_lookup()
         return array;
     };
     
-    decoders[SRL_HDR_OBJECT] = ^id (srl_decoder_t *dec) {
+    decoders[SRL_HDR_OBJECT_FREEZE] = ^id (srl_decoder_t *dec) {
         NSString *className = srl_decode(dec);
         id object = srl_decode(dec);
         if ([object isKindOfClass:[NSData class]]) {
@@ -251,10 +251,11 @@ static void create_decoders_lookup()
             }
             
         }
-        return [SrlObject srlObject:className data:object];
+        // TODO - Error Messages
+        return NULL;
     };
     
-    decoders[SRL_HDR_OBJECTV] = ^id (srl_decoder_t *dec) {
+    decoders[SRL_HDR_OBJECTV_FREEZE] = ^id (srl_decoder_t *dec) {
         ssize_t offset = read_varint(dec) + dec->bdy - 1;
         srl_decoder_t copy_dec = COPY_DECODER(dec, offset);
         NSString *className = srl_decode(&copy_dec);
@@ -272,6 +273,21 @@ static void create_decoders_lookup()
             }
             
         }
+        // TODO - Error Messages
+        return NULL;
+    };
+    
+    decoders[SRL_HDR_OBJECT] = ^id (srl_decoder_t *dec) {
+        NSString *className = srl_decode(dec);
+        id object = srl_decode(dec);
+        return [SrlObject srlObject:className data:object];
+    };
+    
+    decoders[SRL_HDR_OBJECTV] = ^id (srl_decoder_t *dec) {
+        ssize_t offset = read_varint(dec) + dec->bdy - 1;
+        srl_decoder_t copy_dec = COPY_DECODER(dec, offset);
+        NSString *className = srl_decode(&copy_dec);
+        id object = srl_decode(dec);
         return [SrlObject srlObject:className data:object];
     };
     
