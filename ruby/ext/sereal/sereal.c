@@ -19,13 +19,29 @@ void Init_sereal();
  *   
  * If the blob contains multiple compressed
  * sub-blobs you should call it with:
- *       
+ *
  *    Sereal.decode(blob) do |decoded|
- *       # do something with the decoded object 
+ *       # do something with the decoded object
  *    end
+ *
  * otherwise only the first decoded object will be returned
+ * there is also streaming support which takes any kind of IO object
+ * like socket, or just regular File, and it is really easy to use:
+ *
+ *    Sereal.decode(STDIN) do |decoded|
+ *      # do something with the decoded object
+ *    end
+ *
+ * it works both with `incremental snappy` and with just combined sereal packets.
+ * another example but with TCPSocket:
+ *
+ *    s = TCPSocket.new 'localhost', 2000
+ *    Sereal.decode(s) do |decoded|
+ *      # do something with the decoded object
+ *    end
  *
  */
+
 void Init_sereal() {
         Sereal = rb_define_class("Sereal", rb_cObject);
         rb_define_singleton_method(Sereal, "encode", method_sereal_encode, -2);
