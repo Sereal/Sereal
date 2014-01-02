@@ -172,22 +172,6 @@ static void b_dump(u8 *p, u32 len, u32 pos) {
 }
 
 static void s_dump(sereal_t *s) {
-        fprintf(stderr, "[ pos: %d, size: %d, rsize: %d ]\n",s->pos,s->size,s->rsize);
-//        b_dump(s->data,s->size,s->pos);
-}
-static void s_shift_left(sereal_t *s) {
-    u32 left = s->size - s->pos;
-    if (left == 0) {
-        free(s->data);
-        s->data = NULL;
-        s->size = 0;
-        s->rsize = 0;
-    } else {
-        u8 *buf = s_alloc_or_raise(s,left);
-        COPY(s->data + s->pos, buf, left);
-        free(s->data);
-        s->data = buf;
-        s->size = left;
-        s->rsize = left;
-    }
+        E("[ pos: %d, size: %d, rsize: %d ]\n",s->pos,s->size,s->rsize);
+        b_dump(s->data,s->size,s->pos);
 }
