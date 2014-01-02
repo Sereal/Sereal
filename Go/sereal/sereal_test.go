@@ -308,6 +308,11 @@ func TestStructs(t *testing.T) {
 		Siblings int    // no tag, isn't unpacked
 	}
 
+	type ALowerTags struct {
+		Name  string `sereal:"name"`
+		Phone string `sereal:"phone"`
+	}
+
 	tests := []struct {
 		what     string
 		input    interface{}
@@ -341,6 +346,12 @@ func TestStructs(t *testing.T) {
 		{
 			"encode struct with tags",
 			ATags{Name: "12345", Phone: "mr foo", Siblings: 10},
+			A{},
+			A{Name: "mr foo", Phone: "12345"},
+		},
+		{
+			"decode struct with lower-case field names",
+			ALowerTags{Name: "mr foo", Phone: "12345"},
 			A{},
 			A{Name: "mr foo", Phone: "12345"},
 		},

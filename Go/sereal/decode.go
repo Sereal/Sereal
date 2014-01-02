@@ -1000,6 +1000,11 @@ func getValue(ptr reflect.Value, key string, tags map[string]int) (reflect.Value
 			return ptr.Field(i), true
 		}
 
+		tkey := strings.Title(key)
+		if i, ok := tags[tkey]; ok {
+			return ptr.Field(i), true
+		}
+
 		// unknown field name
 		var iface interface{}
 		return reflect.ValueOf(&iface).Elem(), false
