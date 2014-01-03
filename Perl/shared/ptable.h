@@ -79,6 +79,7 @@ STATIC void PTABLE_store(PTABLE_t *tbl, void *key, void *value);
 STATIC void PTABLE_delete(PTABLE_t *tbl, void *key);
 STATIC void PTABLE_grow(PTABLE_t *tbl);
 STATIC void PTABLE_clear(PTABLE_t *tbl);
+STATIC void PTABLE_clear_dec(pTHX_ PTABLE_t *tbl);
 STATIC void PTABLE_free(PTABLE_t *tbl);
 
 STATIC PTABLE_ITER_t * PTABLE_iter_new(PTABLE_t *tbl);
@@ -197,6 +198,36 @@ PTABLE_clear(PTABLE_t *tbl)
             while (entry) {
                 PTABLE_ENTRY_t * const oentry = entry;
                 entry = entry->next;
+                Safefree(oentry);
+            }
+
+            /* chocolateboy 2008-01-08
+             *
+             * make sure we clear the array entry, so that subsequent probes fail
+             */
+
+            array[riter] = NULL;
+        } while (riter--);
+
+        tbl->tbl_items = 0;
+    }
+}
+
+STATIC void
+PTABLE_clear_dec(pTHX_ PTABLE_t *tbl)
+{
+    if (tbl && tbl->tbl_items) {
+        register PTABLE_ENTRY_t * * const array = tbl->tbl_ary;
+        UV riter = tbl->tbl_max;
+
+        do {
+            PTABLE_ENTRY_t *entry = array[riter];
+
+            while (entry) {
+                PTABLE_ENTRY_t * const oentry = entry;
+                entry = entry->next;
+                if (oentry->value)
+                    SvREFCNT_dec((SV*)(oentry->value));
                 Safefree(oentry);
             }
 

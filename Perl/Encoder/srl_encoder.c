@@ -92,10 +92,11 @@ SRL_STATIC_INLINE void srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcnt
 SRL_STATIC_INLINE void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys);
 SRL_STATIC_INLINE void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
 SRL_STATIC_INLINE void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
-SRL_STATIC_INLINE void srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src, int use_freeze);
-SRL_STATIC_INLINE SV *srl_dump_object(pTHX_ srl_encoder_t *enc, SV *referent, SV *obj);
+SRL_STATIC_INLINE void srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement);
+SRL_STATIC_INLINE SV *srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent);
 SRL_STATIC_INLINE PTABLE_t *srl_init_string_hash(srl_encoder_t *enc);
 SRL_STATIC_INLINE PTABLE_t *srl_init_ref_hash(srl_encoder_t *enc);
+SRL_STATIC_INLINE PTABLE_t *srl_init_freezeobj_svhash(srl_encoder_t *enc);
 SRL_STATIC_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
 SRL_STATIC_INLINE HV *srl_init_string_deduper_hv(pTHX_ srl_encoder_t *enc);
 
@@ -114,6 +115,10 @@ SRL_STATIC_INLINE HV *srl_init_string_deduper_hv(pTHX_ srl_encoder_t *enc);
 #define SRL_GET_WEAK_SEENHASH(enc) ( (enc)->weak_seenhash == NULL   \
                                     ? srl_init_weak_hash(enc)       \
                                    : (enc)->weak_seenhash )
+
+#define SRL_GET_FREEZEOBJ_SVHASH(enc) ( (enc)->freezeobj_svhash == NULL \
+                                        ? srl_init_freezeobj_svhash(enc)      \
+                                        : (enc)->freezeobj_svhash )
 
 #define CALL_SRL_DUMP_SV(enc, src) STMT_START {                         \
     if (!(src)) {                                                       \
@@ -170,6 +175,8 @@ srl_clear_seen_hashes(pTHX_ srl_encoder_t *enc)
 {
     if (enc->ref_seenhash != NULL)
         PTABLE_clear(enc->ref_seenhash);
+    if (enc->freezeobj_svhash != NULL)
+        PTABLE_clear_dec(aTHX_ enc->freezeobj_svhash);
     if (enc->str_seenhash != NULL)
         PTABLE_clear(enc->str_seenhash);
     if (enc->weak_seenhash != NULL)
@@ -209,6 +216,8 @@ srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
     Safefree(enc->snappy_workmem);
     if (enc->ref_seenhash != NULL)
         PTABLE_free(enc->ref_seenhash);
+    if (enc->freezeobj_svhash != NULL)
+        PTABLE_free(enc->freezeobj_svhash);
     if (enc->str_seenhash != NULL)
         PTABLE_free(enc->str_seenhash);
     if (enc->weak_seenhash != NULL)
@@ -248,6 +257,7 @@ srl_empty_encoder_struct(pTHX)
     enc->weak_seenhash = NULL;
     enc->str_seenhash = NULL;
     enc->ref_seenhash = NULL;
+    enc->freezeobj_svhash = NULL;
     enc->snappy_workmem = NULL;
     enc->string_deduper_hv = NULL;
     enc->sereal_string_sv = NULL;
@@ -397,6 +407,13 @@ srl_init_weak_hash(srl_encoder_t *enc)
 {
     enc->weak_seenhash = PTABLE_new_size(3);
     return enc->weak_seenhash;
+}
+
+SRL_STATIC_INLINE PTABLE_t *
+srl_init_freezeobj_svhash(srl_encoder_t *enc)
+{
+    enc->freezeobj_svhash = PTABLE_new_size(3);
+    return enc->freezeobj_svhash;
 }
 
 SRL_STATIC_INLINE HV *
@@ -568,44 +585,112 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
     }
 }
 
+/* Dumps the tag and class name of an object doing all necessary callbacks or
+ * exception-throwing.
+ * The provided SV must already have been identified as a Perl object
+ * using sv_isobject().
+ * If the return value is not NULL, then it's the actual object content that
+ * needs to be serialized by the caller. */
+SRL_STATIC_INLINE SV *
+srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
+{
+    assert(sv_isobject(src)); /* duplicate asserts are "free" */
+
+    /* Check for FREEZE support */
+    if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT) )) {
+        HV *stash = SvSTASH(referent);
+        GV *method = NULL;
+        assert(stash != NULL);
+        method = gv_fetchmethod_autoload(stash, "FREEZE", 0);
+
+        if (expect_false( method != NULL )) {
+            SV *replacement= NULL;
+            PTABLE_t *freezeobj_svhash = SRL_GET_FREEZEOBJ_SVHASH(enc);
+            if (SvREFCNT(referent)>1) {
+                replacement= PTABLE_fetch(freezeobj_svhash, referent);
+            }
+            if (!replacement) {
+                int count;
+                dSP;
+                ENTER;
+                SAVETMPS;
+                PUSHMARK(SP);
+
+                EXTEND(SP, 2);
+                PUSHs(src);
+                PUSHs(enc->sereal_string_sv); /* not NULL if SRL_F_ENABLE_FREEZE_SUPPORT is set */
+                replacement= (SV*)newAV();
+                PTABLE_store(freezeobj_svhash, referent, replacement);
+
+                PUTBACK;
+                count = call_sv((SV *)GvCV(method), G_ARRAY);
+                /* TODO explore method lookup caching */
+                SPAGAIN;
+
+                while ( count-- > 0) {
+                    SV *tmp = POPs;
+                    SvREFCNT_inc(tmp);
+                    if (!av_store((AV*)replacement,count,tmp))
+                        confess("failed push value into array?");
+                }
+
+                PUTBACK;
+                FREETMPS;
+                LEAVE;
+            }
+            return replacement;
+        }
+    }
+    return NULL;
+
+}
 
 /* Outputs a bless header and the class name (as some form of string or COPY).
  * Caller then has to output the actual reference payload. */
 SRL_STATIC_INLINE void
-srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *src, int use_freeze)
+srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement)
 {
-    const HV *stash = SvSTASH(src);
-    PTABLE_t *string_seenhash = SRL_GET_STR_PTR_SEENHASH(enc);
-    const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, (SV *)stash);
+    /* Check that we actually want to support objects */
+    if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_CROAK_ON_BLESS)) ) {
+        croak("Attempted to serialize blessed reference. Serializing objects "
+                "using Sereal::Encoder was explicitly disabled using the "
+                "'croak_on_bless' option.");
+    } else if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS) )) {
+        return;
+    } else {
+        const HV *stash = SvSTASH(referent);
+        PTABLE_t *string_seenhash = SRL_GET_STR_PTR_SEENHASH(enc);
+        const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, (SV *)stash);
 
-    if (oldoffset != 0) {
-        /* Issue COPY instead of literal class name string */
-        srl_buf_cat_varint(aTHX_ enc,
-                                 expect_false(use_freeze) ? SRL_HDR_OBJECTV_FREEZE : SRL_HDR_OBJECTV,
-                                 (UV)oldoffset);
-    }
-    else {
-        const char *class_name = HvNAME_get(stash);
-        const size_t len = HvNAMELEN_get(stash);
+        if (oldoffset != 0) {
+            /* Issue COPY instead of literal class name string */
+            srl_buf_cat_varint(aTHX_ enc,
+                                     expect_false(replacement) ? SRL_HDR_OBJECTV_FREEZE : SRL_HDR_OBJECTV,
+                                     (UV)oldoffset);
+        }
+        else {
+            const char *class_name = HvNAME_get(stash);
+            const size_t len = HvNAMELEN_get(stash);
 
-        /* First save this new string (well, the HV * that it is represented by) into the string
-         * dedupe table.
-         * By saving the ptr to the HV, we only dedupe class names with class names, though
-         * this seems a small price to pay for not having to keep a full string table.
-         * At least, we can safely use the same PTABLE to store the ptrs to hashkeys since
-         * the set of pointers will never collide.
-         * /me bows to Yves for the delightfully evil hack. */
-        srl_buf_cat_char(enc, expect_false(use_freeze) ? SRL_HDR_OBJECT_FREEZE : SRL_HDR_OBJECT);
+            /* First save this new string (well, the HV * that it is represented by) into the string
+             * dedupe table.
+             * By saving the ptr to the HV, we only dedupe class names with class names, though
+             * this seems a small price to pay for not having to keep a full string table.
+             * At least, we can safely use the same PTABLE to store the ptrs to hashkeys since
+             * the set of pointers will never collide.
+             * /me bows to Yves for the delightfully evil hack. */
+            srl_buf_cat_char(enc, expect_false(replacement) ? SRL_HDR_OBJECT_FREEZE : SRL_HDR_OBJECT);
 
-        /* remember current offset before advancing it */
-        PTABLE_store(string_seenhash, (void *)stash, (void *)BODY_POS_OFS(enc->buf));
+            /* remember current offset before advancing it */
+            PTABLE_store(string_seenhash, (void *)stash, (void *)BODY_POS_OFS(enc->buf));
 
-        /* HvNAMEUTF8 not in older perls and it would be 0 for those anyway */
+            /* HvNAMEUTF8 not in older perls and it would be 0 for those anyway */
 #if PERL_VERSION >= 16
-        srl_dump_pv(aTHX_ enc, class_name, len, HvNAMEUTF8(stash));
+            srl_dump_pv(aTHX_ enc, class_name, len, HvNAMEUTF8(stash));
 #else
-        srl_dump_pv(aTHX_ enc, class_name, len, 0);
+            srl_dump_pv(aTHX_ enc, class_name, len, 0);
 #endif
+        }
     }
 }
 
@@ -1153,85 +1238,6 @@ srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_ut
 }
 
 
-/* Dumps the tag and class name of an object doing all necessary callbacks or
- * exception-throwing.
- * The provided SV must already have been identified as a Perl object
- * using sv_isobject().
- * If the return value is not NULL, then it's the actual object content that
- * needs to be serialized by the caller. */
-SRL_STATIC_INLINE SV *
-srl_dump_object(pTHX_ srl_encoder_t *enc, SV *referent, SV *obj)
-{
-    SV *object_content = obj;
-
-    assert(sv_isobject(obj)); /* duplicate asserts are "free" */
-
-    /* Check that we actually want to support objects */
-    if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_CROAK_ON_BLESS)) ) {
-        croak("Attempted to serialize blessed reference. Serializing objects "
-                "using Sereal::Encoder was explicitly disabled using the "
-                "'croak_on_bless' option.");
-    }
-
-    /* FIXME reuse/ref/... should INCLUDE the bless stuff. */
-
-    /* Check for FREEZE support */
-    if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT) )) {
-        HV *stash = SvSTASH(referent);
-        GV *method;
-        assert(stash != NULL);
-        method = gv_fetchmethod_autoload(stash, "FREEZE", 0);
-
-        if (expect_false( method != NULL )) {
-            int count;
-            dSP;
-            ENTER;
-            SAVETMPS;
-            PUSHMARK(SP);
-
-            EXTEND(SP, 2);
-            PUSHs(obj);
-            PUSHs(enc->sereal_string_sv); /* not NULL if SRL_F_ENABLE_FREEZE_SUPPORT is set */
-
-            PUTBACK;
-            count = call_sv((SV *)GvCV(method), G_SCALAR);
-            /* TODO explore method lookup caching */
-            SPAGAIN;
-
-            if (expect_true( count == 1 )) {
-                object_content = POPs;
-                SvREFCNT_inc(object_content);
-            }
-            else
-                object_content = &PL_sv_undef;
-
-            PUTBACK;
-            FREETMPS;
-            LEAVE;
-
-            /* Write bless operator with class name */
-            srl_dump_classname(aTHX_ enc, referent, 1); /* 1 == have freeze call */
-            /* Dump object_content */
-            srl_dump_sv(aTHX_ enc, object_content);
-            SvREFCNT_dec(object_content);
-            object_content = NULL;
-        }
-        else {
-            /* No FREEZE method defined */
-            /* Write bless operator with class name */
-            srl_dump_classname(aTHX_ enc, referent, 0); /* 0 == no freeze call */
-            object_content = obj;
-        }
-    } /* end "if we need to support FREEZE" */
-    /* If we have SRL_F_NO_BLESS_OBJECTS, then do nothing. Otherwise, emit OBJECT* tag */
-    else if (expect_true( !SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS) )) {
-        srl_dump_classname(aTHX_ enc, referent, 0); /* 0 == no freeze call */
-        object_content = obj;
-    }
-
-    return object_content;
-}
-
 
 /* Dumps generic SVs and delegates
  * to more specialized functions for RVs, etc. */
@@ -1250,6 +1256,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     MAGIC *mg;
     AV *backrefs;
     SV* refsv= NULL;
+    SV* replacement= NULL;
     UV weakref_ofs= 0;              /* preserved between loops */
     SSize_t ref_rewrite_pos= 0;      /* preserved between loops - note SSize_t is a perl define */
     assert(src);
@@ -1335,6 +1342,16 @@ redo_dump:
         sv_dump(src);
         croak("Corrupted weakref? weakref_ofs=0 (this should not happen)");
     }
+    if (replacement) {
+        if (SvROK(replacement))  {
+            src= SvRV(replacement);
+        } else {
+            src= replacement;
+        }
+        replacement= NULL;
+        svt = SvTYPE(src);
+        /* goto redo_dump; */
+    }
     if (SvPOKp(src)) {
 #if defined(MODERN_REGEXP) && !defined(REGEXP_NO_LONGER_POK)
         /* Only need to enter here if we have rather modern regexps, but they're
@@ -1380,15 +1397,13 @@ redo_dump:
             weakref_ofs= BODY_POS_OFS(enc->buf);
             srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
         }
+
         ref_rewrite_pos= BODY_POS_OFS(enc->buf);
 
         if (expect_false( sv_isobject(src) )) {
-            src = srl_dump_object(aTHX_ enc, referent, src);
-            if (expect_false( src == NULL )) {
-                /* SRL_HDR_OBJECT_FREEZE short-circuits */
-                --enc->recursion_depth;
-                return;
-            }
+            /* Write bless operator with class name */
+            replacement= srl_get_frozen_object(aTHX_ enc, src, referent);
+            srl_dump_classname(aTHX_ enc, referent, replacement); /* 1 == have freeze call */
         }
 
         srl_buf_cat_char(enc, SRL_HDR_REFN);
