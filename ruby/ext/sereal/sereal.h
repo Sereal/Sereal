@@ -53,6 +53,7 @@ do {                                    \
 
 #define FLAG_NOT_MINE 1
 #define FLAG_STREAM   2
+#define FLAG_REF      4
 struct _sereal {
     u8 *data;
     u32 size;
@@ -92,5 +93,6 @@ VALUE method_sereal_decode(VALUE self, VALUE payload);
 #define __RAW           0
 #define __SNAPPY        1
 #define __SNAPPY_INCR   2
+#define __REF           4
 #define __MIN_SIZE      6
 #endif

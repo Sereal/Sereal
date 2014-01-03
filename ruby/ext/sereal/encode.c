@@ -216,10 +216,38 @@ static void s_append_nil(sereal_t *s, VALUE object) {
     s_append_u8(s,SRL_HDR_UNDEF);
 }
 
+static void s_append_refp(sereal_t *s, VALUE object) {
+    u32 pos = FIX2LONG(object);
+    s_append_hdr_with_varint(s,SRL_HDR_REFP,pos - s->hdr_end + 1);
+    u8 *reference = s_get_p_at_pos(s,pos,0);
+    *reference |= SRL_HDR_TRACK_FLAG;
+}
+
 /* writer function pointers */
 static void rb_object_to_sereal(sereal_t *s, VALUE object) {
     S_RECURSE_INC(s);
+    u32 pos = s->pos;
+
+    if (s->tracked != Qnil &&
+        TYPE(object) == T_ARRAY  ||
+        TYPE(object) == T_HASH   ||
+        TYPE(object) == T_SYMBOL ||
+        TYPE(object) == T_STRING) {
+
+        if (s->tracked != Qnil) {
+            VALUE id = rb_obj_id(object);
+            VALUE stored_position = rb_hash_aref(s->tracked,id);
+            if (stored_position != Qnil) {
+                s_append_refp(s,stored_position);
+                goto out;
+            } else {
+                rb_hash_aset(s->tracked,id,INT2FIX(pos));
+            }
+        }
+    }
+
     (*WRITER[TYPE(object)])(s,object);
+out:
     S_RECURSE_DEC(s);
 }
 
@@ -249,6 +277,7 @@ VALUE method_sereal_encode(VALUE self, VALUE args) {
     VALUE compress = Qfalse;
     if (argc == 2)
         compress = rb_ary_shift(args);
+
     u8 do_compress;
     u8 version = SRL_PROTOCOL_VERSION;
 
@@ -257,7 +286,10 @@ VALUE method_sereal_encode(VALUE self, VALUE args) {
     } else {
         do_compress = (compress == Qtrue ? 1 : 0);
     }
-
+    if (do_compress & __REF) {
+        do_compress &= ~__REF;
+        s_init_tracker(s);
+    }
     switch(do_compress) {
         case __SNAPPY:
             version |= SRL_PROTOCOL_ENCODING_SNAPPY;
@@ -269,6 +301,7 @@ VALUE method_sereal_encode(VALUE self, VALUE args) {
         default:
             version |= SRL_PROTOCOL_ENCODING_RAW;
     }
+
     // setup header
     s_append_u32(s,SRL_MAGIC_STRING_LILIPUTIAN);
     s_append_u8(s,version);
@@ -276,6 +309,7 @@ VALUE method_sereal_encode(VALUE self, VALUE args) {
     u32 s_header_len = s->pos;
 
     // serialize
+    s->hdr_end = s->pos;
     rb_object_to_sereal(s,payload);
 
     // compress
@@ -311,7 +345,7 @@ VALUE method_sereal_encode(VALUE self, VALUE args) {
                  compressed + s_header_len + un_compressed_len_varint,
                  compressed_len_varint);
 
-        u8 *start = s_get_p_at_pos(s,s_header_len,1);
+        u8 *start = s_get_p_at_pos(s,s_header_len,0);
         u8 *working_buf = s_alloc_or_raise(s,CSNAPPY_WORKMEM_BYTES);
         csnappy_compress(start,
                          s_body_len,

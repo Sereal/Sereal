@@ -205,10 +205,7 @@ VALUE sereal_to_rb_object(sereal_t *s) {
 
         VALUE decoded = (*READERS[t])(s,t);
         if (tracked) {
-            if (s->tracked == Qnil) {
-                s->tracked = rb_hash_new();
-                rb_gc_register_address(&s->tracked);
-            }
+            s_init_tracker(s);
             rb_hash_aset(s->tracked,INT2FIX(pos),decoded);
         }
         return decoded;
@@ -225,6 +222,7 @@ VALUE method_sereal_decode(VALUE self, VALUE args) {
     u8 have_block = rb_block_given_p();
     sereal_t *s = s_create();
     u64 offset = 0;
+
     if (TYPE(payload) == T_FILE) {
         if (!have_block)
             s_raise(s,rb_eTypeError,"block is required when reading from a stream")

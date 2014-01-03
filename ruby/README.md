@@ -33,7 +33,6 @@ s = TCPSocket.new 'localhost', 2000
 Sereal.decode(s) do |decoded|
   # do something with the decoded object
 end
-
 /*
  * Encode/Decode object using Sereal binary protocol:
  * https://github.com/Sereal/Sereal/blob/master/sereal_spec.pod
@@ -44,6 +43,20 @@ end
  *
  * SNAPPY_INCR encoded objects can be appended into one output and then the
  * decoder will know what to do.
+ *
+ * Sereal.encode(object,Sereal::REF)
+ * or Sereal::REF|Sereal::SNAPPY_INC, or Sereal::REF|Sereal::SNAPPY
+ *
+ * when encoding will try to use Sereal's REFP tag to transmit only the
+ * the original object's offset in the packet.
+ * So:
+ *    one = [ 1,2,3,4,5 ]
+ *    two = [ one, one ]
+ *    Sereal.encode(two,Sereal::REF)
+ * will send 'one' only once, and one REFP that points to the first one
+ * it uses one.object_id as a hash key in a local tracker hash
+ * and if it sees this object_id again it just sends the offset.
+ *
  *
  *   Sereal.decode(blob) - returns the decoded object
  *   
@@ -71,6 +84,7 @@ end
  *    end
  *
  */
+
 
 ```
 

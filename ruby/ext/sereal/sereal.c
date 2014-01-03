@@ -15,6 +15,20 @@ void Init_sereal();
  * SNAPPY_INCR encoded objects can be appended into one output and then the
  * decoder will know what to do.
  *
+ * Sereal.encode(object,Sereal::REF)
+ * or Sereal::REF|Sereal::SNAPPY_INC, or Sereal::REF|Sereal::SNAPPY
+ *
+ * when encoding will try to use Sereal's REFP tag to transmit only the
+ * the original object's offset in the packet.
+ * So:
+ *    one = [ 1,2,3,4,5 ]
+ *    two = [ one, one ]
+ *    Sereal.encode(two,Sereal::REF)
+ * will send 'one' only once, and one REFP that points to the first one
+ * it uses one.object_id as a hash key in a local tracker hash
+ * and if it sees this object_id again it just sends the offset.
+ *
+ *
  *   Sereal.decode(blob) - returns the decoded object
  *   
  * If the blob contains multiple compressed
@@ -41,7 +55,6 @@ void Init_sereal();
  *    end
  *
  */
-
 void Init_sereal() {
         Sereal = rb_define_class("Sereal", rb_cObject);
         rb_define_singleton_method(Sereal, "encode", method_sereal_encode, -2);
@@ -49,6 +62,7 @@ void Init_sereal() {
         rb_define_const(Sereal, "SNAPPY",INT2NUM(__SNAPPY));
         rb_define_const(Sereal, "SNAPPY_INCR",INT2NUM(__SNAPPY_INCR));
         rb_define_const(Sereal, "RAW",INT2NUM(__RAW));
+        rb_define_const(Sereal, "REF",INT2NUM(__REF));
         s_init_writers();
 }
 

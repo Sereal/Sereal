@@ -10,16 +10,22 @@ static inline void s_free_data_if_not_mine(sereal_t *s) {
     }
 }
 
+static inline void s_init_tracker(sereal_t *s) {
+    if (s->tracked == Qnil) {
+        s->tracked = rb_hash_new();
+        rb_gc_mark(s->tracked);
+    }
+}
+
 static inline void s_reset_tracker(sereal_t *s) {
-    if (s->tracked != Qnil)
-        rb_gc_unregister_address(&s->tracked);
-    s->tracked = Qnil;
+    if (s->tracked != Qnil) {
+        rb_hash_clear(s->tracked);
+    }
 }
 
 static inline void s_destroy(sereal_t *s) {
     if (!s)
         return;
-
     s_reset_tracker(s);
     s_free_data_if_not_mine(s);
     free(s);
@@ -31,6 +37,7 @@ static inline void *s_realloc_or_raise(sereal_t *s, void *p, u32 n) {
         s_raise(s,rb_eNoMemError,"memory allocation failure for %d bytes",n);
     return buf;
 }
+
 static inline void *s_alloc_or_raise(sereal_t *s,u32 n) {
     return s_realloc_or_raise(s,NULL,n);
 }

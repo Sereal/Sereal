@@ -21,6 +21,19 @@ class Test::Unit::TestCase
   def recode(obj,safe = false)
     Sereal.decode(Sereal.encode(obj),safe)
   end
+  def test_references
+    string = "aaa"
+    a = [ string,string,1,2,3 ]
+    aa = [a,a]
+    aaa = [aa, aa]
+    [a,aa,aaa].each do |x|
+      [Sereal::RAW,Sereal::SNAPPY,Sereal::SNAPPY_INCR].each do |c|
+        recoded = Sereal.decode(Sereal.encode(x,Sereal::REF|c))
+        assert_equal(x,recoded)
+        assert_equal(recoded[0].object_id,recoded[1].object_id)
+      end
+    end
+  end
   def test_compress
     obj = {"aaaaasdjkhaksjdhakjshdkjahsdkjhaskjhadkjshdkjashdkjhas"*20 => "b" * 100000}
     [Sereal::SNAPPY_INCR].each do |c|

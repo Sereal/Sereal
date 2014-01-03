@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 begin
-  require File.join(File.dirname(__FILE__),'..','lib','sereal')
+  require File.join(".",File.dirname(__FILE__),'..','lib','sereal')
 rescue LoadError
   require 'sereal'
 end
