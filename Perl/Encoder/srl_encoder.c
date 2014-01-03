@@ -655,17 +655,22 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement)
         croak("Attempted to serialize blessed reference. Serializing objects "
                 "using Sereal::Encoder was explicitly disabled using the "
                 "'croak_on_bless' option.");
-    } else if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS) )) {
+    } else if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS) ) ||
+                ( replacement && !sv_isobject(replacement) ) ) {
         return;
     } else {
-        const HV *stash = SvSTASH(referent);
+        const SV *stash_sv = replacement ? SvRV(replacement): referent;
+        HV *stash = SvSTASH(stash_sv);
         PTABLE_t *string_seenhash = SRL_GET_STR_PTR_SEENHASH(enc);
         const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, (SV *)stash);
+        GV *method = NULL;
+        if (replacement)
+            method = gv_fetchmethod_autoload(stash, "THAW", 0);
 
         if (oldoffset != 0) {
             /* Issue COPY instead of literal class name string */
             srl_buf_cat_varint(aTHX_ enc,
-                                     expect_false(replacement) ? SRL_HDR_OBJECTV_FREEZE : SRL_HDR_OBJECTV,
+                                     expect_false(method) ? SRL_HDR_OBJECTV_FREEZE : SRL_HDR_OBJECTV,
                                      (UV)oldoffset);
         }
         else {
@@ -679,7 +684,7 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement)
              * At least, we can safely use the same PTABLE to store the ptrs to hashkeys since
              * the set of pointers will never collide.
              * /me bows to Yves for the delightfully evil hack. */
-            srl_buf_cat_char(enc, expect_false(replacement) ? SRL_HDR_OBJECT_FREEZE : SRL_HDR_OBJECT);
+            srl_buf_cat_char(enc, expect_false(method) ? SRL_HDR_OBJECT_FREEZE : SRL_HDR_OBJECT);
 
             /* remember current offset before advancing it */
             PTABLE_store(string_seenhash, (void *)stash, (void *)BODY_POS_OFS(enc->buf));
@@ -1327,8 +1332,8 @@ redo_dump:
                     enc->buf.pos= enc->buf.body_pos + ref_rewrite_pos;
                     srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REFP, (UV)oldoffset);
                 } else {
-                    if (DEBUGHACK) warn("alias to %p as %lu", src, (long unsigned int)oldoffset);
-                    srl_buf_cat_varint(aTHX_ enc, SRL_HDR_ALIAS, (UV)oldoffset);
+                    if (DEBUGHACK) warn("alias to %p as %lu rep: %p", src, (long unsigned int)oldoffset, replacement);
+                    srl_buf_cat_varint(aTHX_ enc, replacement ? SRL_HDR_COPY : SRL_HDR_ALIAS, (UV)oldoffset);
                 }
                 SRL_SET_FBIT(*(enc->buf.body_pos + oldoffset));
                 --enc->recursion_depth;
@@ -1343,12 +1348,13 @@ redo_dump:
         croak("Corrupted weakref? weakref_ofs=0 (this should not happen)");
     }
     if (replacement) {
-        if (SvROK(replacement))  {
+        if (SvROK(replacement)) {
             src= SvRV(replacement);
         } else {
             src= replacement;
         }
         replacement= NULL;
+        goto redo_dump;
     }
     if (SvPOKp(src)) {
 #if defined(MODERN_REGEXP) && !defined(REGEXP_NO_LONGER_POK)
@@ -1404,7 +1410,11 @@ redo_dump:
             srl_dump_classname(aTHX_ enc, referent, replacement); /* 1 == have freeze call */
         }
 
-        srl_buf_cat_char(enc, SRL_HDR_REFN);
+        if (!replacement || SvROK(replacement)) {
+            srl_buf_cat_char(enc, SRL_HDR_REFN);
+        } else {
+            ref_rewrite_pos= 0;
+        }
         refsv= src;
         src= referent;
 
