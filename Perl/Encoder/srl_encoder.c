@@ -631,7 +631,7 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
                     SV *tmp = POPs;
                     SvREFCNT_inc(tmp);
                     if (!av_store((AV*)replacement,count,tmp))
-                        confess("failed push value into array?");
+                        croak("Failed to push value into array");
                 }
 
                 PUTBACK;
