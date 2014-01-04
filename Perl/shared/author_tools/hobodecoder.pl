@@ -15,35 +15,11 @@ BEGIN {
     ' } or die "No encoder/decoder constants: $err\n$@";
 }
 
-GetOptions(
-  my $opt = {},
-  'e|stderr',
-);
-
-$| = 1;
-if ($opt->{e}) {
-  select(STDERR);
-}
-
-my %const_names = map {$_ => eval "$_"} @Sereal::Constants::EXPORT_OK;
-#print Dumper \%const_names; exit;
-
-local $/ = undef;
-my $data = <STDIN>;
-
-open my $fh, "| od -tu1c" or die $!;
-print $fh $data;
-close $fh;
-
-print "\n\nTotal length: " . length($data) . "\n\n";
-
-my $indent = "";
 my $done;
+my $data;
 my $hlen;
-parse_header();
-while (length $data) {
-  my $done = parse_sv("");
-}
+my $indent = "";
+my %const_names = map {$_ => eval "$_"} @Sereal::Constants::EXPORT_OK;
 
 sub parse_header {
   $data =~ s/^(=srl)(.)// or die "invalid header: $data";
@@ -108,6 +84,9 @@ sub parse_long_double {
     return unpack("D",$v);
 }
 
+my $fmt1= "%06u/%06u: %02x%1s %03s %s";
+my $fmt2= "%-6s %-6s  %-2s%1s %-3s %s";
+my $lead_items= 5; # 1 less than the fmt2
 sub parse_sv {
   my ($ind) = @_;
 
@@ -118,7 +97,8 @@ sub parse_sv {
   my $bv= $o;
   my $high = $o > 128;
   $o -= 128 if $high;
-  printf "%06u/%06u: %02x %03s %s", $p, $p-$hlen+1, $o, $bv, $ind;
+  printf $fmt1, $p, $p-$hlen+1, $o, $high ? '*' : ' ', $bv, $ind;
+
   if ($o == SRL_HDR_VARINT) {
     printf "VARINT: %u\n", varint();
   }
@@ -196,27 +176,27 @@ sub parse_sv {
   elsif ($o == SRL_HDR_OBJECTV) {
     my $ofs= varint();
     printf "OBJECTV(%d)\n", $ofs;
-    printf  "%6s  %2s %3s %s  Value:\n",("") x 3, $ind."  ";
+    printf  "$fmt2  Value:\n",("") x $lead_items, $ind;
     parse_sv($ind."    ");
   }
   elsif ($o == SRL_HDR_OBJECTV_FREEZE) {
     my $ofs= varint();
     printf "OBJECTV_FREEZE(%d)\n", $ofs;
-    printf  "%6s  %2s %3s %s  Value:\n",("") x 3, $ind."  ";
+    printf  "$fmt2  Value:\n",("") x $lead_items, $ind;
     parse_sv($ind."    ");
   }
   elsif ($o == SRL_HDR_OBJECT) {
     printf "OBJECT\n";
-    printf  "%6s  %2s %3s %s  Class:\n",("") x 3, $ind."  ";
+    printf  "$fmt2  Class:\n",("") x $lead_items, $ind;
     parse_sv($ind."    ");
-    printf  "%6s  %2s %3s %s  Value:\n",("") x 3, $ind."  ";
+    printf  "$fmt2  Value:\n",("") x $lead_items, $ind;
     parse_sv($ind."    ");
   }
   elsif ($o == SRL_HDR_OBJECT_FREEZE) {
     printf "OBJECT_FREEZE\n";
-    printf  "%6s  %2s %3s %s  Class:\n",("") x 3, $ind."  ";
+    printf  "$fmt2  Class:\n",("") x $lead_items, $ind;
     parse_sv($ind."    ");
-    printf  "%6s  %2s %3s %s  Value:\n",("") x 3, $ind."  ";
+    printf  "$fmt2  Value:\n",("") x $lead_items, $ind;
     parse_sv($ind."    ");
   }
   elsif ($o == SRL_HDR_REGEXP) {
@@ -284,4 +264,30 @@ sub varint {
     die "premature end of varint";
   }
   return $x;
+}
+
+GetOptions(
+  my $opt = {},
+  'e|stderr',
+);
+
+$| = 1;
+if ($opt->{e}) {
+  select(STDERR);
+}
+
+#print Dumper \%const_names; exit;
+
+local $/ = undef;
+$data = <STDIN>;
+
+open my $fh, "| od -tu1c" or die $!;
+print $fh $data;
+close $fh;
+
+print "\n\nTotal length: " . length($data) . "\n\n";
+
+parse_header();
+while (length $data) {
+  $done = parse_sv("");
 }
