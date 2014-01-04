@@ -6,6 +6,7 @@ use Sereal::Encoder qw(encode_sereal);
 use Sereal::Encoder::Constants qw(:all);
 use File::Spec;
 use Test::More;
+use Data::Dumper;
 
 use lib File::Spec->catdir(qw(t lib));
 BEGIN {
@@ -26,15 +27,23 @@ sub new {
 
 sub FREEZE {
   my ($self, $serializer) = @_;
-  $freeze_called = 1;
-  return "frozen object";
+  $freeze_called = $serializer eq 'Sereal' ? 1 : 0;
+  return "frozen object", 12, [2];
 }
 
 sub THAW {
-  my ($class, $serializer, $data) = @_;
-  $thaw_called = 1;
+  my ($class, $serializer, @data) = @_;
+  $thaw_called = $serializer eq 'Sereal' ? 1 : 0;
+  Test::More::is_deeply(\@data, ["frozen object", 12, [2]], "Array of frozen values roundtrips");
 
   return Foo->new();
+}
+
+package Bar;
+*new = \&Foo::new;
+sub FREEZE {
+  my ($self, $serializer) = @_;
+  return "frozen Bar";
 }
 
 package main;
@@ -57,11 +66,18 @@ if ($run_decoder_tests) {
   my $foo = Foo->new;
   my $data = [$foo, $foo];
   my $srl = $enc->encode($data);
+  ok($srl =~ /frozen object/);
+
   my $out = $dec->decode($srl);
-  use Data::Dumper;
+  is_deeply($out, $data, "Roundtrip works");
+
   cmp_ok($out->[0], "eq", $out->[1],
          "Referential integrity: multiple RVs do not turn into clones")
          or diag(Dumper($data,$out));
+
+  my $barobj = Bar->new;
+  $srl = $enc->encode($barobj);
+  ok(not(eval {$dec->decode($srl); 1}), "Decoding without THAW barfs");
 }
 
 done_testing();
