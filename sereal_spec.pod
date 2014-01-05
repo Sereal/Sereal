@@ -12,7 +12,7 @@ This document describes the format and encoding of a Sereal data packet.
 
 =head1 VERSION
 
-This is the Sereal specification version 2.01.
+This is the Sereal specification version 2.02.
 
 The integer part of the document version corresponds to
 the Sereal protocol version. For details on incompatible changes between
@@ -395,22 +395,24 @@ implementation, this feature may require enabling with an encoder
 option on the encoding side, but compliant decoders must
 at least recognize the OBJECT_FREEZE and OBJECTV_FREEZE tags. The
 interface shall be such that if enabled in the encoder, for each
-object in the input, the encoder will invoke a C<FREEZE> method
-on the object and pass in the string C<Sereal> to allow distinguishing
-from other serializers (this is inspired by the CBOR::XS CBOR
-implementation). If there is no C<FREEZE> method available, then
-a normal OBJECT or OBJECTV tag is emitted, serializing the object
-content normally. If invoked, the C<FREEZE> method must return
-a single data structure that is serializable by Sereal. The encoder
-shall emit an OBJECT_FREEZE or OBJECTV_FREEZE tag followed by
-the Sereal encoding of the returned data structure.
+object in the input that has a C<FREEZE> method, the encoder will invoke
+said C<FREEZE> method on the object and pass in the string C<Sereal>
+to allow distinguishing from other serializers (this is inspired by
+the C<CBOR::XS> CBOR implementation). If there is no C<FREEZE> method
+available, then a normal OBJECT or OBJECTV tag is emitted, serializing
+the object content deeply. If invoked, the C<FREEZE> method must return
+a list of data structures that are serializable by Sereal. The encoder
+shall emit an OBJECT_FREEZE or OBJECTV_FREEZE tag followed by a reference
+(REFN) to an array (ARRAY) of the Sereal-encoded data structures that
+were returned from C<FREEZE>.
 
 Upon decoding OBJECT_FREEZE or OBJECTV_FREEZE, a compliant decoder
 (unless explicitly instructed not to) will invoke the C<THAW>
 class method of the given class. (Likely, implementations should
-throw a fatal error if no such method exists.) Arguments to that
-method will be the string C<Sereal> as first argument, and the
-decoded data structure that was returned from the C<FREEZE> call.
+throw a fatal error if no such method exists for a class referenced
+by OBJECT(V)_FREEZE.) Arguments to that method will be the string
+C<Sereal> as first argument, and then the decoded data structures
+that were returned from the C<FREEZE> call.
 The return value of that C<THAW> call needs
 to be included in the final output structure. See the documentation
 of the Perl Sereal implemenation for examples of FREEZE/THAW methods.
