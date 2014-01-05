@@ -33,16 +33,19 @@
 #define SRL_HDR_ARRAY           ((char)43)      /* <COUNT-VARINT> [<ITEM-TAG> ...] - count followed by items */
 #define SRL_HDR_OBJECT          ((char)44)      /* <STR-TAG> <ITEM-TAG> - class, object-item */
 #define SRL_HDR_OBJECTV         ((char)45)      /* <OFFSET-VARINT> <ITEM-TAG> - offset of previously used classname tag - object-item */
+
 #define SRL_HDR_ALIAS           ((char)46)      /* <OFFSET-VARINT> - alias to item defined at offset */
 #define SRL_HDR_COPY            ((char)47)      /* <OFFSET-VARINT> - copy of item defined at offset */
 
 #define SRL_HDR_WEAKEN          ((char)48)      /* <REF-TAG> - Weaken the following reference */
 #define SRL_HDR_REGEXP          ((char)49)      /* <PATTERN-STR-TAG> <MODIFIERS-STR-TAG>*/
+#define SRL_HDR_OBJECT_FREEZE   ((char)50)      /* <STR-TAG> <ITEM-TAG> - class, object-item. Need to call "THAW" method on class after decoding */
+#define SRL_HDR_OBJECTV_FREEZE  ((char)51)      /* <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT) */
 
 /* Note: Can do reserved check with a range now, but as we start using
  *       them, might have to explicit == check later. */
-#define SRL_HDR_RESERVED        ((char)50)      /* reserved */
-#define SRL_HDR_RESERVED_LOW    ((char)50)
+#define SRL_HDR_RESERVED        ((char)52)      /* reserved */
+#define SRL_HDR_RESERVED_LOW    ((char)52)
 #define SRL_HDR_RESERVED_HIGH   ((char)57)
 
 #define SRL_HDR_FALSE           ((char)58)      /* false (PL_sv_no)  */

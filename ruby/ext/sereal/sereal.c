@@ -2,6 +2,13 @@
 #include "encode.h"
 
 VALUE Sereal = Qnil;
+VALUE SerealPerlObject = Qnil;
+ID FREEZE;
+ID THAW;
+ID TO_SRL;
+ID SEREAL;
+ID ID_CLASS;
+ID ID_VALUE;
 void Init_sereal();
 
 /*
@@ -55,14 +62,28 @@ void Init_sereal();
  *    end
  *
  */
+
 void Init_sereal() {
-        Sereal = rb_define_class("Sereal", rb_cObject);
-        rb_define_singleton_method(Sereal, "encode", method_sereal_encode, -2);
-        rb_define_singleton_method(Sereal, "decode", method_sereal_decode, -2);
-        rb_define_const(Sereal, "SNAPPY",INT2NUM(__SNAPPY));
-        rb_define_const(Sereal, "SNAPPY_INCR",INT2NUM(__SNAPPY_INCR));
-        rb_define_const(Sereal, "RAW",INT2NUM(__RAW));
-        rb_define_const(Sereal, "REF",INT2NUM(__REF));
-        s_init_writers();
+    TO_SRL = rb_intern("to_srl");
+    THAW = rb_intern("THAW");
+    FREEZE = rb_intern("FREEZE");
+    SEREAL = rb_intern("Sereal");
+    ID_CLASS = rb_intern("class");
+    ID_VALUE = rb_intern("value");
+
+    SerealPerlObject = rb_define_class("SerealPerlObject", rb_cObject);
+
+    Sereal = rb_define_class("Sereal", rb_cObject);
+    rb_define_singleton_method(Sereal, "encode", method_sereal_encode, -2);
+    rb_define_singleton_method(Sereal, "decode", method_sereal_decode, -2);
+
+    rb_define_const(Sereal, "SNAPPY",INT2NUM(__SNAPPY));
+    rb_define_const(Sereal, "SNAPPY_INCR",INT2NUM(__SNAPPY_INCR));
+    rb_define_const(Sereal, "RAW",INT2NUM(__RAW));
+    rb_define_const(Sereal, "REF",INT2NUM(__REF));
+    rb_define_const(Sereal, "DEBUG",INT2NUM(__DEBUG));
+    rb_define_const(Sereal, "THAW",INT2NUM(__THAW));
+    rb_define_const(Sereal, "FREEZER",INT2NUM(SEREAL));
+    s_init_writers();
 }
 

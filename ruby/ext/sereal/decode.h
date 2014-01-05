@@ -23,6 +23,8 @@ static VALUE s_read_pad(sereal_t *s, u8 tag);
 static VALUE s_read_extend(sereal_t *s, u8 tag);
 static VALUE s_read_ref(sereal_t *s, u8 tag);
 static VALUE s_read_copy(sereal_t *s, u8 tag);
+static VALUE s_read_object_freeze(sereal_t *s, u8 tag);
+static VALUE s_read_perl_object(sereal_t *s, u8 tag);
 
 static VALUE (*READERS[256])(sereal_t *, u8) = {
         s_read_small_positive_int,                      // 0    SRL_HDR_POS_LOW
@@ -69,14 +71,14 @@ static VALUE (*READERS[256])(sereal_t *, u8) = {
         s_read_ref,                                     // 41   SRL_HDR_REFP
         s_read_hash,                                    // 42   SRL_HDR_HASH
         s_read_array,                                   // 43   SRL_HDR_ARRAY
-        s_default_reader, /* XXX */                     // 44   SRL_HDR_OBJECT
-        s_default_reader, /* XXX */                     // 45   SRL_HDR_OBJECTV
+        s_read_perl_object,                             // 44   SRL_HDR_OBJECT
+        s_read_perl_object,                             // 45   SRL_HDR_OBJECTV
         s_read_ref,                                     // 46   SRL_HDR_ALIAS
         s_read_copy,                                    // 47   SRL_HDR_COPY
         s_default_reader, /* XXX */                     // 48   SRL_HDR_WEAKEN
         s_read_regexp,                                  // 49   SRL_HDR_REGEXP
-        s_default_reader, /* XXX */                     // 50   SRL_HDR_RESERVED_LOW
-        s_default_reader, /* XXX */                     // 51
+        s_read_object_freeze,                           // 50   OBJECT_FREEZE
+        s_read_object_freeze,                           // 51   OBJECTV_FREEZE
         s_default_reader, /* XXX */                     // 52
         s_default_reader, /* XXX */                     // 53
         s_default_reader, /* XXX */                     // 54

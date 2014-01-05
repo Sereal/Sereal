@@ -181,33 +181,101 @@ static VALUE s_read_extend(sereal_t *s, u8 tag) {
 
 static VALUE s_read_ref(sereal_t *s, u8 tag) {
     u64 off = s_get_varint_bang(s);
+    SD(s,"reading reference from offset: %d",off);
     if (s->tracked == Qnil)
         s_raise(s,rb_eArgError,"there are no references stored");
+
     return rb_hash_aref(s->tracked,INT2FIX(off + s->hdr_end));
 }
+#define TRAVEL(s,__stored)                                              \
+    do {                                                                \
+        u32 offset = s_get_varint_bang(s) - 1;                          \
+        __stored = s->pos;                                              \
+        s->pos = offset + s->hdr_end;                                   \
+        SD(s,"going back offset: %d, stored position: %d (tag: %d)",offset,stored_pos,tag); \
+    } while(0)
+#define BACK(s,__stored)                                \
+    do {                                                \
+        if (__stored > 0) {                             \
+            SD(s,"going forward to pos: %d",__stored);  \
+            s->pos = __stored;                          \
+        }                                               \
+    } while(0);
+
 
 static VALUE s_read_copy(sereal_t *s, u8 tag) {
-    VALUE ref = s_red_ref(s,tag);
-    return rb_obj_dup(ref);
+    u32 stored_pos = 0;
+    TRAVEL(s,stored_pos);
+    VALUE object = sereal_to_rb_object(s);
+    BACK(s,stored_pos);
+    return object;
 }
+#define MUST_BE_SOMETHING(__klass,__type)                               \
+    if (TYPE(__klass) != __type)                                        \
+        s_raise(s,rb_eTypeError,"unexpected object type: %s (expecting: %d got: %d)",rb_obj_classname(__klass),__type, TYPE(__klass));
+
+static VALUE s_read_perl_object(sereal_t *s, u8 tag) {
+    u32 stored_pos = 0;
+    if (tag == SRL_HDR_OBJECTV)
+        TRAVEL(s,stored_pos);
+
+    VALUE s_klass = sereal_to_rb_object(s);
+    BACK(s,stored_pos);
+    MUST_BE_SOMETHING(s_klass,T_STRING);
+
+    SD(s,"fetched perl class named: %s",RSTRING_PTR(s_klass));
+
+    VALUE object = sereal_to_rb_object(s);
+
+    VALUE pobj =  rb_class_new_instance(0,NULL,SerealPerlObject);
+    rb_ivar_set(pobj,ID_CLASS,s_klass);
+    rb_ivar_set(pobj,ID_VALUE,object);
+    return pobj;
+}
+
+static VALUE s_read_object_freeze(sereal_t *s, u8 tag) {
+    if (!(s->flags & __THAW))
+        s_raise(s,rb_eTypeError,"object_freeze received, but decoder is initialized without Sereal::THAW option");
+
+    u32 stored_pos = 0;
+    if (tag == SRL_HDR_OBJECTV_FREEZE)
+        TRAVEL(s,stored_pos);
+
+    VALUE s_klass = sereal_to_rb_object(s);
+    BACK(s,stored_pos);
+    MUST_BE_SOMETHING(s_klass,T_STRING);
+
+    // hash it?
+    VALUE klass = rb_const_get(rb_cObject, rb_intern(RSTRING_PTR(s_klass)));
+    if (!rb_obj_respond_to(klass,THAW,0))
+        s_raise(s,rb_eTypeError,"class: %s does not respond to THAW",
+                rb_obj_classname(s_klass));
+
+    VALUE object = sereal_to_rb_object(s);
+    return rb_funcall(klass,THAW,2,ID2SYM(SEREAL),object);
+}
+#undef TRAVEL
+#undef BACK
 
 VALUE sereal_to_rb_object(sereal_t *s) {
     u8 t, tracked;
     S_RECURSE_INC(s);
     u32 pos;
-    while (s->pos < s->size || (s->flags & FLAG_STREAM)) {
+    while (s->pos < s->size || (s->flags & __STREAM)) {
         t = s_get_u8_bang(s);
         tracked = (t & SRL_HDR_TRACK_FLAG ? 1 : 0);
         t &= ~SRL_HDR_TRACK_FLAG;
         pos = s->pos;
 
-        S_RECURSE_DEC(s);
-
         VALUE decoded = (*READERS[t])(s,t);
+
         if (tracked) {
             s_init_tracker(s);
+            SD(s,"tracking object of class: %s at position: %d",rb_obj_classname(decoded),pos);
             rb_hash_aset(s->tracked,INT2FIX(pos),decoded);
         }
+        SD(s,"object: %s: %s",rb_obj_classname(decoded),RSTRING_PTR(rb_funcall(decoded,rb_intern("to_s"),0)));
+        S_RECURSE_DEC(s);
         return decoded;
     }
     s_raise(s,rb_eArgError,"bad packet, or broken decoder");
@@ -218,9 +286,20 @@ VALUE method_sereal_decode(VALUE self, VALUE args) {
     u32 argc = RARRAY_LEN(args);
     if (argc < 1)
         rb_raise(rb_eArgError,"need at least 1 argument (object)");
-    VALUE payload = rb_ary_shift(args);
+    VALUE payload = rb_ary_entry(args,0);
+
     u8 have_block = rb_block_given_p();
     sereal_t *s = s_create();
+    if (argc == 2) {
+        VALUE flags = rb_ary_entry(args,1);
+        if (flags != Qnil && flags != Qfalse) {
+            if (TYPE(flags) == T_FIXNUM) {
+                s->flags = FIX2LONG(flags) & __ARGUMENT_FLAGS;
+            } else {
+                s_raise(s,rb_eArgError,"second argument must be an integer (used only for flags) %s given",rb_obj_classname(flags));
+            }
+        }
+    }
     u64 offset = 0;
 
     if (TYPE(payload) == T_FILE) {
@@ -229,8 +308,9 @@ VALUE method_sereal_decode(VALUE self, VALUE args) {
 
         rb_io_t *fptr;
         GetOpenFile(payload, fptr);
-        s->flags |= FLAG_STREAM;
+        s->flags |= __STREAM;
         s->fd = fptr->fd;
+        SD(s,"reading strea with fd: %d",s->fd);
     } else if (TYPE(payload) != T_STRING) {
         rb_raise(rb_eTypeError,"can not decode objects of type %s",rb_obj_classname(payload));
     }
@@ -239,14 +319,13 @@ again:
     s->pos = 0;
     s_reset_tracker(s);
 
-    if (s->flags & FLAG_STREAM) {
+    if (s->flags & __STREAM) {
         s->size = 0;
         s->rsize = 0;
         if (s_read_stream(s,__MIN_SIZE) < 0) {
             s_destroy(s);
             return Qnil;
         }
-
     } else {
         u32 size = RSTRING_LEN(payload) - offset;
         if (offset > RSTRING_LEN(payload) || (offset > 0 && size < __MIN_SIZE)) {
@@ -256,7 +335,7 @@ again:
         if (size < __MIN_SIZE)
             s_raise(s,rb_eTypeError,"size(%d) is less then min packet size %d, offset: %d",size,__MIN_SIZE,offset);
 
-        s->flags |= FLAG_NOT_MINE;
+        s->flags |= __NOT_MINE;
         s->data = RSTRING_PTR(payload) + offset;
         s->size = size;
     }
@@ -269,12 +348,15 @@ again:
     u8 suffix = s_get_varint_bang(s);
     u8 is_compressed;
 
-    if ((version & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_SNAPPY)
+    if ((version & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_SNAPPY) {
         is_compressed = __SNAPPY;
-    else if ((version & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_SNAPPY_INCR)
+    } else if ((version & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_SNAPPY_INCR) {
         is_compressed = __SNAPPY_INCR;
-    else
+    } else {
         is_compressed = __RAW;
+    }
+
+    SD(s,"initialized (s) with compression type: %d",is_compressed);
 
     if (is_compressed) {
         u32 uncompressed_len;
@@ -283,13 +365,13 @@ again:
         if (is_compressed == __SNAPPY_INCR) {
             compressed_len = s_get_varint_bang(s);
         } else {
-            if (s->flags & FLAG_STREAM)
+            if (s->flags & __STREAM)
                 s_raise(s,rb_eTypeError,"parsing non incremental compressed objects, from stream of data, is not supported");
 
             compressed_len = s->size - s->pos;
         }
-
-        if (s->flags & FLAG_STREAM)
+        SD(s,"compressed len: %d",compressed_len);
+        if (s->flags & __STREAM)
             s_get_p_req_inclusive(s,compressed_len);
 
         int snappy_header_len = csnappy_get_uncompressed_length(s_get_p_req_inclusive(s,compressed_len),
@@ -312,9 +394,11 @@ again:
         s->size = uncompressed_len;
         offset += s->pos + compressed_len;
         s->pos = 0;
-        s->flags &= ~FLAG_NOT_MINE;
+        s->flags &= ~__NOT_MINE;
     }
+
     s->hdr_end = s->pos;
+    SD(s,"header end at %d",s->hdr_end);
     VALUE result = sereal_to_rb_object(s);
     if (!is_compressed)
         offset += s->pos;

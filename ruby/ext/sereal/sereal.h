@@ -12,7 +12,6 @@ typedef unsigned int            u32;
 typedef unsigned short          u16;
 typedef unsigned char           u8;
 typedef struct _sereal          sereal_t;
-typedef struct _track_entry     track_t;
 
 #define TRUE 1
 #define FALSE 0
@@ -41,19 +40,27 @@ typedef struct _track_entry     track_t;
 #define EXTENDED RE_OPTION_EXTENDED
 #endif
 
-#define FORMAT(fmt,arg...) fmt " [%s():%s:%d @ %u]\n",##arg,__func__,__FILE__,__LINE__,(unsigned int) time(NULL)
+#define FORMAT(fmt,arg...) fmt " %s()\n",##arg,__func__
 #define E(fmt,arg...) fprintf(stderr,FORMAT(fmt,##arg))
 #define D(fmt,arg...) printf(FORMAT(fmt,##arg))
+#define SD(s,fmt,arg...)                                                \
+    do {                                                                \
+        if (s->flags & __DEBUG) {                                       \
+            int i;                                                      \
+            for (i = 0; i < s->level; i++) {                            \
+                printf(" ");                                            \
+            }                                                           \
+            D(fmt " { p: %d, s: %d, l: %u, h: %u } ",##arg,s->pos,s->size,s->level,s->hdr_end); \
+        }                                                               \
+    } while(0);
 
 #define s_raise(what,ex,arg...)         \
 do {                                    \
+    SD(s,"s_raise");                    \
     s_destroy(what);                    \
     rb_raise(ex,##arg);                 \
 } while(0);
 
-#define FLAG_NOT_MINE 1
-#define FLAG_STREAM   2
-#define FLAG_REF      4
 struct _sereal {
     u8 *data;
     u32 size;
@@ -61,6 +68,7 @@ struct _sereal {
     u32 rsize;
     u32 level;
     u8 flags;
+    u8 expect;
     VALUE tracked;
     u32 hdr_end;
     int fd;
@@ -73,13 +81,20 @@ struct _sereal {
 
 VALUE method_sereal_encode(VALUE self, VALUE args);
 VALUE method_sereal_decode(VALUE self, VALUE payload);
+extern ID FREEZE;
+extern ID THAW;
+extern ID TO_SRL;
+extern ID SEREAL;
+extern ID ID_CLASS;
+extern ID ID_VALUE;
+extern VALUE SerealPerlObject;
 
-#define S_RECURSE_INC(s)                                        \
-    do {                                                        \
-        if((s)->level++ > MAX_RECURSION_DEPTH)                  \
-        s_raise((s),rb_eArgError,                               \
-                "max recursion depth reached: %d (level: %d)",  \
-                MAX_RECURSION_DEPTH, s->level);                 \
+#define S_RECURSE_INC(s)                                            \
+    do {                                                            \
+        if((s)->level++ > MAX_RECURSION_DEPTH)                      \
+            s_raise((s),rb_eArgError,                               \
+                    "max recursion depth reached: %d (level: %d)",  \
+                    MAX_RECURSION_DEPTH, s->level);                 \
     } while(0);
 
 #define S_RECURSE_DEC(s) ((s)->level--)
@@ -94,5 +109,11 @@ VALUE method_sereal_decode(VALUE self, VALUE payload);
 #define __SNAPPY        1
 #define __SNAPPY_INCR   2
 #define __REF           4
+#define __DEBUG         8
+#define __NOT_MINE      16
+#define __STREAM        32
+#define __THAW          64
+#define __ARGUMENT_FLAGS (__DEBUG|__THAW|__REF)
+
 #define __MIN_SIZE      6
 #endif

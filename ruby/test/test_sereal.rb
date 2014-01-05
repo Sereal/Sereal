@@ -6,6 +6,35 @@ require ENV['USE_CURRENT_DIRECTORY'] ? File.absolute_path(File.join(File.dirname
 
 class ZXCNOSRL
 end
+
+class ZXCFile
+  attr_accessor :path
+  def initialize(path)
+    @path = path
+  end
+  def FREEZE(serializer)
+    @path
+  end
+  def self.THAW(serializer,path)
+    self.new(path)
+  end
+end
+class ZXCFREEZE
+  attr_accessor :z,:x,:c,:serializer
+  def initialize(z,x,c)
+    @z = z
+    @x = x
+    @c = c
+  end
+  def FREEZE(serializer)
+    [ @z, @x, @c ]
+  end
+  def self.THAW(serializer,a)
+    r = self.new(a[0],a[1],a[2])
+    r.serializer = serializer
+    r
+  end
+end
 class ZXC
   attr_accessor :z,:x,:c
   def initialize
@@ -20,6 +49,23 @@ end
 class Test::Unit::TestCase
   def recode(obj,safe = false)
     Sereal.decode(Sereal.encode(obj),safe)
+  end
+  def test_perl_object
+    x = Sereal.decode(File.open(File.join(File.dirname(__FILE__),'example-perl-object.srl')).read,Sereal::THAW)
+    assert_equal(x[0].class, SerealPerlObject)
+    assert_equal(x[1].class, SerealPerlObject)
+    assert_equal(x[2].path,"/tmp/aaa.txt")
+    assert_equal(x[3].path,"/tmp/aaa.txt")
+  end
+  def test_thaw
+    x = ZXCFREEZE.new(6,7,8)
+    y = ZXCFREEZE.new(6,7,10)
+    frozen = x.FREEZE(Sereal::FREEZER)
+    recoded = Sereal.decode(Sereal.encode(x,Sereal::THAW),Sereal::THAW)
+    assert_raise(TypeError) do
+      recoded = Sereal.decode(Sereal.encode(x,Sereal::THAW))
+    end
+    assert_equal(frozen,recoded.FREEZE(Sereal::FREEZER))
   end
   def test_references
     string = "aaa"

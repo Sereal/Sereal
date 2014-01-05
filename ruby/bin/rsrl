@@ -1,4 +1,6 @@
 #!/usr/bin/env ruby
+require 'pp'
+
 begin
   require File.join(".",File.dirname(__FILE__),'..','lib','sereal')
 rescue LoadError
@@ -7,6 +9,7 @@ end
 
 content = ENV['Sereal_STREAM'] ? STDIN : ARGF.read
 compress = Sereal::RAW
+debug = ENV['Sereal_DEBUG'] ? Sereal::DEBUG : 0
 
 {'Sereal_SNAPPY' => Sereal::SNAPPY,'Sereal_SNAPPY_INCR' => Sereal::SNAPPY_INCR }.each do |k,v|
   if ENV[k]
@@ -15,10 +18,9 @@ compress = Sereal::RAW
 end
 
 if ENV['Sereal_STREAM'] || content[0..3] == '=srl'
-  Sereal.decode(content) do |x|
-    STDOUT.write(x)
-    puts
+  Sereal.decode(content,debug | Sereal::THAW) do |x|
+    PP.pp(x)
   end
 else
-  STDOUT.write(Sereal.encode(eval(content), compress))
+  STDOUT.write(Sereal.encode(eval(content), compress | debug))
 end

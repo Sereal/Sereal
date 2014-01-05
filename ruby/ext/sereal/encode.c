@@ -146,15 +146,22 @@ static void s_append_hash(sereal_t *s, VALUE object) {
 	convert symbols to strings
 */
 static void s_append_symbol(sereal_t *s, VALUE object) {
-	VALUE string = rb_sym_to_s(object);
-	s_append_rb_string(s,string);
+    VALUE string = rb_sym_to_s(object);
+    s_append_rb_string(s,string);
 }
 
 /*
 	call object.to_srl and serialize the result
 */
 static void s_append_object(sereal_t *s, VALUE object) {
-	rb_object_to_sereal(s,rb_funcall(object,rb_intern("to_srl"),0));
+    if (s->flags & __THAW && rb_obj_respond_to(object,FREEZE,0)) {
+        VALUE frozen = rb_funcall(object,FREEZE,1,ID2SYM(SEREAL));
+        s_append_u8(s,SRL_HDR_OBJECT_FREEZE);
+        s_append_rb_string(s,rb_class_name(CLASS_OF(object)));
+        rb_object_to_sereal(s,frozen);
+    } else {
+        rb_object_to_sereal(s,rb_funcall(object,TO_SRL,0));
+    }
 }
 
 
@@ -273,10 +280,10 @@ VALUE method_sereal_encode(VALUE self, VALUE args) {
         rb_raise(rb_eArgError,"need at least 1 argument (object)");
 
     sereal_t *s = s_create();
-    VALUE payload = rb_ary_shift(args);
+    VALUE payload = rb_ary_entry(args,0);
     VALUE compress = Qfalse;
     if (argc == 2)
-        compress = rb_ary_shift(args);
+        compress = rb_ary_entry(args,1);
 
     u8 do_compress;
     u8 version = SRL_PROTOCOL_VERSION;
@@ -286,10 +293,12 @@ VALUE method_sereal_encode(VALUE self, VALUE args) {
     } else {
         do_compress = (compress == Qtrue ? 1 : 0);
     }
-    if (do_compress & __REF) {
-        do_compress &= ~__REF;
+
+    s->flags = do_compress & __ARGUMENT_FLAGS;
+    do_compress &=~ __ARGUMENT_FLAGS;
+    if (s->flags & __REF)
         s_init_tracker(s);
-    }
+
     switch(do_compress) {
         case __SNAPPY:
             version |= SRL_PROTOCOL_ENCODING_SNAPPY;
