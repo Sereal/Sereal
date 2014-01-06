@@ -1350,7 +1350,11 @@ redo_dump:
         }
         replacement= NULL;
         svt = SvTYPE(src);
+        /* plus one ensures that later on we get REFN/ARRAY and not ARRAYREF - This is horrible tho. needs to be revisited another day */
+        refcount= SvREFCNT(src) + 1;
+        /* We could, but do not do the following:*/
         /* goto redo_dump; */
+        /* Probably a "proper" solution would, but there are nits there that I dont want to chase right now. */
     }
     if (SvPOKp(src)) {
 #if defined(MODERN_REGEXP) && !defined(REGEXP_NO_LONGER_POK)
