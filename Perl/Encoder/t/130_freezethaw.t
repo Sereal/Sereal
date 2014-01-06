@@ -40,7 +40,11 @@ sub THAW {
 }
 
 package Bar;
-*new = \&Foo::new;
+sub new {
+  my $class = shift;
+  return bless({bar => 1, @_} => $class);
+}
+
 sub FREEZE {
   my ($self, $serializer) = @_;
   return "frozen Bar";
