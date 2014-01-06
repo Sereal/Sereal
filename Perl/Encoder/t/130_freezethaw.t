@@ -74,7 +74,7 @@ is(eval{$obj->{bar}}, 1) or diag Dumper($obj);
 # Test referential integrity
 my $foo = Foo->new;
 my $data = [$foo, $foo];
-my $srl = $enc->encode($data);
+$srl = $enc->encode($data);
 ok($srl =~ /frozen object/);
 
 my $out = $dec->decode($srl);
