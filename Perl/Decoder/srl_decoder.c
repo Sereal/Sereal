@@ -1022,7 +1022,7 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
     }
 
     /* checking tag: SRL_HDR_OBJECTV_FREEZE or SRL_HDR_OBJECTV? */
-    if (expect_false( obj_tag == SRL_HDR_OBJECT_FREEZE )) {
+    if (expect_false( obj_tag == SRL_HDR_OBJECTV_FREEZE )) {
         HV *class_stash= PTABLE_fetch(dec->ref_stashes, (void *)ofs);
         if (expect_false( class_stash == NULL ))
             SRL_ERROR("Corrupted packet. OBJECTV(_FREEZE) used without "
@@ -1174,7 +1174,7 @@ srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
     char *classname = HvNAME(class_stash);
     SV* referent;
     SV *replacement;
-    
+
     /* At this point in the input stream we should have REFN WHATEVER. The WHATEVER
      * may be referenced from multiple RV's in the data structure, which means that
      * srl_read_single_value() will cache the *unthawed* representation when we finally
