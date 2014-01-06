@@ -84,7 +84,8 @@ void Init_sereal();
  * but you can not use 2 types of compression in the same time
  *
  * ==LZ4
- * For brief period (version 0.0.5 to 0.0.6) there was a support for LZ4 and LZ4HC, which was pushed to the master branch by mistake. if you are depending on it please convert yout data using `bin/rsrl` or just use `0.0.5` version of the sereal gem.
+ * For brief period (version 0.0.5 to 0.0.6) there was a support for LZ4 and LZ4HC, which was pushed to the master branch by mistake. if you are depending on it please convert yout data using <code>bin/rsrl</code> or just use <code>0.0.5</code> version of the sereal gem.
+ *
  *    gem 'sereal', '= 0.0.5'
  *    #or
  *    $ gem install sereal -v 0.0.5
