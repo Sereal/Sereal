@@ -1011,23 +1011,25 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
     if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS) ))
         SRL_ERROR_REFUSE_OBJECT();
 
-    ofs= srl_read_varint_uv_offset(aTHX_ dec," while reading OBJECTV classname");
+    ofs= srl_read_varint_uv_offset(aTHX_ dec," while reading OBJECTV(_FREEZE) classname");
 
     if (expect_false( !dec->ref_bless_av ))
-        SRL_ERROR("Corrupted packet. OBJECTV used without preceding OBJECT to define classname");
+        SRL_ERROR("Corrupted packet. OBJECTV(_FREEZE) used without "
+                  "preceding OBJECT(_FREEZE) to define classname");
     av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)ofs);
     if (expect_false( NULL == av )) {
-        SRL_ERRORf1("Corrupted packet. OBJECTV references unknown classname offset: %lu", (unsigned long)ofs);
+        SRL_ERRORf1("Corrupted packet. OBJECTV(_FREEZE) references unknown classname offset: %lu", (unsigned long)ofs);
     }
 
-
+    /* checking tag: SRL_HDR_OBJECTV_FREEZE or SRL_HDR_OBJECTV? */
     if (expect_false( obj_tag == SRL_HDR_OBJECT_FREEZE )) {
         HV *class_stash= PTABLE_fetch(dec->ref_stashes, (void *)ofs);
         if (expect_false( class_stash == NULL ))
-            SRL_ERROR("Corrupted packet. OBJECTV used without preceding OBJECT to define classname");
+            SRL_ERROR("Corrupted packet. OBJECTV(_FREEZE) used without "
+                      "preceding OBJECT(_FREEZE) to define classname");
         srl_read_frozen_object(aTHX_ dec, class_stash, into);
     }  else {
-
+        /* SRL_HDR_OBJECTV, not SRL_HDR_OBJECTV_FREEZE */
         /* now deparse the thing we are going to bless */
         srl_read_single_value(aTHX_ dec, into);
 
@@ -1039,7 +1041,8 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
             /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */
             HV *class_stash= PTABLE_fetch(dec->ref_stashes, (void *)ofs);
             if (expect_false( class_stash == NULL ))
-                SRL_ERROR("Corrupted packet. OBJECTV used without preceding OBJECT to define classname");
+                SRL_ERROR("Corrupted packet. OBJECTV(_FREEZE) used without "
+                          "preceding OBJECT(_FREEZE) to define classname");
             if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS))
                 sv_bless(into, class_stash);
         }
@@ -1222,6 +1225,7 @@ srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
         FREETMPS;
         LEAVE;
     }
+
     /* At this point "into" is an SvRV pointing at the *unthawed* representation.
      * This means we need to a) remove the old unthawed item and dispose of it
      * and b) make "into" point at the replacement, and c) if necessary store the
