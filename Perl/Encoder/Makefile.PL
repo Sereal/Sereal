@@ -67,7 +67,7 @@ WriteMakefile1(
         'Test::LongString' => '0',
         'Data::Dumper' => '0',
         'Test::Warn' => '0',
-        'Sereal::Decoder' => '2.00',
+        'Sereal::Decoder' => '2.02',
     },
     NAME              => $module,
     VERSION_FROM      => 'lib/Sereal/Encoder.pm', # finds $VERSION
