@@ -124,9 +124,9 @@ isa_ok($decoded->[0], 'MyObject', 'first element');
 isa_ok($decoded->[1], 'MyObject', 'second element');
 isa_ok($decoded->[2], 'MyObject', 'third element');
 
-is($decoded-[0]->num, 10, 'first MyObject->num');
-is($decoded-[1]->num, 20, 'second MyObject->num');
-is($decoded-[2]->num, 30, 'third MyObject->num');
+is($decoded->[0]->num, 10, 'first MyObject->num');
+is($decoded->[1]->num, 20, 'second MyObject->num');
+is($decoded->[2]->num, 30, 'third MyObject->num');
  
 
 done_testing();
