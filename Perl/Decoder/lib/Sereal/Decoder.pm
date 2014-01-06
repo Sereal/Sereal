@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '2.01'; # Don't forget to update the TestCompat set for testing against installed encoders!
+our $VERSION = '2.02'; # Don't forget to update the TestCompat set for testing against installed encoders!
 
 # not for public consumption, just for testing.
 (my $num_version = $VERSION) =~ s/_//;
@@ -317,8 +317,8 @@ their gratitude.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2012, 2013 by Steffen Mueller
-Copyright (C) 2012, 2013 by Yves Orton
+Copyright (C) 2012, 2013, 2014 by Steffen Mueller
+Copyright (C) 2012, 2013, 2014 by Yves Orton
 
 The license for the code in this distribution is the following,
 with the exceptions listed below:

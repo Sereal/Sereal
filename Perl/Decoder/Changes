@@ -4,6 +4,11 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
 
+2.02 Mon Jan  6 15:00 2014 (AMS time)
+  - Fundamental fixes for FREEZE/THAW support in previous Sereal v2
+    releases. If you plan to use FREEZE/THAW, make sure you have 2.02
+    or better (dito for the encoder).
+
 2.01 Tue Dec 31 08:15 2013 (AMS time)
   - Promoting changes from 0.37 to 2.00_03 to a stable release.
     (This being the first protocol v2 stable release.)
