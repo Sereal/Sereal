@@ -70,6 +70,7 @@ struct _sereal {
     u8 flags;
     u8 expect;
     VALUE tracked;
+    VALUE copy;
     u32 hdr_end;
     int fd;
     struct buffer {
@@ -113,7 +114,8 @@ extern VALUE SerealPerlObject;
 #define __NOT_MINE      16
 #define __STREAM        32
 #define __THAW          64
-#define __ARGUMENT_FLAGS (__DEBUG|__THAW|__REF)
+#define __COPY          64
+#define __ARGUMENT_FLAGS (__DEBUG|__THAW|__REF|__COPY)
 
 #define __MIN_SIZE      6
 #endif

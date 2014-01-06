@@ -29,8 +29,8 @@ class ZXCFREEZE
   def FREEZE(serializer)
     [ @z, @x, @c ]
   end
-  def self.THAW(serializer,a)
-    r = self.new(a[0],a[1],a[2])
+  def self.THAW(serializer,*a)
+    r = self.new(*a)
     r.serializer = serializer
     r
   end
@@ -46,17 +46,40 @@ class ZXC
     { "z" => @z, "x" => @x, "c" => @c }
   end
 end
+class SerealPerlObject
+  def value
+    @value
+  end
+  def klass
+    @class
+  end
+end
+
 class Test::Unit::TestCase
   def recode(obj,safe = false)
     Sereal.decode(Sereal.encode(obj),safe)
   end
+
   def test_perl_object
     x = Sereal.decode(File.open(File.join(File.dirname(__FILE__),'example-perl-object.srl')).read,Sereal::THAW)
     assert_equal(x[0].class, SerealPerlObject)
     assert_equal(x[1].class, SerealPerlObject)
+    assert_equal(x[1].klass, 'HTTP::Tiny')
+    assert_equal(x[1].value["timeout"], 60)
     assert_equal(x[2].path,"/tmp/aaa.txt")
     assert_equal(x[3].path,"/tmp/aaa.txt")
   end
+
+  def test_copy
+    obj = "bazinga"
+    a = [obj,"bazinga",obj]
+    x = Sereal.decode(Sereal.encode(a,Sereal::COPY|Sereal::REF),Sereal::REF)
+    assert_equal(x[0],x[1],x[2])
+    assert_not_equal(x[0].object_id,x[1].object_id)
+    assert_equal(x[0].object_id,x[2].object_id)
+    assert Sereal.encode(a,Sereal::COPY|Sereal::REF).length < Sereal.encode(a,Sereal::REF).length
+  end
+
   def test_thaw
     x = ZXCFREEZE.new(6,7,8)
     y = ZXCFREEZE.new(6,7,10)
@@ -67,6 +90,7 @@ class Test::Unit::TestCase
     end
     assert_equal(frozen,recoded.FREEZE(Sereal::FREEZER))
   end
+
   def test_references
     string = "aaa"
     a = [ string,string,1,2,3 ]

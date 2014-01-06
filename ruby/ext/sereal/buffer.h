@@ -12,6 +12,7 @@ static inline void s_free_data_if_not_mine(sereal_t *s) {
 
 static inline void s_init_tracker(sereal_t *s) {
     if (s->tracked == Qnil) {
+        SD(s,"initializing tracker");
         s->tracked = rb_hash_new();
         rb_gc_mark(s->tracked);
     }
@@ -20,6 +21,13 @@ static inline void s_init_tracker(sereal_t *s) {
 static inline void s_reset_tracker(sereal_t *s) {
     if (s->tracked != Qnil) {
         rb_hash_clear(s->tracked);
+    }
+}
+
+static inline void s_init_copy(sereal_t *s) {
+    if (s->copy == Qnil) {
+        s->copy = rb_hash_new();
+        rb_gc_mark(s->copy);
     }
 }
 
@@ -46,6 +54,8 @@ static inline sereal_t * s_create(void) {
     sereal_t *s = s_alloc_or_raise(NULL,sizeof(*s));
     ZERO(s,sizeof(*s));
     s->tracked = Qnil;
+    s->copy = Qnil;
+
     return s;
 }
 
@@ -167,6 +177,11 @@ static inline long double s_get_long_double_bang(sereal_t *s) {
 static inline u32 s_shift_position_bang(sereal_t *s, u32 len) {
     s->pos += len;
     return len;
+}
+
+static inline void s_set_flag_at_pos(sereal_t *s, u32 pos, u8 flag) {
+    u8 *p = s_get_p_at_pos(s,pos,0);
+    *p |= flag;
 }
 
 static void b_dump(u8 *p, u32 len, u32 pos) {

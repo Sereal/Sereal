@@ -180,13 +180,14 @@ static VALUE s_read_extend(sereal_t *s, u8 tag) {
 }
 
 static VALUE s_read_ref(sereal_t *s, u8 tag) {
-    u64 off = s_get_varint_bang(s);
-    SD(s,"reading reference from offset: %d",off);
     if (s->tracked == Qnil)
         s_raise(s,rb_eArgError,"there are no references stored");
-
-    return rb_hash_aref(s->tracked,INT2FIX(off + s->hdr_end));
+    u64 off = s_get_varint_bang(s);
+    VALUE object = rb_hash_lookup(s->tracked,INT2FIX(off + s->hdr_end));
+    SD(s,"reading reference from offset: %d, id: %d",off + s->hdr_end,FIX2INT(rb_obj_id(object)));
+    return object;
 }
+
 #define TRAVEL(s,__stored)                                              \
     do {                                                                \
         u32 offset = s_get_varint_bang(s) - 1;                          \
@@ -210,9 +211,11 @@ static VALUE s_read_copy(sereal_t *s, u8 tag) {
     BACK(s,stored_pos);
     return object;
 }
+
+
 #define MUST_BE_SOMETHING(__klass,__type)                               \
     if (TYPE(__klass) != __type)                                        \
-        s_raise(s,rb_eTypeError,"unexpected object type: %s (expecting: %d got: %d)",rb_obj_classname(__klass),__type, TYPE(__klass));
+        s_raise(s,rb_eTypeError,"unexpected object type: %s (expecting: %s(%d) got: %s(%d))",rb_obj_classname(__klass),(__type == T_STRING ? "String" : (__type == T_ARRAY ? "Array" : "_unknown_")),__type, rb_obj_classname(__klass),TYPE(__klass));
 
 static VALUE s_read_perl_object(sereal_t *s, u8 tag) {
     u32 stored_pos = 0;
@@ -252,7 +255,10 @@ static VALUE s_read_object_freeze(sereal_t *s, u8 tag) {
                 rb_obj_classname(s_klass));
 
     VALUE object = sereal_to_rb_object(s);
-    return rb_funcall(klass,THAW,2,ID2SYM(SEREAL),object);
+    MUST_BE_SOMETHING(object,T_ARRAY);
+    rb_ary_unshift(object,ID2SYM(SEREAL));
+
+    return rb_funcall2(klass,THAW,RARRAY_LEN(object),RARRAY_PTR(object));
 }
 #undef TRAVEL
 #undef BACK
@@ -265,15 +271,19 @@ VALUE sereal_to_rb_object(sereal_t *s) {
         t = s_get_u8_bang(s);
         tracked = (t & SRL_HDR_TRACK_FLAG ? 1 : 0);
         t &= ~SRL_HDR_TRACK_FLAG;
+
         pos = s->pos;
 
         VALUE decoded = (*READERS[t])(s,t);
 
         if (tracked) {
             s_init_tracker(s);
-            SD(s,"tracking object of class: %s at position: %d",rb_obj_classname(decoded),pos);
-            rb_hash_aset(s->tracked,INT2FIX(pos),decoded);
+            SD(s,"tracking object of class: %s(id: %d) at position: %d",rb_obj_classname(decoded),FIX2INT(rb_obj_id(decoded)),pos);
+            VALUE v_pos = INT2FIX(pos);
+            if (rb_hash_lookup(s->tracked,v_pos) == Qnil)
+                rb_hash_aset(s->tracked,INT2FIX(pos),decoded);
         }
+
         SD(s,"object: %s: %s",rb_obj_classname(decoded),RSTRING_PTR(rb_funcall(decoded,rb_intern("to_s"),0)));
         S_RECURSE_DEC(s);
         return decoded;
@@ -293,11 +303,10 @@ VALUE method_sereal_decode(VALUE self, VALUE args) {
     if (argc == 2) {
         VALUE flags = rb_ary_entry(args,1);
         if (flags != Qnil && flags != Qfalse) {
-            if (TYPE(flags) == T_FIXNUM) {
+            if (TYPE(flags) == T_FIXNUM)
                 s->flags = FIX2LONG(flags) & __ARGUMENT_FLAGS;
-            } else {
+            else
                 s_raise(s,rb_eArgError,"second argument must be an integer (used only for flags) %s given",rb_obj_classname(flags));
-            }
         }
     }
     u64 offset = 0;

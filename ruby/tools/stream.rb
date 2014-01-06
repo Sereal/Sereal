@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 begin
-  require File.join(File.dirname(__FILE__),'..','lib','sereal')
+  require File.join(".",File.dirname(__FILE__),'..','lib','sereal')
 rescue LoadError
   require 'sereal'
 end
@@ -14,12 +14,11 @@ obj = {
   "some_unicode" => { "Chinese (汉语 or 漢語, Hànyǔ)" => [ 1,2,3,4,5 ] }
 }
 
-
 so = File.open("__stream_rb_bench_sereal.stream","w+")
 mo = File.open("__stream_rb_bench_msgpack.stream","w+")
 n = 1_000_000
 n.times do
-  so.write(Sereal.encode(obj))
+  so.write(Sereal.encode(obj,Sereal::COPY))
   mo.write(obj.to_msgpack)
 end
 

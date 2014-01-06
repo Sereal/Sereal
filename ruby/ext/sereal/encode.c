@@ -28,6 +28,12 @@
 #elif T_NIL > W_SIZE
 	#define W_SIZE T_NIL
 #endif
+#define COMPLEX(object)                         \
+    (TYPE(object) == T_ARRAY  ||                \
+     TYPE(object) == T_HASH   ||                \
+     TYPE(object) == T_SYMBOL ||                \
+     TYPE(object) == T_OBJECT ||                \
+     TYPE(object) == T_STRING)
 
 /* function pointer array */
 void (*WRITER[W_SIZE])(sereal_t *,VALUE);
@@ -150,15 +156,50 @@ static void s_append_symbol(sereal_t *s, VALUE object) {
     s_append_rb_string(s,string);
 }
 
+static void s_append_copy(sereal_t *s, VALUE object) {
+    u32 pos = FIX2LONG(object);
+    s_append_hdr_with_varint(s,SRL_HDR_COPY,pos - s->hdr_end + 1);
+}
+
+static VALUE s_copy_or_keep_in_mind(sereal_t *s, VALUE object) {
+    if (s->copy == Qnil)
+        return Qnil;
+
+    VALUE stored_position = rb_hash_lookup(s->copy,object);
+    if (stored_position == Qnil)
+        rb_hash_aset(s->copy,object,INT2FIX(s->pos));    
+    return stored_position;
+}
+
+
 /*
-	call object.to_srl and serialize the result
+        try to FREEZE the object so it can be THAW-ed at decode time
+        if not possible (no Sereal::THAW argument or object does not
+        repsond to FREEZE), just call object.to_srl and serialize the
+        result
 */
 static void s_append_object(sereal_t *s, VALUE object) {
     if (s->flags & __THAW && rb_obj_respond_to(object,FREEZE,0)) {
+        VALUE klass = rb_class_name(CLASS_OF(object));
+        VALUE copy = s_copy_or_keep_in_mind(s,klass);
+        if (copy != Qnil) {
+            s_append_u8(s,SRL_HDR_OBJECTV_FREEZE);
+            s_append_copy(s,copy);
+        } else {
+            s_append_u8(s,SRL_HDR_OBJECT_FREEZE);
+            s_append_rb_string(s,rb_class_name(CLASS_OF(object)));
+        }
         VALUE frozen = rb_funcall(object,FREEZE,1,ID2SYM(SEREAL));
-        s_append_u8(s,SRL_HDR_OBJECT_FREEZE);
-        s_append_rb_string(s,rb_class_name(CLASS_OF(object)));
-        rb_object_to_sereal(s,frozen);
+        if (TYPE(frozen) != T_ARRAY)
+            s_raise(s,rb_eTypeError,"Sereal spec requires FREEZE to return array instead %s",rb_obj_classname(frozen));
+
+        // REFN + ARRAY
+        s_append_u8(s,SRL_HDR_REFN);
+        s_append_hdr_with_varint(s,SRL_HDR_ARRAY,RARRAY_LEN(frozen));
+        int i;
+        for (i = 0; i < RARRAY_LEN(frozen); i++)
+            rb_object_to_sereal(s,rb_ary_entry(frozen,i));
+
     } else {
         rb_object_to_sereal(s,rb_funcall(object,TO_SRL,0));
     }
@@ -226,30 +267,30 @@ static void s_append_nil(sereal_t *s, VALUE object) {
 static void s_append_refp(sereal_t *s, VALUE object) {
     u32 pos = FIX2LONG(object);
     s_append_hdr_with_varint(s,SRL_HDR_REFP,pos - s->hdr_end + 1);
-    u8 *reference = s_get_p_at_pos(s,pos,0);
-    *reference |= SRL_HDR_TRACK_FLAG;
+    s_set_flag_at_pos(s,pos,SRL_HDR_TRACK_FLAG);
 }
 
 /* writer function pointers */
 static void rb_object_to_sereal(sereal_t *s, VALUE object) {
     S_RECURSE_INC(s);
     u32 pos = s->pos;
-
-    if (s->tracked != Qnil &&
-        TYPE(object) == T_ARRAY  ||
-        TYPE(object) == T_HASH   ||
-        TYPE(object) == T_SYMBOL ||
-        TYPE(object) == T_STRING) {
-
+    if (COMPLEX(object)) {
+        VALUE stored;
         if (s->tracked != Qnil) {
-            VALUE id = rb_obj_id(object);
-            VALUE stored_position = rb_hash_aref(s->tracked,id);
-            if (stored_position != Qnil) {
-                s_append_refp(s,stored_position);
-                goto out;
-            } else {
+            if (s->tracked != Qnil) {
+                VALUE id = rb_obj_id(object);
+                stored = rb_hash_lookup(s->tracked,id);
+                if (stored != Qnil) {
+                    s_append_refp(s,stored);
+                    goto out;
+                }
                 rb_hash_aset(s->tracked,id,INT2FIX(pos));
             }
+        }
+        stored = s_copy_or_keep_in_mind(s,object);
+        if (stored != Qnil) {
+            s_append_copy(s,stored);
+            goto out;
         }
     }
 
@@ -274,7 +315,12 @@ void fixup_varint_from_to(u8 *varint_start, u8 *varint_end, u32 number) {
     }
 }
 
-VALUE method_sereal_encode(VALUE self, VALUE args) {
+
+/*
+ * Encodes object into Sereal
+ */
+VALUE
+method_sereal_encode(VALUE self, VALUE args) {
     u32 argc = RARRAY_LEN(args);
     if (argc < 1)
         rb_raise(rb_eArgError,"need at least 1 argument (object)");
@@ -298,6 +344,9 @@ VALUE method_sereal_encode(VALUE self, VALUE args) {
     do_compress &=~ __ARGUMENT_FLAGS;
     if (s->flags & __REF)
         s_init_tracker(s);
+
+    if (s->flags & __COPY)
+        s_init_copy(s);
 
     switch(do_compress) {
         case __SNAPPY:

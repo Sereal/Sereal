@@ -7,9 +7,17 @@ rescue LoadError
   require 'sereal'
 end
 
+class SerealPerlObject
+  def inspect
+    "#{@class} - #{@value.inspect}"
+  end
+end
+
 content = ENV['Sereal_STREAM'] ? STDIN : ARGF.read
 compress = Sereal::RAW
 debug = ENV['Sereal_DEBUG'] ? Sereal::DEBUG : 0
+debug |= ENV['Sereal_REF'] ? Sereal::REF : 0
+debug |= ENV['Sereal_COPY'] ? Sereal::COPY : 0
 
 {'Sereal_SNAPPY' => Sereal::SNAPPY,'Sereal_SNAPPY_INCR' => Sereal::SNAPPY_INCR }.each do |k,v|
   if ENV[k]

@@ -1,8 +1,8 @@
-begin
+#begin
   require File.join(".",File.dirname(__FILE__),'..','lib','sereal')
-rescue LoadError
-  require 'sereal'
-end
+#rescue LoadError
+#  require 'sereal'
+#end
 
 require 'json'
 require 'msgpack'
@@ -26,7 +26,7 @@ class ZXC
   end
 end
 
-string = "aaa"*100
+string = "aaa"
 a = [ string,string,1,2,3 ]
 aa = [a,a,a,a,a,a]
 aaa = [aa, aa]
@@ -58,6 +58,8 @@ aaa = [aa, aa]
     v = nil
     x.report("srl-er") {v = Sereal.encode(t,Sereal::REF) }
     x.report("srl-dr") { Sereal.decode(v) }
+    x.report("srl-erc") {v = Sereal.encode(t,Sereal::REF|Sereal::COPY) }
+    x.report("srl-drc") { Sereal.decode(v) }
 
     x.report("srl-erS") {v = Sereal.encode(t,Sereal::REF|Sereal::SNAPPY) }
     x.report("srl-drS") { Sereal.decode(v) }
