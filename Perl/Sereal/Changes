@@ -7,6 +7,9 @@ please see the Encoder and Decoder changelogs:
    * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
 
 
+2.021 Tue Jan  7 20:10 2014 (AMS time)
+  - New decoder/encoder release, dependency version change.
+
 2.020 Mon Jan  6 15:00 2014 (AMS time)
   - New decoder/encoder release, dependency version change.
 
