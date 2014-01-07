@@ -1192,6 +1192,7 @@ srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
     {
         int count;
         AV *arg_av= (AV*)SvRV(into);
+        int arg_av_len = av_len(arg_av)+1;
         dSP;
 
         ENTER;
@@ -1204,8 +1205,8 @@ srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
         /* FIXME do not recreate the following SV. That's dumb and wasteful! - so long as it doesnt get modified! */
         PUSHs(sv_2mortal(newSVpvs("Sereal")));
         /* Push the args into the stack */
-        for (count=0 ; count < av_len(arg_av) + 1; count++) {
-            PUSHs((SV*)*av_fetch(arg_av,count,0));
+        for (count=0 ; count < arg_av_len; count++) {
+            PUSHs((SV*)*av_fetch(arg_av, count, 0));
         }
 
         PUTBACK;
