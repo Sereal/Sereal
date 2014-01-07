@@ -4,6 +4,15 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
 
+2.03 Tue Jan  7 20:00 2014 (AMS time)
+  - (Hopefully) final fixes to FREEZE/THAW functionality:
+    => Add safe assertion to make sure that we don't segfault on invalid
+       data.
+    => Fix encoding/decoding of data structures with repeated references
+       to the same instance of a class that has FREEZE/THAW hooks.
+       Thanks to Christian Hansen for a test case.
+  - Distribution dependency fix.
+
 2.02 Mon Jan  6 15:00 2014 (AMS time)
   - Fundamental fixes for FREEZE/THAW support in previous Sereal v2
     releases. If you plan to use FREEZE/THAW, make sure you have 2.02
