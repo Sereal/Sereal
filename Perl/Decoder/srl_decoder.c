@@ -1189,6 +1189,13 @@ srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
 
     srl_read_single_value(aTHX_ dec, into);
 
+    /* Assert that we got a top level array ref as the spec requires.
+     * Not throwing an exception here violates expectations down the line and
+     * can lead to segfaults. */
+    if (expect_false( !SvROK(into) || SvTYPE(SvRV(into)) != SVt_PVAV ))
+        SRL_ERROR("Corrupted packet. OBJECT(V)_FREEZE used without "
+                  "being followed by an array reference");
+
     {
         int count;
         AV *arg_av= (AV*)SvRV(into);
