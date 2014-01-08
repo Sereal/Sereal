@@ -123,6 +123,8 @@ decode_sereal(src, opt = NULL, into = NULL)
   PREINIT:
     srl_decoder_t *dec= NULL;
   PPCODE:
+    if (SvROK(src))
+        croak("We can't decode a reference as Sereal!");
     /* Support no opt at all, undef, hashref */
     if (opt != NULL) {
         SvGETMAGIC(opt);
