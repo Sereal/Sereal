@@ -6,11 +6,11 @@
 #include <ruby/st.h>
 #include <string.h>     /* memcpy,memset */
 #include "proto.h"
-
-typedef unsigned long long      u64;
-typedef unsigned int            u32;
-typedef unsigned short          u16;
-typedef unsigned char           u8;
+#include <stdint.h>
+typedef uint64_t u64;
+typedef uint32_t u32;
+typedef uint16_t u16;
+typedef uint8_t  u8;
 typedef struct _sereal          sereal_t;
 
 #define TRUE 1
