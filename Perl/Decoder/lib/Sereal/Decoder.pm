@@ -144,7 +144,7 @@ This means you can do this:
 
 =head2 decode
 
-Given a byte string of Sereal data, the C<decode> call derializes that data
+Given a byte string of Sereal data, the C<decode> call deserializes that data
 structure. The result can be obtained in one of two ways: C<decode> accepts
 a second parameter, which is a scalar to write the result to, AND C<decode>
 will return the resulting data structure.
@@ -232,7 +232,7 @@ input data as reasonably possible. This means that it should never
 (though read on) segfault. It may, however, cause a large malloc
 to fail. Generally speaking, invalid data should cause a Perl-trappable
 exception. The one exception is that for Snappy-compressed Sereal documents,
-the Snappy library may cause segmentation faults (invalid reads orwrites).
+the Snappy library may cause segmentation faults (invalid reads overwrites).
 This should only be a problem if you do not checksum your data (internal
 checksum support is a To-Do) or if you accept data from potentially
 malicious sources.
