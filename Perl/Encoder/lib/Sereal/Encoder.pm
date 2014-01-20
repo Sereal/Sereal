@@ -205,7 +205,7 @@ various caveats involved.
 
 =head3 no_shared_hashkeys
 
-When the C<no_shared_hashkeys> option is set ot a true value, then
+When the C<no_shared_hashkeys> option is set to a true value, then
 the encoder will disable the detection and elimination of repeated hash
 keys. This only has an effect for serializing structures containing hashes.
 By skipping the detection of repeated hash keys, performance goes up a bit,
@@ -217,7 +217,7 @@ Do not disable this unless you have a reason to.
 
 If this is option is enabled/true then Sereal will use a hash to encode duplicates
 of strings during serialization efficiently using (internal) backreferences. This
-has a peformance and memory penalty during encoding so it defaults to off.
+has a performance and memory penalty during encoding so it defaults to off.
 On the other hand, data structures with many duplicated strings will see a
 significant reduction in the size of the encoded form. Currently only strings
 longer than 3 characters will be deduped, however this may change in the future.
@@ -245,7 +245,7 @@ This option enables a mode of operation that is similar to I<dedupe_strings>
 and if both options are set, I<aliased_dedupe_strings> takes precedence.
 
 The behaviour of I<aliased_dedupe_strings> differs from I<dedupe_strings>
-in that the duplicate occurrances of strings are emitted as Perl language
+in that the duplicate occurrences of strings are emitted as Perl language
 level B<aliases> instead of as Sereal-internal backreferences. This means
 that using this option actually produces a different output data structure
 when decoding. The upshot is that with this option, the application
@@ -304,7 +304,7 @@ by including the original object). But C<FREEZE> can't return a list as with CBO
 This should not be any practical limitation whatsoever. Just return an array
 reference instead of a list.
 
-Here is a contrived example of a class implementing the C<FREEZE> / C<THAW> mechansim.
+Here is a contrived example of a class implementing the C<FREEZE> / C<THAW> mechanism.
 
   package
     File;
@@ -413,10 +413,10 @@ applies to HASH vs. HASHREF.
 Similar to how Sereal can represent arrays and hashes in a full and a compact
 form. For small integers (between -16 and +15 inclusive), Sereal emits only
 one byte including the encoding of the type of data. For larger integers,
-it can use either varints (positive only) or zigzag encoding, which can also
+it can use either variants (positive only) or zigzag encoding, which can also
 represent negative numbers. For a canonical mode, the space optimizations
 would have to be turned off and it would have to be explicitly specified
-whether varint or zigzag encoding is to be used for encoding positive
+whether variant or zigzag encoding is to be used for encoding positive
 integers.
 
 Perl may choose to retain multiple representations of a scalar. Specifically,
