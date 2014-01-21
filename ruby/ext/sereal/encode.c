@@ -41,7 +41,7 @@ void (*WRITER[W_SIZE])(sereal_t *,VALUE);
 static void rb_object_to_sereal(sereal_t *s, VALUE object);
 static void s_append_varint(sereal_t *s,u64 n);
 static void s_append_hdr_with_varint(sereal_t *s,u8 hdr, u64 n);
-static void s_append_zigzag(sereal_t *s,u64 n);
+static void s_append_zigzag(sereal_t *s,long long n);
 static void s_append_string(sereal_t *s,u8 *string, u32 len,u8 is_utf8);
 static void s_append_rb_string(sereal_t *s, VALUE object);
 static void s_append_array(sereal_t *s, VALUE object);
@@ -49,7 +49,8 @@ static void s_append_hash(sereal_t *s, VALUE object);
 static void s_append_symbol(sereal_t *s, VALUE object);
 static void s_append_object(sereal_t *s, VALUE object);
 static void s_append_regexp(sereal_t *s, VALUE object);
-static void s_append_integer(sereal_t *s, VALUE object);
+static void s_append_bignum(sereal_t *s, VALUE object);
+static void s_append_fixnum(sereal_t *s, VALUE object);
 static void s_append_double(sereal_t *s, VALUE object);
 static void s_append_true(sereal_t *s, VALUE object);
 static void s_append_false(sereal_t *s, VALUE object);
@@ -61,8 +62,8 @@ void s_init_writers(void) {
     for (i = 0; i < sizeof(WRITER)/sizeof(WRITER[0]); i++)
         WRITER[i] = s_default_writer;
 
-    WRITER[T_FIXNUM] = s_append_integer;
-    WRITER[T_BIGNUM] = s_append_integer;
+    WRITER[T_FIXNUM] = s_append_fixnum;
+    WRITER[T_BIGNUM] = s_append_bignum;
     WRITER[T_FLOAT]  = s_append_double;
     WRITER[T_OBJECT] = s_append_object;
     WRITER[T_REGEXP] = s_append_regexp;
@@ -93,9 +94,8 @@ static inline void s_append_hdr_with_varint(sereal_t *s,u8 hdr, u64 n) {
     s_append_varint(s,n);
 }
 
-static inline void s_append_zigzag(sereal_t *s,u64 n) {
-    s_append_hdr_with_varint(s,SRL_HDR_ZIGZAG,
-                             (n << 1) ^ (n >> (sizeof(long) * 8 - 1)));
+static inline void s_append_zigzag(sereal_t *s,long long n) {
+    s_append_hdr_with_varint(s,SRL_HDR_ZIGZAG,(n << 1) ^ (n >> 63));
 }
 
 static inline void s_append_string(sereal_t *s,u8 *string, u32 len,u8 is_utf8) {
@@ -230,25 +230,37 @@ static void s_append_regexp(sereal_t *s, VALUE object) {
     s_append_rb_string(s,f);
 }
 
+#define I_APPEND(_v)                                                    \
+    do {                                                                \
+        if (_v >= 0) {                                                  \
+            if (_v < 16)                                                \
+                s_append_u8(s,SRL_HDR_POS_LOW | (u8) _v);               \
+            else                                                        \
+                s_append_hdr_with_varint(s,SRL_HDR_VARINT,_v);          \
+        } else {                                                        \
+            if (_v > -17)                                               \
+                s_append_u8(s,SRL_HDR_NEG_LOW | ((u8) _v + 32));        \
+            else                                                        \
+                s_append_zigzag(s,_v);                                  \
+        }                                                               \
+    } while(0)
 
-static void s_append_integer(sereal_t *s, VALUE object) {
-    long long v = FIXNUM_P(object) ? FIX2LONG(object) : rb_num2ll(object);
-    if (v >= 0) {
-        if (v < 16) 
-            s_append_u8(s,SRL_HDR_POS_LOW | (u8) v);
-        else {
-            if (!FIXNUM_P(object))
-                s_append_hdr_with_varint(s,SRL_HDR_VARINT,NUM2ULL(object));
-            else
-                s_append_hdr_with_varint(s,SRL_HDR_VARINT,v);
-        }
+static void s_append_fixnum(sereal_t *s, VALUE object) {
+    long long v = FIXNUM_P(object) ? FIX2LONG(object) : NUM2LL(object);
+    I_APPEND(v);
+}
+
+static void s_append_bignum(sereal_t *s, VALUE object) {
+    if (RBIGNUM_POSITIVE_P(object)) {
+        unsigned long long uv = rb_big2ull(object);
+        I_APPEND(uv);
     } else {
-        if (v > -17)
-            s_append_u8(s,SRL_HDR_NEG_LOW | ((u8) v + 32));
-        else
-            s_append_zigzag(s,v);            
+        long long v = rb_big2ll(object);
+        I_APPEND(v);
     }
 }
+#undef I_APPEND
+
 static void s_append_double(sereal_t *s, VALUE object) {
     double d = NUM2DBL(object);
     s_append_u8(s,SRL_HDR_DOUBLE);

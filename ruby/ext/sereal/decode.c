@@ -26,11 +26,7 @@ static u64 s_get_varint_bang(sereal_t *s) {
 static VALUE s_read_zigzag(sereal_t *s, u8 tag) {
     signed long long z = 0;
     u64 v = s_get_varint_bang(s);
-    if (v & 1) {
-        z = ((long) v >> 1);
-    } else {
-        z = (long) v >> 1;
-    }
+    z = (v >> 1) ^ -(v & 0x01);
     return LL2NUM(z);
 }
 

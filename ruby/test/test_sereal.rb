@@ -125,15 +125,26 @@ class Test::Unit::TestCase
     end
   end
   def test_numbers
-    [0,1,2,3,4,16,17,2**31,2**32,2**60,2*64,0.1,Float(2**64),2.1**956].each do |x|
-      assert_equal recode(x),x
-      if x > 0
-        neg = -x
-        assert_equal recode(neg),neg
+    [0,1,2,3,4,15,16,17,2**30,2**31,2**32,2**61,(2**64)-1,0.1,Float(2**64),2.1**956].each do |i|
+      [i,-i].each do |x|
+        if (i > (2**63))
+          x = i
+        end
+        begin
+          assert_equal x,recode(x),"testing: #{x.to_s}"
+        rescue Exception => e
+          raise "failed to recode #{x} - #{e.message}"
+        end
       end
     end
   end
-
+  def test_numbers_end
+    [(2**64),-(2**64)].each do |x|
+      assert_raise(RangeError) do
+        recode(x);
+      end
+    end
+  end
   def test_nil
     assert_equal recode(nil),nil
   end
