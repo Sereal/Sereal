@@ -239,7 +239,7 @@ sub parse_hv {
   while ($len--) {
     my $t = substr($data, 0, 1);
     my $o = ord($t);
-    print( "               ", $ind, ($flipflop++ % 2 == 1 ? "VALUE" : "KEY"), ":\n" );
+    printf  "$fmt2%s:\n",("") x $lead_items, $ind, ($flipflop++ %2 == 1 ? "VALUE" : "KEY");
     parse_sv($ind."  ");
   }
 }
