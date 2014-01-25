@@ -232,7 +232,7 @@ input data as reasonably possible. This means that it should never
 (though read on) segfault. It may, however, cause a large malloc
 to fail. Generally speaking, invalid data should cause a Perl-trappable
 exception. The one exception is that for Snappy-compressed Sereal documents,
-the Snappy library may cause segmentation faults (invalid reads overwrites).
+the Snappy library may cause segmentation faults (invalid reads or writes).
 This should only be a problem if you do not checksum your data (internal
 checksum support is a To-Do) or if you accept data from potentially
 malicious sources.
