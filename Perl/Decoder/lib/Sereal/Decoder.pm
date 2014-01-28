@@ -263,11 +263,9 @@ the C<FREEZE/THAW> mechanism, please refer to L<Sereal::Encoder>.
 
 =head1 PERFORMANCE
 
-The exact performance in time and space depends heavily on the data structure
-to be serialized. For ready-made comparison scripts, see the
-F<author_tools/bench.pl> and F<author_tools/dbench.pl> programs that are part
-of this distribution. Suffice to say that this library is easily competitive
-in both time and space efficiency with the best alternatives.
+Please refer to the PERFORMANCE documention section in the L<Sereal::Encoder>
+module that has more detailed information about Sereal performance and
+tuning thereof.
 
 =head1 THREAD-SAFETY
 

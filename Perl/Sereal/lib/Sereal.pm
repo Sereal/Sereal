@@ -25,6 +25,7 @@ Sereal - Fast, compact, powerful binary (de-)serialization
 =head1 SYNOPSIS
 
   use Sereal qw(encode_sereal decode_sereal looks_like_sereal);
+  # Note: For performance reasons, you should prefer the OO interface
   
 =head1 DESCRIPTION
 
