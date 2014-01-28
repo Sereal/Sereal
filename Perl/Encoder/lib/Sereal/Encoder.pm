@@ -58,6 +58,8 @@ there is a discussion of the design objectives in
 L<https://github.com/Sereal/Sereal/blob/master/README.pod>, and the output
 of our benchmarks can be seen at
 L<https://github.com/Sereal/Sereal/wiki/Sereal-Comparison-Graphs>.
+For more information on getting the best performance out of Sereal, have a look
+at the L</"PERFORMANCE"> section below.
 
 =head1 CLASS METHODS
 
@@ -277,13 +279,24 @@ The functional interface that is equivalent to using C<new> and C<encode>.
 Expects a data structure to serialize as first argument, optionally followed
 by a hash reference of options (see documentation for C<new()>).
 
-The functional interface is marginally slower than the OO interface since
+The functional interface is quite a bit slower than the OO interface since
 it cannot reuse the encoder object.
 
 =head1 PERFORMANCE
 
+If you care about performance at all, then use the object-oriented interface
+instead of the functional interface. It's a significant difference in performance
+if you are serializing small data structures.
+
 The exact performance in time and space depends heavily on the data structure
-to be serialized. For ready-made comparison scripts, see the
+to be serialized. Often there is a trade-off between space and time. If in doubt,
+do your own testing and most importantly ALWAYS TEST WITH REAL DATA. If you
+care purely about speed at the expense of output size, you can use the
+C<no_shared_hashkeys> option for a small speed-up. If you need smaller output at
+the cost of higher CPU load and more memory used during encoding/decoding,
+try the C<dedupe_strings> option and enable Snappy compression.
+
+For ready-made comparison scripts, see the
 F<author_tools/bench.pl> and F<author_tools/dbench.pl> programs that are part
 of this distribution. Suffice to say that this library is easily competitive
 in both time and space efficiency with the best alternatives.
