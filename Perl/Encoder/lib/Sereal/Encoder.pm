@@ -90,15 +90,16 @@ The decoder (version 0.04 and up) will know how to handle Snappy-compressed
 Sereal documents transparently.
 
 B<Note:> The C<snappy_incr> and C<snappy> options are identical in
-Sereal protocol V2 (the default). If using the C<use_protocol_v1> option
+Sereal protocol v2 (the default). If using an older protocol version
+(see C<protocol_version> and C<use_protocol_v1> options below)
 to emit Sereal V1 documents, this emits non-incrementally decodable
 documents. See C<snappy_incr> in those cases.
 
 =head3 snappy_incr
 
-Same as the C<snappy> option for default (Sereal V2) operation.
+Same as the C<snappy> option for default (Sereal v2) operation.
 
-In Sereal V1, enables a version of the snappy protocol which is suitable for
+In Sereal V1, enables a version of the Snappy protocol which is suitable for
 incremental parsing of packets. See also the C<snappy> option above for
 more details.
 
@@ -264,7 +265,19 @@ but at the cost of potential action at a distance due to the aliasing.
 I<Beware:> The test suite currently does not cover this option as well as it
 probably should. Patches welcome.
 
+=head3 protocol_version
+
+Specifies the version of the Sereal protocol to emit. Valid are integers
+between 1 and the current version. If not specified, the most recent protocol
+version will be used. See also C<use_protocol_v1>:
+
+It is strongly advised to use the latest protocol version outside of
+migration periods.
+
 =head3 use_protocol_v1
+
+This option is deprecated in favour of the C<protocol_version> option (see
+above).
 
 If set, the encoder will emit Sereal documents following protocol version 1.
 This is strongly discouraged except for temporary
