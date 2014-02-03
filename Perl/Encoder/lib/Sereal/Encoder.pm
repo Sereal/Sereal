@@ -5,11 +5,11 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '2.03'; # Don't forget to update the TestCompat set for testing against installed decoders!
+our $VERSION = '3.00'; # Don't forget to update the TestCompat set for testing against installed decoders!
 
 # not for public consumption, just for testing.
 (my $num_version = $VERSION) =~ s/_//;
-my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 200 .. int($num_version * 100) ) ]; # compat with 2.00 to ...
+my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 300 .. int($num_version * 100) ) ]; # compat with 3.00 to ...
 sub _test_compat {return(@$TestCompat, $VERSION)}
 
 use Exporter 'import';
@@ -49,7 +49,7 @@ Its sister module L<Sereal::Decoder> implements a decoder for this format.
 The two are released separately to allow for independent and safer upgrading.
 
 The Sereal protocol version emitted by this encoder implementation is currently
-protocol version 2 by default.
+protocol version 3 by default.
 
 The protocol specification and many other bits of documentation
 can be found in the github repository. Right now, the specification is at
@@ -83,14 +83,14 @@ The decoder (version 0.04 and up) will know how to handle Snappy-compressed
 Sereal documents transparently.
 
 B<Note:> The C<snappy_incr> and C<snappy> options are identical in
-Sereal protocol v2 (the default). If using an older protocol version
+Sereal protocol v2 and higher (the default). If using an older protocol version
 (see C<protocol_version> and C<use_protocol_v1> options below)
 to emit Sereal V1 documents, this emits non-incrementally decodable
 documents. See C<snappy_incr> in those cases.
 
 =head3 snappy_incr
 
-Same as the C<snappy> option for default (Sereal v2) operation.
+Same as the C<snappy> option for default (Sereal v2+) operation.
 
 In Sereal V1, enables a version of the Snappy protocol which is suitable for
 incremental parsing of packets. See also the C<snappy> option above for
