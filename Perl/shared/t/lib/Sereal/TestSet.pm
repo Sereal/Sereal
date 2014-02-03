@@ -692,7 +692,7 @@ if (eval "use Array::RefElem (av_store hv_store); 1") {
 
 sub run_roundtrip_tests {
     my ($proto_version) = @_;
-    my @proto_versions = ($proto_version ? ($proto_version) : qw(2 1));
+    my @proto_versions = ($proto_version ? ($proto_version) : (1 .. +SRL_PROTOCOL_VERSION));
 
     for my $proto_version ($proto_version) {
         my $suffix = $proto_version == 1 ? "_v1" : "";
@@ -707,7 +707,14 @@ sub run_roundtrip_tests {
         ) {
             my ($name, $opts) = @$opt;
             $name .= $suffix;
-            $opts->{use_protocol_v1} = 1 if $proto_version == 1;
+            if ($proto_version) {
+                if ($proto_version == 1) {
+                    $opts->{use_protocol_v1} = 1;
+                }
+                else {
+                    $opts->{protocol_version} = $proto_version;
+                }
+            }
             $PROTO_VERSION= $proto_version;
             setup_tests();
             run_roundtrip_tests_internal($name, $opts);

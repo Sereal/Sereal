@@ -34,7 +34,7 @@
 #define SRL_SET_BODY_POS(enc, pos_ptr) ((enc)->buf.body_pos = pos_ptr)
 #define SRL_UPDATE_BODY_POS(enc)                                            \
     STMT_START {                                                            \
-        if (expect_false(SRL_ENC_HAVE_OPTION((enc), SRL_F_USE_PROTO_V1))) { \
+        if (expect_false((enc)->protocol_version == 1)) {                   \
             SRL_SET_BODY_POS(enc, (enc)->buf.start);                        \
         } else {                                                            \
             SRL_SET_BODY_POS(enc, (enc)->buf.pos-1);                        \
