@@ -536,10 +536,15 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
         dec->pos += 4;
         dec->proto_version_and_flags = *dec->pos++;
 
+        /* TODO eventually, we'll have to migrate to a cleaner
+         * "store actual protocol version in decoder" model as was done with
+         * the encoder. But until either a future v4 or if v3 acquires features
+         * outside the Sereal header, the current "store flag about being v1"
+         * mode is still good enough. */
         proto_version = dec->proto_version_and_flags & SRL_PROTOCOL_VERSION_MASK;
         if (expect_false( proto_version == 1 ))
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_PROTOCOL_V1); /* compat mode */
-        else if (expect_false( proto_version != 2 ))
+        else if (expect_false( proto_version > 3 || proto_version < 1 ))
             SRL_ERRORf1("Unsupported Sereal protocol version %u",
                     dec->proto_version_and_flags & SRL_PROTOCOL_VERSION_MASK);
 
@@ -569,7 +574,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
         header_len= srl_read_varint_uv_length(aTHX_ dec, " while reading header");
 
         if (proto_version > 1 && header_len) {
-            /* We have a protocol V2 extensible header:
+            /* We have a protocol V2+ extensible header:
              *  - 8bit bitfield
              *  - if lowest bit set, we have custom-header-user-data after the bitfield
              *  => Only read header user data if an SV* was passed in to fill. */
