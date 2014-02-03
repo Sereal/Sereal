@@ -2,6 +2,7 @@
 use strict;
 use warnings;
 use Sereal::Encoder qw(:all);
+use Sereal::Encoder::Constants qw(:all);
 use File::Spec;
 use Scalar::Util qw( blessed );
 use lib File::Spec->catdir(qw(t lib));
@@ -13,7 +14,7 @@ BEGIN {
 use Sereal::TestSet qw(:all);
 use Test::More;
 
-my $ref = Header(2, chr(0b0000_1100)) . chr(0b0001_0000); # -16 in body, 12 in header
+my $ref = Header(SRL_PROTOCOL_VERSION, chr(0b0000_1100)) . chr(0b0001_0000); # -16 in body, 12 in header
 is(encode_sereal_with_header_data(-16, 12), $ref, "Encode 12 in header, -16 in body");
 is(Sereal::Encoder->new->encode(-16, 12), $ref, "OO: Encode 12 in header, -16 in body");
 
