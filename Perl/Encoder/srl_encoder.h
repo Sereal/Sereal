@@ -20,6 +20,7 @@ typedef struct {
 
     U32 operational_flags;    /* flags that pertain to one encode run (rather than being options): See SRL_OF_* defines */
     U32 flags;                /* flag-like options: See SRL_F_* defines */
+    U32 protocol_version;     /* The version of the Sereal protocol to emit. */
     UV max_recursion_depth;   /* Configurable limit on the number of recursive calls we're willing to make */
 
     UV recursion_depth;       /* current Perl-ref recursion depth */
@@ -101,11 +102,8 @@ void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_
  * Corresponds to the 'no_bless_objects' flag found in the Decoder. */
 #define SRL_F_NO_BLESS_OBJECTS                0x01000UL
 
-/* If set in flags, then we serialize using Sereal protocol version 1. */
-#define SRL_F_USE_PROTO_V1                    0x02000UL
-
 /* If set in flags, then support calling FREEZE method on objects. */
-#define SRL_F_ENABLE_FREEZE_SUPPORT           0x04000UL
+#define SRL_F_ENABLE_FREEZE_SUPPORT           0x02000UL
 
 /* Set while the encoder is in active use / dirty */
 #define SRL_OF_ENCODER_DIRTY                 1UL

@@ -249,6 +249,7 @@ srl_empty_encoder_struct(pTHX)
      * something nasty if it's unused. */
     enc->tmp_buf.start = NULL;
 
+    enc->protocol_version = SRL_PROTOCOL_VERSION;
     enc->recursion_depth = 0;
     enc->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
     enc->operational_flags = 0;
@@ -285,9 +286,23 @@ srl_build_encoder_struct(pTHX_ HV *opt)
             SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
 
         /* Needs to be before the snappy options */
-        svp = hv_fetchs(opt, "use_protocol_v1", 0);
-        if ( svp && SvTRUE(*svp) )
-            SRL_ENC_SET_OPTION(enc, SRL_F_USE_PROTO_V1);
+        /* enc->protocol_version defaults to SRL_PROTOCOL_VERSION. */
+        svp = hv_fetchs(opt, "protocol_version", 0);
+        if (svp && SvOK(*svp)) {
+            enc->protocol_version = SvUV(*svp);
+            if (enc->protocol_version < 1
+                || enc->protocol_version > SRL_PROTOCOL_VERSION)
+            {
+                croak("Specified Sereal protocol version ('%lu') is invalid",
+                      (unsigned long)enc->protocol_version);
+            }
+        }
+        else {
+            /* Compatibility with the old way to specify older protocol version */
+            svp = hv_fetchs(opt, "use_protocol_v1", 0);
+            if ( svp && SvTRUE(*svp) )
+                enc->protocol_version = 1;
+        }
 
         svp = hv_fetchs(opt, "croak_on_bless", 0);
         if ( svp && SvTRUE(*svp) )
@@ -309,7 +324,7 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         svp = hv_fetchs(opt, "snappy", 0);
         if ( svp && SvTRUE(*svp) ) {
             /* incremental is the new black in V2 */
-            if (expect_true( !SRL_ENC_HAVE_OPTION(enc, SRL_F_USE_PROTO_V1) ))
+            if (expect_true( enc->protocol_version >= 2 ))
                 SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
             else {
                 snappy_nonincr = 1;
@@ -384,6 +399,7 @@ srl_build_encoder_struct_alike(pTHX_ srl_encoder_t *proto)
     srl_encoder_t *enc;
     enc = srl_empty_encoder_struct(aTHX);
     enc->flags = proto->flags;
+    enc->protocol_version = proto->protocol_version;
     DEBUG_ASSERT_BUF_SANE(enc);
     return enc;
 }
@@ -441,7 +457,7 @@ void
 srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src)
 {
     /* 4th to 8th bit are flags. Using 4th for snappy flag. FIXME needs to go in spec. */
-    const U8 version_and_flags = (SRL_ENC_HAVE_OPTION(enc, SRL_F_USE_PROTO_V1) ? 1 : SRL_PROTOCOL_VERSION)
+    const U8 version_and_flags = (U8)enc->protocol_version
                                  | (
                                     SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY)
                                     ? SRL_PROTOCOL_ENCODING_SNAPPY
@@ -462,7 +478,7 @@ srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src)
     else {
         STRLEN user_data_len;
 
-        if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_USE_PROTO_V1) ))
+        if (expect_false( enc->protocol_version < 2 ))
             croak("Cannot serialize user header data in Sereal protocol V1 mode!");
 
         /* Allocate tmp buffer for swapping if necessary,
