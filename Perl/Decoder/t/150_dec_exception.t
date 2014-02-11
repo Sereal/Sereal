@@ -19,7 +19,7 @@ use Sereal::TestSet qw(:all);
 # bad input. This obviously shouldn't segfault and neither leak
 # memory.
 
-plan tests => 47;
+plan tests => 55;
 my ($ok, $out, $err);
 
 SCOPE: {
@@ -50,6 +50,16 @@ SCOPE: {
 
     check_fail($hash_packet, qr/Sereal: Error/, "Setting hash limit option (1)", {max_num_hash_entries => 1});
     check_fail($hash_packet, qr/Sereal: Error/, "Setting hash limit option (999)", {max_num_hash_entries => 999});
+
+    my $valid_packet = Header(2) . chr(SRL_HDR_UNDEF);
+    my $undef = decode_sereal($valid_packet);
+    ok(!defined($undef), "Have valid test packet");
+    $valid_packet =~ s/^=srl/=\xF3rl/;
+    $undef = decode_sereal($valid_packet);
+    ok(!defined($undef), "Have valid test packet after asserting high bit in magic");
+
+    utf8::encode($valid_packet);
+    check_fail($valid_packet, qr/UTF-8/, "Sereal determined 'accidental' UTF8 upgrade");
 }
 
 pass("Alive"); # done
