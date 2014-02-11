@@ -102,7 +102,8 @@ HERE
 }
 
 sub SRL_MAGIC_STRING () {"=srl"}
-push @EXPORT_OK, "SRL_MAGIC_STRING";
+sub SRL_MAGIC_STRING_HIGHBIT () {"=\xF3rl"}
+push @EXPORT_OK, qw(SRL_MAGIC_STRING SRL_MAGIC_STRING_HIGHBIT);
 our %EXPORT_TAGS=(all => \@EXPORT_OK);
 HERE
     close $ofh;
