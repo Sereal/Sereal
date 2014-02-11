@@ -143,9 +143,10 @@ sub varint {
 our $PROTO_VERSION;
 
 sub Header {
-    my $proto_version = shift || $PROTO_VERSION;
+    my $proto_version = shift || $PROTO_VERSION || SRL_PROTOCOL_VERSION;
     my $user_data_blob = shift;
-    my $hdr_base = SRL_MAGIC_STRING . chr($proto_version||SRL_PROTOCOL_VERSION);
+    my $mgc = $proto_version > 2 ? SRL_MAGIC_STRING_HIGHBIT : SRL_MAGIC_STRING;
+    my $hdr_base = $mgc . chr($proto_version);
     if (defined $user_data_blob) {
         return $hdr_base . varint(1 + length($user_data_blob)) . chr(1) . $user_data_blob;
     }

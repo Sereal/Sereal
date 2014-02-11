@@ -488,7 +488,10 @@ srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src)
      * + potentially uncompressed size varint
      * +  1 byte varint that indicates zero-length header */
     BUF_SIZE_ASSERT(enc, sizeof(SRL_MAGIC_STRING) + 1 + 1);
-    srl_buf_cat_str_s_nocheck(enc, SRL_MAGIC_STRING);
+    if (LIKELY( enc->protocol_version > 2 ))
+      srl_buf_cat_str_s_nocheck(enc, SRL_MAGIC_STRING_HIGHBIT);
+    else
+      srl_buf_cat_str_s_nocheck(enc, SRL_MAGIC_STRING);
     srl_buf_cat_char_nocheck(enc, version_and_flags);
     if (user_header_src == NULL) {
         srl_buf_cat_char_nocheck(enc, '\0'); /* variable header length (0 right now) */
