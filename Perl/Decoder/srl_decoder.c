@@ -442,7 +442,16 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
 
     /* 4 byte magic string + version/flags + hdr len at least */
     ASSERT_BUF_SPACE(dec, 4 + 1 + 1," while reading header");
-    if (strnEQ((char*)dec->pos, SRL_MAGIC_STRING, 4)) {
+
+    if (!strnEQ((char*)dec->pos, SRL_MAGIC_STRING_HIGHBIT, SRL_MAGIC_STRLEN)
+        && !strnEQ((char*)dec->pos, SRL_MAGIC_STRING, SRL_MAGIC_STRLEN))
+    {
+        if (strnEQ((char*)dec->pos, SRL_MAGIC_STRING_HIGHBIT_UTF8, SRL_MAGIC_STRLEN_HIGHBIT_UTF8))
+            SRL_ERROR("Bad Sereal header: It seems your document was accidentally UTF-8 encoded");
+        else
+            SRL_ERROR("Bad Sereal header: Does not start with Sereal magic");
+    }
+    else {
         unsigned int proto_version;
 
         dec->pos += 4;
@@ -510,8 +519,6 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
              * protocol version. */
             dec->pos += header_len;
         }
-    } else {
-        SRL_ERROR("Bad Sereal header: Does not start with Sereal magic");
     }
 }
 
