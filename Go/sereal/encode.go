@@ -333,11 +333,14 @@ func (e *Encoder) encodeArray(by []byte, arr reflect.Value, strTable map[string]
 	by = append(by, typeARRAY)
 	by = varint(by, uint(l))
 
-	for i := 0; i < l; i++ {
-		v := arr.Index(i)
-		if e.PerlCompat {
+	if e.PerlCompat {
+		for i := 0; i < l; i++ {
+			v := arr.Index(i)
 			by = e.encodeScalar(by, v, false, strTable, ptrTable)
-		} else {
+		}
+	} else {
+		for i := 0; i < l; i++ {
+			v := arr.Index(i)
 			by, _ = e.encode(by, v, false, strTable, ptrTable)
 		}
 	}
@@ -477,15 +480,16 @@ func (e *Encoder) encodeMap(by []byte, m reflect.Value, strTable map[string]int,
 	by = append(by, typeHASH)
 	by = varint(by, uint(l))
 
-	for _, k := range keys {
-		// FIXME: perl compat mode needs to puke if key type isn't stringable
-		// FIXME: add extra String() calls to values if types are 'reasonable' ?
-		by, _ = e.encode(by, k, true, strTable, ptrTable)
-		v := m.MapIndex(k)
-		if e.PerlCompat {
-			// only scalars allowed in maps
+	if e.PerlCompat {
+		for _, k := range keys {
+			by = e.encodeString(by, k.String(), true, strTable)
+			v := m.MapIndex(k)
 			by = e.encodeScalar(by, v, false, strTable, ptrTable)
-		} else {
+		}
+	} else {
+		for _, k := range keys {
+			by, _ = e.encode(by, k, true, strTable, ptrTable)
+			v := m.MapIndex(k)
 			by, _ = e.encode(by, v, false, strTable, ptrTable)
 		}
 	}
