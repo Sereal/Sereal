@@ -4,7 +4,7 @@ test: test_dir
 compat: test_dir
 	-rm -f test_dir/test_data_*-go.out
 	-go test -test.run=TestCorpus
-	perl ./test-compat.pl 2>&1 1>/dev/null |grep "Looks like you failed" | tee /dev/stderr |grep "you failed 97"
+	perl ./test-compat.pl 2>&1 1>/dev/null |grep "Looks like you failed" | tee /dev/stderr |grep "you failed 95"
 
 ../../Perl/Decoder/blib:
 	cd ../../Perl/Decoder/ ; perl Makefile.PL
