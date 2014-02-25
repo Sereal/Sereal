@@ -120,7 +120,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		rv := reflectValueOf(header)
 		// this is both the flag byte (== "there is user data") and also a hack to make 1-based offsets work
 		henv := []byte{0x01} // flag byte == "there is user data"
-		encoded, err := e.encode(henv, rv, strTable, ptrTable)
+		encoded, err := e.encode(henv, rv, false, strTable, ptrTable)
 
 		if err != nil {
 			return nil, err
@@ -142,10 +142,10 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 
 	switch e.version {
 	case 1:
-		encoded, err = e.encode(b, rv, strTable, ptrTable)
+		encoded, err = e.encode(b, rv, false, strTable, ptrTable)
 	case 2:
 		benc := []byte{0} // hack for 1-based offsets
-		encoded, err = e.encode(benc, rv, strTable, ptrTable)
+		encoded, err = e.encode(benc, rv, false, strTable, ptrTable)
 		encoded = encoded[1:] // trim hacky first byte
 		encoded = append(b, encoded...)
 	}
@@ -165,7 +165,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 	return encoded, nil
 }
 
-func (e *Encoder) encode(b []byte, rv reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
+func (e *Encoder) encode(b []byte, rv reflect.Value, isKeyOrClass bool, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
 
 	if rv.Kind() != reflect.Invalid {
 		if m, ok := rv.Interface().(encoding.BinaryMarshaler); ok {
@@ -177,12 +177,12 @@ func (e *Encoder) encode(b []byte, rv reflect.Value, strTable map[string]int, pt
 			name := concreteName(rv)
 
 			b = append(b, typeOBJECT_FREEZE)
-			b, err = e.encode(b, reflect.ValueOf(name), strTable, ptrTable)
+			b, err = e.encode(b, reflect.ValueOf(name), true, strTable, ptrTable)
 			if err != nil {
 				return nil, err
 			}
 
-			b, err = e.encode(b, reflect.ValueOf(by), strTable, ptrTable)
+			b, err = e.encode(b, reflect.ValueOf(by), false, strTable, ptrTable)
 			if err != nil {
 				return nil, err
 			}
@@ -199,10 +199,10 @@ func (e *Encoder) encode(b []byte, rv reflect.Value, strTable map[string]int, pt
 	case reflect.Uint8, reflect.Uint64, reflect.Uint, reflect.Uint32, reflect.Uint16:
 		b = e.encodeInt(b, reflect.Uint, int64(rv.Uint()))
 	case reflect.String:
-		b = e.encodeString(b, rv.String(), strTable)
+		b = e.encodeString(b, rv.String(), isKeyOrClass, strTable)
 	case reflect.Array, reflect.Slice:
 		if rv.Type().Elem().Kind() == reflect.Uint8 {
-			b = e.encodeBytes(b, rv.Bytes(), strTable)
+			b = e.encodeBytes(b, rv.Bytes(), isKeyOrClass, strTable)
 		} else {
 			b = e.encodeArray(b, rv, strTable, ptrTable)
 		}
@@ -223,7 +223,7 @@ func (e *Encoder) encode(b []byte, rv reflect.Value, strTable map[string]int, pt
 		// recurse until we get a concrete type
 		// could be optmized into a tail call
 		var err error
-		b, err = e.encode(b, rv.Elem(), strTable, ptrTable)
+		b, err = e.encode(b, rv.Elem(), isKeyOrClass, strTable, ptrTable)
 		if err != nil {
 			return nil, err
 		}
@@ -274,7 +274,7 @@ func (e *Encoder) encode(b []byte, rv reflect.Value, strTable map[string]int, pt
 
 			var err error
 
-			b, err = e.encode(b, rv.Elem(), strTable, ptrTable)
+			b, err = e.encode(b, rv.Elem(), isKeyOrClass, strTable, ptrTable)
 			if err != nil {
 				return nil, err
 			}
@@ -336,9 +336,9 @@ func (e *Encoder) encodeArray(by []byte, arr reflect.Value, strTable map[string]
 	for i := 0; i < l; i++ {
 		v := arr.Index(i)
 		if e.PerlCompat {
-			by = e.encodeScalar(by, v, strTable, ptrTable)
+			by = e.encodeScalar(by, v, false, strTable, ptrTable)
 		} else {
-			by, _ = e.encode(by, v, strTable, ptrTable)
+			by, _ = e.encode(by, v, false, strTable, ptrTable)
 		}
 	}
 
@@ -358,13 +358,13 @@ func (e *Encoder) encodeBool(by []byte, bo bool) []byte {
 	return by
 }
 
-func (e *Encoder) encodeBytes(by []byte, byt []byte, strTable map[string]int) []byte {
+func (e *Encoder) encodeBytes(by []byte, byt []byte, isKeyOrClass bool, strTable map[string]int) []byte {
 
 	l := len(byt)
 
 	if l < 32 {
 
-		if strTable != nil {
+		if isKeyOrClass && strTable != nil {
 
 			// track short byte strTable
 
@@ -445,12 +445,12 @@ func (e *Encoder) encodeInt(by []byte, k reflect.Kind, i int64) []byte {
 	return by
 }
 
-func (e *Encoder) encodeScalar(by []byte, rv reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
+func (e *Encoder) encodeScalar(by []byte, rv reflect.Value, isKeyOrClass bool, strTable map[string]int, ptrTable map[uintptr]int) []byte {
 
 	switch rv.Kind() {
 	case reflect.Array, reflect.Slice:
 		if rv.Type().Elem().Kind() == reflect.Uint8 {
-			by = e.encodeBytes(by, rv.Bytes(), strTable)
+			by = e.encodeBytes(by, rv.Bytes(), isKeyOrClass, strTable)
 		} else {
 			by = append(by, typeREFN)
 			by = e.encodeArray(by, rv, strTable, ptrTable)
@@ -459,9 +459,9 @@ func (e *Encoder) encodeScalar(by []byte, rv reflect.Value, strTable map[string]
 		by = append(by, typeREFN)
 		by = e.encodeMap(by, rv, strTable, ptrTable)
 	case reflect.Interface:
-		by = e.encodeScalar(by, rv.Elem(), strTable, ptrTable)
+		by = e.encodeScalar(by, rv.Elem(), isKeyOrClass, strTable, ptrTable)
 	default:
-		by, _ = e.encode(by, rv, strTable, ptrTable)
+		by, _ = e.encode(by, rv, isKeyOrClass, strTable, ptrTable)
 	}
 
 	return by
@@ -480,31 +480,35 @@ func (e *Encoder) encodeMap(by []byte, m reflect.Value, strTable map[string]int,
 	for _, k := range keys {
 		// FIXME: perl compat mode needs to puke if key type isn't stringable
 		// FIXME: add extra String() calls to values if types are 'reasonable' ?
-		by, _ = e.encode(by, k, strTable, ptrTable)
+		by, _ = e.encode(by, k, true, strTable, ptrTable)
 		v := m.MapIndex(k)
 		if e.PerlCompat {
 			// only scalars allowed in maps
-			by = e.encodeScalar(by, v, strTable, ptrTable)
+			by = e.encodeScalar(by, v, false, strTable, ptrTable)
 		} else {
-			by, _ = e.encode(by, v, strTable, ptrTable)
+			by, _ = e.encode(by, v, false, strTable, ptrTable)
 		}
 	}
 
 	return by
 }
 
-func (e *Encoder) encodeString(by []byte, s string, strTable map[string]int) []byte {
+func (e *Encoder) encodeString(by []byte, s string, isKeyOrClass bool, strTable map[string]int) []byte {
 
-	copyOffs, ok := strTable[s]
+	if isKeyOrClass {
 
-	if ok {
-		by = append(by, typeCOPY)
-		by = varint(by, uint(copyOffs))
-		return by
+		copyOffs, ok := strTable[s]
+
+		if ok {
+			by = append(by, typeCOPY)
+			by = varint(by, uint(copyOffs))
+			return by
+		}
+
+		// save for later
+		strTable[s] = len(by)
+
 	}
-
-	// save for later
-	strTable[s] = len(by)
 
 	by = append(by, typeSTR_UTF8)
 	by = varint(by, uint(len(s)))
@@ -525,24 +529,25 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]
 		return by
 	case PerlObject:
 		by = append(by, typeOBJECT)
-		// nil strTable because classnames need their own namespace
-		by = e.encodeBytes(by, []byte(val.Class), nil)
-		by, _ = e.encode(by, reflect.ValueOf(val.Reference), strTable, ptrTable)
+		// FIXME(dgryski): not sure this is right
+		// nil because strTable because classnames need their own namespace
+		by = e.encodeBytes(by, []byte(val.Class), true, strTable)
+		by, _ = e.encode(by, reflect.ValueOf(val.Reference), false, strTable, ptrTable)
 		return by
 	case PerlRegexp:
 		by = append(by, typeREGEXP)
-		by = e.encodeBytes(by, []byte(val.Pattern), strTable)
-		by = e.encodeBytes(by, []byte(val.Modifiers), strTable)
+		by = e.encodeBytes(by, []byte(val.Pattern), false, strTable)
+		by = e.encodeBytes(by, []byte(val.Modifiers), false, strTable)
 		return by
 	case PerlWeakRef:
 		by = append(by, typeWEAKEN)
-		by, _ = e.encode(by, reflect.ValueOf(val.Reference), strTable, ptrTable)
+		by, _ = e.encode(by, reflect.ValueOf(val.Reference), false, strTable, ptrTable)
 		return by
 	}
 
 	by = append(by, typeOBJECT)
 
-	by = e.encodeBytes(by, []byte(typ.Name()), strTable)
+	by = e.encodeBytes(by, []byte(typ.Name()), true, strTable)
 
 	tags := getStructTags(st)
 	publicFields := len(tags)
@@ -557,8 +562,8 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]
 
 	if tags != nil {
 		for f, i := range tags {
-			by = e.encodeString(by, f, strTable)
-			by, _ = e.encode(by, st.Field(i), strTable, ptrTable)
+			by = e.encodeString(by, f, true, strTable)
+			by, _ = e.encode(by, st.Field(i), false, strTable, ptrTable)
 		}
 	}
 
