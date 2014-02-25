@@ -450,6 +450,10 @@ func (e *Encoder) encodeInt(by []byte, k reflect.Kind, i int64) []byte {
 
 func (e *Encoder) encodeScalar(by []byte, rv reflect.Value, isKeyOrClass bool, strTable map[string]int, ptrTable map[uintptr]int) []byte {
 
+	for rv.Kind() == reflect.Interface {
+		rv = rv.Elem()
+	}
+
 	switch rv.Kind() {
 	case reflect.Array, reflect.Slice:
 		if rv.Type().Elem().Kind() == reflect.Uint8 {
@@ -461,8 +465,8 @@ func (e *Encoder) encodeScalar(by []byte, rv reflect.Value, isKeyOrClass bool, s
 	case reflect.Map:
 		by = append(by, typeREFN)
 		by = e.encodeMap(by, rv, strTable, ptrTable)
-	case reflect.Interface:
-		by = e.encodeScalar(by, rv.Elem(), isKeyOrClass, strTable, ptrTable)
+	case reflect.String:
+		by = e.encodeString(by, rv.String(), true, strTable)
 	default:
 		by, _ = e.encode(by, rv, isKeyOrClass, strTable, ptrTable)
 	}
