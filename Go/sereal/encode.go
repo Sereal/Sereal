@@ -367,7 +367,7 @@ func (e *Encoder) encodeBytes(by []byte, byt []byte, isKeyOrClass bool, strTable
 
 	if l < 32 {
 
-		if isKeyOrClass && strTable != nil {
+		if isKeyOrClass {
 
 			// track short byte strTable
 
@@ -538,8 +538,8 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]
 	case PerlObject:
 		by = append(by, typeOBJECT)
 		// FIXME(dgryski): not sure this is right
-		// nil because strTable because classnames need their own namespace
-		by = e.encodeBytes(by, []byte(val.Class), true, strTable)
+		// this *is* a class name, but we fail more tests if we encode it
+		by = e.encodeBytes(by, []byte(val.Class), false, strTable)
 		by, _ = e.encode(by, reflect.ValueOf(val.Reference), false, strTable, ptrTable)
 		return by
 	case PerlRegexp:
