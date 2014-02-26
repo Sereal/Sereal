@@ -537,9 +537,7 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]
 		return by
 	case PerlObject:
 		by = append(by, typeOBJECT)
-		// FIXME(dgryski): not sure this is right
-		// this *is* a class name, but we fail more tests if we encode it
-		by = e.encodeBytes(by, []byte(val.Class), false, strTable)
+		by = e.encodeBytes(by, []byte(val.Class), true, strTable)
 		by, _ = e.encode(by, reflect.ValueOf(val.Reference), false, strTable, ptrTable)
 		return by
 	case PerlRegexp:
