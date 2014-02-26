@@ -1097,9 +1097,16 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
     if (tag == SRL_HDR_COPY) {
         ofs= srl_read_varint_uv_offset(aTHX_ dec, " while reading COPY class name");
         storepos= ofs;
-        if (expect_true( dec->ref_seenhash != NULL )) {
-            class_stash= PTABLE_fetch(dec->ref_seenhash, (void *)ofs);
+        /* if this string was seen before as part of a classname then we expect
+         * a stash available below. However it might have been serialized as a key
+         * or something like that, which would mean we dont have an entry in ref_stashes
+         * anymore. So first we check if we have a stash. If we do, then we can avoid
+         * some work. */
+        if (expect_true( dec->ref_stashes != NULL )) {
+            class_stash= PTABLE_fetch(dec->ref_stashes, (void *)ofs);
         }
+        /* Check if we actually got a class_stash back. If we didn't then we need
+         * to deserialize the class name */
         if (!class_stash) {
             from= dec->body_pos + ofs;
             tag= *from++;
@@ -1121,28 +1128,33 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
                 SRL_ERROR_BAD_COPY(dec, SRL_HDR_OBJECT);
             }
         }
-        /* NOTREACHED */
     } else {
         SRL_ERROR_UNEXPECTED(dec,tag, "a class name");
     }
 
+    /* At this point we may or may not have a class stash. If they used a Copy there
+     * is a decent chance we do. */
     SRL_ASSERT_REF_PTR_TABLES(dec);
     if (!class_stash) {
+        /* no class stash - so we need to look it up and then store it away for future use */
         class_stash= gv_stashpvn((char *)from, key_len, flags);
         PTABLE_store(dec->ref_stashes, (void *)storepos, (void *)class_stash);
+        /* Since this is the first time we have seen this stash then it is the first time
+         * that we have stored an item in the ref_bless_av hash as well. So create a new one
+         * and store it away. */
         av= newAV();
         sv_2mortal((SV*)av);
         PTABLE_store(dec->ref_bless_av, (void *)storepos, (void *)av);
     } else {
-        if (NULL == (av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)storepos)) )
+        /* we have a class stash so we should have a ref_bless_av as well. */
+        av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)storepos);
+        if ( !av )
             SRL_ERRORf1("Panic, no ref_bless_av for %lu", (unsigned long)storepos);
     }
 
     if (expect_false( obj_tag == SRL_HDR_OBJECT_FREEZE )) {
         srl_read_frozen_object(aTHX_ dec, class_stash, into);
     }  else {
-
-
         /* We now have a stash so we /could/ bless... except that
          * we don't actually want to do so right now. We want to defer blessing
          * until the full packet has been read. Yes it is more overhead, but
