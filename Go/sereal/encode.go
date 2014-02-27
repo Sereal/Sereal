@@ -205,12 +205,15 @@ func (e *Encoder) encode(b []byte, rv reflect.Value, isKeyOrClass bool, strTable
 		b = e.encodeInt(b, reflect.Uint, int64(rv.Uint()))
 	case reflect.String:
 		b = e.encodeString(b, rv.String(), isKeyOrClass, strTable)
-	case reflect.Array, reflect.Slice:
+	case reflect.Slice:
 		if rv.Type().Elem().Kind() == reflect.Uint8 {
 			b = e.encodeBytes(b, rv.Bytes(), isKeyOrClass, strTable)
-		} else {
-			b = e.encodeArray(b, rv, strTable, ptrTable)
+			break
 		}
+		fallthrough
+
+	case reflect.Array:
+		b = e.encodeArray(b, rv, strTable, ptrTable)
 
 	case reflect.Map:
 		b = e.encodeMap(b, rv, strTable, ptrTable)
