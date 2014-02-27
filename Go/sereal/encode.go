@@ -190,6 +190,11 @@ func (e *Encoder) encode(b []byte, rv reflect.Value, isKeyOrClass bool, strTable
 		}
 	}
 
+	// make sure we're looking at a real type and not an interface
+	for rv.Kind() == reflect.Interface {
+		rv = rv.Elem()
+	}
+
 	switch rk := rv.Kind(); rk {
 
 	case reflect.Bool:
