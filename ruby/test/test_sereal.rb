@@ -54,6 +54,14 @@ class SerealPerlObject
     @class
   end
 end
+Time.class_eval do
+  def FREEZE(serializer)
+    [_dump]
+  end
+  def self.THAW(serializer,*a)
+    _load(a.first)
+  end
+end
 
 class Test::Unit::TestCase
   def recode(obj,safe = false)
@@ -89,6 +97,12 @@ class Test::Unit::TestCase
       recoded = Sereal.decode(Sereal.encode(x,Sereal::THAW))
     end
     assert_equal(frozen,recoded.FREEZE(Sereal::FREEZER))
+  end
+
+  def test_thaw_tdata
+    original = Time.now # Time is a T_DATA not a T_OBJECT
+    recoded = Sereal.decode(Sereal.encode(original,Sereal::THAW),Sereal::THAW)
+    assert_equal(original, recoded)
   end
 
   def test_references
