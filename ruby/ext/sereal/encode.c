@@ -27,13 +27,16 @@
 	#define W_SIZE T_FALSE
 #elif T_NIL > W_SIZE
 	#define W_SIZE T_NIL
+#elif T_DATA > W_SIZE
+    #define W_SIZE T_DATA
 #endif
 #define COMPLEX(object)                         \
     (TYPE(object) == T_ARRAY  ||                \
      TYPE(object) == T_HASH   ||                \
      TYPE(object) == T_SYMBOL ||                \
      TYPE(object) == T_OBJECT ||                \
-     TYPE(object) == T_STRING)
+     TYPE(object) == T_STRING ||                \
+     TYPE(object) == T_DATA)
 
 /* function pointer array */
 void (*WRITER[W_SIZE])(sereal_t *,VALUE);
@@ -74,6 +77,7 @@ void s_init_writers(void) {
     WRITER[T_TRUE]   = s_append_true;
     WRITER[T_FALSE]  = s_append_false;
     WRITER[T_NIL]    = s_append_nil;
+    WRITER[T_DATA]   = s_append_object;
 }
 
 static void s_default_writer(sereal_t *s, VALUE object) {
