@@ -20,6 +20,19 @@ class ZXCFile
   end
 end
 class ZXCFREEZE
+  class InnerClass
+    attr_accessor :value
+    def initialize(value)
+      @value = value
+    end
+    def FREEZE(serializer)
+      [value]
+    end
+    def self.THAW(serializer,*a)
+      new(*a)
+    end
+  end
+
   attr_accessor :z,:x,:c,:serializer
   def initialize(z,x,c)
     @z = z
@@ -78,6 +91,13 @@ class Test::Unit::TestCase
     assert_not_equal(x[0].object_id,x[1].object_id)
     assert_equal(x[0].object_id,x[2].object_id)
     assert Sereal.encode(a,Sereal::COPY|Sereal::REF).length < Sereal.encode(a,Sereal::REF).length
+  end
+
+  def test_nested_class_thaw
+    original = ZXCFREEZE::InnerClass.new("hello")
+    recoded = Sereal.decode(Sereal.encode(original,Sereal::THAW),Sereal::THAW)
+    assert_equal(ZXCFREEZE::InnerClass, recoded.class)
+    assert_equal(original.value,recoded.value)
   end
 
   def test_thaw

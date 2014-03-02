@@ -180,14 +180,14 @@ static VALUE s_copy_or_keep_in_mind(sereal_t *s, VALUE object) {
 */
 static void s_append_object(sereal_t *s, VALUE object) {
     if (s->flags & __THAW && rb_obj_respond_to(object,FREEZE,0)) {
-        VALUE klass = rb_class_name(CLASS_OF(object));
+        VALUE klass = rb_class_path(CLASS_OF(object));
         VALUE copy = s_copy_or_keep_in_mind(s,klass);
         if (copy != Qnil) {
             s_append_u8(s,SRL_HDR_OBJECTV_FREEZE);
             s_append_copy(s,copy);
         } else {
             s_append_u8(s,SRL_HDR_OBJECT_FREEZE);
-            s_append_rb_string(s,rb_class_name(CLASS_OF(object)));
+            s_append_rb_string(s,klass);
         }
         VALUE frozen = rb_funcall(object,FREEZE,1,ID2SYM(SEREAL));
         if (TYPE(frozen) != T_ARRAY)
