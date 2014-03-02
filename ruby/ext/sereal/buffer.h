@@ -14,7 +14,7 @@ static inline void s_init_tracker(sereal_t *s) {
     if (s->tracked == Qnil) {
         SD(s,"initializing tracker");
         s->tracked = rb_hash_new();
-        rb_gc_mark(s->tracked);
+        rb_gc_register_address(&s->tracked);
     }
 }
 
@@ -27,7 +27,7 @@ static inline void s_reset_tracker(sereal_t *s) {
 static inline void s_init_copy(sereal_t *s) {
     if (s->copy == Qnil) {
         s->copy = rb_hash_new();
-        rb_gc_mark(s->copy);
+        rb_gc_register_address(&s->tracked);
     }
 }
 
@@ -35,6 +35,12 @@ static inline void s_destroy(sereal_t *s) {
     if (!s)
         return;
     s_reset_tracker(s);
+    if (s->tracked != Qnil)
+        rb_gc_unregister_address(&s->tracked);
+
+    if (s->copy != Qnil)
+        rb_gc_unregister_address(&s->copy);
+
     s_free_data_if_not_mine(s);
     free(s);
 }

@@ -270,7 +270,8 @@ void Init_sereal() {
      *      object: String: john { p: 14, s: 14, l: 2, h: 6 }  sereal_to_rb_object()
      *     object: Array: ["john", "john"] { p: 14, s: 14, l: 1, h: 6 }  sereal_to_rb_object()
      *
-     */ 
+     */
+    rb_define_const(Sereal, "DEBUG",INT2NUM(__DEBUG));
     rb_define_const(Sereal, "DEBUG",INT2NUM(__DEBUG));
 
     s_init_writers();

@@ -293,15 +293,13 @@ static void rb_object_to_sereal(sereal_t *s, VALUE object) {
     if (COMPLEX(object)) {
         VALUE stored;
         if (s->tracked != Qnil) {
-            if (s->tracked != Qnil) {
-                VALUE id = rb_obj_id(object);
-                stored = rb_hash_lookup(s->tracked,id);
-                if (stored != Qnil) {
-                    s_append_refp(s,stored);
-                    goto out;
-                }
-                rb_hash_aset(s->tracked,id,INT2FIX(pos));
+            VALUE id = rb_obj_id(object);
+            stored = rb_hash_lookup(s->tracked,id);
+            if (stored != Qnil) {
+                s_append_refp(s,stored);
+                goto out;
             }
+            rb_hash_aset(s->tracked,id,INT2FIX(pos));
         }
         stored = s_copy_or_keep_in_mind(s,object);
         if (stored != Qnil) {
