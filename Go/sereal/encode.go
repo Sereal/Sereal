@@ -51,6 +51,7 @@ type Encoder struct {
 	PerlCompat      bool // try to mimic Perl's structure as much as possible
 	UseSnappy       bool // should we enable snappy compression
 	SnappyThreshold int  // threshold in bytes above which snappy compression is attempted: 1024 bytes by default
+	DisableDedup    bool // should we disable deduping of class names and hash keys
 	version         int  // default version to encode
 }
 
@@ -375,7 +376,7 @@ func (e *Encoder) encodeBytes(by []byte, byt []byte, isKeyOrClass bool, strTable
 
 	if l < 32 {
 
-		if isKeyOrClass {
+		if !e.DisableDedup && isKeyOrClass {
 
 			// track short byte strTable
 
@@ -511,7 +512,7 @@ func (e *Encoder) encodeMap(by []byte, m reflect.Value, strTable map[string]int,
 
 func (e *Encoder) encodeString(by []byte, s string, isKeyOrClass bool, strTable map[string]int) []byte {
 
-	if isKeyOrClass {
+	if !e.DisableDedup && isKeyOrClass {
 
 		copyOffs, ok := strTable[s]
 
