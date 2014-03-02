@@ -114,7 +114,7 @@ extern VALUE SerealPerlObject;
 #define __NOT_MINE      16
 #define __STREAM        32
 #define __THAW          64
-#define __COPY          64
+#define __COPY          128
 #define __ARGUMENT_FLAGS (__DEBUG|__THAW|__REF|__COPY)
 
 #define __MIN_SIZE      6
