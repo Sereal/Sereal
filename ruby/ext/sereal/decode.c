@@ -245,7 +245,7 @@ static VALUE s_read_object_freeze(sereal_t *s, u8 tag) {
     MUST_BE_SOMETHING(s_klass,T_STRING);
 
     // hash it?
-    VALUE klass = rb_const_get(rb_cObject, rb_intern(RSTRING_PTR(s_klass)));
+    VALUE klass = rb_path_to_class(s_klass);
     if (!rb_obj_respond_to(klass,THAW,0))
         s_raise(s,rb_eTypeError,"class: %s does not respond to THAW",
                 rb_obj_classname(s_klass));
