@@ -160,18 +160,18 @@ static void s_append_symbol(sereal_t *s, VALUE object) {
     s_append_rb_string(s,string);
 }
 
-static void s_append_copy(sereal_t *s, VALUE object) {
+static void s_append_copy(sereal_t *s, u8 tag,VALUE object) {
     u32 pos = FIX2LONG(object);
-    s_append_hdr_with_varint(s,SRL_HDR_COPY,pos - s->hdr_end + 1);
+    s_append_hdr_with_varint(s,tag,pos - s->hdr_end + 1);
 }
 
-static VALUE s_copy_or_keep_in_mind(sereal_t *s, VALUE object) {
+static VALUE s_copy_or_keep_in_mind(sereal_t *s, VALUE object, u8 offset) {
     if (s->copy == Qnil)
         return Qnil;
 
     VALUE stored_position = rb_hash_lookup(s->copy,object);
     if (stored_position == Qnil)
-        rb_hash_aset(s->copy,object,INT2FIX(s->pos));    
+        rb_hash_aset(s->copy,object,INT2FIX(s->pos + offset));
     return stored_position;
 }
 
@@ -185,10 +185,12 @@ static VALUE s_copy_or_keep_in_mind(sereal_t *s, VALUE object) {
 static void s_append_object(sereal_t *s, VALUE object) {
     if (s->flags & __THAW && rb_obj_respond_to(object,FREEZE,0)) {
         VALUE klass = rb_class_path(CLASS_OF(object));
-        VALUE copy = s_copy_or_keep_in_mind(s,klass);
+        // keep in mind with offset + 1
+        // because of the SRL_HDR_OBJECT_FREEZE header taking 1 byte
+        // and we want to point to the next string
+        VALUE copy = s_copy_or_keep_in_mind(s,klass,1);
         if (copy != Qnil) {
-            s_append_u8(s,SRL_HDR_OBJECTV_FREEZE);
-            s_append_copy(s,copy);
+            s_append_copy(s,SRL_HDR_OBJECTV_FREEZE,copy);
         } else {
             s_append_u8(s,SRL_HDR_OBJECT_FREEZE);
             s_append_rb_string(s,klass);
@@ -301,9 +303,9 @@ static void rb_object_to_sereal(sereal_t *s, VALUE object) {
             }
             rb_hash_aset(s->tracked,id,INT2FIX(pos));
         }
-        stored = s_copy_or_keep_in_mind(s,object);
+        stored = s_copy_or_keep_in_mind(s,object,0);
         if (stored != Qnil) {
-            s_append_copy(s,stored);
+            s_append_copy(s,SRL_HDR_COPY,stored);
             goto out;
         }
     }

@@ -109,14 +109,16 @@ class Test::Unit::TestCase
   end
 
   def test_thaw
-    x = ZXCFREEZE.new(6,7,8)
-    y = ZXCFREEZE.new(6,7,10)
-    frozen = x.FREEZE(Sereal::FREEZER)
-    recoded = Sereal.decode(Sereal.encode(x,Sereal::THAW),Sereal::THAW)
-    assert_raise(TypeError) do
-      recoded = Sereal.decode(Sereal.encode(x,Sereal::THAW))
+    [ Sereal::THAW,Sereal::THAW|Sereal::COPY].each do |flags|
+      x = [ZXCFREEZE.new(6,7,8),ZXCFREEZE.new(6,7,9),ZXCFREEZE.new(6,7,10)]
+      y = ZXCFREEZE.new(6,7,10)
+      frozen = x[0].FREEZE(Sereal::FREEZER)
+      recoded = Sereal.decode(Sereal.encode(x,flags),flags)
+      assert_raise(TypeError) do
+        recoded = Sereal.decode(Sereal.encode(x,flags))
+      end
+      assert_equal(frozen,recoded[0].FREEZE(Sereal::FREEZER))
     end
-    assert_equal(frozen,recoded.FREEZE(Sereal::FREEZER))
   end
 
   def test_thaw_tdata

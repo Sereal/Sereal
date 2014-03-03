@@ -189,7 +189,7 @@ static VALUE s_read_ref(sereal_t *s, u8 tag) {
         u32 offset = s_get_varint_bang(s) - 1;                          \
         __stored = s->pos;                                              \
         s->pos = offset + s->hdr_end;                                   \
-        SD(s,"going back offset: %d, stored position: %d (tag: %d)",offset,stored_pos,tag); \
+        SD(s,"going back offset: %d, stored position: %d (tag: %d) new pos: %d",offset,stored_pos,tag,s->pos); \
     } while(0)
 #define BACK(s,__stored)                                \
     do {                                                \
@@ -237,9 +237,9 @@ static VALUE s_read_object_freeze(sereal_t *s, u8 tag) {
         s_raise(s,rb_eTypeError,"object_freeze received, but decoder is initialized without Sereal::THAW option");
 
     u32 stored_pos = 0;
-    if (tag == SRL_HDR_OBJECTV_FREEZE)
+    if (tag == SRL_HDR_OBJECTV_FREEZE) {
         TRAVEL(s,stored_pos);
-
+    }
     VALUE s_klass = sereal_to_rb_object(s);
     BACK(s,stored_pos);
     MUST_BE_SOMETHING(s_klass,T_STRING);

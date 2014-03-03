@@ -272,7 +272,6 @@ void Init_sereal() {
      *
      */
     rb_define_const(Sereal, "DEBUG",INT2NUM(__DEBUG));
-    rb_define_const(Sereal, "DEBUG",INT2NUM(__DEBUG));
 
     s_init_writers();
 }
