@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '2.03'; # Don't forget to update the TestCompat set for testing against installed encoders!
+our $VERSION = '2.04'; # Don't forget to update the TestCompat set for testing against installed encoders!
 
 # not for public consumption, just for testing.
 (my $num_version = $VERSION) =~ s/_//;
@@ -288,7 +288,7 @@ L<https://groups.google.com/forum/?fromgroups#!forum/sereal-announce>
 Sereal development list:
 L<https://groups.google.com/forum/?fromgroups#!forum/sereal-dev>
 
-=head1 AUTHORS
+=head1 AUTHORS AND CONTRIBUTORS
 
 Yves Orton E<lt>demerphq@gmail.comE<gt>
 
@@ -300,7 +300,11 @@ Rafaël Garcia-Suarez
 
 Ævar Arnfjörð Bjarmason E<lt>avar@cpan.orgE<gt>
 
+Tim Bunce
+
 Daniel Dragan E<lt>bulkdd@cpan.orgE<gt> (Windows support and bugfixes)
+
+Zefram
 
 Some inspiration and code was taken from Marc Lehmann's
 excellent JSON::XS module due to obvious overlap in

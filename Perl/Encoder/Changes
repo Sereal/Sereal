@@ -4,6 +4,9 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
 
+2.04 Wed Mar  5 18:15 2014 (AMS time)
+  - Fix rt.cpan.org #93484 - fencepost error in Encoder.xs (Zefram)
+
 2.03 Tue Jan  7 20:00 2014 (AMS time)
   - (Hopefully) final fixes to FREEZE/THAW functionality:
     => Add safe assertion to make sure that we don't segfault on invalid

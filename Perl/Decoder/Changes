@@ -4,6 +4,15 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
 
+2.04 Wed Mar  5 18:15 2014 (AMS time)
+  - decode_sereal() now gives a better error message if a reference is passed
+    as the input string.
+  - Fix issue with OBJECT items that use COPY for the class name.
+    => In certain situations, the Sereal Go implementation would encode
+       objects in slightly different way than the Perl encoder and the
+       Perl decoder failed to support this. See commit
+       8b3c661e0157960272b056769a7169d4ca2f1d89 for details.
+
 2.03 Tue Jan  7 20:00 2014 (AMS time)
   - (Hopefully) final fixes to FREEZE/THAW functionality:
     => Add safe assertion to make sure that we don't segfault on invalid
