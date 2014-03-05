@@ -44,6 +44,7 @@ t/701_roundtrip_v1.t
 t/800_threads.t
 t/900_regr_issue_15.t
 t/901_regr_segv.t
+t/902_bad_input.t
 t/data/corpus
 t/lib/Sereal/BulkTest.pm
 t/lib/Sereal/TestSet.pm
