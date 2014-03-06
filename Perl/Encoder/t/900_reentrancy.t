@@ -10,15 +10,22 @@ use Sereal::Decoder;
 
 my $enc = Sereal::Encoder->new({freeze_callbacks=>1});
 package Foo {
-  sub FREEZE { $enc->encode({%{$_[0]}}) }
-  sub THAW { bless(Sereal::Decoder->new->decode($_[2]), $_[0]) }
+  sub FREEZE { $enc->encode($_[0]->{a}) }
+  sub THAW {
+    my $class = shift;
+    return bless(
+      {a => Sereal::Decoder->new->decode($_[1])}
+      => $class
+    );
+  }
 }
 
-my $a = $enc->encode(bless({a=>1},"Foo"));
-my $b;
+my $data = bless({a=>42},"Foo");
+my $a = $enc->encode($data);
+my $output;
 my $err;
 eval {
-  $b = Sereal::Decoder->new->decode($a);
+  $output = Sereal::Decoder->new->decode($a);
   1
 }
 or do {
@@ -28,6 +35,8 @@ or do {
 ok(!$err, "Decoding did not barf")
   or diag("Decoding barfed with '$err'");
 
-is_deeply($b, bless({a => 1} => "Foo"), "Decoded result is correct");
+is_deeply($output,
+          $data,
+          "Decoded result is correct");
 
 done_testing();
