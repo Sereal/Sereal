@@ -711,7 +711,9 @@ SRL_STATIC_INLINE srl_encoder_t *
 srl_prepare_encoder(pTHX_ srl_encoder_t *enc)
 {
     /* Check whether encoder is in use and create a new one on the
-     * fly if necessary. Should only happen in bizarre edge cases... hopefully. */
+     * fly if necessary. Should only happen in edge cases such as
+     * FREEZE hooks that serialize things using the same encoder
+     * object. */
     if (SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY)) {
         srl_encoder_t * const proto = enc;
         enc = srl_build_encoder_struct_alike(aTHX_ proto);
