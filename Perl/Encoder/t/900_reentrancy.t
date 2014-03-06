@@ -9,16 +9,18 @@ use Sereal::Encoder;
 use Sereal::Decoder;
 
 my $enc = Sereal::Encoder->new({freeze_callbacks=>1});
-package Foo {
-  sub FREEZE { $enc->encode($_[0]->{a}) }
-  sub THAW {
-    my $class = shift;
-    return bless(
-      {a => Sereal::Decoder->new->decode($_[1])}
-      => $class
-    );
-  }
+
+package Foo;
+sub FREEZE { $enc->encode($_[0]->{a}) }
+sub THAW {
+  my $class = shift;
+  return bless(
+    {a => Sereal::Decoder->new->decode($_[1])}
+    => $class
+  );
 }
+
+package main;
 
 my $data = bless({a=>42},"Foo");
 my $a = $enc->encode($data);
