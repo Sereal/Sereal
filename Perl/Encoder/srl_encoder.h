@@ -32,8 +32,7 @@ typedef struct {
     void *snappy_workmem;     /* lazily allocated if and only if using Snappy */
     IV snappy_threshold;      /* do not compress things smaller than this even if Snappy enabled */
 
-    /*HV *freeze_cb_cache;*/      /* cache of callbacks for FREEZE methods: classname => CV*.
-                               * only used if SRL_F_ENABLE_FREEZE_SUPPORT is set. */
+                              /* only used if SRL_F_ENABLE_FREEZE_SUPPORT is set. */
     SV *sereal_string_sv;     /* SV that says "Sereal" for FREEZE support */
 } srl_encoder_t;
 
@@ -50,7 +49,13 @@ void srl_destroy_encoder(pTHX_ srl_encoder_t *enc);
 /* Write Sereal packet header to output buffer */
 void srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src);
 /* Start dumping a top-level SV */
-void srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src);
+/* Note: This returns an encoder struct pointer because it will
+ *       clone the current encoder struct if it's dirty. That in
+ *       turn means in order to access the output buffer, you need
+ *       to inspect the returned encoder struct. If necessary, it
+ *       will be cleaned up automatically by Perl, so don't bother
+ *       freeing it. */
+srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src);
 
 
 /* define option bits in srl_encoder_t's flags member */

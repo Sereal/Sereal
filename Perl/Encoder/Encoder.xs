@@ -44,7 +44,7 @@ encode(enc, src, ...)
     assert(enc != NULL);
     if (items > 2 && SvOK(ST(2)))
       hdr_user_data_src = ST(2);
-    srl_dump_data_structure(aTHX_ enc, src, hdr_user_data_src);
+    enc = srl_dump_data_structure(aTHX_ enc, src, hdr_user_data_src);
     assert(enc->buf.pos > enc->buf.start);
     /* We always copy the string since we might reuse the string buffer. That means
      * we already have to do a malloc and we might as well use the opportunity to
@@ -61,7 +61,7 @@ encode_sereal(src, opt = NULL)
   PPCODE:
     enc = srl_build_encoder_struct(aTHX_ opt);
     assert(enc != NULL);
-    srl_dump_data_structure(aTHX_ enc, src, NULL);
+    enc = srl_dump_data_structure(aTHX_ enc, src, NULL);
     /* Avoid copy by stealing string buffer if it is not too large.
      * This makes sense in the functional interface since the string
      * buffer isn't ever going to be reused. */
@@ -94,7 +94,7 @@ encode_sereal_with_header_data(src, hdr_user_data_src, opt = NULL)
       hdr_user_data_src = NULL;
     enc = srl_build_encoder_struct(aTHX_ opt);
     assert(enc != NULL);
-    srl_dump_data_structure(aTHX_ enc, src, hdr_user_data_src);
+    enc = srl_dump_data_structure(aTHX_ enc, src, hdr_user_data_src);
     /* Avoid copy by stealing string buffer if it is not too large.
      * This makes sense in the functional interface since the string
      * buffer isn't ever going to be reused. */
