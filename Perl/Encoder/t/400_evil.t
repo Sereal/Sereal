@@ -2,6 +2,7 @@
 use strict;
 use warnings;
 use Sereal::Encoder qw(:all);
+use Sereal::Decoder qw(:all);
 use Data::Dumper;
 use File::Spec;
 use Scalar::Util qw(blessed);
@@ -17,15 +18,6 @@ BEGIN {
 
 use Sereal::TestSet qw(:all);
 use Test::More;
-
-if (not have_encoder_and_decoder()) {
-    plan skip_all => 'Did not find right version of decoder';
-}
-else {
-    require Sereal::Decoder;
-    Sereal::Decoder->import(":all");
-}
-
 
 # First, test tied hashes. Expected behaviour: We don't segfault, we don't
 # throw exceptions (unless the tied hash is not iterable repeatedly),

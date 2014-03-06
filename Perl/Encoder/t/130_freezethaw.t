@@ -4,6 +4,7 @@ use warnings;
 # most be loaded before Sereal::TestSet
 use Sereal::Encoder qw(encode_sereal);
 use Sereal::Encoder::Constants qw(:all);
+use Sereal::Decoder qw(:all);
 use File::Spec;
 use Test::More;
 use Data::Dumper;
@@ -55,13 +56,6 @@ package main;
 my $enc = Sereal::Encoder->new({freeze_callbacks => 1});
 my $srl = $enc->encode(Foo->new());
 ok($freeze_called, "FREEZE was invoked");
-
-
-my $run_decoder_tests = have_encoder_and_decoder();
-if (not $run_decoder_tests) {
-  done_testing();
-  exit;
-}
 
 
 # Simple round-trip test
