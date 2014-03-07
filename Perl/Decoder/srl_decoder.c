@@ -279,12 +279,14 @@ srl_decoder_destructor_hook(pTHX_ void *p)
 
 /* Logic shared by the various decoder entry points. */
 SRL_STATIC_INLINE void
-srl_decode_into_internal(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV *body_into, UV start_offset)
+srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into, SV *body_into, UV start_offset)
 {
-    assert(dec != NULL);
+    srl_decoder_t *dec;
+
+    assert(origdec != NULL);
     if (SvUTF8(src))
         sv_utf8_downgrade(src, 0);
-    dec = srl_begin_decoding(aTHX_ dec, src, start_offset);
+    dec = srl_begin_decoding(aTHX_ origdec, src, start_offset);
     srl_read_header(aTHX_ dec, header_into);
     SRL_UPDATE_BODY_POS(dec);
     if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY)) {
@@ -304,6 +306,7 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV 
         /* all decl's above here, or we break C89 compilers */
 
         dec->bytes_consumed= compressed_packet_len + (dec->pos - dec->buf_start);
+        origdec->bytes_consumed = dec->bytes_consumed;
 
         header_len = csnappy_get_uncompressed_length(
                             (char *)dec->pos,
@@ -347,8 +350,10 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV 
 
     /* If we aren't reading from a decompressed buffer we have to remember the number
      * of bytes used for the user to query. */
-    if (dec->bytes_consumed == 0)
+    if (dec->bytes_consumed == 0) {
         dec->bytes_consumed = dec->pos - dec->buf_start;
+        origdec->bytes_consumed = dec->bytes_consumed;
+    }
 
     if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL)) {
         STRLEN len;
@@ -362,12 +367,13 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV 
 
 /* This is the main routine to deserialize just the header of a document. */
 SV *
-srl_decode_header_into(pTHX_ srl_decoder_t *dec, SV *src, SV* header_into, UV start_offset)
+srl_decode_header_into(pTHX_ srl_decoder_t *origdec, SV *src, SV* header_into, UV start_offset)
 {
-    assert(dec != NULL);
+    srl_decoder_t *dec;
+    assert(origdec != NULL);
     if (SvUTF8(src))
         sv_utf8_downgrade(src, 0);
-    dec = srl_begin_decoding(aTHX_ dec, src, start_offset);
+    dec = srl_begin_decoding(aTHX_ origdec, src, start_offset);
     if (header_into == NULL)
         header_into = sv_newmortal();
     srl_read_header(aTHX_ dec, header_into);
