@@ -58,8 +58,8 @@ decode_with_header(dec, src, body_into = NULL, header_into = NULL)
     RETVAL = newAV();
     sv_2mortal((SV *)RETVAL);
     av_extend(RETVAL, 1);
-    av_store(RETVAL, 0, header_into);
-    av_store(RETVAL, 1, body_into);
+    av_store(RETVAL, 0, SvREFCNT_inc(header_into));
+    av_store(RETVAL, 1, SvREFCNT_inc(body_into));
   OUTPUT: RETVAL
 
 AV *
@@ -78,8 +78,8 @@ decode_with_header_and_offset(dec, src, offset, body_into = NULL, header_into = 
     RETVAL = newAV();
     sv_2mortal((SV *)RETVAL);
     av_extend(RETVAL, 1);
-    av_store(RETVAL, 0, header_into);
-    av_store(RETVAL, 1, body_into);
+    av_store(RETVAL, 0, SvREFCNT_inc(header_into));
+    av_store(RETVAL, 1, SvREFCNT_inc(body_into));
   OUTPUT: RETVAL
 
 
@@ -167,8 +167,8 @@ decode_sereal_with_header_data(src, opt = NULL, body_into = NULL, header_into = 
     RETVAL = newAV();
     sv_2mortal((SV *)RETVAL);
     av_extend(RETVAL, 1);
-    av_store(RETVAL, 0, header_into);
-    av_store(RETVAL, 1, body_into);
+    av_store(RETVAL, 0, SvREFCNT_inc(header_into));
+    av_store(RETVAL, 1, SvREFCNT_inc(body_into));
   OUTPUT: RETVAL
 
 IV
