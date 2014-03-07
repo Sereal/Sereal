@@ -441,13 +441,15 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset)
         SRL_DEC_UNSET_OPTION(dec, SRL_F_REUSE_DECODER);
     }
 
+    /* Needs to be before setting DIRTY because DIRTY is volatile. */
+    SRL_DEC_RESET_VOLATILE_FLAGS(dec);
+
     /* Set to being in use. */;
     SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_DIRTY);
 
     /* Register our structure for destruction on scope exit */
     SAVEDESTRUCTOR_X(&srl_decoder_destructor_hook, (void *)dec);
 
-    SRL_DEC_RESET_VOLATILE_FLAGS(dec);
     tmp = (unsigned char*)SvPV(src, len);
     if (expect_false( start_offset > len )) {
         SRL_ERROR("Start offset is beyond input string length");
