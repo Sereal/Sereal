@@ -76,7 +76,7 @@ SKIP: {
             };
             my $err = $@ || 'Zombie error';
             ok($ok, "incremental decoder ($name) had no hissy fit")
-                or note("Error: $err");
+                or note("Error: $err. Data structures decoded up to that point:\n" . Data::Dumper::Dumper(\@out));
 
             is($out[$_-1], $_, "Decoding multiple packets from single string works ($name: $_)")
                 for 1..$n;
