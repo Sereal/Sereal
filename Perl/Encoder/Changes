@@ -4,6 +4,10 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
 
+2.05 Fri Mar  7 10:30 2014 (AMS time)
+  - Fix rt.cpan.org #93560 - Encoder object wasn't re-entrant from
+    FREEZE calls.
+
 2.04 Wed Mar  5 18:15 2014 (AMS time)
   - Fix rt.cpan.org #93484 - fencepost error in Encoder.xs (Zefram)
 

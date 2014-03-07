@@ -4,6 +4,10 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
 
+2.05 Fri Mar  7 10:30 2014 (AMS time)
+  - Fix rt.cpan.org #93563 - Decoder object wasn't re-entrant from
+    THAW calls.
+
 2.04 Wed Mar  5 18:15 2014 (AMS time)
   - decode_sereal() now gives a better error message if a reference is passed
     as the input string.
