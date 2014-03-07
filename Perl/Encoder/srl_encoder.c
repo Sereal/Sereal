@@ -188,6 +188,7 @@ srl_clear_seen_hashes(pTHX_ srl_encoder_t *enc)
 void
 srl_clear_encoder(pTHX_ srl_encoder_t *enc)
 {
+    /* TODO I think this could just be made an assert. */
     if (!SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY)) {
         warn("Sereal Encoder being cleared but in virgin state. That is unexpected.");
     }
