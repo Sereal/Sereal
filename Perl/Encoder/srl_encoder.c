@@ -100,6 +100,14 @@ SRL_STATIC_INLINE PTABLE_t *srl_init_freezeobj_svhash(srl_encoder_t *enc);
 SRL_STATIC_INLINE PTABLE_t *srl_init_weak_hash(srl_encoder_t *enc);
 SRL_STATIC_INLINE HV *srl_init_string_deduper_hv(pTHX_ srl_encoder_t *enc);
 
+/* Note: This returns an encoder struct pointer because it will
+ *       clone the current encoder struct if it's dirty. That in
+ *       turn means in order to access the output buffer, you need
+ *       to inspect the returned encoder struct. If necessary, it
+ *       will be cleaned up automatically by Perl, so don't bother
+ *       freeing it. */
+SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src);
+
 #define SRL_GET_STR_DEDUPER_HV(enc) ( (enc)->string_deduper_hv == NULL     \
                                     ? srl_init_string_deduper_hv(aTHX_ enc)     \
                                    : (enc)->string_deduper_hv )
@@ -771,7 +779,7 @@ srl_reset_snappy_header_flag(srl_encoder_t *enc)
                               (*flags_and_version_byte & SRL_PROTOCOL_VERSION_MASK);
 }
 
-srl_encoder_t *
+SRL_STATIC_INLINE srl_encoder_t *
 srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
 {
     enc = srl_prepare_encoder(aTHX_ enc);
@@ -860,6 +868,29 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
      *   SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);
      * here because we're relying on the SAVEDESTRUCTOR_X call. */
     return enc;
+}
+
+SV *
+srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src, const U32 flags)
+{
+    assert(enc);
+    enc = srl_dump_data_structure(aTHX_ enc, src, user_header_src);
+    assert(enc->buf.start && enc->buf.pos && enc->buf.pos > enc->buf.start);
+
+    if ( flags && /* for now simpler and equivalent to: flags == SRL_ENC_SV_REUSE_MAYBE */
+         (BUF_POS_OFS(enc->buf) > 20 && BUF_SPACE(enc->buf) < BUF_POS_OFS(enc->buf) )
+    ){
+        /* If not wasting more than 2x memory - FIXME fungible */
+        SV *sv = sv_2mortal(newSV_type(SVt_PV));
+        SvPV_set(sv, enc->buf.start);
+        SvLEN_set(sv, BUF_SIZE(enc->buf));
+        SvCUR_set(sv, BUF_POS_OFS(enc->buf));
+        SvPOK_on(sv);
+        enc->buf.start = enc->buf.pos = NULL; /* no need to free these guys now */
+        return sv;
+    }
+
+    return sv_2mortal(newSVpvn(enc->buf.start, (STRLEN)BUF_POS_OFS(enc->buf)));
 }
 
 SRL_STATIC_INLINE void

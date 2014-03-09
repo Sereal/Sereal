@@ -30,6 +30,7 @@ THX_pp1_sereal_encode(pTHX_ U8 has_hdr)
   SV *encoder_ref_sv, *encoder_sv, *body_sv, *header_sv;
   srl_encoder_t *enc;
   char *stash_name;
+  SV *ret_sv;
   dSP;
   header_sv = has_hdr ? POPs : NULL;
   body_sv = POPs;
@@ -47,14 +48,13 @@ THX_pp1_sereal_encode(pTHX_ U8 has_hdr)
   }
   enc= (srl_encoder_t *)SvIV(encoder_sv);
   if(header_sv && !SvOK(header_sv)) header_sv = NULL;
-  enc= srl_dump_data_structure(aTHX_ enc, body_sv, header_sv);
-  assert(enc->buf.pos > enc->buf.start);
-  /* We always copy the string since we might reuse the string buffer. That
-   * means we already have to do a malloc and we might as well use the
-   * opportunity to allocate only as much memory as we really need to hold
-   * the output. */
+    /* We always copy the string since we might reuse the string buffer. That
+     * means we already have to do a malloc and we might as well use the
+     * opportunity to allocate only as much memory as we really need to hold
+     * the output. */
+  ret_sv= srl_dump_data_structure_mortal_sv(aTHX_ enc, body_sv, header_sv, SRL_ENC_SV_COPY_ALWAYS);
   SPAGAIN;
-  TOPs = sv_2mortal(newSVpvn(enc->buf.start, (STRLEN)BUF_POS_OFS(enc->buf)));
+  TOPs = ret_sv;
 }
 
 #if USE_CUSTOM_OPS
@@ -155,25 +155,10 @@ encode_sereal(src, opt = NULL)
   PPCODE:
     enc = srl_build_encoder_struct(aTHX_ opt);
     assert(enc != NULL);
-    enc = srl_dump_data_structure(aTHX_ enc, src, NULL);
     /* Avoid copy by stealing string buffer if it is not too large.
      * This makes sense in the functional interface since the string
      * buffer isn't ever going to be reused. */
-    assert(enc->buf.start < enc->buf.pos);
-    if (BUF_POS_OFS(enc->buf) > 20 && BUF_SPACE(enc->buf) < BUF_POS_OFS(enc->buf) ) {
-      /* If not wasting more than 2x memory - FIXME fungible */
-      SV *sv = sv_2mortal(newSV_type(SVt_PV));
-      ST(0) = sv;
-      SvPV_set(sv, enc->buf.start);
-      SvLEN_set(sv, BUF_SIZE(enc->buf));
-      SvCUR_set(sv, BUF_POS_OFS(enc->buf));
-      SvPOK_on(sv);
-
-      enc->buf.start = enc->buf.pos = NULL; /* no need to free these guys now */
-    }
-    else {
-      ST(0) = sv_2mortal(newSVpvn(enc->buf.start, (STRLEN)BUF_POS_OFS(enc->buf)));
-    }
+    ST(0) = srl_dump_data_structure_mortal_sv(aTHX_ enc, src, NULL, SRL_ENC_SV_REUSE_MAYBE);
     XSRETURN(1);
 
 void
@@ -188,25 +173,10 @@ encode_sereal_with_header_data(src, hdr_user_data_src, opt = NULL)
       hdr_user_data_src = NULL;
     enc = srl_build_encoder_struct(aTHX_ opt);
     assert(enc != NULL);
-    enc = srl_dump_data_structure(aTHX_ enc, src, hdr_user_data_src);
     /* Avoid copy by stealing string buffer if it is not too large.
      * This makes sense in the functional interface since the string
      * buffer isn't ever going to be reused. */
-    assert(enc->buf.start < enc->buf.pos);
-    if (BUF_POS_OFS(enc->buf) > 20 && BUF_SPACE(enc->buf) < BUF_POS_OFS(enc->buf) ) {
-      /* If not wasting more than 2x memory - FIXME fungible */
-      SV *sv = sv_2mortal(newSV_type(SVt_PV));
-      ST(0) = sv;
-      SvPV_set(sv, enc->buf.start);
-      SvLEN_set(sv, BUF_SIZE(enc->buf));
-      SvCUR_set(sv, BUF_POS_OFS(enc->buf));
-      SvPOK_on(sv);
-
-      enc->buf.start = enc->buf.pos = NULL; /* no need to free these guys now */
-    }
-    else {
-      ST(0) = sv_2mortal(newSVpvn(enc->buf.start, (STRLEN)BUF_POS_OFS(enc->buf)));
-    }
+    ST(0) = srl_dump_data_structure_mortal_sv(aTHX_ enc, src, hdr_user_data_src, SRL_ENC_SV_REUSE_MAYBE);
     XSRETURN(1);
 
 MODULE = Sereal::Encoder        PACKAGE = Sereal::Encoder::Constants

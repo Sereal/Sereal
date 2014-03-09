@@ -11,6 +11,7 @@
 #   define INITIALIZATION_SIZE 64
 #endif
 
+#include "srl_inline.h"
 #include "srl_buffer_types.h"
 
 typedef struct PTABLE * ptable_ptr;
@@ -49,13 +50,7 @@ void srl_destroy_encoder(pTHX_ srl_encoder_t *enc);
 /* Write Sereal packet header to output buffer */
 void srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src);
 /* Start dumping a top-level SV */
-/* Note: This returns an encoder struct pointer because it will
- *       clone the current encoder struct if it's dirty. That in
- *       turn means in order to access the output buffer, you need
- *       to inspect the returned encoder struct. If necessary, it
- *       will be cleaned up automatically by Perl, so don't bother
- *       freeing it. */
-srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src);
+SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src, const U32 flags);
 
 
 /* define option bits in srl_encoder_t's flags member */
@@ -122,5 +117,8 @@ srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *us
 #define SRL_ENC_HAVE_OPER_FLAG(enc, flag_num) ((enc)->operational_flags & (flag_num))
 #define SRL_ENC_SET_OPER_FLAG(enc, flag_num) STMT_START {(enc)->operational_flags |= (flag_num);}STMT_END
 #define SRL_ENC_RESET_OPER_FLAG(enc, flag_num) STMT_START {(enc)->operational_flags &= ~(flag_num);}STMT_END
+
+#define SRL_ENC_SV_COPY_ALWAYS 0x00000000UL
+#define SRL_ENC_SV_REUSE_MAYBE 0x00000001UL
 
 #endif
