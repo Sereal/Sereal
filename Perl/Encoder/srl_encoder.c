@@ -1293,7 +1293,7 @@ redo_dump:
             mg = mg_find(src, PERL_MAGIC_backref);
     }
 #ifdef HAS_HV_BACKREFS
-    if (svt == SVt_PVHV && SvOOK(src)) {
+    if (expect_false( svt == SVt_PVHV && SvOOK(src) )) {
         backrefs= *Perl_hv_backreferences_p(aTHX_ (HV *)src);
         if (DEBUGHACK) warn("backreferences %p", src);
     }
