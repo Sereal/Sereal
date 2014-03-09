@@ -2,9 +2,9 @@ package Sereal;
 use 5.008;
 use strict;
 use warnings;
-our $VERSION = '2.040';
-use Sereal::Encoder 2.04 qw(encode_sereal);
-use Sereal::Decoder 2.04 qw(decode_sereal looks_like_sereal);
+our $VERSION = '2.060';
+use Sereal::Encoder 2.06 qw(encode_sereal);
+use Sereal::Decoder 2.06 qw(decode_sereal looks_like_sereal);
 
 use Exporter 'import';
 our @EXPORT_OK = qw(encode_sereal decode_sereal looks_like_sereal);
