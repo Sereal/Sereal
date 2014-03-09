@@ -13,7 +13,7 @@ my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 200 .. int($num_version
 sub _test_compat {return(@$TestCompat, $VERSION)}
 
 use Exporter 'import';
-our @EXPORT_OK = qw(decode_sereal looks_like_sereal decode_sereal_with_header_data);
+our @EXPORT_OK = qw(decode_sereal looks_like_sereal decode_sereal_with_header_data sereal_decode sereal_decode_with_header);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 # export by default if run from command line
 our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
@@ -34,7 +34,8 @@ Sereal::Decoder - Fast, compact, powerful binary deserialization
 
 =head1 SYNOPSIS
 
-  use Sereal::Decoder qw(decode_sereal looks_like_sereal);
+  use Sereal::Decoder
+    qw(decode_sereal sereal_decode looks_like_sereal);
   
   my $decoder = Sereal::Decoder->new({...options...});
   
@@ -45,6 +46,10 @@ Sereal::Decoder - Fast, compact, powerful binary deserialization
   $structure = $decoder->decode($blob);
   
   # alternatively functional interface:
+  sereal_decode($decoder, $blob, $structure);
+  $structure = sereal_decode($decoder, $blob);
+
+  # slower functional interface with no persistent objects:
   decode_sereal($blob, {... options ...}, $structure);
   $structure = decode_sereal($blob, {... options ...});
   
@@ -210,6 +215,17 @@ For reference, sereal's magic string is a four byte string C<=srl>.
 
 =head1 EXPORTABLE FUNCTIONS
 
+=head2 sereal_decode
+
+The functional interface that is equivalent to using C<decode>.  Takes a
+decoder object reference as first argument, followed by a byte string
+to deserialize.  Optionally takes a third parameter, which is the output
+scalar to write to. See the documentation for C<decode> above for details.
+
+This functional interface is marginally faster than the OO interface
+since it avoids method resolution overhead and, on sufficiently modern
+Perl versions, can usually avoid subroutine call overhead.
+
 =head2 decode_sereal
 
 The functional interface that is equivalent to using C<new> and C<decode>.
@@ -218,7 +234,7 @@ by a hash reference of options (see documentation for C<new()>). Finally,
 C<decode_sereal> supports a third parameter, which is the output scalar
 to write to. See the documentation for C<decode> above for details.
 
-The functional interface is marginally slower than the OO interface since
+This functional interface is marginally slower than the OO interface since
 it cannot reuse the decoder object.
 
 =head2 looks_like_sereal

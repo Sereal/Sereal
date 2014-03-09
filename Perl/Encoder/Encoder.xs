@@ -17,8 +17,118 @@
 
 #include "ptable.h"
 
+#if defined(cv_set_call_checker) && defined(XopENTRY_set)
+# define USE_CUSTOM_OPS 1
+#else
+# define USE_CUSTOM_OPS 0
+#endif
+
+#define pp1_sereal_encode(has_hdr) THX_pp1_sereal_encode(aTHX_ has_hdr)
+static void
+THX_pp1_sereal_encode(pTHX_ U8 has_hdr)
+{
+  SV *encoder_ref_sv, *encoder_sv, *body_sv, *header_sv;
+  srl_encoder_t *enc;
+  char *stash_name;
+  dSP;
+  header_sv = has_hdr ? POPs : NULL;
+  body_sv = POPs;
+  PUTBACK;
+  encoder_ref_sv = TOPs;
+  if(!(
+        encoder_ref_sv &&
+        SvROK(encoder_ref_sv) &&
+        (encoder_sv = SvRV(encoder_ref_sv)) &&
+        SvOBJECT(encoder_sv) &&
+        (stash_name= HvNAME(SvSTASH(encoder_sv))) &&
+        !strcmp(stash_name, "Sereal::Encoder")
+  )) {
+    croak("handle is not a Sereal::Encoder handle");
+  }
+  enc= (srl_encoder_t *)SvIV(encoder_sv);
+  if(header_sv && !SvOK(header_sv)) header_sv = NULL;
+  enc= srl_dump_data_structure(aTHX_ enc, body_sv, header_sv);
+  assert(enc->buf.pos > enc->buf.start);
+  /* We always copy the string since we might reuse the string buffer. That
+   * means we already have to do a malloc and we might as well use the
+   * opportunity to allocate only as much memory as we really need to hold
+   * the output. */
+  SPAGAIN;
+  TOPs = sv_2mortal(newSVpvn(enc->buf.start, (STRLEN)BUF_POS_OFS(enc->buf)));
+}
+
+#if USE_CUSTOM_OPS
+
+static OP *
+THX_pp_sereal_encode(pTHX)
+{
+  pp1_sereal_encode(PL_op->op_private);
+  return NORMAL;
+}
+
+static OP *
+THX_ck_entersub_args_sereal_encode(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
+{
+  OP *pushop, *firstargop, *cvop, *lastargop, *argop, *newop;
+  int arity;
+  entersubop = ck_entersub_args_proto(entersubop, namegv, ckobj);
+  pushop = cUNOPx(entersubop)->op_first;
+  if(!pushop->op_sibling) pushop = cUNOPx(pushop)->op_first;
+  firstargop = pushop->op_sibling;
+  for (cvop = firstargop; cvop->op_sibling; cvop = cvop->op_sibling) ;
+  lastargop = pushop;
+  for (arity = 0, lastargop = pushop, argop = firstargop; argop != cvop;
+      lastargop = argop, argop = argop->op_sibling)
+    arity++;
+  if(expect_false(arity < 2 || arity > 3)) return entersubop;
+  pushop->op_sibling = cvop;
+  lastargop->op_sibling = NULL;
+  op_free(entersubop);
+  newop = newUNOP(OP_CUSTOM, 0, firstargop);
+  newop->op_private = arity == 3;
+  newop->op_ppaddr = THX_pp_sereal_encode;
+  return newop;
+}
+
+#endif /* USE_CUSTOM_OPS */
+
+static void
+THX_xsfunc_sereal_encode(pTHX_ CV *cv)
+{
+  dMARK;
+  dSP;
+  SSize_t arity = SP - MARK;
+  PERL_UNUSED_ARG(cv);
+  if(arity < 2 || arity > 3) croak("bad Sereal encoder usage");
+  pp1_sereal_encode(arity == 3);
+}
+
 MODULE = Sereal::Encoder        PACKAGE = Sereal::Encoder
 PROTOTYPES: DISABLE
+
+BOOT:
+{
+#if USE_CUSTOM_OPS
+  {
+    XOP *xop;
+    Newxz(xop, 1, XOP);
+    XopENTRY_set(xop, xop_name, "sereal_encode");
+    XopENTRY_set(xop, xop_desc, "sereal_encode");
+    XopENTRY_set(xop, xop_class, OA_UNOP);
+    Perl_custom_op_register(aTHX_ THX_pp_sereal_encode, xop);
+  }
+#endif /* USE_CUSTOM_OPS */
+  {
+    GV *gv;
+    CV *cv = newXSproto_portable("Sereal::Encoder::sereal_encode",
+                THX_xsfunc_sereal_encode, __FILE__, "$$;$");
+#if USE_CUSTOM_OPS
+    cv_set_call_checker(cv, THX_ck_entersub_args_sereal_encode, (SV*)cv);
+#endif /* USE_CUSTOM_OPS */
+    gv = gv_fetchpv("Sereal::Encoder::encode", GV_ADDMULTI, SVt_PVCV);
+    GvCV_set(gv, cv);
+  }
+}
 
 srl_encoder_t *
 new(CLASS, opt = NULL)
@@ -35,22 +145,6 @@ DESTROY(enc)
   CODE:
     srl_destroy_encoder(aTHX_ enc);
 
-void
-encode(enc, src, ...)
-    srl_encoder_t *enc;
-    SV *src;
-    SV *hdr_user_data_src = NULL;
-  PPCODE:
-    assert(enc != NULL);
-    if (items > 2 && SvOK(ST(2)))
-      hdr_user_data_src = ST(2);
-    enc = srl_dump_data_structure(aTHX_ enc, src, hdr_user_data_src);
-    assert(enc->buf.pos > enc->buf.start);
-    /* We always copy the string since we might reuse the string buffer. That means
-     * we already have to do a malloc and we might as well use the opportunity to
-     * allocate only as much memory as we really need to hold the output. */
-    ST(0) = sv_2mortal(newSVpvn(enc->buf.start, (STRLEN)BUF_POS_OFS(enc->buf)));
-    XSRETURN(1);
 
 void
 encode_sereal(src, opt = NULL)

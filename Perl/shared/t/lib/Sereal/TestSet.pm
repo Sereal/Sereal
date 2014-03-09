@@ -719,18 +719,21 @@ sub run_roundtrip_tests_internal {
     my $encoder = Sereal::Encoder->new($opt);
 
     foreach my $meth (
-                      ['functional',
-                        sub {Sereal::Encoder::encode_sereal(shift, $opt)},
-                        sub {Sereal::Decoder::decode_sereal(shift, $opt)}],
+                      ['functional simple',
+                        sub {Sereal::Encoder::encode_sereal($_[0], $opt)},
+                        sub {Sereal::Decoder::decode_sereal($_[0], $opt)}],
                       ['object-oriented',
-                        sub {$encoder->encode(shift)},
-                        sub {$decoder->decode(shift)}],
+                        sub {$encoder->encode($_[0])},
+                        sub {$decoder->decode($_[0])}],
+                      ['functional with object',
+                          sub {Sereal::Encoder::sereal_encode($encoder, $_[0])},
+                          sub {Sereal::Decoder::sereal_decode($decoder, $_[0])}],
                       ['header-body',
-                        sub {$encoder->encode(shift, 123456789)}, # header data is abitrary to stand out for debugging
-                        sub {$decoder->decode(shift)}],
+                        sub {$encoder->encode($_[0], 123456789)}, # header data is abitrary to stand out for debugging
+                        sub {$decoder->decode($_[0])}],
                       ['header-only',
-                        sub {$encoder->encode(987654321, shift)}, # body data is abitrary to stand out for debugging
-                        sub {$decoder->decode_only_header(shift)}],
+                        sub {$encoder->encode(987654321, $_[0])}, # body data is abitrary to stand out for debugging
+                        sub {$decoder->decode_only_header($_[0])}],
                       )
     {
         my ($mname, $enc, $dec) = @$meth;

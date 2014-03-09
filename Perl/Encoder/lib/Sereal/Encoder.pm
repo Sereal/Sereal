@@ -13,7 +13,7 @@ my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 200 .. int($num_version
 sub _test_compat {return(@$TestCompat, $VERSION)}
 
 use Exporter 'import';
-our @EXPORT_OK = qw(encode_sereal encode_sereal_with_header_data);
+our @EXPORT_OK = qw(encode_sereal encode_sereal_with_header_data sereal_encode);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 # export by default if run from command line
 our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
@@ -34,11 +34,13 @@ Sereal::Encoder - Fast, compact, powerful binary serialization
 
 =head1 SYNOPSIS
 
-  use Sereal::Encoder qw(encode_sereal);
+  use Sereal::Encoder qw(encode_sereal sereal_encode);
   
   my $encoder = Sereal::Encoder->new({...options...});
   my $out = $encoder->encode($structure);
   # alternatively:
+  $out = sereal_encode($encoder, $structure);
+  # slower functional interface with no persistent objects:
   $out = encode_sereal($structure, {... options ...});
 
 =head1 DESCRIPTION
@@ -273,20 +275,30 @@ L<Sereal::Decoder>.
 
 =head1 EXPORTABLE FUNCTIONS
 
+=head2 sereal_encode
+
+The functional interface that is equivalent to using C<encode>.  Takes an
+encoder object reference as first argument, followed by a data structure
+to serialize.
+
+This functional interface is marginally faster than the OO interface
+since it avoids method resolution overhead and, on sufficiently modern
+Perl versions, can usually avoid subroutine call overhead.
+
 =head2 encode_sereal
 
 The functional interface that is equivalent to using C<new> and C<encode>.
 Expects a data structure to serialize as first argument, optionally followed
 by a hash reference of options (see documentation for C<new()>).
 
-The functional interface is quite a bit slower than the OO interface since
+This functional interface is quite a bit slower than the OO interface since
 it cannot reuse the encoder object.
 
 =head1 PERFORMANCE
 
-If you care about performance at all, then use the object-oriented interface
-instead of the functional interface. It's a significant difference in performance
-if you are serializing small data structures.
+If you care about performance at all, then use L</sereal_encode> or the
+OO interface instead of L</encode_sereal>. It's a significant difference
+in performance if you are serializing small data structures.
 
 The exact performance in time and space depends heavily on the data structure
 to be serialized. Often there is a trade-off between space and time. If in doubt,
