@@ -4,6 +4,11 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
 
+2.06 Sun Mar  0 11:40 2014 (AMS time)
+  - Fix bug causing needless decoder cloning.
+  - Fix refcount issues in some undocumented (but publicly callable)
+    functions.
+
 2.05 Fri Mar  7 10:30 2014 (AMS time)
   - Fix rt.cpan.org #93563 - Decoder object wasn't re-entrant from
     THAW calls.
