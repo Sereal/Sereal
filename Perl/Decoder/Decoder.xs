@@ -46,7 +46,7 @@ THX_pp1_sereal_decode(pTHX_ U8 opopt)
     src_sv = POPs;
     decoder_ref_sv = POPs;
     PUTBACK;
-    if(!(
+    if(!expect_true(
                     decoder_ref_sv &&
                     SvROK(decoder_ref_sv) &&
                     (decoder_sv = SvRV(decoder_ref_sv)) &&

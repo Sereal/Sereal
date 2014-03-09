@@ -36,7 +36,7 @@ THX_pp1_sereal_encode(pTHX_ U8 has_hdr)
   body_sv = POPs;
   PUTBACK;
   encoder_ref_sv = TOPs;
-  if(!(
+  if(!expect_true(
         encoder_ref_sv &&
         SvROK(encoder_ref_sv) &&
         (encoder_sv = SvRV(encoder_ref_sv)) &&
