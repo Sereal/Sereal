@@ -32,26 +32,34 @@ THX_pp1_sereal_encode(pTHX_ U8 has_hdr)
   char *stash_name;
   SV *ret_sv;
   dSP;
+
   header_sv = has_hdr ? POPs : NULL;
   body_sv = POPs;
   PUTBACK;
+
   encoder_ref_sv = TOPs;
-  if(!expect_true(
+
+  if (!expect_true(
         encoder_ref_sv &&
         SvROK(encoder_ref_sv) &&
         (encoder_sv = SvRV(encoder_ref_sv)) &&
         SvOBJECT(encoder_sv) &&
         (stash_name= HvNAME(SvSTASH(encoder_sv))) &&
         !strcmp(stash_name, "Sereal::Encoder")
-  )) {
+     ))
+  {
     croak("handle is not a Sereal::Encoder handle");
   }
+
   enc= (srl_encoder_t *)SvIV(encoder_sv);
-  if(header_sv && !SvOK(header_sv)) header_sv = NULL;
-    /* We always copy the string since we might reuse the string buffer. That
-     * means we already have to do a malloc and we might as well use the
-     * opportunity to allocate only as much memory as we really need to hold
-     * the output. */
+
+  if (header_sv && !SvOK(header_sv))
+    header_sv = NULL;
+
+  /* We always copy the string since we might reuse the string buffer. That
+   * means we already have to do a malloc and we might as well use the
+   * opportunity to allocate only as much memory as we really need to hold
+   * the output. */
   ret_sv= srl_dump_data_structure_mortal_sv(aTHX_ enc, body_sv, header_sv, SRL_ENC_SV_COPY_ALWAYS);
   SPAGAIN;
   TOPs = ret_sv;
@@ -71,22 +79,39 @@ THX_ck_entersub_args_sereal_encode(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
 {
   OP *pushop, *firstargop, *cvop, *lastargop, *argop, *newop;
   int arity;
+
+  /* Walk the OP structure under the "entersub" to validate that we
+   * can use the custom OP implementation. */
+
   entersubop = ck_entersub_args_proto(entersubop, namegv, ckobj);
   pushop = cUNOPx(entersubop)->op_first;
-  if(!pushop->op_sibling) pushop = cUNOPx(pushop)->op_first;
+  if (!pushop->op_sibling)
+    pushop = cUNOPx(pushop)->op_first;
   firstargop = pushop->op_sibling;
+
   for (cvop = firstargop; cvop->op_sibling; cvop = cvop->op_sibling) ;
+
   lastargop = pushop;
+
   for (arity = 0, lastargop = pushop, argop = firstargop; argop != cvop;
-      lastargop = argop, argop = argop->op_sibling)
+       lastargop = argop, argop = argop->op_sibling)
+  {
     arity++;
-  if(expect_false(arity < 2 || arity > 3)) return entersubop;
+  }
+
+  if (expect_false(arity < 2 || arity > 3))
+    return entersubop;
+
+  /* If we get here, we can replace the entersub with a suitable
+   * sereal_encode custom OP. */
+
   pushop->op_sibling = cvop;
   lastargop->op_sibling = NULL;
   op_free(entersubop);
   newop = newUNOP(OP_CUSTOM, 0, firstargop);
   newop->op_private = arity == 3;
   newop->op_ppaddr = THX_pp_sereal_encode;
+
   return newop;
 }
 
@@ -99,7 +124,8 @@ THX_xsfunc_sereal_encode(pTHX_ CV *cv)
   dSP;
   SSize_t arity = SP - MARK;
   PERL_UNUSED_ARG(cv);
-  if(arity < 2 || arity > 3) croak("bad Sereal encoder usage");
+  if (arity < 2 || arity > 3)
+    croak("bad Sereal encoder usage");
   pp1_sereal_encode(arity == 3);
 }
 

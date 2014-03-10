@@ -38,39 +38,47 @@ THX_pp1_sereal_decode(pTHX_ U8 opopt)
     srl_decoder_t *decoder;
     char *stash_name;
     dSP;
-    header_into = expect_false(opopt & OPOPT_OUTARG_HEADER) ? POPs :
-            expect_false(opopt & OPOPT_DO_HEADER) ? sv_newmortal() : NULL;
-    body_into = expect_false(opopt & OPOPT_OUTARG_BODY) ? POPs :
-            expect_true(opopt & OPOPT_DO_BODY) ? sv_newmortal() : NULL;
+
+    header_into = expect_false(opopt & OPOPT_OUTARG_HEADER)
+                  ? POPs
+                  : expect_false(opopt & OPOPT_DO_HEADER) ? sv_newmortal() : NULL;
+    body_into = expect_false(opopt & OPOPT_OUTARG_BODY)
+                ? POPs
+                : expect_true(opopt & OPOPT_DO_BODY) ? sv_newmortal() : NULL;
+
     offset = expect_false(opopt & OPOPT_OFFSET) ? SvUVx(POPs) : 0;
     src_sv = POPs;
     decoder_ref_sv = POPs;
     PUTBACK;
-    if(!expect_true(
-                    decoder_ref_sv &&
-                    SvROK(decoder_ref_sv) &&
-                    (decoder_sv = SvRV(decoder_ref_sv)) &&
-                    SvOBJECT(decoder_sv) &&
-                    (stash_name = HvNAME(SvSTASH(decoder_sv))) &&
-                    !strcmp(stash_name, "Sereal::Decoder")
-    )) {
+
+    if (!expect_true(
+          decoder_ref_sv &&
+          SvROK(decoder_ref_sv) &&
+          (decoder_sv = SvRV(decoder_ref_sv)) &&
+          SvOBJECT(decoder_sv) &&
+          (stash_name = HvNAME(SvSTASH(decoder_sv))) &&
+          !strcmp(stash_name, "Sereal::Decoder")
+       ))
+    {
         croak("handle is not a Sereal::Decoder handle");
     }
+
     decoder = (srl_decoder_t *)SvIV(decoder_sv);
-    if(expect_true(opopt & OPOPT_DO_BODY)) {
-            if(opopt & OPOPT_DO_HEADER) {
-                srl_decode_all_into(aTHX_ decoder, src_sv, header_into,
-                    body_into, offset);
-            } else {
-                srl_decode_into(aTHX_ decoder, src_sv, body_into, offset);
-            }
+    if (expect_true(opopt & OPOPT_DO_BODY)) {
+        if (opopt & OPOPT_DO_HEADER) {
+             srl_decode_all_into(aTHX_ decoder, src_sv, header_into,
+                                 body_into, offset);
+        } else {
+            srl_decode_into(aTHX_ decoder, src_sv, body_into, offset);
+        }
     } else {
         srl_decode_header_into(aTHX_ decoder, src_sv, header_into, offset);
     }
-    if(expect_true(need_retvalue)) {
+
+    if (expect_true(need_retvalue)) {
         SV *retvalue;
-        if(expect_true(opopt & OPOPT_DO_BODY)) {
-            if(opopt & OPOPT_DO_HEADER) {
+        if (expect_true(opopt & OPOPT_DO_BODY)) {
+            if (opopt & OPOPT_DO_HEADER) {
                 AV *retav = newAV();
                 retvalue = newRV_noinc((SV*)retav);
                 sv_2mortal(retvalue);
@@ -108,21 +116,38 @@ THX_ck_entersub_args_sereal_decoder(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
     U8 max_arity = (cv_private >> 16) & 0xff;
     OP *pushop, *firstargop, *cvop, *lastargop, *argop, *newop;
     int arity;
+
+    /* Walk the OP structure under the "entersub" to validate that we
+     * can use the custom OP implementation. */
+
     entersubop = ck_entersub_args_proto(entersubop, namegv, (SV*)cv);
     pushop = cUNOPx(entersubop)->op_first;
     if(!pushop->op_sibling) pushop = cUNOPx(pushop)->op_first;
     firstargop = pushop->op_sibling;
+
     for (cvop = firstargop; cvop->op_sibling; cvop = cvop->op_sibling) ;
+
     lastargop = pushop;
     for (arity = 0, lastargop = pushop, argop = firstargop; argop != cvop;
-            lastargop = argop, argop = argop->op_sibling)
+         lastargop = argop, argop = argop->op_sibling)
+    {
         arity++;
-    if(expect_false(arity < min_arity || arity > max_arity)) return entersubop;
-    if(arity > min_arity && (opopt & OPOPT_DO_BODY)) {
+    }
+
+    if (expect_false(arity < min_arity || arity > max_arity))
+        return entersubop;
+
+    /* If we get here, we can replace the entersub with a suitable
+     * sereal_decode custom OP. */
+
+    if (arity > min_arity && (opopt & OPOPT_DO_BODY)) {
         opopt |= OPOPT_OUTARG_BODY;
         min_arity++;
     }
-    if(arity > min_arity) opopt |= OPOPT_OUTARG_HEADER;
+
+    if (arity > min_arity)
+        opopt |= OPOPT_OUTARG_HEADER;
+
     pushop->op_sibling = cvop;
     lastargop->op_sibling = NULL;
     op_free(entersubop);
@@ -144,13 +169,16 @@ THX_xsfunc_sereal_decode(pTHX_ CV *cv)
     U8 opopt = cv_private & 0xff;
     U8 min_arity = (cv_private >> 8) & 0xff;
     U8 max_arity = (cv_private >> 16) & 0xff;
-    if(arity < min_arity || arity > max_arity)
+
+    if (arity < min_arity || arity > max_arity)
         croak("bad Sereal decoder usage");
-    if(arity > min_arity && (opopt & OPOPT_DO_BODY)) {
+    if (arity > min_arity && (opopt & OPOPT_DO_BODY)) {
         opopt |= OPOPT_OUTARG_BODY;
         min_arity++;
     }
-    if(arity > min_arity) opopt |= OPOPT_OUTARG_HEADER;
+    if (arity > min_arity)
+        opopt |= OPOPT_OUTARG_HEADER;
+
     pp1_sereal_decode(opopt);
 }
 
@@ -182,7 +210,7 @@ BOOT:
         Perl_custom_op_register(aTHX_ THX_pp_sereal_decode, xop);
     }
 #endif /* USE_CUSTOM_OPS */
-    for(i = sizeof(funcs_to_install)/sizeof(*fti); i--; ) {
+    for (i = sizeof(funcs_to_install)/sizeof(*fti); i--; ) {
         char name[55];
         char proto[7], *p = proto;
         U8 opopt;
@@ -194,16 +222,16 @@ BOOT:
         CV *cv;
         *p++ = '$';
         *p++ = '$';
-        if(opopt & OPOPT_OFFSET) {
+        if (opopt & OPOPT_OFFSET) {
             *p++ = '$';
             cv_private += 0x010100;
         }
         *p++ = ';';
-        if(opopt & OPOPT_DO_BODY) {
+        if (opopt & OPOPT_DO_BODY) {
             *p++ = '$';
             cv_private += 0x010000;
         }
-        if(opopt & OPOPT_DO_HEADER) {
+        if (opopt & OPOPT_DO_HEADER) {
             *p++ = '$';
             cv_private += 0x010000;
         }
