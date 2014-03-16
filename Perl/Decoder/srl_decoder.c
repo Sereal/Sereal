@@ -284,8 +284,6 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
     srl_decoder_t *dec;
 
     assert(origdec != NULL);
-    if (SvUTF8(src))
-        sv_utf8_downgrade(src, 0);
     dec = srl_begin_decoding(aTHX_ origdec, src, start_offset);
     srl_read_header(aTHX_ dec, header_into);
     SRL_UPDATE_BODY_POS(dec);
@@ -371,8 +369,6 @@ srl_decode_header_into(pTHX_ srl_decoder_t *origdec, SV *src, SV* header_into, U
 {
     srl_decoder_t *dec;
     assert(origdec != NULL);
-    if (SvUTF8(src))
-        sv_utf8_downgrade(src, 0);
     dec = srl_begin_decoding(aTHX_ origdec, src, start_offset);
     if (header_into == NULL)
         header_into = sv_newmortal();
@@ -455,6 +451,16 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset)
 
     /* Register our structure for destruction on scope exit */
     SAVEDESTRUCTOR_X(&srl_decoder_destructor_hook, (void *)dec);
+
+    if (SvUTF8(src)) {
+        /* If we are being asked to decode a utf8-on string then we
+         * make a mortal copy, and then try to downgrade the copy.
+         * The downgrade will croak if it cannot successfully downgrade
+         * the buffer. If it is sucessful then decode the downgraded
+         * copy. */
+        src= sv_mortalcopy(src);
+        sv_utf8_downgrade(src, 0);
+    }
 
     tmp = (unsigned char*)SvPV(src, len);
     if (expect_false( start_offset > len )) {
