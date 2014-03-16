@@ -20,12 +20,17 @@ sub desc_special($) {
 }
 
 foreach(
-        \undef(),
-        \do { my $z = undef },
-        \!1,
-        \do { my $z = !1 },
-        \!0,
-        \do { my $z = !0 },
+        [ "ref undef",     \undef(),              "needs new tag in protocol"   ],
+        [ "ref undef var", \do { my $z = undef }, "needs new tag in protocol"   ],
+        [ "ref false",     \!1,                                                 ],
+        [ "ref false var", \do { my $z = !1 },                                  ],
+        [ "ref true",      \!0,                                                 ],
+        [ "ref true var ", \do { my $z = !0 },                                  ],
 ) {
-    is( desc_special($dec->decode($enc->encode($_))), desc_special($_) );
+    my ($name, $var, $todo)= @$_;
+    TODO: {
+        todo_skip $todo, 1 if $todo;
+        is( desc_special($dec->decode($enc->encode($var))), desc_special($var), $name );
+
+    }
 }

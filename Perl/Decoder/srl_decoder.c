@@ -979,13 +979,24 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
     if (tag == SRL_HDR_TRUE) {
         dec->pos++;
         referent= &PL_sv_yes;
-    } else if (tag == SRL_HDR_FALSE) {
+    }
+    else if (tag == SRL_HDR_FALSE) {
         dec->pos++;
         referent= &PL_sv_no;
-    } else if (tag == SRL_HDR_UNDEF) {
+    }
+    /*
+     * We cant do the below, as we have use SRL_HDR_UNDEF also
+     * to represent "any SV which is undef". We need a different
+     * tag for true perl undef.
+     *
+     */
+    /*
+    else if (tag == SRL_HDR_UNDEF) {
         dec->pos++;
         referent= &PL_sv_undef;
-    } else {
+    }
+    */
+    else {
         referent= newSV(SVt_NULL);
         SvTEMP_off(referent);
         tag = 0;
