@@ -975,13 +975,26 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
 {
     SV *referent;
     ASSERT_BUF_SPACE(dec, 1, " while reading REFN referent");
-    referent= newSV(SVt_NULL);
-
+    U8 tag= *(dec->pos); /* Look ahead for special vars. */
+    if (tag == SRL_HDR_TRUE) {
+        dec->pos++;
+        referent= &PL_sv_yes;
+    } else if (tag == SRL_HDR_FALSE) {
+        dec->pos++;
+        referent= &PL_sv_no;
+    } else if (tag == SRL_HDR_UNDEF) {
+        dec->pos++;
+        referent= &PL_sv_undef;
+    } else {
+        referent= newSV(SVt_NULL);
+        SvTEMP_off(referent);
+        tag = 0;
+    }
     SRL_ASSERT_TYPE_FOR_RV(into);
-    SvTEMP_off(referent);
     SvRV_set(into, referent);
     SvROK_on(into);
-    srl_read_single_value(aTHX_ dec, referent);
+    if (!tag)
+        srl_read_single_value(aTHX_ dec, referent);
 }
 
 SRL_STATIC_INLINE void
