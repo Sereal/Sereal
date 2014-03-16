@@ -109,6 +109,9 @@ THX_pp_sereal_decode(pTHX)
 static OP *
 THX_ck_entersub_args_sereal_decoder(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
 {
+
+   /* pull apart a standard entersub op tree */
+
     CV *cv = (CV*)ckobj;
     I32 cv_private = CvXSUBANY(cv).any_i32;
     U8 opopt = cv_private & 0xff;
@@ -138,7 +141,7 @@ THX_ck_entersub_args_sereal_decoder(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
         return entersubop;
 
     /* If we get here, we can replace the entersub with a suitable
-     * sereal_decode custom OP. */
+     * sereal_decode_op custom OP. */
 
     if (arity > min_arity && (opopt & OPOPT_DO_BODY)) {
         opopt |= OPOPT_OUTARG_BODY;
@@ -218,10 +221,36 @@ BOOT:
         GV *gv;
         fti = &funcs_to_install[i];
         opopt = fti->opopt;
+        /*
+         * The cv_private value incorporates flags describing the operation to be
+         * performed by the sub and precomputed arity limits.  0x020200 corresponds
+         * to min_arity=2 and max_arity=2.  The various additions to cv_private
+         * increment one or both of these sub-values.
+
+         * The six subs created there share a single C body function, and are
+         * differentiated only by the option flags in cv_private.  The custom ops
+         * likewise share one op_ppaddr function, and the operations they perform
+         * are differentiated by the same flags, stored in op_private.
+         */
         cv_private = opopt | 0x020200;
         CV *cv;
+
+        /* Yes, the subs have prototypes.  The protoypes have no effect when the
+         * subs are used as methods, so there's no break of compatibility for those
+         * using the documented API.  There is a change that could be detected by
+         * code such as "Sereal::Decoder::decode($dec, @v)", that uses the methods
+         * directly in an undocumented way.
+         *
+         * The prototype, specifically the putting of argument expressions into
+         * scalar context, is required in order to be able to resolve arity at
+         * compile time.  If this wasn't done, there would have to be a pushmark
+         * op preceding the argument ops, and pp_sereal_decode() would need the
+         * same code as xsfunc_sereal_decode() to check arity and resolve the
+         * optional-parameter flags.
+         */
         *p++ = '$';
         *p++ = '$';
+
         if (opopt & OPOPT_OFFSET) {
             *p++ = '$';
             cv_private += 0x010100;
@@ -236,6 +265,7 @@ BOOT:
             cv_private += 0x010000;
         }
         *p = 0;
+        /* setup the name of the sub */
         sprintf(name, "Sereal::Decoder::sereal_decode%s_op", fti->name_suffix);
         cv = newXSproto_portable(name, THX_xsfunc_sereal_decode, __FILE__,
                 proto);
