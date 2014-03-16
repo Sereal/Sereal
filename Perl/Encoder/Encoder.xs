@@ -23,9 +23,9 @@
 # define USE_CUSTOM_OPS 0
 #endif
 
-#define pp1_sereal_encode(has_hdr) THX_pp1_sereal_encode(aTHX_ has_hdr)
+#define pp1_sereal_encode_op(has_hdr) THX_pp1_sereal_encode_op(aTHX_ has_hdr)
 static void
-THX_pp1_sereal_encode(pTHX_ U8 has_hdr)
+THX_pp1_sereal_encode_op(pTHX_ U8 has_hdr)
 {
   SV *encoder_ref_sv, *encoder_sv, *body_sv, *header_sv;
   srl_encoder_t *enc;
@@ -68,14 +68,14 @@ THX_pp1_sereal_encode(pTHX_ U8 has_hdr)
 #if USE_CUSTOM_OPS
 
 static OP *
-THX_pp_sereal_encode(pTHX)
+THX_pp_sereal_encode_op(pTHX)
 {
-  pp1_sereal_encode(PL_op->op_private);
+  pp1_sereal_encode_op(PL_op->op_private);
   return NORMAL;
 }
 
 static OP *
-THX_ck_entersub_args_sereal_encode(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
+THX_ck_entersub_args_sereal_encode_op(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
 {
   OP *pushop, *firstargop, *cvop, *lastargop, *argop, *newop;
   int arity;
@@ -103,14 +103,14 @@ THX_ck_entersub_args_sereal_encode(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
     return entersubop;
 
   /* If we get here, we can replace the entersub with a suitable
-   * sereal_encode custom OP. */
+   * sereal_encode_op custom OP. */
 
   pushop->op_sibling = cvop;
   lastargop->op_sibling = NULL;
   op_free(entersubop);
   newop = newUNOP(OP_CUSTOM, 0, firstargop);
   newop->op_private = arity == 3;
-  newop->op_ppaddr = THX_pp_sereal_encode;
+  newop->op_ppaddr = THX_pp_sereal_encode_op;
 
   return newop;
 }
@@ -118,7 +118,7 @@ THX_ck_entersub_args_sereal_encode(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
 #endif /* USE_CUSTOM_OPS */
 
 static void
-THX_xsfunc_sereal_encode(pTHX_ CV *cv)
+THX_xsfunc_sereal_encode_op(pTHX_ CV *cv)
 {
   dMARK;
   dSP;
@@ -126,7 +126,7 @@ THX_xsfunc_sereal_encode(pTHX_ CV *cv)
   PERL_UNUSED_ARG(cv);
   if (arity < 2 || arity > 3)
     croak("bad Sereal encoder usage");
-  pp1_sereal_encode(arity == 3);
+  pp1_sereal_encode_op(arity == 3);
 }
 
 MODULE = Sereal::Encoder        PACKAGE = Sereal::Encoder
@@ -138,18 +138,18 @@ BOOT:
   {
     XOP *xop;
     Newxz(xop, 1, XOP);
-    XopENTRY_set(xop, xop_name, "sereal_encode");
-    XopENTRY_set(xop, xop_desc, "sereal_encode");
+    XopENTRY_set(xop, xop_name, "sereal_encode_op");
+    XopENTRY_set(xop, xop_desc, "sereal_encode_op");
     XopENTRY_set(xop, xop_class, OA_UNOP);
-    Perl_custom_op_register(aTHX_ THX_pp_sereal_encode, xop);
+    Perl_custom_op_register(aTHX_ THX_pp_sereal_encode_op, xop);
   }
 #endif /* USE_CUSTOM_OPS */
   {
     GV *gv;
-    CV *cv = newXSproto_portable("Sereal::Encoder::sereal_encode",
-                THX_xsfunc_sereal_encode, __FILE__, "$$;$");
+    CV *cv = newXSproto_portable("Sereal::Encoder::sereal_encode_op",
+                THX_xsfunc_sereal_encode_op, __FILE__, "$$;$");
 #if USE_CUSTOM_OPS
-    cv_set_call_checker(cv, THX_ck_entersub_args_sereal_encode, (SV*)cv);
+    cv_set_call_checker(cv, THX_ck_entersub_args_sereal_encode_op, (SV*)cv);
 #endif /* USE_CUSTOM_OPS */
     gv = gv_fetchpv("Sereal::Encoder::encode", GV_ADDMULTI, SVt_PVCV);
     GvCV_set(gv, cv);

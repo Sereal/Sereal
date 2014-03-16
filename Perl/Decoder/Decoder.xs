@@ -204,14 +204,14 @@ BOOT:
     {
         XOP *xop;
         Newxz(xop, 1, XOP);
-        XopENTRY_set(xop, xop_name, "sereal_decode");
-        XopENTRY_set(xop, xop_desc, "sereal_decode");
+        XopENTRY_set(xop, xop_name, "sereal_decode_op");
+        XopENTRY_set(xop, xop_desc, "sereal_decode_op");
         XopENTRY_set(xop, xop_class, OA_UNOP);
         Perl_custom_op_register(aTHX_ THX_pp_sereal_decode, xop);
     }
 #endif /* USE_CUSTOM_OPS */
     for (i = sizeof(funcs_to_install)/sizeof(*fti); i--; ) {
-        char name[55];
+        char name[58];
         char proto[7], *p = proto;
         U8 opopt;
         I32 cv_private;
@@ -236,7 +236,7 @@ BOOT:
             cv_private += 0x010000;
         }
         *p = 0;
-        sprintf(name, "Sereal::Decoder::sereal_decode%s", fti->name_suffix);
+        sprintf(name, "Sereal::Decoder::sereal_decode%s_op", fti->name_suffix);
         cv = newXSproto_portable(name, THX_xsfunc_sereal_decode, __FILE__,
                 proto);
         CvXSUBANY(cv).any_i32 = cv_private;

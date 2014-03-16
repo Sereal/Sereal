@@ -13,7 +13,10 @@ my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 200 .. int($num_version
 sub _test_compat {return(@$TestCompat, $VERSION)}
 
 use Exporter 'import';
-our @EXPORT_OK = qw(decode_sereal looks_like_sereal decode_sereal_with_header_data sereal_decode sereal_decode_with_header);
+our @EXPORT_OK = qw(
+    decode_sereal looks_like_sereal decode_sereal_with_header_data
+    sereal_decode_op sereal_decode_with_header_op
+);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 # export by default if run from command line
 our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
@@ -35,7 +38,7 @@ Sereal::Decoder - Fast, compact, powerful binary deserialization
 =head1 SYNOPSIS
 
   use Sereal::Decoder
-    qw(decode_sereal sereal_decode looks_like_sereal);
+    qw(decode_sereal sereal_decode_op looks_like_sereal);
   
   my $decoder = Sereal::Decoder->new({...options...});
   
@@ -46,8 +49,8 @@ Sereal::Decoder - Fast, compact, powerful binary deserialization
   $structure = $decoder->decode($blob);
   
   # alternatively functional interface:
-  sereal_decode($decoder, $blob, $structure);
-  $structure = sereal_decode($decoder, $blob);
+  sereal_decode_op($decoder, $blob, $structure);
+  $structure = sereal_decode_op($decoder, $blob);
 
   # slower functional interface with no persistent objects:
   decode_sereal($blob, {... options ...}, $structure);
@@ -215,7 +218,7 @@ For reference, sereal's magic string is a four byte string C<=srl>.
 
 =head1 EXPORTABLE FUNCTIONS
 
-=head2 sereal_decode
+=head2 sereal_decode_op
 
 The functional interface that is equivalent to using C<decode>.  Takes a
 decoder object reference as first argument, followed by a byte string

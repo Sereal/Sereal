@@ -13,7 +13,7 @@ my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 200 .. int($num_version
 sub _test_compat {return(@$TestCompat, $VERSION)}
 
 use Exporter 'import';
-our @EXPORT_OK = qw(encode_sereal encode_sereal_with_header_data sereal_encode);
+our @EXPORT_OK = qw(encode_sereal encode_sereal_with_header_data sereal_encode_op);
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 # export by default if run from command line
 our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
@@ -34,12 +34,12 @@ Sereal::Encoder - Fast, compact, powerful binary serialization
 
 =head1 SYNOPSIS
 
-  use Sereal::Encoder qw(encode_sereal sereal_encode);
+  use Sereal::Encoder qw(encode_sereal sereal_encode_op);
   
   my $encoder = Sereal::Encoder->new({...options...});
   my $out = $encoder->encode($structure);
   # alternatively:
-  $out = sereal_encode($encoder, $structure);
+  $out = sereal_encode_op($encoder, $structure);
   # slower functional interface with no persistent objects:
   $out = encode_sereal($structure, {... options ...});
 
@@ -275,7 +275,7 @@ L<Sereal::Decoder>.
 
 =head1 EXPORTABLE FUNCTIONS
 
-=head2 sereal_encode
+=head2 sereal_encode_op
 
 The functional interface that is equivalent to using C<encode>.  Takes an
 encoder object reference as first argument, followed by a data structure
@@ -296,7 +296,7 @@ it cannot reuse the encoder object.
 
 =head1 PERFORMANCE
 
-If you care about performance at all, then use L</sereal_encode> or the
+If you care about performance at all, then use L</sereal_encode_op> or the
 OO interface instead of L</encode_sereal>. It's a significant difference
 in performance if you are serializing small data structures.
 
