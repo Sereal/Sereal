@@ -219,6 +219,8 @@ BOOT:
         U8 opopt;
         I32 cv_private;
         GV *gv;
+        CV *cv;
+
         fti = &funcs_to_install[i];
         opopt = fti->opopt;
         /*
@@ -233,7 +235,6 @@ BOOT:
          * are differentiated by the same flags, stored in op_private.
          */
         cv_private = opopt | 0x020200;
-        CV *cv;
 
         /* Yes, the subs have prototypes.  The protoypes have no effect when the
          * subs are used as methods, so there's no break of compatibility for those
