@@ -144,7 +144,7 @@ THX_ck_entersub_args_sereal_decoder(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
         return entersubop;
 
     /* If we get here, we can replace the entersub with a suitable
-     * sereal_decode_op custom OP. */
+     * sereal_decode_with_object custom OP. */
 
     if (arity > min_arity && (opopt & OPOPT_DO_BODY)) {
         opopt |= OPOPT_OUTARG_BODY;
@@ -197,27 +197,28 @@ BOOT:
         char const *name_suffix;
         U8 opopt;
     } const funcs_to_install[] = {
-        { "", OPOPT_DO_BODY },
-        { "_only_header", OPOPT_DO_HEADER },
-        { "_with_header", (OPOPT_DO_BODY|OPOPT_DO_HEADER) },
-        { "_with_offset", (OPOPT_DO_BODY|OPOPT_OFFSET) },
-        { "_only_header_with_offset", (OPOPT_DO_HEADER|OPOPT_OFFSET) },
-        { "_with_header_and_offset",
-            (OPOPT_DO_BODY|OPOPT_DO_HEADER|OPOPT_OFFSET) },
+        { "",                           OPOPT_DO_BODY },
+        { "_only_header",               OPOPT_DO_HEADER },
+        { "_with_header",               (OPOPT_DO_BODY|OPOPT_DO_HEADER) },
+        { "_with_offset",               (OPOPT_DO_BODY|OPOPT_OFFSET) },
+        { "_only_header_with_offset",   (OPOPT_DO_HEADER|OPOPT_OFFSET) },
+        { "_with_header_and_offset",    (OPOPT_DO_BODY|OPOPT_DO_HEADER|OPOPT_OFFSET) },
+         /*012345678901234567890123*/
     }, *fti;
     int i;
 #if USE_CUSTOM_OPS
     {
         XOP *xop;
         Newxz(xop, 1, XOP);
-        XopENTRY_set(xop, xop_name, "sereal_decode_op");
-        XopENTRY_set(xop, xop_desc, "sereal_decode_op");
+        XopENTRY_set(xop, xop_name, "sereal_decode_with_object");
+        XopENTRY_set(xop, xop_desc, "sereal_decode_with_object");
         XopENTRY_set(xop, xop_class, OA_UNOP);
         Perl_custom_op_register(aTHX_ THX_pp_sereal_decode, xop);
     }
 #endif /* USE_CUSTOM_OPS */
     for (i = sizeof(funcs_to_install)/sizeof(*fti); i--; ) {
-        char name[58];
+#       define LONG_CLASS_FMT "Sereal::Decoder::sereal_decode%s_with_object"
+        char name[sizeof(LONG_CLASS_FMT)+24];
         char proto[7], *p = proto;
         U8 opopt;
         I32 cv_private;
@@ -270,7 +271,7 @@ BOOT:
         }
         *p = 0;
         /* setup the name of the sub */
-        sprintf(name, "Sereal::Decoder::sereal_decode%s_op", fti->name_suffix);
+        sprintf(name, LONG_CLASS_FMT, fti->name_suffix);
         cv = newXSproto_portable(name, THX_xsfunc_sereal_decode, __FILE__,
                 proto);
         CvXSUBANY(cv).any_i32 = cv_private;

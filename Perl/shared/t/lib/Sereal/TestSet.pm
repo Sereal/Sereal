@@ -726,8 +726,8 @@ sub run_roundtrip_tests_internal {
                         sub {$encoder->encode($_[0])},
                         sub {$decoder->decode($_[0])}],
                       ['functional with object',
-                          sub {Sereal::Encoder::sereal_encode_op($encoder, $_[0])},
-                          sub {Sereal::Decoder::sereal_decode_op($decoder, $_[0])}],
+                          sub {Sereal::Encoder::sereal_encode_with_object($encoder, $_[0])},
+                          sub {Sereal::Decoder::sereal_decode_with_object($decoder, $_[0])}],
                       ['header-body',
                         sub {$encoder->encode($_[0], 123456789)}, # header data is abitrary to stand out for debugging
                         sub {$decoder->decode($_[0])}],
