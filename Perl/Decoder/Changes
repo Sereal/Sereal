@@ -3,6 +3,22 @@ Revision history for Perl extension Sereal-Decoder
 * Warning: For a seamless upgrade, upgrade to version 2
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
+2.07 (to come)
+  - Add sereal_decode_with_object(), functional/custom-opcode implementation
+    of the OO interface, with much less overhead. In practice this will make
+    a very modest impact on dumping, but if your applications needs it...
+    Thanks to Zefram for the custom op implementation.
+
+  - Resolved: [rt.cpan.org #93888] does not preserve special SV identity
+    We now handle \!0 and \!1 properly. Being able to distinguish
+    \undef from \{my $x= undef} is left for a new protocol release.
+    Reported by Zefram.
+
+  - Resolved [rt.cpan.org #93892] downgrade breaks unwritable strings
+    When decoding a UTF8-on SV we now sv_mortalcopy() it before
+    we sv_utf8_downgrade() it. This prevents us from modifying the
+    buffer during deserialization.
+    Reported By Zefram.
 
 2.06 Sun Mar  0 11:40 2014 (AMS time)
   - Fix bug causing needless decoder cloning.

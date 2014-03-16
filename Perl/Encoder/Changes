@@ -3,6 +3,18 @@ Revision history for Perl extension Sereal-Encoder
 * Warning: For a seamless upgrade, upgrade to version 2
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
+2.07 (to come)
+  - Add sereal_decode_with_object(), a functional/custom-opcode
+    implementation of the OO interface, with much less overhead.
+    In practice this will make a very modest impact on dumping,
+    but if your applications needs it...
+    Thanks to Zefram for the custom op implementation.
+
+  - Optimize dumping hashes by being more careful how we
+    check if they have backreferences, and avoid creating
+    a HvAUX() structure (and thus reallocing the hashes bucket
+    array) just to find out if they have backreferences.
+    Reported by Steffen.
 
 2.06 Sun Mar  0 11:40 2014 (AMS time)
   - Only minor changes.
