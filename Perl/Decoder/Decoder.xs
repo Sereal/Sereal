@@ -125,15 +125,18 @@ THX_ck_entersub_args_sereal_decoder(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
 
     entersubop = ck_entersub_args_proto(entersubop, namegv, (SV*)cv);
     pushop = cUNOPx(entersubop)->op_first;
-    if(!pushop->op_sibling) pushop = cUNOPx(pushop)->op_first;
+    if ( ! pushop->op_sibling )
+        pushop = cUNOPx(pushop)->op_first;
     firstargop = pushop->op_sibling;
 
     for (cvop = firstargop; cvop->op_sibling; cvop = cvop->op_sibling) ;
 
     lastargop = pushop;
-    for (arity = 0, lastargop = pushop, argop = firstargop; argop != cvop;
-         lastargop = argop, argop = argop->op_sibling)
-    {
+    for (
+        arity = 0, lastargop = pushop, argop = firstargop;
+        argop != cvop;
+        lastargop = argop, argop = argop->op_sibling
+    ){
         arity++;
     }
 
