@@ -3,7 +3,7 @@ Revision history for Perl extension Sereal-Encoder
 * Warning: For a seamless upgrade, upgrade to version 2
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
-2.07 (to come)
+2.07_01 (to come)
   - Add sereal_decode_with_object(), a functional/custom-opcode
     implementation of the OO interface, with much less overhead.
     In practice this will make a very modest impact on dumping,
