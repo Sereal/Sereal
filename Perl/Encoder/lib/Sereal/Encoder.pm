@@ -38,9 +38,11 @@ Sereal::Encoder - Fast, compact, powerful binary serialization
   
   my $encoder = Sereal::Encoder->new({...options...});
   my $out = $encoder->encode($structure);
-  # alternatively:
+  
+  # alternatively the functional interface:
   $out = sereal_encode_with_object($encoder, $structure);
-  # slower functional interface with no persistent objects:
+  
+  # much slower functional interface with no persistent objects:
   $out = encode_sereal($structure, {... options ...});
 
 =head1 DESCRIPTION
@@ -49,6 +51,8 @@ This library implements an efficient, compact-output, and feature-rich
 serializer using a binary protocol called I<Sereal>.
 Its sister module L<Sereal::Decoder> implements a decoder for this format.
 The two are released separately to allow for independent and safer upgrading.
+If you care greatly about performance, consider reading the L<Sereal::Performance>
+documentation after finishing this document.
 
 The Sereal protocol version emitted by this encoder implementation is currently
 protocol version 2 by default.
@@ -291,14 +295,17 @@ The functional interface that is equivalent to using C<new> and C<encode>.
 Expects a data structure to serialize as first argument, optionally followed
 by a hash reference of options (see documentation for C<new()>).
 
-This functional interface is quite a bit slower than the OO interface since
+This functional interface is significantly slower than the OO interface since
 it cannot reuse the encoder object.
 
 =head1 PERFORMANCE
 
-If you care about performance at all, then use L</sereal_encode_with_object> or the
+See L<Sereal::Performance> for detailed considerations on performance
+tuning. Let it just be said that:
+
+B<If you care about performance at all, then use L</sereal_encode_with_object> or the
 OO interface instead of L</encode_sereal>. It's a significant difference
-in performance if you are serializing small data structures.
+in performance if you are serializing small data structures.>
 
 The exact performance in time and space depends heavily on the data structure
 to be serialized. Often there is a trade-off between space and time. If in doubt,

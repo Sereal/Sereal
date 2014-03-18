@@ -48,11 +48,11 @@ Sereal::Decoder - Fast, compact, powerful binary deserialization
   # or if you don't have references to the top level structure, this works, too:
   $structure = $decoder->decode($blob);
   
-  # alternatively functional interface:
+  # alternatively functional interface: (See Sereal::Performance)
   sereal_decode_with_object($decoder, $blob, $structure);
   $structure = sereal_decode_with_object($decoder, $blob);
 
-  # slower functional interface with no persistent objects:
+  # much slower functional interface with no persistent objects:
   decode_sereal($blob, {... options ...}, $structure);
   $structure = decode_sereal($blob, {... options ...});
   
@@ -227,7 +227,9 @@ scalar to write to. See the documentation for C<decode> above for details.
 
 This functional interface is marginally faster than the OO interface
 since it avoids method resolution overhead and, on sufficiently modern
-Perl versions, can usually avoid subroutine call overhead.
+Perl versions, can usually avoid subroutine call overhead. See
+L<Sereal::Performance> for a discussion on how to tune Sereal for maximum
+performance if you need to.
 
 =head2 decode_sereal
 
@@ -237,7 +239,7 @@ by a hash reference of options (see documentation for C<new()>). Finally,
 C<decode_sereal> supports a third parameter, which is the output scalar
 to write to. See the documentation for C<decode> above for details.
 
-This functional interface is marginally slower than the OO interface since
+This functional interface is significantly slower than the OO interface since
 it cannot reuse the decoder object.
 
 =head2 looks_like_sereal
@@ -282,8 +284,8 @@ the C<FREEZE/THAW> mechanism, please refer to L<Sereal::Encoder>.
 
 =head1 PERFORMANCE
 
-Please refer to the PERFORMANCE documention section in the L<Sereal::Encoder>
-module that has more detailed information about Sereal performance and
+Please refer to the L<Sereal::Performance> document
+that has more detailed information about Sereal performance and
 tuning thereof.
 
 =head1 THREAD-SAFETY
