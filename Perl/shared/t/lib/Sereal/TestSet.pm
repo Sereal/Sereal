@@ -110,7 +110,9 @@ sub dump_bless {
 
 sub short_string {
     die if length($_[0]) > SRL_MASK_SHORT_BINARY_LEN;
-    return chr(SRL_HDR_SHORT_BINARY_LOW + length($_[0])) . $_[0];
+    my $tag = SRL_HDR_SHORT_BINARY_LOW + length($_[0]);
+    $tag |= SRL_HDR_TRACK_FLAG if $_[1];
+    return pack("c a*",$tag,$_[0]);
 }
 
 sub integer {
@@ -234,7 +236,7 @@ sub setup_tests {
                   my $d = array_head(3);
                   my $pos = offset($d);
                   my $tag = $opt->{aliased_dedupe_strings} ? SRL_HDR_ALIAS : SRL_HDR_COPY;
-                  $d .= short_string("foooo") . chr($tag) . varint($pos)
+                  $d .= short_string("foooo",$opt->{aliased_dedupe_strings} ? 1 : 0) . chr($tag) . varint($pos)
                         . chr($tag) . varint($pos);
                   return $d;
               }
@@ -258,7 +260,7 @@ sub setup_tests {
                   my $tag = $opt->{aliased_dedupe_strings} ? SRL_HDR_ALIAS : SRL_HDR_COPY;
                   my $d = array_head(2) . hash_head(2) . short_string("foooo");
                   my $pos = offset($d);
-                  $d .= short_string("foooo") . hash_head(2)
+                  $d .= short_string("foooo",$opt->{aliased_dedupe_strings} ? 1 : 0) . hash_head(2)
                         . short_string("foooo2")
                         . chr($tag) . varint($pos);
                   return $d;

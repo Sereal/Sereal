@@ -1252,6 +1252,8 @@ srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src)
             SV *ofs_sv= HeVAL(dupe_offset_he);
             if (SvIOK(ofs_sv)) {
                 /* emit copy or alias */
+                if (out_tag == SRL_HDR_ALIAS)
+                    SRL_SET_FBIT(*(enc->buf.body_pos + SvUV(ofs_sv)));
                 srl_buf_cat_varint(aTHX_ enc, out_tag, SvIV(ofs_sv));
                 return;
             } else if (SvUOK(ofs_sv)) {
