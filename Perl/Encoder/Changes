@@ -3,13 +3,13 @@ Revision history for Perl extension Sereal-Encoder
 * Warning: For a seamless upgrade, upgrade to version 2
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
-2.07_01 (to come)
+2.07_01 Wed Mar 26 18:10 2014
+  - Fix for aliased_dedupe_strings feature (Borislav Nikolov)
   - Add sereal_decode_with_object(), a functional/custom-opcode
     implementation of the OO interface, with much less overhead.
     In practice this will make a very modest impact on dumping,
     but if your applications needs it...
     Thanks to Zefram for the custom op implementation.
-
   - Optimize dumping hashes by being more careful how we
     check if they have backreferences, and avoid creating
     a HvAUX() structure (and thus reallocing the hashes bucket
