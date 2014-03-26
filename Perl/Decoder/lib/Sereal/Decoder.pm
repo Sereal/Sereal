@@ -327,6 +327,8 @@ Daniel Dragan E<lt>bulkdd@cpan.orgE<gt> (Windows support and bugfixes)
 
 Zefram
 
+Borislav Nikolov
+
 Some inspiration and code was taken from Marc Lehmann's
 excellent JSON::XS module due to obvious overlap in
 problem domain.
