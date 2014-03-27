@@ -225,16 +225,16 @@ test()
   CODE:
     tbl = PTABLE_new_size(10);
     for (i = 0; i < (UV)n; ++i) {
-      PTABLE_store(tbl, (void *)(1000+i), (void *)(1000+i));
+      PTABLE_store(tbl, INT2PTR(void *,(1000+i)), INT2PTR(void *, (1000+i)));
       check[i] = fail;
     }
     for (i = 0; i < (UV)n; ++i) {
-      const UV res = (UV)PTABLE_fetch(tbl, (void *)(1000+i));
+      const UV res = (UV)PTABLE_fetch(tbl, INT2PTR(void *, (1000+i)));
       printf("%sok %u - fetch %u\n", (res == (UV)(1000+i)) ? noop : fail, (unsigned int)(1+i), (unsigned int)(i+1));
     }
     iter = PTABLE_iter_new(tbl);
     while ( NULL != (ent = PTABLE_iter_next(iter)) ) {
-      const UV res = ((UV)ent->value) - 1000;
+      const UV res = (PTR2UV(ent->value)) - 1000;
       if (res < 20)
         check[res] = noop;
       else

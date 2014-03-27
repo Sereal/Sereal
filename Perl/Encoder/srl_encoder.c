@@ -700,7 +700,7 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement)
             srl_buf_cat_char(enc, expect_false(replacement) ? SRL_HDR_OBJECT_FREEZE : SRL_HDR_OBJECT);
 
             /* remember current offset before advancing it */
-            PTABLE_store(string_seenhash, (void *)stash, (void *)BODY_POS_OFS(enc->buf));
+            PTABLE_store(string_seenhash, (void *)stash, INT2PTR(void *, BODY_POS_OFS(enc->buf)));
 
             /* HvNAMEUTF8 not in older perls and it would be 0 for those anyway */
 #if PERL_VERSION >= 16
@@ -1220,7 +1220,7 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
             else {
                 /* remember current offset before advancing it */
                 const ptrdiff_t newoffset = BODY_POS_OFS(enc->buf);
-                PTABLE_store(string_seenhash, (void *)str, (void *)newoffset);
+                PTABLE_store(string_seenhash, (void *)str, INT2PTR(void *, newoffset));
             }
         }
         len= HeKLEN(src);
@@ -1338,12 +1338,12 @@ redo_dump:
             /* not seen it before */
             if (DEBUGHACK) warn("scalar %p - is weak referent, storing %lu", src, weakref_ofs);
             /* if weakref_ofs is false we got here some way that holds a refcount on this item */
-            PTABLE_store(weak_seenhash, src, (void *)weakref_ofs);
+            PTABLE_store(weak_seenhash, src, INT2PTR(void *, weakref_ofs));
         } else {
             if (DEBUGHACK) warn("scalar %p - is weak referent, seen before value:%lu weakref_ofs:%lu",
                     src, (UV)pe->value, (UV)weakref_ofs);
             if (pe->value)
-                pe->value= (void *)weakref_ofs;
+                pe->value= INT2PTR(void *, weakref_ofs);
         }
         refcount++;
         weakref_ofs= 0;
@@ -1381,7 +1381,7 @@ redo_dump:
                 return;
             }
             if (DEBUGHACK) warn("storing %p as %lu", src, (long unsigned int)BODY_POS_OFS(enc->buf));
-            PTABLE_store(ref_seenhash, src, (void *)BODY_POS_OFS(enc->buf));
+            PTABLE_store(ref_seenhash, src, INT2PTR(void *, BODY_POS_OFS(enc->buf)));
         }
     }
     if (expect_false( weakref_ofs != 0 )) {
