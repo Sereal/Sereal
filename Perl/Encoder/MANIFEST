@@ -34,6 +34,7 @@ t/001_load.t
 t/002_constants.t
 t/003_ptable.t
 t/010_desperate.t
+t/011_aliased_dedupe.t
 t/020_sort_keys.t
 t/021_sort_keys_option.t
 t/110_nobless.t
@@ -46,6 +47,7 @@ t/400_evil.t
 t/700_roundtrip.t
 t/701_roundtrip_v1.t
 t/800_threads.t
+t/900_reentrancy.t
 t/data/corpus
 t/lib/Sereal/BulkTest.pm
 t/lib/Sereal/TestSet.pm

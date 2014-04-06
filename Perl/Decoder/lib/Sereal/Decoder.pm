@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '2.07_01'; # Don't forget to update the TestCompat set for testing against installed encoders!
+our $VERSION = '2.070_101'; # Don't forget to update the TestCompat set for testing against installed encoders!
 
 # not for public consumption, just for testing.
 (my $num_version = $VERSION) =~ s/_//;

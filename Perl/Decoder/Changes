@@ -3,7 +3,16 @@ Revision history for Perl extension Sereal-Decoder
 * Warning: For a seamless upgrade, upgrade to version 2
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
-2.07_01 Wed Mar 26 18:10 2014
+
+2.070_101 Sun Apr 06 17:27 2013 * DEV RELEASE *
+  - Fix for newer perls.
+  - Changes to 'fixver.pl' and version numbering so we do
+    a 3 digit minor version, and a 3 digit dev version,
+    so once this dev release cycle is done we will be at
+    v2.071 everywhere. This eliminates a version numbering
+    inconsistency in Sereal.pm from Encoder.pm and Decoder.pm
+
+2.07_01 Wed Mar 26 18:10 2014 * DEV RELEASE *
   - Add sereal_decode_with_object(), functional/custom-opcode implementation
     of the OO interface, with much less overhead. In practice this will make
     a very modest impact on dumping, but if your applications needs it...

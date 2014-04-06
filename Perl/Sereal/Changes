@@ -6,8 +6,15 @@ please see the Encoder and Decoder changelogs:
    * https://github.com/Sereal/Sereal/blob/master/Perl/Decoder/Changes
    * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
 
+2.070_101 Sun Apr 06 17:27 2013 * DEV RELEASE *
+  - Fix for newer perls.
+  - Changes to 'fixver.pl' and version numbering so we do
+    a 3 digit minor version, and a 3 digit dev version,
+    so once this dev release cycle is done we will be at
+    v2.071 everywhere. This eliminates a version numbering
+    inconsistency in Sereal.pm from Encoder.pm and Decoder.pm
 
-2.07_01 (to come)
+2.07_01 (to come) * DEV RELEASE *
   - New decoder/encoder release, dependency version change.
 
 2.060 Sun Mar  9 11:50 2014 (AMS time)

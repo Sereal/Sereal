@@ -13,6 +13,7 @@ inc/Devel/CheckLib.pm
 inc/Sereal/BuildTools.pm
 lib/Sereal/Decoder.pm
 lib/Sereal/Decoder/Constants.pm
+lib/Sereal/Performance.pm
 Makefile.PL
 MANIFEST			This list of files
 ppport.h
@@ -32,6 +33,7 @@ t/001_load.t
 t/010_desperate.t
 t/020_incremental.t
 t/030_looks_like_sereal.t
+t/040_special_vars.t
 t/110_nobless.t
 t/150_dec_exception.t
 t/160_recursion.t
@@ -45,6 +47,7 @@ t/800_threads.t
 t/900_regr_issue_15.t
 t/901_regr_segv.t
 t/902_bad_input.t
+t/903_reentrancy.t
 t/data/corpus
 t/lib/Sereal/BulkTest.pm
 t/lib/Sereal/TestSet.pm

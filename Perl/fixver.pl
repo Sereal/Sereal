@@ -11,14 +11,18 @@ my @files= qw(
 
 my $to= shift @ARGV;
 
-die "usage: $0 VERSION REASON" if !$to;
+die "usage: MAJOR.MINOR_(DEV) REASON" if !$to;
 my $reason= join " ", @ARGV;
 die "usage: $0 VERSION REASON" if !$reason;
 
-$to= sprintf "%.2f", $to;
-my $to_long= sprintf("%.3f", $to);
+my ($major,$minor,$dev)= split/[_.]/, $to;
+
+$to= $dev ? sprintf "%d.%03d_%03d", $major, $minor, $dev
+          : sprintf "%d.%03d",      $major, $minor
+;
+
 my %special= (
-    'Sereal/lib/Sereal.pm' => $to_long
+    'Sereal/lib/Sereal.pm' => $to
 );
 
 foreach my $file (@files) {
@@ -29,9 +33,9 @@ foreach my $file (@files) {
     open my $out, ">", $file
         or die "Failed to open for write '$file': $!";
     while (<$in>) {
-        s/\$VERSION = '\d.\d+'/\$VERSION = '$to_str'/g;
+        s/\$VERSION = '[^']+'/\$VERSION = '$to_str'/g;
         if ($special{$file}) {
-            s/(Sereal::(En|De)coder) (\d+.\d+)/$1 $to/g;
+            s/(Sereal::(En|De)coder) (\d+\.\d+(?:_\d+)?)/$1 $to/g;
         }
         print $out $_;
     }
@@ -46,10 +50,10 @@ export PERL5OPT="-Mblib=/home/yorton/git_tree/Sereal/Perl/Encoder/ -Mblib=/home/
 git commit -a -m'Release v$to - $reason'
 git tag Sereal-Decoder-$to -m'Release Sereal::Decoder version $to ($reason)'
 git tag Sereal-Encoder-$to -m'Release Sereal::Encoder version $to ($reason)'
-git tag Sereal-$to_long -m'Sereal v$to_long - Update encoder ($reason)'
+git tag Sereal-$to -m'Sereal v$to - Update encoder ($reason)'
 git push
 git push --tags
 
-cpan-upload-http -verbose Encoder/Sereal-Encoder-$to.tar.gz Decoder/Sereal-Decoder-$to.tar.gz Sereal/Sereal-$to_long.tar.gz
+cpan-upload-http -verbose Encoder/Sereal-Encoder-$to.tar.gz Decoder/Sereal-Decoder-$to.tar.gz Sereal/Sereal-$to.tar.gz
 EOF_TEXT
 
