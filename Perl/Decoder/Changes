@@ -4,6 +4,12 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
 
+2.070_102 Sun Apr 06 17:27 2013 * DEV RELEASE *
+  - Fixes for how we load XS so Sereal.pm works properly
+    with dev releases.
+  - Add scalar_looks_like_sereal as a custom opcode
+    From Zefram.
+
 2.070_101 Sun Apr 06 17:27 2013 * DEV RELEASE *
   - Fix for newer perls.
   - Changes to 'fixver.pl' and version numbering so we do

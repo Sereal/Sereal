@@ -43,9 +43,9 @@ foreach my $file (@files) {
 
 print <<"EOF_TEXT";
 
-for d in Encoder/ Decoder/; do pushd \$d; perl Makefile.PL; make test; make manifest; make disttest; make dist; popd; done;
+for d in Encoder/ Decoder/; do pushd \$d; perl Makefile.PL && make && make manifest && make disttest && make dist; popd; done;
 
-export PERL5OPT="-Mblib=/home/yorton/git_tree/Sereal/Perl/Encoder/ -Mblib=/home/yorton/git_tree/Sereal/Perl/Decoder/"; pushd Sereal; perl Makefile.PL; make test; make disttest; make dist; popd; unset PERL5OPT;
+export PERL5OPT="-Mblib=/home/yorton/git_tree/Sereal/Perl/Encoder/ -Mblib=/home/yorton/git_tree/Sereal/Perl/Decoder/"; pushd Sereal; perl Makefile.PL &&  make && make disttest && make dist; popd; unset PERL5OPT;
 
 git commit -a -m'Release v$to - $reason'
 git tag Sereal-Decoder-$to -m'Release Sereal::Decoder version $to ($reason)'

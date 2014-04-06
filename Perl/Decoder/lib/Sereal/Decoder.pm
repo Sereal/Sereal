@@ -5,7 +5,8 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '2.070_101'; # Don't forget to update the TestCompat set for testing against installed encoders!
+our $VERSION = '2.070_102'; # Don't forget to update the TestCompat set for testing against installed encoders!
+our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 
 # not for public consumption, just for testing.
 (my $num_version = $VERSION) =~ s/_//;
@@ -15,6 +16,7 @@ sub _test_compat {return(@$TestCompat, $VERSION)}
 use Exporter 'import';
 our @EXPORT_OK = qw(
     decode_sereal looks_like_sereal decode_sereal_with_header_data
+    scalar_looks_like_sereal
     sereal_decode_with_object sereal_decode_with_header_with_object
 );
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
@@ -23,7 +25,7 @@ our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
 
 sub CLONE_SKIP { 1 }
 
-XSLoader::load('Sereal::Decoder', $VERSION);
+XSLoader::load('Sereal::Decoder', $XS_VERSION);
 
 1;
 
@@ -38,7 +40,7 @@ Sereal::Decoder - Fast, compact, powerful binary deserialization
 =head1 SYNOPSIS
 
   use Sereal::Decoder
-    qw(decode_sereal sereal_decode_with_object looks_like_sereal);
+    qw(decode_sereal sereal_decode_with_object scalar_looks_like_sereal);
   
   my $decoder = Sereal::Decoder->new({...options...});
   
@@ -57,7 +59,7 @@ Sereal::Decoder - Fast, compact, powerful binary deserialization
   $structure = decode_sereal($blob, {... options ...});
   
   # Not a full validation, but just a quick check for a reasonable header:
-  my $is_likely_sereal = looks_like_sereal($some_string);
+  my $is_likely_sereal = scalar_looks_like_sereal($some_string);
   # or:
   $is_likely_sereal = $decoder->looks_like_sereal($some_string);
 
@@ -242,9 +244,9 @@ to write to. See the documentation for C<decode> above for details.
 This functional interface is significantly slower than the OO interface since
 it cannot reuse the decoder object.
 
-=head2 looks_like_sereal
+=head2 scalar_looks_like_sereal
 
-Same as the object method of the same name.
+The functional interface that is equivalent to using C<looks_like_sereal>.
 
 =head1 ROBUSTNESS
 

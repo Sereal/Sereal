@@ -1,7 +1,7 @@
 #!perl
 use strict;
 use warnings;
-use Sereal::Decoder qw(decode_sereal looks_like_sereal);
+use Sereal::Decoder qw(decode_sereal looks_like_sereal scalar_looks_like_sereal);
 use Sereal::Decoder::Constants qw(:all);
 use Data::Dumper;
 use File::Spec;
@@ -22,12 +22,17 @@ my @tests = (
     ["=Srl". chr(1) . chr(0) . chr(SRL_HDR_UNDEF), 0, "wrong magic string is not Sereal"],
 );
 
-plan tests => @tests * 3;
+plan tests => 2 + @tests * 5;
+
+is prototype(\&looks_like_sereal), undef;
+is prototype(\&scalar_looks_like_sereal), "\$";
 
 my $decoder = Sereal::Decoder->new;
 foreach my $t (@tests) {
     my ($input, $outcome, $name) = @$t;
-    ok(looks_like_sereal($input) == $outcome, $name . " (function)");
-    ok($decoder->looks_like_sereal($input) == $outcome, $name . " (object method)");
-    ok(Sereal::Decoder->looks_like_sereal($input) == $outcome, $name . " (class method)");
+    is scalar_looks_like_sereal($input), !!$outcome, "$name (new function oppable)";
+    is &scalar_looks_like_sereal($input), !!$outcome, "$name (new function non-oppable)";
+    is looks_like_sereal($input), !!$outcome, "$name (old function)";
+    is $decoder->looks_like_sereal($input), !!$outcome, "$name (object method)";
+    is +Sereal::Decoder->looks_like_sereal($input), !!$outcome, "$name (class method)";
 }

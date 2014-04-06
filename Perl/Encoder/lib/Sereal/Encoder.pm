@@ -5,7 +5,8 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '2.070_101'; # Don't forget to update the TestCompat set for testing against installed decoders!
+our $VERSION = '2.070_102'; # Don't forget to update the TestCompat set for testing against installed decoders!
+our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 
 # not for public consumption, just for testing.
 (my $num_version = $VERSION) =~ s/_//;
@@ -20,7 +21,7 @@ our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
 
 sub CLONE_SKIP {1}
 
-XSLoader::load('Sereal::Encoder', $VERSION);
+XSLoader::load('Sereal::Encoder', $XS_VERSION);
 
 1;
 

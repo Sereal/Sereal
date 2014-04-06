@@ -30,6 +30,7 @@
 #define OPOPT_OFFSET        (1<<2)
 #define OPOPT_OUTARG_BODY   (1<<3)
 #define OPOPT_OUTARG_HEADER (1<<4)
+#define OPOPT_LOOKS_LIKE    (1<<5)
 
 #define pp1_sereal_decode(opopt) THX_pp1_sereal_decode(aTHX_ opopt)
 static void
@@ -101,12 +102,35 @@ THX_pp1_sereal_decode(pTHX_ U8 opopt)
     }
 }
 
+#define pp1_looks_like_sereal() THX_pp1_looks_like_sereal(aTHX)
+static void
+THX_pp1_looks_like_sereal(pTHX)
+{
+    dSP;
+    SV *data = TOPs;
+    char *strdata;
+    STRLEN len;
+    SETs(boolSV(
+        SvOK(data) &&
+        (strdata = SvPV(data, len), len >= SRL_MAGIC_STRLEN+3) /* at least one version/flag byte, one byte for header len, one type byte (smallest payload) */ &&
+        memcmp(strdata, SRL_MAGIC_STRING, SRL_MAGIC_STRLEN) == 0 &&
+        strdata[SRL_MAGIC_STRLEN] != (U8)0 /* FIXME this check could be much better using the proto versions and all*/
+    ));
+}
+
 #if USE_CUSTOM_OPS
 
 static OP *
 THX_pp_sereal_decode(pTHX)
 {
     pp1_sereal_decode(PL_op->op_private);
+    return NORMAL;
+}
+
+static OP *
+THX_pp_looks_like_sereal(pTHX)
+{
+    pp1_looks_like_sereal();
     return NORMAL;
 }
 
@@ -148,7 +172,7 @@ THX_ck_entersub_args_sereal_decoder(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
         return entersubop;
 
     /* If we get here, we can replace the entersub with a suitable
-     * sereal_decode_with_object custom OP. */
+     * custom OP. */
 
     if (arity > min_arity && (opopt & OPOPT_DO_BODY)) {
         opopt |= OPOPT_OUTARG_BODY;
@@ -163,7 +187,7 @@ THX_ck_entersub_args_sereal_decoder(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
     op_free(entersubop);
     newop = newUNOP(OP_CUSTOM, 0, firstargop);
     newop->op_private = opopt;
-    newop->op_ppaddr = THX_pp_sereal_decode;
+    newop->op_ppaddr = opopt & OPOPT_LOOKS_LIKE ? THX_pp_looks_like_sereal : THX_pp_sereal_decode;
     return newop;
 }
 
@@ -190,6 +214,25 @@ THX_xsfunc_sereal_decode(pTHX_ CV *cv)
         opopt |= OPOPT_OUTARG_HEADER;
 
     pp1_sereal_decode(opopt);
+}
+
+static void
+THX_xsfunc_looks_like_sereal(pTHX_ CV *cv)
+{
+    dMARK;
+    dSP;
+    SSize_t arity = SP - MARK;
+    I32 cv_private = CvXSUBANY(cv).any_i32;
+    U8 max_arity = (cv_private >> 16) & 0xff;
+
+    if (arity < 1 || arity > max_arity)
+        croak_xs_usage(cv, max_arity == 1 ? "data" : "[invocant,] data");
+    if(arity == 2) {
+        SV *data = POPs;
+        SETs(data);
+        PUTBACK;
+    }
+    pp1_looks_like_sereal();
 }
 
 MODULE = Sereal::Decoder        PACKAGE = Sereal::Decoder
@@ -288,6 +331,30 @@ BOOT:
     }
 }
 
+BOOT:
+{
+#if USE_CUSTOM_OPS
+    {
+        XOP *xop;
+        Newxz(xop, 1, XOP);
+        XopENTRY_set(xop, xop_name, "scalar_looks_like_sereal");
+        XopENTRY_set(xop, xop_desc, "scalar_looks_like_sereal");
+        XopENTRY_set(xop, xop_class, OA_UNOP);
+        Perl_custom_op_register(aTHX_ THX_pp_looks_like_sereal, xop);
+    }
+#endif /* USE_CUSTOM_OPS */
+    {
+        CV *cv;
+        cv = newXSproto_portable("Sereal::Decoder::scalar_looks_like_sereal", THX_xsfunc_looks_like_sereal, __FILE__, "$");
+        CvXSUBANY(cv).any_i32 = 0x010100 | OPOPT_LOOKS_LIKE;
+#if USE_CUSTOM_OPS
+        cv_set_call_checker(cv, THX_ck_entersub_args_sereal_decoder, (SV*)cv);
+#endif /* USE_CUSTOM_OPS */
+        cv = newXS("Sereal::Decoder::looks_like_sereal", THX_xsfunc_looks_like_sereal, __FILE__);
+        CvXSUBANY(cv).any_i32 = 0x020100 | OPOPT_LOOKS_LIKE;
+    }
+}
+
 srl_decoder_t *
 new(CLASS, opt = NULL)
     char *CLASS;
@@ -357,32 +424,6 @@ decode_sereal_with_header_data(src, opt = NULL, body_into = NULL, header_into = 
     av_extend(RETVAL, 1);
     av_store(RETVAL, 0, SvREFCNT_inc(header_into));
     av_store(RETVAL, 1, SvREFCNT_inc(body_into));
-  OUTPUT: RETVAL
-
-IV
-looks_like_sereal(...)
-  PREINIT:
-    SV *data;
-    char *strdata;
-    STRLEN len;
-  CODE:
-    RETVAL = 1;
-    if (items > 2 || items == 0) {
-        croak("Invalid number of parameters to looks_like_sereal: "
-              "Need one data parameter, possibly preceded by an invocant.");
-    }
-    data = ST(items-1); /* 1 or two items, use the last parameter as data */
-    if (!SvOK(data))
-        RETVAL = 0;
-    else {
-        strdata = SvPV(data, len);
-        if (len < SRL_MAGIC_STRLEN+3 /* at least one version/flag byte, one byte for header len, one type byte (smallest payload) */
-            || strnNE(strdata, SRL_MAGIC_STRING, SRL_MAGIC_STRLEN)
-            || strdata[SRL_MAGIC_STRLEN] == (U8)0) /* FIXME this check could be much better using the proto versions and all*/
-        {
-            RETVAL = 0;
-        }
-    }
   OUTPUT: RETVAL
 
 UV

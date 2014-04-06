@@ -9,9 +9,11 @@ Changes
 const-c.inc
 const-xs.inc
 Decoder.xs
+Decoder.xs.orig
 inc/Devel/CheckLib.pm
 inc/Sereal/BuildTools.pm
 lib/Sereal/Decoder.pm
+lib/Sereal/Decoder.pm.orig
 lib/Sereal/Decoder/Constants.pm
 lib/Sereal/Performance.pm
 Makefile.PL
