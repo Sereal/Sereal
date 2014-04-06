@@ -17,6 +17,10 @@
 
 #include "ptable.h"
 
+#ifndef GvCV_set
+# define GvCV_set(gv, cv) (GvCV(gv) = (cv))
+#endif
+
 #if defined(cv_set_call_checker) && defined(XopENTRY_set)
 # define USE_CUSTOM_OPS 1
 #else
