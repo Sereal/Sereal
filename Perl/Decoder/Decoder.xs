@@ -19,6 +19,37 @@
 # define GvCV_set(gv, cv) (GvCV(gv) = (cv))
 #endif
 
+#ifndef croak_xs_usage
+/* Copied from Perl universal.c */
+void
+croak_xs_usage(const CV *const cv, const char *const params)
+{
+    const GV *const gv = CvGV(cv);
+
+    PERL_ARGS_ASSERT_CROAK_XS_USAGE;
+
+    if (gv) {
+	const HV *const stash = GvSTASH(gv);
+
+	if (HvNAME_get(stash))
+	    /* diag_listed_as: SKIPME */
+	    Perl_croak_nocontext("Usage: %"HEKf"::%"HEKf"(%s)",
+                                HEKfARG(HvNAME_HEK(stash)),
+                                HEKfARG(GvNAME_HEK(gv)),
+                                params);
+	else
+	    /* diag_listed_as: SKIPME */
+	    Perl_croak_nocontext("Usage: %"HEKf"(%s)",
+                                HEKfARG(GvNAME_HEK(gv)), params);
+    } else {
+	/* Pants. I don't think that it should be possible to get here. */
+	/* diag_listed_as: SKIPME */
+	Perl_croak_nocontext("Usage: CODE(0x%"UVxf")(%s)", PTR2UV(cv), params);
+    }
+}
+#endif
+
+
 #if defined(cv_set_call_checker) && defined(XopENTRY_set)
 # define USE_CUSTOM_OPS 1
 #else
@@ -234,6 +265,8 @@ THX_xsfunc_looks_like_sereal(pTHX_ CV *cv)
     }
     pp1_looks_like_sereal();
 }
+
+
 
 MODULE = Sereal::Decoder        PACKAGE = Sereal::Decoder
 PROTOTYPES: DISABLE
