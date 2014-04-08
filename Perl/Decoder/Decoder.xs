@@ -19,34 +19,41 @@
 # define GvCV_set(gv, cv) (GvCV(gv) = (cv))
 #endif
 
-#ifndef croak_xs_usage
-/* Copied from Perl universal.c */
-void
-croak_xs_usage(const CV *const cv, const char *const params)
+#ifndef PERL_ARGS_ASSERT_CROAK_XS_USAGE
+#define PERL_ARGS_ASSERT_CROAK_XS_USAGE assert(cv); assert(params)
+
+/* prototype to pass -Wmissing-prototypes */
+STATIC void
+S_croak_xs_usage(pTHX_ const CV *const cv, const char *const params);
+
+STATIC void
+S_croak_xs_usage(pTHX_ const CV *const cv, const char *const params)
 {
     const GV *const gv = CvGV(cv);
 
     PERL_ARGS_ASSERT_CROAK_XS_USAGE;
 
     if (gv) {
-	const HV *const stash = GvSTASH(gv);
+        const char *const gvname = GvNAME(gv);
+        const HV *const stash = GvSTASH(gv);
+        const char *const hvname = stash ? HvNAME(stash) : NULL;
 
-	if (HvNAME_get(stash))
-	    /* diag_listed_as: SKIPME */
-	    Perl_croak_nocontext("Usage: %"HEKf"::%"HEKf"(%s)",
-                                HEKfARG(HvNAME_HEK(stash)),
-                                HEKfARG(GvNAME_HEK(gv)),
-                                params);
-	else
-	    /* diag_listed_as: SKIPME */
-	    Perl_croak_nocontext("Usage: %"HEKf"(%s)",
-                                HEKfARG(GvNAME_HEK(gv)), params);
+        if (hvname)
+            Perl_croak_nocontext("Usage: %s::%s(%s)", hvname, gvname, params);
+        else
+            Perl_croak_nocontext("Usage: %s(%s)", gvname, params);
     } else {
-	/* Pants. I don't think that it should be possible to get here. */
-	/* diag_listed_as: SKIPME */
-	Perl_croak_nocontext("Usage: CODE(0x%"UVxf")(%s)", PTR2UV(cv), params);
+        /* Pants. I don't think that it should be possible to get here. */
+        Perl_croak_nocontext("Usage: CODE(0x%"UVxf")(%s)", PTR2UV(cv), params);
     }
 }
+
+#ifdef PERL_IMPLICIT_CONTEXT
+#define croak_xs_usage(a,b)     S_croak_xs_usage(aTHX_ a,b)
+#else
+#define croak_xs_usage          S_croak_xs_usage
+#endif
+
 #endif
 
 
