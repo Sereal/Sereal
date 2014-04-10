@@ -18,7 +18,7 @@ die "usage: $0 VERSION REASON" if !$reason;
 my ($major,$minor,$dev)= split/[_.]/, $to;
 
 $to= $dev ? sprintf "%d.%03d_%03d", $major, $minor, $dev
-          : sprintf "%d.%03d",      $major, $minor
+          : sprintf "%d.%02d",      $major, $minor
 ;
 
 my %special= (

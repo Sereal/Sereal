@@ -4,6 +4,9 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
 
+2.08 Thu Apr 10 22:10 2013
+  - Production release for previous changes.
+
 2.070_103 Tue Apr 09 00:33 2013 * DEV RELEASE *
   - Fix issue with croak_xs_usage() not being available
     in older perls. We use the version from Win32::API

@@ -6,7 +6,10 @@ please see the Encoder and Decoder changelogs:
    * https://github.com/Sereal/Sereal/blob/master/Perl/Decoder/Changes
    * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
 
-2.070_103 Tue Apr 09 00:33 2013 * DEV RELEASE *
+2.08 Thu Apr 10 22:10 2013
+  - Production release for previous changes.
+
+2.070_103 Wed Apr 09 00:33 2013 * DEV RELEASE *
   - Build fixes for Decoder. No changes to Encoder.
 
 2.070_102 Sun Apr 06 17:27 2013 * DEV RELEASE *

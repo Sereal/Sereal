@@ -3,7 +3,11 @@ Revision history for Perl extension Sereal-Encoder
 * Warning: For a seamless upgrade, upgrade to version 2
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
-2.070_103 Tue Apr 09 00:33 2013 * DEV RELEASE *
+
+2.08 Thu Apr 10 22:10 2013
+  - Production release for previous changes.
+
+2.070_103 Wed Apr 09 00:33 2013 * DEV RELEASE *
   - Synchronization release with Decoder. No changes.
 
 2.070_102 Sun Apr 06 17:27 2013 * DEV RELEASE *
