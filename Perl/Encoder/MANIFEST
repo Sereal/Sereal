@@ -1,3 +1,4 @@
+&1
 author_tools/bench.pl
 author_tools/freeze_thaw_timing.pl
 author_tools/hobodecoder.pl
@@ -15,6 +16,8 @@ lib/Sereal/Encoder.pm
 lib/Sereal/Encoder/Constants.pm
 Makefile.PL
 MANIFEST			This list of files
+none/Sereal::Encoder.3
+none/Sereal::Encoder.3pm
 ppport.h
 ptable.h
 snappy/csnappy.h
