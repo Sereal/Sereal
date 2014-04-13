@@ -6,6 +6,9 @@ please see the Encoder and Decoder changelogs:
    * https://github.com/Sereal/Sereal/blob/master/Perl/Decoder/Changes
    * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
 
+2.11 Sun Apr 13 23:09
+  - Fix test framework issue with "while each" in perl 5.17 and later
+
 2.10 Sun Apr 13 21:30
   - Fix broken MANIFEST in Decoder/Encoder
 

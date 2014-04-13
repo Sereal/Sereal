@@ -4,6 +4,12 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
 
+2.11 Sun Apr 13 23:04
+  - Work around regression in Perl 5.16.3 - 5.17.0
+    As of 8ae39f603f0f5778c160e18e08df60 while each
+    automagically becomes while $_= defined(each);
+    which manages to break some of our test code.
+
 2.10 Sun Apr 13 21:30
   - Fix broken MANIFEST
 

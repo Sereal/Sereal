@@ -66,8 +66,8 @@ sub read_files {
     }
 
     my $count= 0;
-    foreach (@$corpus) {
-        $count++ if $sub->($_);
+    foreach my $test (@$corpus) {
+        $count++ if $sub->($test);
     }
     return $count;
 }
@@ -93,12 +93,7 @@ sub run_bulk_tests {
             if ($ok and ref($struct) eq "HASH") {
                 my $each_count= 0;
 
-                #my $before= $_[0] ? 0+$_[0] : 0;
-                
-                $each_count++ while each %$undump;
-
-                #is($_[0]?0+$_[0]:0,$before,"\$_[0] is left alone")
-                #    or Dump($_[0]);
+                $each_count++ while my($k,$v)= each %$undump;
 
                 my $keys_count= 0 + keys %$struct;
                 is($each_count,$keys_count,"Number of keys match");
