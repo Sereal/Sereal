@@ -40,7 +40,9 @@ extern "C" {
 #define MY_CAN_FIND_PLACEHOLDERS
 #define HAS_SV2OBJ
 #endif
-
+#if (PERL_VERSION < 10)
+#   define FIXUP_RITER 1
+#endif
 #define DEFAULT_MAX_RECUR_DEPTH 10000
 
 #include "srl_decoder.h"
@@ -876,6 +878,9 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         num_keys= srl_read_varint_uv_count(aTHX_ dec," while reading HASH");
         (void)SvUPGRADE(into, SVt_PVHV);
     }
+#ifdef FIXUP_RITER
+    HvRITER_set(into,-1);
+#endif
 
     /* Limit the maximum number of hash keys that we accept to whetever was configured */
     if (expect_false( dec->max_num_hash_entries != 0 && num_keys > dec->max_num_hash_entries )) {

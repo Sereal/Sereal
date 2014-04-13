@@ -4,6 +4,14 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
 
+2.09 Sun Apr 13 16:30 2013
+  - Work around bug in 5.8.9 sv_upgrade() where
+    RITER() is set to 0, when it should be set to -1.
+    This could result in perl skipping items in the zeroth
+    bucket under some circumstances. Thanks to pjcj for the
+    report the perlbrew guys for making it easy as pie to
+    debug.
+
 2.08 Thu Apr 10 22:10 2013
   - Production release for previous changes.
 
