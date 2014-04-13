@@ -6,6 +6,12 @@ please see the Encoder and Decoder changelogs:
    * https://github.com/Sereal/Sereal/blob/master/Perl/Decoder/Changes
    * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
 
+2.10 Sun Apr 13 21:30
+  - Fix broken MANIFEST in Decoder/Encoder
+
+2.09 Sun Apr 13 21:15
+  - Synchro release with Decoder change.
+
 2.08 Thu Apr 10 22:10 2013
   - Production release for previous changes.
 

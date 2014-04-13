@@ -4,6 +4,9 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 2 of the
 *          encoder!
 
+2.10 Sun Apr 13 21:30
+  - Fix broken MANIFEST
+
 2.09 Sun Apr 13 16:30 2013
   - Work around bug in 5.8.9 sv_upgrade() where
     RITER() is set to 0, when it should be set to -1.

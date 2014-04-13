@@ -8,9 +8,7 @@ author_tools/valgrind.supp
 Changes
 const-c.inc
 const-xs.inc
-data.sereal
 Decoder.xs
-hash_iter.pl
 inc/Devel/CheckLib.pm
 inc/Sereal/BuildTools.pm
 lib/Sereal/Decoder.pm
@@ -18,11 +16,6 @@ lib/Sereal/Decoder/Constants.pm
 lib/Sereal/Performance.pm
 Makefile.PL
 MANIFEST			This list of files
-none/Sereal::Decoder.3
-none/Sereal::Decoder.3pm
-none/Sereal::Performance.3
-none/Sereal::Performance.3pm
-perlbug.rep
 ppport.h
 ptable.h
 snappy/csnappy.h
