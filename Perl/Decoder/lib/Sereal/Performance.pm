@@ -78,7 +78,7 @@ very small data sets.
 
 C<sereal_encode_with_object> and C<sereal_decode_with_object>
 are optionally exported from the L<Sereal> module (or
-C<Sereal::Encoder> and C<Sereal::Decoder respectively).
+C<Sereal::Encoder> and C<Sereal::Decoder> respectively).
 They work the same as the object-oriented interface except
 that they are invoked differently:
 
