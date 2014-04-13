@@ -143,15 +143,9 @@ SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
  * be an RV. Differs on old perls since there used to be an RV type.
  */
 #if PERL_VERSION < 12
-#   define SRL_ASSERT_TYPE_FOR_RV(sv) STMT_START {  \
-            if (SvTYPE(sv) < SVt_PV)                \
-                sv_upgrade(into, SVt_RV);           \
-        } STMT_END
+#   define SVt_RV_FAKE SVt_RV
 #else
-#   define SRL_ASSERT_TYPE_FOR_RV(sv) STMT_START {  \
-            if (SvTYPE(sv) < SVt_PV)                \
-                sv_upgrade(into, SVt_IV);           \
-        } STMT_END
+#   define SVt_RV_FAKE SVt_IV
 #endif
 
 #define SRL_ASSERT_REF_PTR_TABLES(dec) STMT_START {     \
@@ -829,7 +823,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
     if (tag) {
         SV *referent= (SV *)newAV();
         len= tag & 15;
-        SRL_ASSERT_TYPE_FOR_RV(into);
+        (void)SvUPGRADE(into, SVt_RV_FAKE);
         SvTEMP_off(referent);
         SvRV_set(into, referent);
         SvROK_on(into);
@@ -873,7 +867,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
     if (tag) {
         SV *referent= (SV *)newHV();
         num_keys= tag & 15;
-        SRL_ASSERT_TYPE_FOR_RV(into);
+        (void)SvUPGRADE(into,SVt_RV_FAKE);
         SvTEMP_off(referent);
         SvRV_set(into, referent);
         SvROK_on(into);
@@ -1001,7 +995,7 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
         SvTEMP_off(referent);
         tag = 0;
     }
-    SRL_ASSERT_TYPE_FOR_RV(into);
+    (void)SvUPGRADE(into, SVt_RV_FAKE);
     SvRV_set(into, referent);
     SvROK_on(into);
     if (!tag)
@@ -1022,7 +1016,7 @@ srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into)
     referent= srl_fetch_item(aTHX_ dec, item, "REFP");
     (void)SvREFCNT_inc(referent);
 
-    SRL_ASSERT_TYPE_FOR_RV(into);
+    (void)SvUPGRADE(into, SVt_RV_FAKE);
     SvTEMP_off(referent);
     SvRV_set(into, referent);
     SvROK_on(into);
