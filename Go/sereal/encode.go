@@ -77,6 +77,7 @@ func NewEncoderV2() *Encoder {
 
 var defaultEncoder = NewEncoderV2()
 
+// Marshal encodes body with the default encoder
 func Marshal(body interface{}) ([]byte, error) {
 	return defaultEncoder.MarshalWithHeader(nil, body)
 }

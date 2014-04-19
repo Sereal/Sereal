@@ -54,6 +54,7 @@ func NewDecoder() *Decoder {
 
 var defaultDecoder = NewDecoder()
 
+// Unmarshal decodes b into body with the default decoder
 func Unmarshal(b []byte, body interface{}) error {
 	return defaultDecoder.UnmarshalHeaderBody(b, nil, body)
 }
@@ -1159,9 +1160,12 @@ func findUnmarshaler(ptr reflect.Value) (encoding.BinaryUnmarshaler, bool) {
 	return nil, false
 }
 
-var nameToType map[string]reflect.Type = make(map[string]reflect.Type)
+var nameToType = make(map[string]reflect.Type)
 var registerLock sync.Mutex
 
+// RegisterName registers the named class with an instance of 'value'.  When the
+// decoder finds a FREEZE tag with the given class, the binary data will be
+// passed to value's UnmarshalBinary method.
 func RegisterName(name string, value interface{}) {
 	registerLock.Lock()
 	defer registerLock.Unlock()
