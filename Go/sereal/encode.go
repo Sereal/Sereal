@@ -52,6 +52,7 @@ type Encoder struct {
 	UseSnappy       bool // should we enable snappy compression
 	SnappyThreshold int  // threshold in bytes above which snappy compression is attempted: 1024 bytes by default
 	DisableDedup    bool // should we disable deduping of class names and hash keys
+	DisableFREEZE   bool // should we disable the FREEZE tag, which calls MarshalBinary
 	version         int  // default version to encode
 }
 
@@ -169,7 +170,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 
 func (e *Encoder) encode(b []byte, rv reflect.Value, isKeyOrClass bool, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
 
-	if rv.Kind() != reflect.Invalid {
+	if !e.DisableFREEZE && rv.Kind() != reflect.Invalid {
 		if m, ok := rv.Interface().(encoding.BinaryMarshaler); ok {
 			by, err := m.MarshalBinary()
 			if err != nil {
