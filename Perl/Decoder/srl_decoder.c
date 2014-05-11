@@ -98,12 +98,13 @@ void srl_decoder_destructor_hook(pTHX_ void *p);                    /* destructo
 SRL_STATIC_INLINE srl_decoder_t *srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset);
 SRL_STATIC_INLINE void srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data); /* read/validate header */
 SRL_STATIC_INLINE void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into);   /* main recursive dump routine */
+SRL_STATIC_INLINE void srl_read_single_value_into_container(pTHX_ srl_decoder_t *dec,
+        SV** container);   /* wrapper for main recursive dump routine for handling aliasing  */
 SRL_STATIC_INLINE void srl_finalize_structure(pTHX_ srl_decoder_t *dec);             /* optional finalize structure logic */
 SRL_STATIC_INLINE void srl_clear_decoder(pTHX_ srl_decoder_t *dec);                 /* clean up decoder after a dump */
 SRL_STATIC_INLINE void srl_clear_decoder_body_state(pTHX_ srl_decoder_t *dec);      /* clean up after each document body */
 
 /* the internal routines to handle each kind of object we have to deserialize */
-SRL_STATIC_INLINE SV *srl_read_alias(pTHX_ srl_decoder_t *dec);
 SRL_STATIC_INLINE void srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into);
 
 SRL_STATIC_INLINE void srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag);
@@ -841,19 +842,16 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
 
         ASSERT_BUF_SPACE(dec,len,"while reading array contents, insuffienct remaining tags for specified array size");
 
-        /* we cheat and store undef in the array - we will overwrite it later */
-        av_store((AV*)into, len-1, &PL_sv_undef);
+        /* make sure the array has room */
+        av_extend((AV*)into, len-1);
+        /* set the size */
+        AvFILLp(into)= len - 1;
+
         av_array= AvARRAY((AV*)into);
         av_end= av_array + len;
 
-        for ( ; av_array != av_end ; av_array++) {
-            if ( expect_false( *dec->pos == SRL_HDR_ALIAS ) ) {
-                dec->pos++;
-                *av_array= srl_read_alias(aTHX_ dec);
-            } else {
-                *av_array= newSV_type(SVt_NULL);
-                srl_read_single_value(aTHX_ dec, *av_array);
-            }
+        for ( ; av_array < av_end ; av_array++) {
+            srl_read_single_value_into_container(aTHX_ dec, av_array);
         }
     }
 }
@@ -959,12 +957,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         if (expect_false( !fetched_sv )) {
             SRL_ERROR_PANIC(dec,"failed to hv_store");
         }
-        if (expect_false( *dec->pos == SRL_HDR_ALIAS )) {
-            dec->pos++;
-            *fetched_sv= srl_read_alias(aTHX_ dec);
-        } else {
-            srl_read_single_value(aTHX_ dec, *fetched_sv);
-        }
+        srl_read_single_value_into_container(aTHX_ dec, fetched_sv);
     }
 }
 
@@ -1468,16 +1461,6 @@ srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into)
     return into;
 }
 
-/* these are all special */
-
-SRL_STATIC_INLINE SV *
-srl_read_alias(pTHX_ srl_decoder_t *dec)
-{
-    UV item= srl_read_varint_uv_offset(aTHX_ dec," while reading ALIAS tag");
-    SV *referent= srl_fetch_item(aTHX_ dec, item, "ALIAS");
-    return SvREFCNT_inc(referent);
-}
-
 SRL_STATIC_INLINE void
 srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
 {
@@ -1493,6 +1476,34 @@ srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
     srl_read_single_value(aTHX_ dec, into);
     dec->pos= dec->save_pos;
     dec->save_pos= 0;
+}
+
+
+SRL_STATIC_INLINE void
+srl_read_single_value_into_container(pTHX_ srl_decoder_t *dec, SV** container)
+{
+    SV *alias;
+    U8 tag = *dec->pos;
+
+    if (expect_false( tag == SRL_HDR_ALIAS )) {
+        UV item;
+        dec->pos++;
+        item= srl_read_varint_uv_offset(aTHX_ dec," while reading ALIAS tag");
+        alias= srl_fetch_item(aTHX_ dec, item, "ALIAS");
+
+        SvREFCNT_inc(alias);
+
+        if (*container && *container != &PL_sv_undef)
+            SvREFCNT_dec(*container);
+        *container= alias;
+        return;
+    }
+    else {
+        if (!*container || *container == &PL_sv_undef)
+            *container = newSV_type(SVt_NULL);
+        srl_read_single_value(aTHX_ dec, *container);
+    }
+    return;
 }
 
 /****************************************************************************
