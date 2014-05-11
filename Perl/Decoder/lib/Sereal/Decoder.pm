@@ -149,6 +149,45 @@ This means you can do this:
         my $data= decode_sereal($buffer,{incremental=>1});
     }
 
+=head3 alias_smallint
+
+If set to a true value then C<Sereal::Decoder> will share integers from
+-16 to 15 (encoded as either SRL_HDR_NEG and SRL_HDR_POS) as read-only
+aliases to a common SV.
+
+The result of this may be significant space savings in data structures with
+many integers in the desire range. The cost is more memory used by the decoder
+and a very modest speed penalty when deserializing.
+
+Note this option changes the structure of the dumped data. Use with caution.
+
+See also the "alias_varint_under" option.
+
+=head3 alias_varint_under
+
+If set to a true positive integer smaller than 16 then this option is
+similar to setting "alias_smallint" and causes all integers from -16 to 15
+to be shared as read-only aliases to the same SV, except that this treatment
+ALSO applies to SRL_HDR_VARINT. If set to a value larger than 16 then this
+applies to all varints varints under the value set. (In general SRL_HDR_VARINT
+is used only for integers larger than 15, and SRL_HDR_NEG and SRL_HDR_POS are
+used for -16 to -1  and 0 to 15 respectively.)
+
+In simple terms if you want to share values larger than 16 then you should use
+this option, if you want to share only values in the -16 to 15 range then you
+should use the "alias_smallint" option instead.
+
+The result of this may be significant space savings in data structures with
+many integers in the desire range. The cost is more memory used by the decoder
+and a very modest speed penalty when deserializing.
+
+Note this option changes the structure of the dumped data. Use with caution.
+
+=head3 use_undef
+
+If set to a true value then this any undef value to be deserialized as
+PL_sv_undef. This may change the structure of the data structure being
+dumped, do not enable this unless you know what you are doing.
 
 =head1 INSTANCE METHODS
 

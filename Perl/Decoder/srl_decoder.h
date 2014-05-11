@@ -23,6 +23,9 @@ typedef struct {
     ptable_ptr ref_bless_av;            /* ptr table for tracking which objects need to be bless - key: ofs, value: mortal AV (of refs)  */
     AV* weakref_av;
 
+    AV* alias_cache; /* used to cache integers of different sizes. */
+    UV alias_varint_under;
+
     UV bytes_consumed;
     UV recursion_depth;                 /* Recursion depth of current decoder */
     U8 proto_version_and_flags;
@@ -89,26 +92,34 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 
 /* If set, the decoder struct needs to be cleared instead of freed at
  * the end of a deserialization operation */
-#define SRL_F_REUSE_DECODER 1UL
+#define SRL_F_REUSE_DECODER                     0x00000001UL
 /* If set, then the decoder is already in use and srl_decode_into will
  * clone its own new decoder. */
-#define SRL_F_DECODER_DIRTY 2UL
+#define SRL_F_DECODER_DIRTY                     0x00000002UL
 /* Non-persistent flag! */
-#define SRL_F_DECODER_NEEDS_FINALIZE 4UL
+#define SRL_F_DECODER_NEEDS_FINALIZE            0x00000004UL
 /* Non-persistent flag! */
-#define SRL_F_DECODER_DECOMPRESS_SNAPPY 8UL
+#define SRL_F_DECODER_DECOMPRESS_SNAPPY         0x00000008UL
 /* Persistent flag: Make the decoder REFUSE compressed documents */
-#define SRL_F_DECODER_REFUSE_SNAPPY 16UL
+#define SRL_F_DECODER_REFUSE_SNAPPY             0x00000010UL
 /* Persistent flag: Make the decoder REFUSE objects */
-#define SRL_F_DECODER_REFUSE_OBJECTS 32UL
+#define SRL_F_DECODER_REFUSE_OBJECTS            0x00000020UL
 /* Persistent flag: Make the decoder validate UTT8 strings */
-#define SRL_F_DECODER_VALIDATE_UTF8 64UL
+#define SRL_F_DECODER_VALIDATE_UTF8             0x00000040UL
 /* Persistent flag: Make the encoder forget to bless */
-#define SRL_F_DECODER_NO_BLESS_OBJECTS 128UL
+#define SRL_F_DECODER_NO_BLESS_OBJECTS          0x00000080UL
 /* Persistent flag: Destructive incremental parsing */
-#define SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL 256UL
+#define SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL   0x00000100UL
 /* Non-persistent flag: The current packet is using protocol version 1 */
-#define SRL_F_DECODER_PROTOCOL_V1 512UL
+#define SRL_F_DECODER_PROTOCOL_V1               0x00000200UL
+/* Persistent flag: alias small integer values in Hashes and Arrays */
+#define SRL_F_DECODER_ALIAS_SMALLINT            0x00000400UL
+/* Persistent flag: use PL_sv_undef for undef values in Hashes and Arrays */
+#define SRL_F_DECODER_ALIAS_VARINT              0x00000800UL
+/* Persistent flag: use PL_sv_undef as many places as possible */
+#define SRL_F_DECODER_USE_UNDEF                 0x00001000UL
+
+#define SRL_F_DECODER_ALIAS_CHECK_FLAGS   ( SRL_F_DECODER_ALIAS_SMALLINT | SRL_F_DECODER_ALIAS_VARINT | SRL_F_DECODER_USE_UNDEF )
 
 #define SRL_DEC_HAVE_OPTION(dec, flag_num) ((dec)->flags & flag_num)
 #define SRL_DEC_SET_OPTION(dec, flag_num) ((dec)->flags |= flag_num)
