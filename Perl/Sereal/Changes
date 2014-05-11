@@ -6,6 +6,10 @@ please see the Encoder and Decoder changelogs:
    * https://github.com/Sereal/Sereal/blob/master/Perl/Decoder/Changes
    * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
 
+2.12 Sun May 11 23:30
+  - New options in Decoder: "alias_smallint", "alias_varint_under", and "use_undef"
+    allow control aliasing semantics during deserialization. No changes to the Encoder.
+
 2.11 Sun Apr 13 23:09
   - Fix test framework issue with "while each" in perl 5.17 and later
 
