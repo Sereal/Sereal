@@ -843,12 +843,28 @@ srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
     dec->pos+= len;
 }
 
+/* declare a union so that we are guaranteed the right alignment
+ * rules - this is required for ARM */
+union myfloat {
+    U8 c[sizeof(long double)];
+    float f;
+    double d;
+    long double ld;
+};
 
 SRL_STATIC_INLINE void
 srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
 {
+    union myfloat val;
+#ifdef __ARM_ARCH
     ASSERT_BUF_SPACE(dec, sizeof(float), " while reading FLOAT");
-    sv_setnv(into, (NV)*((float *)dec->pos));
+    Copy(dec->pos,v.c,sizeof(float),U8);
+    val.f= *((float *)tmp);
+#else
+    ASSERT_BUF_SPACE(dec, sizeof(float), " while reading FLOAT");
+    val.f= *((float *)dec->pos);
+#endif
+    sv_setnv(into, (NV)val.f);
     dec->pos+= sizeof(float);
 }
 
@@ -856,8 +872,17 @@ srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
 SRL_STATIC_INLINE void
 srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    ASSERT_BUF_SPACE(dec, sizeof(double)," while reading DOUBLE");
-    sv_setnv(into, (NV)*((double *)dec->pos));
+    union myfloat val;
+#ifdef __ARM_ARCH
+    U8 tmp[sizeof(double)];
+    ASSERT_BUF_SPACE(dec, sizeof(double), " while reading DOUBLE");
+    Copy(dec->pos,val.c,sizeof(double),U8);
+    val.d= *((double *)tmp);
+#else
+    ASSERT_BUF_SPACE(dec, sizeof(double), " while reading DOUBLE");
+    val.d= *((double *)dec->pos);
+#endif
+    sv_setnv(into, (NV)val.d);
     dec->pos+= sizeof(double);
 }
 
@@ -865,8 +890,17 @@ srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
 SRL_STATIC_INLINE void
 srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    ASSERT_BUF_SPACE(dec, sizeof(long double)," while reading LONG_DOUBLE");
-    sv_setnv(into, (NV)*((long double *)dec->pos));
+    union myfloat val;
+#ifdef __ARM_ARCH
+    U8 tmp[sizeof(long double)];
+    ASSERT_BUF_SPACE(dec, sizeof(long double), " while reading LONG_DOUBLE");
+    Copy(dec->pos,v.c,sizeof(long double),U8);
+    val.ld= *((long double *)tmp);
+#else
+    ASSERT_BUF_SPACE(dec, sizeof(long double), " while reading LONG_DOUBLE");
+    val.ld= *((long double *)dec->pos);
+#endif
+    sv_setnv(into, (NV)val.ld);
     dec->pos+= sizeof(long double);
 }
 
