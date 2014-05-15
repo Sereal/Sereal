@@ -1,0 +1,4 @@
+*.o
+*.so
+t/*.o
+t/t_csrl_hash

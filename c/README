@@ -1,0 +1,4 @@
+This is a prototype of a C library for doing Sereal
+de- and encoding. This may result in a fully spec
+compliant implementation or possibly just a useful
+and safe subset. The initial focus will be on decoding.
