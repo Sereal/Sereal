@@ -16,28 +16,39 @@
 
 #define CSRL_HASH_KEY_EQ(key1, keylen1, key2, keylen2) (keylen1 == keylen2 && !strncmp((const char *)key1, (const char *)key2, keylen1))
 
+static void *
+default_free(void *value)
+{
+  free(value);
+  return NULL;
+}
+
+CSRL_HASH_vtable_t CSRL_HASH_VTABLE_free = {default_free};
+CSRL_HASH_vtable_t CSRL_HASH_VTABLE_passthrough = {NULL};
+
 /* create a new pointer => pointer table */
 CSRL_HASH_t *
-CSRL_HASH_new(void)
+CSRL_HASH_new(CSRL_HASH_vtable_t *vtable)
 {
-  return CSRL_HASH_new_size(9);
+  return CSRL_HASH_new_size(3, vtable);
 }
 
 CSRL_HASH_t *
-CSRL_HASH_new_size(const U8 size_base2_exponent)
+CSRL_HASH_new_size(const U8 size_base2_exponent, CSRL_HASH_vtable_t *vtable)
 {
   CSRL_HASH_t *tbl = calloc(1, sizeof(CSRL_HASH_t));
   tbl->tbl_max = (1 << size_base2_exponent) - 1;
   tbl->tbl_items = 0;
   tbl->cur_iter = NULL;
-  tbl->tbl_ary = calloc(tbl->tbl_max + 1, sizeof(CSRL_HASH_ENTRY_t*));
+  tbl->vtable = (vtable ? vtable : &CSRL_HASH_VTABLE_passthrough);
+  tbl->tbl_ary = calloc(tbl->tbl_max + 1, sizeof(CSRL_HASH_entry_t*));
   return tbl;
 }
 
 /* map an existing pointer using a table */
-CSRL_HASH_ENTRY_t *
+CSRL_HASH_entry_t *
 CSRL_HASH_find(CSRL_HASH_t *tbl, const I8 *key, const size_t keylen) {
-  CSRL_HASH_ENTRY_t *tblent;
+  CSRL_HASH_entry_t *tblent;
   const CSRL_HVAL hash = CSRL_HASH(key, keylen);
   tblent = tbl->tbl_ary[hash & tbl->tbl_max];
   for (; tblent; tblent = tblent->next) {
@@ -50,7 +61,7 @@ CSRL_HASH_find(CSRL_HASH_t *tbl, const I8 *key, const size_t keylen) {
 void *
 CSRL_HASH_fetch(CSRL_HASH_t *tbl, const I8 *key, const size_t keylen)
 {
-  CSRL_HASH_ENTRY_t const *const tblent = CSRL_HASH_find(tbl, key, keylen);
+  CSRL_HASH_entry_t const *const tblent = CSRL_HASH_find(tbl, key, keylen);
   return tblent ? tblent->value : NULL;
 }
 
@@ -60,13 +71,13 @@ void
 CSRL_HASH_store(CSRL_HASH_t *tbl, const I8 *key, const size_t keylen, void *value)
 {
   /* FIXME if not found, we're computing the hash value twice */
-  CSRL_HASH_ENTRY_t *tblent = CSRL_HASH_find(tbl, key, keylen);
+  CSRL_HASH_entry_t *tblent = CSRL_HASH_find(tbl, key, keylen);
 
   if (tblent) {
     tblent->value = value;
   } else {
     const CSRL_HVAL entry = CSRL_HASH(key, keylen) & tbl->tbl_max;
-    tblent = malloc(sizeof(CSRL_HASH_ENTRY_t));
+    tblent = malloc(sizeof(CSRL_HASH_entry_t));
 
     tblent->key = (I8 *)strndup((const char *)key, keylen);
     tblent->keylen = keylen;
@@ -83,18 +94,18 @@ CSRL_HASH_store(CSRL_HASH_t *tbl, const I8 *key, const size_t keylen, void *valu
 void
 CSRL_HASH_grow(CSRL_HASH_t *tbl)
 {
-  CSRL_HASH_ENTRY_t **ary = tbl->tbl_ary;
+  CSRL_HASH_entry_t **ary = tbl->tbl_ary;
   const UV oldsize = tbl->tbl_max + 1;
   UV newsize = oldsize * 2;
   UV i;
 
-  ary = realloc(ary, newsize * sizeof(CSRL_HASH_ENTRY_t *));
-  memset(&ary[oldsize], 0, (newsize - oldsize)*sizeof(CSRL_HASH_ENTRY_t *)); 
+  ary = realloc(ary, newsize * sizeof(CSRL_HASH_entry_t *));
+  memset(&ary[oldsize], 0, (newsize - oldsize)*sizeof(CSRL_HASH_entry_t *)); 
   tbl->tbl_max = --newsize;
   tbl->tbl_ary = ary;
 
   for (i = 0; i < oldsize; i++, ary++) {
-    CSRL_HASH_ENTRY_t **curentp, **entp, *ent;
+    CSRL_HASH_entry_t **curentp, **entp, *ent;
     if (!*ary)
       continue;
     curentp = ary + oldsize;
@@ -116,17 +127,29 @@ void
 CSRL_HASH_clear(CSRL_HASH_t *tbl)
 {
   if (tbl && tbl->tbl_items) {
-    register CSRL_HASH_ENTRY_t ** const array = tbl->tbl_ary;
+    register CSRL_HASH_entry_t ** const array = tbl->tbl_ary;
     UV riter = tbl->tbl_max;
 
     do {
-      CSRL_HASH_ENTRY_t *entry = array[riter];
+      CSRL_HASH_entry_t *entry = array[riter];
 
-      while (entry) {
-        CSRL_HASH_ENTRY_t * const oentry = entry;
-        entry = entry->next;
-        free(oentry->key);
-        free(oentry);
+      if (tbl->vtable->free_cb) {
+        CSRL_HASH_free_cb_t cb = tbl->vtable->free_cb;
+        while (entry) {
+          CSRL_HASH_entry_t * const oentry = entry;
+          entry = entry->next;
+          (void)cb(oentry->value);
+          free(oentry->key);
+          free(oentry);
+        }
+      }
+      else {
+        while (entry) {
+          CSRL_HASH_entry_t * const oentry = entry;
+          entry = entry->next;
+          free(oentry->key);
+          free(oentry);
+        }
       }
 
       /* chocolateboy 2008-01-08
@@ -146,8 +169,8 @@ void *
 CSRL_HASH_delete(CSRL_HASH_t *tbl, const I8 *key, const size_t keylen)
 {
   void *retval = NULL;
-  CSRL_HASH_ENTRY_t *tblent;
-  CSRL_HASH_ENTRY_t *tblent_prev;
+  CSRL_HASH_entry_t *tblent;
+  CSRL_HASH_entry_t *tblent_prev;
 
   if (!tbl || !tbl->tbl_items) {
     return retval;
@@ -165,7 +188,11 @@ CSRL_HASH_delete(CSRL_HASH_t *tbl, const I8 *key, const size_t keylen)
           /* First entry in chain */
           tbl->tbl_ary[hash & tbl->tbl_max] = tblent->next;
         }
-        retval = tblent->value;
+
+        if (tbl->vtable->free_cb)
+          retval = tbl->vtable->free_cb(tblent->value);
+        else
+          retval = tblent->value;
         free(tblent->key);
         free(tblent);
         tbl->tbl_items--;
@@ -185,7 +212,7 @@ CSRL_HASH_free(CSRL_HASH_t *tbl)
     return;
 
   if (tbl->cur_iter != NULL) {
-    CSRL_HASH_ITER_t *it = tbl->cur_iter;
+    CSRL_HASH_iter_t *it = tbl->cur_iter;
     tbl->cur_iter = NULL; /* avoid circular checks */
     CSRL_HASH_iter_free(it);
   }
@@ -214,17 +241,17 @@ CSRL_HASH_free(CSRL_HASH_t *tbl)
   } STMT_END
 
 
-CSRL_HASH_ITER_t *
+CSRL_HASH_iter_t *
 CSRL_HASH_iter_new_flags(CSRL_HASH_t *tbl, int flags)
 {
   /* TODO can we sink this allocation in common cases? */
-  CSRL_HASH_ITER_t *iter = malloc(sizeof(CSRL_HASH_ITER_t));
+  CSRL_HASH_iter_t *iter = malloc(sizeof(CSRL_HASH_iter_t));
   CSRL_HASH_iter_init_flags(tbl, iter, flags);
   return iter;
 }
 
 void
-CSRL_HASH_iter_init_flags(CSRL_HASH_t *tbl, CSRL_HASH_ITER_t *iter, int flags)
+CSRL_HASH_iter_init_flags(CSRL_HASH_t *tbl, CSRL_HASH_iter_t *iter, int flags)
 {
   iter->table = tbl;
   iter->bucket_num = 0;
@@ -246,7 +273,7 @@ CSRL_HASH_iter_init_flags(CSRL_HASH_t *tbl, CSRL_HASH_ITER_t *iter, int flags)
 
 /* Free iterator object */
 void
-CSRL_HASH_iter_free(CSRL_HASH_ITER_t *iter)
+CSRL_HASH_iter_free(CSRL_HASH_iter_t *iter)
 {
   /* If we're the iterator that can be auto-cleaned by the CSRL_HASH,
    * then unregister. */
@@ -256,10 +283,10 @@ CSRL_HASH_iter_free(CSRL_HASH_ITER_t *iter)
 }
 
 void
-CSRL_HASH_debug_dump(CSRL_HASH_t *tbl, void (*func)(CSRL_HASH_ENTRY_t *e))
+CSRL_HASH_debug_dump(CSRL_HASH_t *tbl, void (*func)(CSRL_HASH_entry_t *e))
 {
-  CSRL_HASH_ENTRY_t *e;
-  CSRL_HASH_ITER_t *iter = CSRL_HASH_iter_new(tbl);
+  CSRL_HASH_entry_t *e;
+  CSRL_HASH_iter_t *iter = CSRL_HASH_iter_new(tbl);
   while (NULL != (e = CSRL_HASH_iter_next(iter))) {
     func(e);
   }
@@ -267,10 +294,10 @@ CSRL_HASH_debug_dump(CSRL_HASH_t *tbl, void (*func)(CSRL_HASH_ENTRY_t *e))
 }
 
 /* Return next item from hash, NULL if at end */
-CSRL_HASH_ENTRY_t *
-CSRL_HASH_iter_next(CSRL_HASH_ITER_t *iter)
+CSRL_HASH_entry_t *
+CSRL_HASH_iter_next(CSRL_HASH_iter_t *iter)
 {
-  CSRL_HASH_ENTRY_t *retval = iter->cur_entry;
+  CSRL_HASH_entry_t *retval = iter->cur_entry;
   CSRL_HASH_t *tbl = iter->table;
   CSRL_HASH_ITER_NEXT_ELEM(iter, tbl);
   return retval;
@@ -278,9 +305,9 @@ CSRL_HASH_iter_next(CSRL_HASH_ITER_t *iter)
 
 /* Return next value from hash, NULL if at end */
 void *
-CSRL_HASH_iter_next_value(CSRL_HASH_ITER_t *iter)
+CSRL_HASH_iter_next_value(CSRL_HASH_iter_t *iter)
 {
-  CSRL_HASH_ENTRY_t *e = iter->cur_entry;
+  CSRL_HASH_entry_t *e = iter->cur_entry;
   CSRL_HASH_t *tbl = iter->table;
   CSRL_HASH_ITER_NEXT_ELEM(iter, tbl);
   return e ? e->value : NULL;
@@ -288,7 +315,7 @@ CSRL_HASH_iter_next_value(CSRL_HASH_ITER_t *iter)
 
 
 /* Create new iterator object */
-CSRL_HASH_ITER_t *
+CSRL_HASH_iter_t *
 CSRL_HASH_iter_new(CSRL_HASH_t *tbl)
 {
   return CSRL_HASH_iter_new_flags(tbl, 0);

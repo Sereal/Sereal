@@ -8,7 +8,10 @@ void
 test_alloc()
 {
   CSRL_HASH_t *h;
-  h = CSRL_HASH_new();
+
+  note("Allocation tests");
+
+  h = CSRL_HASH_new(&CSRL_HASH_VTABLE_free);
   ok_m(h != NULL, "CSRL_HASH_new");
   ok_m(h->tbl_items == 0, "n items");
   CSRL_HASH_free(h);
@@ -18,37 +21,86 @@ test_alloc()
 void
 test_basics()
 {
-  CSRL_HASH_t *h;
-  h = CSRL_HASH_new();
-  ok_m(h != NULL, "CSRL_HASH_new");
-
-  CSRL_HASH_store(h, "foo", 3, (void *)42);
-  CSRL_HASH_store(h, "barbaz", 6, (void *)43);
-  ok_m(42 == (IV)CSRL_HASH_fetch(h, "foo", 3), "store/fetch");
-  ok_m(43 == (UV)CSRL_HASH_fetch(h, "barbaz", 6), "store/fetch (2)");
+  note("Basic tests");
 
   {
-    CSRL_HASH_ENTRY_t *e = CSRL_HASH_find(h, "foo", 3);
-    ok(e != NULL);
-    ok_m(e->keylen == 3, "find: keylen");
-    ok_m(!strncmp((char *)e->key, "foo", e->keylen), "find: key");
-    ok_m(42 == (UV)e->value, "find: value");
+    CSRL_HASH_t *h;
+
+    h = CSRL_HASH_new(&CSRL_HASH_VTABLE_passthrough);
+    ok_m(h != NULL, "CSRL_HASH_new");
+
+    CSRL_HASH_store(h, "foo", 3, (void *)42);
+    CSRL_HASH_store(h, "barbaz", 6, (void *)43);
+    ok_m(42 == (IV)CSRL_HASH_fetch(h, "foo", 3), "store/fetch");
+    ok_m(43 == (UV)CSRL_HASH_fetch(h, "barbaz", 6), "store/fetch (2)");
+
+    {
+      CSRL_HASH_entry_t *e = CSRL_HASH_find(h, "foo", 3);
+      ok(e != NULL);
+      ok_m(e->keylen == 3, "find: keylen");
+      ok_m(!strncmp((char *)e->key, "foo", e->keylen), "find: key");
+      ok_m(42 == (UV)e->value, "find: value");
+    }
+
+    ok_m(h->tbl_items == 2, "n items");
+    ok_m(h->cur_iter == NULL, "no iterator");
+
+    CSRL_HASH_store(h, "foo", 3, (void *)44);
+    ok_m(44 == (IV)CSRL_HASH_fetch(h, "foo", 3), "store/fetch after overwrite");
+
+    ok_m(h->tbl_items == 2, "n items (overwrite)");
+
+    ok_m(44 == (IV)CSRL_HASH_delete(h, "foo", 3), "delete");
+    ok_m(NULL == CSRL_HASH_fetch(h, "foo", 3), "fetch after delete");
+
+    ok_m(h->tbl_items == 1, "n items (delete)");
+
+    CSRL_HASH_free(h);
+  }
+}
+
+static void *my_free_cb(void *value)
+{
+  char *retval = strdup((char *)value);
+  free(value);
+  retval[0] = 'Q';
+  return retval;
+}
+
+void test_vtable()
+{
+
+  note("vtable tests");
+
+  /* Test the CSRL_HASH_VTABLE_free vtable - at least if running with valgrind */
+  {
+    CSRL_HASH_t *h;
+    char *str;
+
+    h = CSRL_HASH_new(&CSRL_HASH_VTABLE_free);
+    str = strdup("foo");
+    CSRL_HASH_store(h, "bar", 3, str);
+    
+    CSRL_HASH_free(h);
   }
 
-  ok_m(h->tbl_items == 2, "n items");
-  ok_m(h->cur_iter == NULL, "no iterator");
+  /* Test our own vtable */
+  {
+    CSRL_HASH_vtable_t vt = {my_free_cb};
+    CSRL_HASH_t *h;
+    char *str;
 
-  CSRL_HASH_store(h, "foo", 3, (void *)44);
-  ok_m(44 == (IV)CSRL_HASH_fetch(h, "foo", 3), "store/fetch after overwrite");
+    h = CSRL_HASH_new(&vt);
+    str = strdup("foo");
+    CSRL_HASH_store(h, "bar", 3, str);
+    str = (char *)CSRL_HASH_delete(h, "bar", 3);
+    if (!ok_m(!strncmp(str, "Qoo", 3), "own vtable"))
+      printf("# return value was '%s'\n", str);
 
-  ok_m(h->tbl_items == 2, "n items (overwrite)");
-
-  ok_m(44 == (IV)CSRL_HASH_delete(h, "foo", 3), "delete");
-  ok_m(NULL == CSRL_HASH_fetch(h, "foo", 3), "fetch after delete");
-
-  ok_m(h->tbl_items == 1, "n items (delete)");
-
-  CSRL_HASH_free(h);
+    free(str);
+    
+    CSRL_HASH_free(h);
+  }
 }
 
 void
@@ -56,39 +108,42 @@ test_iter()
 {
   IV i, j;
   CSRL_HASH_t *h;
-  h = CSRL_HASH_new();
+
+  note("Iterator tests");
+
+  h = CSRL_HASH_new(NULL);
   ok_m(h != NULL, "CSRL_HASH_new");
 
   {
     /* empty iteration test, stack */
-    CSRL_HASH_ITER_t it;
+    CSRL_HASH_iter_t it;
     CSRL_HASH_iter_init_flags(h, &it, 0);
     ok_m(CSRL_HASH_iter_next(&it) == NULL, "Nothing to iterate over (stack)");
   }
 
   {
     /* empty iteration test, heap*/
-    CSRL_HASH_ITER_t *it = CSRL_HASH_iter_new(h);
+    CSRL_HASH_iter_t *it = CSRL_HASH_iter_new(h);
     ok_m(CSRL_HASH_iter_next(it) == NULL, "Nothing to iterate over (heap)");
     CSRL_HASH_iter_free(it);
   }
 
   {
     /* empty iteration test, heap, autoclean*/
-    CSRL_HASH_ITER_t *it = CSRL_HASH_iter_new_flags(h, CSRL_HASH_FLAG_AUTOCLEAN);
+    CSRL_HASH_iter_t *it = CSRL_HASH_iter_new_flags(h, CSRL_HASH_FLAG_AUTOCLEAN);
     ok_m(CSRL_HASH_iter_next(it) == NULL, "Nothing to iterate over (heap, autoclean)");
     ok_m(h->cur_iter != NULL, "iterator kept around");
   }
 
   CSRL_HASH_free(h);
 
-  h = CSRL_HASH_new();
+  h = CSRL_HASH_new(&CSRL_HASH_VTABLE_passthrough);
   CSRL_HASH_store(h, "foo", 3, (void *)12);
   CSRL_HASH_store(h, "bar", 3, (void *)13);
 
   {
     /* iteration test, stack */
-    CSRL_HASH_ITER_t it;
+    CSRL_HASH_iter_t it;
     CSRL_HASH_iter_init_flags(h, &it, 0);
     i = (IV)CSRL_HASH_iter_next_value(&it);
     ok_m(i == 12 || i == 13, "first iter is valid (stack)");
@@ -98,7 +153,7 @@ test_iter()
 
   {
     /* empty iteration test, heap*/
-    CSRL_HASH_ITER_t *it = CSRL_HASH_iter_new(h);
+    CSRL_HASH_iter_t *it = CSRL_HASH_iter_new(h);
     i = (IV)CSRL_HASH_iter_next_value(it);
     ok_m(i == 12 || i == 13, "first iter is valid (heap)");
     j = (IV)CSRL_HASH_iter_next_value(it);
@@ -108,7 +163,7 @@ test_iter()
 
   {
     /* empty iteration test, heap, autoclean*/
-    CSRL_HASH_ITER_t *it = CSRL_HASH_iter_new_flags(h, CSRL_HASH_FLAG_AUTOCLEAN);
+    CSRL_HASH_iter_t *it = CSRL_HASH_iter_new_flags(h, CSRL_HASH_FLAG_AUTOCLEAN);
     i = (IV)CSRL_HASH_iter_next_value(it);
     ok_m(i == 12 || i == 13, "first iter is valid (heap, autoclean)");
     j = (IV)CSRL_HASH_iter_next_value(it);
@@ -127,6 +182,7 @@ main(int argc, char **argv)
 
   test_alloc();
   test_basics();
+  test_vtable();
   test_iter();
 
   done_testing();
