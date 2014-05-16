@@ -16,6 +16,9 @@ typedef U32 CSRL_HVAL;
 
 #define CLH_KEY_EQ(key1, keylen1, key2, keylen2) (keylen1 == keylen2 && !strncmp((const char *)key1, (const char *)key2, keylen1))
 
+/* Pre-grow hash bucket list. This is an optimization only. */
+static void CLH_grow(CLH_t *tbl);
+
 static void *
 default_free(void *value)
 {
@@ -91,7 +94,7 @@ CLH_store(CLH_t *tbl, const I8 *key, const size_t keylen, void *value)
 }
 
 /* double the hash bucket size of an existing hash table */
-void
+static void
 CLH_grow(CLH_t *tbl)
 {
   CLH_entry_t **ary = tbl->tbl_ary;

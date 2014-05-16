@@ -6,7 +6,7 @@
 
 /* This implements a string hash table structure for CSereal.
  *
- * The keys are pairs of char* strings with size_t lengths,
+ * The keys are pairs of I8* (char*) strings with size_t lengths,
  * the values void*'s. The hash tables support simple
  * hooks for executing actions on deletes so automatic
  * free() or refcounting decrements are easy to implement.
@@ -97,6 +97,10 @@ typedef struct CLH {
 } CLH_t;
 typedef struct CLH        CLH_t;
 
+
+/* Main Hash API
+ ****************/
+
 /* These are two default vtables for common value free-ing
  * semantics: Doing nothing (CLH_VTABLE_passthrough which is
  * the same as a NULL vtable) and calling libc's free()
@@ -104,54 +108,81 @@ typedef struct CLH        CLH_t;
 extern CLH_vtable_t CLH_VTABLE_free;
 extern CLH_vtable_t CLH_VTABLE_passthrough;
 
-/* Allocate new hash */
+/* Allocate new hash using given value-deallocation strategy.
+ * (If vtable is NULL, the hash will not own values.) */
 CLH_t *CLH_new(CLH_vtable_t *vtable);
-/* Allocate new hash with a predefined power-of-2 bucket array size */
+
+/* Allocate new hash with a predefined power-of-2 bucket array size. */
 CLH_t *CLH_new_size(const U8 size_base2_exponent, CLH_vtable_t *vtable);
-/* Free a hash (includes clearing) */
+/* Free a hash (includes clearing the entries and firing delete events
+ * as appropriate). */
 void CLH_free(CLH_t *tbl);
 
-/* Locate a hash entry by key */
+/* Locate a hash entry by key. Returns NULL if not found. */
 CLH_entry_t * CLH_find(CLH_t *tbl, const I8 *key, const size_t keylen);
 /* Fetch value from hash by key (NULL if not found) */
 void *CLH_fetch(CLH_t *tbl, const I8 *key, const size_t keylen);
-/* Store value in hash by key */
+
+/* Store value in hash by key. */
 void CLH_store(CLH_t *tbl, const I8 *key, const size_t keylen, void *value);
-/* Delete value from hash by key. Returns previous value (NULL if there was none) */
+/* Delete value from hash by key.
+ * If there is a delete hook in the hash vtable, calls that hook and
+ * returns its return value. Otherwise returns the value from the hash.
+ * Returns NULL if the key did not exist in the hash. */
 void *CLH_delete(CLH_t *tbl, const I8 *key, const size_t keylen);
-/* Clear all values from a hash */
+
+/* Clear all values from a hash, calling delete hooks if appropriate. */
 void CLH_clear(CLH_t *tbl);
 
-/* Instead of allocating a new iterator from the heap using
- * CLH_iter_new or ..._flags, you can also initialize one
- * allocated from the stack using CLH_iter_init_flags().
- * If you do so, no need to call CLH_iter_free(), but
- * then you also shouldn't use CLH_FLAG_AUTOCLEAN. */
+/* Hash Iterator API
+ *******************/
+
+/* Create new hash iterator for the given hash.
+ * Needs manual freeing. */
+CLH_iter_t *CLH_iter_new(CLH_t *tbl);
 
 #define CLH_FLAG_AUTOCLEAN 1
 
-/* Create new hash iterator for the given hash */
-CLH_iter_t *CLH_iter_new(CLH_t *tbl);
 /* New hash iterator with options. Only option right now is "autoclean",
  * which means that the iterator will be owned and cleaned up by the hash.
  * A hash can own only one iterator at a time, so beware of memory leaks.
- * This might be changed in the future. */
+ * "autoclean" might be changed in the future. */
 CLH_iter_t *CLH_iter_new_flags(CLH_t *tbl, int flags);
+
+/* Instead of allocating a new iterator from the heap using
+ * CLH_iter_new or ..._flags, you can also initialize an iterator
+ * allocated from the stack using CLH_iter_init_flags().
+ * If you do so, no need to call CLH_iter_free(), but
+ * then you also shouldn't use CLH_FLAG_AUTOCLEAN. Synopsis:
+ *
+ * CLH_entry_t *e;
+ * CLH_iter_t it;
+ * CLH_iter_init_flags(h, it, 0);
+ * while ( NULL != (e = CLH_iter_next(&it)) ) {
+ *   ... things using e ...
+ * }
+ * -- no need to free the stack-allocated iterator
+ *
+ * */
+
 /* Initialize a hash iterator structure to be a new iterator for the given hash.
  * Useful for stack-allocated hash iterators. */
 void CLH_iter_init_flags(CLH_t *tbl, CLH_iter_t *iter, int flags);
+
 /* Free a hash iterator. */
 void CLH_iter_free(CLH_iter_t *iter);
+
 /* Get the next hash entry from the hash iterator.
  * Returns NULL when no further entries in the hash. */
 CLH_entry_t *CLH_iter_next(CLH_iter_t *iter);
+
 /* Get the next VALUE from the hash. Also returns NULL when done,
  * but values in the hash may also be NULL (depending on their usage)
  * so beware. */
 void *CLH_iter_next_value(CLH_iter_t *iter);
 
-
-/* pre-grow hash bucket list. This is an optimization only. */
-void CLH_grow(CLH_t *tbl);
+/* CLH_iter_next and CLH_iter_next_value can be mixed in the same iteration.
+ * They each return the next value or entry. But it's hard to imagine a
+ * reasonable use case for that. */
 
 #endif
