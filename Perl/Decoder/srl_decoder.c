@@ -852,14 +852,20 @@ union myfloat {
     long double ld;
 };
 
+/*
+#define TEST_ARM_ARCH
+*/
+#if (defined(TEST_ARM_ARCH) || defined(__ARM_ARCH))
+#define SRL_ARM_ARCH 1
+#endif
+
 SRL_STATIC_INLINE void
 srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
-#ifdef __ARM_ARCH
+#ifdef SRL_ARM_ARCH
     ASSERT_BUF_SPACE(dec, sizeof(float), " while reading FLOAT");
-    Copy(dec->pos,v.c,sizeof(float),U8);
-    val.f= *((float *)tmp);
+    Copy(dec->pos,val.c,sizeof(float),U8);
 #else
     ASSERT_BUF_SPACE(dec, sizeof(float), " while reading FLOAT");
     val.f= *((float *)dec->pos);
@@ -873,11 +879,9 @@ SRL_STATIC_INLINE void
 srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
-#ifdef __ARM_ARCH
-    U8 tmp[sizeof(double)];
+#ifdef SRL_ARM_ARCH
     ASSERT_BUF_SPACE(dec, sizeof(double), " while reading DOUBLE");
     Copy(dec->pos,val.c,sizeof(double),U8);
-    val.d= *((double *)tmp);
 #else
     ASSERT_BUF_SPACE(dec, sizeof(double), " while reading DOUBLE");
     val.d= *((double *)dec->pos);
@@ -891,11 +895,9 @@ SRL_STATIC_INLINE void
 srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
-#ifdef __ARM_ARCH
-    U8 tmp[sizeof(long double)];
+#ifdef SRL_ARM_ARCH
     ASSERT_BUF_SPACE(dec, sizeof(long double), " while reading LONG_DOUBLE");
-    Copy(dec->pos,v.c,sizeof(long double),U8);
-    val.ld= *((long double *)tmp);
+    Copy(dec->pos,val.c,sizeof(long double),U8);
 #else
     ASSERT_BUF_SPACE(dec, sizeof(long double), " while reading LONG_DOUBLE");
     val.ld= *((long double *)dec->pos);
