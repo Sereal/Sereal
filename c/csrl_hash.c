@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <string.h>
+#include <stdio.h>
 
 #include <csrl_util.h>
 
@@ -167,6 +168,7 @@ CSRL_HASH_delete(CSRL_HASH_t *tbl, const I8 *key, const size_t keylen)
         retval = tblent->value;
         free(tblent->key);
         free(tblent);
+        tbl->tbl_items--;
         break;
       }
     }
@@ -182,12 +184,13 @@ CSRL_HASH_free(CSRL_HASH_t *tbl)
   if (!tbl)
     return;
 
-  CSRL_HASH_clear(tbl);
-  if (tbl->cur_iter) {
+  if (tbl->cur_iter != NULL) {
     CSRL_HASH_ITER_t *it = tbl->cur_iter;
     tbl->cur_iter = NULL; /* avoid circular checks */
     CSRL_HASH_iter_free(it);
   }
+
+  CSRL_HASH_clear(tbl);
   free(tbl->tbl_ary);
   free(tbl);
 }
@@ -227,8 +230,9 @@ CSRL_HASH_iter_init_flags(CSRL_HASH_t *tbl, CSRL_HASH_ITER_t *iter, int flags)
   iter->bucket_num = 0;
   iter->cur_entry = NULL;
 
-  if (flags & CSRL_HASH_FLAG_AUTOCLEAN)
+  if (flags & CSRL_HASH_FLAG_AUTOCLEAN) {
     tbl->cur_iter = iter;
+  }
   if (tbl->tbl_items == 0) {
     /* Prevent hash bucket scanning.
      * This can be a significant optimization on large, empty hashes. */

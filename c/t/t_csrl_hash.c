@@ -43,6 +43,11 @@ test_basics()
 
   ok_m(h->tbl_items == 2, "n items (overwrite)");
 
+  ok_m(44 == (IV)CSRL_HASH_delete(h, "foo", 3), "delete");
+  ok_m(NULL == CSRL_HASH_fetch(h, "foo", 3), "fetch after delete");
+
+  ok_m(h->tbl_items == 1, "n items (delete)");
+
   CSRL_HASH_free(h);
 }
 
@@ -75,6 +80,9 @@ test_iter()
     ok_m(h->cur_iter != NULL, "iterator kept around");
   }
 
+  CSRL_HASH_free(h);
+
+  h = CSRL_HASH_new();
   CSRL_HASH_store(h, "foo", 3, (void *)12);
   CSRL_HASH_store(h, "bar", 3, (void *)13);
 
