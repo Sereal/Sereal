@@ -111,6 +111,20 @@ where the varint signifies the length of the Snappy-compressed blob
 following it. See L</"NOTES ON IMPLEMENTATION"> below for a discussion on
 how to implement this efficiently.
 
+=item 3
+
+Compressed Sereal format, using zlib compression. This does similar framing
+as the incremental Snappy compression (2):
+
+  <Varint><Varint><Zlib Blob>
+
+where the first varint indicates the length of the uncompressed document,
+the second varint indicates the length of the compressed document.
+See L</"NOTES ON IMPLEMENTATION"> below for a discussion on
+how to implement this efficiently.
+
+This compression format is new in v3 of the specification.
+
 =back
 
 Additional compression types are envisaged and will be assigned type
@@ -438,6 +452,14 @@ with the high bit set on the "s" character. In practice, this means that it
 is very easy to detect that a Sereal v3 document has been erroneously
 UTF-8 encoded because \xF3 is translated to two bytes \xC3\xB3. Decoders are
 required to support both magic strings.
+
+Also new is the "zlib" compression (document type 3). As detailed above, its
+structure is
+
+  <Varint><Varint><Zlib Blob>
+
+where the first varint indicates the length of the uncompressed document,
+the second varint indicates the length of the compressed document.
 
 =head2 Protocol Version 2
 
