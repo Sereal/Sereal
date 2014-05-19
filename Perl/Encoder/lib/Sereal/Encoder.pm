@@ -5,12 +5,12 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '2.12'; # Don't forget to update the TestCompat set for testing against installed decoders!
+our $VERSION = '3.00'; # Don't forget to update the TestCompat set for testing against installed decoders!
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 
 # not for public consumption, just for testing.
 (my $num_version = $VERSION) =~ s/_//;
-my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 207 .. int($num_version * 100) ) ]; # compat with 2.07 to ...
+my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 300 .. int($num_version * 100) ) ]; # compat with 3.00 to ...
 sub _test_compat {return(@$TestCompat, $VERSION)}
 
 use Exporter 'import';
@@ -56,7 +56,7 @@ If you care greatly about performance, consider reading the L<Sereal::Performanc
 documentation after finishing this document.
 
 The Sereal protocol version emitted by this encoder implementation is currently
-protocol version 2 by default.
+protocol version 3 by default.
 
 The protocol specification and many other bits of documentation
 can be found in the github repository. Right now, the specification is at
@@ -90,14 +90,14 @@ The decoder (version 0.04 and up) will know how to handle Snappy-compressed
 Sereal documents transparently.
 
 B<Note:> The C<snappy_incr> and C<snappy> options are identical in
-Sereal protocol v2 (the default). If using an older protocol version
+Sereal protocol v2 and up (so by default). If using an older protocol version
 (see C<protocol_version> and C<use_protocol_v1> options below)
 to emit Sereal V1 documents, this emits non-incrementally decodable
 documents. See C<snappy_incr> in those cases.
 
 =head3 snappy_incr
 
-Same as the C<snappy> option for default (Sereal v2) operation.
+Same as the C<snappy> option for default operation (that is in Sereal v2 or up).
 
 In Sereal V1, enables a version of the Snappy protocol which is suitable for
 incremental parsing of packets. See also the C<snappy> option above for
@@ -127,7 +127,7 @@ C<no_bless_objects>.
 
 =head3 freeze_callbacks
 
-This option is new in Sereal v2 and needs a Sereal v2 decoder.
+This option was introduced in Sereal v2 and needs a Sereal v2 decoder.
 
 If this option is set, the encoder will check for and possibly invoke
 the C<FREEZE> method on any object in the input data. An object that
