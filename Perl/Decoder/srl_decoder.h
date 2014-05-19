@@ -100,31 +100,36 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_F_DECODER_NEEDS_FINALIZE            0x00000004UL
 /* Non-persistent flag! */
 #define SRL_F_DECODER_DECOMPRESS_SNAPPY         0x00000008UL
-/* Persistent flag: Make the decoder REFUSE compressed documents */
-#define SRL_F_DECODER_REFUSE_SNAPPY             0x00000010UL
+/* Non-persistent flag! */
+#define SRL_F_DECODER_DECOMPRESS_ZLIB           0x00000010UL
+/* Persistent flag: Make the decoder REFUSE Snappy-compressed documents */
+#define SRL_F_DECODER_REFUSE_SNAPPY             0x00000020UL
+/* Persistent flag: Make the decoder REFUSE zlib-compressed documents */
+#define SRL_F_DECODER_REFUSE_ZLIB               0x00000040UL
 /* Persistent flag: Make the decoder REFUSE objects */
-#define SRL_F_DECODER_REFUSE_OBJECTS            0x00000020UL
+#define SRL_F_DECODER_REFUSE_OBJECTS            0x00000080UL
 /* Persistent flag: Make the decoder validate UTT8 strings */
-#define SRL_F_DECODER_VALIDATE_UTF8             0x00000040UL
+#define SRL_F_DECODER_VALIDATE_UTF8             0x00000100UL
 /* Persistent flag: Make the encoder forget to bless */
-#define SRL_F_DECODER_NO_BLESS_OBJECTS          0x00000080UL
+#define SRL_F_DECODER_NO_BLESS_OBJECTS          0x00000200UL
 /* Persistent flag: Destructive incremental parsing */
-#define SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL   0x00000100UL
+#define SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL   0x00000400UL
 /* Non-persistent flag: The current packet is using protocol version 1 */
-#define SRL_F_DECODER_PROTOCOL_V1               0x00000200UL
+#define SRL_F_DECODER_PROTOCOL_V1               0x00000800UL
 /* Persistent flag: alias small integer values in Hashes and Arrays */
-#define SRL_F_DECODER_ALIAS_SMALLINT            0x00000400UL
+#define SRL_F_DECODER_ALIAS_SMALLINT            0x00001000UL
 /* Persistent flag: use PL_sv_undef for undef values in Hashes and Arrays */
-#define SRL_F_DECODER_ALIAS_VARINT              0x00000800UL
+#define SRL_F_DECODER_ALIAS_VARINT              0x00002000UL
 /* Persistent flag: use PL_sv_undef as many places as possible */
-#define SRL_F_DECODER_USE_UNDEF                 0x00001000UL
+#define SRL_F_DECODER_USE_UNDEF                 0x00004000UL
+
 
 #define SRL_F_DECODER_ALIAS_CHECK_FLAGS   ( SRL_F_DECODER_ALIAS_SMALLINT | SRL_F_DECODER_ALIAS_VARINT | SRL_F_DECODER_USE_UNDEF )
 
 #define SRL_DEC_HAVE_OPTION(dec, flag_num) ((dec)->flags & flag_num)
 #define SRL_DEC_SET_OPTION(dec, flag_num) ((dec)->flags |= flag_num)
 #define SRL_DEC_UNSET_OPTION(dec, flag_num) ((dec)->flags &= ~flag_num)
-#define SRL_DEC_VOLATILE_FLAGS (SRL_F_DECODER_NEEDS_FINALIZE|SRL_F_DECODER_DECOMPRESS_SNAPPY|SRL_F_DECODER_PROTOCOL_V1|SRL_F_DECODER_DIRTY)
+#define SRL_DEC_VOLATILE_FLAGS (SRL_F_DECODER_NEEDS_FINALIZE|SRL_F_DECODER_DECOMPRESS_SNAPPY|SRL_F_DECODER_PROTOCOL_V1|SRL_F_DECODER_DIRTY|SRL_F_DECODER_DECOMPRESS_ZLIB)
 #define SRL_DEC_RESET_VOLATILE_FLAGS(dec) ((dec)->flags &= ~SRL_DEC_VOLATILE_FLAGS)
 
 /* 
