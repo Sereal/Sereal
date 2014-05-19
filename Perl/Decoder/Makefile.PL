@@ -18,6 +18,12 @@ inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
 
 our $OPTIMIZE;
 
+# TODO Configure/optimize for miniz:
+#   * Important: For best perf. be sure to customize the below macros for your target platform:
+#     #define MINIZ_USE_UNALIGNED_LOADS_AND_STORES 1
+#     #define MINIZ_LITTLE_ENDIAN 1
+#     #define MINIZ_HAS_64BIT_REGISTERS 1
+
 my $defines = join " ", map "-D$_", grep exists $ENV{$_}, qw(NOINLINE DEBUG MEMDEBUG NDEBUG);
 if ($Config{gccversion}) {
     $OPTIMIZE = '-O3 -Wall -W';

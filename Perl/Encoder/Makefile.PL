@@ -16,6 +16,12 @@ require inc::Sereal::BuildTools;
 inc::Sereal::BuildTools::link_files($shared_dir) if $in_source_repo;
 inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
 
+# TODO Configure/optimize for miniz:
+#   * Important: For best perf. be sure to customize the below macros for your target platform:
+#     #define MINIZ_USE_UNALIGNED_LOADS_AND_STORES 1
+#     #define MINIZ_LITTLE_ENDIAN 1
+#     #define MINIZ_HAS_64BIT_REGISTERS 1
+
 our $OPTIMIZE;
 
 my $defines = join " ", map "-D$_", grep exists $ENV{$_},
