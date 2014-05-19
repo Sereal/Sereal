@@ -129,33 +129,103 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
                                         ? srl_init_freezeobj_svhash(enc)      \
                                         : (enc)->freezeobj_svhash )
 
-#define CALL_SRL_DUMP_SV(enc, src) STMT_START {                         \
-    if (!(src)) {                                                       \
-        srl_buf_cat_char((enc), SRL_HDR_UNDEF);                         \
-    }                                                                   \
-    else                                                                \
-    if (SvTYPE((src)) < SVt_PVMG &&                                     \
-        SvREFCNT((src)) == 1 &&                                         \
-        !SvROK((src))                                                   \
-    ) {                                                                 \
-        if (SvPOKp((src))) {                                            \
-            srl_dump_svpv(aTHX_ (enc), (src));                          \
+#ifndef MAX_CHARSET_NAME_LENGTH
+#    define MAX_CHARSET_NAME_LENGTH 2
+#endif
+
+#if PERL_VERSION == 10
+/*
+	Apparently regexes in 5.10 are "modern" but with 5.8 internals
+*/
+#    define RXf_PMf_STD_PMMOD_SHIFT 12
+#    define RX_EXTFLAGS(re)	((re)->extflags)
+#    define RX_PRECOMP(re) ((re)->precomp)
+#    define RX_PRELEN(re) ((re)->prelen)
+
+/* Maybe this is only on OS X, where SvUTF8(sv) exists but looks at flags that don't exist */
+#    define RX_UTF8(re) (RX_EXTFLAGS(re) & RXf_UTF8)
+
+#elif defined(SvRX)
+#    define MODERN_REGEXP
+     /* With commit 8d919b0a35f2b57a6bed2f8355b25b19ac5ad0c5 (perl.git) and
+      * release 5.17.6, regular expression are no longer SvPOK (IOW are no longer
+      * considered to be containing a string).
+      * This breaks some of the REGEXP detection logic in srl_dump_sv, so
+      * we need yet another CPP define. */
+#    if PERL_VERSION > 17 || (PERL_VERSION == 17 && PERL_SUBVERSION >= 6)
+#        define REGEXP_NO_LONGER_POK
+#    endif
+#else
+#    define INT_PAT_MODS "msix"
+#    define RXf_PMf_STD_PMMOD_SHIFT 12
+#    define RX_PRECOMP(re) ((re)->precomp)
+#    define RX_PRELEN(re) ((re)->prelen)
+#    define RX_UTF8(re) ((re)->reganch & ROPT_UTF8)
+#    define RX_EXTFLAGS(re) ((re)->reganch)
+#    define RXf_PMf_COMPILETIME  PMf_COMPILETIME
+#endif
+
+#if defined(MODERN_REGEXP) && !defined(REGEXP_NO_LONGER_POK)
+#define DO_POK_REGEXP(enc, src, svt)                                    \
+        /* Only need to enter here if we have rather modern regexps,*/  \
+        /* but they're still POK (pre 5.17.6). */                       \
+        if (expect_false( svt == SVt_REGEXP ) ) {                       \
+            srl_dump_regexp(aTHX_ enc, src);                            \
         }                                                               \
-        else                                                            \
-        if (SvNOKp((src))) {                                            \
-            /* dump floats */                                           \
-            srl_dump_nv(aTHX_ (enc), (src));                            \
-        }                                                               \
-        else                                                            \
-        if (SvIOKp((src))) {                                            \
-            /* dump ints */                                             \
-            srl_dump_ivuv(aTHX_ (enc), (src));                          \
+        else
+#else
+#define DO_POK_REGEXP(enc,src) /*no-op*/
+#endif
+
+#define _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt)                    \
+    if (SvIOK(src)) {                                                   \
+    /* if its an integer its an integer */                              \
+        if (SvNOK(src) && SvPOK(src)) {                                 \
+            /* as far as I can tell the only strings which      */      \
+            /* set all three flags are engineering notation,    */      \
+            /* like "0E0" and friends - we especially need      */      \
+            /* to do this when the IV is 0, but we do it always */      \
+            /* if they put eng notation in, maybe then want it  */      \
+            /* out too. */                                              \
+            /* dump the string form */                                  \
+            srl_dump_svpv(aTHX_ enc, src);                              \
         }                                                               \
         else {                                                          \
+            /* dump ints */                                             \
+            srl_dump_ivuv(aTHX_ enc, src);                              \
+        }                                                               \
+    }                                                                   \
+    else                                                                \
+    /* if its a float then its a float */                               \
+    if (SvNOK(src)) {                                                   \
+        /* dump floats */                                               \
+        srl_dump_nv(aTHX_ enc, src);                                    \
+    }                                                                   \
+    else                                                                \
+    /* if its POK now, then it must be a string */                      \
+    if (SvPOK(src)) {                                                   \
+        DO_POK_REGEXP(enc,src,svt)                                      \
+        srl_dump_svpv(aTHX_ enc, src);                                  \
+    }
+
+#define CALL_SRL_DUMP_SV(enc, src) STMT_START {                         \
+    if (!(src)) {                                                       \
+        srl_buf_cat_char((enc), SRL_HDR_SV_UNDEF); /* is this right? */ \
+    }                                                                   \
+    else                                                                \
+    {                                                                   \
+        svtype svt= SvTYPE((src));                                      \
+        if (svt < SVt_PVMG &&                                           \
+            SvREFCNT((src)) == 1 &&                                     \
+            !SvROK((src))                                               \
+        ) {                                                             \
+            _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt)                \
+            else {                                                      \
+                srl_dump_sv(aTHX_ (enc), (src));                        \
+            }                                                           \
+        } else {                                                        \
             srl_dump_sv(aTHX_ (enc), (src));                            \
         }                                                               \
-    } else {                                                            \
-        srl_dump_sv(aTHX_ (enc), (src));                                \
     }                                                                   \
 } STMT_END
 
@@ -1019,41 +1089,6 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
     PTABLE_iter_free(it);
 }
 
-#ifndef MAX_CHARSET_NAME_LENGTH
-#    define MAX_CHARSET_NAME_LENGTH 2
-#endif
-
-#if PERL_VERSION == 10
-/*
-	Apparently regexes in 5.10 are "modern" but with 5.8 internals
-*/
-#    define RXf_PMf_STD_PMMOD_SHIFT 12
-#    define RX_EXTFLAGS(re)	((re)->extflags)
-#    define RX_PRECOMP(re) ((re)->precomp)
-#    define RX_PRELEN(re) ((re)->prelen)
-
-/* Maybe this is only on OS X, where SvUTF8(sv) exists but looks at flags that don't exist */
-#    define RX_UTF8(re) (RX_EXTFLAGS(re) & RXf_UTF8)
-
-#elif defined(SvRX)
-#    define MODERN_REGEXP
-     /* With commit 8d919b0a35f2b57a6bed2f8355b25b19ac5ad0c5 (perl.git) and
-      * release 5.17.6, regular expression are no longer SvPOK (IOW are no longer
-      * considered to be containing a string).
-      * This breaks some of the REGEXP detection logic in srl_dump_sv, so
-      * we need yet another CPP define. */
-#    if PERL_VERSION > 17 || (PERL_VERSION == 17 && PERL_SUBVERSION >= 6)
-#        define REGEXP_NO_LONGER_POK
-#    endif
-#else
-#    define INT_PAT_MODS "msix"
-#    define RXf_PMf_STD_PMMOD_SHIFT 12
-#    define RX_PRECOMP(re) ((re)->precomp)
-#    define RX_PRELEN(re) ((re)->prelen)
-#    define RX_UTF8(re) ((re)->reganch & ROPT_UTF8)
-#    define RX_EXTFLAGS(re) ((re)->reganch)
-#    define RXf_PMf_COMPILETIME  PMf_COMPILETIME
-#endif
 
 
 static inline void
@@ -1510,17 +1545,9 @@ redo_dump:
         /* goto redo_dump; */
         /* Probably a "proper" solution would, but there are nits there that I dont want to chase right now. */
     }
-    if (SvPOKp(src)) {
-#if defined(MODERN_REGEXP) && !defined(REGEXP_NO_LONGER_POK)
-        /* Only need to enter here if we have rather modern regexps, but they're
-         * still POK (pre 5.17.6). */
-        if (expect_false( svt == SVt_REGEXP ) ) {
-            srl_dump_regexp(aTHX_ enc, src);
-        }
-        else
-#endif
-        srl_dump_svpv(aTHX_ enc, src);
-    }
+
+    /* --------------------------------- */
+    _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt)
     else
 #if defined(MODERN_REGEXP) && defined(REGEXP_NO_LONGER_POK)
     /* Only need to enter here if we have rather modern regexps AND they're
@@ -1530,16 +1557,6 @@ redo_dump:
     }
     else
 #endif
-    if (SvNOKp(src)) {
-        /* dump floats */
-        srl_dump_nv(aTHX_ enc, src);
-    }
-    else
-    if (SvIOKp(src)) {
-        /* dump ints */
-        srl_dump_ivuv(aTHX_ enc, src);
-    }
-    else
     if (SvROK(src)) {
         /* dump references */
         SV *referent= SvRV(src);
