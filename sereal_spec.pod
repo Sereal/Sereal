@@ -12,7 +12,7 @@ This document describes the format and encoding of a Sereal data packet.
 
 =head1 VERSION
 
-This is the Sereal specification version 2.02.
+This is the Sereal specification version 3.00.
 
 The integer part of the document version corresponds to
 the Sereal protocol version. For details on incompatible changes between
@@ -59,8 +59,17 @@ A header consists of multiple components:
 =head3 MAGIC
 
 A "magic string" that identifies a document as being in the Sereal format.
-The value of this string is "=srl", and when decoded as an unsigned 32 bit
+In protocol version 1 and 2, the value of this string is "=srl",
+and when decoded as an unsigned 32 bit
 integer on a little endian machine has a value of 0x6c72733d.
+
+In protocol version 3, the magic string can be B<either> the v1/v2 "=srl"
+B<or> it can be the same string with the high bit set on the "s": "=\xF3rl".
+this makes it much easier to track down bugs caused by common encoding problems
+in applications. In practice, this means that it
+is very easy to detect that a Sereal v3 document has been erroneously
+UTF-8 encoded because \xF3 is translated to two bytes \xC3\xB3. Decoders are
+required to support both magic strings.
 
 =head3 VERSION-TYPE
 
@@ -68,8 +77,8 @@ A single byte, of which the high 4 bits are used to represent the "type"
 of the document, and the low 4 bits used to represent the version of the
 Sereal protocol the document complies with.
 
-Up until now there have been versions 1 and 2 of the Sereal protocol.
-So the low four bits will be 1 or 2.
+Up until now there have been versions 1, 2, and 3 of the Sereal protocol.
+So the low four bits will be one of those values in little-endian.
 
 Currently only three types are defined:
 
@@ -121,7 +130,7 @@ extended header due to the embedded length).
 The suffix may contain whatever data the encoder wishes to embed in the
 header. In version 1 of the protocol the decoder never looked inside
 this data. Later versions may introduce additional rules for this field.
-In version 2 of the protocol, this variable-length part of the header
+Starting from version 2 of the protocol, this variable-length part of the header
 may be empty or have the following format:
 
     <8bit-BITFIELD> <OPT-USER-META-DATA>
@@ -130,7 +139,7 @@ may be empty or have the following format:
 
 =item 8bit-BITFIELD
 
-If not present, all bits are assumed off. In version 2 of the protocol,
+If not present, all bits are assumed off. In version 2 and 3 of the protocol,
 only the least significant bit is meaningful: If set, the bitfield is
 followed by the C<E<lt>USER-META-DATAE<gt>>. If not set, there is
 no user meta data.
@@ -419,6 +428,17 @@ of the Perl Sereal implemenation for examples of FREEZE/THAW methods.
 
 =head1 PROTOCOL CHANGES
 
+=head2 Protocol Version 3
+
+In Sereal protocol version 3, there is a change to the Sereal magic string
+that starts all Sereal documents: In order to make it much easier to track
+down bugs caused by encoding problems in applications, the Sereal magic string
+may now be either the pre-v3 "=srl" or instead also "=\xF3rl", so the same but
+with the high bit set on the "s" character. In practice, this means that it
+is very easy to detect that a Sereal v3 document has been erroneously
+UTF-8 encoded because \xF3 is translated to two bytes \xC3\xB3. Decoders are
+required to support both magic strings.
+
 =head2 Protocol Version 2
 
 In Sereal protocol version 2, offsets were changed from being relative to
@@ -496,9 +516,9 @@ and CPAN, for which the authors would like to express their gratitude.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2012, 2013 by Steffen Mueller
+Copyright (C) 2012, 2013, 2014 by Steffen Mueller
 
-Copyright (C) 2012, 2013 by Yves Orton
+Copyright (C) 2012, 2013, 2014 by Yves Orton
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
