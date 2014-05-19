@@ -57,6 +57,13 @@ sub parse_header {
     require Compress::Snappy;
     my $out = Compress::Snappy::decompress($data);
     $data = $out;
+  } elsif ($encoding == SRL_PROTOCOL_ENCODING_ZLIB) {
+    print "Header says: Document body is ZLIB-compressed.\n";
+    my $uncompressed_len = varint();
+    my $compressed_len = varint();
+    require Compress::Zlib;
+    my $out = Compress::Zlib::decompress($data);
+    $data = $out;
   } elsif ($encoding) {
     die "Invalid encoding '" . ($encoding >> SRL_PROTOCOL_VERSION_BITS) . "'";
   }
