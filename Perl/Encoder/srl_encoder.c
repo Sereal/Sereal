@@ -1402,7 +1402,35 @@ redo_dump:
         /* goto redo_dump; */
         /* Probably a "proper" solution would, but there are nits there that I dont want to chase right now. */
     }
-    if (SvPOKp(src)) {
+
+    /* --------------------------------- */
+
+    if (SvIOK(src)) {
+    /* if its an integer its an integer */
+        if (SvNOK(src) && SvPOK(src)) {
+            /* as far as I can tell the only strings which
+             * set all three flags are engineering notation,
+             * like "0E0" and friends - we especially need
+             * to do this when the IV is 0, but we do it always
+             * if they put eng notation in, maybe then want it
+             * out too. */
+            /* dump the string form */
+            srl_dump_svpv(aTHX_ enc, src);
+        }
+        else {
+            /* dump ints */
+            srl_dump_ivuv(aTHX_ enc, src);
+        }
+    }
+    else
+    /* if its a float then its a float */
+    if (SvNOK(src)) {
+        /* dump floats */
+        srl_dump_nv(aTHX_ enc, src);
+    }
+    else
+    /* if its POK now, then it must be a string */
+    if (SvPOK(src)) {
 #if defined(MODERN_REGEXP) && !defined(REGEXP_NO_LONGER_POK)
         /* Only need to enter here if we have rather modern regexps, but they're
          * still POK (pre 5.17.6). */
@@ -1422,16 +1450,6 @@ redo_dump:
     }
     else
 #endif
-    if (SvNOKp(src)) {
-        /* dump floats */
-        srl_dump_nv(aTHX_ enc, src);
-    }
-    else
-    if (SvIOKp(src)) {
-        /* dump ints */
-        srl_dump_ivuv(aTHX_ enc, src);
-    }
-    else
     if (SvROK(src)) {
         /* dump references */
         SV *referent= SvRV(src);
