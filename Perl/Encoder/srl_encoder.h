@@ -32,7 +32,7 @@ typedef struct {
     HV *string_deduper_hv;    /* track strings we have seen before, by content */
 
     void *snappy_workmem;     /* lazily allocated if and only if using Snappy */
-    IV snappy_threshold;      /* do not compress things smaller than this even if Snappy enabled */
+    IV compress_threshold;    /* do not compress things smaller than this even if compression enabled */
 
                               /* only used if SRL_F_ENABLE_FREEZE_SUPPORT is set. */
     SV *sereal_string_sv;     /* SV that says "Sereal" for FREEZE support */
@@ -81,29 +81,33 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
 #define SRL_F_COMPRESS_SNAPPY                0x00040UL
 #define SRL_F_COMPRESS_SNAPPY_INCREMENTAL    0x00080UL
 
-/* Only meaningful if SRL_F_WARN_UNKNOWN also set. If this one is set, then we don't warn
- * if the unsupported item has string overloading. */
-#define SRL_F_NOWARN_UNKNOWN_OVERLOAD        0x00100UL
+/* WARNING: This is different from the protocol bit SRL_PROTOCOL_ENCODING_ZLIB in that it's
+ *          a flag on the encoder struct indicating that we want to use ZLIB. */
+#define SRL_F_COMPRESS_ZLIB                  0x00100UL
 
 /* Only meaningful if SRL_F_WARN_UNKNOWN also set. If this one is set, then we don't warn
  * if the unsupported item has string overloading. */
-#define SRL_F_SORT_KEYS                      0x00200UL
+#define SRL_F_NOWARN_UNKNOWN_OVERLOAD        0x00200UL
+
+/* Only meaningful if SRL_F_WARN_UNKNOWN also set. If this one is set, then we don't warn
+ * if the unsupported item has string overloading. */
+#define SRL_F_SORT_KEYS                      0x00400UL
 
 /* If set, use a hash to emit COPY() tags for all duplicated strings
  * (slow, but great compression) */
-#define SRL_F_DEDUPE_STRINGS                 0x00400UL
+#define SRL_F_DEDUPE_STRINGS                 0x00800UL
 
 /* Like SRL_F_DEDUPE_STRINGS but emits ALIAS() instead of COPY() for
  * non-class-name, non-hash-key strings that are deduped. If set,
  * supersedes SRL_F_DEDUPE_STRINGS. */
-#define SRL_F_ALIASED_DEDUPE_STRINGS           0x00800UL
+#define SRL_F_ALIASED_DEDUPE_STRINGS           0x01000UL
 
 /* If set in flags, then we serialize objects without class information.
  * Corresponds to the 'no_bless_objects' flag found in the Decoder. */
-#define SRL_F_NO_BLESS_OBJECTS                0x01000UL
+#define SRL_F_NO_BLESS_OBJECTS                0x02000UL
 
 /* If set in flags, then support calling FREEZE method on objects. */
-#define SRL_F_ENABLE_FREEZE_SUPPORT           0x02000UL
+#define SRL_F_ENABLE_FREEZE_SUPPORT           0x04000UL
 
 /* Set while the encoder is in active use / dirty */
 #define SRL_OF_ENCODER_DIRTY                 1UL

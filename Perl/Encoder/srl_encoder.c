@@ -53,6 +53,7 @@ extern "C" {
 #include "srl_buffer.h"
 
 #include "snappy/csnappy_compress.c"
+#include "miniz.h"
 
 /* The ENABLE_DANGEROUS_HACKS (passed through from ENV via Makefile.PL) enables
  * optimizations that may make the code so cozy with a particular version of the
@@ -289,7 +290,7 @@ srl_build_encoder_struct(pTHX_ HV *opt)
     /* load options */
     if (opt != NULL) {
         int undef_unknown = 0;
-        int snappy_nonincr = 0;
+        int compression_format = 0;
         /* SRL_F_SHARED_HASHKEYS on by default */
         svp = hv_fetchs(opt, "no_shared_hashkeys", 0);
         if ( !svp || !SvTRUE(*svp) )
@@ -331,22 +332,44 @@ srl_build_encoder_struct(pTHX_ HV *opt)
             enc->sereal_string_sv = newSVpvs("Sereal");
         }
 
-        svp = hv_fetchs(opt, "snappy", 0);
-        if ( svp && SvTRUE(*svp) ) {
-            /* incremental is the new black in V2 */
-            if (expect_true( enc->protocol_version >= 2 ))
+        svp = hv_fetchs(opt, "compress", 0);
+        if (svp) {
+            compression_format = SvIV(*svp);
+
+            /* See also Encoder.pm's constants */
+            switch (compression_format) {
+            case 0: /* uncompressed */
+                break;
+            case 1:
                 SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
-            else {
-                snappy_nonincr = 1;
-                SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY);
+                break;
+            case 2:
+                SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_ZLIB);
+                break;
+            default:
+                croak("Invalid Sereal compression format");
             }
         }
+        else {
+            /* Only bother with old compression options if necessary */
 
-        svp = hv_fetchs(opt, "snappy_incr", 0);
-        if ( svp && SvTRUE(*svp) ) {
-            if (snappy_nonincr)
-                croak("'snappy' and 'snappy_incr' options are mutually exclusive");
-            SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
+            svp = hv_fetchs(opt, "snappy_incr", 0);
+            if ( svp && SvTRUE(*svp) ) {
+                SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
+                compression_format = 1;
+            }
+             else {
+                /* snappy_incr >> snappy */
+                svp = hv_fetchs(opt, "snappy", 0);
+                if ( svp && SvTRUE(*svp) ) {
+                    /* incremental is the new black in V2 */
+                    if (expect_true( enc->protocol_version > 1 ))
+                        SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
+                    else
+                        SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY);
+                    compression_format = 1;
+                }
+            }
         }
 
         svp = hv_fetchs(opt, "undef_unknown", 0);
@@ -383,11 +406,19 @@ srl_build_encoder_struct(pTHX_ HV *opt)
                 SRL_ENC_SET_OPTION(enc, SRL_F_NOWARN_UNKNOWN_OVERLOAD);
         }
 
-        svp = hv_fetchs(opt, "snappy_threshold", 0);
-        if ( svp && SvOK(*svp) )
-            enc->snappy_threshold = SvIV(*svp);
-        else
-            enc->snappy_threshold = 1024;
+
+        if (compression_format) {
+            enc->compress_threshold = 1024;
+            svp = hv_fetchs(opt, "compress_threshold", 0);
+            if ( svp && SvOK(*svp) )
+                enc->compress_threshold = SvIV(*svp);
+            else if (compression_format == 1) {
+                /* compression_format==1 is some sort of Snappy */
+                svp = hv_fetchs(opt, "snappy_threshold", 0);
+                if ( svp && SvOK(*svp) )
+                    enc->compress_threshold = SvIV(*svp);
+            }
+        }
 
         svp = hv_fetchs(opt, "max_recursion_depth", 0);
         if ( svp && SvTRUE(*svp))
@@ -412,7 +443,7 @@ srl_build_encoder_struct_alike(pTHX_ srl_encoder_t *proto)
     /* Copy the configuration-type, non-ephemeral attributes */
     enc->flags = proto->flags;
     enc->max_recursion_depth = proto->max_recursion_depth;
-    enc->snappy_threshold = proto->snappy_threshold;
+    enc->compress_threshold = proto->compress_threshold;
     if (expect_false(SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT))) {
         enc->sereal_string_sv = newSVpvs("Sereal");
     }
@@ -785,11 +816,11 @@ srl_update_varint_from_to(pTHX_ char *varint_start, char *varint_end, UV number)
 }
 
 
-/* Resets the Snappy-compression header flag to OFF.
+/* Resets the compression header flag to OFF.
  * Obviously requires that a Sereal header was already written to the
  * encoder's output buffer. */
 SRL_STATIC_INLINE void
-srl_reset_snappy_header_flag(srl_encoder_t *enc)
+srl_reset_compression_header_flag(srl_encoder_t *enc)
 {
     /* sizeof(const char *) includes a count of \0 */
     char *flags_and_version_byte = enc->buf.start + sizeof(SRL_MAGIC_STRING) - 1;
@@ -803,13 +834,18 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
 {
     enc = srl_prepare_encoder(aTHX_ enc);
 
-    if (expect_true( !SRL_ENC_HAVE_OPTION(enc, (SRL_F_COMPRESS_SNAPPY | SRL_F_COMPRESS_SNAPPY_INCREMENTAL)) )) {
+    if (expect_true(
+            !SRL_ENC_HAVE_OPTION(enc, (  SRL_F_COMPRESS_SNAPPY
+                                       | SRL_F_COMPRESS_SNAPPY_INCREMENTAL
+                                       | SRL_F_COMPRESS_ZLIB))
+       ))
+    {
         srl_write_header(aTHX_ enc, user_header_src);
         SRL_UPDATE_BODY_POS(enc);
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
     }
-    else {
+    else { /* Have some sort of compression */
         ptrdiff_t sereal_header_len;
         STRLEN uncompressed_body_length;
 
@@ -823,26 +859,39 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
         assert(BUF_POS_OFS(enc->buf) > sereal_header_len);
         uncompressed_body_length = BUF_POS_OFS(enc->buf) - sereal_header_len;
 
-        if (enc->snappy_threshold > 0
-            && uncompressed_body_length < (STRLEN)enc->snappy_threshold)
+        if (enc->compress_threshold > 0
+            && uncompressed_body_length < (STRLEN)enc->compress_threshold)
         {
-            /* Don't bother with snappy compression at all if we have less than $threshold bytes of payload */
-            srl_reset_snappy_header_flag(enc);
+            /* Don't bother with compression at all if we have less than $threshold bytes of payload */
+            srl_reset_compression_header_flag(enc);
         }
-        else { /* do snappy compression of body */
+        else { /* Do Snappy or zlib compression of body */
+            const int is_snappy
+                = SRL_ENC_HAVE_OPTION(enc, (  SRL_F_COMPRESS_SNAPPY
+                                            | SRL_F_COMPRESS_SNAPPY_INCREMENTAL));
+            /* !is_snappy is the same as "is zlib" right now */
+
+            const int is_traditional_snappy
+                = (SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY));
+
             srl_buffer_t old_buf; /* TODO can we use the enc->tmp_buf here to avoid allocations? */
             char *varint_start= NULL;
             char *varint_end= NULL;
-            uint32_t dest_len;
+            size_t dest_len;
 
             /* Get uncompressed payload and total packet output (after compression) lengths */
-            dest_len = csnappy_max_compressed_length(uncompressed_body_length) + sereal_header_len + 1;
+            dest_len = sereal_header_len + 1
+                        + ( is_snappy ? (size_t)csnappy_max_compressed_length(uncompressed_body_length)
+                                      : (size_t)mz_compressBound(uncompressed_body_length) );
 
-            /* Will have to embed compressed packet length as varint if in incremental mode */
-            if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL ) )
+            /* Will have to embed compressed packet length as varint if not
+             * in traditional Snappy mode. (So needs to be added for any of
+             * ZLIB, or incremental Snappy.) */
+            if ( !is_traditional_snappy )
                 dest_len += SRL_MAX_VARINT_LENGTH;
 
-            srl_init_snappy_workmem(aTHX_ enc);
+            if (is_snappy)
+                srl_init_snappy_workmem(aTHX_ enc);
 
             /* Back up old buffer and allocate new one with correct size */
             srl_buf_copy_buffer(aTHX_ &enc->buf, &old_buf);
@@ -854,22 +903,39 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
             SRL_UPDATE_BODY_POS(enc); /* will do the right thing wrt. protocol V1 / V2 */
 
             /* Embed compressed packet length */
-            if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL ) ) {
+            if (expect_true( !is_traditional_snappy )) {
                 varint_start= enc->buf.pos;
                 srl_buf_cat_varint_nocheck(aTHX_ enc, 0, dest_len);
                 varint_end= enc->buf.pos - 1;
             }
 
-            csnappy_compress(old_buf.start + sereal_header_len, (uint32_t)uncompressed_body_length, enc->buf.pos, &dest_len,
-                             enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
+            if (is_snappy) {
+                uint32_t len = (uint32_t)dest_len;
+                csnappy_compress(old_buf.start + sereal_header_len, (uint32_t)uncompressed_body_length, enc->buf.pos, &len,
+                                 enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
+                dest_len = (size_t)len;
+            }
+            else {
+                mz_ulong dl = (mz_ulong)dest_len;
+                int status = mz_compress2(
+                    old_buf.start + sereal_header_len,
+                    &dl,
+                    (const unsigned char *)enc->buf.pos,
+                    (mz_ulong)uncompressed_body_length,
+                    9 /* FIXME configurable compression level */
+                );
+                assert(status != 0);
+                dest_len = (size_t)dl;
+            }
+
             assert(dest_len != 0);
 
             /* If compression didn't help, swap back to old, uncompressed buffer */
             if (dest_len >= uncompressed_body_length) {
                 /* swap in old, uncompressed buffer */
                 srl_buf_swap_buffer(aTHX_ &enc->buf, &old_buf);
-                /* disable snappy flag */
-                srl_reset_snappy_header_flag(enc);
+                /* disable compression flag */
+                srl_reset_compression_header_flag(enc);
             }
             else { /* go ahead with Snappy and do final fixups */
                 /* overwrite the max size varint with the real size of the compressed data */
@@ -880,8 +946,8 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
 
             srl_buf_free_buffer(aTHX_ &old_buf);
             assert(enc->buf.pos <= enc->buf.end);
-        } /* end of "actually do snappy compression" */
-    } /* end of "want snappy compression?" */
+        } /* End of "actually do snappy compression" */
+    } /* End of "want snappy compression?" */
 
     /* NOT doing a
      *   SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);
