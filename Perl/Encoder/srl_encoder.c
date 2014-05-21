@@ -345,6 +345,8 @@ srl_build_encoder_struct(pTHX_ HV *opt)
                 break;
             case 2:
                 SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_ZLIB);
+                if (enc->protocol_version < 3)
+                  croak("Zlib compression was introduced in protocol version 3 and you are asking for only version %i", (int)enc->protocol_version);
                 break;
             default:
                 croak("Invalid Sereal compression format");
@@ -883,13 +885,13 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
             /* Get uncompressed payload and total packet output (after compression) lengths */
             dest_len = sereal_header_len + 1
                         + ( is_snappy ? (size_t)csnappy_max_compressed_length(uncompressed_body_length)
-                                      : (size_t)mz_compressBound(uncompressed_body_length) );
+                                      : (size_t)mz_compressBound(uncompressed_body_length)+SRL_MAX_VARINT_LENGTH );
 
             /* Will have to embed compressed packet length as varint if not
              * in traditional Snappy mode. (So needs to be added for any of
              * ZLIB, or incremental Snappy.) */
             if ( !is_traditional_snappy )
-                dest_len += (1+!is_snappy) * SRL_MAX_VARINT_LENGTH;
+                dest_len += SRL_MAX_VARINT_LENGTH;
 
             if (is_snappy)
                 srl_init_snappy_workmem(aTHX_ enc);
@@ -904,9 +906,8 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
             SRL_UPDATE_BODY_POS(enc); /* will do the right thing wrt. protocol V1 / V2 */
 
             /* Embed compressed packet length if Zlib */
-            if (!is_snappy) {
+            if (!is_snappy)
                 srl_buf_cat_varint_nocheck(aTHX_ enc, 0, uncompressed_body_length);
-            }
 
             /* Embed compressed packet length if incr. Snappy or Zlib*/
             if (expect_true( !is_traditional_snappy )) {
@@ -924,14 +925,14 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
             else {
                 mz_ulong dl = (mz_ulong)dest_len;
                 int status = mz_compress2(
-                    (unsigned char *)(old_buf.start + sereal_header_len),
+                    (unsigned char *)enc->buf.pos,
                     &dl,
-                    (const unsigned char *)enc->buf.pos,
+                    (const unsigned char *)(old_buf.start + sereal_header_len),
                     (mz_ulong)uncompressed_body_length,
                     9 /* FIXME configurable compression level */
                 );
                 (void)status;
-                assert(status != 0);
+                assert(status == Z_OK);
                 dest_len = (size_t)dl;
             }
 
@@ -953,8 +954,8 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
 
             srl_buf_free_buffer(aTHX_ &old_buf);
             assert(enc->buf.pos <= enc->buf.end);
-        } /* End of "actually do snappy compression" */
-    } /* End of "want snappy compression?" */
+        } /* End of "actually do compression" */
+    } /* End of "want compression?" */
 
     /* NOT doing a
      *   SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);
