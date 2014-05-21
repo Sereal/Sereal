@@ -696,18 +696,22 @@ sub run_roundtrip_tests {
     my @proto_versions = ($proto_version ? ($proto_version) : (1 .. +SRL_PROTOCOL_VERSION));
 
     for my $proto_version ($proto_version) {
-        my $suffix = $proto_version == 1 ? "_v1" : "";
+        my $suffix = "_v$proto_version";
 
         for my $opt (
-            ['plain',          {                  } ],
+            ['plain',          {                       } ],
             ['snappy',         { snappy           => 1 } ],
             ['snappy_incr',    { snappy_incr      => 1 } ],
+            ['zlib',           { compress         => Sereal::Encoder::SRL_ZLIB() } ],
+            ['zlib_force',     { compress         => Sereal::Encoder::SRL_ZLIB(), compress_threshold => 0 } ],
             ['sort_keys',      { sort_keys        => 1 } ],
             ['dedupe_strings', { dedupe_strings   => 1 } ],
             ['freeze/thaw',    { freeze_callbacks => 1 } ],
         ) {
             my ($name, $opts) = @$opt;
             $name .= $suffix;
+            next if $proto_version < 3 and exists ${$opt->[1]}{compress};
+
             if ($proto_version) {
                 if ($proto_version == 1) {
                     $opts->{use_protocol_v1} = 1;
@@ -751,6 +755,7 @@ sub run_roundtrip_tests_internal {
 
         foreach my $rt (@RoundtripTests) {
             my ($name, $data) = @$rt;
+
             my $encoded;
             eval {$encoded = $enc->($data); 1}
                 or do {

@@ -1,7 +1,7 @@
 #!perl
 use strict;
 use warnings;
-use Sereal::Decoder;
+use Sereal::Encoder;
 use Data::Dumper;
 use File::Spec;
 
@@ -17,8 +17,8 @@ use File::Spec;
 
 use lib File::Spec->catdir(qw(t lib));
 BEGIN {
-    lib->import('lib')
-        if !-d 't';
+  lib->import('lib')
+    if !-d 't';
 }
 
 use Sereal::TestSet qw(:all);
@@ -26,10 +26,10 @@ use Test::More;
 
 my $ok = have_encoder_and_decoder();
 if (not $ok) {
-    plan skip_all => 'Did not find right version of encoder';
+  plan skip_all => 'Did not find right version of decoder';
 }
 else {
-    run_roundtrip_tests(2); # 2 == run only tests for proto v2
+  run_roundtrip_tests(2); # 2 is "run for proto-version 2 only"
 }
 
 
