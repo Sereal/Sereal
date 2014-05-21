@@ -421,6 +421,7 @@ srl_decompress_body_zlib(pTHX_ srl_decoder_t *dec)
 
     old_pos = dec->pos;
 
+
     /* Allocate output buffer and swap it into place within the decoder. */
     srl_realloc_empty_buffer(aTHX_ dec, sereal_header_len, uncompressed_packet_len);
     tmp = uncompressed_packet_len;
@@ -428,7 +429,7 @@ srl_decompress_body_zlib(pTHX_ srl_decoder_t *dec)
         (unsigned char *)dec->pos,
         &tmp,
         (const unsigned char *)old_pos,
-        compressed_packet_len-header_len
+        compressed_packet_len
     );
 
     if (expect_false( decompress_ok != Z_OK ))
@@ -451,6 +452,9 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
     SRL_UPDATE_BODY_POS(dec);
     if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY) )) {
         srl_decompress_body_snappy(aTHX_ dec);
+        origdec->bytes_consumed = dec->bytes_consumed;
+    } else if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_ZLIB) )) {
+        srl_decompress_body_zlib(aTHX_ dec);
         origdec->bytes_consumed = dec->bytes_consumed;
     }
 
