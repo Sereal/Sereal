@@ -859,8 +859,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
         assert(BUF_POS_OFS(enc->buf) > sereal_header_len);
         uncompressed_body_length = BUF_POS_OFS(enc->buf) - sereal_header_len;
 
-        if (enc->compress_threshold > 0
-            && uncompressed_body_length < (STRLEN)enc->compress_threshold)
+        if (uncompressed_body_length < (STRLEN)enc->compress_threshold)
         {
             /* Don't bother with compression at all if we have less than $threshold bytes of payload */
             srl_reset_compression_header_flag(enc);
