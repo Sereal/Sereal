@@ -29,7 +29,7 @@ if (not $ok) {
     plan skip_all => 'Did not find right version of encoder';
 }
 else {
-    run_roundtrip_tests(2); # 2 == run only tests for proto v2
+    run_roundtrip_tests(1); # 1 == run only tests for proto v1
 }
 
 
