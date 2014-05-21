@@ -506,14 +506,16 @@ void
 srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src)
 {
     /* 4th to 8th bit are flags. Using 4th for snappy flag. FIXME needs to go in spec. */
-    const U8 version_and_flags = (U8)enc->protocol_version
-                                 | (
-                                    SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY)
-                                    ? SRL_PROTOCOL_ENCODING_SNAPPY
-                                    : SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL)
-                                    ? SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL
-                                    : SRL_PROTOCOL_ENCODING_RAW
-                                 );
+    const U8 flags = (
+                         SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY)
+                            ? SRL_PROTOCOL_ENCODING_SNAPPY
+                         : SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL)
+                            ? SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL
+                         : SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_ZLIB)
+                            ? SRL_PROTOCOL_ENCODING_ZLIB
+                         : SRL_PROTOCOL_ENCODING_RAW
+                     );
+    const U8 version_and_flags = (U8)enc->protocol_version | flags;
 
     /* 4 byte magic string + proto version
      * + potentially uncompressed size varint
@@ -887,7 +889,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
              * in traditional Snappy mode. (So needs to be added for any of
              * ZLIB, or incremental Snappy.) */
             if ( !is_traditional_snappy )
-                dest_len += SRL_MAX_VARINT_LENGTH;
+                dest_len += (1+!is_snappy) * SRL_MAX_VARINT_LENGTH;
 
             if (is_snappy)
                 srl_init_snappy_workmem(aTHX_ enc);
@@ -901,7 +903,12 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
             enc->buf.pos += sereal_header_len;
             SRL_UPDATE_BODY_POS(enc); /* will do the right thing wrt. protocol V1 / V2 */
 
-            /* Embed compressed packet length */
+            /* Embed compressed packet length if Zlib */
+            if (!is_snappy) {
+                srl_buf_cat_varint_nocheck(aTHX_ enc, 0, uncompressed_body_length);
+            }
+
+            /* Embed compressed packet length if incr. Snappy or Zlib*/
             if (expect_true( !is_traditional_snappy )) {
                 varint_start= enc->buf.pos;
                 srl_buf_cat_varint_nocheck(aTHX_ enc, 0, dest_len);
@@ -917,12 +924,13 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
             else {
                 mz_ulong dl = (mz_ulong)dest_len;
                 int status = mz_compress2(
-                    old_buf.start + sereal_header_len,
+                    (unsigned char *)(old_buf.start + sereal_header_len),
                     &dl,
                     (const unsigned char *)enc->buf.pos,
                     (mz_ulong)uncompressed_body_length,
                     9 /* FIXME configurable compression level */
                 );
+                (void)status;
                 assert(status != 0);
                 dest_len = (size_t)dl;
             }
