@@ -346,7 +346,16 @@ srl_build_encoder_struct(pTHX_ HV *opt)
             case 2:
                 SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_ZLIB);
                 if (enc->protocol_version < 3)
-                  croak("Zlib compression was introduced in protocol version 3 and you are asking for only version %i", (int)enc->protocol_version);
+                    croak("Zlib compression was introduced in protocol version 3 and you are asking for only version %i", (int)enc->protocol_version);
+
+                enc->compress_level = MZ_DEFAULT_COMPRESSION;
+                svp = hv_fetchs(opt, "compress_level", 0);
+                if ( svp && SvTRUE(*svp) ) {
+                    IV lvl = SvIV(*svp);
+                    if (expect_false( lvl < 1 || lvl > 10 )) /* Sekrit: compression lvl 10 is a miniz thing that doesn't exist in normal zlib */
+                        croak("'compress_level' needs to be between 1 and 9");
+                    enc->compress_level = lvl;
+                }
                 break;
             default:
                 croak("Invalid Sereal compression format");
@@ -929,7 +938,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
                     &dl,
                     (const unsigned char *)(old_buf.start + sereal_header_len),
                     (mz_ulong)uncompressed_body_length,
-                    9 /* FIXME configurable compression level */
+                    enc->compress_level
                 );
                 (void)status;
                 assert(status == Z_OK);
