@@ -33,6 +33,7 @@ typedef struct {
 
     void *snappy_workmem;     /* lazily allocated if and only if using Snappy */
     IV compress_threshold;    /* do not compress things smaller than this even if compression enabled */
+    IV compress_level;        /* For ZLIB, the compression level 1..9 */
 
                               /* only used if SRL_F_ENABLE_FREEZE_SUPPORT is set. */
     SV *sereal_string_sv;     /* SV that says "Sereal" for FREEZE support */

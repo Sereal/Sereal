@@ -116,6 +116,11 @@ a non-zero value to always attempt to compress.
 Note that the document will not be compressed if the resulting size
 will be bigger than the original size (even if C<compress_threshold> is 0).
 
+=head3 compress_level
+
+If Zlib compression is used, then this option will set a compression
+level from 1 (fastest) to 9 (best). Defaults to 6.
+
 =head3 snappy
 
 See also the C<compress> option. This option is provided only for
