@@ -65,16 +65,20 @@ push @str, substr($chars, int(rand(int(length($chars)/2+1))), 10) for 1..1000;
 my @rand = map rand, 1..1000;
 our %data;
 
-$data{$_}= make_data() for qw(sereal sereal_func dd1 dd2 ddl mp json_xs storable sereal_snappy cbor);
+$data{$_}= make_data() for qw(sereal sereal_func dd1 dd2 ddl mp json_xs storable sereal_snappy sereal_zlib_fast sereal_zlib_small cbor);
 
 our $enc = Sereal::Encoder->new(\%opt);
-our $enc_snappy = Sereal::Encoder->new({%opt, snappy => 1});
+our $enc_snappy = Sereal::Encoder->new({%opt, compress => Sereal::Encoder::SRL_SNAPPY});
+our $enc_zlib_fast = Sereal::Encoder->new({%opt, compress => Sereal::Encoder::SRL_ZLIB, compress_level => 1, compress_threshold => 0});
+our $enc_zlib_small = Sereal::Encoder->new({%opt, compress => Sereal::Encoder::SRL_ZLIB, compress_level => 10, compress_threshold => 0});
 our $dec = Sereal::Decoder->new(\%opt);
 
-our ($json_xs, $dd1, $dd2, $ddl, $sereal, $storable, $mp, $sereal_snappy, $cbor);
+our ($json_xs, $dd1, $dd2, $ddl, $sereal, $storable, $mp, $sereal_snappy, $sereal_zlib_fast, $sereal_zlib_small, $cbor);
 # do this first before any of the other dumpers "contaminate" the iv/pv issue
-$sereal   = $enc->encode($data{sereal});
-$sereal_snappy   = $enc_snappy->encode($data{sereal_snappy});
+$sereal            = $enc->encode($data{sereal});
+$sereal_snappy     = $enc_snappy->encode($data{sereal_snappy});
+$sereal_zlib_fast  = $enc_zlib_fast->encode($data{sereal_zlib_fast});
+$sereal_zlib_small = $enc_zlib_small->encode($data{sereal_zlib_small});
 if (!SEREAL_ONLY) {
     $json_xs  = encode_json($data{json_xs}) if !$medium_data or $nobless;
     $dd1      = Data::Dumper->new([$data{dd1}])->Indent(0)->Dump();
@@ -102,6 +106,8 @@ if (!SEREAL_ONLY) {
         ["Storable", bytes::length($storable)],
         ["Sereal::Encoder",  bytes::length($sereal)],
         ["Sereal::Encoder, Snappy",  bytes::length($sereal_snappy)],
+        ["Sereal::Encoder, Zlib (fast)",  bytes::length($sereal_zlib_fast)],
+        ["Sereal::Encoder, Zlib (small)",  bytes::length($sereal_zlib_small)],
     );
     for my $tuple (@size_datasets) {
         my ($name, $size) = @$tuple;
@@ -130,6 +136,8 @@ if ($encoder) {
             sereal_func => '$::x = encode_sereal($::data{sereal_func}, \%::opt);',
             sereal => '$::x = $::enc->encode($::data{sereal});',
             sereal_snappy => '$::x = $::enc_snappy->encode($::data{sereal_snappy});',
+            sereal_zlib_fast => '$::x = $::enc_zlib_fast->encode($::data{sereal_zlib_fast});',
+            sereal_zlib_small => '$::x = $::enc_zlib_small->encode($::data{sereal_zlib_small});',
         }
     );
 }
@@ -152,6 +160,8 @@ if ($decoder) {
             sereal_func => '$::x = decode_sereal($::sereal, \%::opt);',
             sereal => '$::x = $::dec->decode($::sereal);',
             sereal_snappy => '$::x = $::dec->decode($::sereal_snappy);',
+            sereal_zlib_fast => '$::x = $::dec->decode($::sereal_zlib_fast);',
+            sereal_zlib_small => '$::x = $::dec->decode($::sereal_zlib_small);',
         }
     );
 }
