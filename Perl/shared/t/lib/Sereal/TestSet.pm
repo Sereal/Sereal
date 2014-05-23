@@ -698,25 +698,29 @@ sub run_roundtrip_tests {
     for my $proto_version ($proto_version) {
         my $suffix = "_v$proto_version";
 
-        for my $opt (
+        # name, options, min proto version, max proto version
+        my @variants = (
             ['plain',          {                       } ],
             ['snappy',         { snappy           => 1 } ],
-            ['snappy_incr',    { snappy_incr      => 1 } ],
-            ['zlib',           { compress         => Sereal::Encoder::SRL_ZLIB() } ],
-            ['zlib_force',     { compress         => Sereal::Encoder::SRL_ZLIB(), compress_threshold => 0 } ],
-            ['sort_keys',      { sort_keys        => 1 } ],
-            ['dedupe_strings', { dedupe_strings   => 1 } ],
-            ['freeze/thaw',    { freeze_callbacks => 1 } ],
-        ) {
-            my ($name, $opts) = @$opt;
+            ['snappy_incr',    { snappy_incr      => 1 }, 2 ],
+            ['zlib',           { compress         => Sereal::Encoder::SRL_ZLIB() }, 3 ],
+            ['zlib_force',     { compress         => Sereal::Encoder::SRL_ZLIB(), compress_threshold => 0 }, 3 ],
+            ['sort_keys',      { sort_keys        => 1 }, 2 ],
+            ['dedupe_strings', { dedupe_strings   => 1 }, 2 ],
+            ['freeze/thaw',    { freeze_callbacks => 1 }, 2 ],
+        );
+        for my $opt (@variants) {
+            my ($name, $opts, $min_proto_v, $max_proto_v) = @$opt;
             $name .= $suffix;
-            next if $proto_version < 3 and exists ${$opt->[1]}{compress};
+            next if ($min_proto_v && $proto_version < $min_proto_v)
+                 or ($max_proto_v && $proto_version > $max_proto_v);
 
             if ($proto_version) {
                 if ($proto_version == 1) {
                     $opts->{use_protocol_v1} = 1;
                 }
                 else {
+                    # v2 ignores this, but will output v2 by default
                     $opts->{protocol_version} = $proto_version;
                 }
             }
