@@ -276,15 +276,20 @@ compatibility/migration purposes.
 
 Given a Perl data structure, serializes that data structure and returns a
 binary string that can be turned back into the original data structure by
-L<Sereal::Decoder>.
+L<Sereal::Decoder>. The method expects a data structure to serialize as first
+argument, optionally followed by a header data structure.
+
+A header is intended for embedding small amounts of meta data, such as routing
+information, in a document that allows users to avoid deserializing main body
+needlessly.
 
 =head1 EXPORTABLE FUNCTIONS
 
 =head2 sereal_encode_with_object
 
-The functional interface that is equivalent to using C<encode>.  Takes an
+The functional interface that is equivalent to using C<encode>. Takes an
 encoder object reference as first argument, followed by a data structure
-to serialize.
+and optional header to serialize.
 
 This functional interface is marginally faster than the OO interface
 since it avoids method resolution overhead and, on sufficiently modern
@@ -295,6 +300,18 @@ Perl versions, can usually avoid subroutine call overhead.
 The functional interface that is equivalent to using C<new> and C<encode>.
 Expects a data structure to serialize as first argument, optionally followed
 by a hash reference of options (see documentation for C<new()>).
+
+This function cannot be used for encoding a data structure with a header.
+See C<encode_sereal_with_header_data>.
+
+This functional interface is significantly slower than the OO interface since
+it cannot reuse the encoder object.
+
+=head2 encode_sereal_with_header_data
+
+The functional interface that is equivalent to using C<new> and C<encode>.
+Expects a data structure and a header to serialize as first and second arguments,
+optionally followed by a hash reference of options (see documentation for C<new()>).
 
 This functional interface is significantly slower than the OO interface since
 it cannot reuse the encoder object.
