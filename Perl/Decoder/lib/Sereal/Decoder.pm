@@ -370,6 +370,8 @@ Zefram
 
 Borislav Nikolov
 
+Ivan Kruglov E<lt>ivan.kruglov@yahoo.comE<gt>
+
 Some inspiration and code was taken from Marc Lehmann's
 excellent JSON::XS module due to obvious overlap in
 problem domain.
