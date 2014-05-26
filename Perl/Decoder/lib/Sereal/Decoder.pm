@@ -213,21 +213,40 @@ assignment. Possibly one day we will have an alternative to this.
 =head2 decode_with_header
 
 Given a byte string of Sereal data, the C<decode_with_header> call deserializes
-that data structure and header. The result can be obtained in one of two ways:
-C<decode_with_header> accepts a second and third parameters, which are scalars
-to write the result to, AND C<decode_with_header> will return array where first
-and second elements will contain the header and the resulting data structure respectively.
+that data structure as C<decode> would do, however it also decodes the optional
+user data structure that can be embedded into a Sereal document, inside the
+header  (see L<Sereal::Encoder::encode>).
 
-If there is no header in a Sereal document, corresponding variable will be set to undef.
+It accepts an optional second parameter, which is a scalar to write the body
+to, and an optional third parameter, which is a scalar to write the header to.
+
+Regardless of the number of parameters received, C<decode_with_header> returns
+an ArrayRef containing the deserialized body, and the deserialized header, in
+this order.
+
+See C<decode> for the subtle difference between the one, two and three
+parameters versions.
+
+If there is no header in a Sereal document, corresponding variable or return
+value will be set to undef.
 
 =head2 decode_only_header
 
-Given a byte string of Sereal data, the C<decode_only_header> call deserializes
-only header if any. The result can be obtained in one of two ways: <decode_only_header>
-accepts a second parameter, which is a scalar to write the result to, AND C<decode_only_header>
-will return the resulting header.
+Given a byte string of Sereal data, the C<decode_only_header> deserializes
+only the optional user data structure that can be embedded into a Sereal
+document, inside the header (see L<Sereal::Encoder::encode>).
 
-If there is no header in a Sereal document, corresponding variable will be set to undef.
+It accepts an optional second parameter, which is a scalar
+to write the header to.
+
+Regardless of the number of parameters received, C<decode_only_header> returns
+the resulting data structure.
+
+See C<decode> for the subtle difference between the one and two parameters
+versions.
+
+If there is no header in a Sereal document, corresponding variable or return
+value will be set to undef.
 
 =head2 decode_with_offset
 
@@ -236,22 +255,28 @@ pass an integer offset into the input string, at which the decoding is
 to start. The optional "pass-in" style scalar (see C<decode> above)
 is relegated to being the third parameter.
 
-=head2 decode_with_header_and_offset
-
-This method is a combination of C<decode_with_header> and C<decode_with_offset>.
-
 =head2 decode_only_header_with_offset
 
-This method is a combination of C<decode_only_header> and C<decode_with_offset>.
+Same as the C<decode_only_header> method, except as second parameter, you must
+pass an integer offset into the input string, at which the decoding is
+to start. The optional "pass-in" style scalar (see C<decode_only_header> above)
+is relegated to being the third parameter.
+
+=head2 decode_with_header_and_offset
+
+Same as the C<decode_with_header> method, except as second parameter, you must
+pass an integer offset into the input string, at which the decoding is
+to start. The optional "pass-in" style scalars (see C<decode_with_header> above)
+are relegated to being the third and fourth parameters.
 
 =head2 bytes_consumed
 
-After using the C<decode> method, C<bytes_consumed> can return the
-number of bytes of the input string that were actually consumed by
-the decoder. That is, if you append random garbage to a valid
-Sereal document, C<decode> will happily decode the data and ignore the
-garbage. If that is an error in your use case, you can use C<bytes_consumed>
-to catch it.
+After using the various C<decode> methods documented previously,
+C<bytes_consumed> can return the number of bytes B<from the body> of the input
+string that were actually consumed by the decoder. That is, if you append
+random garbage to a valid Sereal document, C<decode> will happily decode the
+data and ignore the garbage. If that is an error in your use case, you can use
+C<bytes_consumed> to catch it.
 
   my $out = $decoder->decode($sereal_string);
   if (length($sereal_string) != $decoder->bytes_consumed) {
@@ -275,6 +300,13 @@ is concatenated into the same string (code not very robust...):
     }
   };
 
+As mentioned, only the bytes consumed from the body are considered. So the
+following example is correct, as only the header is deserialized:
+
+  my $header = $decoder->decode_only_header($sereal_string);
+  my $count = $decoder->bytes_consumed;
+  # $count is 0
+
 =head2 looks_like_sereal
 
 Given a string (or undef), checks whether it looks like it starts
@@ -289,7 +321,7 @@ For reference, sereal's magic string is a four byte string C<=srl>.
 =head2 sereal_decode_with_object
 
 The functional interface that is equivalent to using C<decode>. Takes a
-decoder object reference as first argument, followed by a byte string
+decoder object reference as first parameter, followed by a byte string
 to deserialize.  Optionally takes a third parameter, which is the output
 scalar to write to. See the documentation for C<decode> above for details.
 
@@ -302,7 +334,7 @@ performance if you need to.
 =head2 sereal_decode_with_header_with_object
 
 The functional interface that is equivalent to using C<decode_with_header>.
-Takes a decoder object reference as first argument, followed by a byte string
+Takes a decoder object reference as first parameter, followed by a byte string
 to deserialize. Optionally takes third and fourth parameters, which are
 the output scalars to write to. See the documentation for C<decode_with_header>
 above for details.
