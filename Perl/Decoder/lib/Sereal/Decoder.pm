@@ -210,12 +210,39 @@ In other words,
 This is an unfortunate side-effect of perls standard copy semantics of
 assignment. Possibly one day we will have an alternative to this.
 
+=head2 decode_with_header
+
+Given a byte string of Sereal data, the C<decode_with_header> call deserializes
+that data structure and header. The result can be obtained in one of two ways:
+C<decode_with_header> accepts a second and third parameters, which are scalars
+to write the result to, AND C<decode_with_header> will return array where first
+and second elements will contain the header and the resulting data structure respectively.
+
+If there is no header in a Sereal document, corresponding variable will be set to undef.
+
+=head2 decode_only_header
+
+Given a byte string of Sereal data, the C<decode_only_header> call deserializes
+only header if any. The result can be obtained in one of two ways: <decode_only_header>
+accepts a second parameter, which is a scalar to write the result to, AND C<decode_only_header>
+will return the resulting header.
+
+If there is no header in a Sereal document, corresponding variable will be set to undef.
+
 =head2 decode_with_offset
 
 Same as the C<decode> method, except as second parameter, you must
 pass an integer offset into the input string, at which the decoding is
 to start. The optional "pass-in" style scalar (see C<decode> above)
 is relegated to being the third parameter.
+
+=head2 decode_with_header_and_offset
+
+This method is a combination of C<decode_with_header> and C<decode_with_offset>.
+
+=head2 decode_only_header_with_offset
+
+This method is a combination of C<decode_only_header> and C<decode_with_offset>.
 
 =head2 bytes_consumed
 
@@ -261,10 +288,24 @@ For reference, sereal's magic string is a four byte string C<=srl>.
 
 =head2 sereal_decode_with_object
 
-The functional interface that is equivalent to using C<decode>.  Takes a
+The functional interface that is equivalent to using C<decode>. Takes a
 decoder object reference as first argument, followed by a byte string
 to deserialize.  Optionally takes a third parameter, which is the output
 scalar to write to. See the documentation for C<decode> above for details.
+
+This functional interface is marginally faster than the OO interface
+since it avoids method resolution overhead and, on sufficiently modern
+Perl versions, can usually avoid subroutine call overhead. See
+L<Sereal::Performance> for a discussion on how to tune Sereal for maximum
+performance if you need to.
+
+=head2 sereal_decode_with_header_with_object
+
+The functional interface that is equivalent to using C<decode_with_header>.
+Takes a decoder object reference as first argument, followed by a byte string
+to deserialize. Optionally takes third and fourth parameters, which are
+the output scalars to write to. See the documentation for C<decode_with_header>
+above for details.
 
 This functional interface is marginally faster than the OO interface
 since it avoids method resolution overhead and, on sufficiently modern
@@ -279,6 +320,17 @@ Expects a byte string to deserialize as first argument, optionally followed
 by a hash reference of options (see documentation for C<new()>). Finally,
 C<decode_sereal> supports a third parameter, which is the output scalar
 to write to. See the documentation for C<decode> above for details.
+
+This functional interface is significantly slower than the OO interface since
+it cannot reuse the decoder object.
+
+=head2 decode_sereal_with_header_data
+
+The functional interface that is equivalent to using C<new> and C<decode_with_header>.
+Expects a byte string to deserialize as first argument, optionally followed
+by a hash reference of options (see documentation for C<new()>). Finally,
+C<decode_sereal> supports third and fourth parameters, which are the output scalars
+to write to. See the documentation for C<decode_with_header> above for details.
 
 This functional interface is significantly slower than the OO interface since
 it cannot reuse the decoder object.
