@@ -23,6 +23,8 @@ if (not have_encoder_and_decoder()) {
     exit 0;
 }
 
+Sereal::Decoder->import(":all");
+
 # First, test tied hashes. Expected behaviour: We don't segfault, we don't
 # throw exceptions (unless the tied hash is not iterable repeatedly),
 # we serialize the tied hash as if it was a normal hash - so no trace of
