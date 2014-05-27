@@ -3,18 +3,25 @@ use warnings;
 
 use Sereal::Decoder;
 use Test::More;
+use File::Spec;
+use lib File::Spec->catdir(qw(t lib));
+BEGIN {
+    lib->import('lib')
+        if !-d 't';
+}
+use Sereal::TestSet qw(:all);
 
 my @tests= (
     [ 15,  alias_smallint => 1  ],
     [ 127, alias_varint_under => 128  ],
 );
 
-if (eval "use Sereal::Encoder; 1") {
+if (have_encoder_and_decoder()) {
     my $num_tests= 0;
     $num_tests += ((16 + $_->[0] + 2) * 2) for @tests;
     plan tests => $num_tests;
 } else {
-    plan skip_all => "Requires Sereal::Encoder to be installed";
+    plan skip_all => 'Did not find right version of encoder';
 }
 foreach my $test (@tests) {
     my ($up_to, $opt, $opt_val)= @$test;
