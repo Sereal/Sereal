@@ -78,7 +78,7 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_ERRORf3(fmt,var1,var2,var3)         croak(SRL_BASE_ERROR_FORMAT fmt, SRL_BASE_ERROR_ARGS, (var1),(var2),(var3))
 #define SRL_ERRORf4(fmt,var1,var2,var3,var4)    croak(SRL_BASE_ERROR_FORMAT fmt, SRL_BASE_ERROR_ARGS, (var1),(var2),(var3),(var4))
 #define SRL_ERROR_UNIMPLEMENTED(dec,tag,str) \
-    SRL_ERRORf3("Tag %u %s is unimplemented at ofs: %d", (tag), (str), BUF_POS_OFS(dec))
+    SRL_ERRORf3("Tag %u %s is unimplemented at ofs: %lu", (tag), (str), (unsigned long)BUF_POS_OFS(dec))
 #define SRL_ERROR_UNTERMINATED(dec,tag,str) \
     SRL_ERRORf4("Tag SRL_HDR_%s %s was not terminated properly at ofs %lu with %lu to go", \
             tag_name[(tag) & 127], (str), (dec)->pos - (dec)->buf_start, (dec)->buf_end - (dec)->pos)
