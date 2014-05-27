@@ -1,10 +1,9 @@
 #!perl
 use strict;
 use warnings;
-# most be loaded before Sereal::TestSet
+# must be loaded before Sereal::TestSet
 use Sereal::Encoder qw(encode_sereal);
 use Sereal::Encoder::Constants qw(:all);
-use Sereal::Decoder qw(:all);
 use File::Spec;
 use Test::More;
 use Data::Dumper;
@@ -16,6 +15,12 @@ BEGIN {
 }
 
 use Sereal::TestSet qw(:all);
+
+my $ok = have_encoder_and_decoder();
+if (not $ok) {
+    plan skip_all => 'Did not find right version of decoder';
+    exit 0;
+}
 
 my $thaw_called = 0;
 my $freeze_called = 0;

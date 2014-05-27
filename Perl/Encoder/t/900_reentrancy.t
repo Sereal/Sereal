@@ -2,11 +2,21 @@
 use strict;
 use warnings;
 use Test::More;
+use File::Spec;
+use Sereal::Encoder;
+use lib File::Spec->catdir(qw(t lib));
+BEGIN {
+    lib->import('lib')
+        if !-d 't';
+}
+use Sereal::TestSet qw(:all);
+
+if (not have_encoder_and_decoder()) {
+    plan skip_all => 'Did not find right version of decoder';
+    exit 0;
+}
 
 # Encoder reentrancy test courtesy of Zefram
-
-use Sereal::Encoder;
-use Sereal::Decoder;
 
 my $enc = Sereal::Encoder->new({freeze_callbacks=>1});
 
