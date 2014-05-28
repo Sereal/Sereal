@@ -156,8 +156,8 @@ If set to a true value then C<Sereal::Decoder> will share integers from
 aliases to a common SV.
 
 The result of this may be significant space savings in data structures with
-many integers in the desire range. The cost is more memory used by the decoder
-and a very modest speed penalty when deserializing.
+many integers in the specified range. The cost is more memory used by the
+decoder and a very modest speed penalty when deserializing.
 
 Note this option changes the structure of the dumped data. Use with caution.
 
