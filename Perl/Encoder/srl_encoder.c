@@ -1454,6 +1454,12 @@ redo_dump:
     /* check if we have seen this scalar before, and track it so
      * if we see it again we recognize it */
     if ( expect_false( refcount > 1 ) ) {
+        if (src == &PL_sv_undef && enc->protocol_version >=3 ) {
+            srl_buf_cat_char(enc, SRL_HDR_SV_UNDEF);
+            --enc->recursion_depth;
+            return;
+        }
+        else
         if (src == &PL_sv_yes) {
             srl_buf_cat_char(enc, SRL_HDR_TRUE);
             --enc->recursion_depth;
@@ -1642,7 +1648,9 @@ redo_dump:
             } STMT_END
             SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt, refsv, ref_rewrite_pos);
         }
-        else {
+        else if (src == &PL_sv_undef && enc->protocol_version >= 3 ) {
+            srl_buf_cat_char(enc, SRL_HDR_SV_UNDEF);
+        } else {
             srl_buf_cat_char(enc, SRL_HDR_UNDEF);
         }
     }

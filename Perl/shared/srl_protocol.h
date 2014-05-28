@@ -44,7 +44,7 @@
     FLOAT             | "\"" |  34 | 0x22 | 0b00100010 | <IEEE-FLOAT>
     DOUBLE            | "#"  |  35 | 0x23 | 0b00100011 | <IEEE-DOUBLE>
     LONG_DOUBLE       | "\$" |  36 | 0x24 | 0b00100100 | <IEEE-LONG-DOUBLE>
-    UNDEF             | "%"  |  37 | 0x25 | 0b00100101 | None - Perl undef
+    UNDEF             | "%"  |  37 | 0x25 | 0b00100101 | None - Perl undef var; eg my $var= undef;
     BINARY            | "&"  |  38 | 0x26 | 0b00100110 | <LEN-VARINT> <BYTES> - binary/(latin1) string
     STR_UTF8          | "'"  |  39 | 0x27 | 0b00100111 | <LEN-VARINT> <UTF8> - utf8 string
     REFN              | "("  |  40 | 0x28 | 0b00101000 | <ITEM-TAG>    - ref to next item
@@ -63,8 +63,8 @@
     RESERVED_1        | "5"  |  53 | 0x35 | 0b00110101 |
     RESERVED_2        | "6"  |  54 | 0x36 | 0b00110110 |
     RESERVED_3        | "7"  |  55 | 0x37 | 0b00110111 |
-    RESERVED_4        | "8"  |  56 | 0x38 | 0b00111000 |
-    RESERVED_5        | "9"  |  57 | 0x39 | 0b00111001 | reserved
+    RESERVED_4        | "8"  |  56 | 0x38 | 0b00111000 | reserved
+    SV_UNDEF          | "9"  |  57 | 0x39 | 0b00111001 | undef (PL_sv_undef) - "the" Perl undef (see notes)
     FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no)
     TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes)
     MANY              | "<"  |  60 | 0x3c | 0b00111100 | <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3)
@@ -185,7 +185,7 @@
 #define SRL_HDR_FLOAT           ((char)34)      /* <IEEE-FLOAT> */
 #define SRL_HDR_DOUBLE          ((char)35)      /* <IEEE-DOUBLE> */
 #define SRL_HDR_LONG_DOUBLE     ((char)36)      /* <IEEE-LONG-DOUBLE> */
-#define SRL_HDR_UNDEF           ((char)37)      /* None - Perl undef */
+#define SRL_HDR_UNDEF           ((char)37)      /* None - Perl undef var; eg my $var= undef; */
 #define SRL_HDR_BINARY          ((char)38)      /* <LEN-VARINT> <BYTES> - binary/(latin1) string */
 #define SRL_HDR_STR_UTF8        ((char)39)      /* <LEN-VARINT> <UTF8> - utf8 string */
 
@@ -208,8 +208,9 @@
  *       them, might have to explicit == check later. */
 #define SRL_HDR_RESERVED        ((char)52)      /* reserved */
 #define SRL_HDR_RESERVED_LOW    ((char)52)
-#define SRL_HDR_RESERVED_HIGH   ((char)57)
+#define SRL_HDR_RESERVED_HIGH   ((char)56)
 
+#define SRL_HDR_SV_UNDEF        ((char)57)      /* undef (PL_sv_undef) - "the" Perl undef (see notes) */
 #define SRL_HDR_FALSE           ((char)58)      /* false (PL_sv_no)  */
 #define SRL_HDR_TRUE            ((char)59)      /* true  (PL_sv_yes) */
 

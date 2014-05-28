@@ -26,7 +26,7 @@ public interface SerealHeader {
 	static final byte SRL_HDR_FLOAT             = (byte)  34; /*  34 0x22 0b00100010 <IEEE-FLOAT> */
 	static final byte SRL_HDR_DOUBLE            = (byte)  35; /*  35 0x23 0b00100011 <IEEE-DOUBLE> */
 	static final byte SRL_HDR_LONG_DOUBLE       = (byte)  36; /*  36 0x24 0b00100100 <IEEE-LONG-DOUBLE> */
-	static final byte SRL_HDR_UNDEF             = (byte)  37; /*  37 0x25 0b00100101 None - Perl undef */
+	static final byte SRL_HDR_UNDEF             = (byte)  37; /*  37 0x25 0b00100101 None - Perl undef var; eg my $var= undef; */
 	static final byte SRL_HDR_BINARY            = (byte)  38; /*  38 0x26 0b00100110 <LEN-VARINT> <BYTES> - binary/(latin1) string */
 	static final byte SRL_HDR_STR_UTF8          = (byte)  39; /*  39 0x27 0b00100111 <LEN-VARINT> <UTF8> - utf8 string */
 	static final byte SRL_HDR_REFN              = (byte)  40; /*  40 0x28 0b00101000 <ITEM-TAG>    - ref to next item */
@@ -43,7 +43,8 @@ public interface SerealHeader {
 	static final byte SRL_HDR_OBJECTV_FREEZE    = (byte)  51; /*  51 0x33 0b00110011 <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT) */
 	static final byte SRL_HDR_RESERVED          = (byte)  52; /*  52 0x34 0b00110100 reserved */
 	static final byte SRL_HDR_RESERVED_LOW      = (byte)  52; /*  52 0x34 0b00110100 reserved */
-	static final byte SRL_HDR_RESERVED_HIGH     = (byte)  57; /*  57 0x39 0b00111001 reserved */
+	static final byte SRL_HDR_RESERVED_HIGH     = (byte)  56; /*  56 0x38 0b00111000 reserved */
+	static final byte SRL_HDR_SV_UNDEF          = (byte)  57; /*  57 0x39 0b00111001 undef (PL_sv_undef) - "the" Perl undef (see notes) */
 	static final byte SRL_HDR_FALSE             = (byte)  58; /*  58 0x3a 0b00111010 false (PL_sv_no) */
 	static final byte SRL_HDR_TRUE              = (byte)  59; /*  59 0x3b 0b00111011 true  (PL_sv_yes) */
 	static final byte SRL_HDR_MANY              = (byte)  60; /*  60 0x3c 0b00111100 <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3) */
@@ -67,4 +68,4 @@ public interface SerealHeader {
 	*/
 }
 
- 
+

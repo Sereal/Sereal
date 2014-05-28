@@ -195,7 +195,7 @@ static const char * const tag_name[] = {
 	"RESERVED_2",        /* "6"   54 0x36 0b00110110 */
 	"RESERVED_3",        /* "7"   55 0x37 0b00110111 */
 	"RESERVED_4",        /* "8"   56 0x38 0b00111000 */
-	"RESERVED_5",        /* "9"   57 0x39 0b00111001 */
+	"SV_UNDEF",          /* "9"   57 0x39 0b00111001 */
 	"FALSE",             /* ":"   58 0x3a 0b00111010 */
 	"TRUE",              /* ";"   59 0x3b 0b00111011 */
 	"MANY",              /* "<"   60 0x3c 0b00111100 */

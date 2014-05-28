@@ -255,7 +255,7 @@ header.
     FLOAT             | "\"" |  34 | 0x22 | 0b00100010 | <IEEE-FLOAT>
     DOUBLE            | "#"  |  35 | 0x23 | 0b00100011 | <IEEE-DOUBLE>
     LONG_DOUBLE       | "\$" |  36 | 0x24 | 0b00100100 | <IEEE-LONG-DOUBLE>
-    UNDEF             | "%"  |  37 | 0x25 | 0b00100101 | None - Perl undef
+    UNDEF             | "%"  |  37 | 0x25 | 0b00100101 | None - Perl undef var; eg my $var= undef;
     BINARY            | "&"  |  38 | 0x26 | 0b00100110 | <LEN-VARINT> <BYTES> - binary/(latin1) string
     STR_UTF8          | "'"  |  39 | 0x27 | 0b00100111 | <LEN-VARINT> <UTF8> - utf8 string
     REFN              | "("  |  40 | 0x28 | 0b00101000 | <ITEM-TAG>    - ref to next item
@@ -274,8 +274,8 @@ header.
     RESERVED_1        | "5"  |  53 | 0x35 | 0b00110101 |
     RESERVED_2        | "6"  |  54 | 0x36 | 0b00110110 |
     RESERVED_3        | "7"  |  55 | 0x37 | 0b00110111 |
-    RESERVED_4        | "8"  |  56 | 0x38 | 0b00111000 |
-    RESERVED_5        | "9"  |  57 | 0x39 | 0b00111001 | reserved
+    RESERVED_4        | "8"  |  56 | 0x38 | 0b00111000 | reserved
+    SV_UNDEF          | "9"  |  57 | 0x39 | 0b00111001 | undef (PL_sv_undef) - "the" Perl undef (see notes)
     FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no)
     TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes)
     MANY              | "<"  |  60 | 0x3c | 0b00111100 | <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3)
@@ -361,7 +361,7 @@ bit of the original tag has been set.
 
 When a decoder encounters a tag with its flag set it will remember the
 offset of the tag in the output packet and the item that was decoded from
-that tag. At a later point in the packet there will be an ALIAS or REFP
+that tag. At a later point in the packet there may be an ALIAS or REFP
 instruction which will refer to the item by its offset, and the decoder
 will reuse it as needed.
 
@@ -440,6 +440,34 @@ The return value of that C<THAW> call needs
 to be included in the final output structure. See the documentation
 of the Perl Sereal implemenation for examples of FREEZE/THAW methods.
 
+=head3 Dealing with undefined values
+
+The concept of undef is a little tricky in Perl. A variable may be
+undefined, in addition there is also a definitive "undef" which Perl
+uses in many situations. The difference can be illustrated with the
+following code:
+
+    my $x;
+    print +(\$x    == \$x)     ? "same" : "different", "\n";
+    print +(\undef == \undef)  ? "same" : "different", "\n";
+    print +(\$x    == \undef)  ? "same" : "different", "\n";
+
+which should print out
+
+    same
+    same
+    different
+
+In protocol versions 1 and 2 it was not possible to represent both forms
+of undef correctly, and Sereal defaulted to the "undefined variable"
+interpretation represented by the UNDEF tag in most situations.
+
+As of protocol version 3 the SV_UNDEF tag is used to handle this special
+case of undef so that Perl data structures can round trip properly.
+Other languages are free to treat SV_UNDEF and UNDEF as is appropriate.
+If there is an equivalent to PL_sv_undef then they should map SV_UNDEF
+accordingly, otherwise they are free to treat SV_UNDEF the same as UNDEF.
+
 =head1 PROTOCOL CHANGES
 
 =head2 Protocol Version 3
@@ -460,6 +488,10 @@ structure is
 
 where the first varint indicates the length of the uncompressed document,
 the second varint indicates the length of the compressed document.
+
+Additionally there is the new SV_UNDEF tag, used to represent Perl's
+PL_sv_undef in certain edge cases. See L<Dealing with undefined values>
+for details.
 
 =head2 Protocol Version 2
 

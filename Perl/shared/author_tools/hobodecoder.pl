@@ -170,6 +170,9 @@ sub parse_sv {
     printf "HASH";
     parse_hv($ind);
   }
+  elsif ($o == SRL_HDR_SV_UNDEF) {
+    printf "SV_UNDEF\n";
+  }
   elsif ($o == SRL_HDR_UNDEF) {
     printf "UNDEF\n";
   }

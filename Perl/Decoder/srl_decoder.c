@@ -1162,7 +1162,12 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
      * We need a new, different tag for true perl undef.
      *
      */
-    else if (SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_USE_UNDEF) && tag == SRL_HDR_UNDEF) {
+    else
+    if (
+        ( tag == SRL_HDR_SV_UNDEF )
+        ||
+        ( SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_USE_UNDEF) && tag == SRL_HDR_UNDEF )
+    ) {
         dec->pos++;
         referent= &PL_sv_undef;
     }
