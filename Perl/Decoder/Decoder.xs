@@ -151,7 +151,7 @@ THX_pp1_looks_like_sereal(pTHX)
     SETs(boolSV(
         SvOK(data) &&
         (strdata = SvPV(data, len), len >= SRL_MAGIC_STRLEN+3) /* at least one version/flag byte, one byte for header len, one type byte (smallest payload) */ &&
-        memcmp(strdata, SRL_MAGIC_STRING, SRL_MAGIC_STRLEN) == 0 &&
+        (memcmp(strdata, SRL_MAGIC_STRING, SRL_MAGIC_STRLEN) == 0 || memcmp(strdata, SRL_MAGIC_STRING_HIGHBIT, SRL_MAGIC_STRLEN) == 0) &&
         strdata[SRL_MAGIC_STRLEN] != (U8)0 /* FIXME this check could be much better using the proto versions and all*/
     ));
 }
