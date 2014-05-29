@@ -210,7 +210,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
 
 #define CALL_SRL_DUMP_SV(enc, src) STMT_START {                         \
     if (!(src)) {                                                       \
-        srl_buf_cat_char((enc), SRL_HDR_SV_UNDEF); /* is this right? */ \
+        srl_buf_cat_char((enc), SRL_HDR_CANONICAL_UNDEF); /* is this right? */ \
     }                                                                   \
     else                                                                \
     {                                                                   \
@@ -1490,7 +1490,7 @@ redo_dump:
      * if we see it again we recognize it */
     if ( expect_false( refcount > 1 ) ) {
         if (src == &PL_sv_undef && enc->protocol_version >=3 ) {
-            srl_buf_cat_char(enc, SRL_HDR_SV_UNDEF);
+            srl_buf_cat_char(enc, SRL_HDR_CANONICAL_UNDEF);
             --enc->recursion_depth;
             return;
         }
@@ -1666,7 +1666,7 @@ redo_dump:
             SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt, refsv, ref_rewrite_pos);
         }
         else if (src == &PL_sv_undef && enc->protocol_version >= 3 ) {
-            srl_buf_cat_char(enc, SRL_HDR_SV_UNDEF);
+            srl_buf_cat_char(enc, SRL_HDR_CANONICAL_UNDEF);
         } else {
             srl_buf_cat_char(enc, SRL_HDR_UNDEF);
         }

@@ -1164,7 +1164,7 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
      */
     else
     if (
-        ( tag == SRL_HDR_SV_UNDEF )
+        ( tag == SRL_HDR_CANONICAL_UNDEF )
         ||
         ( SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_USE_UNDEF) && tag == SRL_HDR_UNDEF )
     ) {

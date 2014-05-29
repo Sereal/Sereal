@@ -275,7 +275,7 @@ header.
     RESERVED_2        | "6"  |  54 | 0x36 | 0b00110110 |
     RESERVED_3        | "7"  |  55 | 0x37 | 0b00110111 |
     RESERVED_4        | "8"  |  56 | 0x38 | 0b00111000 | reserved
-    SV_UNDEF          | "9"  |  57 | 0x39 | 0b00111001 | undef (PL_sv_undef) - "the" Perl undef (see notes)
+    CANONICAL_UNDEF   | "9"  |  57 | 0x39 | 0b00111001 | undef (PL_sv_undef) - "the" Perl undef (see notes)
     FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no)
     TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes)
     MANY              | "<"  |  60 | 0x3c | 0b00111100 | <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3)
@@ -462,11 +462,11 @@ In protocol versions 1 and 2 it was not possible to represent both forms
 of undef correctly, and Sereal defaulted to the "undefined variable"
 interpretation represented by the UNDEF tag in most situations.
 
-As of protocol version 3 the SV_UNDEF tag is used to handle this special
+As of protocol version 3 the CANONICAL_UNDEF tag is used to handle this special
 case of undef so that Perl data structures can round trip properly.
-Other languages are free to treat SV_UNDEF and UNDEF as is appropriate.
-If there is an equivalent to PL_sv_undef then they should map SV_UNDEF
-accordingly, otherwise they are free to treat SV_UNDEF the same as UNDEF.
+Other languages are free to treat CANONICAL_UNDEF and UNDEF as is appropriate.
+If there is an equivalent to PL_sv_undef then they should map CANONICAL_UNDEF
+accordingly, otherwise they are free to treat CANONICAL_UNDEF the same as UNDEF.
 
 =head1 PROTOCOL CHANGES
 
@@ -489,7 +489,7 @@ structure is
 where the first varint indicates the length of the uncompressed document,
 the second varint indicates the length of the compressed document.
 
-Additionally there is the new SV_UNDEF tag, used to represent Perl's
+Additionally there is the new CANONICAL_UNDEF tag, used to represent Perl's
 PL_sv_undef in certain edge cases. See L<Dealing with undefined values>
 for details.
 

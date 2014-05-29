@@ -64,7 +64,7 @@
     RESERVED_2        | "6"  |  54 | 0x36 | 0b00110110 |
     RESERVED_3        | "7"  |  55 | 0x37 | 0b00110111 |
     RESERVED_4        | "8"  |  56 | 0x38 | 0b00111000 | reserved
-    SV_UNDEF          | "9"  |  57 | 0x39 | 0b00111001 | undef (PL_sv_undef) - "the" Perl undef (see notes)
+    CANONICAL_UNDEF   | "9"  |  57 | 0x39 | 0b00111001 | undef (PL_sv_undef) - "the" Perl undef (see notes)
     FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no)
     TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes)
     MANY              | "<"  |  60 | 0x3c | 0b00111100 | <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3)
@@ -210,7 +210,7 @@
 #define SRL_HDR_RESERVED_LOW    ((char)52)
 #define SRL_HDR_RESERVED_HIGH   ((char)56)
 
-#define SRL_HDR_SV_UNDEF        ((char)57)      /* undef (PL_sv_undef) - "the" Perl undef (see notes) */
+#define SRL_HDR_CANONICAL_UNDEF ((char)57)      /* undef (PL_sv_undef) - "the" Perl undef (see notes) */
 #define SRL_HDR_FALSE           ((char)58)      /* false (PL_sv_no)  */
 #define SRL_HDR_TRUE            ((char)59)      /* true  (PL_sv_yes) */
 
