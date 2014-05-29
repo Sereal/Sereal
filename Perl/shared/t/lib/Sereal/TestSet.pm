@@ -579,6 +579,12 @@ my $lots_of_9C = do {
 my $max_iv = ~0 >> 1;
 my $min_iv = do {use integer; -$max_iv-1}; # 2s complement assumption
 
+my $eng0e0= "0e0";
+my $eng0e1= "0e1";
+my $eng2= "1e3";
+
+my $sum= $eng0e0 + $eng0e1 + $eng2;
+
 our @ScalarRoundtripTests = (
     # name, structure
     ["undef", undef],
@@ -600,6 +606,7 @@ our @ScalarRoundtripTests = (
             0x7FFFFFFF, 0x80000000, 0x80000001, 0xFFFFFFFF, 0xDEADBEEF,
             # UV bounds
             $max_iv_p1, $max_uv_m1, $max_uv, $lots_of_9C,
+            $eng0e0, $eng0e1, $eng2,
         )
     ),
 
@@ -644,7 +651,7 @@ our @ScalarRoundtripTests = (
         'bop \'x\\x'    =>"x\x{100}"   , 'bing' =>   "x\x{100}",
         x=>'y',}, z => 'p' ,   }   ,
         i    =>  '1' ,}, l=>" \10", m=>"\10 ", n => " \10 ",
-        o => undef ,p=>undef,
+        o => undef ,p=>undef, q=>\undef, r=>\$eng0e0, u => \$eng0e1, w=>\$eng2
     }],
     ['var strings', [ "\$", "\@", "\%" ]],
     [ "quote keys", { "" => '"', "'" => "" }],
@@ -659,6 +666,8 @@ our @ScalarRoundtripTests = (
     [ "ref to undef", \undef],
     [ "negative big num", -4123456789],
     [ "positive big num", 4123456789],
+    [ "eng-ref", [\$eng0e0, \$eng0e1, \$eng2] ],
+    [ "undef", [\undef, \undef] ],
 );
 
 use Storable qw(dclone);
