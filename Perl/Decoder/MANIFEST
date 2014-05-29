@@ -17,6 +17,8 @@ lib/Sereal/Decoder/Constants.pm
 lib/Sereal/Performance.pm
 Makefile.PL
 MANIFEST			This list of files
+miniz.c
+miniz.h
 ppport.h
 ptable.h
 snappy/csnappy.h
@@ -46,6 +48,7 @@ t/400_utf8validate.t
 t/500_utf8decoding.t
 t/700_roundtrip.t
 t/701_roundtrip_v1.t
+t/702_roundtrip_v2.t
 t/800_threads.t
 t/900_regr_issue_15.t
 t/901_regr_segv.t

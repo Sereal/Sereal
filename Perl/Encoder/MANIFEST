@@ -16,6 +16,8 @@ lib/Sereal/Encoder.pm
 lib/Sereal/Encoder/Constants.pm
 Makefile.PL
 MANIFEST			This list of files
+miniz.c
+miniz.h
 ppport.h
 ptable.h
 snappy/csnappy.h
@@ -47,6 +49,7 @@ t/300_fail.t
 t/400_evil.t
 t/700_roundtrip.t
 t/701_roundtrip_v1.t
+t/702_roundtrip_v2.t
 t/800_threads.t
 t/900_reentrancy.t
 t/data/corpus

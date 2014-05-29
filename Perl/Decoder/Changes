@@ -1,8 +1,16 @@
 Revision history for Perl extension Sereal-Decoder
 
-* Warning: For a seamless upgrade, upgrade to version 2
-*          of the decoder before upgrading to version 2 of the
+* Warning: For a seamless upgrade, upgrade to version 3
+*          of the decoder before upgrading to version 3 of the
 *          encoder!
+
+3.000_001
+  - Upgrade to version 3 of the protocol
+    * Add Zlib compression support to the protocol
+    * Add Zlib support to Encoder/Decoder
+    * Add CANONICAL_UNDEF tag to represent PL_sv_undef
+    * Change magic header so it is trivial to detect
+      and reject utf8 encoded Sereal packets.
 
 2.12 Sun May 11 23:30
   - Add new options "alias_smallint", "alias_varint_under", and "use_undef"

@@ -4,7 +4,7 @@ use warnings;
 
 use ExtUtils::MakeMaker;
 
-our $VERSION = '2.12';
+our $VERSION = '3.000_001';
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
