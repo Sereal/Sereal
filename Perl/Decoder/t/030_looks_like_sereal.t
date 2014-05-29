@@ -15,10 +15,17 @@ my @tests = (
     # input, bool outcome, name
     ["", 0, "empty string is not Sereal"],
     [undef, 0, "undef string is not Sereal"],
+
     [SRL_MAGIC_STRING, 0, "SRL_MAGIC_STRING alone is not Sereal"],
     [SRL_MAGIC_STRING . chr(1) . chr(0), 0, "SRL_MAGIC_STRING with header is not Sereal"],
     [SRL_MAGIC_STRING . chr(1) . chr(0) . chr(SRL_HDR_UNDEF), 1, "SRL_MAGIC_STRING with header and small payload is Sereal"],
     [SRL_MAGIC_STRING . chr(0) . chr(0) . chr(SRL_HDR_UNDEF), 0, "SRL_MAGIC_STRING with bad header is not Sereal"],
+
+    [SRL_MAGIC_STRING_HIGHBIT, 0, "SRL_MAGIC_STRING_HIGHBIT alone is not Sereal"],
+    [SRL_MAGIC_STRING_HIGHBIT . chr(1) . chr(0), 0, "SRL_MAGIC_STRING_HIGHBIT with header is not Sereal"],
+    [SRL_MAGIC_STRING_HIGHBIT . chr(1) . chr(0) . chr(SRL_HDR_UNDEF), 1, "SRL_MAGIC_STRING_HIGHBIT with header and small payload is Sereal"],
+    [SRL_MAGIC_STRING_HIGHBIT . chr(0) . chr(0) . chr(SRL_HDR_UNDEF), 0, "SRL_MAGIC_STRING_HIGHBIT with bad header is not Sereal"],
+
     ["=Srl". chr(1) . chr(0) . chr(SRL_HDR_UNDEF), 0, "wrong magic string is not Sereal"],
 );
 
