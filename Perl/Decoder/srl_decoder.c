@@ -412,7 +412,6 @@ srl_decompress_body_zlib(pTHX_ srl_decoder_t *dec)
     const STRLEN compressed_packet_len =
         (STRLEN)srl_read_varint_uv_length(aTHX_ dec, " while reading compressed packet size");
     int decompress_ok;
-    int header_len;
     mz_ulong tmp;
 
     /* All decl's above here, or we break C89 compilers */
