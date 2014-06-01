@@ -1831,6 +1831,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
 
             case SRL_HDR_TRUE:          sv_setsv(into, &PL_sv_yes);                 break;
             case SRL_HDR_FALSE:         sv_setsv(into, &PL_sv_no);                  break;
+            case SRL_HDR_CANONICAL_UNDEF: /* fallthrough */
             case SRL_HDR_UNDEF:         sv_setsv(into, &PL_sv_undef);               break;
             case SRL_HDR_BINARY:        srl_read_string(aTHX_ dec, 0, into);        break;
             case SRL_HDR_STR_UTF8:      srl_read_string(aTHX_ dec, 1, into);        break;
