@@ -309,12 +309,33 @@ following example is correct, as only the header is deserialized:
 
 =head2 looks_like_sereal
 
-Given a string (or undef), checks whether it looks like it starts
-with a valid Sereal packet. This is not a full-blown validation.
-Instead, this just checks the magic string and some header properties
-to provide a quick and efficient way to distinguish multiple well-formed
-serialization methods instead of really making sure it's valid Sereal.
-For reference, sereal's magic string is a four byte string C<=srl>.
+Performs some rudimentary check to determine if the argument is
+appears to be a valid Sereal packet or not. These tests are not
+comprehensive and a true result does not mean that the document
+is valid, merely that it appears to be valid. On the other hand
+a false result is always reliable.
+
+The return of this value may be treated as a simple boolean but
+it is in fact a more complex return. When the argument does not
+look anything like a Sereal document then it returns perl's FALSE,
+which has the property of being string equivalent to "" and
+numerically equivalent to 0. However like a utf8 encoded sereal
+document then it returns 0, and otherwise returns the protocol
+version of the document (currently 1, 2 or 3). This means you
+can write something like this:
+
+    $type= looks_like_sereal($thing);
+    if ($type eq '') {
+        say "Not a Sereal document";
+    } elsif ($type eq '0') {
+        say "Possibly utf8 encoded Sereal document";
+    } else {
+        say "Sereal document version $type";
+    }
+
+For reference, sereal's magic string is a four byte string which is either
+C<=srl> for protocol version 1 and 2 and C<=\xF3rl> for protocol version
+3 and later.
 
 =head1 EXPORTABLE FUNCTIONS
 

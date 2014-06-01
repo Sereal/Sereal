@@ -377,7 +377,7 @@ method_sereal_encode(VALUE self, VALUE args) {
     }
 
     // setup header
-    s_append_u32(s,SRL_MAGIC_STRING_LILIPUTIAN);
+    s_append_u32(s,SRL_MAGIC_STRING_UINT_LE);
     s_append_u8(s,version);
     s_append_u8(s,0x0);
     u32 s_header_len = s->pos;

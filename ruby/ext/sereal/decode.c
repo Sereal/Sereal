@@ -346,7 +346,7 @@ again:
     }
 
     u32 magic = s_get_u32_bang(s);
-    if (magic != SRL_MAGIC_STRING_LILIPUTIAN)
+    if (magic != SRL_MAGIC_STRING_UINT_LE)
         s_raise(s,rb_eTypeError,"invalid header: %d (%x)",magic,magic);
 
     u8 version = s_get_u8_bang(s);

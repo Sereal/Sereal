@@ -472,14 +472,11 @@ accordingly, otherwise they are free to treat CANONICAL_UNDEF the same as UNDEF.
 
 =head2 Protocol Version 3
 
-In Sereal protocol version 3, there is a change to the Sereal magic string
-that starts all Sereal documents: In order to make it much easier to track
-down bugs caused by encoding problems in applications, the Sereal magic string
-may now be either the pre-v3 "=srl" or instead also "=\xF3rl", so the same but
-with the high bit set on the "s" character. In practice, this means that it
-is very easy to detect that a Sereal v3 document has been erroneously
-UTF-8 encoded because \xF3 is translated to two bytes \xC3\xB3. Decoders are
-required to support both magic strings.
+In Sereal protocol version 3, the magic string has been changed to make it
+easier to detect UTF-8 encoded data by setting the high bit on the 's'
+character, thus changing the older "=srl" to "=\xF3rl". Encoders generating
+version 3 of the protocol or later must use the new header, and encoders
+generating version 1 or 2 of the protocol must use the old header.
 
 Also new is the "zlib" compression (document type 3). As detailed above, its
 structure is

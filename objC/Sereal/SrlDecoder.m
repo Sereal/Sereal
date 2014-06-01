@@ -411,7 +411,7 @@ static void create_decoders_lookup()
         return nil;
     }
     uint32 magic = *((uint32 *)bytes);
-    if (magic != SRL_MAGIC_STRING_LILIPUTIAN) {
+    if (magic != SRL_MAGIC_STRING_UINT_LE) {
         NSLog(@"Bad SRL Magic, skipping packet");
         return nil;
     }

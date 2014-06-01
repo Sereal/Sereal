@@ -19,11 +19,11 @@ use Sereal::TestSet qw(:all);
 # bad input. This obviously shouldn't segfault and neither leak
 # memory.
 
-plan tests => 55;
+plan tests => 56;
 my ($ok, $out, $err);
 
 SCOPE: {
-    check_fail(Header(), qr/unexpected end of input/i, "Cannot decode just header");
+    check_fail(Header(), qr/Not a valid Sereal document/i, "Cannot decode just header");
 
     my $badheaderpacket = "srX".chr(SRL_PROTOCOL_VERSION) . chr(0) . integer(1);
     check_fail($badheaderpacket, qr/Bad Sereal header/i, "Packet with invalid header blows up");
@@ -51,12 +51,16 @@ SCOPE: {
     check_fail($hash_packet, qr/Sereal: Error/, "Setting hash limit option (1)", {max_num_hash_entries => 1});
     check_fail($hash_packet, qr/Sereal: Error/, "Setting hash limit option (999)", {max_num_hash_entries => 999});
 
-    my $valid_packet = Header(2) . chr(SRL_HDR_UNDEF);
-    my $undef = decode_sereal($valid_packet);
-    ok(!defined($undef), "Have valid test packet");
+    my $valid_packet = Header(2) . short_string("foo");
+    my $foo = decode_sereal($valid_packet);
+    is($foo, "foo", "Have valid test packet");
     $valid_packet =~ s/^=srl/=\xF3rl/;
-    $undef = decode_sereal($valid_packet);
-    ok(!defined($undef), "Have valid test packet after asserting high bit in magic");
+    $foo = eval { decode_sereal($valid_packet) };
+    ok(!defined($foo), "SRL_MAGIC_STRING_HIGHBIT implies protocol v3 or higher.");
+
+    substr($valid_packet,4,1,chr(3));
+    $foo = eval { decode_sereal($valid_packet) };
+    is($foo,"foo", "Have valid test packet after asserting high bit in magic with protocol v3");
 
     utf8::encode($valid_packet);
     check_fail($valid_packet, qr/UTF-8/, "Sereal determined 'accidental' UTF8 upgrade");

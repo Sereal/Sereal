@@ -145,15 +145,20 @@ static void
 THX_pp1_looks_like_sereal(pTHX)
 {
     dSP;
-    SV *data = TOPs;
-    char *strdata;
-    STRLEN len;
-    SETs(boolSV(
-        SvOK(data) &&
-        (strdata = SvPV(data, len), len >= SRL_MAGIC_STRLEN+3) /* at least one version/flag byte, one byte for header len, one type byte (smallest payload) */ &&
-        (memcmp(strdata, SRL_MAGIC_STRING, SRL_MAGIC_STRLEN) == 0 || memcmp(strdata, SRL_MAGIC_STRING_HIGHBIT, SRL_MAGIC_STRLEN) == 0) &&
-        strdata[SRL_MAGIC_STRLEN] != (U8)0 /* FIXME this check could be much better using the proto versions and all*/
-    ));
+    SV *data= TOPs;
+    /* shoud this be SvPOK() maybe? */
+    if ( SvOK(data) ) {
+        STRLEN len;
+        char *strdata= SvPV(data, len);
+        IV ret= srl_validate_header_version_pv_len(aTHX_ strdata, len);
+        if ( ret < 0 ) {
+            SETs(&PL_sv_no);
+        } else {
+            SETs(newSViv(ret & SRL_PROTOCOL_VERSION_MASK));
+        }
+    } else {
+        SETs(&PL_sv_no);
+    }
 }
 
 #if USE_CUSTOM_OPS

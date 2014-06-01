@@ -406,7 +406,7 @@ static void srl_encode(srl_encoder_t *enc, id obj)
         
         output_length += enc.len;
         output_buffer = calloc(1, output_length);
-        *((uint32_t *)output_buffer) = SRL_MAGIC_STRING_LILIPUTIAN;
+        *((uint32_t *)output_buffer) = SRL_MAGIC_STRING_UINT_LE;
         offset += 4;
         output_buffer[offset++] = vtype;
         output_buffer[offset++] = 0x00; // no extra header options

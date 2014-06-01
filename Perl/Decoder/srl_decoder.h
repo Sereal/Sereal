@@ -28,8 +28,12 @@ typedef struct {
 
     UV bytes_consumed;
     UV recursion_depth;                 /* Recursion depth of current decoder */
-    U8 proto_version_and_flags;
+    U8 proto_version;
+    U8 encoding_flags;
 } srl_decoder_t;
+
+/* utility routine */
+IV srl_validate_header_version_pv_len(pTHX_ char *strdata, STRLEN len);
 
 /* constructor; don't need destructor, this sets up a callback */
 srl_decoder_t *srl_build_decoder_struct(pTHX_ HV *opt);
