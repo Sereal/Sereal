@@ -6,6 +6,13 @@ please see the Encoder and Decoder changelogs:
    * https://github.com/Sereal/Sereal/blob/master/Perl/Decoder/Changes
    * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
 
+3.000_003
+  - Fixes to Decoder test counts when encoder not installed
+
+3.000_002
+  - Fixes to Decoder looks_like_sereal and minor protocol
+    rules tweaks.
+
 3.000_001
   - Upgrade to version 3 of the protocol
     * Add Zlib compression support to the protocol

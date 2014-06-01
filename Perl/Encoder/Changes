@@ -3,6 +3,11 @@ Revision history for Perl extension Sereal-Encoder
 * Warning: For a seamless upgrade, upgrade to version 3
 *          of the decoder before upgrading to version 3 of the
 *          encoder!
+3.000_003
+  - Sync release with decoder.
+
+3.000_002
+  - Minor protocol changes to magic header definition.
 
 3.000_001
   - Upgrade to version 3 of the protocol

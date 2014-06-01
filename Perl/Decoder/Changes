@@ -3,6 +3,8 @@ Revision history for Perl extension Sereal-Decoder
 * Warning: For a seamless upgrade, upgrade to version 3
 *          of the decoder before upgrading to version 3 of the
 *          encoder!
+3.000_003
+  - Fix tests when encoder is not installed.
 
 3.000_002
   - Fixes from v3.000_001, primarily to looks_like_sereal().
