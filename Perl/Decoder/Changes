@@ -4,6 +4,12 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 3 of the
 *          encoder!
 
+3.000_002
+  - Fixes from v3.000_001, primarily to looks_like_sereal().
+  - Doc clarifications, new magic header is forbidden on v1 and v2
+    documents, and required on v3 and later.
+  - Other minor fixes.
+
 3.000_001
   - Upgrade to version 3 of the protocol
     * Add Zlib compression support to the protocol
