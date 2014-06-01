@@ -174,7 +174,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
         }                                                               \
         else
 #else
-#define DO_POK_REGEXP(enc,src) /*no-op*/
+#define DO_POK_REGEXP(enc, src, svt) /*no-op*/
 #endif
 
 #define _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt)                    \
