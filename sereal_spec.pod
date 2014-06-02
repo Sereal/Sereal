@@ -275,9 +275,9 @@ header.
     RESERVED_2        | "6"  |  54 | 0x36 | 0b00110110 |
     RESERVED_3        | "7"  |  55 | 0x37 | 0b00110111 |
     RESERVED_4        | "8"  |  56 | 0x38 | 0b00111000 | reserved
-    CANONICAL_UNDEF   | "9"  |  57 | 0x39 | 0b00111001 | undef (PL_sv_undef) - "the" Perl undef (see notes)
-    FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no)
-    TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes)
+    CANONICAL_UNDEF   | "9"  |  57 | 0x39 | 0b00111001 | canonical, shared undef (PL_sv_undef in Perl, see notes)
+    FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no in Perl)
+    TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes in Perl)
     MANY              | "<"  |  60 | 0x3c | 0b00111100 | <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3)
     PACKET_START      | "="  |  61 | 0x3d | 0b00111101 | (first byte of magic string in header)
     EXTEND            | ">"  |  62 | 0x3e | 0b00111110 | <BYTE> - for additional tags
@@ -444,8 +444,11 @@ of the Perl Sereal implemenation for examples of FREEZE/THAW methods.
 
 The concept of undef is a little tricky in Perl. A variable may be
 undefined, in addition there is also a definitive "undef" which Perl
-uses in many situations. The difference can be illustrated with the
-following code:
+uses in many situations. This definitive "undef" is a globally shared,
+immutable value. Its use is vaguely equivalent to aliasing the same,
+read-only copy of a Perl value that happens to be undefined.
+
+The difference can be illustrated with the following code:
 
     my $x;
     print +(\$x    == \$x)     ? "same" : "different", "\n";
@@ -464,8 +467,10 @@ interpretation represented by the UNDEF tag in most situations.
 
 As of protocol version 3 the CANONICAL_UNDEF tag is used to handle this special
 case of undef so that Perl data structures can round trip properly.
-Other languages are free to treat CANONICAL_UNDEF and UNDEF as is appropriate.
-If there is an equivalent to PL_sv_undef then they should map CANONICAL_UNDEF
+Other languages are free to treat CANONICAL_UNDEF and UNDEF as is appropriate
+to their language semantics:
+If there is an equivalent to this globally shared undefined value (PL_sv_undef in Perl's
+implementation) then they should map CANONICAL_UNDEF
 accordingly, otherwise they are free to treat CANONICAL_UNDEF the same as UNDEF.
 
 =head1 PROTOCOL CHANGES
@@ -487,8 +492,8 @@ where the first varint indicates the length of the uncompressed document,
 the second varint indicates the length of the compressed document.
 
 Additionally there is the new CANONICAL_UNDEF tag, used to represent Perl's
-PL_sv_undef in certain edge cases. See L<Dealing with undefined values>
-for details.
+canonical, shared undefined value (PL_sv_undef) in certain edge cases.
+See L<Dealing with undefined values> for details.
 
 =head2 Protocol Version 2
 
