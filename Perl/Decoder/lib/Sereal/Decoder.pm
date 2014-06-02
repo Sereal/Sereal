@@ -309,20 +309,22 @@ following example is correct, as only the header is deserialized:
 
 =head2 looks_like_sereal
 
-Performs some rudimentary check to determine if the argument is
+Performs some rudimentary check to determine if the argument
 appears to be a valid Sereal packet or not. These tests are not
 comprehensive and a true result does not mean that the document
 is valid, merely that it appears to be valid. On the other hand
 a false result is always reliable.
 
-The return of this value may be treated as a simple boolean but
-it is in fact a more complex return. When the argument does not
-look anything like a Sereal document then it returns perl's FALSE,
+The return of this function may be treated as a simple boolean but
+is in fact a more complex return. When the argument does not
+look anything like a Sereal document then the return is perl's FALSE,
 which has the property of being string equivalent to "" and
-numerically equivalent to 0. However like a utf8 encoded sereal
-document then it returns 0, and otherwise returns the protocol
-version of the document (currently 1, 2 or 3). This means you
-can write something like this:
+numerically equivalent to 0. However when the argument appears to
+be a UTF-8 encoded protocol 3 Sereal document (by noticing that
+the \xF3 in the magic string has been replaced by \xC3\xB3) then
+it returns 0 (the number, which is string equivalent to "0"), and
+otherwise returns the protocol version of the document. This means
+you can write something like this:
 
     $type= looks_like_sereal($thing);
     if ($type eq '') {
@@ -333,9 +335,11 @@ can write something like this:
         say "Sereal document version $type";
     }
 
-For reference, sereal's magic string is a four byte string which is either
-C<=srl> for protocol version 1 and 2 and C<=\xF3rl> for protocol version
-3 and later.
+For reference, Sereal's magic value is a four byte string which is
+either C<=srl> for protocol version 1 and 2 or C<=\xF3rl> for protocol
+version 3 and later. This function checks that the magic string
+corresponds with the reported version number, as well as other
+checks, which may be enhanced in the future.
 
 =head1 EXPORTABLE FUNCTIONS
 
