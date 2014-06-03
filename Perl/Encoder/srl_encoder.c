@@ -202,11 +202,22 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
         srl_dump_nv(aTHX_ enc, src);                                    \
     }                                                                   \
     else                                                                \
-    /* if its POK now, then it must be a string */                      \
-    if (SvPOK(src)) {                                                   \
+    /* The POKp, IOKp, NOKp checks below deal with PVLV */              \
+    /* if its POK or POKp, then we treat it as a string */              \
+    if (SvPOK(src) || SvPOKp(src)) {                                    \
         DO_POK_REGEXP(enc,src,svt)                                      \
         srl_dump_svpv(aTHX_ enc, src);                                  \
-    }
+    }                                                                   \
+    else                                                                \
+    /* if its IOKp then we treat it as an int */                        \
+    if (SvIOKp(src)) {                                                  \
+        srl_dump_ivuv(aTHX_ enc, src);                                  \
+    }                                                                   \
+    else                                                                \
+    /* if its NOKp then we treat it as an nv */                         \
+    if (SvNOKp(src)) {                                                  \
+        srl_dump_nv(aTHX_ enc, src);                                    \
+    }                                                                   \
 
 #define CALL_SRL_DUMP_SV(enc, src) STMT_START {                         \
     if (!(src)) {                                                       \
@@ -214,6 +225,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
     }                                                                   \
     else                                                                \
     {                                                                   \
+        SvGETMAGIC(src);                                                \
         svtype svt= SvTYPE((src));                                      \
         if (svt < SVt_PVMG &&                                           \
             SvREFCNT((src)) == 1 &&                                     \
