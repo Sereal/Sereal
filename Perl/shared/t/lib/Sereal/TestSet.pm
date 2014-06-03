@@ -878,7 +878,7 @@ sub write_test_files {
         _write_file($make_name_file_name->($testno), $t->[2] . "\n");
     }
 
-    my $encoder = Sereal::Encoder->new;
+    my $encoder = Sereal::Encoder->new({protocol_version => $PROTO_VERSION});
     foreach my $i (0..$#RoundtripTests) {
         my $testno = @BasicTests + $i + 1;
         my $t = $RoundtripTests[$i];
