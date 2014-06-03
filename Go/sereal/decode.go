@@ -237,7 +237,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 			}
 		} else {
 			// zigzag
-			i = -(1 + (i >> 1)) // un-zigzag
+			i = int(-(1 + (uint64(i) >> 1))) // un-zigzag
 			setInt(ptr, reflect.Int, i)
 		}
 

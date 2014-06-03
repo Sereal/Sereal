@@ -440,7 +440,7 @@ func (e *Encoder) encodeInt(by []byte, k reflect.Kind, i int64) []byte {
 	switch {
 	case 0 <= i && i <= 15:
 		by = append(by, byte(i)&0x0f)
-	case -16 <= i && i < 0:
+	case -16 <= i && i < 0 && k == reflect.Int:
 		by = append(by, 0x010|(byte(i)&0x0f))
 	case i > 15:
 		by = append(by, typeVARINT)
