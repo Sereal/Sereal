@@ -3,6 +3,10 @@ Revision history for Perl extension Sereal-Encoder
 * Warning: For a seamless upgrade, upgrade to version 3
 *          of the decoder before upgrading to version 3 of the
 *          encoder!
+3.000_004
+  - Fix issues in new serialization rules with tied arrays
+    on older Perls revealed by breakage in t/400_evil.t
+
 3.000_003
   - Sync release with decoder.
 
