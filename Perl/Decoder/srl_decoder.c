@@ -1074,8 +1074,14 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         num_keys= srl_read_varint_uv_count(aTHX_ dec," while reading HASH");
         (void)SvUPGRADE(into, SVt_PVHV);
     }
+    /* in some versions of Perl HvRITER() is not properly set on an upgrade SV
+     * so we explicitly set it ourselves */
 #ifdef FIXUP_RITER
+#ifdef HvRITER_set
     HvRITER_set(into,-1);
+#else
+    HvRITER(into)= -1;
+#endif
 #endif
 
     /* Limit the maximum number of hash keys that we accept to whetever was configured */
