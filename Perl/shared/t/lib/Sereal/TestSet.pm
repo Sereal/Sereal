@@ -53,8 +53,9 @@ our $use_objectv = 1;
 use constant FBIT => 128;
 
 sub hobodecode {
+    return unless defined $_[0];
     open my $fh, "| $^X -Mblib=../Encoder -Mblib=../Decoder author_tools/hobodecoder.pl -e" or die $!;
-    print $fh @_;
+    print $fh $_[0];
     close $fh;
 }
 
