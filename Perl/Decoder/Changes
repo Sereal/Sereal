@@ -3,6 +3,10 @@ Revision history for Perl extension Sereal-Decoder
 * Warning: For a seamless upgrade, upgrade to version 3
 *          of the decoder before upgrading to version 3 of the
 *          encoder!
+3.000_004
+  - HvRITER_set() is newer than perl 5.8.5, so fallback to using
+    HvRITER() as an lvalue for setting it.
+
 3.000_003
   - Fix tests when encoder is not installed.
 
