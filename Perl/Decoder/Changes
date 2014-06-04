@@ -3,6 +3,16 @@ Revision history for Perl extension Sereal-Decoder
 * Warning: For a seamless upgrade, upgrade to version 3
 *          of the decoder before upgrading to version 3 of the
 *          encoder!
+
+3.001
+  - Production release 1 of protocol version 3
+  - Zlib support
+  - CANONICAL_UNDEF,
+  - new magic header to make it easier to detect
+    UTF8 encoded data.
+  - Minor changes to how scalar values are serialized
+    to favour more compact representations.
+
 3.000_004
   - HvRITER_set() is newer than perl 5.8.5, so fallback to using
     HvRITER() as an lvalue for setting it.
