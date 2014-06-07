@@ -136,12 +136,12 @@ SRL_STATIC_INLINE void srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *clas
 SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 
 
-#define ASSERT_BUF_SPACE(dec,len,msg) STMT_START {              \
-    if (expect_false( (UV)BUF_SPACE((dec)) < (UV)(len) )) { \
-        SRL_ERRORf3("Unexpected termination of packet%s, "   \
-                    "want %lu bytes, only have %lu available", \
-                    (msg), (UV)(len), (UV)BUF_SPACE((dec)));  \
-    }                                                       \
+#define ASSERT_BUF_SPACE(dec,len,msg) STMT_START {                  \
+    if (expect_false( (UV)BUF_SPACE((dec)) < (UV)(len) )) {         \
+        SRL_ERRORf3("Unexpected termination of packet%s, "          \
+                    "want %lu bytes, only have %lu available",      \
+                    (msg), (UV)(len), (UV)BUF_SPACE((dec)));        \
+    }                                                               \
 } STMT_END
 
 #define IS_SRL_HDR_ARRAYREF(tag) (((tag) & SRL_HDR_ARRAYREF) == SRL_HDR_ARRAYREF)
@@ -787,18 +787,18 @@ srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec)
     return uv;
 }
 
-#define SET_UV_FROM_VARINT(uv, from) STMT_START {      \
-    if (*from < 0x80) {                                             \
-        uv= (UV)*from++;                                            \
-    } else {                                                        \
-        unsigned int lshift= 7;                                     \
-        uv= (UV)(*from++ & 0x7f);                                   \
-        while (*from & 0x80){                                       \
-            uv |= ((UV)(*from++ & 0x7F) << lshift);                 \
-            lshift += 7;                                            \
-        }                                                           \
-        uv |= ((UV)(*from++) << lshift);                            \
-    }                                                               \
+#define SET_UV_FROM_VARINT(uv, from) STMT_START {       \
+    if (*from < 0x80) {                                 \
+        uv= (UV)*from++;                                \
+    } else {                                            \
+        unsigned int lshift= 7;                         \
+        uv= (UV)(*from++ & 0x7f);                       \
+        while (*from & 0x80){                           \
+            uv |= ((UV)(*from++ & 0x7F) << lshift);     \
+            lshift += 7;                                \
+        }                                               \
+        uv |= ((UV)(*from++) << lshift);                \
+    }                                                   \
 } STMT_END
 
 SRL_STATIC_INLINE UV

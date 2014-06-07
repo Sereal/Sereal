@@ -44,27 +44,27 @@
 
 /* Internal debugging macros, used only in DEBUG mode */
 #ifndef NDEBUG
-#define DEBUG_ASSERT_BUF_SPACE(enc, len) STMT_START { \
-    if((BUF_SPACE(enc->buf) < (ptrdiff_t)(len))) { \
-        warn("failed assertion check - pos: %ld [%p %p %p] %ld < %ld",  \
-                (long)BUF_POS_OFS(enc->buf), (enc)->buf.start, \
-                (enc)->buf.pos, (enc)->buf.end, \
-                (long)BUF_SPACE(enc->buf),(long)(len)); \
-    } \
-    assert(BUF_SPACE(enc->buf) >= (ptrdiff_t)(len)); \
+#define DEBUG_ASSERT_BUF_SPACE(enc, len) STMT_START {                       \
+    if((BUF_SPACE(enc->buf) < (ptrdiff_t)(len))) {                          \
+        warn("failed assertion check - pos: %ld [%p %p %p] %ld < %ld",      \
+                (long)BUF_POS_OFS(enc->buf), (enc)->buf.start,              \
+                (enc)->buf.pos, (enc)->buf.end,                             \
+                (long)BUF_SPACE(enc->buf),(long)(len));                     \
+    }                                                                       \
+    assert(BUF_SPACE(enc->buf) >= (ptrdiff_t)(len));                        \
 } STMT_END
 #else
 #define DEBUG_ASSERT_BUF_SPACE(enc, len) ((void)0)
 #endif
 
 #ifndef NDEBUG
-#define DEBUG_ASSERT_BUF_SANE(enc) STMT_START { \
-    if(!(((enc)->buf.start <= (enc)->buf.pos) && ((enc)->buf.pos <= (enc)->buf.end))){\
-        warn("failed sanity assertion check - pos: %ld [%p %p %p] %ld",  \
-                (long)BUF_POS_OFS(enc->buf), (enc)->buf.start, \
-                (enc)->buf.pos, (enc)->buf.end, (long)BUF_SPACE(enc->buf)); \
-    } \
-    assert(((enc)->buf.start <= (enc)->buf.pos) && ((enc)->buf.pos <= (enc)->buf.end));\
+#define DEBUG_ASSERT_BUF_SANE(enc) STMT_START {                                             \
+    if(!(((enc)->buf.start <= (enc)->buf.pos) && ((enc)->buf.pos <= (enc)->buf.end))){      \
+        warn("failed sanity assertion check - pos: %ld [%p %p %p] %ld",                     \
+                (long)BUF_POS_OFS(enc->buf), (enc)->buf.start,                              \
+                (enc)->buf.pos, (enc)->buf.end, (long)BUF_SPACE(enc->buf));                 \
+    }                                                                                       \
+    assert(((enc)->buf.start <= (enc)->buf.pos) && ((enc)->buf.pos <= (enc)->buf.end));     \
 } STMT_END
 #else
 #define DEBUG_ASSERT_BUF_SANE(enc)                                                      \

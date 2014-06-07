@@ -109,12 +109,12 @@ SRL_STATIC_INLINE HV *srl_init_string_deduper_hv(pTHX_ srl_encoder_t *enc);
  *       freeing it. */
 SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src);
 
-#define SRL_GET_STR_DEDUPER_HV(enc) ( (enc)->string_deduper_hv == NULL     \
+#define SRL_GET_STR_DEDUPER_HV(enc) ( (enc)->string_deduper_hv == NULL          \
                                     ? srl_init_string_deduper_hv(aTHX_ enc)     \
                                    : (enc)->string_deduper_hv )
 
 #define SRL_GET_STR_PTR_SEENHASH(enc) ( (enc)->str_seenhash == NULL     \
-                                    ? srl_init_string_hash(enc)     \
+                                    ? srl_init_string_hash(enc)         \
                                    : (enc)->str_seenhash )
 
 #define SRL_GET_REF_SEENHASH(enc) ( (enc)->ref_seenhash == NULL     \
@@ -125,8 +125,8 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
                                     ? srl_init_weak_hash(enc)       \
                                    : (enc)->weak_seenhash )
 
-#define SRL_GET_FREEZEOBJ_SVHASH(enc) ( (enc)->freezeobj_svhash == NULL \
-                                        ? srl_init_freezeobj_svhash(enc)      \
+#define SRL_GET_FREEZEOBJ_SVHASH(enc) ( (enc)->freezeobj_svhash == NULL     \
+                                        ? srl_init_freezeobj_svhash(enc)    \
                                         : (enc)->freezeobj_svhash )
 
 #ifndef MAX_CHARSET_NAME_LENGTH
@@ -219,26 +219,26 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
         srl_dump_nv(aTHX_ enc, src);                                    \
     }                                                                   \
 
-#define CALL_SRL_DUMP_SV(enc, src) STMT_START {                         \
-    if (!(src)) {                                                       \
-        srl_buf_cat_char((enc), SRL_HDR_CANONICAL_UNDEF); /* is this right? */ \
-    }                                                                   \
-    else                                                                \
-    {                                                                   \
-        SvGETMAGIC(src);                                                \
-        svtype svt= SvTYPE((src));                                      \
-        if (svt < SVt_PVMG &&                                           \
-            SvREFCNT((src)) == 1 &&                                     \
-            !SvROK((src))                                               \
-        ) {                                                             \
-            _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt)                \
-            else {                                                      \
-                srl_dump_sv(aTHX_ (enc), (src));                        \
-            }                                                           \
-        } else {                                                        \
-            srl_dump_sv(aTHX_ (enc), (src));                            \
-        }                                                               \
-    }                                                                   \
+#define CALL_SRL_DUMP_SV(enc, src) STMT_START {                                     \
+    if (!(src)) {                                                                   \
+        srl_buf_cat_char((enc), SRL_HDR_CANONICAL_UNDEF); /* is this right? */      \
+    }                                                                               \
+    else                                                                            \
+    {                                                                               \
+        SvGETMAGIC(src);                                                            \
+        svtype svt= SvTYPE((src));                                                  \
+        if (svt < SVt_PVMG &&                                                       \
+            SvREFCNT((src)) == 1 &&                                                 \
+            !SvROK((src))                                                           \
+        ) {                                                                         \
+            _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt)                            \
+            else {                                                                  \
+                srl_dump_sv(aTHX_ (enc), (src));                                    \
+            }                                                                       \
+        } else {                                                                    \
+            srl_dump_sv(aTHX_ (enc), (src));                                        \
+        }                                                                           \
+    }                                                                               \
 } STMT_END
 
 /* This is fired when we exit the Perl pseudo-block.
