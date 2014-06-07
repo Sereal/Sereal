@@ -138,7 +138,9 @@ SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 
 #define ASSERT_BUF_SPACE(dec,len,msg) STMT_START {              \
     if (expect_false( (UV)BUF_SPACE((dec)) < (UV)(len) )) { \
-        SRL_ERRORf3("Unexpected termination of packet%s, want %lu bytes, only have %lu available", (msg), (UV)(len), (UV)BUF_SPACE((dec)));  \
+        SRL_ERRORf3("Unexpected termination of packet%s, "   \
+                    "want %lu bytes, only have %lu available", \
+                    (msg), (UV)(len), (UV)BUF_SPACE((dec)));  \
     }                                                       \
 } STMT_END
 
