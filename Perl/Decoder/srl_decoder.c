@@ -268,6 +268,12 @@ srl_build_decoder_struct(pTHX_ HV *opt)
         if ( (svp = hv_fetchs(opt, "use_undef", 0)) && SvTRUE(*svp))
             SRL_DEC_SET_OPTION(dec,SRL_F_DECODER_USE_UNDEF);
 
+        /* check if they want us to set all SVs readonly. */
+        if ( (svp = hv_fetchs(opt, "set_readonly", 0)) && SvTRUE(*svp)) {
+            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_SET_READONLY);
+            dec->readonly_av= newAV();
+        }
+
     }
 
     return dec;
@@ -307,6 +313,10 @@ srl_destroy_decoder(pTHX_ srl_decoder_t *dec)
     if (dec->weakref_av) {
         SvREFCNT_dec(dec->weakref_av);
         dec->weakref_av = NULL;
+    }
+    if (dec->readonly_av) {
+        SvREFCNT_dec(dec->readonly_av);
+        dec->readonly_av = NULL;
     }
     if (dec->ref_thawhash)
         PTABLE_free(dec->ref_thawhash);
@@ -461,7 +471,7 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
 
     /* The actual document body deserialization: */
     srl_read_single_value(aTHX_ dec, body_into);
-    if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE))) {
+    if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE | SRL_F_DECODER_SET_READONLY))) {
         srl_finalize_structure(aTHX_ dec);
     }
 
@@ -537,6 +547,9 @@ srl_clear_decoder_body_state(pTHX_ srl_decoder_t *dec)
 
     if (dec->weakref_av)
         av_clear(dec->weakref_av);
+
+    if (dec->readonly_av)
+        av_clear(dec->readonly_av);
 
     PTABLE_clear(dec->ref_seenhash);
     if (dec->ref_stashes) {
@@ -693,7 +706,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
                 /* Do an actual document body deserialization for the user data: */
                 SRL_UPDATE_BODY_POS(dec);
                 srl_read_single_value(aTHX_ dec, header_user_data);
-                if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE))) {
+                if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE | SRL_F_DECODER_SET_READONLY))) {
                     srl_finalize_structure(aTHX_ dec);
                 }
                 srl_clear_decoder_body_state(aTHX_ dec); /* clean up for the main body decode */
@@ -761,6 +774,14 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
             }
         }
         PTABLE_iter_free(it);
+    }
+    if (dec->readonly_av) {
+        int i = 0;
+        SV ** sv_ref;
+        while( NULL != (sv_ref = av_fetch(dec->readonly_av, i++, 0)) ) {
+            SvREADONLY_on(*sv_ref);
+        }
+        av_clear(dec->readonly_av);
     }
 }
 
@@ -1867,6 +1888,9 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
             break;
         }
     }
+
+    if ( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_SET_READONLY) )
+        av_push(dec->readonly_av, SvREFCNT_inc(into));
 
     dec->recursion_depth--;
 }

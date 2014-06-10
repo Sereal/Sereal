@@ -189,6 +189,10 @@ If set to a true value then this any undef value to be deserialized as
 PL_sv_undef. This may change the structure of the data structure being
 dumped, do not enable this unless you know what you are doing.
 
+=head3 set_readonly
+
+If set to a true value then the output will be readonly (deeply).
+
 =head1 INSTANCE METHODS
 
 =head2 decode
