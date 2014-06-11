@@ -603,25 +603,31 @@ srl_validate_header_version_pv_len(pTHX_ char *strdata, STRLEN len)
          * one byte for header len,
          * one type byte (smallest payload)
          */
+        /* XXX why this unportable (endian-wise) deref? why not use memEQ()?
+         * In an ILP64 system U32 is 64 bits and this deref will
+         * read 8 bytes worth, more than the smallest possible message. */
         U32 as_u32= *((U32*)strdata);
         U8 version_encoding= strdata[SRL_MAGIC_STRLEN];
         U8 version= version_encoding & SRL_PROTOCOL_VERSION_MASK;
 
-        if ( as_u32 == SRL_MAGIC_STRING_UINT_LE ) {
+        if ( as_u32 == SRL_MAGIC_STRING_UINT_LE ||
+             as_u32 == SRL_MAGIC_STRING_UINT_BE ) {
             if ( 0 < version && version < 3 ) {
                 return version_encoding;
             }
         }
         else
-        if ( as_u32 == SRL_MAGIC_STRING_HIGHBIT_UINT_LE ) {
+        if ( as_u32 == SRL_MAGIC_STRING_HIGHBIT_UINT_LE ||
+             as_u32 == SRL_MAGIC_STRING_HIGHBIT_UINT_BE ) {
             if ( 3 <= version ) {
                 return version_encoding;
             }
         }
         else
-        if ( as_u32 == SRL_MAGIC_STRING_HIGHBIT_UTF8_UINT_LE ) {
-            if ( 'l' == version_encoding )
-                return 0;
+        if ( as_u32 == SRL_MAGIC_STRING_HIGHBIT_UTF8_UINT_LE ||
+             as_u32 == SRL_MAGIC_STRING_HIGHBIT_UTF8_UINT_BE ) {
+            if ( 0x6C == version_encoding )
+		return 0;
         }
     }
     return -1;
