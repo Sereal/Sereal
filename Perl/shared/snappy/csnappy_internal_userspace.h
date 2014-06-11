@@ -171,6 +171,47 @@ Albert Lee
 #define __LITTLE_ENDIAN LITTLE_ENDIAN
 #define __BIG_ENDIAN BIG_ENDIAN
 
+#elif defined(__hpux)
+
+#ifdef __LP64__
+#define __LITTLE_ENDIAN 12345678
+#define __BIG_ENDIAN 87654321
+#define int64_t long
+#else
+#define __LITTLE_ENDIAN 1234
+#define __BIG_ENDIAN 4321
+#define int64_t long long
+#endif
+#define __BYTE_ORDER __BIG_ENDIAN /* HP-UX always */
+#define int32_t int
+#define int16_t short
+
+#endif
+
+#ifndef bswap_16
+#define bswap_16(x) \
+  (((uint16_t)(x) & 0xFF00) >> 8 | \
+   ((uint16_t)(x) & 0x00FF) << 8)
+#endif
+
+#ifndef bswap_32
+#define bswap_32(x) \
+  (((uint32_t)(x) & 0xFF000000) >> 24 | \
+   ((uint32_t)(x) & 0x00FF0000) >>  8 | \
+   ((uint32_t)(x) & 0x0000FF00) <<  8 | \
+   ((uint32_t)(x) & 0x000000FF) << 24)
+#endif
+
+#ifndef bswap_64
+#define bswap_64(x) \
+  (((uint64_t)(x) & 0xFF00000000000000) >> 56 | \
+   ((uint64_t)(x) & 0x00FF000000000000) >> 40 | \
+   ((uint64_t)(x) & 0x0000FF0000000000) >> 24 | \
+   ((uint64_t)(x) & 0x000000FF00000000) >>  8 | \
+   ((uint64_t)(x) & 0x00000000FF000000) <<  8 | \
+   ((uint64_t)(x) & 0x0000000000FF0000) << 24 | \
+   ((uint64_t)(x) & 0x000000000000FF00) << 40 | \
+   ((uint64_t)(x) & 0x00000000000000FF) << 56)
 #endif
 
 
