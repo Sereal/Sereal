@@ -182,6 +182,7 @@ Albert Lee
 #define __BIG_ENDIAN 4321
 #define int64_t long long
 #endif
+
 #define __BYTE_ORDER __BIG_ENDIAN /* HP-UX always */
 #define int32_t int
 #define int16_t short
@@ -260,7 +261,142 @@ static INLINE void UNALIGNED_STORE64(void *p, uint64_t v)
 	ptr->x = v;
 }
 
+#elif defined(__hpux) /* strict architectures */
+
+/* For these platforms, there really are no unaligned loads/stores.
+ * Read/write everything as uint8_t. Smart compilers might recognize
+ * these patterns and generate something smart. */
+
+#if __BYTE_ORDER == __BIG_ENDIAN
+
+static INLINE uint16_t UNALIGNED_LOAD16(const void *p)
+{
+	return
+          (uint16_t)(((uint8_t*)p)[0]) << 8 |
+          (uint16_t)(((uint8_t*)p)[1]);
+}
+
+static INLINE uint32_t UNALIGNED_LOAD32(const void *p)
+{
+	return
+          (uint32_t)(((uint8_t*)p)[0]) << 24 |
+          (uint32_t)(((uint8_t*)p)[1]) << 16 |
+          (uint32_t)(((uint8_t*)p)[2]) <<  8 |
+          (uint32_t)(((uint8_t*)p)[3]);
+}
+
+static INLINE uint64_t UNALIGNED_LOAD64(const void *p)
+{
+	return
+          (uint64_t)((uint8_t*)p)[0] << 56 |
+          (uint64_t)((uint8_t*)p)[1] << 48 |
+          (uint64_t)((uint8_t*)p)[2] << 40 |
+          (uint64_t)((uint8_t*)p)[3] << 32 |
+          (uint64_t)((uint8_t*)p)[4] << 24 |
+          (uint64_t)((uint8_t*)p)[5] << 16 |
+          (uint64_t)((uint8_t*)p)[5] <<  8 |
+          (uint64_t)((uint8_t*)p)[7];
+}
+
+static INLINE void UNALIGNED_STORE16(void *p, uint16_t v)
+{
+	uint8_t* s = (uint8_t*)p;
+	s[0] = (v & 0xFF00) >> 8;
+	s[1] = (v & 0x00FF);
+}
+
+static INLINE void UNALIGNED_STORE32(void *p, uint32_t v)
+{
+	uint8_t* s = (uint8_t*)p;
+	s[0] = (v & 0xFF000000) >> 24;
+	s[1] = (v & 0x00FF0000) >> 16;
+	s[2] = (v & 0x0000FF00) >>  8;
+	s[3] = (v & 0x000000FF);
+}
+
+static INLINE void UNALIGNED_STORE64(void *p, uint64_t v)
+{
+	uint8_t* s = (uint8_t*)p;
+	s[0] = (v & 0xFF00000000000000) >> 56;
+	s[1] = (v & 0x00FF000000000000) >> 48;
+	s[2] = (v & 0x0000FF0000000000) >> 40;
+	s[3] = (v & 0x000000FF00000000) >> 32;
+	s[4] = (v & 0x00000000FF000000) >> 24;
+	s[5] = (v & 0x0000000000FF0000) >> 16;
+	s[6] = (v & 0x000000000000FF00) >>  8;
+	s[7] = (v & 0x00000000000000FF);
+}
+
+#endif /* #if __BYTE_ORDER == __BIG_ENDIAN */
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+
+static INLINE uint16_t UNALIGNED_LOAD16(const void *p)
+{
+	return
+          (uint16_t)(((uint8_t*)p)[1]) << 8) |
+          (uint16_t)(((uint8_t*)p)[0]);
+}
+
+static INLINE uint32_t UNALIGNED_LOAD32(const void *p)
+{
+	return
+          (uint32_t)(((uint8_t*)p)[3]) << 24 |
+          (uint32_t)(((uint8_t*)p)[2]) << 16 |
+          (uint32_t)(((uint8_t*)p)[1]) <<  8 |
+          (uint32_t)(((uint8_t*)p)[0]);
+}
+
+static INLINE uint64_t UNALIGNED_LOAD64(const void *p)
+{
+	return
+          (uint64_t)(((uint8_t*)p)[7]) << 56 |
+          (uint64_t)(((uint8_t*)p)[6]) << 48 |
+          (uint64_t)(((uint8_t*)p)[5]) << 40 |
+          (uint64_t)(((uint8_t*)p)[4]) << 32 |
+          (uint64_t)(((uint8_t*)p)[3]) << 24 |
+          (uint64_t)(((uint8_t*)p)[2]) << 16 |
+          (uint64_t)(((uint8_t*)p)[1]) <<  8 |
+          (uint64_t)(((uint8_t*)p)[0]);
+}
+
+static INLINE void UNALIGNED_STORE16(void *p, uint16_t v)
+{
+	uint8_t* s = (uint8_t*)p;
+	s[1] = (v & 0xFF00) >> 8;
+	s[0] = (v & 0x00FF);
+}
+
+static INLINE void UNALIGNED_STORE32(void *p, uint32_t v)
+{
+	uint8_t* s = (uint8_t*)p;
+	s[3] = (v & 0xFF000000) >> 24;
+	s[2] = (v & 0x00FF0000) >> 16;
+	s[1] = (v & 0x0000FF00) >>  8;
+	s[0] = (v & 0x000000FF);
+}
+
+static INLINE void UNALIGNED_STORE64(void *p, uint64_t v)
+{
+	uint8_t* s = (uint8_t*)p;
+	s[7] = (v & 0xFF00000000000000) >> 56;
+	s[6] = (v & 0x00FF000000000000) >> 48;
+	s[5] = (v & 0x0000FF0000000000) >> 40;
+	s[4] = (v & 0x000000FF00000000) >> 32;
+	s[3] = (v & 0x00000000FF000000) >> 24;
+	s[2] = (v & 0x0000000000FF0000) >> 16;
+	s[1] = (v & 0x000000000000FF00) >>  8;
+	s[0] = (v & 0x00000000000000FF);
+}
+
+#endif /* #if __BYTE_ORDER == __LITTLE_ENDIAN */
+
 #else /* !(x86 || powerpc) && !(arm && !(old arm architectures)) */
+
+/* XXX What platform is this really for?  Strict alignment platforms
+ * won't be tricked by the below casting of (packed) single-element
+ * structs, and more importantly the pack pragma is not known by every
+ * compiler.  Maybe only works/tested with gcc on new ARM platforms? */
 
 #pragma pack(1)
 struct una_u16 { uint16_t x; };
@@ -304,7 +440,7 @@ static INLINE void UNALIGNED_STORE64(void *p, uint64_t v)
 	ptr->x = v;
 }
 
-#endif /* !(x86 || powerpc) && !(arm && !armv5 && !armv6) */
+#endif /* defining UNALIGNED_LOADNN and UNALIGNED_STORENN */
 
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
