@@ -966,7 +966,7 @@ srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
 }
 
 /* declare a union so that we are guaranteed the right alignment
- * rules - this is required for ARM */
+ * rules - this is required for e.g. ARM */
 union myfloat {
     U8 c[sizeof(long double)];
     float f;
@@ -981,11 +981,18 @@ union myfloat {
 #define SRL_ARM_ARCH 1
 #endif
 
+/* XXX Most (if not all?) non-x86 platforms are strict in their
+ * floating point alignment.  So maybe this logic should be the other
+ * way: default to strict, and do sloppy only if x86? */
+#if defined(SRL_ARM_ARCH) || defined(__hpux)
+#define SRL_STRICT_FP_ALIGN
+#endif
+
 SRL_STATIC_INLINE void
 srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
-#ifdef SRL_ARM_ARCH
+#ifdef SRL_STRICT_FP_ALIGN
     ASSERT_BUF_SPACE(dec, sizeof(float), " while reading FLOAT");
     Copy(dec->pos,val.c,sizeof(float),U8);
 #else
@@ -1001,7 +1008,7 @@ SRL_STATIC_INLINE void
 srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
-#ifdef SRL_ARM_ARCH
+#ifdef SRL_STRICT_FP_ALIGN
     ASSERT_BUF_SPACE(dec, sizeof(double), " while reading DOUBLE");
     Copy(dec->pos,val.c,sizeof(double),U8);
 #else
@@ -1017,7 +1024,7 @@ SRL_STATIC_INLINE void
 srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
-#ifdef SRL_ARM_ARCH
+#ifdef SRL_STRICT_FP_ALIGN
     ASSERT_BUF_SPACE(dec, sizeof(long double), " while reading LONG_DOUBLE");
     Copy(dec->pos,val.c,sizeof(long double),U8);
 #else
