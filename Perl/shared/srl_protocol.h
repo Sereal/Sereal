@@ -141,12 +141,13 @@
 
 /* magic string, protocol version and encoding information */
 #define SRL_MAGIC_STRLEN                4               /* Length of SRL_MAGIC_STRING */
+
 #define SRL_MAGIC_STRING                "=srl"          /* Magic string for header. Every packet starts with this or "=\xF3rl",
+#define SRL_MAGIC_STRING_UINT_LE                0x6C72733D  /* SRL_MAGIC_STRING as a little endian integer */
+#define SRL_MAGIC_STRING_UINT_BE                0x3D73726C  /* SRL_MAGIC_STRING as a big endian integer */
                                                          * which is the high-bit-set-on-the-"s" equivalent. */
 #define SRL_MAGIC_STRING_HIGHBIT                "=\xF3rl"   /* Magic string for header, with high bit set for UTF8 sanity check. */
-#define SRL_MAGIC_STRING_UINT_LE                0x6C72733D  /* SRL_MAGIC_STRING as a little endian integer */
 #define SRL_MAGIC_STRING_HIGHBIT_UINT_LE        0x6C72F33D  /* SRL_MAGIC_STRING_HIGHBIT as a little endian integer */
-#define SRL_MAGIC_STRING_UINT_BE                0x3D73726C  /* SRL_MAGIC_STRING as a big endian integer */
 #define SRL_MAGIC_STRING_HIGHBIT_UINT_BE        0x3DF3726C  /* SRL_MAGIC_STRING_HIGHBIT as a big endian integer */
 
 #define SRL_MAGIC_STRING_HIGHBIT_UTF8           "=\xC3\xB3rl"   /* Magic string for header, corrupted by accidental UTF8 encoding */
