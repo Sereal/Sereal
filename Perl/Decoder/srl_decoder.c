@@ -269,10 +269,16 @@ srl_build_decoder_struct(pTHX_ HV *opt)
             SRL_DEC_SET_OPTION(dec,SRL_F_DECODER_USE_UNDEF);
 
         /* check if they want us to set all SVs readonly. */
-        if ( (svp = hv_fetchs(opt, "set_readonly", 0)) && SvTRUE(*svp)) {
+        if ( (svp = hv_fetchs(opt, "set_readonly", 0)) && SvTRUE(*svp))
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_SET_READONLY);
+
+        /* check if they want us to set normal scalars readonly. */
+        if ( (svp = hv_fetchs(opt, "set_readonly_scalars", 0)) && SvTRUE(*svp))
+            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_SET_READONLY_SCALARS);
+
+        /* if one of the readonly option is set, create the array. */
+        if ( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_READONLY_FLAGS) )
             dec->readonly_av= newAV();
-        }
 
     }
 
@@ -471,7 +477,7 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
 
     /* The actual document body deserialization: */
     srl_read_single_value(aTHX_ dec, body_into);
-    if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE | SRL_F_DECODER_SET_READONLY))) {
+    if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE | SRL_F_DECODER_READONLY_FLAGS))) {
         srl_finalize_structure(aTHX_ dec);
     }
 
@@ -706,7 +712,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
                 /* Do an actual document body deserialization for the user data: */
                 SRL_UPDATE_BODY_POS(dec);
                 srl_read_single_value(aTHX_ dec, header_user_data);
-                if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE | SRL_F_DECODER_SET_READONLY))) {
+                if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE | SRL_F_DECODER_READONLY_FLAGS))) {
                     srl_finalize_structure(aTHX_ dec);
                 }
                 srl_clear_decoder_body_state(aTHX_ dec); /* clean up for the main body decode */
@@ -1811,6 +1817,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
 {
     STRLEN len;
     U8 tag;
+    int is_ref = 0;
     if (++dec->recursion_depth > dec->max_recursion_depth) {
         SRL_ERRORf1("Reached recursion limit (%lu) during deserialization",
                 (unsigned long)dec->max_recursion_depth);
@@ -1844,39 +1851,41 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
     else
     if ( IS_SRL_HDR_HASHREF(tag) ) {
         srl_read_hash(aTHX_ dec, into, tag);
+        is_ref = 1;
     }
     else
     if ( IS_SRL_HDR_ARRAYREF(tag) ) {
         srl_read_array(aTHX_ dec, into, tag);
+        is_ref = 1;
     }
     else {
         switch (tag) {
-            case SRL_HDR_VARINT:        srl_read_varint(aTHX_ dec, into);           break;
-            case SRL_HDR_ZIGZAG:        srl_read_zigzag(aTHX_ dec, into);           break;
+            case SRL_HDR_VARINT:        srl_read_varint(aTHX_ dec, into);                 break;
+            case SRL_HDR_ZIGZAG:        srl_read_zigzag(aTHX_ dec, into);                 break;
 
-            case SRL_HDR_FLOAT:         srl_read_float(aTHX_ dec, into);            break;
-            case SRL_HDR_DOUBLE:        srl_read_double(aTHX_ dec, into);           break;
-            case SRL_HDR_LONG_DOUBLE:   srl_read_long_double(aTHX_ dec, into);      break;
+            case SRL_HDR_FLOAT:         srl_read_float(aTHX_ dec, into);                  break;
+            case SRL_HDR_DOUBLE:        srl_read_double(aTHX_ dec, into);                 break;
+            case SRL_HDR_LONG_DOUBLE:   srl_read_long_double(aTHX_ dec, into);            break;
 
-            case SRL_HDR_TRUE:          sv_setsv(into, &PL_sv_yes);                 break;
-            case SRL_HDR_FALSE:         sv_setsv(into, &PL_sv_no);                  break;
+            case SRL_HDR_TRUE:          sv_setsv(into, &PL_sv_yes);                       break;
+            case SRL_HDR_FALSE:         sv_setsv(into, &PL_sv_no);                        break;
             case SRL_HDR_CANONICAL_UNDEF: /* fallthrough */
-            case SRL_HDR_UNDEF:         sv_setsv(into, &PL_sv_undef);               break;
-            case SRL_HDR_BINARY:        srl_read_string(aTHX_ dec, 0, into);        break;
-            case SRL_HDR_STR_UTF8:      srl_read_string(aTHX_ dec, 1, into);        break;
+            case SRL_HDR_UNDEF:         sv_setsv(into, &PL_sv_undef);                     break;
+            case SRL_HDR_BINARY:        srl_read_string(aTHX_ dec, 0, into);              break;
+            case SRL_HDR_STR_UTF8:      srl_read_string(aTHX_ dec, 1, into);              break;
 
-            case SRL_HDR_WEAKEN:        srl_read_weaken(aTHX_ dec, into);           break;
-            case SRL_HDR_REFN:          srl_read_refn(aTHX_ dec, into);             break;
-            case SRL_HDR_REFP:          srl_read_refp(aTHX_ dec, into);             break;
+            case SRL_HDR_WEAKEN:        srl_read_weaken(aTHX_ dec, into);       is_ref=1; break;
+            case SRL_HDR_REFN:          srl_read_refn(aTHX_ dec, into);         is_ref=1; break;
+            case SRL_HDR_REFP:          srl_read_refp(aTHX_ dec, into);         is_ref=1; break;
             case SRL_HDR_OBJECT_FREEZE:
-            case SRL_HDR_OBJECT:        srl_read_object(aTHX_ dec, into, tag);      break;
+            case SRL_HDR_OBJECT:        srl_read_object(aTHX_ dec, into, tag);  is_ref=1; break;
             case SRL_HDR_OBJECTV_FREEZE:
-            case SRL_HDR_OBJECTV:       srl_read_objectv(aTHX_ dec, into, tag);     break;
-            case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into);             break;
-            case SRL_HDR_EXTEND:        srl_read_extend(aTHX_ dec, into);           break;
-            case SRL_HDR_HASH:          srl_read_hash(aTHX_ dec, into, 0);          break;
-            case SRL_HDR_ARRAY:         srl_read_array(aTHX_ dec, into, 0);         break;
-            case SRL_HDR_REGEXP:        srl_read_regexp(aTHX_ dec, into);           break;
+            case SRL_HDR_OBJECTV:       srl_read_objectv(aTHX_ dec, into, tag); is_ref=1; break;
+            case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into);                   break;
+            case SRL_HDR_EXTEND:        srl_read_extend(aTHX_ dec, into);                 break;
+            case SRL_HDR_HASH:          srl_read_hash(aTHX_ dec, into, 0);                break;
+            case SRL_HDR_ARRAY:         srl_read_array(aTHX_ dec, into, 0);               break;
+            case SRL_HDR_REGEXP:        srl_read_regexp(aTHX_ dec, into);                 break;
 
             case SRL_HDR_PAD:           /* no op */
                 while (BUF_NOT_DONE(dec) && *dec->pos == SRL_HDR_PAD)
@@ -1889,7 +1898,9 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
         }
     }
 
-    if ( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_SET_READONLY) )
+    /* they want us to set all SVs readonly, or only the non-ref */
+    if (  SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_SET_READONLY) ||
+         (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_SET_READONLY_SCALARS) && !is_ref) )
         av_push(dec->readonly_av, SvREFCNT_inc(into));
 
     dec->recursion_depth--;

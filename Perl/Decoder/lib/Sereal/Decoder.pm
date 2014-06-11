@@ -191,7 +191,12 @@ dumped, do not enable this unless you know what you are doing.
 
 =head3 set_readonly
 
-If set to a true value then the output will be readonly (deeply).
+If set to a true value then the output will be completely readonly (deeply).
+
+=head3 set_readonly_scalars
+
+If set to a true value then scalars in the output will be readonly (deeply).
+References won't be readonly.
 
 =head1 INSTANCE METHODS
 
