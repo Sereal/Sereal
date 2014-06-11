@@ -40,6 +40,16 @@ else {
   $defines .= " -DNDEBUG";
 }
 
+if ($Config{osname} eq 'hpux' && not $Config{gccversion}) {
+  # HP-UX cc does not support inline.
+  # Or rather, it does, but it depends on the compiler flags,
+  # assumedly -AC99 instead of -Ae would work.
+  # But we cannot change the compiler config too much from
+  # the one that was used to compile Perl,
+  # so we just fake the inline away.
+  $defines .= " -Dinline= ";
+}
+
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 WriteMakefile1(
