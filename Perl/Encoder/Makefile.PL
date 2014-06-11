@@ -44,6 +44,17 @@ else {
   $defines .= " -DNDEBUG";
 }
 
+# TODO: This is identical with Decoder.
+if ($Config{osname} eq 'hpux' && not $Config{gccversion}) {
+  # HP-UX cc does not support inline.
+  # Or rather, it does, but it depends on the compiler flags,
+  # assumedly -AC99 instead of -Ae would work.
+  # But we cannot change the compiler config too much from
+  # the one that was used to compile Perl,
+  # so we just fake the inline away.
+  $defines .= " -Dinline= ";
+}
+
 # from Compress::Snappy
 require Devel::CheckLib;
 my $ctz = Devel::CheckLib::check_lib(

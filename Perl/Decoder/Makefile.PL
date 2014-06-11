@@ -40,6 +40,7 @@ else {
   $defines .= " -DNDEBUG";
 }
 
+# TODO: This is identical with Encoder.
 if ($Config{osname} eq 'hpux' && not $Config{gccversion}) {
   # HP-UX cc does not support inline.
   # Or rather, it does, but it depends on the compiler flags,
