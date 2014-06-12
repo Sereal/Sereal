@@ -6,6 +6,12 @@ please see the Encoder and Decoder changelogs:
    * https://github.com/Sereal/Sereal/blob/master/Perl/Decoder/Changes
    * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
 
+3.001_001
+  - Patches from Jarkko Hietaniemi to make Sereal pass test
+    on HP-UX, and other machines with endian or alignedness
+    issues. Thanks to H.Merijn Brand for assisting and providing
+    access to test machines.
+
 3.001
   - Production release 1 of protocol version 3
   - Zlib support

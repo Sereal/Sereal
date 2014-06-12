@@ -4,6 +4,12 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 3 of the
 *          encoder!
 
+3.001_001
+  - Patches from Jarkko Hietaniemi to make Sereal pass test
+    on HP-UX, and other machines with endian or alignedness
+    issues. Thanks to H.Merijn Brand for assisting and providing
+    access to test machines.
+
 3.001
   - Production release 1 of protocol version 3
   - Zlib support
