@@ -267,6 +267,12 @@ static INLINE void UNALIGNED_STORE64(void *p, uint64_t v)
  * Read/write everything as uint8_t. Smart compilers might recognize
  * these patterns and generate something smart. */
 
+/* Possible future enhancement: see if the ptr is evenly divisible
+ * (as uintNN_t) by 2/4/8, and if so, do the cast-as-uintNN_t-ptr-
+ * and-deref-as-uintNN_t.  Balancing act: adding the branch
+ * will slow things down, while reading/writing aligned might speed
+ * things up. */
+
 #if __BYTE_ORDER == __BIG_ENDIAN
 
 static INLINE uint16_t UNALIGNED_LOAD16(const void *p)
@@ -393,10 +399,14 @@ static INLINE void UNALIGNED_STORE64(void *p, uint64_t v)
 
 #else /* !(x86 || powerpc) && !(arm && !(old arm architectures)) */
 
-/* XXX What platform is this really for?  Strict alignment platforms
- * won't be tricked by the below casting of (packed) single-element
- * structs, and more importantly the pack pragma is not known by every
- * compiler.  Maybe only works/tested with gcc on new ARM platforms? */
+/* pragma pack is available in gcc (though originally apparently by
+ * Microsoft) and in some other compilers (probably inspired by either
+ * the two big ones), but there is no good portable way to detect
+ * whether it's supported.  The bad news: on platforms where it's not
+ * supported (unsupported pragmas are ignored) but which do require
+ * strict alignment, the below pragma pack trickery will fail.
+ * Therefore this option is the last and the default, and the platforms
+ * requiring strict alignment are detected earlier.
 
 #pragma pack(1)
 struct una_u16 { uint16_t x; };
