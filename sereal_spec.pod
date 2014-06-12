@@ -63,9 +63,9 @@ In protocol version 1 and 2, the value of this string is "=srl",
 and when decoded as an unsigned 32 bit
 integer on a little endian machine has a value of 0x6c72733d.
 
-In protocol version 3, the magic string can be B<either> the v1/v2 "=srl"
-B<or> it can be the same string with the high bit set on the "s": "=\xF3rl".
-this makes it much easier to track down bugs caused by common encoding problems
+In protocol version 3, the magic string is "=\xF3rl". It's the same string as
+version 1 and 2, but with the high bit set on the "s".
+This makes it much easier to track down bugs caused by common encoding problems
 in applications. In practice, this means that it
 is very easy to detect that a Sereal v3 document has been erroneously
 UTF-8 encoded because \xF3 is translated to two bytes \xC3\xB3. Decoders are
