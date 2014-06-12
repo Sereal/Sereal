@@ -628,9 +628,7 @@ srl_validate_header_version_pv_len(pTHX_ char *strdata, STRLEN len)
         }
         else
         if ( memEQ(SRL_MAGIC_STRING_HIGHBIT_UTF8, strdata, SRL_MAGIC_STRLEN) ) {
-            if ( 0x6C == version_encoding ) {
-                return 0;
-            }
+            return 0;
         }
     }
     return -1;
