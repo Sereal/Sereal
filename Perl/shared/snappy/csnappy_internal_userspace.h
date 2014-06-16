@@ -406,7 +406,7 @@ static INLINE void UNALIGNED_STORE64(void *p, uint64_t v)
  * supported (unsupported pragmas are ignored) but which do require
  * strict alignment, the below pragma pack trickery will fail.
  * Therefore this option is the last and the default, and the platforms
- * requiring strict alignment are detected earlier.
+ * requiring strict alignment are detected earlier. */
 
 #pragma pack(1)
 struct una_u16 { uint16_t x; };
