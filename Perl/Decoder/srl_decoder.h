@@ -22,6 +22,7 @@ typedef struct {
     ptable_ptr ref_stashes;             /* ptr table for tracking stashes we will bless into - key: ofs, value: stash */
     ptable_ptr ref_bless_av;            /* ptr table for tracking which objects need to be bless - key: ofs, value: mortal AV (of refs)  */
     AV* weakref_av;
+    AV* readonly_av;
 
     AV* alias_cache; /* used to cache integers of different sizes. */
     UV alias_varint_under;
@@ -126,8 +127,12 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_F_DECODER_ALIAS_VARINT              0x00002000UL
 /* Persistent flag: use PL_sv_undef as many places as possible */
 #define SRL_F_DECODER_USE_UNDEF                 0x00004000UL
+/* Persistent flag: set all SV readonly */
+#define SRL_F_DECODER_SET_READONLY              0x00008000UL
+#define SRL_F_DECODER_SET_READONLY_SCALARS      0x00010000UL
 
 
+#define SRL_F_DECODER_READONLY_FLAGS   ( SRL_F_DECODER_SET_READONLY | SRL_F_DECODER_SET_READONLY_SCALARS )
 #define SRL_F_DECODER_ALIAS_CHECK_FLAGS   ( SRL_F_DECODER_ALIAS_SMALLINT | SRL_F_DECODER_ALIAS_VARINT | SRL_F_DECODER_USE_UNDEF )
 
 #define SRL_DEC_HAVE_OPTION(dec, flag_num) ((dec)->flags & flag_num)

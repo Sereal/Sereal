@@ -718,6 +718,7 @@ sub run_roundtrip_tests {
             ['sort_keys',      { sort_keys        => 1 }, 2 ],
             ['dedupe_strings', { dedupe_strings   => 1 }, 2 ],
             ['freeze/thaw',    { freeze_callbacks => 1 }, 2 ],
+            ['readonly',       { set_readonly     => 1 }, 2 ],
         );
         for my $opt (@variants) {
             my ($name, $opts, $min_proto_v, $max_proto_v) = @$opt;
