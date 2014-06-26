@@ -4,7 +4,7 @@ test: test_dir
 compat: test_dir
 	-rm -f test_dir/test_data_*-go.out
 	-go test -test.run=TestCorpus
-	perl ./test-compat.pl
+	prove ./test-compat.pl
 
 ../../Perl/Decoder/blib:
 	cd ../../Perl/Decoder/ ; perl Makefile.PL
