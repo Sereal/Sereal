@@ -24,15 +24,31 @@ type serealHeader struct {
 }
 
 func readHeader(b []byte) (serealHeader, error) {
-
-	if binary.LittleEndian.Uint32(b[:4]) != magicHeaderBytes {
-		return serealHeader{}, errors.New("bad header")
-	}
+	first4Bytes := binary.LittleEndian.Uint32(b[:4])
 
 	var h serealHeader
 
 	h.doctype = documentType(b[4] >> 4)
 	h.version = b[4] & 0x0f
+
+	validHeader := false
+
+	switch first4Bytes {
+	case magicHeaderBytes:
+		if 1 <= h.version && h.version <= 2 {
+			validHeader = true
+		}
+	case magicHeaderBytesHighBit:
+		if h.version >= 3 {
+			validHeader = true
+		}
+	case magicHeaderBytesHighBitUTF8:
+		return serealHeader{}, errors.New("bad header: it seems your document was accidentally UTF-8 encoded")
+	}
+
+	if !validHeader {
+		return serealHeader{}, errors.New("bad header: not a valid Sereal document")
+	}
 
 	ln, sz := varintdecode(b[5:])
 	h.suffixSize = ln + sz
@@ -98,6 +114,8 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 	case 1:
 		break
 	case 2:
+		break
+	case 3:
 		break
 	default:
 		return fmt.Errorf("document version '%d' not yet supported", header.version)

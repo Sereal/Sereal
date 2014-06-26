@@ -1,6 +1,21 @@
 package sereal
 
-const magicHeaderBytes = uint32(0x6c72733d)
+// magicHeadrBytes is a magic string for header. Every packet in protocol
+// version 1 and 2 starts with this.
+const magicHeaderBytes = uint32(0x6c72733d) // "=srl"
+
+// magicHeaderBytesHighBit is a new magic string for header used in protocol
+// version 3 and up, with high bit set for UTF8 sanity check. It is an error to
+// use a new magic header on a v1 or v2 packet, and it is an error to use the
+// old magic header in v3 or later.
+const magicHeaderBytesHighBit = uint32(0x6c72f33d) // "=\xF3rl"
+
+// magicHeaderBytesHighBitUTF8 is a magic string for header v3, corrupted by
+// accidental UTF8 encoding. It makes it easy to detect when a Sereal document
+// has been accidentally UTF-8 encoded because the \xF3 is translated to
+// \xC3\xB3.
+const magicHeaderBytesHighBitUTF8 = uint32(0x72b3c33d) // "=\xC3\xB3r"
+
 const headerSize = 5 // 4 magic + 1 version-type
 
 type documentType int

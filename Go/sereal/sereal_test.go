@@ -523,3 +523,48 @@ func TestBinaryMarshaller(t *testing.T) {
 		t.Errorf("failed to error unpacking registered error type: %s", err)
 	}
 }
+
+func TestUnmarshalHeaderError(t *testing.T) {
+
+	testcases := []struct{
+		docHex string
+		err error
+	}{
+		// Garbage
+		{"badbadbadbad", errors.New("bad header: not a valid Sereal document")},
+		// Version 1 and 2, "=srl"
+		{"3d73726c0100", nil},
+		{"3d73726c0200", nil},
+		// Version 3, "=srl" with a high-bit-set-on-the-"s"
+		{"3df3726c0300", nil},
+		// Version 3, "=srl" corrupted by accidental UTF8 encoding
+		{"3dc3b3726c0300", errors.New("bad header: it seems your document was accidentally UTF-8 encoded")},
+		// Forbidden version 2 and high-bit-set-on-the-"s" combination
+		{"3df3726c0200", errors.New("bad header: not a valid Sereal document")},
+		// Forbidden version 3 and obsolete "=srl" magic string
+		{"3d73726c0300", errors.New("bad header: not a valid Sereal document")},
+		// Non-existing (yet) version 4, "=srl" with a high-bit-set-on-the-"s"
+		{"3df3726c0400", errors.New("document version '4' not yet supported")},
+	}
+
+	d := NewDecoder()
+
+	for i, tc := range testcases {
+		doc, err := hex.DecodeString(tc.docHex)
+		if err != nil {
+			t.Error(err)
+                        continue
+		}
+
+		got := d.UnmarshalHeaderBody(doc, nil, nil)
+		wanted := tc.err
+
+		ok := false
+		ok = ok || (got == nil && wanted == nil)
+		ok = ok || (got != nil && wanted != nil && got.Error() == wanted.Error())
+		if !ok {
+			t.Errorf("test case #%v:\ngot   : %v\nwanted: %v", i, got, wanted)
+			continue
+		}
+	}
+}
