@@ -30,13 +30,11 @@ for my $n (glob("test_dir/test_data_?????")) {
 
     chomp(my $name = slurp(sprintf("test_dir/test_name_%05d", $test_number)));
 
-    print("test number $test_number\n");
-
-    do { fail($n) ; next } if $skip{$test_number};
+    do { fail($name); diag("No Go support for $n"); next } if $skip{$test_number};
 
     if (not -f "$n-go.out") {
-        print "No Go test output for $n ($name) -- skipping\n";
-        fail($n);
+        fail($name);
+        diag("No Go test output for $n");
 #        die;
         next;
     }
@@ -48,8 +46,8 @@ for my $n (glob("test_dir/test_data_?????")) {
         1;
     } or do {
         my $err = $@;
-        print "Failed unpacking perl $n: $err\n";
-        fail($n);
+        fail($name);
+        diag("Failed unpacking perl $n: $err");
         next;
     };
     
@@ -61,8 +59,8 @@ for my $n (glob("test_dir/test_data_?????")) {
         1;
     } or do {
         my $err = $@;
-        print "Failed unpacking go $n: $err\n";
-        fail($n);
+        fail($name);
+        diag("Failed unpacking go $n: $err");
         next;
     };
 
@@ -70,8 +68,9 @@ for my $n (glob("test_dir/test_data_?????")) {
     my $dp = Dumper($p);
 
     if (!ok($dg eq $dp, $name)) {
-        print "Got: $dg\nExp: $dp\n";
+        diag("$n\nGot: $dg\nExp: $dp");
 #        die;
+        next;
     }
 }
 
