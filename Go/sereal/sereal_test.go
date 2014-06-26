@@ -526,9 +526,9 @@ func TestBinaryMarshaller(t *testing.T) {
 
 func TestUnmarshalHeaderError(t *testing.T) {
 
-	testcases := []struct{
+	testcases := []struct {
 		docHex string
-		err error
+		err    error
 	}{
 		// Garbage
 		{"badbadbadbad", errors.New("bad header: not a valid Sereal document")},
@@ -553,7 +553,7 @@ func TestUnmarshalHeaderError(t *testing.T) {
 		doc, err := hex.DecodeString(tc.docHex)
 		if err != nil {
 			t.Error(err)
-                        continue
+			continue
 		}
 
 		got := d.UnmarshalHeaderBody(doc, nil, nil)
