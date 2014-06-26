@@ -68,7 +68,7 @@ In protocol version 3 the magic string has been changed to "=\xF3rl",
 where \xF3 is "s" with the high bit set. The little endian integer form
 of this string is 0x6C72F33D. Having a hight bit set in the magic string
 makes it easy to detect when a Sereal document has been accidentally
-been UTF-8 encoded because the \xF3 is translated to \xC3\xB3.
+UTF-8 encoded because the \xF3 is translated to \xC3\xB3.
 
 Decoders are required to support the magic string associated to the
 protocol versions they can decode, so if a decoder can handle v1, v2, and
