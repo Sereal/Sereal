@@ -14,5 +14,5 @@ compat: test_dir
 	cd ../../Perl/Encoder/ ; perl Makefile.PL
 	make -C ../../Perl/Encoder
 
-test_dir: ../../Perl/Decoder/blib/ ../../Perl/Encoder/blib
+test_dir: ../../Perl/Decoder/blib ../../Perl/Encoder/blib
 	perl -Mblib=../../Perl/Decoder/blib/ -Mblib=../../Perl/Encoder/blib -I../../Perl/shared/t/lib/ -MSereal::TestSet -MSereal::Encoder -e'$$Sereal::TestSet::PROTO_VERSION=2;Sereal::TestSet::write_test_files("test_dir")'
