@@ -76,7 +76,17 @@ func NewEncoderV2() *Encoder {
 	}
 }
 
-var defaultEncoder = NewEncoderV2()
+// NewEncoderV3 returns a new Encoder that encodes version 3
+func NewEncoderV3() *Encoder {
+	return &Encoder{
+		PerlCompat:      false,
+		UseSnappy:       false,
+		SnappyThreshold: 1024,
+		version:         3,
+	}
+}
+
+var defaultEncoder = NewEncoderV3()
 
 // Marshal encodes body with the default encoder
 func Marshal(body interface{}) ([]byte, error) {
