@@ -105,10 +105,9 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		}
 	}()
 
-	// TODO(mvuets) Better set to the latest version, since defaultEncoder is the latest already.
-	// uninitialized encoder? set to version 1
+	// uninitialized encoder? set to the most recent supported protocol version
 	if e.version == 0 {
-		e.version = 1
+		e.version = ProtocolVersion
 	}
 
 	b = make([]byte, headerSize, 32)
