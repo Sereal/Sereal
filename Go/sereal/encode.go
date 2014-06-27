@@ -116,7 +116,11 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 
 	b = make([]byte, headerSize, 32)
 
-	binary.LittleEndian.PutUint32(b[:4], magicHeaderBytes)
+	if e.version < 3 {
+		binary.LittleEndian.PutUint32(b[:4], magicHeaderBytes)
+	} else {
+		binary.LittleEndian.PutUint32(b[:4], magicHeaderBytesHighBit)
+	}
 
 	b[4] = byte(e.version)
 
@@ -149,7 +153,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 	switch e.version {
 	case 1:
 		encoded, err = e.encode(b, rv, false, strTable, ptrTable)
-	case 2:
+	case 2, 3:
 		benc := []byte{0} // hack for 1-based offsets
 		encoded, err = e.encode(benc, rv, false, strTable, ptrTable)
 		encoded = encoded[1:] // trim hacky first byte
