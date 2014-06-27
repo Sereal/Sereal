@@ -132,6 +132,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		binary.LittleEndian.PutUint32(b[:4], magicHeaderBytesHighBit)
 	}
 
+	// TODO(mvuets) Why document type isn't set?
 	b[4] = byte(e.version)
 
 	if header != nil && e.version >= 2 {
