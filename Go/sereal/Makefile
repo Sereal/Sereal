@@ -1,4 +1,4 @@
-CORPUS_PROTO_VER ?= 2
+CORPUS_PROTO_VER ?= 3
 
 test_all: test compat
 
