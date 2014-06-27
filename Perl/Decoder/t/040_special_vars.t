@@ -27,8 +27,8 @@ sub desc_special($) {
 }
 
 foreach(
-        [ "ref undef",     \undef(),              "needs new tag in protocol"   ],
-        [ "ref undef var", \do { my $z = undef }, "needs new tag in protocol"   ],
+        [ "ref undef",     \undef(),                                            ],
+        [ "ref undef var", \do { my $z = undef },                               ],
         [ "ref false",     \!1,                                                 ],
         [ "ref false var", \do { my $z = !1 },                                  ],
         [ "ref true",      \!0,                                                 ],
