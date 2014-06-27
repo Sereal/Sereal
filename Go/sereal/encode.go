@@ -110,6 +110,10 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		e.version = ProtocolVersion
 	}
 
+	if e.version > ProtocolVersion {
+		return nil, fmt.Errorf("protocol version '%v' not yet supported", e.version)
+	}
+
 	b = make([]byte, headerSize, 32)
 
 	binary.LittleEndian.PutUint32(b[:4], magicHeaderBytes)
