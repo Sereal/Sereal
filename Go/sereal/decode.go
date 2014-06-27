@@ -282,11 +282,15 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		idx += 8
 		setFloat(ptr, reflect.Float64, float64(f))
 
-	case tag == typeUNDEF:
+	case tag == typeUNDEF, tag == typeCANONICAL_UNDEF:
 		idx++
 
 		if d.PerlCompat {
-			ptr.Set(reflect.ValueOf(&PerlUndef{}))
+			if tag == typeCANONICAL_UNDEF {
+				ptr.Set(reflect.ValueOf(perlCanonicalUndef))
+			} else {
+				ptr.Set(reflect.ValueOf(&PerlUndef{}))
+			}
 		} else {
 			switch ptr.Kind() {
 			case reflect.Interface, reflect.Ptr, reflect.Map, reflect.Slice:

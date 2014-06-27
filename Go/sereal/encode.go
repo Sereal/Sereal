@@ -560,8 +560,11 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]
 	// first test if it's one of our internal SerealPerl structs
 	switch val := st.Interface().(type) {
 	case PerlUndef:
-		_ = val
-		by = append(by, typeUNDEF)
+		if val.canonical {
+			by = append(by, typeCANONICAL_UNDEF)
+		} else {
+			by = append(by, typeUNDEF)
+		}
 		return by
 	case PerlObject:
 		by = append(by, typeOBJECT)
