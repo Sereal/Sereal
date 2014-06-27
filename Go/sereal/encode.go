@@ -105,6 +105,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		}
 	}()
 
+	// TODO(mvuets) Better set to the latest version, since defaultEncoder is the latest already.
 	// uninitialized encoder? set to version 1
 	if e.version == 0 {
 		e.version = 1
