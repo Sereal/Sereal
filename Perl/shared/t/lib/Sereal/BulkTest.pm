@@ -84,7 +84,7 @@ sub run_bulk_tests {
             my ($dump, $undump);
             my $ok= eval {
                 $dump = Sereal::Encoder::encode_sereal($_[0]);
-                $undump= Sereal::Decoder::decode_sereal($dump);
+                $undump= Sereal::Decoder::decode_sereal($dump, $opt{decoder_options} || {});
                 1;
             };
             my $err = $@ || 'Zombie error';
@@ -119,7 +119,7 @@ sub run_bulk_tests {
                     read_files(sub{return 1})
                 },
                 'decode_sereal' => sub{
-                    read_files(sub { return( decode_sereal($_[0]) ); }, 'sereal')
+                    read_files(sub { return( decode_sereal($_[0], $opt{decoder_options} || {} ) ); }, 'sereal')
                 },
                 'eval' => sub{
                     read_files(sub { return( eval $_[0] ); }, 'raw')
