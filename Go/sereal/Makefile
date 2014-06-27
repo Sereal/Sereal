@@ -1,3 +1,5 @@
+test_all: test compat
+
 test: test_dir
 	-go test
 
@@ -17,4 +19,4 @@ compat: test_dir
 test_dir: ../../Perl/Decoder/blib ../../Perl/Encoder/blib
 	perl -Mblib=../../Perl/Decoder/blib/ -Mblib=../../Perl/Encoder/blib -I../../Perl/shared/t/lib/ -MSereal::TestSet -MSereal::Encoder -e'$$Sereal::TestSet::PROTO_VERSION=2;Sereal::TestSet::write_test_files("test_dir")'
 
-.PHONY: test compat
+.PHONY: test_all test compat
