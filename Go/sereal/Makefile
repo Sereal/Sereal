@@ -1,3 +1,5 @@
+CORPUS_PROTO_VER ?= 2
+
 test_all: test compat
 
 test: test_dir
@@ -17,6 +19,6 @@ compat: test_dir
 	make -C ../../Perl/Encoder
 
 test_dir: ../../Perl/Decoder/blib ../../Perl/Encoder/blib
-	perl -Mblib=../../Perl/Decoder/blib/ -Mblib=../../Perl/Encoder/blib -I../../Perl/shared/t/lib/ -MSereal::TestSet -MSereal::Encoder -e'$$Sereal::TestSet::PROTO_VERSION=2;Sereal::TestSet::write_test_files("test_dir")'
+	perl -Mblib=../../Perl/Decoder/blib/ -Mblib=../../Perl/Encoder/blib -I../../Perl/shared/t/lib/ -MSereal::TestSet -MSereal::Encoder -e'$$Sereal::TestSet::PROTO_VERSION=$(CORPUS_PROTO_VER);Sereal::TestSet::write_test_files("test_dir")'
 
-.PHONY: test_all test compat
+.PHONY: test_all test compat test_dir
