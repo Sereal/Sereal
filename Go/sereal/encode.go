@@ -110,8 +110,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		e.version = 1
 	}
 
-	headerLength := 5
-	b = make([]byte, headerLength, 32)
+	b = make([]byte, headerSize, 32)
 
 	binary.LittleEndian.PutUint32(b[:4], magicHeaderBytes)
 
