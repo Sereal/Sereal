@@ -13,3 +13,6 @@
     - string vs. byte array handling?
     - match 'ptr->array':ARRAYREF and 'ptr->hash':HASHREF
         - go can't do this in one-pass: we don't have ref counts
+    - where applicable handle potential errors by hand instead of resorting to panic/defer
+        : e.g. UnmarshalHeaderBody() when given a too small document, returns "slice bounds out of range";
+        : it would be nicer to return something like "bad header: not a valid Sereal document"
