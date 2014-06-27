@@ -1,5 +1,8 @@
 package sereal
 
+// ProtocolVersion is a maximum version supported by the sereal package.
+const ProtocolVersion = 2
+
 // magicHeadrBytes is a magic string for header. Every packet in protocol
 // version 1 and 2 starts with this.
 const magicHeaderBytes = uint32(0x6c72733d) // "=srl"
