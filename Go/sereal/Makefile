@@ -18,7 +18,11 @@ compat: test_dir
 	cd ../../Perl/Encoder/ ; perl Makefile.PL
 	make -C ../../Perl/Encoder
 
-test_dir: ../../Perl/Decoder/blib ../../Perl/Encoder/blib
+test_dir: ../../Perl/Decoder/blib ../../Perl/Encoder/blib test_dir/VERSION_$(CORPUS_PROTO_VER)
 	perl -Mblib=../../Perl/Decoder/blib/ -Mblib=../../Perl/Encoder/blib -I../../Perl/shared/t/lib/ -MSereal::TestSet -MSereal::Encoder -e'$$Sereal::TestSet::PROTO_VERSION=$(CORPUS_PROTO_VER);Sereal::TestSet::write_test_files("test_dir")'
+	touch "test_dir/VERSION_$(CORPUS_PROTO_VER)"
 
-.PHONY: test_all test compat test_dir
+test_dir/VERSION_$(CORPUS_PROTO_VER):
+	rm -f test_dir/VERSION_*
+
+.PHONY: test_all test compat
