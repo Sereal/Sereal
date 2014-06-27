@@ -1129,6 +1129,7 @@ func isStringish(b []byte, idx int) bool {
 	tag &^= trackFlag
 
 	if tag == typeCOPY {
+		idx++
 
 		offs, sz := varintdecode(b[idx:])
 		idx += sz
