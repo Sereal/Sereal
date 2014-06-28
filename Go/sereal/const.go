@@ -26,7 +26,7 @@ type documentType int
 const (
 	serealRaw documentType = iota
 	serealSnappy
-	serealSnappyLength
+	serealSnappyIncremental
 )
 
 type typeTag byte

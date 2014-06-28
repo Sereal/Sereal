@@ -143,7 +143,7 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 		d = append(d, decoded...)
 		b = d
 
-	case serealSnappyLength:
+	case serealSnappyIncremental:
 		ln, sz := varintdecode(b[bodyStart:])
 		decoded, err := snappy.Decode(nil, b[bodyStart+sz:bodyStart+sz+ln])
 
