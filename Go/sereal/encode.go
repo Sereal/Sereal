@@ -184,12 +184,12 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		}
 
 		// Set the document type in the header
-		var doctype byte
+		var doctype documentType
 		switch e.Compression.(type) {
 		case nil:
-			doctype = 0
+			doctype = serealRaw
 		case SnappyCompressor:
-			doctype = 2
+			doctype = serealSnappyIncremental
 		default:
 			// Defensive programming: this point should never be
 			// reached in production code because the compressor
@@ -199,7 +199,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 			// but a relevant document type is not defined.
 			panic("undefined compression")
 		}
-		encoded[4] |= doctype << 4
+		encoded[4] |= byte(doctype) << 4
 	}
 
 	return encoded, nil
