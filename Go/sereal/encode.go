@@ -27,8 +27,6 @@ type SnappyCompressor struct {
 }
 
 func (c SnappyCompressor) compress(b []byte) ([]byte, error) {
-	b[4] |= (2 << 4) // set the document type to '2' (incr snappy)
-
 	optHeaderLength, optHeaderSize := varintdecode(b[5:])
 	optHeaderLength += optHeaderSize
 
@@ -136,7 +134,6 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		binary.LittleEndian.PutUint32(b[:4], magicHeaderBytesHighBit)
 	}
 
-	// TODO(mvuets) Why document type isn't set?
 	b[4] = byte(e.version)
 
 	if header != nil && e.version >= 2 {
@@ -185,6 +182,24 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		if err != nil {
 			return nil, err
 		}
+
+		// Set the document type in the header
+		var doctype byte
+		switch e.Compression.(type) {
+		case nil:
+			doctype = 0
+		case SnappyCompressor:
+			doctype = 2
+		default:
+			// Defensive programming: this point should never be
+			// reached in production code because the compressor
+			// interface is not exported, hence no way to pass in
+			// an unknown thing. But it may happen during
+			// development when a new compressor is implemented,
+			// but a relevant document type is not defined.
+			panic("undefined compression")
+		}
+		encoded[4] |= doctype << 4
 	}
 
 	return encoded, nil
