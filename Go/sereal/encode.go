@@ -23,7 +23,10 @@ func reflectValueOf(v interface{}) reflect.Value {
 
 }
 
-func snappify(b []byte) ([]byte, error) {
+type SnappyCompressor struct {
+}
+
+func (c SnappyCompressor) compress(b []byte) ([]byte, error) {
 	b[4] |= (2 << 4) // set the document type to '2' (incr snappy)
 
 	optHeaderLength, optHeaderSize := varintdecode(b[5:])
@@ -48,41 +51,42 @@ func snappify(b []byte) ([]byte, error) {
 
 // An Encoder encodes Go data structures into Sereal byte streams
 type Encoder struct {
-	PerlCompat      bool // try to mimic Perl's structure as much as possible
-	UseSnappy       bool // should we enable snappy compression
-	SnappyThreshold int  // threshold in bytes above which snappy compression is attempted: 1024 bytes by default
-	DisableDedup    bool // should we disable deduping of class names and hash keys
-	DisableFREEZE   bool // should we disable the FREEZE tag, which calls MarshalBinary
-	version         int  // default version to encode
+	PerlCompat           bool       // try to mimic Perl's structure as much as possible
+	Compression          compressor // optionally compress the main payload of the document using SnappyCompressor
+	CompressionThreshold int        // threshold in bytes above which compression is attempted: 1024 bytes by default
+	DisableDedup         bool       // should we disable deduping of class names and hash keys
+	DisableFREEZE        bool       // should we disable the FREEZE tag, which calls MarshalBinary
+	version              int        // default version to encode
+}
+
+type compressor interface {
+	compress(b []byte) ([]byte, error)
 }
 
 // NewEncoder returns a new Encoder struct with default values
 func NewEncoder() *Encoder {
 	return &Encoder{
-		PerlCompat:      false,
-		UseSnappy:       false,
-		SnappyThreshold: 1024,
-		version:         1,
+		PerlCompat:           false,
+		CompressionThreshold: 1024,
+		version:              1,
 	}
 }
 
 // NewEncoderV2 returns a new Encoder that encodes version 2
 func NewEncoderV2() *Encoder {
 	return &Encoder{
-		PerlCompat:      false,
-		UseSnappy:       false,
-		SnappyThreshold: 1024,
-		version:         2,
+		PerlCompat:           false,
+		CompressionThreshold: 1024,
+		version:              2,
 	}
 }
 
 // NewEncoderV3 returns a new Encoder that encodes version 3
 func NewEncoderV3() *Encoder {
 	return &Encoder{
-		PerlCompat:      false,
-		UseSnappy:       false,
-		SnappyThreshold: 1024,
-		version:         3,
+		PerlCompat:           false,
+		CompressionThreshold: 1024,
+		version:              3,
 	}
 }
 
@@ -175,8 +179,8 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		return nil, err
 	}
 
-	if e.UseSnappy && (e.SnappyThreshold == 0 || len(encoded) >= e.SnappyThreshold) {
-		encoded, err = snappify(encoded)
+	if e.Compression != nil && (e.CompressionThreshold == 0 || len(encoded) >= e.CompressionThreshold) {
+		encoded, err = e.Compression.compress(encoded)
 
 		if err != nil {
 			return nil, err
