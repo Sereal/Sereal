@@ -864,6 +864,7 @@ sub _write_file {
 }
 
 # For bootstrapping other language implementations' tests
+our $COMPRESS;
 sub write_test_files {
     my $dir = shift;
     require File::Path;
@@ -880,7 +881,10 @@ sub write_test_files {
         _write_file($make_name_file_name->($testno), $t->[2] . "\n");
     }
 
-    my $encoder = Sereal::Encoder->new({protocol_version => $PROTO_VERSION});
+    my $encoder = Sereal::Encoder->new({
+        protocol_version => $PROTO_VERSION,
+        compress => $COMPRESS || Sereal::Encoder::SRL_UNCOMPRESSED(),
+    });
     foreach my $i (0..$#RoundtripTests) {
         my $testno = @BasicTests + $i + 1;
         my $t = $RoundtripTests[$i];
