@@ -27,20 +27,17 @@ type SnappyCompressor struct {
 }
 
 func (c SnappyCompressor) compress(b []byte) ([]byte, error) {
-	optHeaderLength, optHeaderSize := varintdecode(b[5:])
-	optHeaderLength += optHeaderSize
-
 	// XXX this could be more efficient!  I'm creating a new buffer to
 	//     store the compressed document, which isn't necessary.  You
 	//     could probably write directly to the slice after the header
 	//     and after the varint holding the length
-	compressed, err := snappy.Encode(nil, b[5+optHeaderLength:])
+	compressed, err := snappy.Encode(nil, b)
 	if err != nil {
 		return nil, err
 	}
 
-	// resize b to just the original header
-	b = b[:5+optHeaderLength]
+	// shrink down b to reuse the allocated buffer
+	b = b[:0]
 	b = varint(b, uint(len(compressed)))
 	b = append(b, compressed...)
 
@@ -126,15 +123,15 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		return nil, fmt.Errorf("protocol version '%v' not yet supported", e.version)
 	}
 
-	b = make([]byte, headerSize, 32)
+	encHeader := make([]byte, headerSize, 32)
 
 	if e.version < 3 {
-		binary.LittleEndian.PutUint32(b[:4], magicHeaderBytes)
+		binary.LittleEndian.PutUint32(encHeader[:4], magicHeaderBytes)
 	} else {
-		binary.LittleEndian.PutUint32(b[:4], magicHeaderBytesHighBit)
+		binary.LittleEndian.PutUint32(encHeader[:4], magicHeaderBytesHighBit)
 	}
 
-	b[4] = byte(e.version)
+	encHeader[4] = byte(e.version)
 
 	if header != nil && e.version >= 2 {
 		strTable := make(map[string]int)
@@ -142,17 +139,17 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		rv := reflectValueOf(header)
 		// this is both the flag byte (== "there is user data") and also a hack to make 1-based offsets work
 		henv := []byte{0x01} // flag byte == "there is user data"
-		encoded, err := e.encode(henv, rv, false, strTable, ptrTable)
+		encHeaderSuffix, err := e.encode(henv, rv, false, strTable, ptrTable)
 
 		if err != nil {
 			return nil, err
 		}
 
-		b = varint(b, uint(len(encoded)))
-		b = append(b, encoded...)
+		encHeader = varint(encHeader, uint(len(encHeaderSuffix)))
+		encHeader = append(encHeader, encHeaderSuffix...)
 	} else {
 		/* header size */
-		b = append(b, 0)
+		encHeader = append(encHeader, 0)
 	}
 
 	rv := reflectValueOf(body)
@@ -160,24 +157,23 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 	strTable := make(map[string]int)
 	ptrTable := make(map[uintptr]int)
 
-	var encoded []byte
+	encBody := make([]byte, 0)
 
 	switch e.version {
 	case 1:
-		encoded, err = e.encode(b, rv, false, strTable, ptrTable)
+		encBody, err = e.encode(encBody, rv, false, strTable, ptrTable)
 	case 2, 3:
-		benc := []byte{0} // hack for 1-based offsets
-		encoded, err = e.encode(benc, rv, false, strTable, ptrTable)
-		encoded = encoded[1:] // trim hacky first byte
-		encoded = append(b, encoded...)
+		encBody = append(encBody, 0) // hack for 1-based offsets
+		encBody, err = e.encode(encBody, rv, false, strTable, ptrTable)
+		encBody = encBody[1:] // trim hacky first byte
 	}
 
 	if err != nil {
 		return nil, err
 	}
 
-	if e.Compression != nil && (e.CompressionThreshold == 0 || len(encoded) >= e.CompressionThreshold) {
-		encoded, err = e.Compression.compress(encoded)
+	if e.Compression != nil && (e.CompressionThreshold == 0 || len(encBody) >= e.CompressionThreshold) {
+		encBody, err = e.Compression.compress(encBody)
 
 		if err != nil {
 			return nil, err
@@ -199,10 +195,13 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 			// but a relevant document type is not defined.
 			panic("undefined compression")
 		}
-		encoded[4] |= byte(doctype) << 4
+		encHeader[4] |= byte(doctype) << 4
 	}
 
-	return encoded, nil
+	b = make([]byte, 0, len(encHeader)+len(encBody))
+	b = append(b, encHeader...)
+	b = append(b, encBody...)
+	return b, nil
 }
 
 func (e *Encoder) encode(b []byte, rv reflect.Value, isKeyOrClass bool, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
