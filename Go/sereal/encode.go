@@ -198,10 +198,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		encHeader[4] |= byte(doctype) << 4
 	}
 
-	b = make([]byte, 0, len(encHeader)+len(encBody))
-	b = append(b, encHeader...)
-	b = append(b, encBody...)
-	return b, nil
+	return append(encHeader, encBody...), nil
 }
 
 func (e *Encoder) encode(b []byte, rv reflect.Value, isKeyOrClass bool, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
