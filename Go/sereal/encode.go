@@ -157,7 +157,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 	strTable := make(map[string]int)
 	ptrTable := make(map[uintptr]int)
 
-	encBody := make([]byte, 0)
+	var encBody []byte
 
 	switch e.version {
 	case 1:
