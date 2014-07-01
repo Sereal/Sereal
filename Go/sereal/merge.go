@@ -1,9 +1,9 @@
 package sereal
 
 import (
-	//"fmt"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"sort"
 	"strconv"
 )
@@ -49,21 +49,35 @@ type mergerDoc struct {
 // NewDecoder returns a decoder with default flags
 func NewMerger() *Merger {
 	m := Merger{
-		version:         2,
+		version:         0,
 		TopLevelElement: TopLevelArrayRef,
 	}
 
 	return &m
 }
 
-func (m *Merger) initMerger() {
+func (m *Merger) initMerger() error {
+	if m.inited {
+		return nil
+	}
+
 	m.strTable = make(map[string]int)
 	m.buf = make([]byte, headerSize, 32)
 
-	binary.LittleEndian.PutUint32(m.buf[:4], magicHeaderBytes) // fill magic
-	m.buf[4] = byte(m.version)                                 // fill version
-	m.buf = append(m.buf, 0)                                   // no header
-	m.bodyOffset = len(m.buf) - 1                              // remember body offset
+	switch {
+	case m.version == 0:
+		m.version = ProtocolVersion
+	case m.version > ProtocolVersion:
+		return fmt.Errorf("protocol version '%v' not yet supported", m.version)
+	case m.version < 3:
+		binary.LittleEndian.PutUint32(m.buf[:4], magicHeaderBytes)
+	default:
+		binary.LittleEndian.PutUint32(m.buf[:4], magicHeaderBytesHighBit)
+	}
+
+	m.buf[4] = byte(m.version)    // fill version
+	m.buf = append(m.buf, 0)      // no header
+	m.bodyOffset = len(m.buf) - 1 // remember body offset
 
 	switch m.TopLevelElement {
 	case TopLevelArray:
@@ -79,11 +93,12 @@ func (m *Merger) initMerger() {
 	}
 
 	m.inited = true
+	return nil
 }
 
 func (m *Merger) Append(b []byte) (err error) {
-	if !m.inited {
-		m.initMerger()
+	if err := m.initMerger(); err != nil {
+		return err
 	}
 
 	if m.finished {
@@ -129,9 +144,10 @@ func (m *Merger) Append(b []byte) (err error) {
 	return err
 }
 
-func (m *Merger) Finish() []byte {
-	if !m.inited {
-		m.initMerger()
+func (m *Merger) Finish() ([]byte, error) {
+	err := m.initMerger()
+	if err != nil {
+		return m.buf, err
 	}
 
 	if !m.finished {
@@ -141,7 +157,7 @@ func (m *Merger) Finish() []byte {
 		m.finished = true
 	}
 
-	return m.buf
+	return m.buf, err
 }
 
 func (m *Merger) buildTrackTable(doc *mergerDoc) error {
