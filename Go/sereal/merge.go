@@ -8,14 +8,32 @@ import (
 	"strconv"
 )
 
+type topLevelElementType int
+
+const (
+	TopLevelArray topLevelElementType = iota
+	TopLevelArrayRef
+	// TopLevelHash
+	// TopLevelHashRef
+)
+
+const reservedBytesForLength = 8
+
 type Merger struct {
 	version    int
 	length     int
 	lenOffset  int
 	bodyOffset int // 1-based
+	inited     bool
 	finished   bool
 	strTable   map[string]int
 	buf        []byte
+
+	// public arguments
+	TopLevelElement topLevelElementType
+	// ProtocolVersion
+	// DedupeStrings
+	// Compress
 }
 
 type mergerDoc struct {
@@ -31,30 +49,43 @@ type mergerDoc struct {
 // NewDecoder returns a decoder with default flags
 func NewMerger() *Merger {
 	m := Merger{
-		version:  2,
-		strTable: make(map[string]int),
-		buf:      make([]byte, headerSize, 32),
+		version:         2,
+		TopLevelElement: TopLevelArrayRef,
 	}
+
+	return &m
+}
+
+func (m *Merger) initMerger() {
+	m.strTable = make(map[string]int)
+	m.buf = make([]byte, headerSize, 32)
 
 	binary.LittleEndian.PutUint32(m.buf[:4], magicHeaderBytes) // fill magic
 	m.buf[4] = byte(m.version)                                 // fill version
 	m.buf = append(m.buf, 0)                                   // no header
 	m.bodyOffset = len(m.buf) - 1                              // remember body offset
 
-	// TODO make user select top level element
-	m.buf = append(m.buf, typeREFN)
-	m.buf = append(m.buf, typeARRAY)
+	switch m.TopLevelElement {
+	case TopLevelArray:
+		m.buf = append(m.buf, typeARRAY)
+	case TopLevelArrayRef:
+		m.buf = append(m.buf, typeREFN, typeARRAY)
+	}
 
-	m.lenOffset = len(m.buf) // remember array count offset
-	// padding bytes for length
-	for i := 0; i < 8; i++ {
+	// remember len offset + pad bytes for length
+	m.lenOffset = len(m.buf)
+	for i := 0; i < reservedBytesForLength; i++ {
 		m.buf = append(m.buf, typePAD)
 	}
 
-	return &m
+	m.inited = true
 }
 
 func (m *Merger) Append(b []byte) (err error) {
+	if !m.inited {
+		m.initMerger()
+	}
+
 	if m.finished {
 		return errors.New("finished document")
 	}
@@ -99,11 +130,13 @@ func (m *Merger) Append(b []byte) (err error) {
 }
 
 func (m *Merger) Finish() []byte {
+	if !m.inited {
+		m.initMerger()
+	}
+
 	if !m.finished {
 		var lengthVarInt []uint8
 		lengthVarInt = appendVarint(lengthVarInt, uint(m.length))
-
-		// TODO len(lengthVarInt) <= 8
 		copy(m.buf[m.lenOffset:], lengthVarInt)
 		m.finished = true
 	}
