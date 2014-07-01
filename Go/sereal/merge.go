@@ -4,6 +4,7 @@ import (
 	//"fmt"
 	"encoding/binary"
 	"errors"
+	"sort"
 	"strconv"
 )
 
@@ -25,6 +26,7 @@ type mergerDoc struct {
 	bodyOffset int // 1-based
 	headerLen  int
 	trackTable map[int]int
+	trackIdxs  []int
 }
 
 // NewDecoder returns a decoder with default flags
@@ -118,6 +120,7 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 
 	var err error
 	doc.trackTable = make(map[int]int)
+	doc.trackIdxs = make([]int, 0)
 
 	for idx < len(buf) && err == nil {
 		tag := buf[idx]
@@ -199,6 +202,11 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 		}
 	}
 
+	for idx, _ := range doc.trackTable {
+		doc.trackIdxs = append(doc.trackIdxs, idx)
+	}
+
+	sort.Ints(doc.trackIdxs)
 	return err
 }
 
@@ -214,7 +222,11 @@ func (m *Merger) mergeItem(idx int, doc *mergerDoc) (int, error) {
 
 	docRelativeIdx := idx - doc.bodyOffset
 	mrgRelativeIdx := len(m.buf) - m.bodyOffset
-	_, trackme := doc.trackTable[docRelativeIdx]
+	trackme := len(doc.trackIdxs) > 0 && doc.trackIdxs[0] == docRelativeIdx
+
+	if trackme {
+		doc.trackIdxs = doc.trackIdxs[1:]
+	}
 
 	switch {
 	case tag < typeVARINT,
