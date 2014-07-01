@@ -8,15 +8,14 @@ import (
 	"strconv"
 )
 
-// A Decoder reads and decodes Sereal objects from an input buffer
 type Merger struct {
-	version     int
-	numElements int
-	numOffset   int
-	bodyOffset  int // 1-based
-	finished    bool
-	strTable    map[string]int
-	buf         []byte
+	version    int
+	length     int
+	lenOffset  int
+	bodyOffset int // 1-based
+	finished   bool
+	strTable   map[string]int
+	buf        []byte
 }
 
 type mergerDoc struct {
@@ -46,7 +45,7 @@ func NewMerger() *Merger {
 	m.buf = append(m.buf, typeREFN)
 	m.buf = append(m.buf, typeARRAY)
 
-	m.numOffset = len(m.buf) // remember array count offset
+	m.lenOffset = len(m.buf) // remember array count offset
 	// padding bytes for length
 	for i := 0; i < 8; i++ {
 		m.buf = append(m.buf, typePAD)
@@ -90,9 +89,10 @@ func (m *Merger) Append(b []byte) (err error) {
 	}
 
 	if err != nil {
+		// remove current element
 		m.buf = m.buf[0:lastElementOffset]
 	} else {
-		m.numElements += 1 // TODO
+		m.length++
 	}
 
 	return err
@@ -100,11 +100,11 @@ func (m *Merger) Append(b []byte) (err error) {
 
 func (m *Merger) Finish() []byte {
 	if !m.finished {
-		var numElementsVarInt []uint8
-		numElementsVarInt = appendVarint(numElementsVarInt, uint(m.numElements))
+		var lengthVarInt []uint8
+		lengthVarInt = appendVarint(lengthVarInt, uint(m.length))
 
-		// TODO len(numElementsVarInt) <= 8
-		copy(m.buf[m.numOffset:], numElementsVarInt)
+		// TODO len(lengthVarInt) <= 8
+		copy(m.buf[m.lenOffset:], lengthVarInt)
 		m.finished = true
 	}
 
