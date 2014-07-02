@@ -135,19 +135,12 @@ func (m *Merger) Append(b []byte) error {
 	}
 
 	// second pass: do the work
-	startIdx := doc.startIdx
-	for startIdx < len(b) && err == nil {
-		startIdx, err = m.mergeItem(startIdx, &doc)
+	if err := m.mergeItems(&doc); err != nil {
+		m.buf = m.buf[0:lastElementOffset] // remove appended stuff
+		return err
 	}
 
-	if err != nil {
-		// remove current element
-		m.buf = m.buf[0:lastElementOffset]
-	} else {
-		m.length++
-	}
-
-	return err
+	return nil
 }
 
 func (m *Merger) Finish() ([]byte, error) {
@@ -181,9 +174,9 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 
 		if (tag & trackFlag) == trackFlag {
 			doc.trackTable[idx-doc.bodyOffset] = -1
+			tag &^= trackFlag
 		}
 
-		tag &^= trackFlag
 		//fmt.Printf("%x (%x) at %d (%d)\n", tag, buf[idx], idx, idx - doc.bodyOffset)
 
 		switch {
@@ -264,160 +257,185 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 	return err
 }
 
-func (m *Merger) mergeItem(idx int, doc *mergerDoc) (int, error) {
-	buf := doc.buf
-	if idx < 0 || idx > len(buf) {
-		return 0, errors.New("invalid index")
-	}
-
+func (m *Merger) mergeItems(doc *mergerDoc) error {
 	var err error
-	tag := buf[idx]
-	tag &^= trackFlag
 
-	docRelativeIdx := idx - doc.bodyOffset
-	mrgRelativeIdx := len(m.buf) - m.bodyOffset
-	trackme := len(doc.trackIdxs) > 0 && doc.trackIdxs[0] == docRelativeIdx
+	buf := doc.buf
+	idx := doc.startIdx
+	stack := make([]int, 1, 16) // 16 nested levels
+	stack[0] = -1
 
-	if trackme {
-		doc.trackIdxs = doc.trackIdxs[1:]
+	for idx < len(buf) && err == nil {
+		tag := buf[idx]
+		tag &^= trackFlag
+
+		docRelativeIdx := idx - doc.bodyOffset
+		mrgRelativeIdx := len(m.buf) - m.bodyOffset
+		trackme := len(doc.trackIdxs) > 0 && doc.trackIdxs[0] == docRelativeIdx
+
+		level := len(stack) - 1
+		for stack[level] == 0 {
+			stack = stack[:level]
+			level--
+		}
+
+		//fmt.Printf("level: %d, value: %d len: %d\n", level, stack[level], len(stack))
+
+		switch {
+		case tag < typeVARINT, tag == typeUNDEF, tag == typeCANONICAL_UNDEF, tag == typeTRUE, tag == typeFALSE:
+			m.buf = append(m.buf, buf[idx])
+			stack[level]--
+			idx++
+
+		case tag == typePAD, tag == typeREFN, tag == typeWEAKEN, tag == typePACKET_START, tag == typeEXTEND:
+			m.buf = append(m.buf, buf[idx])
+			idx++
+
+		case tag == typeVARINT, tag == typeZIGZAG:
+			_, sz := varintdecode(buf[idx+1:])
+			m.buf = append(m.buf, buf[idx:idx+sz+1]...)
+			stack[level]--
+			idx += sz + 1
+
+		case tag == typeFLOAT:
+			m.buf = append(m.buf, buf[idx:idx+5]...)
+			stack[level]--
+			idx += 5 // 4 bytes + tag
+
+		case tag == typeDOUBLE:
+			m.buf = append(m.buf, buf[idx:idx+9]...)
+			stack[level]--
+			idx += 9 // 8 bytes + tag
+
+		case tag == typeLONG_DOUBLE:
+			m.buf = append(m.buf, buf[idx:idx+17]...)
+			stack[level]--
+			idx += 17 // 16 bytes + tag
+
+		case tag == typeBINARY, tag == typeSTR_UTF8:
+			ln, sz := varintdecode(buf[idx+1:])
+			endIdx := idx + sz + ln + 1
+
+			if ln < 0 {
+				err = errors.New("bad size for string")
+				break
+			}
+
+			if endIdx > len(buf) {
+				err = errors.New("truncated document")
+				break
+			}
+
+			val := buf[idx+sz+1 : endIdx]
+			if savedOffset, ok := m.strTable[string(val)]; ok {
+				mrgRelativeIdx = savedOffset
+				m.buf = append(m.buf, typeCOPY)
+				m.buf = appendVarint(m.buf, uint(savedOffset))
+			} else {
+				m.strTable[string(val)] = mrgRelativeIdx
+				m.buf = append(m.buf, buf[idx:endIdx]...)
+			}
+
+			stack[level]--
+			idx = endIdx
+
+		case tag >= typeSHORT_BINARY_0 && tag < typeSHORT_BINARY_0+32:
+			ln := int(tag & 0x1F) // get length from tag
+			endIdx := idx + ln + 1
+
+			if endIdx > len(buf) {
+				err = errors.New("truncated document")
+				break
+			}
+
+			val := buf[idx+1 : endIdx]
+			if savedOffset, ok := m.strTable[string(val)]; ok {
+				mrgRelativeIdx = savedOffset
+				m.buf = append(m.buf, typeCOPY)
+				m.buf = appendVarint(m.buf, uint(savedOffset))
+			} else {
+				m.strTable[string(val)] = mrgRelativeIdx
+				m.buf = append(m.buf, buf[idx:endIdx]...)
+			}
+
+			stack[level]--
+			idx = endIdx
+
+		case tag == typeCOPY, tag == typeREFP:
+			offset, sz := varintdecode(buf[idx+1:])
+			targetOffset, ok := doc.trackTable[offset]
+
+			if !ok || targetOffset < 0 {
+				err = errors.New("bad target offset at COPY or REFP tag")
+				break
+			}
+
+			m.buf = append(m.buf, buf[idx])
+			m.buf = appendVarint(m.buf, uint(targetOffset))
+			stack[level]--
+			idx += sz + 1
+
+		case tag == typeARRAY, tag == typeHASH:
+			ln, sz := varintdecode(buf[idx+1:])
+			if ln < 0 {
+				err = errors.New("bad array or hash length")
+				break
+			}
+
+			m.buf = append(m.buf, buf[idx:idx+sz+1]...)
+			idx += sz + 1
+
+			if tag == typeHASH {
+				ln *= 2
+			}
+
+			stack[level]--
+			stack = append(stack, ln)
+
+		case (tag >= typeARRAYREF_0 && tag < typeARRAYREF_0+16) || (tag >= typeHASHREF_0 && tag < typeHASHREF_0+16):
+			m.buf = append(m.buf, buf[idx])
+			idx++
+
+			// for hash read 2*ln items
+			ln := int(tag & 0xF)
+			if tag >= typeHASHREF_0 {
+				ln *= 2
+			}
+
+			stack[level]--
+			stack = append(stack, ln)
+
+			//case tag == typeOBJECT:
+			//case tag == typeOBJECTV:
+			//case tag == typeREGEXP:
+			//case tag == typeOBJECT_FREEZE:
+			//case tag == typeOBJECTV_FREEZE:
+			//case tag == typeMANY:
+			//case tag == typeALIAS
+
+		default:
+			err = errors.New("unknown tag byte: " + strconv.Itoa(int(tag)))
+		}
+
+		if trackme {
+			// if tag is tracked, remember its offset
+			doc.trackTable[docRelativeIdx] = mrgRelativeIdx
+			doc.trackIdxs = doc.trackIdxs[1:]
+		}
 	}
 
-	switch {
-	case tag < typeVARINT,
-		tag == typePAD, tag == typeREFN, tag == typeWEAKEN,
-		tag == typeUNDEF, tag == typeCANONICAL_UNDEF,
-		tag == typeTRUE, tag == typeFALSE,
-		tag == typePACKET_START, tag == typeEXTEND:
-		m.buf = append(m.buf, buf[idx])
-		idx++
-
-	case tag == typeVARINT, tag == typeZIGZAG:
-		_, sz := varintdecode(buf[idx+1:])
-		m.buf = append(m.buf, buf[idx:idx+sz+1]...)
-		idx += sz + 1
-
-	case tag == typeFLOAT:
-		m.buf = append(m.buf, buf[idx:idx+5]...)
-		idx += 5 // 4 bytes + tag
-
-	case tag == typeDOUBLE:
-		m.buf = append(m.buf, buf[idx:idx+9]...)
-		idx += 9 // 8 bytes + tag
-
-	case tag == typeLONG_DOUBLE:
-		m.buf = append(m.buf, buf[idx:idx+17]...)
-		idx += 17 // 16 bytes + tag
-
-	case tag == typeBINARY, tag == typeSTR_UTF8:
-		ln, sz := varintdecode(buf[idx+1:])
-		endIdx := idx + sz + ln + 1
-
-		if ln < 0 {
-			err = errors.New("bad size for string")
-			break
-		}
-
-		if endIdx > len(buf) {
-			err = errors.New("truncated document")
-			break
-		}
-
-		val := buf[idx+sz+1 : endIdx]
-		if savedOffset, ok := m.strTable[string(val)]; ok {
-			mrgRelativeIdx = savedOffset
-			m.buf = append(m.buf, typeCOPY)
-			m.buf = appendVarint(m.buf, uint(savedOffset))
-		} else {
-			m.strTable[string(val)] = mrgRelativeIdx
-			m.buf = append(m.buf, buf[idx:endIdx]...)
-		}
-
-		idx = endIdx
-
-	case tag >= typeSHORT_BINARY_0 && tag < typeSHORT_BINARY_0+32:
-		ln := int(tag & 0x1F) // get length from tag
-		endIdx := idx + ln + 1
-
-		if endIdx > len(buf) {
-			err = errors.New("truncated document")
-			break
-		}
-
-		val := buf[idx+1 : endIdx]
-		if savedOffset, ok := m.strTable[string(val)]; ok {
-			mrgRelativeIdx = savedOffset
-			m.buf = append(m.buf, typeCOPY)
-			m.buf = appendVarint(m.buf, uint(savedOffset))
-		} else {
-			m.strTable[string(val)] = mrgRelativeIdx
-			m.buf = append(m.buf, buf[idx:endIdx]...)
-		}
-
-		idx = endIdx
-
-	case tag == typeCOPY, tag == typeREFP:
-		offset, sz := varintdecode(buf[idx+1:])
-		targetOffset, ok := doc.trackTable[offset]
-
-		if !ok || targetOffset < 0 {
-			err = errors.New("bad target offset at COPY or REFP tag")
-			break
-		}
-
-		m.buf = append(m.buf, buf[idx])
-		m.buf = appendVarint(m.buf, uint(targetOffset))
-		idx += sz + 1
-
-	case tag == typeARRAY, tag == typeHASH:
-		ln, sz := varintdecode(buf[idx+1:])
-		if ln < 0 {
-			err = errors.New("bad array or hash length")
-			break
-		}
-
-		m.buf = append(m.buf, buf[idx:idx+sz+1]...)
-		idx += sz + 1
-
-		if tag == typeHASH {
-			ln *= 2
-		}
-
-		for i := 0; i < ln && err == nil; i++ {
-			idx, err = m.mergeItem(idx, doc)
-		}
-
-	case (tag >= typeARRAYREF_0 && tag < typeARRAYREF_0+16) || (tag >= typeHASHREF_0 && tag < typeHASHREF_0+16):
-		m.buf = append(m.buf, buf[idx])
-		idx++
-
-		// for hash read 2*ln items
-		ln := int(tag & 0xF)
-		if tag >= typeHASHREF_0 {
-			ln *= 2
-		}
-
-		for i := 0; i < ln && err == nil; i++ {
-			idx, err = m.mergeItem(idx, doc)
-		}
-
-		//case tag == typeOBJECT:
-		//case tag == typeOBJECTV:
-		//case tag == typeREGEXP:
-		//case tag == typeOBJECT_FREEZE:
-		//case tag == typeOBJECTV_FREEZE:
-		//case tag == typeMANY:
-		//case tag == typeALIAS
-
-	default:
-		err = errors.New("unknown tag byte: " + strconv.Itoa(int(tag)))
+	level := len(stack) - 1
+	for stack[level] == 0 {
+		stack = stack[:level]
+		level--
 	}
 
-	if trackme {
-		// if tag is tracked, remember its offset
-		doc.trackTable[docRelativeIdx] = mrgRelativeIdx
+	if len(stack) > 1 {
+		return errors.New("Failed to append invalid Sereal document")
 	}
 
-	return idx, err
+	m.length += -(stack[0] + 1)
+	return err
 }
 
 func appendVarint(by []byte, n uint) []uint8 {
