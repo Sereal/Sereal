@@ -8,16 +8,18 @@ Library:
 
     $ go get github.com/Sereal/Sereal/Go/sereal
 
-Miscellaneous utils:
-
-    $ go get github.com/Sereal/Sereal/Go/sereal/cmd/fuzzer
-    $ go get github.com/Sereal/Sereal/Go/sereal/cmd/dsrl
-
 Hack
 ----
 
 Run a test suite:
 
     $ cd $GOPATH/src/github.com/Sereal/Sereal/Go/sereal
-    $ make test
-    $ make compat
+    $ make test_all CORPUS_PROTO_VER=3 CORPUS_COMPRESS=SRL_ZLIB
+
+Miscellaneous utils:
+
+    $ cd $GOPATH/src/github.com/Sereal/Sereal/Go/sereal
+    $ go run cmd/fuzzer/main.go | head -50
+
+    $ cd $GOPATH/src/github.com/Sereal/Sereal/Go/sereal
+    $ perl -Mblib=../../Perl/Encoder/blib -MSereal::Encoder -e'print encode_sereal({foo => [42, "bar"]})' | go run cmd/dsrl/main.go
