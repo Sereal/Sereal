@@ -2,8 +2,10 @@ package sereal
 
 import (
 	"io/ioutil"
+	"math/rand"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func BenchmarkMerger(b *testing.B) {
@@ -24,13 +26,14 @@ func BenchmarkMerger(b *testing.B) {
 
 	b.ResetTimer()
 
+	m := NewMerger()
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
 	for i := 0; i < b.N; i++ {
-		var m = NewMerger()
-		for _, buf := range data {
-			err := m.Append(buf)
-			if err != nil {
-				panic(err)
-			}
+		buf := data[r.Int()%len(data)]
+		err := m.Append(buf)
+		if err != nil {
+			b.Fatal(err)
 		}
 	}
 }
