@@ -27,6 +27,7 @@ const (
 	serealRaw documentType = iota
 	serealSnappy
 	serealSnappyIncremental
+	serealZlib
 )
 
 type typeTag byte

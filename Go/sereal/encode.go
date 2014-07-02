@@ -24,7 +24,7 @@ func reflectValueOf(v interface{}) reflect.Value {
 // An Encoder encodes Go data structures into Sereal byte streams
 type Encoder struct {
 	PerlCompat           bool       // try to mimic Perl's structure as much as possible
-	Compression          compressor // optionally compress the main payload of the document using SnappyCompressor
+	Compression          compressor // optionally compress the main payload of the document using SnappyCompressor or ZlibCompressor
 	CompressionThreshold int        // threshold in bytes above which compression is attempted: 1024 bytes by default
 	DisableDedup         bool       // should we disable deduping of class names and hash keys
 	DisableFREEZE        bool       // should we disable the FREEZE tag, which calls MarshalBinary
@@ -115,6 +115,11 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		doctype = serealRaw
 	case SnappyCompressor:
 		doctype = serealSnappyIncremental
+	case ZlibCompressor:
+		if e.version < 3 {
+			return nil, errors.New("zlib compression only valid for v3 documents and up")
+		}
+		doctype = serealZlib
 	default:
 		// Defensive programming: this point should never be
 		// reached in production code because the compressor

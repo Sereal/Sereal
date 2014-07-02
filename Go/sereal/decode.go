@@ -137,6 +137,12 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 	case serealSnappyIncremental:
 		decomp = SnappyCompressor{Incremental: true}
 
+	case serealZlib:
+		if header.version < 3 {
+			return errors.New("zlib compression only valid for v3 documents and up")
+		}
+		decomp = ZlibCompressor{}
+
 	default:
 		return fmt.Errorf("document type '%d' not yet supported", header.doctype)
 	}
