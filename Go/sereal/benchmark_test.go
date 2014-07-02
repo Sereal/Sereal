@@ -56,3 +56,17 @@ func BenchmarkEncodeAndSnappyComplexDataWithHeader(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkEncodeAndZlibComplexDataWithHeader(b *testing.B) {
+	enc := sereal.NewEncoderV3()
+	enc.Compression = sereal.ZlibCompressor{Level: sereal.ZlibDefaultCompression}
+	enc.CompressionThreshold = 0
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := enc.MarshalWithHeader(solarSystemMeta, solarSystem)
+		if err != nil {
+			b.FailNow()
+		}
+	}
+}
