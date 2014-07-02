@@ -322,13 +322,13 @@ func (m *Merger) mergeItem(idx int, doc *mergerDoc) (int, error) {
 			break
 		}
 
-		val := string(buf[idx+sz+1 : endIdx])
-		if savedOffset, ok := m.strTable[val]; ok {
+		val := buf[idx+sz+1 : endIdx]
+		if savedOffset, ok := m.strTable[string(val)]; ok {
 			mrgRelativeIdx = savedOffset
 			m.buf = append(m.buf, typeCOPY)
 			m.buf = appendVarint(m.buf, uint(savedOffset))
 		} else {
-			m.strTable[val] = mrgRelativeIdx
+			m.strTable[string(val)] = mrgRelativeIdx
 			m.buf = append(m.buf, buf[idx:endIdx]...)
 		}
 
@@ -343,13 +343,13 @@ func (m *Merger) mergeItem(idx int, doc *mergerDoc) (int, error) {
 			break
 		}
 
-		val := string(buf[idx+1 : endIdx])
-		if savedOffset, ok := m.strTable[val]; ok {
+		val := buf[idx+1 : endIdx]
+		if savedOffset, ok := m.strTable[string(val)]; ok {
 			mrgRelativeIdx = savedOffset
 			m.buf = append(m.buf, typeCOPY)
 			m.buf = appendVarint(m.buf, uint(savedOffset))
 		} else {
-			m.strTable[val] = mrgRelativeIdx
+			m.strTable[string(val)] = mrgRelativeIdx
 			m.buf = append(m.buf, buf[idx:endIdx]...)
 		}
 
