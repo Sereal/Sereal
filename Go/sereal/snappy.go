@@ -19,10 +19,14 @@ func (c SnappyCompressor) compress(b []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	// shrink down b to reuse the allocated buffer
-	b = b[:0]
-	b = varint(b, uint(len(compressed)))
-	b = append(b, compressed...)
+	if c.Incremental {
+		// shrink down b to reuse the allocated buffer
+		b = b[:0]
+		b = varint(b, uint(len(compressed)))
+		b = append(b, compressed...)
+	} else {
+		b = compressed
+	}
 
 	return b, nil
 }

@@ -110,10 +110,13 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 
 	// Set the <version-type> component in the header
 	var doctype documentType
-	switch e.Compression.(type) {
+	switch c := e.Compression.(type) {
 	case nil:
 		doctype = serealRaw
 	case SnappyCompressor:
+		if e.version > 1 && !c.Incremental {
+			return nil, errors.New("non-incremental snappy compression only valid for v1 documents")
+		}
 		doctype = serealSnappyIncremental
 	case ZlibCompressor:
 		if e.version < 3 {

@@ -234,7 +234,7 @@ func TestSnappyArray(t *testing.T) {
 		return
 	}
 
-	e.Compression = SnappyCompressor{}
+	e.Compression = SnappyCompressor{Incremental: true}
 	e.CompressionThreshold = 0 // always compress
 	snencoded, err := e.Marshal(manydups)
 

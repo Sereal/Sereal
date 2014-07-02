@@ -45,7 +45,7 @@ func BenchmarkEncodeComplexDataWithHeader(b *testing.B) {
 
 func BenchmarkEncodeAndSnappyComplexDataWithHeader(b *testing.B) {
 	enc := sereal.NewEncoderV3()
-	enc.Compression = sereal.SnappyCompressor{}
+	enc.Compression = sereal.SnappyCompressor{Incremental: true}
 	enc.CompressionThreshold = 0
 
 	b.ResetTimer()
