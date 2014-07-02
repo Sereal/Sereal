@@ -49,7 +49,6 @@ type mergerDoc struct {
 // NewDecoder returns a decoder with default flags
 func NewMerger() *Merger {
 	m := Merger{
-		version:         0,
 		TopLevelElement: TopLevelArrayRef,
 	}
 
