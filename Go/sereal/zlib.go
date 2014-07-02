@@ -7,12 +7,15 @@ import (
 
 // ZlibCompressor compresses a Sereal document using the zlib format.
 type ZlibCompressor struct {
-	Level int // compression level, see "compress/zlib" for available constants
+	Level int // compression level
 }
 
-// XXX Copy "compress/zlib" compression level constants here, so that a user of
-// the "github.com/Sereal/Sereal/Go/sereal" package doesn't have to also import
-// "compress/zlib".
+const (
+	ZlibNoCompression      = zlib.NoCompression
+	ZlibBestSpeed          = zlib.BestSpeed
+	ZlibBestCompression    = zlib.BestCompression
+	ZlibDefaultCompression = zlib.DefaultCompression
+)
 
 func (c ZlibCompressor) compress(buf []byte) ([]byte, error) {
 	var comp bytes.Buffer
