@@ -104,6 +104,13 @@ func (m *Merger) Append(b []byte) error {
 		return errors.New("finished document")
 	}
 
+	leftCapacity := cap(m.buf) - len(m.buf)
+	if leftCapacity < len(b) {
+		ln := len(m.buf)
+		m.buf = append(m.buf, b...)
+		m.buf = m.buf[:ln]
+	}
+
 	// TODO check version
 	// TODO handle compression
 	// TODO parse header, why?
