@@ -4,8 +4,9 @@ import (
 	"code.google.com/p/snappy-go/snappy"
 )
 
+// SnappyCompressor compresses a Sereal document using the Snappy format.
 type SnappyCompressor struct {
-	Incremental bool
+	Incremental bool // enable incremental parsing
 }
 
 func (c SnappyCompressor) compress(b []byte) ([]byte, error) {

@@ -5,8 +5,9 @@ import (
 	"compress/zlib"
 )
 
+// ZlibCompressor compresses a Sereal document using the zlib format.
 type ZlibCompressor struct {
-	Level int
+	Level int // compression level, see "compress/zlib" for available constants
 }
 
 // XXX Copy "compress/zlib" compression level constants here, so that a user of
