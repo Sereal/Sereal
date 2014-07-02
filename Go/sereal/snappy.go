@@ -5,6 +5,7 @@ import (
 )
 
 type SnappyCompressor struct {
+	Incremental bool
 }
 
 func (c SnappyCompressor) compress(b []byte) ([]byte, error) {
@@ -23,4 +24,18 @@ func (c SnappyCompressor) compress(b []byte) ([]byte, error) {
 	b = append(b, compressed...)
 
 	return b, nil
+}
+
+func (c SnappyCompressor) decompress(b []byte) ([]byte, error) {
+	if c.Incremental {
+		ln, sz := varintdecode(b)
+		b = b[sz : sz+ln]
+	}
+
+	decompressed, err := snappy.Decode(nil, b)
+	if err != nil {
+		return nil, err
+	}
+
+	return decompressed, nil
 }
