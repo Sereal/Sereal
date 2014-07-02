@@ -95,7 +95,7 @@ func (m *Merger) initMerger() error {
 	return nil
 }
 
-func (m *Merger) Append(b []byte) (err error) {
+func (m *Merger) Append(b []byte) error {
 	if err := m.initMerger(); err != nil {
 		return err
 	}
@@ -144,8 +144,7 @@ func (m *Merger) Append(b []byte) (err error) {
 }
 
 func (m *Merger) Finish() ([]byte, error) {
-	err := m.initMerger()
-	if err != nil {
+	if err := m.initMerger(); err != nil {
 		return m.buf, err
 	}
 
@@ -156,7 +155,7 @@ func (m *Merger) Finish() ([]byte, error) {
 		m.finished = true
 	}
 
-	return m.buf, err
+	return m.buf, nil
 }
 
 func (m *Merger) buildTrackTable(doc *mergerDoc) error {
