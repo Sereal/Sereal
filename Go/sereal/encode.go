@@ -108,7 +108,23 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		binary.LittleEndian.PutUint32(encHeader[:4], magicHeaderBytesHighBit)
 	}
 
-	encHeader[4] = byte(e.version)
+	// Set the <version-type> component in the header
+	var doctype documentType
+	switch e.Compression.(type) {
+	case nil:
+		doctype = serealRaw
+	case SnappyCompressor:
+		doctype = serealSnappyIncremental
+	default:
+		// Defensive programming: this point should never be
+		// reached in production code because the compressor
+		// interface is not exported, hence no way to pass in
+		// an unknown thing. But it may happen during
+		// development when a new compressor is implemented,
+		// but a relevant document type is not defined.
+		panic("undefined compression")
+	}
+	encHeader[4] = byte(e.version) | byte(doctype)<<4
 
 	if header != nil && e.version >= 2 {
 		strTable := make(map[string]int)
@@ -151,28 +167,9 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 
 	if e.Compression != nil && (e.CompressionThreshold == 0 || len(encBody) >= e.CompressionThreshold) {
 		encBody, err = e.Compression.compress(encBody)
-
 		if err != nil {
 			return nil, err
 		}
-
-		// Set the document type in the header
-		var doctype documentType
-		switch e.Compression.(type) {
-		case nil:
-			doctype = serealRaw
-		case SnappyCompressor:
-			doctype = serealSnappyIncremental
-		default:
-			// Defensive programming: this point should never be
-			// reached in production code because the compressor
-			// interface is not exported, hence no way to pass in
-			// an unknown thing. But it may happen during
-			// development when a new compressor is implemented,
-			// but a relevant document type is not defined.
-			panic("undefined compression")
-		}
-		encHeader[4] |= byte(doctype) << 4
 	}
 
 	return append(encHeader, encBody...), nil
