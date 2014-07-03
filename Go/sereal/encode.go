@@ -105,30 +105,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 	}
 
 	// Set the <version-type> component in the header
-	var doctype documentType
-	switch c := e.Compression.(type) {
-	case nil:
-		doctype = serealRaw
-	case SnappyCompressor:
-		if e.version > 1 && !c.Incremental {
-			return nil, errors.New("non-incremental snappy compression only valid for v1 documents")
-		}
-		doctype = serealSnappyIncremental
-	case ZlibCompressor:
-		if e.version < 3 {
-			return nil, errors.New("zlib compression only valid for v3 documents and up")
-		}
-		doctype = serealZlib
-	default:
-		// Defensive programming: this point should never be
-		// reached in production code because the compressor
-		// interface is not exported, hence no way to pass in
-		// an unknown thing. But it may happen during
-		// development when a new compressor is implemented,
-		// but a relevant document type is not defined.
-		panic("undefined compression")
-	}
-	encHeader[4] = byte(e.version) | byte(doctype)<<4
+	encHeader[4] = byte(e.version) | byte(serealRaw)<<4
 
 	if header != nil && e.version >= 2 {
 		strTable := make(map[string]int)
@@ -174,6 +151,35 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		if err != nil {
 			return nil, err
 		}
+
+		var doctype documentType
+
+		switch c := e.Compression.(type) {
+		case SnappyCompressor:
+			if e.version > 1 && !c.Incremental {
+				return nil, errors.New("non-incremental snappy compression only valid for v1 documents")
+			}
+			if e.version == 1 {
+				doctype = serealSnappy
+			} else {
+				doctype = serealSnappyIncremental
+			}
+		case ZlibCompressor:
+			if e.version < 3 {
+				return nil, errors.New("zlib compression only valid for v3 documents and up")
+			}
+			doctype = serealZlib
+		default:
+			// Defensive programming: this point should never be
+			// reached in production code because the compressor
+			// interface is not exported, hence no way to pass in
+			// an unknown thing. But it may happen during
+			// development when a new compressor is implemented,
+			// but a relevant document type is not defined.
+			panic("undefined compression")
+		}
+
+		encHeader[4] |= byte(doctype) << 4
 	}
 
 	return append(encHeader, encBody...), nil
