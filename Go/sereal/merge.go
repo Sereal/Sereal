@@ -46,14 +46,25 @@ type mergerDoc struct {
 	trackIdxs  []int
 }
 
-// NewDecoder returns a decoder with default flags
+// use latest version
 func NewMerger() *Merger {
-	m := Merger{
+	return &Merger{
+		TopLevelElement: TopLevelArrayRef,
+	}
+}
+
+func NewMergerV2() *Merger {
+	return &Merger{
 		version:         2,
 		TopLevelElement: TopLevelArrayRef,
 	}
+}
 
-	return &m
+func NewMergerV3() *Merger {
+	return &Merger{
+		version:         3,
+		TopLevelElement: TopLevelArrayRef,
+	}
 }
 
 func (m *Merger) initMerger() error {
@@ -64,9 +75,11 @@ func (m *Merger) initMerger() error {
 	m.strTable = make(map[string]int)
 	m.buf = make([]byte, headerSize, 32)
 
-	switch {
-	case m.version == 0:
+	if m.version == 0 {
 		m.version = ProtocolVersion
+	}
+
+	switch {
 	case m.version > ProtocolVersion:
 		return fmt.Errorf("protocol version '%v' not yet supported", m.version)
 	case m.version < 3:
