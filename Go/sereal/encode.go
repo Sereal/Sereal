@@ -96,10 +96,6 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		e.version = ProtocolVersion
 	}
 
-	if e.version > ProtocolVersion {
-		return nil, fmt.Errorf("protocol version '%v' not yet supported", e.version)
-	}
-
 	encHeader := make([]byte, headerSize, 32)
 
 	if e.version < 3 {
