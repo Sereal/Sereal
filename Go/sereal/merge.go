@@ -118,20 +118,50 @@ func (m *Merger) Append(b []byte) error {
 		return errors.New("finished document")
 	}
 
-	// TODO check version
-	// TODO handle compression
-	// TODO parse header, why?
-
-	header, err := readHeader(b)
+	docHeader, err := readHeader(b)
 	if err != nil {
 		return err
 	}
 
 	doc := mergerDoc{
-		buf:        b,
-		version:    2,
-		startIdx:   headerSize + header.suffixSize,
-		bodyOffset: headerSize + header.suffixSize - 1,
+		buf:        b[headerSize+docHeader.suffixSize:],
+		version:    int(docHeader.version),
+		startIdx:   0,
+		bodyOffset: -1, // 1-based offsets
+	}
+
+	var decomp decompressor
+	switch docHeader.doctype {
+	case serealRaw:
+		// nothing
+
+	case serealSnappy:
+		if doc.version != 1 {
+			return errors.New("snappy compression only valid for v1 documents")
+		}
+
+		decomp = SnappyCompressor{Incremental: false}
+
+	case serealSnappyIncremental:
+		decomp = SnappyCompressor{Incremental: true}
+
+	case serealZlib:
+		if doc.version < 3 {
+			return errors.New("zlib compression only valid for v3 documents and up")
+		}
+
+		decomp = ZlibCompressor{}
+
+	default:
+		return fmt.Errorf("document type '%d' not yet supported", docHeader.doctype)
+	}
+
+	/* XXX instead of creating an uncompressed copy of the document,
+	 *     it would be more flexible to use a sort of "Reader" interface */
+	if decomp != nil {
+		if doc.buf, err = decomp.decompress(doc.buf); err != nil {
+			return err
+		}
 	}
 
 	lastElementOffset := len(m.buf)
