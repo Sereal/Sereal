@@ -192,8 +192,8 @@ func (m *Merger) Finish() ([]byte, error) {
 
 	if !m.finished {
 		lengthVarInt := make([]byte, 8, 8)
-		copyVarint(lengthVarInt, 0, uint(m.length))
-		copy(m.buf[m.lenOffset:], lengthVarInt)
+		sz := copyVarint(lengthVarInt, 0, uint(m.length))
+		copy(m.buf[m.lenOffset:], lengthVarInt[:sz])
 		m.finished = true
 	}
 
