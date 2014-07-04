@@ -73,7 +73,7 @@ func (m *Merger) initMerger() error {
 	}
 
 	m.strTable = make(map[string]int)
-	m.buf = make([]byte, headerSize, 32)
+	m.buf = make([]byte, headerSize)
 
 	if m.version == 0 {
 		m.version = ProtocolVersion
@@ -97,6 +97,8 @@ func (m *Merger) initMerger() error {
 		m.buf = append(m.buf, typeARRAY)
 	case TopLevelArrayRef:
 		m.buf = append(m.buf, typeREFN, typeARRAY)
+	default:
+		return errors.New("invalid TopLevelElement")
 	}
 
 	// remember len offset + pad bytes for length
