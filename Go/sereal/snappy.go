@@ -1,9 +1,5 @@
 package sereal
 
-import (
-	"code.google.com/p/snappy-go/snappy"
-)
-
 // SnappyCompressor compresses a Sereal document using the Snappy format.
 type SnappyCompressor struct {
 	Incremental bool // enable incremental parsing
@@ -14,7 +10,7 @@ func (c SnappyCompressor) compress(b []byte) ([]byte, error) {
 	//     store the compressed document, which isn't necessary.  You
 	//     could probably write directly to the slice after the header
 	//     and after the varint holding the length
-	compressed, err := snappy.Encode(nil, b)
+	compressed, err := snappyEncode(nil, b)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +33,7 @@ func (c SnappyCompressor) decompress(b []byte) ([]byte, error) {
 		b = b[sz : sz+ln]
 	}
 
-	decompressed, err := snappy.Decode(nil, b)
+	decompressed, err := snappyDecode(nil, b)
 	if err != nil {
 		return nil, err
 	}
