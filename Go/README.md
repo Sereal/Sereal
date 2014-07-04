@@ -8,6 +8,10 @@ Library:
 
     $ go get github.com/Sereal/Sereal/Go/sereal
 
+To use C implementations of snappy and zlib instead of pure-Go ones:
+
+    $ go get -tags clibs github.com/Sereal/Sereal/Go/sereal
+
 Hack
 ----
 
