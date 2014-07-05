@@ -16,7 +16,7 @@ my @tests= (
 );
 
 if (have_encoder_and_decoder()) {
-    my $num_tests= 26;
+    my $num_tests= 34;
     plan tests => $num_tests;
 } else {
     plan skip_all => 'Did not find right version of encoder';
@@ -51,6 +51,34 @@ foreach my $name ( keys %$struct ) {
     _recurse($got, '', $name, 0);
     _recurse($got2, '', $name, 1);
 
+}
+
+{
+    # specifically test set_readonly_scalars
+    my $enc = Sereal::Encoder->new;
+    my $dec = Sereal::Decoder->new( { set_readonly_scalars => 1 } );
+    my $hashref;
+    $dec->decode($enc->encode({ foo => { bar => 1 } }), $hashref);
+
+    is ref($hashref), 'HASH', "check basic decoding";
+    ok !Internals::SvREADONLY($hashref), "hashref shouldn't be readonly";
+    my $foo = $hashref->{bar};
+    is $foo, undef, "can access unknown key of hash";
+    is $hashref->{bar}{baz}, undef, "can autovivificate in hash";
+    ok exists $hashref->{bar}, "autovivification works";
+}
+
+{
+    # specifically test set_readonly
+    my $enc = Sereal::Encoder->new;
+    my $dec = Sereal::Decoder->new( { set_readonly => 1 } );
+    my $hashref;
+    $dec->decode($enc->encode({ foo => { bar => 1 } }), $hashref);
+
+    is ref($hashref), 'HASH', "check basic decoding";
+    ok Internals::SvREADONLY($hashref), "hashref should be readonly";
+    eval { my $test = $hashref->{bar}; };
+    like $@, qr/Attempt to access disallowed key 'bar' in a restricted hash/, "can't access unknown key of hash"
 }
 
 sub _recurse {
