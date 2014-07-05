@@ -31,8 +31,18 @@ type Merger struct {
 	buf        []byte
 
 	// public arguments
+
+	// TopLevelElement allows a user to choose what container will be used
+	// at top level. Available options: array, arrayref, hash, hashref
 	TopLevelElement topLevelElementType
-	// ProtocolVersion
+
+	// If enabled, KeepFlat keeps flat structture of final document.
+	// Specifically, consider two arrays [A,B,C] and [D,E,F]:
+	// - when KeepFlat == false, the result of merging is [[A,B,C],[D,E,F]]
+	// - when KeepFlat == true, the result is [A,B,C,D,E,F]
+	//   This mode is relevant only to top level elements
+	KeepFlat bool
+
 	// DedupeStrings
 	// Compress
 }
@@ -113,18 +123,20 @@ func (m *Merger) initMerger() error {
 	return nil
 }
 
-func (m *Merger) Append(b []byte) error {
+// apart of error, Append() returns number of
+// added elements to top level structure
+func (m *Merger) Append(b []byte) (int, error) {
 	if err := m.initMerger(); err != nil {
-		return err
+		return 0, err
 	}
 
 	if m.finished {
-		return errors.New("finished document")
+		return 0, errors.New("finished document")
 	}
 
 	docHeader, err := readHeader(b)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	doc := mergerDoc{
@@ -141,7 +153,7 @@ func (m *Merger) Append(b []byte) error {
 
 	case serealSnappy:
 		if doc.version != 1 {
-			return errors.New("snappy compression only valid for v1 documents")
+			return 0, errors.New("snappy compression only valid for v1 documents")
 		}
 
 		decomp = SnappyCompressor{Incremental: false}
@@ -151,28 +163,29 @@ func (m *Merger) Append(b []byte) error {
 
 	case serealZlib:
 		if doc.version < 3 {
-			return errors.New("zlib compression only valid for v3 documents and up")
+			return 0, errors.New("zlib compression only valid for v3 documents and up")
 		}
 
 		decomp = ZlibCompressor{}
 
 	default:
-		return fmt.Errorf("document type '%d' not yet supported", docHeader.doctype)
+		return 0, fmt.Errorf("document type '%d' not yet supported", docHeader.doctype)
 	}
 
 	/* XXX instead of creating an uncompressed copy of the document,
 	 *     it would be more flexible to use a sort of "Reader" interface */
 	if decomp != nil {
 		if doc.buf, err = decomp.decompress(doc.buf); err != nil {
-			return err
+			return 0, err
 		}
 	}
 
+	old_length := m.length
 	lastElementOffset := len(m.buf)
 
 	// first pass: build table of tracked tags
 	if err := m.buildTrackTable(&doc); err != nil {
-		return err
+		return 0, err
 	}
 
 	// preallocate memory
@@ -185,10 +198,10 @@ func (m *Merger) Append(b []byte) error {
 	// second pass: do the work
 	if err := m.mergeItems(&doc); err != nil {
 		m.buf = m.buf[0:lastElementOffset] // remove appended stuff
-		return err
+		return 0, err
 	}
 
-	return nil
+	return m.length - old_length, nil
 }
 
 func (m *Merger) Finish() ([]byte, error) {
@@ -301,14 +314,20 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 	dbuf := doc.buf
 	didx := doc.startIdx
 
+	expElements, offset := m.expectedElements(dbuf[didx:])
+	if expElements < 0 || expElements > math.MaxUint32 {
+		return fmt.Errorf("bad amount of expected elements: %d", expElements)
+	}
+
+	didx += offset
+
 	// stack is needed for three things:
 	// - keep track of expected things
 	// - verify document consistency
-	// - count number of added elements (as negative counter)
-	//   to top level data structure: -(stack[0] + 1)
 	stack := make([]int, 0, 16) // preallocate 16 nested levels
-	stack = append(stack, -1)
+	stack = append(stack, expElements)
 
+LOOP:
 	for didx < len(dbuf) {
 		tag := dbuf[didx]
 		tag &^= trackFlag
@@ -321,6 +340,10 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 		for stack[level] == 0 {
 			stack = stack[:level]
 			level--
+
+			if level < 0 {
+				break LOOP
+			}
 		}
 
 		dedupString := true // TODO
@@ -500,19 +523,34 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 		}
 	}
 
-	level := len(stack) - 1
-	for stack[level] == 0 {
-		stack = stack[:level]
-		level--
-	}
-
-	if len(stack) > 1 {
-		return errors.New("Failed to append invalid Sereal document")
-	}
-
-	m.length += -(stack[0] + 1)
+	m.length += expElements
 	m.buf = mbuf
 	return nil
+}
+
+func (m *Merger) expectedElements(b []byte) (int, int) {
+	if m.KeepFlat {
+		tag0 := b[0] &^ trackFlag
+		tag1 := b[1] &^ trackFlag
+
+		switch m.TopLevelElement {
+		case TopLevelArray:
+			if tag0 == typeARRAY {
+				ln, sz := varintdecode(b[1:])
+				return ln, sz + 1
+			}
+
+		case TopLevelArrayRef:
+			if tag0 == typeREFN && tag1 == typeARRAY {
+				ln, sz := varintdecode(b[2:])
+				return ln, sz + 2
+			} else if tag0 >= typeARRAYREF_0 && tag0 < typeARRAYREF_0+16 {
+				return int(tag0 & 0xF), 1
+			}
+		}
+	}
+
+	return 1, 0 // by default expect only one element
 }
 
 func isShallowStringish(tag byte) bool {
