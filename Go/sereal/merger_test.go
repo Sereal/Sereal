@@ -31,7 +31,7 @@ func BenchmarkMerger(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		buf := data[r.Int()%len(data)]
-		err := m.Append(buf)
+		_, err := m.Append(buf)
 		if err != nil {
 			b.Fatal(err)
 		}
