@@ -43,8 +43,12 @@ type Merger struct {
 	//   This mode is relevant only to top level elements
 	KeepFlat bool
 
+	// optionally compress the main payload of the document using SnappyCompressor or ZlibCompressor
+	// CompressionThreshold specifies threshold in bytes above which compression is attempted: 1024 bytes by default
+	Compression          compressor
+	CompressionThreshold int
+
 	// DedupeStrings
-	// Compress
 }
 
 type mergerDoc struct {
@@ -60,21 +64,24 @@ type mergerDoc struct {
 // use latest version
 func NewMerger() *Merger {
 	return &Merger{
-		TopLevelElement: TopLevelArrayRef,
+		TopLevelElement:      TopLevelArrayRef,
+		CompressionThreshold: 1024,
 	}
 }
 
 func NewMergerV2() *Merger {
 	return &Merger{
-		version:         2,
-		TopLevelElement: TopLevelArrayRef,
+		version:              2,
+		TopLevelElement:      TopLevelArrayRef,
+		CompressionThreshold: 1024,
 	}
 }
 
 func NewMergerV3() *Merger {
 	return &Merger{
-		version:         3,
-		TopLevelElement: TopLevelArrayRef,
+		version:              3,
+		TopLevelElement:      TopLevelArrayRef,
+		CompressionThreshold: 1024,
 	}
 }
 
@@ -83,6 +90,7 @@ func (m *Merger) initMerger() error {
 		return nil
 	}
 
+	// initialize internal fields
 	m.strTable = make(map[string]int)
 	m.objTable = make(map[string]int)
 	m.buf = make([]byte, headerSize)
@@ -104,6 +112,7 @@ func (m *Merger) initMerger() error {
 	m.buf = append(m.buf, 0)      // no header
 	m.bodyOffset = len(m.buf) - 1 // remember body offset
 
+	// append top level tags
 	switch m.TopLevelElement {
 	case TopLevelArray:
 		m.buf = append(m.buf, typeARRAY)
@@ -210,8 +219,39 @@ func (m *Merger) Finish() ([]byte, error) {
 	}
 
 	if !m.finished {
-		copyVarint(m.buf, m.lenOffset, uint(m.length))
 		m.finished = true
+		copyVarint(m.buf, m.lenOffset, uint(m.length))
+
+		if m.Compression != nil && (m.CompressionThreshold == 0 || len(m.buf) >= m.CompressionThreshold) {
+			compressed, err := m.Compression.compress(m.buf[m.bodyOffset+1:])
+			if err != nil {
+				return m.buf, err
+			}
+
+			copy(m.buf[m.bodyOffset+1:], compressed)
+			m.buf = m.buf[:len(compressed)+m.bodyOffset+1]
+
+			// verify compressor, there was little point in veryfing compressor in initMerger()
+			// because use can change it meanwhile
+			switch comp := m.Compression.(type) {
+			case SnappyCompressor:
+				if !comp.Incremental {
+					return nil, errors.New("non-incremental snappy compression is not supported")
+				}
+
+				m.buf[4] |= byte(serealSnappyIncremental) << 4
+
+			case ZlibCompressor:
+				if m.version < 3 {
+					return nil, errors.New("zlib compression only valid for v3 documents and up")
+				}
+
+				m.buf[4] |= byte(serealZlib) << 4
+
+			default:
+				return nil, errors.New("unknown compressor")
+			}
+		}
 	}
 
 	return m.buf, nil
