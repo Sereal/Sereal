@@ -335,7 +335,7 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 		//fmt.Println("------")
 
 		switch {
-		case tag < typeVARINT, tag == typeUNDEF, tag == typeCANONICAL_UNDEF, tag == typeTRUE, tag == typeFALSE:
+		case tag < typeVARINT, tag == typeUNDEF, tag == typeCANONICAL_UNDEF, tag == typeTRUE, tag == typeFALSE, tag == typeSHORT_BINARY_0:
 			mbuf[midx] = dbuf[didx]
 			didx++
 			midx++
@@ -399,7 +399,14 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 			stack[level]--
 			didx += length
 
-		case tag >= typeSHORT_BINARY_0 && tag < typeSHORT_BINARY_0+32:
+		case tag == typeSHORT_BINARY_0+1:
+			mbuf[midx] = dbuf[didx]
+			mbuf[midx+1] = dbuf[didx+1]
+			stack[level]--
+			didx += 2
+			midx += 2
+
+		case tag > typeSHORT_BINARY_0+1 && tag < typeSHORT_BINARY_0+32:
 			ln := int(tag & 0x1F) // get length from tag
 			length := ln + 1
 
