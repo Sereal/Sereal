@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
-	"strconv"
 )
 
 type topLevelElementType int
@@ -27,6 +27,7 @@ type Merger struct {
 	inited     bool
 	finished   bool
 	strTable   map[string]int
+	objTable   map[string]int
 	buf        []byte
 
 	// public arguments
@@ -73,6 +74,7 @@ func (m *Merger) initMerger() error {
 	}
 
 	m.strTable = make(map[string]int)
+	m.objTable = make(map[string]int)
 	m.buf = make([]byte, headerSize)
 
 	if m.version == 0 {
@@ -174,8 +176,10 @@ func (m *Merger) Append(b []byte) error {
 	}
 
 	// preallocate memory
+	// copying data from doc.buf might seem to be unefficient,
+	// but profiling/benchmarking shows that there is no
+	// difference between growing slice by append() or via new() + copy()
 	m.buf = append(m.buf, doc.buf...)
-	//doc.buf = m.buf[lastElementOffset:]
 	m.buf = m.buf[:lastElementOffset]
 
 	// second pass: do the work
@@ -209,11 +213,10 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 		return errors.New("invalid index")
 	}
 
-	var err error
 	doc.trackTable = make(map[int]int)
 	doc.trackIdxs = make([]int, 0)
 
-	for idx < len(buf) && err == nil {
+	for idx < len(buf) {
 		tag := buf[idx]
 
 		if (tag & trackFlag) == trackFlag {
@@ -227,8 +230,8 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 		case tag < typeVARINT,
 			tag == typePAD, tag == typeREFN, tag == typeWEAKEN,
 			tag == typeUNDEF, tag == typeCANONICAL_UNDEF,
-			tag == typeTRUE, tag == typeFALSE,
-			tag == typePACKET_START, tag == typeEXTEND:
+			tag == typeTRUE, tag == typeFALSE, tag == typeEXTEND,
+			tag == typeREGEXP, tag == typeOBJECT, tag == typeOBJECT_FREEZE:
 			idx++
 
 		case tag == typeVARINT, tag == typeZIGZAG:
@@ -248,36 +251,26 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 			ln, sz := varintdecode(buf[idx+1:])
 			idx += sz + ln + 1
 
-			if ln < 0 {
-				err = errors.New("bad size for string or binary")
-				break
-			}
-
-			if idx > len(buf) {
-				err = errors.New("truncated document")
-				break
+			if ln < 0 || ln > math.MaxUint32 {
+				return fmt.Errorf("bad size for string: %d", ln)
+			} else if idx > len(buf) {
+				return fmt.Errorf("truncated document, expect %d bytes", len(buf)-idx)
 			}
 
 		case tag == typeARRAY, tag == typeHASH:
 			_, sz := varintdecode(buf[idx+1:])
 			idx += sz + 1
 
-		case tag == typeCOPY, tag == typeALIAS, tag == typeREFP:
+		case tag == typeCOPY, tag == typeALIAS, tag == typeREFP,
+			tag == typeOBJECTV, tag == typeOBJECTV_FREEZE:
+
 			offset, sz := varintdecode(buf[idx+1:])
 			if offset < 0 || offset >= idx {
-				err = errors.New("bad offset")
-				break
+				return fmt.Errorf("tag %d refers to invalid offset: %d", tag, offset)
 			}
 
 			doc.trackTable[offset] = -1
 			idx += sz + 1
-
-		//case tag == typeOBJECT:
-		//case tag == typeOBJECTV:
-		//case tag == typeREGEXP:
-		//case tag == typeOBJECT_FREEZE:
-		//case tag == typeOBJECTV_FREEZE:
-		//case tag == typeMANY:
 
 		case tag >= typeARRAYREF_0 && tag < typeARRAYREF_0+16:
 			idx++
@@ -288,8 +281,12 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 		case tag >= typeSHORT_BINARY_0 && tag < typeSHORT_BINARY_0+32:
 			idx += 1 + int(tag&0x1F)
 
+		// case tag == typeMANY: TODO
+		case tag == typePACKET_START:
+			return errors.New("unexpected start of new document")
+
 		default:
-			err = errors.New("unknown tag byte: " + strconv.Itoa(int(tag)) + " at offset " + strconv.Itoa(idx))
+			return fmt.Errorf("unknown tag: %d (0x%x) at offset %d!", tag, tag, idx)
 		}
 	}
 
@@ -298,7 +295,7 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 	}
 
 	sort.Ints(doc.trackIdxs)
-	return err
+	return nil
 }
 
 func (m *Merger) mergeItems(doc *mergerDoc) error {
@@ -306,17 +303,21 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 		return errors.New("Buffer is not long enough, preallocation didn't work!")
 	}
 
-	var err error
 	midx := len(m.buf)
 	mbuf := m.buf[:cap(m.buf)-1]
 
 	dbuf := doc.buf
 	didx := doc.startIdx
 
-	stack := make([]int, 1, 16) // 16 nested levels
-	stack[0] = -1
+	// stack is needed for three things:
+	// - keep track of expected things
+	// - verify document consistency
+	// - count number of added elements (as negative counter)
+	//   to top level data structure: -(stack[0] + 1)
+	stack := make([]int, 0, 16) // preallocate 16 nested levels
+	stack = append(stack, -1)
 
-	for didx < len(dbuf) && err == nil {
+	for didx < len(dbuf) {
 		tag := dbuf[didx]
 		tag &^= trackFlag
 
@@ -330,6 +331,8 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 			level--
 		}
 
+		dedupString := true // TODO
+
 		//fmt.Printf("%x (%x) at %d (%d)\n", tag, dbuf[didx], didx, didx-doc.bodyOffset)
 		//fmt.Printf("level: %d, value: %d len: %d\n", level, stack[level], len(stack))
 		//fmt.Println("------")
@@ -339,9 +342,12 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 			mbuf[midx] = dbuf[didx]
 			didx++
 			midx++
-			stack[level]--
 
-		case tag == typePAD, tag == typeREFN, tag == typeWEAKEN, tag == typePACKET_START, tag == typeEXTEND:
+		case tag == typePAD, tag == typeREFN, tag == typeWEAKEN, tag == typeEXTEND:
+			// this elemets are fake ones, so stack counter should not be decreased
+			// but, I don't want to create another if-branch, so fake it
+			stack[level]++
+
 			mbuf[midx] = dbuf[didx]
 			didx++
 			midx++
@@ -351,103 +357,88 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 			copy(mbuf[midx:], dbuf[didx:didx+sz+1])
 			didx += sz + 1
 			midx += sz + 1
-			stack[level]--
 
 		case tag == typeFLOAT:
 			copy(mbuf[midx:], dbuf[didx:didx+5])
-			didx += 5
-			midx += 5 // 4 bytes + tag
-			stack[level]--
+			didx += 5 // 4 bytes + tag
+			midx += 5
 
 		case tag == typeDOUBLE:
 			copy(mbuf[midx:], dbuf[didx:didx+9])
-			didx += 9
-			midx += 9 // 8 bytes + tag
-			stack[level]--
+			didx += 9 // 8 bytes + tag
+			midx += 9
 
 		case tag == typeLONG_DOUBLE:
 			copy(mbuf[midx:], dbuf[didx:didx+17])
-			didx += 17
-			midx += 17 // 16 bytes + tag
-			stack[level]--
-
-		case tag == typeBINARY, tag == typeSTR_UTF8:
-			ln, sz := varintdecode(dbuf[didx+1:])
-			length := sz + ln + 1
-
-			if ln < 0 {
-				err = errors.New("bad size for string")
-				break
-			}
-
-			if didx+length > len(dbuf) {
-				err = errors.New("truncated document")
-				break
-			}
-
-			val := dbuf[didx+sz+1 : didx+length]
-			if savedOffset, ok := m.strTable[string(val)]; ok {
-				mbuf[midx] = typeCOPY
-				midx += 1 + copyVarint(mbuf, midx+1, uint(savedOffset))
-				mrgRelativeIdx = savedOffset
-			} else {
-				m.strTable[string(val)] = mrgRelativeIdx
-				copy(mbuf[midx:], dbuf[didx:didx+length])
-				midx += length
-			}
-
-			stack[level]--
-			didx += length
+			didx += 17 // 16 bytes + tag
+			midx += 17
 
 		case tag == typeSHORT_BINARY_0+1:
 			mbuf[midx] = dbuf[didx]
 			mbuf[midx+1] = dbuf[didx+1]
-			stack[level]--
 			didx += 2
 			midx += 2
 
-		case tag > typeSHORT_BINARY_0+1 && tag < typeSHORT_BINARY_0+32:
-			ln := int(tag & 0x1F) // get length from tag
-			length := ln + 1
+		case tag == typeBINARY, tag == typeSTR_UTF8, tag > typeSHORT_BINARY_0+1 && tag < typeSHORT_BINARY_0+32:
+			// I don't want to call readString here because of performance reasons:
+			// this path is the hot spot, so keep it overhead-free as much as possible
 
-			if didx+length > len(dbuf) {
-				err = errors.New("truncated document")
-				break
+			var ln, sz int
+			if tag > typeSHORT_BINARY_0 {
+				ln = int(tag & 0x1F) // get length from tag
+			} else {
+				ln, sz = varintdecode(dbuf[didx+1:])
 			}
 
-			val := dbuf[didx+1 : didx+length]
-			if savedOffset, ok := m.strTable[string(val)]; ok {
-				mbuf[midx] = typeCOPY
-				midx += 1 + copyVarint(mbuf, midx+1, uint(savedOffset))
-				mrgRelativeIdx = savedOffset
+			length := sz + ln + 1
+			if ln < 0 || ln > math.MaxUint32 {
+				return fmt.Errorf("bad size for string: %d", ln)
+			} else if didx+length > len(dbuf) {
+				return fmt.Errorf("truncated document, expect %d bytes", len(dbuf)-didx-length)
+			}
+
+			if dedupString {
+				val := dbuf[didx+1 : didx+length]
+				if savedOffset, ok := m.strTable[string(val)]; ok {
+					mbuf[midx] = typeCOPY
+					midx += 1 + copyVarint(mbuf, midx+1, uint(savedOffset))
+					mrgRelativeIdx = savedOffset
+				} else {
+					m.strTable[string(val)] = mrgRelativeIdx
+					copy(mbuf[midx:], dbuf[didx:didx+length])
+					midx += length
+				}
 			} else {
-				m.strTable[string(val)] = mrgRelativeIdx
 				copy(mbuf[midx:], dbuf[didx:didx+length])
 				midx += length
 			}
 
-			stack[level]--
 			didx += length
 
-		case tag == typeCOPY, tag == typeREFP:
+		case tag == typeCOPY, tag == typeREFP, tag == typeALIAS,
+			tag == typeOBJECTV, tag == typeOBJECTV_FREEZE:
+
 			offset, sz := varintdecode(dbuf[didx+1:])
 			targetOffset, ok := doc.trackTable[offset]
 
 			if !ok || targetOffset < 0 {
-				err = errors.New("bad target offset at COPY or REFP tag")
-				break
+				return errors.New("bad target offset at COPY, ALIAS or REFP tag")
 			}
 
 			mbuf[midx] = dbuf[didx]
 			midx += 1 + copyVarint(mbuf, midx+1, uint(targetOffset))
 			didx += sz + 1
-			stack[level]--
+
+			if tag == typeALIAS {
+				mbuf[targetOffset] |= trackFlag // TODO check
+			} else if tag == typeOBJECTV || tag == typeOBJECTV_FREEZE {
+				stack = append(stack, 1)
+			}
 
 		case tag == typeARRAY, tag == typeHASH:
 			ln, sz := varintdecode(dbuf[didx+1:])
 			if ln < 0 {
-				err = errors.New("bad array or hash length")
-				break
+				return errors.New("bad array or hash length")
 			}
 
 			copy(mbuf[midx:], dbuf[didx:didx+sz+1])
@@ -455,11 +446,10 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 			midx += sz + 1
 
 			if tag == typeHASH {
-				ln *= 2
+				stack = append(stack, ln*2)
+			} else {
+				stack = append(stack, ln)
 			}
-
-			stack[level]--
-			stack = append(stack, ln)
 
 		case (tag >= typeARRAYREF_0 && tag < typeARRAYREF_0+16) || (tag >= typeHASHREF_0 && tag < typeHASHREF_0+16):
 			mbuf[midx] = dbuf[didx]
@@ -467,25 +457,67 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 			midx++
 
 			// for hash read 2*ln items
-			ln := int(tag & 0xF)
 			if tag >= typeHASHREF_0 {
-				ln *= 2
+				stack = append(stack, int(tag&0xF)*2)
+			} else {
+				stack = append(stack, int(tag&0xF))
 			}
 
-			stack[level]--
-			stack = append(stack, ln)
+		case tag == typeREGEXP:
+			offset, str, err := readString(dbuf[didx+1:])
+			if err != nil {
+				return err
+			}
 
-			//case tag == typeOBJECT:
-			//case tag == typeOBJECTV:
-			//case tag == typeREGEXP:
-			//case tag == typeOBJECT_FREEZE:
-			//case tag == typeOBJECTV_FREEZE:
-			//case tag == typeMANY:
-			//case tag == typeALIAS
+			sizeToCopy := offset + len(str) + 1
+			offset, str, err = readString(dbuf[didx+sizeToCopy:])
+			if err != nil {
+				return err
+			}
+
+			sizeToCopy += offset + len(str)
+			copy(mbuf[midx:], dbuf[didx:didx+sizeToCopy])
+			midx += sizeToCopy
+			didx += sizeToCopy
+
+		case tag == typeOBJECT, tag == typeOBJECT_FREEZE:
+			// skip main tag for a second, and parse <STR-TAG>
+			offset, str, err := readString(dbuf[didx+1:])
+			if err != nil {
+				return err
+			}
+
+			length := offset + len(str) + 1 // respect typeOBJECT tag
+			if savedOffset, ok := m.objTable[string(str)]; ok {
+				if tag == typeOBJECT {
+					mbuf[midx] = typeOBJECTV
+				} else {
+					mbuf[midx] = typeOBJECTV_FREEZE
+				}
+
+				midx += 1 + copyVarint(mbuf, midx+1, uint(savedOffset))
+				mrgRelativeIdx = savedOffset
+			} else {
+				// +1 because we should refer to string tag, not object tag
+				mrgRelativeIdx++
+				m.objTable[string(str)] = mrgRelativeIdx
+				copy(mbuf[midx:], dbuf[didx:didx+length])
+				midx += length
+			}
+
+			// parse <ITEM-TAG>
+			stack = append(stack, 1)
+			didx += length
+
+		case tag == typePACKET_START:
+			return errors.New("unexpected start of new document")
 
 		default:
-			err = errors.New("unknown tag byte: " + strconv.Itoa(int(tag)))
+			// TODO typeMANY
+			return fmt.Errorf("unknown tag: %d (0x%x) at offset %d!", tag, tag, didx)
 		}
+
+		stack[level]--
 
 		if trackme {
 			// if tag is tracked, remember its offset
@@ -506,7 +538,36 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 
 	m.length += -(stack[0] + 1)
 	m.buf = mbuf[:midx]
-	return err
+	return nil
+}
+
+func isShallowStringish(tag byte) bool {
+	return tag == typeBINARY || tag == typeSTR_UTF8 || (tag >= typeSHORT_BINARY_0 && tag < typeSHORT_BINARY_0+32)
+}
+
+func readString(buf []byte) (int, []byte, error) {
+	tag := buf[0]
+	tag &^= trackFlag
+
+	if !isShallowStringish(tag) {
+		return 0, nil, fmt.Errorf("expected stringish but found %d (0x%x)", int(tag), int(tag))
+	}
+
+	var ln, offset int
+	if tag > typeSHORT_BINARY_0 {
+		ln = int(tag & 0x1F) // get length from tag
+	} else {
+		ln, offset = varintdecode(buf[1:])
+	}
+
+	offset++ // respect tag itself
+	if ln < 0 || ln > math.MaxUint32 {
+		return 0, nil, fmt.Errorf("bad size for string: %d", ln)
+	} else if offset+ln > len(buf) {
+		return 0, nil, fmt.Errorf("truncated document, expect %d bytes", len(buf)-ln-offset)
+	}
+
+	return offset, buf[offset : offset+ln], nil
 }
 
 func copyVarint(b []byte, idx int, n uint) int {
