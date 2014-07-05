@@ -197,9 +197,7 @@ func (m *Merger) Finish() ([]byte, error) {
 	}
 
 	if !m.finished {
-		lengthVarInt := make([]byte, 8, 8)
-		sz := copyVarint(lengthVarInt, 0, uint(m.length))
-		copy(m.buf[m.lenOffset:], lengthVarInt[:sz])
+		copyVarint(m.buf, m.lenOffset, uint(m.length))
 		m.finished = true
 	}
 
@@ -299,13 +297,7 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 }
 
 func (m *Merger) mergeItems(doc *mergerDoc) error {
-	if cap(m.buf)-len(m.buf) < len(doc.buf) {
-		return errors.New("Buffer is not long enough, preallocation didn't work!")
-	}
-
-	midx := len(m.buf)
-	mbuf := m.buf[:cap(m.buf)-1]
-
+	mbuf := m.buf
 	dbuf := doc.buf
 	didx := doc.startIdx
 
@@ -322,7 +314,7 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 		tag &^= trackFlag
 
 		docRelativeIdx := didx - doc.bodyOffset
-		mrgRelativeIdx := midx - m.bodyOffset
+		mrgRelativeIdx := len(mbuf) - m.bodyOffset
 		trackme := len(doc.trackIdxs) > 0 && doc.trackIdxs[0] == docRelativeIdx
 
 		level := len(stack) - 1
@@ -333,51 +325,42 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 
 		dedupString := true // TODO
 
-		//fmt.Printf("%x (%x) at %d (%d)\n", tag, dbuf[didx], didx, didx-doc.bodyOffset)
+		//fmt.Printf("0x%x (0x%x) at didx: %d (rlt: %d) len(dbuf): %d\n", tag, dbuf[didx], didx, didx-doc.bodyOffset, len(dbuf))
 		//fmt.Printf("level: %d, value: %d len: %d\n", level, stack[level], len(stack))
 		//fmt.Println("------")
 
 		switch {
 		case tag < typeVARINT, tag == typeUNDEF, tag == typeCANONICAL_UNDEF, tag == typeTRUE, tag == typeFALSE, tag == typeSHORT_BINARY_0:
-			mbuf[midx] = dbuf[didx]
+			mbuf = append(mbuf, dbuf[didx])
 			didx++
-			midx++
 
 		case tag == typePAD, tag == typeREFN, tag == typeWEAKEN, tag == typeEXTEND:
 			// this elemets are fake ones, so stack counter should not be decreased
 			// but, I don't want to create another if-branch, so fake it
 			stack[level]++
-
-			mbuf[midx] = dbuf[didx]
+			mbuf = append(mbuf, dbuf[didx])
 			didx++
-			midx++
 
 		case tag == typeVARINT, tag == typeZIGZAG:
 			_, sz := varintdecode(dbuf[didx+1:])
-			copy(mbuf[midx:], dbuf[didx:didx+sz+1])
+			mbuf = append(mbuf, dbuf[didx:didx+sz+1]...)
 			didx += sz + 1
-			midx += sz + 1
 
 		case tag == typeFLOAT:
-			copy(mbuf[midx:], dbuf[didx:didx+5])
+			mbuf = append(mbuf, dbuf[didx:didx+5]...)
 			didx += 5 // 4 bytes + tag
-			midx += 5
 
 		case tag == typeDOUBLE:
-			copy(mbuf[midx:], dbuf[didx:didx+9])
+			mbuf = append(mbuf, dbuf[didx:didx+9]...)
 			didx += 9 // 8 bytes + tag
-			midx += 9
 
 		case tag == typeLONG_DOUBLE:
-			copy(mbuf[midx:], dbuf[didx:didx+17])
+			mbuf = append(mbuf, dbuf[didx:didx+17]...)
 			didx += 17 // 16 bytes + tag
-			midx += 17
 
 		case tag == typeSHORT_BINARY_0+1:
-			mbuf[midx] = dbuf[didx]
-			mbuf[midx+1] = dbuf[didx+1]
+			mbuf = append(mbuf, dbuf[didx:didx+2]...)
 			didx += 2
-			midx += 2
 
 		case tag == typeBINARY, tag == typeSTR_UTF8, tag > typeSHORT_BINARY_0+1 && tag < typeSHORT_BINARY_0+32:
 			// I don't want to call readString here because of performance reasons:
@@ -400,17 +383,14 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 			if dedupString {
 				val := dbuf[didx+1 : didx+length]
 				if savedOffset, ok := m.strTable[string(val)]; ok {
-					mbuf[midx] = typeCOPY
-					midx += 1 + copyVarint(mbuf, midx+1, uint(savedOffset))
+					mbuf = appendTagVarint(mbuf, typeCOPY, uint(savedOffset))
 					mrgRelativeIdx = savedOffset
 				} else {
 					m.strTable[string(val)] = mrgRelativeIdx
-					copy(mbuf[midx:], dbuf[didx:didx+length])
-					midx += length
+					mbuf = append(mbuf, dbuf[didx:didx+length]...)
 				}
 			} else {
-				copy(mbuf[midx:], dbuf[didx:didx+length])
-				midx += length
+				mbuf = append(mbuf, dbuf[didx:didx+length]...)
 			}
 
 			didx += length
@@ -425,8 +405,7 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 				return errors.New("bad target offset at COPY, ALIAS or REFP tag")
 			}
 
-			mbuf[midx] = dbuf[didx]
-			midx += 1 + copyVarint(mbuf, midx+1, uint(targetOffset))
+			mbuf = appendTagVarint(mbuf, dbuf[didx], uint(targetOffset))
 			didx += sz + 1
 
 			if tag == typeALIAS {
@@ -441,9 +420,8 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 				return errors.New("bad array or hash length")
 			}
 
-			copy(mbuf[midx:], dbuf[didx:didx+sz+1])
+			mbuf = append(mbuf, dbuf[didx:didx+sz+1]...)
 			didx += sz + 1
-			midx += sz + 1
 
 			if tag == typeHASH {
 				stack = append(stack, ln*2)
@@ -452,9 +430,8 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 			}
 
 		case (tag >= typeARRAYREF_0 && tag < typeARRAYREF_0+16) || (tag >= typeHASHREF_0 && tag < typeHASHREF_0+16):
-			mbuf[midx] = dbuf[didx]
+			mbuf = append(mbuf, dbuf[didx])
 			didx++
-			midx++
 
 			// for hash read 2*ln items
 			if tag >= typeHASHREF_0 {
@@ -476,8 +453,7 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 			}
 
 			sizeToCopy += offset + len(str)
-			copy(mbuf[midx:], dbuf[didx:didx+sizeToCopy])
-			midx += sizeToCopy
+			mbuf = append(mbuf, dbuf[didx:didx+sizeToCopy]...)
 			didx += sizeToCopy
 
 		case tag == typeOBJECT, tag == typeOBJECT_FREEZE:
@@ -490,19 +466,17 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 			length := offset + len(str) + 1 // respect typeOBJECT tag
 			if savedOffset, ok := m.objTable[string(str)]; ok {
 				if tag == typeOBJECT {
-					mbuf[midx] = typeOBJECTV
+					mbuf = appendTagVarint(mbuf, typeOBJECTV, uint(savedOffset))
 				} else {
-					mbuf[midx] = typeOBJECTV_FREEZE
+					mbuf = appendTagVarint(mbuf, typeOBJECTV_FREEZE, uint(savedOffset))
 				}
 
-				midx += 1 + copyVarint(mbuf, midx+1, uint(savedOffset))
 				mrgRelativeIdx = savedOffset
 			} else {
 				// +1 because we should refer to string tag, not object tag
 				mrgRelativeIdx++
 				m.objTable[string(str)] = mrgRelativeIdx
-				copy(mbuf[midx:], dbuf[didx:didx+length])
-				midx += length
+				mbuf = append(mbuf, dbuf[didx:didx+length]...)
 			}
 
 			// parse <ITEM-TAG>
@@ -537,7 +511,7 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 	}
 
 	m.length += -(stack[0] + 1)
-	m.buf = mbuf[:midx]
+	m.buf = mbuf
 	return nil
 }
 
@@ -580,6 +554,22 @@ func copyVarint(b []byte, idx int, n uint) int {
 
 	b[idx] = byte(n)
 	return idx - oidx + 1
+}
+
+var varintBuf []byte = make([]byte, 16, 16)
+
+func appendTagVarint(by []byte, tag byte, n uint) []uint8 {
+	varintBuf[0] = tag
+
+	idx := 1
+	for n >= 0x80 {
+		varintBuf[idx] = byte(n) | 0x80
+		n >>= 7
+		idx++
+	}
+
+	varintBuf[idx] = byte(n)
+	return append(by, varintBuf[:idx+1]...)
 }
 
 //func appendVarint(by []byte, n uint) []uint8 {
