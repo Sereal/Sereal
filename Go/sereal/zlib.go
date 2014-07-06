@@ -25,6 +25,10 @@ func (c ZlibCompressor) compress(buf []byte) ([]byte, error) {
 	// XXX It's the naive implementation, better to rework as described in the spec:
 	// https://github.com/Sereal/Sereal/blob/master/sereal_spec.pod#encoding-the-length-of-compressed-documents
 
+	if c.Level == 0 {
+		c.Level = ZlibDefaultCompression
+	}
+
 	var head []byte
 	tail, err := zlibEncode(buf, c.Level)
 	if err != nil {
