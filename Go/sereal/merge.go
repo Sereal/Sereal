@@ -480,7 +480,7 @@ LOOP:
 			didx += sz + 1
 
 			if tag == typeALIAS {
-				mbuf[targetOffset] |= trackFlag // TODO check
+				mbuf[targetOffset] |= trackFlag
 			} else if tag == typeOBJECTV || tag == typeOBJECTV_FREEZE {
 				stack = append(stack, 1)
 			}
