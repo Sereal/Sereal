@@ -18,6 +18,7 @@ const (
 )
 
 const reservedBytesForLength = 8
+const hashKeysValuesFlag = uint32(1 << 31)
 
 type Merger struct {
 	version    int
@@ -48,7 +49,9 @@ type Merger struct {
 	Compression          compressor
 	CompressionThreshold int
 
-	// DedupeStrings
+	// If enabled, merger will deduplicate all strings it meets.
+	// Otherwise, only hash key and class names will be deduplicated
+	DedupeStrings bool
 }
 
 type mergerDoc struct {
@@ -364,8 +367,10 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 	// stack is needed for three things:
 	// - keep track of expected things
 	// - verify document consistency
-	stack := make([]int, 0, 16) // preallocate 16 nested levels
-	stack = append(stack, expElements)
+	// if a value put on stack has the highest significant bit on,
+	// it means that hash keys/values are processed
+	stack := make([]uint32, 0, 16) // preallocate 16 nested levels
+	stack = append(stack, uint32(expElements))
 
 LOOP:
 	for didx < len(dbuf) {
@@ -377,7 +382,7 @@ LOOP:
 		trackme := len(doc.trackIdxs) > 0 && doc.trackIdxs[0] == docRelativeIdx
 
 		level := len(stack) - 1
-		for stack[level] == 0 {
+		for stack[level]&^hashKeysValuesFlag == 0 {
 			stack = stack[:level]
 			level--
 
@@ -386,7 +391,11 @@ LOOP:
 			}
 		}
 
-		dedupString := true // TODO
+		// If m.DedupeStrings is true - dedup all strings, otherwise dedup only hash keys and class names.
+		// The trick with stack[level] % 2 == 0 works because stack[level] for hashes is always even at
+		// the beggining (for each item in hash we expect key and value). In practise it means,
+		// that if stack[level] is even - a key is being processed, if stack[level] is odd - value is being processed
+		dedupString := m.DedupeStrings || ((stack[level]&hashKeysValuesFlag) == hashKeysValuesFlag && stack[level]%2 == 0)
 
 		//fmt.Printf("0x%x (0x%x) at didx: %d (rlt: %d) len(dbuf): %d\n", tag, dbuf[didx], didx, didx-doc.bodyOffset, len(dbuf))
 		//fmt.Printf("level: %d, value: %d len: %d\n", level, stack[level], len(stack))
@@ -487,9 +496,9 @@ LOOP:
 			didx += sz + 1
 
 			if tag == typeHASH {
-				stack = append(stack, ln*2)
+				stack = append(stack, uint32(ln*2)|hashKeysValuesFlag)
 			} else {
-				stack = append(stack, ln)
+				stack = append(stack, uint32(ln))
 			}
 
 		case (tag >= typeARRAYREF_0 && tag < typeARRAYREF_0+16) || (tag >= typeHASHREF_0 && tag < typeHASHREF_0+16):
@@ -498,9 +507,9 @@ LOOP:
 
 			// for hash read 2*ln items
 			if tag >= typeHASHREF_0 {
-				stack = append(stack, int(tag&0xF)*2)
+				stack = append(stack, uint32(tag&0xF*2)|hashKeysValuesFlag)
 			} else {
-				stack = append(stack, int(tag&0xF))
+				stack = append(stack, uint32(tag&0xF))
 			}
 
 		case tag == typeREGEXP:
