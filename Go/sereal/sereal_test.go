@@ -531,18 +531,18 @@ func TestUnmarshalHeaderError(t *testing.T) {
 		err    error
 	}{
 		// Garbage
-		{"badbadbadbad", errors.New("bad header: not a valid Sereal document")},
+		{"badbadbadbad", ErrBadHeader},
 		// Version 1 and 2, "=srl"
 		{"3d73726c0100", nil},
 		{"3d73726c0200", nil},
 		// Version 3, "=srl" with a high-bit-set-on-the-"s"
 		{"3df3726c0300", nil},
 		// Version 3, "=srl" corrupted by accidental UTF8 encoding
-		{"3dc3b3726c0300", errors.New("bad header: it seems your document was accidentally UTF-8 encoded")},
+		{"3dc3b3726c0300", ErrBadHeaderUTF8},
 		// Forbidden version 2 and high-bit-set-on-the-"s" combination
-		{"3df3726c0200", errors.New("bad header: not a valid Sereal document")},
+		{"3df3726c0200", ErrBadHeader},
 		// Forbidden version 3 and obsolete "=srl" magic string
-		{"3d73726c0300", errors.New("bad header: not a valid Sereal document")},
+		{"3d73726c0300", ErrBadHeader},
 		// Non-existing (yet) version 4, "=srl" with a high-bit-set-on-the-"s"
 		{"3df3726c0400", errors.New("document version '4' not yet supported")},
 	}

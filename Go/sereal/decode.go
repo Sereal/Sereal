@@ -41,11 +41,11 @@ func readHeader(b []byte) (serealHeader, error) {
 			validHeader = true
 		}
 	case magicHeaderBytesHighBitUTF8:
-		return serealHeader{}, errors.New("bad header: it seems your document was accidentally UTF-8 encoded")
+		return serealHeader{}, ErrBadHeaderUTF8
 	}
 
 	if !validHeader {
-		return serealHeader{}, errors.New("bad header: not a valid Sereal document")
+		return serealHeader{}, ErrBadHeader
 	}
 
 	ln, sz := varintdecode(b[5:])
@@ -130,7 +130,7 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 
 	case serealSnappy:
 		if header.version != 1 {
-			return errors.New("snappy compression only valid for v1 documents")
+			return ErrBadSnappy
 		}
 		decomp = SnappyCompressor{Incremental: false}
 
@@ -139,7 +139,7 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 
 	case serealZlib:
 		if header.version < 3 {
-			return errors.New("zlib compression only valid for v3 documents and up")
+			return ErrBadZlibV3
 		}
 		decomp = ZlibCompressor{}
 
@@ -164,7 +164,7 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 	if vheader != nil && header.suffixSize != 1 {
 		tracked := make(map[int]reflect.Value)
 		if reflect.TypeOf(vheader).Kind() != reflect.Ptr {
-			return errors.New("expected pointer for header")
+			return ErrHeaderPointer
 		}
 
 		headerPtrValue := reflect.ValueOf(vheader)
@@ -185,7 +185,7 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 		tracked := make(map[int]reflect.Value)
 
 		if reflect.TypeOf(vbody).Kind() != reflect.Ptr {
-			return errors.New("expected pointer for body")
+			return ErrBodyPointer
 		}
 
 		bodyPtrValue := reflect.ValueOf(vbody)
@@ -208,7 +208,7 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr reflect.Value) (int, error) {
 
 	if idx < 0 || idx >= len(b) {
-		return 0, errors.New("truncated document")
+		return 0, ErrTruncated
 	}
 
 	startIdx := idx
@@ -220,7 +220,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		idx++
 
 		if idx >= len(b) {
-			return 0, errors.New("truncated document")
+			return 0, ErrTruncated
 		}
 
 		tag = b[idx]
@@ -261,7 +261,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		idx++
 
 		if idx+3 >= len(b) {
-			return 0, errors.New("truncated document")
+			return 0, ErrTruncated
 		}
 
 		bits := uint32(b[idx]) | uint32(b[idx+1])<<8 | uint32(b[idx+2])<<16 | uint32(b[idx+3])<<24
@@ -273,7 +273,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		idx++
 
 		if idx+7 >= len(b) {
-			return 0, errors.New("truncated document")
+			return 0, ErrTruncated
 		}
 
 		bits := uint64(b[idx]) | uint64(b[idx+1])<<8 | uint64(b[idx+2])<<16 | uint64(b[idx+3])<<24 | uint64(b[idx+4])<<32 | uint64(b[idx+5])<<40 | uint64(b[idx+6])<<48 | uint64(b[idx+7])<<56
@@ -303,7 +303,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		ln, sz := varintdecode(b[idx:])
 
 		if ln < 0 || ln > math.MaxInt32 {
-			return 0, errors.New("bad size for slice")
+			return 0, ErrCorrupt{errBadSliceSize}
 		}
 
 		idx += sz
@@ -327,7 +327,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		}
 
 		if idx+ln > len(b) {
-			return 0, errors.New("truncated document")
+			return 0, ErrTruncated
 		}
 
 		setString(slice, b[idx:idx+ln])
@@ -340,11 +340,11 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		idx += sz
 
 		if ln < 0 {
-			return 0, errors.New("bad size for string")
+			return 0, ErrCorrupt{errBadStringSize}
 		}
 
 		if idx+ln > len(b) {
-			return 0, errors.New("truncated document")
+			return 0, ErrTruncated
 		}
 
 		s := string(b[idx : idx+ln])
@@ -407,13 +407,13 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		idx += sz
 
 		if offs < 0 || offs > len(b) {
-			return 0, errors.New("bad offset")
+			return 0, ErrCorrupt{errBadOffset}
 		}
 
 		e, ok := tracked[offs]
 
 		if !ok {
-			return 0, errors.New("untracked offset for REFP")
+			return 0, ErrCorrupt{errUntrackedOffsetREFP}
 		}
 
 		p := reflect.New(e.Type())
@@ -428,12 +428,12 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		idx += sz
 
 		if ln < 0 || ln > math.MaxInt32 {
-			return 0, errors.New("bad size for hash")
+			return 0, ErrCorrupt{errBadHashSize}
 		}
 
 		if 2*ln > len(b[idx:]) {
 			// not enough sereal tags remaining
-			return 0, errors.New("truncated document")
+			return 0, ErrTruncated
 		}
 
 		if ptr.Kind() == reflect.Interface && ptr.IsNil() {
@@ -472,12 +472,12 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		idx += sz
 
 		if ln < 0 || ln > math.MaxInt32 {
-			return 0, errors.New("bad size for slice")
+			return 0, ErrCorrupt{errBadSliceSize}
 		}
 
 		if ln > len(b[idx:]) {
 			// not enough sereal tags remaining
-			return 0, errors.New("truncated document")
+			return 0, ErrTruncated
 		}
 
 		var slice reflect.Value
@@ -531,7 +531,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		var s string
 		className := reflect.ValueOf(&s)
 		if !isStringish(b, idx) {
-			return 0, errors.New("expected stringish for classname")
+			return 0, ErrCorrupt{errStringish}
 		}
 		sz, err := d.decode(b, idx, tracked, className.Elem())
 		if err != nil {
@@ -566,13 +566,13 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		idx++
 		offs, sz := varintdecode(b[idx:])
 		if offs >= len(b) {
-			return 0, errors.New("bad offset")
+			return 0, ErrCorrupt{errBadOffset}
 		}
 		idx += sz
 		var s string
 		className := reflect.ValueOf(&s)
 		if !isStringish(b, offs) {
-			return 0, errors.New("expected stringish for classname")
+			return 0, ErrCorrupt{errStringish}
 		}
 		sz, err := d.decode(b, offs, tracked, className.Elem())
 		if err != nil {
@@ -741,7 +741,7 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		}
 
 		if idx+ln > len(b) {
-			return 0, errors.New("truncated document")
+			return 0, ErrTruncated
 		}
 
 		setString(slice, b[idx:idx+ln])
@@ -754,12 +754,12 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		idx += sz
 
 		if offs < 0 || offs >= len(b) {
-			return 0, errors.New("bad offset")
+			return 0, ErrCorrupt{errBadOffset}
 		}
 
 		e, ok := tracked[offs]
 		if !ok {
-			return 0, errors.New("untracked offset for alias")
+			return 0, ErrCorrupt{errUntrackedOffsetAlias}
 		}
 
 		// FIXME: not technically correct, but better than nothing
@@ -778,11 +778,11 @@ func (d *Decoder) decode(b []byte, idx int, tracked map[int]reflect.Value, ptr r
 		idx += sz
 
 		if offs < 0 || offs >= len(b) {
-			return 0, errors.New("bad offset")
+			return 0, ErrCorrupt{errBadOffset}
 		}
 
 		if d.copyDepth > 0 && !isStringish(b, offs) {
-			return 0, errors.New("bad nested copy tag")
+			return 0, ErrCorrupt{errNestedCOPY}
 		}
 
 		sz, err := d.decode(b, offs, tracked, ptr)
