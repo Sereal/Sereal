@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"math"
 	"sort"
 )
 
@@ -17,32 +16,23 @@ const (
 	// TopLevelHashRef
 )
 
-const reservedBytesForLength = 8
+const maxUint32 = 1<<32 - 1
 const hashKeysValuesFlag = uint32(1 << 31)
 
 type Merger struct {
+	buf        []byte
+	strTable   map[string]int
+	objTable   map[string]int
 	version    int
 	length     int
 	lenOffset  int
 	bodyOffset int // 1-based
-	inited     bool
-	finished   bool
-	strTable   map[string]int
-	objTable   map[string]int
-	buf        []byte
 
 	// public arguments
 
 	// TopLevelElement allows a user to choose what container will be used
 	// at top level. Available options: array, arrayref, hash, hashref
 	TopLevelElement topLevelElementType
-
-	// If enabled, KeepFlat keeps flat structture of final document.
-	// Specifically, consider two arrays [A,B,C] and [D,E,F]:
-	// - when KeepFlat == false, the result of merging is [[A,B,C],[D,E,F]]
-	// - when KeepFlat == true, the result is [A,B,C,D,E,F]
-	//   This mode is relevant only to top level elements
-	KeepFlat bool
 
 	// optionally compress the main payload of the document using SnappyCompressor or ZlibCompressor
 	// CompressionThreshold specifies threshold in bytes above which compression is attempted: 1024 bytes by default
@@ -52,16 +42,26 @@ type Merger struct {
 	// If enabled, merger will deduplicate all strings it meets.
 	// Otherwise, only hash key and class names will be deduplicated
 	DedupeStrings bool
+
+	// If enabled, KeepFlat keeps flat structture of final document.
+	// Specifically, consider two arrays [A,B,C] and [D,E,F]:
+	// - when KeepFlat == false, the result of merging is [[A,B,C],[D,E,F]]
+	// - when KeepFlat == true, the result is [A,B,C,D,E,F]
+	//   This mode is relevant only to top level elements
+	KeepFlat bool
+
+	// moved bool fields here to make struct smaller
+	inited   bool
+	finished bool
 }
 
 type mergerDoc struct {
 	buf        []byte
+	trackIdxs  []int
+	trackTable map[int]int
 	version    int
 	startIdx   int // 0-based
 	bodyOffset int // 1-based
-	headerLen  int
-	trackTable map[int]int
-	trackIdxs  []int
 }
 
 // use latest version
@@ -127,7 +127,7 @@ func (m *Merger) initMerger() error {
 
 	// remember len offset + pad bytes for length
 	m.lenOffset = len(m.buf)
-	for i := 0; i < reservedBytesForLength; i++ {
+	for i := 0; i < binary.MaxVarintLen32; i++ {
 		m.buf = append(m.buf, typePAD)
 	}
 
@@ -184,8 +184,6 @@ func (m *Merger) Append(b []byte) (int, error) {
 		return 0, fmt.Errorf("document type '%d' not yet supported", docHeader.doctype)
 	}
 
-	/* XXX instead of creating an uncompressed copy of the document,
-	 *     it would be more flexible to use a sort of "Reader" interface */
 	if decomp != nil {
 		if doc.buf, err = decomp.decompress(doc.buf); err != nil {
 			return 0, err
@@ -223,7 +221,7 @@ func (m *Merger) Finish() ([]byte, error) {
 
 	if !m.finished {
 		m.finished = true
-		copyVarint(m.buf, m.lenOffset, uint(m.length))
+		binary.PutUvarint(m.buf[m.lenOffset:], uint64(m.length))
 
 		if m.Compression != nil && (m.CompressionThreshold == 0 || len(m.buf) >= m.CompressionThreshold) {
 			compressed, err := m.Compression.compress(m.buf[m.bodyOffset+1:])
@@ -231,6 +229,7 @@ func (m *Merger) Finish() ([]byte, error) {
 				return m.buf, err
 			}
 
+			// TODO think about some optimizations here
 			copy(m.buf[m.bodyOffset+1:], compressed)
 			m.buf = m.buf[:len(compressed)+m.bodyOffset+1]
 
@@ -305,7 +304,7 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 			ln, sz := varintdecode(buf[idx+1:])
 			idx += sz + ln + 1
 
-			if ln < 0 || ln > math.MaxUint32 {
+			if ln < 0 || ln > maxUint32 {
 				return fmt.Errorf("bad size for string: %d", ln)
 			} else if idx > len(buf) {
 				return fmt.Errorf("truncated document, expect %d bytes", len(buf)-idx)
@@ -358,7 +357,7 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 	didx := doc.startIdx
 
 	expElements, offset := m.expectedElements(dbuf[didx:])
-	if expElements < 0 || expElements > math.MaxUint32 {
+	if expElements < 0 || expElements > maxUint32 {
 		return fmt.Errorf("bad amount of expected elements: %d", expElements)
 	}
 
@@ -446,7 +445,7 @@ LOOP:
 			}
 
 			length := sz + ln + 1
-			if ln < 0 || ln > math.MaxUint32 {
+			if ln < 0 || ln > maxUint32 {
 				return fmt.Errorf("bad size for string: %d", ln)
 			} else if didx+length > len(dbuf) {
 				return fmt.Errorf("truncated document, expect %d bytes", len(dbuf)-didx-length)
@@ -622,25 +621,13 @@ func readString(buf []byte) (int, []byte, error) {
 	}
 
 	offset++ // respect tag itself
-	if ln < 0 || ln > math.MaxUint32 {
+	if ln < 0 || ln > maxUint32 {
 		return 0, nil, fmt.Errorf("bad size for string: %d", ln)
 	} else if offset+ln > len(buf) {
 		return 0, nil, fmt.Errorf("truncated document, expect %d bytes", len(buf)-ln-offset)
 	}
 
 	return offset, buf[offset : offset+ln], nil
-}
-
-func copyVarint(b []byte, idx int, n uint) int {
-	oidx := idx
-	for n >= 0x80 {
-		b[idx] = byte(n) | 0x80
-		n >>= 7
-		idx++
-	}
-
-	b[idx] = byte(n)
-	return idx - oidx + 1
 }
 
 var varintBuf []byte = make([]byte, 16, 16)
@@ -658,13 +645,3 @@ func appendTagVarint(by []byte, tag byte, n uint) []uint8 {
 	varintBuf[idx] = byte(n)
 	return append(by, varintBuf[:idx+1]...)
 }
-
-//func appendVarint(by []byte, n uint) []uint8 {
-//	for n >= 0x80 {
-//		b := byte(n) | 0x80
-//		by = append(by, b)
-//		n >>= 7
-//	}
-//
-//	return append(by, byte(n))
-//}
