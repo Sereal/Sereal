@@ -630,9 +630,9 @@ func readString(buf []byte) (int, []byte, error) {
 	return offset, buf[offset : offset+ln], nil
 }
 
-var varintBuf []byte = make([]byte, 16, 16)
-
 func appendTagVarint(by []byte, tag byte, n uint) []uint8 {
+	// the slice should be allocated on stack due to escape analysis
+	varintBuf := make([]byte, binary.MaxVarintLen64)
 	varintBuf[0] = tag
 
 	idx := 1
