@@ -284,7 +284,7 @@ header.
     CANONICAL_UNDEF   | "9"  |  57 | 0x39 | 0b00111001 | canonical, shared undef (PL_sv_undef in Perl, see notes)
     FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no in Perl)
     TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes in Perl)
-    MANY              | "<"  |  60 | 0x3c | 0b00111100 | <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3)
+    MANY              | "<"  |  60 | 0x3c | 0b00111100 | <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, perhaps will be implemented in version 4)
     PACKET_START      | "="  |  61 | 0x3d | 0b00111101 | (first byte of magic string in header)
     EXTEND            | ">"  |  62 | 0x3e | 0b00111110 | <BYTE> - for additional tags
     PAD               | "?"  |  63 | 0x3f | 0b00111111 | (ignored tag, skip to next byte)
