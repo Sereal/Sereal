@@ -1,0 +1,6 @@
+{application, sereal_decoder, [
+    {description, "Sereal Decoder."},
+    {vsn, git},
+    {registered, []},
+    {applications, [kernel, stdlib]}
+]}.
