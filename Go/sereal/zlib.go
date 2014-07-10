@@ -8,7 +8,6 @@ type ZlibCompressor struct {
 }
 
 const (
-	ZlibNoCompression      = zlib.NoCompression
 	ZlibBestSpeed          = zlib.BestSpeed
 	ZlibBestCompression    = zlib.BestCompression
 	ZlibDefaultCompression = zlib.DefaultCompression
