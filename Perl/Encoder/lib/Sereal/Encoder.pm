@@ -185,7 +185,7 @@ are documented below under L</"FREEZE/THAW CALLBACK MECHANISM">.
 Beware that using this functionality means a significant slowdown for
 object serialization. Even when serializing objects without a C<FREEZE>
 method, the additional method look up will cost a small amount of runtime.
-Yes, C<Sereal::Encoder> is so fast that is may make a difference.
+Yes, C<Sereal::Encoder> is so fast that this may make a difference.
 
 =head3 no_bless_objects
 
@@ -427,7 +427,7 @@ Here is a contrived example of a class implementing the C<FREEZE> / C<THAW> mech
   # open file handle if necessary and return it
   sub get_fh {
     my $self = shift;
-    # This could also with fancier Moo(se) syntax
+    # This could also be done with fancier Moo(se) syntax
     my $fh = $self->fh;
     if (not $fh) {
       open $fh, "<", $self->path or die $!;
