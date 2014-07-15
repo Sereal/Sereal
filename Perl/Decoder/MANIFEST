@@ -39,10 +39,12 @@ t/030_looks_like_sereal.t
 t/040_special_vars.t
 t/060_each.t
 t/070_alias_options.t
+t/080_set_readonly.t
 t/110_nobless.t
 t/150_dec_exception.t
 t/160_recursion.t
 t/200_bulk.t
+t/210_bulk_readonly.t
 t/300_overload.t
 t/400_utf8validate.t
 t/500_utf8decoding.t
