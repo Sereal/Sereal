@@ -34,6 +34,8 @@ Zeev Tarantov <zeev.tarantov@gmail.com>
 
 File modified for Sereal by
 Steffen Mueller <smueller@cpan.org>
+Yves Orton <demerphq@gmail.com>
+
 */
 
 #ifndef CSNAPPY_INTERNAL_USERSPACE_H_
@@ -187,6 +189,12 @@ Albert Lee
 #define int32_t int
 #define int16_t short
 
+#elif defined(__s390x__) || defined(__zarch__) || defined(__SYSC_ZARCH__)
+
+#define __BIG_ENDIAN    87654321
+#define __LITTLE_ENDIAN 12345678
+#define __BYTE_ORDER __BIG_ENDIAN
+
 #endif
 
 #ifndef bswap_16
@@ -261,7 +269,7 @@ static INLINE void UNALIGNED_STORE64(void *p, uint64_t v)
 	ptr->x = v;
 }
 
-#elif defined(__hpux) /* strict architectures */
+#elif defined(__hpux) || defined(__sparc) || defined(__sparc__) /* strict architectures */
 
 /* For these platforms, there really are no unaligned loads/stores.
  * Read/write everything as uint8_t. Smart compilers might recognize

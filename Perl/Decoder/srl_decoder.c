@@ -990,29 +990,18 @@ union myfloat {
     long double ld;
 };
 
-/*
-#define TEST_ARM_ARCH
-*/
-#if (defined(TEST_ARM_ARCH) || defined(__ARM_ARCH))
-#define SRL_ARM_ARCH 1
-#endif
-
 /* XXX Most (if not all?) non-x86 platforms are strict in their
  * floating point alignment.  So maybe this logic should be the other
  * way: default to strict, and do sloppy only if x86? */
-#if defined(SRL_ARM_ARCH) || defined(__hpux)
-#define SRL_STRICT_FP_ALIGN
-#endif
 
 SRL_STATIC_INLINE void
 srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
-#ifdef SRL_STRICT_FP_ALIGN
     ASSERT_BUF_SPACE(dec, sizeof(float), " while reading FLOAT");
+#if SRL_USE_ALIGNED_LOADS_AND_STORES
     Copy(dec->pos,val.c,sizeof(float),U8);
 #else
-    ASSERT_BUF_SPACE(dec, sizeof(float), " while reading FLOAT");
     val.f= *((float *)dec->pos);
 #endif
     sv_setnv(into, (NV)val.f);
@@ -1024,11 +1013,10 @@ SRL_STATIC_INLINE void
 srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
-#ifdef SRL_STRICT_FP_ALIGN
     ASSERT_BUF_SPACE(dec, sizeof(double), " while reading DOUBLE");
+#ifdef SRL_USE_ALIGNED_LOADS_AND_STORES
     Copy(dec->pos,val.c,sizeof(double),U8);
 #else
-    ASSERT_BUF_SPACE(dec, sizeof(double), " while reading DOUBLE");
     val.d= *((double *)dec->pos);
 #endif
     sv_setnv(into, (NV)val.d);
@@ -1040,11 +1028,10 @@ SRL_STATIC_INLINE void
 srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
-#ifdef SRL_STRICT_FP_ALIGN
     ASSERT_BUF_SPACE(dec, sizeof(long double), " while reading LONG_DOUBLE");
+#ifdef SRL_USE_ALIGNED_LOADS_AND_STORES
     Copy(dec->pos,val.c,sizeof(long double),U8);
 #else
-    ASSERT_BUF_SPACE(dec, sizeof(long double), " while reading LONG_DOUBLE");
     val.ld= *((long double *)dec->pos);
 #endif
     sv_setnv(into, (NV)val.ld);
