@@ -179,16 +179,6 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 func (e *Encoder) encode(b []byte, v interface{}, isKeyOrClass bool, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
 	var err error
 
-	// TODO probably need a recursion here
-	// make sure that we're looking at real value
-	if reflectValue, ok := v.(reflect.Value); ok {
-		if reflectValue.Kind() != reflect.Invalid {
-			v = reflectValue.Interface()
-		} else {
-			v = nil
-		}
-	}
-
 	switch value := v.(type) {
 	case nil:
 		b = append(b, typeUNDEF)
@@ -238,6 +228,13 @@ func (e *Encoder) encode(b []byte, v interface{}, isKeyOrClass bool, strTable ma
 
 	case map[string]interface{}:
 		b, err = e.encodeStrMap(b, value, strTable, ptrTable)
+
+	case reflect.Value:
+		if value.Kind() == reflect.Invalid {
+			b = append(b, typeUNDEF)
+		} else {
+			b, err = e.encode(b, value.Interface(), false, strTable, ptrTable)
+		}
 
 	case PerlUndef:
 		if value.canonical {
