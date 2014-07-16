@@ -100,10 +100,9 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 	if header != nil && e.version >= 2 {
 		strTable := make(map[string]int)
 		ptrTable := make(map[uintptr]int)
-		rv := reflectValueOf(header)
 		// this is both the flag byte (== "there is user data") and also a hack to make 1-based offsets work
 		henv := []byte{0x01} // flag byte == "there is user data"
-		encHeaderSuffix, err := e.encode(henv, rv, false, strTable, ptrTable)
+		encHeaderSuffix, err := e.encode(henv, header, false, strTable, ptrTable)
 
 		if err != nil {
 			return nil, err
@@ -233,6 +232,7 @@ func (e *Encoder) encode(b []byte, v interface{}, isKeyOrClass bool, strTable ma
 		if value.Kind() == reflect.Invalid {
 			b = append(b, typeUNDEF)
 		} else {
+			// could be optimized to tail call
 			b, err = e.encode(b, value.Interface(), false, strTable, ptrTable)
 		}
 
@@ -257,13 +257,22 @@ func (e *Encoder) encode(b []byte, v interface{}, isKeyOrClass bool, strTable ma
 		b = append(b, typeWEAKEN)
 		b, err = e.encode(b, value.Reference, false, strTable, ptrTable)
 
-	//case interface{}:
-	//TODO can it be here????
 	//case *interface{}:
 	//TODO handle here if easy
 
+	//case interface{}:
+	// http://blog.golang.org/laws-of-reflection
+	// One important detail is that the pair inside an interface always has the form (value, concrete type)
+	// and cannot have the form (value, interface type). Interfaces do not hold interface values.
+	//panic("interface cannot hold an interface")
+
+	// ikruglov
+	// in theory this block should no be commented,
+	// but in practise type *interface{} somehow manages to match interface{}
+	// if one manages to properly implement *interface{} case, this block should be uncommented
+
 	default:
-		b, err = e.encodeViaReflection(b, reflectValueOf(value), isKeyOrClass, strTable, ptrTable)
+		b, err = e.encodeViaReflection(b, reflect.ValueOf(value), isKeyOrClass, strTable, ptrTable)
 	}
 
 	return b, err
@@ -440,15 +449,6 @@ func (e *Encoder) encodeViaReflection(b []byte, rv reflect.Value, isKeyOrClass b
 	case reflect.Ptr:
 		b, err = e.encodePointer(b, rv, strTable, ptrTable)
 
-	case reflect.Interface:
-		// TODO can it be here???
-		// recurse until we get a concrete type
-		// could be optmized into a tail call
-		b, err = e.encode(b, rv.Elem(), isKeyOrClass, strTable, ptrTable)
-
-	case reflect.Invalid:
-		b = append(b, typeUNDEF)
-
 	default:
 		panic(fmt.Sprintf("no support for type '%s' (%s)", rk.String(), rv.Type()))
 	}
@@ -619,13 +619,4 @@ func getPointer(rv reflect.Value) uintptr {
 
 func concreteName(value reflect.Value) string {
 	return value.Type().PkgPath() + "." + value.Type().Name()
-}
-
-func reflectValueOf(v interface{}) reflect.Value {
-	rv, ok := v.(reflect.Value)
-	if !ok {
-		rv = reflect.ValueOf(v)
-	}
-
-	return rv
 }
