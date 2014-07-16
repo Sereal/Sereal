@@ -234,10 +234,10 @@ func (e *Encoder) encode(b []byte, v interface{}, isKeyOrClass bool, strTable ma
 		b = e.encodeBytes(b, value, isKeyOrClass, strTable)
 
 	case []interface{}:
-		b = e.encodeIntfArray(b, value, strTable, ptrTable)
+		b, err = e.encodeIntfArray(b, value, strTable, ptrTable)
 
 	case map[string]interface{}:
-		b = e.encodeStrMap(b, value, strTable, ptrTable)
+		b, err = e.encodeStrMap(b, value, strTable, ptrTable)
 
 	case PerlUndef:
 		if value.canonical {
@@ -269,11 +269,7 @@ func (e *Encoder) encode(b []byte, v interface{}, isKeyOrClass bool, strTable ma
 		b, err = e.encodeViaReflection(b, reflectValueOf(value), isKeyOrClass, strTable, ptrTable)
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	return b, nil
+	return b, err
 }
 
 func (e *Encoder) encodeInt(by []byte, k reflect.Kind, i int64) []byte {
@@ -368,7 +364,7 @@ func (e *Encoder) encodeBytes(by []byte, byt []byte, isKeyOrClass bool, strTable
 	return append(by, byt...)
 }
 
-func (e *Encoder) encodeIntfArray(by []byte, arr []interface{}, strTable map[string]int, ptrTable map[uintptr]int) []byte {
+func (e *Encoder) encodeIntfArray(by []byte, arr []interface{}, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
 	if e.PerlCompat {
 		by = append(by, typeREFN)
 	}
@@ -377,15 +373,17 @@ func (e *Encoder) encodeIntfArray(by []byte, arr []interface{}, strTable map[str
 	by = append(by, typeARRAY)
 	by = varint(by, uint(l))
 
+	var err error
 	for i := 0; i < l; i++ {
-		by, _ = e.encode(by, arr[i], false, strTable, ptrTable)
-		// TODO check error
+		if by, err = e.encode(by, arr[i], false, strTable, ptrTable); err != nil {
+			return nil, err
+		}
 	}
 
-	return by
+	return by, nil
 }
 
-func (e *Encoder) encodeStrMap(by []byte, m map[string]interface{}, strTable map[string]int, ptrTable map[uintptr]int) []byte {
+func (e *Encoder) encodeStrMap(by []byte, m map[string]interface{}, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
 	if e.PerlCompat {
 		by = append(by, typeREFN)
 	}
@@ -393,13 +391,15 @@ func (e *Encoder) encodeStrMap(by []byte, m map[string]interface{}, strTable map
 	by = append(by, typeHASH)
 	by = varint(by, uint(len(m)))
 
+	var err error
 	for k, v := range m {
 		by = e.encodeString(by, k, true, strTable)
-		by, _ = e.encode(by, v, false, strTable, ptrTable)
-		// TODO check error
+		if by, err = e.encode(by, v, false, strTable, ptrTable); err != nil {
+			return by, err
+		}
 	}
 
-	return by
+	return by, nil
 }
 
 /*************************************
@@ -407,6 +407,7 @@ func (e *Encoder) encodeStrMap(by []byte, m map[string]interface{}, strTable map
  *************************************/
 func (e *Encoder) encodeViaReflection(b []byte, rv reflect.Value, isKeyOrClass bool, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
 	var err error
+
 	if !e.DisableFREEZE && rv.Kind() != reflect.Invalid {
 		if m, ok := rv.Interface().(encoding.BinaryMarshaler); ok {
 			by, err := m.MarshalBinary()
@@ -431,26 +432,22 @@ func (e *Encoder) encodeViaReflection(b []byte, rv reflect.Value, isKeyOrClass b
 		fallthrough
 
 	case reflect.Array:
-		b = e.encodeArray(b, rv, strTable, ptrTable)
+		b, err = e.encodeArray(b, rv, strTable, ptrTable)
 
 	case reflect.Map:
-		b = e.encodeMap(b, rv, strTable, ptrTable)
+		b, err = e.encodeMap(b, rv, strTable, ptrTable)
 
 	case reflect.Struct:
-		b = e.encodeStruct(b, rv, strTable, ptrTable)
+		b, err = e.encodeStruct(b, rv, strTable, ptrTable)
 
 	case reflect.Ptr:
 		b, err = e.encodePointer(b, rv, strTable, ptrTable)
-		// TODO make all function return ([]byte, error)
 
 	case reflect.Interface:
 		// TODO can it be here???
 		// recurse until we get a concrete type
 		// could be optmized into a tail call
 		b, err = e.encode(b, rv.Elem(), isKeyOrClass, strTable, ptrTable)
-		if err != nil {
-			return nil, err
-		}
 
 	case reflect.Invalid:
 		b = append(b, typeUNDEF)
@@ -459,14 +456,10 @@ func (e *Encoder) encodeViaReflection(b []byte, rv reflect.Value, isKeyOrClass b
 		panic(fmt.Sprintf("no support for type '%s' (%s)", rk.String(), rv.Type()))
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	return b, nil
+	return b, err
 }
 
-func (e *Encoder) encodeArray(by []byte, arr reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
+func (e *Encoder) encodeArray(by []byte, arr reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
 	if e.PerlCompat {
 		by = append(by, typeREFN)
 	}
@@ -475,14 +468,17 @@ func (e *Encoder) encodeArray(by []byte, arr reflect.Value, strTable map[string]
 	by = append(by, typeARRAY)
 	by = varint(by, uint(l))
 
+	var err error
 	for i := 0; i < l; i++ {
-		by, _ = e.encode(by, arr.Index(i), false, strTable, ptrTable)
+		if by, err = e.encode(by, arr.Index(i), false, strTable, ptrTable); err != nil {
+			return nil, err
+		}
 	}
 
-	return by
+	return by, nil
 }
 
-func (e *Encoder) encodeMap(by []byte, m reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
+func (e *Encoder) encodeMap(by []byte, m reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
 	if e.PerlCompat {
 		by = append(by, typeREFN)
 	}
@@ -491,22 +487,30 @@ func (e *Encoder) encodeMap(by []byte, m reflect.Value, strTable map[string]int,
 	by = append(by, typeHASH)
 	by = varint(by, uint(len(keys)))
 
+	var err error
 	if e.PerlCompat {
 		for _, k := range keys {
 			by = e.encodeString(by, k.String(), true, strTable)
-			by, _ = e.encode(by, m.MapIndex(k), false, strTable, ptrTable)
+			if by, err = e.encode(by, m.MapIndex(k), false, strTable, ptrTable); err != nil {
+				return by, err
+			}
 		}
 	} else {
 		for _, k := range keys {
-			by, _ = e.encode(by, k, true, strTable, ptrTable)
-			by, _ = e.encode(by, m.MapIndex(k), false, strTable, ptrTable)
+			if by, err = e.encode(by, k, true, strTable, ptrTable); err != nil {
+				return by, err
+			}
+
+			if by, err = e.encode(by, m.MapIndex(k), false, strTable, ptrTable); err != nil {
+				return by, err
+			}
 		}
 	}
 
-	return by
+	return by, nil
 }
 
-func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) []byte {
+func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
 	tags := getStructTags(st)
 
 	by = append(by, typeOBJECT)
@@ -520,14 +524,15 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]
 	by = append(by, typeHASH)
 	by = varint(by, uint(len(tags)))
 
-	if tags != nil {
-		for f, i := range tags {
-			by = e.encodeString(by, f, true, strTable)
-			by, _ = e.encode(by, st.Field(i), false, strTable, ptrTable)
+	var err error
+	for f, i := range tags {
+		by = e.encodeString(by, f, true, strTable)
+		if by, err = e.encode(by, st.Field(i), false, strTable, ptrTable); err != nil {
+			return nil, err
 		}
 	}
 
-	return by
+	return by, nil
 }
 
 func (e *Encoder) encodePointer(by []byte, rv reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
@@ -572,7 +577,6 @@ func (e *Encoder) encodePointer(by []byte, rv reflect.Value, strTable map[string
 		ptrTable[rvptr] = lenbOrig
 
 		var err error
-
 		by, err = e.encode(by, rv.Elem(), false, strTable, ptrTable)
 		if err != nil {
 			return nil, err
