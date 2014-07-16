@@ -18,6 +18,7 @@ type Encoder struct {
 	CompressionThreshold int        // threshold in bytes above which compression is attempted: 1024 bytes by default
 	DisableDedup         bool       // should we disable deduping of class names and hash keys
 	DisableFREEZE        bool       // should we disable the FREEZE tag, which calls MarshalBinary
+	ExpectedSize         uint       // give a hint to encoder about expected size of encoded data
 	version              int        // default version to encode
 }
 
@@ -119,6 +120,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 	ptrTable := make(map[uintptr]int)
 
 	var encBody []byte
+	encBody = make([]byte, 0, e.ExpectedSize)
 
 	switch e.version {
 	case 1:
