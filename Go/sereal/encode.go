@@ -345,24 +345,20 @@ func (e *Encoder) encodeString(by []byte, s string, isKeyOrClass bool, strTable 
 }
 
 func (e *Encoder) encodeBytes(by []byte, byt []byte, isKeyOrClass bool, strTable map[string]int) []byte {
-	l := len(byt)
-
-	if l < 32 {
-		if !e.DisableDedup && isKeyOrClass {
-			// track short byte strTable
-			if copyOffs, ok := strTable[string(byt)]; ok {
-				by = append(by, typeCOPY)
-				by = varint(by, uint(copyOffs))
-				return by
-			} else {
-				// save for later
-				strTable[string(byt)] = len(by)
-			}
+	if !e.DisableDedup && isKeyOrClass {
+		if copyOffs, ok := strTable[string(byt)]; ok {
+			by = append(by, typeCOPY)
+			by = varint(by, uint(copyOffs))
+			return by
+		} else {
+			// save for later
+			strTable[string(byt)] = len(by)
 		}
+	}
 
+	if l := len(byt); l < 32 {
 		by = append(by, typeSHORT_BINARY_0+byte(l))
 	} else {
-		// TODO dedup here as well
 		by = append(by, typeBINARY)
 		by = varint(by, uint(l))
 	}
