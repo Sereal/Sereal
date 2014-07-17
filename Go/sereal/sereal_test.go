@@ -82,7 +82,7 @@ func TestRoundtripCompat(t *testing.T) {
 
 	input := []interface{}{map[string]interface{}{"foo": []interface{}{1, 2, 3}}}
 	expectGo := []interface{}{map[string]interface{}{"foo": []interface{}{1, 2, 3}}}
-	expectPerlCompat := []interface{}{&map[string]interface{}{"foo": &[]interface{}{1, 2, 3}}}
+	expectPerlCompat := &[]interface{}{&map[string]interface{}{"foo": &[]interface{}{1, 2, 3}}}
 
 	e := &Encoder{}
 	d := &Decoder{}
