@@ -1,20 +1,17 @@
-% This file is part of Jiffy released under the MIT license.
-% See the LICENSE file for more information.
-
-% Only include PropEr as a dependency when the JIFFY_DEV
+% Only include PropEr as a dependency when the SEREAL_DEV
 % environment variable is defined. This allows downstream
 % applications to avoid requiring PropEr.
 %
 % This script is based on the example provided with Rebar.
 
-ErlOpts = [{d, 'JIFFY_DEV'}],
+ErlOpts = [{d, 'SEREAL_DEV'}],
 
 Proper = [
     {proper, ".*", {git, "git://github.com/manopapad/proper.git", "master"}}
 ],
 
 ConfigPath = filename:dirname(SCRIPT),
-DevMarker = filename:join([ConfigPath, ".jiffy.dev"]),
+DevMarker = filename:join([ConfigPath, ".sereal.dev"]),
 
 case filelib:is_file(DevMarker) orelse os:getenv("TRAVIS") == "true" of
     true ->
