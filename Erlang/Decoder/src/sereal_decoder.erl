@@ -10,25 +10,25 @@
 %%     exit(nif_library_not_loaded).
 
 test() ->
-    {ok, Data2} = file:read_file("test2.srl"),
+    {ok, Data2} = file:read_file("tests/test2.srl"),
     {ok, [ Struct2 ]} = decode(Data2),
     io:fwrite("\nStruct TEST2 looks like ~p \n", [Struct2]),
-    {ok, Data3} = file:read_file("test3.srl"),
+
+    {ok, Data3} = file:read_file("tests/test3.srl"),
     {ok, [ Struct3 ]} = decode(Data3),
     io:fwrite("\nStruct TEST3 looks like ~p \n", [Struct3]),
-    {ok, Data4} = file:read_file("test4.srl"),
+    
+    {ok, Data4} = file:read_file("tests/test4.srl"),
     {ok, [ Struct4 ]} = decode(Data4),
     io:fwrite("\nStruct TEST4 looks like ~p \n", [Struct4]),
-    {ok, Data5} = file:read_file("test5.srl"),
+    
+    {ok, Data5} = file:read_file("tests/test5.srl"),
     {ok, [ Struct5 ]} = decode(Data5),
     io:fwrite("\nStruct TEST5 looks like ~p \n", [Struct5]),
-    {ok, Data} = file:read_file("test.srl"),
+    
+    {ok, Data} = file:read_file("tests/test.srl"),
     {ok, [ Struct ]} = decode(Data),
     io:fwrite("\nStruct TEST looks like ~p \n", [Struct]).
-    
-    
-    
-%%    io:fwrite("hello, world this is my res ~p \n", [Struct]).
 
 
 decode(Data) ->
