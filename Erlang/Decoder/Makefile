@@ -1,6 +1,6 @@
 C_OUT=c_src/*.o
 
-all: deps run
+all: deps eunit
 
 clean:
 	rm -f $(C_OUT)
@@ -10,10 +10,9 @@ deps:
 	rebar get-deps
 
 compile: clean 
-	rebar compile 
-   
-run: compile
-	erl -pa ./ebin -noshell -eval 'sereal_decoder:test(), init:stop().'
+	rebar compile  
 
+eunit: compile
+	rebar eunit
 
 .PHONY: clean all

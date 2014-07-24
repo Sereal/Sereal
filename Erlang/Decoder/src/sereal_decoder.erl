@@ -1,7 +1,10 @@
 -module(sereal_decoder).
+
 -export([decode/1, decode/2 , test/0
 	]).
+
 -define(NOT_LOADED, not_loaded(?LINE)).
+
 -on_load(init/0).
 
 %% foo(_X) ->

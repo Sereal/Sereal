@@ -13,6 +13,9 @@ Proper = [
 ConfigPath = filename:dirname(SCRIPT),
 DevMarker = filename:join([ConfigPath, ".sereal.dev"]),
 
+%% DEBUG flag on/off
+%%  
+
 case filelib:is_file(DevMarker) orelse os:getenv("TRAVIS") == "true" of
     true ->
         % Don't override existing dependencies
