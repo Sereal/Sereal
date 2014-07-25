@@ -29,9 +29,10 @@ int
 get_bytes_per_iter(ErlNifEnv* env, ERL_NIF_TERM val, size_t* bpi)
 {
     sereal_decoder_st* st = (sereal_decoder_st*) enif_priv_data(env);
-    const ERL_NIF_TERM* tuple;
+
     int arity;
     unsigned int bytes;
+    const ERL_NIF_TERM* tuple;
 
     if(!enif_get_tuple(env, val, &arity, &tuple)) {
         return 0;

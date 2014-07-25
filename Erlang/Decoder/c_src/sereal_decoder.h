@@ -23,8 +23,6 @@ typedef struct {
     ERL_NIF_TERM    atom_bignum_e;
     ERL_NIF_TERM    atom_bigdbl;
     ERL_NIF_TERM    atom_partial;
-    ERL_NIF_TERM    atom_uescape;
-    ERL_NIF_TERM    atom_pretty;
     ERL_NIF_TERM    atom_force_utf8;
     ERL_NIF_TERM    atom_iter;
     ERL_NIF_TERM    atom_bytes_per_iter;
@@ -39,8 +37,9 @@ typedef struct {
 ERL_NIF_TERM make_atom(ErlNifEnv* env, const char* name);
 ERL_NIF_TERM make_ok(sereal_decoder_st* st, ErlNifEnv* env, ERL_NIF_TERM data);
 ERL_NIF_TERM make_error(sereal_decoder_st* st, ErlNifEnv* env, const char* error);
-int get_bytes_per_iter(ErlNifEnv* env, ERL_NIF_TERM val, size_t* bpi);
+
 int should_yield(size_t used, size_t limit);
+int get_bytes_per_iter(ErlNifEnv* env, ERL_NIF_TERM val, size_t* bpi);
 int consume_timeslice(ErlNifEnv* env, size_t used, size_t limit);
 
 ERL_NIF_TERM decode_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
