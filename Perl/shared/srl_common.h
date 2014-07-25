@@ -15,7 +15,7 @@
 
 /* these defines are somewhat borrowed from miniz.c */
 
-#if defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || defined(__i386) || defined(__i486__) || defined(__i486) || defined(i386) || defined(__ia64__) || defined(__x86_64__)
+#if defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || defined(__i386) || defined(__i486__) || defined(__i486) || defined(i386) || defined(__ia64__) || defined(__x86_64__) || defined(__x86_64)
 // SRL_X86_OR_X64_CPU is only used to help set the below macros.
 #define SRL_X86_OR_X64_CPU 1
 #endif
