@@ -2,36 +2,24 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
-simple_test() ->
-    DIR = "../test/",
+file_test() ->
+    Cases = read_cases(),
+    [gen(Case) || Case <- Cases].
 
-    {ok, Data} = file:read_file(DIR ++ "test.srl"),
-    {ok, [ Struct ]} = sereal_decoder:decode(Data),
+gen({Name, Srl, {error, _}=Erl}) ->
+    {Name, ?_assertThrow(Erl, sereal_decoder:decode(Srl))};
 
-    [{[{<<"a">>,1}]},{[{<<"b">>,2}]}] = Struct,
+gen({Name, Srl, Erl}) ->
+    {Name, ?_assertEqual(Erl, sereal_decoder:decode(Srl))}.
 
-    {ok, Data2} = file:read_file(DIR ++ "test2.srl"),
-    {ok, [ Struct2 ]} = sereal_decoder:decode(Data2),
+read_cases() ->
+    CasesPath = filename:join(["..", "test", "cases", "*.srl"]),
+    FileNames = lists:sort(filelib:wildcard(CasesPath)),
+    lists:map(fun(F) -> make_pair(F) end, FileNames).
 
-    [2, [1, <<"foo">>, <<"bar">>]] = Struct2,
-
-    {ok, Data3} = file:read_file(DIR ++ "test3.srl"),
-    {ok, [ Struct3 ]} = sereal_decoder:decode(Data3),
-
-    {[{<<"foo">>, <<"bar">>}]} = Struct3,
-    
-    {ok, Data4} = file:read_file(DIR ++ "test4.srl"),
-    {ok, [ Struct4 ]} = sereal_decoder:decode(Data4),
-
-    {[{<<"more">>, [1,2,3,4,5]},
-      {<<"data">>, [{[
-                      { <<"a">>, <<"b">>},
-                      { <<"c">>, <<"d">>},
-                      { <<"e">>, <<"f">>}]},
-                    {[{ <<"foo">>, 4.2 }]}]}]} = Struct4, 
-
-    
-    {ok, Data5} = file:read_file(DIR ++ "test5.srl"),
-    {ok, [ Struct5 ]} = sereal_decoder:decode(Data5).
-    
-
+make_pair(FileName) ->
+    {ok, Srl} = file:read_file(FileName),
+    BaseName = filename:rootname(FileName),
+    ErlFname = BaseName ++ ".eterm",
+    {ok, [Term]} = file:consult(ErlFname),
+    {filename:basename(BaseName), Srl, Term}.
