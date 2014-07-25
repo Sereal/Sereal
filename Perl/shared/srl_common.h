@@ -31,4 +31,29 @@
 #define SRL_USE_ALIGNED_LOADS_AND_STORES 1
 #endif
 
+/* In x86 one can try to enforce strict alignment in runtime.
+ *
+ * Setting the CPU flag bit 18 (called "AC", aligment check) in
+ * the "EFLAGS" (user-settable) causes unaligned access traps but
+ * only iff the system register CR0 (only system-settable, usually done
+ * (or not) during kernel boot) has the same bit set (there called "AM",
+ * alignment mask).  If both flags are not set, the strict alignment
+ * traps (silently) do not happen.
+ *
+ * The Linux kernel and the Solarix x86 set the "AM".  The Windows and
+ * OX X do not.  The *BSD behavior is unknown, though suspecting they do.
+ *
+ * http://en.wikipedia.org/wiki/Control_register
+ * http://en.wikipedia.org/wiki/FLAGS_register_(computing)
+ */
+#if SRL_X86_OR_X64_CPU
+#  if __x86_64__ || __x86_64
+#    define SRL_TRY_ENABLE_STRICT_ALIGN() asm("pushf\norl $0x40000, (%rsp)\npopf")
+#  elif __i386__ || __i386
+#    define SRL_TRY_ENABLE_STRICT_ALIGN() asm("pushf\norl $0x40000, (%esp)\npopf")
+#  endif
+#else
+#  define SRL_TRY_ENABLE_STRICT_ALIGN() (void)0
+#endif
+
 #endif
