@@ -1014,7 +1014,7 @@ srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
     ASSERT_BUF_SPACE(dec, sizeof(double), " while reading DOUBLE");
-#ifdef SRL_USE_ALIGNED_LOADS_AND_STORES
+#if SRL_USE_ALIGNED_LOADS_AND_STORES
     Copy(dec->pos,val.c,sizeof(double),U8);
 #else
     val.d= *((double *)dec->pos);
@@ -1029,7 +1029,7 @@ srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
     ASSERT_BUF_SPACE(dec, sizeof(long double), " while reading LONG_DOUBLE");
-#ifdef SRL_USE_ALIGNED_LOADS_AND_STORES
+#if SRL_USE_ALIGNED_LOADS_AND_STORES
     Copy(dec->pos,val.c,sizeof(long double),U8);
 #else
     val.ld= *((long double *)dec->pos);
