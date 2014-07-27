@@ -706,44 +706,25 @@ if (eval "use Array::RefElem (av_store hv_store); 1") {
 
 
 sub run_roundtrip_tests {
-    my ($proto_version) = @_;
-    my @proto_versions = ($proto_version ? ($proto_version) : (1 .. +SRL_PROTOCOL_VERSION));
+    my ($name, $opts) = @_;
 
-    for my $proto_version ($proto_version) {
-        my $suffix = "_v$proto_version";
-
-        # name, options, min proto version, max proto version
-        my @variants = (
-            ['plain',          {                       } ],
-            ['snappy',         { snappy           => 1 } ],
-            ['snappy_incr',    { snappy_incr      => 1 }, 2 ],
-            ['zlib',           { compress         => Sereal::Encoder::SRL_ZLIB() }, 3 ],
-            ['zlib_force',     { compress         => Sereal::Encoder::SRL_ZLIB(), compress_threshold => 0 }, 3 ],
-            ['sort_keys',      { sort_keys        => 1 }, 2 ],
-            ['dedupe_strings', { dedupe_strings   => 1 }, 2 ],
-            ['freeze/thaw',    { freeze_callbacks => 1 }, 2 ],
-            ['readonly',       { set_readonly     => 1 }, 2 ],
-        );
-        for my $opt (@variants) {
-            my ($name, $opts, $min_proto_v, $max_proto_v) = @$opt;
-            $name .= $suffix;
-            next if ($min_proto_v && $proto_version < $min_proto_v)
-                 or ($max_proto_v && $proto_version > $max_proto_v);
-
-            if ($proto_version) {
-                if ($proto_version == 1) {
-                    $opts->{use_protocol_v1} = 1;
-                }
-                else {
-                    # v2 ignores this, but will output v2 by default
-                    $opts->{protocol_version} = $proto_version;
-                }
-            }
-            $PROTO_VERSION= $proto_version;
-            setup_tests();
-            run_roundtrip_tests_internal($name, $opts);
-        }
+    my $proto_version;
+    if ( $0 =~ m![\\/]v(\d+)[\\/]!) {
+        $proto_version= $1;
+    } else {
+        die "Failed to detect version\n";
     }
+
+    my $suffix = "_v$proto_version";
+    if ($proto_version == 1) {
+        $opts->{use_protocol_v1} = 1;
+    }
+    else {
+        # v2 ignores this, but will output v2 by default
+        $opts->{protocol_version} = $proto_version;
+    }
+    setup_tests($proto_version);
+    run_roundtrip_tests_internal($name . $suffix, $opts);
 }
 
 sub run_roundtrip_tests_internal {

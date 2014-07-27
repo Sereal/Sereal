@@ -29,7 +29,12 @@ if (not $ok) {
     plan skip_all => 'Did not find right version of encoder';
 }
 else {
-    run_roundtrip_tests(1); # 1 == run only tests for proto v1
+    run_roundtrip_tests(
+        'zlib', 
+        { 
+            compress => Sereal::Encoder::SRL_ZLIB(),
+        }
+    );
 }
 
 

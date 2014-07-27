@@ -86,6 +86,9 @@ WriteMakefile1(
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
     OPTIMIZE          => $OPTIMIZE,
     OBJECT            => '$(O_FILES)',
+    test              => {
+        RECURSIVE_TEST_FILES =>  1
+    },
 );
 $ENV{OPTIMIZE} = $OPTIMIZE;
 
