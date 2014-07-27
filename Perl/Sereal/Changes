@@ -6,6 +6,14 @@ please see the Encoder and Decoder changelogs:
    * https://github.com/Sereal/Sereal/blob/master/Perl/Decoder/Changes
    * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
 
+3.001_004 Sun, July 27 2014
+  - Rework bulk tests so that tests are grouped by options and version
+  - Fixups for non-x86 architectures.
+
+3.001_003
+3.001_002
+  - Attempts to fix builds on sparc, s390x and ARM.
+
 3.001_001
   - Patches from Jarkko Hietaniemi to make Sereal pass test
     on HP-UX, and other machines with endian or alignedness
