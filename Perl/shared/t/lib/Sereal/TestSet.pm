@@ -176,13 +176,17 @@ sub offseti {
 }
 
 sub debug_checks {
-    my ($data_ref, $encoded_ref, $decoded_ref) = @_;
-    if (defined $ENV{DEBUG_SEREAL}) {
-        note("Original data was: " . Data::Dumper::Dumper($$data_ref)) if defined $data_ref;
-        note("Encoded data is: " . (defined($$encoded_ref) ? $$encoded_ref : "<undef>")) if defined $encoded_ref;
-        note("Decoded data was: " . Data::Dumper::Dumper($$decoded_ref)) if defined $decoded_ref;
+    my ($data_ref, $encoded_ref, $decoded_ref, $debug) = @_;
+    if ($debug or defined $ENV{DEBUG_SEREAL}) {
+        note("Original data was: " . Data::Dumper::Dumper($$data_ref))
+            if defined $data_ref;
+        note("Encoded data is: " . (defined($$encoded_ref) ? Data::Dumper::qquote($$encoded_ref) : "<undef>"))
+            if defined $encoded_ref;
+        note("Decoded data was: " . Data::Dumper::Dumper($$decoded_ref))
+            if defined $decoded_ref;
     }
     if (defined $ENV{DEBUG_DUMP}) {
+        Dump($$data_ref)    if defined $data_ref;
         Dump($$encoded_ref) if defined $encoded_ref;
         Dump($$decoded_ref) if defined $decoded_ref;
     }
@@ -818,15 +822,15 @@ sub run_roundtrip_tests_internal {
                 or next;
             is_deeply($decoded, $data, "$name ($ename, $mname, decoded vs data)")
                 or do {
-                    debug_checks(\$data, \$encoded2, \$decoded2);
+                    debug_checks(\$data, undef, \$decoded, "debug");
                 };
             is_deeply($decoded2, $data, "$name ($ename, $mname, decoded2 vs data)")
                 or do {
-                    debug_checks(\$data, \$encoded2, \$decoded2);
+                    debug_checks(\$data, undef, \$decoded2, "debug");
                 };
-            is_deeply($decoded, $decoded2, "$name ($ename, $mname, decoded vs decoded2)")
+            is_deeply($decoded2, $decoded, "$name ($ename, $mname, decoded vs decoded2)")
                 or do {
-                    debug_checks(\$data, \$encoded2, \$decoded2);
+                    debug_checks(\$decoded, undef, \$decoded2, "debug");
                 };
 
             if (0) {
