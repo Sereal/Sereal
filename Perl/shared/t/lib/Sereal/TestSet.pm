@@ -619,11 +619,13 @@ our @ScalarRoundtripTests = (
     ["short ascii string", "fooo"],
     ["short latin1 string", "Müller"],
     ["short utf8 string", do {use utf8; " עדיין ח"}],
-    ["long ascii string", do{"abc" x 1000}],
-    ["long latin1 string", "üll" x 1000],
-    ["long utf8 string", do {use utf8; " עדיין חשב" x 1000}],
-    ["long utf8 string with only ascii", do {use utf8; "foo" x 1000}],
-    ["long utf8 string with only latin1 subset", do {use utf8; "üll" x 1000}],
+
+    ["long ascii string", do{"abc" x 10000}],
+    ["long latin1 string", "üll" x 10000],
+    ["long utf8 string", do {use utf8; " עדיין חשב" x 10000}],
+    ["long utf8 string with only ascii", do {use utf8; "foo" x 10000}],
+    ["long utf8 string with only latin1 subset", do {use utf8; "üll" x 10000}],
+
     ["simple regexp", qr/foo/],
     ["regexp with inline modifiers", qr/(?i-xsm:foo)/],
     ["regexp with modifiers", qr/foo/i],
@@ -686,7 +688,9 @@ our @RoundtripTests = (
     (map {["nested scalar ref to " . $_->[0], (\\($_->[1]))]} @ScalarRoundtripTests),
     (map {["array ref to " . $_->[0], ([$_->[1]])]} @ScalarRoundtripTests),
     (map {["hash ref to " . $_->[0], ({foo => $_->[1]})]} @ScalarRoundtripTests),
+    # ---
     (map {["array ref to duplicate " . $_->[0], ([$_->[1], $_->[1]])]} @ScalarRoundtripTests),
+    # ---
     (map {["array ref to aliases " . $_->[0], (sub {\@_}->($_->[1], $_->[1]))]} @ScalarRoundtripTests),
     (map {["array ref to scalar refs to same " . $_->[0], ([\($_->[1]), \($_->[1])])]} @ScalarRoundtripTests),
 );
