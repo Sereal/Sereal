@@ -87,7 +87,7 @@ WriteMakefile1(
     OPTIMIZE          => $OPTIMIZE,
     OBJECT            => '$(O_FILES)',
     test              => {
-        RECURSIVE_TEST_FILES =>  1
+        TESTS => "t/*.t t/*/*/*.t"
     },
 );
 $ENV{OPTIMIZE} = $OPTIMIZE;
