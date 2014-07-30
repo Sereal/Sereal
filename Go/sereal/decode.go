@@ -1,7 +1,7 @@
 package sereal
 
 import (
-	//"encoding"
+	"encoding"
 	"encoding/binary"
 	//"errors"
 	"fmt"
@@ -9,8 +9,8 @@ import (
 	"reflect"
 	//"runtime"
 	//"strconv"
-	//"strings"
-	//"sync"
+	"strings"
+	"sync"
 )
 
 type serealHeader struct {
@@ -73,24 +73,23 @@ func NewDecoder() *Decoder {
 }
 
 // Unmarshal decodes b into body with the default decoder
-func Unmarshal(b []byte, body *interface{}) error {
+func Unmarshal(b []byte, body interface{}) error {
 	decoder := &Decoder{}
 	return decoder.UnmarshalHeaderBody(b, nil, body)
 }
 
 // UnmarshalHeader parses the Sereal-v2-encoded buffer b and stores the header data into the variable pointed to by vheader
-func (d *Decoder) UnmarshalHeader(b []byte, vheader *interface{}) (err error) {
+func (d *Decoder) UnmarshalHeader(b []byte, vheader interface{}) (err error) {
 	return d.UnmarshalHeaderBody(b, vheader, nil)
 }
 
 // Unmarshal parses the Sereal-encoded buffer b and stores the result in the value pointed to by vbody
-func (d *Decoder) Unmarshal(b []byte, vbody *interface{}) (err error) {
+func (d *Decoder) Unmarshal(b []byte, vbody interface{}) (err error) {
 	return d.UnmarshalHeaderBody(b, nil, vbody)
 }
 
 // UnmarshalHeaderBody parses the Sereal-encoded buffer b extracts the header and body data into vheader and vbody, respectively
-func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader *interface{}, vbody *interface{}) (err error) {
-
+func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody interface{}) (err error) {
 	//	defer func() {
 	//		if r := recover(); r != nil {
 	//			if _, ok := r.(runtime.Error); ok {
@@ -184,165 +183,151 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader *interface{}, vbody *int
 	//	}
 
 	if err == nil && vbody != nil {
-		d.tracked = make(map[int]interface{})
-		defer func() { d.tracked = nil }()
+		//d.tracked = make(map[int]interface{})
+		//defer func() { d.tracked = nil }()
 
-		if header.version == 1 {
-			_, err = d.decode(b, bodyStart, vbody)
-		} else {
-			//  serealv2 documents have 1-based offsets :/
-			_, err = d.decode(b[bodyStart-1:], 1, vbody)
+		bodyValue := reflect.ValueOf(vbody)
+		if bodyValue.Kind() != reflect.Ptr {
+			return ErrBodyPointer
 		}
 
-		if err != nil {
-			return err
+		if header.version == 1 {
+			if ptr, ok := vbody.(*interface{}); ok && *ptr == nil {
+				_, err = d.decode(b, bodyStart, ptr)
+			} else {
+				_, err = d.decodeViaReflection(b, bodyStart, bodyValue.Elem())
+			}
+		} else {
+			// serealv2 documents have 1-based offsets :/
+			//if ptr, ok := vbody.(*interface{}); ok && *ptr == nil {
+			//	_, err = d.decode(b[bodyStart-1:], 1, ptr)
+			//} else {
+			_, err = d.decodeViaReflection(b[bodyStart-1:], 1, bodyValue.Elem())
+			//}
 		}
 	}
 
-	return nil
+	return err
 }
 
+/****************************************************************
+ * Decode document of unknown structure (i.e. without reflection)
+ ****************************************************************/
 func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 	if idx < 0 || idx >= len(by) {
 		return 0, ErrTruncated
 	}
 
+	// TODO trackme typePAD
+
 	var err error
-
 	tag := by[idx]
-	//trackme := (tag & trackFlag) == trackFlag
 	tag &^= trackFlag
-
-	startIdx := idx
 	idx++
 
 	//fmt.Printf("decode: tag %d (0x%x)\n", int(tag), int(tag))
 
 	switch {
-	case tag == typePAD:
-		//TODO
-
 	case tag < typeVARINT:
-		if (tag & 0x10) == 0x10 {
-			*ptr = int(tag) - 32 // negative number
-		} else {
-			*ptr = int(tag)
-		}
+		d.decodeInt(tag, ptr)
 
 	case tag == typeVARINT:
-		i, sz := varintdecode(by[idx:])
-		idx += sz
-
-		// varints are unsigned, but we returned a signed int if possible
-		if i < 0 {
-			*ptr = int(i)
-		} else {
-			*ptr = uint(i)
-		}
+		idx, err = d.decodeVarint(by, idx, ptr)
 
 	case tag == typeZIGZAG:
-		i, sz := varintdecode(by[idx:])
-		*ptr = int(-(1 + (uint64(i) >> 1))) // un-zigzag
-		idx += sz
+		idx, err = d.decodeZigzag(by, idx, ptr)
 
 	case tag == typeFLOAT:
-		if idx+3 >= len(by) {
-			return 0, ErrTruncated
-		}
-
-		bits := uint32(by[idx]) | uint32(by[idx+1])<<8 | uint32(by[idx+2])<<16 | uint32(by[idx+3])<<24
-		*ptr = math.Float32frombits(bits)
-		idx += 4
+		idx, err = d.decodeFloat(by, idx, ptr)
 
 	case tag == typeDOUBLE:
-		if idx+7 >= len(by) {
-			return 0, ErrTruncated
-		}
+		idx, err = d.decodeDouble(by, idx, ptr)
 
-		bits := uint64(by[idx]) | uint64(by[idx+1])<<8 | uint64(by[idx+2])<<16 | uint64(by[idx+3])<<24 | uint64(by[idx+4])<<32 | uint64(by[idx+5])<<40 | uint64(by[idx+6])<<48 | uint64(by[idx+7])<<56
-		*ptr = math.Float64frombits(bits)
-		idx += 8
+	case tag == typeTRUE:
+		*ptr = true
 
-	case tag == typeSTR_UTF8, tag == typeBINARY:
-		ln, sz := varintdecode(by[idx:])
-		idx += sz
-
-		if ln < 0 {
-			return 0, ErrCorrupt{errBadStringSize}
-		} else if idx+ln > len(by) {
-			return 0, ErrTruncated
-		}
-
-		if tag == typeSTR_UTF8 {
-			*ptr = string(by[idx : idx+ln])
-		} else {
-			*ptr = by[idx : idx+ln] // TODO maybe copy slice
-		}
-
-		idx += ln
-
-	case tag >= typeSHORT_BINARY_0 && tag < typeSHORT_BINARY_0+32:
-		ln := int(tag & 0x1F)   // get length from tag
-		*ptr = by[idx : idx+ln] // TODO maybe copy slice
-		idx += ln
+	case tag == typeFALSE:
+		*ptr = false
 
 	case tag == typeHASH:
 		ln, sz := varintdecode(by[idx:])
-		idx += sz
-
-		sz, err := d.decodeHash(by, idx, ln, ptr)
-		if err != nil {
-			return 0, err
-		}
-
-		idx += sz
+		idx, err = d.decodeHash(by, idx+sz, ln, ptr)
 
 	case tag >= typeHASHREF_0 && tag < typeHASHREF_0+16:
-		// TODO handle reference
-		sz, err := d.decodeHash(by, idx, int(tag&0x0f), ptr)
-		if err != nil {
-			return 0, err
-		}
-
-		idx += sz
+		idx, err = d.decodeHash(by, idx, int(tag&0x0f), ptr) // TODO handle reference
 
 	case tag == typeARRAY:
 		ln, sz := varintdecode(by[idx:])
-		idx += sz
-
-		sz, err := d.decodeArray(by, idx, ln, ptr)
-		if err != nil {
-			return 0, err
-		}
-
-		idx += sz
+		idx, err = d.decodeArray(by, idx+sz, ln, ptr)
 
 	case tag >= typeARRAYREF_0 && tag < typeARRAYREF_0+16:
-		// TODO handle reference
-		sz, err := d.decodeArray(by, idx, int(tag&0x0f), ptr)
-		if err != nil {
-			return 0, err
-		}
+		idx, err = d.decodeArray(by, idx, int(tag&0x0f), ptr) // TODO handle reference
 
-		idx += sz
+	case tag == typeSTR_UTF8, tag == typeBINARY:
+		ln, sz := varintdecode(by[idx:])
+		idx, err = d.decodeBinary(by, idx+sz, ln, tag == typeSTR_UTF8, ptr)
+
+	case tag >= typeSHORT_BINARY_0 && tag < typeSHORT_BINARY_0+32:
+		idx, err = d.decodeBinary(by, idx, int(tag&0x1f), false, ptr)
 
 	case tag == typeUNDEF, tag == typeCANONICAL_UNDEF:
-		*ptr = nil
-		// TODO d.PerlCompat
+		*ptr = nil // TODO d.PerlCompat
 
 	case tag == typeREFN:
-		sz, err := d.decode(by, idx, ptr)
-		if err != nil {
-			return 0, err
-		}
-
-		idx += sz
+		idx, err = d.decode(by, idx, ptr) // TODO
 
 	default:
 		return 0, fmt.Errorf("unknown tag byte: %d (0x%x)", int(tag), int(tag))
 	}
 
-	return idx - startIdx, err
+	return idx, err
+}
+
+func (d *Decoder) decodeInt(tag byte, ptr *interface{}) {
+	if (tag & 0x10) == 0x10 {
+		*ptr = int(tag) - 32 // negative number
+	} else {
+		*ptr = int(tag)
+	}
+}
+
+func (d *Decoder) decodeVarint(by []byte, idx int, ptr *interface{}) (int, error) {
+	i, sz := varintdecode(by[idx:])
+
+	// varints are unsigned, but we returned a signed int if possible
+	if i < 0 {
+		*ptr = int(i)
+	} else {
+		*ptr = uint(i)
+	}
+
+	return idx + sz, nil
+}
+
+func (d *Decoder) decodeZigzag(by []byte, idx int, ptr *interface{}) (int, error) {
+	i, sz := varintdecode(by[idx:])
+	*ptr = int(-(1 + (uint64(i) >> 1))) // un-zigzag
+	return idx + sz, nil
+}
+
+func (d *Decoder) decodeFloat(by []byte, idx int, ptr *interface{}) (int, error) {
+	if idx+3 >= len(by) {
+		return 0, ErrTruncated
+	}
+
+	bits := uint32(by[idx]) | uint32(by[idx+1])<<8 | uint32(by[idx+2])<<16 | uint32(by[idx+3])<<24
+	*ptr = math.Float32frombits(bits)
+	return idx + 4, nil
+}
+
+func (d *Decoder) decodeDouble(by []byte, idx int, ptr *interface{}) (int, error) {
+	if idx+7 >= len(by) {
+		return 0, ErrTruncated
+	}
+
+	bits := uint64(by[idx]) | uint64(by[idx+1])<<8 | uint64(by[idx+2])<<16 | uint64(by[idx+3])<<24 | uint64(by[idx+4])<<32 | uint64(by[idx+5])<<40 | uint64(by[idx+6])<<48 | uint64(by[idx+7])<<56
+	*ptr = math.Float64frombits(bits)
+	return idx + 8, nil
 }
 
 func (d *Decoder) decodeHash(by []byte, idx int, ln int, ptr *interface{}) (int, error) {
@@ -350,30 +335,27 @@ func (d *Decoder) decodeHash(by []byte, idx int, ln int, ptr *interface{}) (int,
 		return 0, ErrCorrupt{errBadHashSize}
 	}
 
-	startIdx := idx
+	var err error
 	hash := make(map[string]interface{}, ln)
 	*ptr = hash
 
 	for i := 0; i < ln; i++ {
 		var key []byte
-		sz_key, err := d.decodeString(by, idx, &key)
+		idx, err = d.decodeStringish(by, idx, &key)
 		if err != nil {
 			return 0, err
 		}
-
-		idx += sz_key
 
 		var value interface{}
-		sz_val, err := d.decode(by, idx, &value)
+		idx, err = d.decode(by, idx, &value)
 		if err != nil {
 			return 0, err
 		}
 
-		idx += sz_val
 		hash[string(key)] = value
 	}
 
-	return idx - startIdx, nil
+	return idx, nil
 }
 
 func (d *Decoder) decodeArray(by []byte, idx int, ln int, ptr *interface{}) (int, error) {
@@ -381,36 +363,48 @@ func (d *Decoder) decodeArray(by []byte, idx int, ln int, ptr *interface{}) (int
 		return 0, ErrCorrupt{errBadSliceSize}
 	}
 
-	startIdx := idx
+	var err error
 	slice := make([]interface{}, ln, ln)
 	*ptr = slice
 
 	for i := 0; i < ln; i++ {
-		sz, err := d.decode(by, idx, &slice[i])
+		idx, err = d.decode(by, idx, &slice[i])
 		if err != nil {
 			return 0, err
 		}
-
-		idx += sz
 	}
 
-	return idx - startIdx, nil
+	return idx, nil
 }
 
-func (d *Decoder) decodeString(by []byte, idx int, ptr *[]byte) (int, error) {
+func (d *Decoder) decodeBinary(by []byte, idx int, ln int, asString bool, ptr *interface{}) (int, error) {
+	if ln < 0 {
+		return 0, ErrCorrupt{errBadStringSize}
+	} else if idx+ln > len(by) {
+		return 0, ErrTruncated
+	}
+
+	if asString {
+		*ptr = string(by[idx : idx+ln])
+	} else {
+		*ptr = by[idx : idx+ln]
+	}
+
+	return idx + ln, nil
+}
+
+func (d *Decoder) decodeStringish(by []byte, idx int, ptr *[]byte) (int, error) {
 	if idx < 0 || idx >= len(by) {
 		return 0, ErrTruncated
 	}
 
-	//TODO PAD
+	//TODO typePAD trackme
+
 	tag := by[idx]
-	//trackme := (tag & trackFlag) == trackFlag //TODO
 	tag &^= trackFlag
-
-	//fmt.Printf("decodeString: tag %d (0x%x)\n", int(tag), int(tag))
-
-	startIdx := idx
 	idx++
+
+	//fmt.Printf("decodeStringish: tag %d (0x%x)\n", int(tag), int(tag))
 
 	switch {
 	case tag == typeBINARY, tag == typeSTR_UTF8:
@@ -440,7 +434,7 @@ func (d *Decoder) decodeString(by []byte, idx int, ptr *[]byte) (int, error) {
 			return 0, ErrCorrupt{errBadOffset}
 		}
 
-		_, err := d.decodeString(by, offs, ptr)
+		_, err := d.decodeStringish(by, offs, ptr)
 		if err != nil {
 			return 0, err
 		}
@@ -450,7 +444,187 @@ func (d *Decoder) decodeString(by []byte, idx int, ptr *[]byte) (int, error) {
 	}
 
 	//fmt.Println(string(*ptr))
-	return idx - startIdx, nil
+	return idx, nil
+}
+
+/********************************************************************
+ * Decode document with predefined structure (have to use reflection)
+ ********************************************************************/
+func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (int, error) {
+	if idx < 0 || idx >= len(by) {
+		return 0, ErrTruncated
+	}
+
+	var err error
+	ptrKind := ptr.Kind()
+
+	// at this point structure of decoding document is uknown, make a shortcut
+	if ptrKind == reflect.Interface && ptr.IsNil() {
+		var iface interface{}
+		idx, err = d.decode(by, idx, &iface)
+		ptr.Set(reflect.ValueOf(iface))
+		return idx, err
+	}
+
+	// TODO trackme typePAD
+	tag := by[idx]
+	tag &^= trackFlag
+	idx++
+
+	switch {
+	//case tag < typeVARINT:
+	//case tag == typeVARINT:
+	//case tag == typeZIGZAG:
+	//case tag == typeFLOAT:
+	//case tag == typeDOUBLE:
+	//case tag == typeSTR_UTF8, tag == typeBINARY:
+	//case tag >= typeSHORT_BINARY_0 && tag < typeSHORT_BINARY_0+32:
+
+	case tag == typeHASH:
+		ln, sz := varintdecode(by[idx:])
+		idx, err = d.decodeHashViaReflection(by, idx+sz, ln, ptr)
+
+	//case tag >= typeHASHREF_0 && tag < typeHASHREF_0+16:
+
+	case tag == typeSTR_UTF8:
+		var iface interface{}
+		ln, sz := varintdecode(by[idx:])
+		idx, err = d.decodeBinary(by, idx+sz, ln, tag == typeSTR_UTF8, &iface)
+
+		switch ptrKind {
+		case reflect.String:
+			ptr.Set(reflect.ValueOf(iface))
+		default:
+			panic("bad type for string: " + ptr.Kind().String())
+		}
+
+	case tag == typeARRAY:
+		ln, sz := varintdecode(by[idx:])
+		idx, err = d.decodeArrayViaReflection(by, idx+sz, ln, ptr)
+
+	//case tag >= typeARRAYREF_0 && tag < typeARRAYREF_0+16:
+	//case tag == typeUNDEF, tag == typeCANONICAL_UNDEF:
+	//case tag == typeTRUE:
+	//case tag == typeFALSE:
+	//case tag == typeREFN:
+	default:
+		return 0, fmt.Errorf("unknown tag byte: %d (0x%x)", int(tag), int(tag))
+	}
+
+	return idx, err
+}
+
+func (d *Decoder) decodeArrayViaReflection(by []byte, idx int, ln int, ptr reflect.Value) (int, error) {
+	if ln < 0 || ln > math.MaxInt32 {
+		return 0, ErrCorrupt{errBadSliceSize}
+	}
+
+	switch ptr.Kind() {
+	case reflect.Slice:
+		if ptr.IsNil() || ptr.Len() == 0 {
+			ptr.Set(reflect.MakeSlice(ptr.Type(), ln, ln))
+		}
+
+	case reflect.Array:
+		// do nothing
+
+	default:
+		panic("unhandled type: " + ptr.Kind().String())
+	}
+
+	var err error
+	ptrLen := ptr.Len()
+
+	for i := 0; i < ln; i++ {
+		if i < ptrLen {
+			idx, err = d.decodeViaReflection(by, idx, ptr.Index(i))
+		} else {
+			// we went outside of array length, so ignore folowwing content
+			var iface interface{}
+			idx, err = d.decode(by, idx, &iface) // TODO make this process to be efficient
+		}
+
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return idx, nil
+}
+
+func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflect.Value) (int, error) {
+	if ln < 0 || ln > math.MaxInt32 {
+		return 0, ErrCorrupt{errBadHashSize}
+	}
+
+	var err error
+
+	switch ptr.Kind() {
+	case reflect.Map:
+		// TODO confirm the same behaivour with JSON
+		for i := 0; i < ln; i++ {
+			var key []byte
+			idx, err = d.decodeStringish(by, idx, &key)
+			if err != nil {
+				return 0, err
+			}
+
+			keyValue := reflect.ValueOf(string(key))
+			if value := ptr.MapIndex(keyValue); value.IsValid() {
+				// strkey exists in map, replace its content but respect structure
+				idx, err = d.decodeViaReflection(by, idx, value)
+			} else {
+				// there is strkey in map, crete a new one
+				var iface interface{}
+				idx, err = d.decode(by, idx, &iface)
+				if err != nil {
+					return 0, err
+				}
+
+				ptr.SetMapIndex(keyValue, reflect.ValueOf(iface))
+			}
+
+			if err != nil {
+				return 0, err
+			}
+		}
+
+	case reflect.Struct:
+		tags := getStructTags(ptr)
+		for i := 0; i < ln; i++ {
+			var key []byte
+			idx, err = d.decodeStringish(by, idx, &key)
+			if err != nil {
+				return 0, err
+			}
+
+			found := false
+			strkey := string(key)
+
+			if tags == nil {
+				// do nothing
+			} else if i, found := tags[strkey]; found {
+				idx, err = d.decodeViaReflection(by, idx, ptr.Field(i))
+			} else if i, found := tags[strings.Title(strkey)]; found {
+				idx, err = d.decodeViaReflection(by, idx, ptr.Field(i))
+			}
+
+			if !found {
+				// struct doesn't contain field with strkey name
+				var iface interface{}
+				idx, err = d.decode(by, idx, &iface) // TODO make this process to be efficient
+			}
+
+			if err != nil {
+				return 0, err
+			}
+		}
+
+	default:
+		panic("unhandled type: " + ptr.Kind().String())
+	}
+
+	return idx, nil
 }
 
 func varintdecode(by []byte) (n int, sz int) {
@@ -1223,7 +1397,7 @@ func varintdecode(by []byte) (n int, sz int) {
 //	v.SetFloat(f)
 //}
 
-var structTagsCache = make(map[reflect.Type]map[string]int)
+var structTagsCache = make(map[reflect.Type]map[string]int) // TODO fix data race
 
 func getStructTags(ptr reflect.Value) map[string]int {
 	if ptr.Kind() != reflect.Struct {
@@ -1449,31 +1623,32 @@ func getStructTags(ptr reflect.Value) map[string]int {
 //	return nil, false
 //}
 //
-//var nameToType = make(map[string]reflect.Type)
-//var registerLock sync.Mutex
-//
-//// RegisterName registers the named class with an instance of 'value'.  When the
-//// decoder finds a FREEZE tag with the given class, the binary data will be
-//// passed to value's UnmarshalBinary method.
-//func RegisterName(name string, value interface{}) {
-//	registerLock.Lock()
-//	defer registerLock.Unlock()
-//
-//	rv := reflect.ValueOf(value)
-//
-//	if _, ok := rv.Interface().(encoding.BinaryUnmarshaler); ok {
-//		nameToType[name] = rv.Type()
-//		return
-//	}
-//
-//	prv := rv.Addr()
-//	if _, ok := prv.Interface().(encoding.BinaryUnmarshaler); ok {
-//		nameToType[name] = prv.Type()
-//		return
-//	}
-//
-//	panic(fmt.Sprintf("unable to register type %s: not encoding.BinaryUnmarshaler", rv.Type()))
-//}
+var nameToType = make(map[string]reflect.Type)
+var registerLock sync.Mutex
+
+// RegisterName registers the named class with an instance of 'value'.  When the
+// decoder finds a FREEZE tag with the given class, the binary data will be
+// passed to value's UnmarshalBinary method.
+func RegisterName(name string, value interface{}) {
+	registerLock.Lock()
+	defer registerLock.Unlock()
+
+	rv := reflect.ValueOf(value)
+
+	if _, ok := rv.Interface().(encoding.BinaryUnmarshaler); ok {
+		nameToType[name] = rv.Type()
+		return
+	}
+
+	prv := rv.Addr()
+	if _, ok := prv.Interface().(encoding.BinaryUnmarshaler); ok {
+		nameToType[name] = prv.Type()
+		return
+	}
+
+	panic(fmt.Sprintf("unable to register type %s: not encoding.BinaryUnmarshaler", rv.Type()))
+}
+
 //
 //func instantiateZero(typ reflect.Type) reflect.Value {
 //
