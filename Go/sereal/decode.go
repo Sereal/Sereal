@@ -57,7 +57,7 @@ func readHeader(b []byte) (serealHeader, error) {
 
 // A Decoder reads and decodes Sereal objects from an input buffer
 type Decoder struct {
-	tracked   map[int]interface{}
+	tracked   map[int]reflect.Value
 	copyDepth int
 
 	PerlCompat bool
@@ -183,8 +183,8 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 	//	}
 
 	if err == nil && vbody != nil {
-		//d.tracked = make(map[int]interface{})
-		//defer func() { d.tracked = nil }()
+		d.tracked = make(map[int]reflect.Value)
+		defer func() { d.tracked = nil }()
 
 		bodyValue := reflect.ValueOf(vbody)
 		if bodyValue.Kind() != reflect.Ptr {
@@ -218,11 +218,15 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 		return 0, ErrTruncated
 	}
 
-	// TODO trackme typePAD
+	// TODO typePAD
 
 	var err error
 	tag := by[idx]
-	tag &^= trackFlag
+	if (tag & trackFlag) == trackFlag {
+		tag &^= trackFlag
+		d.tracked[idx] = reflect.ValueOf(ptr)
+	}
+
 	idx++
 
 	//fmt.Printf("decode: tag %d (0x%x)\n", int(tag), int(tag))
@@ -259,14 +263,28 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 		*ptr, idx, err = d.decodeHash(by, idx+sz, ln)
 
 	case tag >= typeHASHREF_0 && tag < typeHASHREF_0+16:
-		*ptr, idx, err = d.decodeHash(by, idx, int(tag&0x0f)) // TODO handle reference
+		if d.PerlCompat {
+			var val map[string]interface{}
+			if val, idx, err = d.decodeHash(by, idx, int(tag&0x0f)); err == nil {
+				*ptr = &val
+			}
+		} else {
+			*ptr, idx, err = d.decodeHash(by, idx, int(tag&0x0f))
+		}
 
 	case tag == typeARRAY:
 		ln, sz := varintdecode(by[idx:])
 		*ptr, idx, err = d.decodeArray(by, idx+sz, ln)
 
 	case tag >= typeARRAYREF_0 && tag < typeARRAYREF_0+16:
-		*ptr, idx, err = d.decodeArray(by, idx, int(tag&0x0f)) // TODO handle reference
+		if d.PerlCompat {
+			var val []interface{}
+			if val, idx, err = d.decodeArray(by, idx, int(tag&0x0f)); err == nil {
+				*ptr = &val
+			}
+		} else {
+			*ptr, idx, err = d.decodeArray(by, idx, int(tag&0x0f))
+		}
 
 	case tag == typeSTR_UTF8:
 		var val []byte
@@ -292,7 +310,37 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 		}
 
 	case tag == typeREFN:
-		idx, err = d.decode(by, idx, ptr) // TODO
+		if d.PerlCompat {
+			var iface interface{}
+			if idx, err = d.decode(by, idx, &iface); err == nil {
+				riface := reflect.ValueOf(iface)
+
+				// reflect.New create value of type *riface.Type())
+				val := reflect.New(riface.Type())
+				val.Elem().Set(riface)
+				*ptr = val.Interface()
+			}
+		} else {
+			idx, err = d.decode(by, idx, ptr)
+		}
+
+	case tag == typeREFP:
+		offs, sz := varintdecode(by[idx:])
+		idx += sz
+
+		if offs < 0 || offs >= idx {
+			return 0, ErrCorrupt{errBadOffset}
+		}
+
+		rv, ok := d.tracked[offs]
+		if !ok {
+			return 0, ErrCorrupt{errUntrackedOffsetREFP}
+		}
+
+		// reflect.New create value of type *riface.Type())
+		val := reflect.New(rv.Elem().Type())
+		val.Elem().Set(rv.Elem())
+		*ptr = val.Interface()
 
 	default:
 		return 0, fmt.Errorf("unknown tag byte: %d (0x%x)", int(tag), int(tag))
@@ -468,9 +516,13 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		return idx, err
 	}
 
-	// TODO trackme typePAD
+	// TODO typePAD
 	tag := by[idx]
-	tag &^= trackFlag
+	if (tag & trackFlag) == trackFlag {
+		tag &^= trackFlag
+		d.tracked[idx] = ptr
+	}
+
 	idx++
 
 	switch {
@@ -534,7 +586,7 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		idx, err = d.decodeArrayViaReflection(by, idx+sz, ln, ptr)
 
 	case tag >= typeARRAYREF_0 && tag < typeARRAYREF_0+16:
-		idx, err = d.decodeArrayViaReflection(by, idx, int(tag&0x0f), ptr)
+		idx, err = d.decodeArrayViaReflection(by, idx, int(tag&0x0f), ptr) // TODO handle reference
 
 	case tag == typeUNDEF, tag == typeCANONICAL_UNDEF:
 		if d.PerlCompat && tag == typeCANONICAL_UNDEF {
@@ -547,7 +599,6 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 			} //TODO else panic
 		}
 
-	//case tag == typeREFN:
 	default:
 		return 0, fmt.Errorf("unknown tag byte: %d (0x%x)", int(tag), int(tag))
 	}
