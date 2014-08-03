@@ -59,57 +59,63 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
 
 /* Will default to "on". If set, hash keys will be shared using COPY.
  * Corresponds to the inverse of constructor option "no_shared_hashkeys" */
-#define SRL_F_SHARED_HASHKEYS                0x00001UL
+#define SRL_F_SHARED_HASHKEYS                   0x00001UL
 /* If set, then we're using the OO interface and we shouldn't destroy the
  * encoder struct during SAVEDESTRUCTOR_X time */
-#define SRL_F_REUSE_ENCODER                  0x00002UL
+#define SRL_F_REUSE_ENCODER                     0x00002UL
 /* If set in flags, then we rather croak than serialize an object.
  * Corresponds to the 'croak_on_bless' option to the Perl constructor. */
-#define SRL_F_CROAK_ON_BLESS                 0x00004UL
+#define SRL_F_CROAK_ON_BLESS                    0x00004UL
 /* If set in flags, then we will emit <undef> for all data types
  * that aren't supported.  Corresponds to the 'undef_unknown' option. */
-#define SRL_F_UNDEF_UNKNOWN                  0x00008UL
+#define SRL_F_UNDEF_UNKNOWN                     0x00008UL
 /* If set in flags, then we will stringify (SvPV) all data types
  * that aren't supported.  Corresponds to the 'stringify_unknown' option. */
-#define SRL_F_STRINGIFY_UNKNOWN              0x00010UL
+#define SRL_F_STRINGIFY_UNKNOWN                 0x00010UL
 /* If set in flags, then we warn() when trying to serialize an unsupported
  * data structure.  Applies only if stringify_unknown or undef_unknown are
  * set since we otherwise croak.  Corresponds to the 'warn_unknown' option. */
-#define SRL_F_WARN_UNKNOWN                   0x00020UL
+#define SRL_F_WARN_UNKNOWN                      0x00020UL
 
 /* WARNING: This is different from the protocol bit SRL_PROTOCOL_ENCODING_SNAPPY in that it's
  *          a flag on the encoder struct indicating that we want to use Snappy. */
-#define SRL_F_COMPRESS_SNAPPY                0x00040UL
-#define SRL_F_COMPRESS_SNAPPY_INCREMENTAL    0x00080UL
+#define SRL_F_COMPRESS_SNAPPY                   0x00040UL
+#define SRL_F_COMPRESS_SNAPPY_INCREMENTAL       0x00080UL
 
 /* WARNING: This is different from the protocol bit SRL_PROTOCOL_ENCODING_ZLIB in that it's
  *          a flag on the encoder struct indicating that we want to use ZLIB. */
-#define SRL_F_COMPRESS_ZLIB                  0x00100UL
+#define SRL_F_COMPRESS_ZLIB                     0x00100UL
 
 /* Only meaningful if SRL_F_WARN_UNKNOWN also set. If this one is set, then we don't warn
  * if the unsupported item has string overloading. */
-#define SRL_F_NOWARN_UNKNOWN_OVERLOAD        0x00200UL
+#define SRL_F_NOWARN_UNKNOWN_OVERLOAD           0x00200UL
 
 /* Only meaningful if SRL_F_WARN_UNKNOWN also set. If this one is set, then we don't warn
  * if the unsupported item has string overloading. */
-#define SRL_F_SORT_KEYS                      0x00400UL
+#define SRL_F_SORT_KEYS                         0x00400UL
 
 /* If set, use a hash to emit COPY() tags for all duplicated strings
  * (slow, but great compression) */
-#define SRL_F_DEDUPE_STRINGS                 0x00800UL
+#define SRL_F_DEDUPE_STRINGS                    0x00800UL
 
 /* Like SRL_F_DEDUPE_STRINGS but emits ALIAS() instead of COPY() for
  * non-class-name, non-hash-key strings that are deduped. If set,
  * supersedes SRL_F_DEDUPE_STRINGS. */
-#define SRL_F_ALIASED_DEDUPE_STRINGS           0x01000UL
+#define SRL_F_ALIASED_DEDUPE_STRINGS            0x01000UL
 
 /* If set in flags, then we serialize objects without class information.
  * Corresponds to the 'no_bless_objects' flag found in the Decoder. */
-#define SRL_F_NO_BLESS_OBJECTS                0x02000UL
+#define SRL_F_NO_BLESS_OBJECTS                  0x02000UL
 
 /* If set in flags, then support calling FREEZE method on objects. */
-#define SRL_F_ENABLE_FREEZE_SUPPORT           0x04000UL
+#define SRL_F_ENABLE_FREEZE_SUPPORT             0x04000UL
 
+/* if set in flags, then do not use ARRAYREF or HASHREF ever */
+#define SRL_F_CANONICAL_REFS                    0x08000UL
+
+/* ====================================================================
+ * oper flags
+ */
 /* Set while the encoder is in active use / dirty */
 #define SRL_OF_ENCODER_DIRTY                 1UL
 

@@ -22,8 +22,6 @@ my $done;
 my $data;
 my $hlen;
 my $indent = "";
-my %const_names = map {$_ => eval "$_"} @constants;
-%const_names= reverse %const_names; # make the lookup bi-di
 
 sub parse_header {
   $data =~ s/^(=[s\xF3]rl)(.)// or die "invalid header: $data";
@@ -114,12 +112,10 @@ sub parse_sv {
   $o -= 128 if $high;
   printf $fmt1, $p, $p-$hlen+1, $o, $high ? '*' : ' ', $bv, $ind;
 
-  die "no name for $o?". Dumper(\%const_names) if !$const_names{$o};
-
   if ($o == SRL_HDR_VARINT) {
     printf "VARINT: %u\n", varint();
   }
-  if ($o == SRL_HDR_ZIGZAG) {
+  elsif ($o == SRL_HDR_ZIGZAG) {
     printf "ZIGZAG: %d\n", zigzag();
   }
   elsif (SRL_HDR_POS_LOW <= $o && $o <= SRL_HDR_POS_HIGH) {
@@ -236,7 +232,8 @@ sub parse_sv {
   }
   else {
     printf "<UNKNOWN>\n";
-    die sprintf "unsupported type: 0x%02x (%d) %s: %s", $o, $o, Data::Dumper::qquote($t), $const_names{$o} // "<undefined name>";
+    die sprintf "unsupported type: 0x%02x (%d) %s: %s", $o, $o,
+        Data::Dumper::qquote($t), Data::Dumper->new([$TAG_INFO_ARRAY[$o]])->Terse(1)->Dump();
   }
   return 0;
 }
@@ -306,8 +303,6 @@ $| = 1;
 if ($opt->{e}) {
   select(STDERR);
 }
-
-#print Dumper \%const_names; exit;
 
 local $/ = undef;
 $data = <STDIN>;

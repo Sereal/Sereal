@@ -27,8 +27,8 @@ sub fill_ranges {
         $meta[$value]{value}= $value;
         $meta[$value]{type_name}= $pfx;
         $meta[$value]{type_value}= $ofs;
-        $meta[$value]{comment}= $value_to_comment_expanded{ $ofs }
-            if exists $value_to_comment_expanded{ $ofs };
+        #$meta[$value]{comment}= $value_to_comment_expanded{ $ofs }
+        #    if exists $value_to_comment_expanded{ $ofs };
 
         $meta[$value]{masked_val}= $n;
         $meta[$value]{masked}= 1;
@@ -65,7 +65,6 @@ sub read_protocol {
     foreach my $pfx (keys %name_to_value_expanded) {
         $max_name_length= length($pfx) if $max_name_length < length($pfx);
     }
-    die Dumper(\@meta);
 }
 
 sub open_swap {
@@ -84,12 +83,12 @@ sub replace_block {
     my ($in,$out)= open_swap($file);
     while (<$in>) {
         print $out $_;
-        last if /^=for autoupdater start/;
+        last if /^=for autoupdater start/ || /^# start autoupdated section/;
     }
     $blob=~s/\s+$//mg;
     print $out "\n$blob\n\n";
     while (<$in>) {
-        if (/^=for autoupdater stop/) {
+        if (/^=for autoupdater stop/ || /^# stop autoupdated section/) {
             print $out $_;
             last;
         }
@@ -101,11 +100,15 @@ sub replace_block {
     close $in;
 }
 sub update_buildtools {
-    replace_block(
+    my $dump= Data::Dumper->new([\@meta],['*TAG_INFO_ARRAY'])->Indent(1)->Dump();
+    $dump =~ s/^(\s*)\{/$1# autoupdated by $0 do not modify directly!\n$1\{/mg;
+    return replace_block(
         "Perl/shared/inc/Sereal/BuildTools.pm",
-          "# below is autoupdated by $0 - do not modify this section\n"
-        . "our " . Data::Dumper->new([\%meta],['*META'])->Dump()
-        . "# above is autoupdated by $0 - do not modify this section\n"
+        join "\n",
+            "our (%TAG_INFO_HASH, \@TAG_INFO_ARRAY);",
+            $dump,
+            "\$TAG_INFO_HASH{chr \$_}= \$TAG_INFO_ARRAY[\$_] for 0 .. 127;",
+            "push \@EXPORT_OK, qw(%TAG_INFO_HASH \@TAG_INFO_ARRAY);",
     )
 }
 sub update_srl_decoder_h {
@@ -169,6 +172,7 @@ chomp($git_dir);
 chdir "$git_dir/.."
     or die "Failed to chdir to root of repo '$git_dir/..': $!";
 read_protocol();
+update_buildtools();
 update_srl_decoder_h();
 update_table("sereal_spec.pod");
 update_table("Perl/shared/srl_protocol.h");

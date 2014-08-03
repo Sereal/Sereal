@@ -33,3 +33,4 @@ inc/Devel/CheckLib.pm
 snappy
 t/700_roundtrip
 .gdb_history
+inc

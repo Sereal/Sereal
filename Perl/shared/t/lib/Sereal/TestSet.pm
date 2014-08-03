@@ -36,7 +36,7 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
     @BasicTests $Class $ConstClass
     Header
-    FBIT
+    TRACK_FLAG
     hobodecode
     integer short_string varint array array_fbit
     hash dump_bless
@@ -50,7 +50,7 @@ our @EXPORT_OK = qw(
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 our $use_objectv = 1;
 
-use constant FBIT => 128;
+use constant TRACK_FLAG => 128;
 
 sub hobodecode {
     return unless defined $_[0];
@@ -72,7 +72,7 @@ sub array {
 
 sub array_fbit {
     chr(SRL_HDR_REFN).
-    chr(SRL_HDR_ARRAY+FBIT) . varint(0+@_) . join("", @_)
+    chr(SRL_HDR_ARRAY+TRACK_FLAG) . varint(0+@_) . join("", @_)
 }
 
 sub hash_head {
@@ -318,7 +318,7 @@ sub setup_tests {
         [
             $weak_thing,
             chr(SRL_HDR_REFN) 
-            . chr(SRL_HDR_ARRAY + FBIT) . varint(2)
+            . chr(SRL_HDR_ARRAY + TRACK_FLAG) . varint(2)
                 . chr(SRL_HDR_PAD) . chr(SRL_HDR_REFN) 
                     . chr(SRL_HDR_REFP) . varint(offseti(1))
                 . chr(0b0000_0001)
@@ -328,7 +328,7 @@ sub setup_tests {
         [
             \$weak_thing,
             chr(SRL_HDR_REFN)
-            . chr(SRL_HDR_REFN + FBIT)
+            . chr(SRL_HDR_REFN + TRACK_FLAG)
                 . chr(SRL_HDR_ARRAY) . varint(2)
                     .chr(SRL_HDR_WEAKEN) . chr(SRL_HDR_REFP) . varint(offseti(1))
                     .chr(0b0000_0001)
@@ -337,7 +337,7 @@ sub setup_tests {
         ],
         sub { \@_ } ->(
             $weak_thing,
-            chr(SRL_HDR_REFN + FBIT)
+            chr(SRL_HDR_REFN + TRACK_FLAG)
                 .chr(SRL_HDR_ARRAY).varint(2)
                     .chr(SRL_HDR_WEAKEN).chr(SRL_HDR_REFP).varint(offseti(0))
                     .chr(0b0000_0001)
@@ -350,8 +350,8 @@ sub setup_tests {
                 my $content= array_head(2);
                 my $pos= offset($content);
                 $content
-                . chr(SRL_HDR_REFN + FBIT)
-                . chr(SRL_HDR_REFP + FBIT)
+                . chr(SRL_HDR_REFN + TRACK_FLAG)
+                . chr(SRL_HDR_REFP + TRACK_FLAG)
                 . varint( $pos )
                 . chr(SRL_HDR_ALIAS)
                 . varint($pos + 1)
@@ -364,9 +364,9 @@ sub setup_tests {
                 my $content= array_head(2);
                 my $pos= offset($content);
                 $content
-                . chr(SRL_HDR_WEAKEN + FBIT)
+                . chr(SRL_HDR_WEAKEN + TRACK_FLAG)
                 . chr(SRL_HDR_REFN)
-                . chr(SRL_HDR_WEAKEN + FBIT)
+                . chr(SRL_HDR_WEAKEN + TRACK_FLAG)
                 . chr(SRL_HDR_REFP)
                 . varint($pos)
                 . chr(SRL_HDR_ALIAS)
@@ -388,7 +388,7 @@ sub setup_tests {
                     chr(SRL_HDR_OBJECT),
                     short_string("bar"),
                     chr(SRL_HDR_REFN),
-                    chr(SRL_HDR_REGEXP + FBIT),
+                    chr(SRL_HDR_REGEXP + TRACK_FLAG),
                     short_string("foo"),
                     short_string("ix"),
                     chr(SRL_HDR_REFP),
@@ -404,10 +404,10 @@ sub setup_tests {
                 my $pos= offset($content);
                 join("",$content,
                             short_string("foo"),
-                            chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + FBIT),varint(0),
+                            chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY + TRACK_FLAG),varint(0),
                         chr( SRL_HDR_OBJECT + $use_objectv),
                             $use_objectv ? () : chr(SRL_HDR_COPY), varint($pos),
-                            chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY  + FBIT), varint(0),
+                            chr(SRL_HDR_REFN).chr(SRL_HDR_ARRAY  + TRACK_FLAG), varint(0),
                         chr(SRL_HDR_REFP),varint($pos + 5),
                         chr(SRL_HDR_REFP),varint($pos + 10),
                     )
@@ -763,12 +763,12 @@ sub run_roundtrip_tests_internal {
     my $encoder = Sereal::Encoder->new($opt);
     my %seen_name;
     foreach my $meth (
-                      ['functional simple',
-                        sub {Sereal::Encoder::encode_sereal($_[0], $opt)},
-                        sub {Sereal::Decoder::decode_sereal($_[0], $opt)}],
                       ['object-oriented',
                         sub {$encoder->encode($_[0])},
                         sub {$decoder->decode($_[0])}],
+                      ['functional simple',
+                        sub {Sereal::Encoder::encode_sereal($_[0], $opt)},
+                        sub {Sereal::Decoder::decode_sereal($_[0], $opt)}],
                       ['functional with object',
                           sub {Sereal::Encoder::sereal_encode_with_object($encoder, $_[0])},
                           sub {Sereal::Decoder::sereal_decode_with_object($decoder, $_[0])}],
@@ -844,7 +844,7 @@ sub run_roundtrip_tests_internal {
                     debug_checks(\$decoded, undef, \$decoded2, "debug");
                 };
 
-            if (1 and $mname!~/header/) {
+            if ($ENV{SEREAL_TEST_SAVE_OUTPUT} and $ename=~/canon/ and $mname eq 'object-oriented') {
                 use File::Path;
                 my $combined_name= "$ename - $name";
                 if (!$seen_name{$combined_name}) {

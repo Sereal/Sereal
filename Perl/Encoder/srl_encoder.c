@@ -472,8 +472,16 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         }
 
         svp = hv_fetchs(opt, "sort_keys", 0);
+        if ( !svp )
+            svp = hv_fetchs(opt, "canonical",0);
         if ( svp && SvTRUE(*svp) )
             SRL_ENC_SET_OPTION(enc, SRL_F_SORT_KEYS);
+
+        svp = hv_fetchs(opt, "canonical_refs", 0);
+        if ( !svp )
+            svp = hv_fetchs(opt, "canonical",0);
+        if ( svp && SvTRUE(*svp) )
+            SRL_ENC_SET_OPTION(enc, SRL_F_CANONICAL_REFS);
 
         svp = hv_fetchs(opt, "aliased_dedupe_strings", 0);
         if ( svp && SvTRUE(*svp) )
@@ -1161,7 +1169,7 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
     /* heuristic: n is virtually the min. size of any element */
     BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + n);
 
-    if (n < 16 && refcount == 1) {
+    if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
         enc->buf.pos--; /* backup over previous REFN */
         srl_buf_cat_char_nocheck(enc, SRL_HDR_ARRAYREF + n);
     } else {
@@ -1236,7 +1244,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
              *            + 2*n = very conservative min size of n hashkeys if all COPY */
         BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
 
-        if (n < 16 && refcount == 1) {
+        if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
             enc->buf.pos--; /* back up over the previous REFN */
             srl_buf_cat_char_nocheck(enc, SRL_HDR_HASHREF + n);
         } else {
@@ -1302,7 +1310,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
         /* heuristic: n = ~min size of n values;
              *            + 2*n = very conservative min size of n hashkeys if all COPY */
         BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
-        if (n < 16 && refcount == 1) {
+        if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
             enc->buf.pos--; /* backup over the previous REFN */
             srl_buf_cat_char_nocheck(enc, SRL_HDR_HASHREF + n);
         } else {
@@ -1402,7 +1410,7 @@ srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src)
             if (SvIOK(ofs_sv)) {
                 /* emit copy or alias */
                 if (out_tag == SRL_HDR_ALIAS)
-                    SRL_SET_FBIT(*(enc->buf.body_pos + SvUV(ofs_sv)));
+                    SRL_SET_TRACK_FLAG(*(enc->buf.body_pos + SvUV(ofs_sv)));
                 srl_buf_cat_varint(aTHX_ enc, out_tag, SvIV(ofs_sv));
                 return;
             } else if (SvUOK(ofs_sv)) {
@@ -1531,7 +1539,7 @@ redo_dump:
                     if (DEBUGHACK) warn("alias to %p as %lu", src, (long unsigned int)oldoffset);
                     srl_buf_cat_varint(aTHX_ enc, SRL_HDR_ALIAS, (UV)oldoffset);
                 }
-                SRL_SET_FBIT(*(enc->buf.body_pos + oldoffset));
+                SRL_SET_TRACK_FLAG(*(enc->buf.body_pos + oldoffset));
                 --enc->recursion_depth;
                 return;
             }

@@ -246,6 +246,6 @@
 
 /* TODO */
 
-#define SRL_SET_FBIT(where) ((where) |= SRL_HDR_TRACK_FLAG)
+#define SRL_SET_TRACK_FLAG(where) ((where) |= SRL_HDR_TRACK_FLAG)
 
 #endif

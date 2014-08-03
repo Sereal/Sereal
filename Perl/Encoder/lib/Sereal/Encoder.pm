@@ -236,6 +236,12 @@ do so.
 Do note that the setting is somewhat approximate. Setting it to 10000 may break at
 somewhere between 9997 and 10003 nested structures depending on their types.
 
+=head3 canonical_refs
+
+Normally C<Sereal::Encoder> will ARRAYREF and HASHREF tags when the item contains
+less than 16 items, and and is not referenced more than once. This flag will
+override this optimization and use a standard REFN ARRAY style tag output.
+
 =head3 sort_keys
 
 Normally C<Sereal::Encoder> will output hashes in whatever order is convenient,
@@ -489,6 +495,10 @@ the issues well enough for you to decide if it is suitable for your needs.
 =item Sereal doesn't order the hash keys by default.
 
 This can be enabled via C<sort_keys>, see above.
+
+=item Sereal output is sensitive to refcounts
+
+This can be somewhat mitigated by the use of C<canonical_refs>, see above.
 
 =item There are multiple valid Sereal documents that you can produce for the same Perl data structure.
 
