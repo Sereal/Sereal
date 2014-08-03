@@ -236,11 +236,26 @@ do so.
 Do note that the setting is somewhat approximate. Setting it to 10000 may break at
 somewhere between 9997 and 10003 nested structures depending on their types.
 
+=head3 canoncial
+
+Enable all options which are related to producing canonical output, so that
+two strucutures with similar contents produce the same serialized form.
+
+See the caveats elsewhere in this document about producing canonical output.
+
+Currently sets the default for the following parameters: C<canonical_refs>
+and C<sort_keys>. If the option is explicitly set then this setting is ignored.
+More options may be added in the future.
+
+You are warned that use of this option may incur additional performance penalties
+in a future release by enabling other options than those listed here.
+
 =head3 canonical_refs
 
 Normally C<Sereal::Encoder> will ARRAYREF and HASHREF tags when the item contains
 less than 16 items, and and is not referenced more than once. This flag will
-override this optimization and use a standard REFN ARRAY style tag output.
+override this optimization and use a standard REFN ARRAY style tag output. This
+is primarily useful for producing canoncial output and for testing Sereal itself.
 
 =head3 sort_keys
 
