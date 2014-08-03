@@ -32,5 +32,6 @@ t/lib
 inc/Devel/CheckLib.pm
 snappy
 t/700_roundtrip
+t/002_testset.t
 .gdb_history
 inc
