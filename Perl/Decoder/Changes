@@ -3,6 +3,12 @@ Revision history for Perl extension Sereal-Decoder
 * Warning: For a seamless upgrade, upgrade to version 3
 *          of the decoder before upgrading to version 3 of the
 *          encoder!
+3.001_006 Sun, Aug 03 2014
+  - Rework bulk tests so we test more, but report less tests.
+    The test infrastructure doesn't play well with lots of tests
+    in a file. Similarly, if we fail one of the methods in the bulk
+    tests we stop testing the rest.
+
 3.001_005 Mon, July 28 2014
   - Fixup how MakeMaker runs the tests.
 

@@ -540,6 +540,7 @@ sub get_git_top_dir {
 }
 
 sub have_encoder_and_decoder {
+    my ($min_v)= @_;
     # $Class is the already-loaded class, so the one we're testing
     my $need = $Class =~ /Encoder/ ? "Decoder" : "Encoder";
     my $need_class = "Sereal::$need";
@@ -559,6 +560,11 @@ sub have_encoder_and_decoder {
         return();
     };
     my $cmp_v = $need_class->VERSION;
+    if ($min_v and $cmp_v <= $min_v) {
+        note("Could not load correct version of $need_class for testing "
+             ."(got: $cmp_v, needed at least $min_v)");
+        return;
+    }
     $cmp_v =~ s/_//;
     $cmp_v = sprintf("%.2f", int($cmp_v*100)/100);
     if (not defined $cmp_v or not exists $compat_versions{$cmp_v}) {
@@ -566,7 +572,6 @@ sub have_encoder_and_decoder {
              ."(got: $cmp_v, needed any of ".join(", ", keys %compat_versions).")");
         return();
     }
-
     return 1;
 }
 
@@ -887,6 +892,7 @@ sub run_roundtrip_tests_internal {
     my $decoder = Sereal::Decoder->new($opt);
     my $encoder = Sereal::Encoder->new($opt);
     my %seen_name;
+
     foreach my $rt (@RoundtripTests) {
         my ($name, $data) = @$rt;
 
@@ -1003,34 +1009,34 @@ sub run_roundtrip_tests_internal {
             deep_cmp($decoded3, $decoded,   "$name ($ename, $mname, decoded3 vs decoded)") or last;
             deep_cmp($decoded3, $decoded2,  "$name ($ename, $mname, decoded3 vs decoded2)") or last;
 
-            if ($ename =~ /canon/) {
+            if ( $ename =~ /canon/) {
                 deep_cmp($encoded2, $encoded,  "$name ($ename, $mname, encoded2 vs encoded)") or last;
                 deep_cmp($encoded3, $encoded,  "$name ($ename, $mname, encoded3 vs encoded)") or last;
                 deep_cmp($encoded3, $encoded2, "$name ($ename, $mname, encoded3 vs encoded2)") or last;
-            }
 
-            if ($ENV{SEREAL_TEST_SAVE_OUTPUT} and $ename=~/canon/ and $mname eq 'object-oriented') {
-                use File::Path;
-                my $combined_name= "$ename - $name";
-                if (!$seen_name{$combined_name}) {
-                    my @clean= ($ename, $name);
-                    s/[^\w.-]+/_/g, s/__+/_/g for @clean;
-                    my $cleaned= join "/", @clean;
-                    my $dir= $0;
-                    $dir=~s!/[^/]+\z!/data/$clean[0]!;
-                    mkpath $dir unless -d $dir;
-                    my $base= "$dir/$clean[1].enc";
-                    $seen_name{$combined_name}= $base;
-                    for my $f ( [ "", $encoded ], $encoded ne $encoded2 ? [ "2", $encoded2 ] : ()) {
-                        my $file= $base . $f->[0];
-                        next if -e $file;
-                        open my $fh, ">", $file
-                            or die "Can't open '$file' for writing: $!";
-                        binmode($fh);
-                        print $fh $f->[1];
-                        close $fh;
+                if ($ENV{SEREAL_TEST_SAVE_OUTPUT} and $mname eq 'object-oriented') {
+                    use File::Path;
+                    my $combined_name= "$ename - $name";
+                    if (!$seen_name{$combined_name}) {
+                        my @clean= ($ename, $name);
+                        s/[^\w.-]+/_/g, s/__+/_/g for @clean;
+                        my $cleaned= join "/", @clean;
+                        my $dir= $0;
+                        $dir=~s!/[^/]+\z!/data/$clean[0]!;
+                        mkpath $dir unless -d $dir;
+                        my $base= "$dir/$clean[1].enc";
+                        $seen_name{$combined_name}= $base;
+                        for my $f ( [ "", $encoded ], $encoded ne $encoded2 ? [ "2", $encoded2 ] : ()) {
+                            my $file= $base . $f->[0];
+                            next if -e $file;
+                            open my $fh, ">", $file
+                                or die "Can't open '$file' for writing: $!";
+                            binmode($fh);
+                            print $fh $f->[1];
+                            close $fh;
+                        }
+                        diag "Wrote sample files for '$combined_name' to $base";
                     }
-                    diag "Wrote sample files for '$combined_name' to $base";
                 }
             }
         } # end method type
