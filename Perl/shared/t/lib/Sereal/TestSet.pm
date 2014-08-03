@@ -10,7 +10,8 @@ use Test::More;
 use Test::LongString;
 #use Data::Dumper; # MUST BE LOADED *AFTER* THIS FILE (BUG IN PERL)
 use Devel::Peek;
-use Encode qw(encode_utf8);
+use Encode qw(encode_utf8 is_utf8);
+use Scalar::Util qw(reftype blessed refaddr);
 
 # Dynamically load constants from whatever is being tested
 our ($Class, $ConstClass);
@@ -757,6 +758,126 @@ sub run_roundtrip_tests {
     run_roundtrip_tests_internal($name . $suffix, $opts);
 }
 
+sub _test {
+    my ($msg, $v1, $v2)= @_;
+    if ($v1 ne $v2) {
+        my $q1= Data::Dumper::qquote($v1);
+        my $q2= Data::Dumper::qquote($v2);
+        return "msg: $q1 ne $q2"
+    }
+    return;
+}
+sub _test_str {
+    my ($msg, $v1, $v2)= @_;
+    if (is_utf8($v1) != is_utf8($v2)) {
+        return "$msg: utf8 flag mismatch";
+    }
+    if ($v1 eq $v2) {
+        return;
+    }
+    my $diff_start= 0;
+    $diff_start++ while $diff_start < length($v1)
+                    and $diff_start < length($v2)
+                    and substr($v1, $diff_start,1) eq substr($v2, $diff_start,1);
+    my $diff_end= $diff_start;
+    $diff_end++ while $diff_end < length($v1)
+                    and $diff_end < length($v2)
+                    and substr($v1, $diff_end,1) ne substr($v2, $diff_end,1);
+    my $length_to_show= $diff_end - $diff_start;
+    $length_to_show= 30 if $length_to_show > 30;
+
+    my $q1= Data::Dumper::qquote(substr($v1, $diff_start, $length_to_show ));
+    my $q2= Data::Dumper::qquote(substr($v2, $diff_start, $length_to_show ));
+    my $context_start= $diff_start > 10 ? $diff_start - 10 : 0;
+
+    if ($context_start < $diff_start) {
+        $q1 = Data::Dumper::qquote(substr($v1,$context_start,10)) . " . " . $q1;
+        $q2 = Data::Dumper::qquote(substr($v2,$context_start,10)) . " . " . $q2;
+    }
+    if ($context_start > 0) {
+        $q1 = "...$q1";
+        $q2 = "...$q2";
+    }
+    if ($length_to_show < 30) {
+        $q1 .= " . " . Data::Dumper::qquote(substr($v1, $diff_start + $length_to_show, 30-$length_to_show));
+        $q2 .= " . " . Data::Dumper::qquote(substr($v2, $diff_start + $length_to_show, 30-$length_to_show));
+    }
+    if ( $diff_start + 30 < length($v1) ) {
+        $q1 .= "..."
+    }
+    if ( $diff_start + 30 < length($v2) ) {
+        $q2 .= "..."
+    }
+    return ($msg, sprintf("%s at offset %d\nv1 = %s (length %d)\nv2 = %s (length %d)\n",
+        $msg, $diff_start, $q1, length($v1), $q2, length($v2)));
+}
+
+sub _deep_cmp {
+    my ($x, $y, $seenx, $seeny)= @_;
+    $seenx||={};
+    $seeny||={};
+    my $cmp;
+
+    $cmp= _test("defined mismatch",defined($x),defined($y))
+        and return $cmp;
+    defined($x)
+        or return "";
+    $cmp=  _test("seen scalar ", ++$seenx->{refaddr \$_[0]}, ++$seeny->{refaddr \$_[1]})
+        || _test("boolean mismatch",!!$x, !!$y)
+        || _test("isref mismatch",!!ref($x), !!ref($y))
+        and return $cmp;
+
+    if (ref $x) {
+        $cmp=  _test("seen ref", ++$seenx->{refaddr $x}, ++$seeny->{refaddr $y})
+            || _test("reftype mismatch",reftype($x), reftype($y))
+            || _test("class mismatch", !blessed($x), !blessed($y))
+            || _test("class different", blessed($x)//"", blessed($y)//"")
+            and return $cmp;
+        return "" if $x == $y
+                  or $seenx->{refaddr $x} > 1;
+
+        if (reftype($x) eq "HASH") {
+            $cmp= _test("keycount mismatch",0+keys(%$x),0+keys(%$y))
+                and return $cmp;
+            foreach my $key (keys %$x) {
+                return "key missing '$key'" unless exists $y->{$key};
+                $cmp= _deep_cmp($x->{$key},$y->{$key}, $seenx, $seeny)
+                    and return $cmp;
+            }
+        } elsif (reftype($x) eq "ARRAY") {
+            $cmp= _test("arraysize mismatch",0+@$x,0+@$y)
+                and return $cmp;
+            foreach my $idx (0..$#$x) {
+                $cmp= _deep_cmp($x->[$idx], $y->[$idx], $seenx, $seeny)
+                    and return $cmp;
+            }
+        } elsif (reftype($x) eq "SCALAR" or reftype($x) eq "REF") {
+            return _deep_cmp($$x, $$y, $seenx, $seeny);
+        } elsif (reftype($x) eq "REGEXP") {
+            $cmp= _test("regexp different","$x","$y")
+                and return $cmp;
+        } else {
+            die "Unknown reftype '",reftype($x)."'";
+        }
+    } else {
+        $cmp= _test_str("strings differ",$x,$y)
+            and return $cmp;
+    }
+    return ""
+}
+
+sub deep_cmp {
+    my ($v1, $v2, $name)= @_;
+    my $diff= _deep_cmp($v1, $v2);
+    if ($diff) {
+        my ($reason,$diag)= split /\n/, $diff, 2;
+        fail("$name - $reason");
+        diag("$reason\n$diag") if $diag;
+    }
+    return;
+}
+
+
 sub run_roundtrip_tests_internal {
     my ($ename, $opt, $encode_decode_callbacks) = @_;
     my $decoder = Sereal::Decoder->new($opt);
@@ -792,19 +913,24 @@ sub run_roundtrip_tests_internal {
                     my $err = $@ || 'Zombie error';
                     diag("Got error while encoding: $err");
                 };
-            ok(defined $encoded, "$name ($ename, $mname, encoded defined)")
+
+            defined($encoded)
                 or do {
+                    fail("$name ($ename, $mname, encoded defined)");
                     debug_checks(\$data, \$encoded, undef);
                     next;
                 };
+
             my $decoded;
             eval {$decoded = $dec->($encoded); 1}
                 or do {
                     my $err = $@ || 'Zombie error';
                     diag("Got error while decoding: $err");
                 };
-            ok( defined($decoded) == defined($data), "$name ($ename, $mname, decoded definedness)")
+
+            defined($decoded) == defined($data)
                 or do {
+                    fail("$name ($ename, $mname, decoded definedness)");
                     debug_checks(\$data, \$encoded, undef);
                     next;
                 };
@@ -816,8 +942,10 @@ sub run_roundtrip_tests_internal {
                     my $err = $@ || 'Zombie error';
                     diag("Got error while encoding the second time: $err");
                 };
-            ok(defined $encoded2, "$name ($ename, $mname, encoded2 defined)")
+
+            defined $encoded2
                 or do {
+                    fail("$name ($ename, $mname, encoded2 defined)");
                     debug_checks(\$data, \$encoded, \$decoded);
                     next;
                 };
@@ -829,20 +957,37 @@ sub run_roundtrip_tests_internal {
                     diag("Got error while encoding the second time: $err");
                 };
 
-            ok(defined($decoded2) == defined($data), "$name ($ename, $mname, decoded2 defined)")
-                or next;
-            is_deeply($decoded, $data, "$name ($ename, $mname, decoded vs data)")
+            defined($decoded2) == defined($data)
                 or do {
-                    debug_checks(\$data, undef, \$decoded, "debug");
+                    fail("$name ($ename, $mname, decoded2 defined)");
+                    next;
                 };
-            is_deeply($decoded2, $data, "$name ($ename, $mname, decoded2 vs data)")
-                or do {
-                    debug_checks(\$data, undef, \$decoded2, "debug");
-                };
-            is_deeply($decoded2, $decoded, "$name ($ename, $mname, decoded vs decoded2)")
-                or do {
-                    debug_checks(\$decoded, undef, \$decoded2, "debug");
-                };
+
+            deep_cmp($decoded, $data, "$name ($ename, $mname, decoded vs data)");
+            deep_cmp($decoded2, $data, "$name ($ename, $mname, decoded2 vs data)");
+            deep_cmp($decoded2, $decoded, "$name ($ename, $mname, decoded vs decoded2)");
+
+            if ($ename =~ /canon/) {
+                # It isnt really safe to test this way right now. The exact output
+                # of two runs of Sereal is not guaranteed to be the same due to the effect of
+                # refcounts. We could disable ARRAYREF/HASHREF as an option,
+                # and then skip these tests. We should probably do that just to test
+                # that we can handle both representations properly at all times.
+                length($encoded2) == length($encoded)
+                    or do {
+                        fail("$name ($ename, $mname, length encoded2 vs length encoded)");
+                        debug_checks(\$data, \$encoded, \$decoded);
+                        next;
+                    };
+
+                $encoded2 eq $encoded
+                    or do {
+                        fail("$name ($ename, $mname, encoded2 vs encoded)");
+                        debug_checks(\$data, \$encoded, \$decoded);
+                        next;
+                    };
+            }
+            pass("$name ($ename, $mname)");
 
             if ($ENV{SEREAL_TEST_SAVE_OUTPUT} and $ename=~/canon/ and $mname eq 'object-oriented') {
                 use File::Path;
@@ -869,25 +1014,6 @@ sub run_roundtrip_tests_internal {
                 }
             }
 
-            if (0) {
-                # It isnt really safe to test this way right now. The exact output
-                # of two runs of Sereal is not guaranteed to be the same due to the effect of
-                # refcounts. We could disable ARRAYREF/HASHREF as an option,
-                # and then skip these tests. We should probably do that just to test
-                # that we can handle both representations properly at all times.
-                my $ret;
-                if ($name=~/complex/) {
-                    SKIP: {
-                        skip "Encoded string length tests for complex hashes and compression depends on hash key ordering", 1 if $opt->{snappy};
-                        $ret = is(length($encoded2), length($encoded),"$name ($ename, $mname, length encoded2 vs length encoded)");
-                    }
-                } else {
-                    $ret = is_string($encoded2, $encoded, "$name ($ename, $mname, encoded2 vs encoded)");
-                }
-                $ret or do {
-                    debug_checks(\$data, \$encoded, \$decoded);
-                };
-            }
         }
     } # end serialization method iteration
 }
