@@ -1,3 +1,3 @@
-{[{<<"foo">>,
-    <<"oh wait Im reallllllllllllllllllly long a long binary a lot of stuff there">>}]}.
+[undefined, {[{<<"foo">>,
+    <<"oh wait Im reallllllllllllllllllly long a long binary a lot of stuff there">>}]}].
 

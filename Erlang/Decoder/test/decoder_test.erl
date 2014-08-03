@@ -10,7 +10,9 @@ gen({Name, Srl, {error, _}=Erl}) ->
     {Name, ?_assertThrow(Erl, sereal_decoder:decode(Srl))};
 
 gen({Name, Srl, Erl}) ->
-    {Name, ?_assertEqual(Erl, sereal_decoder:decode(Srl))}.
+    {ok, Decodeds} = sereal_decoder:decode(Srl),
+    [Decoded | _ ] = Decodeds,
+    {Name, ?assertEqual(Erl, Decoded)}.
 
 read_cases() ->
     CasesPath = filename:join(["..", "test", "cases", "*.srl"]),
