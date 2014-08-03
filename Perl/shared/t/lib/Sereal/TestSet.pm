@@ -596,7 +596,9 @@ our @ScalarRoundtripTests = (
     ["small int", 3],
     ["small negative int", -8],
     ["largeish int", 100000],
-    ["largeish negative int", -302001],
+    ["largeish negative int -302001",   -302001],
+    ["largeish negative int -1234567",  -1234567],
+    ["largeish negative int -12345678", -12345678],
 
     (
         map {["integer: $_", $_]} (
@@ -618,9 +620,29 @@ our @ScalarRoundtripTests = (
     ["float", 0.2],
     ["short ascii string", "fooo"],
     ["short latin1 string", "Müller"],
-    ["short utf8 string", do {use utf8; " עדיין ח"}],
+    ["short utf8 string", do {use utf8; " עדיין ח"} ],
 
-    ["long ascii string", do{"abc" x 10000}],
+    (map { [ "long ascii string 'a' x $_", do{"a" x $_} ] } (
+        9999,10000,10001,
+        1023,1024,1025,
+        8191,8192,8193,
+    )),
+    (map { [ "long ascii string 'ab' x $_", do{"ab" x $_} ] } (
+        9999,10000,10001,
+        1023,1024,1025,
+        8191,8192,8193,
+    )),
+    (map { [ "long ascii string 'abc' x $_", do{"abc" x $_} ] } (
+        9999,10000,10001,
+        1023,1024,1025,
+        8191,8192,8193,
+    )),
+    (map { [ "long ascii string 'abcd' x $_", do{"abcd" x $_} ] } (
+        9999,10000,10001,
+        1023,1024,1025,
+        8191,8192,8193,
+    )),
+
     ["long latin1 string", "üll" x 10000],
     ["long utf8 string", do {use utf8; " עדיין חשב" x 10000}],
     ["long utf8 string with only ascii", do {use utf8; "foo" x 10000}],
@@ -690,6 +712,10 @@ our @RoundtripTests = (
     (map {["hash ref to " . $_->[0], ({foo => $_->[1]})]} @ScalarRoundtripTests),
     # ---
     (map {["array ref to duplicate " . $_->[0], ([$_->[1], $_->[1]])]} @ScalarRoundtripTests),
+    (map {[
+            "AoA of duplicates " . $_->[0],
+            ( [ $_->[1], [ $_->[1], $_->[1] ], $_->[1], [ $_->[1], $_->[1], $_->[1] ], $_->[1] ] )
+         ]} @ScalarRoundtripTests),
     # ---
     (map {["array ref to aliases " . $_->[0], (sub {\@_}->($_->[1], $_->[1]))]} @ScalarRoundtripTests),
     (map {["array ref to scalar refs to same " . $_->[0], ([\($_->[1]), \($_->[1])])]} @ScalarRoundtripTests),
@@ -735,7 +761,7 @@ sub run_roundtrip_tests_internal {
     my ($ename, $opt, $encode_decode_callbacks) = @_;
     my $decoder = Sereal::Decoder->new($opt);
     my $encoder = Sereal::Encoder->new($opt);
-
+    my %seen_name;
     foreach my $meth (
                       ['functional simple',
                         sub {Sereal::Encoder::encode_sereal($_[0], $opt)},
@@ -817,6 +843,31 @@ sub run_roundtrip_tests_internal {
                 or do {
                     debug_checks(\$decoded, undef, \$decoded2, "debug");
                 };
+
+            if (1 and $mname!~/header/) {
+                use File::Path;
+                my $combined_name= "$ename - $name";
+                if (!$seen_name{$combined_name}) {
+                    my @clean= ($ename, $name);
+                    s/[^\w.-]+/_/g, s/__+/_/g for @clean;
+                    my $cleaned= join "/", @clean;
+                    my $dir= $0;
+                    $dir=~s!/[^/]+\z!/data/$clean[0]!;
+                    mkpath $dir unless -d $dir;
+                    my $base= "$dir/$clean[1].enc";
+                    $seen_name{$combined_name}= $base;
+                    for my $f ( [ "", $encoded ], $encoded ne $encoded2 ? [ "2", $encoded2 ] : ()) {
+                        my $file= $base . $f->[0];
+                        next if -e $file;
+                        open my $fh, ">", $file
+                            or die "Can't open '$file' for writing: $!";
+                        binmode($fh);
+                        print $fh $f->[1];
+                        close $fh;
+                    }
+                    diag "Wrote sample files for '$combined_name' to $base";
+                }
+            }
 
             if (0) {
                 # It isnt really safe to test this way right now. The exact output

@@ -61,7 +61,7 @@ sub generate_constant_includes {
     open my $fh, "<", "srl_protocol.h" or die $!;
     my (@string_const, @int_const);
     while (<$fh>) {
-      if (/^#\s*define\s*(SRL_\w+)\s*(.*)$/) {
+      if (/^#\s*define\s*(SRL_\w+)\s*(.*?)(?:\/\*|$)/) {
         my ($name, $value) = ($1, $2);
         next if $name =~ /_H_$/ or $name =~ /SET/ or $value =~ /"/;
         push @int_const, $name;
@@ -103,10 +103,16 @@ HERE
 
 sub SRL_MAGIC_STRING () {"=srl"}
 sub SRL_MAGIC_STRING_HIGHBIT () {"=\xF3rl"}
-sub SRL_MAGIC_STRING_HIGHBIT_UTF8 () { "=\xC3\xB3rl" }
-push @EXPORT_OK, qw(SRL_MAGIC_STRING SRL_MAGIC_STRING_HIGHBIT SRL_MAGIC_STRING_HIGHBIT_UTF8);
+push @EXPORT_OK, qw(SRL_MAGIC_STRING SRL_MAGIC_STRING_HIGHBIT SRL_MAGIC_STRING_HIGHBIT_UTF8 \%META);
+
+=for autoupdater start
+
+our %META= (
+);
+
+=for autoupdater stop
+
 our %EXPORT_TAGS=(all => \@EXPORT_OK);
-1;
 HERE
     close $ofh;
   }

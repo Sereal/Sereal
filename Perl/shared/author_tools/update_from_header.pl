@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Data::Dumper;
 my (
+    @meta,
     %name_to_value,             # just the names in the srl_protocol.h
     %name_to_value_expanded,    # names from srl_protocol, but with the LOW/HIGH data expanded
     %value_to_name_expanded,    # values from srl_protocol_expanded, mapping back, note value points at FIRST name
@@ -15,25 +16,48 @@ sub fill_ranges {
     $pfx=~s/_LOW//;
     defined(my $ofs= $name_to_value_expanded{$pfx})
         or die "unknown $pfx";
-    for my $i ( $name_to_value_expanded{$pfx . "_LOW"} .. $name_to_value_expanded{$pfx . "_HIGH"}) {
-        my $n= $pfx=~/NEG/ ? abs($i - 32) : $i - $ofs;
-        $name_to_value_expanded{ $pfx . "_" . $n } ||= $i;
-        $value_to_name_expanded{ $i } = $pfx . "_". $n;
-        $value_to_comment_expanded{ $i } ||= '';
+    for my $value ( $name_to_value_expanded{$pfx . "_LOW"} .. $name_to_value_expanded{$pfx . "_HIGH"}) {
+        my $n= $pfx=~/NEG/ ? abs($value - 32) : $value - $ofs;
+        my $name= $pfx . "_" . $n;
+        $name_to_value_expanded{ $name } ||= $value;
+        $value_to_name_expanded{ $value } = $name;
+        $value_to_comment_expanded{ $value } ||= '';
+
+        $meta[$value]{name}= $name;
+        $meta[$value]{value}= $value;
+        $meta[$value]{type_name}= $pfx;
+        $meta[$value]{type_value}= $ofs;
+        $meta[$value]{comment}= $value_to_comment_expanded{ $ofs }
+            if exists $value_to_comment_expanded{ $ofs };
+
+        $meta[$value]{masked_val}= $n;
+        $meta[$value]{masked}= 1;
+
     }
     $value_to_comment_expanded{ $name_to_value_expanded{$pfx . "_HIGH"} } = $value_to_comment_expanded{ $ofs };
 }
 sub read_protocol {
     open my $fh,"<", "Perl/shared/srl_protocol.h"
         or die "Perl/shared/srl_protocol.h: $!";
+
     my @fill;
     while (<$fh>) {
         if(m!^#define\s+SRL_HDR_(\S+)\s+\(\(char\)(\d+)\)\s*(?:/\*\s*(.*?)\s*\*/)?\s*\z!i) {
-            $name_to_value{$1}= $2;
-            $name_to_value_expanded{$1}= $2;
-            $value_to_name_expanded{$2} ||= $1;
-            $value_to_comment_expanded{$2} ||= $3;
-            push @fill, $1 if substr($1,-4) eq '_LOW';
+            my ($name, $value, $comment)= ($1, $2, $3);
+            $value= 0+$value;
+            $name_to_value{$name}= $value;
+            $name_to_value_expanded{$name}= $value;
+            $value_to_name_expanded{$value} ||= $name;
+            $value_to_comment_expanded{$value} ||= $comment;
+            push @fill, $name if substr($name, -4) eq '_LOW';
+
+            if ( $value < 128 ) {
+                $meta[$value]{name}= $name;
+                $meta[$value]{value}= $value;
+                $meta[$value]{type_name}= $name;
+                $meta[$value]{type_value}= $value;
+                $meta[$value]{comment}= $comment if defined $comment;
+            }
         }
     }
     close $fh;
@@ -41,7 +65,9 @@ sub read_protocol {
     foreach my $pfx (keys %name_to_value_expanded) {
         $max_name_length= length($pfx) if $max_name_length < length($pfx);
     }
+    die Dumper(\@meta);
 }
+
 sub open_swap {
     my $file= shift;
     open my $fh,"<", $file
@@ -73,6 +99,14 @@ sub replace_block {
     }
     close $out;
     close $in;
+}
+sub update_buildtools {
+    replace_block(
+        "Perl/shared/inc/Sereal/BuildTools.pm",
+          "# below is autoupdated by $0 - do not modify this section\n"
+        . "our " . Data::Dumper->new([\%meta],['*META'])->Dump()
+        . "# above is autoupdated by $0 - do not modify this section\n"
+    )
 }
 sub update_srl_decoder_h {
     replace_block("Perl/Decoder/srl_decoder.h",

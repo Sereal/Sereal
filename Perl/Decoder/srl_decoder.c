@@ -945,20 +945,9 @@ srl_read_varint(pTHX_ srl_decoder_t *dec, SV* into)
 SRL_STATIC_INLINE void
 srl_read_zigzag(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    UV uv= srl_read_varint_uv(aTHX_ dec);
-    if (uv & 1) {
-        sv_setiv(into, (IV)( -( 1 + (uv >> 1) ) ) );
-    } else {
-        uv = uv >> 1;
-        if (uv <= (UV)IV_MAX) {
-            sv_setiv(into, (IV)uv);
-        } else {
-            /* grr, this is ridiculous! */
-            sv_setiv(into, 0);
-            SvIsUV_on(into);
-            SvUV_set(into, uv);
-        }
-    }
+    UV n= srl_read_varint_uv(aTHX_ dec);
+    IV i= (n >> 1) ^ (-(n & 1));
+    sv_setiv(into, i);
 }
 
 

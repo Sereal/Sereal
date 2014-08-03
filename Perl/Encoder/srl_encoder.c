@@ -725,7 +725,7 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
     /* FIXME find a way to express the condition without repeated SvIV/SvUV */
     if (expect_true( SvIOK_UV(src) || SvIV(src) >= 0 )) {
         const UV num = SvUV(src); /* FIXME is SvUV_nomg good enough because of the GET magic in dump_sv? SvUVX after having checked the flags? */
-        if (num < 16) {
+        if (num <= 15) {
             /* encodable as POS */
             hdr = SRL_HDR_POS_LOW | (unsigned char)num;
             srl_buf_cat_char(enc, hdr);
@@ -736,7 +736,7 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
     }
     else {
         const IV num = SvIV(src);
-        if (num > -17) {
+        if (num >= -16) {
             /* encodable as NEG */
             hdr = SRL_HDR_NEG_LOW | ((unsigned char)num + 32);
             srl_buf_cat_char(enc, hdr);
