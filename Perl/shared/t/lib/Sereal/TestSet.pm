@@ -46,6 +46,9 @@ our @EXPORT_OK = qw(
     write_test_files
     $use_objectv
     setup_tests
+    _deep_cmp
+    _test
+    _test_str
 );
 
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
@@ -873,8 +876,9 @@ sub deep_cmp {
         my ($reason,$diag)= split /\n/, $diff, 2;
         fail("$name - $reason");
         diag("$reason\n$diag") if $diag;
+        return;
     }
-    return;
+    return 1;
 }
 
 
@@ -883,29 +887,29 @@ sub run_roundtrip_tests_internal {
     my $decoder = Sereal::Decoder->new($opt);
     my $encoder = Sereal::Encoder->new($opt);
     my %seen_name;
-    foreach my $meth (
-                      ['object-oriented',
-                        sub {$encoder->encode($_[0])},
-                        sub {$decoder->decode($_[0])}],
-                      ['functional simple',
-                        sub {Sereal::Encoder::encode_sereal($_[0], $opt)},
-                        sub {Sereal::Decoder::decode_sereal($_[0], $opt)}],
-                      ['functional with object',
-                          sub {Sereal::Encoder::sereal_encode_with_object($encoder, $_[0])},
-                          sub {Sereal::Decoder::sereal_decode_with_object($decoder, $_[0])}],
-                      ['header-body',
-                        sub {$encoder->encode($_[0], 123456789)}, # header data is abitrary to stand out for debugging
-                        sub {$decoder->decode($_[0])}],
-                      ['header-only',
-                        sub {$encoder->encode(987654321, $_[0])}, # body data is abitrary to stand out for debugging
-                        sub {$decoder->decode_only_header($_[0])}],
-                      )
-    {
-        my ($mname, $enc, $dec) = @$meth;
-        next if $mname =~ /header/ and $opt->{use_protocol_v1};
+    foreach my $rt (@RoundtripTests) {
+        my ($name, $data) = @$rt;
 
-        foreach my $rt (@RoundtripTests) {
-            my ($name, $data) = @$rt;
+        foreach my $meth (
+              ['object-oriented',
+                sub {$encoder->encode($_[0])},
+                sub {$decoder->decode($_[0])}],
+              ['functional simple',
+                sub {Sereal::Encoder::encode_sereal($_[0], $opt)},
+                sub {Sereal::Decoder::decode_sereal($_[0], $opt)}],
+              ['functional with object',
+                  sub {Sereal::Encoder::sereal_encode_with_object($encoder, $_[0])},
+                  sub {Sereal::Decoder::sereal_decode_with_object($decoder, $_[0])}],
+              ['header-body',
+                sub {$encoder->encode($_[0], 123456789)}, # header data is abitrary to stand out for debugging
+                sub {$decoder->decode($_[0])}],
+              ['header-only',
+                sub {$encoder->encode(987654321, $_[0])}, # body data is abitrary to stand out for debugging
+                sub {$decoder->decode_only_header($_[0])}],
+        ) {
+            my ($mname, $enc, $dec) = @$meth;
+
+            next if $mname =~ /header/ and $opt->{use_protocol_v1};
 
             my $encoded;
             eval {$encoded = $enc->($data); 1}
@@ -918,7 +922,7 @@ sub run_roundtrip_tests_internal {
                 or do {
                     fail("$name ($ename, $mname, encoded defined)");
                     debug_checks(\$data, \$encoded, undef);
-                    next;
+                    last;
                 };
 
             my $decoded;
@@ -932,7 +936,7 @@ sub run_roundtrip_tests_internal {
                 or do {
                     fail("$name ($ename, $mname, decoded definedness)");
                     debug_checks(\$data, \$encoded, undef);
-                    next;
+                    last;
                 };
 
             # Second roundtrip
@@ -947,7 +951,7 @@ sub run_roundtrip_tests_internal {
                 or do {
                     fail("$name ($ename, $mname, encoded2 defined)");
                     debug_checks(\$data, \$encoded, \$decoded);
-                    next;
+                    last;
                 };
 
             my $decoded2;
@@ -960,34 +964,50 @@ sub run_roundtrip_tests_internal {
             defined($decoded2) == defined($data)
                 or do {
                     fail("$name ($ename, $mname, decoded2 defined)");
-                    next;
+                    last;
                 };
 
-            deep_cmp($decoded, $data, "$name ($ename, $mname, decoded vs data)");
-            deep_cmp($decoded2, $data, "$name ($ename, $mname, decoded2 vs data)");
-            deep_cmp($decoded2, $decoded, "$name ($ename, $mname, decoded vs decoded2)");
+            # Third roundtrip
+            my $encoded3;
+            eval {$encoded3 = $enc->($decoded2); 1}
+                or do {
+                    my $err = $@ || 'Zombie error';
+                    diag("Got error while encoding the third time: $err");
+                };
+
+            defined $encoded3
+                or do {
+                    fail("$name ($ename, $mname, encoded3 defined)");
+                    debug_checks(\$data, \$encoded, \$decoded);
+                    last;
+                };
+
+            my $decoded3;
+            eval {$decoded3 = $dec->($encoded3); 1}
+                or do {
+                    my $err = $@ || 'Zombie error';
+                    diag("Got error while encoding the third time: $err");
+                };
+
+            defined($decoded3) == defined($data)
+                or do {
+                    fail("$name ($ename, $mname, decoded3 defined)");
+                    last;
+                };
+
+            deep_cmp($decoded, $data,       "$name ($ename, $mname, decoded vs data)") or last;
+            deep_cmp($decoded2, $data,      "$name ($ename, $mname, decoded2 vs data)") or last;
+            deep_cmp($decoded2, $decoded,   "$name ($ename, $mname, decoded2 vs decoded)") or last;
+
+            deep_cmp($decoded3, $data,      "$name ($ename, $mname, decoded3 vs data)") or last;
+            deep_cmp($decoded3, $decoded,   "$name ($ename, $mname, decoded3 vs decoded)") or last;
+            deep_cmp($decoded3, $decoded2,  "$name ($ename, $mname, decoded3 vs decoded2)") or last;
 
             if ($ename =~ /canon/) {
-                # It isnt really safe to test this way right now. The exact output
-                # of two runs of Sereal is not guaranteed to be the same due to the effect of
-                # refcounts. We could disable ARRAYREF/HASHREF as an option,
-                # and then skip these tests. We should probably do that just to test
-                # that we can handle both representations properly at all times.
-                length($encoded2) == length($encoded)
-                    or do {
-                        fail("$name ($ename, $mname, length encoded2 vs length encoded)");
-                        debug_checks(\$data, \$encoded, \$decoded);
-                        next;
-                    };
-
-                $encoded2 eq $encoded
-                    or do {
-                        fail("$name ($ename, $mname, encoded2 vs encoded)");
-                        debug_checks(\$data, \$encoded, \$decoded);
-                        next;
-                    };
+                deep_cmp($encoded2, $encoded,  "$name ($ename, $mname, encoded2 vs encoded)") or last;
+                deep_cmp($encoded3, $encoded,  "$name ($ename, $mname, encoded3 vs encoded)") or last;
+                deep_cmp($encoded3, $encoded2, "$name ($ename, $mname, encoded3 vs encoded2)") or last;
             }
-            pass("$name ($ename, $mname)");
 
             if ($ENV{SEREAL_TEST_SAVE_OUTPUT} and $ename=~/canon/ and $mname eq 'object-oriented') {
                 use File::Path;
@@ -1013,9 +1033,9 @@ sub run_roundtrip_tests_internal {
                     diag "Wrote sample files for '$combined_name' to $base";
                 }
             }
-
-        }
-    } # end serialization method iteration
+        } # end method type
+        pass("$name ($ename)");
+    } # end test type
 }
 
 

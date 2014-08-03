@@ -11,8 +11,8 @@ my $in_source_repo = -d "../../.git" and -d $shared_dir;
 
 my $module = "Sereal::Decoder";
 
-unshift @INC, '.';
-unshift @INC, '../shared' if $in_source_repo;
+unshift @INC, ".", "./inc";
+unshift @INC, $shared_dir, "$shared_dir/inc" if $in_source_repo;
 require inc::Sereal::BuildTools;
 inc::Sereal::BuildTools::link_files($shared_dir) if $in_source_repo;
 inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
