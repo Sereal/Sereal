@@ -17,13 +17,13 @@ use Data::Dumper;
 # Dynamically load constants from whatever is being tested
 our ($Class, $ConstClass);
 BEGIN {
-    if (defined $INC{"Sereal/Encoder.pm"}
-        and $INC{"Sereal/Encoder.pm"} =~ /\bblib\b/)
-    {
+    if (-e "lib/Sereal/Encoder") {
         $Class = 'Sereal::Encoder';
     }
-    else {
+    elsif (-e "lib/Sereal/Decoder") {
         $Class = 'Sereal::Decoder';
+    } else {
+        die "Could not find an applicable Sereal constants location";
     }
     $ConstClass = $Class . "::Constants";
     eval "use $ConstClass ':all'; 1"

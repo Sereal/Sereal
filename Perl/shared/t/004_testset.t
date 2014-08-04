@@ -14,6 +14,7 @@ BEGIN {
 
 use Sereal::TestSet qw(:all);
 use Test::More;
+
 # needs more tests
 ok(_deep_cmp(["x"],{}));
 ok(_deep_cmp({"x"=>1},{"y"=>1}));
