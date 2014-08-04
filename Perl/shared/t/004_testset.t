@@ -24,9 +24,13 @@ ok(!_deep_cmp({"x"=>1},{"x"=>1}));
 ok(!_deep_cmp(["x"],["x"]));
 ok(_deep_cmp(["x"],["y","p"]));
 ok(_deep_cmp(["a","x"],["y"]));
-ok(_test_str("test","foo","bar"));
-ok(!_test_str("test","aaa","aaa"));
-
+ok(_cmp_str("foo","bar"));
+ok(!_cmp_str("aaa","aaa"));
+ok(_cmp_str("aaacowbbb","aaadogbb"));
+my $l= "ba\xDF";
+my $u= $l;
+utf8::upgrade($u);
+ok(_cmp_str($l,$u));
 pass();
 done_testing();
 

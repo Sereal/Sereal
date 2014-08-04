@@ -12,6 +12,7 @@ use Test::LongString;
 use Devel::Peek;
 use Encode qw(encode_utf8 is_utf8);
 use Scalar::Util qw(reftype blessed refaddr);
+use Data::Dumper;
 
 # Dynamically load constants from whatever is being tested
 our ($Class, $ConstClass);
@@ -48,7 +49,7 @@ our @EXPORT_OK = qw(
     setup_tests
     _deep_cmp
     _test
-    _test_str
+    _cmp_str
 );
 
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
@@ -771,15 +772,17 @@ sub _test {
     if ($v1 ne $v2) {
         my $q1= Data::Dumper::qquote($v1);
         my $q2= Data::Dumper::qquote($v2);
-        return "msg: $q1 ne $q2"
+        return "$msg: $q1 ne $q2"
     }
     return;
 }
-sub _test_str {
-    my ($msg, $v1, $v2)= @_;
-    if (is_utf8($v1) != is_utf8($v2)) {
-        return "$msg: utf8 flag mismatch";
-    }
+sub _cmp_str {
+    my ($v1, $v2)= @_;
+    my $v1_is_utf8= is_utf8($v1);
+    my $v2_is_utf8= is_utf8($v2);
+
+    Encode::_utf8_off($v1); # turn off utf8, in case it is corrupt
+    Encode::_utf8_off($v2); # turn off utf8, in case it is corrupt
     if ($v1 eq $v2) {
         return;
     }
@@ -787,37 +790,61 @@ sub _test_str {
     $diff_start++ while $diff_start < length($v1)
                     and $diff_start < length($v2)
                     and substr($v1, $diff_start,1) eq substr($v2, $diff_start,1);
-    my $diff_end= $diff_start;
-    $diff_end++ while $diff_end < length($v1)
-                    and $diff_end < length($v2)
-                    and substr($v1, $diff_end,1) ne substr($v2, $diff_end,1);
+    my $diff_end= length($v1) < length($v2) ? length($v1) : length($v2);
+    $diff_end-- if $diff_end;
+
+    $diff_end-- while $diff_end > $diff_start
+                  and $diff_end > $diff_start
+                  and substr($v1, $diff_end-1,1) eq substr($v2, $diff_end-1,1);
     my $length_to_show= $diff_end - $diff_start;
-    $length_to_show= 30 if $length_to_show > 30;
+
+    my $max_context_len= 10;
+    my $max_diff_len= 30;
+
+    $length_to_show= $max_diff_len if $length_to_show > $max_diff_len;
+
 
     my $q1= Data::Dumper::qquote(substr($v1, $diff_start, $length_to_show ));
     my $q2= Data::Dumper::qquote(substr($v2, $diff_start, $length_to_show ));
-    my $context_start= $diff_start > 10 ? $diff_start - 10 : 0;
+    my $context_start= $diff_start > $max_context_len ? $diff_start - $max_context_len : 0;
 
     if ($context_start < $diff_start) {
-        $q1 = Data::Dumper::qquote(substr($v1,$context_start,10)) . " . " . $q1;
-        $q2 = Data::Dumper::qquote(substr($v2,$context_start,10)) . " . " . $q2;
+        $q1 = Data::Dumper::qquote(substr($v1,$context_start, $diff_start - $context_start)) . " . " . $q1;
+        $q2 = Data::Dumper::qquote(substr($v2,$context_start, $diff_start - $context_start)) . " . " . $q2;
     }
+
     if ($context_start > 0) {
         $q1 = "...$q1";
         $q2 = "...$q2";
     }
-    if ($length_to_show < 30) {
-        $q1 .= " . " . Data::Dumper::qquote(substr($v1, $diff_start + $length_to_show, 30-$length_to_show));
-        $q2 .= " . " . Data::Dumper::qquote(substr($v2, $diff_start + $length_to_show, 30-$length_to_show));
+    if ($length_to_show < $max_diff_len) {
+        $q1 .= " . " . Data::Dumper::qquote(substr($v1, $diff_start + $length_to_show, $max_diff_len - $length_to_show))
+            if $diff_start + $length_to_show < length($v1);
+        $q2 .= " . " . Data::Dumper::qquote(substr($v2, $diff_start + $length_to_show, $max_diff_len - $length_to_show))
+            if $diff_start + $length_to_show < length($v2);
     }
-    if ( $diff_start + 30 < length($v1) ) {
+    if ( $diff_start + $max_diff_len <= length($v1) ) {
         $q1 .= "..."
     }
-    if ( $diff_start + 30 < length($v2) ) {
+    if ( $diff_start + $max_diff_len <= length($v2) ) {
         $q2 .= "..."
     }
-    return ($msg, sprintf("%s at offset %d\nv1 = %s (length %d)\nv2 = %s (length %d)\n",
-        $msg, $diff_start, $q1, length($v1), $q2, length($v2)));
+    my $pad= length($q1) > length($q2) ? length($q1) : length($q2);
+    my $lpad= length(length($v1)) > length(length($v2)) ? length(length($v1)) : length(length($v2));
+
+    my $issues= "";
+    $issues .="; utf8 mismatch" if $v1_is_utf8 != $v2_is_utf8;
+    $issues .="; length mismatch" if length($v1) != length($v2);
+
+    my $ret= sprintf(  "strings different\n"
+                     . "first string difference at octet offset %d%s\n"
+                     . "want-octets = %*s (octets: %*d, utf8-flag: %d)\n"
+                     . " got-octets = %*s (octets: %*d, utf8-flag: %d)\n"
+        ,$diff_start, $issues,
+        -$pad, $q1, $lpad, length($v1), $v1_is_utf8,
+        -$pad, $q2, $lpad, length($v2), $v2_is_utf8,
+    );
+    return $ret;
 }
 
 sub _deep_cmp {
@@ -868,7 +895,7 @@ sub _deep_cmp {
             die "Unknown reftype '",reftype($x)."'";
         }
     } else {
-        $cmp= _test_str("strings differ",$x,$y)
+        $cmp= _cmp_str($x,$y)
             and return $cmp;
     }
     return ""
@@ -880,7 +907,7 @@ sub deep_cmp {
     if ($diff) {
         my ($reason,$diag)= split /\n/, $diff, 2;
         fail("$name - $reason");
-        diag("$reason\n$diag") if $diag;
+        diag("$name - $diag") if $diag;
         return;
     }
     return 1;
@@ -928,7 +955,7 @@ sub run_roundtrip_tests_internal {
                 or do {
                     fail("$name ($ename, $mname, encoded defined)");
                     debug_checks(\$data, \$encoded, undef);
-                    last;
+                    next; #test
                 };
 
             my $decoded;
@@ -942,7 +969,7 @@ sub run_roundtrip_tests_internal {
                 or do {
                     fail("$name ($ename, $mname, decoded definedness)");
                     debug_checks(\$data, \$encoded, undef);
-                    last;
+                    next; #test
                 };
 
             # Second roundtrip
@@ -957,7 +984,7 @@ sub run_roundtrip_tests_internal {
                 or do {
                     fail("$name ($ename, $mname, encoded2 defined)");
                     debug_checks(\$data, \$encoded, \$decoded);
-                    last;
+                    next; #test
                 };
 
             my $decoded2;
@@ -970,7 +997,7 @@ sub run_roundtrip_tests_internal {
             defined($decoded2) == defined($data)
                 or do {
                     fail("$name ($ename, $mname, decoded2 defined)");
-                    last;
+                    next; #test
                 };
 
             # Third roundtrip
@@ -985,7 +1012,7 @@ sub run_roundtrip_tests_internal {
                 or do {
                     fail("$name ($ename, $mname, encoded3 defined)");
                     debug_checks(\$data, \$encoded, \$decoded);
-                    last;
+                    next; #test
                 };
 
             my $decoded3;
@@ -998,21 +1025,21 @@ sub run_roundtrip_tests_internal {
             defined($decoded3) == defined($data)
                 or do {
                     fail("$name ($ename, $mname, decoded3 defined)");
-                    last;
+                    next; #test
                 };
 
-            deep_cmp($decoded, $data,       "$name ($ename, $mname, decoded vs data)") or last;
-            deep_cmp($decoded2, $data,      "$name ($ename, $mname, decoded2 vs data)") or last;
-            deep_cmp($decoded2, $decoded,   "$name ($ename, $mname, decoded2 vs decoded)") or last;
+            deep_cmp($decoded, $data,       "$name ($ename, $mname, decoded vs data)") or next; #test
+            deep_cmp($decoded2, $data,      "$name ($ename, $mname, decoded2 vs data)") or next; #test
+            deep_cmp($decoded2, $decoded,   "$name ($ename, $mname, decoded2 vs decoded)") or next; #test
 
-            deep_cmp($decoded3, $data,      "$name ($ename, $mname, decoded3 vs data)") or last;
-            deep_cmp($decoded3, $decoded,   "$name ($ename, $mname, decoded3 vs decoded)") or last;
-            deep_cmp($decoded3, $decoded2,  "$name ($ename, $mname, decoded3 vs decoded2)") or last;
+            deep_cmp($decoded3, $data,      "$name ($ename, $mname, decoded3 vs data)") or next; #test
+            deep_cmp($decoded3, $decoded,   "$name ($ename, $mname, decoded3 vs decoded)") or next; #test
+            deep_cmp($decoded3, $decoded2,  "$name ($ename, $mname, decoded3 vs decoded2)") or next; #test
 
             if ( $ename =~ /canon/) {
-                deep_cmp($encoded2, $encoded,  "$name ($ename, $mname, encoded2 vs encoded)") or last;
-                deep_cmp($encoded3, $encoded,  "$name ($ename, $mname, encoded3 vs encoded)") or last;
-                deep_cmp($encoded3, $encoded2, "$name ($ename, $mname, encoded3 vs encoded2)") or last;
+                deep_cmp($encoded2, $encoded,  "$name ($ename, $mname, encoded2 vs encoded)") or next; #test
+                deep_cmp($encoded3, $encoded,  "$name ($ename, $mname, encoded3 vs encoded)") or next; #test
+                deep_cmp($encoded3, $encoded2, "$name ($ename, $mname, encoded3 vs encoded2)") or next; #test
 
                 if ($ENV{SEREAL_TEST_SAVE_OUTPUT} and $mname eq 'object-oriented') {
                     use File::Path;
@@ -1039,8 +1066,8 @@ sub run_roundtrip_tests_internal {
                     }
                 }
             }
+            pass("$name ($ename, $mname)");
         } # end method type
-        pass("$name ($ename)");
     } # end test type
 }
 

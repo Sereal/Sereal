@@ -33,7 +33,7 @@ srl_decoder.h
 srl_inline.h
 srl_protocol.h
 t/001_load.t
-t/002_testset.t
+t/004_testset.t
 t/010_desperate.t
 t/020_incremental.t
 t/030_looks_like_sereal.t

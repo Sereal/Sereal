@@ -35,8 +35,8 @@ srl_inline.h
 srl_protocol.h
 t/001_load.t
 t/002_constants.t
-t/002_testset.t
 t/003_ptable.t
+t/004_testset.t
 t/010_desperate.t
 t/011_aliased_dedupe.t
 t/020_sort_keys.t
