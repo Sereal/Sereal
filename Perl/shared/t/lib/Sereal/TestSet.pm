@@ -849,8 +849,8 @@ sub _cmp_str {
 
 sub _deep_cmp {
     my ($x, $y, $seenx, $seeny)= @_;
-    $seenx||={};
-    $seeny||={};
+    $seenx ||= {};
+    $seeny ||= {};
     my $cmp;
 
     $cmp= _test("defined mismatch",defined($x),defined($y))
