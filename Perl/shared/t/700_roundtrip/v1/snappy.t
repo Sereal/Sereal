@@ -1,7 +1,6 @@
 #!perl
 use strict;
 use warnings;
-use Sereal::Decoder;
 use Data::Dumper;
 use File::Spec;
 
