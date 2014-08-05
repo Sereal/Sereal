@@ -2,10 +2,10 @@ package Sereal;
 use 5.008;
 use strict;
 use warnings;
-our $VERSION = '3.001_008';
+our $VERSION = '3.001_009';
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
-use Sereal::Encoder 3.001_008 qw(encode_sereal sereal_encode_with_object);
-use Sereal::Decoder 3.001_008 qw(decode_sereal looks_like_sereal sereal_decode_with_object);
+use Sereal::Encoder 3.001_009 qw(encode_sereal sereal_encode_with_object);
+use Sereal::Decoder 3.001_009 qw(decode_sereal looks_like_sereal sereal_decode_with_object);
 
 use Exporter 'import';
 our @EXPORT_OK = qw(
