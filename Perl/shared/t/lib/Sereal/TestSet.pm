@@ -526,8 +526,7 @@ sub setup_tests {
             array(chr(SRL_HDR_FALSE),chr(SRL_HDR_TRUE)),
             "true/false",
             $Config{usethreads},                            # if this is true
-            array(chr(SRL_HDR_FALSE),chr(0b0000_0001)),     # the we will accept this
-            array(chr(0b0000_0000),chr(0b0000_0001)),       # or this if the test fails.
+            array(chr(SRL_HDR_FALSE),short_string("1")),    # the we will accept this
         ]
     );
 }
