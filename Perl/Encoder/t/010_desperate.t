@@ -31,13 +31,13 @@ sub run_tests {
   my ($extra_name, $opt_hash) = @_;
   setup_tests(3);
   foreach my $bt (@BasicTests) {
-    my (undef, $exp, $name) = @$bt;
+    my (undef, $expect, $name, $accept_cond, @accept) = @$bt;
 
-    $exp = $exp->($opt_hash) if ref($exp) eq 'CODE';
+    $expect = $expect->($opt_hash) if ref($expect) eq 'CODE';
     $name="unnamed" if not defined $name;
     #next unless $name=~/PAD/;
 
-    $exp = Header(). $exp;
+    $expect = Header(). $expect;
     my $enc = Sereal::Encoder->new($opt_hash ? $opt_hash : ());
     my $out;
     eval{
@@ -45,12 +45,21 @@ sub run_tests {
         1;
     } or die "Failed to encode: \n$@\n". Data::Dumper::Dumper($bt->[0]);
     ok(defined $out, "($extra_name) defined: $name");
-    #is(length($out), length($exp));
-    is(Data::Dumper::qquote($out), Data::Dumper::qquote($exp), "($extra_name) correct: $name")
+
+    if ($accept_cond and $out ne $expect) {
+        foreach my $accept (@accept) {
+            if ($out eq $accept) {
+                diag("Using alternate expect for test '$name'");
+                $expect= $accept;
+                last;
+            }
+        }
+    }
+    is(Data::Dumper::qquote($out), Data::Dumper::qquote($expect), "($extra_name) correct: $name")
       or do {
         if ($ENV{DEBUG_SEREAL}) {
           print STDERR "\nEXPECTED:\n";
-          hobodecode($exp);
+          hobodecode($expect);
           print STDERR "\nGOT:\n";
           hobodecode($out);
           print STDERR "\n";

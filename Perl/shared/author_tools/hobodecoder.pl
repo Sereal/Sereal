@@ -10,10 +10,12 @@ BEGIN {
     eval '
         use Sereal::Encoder::Constants qw(:all);
         @constants= @Sereal::Encoder::Constants::EXPORT_OK;
+        print "Loaded constants from $INC{q(Sereal/Encoder/Constants.pm)}";
         1;
     ' or do { $err= $@; eval '
         use Sereal::Decoder::Constants qw(:all);
         @constants= @Sereal::Decoder::Constants::EXPORT_OK;
+        print "Loaded constants from $INC{q(Sereal/Decoder/Constants.pm)}";
         1;
     ' } or die "No encoder/decoder constants: $err\n$@";
 }

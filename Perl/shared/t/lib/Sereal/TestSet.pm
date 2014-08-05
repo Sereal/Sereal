@@ -13,6 +13,7 @@ use Devel::Peek;
 use Encode qw(encode_utf8 is_utf8);
 use Scalar::Util qw(reftype blessed refaddr);
 use Data::Dumper;
+use Config;
 
 # Dynamically load constants from whatever is being tested
 our ($Class, $ConstClass);
@@ -523,7 +524,10 @@ sub setup_tests {
         [
             sub { \@_ }->(!1,!0),
             array(chr(SRL_HDR_FALSE),chr(SRL_HDR_TRUE)),
-            "true/false"
+            "true/false",
+            $Config{usethreads},                            # if this is true
+            array(chr(SRL_HDR_FALSE),chr(0b0000_0001)),     # the we will accept this
+            array(chr(0b0000_0000),chr(0b0000_0001)),       # or this if the test fails.
         ]
     );
 }
