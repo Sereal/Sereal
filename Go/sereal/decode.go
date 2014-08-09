@@ -218,10 +218,19 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 		return 0, ErrTruncated
 	}
 
-	// TODO typePAD
-
 	var err error
 	tag := by[idx]
+
+	// skip over any padding bytes
+	for tag == typePAD || tag == typePAD|trackFlag {
+		idx++
+		if idx >= len(by) {
+			return 0, ErrTruncated
+		}
+
+		tag = by[idx]
+	}
+
 	if (tag & trackFlag) == trackFlag {
 		tag &^= trackFlag
 		d.tracked[idx] = reflect.ValueOf(ptr)
@@ -445,12 +454,21 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 		return nil, 0, ErrTruncated
 	}
 
-	//TODO typePAD trackme
+	//TODO trackme
 
 	var err error
 	var res []byte
 
 	tag := by[idx]
+	for tag == typePAD || tag == typePAD|trackFlag {
+		idx++
+		if idx >= len(by) {
+			return nil, 0, ErrTruncated
+		}
+
+		tag = by[idx]
+	}
+
 	tag &^= trackFlag
 	idx++
 
@@ -516,8 +534,16 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		return idx, err
 	}
 
-	// TODO typePAD
 	tag := by[idx]
+	for tag == typePAD || tag == typePAD|trackFlag {
+		idx++
+		if idx >= len(by) {
+			return 0, ErrTruncated
+		}
+
+		tag = by[idx]
+	}
+
 	if (tag & trackFlag) == trackFlag {
 		tag &^= trackFlag
 		d.tracked[idx] = ptr
