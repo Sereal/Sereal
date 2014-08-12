@@ -149,14 +149,6 @@ SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 #define IS_SRL_HDR_SHORT_BINARY(tag) (((tag) & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW)
 #define SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) ((tag) & SRL_MASK_SHORT_BINARY_LEN)
 
-/* Macro to assert that the type of an SV is complex enough to
- * be an RV. Differs on old perls since there used to be an RV type.
- */
-#if PERL_VERSION < 12
-#   define SVt_RV_FAKE SVt_RV
-#else
-#   define SVt_RV_FAKE SVt_IV
-#endif
 
 #define SRL_ASSERT_REF_PTR_TABLES(dec) STMT_START {     \
             if (expect_false( !(dec)->ref_stashes )) {  \
@@ -1034,10 +1026,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
     if (tag) {
         SV *referent= (SV *)newAV();
         len= tag & 15;
-        (void)SvUPGRADE(into, SVt_RV_FAKE);
-        SvTEMP_off(referent);
-        SvRV_set(into, referent);
-        SvROK_on(into);
+        SRL_sv_set_rv_to(into, referent);
         into= referent;
     } else {
         len= srl_read_varint_uv_count(aTHX_ dec," while reading ARRAY");
@@ -1075,10 +1064,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
     if (tag) {
         SV *referent= (SV *)newHV();
         num_keys= tag & 15;
-        (void)SvUPGRADE(into,SVt_RV_FAKE);
-        SvTEMP_off(referent);
-        SvRV_set(into, referent);
-        SvROK_on(into);
+        SRL_sv_set_rv_to(into, referent);
         into= referent;
     } else {
         num_keys= srl_read_varint_uv_count(aTHX_ dec," while reading HASH");
@@ -1212,9 +1198,7 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
         SvTEMP_off(referent);
         tag = 0;
     }
-    (void)SvUPGRADE(into, SVt_RV_FAKE);
-    SvRV_set(into, referent);
-    SvROK_on(into);
+    SRL_sv_set_rv_to(into, referent);
     if (!tag)
         srl_read_single_value(aTHX_ dec, referent);
 }
@@ -1233,10 +1217,7 @@ srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into)
     referent= srl_fetch_item(aTHX_ dec, item, "REFP");
     (void)SvREFCNT_inc(referent);
 
-    (void)SvUPGRADE(into, SVt_RV_FAKE);
-    SvTEMP_off(referent);
-    SvRV_set(into, referent);
-    SvROK_on(into);
+    SRL_sv_set_rv_to(into, referent);
 
 #if USE_588_WORKAROUND
     /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */
