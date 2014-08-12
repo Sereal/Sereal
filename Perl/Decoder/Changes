@@ -3,6 +3,14 @@ Revision history for Perl extension Sereal-Decoder
 * Warning: For a seamless upgrade, upgrade to version 3
 *          of the decoder before upgrading to version 3 of the
 *          encoder!
+
+3.001_010 Tues, Aug 12 2014
+  - Fix segfault with "into" interface when decoding references and
+    strings into the same target SV. See new test t/550_decode_into.t
+
+3.001_007 .. 3.001_009
+  - Try to fix Encoder/t/010_desperate.t on threaded perls (yes that many releases. sigh)
+
 3.001_006 Sun, Aug 03 2014
   - Rework bulk tests so we test more, but report less tests.
     The test infrastructure doesn't play well with lots of tests

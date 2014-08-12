@@ -894,7 +894,7 @@ sub _deep_cmp {
         $cmp=  _test("seen ref", ++$seenx->{refaddr $x}, ++$seeny->{refaddr $y})
             || _test("reftype mismatch",reftype($x), reftype($y))
             || _test("class mismatch", !blessed($x), !blessed($y))
-            || _test("class different", blessed($x)//"", blessed($y)//"")
+            || _test("class different", blessed($x) || "", blessed($y) || "")
             and return $cmp;
         return "" if $x == $y
                   or $seenx->{refaddr $x} > 1;
