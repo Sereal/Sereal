@@ -3,6 +3,8 @@ Revision history for Perl extension Sereal-Decoder
 * Warning: For a seamless upgrade, upgrade to version 3
 *          of the decoder before upgrading to version 3 of the
 *          encoder!
+3.001_011 Tues, Aug 12 2014
+  - Remove use of defined-or in t/lib/TestSet.pm
 
 3.001_010 Tues, Aug 12 2014
   - Fix segfault with "into" interface when decoding references and
