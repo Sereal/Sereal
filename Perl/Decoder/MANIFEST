@@ -49,6 +49,7 @@ t/210_bulk_readonly.t
 t/300_overload.t
 t/400_utf8validate.t
 t/500_utf8decoding.t
+t/550_decode_into.t
 t/700_roundtrip/v1/plain.t
 t/700_roundtrip/v1/plain_canon.t
 t/700_roundtrip/v1/snappy.t
