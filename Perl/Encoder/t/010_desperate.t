@@ -31,31 +31,37 @@ sub run_tests {
   my ($extra_name, $opt_hash) = @_;
   setup_tests(3);
   foreach my $bt (@BasicTests) {
-    my (undef, $expect, $name, $accept_cond, @accept) = @$bt;
+    my (undef, $expect, $name, @alternate) = @$bt;
 
-    $expect = $expect->($opt_hash) if ref($expect) eq 'CODE';
     $name="unnamed" if not defined $name;
     #next unless $name=~/PAD/;
 
-    $expect = Header(). $expect;
+    for my $x ( $expect, @alternate ) {
+        $x = $x->($opt_hash) if ref($x) eq 'CODE';
+        # add the header ...
+        $x = Header() . $x;
+    }
+
     my $enc = Sereal::Encoder->new($opt_hash ? $opt_hash : ());
     my $out;
     eval{
         $out= $enc->encode($bt->[0]); # must use bt here or we get a copy
         1;
     } or die "Failed to encode: \n$@\n". Data::Dumper::Dumper($bt->[0]);
-    ok(defined $out, "($extra_name) defined: $name");
+    ok(defined $out, "($extra_name) defined: $name")
+        or next;
 
-    if ($accept_cond and $out ne $expect) {
-        foreach my $accept (@accept) {
+    my $alt= "";
+    if ($out ne $expect) {
+        foreach my $accept (@alternate) {
             if ($out eq $accept) {
-                diag("Using alternate expect for test '$name'");
                 $expect= $accept;
+                $alt= " - alternate";
                 last;
             }
         }
     }
-    is(Data::Dumper::qquote($out), Data::Dumper::qquote($expect), "($extra_name) correct: $name")
+    is(Data::Dumper::qquote($out), Data::Dumper::qquote($expect), "($extra_name) correct: $name" . $alt)
       or do {
         if ($ENV{DEBUG_SEREAL}) {
           print STDERR "\nEXPECTED:\n";

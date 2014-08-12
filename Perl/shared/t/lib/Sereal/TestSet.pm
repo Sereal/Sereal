@@ -12,7 +12,6 @@ use Test::LongString;
 use Devel::Peek;
 use Encode qw(encode_utf8 is_utf8);
 use Scalar::Util qw(reftype blessed refaddr);
-use Data::Dumper;
 use Config;
 
 # Dynamically load constants from whatever is being tested
@@ -184,6 +183,7 @@ sub offseti {
 sub debug_checks {
     my ($data_ref, $encoded_ref, $decoded_ref, $debug) = @_;
     if ($debug or defined $ENV{DEBUG_SEREAL}) {
+        require Data::Dumper;
         note("Original data was: " . Data::Dumper::Dumper($$data_ref))
             if defined $data_ref;
         note("Encoded data is: " . (defined($$encoded_ref) ? Data::Dumper::qquote($$encoded_ref) : "<undef>"))
@@ -213,7 +213,11 @@ sub setup_tests {
 
     my $unicode1= "Ba\xDF Ba\xDF"; my $unicode2= "\x{168}nix! \x{263a}"; utf8::upgrade($unicode1); utf8::upgrade($unicode2);
 
-
+    # each test is an array:
+    # index 0 is the input to the encoder
+    # index 1 is the output *without* header - or a sub which returns an expected output
+    # index 2 is the name of the test
+    # index 3 and on are alternate outputs (or subs which return alternate output(s))
     @BasicTests = (
         # warning: this hardcodes the POS/NEG headers
         [-16, chr(0b0001_0000), "encode -16"],
@@ -521,13 +525,33 @@ sub setup_tests {
             ),
             "simple unicode hash key and value"
         ],
+        # Test true/false. Due to some edge case behavior in perl these two tests
+        # produce different "expected" results depending on such things as how many
+        # times we perform the test. Therefore we allow various "alternates" to
+        # be produced. An example of the underlying weirdness is that on an unthreaded
+        # linux perl 5.14 the two tests have their expected output first, which
+        # as you will note is different for the first and second call, despite the underlying
+        # code being the same both times.
+        #
+        # So for instance the first test need not have the last two options, at least
+        # on perl 5.14, but the second test requires one of those options. Working around
+        # perl bugs sucks.
         [
             sub { \@_ }->(!1,!0),
+            array(chr(SRL_HDR_FALSE),chr(SRL_HDR_TRUE)),  # this is the "correct" response.
+            "true/false (prefered order)",
+            array(chr(SRL_HDR_FALSE),short_string("1")),  # this is what threaded perls will probably match
+            array(short_string(""),chr(SRL_HDR_TRUE)),    # accept this also (but we dont expect we will)
+            array(short_string(""),short_string("1")),    # accept this also (but we dont expect we will)
+        ],
+        [
+            sub { \@_ }->(!1,!0),
+            array(short_string(""),short_string("1")),    # this is the expected value on perl 5.14 unthreaded
+            "true/false (reversed alternates)",
+            array(short_string(""),chr(SRL_HDR_TRUE)),    # from here we just reverse the order from the first test
+            array(chr(SRL_HDR_FALSE),short_string("1")),  # ....
             array(chr(SRL_HDR_FALSE),chr(SRL_HDR_TRUE)),
-            "true/false",
-            $Config{usethreads},                            # if this is true
-            array(chr(SRL_HDR_FALSE),short_string("1")),    # the we will accept this
-        ]
+        ],
     );
 }
 
@@ -772,6 +796,7 @@ sub run_roundtrip_tests {
 
 sub _test {
     my ($msg, $v1, $v2)= @_;
+    # require Data::Dumper not needed, called in parent frame
     if ($v1 ne $v2) {
         my $q1= Data::Dumper::qquote($v1);
         my $q2= Data::Dumper::qquote($v2);
@@ -806,7 +831,7 @@ sub _cmp_str {
 
     $length_to_show= $max_diff_len if $length_to_show > $max_diff_len;
 
-
+    # require Data::Dumper not needed, called in parent frame
     my $q1= Data::Dumper::qquote(substr($v1, $diff_start, $length_to_show ));
     my $q2= Data::Dumper::qquote(substr($v2, $diff_start, $length_to_show ));
     my $context_start= $diff_start > $max_context_len ? $diff_start - $max_context_len : 0;
@@ -919,6 +944,8 @@ sub deep_cmp {
 
 sub run_roundtrip_tests_internal {
     my ($ename, $opt, $encode_decode_callbacks) = @_;
+    require Data::Dumper;
+
     my $decoder = Sereal::Decoder->new($opt);
     my $encoder = Sereal::Encoder->new($opt);
     my %seen_name;
