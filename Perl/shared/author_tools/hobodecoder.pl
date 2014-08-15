@@ -96,7 +96,6 @@ sub parse_long_double {
     die "Long double not supported" unless $len_D;
     my $v= substr($data, 0, $len_D, "");
     $done .= $v;
-    warn "long double size: " . $len_D;
     return unpack("D",$v);
 }
 
