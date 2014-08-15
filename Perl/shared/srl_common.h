@@ -18,6 +18,13 @@
 #if defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || defined(__i386) || defined(__i486__) || defined(__i486) || defined(i386) || defined(__ia64__) || defined(__x86_64__) || defined(__x86_64)
 /* SRL_X86_OR_X64_CPU is only used to help set the below macros. */
 #define SRL_X86_OR_X64_CPU
+#ifndef SRL_EXTENDED_PRECISION_LONG_DOUBLE
+#define SRL_EXTENDED_PRECISION_LONG_DOUBLE 1
+#endif
+#endif
+
+#ifndef SRL_EXTENDED_PRECISION_LONG_DOUBLE
+#define SRL_EXTENDED_PRECISION_LONG_DOUBLE 0
 #endif
 
 #ifndef SRL_USE_ALIGNED_LOADS_AND_STORES

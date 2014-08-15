@@ -92,10 +92,11 @@ sub parse_double {
     return unpack("d",$v);
 }
 sub parse_long_double {
-    $len_D||= eval { length(pack("D",0)) };
+    $len_D ||= eval { length(pack("D",0.0)) };
     die "Long double not supported" unless $len_D;
-    my $v= substr($data,0,$len_D,"");
+    my $v= substr($data, 0, $len_D, "");
     $done .= $v;
+    warn "long double size: " . $len_D;
     return unpack("D",$v);
 }
 

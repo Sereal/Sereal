@@ -638,7 +638,7 @@ our @ScalarRoundtripTests = (
     ["largeish negative int -12345678", -12345678],
 
     (
-        map {["integer: $_", $_]} (
+        map {["integer: $_", 0+$_]} (
             # IV bounds of 8 bits
             -1, 0, 1, -127, -128, -129, 42, 126, 127, 128, 129, 254, 255, 256, 257,
             # IV bounds of 32 bits
@@ -653,8 +653,7 @@ our @ScalarRoundtripTests = (
             $eng0e0, $eng0e1, $eng2,
         )
     ),
-
-    ["float", 0.2],
+    (map { ["float $_", 0+$_] } (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)),
     ["short ascii string", "fooo"],
     ["short latin1 string", "Müller"],
     ["short utf8 string", do {use utf8; " עדיין ח"} ],
@@ -690,8 +689,8 @@ our @ScalarRoundtripTests = (
     ["regexp with modifiers", qr/foo/i],
     ["float", 123013.139],
     ["negative float",-1234.59],
-    ["small float",0.41],
-    ["negative small float",-0.13],
+    ["small float 0.41",0.41],
+    ["negative small float -0.13",-0.13],
     ["small int", 123],
     ["empty string", ''],
     ["simple array", []],
@@ -703,7 +702,16 @@ our @ScalarRoundtripTests = (
     ["deep nest", [1,2,[3,4,{5=>6,7=>{8=>[]},9=>{}},{},[]]]],
     ["complex hash", {
         foo => 123,
-        bar => -159.23 ,
+        bar => -159, pi => 3,
+        'baz' =>"foo",
+        'bop \''=> "\10"
+        ,'bop \'\\'=> "\x{100}" ,
+        'bop \'x\\x'    =>"x\x{100}"   , 'bing' =>   "x\x{100}",
+        x=>'y', z => 'p', i=> '1', l=>" \10", m=>"\10 ", n => " \10 ",
+    }],
+    ["complex hash with float", {
+        foo => 123,
+        bar => -159.23, a_pi => 3.14159,
         'baz' =>"foo",
         'bop \''=> "\10"
         ,'bop \'\\'=> "\x{100}" ,
@@ -712,7 +720,16 @@ our @ScalarRoundtripTests = (
     }],
     ["more complex", {
         foo => [123],
-        "bar" => [-159.23 , { 'baz' => "foo", }, ],
+        "bar" => [-159, n => 3, { 'baz' => "foo", }, ],
+        'bop \''=> { "\10" => { 'bop \'\\'=> "\x{100}", h=>{
+        'bop \'x\\x'    =>"x\x{100}"   , 'bing' =>   "x\x{100}",
+        x=>'y',}, z => 'p' ,   }   ,
+        i    =>  '1' ,}, l=>" \10", m=>"\10 ", n => " \10 ",
+        o => undef ,p=>undef, q=>\undef, r=>\$eng0e0, u => \$eng0e1, w=>\$eng2
+    }],
+    ["more complex with float", {
+        foo => [123],
+        "bar" => [-159.23, a_pi => 3.14159, { 'baz' => "foo", }, ],
         'bop \''=> { "\10" => { 'bop \'\\'=> "\x{100}", h=>{
         'bop \'x\\x'    =>"x\x{100}"   , 'bing' =>   "x\x{100}",
         x=>'y',}, z => 'p' ,   }   ,
@@ -804,6 +821,7 @@ sub _test {
     }
     return;
 }
+
 sub _cmp_str {
     my ($v1, $v2)= @_;
     my $v1_is_utf8= is_utf8($v1);
@@ -819,7 +837,6 @@ sub _cmp_str {
                     and $diff_start < length($v2)
                     and substr($v1, $diff_start,1) eq substr($v2, $diff_start,1);
     my $diff_end= length($v1) < length($v2) ? length($v1) : length($v2);
-    $diff_end-- if $diff_end;
 
     $diff_end-- while $diff_end > $diff_start
                   and $diff_end > $diff_start
@@ -866,8 +883,8 @@ sub _cmp_str {
 
     my $ret= sprintf(  "strings different\n"
                      . "first string difference at octet offset %d%s\n"
-                     . "want-octets = %*s (octets: %*d, utf8-flag: %d)\n"
                      . " got-octets = %*s (octets: %*d, utf8-flag: %d)\n"
+                     . "want-octets = %*s (octets: %*d, utf8-flag: %d)\n"
         ,$diff_start, $issues,
         -$pad, $q1, $lpad, length($v1), $v1_is_utf8,
         -$pad, $q2, $lpad, length($v2), $v2_is_utf8,
@@ -1066,10 +1083,14 @@ sub run_roundtrip_tests_internal {
             deep_cmp($decoded3, $decoded,   "$name ($ename, $mname, decoded3 vs decoded)") or next; #test
             deep_cmp($decoded3, $decoded2,  "$name ($ename, $mname, decoded3 vs decoded2)") or next; #test
 
-            if ( $ename =~ /canon/) {
-                deep_cmp($encoded2, $encoded,  "$name ($ename, $mname, encoded2 vs encoded)") or next; #test
-                deep_cmp($encoded3, $encoded,  "$name ($ename, $mname, encoded3 vs encoded)") or next; #test
+            if ( $ename =~ /canon/ ) {
+                deep_cmp($encoded2, $encoded,  "$name ($ename, $mname, encoded2 vs encoded)") or do {
+                    diag Dumper($encoded2);
+                    diag Dumper($encoded);
+                    next; #test
+                };
                 deep_cmp($encoded3, $encoded2, "$name ($ename, $mname, encoded3 vs encoded2)") or next; #test
+                deep_cmp($encoded3, $encoded,  "$name ($ename, $mname, encoded3 vs encoded)") or next; #test
 
                 if ($ENV{SEREAL_TEST_SAVE_OUTPUT} and $mname eq 'object-oriented') {
                     use File::Path;

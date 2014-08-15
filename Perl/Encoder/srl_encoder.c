@@ -715,6 +715,14 @@ srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
         BUF_SIZE_ASSERT(enc, 1 + sizeof(nv)); /* heuristic: header + string + simple value */
         srl_buf_cat_char_nocheck(enc,SRL_HDR_LONG_DOUBLE);
         Copy((char *)&nv, enc->buf.pos, sizeof(nv), char);
+#if SRL_EXTENDED_PRECISION_LONG_DOUBLE
+        /* x86 uses an 80 bit extended precision. on 64 bit machines
+         * this is 16 bytes long, and on 32 bits its is 12 bytes long.
+         * the unused 2/6 bytes are not necessarily zeroed, potentially
+         * allowing internal memory to be exposed. We therefore zero
+         * the unused bytes here. */
+        memset(enc->buf.pos+10, 0, sizeof(nv) - 10);
+#endif
         enc->buf.pos += sizeof(nv);
     }
 }
