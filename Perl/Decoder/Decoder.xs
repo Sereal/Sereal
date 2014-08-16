@@ -228,7 +228,8 @@ THX_ck_entersub_args_sereal_decoder(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
     pushop->op_sibling = cvop;
     lastargop->op_sibling = NULL;
     op_free(entersubop);
-    newop = newUNOP(OP_CUSTOM, 0, firstargop);
+    newop = newUNOP(OP_NULL, 0, firstargop);
+    newop->op_type    = OP_CUSTOM;
     newop->op_private = opopt;
     newop->op_ppaddr = opopt & OPOPT_LOOKS_LIKE ? THX_pp_looks_like_sereal : THX_pp_sereal_decode;
     return newop;
