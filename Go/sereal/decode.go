@@ -3,11 +3,11 @@ package sereal
 import (
 	"encoding"
 	"encoding/binary"
-	//"errors"
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
-	//"runtime"
+	"runtime"
 	//"strconv"
 	"strings"
 	"sync"
@@ -90,19 +90,19 @@ func (d *Decoder) Unmarshal(b []byte, vbody interface{}) (err error) {
 
 // UnmarshalHeaderBody parses the Sereal-encoded buffer b extracts the header and body data into vheader and vbody, respectively
 func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody interface{}) (err error) {
-	//	defer func() {
-	//		if r := recover(); r != nil {
-	//			if _, ok := r.(runtime.Error); ok {
-	//				panic(r)
-	//			}
-	//
-	//			if s, ok := r.(string); ok {
-	//				err = errors.New(s)
-	//			} else {
-	//				err = r.(error)
-	//			}
-	//		}
-	//	}()
+	defer func() {
+		if r := recover(); r != nil {
+			if _, ok := r.(runtime.Error); ok {
+				panic(r)
+			}
+
+			if s, ok := r.(string); ok {
+				err = errors.New(s)
+			} else {
+				err = r.(error)
+			}
+		}
+	}()
 
 	header, err := readHeader(b)
 
@@ -162,25 +162,24 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 		b = append(b, decompBody...)
 	}
 
-	//	if vheader != nil && header.suffixSize != 1 {
-	//		tracked := make(map[int]reflect.Value)
-	//		if reflect.TypeOf(vheader).Kind() != reflect.Ptr {
-	//			return ErrHeaderPointer
-	//		}
-	//
-	//		headerPtrValue := reflect.ValueOf(vheader)
-	//
-	//		header.suffixFlags = b[header.suffixStart]
-	//
-	//		if header.suffixFlags&1 == 1 {
-	//			_, err = d.decode(b[header.suffixStart+1:bodyStart], 0, tracked, headerPtrValue.Elem())
-	//
-	//			if err != nil {
-	//				return err
-	//			}
-	//
-	//		}
-	//	}
+	if vheader != nil && header.suffixSize != 1 {
+		d.tracked = make(map[int]reflect.Value)
+		defer func() { d.tracked = nil }()
+
+		headerValue := reflect.ValueOf(vheader)
+		if headerValue.Kind() != reflect.Ptr {
+			return ErrHeaderPointer
+		}
+
+		header.suffixFlags = b[header.suffixStart]
+		if header.suffixFlags&1 == 1 {
+			if ptr, ok := vheader.(*interface{}); ok && *ptr == nil {
+				_, err = d.decode(b[:bodyStart], header.suffixStart+1, ptr)
+			} else {
+				_, err = d.decodeViaReflection(b[:bodyStart], header.suffixStart+1, headerValue.Elem())
+			}
+		}
+	}
 
 	if err == nil && vbody != nil {
 		d.tracked = make(map[int]reflect.Value)
@@ -576,11 +575,11 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 	}
 
 	var err error
-	var iface interface{}
 	ptrKind := ptr.Kind()
 
 	// at this point structure of decoding document is uknown, make a shortcut
 	if ptrKind == reflect.Interface && ptr.IsNil() {
+		var iface interface{}
 		idx, err = d.decode(by, idx, &iface)
 		ptr.Set(reflect.ValueOf(iface))
 		return idx, err
