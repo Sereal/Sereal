@@ -431,7 +431,6 @@ func (d *Decoder) decodeHash(by []byte, idx int, ln int, ptr *interface{}, isRef
 		return 0, ErrCorrupt{errBadHashSize}
 	}
 
-	var err error
 	hash := make(map[string]interface{}, ln)
 
 	if isRef {
@@ -440,14 +439,16 @@ func (d *Decoder) decodeHash(by []byte, idx int, ln int, ptr *interface{}, isRef
 		*ptr = hash
 	}
 
+	var err error
+	var key []byte
+	var value interface{}
+
 	for i := 0; i < ln; i++ {
-		var key []byte
 		key, idx, err = d.decodeStringish(by, idx)
 		if err != nil {
 			return 0, err
 		}
 
-		var value interface{}
 		idx, err = d.decode(by, idx, &value)
 		if err != nil {
 			return 0, err
