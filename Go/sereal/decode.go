@@ -362,10 +362,32 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 			idx, err = d.decode(by, idx, ptr)
 		}
 
-	case tag == typeOBJECT:
+	case tag == typeREGEXP:
+		var pattern []byte
+		if pattern, idx, err = d.decodeStringish(by, idx); err != nil {
+			return 0, err
+		}
+
+		var modifiers []byte
+		if modifiers, idx, err = d.decodeStringish(by, idx); err != nil {
+			return 0, err
+		}
+
+		// TODO perhaps, copy values
+		*ptr = &PerlRegexp{pattern, modifiers}
+
+	case tag == typeOBJECT, tag == typeOBJECTV:
 		var className []byte
-		if className, idx, err = d.decodeStringish(by, idx); err != nil {
-			return idx, err
+		if tag == typeOBJECT {
+			className, idx, err = d.decodeStringish(by, idx)
+		} else {
+			offs, sz := varintdecode(by[idx:])
+			idx += sz
+			className, _, err = d.decodeStringish(by, offs)
+		}
+
+		if err != nil {
+			return 0, err
 		}
 
 		if d.PerlCompat {
@@ -376,19 +398,57 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 			idx, err = d.decode(by, idx, ptr)
 		}
 
-	case tag == typeREGEXP:
-		var pattern []byte
-		if pattern, idx, err = d.decodeStringish(by, idx); err != nil {
-			return idx, err
+	case tag == typeOBJECT_FREEZE, tag == typeOBJECTV_FREEZE:
+		var className, classData []byte
+		if tag == typeOBJECT_FREEZE {
+			className, idx, err = d.decodeStringish(by, idx)
+		} else {
+			offs, sz := varintdecode(by[idx:])
+			idx += sz
+			className, _, err = d.decodeStringish(by, offs)
 		}
 
-		var modifiers []byte
-		if modifiers, idx, err = d.decodeStringish(by, idx); err != nil {
-			return idx, err
+		if err != nil {
+			return 0, err
 		}
 
-		// TODO perhaps, copy values
-		*ptr = &PerlRegexp{pattern, modifiers}
+		var iface interface{}
+		if idx, err = d.decode(by, idx, &iface); err != nil {
+			return 0, err
+		}
+
+		// spec says 'any object', but we only support byte slices
+		var ok bool
+		if classData, ok = iface.([]byte); !ok {
+			return 0, fmt.Errorf("OBJECT_FREEZE supports []byte only")
+		}
+
+		if d.PerlCompat {
+			*ptr = &PerlFreeze{string(className), classData}
+		} else {
+			// do we have a registered handler for this type?
+			registerLock.Lock()
+			concreteClass, ok := nameToType[string(className)]
+			registerLock.Unlock()
+
+			if ok {
+				rzero := instantiateZero(concreteClass)
+				obj, ok := findUnmarshaler(rzero)
+
+				if !ok {
+					// only things that have an unmarshaler should have been put into the map
+					panic(fmt.Sprintf("unable to find unmarshaler for %s", rzero))
+				}
+
+				if err := obj.UnmarshalBinary(classData); err != nil {
+					return 0, err
+				}
+
+				*ptr = obj
+			} else {
+				*ptr = &PerlFreeze{string(className), classData}
+			}
+		}
 
 	default:
 		return 0, fmt.Errorf("unknown tag byte: %d (0x%x)", int(tag), int(tag))
@@ -1818,22 +1878,22 @@ func getStructTags(ptr reflect.Value) map[string]int {
 //	// byte without continuation bit
 //	panic("bad varint")
 //}
-//
-//func findUnmarshaler(ptr reflect.Value) (encoding.BinaryUnmarshaler, bool) {
-//
-//	if obj, ok := ptr.Interface().(encoding.BinaryUnmarshaler); ok {
-//		return obj, true
-//	}
-//
-//	pptr := ptr.Addr()
-//
-//	if obj, ok := pptr.Interface().(encoding.BinaryUnmarshaler); ok {
-//		return obj, true
-//	}
-//
-//	return nil, false
-//}
-//
+
+func findUnmarshaler(ptr reflect.Value) (encoding.BinaryUnmarshaler, bool) {
+
+	if obj, ok := ptr.Interface().(encoding.BinaryUnmarshaler); ok {
+		return obj, true
+	}
+
+	pptr := ptr.Addr()
+
+	if obj, ok := pptr.Interface().(encoding.BinaryUnmarshaler); ok {
+		return obj, true
+	}
+
+	return nil, false
+}
+
 var nameToType = make(map[string]reflect.Type)
 var registerLock sync.Mutex
 
@@ -1860,13 +1920,12 @@ func RegisterName(name string, value interface{}) {
 	panic(fmt.Sprintf("unable to register type %s: not encoding.BinaryUnmarshaler", rv.Type()))
 }
 
-//
-//func instantiateZero(typ reflect.Type) reflect.Value {
-//
-//	if typ.Kind() == reflect.Ptr {
-//		return reflect.New(typ.Elem())
-//	}
-//
-//	v := reflect.New(typ)
-//	return v.Addr()
-//}
+func instantiateZero(typ reflect.Type) reflect.Value {
+
+	if typ.Kind() == reflect.Ptr {
+		return reflect.New(typ.Elem())
+	}
+
+	v := reflect.New(typ)
+	return v.Addr()
+}
