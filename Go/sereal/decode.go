@@ -237,9 +237,8 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 		d.tracked[idx] = reflect.ValueOf(ptr)
 	}
 
+	//fmt.Printf("start decode: tag %d (0x%x) at %d\n", int(tag), int(tag), idx)
 	idx++
-
-	//fmt.Printf("start decode: tag %d (0x%x)\n", int(tag), int(tag))
 
 	switch {
 	case tag < typeVARINT:
@@ -377,78 +376,12 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 		*ptr = &PerlRegexp{pattern, modifiers}
 
 	case tag == typeOBJECT, tag == typeOBJECTV:
-		var className []byte
-		if tag == typeOBJECT {
-			className, idx, err = d.decodeStringish(by, idx)
-		} else {
-			offs, sz := varintdecode(by[idx:])
-			idx += sz
-			className, _, err = d.decodeStringish(by, offs)
-		}
-
-		if err != nil {
-			return 0, err
-		}
-
-		if d.PerlCompat {
-			pobj := PerlObject{Class: string(className)}
-			*ptr = &pobj
-			idx, err = d.decode(by, idx, &pobj.Reference)
-		} else {
-			idx, err = d.decode(by, idx, ptr)
-		}
+		rvPtr := reflect.ValueOf(ptr)
+		idx, err = d.decodeObjectViaReflection(by, idx, rvPtr.Elem(), tag == typeOBJECTV)
 
 	case tag == typeOBJECT_FREEZE, tag == typeOBJECTV_FREEZE:
-		var className, classData []byte
-		if tag == typeOBJECT_FREEZE {
-			className, idx, err = d.decodeStringish(by, idx)
-		} else {
-			offs, sz := varintdecode(by[idx:])
-			idx += sz
-			className, _, err = d.decodeStringish(by, offs)
-		}
-
-		if err != nil {
-			return 0, err
-		}
-
-		var iface interface{}
-		if idx, err = d.decode(by, idx, &iface); err != nil {
-			return 0, err
-		}
-
-		// spec says 'any object', but we only support byte slices
-		var ok bool
-		if classData, ok = iface.([]byte); !ok {
-			return 0, fmt.Errorf("OBJECT_FREEZE supports []byte only")
-		}
-
-		if d.PerlCompat {
-			*ptr = &PerlFreeze{string(className), classData}
-		} else {
-			// do we have a registered handler for this type?
-			registerLock.Lock()
-			concreteClass, ok := nameToType[string(className)]
-			registerLock.Unlock()
-
-			if ok {
-				rzero := instantiateZero(concreteClass)
-				obj, ok := findUnmarshaler(rzero)
-
-				if !ok {
-					// only things that have an unmarshaler should have been put into the map
-					panic(fmt.Sprintf("unable to find unmarshaler for %s", rzero))
-				}
-
-				if err := obj.UnmarshalBinary(classData); err != nil {
-					return 0, err
-				}
-
-				*ptr = obj
-			} else {
-				*ptr = &PerlFreeze{string(className), classData}
-			}
-		}
+		rvPtr := reflect.ValueOf(ptr)
+		idx, err = d.decodeObjectFreezeViaReflection(by, idx, rvPtr.Elem(), tag == typeOBJECTV_FREEZE)
 
 	default:
 		return 0, fmt.Errorf("unknown tag byte: %d (0x%x)", int(tag), int(tag))
@@ -591,7 +524,7 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 	tag &^= trackFlag
 	idx++
 
-	//fmt.Printf("decodeStringish: tag %d (0x%x)\n", int(tag), int(tag))
+	//fmt.Printf("decodeStringish: tag %d (0x%x) at %d\n", int(tag), int(tag), idx)
 
 	switch {
 	case tag == typeBINARY, tag == typeSTR_UTF8:
@@ -630,7 +563,7 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 		return nil, 0, fmt.Errorf("expect stringhish at offset %d but got %d (0x%x)", idx, int(tag), int(tag))
 	}
 
-	//fmt.Println(string(*ptr))
+	//fmt.Printf("decodeStringish res: %s at %d\n", string(res), idx)
 	return res, idx, nil
 }
 
@@ -668,6 +601,7 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		d.tracked[idx] = ptr
 	}
 
+	//fmt.Printf("start decodeViaReflection: tag %d (0x%x) at %d\n", int(tag), int(tag), idx)
 	idx++
 
 	switch {
@@ -724,14 +658,14 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		idx, err = d.decodeHashViaReflection(by, idx+sz, ln, ptr)
 
 	case tag >= typeHASHREF_0 && tag < typeHASHREF_0+16:
-		idx, err = d.decodeHashViaReflection(by, idx, int(tag&0x0f), ptr) // TODO handle reference
+		idx, err = d.decodeHashViaReflection(by, idx, int(tag&0x0f), ptr)
 
 	case tag == typeARRAY:
 		ln, sz := varintdecode(by[idx:])
 		idx, err = d.decodeArrayViaReflection(by, idx+sz, ln, ptr)
 
 	case tag >= typeARRAYREF_0 && tag < typeARRAYREF_0+16:
-		idx, err = d.decodeArrayViaReflection(by, idx, int(tag&0x0f), ptr) // TODO handle reference
+		idx, err = d.decodeArrayViaReflection(by, idx, int(tag&0x0f), ptr)
 
 	case tag == typeUNDEF, tag == typeCANONICAL_UNDEF:
 		if d.PerlCompat && tag == typeCANONICAL_UNDEF {
@@ -743,6 +677,12 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 				ptr.Set(reflect.Zero(ptr.Type()))
 			} //TODO else panic
 		}
+
+	case tag == typeOBJECT, tag == typeOBJECTV:
+		idx, err = d.decodeObjectViaReflection(by, idx, ptr, tag == typeOBJECTV)
+
+	case tag == typeOBJECT_FREEZE, tag == typeOBJECTV_FREEZE:
+		idx, err = d.decodeObjectFreezeViaReflection(by, idx, ptr, tag == typeOBJECTV_FREEZE)
 
 	default:
 		return 0, fmt.Errorf("unknown tag byte: %d (0x%x)", int(tag), int(tag))
@@ -798,6 +738,10 @@ func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflec
 
 	switch ptr.Kind() {
 	case reflect.Map:
+		if ptr.IsNil() {
+			ptr.Set(reflect.MakeMap(ptr.Type()))
+		}
+
 		// TODO confirm the same behaivour with JSON
 		for i := 0; i < ln; i++ {
 			var key []byte
@@ -835,15 +779,16 @@ func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflec
 				return 0, err
 			}
 
+			fld := 0
 			found := false
 			strkey := string(key)
 
 			if tags == nil {
 				// do nothing
-			} else if i, found := tags[strkey]; found {
-				idx, err = d.decodeViaReflection(by, idx, ptr.Field(i))
-			} else if i, found := tags[strings.Title(strkey)]; found {
-				idx, err = d.decodeViaReflection(by, idx, ptr.Field(i))
+			} else if fld, found = tags[strkey]; found {
+				idx, err = d.decodeViaReflection(by, idx, ptr.Field(fld))
+			} else if fld, found = tags[strings.Title(strkey)]; found {
+				idx, err = d.decodeViaReflection(by, idx, ptr.Field(fld))
 			}
 
 			if !found {
@@ -862,6 +807,109 @@ func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflec
 	}
 
 	return idx, nil
+}
+
+func (d *Decoder) decodeObjectViaReflection(by []byte, idx int, ptr reflect.Value, isObjectV bool) (int, error) {
+	var err error
+	var className []byte
+
+	if !isObjectV {
+		// typeOBJECT
+		className, idx, err = d.decodeStringish(by, idx)
+	} else {
+		// typeOBJECTV
+		offs, sz := varintdecode(by[idx:])
+		idx += sz
+		className, _, err = d.decodeStringish(by, offs)
+	}
+
+	if err != nil {
+		return 0, err
+	}
+
+	if d.PerlCompat {
+		pobj := PerlObject{Class: string(className)}
+		ptr.Set(reflect.ValueOf(&pobj))
+		idx, err = d.decode(by, idx, &pobj.Reference)
+	} else {
+		// FIXME: stuff className somewhere if map/struct?
+		idx, err = d.decodeViaReflection(by, idx, ptr)
+	}
+
+	return idx, err
+}
+func (d *Decoder) decodeObjectFreezeViaReflection(by []byte, idx int, ptr reflect.Value, isObjectV bool) (int, error) {
+	var err error
+	var className, classData []byte
+
+	if !isObjectV {
+		// typeOBJECT_FREEZE
+		className, idx, err = d.decodeStringish(by, idx)
+	} else {
+		// typeOBJECTV_FREEZE
+		offs, sz := varintdecode(by[idx:])
+		idx += sz
+		className, _, err = d.decodeStringish(by, offs)
+	}
+
+	if err != nil {
+		return 0, err
+	}
+
+	var iface interface{}
+	if idx, err = d.decode(by, idx, &iface); err != nil {
+		return 0, err
+	}
+
+	// spec says 'any object', but we only support byte slices
+	var ok bool
+	if classData, ok = iface.([]byte); !ok {
+		return 0, fmt.Errorf("OBJECT_FREEZE supports []byte only")
+	}
+
+	if d.PerlCompat {
+		ptr.Set(reflect.ValueOf(&PerlFreeze{string(className), classData}))
+	} else {
+		if obj, ok := findUnmarshaler(ptr); ok {
+			if err := obj.UnmarshalBinary(classData); err != nil {
+				return 0, err
+			}
+		} else {
+			switch {
+			case ptr.Kind() == reflect.Interface && ptr.IsNil():
+				// do we have a registered handler for this type?
+				registerLock.Lock()
+				concreteClass, ok := nameToType[string(className)]
+				registerLock.Unlock()
+
+				if ok {
+					rzero := instantiateZero(concreteClass)
+					obj, ok := findUnmarshaler(rzero)
+
+					if !ok {
+						// only things that have an unmarshaler should have been put into the map
+						panic(fmt.Sprintf("unable to find unmarshaler for %s", rzero))
+					}
+
+					if err := obj.UnmarshalBinary(classData); err != nil {
+						return 0, err
+					}
+
+					ptr.Set(reflect.ValueOf(obj))
+				} else {
+					ptr.Set(reflect.ValueOf(&PerlFreeze{string(className), classData}))
+				}
+
+			case ptr.Kind() == reflect.Slice && ptr.Type().Elem().Kind() == reflect.Uint8 && ptr.IsNil():
+				ptr.Set(reflect.ValueOf(classData))
+
+			default:
+				return 0, fmt.Errorf("can't unpack FROZEN object into %v", ptr.Type())
+			}
+		}
+	}
+
+	return idx, err
 }
 
 func setInt(ptr reflect.Value, i int) {
@@ -968,7 +1016,6 @@ func getStructTags(ptr reflect.Value) map[string]int {
 }
 
 func findUnmarshaler(ptr reflect.Value) (encoding.BinaryUnmarshaler, bool) {
-
 	if obj, ok := ptr.Interface().(encoding.BinaryUnmarshaler); ok {
 		return obj, true
 	}
