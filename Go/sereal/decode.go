@@ -231,14 +231,15 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 		tag = by[idx]
 	}
 
-	if (tag & trackFlag) == trackFlag {
+	trackme := (tag & trackFlag) == trackFlag
+	if trackme {
 		tag &^= trackFlag
 		d.tracked[idx] = reflect.ValueOf(ptr)
 	}
 
 	idx++
 
-	//fmt.Printf("decode: tag %d (0x%x)\n", int(tag), int(tag))
+	//fmt.Printf("start decode: tag %d (0x%x)\n", int(tag), int(tag))
 
 	switch {
 	case tag < typeVARINT:
@@ -268,32 +269,20 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 		*ptr = false
 
 	case tag == typeHASH:
+		// see commends at top of the function
 		ln, sz := varintdecode(by[idx:])
-		*ptr, idx, err = d.decodeHash(by, idx+sz, ln)
+		idx, err = d.decodeHash(by, idx+sz, ln, ptr, false)
 
 	case tag >= typeHASHREF_0 && tag < typeHASHREF_0+16:
-		if d.PerlCompat {
-			var val map[string]interface{}
-			if val, idx, err = d.decodeHash(by, idx, int(tag&0x0f)); err == nil {
-				*ptr = &val
-			}
-		} else {
-			*ptr, idx, err = d.decodeHash(by, idx, int(tag&0x0f))
-		}
+		idx, err = d.decodeHash(by, idx, int(tag&0x0f), ptr, d.PerlCompat)
 
 	case tag == typeARRAY:
+		// see commends at top of the function
 		ln, sz := varintdecode(by[idx:])
-		*ptr, idx, err = d.decodeArray(by, idx+sz, ln)
+		idx, err = d.decodeArray(by, idx+sz, ln, ptr, false)
 
 	case tag >= typeARRAYREF_0 && tag < typeARRAYREF_0+16:
-		if d.PerlCompat {
-			var val []interface{}
-			if val, idx, err = d.decodeArray(by, idx, int(tag&0x0f)); err == nil {
-				*ptr = &val
-			}
-		} else {
-			*ptr, idx, err = d.decodeArray(by, idx, int(tag&0x0f))
-		}
+		idx, err = d.decodeArray(by, idx, int(tag&0x0f), ptr, d.PerlCompat)
 
 	case tag == typeSTR_UTF8:
 		var val []byte
@@ -321,7 +310,11 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 	case tag == typeREFN:
 		if d.PerlCompat {
 			var iface interface{}
-			if idx, err = d.decode(by, idx, &iface); err == nil {
+			*ptr = &iface
+
+			if idx, err = d.decode(by, idx, &iface); !trackme && err == nil {
+				// if REFN is not tracked, build a pointer to concrete type
+				// otherwise let ptr be pointer to something (i.e. *interface{})
 				riface := reflect.ValueOf(iface)
 
 				// reflect.New create value of type *riface.Type())
@@ -333,7 +326,7 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 			idx, err = d.decode(by, idx, ptr)
 		}
 
-	case tag == typeREFP:
+	case tag == typeREFP, tag == typeALIAS:
 		offs, sz := varintdecode(by[idx:])
 		idx += sz
 
@@ -346,15 +339,62 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 			return 0, ErrCorrupt{errUntrackedOffsetREFP}
 		}
 
-		// reflect.New create value of type *riface.Type())
-		val := reflect.New(rv.Elem().Type())
-		val.Elem().Set(rv.Elem())
-		*ptr = val.Interface()
+		if tag == typeREFP {
+			// rv contains *interface{},
+			// rv.Elem() will be an interface
+			// rv.Elem().Elem() should be the data inside interface
+			rvData := rv.Elem().Elem()
+
+			// reflect.New create value of type *riface.Type())
+			val := reflect.New(rvData.Type())
+			val.Elem().Set(rvData)
+			*ptr = val.Interface()
+		} else {
+			*ptr = rv.Elem().Interface()
+		}
+
+	case tag == typeWEAKEN:
+		if d.PerlCompat {
+			pweak := PerlWeakRef{}
+			*ptr = &pweak
+			idx, err = d.decode(by, idx, &pweak.Reference)
+		} else {
+			idx, err = d.decode(by, idx, ptr)
+		}
+
+	case tag == typeOBJECT:
+		var className []byte
+		if className, idx, err = d.decodeStringish(by, idx); err != nil {
+			return idx, err
+		}
+
+		if d.PerlCompat {
+			pobj := PerlObject{Class: string(className)}
+			*ptr = &pobj
+			idx, err = d.decode(by, idx, &pobj.Reference)
+		} else {
+			idx, err = d.decode(by, idx, ptr)
+		}
+
+	case tag == typeREGEXP:
+		var pattern []byte
+		if pattern, idx, err = d.decodeStringish(by, idx); err != nil {
+			return idx, err
+		}
+
+		var modifiers []byte
+		if modifiers, idx, err = d.decodeStringish(by, idx); err != nil {
+			return idx, err
+		}
+
+		// TODO perhaps, copy values
+		*ptr = &PerlRegexp{pattern, modifiers}
 
 	default:
 		return 0, fmt.Errorf("unknown tag byte: %d (0x%x)", int(tag), int(tag))
 	}
 
+	//fmt.Printf("stop decode: tag %d (0x%x)\n", int(tag), int(tag))
 	return idx, err
 }
 
@@ -394,49 +434,68 @@ func (d *Decoder) decodeDouble(by []byte, idx int) (float64, int, error) {
 	return math.Float64frombits(bits), idx + 8, nil
 }
 
-func (d *Decoder) decodeHash(by []byte, idx int, ln int) (map[string]interface{}, int, error) {
+func (d *Decoder) decodeHash(by []byte, idx int, ln int, ptr *interface{}, isRef bool) (int, error) {
 	if ln < 0 || ln > math.MaxInt32 {
-		return nil, 0, ErrCorrupt{errBadHashSize}
+		return 0, ErrCorrupt{errBadHashSize}
 	}
 
 	var err error
 	hash := make(map[string]interface{}, ln)
 
+	if isRef {
+		*ptr = &hash
+	} else {
+		*ptr = hash
+	}
+
 	for i := 0; i < ln; i++ {
 		var key []byte
 		key, idx, err = d.decodeStringish(by, idx)
 		if err != nil {
-			return nil, 0, err
+			return 0, err
 		}
 
 		var value interface{}
 		idx, err = d.decode(by, idx, &value)
 		if err != nil {
-			return nil, 0, err
+			return 0, err
 		}
 
 		hash[string(key)] = value
 	}
 
-	return hash, idx, nil
+	return idx, nil
 }
 
-func (d *Decoder) decodeArray(by []byte, idx int, ln int) ([]interface{}, int, error) {
+func (d *Decoder) decodeArray(by []byte, idx int, ln int, ptr *interface{}, isRef bool) (int, error) {
 	if ln < 0 || ln > math.MaxInt32 {
-		return nil, 0, ErrCorrupt{errBadSliceSize}
+		return 0, ErrCorrupt{errBadSliceSize}
 	}
 
 	var err error
-	slice := make([]interface{}, ln, ln)
+	var slice []interface{}
+
+	if ln == 0 {
+		// FIXME this is not optimal
+		slice = make([]interface{}, 0, 1)
+	} else {
+		slice = make([]interface{}, ln, ln)
+	}
+
+	if isRef {
+		*ptr = &slice
+	} else {
+		*ptr = slice
+	}
 
 	for i := 0; i < ln; i++ {
 		idx, err = d.decode(by, idx, &slice[i])
 		if err != nil {
-			return nil, 0, err
+			return 0, err
 		}
 	}
 
-	return slice, idx, nil
+	return idx, nil
 }
 
 func (d *Decoder) decodeBinary(by []byte, idx int, ln int) ([]byte, int, error) {
