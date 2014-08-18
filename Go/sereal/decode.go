@@ -285,16 +285,16 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 	case tag == typeSTR_UTF8:
 		var val []byte
 		ln, sz := varintdecode(by[idx:])
-		if val, idx, err = d.decodeBinary(by, idx+sz, ln); err == nil {
+		if val, idx, err = d.decodeBinary(by, idx+sz, ln, false); err == nil {
 			*ptr = string(val)
 		}
 
 	case tag == typeBINARY:
 		ln, sz := varintdecode(by[idx:])
-		*ptr, idx, err = d.decodeBinary(by, idx+sz, ln)
+		*ptr, idx, err = d.decodeBinary(by, idx+sz, ln, true)
 
 	case tag >= typeSHORT_BINARY_0 && tag < typeSHORT_BINARY_0+32:
-		*ptr, idx, err = d.decodeBinary(by, idx, int(tag&0x1f))
+		*ptr, idx, err = d.decodeBinary(by, idx, int(tag&0x1f), true)
 
 	case tag == typeUNDEF, tag == typeCANONICAL_UNDEF:
 		if d.PerlCompat && tag == typeCANONICAL_UNDEF {
@@ -491,16 +491,23 @@ func (d *Decoder) decodeArray(by []byte, idx int, ln int, ptr *interface{}, isRe
 	return idx, nil
 }
 
-func (d *Decoder) decodeBinary(by []byte, idx int, ln int) ([]byte, int, error) {
+func (d *Decoder) decodeBinary(by []byte, idx int, ln int, makeCopy bool) ([]byte, int, error) {
 	if ln < 0 {
 		return nil, 0, ErrCorrupt{errBadStringSize}
 	} else if idx+ln > len(by) {
 		return nil, 0, ErrTruncated
 	}
 
+	if makeCopy {
+		res := make([]byte, ln, ln)
+		copy(res, by[idx:idx+ln])
+		return res, idx + ln, nil
+	}
+
 	return by[idx : idx+ln], idx + ln, nil
 }
 
+// decodeStringish() return slice of by, i.e. not a copy
 func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 	if idx < 0 || idx >= len(by) {
 		return nil, 0, ErrTruncated
@@ -636,20 +643,20 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 	case tag == typeBINARY:
 		var val []byte
 		ln, sz := varintdecode(by[idx:])
-		if val, idx, err = d.decodeBinary(by, idx+sz, ln); err == nil {
+		if val, idx, err = d.decodeBinary(by, idx+sz, ln, false); err == nil {
 			setBinary(ptr, val)
 		}
 
 	case tag >= typeSHORT_BINARY_0 && tag < typeSHORT_BINARY_0+32:
 		var val []byte
-		if val, idx, err = d.decodeBinary(by, idx, int(tag&0x1f)); err == nil {
+		if val, idx, err = d.decodeBinary(by, idx, int(tag&0x1f), false); err == nil {
 			setBinary(ptr, val)
 		}
 
 	case tag == typeSTR_UTF8:
 		var val []byte
 		ln, sz := varintdecode(by[idx:])
-		if val, idx, err = d.decodeBinary(by, idx+sz, ln); err == nil {
+		if val, idx, err = d.decodeBinary(by, idx+sz, ln, false); err == nil {
 			ptr.SetString(string(val))
 		}
 
