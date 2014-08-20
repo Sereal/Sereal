@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '3.001_012'; # Don't forget to update the TestCompat set for testing against installed decoders!
+our $VERSION = '3.002'; # Don't forget to update the TestCompat set for testing against installed decoders!
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 
 # not for public consumption, just for testing.
@@ -50,13 +50,13 @@ Sereal::Encoder - Fast, compact, powerful binary serialization
 =head1 SYNOPSIS
 
   use Sereal::Encoder qw(encode_sereal sereal_encode_with_object);
-  
+
   my $encoder = Sereal::Encoder->new({...options...});
   my $out = $encoder->encode($structure);
-  
+
   # alternatively the functional interface:
   $out = sereal_encode_with_object($encoder, $structure);
-  
+
   # much slower functional interface with no persistent objects:
   $out = encode_sereal($structure, {... options ...});
 
@@ -278,8 +278,8 @@ gain if you plan to serialize multiple similar data structures, but destroy
 it if you serialize a single very large data structure just once to free
 the memory.
 
-See L</NON-CANONICAL> for why you might want to use this, and for the
-various caveats involved.
+See L</CANONICAL REPRESENTATION> for why you might want to use this, and
+for the various caveats involved.
 
 =head3 no_shared_hashkeys
 
@@ -439,12 +439,12 @@ Here is a contrived example of a class implementing the C<FREEZE> / C<THAW> mech
 
   package
     File;
-  
+
   use Moo;
-  
+
   has 'path' => (is => 'ro');
   has 'fh' => (is => 'rw');
-  
+
   # open file handle if necessary and return it
   sub get_fh {
     my $self = shift;
@@ -456,7 +456,7 @@ Here is a contrived example of a class implementing the C<FREEZE> / C<THAW> mech
     }
     return $fh;
   }
-  
+
   sub FREEZE {
     my ($self, $serializer) = @_;
     # Could switch on $serializer here: JSON, CBOR, Sereal, ...
@@ -465,7 +465,7 @@ Here is a contrived example of a class implementing the C<FREEZE> / C<THAW> mech
     # to recreate.
     return $self->path;
   }
-  
+
   sub THAW {
     my ($class, $serializer, $data) = @_;
     # Turn back into object.
@@ -491,25 +491,57 @@ C<Sereal::Encoder> objects will become a reference to undef in the new
 thread. This might change in a future release to become a full clone
 of the encoder object.
 
-=head1 NON-CANONICAL 
+=head1 CANONICAL REPRESENTATION
 
 You might want to compare two data structures by comparing their serialized
 byte strings.  For that to work reliably the serialization must take extra
 steps to ensure that identical data structures are encoded into identical
 serialized byte strings (a so-called "canonical representation").
 
-Currently the Sereal encoder I<does not> provide a mode that will reliably
-generate a canonical representation of a data structure. The reasons are many
-and sometimes subtle.
+Unfortunately in Perl there is no such thing as a "canonical representation".
+Most people are interested in "structural equivalence" but even that is less
+well defined than most people think. For instance in the following example:
 
-Sereal does support some use-cases however. In this section we attempt to outline
-the issues well enough for you to decide if it is suitable for your needs.
+    my $array1= [ 0, 0 ];
+    my $array2= do {
+        my $zero= 0;
+        sub{ \@_ }->($zero,$zero);
+    };
+
+the question of whether C<$array1> is structurally equivalent to C<$array2>
+is a subjective one. Sereal for instance would B<NOT> consider them
+equivalent but C<Test::Deep> would.  There are many examples of this in
+Perl. Simply stringifying a number technically changes the scalar. Storable
+would notice this, but Sereal generally would not.
+
+Despite this as of 3.002 the Sereal encoder supports a "canonical" option
+which will make a "best effort" attempt at producing a canonical
+representation of a data structure.  This mode is actually a combination of
+several other modes which may also be enabled independently, and as and when
+we add new options to the encoder that would assist in this regard then
+the C<canonical> will also enable them. These options may come with a
+performance penalty so care should be taken to read the Changes file and
+test the peformance implications when upgrading a system that uses this
+option.
+
+It is important to note that using canonical representation to determine
+if two data structures are different is subject to false-positives. If
+two Sereal encodings are identical you can generally assume that the
+two data structures are functionally equivalent from the point of view of
+normal Perl code (XS code might disagree). However if two Sereal
+encodings differ the data structures may actually be functionally
+equivalent.  In practice it seems the the false-positive rate is low,
+but your milage may vary.
+
+Some of the issues with producing a true canonical representation are
+outlined below:
 
 =over 4
 
 =item Sereal doesn't order the hash keys by default.
 
-This can be enabled via C<sort_keys>, see above.
+This can be enabled via the C<sort_keys>, which is itself enabled by
+C<canonical> option.
 
 =item Sereal output is sensitive to refcounts
 
@@ -517,7 +549,15 @@ This can be somewhat mitigated by the use of C<canonical_refs>, see above.
 
 =item There are multiple valid Sereal documents that you can produce for the same Perl data structure.
 
-Just L<sorting hash keys|/sort_keys> is not enough. A trivial example is PAD bytes which
+Just L<sorting hash keys|/sort_keys> is not enough.  Some of the reasons
+are outlined below. These issues are especially relevant when considering
+language interoperability.
+
+=over 4
+
+=item PAD bytes
+
+A trivial example is PAD bytes which
 mean nothing and are skipped. They mostly exist for encoder optimizations to
 prevent certain nasty backtracking situations from becoming O(n) at the cost of
 one byte of output. An explicit canonical mode would have to outlaw them (or
@@ -526,12 +566,16 @@ refcount/weakref handing in the encoder while at the same time causing some
 operations to go from O(1) to a full memcpy of everything after the point of
 where we backtracked to. Nasty.
 
+=item COPY tag
+
 Another example is COPY. The COPY tag indicates that the next element is an
 identical copy of a previous element (which is itself forbidden from including
 COPY's other than for class names). COPY is purely internal. The Perl/XS
 implementation uses it to share hash keys and class names. One could use it for
 other strings (theoretically), but doesn't for time-efficiency reasons. We'd
 have to outlaw the use of this (significant) optimization of canonicalization.
+
+=item REF representation
 
 Sereal represents a reference to an array as a sequence of
 tags which, in its simplest form, reads I<REF, ARRAY $array_length TAG1 TAG2 ...>.
@@ -543,7 +587,10 @@ into a special one byte ARRAYREF tag. This is a very significant optimization
 for common cases. This, however, does mean that most arrays up to 15 elements
 could be represented in two different, yet perfectly valid forms. ARRAYREF would
 have to be outlawed for a properly canonical form. The exact same logic
-applies to HASH vs. HASHREF.
+applies to HASH vs. HASHREF. This behavior can be overriden by the
+C<canonical_refs> option, which disables use of HASHREF and ARRAYREF.
+
+=item Numeric representation
 
 Similar to how Sereal can represent arrays and hashes in a full and a compact
 form. For small integers (between -16 and +15 inclusive), Sereal emits only
@@ -571,7 +618,7 @@ strings due to insignificant 'noise' in the floating point representation. Serea
 supports different floating point precisions and will generally choose the most
 compact that can represent your floating point number correctly.
 
-These issues are especially relevant when considering language interoperability.
+=back
 
 =back
 
@@ -579,7 +626,7 @@ Often, people don't actually care about "canonical" in the strict sense
 required for real I<identity> checking. They just require a best-effort sort of
 thing for caching. But it's a slippery slope!
 
-In a nutshell, the C<sort_keys> option may be sufficient for an application
+In a nutshell, the C<canonical> option may be sufficient for an application
 which is simply serializing a cache key, and thus there's little harm in an
 occasional false-negative, but think carefully before applying Sereal in other
 use-cases.

@@ -6,22 +6,30 @@ please see the Encoder and Decoder changelogs:
    * https://github.com/Sereal/Sereal/blob/master/Perl/Decoder/Changes
    * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
 
-3.001_005 .. 3.001_011
-  - Development releases. See individual modules for details.
+3.002 Aug 20 2014
+  Summary of changes from 3.001 - 3.002
+  - Encoder: Introduce "canonical" option to encoder
+  - Encoder: Introduce "canonical_refs" option to encoder
+  - Decoder: Introduce "set_readonly" option to decoder
+  - Decooder: Introduce "set_readonly_scalars" option to decoder
 
-3.001_004 Sun, July 27 2014
-  - Rework bulk tests so that tests are grouped by options and version
-  - Fixups for non-x86 architectures.
+  * Decoder Bug fixes
+  - Fix assertion fails in DEBUG perls (Brian Fraser)
+  - Fix segfault with "into" interface when decoding references and
+    strings into the same target SV. See new test t/550_decode_into.t
 
-3.001_003
-3.001_002
-  - Attempts to fix builds on sparc, s390x and ARM.
+  * Test Infra Changes
+  - Split up bulk tests to speed up testing and make it easier
+    to see when a failure is restricted to a specific option.
 
-3.001_001
-  - Patches from Jarkko Hietaniemi to make Sereal pass test
-    on HP-UX, and other machines with endian or alignedness
-    issues. Thanks to H.Merijn Brand for assisting and providing
-    access to test machines.
+  * Big-Endian Support
+  - Improved support for Big-Endian machines. We now build and pass test
+    on Sparc and HP-UX and other platforms with big-endian or strict
+    alignedness requirements. Much thanks to Jarkko Hietaniemi,
+    Gregor Herrmann, and H. Merijn Brand for for their assistance with
+    this.
+  - We still have issues with s390x (Z/Os) with Sereal. If someone wants
+    to help it would be appreciated.
 
 3.001
   - Production release 1 of protocol version 3
@@ -32,121 +40,4 @@ please see the Encoder and Decoder changelogs:
   - Minor changes to how scalar values are serialized
     to favour more compact representations.
 
-3.000_003
-  - Fixes to Decoder test counts when encoder not installed
-
-3.000_002
-  - Fixes to Decoder looks_like_sereal and minor protocol
-    rules tweaks.
-
-3.000_001
-  - Upgrade to version 3 of the protocol
-    * Add Zlib compression support to the protocol
-    * Add Zlib support to Encoder/Decoder
-    * Add CANONICAL_UNDEF tag to represent PL_sv_undef
-    * Change magic header so it is trivial to detect
-      and reject utf8 encoded Sereal packets.
-
-2.12 Sun May 11 23:30
-  - New options in Decoder: "alias_smallint", "alias_varint_under", and "use_undef"
-    allow control aliasing semantics during deserialization. No changes to the Encoder.
-
-2.11 Sun Apr 13 23:09
-  - Fix test framework issue with "while each" in perl 5.17 and later
-
-2.10 Sun Apr 13 21:30
-  - Fix broken MANIFEST in Decoder/Encoder
-
-2.09 Sun Apr 13 21:15
-  - Synchro release with Decoder change.
-
-2.08 Thu Apr 10 22:10 2013
-  - Production release for previous changes.
-
-2.070_103 Wed Apr 09 00:33 2013 * DEV RELEASE *
-  - Build fixes for Decoder. No changes to Encoder.
-
-2.070_102 Sun Apr 06 17:27 2013 * DEV RELEASE *
-  - Fixes for how we load XS so Sereal.pm works properly
-    with dev releases.
-  - Add scalar_looks_like_sereal as a custom opcode to Decoder.
-
-2.070_101 Sun Apr 06 17:27 2013 * DEV RELEASE *
-  - Fix for newer perls.
-  - Changes to 'fixver.pl' and version numbering so we do
-    a 3 digit minor version, and a 3 digit dev version,
-    so once this dev release cycle is done we will be at
-    v2.071 everywhere. This eliminates a version numbering
-    inconsistency in Sereal.pm from Encoder.pm and Decoder.pm
-
-2.07_01 (to come) * DEV RELEASE *
-  - New decoder/encoder release, dependency version change.
-
-2.060 Sun Mar  9 11:50 2014 (AMS time)
-  - New decoder/encoder release, dependency version change.
-
-2.040 Wed Mar  5 18:30 2014 (AMS time)
-  - New decoder/encoder release, dependency version change.
-
-2.021 Tue Jan  7 20:10 2014 (AMS time)
-  - New decoder/encoder release, dependency version change.
-
-2.020 Mon Jan  6 15:00 2014 (AMS time)
-  - New decoder/encoder release, dependency version change.
-
-2.011 Wed Jan  1 11:07 2014 (AMS time)
-  - Fixup dependencies of previous release.
-
-2.010 Tue Dec 31 09:30 2013 (AMS time)
-  - New MAJOR decoder/encoder release, dependency version change.
-
-0.370 Mon Sep 2 07:47 2013 (AMS time)
-  - New decoder/encoder release, dependency version change.
-
-0.360 May 2013
-  - New decoder/encoder release, dependency version change.
-
-0.350 Mon Apr 1 11:50 2013 (AMS time)
-  - New decoder/encoder release, dependency version change.
-
-0.340 Sat Mar 23 18:59:18 2013 (AMS time)
-  - New decoder/encoder release, dependency version change.
-
-0.330 Sun Mar 23 17:26 2013 (AMS time)
-  - New decoder/encoder release, dependency version change.
-
-0.320 Sun Mar 23 15:28 2013 (AMS time)
-  - New decoder/encoder release, dependency version change.
-
-0.310 Sun Feb 17 15:06 2013 (AMS time)
-  - New decoder/encoder release, dependency version change.
-
-0.300 Sat Feb 09 18:09 2013 (AMS time)
-  - New decoder/encoder release, dependency version change.
-
-0.290 Sat Feb 09 18:09 2013 (AMS time)
-  - New decoder/encoder release, dependency version change.
-
-0.280 Sat Feb 09 16:20 2013 (AMS time)
-  - New decoder/encoder release, dependency version change.
-
-0.270 Sat Feb 09 12:58 2013 (AMS time)
-  - New decoder/encoder release, dependency version change.
-
-0.260  Sun Feb 03 13:47 2013
-  - New encoder release, dependency version change.
-
-0.250  Tue Jan 22 18:00 2013
-  - New encoder and decoder releases, dependency version change.
-
-0.230  Tue Jan 08 07:38 2013
-  - New encoder and decoder releases, dependency version change.
-
-0.210  Wed Jan 02 09:00 2013
-  - New decoder release, dependency version change.
-
-0.201  Wed Dec 19 19:00 2012
-  - Fix dependencies on encoder and decoder (duh!)
-
-0.20  Mon Dec 17 19:00 2012
-  - original version
+Full change history available at https://github.com/Sereal/Sereal

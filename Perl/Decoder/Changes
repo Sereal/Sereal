@@ -3,347 +3,43 @@ Revision history for Perl extension Sereal-Decoder
 * Warning: For a seamless upgrade, upgrade to version 3
 *          of the decoder before upgrading to version 3 of the
 *          encoder!
-3.001_011 Tues, Aug 12 2014
-  - Remove use of defined-or in t/lib/TestSet.pm
 
-3.001_010 Tues, Aug 12 2014
+3.002 Aug 20 2014
+  * Summary of changes from 3.001 - 3.002
+  - Introduce "set_readonly" option to decoder
+  - Introduce "set_readonly_scalars" option to decoder
+
+  * Bug fixes
+  - Fix assertion fails in DEBUG perls (Brian Fraser)
   - Fix segfault with "into" interface when decoding references and
     strings into the same target SV. See new test t/550_decode_into.t
 
-3.001_007 .. 3.001_009
-  - Try to fix Encoder/t/010_desperate.t on threaded perls (yes that many releases. sigh)
+  * Test Infra Changes
+  - Split up bulk tests to speed up testing and make it easier
+    to see when a failure is restricted to a specific option.
 
-3.001_006 Sun, Aug 03 2014
-  - Rework bulk tests so we test more, but report less tests.
-    The test infrastructure doesn't play well with lots of tests
-    in a file. Similarly, if we fail one of the methods in the bulk
-    tests we stop testing the rest.
-
-3.001_005 Mon, July 28 2014
-  - Fixup how MakeMaker runs the tests.
-
-3.001_004 Sun, July 27 2014
-  - Rework bulk tests so that tests are grouped by options and version
-  - Fixups for non-x86 architectures.
-
-3.001_003
-3.001_002
-  - Attempts to fix builds on sparc, s390x and ARM.
-
-3.001_001
-  - Patches from Jarkko Hietaniemi to make Sereal pass test
-    on HP-UX, and other machines with endian or alignedness
-    issues. Thanks to H.Merijn Brand for assisting and providing
-    access to test machines.
+  * Big-Endian Support
+  - Improved support for Big-Endian machines. We now build and pass test
+    on Sparc and HP-UX and other platforms with big-endian or strict
+    alignedness requirements. Much thanks to Jarkko Hietaniemi,
+    Gregor Herrmann, and H. Merijn Brand for for their assistance with
+    this.
+  - We still have issues with s390x (Z/Os) with Sereal. If someone wants
+    to help it would be appreciated.
 
 3.001
-  - Production release 1 of protocol version 3
-  - Zlib support
-  - CANONICAL_UNDEF,
-  - new magic header to make it easier to detect
-    UTF8 encoded data.
-  - Minor changes to how scalar values are serialized
-    to favour more compact representations.
-
-3.000_004
-  - HvRITER_set() is newer than perl 5.8.5, so fallback to using
-    HvRITER() as an lvalue for setting it.
-
-3.000_003
-  - Fix tests when encoder is not installed.
-
-3.000_002
-  - Fixes from v3.000_001, primarily to looks_like_sereal().
-  - Doc clarifications, new magic header is forbidden on v1 and v2
-    documents, and required on v3 and later.
-  - Other minor fixes.
-
-3.000_001
   - Upgrade to version 3 of the protocol
     * Add Zlib compression support to the protocol
     * Add Zlib support to Encoder/Decoder
     * Add CANONICAL_UNDEF tag to represent PL_sv_undef
     * Change magic header so it is trivial to detect
       and reject utf8 encoded Sereal packets.
+  - Change how we serialize variables which have more
+    than one of IOK, NOK, and POK set. In general we
+    favour the numeric form, with the exception of when
+    all three are set when we favour the string form
+    (this is to handle engineering notation like "0E0"
+    where numeric and string equivalence may differ)
 
-2.12 Sun May 11 23:30
-  - Add new options "alias_smallint", "alias_varint_under", and "use_undef"
-    to control aliasing semantics during deserialization.
+Full change history available at https://github.com/Sereal/Sereal
 
-2.11 Sun Apr 13 23:04
-  - Work around regression in Perl 5.16.3 - 5.17.0
-    As of 8ae39f603f0f5778c160e18e08df60 while each
-    automagically becomes while $_= defined(each);
-    which manages to break some of our test code.
-
-2.10 Sun Apr 13 21:30
-  - Fix broken MANIFEST
-
-2.09 Sun Apr 13 16:30 2013
-  - Work around bug in 5.8.9 sv_upgrade() where
-    RITER() is set to 0, when it should be set to -1.
-    This could result in perl skipping items in the zeroth
-    bucket under some circumstances. Thanks to pjcj for the
-    report the perlbrew guys for making it easy as pie to
-    debug.
-
-2.08 Thu Apr 10 22:10 2013
-  - Production release for previous changes.
-
-2.070_103 Tue Apr 09 00:33 2013 * DEV RELEASE *
-  - Fix issue with croak_xs_usage() not being available
-    in older perls. We use the version from Win32::API
-    which had already solved the problem. See
-    https://metacpan.org/source/BULKDD/Win32-API-0.77/API.h#L311
-    Thanks to bulk88 for pointing out the code.
-
-2.070_102 Sun Apr 06 17:27 2013 * DEV RELEASE *
-  - Fixes for how we load XS so Sereal.pm works properly
-    with dev releases.
-  - Add scalar_looks_like_sereal as a custom opcode
-    From Zefram.
-
-2.070_101 Sun Apr 06 17:27 2013 * DEV RELEASE *
-  - Fix for newer perls.
-  - Changes to 'fixver.pl' and version numbering so we do
-    a 3 digit minor version, and a 3 digit dev version,
-    so once this dev release cycle is done we will be at
-    v2.071 everywhere. This eliminates a version numbering
-    inconsistency in Sereal.pm from Encoder.pm and Decoder.pm
-
-2.07_01 Wed Mar 26 18:10 2014 * DEV RELEASE *
-  - Add sereal_decode_with_object(), functional/custom-opcode implementation
-    of the OO interface, with much less overhead. In practice this will make
-    a very modest impact on dumping, but if your applications needs it...
-    Thanks to Zefram for the custom op implementation.
-  - Resolved: [rt.cpan.org #93888] does not preserve special SV identity
-    We now handle \!0 and \!1 properly. Being able to distinguish
-    \undef from \{my $x= undef} is left for a new protocol release.
-    Reported by Zefram.
-  - Resolved [rt.cpan.org #93892] downgrade breaks unwritable strings
-    When decoding a UTF8-on SV we now sv_mortalcopy() it before
-    we sv_utf8_downgrade() it. This prevents us from modifying the
-    buffer during deserialization.
-    Reported By Zefram.
-
-2.06 Sun Mar  0 11:40 2014 (AMS time)
-  - Fix bug causing needless decoder cloning.
-  - Fix refcount issues in some undocumented (but publicly callable)
-    functions.
-
-2.05 Fri Mar  7 10:30 2014 (AMS time)
-  - Fix rt.cpan.org #93563 - Decoder object wasn't re-entrant from
-    THAW calls.
-
-2.04 Wed Mar  5 18:15 2014 (AMS time)
-  - decode_sereal() now gives a better error message if a reference is passed
-    as the input string.
-  - Fix issue with OBJECT items that use COPY for the class name.
-    => In certain situations, the Sereal Go implementation would encode
-       objects in slightly different way than the Perl encoder and the
-       Perl decoder failed to support this. See commit
-       8b3c661e0157960272b056769a7169d4ca2f1d89 for details.
-
-2.03 Tue Jan  7 20:00 2014 (AMS time)
-  - (Hopefully) final fixes to FREEZE/THAW functionality:
-    => Add safe assertion to make sure that we don't segfault on invalid
-       data.
-    => Fix encoding/decoding of data structures with repeated references
-       to the same instance of a class that has FREEZE/THAW hooks.
-       Thanks to Christian Hansen for a test case.
-  - Distribution dependency fix.
-
-2.02 Mon Jan  6 15:00 2014 (AMS time)
-  - Fundamental fixes for FREEZE/THAW support in previous Sereal v2
-    releases. If you plan to use FREEZE/THAW, make sure you have 2.02
-    or better (dito for the encoder).
-
-2.01 Tue Dec 31 08:15 2013 (AMS time)
-  - Promoting changes from 0.37 to 2.00_03 to a stable release.
-    (This being the first protocol v2 stable release.)
-  - Minor performance tweaks.
-
-2.00_03 Sun Dec 29 10:33 2013 (AMS time)
-  - FREEZE/THAW hooks for object serialization.
-  - Test improvements (allowing for partial parallel run)
-
-2.00_02 Mon Oct 28 19:23 2013 (AMS time)
-  - Fix Test::Warn dependency problem of 2.00_01.
-
-2.00_01 Tue Oct 1 07:34 2013 (AMS time)
-  - NEW PROTOCOL VERSION: V2
-  - User-data in header functionality: You may embed arbitrary
-    Sereal-serializable data in a document header. The document
-    header isn't compressed, so this is ideal for retrieving
-    small chunks of meta-data (eg. routing information) without
-    having to deserialize the entire document.
-  - Relocatable Sereal document bodies
-  - Encoder never emits non-incremental Snappy encoding for V2
-  - Offsets now 1-based in relocatable format, not 0
-  - Fixed VERY obscure (and rare) memory leak.
-  - Fixed VERY obscure crash on invalid data.
-  - Improved error messages
-  - Remove warning about Sereal not being production-grade
-    (because it IS).
-  - C89/Windows fixes (bulk88)
-  - 5.18 compat: Skip test failing due to hash-randomization (Zefram)
-
-0.37 Mon Sep 2 07:40 2013 (AMS time)
-  - Remove spurious SvREFCOUNT_dec, previously causing
-    memory management problems on some vary invalid
-    input data.
-  - Fixed a memory leak on exception.
-
-0.36 Tue May 7 12:00 2013 (AMS time)
-  [changelog for encoder and decoder both]
-  - Add "incremental" option to decoder for easier decoding of
-    multiple sereal documents in one buffer.
-  - Make snappy and snappy_incr options mutually exclusive.
-  - Feature: Implement aliasing for deduping (aliased_dedupe_strings)
-
-0.35 Mon Apr 1 11:50 2013 (AMS time)
-  - Add new no_bless_objects option from Simon Bertrang.
-
-0.34 Sat Mar 23 18:59:18 2013 (AMS time)
-  - Fixup Manifest
-
-0.33 Sun Feb 17 17:26 2013 (AMS time)
-  - dummy release to keep in sync with encoder.
-
-0.32 Sun Feb 17 15:06 2013 (AMS time)
-  - dummy release to keep in sync with encoder.
-
-0.31 Sun Feb 17 15:06 2013 (AMS time)
-  - Daniel Dragan <bulk88@hotmail.com> spent a bunch of time
-    digging into the weird problems we were having with Snappy
-    encoded data on Windows on certain builds. Turned out that
-    it was right broken, and worked sometimes purely by chance.
-    He kindly provided a patch.
-
-0.30 Wed Feb 09 06:24 2013 (AMS time)
-  - dummy release to keep in sync with encoder.
-
-0.29 Sat Feb 09 18:09 2013 (AMS time)
-  - Change a gcc'ism, #warning to #pragma message
-    (which also works on my machines gcc)
-
-0.28 Sat Feb 09 16:20 2013 (AMS time)
-  - More fixups for building on Win32/C89 compilers
-  - Fix up handling of regexps on perl 5.10.1
-
-0.27 Sat Feb 09 12:58 2013 (AMS time)
-  - Various fixups to improve building on Win32
-  - Fix C89 violations
-  - Fixed Changelog order (why would I ever have listed oldest first?)
-
-0.26 - unreleased
-
-0.25 Tue Jan 22 18:00 2013
-  - Various compatibility fixes with old versions of Perl.
-    Specifically, fixes to regular expression handling that should help
-    with 5.10 support, as well as fixes that should improve the status
-    quo on 5.8.
-  - Potential fix for a leak wrt. regular expression support.
-  - Fewer compiler warnings on 32bit/gcc.
-
-0.24 Thu Jan 10 08:42 2013
-  - Test logic fixes: These prevented builds if the encoder wasn't
-    installed (or updated) before.
-
-0.23 Tue Jan 08 07:23 2013
-  * Important bug fix release *
-  - Important: support for the incremental-parsing Snappy format that
-    is enabled with the encoder's (versions 0.23 and up)
-    'snappy_incr' option.
-
-0.22 - unreleased
-
-0.21 Wed Jan 02 08:00 2013
-  - Option 'max_num_hash_entries' to limit the number of accepted
-    hash entries.
-
-0.20 - unreleased
-
-0.19  Thu Nov 23 07:00 2012
-  - Add configurable recursion limit to the decoder
-  - Downgrade UTF8 Sereal serialized strings before decoding them
-
-0.18 - unreleased
-0.17 - unreleased
-0.16 - unreleased
-
-0.15  Wed Oct 17 13:00 2012
-  - Decoder option validate_utf8
-    With this option (turned off by default for performance reasons)
-    the decoder will emit an error on malformed UTF-8. This will
-    *not* check for invalid code points; this can be added later, but Perls
-    that are recent enough will warn on those anyway.
-  - Thread-safety fix on Perls >= 5.8.7. Sereal is still not thread-safe
-    on older Perls 
-
-0.14 - unreleased
-
-0.13  Tue Oct  2 15:00 2012
-  * Important bug fix, important gotcha! *
-  - Work around bug in perls <= 5.8.8:
-      Multiple references to the same object that has overloading were
-      dropping overloadedness on the second and following occurrence.
-    => The work-around for this old perl bug means that we have to
-       bless objects as we find them during deserialization. By default,
-       on newer perls, we only do the bless()ing once after being done
-       with serialization. We normally do this for security reasons
-       (destructors!). This means that for perls <= 5.8.8, we necessarily
-       have the same (very limited) security problem that Storable has
-       at all times. Sucks, but better to have it working on 5.8.8 at all.
-    => For newer perls, we DO NOT have that security problem!
-    => The work-around also slows down operation on 5.8.8 and older. Keep
-       that in mind when comparing serialization techniques. Thank you.
-
-0.12 - unreleased
-
-0.11  Tue Sep 18 13:00 2012
-  - 5.8.5 fixes.
-  - Fixes to other languages' reference data output.
-
-0.10  Mon Sep 17 13:40 20120
-  - New 'refuse_objects' option causes the decoder to throw an
-    exception when encountering objects in the input data.
-    See the "ROBUSTNESS" section in the documentation for why that
-    is a good idea.
-  - Fixes to error messages.
-  - Compiler warning fixes.
-
-0.09  Fri Sep 14 09:40 2012
-  - Removes use of variadic macros for compatibility with inferior
-    compilers.
-  - "looks_like_sereal" method/function for a quick way to check for
-    valid Sereal *headers*.
-  - More liberal set of encoder versions we run the full tests with.
-
-0.08  Thu Sep 13 17:00 2012
-  - Documentation fixes
-  - Better tests
-
-0.07  Tue Sep 11 14:00 2012
-  - Improved robustness to bad input data.
-  - Test fixes for threaded perls (likely working around a bug in Perl)
-  - Improved documentation.
-
-0.06  Mon Sep 10 11:00 2012
-  - First public release (CPAN).
-  - Beta quality software.
-
-0.05  Fri Sep  7 14:00 2012
-  - internal release.
-
-0.04  Thu Sep  6 16:00 2012
-  - internal release.
-
-0.03  Tue Sep  4 17:09 2012
-  - internal release.
-
-0.02  Tue Aug  8 17:09 2012
-  - internal release.
-
-0.01  Tue Aug  8 17:09 2012
-  - original version; internal release.
