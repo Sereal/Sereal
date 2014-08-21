@@ -57,8 +57,9 @@ func readHeader(b []byte) (serealHeader, error) {
 
 // A Decoder reads and decodes Sereal objects from an input buffer
 type Decoder struct {
-	tracked   map[int]reflect.Value
-	copyDepth int
+	tracked map[int]reflect.Value
+	tcache  tagsCache
+	//copyDepth int
 
 	PerlCompat bool
 }
@@ -800,7 +801,7 @@ func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflec
 		}
 
 	case reflect.Struct:
-		tags := getStructTags(ptr)
+		tags := d.tcache.Get(ptr)
 		for i := 0; i < ln; i++ {
 			var key []byte
 			key, idx, err = d.decodeStringish(by, idx)
@@ -1030,55 +1031,6 @@ func varintdecode(by []byte) (n int, sz int) {
 
 	// byte without continuation bit
 	panic("bad varint")
-}
-
-var structTagsCache = make(map[reflect.Type]map[string]int) // TODO fix data race
-
-func getStructTags(ptr reflect.Value) map[string]int {
-	if ptr.Kind() != reflect.Struct {
-		return nil
-	}
-
-	t := ptr.Type()
-
-	if m, ok := structTagsCache[t]; ok {
-		return m
-	}
-
-	m := make(map[string]int)
-
-	l := t.NumField()
-	numTags := 0
-	for i := 0; i < l; i++ {
-		field := t.Field(i).Tag.Get("sereal")
-		if field != "" {
-			m[field] = i
-			numTags++
-		}
-	}
-
-	if numTags != 0 {
-		structTagsCache[t] = m
-		return m
-	}
-
-	// build one from the public names
-	for i := 0; i < l; i++ {
-		pkgpath := t.Field(i).PkgPath
-		if pkgpath == "" { // exported
-			field := t.Field(i).Name
-			m[field] = i
-			numTags++
-		}
-	}
-
-	if numTags != 0 {
-		structTagsCache[t] = m
-		return m
-	}
-
-	structTagsCache[t] = nil
-	return nil
 }
 
 func findUnmarshaler(ptr reflect.Value) (encoding.BinaryUnmarshaler, bool) {

@@ -20,6 +20,7 @@ type Encoder struct {
 	DisableFREEZE        bool       // should we disable the FREEZE tag, which calls MarshalBinary
 	ExpectedSize         uint       // give a hint to encoder about expected size of encoded data
 	version              int        // default version to encode
+	tcache               tagsCache
 }
 
 type compressor interface {
@@ -510,7 +511,7 @@ func (e *Encoder) encodeMap(by []byte, m reflect.Value, isRefNext bool, strTable
 }
 
 func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
-	tags := getStructTags(st)
+	tags := e.tcache.Get(st)
 
 	by = append(by, typeOBJECT)
 	by = e.encodeBytes(by, []byte(st.Type().Name()), true, strTable)
