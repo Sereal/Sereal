@@ -72,6 +72,36 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
         }                                                                           \
     } STMT_END
 
+/* Macro to assert that the type of an SV is complex enough to
+ * be an RV. Differs on old perls since there used to be an RV type.
+ */
+#if PERL_VERSION < 12
+#   define SVt_RV_FAKE SVt_RV
+#else
+#   define SVt_RV_FAKE SVt_IV
+#endif
+
+/* this is from sv.h in Perl core, which is for some reason guarded
+ * by an ifdef PERL_CORE, which I am loathe to enable. */
+
+#define SRL_prepare_SV_for_RV(sv)                                   \
+    STMT_START {                                                    \
+        if (SvTYPE(sv) < SVt_PV && SvTYPE(sv) != SVt_RV_FAKE)       \
+            sv_upgrade(sv, SVt_RV_FAKE);                            \
+        else if (SvTYPE(sv) >= SVt_PV) {                            \
+            SvPV_free(sv);                                          \
+            SvLEN_set(sv, 0);                                       \
+            SvCUR_set(sv, 0);                                       \
+        }                                                           \
+    } STMT_END
+
+#define SRL_sv_set_rv_to(into,referent)             \
+    STMT_START {                                    \
+        SRL_prepare_SV_for_RV(into);                \
+        SvTEMP_off(referent);                       \
+        SvRV_set(into, referent);                   \
+        SvROK_on(into);                             \
+    } STMT_END
 
 #define SRL_BASE_ERROR_FORMAT "Sereal: Error in %s line %u and char %i of input: "
 #define SRL_BASE_ERROR_ARGS __FILE__, __LINE__, (int)(1 + dec->pos - dec->buf_start)

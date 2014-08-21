@@ -4,13 +4,18 @@ use warnings;
 use Data::Dumper;
 
 use Getopt::Long qw(GetOptions);
+our @constants;
 BEGIN {
     my $err;
     eval '
         use Sereal::Encoder::Constants qw(:all);
+        @constants= @Sereal::Encoder::Constants::EXPORT_OK;
+        print "Loaded constants from $INC{q(Sereal/Encoder/Constants.pm)}\n";
         1;
     ' or do { $err= $@; eval '
         use Sereal::Decoder::Constants qw(:all);
+        @constants= @Sereal::Decoder::Constants::EXPORT_OK;
+        print "Loaded constants from $INC{q(Sereal/Decoder/Constants.pm)}\n";
         1;
     ' } or die "No encoder/decoder constants: $err\n$@";
 }
@@ -19,7 +24,6 @@ my $done;
 my $data;
 my $hlen;
 my $indent = "";
-my %const_names = map {$_ => eval "$_"} @Sereal::Constants::EXPORT_OK;
 
 sub parse_header {
   $data =~ s/^(=[s\xF3]rl)(.)// or die "invalid header: $data";
@@ -88,9 +92,9 @@ sub parse_double {
     return unpack("d",$v);
 }
 sub parse_long_double {
-    $len_D||= eval { length(pack("D",0)) };
+    $len_D ||= eval { length(pack("D",0.0)) };
     die "Long double not supported" unless $len_D;
-    my $v= substr($data,0,$len_D,"");
+    my $v= substr($data, 0, $len_D, "");
     $done .= $v;
     return unpack("D",$v);
 }
@@ -112,6 +116,9 @@ sub parse_sv {
 
   if ($o == SRL_HDR_VARINT) {
     printf "VARINT: %u\n", varint();
+  }
+  elsif ($o == SRL_HDR_ZIGZAG) {
+    printf "ZIGZAG: %d\n", zigzag();
   }
   elsif (SRL_HDR_POS_LOW <= $o && $o <= SRL_HDR_POS_HIGH) {
     printf "POS: %u\n", $o;
@@ -227,7 +234,8 @@ sub parse_sv {
   }
   else {
     printf "<UNKNOWN>\n";
-    die "unsupported type: $o ($t): $const_names{$o}";
+    die sprintf "unsupported type: 0x%02x (%d) %s: %s", $o, $o,
+        Data::Dumper::qquote($t), Data::Dumper->new([$TAG_INFO_ARRAY[$o]])->Terse(1)->Dump();
   }
   return 0;
 }
@@ -280,6 +288,14 @@ sub varint {
   return $x;
 }
 
+BEGIN{
+my $_shift= length(pack"j",0) * 8 - 1;
+sub zigzag {
+    my $n= varint();
+    return ($n >> 1) ^ (-($n & 1));
+}
+}
+
 GetOptions(
   my $opt = {},
   'e|stderr',
@@ -289,8 +305,6 @@ $| = 1;
 if ($opt->{e}) {
   select(STDERR);
 }
-
-#print Dumper \%const_names; exit;
 
 local $/ = undef;
 $data = <STDIN>;

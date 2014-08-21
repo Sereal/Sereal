@@ -189,11 +189,21 @@ Albert Lee
 #define int32_t int
 #define int16_t short
 
+#define __SNAPPY_STRICT_ALIGN
+
 #elif defined(__s390x__) || defined(__zarch__) || defined(__SYSC_ZARCH__)
 
+#ifndef __BIG_ENDIAN
 #define __BIG_ENDIAN    87654321
+#endif
+#ifndef __LITTLE_ENDIAN
 #define __LITTLE_ENDIAN 12345678
+#endif
+#ifndef __BYTE_ORDER
 #define __BYTE_ORDER __BIG_ENDIAN
+#endif
+
+#define __SNAPPY_STRICT_ALIGN
 
 #endif
 
@@ -269,7 +279,7 @@ static INLINE void UNALIGNED_STORE64(void *p, uint64_t v)
 	ptr->x = v;
 }
 
-#elif defined(__hpux) || defined(__sparc) || defined(__sparc__) /* strict architectures */
+#elif defined(__SNAPPY_STRICT_ALIGN) || defined(__sparc) || defined(__sparc__) /* strict architectures */
 
 /* For these platforms, there really are no unaligned loads/stores.
  * Read/write everything as uint8_t. Smart compilers might recognize

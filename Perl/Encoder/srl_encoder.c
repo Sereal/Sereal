@@ -472,8 +472,16 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         }
 
         svp = hv_fetchs(opt, "sort_keys", 0);
+        if ( !svp )
+            svp = hv_fetchs(opt, "canonical",0);
         if ( svp && SvTRUE(*svp) )
             SRL_ENC_SET_OPTION(enc, SRL_F_SORT_KEYS);
+
+        svp = hv_fetchs(opt, "canonical_refs", 0);
+        if ( !svp )
+            svp = hv_fetchs(opt, "canonical",0);
+        if ( svp && SvTRUE(*svp) )
+            SRL_ENC_SET_OPTION(enc, SRL_F_CANONICAL_REFS);
 
         svp = hv_fetchs(opt, "aliased_dedupe_strings", 0);
         if ( svp && SvTRUE(*svp) )
@@ -707,6 +715,14 @@ srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
         BUF_SIZE_ASSERT(enc, 1 + sizeof(nv)); /* heuristic: header + string + simple value */
         srl_buf_cat_char_nocheck(enc,SRL_HDR_LONG_DOUBLE);
         Copy((char *)&nv, enc->buf.pos, sizeof(nv), char);
+#if SRL_EXTENDED_PRECISION_LONG_DOUBLE
+        /* x86 uses an 80 bit extended precision. on 64 bit machines
+         * this is 16 bytes long, and on 32 bits its is 12 bytes long.
+         * the unused 2/6 bytes are not necessarily zeroed, potentially
+         * allowing internal memory to be exposed. We therefore zero
+         * the unused bytes here. */
+        memset(enc->buf.pos+10, 0, sizeof(nv) - 10);
+#endif
         enc->buf.pos += sizeof(nv);
     }
 }
@@ -725,7 +741,7 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
     /* FIXME find a way to express the condition without repeated SvIV/SvUV */
     if (expect_true( SvIOK_UV(src) || SvIV(src) >= 0 )) {
         const UV num = SvUV(src); /* FIXME is SvUV_nomg good enough because of the GET magic in dump_sv? SvUVX after having checked the flags? */
-        if (num < 16) {
+        if (num <= 15) {
             /* encodable as POS */
             hdr = SRL_HDR_POS_LOW | (unsigned char)num;
             srl_buf_cat_char(enc, hdr);
@@ -736,7 +752,7 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
     }
     else {
         const IV num = SvIV(src);
-        if (num > -17) {
+        if (num >= -16) {
             /* encodable as NEG */
             hdr = SRL_HDR_NEG_LOW | ((unsigned char)num + 32);
             srl_buf_cat_char(enc, hdr);
@@ -1161,7 +1177,7 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
     /* heuristic: n is virtually the min. size of any element */
     BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + n);
 
-    if (n < 16 && refcount == 1) {
+    if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
         enc->buf.pos--; /* backup over previous REFN */
         srl_buf_cat_char_nocheck(enc, SRL_HDR_ARRAYREF + n);
     } else {
@@ -1236,7 +1252,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
              *            + 2*n = very conservative min size of n hashkeys if all COPY */
         BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
 
-        if (n < 16 && refcount == 1) {
+        if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
             enc->buf.pos--; /* back up over the previous REFN */
             srl_buf_cat_char_nocheck(enc, SRL_HDR_HASHREF + n);
         } else {
@@ -1302,7 +1318,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
         /* heuristic: n = ~min size of n values;
              *            + 2*n = very conservative min size of n hashkeys if all COPY */
         BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
-        if (n < 16 && refcount == 1) {
+        if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
             enc->buf.pos--; /* backup over the previous REFN */
             srl_buf_cat_char_nocheck(enc, SRL_HDR_HASHREF + n);
         } else {
@@ -1402,7 +1418,7 @@ srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src)
             if (SvIOK(ofs_sv)) {
                 /* emit copy or alias */
                 if (out_tag == SRL_HDR_ALIAS)
-                    SRL_SET_FBIT(*(enc->buf.body_pos + SvUV(ofs_sv)));
+                    SRL_SET_TRACK_FLAG(*(enc->buf.body_pos + SvUV(ofs_sv)));
                 srl_buf_cat_varint(aTHX_ enc, out_tag, SvIV(ofs_sv));
                 return;
             } else if (SvUOK(ofs_sv)) {
@@ -1531,7 +1547,7 @@ redo_dump:
                     if (DEBUGHACK) warn("alias to %p as %lu", src, (long unsigned int)oldoffset);
                     srl_buf_cat_varint(aTHX_ enc, SRL_HDR_ALIAS, (UV)oldoffset);
                 }
-                SRL_SET_FBIT(*(enc->buf.body_pos + oldoffset));
+                SRL_SET_TRACK_FLAG(*(enc->buf.body_pos + oldoffset));
                 --enc->recursion_depth;
                 return;
             }

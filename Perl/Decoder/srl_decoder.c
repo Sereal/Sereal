@@ -149,14 +149,6 @@ SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 #define IS_SRL_HDR_SHORT_BINARY(tag) (((tag) & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW)
 #define SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) ((tag) & SRL_MASK_SHORT_BINARY_LEN)
 
-/* Macro to assert that the type of an SV is complex enough to
- * be an RV. Differs on old perls since there used to be an RV type.
- */
-#if PERL_VERSION < 12
-#   define SVt_RV_FAKE SVt_RV
-#else
-#   define SVt_RV_FAKE SVt_IV
-#endif
 
 #define SRL_ASSERT_REF_PTR_TABLES(dec) STMT_START {     \
             if (expect_false( !(dec)->ref_stashes )) {  \
@@ -945,20 +937,9 @@ srl_read_varint(pTHX_ srl_decoder_t *dec, SV* into)
 SRL_STATIC_INLINE void
 srl_read_zigzag(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    UV uv= srl_read_varint_uv(aTHX_ dec);
-    if (uv & 1) {
-        sv_setiv(into, (IV)( -( 1 + (uv >> 1) ) ) );
-    } else {
-        uv = uv >> 1;
-        if (uv <= (UV)IV_MAX) {
-            sv_setiv(into, (IV)uv);
-        } else {
-            /* grr, this is ridiculous! */
-            sv_setiv(into, 0);
-            SvIsUV_on(into);
-            SvUV_set(into, uv);
-        }
-    }
+    UV n= srl_read_varint_uv(aTHX_ dec);
+    IV i= (n >> 1) ^ (-(n & 1));
+    sv_setiv(into, i);
 }
 
 
@@ -1014,7 +995,7 @@ srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
     ASSERT_BUF_SPACE(dec, sizeof(double), " while reading DOUBLE");
-#ifdef SRL_USE_ALIGNED_LOADS_AND_STORES
+#if SRL_USE_ALIGNED_LOADS_AND_STORES
     Copy(dec->pos,val.c,sizeof(double),U8);
 #else
     val.d= *((double *)dec->pos);
@@ -1029,7 +1010,7 @@ srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
     ASSERT_BUF_SPACE(dec, sizeof(long double), " while reading LONG_DOUBLE");
-#ifdef SRL_USE_ALIGNED_LOADS_AND_STORES
+#if SRL_USE_ALIGNED_LOADS_AND_STORES
     Copy(dec->pos,val.c,sizeof(long double),U8);
 #else
     val.ld= *((long double *)dec->pos);
@@ -1045,10 +1026,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
     if (tag) {
         SV *referent= (SV *)newAV();
         len= tag & 15;
-        (void)SvUPGRADE(into, SVt_RV_FAKE);
-        SvTEMP_off(referent);
-        SvRV_set(into, referent);
-        SvROK_on(into);
+        SRL_sv_set_rv_to(into, referent);
         into= referent;
     } else {
         len= srl_read_varint_uv_count(aTHX_ dec," while reading ARRAY");
@@ -1086,10 +1064,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
     if (tag) {
         SV *referent= (SV *)newHV();
         num_keys= tag & 15;
-        (void)SvUPGRADE(into,SVt_RV_FAKE);
-        SvTEMP_off(referent);
-        SvRV_set(into, referent);
-        SvROK_on(into);
+        SRL_sv_set_rv_to(into, referent);
         into= referent;
     } else {
         num_keys= srl_read_varint_uv_count(aTHX_ dec," while reading HASH");
@@ -1223,9 +1198,7 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
         SvTEMP_off(referent);
         tag = 0;
     }
-    (void)SvUPGRADE(into, SVt_RV_FAKE);
-    SvRV_set(into, referent);
-    SvROK_on(into);
+    SRL_sv_set_rv_to(into, referent);
     if (!tag)
         srl_read_single_value(aTHX_ dec, referent);
 }
@@ -1244,10 +1217,7 @@ srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into)
     referent= srl_fetch_item(aTHX_ dec, item, "REFP");
     (void)SvREFCNT_inc(referent);
 
-    (void)SvUPGRADE(into, SVt_RV_FAKE);
-    SvTEMP_off(referent);
-    SvRV_set(into, referent);
-    SvROK_on(into);
+    SRL_sv_set_rv_to(into, referent);
 
 #if USE_588_WORKAROUND
     /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */

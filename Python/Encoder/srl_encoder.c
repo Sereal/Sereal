@@ -574,7 +574,7 @@ int srl_dump_pylist(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs)
         */
         if (len > SRL_MASK_ARRAYREF_COUNT) 
             offs++;
-        SRL_SET_FBIT(*(enc->buf_start + offs));
+        SRL_SET_TRACK_FLAG(*(enc->buf_start + offs));
         ret = srl_buf_cat_varint(enc, SRL_HDR_REFP, offs);
         goto finally;
     }
@@ -625,7 +625,7 @@ int srl_dump_pydict(srl_encoder_t *enc, PyObject *obj, ptrdiff_t offs)
     if (offs) {
         if (n > SRL_MASK_HASHREF_COUNT)
             offs++;
-        SRL_SET_FBIT(*(enc->buf_start + offs));
+        SRL_SET_TRACK_FLAG(*(enc->buf_start + offs));
         ret = srl_buf_cat_varint(enc, SRL_HDR_REFP, offs);
         goto finally;
     }
