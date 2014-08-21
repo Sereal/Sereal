@@ -421,6 +421,62 @@ func TestStructs(t *testing.T) {
 	}
 }
 
+func TestDecodeToStruct(t *testing.T) {
+	type obj struct {
+		ValueStr   string
+		ValueByte  []byte
+		ValueInt   int
+		ValueSlice []float32
+		ValueHash  map[string][]byte
+	}
+
+	exp := make([]obj, 3)
+	exp[0] = obj{
+		ValueStr:   "string as string value which actually should be 32+ characters",
+		ValueByte:  []byte("string as binary value"),
+		ValueInt:   10,
+		ValueSlice: []float32{1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0},
+		ValueHash: map[string][]byte{
+			"key1": []byte("unique value"),
+			"key2": []byte("duplicate value"),
+			"key3": []byte("deplicate value"),
+		},
+	}
+
+	exp[1] = obj{
+		ValueStr:   "another string as string value which actually should be 32+ characters",
+		ValueByte:  []byte("another string as binary value"),
+		ValueInt:   -10,
+		ValueSlice: []float32{18.0, 19.0, 20.0},
+		ValueHash: map[string][]byte{
+			"key1": []byte("unique value"),
+			"key2": []byte("duplicate value"),
+			"key3": []byte("deplicate value"),
+		},
+	}
+
+	exp[2] = exp[0]
+
+	filename := "test_dir/test-decode-struct.srl"
+	content, err := ioutil.ReadFile(filename)
+
+	if err != nil {
+		t.Errorf("error opening %s: %v", filename, err)
+		return
+	}
+
+	var slice []obj
+	d := NewDecoder()
+
+	if err := d.Unmarshal(content, &slice); err != nil {
+		t.Errorf("error unmarshalling: %s", err)
+	}
+
+	if !reflect.DeepEqual(exp, slice) {
+		t.Errorf("failed decode into struct:\n\nexp: %#v:\n\ngot %#v\n", exp, slice)
+	}
+}
+
 type ErrorBinaryUnmarshaler int
 
 var errUnmarshaler = errors.New("error binary unmarshaler")

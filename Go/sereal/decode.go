@@ -305,6 +305,13 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 			*ptr = nil
 		}
 
+	case tag == typeCOPY:
+		offs, sz := varintdecode(by[idx:])
+		idx += sz
+
+		// TODO nestedCopy
+		_, err = d.decode(by, offs, ptr)
+
 	case tag == typeREFN:
 		if d.PerlCompat {
 			var iface interface{}
@@ -325,30 +332,9 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 		}
 
 	case tag == typeREFP, tag == typeALIAS:
-		offs, sz := varintdecode(by[idx:])
-		idx += sz
-
-		if offs < 0 || offs >= idx {
-			return 0, ErrCorrupt{errBadOffset}
-		}
-
-		rv, ok := d.tracked[offs]
-		if !ok {
-			return 0, ErrCorrupt{errUntrackedOffsetREFP}
-		}
-
-		if tag == typeREFP {
-			// rv contains *interface{},
-			// rv.Elem() will be an interface
-			// rv.Elem().Elem() should be the data inside interface
-			rvData := rv.Elem().Elem()
-
-			// reflect.New create value of type *riface.Type())
-			val := reflect.New(rvData.Type())
-			val.Elem().Set(rvData)
+		var val reflect.Value
+		if val, idx, err = d.decodeREFP_ALIAS(by, idx, tag == typeREFP); err == nil {
 			*ptr = val.Interface()
-		} else {
-			*ptr = rv.Elem().Interface()
 		}
 
 	case tag == typeWEAKEN:
@@ -361,18 +347,7 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 		}
 
 	case tag == typeREGEXP:
-		var pattern []byte
-		if pattern, idx, err = d.decodeStringish(by, idx); err != nil {
-			return 0, err
-		}
-
-		var modifiers []byte
-		if modifiers, idx, err = d.decodeStringish(by, idx); err != nil {
-			return 0, err
-		}
-
-		// TODO perhaps, copy values
-		*ptr = &PerlRegexp{pattern, modifiers}
+		*ptr, idx, err = d.decodeRegexp(by, idx)
 
 	case tag == typeOBJECT, tag == typeOBJECTV:
 		rvPtr := reflect.ValueOf(ptr)
@@ -556,7 +531,6 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 		offs, sz := varintdecode(by[idx:])
 		idx += sz
 
-		// TODO nested copy
 		if offs < 0 || offs >= len(by) {
 			return nil, 0, ErrCorrupt{errBadOffset}
 		}
@@ -572,6 +546,22 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 
 	//fmt.Printf("decodeStringish res: %s at %d\n", string(res), idx)
 	return res, idx, nil
+}
+
+func (d *Decoder) decodeRegexp(by []byte, idx int) (*PerlRegexp, int, error) {
+	var err error
+	var pattern []byte
+	if pattern, idx, err = d.decodeStringish(by, idx); err != nil {
+		return nil, 0, err
+	}
+
+	var modifiers []byte
+	if modifiers, idx, err = d.decodeStringish(by, idx); err != nil {
+		return nil, 0, err
+	}
+
+	// TODO perhaps, copy values
+	return &PerlRegexp{pattern, modifiers}, idx, nil
 }
 
 /********************************************************************
@@ -682,7 +672,40 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		} else {
 			if ptrKind == reflect.Ptr || ptrKind == reflect.Map || ptrKind == reflect.Slice {
 				ptr.Set(reflect.Zero(ptr.Type()))
-			} //TODO else panic
+			} else {
+				// maybe panic
+			}
+		}
+
+	case tag == typeCOPY:
+		offs, sz := varintdecode(by[idx:])
+		idx += sz
+
+		// TODO nestedCopy
+		_, err = d.decodeViaReflection(by, offs, ptr)
+
+	case tag == typeREFN:
+		idx, err = d.decodeViaReflection(by, idx, ptr)
+
+	case tag == typeREFP, tag == typeALIAS:
+		var val reflect.Value
+		if val, idx, err = d.decodeREFP_ALIAS(by, idx, tag == typeREFP); err == nil {
+			ptr.Set(val.Elem())
+		}
+
+	case tag == typeWEAKEN:
+		if d.PerlCompat {
+			pweak := PerlWeakRef{}
+			ptr.Set(reflect.ValueOf(&pweak))
+			idx, err = d.decode(by, idx, &pweak.Reference)
+		} else {
+			idx, err = d.decodeViaReflection(by, idx, ptr)
+		}
+
+	case tag == typeREGEXP:
+		var pregexp *PerlRegexp
+		if pregexp, idx, err = d.decodeRegexp(by, idx); err == nil {
+			ptr.Set(reflect.ValueOf(pregexp))
 		}
 
 	case tag == typeOBJECT, tag == typeOBJECTV:
@@ -749,7 +772,6 @@ func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflec
 			ptr.Set(reflect.MakeMap(ptr.Type()))
 		}
 
-		// TODO confirm the same behaivour with JSON
 		for i := 0; i < ln; i++ {
 			var key []byte
 			key, idx, err = d.decodeStringish(by, idx)
@@ -762,7 +784,7 @@ func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflec
 				// strkey exists in map, replace its content but respect structure
 				idx, err = d.decodeViaReflection(by, idx, value)
 			} else {
-				// there is strkey in map, crete a new one
+				// there is no strkey in map, crete a new one
 				var iface interface{}
 				idx, err = d.decode(by, idx, &iface)
 				if err != nil {
@@ -814,6 +836,43 @@ func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflec
 	}
 
 	return idx, nil
+}
+
+func (d *Decoder) decodeREFP_ALIAS(by []byte, idx int, isREFP bool) (reflect.Value, int, error) {
+	var res reflect.Value
+	offs, sz := varintdecode(by[idx:])
+	idx += sz
+
+	if offs < 0 || offs >= idx {
+		return res, 0, ErrCorrupt{errBadOffset}
+	}
+
+	rv, ok := d.tracked[offs]
+	if !ok {
+		return res, 0, ErrCorrupt{errUntrackedOffsetREFP}
+	}
+
+	if rv.Kind() == reflect.Ptr && rv.Elem().Kind() == reflect.Interface {
+		// rv contains *interface{},
+		// i.e. it was saved in decode() path
+		// rv.Elem() will be an interface
+		// rv.Elem().Elem() should be the data inside interface
+
+		if isREFP {
+			rvData := rv.Elem().Elem()
+			res = reflect.New(rvData.Type())
+			res.Elem().Set(rvData)
+		} else {
+			res = rv.Elem()
+		}
+	} else {
+		// rv contains original value
+		// i.e. it was saved in decodeViaReflection() path
+		res = reflect.New(rv.Type())
+		res.Elem().Set(rv)
+	}
+
+	return res, idx, nil
 }
 
 func (d *Decoder) decodeObjectViaReflection(by []byte, idx int, ptr reflect.Value, isObjectV bool) (int, error) {
