@@ -552,7 +552,7 @@ func TestBinaryMarshaller(t *testing.T) {
 
 	// check that registering a type works
 	var registerTime time.Time
-	RegisterName("time.Time", &registerTime)
+	d.RegisterName("time.Time", &registerTime)
 
 	// unpack into a nil interface should return a time.Time
 	var tintf interface{}
@@ -571,7 +571,7 @@ func TestBinaryMarshaller(t *testing.T) {
 	}
 
 	// overwrite with our error type
-	RegisterName("time.Time", &errunmarshaler)
+	d.RegisterName("time.Time", &errunmarshaler)
 	var eintf interface{}
 
 	err = d.Unmarshal(x, &eintf)

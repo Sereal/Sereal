@@ -8,9 +8,7 @@ import (
 	"math"
 	"reflect"
 	"runtime"
-	//"strconv"
 	"strings"
-	"sync"
 )
 
 type serealHeader struct {
@@ -58,6 +56,7 @@ func readHeader(b []byte) (serealHeader, error) {
 // A Decoder reads and decodes Sereal objects from an input buffer
 type Decoder struct {
 	tracked map[int]reflect.Value
+	umcache map[string]reflect.Type
 	tcache  tagsCache
 	//copyDepth int
 
@@ -934,8 +933,10 @@ func (d *Decoder) decodeObjectFreezeViaReflection(by []byte, idx int, ptr reflec
 		return 0, fmt.Errorf("OBJECT_FREEZE supports []byte only")
 	}
 
+	strClassName := string(className)
+
 	if d.PerlCompat {
-		ptr.Set(reflect.ValueOf(&PerlFreeze{string(className), classData}))
+		ptr.Set(reflect.ValueOf(&PerlFreeze{strClassName, classData}))
 	} else {
 		if obj, ok := findUnmarshaler(ptr); ok {
 			if err := obj.UnmarshalBinary(classData); err != nil {
@@ -945,9 +946,7 @@ func (d *Decoder) decodeObjectFreezeViaReflection(by []byte, idx int, ptr reflec
 			switch {
 			case ptr.Kind() == reflect.Interface && ptr.IsNil():
 				// do we have a registered handler for this type?
-				registerLock.Lock()
-				concreteClass, ok := nameToType[string(className)]
-				registerLock.Unlock()
+				concreteClass, ok := d.getUnmarshalerType(strClassName)
 
 				if ok {
 					rzero := instantiateZero(concreteClass)
@@ -964,7 +963,7 @@ func (d *Decoder) decodeObjectFreezeViaReflection(by []byte, idx int, ptr reflec
 
 					ptr.Set(reflect.ValueOf(obj))
 				} else {
-					ptr.Set(reflect.ValueOf(&PerlFreeze{string(className), classData}))
+					ptr.Set(reflect.ValueOf(&PerlFreeze{strClassName, classData}))
 				}
 
 			case ptr.Kind() == reflect.Slice && ptr.Type().Elem().Kind() == reflect.Uint8 && ptr.IsNil():
@@ -1047,30 +1046,36 @@ func findUnmarshaler(ptr reflect.Value) (encoding.BinaryUnmarshaler, bool) {
 	return nil, false
 }
 
-var nameToType = make(map[string]reflect.Type)
-var registerLock sync.Mutex
-
 // RegisterName registers the named class with an instance of 'value'.  When the
 // decoder finds a FREEZE tag with the given class, the binary data will be
 // passed to value's UnmarshalBinary method.
-func RegisterName(name string, value interface{}) {
-	registerLock.Lock()
-	defer registerLock.Unlock()
+func (d *Decoder) RegisterName(name string, value interface{}) {
+	if d.umcache == nil {
+		d.umcache = make(map[string]reflect.Type)
+	}
 
 	rv := reflect.ValueOf(value)
-
-	if _, ok := rv.Interface().(encoding.BinaryUnmarshaler); ok {
-		nameToType[name] = rv.Type()
+	if _, ok := value.(encoding.BinaryUnmarshaler); ok {
+		d.umcache[name] = rv.Type()
 		return
 	}
 
 	prv := rv.Addr()
 	if _, ok := prv.Interface().(encoding.BinaryUnmarshaler); ok {
-		nameToType[name] = prv.Type()
+		d.umcache[name] = prv.Type()
 		return
 	}
 
 	panic(fmt.Sprintf("unable to register type %s: not encoding.BinaryUnmarshaler", rv.Type()))
+}
+
+func (d *Decoder) getUnmarshalerType(name string) (reflect.Type, bool) {
+	if d.umcache == nil {
+		return nil, false
+	}
+
+	val, ok := d.umcache[name]
+	return val, ok
 }
 
 func instantiateZero(typ reflect.Type) reflect.Value {
