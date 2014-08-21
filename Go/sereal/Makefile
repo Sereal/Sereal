@@ -25,6 +25,7 @@ test_dir: ../../Perl/Decoder/blib ../../Perl/Encoder/blib test_dir/VERSION_$(COR
 	touch "test_dir/COMPRESS_$(CORPUS_COMPRESS)"
 
 test_files:
+	mkdir -p test_dir
 	perl -Mblib=../../Perl/Encoder/blib -MSereal::Encoder cmd/gen/test-decode-struct.pl test_dir
 
 test_dir/VERSION_$(CORPUS_PROTO_VER):
