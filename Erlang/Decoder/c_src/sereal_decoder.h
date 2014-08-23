@@ -7,7 +7,6 @@
 #include "erl_nif.h"
 
 #define DEFAULT_BYTES_PER_ITER 2048
-/* #define DEFAULT_BYTES_PER_ITER 2048 */
 
 #define MAP_TYPE_PRESENT \
     ((ERL_NIF_MAJOR_VERSION == 2 && ERL_NIF_MINOR_VERSION >= 6) \
@@ -42,21 +41,10 @@ int should_yield(size_t used, size_t limit);
 int get_bytes_per_iter(ErlNifEnv* env, ERL_NIF_TERM val, size_t* bpi);
 int consume_timeslice(ErlNifEnv* env, size_t used, size_t limit);
 
-ERL_NIF_TERM decode_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-ERL_NIF_TERM decode_iter(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM decoder_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 void dec_destroy(ErlNifEnv* env, void* obj);
-
-/* int int_from_hex(const unsigned char* p); */
-/* int int_to_hex(int val, char* p); */
-/* int utf8_len(int c); */
-/* int utf8_esc_len(int c); */
-/* int utf8_validate(unsigned char* data, size_t size); */
-/* int utf8_to_unicode(unsigned char* buf, size_t size); */
-/* int unicode_to_utf8(int c, unsigned char* buf); */
-/* int unicode_from_pair(int hi, int lo); */
-/* int unicode_uescape(int c, char* buf); */
-/* int double_to_shortest(char *buf, size_t size, size_t* len, double val); */
 
 #endif // Included SEREAL_DECODER_H
 

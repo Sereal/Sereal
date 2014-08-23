@@ -10,7 +10,7 @@ decode(Data) ->
     decode(Data, []).
 
 decode(Data, Opts) when is_binary(Data), is_list(Opts) ->
-    case nif_decode_init(Data, Opts) of
+    case nif_decoder_init(Data, Opts) of
         {error, _} = Error ->
             throw(Error);
         
@@ -83,7 +83,7 @@ init() ->
 
 
 decode_loop(Data, Decoder, Objs, Curr) ->
-    case nif_decode_iter(Data, Decoder, Objs, Curr) of
+    case nif_decoder_iterate(Data, Decoder, Objs, Curr) of
         {error, _} = Error ->
             throw(Error);
 
@@ -101,8 +101,8 @@ decode_loop(Data, Decoder, Objs, Curr) ->
 not_loaded(Line) ->
     erlang:nif_error({not_loaded, [{module, ?MODULE}, {line, Line}]}).
 
-nif_decode_init(_Data, _Opts) ->
+nif_decoder_init(_Data, _Opts) ->
     ?NOT_LOADED.
 
-nif_decode_iter(_Data, _Decoder, _, _) ->
+nif_decoder_iterate(_Data, _Decoder, _, _) ->
     ?NOT_LOADED.

@@ -5,6 +5,7 @@ load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
 {
     sereal_decoder_st* st = enif_alloc(sizeof(sereal_decoder_st));
     if(st == NULL) {
+        // no diagnostics?
         return 1;
     }
 
@@ -59,8 +60,8 @@ unload(ErlNifEnv* env, void* priv)
 
 static ErlNifFunc funcs[] =
 {
-    {"nif_decode_init", 2, decode_init},
-    {"nif_decode_iter", 4, decode_iter},
+    {"nif_decoder_init",      2, decoder_init},
+    {"nif_decoder_iterate", 4, decoder_iterate},
 };
 
 ERL_NIF_INIT(sereal_decoder, funcs, &load, &reload, &upgrade, &unload);

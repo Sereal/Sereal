@@ -3,14 +3,18 @@
 
 #include "sereal_decoder.h"
 
+#define UNLIMITED (0)
+
 ERL_NIF_TERM
 make_atom(ErlNifEnv* env, const char* name)
 {
-    ERL_NIF_TERM ret;
-    if(enif_make_existing_atom(env, name, &ret, ERL_NIF_LATIN1)) {
-        return ret;
+    ERL_NIF_TERM result;
+
+    if(!enif_make_existing_atom(env, name, &result, ERL_NIF_LATIN1)) {
+        result = enif_make_atom(env, name);
     }
-    return enif_make_atom(env, name);
+
+    return result;
 }
 
 ERL_NIF_TERM
@@ -58,11 +62,7 @@ get_bytes_per_iter(ErlNifEnv* env, ERL_NIF_TERM val, size_t* bpi)
 int
 should_yield(size_t used, size_t limit)
 {
-    if(limit == 0 || used < limit) {
-        return 0;
-    }
-
-    return 1;
+    return !(limit == UNLIMITED || used < limit);
 }
 
 int
