@@ -148,20 +148,6 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 		return fmt.Errorf("document type '%d' not yet supported", header.doctype)
 	}
 
-	/* XXX instead of creating an uncompressed copy of the document,
-	 *     it would be more flexible to use a sort of "Reader" interface */
-	if decomp != nil {
-		decompBody, err := decomp.decompress(b[bodyStart:])
-		if err != nil {
-			return err
-		}
-
-		// shrink down b to reuse the allocated buffer
-		b = b[:0]
-		b = append(b, b[:bodyStart]...)
-		b = append(b, decompBody...)
-	}
-
 	if vheader != nil && header.suffixSize != 1 {
 		d.tracked = make(map[int]reflect.Value)
 		defer func() { d.tracked = nil }()
@@ -182,6 +168,20 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 	}
 
 	if err == nil && vbody != nil {
+		/* XXX instead of creating an uncompressed copy of the document,
+		 *     it would be more flexible to use a sort of "Reader" interface */
+		if decomp != nil {
+			decompBody, err := decomp.decompress(b[bodyStart:])
+			if err != nil {
+				return err
+			}
+
+			// shrink down b to reuse the allocated buffer
+			b = b[:0]
+			b = append(b, b[:bodyStart]...)
+			b = append(b, decompBody...)
+		}
+
 		d.tracked = make(map[int]reflect.Value)
 		defer func() { d.tracked = nil }()
 
