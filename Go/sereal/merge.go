@@ -50,6 +50,9 @@ type Merger struct {
 	//   This mode is relevant only to top level elements
 	KeepFlat bool
 
+	// give a hint to encoder about expected size of encoded data
+	ExpectedSize uint
+
 	// moved bool fields here to make struct smaller
 	inited   bool
 	finished bool
@@ -96,7 +99,12 @@ func (m *Merger) initMerger() error {
 	// initialize internal fields
 	m.strTable = make(map[string]int)
 	m.objTable = make(map[string]int)
-	m.buf = make([]byte, headerSize)
+
+	if m.ExpectedSize > 0 {
+		m.buf = make([]byte, headerSize, m.ExpectedSize)
+	} else {
+		m.buf = make([]byte, headerSize)
+	}
 
 	if m.version == 0 {
 		m.version = ProtocolVersion
