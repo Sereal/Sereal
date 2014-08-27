@@ -511,7 +511,6 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                         dec_pop(decoder, ST_VALUE);
                         decoder->pos++;
 
-                        /* enif_make_double(d->env, dval); */
                         int64_value = srl_read_varint_int64_nocheck(decoder);
 
                         val  = enif_make_int64(decoder->env, int64_value);
@@ -521,11 +520,22 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                         break;
 
                     case SRL_HDR_ZIGZAG:
-                        //TODO: add support
-                        debug_print("ZIGZAG (not supported), d->pos = %d\n", decoder->pos);
-                        result = dec_error(decoder, "zigzag not supported");
+                        debug_print("ZIGZAG, d->pos = %d\n", decoder->pos);
 
-                        goto done;
+                        dec_pop(decoder, ST_VALUE);
+                        decoder->pos++;
+
+                        ErlNifUInt64 _value = srl_read_varint_int64_nocheck(decoder);
+                        
+                        int64_value = _value >> 1;
+
+                        if (int64_value & 1){
+                            int64_value = ~int64_value;
+                        }
+                        
+                        val = enif_make_int64(decoder->env, int64_value);
+                        curr = enif_make_list_cell(decoder->env, val, curr);
+
                         break;
 
                     case SRL_HDR_FLOAT:
