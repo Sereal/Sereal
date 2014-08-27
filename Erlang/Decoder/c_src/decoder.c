@@ -14,7 +14,7 @@
                                 __LINE__, __func__, ##__VA_ARGS__); } while (0)
 
 
-#define STACK_SIZE_INC 64
+#define STACK_SIZE_INCR 64
 #define NUM_BUF_LEN 32
 
 #if WINDOWS || WIN32
@@ -43,23 +43,19 @@ typedef struct {
     ErlNifEnv*      env;
     sereal_decoder_st*       atoms;
 
-    ERL_NIF_TERM    arg;
+    ERL_NIF_TERM    input;
     ErlNifBinary    bin;
 
     size_t          bytes_per_iter;
     int             is_partial;
 
-    char*           p;
-    int             i;
+    char*           buffer;
+    int             pos;
     int             len;
 
     char*           st_data;
     int             st_size;
     int             st_top;
-
-    // -------
-
-    int             body_pos;
 
 } Decoder;
 
@@ -75,7 +71,7 @@ decoder_new(ErlNifEnv* env)
 {
     sereal_decoder_st* st = (sereal_decoder_st*) enif_priv_data(env);
 
-    Decoder* result = enif_alloc_resource(st->res_dec, sizeof(Decoder));
+    Decoder* result = enif_alloc_resource(st->resource_decoder, sizeof(Decoder));
 
     if(result == NULL) {
         return NULL;
@@ -83,21 +79,21 @@ decoder_new(ErlNifEnv* env)
 
     result->atoms = st;
 
-    result->bytes_per_iter = DEFAULT_BYTES_PER_ITER;
     result->is_partial = 0;
+    result->bytes_per_iter = DEFAULT_BYTES_PER_ITER;
 
-    result->p = NULL;
+    result->pos = -1;
     result->len = -1;
-    result->i = -1;
+    result->buffer = NULL;
 
-    result->st_data = (char*) enif_alloc(STACK_SIZE_INC * sizeof(char));
+    result->st_data = (char*) enif_alloc(STACK_SIZE_INCR * sizeof(char));
 
     if(result->st_data == NULL){
         dec_error(result, "Stack allocation failed");
         return NULL;
     }
 
-    result->st_size = STACK_SIZE_INC;
+    result->st_size = STACK_SIZE_INCR;
     result->st_top = 0;
 
     memset(result->st_data, ST_INVALID, result->st_size);
@@ -112,40 +108,40 @@ decoder_new(ErlNifEnv* env)
 }
 
 void
-dec_init(Decoder* d, ErlNifEnv* env, ERL_NIF_TERM arg, ErlNifBinary* bin)
+dec_init(Decoder* decoder, ErlNifEnv* env, ERL_NIF_TERM input, ErlNifBinary* bin)
 {
-    d->env = env;
-    d->arg = arg;
+    decoder->env   = env;
+    decoder->input = input;
 
-    d->p = (char*) bin->data;
-    d->len = bin->size;
+    decoder->buffer = (char*) bin->data;
+    decoder->len    = bin->size;
 
-    // I'd like to be more forceful on this check so that when
+    // pos'd like to be more forceful on this check so that when
     // we run a second iteration of the decoder we are sure
-    // that we're using the same binary. Unfortunately, I don't
+    // that we're using the same binary. Unfortunately, pos don't
     // think there's a value to base this assertion on.
-    if(d->i < 0) {
-        d->i = 0;
+    if(decoder->pos < 0) {
+        decoder->pos = 0;
 
     } else {
-        assert(d->i <= d->len && "mismatched binary lengths");
+        assert(decoder->pos <= decoder->len && "mismatched binary lengths");
     }
 }
 
 void
-dec_destroy(ErlNifEnv* env, void* obj)
+decoder_destroy(ErlNifEnv* env, void* obj)
 {
-    Decoder* d = (Decoder*) obj;
+    Decoder* decoder = (Decoder*) obj;
 
-    if(d->st_data != NULL) {
-        enif_free(d->st_data);
+    if(decoder->st_data != NULL) {
+        enif_free(decoder->st_data);
     }
 }
 
 ERL_NIF_TERM
 dec_error(Decoder* d, const char* atom)
 {
-    ERL_NIF_TERM pos = enif_make_int(d->env, d->i+1);
+    ERL_NIF_TERM pos = enif_make_int(d->env, d->pos+1);
     ERL_NIF_TERM msg = make_atom(d->env, atom);
     ERL_NIF_TERM ret = enif_make_tuple2(d->env, pos, msg);
 
@@ -178,9 +174,8 @@ dec_top(Decoder* d)
 void
 dec_push(Decoder* d, char val)
 {
-
     if(d->st_top >= d->st_size) {
-        int new_sz = d->st_size + STACK_SIZE_INC;
+        int new_sz = d->st_size + STACK_SIZE_INCR;
         char* tmp = (char*) enif_alloc(new_sz * sizeof(char));
 
         memset(tmp, ST_INVALID, new_sz);
@@ -212,9 +207,9 @@ dec_pop(Decoder* decoder, char val)
 ERL_NIF_TERM
 make_array(ErlNifEnv* env, ERL_NIF_TERM list)
 {
-    ERL_NIF_TERM result = enif_make_list(env, 0);
     ERL_NIF_TERM item;
 
+    ERL_NIF_TERM result = enif_make_list(env, 0);
     while(enif_get_list_cell(env, list, &item, &list)) {
         result = enif_make_list_cell(env, item, result);
     }
@@ -276,22 +271,14 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     sereal_decoder_st* st = (sereal_decoder_st*) enif_priv_data(env);
     
-    unsigned char tag;
-
-    ErlNifSInt64 test;
-    int len;
-
-    float myfloat;
-    double mydouble;
-
     Decoder* decoder;
     ErlNifBinary input;
 
     if( argc != 4 
-     || !enif_inspect_binary(env, argv[0], &input)
-     || !enif_get_resource(env, argv[1], st->res_dec, (void**) &decoder)
-     || !enif_is_list(env, argv[2])
-     || !enif_is_list(env, argv[3])) {
+      || !enif_inspect_binary(env, argv[0], &input)
+      || !enif_get_resource(env, argv[1], st->resource_decoder, (void**) &decoder)
+      || !enif_is_list(env, argv[2])
+      || !enif_is_list(env, argv[3])) {
 
         return enif_make_badarg(env);
     }
@@ -300,13 +287,8 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ERL_NIF_TERM objs = argv[2];
     ERL_NIF_TERM curr = argv[3];
 
-    ERL_NIF_TERM key;
-
-    size_t start = decoder->i;
+    size_t start = decoder->pos;
     debug_print("Starting parsing from pos: %zu\n", start);
-
-
-    ERL_NIF_TERM val = decoder->atoms->atom_null;
 
     ErlNifSInt64 header_size;
 
@@ -343,31 +325,35 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         }
 
         // move behind magic string and protocol version
-        decoder->i += SRL_MAGIC_STRLEN + 1;
+        decoder->pos += SRL_MAGIC_STRLEN + 1;
     
         header_size = srl_read_varint_int64_nocheck(decoder);
 
-        debug_print("header size: %lu, d->i = %d\n", header_size, decoder->i);
+        debug_print("header size: %lu, d->pos = %d\n", header_size, decoder->pos);
     
         //TODO: add code for processing the header
-        decoder->i += header_size;
-        
-        // now d->i is at the start of the body
-        decoder->body_pos = decoder->i;
+        decoder->pos += header_size;
     }
 
+    int len;
+    float float_value;
+    double double_value;
+
+    ErlNifSInt64 int64_value;
+    ERL_NIF_TERM key;
+    ERL_NIF_TERM val = decoder->atoms->atom_undefined;
     ERL_NIF_TERM result;
 
     while(1) {
 
-        debug_print("==LOOP== iter. state: %d, pos = %d\n", dec_current(decoder), decoder->i);
+        debug_print("==LOOP== iter. state: %d, pos = %d\n", dec_current(decoder), decoder->pos);
 
         /* check for processed data to bypass starvation */
-        if(should_yield(decoder->i - start, decoder->bytes_per_iter)) {
+        if(should_yield(decoder->pos - start, decoder->bytes_per_iter)) {
 
-            debug_print("==YIELDING== state: %d, pos = %d\n", dec_current(decoder), decoder->i);
+            debug_print("==YIELDING== state: %d, pos = %d\n", dec_current(decoder), decoder->pos);
             
-            consume_timeslice(env, decoder->i - start, decoder->bytes_per_iter);
+            consume_timeslice(env, decoder->pos - start, decoder->bytes_per_iter);
             
             return enif_make_tuple4(
                     env,
@@ -429,13 +415,13 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             continue;
         }
 
-        if (decoder->i >= input.size) {
+        if (decoder->pos >= input.size) {
             result = dec_error(decoder, "internal_error 4");
             goto done;
             break;
         }
 
-        tag = decoder->p[decoder->i];
+        unsigned char tag = decoder->buffer[decoder->pos];
 
         if (tag & SRL_HDR_TRACK_FLAG) {
             // TODO: no diagnostics? 
@@ -447,18 +433,18 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                 debug_print("current state ST_VALUE\n");
 
                 if ( tag <= SRL_HDR_POS_HIGH ) {
-                    debug_print("POSITIVE INTEGER tag %d, d->i = %d\n", (int)tag, decoder->i);
+                    debug_print("POSITIVE INTEGER tag %d, d->pos = %d\n", (int)tag, decoder->pos);
 
-                    decoder->i++;
+                    decoder->pos++;
                     dec_pop(decoder, ST_VALUE);
 
                     val = enif_make_int(decoder->env, (int)tag);
                     curr = enif_make_list_cell(env, val, curr);
 
                 } else if ( tag <= SRL_HDR_NEG_HIGH) {
-                    debug_print("NEGATIVE INTEGER tag %d, d->i = %d\n", (int)tag, decoder->i);
+                    debug_print("NEGATIVE INTEGER tag %d, d->pos = %d\n", (int)tag, decoder->pos);
 
-                    decoder->i++;
+                    decoder->pos++;
                     dec_pop(decoder, ST_VALUE);
                     
                     /* Small NEGs are from 16 to 31 in reverse order: (-16, -15.. , -1) */
@@ -468,23 +454,23 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                 } else if ( IS_SRL_HDR_SHORT_BINARY(tag) ) {
 
                     len = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
-                    decoder->i++;
+                    decoder->pos++;
 
-                    debug_print("SHORT_BINARY of len %d, d->i = %d\n", len, decoder->i);
+                    debug_print("SHORT_BINARY of len %d, d->pos = %d\n", len, decoder->pos);
                     dec_pop(decoder, ST_VALUE);
 
-                    val  = enif_make_sub_binary(decoder->env, decoder->arg, decoder->i, len);
+                    val  = enif_make_sub_binary(decoder->env, decoder->input, decoder->pos, len);
                     curr = enif_make_list_cell(env, val, curr);
                     
-                    debug_print("SHORT_BINARY value = %*c\n", len, decoder->p[decoder->i]);
-                    decoder->i += len;
+                    debug_print("SHORT_BINARY value = %*c\n", len, decoder->buffer[decoder->pos]);
+                    decoder->pos += len;
 
                 } else if ( IS_SRL_HDR_HASHREF(tag) ) {
 
                     len = tag & 0xF;
-                    decoder->i++;
+                    decoder->pos++;
 
-                    debug_print("SHORT HASHREF of len %d, d->i = %d\n", len, decoder->i);
+                    debug_print("SHORT HASHREF of len %d, d->pos = %d\n", len, decoder->pos);
                     dec_pop(decoder, ST_VALUE);
 
                     // create the temp list to store array elements in it
@@ -501,9 +487,9 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                 } else if ( IS_SRL_HDR_ARRAYREF(tag) ) {
 
                     len = tag & 0xF;
-                    decoder->i++;
+                    decoder->pos++;
                     
-                    debug_print("SHORT ARRAY of len %d, d->i = %d\n", len, decoder->i);
+                    debug_print("SHORT ARRAY of len %d, d->pos = %d\n", len, decoder->pos);
                     dec_pop(decoder, ST_VALUE);
 
                     // create the temp list to store array elements in it
@@ -517,129 +503,166 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
                 } else {
 
-                 switch(decoder->p[decoder->i]) {
+                 switch(decoder->buffer[decoder->pos]) {
 
                     case SRL_HDR_VARINT:
-                        debug_print("VARINT, d->i = %d\n", decoder->i);
-                        decoder->i++;
+                        debug_print("VARINT, d->pos = %d\n", decoder->pos);
 
                         dec_pop(decoder, ST_VALUE);
+                        decoder->pos++;
 
                         /* enif_make_double(d->env, dval); */
-                        test = srl_read_varint_int64_nocheck(decoder);
+                        int64_value = srl_read_varint_int64_nocheck(decoder);
 
-                        val  = enif_make_int64(decoder->env, test);
+                        val  = enif_make_int64(decoder->env, int64_value);
                         curr = enif_make_list_cell(decoder->env, val, curr);
 
-                        debug_print("VARINT value = %ld\n", test);
+                        debug_print("VARINT value = %ld\n", int64_value);
                         break;
 
                     case SRL_HDR_ZIGZAG:
                         //TODO: add support
-                        debug_print("ZIGZAG (not supported), d->i = %d\n", decoder->i);
+                        debug_print("ZIGZAG (not supported), d->pos = %d\n", decoder->pos);
                         result = dec_error(decoder, "zigzag not supported");
 
                         goto done;
                         break;
 
                     case SRL_HDR_FLOAT:
-                        debug_print("FLOAT, d->i = %d\n", decoder->i);
-                        decoder->i++;
+                        debug_print("FLOAT, d->pos = %d\n", decoder->pos);
 
                         dec_pop(decoder, ST_VALUE);
+                        decoder->pos++;
 
-                        myfloat = *((float *) &(decoder->p[decoder->i]));
-                        debug_print("FLOAT value = %f\n", myfloat);
+                        float_value = *((float *) &(decoder->buffer[decoder->pos]));
+                        debug_print("FLOAT value = %f\n", float_value);
                         
-                        decoder->i += sizeof(float);
+                        decoder->pos += sizeof(float);
 
-                        val = enif_make_double(decoder->env, (double) myfloat);
+                        val = enif_make_double(decoder->env, (double) float_value);
                         curr = enif_make_list_cell(decoder->env, val, curr);
 
                         break;
+
                     case SRL_HDR_DOUBLE:
-                        debug_print("FLOAT, d->i = %d\n", decoder->i);
+                        debug_print("DOUBLE, d->pos = %d\n", decoder->pos);
+
                         dec_pop(decoder, ST_VALUE);
-                        decoder->i++;
-                        mydouble = *((double *) &(decoder->p[decoder->i]));
-                        debug_print("DOUBLE value = %f\n", mydouble);
-                        decoder->i += sizeof(double);
-                        val = enif_make_double(decoder->env, (double) mydouble);
+                        decoder->pos++;
+
+                        double_value = *((double *) &(decoder->buffer[decoder->pos]));
+                        debug_print("DOUBLE value = %f\n", double_value);
+
+                        decoder->pos += sizeof(double);
+
+                        val = enif_make_double(decoder->env, (double) double_value);
                         curr = enif_make_list_cell(decoder->env, val, curr);
+
                         break;
+
                     case SRL_HDR_LONG_DOUBLE:
-                        debug_print("LONG DOUBLE (not supported), d->i = %d\n", decoder->i);
+                        //TODO: add support
+                        debug_print("LONG DOUBLE (not supported), d->pos = %d\n", decoder->pos);
                         result = dec_error(decoder, "long double not supported");
+
                         goto done;
                         break;
+
                     case SRL_HDR_UNDEF:
-                        debug_print("UNDEF, d->i = %d\n", decoder->i);
+                        debug_print("UNDEF, d->pos = %d\n", decoder->pos);
+
                         dec_pop(decoder, ST_VALUE);
-                        decoder->i++;
+                        decoder->pos++;
+
                         curr = enif_make_list_cell(decoder->env, decoder->atoms->atom_undefined, curr);
+
                         break;
+
                     case SRL_HDR_BINARY:
-                        debug_print("BINARY, d->i = %d\n", decoder->i);
+
+                        debug_print("BINARY, d->pos = %d\n", decoder->pos);
+
                         dec_pop(decoder, ST_VALUE);
-                        decoder->i++;
-                        test = srl_read_varint_int64_nocheck(decoder);
-                        val = enif_make_sub_binary(decoder->env, decoder->arg, decoder->i, test);
+                        decoder->pos++;
+                        
+                        int64_value = srl_read_varint_int64_nocheck(decoder);
+                        
+                        val  = enif_make_sub_binary(decoder->env, decoder->input, decoder->pos, int64_value);
                         curr = enif_make_list_cell(env, val, curr);
-                        decoder->i += test;
+                        
+                        decoder->pos += int64_value;
+                        
                         break;
+
                     case SRL_HDR_STR_UTF8:
-                        debug_print("STR_UTF8, d->i = %d\n", decoder->i);
+                        debug_print("STR_UTF8, d->pos = %d\n", decoder->pos);
+
                         dec_pop(decoder, ST_VALUE);
-                        decoder->i++;
-                        test = srl_read_varint_int64_nocheck(decoder);
-                        val = enif_make_sub_binary(decoder->env, decoder->arg, decoder->i, test);
+                        decoder->pos++;
+                        
+                        int64_value = srl_read_varint_int64_nocheck(decoder);
+
+                        val  = enif_make_sub_binary(decoder->env, decoder->input, decoder->pos, int64_value);
                         curr = enif_make_list_cell(env, val, curr);
-                        decoder->i += test;
+                        
+                        decoder->pos += int64_value;
+
                         break;
+
                     case SRL_HDR_REFN:
-                        debug_print("REFN, d->i = %d\n", decoder->i);
-                        decoder->i++;
+                        // TODO: add support
+                        debug_print("REFN, d->pos = %d\n", decoder->pos);
+                        decoder->pos++;
                         break;
+
                     case SRL_HDR_HASH:
-                            debug_print("HASH d->i = %d\n", decoder->i);
-                            decoder->i++;
-                            dec_pop(decoder, ST_VALUE);
+                        debug_print("HASH d->pos = %d\n", decoder->pos);
 
-                            // create the temp list to store array elements in it
-                            objs = enif_make_list_cell(env, curr, objs);
-                            curr = enif_make_list(env, 0);
+                        decoder->pos++;
+                        dec_pop(decoder, ST_VALUE);
 
-                            dec_push(decoder, ST_HASH_CLOSE);
-                            // read the hash length
-                            test = srl_read_varint_int64_nocheck(decoder);
-                            debug_print("HASH: %ld pairs\n", test);
-                            while (test-- > 0) {
-                                dec_push(decoder, ST_HASH_PAIR);
-                                dec_push(decoder, ST_VALUE);
-                                dec_push(decoder, ST_VALUE);
-                            }
+                        // create the temp list to store array elements in it
+                        objs = enif_make_list_cell(env, curr, objs);
+                        curr = enif_make_list(env, 0);
+
+                        dec_push(decoder, ST_HASH_CLOSE);
+                        
+                        // read the hash length
+                        int64_value = srl_read_varint_int64_nocheck(decoder);
+                        debug_print("HASH: %ld pairs\n", int64_value);
+
+                        while (int64_value-- > 0) {
+                            dec_push(decoder, ST_HASH_PAIR);
+                            dec_push(decoder, ST_VALUE);
+                            dec_push(decoder, ST_VALUE);
+                        }
+
                         break;
+
                     case SRL_HDR_ARRAY:
-                            debug_print("ARRAY, d->i = %d\n", decoder->i);
-                            decoder->i++;
-                            dec_pop(decoder, ST_VALUE);
+                        debug_print("ARRAY, d->pos = %d\n", decoder->pos);
 
-                            // create the temp list to store array elements in it
-                            objs = enif_make_list_cell(env, curr, objs);
-                            curr = enif_make_list(env, 0);
+                        decoder->pos++;
+                        dec_pop(decoder, ST_VALUE);
 
-                            dec_push(decoder, ST_ARRAY_CLOSE);
-                            // read the array length
-                            test = srl_read_varint_int64_nocheck(decoder);
-                            while (test-- > 0) {
-                                dec_push(decoder, ST_VALUE);
-                            }
+                        // create the temp list to store array elements in it
+                        objs = enif_make_list_cell(env, curr, objs);
+                        curr = enif_make_list(env, 0);
+
+                        dec_push(decoder, ST_ARRAY_CLOSE);
+
+                        // read the array length
+                        int64_value = srl_read_varint_int64_nocheck(decoder);
+                        while (int64_value-- > 0) {
+                            dec_push(decoder, ST_VALUE);
+                        }
+
                         break;
 
                         
-                        default:
-                            result = dec_error(decoder, "invalid_sereal");
-                            goto done;
+                    default:
+                        result = dec_error(decoder, "invalid_sereal");
+                        goto done;
                     }
                 }
                 break;
@@ -662,7 +685,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     }
 
 done:
-    consume_timeslice(env, decoder->i - start, decoder->bytes_per_iter);
+    consume_timeslice(env, decoder->pos - start, decoder->bytes_per_iter);
     return result;
 }
 
@@ -672,14 +695,14 @@ ErlNifUInt64 srl_read_varint_int64_nocheck(Decoder *decoder)
     ErlNifUInt64 result = 0;
     unsigned     lshift = 0;
 
-    while (decoder->p[decoder->i] & 0x80) {
-        result |= ((ErlNifUInt64)(decoder->p[decoder->i] & 0x7F) << lshift);
+    while (decoder->buffer[decoder->pos] & 0x80) {
+        result |= ((ErlNifUInt64)(decoder->buffer[decoder->pos] & 0x7F) << lshift);
         lshift += 7;
-        decoder->i++;
+        decoder->pos++;
     }
 
-    result |= ((ErlNifUInt64)(decoder->p[decoder->i]) << lshift);
-    decoder->i++;
+    result |= ((ErlNifUInt64)(decoder->buffer[decoder->pos]) << lshift);
+    decoder->pos++;
     
     return result;
 }

@@ -1,6 +1,3 @@
-// This file is part of Jiffy released under the MIT license.
-// See the LICENSE file for more information.
-
 #ifndef SEREAL_DECODER_H
 #define SEREAL_DECODER_H
 
@@ -13,24 +10,20 @@
     || (ERL_NIF_MAJOR_VERSION > 2))
 
 typedef struct {
-    ERL_NIF_TERM    atom_ok;
-    ERL_NIF_TERM    atom_error;
-    ERL_NIF_TERM    atom_null;
-    ERL_NIF_TERM    atom_true;
-    ERL_NIF_TERM    atom_false;
-    ERL_NIF_TERM    atom_bignum;
-    ERL_NIF_TERM    atom_bignum_e;
-    ERL_NIF_TERM    atom_bigdbl;
-    ERL_NIF_TERM    atom_partial;
-    ERL_NIF_TERM    atom_force_utf8;
-    ERL_NIF_TERM    atom_iter;
-    ERL_NIF_TERM    atom_bytes_per_iter;
-    ERL_NIF_TERM    atom_return_maps;
+    ERL_NIF_TERM  atom_ok;
+    ERL_NIF_TERM  atom_error;
+    ERL_NIF_TERM  atom_true;
+    ERL_NIF_TERM  atom_false;
+    ERL_NIF_TERM  atom_bignum;
+    ERL_NIF_TERM  atom_bignum_e;
+    ERL_NIF_TERM  atom_bigdbl;
+    ERL_NIF_TERM  atom_partial;
+    ERL_NIF_TERM  atom_undefined;
+    ERL_NIF_TERM  atom_iter;
+    ERL_NIF_TERM  atom_bytes_per_iter;
 
-    ERL_NIF_TERM    atom_undefined;
+    ErlNifResourceType* resource_decoder;
 
-    ErlNifResourceType* res_dec;
-    ErlNifResourceType* res_enc;
 } sereal_decoder_st;
 
 ERL_NIF_TERM make_atom(ErlNifEnv* env, const char* name);
@@ -44,7 +37,7 @@ int consume_timeslice(ErlNifEnv* env, size_t used, size_t limit);
 ERL_NIF_TERM decoder_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
-void dec_destroy(ErlNifEnv* env, void* obj);
+void decoder_destroy(ErlNifEnv* env, void* obj);
 
 #endif // Included SEREAL_DECODER_H
 

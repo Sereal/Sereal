@@ -6,6 +6,17 @@
 
 -on_load(init/0).
 
+init() ->
+    PrivDir = case code:priv_dir(?MODULE) of
+        {error, _} ->
+            EbinDir = filename:dirname(code:which(?MODULE)),
+            AppPath = filename:dirname(EbinDir),
+            filename:join(AppPath, "priv");
+        Path ->
+            Path
+    end,
+    erlang:load_nif(filename:join(PrivDir, ?MODULE), 0).
+
 decode(Data) ->
     decode(Data, []).
 
@@ -22,10 +33,7 @@ decode(Data, Opts) when is_binary(Data), is_list(Opts) ->
 
         ESereal ->
             ESereal
-    end;
-
-decode(Data, Opts) when is_list(Data) ->
-    decode(iolist_to_binary(Data), Opts).
+    end.
 
 finish_decode({bignum, Value}) ->
     list_to_integer(binary_to_list(Value));
@@ -69,19 +77,6 @@ finish_decode_arr([], Acc) ->
 finish_decode_arr([V | Vals], Acc) ->
     finish_decode_arr(Vals, [finish_decode(V) | Acc]).
 
-
-init() ->
-    PrivDir = case code:priv_dir(?MODULE) of
-        {error, _} ->
-            EbinDir = filename:dirname(code:which(?MODULE)),
-            AppPath = filename:dirname(EbinDir),
-            filename:join(AppPath, "priv");
-        Path ->
-            Path
-    end,
-    erlang:load_nif(filename:join(PrivDir, "sereal_decoder"), 0).
-
-
 decode_loop(Data, Decoder, Objs, Curr) ->
     case nif_decoder_iterate(Data, Decoder, Objs, Curr) of
         {error, _} = Error ->
@@ -96,7 +91,6 @@ decode_loop(Data, Decoder, Objs, Curr) ->
         ESereal ->
             ESereal
     end.
-
 
 not_loaded(Line) ->
     erlang:nif_error({not_loaded, [{module, ?MODULE}, {line, Line}]}).
