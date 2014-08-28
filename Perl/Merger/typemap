@@ -1,0 +1,3 @@
+TYPEMAP
+
+Sereal::Merger T_PTROBJ
