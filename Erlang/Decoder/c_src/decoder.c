@@ -9,6 +9,8 @@
 #include "sereal_decoder.h"
 #include "srl_protocol.h"
 
+#include "miniz.h"
+
 #define debug_print(fmt, ...)                                           \
     do { if (DEBUG) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__,       \
                                 __LINE__, __func__, ##__VA_ARGS__); } while (0)
@@ -57,6 +59,7 @@ typedef struct {
     int             st_size;
     int             st_top;
 
+    int             header_parsed;
 } Decoder;
 
 // -------------------------------------------------------
@@ -77,6 +80,7 @@ decoder_new(ErlNifEnv* env)
         return NULL;
     }
 
+    result->header_parsed = 0;
     result->atoms = st;
 
     result->is_partial = 0;
@@ -118,7 +122,7 @@ dec_init(Decoder* decoder, ErlNifEnv* env, ERL_NIF_TERM input, ErlNifBinary* bin
 
     // pos'd like to be more forceful on this check so that when
     // we run a second iteration of the decoder we are sure
-    // that we're using the same binary. Unfortunately, pos don't
+    // that we're using the same binary. Unfortunately, I don't
     // think there's a value to base this assertion on.
     if(decoder->pos < 0) {
         decoder->pos = 0;
@@ -293,38 +297,72 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     ErlNifSInt64 header_size;
 
     /* First time: check header */
-    if(start == 0) {
+    if(! decoder->header_parsed ) {
 
         debug_print("Parsing header from %zu\n", start);
-        debug_print("Header is : %s\n", input.data);
+
+        decoder->header_parsed = 1;
 
         const char* errorMsg = NULL;
 
         int magic_string = 1,
             high_magic_string = 1;
 
+        int version_encoding;
+        int version;
+        int encoding_flags;
+
+        int is_zlib_encoded = 0;
+
         // SRL_MAGIC_STRLEN + PROTOCOL_LENGTH + OPTIONAL-HEADER-SIZE(at least 1 byte) + DATA(at least 1 byte)
-        if (input.size < SRL_MAGIC_STRLEN + 1 + 1 + 1){
+        if (decoder->len < SRL_MAGIC_STRLEN + 1 + 1 + 1){
             errorMsg = "Sereal lacks data";
 
             // yeah, this is correct. check usage
-        } else if (  (high_magic_string = strncmp((const char*) input.data, SRL_MAGIC_STRING, SRL_MAGIC_STRLEN))
-                  && (magic_string = strncmp((const char*) input.data, SRL_MAGIC_STRING_HIGHBIT, SRL_MAGIC_STRLEN))) {
+        } else if (  (high_magic_string = strncmp((const char*) decoder->buffer, SRL_MAGIC_STRING, SRL_MAGIC_STRLEN))
+                  && (magic_string = strncmp((const char*) decoder->buffer, SRL_MAGIC_STRING_HIGHBIT, SRL_MAGIC_STRLEN))) {
 
             errorMsg = "Wrong magic string for Sereal";
 
-        } else if (   input.data[SRL_MAGIC_STRLEN] == 0
-                  || (input.data[SRL_MAGIC_STRLEN] <= 2 && high_magic_string)
-                  || (input.data[SRL_MAGIC_STRLEN] > 2  && magic_string)){
+        }
 
+        version_encoding = decoder->buffer[SRL_MAGIC_STRLEN];
+        version = version_encoding & SRL_PROTOCOL_VERSION_MASK;
+        encoding_flags = version_encoding & SRL_PROTOCOL_ENCODING_MASK;
+
+        if (      version <= 0
+             || ( version < 3 && high_magic_string )
+             || ( version > 2 && magic_string ) ) {
             errorMsg = "Unsupported Sereal protocol";
+        }
+
+        if (encoding_flags == SRL_PROTOCOL_ENCODING_RAW) {
+            debug_print("Encoding is Raw\n");            
+            /* no op */
+        }
+        else
+        if (    encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
+             || encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL) {
+            debug_print("Encoding is Snappy\n");            
+            errorMsg = "Snappy encoding is not supported. Try zlib";
+        } else
+        if (encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB)
+        {
+            debug_print("Encoding is Zlib\n");            
+            is_zlib_encoded = 1;
+        }
+        else
+        {
+            errorMsg = "Sereal document encoded in an unknown format";
         }
 
         if(errorMsg != NULL){
             return dec_error(decoder, errorMsg);
         }
 
-        // move behind magic string and protocol version
+        debug_print("Header version is %d\n", version);
+
+        // move after magic string and protocol version
         decoder->pos += SRL_MAGIC_STRLEN + 1;
     
         header_size = srl_read_varint_int64_nocheck(decoder);
@@ -333,6 +371,63 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     
         //TODO: add code for processing the header
         decoder->pos += header_size;
+
+         if (is_zlib_encoded) {
+
+             ErlNifSInt64 uncompressed_len = srl_read_varint_int64_nocheck(decoder);
+             ErlNifSInt64 compressed_len = srl_read_varint_int64_nocheck(decoder);
+
+             // decoder->pos is now at start of compressed payload
+             debug_print("unzipping\n");
+             unsigned char *old_pos;
+             old_pos = (unsigned char * ) (decoder->buffer + decoder->pos * sizeof(unsigned char) );
+
+             int decompress_ok; 
+             mz_ulong tmp; 
+
+             ErlNifBinary uncompressed;
+
+             debug_print(" compressed_len : %ld\n", compressed_len);
+             debug_print(" uncompressed_len : %ld\n", uncompressed_len);
+
+             /* allocate a new buffer for uncompressed data*/
+             enif_alloc_binary((size_t) uncompressed_len, &uncompressed);
+
+             tmp = uncompressed_len;
+
+             decompress_ok = mz_uncompress(
+                                           (unsigned char *) uncompressed.data,
+                                           &tmp,
+                                           (const unsigned char *)old_pos,
+                                           compressed_len
+                                           );
+
+             debug_print(" decompress OK: %i\n", decompress_ok);
+             if (decompress_ok != Z_OK) { 
+                 return dec_error(decoder, "ZLIB decompression of Sereal packet payload failed with error");
+             }
+
+             // we fix decoder pos and len, then immediately return, to allow
+             // Erlang to iterate again. No need to set input and buffer,
+             // because they'll be irrelevant as soon as we return to Erlang,
+             // and will be set again at the start of the next iteration
+
+             decoder->pos = 0;
+             decoder->len = uncompressed_len;
+
+             ERL_NIF_TERM new_input = enif_make_binary(env, &uncompressed);
+
+            return enif_make_tuple5(
+                    env,
+                    st->atom_iter,
+                    argv[1],
+                    objs,
+                    curr,
+                    new_input
+                );
+         }
+
+
     }
 
     int len;
@@ -415,7 +510,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             continue;
         }
 
-        if (decoder->pos >= input.size) {
+        if (decoder->pos >= decoder->len) {
             result = dec_error(decoder, "internal_error 4");
             goto done;
             break;

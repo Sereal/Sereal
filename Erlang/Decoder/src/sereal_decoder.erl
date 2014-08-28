@@ -31,6 +31,11 @@ decode(Data, Opts) when is_binary(Data), is_list(Opts) ->
         {iter, Decoder, Objs, Curr} ->
             decode_loop(Data, Decoder, Objs, Curr);
 
+	%% Special case: the iteration only decompressed the payload and
+	%% returns the new uncompressed data. Let's use this and re-iterate
+        {iter, Decoder, Objs, Curr, NewData} ->
+            decode_loop(NewData, Decoder, Objs, Curr);
+
         ESereal ->
             ESereal
     end.
@@ -87,6 +92,11 @@ decode_loop(Data, Decoder, Objs, Curr) ->
         
         {iter, NewDecoder, NewObjs, NewCurr} ->
             decode_loop(Data, NewDecoder, NewObjs, NewCurr);
+
+	%% Special case: the iteration only decompressed the payload and
+	%% returns the new uncompressed data. Let's use this and re-iterate
+        {iter, NewDecoder, NewObjs, NewCurr, NewData} ->
+            decode_loop(NewData, NewDecoder, NewObjs, NewCurr);
         
         ESereal ->
             ESereal
