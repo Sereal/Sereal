@@ -1,6 +1,7 @@
 # O_OBJECT	-> link an opaque C or C++ object to a blessed Perl object.
 srl_encoder_t * O_OBJECT
 srl_decoder_t * O_OBJECT
+srl_merger_t * O_OBJECT
 
 ######################################################################
 OUTPUT

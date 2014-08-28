@@ -3,18 +3,13 @@
 #include "XSUB.h"
 #include "ppport.h"
 
-#include <srl_merger.h>
-
-
-typedef srl_merger_t * Sereal__Merger;
-
+#include "srl_merger.h"
+#include "srl_buffer.h"
 
 MODULE = Sereal::Merger		PACKAGE = Sereal::Merger
+PROTOTYPES: DISABLE
 
-PROTOTYPES: ENABLE
-
-
-Sereal::Merger
+srl_encoder_t *
 new(CLASS, opt = NULL)
     char *CLASS;
     HV *opt;
@@ -22,6 +17,11 @@ new(CLASS, opt = NULL)
     RETVAL = srl_build_merger_struct(aTHX_ opt);
   OUTPUT: RETVAL
 
+void
+DESTROY(mrg)
+    srl_merger_t *mrg;
+  CODE:
+    srl_destroy_merger(aTHX_ mrg);
 
 void
 test_me()
@@ -31,19 +31,3 @@ test_me()
     PPCODE:
 
     PUSHs(sv_2mortal(newSVpv("0.042", 0)));
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
