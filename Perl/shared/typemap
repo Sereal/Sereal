@@ -1,7 +1,9 @@
 # O_OBJECT	-> link an opaque C or C++ object to a blessed Perl object.
 srl_encoder_t * O_OBJECT
 srl_decoder_t * O_OBJECT
-srl_merger_t * O_OBJECT
+
+# T_OBJECT
+Sereal::Merger  T_PTROBJ
 
 ######################################################################
 OUTPUT
@@ -21,4 +23,3 @@ O_OBJECT
 		warn( \"${Package}::$func_name() -- $var is not a blessed SV reference\" );
 		XSRETURN_UNDEF;
 	}
-

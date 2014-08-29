@@ -27,5 +27,8 @@ srl_merger_t *srl_build_merger_struct(pTHX_ HV *opt);
 /* Explicit destructor */
 void srl_destroy_merger(pTHX_ srl_merger_t *mrg);
 
+/* Methods */
+void srl_merger_finish(pTHX_ srl_merger_t *mrg);
+
 #endif
 

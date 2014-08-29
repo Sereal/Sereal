@@ -116,3 +116,15 @@ srl_destroy_merger(pTHX_ srl_merger_t *mrg) {
     srl_buf_free_buffer(aTHX_ &mrg->buf);
     Safefree(mrg);
 }
+
+
+void srl_merger_finish(pTHX_ srl_merger_t *mrg) {
+    // do stuff with mrg
+    return;
+}
+
+void srl_merger_append(pTHX_ srl_merger_t *mrg, const char * srl_document) {
+    printf("blob : %s\n", srl_document);
+    // do stuff with mrg and srl_document 
+    return;
+}
