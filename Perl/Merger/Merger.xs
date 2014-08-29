@@ -9,7 +9,7 @@
 MODULE = Sereal::Merger		PACKAGE = Sereal::Merger
 PROTOTYPES: DISABLE
 
-srl_encoder_t *
+srl_merger_t *
 new(CLASS, opt = NULL)
     char *CLASS;
     HV *opt;
