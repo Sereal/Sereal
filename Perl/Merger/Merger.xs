@@ -24,11 +24,12 @@ DESTROY(mrg)
   CODE:
     srl_destroy_merger(aTHX mrg);
 
-void
+char *
 finish(mrg)
     Sereal::Merger mrg
-  PPCODE:
-    srl_merger_finish(aTHX mrg);
+  CODE:
+    RETVAL = srl_merger_finish(aTHX mrg);
+  OUTPUT: RETVAL
 
 void
 append(mrg, srl_document)

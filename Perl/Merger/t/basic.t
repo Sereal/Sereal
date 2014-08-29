@@ -15,7 +15,8 @@ use Sereal::Merger;
     my $test = Sereal::Merger->new({});
     print Dumper($test); use Data::Dumper;
     $test->append("foo");
-    $test->finish();
+    my $merged = $test->finish();
+    print STDERR "finish returned $merged\n";
 }
 
 pass;
