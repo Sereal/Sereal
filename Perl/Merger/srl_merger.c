@@ -41,26 +41,71 @@ extern "C" {
 #define HAS_SV2OBJ
 #endif
 
+#include "srl_protocol.h"
 #include "srl_merger.h"
 #include "srl_common.h"
 #include "srl_buffer.h"
+
+/* allocate an empty merger struct - flags still to be set up */
+SRL_STATIC_INLINE srl_merger_t *
+srl_empty_merger_struct(pTHX)
+{
+    srl_merger_t *mrg;
+    Newx(mrg, 1, srl_merger_t);
+    if (mrg == NULL)
+        croak("Out of memory");
+
+    /* Init buffer struct */
+    if (expect_false(srl_buf_init_buffer(aTHX_ &(mrg->buf), INITIALIZATION_SIZE) != 0)) {
+        Safefree(mrg);
+        croak("Out of memory");
+    }
+
+    /* Set the tmp buffer struct's char buffer to NULL so we don't free
+     * something nasty if it's unused. */
+    //mrg->tmp_buf.start = NULL;
+
+    mrg->protocol_version = SRL_PROTOCOL_VERSION;
+    //mrg->recursion_depth = 0;
+    //mrg->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
+    //mrg->operational_flags = 0;
+    /*mrg->flags = 0;*/ /* to be set elsewhere */
+
+    //mrg->weak_seenhash = NULL;
+    //mrg->str_seenhash = NULL;
+    //mrg->ref_seenhash = NULL;
+    //mrg->snappy_workmem = NULL;
+    //mrg->string_deduper_hv = NULL;
+
+    //mrg->freezeobj_svhash = NULL;
+    //mrg->sereal_string_sv = NULL;
+
+    return mrg;
+}
 
 srl_merger_t *
 srl_build_merger_struct(pTHX_ HV *opt)
 {
     srl_merger_t *mrg;
-    Newxz(mrg, 1, srl_merger_t);
-    if (mrg == NULL)
-        croak("Out of memory");
+    SV **svp;
 
-    /* Init buffer struct */
-    if (expect_false(srl_buf_init_buffer(aTHX_ &(mrg->buf), INITIALIZATION_SIZE) != 0 )) {
-        Safefree(mrg);
-        croak("Out of memory");
+    mrg = srl_empty_merger_struct(aTHX);
+
+    /* load options */
+    if (opt != NULL) {
+        /* Needs to be before the snappy options */
+        /* mrg->protocol_version defaults to SRL_PROTOCOL_VERSION. */
+        svp = hv_fetchs(opt, "protocol_version", 0);
+        if (svp && SvOK(*svp)) {
+            mrg->protocol_version = SvUV(*svp);
+            if (mrg->protocol_version < 1
+                || mrg->protocol_version > SRL_PROTOCOL_VERSION)
+            {
+                croak("Specified Sereal protocol version ('%lu') is invalid",
+                      (unsigned long)mrg->protocol_version);
+            }
+        }
     }
-      
-    //mrg->protocol_version = SRL_PROTOCOL_VERSION;
-    //mrg->string_deduper_hv = NULL;
 
     DEBUG_ASSERT_BUF_SANE(mrg);
     return mrg;

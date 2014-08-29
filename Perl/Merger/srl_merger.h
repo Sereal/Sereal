@@ -17,7 +17,7 @@
 /* the merger main struct */
 typedef struct {
     srl_buffer_t buf;
-    //U32 protocol_version;     /* The version of the Sereal protocol to emit. */
+    U32 protocol_version;     /* The version of the Sereal protocol to emit. */
     //HV *string_deduper_hv;    /* track strings we have seen before, by content */
 } srl_merger_t;
 
