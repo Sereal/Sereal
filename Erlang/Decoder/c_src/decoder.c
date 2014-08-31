@@ -9,6 +9,7 @@
 #include "sereal_decoder.h"
 #include "srl_protocol.h"
 
+#include "snappy/csnappy_decompress.c"
 #include "miniz.h"
 
 #define debug_print(fmt, ...)                                           \
@@ -313,6 +314,8 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         int encoding_flags;
 
         int is_zlib_encoded = 0;
+        int is_snappy_encoded = 0;
+        int is_snappyincr_encoded = 0;
 
         // SRL_MAGIC_STRLEN + PROTOCOL_LENGTH + OPTIONAL-HEADER-SIZE(at least 1 byte) + DATA(at least 1 byte)
         if (decoder->len < SRL_MAGIC_STRLEN + 1 + 1 + 1){
@@ -341,10 +344,14 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             /* no op */
         }
         else
-        if (    encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
-             || encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL) {
+        if ( encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY ) {
             debug_print("Encoding is Snappy\n");            
-            errorMsg = "Snappy encoding is not supported. Try zlib";
+            is_snappy_encoded = 1;
+        } else
+        if ( encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL) {
+            debug_print("Encoding is Snappy Incr\n");            
+            is_snappy_encoded = 1;
+            is_snappyincr_encoded = 1;            
         } else
         if (encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB)
         {
@@ -372,7 +379,68 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         //TODO: add code for processing the header
         decoder->pos += header_size;
 
-         if (is_zlib_encoded) {
+        ErlNifSInt64 compressed_len;
+        uint32_t uncompressed_len;
+        int decompress_ok;
+        int header_len;
+        ErlNifBinary uncompressed;
+
+        if (is_snappy_encoded) {
+            if (is_snappyincr_encoded) {
+                compressed_len = srl_read_varint_int64_nocheck(decoder);
+            } else {
+                compressed_len = decoder->len - decoder->pos;
+            }            
+            debug_print("snappy compressed len %lu\n", compressed_len);
+
+            // decoder->pos is now at start of compressed payload
+            debug_print("unsnappying\n");
+
+            unsigned char *old_pos;
+            old_pos = (unsigned char * ) (decoder->buffer + decoder->pos * sizeof(unsigned char) );
+            header_len = csnappy_get_uncompressed_length(
+                (char *)old_pos,
+                compressed_len,
+                &uncompressed_len
+            );
+            if (header_len == CSNAPPY_E_HEADER_BAD) {
+                return dec_error(decoder, "Invalid Snappy header in Snappy-compressed Sereal packet");
+            }
+
+            /* allocate a new buffer for uncompressed data*/
+            enif_alloc_binary((size_t) uncompressed_len, &uncompressed);
+
+            decompress_ok = csnappy_decompress_noheader((char *) (old_pos + header_len),
+                compressed_len - header_len,
+                (char *) uncompressed.data,
+                &uncompressed_len);
+            if ( decompress_ok != 0 ) {
+                return dec_error(decoder, "Snappy decompression of Sereal packet payload failed");
+            }
+             debug_print(" decompress OK: %s\n", uncompressed.data);
+
+             // we fix decoder pos and len, then immediately return, to allow
+             // Erlang to iterate again. No need to set input and buffer,
+             // because they'll be irrelevant as soon as we return to Erlang,
+             // and will be set again at the start of the next iteration
+
+             decoder->pos = 0;
+             decoder->len = uncompressed_len;
+
+             ERL_NIF_TERM new_input = enif_make_binary(env, &uncompressed);
+
+            return enif_make_tuple5(
+                    env,
+                    st->atom_iter,
+                    argv[1],
+                    objs,
+                    curr,
+                    new_input
+                );
+
+        }
+
+        if (is_zlib_encoded) {
 
              ErlNifSInt64 uncompressed_len = srl_read_varint_int64_nocheck(decoder);
              ErlNifSInt64 compressed_len = srl_read_varint_int64_nocheck(decoder);
@@ -404,7 +472,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
              debug_print(" decompress OK: %i\n", decompress_ok);
              if (decompress_ok != Z_OK) { 
-                 return dec_error(decoder, "ZLIB decompression of Sereal packet payload failed with error");
+                 return dec_error(decoder, "ZLIB decompression of Sereal packet payload failed");
              }
 
              // we fix decoder pos and len, then immediately return, to allow
