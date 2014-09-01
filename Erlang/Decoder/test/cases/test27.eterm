@@ -1,0 +1,2 @@
+%% we support undef
+[<<"abcd">>,undefined,<<"defg">>].
