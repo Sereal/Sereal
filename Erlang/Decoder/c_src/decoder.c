@@ -12,6 +12,8 @@
 #include "snappy/csnappy_decompress.c"
 #include "miniz.h"
 
+#include "uthash.h"
+
 #define debug_print(fmt, ...)                                           \
     do { if (DEBUG) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__,       \
                                 __LINE__, __func__, ##__VA_ARGS__); } while (0)
@@ -31,14 +33,16 @@
 
 enum {
 
-    ST_VALUE,
-    ST_OBJECT,
     ST_DONE,
+    ST_VALUE,
     ST_INVALID,
 
     ST_ARRAY_CLOSE,
     ST_HASH_PAIR,
-    ST_HASH_CLOSE
+    ST_HASH_CLOSE,
+
+    ST_JUMP,
+    ST_JUMP_FROM_ZERO
 
 } SrlState;
 
@@ -60,7 +64,13 @@ typedef struct {
     int             st_size;
     int             st_top;
 
+    int*            ref_stack_data;
+    int             ref_stack_size;
+    int             ref_stack_top;
+
     int             header_parsed;
+    int             body_pos;
+
 } Decoder;
 
 // -------------------------------------------------------
@@ -69,6 +79,15 @@ ErlNifUInt64 srl_read_varint_int64_nocheck(Decoder *d);
 ERL_NIF_TERM dec_error(Decoder* d, const char* atom);
 
 // -------------------------------------------------------
+
+struct hashtable_struct {
+    int pos;                    /* key, the position in the srl document */
+    ERL_NIF_TERM term;
+    UT_hash_handle hh;         /* makes this structure hashable */
+};
+
+struct hashtable_struct *refp_hash = NULL;    /* important! initialize to NULL */
+
 
 Decoder*
 decoder_new(ErlNifEnv* env)
@@ -91,6 +110,7 @@ decoder_new(ErlNifEnv* env)
     result->len = -1;
     result->buffer = NULL;
 
+    // status stack
     result->st_data = (char*) enif_alloc(STACK_SIZE_INCR * sizeof(char));
 
     if(result->st_data == NULL){
@@ -108,6 +128,19 @@ decoder_new(ErlNifEnv* env)
 
     result->st_data[1] = ST_VALUE;
     result->st_top++;
+
+
+    // references stack
+
+    result->ref_stack_data = (int*) enif_alloc(STACK_SIZE_INCR * sizeof(int));
+
+    if(result->ref_stack_data == NULL){
+        dec_error(result, "Stack allocation failed");
+        return NULL;
+    }
+
+    result->ref_stack_size = STACK_SIZE_INCR;
+    result->ref_stack_top = 0;
 
     return result;
 }
@@ -208,6 +241,43 @@ dec_pop(Decoder* decoder, char val)
         dec_error(decoder, "Stack is empty");
     }
 }
+
+
+
+void
+dec_push_ref(Decoder* d, int val)
+{
+    if(d->ref_stack_top >= d->ref_stack_size) {
+        int new_sz = d->ref_stack_size + STACK_SIZE_INCR;
+        int* tmp = (int*) enif_alloc(new_sz * sizeof(int));
+
+        memcpy(tmp, d->ref_stack_data, d->ref_stack_size * sizeof(int));
+
+        enif_free(d->ref_stack_data);
+        
+        d->ref_stack_data = tmp;
+        d->ref_stack_size = new_sz;
+    }
+
+    d->ref_stack_data[d->ref_stack_top++] = val;
+}
+
+int
+dec_pop_ref(Decoder* d)
+{
+    int val = 0;
+    if (d->ref_stack_top > 0){
+        val = d->ref_stack_data[d->ref_stack_top-1];
+        d->ref_stack_top--;
+    } else {
+        dec_error(d, "Stack is empty");
+    }
+    return val;
+}
+
+
+
+
 
 ERL_NIF_TERM
 make_array(ErlNifEnv* env, ERL_NIF_TERM list)
@@ -336,7 +406,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         if (      version <= 0
              || ( version < 3 && high_magic_string )
              || ( version > 2 && magic_string ) ) {
-            errorMsg = "Unsupported Sereal protocol";
+            errorMsg = "Unsupported Sereal versions/protocol";
         }
 
         if (encoding_flags == SRL_PROTOCOL_ENCODING_RAW) {
@@ -385,6 +455,12 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         int header_len;
         ErlNifBinary uncompressed;
 
+        if (version < 2) {
+            decoder->body_pos = 0;
+        } else {
+            decoder->body_pos = decoder->pos - 1;
+        }
+
         if (is_snappy_encoded) {
             if (is_snappyincr_encoded) {
                 compressed_len = srl_read_varint_int64_nocheck(decoder);
@@ -426,6 +502,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
              decoder->pos = 0;
              decoder->len = uncompressed_len;
+             decoder->body_pos = -1;
 
              ERL_NIF_TERM new_input = enif_make_binary(env, &uncompressed);
 
@@ -482,6 +559,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
              decoder->pos = 0;
              decoder->len = uncompressed_len;
+             decoder->body_pos = -1;
 
              ERL_NIF_TERM new_input = enif_make_binary(env, &uncompressed);
 
@@ -534,6 +612,25 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
             goto done;
         }
+
+        if ( dec_current(decoder) == ST_JUMP ) {
+            dec_pop(decoder, ST_JUMP);
+            int jump;
+            jump = dec_pop_ref(decoder);
+            debug_print("JUMPING TO %d + %d\n", jump, decoder->body_pos);
+            decoder->pos = jump + decoder->body_pos;            
+            continue;
+        }
+
+        if ( dec_current(decoder) == ST_JUMP_FROM_ZERO ) {
+            dec_pop(decoder, ST_JUMP_FROM_ZERO);
+            int jump;
+            jump = dec_pop_ref(decoder);
+            debug_print("JUMPING TO %d\n", jump);
+            decoder->pos = jump;
+            continue;
+        }
+
 
         if ( dec_current(decoder) == ST_ARRAY_CLOSE ) {
 
@@ -857,7 +954,22 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     case SRL_HDR_COPY:
                         // TODO: add support
                         debug_print("COPY, d->pos = %d\n", decoder->pos);
-                        result = dec_error(decoder, "COPY not supported");
+                        dec_pop(decoder, ST_VALUE);
+                        decoder->pos++;
+
+                        int64_value = srl_read_varint_int64_nocheck(decoder);
+                        debug_print("COPY, MUST JUMP TO %d + %d\n", decoder->body_pos, (int)int64_value);
+
+                        debug_print("THEN WE'LL JUMP TO HERE: %d\n", decoder->pos);
+                        dec_push_ref(decoder, decoder->pos);
+
+                        // jump to the refered position
+                        decoder->pos = (int)int64_value + decoder->body_pos;
+
+                        // push the fact that we need to read a value, then come back here.
+                        dec_push(decoder, ST_JUMP_FROM_ZERO);
+                        dec_push(decoder, ST_VALUE);
+
                         break;
 
                     case SRL_HDR_WEAKEN:
@@ -867,7 +979,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
                     case SRL_HDR_REGEXP:
                         // TODO: add support
-                        debug_print("REGEXP - ignored, d->pos = %d\n", decoder->pos);
+                        debug_print("REGEXP, d->pos = %d\n", decoder->pos);
                         result = dec_error(decoder, "REGEXP not supported");
                         break;
 
