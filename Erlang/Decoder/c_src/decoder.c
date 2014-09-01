@@ -625,7 +625,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     val  = enif_make_sub_binary(decoder->env, decoder->input, decoder->pos, len);
                     curr = enif_make_list_cell(env, val, curr);
                     
-                    debug_print("SHORT_BINARY value = %*c\n", len, decoder->buffer[decoder->pos]);
+                    debug_print("SHORT_BINARY value = %*c\n", len, tag);
                     decoder->pos += len;
 
                 } else if ( IS_SRL_HDR_HASHREF(tag) ) {
@@ -666,7 +666,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
                 } else {
 
-                 switch(decoder->buffer[decoder->pos]) {
+                 switch(tag) {
 
                     case SRL_HDR_VARINT:
                         debug_print("VARINT, d->pos = %d\n", decoder->pos);
@@ -784,8 +784,14 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
                     case SRL_HDR_REFN:
                         // TODO: add support
-                        debug_print("REFN, d->pos = %d\n", decoder->pos);
+                        debug_print("REFN - ignored, d->pos = %d\n", decoder->pos);
                         decoder->pos++;
+                        break;
+
+                    case SRL_HDR_REFP:
+                        // TODO: add support
+                        debug_print("REFP, d->pos = %d\n", decoder->pos);
+                        result = dec_error(decoder, "REFP not supported");
                         break;
 
                     case SRL_HDR_HASH:
@@ -809,7 +815,6 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                             dec_push(decoder, ST_VALUE);
                             dec_push(decoder, ST_VALUE);
                         }
-
                         break;
 
                     case SRL_HDR_ARRAY:
@@ -829,9 +834,86 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                         while (int64_value-- > 0) {
                             dec_push(decoder, ST_VALUE);
                         }
-
                         break;
 
+                    case SRL_HDR_OBJECT:
+                        // TODO: add support
+                        debug_print("OBJECT, d->pos = %d\n", decoder->pos);
+                        result = dec_error(decoder, "OBJECT not supported");
+                        break;
+
+                    case SRL_HDR_OBJECTV:
+                        // TODO: add support
+                        debug_print("OBJECTV, d->pos = %d\n", decoder->pos);
+                        result = dec_error(decoder, "OBJECTV not supported");
+                        break;
+
+                    case SRL_HDR_ALIAS:
+                        // TODO: add support
+                        debug_print("ALIAS, d->pos = %d\n", decoder->pos);
+                        result = dec_error(decoder, "ALIAS not supported");
+                        break;
+
+                    case SRL_HDR_COPY:
+                        // TODO: add support
+                        debug_print("COPY, d->pos = %d\n", decoder->pos);
+                        result = dec_error(decoder, "COPY not supported");
+                        break;
+
+                    case SRL_HDR_WEAKEN:
+                        debug_print("WEAKEN - ignored, d->pos = %d\n", decoder->pos);
+                        decoder->pos++;
+                        break;
+
+                    case SRL_HDR_REGEXP:
+                        // TODO: add support
+                        debug_print("REGEXP - ignored, d->pos = %d\n", decoder->pos);
+                        result = dec_error(decoder, "REGEXP not supported");
+                        break;
+
+                    case SRL_HDR_OBJECT_FREEZE:
+                        // TODO: add support
+                        debug_print("OBJECT, d->pos = %d\n", decoder->pos);
+                        result = dec_error(decoder, "OBJECT not supported");
+                        break;
+
+                    case SRL_HDR_OBJECTV_FREEZE:
+                        // TODO: add support
+                        debug_print("OBJECTV, d->pos = %d\n", decoder->pos);
+                        result = dec_error(decoder, "OBJECTV not supported");
+                        break;
+
+                    case SRL_HDR_CANONICAL_UNDEF:
+                        debug_print("CANONICAL UNDEF, d->pos = %d\n", decoder->pos);
+
+                        dec_pop(decoder, ST_VALUE);
+                        decoder->pos++;
+
+                        curr = enif_make_list_cell(decoder->env, decoder->atoms->atom_undefined, curr);
+                        break;
+
+                    case SRL_HDR_FALSE:
+                        debug_print("FALSE, d->pos = %d\n", decoder->pos);
+
+                        dec_pop(decoder, ST_VALUE);
+                        decoder->pos++;
+
+                        curr = enif_make_list_cell(decoder->env, decoder->atoms->atom_false, curr);
+                        break;
+
+                    case SRL_HDR_TRUE:
+                        debug_print("TRUE, d->pos = %d\n", decoder->pos);
+
+                        dec_pop(decoder, ST_VALUE);
+                        decoder->pos++;
+
+                        curr = enif_make_list_cell(decoder->env, decoder->atoms->atom_true, curr);
+                        break;
+
+                    case SRL_HDR_PAD:
+                        debug_print("PAD - ignored, d->pos = %d\n", decoder->pos);
+                        decoder->pos++;
+                        break;
                         
                     default:
                         result = dec_error(decoder, "invalid_sereal");
