@@ -114,9 +114,13 @@ srl_destroy_merger(pTHX_ srl_merger_t *mrg) {
     //srl_buf_free_buffer(aTHX_ &mrg->obuf);
 
     if (mrg->tracked_offsets) {
-        // TODO
-        //av_clear(mrg->tracked_offsets);
-        //mrg->tracked_offsets = NULL;
+        SvREFCNT_dec(mrg->tracked_offsets);
+        mrg->tracked_offsets = NULL;
+    }
+
+    if (mrg->tracked_offsets_with_duplicates) {
+        SvREFCNT_dec(mrg->tracked_offsets_with_duplicates);
+        mrg->tracked_offsets_with_duplicates = NULL;
     }
 
     Safefree(mrg);
@@ -153,6 +157,8 @@ srl_empty_merger_struct(pTHX)
         croak("Out of memory");
     }
 
+    mrg->tracked_offsets = NULL;
+    mrg->tracked_offsets_with_duplicates = NULL;
     return mrg;
 }
 
@@ -171,27 +177,28 @@ srl_reset_input_buffer(pTHX_ srl_merger_t *mrg, SV *src) {
 SRL_STATIC_INLINE void
 srl_build_track_table(pTHX_ srl_merger_t *mrg) {
     U8 tag;
+    SV *sv_offset;
+    SV **sv_offset_ptr;
     UV offset, last_offset;
-    SV **svptr;
     int i, avlen;
 
-    //if (mrg->tracked_offsets) {
-    //    av_clear(mrg->tracked_offsets);
-    //} else {
+    if (mrg->tracked_offsets) {
+        av_clear(mrg->tracked_offsets);
+    } else {
         mrg->tracked_offsets = newAV();
-    //}
-    //
-    //if (mrg->tracked_offsets_with_duplicates) {
-    //    av_clear(mrg->tracked_offsets_with_duplicates);
-    //} else {
+    }
+
+    if (mrg->tracked_offsets_with_duplicates) {
+        av_clear(mrg->tracked_offsets_with_duplicates);
+    } else {
         mrg->tracked_offsets_with_duplicates = newAV();
-    //}
+    }
 
     while (IBUF_NOT_DONE(mrg)) {
         tag = *mrg->ipos++;
         if (expect_false(tag & SRL_HDR_TRACK_FLAG)) {
             tag = tag & ~SRL_HDR_TRACK_FLAG;
-            SV* sv_offset = sv_2mortal(newSVuv(IBODY_POS_OFS(mrg)));
+            sv_offset = sv_2mortal(newSVuv(IBODY_POS_OFS(mrg)));
             av_push(mrg->tracked_offsets_with_duplicates, sv_offset);
         }
 
@@ -232,7 +239,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg) {
             case SRL_HDR_OBJECTV:
             case SRL_HDR_OBJECTV_FREEZE:
                 offset = srl_read_varint_uv_offset(mrg, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
-                SV* sv_offset = sv_2mortal(newSVuv(offset));
+                sv_offset = sv_2mortal(newSVuv(offset));
                 av_push(mrg->tracked_offsets_with_duplicates, sv_offset);
                 break;
 
@@ -264,25 +271,26 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg) {
             Perl_sv_cmp_locale
         );
 
-        // remove duplicates
         last_offset = -1;
         avlen = av_top_index(mrg->tracked_offsets_with_duplicates);
-        for (i = 0; i <= avlen; ++i) {
-            if (!(svptr = av_fetch(mrg->tracked_offsets_with_duplicates, i, 0)))
-                croak("svptr is NULL"); // TODO
 
-            UV offset = SvUV(*svptr);
+        // remove duplicates
+        for (i = 0; i <= avlen; ++i) {
+            if (!(sv_offset_ptr = av_fetch(mrg->tracked_offsets_with_duplicates, i, 0)))
+                croak("sv_offset_ptr is NULL"); // TODO
+
+            UV offset = SvUV(*sv_offset_ptr);
             if (last_offset != offset) {
                 last_offset = offset;
-                av_push(mrg->tracked_offsets, sv_2mortal(newSVuv(offset)));
+                av_push(mrg->tracked_offsets, sv_mortalcopy(*sv_offset_ptr));
             }
         }
 
 #ifdef DEBUG
         avlen = av_top_index(mrg->tracked_offsets);
         for (i = 0; i <= avlen; ++i) {
-            svptr = av_fetch(mrg->tracked_offsets, i, 0);
-            warn("tracked_offsets: idx %d offset %d\n", i, (int) SvUV(*svptr));
+            sv_offset_ptr= av_fetch(mrg->tracked_offsets, i, 0);
+            warn("tracked_offsets: idx %d offset %d\n", i, (int) SvUV(*sv_offset_ptr));
         }
 #endif
     }
