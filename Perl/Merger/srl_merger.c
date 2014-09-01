@@ -177,7 +177,6 @@ srl_reset_input_buffer(pTHX_ srl_merger_t *mrg, SV *src) {
 SRL_STATIC_INLINE void
 srl_build_track_table(pTHX_ srl_merger_t *mrg) {
     U8 tag;
-    SV *sv_offset;
     SV **sv_offset_ptr;
     UV offset, last_offset;
     int i, avlen;
@@ -198,8 +197,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg) {
         tag = *mrg->ipos++;
         if (expect_false(tag & SRL_HDR_TRACK_FLAG)) {
             tag = tag & ~SRL_HDR_TRACK_FLAG;
-            sv_offset = sv_2mortal(newSVuv(IBODY_POS_OFS(mrg)));
-            av_push(mrg->tracked_offsets_with_duplicates, sv_offset);
+            av_push(mrg->tracked_offsets_with_duplicates, newSVuv(IBODY_POS_OFS(mrg)));
         }
 
 #ifdef DEBUG
@@ -239,8 +237,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg) {
             case SRL_HDR_OBJECTV:
             case SRL_HDR_OBJECTV_FREEZE:
                 offset = srl_read_varint_uv_offset(mrg, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
-                sv_offset = sv_2mortal(newSVuv(offset));
-                av_push(mrg->tracked_offsets_with_duplicates, sv_offset);
+                av_push(mrg->tracked_offsets_with_duplicates, newSVuv(offset));
                 break;
 
             case SRL_HDR_PAD:
@@ -282,7 +279,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg) {
             UV offset = SvUV(*sv_offset_ptr);
             if (last_offset != offset) {
                 last_offset = offset;
-                av_push(mrg->tracked_offsets, sv_mortalcopy(*sv_offset_ptr));
+                av_push(mrg->tracked_offsets, SvREFCNT_inc(*sv_offset_ptr));
             }
         }
 
@@ -290,7 +287,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg) {
         avlen = av_top_index(mrg->tracked_offsets);
         for (i = 0; i <= avlen; ++i) {
             sv_offset_ptr= av_fetch(mrg->tracked_offsets, i, 0);
-            warn("tracked_offsets: idx %d offset %d\n", i, (int) SvUV(*sv_offset_ptr));
+            warn("tracked_offsets: idx %d offset %d SvREFCNT(%d)\n", i, (int) SvUV(*sv_offset_ptr), SvREFCNT(*sv_offset_ptr));
         }
 #endif
     }
