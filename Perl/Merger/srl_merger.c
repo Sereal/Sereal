@@ -111,7 +111,7 @@ srl_build_merger_struct(pTHX_ HV *opt)
 
 void
 srl_destroy_merger(pTHX_ srl_merger_t *mrg) {
-    //srl_buf_free_buffer(aTHX_ &mrg->obuf);
+    srl_buf_free_buffer(aTHX_ &mrg->obuf);
 
     if (mrg->tracked_offsets) {
         SvREFCNT_dec(mrg->tracked_offsets);
@@ -214,7 +214,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg) {
         switch (tag) {
             case SRL_HDR_VARINT:
             case SRL_HDR_ZIGZAG:
-                mrg->ipos += srl_read_varint_uv(mrg);
+                srl_read_varint_uv(mrg);
                 break;
 
             case SRL_HDR_FLOAT:         mrg->ipos += 4;     break;
@@ -260,19 +260,14 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg) {
         }
     }
 
-    if (av_len(mrg->tracked_offsets_with_duplicates) + 1) {
+    if ((avlen = av_top_index(mrg->tracked_offsets_with_duplicates) + 1)) {
         // sort offsets
-        sortsv(
-            AvARRAY(mrg->tracked_offsets_with_duplicates),
-            av_top_index(mrg->tracked_offsets_with_duplicates) + 1,
-            Perl_sv_cmp_locale
-        );
+        sortsv(AvARRAY(mrg->tracked_offsets_with_duplicates), avlen, Perl_sv_cmp_locale);
 
         last_offset = -1;
-        avlen = av_top_index(mrg->tracked_offsets_with_duplicates);
 
         // remove duplicates
-        for (i = 0; i <= avlen; ++i) {
+        for (i = 0; i < avlen; ++i) {
             if (!(sv_offset_ptr = av_fetch(mrg->tracked_offsets_with_duplicates, i, 0)))
                 croak("sv_offset_ptr is NULL"); // TODO
 
