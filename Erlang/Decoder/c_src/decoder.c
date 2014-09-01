@@ -339,28 +339,30 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             errorMsg = "Unsupported Sereal protocol";
         }
 
-        if (encoding_flags == SRL_PROTOCOL_ENCODING_RAW) {
-            debug_print("Encoding is Raw\n");            
-            /* no op */
-        }
-        else
-        if ( encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY ) {
-            debug_print("Encoding is Snappy\n");            
-            is_snappy_encoded = 1;
-        } else
-        if ( encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL) {
-            debug_print("Encoding is Snappy Incr\n");            
-            is_snappy_encoded = 1;
-            is_snappyincr_encoded = 1;            
-        } else
-        if (encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB)
-        {
-            debug_print("Encoding is Zlib\n");            
-            is_zlib_encoded = 1;
-        }
-        else
-        {
-            errorMsg = "Sereal document encoded in an unknown format";
+        switch(encoding_flags) {
+
+            case SRL_PROTOCOL_ENCODING_RAW:
+                /* no op */
+                debug_print("Encoding is Raw\n");            
+                break;
+
+            case SRL_PROTOCOL_ENCODING_SNAPPY:
+                debug_print("Encoding is Snappy\n");            
+                is_snappy_encoded = 1;
+                break;
+
+            case SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL:
+                debug_print("Encoding is Snappy Incr\n");            
+                is_snappy_encoded = is_snappyincr_encoded = 1;            
+                break;
+
+            case SRL_PROTOCOL_ENCODING_ZLIB:
+                debug_print("Encoding is Zlib\n");            
+                is_zlib_encoded = 1;
+                break;
+            
+            default:
+                errorMsg = "Sereal document encoded in an unknown format";
         }
 
         if(errorMsg != NULL){
@@ -438,35 +440,29 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     new_input
                 );
 
-        }
-
-        if (is_zlib_encoded) {
+        } else if (is_zlib_encoded) {
 
              ErlNifSInt64 uncompressed_len = srl_read_varint_int64_nocheck(decoder);
              ErlNifSInt64 compressed_len = srl_read_varint_int64_nocheck(decoder);
 
              // decoder->pos is now at start of compressed payload
              debug_print("unzipping\n");
-             unsigned char *old_pos;
-             old_pos = (unsigned char * ) (decoder->buffer + decoder->pos * sizeof(unsigned char) );
-
-             int decompress_ok; 
-             mz_ulong tmp; 
-
-             ErlNifBinary uncompressed;
-
              debug_print(" compressed_len : %ld\n", compressed_len);
              debug_print(" uncompressed_len : %ld\n", uncompressed_len);
+
+             
+             mz_ulong tmp = uncompressed_len;
+             ErlNifBinary uncompressed;
 
              /* allocate a new buffer for uncompressed data*/
              enif_alloc_binary((size_t) uncompressed_len, &uncompressed);
 
-             tmp = uncompressed_len;
+             unsigned char *compressed = (unsigned char * ) (decoder->buffer + decoder->pos * sizeof(unsigned char) );
 
-             decompress_ok = mz_uncompress(
+             int decompress_ok = mz_uncompress(
                                            (unsigned char *) uncompressed.data,
                                            &tmp,
-                                           (const unsigned char *)old_pos,
+                                           (const unsigned char *) compressed,
                                            compressed_len
                                            );
 
@@ -481,11 +477,11 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
              // and will be set again at the start of the next iteration
 
              decoder->pos = 0;
-             decoder->len = uncompressed_len;
+             decoder->len = tmp;
 
              ERL_NIF_TERM new_input = enif_make_binary(env, &uncompressed);
 
-            return enif_make_tuple5(
+             return enif_make_tuple5(
                     env,
                     st->atom_iter,
                     argv[1],
