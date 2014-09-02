@@ -27,7 +27,6 @@
 #define BUF_NEED_GROW_TOTAL(buf, minlen) ((size_t)BUF_SIZE(buf) <= minlen)
 #define BUF_NOT_DONE(buf) ((buf).pos < (buf).end)
 
-
 /* body-position/size related operations */
 #define BODY_POS_OFS(buf) (((buf).pos) - ((buf).body_pos))
 
@@ -42,34 +41,33 @@
         }                                                                   \
     } STMT_END
 
-
 /* Internal debugging macros, used only in DEBUG mode */
 #ifndef NDEBUG
-#define DEBUG_ASSERT_BUF_SPACE(enc, len) STMT_START {                       \
-    if((BUF_SPACE(enc->buf) < (ptrdiff_t)(len))) {                          \
+#define DEBUG_ASSERT_BUF_SPACE(buf, len) STMT_START {                       \
+    if((BUF_SPACE(buf) < (ptrdiff_t)(len))) {                               \
         warn("failed assertion check - pos: %ld [%p %p %p] %ld < %ld",      \
-                (long)BUF_POS_OFS(enc->buf), (enc)->buf.start,              \
-                (enc)->buf.pos, (enc)->buf.end,                             \
-                (long)BUF_SPACE(enc->buf),(long)(len));                     \
+                (long)BUF_POS_OFS(buf), (buf).start,                        \
+                (buf).pos, (buf).end,                                       \
+                (long)BUF_SPACE(buf),(long)(len));                          \
     }                                                                       \
-    assert(BUF_SPACE(enc->buf) >= (ptrdiff_t)(len));                        \
+    assert(BUF_SPACE(buf) >= (ptrdiff_t)(len));                             \
 } STMT_END
 #else
-#define DEBUG_ASSERT_BUF_SPACE(enc, len) ((void)0)
+#define DEBUG_ASSERT_BUF_SPACE(buf, len) ((void)0)
 #endif
 
 #ifndef NDEBUG
-#define DEBUG_ASSERT_BUF_SANE(enc) STMT_START {                                             \
-    if(!(((enc)->buf.start <= (enc)->buf.pos) && ((enc)->buf.pos <= (enc)->buf.end))){      \
-        warn("failed sanity assertion check - pos: %ld [%p %p %p] %ld",                     \
-                (long)BUF_POS_OFS(enc->buf), (enc)->buf.start,                              \
-                (enc)->buf.pos, (enc)->buf.end, (long)BUF_SPACE(enc->buf));                 \
-    }                                                                                       \
-    assert(((enc)->buf.start <= (enc)->buf.pos) && ((enc)->buf.pos <= (enc)->buf.end));     \
+#define DEBUG_ASSERT_BUF_SANE(buf) STMT_START {                             \
+    if(!(((buf).start <= (buf).pos) && ((buf).pos <= (buf).end))){          \
+        warn("failed sanity assertion check - pos: %ld [%p %p %p] %ld",     \
+                (long)BUF_POS_OFS(buf), (buf).start,                        \
+                (buf).pos, (buf).end, (long)BUF_SPACE(buf));                \
+    }                                                                       \
+    assert(((buf).start <= (buf).pos) && ((buf).pos <= (buf).end));         \
 } STMT_END
 #else
-#define DEBUG_ASSERT_BUF_SANE(enc)                                                      \
-    assert(((enc)->buf.start <= (enc)->buf.pos) && ((enc)->buf.pos <= (enc)->buf.end))
+#define DEBUG_ASSERT_BUF_SANE(buf)                                          \
+    assert(((buf).start <= (buf).pos) && ((buf).pos <= (buf).end))
 #endif
 
 /* Allocate a virgin buffer (but not the buffer struct) */
@@ -123,7 +121,7 @@ srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
     const size_t new_size = 100 + (minlen > grown_len ? minlen : grown_len);
 #endif
 
-    DEBUG_ASSERT_BUF_SANE(enc);
+    DEBUG_ASSERT_BUF_SANE(enc->buf);
     /* assert that Renew means GROWING the buffer */
     assert(enc->buf.start + new_size > enc->buf.end);
 
@@ -134,7 +132,7 @@ srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
     enc->buf.pos= enc->buf.start + pos_ofs;
     SRL_SET_BODY_POS(enc, enc->buf.start + body_ofs);
 
-    DEBUG_ASSERT_BUF_SANE(enc);
+    DEBUG_ASSERT_BUF_SANE(enc->buf);
     assert(enc->buf.end - enc->buf.start > (ptrdiff_t)0);
     assert(enc->buf.pos - enc->buf.start >= (ptrdiff_t)0);
     /* The following is checking against -1 because SRL_UPDATE_BODY_POS
@@ -146,18 +144,18 @@ srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
 
 #define BUF_SIZE_ASSERT(enc, minlen)                                    \
   STMT_START {                                                          \
-    DEBUG_ASSERT_BUF_SANE(enc);                                         \
+    DEBUG_ASSERT_BUF_SANE(enc->buf);                                    \
     if (BUF_NEED_GROW(enc->buf, minlen))                                \
       srl_buf_grow_nocheck(aTHX_ (enc), (BUF_SIZE(enc->buf) + minlen)); \
-    DEBUG_ASSERT_BUF_SANE(enc);                                         \
+    DEBUG_ASSERT_BUF_SANE(enc->buf);                                    \
   } STMT_END
 
 #define BUF_SIZE_ASSERT_TOTAL(enc, minlen)                              \
   STMT_START {                                                          \
-    DEBUG_ASSERT_BUF_SANE(enc);                                         \
+    DEBUG_ASSERT_BUF_SANE(enc->buf);                                    \
     if (BUF_NEED_GROW_TOTAL(enc->buf, minlen))                          \
       srl_buf_grow_nocheck(aTHX_ (enc), (minlen));                      \
-    DEBUG_ASSERT_BUF_SANE(enc);                                         \
+    DEBUG_ASSERT_BUF_SANE(enc->buf);                                    \
   } STMT_END
 
 SRL_STATIC_INLINE void
@@ -166,7 +164,7 @@ srl_buf_cat_str_int(pTHX_ srl_encoder_t *enc, const char *str, size_t len)
     BUF_SIZE_ASSERT(enc, len);
     Copy(str, enc->buf.pos, len, char);
     enc->buf.pos += len;
-    DEBUG_ASSERT_BUF_SANE(enc);
+    DEBUG_ASSERT_BUF_SANE(enc->buf);
 }
 #define srl_buf_cat_str(enc, str, len) srl_buf_cat_str_int(aTHX_ enc, str, len)
 /* see perl.git:handy.h STR_WITH_LEN macro for explanation of the below code */
@@ -175,11 +173,11 @@ srl_buf_cat_str_int(pTHX_ srl_encoder_t *enc, const char *str, size_t len)
 SRL_STATIC_INLINE void
 srl_buf_cat_str_nocheck_int(pTHX_ srl_encoder_t *enc, const char *str, size_t len)
 {
-    DEBUG_ASSERT_BUF_SANE(enc);
-    DEBUG_ASSERT_BUF_SPACE(enc, len);
+    DEBUG_ASSERT_BUF_SANE(enc->buf);
+    DEBUG_ASSERT_BUF_SPACE(enc->buf, len);
     Copy(str, enc->buf.pos, len, char);
     enc->buf.pos += len;
-    DEBUG_ASSERT_BUF_SANE(enc);
+    DEBUG_ASSERT_BUF_SANE(enc->buf);
 }
 #define srl_buf_cat_str_nocheck(enc, str, len) srl_buf_cat_str_nocheck_int(aTHX_ enc, str, len)
 /* see perl.git:handy.h STR_WITH_LEN macro for explanation of the below code */
@@ -188,21 +186,21 @@ srl_buf_cat_str_nocheck_int(pTHX_ srl_encoder_t *enc, const char *str, size_t le
 SRL_STATIC_INLINE void
 srl_buf_cat_char_int(pTHX_ srl_encoder_t *enc, const char c)
 {
-    DEBUG_ASSERT_BUF_SANE(enc);
+    DEBUG_ASSERT_BUF_SANE(enc->buf);
     BUF_SIZE_ASSERT(enc, 1);
-    DEBUG_ASSERT_BUF_SPACE(enc, 1);
+    DEBUG_ASSERT_BUF_SPACE(enc->buf, 1);
     *enc->buf.pos++ = c;
-    DEBUG_ASSERT_BUF_SANE(enc);
+    DEBUG_ASSERT_BUF_SANE(enc->buf);
 }
 #define srl_buf_cat_char(enc, c) srl_buf_cat_char_int(aTHX_ enc, c)
 
 SRL_STATIC_INLINE void
 srl_buf_cat_char_nocheck_int(pTHX_ srl_encoder_t *enc, const char c)
 {
-    DEBUG_ASSERT_BUF_SANE(enc);
-    DEBUG_ASSERT_BUF_SPACE(enc, 1);
+    DEBUG_ASSERT_BUF_SANE(enc->buf);
+    DEBUG_ASSERT_BUF_SPACE(enc->buf, 1);
     *enc->buf.pos++ = c;
-    DEBUG_ASSERT_BUF_SANE(enc);
+    DEBUG_ASSERT_BUF_SANE(enc->buf);
 }
 #define srl_buf_cat_char_nocheck(enc, c) srl_buf_cat_char_nocheck_int(aTHX_ enc, c)
 
@@ -211,8 +209,8 @@ srl_buf_cat_char_nocheck_int(pTHX_ srl_encoder_t *enc, const char c)
 
 SRL_STATIC_INLINE void
 srl_buf_cat_varint_nocheck(pTHX_ srl_encoder_t *enc, const char tag, UV n) {
-    DEBUG_ASSERT_BUF_SANE(enc);
-    DEBUG_ASSERT_BUF_SPACE(enc, (tag==0 ? 0 : 1) + SRL_MAX_VARINT_LENGTH);
+    DEBUG_ASSERT_BUF_SANE(enc->buf);
+    DEBUG_ASSERT_BUF_SPACE(enc->buf, (tag==0 ? 0 : 1) + SRL_MAX_VARINT_LENGTH);
     if (expect_true( tag ))
         *enc->buf.pos++ = tag;
     while (n >= 0x80) {                      /* while we are larger than 7 bits long */
@@ -220,13 +218,13 @@ srl_buf_cat_varint_nocheck(pTHX_ srl_encoder_t *enc, const char tag, UV n) {
         n = n >> 7;                          /* shift off the 7 least significant bits */
     }
     *enc->buf.pos++ = n;                     /* encode the last 7 bits without the high bit being set */
-    DEBUG_ASSERT_BUF_SANE(enc);
+    DEBUG_ASSERT_BUF_SANE(enc->buf);
 }
 
 SRL_STATIC_INLINE void
 srl_buf_cat_varint(pTHX_ srl_encoder_t *enc, const char tag, const UV n) {
     /* this implements "varint" from google protocol buffers */
-    DEBUG_ASSERT_BUF_SANE(enc);
+    DEBUG_ASSERT_BUF_SANE(enc->buf);
     BUF_SIZE_ASSERT(enc, SRL_MAX_VARINT_LENGTH + 1); /* always allocate space for the tag, overalloc is harmless */
     srl_buf_cat_varint_nocheck(aTHX_ enc, tag, n);
 }
