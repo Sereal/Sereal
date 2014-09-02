@@ -41,6 +41,11 @@ extern "C" {
 #define HAS_SV2OBJ
 #endif
 
+#define IS_SRL_HDR_ARRAYREF(tag) (((tag) & SRL_HDR_ARRAYREF) == SRL_HDR_ARRAYREF)
+#define IS_SRL_HDR_HASHREF(tag) (((tag) & SRL_HDR_HASHREF) == SRL_HDR_HASHREF)
+#define IS_SRL_HDR_SHORT_BINARY(tag) (((tag) & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW)
+#define SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) ((tag) & SRL_MASK_SHORT_BINARY_LEN)
+
 #define ASSERT_BUF_SPACE(buf, len, msg) STMT_START {        \
     if (expect_false((UV) BUF_SPACE((buf)) < (UV) (len))) { \
         croak("Unexpected termination of packet%s, "         \

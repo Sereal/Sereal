@@ -1,1 +1,3 @@
 - test/implement srl_skip_varint()
+- dedupe srl_read_varint-* functions
+- dedupe IS_SRL_HDR* macros
