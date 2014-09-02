@@ -16,10 +16,7 @@
 /* the merger main struct */
 typedef struct {
     srl_buffer_t obuf;                  /* output buffer */
-    unsigned char *ibuf_start;          /* ptr to "physical" start of input buffer */
-    unsigned char *ibuf_end;            /* ptr to end of input buffer */
-    unsigned char *ipos;                /* ptr to current position within input buffer */
-    unsigned char *ibody_pos;           /* in Sereal V2, all offsets are relative to the body */
+    srl_buffer_t ibuf;                  /* input buffer, MUST NOT be deallocated by srl_buf_free_buffer() */
 
     AV *tracked_offsets;                /* list of tracked offsets */
     AV *tracked_offsets_with_duplicates;

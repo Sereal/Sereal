@@ -41,29 +41,16 @@ extern "C" {
 #define HAS_SV2OBJ
 #endif
 
-#define IBUF_SPACE(mrg) ((mrg)->ibuf_end - (mrg)->ipos)
-#define IBUF_POS_OFS(dec) ((mrg)->ipos - (mrg)->ibuf_start)
-#define IBODY_POS_OFS(enc) ((mrg)->ipos - (mrg)->ibody_pos)
-#define IBUF_NOT_DONE(mrg) ((mrg)->ipos < (mrg)->ibuf_end)
-#define ASSERT_IBUF_SPACE(mrg, len, msg) STMT_START {        \
-    if (expect_false((UV) IBUF_SPACE((mrg)) < (UV) (len))) { \
+#define ASSERT_BUF_SPACE(buf, len, msg) STMT_START {        \
+    if (expect_false((UV) BUF_SPACE((buf)) < (UV) (len))) { \
         croak("Unexpected termination of packet%s, "         \
               "want %lu bytes, only have %lu available",     \
-              (msg), (UV) (len), (UV) IBUF_SPACE((mrg)));    \
+              (msg), (UV) (len), (UV) BUF_SPACE((buf)));    \
     }                                                        \
 } STMT_END
 
 //#define SRL_MRG_HAVE_OPTION(mrg, flag_num) ((mrg)->flags & flag_num)
 //#define SRL_MRG_SET_OPTION(mrg, flag_num) ((mrg)->flags |= flag_num)
-//
-//#define SRL_SET_IBODY_POS(mrg, pos_ptr) ((mrg)->ibody_pos = pos_ptr)
-//#define SRL_UPDATE_IBODY_POS(mrg) STMT_START {                                  \
-//    if (expect_false(SRL_MRG_HAVE_OPTION((mrg), SRL_F_DECODER_PROTOCOL_V1))) {  \
-//        SRL_SET_BODY_POS(mrg, (mrg)->ibuf_start)                                \
-//    } else {                                                                    \
-//        SRL_SET_BODY_POS(mrg, (mrg)->ipos-1);                                   \
-//    }                                                                           \
-//} STMT_END
 
 #include "srl_merger.h"
 #include "srl_common.h"
@@ -72,15 +59,15 @@ extern "C" {
 #include "../Encoder/srl_buffer.h"
 
 /* predeclare all our subs so we have one definitive authority for their signatures */
-SRL_STATIC_INLINE UV srl_read_varint_uv_safe(pTHX_ srl_merger_t *mrg);
-SRL_STATIC_INLINE UV srl_read_varint_uv_nocheck(pTHX_ srl_merger_t *mrg);
-SRL_STATIC_INLINE UV srl_read_varint_uv(pTHX_ srl_merger_t *mrg);
-SRL_STATIC_INLINE UV srl_read_varint_uv_offset(pTHX_ srl_merger_t *mrg, const char * const errstr);
-SRL_STATIC_INLINE UV srl_read_varint_uv_length(pTHX_ srl_merger_t *mrg, const char * const errstr);
-SRL_STATIC_INLINE UV srl_read_varint_uv_count(pTHX_ srl_merger_t *mrg, const char * const errstr);
+SRL_STATIC_INLINE UV srl_read_varint_uv_safe(pTHX_ srl_buffer_t *buf);
+SRL_STATIC_INLINE UV srl_read_varint_uv_nocheck(pTHX_ srl_buffer_t *buf);
+SRL_STATIC_INLINE UV srl_read_varint_uv(pTHX_ srl_buffer_t *buf);
+SRL_STATIC_INLINE UV srl_read_varint_uv_offset(pTHX_ srl_buffer_t *buf, const char * const errstr);
+SRL_STATIC_INLINE UV srl_read_varint_uv_length(pTHX_ srl_buffer_t *buf, const char * const errstr);
+SRL_STATIC_INLINE UV srl_read_varint_uv_count(pTHX_ srl_buffer_t *buf, const char * const errstr);
 
 SRL_STATIC_INLINE srl_merger_t * srl_empty_merger_struct(pTHX);                         /* allocate an empty merger struct - flags still to be set up */
-SRL_STATIC_INLINE void srl_reset_input_buffer(pTHX_ srl_merger_t *mrg, SV *src); /* reset ibuf_* field */
+SRL_STATIC_INLINE void srl_reset_input_buffer(pTHX_ srl_merger_t *mrg, SV *src);        /* reset input buffer (ibuf) */
 SRL_STATIC_INLINE void srl_build_track_table(pTHX_ srl_merger_t *mrg);
 
 srl_merger_t *
@@ -131,8 +118,8 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src) {
     assert(mrg != NULL);
 
     srl_reset_input_buffer(mrg, src);
-    mrg->ipos += 6;
-    mrg->ibody_pos = mrg->ipos;
+    mrg->ibuf.pos += 6;
+    mrg->ibuf.body_pos = mrg->ibuf.pos;
 
     srl_build_track_table(mrg);
 }
@@ -165,13 +152,11 @@ srl_empty_merger_struct(pTHX)
 SRL_STATIC_INLINE void
 srl_reset_input_buffer(pTHX_ srl_merger_t *mrg, SV *src) {
     STRLEN len;
-    unsigned char *tmp;
+    char *tmp;
 
-    tmp = (unsigned char*) SvPV(src, len);
-    mrg->ibuf_start = mrg->ipos = tmp;
-    mrg->ibuf_end = tmp + len;
-
-    // TODO reset tracked_offsets
+    tmp = (char*) SvPV(src, len);
+    mrg->ibuf.start = mrg->ibuf.pos = tmp;
+    mrg->ibuf.end = tmp + len;
 }
 
 SRL_STATIC_INLINE void
@@ -193,19 +178,20 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg) {
         mrg->tracked_offsets_with_duplicates = newAV();
     }
 
-    while (IBUF_NOT_DONE(mrg)) {
-        tag = *mrg->ipos++;
+    while (BUF_NOT_DONE(mrg->ibuf)) {
+        tag = *mrg->ibuf.pos++;
         if (expect_false(tag & SRL_HDR_TRACK_FLAG)) {
             tag = tag & ~SRL_HDR_TRACK_FLAG;
-            av_push(mrg->tracked_offsets_with_duplicates, newSVuv(IBODY_POS_OFS(mrg)));
+            offset = BODY_POS_OFS(mrg->ibuf);
+            av_push(mrg->tracked_offsets_with_duplicates, newSVuv(offset));
         }
 
 #ifdef DEBUG
-        warn("tag %d (0x%X) at %d", tag, tag, (int) IBUF_POS_OFS(mrg));
+        warn("tag %d (0x%X) at %d", tag, tag, (int) BUF_POS_OFS(mrg->ibuf));
 #endif
 
         if (IS_SRL_HDR_SHORT_BINARY(tag)) {
-            mrg->ipos += SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+            mrg->ibuf.pos += SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
             continue;
         } else if (tag <= SRL_HDR_NEG_HIGH || IS_SRL_HDR_ARRAYREF(tag) || IS_SRL_HDR_HASHREF(tag)) {
             continue;
@@ -214,21 +200,21 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg) {
         switch (tag) {
             case SRL_HDR_VARINT:
             case SRL_HDR_ZIGZAG:
-                srl_read_varint_uv(mrg);
+                srl_read_varint_uv(&mrg->ibuf);
                 break;
 
-            case SRL_HDR_FLOAT:         mrg->ipos += 4;     break;
-            case SRL_HDR_DOUBLE:        mrg->ipos += 8;     break;
-            case SRL_HDR_LONG_DOUBLE:   mrg->ipos += 16;    break;
+            case SRL_HDR_FLOAT:         mrg->ibuf.pos += 4;     break;
+            case SRL_HDR_DOUBLE:        mrg->ibuf.pos += 8;     break;
+            case SRL_HDR_LONG_DOUBLE:   mrg->ibuf.pos += 16;    break;
 
             case SRL_HDR_BINARY:
             case SRL_HDR_STR_UTF8:
-                mrg->ipos += srl_read_varint_uv_length(mrg, " while reading BINARY or STR_UTF8");
+                mrg->ibuf.pos += srl_read_varint_uv_length(&mrg->ibuf, " while reading BINARY or STR_UTF8");
                 break;
 
             case SRL_HDR_HASH:
             case SRL_HDR_ARRAY:
-                srl_read_varint_uv_count(mrg, " while reading ARRAY or HASH");
+                srl_read_varint_uv_count(&mrg->ibuf, " while reading ARRAY or HASH");
                 break;
 
             case SRL_HDR_COPY:
@@ -236,7 +222,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg) {
             case SRL_HDR_REFP:
             case SRL_HDR_OBJECTV:
             case SRL_HDR_OBJECTV_FREEZE:
-                offset = srl_read_varint_uv_offset(mrg, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
+                offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
                 av_push(mrg->tracked_offsets_with_duplicates, newSVuv(offset));
                 break;
 
@@ -293,30 +279,30 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg) {
  */
 
 SRL_STATIC_INLINE UV
-srl_read_varint_uv(pTHX_ srl_merger_t *mrg)
+srl_read_varint_uv(pTHX_ srl_buffer_t *buf)
 {
-    if (expect_true(IBUF_SPACE(mrg) > 10))
-        return srl_read_varint_uv_nocheck(aTHX_ mrg);
+    if (expect_true(BUF_SPACE(*buf) > 10))
+        return srl_read_varint_uv_nocheck(aTHX_ buf);
     else
-        return srl_read_varint_uv_safe(aTHX_ mrg);
+        return srl_read_varint_uv_safe(aTHX_ buf);
 }
 
 SRL_STATIC_INLINE UV
-srl_read_varint_uv_safe(pTHX_ srl_merger_t *mrg)
+srl_read_varint_uv_safe(pTHX_ srl_buffer_t *buf)
 {
     UV uv= 0;
     unsigned int lshift= 0;
 
-    while (IBUF_NOT_DONE(mrg) && *mrg->ipos & 0x80) {
-        uv |= ((UV) (*mrg->ipos++ & 0x7F) << lshift);
+    while (BUF_NOT_DONE(*buf) && *buf->pos & 0x80) {
+        uv |= ((UV) (*buf->pos++ & 0x7F) << lshift);
         lshift += 7;
         if (lshift > (sizeof(UV) * 8))
             croak("varint too big");
             //SRL_ERROR("varint too big");
     }
 
-    if (expect_true(IBUF_NOT_DONE(mrg))) {
-        uv |= ((UV) *mrg->ipos++ << lshift);
+    if (expect_true(BUF_NOT_DONE(*buf))) {
+        uv |= ((UV) *buf->pos++ << lshift);
     } else {
         croak("varint terminated prematurely");
         //SRL_ERROR("varint terminated prematurely");
@@ -326,29 +312,29 @@ srl_read_varint_uv_safe(pTHX_ srl_merger_t *mrg)
 }
 
 SRL_STATIC_INLINE UV
-srl_read_varint_uv_nocheck(pTHX_ srl_merger_t *mrg)
+srl_read_varint_uv_nocheck(pTHX_ srl_buffer_t *buf)
 {
     UV uv= 0;
     unsigned int lshift= 0;
 
-    while (*mrg->ipos & 0x80) {
-        uv |= ((UV) (*mrg->ipos++ & 0x7F) << lshift);
+    while (*buf->pos & 0x80) {
+        uv |= ((UV) (*buf->pos++ & 0x7F) << lshift);
         lshift += 7;
 
-        if (expect_false( lshift > (sizeof(UV) * 8) ))
+        if (expect_false(lshift > (sizeof(UV) * 8)))
             croak("varint too big");
             //SRL_ERROR("varint too big");
     }
 
-    uv |= ((UV) (*mrg->ipos++) << lshift);
+    uv |= ((UV) (*buf->pos++) << lshift);
     return uv;
 }
 
 SRL_STATIC_INLINE UV
-srl_read_varint_uv_offset(pTHX_ srl_merger_t *mrg, const char * const errstr)
+srl_read_varint_uv_offset(pTHX_ srl_buffer_t *buf, const char * const errstr)
 {
-    UV len= srl_read_varint_uv(aTHX_ mrg);
-    if (mrg->ibody_pos + len >= mrg->ipos) {
+    UV len= srl_read_varint_uv(aTHX_ buf);
+    if (buf->body_pos + len >= buf->pos) {
         croak("Corrupted packet");
         //SRL_ERRORf4("Corrupted packet%s. Offset %lu points past current iposition %lu in packet with length of %lu bytes long",
         //        errstr, (unsigned long)len, (unsigned long)BUF_POS_OFS(mrg), (unsigned long)mrg->buf_len);
@@ -358,17 +344,17 @@ srl_read_varint_uv_offset(pTHX_ srl_merger_t *mrg, const char * const errstr)
 }
 
 SRL_STATIC_INLINE UV
-srl_read_varint_uv_length(pTHX_ srl_merger_t *mrg, const char * const errstr)
+srl_read_varint_uv_length(pTHX_ srl_buffer_t *buf, const char * const errstr)
 {
-    UV len= srl_read_varint_uv(aTHX_ mrg);
-    ASSERT_IBUF_SPACE(mrg, len, errstr);
+    UV len= srl_read_varint_uv(aTHX_ buf);
+    ASSERT_BUF_SPACE(*buf, len, errstr);
     return len;
 }
 
 SRL_STATIC_INLINE UV
-srl_read_varint_uv_count(pTHX_ srl_merger_t *mrg, const char * const errstr)
+srl_read_varint_uv_count(pTHX_ srl_buffer_t *buf, const char * const errstr)
 {
-    UV len= srl_read_varint_uv(aTHX_ mrg);
+    UV len= srl_read_varint_uv(aTHX_ buf);
     if (len > I32_MAX) {
         croak("Corrupted packet%s. Count %lu exceeds I32_MAX (%i), which is imipossible.", errstr, len, I32_MAX);
         //SRL_ERRORf3("Corrupted packet%s. Count %lu exceeds I32_MAX (%i), which is imipossible.", errstr, len, I32_MAX);
