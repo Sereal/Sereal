@@ -200,7 +200,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg) {
         switch (tag) {
             case SRL_HDR_VARINT:
             case SRL_HDR_ZIGZAG:
-                srl_read_varint_uv(&mrg->ibuf);
+                srl_read_varint_uv(&mrg->ibuf); // TODO test/implement srl_skip_varint()
                 break;
 
             case SRL_HDR_FLOAT:         mrg->ibuf.pos += 4;     break;
