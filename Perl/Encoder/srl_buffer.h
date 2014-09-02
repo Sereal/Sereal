@@ -107,54 +107,54 @@ srl_buf_swap_buffer(pTHX_ srl_buffer_t *buf1, srl_buffer_t *buf2)
     Copy(&tmp, buf2, 1, srl_buffer_t);
 }
 
-
 SRL_STATIC_INLINE void
-srl_buf_grow_nocheck(pTHX_ srl_encoder_t *enc, size_t minlen)
+srl_buf_grow_nocheck(pTHX_ srl_buffer_t *buf, size_t minlen)
 {
-    const size_t pos_ofs= BUF_POS_OFS(enc->buf); /* have to store the offset of pos */
-    const size_t body_ofs= enc->buf.body_pos - enc->buf.start; /* have to store the offset of the body */
+    const size_t pos_ofs= BUF_POS_OFS(*buf); /* have to store the offset of pos */
+    const size_t body_ofs= buf->body_pos - buf->start; /* have to store the offset of the body */
 #ifdef MEMDEBUG
     const size_t new_size = minlen;
 #else
-    const size_t cur_size = BUF_SIZE(enc->buf);
+    const size_t cur_size = BUF_SIZE(*buf);
     const size_t grown_len = (size_t)(cur_size * BUFFER_GROWTH_FACTOR);
     const size_t new_size = 100 + (minlen > grown_len ? minlen : grown_len);
 #endif
 
-    DEBUG_ASSERT_BUF_SANE(enc->buf);
+    DEBUG_ASSERT_BUF_SANE(*buf);
     /* assert that Renew means GROWING the buffer */
-    assert(enc->buf.start + new_size > enc->buf.end);
+    assert(buf->start + new_size > buf->end);
 
-    Renew(enc->buf.start, new_size, char);
-    if (enc->buf.start == NULL)
+    Renew(buf->start, new_size, char);
+    if (buf->start == NULL)
         croak("Out of memory!");
-    enc->buf.end = (char *)(enc->buf.start + new_size);
-    enc->buf.pos= enc->buf.start + pos_ofs;
-    SRL_SET_BODY_POS(enc, enc->buf.start + body_ofs);
 
-    DEBUG_ASSERT_BUF_SANE(enc->buf);
-    assert(enc->buf.end - enc->buf.start > (ptrdiff_t)0);
-    assert(enc->buf.pos - enc->buf.start >= (ptrdiff_t)0);
+    buf->end = (char *)(buf->start + new_size);
+    buf->pos = buf->start + pos_ofs;
+    buf->body_pos = buf->start + body_ofs; /* SRL_SET_BODY_POS(enc, enc->buf.start + body_ofs); equiv */
+
+    DEBUG_ASSERT_BUF_SANE(*buf);
+    assert(buf->end - buf->start > (ptrdiff_t)0);
+    assert(buf->pos - buf->start >= (ptrdiff_t)0);
     /* The following is checking against -1 because SRL_UPDATE_BODY_POS
      * will actually set the body_pos to pos-1, where pos can be 0.
      * This works out fine in the end, but is admittedly a bit shady.
      * FIXME */
-    assert(enc->buf.body_pos - enc->buf.start >= (ptrdiff_t)-1);
+    assert(buf->body_pos - buf->start >= (ptrdiff_t)-1);
 }
 
-#define BUF_SIZE_ASSERT(enc, minlen)                                    \
-  STMT_START {                                                          \
-    DEBUG_ASSERT_BUF_SANE(enc->buf);                                    \
-    if (BUF_NEED_GROW(enc->buf, minlen))                                \
-      srl_buf_grow_nocheck(aTHX_ (enc), (BUF_SIZE(enc->buf) + minlen)); \
-    DEBUG_ASSERT_BUF_SANE(enc->buf);                                    \
+#define BUF_SIZE_ASSERT(enc, minlen)                                          \
+  STMT_START {                                                                \
+    DEBUG_ASSERT_BUF_SANE(enc->buf);                                          \
+    if (BUF_NEED_GROW(enc->buf, minlen))                                      \
+      srl_buf_grow_nocheck(aTHX_ &(enc)->buf, (BUF_SIZE(enc->buf) + minlen)); \
+    DEBUG_ASSERT_BUF_SANE(enc->buf);                                          \
   } STMT_END
 
 #define BUF_SIZE_ASSERT_TOTAL(enc, minlen)                              \
   STMT_START {                                                          \
     DEBUG_ASSERT_BUF_SANE(enc->buf);                                    \
     if (BUF_NEED_GROW_TOTAL(enc->buf, minlen))                          \
-      srl_buf_grow_nocheck(aTHX_ (enc), (minlen));                      \
+      srl_buf_grow_nocheck(aTHX_ &(enc)->buf, (minlen));                \
     DEBUG_ASSERT_BUF_SANE(enc->buf);                                    \
   } STMT_END
 
