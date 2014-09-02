@@ -25,6 +25,7 @@
 #define BUF_SIZE(buf) (((buf).end) - ((buf).start))
 #define BUF_NEED_GROW(buf, minlen) ((size_t)BUF_SPACE(buf) <= minlen)
 #define BUF_NEED_GROW_TOTAL(buf, minlen) ((size_t)BUF_SIZE(buf) <= minlen)
+#define BUF_NOT_DONE(buf) ((buf).pos < (buf).end)
 
 
 /* body-position/size related operations */
