@@ -42,7 +42,9 @@ enum {
     ST_HASH_CLOSE,
 
     ST_JUMP,
-    ST_JUMP_FROM_ZERO
+    ST_JUMP_FROM_ZERO,
+
+    ST_TRACK
 
 } SrlState;
 
@@ -80,13 +82,29 @@ ERL_NIF_TERM dec_error(Decoder* d, const char* atom);
 
 // -------------------------------------------------------
 
-struct hashtable_struct {
+struct reference_struct {
     int pos;                    /* key, the position in the srl document */
     ERL_NIF_TERM term;
     UT_hash_handle hh;         /* makes this structure hashable */
 };
 
-struct hashtable_struct *refp_hash = NULL;    /* important! initialize to NULL */
+struct reference_struct *references_hash = NULL;    /* important! initialize to NULL */
+
+void add_reference(int pos_to_add, ERL_NIF_TERM val) {
+    struct reference_struct *s;
+
+    s = malloc(sizeof(struct reference_struct));
+    s->pos = pos_to_add;
+    s->term = val;
+    HASH_ADD_INT( references_hash, pos, s );  /* pos: name of key field */
+    debug_print("added item from pos %d\n", s->pos);
+}
+
+struct reference_struct *find_reference(int pos) {
+    struct reference_struct *s;
+    HASH_FIND_INT( references_hash, &pos, s );  /* s: output pointer */
+    return s;
+}
 
 
 Decoder*
@@ -613,12 +631,32 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             goto done;
         }
 
+        if ( dec_current(decoder) == ST_TRACK ) {
+            
+            ERL_NIF_TERM item_to_track;
+
+            ERL_NIF_TERM ignore_me;
+
+            dec_pop(decoder, ST_TRACK);
+
+            debug_print("current state: ST_TRACK\n");
+            if (! enif_get_list_cell(env, curr, &item_to_track, &ignore_me)) {
+                result = dec_error(decoder, "internal_error");
+                goto done;
+            }
+            debug_print("got item\n");
+            int pos = dec_pop_ref(decoder);
+            debug_print("adding item for pos %d\n", pos);
+            add_reference(pos, item_to_track);
+            continue;
+        }
+
         if ( dec_current(decoder) == ST_JUMP ) {
             dec_pop(decoder, ST_JUMP);
             int jump;
             jump = dec_pop_ref(decoder);
             debug_print("JUMPING TO %d + %d\n", jump, decoder->body_pos);
-            decoder->pos = jump + decoder->body_pos;            
+            decoder->pos = jump + decoder->body_pos;
             continue;
         }
 
@@ -684,8 +722,15 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         unsigned char tag = decoder->buffer[decoder->pos];
 
         if (tag & SRL_HDR_TRACK_FLAG) {
-            // TODO: no diagnostics? 
             tag = tag & ~SRL_HDR_TRACK_FLAG;
+            debug_print("tag must be tracked\n");
+
+            dec_push_ref(decoder, decoder->pos - decoder->body_pos);
+
+            dec_pop(decoder, ST_VALUE);
+            dec_push(decoder, ST_TRACK);
+            dec_push(decoder, ST_VALUE);
+            debug_print("pushed ST_TRACK\n");
         }
 
         switch(dec_current(decoder)) {
@@ -880,15 +925,33 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                         break;
 
                     case SRL_HDR_REFN:
-                        // TODO: add support
                         debug_print("REFN - ignored, d->pos = %d\n", decoder->pos);
                         decoder->pos++;
                         break;
 
                     case SRL_HDR_REFP:
-                        // TODO: add support
                         debug_print("REFP, d->pos = %d\n", decoder->pos);
-                        result = dec_error(decoder, "REFP not supported");
+                        dec_pop(decoder, ST_VALUE);
+                        decoder->pos++;
+
+                        int64_value = (int)srl_read_varint_int64_nocheck(decoder);
+                        debug_print("REFP, MUST LOOK FOR %d\n", (int)int64_value);
+                        
+                        struct reference_struct *ref_s;
+
+                        ref_s = find_reference((int)int64_value);
+                        if (ref_s == NULL) {
+                            result = dec_error(decoder, "failed to find ref");
+                            goto done;
+                        }
+                        debug_print("found the reference!\n");
+                        ERL_NIF_TERM term_to_duplicate = ref_s->term;
+                        debug_print("P1\n");
+                        val = enif_make_copy(env, term_to_duplicate);
+                        debug_print("P2\n");
+                        curr = enif_make_list_cell(env, val, curr);
+                        debug_print("P3\n");
+
                         break;
 
                     case SRL_HDR_HASH:
@@ -897,7 +960,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                         decoder->pos++;
                         dec_pop(decoder, ST_VALUE);
 
-                        // create the temp list to store array elements in it
+                        // create the temp list to store hash elements in it
                         objs = enif_make_list_cell(env, curr, objs);
                         curr = enif_make_list(env, 0);
 
@@ -946,13 +1009,11 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                         break;
 
                     case SRL_HDR_ALIAS:
-                        // TODO: add support
-                        debug_print("ALIAS, d->pos = %d\n", decoder->pos);
-                        result = dec_error(decoder, "ALIAS not supported");
-                        break;
+                        debug_print("ALIAS is handled like COPY, deferring to COPY, d->pos = %d\n", decoder->pos);
+
+                        // no break, we handle ALIAS like COPY
 
                     case SRL_HDR_COPY:
-                        // TODO: add support
                         debug_print("COPY, d->pos = %d\n", decoder->pos);
                         dec_pop(decoder, ST_VALUE);
                         decoder->pos++;
