@@ -61,7 +61,7 @@ static inline sereal_t * s_create(void) {
     ZERO(s,sizeof(*s));
     s->tracked = Qnil;
     s->copy = Qnil;
-
+    s->schema = Qnil;
     return s;
 }
 

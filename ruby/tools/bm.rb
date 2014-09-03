@@ -32,6 +32,7 @@ aa = [a,a,a,a,a,a]
 aaa = [aa, aa]
 
 [
+  Hash[* Array.new(100) { |i| rs }.push("aaaaaaaa","b")],
   aaa,
   1,
   127,
@@ -48,7 +49,6 @@ aaa = [aa, aa]
   ["a"],
   {"a" => "b"},
   {"a" => ["a","b","c"]},
-  Hash[* Array.new(100) { |i| rs }],
   ["a" * 1000],
   Array.new(100) { |i|  rs },
   Array.new(100) { |i|  { rs => rs} }
@@ -56,6 +56,12 @@ aaa = [aa, aa]
   puts "\n\n#{t.to_s.scan(/(.{1,50})/).first}\n"
   Benchmark.ips do |x|
     v = nil
+    x.report("srl-eSC ") {v = Sereal.encode(t,false)  }
+    x.report("srl-dSC ") {Sereal.decode(v,0,{"aaaaaaaa" => 1}) }
+    x.report("srl-e ") {v = Sereal.encode(t,false)  }
+    x.report("srl-d ") { Sereal.decode(v) }
+
+
     x.report("srl-er") {v = Sereal.encode(t,Sereal::REF) }
     x.report("srl-dr") { Sereal.decode(v) }
     x.report("srl-erc") {v = Sereal.encode(t,Sereal::REF|Sereal::COPY) }
@@ -66,9 +72,6 @@ aaa = [aa, aa]
 
     x.report("srl-erSI") {v = Sereal.encode(t,Sereal::REF|Sereal::SNAPPY_INCR) }
     x.report("srl-drSI") { Sereal.decode(v) }
-
-    x.report("srl-e ") {v = Sereal.encode(t,false)  }
-    x.report("srl-d ") { Sereal.decode(v) }
 
     x.report("srl-eS ") { v = Sereal.encode(t,true)  }
     x.report("srl-dS") { Sereal.decode(v) }

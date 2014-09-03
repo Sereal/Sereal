@@ -47,7 +47,7 @@ static VALUE s_read_double(sereal_t *s, u8 tag) {
 
 /* LONG DOUBLE */
 static VALUE s_read_long_double(sereal_t *s, u8 tag) {
-    return DBL2NUM((double) s_get_long_double(s));
+    return DBL2NUM((double) s_get_long_double_bang(s));
 }
 
 /* POS */
@@ -79,14 +79,80 @@ static VALUE s_read_arrayref(sereal_t *s, u8 tag) {
     return s_read_array_with_len(s,tag & SRL_MASK_ARRAYREF_COUNT);       
 }
 
+static inline void ignore(sereal_t *s) {
+    u8 t;
+    u32 depth = 1;
+    VALUE (*f)(sereal_t *, u8) = NULL;
+    while (depth > 0) {
+        t = s_get_u8_bang(s);
+        if (t & SRL_HDR_TRACK_FLAG)
+            s_raise(s,rb_eArgError,"tag[%d]tracked flag in 'ignore()', depth: %d, pos: %d",t,depth,s->pos);
+
+        f = READERS[t];
+        if (f == s_read_small_positive_int ||
+            f == s_read_small_negative_int ||
+            f == s_read_nil                ||
+            f == s_read_pad                ||
+            f == s_read_true               ||
+            f == s_read_false) {
+            ;
+        } else if (f == s_read_varint || f == s_read_zigzag || f == s_read_ref) {
+            s_get_varint_bang(s);
+        } else if (f == s_read_float) {
+            s_get_float_bang(s);
+        } else if (f == s_read_double){
+            s_get_double_bang(s);
+        } else if (f == s_read_long_double) {
+            s_get_long_double_bang(s);
+        } else if (f == s_read_rb_string_bang) {
+            if (t == SRL_HDR_STR_UTF8) {
+                s_shift_position_bang(s,s_get_varint_bang(s));
+            } else if (t == SRL_HDR_BINARY || t == SRL_HDR_SYM) {
+                s_shift_position_bang(s,s_get_varint_bang(s));
+            } else if (IS_SHORT_BINARY(t)) {
+                s_shift_position_bang(s,t & SRL_MASK_SHORT_BINARY_LEN);
+            } else {
+                s_raise(s,rb_eTypeError, "undefined string type %d",t);
+            }
+        } else if (f == s_read_arrayref) {
+            depth += t & SRL_MASK_ARRAYREF_COUNT;
+        } else if (f == s_read_array) {
+            depth += s_get_varint_bang(s);
+        } else if (f == s_read_hashref) {
+            depth += (t & SRL_MASK_HASHREF_COUNT) * 2;
+        } else if (f == s_read_hash) {
+            depth += s_get_varint_bang(s) * 2;
+        } else {
+            s_raise(s,rb_eArgError,"tag[%d] that cannot be ignored yet. depth: %d, pos: %d",t,depth,s->pos);
+        }
+        depth--;
+    }
+}
+
 /* HASH */ 
 static inline VALUE s_read_hash_with_len(sereal_t *s, u32 len) {
-    VALUE hash = rb_hash_new();
     register u32 i;
-    for (i = 0; i < len; i++) {
-        VALUE key = sereal_to_rb_object(s);
-        VALUE value = sereal_to_rb_object(s);
-        rb_hash_aset(hash,key,value);
+    VALUE hash = rb_hash_new();
+    if (s->level == 1 && s->schema != Qnil) {
+        // schema is maybe a bad name for this
+        // it should be something like Sereal.decode(str,0,{ stats: 1, info: 1 })
+        // and it happens that the top level opnject is a hash
+        // it will only return those keys, and we wont even create ruby objects for the rest
+        for (i = 0; i < len; i++) {
+            VALUE key = sereal_to_rb_object(s);
+            if (rb_hash_lookup(s->schema,key) != Qnil) {
+                VALUE value = sereal_to_rb_object(s);
+                rb_hash_aset(hash,key,value);
+            } else {
+                ignore(s);
+            }
+        }
+    } else {
+        for (i = 0; i < len; i++) {
+            VALUE key = sereal_to_rb_object(s);
+            VALUE value = sereal_to_rb_object(s);
+            rb_hash_aset(hash,key,value);
+        }
     }
     return hash;
 }
@@ -267,7 +333,6 @@ VALUE sereal_to_rb_object(sereal_t *s) {
         t = s_get_u8_bang(s);
         tracked = (t & SRL_HDR_TRACK_FLAG ? 1 : 0);
         t &= ~SRL_HDR_TRACK_FLAG;
-
         pos = s->pos;
 
         VALUE decoded = (*READERS[t])(s,t);
@@ -296,15 +361,22 @@ VALUE method_sereal_decode(VALUE self, VALUE args) {
 
     u8 have_block = rb_block_given_p();
     sereal_t *s = s_create();
-    if (argc == 2) {
+    if (argc >= 2) {
         VALUE flags = rb_ary_entry(args,1);
         if (flags != Qnil && flags != Qfalse) {
             if (TYPE(flags) == T_FIXNUM)
                 s->flags = FIX2LONG(flags) & __ARGUMENT_FLAGS;
+            else if (argc == 2 && TYPE(flags) == T_HASH)
+                s->schema = flags;
             else
-                s_raise(s,rb_eArgError,"second argument must be an integer (used only for flags) %s given",rb_obj_classname(flags));
+                s_raise(s,rb_eArgError,"second argument must be an integer (used only for flags) %s given/hash for schema filter",rb_obj_classname(flags));
         }
+        if (argc == 3)
+            s->schema = rb_ary_entry(args,2);
+        if (TYPE(s->schema) != T_NIL && TYPE(s->schema) != T_HASH)
+            s_raise(s,rb_eArgError,"schema filter can only be nil/hash, but %s was given",rb_obj_classname(s->schema));
     }
+
     u64 offset = 0;
 
     if (TYPE(payload) == T_FILE) {

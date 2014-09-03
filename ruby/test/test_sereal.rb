@@ -249,6 +249,21 @@ class Test::Unit::TestCase
     assert_equal arr.first.object_id,arr.last.object_id
     assert_equal arr.first.first.object_id,arr.last.last.object_id
   end
+  def test_schema
+    inside = [0.123213, 1, 2, 3, "bzbz"]
+    x = Sereal.encode({
+                        "bbb"=> inside,
+                        "aaa"=> [0.123213, 1, 2, 3, "bzbz"],
+                        "巴黎"=> {"123123"=>"巴黎"},
+                        "d"  => 8,
+                        "e"  => -1,
+                        "f"  => 1238123123,
+                      })
+
+    decoded = Sereal.decode(x,{ "bbb" => 1})
+    assert_equal decoded,{"bbb" => inside}
+  end
+
   def test_stream
     bzbz = "bzbz"
     decoded = {"bbb"=>[0.123213, 1, 2, 3, "bzbz"], "aaa"=>[0.123213, 1, 2, 3, "bzbz"], "巴黎"=>{"123123"=>"巴黎"}}  
