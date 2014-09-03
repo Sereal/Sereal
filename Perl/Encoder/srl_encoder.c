@@ -621,7 +621,7 @@ srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src)
     /* 4 byte magic string + proto version
      * + potentially uncompressed size varint
      * +  1 byte varint that indicates zero-length header */
-    BUF_SIZE_ASSERT(enc, sizeof(SRL_MAGIC_STRING) + 1 + 1);
+    BUF_SIZE_ASSERT(enc->buf, sizeof(SRL_MAGIC_STRING) + 1 + 1);
     if (LIKELY( enc->protocol_version > 2 ))
       srl_buf_cat_str_s_nocheck(enc, SRL_MAGIC_STRING_HIGHBIT);
     else
@@ -652,7 +652,7 @@ srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src)
         user_data_len = BUF_POS_OFS(enc->buf);
         srl_buf_swap_buffer(aTHX_ &enc->buf, &enc->tmp_buf);
 
-        BUF_SIZE_ASSERT(enc, user_data_len + 1 + SRL_MAX_VARINT_LENGTH); /* +1 for bit field, +X for header len */
+        BUF_SIZE_ASSERT(enc->buf, user_data_len + 1 + SRL_MAX_VARINT_LENGTH); /* +1 for bit field, +X for header len */
 
         /* Encode header length */
         srl_buf_cat_varint_nocheck(aTHX_ enc, 0, (UV)(user_data_len + 1)); /* +1 for bit field */
@@ -702,17 +702,17 @@ srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
     MS_VC6_WORKAROUND_VOLATILE double d= (double)nv;
     /* TODO: this logic could be reworked to not duplicate so much code, which will help on win32 */
     if ( f == nv || nv != nv ) {
-        BUF_SIZE_ASSERT(enc, 1 + sizeof(f)); /* heuristic: header + string + simple value */
+        BUF_SIZE_ASSERT(enc->buf, 1 + sizeof(f)); /* heuristic: header + string + simple value */
         srl_buf_cat_char_nocheck(enc,SRL_HDR_FLOAT);
         Copy((char *)&f, enc->buf.pos, sizeof(f), char);
         enc->buf.pos += sizeof(f);
     } else if (d == nv) {
-        BUF_SIZE_ASSERT(enc, 1 + sizeof(d)); /* heuristic: header + string + simple value */
+        BUF_SIZE_ASSERT(enc->buf, 1 + sizeof(d)); /* heuristic: header + string + simple value */
         srl_buf_cat_char_nocheck(enc,SRL_HDR_DOUBLE);
         Copy((char *)&d, enc->buf.pos, sizeof(d), char);
         enc->buf.pos += sizeof(d);
     } else {
-        BUF_SIZE_ASSERT(enc, 1 + sizeof(nv)); /* heuristic: header + string + simple value */
+        BUF_SIZE_ASSERT(enc->buf, 1 + sizeof(nv)); /* heuristic: header + string + simple value */
         srl_buf_cat_char_nocheck(enc,SRL_HDR_LONG_DOUBLE);
         Copy((char *)&nv, enc->buf.pos, sizeof(nv), char);
 #if SRL_EXTENDED_PRECISION_LONG_DOUBLE
@@ -1175,7 +1175,7 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
     n = av_len(src)+1;
 
     /* heuristic: n is virtually the min. size of any element */
-    BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + n);
+    BUF_SIZE_ASSERT(enc->buf, 2 + SRL_MAX_VARINT_LENGTH + n);
 
     if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
         enc->buf.pos--; /* backup over previous REFN */
@@ -1250,7 +1250,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 
         /* heuristic: n = ~min size of n values;
              *            + 2*n = very conservative min size of n hashkeys if all COPY */
-        BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
+        BUF_SIZE_ASSERT(enc->buf, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
 
         if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
             enc->buf.pos--; /* back up over the previous REFN */
@@ -1317,7 +1317,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
         n= HvUSEDKEYS(src);
         /* heuristic: n = ~min size of n values;
              *            + 2*n = very conservative min size of n hashkeys if all COPY */
-        BUF_SIZE_ASSERT(enc, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
+        BUF_SIZE_ASSERT(enc->buf, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
         if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
             enc->buf.pos--; /* backup over the previous REFN */
             srl_buf_cat_char_nocheck(enc, SRL_HDR_HASHREF + n);
@@ -1436,7 +1436,7 @@ srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src)
 SRL_STATIC_INLINE void
 srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8)
 {
-    BUF_SIZE_ASSERT(enc, 1 + SRL_MAX_VARINT_LENGTH + src_len); /* overallocate a bit sometimes */
+    BUF_SIZE_ASSERT(enc->buf, 1 + SRL_MAX_VARINT_LENGTH + src_len); /* overallocate a bit sometimes */
     if (is_utf8) {
         srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_STR_UTF8, src_len);
     } else if (src_len <= SRL_MASK_SHORT_BINARY_LEN) {
