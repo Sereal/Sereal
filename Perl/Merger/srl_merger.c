@@ -64,9 +64,64 @@ extern "C" {
                                          ? srl_init_tracked_offsets_av(aTHX_ mrg) \
                                          : (mrg)->tracked_offsets_av )
 
-#define ASSERT_PARSER_STACK_ITEM_VALUE(val) assert((val) > 0)
-#define ASSERT_PARSER_STACK_ITEM_SV(sv) assert((sv) != NULL && (int) SvIV(sv) > 0)
-#define SRL_PUSH_CNT_TO_PARSER_STACK(mrg, cnt) av_push(mrg->parser_stack, newSViv(cnt))
+#ifndef NDEBUG
+#define SRL_PUSH_CNT_TO_PARSER_STACK(mrg, cnt) STMT_START { \
+    warn("pushed value %d on parser stack", (cnt));         \
+    av_push((mrg)->parser_stack, newSViv(cnt));             \
+} STMT_END
+#else
+#define SRL_PUSH_CNT_TO_PARSER_STACK(mrg, cnt) av_push((mrg)->parser_stack, newSViv(cnt))
+#endif
+
+#ifndef NDEBUG
+#define SRL_POP_PARSER_STACK(mrg) STMT_START { \
+    warn("poped value from parser stack");     \
+    SvREFCNT_dec(av_pop((mrg)->parser_stack)); \
+} STMT_END
+#else
+#define SRL_POP_PARSER_STACK(mrg) SvREFCNT_dec(av_pop(mrg->parser_stack))
+#endif
+
+#ifndef NDEBUG
+#define DEBUG_ASSERT_PARSER_STACK_VALUE(val) STMT_START {                \
+    if (expect_false((val) < 0))                                         \
+        warn("Unexpected value on parser stack: %d", (val));             \
+    assert((val) >= 0);                                                  \
+} STMT_END
+#else
+#define DEBUG_ASSERT_PARSER_STACK_VALUE assert((val) >= 0);
+#endif
+
+#ifndef NDEBUG
+#define DEBUG_ASSERT_PARSER_STACK(mrg) STMT_START {                      \
+    int i, len = av_top_index((mrg)->parser_stack) + 1;                  \
+    if (expect_false(len <= 0))                                          \
+        warn("Unexpected length of parser stack: %d", len);              \
+                                                                         \
+    assert(len > 0);                                                     \
+                                                                         \
+    for (i = 0; i < len; i++) {                                          \
+        SV **svptr = av_fetch((mrg)->parser_stack, i, 0);                \
+        assert(svptr != NULL && *svptr != NULL);                         \
+                                                                         \
+        int val = (int) SvIV(*svptr);                                    \
+        if (expect_false(val < 0))                                       \
+            warn("Invalid value on parser stack: i %d, val %d", i, val); \
+                                                                         \
+        assert(val >= 0);                                                \
+    }                                                                    \
+} STMT_END
+#else
+#define DEBUG_ASSERT_PARSER_STACK(mrg) ((void)0)
+#endif
+
+#ifndef NDEBUG
+#define SRL_REPORT_CURRENT_TAG(mrg, tag)                            \
+    warn("%s: tag %d (0x%X) at %d",                                 \
+         __FUNCTION__, (tag), (tag), (int) BUF_POS_OFS(mrg->ibuf));
+#else
+#define SRL_REPORT_CURRENT_TAG(mrg, tag) ((void) 0)
+#endif
 
 //#define SRL_MRG_HAVE_OPTION(mrg, flag_num) ((mrg)->flags & flag_num)
 //#define SRL_MRG_SET_OPTION(mrg, flag_num) ((mrg)->flags |= flag_num)
@@ -243,11 +298,8 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
             av_push(SRL_GET_TRACKED_OFFSETS_AV(mrg), newSVuv(offset));
         }
 
-#ifdef DEBUG
-        warn("srl_build_track_table: tag %d (0x%X) at %d", tag, tag, (int) BUF_POS_OFS(mrg->ibuf));
-#endif
-
-        mrg->ibuf.pos++; // to let warn report correct offset
+        SRL_REPORT_CURRENT_TAG(mrg, tag);
+        mrg->ibuf.pos++;
 
         if (IS_SRL_HDR_SHORT_BINARY(tag)) {
             mrg->ibuf.pos += (int) SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
@@ -324,7 +376,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
             }
         }
 
-#ifdef DEBUG
+#ifndef NDEBUG
         avlen = av_top_index(mrg->tracked_offsets_av) + 1;
 
         for (i = 0; i < avlen; ++i) {
@@ -346,6 +398,7 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
     bool trackme;
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
+    DEBUG_ASSERT_BUF_SANE(mrg->obuf);
 
     // parser_stack is needed for two things:
     // - keep track of expected things
@@ -359,15 +412,10 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
 
     // push amount to expected top element to pasrser_stack
     SRL_PUSH_CNT_TO_PARSER_STACK(mrg, srl_expected_top_elements(mrg));
+    DEBUG_ASSERT_PARSER_STACK(mrg);
 
-    while (BUF_NOT_DONE(mrg->ibuf)) {
-        tag = *mrg->ibuf.pos;
-        tag = tag & ~SRL_HDR_TRACK_FLAG;
-
-        trackme = mrg->tracked_offsets_av
-                  && av_top_index(mrg->tracked_offsets_av) >= 0
-                  && BODY_POS_OFS(mrg->ibuf) == SvIV(*av_fetch(mrg->tracked_offsets_av, 0, 0));
-
+    //while (BUF_NOT_DONE(mrg->ibuf)) {
+    while (1) {
         while ((stack_level = av_top_index(mrg->parser_stack)) >= 0) {
             stack_item_sv_ptr = av_fetch(mrg->parser_stack, stack_level, 0);
             if (expect_false(stack_item_sv_ptr == NULL || *stack_item_sv_ptr == NULL)) {
@@ -375,26 +423,31 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
             }
 
             stack_item_value = SvIV(*stack_item_sv_ptr);
-            if (stack_item_value > 0) break;
+            DEBUG_ASSERT_PARSER_STACK_VALUE(stack_item_value);
 
-            SvREFCNT_dec(av_pop(mrg->parser_stack));
+            if (stack_item_value > 0)
+                break;
+
+            SRL_POP_PARSER_STACK(mrg);
         }
 
         if (expect_false(stack_level < 0)) {
-#ifdef DEBUG
-            warn("srl_merge_items: stack_level < 0");
-#endif
-            // stack is empty,
-            // no more expected elements to parse
-            break;
+            break; // stack is empty, no more expected elements to parse
         }
 
-        ASSERT_PARSER_STACK_ITEM_SV(*stack_item_sv_ptr);
-        ASSERT_PARSER_STACK_ITEM_VALUE(stack_item_value);
+        DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
+        DEBUG_ASSERT_BUF_SANE(mrg->obuf);
 
-#ifdef DEBUG
-        warn("srl_merge_items: tag %d (0x%X) at %d", tag, tag, (int) BUF_POS_OFS(mrg->ibuf));
-#endif
+        tag = *mrg->ibuf.pos;
+        tag = tag & ~SRL_HDR_TRACK_FLAG;
+        SRL_REPORT_CURRENT_TAG(mrg, tag);
+
+        trackme = mrg->tracked_offsets_av
+                  && av_top_index(mrg->tracked_offsets_av) >= 0
+                  && BODY_POS_OFS(mrg->ibuf) == SvIV(*av_fetch(mrg->tracked_offsets_av, 0, 0));
+
+        DEBUG_ASSERT_PARSER_STACK(mrg);
+        DEBUG_ASSERT_PARSER_STACK_VALUE(stack_item_value);
 
         if (IS_SRL_HDR_SHORT_BINARY(tag)) {
             // TODO dedupe strings
@@ -490,8 +543,7 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
             }
         }
 
-        ASSERT_PARSER_STACK_ITEM_SV(*stack_item_sv_ptr);
-        ASSERT_PARSER_STACK_ITEM_VALUE(stack_item_value);
+        DEBUG_ASSERT_PARSER_STACK_VALUE(stack_item_value);
         SvIV_set(*stack_item_sv_ptr, --stack_item_value);
 
         if (trackme) {

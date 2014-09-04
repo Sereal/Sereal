@@ -27,7 +27,7 @@ sub binary2hex {
     print binary2hex($enc) . "\n";
 
     $test->append($enc);
-    $test->append($enc);
+    #$test->append($enc);
     my $merged = $test->finish();
 
     print "\n" . binary2hex($merged) . "\n";
