@@ -250,18 +250,30 @@ class Test::Unit::TestCase
     assert_equal arr.first.first.object_id,arr.last.last.object_id
   end
   def test_schema
-    inside = [0.123213, 1, 2, 3, "bzbz"]
-    x = Sereal.encode({
-                        "bbb"=> inside,
-                        "aaa"=> [0.123213, 1, 2, 3, "bzbz"],
-                        "巴黎"=> {"123123"=>"巴黎"},
-                        "d"  => 8,
-                        "e"  => -1,
-                        "f"  => 1238123123,
-                      })
+    obj = "bazinga"
+    a = [obj,"bazinga",obj]
+    inside = [obj,"bazinga",obj,0.123123,1,2,3]
+    big = {
+      "copy" => obj,
+      "ref" => inside,
+      "zzz"=> inside,
+      "aaa"=> [0.123213, 1, 2, 3, "bzbz"],
+      "巴黎"=> {"123123"=>"巴黎"},
+      "d"  => 8,
+      "e"  => -1,
+      "f"  => 1238123123,
+    }
+    x = Sereal.encode(big)
 
-    decoded = Sereal.decode(x,{ "bbb" => 1})
-    assert_equal decoded,{"bbb" => inside}
+    decoded = Sereal.decode(x,{ "zzz" => 1})
+    assert_equal decoded,{"zzz" => inside}
+
+    x = Sereal.decode(Sereal.encode(big,Sereal::COPY|Sereal::REF),Sereal::REF,{"zzz" => 1})
+    x = x["zzz"]
+    assert_equal(x[0],x[1],x[2])
+    assert_not_equal(x[0].object_id,x[1].object_id)
+    assert_equal(x[0].object_id,x[2].object_id)
+
   end
 
   def test_stream

@@ -80,50 +80,60 @@ static VALUE s_read_arrayref(sereal_t *s, u8 tag) {
 }
 
 static inline void ignore(sereal_t *s) {
-    u8 t;
+    u8 t,tracked;
     u32 depth = 1;
+    u32 pos;
     VALUE (*f)(sereal_t *, u8) = NULL;
     while (depth > 0) {
         t = s_get_u8_bang(s);
-        if (t & SRL_HDR_TRACK_FLAG)
-            s_raise(s,rb_eArgError,"tag[%d]tracked flag in 'ignore()', depth: %d, pos: %d",t,depth,s->pos);
-
-        f = READERS[t];
-        if (f == s_read_small_positive_int ||
-            f == s_read_small_negative_int ||
-            f == s_read_nil                ||
-            f == s_read_pad                ||
-            f == s_read_true               ||
-            f == s_read_false) {
-            ;
-        } else if (f == s_read_varint || f == s_read_zigzag || f == s_read_ref) {
-            s_get_varint_bang(s);
-        } else if (f == s_read_float) {
-            s_get_float_bang(s);
-        } else if (f == s_read_double){
-            s_get_double_bang(s);
-        } else if (f == s_read_long_double) {
-            s_get_long_double_bang(s);
-        } else if (f == s_read_rb_string_bang) {
-            if (t == SRL_HDR_STR_UTF8) {
-                s_shift_position_bang(s,s_get_varint_bang(s));
-            } else if (t == SRL_HDR_BINARY || t == SRL_HDR_SYM) {
-                s_shift_position_bang(s,s_get_varint_bang(s));
-            } else if (IS_SHORT_BINARY(t)) {
-                s_shift_position_bang(s,t & SRL_MASK_SHORT_BINARY_LEN);
-            } else {
-                s_raise(s,rb_eTypeError, "undefined string type %d",t);
-            }
-        } else if (f == s_read_arrayref) {
-            depth += t & SRL_MASK_ARRAYREF_COUNT;
-        } else if (f == s_read_array) {
-            depth += s_get_varint_bang(s);
-        } else if (f == s_read_hashref) {
-            depth += (t & SRL_MASK_HASHREF_COUNT) * 2;
-        } else if (f == s_read_hash) {
-            depth += s_get_varint_bang(s) * 2;
+        tracked = (t & SRL_HDR_TRACK_FLAG ? 1 : 0);
+        t &= ~SRL_HDR_TRACK_FLAG;
+        pos = s->pos;
+        if (tracked) {
+            VALUE decoded = (*READERS[t])(s,t);
+            s_init_tracker(s);
+            SD(s,"[ignore] tracking object of class: %s(id: %d) at position: %d",rb_obj_classname(decoded),FIX2INT(rb_obj_id(decoded)),pos);
+            VALUE v_pos = INT2FIX(pos);
+            if (rb_hash_lookup(s->tracked,v_pos) == Qnil)
+                rb_hash_aset(s->tracked,INT2FIX(pos),decoded);
         } else {
-            s_raise(s,rb_eArgError,"tag[%d] that cannot be ignored yet. depth: %d, pos: %d",t,depth,s->pos);
+            f = READERS[t];
+            if (f == s_read_small_positive_int ||
+                f == s_read_small_negative_int ||
+                f == s_read_nil                ||
+                f == s_read_pad                ||
+                f == s_read_true               ||
+                f == s_read_false) {
+                ;
+            } else if (f == s_read_varint || f == s_read_zigzag || f == s_read_ref || f == s_read_copy) {
+                s_get_varint_bang(s);
+            } else if (f == s_read_float) {
+                s_get_float_bang(s);
+            } else if (f == s_read_double){
+                s_get_double_bang(s);
+            } else if (f == s_read_long_double) {
+                s_get_long_double_bang(s);
+            } else if (f == s_read_rb_string_bang) {
+                if (t == SRL_HDR_STR_UTF8) {
+                    s_shift_position_bang(s,s_get_varint_bang(s));
+                } else if (t == SRL_HDR_BINARY || t == SRL_HDR_SYM) {
+                    s_shift_position_bang(s,s_get_varint_bang(s));
+                } else if (IS_SHORT_BINARY(t)) {
+                    s_shift_position_bang(s,t & SRL_MASK_SHORT_BINARY_LEN);
+                } else {
+                    s_raise(s,rb_eTypeError, "undefined string type %d",t);
+                }
+            } else if (f == s_read_arrayref) {
+                depth += t & SRL_MASK_ARRAYREF_COUNT;
+            } else if (f == s_read_array) {
+                depth += s_get_varint_bang(s);
+            } else if (f == s_read_hashref) {
+                depth += (t & SRL_MASK_HASHREF_COUNT) * 2;
+            } else if (f == s_read_hash) {
+                depth += s_get_varint_bang(s) * 2;
+            } else {
+                s_raise(s,rb_eArgError,"tag[%d] that cannot be ignored yet. depth: %d, pos: %d",t,depth,s->pos);
+            }
         }
         depth--;
     }
@@ -174,7 +184,7 @@ static VALUE s_read_rb_string_bang(sereal_t *s,u8 t) {
 #define RETURN_STRING(fx_l,fx_gen)                             \
     do {                                                       \
         len = fx_l;                                            \
-        u8 *ptr = len == 0 ? 0 : s_get_p_req_inclusive(s,len); \
+        char *ptr = len == 0 ? 0 : (char *) s_get_p_req_inclusive(s,len); \
         string = fx_gen;                                       \
         s_shift_position_bang(s,len);                          \
         return string;                                         \
@@ -246,7 +256,7 @@ static VALUE s_read_ref(sereal_t *s, u8 tag) {
         s_raise(s,rb_eArgError,"there are no references stored");
     u64 off = s_get_varint_bang(s);
     VALUE object = rb_hash_lookup(s->tracked,INT2FIX(off + s->hdr_end));
-    SD(s,"reading reference from offset: %d, id: %d",off + s->hdr_end,FIX2INT(rb_obj_id(object)));
+    SD(s,"reading reference from offset: %llu, id: %d",off + s->hdr_end,FIX2INT(rb_obj_id(object)));
     return object;
 }
 
@@ -410,10 +420,10 @@ again:
             return Qnil;
         }
         if (size < __MIN_SIZE)
-            s_raise(s,rb_eTypeError,"size(%d) is less then min packet size %d, offset: %d",size,__MIN_SIZE,offset);
+            s_raise(s,rb_eTypeError,"size(%d) is less then min packet size %d, offset: %llu",size,__MIN_SIZE,offset);
 
         s->flags |= __NOT_MINE;
-        s->data = RSTRING_PTR(payload) + offset;
+        s->data = (u8 *) (RSTRING_PTR(payload) + offset);
         s->size = size;
     }
 
@@ -460,7 +470,7 @@ again:
         u8 *uncompressed = s_alloc_or_raise(s,uncompressed_len);
         int done = csnappy_decompress(s_get_p_req_inclusive(s,compressed_len),
                                       compressed_len,
-                                      uncompressed,
+                                      (char *) uncompressed,
                                       uncompressed_len) == CSNAPPY_E_OK ? 1 : 0;
         if (!done)
             s_raise(s,rb_eTypeError, "decompression failed error: %d type: %d, unompressed size: %d compressed size: %d",
