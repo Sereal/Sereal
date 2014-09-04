@@ -19,7 +19,7 @@ typedef struct {
     srl_buffer_t ibuf;                   /* input buffer, MUST NOT be deallocated by srl_buf_free_buffer() */
 
     HV *string_deduper_hv;               /* track strings we have seen before, by content */
-    HV *tracked_offsets_hv;              /* lookup table for tracked offsets */
+    HV *tracked_offsets_hv;              /* table to convert ibuf offsets to obuf offsets */
     AV *tracked_offsets_av;              /* list of sorted keys of tracked_offsets_hv */
     AV *parser_stack;
 
