@@ -17,7 +17,6 @@ typedef struct {
     ERL_NIF_TERM  atom_bignum;
     ERL_NIF_TERM  atom_bignum_e;
     ERL_NIF_TERM  atom_bigdbl;
-    ERL_NIF_TERM  atom_partial;
     ERL_NIF_TERM  atom_undefined;
     ERL_NIF_TERM  atom_iter;
     ERL_NIF_TERM  atom_bytes_per_iter;

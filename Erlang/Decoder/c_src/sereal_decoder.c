@@ -16,7 +16,6 @@ load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
     st->atom_bignum         = make_atom(env, "bignum");
     st->atom_bignum_e       = make_atom(env, "bignum_e");
     st->atom_bigdbl         = make_atom(env, "bigdbl");
-    st->atom_partial        = make_atom(env, "partial");
     st->atom_undefined      = make_atom(env, "undefined");
     st->atom_iter           = make_atom(env, "iter");
     st->atom_bytes_per_iter = make_atom(env, "bytes_per_iter");

@@ -56,7 +56,6 @@ typedef struct {
     ErlNifBinary    bin;
 
     size_t          bytes_per_iter;
-    int             is_partial;
 
     char*           buffer;
     int             pos;
@@ -121,7 +120,6 @@ decoder_new(ErlNifEnv* env)
     result->header_parsed = 0;
     result->atoms = st;
 
-    result->is_partial = 0;
     result->bytes_per_iter = DEFAULT_BYTES_PER_ITER;
 
     result->pos = -1;
@@ -1101,9 +1099,6 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if(dec_current(decoder) != ST_DONE) {
         result = dec_error(decoder, "Truncated Sereal");
 
-    } else if(decoder->is_partial) {
-        result = enif_make_tuple2(env, decoder->atoms->atom_partial, val);
-    
     } else {
         result = val;
     }
