@@ -154,7 +154,7 @@ SRL_STATIC_INLINE UV srl_read_varint_uv_offset(pTHX_ srl_buffer_t *buf, const ch
 SRL_STATIC_INLINE UV srl_read_varint_uv_length(pTHX_ srl_buffer_t *buf, const char * const errstr);
 SRL_STATIC_INLINE UV srl_read_varint_uv_count(pTHX_ srl_buffer_t *buf, const char * const errstr);
 
-SRL_STATIC_INLINE void srl_buf_copy_content(pTHX_ srl_merger_t *mrg, size_t len);
+SRL_STATIC_INLINE void srl_buf_copy_content(pTHX_ srl_merger_t *mrg, size_t len, const char * const errstr);
 SRL_STATIC_INLINE void srl_buf_copy_content_nocheck(pTHX_ srl_merger_t *mrg, size_t len);
 SRL_STATIC_INLINE void srl_copy_varint(pTHX_ srl_merger_t *mrg);
 
@@ -170,6 +170,16 @@ SRL_STATIC_INLINE void srl_merge_items(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE int srl_expected_top_elements(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE UV srl_lookup_string(pTHX_ srl_merger_t *mrg, const char* src, STRLEN len, UV offset);
 SRL_STATIC_INLINE UV srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV from, UV to);
+
+#define SvSIOK(sv) ((SvFLAGS(sv) & (SVf_IOK|SVf_IVisUV)) == SVf_IOK)
+#define SvNSIV(sv) (SvNOK(sv) ? SvNVX(sv) : (SvSIOK(sv) ? SvIVX(sv) : sv_2nv(sv)))
+SRL_STATIC_INLINE I32
+S_sv_ncmp(pTHX_ SV *a, SV *b)
+{
+    NV nv1 = SvNSIV(a);
+    NV nv2 = SvNSIV(b);
+    return nv1 < nv2 ? -1 : nv1 > nv2 ? 1 : 0;
+}
 
 SRL_STATIC_INLINE HV *
 srl_init_tracked_offsets_hv(pTHX_ srl_merger_t *mrg)
@@ -386,7 +396,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
 
     if (mrg->tracked_offsets_av && (avlen = av_top_index(mrg->tracked_offsets_av) + 1) > 0) {
         // sort offsets
-        sortsv(AvARRAY(mrg->tracked_offsets_av), avlen, Perl_sv_cmp_locale);
+        sortsv(AvARRAY(mrg->tracked_offsets_av), avlen, S_sv_ncmp);
 
         // remove duplicated
         last_offset = -1;
@@ -505,12 +515,13 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
             switch (tag) {
                 case SRL_HDR_VARINT:
                 case SRL_HDR_ZIGZAG:
+                    srl_buf_copy_content_nocheck(mrg, 1);
                     srl_copy_varint(mrg);
                     break;
 
-                case SRL_HDR_FLOAT:         srl_buf_copy_content(mrg, 5);     break;
-                case SRL_HDR_DOUBLE:        srl_buf_copy_content(mrg, 9);     break;
-                case SRL_HDR_LONG_DOUBLE:   srl_buf_copy_content(mrg, 17);    break;
+                case SRL_HDR_FLOAT:         srl_buf_copy_content(mrg, 5,  " while copying FLOAT");       break;
+                case SRL_HDR_DOUBLE:        srl_buf_copy_content(mrg, 9,  " while copying DOUBLE");      break;
+                case SRL_HDR_LONG_DOUBLE:   srl_buf_copy_content(mrg, 17, " while copying LONG_DOUBLE"); break;
 
                 case SRL_HDR_PAD:
                 case SRL_HDR_REFN:
@@ -589,7 +600,7 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
         DEBUG_ASSERT_PARSER_STACK_VALUE(stack_item_value);
         SvIV_set(*stack_item_sv_ptr, --stack_item_value);
 
-        if (trackme) {
+        if (expect_false(trackme)) {
             SvREFCNT_dec(av_shift(mrg->tracked_offsets_av));
             srl_lookup_tracked_offset(mrg, itag_offset, otag_offset);
         }
@@ -657,10 +668,10 @@ srl_lookup_string(pTHX_ srl_merger_t *mrg, const char* src, STRLEN len, UV offse
 }
 
 SRL_STATIC_INLINE void
-srl_buf_copy_content(pTHX_ srl_merger_t *mrg, size_t len)
+srl_buf_copy_content(pTHX_ srl_merger_t *mrg, size_t len, const char * const errstr)
 {
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
-    ASSERT_BUF_SPACE(mrg->ibuf, len, " while copy content"); // TODO
+    ASSERT_BUF_SPACE(mrg->ibuf, len, errstr);
     srl_buf_copy_content_nocheck(mrg, len);
 }
 
