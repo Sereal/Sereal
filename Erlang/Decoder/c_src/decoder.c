@@ -625,7 +625,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                 result = make_ok(st, env, curr);
 
             } else {
-                result = make_error(st, env, "Wrong structured Sereal");
+                result = dec_error(decoder, "Wrong structured Sereal");
             }
 
             goto done;
