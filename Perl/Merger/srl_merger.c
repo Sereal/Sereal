@@ -684,7 +684,7 @@ srl_copy_varint(pTHX_ srl_merger_t *mrg)
     unsigned int lshift = 0;
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
-    BUF_SIZE_ASSERT(mrg->obuf, 10); // TODO check varint max size
+    GROW_BUF(mrg->obuf, SRL_MAX_VARINT_LENGTH);
 
     while (BUF_NOT_DONE(mrg->ibuf) && *mrg->ibuf.pos & 0x80) {
         *mrg->obuf.pos++ = *mrg->ibuf.pos++;
