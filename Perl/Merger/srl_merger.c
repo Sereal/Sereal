@@ -48,13 +48,9 @@ extern "C" {
 #define SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag) ((tag) & 15)
 #define SRL_HDR_HASHREF_LEN_FROM_TAG(tag) ((tag) & 15)
 
-#define ASSERT_BUF_SPACE(buf, len, msg) STMT_START {        \
-    if (expect_false((UV) BUF_SPACE((buf)) < (UV) (len))) { \
-        croak("Unexpected termination of packet%s, "         \
-              "want %lu bytes, only have %lu available",     \
-              (msg), (UV) (len), (UV) BUF_SPACE((buf)));    \
-    }                                                        \
-} STMT_END
+#define SRL_GET_STRING_DEDUPER_AV(mrg) ((mrg)->string_deduper_hv == NULL          \
+                                         ? srl_init_string_deduper_hv(aTHX_ mrg)  \
+                                         : (mrg)->string_deduper_hv)
 
 #define SRL_GET_TRACKED_OFFSETS_HV(mrg) ((mrg)->tracked_offsets_hv == NULL        \
                                          ? srl_init_tracked_offsets_hv(aTHX_ mrg) \
@@ -125,6 +121,22 @@ extern "C" {
 #define SRL_REPORT_CURRENT_TAG(mrg, tag) ((void) 0)
 #endif
 
+#define ASSERT_BUF_SPACE(buf, len, msg) STMT_START {         \
+    if (expect_false((UV) BUF_SPACE((buf)) < (UV) (len))) {  \
+        croak("Unexpected termination of packet%s, "         \
+              "want %lu bytes, only have %lu available",     \
+              (msg), (UV) (len), (UV) BUF_SPACE((buf)));     \
+    }                                                        \
+} STMT_END
+
+#define GROW_BUF(buf, minlen) STMT_START {                            \
+    DEBUG_ASSERT_BUF_SANE(buf);                                       \
+    if (BUF_NEED_GROW(buf, minlen)) {                                 \
+        srl_buf_grow_nocheck(aTHX_ &(buf), (BUF_SIZE(buf) + minlen)); \
+        DEBUG_ASSERT_BUF_SANE(buf);                                   \
+    }                                                                 \
+} STMT_END
+
 //#define SRL_MRG_HAVE_OPTION(mrg, flag_num) ((mrg)->flags & flag_num)
 //#define SRL_MRG_SET_OPTION(mrg, flag_num) ((mrg)->flags |= flag_num)
 
@@ -143,8 +155,10 @@ SRL_STATIC_INLINE UV srl_read_varint_uv_length(pTHX_ srl_buffer_t *buf, const ch
 SRL_STATIC_INLINE UV srl_read_varint_uv_count(pTHX_ srl_buffer_t *buf, const char * const errstr);
 
 SRL_STATIC_INLINE void srl_buf_copy_content(pTHX_ srl_merger_t *mrg, size_t len);
+SRL_STATIC_INLINE void srl_buf_copy_content_nocheck(pTHX_ srl_merger_t *mrg, size_t len);
 SRL_STATIC_INLINE void srl_copy_varint(pTHX_ srl_merger_t *mrg);
 
+SRL_STATIC_INLINE HV * srl_init_string_deduper_hv(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE HV * srl_init_tracked_offsets_hv(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE AV * srl_init_tracked_offsets_av(pTHX_ srl_merger_t *mrg);
 
@@ -154,7 +168,7 @@ SRL_STATIC_INLINE void srl_build_track_table(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE void srl_merge_items(pTHX_ srl_merger_t *mrg);
 
 SRL_STATIC_INLINE int srl_expected_top_elements(pTHX_ srl_merger_t *mrg);
-SRL_STATIC_INLINE UV srl_dedupe_string(pTHX_ srl_merger_t *mrg, const char* src, STRLEN len, UV offset);
+SRL_STATIC_INLINE UV srl_lookup_string(pTHX_ srl_merger_t *mrg, const char* src, STRLEN len, UV offset);
 SRL_STATIC_INLINE UV srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV from, UV to);
 
 SRL_STATIC_INLINE HV *
@@ -162,6 +176,13 @@ srl_init_tracked_offsets_hv(pTHX_ srl_merger_t *mrg)
 {
     mrg->tracked_offsets_hv = newHV();
     return mrg->tracked_offsets_hv;
+}
+
+SRL_STATIC_INLINE HV *
+srl_init_string_deduper_hv(pTHX_ srl_merger_t *mrg)
+{
+    mrg->string_deduper_hv = newHV();
+    return mrg->string_deduper_hv;
 }
 
 SRL_STATIC_INLINE AV *
@@ -230,7 +251,7 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
 {
     assert(mrg != NULL);
 
-    mrg->obuf.body_pos -= 1;
+    mrg->obuf.body_pos = mrg->obuf.start - 1;
 
     srl_reset_input_buffer(mrg, src);
     mrg->ibuf.pos += 6;
@@ -458,16 +479,27 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
         DEBUG_ASSERT_PARSER_STACK_VALUE(stack_item_value);
 
         if (IS_SRL_HDR_SHORT_BINARY(tag)) {
-            // TODO dedupe strings
-            srl_buf_copy_content(mrg, 1);
-            srl_buf_copy_content(mrg, SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag));
+            length = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+
+            // +1 because need to respect tag
+            ASSERT_BUF_SPACE(mrg->ibuf, length + 1, " while reading SHORT_BINARY");
+            offset = srl_lookup_string(mrg, mrg->ibuf.pos + 1, length, BODY_POS_OFS(mrg->ibuf));
+
+            if (offset) {
+                // issue COPY tag
+                srl_buf_cat_varint((srl_encoder_t*) mrg, SRL_HDR_COPY, offset);
+                mrg->ibuf.pos += length + 1;
+            } else {
+                // see string first time
+                srl_buf_copy_content_nocheck(mrg, length + 1);
+            }
         } else if (tag <= SRL_HDR_NEG_HIGH) {
-            srl_buf_copy_content(mrg, 1);
+            srl_buf_copy_content_nocheck(mrg, 1);
         } else if (IS_SRL_HDR_ARRAYREF(tag)) {
-            srl_buf_copy_content(mrg, 1);
+            srl_buf_copy_content_nocheck(mrg, 1);
             SRL_PUSH_CNT_TO_PARSER_STACK(mrg, tag, SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag));
         } else if (IS_SRL_HDR_HASHREF(tag)) {
-            srl_buf_copy_content(mrg, 1);
+            srl_buf_copy_content_nocheck(mrg, 1);
             SRL_PUSH_CNT_TO_PARSER_STACK(mrg, tag, SRL_HDR_HASHREF_LEN_FROM_TAG(tag) * 2);
         } else {
             switch (tag) {
@@ -489,37 +521,37 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
                     // but at the end of the loop I dont want to create if-branch
                     // so, I simply increment counter to level furter decremetion
                     stack_item_value++;
-                    srl_buf_copy_content(mrg, 1);
+                    srl_buf_copy_content_nocheck(mrg, 1);
                     break;
 
                 case SRL_HDR_TRUE:
                 case SRL_HDR_FALSE:
                 case SRL_HDR_UNDEF:
                 case SRL_HDR_CANONICAL_UNDEF:
-                    srl_buf_copy_content(mrg, 1);
+                    srl_buf_copy_content_nocheck(mrg, 1);
                     break;
 
                 case SRL_HDR_BINARY:
                 case SRL_HDR_STR_UTF8:
                     mrg->ibuf.pos++; // skip tag in input buffer
                     length = srl_read_varint_uv_length(&mrg->ibuf, " while reading BINARY or STR_UTF8");
+                    offset = srl_lookup_string(mrg, mrg->ibuf.pos, length, (UV) BODY_POS_OFS(mrg->ibuf));
 
-                    offset = srl_dedupe_string(mrg, mrg->ibuf.pos, length, (UV) BODY_POS_OFS(mrg->ibuf));
                     if (offset) {
                         // issue COPY tag
-                        srl_buf_cat_varint((srl_encoder_t*) mrg, SRL_HDR_COPY, (UV) offset);
+                        srl_buf_cat_varint((srl_encoder_t*) mrg, SRL_HDR_COPY, offset);
                         mrg->ibuf.pos += (int) length;
                     } else {
                         // see string first time
                         srl_buf_cat_varint((srl_encoder_t*) mrg, tag, length);
-                        srl_buf_copy_content(mrg, length);
+                        srl_buf_copy_content_nocheck(mrg, length); // srl_read_varint_uv_length() do space assertion
                     }
 
                     break;
 
                 case SRL_HDR_HASH:
                 case SRL_HDR_ARRAY:
-                    srl_buf_copy_content(mrg, 1);
+                    srl_buf_copy_content_nocheck(mrg, 1);
                     length = srl_read_varint_uv_count(&mrg->ibuf, " while reading ARRAY or HASH");
                     srl_buf_cat_varint((srl_encoder_t*) mrg, 0, length);
 
@@ -604,19 +636,15 @@ srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV from, UV to)
 }
 
 SRL_STATIC_INLINE UV
-srl_dedupe_string(pTHX_ srl_merger_t *mrg, const char* src, STRLEN len, UV offset)
+srl_lookup_string(pTHX_ srl_merger_t *mrg, const char* src, STRLEN len, UV offset)
 {
-    if (expect_false(mrg->string_deduper_hv == NULL)) {
-        mrg->string_deduper_hv = newHV();
-    }
-
-    SV **offset_ptr = hv_fetch(mrg->string_deduper_hv, src, len, 1);
+    SV **offset_ptr = hv_fetch(SRL_GET_STRING_DEDUPER_AV(mrg), src, len, 1);
     if (expect_false(offset_ptr == NULL)) {
         croak("out of memory (hv_fetch returned NULL)");
     }
 
 #ifndef NDEBUG
-    warn("srl_dedupe_string: %sfound duplicate for '%.*s'",
+    warn("srl_lookup_string: %sfound duplicate for '%.*s'",
          SvOK(*offset_ptr) ? "" : "not ", (int) len, src);
 #endif
 
@@ -632,12 +660,16 @@ SRL_STATIC_INLINE void
 srl_buf_copy_content(pTHX_ srl_merger_t *mrg, size_t len)
 {
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
-    BUF_SIZE_ASSERT(mrg->obuf, len);
+    ASSERT_BUF_SPACE(mrg->ibuf, len, " while copy content"); // TODO
+    srl_buf_copy_content_nocheck(mrg, len);
+}
 
-    // TODO replace by DEBUG_ASSERT_BUF_SPACE
-    if (BUF_SPACE(mrg->ibuf) < (ptrdiff_t) len)
-        croak("input buffer is too small");
+SRL_STATIC_INLINE void
+srl_buf_copy_content_nocheck(pTHX_ srl_merger_t *mrg, size_t len)
+{
+    GROW_BUF(mrg->obuf, len);
 
+    // TODO profile for len == 1
     Copy(mrg->ibuf.pos, mrg->obuf.pos, len, char);
     mrg->ibuf.pos += len;
     mrg->obuf.pos += len;
