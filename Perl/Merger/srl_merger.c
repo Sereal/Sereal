@@ -56,6 +56,18 @@ extern "C" {
     }                                                        \
 } STMT_END
 
+#define SRL_GET_TRACKED_OFFSETS_HV(mrg) ((mrg)->tracked_offsets_hv == NULL        \
+                                         ? srl_init_tracked_offsets_hv(aTHX_ mrg) \
+                                         : (mrg)->tracked_offsets_hv )
+
+#define SRL_GET_TRACKED_OFFSETS_AV(mrg) ((mrg)->tracked_offsets_av == NULL        \
+                                         ? srl_init_tracked_offsets_av(aTHX_ mrg) \
+                                         : (mrg)->tracked_offsets_av )
+
+#define ASSERT_PARSER_STACK_ITEM_VALUE(val) assert((val) > 0)
+#define ASSERT_PARSER_STACK_ITEM_SV(sv) assert((sv) != NULL && (int) SvIV(sv) > 0)
+#define SRL_PUSH_CNT_TO_PARSER_STACK(mrg, cnt) av_push(mrg->parser_stack, newSViv(cnt))
+
 //#define SRL_MRG_HAVE_OPTION(mrg, flag_num) ((mrg)->flags & flag_num)
 //#define SRL_MRG_SET_OPTION(mrg, flag_num) ((mrg)->flags |= flag_num)
 
@@ -76,12 +88,30 @@ SRL_STATIC_INLINE UV srl_read_varint_uv_count(pTHX_ srl_buffer_t *buf, const cha
 SRL_STATIC_INLINE void srl_buf_copy_content(pTHX_ srl_merger_t *mrg, size_t len);
 SRL_STATIC_INLINE void srl_copy_varint(pTHX_ srl_merger_t *mrg);
 
+SRL_STATIC_INLINE HV * srl_init_tracked_offsets_hv(pTHX_ srl_merger_t *mrg);
+SRL_STATIC_INLINE AV * srl_init_tracked_offsets_av(pTHX_ srl_merger_t *mrg);
+
 SRL_STATIC_INLINE srl_merger_t * srl_empty_merger_struct(pTHX);                         /* allocate an empty merger struct - flags still to be set up */
 SRL_STATIC_INLINE void srl_reset_input_buffer(pTHX_ srl_merger_t *mrg, SV *src);        /* reset input buffer (ibuf) */
 SRL_STATIC_INLINE void srl_build_track_table(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE void srl_merge_items(pTHX_ srl_merger_t *mrg);
 
+SRL_STATIC_INLINE int srl_expected_top_elements(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE IV srl_dedupe_string(pTHX_ srl_merger_t *mrg, const char* src, STRLEN len, UV offset);
+
+SRL_STATIC_INLINE HV *
+srl_init_tracked_offsets_hv(pTHX_ srl_merger_t *mrg)
+{
+    mrg->tracked_offsets_hv = newHV();
+    return mrg->tracked_offsets_hv;
+}
+
+SRL_STATIC_INLINE AV *
+srl_init_tracked_offsets_av(pTHX_ srl_merger_t *mrg)
+{
+    mrg->tracked_offsets_av = newAV();
+    return mrg->tracked_offsets_av;
+}
 
 srl_merger_t *
 srl_build_merger_struct(pTHX_ HV *opt)
@@ -114,14 +144,19 @@ srl_destroy_merger(pTHX_ srl_merger_t *mrg)
 {
     srl_buf_free_buffer(aTHX_ &mrg->obuf);
 
-    if (mrg->tracked_offsets) {
-        SvREFCNT_dec(mrg->tracked_offsets);
-        mrg->tracked_offsets = NULL;
+    if (mrg->parser_stack) {
+        SvREFCNT_dec(mrg->parser_stack);
+        mrg->parser_stack = NULL;
     }
 
-    if (mrg->tracked_offsets_with_duplicates) {
-        SvREFCNT_dec(mrg->tracked_offsets_with_duplicates);
-        mrg->tracked_offsets_with_duplicates = NULL;
+    if (mrg->tracked_offsets_hv) {
+        SvREFCNT_dec(mrg->tracked_offsets_hv);
+        mrg->tracked_offsets_hv = NULL;
+    }
+
+    if (mrg->tracked_offsets_av) {
+        SvREFCNT_dec(mrg->tracked_offsets_av);
+        mrg->tracked_offsets_av = NULL;
     }
 
     if (mrg->string_deduper_hv) {
@@ -167,9 +202,10 @@ srl_empty_merger_struct(pTHX)
         croak("Out of memory");
     }
 
-    mrg->tracked_offsets = NULL;
-    mrg->tracked_offsets_with_duplicates = NULL;
+    mrg->tracked_offsets_hv = NULL;
+    mrg->tracked_offsets_av = NULL;
     mrg->string_deduper_hv = NULL;
+    mrg->parser_stack = NULL;
 
     return mrg;
 }
@@ -189,22 +225,14 @@ SRL_STATIC_INLINE void
 srl_build_track_table(pTHX_ srl_merger_t *mrg)
 {
     U8 tag;
-    SV **sv_offset_ptr;
+    SV *offset_sv;
     UV offset, last_offset, length;
     int i, avlen;
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
 
-    if (mrg->tracked_offsets) {
-        av_clear(mrg->tracked_offsets);
-    } else {
-        mrg->tracked_offsets = newAV();
-    }
-
-    if (mrg->tracked_offsets_with_duplicates) {
-        av_clear(mrg->tracked_offsets_with_duplicates);
-    } else {
-        mrg->tracked_offsets_with_duplicates = newAV();
+    if (mrg->tracked_offsets_av) {
+        av_clear(mrg->tracked_offsets_av);
     }
 
     while (BUF_NOT_DONE(mrg->ibuf)) {
@@ -212,11 +240,11 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
         if (expect_false(tag & SRL_HDR_TRACK_FLAG)) {
             tag = tag & ~SRL_HDR_TRACK_FLAG;
             offset = BODY_POS_OFS(mrg->ibuf);
-            av_push(mrg->tracked_offsets_with_duplicates, newSVuv(offset));
+            av_push(SRL_GET_TRACKED_OFFSETS_AV(mrg), newSVuv(offset));
         }
 
 #ifdef DEBUG
-        warn("srl_build_track_table tag %d (0x%X) at %d", tag, tag, (int) BUF_POS_OFS(mrg->ibuf));
+        warn("srl_build_track_table: tag %d (0x%X) at %d", tag, tag, (int) BUF_POS_OFS(mrg->ibuf));
 #endif
 
         mrg->ibuf.pos++; // to let warn report correct offset
@@ -255,7 +283,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
             case SRL_HDR_OBJECTV:
             case SRL_HDR_OBJECTV_FREEZE:
                 offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
-                av_push(mrg->tracked_offsets_with_duplicates, newSVuv(offset));
+                av_push(SRL_GET_TRACKED_OFFSETS_AV(mrg), newSVuv(offset));
                 break;
 
             case SRL_HDR_PAD:
@@ -278,29 +306,30 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
         }
     }
 
-    if ((avlen = av_top_index(mrg->tracked_offsets_with_duplicates) + 1)) {
+    if (mrg->tracked_offsets_av && (avlen = av_top_index(mrg->tracked_offsets_av) + 1) > 0) {
         // sort offsets
-        sortsv(AvARRAY(mrg->tracked_offsets_with_duplicates), avlen, Perl_sv_cmp_locale);
+        sortsv(AvARRAY(mrg->tracked_offsets_av), avlen, Perl_sv_cmp_locale);
 
+        // remove duplicated
         last_offset = -1;
 
-        // remove duplicates
-        for (i = 0; i < avlen; ++i) {
-            if (!(sv_offset_ptr = av_fetch(mrg->tracked_offsets_with_duplicates, i, 0)))
-                croak("sv_offset_ptr is NULL"); // TODO
+        for (i = 0; i < avlen; i++) {
+            offset_sv = av_shift(mrg->tracked_offsets_av);
+            sv_2mortal(offset_sv);
 
-            UV offset = SvUV(*sv_offset_ptr);
+            offset = SvUV(offset_sv);
             if (last_offset != offset) {
                 last_offset = offset;
-                av_push(mrg->tracked_offsets, SvREFCNT_inc(*sv_offset_ptr));
+                av_push(mrg->tracked_offsets_av, SvREFCNT_inc(offset_sv));
             }
         }
 
 #ifdef DEBUG
-        avlen = av_top_index(mrg->tracked_offsets);
-        for (i = 0; i <= avlen; ++i) {
-            sv_offset_ptr= av_fetch(mrg->tracked_offsets, i, 0);
-            warn("tracked_offsets: idx %d offset %d SvREFCNT(%d)\n", i, (int) SvUV(*sv_offset_ptr), SvREFCNT(*sv_offset_ptr));
+        avlen = av_top_index(mrg->tracked_offsets_av) + 1;
+
+        for (i = 0; i < avlen; ++i) {
+            SV **sv_offset_ptr = av_fetch(mrg->tracked_offsets_av, i, 0);
+            warn("tracked_offsets: offset dedups idx %d offset %d SvREFCNT(%d)\n", i, (int) SvUV(*sv_offset_ptr), SvREFCNT(*sv_offset_ptr));
         }
 #endif
     }
@@ -311,40 +340,60 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
 {
     U8 tag;
     UV length;
-    AV *stack;
     SSize_t stack_level;
-    SV **stack_item_ptr;
+    SV **stack_item_sv_ptr;
+    int stack_item_value;
+    bool trackme;
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
 
-    // stack is needed for three things:
+    // parser_stack is needed for two things:
     // - keep track of expected things
     // - verify document consistency
-    stack = sv_2mortal(newAV());
+
+    if (mrg->parser_stack) {
+        av_clear(mrg->parser_stack);
+    } else {
+        mrg->parser_stack = newAV();
+    }
+
+    // push amount to expected top element to pasrser_stack
+    SRL_PUSH_CNT_TO_PARSER_STACK(mrg, srl_expected_top_elements(mrg));
 
     while (BUF_NOT_DONE(mrg->ibuf)) {
         tag = *mrg->ibuf.pos;
         tag = tag & ~SRL_HDR_TRACK_FLAG;
 
-        while ((stack_level = av_top_index(stack)) >= 0) {
-            stack_item_ptr = av_fetch(stack, stack_level, 0);
-            if (expect_false(stack_item_ptr == NULL || *stack_item_ptr == NULL)) {
-                croak("broken stack 2"); // TODO
+        trackme = mrg->tracked_offsets_av
+                  && av_top_index(mrg->tracked_offsets_av) >= 0
+                  && BODY_POS_OFS(mrg->ibuf) == SvIV(*av_fetch(mrg->tracked_offsets_av, 0, 0));
+
+        while ((stack_level = av_top_index(mrg->parser_stack)) >= 0) {
+            stack_item_sv_ptr = av_fetch(mrg->parser_stack, stack_level, 0);
+            if (expect_false(stack_item_sv_ptr == NULL || *stack_item_sv_ptr == NULL)) {
+                croak("av_fetch returned NULL");
             }
 
-            if (SvIV(*stack_item_ptr) > 0)
-                break;
+            stack_item_value = SvIV(*stack_item_sv_ptr);
+            if (stack_item_value > 0) break;
 
-            av_pop(stack);
+            SvREFCNT_dec(av_pop(mrg->parser_stack));
         }
 
         if (expect_false(stack_level < 0)) {
-            warn("!!");
-            break; // TODO
+#ifdef DEBUG
+            warn("srl_merge_items: stack_level < 0");
+#endif
+            // stack is empty,
+            // no more expected elements to parse
+            break;
         }
 
+        ASSERT_PARSER_STACK_ITEM_SV(*stack_item_sv_ptr);
+        ASSERT_PARSER_STACK_ITEM_VALUE(stack_item_value);
+
 #ifdef DEBUG
-        warn("srl_merge_items tag %d (0x%X) at %d", tag, tag, (int) BUF_POS_OFS(mrg->ibuf));
+        warn("srl_merge_items: tag %d (0x%X) at %d", tag, tag, (int) BUF_POS_OFS(mrg->ibuf));
 #endif
 
         if (IS_SRL_HDR_SHORT_BINARY(tag)) {
@@ -355,10 +404,10 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
             srl_buf_copy_content(mrg, 1);
         } else if (IS_SRL_HDR_ARRAYREF(tag)) {
             srl_buf_copy_content(mrg, 1);
-            av_push(stack, newSViv(SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag)));
+            SRL_PUSH_CNT_TO_PARSER_STACK(mrg, SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag));
         } else if (IS_SRL_HDR_HASHREF(tag)) {
             srl_buf_copy_content(mrg, 1);
-            av_push(stack, newSViv(2 * SRL_HDR_HASHREF_LEN_FROM_TAG(tag)));
+            SRL_PUSH_CNT_TO_PARSER_STACK(mrg, SRL_HDR_HASHREF_LEN_FROM_TAG(tag) * 2);
         } else {
             switch (tag) {
                 case SRL_HDR_VARINT:
@@ -374,7 +423,11 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
                 case SRL_HDR_REFN:
                 case SRL_HDR_WEAKEN:
                 case SRL_HDR_EXTEND:
-                    // TODO do not decrement stack counter
+                    // this set of tags are not real items,
+                    // and stack_item_value should not be decremented,
+                    // but at the end of the loop I dont want to create if-branch
+                    // so, I simply increment counter to level furter decremetion
+                    stack_item_value++;
                     srl_buf_copy_content(mrg, 1);
                     break;
 
@@ -409,10 +462,13 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
                     length = srl_read_varint_uv_count(&mrg->ibuf, " while reading ARRAY or HASH");
                     srl_buf_cat_varint((srl_encoder_t*) mrg, 0, length);
 
-                    av_push(stack, newSViv(tag == SRL_HDR_HASH ? (int) length * 2 : (int) length));
+                    SRL_PUSH_CNT_TO_PARSER_STACK(mrg, tag == SRL_HDR_HASH ? (int) length * 2 : (int) length);
                     break;
 
-    //            case SRL_HDR_COPY:
+                case SRL_HDR_COPY:
+                    offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
+                    break;
+
     //            case SRL_HDR_ALIAS:
     //            case SRL_HDR_REFP:
     //            case SRL_HDR_OBJECTV:
@@ -433,10 +489,31 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
                     break;
             }
         }
+
+        ASSERT_PARSER_STACK_ITEM_SV(*stack_item_sv_ptr);
+        ASSERT_PARSER_STACK_ITEM_VALUE(stack_item_value);
+        SvIV_set(*stack_item_sv_ptr, --stack_item_value);
+
+        if (trackme) {
+            SvREFCNT_dec(av_shift(mrg->tracked_offsets_av));
+
+            int offset = BODY_POS_OFS(mrg->ibuf);
+            SV *val = newSViv((int) BODY_POS_OFS(mrg->obuf));
+            if (hv_store(SRL_GET_TRACKED_OFFSETS_HV(mrg), (const char*) &offset, sizeof(offset), val, 0) == NULL) {
+                SvREFCNT_dec(val);
+                croak("hv_store returned NULL");
+            }
+        }
     }
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
+}
+
+SRL_STATIC_INLINE int
+srl_expected_top_elements(pTHX_ srl_merger_t *mrg)
+{
+    return 1;
 }
 
 SRL_STATIC_INLINE IV 

@@ -18,11 +18,12 @@ typedef struct {
     srl_buffer_t obuf;                   /* output buffer */
     srl_buffer_t ibuf;                   /* input buffer, MUST NOT be deallocated by srl_buf_free_buffer() */
 
-    AV *tracked_offsets;                 /* list of tracked offsets */
-    AV *tracked_offsets_with_duplicates; /* same, but with duplicates */
+    HV *string_deduper_hv;               /* track strings we have seen before, by content */
+    HV *tracked_offsets_hv;              /* lookup table for tracked offsets */
+    AV *tracked_offsets_av;              /* list of sorted keys of tracked_offsets_hv */
+    AV *parser_stack;
 
     U32 protocol_version;                /* the version of the Sereal protocol to emit. */
-    HV *string_deduper_hv;               /* track strings we have seen before, by content */
 } srl_merger_t;
 
 srl_merger_t *srl_build_merger_struct(pTHX_ HV *opt);       /* constructor from options */
