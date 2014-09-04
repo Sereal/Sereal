@@ -620,7 +620,13 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         if ( dec_current(decoder) == ST_DONE ) {
             
             debug_print("current state: ST_DONE\n");
-            result = make_ok(st, env, curr);
+
+            if(decoder->pos == decoder->len){
+                result = make_ok(st, env, curr);
+
+            } else {
+                result = make_error(st, env, "Wrong structured Sereal");
+            }
 
             goto done;
         }
