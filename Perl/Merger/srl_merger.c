@@ -60,19 +60,22 @@ extern "C" {
                                          ? srl_init_tracked_offsets_av(aTHX_ mrg) \
                                          : (mrg)->tracked_offsets_av )
 
+//#define SRL_MERGER_TRACE(msg, args...) warn((msg), args)
+#define SRL_MERGER_TRACE(msg, args...)
+
 #ifndef NDEBUG
-#define SRL_PUSH_CNT_TO_PARSER_STACK(mrg, tag, cnt) STMT_START {          \
-    warn("tag %d (0x%X) pushed %d on parser stack", (tag), (tag), (cnt)); \
-    av_push((mrg)->parser_stack, newSViv(cnt));                           \
+#define SRL_PUSH_CNT_TO_PARSER_STACK(mrg, tag, cnt) STMT_START {                      \
+    SRL_MERGER_TRACE("tag %d (0x%X) pushed %d on parser stack", (tag), (tag), (cnt)); \
+    av_push((mrg)->parser_stack, newSViv(cnt));                                       \
 } STMT_END
 #else
 #define SRL_PUSH_CNT_TO_PARSER_STACK(mrg, tag, cnt) av_push((mrg)->parser_stack, newSViv(cnt))
 #endif
 
 #ifndef NDEBUG
-#define SRL_POP_PARSER_STACK(mrg) STMT_START { \
-    warn("poped value from parser stack");     \
-    SvREFCNT_dec(av_pop((mrg)->parser_stack)); \
+#define SRL_POP_PARSER_STACK(mrg) STMT_START {             \
+    SRL_MERGER_TRACE("poped value from parser stack", 0);  \
+    SvREFCNT_dec(av_pop((mrg)->parser_stack));             \
 } STMT_END
 #else
 #define SRL_POP_PARSER_STACK(mrg) SvREFCNT_dec(av_pop(mrg->parser_stack))
@@ -113,10 +116,12 @@ extern "C" {
 
 #ifndef NDEBUG
 #define SRL_REPORT_CURRENT_TAG(mrg, tag)         \
-    warn("%s: tag %d (0x%X) at abs %d, rel %d",  \
+    SRL_MERGER_TRACE(                            \
+         "%s: tag %d (0x%X) at abs %d, rel %d",  \
          __FUNCTION__, (tag), (tag),             \
          (int) BUF_POS_OFS(mrg->ibuf),           \
-         (int) BODY_POS_OFS(mrg->ibuf))
+         (int) BODY_POS_OFS(mrg->ibuf)           \
+    )
 #else
 #define SRL_REPORT_CURRENT_TAG(mrg, tag) ((void) 0)
 #endif
@@ -417,7 +422,8 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
 
         for (i = 0; i < avlen; ++i) {
             SV **sv_offset_ptr = av_fetch(mrg->tracked_offsets_av, i, 0);
-            warn("tracked_offsets: offset dedups idx %d offset %d SvREFCNT(%d)\n", i, (int) SvUV(*sv_offset_ptr), SvREFCNT(*sv_offset_ptr));
+            SRL_MERGER_TRACE("tracked_offsets: offset dedups idx %d offset %d SvREFCNT(%d)\n",
+                             i, (int) SvUV(*sv_offset_ptr), SvREFCNT(*sv_offset_ptr));
         }
 #endif
     }
@@ -627,9 +633,7 @@ srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV from, UV to)
     }
 
     if (to) {
-#ifndef NDEBUG
-        warn("srl_lookup_tracked_offset: store offset %lu => %lu", from, to);
-#endif
+        SRL_MERGER_TRACE("srl_lookup_tracked_offset: store offset %lu => %lu", from, to);
         sv_setuv(*offset_ptr, to);
         return 0;
     }
@@ -654,10 +658,8 @@ srl_lookup_string(pTHX_ srl_merger_t *mrg, const char* src, STRLEN len, UV offse
         croak("out of memory (hv_fetch returned NULL)");
     }
 
-#ifndef NDEBUG
-    warn("srl_lookup_string: %sfound duplicate for '%.*s'",
-         SvOK(*offset_ptr) ? "" : "not ", (int) len, src);
-#endif
+    SRL_MERGER_TRACE("srl_lookup_string: %sfound duplicate for '%.*s'",
+                     SvOK(*offset_ptr) ? "" : "not ", (int) len, src);
 
     if (SvOK(*offset_ptr)) {
         return SvUV(*offset_ptr);
