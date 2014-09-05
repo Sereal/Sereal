@@ -1,7 +1,7 @@
 
 Gem::Specification.new do |s|
   s.name         = "sereal"
-  s.version      = "0.0.14"
+  s.version      = "0.0.15"
   s.summary      = "Sereal encoder/decoder"
   s.description  = "Sereal encoder/decoder (https://github.com/Sereal/Sereal)"
   s.homepage     = "https://github.com/Sereal/Sereal"
