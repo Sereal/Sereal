@@ -682,6 +682,9 @@ srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV from, UV to)
 SRL_STATIC_INLINE UV
 srl_lookup_string(pTHX_ srl_merger_t *mrg, const char* src, STRLEN len, UV offset)
 {
+    if (len <= 3)
+        return (UV) 0; // 0 is invalid offset for all Sereal versions
+
     SV **offset_ptr = hv_fetch(SRL_GET_STRING_DEDUPER_AV(mrg), src, len, 1);
     if (expect_false(offset_ptr == NULL)) {
         croak("out of memory (hv_fetch returned NULL)");
