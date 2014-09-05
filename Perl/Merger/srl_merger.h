@@ -6,9 +6,11 @@
 
 /* General 'config' constants */
 #ifdef MEMDEBUG
-#   define INITIALIZATION_SIZE 1
+#   define INITIALIZATION_SIZE 8
+#   define RESERVED_HEADER_SIZE 8
 #else
 #   define INITIALIZATION_SIZE 64
+#   define RESERVED_HEADER_SIZE 8
 #endif
 
 #include "../Encoder/srl_buffer_types.h"

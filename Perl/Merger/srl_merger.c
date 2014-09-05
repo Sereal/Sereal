@@ -142,6 +142,14 @@ extern "C" {
     }                                                                 \
 } STMT_END
 
+/* srl_buffer.h has set of functions (srl_buf_cat_*) which I need in merger,
+ * but, for performance reason (avoid another level of inderection),
+ * the functions want srl_encoder_t* as first parameter to access the buffer.
+ * Hopefully, buffer is first field inside srl_merget_t structure, so if I
+ * put buffer at same position it's semi-safely to cast srl_merget_t* to
+ * srl_encoder_t*
+ */
+#define MRG2ENC(mrg) ((srl_encoder_t *) (mrg))
 //#define SRL_MRG_HAVE_OPTION(mrg, flag_num) ((mrg)->flags & flag_num)
 //#define SRL_MRG_SET_OPTION(mrg, flag_num) ((mrg)->flags |= flag_num)
 
@@ -213,6 +221,8 @@ srl_build_merger_struct(pTHX_ HV *opt)
     srl_merger_t *mrg;
     SV **svp;
 
+    assert(RESERVED_HEADER_SIZE < INITIALIZATION_SIZE);
+
     mrg = srl_empty_merger_struct(aTHX);
 
     /* load options */
@@ -229,7 +239,27 @@ srl_build_merger_struct(pTHX_ HV *opt)
         }
     }
 
-    //DEBUG_ASSERT_BUF_SANE(mrg);
+    /* 4 byte magic string + proto version
+     * + potentially uncompressed size varint
+     * +  1 byte varint that indicates zero-length header */
+    GROW_BUF(mrg->obuf, sizeof(SRL_MAGIC_STRING) + 1 + 1);
+
+    if (expect_true(mrg->protocol_version > 2)) {
+        srl_buf_cat_str_s_nocheck(MRG2ENC(mrg), SRL_MAGIC_STRING_HIGHBIT);
+    } else {
+        srl_buf_cat_str_s_nocheck(MRG2ENC(mrg), SRL_MAGIC_STRING);
+    }
+
+    srl_buf_cat_char_nocheck(MRG2ENC(mrg), (U8) mrg->protocol_version);
+    srl_buf_cat_char_nocheck(MRG2ENC(mrg), '\0');
+
+    // TODO SRL_UPDATE_BODY_POS(mrg);
+    if (expect_false(mrg->protocol_version == 1)) {
+        SRL_SET_BODY_POS(mrg->obuf, mrg->obuf.start);
+    } else {
+        SRL_SET_BODY_POS(mrg->obuf, mrg->obuf.pos-1);
+    }
+
     return mrg;
 }
 
@@ -266,8 +296,6 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
 {
     assert(mrg != NULL);
 
-    mrg->obuf.body_pos = mrg->obuf.start - 1;
-
     srl_reset_input_buffer(mrg, src);
     mrg->ibuf.pos += 6;
     mrg->ibuf.body_pos = mrg->ibuf.pos - 1;
@@ -298,6 +326,7 @@ srl_empty_merger_struct(pTHX)
         croak("Out of memory");
     }
 
+    mrg->protocol_version = SRL_PROTOCOL_VERSION;
     mrg->tracked_offsets_hv = NULL;
     mrg->tracked_offsets_av = NULL;
     mrg->string_deduper_hv = NULL;
@@ -503,7 +532,7 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
 
             if (offset) {
                 // issue COPY tag
-                srl_buf_cat_varint((srl_encoder_t*) mrg, SRL_HDR_COPY, offset);
+                srl_buf_cat_varint(MRG2ENC(mrg), SRL_HDR_COPY, offset);
                 mrg->ibuf.pos += length + 1;
             } else {
                 // see string first time
@@ -556,11 +585,11 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
 
                     if (offset) {
                         // issue COPY tag
-                        srl_buf_cat_varint((srl_encoder_t*) mrg, SRL_HDR_COPY, offset);
+                        srl_buf_cat_varint(MRG2ENC(mrg), SRL_HDR_COPY, offset);
                         mrg->ibuf.pos += (int) length;
                     } else {
                         // see string first time
-                        srl_buf_cat_varint((srl_encoder_t*) mrg, tag, length);
+                        srl_buf_cat_varint(MRG2ENC(mrg), tag, length);
                         srl_buf_copy_content_nocheck(mrg, length); // srl_read_varint_uv_length() do space assertion
                     }
 
