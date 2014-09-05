@@ -38,9 +38,7 @@ void Init_sereal();
  * if the object does not respond to FREEZE it will call <code>to_srl</code> and serialize the result of that
  * ==deserialize:
  *   require 'sereal'
- *   Sereal.decode(blob)
- *   Sereal.decode(blob,Sereal::REF|Sereal::DEBUG,{"top-level-key" => 1})
- *   Sereal.decode(blob,{"top-level-key" => 1})
+ *   Sereal.decode(blob) 
  * If the blob contains multiple compressed objects
  * sub-blobs you should call it with:
  *
@@ -65,14 +63,6 @@ void Init_sereal();
  *      # do something with the decoded object
  *    end
  *
- * top-level-filter:
- * simply pick only those keys from a top-level hash,meaning that if the encoded object is:
- *     { "stats" => [ 1,2,3,4,5], "info" => {1 => 2, 3 => [4,5,5], "key-that-i-am-interested-in"=> 7}
- * and i do:
- *     Sereal.decode(encoded,{ "key-that-i-am-interested-in" => 1 })
- * the result will be:
- *     { "key-that-i-am-interested-in" => 7 }
- * and everything else will be ignored
  * ===multiple packets in one buffer
  * it also supports decoding of multiple packets in one buffer:
  *
@@ -90,7 +80,6 @@ void Init_sereal();
  * flags and compression types can be used in combinations like:
  *
  *    Sereal.encode([1,2,3],Sereal::REF|Sereal::COPY|Sereal::THAW|Sereal::SNAPPY_INCR)
- *
  *
  * but you can not use 2 types of compression in the same time
  *

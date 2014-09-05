@@ -71,7 +71,6 @@ struct _sereal {
     u8 expect;
     VALUE tracked;
     VALUE copy;
-    VALUE schema;
     u32 hdr_end;
     int fd;
     struct buffer {

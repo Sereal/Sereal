@@ -116,7 +116,7 @@ static inline void s_append_string(sereal_t *s,u8 *string, u32 len,u8 is_utf8) {
 }
 
 static void s_append_rb_string(sereal_t *s, VALUE object) {
-    s_append_string(s,(u8 *) RSTRING_PTR(object),
+    s_append_string(s,RSTRING_PTR(object),
                     RSTRING_LEN(object),
                     (is_ascii_string(object) ? FALSE : TRUE));
 }
@@ -421,9 +421,9 @@ method_sereal_encode(VALUE self, VALUE args) {
 
         u8 *start = s_get_p_at_pos(s,s_header_len,0);
         u8 *working_buf = s_alloc_or_raise(s,CSNAPPY_WORKMEM_BYTES);
-        csnappy_compress((char *) start,
+        csnappy_compress(start,
                          s_body_len,
-                         (char *) (compressed + s_header_len + compressed_len_varint + un_compressed_len_varint),
+                         (compressed + s_header_len + compressed_len_varint + un_compressed_len_varint),
                          &compressed_len,
                          working_buf,
                          CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
@@ -441,7 +441,7 @@ method_sereal_encode(VALUE self, VALUE args) {
         s->pos = s->size;
     }
 
-    VALUE result = rb_str_new((char *) s->data,s->size);
+    VALUE result = rb_str_new(s->data,s->size);
     s_destroy(s);
     return result;
 }
