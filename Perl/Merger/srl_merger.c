@@ -100,7 +100,7 @@ extern "C" {
     assert((val) >= 0);                                                  \
 } STMT_END
 #else
-#define DEBUG_ASSERT_PARSER_STACK_VALUE assert((val) >= 0);
+#define DEBUG_ASSERT_PARSER_STACK_VALUE(val) assert((val) >= 0);
 #endif
 
 #ifndef NDEBUG
