@@ -24,7 +24,7 @@ typedef struct {
 
     HV *string_deduper_hv;               /* track strings we have seen before, by content */
     HV *tracked_offsets_hv;              /* table to convert ibuf offsets to obuf offsets */
-    AV *tracked_offsets_av;              /* list of sorted keys of tracked_offsets_hv */
+    srl_stack_t *tracked_offsets;        /* sorted list of offsets which should be tracked */
 
     U32 protocol_version;                /* the version of the Sereal protocol to emit. */
 } srl_merger_t;
