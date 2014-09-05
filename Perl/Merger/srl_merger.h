@@ -13,17 +13,18 @@
 #   define RESERVED_HEADER_SIZE 8
 #endif
 
+#include "srl_stack.h"
 #include "../Encoder/srl_buffer_types.h"
 
 /* the merger main struct */
 typedef struct {
     srl_buffer_t obuf;                   /* output buffer */
     srl_buffer_t ibuf;                   /* input buffer, MUST NOT be deallocated by srl_buf_free_buffer() */
+    srl_stack_t parser_stack;
 
     HV *string_deduper_hv;               /* track strings we have seen before, by content */
     HV *tracked_offsets_hv;              /* table to convert ibuf offsets to obuf offsets */
     AV *tracked_offsets_av;              /* list of sorted keys of tracked_offsets_hv */
-    AV *parser_stack;
 
     U32 protocol_version;                /* the version of the Sereal protocol to emit. */
 } srl_merger_t;
@@ -34,4 +35,3 @@ void srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src);   /* class methods */
 SV * srl_merger_finish(pTHX_ srl_merger_t *mrg);
 
 #endif
-
