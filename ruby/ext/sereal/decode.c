@@ -47,7 +47,7 @@ static VALUE s_read_double(sereal_t *s, u8 tag) {
 
 /* LONG DOUBLE */
 static VALUE s_read_long_double(sereal_t *s, u8 tag) {
-    return DBL2NUM((double) s_get_long_double(s));
+    return DBL2NUM((double) s_get_long_double_bang(s));
 }
 
 /* POS */
@@ -105,13 +105,13 @@ static VALUE s_read_rb_string_bang(sereal_t *s,u8 t) {
     u32 len = 0;
     VALUE string;
 // len - 1: we also use the current byte, similar to u32,float.. casts
-#define RETURN_STRING(fx_l,fx_gen)                             \
-    do {                                                       \
-        len = fx_l;                                            \
-        u8 *ptr = len == 0 ? 0 : s_get_p_req_inclusive(s,len); \
-        string = fx_gen;                                       \
-        s_shift_position_bang(s,len);                          \
-        return string;                                         \
+#define RETURN_STRING(fx_l,fx_gen)              \
+    do {                                        \
+        len       = fx_l;                       \
+        char *ptr = (char *) (len == 0 ? 0 : s_get_p_req_inclusive(s,len)); \
+        string    = fx_gen;                     \
+        s_shift_position_bang(s,len);           \
+        return string;                          \
     } while(0);
 
     if (t == SRL_HDR_STR_UTF8) {
@@ -180,7 +180,7 @@ static VALUE s_read_ref(sereal_t *s, u8 tag) {
         s_raise(s,rb_eArgError,"there are no references stored");
     u64 off = s_get_varint_bang(s);
     VALUE object = rb_hash_lookup(s->tracked,INT2FIX(off + s->hdr_end));
-    SD(s,"reading reference from offset: %d, id: %d",off + s->hdr_end,FIX2INT(rb_obj_id(object)));
+    SD(s,"reading reference from offset: %llu, id: %d",off + s->hdr_end,FIX2INT(rb_obj_id(object)));
     return object;
 }
 
@@ -338,10 +338,10 @@ again:
             return Qnil;
         }
         if (size < __MIN_SIZE)
-            s_raise(s,rb_eTypeError,"size(%d) is less then min packet size %d, offset: %d",size,__MIN_SIZE,offset);
+            s_raise(s,rb_eTypeError,"size(%d) is less then min packet size %d, offset: %llu",size,__MIN_SIZE,offset);
 
         s->flags |= __NOT_MINE;
-        s->data = RSTRING_PTR(payload) + offset;
+        s->data = (u8 *) RSTRING_PTR(payload) + offset;
         s->size = size;
     }
 
@@ -388,7 +388,7 @@ again:
         u8 *uncompressed = s_alloc_or_raise(s,uncompressed_len);
         int done = csnappy_decompress(s_get_p_req_inclusive(s,compressed_len),
                                       compressed_len,
-                                      uncompressed,
+                                      (char *) uncompressed,
                                       uncompressed_len) == CSNAPPY_E_OK ? 1 : 0;
         if (!done)
             s_raise(s,rb_eTypeError, "decompression failed error: %d type: %d, unompressed size: %d compressed size: %d",
