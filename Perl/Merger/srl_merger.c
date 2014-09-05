@@ -540,12 +540,12 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
             }
         } else if (tag <= SRL_HDR_NEG_HIGH) {
             srl_buf_copy_content_nocheck(mrg, 1);
-        } else if (IS_SRL_HDR_ARRAYREF(tag)) {
-            srl_buf_copy_content_nocheck(mrg, 1);
-            SRL_PUSH_CNT_TO_PARSER_STACK(mrg, tag, SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag));
         } else if (IS_SRL_HDR_HASHREF(tag)) {
             srl_buf_copy_content_nocheck(mrg, 1);
             SRL_PUSH_CNT_TO_PARSER_STACK(mrg, tag, SRL_HDR_HASHREF_LEN_FROM_TAG(tag) * 2);
+        } else if (IS_SRL_HDR_ARRAYREF(tag)) {
+            srl_buf_copy_content_nocheck(mrg, 1);
+            SRL_PUSH_CNT_TO_PARSER_STACK(mrg, tag, SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag));
         } else {
             switch (tag) {
                 case SRL_HDR_VARINT:
