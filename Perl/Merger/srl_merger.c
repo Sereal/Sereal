@@ -604,6 +604,7 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
                     break;
 
                 case SRL_HDR_COPY:
+                case SRL_HDR_REFP:
                     mrg->ibuf.pos++; // skip tag in input buffer
                     offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
                     offset = srl_lookup_tracked_offset(mrg, offset, 0); // convert ibuf offset to obuf offset
