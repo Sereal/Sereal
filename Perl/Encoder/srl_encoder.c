@@ -291,7 +291,7 @@ srl_clear_encoder(pTHX_ srl_encoder_t *enc)
     /* tmp_buf.start may be NULL for an unused tmp_buf, but so what? */
     enc->tmp_buf.pos = enc->tmp_buf.start;
 
-    SRL_SET_BODY_POS(enc, enc->buf.start);
+    SRL_SET_BODY_POS(enc->buf, enc->buf.start);
 
     SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);
 }

@@ -31,13 +31,13 @@
 #define BODY_POS_OFS(buf) (((buf).pos) - ((buf).body_pos))
 
 /* these are mostly for right between (de)serializing the header and the body */
-#define SRL_SET_BODY_POS(enc, pos_ptr) ((enc)->buf.body_pos = pos_ptr)
+#define SRL_SET_BODY_POS(buf, pos_ptr) ((buf).body_pos = pos_ptr)
 #define SRL_UPDATE_BODY_POS(enc)                                            \
     STMT_START {                                                            \
         if (expect_false((enc)->protocol_version == 1)) {                   \
-            SRL_SET_BODY_POS(enc, (enc)->buf.start);                        \
+            SRL_SET_BODY_POS((enc)->buf, (enc)->buf.start);                 \
         } else {                                                            \
-            SRL_SET_BODY_POS(enc, (enc)->buf.pos-1);                        \
+            SRL_SET_BODY_POS((enc)->buf, (enc)->buf.pos-1);                 \
         }                                                                   \
     } STMT_END
 
@@ -130,7 +130,7 @@ srl_buf_grow_nocheck(pTHX_ srl_buffer_t *buf, size_t minlen)
 
     buf->end = (char *)(buf->start + new_size);
     buf->pos = buf->start + pos_ofs;
-    buf->body_pos = buf->start + body_ofs; /* SRL_SET_BODY_POS(enc, enc->buf.start + body_ofs); equiv */
+    SRL_SET_BODY_POS(*buf, buf->start + body_ofs);
 
     DEBUG_ASSERT_BUF_SANE(*buf);
     assert(buf->end - buf->start > (ptrdiff_t)0);
