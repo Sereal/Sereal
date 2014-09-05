@@ -63,23 +63,35 @@ extern "C" {
 //#define SRL_MERGER_TRACE(msg, args...) warn((msg), args)
 #define SRL_MERGER_TRACE(msg, args...)
 
-#ifndef NDEBUG
-#define SRL_PUSH_CNT_TO_PARSER_STACK(mrg, tag, cnt) STMT_START {                      \
-    SRL_MERGER_TRACE("tag %d (0x%X) pushed %d on parser stack", (tag), (tag), (cnt)); \
-    av_push((mrg)->parser_stack, newSViv(cnt));                                       \
+#define SRL_REPORT_CURRENT_TAG(mrg, tag) STMT_START {        \
+    SRL_MERGER_TRACE(                                        \
+         "%s: tag %d (0x%X) at abs %d, rel %d",              \
+         __FUNCTION__, (tag), (tag),                         \
+         (int) BUF_POS_OFS(mrg->ibuf),                       \
+         (int) BODY_POS_OFS(mrg->ibuf)                       \
+    );                                                       \
 } STMT_END
-#else
-#define SRL_PUSH_CNT_TO_PARSER_STACK(mrg, tag, cnt) av_push((mrg)->parser_stack, newSViv(cnt))
-#endif
 
-#ifndef NDEBUG
-#define SRL_POP_PARSER_STACK(mrg) STMT_START {             \
-    SRL_MERGER_TRACE("poped value from parser stack", 0);  \
-    SvREFCNT_dec(av_pop((mrg)->parser_stack));             \
+#define SRL_PUSH_CNT_TO_PARSER_STACK(mrg, tag, cnt) STMT_START {        \
+    SRL_MERGER_TRACE(                                                   \
+        "pushed %d on parser stack by tag %d (0x%X) at abs %d, rel %d", \
+        (cnt), (tag), (tag),                                            \
+        (int) BUF_POS_OFS(mrg->ibuf),                                   \
+        (int) BODY_POS_OFS(mrg->ibuf)                                   \
+    );                                                                  \
+                                                                        \
+    av_push((mrg)->parser_stack, newSViv(cnt));                         \
 } STMT_END
-#else
-#define SRL_POP_PARSER_STACK(mrg) SvREFCNT_dec(av_pop(mrg->parser_stack))
-#endif
+
+#define SRL_POP_PARSER_STACK(mrg) STMT_START {  \
+    SRL_MERGER_TRACE(                           \
+        "poped parser stack at abs %d, rel %d", \
+        (int) BUF_POS_OFS(mrg->ibuf),           \
+        (int) BODY_POS_OFS(mrg->ibuf)           \
+    );                                          \
+                                                \
+    SvREFCNT_dec(av_pop((mrg)->parser_stack));  \
+} STMT_END
 
 #ifndef NDEBUG
 #define DEBUG_ASSERT_PARSER_STACK_VALUE(val) STMT_START {                \
@@ -112,18 +124,6 @@ extern "C" {
 } STMT_END
 #else
 #define DEBUG_ASSERT_PARSER_STACK(mrg) ((void)0)
-#endif
-
-#ifndef NDEBUG
-#define SRL_REPORT_CURRENT_TAG(mrg, tag)         \
-    SRL_MERGER_TRACE(                            \
-         "%s: tag %d (0x%X) at abs %d, rel %d",  \
-         __FUNCTION__, (tag), (tag),             \
-         (int) BUF_POS_OFS(mrg->ibuf),           \
-         (int) BODY_POS_OFS(mrg->ibuf)           \
-    )
-#else
-#define SRL_REPORT_CURRENT_TAG(mrg, tag) ((void) 0)
 #endif
 
 #define ASSERT_BUF_SPACE(buf, len, msg) STMT_START {         \
@@ -600,7 +600,6 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
                     srl_buf_copy_content_nocheck(mrg, 1);
                     length = srl_read_varint_uv_count(&mrg->ibuf, " while reading ARRAY or HASH");
                     srl_buf_cat_varint((srl_encoder_t*) mrg, 0, length);
-
                     SRL_PUSH_CNT_TO_PARSER_STACK(mrg, tag, tag == SRL_HDR_HASH ? (int) length * 2 : (int) length);
                     break;
 
