@@ -379,14 +379,15 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
         }
     }
 
-    if (mrg->tracked_offsets) {
+    if (mrg->tracked_offsets && !srl_stack_empty(mrg->tracked_offsets)) {
         srl_stack_rsort(mrg->tracked_offsets);
         srl_stack_dedupe(mrg->tracked_offsets);
 
-        //int i;
-        //for (i = 0; i <= mrg->tracked_offsets->idx; i++) {
-        //    warn("tracked_offsets3: offset dedups idx %d offset %d\n",
-        //                     i, (int) mrg->tracked_offsets->arr[i]);
+        //int i = 0;
+        //int64_t *ptr = mrg->tracked_offsets->begin;
+        //while (ptr <= mrg->tracked_offsets->ptr) {
+        //    warn("tracked_offsets: offset dedups idx %d offset %d\n", i, (int) *ptr);
+        //    i++; ptr++;
         //}
     }
 
@@ -398,7 +399,9 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
     U8 tag;
     UV length, offset;
     UV itag_offset, otag_offset;
-    int stack_idx;
+    srl_stack_t *tracked_offsets = mrg->tracked_offsets;
+    srl_stack_t *parser_stack = &mrg->parser_stack;
+    int64_t *stack_ptr;
     bool trackme;
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
@@ -407,20 +410,18 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
     // parser_stack is needed for two things:
     // - keep track of expected things
     // - verify document consistency
-    srl_stack_clear(&mrg->parser_stack);
-    srl_stack_push(&mrg->parser_stack, srl_expected_top_elements(mrg));
+    srl_stack_clear(parser_stack);
+    srl_stack_push(parser_stack, srl_expected_top_elements(mrg));
 
     //while (BUF_NOT_DONE(mrg->ibuf)) {
     while (1) {
-        stack_idx = srl_stack_idx(&mrg->parser_stack);
-        while (srl_stack_peek(&mrg->parser_stack) == 0) {
-            srl_stack_pop(&mrg->parser_stack);
-            stack_idx = srl_stack_idx(&mrg->parser_stack);
-            if (srl_stack_empty(&mrg->parser_stack))
-                break;
+        while (!srl_stack_empty(parser_stack)
+               && srl_stack_peek_nocheck(parser_stack) == 0)
+        {
+            srl_stack_pop(parser_stack);
         }
 
-        if (srl_stack_empty(&mrg->parser_stack))
+        if (srl_stack_empty(parser_stack))
             break;
 
         DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
@@ -429,12 +430,14 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
         tag = *mrg->ibuf.pos;
         tag = tag & ~SRL_HDR_TRACK_FLAG;
         SRL_REPORT_CURRENT_TAG(mrg, tag);
+
         itag_offset = BODY_POS_OFS(mrg->ibuf);
         otag_offset = BODY_POS_OFS(mrg->obuf);
+        stack_ptr = srl_stack_ptr(parser_stack);
 
-        trackme = mrg->tracked_offsets
-                  && !srl_stack_empty(mrg->tracked_offsets)
-                  && BODY_POS_OFS(mrg->ibuf) == srl_stack_peek(mrg->tracked_offsets);
+        trackme = tracked_offsets
+                  && !srl_stack_empty(tracked_offsets)
+                  && (int) itag_offset == srl_stack_peek_nocheck(tracked_offsets);
 
         if (IS_SRL_HDR_SHORT_BINARY(tag)) {
             length = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
@@ -455,10 +458,10 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
             srl_buf_copy_content_nocheck(mrg, 1);
         } else if (IS_SRL_HDR_HASHREF(tag)) {
             srl_buf_copy_content_nocheck(mrg, 1);
-            srl_stack_push(&mrg->parser_stack, SRL_HDR_HASHREF_LEN_FROM_TAG(tag) * 2);
+            srl_stack_push(parser_stack, SRL_HDR_HASHREF_LEN_FROM_TAG(tag) * 2);
         } else if (IS_SRL_HDR_ARRAYREF(tag)) {
             srl_buf_copy_content_nocheck(mrg, 1);
-            srl_stack_push(&mrg->parser_stack, SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag));
+            srl_stack_push(parser_stack, SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag));
         } else {
             switch (tag) {
                 case SRL_HDR_VARINT:
@@ -479,7 +482,7 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
                     // and stack_item_value should not be decremented,
                     // but at the end of the loop I dont want to create if-branch
                     // so, I simply increment counter to level furter decremetion
-                    srl_stack_incr_value_nocheck(&mrg->parser_stack, stack_idx, 1);
+                    srl_stack_incr_value(parser_stack, stack_ptr, 1);
                     srl_buf_copy_content_nocheck(mrg, 1);
                     break;
 
@@ -513,7 +516,7 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
                     srl_buf_copy_content_nocheck(mrg, 1);
                     length = srl_read_varint_uv_count(&mrg->ibuf, " while reading ARRAY or HASH");
                     srl_buf_cat_varint((srl_encoder_t*) mrg, 0, length);
-                    srl_stack_push(&mrg->parser_stack, tag == SRL_HDR_HASH ? length * 2 : length);
+                    srl_stack_push(parser_stack, tag == SRL_HDR_HASH ? length * 2 : length);
                     break;
 
                 case SRL_HDR_COPY:
@@ -545,10 +548,10 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
             }
         }
 
-        srl_stack_incr_value_nocheck(&mrg->parser_stack, stack_idx, -1);
+        srl_stack_incr_value(parser_stack, stack_ptr, -1);
 
         if (expect_false(trackme)) {
-            srl_stack_pop(mrg->tracked_offsets);
+            srl_stack_pop(tracked_offsets);
             srl_lookup_tracked_offset(mrg, itag_offset, otag_offset);
         }
     }
