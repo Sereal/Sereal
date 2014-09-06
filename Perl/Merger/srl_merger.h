@@ -21,10 +21,9 @@ typedef struct {
     srl_buffer_t obuf;                   /* output buffer */
     srl_buffer_t ibuf;                   /* input buffer, MUST NOT be deallocated by srl_buf_free_buffer() */
     srl_stack_t parser_stack;
-
-    HV *string_deduper_hv;               /* track strings we have seen before, by content */
-    HV *tracked_offsets_hv;              /* table to convert ibuf offsets to obuf offsets */
     srl_stack_t *tracked_offsets;        /* sorted list of offsets which should be tracked */
+    struct PTABLE *tracked_offsets_tbl;  /* table to convert ibuf offsets to obuf offsets */
+    HV *string_deduper_hv;               /* track strings we have seen before, by content */
 
     U32 protocol_version;                /* the version of the Sereal protocol to emit. */
 } srl_merger_t;
