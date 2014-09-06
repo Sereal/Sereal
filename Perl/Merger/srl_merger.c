@@ -225,6 +225,7 @@ srl_destroy_merger(pTHX_ srl_merger_t *mrg)
 
     if (mrg->tracked_offsets) {
         srl_stack_destroy(aTHX_ mrg->tracked_offsets);
+        Safefree(mrg->tracked_offsets);
         mrg->tracked_offsets = NULL;
     }
 
