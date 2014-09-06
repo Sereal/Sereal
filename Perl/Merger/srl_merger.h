@@ -7,10 +7,8 @@
 /* General 'config' constants */
 #ifdef MEMDEBUG
 #   define INITIALIZATION_SIZE 8
-#   define RESERVED_HEADER_SIZE 8
 #else
 #   define INITIALIZATION_SIZE 64
-#   define RESERVED_HEADER_SIZE 8
 #endif
 
 #include "srl_stack.h"
@@ -25,6 +23,8 @@ typedef struct {
     struct PTABLE *tracked_offsets_tbl;  /* table to convert ibuf offsets to obuf offsets */
     HV *string_deduper_hv;               /* track strings we have seen before, by content */
 
+    U32 obuf_padding_bytes_offset;       /* pointer to start of SRL_MAX_VARINT_LENGTH padding bytes */
+    U32 cnt_of_merged_elements;          /* total count of merged elements so far */
     U32 protocol_version;                /* the version of the Sereal protocol to emit. */
 } srl_merger_t;
 
