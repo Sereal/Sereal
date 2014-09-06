@@ -445,17 +445,7 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
     srl_stack_clear(parser_stack);
     srl_stack_push(parser_stack, expected_top_elements);
 
-    while (BUF_NOT_DONE(mrg->ibuf)) {
-        while (expect_false(
-              !srl_stack_empty(parser_stack)
-            && srl_stack_peek_nocheck(parser_stack) == 0
-        )) {
-            srl_stack_pop(parser_stack);
-        }
-
-        if (srl_stack_empty(parser_stack))
-            break;
-
+    while (BUF_NOT_DONE(mrg->ibuf) && !srl_stack_empty(parser_stack)) {
         DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
         DEBUG_ASSERT_BUF_SANE(mrg->obuf);
 
@@ -590,6 +580,13 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
 
         srl_stack_incr_value(parser_stack, stack_ptr, -1);
 
+        while (expect_false(
+              !srl_stack_empty(parser_stack)
+            && srl_stack_peek_nocheck(parser_stack) == 0
+        )) {
+            srl_stack_pop(parser_stack);
+        }
+
         if (expect_false(trackme)) {
             srl_stack_pop(tracked_offsets);
             srl_store_tracked_offset(mrg, itag_offset, otag_offset);
@@ -598,13 +595,6 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
-
-    while (expect_false(
-          !srl_stack_empty(parser_stack)
-        && srl_stack_peek_nocheck(parser_stack) == 0
-    )) {
-        srl_stack_pop(parser_stack);
-    }
 
     if (expect_false(!srl_stack_empty(parser_stack)))
         croak("parser_stack is not empty, unexpected termination"); // TODO
