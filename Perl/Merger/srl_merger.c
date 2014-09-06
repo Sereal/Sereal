@@ -116,6 +116,7 @@ SRL_STATIC_INLINE UV srl_read_varint_uv_count(pTHX_ srl_buffer_t *buf, const cha
 
 SRL_STATIC_INLINE void srl_buf_copy_content(pTHX_ srl_merger_t *mrg, size_t len, const char * const errstr);
 SRL_STATIC_INLINE void srl_buf_copy_content_nocheck(pTHX_ srl_merger_t *mrg, size_t len);
+SRL_STATIC_INLINE void srl_buf_cat_tag_nocheck(pTHX_ srl_merger_t *mrg, const char tag);
 SRL_STATIC_INLINE void srl_copy_varint(pTHX_ srl_merger_t *mrg);
 
 SRL_STATIC_INLINE HV * srl_init_string_deduper_hv(pTHX_ srl_merger_t *mrg);
@@ -457,18 +458,18 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
                 srl_buf_copy_content_nocheck(mrg, length + 1);
             }
         } else if (tag <= SRL_HDR_NEG_HIGH) {
-            srl_buf_copy_content_nocheck(mrg, 1);
+            srl_buf_cat_tag_nocheck(mrg, tag);
         } else if (IS_SRL_HDR_HASHREF(tag)) {
-            srl_buf_copy_content_nocheck(mrg, 1);
+            srl_buf_cat_tag_nocheck(mrg, tag);
             srl_stack_push(parser_stack, SRL_HDR_HASHREF_LEN_FROM_TAG(tag) * 2);
         } else if (IS_SRL_HDR_ARRAYREF(tag)) {
-            srl_buf_copy_content_nocheck(mrg, 1);
+            srl_buf_cat_tag_nocheck(mrg, tag);
             srl_stack_push(parser_stack, SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag));
         } else {
             switch (tag) {
                 case SRL_HDR_VARINT:
                 case SRL_HDR_ZIGZAG:
-                    srl_buf_copy_content_nocheck(mrg, 1);
+                    srl_buf_cat_tag_nocheck(mrg, tag);
                     srl_copy_varint(mrg);
                     break;
 
@@ -485,14 +486,14 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
                     // but at the end of the loop I dont want to create if-branch
                     // so, I simply increment counter to level furter decremetion
                     srl_stack_incr_value(parser_stack, stack_ptr, 1);
-                    srl_buf_copy_content_nocheck(mrg, 1);
+                    srl_buf_cat_tag_nocheck(mrg, tag);
                     break;
 
                 case SRL_HDR_TRUE:
                 case SRL_HDR_FALSE:
                 case SRL_HDR_UNDEF:
                 case SRL_HDR_CANONICAL_UNDEF:
-                    srl_buf_copy_content_nocheck(mrg, 1);
+                    srl_buf_cat_tag_nocheck(mrg, tag);
                     break;
 
                 case SRL_HDR_BINARY:
@@ -515,9 +516,9 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
 
                 case SRL_HDR_HASH:
                 case SRL_HDR_ARRAY:
-                    srl_buf_copy_content_nocheck(mrg, 1);
+                    mrg->ibuf.pos++; // skip tag in input buffer
                     length = srl_read_varint_uv_count(&mrg->ibuf, " while reading ARRAY or HASH");
-                    srl_buf_cat_varint((srl_encoder_t*) mrg, 0, length);
+                    srl_buf_cat_varint((srl_encoder_t*) mrg, tag, length);
                     srl_stack_push(parser_stack, tag == SRL_HDR_HASH ? length * 2 : length);
                     break;
 
@@ -628,6 +629,18 @@ srl_buf_copy_content_nocheck(pTHX_ srl_merger_t *mrg, size_t len)
     Copy(mrg->ibuf.pos, mrg->obuf.pos, len, char);
     mrg->ibuf.pos += len;
     mrg->obuf.pos += len;
+
+    DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
+    DEBUG_ASSERT_BUF_SANE(mrg->obuf);
+}
+
+SRL_STATIC_INLINE void
+srl_buf_cat_tag_nocheck(pTHX_ srl_merger_t *mrg, const char tag)
+{
+    GROW_BUF(mrg->obuf, 1);
+
+    *mrg->obuf.pos++ = tag;
+    mrg->ibuf.pos++;
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
