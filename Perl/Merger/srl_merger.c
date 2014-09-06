@@ -82,7 +82,7 @@ extern "C" {
 
 #define GROW_BUF(buf, minlen) STMT_START {                            \
     DEBUG_ASSERT_BUF_SANE(buf);                                       \
-    if (BUF_NEED_GROW(buf, minlen)) {                                 \
+    if (expect_false(BUF_NEED_GROW(buf, minlen))) {                   \
         srl_buf_grow_nocheck(aTHX_ &(buf), (BUF_SIZE(buf) + minlen)); \
         DEBUG_ASSERT_BUF_SANE(buf);                                   \
     }                                                                 \
@@ -418,9 +418,10 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
 
     //while (BUF_NOT_DONE(mrg->ibuf)) {
     while (1) {
-        while (!srl_stack_empty(parser_stack)
-               && srl_stack_peek_nocheck(parser_stack) == 0)
-        {
+        while (expect_false(
+              !srl_stack_empty(parser_stack)
+            && srl_stack_peek_nocheck(parser_stack) == 0
+        )) {
             srl_stack_pop(parser_stack);
         }
 
