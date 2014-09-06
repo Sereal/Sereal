@@ -41,12 +41,9 @@ extern "C" {
 #define HAS_SV2OBJ
 #endif
 
-#define IS_SRL_HDR_ARRAYREF(tag) (((tag) & SRL_HDR_ARRAYREF) == SRL_HDR_ARRAYREF)
-#define IS_SRL_HDR_HASHREF(tag) (((tag) & SRL_HDR_HASHREF) == SRL_HDR_HASHREF)
-#define IS_SRL_HDR_SHORT_BINARY(tag) (((tag) & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW)
 #define SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) ((tag) & SRL_MASK_SHORT_BINARY_LEN)
-#define SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag) ((tag) & 15)
-#define SRL_HDR_HASHREF_LEN_FROM_TAG(tag) ((tag) & 15)
+#define SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag) ((tag) & SRL_MASK_ARRAYREF_COUNT)
+#define SRL_HDR_HASHREF_LEN_FROM_TAG(tag) ((tag) & SRL_MASK_HASHREF_COUNT)
 
 #define SRL_GET_STRING_DEDUPER_AV(mrg)   ((mrg)->string_deduper_hv == NULL          \
                                          ? srl_init_string_deduper_hv(aTHX_ mrg)    \
@@ -325,60 +322,63 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
         SRL_REPORT_CURRENT_TAG(mrg, tag);
         mrg->ibuf.pos++;
 
-        if (IS_SRL_HDR_SHORT_BINARY(tag)) {
+        if (tag >= SRL_HDR_SHORT_BINARY_LOW) {
             mrg->ibuf.pos += (int) SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
-            continue;
-        } else if (tag <= SRL_HDR_NEG_HIGH || IS_SRL_HDR_ARRAYREF(tag) || IS_SRL_HDR_HASHREF(tag)) {
-            continue;
-        }
+        } else if (tag > SRL_HDR_NEG_HIGH && tag < SRL_HDR_ARRAYREF_LOW) {
+            switch (tag) {
+                case SRL_HDR_VARINT:
+                case SRL_HDR_ZIGZAG:
+                    srl_read_varint_uv(&mrg->ibuf); // TODO test/implement srl_skip_varint()
+                    break;
 
-        switch (tag) {
-            case SRL_HDR_VARINT:
-            case SRL_HDR_ZIGZAG:
-                srl_read_varint_uv(&mrg->ibuf); // TODO test/implement srl_skip_varint()
-                break;
+                case SRL_HDR_FLOAT:         mrg->ibuf.pos += 4;     break;
+                case SRL_HDR_DOUBLE:        mrg->ibuf.pos += 8;     break;
+                case SRL_HDR_LONG_DOUBLE:   mrg->ibuf.pos += 16;    break;
 
-            case SRL_HDR_FLOAT:         mrg->ibuf.pos += 4;     break;
-            case SRL_HDR_DOUBLE:        mrg->ibuf.pos += 8;     break;
-            case SRL_HDR_LONG_DOUBLE:   mrg->ibuf.pos += 16;    break;
+                case SRL_HDR_BINARY:
+                case SRL_HDR_STR_UTF8:
+                    length = srl_read_varint_uv_length(&mrg->ibuf, " while reading BINARY or STR_UTF8");
+                    mrg->ibuf.pos += length;
+                    break;
 
-            case SRL_HDR_BINARY:
-            case SRL_HDR_STR_UTF8:
-                length = srl_read_varint_uv_length(&mrg->ibuf, " while reading BINARY or STR_UTF8");
-                mrg->ibuf.pos += length;
-                break;
+                case SRL_HDR_HASH:
+                case SRL_HDR_ARRAY:
+                    srl_read_varint_uv_count(&mrg->ibuf, " while reading ARRAY or HASH");
+                    break;
 
-            case SRL_HDR_HASH:
-            case SRL_HDR_ARRAY:
-                srl_read_varint_uv_count(&mrg->ibuf, " while reading ARRAY or HASH");
-                break;
+                case SRL_HDR_TRUE:
+                case SRL_HDR_FALSE:
+                case SRL_HDR_UNDEF:
+                case SRL_HDR_CANONICAL_UNDEF:
+                    // noop
+                    break;
 
-            case SRL_HDR_COPY:
-            case SRL_HDR_ALIAS:
-            case SRL_HDR_REFP:
-            case SRL_HDR_OBJECTV:
-            case SRL_HDR_OBJECTV_FREEZE:
-                offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
-                srl_stack_push(SRL_GET_TRACKED_OFFSETS(mrg), offset);
-                break;
+                default:
+                    switch (tag) {
+                        case SRL_HDR_COPY:
+                        case SRL_HDR_ALIAS:
+                        case SRL_HDR_REFP:
+                        case SRL_HDR_OBJECTV:
+                        case SRL_HDR_OBJECTV_FREEZE:
+                            offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
+                            srl_stack_push(SRL_GET_TRACKED_OFFSETS(mrg), offset);
+                            break;
 
-            case SRL_HDR_PAD:
-            case SRL_HDR_REFN:
-            case SRL_HDR_WEAKEN:
-            case SRL_HDR_UNDEF:
-            case SRL_HDR_CANONICAL_UNDEF:
-            case SRL_HDR_TRUE:
-            case SRL_HDR_FALSE:
-            case SRL_HDR_EXTEND:
-            case SRL_HDR_REGEXP:
-            case SRL_HDR_OBJECT:
-            case SRL_HDR_OBJECT_FREEZE:
-                // noop
-                break;
+                        case SRL_HDR_PAD:
+                        case SRL_HDR_REFN:
+                        case SRL_HDR_WEAKEN:
+                        case SRL_HDR_EXTEND:
+                        case SRL_HDR_REGEXP:
+                        case SRL_HDR_OBJECT:
+                        case SRL_HDR_OBJECT_FREEZE:
+                            // noop
+                            break;
 
-            default:
-                croak("unexpected"); // TODO SRL_ERROR_UNEXPECTED(dec,tag, " single value");
-                break;
+                        default:
+                            croak("unexpected"); // TODO SRL_ERROR_UNEXPECTED(dec,tag, " single value");
+                            break;
+                    }
+            }
         }
     }
 
@@ -443,7 +443,15 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
                   && !srl_stack_empty(tracked_offsets)
                   && (int) itag_offset == srl_stack_peek_nocheck(tracked_offsets);
 
-        if (IS_SRL_HDR_SHORT_BINARY(tag)) {
+        if (tag <= SRL_HDR_NEG_HIGH) {
+            srl_buf_cat_tag_nocheck(mrg, tag);
+        } else if (tag >= SRL_HDR_ARRAYREF_LOW && tag <= SRL_HDR_ARRAYREF_HIGH) {
+            srl_buf_cat_tag_nocheck(mrg, tag);
+            srl_stack_push(parser_stack, SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag));
+        } else if (tag >= SRL_HDR_HASHREF_LOW && tag <= SRL_HDR_HASHREF_HIGH) {
+            srl_buf_cat_tag_nocheck(mrg, tag);
+            srl_stack_push(parser_stack, SRL_HDR_HASHREF_LEN_FROM_TAG(tag) * 2);
+        } else if (tag >= SRL_HDR_SHORT_BINARY_LOW) {
             length = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
 
             // +1 because need to respect tag
@@ -458,14 +466,6 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
                 // see string first time
                 srl_buf_copy_content_nocheck(mrg, length + 1);
             }
-        } else if (tag <= SRL_HDR_NEG_HIGH) {
-            srl_buf_cat_tag_nocheck(mrg, tag);
-        } else if (IS_SRL_HDR_HASHREF(tag)) {
-            srl_buf_cat_tag_nocheck(mrg, tag);
-            srl_stack_push(parser_stack, SRL_HDR_HASHREF_LEN_FROM_TAG(tag) * 2);
-        } else if (IS_SRL_HDR_ARRAYREF(tag)) {
-            srl_buf_cat_tag_nocheck(mrg, tag);
-            srl_stack_push(parser_stack, SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag));
         } else {
             switch (tag) {
                 case SRL_HDR_VARINT:
@@ -477,18 +477,6 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
                 case SRL_HDR_FLOAT:         srl_buf_copy_content(mrg, 5,  " while copying FLOAT");       break;
                 case SRL_HDR_DOUBLE:        srl_buf_copy_content(mrg, 9,  " while copying DOUBLE");      break;
                 case SRL_HDR_LONG_DOUBLE:   srl_buf_copy_content(mrg, 17, " while copying LONG_DOUBLE"); break;
-
-                case SRL_HDR_PAD:
-                case SRL_HDR_REFN:
-                case SRL_HDR_WEAKEN:
-                case SRL_HDR_EXTEND:
-                    // this set of tags are not real items,
-                    // and stack_item_value should not be decremented,
-                    // but at the end of the loop I dont want to create if-branch
-                    // so, I simply increment counter to level furter decremetion
-                    srl_stack_incr_value(parser_stack, stack_ptr, 1);
-                    srl_buf_cat_tag_nocheck(mrg, tag);
-                    break;
 
                 case SRL_HDR_TRUE:
                 case SRL_HDR_FALSE:
@@ -523,32 +511,45 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
                     srl_stack_push(parser_stack, tag == SRL_HDR_HASH ? length * 2 : length);
                     break;
 
-                case SRL_HDR_COPY:
-                case SRL_HDR_REFP:
-                    mrg->ibuf.pos++; // skip tag in input buffer
-                    offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
-                    offset = srl_lookup_tracked_offset(mrg, offset); // convert ibuf offset to obuf offset
-                    srl_buf_cat_varint((srl_encoder_t*) mrg, tag, offset);
-                    break;
-
-    //            case SRL_HDR_ALIAS:
-    //            case SRL_HDR_REFP:
-    //            case SRL_HDR_OBJECTV:
-    //            case SRL_HDR_OBJECTV_FREEZE:
-    //                offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
-    //                av_push(mrg->tracked_offsets_with_duplicates, newSVuv(offset));
-    //                break;
-    //
-    //            case SRL_HDR_REGEXP:
-    //            case SRL_HDR_OBJECT:
-    //            case SRL_HDR_OBJECT_FREEZE:
-    //                // noop
-    //                break;
-
                 default:
-                    // TODO SRL_ERROR_UNEXPECTED(dec,tag, " single value");
-                    croak("unexpected tag %d (0x%X) at %d", tag, tag, (int) BUF_POS_OFS(mrg->ibuf));
-                    break;
+                    switch (tag) {
+                        case SRL_HDR_COPY:
+                        case SRL_HDR_REFP:
+                            mrg->ibuf.pos++; // skip tag in input buffer
+                            offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
+                            offset = srl_lookup_tracked_offset(mrg, offset); // convert ibuf offset to obuf offset
+                            srl_buf_cat_varint((srl_encoder_t*) mrg, tag, offset);
+                            break;
+
+                        case SRL_HDR_PAD:
+                        case SRL_HDR_REFN:
+                        case SRL_HDR_WEAKEN:
+                        case SRL_HDR_EXTEND:
+                            // this set of tags are not real items,
+                            // and stack_item_value should not be decremented,
+                            // but at the end of the loop I dont want to create if-branch
+                            // so, I simply increment counter to level furter decremetion
+                            srl_stack_incr_value(parser_stack, stack_ptr, 1);
+                            srl_buf_cat_tag_nocheck(mrg, tag);
+                            break;
+
+                        //case SRL_HDR_ALIAS:
+                        //case SRL_HDR_OBJECTV:
+                        //case SRL_HDR_OBJECTV_FREEZE:
+                        //    offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
+                        //    av_push(mrg->tracked_offsets_with_duplicates, newSVuv(offset));
+                        //    break;
+                        //
+                        //case SRL_HDR_REGEXP:
+                        //case SRL_HDR_OBJECT:
+                        //case SRL_HDR_OBJECT_FREEZE:
+                        //    // noop
+                        //    break;
+
+                         default:
+                            croak("unexpected tag %d (0x%X) at %d", tag, tag, (int) BUF_POS_OFS(mrg->ibuf));
+                            break;
+                    }
             }
         }
 
