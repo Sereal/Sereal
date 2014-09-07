@@ -87,6 +87,14 @@ extern "C" {
     }                                                                 \
 } STMT_END
 
+#define SRL_UPDATE_BUF_BODY_POS(buf, version) STMT_START { \
+    if (expect_false((version) == 1)) {                    \
+        SRL_SET_BODY_POS((buf), (buf).start);              \
+    } else {                                               \
+        SRL_SET_BODY_POS((buf), (buf).pos - 1);            \
+    }                                                      \
+} STMT_END
+
 /* srl_buffer.h has set of functions (srl_buf_cat_*) which I need in merger,
  * but, for performance reason (avoid another level of inderection),
  * the functions want srl_encoder_t* as first parameter to access the buffer.
@@ -112,6 +120,7 @@ SRL_STATIC_INLINE UV srl_read_varint_uv(pTHX_ srl_buffer_t *buf);
 SRL_STATIC_INLINE UV srl_read_varint_uv_offset(pTHX_ srl_buffer_t *buf, const char * const errstr);
 SRL_STATIC_INLINE UV srl_read_varint_uv_length(pTHX_ srl_buffer_t *buf, const char * const errstr);
 SRL_STATIC_INLINE UV srl_read_varint_uv_count(pTHX_ srl_buffer_t *buf, const char * const errstr);
+SRL_STATIC_INLINE IV srl_validate_header_version_pv_len(pTHX_ char *strdata, STRLEN len);
 
 SRL_STATIC_INLINE void srl_buf_copy_content(pTHX_ srl_merger_t *mrg, size_t len, const char * const errstr);
 SRL_STATIC_INLINE void srl_buf_copy_content_nocheck(pTHX_ srl_merger_t *mrg, size_t len);
@@ -123,7 +132,7 @@ SRL_STATIC_INLINE ptable_ptr srl_init_tracked_offsets_tbl(pTHX_ srl_merger_t *mr
 SRL_STATIC_INLINE srl_stack_t * srl_init_tracked_offsets(pTHX_ srl_merger_t *mrg);
 
 SRL_STATIC_INLINE srl_merger_t * srl_empty_merger_struct(pTHX);                         /* allocate an empty merger struct - flags still to be set up */
-SRL_STATIC_INLINE void srl_reset_input_buffer(pTHX_ srl_merger_t *mrg, SV *src);        /* reset input buffer (ibuf) */
+SRL_STATIC_INLINE void srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src);        /* reset input buffer (ibuf) */
 SRL_STATIC_INLINE void srl_build_track_table(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE void srl_merge_items(pTHX_ srl_merger_t *mrg);
 
@@ -211,12 +220,7 @@ srl_build_merger_struct(pTHX_ HV *opt)
     srl_buf_cat_char_nocheck(MRG2ENC(mrg), (U8) mrg->protocol_version);
     srl_buf_cat_char_nocheck(MRG2ENC(mrg), '\0');
 
-    // TODO SRL_UPDATE_BODY_POS(mrg);
-    if (expect_false(mrg->protocol_version == 1)) {
-        SRL_SET_BODY_POS(mrg->obuf, mrg->obuf.start);
-    } else {
-        SRL_SET_BODY_POS(mrg->obuf, mrg->obuf.pos-1);
-    }
+    SRL_UPDATE_BUF_BODY_POS(mrg->obuf, mrg->protocol_version);
 
     srl_buf_cat_char_nocheck(MRG2ENC(mrg), SRL_HDR_REFN);
     srl_buf_cat_char_nocheck(MRG2ENC(mrg), SRL_HDR_ARRAY);
@@ -259,11 +263,9 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
 {
     assert(mrg != NULL);
 
-    srl_reset_input_buffer(mrg, src);
-    mrg->ibuf.pos += 6;
-    mrg->ibuf.body_pos = mrg->ibuf.pos - 1;
-
+    srl_set_input_buffer(mrg, src);
     srl_build_track_table(mrg);
+
     mrg->ibuf.pos = mrg->ibuf.body_pos + 1;
     srl_merge_items(mrg);
 }
@@ -301,12 +303,14 @@ srl_empty_merger_struct(pTHX)
         croak("Out of memory");
     }
 
+    /* Init parset stack struct */
     if (expect_false(srl_stack_init(aTHX_ &mrg->parser_stack, 32) != 0)) {
         srl_buf_free_buffer(aTHX_ &mrg->obuf);
         Safefree(mrg);
         croak("Out of memory");
     }
 
+    /* Zero fields */
     mrg->cnt_of_merged_elements = 0;
     mrg->obuf_padding_bytes_offset = 0;
     mrg->protocol_version = SRL_PROTOCOL_VERSION;
@@ -317,14 +321,64 @@ srl_empty_merger_struct(pTHX)
 }
 
 SRL_STATIC_INLINE void
-srl_reset_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
+srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
 {
-    STRLEN len;
     char *tmp;
+    STRLEN len;
+    UV header_len;
+    U8 encoding_flags;
+    U8 protocol_version;
 
     tmp = (char*) SvPV(src, len);
     mrg->ibuf.start = mrg->ibuf.pos = tmp;
-    mrg->ibuf.end = tmp + len;
+    mrg->ibuf.end = mrg->ibuf.start + len;
+
+    IV proto_version_and_encoding_flags_int = srl_validate_header_version_pv_len(aTHX_ mrg->ibuf.start, len);
+
+    if (proto_version_and_encoding_flags_int < 1) {
+        if (proto_version_and_encoding_flags_int == 0)
+            croak("Bad Sereal header: It seems your document was accidentally UTF-8 encoded");
+            //SRL_ERROR("Bad Sereal header: It seems your document was accidentally UTF-8 encoded");
+        else
+            croak("Bad Sereal header: Not a valid Sereal document.");
+            //SRL_ERROR("Bad Sereal header: Not a valid Sereal document.");
+    }
+
+    mrg->ibuf.pos += 5;
+    encoding_flags = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_ENCODING_MASK);
+    protocol_version = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
+
+    if (expect_false(protocol_version > 3 || protocol_version < 1)) {
+        croak("Unsupported Sereal protocol version %u", protocol_version);
+        //SRL_ERRORf1("Unsupported Sereal protocol version %u", dec->proto_version);
+    }
+
+    if (encoding_flags == SRL_PROTOCOL_ENCODING_RAW) {
+        /* no op */
+    } else if (   encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
+               || encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL)
+    {
+        croak("snappy compression is not implemented");
+    } else if (encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB) {
+        croak("zlib compression is not implemented");
+    } else {
+        croak("Sereal document encoded in an unknown format '%d'",
+              encoding_flags >> SRL_PROTOCOL_VERSION_BITS);
+//        SRL_ERRORf1("Sereal document encoded in an unknown format '%d'",
+//                    dec->encoding_flags >> SRL_PROTOCOL_VERSION_BITS);
+    }
+
+    // skip header in any case
+    header_len = srl_read_varint_uv_length(&mrg->ibuf, " while reading header");
+
+    if (protocol_version > 1 && header_len) {
+        mrg->ibuf.pos += header_len - 1;
+    } else {
+        mrg->ibuf.pos += header_len;
+    }
+
+    SRL_UPDATE_BUF_BODY_POS(mrg->ibuf, protocol_version);
+    DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
 }
 
 SRL_STATIC_INLINE void
@@ -805,4 +859,41 @@ srl_read_varint_uv_count(pTHX_ srl_buffer_t *buf, const char * const errstr)
     }
 
     return len;
+}
+
+SRL_STATIC_INLINE IV
+srl_validate_header_version_pv_len(pTHX_ char *strdata, STRLEN len)
+{
+    if (len >= SRL_MAGIC_STRLEN + 3) {
+        /* + 3 above because:
+         * at least one version/flag byte,
+         * one byte for header len,
+         * one type byte (smallest payload)
+         */
+
+        /* Do NOT do *((U32*)strdata at least for these reasons:
+         * (1) Unaligned access can "Bus error" on you
+         *     (char* can be much less aligned than U32).
+         * (2) In ILP64 even if aligned the U32 would be 64 bits wide,
+         *     and the deref would read 8 bytes, more than the smallest
+         *     (valid) message.
+         * (3) Endianness.
+         */
+        U8 version_encoding= strdata[SRL_MAGIC_STRLEN];
+        U8 version= version_encoding & SRL_PROTOCOL_VERSION_MASK;
+
+        if (memEQ(SRL_MAGIC_STRING, strdata, SRL_MAGIC_STRLEN)) {
+            if ( 0 < version && version < 3 ) {
+                return version_encoding;
+            }
+        } else if (memEQ(SRL_MAGIC_STRING_HIGHBIT, strdata, SRL_MAGIC_STRLEN)) {
+            if ( 3 <= version ) {
+                return version_encoding;
+           }
+        } else if (memEQ(SRL_MAGIC_STRING_HIGHBIT_UTF8, strdata, SRL_MAGIC_STRLEN)) {
+            return 0;
+        }
+    }
+
+    return -1;
 }
