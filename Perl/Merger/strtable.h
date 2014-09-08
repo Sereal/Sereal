@@ -15,8 +15,7 @@
 #include "ppport.h"
 #include "../Encoder/srl_buffer_types.h"
 
-#define STRTABLE_FLAG_AUTOCLEAN 1
-#define STRTABLE_HASH(str, len) ((UV) S_perl_hash_superfast(PERL_HASH_SEED, (U8*) str, len))
+#define STRTABLE_HASH(str, len) S_perl_hash_murmur3(PERL_HASH_SEED, (U8*) str, len)
 #define STRTABLE_HASH_FROM_ENTRY(tbl, ent) STRTABLE_HASH(STRTABLE_ENTRY_STR((tbl), (ent)), (ent)->len)
 #define STRTABLE_ENTRY_TAG(tbl, ent) ((tbl)->buf->body_pos + (ent)->tag_offset)
 #define STRTABLE_ENTRY_STR(tbl, ent) ((tbl)->buf->body_pos + (ent)->str_offset)
@@ -53,17 +52,23 @@ struct STRTABLE_entry {
     struct STRTABLE_entry   *next;
     UV                      hash;
 
-    // key
+    /* Following two fields represent a key.
+     * But in order to avoid copying and storing strings
+     * inside STRTABLE_entry offset inside STRTABLE->buf
+     * is stored */
+
     STRLEN                  len;
     UV                      str_offset;
 
-    // value
+    /* Value of a key is offset inside STRTABLE->buf
+     * where tag (STR_UTF8|BINARY|SHORT_BINARY) is located */
+
     UV                      tag_offset;
 };
 
 struct STRTABLE_arena {
     struct STRTABLE_arena   *next;
-    struct STRTABLE_entry   array[1023/3]; /* as ptr_tbl_ent has 3 pointers.  */
+    struct STRTABLE_entry   array[1023/5]; /* as STRTABLE_entry has 1 pointer and 4 intergers */
 };
 
 struct STRTABLE {
@@ -147,9 +152,13 @@ STRTABLE_insert(STRTABLE_t *tbl, const char *str, STRLEN len, UV offset, int *ok
 
     tblent->len = len;
     tblent->hash = hash;
-    tblent->str_offset = 0;
     tblent->tag_offset = offset;
     tblent->next = tbl->tbl_ary[entry];
+
+    /* since actual location of the string inside tbl->buf (output buffer)
+     * is not known yet, let str_offset be zero allowing the calee
+     * to fill it in later */
+    tblent->str_offset = 0;
 
     tbl->tbl_ary[entry] = tblent;
     tbl->tbl_items++;
