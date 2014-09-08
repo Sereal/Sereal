@@ -21,7 +21,7 @@ typedef struct {
     srl_stack_t parser_stack;
     srl_stack_t *tracked_offsets;        /* sorted list of offsets which should be tracked */
     struct PTABLE *tracked_offsets_tbl;  /* table to convert ibuf offsets to obuf offsets */
-    HV *string_deduper_hv;               /* track strings we have seen before, by content */
+    struct STRTABLE *string_deduper_tbl; /* track strings we have seen before, by content */
 
     U32 obuf_padding_bytes_offset;       /* pointer to start of SRL_MAX_VARINT_LENGTH padding bytes */
     U32 cnt_of_merged_elements;          /* total count of merged elements so far */
