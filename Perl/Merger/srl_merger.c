@@ -143,16 +143,6 @@ SRL_STATIC_INLINE UV srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV offse
 SRL_STATIC_INLINE strtable_entry_ptr srl_lookup_string(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, UV offset, int *ok);
 SRL_STATIC_INLINE void srl_lookup_string_update_entry(pTHX_ srl_merger_t *mrg, strtable_entry_ptr entry);
 
-#define SvSIOK(sv) ((SvFLAGS(sv) & (SVf_IOK|SVf_IVisUV)) == SVf_IOK)
-#define SvNSIV(sv) (SvNOK(sv) ? SvNVX(sv) : (SvSIOK(sv) ? SvIVX(sv) : sv_2nv(sv)))
-SRL_STATIC_INLINE I32
-S_sv_ncmp(pTHX_ SV *a, SV *b)
-{
-    NV nv1 = SvNSIV(a);
-    NV nv2 = SvNSIV(b);
-    return nv1 < nv2 ? -1 : nv1 > nv2 ? 1 : 0;
-}
-
 SRL_STATIC_INLINE ptable_ptr
 srl_init_tracked_offsets_tbl(pTHX_ srl_merger_t *mrg)
 {
