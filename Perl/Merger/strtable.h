@@ -4,6 +4,7 @@
 
 /*
  * This is a customized version of the pointer table implementation in sv.c
+ * The hash functions are taken from hv_func.h
  */
 
 #ifndef STRTABLE_H_
@@ -15,8 +16,142 @@
 #include "ppport.h"
 #include "../Encoder/srl_buffer_types.h"
 
-#define STRTABLE_HASH(str, len) S_perl_hash_murmur3(PERL_HASH_SEED, (U8*) str, len)
-#define STRTABLE_HASH_FROM_ENTRY(tbl, ent) STRTABLE_HASH(STRTABLE_ENTRY_STR((tbl), (ent)), (ent)->len)
+#ifndef PERL_HASH_FUNC_MURMUR_HASH_64A
+/* This code is from Austin Appleby and is in the public domain.
+   Altered by Yves Orton to match Perl's hash interface, and to
+   return a 32 bit hash.
+
+   Note uses unaligned 64 bit loads - will NOT work on machines with
+   strict alginment requirements.
+
+   Also this code may not be suitable for big-endian machines.
+*/
+
+/* a 64 bit hash where we only use the low 32 bits */
+PERL_STATIC_INLINE U32
+S_perl_hash_murmur_hash_64a (const unsigned char * const seed, const unsigned char *str, const STRLEN len)
+{
+        const U64TYPE m = 0xc6a4a7935bd1e995;
+        const int r = 47;
+        U64TYPE h = *((U64TYPE*)seed) ^ len;
+        const U64TYPE * data = (const U64TYPE *)str;
+        const U64TYPE * end = data + (len/8);
+        const unsigned char * data2;
+
+        while(data != end)
+        {
+            U64TYPE k = *data++;
+
+            k *= m;
+            k ^= k >> r;
+            k *= m;
+
+            h ^= k;
+            h *= m;
+        }
+
+        data2 = (const unsigned char *)data;
+
+        switch(len & 7)
+        {
+            case 7: h ^= (U64TYPE)(data2[6]) << 48; /* fallthrough */
+            case 6: h ^= (U64TYPE)(data2[5]) << 40; /* fallthrough */
+            case 5: h ^= (U64TYPE)(data2[4]) << 32; /* fallthrough */
+            case 4: h ^= (U64TYPE)(data2[3]) << 24; /* fallthrough */
+            case 3: h ^= (U64TYPE)(data2[2]) << 16; /* fallthrough */
+            case 2: h ^= (U64TYPE)(data2[1]) << 8;  /* fallthrough */
+            case 1: h ^= (U64TYPE)(data2[0]);       /* fallthrough */
+                    h *= m;
+        };
+
+        h ^= h >> r;
+        h *= m;
+        h ^= h >> r;
+
+        /* was: return h; */
+        return h & 0xFFFFFFFF;
+}
+#endif
+
+#ifndef PERL_HASH_FUNC_MURMUR_HASH_64B
+/* This code is from Austin Appleby and is in the public domain.
+   Altered by Yves Orton to match Perl's hash interface and return
+   a 32 bit value
+
+   Note uses unaligned 32 bit loads - will NOT work on machines with
+   strict alginment requirements.
+
+   Also this code may not be suitable for big-endian machines.
+*/
+
+/* a 64-bit hash for 32-bit platforms where we only use the low 32 bits */
+PERL_STATIC_INLINE U32
+S_perl_hash_murmur_hash_64b (const unsigned char * const seed, const unsigned char *str, STRLEN len)
+{
+        const U32 m = 0x5bd1e995;
+        const int r = 24;
+
+        U32 h1 = ((U32 *)seed)[0] ^ len;
+        U32 h2 = ((U32 *)seed)[1];
+
+        const U32 * data = (const U32 *)str;
+
+        while(len >= 8)
+        {
+            U32 k1, k2;
+            k1 = *data++;
+            k1 *= m; k1 ^= k1 >> r; k1 *= m;
+            h1 *= m; h1 ^= k1;
+            len -= 4;
+
+            k2 = *data++;
+            k2 *= m; k2 ^= k2 >> r; k2 *= m;
+            h2 *= m; h2 ^= k2;
+            len -= 4;
+        }
+
+        if(len >= 4)
+        {
+            U32 k1 = *data++;
+            k1 *= m; k1 ^= k1 >> r; k1 *= m;
+            h1 *= m; h1 ^= k1;
+            len -= 4;
+        }
+
+        switch(len)
+        {
+            case 3: h2 ^= ((unsigned char*)data)[2] << 16;  /* fallthrough */
+            case 2: h2 ^= ((unsigned char*)data)[1] << 8;   /* fallthrough */
+            case 1: h2 ^= ((unsigned char*)data)[0];        /* fallthrough */
+                    h2 *= m;
+        };
+
+        h1 ^= h2 >> 18; h1 *= m;
+        h2 ^= h1 >> 22; h2 *= m;
+        /*
+        The following code has been removed as it is unused
+        when only the low 32 bits are used. -- Yves
+
+        h1 ^= h2 >> 17; h1 *= m;
+
+        U64TYPE h = h1;
+
+        h = (h << 32) | h2;
+        */
+
+        return h2;
+}
+#endif
+
+#if PTRSIZE == 8
+#   define PERL_HASH_SEED_BYTES 8
+#   define STRTABLE_HASH(str, len) S_perl_hash_murmur_hash_64a(PERL_HASH_SEED, (U8*) str, len)
+#else
+#   define PERL_HASH_SEED_BYTES 8
+#   define STRTABLE_HASH(str, len) S_perl_hash_murmur_hash_64b(PERL_HASH_SEED, (U8*) str, len)
+#endif
+
+#define STRTABLE_HASH_ENTRY(tbl, ent) STRTABLE_HASH(STRTABLE_ENTRY_STR((tbl), (ent)), (ent)->len)
 #define STRTABLE_ENTRY_TAG(tbl, ent) ((tbl)->buf->body_pos + (ent)->tag_offset)
 #define STRTABLE_ENTRY_STR(tbl, ent) ((tbl)->buf->body_pos + (ent)->str_offset)
 
@@ -44,7 +179,7 @@
 } STMT_END
 
 typedef struct STRTABLE         STRTABLE_t;
-typedef struct STRTABLE *       strtable_ptr;
+typedef struct STRTABLE       * strtable_ptr;
 typedef struct STRTABLE_entry   STRTABLE_ENTRY_t;
 typedef struct STRTABLE_entry * strtable_entry_ptr;
 
@@ -53,8 +188,8 @@ struct STRTABLE_entry {
     UV                      hash;
 
     /* Following two fields represent a key.
-     * But in order to avoid copying and storing strings
-     * inside STRTABLE_entry offset inside STRTABLE->buf
+     * In order to avoid copying and storing strings
+     * inside STRTABLE_entry, offset in STRTABLE->buf
      * is stored */
 
     STRLEN                  len;
@@ -156,7 +291,7 @@ STRTABLE_insert(STRTABLE_t *tbl, const char *str, STRLEN len, UV offset, int *ok
     tblent->next = tbl->tbl_ary[entry];
 
     /* since actual location of the string inside tbl->buf (output buffer)
-     * is not known yet, let str_offset be zero allowing the calee
+     * is not known yet, let str_offset be zero and allow the calee
      * to fill it in later */
     tblent->str_offset = 0;
 
@@ -191,7 +326,7 @@ STRTABLE_grow(STRTABLE_t *tbl)
             continue;
         curentp = ary + oldsize;
         for (entp = ary, ent = *ary; ent; ent = *entp) {
-            if ((newsize & STRTABLE_HASH_FROM_ENTRY(tbl, ent)) != i) {
+            if ((newsize & STRTABLE_HASH_ENTRY(tbl, ent)) != i) {
                 *entp = ent->next;
                 ent->next = *curentp;
                 *curentp = ent;
