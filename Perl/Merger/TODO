@@ -1,3 +1,4 @@
 - test/implement srl_skip_varint()
 - dedupe srl_read_varint-* functions
-- dedupe IS_SRL_HDR* macros
+- remove MRG2ENC casting
+- use S_perl_hash_murmur_hash_64a/b functions in strtable.h
