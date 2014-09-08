@@ -384,7 +384,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
     if (mrg->tracked_offsets)
         srl_stack_clear(mrg->tracked_offsets);
 
-    while (BUF_NOT_DONE(mrg->ibuf)) {
+    while (expect_true(BUF_NOT_DONE(mrg->ibuf))) {
         tag = *mrg->ibuf.pos;
         if (expect_false(tag & SRL_HDR_TRACK_FLAG)) {
             tag = tag & ~SRL_HDR_TRACK_FLAG;
@@ -493,7 +493,10 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
     srl_stack_clear(parser_stack);
     srl_stack_push(parser_stack, expected_top_elements);
 
-    while (BUF_NOT_DONE(mrg->ibuf) && !srl_stack_empty(parser_stack)) {
+    while (expect_true(
+           BUF_NOT_DONE(mrg->ibuf)
+        && !srl_stack_empty(parser_stack)
+    )) {
         DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
         DEBUG_ASSERT_BUF_SANE(mrg->obuf);
 
