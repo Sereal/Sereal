@@ -1,4 +1,7 @@
+TODO:
 - test/implement srl_skip_varint()
 - dedupe srl_read_varint-* functions
-- remove MRG2ENC casting
-- use S_perl_hash_murmur_hash_64a/b functions in strtable.h
+- remove MRG2ENC casting (make functions in srl_buffer.h) get srl_buffer_t*
+- better error handling
+- compression/decompression
+- sub append_all()
