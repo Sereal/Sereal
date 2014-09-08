@@ -460,7 +460,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
         srl_stack_dedupe(mrg->tracked_offsets);
 
         //int i = 0;
-        //int64_t *ptr = mrg->tracked_offsets->begin;
+        //SRL_STACK_TYPE *ptr = mrg->tracked_offsets->begin;
         //while (ptr <= mrg->tracked_offsets->ptr) {
         //    warn("tracked_offsets: offset dedups idx %d offset %d\n", i, (int) *ptr);
         //    i++; ptr++;
@@ -480,7 +480,7 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
     srl_stack_t *tracked_offsets = mrg->tracked_offsets;
     srl_stack_t *parser_stack = &mrg->parser_stack;
     strtable_entry_ptr strtable_entry;
-    int64_t *stack_ptr;
+    SRL_STACK_TYPE *stack_ptr;
     bool trackme;
     int ok;
 
@@ -507,7 +507,7 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
 
         trackme = tracked_offsets
                   && !srl_stack_empty(tracked_offsets)
-                  && (int) itag_offset == srl_stack_peek_nocheck(tracked_offsets);
+                  && itag_offset == srl_stack_peek_nocheck(tracked_offsets);
 
         if (tag <= SRL_HDR_NEG_HIGH) {
             srl_buf_cat_tag_nocheck(mrg, tag);
@@ -634,15 +634,13 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
 
         srl_stack_incr_value(parser_stack, stack_ptr, -1);
 
-        while (expect_false(
-              !srl_stack_empty(parser_stack)
-            && srl_stack_peek_nocheck(parser_stack) == 0
-        )) {
-            srl_stack_pop(parser_stack);
+        while (expect_false(srl_stack_peek_nocheck(parser_stack) == 0)) {
+            srl_stack_pop_nocheck(parser_stack);
+            if (srl_stack_empty(parser_stack)) break;
         }
 
         if (expect_false(trackme)) {
-            srl_stack_pop(tracked_offsets);
+            srl_stack_pop_nocheck(tracked_offsets); // trackme is tru only when tracked_offsets is not empty
             srl_store_tracked_offset(mrg, itag_offset, otag_offset);
         }
     }

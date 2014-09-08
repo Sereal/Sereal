@@ -2,27 +2,25 @@
 #define SRL_STACK_H_
 
 #include <stdlib.h>
+#include <assert.h>
 
-#include "assert.h"
+#include "qsort.h"
 #include "srl_inline.h"
 #include "srl_common.h"
 
-#ifndef NDEBUG
+#define SRL_STACK_TYPE uint64_t
+
 #define DEBUG_ASSERT_STACK_SANE(stack) STMT_START {                           \
     assert((stack) != NULL);                                                  \
     assert((stack)->begin != NULL);                                           \
     assert((stack)->end != NULL);                                             \
-    assert((stack)->begin < (stack)->end);                                    \
+    assert((stack)->begin <= (stack)->end);                                   \
     assert((stack)->ptr == NULL ||                                            \
            ((stack)->ptr >= (stack)->begin && (stack)->ptr <= (stack)->end)); \
 } STMT_END
-#else
-#define DEBUG_ASSERT_STACK_SANE(stack)
-#endif
 
 #define DEBUG_ASSERT_STACK_PTR(stack, ptr) assert((ptr) >= (stack)->begin && (ptr) <= (stack)->end)
-#define DEBUG_ASSERT_STACK_VALUE(ptr) assert(*(ptr) >= 0)
-#define DEBUG_ASSERT_STACK_PTR_VALUE(stack) DEBUG_ASSERT_STACK_VALUE((stack)->ptr)
+#define DEBUG_ASSERT_STACK_VALUE(ptr) assert(((int64_t) *(ptr)) >= 0)
 
 //#define SRL_STACK_TRACE(msg, args...) warn(msg, args)
 #define SRL_STACK_TRACE(msg, args...)
@@ -32,7 +30,7 @@
 #define SRL_STACK_POS(stack)   ((stack)->ptr ? (stack)->ptr - (stack)->begin : -1)
 
 typedef struct {
-    int64_t *begin, *end, *ptr;
+    SRL_STACK_TYPE *begin, *end, *ptr;
 } srl_stack_t;
 
 /* Allocate new arrfer (but not the stack struct */
@@ -43,7 +41,7 @@ srl_stack_init(srl_stack_t * stack, size_t size)
     assert(stack != NULL);
 
     stack->begin = NULL;
-    Newx(stack->begin, size, int64_t);
+    Newx(stack->begin, size, SRL_STACK_TYPE);
     if (expect_false(stack->begin == NULL))
         return 1;
 
@@ -78,15 +76,68 @@ srl_stack_clear(pTHX_ srl_stack_t *stack)
     DEBUG_ASSERT_STACK_VALUE(ptr);                         \
 } STMT_END
 
-SRL_STATIC_INLINE int64_t
+#define srl_stack_push(stack, cnt) STMT_START {                       \
+    DEBUG_ASSERT_STACK_SANE(stack);                                   \
+    if (expect_false((stack)->ptr && (stack)->ptr == (stack)->end)) { \
+        ptrdiff_t pos   = SRL_STACK_POS(stack);                       \
+        size_t new_size = SRL_STACK_SIZE(stack) * 2;                  \
+        assert(new_size <= 1024 * 1024);                              \
+                                                                      \
+        Renew((stack)->begin, new_size, SRL_STACK_TYPE);              \
+        if ((stack)->begin == NULL)                                   \
+            croak("Out of memory");                                   \
+                                                                      \
+        (stack)->end = (stack)->begin + new_size - 1;                 \
+        (stack)->ptr = (stack)->begin + pos;                          \
+        DEBUG_ASSERT_STACK_SANE(stack);                               \
+                                                                      \
+        SRL_STACK_TRACE("grew stack to size %zu", new_size);          \
+    }                                                                 \
+                                                                      \
+    if (srl_stack_empty(stack)) {                                     \
+        (stack)->ptr = (stack)->begin;                                \
+    } else {                                                          \
+        (stack)->ptr++;                                               \
+    }                                                                 \
+                                                                      \
+    *(stack)->ptr = (cnt);                                            \
+                                                                      \
+    DEBUG_ASSERT_STACK_SANE(stack);                                   \
+    SRL_STACK_TRACE("pushed %lld on stack, current idx %d",           \
+                    (cnt), (int) SRL_STACK_POS(stack));               \
+} STMT_END
+
+#define srl_stack_pop_nocheck(stack) STMT_START {                     \
+    DEBUG_ASSERT_STACK_SANE(stack);                                   \
+                                                                      \
+    if (expect_false((stack)->ptr == (stack)->begin)) {               \
+        (stack)->ptr = NULL;                                          \
+    } else {                                                          \
+        (stack)->ptr--;                                               \
+    }                                                                 \
+                                                                      \
+    DEBUG_ASSERT_STACK_SANE(stack);                                   \
+    SRL_STACK_TRACE("poped stack, current idx %d",                    \
+                    (int) SRL_STACK_POS(stack));                      \
+} STMT_END
+
+SRL_STATIC_INLINE SRL_STACK_TYPE
+srl_stack_pop(pTHX_ srl_stack_t *stack)
+{
+    if (expect_false(srl_stack_empty(stack)))
+        croak("Pop empty stack");
+
+    srl_stack_pop_nocheck(stack);
+}
+
+SRL_STATIC_INLINE SRL_STACK_TYPE
 srl_stack_peek_nocheck(pTHX_ srl_stack_t *stack)
 {
     DEBUG_ASSERT_STACK_SANE(stack);
-    DEBUG_ASSERT_STACK_PTR_VALUE(stack);
     return *stack->ptr;
 }
 
-SRL_STATIC_INLINE int64_t
+SRL_STATIC_INLINE SRL_STACK_TYPE
 srl_stack_peek(pTHX_ srl_stack_t *stack)
 {
     DEBUG_ASSERT_STACK_SANE(stack);
@@ -96,80 +147,35 @@ srl_stack_peek(pTHX_ srl_stack_t *stack)
     return srl_stack_peek_nocheck(stack);
 }
 
-SRL_STATIC_INLINE void
-srl_stack_push(pTHX_ srl_stack_t *stack, int64_t cnt)
-{
-    DEBUG_ASSERT_STACK_SANE(stack);
-    if (expect_false(stack->ptr && stack->ptr >= stack->end)) {
-        ptrdiff_t pos = SRL_STACK_POS(stack);
-        size_t new_size = SRL_STACK_SIZE(stack) * 2;
-        assert(new_size <= 1024 * 1024); // make some sanity
+//SRL_STATIC_INLINE int
+//__compare_int64_t(const void *a, const void *b)
+//{
+//    return (*(int64_t*) b - *(int64_t*) a);
+//}
 
-        Renew(stack->begin, new_size, int64_t);
-        if (stack->begin == NULL)
-            croak("Out of memory");
-
-        stack->end = stack->begin + new_size - 1;
-        stack->ptr = stack->begin + pos;
-        DEBUG_ASSERT_STACK_SANE(stack);
-
-        SRL_STACK_TRACE("grew stack to size %zu", new_size);
-    }
-
-    if (srl_stack_empty(stack)) {
-        stack->ptr = stack->begin;
-    } else {
-        stack->ptr++;
-    }
-
-    *stack->ptr = cnt;
-
-    DEBUG_ASSERT_STACK_SANE(stack);
-    DEBUG_ASSERT_STACK_PTR_VALUE(stack);
-    SRL_STACK_TRACE("pushed %d on stack, current idx %d",
-                    (int) cnt, (int) SRL_STACK_POS(stack));
-}
-
-SRL_STATIC_INLINE void
-srl_stack_pop(pTHX_ srl_stack_t *stack)
-{
-    DEBUG_ASSERT_STACK_SANE(stack);
-    if (expect_false(srl_stack_empty(stack)))
-        croak("Pop empty stack");
-
-    if (stack->ptr == stack->begin) {
-        stack->ptr = NULL;
-    } else {
-        stack->ptr--;
-    }
-
-    DEBUG_ASSERT_STACK_SANE(stack);
-    SRL_STACK_TRACE("poped stack, current idx %d",
-                    (int) SRL_STACK_POS(stack));
-}
-
-SRL_STATIC_INLINE int
-__compare_int64_t(const void *a, const void *b)
-{
-    return (*(int64_t*) b - *(int64_t*) a);
-}
+#define SRL_SRL_STACK_TYPE_GT(a, b) ((*a) > (*b))
 
 SRL_STATIC_INLINE void
 srl_stack_rsort(pTHX_ srl_stack_t *stack)
 {
     DEBUG_ASSERT_STACK_SANE(stack);
-    if (srl_stack_empty(stack)) return;
-    qsort((void *) stack->begin, SRL_STACK_SPACE(stack), sizeof(int64_t), __compare_int64_t);
+    if (expect_false(srl_stack_empty(stack))) return;
+
+    size_t size = SRL_STACK_SPACE(stack);
+    QSORT(SRL_STACK_TYPE, stack->begin, size, SRL_SRL_STACK_TYPE_GT);
+    //qsort((void *) stack->begin, size, sizeof(SRL_STACK_TYPE), __compare_SRL_STACK_TYPE);
+
+    stack->ptr = stack->begin + size - 1;
 }
 
 SRL_STATIC_INLINE void
 srl_stack_dedupe(pTHX_ srl_stack_t *stack)
 {
     DEBUG_ASSERT_STACK_SANE(stack);
-    if (srl_stack_empty(stack)) return;
+    if (expect_false(srl_stack_empty(stack))) return;
 
-    int64_t *i = stack->begin;
-    int64_t *j = stack->begin;
+    SRL_STACK_TYPE *i = stack->begin;
+    SRL_STACK_TYPE *j = stack->begin;
     for (; i <= stack->ptr; i++) {
         if (*j != *i) *++j = *i;
     }
