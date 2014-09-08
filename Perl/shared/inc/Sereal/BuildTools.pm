@@ -80,7 +80,7 @@ package $constant_namespace;
 use strict;
 use warnings;
 use Carp qw(croak);
-use $namespace; # for XSLoading
+use $namespace; our \$VERSION= \$$namespace\::VERSION; # for XSLoading
 our \@ISA = qw(Exporter);
 require Exporter;
 our \@EXPORT_OK;
