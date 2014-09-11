@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use Test::More;
-
+use Time::HiRes;
 use Sereal::Merger;
 use Sereal::Encoder qw/encode_sereal/;
 
@@ -18,19 +18,36 @@ sub binary2hex {
 }
 
 {
-    my $test = Sereal::Merger->new({});
-    print Dumper($test); use Data::Dumper;
-    my $enc = encode_sereal(['x' x 33, 'x' x 33]);
-    #my $enc = encode_sereal([{ foo => 'barbarbar' }, { foo => 'barbarbar' }, { foo => 'barbarbar' }], { dedupe_strings => 1 });
-    #my $enc = encode_sereal(['foo']);
-    my $unpacked = unpack("H*", $enc);
-    print binary2hex($enc) . "\n";
+    local $/ = undef;
+    my @files = sort { $a cmp $b } glob('~/1/*.srl');
+    #@files = splice(@files, 0, 2);
 
-    $test->append($enc);
-    #$test->append($enc);
-    my $merged = $test->finish();
+    my @data = map {
+        #print "read file $_\n";
+        open(my $fh, '<', $_) or die $!;
+        my $content = <$fh>;
+        $content;
+    } @files;
 
-    print "\n" . binary2hex($merged) . "\n";
+    #print "sleep 5 sec\n";
+    #sleep(5);
+
+    my $start = Time::HiRes::time();
+
+    #for (1..10) {
+        my $test = Sereal::Merger->new({});
+        foreach (@data) {
+            $test->append($_);
+        };
+
+        my $merged = $test->finish();
+    #}
+
+    my $elapsed = Time::HiRes::time() - $start;
+    printf "Merging took %.2fs\n", $elapsed;
+    open (my $fh, '>', 'data.srl') or die $!;
+    print $fh $merged;
+    #print "\n" . binary2hex($merged) . "\n";
 }
 
 pass;
