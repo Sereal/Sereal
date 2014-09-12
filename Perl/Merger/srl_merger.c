@@ -522,7 +522,7 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
             length = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
 
             // +1 because need to respect tag
-            ASSERT_BUF_SPACE(mrg->ibuf, length + 1, " while reading SHORT_BINARY");
+            // no need to do ASSERT_BUF_SPACE because srl_build_track_table has asserted ibuf
             strtable_entry = srl_lookup_string(mrg, mrg->ibuf.pos + 1, length, otag_offset, &ok);
 
             if (ok) {
@@ -545,9 +545,9 @@ srl_merge_items(pTHX_ srl_merger_t *mrg)
                     srl_copy_varint(mrg);
                     break;
 
-                case SRL_HDR_FLOAT:         srl_buf_copy_content(mrg, 5,  " while copying FLOAT");       break;
-                case SRL_HDR_DOUBLE:        srl_buf_copy_content(mrg, 9,  " while copying DOUBLE");      break;
-                case SRL_HDR_LONG_DOUBLE:   srl_buf_copy_content(mrg, 17, " while copying LONG_DOUBLE"); break;
+                case SRL_HDR_FLOAT:         srl_buf_copy_content_nocheck(mrg, 5);  break;
+                case SRL_HDR_DOUBLE:        srl_buf_copy_content_nocheck(mrg, 9);  break;
+                case SRL_HDR_LONG_DOUBLE:   srl_buf_copy_content_nocheck(mrg, 17); break;
 
                 case SRL_HDR_TRUE:
                 case SRL_HDR_FALSE:
