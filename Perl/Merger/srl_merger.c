@@ -258,6 +258,11 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
     srl_set_input_buffer(mrg, src);
     srl_build_track_table(mrg);
 
+    /* preallocate space in obuf,
+     * but this is still not enough because due to
+     * varint we might need more space in obug then size of ibuf */
+    GROW_BUF(mrg->obuf, BUF_SIZE(mrg->ibuf));
+
     mrg->ibuf.pos = mrg->ibuf.body_pos + 1;
     srl_merge_items(mrg);
 }
