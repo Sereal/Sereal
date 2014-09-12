@@ -30,6 +30,13 @@ append(mrg, src)
   PPCODE:
     srl_merger_append(aTHX mrg, src);
 
+void
+append_all(mrg, src)
+    Sereal::Merger mrg;
+    AV *src
+  PPCODE:
+    srl_merger_append_all(aTHX mrg, src);
+
 SV*
 finish(mrg)
     Sereal::Merger mrg

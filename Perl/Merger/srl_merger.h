@@ -31,6 +31,7 @@ typedef struct {
 srl_merger_t *srl_build_merger_struct(pTHX_ HV *opt);       /* constructor from options */
 void srl_destroy_merger(pTHX_ srl_merger_t *mrg);           /* explicit destructor */
 void srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src);   /* class methods */
+void srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src);
 SV * srl_merger_finish(pTHX_ srl_merger_t *mrg);
 
 #endif

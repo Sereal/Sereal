@@ -267,6 +267,37 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
     srl_merge_items(mrg);
 }
 
+void
+srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
+{
+    assert(mrg != NULL);
+
+    SSize_t i;
+    SV **svptr;
+    SSize_t tidx = av_top_index(src);
+
+    STRLEN size = 0;
+    for (i = 0; i <= tidx; ++i) {
+        svptr = av_fetch(src, i, 0);
+        if (expect_false(svptr == NULL))
+            croak("av_fetch returned NULL");
+
+        size += SvLEN(*svptr);
+    }
+
+    /* preallocate space in obuf in one go,
+     * of course this's is very rough estimation */
+    GROW_BUF(mrg->obuf, size);
+
+    for (i = 0; i <= tidx; ++i) {
+        srl_set_input_buffer(mrg, *av_fetch(src, i, 0));
+        srl_build_track_table(mrg);
+
+        mrg->ibuf.pos = mrg->ibuf.body_pos + 1;
+        srl_merge_items(mrg);
+    }
+}
+
 SV *
 srl_merger_finish(pTHX_ srl_merger_t *mrg)
 {
