@@ -385,13 +385,11 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
         srl_stack_clear(mrg->tracked_offsets);
 
     while (expect_true(BUF_NOT_DONE(mrg->ibuf))) {
-        tag = *mrg->ibuf.pos;
-        if (expect_false(tag & SRL_HDR_TRACK_FLAG)) {
-            tag = tag & ~SRL_HDR_TRACK_FLAG;
-            offset = BODY_POS_OFS(mrg->ibuf);
-            srl_stack_push(SRL_GET_TRACKED_OFFSETS(mrg), offset);
-        }
+        /* since we're doing full pass, it's not necessary to
+         * add items into tracked_offsets here. They will be added
+         * by corresponding REFP/ALIAS tags */
 
+        tag = *mrg->ibuf.pos & ~SRL_HDR_TRACK_FLAG;
         SRL_REPORT_CURRENT_TAG(mrg, tag);
         mrg->ibuf.pos++;
 
