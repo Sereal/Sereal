@@ -43,12 +43,3 @@ finish(mrg)
   CODE:
     RETVAL = srl_merger_finish(aTHX mrg);
   OUTPUT: RETVAL
-
-void
-test_me()
-
-    PREINIT:
-
-    PPCODE:
-
-    PUSHs(sv_2mortal(newSVpv("0.042", 0)));
