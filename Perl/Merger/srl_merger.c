@@ -426,7 +426,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
         mrg->ibuf.pos++;
 
         if (tag >= SRL_HDR_SHORT_BINARY_LOW) {
-            mrg->ibuf.pos += (int) SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+            mrg->ibuf.pos += SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
         } else if (tag > SRL_HDR_NEG_HIGH && tag < SRL_HDR_ARRAYREF_LOW) {
             switch (tag) {
                 case SRL_HDR_VARINT:
@@ -509,6 +509,8 @@ srl_merge_single_value(pTHX_ srl_merger_t *mrg)
     UV itag_offset, otag_offset;
 
 read_again:
+    /* be carefull with using itag_offset and otag_offset fields,
+     * they are set only when trackme is true */
     trackme = 0;
     itag_offset = 0;
     otag_offset = 0;
@@ -516,7 +518,7 @@ read_again:
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
 
-    if (expect_false(!BUF_NOT_DONE(mrg->ibuf))) // TODO
+    if (expect_false(BUF_DONE(mrg->ibuf))) // TODO
         croak("Unexpected termination of packet");
 
     tag = *mrg->ibuf.pos;
@@ -679,9 +681,6 @@ srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag, UV *tag_offset)
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
 
-    if (expect_false(!BUF_NOT_DONE(mrg->ibuf))) // TODO
-        croak("Unexpected termination of packet");
-
     mrg->ibuf.pos++; // skip tag in input buffer
     length = srl_read_varint_uv_length(&mrg->ibuf, " while reading BINARY or STR_UTF8");
     strtable_entry = srl_lookup_string(mrg, mrg->ibuf.pos, length, &ok);
@@ -747,12 +746,18 @@ srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag, UV *tag_offset)
 SRL_STATIC_INLINE void
 srl_merge_stringish(pTHX_ srl_merger_t *mrg)
 {
+    /* be carefull with using itag_offset and otag_offset fields,
+     * they are set only when trackme is true */
+
     U8 tag;
     int trackme = 0;
     UV offset, itag_offset = 0, otag_offset = 0;
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
+
+    if (expect_false(BUF_DONE(mrg->ibuf))) // TODO
+        croak("Unexpected termination of packet");
 
     tag = *mrg->ibuf.pos;
     tag = tag & ~SRL_HDR_TRACK_FLAG;
@@ -804,6 +809,8 @@ srl_expected_top_elements(pTHX_ srl_merger_t *mrg)
 SRL_STATIC_INLINE void
 srl_store_tracked_offset(pTHX_ srl_merger_t *mrg, UV from, UV to)
 {
+    // 0 is a bad offset for all Sereal formats
+
     assert(to > 0);
     assert(from > 0);
 
