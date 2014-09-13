@@ -22,6 +22,9 @@ BEGIN {
     }
     elsif (-e "lib/Sereal/Decoder") {
         $Class = 'Sereal::Decoder';
+    }
+    elsif (-e "lib/Sereal/Merger") {
+        $Class = 'Sereal::Merger';
     } else {
         die "Could not find an applicable Sereal constants location";
     }
