@@ -159,10 +159,6 @@ S_perl_hash_murmur_hash_64b (const unsigned char * const seed, const unsigned ch
     assert((ent) != NULL);                                                       \
     assert((tbl)->buf->body_pos <= STRTABLE_ENTRY_TAG((tbl), (ent)));            \
     assert((tbl)->buf->end      >= STRTABLE_ENTRY_TAG((tbl), (ent)));            \
-} STMT_END
-
-#define STRTABLE_ASSERT_ENTRY_STRICT(tbl, ent) STMT_START {                      \
-    STRTABLE_ASSERT_ENTRY((tbl), (ent));                                         \
     assert((tbl)->buf->body_pos <= STRTABLE_ENTRY_STR((tbl), (ent)));            \
     assert((tbl)->buf->end      >= STRTABLE_ENTRY_STR((tbl), (ent)));            \
     assert(STRTABLE_ENTRY_STR((tbl), (ent)) > STRTABLE_ENTRY_TAG((tbl), (ent))); \
@@ -171,11 +167,6 @@ S_perl_hash_murmur_hash_64b (const unsigned char * const seed, const unsigned ch
 #define STRTABLE_ASSERT_ENTRY_STR(tbl, ent, str) STMT_START {                    \
     assert(strncmp(STRTABLE_ENTRY_STR((tbl), (ent)), (str), (ent)->len) == 0);   \
     assert((ent)->hash == STRTABLE_HASH((str), (ent)->len));                     \
-} STMT_END
-
-#define STRTABLE_UPDATE_ENTRY(tbl, ent, offset) STMT_START { \
-    (ent)->str_offset = (offset);                            \
-    STRTABLE_ASSERT_ENTRY_STRICT(tbl, ent);                  \
 } STMT_END
 
 typedef struct STRTABLE         STRTABLE_t;
@@ -218,7 +209,9 @@ struct STRTABLE {
 
 STATIC STRTABLE_t * STRTABLE_new(const srl_buffer_t *buf);
 STATIC STRTABLE_t * STRTABLE_new_size(const srl_buffer_t *buf, const U8 size_base2_exponent);
-inline STATIC STRTABLE_ENTRY_t * STRTABLE_insert(STRTABLE_t *tbl, const char *str, STRLEN len, UV offset, int *ok);
+
+/* caller has to fill tag_offset and str_offset fields in returned STRTABLE_ENTRY_t */
+inline STATIC STRTABLE_ENTRY_t * STRTABLE_insert(STRTABLE_t *tbl, const char *str, STRLEN len, int *ok);
 
 STATIC void STRTABLE_grow(STRTABLE_t *tbl);
 STATIC void STRTABLE_clear(STRTABLE_t *tbl);
@@ -250,7 +243,7 @@ STRTABLE_new_size(const srl_buffer_t *buf, const U8 size_base2_exponent)
 
 /* lookup key, return if found, otherwise store */
 inline STATIC STRTABLE_ENTRY_t *
-STRTABLE_insert(STRTABLE_t *tbl, const char *str, STRLEN len, UV offset, int *ok)
+STRTABLE_insert(STRTABLE_t *tbl, const char *str, STRLEN len, int *ok)
 {
     STRTABLE_ENTRY_t *tblent;
     const UV hash = STRTABLE_HASH(str, len);
@@ -258,7 +251,7 @@ STRTABLE_insert(STRTABLE_t *tbl, const char *str, STRLEN len, UV offset, int *ok
 
     tblent = tbl->tbl_ary[hash & tbl->tbl_max];
     for (; tblent; tblent = tblent->next) {
-        STRTABLE_ASSERT_ENTRY_STRICT(tbl, tblent);
+        STRTABLE_ASSERT_ENTRY(tbl, tblent);
 
         if (   tblent->hash == hash
             && tblent->len == len
@@ -287,7 +280,6 @@ STRTABLE_insert(STRTABLE_t *tbl, const char *str, STRLEN len, UV offset, int *ok
 
     tblent->len = len;
     tblent->hash = hash;
-    tblent->tag_offset = offset;
     tblent->next = tbl->tbl_ary[entry];
 
     /* since actual location of the string inside tbl->buf (output buffer)
@@ -301,7 +293,6 @@ STRTABLE_insert(STRTABLE_t *tbl, const char *str, STRLEN len, UV offset, int *ok
     if (tblent->next && (tbl->tbl_items > tbl->tbl_max))
         STRTABLE_grow(tbl);
 
-    STRTABLE_ASSERT_ENTRY(tbl, tblent);
     return tblent;
 }
 
