@@ -1,4 +1,5 @@
 C_OUT=c_src/*.o
+DEBUG=0
 
 all: deps eunit
 
@@ -10,7 +11,7 @@ deps:
 	rebar get-deps
 
 compile: clean 
-	rebar compile  
+	rebar compile -D DEBUG=$(DEBUG) 
 
 eunit: compile
 	rebar eunit

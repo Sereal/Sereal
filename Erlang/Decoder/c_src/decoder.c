@@ -365,7 +365,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     Decoder* decoder;
     ErlNifBinary input;
 
-    if( argc != 4 
+    if(   argc != 4 
       || !enif_inspect_binary(env, argv[0], &input)
       || !enif_get_resource(env, argv[1], st->resource_decoder, (void**) &decoder)
       || !enif_is_list(env, argv[2])
@@ -524,14 +524,14 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
              ERL_NIF_TERM new_input = enif_make_binary(env, &uncompressed);
 
-            return enif_make_tuple5(
+             return enif_make_tuple5 (
                     env,
                     st->atom_iter,
                     argv[1],
                     objs,
                     curr,
                     new_input
-                );
+             );
 
         } else if (is_zlib_encoded) {
 
