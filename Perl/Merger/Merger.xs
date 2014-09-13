@@ -3,7 +3,12 @@
 #include "XSUB.h"
 #include "ppport.h"
 
+#include "srl_common.h"
 #include "srl_merger.h"
+#include "srl_protocol.h"
+
+/* Generated code for exposing C constants to Perl */
+#include "const-c.inc"
 
 typedef srl_merger_t * Sereal__Merger;
 
@@ -43,3 +48,8 @@ finish(mrg)
   CODE:
     RETVAL = srl_merger_finish(aTHX mrg);
   OUTPUT: RETVAL
+
+MODULE = Sereal::Merger        PACKAGE = Sereal::Merger::Constants
+PROTOTYPES: DISABLE
+
+INCLUDE: const-xs.inc
