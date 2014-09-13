@@ -142,7 +142,6 @@ SRL_STATIC_INLINE void srl_merge_array(pTHX_ srl_merger_t *mrg, const U8 tag, UV
 SRL_STATIC_INLINE void srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag, UV *tag_offset);
 SRL_STATIC_INLINE void srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag, UV *tag_offset);
 
-SRL_STATIC_INLINE UV srl_expected_top_elements(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE void srl_store_tracked_offset(pTHX_ srl_merger_t *mrg, UV from, UV to);
 SRL_STATIC_INLINE UV srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV offset);
 SRL_STATIC_INLINE strtable_entry_ptr srl_lookup_string(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int *ok);
@@ -268,6 +267,8 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
 
     mrg->ibuf.pos = mrg->ibuf.body_pos + 1;
     srl_merge_single_value(mrg);
+
+    mrg->cnt_of_merged_elements++;
 }
 
 void
@@ -298,6 +299,8 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
 
         mrg->ibuf.pos = mrg->ibuf.body_pos + 1;
         srl_merge_single_value(mrg);
+
+        mrg->cnt_of_merged_elements++;
     }
 }
 
@@ -798,12 +801,6 @@ srl_merge_stringish(pTHX_ srl_merger_t *mrg)
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
-}
-
-SRL_STATIC_INLINE UV
-srl_expected_top_elements(pTHX_ srl_merger_t *mrg)
-{
-    return 1;
 }
 
 SRL_STATIC_INLINE void

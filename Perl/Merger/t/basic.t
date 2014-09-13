@@ -36,10 +36,7 @@ sub binary2hex {
 
     #for (1..10) {
         my $test = Sereal::Merger->new({});
-        foreach (@data) {
-            $test->append($_);
-        };
-
+        $test->append_all(\@data);
         my $merged = $test->finish();
     #}
 
