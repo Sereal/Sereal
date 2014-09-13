@@ -232,7 +232,6 @@ srl_build_merger_struct(pTHX_ HV *opt)
 void
 srl_destroy_merger(pTHX_ srl_merger_t *mrg)
 {
-    srl_stack_destroy(aTHX_ &mrg->parser_stack);
     srl_buf_free_buffer(aTHX_ &mrg->obuf);
 
     if (mrg->tracked_offsets) {
@@ -331,13 +330,6 @@ srl_empty_merger_struct(pTHX)
 
     /* Init buffer struct */
     if (expect_false(srl_buf_init_buffer(aTHX_ &mrg->obuf, INITIALIZATION_SIZE) != 0)) {
-        Safefree(mrg);
-        croak("Out of memory");
-    }
-
-    /* Init parset stack struct */
-    if (expect_false(srl_stack_init(aTHX_ &mrg->parser_stack, 32) != 0)) {
-        srl_buf_free_buffer(aTHX_ &mrg->obuf);
         Safefree(mrg);
         croak("Out of memory");
     }

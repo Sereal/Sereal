@@ -8,7 +8,10 @@
 #include "srl_inline.h"
 #include "srl_common.h"
 
-#define SRL_STACK_TYPE uint64_t
+#define SRL_STACK_TYPE UV
+
+#define DEBUG_ASSERT_STACK_PTR(stack, ptr) \
+    assert((ptr) >= (stack)->begin && (ptr) <= (stack)->end)
 
 #define DEBUG_ASSERT_STACK_SANE(stack) STMT_START {                           \
     assert((stack) != NULL);                                                  \
@@ -18,9 +21,6 @@
     assert((stack)->ptr == NULL ||                                            \
            ((stack)->ptr >= (stack)->begin && (stack)->ptr <= (stack)->end)); \
 } STMT_END
-
-#define DEBUG_ASSERT_STACK_PTR(stack, ptr) assert((ptr) >= (stack)->begin && (ptr) <= (stack)->end)
-#define DEBUG_ASSERT_STACK_VALUE(ptr) assert(((int64_t) *(ptr)) >= 0)
 
 //#define SRL_STACK_TRACE(msg, args...) warn(msg, args)
 #define SRL_STACK_TRACE(msg, args...)
@@ -69,12 +69,6 @@ srl_stack_clear(pTHX_ srl_stack_t *stack)
 
 #define srl_stack_ptr(stack) ((stack)->ptr)
 #define srl_stack_empty(stack) ((stack)->ptr == NULL)
-#define srl_stack_incr_value(stack, ptr, val) STMT_START { \
-    DEBUG_ASSERT_STACK_SANE(stack);                        \
-    DEBUG_ASSERT_STACK_PTR((stack), (ptr));                \
-    *(ptr) += (val);                                       \
-    DEBUG_ASSERT_STACK_VALUE(ptr);                         \
-} STMT_END
 
 #define srl_stack_push(stack, cnt) STMT_START {                       \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
