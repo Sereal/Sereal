@@ -62,9 +62,9 @@ typedef struct {
     int             pos;
     int             len;
 
-    char*           st_data;
-    int             st_size;
-    int             st_top;
+    char*           status_stask_data;
+    int             status_stack_size;
+    int             status_stack_top;
 
     int*            ref_stack_data;
     int             ref_stack_size;
@@ -129,23 +129,23 @@ decoder_new(ErlNifEnv* env)
     result->buffer = NULL;
 
     // status stack
-    result->st_data = (char*) enif_alloc(STACK_SIZE_INCR * sizeof(char));
+    result->status_stask_data = (char*) enif_alloc(STACK_SIZE_INCR * sizeof(char));
 
-    if(result->st_data == NULL){
+    if(result->status_stask_data == NULL){
         dec_error(result, "Stack allocation failed");
         return NULL;
     }
 
-    result->st_size = STACK_SIZE_INCR;
-    result->st_top = 0;
+    result->status_stack_size = STACK_SIZE_INCR;
+    result->status_stack_top = 0;
 
-    memset(result->st_data, ST_INVALID, result->st_size);
+    memset(result->status_stask_data, ST_INVALID, result->status_stack_size);
 
-    result->st_data[0] = ST_DONE;
-    result->st_top++;
+    result->status_stask_data[0] = ST_DONE;
+    result->status_stack_top++;
 
-    result->st_data[1] = ST_VALUE;
-    result->st_top++;
+    result->status_stask_data[1] = ST_VALUE;
+    result->status_stack_top++;
 
 
     // references stack
@@ -189,8 +189,8 @@ decoder_destroy(ErlNifEnv* env, void* obj)
 {
     Decoder* decoder = (Decoder*) obj;
 
-    if(decoder->st_data != NULL) {
-        enif_free(decoder->st_data);
+    if(decoder->status_stask_data != NULL) {
+        enif_free(decoder->status_stask_data);
     }
 }
 
@@ -209,8 +209,8 @@ dec_current(Decoder* d)
 {
     char result;
 
-    if(d->st_top > 0){
-        result = d->st_data[d->st_top-1];
+    if(d->status_stack_top > 0){
+        result = d->status_stask_data[d->status_stack_top-1];
     
     } else {
         result = 0;
@@ -222,38 +222,38 @@ dec_current(Decoder* d)
 
 
 int
-dec_top(Decoder* d)
+status_stack_top(Decoder* d)
 {
-    return d->st_top;
+    return d->status_stack_top;
 }
 
 void
-dec_push(Decoder* d, char val)
+status_stack_push(Decoder* d, char val)
 {
-    if(d->st_top >= d->st_size) {
-        int new_sz = d->st_size + STACK_SIZE_INCR;
+    if(d->status_stack_top >= d->status_stack_size) {
+        int new_sz = d->status_stack_size + STACK_SIZE_INCR;
         char* tmp = (char*) enif_alloc(new_sz * sizeof(char));
 
         memset(tmp, ST_INVALID, new_sz);
-        memcpy(tmp, d->st_data, d->st_size * sizeof(char));
+        memcpy(tmp, d->status_stask_data, d->status_stack_size * sizeof(char));
 
-        enif_free(d->st_data);
+        enif_free(d->status_stask_data);
         
-        d->st_data = tmp;
-        d->st_size = new_sz;
+        d->status_stask_data = tmp;
+        d->status_stack_size = new_sz;
     }
 
-    d->st_data[d->st_top++] = val;
+    d->status_stask_data[d->status_stack_top++] = val;
 }
 
 void
-dec_pop(Decoder* decoder, char val)
+status_stack_pop(Decoder* decoder, char val)
 {
-    assert(decoder->st_data[decoder->st_top-1] == val && "Popped invalid state.");
+    assert(decoder->status_stask_data[decoder->status_stack_top-1] == val && "Popped invalid state.");
 
-    if(decoder->st_top > 0){
-        decoder->st_data[decoder->st_top-1] = ST_INVALID;
-        decoder->st_top--;
+    if(decoder->status_stack_top > 0){
+        decoder->status_stask_data[decoder->status_stack_top-1] = ST_INVALID;
+        decoder->status_stack_top--;
 
     } else {
         dec_error(decoder, "Stack is empty");
@@ -263,7 +263,7 @@ dec_pop(Decoder* decoder, char val)
 
 
 void
-dec_push_ref(Decoder* d, int val)
+ref_stack_push(Decoder* d, int val)
 {
     if(d->ref_stack_top >= d->ref_stack_size) {
         int new_sz = d->ref_stack_size + STACK_SIZE_INCR;
@@ -281,7 +281,7 @@ dec_push_ref(Decoder* d, int val)
 }
 
 int
-dec_pop_ref(Decoder* d)
+ref_stack_pop(Decoder* d)
 {
     int val = 0;
     if (d->ref_stack_top > 0){
@@ -637,7 +637,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
             ERL_NIF_TERM ignore_me;
 
-            dec_pop(decoder, ST_TRACK);
+            status_stack_pop(decoder, ST_TRACK);
 
             debug_print("current state: ST_TRACK\n");
             if (! enif_get_list_cell(env, curr, &item_to_track, &ignore_me)) {
@@ -645,25 +645,25 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                 goto done;
             }
             debug_print("got item\n");
-            int pos = dec_pop_ref(decoder);
+            int pos = ref_stack_pop(decoder);
             debug_print("adding item for pos %d\n", pos);
             add_reference(pos, item_to_track);
             continue;
         }
 
         if ( dec_current(decoder) == ST_JUMP ) {
-            dec_pop(decoder, ST_JUMP);
+            status_stack_pop(decoder, ST_JUMP);
             int jump;
-            jump = dec_pop_ref(decoder);
+            jump = ref_stack_pop(decoder);
             debug_print("JUMPING TO %d + %d\n", jump, decoder->body_pos);
             decoder->pos = jump + decoder->body_pos;
             continue;
         }
 
         if ( dec_current(decoder) == ST_JUMP_FROM_ZERO ) {
-            dec_pop(decoder, ST_JUMP_FROM_ZERO);
+            status_stack_pop(decoder, ST_JUMP_FROM_ZERO);
             int jump;
-            jump = dec_pop_ref(decoder);
+            jump = ref_stack_pop(decoder);
             debug_print("JUMPING TO %d\n", jump);
             decoder->pos = jump;
             continue;
@@ -672,7 +672,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
         if ( dec_current(decoder) == ST_ARRAY_CLOSE ) {
 
-            dec_pop(decoder, ST_ARRAY_CLOSE);
+            status_stack_pop(decoder, ST_ARRAY_CLOSE);
             val = make_array(env, curr);
 
             if(!enif_get_list_cell(env, objs, &curr, &objs)) {
@@ -686,7 +686,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
         if ( dec_current(decoder) == ST_HASH_PAIR ) {
 
-            dec_pop(decoder, ST_HASH_PAIR);
+            status_stack_pop(decoder, ST_HASH_PAIR);
             
             enif_get_list_cell(env, curr, &val, &curr);
             enif_get_list_cell(env, curr, &key, &curr);
@@ -699,7 +699,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
         if ( dec_current(decoder) == ST_HASH_CLOSE ) {
 
-            dec_pop(decoder, ST_HASH_CLOSE);
+            status_stack_pop(decoder, ST_HASH_CLOSE);
 
             /* val = make_hash(env, curr, list_len); */
             val = enif_make_tuple1(env, curr);
@@ -725,11 +725,11 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             tag = tag & ~SRL_HDR_TRACK_FLAG;
             debug_print("tag must be tracked\n");
 
-            dec_push_ref(decoder, decoder->pos - decoder->body_pos);
+            ref_stack_push(decoder, decoder->pos - decoder->body_pos);
 
-            dec_pop(decoder, ST_VALUE);
-            dec_push(decoder, ST_TRACK);
-            dec_push(decoder, ST_VALUE);
+            status_stack_pop(decoder, ST_VALUE);
+            status_stack_push(decoder, ST_TRACK);
+            status_stack_push(decoder, ST_VALUE);
             debug_print("pushed ST_TRACK\n");
         }
 
@@ -741,7 +741,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     debug_print("POSITIVE INTEGER tag %d, d->pos = %d\n", (int)tag, decoder->pos);
 
                     decoder->pos++;
-                    dec_pop(decoder, ST_VALUE);
+                    status_stack_pop(decoder, ST_VALUE);
 
                     val = enif_make_int(decoder->env, (int)tag);
                     curr = enif_make_list_cell(env, val, curr);
@@ -750,7 +750,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     debug_print("NEGATIVE INTEGER tag %d, d->pos = %d\n", (int)tag, decoder->pos);
 
                     decoder->pos++;
-                    dec_pop(decoder, ST_VALUE);
+                    status_stack_pop(decoder, ST_VALUE);
                     
                     /* Small NEGs are from 16 to 31 in reverse order: (-16, -15.. , -1) */
                     val  = enif_make_int(decoder->env, (int)tag - 32);
@@ -762,7 +762,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     decoder->pos++;
 
                     debug_print("SHORT_BINARY of len %d, d->pos = %d\n", len, decoder->pos);
-                    dec_pop(decoder, ST_VALUE);
+                    status_stack_pop(decoder, ST_VALUE);
 
                     val  = enif_make_sub_binary(decoder->env, decoder->input, decoder->pos, len);
                     curr = enif_make_list_cell(env, val, curr);
@@ -776,17 +776,17 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     decoder->pos++;
 
                     debug_print("SHORT HASHREF of len %d, d->pos = %d\n", len, decoder->pos);
-                    dec_pop(decoder, ST_VALUE);
+                    status_stack_pop(decoder, ST_VALUE);
 
                     // create the temp list to store array elements in it
                     objs = enif_make_list_cell(env, curr, objs);
                     curr = enif_make_list(env, 0);
 
-                    dec_push(decoder, ST_HASH_CLOSE);
+                    status_stack_push(decoder, ST_HASH_CLOSE);
                     while (len-- > 0) {
-                        dec_push(decoder, ST_HASH_PAIR);
-                        dec_push(decoder, ST_VALUE);
-                        dec_push(decoder, ST_VALUE);
+                        status_stack_push(decoder, ST_HASH_PAIR);
+                        status_stack_push(decoder, ST_VALUE);
+                        status_stack_push(decoder, ST_VALUE);
                     }
 
                 } else if ( IS_SRL_HDR_ARRAYREF(tag) ) {
@@ -795,15 +795,15 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     decoder->pos++;
                     
                     debug_print("SHORT ARRAY of len %d, d->pos = %d\n", len, decoder->pos);
-                    dec_pop(decoder, ST_VALUE);
+                    status_stack_pop(decoder, ST_VALUE);
 
                     // create the temp list to store array elements in it
                     objs = enif_make_list_cell(env, curr, objs);
                     curr = enif_make_list(env, 0);
 
-                    dec_push(decoder, ST_ARRAY_CLOSE);
+                    status_stack_push(decoder, ST_ARRAY_CLOSE);
                     while (len-- > 0) {
-                        dec_push(decoder, ST_VALUE);
+                        status_stack_push(decoder, ST_VALUE);
                     }
 
                 } else {
@@ -813,7 +813,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     case SRL_HDR_VARINT:
                         debug_print("VARINT, d->pos = %d\n", decoder->pos);
 
-                        dec_pop(decoder, ST_VALUE);
+                        status_stack_pop(decoder, ST_VALUE);
                         decoder->pos++;
 
                         int64_value = srl_read_varint_int64_nocheck(decoder);
@@ -827,7 +827,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     case SRL_HDR_ZIGZAG:
                         debug_print("ZIGZAG, d->pos = %d\n", decoder->pos);
 
-                        dec_pop(decoder, ST_VALUE);
+                        status_stack_pop(decoder, ST_VALUE);
                         decoder->pos++;
 
                         ErlNifUInt64 _value = srl_read_varint_int64_nocheck(decoder);
@@ -846,7 +846,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     case SRL_HDR_FLOAT:
                         debug_print("FLOAT, d->pos = %d\n", decoder->pos);
 
-                        dec_pop(decoder, ST_VALUE);
+                        status_stack_pop(decoder, ST_VALUE);
                         decoder->pos++;
 
                         float_value = *((float *) &(decoder->buffer[decoder->pos]));
@@ -862,7 +862,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     case SRL_HDR_DOUBLE:
                         debug_print("DOUBLE, d->pos = %d\n", decoder->pos);
 
-                        dec_pop(decoder, ST_VALUE);
+                        status_stack_pop(decoder, ST_VALUE);
                         decoder->pos++;
 
                         double_value = *((double *) &(decoder->buffer[decoder->pos]));
@@ -886,7 +886,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     case SRL_HDR_UNDEF:
                         debug_print("UNDEF, d->pos = %d\n", decoder->pos);
 
-                        dec_pop(decoder, ST_VALUE);
+                        status_stack_pop(decoder, ST_VALUE);
                         decoder->pos++;
 
                         curr = enif_make_list_cell(decoder->env, decoder->atoms->atom_undefined, curr);
@@ -897,7 +897,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
                         debug_print("BINARY, d->pos = %d\n", decoder->pos);
 
-                        dec_pop(decoder, ST_VALUE);
+                        status_stack_pop(decoder, ST_VALUE);
                         decoder->pos++;
                         
                         int64_value = srl_read_varint_int64_nocheck(decoder);
@@ -912,7 +912,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     case SRL_HDR_STR_UTF8:
                         debug_print("STR_UTF8, d->pos = %d\n", decoder->pos);
 
-                        dec_pop(decoder, ST_VALUE);
+                        status_stack_pop(decoder, ST_VALUE);
                         decoder->pos++;
                         
                         int64_value = srl_read_varint_int64_nocheck(decoder);
@@ -931,7 +931,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
                     case SRL_HDR_REFP:
                         debug_print("REFP, d->pos = %d\n", decoder->pos);
-                        dec_pop(decoder, ST_VALUE);
+                        status_stack_pop(decoder, ST_VALUE);
                         decoder->pos++;
 
                         int64_value = (int)srl_read_varint_int64_nocheck(decoder);
@@ -958,22 +958,22 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                         debug_print("HASH d->pos = %d\n", decoder->pos);
 
                         decoder->pos++;
-                        dec_pop(decoder, ST_VALUE);
+                        status_stack_pop(decoder, ST_VALUE);
 
                         // create the temp list to store hash elements in it
                         objs = enif_make_list_cell(env, curr, objs);
                         curr = enif_make_list(env, 0);
 
-                        dec_push(decoder, ST_HASH_CLOSE);
+                        status_stack_push(decoder, ST_HASH_CLOSE);
                         
                         // read the hash length
                         int64_value = srl_read_varint_int64_nocheck(decoder);
                         debug_print("HASH: %ld pairs\n", int64_value);
 
                         while (int64_value-- > 0) {
-                            dec_push(decoder, ST_HASH_PAIR);
-                            dec_push(decoder, ST_VALUE);
-                            dec_push(decoder, ST_VALUE);
+                            status_stack_push(decoder, ST_HASH_PAIR);
+                            status_stack_push(decoder, ST_VALUE);
+                            status_stack_push(decoder, ST_VALUE);
                         }
                         break;
 
@@ -981,18 +981,18 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                         debug_print("ARRAY, d->pos = %d\n", decoder->pos);
 
                         decoder->pos++;
-                        dec_pop(decoder, ST_VALUE);
+                        status_stack_pop(decoder, ST_VALUE);
 
                         // create the temp list to store array elements in it
                         objs = enif_make_list_cell(env, curr, objs);
                         curr = enif_make_list(env, 0);
 
-                        dec_push(decoder, ST_ARRAY_CLOSE);
+                        status_stack_push(decoder, ST_ARRAY_CLOSE);
 
                         // read the array length
                         int64_value = srl_read_varint_int64_nocheck(decoder);
                         while (int64_value-- > 0) {
-                            dec_push(decoder, ST_VALUE);
+                            status_stack_push(decoder, ST_VALUE);
                         }
                         break;
 
@@ -1015,21 +1015,21 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
                     case SRL_HDR_COPY:
                         debug_print("COPY, d->pos = %d\n", decoder->pos);
-                        dec_pop(decoder, ST_VALUE);
+                        status_stack_pop(decoder, ST_VALUE);
                         decoder->pos++;
 
                         int64_value = srl_read_varint_int64_nocheck(decoder);
                         debug_print("COPY, MUST JUMP TO %d + %d\n", decoder->body_pos, (int)int64_value);
 
                         debug_print("THEN WE'LL JUMP TO HERE: %d\n", decoder->pos);
-                        dec_push_ref(decoder, decoder->pos);
+                        ref_stack_push(decoder, decoder->pos);
 
                         // jump to the refered position
                         decoder->pos = (int)int64_value + decoder->body_pos;
 
                         // push the fact that we need to read a value, then come back here.
-                        dec_push(decoder, ST_JUMP_FROM_ZERO);
-                        dec_push(decoder, ST_VALUE);
+                        status_stack_push(decoder, ST_JUMP_FROM_ZERO);
+                        status_stack_push(decoder, ST_VALUE);
 
                         break;
 
@@ -1059,7 +1059,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     case SRL_HDR_CANONICAL_UNDEF:
                         debug_print("CANONICAL UNDEF, d->pos = %d\n", decoder->pos);
 
-                        dec_pop(decoder, ST_VALUE);
+                        status_stack_pop(decoder, ST_VALUE);
                         decoder->pos++;
 
                         curr = enif_make_list_cell(decoder->env, decoder->atoms->atom_undefined, curr);
@@ -1068,7 +1068,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     case SRL_HDR_FALSE:
                         debug_print("FALSE, d->pos = %d\n", decoder->pos);
 
-                        dec_pop(decoder, ST_VALUE);
+                        status_stack_pop(decoder, ST_VALUE);
                         decoder->pos++;
 
                         curr = enif_make_list_cell(decoder->env, decoder->atoms->atom_false, curr);
@@ -1077,7 +1077,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     case SRL_HDR_TRUE:
                         debug_print("TRUE, d->pos = %d\n", decoder->pos);
 
-                        dec_pop(decoder, ST_VALUE);
+                        status_stack_pop(decoder, ST_VALUE);
                         decoder->pos++;
 
                         curr = enif_make_list_cell(decoder->env, decoder->atoms->atom_true, curr);
