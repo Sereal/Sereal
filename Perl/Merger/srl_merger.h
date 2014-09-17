@@ -37,8 +37,13 @@ SV * srl_merger_finish(pTHX_ srl_merger_t *mrg);
 /* define option bits in srl_merger_t's flags member */
 
 /* Define what top level tag will be used. Default is SRL_F_TOPLEVEL_KEY_ARRAY */
-#define SRL_F_TOPLEVEL_KEY_SCALAR              0x00001UL
-#define SRL_F_TOPLEVEL_KEY_ARRAY               0x00002UL
-#define SRL_F_TOPLEVEL_KEY_HASH                0x00004UL
+#define SRL_F_TOPLEVEL_KEY_SCALAR               0x00001UL
+#define SRL_F_TOPLEVEL_KEY_ARRAY                0x00002UL
+#define SRL_F_TOPLEVEL_KEY_HASH                 0x00004UL
+
+/* If set, use a hash to emit COPY() tags for all duplicated strings and/or keys
+ * (slow, but great compression) */
+#define SRL_F_DEDUPE_KEYS                       0x00400UL
+#define SRL_F_DEDUPE_STRINGS                    0x00800UL
 
 #endif
