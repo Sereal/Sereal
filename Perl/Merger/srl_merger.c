@@ -628,11 +628,17 @@ read_again:
 
                         break;
 
-                    case SRL_HDR_PAD:
                     case SRL_HDR_REFN:
                     case SRL_HDR_WEAKEN:
                     case SRL_HDR_EXTEND:
                         srl_buf_cat_tag_nocheck(mrg, tag);
+                        goto read_again;
+
+                    case SRL_HDR_PAD:
+                        while (BUF_NOT_DONE(mrg->ibuf) && *mrg->ibuf.pos == SRL_HDR_PAD) {
+                            srl_buf_cat_tag_nocheck(mrg, SRL_HDR_PAD);
+                        }
+
                         goto read_again;
 
                     //case SRL_HDR_OBJECTV:
