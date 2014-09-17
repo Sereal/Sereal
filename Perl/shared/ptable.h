@@ -75,7 +75,7 @@ STATIC PTABLE_t * PTABLE_new(void);
 STATIC PTABLE_t * PTABLE_new_size(const U8 size_base2_exponent);
 STATIC PTABLE_ENTRY_t * PTABLE_find(PTABLE_t *tbl, const void *key);
 STATIC void * PTABLE_fetch(PTABLE_t *tbl, const void *key);
-STATIC void PTABLE_store(PTABLE_t *tbl, void *key, void *value);
+STATIC PTABLE_ENTRY_t * PTABLE_store(PTABLE_t *tbl, void *key, void *value);
 STATIC void PTABLE_delete(PTABLE_t *tbl, void *key);
 STATIC void PTABLE_grow(PTABLE_t *tbl);
 STATIC void PTABLE_clear(PTABLE_t *tbl);
@@ -128,7 +128,7 @@ PTABLE_fetch(PTABLE_t *tbl, const void *key)
 
 /* add a new entry to a pointer => pointer table */
 
-STATIC void
+STATIC PTABLE_ENTRY_t *
 PTABLE_store(PTABLE_t *tbl, void *key, void *value)
 {
     PTABLE_ENTRY_t *tblent = PTABLE_find(tbl, key);
@@ -148,6 +148,7 @@ PTABLE_store(PTABLE_t *tbl, void *key, void *value)
             PTABLE_grow(tbl);
     }
 
+    return tblent;
 }
 
 /* double the hash bucket size of an existing ptr table */
