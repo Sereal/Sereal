@@ -103,8 +103,8 @@ extern "C" {
  * srl_encoder_t*
  */
 #define MRG2ENC(mrg) ((srl_encoder_t *) (mrg))
-//#define SRL_MRG_HAVE_OPTION(mrg, flag_num) ((mrg)->flags & flag_num)
-//#define SRL_MRG_SET_OPTION(mrg, flag_num) ((mrg)->flags |= flag_num)
+#define SRL_MRG_SET_OPTION(mrg, flag_num) ((mrg)->flags |= (flag_num))
+#define SRL_MRG_HAVE_OPTION(mrg, flag_num) ((mrg)->flags & (flag_num))
 
 #include "srl_merger.h"
 #include "srl_common.h"
@@ -196,15 +196,37 @@ srl_build_merger_struct(pTHX_ HV *opt)
                       (unsigned long)mrg->protocol_version);
             }
         }
+
+        svp = hv_fetchs(opt, "top_level_element", 0);
+        if (svp && SvOK(*svp)) {
+            switch (SvUV(*svp)) {
+                case 0: /* SCALAR */
+                    SRL_MRG_SET_OPTION(mrg, SRL_F_TOPLEVEL_KEY_SCALAR);
+                    break;
+
+                case 1: /* ARRAYREF */
+                    SRL_MRG_SET_OPTION(mrg, SRL_F_TOPLEVEL_KEY_ARRAY);
+                    break;
+
+                case 2: /* HASHREF */
+                    SRL_MRG_SET_OPTION(mrg, SRL_F_TOPLEVEL_KEY_HASH);
+                    break;
+
+                default:
+                    croak("Invalid Sereal::Merger top level element");
+            }
+        }
     }
 
     /* 4 byte magic string + proto version
      * + potentially uncompressed size varint
      * +  1 byte varint that indicates zero-length header
+     * if not SRL_F_TOPLEVEL_KEY_SCALAR
      * +  1 byte SRL_HDR_REFN
-     * +  1 byte SRL_HDR_ARRAY
+     * +  1 byte SRL_HDR_ARRAY|HASH
      * +  SRL_MAX_VARINT_LENGTH bytes for padding varint */
-    GROW_BUF(mrg->obuf, sizeof(SRL_MAGIC_STRING) + 1 + 1 + 1 + 1 + SRL_MAX_VARINT_LENGTH);
+    GROW_BUF(mrg->obuf, sizeof(SRL_MAGIC_STRING) + 1 + 1 +
+             SRL_MRG_HAVE_OPTION(mrg, SRL_F_TOPLEVEL_KEY_SCALAR) ? 0 : 1 + 1 + SRL_MAX_VARINT_LENGTH);
 
     if (expect_true(mrg->protocol_version > 2)) {
         srl_buf_cat_str_s_nocheck(MRG2ENC(mrg), SRL_MAGIC_STRING_HIGHBIT);
@@ -217,12 +239,14 @@ srl_build_merger_struct(pTHX_ HV *opt)
 
     SRL_UPDATE_BUF_BODY_POS(mrg->obuf, mrg->protocol_version);
 
-    srl_buf_cat_char_nocheck(MRG2ENC(mrg), SRL_HDR_REFN);
-    srl_buf_cat_char_nocheck(MRG2ENC(mrg), SRL_HDR_ARRAY);
-    mrg->obuf_padding_bytes_offset = BUF_POS_OFS(mrg->obuf);
+    if (!SRL_MRG_HAVE_OPTION(mrg, SRL_F_TOPLEVEL_KEY_SCALAR)) {
+        srl_buf_cat_char_nocheck(MRG2ENC(mrg), SRL_HDR_REFN);
+        srl_buf_cat_char_nocheck(MRG2ENC(mrg), SRL_MRG_HAVE_OPTION(mrg, SRL_F_TOPLEVEL_KEY_HASH) ? SRL_HDR_HASH : SRL_HDR_ARRAY);
 
-    for (i = 0; i < SRL_MAX_VARINT_LENGTH; ++i) {
-        srl_buf_cat_char_nocheck(MRG2ENC(mrg), SRL_HDR_PAD);
+        mrg->obuf_padding_bytes_offset = BUF_POS_OFS(mrg->obuf);
+        for (i = 0; i < SRL_MAX_VARINT_LENGTH; ++i) { // TODO need to allocate space only for U32 items
+            srl_buf_cat_char_nocheck(MRG2ENC(mrg), SRL_HDR_PAD);
+        }
     }
 
     return mrg;
@@ -310,15 +334,17 @@ srl_merger_finish(pTHX_ srl_merger_t *mrg)
     assert(mrg != NULL);
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
 
-    char* oldpos = mrg->obuf.pos;
-    mrg->obuf.pos = mrg->obuf.start + mrg->obuf_padding_bytes_offset;
-    DEBUG_ASSERT_BUF_SANE(mrg->obuf);
+    if (!SRL_MRG_HAVE_OPTION(mrg, SRL_F_TOPLEVEL_KEY_SCALAR)) {
+        char* oldpos = mrg->obuf.pos;
+        mrg->obuf.pos = mrg->obuf.start + mrg->obuf_padding_bytes_offset;
+        DEBUG_ASSERT_BUF_SANE(mrg->obuf);
 
-    srl_buf_cat_varint_nocheck(MRG2ENC(mrg), 0, mrg->cnt_of_merged_elements);
-    DEBUG_ASSERT_BUF_SANE(mrg->obuf);
+        srl_buf_cat_varint_nocheck(MRG2ENC(mrg), 0, mrg->cnt_of_merged_elements);
+        DEBUG_ASSERT_BUF_SANE(mrg->obuf);
 
-    mrg->obuf.pos = oldpos;
-    DEBUG_ASSERT_BUF_SANE(mrg->obuf);
+        mrg->obuf.pos = oldpos;
+        DEBUG_ASSERT_BUF_SANE(mrg->obuf);
+    }
 
     return newSVpvn(mrg->obuf.start, BUF_POS_OFS(mrg->obuf));
 }
@@ -344,6 +370,7 @@ srl_empty_merger_struct(pTHX)
     mrg->string_deduper_tbl = NULL;
     mrg->tracked_offsets_tbl = NULL;
     mrg->tracked_offsets = NULL;
+    mrg->flags = 0;
     return mrg;
 }
 
