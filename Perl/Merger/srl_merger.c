@@ -616,12 +616,13 @@ read_again:
                 switch (tag) {
                     case SRL_HDR_COPY:
                     case SRL_HDR_REFP:
+                    case SRL_HDR_ALIAS:
                         mrg->ibuf.pos++; // skip tag in input buffer
-                        offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
+                        offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY/ALIAS/REFP");
                         offset = srl_lookup_tracked_offset(mrg, offset); // convert ibuf offset to obuf offset
                         srl_buf_cat_varint((srl_encoder_t*) mrg, tag, offset);
 
-                        if (tag == SRL_HDR_REFP) {
+                        if (tag == SRL_HDR_REFP || tag == SRL_HDR_ALIAS) {
                             SRL_SET_TRACK_FLAG(*(mrg->obuf.body_pos + offset));
                         }
 
@@ -634,7 +635,6 @@ read_again:
                         srl_buf_cat_tag_nocheck(mrg, tag);
                         goto read_again;
 
-                    //case SRL_HDR_ALIAS:
                     //case SRL_HDR_OBJECTV:
                     //case SRL_HDR_OBJECTV_FREEZE:
                     //    offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
