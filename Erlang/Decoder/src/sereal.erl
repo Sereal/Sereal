@@ -1,6 +1,6 @@
--module(sereal_decoder).
+-module(sereal).
 
--export([decode/1, decode/2]).
+-export([decode/1, decode/2, encode/1, encode/2]).
 
 -define(NOT_LOADED, not_loaded(?LINE)).
 
@@ -54,6 +54,33 @@ decode_loop(Data, Decoder, Objs, Curr) ->
             ESereal
     end.
 
+encode(Data) ->
+    encode(Data, {}).
+
+encode(Data, Opts) ->
+    case nif_encoder_init(Data, Opts) of
+        {error, _} = Error ->
+            throw(Error);
+        
+        {iter, Encoder} ->
+            encoder_loop(Data, Encoder);
+
+        EncodedBinary ->
+            EncodedBinary
+    end.
+
+encoder_loop(Data, Encoder) ->
+    case nif_encoder_iterate(Data, Encoder) of 
+        {error, _} = Error->
+            throw(Error);
+
+        {iter, Encoder} ->
+            encoder_loop(Data, Encoder);
+
+        EncoderBinary ->
+            EncoderBinary
+    end.
+
 not_loaded(Line) ->
     erlang:nif_error({not_loaded, [{module, ?MODULE}, {line, Line}]}).
 
@@ -62,3 +89,10 @@ nif_decoder_init(_, _) ->
 
 nif_decoder_iterate(_, _, _, _) ->
     ?NOT_LOADED.
+
+nif_encoder_init(_, _) ->
+    ?NOT_LOADED.
+
+nif_encoder_iterate(_, _) ->
+    ?NOT_LOADED.
+

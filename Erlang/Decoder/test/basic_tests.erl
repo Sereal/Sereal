@@ -7,10 +7,10 @@ file_test() ->
     [gen(Case) || Case <- Cases].
 
 gen({Name, Srl, {error, _}=Erl}) ->
-    {Name, ?_assertThrow(Erl, sereal_decoder:decode(Srl))};
+    {Name, ?_assertThrow(Erl, sereal:decode(Srl))};
 
 gen({Name, Srl, Erl}) ->
-    {ok, Decodeds} = sereal_decoder:decode(Srl),
+    {ok, Decodeds} = sereal:decode(Srl),
     [Decoded | _ ] = Decodeds,
     {Name, ?assertEqual(Erl, Decoded)}.
 

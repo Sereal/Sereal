@@ -6,7 +6,7 @@
 #include <string.h>
 
 #include "erl_nif.h"
-#include "sereal_decoder.h"
+#include "sereal.h"
 #include "srl_protocol.h"
 
 #include "snappy/csnappy_decompress.c"
@@ -14,9 +14,7 @@
 
 #include "uthash.h"
 
-#define debug_print(fmt, ...)                                           \
-    do { if (DEBUG) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__,       \
-                                __LINE__, __func__, ##__VA_ARGS__); } while (0)
+#include "utils.h"
 
 
 #define STACK_SIZE_INCR 64
@@ -49,28 +47,28 @@ enum {
 } SrlState;
 
 typedef struct {
-    ErlNifEnv*      env;
-    sereal_decoder_st*       atoms;
+    ErlNifEnv*   env;
+    sereal_st*   atoms;
 
-    ERL_NIF_TERM    input;
-    ErlNifBinary    bin;
+    ERL_NIF_TERM input;
+    ErlNifBinary bin;
 
-    size_t          bytes_per_iter;
+    size_t       bytes_per_iter;
 
-    char*           buffer;
-    int             pos;
-    int             len;
+    char*        buffer;
+    int          pos;
+    int          len;
 
-    char*           st_data;
-    int             st_size;
-    int             st_top;
+    char*        st_data;
+    int          st_size;
+    int          st_top;
 
-    int*            ref_stack_data;
-    int             ref_stack_size;
-    int             ref_stack_top;
+    int*         ref_stack_data;
+    int          ref_stack_size;
+    int          ref_stack_top;
 
-    int             header_parsed;
-    int             body_pos;
+    int          header_parsed;
+    int          body_pos;
 
 } Decoder;
 
@@ -109,7 +107,7 @@ struct reference_struct *find_reference(int pos) {
 Decoder*
 decoder_new(ErlNifEnv* env)
 {
-    sereal_decoder_st* st = (sereal_decoder_st*) enif_priv_data(env);
+    sereal_st* st = (sereal_st*) enif_priv_data(env);
 
     Decoder* result = enif_alloc_resource(st->resource_decoder, sizeof(Decoder));
 
@@ -291,10 +289,6 @@ dec_pop_ref(Decoder* d)
     return val;
 }
 
-
-
-
-
 ERL_NIF_TERM
 make_array(ErlNifEnv* env, ERL_NIF_TERM list)
 {
@@ -316,7 +310,7 @@ decoder_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         return enif_make_badarg(env);
     }
 
-    sereal_decoder_st* st = (sereal_decoder_st*) enif_priv_data(env);
+    sereal_st* st = (sereal_st*) enif_priv_data(env);
 
     Decoder* decoder = decoder_new(env);
 
@@ -360,7 +354,7 @@ decoder_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 ERL_NIF_TERM
 decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    sereal_decoder_st* st = (sereal_decoder_st*) enif_priv_data(env);
+    sereal_st* st = (sereal_st*) enif_priv_data(env);
     
     Decoder* decoder;
     ErlNifBinary input;
@@ -1115,8 +1109,8 @@ done:
 }
 
 //TODO:  UInt64 isn't a good mapping for varint, should find another one
-ErlNifUInt64 srl_read_varint_int64_nocheck(Decoder *decoder)
-{
+ErlNifUInt64 srl_read_varint_int64_nocheck(Decoder *decoder) {
+
     ErlNifUInt64 result = 0;
     unsigned     lshift = 0;
 

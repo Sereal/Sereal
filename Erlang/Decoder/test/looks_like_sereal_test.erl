@@ -17,6 +17,6 @@
 wrong_formatted_sereals_test() ->
     lists:map(fun ({Input, Msg}) -> 
                    ?assertThrow({error, {_, Msg}},
-                                sereal_decoder:decode(Input))
+                                sereal:decode(Input))
              end,
              ?TEST_CASES).  

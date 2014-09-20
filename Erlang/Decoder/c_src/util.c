@@ -1,7 +1,10 @@
 // This file is part of Jiffy released under the MIT license.
 // See the LICENSE file for more information.
 
-#include "sereal_decoder.h"
+#ifndef UTILS_H
+#define UTILS_H
+
+#include "sereal.h"
 
 #define UNLIMITED (0)
 
@@ -18,13 +21,13 @@ make_atom(ErlNifEnv* env, const char* name)
 }
 
 ERL_NIF_TERM
-make_ok(sereal_decoder_st* st, ErlNifEnv* env, ERL_NIF_TERM value)
+make_ok(sereal_st* st, ErlNifEnv* env, ERL_NIF_TERM value)
 {
     return enif_make_tuple2(env, st->atom_ok, value);
 }
 
 ERL_NIF_TERM
-make_error(sereal_decoder_st* st, ErlNifEnv* env, const char* error)
+make_error(sereal_st* st, ErlNifEnv* env, const char* error)
 {
     return enif_make_tuple2(env, st->atom_error, make_atom(env, error));
 }
@@ -32,7 +35,7 @@ make_error(sereal_decoder_st* st, ErlNifEnv* env, const char* error)
 int
 get_bytes_per_iter(ErlNifEnv* env, ERL_NIF_TERM val, size_t* bpi)
 {
-    sereal_decoder_st* st = (sereal_decoder_st*) enif_priv_data(env);
+    sereal_st* st = (sereal_st*) enif_priv_data(env);
 
     int arity;
     unsigned int bytes;
@@ -84,3 +87,5 @@ consume_timeslice(ErlNifEnv* env, size_t used, size_t limit)
     return 0;
 #endif
 }
+
+#endif
