@@ -18,10 +18,12 @@
 typedef struct {
     srl_buffer_t obuf;                    /* output buffer */
     srl_buffer_t ibuf;                    /* input buffer, MUST NOT be deallocated by srl_buf_free_buffer() */
-    srl_stack_t     *tracked_offsets;     /* sorted list of offsets which should be tracked */
+    srl_stack_t     *referred_offsets;    /* sorted list of offsets from ibuf which
+                                             reffered by COPY, OBJECTV or OBJECTV_FREEZE tag */
+
     struct PTABLE   *tracked_offsets_tbl; /* table to convert ibuf offsets to obuf offsets */
     struct STRTABLE *string_deduper_tbl;  /* track strings we have seen before, by content */
-    struct STRTABLE *classname_deduper_tbl;  /* track strings we have seen before, by content */
+    struct STRTABLE *classname_deduper_tbl;  /* track classnames we have seen before, by content */
 
     UV obuf_padding_bytes_offset;         /* pointer to start of SRL_MAX_VARINT_LENGTH padding bytes */
     U32 cnt_of_merged_elements;           /* total count of merged elements so far */

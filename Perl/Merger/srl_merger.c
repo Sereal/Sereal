@@ -57,9 +57,9 @@ extern "C" {
                                          ? srl_init_tracked_offsets_tbl(aTHX_ mrg)         \
                                          : (mrg)->tracked_offsets_tbl)
 
-#define SRL_GET_TRACKED_OFFSETS(mrg)     (expect_false((mrg)->tracked_offsets == NULL)     \
-                                         ? srl_init_tracked_offsets(aTHX_ mrg)             \
-                                         : (mrg)->tracked_offsets)
+#define SRL_GET_REFERRED_OFFSETS(mrg)    (expect_false((mrg)->referred_offsets == NULL)    \
+                                         ? srl_init_referred_offsets(aTHX_ mrg)            \
+                                         : (mrg)->referred_offsets)
 
 //#define SRL_MERGER_TRACE(msg, args...) warn((msg), args)
 #define SRL_MERGER_TRACE(msg, args...)
@@ -137,7 +137,7 @@ SRL_STATIC_INLINE void srl_copy_varint(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE ptable_ptr   srl_init_tracked_offsets_tbl(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE strtable_ptr srl_init_string_deduper_tbl(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE strtable_ptr srl_init_classname_deduper_tbl(pTHX_ srl_merger_t *mrg);
-SRL_STATIC_INLINE srl_stack_t * srl_init_tracked_offsets(pTHX_ srl_merger_t *mrg);
+SRL_STATIC_INLINE srl_stack_t * srl_init_referred_offsets(pTHX_ srl_merger_t *mrg);
 
 SRL_STATIC_INLINE srl_merger_t * srl_empty_merger_struct(pTHX);                         /* allocate an empty merger struct - flags still to be set up */
 SRL_STATIC_INLINE void srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src);        /* reset input buffer (ibuf) */
@@ -146,8 +146,8 @@ SRL_STATIC_INLINE void srl_merge_single_value(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE void srl_merge_stringish(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE void srl_merge_hash(pTHX_ srl_merger_t *mrg, const U8 tag, UV length);
 SRL_STATIC_INLINE void srl_merge_array(pTHX_ srl_merger_t *mrg, const U8 tag, UV length);
-SRL_STATIC_INLINE void srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag, ptable_entry_ptr ptable_entry);
-SRL_STATIC_INLINE void srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag, ptable_entry_ptr ptable_entry);
+SRL_STATIC_INLINE void srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag);
+SRL_STATIC_INLINE void srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag);
 SRL_STATIC_INLINE void srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 tag);
 
 SRL_STATIC_INLINE ptable_entry_ptr srl_store_tracked_offset(pTHX_ srl_merger_t *mrg, UV from, UV to);
@@ -177,18 +177,21 @@ srl_init_classname_deduper_tbl(pTHX_ srl_merger_t *mrg)
 }
 
 SRL_STATIC_INLINE srl_stack_t *
-srl_init_tracked_offsets(pTHX_ srl_merger_t *mrg)
+srl_init_referred_offsets(pTHX_ srl_merger_t *mrg)
 {
-    mrg->tracked_offsets = NULL;
-    Newx(mrg->tracked_offsets, 1, srl_stack_t);
+    mrg->referred_offsets = NULL;
+    Newx(mrg->referred_offsets, 1, srl_stack_t);
 
-    if (expect_false(mrg->tracked_offsets == NULL))
+    if (expect_false(mrg->referred_offsets == NULL))
         croak("Out of memory");
 
-    if (expect_false(srl_stack_init(mrg->tracked_offsets, 16) != 0))
+    if (expect_false(srl_stack_init(mrg->referred_offsets, 16) != 0)) {
+        Safefree(mrg->referred_offsets);
+        mrg->referred_offsets = NULL;
         croak("Out of memory");
+    }
 
-    return mrg->tracked_offsets;
+    return mrg->referred_offsets;
 }
 
 srl_merger_t *
@@ -277,10 +280,10 @@ srl_destroy_merger(pTHX_ srl_merger_t *mrg)
 {
     srl_buf_free_buffer(aTHX_ &mrg->obuf);
 
-    if (mrg->tracked_offsets) {
-        srl_stack_destroy(aTHX_ mrg->tracked_offsets);
-        Safefree(mrg->tracked_offsets);
-        mrg->tracked_offsets = NULL;
+    if (mrg->referred_offsets) {
+        srl_stack_destroy(aTHX_ mrg->referred_offsets);
+        Safefree(mrg->referred_offsets);
+        mrg->referred_offsets = NULL;
     }
 
     if (mrg->tracked_offsets_tbl) {
@@ -395,7 +398,7 @@ srl_empty_merger_struct(pTHX)
     mrg->classname_deduper_tbl = NULL;
     mrg->string_deduper_tbl = NULL;
     mrg->tracked_offsets_tbl = NULL;
-    mrg->tracked_offsets = NULL;
+    mrg->referred_offsets = NULL;
     mrg->flags = 0;
     return mrg;
 }
@@ -469,14 +472,10 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
 
-    if (mrg->tracked_offsets)
-        srl_stack_clear(mrg->tracked_offsets);
+    if (mrg->referred_offsets)
+        srl_stack_clear(mrg->referred_offsets);
 
     while (expect_true(BUF_NOT_DONE(mrg->ibuf))) {
-        /* since we're doing full pass, it's not necessary to
-         * add items into tracked_offsets here. They will be added
-         * by corresponding REFP/ALIAS tags */
-
         tag = *mrg->ibuf.pos & ~SRL_HDR_TRACK_FLAG;
         SRL_REPORT_CURRENT_TAG(mrg, tag);
         mrg->ibuf.pos++;
@@ -515,12 +514,15 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
                 default:
                     switch (tag) {
                         case SRL_HDR_COPY:
-                        case SRL_HDR_ALIAS:
-                        case SRL_HDR_REFP:
                         case SRL_HDR_OBJECTV:
                         case SRL_HDR_OBJECTV_FREEZE:
-                            offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
-                            srl_stack_push(SRL_GET_TRACKED_OFFSETS(mrg), offset);
+                            offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY, OBJECTV or OBJECTV_FREEZE");
+                            srl_stack_push(SRL_GET_REFERRED_OFFSETS(mrg), offset);
+                            break;
+
+                        case SRL_HDR_REFP:
+                        case SRL_HDR_ALIAS:
+                            srl_read_varint_uv_offset(&mrg->ibuf, " while reading ALIAS or REFP");
                             break;
 
                         case SRL_HDR_PAD:
@@ -541,14 +543,14 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
         }
     }
 
-    if (mrg->tracked_offsets && !srl_stack_empty(mrg->tracked_offsets)) {
-        srl_stack_rsort(mrg->tracked_offsets);
-        srl_stack_dedupe(mrg->tracked_offsets);
+    if (mrg->referred_offsets && !srl_stack_empty(mrg->referred_offsets)) {
+        srl_stack_rsort(mrg->referred_offsets);
+        srl_stack_dedupe(mrg->referred_offsets);
 
         //int i = 0;
-        //SRL_STACK_TYPE *ptr = mrg->tracked_offsets->begin;
-        //while (ptr <= mrg->tracked_offsets->ptr) {
-        //    warn("tracked_offsets: offset dedups idx %d offset %d\n", i, (int) *ptr);
+        //SRL_STACK_TYPE *ptr = mrg->referred_offsets->begin;
+        //while (ptr <= mrg->referred_offsets->ptr) {
+        //    warn("referred_offsets: offset dedups idx %d offset %d\n", i, (int) *ptr);
         //    i++; ptr++;
         //}
     }
@@ -560,13 +562,9 @@ SRL_STATIC_INLINE void
 srl_merge_single_value(pTHX_ srl_merger_t *mrg)
 {
     U8 tag;
-    UV itag_offset, length, offset;
-    ptable_entry_ptr ptable_entry;
+    UV length, offset;
 
 read_again:
-    itag_offset = 0;
-    ptable_entry = NULL;
-
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
 
@@ -574,16 +572,11 @@ read_again:
         croak("Unexpected termination of packet");
 
     tag = *mrg->ibuf.pos;
-    tag = tag & ~SRL_HDR_TRACK_FLAG;
-    SRL_REPORT_CURRENT_TAG(mrg, tag);
+    SRL_REPORT_CURRENT_TAG(mrg, tag & ~SRL_HDR_TRACK_FLAG);
 
-    if (mrg->tracked_offsets && !srl_stack_empty(mrg->tracked_offsets)) {
-        itag_offset = BODY_POS_OFS(mrg->ibuf);
-        if (expect_false(itag_offset == srl_stack_peek_nocheck(mrg->tracked_offsets))) {
-            // trackme case
-            srl_stack_pop_nocheck(mrg->tracked_offsets);
-            ptable_entry = srl_store_tracked_offset(mrg, itag_offset, BODY_POS_OFS(mrg->obuf));
-        }
+    if (expect_false(tag & SRL_HDR_TRACK_FLAG)) {
+        tag = tag & ~SRL_HDR_TRACK_FLAG;
+        srl_store_tracked_offset(mrg, BODY_POS_OFS(mrg->ibuf), BODY_POS_OFS(mrg->obuf));
     }
 
     if (tag <= SRL_HDR_NEG_HIGH) {
@@ -593,7 +586,7 @@ read_again:
     } else if (tag >= SRL_HDR_HASHREF_LOW && tag <= SRL_HDR_HASHREF_HIGH) {
         srl_merge_hash(mrg, tag, SRL_HDR_HASHREF_LEN_FROM_TAG(tag));
     } else if (tag >= SRL_HDR_SHORT_BINARY_LOW) {
-        srl_merge_short_binary(mrg, tag, ptable_entry);
+        srl_merge_short_binary(mrg, tag);
     } else {
         switch (tag) {
             case SRL_HDR_VARINT:
@@ -615,7 +608,7 @@ read_again:
 
             case SRL_HDR_BINARY:
             case SRL_HDR_STR_UTF8:
-                srl_merge_string(mrg, tag, ptable_entry);
+                srl_merge_string(mrg, tag);
                 break;
 
             case SRL_HDR_HASH:
@@ -738,14 +731,24 @@ srl_merge_hash(pTHX_ srl_merger_t *mrg, const U8 tag, UV length)
 }
 
 SRL_STATIC_INLINE void
-srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag, ptable_entry_ptr ptable_entry)
+srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag)
 {
     int ok;
     UV length;
+    ptable_entry_ptr ptable_entry = NULL;
     strtable_entry_ptr strtable_entry;
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
+
+    if (mrg->referred_offsets && !srl_stack_empty(mrg->referred_offsets)) {
+        UV itag_offset = BODY_POS_OFS(mrg->ibuf);
+        if (expect_false(itag_offset == srl_stack_peek_nocheck(mrg->referred_offsets))) {
+            // trackme case
+            srl_stack_pop_nocheck(mrg->referred_offsets);
+            ptable_entry = srl_store_tracked_offset(mrg, itag_offset, BODY_POS_OFS(mrg->obuf));
+        }
+    }
 
     mrg->ibuf.pos++; // skip tag in input buffer
     length = srl_read_varint_uv_length(&mrg->ibuf, " while reading BINARY or STR_UTF8");
@@ -783,17 +786,28 @@ srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag, ptable_entry_ptr ptable_
 }
 
 SRL_STATIC_INLINE void
-srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag, ptable_entry_ptr ptable_entry)
+srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag)
 {
     int ok;
+    strtable_entry_ptr strtable_entry;
+    ptable_entry_ptr ptable_entry = NULL;
     UV length = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
 
+    if (mrg->referred_offsets && !srl_stack_empty(mrg->referred_offsets)) {
+        UV itag_offset = BODY_POS_OFS(mrg->ibuf);
+        if (expect_false(itag_offset == srl_stack_peek_nocheck(mrg->referred_offsets))) {
+            // trackme case
+            srl_stack_pop_nocheck(mrg->referred_offsets);
+            ptable_entry = srl_store_tracked_offset(mrg, itag_offset, BODY_POS_OFS(mrg->obuf));
+        }
+    }
+
     // +1 because need to respect tag
     // no need to do ASSERT_BUF_SPACE because srl_build_track_table has asserted ibuf
-    strtable_entry_ptr strtable_entry = srl_lookup_string(mrg, mrg->ibuf.pos + 1, length, &ok);
+    strtable_entry = srl_lookup_string(mrg, mrg->ibuf.pos + 1, length, &ok);
 
     if (ok) {
         // issue COPY tag
@@ -827,8 +841,7 @@ SRL_STATIC_INLINE void
 srl_merge_stringish(pTHX_ srl_merger_t *mrg)
 {
     U8 tag;
-    UV offset, itag_offset = 0;
-    ptable_entry_ptr ptable_entry = NULL;
+    UV offset = 0;
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
@@ -840,19 +853,10 @@ srl_merge_stringish(pTHX_ srl_merger_t *mrg)
     tag = tag & ~SRL_HDR_TRACK_FLAG;
     SRL_REPORT_CURRENT_TAG(mrg, tag);
 
-    if (mrg->tracked_offsets && !srl_stack_empty(mrg->tracked_offsets)) {
-        itag_offset = BODY_POS_OFS(mrg->ibuf);
-        if (expect_false(itag_offset == srl_stack_peek_nocheck(mrg->tracked_offsets))) {
-            // trackme case
-            srl_stack_pop_nocheck(mrg->tracked_offsets);
-            ptable_entry = srl_store_tracked_offset(mrg, itag_offset, BODY_POS_OFS(mrg->obuf));
-        }
-    }
-
     if (tag >= SRL_HDR_SHORT_BINARY_LOW) {
-        srl_merge_short_binary(mrg, tag, ptable_entry);
+        srl_merge_short_binary(mrg, tag);
     } else if (tag == SRL_HDR_BINARY || tag == SRL_HDR_STR_UTF8) {
-        srl_merge_string(mrg, tag, ptable_entry);
+        srl_merge_string(mrg, tag);
     } else if (tag == SRL_HDR_COPY) {
         mrg->ibuf.pos++; // skip tag in input buffer
         offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY");
@@ -888,11 +892,11 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 tag)
     strtag = *mrg->ibuf.pos & ~SRL_HDR_TRACK_FLAG;
     SRL_REPORT_CURRENT_TAG(mrg, strtag);
 
-    if (mrg->tracked_offsets && !srl_stack_empty(mrg->tracked_offsets)) {
+    if (mrg->referred_offsets && !srl_stack_empty(mrg->referred_offsets)) {
         UV itag_offset = BODY_POS_OFS(mrg->ibuf);
-        if (expect_false(itag_offset == srl_stack_peek_nocheck(mrg->tracked_offsets))) {
+        if (expect_false(itag_offset == srl_stack_peek_nocheck(mrg->referred_offsets))) {
             // trackme case
-            srl_stack_pop_nocheck(mrg->tracked_offsets);
+            srl_stack_pop_nocheck(mrg->referred_offsets);
 
             // store offset to future class name tag (stringish),
             // but at the moment we programm reaches this point the output buffer doesn't
