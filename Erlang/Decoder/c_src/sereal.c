@@ -3,7 +3,7 @@
 static int
 load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
 {
-    sereal_st* st = enif_alloc(sizeof(sereal_st));
+    SerealConstants* st = enif_alloc(sizeof(SerealConstants));
     if(st == NULL) {
         // no diagnostics?
         return 1;

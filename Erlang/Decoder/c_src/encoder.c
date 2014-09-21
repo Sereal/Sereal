@@ -10,6 +10,10 @@
 
 #include "utils.h"
 
+
+#define PARSE_ERROR(MSG) parse_error( sereal_constants, env, MSG, input )  
+                                     
+
 typedef struct {
     ErlNifBinary buffer;
     unsigned int index;
@@ -19,9 +23,11 @@ typedef struct {
 
 } EncoderData;
 
+ERL_NIF_TERM encoder_finish(ErlNifEnv *env, EncoderData *encoder_data);
+
 static int get_type(ErlNifEnv*, ERL_NIF_TERM);
 
-static void parse_options(ErlNifEnv* env, EncoderData* encoder_data, ERL_NIF_TERM options);
+static int  parse_options(ErlNifEnv* env, EncoderData* encoder_data, ERL_NIF_TERM options);
 static void add_header(ErlNifEnv* env, EncoderData* encoder_data);
 
 static void write_byte(EncoderData* encoder_data, unsigned char c);
@@ -46,33 +52,38 @@ enum TAGS {
     MAP
 };
 
-#define BUF_SIZE 1024
+#define BUF_SIZE 4096
 static char buffer[BUF_SIZE];
 
 ERL_NIF_TERM encoder_init(ErlNifEnv* env, int count, const ERL_NIF_TERM arguments[]) {
 
-    debug_print("In encoder init\n");
+    debug_print("Starting...\n");
 
-    sereal_st* st = enif_priv_data(env);
-    debug_print("Size is : %d\n", sizeof(EncoderData));
-    EncoderData *encoder_data = (EncoderData*)enif_alloc_resource( st->resource_encoder, sizeof(EncoderData) );
+    SerealConstants* sereal_constants = enif_priv_data(env);
+    EncoderData *encoder_data = (EncoderData*)enif_alloc_resource( sereal_constants->resource_encoder, 
+                                                                   sizeof(EncoderData) );
 
     if ( encoder_data == NULL ) {
-        return make_error(st, env, "Allocation failed for encoder data");
+        return make_error(sereal_constants, env, "Allocation for EncoderData failed");
     }
 
-    debug_print("Encoder data is allocated\n");
+    debug_print("EncoderData is allocated\n");
 
     if ( !enif_alloc_binary(BUF_SIZE, &encoder_data->buffer) ) {
-        debug_print("Binary allocation failed\n");
+        return make_error(sereal_constants, env, "Allocation of buffer failed");
     }
     encoder_data->index = 0;
 
+    if ( !parse_options(env, encoder_data, arguments[1]) ){
+        return parse_error( sereal_constants, 
+                            env, 
+                            "Parsing options failed",
+                            arguments[1] );
+    }
 
-    debug_print("Parsing options\n");
-    parse_options(env, encoder_data, arguments[1]);
+    if (  encoder_data->bytes_per_iteration <= 0 
+       || encoder_data->bytes_per_iteration > BUF_SIZE ) {
 
-    if ( encoder_data->bytes_per_iteration <= 0 ) {
        encoder_data->bytes_per_iteration = 1024;
     }
 
@@ -80,7 +91,7 @@ ERL_NIF_TERM encoder_init(ErlNifEnv* env, int count, const ERL_NIF_TERM argument
 
     ERL_NIF_TERM result = enif_make_tuple3(
         env,
-        st->atom_iter,
+        sereal_constants->atom_iter,
         arguments[0],
         encoder_resource
     );
@@ -91,47 +102,30 @@ ERL_NIF_TERM encoder_init(ErlNifEnv* env, int count, const ERL_NIF_TERM argument
     return result;
 }
 
-ERL_NIF_TERM finish_encoding(ErlNifEnv *env, EncoderData *encoder_data) {
-    debug_print("Encoding finished\n");
-
-    int compress = 0;
-    if (compress) {
-    }
-
-    debug_print("Adding header\n");
-    add_header(env, encoder_data);
-
-    ERL_NIF_TERM binary = enif_make_binary(env, &encoder_data->buffer);
-    ERL_NIF_TERM result = enif_make_sub_binary(env, binary, 0, encoder_data->index);
-
-    return result;
-}
-
 ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM arguments[]) {
 
-    debug_print("In encoder iterate\n");
+    debug_print("Starting...\n");
 
-    sereal_st* st = enif_priv_data(env);
+    SerealConstants* sereal_constants = enif_priv_data(env);
 
-    debug_print("Checking whether items is a list\n");
+    debug_print("validating input whether a list\n");
 
     ERL_NIF_TERM items = arguments[0];
     if ( !enif_is_list(env, items)) {
-        return make_error(st, env, "Wrong argument passed as input");
+        return make_error(sereal_constants, env, "Wrong argument type passed as input: should be list");
     }
 
-    debug_print("Extracting items length\n");
     int items_length = 0;
     if ( !enif_get_list_length(env, items, &items_length) ) {
-        return make_error(st, env, "Extracting items list length failed");
+        return make_error(sereal_constants, env, "Failed to get the length of input");
     }
 
     ERL_NIF_TERM encoder_resource = arguments[1];
     EncoderData* encoder_data = NULL;
 
-    debug_print("Getting resource\n");
-    if ( !enif_get_resource(env, encoder_resource, st->resource_encoder, &encoder_data) ) {
-        return make_error(st, env, "Failed to convert resource to object");
+    debug_print("Extracting EncoderData from stored resource\n");
+    if ( !enif_get_resource(env, encoder_resource, sereal_constants->resource_encoder, &encoder_data) ) {
+        return make_error(sereal_constants, env, "Failed to convert resource to EncoderData");
     }
     
     ERL_NIF_TERM status, value;
@@ -148,126 +142,131 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
 
     while ( items_length-- ) {
 
+        /* 1. Check whether to return to Erlang space */
         int percent = encoder_data->index * 100 / encoder_data->bytes_per_iteration;
         if ( enif_consume_timeslice(env, percent) ) {
 
+            debug_print("Yielding the process\n");
             return enif_make_tuple3(
                         env,
-                        st->atom_iter,
+                        sereal_constants->atom_iter,
                         items,
                         encoder_resource
                       );
         }
 
-        debug_print("Iterating over items: %d\n", items_length + 1);
+        debug_print("%d items to decode\n", items_length + 1);
+
         ERL_NIF_TERM input;
+
+        /* 2. Fetch next item to encode */
         enif_get_list_cell(env, items, &input, &items);
-                
-        switch(get_type(env, input)) {
+
+        /* 3. Encode */
+        switch (get_type(env, input)) {
+
             case SMALL_NEG:
-                debug_print("SMALL-NEG\n");
+                debug_print("matched type = SMALL-NEG\n");
                 if ( !enif_get_int(env, input, &intValue) ) {
-                    debug_print("Error getting int value\n");
+                    return PARSE_ERROR( "Failed to extract integer value" );
                 }
                 intValue += 32;
                 write_byte(encoder_data, (char)intValue);
                 break;
 
             case SMALL_POS:
-                debug_print("SMALL-POS\n");
+                debug_print("matched type = SMALL-POS\n");
                 if ( !enif_get_int(env, input, &intValue) ){
-                    debug_print("Error extracting integer\n");
+                    return PARSE_ERROR( "Failed to extract integer value" );
                 }
                 write_byte(encoder_data, (char) intValue);
                 break;
 
             case ZIGZAG:
-                debug_print("ZIGZAG\n");
-
+                debug_print("matched type = ZIGZAG\n");
                 if ( !enif_get_int(env, input, &intValue) ){
-                    debug_print("Error extracting integer\n");
+                    return PARSE_ERROR( "Failed to extract integer value" );
                 }
 
                 intValue = -2 * intValue  - 1;
                 encode_varint(intValue);
+                write_byte(encoder_data, SRL_HDR_ZIGZAG);
                 write_bytes(encoder_data, buffer);
 
                 break;
 
             case VARINT:
-                debug_print("VARINT\n");
+                debug_print("matched_type = VARINT\n");
                 if ( !enif_get_int(env, input, &intValue) ){
-                    debug_print("Error extracting integer\n");
+                    return PARSE_ERROR( "Failed to extract integer value" );
                 }
 
                 encode_varint(intValue);
+                write_byte(encoder_data, SRL_HDR_VARINT);
                 write_bytes(encoder_data, buffer);
                 break;
 
             case DOUBLE:
-                debug_print("DOUBLE\n");
+                debug_print("matched_type = DOUBLE\n");
 
                 if ( !enif_get_double(env, input, &dblValue) ) {
-                    debug_print("Error extracting double\n");  
+                    return PARSE_ERROR( "Failed to extract double value" );
                 }
 
                 charPtr = &dblValue; 
 
+                write_byte(encoder_data, SRL_HDR_DOUBLE);
                 for (index = 0; index < 8; index++){
                     write_byte(encoder_data, *charPtr);
                     charPtr++;
                 }
-                
                 break;
 
             case UNDEF:
-                debug_print("UNDEF\n");
-
+                debug_print("matched_type = UNDEF\n");
                 
                 if ( !enif_get_atom(env, input, buffer, strlen("undefined"), ERL_NIF_LATIN1) ) {
-                    debug_print("Can't read undefined atom\n");
+                    return PARSE_ERROR( "Failed to extract `undefined` atom" );
                 }
 
-                /* sanity check? */
                 if ( strcmp(buffer, "undefined") ){
-                    debug_print("Atom is not undefined however\n");
+                    return PARSE_ERROR( "Expected `undefined` atom" );
                 }
 
-                write_byte(encoder_data, 0x25);
+                write_byte(encoder_data, SRL_HDR_UNDEF);
                 break;
 
             case BOOLEAN:
 
-                debug_print("BOOLEAN");
+                debug_print("matched_type = BOOLEAN\n");
 
                 if ( !enif_get_atom_length(env, input, &intValue, ERL_NIF_LATIN1) ){
-                    debug_print("Reading length for atom failed\n");
+                    return PARSE_ERROR( "Reading length for atom failed, parsing boolean\n" );
                 }
 
                 if ( !enif_get_atom(env, input, buffer, intValue, ERL_NIF_LATIN1) ) {
-                    debug_print("Reading atom failed\n");
-
+                    return PARSE_ERROR( "Reading atom failed, parsing boolean\n" );
                 }
                 
                 if ( !strncmp(buffer, "true", strlen("true")) ) {
-                    write_byte(encoder_data, 0x3b);
+                    write_byte(encoder_data, SRL_HDR_TRUE);
 
                 } else {
-                    write_byte(encoder_data, 0x3a);
+                    write_byte(encoder_data, SRL_HDR_FALSE);
                 }
                 break;
 
             case BINARY:
-                debug_print("BINARY\n");
+                debug_print("matched_type = BINARY\n");
 
-                if ( !enif_inspect_binary(env, input, &binValue)) {
-                    debug_print("Can't inspect binary\n");
+                if ( !enif_inspect_binary(env, input, &binValue) ) {
+                    return PARSE_ERROR( "Inspection of binary failed\n" );
                 }
 
                 /* default BINARY tag */
-                charValue = 0x26;
+                charValue = SRL_HDR_BINARY;
                 if ( binValue.size <= 31 ) {
-                    charValue = binValue.size + 0x60 /* SHORT_BINARY0 */;
+                    charValue = binValue.size + SRL_HDR_SHORT_BINARY_LOW;
                 }
                 write_byte(encoder_data, charValue);
 
@@ -278,35 +277,41 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
                 break;
 
             case ATOM:
-                debug_print("ATOM\n");
+                /* Encode atom as a string */
+                debug_print("matched_type = ATOM\n");
 
                 if ( !enif_get_atom_length(env, input, &intValue, ERL_NIF_LATIN1) ) {
-                    debug_print("Can't get atom length\n");
+                    return PARSE_ERROR( "Failed to get atom length\n" );
                 }
 
                 if ( !enif_get_atom(env, input, buffer, intValue, ERL_NIF_LATIN1) ) {
-                    debug_print("Couldn't get atom\n");
+                    return PARSE_ERROR( "Failed to extract atom\n");
                 }
 
-                buffer[intValue] = 0;
-
+                charValue = SRL_HDR_BINARY;
+                if ( intValue <= 31 ) {
+                    charValue = intValue + SRL_HDR_SHORT_BINARY_LOW;
+                }
+                write_byte(encoder_data, charValue);
                 write_bytes(encoder_data, buffer);
 
                 break;
 
-            case LIST: {
-                debug_print("LIST\n");
+            case LIST /* ARRAY */ : {
+                debug_print("matched_type = LIST\n");
                 
-                enif_get_list_length(env, input, &intValue);
-                debug_print("Length is: %d\n", intValue);
+                if ( !enif_get_list_length(env, input, &intValue) ) {
+                    return PARSE_ERROR( "Extracting list length failed" );
+                }
 
+                debug_print("list length is: %d\n", intValue);
                 if ( intValue <= 15 ) {
                     /* ARRAY_REF0..15 */
-                    charValue = intValue + 0x40 /* ARRAY_REF0 */;
+                    charValue = intValue + SRL_HDR_ARRAYREF_LOW;
                     write_byte(encoder_data, charValue);
                 
                 }  else {
-                    write_byte(encoder_data, 0x2b);    
+                    write_byte(encoder_data, SRL_HDR_ARRAY);    
 
                     /* encode length */
                     encode_varint(intValue);
@@ -332,63 +337,56 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
                 break;
 
             case TUPLE: {
-                debug_print("TUPLE\n");
+                /* encode as a list */
+                debug_print("matched_type = TUPLE\n");
 
                 ERL_NIF_TERM* tuple;
-
                 if ( !enif_get_tuple(env, input, &intValue, &tuple) ){
-                    debug_print("Reading tuple failed\n");
+                    return PARSE_ERROR( "Extracting tuple failed\n" );
                 }
 
-                debug_print("Length is: %d\n", intValue);
+                debug_print("tuple length is %d\n", intValue);
 
                 if ( intValue <= 15 ) {
                     /* ARRAY_REF0..15 */
-                    charValue = intValue + 0x40 /* ARRAY_REF0 */;
+                    charValue = intValue + SRL_HDR_ARRAYREF_LOW;
                     write_byte(encoder_data, charValue);
                 
                 }  else {
-                    write_byte(encoder_data, 0x2b);    
+                    write_byte(encoder_data, SRL_HDR_ARRAY);    
 
                     /* encode length */
                     encode_varint(intValue);
                     write_bytes(encoder_data, buffer);
                 }
 
-                if ( !enif_get_list_length(env, items, &index) ) {
-                    debug_print("Error in getting list length");
-                }
-
+                debug_print("adding tuple elements to the items\n");
                 while ( intValue-- ) {
                     items = enif_make_list_cell(env, tuple[intValue], items);
-                }
-
-                if ( !enif_get_list_length(env, items, &intValue) ){
-                    debug_print("Error in getting list length");
                 }
             }
             break;
 
             case MAP: {
-                debug_print("MAP\n");
+                debug_print("matched_type = MAP\n");
 
                 ERL_NIF_TERM* tuple;
                 if( !enif_get_tuple(env, input, &intValue, &tuple) ){
-                    debug_print("In map can't get tuple value\n");
+                    return PARSE_ERROR( "Wrongly encoded map format\n" );
                 }
 
                 ERL_NIF_TERM key_value_list = tuple[0];
 
                 enif_get_list_length(env, key_value_list, &intValue);
-                debug_print("Length is: %d\n", intValue);
+                debug_print("map size is %d\n", intValue);
                 
                 if ( intValue <= 15 ) {
                     /* HASH_REF0..15 */
-                    charValue = intValue + 0x50 /* HASH_REF0 */;
+                    charValue = intValue + SRL_HDR_HASHREF_LOW;
                     write_byte(encoder_data, charValue);
                 
                 }  else {
-                    write_byte(encoder_data, 0x2a);    
+                    write_byte(encoder_data, SRL_HDR_HASH);    
 
                     /* encode length */
                     encode_varint(intValue);
@@ -398,16 +396,25 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
                 ERL_NIF_TERM head, tail;
                 tail = key_value_list;
 
+                debug_print("adding map key-value pairs to the items\n");
                 while ( intValue-- ) {
 
-                    enif_get_list_cell(env, tail, &head, &tail);
-                    debug_print("Processing key-value: %d\n", intValue);
-
-                    ERL_NIF_TERM* key_value;
-                    if ( !enif_get_tuple(env, head, &index, &key_value)) {
-                        continue;
+                    if ( !enif_get_list_cell(env, tail, &head, &tail) ) {
+                        return parse_error( sereal_constants,
+                                            env,
+                                            "Failed to extract map key-value pair",
+                                            tail );
                     }
 
+                    ERL_NIF_TERM* key_value;
+                    if ( !enif_get_tuple(env, head, &index, &key_value) ) {
+                        return parse_error( sereal_constants,
+                                            env,
+                                            "Wrongly formatted key-value pair",
+                                            head );
+                    }
+
+                    /* add `value`, then `key` to the items stack */
                     items = enif_make_list_cell(env, key_value[1], items);
                     items = enif_make_list_cell(env, key_value[0], items);
                 }
@@ -415,15 +422,35 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
             break;
 
             default:
-                status = make_atom(env, "error");
-                debug_print("unsupported type\n");
+               return PARSE_ERROR( "Unknown type to encode" ); 
         }
         
-        enif_get_list_length(env, items, &items_length);
+        if ( !enif_get_list_length(env, items, &items_length) ) {
+            return parse_error( sereal_constants, 
+                                env, 
+                                "Input is expected to be list",
+                                items );
+        }
     }
 
 done:
-    return finish_encoding(env, encoder_data);
+    return encoder_finish(env, encoder_data);
+}
+
+ERL_NIF_TERM encoder_finish(ErlNifEnv *env, EncoderData *encoder_data) {
+    debug_print("Starting\n");
+
+    int compress = 0;
+    if (compress) {
+    }
+
+    debug_print("Adding header\n");
+    add_header(env, encoder_data);
+
+    ERL_NIF_TERM binary = enif_make_binary(env, &encoder_data->buffer);
+    ERL_NIF_TERM result = enif_make_sub_binary(env, binary, 0, encoder_data->index);
+
+    return result;
 }
 
 
@@ -483,10 +510,9 @@ static int get_type(ErlNifEnv *env, ERL_NIF_TERM input){
             debug_print("");
         }
 
-        debug_print("TUPLE LENGTH IS: %d\n", length);
         if (length == 1) {
             ERL_NIF_TERM first = tuple[0];
-            debug_print("FIRST: %d=%d\n", length, enif_is_list(env, first));
+
             result = enif_is_list(env, first)  
                    ? MAP
                    : TUPLE;
@@ -500,7 +526,6 @@ static int get_type(ErlNifEnv *env, ERL_NIF_TERM input){
 }
 
 static void write_byte(EncoderData* encoder_data, unsigned char c) {
-    debug_print("Writing new byte\n");
     if (encoder_data->index == encoder_data->buffer.size) {
         debug_print("Reallocating binary\n");
         enif_realloc_binary(&encoder_data->buffer, encoder_data->buffer.size << 1);
@@ -510,18 +535,18 @@ static void write_byte(EncoderData* encoder_data, unsigned char c) {
 }
 
 static void write_bytes(EncoderData* encoder_data, char cs[]) {
-    debug_print("Writing new byte\n");
-
-    // TODO: consider reallocating in a batch for a big string instead of doing it in `write_byte`
+    // TODO: consider reallocating for a batch beforehand instead of doing it in `write_byte`
     int i, len = strlen(cs);
     for ( i = 0; i < len; i++){
         write_byte(encoder_data, cs[i]);
     }
 }
 
-static void parse_options(ErlNifEnv *env, EncoderData* encoder_data, ERL_NIF_TERM options_tuple){
+static int parse_options(ErlNifEnv *env, EncoderData* encoder_data, ERL_NIF_TERM options_tuple){
+    debug_print("Starting...\n");
+
+    int arity, result;
     ERL_NIF_TERM* options; 
-    int arity;
 
     if (enif_get_tuple(env, options_tuple, &arity, &options)){
         while(arity > 0){
@@ -531,45 +556,52 @@ static void parse_options(ErlNifEnv *env, EncoderData* encoder_data, ERL_NIF_TER
             debug_print("Option flag on: %s\n", buffer);
         }
 
+        result = 1;
+
     } else {
         debug_print("Reading options failed\n");
+        result = 0;
     }
+
+    return result;
 }
 
 static void add_header(ErlNifEnv* env, EncoderData* encoder_data) {
 
-    debug_print("ADDING HEADER\n");
+    debug_print("Adding header\n");
 
-    if ( encoder_data->buffer.size <= encoder_data->index + 6 ) {
+    int HEADER_SIZE = SRL_MAGIC_STRLEN 
+                    + 1 /* protocol version */  
+                    + 1 /* optional suffix size */; 
+
+    if ( encoder_data->buffer.size <= encoder_data->index + HEADER_SIZE ) {
         debug_print("Reallocating buffer\n");
-        enif_realloc_binary( &encoder_data->buffer, encoder_data->index + 6 );
+        enif_realloc_binary( &encoder_data->buffer, encoder_data->index + HEADER_SIZE );
     }    
 
-    debug_print("Copying data from index: %d\n", encoder_data->index);
+    debug_print("Moving data to add header");
 
     int i;
     for ( i = encoder_data->index - 1; i >= 0; i-- ) {
-        debug_print("==>%d\n", encoder_data->buffer.data[i]);
-        encoder_data->buffer.data[i + 6] = encoder_data->buffer.data[i];
+        encoder_data->buffer.data[i + HEADER_SIZE] = encoder_data->buffer.data[i];
     } 
 
-    debug_print("Adding magic\n");
-    encoder_data->buffer.data[0] = '=';
-    encoder_data->buffer.data[1] = '\xf3';
-    encoder_data->buffer.data[2] = 'r';
-    encoder_data->buffer.data[3] = 'l';
+    debug_print("Adding magic string\n");
+    for (i = 0; i < SRL_MAGIC_STRLEN; i++ ) {
+        encoder_data->buffer.data[i] = SRL_MAGIC_STRING[i];
+    }
     
-    debug_print("Adding protocol\n");
-    encoder_data->buffer.data[4] = 3;
+    debug_print("Adding protocol version\n");
+    encoder_data->buffer.data[4] = SRL_PROTOCOL_VERSION;
+
+    /* optional suffix size */
     encoder_data->buffer.data[5] = 0;
 
-    encoder_data->index += 6;
+    encoder_data->index += HEADER_SIZE;
 }
 
 void encoder_destroy(ErlNifEnv* env, void* obj) {
-
-    debug_print("Destroying encoder\n");
-    debug_print("-End of destroying-\n");
+    debug_print("Destroying EncoderData\n");
 }
 
 static void encode_varint(ErlNifUInt64 intValue) {

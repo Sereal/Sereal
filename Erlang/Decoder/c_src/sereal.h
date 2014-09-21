@@ -24,11 +24,12 @@ typedef struct {
     ErlNifResourceType* resource_encoder;
     ErlNifResourceType* resource_decoder;
 
-} sereal_st;
+} SerealConstants;
 
 ERL_NIF_TERM make_atom(ErlNifEnv* env, const char* name);
-ERL_NIF_TERM make_ok(sereal_st* st, ErlNifEnv* env, ERL_NIF_TERM data);
-ERL_NIF_TERM make_error(sereal_st* st, ErlNifEnv* env, const char* error);
+ERL_NIF_TERM make_ok(SerealConstants* st, ErlNifEnv* env, ERL_NIF_TERM data);
+ERL_NIF_TERM make_error(SerealConstants* st, ErlNifEnv* env, const char* error);
+ERL_NIF_TERM parse_error(SerealConstants* st, ErlNifEnv* env, const char* error, ERL_NIF_TERM term);
 
 int should_yield(size_t used, size_t limit);
 int get_bytes_per_iter(ErlNifEnv* env, ERL_NIF_TERM val, size_t* bpi);

@@ -48,7 +48,7 @@ enum {
 
 typedef struct {
     ErlNifEnv*   env;
-    sereal_st*   atoms;
+    SerealConstants*   atoms;
 
     ERL_NIF_TERM input;
     ErlNifBinary bin;
@@ -107,7 +107,7 @@ struct reference_struct *find_reference(int pos) {
 Decoder*
 decoder_new(ErlNifEnv* env)
 {
-    sereal_st* st = (sereal_st*) enif_priv_data(env);
+    SerealConstants* st = (SerealConstants*) enif_priv_data(env);
 
     Decoder* result = enif_alloc_resource(st->resource_decoder, sizeof(Decoder));
 
@@ -310,7 +310,7 @@ decoder_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         return enif_make_badarg(env);
     }
 
-    sereal_st* st = (sereal_st*) enif_priv_data(env);
+    SerealConstants* st = (SerealConstants*) enif_priv_data(env);
 
     Decoder* decoder = decoder_new(env);
 
@@ -354,7 +354,7 @@ decoder_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 ERL_NIF_TERM
 decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    sereal_st* st = (sereal_st*) enif_priv_data(env);
+    SerealConstants* st = (SerealConstants*) enif_priv_data(env);
     
     Decoder* decoder;
     ErlNifBinary input;

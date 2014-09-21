@@ -75,6 +75,9 @@ encoder_loop(Items, Encoder) ->
         {error, Reason} = Error->
             throw(Error);
 
+        {error, Reason, Term} = Error ->
+            throw(Error);
+
         {iter, NewItems, NewEncoder} ->
             encoder_loop(NewItems, NewEncoder);
 

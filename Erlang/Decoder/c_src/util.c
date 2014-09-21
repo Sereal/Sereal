@@ -21,21 +21,27 @@ make_atom(ErlNifEnv* env, const char* name)
 }
 
 ERL_NIF_TERM
-make_ok(sereal_st* st, ErlNifEnv* env, ERL_NIF_TERM value)
+make_ok(SerealConstants* st, ErlNifEnv* env, ERL_NIF_TERM value)
 {
     return enif_make_tuple2(env, st->atom_ok, value);
 }
 
 ERL_NIF_TERM
-make_error(sereal_st* st, ErlNifEnv* env, const char* error)
+make_error(SerealConstants* st, ErlNifEnv* env, const char* error)
 {
     return enif_make_tuple2(env, st->atom_error, make_atom(env, error));
+}
+
+ERL_NIF_TERM
+parse_error(SerealConstants* st, ErlNifEnv* env, const char* error, ERL_NIF_TERM term)
+{
+    return enif_make_tuple3(env, st->atom_error, make_atom(env, error), term);
 }
 
 int
 get_bytes_per_iter(ErlNifEnv* env, ERL_NIF_TERM val, size_t* bpi)
 {
-    sereal_st* st = (sereal_st*) enif_priv_data(env);
+    SerealConstants* st = (SerealConstants*) enif_priv_data(env);
 
     int arity;
     unsigned int bytes;
