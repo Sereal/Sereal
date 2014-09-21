@@ -72,11 +72,10 @@ encode(Data, Opts) ->
 
 encoder_loop(Items, Encoder) ->
     case nif_encoder_iterate(Items, Encoder) of 
-        {error, _} = Error->
+        {error, Reason} = Error->
             throw(Error);
 
         {iter, NewItems, NewEncoder} ->
-            io:format("HHHHHHHHHHHH=>~p=>~p~n", [NewItems, NewEncoder]),
             encoder_loop(NewItems, NewEncoder);
 
         EncoderBinary ->

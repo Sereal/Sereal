@@ -29,13 +29,6 @@ static void write_bytes(EncoderData* encoder_data, char cs[]);
 
 static void encode_varint(ErlNifUInt64);
 
-enum ST_TYPES {
-    ST_DONE,
-    ST_VALUE, 
-    ST_LIST, // == TUPLE
-    ST_MAP
-};
-
 enum TAGS {
     SMALL_POS,
     SMALL_NEG,
