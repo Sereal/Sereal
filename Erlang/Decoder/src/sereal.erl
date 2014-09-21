@@ -55,7 +55,7 @@ decode_loop(Data, Decoder, Objs, Curr) ->
     end.
 
 encode(Data) ->
-    encode(Data, {}).
+    encode(Data, []).
 
 encode(Data, Opts) ->
     case nif_encoder_init([Data], Opts) of
@@ -63,7 +63,6 @@ encode(Data, Opts) ->
             throw(Error);
         
         {iter, Items, Encoder} ->
-            io:format("Iteraete: ~p => ~p~n", [Items, Encoder]),
             encoder_loop(Items, Encoder);
 
         EncodedBinary ->

@@ -17,7 +17,11 @@
 typedef struct {
     ErlNifBinary buffer;
     unsigned int index;
+
     int options;
+
+    int zlib_level;
+    int snappy_level;
     
     int bytes_per_iteration;
 
@@ -27,7 +31,7 @@ ERL_NIF_TERM encoder_finish(ErlNifEnv *env, EncoderData *encoder_data);
 
 static int get_type(ErlNifEnv*, ERL_NIF_TERM);
 
-static int  parse_options(ErlNifEnv* env, EncoderData* encoder_data, ERL_NIF_TERM options);
+static int  parse_options(ErlNifEnv* env, SerealConstants *st, EncoderData* encoder_data, ERL_NIF_TERM options);
 static void add_header(ErlNifEnv* env, EncoderData* encoder_data);
 
 static void write_byte(EncoderData* encoder_data, unsigned char c);
@@ -59,10 +63,11 @@ ERL_NIF_TERM encoder_init(ErlNifEnv* env, int count, const ERL_NIF_TERM argument
 
     debug_print("Starting...\n");
 
+    ERL_NIF_TERM result;
+
     SerealConstants* sereal_constants = enif_priv_data(env);
     EncoderData *encoder_data = (EncoderData*)enif_alloc_resource( sereal_constants->resource_encoder, 
                                                                    sizeof(EncoderData) );
-
     if ( encoder_data == NULL ) {
         return make_error(sereal_constants, env, "Allocation for EncoderData failed");
     }
@@ -73,12 +78,10 @@ ERL_NIF_TERM encoder_init(ErlNifEnv* env, int count, const ERL_NIF_TERM argument
         return make_error(sereal_constants, env, "Allocation of buffer failed");
     }
     encoder_data->index = 0;
+    encoder_data->zlib_level = encoder_data->snappy_level = -1;
 
-    if ( !parse_options(env, encoder_data, arguments[1]) ){
-        return parse_error( sereal_constants, 
-                            env, 
-                            "Parsing options failed",
-                            arguments[1] );
+    if ( result = parse_options(env, sereal_constants, encoder_data, arguments[1]) ){
+        return result;
     }
 
     if (  encoder_data->bytes_per_iteration <= 0 
@@ -89,7 +92,7 @@ ERL_NIF_TERM encoder_init(ErlNifEnv* env, int count, const ERL_NIF_TERM argument
 
     ERL_NIF_TERM encoder_resource = enif_make_resource(env, encoder_data);
 
-    ERL_NIF_TERM result = enif_make_tuple3(
+    result = enif_make_tuple3(
         env,
         sereal_constants->atom_iter,
         arguments[0],
@@ -225,7 +228,7 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
             case UNDEF:
                 debug_print("matched_type = UNDEF\n");
                 
-                if ( !enif_get_atom(env, input, buffer, strlen("undefined"), ERL_NIF_LATIN1) ) {
+                if ( !enif_get_atom(env, input, buffer, strlen("undefined") + 1, ERL_NIF_LATIN1) ) {
                     return PARSE_ERROR( "Failed to extract `undefined` atom" );
                 }
 
@@ -241,11 +244,11 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
                 debug_print("matched_type = BOOLEAN\n");
 
                 if ( !enif_get_atom_length(env, input, &intValue, ERL_NIF_LATIN1) ){
-                    return PARSE_ERROR( "Reading length for atom failed, parsing boolean\n" );
+                    return PARSE_ERROR( "Reading length for atom failed, parsing boolean" );
                 }
 
-                if ( !enif_get_atom(env, input, buffer, intValue, ERL_NIF_LATIN1) ) {
-                    return PARSE_ERROR( "Reading atom failed, parsing boolean\n" );
+                if ( !enif_get_atom(env, input, buffer, intValue + 1, ERL_NIF_LATIN1) ) {
+                    return PARSE_ERROR( "Reading atom failed, parsing boolean" );
                 }
                 
                 if ( !strncmp(buffer, "true", strlen("true")) ) {
@@ -260,7 +263,7 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
                 debug_print("matched_type = BINARY\n");
 
                 if ( !enif_inspect_binary(env, input, &binValue) ) {
-                    return PARSE_ERROR( "Inspection of binary failed\n" );
+                    return PARSE_ERROR( "Inspection of binary failed" );
                 }
 
                 /* default BINARY tag */
@@ -281,11 +284,11 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
                 debug_print("matched_type = ATOM\n");
 
                 if ( !enif_get_atom_length(env, input, &intValue, ERL_NIF_LATIN1) ) {
-                    return PARSE_ERROR( "Failed to get atom length\n" );
+                    return PARSE_ERROR( "Failed to get atom length" );
                 }
 
-                if ( !enif_get_atom(env, input, buffer, intValue, ERL_NIF_LATIN1) ) {
-                    return PARSE_ERROR( "Failed to extract atom\n");
+                if ( !enif_get_atom(env, input, buffer, intValue + 1, ERL_NIF_LATIN1) ) {
+                    return PARSE_ERROR( "Failed to extract atom");
                 }
 
                 charValue = SRL_HDR_BINARY;
@@ -342,7 +345,7 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
 
                 ERL_NIF_TERM* tuple;
                 if ( !enif_get_tuple(env, input, &intValue, &tuple) ){
-                    return PARSE_ERROR( "Extracting tuple failed\n" );
+                    return PARSE_ERROR( "Extracting tuple failed" );
                 }
 
                 debug_print("tuple length is %d\n", intValue);
@@ -372,7 +375,7 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
 
                 ERL_NIF_TERM* tuple;
                 if( !enif_get_tuple(env, input, &intValue, &tuple) ){
-                    return PARSE_ERROR( "Wrongly encoded map format\n" );
+                    return PARSE_ERROR( "Wrongly encoded map format" );
                 }
 
                 ERL_NIF_TERM key_value_list = tuple[0];
@@ -441,7 +444,11 @@ ERL_NIF_TERM encoder_finish(ErlNifEnv *env, EncoderData *encoder_data) {
     debug_print("Starting\n");
 
     int compress = 0;
-    if (compress) {
+    if (encoder_data->zlib_level != -1) {
+        debug_print("Compressing as zlib, level: %d\n");
+
+    } else if ( encoder_data->snappy_level != -1 ) {
+        debug_print("Compressing as snappy, level: %d\n");
     }
 
     debug_print("Adding header\n");
@@ -542,28 +549,95 @@ static void write_bytes(EncoderData* encoder_data, char cs[]) {
     }
 }
 
-static int parse_options(ErlNifEnv *env, EncoderData* encoder_data, ERL_NIF_TERM options_tuple){
+static int parse_options(ErlNifEnv *env, SerealConstants *sereal_constants, EncoderData* encoder_data, ERL_NIF_TERM options){
+
     debug_print("Starting...\n");
 
-    int arity, result;
-    ERL_NIF_TERM* options; 
+    int length;
 
-    if (enif_get_tuple(env, options_tuple, &arity, &options)){
-        while(arity > 0){
-            ERL_NIF_TERM flag = options[--arity];
-            // do something
-            enif_get_atom(env, flag, buffer, BUF_SIZE, ERL_NIF_LATIN1);
-            debug_print("Option flag on: %s\n", buffer);
-        }
-
-        result = 1;
-
-    } else {
-        debug_print("Reading options failed\n");
-        result = 0;
+    if ( !enif_get_list_length(env, options, &length) ) {
+        return parse_error( sereal_constants,
+                            env, 
+                            "Failed to get options list length",
+                            options );
     }
 
-    return result;
+    debug_print("Parsing options, %d of options\n", length);
+
+    int i;
+    ERL_NIF_TERM head, tail = options;
+    for ( i = 0; i < length; i++ ) {
+
+        debug_print("Extracting head\n");
+        if ( !enif_get_list_cell(env, tail, &head, &tail) ) {
+            return parse_error ( sereal_constants, 
+                                 env, 
+                                 "Failed to extract next option",
+                                 tail );
+
+        }
+
+        int arity;
+        ERL_NIF_TERM *option;
+
+        debug_print("Reading next option tuple\n");
+        if ( !enif_get_tuple(env, head, &arity, &option) ) {
+            return parse_error( sereal_constants, 
+                                env,
+                                "Options should be in tuple format",
+                                head );
+        }
+
+        debug_print("Extracting name of the option, option arity is %d\n", arity);
+
+        int atom_length;
+        if ( !enif_get_atom_length(env, option[0], &atom_length, ERL_NIF_LATIN1) ){
+            return parse_error( sereal_constants, 
+                                env, 
+                                "Option keys should be atoms",
+                                option[0] );
+        }
+
+        debug_print("Key length is %d\n", atom_length);
+        if ( !enif_get_atom(env, option[0], buffer, atom_length + 1, ERL_NIF_LATIN1) ) {
+           return parse_error( sereal_constants, 
+                               env, 
+                               "Option keys should be atoms",
+                               option[0] );
+        }
+
+        debug_print("Checking if such option(%s) is supported\n", buffer);
+        if (  !strncmp("zlib", buffer, atom_length) 
+           || !strncmp("snappy", buffer, atom_length) ) {
+
+            int level;
+            if (  arity != 2 
+               || !enif_get_int(env, option[1], &level) ) {
+
+                return make_error ( sereal_constants, 
+                                     env, 
+                                     "Compression level should be an integer" );
+            }
+
+            debug_print("Setting compression level to %d\n", level);
+            if( !strncmp("zlib", buffer, atom_length) ) {
+                encoder_data->zlib_level = level;
+
+            } else {
+                encoder_data->snappy_level = level;
+            }
+            
+        } else {
+            return parse_error( sereal_constants,
+                                env, 
+                                "Unsupported option",
+                                options );
+        }
+
+
+    }
+
+    return NULL;
 }
 
 static void add_header(ErlNifEnv* env, EncoderData* encoder_data) {
