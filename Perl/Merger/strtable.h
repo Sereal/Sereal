@@ -286,7 +286,12 @@ STRTABLE_insert(STRTABLE_t *tbl, const char *str, STRLEN len, int *ok)
     tblent->len = len;
     tblent->hash = hash;
     tblent->next = tbl->tbl_ary[entry];
-    /* tblent->tag_offset and tblent->str_offset have to be set by caller */
+
+    /* tblent->tag_offset and tblent->str_offset have to be set by caller,
+     * but assign tag_offset and str_offset to invalid value
+     * in order to suppress valgrind warnings about uninitalized memory */
+    tblent->str_offset = (UV) -1;
+    tblent->tag_offset = (UV) -1;
 
     tbl->tbl_ary[entry] = tblent;
     tbl->tbl_items++;
