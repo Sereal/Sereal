@@ -15,40 +15,41 @@
 typedef srl_merger_t * Sereal__Merger;
 
 MODULE = Sereal::Merger		PACKAGE = Sereal::Merger
-PROTOTYPES: ENABLE
+PROTOTYPES: DISABLE
 
-Sereal::Merger
+srl_merger_t *
 new(CLASS, opt = NULL)
+    char *CLASS;
     HV *opt;
   CODE:
-    RETVAL = srl_build_merger_struct(aTHX opt);
+    RETVAL = srl_build_merger_struct(aTHX_ opt);
   OUTPUT: RETVAL
 
 void
 DESTROY(mrg)
-    Sereal::Merger mrg;
+    srl_merger_t *mrg;
   CODE:
-    srl_destroy_merger(aTHX mrg);
+    srl_destroy_merger(aTHX_ mrg);
 
 void
 append(mrg, src)
-    Sereal::Merger mrg;
+    srl_merger_t *mrg;
     SV *src
   PPCODE:
-    srl_merger_append(aTHX mrg, src);
+    srl_merger_append(aTHX_ mrg, src);
 
 void
 append_all(mrg, src)
-    Sereal::Merger mrg;
+    srl_merger_t *mrg;
     AV *src
   PPCODE:
-    srl_merger_append_all(aTHX mrg, src);
+    srl_merger_append_all(aTHX_ mrg, src);
 
 SV*
 finish(mrg)
-    Sereal::Merger mrg
+    srl_merger_t *mrg;
   CODE:
-    RETVAL = srl_merger_finish(aTHX mrg);
+    RETVAL = srl_merger_finish(aTHX_ mrg);
   OUTPUT: RETVAL
 
 MODULE = Sereal::Merger        PACKAGE = Sereal::Merger::Constants
@@ -85,7 +86,7 @@ test()
         "SHORT_BINARY_14",
     };
   CODE:
-    srl_buf_init_buffer(&buf, 1024);
+    srl_buf_init_buffer(aTHX_ &buf, 1024);
     tbl = STRTABLE_new(&buf);
 
     for (i = 0; i < n; ++i) {
@@ -111,4 +112,4 @@ test()
     }
 
     STRTABLE_free(tbl);
-    srl_buf_free_buffer(&buf);
+    srl_buf_free_buffer(aTHX_ &buf);

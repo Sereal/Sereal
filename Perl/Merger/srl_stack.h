@@ -35,7 +35,7 @@ typedef struct {
 
 /* Allocate new arrfer (but not the stack struct */
 SRL_STATIC_INLINE int
-srl_stack_init(srl_stack_t * stack, size_t size)
+srl_stack_init(pTHX_ srl_stack_t * stack, size_t size)
 {
     assert(size > 0);
     assert(stack != NULL);
@@ -138,7 +138,7 @@ srl_stack_peek(pTHX_ srl_stack_t *stack)
     if (expect_false(srl_stack_empty(stack)))
         croak("srl_stack_peek on empty stack");
 
-    return srl_stack_peek_nocheck(stack);
+    return srl_stack_peek_nocheck(aTHX_ stack);
 }
 
 //SRL_STATIC_INLINE int
