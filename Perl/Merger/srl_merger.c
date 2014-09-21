@@ -668,18 +668,20 @@ read_again:
                         srl_buf_copy_content_nocheck(mrg, SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) + 1);
                         break;
 
+                    case SRL_HDR_OBJECTV:
+                    case SRL_HDR_OBJECTV_FREEZE:
+                        mrg->ibuf.pos++; // skip tag in input buffer
+                        offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading OBJECTV/OBJECTV_FREEZE");
+                        offset = srl_lookup_tracked_offset(mrg, offset); // convert ibuf offset to obuf offset
+                        srl_buf_cat_varint((srl_encoder_t*) mrg, tag, offset);
+                        goto read_again;
+
                     case SRL_HDR_PAD:
                         while (BUF_NOT_DONE(mrg->ibuf) && *mrg->ibuf.pos == SRL_HDR_PAD) {
                             srl_buf_cat_tag_nocheck(mrg, SRL_HDR_PAD);
                         }
 
                         goto read_again;
-
-                    //case SRL_HDR_OBJECTV:
-                    //case SRL_HDR_OBJECTV_FREEZE:
-                    //    offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
-                    //    av_push(mrg->tracked_offsets_with_duplicates, newSVuv(offset));
-                    //    break;
 
                      default:
                         croak("unexpected tag %d (0x%X) at %d", tag, tag, (int) BUF_POS_OFS(mrg->ibuf));
@@ -891,7 +893,14 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 tag)
         if (expect_false(itag_offset == srl_stack_peek_nocheck(mrg->tracked_offsets))) {
             // trackme case
             srl_stack_pop_nocheck(mrg->tracked_offsets);
-            ptable_entry = srl_store_tracked_offset(mrg, itag_offset, BODY_POS_OFS(mrg->obuf));
+
+            // store offset to future class name tag (stringish),
+            // but at the moment we programm reaches this point the output buffer doesn't
+            // contain OBJECT tag yet. In other words, BODY_POS_OFS(mrg->obuf) return location
+            // of OBJECT tag where as we need to store location of classname tag. To workaround
+            // simply add one which is correct offset if OBJECT tag will be issues.
+            // In case deduplication (OBJECTV tag) ptable_entry->value will be updated accordingly.
+            ptable_entry = srl_store_tracked_offset(mrg, itag_offset, BODY_POS_OFS(mrg->obuf) + 1);
         }
     }
 
@@ -919,8 +928,9 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 tag)
             }
         } else if (strtable_entry) {
             // issue OBJECT tag and update strtable entry
-            strtable_entry->tag_offset = BODY_POS_OFS(mrg->obuf);
             srl_buf_cat_char_nocheck(MRG2ENC(mrg), tag);
+
+            strtable_entry->tag_offset = BODY_POS_OFS(mrg->obuf);
 
             if (strtag >= SRL_HDR_SHORT_BINARY_LOW) {
                 srl_buf_cat_char_nocheck(MRG2ENC(mrg), strtag);
