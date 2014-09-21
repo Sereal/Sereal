@@ -657,6 +657,17 @@ read_again:
                         srl_merge_object(mrg, tag);
                         break;
 
+                    case SRL_HDR_REGEXP:
+                        srl_buf_cat_tag_nocheck(mrg, tag);
+                        srl_merge_stringish(mrg);
+
+                        tag = *mrg->ibuf.pos;
+                        if (expect_false(tag < SRL_HDR_SHORT_BINARY_LOW))
+                            croak("Expecting SRL_HDR_SHORT_BINARY for modifiers of regexp, but got %d (0x%x)", tag, tag); // TODO
+
+                        srl_buf_copy_content_nocheck(mrg, SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) + 1);
+                        break;
+
                     case SRL_HDR_PAD:
                         while (BUF_NOT_DONE(mrg->ibuf) && *mrg->ibuf.pos == SRL_HDR_PAD) {
                             srl_buf_cat_tag_nocheck(mrg, SRL_HDR_PAD);
@@ -668,10 +679,6 @@ read_again:
                     //case SRL_HDR_OBJECTV_FREEZE:
                     //    offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY/ALIAS/REFP/OBJECTV/OBJECTV_FREEZE");
                     //    av_push(mrg->tracked_offsets_with_duplicates, newSVuv(offset));
-                    //    break;
-                    //
-                    //case SRL_HDR_REGEXP:
-                    //    // noop
                     //    break;
 
                      default:
