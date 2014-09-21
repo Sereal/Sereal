@@ -138,15 +138,15 @@ SRL_STATIC_INLINE srl_merger_t * srl_empty_merger_struct(pTHX);                 
 SRL_STATIC_INLINE void srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src);        /* reset input buffer (ibuf) */
 SRL_STATIC_INLINE void srl_build_track_table(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE void srl_merge_single_value(pTHX_ srl_merger_t *mrg);
-SRL_STATIC_INLINE void srl_merge_stringish(pTHX_ srl_merger_t *mrg, int is_key);
+SRL_STATIC_INLINE void srl_merge_stringish(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE void srl_merge_hash(pTHX_ srl_merger_t *mrg, const U8 tag, UV length);
 SRL_STATIC_INLINE void srl_merge_array(pTHX_ srl_merger_t *mrg, const U8 tag, UV length);
-SRL_STATIC_INLINE void srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag, int is_key, ptable_entry_ptr ptable_entry);
-SRL_STATIC_INLINE void srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag, int is_key, ptable_entry_ptr ptable_entry);
+SRL_STATIC_INLINE void srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag, ptable_entry_ptr ptable_entry);
+SRL_STATIC_INLINE void srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag, ptable_entry_ptr ptable_entry);
 
 SRL_STATIC_INLINE ptable_entry_ptr srl_store_tracked_offset(pTHX_ srl_merger_t *mrg, UV from, UV to);
 SRL_STATIC_INLINE UV srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV offset);
-SRL_STATIC_INLINE strtable_entry_ptr srl_lookup_string(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int is_key, int *ok);
+SRL_STATIC_INLINE strtable_entry_ptr srl_lookup_string(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int *ok);
 
 SRL_STATIC_INLINE ptable_ptr
 srl_init_tracked_offsets_tbl(pTHX_ srl_merger_t *mrg)
@@ -220,10 +220,8 @@ srl_build_merger_struct(pTHX_ HV *opt)
         }
 
         svp = hv_fetchs(opt, "dedupe_strings", 0);
-        if (svp && SvTRUE(*svp)) {
-            SRL_MRG_SET_OPTION(mrg, SRL_F_DEDUPE_KEYS);
+        if (svp && SvTRUE(*svp))
             SRL_MRG_SET_OPTION(mrg, SRL_F_DEDUPE_STRINGS);
-        }
     }
 
     /* 4 byte magic string + proto version
@@ -575,7 +573,7 @@ read_again:
     } else if (tag >= SRL_HDR_HASHREF_LOW && tag <= SRL_HDR_HASHREF_HIGH) {
         srl_merge_hash(mrg, tag, SRL_HDR_HASHREF_LEN_FROM_TAG(tag));
     } else if (tag >= SRL_HDR_SHORT_BINARY_LOW) {
-        srl_merge_short_binary(mrg, tag, 0, ptable_entry);
+        srl_merge_short_binary(mrg, tag, ptable_entry);
     } else {
         switch (tag) {
             case SRL_HDR_VARINT:
@@ -597,7 +595,7 @@ read_again:
 
             case SRL_HDR_BINARY:
             case SRL_HDR_STR_UTF8:
-                srl_merge_string(mrg, tag, 0, ptable_entry);
+                srl_merge_string(mrg, tag, ptable_entry);
                 break;
 
             case SRL_HDR_HASH:
@@ -699,7 +697,7 @@ srl_merge_hash(pTHX_ srl_merger_t *mrg, const U8 tag, UV length)
 
     unsigned int i;
     for (i = 0; i < length; ++i) {
-        srl_merge_stringish(mrg, 1);
+        srl_merge_stringish(mrg);
         srl_merge_single_value(mrg);
     }
 
@@ -708,7 +706,7 @@ srl_merge_hash(pTHX_ srl_merger_t *mrg, const U8 tag, UV length)
 }
 
 SRL_STATIC_INLINE void
-srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag, int is_key, ptable_entry_ptr ptable_entry)
+srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag, ptable_entry_ptr ptable_entry)
 {
     int ok;
     UV length;
@@ -719,7 +717,7 @@ srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag, int is_key, ptable_entry
 
     mrg->ibuf.pos++; // skip tag in input buffer
     length = srl_read_varint_uv_length(&mrg->ibuf, " while reading BINARY or STR_UTF8");
-    strtable_entry = srl_lookup_string(mrg, mrg->ibuf.pos, length, is_key, &ok);
+    strtable_entry = srl_lookup_string(mrg, mrg->ibuf.pos, length, &ok);
 
     if (ok) {
         // issue COPY tag
@@ -753,7 +751,7 @@ srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag, int is_key, ptable_entry
 }
 
 SRL_STATIC_INLINE void
-srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag, int is_key, ptable_entry_ptr ptable_entry)
+srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag, ptable_entry_ptr ptable_entry)
 {
     int ok;
     UV length = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
@@ -763,7 +761,7 @@ srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag, int is_key, ptable
 
     // +1 because need to respect tag
     // no need to do ASSERT_BUF_SPACE because srl_build_track_table has asserted ibuf
-    strtable_entry_ptr strtable_entry = srl_lookup_string(mrg, mrg->ibuf.pos + 1, length, is_key, &ok);
+    strtable_entry_ptr strtable_entry = srl_lookup_string(mrg, mrg->ibuf.pos + 1, length, &ok);
 
     if (ok) {
         // issue COPY tag
@@ -794,7 +792,7 @@ srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag, int is_key, ptable
 }
 
 SRL_STATIC_INLINE void
-srl_merge_stringish(pTHX_ srl_merger_t *mrg, int is_key)
+srl_merge_stringish(pTHX_ srl_merger_t *mrg)
 {
     U8 tag;
     UV offset, itag_offset = 0;
@@ -820,9 +818,9 @@ srl_merge_stringish(pTHX_ srl_merger_t *mrg, int is_key)
     }
 
     if (tag >= SRL_HDR_SHORT_BINARY_LOW) {
-        srl_merge_short_binary(mrg, tag, is_key, ptable_entry);
+        srl_merge_short_binary(mrg, tag, ptable_entry);
     } else if (tag == SRL_HDR_BINARY || tag == SRL_HDR_STR_UTF8) {
-        srl_merge_string(mrg, tag, is_key, ptable_entry);
+        srl_merge_string(mrg, tag, ptable_entry);
     } else if (tag == SRL_HDR_COPY) {
         mrg->ibuf.pos++; // skip tag in input buffer
         offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY");
@@ -872,29 +870,21 @@ srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV offset)
 }
 
 SRL_STATIC_INLINE strtable_entry_ptr
-srl_lookup_string(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int is_key, int *ok)
+srl_lookup_string(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int *ok)
 {
     *ok = 0;
-    if (SRL_MRG_HAVE_OPTION(mrg, SRL_F_DEDUPE_STRINGS) && !is_key) {
-        // no op
-    } else if (SRL_MRG_HAVE_OPTION(mrg, SRL_F_DEDUPE_KEYS) && is_key) {
-        // no op
-    } else {
-        return NULL;
-    }
-
-    if (len <= 3)
+    if (len <= 3 || !SRL_MRG_HAVE_OPTION(mrg, SRL_F_DEDUPE_STRINGS))
         return NULL;
 
     strtable_entry_ptr ent = STRTABLE_insert(SRL_GET_STRING_DEDUPER_TBL(mrg), src, len, ok);
     assert(ent != NULL); // TODO assert ent
 
     if (*ok) {
-        SRL_MERGER_TRACE("srl_lookup_string: got duplicate for %s '%.*s' target %lld",
-                         is_key ? "key" : "value", (int) len, src, ent->tag_offset);
+        SRL_MERGER_TRACE("srl_lookup_string: got duplicate '%.*s' target %lld",
+                         (int) len, src, ent->tag_offset);
     } else {
-        SRL_MERGER_TRACE("srl_lookup_string: not found duplicate for %s '%.*s'",
-                         is_key ? "key" : "value", (int) len, src);
+        SRL_MERGER_TRACE("srl_lookup_string: not found duplicate '%.*s'",
+                         (int) len, src);
     }
 
     return ent;

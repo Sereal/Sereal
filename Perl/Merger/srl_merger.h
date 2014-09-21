@@ -41,9 +41,8 @@ SV * srl_merger_finish(pTHX_ srl_merger_t *mrg);
 #define SRL_F_TOPLEVEL_KEY_ARRAY                0x00002UL
 #define SRL_F_TOPLEVEL_KEY_HASH                 0x00004UL
 
-/* If set, use a hash to emit COPY() tags for all duplicated strings and/or keys
- * (slow, but great compression) */
-#define SRL_F_DEDUPE_KEYS                       0x00400UL
+/* If set, use a hash to emit COPY() tags for all duplicated strings (including keys)
+ * (slower, but great compression) */
 #define SRL_F_DEDUPE_STRINGS                    0x00800UL
 
 #endif
