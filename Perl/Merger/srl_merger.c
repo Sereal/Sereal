@@ -49,6 +49,10 @@ extern "C" {
                                          ? srl_init_string_deduper_tbl(aTHX_ mrg)          \
                                          : (mrg)->string_deduper_tbl)
 
+#define SRL_GET_CLASSNAME_DEDUPER_TBL(mrg) (expect_false((mrg)->classname_deduper_tbl == NULL)  \
+                                           ? srl_init_classname_deduper_tbl(aTHX_ mrg)          \
+                                           : (mrg)->classname_deduper_tbl)
+
 #define SRL_GET_TRACKED_OFFSETS_TBL(mrg) (expect_false((mrg)->tracked_offsets_tbl == NULL) \
                                          ? srl_init_tracked_offsets_tbl(aTHX_ mrg)         \
                                          : (mrg)->tracked_offsets_tbl)
@@ -132,6 +136,7 @@ SRL_STATIC_INLINE void srl_copy_varint(pTHX_ srl_merger_t *mrg);
 
 SRL_STATIC_INLINE ptable_ptr   srl_init_tracked_offsets_tbl(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE strtable_ptr srl_init_string_deduper_tbl(pTHX_ srl_merger_t *mrg);
+SRL_STATIC_INLINE strtable_ptr srl_init_classname_deduper_tbl(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE srl_stack_t * srl_init_tracked_offsets(pTHX_ srl_merger_t *mrg);
 
 SRL_STATIC_INLINE srl_merger_t * srl_empty_merger_struct(pTHX);                         /* allocate an empty merger struct - flags still to be set up */
@@ -143,10 +148,12 @@ SRL_STATIC_INLINE void srl_merge_hash(pTHX_ srl_merger_t *mrg, const U8 tag, UV 
 SRL_STATIC_INLINE void srl_merge_array(pTHX_ srl_merger_t *mrg, const U8 tag, UV length);
 SRL_STATIC_INLINE void srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag, ptable_entry_ptr ptable_entry);
 SRL_STATIC_INLINE void srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag, ptable_entry_ptr ptable_entry);
+SRL_STATIC_INLINE void srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 tag);
 
 SRL_STATIC_INLINE ptable_entry_ptr srl_store_tracked_offset(pTHX_ srl_merger_t *mrg, UV from, UV to);
 SRL_STATIC_INLINE UV srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV offset);
 SRL_STATIC_INLINE strtable_entry_ptr srl_lookup_string(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int *ok);
+SRL_STATIC_INLINE strtable_entry_ptr srl_lookup_classname(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int *ok);
 
 SRL_STATIC_INLINE ptable_ptr
 srl_init_tracked_offsets_tbl(pTHX_ srl_merger_t *mrg)
@@ -160,6 +167,13 @@ srl_init_string_deduper_tbl(pTHX_ srl_merger_t *mrg)
 {
     mrg->string_deduper_tbl = STRTABLE_new(&mrg->obuf);
     return mrg->string_deduper_tbl;
+}
+
+SRL_STATIC_INLINE strtable_ptr
+srl_init_classname_deduper_tbl(pTHX_ srl_merger_t *mrg)
+{
+    mrg->classname_deduper_tbl = STRTABLE_new(&mrg->obuf);
+    return mrg->classname_deduper_tbl;
 }
 
 SRL_STATIC_INLINE srl_stack_t *
@@ -279,6 +293,11 @@ srl_destroy_merger(pTHX_ srl_merger_t *mrg)
         mrg->string_deduper_tbl = NULL;
     }
 
+    if (mrg->classname_deduper_tbl) {
+        STRTABLE_free(mrg->classname_deduper_tbl);
+        mrg->classname_deduper_tbl = NULL;
+    }
+
     Safefree(mrg);
 }
 
@@ -373,6 +392,7 @@ srl_empty_merger_struct(pTHX)
     mrg->cnt_of_merged_elements = 0;
     mrg->obuf_padding_bytes_offset = 0;
     mrg->protocol_version = SRL_PROTOCOL_VERSION;
+    mrg->classname_deduper_tbl = NULL;
     mrg->string_deduper_tbl = NULL;
     mrg->tracked_offsets_tbl = NULL;
     mrg->tracked_offsets = NULL;
@@ -632,6 +652,11 @@ read_again:
                         srl_buf_cat_tag_nocheck(mrg, tag);
                         goto read_again;
 
+                    case SRL_HDR_OBJECT:
+                    case SRL_HDR_OBJECT_FREEZE:
+                        srl_merge_object(mrg, tag);
+                        break;
+
                     case SRL_HDR_PAD:
                         while (BUF_NOT_DONE(mrg->ibuf) && *mrg->ibuf.pos == SRL_HDR_PAD) {
                             srl_buf_cat_tag_nocheck(mrg, SRL_HDR_PAD);
@@ -646,8 +671,6 @@ read_again:
                     //    break;
                     //
                     //case SRL_HDR_REGEXP:
-                    //case SRL_HDR_OBJECT:
-                    //case SRL_HDR_OBJECT_FREEZE:
                     //    // noop
                     //    break;
 
@@ -841,6 +864,101 @@ srl_merge_stringish(pTHX_ srl_merger_t *mrg)
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
 }
 
+SRL_STATIC_INLINE void
+srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 tag)
+{
+    int ok;
+    U8 strtag;
+    ptable_entry_ptr ptable_entry = NULL;
+
+    DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
+    DEBUG_ASSERT_BUF_SANE(mrg->obuf);
+
+    mrg->ibuf.pos++; // skip object tag
+
+    strtag = *mrg->ibuf.pos & ~SRL_HDR_TRACK_FLAG;
+    SRL_REPORT_CURRENT_TAG(mrg, strtag);
+
+    if (mrg->tracked_offsets && !srl_stack_empty(mrg->tracked_offsets)) {
+        UV itag_offset = BODY_POS_OFS(mrg->ibuf);
+        if (expect_false(itag_offset == srl_stack_peek_nocheck(mrg->tracked_offsets))) {
+            // trackme case
+            srl_stack_pop_nocheck(mrg->tracked_offsets);
+            ptable_entry = srl_store_tracked_offset(mrg, itag_offset, BODY_POS_OFS(mrg->obuf));
+        }
+    }
+
+    mrg->ibuf.pos++; // skip string tag in input buffer
+
+    if (strtag == SRL_HDR_BINARY || strtag == SRL_HDR_STR_UTF8 || strtag >= SRL_HDR_SHORT_BINARY_LOW) {
+        UV length = strtag >= SRL_HDR_SHORT_BINARY_LOW
+                  ? SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(strtag)
+                  : srl_read_varint_uv_length(&mrg->ibuf, " while reading BINARY or STR_UTF8");
+
+        strtable_entry_ptr strtable_entry = srl_lookup_classname(mrg, mrg->ibuf.pos, length, &ok);
+
+        if (ok) {
+            // issue OBJECTV || OBJECTV_FREEZE tag
+            U8 outtag = (tag == SRL_HDR_OBJECT ? SRL_HDR_OBJECTV : SRL_HDR_OBJECTV_FREEZE);
+            srl_buf_cat_varint(MRG2ENC(mrg), outtag, strtable_entry->tag_offset);
+            mrg->ibuf.pos += length;
+
+            if (expect_false(ptable_entry)) {
+                // update value in ptable entry
+                // This is needed because if any of following tags will reffer to
+                // this one as COPY we need to point them to original string.
+                // By Sereal spec a COPY tag cannot reffer to another COPY tag.
+                ptable_entry->value = INT2PTR(void *, strtable_entry->tag_offset);
+            }
+        } else if (strtable_entry) {
+            // issue OBJECT tag and update strtable entry
+            strtable_entry->tag_offset = BODY_POS_OFS(mrg->obuf);
+            srl_buf_cat_char_nocheck(MRG2ENC(mrg), tag);
+
+            if (strtag >= SRL_HDR_SHORT_BINARY_LOW) {
+                srl_buf_cat_char_nocheck(MRG2ENC(mrg), strtag);
+            } else {
+                srl_buf_cat_varint(MRG2ENC(mrg), strtag, length);
+            }
+
+            strtable_entry->str_offset = BODY_POS_OFS(mrg->obuf);
+            srl_buf_copy_content_nocheck(mrg, length);
+
+            STRTABLE_ASSERT_ENTRY(mrg->classname_deduper_tbl, strtable_entry);
+            STRTABLE_ASSERT_ENTRY_STR(mrg->classname_deduper_tbl, strtable_entry, mrg->ibuf.pos - length);
+        } else {
+            // issue OBJECT tag
+            srl_buf_cat_char_nocheck(MRG2ENC(mrg), tag);
+
+            if (strtag >= SRL_HDR_SHORT_BINARY_LOW) {
+                srl_buf_cat_char_nocheck(MRG2ENC(mrg), strtag);
+            } else {
+                srl_buf_cat_varint(MRG2ENC(mrg), strtag, length);
+            }
+
+            srl_buf_copy_content_nocheck(mrg, length);
+        }
+    } else if (strtag == SRL_HDR_COPY) {
+        UV offset = srl_read_varint_uv_offset(&mrg->ibuf, " while reading COPY");
+        offset = srl_lookup_tracked_offset(mrg, offset); // convert ibuf offset to obuf offset
+
+        U8 newtag = *(mrg->obuf.body_pos + offset);
+        if (expect_false(newtag != SRL_HDR_BINARY && newtag != SRL_HDR_STR_UTF8 && newtag < SRL_HDR_SHORT_BINARY_LOW)) {
+            croak("bad COPY tag, it should point to stringish"); // TODO
+        }
+
+        srl_buf_cat_varint((srl_encoder_t*) mrg, strtag, offset);
+        //otag_offset = offset;
+    } else {
+        croak("expected stringish in object, but got unexpected tag %d (0x%X) at %d", tag, tag, (int) BUF_POS_OFS(mrg->ibuf)); // TODO
+    }
+
+    DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
+    DEBUG_ASSERT_BUF_SANE(mrg->obuf);
+
+    srl_merge_single_value(mrg);
+}
+
 SRL_STATIC_INLINE ptable_entry_ptr
 srl_store_tracked_offset(pTHX_ srl_merger_t *mrg, UV from, UV to)
 {
@@ -884,6 +1002,27 @@ srl_lookup_string(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int *ok)
                          (int) len, src, ent->tag_offset);
     } else {
         SRL_MERGER_TRACE("srl_lookup_string: not found duplicate '%.*s'",
+                         (int) len, src);
+    }
+
+    return ent;
+}
+
+SRL_STATIC_INLINE strtable_entry_ptr
+srl_lookup_classname(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int *ok)
+{
+    *ok = 0;
+    if (len <= 3 || !SRL_MRG_HAVE_OPTION(mrg, SRL_F_DEDUPE_STRINGS))
+        return NULL;
+
+    strtable_entry_ptr ent = STRTABLE_insert(SRL_GET_CLASSNAME_DEDUPER_TBL(mrg), src, len, ok);
+    assert(ent != NULL); // TODO assert ent
+
+    if (*ok) {
+        SRL_MERGER_TRACE("srl_lookup_classname: got duplicate '%.*s' target %lld",
+                         (int) len, src, ent->tag_offset);
+    } else {
+        SRL_MERGER_TRACE("srl_lookup_classname: not found duplicate '%.*s'",
                          (int) len, src);
     }
 
