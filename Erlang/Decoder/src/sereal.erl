@@ -58,26 +58,29 @@ encode(Data) ->
     encode(Data, {}).
 
 encode(Data, Opts) ->
-    case nif_encoder_init(Data, Opts) of
+    case nif_encoder_init([Data], Opts) of
         {error, _} = Error ->
             throw(Error);
         
-        {iter, Encoder} ->
-            encoder_loop(Data, Encoder);
+        {iter, Items, Encoder} ->
+            io:format("Iteraete: ~p => ~p~n", [Items, Encoder]),
+            encoder_loop(Items, Encoder);
 
         EncodedBinary ->
             EncodedBinary
     end.
 
-encoder_loop(Data, Encoder) ->
-    case nif_encoder_iterate(Data, Encoder) of 
+encoder_loop(Items, Encoder) ->
+    case nif_encoder_iterate(Items, Encoder) of 
         {error, _} = Error->
             throw(Error);
 
-        {iter, Encoder} ->
-            encoder_loop(Data, Encoder);
+        {iter, NewItems, NewEncoder} ->
+            io:format("HHHHHHHHHHHH=>~p=>~p~n", [NewItems, NewEncoder]),
+            encoder_loop(NewItems, NewEncoder);
 
         EncoderBinary ->
+            io:format("Finished~n"),
             EncoderBinary
     end.
 

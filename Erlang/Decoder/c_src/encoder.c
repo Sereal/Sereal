@@ -10,12 +10,12 @@
 
 #include "utils.h"
 
-#define STACK_SIZE_INCR 128
-
 typedef struct {
     ErlNifBinary buffer;
     unsigned int index;
     int options;
+    
+    int bytes_per_iteration;
 
 } EncoderData;
 
@@ -26,10 +26,6 @@ static void add_header(ErlNifEnv* env, EncoderData* encoder_data);
 
 static void write_byte(EncoderData* encoder_data, unsigned char c);
 static void write_bytes(EncoderData* encoder_data, char cs[]);
-
-static char top(EncoderData* encoder_data);
-static char pop(EncoderData* encoder_data);
-static void push(EncoderData* encoder_data, char state);
 
 static void encode_varint(ErlNifUInt64);
 
@@ -77,31 +73,29 @@ ERL_NIF_TERM encoder_init(ErlNifEnv* env, int count, const ERL_NIF_TERM argument
     if ( !enif_alloc_binary(BUF_SIZE, &encoder_data->buffer) ) {
         debug_print("Binary allocation failed\n");
     }
-
-    debug_print("Allocating stack\n");
-
-    encoder_data->st_data = (char*) enif_alloc(STACK_SIZE_INCR * sizeof(char));
-    encoder_data->st_index = 0;
-
-    push(encoder_data, ST_DONE);
-    push(encoder_data, ST_VALUE);
-
     encoder_data->index = 0;
+
+
     debug_print("Parsing options\n");
     parse_options(env, encoder_data, arguments[1]);
 
+    if ( encoder_data->bytes_per_iteration <= 0 ) {
+       encoder_data->bytes_per_iteration = 1024;
+    }
+
     ERL_NIF_TERM encoder_resource = enif_make_resource(env, encoder_data);
 
-    ERL_NIF_TERM args[] = {
+    ERL_NIF_TERM result = enif_make_tuple3(
+        env,
+        st->atom_iter,
         arguments[0],
         encoder_resource
-    };
+    );
 
     debug_print("Releasing resource\n");
     enif_release_resource(encoder_data);
 
-    debug_print("Encoding data\n");
-    return encoder_iterate(env, 2, args);
+    return result;
 }
 
 ERL_NIF_TERM finish_encoding(ErlNifEnv *env, EncoderData *encoder_data) {
@@ -126,14 +120,27 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
 
     sereal_st* st = enif_priv_data(env);
 
-    ERL_NIF_TERM input  = arguments[0];
+    debug_print("Checking whether items is a list\n");
+
+    ERL_NIF_TERM items = arguments[0];
+    if ( !enif_is_list(env, items)) {
+        return make_error(st, env, "Wrong argument passed as input");
+    }
+
+    debug_print("Extracting items length\n");
+    int items_length = 0;
+    if ( !enif_get_list_length(env, items, &items_length) ) {
+        return make_error(st, env, "Extracting items list length failed");
+    }
+
     ERL_NIF_TERM encoder_resource = arguments[1];
     EncoderData* encoder_data = NULL;
 
+    debug_print("Getting resource\n");
     if ( !enif_get_resource(env, encoder_resource, st->resource_encoder, &encoder_data) ) {
         return make_error(st, env, "Failed to convert resource to object");
     }
-
+    
     ERL_NIF_TERM status, value;
 
     int          index;
@@ -144,265 +151,282 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
     unsigned     uintValue;
     ErlNifBinary binValue;
 
-    switch(get_type(env, input)) {
-        case SMALL_NEG:
-            debug_print("SMALL-NEG\n");
-            if ( !enif_get_int(env, input, &intValue) ) {
-                debug_print("Error getting int value\n");
-            }
-            intValue += 32;
-            write_byte(encoder_data, (char)intValue);
-            break;
+    int previous_size = 0;
 
-        case SMALL_POS:
-            debug_print("SMALL-POS\n");
-            if ( !enif_get_int(env, input, &intValue) ){
-                debug_print("Error extracting integer\n");
-            }
-            write_byte(encoder_data, (char) intValue);
-            break;
+    while ( items_length-- ) {
 
-        case ZIGZAG:
-            debug_print("ZIGZAG\n");
-            break;
+        int percent = encoder_data->index * 100 / encoder_data->bytes_per_iteration;
+        if ( enif_consume_timeslice(env, percent) ) {
 
-        case VARINT:
-            debug_print("VARINT\n");
-            if ( !enif_get_int(env, input, &intValue) ){
-                debug_print("Error extracting integer\n");
-            }
+            return enif_make_tuple3(
+                        env,
+                        st->atom_iter,
+                        items,
+                        encoder_resource
+                      );
+        }
 
-            encode_varint(intValue);
-            write_bytes(encoder_data, buffer);
-            break;
+        debug_print("Iterating over items: %d\n", items_length + 1);
+        ERL_NIF_TERM input;
+        enif_get_list_cell(env, items, &input, &items);
+                
+        switch(get_type(env, input)) {
+            case SMALL_NEG:
+                debug_print("SMALL-NEG\n");
+                if ( !enif_get_int(env, input, &intValue) ) {
+                    debug_print("Error getting int value\n");
+                }
+                intValue += 32;
+                write_byte(encoder_data, (char)intValue);
+                break;
 
-        case DOUBLE:
-            debug_print("DOUBLE\n");
+            case SMALL_POS:
+                debug_print("SMALL-POS\n");
+                if ( !enif_get_int(env, input, &intValue) ){
+                    debug_print("Error extracting integer\n");
+                }
+                write_byte(encoder_data, (char) intValue);
+                break;
 
-            if ( !enif_get_double(env, input, &dblValue) ) {
-                debug_print("Error extracting double\n");  
-            }
+            case ZIGZAG:
+                debug_print("ZIGZAG\n");
 
-            charPtr = &dblValue; 
-
-            for (index = 0; index < 8; index++){
-                write_byte(encoder_data, *charPtr);
-                charPtr++;
-            }
-            
-            break;
-
-        case UNDEF:
-            debug_print("UNDEF\n");
-
-            
-            if ( !enif_get_atom(env, input, buffer, strlen("undefined"), ERL_NIF_LATIN1) ) {
-                debug_print("Can't read undefined atom\n");
-            }
-
-            /* sanity check? */
-            if ( strcmp(buffer, "undefined") ){
-                debug_print("Atom is not undefined however\n");
-            }
-
-            write_byte(encoder_data, 0x25);
-            break;
-
-        case BOOLEAN:
-
-            debug_print("BOOLEAN");
-
-            if ( !enif_get_atom_length(env, input, &intValue, ERL_NIF_LATIN1) ){
-                debug_print("Reading length for atom failed\n");
-            }
-
-            if ( !enif_get_atom(env, input, buffer, intValue, ERL_NIF_LATIN1) ) {
-                debug_print("Reading atom failed\n");
-
-            }
-            
-            if ( !strncmp(buffer, "true", strlen("true")) ) {
-                write_byte(encoder_data, 0x3b);
-
-            } else {
-                write_byte(encoder_data, 0x3a);
-            }
-            break;
-
-        case BINARY:
-            debug_print("BINARY\n");
-
-            if ( !enif_inspect_binary(env, input, &binValue)) {
-                debug_print("Can't inspect binary\n");
-            }
-
-            /* default BINARY tag */
-            charValue = 0x26;
-            if ( binValue.size <= 31 ) {
-                charValue = binValue.size + 0x60 /* SHORT_BINARY0 */;
-            }
-            write_byte(encoder_data, charValue);
-
-            for ( index = 0; index < binValue.size; index++ ) {
-                write_byte(encoder_data, binValue.data[index]);
-            }
-
-            break;
-
-        case ATOM:
-            debug_print("ATOM\n");
-
-            if ( !enif_get_atom_length(env, input, &intValue, ERL_NIF_LATIN1) ) {
-                debug_print("Can't get atom length\n");
-            }
-
-            if ( !enif_get_atom(env, input, buffer, intValue, ERL_NIF_LATIN1) ) {
-                debug_print("Couldn't get atom\n");
-            }
-
-            buffer[intValue] = 0;
-
-            write_bytes(encoder_data, buffer);
-
-            break;
-
-        case LIST: {
-            debug_print("LIST\n");
-            
-            enif_get_list_length(env, input, &intValue);
-            debug_print("Length is: %d\n", intValue);
-
-            if ( intValue <= 15 ) {
-                /* ARRAY_REF0..15 */
-                charValue = intValue + 0x40 /* ARRAY_REF0 */;
-                write_byte(encoder_data, charValue);
-            
-            }  else {
-                write_byte(encoder_data, 0x2b);    
-
-                /* encode length */
-                encode_varint(intValue);
-                write_bytes(encoder_data, buffer);
-            }
-
-            ERL_NIF_TERM head, tail;
-            tail = input;
-
-            while ( intValue-- ) {
-
-                enif_get_list_cell(env, tail, &head, &tail);
-                ERL_NIF_TERM args[] = {
-                    head,
-                    encoder_resource                    
-                };
-
-                encoder_iterate(env, 2, args);
-            }
-            
-            }
-            break;
-        case TUPLE: {
-            debug_print("TUPLE\n");
-
-            ERL_NIF_TERM* tuple;
-
-            if ( !enif_get_tuple(env, input, &intValue, &tuple) ){
-                debug_print("Reading tuple failed\n");
-            }
-
-            debug_print("Length is: %d\n", intValue);
-
-            if ( intValue <= 15 ) {
-                /* ARRAY_REF0..15 */
-                charValue = intValue + 0x40 /* ARRAY_REF0 */;
-                write_byte(encoder_data, charValue);
-            
-            }  else {
-                write_byte(encoder_data, 0x2b);    
-
-                /* encode length */
-                encode_varint(intValue);
-                write_bytes(encoder_data, buffer);
-            }
-
-            for (index = 0; index < intValue; index++){
-                ERL_NIF_TERM args[] = {
-                    tuple[index],
-                    encoder_resource                    
-                };
-
-                encoder_iterate(env, 2, args);
-            }
-            
-            }
-            break;
-
-        case MAP: {
-            debug_print("MAP\n");
-
-            ERL_NIF_TERM* tuple;
-            if( !enif_get_tuple(env, input, &intValue, &tuple) ){
-                debug_print("In map can't get tuple value\n");
-            }
-
-            ERL_NIF_TERM key_value_list = tuple[0];
-
-            enif_get_list_length(env, key_value_list, &intValue);
-            debug_print("Length is: %d\n", intValue);
-            
-            if ( intValue <= 15 ) {
-                /* HASH_REF0..15 */
-                charValue = intValue + 0x50 /* HASH_REF0 */;
-                write_byte(encoder_data, charValue);
-            
-            }  else {
-                write_byte(encoder_data, 0x2a);    
-
-                /* encode length */
-                encode_varint(intValue);
-                write_bytes(encoder_data, buffer);
-            }
-
-            ERL_NIF_TERM head, tail;
-            tail = key_value_list;
-
-            while ( intValue-- ) {
-
-                enif_get_list_cell(env, tail, &head, &tail);
-                debug_print("Processing key-value: %d\n", intValue);
-
-                ERL_NIF_TERM* key_value;
-                if ( !enif_get_tuple(env, head, &index, &key_value)) {
-                    continue;
+                if ( !enif_get_int(env, input, &intValue) ){
+                    debug_print("Error extracting integer\n");
                 }
 
-                debug_print("Looks like tuple\n");
-                /* Encode key */
-                ERL_NIF_TERM args[] = {
-                    key_value[0],
-                    encoder_resource                    
-                };
+                intValue = -2 * intValue  - 1;
+                encode_varint(intValue);
+                write_bytes(encoder_data, buffer);
 
-                debug_print("Encoding key\n");
-                encoder_iterate(env, 2, args);
+                break;
 
-                /* Encode value */
-                ERL_NIF_TERM args1[] = {
-                    key_value[1],
-                    encoder_resource                    
-                };
+            case VARINT:
+                debug_print("VARINT\n");
+                if ( !enif_get_int(env, input, &intValue) ){
+                    debug_print("Error extracting integer\n");
+                }
 
-                debug_print("Encoding value\n");
-                encoder_iterate(env, 2, args1);
+                encode_varint(intValue);
+                write_bytes(encoder_data, buffer);
+                break;
+
+            case DOUBLE:
+                debug_print("DOUBLE\n");
+
+                if ( !enif_get_double(env, input, &dblValue) ) {
+                    debug_print("Error extracting double\n");  
+                }
+
+                charPtr = &dblValue; 
+
+                for (index = 0; index < 8; index++){
+                    write_byte(encoder_data, *charPtr);
+                    charPtr++;
+                }
+                
+                break;
+
+            case UNDEF:
+                debug_print("UNDEF\n");
+
+                
+                if ( !enif_get_atom(env, input, buffer, strlen("undefined"), ERL_NIF_LATIN1) ) {
+                    debug_print("Can't read undefined atom\n");
+                }
+
+                /* sanity check? */
+                if ( strcmp(buffer, "undefined") ){
+                    debug_print("Atom is not undefined however\n");
+                }
+
+                write_byte(encoder_data, 0x25);
+                break;
+
+            case BOOLEAN:
+
+                debug_print("BOOLEAN");
+
+                if ( !enif_get_atom_length(env, input, &intValue, ERL_NIF_LATIN1) ){
+                    debug_print("Reading length for atom failed\n");
+                }
+
+                if ( !enif_get_atom(env, input, buffer, intValue, ERL_NIF_LATIN1) ) {
+                    debug_print("Reading atom failed\n");
+
+                }
+                
+                if ( !strncmp(buffer, "true", strlen("true")) ) {
+                    write_byte(encoder_data, 0x3b);
+
+                } else {
+                    write_byte(encoder_data, 0x3a);
+                }
+                break;
+
+            case BINARY:
+                debug_print("BINARY\n");
+
+                if ( !enif_inspect_binary(env, input, &binValue)) {
+                    debug_print("Can't inspect binary\n");
+                }
+
+                /* default BINARY tag */
+                charValue = 0x26;
+                if ( binValue.size <= 31 ) {
+                    charValue = binValue.size + 0x60 /* SHORT_BINARY0 */;
+                }
+                write_byte(encoder_data, charValue);
+
+                for ( index = 0; index < binValue.size; index++ ) {
+                    write_byte(encoder_data, binValue.data[index]);
+                }
+
+                break;
+
+            case ATOM:
+                debug_print("ATOM\n");
+
+                if ( !enif_get_atom_length(env, input, &intValue, ERL_NIF_LATIN1) ) {
+                    debug_print("Can't get atom length\n");
+                }
+
+                if ( !enif_get_atom(env, input, buffer, intValue, ERL_NIF_LATIN1) ) {
+                    debug_print("Couldn't get atom\n");
+                }
+
+                buffer[intValue] = 0;
+
+                write_bytes(encoder_data, buffer);
+
+                break;
+
+            case LIST: {
+                debug_print("LIST\n");
+                
+                enif_get_list_length(env, input, &intValue);
+                debug_print("Length is: %d\n", intValue);
+
+                if ( intValue <= 15 ) {
+                    /* ARRAY_REF0..15 */
+                    charValue = intValue + 0x40 /* ARRAY_REF0 */;
+                    write_byte(encoder_data, charValue);
+                
+                }  else {
+                    write_byte(encoder_data, 0x2b);    
+
+                    /* encode length */
+                    encode_varint(intValue);
+                    write_bytes(encoder_data, buffer);
+                }
+
+                ERL_NIF_TERM head, tail;
+                tail = input;
+
+                ERL_NIF_TERM reverse = enif_make_list(env, 0);
+
+                for(index = 0; index < intValue; index++){
+                    enif_get_list_cell(env, tail, &head, &tail);
+                    reverse = enif_make_list_cell(env, head, reverse);
+                }
+
+                for(index = 0; index < intValue; index++){
+                    enif_get_list_cell(env, reverse, &head, &reverse);
+                    items = enif_make_list_cell(env, head, items);
+                }
+                
+                }
+                break;
+
+            case TUPLE: {
+                debug_print("TUPLE\n");
+
+                ERL_NIF_TERM* tuple;
+
+                if ( !enif_get_tuple(env, input, &intValue, &tuple) ){
+                    debug_print("Reading tuple failed\n");
+                }
+
+                debug_print("Length is: %d\n", intValue);
+
+                if ( intValue <= 15 ) {
+                    /* ARRAY_REF0..15 */
+                    charValue = intValue + 0x40 /* ARRAY_REF0 */;
+                    write_byte(encoder_data, charValue);
+                
+                }  else {
+                    write_byte(encoder_data, 0x2b);    
+
+                    /* encode length */
+                    encode_varint(intValue);
+                    write_bytes(encoder_data, buffer);
+                }
+
+                if ( !enif_get_list_length(env, items, &index) ) {
+                    debug_print("Error in getting list length");
+                }
+
+                while ( intValue-- ) {
+                    items = enif_make_list_cell(env, tuple[intValue], items);
+                }
+
+                if ( !enif_get_list_length(env, items, &intValue) ){
+                    debug_print("Error in getting list length");
+                }
             }
-            }
-            
-            
             break;
 
-        default:
-            status = make_atom(env, "error");
-            debug_print("unsupported type\n");
+            case MAP: {
+                debug_print("MAP\n");
+
+                ERL_NIF_TERM* tuple;
+                if( !enif_get_tuple(env, input, &intValue, &tuple) ){
+                    debug_print("In map can't get tuple value\n");
+                }
+
+                ERL_NIF_TERM key_value_list = tuple[0];
+
+                enif_get_list_length(env, key_value_list, &intValue);
+                debug_print("Length is: %d\n", intValue);
+                
+                if ( intValue <= 15 ) {
+                    /* HASH_REF0..15 */
+                    charValue = intValue + 0x50 /* HASH_REF0 */;
+                    write_byte(encoder_data, charValue);
+                
+                }  else {
+                    write_byte(encoder_data, 0x2a);    
+
+                    /* encode length */
+                    encode_varint(intValue);
+                    write_bytes(encoder_data, buffer);
+                }
+
+                ERL_NIF_TERM head, tail;
+                tail = key_value_list;
+
+                while ( intValue-- ) {
+
+                    enif_get_list_cell(env, tail, &head, &tail);
+                    debug_print("Processing key-value: %d\n", intValue);
+
+                    ERL_NIF_TERM* key_value;
+                    if ( !enif_get_tuple(env, head, &index, &key_value)) {
+                        continue;
+                    }
+
+                    items = enif_make_list_cell(env, key_value[1], items);
+                    items = enif_make_list_cell(env, key_value[0], items);
+                }
+            }
+            break;
+
+            default:
+                status = make_atom(env, "error");
+                debug_print("unsupported type\n");
+        }
+        
+        enif_get_list_length(env, items, &items_length);
     }
 
 done:
@@ -520,36 +544,39 @@ static void parse_options(ErlNifEnv *env, EncoderData* encoder_data, ERL_NIF_TER
 }
 
 static void add_header(ErlNifEnv* env, EncoderData* encoder_data) {
+
+    debug_print("ADDING HEADER\n");
+
+    if ( encoder_data->buffer.size <= encoder_data->index + 6 ) {
+        debug_print("Reallocating buffer\n");
+        enif_realloc_binary( &encoder_data->buffer, encoder_data->index + 6 );
+    }    
+
+    debug_print("Copying data from index: %d\n", encoder_data->index);
+
+    int i;
+    for ( i = encoder_data->index - 1; i >= 0; i-- ) {
+        debug_print("==>%d\n", encoder_data->buffer.data[i]);
+        encoder_data->buffer.data[i + 6] = encoder_data->buffer.data[i];
+    } 
+
+    debug_print("Adding magic\n");
+    encoder_data->buffer.data[0] = '=';
+    encoder_data->buffer.data[1] = '\xf3';
+    encoder_data->buffer.data[2] = 'r';
+    encoder_data->buffer.data[3] = 'l';
+    
+    debug_print("Adding protocol\n");
+    encoder_data->buffer.data[4] = 3;
+    encoder_data->buffer.data[5] = 0;
+
+    encoder_data->index += 6;
 }
 
 void encoder_destroy(ErlNifEnv* env, void* obj) {
 
     debug_print("Destroying encoder\n");
-
-    EncoderData* encoder = (EncoderData*) obj;
-
-    if(encoder->st_data != NULL) {
-        enif_free(encoder->st_data);
-    }
-
     debug_print("-End of destroying-\n");
-}
-
-static void push(EncoderData* encoder_data, char state) {
-    // TODO: check if stack will not overflow
-    encoder_data->st_data[encoder_data->st_index++] = state;
-}
-
-static char pop(EncoderData* encoder_data) {
-    // TODO: check if stack is not empty
-    char result = encoder_data->st_data[--encoder_data->st_index];
-    return result;
-}
-
-static char top(EncoderData* encoder_data) {
-    // TODO: check if stack is not empty
-    char result = encoder_data->st_data[encoder_data->st_index];
-    return result;
 }
 
 static void encode_varint(ErlNifUInt64 intValue) {
