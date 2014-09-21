@@ -14,6 +14,7 @@
 #include <limits.h>
 #include <string.h>
 #include "ppport.h"
+#include "srl_inline.h"
 #include "../Encoder/srl_buffer_types.h"
 
 #ifndef PERL_HASH_FUNC_MURMUR_HASH_64A
@@ -176,19 +177,23 @@ typedef struct STRTABLE_entry * strtable_entry_ptr;
 
 struct STRTABLE_entry {
     struct STRTABLE_entry   *next;
+
+    /* TODO think about space efficiency:
+     * - UV is 8 bytes, whereas hash function uses U32, fo high 4 bytes are free
+     * - STRLEN's size is platform dependent (4/8 bytes)
+     *   so, on 32 bit machines 4 bytes after len will be wasted
+     * - likely need flag for UTF8 */
     UV                      hash;
 
     /* Following two fields represent a key.
      * In order to avoid copying and storing strings
      * inside STRTABLE_entry, offset in STRTABLE->buf
      * is stored */
-
     STRLEN                  len;
     UV                      str_offset;
 
     /* Value of a key is offset inside STRTABLE->buf
      * where tag (STR_UTF8|BINARY|SHORT_BINARY) is located */
-
     UV                      tag_offset;
 };
 
@@ -207,15 +212,15 @@ struct STRTABLE {
     const srl_buffer_t      *buf;
 };
 
-STATIC STRTABLE_t * STRTABLE_new(const srl_buffer_t *buf);
-STATIC STRTABLE_t * STRTABLE_new_size(const srl_buffer_t *buf, const U8 size_base2_exponent);
+SRL_STATIC_INLINE STRTABLE_t * STRTABLE_new(const srl_buffer_t *buf);
+SRL_STATIC_INLINE STRTABLE_t * STRTABLE_new_size(const srl_buffer_t *buf, const U8 size_base2_exponent);
 
 /* caller has to fill tag_offset and str_offset fields in returned STRTABLE_ENTRY_t */
-inline STATIC STRTABLE_ENTRY_t * STRTABLE_insert(STRTABLE_t *tbl, const char *str, STRLEN len, int *ok);
+SRL_STATIC_INLINE STRTABLE_ENTRY_t * STRTABLE_insert(STRTABLE_t *tbl, const char *str, STRLEN len, int *ok);
 
-STATIC void STRTABLE_grow(STRTABLE_t *tbl);
-STATIC void STRTABLE_clear(STRTABLE_t *tbl);
-STATIC void STRTABLE_free(STRTABLE_t *tbl);
+SRL_STATIC_INLINE void STRTABLE_grow(STRTABLE_t *tbl);
+SRL_STATIC_INLINE void STRTABLE_clear(STRTABLE_t *tbl);
+SRL_STATIC_INLINE void STRTABLE_free(STRTABLE_t *tbl);
 
 /* create a new pointer => pointer table */
 SRL_STATIC_INLINE STRTABLE_t *
@@ -224,7 +229,7 @@ STRTABLE_new(const srl_buffer_t *buf)
     return STRTABLE_new_size(buf, 9);
 }
 
-STATIC STRTABLE_t *
+SRL_STATIC_INLINE STRTABLE_t *
 STRTABLE_new_size(const srl_buffer_t *buf, const U8 size_base2_exponent)
 {
     STRTABLE_t *tbl;
@@ -242,7 +247,7 @@ STRTABLE_new_size(const srl_buffer_t *buf, const U8 size_base2_exponent)
 }
 
 /* lookup key, return if found, otherwise store */
-inline STATIC STRTABLE_ENTRY_t *
+SRL_STATIC_INLINE STRTABLE_ENTRY_t *
 STRTABLE_insert(STRTABLE_t *tbl, const char *str, STRLEN len, int *ok)
 {
     STRTABLE_ENTRY_t *tblent;
@@ -281,11 +286,7 @@ STRTABLE_insert(STRTABLE_t *tbl, const char *str, STRLEN len, int *ok)
     tblent->len = len;
     tblent->hash = hash;
     tblent->next = tbl->tbl_ary[entry];
-
-    /* since actual location of the string inside tbl->buf (output buffer)
-     * is not known yet, let str_offset be zero and allow the calee
-     * to fill it in later */
-    tblent->str_offset = 0;
+    /* tblent->tag_offset and tblent->str_offset have to be set by caller */
 
     tbl->tbl_ary[entry] = tblent;
     tbl->tbl_items++;
@@ -298,7 +299,7 @@ STRTABLE_insert(STRTABLE_t *tbl, const char *str, STRLEN len, int *ok)
 
 /* double the hash bucket size of an existing ptr table */
 
-STATIC void
+SRL_STATIC_INLINE void
 STRTABLE_grow(STRTABLE_t *tbl)
 {
     STRTABLE_ENTRY_t **ary = tbl->tbl_ary;
@@ -331,7 +332,7 @@ STRTABLE_grow(STRTABLE_t *tbl)
 
 /* remove all the entries from a ptr table */
 
-STATIC void
+SRL_STATIC_INLINE void
 STRTABLE_clear(STRTABLE_t *tbl)
 {
     if (tbl && tbl->tbl_items) {
@@ -355,7 +356,7 @@ STRTABLE_clear(STRTABLE_t *tbl)
 
 /* clear and free a ptr table */
 
-STATIC void
+SRL_STATIC_INLINE void
 STRTABLE_free(STRTABLE_t *tbl)
 {
     struct STRTABLE_arena *arena;
