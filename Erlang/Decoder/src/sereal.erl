@@ -61,6 +61,9 @@ encode(Data, Opts) ->
     case nif_encoder_init([Data], Opts) of
         {error, _} = Error ->
             throw(Error);
+
+        {error, Reason, Term} = Error ->
+            throw(Error);
         
         {iter, Items, Encoder} ->
             encoder_loop(Items, Encoder);

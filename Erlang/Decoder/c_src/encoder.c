@@ -31,7 +31,7 @@ ERL_NIF_TERM encoder_finish(ErlNifEnv *env, EncoderData *encoder_data);
 
 static int get_type(ErlNifEnv*, ERL_NIF_TERM);
 
-static int  parse_options(ErlNifEnv* env, SerealConstants *st, EncoderData* encoder_data, ERL_NIF_TERM options);
+static ERL_NIF_TERM parse_options(ErlNifEnv* env, SerealConstants *st, EncoderData* encoder_data, ERL_NIF_TERM options);
 static void add_header(ErlNifEnv* env, EncoderData* encoder_data);
 
 static void write_byte(EncoderData* encoder_data, unsigned char c);
@@ -80,8 +80,10 @@ ERL_NIF_TERM encoder_init(ErlNifEnv* env, int count, const ERL_NIF_TERM argument
     encoder_data->index = 0;
     encoder_data->zlib_level = encoder_data->snappy_level = -1;
 
-    if ( result = parse_options(env, sereal_constants, encoder_data, arguments[1]) ){
-        return result;
+    ERL_NIF_TERM error = NULL;
+
+    if ( error = parse_options(env, sereal_constants, encoder_data, arguments[1]) ) {
+        return error;
     }
 
     if (  encoder_data->bytes_per_iteration <= 0 
@@ -130,7 +132,7 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
     if ( !enif_get_resource(env, encoder_resource, sereal_constants->resource_encoder, &encoder_data) ) {
         return make_error(sereal_constants, env, "Failed to convert resource to EncoderData");
     }
-    
+
     ERL_NIF_TERM status, value;
 
     int          index;
@@ -443,12 +445,11 @@ done:
 ERL_NIF_TERM encoder_finish(ErlNifEnv *env, EncoderData *encoder_data) {
     debug_print("Starting\n");
 
-    int compress = 0;
     if (encoder_data->zlib_level != -1) {
-        debug_print("Compressing as zlib, level: %d\n");
+        debug_print("Compressing as zlib, level: %d\n", encoder_data->zlib_level);
 
     } else if ( encoder_data->snappy_level != -1 ) {
-        debug_print("Compressing as snappy, level: %d\n");
+        debug_print("Compressing as snappy, level: %d\n", encoder_data->snappy_level);
     }
 
     debug_print("Adding header\n");
@@ -549,7 +550,7 @@ static void write_bytes(EncoderData* encoder_data, char cs[]) {
     }
 }
 
-static int parse_options(ErlNifEnv *env, SerealConstants *sereal_constants, EncoderData* encoder_data, ERL_NIF_TERM options){
+static ERL_NIF_TERM parse_options(ErlNifEnv *env, SerealConstants *sereal_constants, EncoderData* encoder_data, ERL_NIF_TERM options){
 
     debug_print("Starting...\n");
 
@@ -570,11 +571,10 @@ static int parse_options(ErlNifEnv *env, SerealConstants *sereal_constants, Enco
 
         debug_print("Extracting head\n");
         if ( !enif_get_list_cell(env, tail, &head, &tail) ) {
-            return parse_error ( sereal_constants, 
+             return parse_error ( sereal_constants, 
                                  env, 
                                  "Failed to extract next option",
                                  tail );
-
         }
 
         int arity;
@@ -610,16 +610,15 @@ static int parse_options(ErlNifEnv *env, SerealConstants *sereal_constants, Enco
         if (  !strncmp("zlib", buffer, atom_length) 
            || !strncmp("snappy", buffer, atom_length) ) {
 
-            int level;
-            if (  arity != 2 
-               || !enif_get_int(env, option[1], &level) ) {
+            int level = 0;
+            if (   arity == 2 
+               && !enif_get_int(env, option[1], &level)) {
 
                 return make_error ( sereal_constants, 
-                                     env, 
-                                     "Compression level should be an integer" );
+                                    env, 
+                                    "Compression level should be an integer" );
             }
 
-            debug_print("Setting compression level to %d\n", level);
             if( !strncmp("zlib", buffer, atom_length) ) {
                 encoder_data->zlib_level = level;
 
@@ -628,10 +627,12 @@ static int parse_options(ErlNifEnv *env, SerealConstants *sereal_constants, Enco
             }
             
         } else {
-            return parse_error( sereal_constants,
-                                env, 
-                                "Unsupported option",
-                                options );
+            debug_print("Unsupported option\n");
+            return parse_error ( sereal_constants,
+                                 env, 
+                                 "Unsupported option",
+                                 option[0] );
+
         }
 
 
