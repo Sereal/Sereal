@@ -8,6 +8,8 @@
 
 #include "sereal.h"
 
+#include "miniz.h"
+
 #include "utils.h"
 
 
@@ -27,7 +29,7 @@ typedef struct {
 
 } EncoderData;
 
-ERL_NIF_TERM encoder_finish(ErlNifEnv *env, EncoderData *encoder_data);
+ERL_NIF_TERM encoder_finish(SerealConstants *sereal_constants, ErlNifEnv *env, EncoderData *encoder_data);
 
 static int get_type(ErlNifEnv*, ERL_NIF_TERM);
 
@@ -38,6 +40,10 @@ static void write_byte(EncoderData* encoder_data, unsigned char c);
 static void write_bytes(EncoderData* encoder_data, char cs[]);
 
 static void encode_varint(ErlNifUInt64);
+
+static void prepend(EncoderData *encoder_data, char* buffer, int len);
+
+static ERL_NIF_TERM zlib_compress(SerealConstants *sereal_constants, ErlNifEnv *env, EncoderData* encoder_data);
 
 enum TAGS {
     SMALL_POS,
@@ -439,14 +445,28 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
     }
 
 done:
-    return encoder_finish(env, encoder_data);
+    return encoder_finish(sereal_constants, env, encoder_data);
 }
 
-ERL_NIF_TERM encoder_finish(ErlNifEnv *env, EncoderData *encoder_data) {
+ERL_NIF_TERM encoder_finish(SerealConstants *sereal_constants, ErlNifEnv *env, EncoderData *encoder_data) {
     debug_print("Starting\n");
+
+    ERL_NIF_TERM error;
 
     if (encoder_data->zlib_level != -1) {
         debug_print("Compressing as zlib, level: %d\n", encoder_data->zlib_level);
+
+        int uncompressed_length = encoder_data->index;
+
+        if ( (error = zlib_compress(sereal_constants, env, encoder_data)) ) {
+            return error;
+        }
+
+        encode_varint(encoder_data->index);
+        prepend(encoder_data, buffer, strlen(buffer));
+
+        encode_varint(uncompressed_length);
+        prepend(encoder_data, buffer, strlen(buffer));
 
     } else if ( encoder_data->snappy_level != -1 ) {
         debug_print("Compressing as snappy, level: %d\n", encoder_data->snappy_level);
@@ -641,6 +661,25 @@ static ERL_NIF_TERM parse_options(ErlNifEnv *env, SerealConstants *sereal_consta
     return NULL;
 }
 
+static void prepend(EncoderData *encoder_data, char* buffer, int len) {
+
+    if ( encoder_data->buffer.size <= encoder_data->index + len ) {
+        debug_print("Reallocating buffer\n");
+        enif_realloc_binary( &encoder_data->buffer, encoder_data->index + len );
+    }    
+
+    int i;
+    for ( i = encoder_data->index - 1; i >= 0; i-- ) {
+        encoder_data->buffer.data[i + len] = encoder_data->buffer.data[i];
+    } 
+
+    for ( i = 0; i < len; i++ ) {
+        encoder_data->buffer.data[i] = buffer[i];
+    }
+
+    encoder_data->index += len;
+}
+
 static void add_header(ErlNifEnv* env, EncoderData* encoder_data) {
 
     debug_print("Adding header\n");
@@ -649,30 +688,26 @@ static void add_header(ErlNifEnv* env, EncoderData* encoder_data) {
                     + 1 /* protocol version */  
                     + 1 /* optional suffix size */; 
 
-    if ( encoder_data->buffer.size <= encoder_data->index + HEADER_SIZE ) {
-        debug_print("Reallocating buffer\n");
-        enif_realloc_binary( &encoder_data->buffer, encoder_data->index + HEADER_SIZE );
-    }    
-
     debug_print("Moving data to add header");
 
-    int i;
-    for ( i = encoder_data->index - 1; i >= 0; i-- ) {
-        encoder_data->buffer.data[i + HEADER_SIZE] = encoder_data->buffer.data[i];
-    } 
-
     debug_print("Adding magic string\n");
+
+    int i;
     for (i = 0; i < SRL_MAGIC_STRLEN; i++ ) {
-        encoder_data->buffer.data[i] = SRL_MAGIC_STRING[i];
+        buffer[i] = SRL_MAGIC_STRING_HIGHBIT[i];
     }
     
     debug_print("Adding protocol version\n");
-    encoder_data->buffer.data[4] = SRL_PROTOCOL_VERSION;
+    buffer[4] = SRL_PROTOCOL_VERSION;
+
+    if ( encoder_data->zlib_level != -1 ) {
+        buffer[4] |= SRL_PROTOCOL_ENCODING_ZLIB;
+    }
 
     /* optional suffix size */
-    encoder_data->buffer.data[5] = 0;
+    buffer[5] = 0;
 
-    encoder_data->index += HEADER_SIZE;
+    prepend(encoder_data, buffer, HEADER_SIZE);
 }
 
 void encoder_destroy(ErlNifEnv* env, void* obj) {
@@ -690,4 +725,38 @@ static void encode_varint(ErlNifUInt64 intValue) {
 
     buffer[index++] = intValue;
     buffer[index] = 0;
+}
+
+static ERL_NIF_TERM zlib_compress(SerealConstants *sereal_constants, ErlNifEnv *env, EncoderData* encoder_data){
+
+    debug_print("Starting compression\n");
+
+    ErlNifBinary compressed; 
+
+    if ( !enif_alloc_binary(encoder_data->buffer.size, &compressed) ) {
+        return make_error(sereal_constants, env, "Allocation of compressed buffer failed");
+    }
+
+    mz_ulong length = compressed.size;
+
+    int status;
+    if ( MZ_OK != (status = compress2( compressed.data, 
+                                       &length, 
+                                       encoder_data->buffer.data, 
+                                       encoder_data->index, 
+                                       encoder_data->zlib_level )) ) {
+        
+        return make_error( sereal_constants,
+                           env,
+                           mz_error(status) );
+    }
+
+    enif_release_binary(&encoder_data->buffer);
+
+    encoder_data->buffer = compressed;
+    encoder_data->index = length;
+
+    debug_print("Compressed length is %d\n", length);
+
+    return NULL;
 }
