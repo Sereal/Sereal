@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
-require 'pp'
 
+# encoding: UTF-8
+require 'pp'
 begin
   require File.join(".",File.dirname(__FILE__),'..','lib','sereal')
 rescue LoadError

@@ -13,6 +13,12 @@ typedef uint16_t u16;
 typedef uint8_t  u8;
 typedef struct _sereal          sereal_t;
 
+#ifndef __GNUC__
+#define __builtin_expect(a,b) a
+#endif
+#define likely(x)      __builtin_expect(!!(x), 1)
+#define unlikely(x)    __builtin_expect(!!(x), 0)
+#define SRL_MAX_VARINT_LENGTH 11
 #define TRUE 1
 #define FALSE 0
 #define MAX_RECURSION_DEPTH 100
@@ -46,11 +52,11 @@ typedef struct _sereal          sereal_t;
 #define SD(s,fmt,arg...)                                                \
     do {                                                                \
         if (s->flags & __DEBUG) {                                       \
-            int i;                                                      \
+            u32 i;                                                      \
             for (i = 0; i < s->level; i++) {                            \
                 printf(" ");                                            \
             }                                                           \
-            D(fmt " { p: %d, s: %d, l: %u, h: %u } ",##arg,s->pos,s->size,s->level,s->hdr_end); \
+            D(fmt " { p: %u, s: %u, l: %u, h: %u } ",##arg,s->pos,s->size,s->level,s->hdr_end); \
         }                                                               \
     } while(0);
 
@@ -88,6 +94,7 @@ extern ID TO_SRL;
 extern ID SEREAL;
 extern ID ID_CLASS;
 extern ID ID_VALUE;
+extern VALUE Sereal;
 extern VALUE SerealPerlObject;
 
 #define S_RECURSE_INC(s)                                            \

@@ -107,7 +107,7 @@ static VALUE s_read_rb_string_bang(sereal_t *s,u8 t) {
 // len - 1: we also use the current byte, similar to u32,float.. casts
 #define RETURN_STRING(fx_l,fx_gen)              \
     do {                                        \
-        len       = fx_l;                       \
+        len       = (u32) fx_l;                 \
         char *ptr = (char *) (len == 0 ? 0 : s_get_p_req_inclusive(s,len)); \
         string    = fx_gen;                     \
         s_shift_position_bang(s,len);           \
@@ -186,7 +186,7 @@ static VALUE s_read_ref(sereal_t *s, u8 tag) {
 
 #define TRAVEL(s,__stored)                                              \
     do {                                                                \
-        u32 offset = s_get_varint_bang(s) - 1;                          \
+        u32 offset = ((u32) s_get_varint_bang(s)) - 1;                  \
         __stored = s->pos;                                              \
         s->pos = offset + s->hdr_end;                                   \
         SD(s,"going back offset: %d, stored position: %d (tag: %d) new pos: %d",offset,stored_pos,tag,s->pos); \
@@ -272,7 +272,7 @@ VALUE sereal_to_rb_object(sereal_t *s) {
 
         VALUE decoded = (*READERS[t])(s,t);
 
-        if (tracked) {
+        if (unlikely(tracked)) {
             s_init_tracker(s);
             SD(s,"tracking object of class: %s(id: %d) at position: %d",rb_obj_classname(decoded),FIX2INT(rb_obj_id(decoded)),pos);
             VALUE v_pos = INT2FIX(pos);
