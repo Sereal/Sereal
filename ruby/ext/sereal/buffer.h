@@ -114,7 +114,7 @@ static inline int s_read_stream(sereal_t *s, u32 end) {
 
 static inline void *s_get_p_at_pos(sereal_t *s, u32 pos,u32 req) {
     // returning s->data[pos], so we just make size count from 0
-    if (likely(pos + req >= s->size)) {
+    if (unlikely(pos + req >= s->size)) {
         if (unlikely(s->flags & __STREAM)) {
             if (s_read_stream(s,pos + req + 1) < 0) {
                 s_raise(s,rb_eRangeError,"stream request for %d bytes failed (err: %s)",
