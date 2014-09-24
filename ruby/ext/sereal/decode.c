@@ -346,8 +346,8 @@ again:
     }
 
     u32 magic = s_get_u32_bang(s);
-    if (magic != SRL_MAGIC_STRING_UINT_LE)
-        s_raise(s,rb_eTypeError,"invalid header: %d (%x)",magic,magic);
+    if (magic != SRL_MAGIC_STRING_UINT_LE && magic != SRL_MAGIC_STRING_UINT_LE_HB)
+        s_raise(s,rb_eTypeError,"invalid header: %d (%x) vs %x",magic,magic,SRL_MAGIC_STRING_UINT_LE);
 
     u8 version = s_get_u8_bang(s);
     u8 suffix = s_get_varint_bang(s);
