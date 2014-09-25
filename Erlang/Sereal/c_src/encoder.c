@@ -6,12 +6,12 @@
 #include "erl_nif.h"
 #include "srl_protocol.h"
 
+#include "snappy/csnappy_compress.c"
 #include "sereal.h"
 
 #include "miniz.h"
 
 #include "utils.h"
-
 
 #define PARSE_ERROR(MSG) parse_error( sereal_constants, env, MSG, input )  
                                      
@@ -44,6 +44,7 @@ static void encode_varint(ErlNifUInt64);
 static void prepend(EncoderData *encoder_data, char* buffer, int len);
 
 static ERL_NIF_TERM zlib_compress(SerealConstants *sereal_constants, ErlNifEnv *env, EncoderData* encoder_data);
+static ERL_NIF_TERM snappy_compress(SerealConstants *sereal_constants, ErlNifEnv *env, EncoderData* encoder_data);
 
 enum TAGS {
     SMALL_POS,
@@ -470,6 +471,13 @@ ERL_NIF_TERM encoder_finish(SerealConstants *sereal_constants, ErlNifEnv *env, E
 
     } else if ( encoder_data->snappy_level != -1 ) {
         debug_print("Compressing as snappy, level: %d\n", encoder_data->snappy_level);
+
+        if ( (error = snappy_compress(sereal_constants, env, encoder_data)) ) {
+            return error;
+        }
+
+        encode_varint(encoder_data->index);
+        prepend(encoder_data, buffer, strlen(buffer));
     }
 
     debug_print("Adding header\n");
@@ -678,6 +686,7 @@ static void prepend(EncoderData *encoder_data, char* buffer, int len) {
     }
 
     encoder_data->index += len;
+
 }
 
 static void add_header(ErlNifEnv* env, EncoderData* encoder_data) {
@@ -702,6 +711,9 @@ static void add_header(ErlNifEnv* env, EncoderData* encoder_data) {
 
     if ( encoder_data->zlib_level != -1 ) {
         buffer[4] |= SRL_PROTOCOL_ENCODING_ZLIB;
+
+    } else if ( encoder_data->snappy_level != -1 ) {
+        buffer[4] |= SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL;
     }
 
     /* optional suffix size */
@@ -724,7 +736,7 @@ static void encode_varint(ErlNifUInt64 intValue) {
     }
 
     buffer[index++] = intValue;
-    buffer[index] = 0;
+    buffer[index]   = 0;
 }
 
 static ERL_NIF_TERM zlib_compress(SerealConstants *sereal_constants, ErlNifEnv *env, EncoderData* encoder_data){
@@ -750,6 +762,29 @@ static ERL_NIF_TERM zlib_compress(SerealConstants *sereal_constants, ErlNifEnv *
                            env,
                            mz_error(status) );
     }
+
+    enif_release_binary(&encoder_data->buffer);
+
+    encoder_data->buffer = compressed;
+    encoder_data->index = length;
+
+    debug_print("Compressed length is %d\n", length);
+
+    return NULL;
+}
+
+static ERL_NIF_TERM snappy_compress(SerealConstants *sereal_constants, ErlNifEnv *env, EncoderData* encoder_data) {
+
+    debug_print("Starting compression\n");
+
+    ErlNifBinary compressed; 
+
+    if ( !enif_alloc_binary(encoder_data->buffer.size, &compressed) ) {
+        return make_error(sereal_constants, env, "Allocation of compressed buffer failed");
+    }
+
+    int length = compressed.size;
+    csnappy_compress(encoder_data->buffer.data, encoder_data->index, compressed.data, &length, buffer, 12);
 
     enif_release_binary(&encoder_data->buffer);
 
