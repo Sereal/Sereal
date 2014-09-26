@@ -146,9 +146,9 @@ SRL_STATIC_INLINE void srl_merge_single_value(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE void srl_merge_stringish(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE void srl_merge_hash(pTHX_ srl_merger_t *mrg, const U8 tag, UV length);
 SRL_STATIC_INLINE void srl_merge_array(pTHX_ srl_merger_t *mrg, const U8 tag, UV length);
-SRL_STATIC_INLINE void srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag);
+SRL_STATIC_INLINE void srl_merge_string(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE void srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag);
-SRL_STATIC_INLINE void srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 tag);
+SRL_STATIC_INLINE void srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag);
 
 SRL_STATIC_INLINE ptable_entry_ptr srl_store_tracked_offset(pTHX_ srl_merger_t *mrg, UV from, UV to);
 SRL_STATIC_INLINE UV srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV offset);
@@ -608,7 +608,7 @@ read_again:
 
             case SRL_HDR_BINARY:
             case SRL_HDR_STR_UTF8:
-                srl_merge_string(aTHX_ mrg, tag);
+                srl_merge_string(aTHX_ mrg);
                 break;
 
             case SRL_HDR_HASH:
@@ -731,12 +731,13 @@ srl_merge_hash(pTHX_ srl_merger_t *mrg, const U8 tag, UV length)
 }
 
 SRL_STATIC_INLINE void
-srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag)
+srl_merge_string(pTHX_ srl_merger_t *mrg)
 {
     int ok;
-    UV length;
+    UV length, total_length;
     ptable_entry_ptr ptable_entry = NULL;
     strtable_entry_ptr strtable_entry;
+    const char *tag_ptr = mrg->ibuf.pos;
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
@@ -752,11 +753,16 @@ srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag)
 
     mrg->ibuf.pos++; // skip tag in input buffer
     length = srl_read_varint_uv_length(aTHX_ &mrg->ibuf, " while reading BINARY or STR_UTF8");
-    strtable_entry = srl_lookup_string(aTHX_ mrg, mrg->ibuf.pos, length, &ok);
+
+    assert((mrg->ibuf.pos - tag_ptr) > 0);
+    assert((mrg->ibuf.pos - tag_ptr) <= SRL_MAX_VARINT_LENGTH);
+    total_length = length + (mrg->ibuf.pos - tag_ptr);
+
+    strtable_entry = srl_lookup_string(aTHX_ mrg, tag_ptr, total_length, &ok);
 
     if (ok) {
         // issue COPY tag
-        srl_buf_cat_varint(aTHX_ MRG2ENC(mrg), SRL_HDR_COPY, strtable_entry->tag_offset);
+        srl_buf_cat_varint(aTHX_ MRG2ENC(mrg), SRL_HDR_COPY, strtable_entry->offset);
         mrg->ibuf.pos += length;
 
         if (expect_false(ptable_entry)) {
@@ -764,21 +770,19 @@ srl_merge_string(pTHX_ srl_merger_t *mrg, const U8 tag)
             // This is needed because if any of following tags will reffer to
             // this one as COPY we need to point them to original string.
             // By Sereal spec a COPY tag cannot reffer to another COPY tag.
-            ptable_entry->value = INT2PTR(void *, strtable_entry->tag_offset);
+            ptable_entry->value = INT2PTR(void *, strtable_entry->offset);
         }
     } else if (strtable_entry) {
-        strtable_entry->tag_offset = BODY_POS_OFS(mrg->obuf);
-
-        srl_buf_cat_varint(aTHX_ MRG2ENC(mrg), tag, length);
-        srl_buf_copy_content_nocheck(aTHX_ mrg, length);
-
-        strtable_entry->str_offset = BODY_POS_OFS(mrg->obuf) - length;
+        mrg->ibuf.pos = (char*) tag_ptr;
+        strtable_entry->offset = BODY_POS_OFS(mrg->obuf);
+        srl_buf_copy_content_nocheck(aTHX_ mrg, total_length);
 
         STRTABLE_ASSERT_ENTRY(mrg->string_deduper_tbl, strtable_entry);
-        STRTABLE_ASSERT_ENTRY_STR(mrg->string_deduper_tbl, strtable_entry, mrg->ibuf.pos - length);
+        STRTABLE_ASSERT_ENTRY_STR(mrg->string_deduper_tbl, strtable_entry,
+                                  mrg->ibuf.pos - total_length, total_length);
     } else {
-        srl_buf_cat_varint(aTHX_ MRG2ENC(mrg), tag, length);
-        srl_buf_copy_content_nocheck(aTHX_ mrg, length);
+        mrg->ibuf.pos = (char*) tag_ptr;
+        srl_buf_copy_content_nocheck(aTHX_ mrg, total_length);
     }
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
@@ -791,7 +795,7 @@ srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag)
     int ok;
     strtable_entry_ptr strtable_entry;
     ptable_entry_ptr ptable_entry = NULL;
-    UV length = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+    UV length = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) + 1; // + 1 for tag
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
@@ -807,30 +811,28 @@ srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag)
 
     // +1 because need to respect tag
     // no need to do ASSERT_BUF_SPACE because srl_build_track_table has asserted ibuf
-    strtable_entry = srl_lookup_string(aTHX_ mrg, mrg->ibuf.pos + 1, length, &ok);
+    strtable_entry = srl_lookup_string(aTHX_ mrg, mrg->ibuf.pos, length, &ok);
 
     if (ok) {
         // issue COPY tag
-        srl_buf_cat_varint(aTHX_ MRG2ENC(mrg), SRL_HDR_COPY, strtable_entry->tag_offset);
-        mrg->ibuf.pos += length + 1;
+        srl_buf_cat_varint(aTHX_ MRG2ENC(mrg), SRL_HDR_COPY, strtable_entry->offset);
+        mrg->ibuf.pos += length;
 
         if (expect_false(ptable_entry)) {
             // update value in ptable entry
             // This is needed because if any of following tags will reffer to
             // this one as COPY we need to point them to original string.
             // By Sereal spec a COPY tag cannot reffer to another COPY tag
-            ptable_entry->value = INT2PTR(void *, strtable_entry->tag_offset);
+            ptable_entry->value = INT2PTR(void *, strtable_entry->offset);
         }
     } else if (strtable_entry) {
-        srl_buf_copy_content_nocheck(aTHX_ mrg, length + 1);
-
-        strtable_entry->tag_offset = BODY_POS_OFS(mrg->obuf) - length - 1;
-        strtable_entry->str_offset = strtable_entry->tag_offset + 1;
+        strtable_entry->offset = BODY_POS_OFS(mrg->obuf);
+        srl_buf_copy_content_nocheck(aTHX_ mrg, length);
 
         STRTABLE_ASSERT_ENTRY(mrg->string_deduper_tbl, strtable_entry);
-        STRTABLE_ASSERT_ENTRY_STR(mrg->string_deduper_tbl, strtable_entry, mrg->ibuf.pos - length);
+        STRTABLE_ASSERT_ENTRY_STR(mrg->string_deduper_tbl, strtable_entry, mrg->ibuf.pos - length, length);
     } else {
-        srl_buf_copy_content_nocheck(aTHX_ mrg, length + 1);
+        srl_buf_copy_content_nocheck(aTHX_ mrg, length);
     }
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
@@ -856,7 +858,7 @@ srl_merge_stringish(pTHX_ srl_merger_t *mrg)
     if (tag >= SRL_HDR_SHORT_BINARY_LOW) {
         srl_merge_short_binary(aTHX_ mrg, tag);
     } else if (tag == SRL_HDR_BINARY || tag == SRL_HDR_STR_UTF8) {
-        srl_merge_string(aTHX_ mrg, tag);
+        srl_merge_string(aTHX_ mrg);
     } else if (tag == SRL_HDR_COPY) {
         mrg->ibuf.pos++; // skip tag in input buffer
         offset = srl_read_varint_uv_offset(aTHX_ &mrg->ibuf, " while reading COPY");
@@ -878,10 +880,11 @@ srl_merge_stringish(pTHX_ srl_merger_t *mrg)
 }
 
 SRL_STATIC_INLINE void
-srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 tag)
+srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
 {
     int ok;
     U8 strtag;
+    const char *strtag_ptr = NULL;
     ptable_entry_ptr ptable_entry = NULL;
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
@@ -908,19 +911,25 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 tag)
         }
     }
 
-    mrg->ibuf.pos++; // skip string tag in input buffer
+    strtag_ptr = mrg->ibuf.pos++; // skip string tag in input buffer
 
     if (strtag == SRL_HDR_BINARY || strtag == SRL_HDR_STR_UTF8 || strtag >= SRL_HDR_SHORT_BINARY_LOW) {
         UV length = strtag >= SRL_HDR_SHORT_BINARY_LOW
                   ? SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(strtag)
                   : srl_read_varint_uv_length(aTHX_ &mrg->ibuf, " while reading BINARY or STR_UTF8");
 
-        strtable_entry_ptr strtable_entry = srl_lookup_classname(aTHX_ mrg, mrg->ibuf.pos, length, &ok);
+        /* total_length is size of classname including STRTAG and varint (for BINARY or STR_UTF8) */
+        UV total_length = length + (mrg->ibuf.pos - strtag_ptr);
+
+        assert((mrg->ibuf.pos - strtag_ptr) > 0);
+        assert((mrg->ibuf.pos - strtag_ptr) <= SRL_MAX_VARINT_LENGTH);
+
+        strtable_entry_ptr strtable_entry = srl_lookup_classname(aTHX_ mrg, strtag_ptr, total_length, &ok);
 
         if (ok) {
             // issue OBJECTV || OBJECTV_FREEZE tag
-            U8 outtag = (tag == SRL_HDR_OBJECT ? SRL_HDR_OBJECTV : SRL_HDR_OBJECTV_FREEZE);
-            srl_buf_cat_varint(aTHX_ MRG2ENC(mrg), outtag, strtable_entry->tag_offset);
+            U8 outtag = (objtag == SRL_HDR_OBJECT ? SRL_HDR_OBJECTV : SRL_HDR_OBJECTV_FREEZE);
+            srl_buf_cat_varint(aTHX_ MRG2ENC(mrg), outtag, strtable_entry->offset);
             mrg->ibuf.pos += length;
 
             if (expect_false(ptable_entry)) {
@@ -928,36 +937,25 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 tag)
                 // This is needed because if any of following tags will reffer to
                 // this one as COPY we need to point them to original string.
                 // By Sereal spec a COPY tag cannot reffer to another COPY tag.
-                ptable_entry->value = INT2PTR(void *, strtable_entry->tag_offset);
+                ptable_entry->value = INT2PTR(void *, strtable_entry->offset);
             }
         } else if (strtable_entry) {
             // issue OBJECT tag and update strtable entry
-            srl_buf_cat_char_nocheck(MRG2ENC(mrg), tag);
+            srl_buf_cat_char_nocheck(MRG2ENC(mrg), objtag);
 
-            strtable_entry->tag_offset = BODY_POS_OFS(mrg->obuf);
-
-            if (strtag >= SRL_HDR_SHORT_BINARY_LOW) {
-                srl_buf_cat_char_nocheck(MRG2ENC(mrg), strtag);
-            } else {
-                srl_buf_cat_varint(aTHX_ MRG2ENC(mrg), strtag, length);
-            }
-
-            strtable_entry->str_offset = BODY_POS_OFS(mrg->obuf);
-            srl_buf_copy_content_nocheck(aTHX_ mrg, length);
+            mrg->ibuf.pos = (char*) strtag_ptr; // reset input buffer to strta
+            strtable_entry->offset = BODY_POS_OFS(mrg->obuf);
+            srl_buf_copy_content_nocheck(aTHX_ mrg, total_length);
 
             STRTABLE_ASSERT_ENTRY(mrg->classname_deduper_tbl, strtable_entry);
-            STRTABLE_ASSERT_ENTRY_STR(mrg->classname_deduper_tbl, strtable_entry, mrg->ibuf.pos - length);
+            STRTABLE_ASSERT_ENTRY_STR(mrg->classname_deduper_tbl, strtable_entry,
+                                      mrg->ibuf.pos - total_length, total_length);
         } else {
             // issue OBJECT tag
-            srl_buf_cat_char_nocheck(MRG2ENC(mrg), tag);
+            srl_buf_cat_char_nocheck(MRG2ENC(mrg), objtag);
 
-            if (strtag >= SRL_HDR_SHORT_BINARY_LOW) {
-                srl_buf_cat_char_nocheck(MRG2ENC(mrg), strtag);
-            } else {
-                srl_buf_cat_varint(aTHX_ MRG2ENC(mrg), strtag, length);
-            }
-
-            srl_buf_copy_content_nocheck(aTHX_ mrg, length);
+            mrg->ibuf.pos = (char*) strtag_ptr;
+            srl_buf_copy_content_nocheck(aTHX_ mrg, total_length);
         }
     } else if (strtag == SRL_HDR_COPY) {
         UV offset = srl_read_varint_uv_offset(aTHX_ &mrg->ibuf, " while reading COPY");
@@ -971,7 +969,7 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 tag)
         srl_buf_cat_varint(aTHX_ MRG2ENC(mrg), strtag, offset);
         //otag_offset = offset;
     } else {
-        croak("expected stringish in object, but got unexpected tag %d (0x%X) at %d", tag, tag, (int) BUF_POS_OFS(mrg->ibuf)); // TODO
+        croak("expected stringish in object, but got unexpected tag %d (0x%X) at %d", objtag, objtag, (int) BUF_POS_OFS(mrg->ibuf)); // TODO
     }
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
@@ -1012,15 +1010,15 @@ SRL_STATIC_INLINE strtable_entry_ptr
 srl_lookup_string(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int *ok)
 {
     *ok = 0;
-    if (len <= 3 || !SRL_MRG_HAVE_OPTION(mrg, SRL_F_DEDUPE_STRINGS))
+    if (len <= 3 || len > STRTABLE_MAX_STR_SIZE || !SRL_MRG_HAVE_OPTION(mrg, SRL_F_DEDUPE_STRINGS))
         return NULL;
 
     strtable_entry_ptr ent = STRTABLE_insert(SRL_GET_STRING_DEDUPER_TBL(mrg), src, len, ok);
-    assert(ent != NULL); // TODO assert ent
+    assert(ent != NULL);
 
     if (*ok) {
         SRL_MERGER_TRACE("srl_lookup_string: got duplicate '%.*s' target %lld",
-                         (int) len, src, ent->tag_offset);
+                         (int) len, src, ent->offset);
     } else {
         SRL_MERGER_TRACE("srl_lookup_string: not found duplicate '%.*s'",
                          (int) len, src);
@@ -1033,11 +1031,11 @@ SRL_STATIC_INLINE strtable_entry_ptr
 srl_lookup_classname(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int *ok)
 {
     *ok = 0;
-    if (len <= 3 || !SRL_MRG_HAVE_OPTION(mrg, SRL_F_DEDUPE_STRINGS))
+    if (len <= 3 || len > STRTABLE_MAX_STR_SIZE || !SRL_MRG_HAVE_OPTION(mrg, SRL_F_DEDUPE_STRINGS))
         return NULL;
 
     strtable_entry_ptr ent = STRTABLE_insert(SRL_GET_CLASSNAME_DEDUPER_TBL(mrg), src, len, ok);
-    assert(ent != NULL); // TODO assert ent
+    assert(ent != NULL);
 
     if (*ok) {
         SRL_MERGER_TRACE("srl_lookup_classname: got duplicate '%.*s' target %lld",

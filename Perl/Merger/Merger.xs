@@ -95,9 +95,8 @@ test()
       Copy(testset[i], buf.pos, len, char);
       buf.pos += len;
 
-      ent = STRTABLE_insert(tbl, testset[i], i + 1, &found);
-      ent->tag_offset = BODY_POS_OFS(buf) - len - 1;
-      ent->str_offset = BODY_POS_OFS(buf) - len;
+      ent = STRTABLE_insert(tbl, testset[i], len, &found);
+      ent->offset = BODY_POS_OFS(buf) - len;
 
       printf("%sok %u - insert %.*s\n", found ? "not " : "", (unsigned int)(1+i), (int)len, testset[i]);
       if (found) abort();
