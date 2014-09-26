@@ -587,7 +587,7 @@ into a special one byte ARRAYREF tag. This is a very significant optimization
 for common cases. This, however, does mean that most arrays up to 15 elements
 could be represented in two different, yet perfectly valid forms. ARRAYREF would
 have to be outlawed for a properly canonical form. The exact same logic
-applies to HASH vs. HASHREF. This behavior can be overriden by the
+applies to HASH vs. HASHREF. This behavior can be overridden by the
 C<canonical_refs> option, which disables use of HASHREF and ARRAYREF.
 
 =item Numeric representation
