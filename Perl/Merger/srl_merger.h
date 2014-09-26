@@ -18,7 +18,7 @@
 typedef struct {
     srl_buffer_t obuf;                    /* output buffer */
     srl_buffer_t ibuf;                    /* input buffer, MUST NOT be deallocated by srl_buf_free_buffer() */
-    srl_stack_t     *referred_offsets;    /* sorted list of offsets from ibuf which
+    srl_stack_t     *tracked_offsets;     /* sorted list of offsets from ibuf which
                                              reffered by COPY, OBJECTV or OBJECTV_FREEZE tag */
 
     struct PTABLE   *tracked_offsets_tbl; /* table to convert ibuf offsets to obuf offsets */
