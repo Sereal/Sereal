@@ -15,7 +15,6 @@
 
 #define PARSE_ERROR(MSG) parse_error( sereal_constants, env, MSG, input )  
                                      
-
 typedef struct {
     ErlNifBinary buffer;
     unsigned int index;
@@ -60,7 +59,8 @@ enum TAGS {
     BOOLEAN,
     LIST,
     TUPLE,
-    MAP
+    MAP,
+    FAKE_MAP
 };
 
 #define BUF_SIZE 4096
@@ -379,8 +379,50 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
             }
             break;
 
+#ifdef SEREAL_MAP_SUPPORT
             case MAP: {
                 debug_print("matched_type = MAP\n");
+                
+                size_t map_size = 0;
+                if ( !enif_get_map_size(env, input, &map_size) ) {
+                    return PARSE_ERROR( "Ill-formed map: failed to get size" );
+                }
+
+                if ( map_size <= 15 ) {
+                    /* HASH_REF0..15 */
+                    charValue = map_size + SRL_HDR_HASHREF_LOW;
+                    write_byte(encoder_data, charValue);
+                
+                }  else {
+                    write_byte(encoder_data, SRL_HDR_HASH);    
+
+                    /* encode length */
+                    encode_varint(map_size);
+                    write_bytes(encoder_data, buffer);
+                }
+
+                ErlNifMapIterator iterator;
+                if ( !enif_map_iterator_create(env, input, &iterator, ERL_NIF_MAP_ITERATOR_HEAD) ) {
+                    return PARSE_ERROR( "Ill-formed map: failed to get iterator" );
+                }
+
+                ERL_NIF_TERM key, value;
+                do {
+                    if ( !enif_map_iterator_get_pair(env, &iterator, &key, &value) ) {
+                        return PARSE_ERROR( "Ill-formed map: failed to get pair" );
+                    }
+
+                    /* add `value`, then `key` to the items stack */
+                    items = enif_make_list_cell(env, value, items);
+                    items = enif_make_list_cell(env, key, items);
+
+                } while ( enif_map_iterator_next(env, &iterator) );
+            }
+            break;
+#endif /* SEREAL_MAP_SUPPORT */
+
+            case FAKE_MAP: {
+                debug_print("matched_type = FAKE-MAP\n");
 
                 ERL_NIF_TERM* tuple;
                 if( !enif_get_tuple(env, input, &intValue, &tuple) ){
@@ -538,6 +580,11 @@ static int get_type(ErlNifEnv *env, ERL_NIF_TERM input){
     } else if (enif_is_list(env, input)){
         result = LIST;
 
+#ifdef SEREAL_MAP_SUPPORT
+    } else if (enif_is_map(env, input)){
+        return MAP;
+#endif 
+
     } else if (enif_is_tuple(env, input)){
         unsigned length = 0;
         ERL_NIF_TERM* tuple;
@@ -550,7 +597,7 @@ static int get_type(ErlNifEnv *env, ERL_NIF_TERM input){
             ERL_NIF_TERM first = tuple[0];
 
             result = enif_is_list(env, first)  
-                   ? MAP
+                   ? FAKE_MAP
                    : TUPLE;
             
         } else {
