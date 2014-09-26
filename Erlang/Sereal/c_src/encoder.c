@@ -379,7 +379,7 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
             }
             break;
 
-#ifdef SEREAL_MAP_SUPPORT
+#if SEREAL_MAP_SUPPORT
             case MAP: {
                 debug_print("matched_type = MAP\n");
                 
@@ -580,7 +580,7 @@ static int get_type(ErlNifEnv *env, ERL_NIF_TERM input){
     } else if (enif_is_list(env, input)){
         result = LIST;
 
-#ifdef SEREAL_MAP_SUPPORT
+#if SEREAL_MAP_SUPPORT
     } else if (enif_is_map(env, input)){
         return MAP;
 #endif 

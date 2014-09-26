@@ -346,6 +346,7 @@ decoder_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         }
     }
 
+
     return decoder_iterate( env
                           , sizeof(arguments) / sizeof(arguments[0]) 
                           , arguments);
@@ -681,12 +682,20 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         if ( dec_current(decoder) == ST_HASH_PAIR ) {
 
             status_stack_pop(decoder, ST_HASH_PAIR);
-            
+
             enif_get_list_cell(env, curr, &val, &curr);
             enif_get_list_cell(env, curr, &key, &curr);
-            
+ 
+#if SEREAL_MAP_SUPPORT
+            ERL_NIF_TERM new_map;
+            if ( !enif_make_map_put(env, curr, key, val, &new_map) ){
+                return make_error(st, env, "Map decoding failed: ill-formed key-value pair");
+            } 
+            curr = new_map;
+#else 
             val  = enif_make_tuple2(env, key, val);
             curr = enif_make_list_cell(env, val, curr);
+#endif
 
             continue;
         }
@@ -695,8 +704,12 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
             status_stack_pop(decoder, ST_HASH_CLOSE);
 
+#if SEREAL_MAP_SUPPORT
+            val = curr;
+#else
             /* val = make_hash(env, curr, list_len); */
             val = enif_make_tuple1(env, curr);
+#endif
 
             if(!enif_get_list_cell(env, objs, &curr, &objs)) {
                 result = dec_error(decoder, "internal_error 3");
@@ -772,10 +785,14 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                     debug_print("SHORT HASHREF of len %d, d->pos = %d\n", len, decoder->pos);
                     status_stack_pop(decoder, ST_VALUE);
 
-                    // create the temp list to store array elements in it
                     objs = enif_make_list_cell(env, curr, objs);
-                    curr = enif_make_list(env, 0);
 
+#if SEREAL_MAP_SUPPORT
+                    curr = enif_make_new_map(env);
+#else 
+                    // create the temp list to store array elements in it
+                    curr = enif_make_list(env, 0);
+#endif
                     status_stack_push(decoder, ST_HASH_CLOSE);
                     while (len-- > 0) {
                         status_stack_push(decoder, ST_HASH_PAIR);
@@ -948,7 +965,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
                         break;
 
-                    case SRL_HDR_HASH:
+                    case SRL_HDR_HASH: {
                         debug_print("HASH d->pos = %d\n", decoder->pos);
 
                         decoder->pos++;
@@ -956,7 +973,12 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
                         // create the temp list to store hash elements in it
                         objs = enif_make_list_cell(env, curr, objs);
+                        
+#if SEREAL_MAP_SUPPORT
+                        curr = enif_make_new_map(env);
+#else 
                         curr = enif_make_list(env, 0);
+#endif
 
                         status_stack_push(decoder, ST_HASH_CLOSE);
                         
@@ -969,7 +991,8 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
                             status_stack_push(decoder, ST_VALUE);
                             status_stack_push(decoder, ST_VALUE);
                         }
-                        break;
+                    }
+                    break;
 
                     case SRL_HDR_ARRAY:
                         debug_print("ARRAY, d->pos = %d\n", decoder->pos);
