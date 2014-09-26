@@ -99,6 +99,16 @@ extern "C" {
     }                                                      \
 } STMT_END
 
+#define srl_buf_cat_tag_nocheck(mrg, tag) STMT_START { \
+    GROW_BUF((mrg)->obuf, 1);                          \
+                                                       \
+    *(mrg)->obuf.pos++ = (tag);                        \
+    (mrg)->ibuf.pos++;                                 \
+                                                       \
+    DEBUG_ASSERT_BUF_SANE((mrg)->ibuf);                \
+    DEBUG_ASSERT_BUF_SANE((mrg)->obuf);                \
+} STMT_END
+
 /* srl_buffer.h has set of functions (srl_buf_cat_*) which I need in merger,
  * but, for performance reason (avoid another level of inderection),
  * the functions want srl_encoder_t* as first parameter to access the buffer.
@@ -131,7 +141,6 @@ SRL_STATIC_INLINE IV srl_validate_header_version_pv_len(pTHX_ char *strdata, STR
 
 SRL_STATIC_INLINE void srl_buf_copy_content(pTHX_ srl_merger_t *mrg, size_t len, const char * const errstr);
 SRL_STATIC_INLINE void srl_buf_copy_content_nocheck(pTHX_ srl_merger_t *mrg, size_t len);
-SRL_STATIC_INLINE void srl_buf_cat_tag_nocheck(pTHX_ srl_merger_t *mrg, const char tag);
 SRL_STATIC_INLINE void srl_copy_varint(pTHX_ srl_merger_t *mrg);
 
 SRL_STATIC_INLINE ptable_ptr   srl_init_tracked_offsets_tbl(pTHX_ srl_merger_t *mrg);
@@ -580,7 +589,7 @@ read_again:
     }
 
     if (tag <= SRL_HDR_NEG_HIGH) {
-        srl_buf_cat_tag_nocheck(aTHX_ mrg, tag);
+        srl_buf_cat_tag_nocheck(mrg, tag);
     } else if (tag >= SRL_HDR_ARRAYREF_LOW && tag <= SRL_HDR_ARRAYREF_HIGH) {
         srl_merge_array(aTHX_ mrg, tag, SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag));
     } else if (tag >= SRL_HDR_HASHREF_LOW && tag <= SRL_HDR_HASHREF_HIGH) {
@@ -591,7 +600,7 @@ read_again:
         switch (tag) {
             case SRL_HDR_VARINT:
             case SRL_HDR_ZIGZAG:
-                srl_buf_cat_tag_nocheck(aTHX_ mrg, tag);
+                srl_buf_cat_tag_nocheck(mrg, tag);
                 srl_copy_varint(aTHX_ mrg);
                 break;
 
@@ -603,7 +612,7 @@ read_again:
             case SRL_HDR_FALSE:
             case SRL_HDR_UNDEF:
             case SRL_HDR_CANONICAL_UNDEF:
-                srl_buf_cat_tag_nocheck(aTHX_ mrg, tag);
+                srl_buf_cat_tag_nocheck(mrg, tag);
                 break;
 
             case SRL_HDR_BINARY:
@@ -642,7 +651,7 @@ read_again:
                     case SRL_HDR_REFN:
                     case SRL_HDR_WEAKEN:
                     case SRL_HDR_EXTEND:
-                        srl_buf_cat_tag_nocheck(aTHX_ mrg, tag);
+                        srl_buf_cat_tag_nocheck(mrg, tag);
                         goto read_again;
 
                     case SRL_HDR_OBJECT:
@@ -651,7 +660,7 @@ read_again:
                         break;
 
                     case SRL_HDR_REGEXP:
-                        srl_buf_cat_tag_nocheck(aTHX_ mrg, tag);
+                        srl_buf_cat_tag_nocheck(mrg, tag);
                         srl_merge_stringish(aTHX_ mrg);
 
                         tag = *mrg->ibuf.pos;
@@ -671,7 +680,7 @@ read_again:
 
                     case SRL_HDR_PAD:
                         while (BUF_NOT_DONE(mrg->ibuf) && *mrg->ibuf.pos == SRL_HDR_PAD) {
-                            srl_buf_cat_tag_nocheck(aTHX_ mrg, SRL_HDR_PAD);
+                            srl_buf_cat_tag_nocheck(mrg, SRL_HDR_PAD);
                         }
 
                         goto read_again;
@@ -696,7 +705,7 @@ srl_merge_array(pTHX_ srl_merger_t *mrg, const U8 tag, UV length)
     if (tag == SRL_HDR_ARRAY) {
         srl_buf_cat_varint(aTHX_ MRG2ENC(mrg), tag, length);
     } else {
-        srl_buf_cat_tag_nocheck(aTHX_ mrg, tag);
+        srl_buf_cat_tag_nocheck(mrg, tag);
     }
 
     unsigned int i;
@@ -717,7 +726,7 @@ srl_merge_hash(pTHX_ srl_merger_t *mrg, const U8 tag, UV length)
     if (tag == SRL_HDR_HASH) {
         srl_buf_cat_varint(aTHX_ MRG2ENC(mrg), tag, length);
     } else {
-        srl_buf_cat_tag_nocheck(aTHX_ mrg, tag);
+        srl_buf_cat_tag_nocheck(mrg, tag);
     }
 
     unsigned int i;
@@ -1065,18 +1074,6 @@ srl_buf_copy_content_nocheck(pTHX_ srl_merger_t *mrg, size_t len)
     Copy(mrg->ibuf.pos, mrg->obuf.pos, len, char);
     mrg->ibuf.pos += len;
     mrg->obuf.pos += len;
-
-    DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
-    DEBUG_ASSERT_BUF_SANE(mrg->obuf);
-}
-
-SRL_STATIC_INLINE void
-srl_buf_cat_tag_nocheck(pTHX_ srl_merger_t *mrg, const char tag)
-{
-    GROW_BUF(mrg->obuf, 1);
-
-    *mrg->obuf.pos++ = tag;
-    mrg->ibuf.pos++;
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
