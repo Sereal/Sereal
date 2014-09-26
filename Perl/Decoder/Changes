@@ -3,6 +3,12 @@ Revision history for Perl extension Sereal-Decoder
 * Warning: For a seamless upgrade, upgrade to version 3
 *          of the decoder before upgrading to version 3 of the
 *          encoder!
+3.002_001 Sept 26, 2014
+  * Niko Tyni fixed the 64-bit big endian Sereal bug! (Yay Niko!)
+  * Sereal::Decoder::Constants will now have a defined $VERSION
+  * Setup META.yml correctly so that certain dependencies are
+    marked as being test dependencies and not build or run-time
+    dependencies.
 
 3.002 Aug 20 2014
   * Summary of changes from 3.001 - 3.002
