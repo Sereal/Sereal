@@ -120,6 +120,8 @@ extern "C" {
 #define SRL_MRG_SET_OPTION(mrg, flag_num) ((mrg)->flags |= (flag_num))
 #define SRL_MRG_HAVE_OPTION(mrg, flag_num) ((mrg)->flags & (flag_num))
 
+#define SRL_MAX_VARINT_LENGTH_U32 5
+
 #include "srl_merger.h"
 #include "srl_common.h"
 #include "ptable.h"
@@ -256,9 +258,9 @@ srl_build_merger_struct(pTHX_ HV *opt)
      * if not SRL_F_TOPLEVEL_KEY_SCALAR
      * +  1 byte SRL_HDR_REFN
      * +  1 byte SRL_HDR_ARRAY|HASH
-     * +  SRL_MAX_VARINT_LENGTH bytes for padding varint */
+     * +  SRL_MAX_VARINT_LENGTH_U32 bytes for padding varint */
     GROW_BUF(mrg->obuf, sizeof(SRL_MAGIC_STRING) + 1 + 1 +
-             SRL_MRG_HAVE_OPTION(mrg, SRL_F_TOPLEVEL_KEY_SCALAR) ? 0 : 1 + 1 + SRL_MAX_VARINT_LENGTH);
+             SRL_MRG_HAVE_OPTION(mrg, SRL_F_TOPLEVEL_KEY_SCALAR) ? 0 : 1 + 1 + SRL_MAX_VARINT_LENGTH_U32);
 
     if (expect_true(mrg->protocol_version > 2)) {
         srl_buf_cat_str_s_nocheck(MRG2ENC(mrg), SRL_MAGIC_STRING_HIGHBIT);
@@ -276,7 +278,7 @@ srl_build_merger_struct(pTHX_ HV *opt)
         srl_buf_cat_char_nocheck(MRG2ENC(mrg), SRL_MRG_HAVE_OPTION(mrg, SRL_F_TOPLEVEL_KEY_HASH) ? SRL_HDR_HASH : SRL_HDR_ARRAY);
 
         mrg->obuf_padding_bytes_offset = BUF_POS_OFS(mrg->obuf);
-        for (i = 0; i < SRL_MAX_VARINT_LENGTH; ++i) { // TODO need to allocate space only for U32 items
+        for (i = 0; i < SRL_MAX_VARINT_LENGTH_U32; ++i) {
             srl_buf_cat_char_nocheck(MRG2ENC(mrg), SRL_HDR_PAD);
         }
     }
