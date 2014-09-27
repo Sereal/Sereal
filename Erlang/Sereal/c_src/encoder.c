@@ -350,32 +350,14 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
 
             case TUPLE: {
                 /* encode as a list */
-                debug_print("matched_type = TUPLE\n");
-
-                ERL_NIF_TERM* tuple;
-                if ( !enif_get_tuple(env, input, &intValue, &tuple) ){
-                    return PARSE_ERROR( "Extracting tuple failed" );
-                }
-
-                debug_print("tuple length is %d\n", intValue);
-
-                if ( intValue <= 15 ) {
-                    /* ARRAY_REF0..15 */
-                    charValue = intValue + SRL_HDR_ARRAYREF_LOW;
-                    write_byte(encoder_data, charValue);
-                
-                }  else {
-                    write_byte(encoder_data, SRL_HDR_ARRAY);    
-
-                    /* encode length */
-                    encode_varint(intValue);
-                    write_bytes(encoder_data, buffer);
-                }
-
-                debug_print("adding tuple elements to the items\n");
-                while ( intValue-- ) {
-                    items = enif_make_list_cell(env, tuple[intValue], items);
-                }
+                /* we pass tuple(tuple, array) back to erlang to convert it to list, useful for arrays */
+                 return enif_make_tuple4(
+                        env,
+                        sereal_constants->atom_convert,
+                        items,
+                        encoder_resource,
+                        input
+                      );
             }
             break;
 

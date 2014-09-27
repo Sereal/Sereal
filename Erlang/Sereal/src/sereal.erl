@@ -80,10 +80,8 @@ encode(Data, Opts) ->
             throw(Error);
         
         {iter, Items, Encoder} ->
-            encoder_loop(Items, Encoder);
+            encoder_loop(Items, Encoder)
 
-        EncodedBinary ->
-            EncodedBinary
     end.
 
 encoder_loop(Items, Encoder) ->
@@ -93,6 +91,11 @@ encoder_loop(Items, Encoder) ->
 
         {error, Reason, Term} = Error ->
             throw(Error);
+
+        {convert, NewItems, NewEncoder, Term} ->
+            NewTerm = term_to_list(Term),
+            NewItems2 = [NewTerm | NewItems],
+            encoder_loop(NewItems2, NewEncoder);
 
         {iter, NewItems, NewEncoder} ->
             encoder_loop(NewItems, NewEncoder);
@@ -117,3 +120,8 @@ nif_encoder_init(_, _) ->
 nif_encoder_iterate(_, _) ->
     ?NOT_LOADED.
 
+term_to_list(Term) ->
+    case array:is_array(Term) of
+        true -> array:to_list(Term);
+           _ -> tuple_to_list(Term)
+    end.
