@@ -141,7 +141,6 @@ SRL_STATIC_INLINE UV srl_read_varint_uv_length(pTHX_ srl_buffer_t *buf, const ch
 SRL_STATIC_INLINE UV srl_read_varint_uv_count(pTHX_ srl_buffer_t *buf, const char * const errstr);
 SRL_STATIC_INLINE IV srl_validate_header_version_pv_len(pTHX_ char *strdata, STRLEN len);
 
-SRL_STATIC_INLINE void srl_buf_copy_content(pTHX_ srl_merger_t *mrg, size_t len, const char * const errstr);
 SRL_STATIC_INLINE void srl_buf_copy_content_nocheck(pTHX_ srl_merger_t *mrg, size_t len);
 SRL_STATIC_INLINE void srl_copy_varint(pTHX_ srl_merger_t *mrg);
 
@@ -157,7 +156,7 @@ SRL_STATIC_INLINE void srl_merge_single_value(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE void srl_merge_stringish(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE void srl_merge_hash(pTHX_ srl_merger_t *mrg, const U8 tag, UV length);
 SRL_STATIC_INLINE void srl_merge_array(pTHX_ srl_merger_t *mrg, const U8 tag, UV length);
-SRL_STATIC_INLINE void srl_merge_string(pTHX_ srl_merger_t *mrg, ptable_entry_ptr ptable_entry);
+SRL_STATIC_INLINE void srl_merge_binary_utf8(pTHX_ srl_merger_t *mrg, ptable_entry_ptr ptable_entry);
 SRL_STATIC_INLINE void srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag, ptable_entry_ptr ptable_entry);
 SRL_STATIC_INLINE void srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag);
 
@@ -626,7 +625,7 @@ read_again:
 
             case SRL_HDR_BINARY:
             case SRL_HDR_STR_UTF8:
-                srl_merge_string(aTHX_ mrg, ptable_entry);
+                srl_merge_binary_utf8(aTHX_ mrg, ptable_entry);
                 break;
 
             case SRL_HDR_HASH:
@@ -749,7 +748,7 @@ srl_merge_hash(pTHX_ srl_merger_t *mrg, const U8 tag, UV length)
 }
 
 SRL_STATIC_INLINE void
-srl_merge_string(pTHX_ srl_merger_t *mrg, ptable_entry_ptr ptable_entry)
+srl_merge_binary_utf8(pTHX_ srl_merger_t *mrg, ptable_entry_ptr ptable_entry)
 {
     int ok;
     UV length, total_length;
@@ -866,7 +865,7 @@ srl_merge_stringish(pTHX_ srl_merger_t *mrg)
     if (tag >= SRL_HDR_SHORT_BINARY_LOW) {
         srl_merge_short_binary(aTHX_ mrg, tag, ptable_entry);
     } else if (tag == SRL_HDR_BINARY || tag == SRL_HDR_STR_UTF8) {
-        srl_merge_string(aTHX_ mrg, ptable_entry);
+        srl_merge_binary_utf8(aTHX_ mrg, ptable_entry);
     } else if (tag == SRL_HDR_COPY) {
         mrg->ibuf.pos++; // skip tag in input buffer
         offset = srl_read_varint_uv_offset(aTHX_ &mrg->ibuf, " while reading COPY");
@@ -1057,19 +1056,10 @@ srl_lookup_classname(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int *
 }
 
 SRL_STATIC_INLINE void
-srl_buf_copy_content(pTHX_ srl_merger_t *mrg, size_t len, const char * const errstr)
-{
-    DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
-    ASSERT_BUF_SPACE(mrg->ibuf, len, errstr);
-    srl_buf_copy_content_nocheck(aTHX_ mrg, len);
-}
-
-SRL_STATIC_INLINE void
 srl_buf_copy_content_nocheck(pTHX_ srl_merger_t *mrg, size_t len)
 {
     GROW_BUF(mrg->obuf, len);
 
-    // TODO profile for len == 1
     Copy(mrg->ibuf.pos, mrg->obuf.pos, len, char);
     mrg->ibuf.pos += len;
     mrg->obuf.pos += len;
