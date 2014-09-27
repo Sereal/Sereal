@@ -39,36 +39,6 @@ parse_error(SerealConstants* st, ErlNifEnv* env, const char* error, ERL_NIF_TERM
 }
 
 int
-get_bytes_per_iter(ErlNifEnv* env, ERL_NIF_TERM val, size_t* bpi)
-{
-    SerealConstants* st = (SerealConstants*) enif_priv_data(env);
-
-    int arity;
-    unsigned int bytes;
-    const ERL_NIF_TERM* tuple;
-
-    if(!enif_get_tuple(env, val, &arity, &tuple)) {
-        return 0;
-    }
-
-    if(arity != 2) {
-        return 0;
-    }
-
-    if(enif_compare(tuple[0], st->atom_bytes_per_iter) != 0) {
-        return 0;
-    }
-
-    if(!enif_get_uint(env, tuple[1], &bytes)) {
-        return 0;
-    }
-
-    *bpi = (size_t) bytes;
-
-    return 1;
-}
-
-int
 should_yield(size_t used, size_t limit)
 {
     return !(limit == UNLIMITED || used < limit);

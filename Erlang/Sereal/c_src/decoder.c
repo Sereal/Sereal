@@ -20,6 +20,8 @@
 #define STACK_SIZE_INCR 64
 #define NUM_BUF_LEN 32
 
+#define DECODE_ARRAYREF_TO_LIST 1
+
 #if WINDOWS || WIN32
 #define snprintf  _snprintf
 #endif
@@ -53,15 +55,14 @@ typedef struct {
     ERL_NIF_TERM input;
     ErlNifBinary bin;
 
-    size_t       bytes_per_iter;
 
     char*        buffer;
     int          pos;
     int          len;
 
-    char*           status_stask_data;
-    int             status_stack_size;
-    int             status_stack_top;
+    char*        status_stask_data;
+    int          status_stack_size;
+    int          status_stack_top;
 
     int*         ref_stack_data;
     int          ref_stack_size;
@@ -69,6 +70,9 @@ typedef struct {
 
     int          header_parsed;
     int          body_pos;
+
+    size_t       bytes_per_iter;
+    int          options;
 
 } Decoder;
 
@@ -134,6 +138,7 @@ decoder_new(ErlNifEnv* env)
 
     result->status_stack_size = STACK_SIZE_INCR;
     result->status_stack_top = 0;
+    result->options = 0;
 
     memset(result->status_stask_data, ST_INVALID, result->status_stack_size);
 
@@ -335,14 +340,28 @@ decoder_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     // TODO: add support for other options:
     // refuse_snappy, refuse_objects, no_bless_objects, 
     // validate_utf8(?), max_num_hash_entries, incremental(?), use_undef 
-    ERL_NIF_TERM val;
-    while(enif_get_list_cell(env, opts, &val, &opts)) {
+    int arity;
+    const ERL_NIF_TERM* tuple;
 
-        if(get_bytes_per_iter(env, val, &(decoder->bytes_per_iter))) {
-            continue;
+    ERL_NIF_TERM option;
+    while (enif_get_list_cell(env, opts, &option, &opts)) {
+        
+        if(!enif_get_tuple(env, option, &arity, &tuple)) {
+            return parse_error( st, env, "Options should be tuple", option );
+        }
+
+        if( !enif_compare(tuple[0], st->atom_bytes_per_iter) ) {
+            if ( arity == 2 && enif_get_uint(env, tuple[1], &decoder->bytes_per_iter) ) {
+
+            } else{
+                return parse_error( st, env, "Bytes per iteration should be a number value", option );
+            }
+
+        } else if ( !enif_compare(tuple[0] , st->atom_arrayref_to_list) ) {
+            decoder->options |= DECODE_ARRAYREF_TO_LIST;
 
         } else {
-            return enif_make_badarg(env);
+            return parse_error( st, env, "Not supported option: ", tuple[0] );
         }
     }
 
@@ -668,16 +687,29 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
             status_stack_pop(decoder, ST_ARRAY_CLOSE);
 
-            // arrays are converted in Erlang to moduled arrays
-            return enif_make_tuple4 (
-                    env,
-                    st->atom_convert,
-                    argv[1],
-                    objs,
-                    curr
-             );
+            /* if option is on we convert ARRAYREFs to Erlang lists, not arrays */
+            if (decoder->options & DECODE_ARRAYREF_TO_LIST) {
+                val = make_array(env, curr);
 
-            continue;
+                if(!enif_get_list_cell(env, objs, &curr, &objs)) {
+                    result = dec_error(decoder, "Internal_error 2");
+                    goto done;
+                }
+
+                curr = enif_make_list_cell(env, val, curr);
+                continue;
+
+            } else {
+                // arrays are converted in Erlang to moduled arrays
+                return enif_make_tuple4 (
+                        env,
+                        st->atom_convert,
+                        argv[1],
+                        objs,
+                        curr
+                 );
+            }
+
         }
 
         if ( dec_current(decoder) == ST_HASH_PAIR ) {

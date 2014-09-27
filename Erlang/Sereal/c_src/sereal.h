@@ -21,6 +21,7 @@ typedef struct {
     ERL_NIF_TERM  atom_iter;
     ERL_NIF_TERM  atom_convert;
     ERL_NIF_TERM  atom_bytes_per_iter;
+    ERL_NIF_TERM  atom_arrayref_to_list;
 
     ErlNifResourceType* resource_encoder;
     ErlNifResourceType* resource_decoder;
@@ -33,7 +34,6 @@ ERL_NIF_TERM make_error(SerealConstants* st, ErlNifEnv* env, const char* error);
 ERL_NIF_TERM parse_error(SerealConstants* st, ErlNifEnv* env, const char* error, ERL_NIF_TERM term);
 
 int should_yield(size_t used, size_t limit);
-int get_bytes_per_iter(ErlNifEnv* env, ERL_NIF_TERM val, size_t* bpi);
 int consume_timeslice(ErlNifEnv* env, size_t used, size_t limit);
 
 ERL_NIF_TERM decoder_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);

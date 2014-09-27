@@ -9,17 +9,18 @@ load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
         return 1;
     }
 
-    st->atom_ok             = make_atom(env, "ok");
-    st->atom_error          = make_atom(env, "error");
-    st->atom_true           = make_atom(env, "true");
-    st->atom_false          = make_atom(env, "false");
-    st->atom_bignum         = make_atom(env, "bignum");
-    st->atom_bignum_e       = make_atom(env, "bignum_e");
-    st->atom_bigdbl         = make_atom(env, "bigdbl");
-    st->atom_undefined      = make_atom(env, "undefined");
-    st->atom_iter           = make_atom(env, "iter");
-    st->atom_convert        = make_atom(env, "convert");
-    st->atom_bytes_per_iter = make_atom(env, "bytes_per_iter");
+    st->atom_ok               = make_atom(env, "ok");
+    st->atom_error            = make_atom(env, "error");
+    st->atom_true             = make_atom(env, "true");
+    st->atom_false            = make_atom(env, "false");
+    st->atom_bignum           = make_atom(env, "bignum");
+    st->atom_bignum_e         = make_atom(env, "bignum_e");
+    st->atom_bigdbl           = make_atom(env, "bigdbl");
+    st->atom_undefined        = make_atom(env, "undefined");
+    st->atom_iter             = make_atom(env, "iter");
+    st->atom_convert          = make_atom(env, "convert");
+    st->atom_bytes_per_iter   = make_atom(env, "bytes_per_iter");
+    st->atom_arrayref_to_list = make_atom(env, "arrayref_to_list");
 
     st->resource_encoder = enif_open_resource_type (
                                 env,
