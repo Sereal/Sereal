@@ -19,6 +19,7 @@ typedef struct {
     ERL_NIF_TERM  atom_bigdbl;
     ERL_NIF_TERM  atom_undefined;
     ERL_NIF_TERM  atom_iter;
+    ERL_NIF_TERM  atom_convert;
     ERL_NIF_TERM  atom_bytes_per_iter;
 
     ErlNifResourceType* resource_encoder;

@@ -664,18 +664,19 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             continue;
         }
 
-
         if ( dec_current(decoder) == ST_ARRAY_CLOSE ) {
 
             status_stack_pop(decoder, ST_ARRAY_CLOSE);
-            val = make_array(env, curr);
 
-            if(!enif_get_list_cell(env, objs, &curr, &objs)) {
-                result = dec_error(decoder, "Internal_error 2");
-                goto done;
-            }
+            // arrays are converted in Erlang to moduled arrays
+            return enif_make_tuple4 (
+                    env,
+                    st->atom_convert,
+                    argv[1],
+                    objs,
+                    curr
+             );
 
-            curr = enif_make_list_cell(env, val, curr);
             continue;
         }
 

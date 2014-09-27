@@ -18,6 +18,7 @@ load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
     st->atom_bigdbl         = make_atom(env, "bigdbl");
     st->atom_undefined      = make_atom(env, "undefined");
     st->atom_iter           = make_atom(env, "iter");
+    st->atom_convert        = make_atom(env, "convert");
     st->atom_bytes_per_iter = make_atom(env, "bytes_per_iter");
 
     st->resource_encoder = enif_open_resource_type (
