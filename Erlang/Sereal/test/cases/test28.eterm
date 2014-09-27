@@ -1,2 +1,0 @@
-%% we support undef
-[<<"aaaa">>,<<"abcd">>,<<"abcd">>].

@@ -349,7 +349,6 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
                 break;
 
             case TUPLE: {
-                /* encode as a list */
                 /* we pass tuple(tuple, array) back to erlang to convert it to list, useful for arrays */
                  return enif_make_tuple4(
                         env,

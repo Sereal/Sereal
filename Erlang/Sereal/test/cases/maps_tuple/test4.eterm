@@ -1,0 +1,13 @@
+{[
+   {<<"more">>,
+        {array,5,10,undefined,
+            {1,2,3,4,5,undefined,undefined,undefined,undefined,undefined}}},
+ 
+   {<<"data">>,
+        {array,2,10,undefined,
+            {{[{<<"a">>,<<"b">>},{<<"c">>,<<"d">>},{<<"e">>,<<"f">>}]},
+            {[{<<"foo">>,4.2}]},
+             undefined,undefined,undefined,undefined,
+             undefined,undefined,undefined,undefined}}}
+           
+]}.
