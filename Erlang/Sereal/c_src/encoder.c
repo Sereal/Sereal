@@ -684,25 +684,33 @@ static ERL_NIF_TERM parse_options(ErlNifEnv *env, SerealConstants *sereal_consta
         }
 
         debug_print("Checking if such option(%s) is supported\n", buffer);
-        if (  !strncmp("zlib", buffer, atom_length) 
-           || !strncmp("snappy", buffer, atom_length) ) {
+
+        if (  !strncmp("zlib", buffer, atom_length) ) {
 
             int level = 0;
-            if (   arity == 2 
-               && !enif_get_int(env, option[1], &level)) {
+            if ( arity == 2 && enif_get_int(env, option[1], &level) 
+               && level >= 0 && level <= 9 ) {
 
-                return make_error ( sereal_constants, 
-                                    env, 
-                                    "Compression level should be an integer" );
-            }
-
-            if( !strncmp("zlib", buffer, atom_length) ) {
                 encoder_data->zlib_level = level;
 
             } else {
-                encoder_data->snappy_level = level;
+                return make_error( sereal_constants, 
+                                   env, 
+                                   "Compression level should be an integer between 0 and 9" );
             }
-            
+
+        } else if (  !strncmp("snappy", buffer, atom_length) ) {
+
+            if(arity == 1) {
+                encoder_data->snappy_level = 1;
+
+            } else {
+                return make_error( sereal_constants, 
+                                   env,
+                                   "Snappy should have no options" );
+
+            }
+
         } else {
             debug_print("Unsupported option\n");
             return parse_error ( sereal_constants,
