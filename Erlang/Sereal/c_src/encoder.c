@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <math.h>
+
 #include "erl_nif.h"
 #include "srl_protocol.h"
 
@@ -143,12 +145,13 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
     ERL_NIF_TERM status, value;
 
     int          index;
-    int          intValue;
+    int64_t      intValue;
     char         charValue;
     char        *charPtr;
     double       dblValue;
     unsigned     uintValue;
     ErlNifBinary binValue;
+    ErlNifUInt64 sint64;
 
     int previous_size = 0;
 
@@ -196,20 +199,21 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
 
             case ZIGZAG:
                 debug_print("matched type = ZIGZAG\n");
-                if ( !enif_get_int(env, input, &intValue) ){
+                if ( !enif_get_int(env, input, &sint64) ){
                     return PARSE_ERROR( "Failed to extract integer value" );
                 }
 
-                intValue = -2 * intValue  - 1;
-                encode_varint(intValue);
                 write_byte(encoder_data, SRL_HDR_ZIGZAG);
+
+                sint64 = 2 * abs(sint64)  - 1;
+                encode_varint(sint64);
                 write_bytes(encoder_data, buffer);
 
                 break;
 
             case VARINT:
                 debug_print("matched_type = VARINT\n");
-                if ( !enif_get_int(env, input, &intValue) ){
+                if ( !enif_get_int64(env, input, &intValue) ){
                     return PARSE_ERROR( "Failed to extract integer value" );
                 }
 
@@ -276,11 +280,18 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
                 }
 
                 /* default BINARY tag */
-                charValue = SRL_HDR_BINARY;
                 if ( binValue.size <= 31 ) {
                     charValue = binValue.size + SRL_HDR_SHORT_BINARY_LOW;
+                    write_byte(encoder_data, charValue);
+
+                } else {
+                    charValue = SRL_HDR_BINARY;
+                    write_byte(encoder_data, charValue);
+
+                    /* encode length */
+                    encode_varint(binValue.size);
+                    write_bytes(encoder_data, buffer);
                 }
-                write_byte(encoder_data, charValue);
 
                 for ( index = 0; index < binValue.size; index++ ) {
                     write_byte(encoder_data, binValue.data[index]);
@@ -292,19 +303,28 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
                 /* Encode atom as a string */
                 debug_print("matched_type = ATOM\n");
 
-                if ( !enif_get_atom_length(env, input, &intValue, ERL_NIF_LATIN1) ) {
+                if ( !enif_get_atom_length(env, input, &uintValue, ERL_NIF_LATIN1) ) {
                     return PARSE_ERROR( "Failed to get atom length" );
                 }
 
-                if ( !enif_get_atom(env, input, buffer, intValue + 1, ERL_NIF_LATIN1) ) {
-                    return PARSE_ERROR( "Failed to extract atom");
+                /* default BINARY tag */
+                if ( uintValue <= 31 ) {
+                    charValue = uintValue + SRL_HDR_SHORT_BINARY_LOW;
+                    write_byte(encoder_data, charValue);
+
+                } else {
+                    charValue = SRL_HDR_BINARY;
+                    write_byte(encoder_data, charValue);
+
+                    /* encode length */
+                    encode_varint(uintValue);
+                    write_bytes(encoder_data, buffer);
                 }
 
-                charValue = SRL_HDR_BINARY;
-                if ( intValue <= 31 ) {
-                    charValue = intValue + SRL_HDR_SHORT_BINARY_LOW;
+                if ( !enif_get_atom(env, input, buffer, uintValue + 1, ERL_NIF_LATIN1) ) {
+                    return PARSE_ERROR( "Failed to extract atom");
                 }
-                write_byte(encoder_data, charValue);
+ 
                 write_bytes(encoder_data, buffer);
 
                 break;
@@ -312,21 +332,20 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
             case LIST /* ARRAY */ : {
                 debug_print("matched_type = LIST\n");
                 
-                if ( !enif_get_list_length(env, input, &intValue) ) {
+                if ( !enif_get_list_length(env, input, &uintValue) ) {
                     return PARSE_ERROR( "Extracting list length failed" );
                 }
 
-                debug_print("list length is: %d\n", intValue);
-                if ( intValue <= 15 ) {
+                if ( uintValue <= 15 ) {
                     /* ARRAY_REF0..15 */
-                    charValue = intValue + SRL_HDR_ARRAYREF_LOW;
+                    charValue = uintValue + SRL_HDR_ARRAYREF_LOW;
                     write_byte(encoder_data, charValue);
                 
                 }  else {
                     write_byte(encoder_data, SRL_HDR_ARRAY);    
 
                     /* encode length */
-                    encode_varint(intValue);
+                    encode_varint(uintValue);
                     write_bytes(encoder_data, buffer);
                 }
 
@@ -335,12 +354,14 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
 
                 ERL_NIF_TERM reverse = enif_make_list(env, 0);
 
-                for(index = 0; index < intValue; index++){
-                    enif_get_list_cell(env, tail, &head, &tail);
+                for (index = 0; index < uintValue; index++){
+                    if ( !enif_get_list_cell(env, tail, &head, &tail) ) {
+                        return PARSE_ERROR( "Ill-formed list" );
+                    }
                     reverse = enif_make_list_cell(env, head, reverse);
                 }
 
-                for(index = 0; index < intValue; index++){
+                for(index = 0; index < uintValue; index++){
                     enif_get_list_cell(env, reverse, &head, &reverse);
                     items = enif_make_list_cell(env, head, items);
                 }
@@ -382,6 +403,7 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
                     write_bytes(encoder_data, buffer);
                 }
 
+
                 ErlNifMapIterator iterator;
                 if ( !enif_map_iterator_create(env, input, &iterator, ERL_NIF_MAP_ITERATOR_HEAD) ) {
                     return PARSE_ERROR( "Ill-formed map: failed to get iterator" );
@@ -413,7 +435,6 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
                 ERL_NIF_TERM key_value_list = tuple[0];
 
                 enif_get_list_length(env, key_value_list, &intValue);
-                debug_print("map size is %d\n", intValue);
                 
                 if ( intValue <= 15 ) {
                     /* HASH_REF0..15 */
@@ -431,7 +452,6 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
                 ERL_NIF_TERM head, tail;
                 tail = key_value_list;
 
-                debug_print("adding map key-value pairs to the items\n");
                 while ( intValue-- ) {
 
                     if ( !enif_get_list_cell(env, tail, &head, &tail) ) {

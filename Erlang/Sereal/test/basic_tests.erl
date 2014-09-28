@@ -10,7 +10,6 @@ arrayref_to_list_test() ->
     Cases = read_cases("arrayref_list"),
     [gen(Case, [{arrayref_to_list}]) || Case <- Cases].
 
-
 -ifdef(SEREAL_MAP_SUPPORT).
 
 maps_map_test() ->

@@ -101,7 +101,6 @@ encoder_loop(Items, Encoder) ->
             encoder_loop(NewItems, NewEncoder);
 
         EncoderBinary ->
-            io:format("Finished~n"),
             EncoderBinary
     end.
 

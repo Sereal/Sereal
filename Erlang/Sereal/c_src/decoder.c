@@ -876,13 +876,9 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
                         ErlNifUInt64 _value = srl_read_varint_int64_nocheck(decoder);
                         
-                        int64_value = _value >> 1;
+                        ErlNifSInt64 value = -( (_value + 1 ) / 2 );
 
-                        if (int64_value & 1){
-                            int64_value = ~int64_value;
-                        }
-                        
-                        val = enif_make_int64(decoder->env, int64_value);
+                        val = enif_make_int64(decoder->env, value);
                         curr = enif_make_list_cell(decoder->env, val, curr);
 
                         break;
