@@ -342,6 +342,7 @@ ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int count, const ERL_NIF_TERM argum
                     write_byte(encoder_data, charValue);
                 
                 }  else {
+                    write_byte(encoder_data, SRL_HDR_REFN);    
                     write_byte(encoder_data, SRL_HDR_ARRAY);    
 
                     /* encode length */
