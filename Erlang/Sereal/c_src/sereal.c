@@ -17,8 +17,10 @@ load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
     st->atom_bignum_e         = make_atom(env, "bignum_e");
     st->atom_bigdbl           = make_atom(env, "bigdbl");
     st->atom_undefined        = make_atom(env, "undefined");
-    st->atom_iter             = make_atom(env, "iter");
+    st->atom_partial          = make_atom(env, "partial");
     st->atom_convert          = make_atom(env, "convert");
+    st->atom_zlib             = make_atom(env, "zlib");
+    st->atom_snappy           = make_atom(env, "snappy");
     st->atom_bytes_per_iter   = make_atom(env, "bytes_per_iter");
     st->atom_arrayref_to_list = make_atom(env, "arrayref_to_list");
 
@@ -68,8 +70,8 @@ static ErlNifFunc funcs[] =
 {
     {"nif_decoder_init",    2, decoder_init},
     {"nif_decoder_iterate", 4, decoder_iterate},
-    {"nif_encoder_init",    2, encoder_init},
-    {"nif_encoder_iterate", 2, encoder_iterate},
+    {"srl_encoder_setup",   2, srl_encoder_setup},
+    {"srl_encoder_parse",   2, srl_encoder_parse},
 };
 
 ERL_NIF_INIT(sereal, funcs, &load, &reload, &upgrade, &unload);

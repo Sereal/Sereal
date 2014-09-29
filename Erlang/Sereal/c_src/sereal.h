@@ -18,8 +18,10 @@ typedef struct {
     ERL_NIF_TERM  atom_bignum_e;
     ERL_NIF_TERM  atom_bigdbl;
     ERL_NIF_TERM  atom_undefined;
-    ERL_NIF_TERM  atom_iter;
+    ERL_NIF_TERM  atom_partial;
     ERL_NIF_TERM  atom_convert;
+    ERL_NIF_TERM  atom_zlib;
+    ERL_NIF_TERM  atom_snappy;
     ERL_NIF_TERM  atom_bytes_per_iter;
     ERL_NIF_TERM  atom_arrayref_to_list;
 
@@ -39,8 +41,8 @@ int consume_timeslice(ErlNifEnv* env, size_t used, size_t limit);
 ERL_NIF_TERM decoder_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
-ERL_NIF_TERM encoder_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-ERL_NIF_TERM encoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM srl_encoder_setup(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+ERL_NIF_TERM srl_encoder_parse(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 void encoder_destroy(ErlNifEnv* env, void* obj);
 void decoder_destroy(ErlNifEnv* env, void* obj);

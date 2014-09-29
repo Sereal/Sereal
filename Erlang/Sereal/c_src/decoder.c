@@ -540,7 +540,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
              return enif_make_tuple5 (
                     env,
-                    st->atom_iter,
+                    st->atom_partial,
                     argv[1],
                     objs,
                     curr,
@@ -591,7 +591,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
              return enif_make_tuple5(
                     env,
-                    st->atom_iter,
+                    st->atom_partial,
                     argv[1],
                     objs,
                     curr,
@@ -624,7 +624,7 @@ decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             
             return enif_make_tuple4(
                     env,
-                    st->atom_iter,
+                    st->atom_partial,
                     argv[1],
                     objs,
                     curr

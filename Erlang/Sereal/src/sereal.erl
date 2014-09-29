@@ -25,12 +25,12 @@ decode(Data, Opts) when is_binary(Data), is_list(Opts) ->
         {error, _} = Error ->
             throw(Error);
         
-        {iter, Decoder, Objs, Curr} ->
+        {partial, Decoder, Objs, Curr} ->
             decode_loop(Data, Decoder, Objs, Curr);
 
 	%% Special case: the iteration only decompressed the payload and
 	%% returns the new uncompressed data. Let's use this and re-iterate
-        {iter, Decoder, Objs, Curr, NewData} ->
+        {partial, Decoder, Objs, Curr, NewData} ->
             decode_loop(NewData, Decoder, Objs, Curr);
     
     % when c_code ask to create module-based data structures, currently on for arrays module
@@ -49,15 +49,15 @@ decode_loop(Data, Decoder, Objs, Curr) ->
         {error, _} = Error ->
             throw(Error);
 
-        {iter, NewDecoder, NewObjs, NewCurr} ->
+        {partial, NewDecoder, NewObjs, NewCurr} ->
             decode_loop(Data, NewDecoder, NewObjs, NewCurr);
 
 	%% Special case: the iteration only decompressed the payload and
 	%% returns the new uncompressed data. Let's use this and re-iterate
-        {iter, NewDecoder, NewObjs, NewCurr, NewData} ->
+        {partial, NewDecoder, NewObjs, NewCurr, NewData} ->
             decode_loop(NewData, NewDecoder, NewObjs, NewCurr);
         
-    % when c_code ask to create module-based data structures, currently on for arrays module
+    % when c_code asks to create module-based data structures, currently used only for arrays module
         {convert, NewDecoder, NewObjs, NewCurr} -> 
             A = array:from_list(lists:reverse(NewCurr)),
             [ Head | NewObjs2 ] = NewObjs,
@@ -72,20 +72,20 @@ encode(Data) ->
     encode(Data, []).
 
 encode(Data, Opts) ->
-    case nif_encoder_init([Data], Opts) of
+    case srl_encoder_setup([Data], Opts) of
         {error, _} = Error ->
             throw(Error);
 
         {error, Reason, Term} = Error ->
             throw(Error);
         
-        {iter, Items, Encoder} ->
+        {partial, Items, Encoder} ->
             encoder_loop(Items, Encoder)
 
     end.
 
 encoder_loop(Items, Encoder) ->
-    case nif_encoder_iterate(Items, Encoder) of 
+    case srl_encoder_parse(Items, Encoder) of 
         {error, Reason} = Error->
             throw(Error);
 
@@ -97,7 +97,7 @@ encoder_loop(Items, Encoder) ->
             NewItems2 = [NewTerm | NewItems],
             encoder_loop(NewItems2, NewEncoder);
 
-        {iter, NewItems, NewEncoder} ->
+        {partial, NewItems, NewEncoder} ->
             encoder_loop(NewItems, NewEncoder);
 
         EncoderBinary ->
@@ -113,10 +113,10 @@ nif_decoder_init(_, _) ->
 nif_decoder_iterate(_, _, _, _) ->
     ?NOT_LOADED.
 
-nif_encoder_init(_, _) ->
+srl_encoder_setup(_, _) ->
     ?NOT_LOADED.
 
-nif_encoder_iterate(_, _) ->
+srl_encoder_parse(_, _) ->
     ?NOT_LOADED.
 
 term_to_list(Term) ->
