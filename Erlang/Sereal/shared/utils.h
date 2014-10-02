@@ -1,13 +1,13 @@
-#ifndef SEREAL_DECODER_H
-#define SEREAL_DECODER_H
+#ifndef UTILS_H
+#define UTILS_H
 
 #include "erl_nif.h"
 
-#define DEFAULT_BYTES_PER_ITER 2048
+#define debug_print(fmt, ...)                                           \
+    do { if (DEBUG) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__,       \
+                                __LINE__, __func__, ##__VA_ARGS__); } while (0)
 
-#define MAP_TYPE_PRESENT \
-    ((ERL_NIF_MAJOR_VERSION == 2 && ERL_NIF_MINOR_VERSION >= 6) \
-    || (ERL_NIF_MAJOR_VERSION > 2))
+#define DEFAULT_BYTES_PER_ITERATION 4096
 
 typedef struct {
     ERL_NIF_TERM  atom_ok;
@@ -38,16 +38,4 @@ ERL_NIF_TERM parse_error(SerealConstants* st, ErlNifEnv* env, const char* error,
 int should_yield(size_t used, size_t limit);
 int consume_timeslice(ErlNifEnv* env, size_t used, size_t limit);
 
-ERL_NIF_TERM decoder_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-ERL_NIF_TERM decoder_iterate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-
-ERL_NIF_TERM srl_encoder_setup(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-ERL_NIF_TERM srl_encoder_parse(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-
-void encoder_destroy(ErlNifEnv* env, void* obj);
-void decoder_destroy(ErlNifEnv* env, void* obj);
-
-#endif // Included SEREAL_DECODER_H
-
-
-
+#endif // Included UTILS_H

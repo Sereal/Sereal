@@ -9,7 +9,6 @@
 #include "srl_protocol.h"
 
 #include "snappy/csnappy_compress.c"
-#include "sereal.h"
 
 #include "miniz.h"
 
@@ -47,7 +46,12 @@ static void encode_varint(ErlNifUInt64);
 static ERL_NIF_TERM zlib_compress(SerealConstants *sereal_constants, ErlNifEnv *env, EncoderData* encoder_data);
 static ERL_NIF_TERM snappy_compress(SerealConstants *sereal_constants, ErlNifEnv *env, EncoderData* encoder_data);
 
+ERL_NIF_TERM srl_encoder_setup(ErlNifEnv* env, int count, const ERL_NIF_TERM arguments[]);
+ERL_NIF_TERM srl_encoder_parse(ErlNifEnv* env, int count, const ERL_NIF_TERM arguments[]);
+
 static ERL_NIF_TERM encoder_finalize(SerealConstants *sereal_constants, ErlNifEnv *env, EncoderData *encoder_data);
+
+static void encoder_destroy(ErlNifEnv* env, void* obj);
 
 enum TAGS {
     SMALL_POS,
@@ -67,9 +71,59 @@ enum TAGS {
     TUPLE_MAP
 };
 
-#define DEFAULT_BYTES_PER_ITERATION 4096
 #define BUF_SIZE 4096
 static char buffer[BUF_SIZE];
+
+static int
+load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
+{
+    SerealConstants* st = enif_alloc(sizeof(SerealConstants));
+    if(st == NULL) {
+        // no diagnostics?
+        return 1;
+    }
+
+    init_sereal_constants(env, st);
+    st->resource_encoder = enif_open_resource_type (
+                               env,
+                               NULL,
+                               "encoder",
+                               encoder_destroy,
+                               ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER,
+                               NULL
+                           );
+
+    *priv = (void*) st;
+
+    return 0;
+}
+
+static int
+reload(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
+{
+    return 0;
+}
+
+static int
+upgrade(ErlNifEnv* env, void** priv, void** old_priv, ERL_NIF_TERM info)
+{
+    return load(env, priv, info);
+}
+
+static void
+unload(ErlNifEnv* env, void* priv)
+{
+    enif_free(priv);
+    return;
+}
+
+static ErlNifFunc funcs[] =
+{
+    {"srl_encoder_setup",   2, srl_encoder_setup},
+    {"srl_encoder_parse",   2, srl_encoder_parse},
+};
+
+ERL_NIF_INIT(encoder, funcs, &load, &reload, &upgrade, &unload);
 
 ERL_NIF_TERM srl_encoder_setup(ErlNifEnv* env, int count, const ERL_NIF_TERM arguments[]) {
 

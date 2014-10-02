@@ -6,16 +6,14 @@
 #include <string.h>
 
 #include "erl_nif.h"
-#include "sereal.h"
+#include "decoder.h"
 #include "srl_protocol.h"
+#include "utils.h"
 
 #include "snappy/csnappy_decompress.c"
 #include "miniz.h"
 
 #include "uthash.h"
-
-#include "utils.h"
-
 
 #define STACK_SIZE_INCR 64
 #define NUM_BUF_LEN 32
@@ -89,6 +87,58 @@ struct reference_struct {
     UT_hash_handle hh;         /* makes this structure hashable */
 };
 
+static int
+load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
+{
+    SerealConstants* st = enif_alloc(sizeof(SerealConstants));
+    if(st == NULL) {
+        // no diagnostics?
+        return 1;
+    }
+
+    init_sereal_constants(env, st);
+
+    st->resource_decoder = enif_open_resource_type (
+                                env,
+                                NULL,
+                                "decoder",
+                                decoder_destroy,
+                                ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER,
+                                NULL
+                            );
+
+    *priv = (void*) st;
+
+    return 0;
+}
+
+static int
+reload(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
+{
+    return 0;
+}
+
+static int
+upgrade(ErlNifEnv* env, void** priv, void** old_priv, ERL_NIF_TERM info)
+{
+    return load(env, priv, info);
+}
+
+static void
+unload(ErlNifEnv* env, void* priv)
+{
+    enif_free(priv);
+    return;
+}
+
+static ErlNifFunc funcs[] =
+{
+    {"nif_decoder_init",    2, decoder_init},
+    {"nif_decoder_iterate", 4, decoder_iterate}
+};
+
+ERL_NIF_INIT(decoder, funcs, &load, &reload, &upgrade, &unload);
+
 struct reference_struct *references_hash = NULL;    /* important! initialize to NULL */
 
 void add_reference(int pos_to_add, ERL_NIF_TERM val) {
@@ -122,7 +172,7 @@ decoder_new(ErlNifEnv* env)
     result->header_parsed = 0;
     result->atoms = st;
 
-    result->bytes_per_iter = DEFAULT_BYTES_PER_ITER;
+    result->bytes_per_iter = 4096;
 
     result->pos = -1;
     result->len = -1;
@@ -1177,3 +1227,5 @@ ErlNifUInt64 srl_read_varint_int64_nocheck(Decoder *decoder) {
     
     return result;
 }
+
+
