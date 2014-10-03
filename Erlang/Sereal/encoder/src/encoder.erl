@@ -22,7 +22,7 @@ serealize(Data, Opts) ->
         {error, _} = Error ->
             throw(Error);
 
-        {error, Reason, Term} = Error ->
+        {error, _, _} = Error ->
             throw(Error);
         
         {partial, Items, Encoder} ->
@@ -32,10 +32,10 @@ serealize(Data, Opts) ->
 
 encoder_loop(Items, Encoder) ->
     case srl_encoder_parse(Items, Encoder) of 
-        {error, Reason} = Error->
+        {error, _} = Error->
             throw(Error);
 
-        {error, Reason, Term} = Error ->
+        {error, _, _} = Error ->
             throw(Error);
 
         {convert, NewItems, NewEncoder, Term} ->

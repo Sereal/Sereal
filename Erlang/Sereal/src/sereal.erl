@@ -2,9 +2,6 @@
 
 -export([encode/1, encode/2, decode/1, decode/2]).
 
--import(encoder, [serealize/2]).
--import(decoder, [deserealize/2]).
-
 encode(Data) ->
    encode(Data, []).
 
