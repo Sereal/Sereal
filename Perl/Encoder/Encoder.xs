@@ -134,11 +134,44 @@ THX_xsfunc_sereal_encode_with_object(pTHX_ CV *cv)
   pp1_sereal_encode_with_object(arity == 3);
 }
 
+#define MY_CXT_KEY "Sereal::Encoder::_stash" XS_VERSION
+
+
+typedef struct {
+    sv_with_hash options[SRL_ENC_OPT_COUNT];
+} my_cxt_t;
+
+START_MY_CXT
+
 MODULE = Sereal::Encoder        PACKAGE = Sereal::Encoder
 PROTOTYPES: DISABLE
 
 BOOT:
 {
+  {
+  MY_CXT_INIT;
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_ALIASED_DEDUPE_STRINGS,   SRL_ENC_OPT_STR_ALIASED_DEDUPE_STRINGS );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CANONICAL,                SRL_ENC_OPT_STR_CANONICAL              );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CANONICAL_REFS,           SRL_ENC_OPT_STR_CANONICAL_REFS         );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_COMPRESS,                 SRL_ENC_OPT_STR_COMPRESS               );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_COMPRESS_LEVEL,           SRL_ENC_OPT_STR_COMPRESS_LEVEL         );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_COMPRESS_THRESHOLD,       SRL_ENC_OPT_STR_COMPRESS_THRESHOLD     );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CROAK_ON_BLESS,           SRL_ENC_OPT_STR_CROAK_ON_BLESS         );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_DEDUPE_STRINGS,           SRL_ENC_OPT_STR_DEDUPE_STRINGS         );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_FREEZE_CALLBACKS,         SRL_ENC_OPT_STR_FREEZE_CALLBACKS       );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_MAX_RECURSION_DEPTH,      SRL_ENC_OPT_STR_MAX_RECURSION_DEPTH    );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_NO_BLESS_OBJECTS,         SRL_ENC_OPT_STR_NO_BLESS_OBJECTS       );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_NO_SHARED_HASHKEYS,       SRL_ENC_OPT_STR_NO_SHARED_HASHKEYS     );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_PROTOCOL_VERSION,         SRL_ENC_OPT_STR_PROTOCOL_VERSION       );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_SNAPPY,                   SRL_ENC_OPT_STR_SNAPPY                 );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_SNAPPY_INCR,              SRL_ENC_OPT_STR_SNAPPY_INCR            );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_SNAPPY_THRESHOLD,         SRL_ENC_OPT_STR_SNAPPY_THRESHOLD       );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_SORT_KEYS,                SRL_ENC_OPT_STR_SORT_KEYS              );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_STRINGIFY_UNKNOWN,        SRL_ENC_OPT_STR_STRINGIFY_UNKNOWN      );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_UNDEF_UNKNOWN,            SRL_ENC_OPT_STR_UNDEF_UNKNOWN          );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_USE_PROTOCOL_V1,          SRL_ENC_OPT_STR_USE_PROTOCOL_V1        );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_WARN_UNKNOWN,             SRL_ENC_OPT_STR_WARN_UNKNOWN           );
+  }
 #if USE_CUSTOM_OPS
   {
     XOP *xop;
@@ -165,8 +198,10 @@ srl_encoder_t *
 new(CLASS, opt = NULL)
     char *CLASS;
     HV *opt;
+  PREINIT:
+    dMY_CXT;
   CODE:
-    RETVAL = srl_build_encoder_struct(aTHX_ opt);
+    RETVAL = srl_build_encoder_struct(aTHX_ opt, MY_CXT.options);
     RETVAL->flags |= SRL_F_REUSE_ENCODER;
   OUTPUT: RETVAL
 
@@ -183,8 +218,9 @@ encode_sereal(src, opt = NULL)
     HV *opt;
   PREINIT:
     srl_encoder_t *enc;
+    dMY_CXT;
   PPCODE:
-    enc = srl_build_encoder_struct(aTHX_ opt);
+    enc = srl_build_encoder_struct(aTHX_ opt, MY_CXT.options);
     assert(enc != NULL);
     /* Avoid copy by stealing string buffer if it is not too large.
      * This makes sense in the functional interface since the string
@@ -199,10 +235,11 @@ encode_sereal_with_header_data(src, hdr_user_data_src, opt = NULL)
     HV *opt;
   PREINIT:
     srl_encoder_t *enc;
+    dMY_CXT;
   PPCODE:
     if (!SvOK(hdr_user_data_src))
       hdr_user_data_src = NULL;
-    enc = srl_build_encoder_struct(aTHX_ opt);
+    enc = srl_build_encoder_struct(aTHX_ opt, MY_CXT.options);
     assert(enc != NULL);
     /* Avoid copy by stealing string buffer if it is not too large.
      * This makes sense in the functional interface since the string

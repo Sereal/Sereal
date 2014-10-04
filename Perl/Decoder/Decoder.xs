@@ -279,6 +279,13 @@ THX_xsfunc_looks_like_sereal(pTHX_ CV *cv)
     pp1_looks_like_sereal();
 }
 
+#define MY_CXT_KEY "Sereal::Decoder::_stash" XS_VERSION
+
+typedef struct {
+    sv_with_hash options[SRL_DEC_OPT_COUNT];
+} my_cxt_t;
+
+START_MY_CXT
 
 
 MODULE = Sereal::Decoder        PACKAGE = Sereal::Decoder
@@ -299,6 +306,22 @@ BOOT:
          /*012345678901234567890123*/
     }, *fti;
     int i;
+    {
+        MY_CXT_INIT;
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_ALIAS_SMALLINT,             SRL_DEC_OPT_STR_ALIAS_SMALLINT             );
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_ALIAS_VARINT_UNDER,         SRL_DEC_OPT_STR_ALIAS_VARINT_UNDER         );
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_DESTRUCTIVE_INCREMENTAL,    SRL_DEC_OPT_STR_DESTRUCTIVE_INCREMENTAL    );
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_MAX_NUM_HASH_ENTRIES,       SRL_DEC_OPT_STR_MAX_NUM_HASH_ENTRIES       );
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_MAX_RECURSION_DEPTH,        SRL_DEC_OPT_STR_MAX_RECURSION_DEPTH        );
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_NO_BLESS_OBJECTS,           SRL_DEC_OPT_STR_NO_BLESS_OBJECTS           );
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_REFUSE_OBJECTS,             SRL_DEC_OPT_STR_REFUSE_OBJECTS             );
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_REFUSE_SNAPPY,              SRL_DEC_OPT_STR_REFUSE_SNAPPY              );
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_REFUSE_ZLIB,                SRL_DEC_OPT_STR_REFUSE_ZLIB                );
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_SET_READONLY,               SRL_DEC_OPT_STR_SET_READONLY               );
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_SET_READONLY_SCALARS,       SRL_DEC_OPT_STR_SET_READONLY_SCALARS       );
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_USE_UNDEF,                  SRL_DEC_OPT_STR_USE_UNDEF                  );
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_VALIDATE_UTF8,              SRL_DEC_OPT_STR_VALIDATE_UTF8              );
+    }
 #if USE_CUSTOM_OPS
     {
         XOP *xop;
@@ -405,8 +428,10 @@ srl_decoder_t *
 new(CLASS, opt = NULL)
     char *CLASS;
     HV *opt;
+  PREINIT:
+    dMY_CXT;
   CODE:
-    RETVAL = srl_build_decoder_struct(aTHX_ opt);
+    RETVAL = srl_build_decoder_struct(aTHX_ opt, MY_CXT.options);
     RETVAL->flags |= SRL_F_REUSE_DECODER;
   OUTPUT: RETVAL
 
@@ -422,6 +447,7 @@ decode_sereal(src, opt = NULL, into = NULL)
     SV *opt;
     SV *into;
   PREINIT:
+    dMY_CXT;
     srl_decoder_t *dec= NULL;
   PPCODE:
     if (SvROK(src))
@@ -436,7 +462,7 @@ decode_sereal(src, opt = NULL, into = NULL)
         else
             croak("Options are neither undef nor hash reference");
     }
-    dec = srl_build_decoder_struct(aTHX_ (HV *)opt);
+    dec = srl_build_decoder_struct(aTHX_ (HV *)opt, MY_CXT.options);
     ST(0)= srl_decode_into(aTHX_ dec, src, into, 0);
     XSRETURN(1);
 
@@ -447,6 +473,7 @@ decode_sereal_with_header_data(src, opt = NULL, body_into = NULL, header_into = 
     SV *body_into;
     SV *header_into;
   PREINIT:
+    dMY_CXT;
     srl_decoder_t *dec= NULL;
   CODE:
     /* Support no opt at all, undef, hashref */
@@ -459,7 +486,7 @@ decode_sereal_with_header_data(src, opt = NULL, body_into = NULL, header_into = 
         else
             croak("Options are neither undef nor hash reference");
     }
-    dec = srl_build_decoder_struct(aTHX_ (HV *)opt);
+    dec = srl_build_decoder_struct(aTHX_ (HV *)opt, MY_CXT.options);
     if (body_into == NULL)
       body_into = sv_newmortal();
     if (header_into == NULL)

@@ -39,8 +39,14 @@ typedef struct {
     SV *sereal_string_sv;     /* SV that says "Sereal" for FREEZE support */
 } srl_encoder_t;
 
+typedef struct {
+    SV *sv;
+    U32 hash;
+} sv_with_hash;
+
 /* constructor from options */
-srl_encoder_t *srl_build_encoder_struct(pTHX_ HV *opt);
+srl_encoder_t *srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options);
+
 /* clone; "constructor from prototype" */
 srl_encoder_t *srl_build_encoder_struct_alike(pTHX_ srl_encoder_t *proto);
 
@@ -125,5 +131,83 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
 
 #define SRL_ENC_SV_COPY_ALWAYS 0x00000000UL
 #define SRL_ENC_SV_REUSE_MAYBE 0x00000001UL
+
+/* by default we do not allow people to build with support for SRL_HDR_LONG_DOUBLE */
+#if defined(SRL_ALLOW_LONG_DOUBLE) && defined(USE_LONG_DOUBLE) && defined(HAS_LONG_DOUBLE)
+#define SRL_DO_LONG_DOUBLE      1
+#else
+#define SRL_DO_LONG_DOUBLE      0
+#endif
+
+/* Options Parsing related code */
+#define SRL_INIT_OPTION(idx, str) STMT_START {                          \
+    MY_CXT.options[idx].sv = newSVpvn((str ""), (sizeof(str) - 1));     \
+    PERL_HASH(MY_CXT.options[idx].hash, (str ""), (sizeof(str) - 1));   \
+} STMT_END
+
+#define SRL_ENC_OPT_STR_ALIASED_DEDUPE_STRINGS "aliased_dedupe_strings"
+#define SRL_ENC_OPT_IDX_ALIASED_DEDUPE_STRINGS 0
+
+#define SRL_ENC_OPT_STR_CANONICAL "canonical"
+#define SRL_ENC_OPT_IDX_CANONICAL 1
+
+#define SRL_ENC_OPT_STR_CANONICAL_REFS "canonical_refs"
+#define SRL_ENC_OPT_IDX_CANONICAL_REFS 2
+
+#define SRL_ENC_OPT_STR_COMPRESS "compress"
+#define SRL_ENC_OPT_IDX_COMPRESS 3
+
+#define SRL_ENC_OPT_STR_COMPRESS_LEVEL "compress_level"
+#define SRL_ENC_OPT_IDX_COMPRESS_LEVEL 4
+
+#define SRL_ENC_OPT_STR_COMPRESS_THRESHOLD "compress_threshold"
+#define SRL_ENC_OPT_IDX_COMPRESS_THRESHOLD 5
+
+#define SRL_ENC_OPT_STR_CROAK_ON_BLESS "croak_on_bless"
+#define SRL_ENC_OPT_IDX_CROAK_ON_BLESS 6
+
+#define SRL_ENC_OPT_STR_DEDUPE_STRINGS "dedupe_strings"
+#define SRL_ENC_OPT_IDX_DEDUPE_STRINGS 7
+
+#define SRL_ENC_OPT_STR_FREEZE_CALLBACKS "freeze_callbacks"
+#define SRL_ENC_OPT_IDX_FREEZE_CALLBACKS 8
+
+#define SRL_ENC_OPT_STR_MAX_RECURSION_DEPTH "max_recursion_depth"
+#define SRL_ENC_OPT_IDX_MAX_RECURSION_DEPTH 9
+
+#define SRL_ENC_OPT_STR_NO_BLESS_OBJECTS "no_bless_objects"
+#define SRL_ENC_OPT_IDX_NO_BLESS_OBJECTS 10
+
+#define SRL_ENC_OPT_STR_NO_SHARED_HASHKEYS "no_shared_hashkeys"
+#define SRL_ENC_OPT_IDX_NO_SHARED_HASHKEYS 11
+
+#define SRL_ENC_OPT_STR_PROTOCOL_VERSION "protocol_version"
+#define SRL_ENC_OPT_IDX_PROTOCOL_VERSION 12
+
+#define SRL_ENC_OPT_STR_SNAPPY "snappy"
+#define SRL_ENC_OPT_IDX_SNAPPY 13
+
+#define SRL_ENC_OPT_STR_SNAPPY_INCR "snappy_incr"
+#define SRL_ENC_OPT_IDX_SNAPPY_INCR 14
+
+#define SRL_ENC_OPT_STR_SNAPPY_THRESHOLD "snappy_threshold"
+#define SRL_ENC_OPT_IDX_SNAPPY_THRESHOLD 15
+
+#define SRL_ENC_OPT_STR_SORT_KEYS "sort_keys"
+#define SRL_ENC_OPT_IDX_SORT_KEYS 16
+
+#define SRL_ENC_OPT_STR_STRINGIFY_UNKNOWN "stringify_unknown"
+#define SRL_ENC_OPT_IDX_STRINGIFY_UNKNOWN 17
+
+#define SRL_ENC_OPT_STR_UNDEF_UNKNOWN "undef_unknown"
+#define SRL_ENC_OPT_IDX_UNDEF_UNKNOWN 18
+
+#define SRL_ENC_OPT_STR_USE_PROTOCOL_V1 "use_protocol_v1"
+#define SRL_ENC_OPT_IDX_USE_PROTOCOL_V1 19
+
+#define SRL_ENC_OPT_STR_WARN_UNKNOWN "warn_unknown"
+#define SRL_ENC_OPT_IDX_WARN_UNKNOWN 20
+
+#define SRL_ENC_OPT_COUNT 21
 
 #endif

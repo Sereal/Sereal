@@ -32,11 +32,16 @@ typedef struct {
     U8 encoding_flags;
 } srl_decoder_t;
 
+typedef struct {
+    SV *sv;
+    U32 hash;
+} sv_with_hash;
+
 /* utility routine */
 IV srl_validate_header_version_pv_len(pTHX_ char *strdata, STRLEN len);
 
 /* constructor; don't need destructor, this sets up a callback */
-srl_decoder_t *srl_build_decoder_struct(pTHX_ HV *opt);
+srl_decoder_t *srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options);
 
 /* main routines */
 /* will return a mortal or the new contents of into if that isn't NULL */
@@ -149,5 +154,52 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_DEC_UNSET_OPTION(dec, flag_num) ((dec)->flags &= ~flag_num)
 #define SRL_DEC_VOLATILE_FLAGS (SRL_F_DECODER_NEEDS_FINALIZE|SRL_F_DECODER_DECOMPRESS_SNAPPY|SRL_F_DECODER_PROTOCOL_V1|SRL_F_DECODER_DIRTY|SRL_F_DECODER_DECOMPRESS_ZLIB)
 #define SRL_DEC_RESET_VOLATILE_FLAGS(dec) ((dec)->flags &= ~SRL_DEC_VOLATILE_FLAGS)
+
+/* Options Parsing related code */
+#define SRL_INIT_OPTION(idx, str) STMT_START {                          \
+    MY_CXT.options[idx].sv = newSVpvn((str ""), (sizeof(str) - 1));     \
+    PERL_HASH(MY_CXT.options[idx].hash, (str ""), (sizeof(str) - 1));   \
+} STMT_END
+
+#define SRL_DEC_OPT_STR_ALIAS_SMALLINT              "alias_smallint"
+#define SRL_DEC_OPT_IDX_ALIAS_SMALLINT              0
+
+#define SRL_DEC_OPT_STR_ALIAS_VARINT_UNDER          "alias_varint_under"
+#define SRL_DEC_OPT_IDX_ALIAS_VARINT_UNDER          1
+
+#define SRL_DEC_OPT_STR_DESTRUCTIVE_INCREMENTAL     "incremental"
+#define SRL_DEC_OPT_IDX_DESTRUCTIVE_INCREMENTAL     2
+
+#define SRL_DEC_OPT_STR_MAX_NUM_HASH_ENTRIES        "max_num_hash_entries"
+#define SRL_DEC_OPT_IDX_MAX_NUM_HASH_ENTRIES        3
+
+#define SRL_DEC_OPT_STR_MAX_RECURSION_DEPTH         "max_recursion_depth"
+#define SRL_DEC_OPT_IDX_MAX_RECURSION_DEPTH         4
+
+#define SRL_DEC_OPT_STR_NO_BLESS_OBJECTS            "no_bless_objects"
+#define SRL_DEC_OPT_IDX_NO_BLESS_OBJECTS            5
+
+#define SRL_DEC_OPT_STR_REFUSE_OBJECTS              "refuse_objects"
+#define SRL_DEC_OPT_IDX_REFUSE_OBJECTS              6
+
+#define SRL_DEC_OPT_STR_REFUSE_SNAPPY               "refuse_snappy"
+#define SRL_DEC_OPT_IDX_REFUSE_SNAPPY               7
+
+#define SRL_DEC_OPT_STR_REFUSE_ZLIB                 "refuse_zlib"
+#define SRL_DEC_OPT_IDX_REFUSE_ZLIB                 8
+
+#define SRL_DEC_OPT_STR_SET_READONLY                "set_readonly"
+#define SRL_DEC_OPT_IDX_SET_READONLY                9
+
+#define SRL_DEC_OPT_STR_SET_READONLY_SCALARS        "set_readonly_scalars"
+#define SRL_DEC_OPT_IDX_SET_READONLY_SCALARS        10
+
+#define SRL_DEC_OPT_STR_USE_UNDEF                   "use_undef"
+#define SRL_DEC_OPT_IDX_USE_UNDEF                   11
+
+#define SRL_DEC_OPT_STR_VALIDATE_UTF8               "validate_utf8"
+#define SRL_DEC_OPT_IDX_VALIDATE_UTF8               12
+
+#define SRL_DEC_OPT_COUNT                           13
 
 #endif

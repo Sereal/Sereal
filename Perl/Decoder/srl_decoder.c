@@ -101,7 +101,7 @@ SRL_STATIC_INLINE UV srl_read_varint_uv_length(pTHX_ srl_decoder_t *dec, const c
 SRL_STATIC_INLINE SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char * const tag_name);
 
 /* these three are "Public" */
-srl_decoder_t *srl_build_decoder_struct(pTHX_ HV *opt);             /* constructor - called from ->new() */
+srl_decoder_t *srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options);  /* constructor - called from ->new() */
 void srl_destroy_decoder(pTHX_ srl_decoder_t *dec);                 /* destructor  - called from ->DESTROY() */
 void srl_decoder_destructor_hook(pTHX_ void *p);                    /* destructor hook - called automagically */
 
@@ -184,16 +184,24 @@ srl_ptable_debug_dump(pTHX_ PTABLE_t *tbl)
     PTABLE_debug_dump(tbl, srl_ptable_debug_callback);
 }
 
+#define my_hv_fetchs(he,val,opt,idx) STMT_START {                   \
+    he = hv_fetch_ent(opt, options[idx].sv, 0, options[idx].hash);  \
+    if (he)                                                         \
+        val= HeVAL(he);                                             \
+    else                                                            \
+        val= NULL;                                                  \
+} STMT_END
 
 /* PUBLIC ROUTINES */
 
 /* Builds the C-level configuration and state struct.
  * Automatically freed at scope boundary. */
 srl_decoder_t *
-srl_build_decoder_struct(pTHX_ HV *opt)
+srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
 {
     srl_decoder_t *dec;
-    SV **svp;
+    SV *val;
+    HE *he;
 
     Newxz(dec, 1, srl_decoder_t);
 
@@ -203,28 +211,36 @@ srl_build_decoder_struct(pTHX_ HV *opt)
 
     /* load options */
     if (opt != NULL) {
-        if ( (svp = hv_fetchs(opt, "refuse_snappy", 0)) && SvTRUE(*svp))
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_REFUSE_SNAPPY);
+        if ( val && SvTRUE(val) )
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_SNAPPY);
 
-        if ( (svp = hv_fetchs(opt, "refuse_zlib", 0)) && SvTRUE(*svp))
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_REFUSE_ZLIB);
+        if ( val && SvTRUE(val) )
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_ZLIB);
 
-        if ( (svp = hv_fetchs(opt, "refuse_objects", 0)) && SvTRUE(*svp))
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_REFUSE_OBJECTS);
+        if ( val && SvTRUE(val) )
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS);
 
-        if ( (svp = hv_fetchs(opt, "no_bless_objects", 0)) && SvTRUE(*svp))
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_NO_BLESS_OBJECTS);
+        if ( val && SvTRUE(val) )
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS);
 
-        if ( (svp = hv_fetchs(opt, "validate_utf8", 0)) && SvTRUE(*svp))
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_VALIDATE_UTF8);
+        if ( val && SvTRUE(val) )
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8);
 
-        if ( (svp = hv_fetchs(opt, "max_recursion_depth", 0)) && SvTRUE(*svp))
-            dec->max_recursion_depth = SvUV(*svp);
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_MAX_RECURSION_DEPTH);
+        if ( val && SvTRUE(val) )
+            dec->max_recursion_depth = SvUV(val);
 
-        if ( (svp = hv_fetchs(opt, "max_num_hash_entries", 0)) && SvTRUE(*svp))
-            dec->max_num_hash_entries = SvUV(*svp);
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_MAX_NUM_HASH_ENTRIES);
+        if ( val && SvTRUE(val) )
+            dec->max_num_hash_entries = SvUV(val);
 
-        if ( (svp = hv_fetchs(opt, "incremental", 0)) && SvTRUE(*svp))
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_DESTRUCTIVE_INCREMENTAL);
+        if ( val && SvTRUE(val) )
             SRL_DEC_SET_OPTION(dec,SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL);
 
         /* see if they want us to alias varints, value is an unsigned integer.
@@ -232,18 +248,19 @@ srl_build_decoder_struct(pTHX_ HV *opt)
          * using the "alias_smallint" option. Setting it to a true value larger
          * than 15 enables aliasing of smallints, and implies "alias_smallint" as
          * well. */
-        if ( (svp = hv_fetchs(opt, "alias_varint_under", 0)) && SvTRUE(*svp)) {
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_ALIAS_VARINT_UNDER);
+        if ( val && SvTRUE(val)) {
             /* if they use this then they automatically imply doing it for
              * smallint as well */
             SRL_DEC_SET_OPTION(dec,SRL_F_DECODER_ALIAS_SMALLINT);
             SRL_DEC_SET_OPTION(dec,SRL_F_DECODER_ALIAS_VARINT);
-            if (SvUV(*svp) < 16) {
+            if (SvUV(val) < 16) {
                 /* too small, just enable for SMALLINT (POS/NEG)*/
                 dec->alias_varint_under= 16;
             } else {
                 /* larger than POS/NEG range, also alias some VARINTs */
                 /* anything smaller than this number will be aliased */
-                dec->alias_varint_under= SvUV(*svp);
+                dec->alias_varint_under= SvUV(val);
             }
             /* create the alias cache */
             dec->alias_cache= newAV();
@@ -255,28 +272,33 @@ srl_build_decoder_struct(pTHX_ HV *opt)
         }
 
         /* they can enable aliasing of SMALLINT's alone */
-        if ( !SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_ALIAS_SMALLINT) &&
-             (svp = hv_fetchs(opt, "alias_smallint", 0)) && SvTRUE(*svp)
-        ) {
-            /* set the flag */
-            SRL_DEC_SET_OPTION(dec,SRL_F_DECODER_ALIAS_SMALLINT);
-            /* create the alias cache */
-            dec->alias_cache= newAV();
-            /* extend it to the right size of 32 items */
-            av_extend(dec->alias_cache,32);
-            AvFILLp(dec->alias_cache)= 31; /* $#ary == 32 */
+        if ( !SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_ALIAS_SMALLINT) ) {
+            my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_ALIAS_SMALLINT);
+            if (val && SvTRUE(val))
+            {
+                /* set the flag */
+                SRL_DEC_SET_OPTION(dec,SRL_F_DECODER_ALIAS_SMALLINT);
+                /* create the alias cache */
+                dec->alias_cache= newAV();
+                /* extend it to the right size of 32 items */
+                av_extend(dec->alias_cache,32);
+                AvFILLp(dec->alias_cache)= 31; /* $#ary == 32 */
+            }
         }
         /* check if they want us to use &PL_sv_undef for SRL_HEADER_UNDEF
          * even if this might break referential integrity. */
-        if ( (svp = hv_fetchs(opt, "use_undef", 0)) && SvTRUE(*svp))
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_USE_UNDEF);
+        if ( val && SvTRUE(val))
             SRL_DEC_SET_OPTION(dec,SRL_F_DECODER_USE_UNDEF);
 
         /* check if they want us to set all SVs readonly. */
-        if ( (svp = hv_fetchs(opt, "set_readonly", 0)) && SvTRUE(*svp))
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_SET_READONLY);
+        if ( val && SvTRUE(val))
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_SET_READONLY);
 
         /* check if they want us to set normal scalars readonly. */
-        if ( (svp = hv_fetchs(opt, "set_readonly_scalars", 0)) && SvTRUE(*svp))
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_SET_READONLY_SCALARS);
+        if ( val && SvTRUE(val))
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_SET_READONLY_SCALARS);
 
     }
