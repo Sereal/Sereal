@@ -1113,9 +1113,9 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
         n = 0;
         while ((he = hv_iternext(src))) { ++n; }
 
-        /* heuristic: n = ~min size of n values;
-             *            + 2*n = very conservative min size of n hashkeys if all COPY */
-        BUF_SIZE_ASSERT(&enc->buf, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
+        /* heuristic: n     = ~min size of n values;
+         *            + 3*n = very conservative min size of n hashkeys if all COPY */
+        BUF_SIZE_ASSERT(&enc->buf, 2 + SRL_MAX_VARINT_LENGTH + 3 * n);
 
         if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
             enc->buf.pos--; /* back up over the previous REFN */
@@ -1180,9 +1180,9 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
         }
     } else {
         n= HvUSEDKEYS(src);
-        /* heuristic: n = ~min size of n values;
-             *            + 2*n = very conservative min size of n hashkeys if all COPY */
-        BUF_SIZE_ASSERT(&enc->buf, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
+        /* heuristic: n       = ~min size of n values;
+         *            + 3 * n = very conservative min size of n hashkeys if all COPY */
+        BUF_SIZE_ASSERT(&enc->buf, 2 + SRL_MAX_VARINT_LENGTH + 3 * n);
         if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
             enc->buf.pos--; /* backup over the previous REFN */
             srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_HASHREF + n);
