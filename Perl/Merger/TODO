@@ -1,7 +1,11 @@
 TODO:
-- test/implement srl_skip_varint()
-- dedupe srl_read_varint-* functions
-- remove MRG2ENC casting (make functions in srl_buffer.h) get srl_buffer_t*
-- better error handling
 - compression/decompression
-- sub append_all()
+- error handling
+- remove MRG2ENC casting (make functions in srl_buffer.h) get srl_buffer_t*
+- dedupe srl_read_varint-* functions and perhaps other common code with Encoder, Decoder (like parse/write Sereal document header)
+- more tests
+- documentation
+- add support of optional user-headers
+- Sereal::Merger is not compilable under threaded perl due to wrong usage of PERL_HASH_SEED in strtable.h
+- wrap-functions like merge_sereal, merge_sereal_all, etc...
+- control of recursion depth
