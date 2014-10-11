@@ -182,7 +182,7 @@ static VALUE s_read_ref(sereal_t *s, u8 tag) {
         s_raise(s,rb_eArgError,"there are no references stored");
     u64 off = s_get_varint_bang(s);
     VALUE object = rb_hash_lookup(s->tracked,INT2FIX(off + s->hdr_end));
-    SD(s,"reading reference from offset: %llu, id: %d",off + s->hdr_end,FIX2INT(rb_obj_id(object)));
+    SD(s,"reading reference from offset: %" PRIu64 ", id: %d",off + s->hdr_end,FIX2INT(rb_obj_id(object)));
     return object;
 }
 
@@ -340,7 +340,7 @@ again:
             return Qnil;
         }
         if (size < __MIN_SIZE)
-            s_raise(s,rb_eTypeError,"size(%d) is less then min packet size %d, offset: %llu",size,__MIN_SIZE,offset);
+            s_raise(s,rb_eTypeError,"size(%d) is less then min packet size %d, offset: %" PRIu64,size,__MIN_SIZE,offset);
 
         s->flags |= __NOT_MINE;
         s->data = (u8 *) RSTRING_PTR(payload) + offset;
