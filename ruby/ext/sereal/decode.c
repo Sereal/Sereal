@@ -127,6 +127,7 @@ static VALUE s_read_rb_string_bang(sereal_t *s,u8 t) {
     }
 #undef RETURN_STRING
     s_raise(s,rb_eTypeError, "undefined string type %d",t);
+    return Qnil;
 }
 
 static VALUE s_read_next_rb_string_bang(sereal_t *s) {
@@ -173,6 +174,7 @@ static VALUE s_read_pad(sereal_t *s, u8 tag) {
 
 static VALUE s_read_extend(sereal_t *s, u8 tag) {
     s_raise(s,rb_eArgError,"extend tags are not supported");
+    return Qnil;
 }
 
 static VALUE s_read_ref(sereal_t *s, u8 tag) {

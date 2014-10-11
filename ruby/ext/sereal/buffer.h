@@ -1,6 +1,8 @@
 #include "sereal.h"
 #include <errno.h>
-
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <unistd.h>
 static inline void s_free_data_if_not_mine(sereal_t *s) {
     if (!(s->flags & __NOT_MINE)) {
         if (s->data)

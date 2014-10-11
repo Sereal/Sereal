@@ -433,7 +433,7 @@ method_sereal_encode(VALUE self, VALUE args) {
         s->size = compressed_len + s_header_len + compressed_len_varint + un_compressed_len_varint;
         s->pos = s->size;
     }
-    VALUE ret = rb_str_new(s->data,s->size);
+    VALUE ret = rb_str_new((char *) s->data,s->size);
     s_destroy(s);
     return ret;
 }
