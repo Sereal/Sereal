@@ -230,33 +230,33 @@ static void s_append_regexp(sereal_t *s, VALUE object) {
     s_append_string(s,f);
 }
 
-#define I_APPEND(_v)                                                    \
-    do {                                                                \
+#define I_APPEND(_v,_unsigned)                                          \
+do {                                                                    \
     if (likely(_v >= 0)) {                                              \
             if (unlikely(_v < 16))                                      \
                 s_append_u8(s,SRL_HDR_POS_LOW | (u8) _v);               \
             else                                                        \
                 s_append_hdr_with_varint(s,SRL_HDR_VARINT,(u64)_v);     \
-        } else {                                                        \
-            if (unlikely(_v > -17))                                     \
-                s_append_u8(s,SRL_HDR_NEG_LOW | ((u8) _v + 32));        \
-            else                                                        \
-                s_append_zigzag(s,_v);                                  \
-        }                                                               \
-    } while(0)
+    } else {                                                            \
+        if (unlikely(!_unsigned && _v > -17))                           \
+            s_append_u8(s,SRL_HDR_NEG_LOW | ((u8) _v + 32));            \
+        else                                                            \
+            s_append_zigzag(s,_v);                                      \
+    }                                                                   \
+} while(0)
 
 static void s_append_fixnum(sereal_t *s, VALUE object) {
     long long v = likely(FIXNUM_P(object)) ? FIX2LONG(object) : NUM2LL(object);
-    I_APPEND(v);
+    I_APPEND(v,0);
 }
 
 static void s_append_bignum(sereal_t *s, VALUE object) {
     if (likely(RBIGNUM_POSITIVE_P(object))) {
         unsigned long long uv = rb_big2ull(object);
-        I_APPEND(uv);
+        I_APPEND(uv,1);
     } else {
         long long v = rb_big2ll(object);
-        I_APPEND(v);
+        I_APPEND(v,0);
     }
 }
 #undef I_APPEND

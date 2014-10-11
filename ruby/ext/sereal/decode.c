@@ -335,7 +335,7 @@ again:
         }
     } else {
         u32 size = RSTRING_LEN(payload) - offset;
-        if (offset > (u32) RSTRING_LEN(payload) || (offset > 0 && size < __MIN_SIZE)) {
+        if ((RSTRING_LEN(payload) > 0 && offset > (u32) RSTRING_LEN(payload)) || (offset > 0 && size < __MIN_SIZE)) {
             s_destroy(s);
             return Qnil;
         }
