@@ -112,7 +112,9 @@ extern VALUE SerealPerlObject;
 #ifndef HAVE_RB_SYM_TO_S
 #define rb_sym_to_s(object) rb_funcall(object,rb_intern("to_s"),0)
 #endif
-
+#ifndef HAVE_RB_HASH_CLEAR
+#define rb_hash_clear(object) rb_funcall(object,rb_intern("clear"),0)
+#endif
 #define __RAW           0
 #define __SNAPPY        1
 #define __SNAPPY_INCR   2
