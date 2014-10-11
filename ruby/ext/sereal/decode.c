@@ -353,6 +353,9 @@ again:
 
     u8 version = s_get_u8_bang(s);
     u8 suffix = s_get_varint_bang(s);
+    if (suffix > 0)
+        s_raise(s,rb_eTypeError,"HEADER-SUFFIX-SIZE is not supported yet");
+
     u8 is_compressed;
 
     if ((version & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_SNAPPY) {

@@ -192,21 +192,3 @@ static inline void s_set_flag_at_pos(sereal_t *s, u32 pos, u8 flag) {
     u8 *p = s_get_p_at_pos(s,pos,0);
     *p |= flag;
 }
-
-static void b_dump(u8 *p, u32 len, u32 pos) {
-    u32 i;
-
-    fprintf(stderr,"\n-----------\n");
-    for (i = 0; i < len; i++) {
-        if (i == pos) 
-            fprintf(stderr," [%c %d] ",p[i],p[i]);
-        else
-            fprintf(stderr," (%c %d) ",p[i],p[i]);
-    }
-    fprintf(stderr,"\n-----------\n");
-}
-
-static void s_dump(sereal_t *s) {
-    E("[ pos: %d, size: %d, rsize: %d ]\n",s->pos,s->size,s->rsize);
-    b_dump(s->data,s->size,s->pos);
-}
