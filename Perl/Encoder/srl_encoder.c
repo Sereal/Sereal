@@ -52,7 +52,12 @@ extern "C" {
 #include "ptable.h"
 #include "srl_buffer.h"
 
+#if defined(HAVE_CSNAPPY)
+#include <csnappy.h>
+#else
 #include "snappy/csnappy_compress.c"
+#endif
+
 #include "miniz.h"
 
 /* The ENABLE_DANGEROUS_HACKS (passed through from ENV via Makefile.PL) enables

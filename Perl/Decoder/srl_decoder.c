@@ -51,7 +51,12 @@ extern "C" {
 #include "ptable.h"
 #include "srl_protocol.h"
 
+#if defined(HAVE_CSNAPPY)
+#include <csnappy.h>
+#else
 #include "snappy/csnappy_decompress.c"
+#endif
+
 #include "miniz.h"
 
 /* 5.8.8 and earlier have a nasty bug in their handling of overloading:

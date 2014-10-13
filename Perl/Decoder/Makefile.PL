@@ -25,6 +25,7 @@ our $OPTIMIZE;
 #     #define MINIZ_LITTLE_ENDIAN 1
 #     #define MINIZ_HAS_64BIT_REGISTERS 1
 
+my $libs = '';
 my $defines = join " ", map "-D$_", grep exists $ENV{$_}, qw(NOINLINE DEBUG MEMDEBUG NDEBUG);
 if ($Config{gccversion}) {
     $OPTIMIZE = '-O3 -Wall -W';
@@ -51,6 +52,9 @@ if ($Config{osname} eq 'hpux' && not $Config{gccversion}) {
   # so we just fake the inline away.
   $defines .= " -Dinline= ";
 }
+
+# Prefer external libraries over the bundled one.
+inc::Sereal::BuildTools::check_external_libraries(\$libs, \$defines);
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
@@ -89,7 +93,7 @@ WriteMakefile1(
     LICENSE => 'perl',
     ABSTRACT_FROM => 'lib/Sereal/Decoder.pm',
     AUTHOR => 'Steffen Mueller <smueller@cpan.org>, Yves Orton <yves@cpan.org>',
-    LIBS              => [''], # e.g., '-lm'
+    LIBS              => [$libs], # e.g., '-lm'
     DEFINE            => $defines,
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
     OPTIMIZE          => $OPTIMIZE,

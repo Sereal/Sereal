@@ -1264,6 +1264,19 @@ HERE
   }
 }
 
+# Prefer external csnappy library over the bundled one.
+sub check_external_libraries {
+  my ($libs, $defines) = @_;
+  require Devel::CheckLib;
+
+  if (Devel::CheckLib::check_lib(
+    lib      => 'csnappy',
+    header   => 'csnappy.h'
+  )) {
+    $$libs .= ' -lcsnappy';
+    $$defines .= ' -DHAVE_CSNAPPY';
+  }
+}
 
 1;
 
