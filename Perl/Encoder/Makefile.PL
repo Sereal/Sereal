@@ -26,6 +26,7 @@ inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
 our $OPTIMIZE;
 
 my $libs = '';
+my $objects = '$(BASEEXT)$(OBJ_EXT) srl_encoder$(OBJ_EXT)';
 my $defines = join " ", map "-D$_", grep exists $ENV{$_},
               qw(NOINLINE DEBUG MEMDEBUG NDEBUG ENABLE_DANGEROUS_HACKS);
 
@@ -58,7 +59,7 @@ if ($Config{osname} eq 'hpux' && not $Config{gccversion}) {
 }
 
 # Prefer external libraries over the bundled one.
-inc::Sereal::BuildTools::check_external_libraries(\$libs, \$defines);
+inc::Sereal::BuildTools::check_external_libraries(\$libs, \$defines, \$objects);
 
 if ($defines !~ /HAVE_CSNAPPY/) {
     # from Compress::Snappy
@@ -111,7 +112,7 @@ WriteMakefile1(
     DEFINE            => $defines,
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
     OPTIMIZE          => $OPTIMIZE,
-    OBJECT            => '$(O_FILES)',
+    OBJECT            => $objects,
     test              => {
         TESTS => "t/*.t t/*/*/*.t",
     },

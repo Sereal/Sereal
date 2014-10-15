@@ -58,7 +58,11 @@ extern "C" {
 #include "snappy/csnappy_compress.c"
 #endif
 
+#if defined(HAVE_MINIZ)
+#include <miniz.h>
+#else
 #include "miniz.h"
+#endif
 
 /* The ENABLE_DANGEROUS_HACKS (passed through from ENV via Makefile.PL) enables
  * optimizations that may make the code so cozy with a particular version of the

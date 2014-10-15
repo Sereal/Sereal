@@ -26,6 +26,7 @@ our $OPTIMIZE;
 #     #define MINIZ_HAS_64BIT_REGISTERS 1
 
 my $libs = '';
+my $objects = '$(BASEEXT)$(OBJ_EXT) srl_decoder$(OBJ_EXT)';
 my $defines = join " ", map "-D$_", grep exists $ENV{$_}, qw(NOINLINE DEBUG MEMDEBUG NDEBUG);
 if ($Config{gccversion}) {
     $OPTIMIZE = '-O3 -Wall -W';
@@ -54,7 +55,7 @@ if ($Config{osname} eq 'hpux' && not $Config{gccversion}) {
 }
 
 # Prefer external libraries over the bundled one.
-inc::Sereal::BuildTools::check_external_libraries(\$libs, \$defines);
+inc::Sereal::BuildTools::check_external_libraries(\$libs, \$defines, \$objects);
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
@@ -97,7 +98,7 @@ WriteMakefile1(
     DEFINE            => $defines,
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
     OPTIMIZE          => $OPTIMIZE,
-    OBJECT            => '$(O_FILES)',
+    OBJECT            => $objects,
     test              => {
         TESTS => "t/*.t t/*/*/*.t"
     },

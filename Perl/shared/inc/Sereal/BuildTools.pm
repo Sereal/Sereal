@@ -1264,9 +1264,9 @@ HERE
   }
 }
 
-# Prefer external csnappy library over the bundled one.
+# Prefer external csnappy and miniz libraries over the bundled ones.
 sub check_external_libraries {
-  my ($libs, $defines) = @_;
+  my ($libs, $defines, $objects) = @_;
   require Devel::CheckLib;
 
   if (Devel::CheckLib::check_lib(
@@ -1275,6 +1275,16 @@ sub check_external_libraries {
   )) {
     $$libs .= ' -lcsnappy';
     $$defines .= ' -DHAVE_CSNAPPY';
+  }
+
+  if (Devel::CheckLib::check_lib(
+    lib      => 'miniz',
+    header   => 'miniz.h'
+  )) {
+    $$libs .= ' -lminiz';
+    $$defines .= ' -DHAVE_MINIZ';
+  } else {
+    $$objects .= ' miniz$(OBJ_EXT)';
   }
 }
 

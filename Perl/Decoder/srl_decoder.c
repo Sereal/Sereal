@@ -57,7 +57,11 @@ extern "C" {
 #include "snappy/csnappy_decompress.c"
 #endif
 
+#if defined(HAVE_MINIZ)
+#include <miniz.h>
+#else
 #include "miniz.h"
+#endif
 
 /* 5.8.8 and earlier have a nasty bug in their handling of overloading:
  * The overload-flag is set on the referer of the blessed object instead of
