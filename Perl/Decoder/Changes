@@ -3,6 +3,10 @@ Revision history for Perl extension Sereal-Decoder
 * Warning: For a seamless upgrade, upgrade to version 3
 *          of the decoder before upgrading to version 3 of the
 *          encoder!
+3.002_002
+  * Allow one to build against an externally supplied version
+    of csnappy or miniz. Thanks to Petr Písař <ppisar@redhat.com>
+
 3.002_001 Sept 26, 2014
   * Niko Tyni fixed the 64-bit big endian Sereal bug! (Yay Niko!)
   * Sereal::Decoder::Constants will now have a defined $VERSION

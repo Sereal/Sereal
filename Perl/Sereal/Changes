@@ -6,6 +6,10 @@ please see the Encoder and Decoder changelogs:
    * https://github.com/Sereal/Sereal/blob/master/Perl/Decoder/Changes
    * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
 
+3.002_002
+  * Allow one to build against an externally supplied version
+    of csnappy or miniz. Thanks to Petr Písař <ppisar@redhat.com>
+
 3.002_001 Sept 26, 2014
   * Niko Tyni fixed the 64-bit big endian Sereal bug! (Yay Niko!)
   * Setup META.yml correctly so that certain dependencies are
