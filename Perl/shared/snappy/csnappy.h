@@ -16,6 +16,7 @@ extern "C" {
 #ifndef __GNUC__
 #define __attribute__(x) /*NOTHING*/
 #endif
+#include <stdint.h>
 
 /*
  * Returns the maximal size of the compressed representation of
