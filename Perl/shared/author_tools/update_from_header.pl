@@ -130,6 +130,25 @@ sub update_srl_decoder_h {
     )
 }
 
+sub update_srl_error_h {
+    replace_block("Perl/shared/srl_error.h",
+        join("\n",
+            "* NOTE this section is autoupdated by $0",
+            "*/",
+            "static const char * const tag_name[] = {",
+            ( map {
+                my $str= Data::Dumper::qquote(chr($_));
+                if ($str=~/^"\\[0-9]+"\z/) { $str="";}
+                sprintf qq(\t%-*s /* %-4s %3d 0x%02x 0b%08b */),
+                    $max_name_length+3, qq("$value_to_name_expanded{$_}") . ($_==127 ? " " : ","), $str, $_, $_, $_
+            } 0 .. 127 ),
+            "};",
+            "/*",
+            "* NOTE the above section is auto-updated by $0",
+        )
+    )
+}
+
 sub update_JavaSerealHeader {
     my $declarations = "* NOTE this section is autoupdated by $0 */\n";
 
@@ -174,6 +193,7 @@ chdir "$git_dir/.."
 read_protocol();
 update_buildtools();
 update_srl_decoder_h();
+update_srl_error_h();
 update_table("sereal_spec.pod");
 update_table("Perl/shared/srl_protocol.h");
 update_JavaSerealHeader();
