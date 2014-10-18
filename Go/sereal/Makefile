@@ -19,10 +19,14 @@ compat: test_dir
 	cd ../../Perl/Encoder/ ; perl Makefile.PL
 	make -C ../../Perl/Encoder
 
-test_dir: ../../Perl/Decoder/blib ../../Perl/Encoder/blib test_dir/VERSION_$(CORPUS_PROTO_VER) test_dir/COMPRESS_$(CORPUS_COMPRESS)
+test_dir: ../../Perl/Decoder/blib ../../Perl/Encoder/blib test_dir/VERSION_$(CORPUS_PROTO_VER) test_dir/COMPRESS_$(CORPUS_COMPRESS) test_files
 	cd ../../Perl/Encoder; perl -Mblib=blib -I t/lib/ -MSereal::TestSet -MSereal::Encoder -e '$$Sereal::TestSet::PROTO_VERSION=$(CORPUS_PROTO_VER); $$Sereal::TestSet::COMPRESS=Sereal::Encoder::$(CORPUS_COMPRESS); Sereal::TestSet::write_test_files("../../Go/sereal/test_dir/")'
 	touch "test_dir/VERSION_$(CORPUS_PROTO_VER)"
 	touch "test_dir/COMPRESS_$(CORPUS_COMPRESS)"
+
+test_files:
+	mkdir -p test_dir
+	perl -Mblib=../../Perl/Encoder/blib -MSereal::Encoder cmd/gen/test-decode-struct.pl test_dir
 
 test_dir/VERSION_$(CORPUS_PROTO_VER):
 	rm -f test_dir/VERSION_*

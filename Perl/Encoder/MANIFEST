@@ -10,6 +10,7 @@ Changes
 const-c.inc
 const-xs.inc
 Encoder.xs
+INSTALL
 inc/Devel/CheckLib.pm
 inc/Sereal/BuildTools.pm
 lib/Sereal/Encoder.pm

@@ -1,0 +1,18 @@
+Install with
+
+    perl Makefile.PL
+    make
+    make test
+    make instal
+
+By default the module will detect and use system versions of the miniz
+and csnappy libraries during build and install. You can override this
+by setting the SEREAL_USE_BUNDLED_LIBS to true, or you can override
+it on a case by case basis by setting SEREAL_USE_BUNDLED_MINIZ or
+SEREAL_USE_BUNDLED_CSNAPPY env vars. Eg:
+
+    SEREAL_USE_BUNDLED_LIBS=1 perl Makefile.PL
+    SEREAL_USE_BUNDLED_CSNAPPY=1 perl Makefile.PL
+    SEREAL_USE_BUNDLED_MINIZ=1 perl Makefile.PL
+
+

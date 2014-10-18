@@ -50,6 +50,9 @@ type Merger struct {
 	//   This mode is relevant only to top level elements
 	KeepFlat bool
 
+	// give a hint to encoder about expected size of encoded data
+	ExpectedSize uint
+
 	// moved bool fields here to make struct smaller
 	inited   bool
 	finished bool
@@ -96,7 +99,12 @@ func (m *Merger) initMerger() error {
 	// initialize internal fields
 	m.strTable = make(map[string]int)
 	m.objTable = make(map[string]int)
-	m.buf = make([]byte, headerSize)
+
+	if m.ExpectedSize > 0 {
+		m.buf = make([]byte, headerSize, m.ExpectedSize)
+	} else {
+		m.buf = make([]byte, headerSize)
+	}
 
 	if m.version == 0 {
 		m.version = ProtocolVersion
@@ -452,7 +460,7 @@ LOOP:
 			}
 
 			if dedupString {
-				val := dbuf[didx+1 : didx+length]
+				val := dbuf[didx+1 : didx+length] // FIXME should be dbuf[didx+sz+1 : didx+length]
 				if savedOffset, ok := m.strTable[string(val)]; ok {
 					mbuf = appendTagVarint(mbuf, typeCOPY, uint(savedOffset))
 					mrgRelativeIdx = savedOffset
@@ -479,7 +487,7 @@ LOOP:
 			mbuf = appendTagVarint(mbuf, dbuf[didx], uint(targetOffset))
 			didx += sz + 1
 
-			if tag == typeALIAS {
+			if tag == typeALIAS { // FIXME trackFlag should be set for REFP too
 				mbuf[targetOffset] |= trackFlag
 			} else if tag == typeOBJECTV || tag == typeOBJECTV_FREEZE {
 				stack = append(stack, 1)

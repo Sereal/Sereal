@@ -1,7 +1,8 @@
 #include "sereal.h"
 #include <errno.h>
-static void s_dump(sereal_t *s);
-
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <unistd.h>
 static inline void s_free_data_if_not_mine(sereal_t *s) {
     if (!(s->flags & __NOT_MINE)) {
         if (s->data)
@@ -47,7 +48,7 @@ static inline void s_destroy(sereal_t *s) {
 
 static inline void *s_realloc_or_raise(sereal_t *s, void *p, u32 n) {
     u8 *buf = realloc(p,n);
-    if (!buf)
+    if (unlikely(!buf))
         s_raise(s,rb_eNoMemError,"memory allocation failure for %d bytes",n);
     return buf;
 }
@@ -66,15 +67,17 @@ static inline sereal_t * s_create(void) {
 }
 
 static inline void s_alloc(sereal_t *s, u32 len) {
-    if (s->rsize > s->size + len)
+    if (likely(s->rsize > s->size + len))
         return;
 
-    u32 size = s->size + len + 512; // every time allocate 512b more, so we wont alloc for a while
+    u32 size = s->size + len + 10240; // every time allocate 10k more, so we wont alloc for a while
     u8 *buf = s_realloc_or_raise(s,s->data,size); 
     s->data = buf;
     s->rsize = size;
 }
-
+static inline void s_prepare(sereal_t *s, u32 s_len) {
+    s_alloc(s,s_len);
+}
 static inline void s_append(sereal_t *s, void *suffix, u32 s_len) {
     s_alloc(s,s_len);
     COPY(suffix,(s->data + s->size), s_len);
@@ -96,12 +99,12 @@ static inline int s_read_stream(sereal_t *s, u32 end) {
         u32 req = end - s->size;
         u32 left = s->buffer.size - s->buffer.pos;
         if (left == 0) {
-            int rc = read(s->fd,s->buffer.data,BUFSIZ);
+            size_t rc = read(s->fd,s->buffer.data,BUFSIZ);
             if (rc <= 0)
                 return -1;
-            s->buffer.size = rc;
+            s->buffer.size = (u32) rc;
             s->buffer.pos = 0;
-            left = rc;
+            left = (u32) rc;
         }
         left = left > req ? req : left;
         s_append(s,s->buffer.data + s->buffer.pos,left);
@@ -113,8 +116,8 @@ static inline int s_read_stream(sereal_t *s, u32 end) {
 
 static inline void *s_get_p_at_pos(sereal_t *s, u32 pos,u32 req) {
     // returning s->data[pos], so we just make size count from 0
-    if (pos + req >= s->size) {
-        if (s->flags & __STREAM) {
+    if (unlikely(pos + req >= s->size)) {
+        if (unlikely(s->flags & __STREAM)) {
             if (s_read_stream(s,pos + req + 1) < 0) {
                 s_raise(s,rb_eRangeError,"stream request for %d bytes failed (err: %s)",
                         req,strerror(errno));
@@ -188,22 +191,4 @@ static inline u32 s_shift_position_bang(sereal_t *s, u32 len) {
 static inline void s_set_flag_at_pos(sereal_t *s, u32 pos, u8 flag) {
     u8 *p = s_get_p_at_pos(s,pos,0);
     *p |= flag;
-}
-
-static void b_dump(u8 *p, u32 len, u32 pos) {
-    int i;
-
-    fprintf(stderr,"\n-----------\n");
-    for (i = 0; i < len; i++) {
-        if (i == pos) 
-            fprintf(stderr," [%c %d] ",p[i],p[i]);
-        else
-            fprintf(stderr," (%c %d) ",p[i],p[i]);
-    }
-    fprintf(stderr,"\n-----------\n");
-}
-
-static void s_dump(sereal_t *s) {
-    E("[ pos: %d, size: %d, rsize: %d ]\n",s->pos,s->size,s->rsize);
-    b_dump(s->data,s->size,s->pos);
 }

@@ -441,7 +441,7 @@ static INLINE EightBytesReference GetEightBytesAt(const char* ptr) {
 static INLINE uint32_t GetUint32AtOffset(uint64_t v, int offset) {
 	DCHECK_GE(offset, 0);
 	DCHECK_LE(offset, 4);
-#ifdef __LITTLE_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 	return v >> (8 * offset);
 #else
 	return v >> (32 - 8 * offset);

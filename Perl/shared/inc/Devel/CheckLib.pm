@@ -369,7 +369,7 @@ sub _findcc {
     my @cc = split(/\s+/, $Config{cc});
     return ( [ @cc, @ccflags ], \@ldflags ) if -x $cc[0];
     foreach my $path (@paths) {
-        my $compiler = File::Spec->catfile($path, $cc[0]) . $Config{_exe};
+        my $compiler = File::Spec->catfile($path, $cc[0]) . ($^O eq 'cygwin' ? '' : $Config{_exe});
         return ([ $compiler, @cc[1 .. $#cc], @ccflags ], \@ldflags)
             if -x $compiler;
     }

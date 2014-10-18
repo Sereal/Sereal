@@ -80,7 +80,7 @@ package $constant_namespace;
 use strict;
 use warnings;
 use Carp qw(croak);
-use $namespace; # for XSLoading
+use $namespace; our \$VERSION= \$$namespace\::VERSION; # for XSLoading
 our \@ISA = qw(Exporter);
 require Exporter;
 our \@EXPORT_OK;
@@ -1264,6 +1264,40 @@ HERE
   }
 }
 
+# Prefer external csnappy and miniz libraries over the bundled ones.
+sub check_external_libraries {
+  my ($libs, $defines, $objects) = @_;
+  require Devel::CheckLib;
+
+  if (
+    !$ENV{SEREAL_USE_BUNDLED_LIBS} &&
+    !$ENV{SEREAL_USE_BUNDLED_CSNAPPY} &&
+    Devel::CheckLib::check_lib(
+      lib      => 'csnappy',
+      header   => 'csnappy.h'
+  )) {
+    print "Using installed csnappy library\n";
+    $$libs .= ' -lcsnappy';
+    $$defines .= ' -DHAVE_CSNAPPY';
+  } else {
+    print "Using bundled csnappy code\n";
+  }
+
+  if (
+    !$ENV{SEREAL_USE_BUNDLED_LIBS} &&
+    !$ENV{SEREAL_USE_BUNDLED_MINIZ} &&
+    Devel::CheckLib::check_lib(
+      lib      => 'miniz',
+      header   => 'miniz.h'
+  )) {
+    print "Using installed miniz library\n";
+    $$libs .= ' -lminiz';
+    $$defines .= ' -DHAVE_MINIZ';
+  } else {
+    print "Using bundled miniz code\n";
+    $$objects .= ' miniz$(OBJ_EXT)';
+  }
+}
 
 1;
 

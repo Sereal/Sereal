@@ -50,9 +50,19 @@ extern "C" {
 #include "srl_common.h"
 #include "ptable.h"
 #include "srl_protocol.h"
+#include "srl_error.h"
 
+#if defined(HAVE_CSNAPPY)
+#include <csnappy.h>
+#else
 #include "snappy/csnappy_decompress.c"
+#endif
+
+#if defined(HAVE_MINIZ)
+#include <miniz.h>
+#else
 #include "miniz.h"
+#endif
 
 /* 5.8.8 and earlier have a nasty bug in their handling of overloading:
  * The overload-flag is set on the referer of the blessed object instead of

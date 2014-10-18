@@ -10,6 +10,7 @@ Changes
 const-c.inc
 const-xs.inc
 Decoder.xs
+INSTALL
 inc/Devel/CheckLib.pm
 inc/Sereal/BuildTools.pm
 lib/Sereal/Decoder.pm

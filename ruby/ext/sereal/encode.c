@@ -45,8 +45,7 @@ static void rb_object_to_sereal(sereal_t *s, VALUE object);
 static void s_append_varint(sereal_t *s,u64 n);
 static void s_append_hdr_with_varint(sereal_t *s,u8 hdr, u64 n);
 static void s_append_zigzag(sereal_t *s,long long n);
-static void s_append_string(sereal_t *s,u8 *string, u32 len,u8 is_utf8);
-static void s_append_rb_string(sereal_t *s, VALUE object);
+static void s_append_string(sereal_t *s, VALUE object);
 static void s_append_array(sereal_t *s, VALUE object);
 static void s_append_hash(sereal_t *s, VALUE object);
 static void s_append_symbol(sereal_t *s, VALUE object);
@@ -70,7 +69,7 @@ void s_init_writers(void) {
     WRITER[T_FLOAT]  = s_append_double;
     WRITER[T_OBJECT] = s_append_object;
     WRITER[T_REGEXP] = s_append_regexp;
-    WRITER[T_STRING] = s_append_rb_string;
+    WRITER[T_STRING] = s_append_string;
     WRITER[T_ARRAY]  = s_append_array;
     WRITER[T_HASH]   = s_append_hash;
     WRITER[T_SYMBOL] = s_append_symbol;
@@ -84,13 +83,14 @@ static void s_default_writer(sereal_t *s, VALUE object) {
     s_raise(s,rb_eTypeError, "invalid type for input %s",rb_obj_classname(object));
 }
 
-
 static inline void s_append_varint(sereal_t *s,u64 n) {
-    while (n >= 0x80) {
-        s_append_u8(s,((n & 0x7f) | 0x80));
-        n >>= 7; 
+    s_prepare(s,SRL_MAX_VARINT_LENGTH+1);
+    while (likely(n >= 0x80)) {
+        s->data[s->size++] = (n & 0x7f) | 0x80;
+        n = n >> 7;
     }
-    s_append_u8(s,n);
+    s->data[s->size++] = n;
+    s->pos = s->size;
 }
 
 static inline void s_append_hdr_with_varint(sereal_t *s,u8 hdr, u64 n) {
@@ -102,28 +102,23 @@ static inline void s_append_zigzag(sereal_t *s,long long n) {
     s_append_hdr_with_varint(s,SRL_HDR_ZIGZAG,(n << 1) ^ (n >> 63));
 }
 
-static inline void s_append_string(sereal_t *s,u8 *string, u32 len,u8 is_utf8) {
-    if (is_utf8) {
-        s_append_hdr_with_varint(s,SRL_HDR_STR_UTF8,len);
-    } else {
-        if (len < SRL_MASK_SHORT_BINARY_LEN) {
+static void s_append_string(sereal_t *s, VALUE object) {
+    u32 len = (u32) RSTRING_LEN(object);
+    if (likely(is_ascii_string(object))) {
+        if (likely(len < SRL_MASK_SHORT_BINARY_LEN)) {
             s_append_u8(s,SRL_HDR_SHORT_BINARY_LOW | (u8)len);
         } else {
             s_append_hdr_with_varint(s,SRL_HDR_BINARY,len); 
         }
+    } else {
+        s_append_hdr_with_varint(s,SRL_HDR_STR_UTF8,len);
     }
-    s_append(s,string,len);
-}
-
-static void s_append_rb_string(sereal_t *s, VALUE object) {
-    s_append_string(s,RSTRING_PTR(object),
-                    RSTRING_LEN(object),
-                    (is_ascii_string(object) ? FALSE : TRUE));
+    s_append(s,(u8 *)RSTRING_PTR(object),len);
 }
 
 #define REF_THRESH(thresh,low,high)                     \
     do {                                                \
-        if (len < (thresh))                             \
+        if (unlikely(len < (thresh)))                   \
             s_append_u8(s, low | (u8) len);             \
         else                                            \
             s_append_hdr_with_varint(s,high,len);       \
@@ -139,7 +134,7 @@ static void s_append_array(sereal_t *s, VALUE object) {
 
 
 int s_hash_foreach(VALUE key, VALUE value, VALUE sereal_t_object) {
-    if (key == Qundef)
+    if (unlikely(key == Qundef))
         return ST_CONTINUE;
     rb_object_to_sereal((sereal_t *) sereal_t_object,key);
     rb_object_to_sereal((sereal_t *) sereal_t_object,value);
@@ -156,8 +151,7 @@ static void s_append_hash(sereal_t *s, VALUE object) {
 	convert symbols to strings
 */
 static void s_append_symbol(sereal_t *s, VALUE object) {
-    VALUE string = rb_sym_to_s(object);
-    s_append_rb_string(s,string);
+    s_append_string(s,rb_sym_to_s(object));
 }
 
 static void s_append_copy(sereal_t *s, u8 tag,VALUE object) {
@@ -166,11 +160,11 @@ static void s_append_copy(sereal_t *s, u8 tag,VALUE object) {
 }
 
 static VALUE s_copy_or_keep_in_mind(sereal_t *s, VALUE object, u8 offset) {
-    if (s->copy == Qnil)
+    if (likely(s->copy == Qnil))
         return Qnil;
 
     VALUE stored_position = rb_hash_lookup(s->copy,object);
-    if (stored_position == Qnil)
+    if (unlikely(stored_position == Qnil))
         rb_hash_aset(s->copy,object,INT2FIX(s->pos + offset));
     return stored_position;
 }
@@ -193,7 +187,7 @@ static void s_append_object(sereal_t *s, VALUE object) {
             s_append_copy(s,SRL_HDR_OBJECTV_FREEZE,copy);
         } else {
             s_append_u8(s,SRL_HDR_OBJECT_FREEZE);
-            s_append_rb_string(s,klass);
+            s_append_string(s,klass);
         }
         VALUE frozen = rb_funcall(object,FREEZE,1,ID2SYM(SEREAL));
         if (TYPE(frozen) != T_ARRAY)
@@ -223,7 +217,7 @@ static void s_append_regexp(sereal_t *s, VALUE object) {
 #else
     pattern = rb_enc_str_new(RREGEXP_SRC_PTR(object),RREGEXP_SRC_LEN(object), enc);
 #endif
-    s_append_rb_string(s,pattern);
+    s_append_string(s,pattern);
 
     int flags = rb_reg_options(object);
     VALUE f = rb_str_new("",0);
@@ -233,36 +227,36 @@ static void s_append_regexp(sereal_t *s, VALUE object) {
         rb_str_cat(f,"x",1);
     if (flags & MULTILINE)
         rb_str_cat(f,"m",1);
-    s_append_rb_string(s,f);
+    s_append_string(s,f);
 }
 
-#define I_APPEND(_v)                                                    \
-    do {                                                                \
-        if (_v >= 0) {                                                  \
-            if (_v < 16)                                                \
+#define I_APPEND(_v,_unsigned)                                          \
+do {                                                                    \
+    if (likely(_v >= 0)) {                                              \
+            if (unlikely(_v < 16))                                      \
                 s_append_u8(s,SRL_HDR_POS_LOW | (u8) _v);               \
             else                                                        \
-                s_append_hdr_with_varint(s,SRL_HDR_VARINT,_v);          \
-        } else {                                                        \
-            if (_v > -17)                                               \
-                s_append_u8(s,SRL_HDR_NEG_LOW | ((u8) _v + 32));        \
-            else                                                        \
-                s_append_zigzag(s,_v);                                  \
-        }                                                               \
-    } while(0)
+                s_append_hdr_with_varint(s,SRL_HDR_VARINT,(u64)_v);     \
+    } else {                                                            \
+        if (unlikely(!_unsigned && _v > -17))                           \
+            s_append_u8(s,SRL_HDR_NEG_LOW | ((u8) _v + 32));            \
+        else                                                            \
+            s_append_zigzag(s,_v);                                      \
+    }                                                                   \
+} while(0)
 
 static void s_append_fixnum(sereal_t *s, VALUE object) {
-    long long v = FIXNUM_P(object) ? FIX2LONG(object) : NUM2LL(object);
-    I_APPEND(v);
+    long long v = likely(FIXNUM_P(object)) ? FIX2LONG(object) : NUM2LL(object);
+    I_APPEND(v,0);
 }
 
 static void s_append_bignum(sereal_t *s, VALUE object) {
-    if (RBIGNUM_POSITIVE_P(object)) {
+    if (likely(RBIGNUM_POSITIVE_P(object))) {
         unsigned long long uv = rb_big2ull(object);
-        I_APPEND(uv);
+        I_APPEND(uv,1);
     } else {
         long long v = rb_big2ll(object);
-        I_APPEND(v);
+        I_APPEND(v,0);
     }
 }
 #undef I_APPEND
@@ -292,7 +286,7 @@ static void s_append_refp(sereal_t *s, VALUE object) {
 static void rb_object_to_sereal(sereal_t *s, VALUE object) {
     S_RECURSE_INC(s);
     u32 pos = s->pos;
-    if (COMPLEX(object)) {
+    if (unlikely(s->tracked != Qnil || s->copy != Qnil) && likely(COMPLEX(object))) {
         VALUE stored;
         if (s->tracked != Qnil) {
             VALUE id = rb_obj_id(object);
@@ -330,7 +324,6 @@ void fixup_varint_from_to(u8 *varint_start, u8 *varint_end, u32 number) {
         *varint_start= 0;
     }
 }
-
 
 /*
  * Encodes object into Sereal
@@ -421,9 +414,9 @@ method_sereal_encode(VALUE self, VALUE args) {
 
         u8 *start = s_get_p_at_pos(s,s_header_len,0);
         u8 *working_buf = s_alloc_or_raise(s,CSNAPPY_WORKMEM_BYTES);
-        csnappy_compress(start,
+        csnappy_compress((char *)start,
                          s_body_len,
-                         (compressed + s_header_len + compressed_len_varint + un_compressed_len_varint),
+                         (char *)(compressed + s_header_len + compressed_len_varint + un_compressed_len_varint),
                          &compressed_len,
                          working_buf,
                          CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
@@ -440,8 +433,7 @@ method_sereal_encode(VALUE self, VALUE args) {
         s->size = compressed_len + s_header_len + compressed_len_varint + un_compressed_len_varint;
         s->pos = s->size;
     }
-
-    VALUE result = rb_str_new(s->data,s->size);
+    VALUE ret = rb_str_new((char *) s->data,s->size);
     s_destroy(s);
-    return result;
+    return ret;
 }
