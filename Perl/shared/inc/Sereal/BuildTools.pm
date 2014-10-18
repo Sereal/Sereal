@@ -1269,21 +1269,32 @@ sub check_external_libraries {
   my ($libs, $defines, $objects) = @_;
   require Devel::CheckLib;
 
-  if (Devel::CheckLib::check_lib(
-    lib      => 'csnappy',
-    header   => 'csnappy.h'
+  if (
+    !$ENV{SEREAL_USE_BUNDLED_LIBS} &&
+    !$ENV{SEREAL_USE_BUNDLED_CSNAPPY} &&
+    Devel::CheckLib::check_lib(
+      lib      => 'csnappy',
+      header   => 'csnappy.h'
   )) {
+    print "Using installed csnappy library\n";
     $$libs .= ' -lcsnappy';
     $$defines .= ' -DHAVE_CSNAPPY';
+  } else {
+    print "Using bundled csnappy code\n";
   }
 
-  if (Devel::CheckLib::check_lib(
-    lib      => 'miniz',
-    header   => 'miniz.h'
+  if (
+    !$ENV{SEREAL_USE_BUNDLED_LIBS} &&
+    !$ENV{SEREAL_USE_BUNDLED_MINIZ} &&
+    Devel::CheckLib::check_lib(
+      lib      => 'miniz',
+      header   => 'miniz.h'
   )) {
+    print "Using installed miniz library\n";
     $$libs .= ' -lminiz';
     $$defines .= ' -DHAVE_MINIZ';
   } else {
+    print "Using bundled miniz code\n";
     $$objects .= ' miniz$(OBJ_EXT)';
   }
 }
