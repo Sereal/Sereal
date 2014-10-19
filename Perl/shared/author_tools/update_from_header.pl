@@ -111,8 +111,9 @@ sub update_buildtools {
             "push \@EXPORT_OK, qw(%TAG_INFO_HASH \@TAG_INFO_ARRAY);",
     )
 }
-sub update_srl_decoder_h {
-    replace_block("Perl/Decoder/srl_decoder.h",
+
+sub update_srl_error_h {
+    replace_block("Perl/shared/srl_error.h",
         join("\n",
             "* NOTE this section is autoupdated by $0",
             "*/",
@@ -173,7 +174,7 @@ chdir "$git_dir/.."
     or die "Failed to chdir to root of repo '$git_dir/..': $!";
 read_protocol();
 update_buildtools();
-update_srl_decoder_h();
+update_srl_error_h();
 update_table("sereal_spec.pod");
 update_table("Perl/shared/srl_protocol.h");
 update_JavaSerealHeader();

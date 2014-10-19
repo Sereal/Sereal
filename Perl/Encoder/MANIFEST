@@ -32,6 +32,7 @@ srl_buffer_types.h
 srl_common.h
 srl_encoder.c
 srl_encoder.h
+srl_error.h
 srl_inline.h
 srl_protocol.h
 t/001_load.t

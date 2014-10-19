@@ -31,6 +31,7 @@ snappy/csnappy_internal_userspace.h
 srl_common.h
 srl_decoder.c
 srl_decoder.h
+srl_error.h
 srl_inline.h
 srl_protocol.h
 t/001_load.t
