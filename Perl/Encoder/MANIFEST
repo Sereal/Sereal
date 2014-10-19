@@ -10,9 +10,9 @@ Changes
 const-c.inc
 const-xs.inc
 Encoder.xs
-INSTALL
 inc/Devel/CheckLib.pm
 inc/Sereal/BuildTools.pm
+INSTALL
 lib/Sereal/Encoder.pm
 lib/Sereal/Encoder/Constants.pm
 Makefile.PL
