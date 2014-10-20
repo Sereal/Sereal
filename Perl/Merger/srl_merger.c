@@ -133,6 +133,7 @@ extern "C" {
 #include "srl_inline.h"
 #include "srl_mrg_error.h"
 #include "../Encoder/srl_buffer.h"
+#include "snappy/csnappy_decompress.c"
 
 typedef PTABLE_ENTRY_t *ptable_entry_ptr;
 
@@ -144,6 +145,7 @@ SRL_STATIC_INLINE UV srl_read_varint_uv_offset(pTHX_ srl_buffer_t *buf, const ch
 SRL_STATIC_INLINE UV srl_read_varint_uv_length(pTHX_ srl_buffer_t *buf, const char * const errstr);
 SRL_STATIC_INLINE UV srl_read_varint_uv_count(pTHX_ srl_buffer_t *buf, const char * const errstr);
 SRL_STATIC_INLINE IV srl_validate_header_version_pv_len(pTHX_ char *strdata, STRLEN len);
+SRL_STATIC_INLINE UV srl_decompress_body_snappy(pTHX_ srl_buffer_t *buf, int incremental);
 
 SRL_STATIC_INLINE void srl_buf_copy_content_nocheck(pTHX_ srl_merger_t *mrg, size_t len);
 SRL_STATIC_INLINE void srl_copy_varint(pTHX_ srl_merger_t *mrg);
@@ -447,18 +449,6 @@ srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
         SRL_ERRORf1(mrg->ibuf, "Unsupported Sereal protocol version %u", mrg->protocol_version);
     }
 
-    if (encoding_flags == SRL_PROTOCOL_ENCODING_RAW) {
-        /* no op */
-    } else if (   encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
-               || encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL)
-    {
-        SRL_ERROR(mrg->ibuf, "snappy compression is not implemented");
-    } else if (encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB) {
-        SRL_ERROR(mrg->ibuf, "zlib compression is not implemented");
-    } else {
-        SRL_ERROR(mrg->ibuf, "Sereal document encoded in an unknown format");
-    }
-
     // skip header in any case
     header_len = srl_read_varint_uv_length(aTHX_ &mrg->ibuf, " while reading header");
 
@@ -466,6 +456,18 @@ srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
         mrg->ibuf.pos += header_len - 1;
     } else {
         mrg->ibuf.pos += header_len;
+    }
+
+    if (encoding_flags == SRL_PROTOCOL_ENCODING_RAW) {
+        /* no op */
+    } else if (   encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
+               || encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL)
+    {
+        srl_decompress_body_snappy(aTHX_ &mrg->ibuf, encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL);
+    } else if (encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB) {
+        SRL_ERROR(mrg->ibuf, "zlib compression is not implemented");
+    } else {
+        SRL_ERROR(mrg->ibuf, "Sereal document encoded in an unknown format");
     }
 
     SRL_UPDATE_BUF_BODY_POS(mrg->ibuf, protocol_version);
@@ -1212,4 +1214,50 @@ srl_validate_header_version_pv_len(pTHX_ char *strdata, STRLEN len)
     }
 
     return -1;
+}
+
+/* Decompress a Snappy-compressed document body and put the resulting
+ * document body back in the place of the old compressed blob. */
+SRL_STATIC_INLINE UV
+srl_decompress_body_snappy(pTHX_ srl_buffer_t *buf, int incremental)
+{
+    SV *buf_sv;
+    uint32_t decompressed_len;
+    int decompress_ok, snappy_header_len;
+
+    const STRLEN compressed_len
+        = incremental
+        ? (STRLEN) srl_read_varint_uv_length(aTHX_ buf, " while reading compressed packet size")
+        : (STRLEN) (buf->end - buf->pos);
+
+    char *ptr, *old_pos = buf->pos;
+    const ptrdiff_t sereal_header_len = buf->pos - buf->start;
+    UV bytes_consumed = compressed_len + sereal_header_len;
+
+    /* All bufl's above here, or we break C89 compilers */
+
+    snappy_header_len = csnappy_get_uncompressed_length(buf->pos,
+                                                        compressed_len,
+                                                        &decompressed_len);
+
+    if (snappy_header_len == CSNAPPY_E_HEADER_BAD)
+        SRL_ERROR(*buf, "Invalid Snappy header in Snappy-compressed Sereal packet");
+
+    /* Allocate output buffer and swap it into place within the bufoder. */
+    buf_sv = sv_2mortal(newSV(sereal_header_len + decompressed_len + 1));
+    ptr = (char *) SvPVX(buf_sv);
+
+    buf->start = ptr;
+    buf->pos = buf->start + sereal_header_len;
+    buf->end = buf->pos + decompressed_len;
+
+    decompress_ok = csnappy_decompress_noheader(old_pos + snappy_header_len,
+                                                compressed_len - snappy_header_len,
+                                                buf->pos,
+                                                &decompressed_len);
+
+    if (expect_false(decompress_ok != 0))
+        SRL_ERRORf1(*buf, "Snappy decompression of Sereal packet payload failed with error %i!", decompress_ok);
+
+    return bytes_consumed;
 }
