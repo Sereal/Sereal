@@ -77,9 +77,12 @@ extern "C" {
 
 #define ASSERT_BUF_SPACE(buf, len, msg) STMT_START {         \
     if (expect_false((UV) BUF_SPACE((buf)) < (UV) (len))) {  \
-        croak("Unexpected termination of packet%s, "         \
-              "want %lu bytes, only have %lu available",     \
-              (msg), (UV) (len), (UV) BUF_SPACE((buf)));     \
+        SRL_ERRORf3(                                         \
+            (buf),                                           \
+            "Unexpected termination of packet%s, "           \
+            "want %lu bytes, only have %lu available",       \
+            (msg), (UV) (len), (UV) BUF_SPACE((buf))         \
+        );                                                   \
     }                                                        \
 } STMT_END
 
@@ -128,6 +131,7 @@ extern "C" {
 #include "strtable.h"
 #include "srl_protocol.h"
 #include "srl_inline.h"
+#include "srl_mrg_error.h"
 #include "../Encoder/srl_buffer.h"
 
 typedef PTABLE_ENTRY_t *ptable_entry_ptr;
@@ -222,7 +226,7 @@ srl_build_merger_struct(pTHX_ HV *opt)
             mrg->protocol_version = SvUV(*svp);
             if (mrg->protocol_version < 1 || mrg->protocol_version > SRL_PROTOCOL_VERSION) {
                 croak("Specified Sereal protocol version ('%lu') is invalid",
-                      (unsigned long)mrg->protocol_version);
+                      (unsigned long) mrg->protocol_version);
             }
         }
 
@@ -430,11 +434,9 @@ srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
 
     if (proto_version_and_encoding_flags_int < 1) {
         if (proto_version_and_encoding_flags_int == 0)
-            croak("Bad Sereal header: It seems your document was accidentally UTF-8 encoded");
-            //SRL_ERROR("Bad Sereal header: It seems your document was accidentally UTF-8 encoded");
+            SRL_ERROR(mrg->ibuf, "Bad Sereal header: It seems your document was accidentally UTF-8 encoded");
         else
-            croak("Bad Sereal header: Not a valid Sereal document.");
-            //SRL_ERROR("Bad Sereal header: Not a valid Sereal document.");
+            SRL_ERROR(mrg->ibuf, "Bad Sereal header: Not a valid Sereal document.");
     }
 
     mrg->ibuf.pos += 5;
@@ -442,8 +444,7 @@ srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
     protocol_version = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
 
     if (expect_false(protocol_version > 3 || protocol_version < 1)) {
-        croak("Unsupported Sereal protocol version %u", protocol_version);
-        //SRL_ERRORf1("Unsupported Sereal protocol version %u", dec->proto_version);
+        SRL_ERRORf1(mrg->ibuf, "Unsupported Sereal protocol version %u", mrg->protocol_version);
     }
 
     if (encoding_flags == SRL_PROTOCOL_ENCODING_RAW) {
@@ -451,14 +452,11 @@ srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
     } else if (   encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
                || encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL)
     {
-        croak("snappy compression is not implemented");
+        SRL_ERROR(mrg->ibuf, "snappy compression is not implemented");
     } else if (encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB) {
-        croak("zlib compression is not implemented");
+        SRL_ERROR(mrg->ibuf, "zlib compression is not implemented");
     } else {
-        croak("Sereal document encoded in an unknown format '%d'",
-              encoding_flags >> SRL_PROTOCOL_VERSION_BITS);
-//        SRL_ERRORf1("Sereal document encoded in an unknown format '%d'",
-//                    dec->encoding_flags >> SRL_PROTOCOL_VERSION_BITS);
+        SRL_ERROR(mrg->ibuf, "Sereal document encoded in an unknown format");
     }
 
     // skip header in any case
@@ -547,7 +545,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
                             break;
 
                         default:
-                            croak("unexpected"); // TODO SRL_ERROR_UNEXPECTED(dec,tag, " single value");
+                            SRL_ERROR_UNIMPLEMENTED(mrg->ibuf, tag, "");
                             break;
                     }
             }
@@ -581,8 +579,8 @@ read_again:
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
 
     ptable_entry = NULL;
-    if (expect_false(BUF_DONE(mrg->ibuf))) // TODO
-        croak("Unexpected termination of packet");
+    if (expect_false(BUF_DONE(mrg->ibuf)))
+        SRL_ERROR(mrg->ibuf, "Unexpected termination of input buffer");
 
     tag = *mrg->ibuf.pos & ~SRL_HDR_TRACK_FLAG;
     SRL_REPORT_CURRENT_TAG(mrg, tag);
@@ -673,7 +671,7 @@ read_again:
 
                         tag = *mrg->ibuf.pos;
                         if (expect_false(tag < SRL_HDR_SHORT_BINARY_LOW))
-                            croak("Expecting SRL_HDR_SHORT_BINARY for modifiers of regexp, but got %d (0x%x)", tag, tag); // TODO
+                            SRL_ERROR_UNEXPECTED(mrg->ibuf, tag, "SRL_HDR_SHORT_BINARY");
 
                         srl_buf_copy_content_nocheck(aTHX_ mrg, SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) + 1);
                         break;
@@ -694,7 +692,7 @@ read_again:
                         goto read_again;
 
                      default:
-                        croak("unexpected tag %d (0x%X) at %d", tag, tag, (int) BUF_POS_OFS(mrg->ibuf));
+                        SRL_ERROR_UNIMPLEMENTED(mrg->ibuf, tag, "");
                         break;
                 }
         }
@@ -846,8 +844,8 @@ srl_merge_stringish(pTHX_ srl_merger_t *mrg)
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(mrg->obuf);
 
-    if (expect_false(BUF_DONE(mrg->ibuf))) // TODO
-        croak("Unexpected termination of packet");
+    if (expect_false(BUF_DONE(mrg->ibuf)))
+        SRL_ERROR(mrg->ibuf, "Unexpected termination of input buffer");
 
     tag = *mrg->ibuf.pos;
     tag = tag & ~SRL_HDR_TRACK_FLAG;
@@ -873,13 +871,13 @@ srl_merge_stringish(pTHX_ srl_merger_t *mrg)
 
         U8 newtag = *(mrg->obuf.body_pos + offset);
         if (expect_false(newtag != SRL_HDR_BINARY && newtag != SRL_HDR_STR_UTF8 && newtag < SRL_HDR_SHORT_BINARY_LOW)) {
-            croak("bad COPY tag, it should point to stringish"); // TODO
+            SRL_ERROR_BAD_COPY(mrg->ibuf, newtag);
         }
 
         srl_buf_cat_varint(aTHX_ MRG2ENC(mrg), tag, offset);
         //otag_offset = offset;
     } else {
-        croak("expected stringish, but got unexpected tag %d (0x%X) at %d", tag, tag, (int) BUF_POS_OFS(mrg->ibuf)); // TODO
+        SRL_ERROR_UNEXPECTED(mrg->ibuf, tag, "stringish");
     }
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
@@ -970,13 +968,13 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
 
         U8 newtag = *(mrg->obuf.body_pos + offset);
         if (expect_false(newtag != SRL_HDR_BINARY && newtag != SRL_HDR_STR_UTF8 && newtag < SRL_HDR_SHORT_BINARY_LOW)) {
-            croak("bad COPY tag, it should point to stringish"); // TODO
+            SRL_ERROR_BAD_COPY(mrg->ibuf, newtag);
         }
 
         srl_buf_cat_varint(aTHX_ MRG2ENC(mrg), strtag, offset);
         //otag_offset = offset;
     } else {
-        croak("expected stringish in object, but got unexpected tag %d (0x%X) at %d", objtag, objtag, (int) BUF_POS_OFS(mrg->ibuf)); // TODO
+        SRL_ERROR_UNEXPECTED(mrg->ibuf, strtag, "stringish");
     }
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
@@ -1002,12 +1000,13 @@ srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV offset)
 {
     void *res = PTABLE_fetch(SRL_GET_TRACKED_OFFSETS_TBL(mrg), INT2PTR(void *, offset));
     if (expect_false(!res))
-        croak("bad target offset %lu", offset); // TODO
+        SRL_ERRORf1(mrg->ibuf, "bad target offset %lu", offset);
 
     UV len = PTR2UV(res);
     SRL_MERGER_TRACE("srl_lookup_tracked_offset: %lu -> %lu", offset, len);
     if (expect_false(mrg->obuf.body_pos + len >= mrg->obuf.pos)) {
-        croak("srl_lookup_tracked_offset: corrupted packet");
+        SRL_ERRORf3(mrg->obuf, "Corrupted packet. Offset %lu points past current iposition %lu in packet with length of %lu bytes long",
+                    (unsigned long) offset, (unsigned long) BUF_POS_OFS(mrg->obuf), (unsigned long) BUF_SIZE(mrg->obuf));
     }
 
     return len;
@@ -1081,15 +1080,13 @@ srl_copy_varint(pTHX_ srl_merger_t *mrg)
         lshift += 7;
 
         if (expect_false(lshift > (sizeof(UV) * 8)))
-            croak("varint too big");
-            //SRL_ERROR("varint too big");
+            SRL_ERROR(mrg->ibuf, "varint too big");
     }
 
     if (expect_true(BUF_NOT_DONE(mrg->ibuf))) {
         *mrg->obuf.pos++ = *mrg->ibuf.pos++;
     } else {
-        croak("varint terminated prematurely");
-        //SRL_ERROR("varint terminated prematurely");
+        SRL_ERROR(mrg->ibuf, "varint terminated prematurely");
     }
 
     DEBUG_ASSERT_BUF_SANE(mrg->ibuf);
@@ -1119,15 +1116,13 @@ srl_read_varint_uv_safe(pTHX_ srl_buffer_t *buf)
         uv |= ((UV) (*buf->pos++ & 0x7F) << lshift);
         lshift += 7;
         if (lshift > (sizeof(UV) * 8))
-            croak("varint too big");
-            //SRL_ERROR("varint too big");
+            SRL_ERROR(*buf, "varint too big");
     }
 
     if (expect_true(BUF_NOT_DONE(*buf))) {
         uv |= ((UV) *buf->pos++ << lshift);
     } else {
-        croak("varint terminated prematurely");
-        //SRL_ERROR("varint terminated prematurely");
+        SRL_ERROR(*buf, "varint terminated prematurely");
     }
 
     return uv;
@@ -1144,8 +1139,7 @@ srl_read_varint_uv_nocheck(pTHX_ srl_buffer_t *buf)
         lshift += 7;
 
         if (expect_false(lshift > (sizeof(UV) * 8)))
-            croak("varint too big");
-            //SRL_ERROR("varint too big");
+            SRL_ERROR(*buf, "varint too big");
     }
 
     uv |= ((UV) (*buf->pos++) << lshift);
@@ -1157,8 +1151,8 @@ srl_read_varint_uv_offset(pTHX_ srl_buffer_t *buf, const char * const errstr)
 {
     UV len= srl_read_varint_uv(aTHX_ buf);
     if (expect_false(buf->body_pos + len >= buf->pos)) {
-        croak("Corrupted packet%s. Offset %lu points past current iposition %lu in packet with length of %lu bytes long",
-              errstr, (unsigned long)len, (unsigned long) BUF_POS_OFS(*buf), (unsigned long) BUF_SIZE(*buf));
+        SRL_ERRORf4(*buf, "Corrupted packet%s. Offset %lu points past current iposition %lu in packet with length of %lu bytes long",
+                    errstr, (unsigned long)len, (unsigned long) BUF_POS_OFS(*buf), (unsigned long) BUF_SIZE(*buf));
     }
 
     return len;
@@ -1177,8 +1171,7 @@ srl_read_varint_uv_count(pTHX_ srl_buffer_t *buf, const char * const errstr)
 {
     UV len= srl_read_varint_uv(aTHX_ buf);
     if (len > I32_MAX) {
-        croak("Corrupted packet%s. Count %lu exceeds I32_MAX (%i), which is imipossible.", errstr, len, I32_MAX);
-        //SRL_ERRORf3("Corrupted packet%s. Count %lu exceeds I32_MAX (%i), which is imipossible.", errstr, len, I32_MAX);
+        SRL_ERRORf3(*buf, "Corrupted packet%s. Count %lu exceeds I32_MAX (%i), which is imipossible.", errstr, len, I32_MAX);
     }
 
     return len;
