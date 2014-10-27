@@ -12,6 +12,7 @@ Splitter.so
 Splitter.o
 Splitter.c
 *.o
+miniz.*
 srl_protocol.h
 ptable.h
 const-c.inc
