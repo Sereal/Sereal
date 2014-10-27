@@ -3,6 +3,9 @@ srl_encoder_t * O_OBJECT
 srl_decoder_t * O_OBJECT
 srl_merger_t  * O_OBJECT
 
+# T_OBJECT
+Sereal::Splitter  T_PTROBJ
+
 ######################################################################
 OUTPUT
 
