@@ -25,12 +25,17 @@ typedef struct {
     UV cut_deepness;
     U32 flags;
     srl_splitter_stack_t * status_stack;
-    /* srl_splitter_stack_t * track_stack; */
+    /* srl_splitter_stack_t * output_stack; */
+
+    UV current_chunk_size;
+    char* current_chunk_start;
+    SV* current_chunk;
+    
+
 } srl_splitter_t;
 
 enum {
 
-    ST_DONE,
     ST_VALUE,
     ST_INVALID,
 

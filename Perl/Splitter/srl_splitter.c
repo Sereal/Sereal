@@ -85,7 +85,8 @@ SRL_STATIC_INLINE srl_splitter_t * srl_empty_splitter_struct(pTHX);
 void srl_parse_header(pTHX_ srl_splitter_t *splitter);
 SRL_STATIC_INLINE UV srl_read_varint_uv_nocheck(pTHX_ srl_splitter_t *splitter);
 
-SRL_STATIC_INLINE void srl_splitter_read_tag(srl_splitter_t * splitter, char tag);
+int _parse(srl_splitter_t * splitter);
+SRL_STATIC_INLINE void _read_tag(srl_splitter_t * splitter, char tag);
 SRL_STATIC_INLINE void srl_read_varint(srl_splitter_t * splitter);
 SRL_STATIC_INLINE void srl_read_zigzag(srl_splitter_t * splitter);
 SRL_STATIC_INLINE void srl_read_float(srl_splitter_t * splitter);
@@ -116,6 +117,10 @@ stack_pop(srl_splitter_stack_t * stack)
         croak("Stack is empty");
     }
     return val;
+}
+
+bool stack_is_empty(srl_splitter_stack_t * stack) {
+    return (stack->top == 0);
 }
 
 void
@@ -162,38 +167,50 @@ srl_build_splitter_struct(pTHX_ HV *opt)
 
     srl_parse_header(splitter);
 
-    char tag = *(splitter->pos);
-    if (IS_SRL_HDR_ARRAYREF(tag)) {
-        splitter->pos++;
-    } else if (tag == SRL_HDR_REFN) {
-        splitter->pos++;
-        tag = *(splitter->pos);
-        if (tag == SRL_HDR_ARRAY) {
-            splitter->pos++;
-        } else {
-            croak("first tag is not an ArrayRef");
-        }
-    } else {
-        croak("first tag is not an ArrayRef");
-    }
-
     /* initialize stacks */
     srl_splitter_stack_t * status_stack;
     Newxz(status_stack, 1, srl_splitter_stack_t );
     Newxz(status_stack->data, STACK_SIZE_INCR, UV );
     status_stack->size = STACK_SIZE_INCR;
     status_stack->top = 0;
-    stack_push(status_stack, ST_DONE);
-    stack_push(status_stack, ST_VALUE);
     splitter->status_stack = status_stack;
 
-    /* srl_splitter_stack_t * track_stack; */
-    /* Newxz(track_stack, 1, srl_splitter_stack_t ); */
-    /* Newxz(track_stack->data, STACK_SIZE_INCR, UV ); */
-    /* track_stack->size = STACK_SIZE_INCR; */
-    /* track_stack->top = 0; */
-    /* splitter->track_stack = track_stack; */
+    /* initialize */
+    splitter->cant_split_here = 0;
 
+    /* srl_splitter_stack_t * output_stack; */
+    /* Newxz(output_stack, 1, srl_splitter_stack_t ); */
+    /* Newxz(output_stack->data, STACK_SIZE_INCR, UV ); */
+    /* output_stack->size = STACK_SIZE_INCR; */
+    /* output_stack->top = 0; */
+    /* splitter->output_stack = output_stack; */
+
+    char tag = *(splitter->pos);
+    splitter->pos++;
+    if (IS_SRL_HDR_ARRAYREF(tag)) {
+        int len = tag & 0xF;
+        while (len-- > 0) {
+            stack_push(splitter->status_stack, ST_VALUE);
+        }
+        /* OK */
+    } else if (tag == SRL_HDR_REFN) {
+        tag = *(splitter->pos);
+        splitter->pos++;
+        if (tag == SRL_HDR_ARRAY) {
+            UV len = srl_read_varint_uv_nocheck(splitter);
+            SRL_SPLITTER_TRACE(" * ARRAY of len, %lu", len);
+            while (len-- > 0) {
+                stack_push(splitter->status_stack, ST_VALUE);
+            }
+            /* OK */
+        } else {
+            croak("first tag is REFN but next tag is not ARRAY");
+        }
+    } else {
+        croak("first tag is not an ArrayRef");
+    }
+
+    
     return splitter;
 }
 
@@ -204,8 +221,8 @@ srl_destroy_splitter(pTHX_ srl_splitter_t *splitter)
     if (splitter->status_stack->data != NULL) {
         Safefree(splitter->status_stack->data);
     }
-    /* if (splitter->track_stack->data != NULL) { */
-    /*     Safefree(splitter->track_stack->data); */
+    /* if (splitter->output_stack->data != NULL) { */
+    /*     Safefree(splitter->output_stack->data); */
     /* } */
     Safefree(splitter);
 }
@@ -218,7 +235,6 @@ srl_empty_splitter_struct(pTHX)
     if (splitter == NULL) {
         croak("Out of memory");
     }
-
     return splitter;
 }
 
@@ -416,9 +432,7 @@ srl_parse_header(pTHX_ srl_splitter_t *splitter)
 /*     croak("Something is wrong, I parsed the whole input blob but didn't found desired deepness"); */
 /* } */
 
-void
-srl_splitter_create_prefix(srl_splitter_t * splitter)
-{
+int _parse(srl_splitter_t * splitter) {
 
     /* char tag = *(splitter->pos); */
     /* splitter->pos++; */
@@ -436,15 +450,23 @@ srl_splitter_create_prefix(srl_splitter_t * splitter)
     /*         } */
     
 
-    UV status;
     char tag;
-    while( (status = stack_pop(splitter->status_stack)) != ST_DONE ) {
+
+    while( ! stack_is_empty(splitter->status_stack) ) {
+        UV status = stack_pop(splitter->status_stack);
+
+        SRL_SPLITTER_TRACE("* ITERATING -- cant_split value: %d", splitter->cant_split_here);
         switch(status) {
         case ST_TRACK:
             /* get current element from current array of stuff */
             break;
+        case ST_CAN_SPLIT_AGAIN:
+            splitter->cant_split_here--;
+            SRL_SPLITTER_TRACE("  * SPLIT AGAIN -- cant_split value: %d", splitter->cant_split_here);
+            break;
         case ST_VALUE:
             tag = *(splitter->pos);
+            SRL_SPLITTER_TRACE("  * VALUE tag %d -- cant_split value: %d", tag, splitter->cant_split_here);
             if (tag & SRL_HDR_TRACK_FLAG) {
                 tag = tag & ~SRL_HDR_TRACK_FLAG;
                 SRL_SPLITTER_TRACE("tag must be tracked, %ld\n", splitter->pos - splitter->body_pos);
@@ -452,22 +474,33 @@ srl_splitter_create_prefix(srl_splitter_t * splitter)
                 stack_push(splitter->status_stack, ST_TRACK);
             }
             splitter->pos++;
-            srl_splitter_read_tag(splitter, tag);
-            break;
-        case ST_ARRAY_CLOSE:
-            SRL_SPLITTER_TRACE("ARRAY_CLOSE %s", "");
-            break;
-        case ST_HASH_CLOSE:
-            SRL_SPLITTER_TRACE("HASH_CLOSE %s", "");
+            _read_tag(splitter, tag);
             break;
         }
+        if ( splitter->cant_split_here == 0 &&
+             (UV)(splitter->current_chunk_size +
+              splitter->pos - splitter->current_chunk_start) >= splitter->chunk_size) {
+            SRL_SPLITTER_TRACE(" ----------- FLUSH CHUNK, size is %li", (splitter->pos - splitter->current_chunk_start));
+            sv_catpvn(splitter->current_chunk, splitter->current_chunk_start, splitter->pos - splitter->current_chunk_start);
+            return 1;
+        }
+    }
+    SRL_SPLITTER_TRACE("------------ END ITERATING ------- cant_split value: %d", splitter->cant_split_here);
+    if (splitter->cant_split_here != 0) {
+        croak("Something wrong happens: parsing finished but cant_split_here is not zero");
     }
 
-    croak("Something is wrong, I parsed the whole input blob but didn't find desired deepness");
+    if (splitter->pos - splitter->current_chunk_start > 0) {
+        SRL_SPLITTER_TRACE(" ----------- LAST FLUSH CHUNK, size is %li", (splitter->pos - splitter->current_chunk_start));
+        sv_catpvn(splitter->current_chunk, splitter->current_chunk_start, splitter->pos - splitter->current_chunk_start);
+        return 1;
+    }
+
+    return 0;
 }
 
 void
-srl_splitter_read_tag(srl_splitter_t * splitter, char tag)
+_read_tag(srl_splitter_t * splitter, char tag)
 {
     /* first, self-contained tags*/
     if ( tag <= SRL_HDR_POS_HIGH ) {
@@ -483,7 +516,8 @@ srl_splitter_read_tag(srl_splitter_t * splitter, char tag)
         SRL_SPLITTER_TRACE(" * SHORT HASHREF of length %d", len);
         stack_push(splitter->status_stack, ST_HASH_CLOSE);
         while (len-- > 0) {
-            stack_push(splitter->status_stack, ST_HASH_PAIR);
+            splitter->cant_split_here++;
+            stack_push(splitter->status_stack, ST_CAN_SPLIT_AGAIN);
             stack_push(splitter->status_stack, ST_VALUE);
             stack_push(splitter->status_stack, ST_VALUE);
         }
@@ -492,6 +526,8 @@ srl_splitter_read_tag(srl_splitter_t * splitter, char tag)
         SRL_SPLITTER_TRACE(" * SHORT ARRAY of length %d", len);
         stack_push(splitter->status_stack, ST_ARRAY_CLOSE);
         while (len-- > 0) {
+            splitter->cant_split_here++;
+            stack_push(splitter->status_stack, ST_CAN_SPLIT_AGAIN);
             stack_push(splitter->status_stack, ST_VALUE);
         }
     } else {
@@ -619,11 +655,26 @@ SRL_STATIC_INLINE void srl_read_extend(srl_splitter_t * splitter) {
 }
 
 SRL_STATIC_INLINE void srl_read_hash(srl_splitter_t * splitter) {
-    croak("extend unimplemented");
+    UV len = srl_read_varint_uv_nocheck(splitter);
+    SRL_SPLITTER_TRACE(" * HASH of len, %lu", len);
+    while (len-- > 0) {
+        splitter->cant_split_here++;
+        stack_push(splitter->status_stack, ST_CAN_SPLIT_AGAIN);
+        stack_push(splitter->status_stack, ST_VALUE);
+        stack_push(splitter->status_stack, ST_VALUE);
+    }
+    return;
 }
 
 SRL_STATIC_INLINE void srl_read_array(srl_splitter_t * splitter) {
-    croak("extend unimplemented");
+    UV len = srl_read_varint_uv_nocheck(splitter);
+    SRL_SPLITTER_TRACE(" * ARRAY of len, %lu", len);
+    while (len-- > 0) {
+        splitter->cant_split_here++;
+        stack_push(splitter->status_stack, ST_CAN_SPLIT_AGAIN);
+        stack_push(splitter->status_stack, ST_VALUE);
+    }
+    return;
 }
 
 SRL_STATIC_INLINE void srl_read_regexp(srl_splitter_t * splitter) {
@@ -633,16 +684,27 @@ SRL_STATIC_INLINE void srl_read_regexp(srl_splitter_t * splitter) {
     stack_push(splitter->status_stack, ST_VALUE);
 }
 
-
-
-
-
-
-
 SV*
 srl_splitter_next_chunk(srl_splitter_t * splitter)
 {
-    return newSVpvn("plop", 4);
+
+    /* create a new chunk */
+
+    /* zero length Perl string */
+    splitter->current_chunk = newSVpvn("", 0);
+    splitter->current_chunk_size = 0;
+    splitter->current_chunk_start = splitter->pos;
+        
+    /* srl magic */
+    sv_catpvn(splitter->current_chunk, SRL_MAGIC_STRING_HIGHBIT, SRL_MAGIC_STRLEN);
+
+    UV max_len = splitter->input_len;
+
+    int found = _parse(splitter);
+    if (found) {
+        return splitter->current_chunk;
+    }
+    return &PL_sv_undef;
 }
 
 
