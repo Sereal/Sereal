@@ -698,6 +698,12 @@ srl_splitter_next_chunk(srl_splitter_t * splitter)
     /* srl magic */
     sv_catpvn(splitter->current_chunk, SRL_MAGIC_STRING_HIGHBIT, SRL_MAGIC_STRLEN);
 
+    /* srl version-type type=raw, version=3 */
+    sv_catpvn(splitter->current_chunk, "\3", 1);
+
+    /* srl header suffix size: 0 */
+    sv_catpvn(splitter->current_chunk, "\0", 1);
+
     UV max_len = splitter->input_len;
 
     int found = _parse(splitter);
@@ -725,4 +731,31 @@ srl_read_varint_uv_nocheck(pTHX_ srl_splitter_t *splitter) {
     splitter->pos++;
     
     return result;
+}
+
+/* Update a varint anywhere in the output stream with defined start and end
+ * positions. This can produce non-canonical varints and is useful for filling
+ * pre-allocated varints. */
+SRL_STATIC_INLINE void
+srl_update_varint_from_to(pTHX_ char *varint_start, char *varint_end, UV number)
+{
+    while (number >= 0x80) {                      /* while we are larger than 7 bits long */
+        *varint_start++ = (number & 0x7f) | 0x80; /* write out the least significant 7 bits, set the high bit */
+        number = number >> 7;                     /* shift off the 7 least significant bits */
+    }
+    /* if it is the same size we can use a canonical varint */
+    if ( varint_start == varint_end ) {
+        *varint_start = number;                   /* encode the last 7 bits without the high bit being set */
+    } else {
+        /* if not we produce a non-canonical varint, basically we stuff
+         * 0 bits (via 0x80) into the "tail" of the varint, until we can
+         * stick in a null to terminate the sequence. This means that the
+         * varint is effectively "self-padding", and we only need special
+         * logic in the encoder - a decoder will happily process a non-canonical
+         * varint with no problem */
+        *varint_start++ = (number & 0x7f) | 0x80;
+        while ( varint_start < varint_end )
+            *varint_start++ = 0x80;
+        *varint_start= 0;
+    }
 }
