@@ -9,6 +9,7 @@ use Sereal::Splitter;
 use Data::HexDump;
 
 use Sereal::Encoder qw(encode_sereal);
+use Sereal::Decoder qw(decode_sereal);
 
 {
     my $data = encode_sereal([ {foo => 1 }, {bar => 2} ]);
@@ -18,6 +19,8 @@ use Sereal::Encoder qw(encode_sereal);
 
     while (defined( my $chunk = $o->next_chunk())) {
         print HexDump $chunk;
+        my $struct = decode_sereal($chunk);
+        say Dumper($struct); use Data::Dumper;
     }
 
 }
