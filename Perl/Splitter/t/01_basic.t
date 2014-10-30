@@ -11,7 +11,7 @@ use Data::HexDump;
 use Sereal::Encoder qw(encode_sereal);
 use Sereal::Decoder qw(decode_sereal);
 
-{
+if (1) {
     # no refp / copy tag
     my $data = encode_sereal([ {foo => 1 }, {bar => 2} ]);
     print HexDump $data;
@@ -28,10 +28,10 @@ use Sereal::Decoder qw(decode_sereal);
 
 }
 
-{
+if (1) {
     # with a copy tag inside the chunk
     my $data = encode_sereal([ {foobarbaz => 1 },
-                               {foobarbaz => 2} ],
+                               {foobarbaz => 2 } ],
                              { dedupe_strings => 1} );
     print HexDump $data;
     my $o = Sereal::Splitter->new({chunk_size => 200, input => $data});
@@ -47,7 +47,7 @@ use Sereal::Decoder qw(decode_sereal);
 
 }
 
-{
+if (1) {
     # with a copy tag pointing to outside of the chunk
     my $data = encode_sereal([ {foobarbaz => 1 },
                                {foobarbaz => 2} ],
