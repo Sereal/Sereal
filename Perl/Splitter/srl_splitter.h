@@ -29,25 +29,35 @@ typedef struct {
 
     UV current_chunk_size;
     char* current_chunk_start;
+    char* current_chunk_iteration_start;
     SV* current_chunk;
-    
+    UV current_chunk_nb_elements;
+    /* when we rewrite copy/refp tags in place, we add data( the data pointed
+       to), and remove some (the tag + offset varint). This offset_delta stores
+       by how much we have changed the counting */
+    IV current_chunk_offset_delta;
+
+    SV* current_chunk_with_prefix;
 
 } srl_splitter_t;
 
 enum {
 
     ST_VALUE,
-    ST_INVALID,
-
-    ST_ARRAY_CLOSE,
-    ST_HASH_PAIR,
-    ST_HASH_CLOSE,
-
-    ST_JUMP,
-    ST_JUMP_FROM_ZERO,
-
     ST_TRACK,
-    ST_CAN_SPLIT_AGAIN
+    ST_CAN_SPLIT_AGAIN,
+    ST_ABSOLUTE_JUMP,
+    ST_ADD_DIFF_TO_OFFSET_DELTA
+
+
+    /* ST_INVALID, */
+
+    /* ST_ARRAY_CLOSE, */
+    /* ST_HASH_PAIR, */
+    /* ST_HASH_CLOSE, */
+
+    /* ST_JUMP, */
+
 
 };
 
