@@ -498,9 +498,19 @@ int _parse(srl_splitter_t * splitter) {
             splitter->current_chunk_offset_delta += (UV) (splitter->pos - start_pos);
             break;
         case ST_ABSOLUTE_JUMP:
+            /* before jumping, flush the chunk */
+            if (splitter->pos > splitter->current_chunk_iteration_start) {
+        SRL_SPLITTER_TRACE(" ---- before jump FLUSH CHUNK, size is %li", (splitter->pos - splitter->current_chunk_iteration_start));
+                sv_catpvn(splitter->current_chunk, splitter->current_chunk_iteration_start,
+                          splitter->pos - splitter->current_chunk_iteration_start);
+                splitter->current_chunk_size += splitter->pos - splitter->current_chunk_iteration_start;
+                splitter->current_chunk_iteration_start = splitter->pos;
+            }
+
             absolute_offset = stack_pop(splitter->status_stack);
             SRL_SPLITTER_TRACE("  * ABSOLUTE_JUMP to %lu", (UV) ( (char*)absolute_offset - splitter->input_str ) );
             splitter->pos = (char*) absolute_offset;
+            splitter->current_chunk_iteration_start = splitter->pos;
             break;
         default:
             croak("unknown stack value %lu", status);
@@ -511,6 +521,7 @@ int _parse(srl_splitter_t * splitter) {
             SRL_SPLITTER_TRACE(" ----- ELEMENTS = %lu", splitter->current_chunk_nb_elements);
             if ( (UV)(splitter->current_chunk_size +
                       splitter->pos - splitter->current_chunk_iteration_start) >= splitter->chunk_size) {
+
                 SRL_SPLITTER_TRACE(" ----------- FLUSH CHUNK, size is %li", (splitter->pos - splitter->current_chunk_iteration_start));
                 sv_catpvn(splitter->current_chunk, splitter->current_chunk_iteration_start, splitter->pos - splitter->current_chunk_iteration_start);
                 return 1;
@@ -524,7 +535,16 @@ int _parse(srl_splitter_t * splitter) {
 
     if (splitter->pos - splitter->current_chunk_iteration_start > 0) {
         SRL_SPLITTER_TRACE(" ----------- LAST FLUSH CHUNK, size is %li", (splitter->pos - splitter->current_chunk_iteration_start));
+        SRL_SPLITTER_TRACE(" -->>>> current chunk size %d, chunk %s", splitter->current_chunk_size, SvPVX(splitter->current_chunk));
+   SRL_SPLITTER_TRACE(" &&&&&&& iter start: %lu ; splitter pos: %lu",
+                      (UV) (splitter->current_chunk_iteration_start - splitter->input_str ),
+                      (UV) (splitter->pos - splitter->input_str )
+                      );
         sv_catpvn(splitter->current_chunk, splitter->current_chunk_iteration_start, splitter->pos - splitter->current_chunk_iteration_start);
+        splitter->current_chunk_size += splitter->pos - splitter->current_chunk_iteration_start;
+
+        SRL_SPLITTER_TRACE(" -->>>> after  chunk size %d, chunk %s", splitter->current_chunk_size, SvPVX(splitter->current_chunk));
+        splitter->current_chunk_iteration_start = splitter->pos;
         return 1;
     }
 
@@ -700,14 +720,15 @@ SRL_STATIC_INLINE void srl_read_copy(srl_splitter_t * splitter) {
 
     /* if we have to flush the chunk first, let's do it */
     if (saved_pos > splitter->current_chunk_iteration_start) {
+        SRL_SPLITTER_TRACE(" ----------- FLUSH CHUNK, size is %li", (saved_pos - splitter->current_chunk_iteration_start));
+
         sv_catpvn(splitter->current_chunk, splitter->current_chunk_iteration_start, saved_pos - splitter->current_chunk_iteration_start);
         splitter->current_chunk_size += saved_pos - splitter->current_chunk_iteration_start;
-        /* warning, we set the new iteration start *after* the copy_tag + offset varint */
-        splitter->current_chunk_iteration_start = splitter->pos;
+        SRL_SPLITTER_TRACE(" -->>>> chunk size %d, chunk %s", splitter->current_chunk_size, SvPVX(splitter->current_chunk));
     }
 
-    /* set the instructions in the stack/ Warning, we are pushing, so the order
-       will be reversed when we pop*/
+    /* set the instructions in the stack. Warning, we are pushing, so the order
+       will be reversed when we pop */
     splitter->cant_split_here++;
     stack_push(splitter->status_stack, ST_CAN_SPLIT_AGAIN);
 
@@ -722,6 +743,11 @@ SRL_STATIC_INLINE void srl_read_copy(srl_splitter_t * splitter) {
     /* parse the pointed value */
     stack_push(splitter->status_stack, ST_VALUE);
 
+    /* then do the jump */
+    splitter->pos = splitter->body_pos + offset - 1;
+    splitter->current_chunk_iteration_start = splitter->pos;
+}
+
     /* /\* store the information in the copy tag mapping hash *\/ */
     /* mapping_el_t *element = (mapping_el_t*)malloc(sizeof(mapping_el_t)); */
     /* /\* key is the original copy offset *\/ */
@@ -729,11 +755,6 @@ SRL_STATIC_INLINE void srl_read_copy(srl_splitter_t * splitter) {
     /* /\* value is the offset in this chunk *\/ */
     /* element->value = (void*) (saved_pos - splitter->current_chunk_start); */
     /* HASH_ADD_PTR( copytag_mapping, key, element ); */
-
-    /* then do the jump */
-    splitter->pos = splitter->body_pos + offset - 1;
-    splitter->current_chunk_iteration_start = splitter->pos;
-}
 
 SRL_STATIC_INLINE void srl_read_alias(srl_splitter_t * splitter) {
     UV offset = srl_read_varint_uv_nocheck(splitter);
