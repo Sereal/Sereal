@@ -25,6 +25,9 @@ BEGIN {
     }
     elsif (-e "lib/Sereal/Merger") {
         $Class = 'Sereal::Merger';
+    }
+    elsif (-e "lib/Sereal/Splitter") {
+        $Class = 'Sereal::Splitter';
     } else {
         die "Could not find an applicable Sereal constants location";
     }
