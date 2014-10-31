@@ -169,7 +169,7 @@ srl_splitter_t * srl_build_splitter_struct(pTHX_ HV *opt) {
     splitter->status_stack = status_stack;
 
     /* initialize */
-    splitter->cant_split_here = 0;
+    splitter->deepness = 0;
 
     /* srl_splitter_stack_t * output_stack; */
     /* Newxz(output_stack, 1, srl_splitter_stack_t ); */
@@ -400,18 +400,18 @@ int _parse(srl_splitter_t * splitter) {
         UV absolute_offset;
         char * start_pos;
 
-        SRL_SPLITTER_TRACE("* ITERATING -- cant_split value: %d", splitter->cant_split_here);
+        SRL_SPLITTER_TRACE("* ITERATING -- deepness value: %d", splitter->deepness);
         switch(status) {
         case ST_TRACK:
             /* get current element from current array of stuff */
             break;
-        case ST_CAN_SPLIT_AGAIN:
-            splitter->cant_split_here--;
-            SRL_SPLITTER_TRACE("  * SPLIT AGAIN -- cant_split value: %d", splitter->cant_split_here);
+        case ST_DEEPNESS_UP:
+            splitter->deepness--;
+            SRL_SPLITTER_TRACE("  * DEEPNESS UP -- deepness value: %d", splitter->deepness);
             break;
         case ST_VALUE:
             tag = *(splitter->pos);
-            SRL_SPLITTER_TRACE("  * VALUE tag %d -- cant_split value: %d", tag, splitter->cant_split_here);
+            SRL_SPLITTER_TRACE("  * VALUE tag %d -- deepness value: %d", tag, splitter->deepness);
             if (tag & SRL_HDR_TRACK_FLAG) {
                 tag = tag & ~SRL_HDR_TRACK_FLAG;
                 SRL_SPLITTER_TRACE("tag must be tracked, %ld\n", splitter->pos - splitter->body_pos);
@@ -437,7 +437,7 @@ int _parse(srl_splitter_t * splitter) {
         default:
             croak("unknown stack value %lu", status);
         }
-        if ( splitter->cant_split_here == 0) {
+        if ( splitter->deepness == 0) {
             /* Here it means we have properly parsed a full VALUE, so we have
                an additional array element in our chunk */
             splitter->current_chunk_nb_elements++;
@@ -448,9 +448,9 @@ int _parse(srl_splitter_t * splitter) {
             }
         }
     }
-    SRL_SPLITTER_TRACE("------------ END ITERATING ------- cant_split value: %d", splitter->cant_split_here);
-    if (splitter->cant_split_here != 0)
-        croak("Something wrong happens: parsing finished but cant_split_here is not zero");
+    SRL_SPLITTER_TRACE("------------ END ITERATING ------- deepness value: %d", splitter->deepness);
+    if (splitter->deepness != 0)
+        croak("Something wrong happens: parsing finished but deepness is not zero");
 
     /* iteration is finished, if there is something left, flush and return
        success */
@@ -477,8 +477,8 @@ _read_tag(srl_splitter_t * splitter, char tag)
         int len = tag & 0xF;
         SRL_SPLITTER_TRACE(" * SHORT HASHREF of length %d", len);
         while (len-- > 0) {
-            splitter->cant_split_here++;
-            stack_push(splitter->status_stack, ST_CAN_SPLIT_AGAIN);
+            splitter->deepness++;
+            stack_push(splitter->status_stack, ST_DEEPNESS_UP);
             stack_push(splitter->status_stack, ST_VALUE);
             stack_push(splitter->status_stack, ST_VALUE);
         }
@@ -486,8 +486,8 @@ _read_tag(srl_splitter_t * splitter, char tag)
         int len = tag & 0xF;
         SRL_SPLITTER_TRACE(" * SHORT ARRAY of length %d", len);
         while (len-- > 0) {
-            splitter->cant_split_here++;
-            stack_push(splitter->status_stack, ST_CAN_SPLIT_AGAIN);
+            splitter->deepness++;
+            stack_push(splitter->status_stack, ST_DEEPNESS_UP);
             stack_push(splitter->status_stack, ST_VALUE);
         }
     } else {
@@ -561,8 +561,8 @@ SRL_STATIC_INLINE void srl_read_weaken(srl_splitter_t * splitter) {
 
 SRL_STATIC_INLINE void srl_read_refn(srl_splitter_t * splitter) {
     SRL_SPLITTER_TRACE(" * REFN, %s", "");
-    splitter->cant_split_here++;
-    stack_push(splitter->status_stack, ST_CAN_SPLIT_AGAIN);
+    splitter->deepness++;
+    stack_push(splitter->status_stack, ST_DEEPNESS_UP);
     stack_push(splitter->status_stack, ST_VALUE);
 }
 
@@ -573,8 +573,8 @@ SRL_STATIC_INLINE void srl_read_refp(srl_splitter_t * splitter) {
 
 SRL_STATIC_INLINE void srl_read_object(srl_splitter_t * splitter) {
     SRL_SPLITTER_TRACE(" * OBJECT, %s", "");
-    splitter->cant_split_here++;
-    stack_push(splitter->status_stack, ST_CAN_SPLIT_AGAIN);
+    splitter->deepness++;
+    stack_push(splitter->status_stack, ST_DEEPNESS_UP);
     stack_push(splitter->status_stack, ST_VALUE); /* for the class name */
     stack_push(splitter->status_stack, ST_VALUE); /* for the object struct */
 }
@@ -582,8 +582,8 @@ SRL_STATIC_INLINE void srl_read_object(srl_splitter_t * splitter) {
 SRL_STATIC_INLINE void srl_read_objectv(srl_splitter_t * splitter) {
     UV offset = srl_read_varint_uv_nocheck(splitter);
     SRL_SPLITTER_TRACE(" * OBJECTV, %s", "");
-    splitter->cant_split_here++;
-    stack_push(splitter->status_stack, ST_CAN_SPLIT_AGAIN);
+    splitter->deepness++;
+    stack_push(splitter->status_stack, ST_DEEPNESS_UP);
     stack_push(splitter->status_stack, ST_VALUE); /* for the object struct */
 }
 
@@ -619,8 +619,8 @@ SRL_STATIC_INLINE void srl_read_copy(srl_splitter_t * splitter) {
 
     /* set the instructions in the stack. Warning, we are pushing, so the order
        will be reversed when we pop */
-    splitter->cant_split_here++;
-    stack_push(splitter->status_stack, ST_CAN_SPLIT_AGAIN);
+    splitter->deepness++;
+    stack_push(splitter->status_stack, ST_DEEPNESS_UP);
 
     stack_push(splitter->status_stack, (UV)splitter->pos);
     stack_push(splitter->status_stack, ST_ABSOLUTE_JUMP);
@@ -662,8 +662,8 @@ SRL_STATIC_INLINE void srl_read_hash(srl_splitter_t * splitter) {
     UV len = srl_read_varint_uv_nocheck(splitter);
     SRL_SPLITTER_TRACE(" * HASH of len, %lu", len);
     while (len-- > 0) {
-        splitter->cant_split_here++;
-        stack_push(splitter->status_stack, ST_CAN_SPLIT_AGAIN);
+        splitter->deepness++;
+        stack_push(splitter->status_stack, ST_DEEPNESS_UP);
         stack_push(splitter->status_stack, ST_VALUE);
         stack_push(splitter->status_stack, ST_VALUE);
     }
@@ -674,16 +674,16 @@ SRL_STATIC_INLINE void srl_read_array(srl_splitter_t * splitter) {
     UV len = srl_read_varint_uv_nocheck(splitter);
     SRL_SPLITTER_TRACE(" * ARRAY of len, %lu", len);
     while (len-- > 0) {
-        splitter->cant_split_here++;
-        stack_push(splitter->status_stack, ST_CAN_SPLIT_AGAIN);
+        splitter->deepness++;
+        stack_push(splitter->status_stack, ST_DEEPNESS_UP);
         stack_push(splitter->status_stack, ST_VALUE);
     }
     return;
 }
 
 SRL_STATIC_INLINE void srl_read_regexp(srl_splitter_t * splitter) {
-    splitter->cant_split_here++;
-    stack_push(splitter->status_stack, ST_CAN_SPLIT_AGAIN);
+    splitter->deepness++;
+    stack_push(splitter->status_stack, ST_DEEPNESS_UP);
     stack_push(splitter->status_stack, ST_VALUE);
     stack_push(splitter->status_stack, ST_VALUE);
 }

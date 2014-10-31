@@ -18,7 +18,7 @@ typedef struct {
     char * pos;
     char * body_pos;
 
-    int cant_split_here;
+    int deepness;
 
     STRLEN input_len;
     UV chunk_size;
@@ -45,7 +45,7 @@ enum {
 
     ST_VALUE,
     ST_TRACK,
-    ST_CAN_SPLIT_AGAIN,
+    ST_DEEPNESS_UP,
     ST_ABSOLUTE_JUMP,
     ST_ADD_DIFF_TO_OFFSET_DELTA
 
