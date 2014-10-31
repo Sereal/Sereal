@@ -154,8 +154,8 @@ srl_splitter_t * srl_build_splitter_struct(pTHX_ HV *opt) {
     }
     svp = hv_fetchs(opt, "chunk_size", 0);
     if (svp && SvOK(*svp)) {
-        splitter->chunk_size = SvUV(*svp);
-        SRL_SPLITTER_TRACE("chunk_size %" UVuf, splitter->chunk_size);
+        splitter->size_limit = SvUV(*svp);
+        SRL_SPLITTER_TRACE("size_limit %" UVuf, splitter->size_limit);
     }
 
     srl_parse_header(splitter);
@@ -424,7 +424,7 @@ int _parse(srl_splitter_t * splitter) {
         case ST_ADD_DIFF_TO_OFFSET_DELTA:
             start_pos = (char*) stack_pop(splitter->status_stack);
             SRL_SPLITTER_TRACE("  * ADD DIFF from pos to offset delta : %lu ", (UV) (splitter->pos - start_pos) );
-            splitter->current_chunk_offset_delta += (UV) (splitter->pos - start_pos);
+            splitter->chunk_offset_delta += (UV) (splitter->pos - start_pos);
             break;
         case ST_ABSOLUTE_JUMP:
             /* before jumping, flush the chunk */
@@ -432,7 +432,7 @@ int _parse(srl_splitter_t * splitter) {
             absolute_offset = stack_pop(splitter->status_stack);
             SRL_SPLITTER_TRACE("  * ABSOLUTE_JUMP to %lu", (UV) ( (char*)absolute_offset - splitter->input_str ) );
             splitter->pos = (char*) absolute_offset;
-            splitter->current_chunk_iteration_start = splitter->pos;
+            splitter->chunk_iter_start = splitter->pos;
             break;
         default:
             croak("unknown stack value %lu", status);
@@ -440,9 +440,9 @@ int _parse(srl_splitter_t * splitter) {
         if ( splitter->deepness == 0) {
             /* Here it means we have properly parsed a full VALUE, so we have
                an additional array element in our chunk */
-            splitter->current_chunk_nb_elements++;
-            if ( (UV)(splitter->current_chunk_size +
-                      splitter->pos - splitter->current_chunk_iteration_start) >= splitter->chunk_size) {
+            splitter->chunk_nb_elts++;
+            if ( (UV)(splitter->chunk_size +
+                      splitter->pos - splitter->chunk_iter_start) >= splitter->size_limit) {
                 _possibly_flush_chunk(splitter);
                 return 1;
             }
@@ -603,16 +603,16 @@ SRL_STATIC_INLINE void srl_read_copy(srl_splitter_t * splitter) {
     /* TODO: track dedupe string */
 
     /* first, update the chunk offset_delta */
-    splitter->current_chunk_offset_delta -= ( 1 /* the COPY TAG itself */
+    splitter->chunk_offset_delta -= ( 1 /* the COPY TAG itself */
                                               + offset_varint_length
                                             );
 
     /* if we have to flush the chunk first, let's do it. We don't flush it all
        the way until current pos, because we don't want the COPY tag / varintin
        there */
-    if (saved_pos > splitter->current_chunk_iteration_start) {
-        sv_catpvn(splitter->current_chunk, splitter->current_chunk_iteration_start, saved_pos - splitter->current_chunk_iteration_start);
-        splitter->current_chunk_size += saved_pos - splitter->current_chunk_iteration_start;
+    if (saved_pos > splitter->chunk_iter_start) {
+        sv_catpvn(splitter->chunk, splitter->chunk_iter_start, saved_pos - splitter->chunk_iter_start);
+        splitter->chunk_size += saved_pos - splitter->chunk_iter_start;
     }
 
     char * landing_pos = splitter->body_pos + offset - 1;
@@ -635,7 +635,7 @@ SRL_STATIC_INLINE void srl_read_copy(srl_splitter_t * splitter) {
 
     /* then do the jump */
     splitter->pos = landing_pos;
-    splitter->current_chunk_iteration_start = splitter->pos;
+    splitter->chunk_iter_start = splitter->pos;
 }
 
     /* /\* store the information in the copy tag mapping hash *\/ */
@@ -643,7 +643,7 @@ SRL_STATIC_INLINE void srl_read_copy(srl_splitter_t * splitter) {
     /* /\* key is the original copy offset *\/ */
     /* element->key = (void*) offset; */
     /* /\* value is the offset in this chunk *\/ */
-    /* element->value = (void*) (saved_pos - splitter->current_chunk_start); */
+    /* element->value = (void*) (saved_pos - splitter->chunk_start); */
     /* HASH_ADD_PTR( copytag_mapping, key, element ); */
 
 SRL_STATIC_INLINE void srl_read_alias(srl_splitter_t * splitter) {
@@ -702,40 +702,40 @@ srl_splitter_next_chunk(srl_splitter_t * splitter)
     }
 
     /* zero length Perl string */
-    splitter->current_chunk = newSVpvn("", 0);
-    splitter->current_chunk_size = 0;
-    splitter->current_chunk_start = splitter->pos;
-    splitter->current_chunk_iteration_start = splitter->pos;
-    splitter->current_chunk_nb_elements = 0;
-    splitter->current_chunk_offset_delta = 0;
+    splitter->chunk = newSVpvn("", 0);
+    splitter->chunk_size = 0;
+    splitter->chunk_start = splitter->pos;
+    splitter->chunk_iter_start = splitter->pos;
+    splitter->chunk_nb_elts = 0;
+    splitter->chunk_offset_delta = 0;
         
-    splitter->current_chunk_with_prefix = newSVpvn("", 0);
+    splitter->chunk_with_prefix = newSVpvn("", 0);
     /* srl magic */
-    sv_catpvn(splitter->current_chunk_with_prefix, SRL_MAGIC_STRING_HIGHBIT, SRL_MAGIC_STRLEN);
+    sv_catpvn(splitter->chunk_with_prefix, SRL_MAGIC_STRING_HIGHBIT, SRL_MAGIC_STRLEN);
 
     char tmp_str[1];
     /* srl version-type type=raw, version=3 */
-    sv_catpvn(splitter->current_chunk_with_prefix, "\3", 1);
+    sv_catpvn(splitter->chunk_with_prefix, "\3", 1);
 
     /* srl header suffix size: 0 */
-    sv_catpvn(splitter->current_chunk_with_prefix, "\0", 1);
+    sv_catpvn(splitter->chunk_with_prefix, "\0", 1);
 
     tmp_str[0] = 0x28; /* REFN */
-    sv_catpvn(splitter->current_chunk_with_prefix, tmp_str, 1);
+    sv_catpvn(splitter->chunk_with_prefix, tmp_str, 1);
 
     tmp_str[0] = 0x2b; /* ARRAY */
-    sv_catpvn(splitter->current_chunk_with_prefix, tmp_str, 1);
+    sv_catpvn(splitter->chunk_with_prefix, tmp_str, 1);
 
 
     int found = _parse(splitter);
     if (found) {
         char tmp[SRL_MAX_VARINT_LENGTH];
         /* append the varint of the array's number of elements*/
-        UV len = (UV) (_set_varint_nocheck(tmp, splitter->current_chunk_nb_elements) - tmp);
+        UV len = (UV) (_set_varint_nocheck(tmp, splitter->chunk_nb_elts) - tmp);
         SRL_SPLITTER_TRACE(" -------- len array size varint %lu", len);
-        sv_catpvn(splitter->current_chunk_with_prefix, tmp, len);
-        sv_catpvn(splitter->current_chunk_with_prefix, SvPVX(splitter->current_chunk), SvCUR(splitter->current_chunk));
-        return splitter->current_chunk_with_prefix;
+        sv_catpvn(splitter->chunk_with_prefix, tmp, len);
+        sv_catpvn(splitter->chunk_with_prefix, SvPVX(splitter->chunk), SvCUR(splitter->chunk));
+        return splitter->chunk_with_prefix;
     }
     return &PL_sv_undef;
 }
@@ -799,12 +799,12 @@ srl_update_varint_from_to(pTHX_ char *varint_start, char *varint_end, UV number)
 
 bool _possibly_flush_chunk (srl_splitter_t *splitter) {
     UV len;
-    if (splitter->pos <= splitter->current_chunk_iteration_start)
+    if (splitter->pos <= splitter->chunk_iter_start)
         return 0; /* no need to flush */
 
-    len = (UV) (splitter->pos - splitter->current_chunk_iteration_start);
-    sv_catpvn(splitter->current_chunk, splitter->current_chunk_iteration_start, len );
-    splitter->current_chunk_size += len;
-    splitter->current_chunk_iteration_start = splitter->pos;
+    len = (UV) (splitter->pos - splitter->chunk_iter_start);
+    sv_catpvn(splitter->chunk, splitter->chunk_iter_start, len );
+    splitter->chunk_size += len;
+    splitter->chunk_iter_start = splitter->pos;
     return 1;
 }
