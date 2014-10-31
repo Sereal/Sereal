@@ -21,23 +21,22 @@ typedef struct {
     int deepness;
 
     STRLEN input_len;
-    UV chunk_size;
-    UV cut_deepness;
+    UV size_limit;
     U32 flags;
     srl_splitter_stack_t * status_stack;
     /* srl_splitter_stack_t * output_stack; */
 
-    UV current_chunk_size;
-    char* current_chunk_start;
-    char* current_chunk_iteration_start;
-    SV* current_chunk;
-    UV current_chunk_nb_elements;
+    UV chunk_size;
+    char* chunk_start;
+    char* chunk_iter_start;
+    SV* chunk;
+    UV chunk_nb_elts;
     /* when we rewrite copy/refp tags in place, we add data( the data pointed
        to), and remove some (the tag + offset varint). This offset_delta stores
        by how much we have changed the counting */
-    IV current_chunk_offset_delta;
+    IV chunk_offset_delta;
 
-    SV* current_chunk_with_prefix;
+    SV* chunk_with_prefix;
 
 } srl_splitter_t;
 
