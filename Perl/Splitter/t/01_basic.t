@@ -66,19 +66,16 @@ if (1) {
 
 }
 
-# my $content = do {local (@ARGV, $/) = ('test31.srl'), <>};
-# my $o = Sereal::Splitter->new({chunk_size => 1*1024, input => $content});
-
-# $content = do {local (@ARGV, $/) = ('test32.srl'), <>};
-# $o = Sereal::Splitter->new({chunk_size => 1*1024, input => $content});
-
-# print Dumper($o); use Data::Dumper;
-
-# my $chunk = $o->next_chunk();
-# # print Dumper($chunk);
-# # use Data::Dumper;
-
-
 pass;
 
 done_testing;
+
+
+  # 4 5 6 7    8 9    10   11   12
+  # O [ A REFP 6 REFP 4 ] COPY 5
+
+  # 4 5 6 7    8 9    10   11 12 13   14 15   16
+  # O [ A REFP 6 REFP 4  ] [  A  REFP 6  REFP 4  ]
+
+
+
