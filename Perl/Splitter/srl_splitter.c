@@ -97,7 +97,7 @@ SRL_STATIC_INLINE void srl_read_array(srl_splitter_t * splitter);
 SRL_STATIC_INLINE void srl_read_regexp(srl_splitter_t * splitter);
 SRL_STATIC_INLINE void srl_update_varint_from_to(char *varint_start, char *varint_end, UV number);
 char* _set_varint_nocheck(char* buf, UV n);
-bool _possibly_flush_chunk (srl_splitter_t *splitter);
+bool _maybe_flush_chunk (srl_splitter_t *splitter, char* end_pos, char* next_start_pos);
 
 typedef struct {
     void* key;                 /* key, the position in the srl document */
@@ -428,7 +428,7 @@ int _parse(srl_splitter_t * splitter) {
             break;
         case ST_ABSOLUTE_JUMP:
             /* before jumping, flush the chunk */
-            _possibly_flush_chunk(splitter);
+            _maybe_flush_chunk(splitter, NULL, NULL);
             absolute_offset = stack_pop(splitter->status_stack);
             SRL_SPLITTER_TRACE("  * ABSOLUTE_JUMP to %lu", (UV) ( (char*)absolute_offset - splitter->input_str ) );
             splitter->pos = (char*) absolute_offset;
@@ -443,7 +443,7 @@ int _parse(srl_splitter_t * splitter) {
             splitter->chunk_nb_elts++;
             if ( (UV)(splitter->chunk_size +
                       splitter->pos - splitter->chunk_iter_start) >= splitter->size_limit) {
-                _possibly_flush_chunk(splitter);
+                _maybe_flush_chunk(splitter, NULL, NULL);
                 return 1;
             }
         }
@@ -454,7 +454,7 @@ int _parse(srl_splitter_t * splitter) {
 
     /* iteration is finished, if there is something left, flush and return
        success */
-    if (_possibly_flush_chunk(splitter))
+    if (_maybe_flush_chunk(splitter, NULL, NULL))
         return 1;
 
     /* otherwise, no data anymore, return failure */
@@ -600,20 +600,15 @@ SRL_STATIC_INLINE void srl_read_copy(srl_splitter_t * splitter) {
                        splitter->body_pos - splitter->input_str,
                        splitter->pos - splitter->input_str);
 
-    /* TODO: track dedupe string */
-
-    /* first, update the chunk offset_delta */
+    /* update the chunk offset_delta */
     splitter->chunk_offset_delta -= ( 1 /* the COPY TAG itself */
-                                              + offset_varint_length
-                                            );
+                                      + offset_varint_length
+                                      );
 
     /* if we have to flush the chunk first, let's do it. We don't flush it all
-       the way until current pos, because we don't want the COPY tag / varintin
+       the way until current pos, because we don't want the COPY tag / varint
        there */
-    if (saved_pos > splitter->chunk_iter_start) {
-        sv_catpvn(splitter->chunk, splitter->chunk_iter_start, saved_pos - splitter->chunk_iter_start);
-        splitter->chunk_size += saved_pos - splitter->chunk_iter_start;
-    }
+    _maybe_flush_chunk(splitter, saved_pos, NULL);
 
     char * landing_pos = splitter->body_pos + offset - 1;
 
@@ -688,9 +683,7 @@ SRL_STATIC_INLINE void srl_read_regexp(srl_splitter_t * splitter) {
     stack_push(splitter->status_stack, ST_VALUE);
 }
 
-SV*
-srl_splitter_next_chunk(srl_splitter_t * splitter)
-{
+SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
 
     /* create a new chunk */
 
@@ -797,14 +790,18 @@ srl_update_varint_from_to(pTHX_ char *varint_start, char *varint_end, UV number)
     }
 }
 
-bool _possibly_flush_chunk (srl_splitter_t *splitter) {
+bool _maybe_flush_chunk (srl_splitter_t *splitter, char* end_pos, char* next_start_pos) {
     UV len;
-    if (splitter->pos <= splitter->chunk_iter_start)
+    if (end_pos == NULL)
+        end_pos = splitter->pos;
+    if (next_start_pos == NULL)
+        next_start_pos = splitter->pos;
+    if (end_pos <= splitter->chunk_iter_start)
         return 0; /* no need to flush */
 
-    len = (UV) (splitter->pos - splitter->chunk_iter_start);
+    len = (UV) (end_pos - splitter->chunk_iter_start);
     sv_catpvn(splitter->chunk, splitter->chunk_iter_start, len );
     splitter->chunk_size += len;
-    splitter->chunk_iter_start = splitter->pos;
+    splitter->chunk_iter_start = next_start_pos;
     return 1;
 }
