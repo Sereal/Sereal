@@ -1047,7 +1047,7 @@ srl_lookup_classname(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int *
 
     if (*ok) {
         SRL_MERGER_TRACE("srl_lookup_classname: got duplicate '%.*s' target %lld",
-                         (int) len, src, ent->tag_offset);
+                         (int) len, src, ent->offset);
     } else {
         SRL_MERGER_TRACE("srl_lookup_classname: not found duplicate '%.*s'",
                          (int) len, src);
