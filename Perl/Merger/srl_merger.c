@@ -451,12 +451,7 @@ srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
 
     // skip header in any case
     header_len = srl_read_varint_uv_length(aTHX_ &mrg->ibuf, " while reading header");
-
-    if (protocol_version > 1 && header_len) {
-        mrg->ibuf.pos += header_len - 1;
-    } else {
-        mrg->ibuf.pos += header_len;
-    }
+    mrg->ibuf.pos += header_len;
 
     if (encoding_flags == SRL_PROTOCOL_ENCODING_RAW) {
         /* no op */
