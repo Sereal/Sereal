@@ -3,6 +3,7 @@ use strict;
 use warnings;
 
 use Test::More;
+use Data::Dumper;
 use Time::HiRes;
 use Sereal::Merger;
 use Sereal::Encoder qw/encode_sereal/;
@@ -10,11 +11,6 @@ use Sereal::Encoder qw/encode_sereal/;
 sub binary2hex {
     my $unpacked = unpack("H*", $_[0]);
     return join(' ', grep { $_ } split(/(..)/, $unpacked)) . "\n";
-}
-
-{
-    my $test = Sereal::Merger::test_me();
-    print "--[$test]\n";
 }
 
 {
