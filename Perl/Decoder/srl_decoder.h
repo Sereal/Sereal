@@ -103,9 +103,6 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
         SvROK_on(into);                             \
     } STMT_END
 
-#define SRL_BASE_ERROR_FORMAT "Sereal: Error in %s line %u and char %i of input: "
-#define SRL_BASE_ERROR_ARGS __FILE__, __LINE__, (int)(1 + dec->pos - dec->buf_start)
-
 /* If set, the decoder struct needs to be cleared instead of freed at
  * the end of a deserialization operation */
 #define SRL_F_REUSE_DECODER                     0x00000001UL
