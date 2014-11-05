@@ -16,7 +16,9 @@ typedef struct {
     char * input_str;
     char * input_str_end;
     char * pos;
-    char * body_pos;
+    char * input_body_pos;
+    UV input_nb_elts;
+    UV input_body_to_first_elt;
 
     int deepness;
 
@@ -29,6 +31,7 @@ typedef struct {
     UV chunk_size;
     char* chunk_start;
     char* chunk_iter_start;
+    char* chunk_body_pos;
     SV* chunk;
     UV chunk_nb_elts;
     /* when we rewrite copy/refp tags in place, we add data( the data pointed
@@ -36,7 +39,7 @@ typedef struct {
        by how much we have changed the counting */
     IV chunk_offset_delta;
 
-    SV* chunk_with_prefix;
+    /* SV* chunk_with_prefix; */
 
 } srl_splitter_t;
 
