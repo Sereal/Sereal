@@ -29,6 +29,8 @@ typedef struct {
     U32 cnt_of_merged_elements;           /* total count of merged elements so far */
     U32 protocol_version;                 /* the version of the Sereal protocol to emit. */
     U32 flags;                            /* flag-like options: See SRL_F_* defines */
+
+    void *snappy_workmem;                 /* lazily allocated if and only if using Snappy */
 } srl_merger_t;
 
 srl_merger_t *srl_build_merger_struct(pTHX_ HV *opt);         /* constructor from options */
@@ -43,6 +45,9 @@ SV * srl_merger_finish(pTHX_ srl_merger_t *mrg);
 #define SRL_F_TOPLEVEL_KEY_SCALAR               0x00001UL
 #define SRL_F_TOPLEVEL_KEY_ARRAY                0x00002UL
 #define SRL_F_TOPLEVEL_KEY_HASH                 0x00004UL
+
+#define SRL_F_COMPRESS_SNAPPY_INCREMENTAL       0x00080UL
+#define SRL_F_COMPRESS_ZLIB                     0x00100UL
 
 /* If set, use a hash to emit COPY() tags for all duplicated strings (including keys)
  * (slower, but great compression) */

@@ -134,6 +134,7 @@ extern "C" {
 #include "srl_mrg_error.h"
 #include "../Encoder/srl_buffer.h"
 #include "snappy/csnappy_decompress.c"
+#include "snappy/csnappy_compress.c"
 
 typedef PTABLE_ENTRY_t *ptable_entry_ptr;
 
@@ -146,6 +147,8 @@ SRL_STATIC_INLINE UV srl_read_varint_uv_length(pTHX_ srl_buffer_t *buf, const ch
 SRL_STATIC_INLINE UV srl_read_varint_uv_count(pTHX_ srl_buffer_t *buf, const char * const errstr);
 SRL_STATIC_INLINE IV srl_validate_header_version_pv_len(pTHX_ char *strdata, STRLEN len);
 SRL_STATIC_INLINE UV srl_decompress_body_snappy(pTHX_ srl_buffer_t *buf, int incremental);
+SRL_STATIC_INLINE void srl_update_varint_from_to(pTHX_ char *varint_start, char *varint_end, UV number);
+SRL_STATIC_INLINE void srl_init_snappy_workmem(pTHX_ srl_merger_t *mrg);
 
 SRL_STATIC_INLINE void srl_buf_copy_content_nocheck(pTHX_ srl_merger_t *mrg, size_t len);
 SRL_STATIC_INLINE void srl_copy_varint(pTHX_ srl_merger_t *mrg);
@@ -214,6 +217,7 @@ srl_merger_t *
 srl_build_merger_struct(pTHX_ HV *opt)
 {
     srl_merger_t *mrg;
+    U8 flags;
     SV **svp;
     int i;
 
@@ -255,6 +259,21 @@ srl_build_merger_struct(pTHX_ HV *opt)
         svp = hv_fetchs(opt, "dedupe_strings", 0);
         if (svp && SvTRUE(*svp))
             SRL_MRG_SET_OPTION(mrg, SRL_F_DEDUPE_STRINGS);
+
+        svp = hv_fetchs(opt, "compress", 0);
+        if (svp && SvOK(*svp)) {
+            switch (SvIV(*svp)) {
+                case 0: /* uncompressed */
+                    break;
+
+                case 1: /* snappy incremental */
+                    SRL_MRG_SET_OPTION(mrg, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
+                    break;
+
+                default:
+                    croak("Invalid Sereal compression format");
+            }
+        }
     }
 
     /* 4 byte magic string + proto version
@@ -273,7 +292,9 @@ srl_build_merger_struct(pTHX_ HV *opt)
         srl_buf_cat_str_s_nocheck(MRG2ENC(mrg), SRL_MAGIC_STRING);
     }
 
-    srl_buf_cat_char_nocheck(MRG2ENC(mrg), (U8) mrg->protocol_version);
+    flags = SRL_MRG_HAVE_OPTION(mrg, SRL_F_COMPRESS_SNAPPY_INCREMENTAL) ? SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL : 0;
+
+    srl_buf_cat_char_nocheck(MRG2ENC(mrg), (U8) mrg->protocol_version | flags);
     srl_buf_cat_char_nocheck(MRG2ENC(mrg), '\0');
 
     SRL_UPDATE_BUF_BODY_POS(mrg->obuf, mrg->protocol_version);
@@ -295,6 +316,8 @@ void
 srl_destroy_merger(pTHX_ srl_merger_t *mrg)
 {
     srl_buf_free_buffer(aTHX_ &mrg->obuf);
+
+    Safefree(mrg->snappy_workmem);
 
     if (mrg->tracked_offsets) {
         srl_stack_destroy(aTHX_ mrg->tracked_offsets);
@@ -390,6 +413,58 @@ srl_merger_finish(pTHX_ srl_merger_t *mrg)
         DEBUG_ASSERT_BUF_SANE(mrg->obuf);
     }
 
+    if (SRL_MRG_HAVE_OPTION(mrg, SRL_F_COMPRESS_SNAPPY_INCREMENTAL)) {
+        // there is no support of user's Sereal header,
+        // so body's offset is fixed and always 5 (i.e. =srl + 1 byte for version + 1 byte for header)
+        // TODO compress_threshold
+        // TODO max body length < 4GB
+
+        srl_buffer_t old_buf;
+        size_t compressed_body_len;
+        size_t sereal_header_len = 6;
+        char *varint_start, *varint_end;
+        uint32_t uncompressed_body_len = BUF_POS_OFS(mrg->obuf) - sereal_header_len;
+
+        assert(BUF_POS_OFS(mrg->obuf) > sereal_header_len);
+
+        compressed_body_len = csnappy_max_compressed_length(uncompressed_body_len);
+        compressed_body_len += SRL_MAX_VARINT_LENGTH;
+        srl_init_snappy_workmem(aTHX_ mrg);
+
+        /* Back up old buffer and allocate new one with correct size */
+        srl_buf_copy_buffer(aTHX_ &mrg->obuf, &old_buf);
+        srl_buf_init_buffer(aTHX_ &mrg->obuf, compressed_body_len);
+
+        /* Copy Sereal header */
+        Copy(old_buf.start, mrg->obuf.pos, sereal_header_len, char);
+        mrg->obuf.pos += sereal_header_len;
+        SRL_UPDATE_BUF_BODY_POS(mrg->obuf, mrg->protocol_version);
+
+        /* Embed compressed packet length if incr. Snappy or Zlib*/
+        varint_start = mrg->obuf.pos;
+        srl_buf_cat_varint_nocheck(aTHX_ MRG2ENC(mrg), 0, compressed_body_len);
+        varint_end = mrg->obuf.pos - 1;
+
+        /* Compress */
+        uint32_t len = (uint32_t) compressed_body_len;
+        csnappy_compress(old_buf.start + sereal_header_len, uncompressed_body_len, mrg->obuf.pos,
+                         &len, mrg->snappy_workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
+
+        compressed_body_len = (size_t) len;
+
+        assert(compressed_body_len != 0);
+
+        // TODO If compression didn't help, swap back to old, uncompressed buffer
+
+        if (varint_start)
+            srl_update_varint_from_to(aTHX_ varint_start, varint_end, compressed_body_len);
+
+        mrg->obuf.pos += compressed_body_len;
+
+        srl_buf_free_buffer(aTHX_ &old_buf);
+        assert(mrg->obuf.pos <= mrg->obuf.end);
+    }
+
     return newSVpvn(mrg->obuf.start, BUF_POS_OFS(mrg->obuf));
 }
 
@@ -415,6 +490,7 @@ srl_empty_merger_struct(pTHX)
     mrg->string_deduper_tbl = NULL;
     mrg->tracked_offsets_tbl = NULL;
     mrg->tracked_offsets = NULL;
+    mrg->snappy_workmem = NULL;
     mrg->flags = 0;
     return mrg;
 }
@@ -1255,4 +1331,44 @@ srl_decompress_body_snappy(pTHX_ srl_buffer_t *buf, int incremental)
         SRL_ERRORf1(*buf, "Snappy decompression of Sereal packet payload failed with error %i!", decompress_ok);
 
     return bytes_consumed;
+}
+
+/* Update a varint anywhere in the output stream with defined start and end
+ * positions. This can produce non-canonical varints and is useful for filling
+ * pre-allocated varints. */
+SRL_STATIC_INLINE void
+srl_update_varint_from_to(pTHX_ char *varint_start, char *varint_end, UV number)
+{
+    while (number >= 0x80) {                      /* while we are larger than 7 bits long */
+        *varint_start++ = (number & 0x7f) | 0x80; /* write out the least significant 7 bits, set the high bit */
+        number = number >> 7;                     /* shift off the 7 least significant bits */
+    }
+    /* if it is the same size we can use a canonical varint */
+    if ( varint_start == varint_end ) {
+        *varint_start = number;                   /* encode the last 7 bits without the high bit being set */
+    } else {
+        /* if not we produce a non-canonical varint, basically we stuff
+         * 0 bits (via 0x80) into the "tail" of the varint, until we can
+         * stick in a null to terminate the sequence. This means that the
+         * varint is effectively "self-padding", and we only need special
+         * logic in the encoder - a decoder will happily process a non-canonical
+         * varint with no problem */
+        *varint_start++ = (number & 0x7f) | 0x80;
+        while ( varint_start < varint_end )
+            *varint_start++ = 0x80;
+        *varint_start= 0;
+    }
+}
+
+/* Lazy working buffer alloc */
+SRL_STATIC_INLINE void
+srl_init_snappy_workmem(pTHX_ srl_merger_t *mrg)
+{
+    /* Lazy working buffer alloc */
+    if (expect_false(mrg->snappy_workmem == NULL)) {
+        /* Cleaned up automatically by the cleanup handler */
+        Newx(mrg->snappy_workmem, CSNAPPY_WORKMEM_BYTES, char);
+        if (mrg->snappy_workmem == NULL)
+            croak("Out of memory!");
+    }
 }
