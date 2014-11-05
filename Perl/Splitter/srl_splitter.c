@@ -109,7 +109,7 @@ bool _maybe_flush_chunk (srl_splitter_t *splitter, char* end_pos, char* next_sta
 
 typedef struct {
     char* key;                 /* key, the string to dedup */
-    void* value;               /* value, the position in the chunk */
+    UV value;               /* value, the position in the chunk */
     UT_hash_handle hh;         /* makes this structure hashable */
 } dedupe_el_t;
 
@@ -410,7 +410,6 @@ int _parse(srl_splitter_t * splitter) {
     while( ! stack_is_empty(splitter->status_stack) ) {
         UV status = stack_pop(splitter->status_stack);
         UV absolute_offset;
-        char * start_pos;
 
         SRL_SPLITTER_TRACE("* ITERATING -- deepness value: %d", splitter->deepness);
         switch(status) {
@@ -432,11 +431,6 @@ int _parse(srl_splitter_t * splitter) {
             }
             splitter->pos++;
             _read_tag(splitter, tag);
-            break;
-        case ST_ADD_DIFF_TO_OFFSET_DELTA:
-            start_pos = (char*) stack_pop(splitter->status_stack);
-            SRL_SPLITTER_TRACE("  * ADD DIFF from pos to offset delta : %lu ", (UV) (splitter->pos - start_pos) );
-            splitter->chunk_offset_delta += (UV) (splitter->pos - start_pos);
             break;
         case ST_ABSOLUTE_JUMP:
             /* before jumping, flush the chunk */
@@ -482,12 +476,45 @@ _read_tag(srl_splitter_t * splitter, char tag)
     } else if ( tag <= SRL_HDR_NEG_HIGH) {
         SRL_SPLITTER_TRACE(" * NEG INTEGER %d", (int)tag - 32);
     } else if ( IS_SRL_HDR_SHORT_BINARY(tag) ) {
-        int len = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
-        SRL_SPLITTER_TRACE(" * SHORT BINARY of length %d", len);
+        UV len = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+        SRL_SPLITTER_TRACE(" * SHORT BINARY of length %lu", len);
 
-        /* dedupe_el_t *element = NULL; */
-        /* /\* use this form to be able to specify len *\/ */
-        /* HASH_FIND(hh,dedupe_hashtable,splitter->pos,len,element); */
+        dedupe_el_t *element = NULL;
+        HASH_FIND(hh,dedupe_hashtable,splitter->pos,len,element);
+        if ( element != NULL) {
+            SRL_SPLITTER_TRACE(" * -- FOUND DEDUP key %s value %lu", element->key, element->value);
+            SRL_SPLITTER_TRACE(" * ------- chunk_iter_start %lu", splitter->chunk_iter_start - splitter->input_str);
+            _maybe_flush_chunk(splitter, splitter->pos - 1, splitter->pos + len);
+            SRL_SPLITTER_TRACE(" * ------2 chunk_iter_start %lu", splitter->chunk_iter_start - splitter->input_str);
+
+            /* the copy tag */
+            char tmp[SRL_MAX_VARINT_LENGTH];
+            tmp[0] = 0x2f;
+            sv_catpvn(splitter->chunk, tmp, 1 );
+            splitter->chunk_current_offset += 1;
+            splitter->chunk_size += 1;
+
+            UV len = (UV) (_set_varint_nocheck(tmp, element->value) - tmp);
+            sv_catpvn(splitter->chunk, tmp, len);
+            splitter->chunk_current_offset += len;
+            splitter->chunk_size += len;
+
+        } else {
+            /* we use (splitter->pos-1) to point to the shortbinary tag */
+            UV offset = splitter->chunk_current_offset + ( (splitter->pos-1) - splitter->chunk_iter_start);
+            element = (dedupe_el_t*) malloc(sizeof(dedupe_el_t));
+            element->key = "";
+            element->value = offset;
+            SRL_SPLITTER_TRACE(" * -- ADDED DEDUP offset %lu", offset);
+            /* HASH_ADD(hh, dedupe_hashtable, "key" strfield[0], len, element); */
+            HASH_ADD_KEYPTR(hh, dedupe_hashtable, splitter->pos, len, element);
+
+            /* HASH_ADD(hh, dedupe_hashtable, value, sizeof(UV), element); */
+        }
+
+        /* in any case, move forward */
+        splitter->pos += len;
+
         /* if ( element != NULL) { */
         /*     SRL_SPLITTER_TRACE(" * -- FOUND DUPLICATE"); */
         /*     /\* instead of the short binary, output copy tag *\/ */
@@ -525,7 +552,6 @@ _read_tag(srl_splitter_t * splitter, char tag)
         /* element->value = (void*) (saved_pos - splitter->chunk_start); */
         /* HASH_ADD_PTR( dedupe_hashtable, key, element ); */
 
-        splitter->pos += len;
     } else if ( IS_SRL_HDR_HASHREF(tag) ) {
         int len = tag & 0xF;
         SRL_SPLITTER_TRACE(" * SHORT HASHREF of length %d", len);
@@ -663,8 +689,6 @@ SRL_STATIC_INLINE void srl_read_copy(srl_splitter_t * splitter) {
        there */
     _maybe_flush_chunk(splitter, saved_pos, NULL);
 
-    char * landing_pos = splitter->input_body_pos + offset - 1;
-
     /* set the instructions in the stack. Warning, we are pushing, so the order
        will be reversed when we pop */
     splitter->deepness++;
@@ -673,15 +697,11 @@ SRL_STATIC_INLINE void srl_read_copy(srl_splitter_t * splitter) {
     stack_push(splitter->status_stack, (UV)splitter->pos);
     stack_push(splitter->status_stack, ST_ABSOLUTE_JUMP);
 
-    /* we'll modify the offset delta for the data we have injected instead of
-       the copy tag + varint. Do that *after* having parsed the value */
-    stack_push(splitter->status_stack, (UV) landing_pos);
-    stack_push(splitter->status_stack, ST_ADD_DIFF_TO_OFFSET_DELTA);
-
     /* parse the pointed value */
     stack_push(splitter->status_stack, ST_VALUE);
 
     /* then do the jump */
+    char * landing_pos = splitter->input_body_pos + offset - 1;
     splitter->pos = landing_pos;
     splitter->chunk_iter_start = splitter->pos;
 }
@@ -764,6 +784,9 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
     splitter->chunk_offset_delta = -(splitter->input_body_to_first_elt);
 
     splitter->chunk_body_pos = splitter->chunk_start;
+
+    /* for some reason, jump offset start at 1 in sereal spec, go figure why */
+    splitter->chunk_current_offset = 1;
         
     /* srl magic */
     sv_catpvn(splitter->chunk, SRL_MAGIC_STRING_HIGHBIT, SRL_MAGIC_STRLEN);
@@ -781,10 +804,12 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
     tmp_str[0] = 0x28; /* REFN */
     sv_catpvn(splitter->chunk, tmp_str, 1);
     splitter->chunk_offset_delta += 1;
+    splitter->chunk_current_offset += 1;
 
     tmp_str[0] = 0x2b; /* ARRAY */
     sv_catpvn(splitter->chunk, tmp_str, 1);
     splitter->chunk_offset_delta += 1;
+    splitter->chunk_current_offset += 1;
 
     /* append the varint of the maximum array's number of elements */
     UV varint_len = (UV) (_set_varint_nocheck(tmp_str, splitter->input_nb_elts) - tmp_str);
@@ -793,6 +818,7 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
     UV varint_pos = SvCUR(splitter->chunk);
     sv_catpvn(splitter->chunk, tmp_str, varint_len);
     splitter->chunk_offset_delta += varint_len;
+    splitter->chunk_current_offset += varint_len;
 
     int found = _parse(splitter);
     if (found) {
@@ -863,16 +889,19 @@ srl_update_varint_from_to(pTHX_ char *varint_start, char *varint_end, UV number)
 
 bool _maybe_flush_chunk (srl_splitter_t *splitter, char* end_pos, char* next_start_pos) {
     UV len;
+    bool did_we_flush = 0;
     if (end_pos == NULL)
         end_pos = splitter->pos;
     if (next_start_pos == NULL)
         next_start_pos = splitter->pos;
-    if (end_pos <= splitter->chunk_iter_start)
-        return 0; /* no need to flush */
-
-    len = (UV) (end_pos - splitter->chunk_iter_start);
-    sv_catpvn(splitter->chunk, splitter->chunk_iter_start, len );
-    splitter->chunk_size += len;
+    if (end_pos > splitter->chunk_iter_start) {
+        len = (UV) (end_pos - splitter->chunk_iter_start);
+        sv_catpvn(splitter->chunk, splitter->chunk_iter_start, len );
+        splitter->chunk_size += len;
+        splitter->chunk_current_offset += len;
+        did_we_flush = 1;
+    }
+    /* still do that, if the caller wanted to set a special next_start_pos */
     splitter->chunk_iter_start = next_start_pos;
-    return 1;
+    return did_we_flush;
 }

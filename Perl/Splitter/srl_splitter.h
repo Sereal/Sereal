@@ -39,6 +39,9 @@ typedef struct {
        by how much we have changed the counting */
     IV chunk_offset_delta;
 
+    /* The current position where we are from the chunk body pos point of view */
+    UV chunk_current_offset;
+
     /* SV* chunk_with_prefix; */
 
 } srl_splitter_t;
@@ -49,7 +52,6 @@ enum {
     ST_TRACK,
     ST_DEEPNESS_UP,
     ST_ABSOLUTE_JUMP,
-    ST_ADD_DIFF_TO_OFFSET_DELTA
 
 
     /* ST_INVALID, */
