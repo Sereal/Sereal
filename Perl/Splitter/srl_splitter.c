@@ -99,13 +99,21 @@ SRL_STATIC_INLINE void srl_update_varint_from_to(char *varint_start, char *varin
 char* _set_varint_nocheck(char* buf, UV n);
 bool _maybe_flush_chunk (srl_splitter_t *splitter, char* end_pos, char* next_start_pos);
 
-typedef struct {
-    void* key;                 /* key, the position in the srl document */
-    void* value;
-    UT_hash_handle hh;         /* makes this structure hashable */
-} mapping_el_t;
+/* typedef struct { */
+/*     void* key;                 /\* key, char* the position in the original srl document *\/ */
+/*     void* value;               /\* value, the position in the chunk *\/ */
+/*     UT_hash_handle hh;         /\* makes this structure hashable *\/ */
+/* } mapping_el_t; */
 
-mapping_el_t *copytag_mapping = NULL;    /* important! initialize to NULL */
+/* mapping_el_t *copytag_mapping = NULL;    /\* important! initialize to NULL *\/ */
+
+typedef struct {
+    char* key;                 /* key, the string to dedup */
+    void* value;               /* value, the position in the chunk */
+    UT_hash_handle hh;         /* makes this structure hashable */
+} dedupe_el_t;
+
+dedupe_el_t *dedupe_hashtable = NULL;    /* important! initialize to NULL */
 
 UV stack_pop(srl_splitter_stack_t * stack) {
     UV val = 0;
@@ -182,6 +190,8 @@ srl_splitter_t * srl_build_splitter_struct(pTHX_ HV *opt) {
     splitter->pos++;
     if (IS_SRL_HDR_ARRAYREF(tag)) {
         int len = tag & 0xF;
+        splitter->input_nb_elts = len;
+        SRL_SPLITTER_TRACE(" * ARRAYREF of len, %lu", len);
         while (len-- > 0) {
             stack_push(splitter->status_stack, ST_VALUE);
         }
@@ -190,6 +200,7 @@ srl_splitter_t * srl_build_splitter_struct(pTHX_ HV *opt) {
         splitter->pos++;
         if (tag == SRL_HDR_ARRAY) {
             UV len = srl_read_varint_uv_nocheck(splitter);
+            splitter->input_nb_elts = len;
             SRL_SPLITTER_TRACE(" * ARRAY of len, %lu", len);
             while (len-- > 0) {
                 stack_push(splitter->status_stack, ST_VALUE);
@@ -201,7 +212,8 @@ srl_splitter_t * srl_build_splitter_struct(pTHX_ HV *opt) {
         croak("first tag is not an ArrayRef");
     }
 
-    
+    /* now splitter->pos is on the first array element */
+    splitter->input_body_to_first_elt = splitter->pos - splitter->input_body_pos;
     return splitter;
 }
 
@@ -298,9 +310,9 @@ void srl_parse_header(pTHX_ srl_splitter_t *splitter) {
     splitter->pos += header_len;
 
     if (version < 2) {
-        splitter->body_pos = splitter->input_str;
+        splitter->input_body_pos = splitter->input_str;
     } else {
-        splitter->body_pos = splitter->pos;
+        splitter->input_body_pos = splitter->pos;
     }
 
     if (is_snappy_encoded) {
@@ -347,7 +359,7 @@ void srl_parse_header(pTHX_ srl_splitter_t *splitter) {
 
         splitter->pos = splitter->input_str;;
         splitter->input_len = uncompressed_len;
-        splitter->body_pos = splitter->pos;
+        splitter->input_body_pos = splitter->pos;
 
     } else if (is_zlib_encoded) {
 
@@ -386,7 +398,7 @@ void srl_parse_header(pTHX_ srl_splitter_t *splitter) {
 
         splitter->pos = splitter->input_str;
         splitter->input_len = (STRLEN)tmp;
-        splitter->body_pos = splitter->pos;
+        splitter->input_body_pos = splitter->pos;
 
     }
 }
@@ -414,8 +426,8 @@ int _parse(srl_splitter_t * splitter) {
             SRL_SPLITTER_TRACE("  * VALUE tag %d -- deepness value: %d", tag, splitter->deepness);
             if (tag & SRL_HDR_TRACK_FLAG) {
                 tag = tag & ~SRL_HDR_TRACK_FLAG;
-                SRL_SPLITTER_TRACE("tag must be tracked, %ld\n", splitter->pos - splitter->body_pos);
-                stack_push(splitter->status_stack, splitter->pos - splitter->body_pos);
+                SRL_SPLITTER_TRACE("tag must be tracked, %ld\n", splitter->pos - splitter->input_body_pos);
+                stack_push(splitter->status_stack, splitter->pos - splitter->input_body_pos);
                 stack_push(splitter->status_stack, ST_TRACK);
             }
             splitter->pos++;
@@ -472,6 +484,47 @@ _read_tag(srl_splitter_t * splitter, char tag)
     } else if ( IS_SRL_HDR_SHORT_BINARY(tag) ) {
         int len = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
         SRL_SPLITTER_TRACE(" * SHORT BINARY of length %d", len);
+
+        /* dedupe_el_t *element = NULL; */
+        /* /\* use this form to be able to specify len *\/ */
+        /* HASH_FIND(hh,dedupe_hashtable,splitter->pos,len,element); */
+        /* if ( element != NULL) { */
+        /*     SRL_SPLITTER_TRACE(" * -- FOUND DUPLICATE"); */
+        /*     /\* instead of the short binary, output copy tag *\/ */
+        /*     /\* flush until here, but not including the short binary tag, start next chunk after *\/ */
+        /*     _maybe_flush_chunk(splitter, splitter->pos - 1, splitter->pos + len); */
+
+        /*     UV copy_tag_offset = splitter->pos - splitter->input_body_pos + 1; */
+
+        /*     /\* the copy tag *\/ */
+        /*     char tmp[SRL_MAX_VARINT_LENGTH]; */
+        /*     tmp[0] = 0x2f; */
+        /*     sv_catpvn(splitter->chunk, tmp, 1 ); */
+        /*     UV len = (UV) (_set_varint_nocheck(tmp, copy_tag_offset) - tmp); */
+        /*     /\* update the chunk offset_delta *\/ */
+        /*     splitter->chunk_offset_delta -= ( 1 /\* the COPY TAG itself *\/ */
+        /*                                       + offset_varint_length */
+        /*                                       ); */
+        /*     sv_catpvn(splitter->chunk, tmp, len); */
+
+        /* } else { */
+        /*     element->key = "plop"; */
+        /*     element->value = splitter->pos - splitter->input_body_pos + 1; */
+        /*     HASH_ADD(hh, dedupe_hashtable, (splitter->pos)[0], len, element); */
+        /* } */
+
+
+
+
+        /* HASH_ADD_PTR( dedupe_hashtable, key, element ); */
+        /* /\* check if the string is already known *\/ */
+        /* dedupe_el_t *element = (dedupe_el_t*)malloc(sizeof(dedupe_el_t)); */
+        /* /\* key is the original copy offset *\/ */
+        /* element->key = (void*) offset; */
+        /* /\* value is the offset in this chunk *\/ */
+        /* element->value = (void*) (saved_pos - splitter->chunk_start); */
+        /* HASH_ADD_PTR( dedupe_hashtable, key, element ); */
+
         splitter->pos += len;
     } else if ( IS_SRL_HDR_HASHREF(tag) ) {
         int len = tag & 0xF;
@@ -595,9 +648,9 @@ SRL_STATIC_INLINE void srl_read_copy(srl_splitter_t * splitter) {
     if (offset == 0)
         croak("COPY offset is zero !");
 
-    SRL_SPLITTER_TRACE(" * COPY, must jump to offset %lu, from body_pos %lu, then back here %lu.",
+    SRL_SPLITTER_TRACE(" * COPY, must jump to offset %lu, from input_body_pos %lu, then back here %lu.",
                        offset,
-                       splitter->body_pos - splitter->input_str,
+                       splitter->input_body_pos - splitter->input_str,
                        splitter->pos - splitter->input_str);
 
     /* update the chunk offset_delta */
@@ -610,7 +663,7 @@ SRL_STATIC_INLINE void srl_read_copy(srl_splitter_t * splitter) {
        there */
     _maybe_flush_chunk(splitter, saved_pos, NULL);
 
-    char * landing_pos = splitter->body_pos + offset - 1;
+    char * landing_pos = splitter->input_body_pos + offset - 1;
 
     /* set the instructions in the stack. Warning, we are pushing, so the order
        will be reversed when we pop */
@@ -687,12 +740,12 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
 
     /* create a new chunk */
 
-    /* first, empty the copytag_mapping */
-    mapping_el_t *elt, *tmp;
-    HASH_ITER(hh, copytag_mapping, elt, tmp) {
-        HASH_DEL(copytag_mapping,elt);  /* delete; users advances to next */
-        free(elt);                      /* optional- if you want to free  */
-    }
+    /* /\* first, empty the copytag_mapping *\/ */
+    /* mapping_el_t *elt, *tmp; */
+    /* HASH_ITER(hh, copytag_mapping, elt, tmp) { */
+    /*     HASH_DEL(copytag_mapping,elt);  /\* delete; users advances to next *\/ */
+    /*     free(elt);                      /\* optional- if you want to free  *\/ */
+    /* } */
 
     /* zero length Perl string */
     splitter->chunk = newSVpvn("", 0);
@@ -700,35 +753,46 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
     splitter->chunk_start = splitter->pos;
     splitter->chunk_iter_start = splitter->pos;
     splitter->chunk_nb_elts = 0;
-    splitter->chunk_offset_delta = 0;
+    splitter->chunk_offset_delta = -(splitter->input_body_to_first_elt);
+
+    splitter->chunk_body_pos = splitter->chunk_start;
         
-    splitter->chunk_with_prefix = newSVpvn("", 0);
     /* srl magic */
-    sv_catpvn(splitter->chunk_with_prefix, SRL_MAGIC_STRING_HIGHBIT, SRL_MAGIC_STRLEN);
+    sv_catpvn(splitter->chunk, SRL_MAGIC_STRING_HIGHBIT, SRL_MAGIC_STRLEN);
+    splitter->chunk_body_pos += SRL_MAGIC_STRLEN;
 
     char tmp_str[1];
     /* srl version-type type=raw, version=3 */
-    sv_catpvn(splitter->chunk_with_prefix, "\3", 1);
+    sv_catpvn(splitter->chunk, "\3", 1);
+    splitter->chunk_body_pos += 1;
 
     /* srl header suffix size: 0 */
-    sv_catpvn(splitter->chunk_with_prefix, "\0", 1);
+    sv_catpvn(splitter->chunk, "\0", 1);
+    splitter->chunk_body_pos += 1;
 
     tmp_str[0] = 0x28; /* REFN */
-    sv_catpvn(splitter->chunk_with_prefix, tmp_str, 1);
+    sv_catpvn(splitter->chunk, tmp_str, 1);
+    splitter->chunk_offset_delta += 1;
 
     tmp_str[0] = 0x2b; /* ARRAY */
-    sv_catpvn(splitter->chunk_with_prefix, tmp_str, 1);
+    sv_catpvn(splitter->chunk, tmp_str, 1);
+    splitter->chunk_offset_delta += 1;
 
+    char tmp[SRL_MAX_VARINT_LENGTH];
+    /* append the varint of the maximum array's number of elements */
+    UV varint_len = (UV) (_set_varint_nocheck(tmp, splitter->input_nb_elts) - tmp);
+    SRL_SPLITTER_TRACE(" ---- VARINT LEN %lu value %lu", varint_len, splitter->input_nb_elts);
+    /* This is the car number where we're going to write the varint */
+    UV varint_pos = SvCUR(splitter->chunk);
+    sv_catpvn(splitter->chunk, tmp, varint_len);
+    splitter->chunk_offset_delta += varint_len;
 
     int found = _parse(splitter);
     if (found) {
-        char tmp[SRL_MAX_VARINT_LENGTH];
-        /* append the varint of the array's number of elements*/
-        UV len = (UV) (_set_varint_nocheck(tmp, splitter->chunk_nb_elts) - tmp);
-        SRL_SPLITTER_TRACE(" -------- len array size varint %lu", len);
-        sv_catpvn(splitter->chunk_with_prefix, tmp, len);
-        sv_catpvn(splitter->chunk_with_prefix, SvPVX(splitter->chunk), SvCUR(splitter->chunk));
-        return splitter->chunk_with_prefix;
+        char * varint_start = SvPVX(splitter->chunk) + varint_pos;
+        char * varint_end = varint_start + varint_len - 1;
+        srl_update_varint_from_to(varint_start, varint_end, splitter->chunk_nb_elts);
+        return splitter->chunk;
     }
     return &PL_sv_undef;
 }
