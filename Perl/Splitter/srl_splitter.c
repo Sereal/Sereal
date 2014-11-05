@@ -191,7 +191,7 @@ srl_splitter_t * srl_build_splitter_struct(pTHX_ HV *opt) {
     if (IS_SRL_HDR_ARRAYREF(tag)) {
         int len = tag & 0xF;
         splitter->input_nb_elts = len;
-        SRL_SPLITTER_TRACE(" * ARRAYREF of len, %lu", len);
+        SRL_SPLITTER_TRACE(" * ARRAYREF of len, %d", len);
         while (len-- > 0) {
             stack_push(splitter->status_stack, ST_VALUE);
         }
@@ -747,6 +747,14 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
     /*     free(elt);                      /\* optional- if you want to free  *\/ */
     /* } */
 
+    /* empty the dedupe_hashtable */
+
+    dedupe_el_t *elt, *tmp;
+    HASH_ITER(hh, dedupe_hashtable, elt, tmp) {
+        HASH_DEL(dedupe_hashtable,elt);  /* delete; users advances to next */
+        free(elt);                      /* optional- if you want to free  */
+    }
+
     /* zero length Perl string */
     splitter->chunk = newSVpvn("", 0);
     splitter->chunk_size = 0;
@@ -761,7 +769,7 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
     sv_catpvn(splitter->chunk, SRL_MAGIC_STRING_HIGHBIT, SRL_MAGIC_STRLEN);
     splitter->chunk_body_pos += SRL_MAGIC_STRLEN;
 
-    char tmp_str[1];
+    char tmp_str[SRL_MAX_VARINT_LENGTH];
     /* srl version-type type=raw, version=3 */
     sv_catpvn(splitter->chunk, "\3", 1);
     splitter->chunk_body_pos += 1;
@@ -778,13 +786,12 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
     sv_catpvn(splitter->chunk, tmp_str, 1);
     splitter->chunk_offset_delta += 1;
 
-    char tmp[SRL_MAX_VARINT_LENGTH];
     /* append the varint of the maximum array's number of elements */
-    UV varint_len = (UV) (_set_varint_nocheck(tmp, splitter->input_nb_elts) - tmp);
+    UV varint_len = (UV) (_set_varint_nocheck(tmp_str, splitter->input_nb_elts) - tmp_str);
     SRL_SPLITTER_TRACE(" ---- VARINT LEN %lu value %lu", varint_len, splitter->input_nb_elts);
     /* This is the car number where we're going to write the varint */
     UV varint_pos = SvCUR(splitter->chunk);
-    sv_catpvn(splitter->chunk, tmp, varint_len);
+    sv_catpvn(splitter->chunk, tmp_str, varint_len);
     splitter->chunk_offset_delta += varint_len;
 
     int found = _parse(splitter);
