@@ -87,6 +87,24 @@ if (1) {
 
 }
 
+if (1) {
+    # with a refp
+    my $t = { foo => 1 };
+    my $data = encode_sereal([ $t, $t ],
+                             { dedupe_strings => 1} );
+    print HexDump $data;
+    my $o = Sereal::Splitter->new({chunk_size => 200, input => $data});
+
+    while (defined( my $chunk = $o->next_chunk())) {
+        print HexDump $chunk;
+        my $struct = decode_sereal($chunk);
+        say Dumper($struct); use Data::Dumper;
+    }
+
+    pass;
+
+}
+
 pass;
 
 done_testing;
