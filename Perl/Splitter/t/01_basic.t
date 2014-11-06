@@ -68,6 +68,25 @@ if (1) {
 
 }
 
+if (1) {
+    # with an objectv
+    my $data = encode_sereal([ bless({aaa => 1 }, 'My::Foo'),
+                               bless({bbb => 1 }, 'My::Foo') ],
+                             { dedupe_strings => 1} );
+    print HexDump $data;
+    my $o = Sereal::Splitter->new({chunk_size => 200, input => $data});
+    
+
+    while (defined( my $chunk = $o->next_chunk())) {
+        print HexDump $chunk;
+        my $struct = decode_sereal($chunk);
+        say Dumper($struct); use Data::Dumper;
+    }
+
+    pass;
+
+}
+
 pass;
 
 done_testing;

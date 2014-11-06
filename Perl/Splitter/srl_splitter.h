@@ -18,7 +18,6 @@ typedef struct {
     char * pos;
     char * input_body_pos;
     UV input_nb_elts;
-    UV input_body_to_first_elt;
 
     int deepness;
 
@@ -34,35 +33,18 @@ typedef struct {
     char* chunk_body_pos;
     SV* chunk;
     UV chunk_nb_elts;
-    /* when we rewrite copy/refp tags in place, we add data( the data pointed
-       to), and remove some (the tag + offset varint). This offset_delta stores
-       by how much we have changed the counting */
     IV chunk_offset_delta;
 
-    /* The current position where we are from the chunk body pos point of view */
+    /* The current position, from the chunk body point of view, + 1*/
     UV chunk_current_offset;
-
-    /* SV* chunk_with_prefix; */
 
 } srl_splitter_t;
 
 enum {
-
     ST_VALUE,
     ST_TRACK,
     ST_DEEPNESS_UP,
     ST_ABSOLUTE_JUMP,
-
-
-    /* ST_INVALID, */
-
-    /* ST_ARRAY_CLOSE, */
-    /* ST_HASH_PAIR, */
-    /* ST_HASH_CLOSE, */
-
-    /* ST_JUMP, */
-
-
 };
 
 srl_splitter_t * srl_build_splitter_struct(pTHX_ HV *opt);
