@@ -102,12 +102,20 @@ void _empty_hashes();
 void _check_for_duplicates(srl_splitter_t * splitter, char* binary_start_pos, UV len);
 
 typedef struct {
-    char* key;                 /* key, the string to dedup */
-    UV value;               /* value, the position in the chunk */
-    UT_hash_handle hh;         /* makes this structure hashable */
+    char* key;         /* the string to dedup */
+    UV value;          /* the position in the chunk */
+    UT_hash_handle hh; /* makes this structure hashable */
 } dedupe_el_t;
 
-dedupe_el_t *dedupe_hashtable = NULL;    /* important! initialize to NULL */
+dedupe_el_t *dedupe_hashtable = NULL; /* important! initialize to NULL */
+
+typedef struct {
+    UV key;            /* key, the original offset in input */
+    UV value;          /* value, the new offset in the chunk */
+    UT_hash_handle hh; /* makes this structure hashable */
+} offset_el_t;
+
+offset_el_t *offset_hashtable = NULL;    /* important! initialize to NULL */
 
 UV stack_pop(srl_splitter_stack_t * stack) {
     UV val = 0;
@@ -365,16 +373,13 @@ void srl_parse_header(pTHX_ srl_splitter_t *splitter) {
 
         char *compressed = splitter->pos;
 
-        int decompress_ok = mz_uncompress(
-                                          (unsigned char *) new_input_str,
-                                          &tmp,
-                                          (const unsigned char *) compressed,
-                                          compressed_len
-                                          );
+        int decompress_ok = mz_uncompress( (unsigned char *) new_input_str,
+                                           &tmp,
+                                           (const unsigned char *) compressed,
+                                           compressed_len );
 
-        if (decompress_ok != Z_OK) {
+        if (decompress_ok != Z_OK)
             croak("ZLIB decompression of Sereal packet payload failed");
-        }
 
         splitter->input_str = new_input_str;
         SRL_SPLITTER_TRACE(" decompress OK: length %lu\n", uncompressed_len);
@@ -407,15 +412,20 @@ int _parse(srl_splitter_t * splitter) {
                 tag = tag & ~SRL_HDR_TRACK_FLAG;
                 SRL_SPLITTER_TRACE("    * tag must be tracked, %ld\n", splitter->pos - splitter->input_body_pos);
 
-                /* /\* we use (splitter->pos-1) to point to the tag *\/ */
-                /* UV new_offset = splitter->chunk_current_offset + ( (splitter->pos-1) - splitter->chunk_iter_start ); */
-                /* offset_mapper_el_t *element = NULL; */
-                /* Newx(element, 1, dedupe_el_t); */
-                /* /\* we use (splitter->pos-1) to point to the tag *\/ */
-                /* /\* the +1 is here because offsets start at 1 in srl sec *\/ */
-                /* element->key = (splitter->pos-1) - splitter->input_body_pos + 1; */
-                /* element->value = new_offset; */
+                offset_el_t *element = NULL;
 
+                UV origin_offset = splitter->pos - splitter->input_body_pos + 1;
+                UV new_offset    = splitter->chunk_current_offset + (splitter->pos - splitter->chunk_iter_start);
+
+                HASH_FIND(hh, offset_hashtable, &origin_offset, sizeof(UV), element);
+
+                if(element == NULL) {
+                    Newx(element, 1, offset_el_t);
+                    element->key = origin_offset;
+                    element->value = new_offset;
+                    SRL_SPLITTER_TRACE("    * adding %lu -> %lu\n", element->key, element->value);
+                    HASH_ADD_KEYPTR(hh, offset_hashtable, &(element->key), sizeof(UV), element);
+                }
             }
             splitter->pos++;
             _read_tag(splitter, tag);
@@ -446,9 +456,12 @@ int _parse(srl_splitter_t * splitter) {
     if (splitter->deepness != 0)
         croak("Something wrong happens: parsing finished but deepness is not zero");
 
-    /* iteration is finished, if there is something left, flush and return
-       success */
+    /* iteration is finished, if we had to flush something return success */
     if (_maybe_flush_chunk(splitter, NULL, NULL))
+        return 1;
+
+    /* maybe we didn't have to flush but the chunk is not empty: return success */
+    if (splitter->chunk_size > 0)
         return 1;
 
     /* otherwise, no data anymore, return failure */
@@ -551,12 +564,12 @@ _read_tag(srl_splitter_t * splitter, char tag)
 
 
 SRL_STATIC_INLINE void srl_read_varint(srl_splitter_t * splitter) {
-    UV uv = srl_read_varint_uv_nocheck(splitter);
+    srl_read_varint_uv_nocheck(splitter);
     SRL_SPLITTER_TRACE(" * VARINT %s", "");
 }
 
 SRL_STATIC_INLINE void srl_read_zigzag(srl_splitter_t * splitter) {
-    UV uv = srl_read_varint_uv_nocheck(splitter);
+    srl_read_varint_uv_nocheck(splitter);
     SRL_SPLITTER_TRACE(" * ZIGZAG %s", "");
 }
 
@@ -585,6 +598,8 @@ SRL_STATIC_INLINE void srl_read_string(srl_splitter_t * splitter) {
 
 SRL_STATIC_INLINE void srl_read_weaken(srl_splitter_t * splitter) {
     SRL_SPLITTER_TRACE(" * WEAKEN, %s", "");
+    splitter->deepness++;
+    stack_push(splitter->status_stack, ST_DEEPNESS_UP);
     stack_push(splitter->status_stack, ST_VALUE);
 }
 
@@ -596,20 +611,74 @@ SRL_STATIC_INLINE void srl_read_refn(srl_splitter_t * splitter) {
 }
 
 SRL_STATIC_INLINE void srl_read_refp(srl_splitter_t * splitter) {
+    /* we save the position at the refp tag */
+    char* saved_pos = splitter->pos - 1;
     UV offset = srl_read_varint_uv_nocheck(splitter);
+
+    if (offset == 0)
+        croak("REFP offset is zero !");
+
+    SRL_SPLITTER_TRACE(" * REFP, must jump to offset %lu, from input_body_pos %lu, then back here %lu.",
+                       offset,
+                       splitter->input_body_pos - splitter->input_str,
+                       splitter->pos - splitter->input_str);
+
+    /* if we have to flush the chunk first, let's do it, until before the REFP tag */
+    _maybe_flush_chunk(splitter, saved_pos, NULL);
+
     /* search in the mapping hash */
-    SRL_SPLITTER_TRACE(" * REFP, %s", "");
+    offset_el_t *element = NULL;
+    HASH_FIND(hh, offset_hashtable, &offset, sizeof(UV), element);
+    if (element != NULL) {
+        SRL_SPLITTER_TRACE(" ####### 1 %s", "");
+        UV new_offset = element->value;
+        SRL_SPLITTER_TRACE(" ####### 2 %s", "");
+        SRL_SPLITTER_TRACE(" ####### 3 %lu", element->key);
+        /* insert a refp */
+        char tmp_str[SRL_MAX_VARINT_LENGTH];
+        tmp_str[0] = 0x29;
+        sv_catpvn(splitter->chunk, tmp_str, 1 );
+        splitter->chunk_current_offset += 1;
+        splitter->chunk_size += 1;
+        
+        /* append the offset as a varint */
+        UV varint_len = (UV) (_set_varint_nocheck(tmp_str, new_offset) - tmp_str);
+        sv_catpvn(splitter->chunk, tmp_str, varint_len);
+        splitter->chunk_current_offset += varint_len;
+        splitter->chunk_size += varint_len;
+    } else {
+
+        /* otherwise insert an refn tag instead of the refp */
+        char tmp_str[1];
+        tmp_str[0] = 0x28;
+        sv_catpvn(splitter->chunk, tmp_str, 1 );
+        splitter->chunk_current_offset += 1;
+        splitter->chunk_size += 1;
+
+        splitter->deepness++;
+        stack_push(splitter->status_stack, ST_DEEPNESS_UP);
+
+        stack_push(splitter->status_stack, (UV)splitter->pos);
+        stack_push(splitter->status_stack, ST_ABSOLUTE_JUMP);
+
+        stack_push(splitter->status_stack, ST_VALUE);
+
+        /* then do the jump */
+        char * landing_pos = splitter->input_body_pos + offset - 1;
+        splitter->pos = landing_pos;
+        splitter->chunk_iter_start = landing_pos;
+    }
 }
 
- SRL_STATIC_INLINE void srl_read_object(srl_splitter_t * splitter, bool is_freeze) {
-        SRL_SPLITTER_TRACE(" * OBJECT%s, %s", (is_freeze ? "FREEZE" : ""), "");
+SRL_STATIC_INLINE void srl_read_object(srl_splitter_t * splitter, bool is_freeze) {
+    SRL_SPLITTER_TRACE(" * OBJECT%s, %s", (is_freeze ? "FREEZE" : ""), "");
     splitter->deepness++;
     stack_push(splitter->status_stack, ST_DEEPNESS_UP);
     stack_push(splitter->status_stack, ST_VALUE); /* for the class name */
     stack_push(splitter->status_stack, ST_VALUE); /* for the object struct */
 }
 
- SRL_STATIC_INLINE void srl_read_objectv(srl_splitter_t * splitter, bool is_freeze) {
+SRL_STATIC_INLINE void srl_read_objectv(srl_splitter_t * splitter, bool is_freeze) {
     /* we save the position at the objectv tag */
     char* saved_pos = splitter->pos - 1;
     UV offset = srl_read_varint_uv_nocheck(splitter);
@@ -625,9 +694,9 @@ SRL_STATIC_INLINE void srl_read_refp(srl_splitter_t * splitter) {
     _maybe_flush_chunk(splitter, saved_pos, NULL);
 
     /* insert an object tag instead of the objectv tag */
-    char tmp[1];
-    tmp[0] = (is_freeze ? 0x32 : 0x2c);
-    sv_catpvn(splitter->chunk, tmp, 1 );
+    char tmp_str[1];
+    tmp_str[0] = (is_freeze ? 0x32 : 0x2c);
+    sv_catpvn(splitter->chunk, tmp_str, 1 );
     splitter->chunk_current_offset += 1;
     splitter->chunk_size += 1;
 
@@ -683,7 +752,7 @@ SRL_STATIC_INLINE void srl_read_copy(srl_splitter_t * splitter) {
 }
 
 SRL_STATIC_INLINE void srl_read_alias(srl_splitter_t * splitter) {
-    UV offset = srl_read_varint_uv_nocheck(splitter);
+    srl_read_varint_uv_nocheck(splitter);
     SRL_SPLITTER_TRACE(" * ALIAS, %s", "");
 
     // if the alias offset is out of bound, then we do like copy, and register the offset reference
@@ -725,10 +794,16 @@ SRL_STATIC_INLINE void srl_read_regexp(srl_splitter_t * splitter) {
 }
 
 void _empty_hashes() {
-    dedupe_el_t *elt, *tmp;
-    HASH_ITER(hh, dedupe_hashtable, elt, tmp) {
-        HASH_DEL(dedupe_hashtable,elt);  /* delete; dedupe_hashtable advances to next */
-        Safefree(elt);
+    dedupe_el_t *elt_d, *tmp_d;
+    HASH_ITER(hh, dedupe_hashtable, elt_d, tmp_d) {
+        HASH_DEL(dedupe_hashtable,elt_d);  /* delete; dedupe_hashtable advances to next */
+        Safefree(elt_d);
+    }
+
+    offset_el_t *elt_o, *tmp_o;
+    HASH_ITER(hh, offset_hashtable, elt_o, tmp_o) {
+        HASH_DEL(offset_hashtable, elt_o);  /* delete; offset_hashtable advances to next */
+        Safefree(elt_o);
     }
 }
 
@@ -736,7 +811,7 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
 
     /* create a new chunk */
 
-    /* empty the dedupe_hashtable */
+    /* empty the dedupe_hashtable and offset_hashtable */
     _empty_hashes();
 
     /* zero length Perl string */
