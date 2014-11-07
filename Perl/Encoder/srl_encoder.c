@@ -539,7 +539,7 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
     }
 
-    DEBUG_ASSERT_BUF_SANE(enc);
+    DEBUG_ASSERT_BUF_SANE(enc->buf);
     return enc;
 }
 
@@ -559,7 +559,7 @@ srl_build_encoder_struct_alike(pTHX_ srl_encoder_t *proto)
     }
     enc->protocol_version = proto->protocol_version;
 
-    DEBUG_ASSERT_BUF_SANE(enc);
+    DEBUG_ASSERT_BUF_SANE(enc->buf);
     return enc;
 }
 
@@ -1491,7 +1491,7 @@ redo_dump:
     backrefs= NULL;
     svt = SvTYPE(src);
     refcount = SvREFCNT(src);
-    DEBUG_ASSERT_BUF_SANE(enc);
+    DEBUG_ASSERT_BUF_SANE(enc->buf);
     if ( SvMAGICAL(src) ) {
         SvGETMAGIC(src);
 #ifdef HAS_HV_BACKREFS
