@@ -230,7 +230,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
 
 #define CALL_SRL_DUMP_SV(enc, src) STMT_START {                                     \
     if (!(src)) {                                                                   \
-        srl_buf_cat_char((enc), SRL_HDR_CANONICAL_UNDEF); /* is this right? */      \
+        srl_buf_cat_char(&(enc)->buf, SRL_HDR_CANONICAL_UNDEF); /* is this right? */\
     }                                                                               \
     else                                                                            \
     {                                                                               \
@@ -300,7 +300,7 @@ srl_clear_encoder(pTHX_ srl_encoder_t *enc)
     /* tmp_buf.start may be NULL for an unused tmp_buf, but so what? */
     enc->tmp_buf.pos = enc->tmp_buf.start;
 
-    SRL_SET_BODY_POS(enc->buf, enc->buf.start);
+    SRL_SET_BODY_POS(&enc->buf, enc->buf.start);
 
     SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);
 }
@@ -539,7 +539,7 @@ srl_build_encoder_struct(pTHX_ HV *opt)
         SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
     }
 
-    DEBUG_ASSERT_BUF_SANE(enc->buf);
+    DEBUG_ASSERT_BUF_SANE(&enc->buf);
     return enc;
 }
 
@@ -559,7 +559,7 @@ srl_build_encoder_struct_alike(pTHX_ srl_encoder_t *proto)
     }
     enc->protocol_version = proto->protocol_version;
 
-    DEBUG_ASSERT_BUF_SANE(enc->buf);
+    DEBUG_ASSERT_BUF_SANE(&enc->buf);
     return enc;
 }
 
@@ -630,14 +630,14 @@ srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src)
     /* 4 byte magic string + proto version
      * + potentially uncompressed size varint
      * +  1 byte varint that indicates zero-length header */
-    BUF_SIZE_ASSERT(enc->buf, sizeof(SRL_MAGIC_STRING) + 1 + 1);
+    BUF_SIZE_ASSERT(&enc->buf, sizeof(SRL_MAGIC_STRING) + 1 + 1);
     if (LIKELY( enc->protocol_version > 2 ))
-      srl_buf_cat_str_s_nocheck(enc, SRL_MAGIC_STRING_HIGHBIT);
+      srl_buf_cat_str_s_nocheck(&enc->buf, SRL_MAGIC_STRING_HIGHBIT);
     else
-      srl_buf_cat_str_s_nocheck(enc, SRL_MAGIC_STRING);
-    srl_buf_cat_char_nocheck(enc, version_and_flags);
+      srl_buf_cat_str_s_nocheck(&enc->buf, SRL_MAGIC_STRING);
+    srl_buf_cat_char_nocheck(&enc->buf, version_and_flags);
     if (user_header_src == NULL) {
-        srl_buf_cat_char_nocheck(enc, '\0'); /* variable header length (0 right now) */
+        srl_buf_cat_char_nocheck(&enc->buf, '\0'); /* variable header length (0 right now) */
     }
     else {
         STRLEN user_data_len;
@@ -658,15 +658,15 @@ srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src)
         srl_clear_seen_hashes(aTHX_ enc); /* more bodies to follow */
 
         /* Swap main buffer back in, encode header length&bitfield, copy user header data */
-        user_data_len = BUF_POS_OFS(enc->buf);
+        user_data_len = BUF_POS_OFS(&enc->buf);
         srl_buf_swap_buffer(aTHX_ &enc->buf, &enc->tmp_buf);
 
-        BUF_SIZE_ASSERT(enc->buf, user_data_len + 1 + SRL_MAX_VARINT_LENGTH); /* +1 for bit field, +X for header len */
+        BUF_SIZE_ASSERT(&enc->buf, user_data_len + 1 + SRL_MAX_VARINT_LENGTH); /* +1 for bit field, +X for header len */
 
         /* Encode header length */
-        srl_buf_cat_varint_nocheck(aTHX_ enc, 0, (UV)(user_data_len + 1)); /* +1 for bit field */
+        srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, 0, (UV)(user_data_len + 1)); /* +1 for bit field */
         /* Encode bitfield */
-        srl_buf_cat_char_nocheck(enc, '\1');
+        srl_buf_cat_char_nocheck(&enc->buf, '\1');
         /* Copy user header data */
         Copy(enc->tmp_buf.start, enc->buf.pos, user_data_len, char);
         enc->buf.pos += user_data_len;
@@ -711,18 +711,18 @@ srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
     MS_VC6_WORKAROUND_VOLATILE double d= (double)nv;
     /* TODO: this logic could be reworked to not duplicate so much code, which will help on win32 */
     if ( f == nv || nv != nv ) {
-        BUF_SIZE_ASSERT(enc->buf, 1 + sizeof(f)); /* heuristic: header + string + simple value */
-        srl_buf_cat_char_nocheck(enc,SRL_HDR_FLOAT);
+        BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(f)); /* heuristic: header + string + simple value */
+        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_FLOAT);
         Copy((char *)&f, enc->buf.pos, sizeof(f), char);
         enc->buf.pos += sizeof(f);
     } else if (d == nv) {
-        BUF_SIZE_ASSERT(enc->buf, 1 + sizeof(d)); /* heuristic: header + string + simple value */
-        srl_buf_cat_char_nocheck(enc,SRL_HDR_DOUBLE);
+        BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(d)); /* heuristic: header + string + simple value */
+        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_DOUBLE);
         Copy((char *)&d, enc->buf.pos, sizeof(d), char);
         enc->buf.pos += sizeof(d);
     } else {
-        BUF_SIZE_ASSERT(enc->buf, 1 + sizeof(nv)); /* heuristic: header + string + simple value */
-        srl_buf_cat_char_nocheck(enc,SRL_HDR_LONG_DOUBLE);
+        BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(nv)); /* heuristic: header + string + simple value */
+        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_LONG_DOUBLE);
         Copy((char *)&nv, enc->buf.pos, sizeof(nv), char);
 #if SRL_EXTENDED_PRECISION_LONG_DOUBLE
         /* x86 uses an 80 bit extended precision. on 64 bit machines
@@ -753,10 +753,10 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
         if (num <= 15) {
             /* encodable as POS */
             hdr = SRL_HDR_POS_LOW | (unsigned char)num;
-            srl_buf_cat_char(enc, hdr);
+            srl_buf_cat_char(&enc->buf, hdr);
         }
         else {
-            srl_buf_cat_varint(aTHX_ enc, SRL_HDR_VARINT, num);
+            srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_VARINT, num);
         }
     }
     else {
@@ -764,11 +764,11 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
         if (num >= -16) {
             /* encodable as NEG */
             hdr = SRL_HDR_NEG_LOW | ((unsigned char)num + 32);
-            srl_buf_cat_char(enc, hdr);
+            srl_buf_cat_char(&enc->buf, hdr);
         }
         else {
             /* Needs ZIGZAG */
-            srl_buf_cat_zigzag(aTHX_ enc, SRL_HDR_ZIGZAG, num);
+            srl_buf_cat_zigzag(aTHX_ &enc->buf, SRL_HDR_ZIGZAG, num);
         }
     }
 }
@@ -852,7 +852,7 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement)
 
         if (oldoffset != 0) {
             /* Issue COPY instead of literal class name string */
-            srl_buf_cat_varint(aTHX_ enc,
+            srl_buf_cat_varint(aTHX_ &enc->buf,
                                      expect_false(replacement) ? SRL_HDR_OBJECTV_FREEZE : SRL_HDR_OBJECTV,
                                      (UV)oldoffset);
         }
@@ -867,10 +867,10 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement)
              * At least, we can safely use the same PTABLE to store the ptrs to hashkeys since
              * the set of pointers will never collide.
              * /me bows to Yves for the delightfully evil hack. */
-            srl_buf_cat_char(enc, expect_false(replacement) ? SRL_HDR_OBJECT_FREEZE : SRL_HDR_OBJECT);
+            srl_buf_cat_char(&enc->buf, expect_false(replacement) ? SRL_HDR_OBJECT_FREEZE : SRL_HDR_OBJECT);
 
             /* remember current offset before advancing it */
-            PTABLE_store(string_seenhash, (void *)stash, INT2PTR(void *, BODY_POS_OFS(enc->buf)));
+            PTABLE_store(string_seenhash, (void *)stash, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
 
             /* HvNAMEUTF8 not in older perls and it would be 0 for those anyway */
 #if PERL_VERSION >= 16
@@ -972,12 +972,12 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
         /* Alas, have to write entire packet first since the header length
          * will determine offsets. */
         srl_write_header(aTHX_ enc, user_header_src);
-        sereal_header_len = BUF_POS_OFS(enc->buf);
+        sereal_header_len = BUF_POS_OFS(&enc->buf);
         SRL_UPDATE_BODY_POS(enc);
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
-        assert(BUF_POS_OFS(enc->buf) > sereal_header_len);
-        uncompressed_body_length = BUF_POS_OFS(enc->buf) - sereal_header_len;
+        assert(BUF_POS_OFS(&enc->buf) > sereal_header_len);
+        uncompressed_body_length = BUF_POS_OFS(&enc->buf) - sereal_header_len;
 
         if (uncompressed_body_length < (STRLEN)enc->compress_threshold)
         {
@@ -1023,12 +1023,12 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
 
             /* Embed compressed packet length if Zlib */
             if (!is_snappy)
-                srl_buf_cat_varint_nocheck(aTHX_ enc, 0, uncompressed_body_length);
+                srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, 0, uncompressed_body_length);
 
             /* Embed compressed packet length if incr. Snappy or Zlib*/
             if (expect_true( !is_traditional_snappy )) {
                 varint_start= enc->buf.pos;
-                srl_buf_cat_varint_nocheck(aTHX_ enc, 0, dest_len);
+                srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, 0, dest_len);
                 varint_end= enc->buf.pos - 1;
             }
 
@@ -1087,19 +1087,19 @@ srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *user_he
     assert(enc->buf.start && enc->buf.pos && enc->buf.pos > enc->buf.start);
 
     if ( flags && /* for now simpler and equivalent to: flags == SRL_ENC_SV_REUSE_MAYBE */
-         (BUF_POS_OFS(enc->buf) > 20 && BUF_SPACE(enc->buf) < BUF_POS_OFS(enc->buf) )
+         (BUF_POS_OFS(&enc->buf) > 20 && BUF_SPACE(&enc->buf) < BUF_POS_OFS(&enc->buf) )
     ){
         /* If not wasting more than 2x memory - FIXME fungible */
         SV *sv = sv_2mortal(newSV_type(SVt_PV));
         SvPV_set(sv, enc->buf.start);
-        SvLEN_set(sv, BUF_SIZE(enc->buf));
-        SvCUR_set(sv, BUF_POS_OFS(enc->buf));
+        SvLEN_set(sv, BUF_SIZE(&enc->buf));
+        SvCUR_set(sv, BUF_POS_OFS(&enc->buf));
         SvPOK_on(sv);
         enc->buf.start = enc->buf.pos = NULL; /* no need to free these guys now */
         return sv;
     }
 
-    return sv_2mortal(newSVpvn(enc->buf.start, (STRLEN)BUF_POS_OFS(enc->buf)));
+    return sv_2mortal(newSVpvn(enc->buf.start, (STRLEN)BUF_POS_OFS(&enc->buf)));
 }
 
 SRL_STATIC_INLINE void
@@ -1169,7 +1169,7 @@ srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
         match_flags >>= 1;
     }
 
-    srl_buf_cat_char(enc, SRL_HDR_REGEXP);
+    srl_buf_cat_char(&enc->buf, SRL_HDR_REGEXP);
     srl_dump_pv(aTHX_ enc, RX_PRECOMP(re),RX_PRELEN(re), (RX_UTF8(re) ? SVf_UTF8 : 0));
     srl_dump_pv(aTHX_ enc, reflags, left, 0);
     return;
@@ -1184,14 +1184,14 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
     n = av_len(src)+1;
 
     /* heuristic: n is virtually the min. size of any element */
-    BUF_SIZE_ASSERT(enc->buf, 2 + SRL_MAX_VARINT_LENGTH + n);
+    BUF_SIZE_ASSERT(&enc->buf, 2 + SRL_MAX_VARINT_LENGTH + n);
 
     if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
         enc->buf.pos--; /* backup over previous REFN */
-        srl_buf_cat_char_nocheck(enc, SRL_HDR_ARRAYREF + n);
+        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_ARRAYREF + n);
     } else {
         /* header and num. elements */
-        srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_ARRAY, n);
+        srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_ARRAY, n);
     }
     if (!n)
         return;
@@ -1259,13 +1259,13 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 
         /* heuristic: n = ~min size of n values;
              *            + 2*n = very conservative min size of n hashkeys if all COPY */
-        BUF_SIZE_ASSERT(enc->buf, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
+        BUF_SIZE_ASSERT(&enc->buf, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
 
         if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
             enc->buf.pos--; /* back up over the previous REFN */
-            srl_buf_cat_char_nocheck(enc, SRL_HDR_HASHREF + n);
+            srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_HASHREF + n);
         } else {
-            srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_HASH, n);
+            srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_HASH, n);
         }
 
         (void)hv_iterinit(src); /* return value not reliable according to API docs */
@@ -1326,12 +1326,12 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
         n= HvUSEDKEYS(src);
         /* heuristic: n = ~min size of n values;
              *            + 2*n = very conservative min size of n hashkeys if all COPY */
-        BUF_SIZE_ASSERT(enc->buf, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
+        BUF_SIZE_ASSERT(&enc->buf, 2 + SRL_MAX_VARINT_LENGTH + 3*n);
         if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
             enc->buf.pos--; /* backup over the previous REFN */
-            srl_buf_cat_char_nocheck(enc, SRL_HDR_HASHREF + n);
+            srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_HASHREF + n);
         } else {
-            srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_HASH, n);
+            srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_HASH, n);
         }
         if (n) {
             HE **he_ptr= HvARRAY(src);
@@ -1388,12 +1388,12 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
             const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, str);
             if (oldoffset != 0) {
                 /* Issue COPY instead of literal hash key string */
-                srl_buf_cat_varint(aTHX_ enc, SRL_HDR_COPY, (UV)oldoffset);
+                srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_COPY, (UV)oldoffset);
                 return;
             }
             else {
                 /* remember current offset before advancing it */
-                const ptrdiff_t newoffset = BODY_POS_OFS(enc->buf);
+                const ptrdiff_t newoffset = BODY_POS_OFS(&enc->buf);
                 PTABLE_store(string_seenhash, (void *)str, INT2PTR(void *, newoffset));
             }
         }
@@ -1428,14 +1428,14 @@ srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src)
                 /* emit copy or alias */
                 if (out_tag == SRL_HDR_ALIAS)
                     SRL_SET_TRACK_FLAG(*(enc->buf.body_pos + SvUV(ofs_sv)));
-                srl_buf_cat_varint(aTHX_ enc, out_tag, SvIV(ofs_sv));
+                srl_buf_cat_varint(aTHX_ &enc->buf, out_tag, SvIV(ofs_sv));
                 return;
             } else if (SvUOK(ofs_sv)) {
-                srl_buf_cat_varint(aTHX_ enc, out_tag, SvUV(ofs_sv));
+                srl_buf_cat_varint(aTHX_ &enc->buf, out_tag, SvUV(ofs_sv));
                 return;
             } else {
                 /* start tracking this string */
-                sv_setuv(ofs_sv, (UV)BODY_POS_OFS(enc->buf));
+                sv_setuv(ofs_sv, (UV)BODY_POS_OFS(&enc->buf));
             }
         }
     }
@@ -1445,13 +1445,13 @@ srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src)
 SRL_STATIC_INLINE void
 srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8)
 {
-    BUF_SIZE_ASSERT(enc->buf, 1 + SRL_MAX_VARINT_LENGTH + src_len); /* overallocate a bit sometimes */
+    BUF_SIZE_ASSERT(&enc->buf, 1 + SRL_MAX_VARINT_LENGTH + src_len); /* overallocate a bit sometimes */
     if (is_utf8) {
-        srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_STR_UTF8, src_len);
+        srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_STR_UTF8, src_len);
     } else if (src_len <= SRL_MASK_SHORT_BINARY_LEN) {
-        srl_buf_cat_char_nocheck(enc, SRL_HDR_SHORT_BINARY_LOW | (char)src_len);
+        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_SHORT_BINARY_LOW | (char)src_len);
     } else {
-        srl_buf_cat_varint_nocheck(aTHX_ enc, SRL_HDR_BINARY, src_len);
+        srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_BINARY, src_len);
     }
     Copy(src, enc->buf.pos, src_len, char);
     enc->buf.pos += src_len;
@@ -1491,7 +1491,7 @@ redo_dump:
     backrefs= NULL;
     svt = SvTYPE(src);
     refcount = SvREFCNT(src);
-    DEBUG_ASSERT_BUF_SANE(enc->buf);
+    DEBUG_ASSERT_BUF_SANE(&enc->buf);
     if ( SvMAGICAL(src) ) {
         SvGETMAGIC(src);
 #ifdef HAS_HV_BACKREFS
@@ -1527,19 +1527,19 @@ redo_dump:
      * if we see it again we recognize it */
     if ( expect_false( refcount > 1 ) ) {
         if (src == &PL_sv_undef && enc->protocol_version >=3 ) {
-            srl_buf_cat_char(enc, SRL_HDR_CANONICAL_UNDEF);
+            srl_buf_cat_char(&enc->buf, SRL_HDR_CANONICAL_UNDEF);
             --enc->recursion_depth;
             return;
         }
         else
         if (src == &PL_sv_yes) {
-            srl_buf_cat_char(enc, SRL_HDR_TRUE);
+            srl_buf_cat_char(&enc->buf, SRL_HDR_TRUE);
             --enc->recursion_depth;
             return;
         }
         else
         if (src == &PL_sv_no) {
-            srl_buf_cat_char(enc, SRL_HDR_FALSE);
+            srl_buf_cat_char(&enc->buf, SRL_HDR_FALSE);
             --enc->recursion_depth;
             return;
         }
@@ -1551,17 +1551,17 @@ redo_dump:
                 if (ref_rewrite_pos) {
                     if (DEBUGHACK) warn("ref to %p as %lu", src, (long unsigned int)oldoffset);
                     enc->buf.pos= enc->buf.body_pos + ref_rewrite_pos;
-                    srl_buf_cat_varint(aTHX_ enc, SRL_HDR_REFP, (UV)oldoffset);
+                    srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_REFP, (UV)oldoffset);
                 } else {
                     if (DEBUGHACK) warn("alias to %p as %lu", src, (long unsigned int)oldoffset);
-                    srl_buf_cat_varint(aTHX_ enc, SRL_HDR_ALIAS, (UV)oldoffset);
+                    srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_ALIAS, (UV)oldoffset);
                 }
                 SRL_SET_TRACK_FLAG(*(enc->buf.body_pos + oldoffset));
                 --enc->recursion_depth;
                 return;
             }
-            if (DEBUGHACK) warn("storing %p as %lu", src, (long unsigned int)BODY_POS_OFS(enc->buf));
-            PTABLE_store(ref_seenhash, src, INT2PTR(void *, BODY_POS_OFS(enc->buf)));
+            if (DEBUGHACK) warn("storing %p as %lu", src, (long unsigned int)BODY_POS_OFS(&enc->buf));
+            PTABLE_store(ref_seenhash, src, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
         }
     }
     if (expect_false( weakref_ofs != 0 )) {
@@ -1606,11 +1606,11 @@ redo_dump:
 #endif
         if (expect_false( SvWEAKREF(src) )) {
             if (DEBUGHACK) warn("Is weakref %p", src);
-            weakref_ofs= BODY_POS_OFS(enc->buf);
-            srl_buf_cat_char(enc, SRL_HDR_WEAKEN);
+            weakref_ofs= BODY_POS_OFS(&enc->buf);
+            srl_buf_cat_char(&enc->buf, SRL_HDR_WEAKEN);
         }
 
-        ref_rewrite_pos= BODY_POS_OFS(enc->buf);
+        ref_rewrite_pos= BODY_POS_OFS(&enc->buf);
 
         if (expect_false( sv_isobject(src) )) {
             /* Write bless operator with class name */
@@ -1618,7 +1618,7 @@ redo_dump:
             srl_dump_classname(aTHX_ enc, referent, replacement); /* 1 == have freeze call */
         }
 
-        srl_buf_cat_char(enc, SRL_HDR_REFN);
+        srl_buf_cat_char(&enc->buf, SRL_HDR_REFN);
         refsv= src;
         src= referent;
 
@@ -1663,7 +1663,7 @@ redo_dump:
                         PTABLE_delete(ref_seenhash, src);                                      \
                         enc->buf.pos= enc->buf.body_pos + ref_rewrite_pos;                     \
                     }                                                                          \
-                    srl_buf_cat_char((enc), SRL_HDR_UNDEF);                                    \
+                    srl_buf_cat_char(&(enc)->buf, SRL_HDR_UNDEF);                              \
                 }                                                                              \
                 else if ( SRL_ENC_HAVE_OPTION((enc), SRL_F_STRINGIFY_UNKNOWN) ) {              \
                     STRLEN len;                                                                \
@@ -1703,9 +1703,9 @@ redo_dump:
             SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt, refsv, ref_rewrite_pos);
         }
         else if (src == &PL_sv_undef && enc->protocol_version >= 3 ) {
-            srl_buf_cat_char(enc, SRL_HDR_CANONICAL_UNDEF);
+            srl_buf_cat_char(&enc->buf, SRL_HDR_CANONICAL_UNDEF);
         } else {
-            srl_buf_cat_char(enc, SRL_HDR_UNDEF);
+            srl_buf_cat_char(&enc->buf, SRL_HDR_UNDEF);
         }
     }
     else {
