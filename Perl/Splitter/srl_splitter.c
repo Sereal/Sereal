@@ -91,7 +91,6 @@ SRL_STATIC_INLINE void srl_read_object(srl_splitter_t * splitter, bool is_freeze
 SRL_STATIC_INLINE void srl_read_objectv(srl_splitter_t * splitter, bool is_freeze);
 SRL_STATIC_INLINE void srl_read_copy(srl_splitter_t * splitter);
 SRL_STATIC_INLINE void srl_read_alias(srl_splitter_t * splitter);
-SRL_STATIC_INLINE void srl_read_extend(srl_splitter_t * splitter);
 SRL_STATIC_INLINE void srl_read_hash(srl_splitter_t * splitter);
 SRL_STATIC_INLINE void srl_read_array(srl_splitter_t * splitter);
 SRL_STATIC_INLINE void srl_read_regexp(srl_splitter_t * splitter);
@@ -554,7 +553,7 @@ _read_tag(srl_splitter_t * splitter, char tag)
             case SRL_HDR_OBJECTV_FREEZE: srl_read_object(splitter, 1);    break;
             case SRL_HDR_ALIAS:          srl_read_alias(splitter);        break;
             case SRL_HDR_COPY:           srl_read_copy(splitter);         break;
-            case SRL_HDR_EXTEND:         srl_read_extend(splitter);       break;
+            case SRL_HDR_EXTEND:         /* no op */                      break;
             case SRL_HDR_REGEXP:         srl_read_regexp(splitter);       break;
             case SRL_HDR_PAD:            /* no op */                      break;
             default:                     croak("Unexpected tag value");   break;
@@ -630,10 +629,7 @@ SRL_STATIC_INLINE void srl_read_refp(srl_splitter_t * splitter) {
     offset_el_t *element = NULL;
     HASH_FIND(hh, offset_hashtable, &offset, sizeof(UV), element);
     if (element != NULL) {
-        SRL_SPLITTER_TRACE(" ####### 1 %s", "");
         UV new_offset = element->value;
-        SRL_SPLITTER_TRACE(" ####### 2 %s", "");
-        SRL_SPLITTER_TRACE(" ####### 3 %lu", element->key);
         /* insert a refp */
         char tmp_str[SRL_MAX_VARINT_LENGTH];
         tmp_str[0] = 0x29;
@@ -752,15 +748,56 @@ SRL_STATIC_INLINE void srl_read_copy(srl_splitter_t * splitter) {
 }
 
 SRL_STATIC_INLINE void srl_read_alias(srl_splitter_t * splitter) {
-    srl_read_varint_uv_nocheck(splitter);
-    SRL_SPLITTER_TRACE(" * ALIAS, %s", "");
+    /* we save the position at the alias tag */
+    char* saved_pos = splitter->pos - 1;
+    UV offset = srl_read_varint_uv_nocheck(splitter);
 
-    // if the alias offset is out of bound, then we do like copy, and register the offset reference
+    if (offset == 0)
+        croak("ALIAS offset is zero !");
 
-}
+    SRL_SPLITTER_TRACE(" * ALIAS, must jump to offset %lu, from input_body_pos %lu, then back here %lu.",
+                       offset,
+                       splitter->input_body_pos - splitter->input_str,
+                       splitter->pos - splitter->input_str);
 
-SRL_STATIC_INLINE void srl_read_extend(srl_splitter_t * splitter) {
-    croak("extend unimplemented");
+    /* if we have to flush the chunk first, let's do it, until before the ALIAS tag */
+    _maybe_flush_chunk(splitter, saved_pos, NULL);
+
+    /* search in the mapping hash */
+    offset_el_t *element = NULL;
+    HASH_FIND(hh, offset_hashtable, &offset, sizeof(UV), element);
+    if (element != NULL) {
+        UV new_offset = element->value;
+        /* insert an ALIAS tag */
+        char tmp_str[SRL_MAX_VARINT_LENGTH];
+        tmp_str[0] = 0x2e;
+        sv_catpvn(splitter->chunk, tmp_str, 1 );
+        splitter->chunk_current_offset += 1;
+        splitter->chunk_size += 1;
+        
+        /* append the offset as a varint */
+        UV varint_len = (UV) (_set_varint_nocheck(tmp_str, new_offset) - tmp_str);
+        sv_catpvn(splitter->chunk, tmp_str, varint_len);
+        splitter->chunk_current_offset += varint_len;
+        splitter->chunk_size += varint_len;
+    } else {
+
+        /* otherwise duplicate the data here */
+
+        splitter->deepness++;
+        stack_push(splitter->status_stack, ST_DEEPNESS_UP);
+
+        stack_push(splitter->status_stack, (UV)splitter->pos);
+        stack_push(splitter->status_stack, ST_ABSOLUTE_JUMP);
+
+        stack_push(splitter->status_stack, ST_VALUE);
+
+        /* then do the jump */
+        char * landing_pos = splitter->input_body_pos + offset - 1;
+        splitter->pos = landing_pos;
+        splitter->chunk_iter_start = landing_pos;
+    }
+
 }
 
 SRL_STATIC_INLINE void srl_read_hash(srl_splitter_t * splitter) {
