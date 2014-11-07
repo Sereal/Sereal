@@ -31,12 +31,12 @@
 
 /* these are mostly for right between (de)serializing the header and the body */
 #define SRL_SET_BODY_POS(buf, pos_ptr) ((buf)->body_pos = pos_ptr)
-#define SRL_UPDATE_BODY_POS(enc)                                            \
+#define SRL_UPDATE_BODY_POS(buf, protocol_version)                          \
     STMT_START {                                                            \
-        if (expect_false((enc)->protocol_version == 1)) {                   \
-            SRL_SET_BODY_POS(&(enc)->buf, (enc)->buf.start);                \
+        if (expect_false((protocol_version) == 1)) {                        \
+            SRL_SET_BODY_POS((buf), (buf)->start);                          \
         } else {                                                            \
-            SRL_SET_BODY_POS(&(enc)->buf, (enc)->buf.pos-1);                \
+            SRL_SET_BODY_POS((buf), (buf)->pos-1);                          \
         }                                                                   \
     } STMT_END
 

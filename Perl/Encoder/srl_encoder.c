@@ -138,6 +138,8 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
                                         ? srl_init_freezeobj_svhash(enc)    \
                                         : (enc)->freezeobj_svhash )
 
+#define SRL_ENC_UPDATE_BODY_POS(enc) SRL_UPDATE_BODY_POS(&(enc)->buf, (enc)->protocol_version)
+
 #ifndef MAX_CHARSET_NAME_LENGTH
 #    define MAX_CHARSET_NAME_LENGTH 2
 #endif
@@ -652,7 +654,7 @@ srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src)
 
         /* Write document body (for header) into separate buffer */
         srl_buf_swap_buffer(aTHX_ &enc->tmp_buf, &enc->buf);
-        SRL_UPDATE_BODY_POS(enc);
+        SRL_ENC_UPDATE_BODY_POS(enc);
         srl_dump_sv(aTHX_ enc, user_header_src);
         srl_fixup_weakrefs(aTHX_ enc); /* more bodies to follow */
         srl_clear_seen_hashes(aTHX_ enc); /* more bodies to follow */
@@ -961,7 +963,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
        ))
     {
         srl_write_header(aTHX_ enc, user_header_src);
-        SRL_UPDATE_BODY_POS(enc);
+        SRL_ENC_UPDATE_BODY_POS(enc);
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
     }
@@ -973,7 +975,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
          * will determine offsets. */
         srl_write_header(aTHX_ enc, user_header_src);
         sereal_header_len = BUF_POS_OFS(&enc->buf);
-        SRL_UPDATE_BODY_POS(enc);
+        SRL_ENC_UPDATE_BODY_POS(enc);
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
         assert(BUF_POS_OFS(&enc->buf) > sereal_header_len);
@@ -1019,7 +1021,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
             /* Copy Sereal header */
             Copy(old_buf.start, enc->buf.pos, sereal_header_len, char);
             enc->buf.pos += sereal_header_len;
-            SRL_UPDATE_BODY_POS(enc); /* will do the right thing wrt. protocol V1 / V2 */
+            SRL_ENC_UPDATE_BODY_POS(enc); /* will do the right thing wrt. protocol V1 / V2 */
 
             /* Embed compressed packet length if Zlib */
             if (!is_snappy)
