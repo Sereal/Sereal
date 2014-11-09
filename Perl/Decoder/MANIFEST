@@ -34,6 +34,7 @@ srl_decoder.h
 srl_error.h
 srl_inline.h
 srl_protocol.h
+srl_taginfo.h
 t/001_load.t
 t/004_testset.t
 t/010_desperate.t

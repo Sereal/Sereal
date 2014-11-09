@@ -50,6 +50,7 @@ extern "C" {
 #include "srl_common.h"
 #include "ptable.h"
 #include "srl_protocol.h"
+#include "srl_taginfo.h"
 #include "srl_error.h"
 
 #if defined(HAVE_CSNAPPY)

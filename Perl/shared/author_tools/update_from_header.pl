@@ -4,6 +4,7 @@ use warnings;
 use Data::Dumper;
 my (
     @meta,
+    %range,                     # base types.
     %name_to_value,             # just the names in the srl_protocol.h
     %name_to_value_expanded,    # names from srl_protocol, but with the LOW/HIGH data expanded
     %value_to_name_expanded,    # values from srl_protocol_expanded, mapping back, note value points at FIRST name
@@ -11,7 +12,7 @@ my (
 );
 my $max_name_length= 0;
 
-sub fill_ranges {
+sub fill_range {
     my $pfx= shift;
     $pfx=~s/_LOW//;
     defined(my $ofs= $name_to_value_expanded{$pfx})
@@ -27,6 +28,8 @@ sub fill_ranges {
         $meta[$value]{value}= $value;
         $meta[$value]{type_name}= $pfx;
         $meta[$value]{type_value}= $ofs;
+
+        push @{$range{$pfx}}, $meta[$value];
         #$meta[$value]{comment}= $value_to_comment_expanded{ $ofs }
         #    if exists $value_to_comment_expanded{ $ofs };
 
@@ -51,7 +54,7 @@ sub read_protocol {
             $value_to_comment_expanded{$value} ||= $comment;
             push @fill, $name if substr($name, -4) eq '_LOW';
 
-            if ( $value < 128 ) {
+            if ( $value < 128 && !($name=~/_LOW/ or $name=~/_HIGH/)) {
                 $meta[$value]{name}= $name;
                 $meta[$value]{value}= $value;
                 $meta[$value]{type_name}= $name;
@@ -61,7 +64,7 @@ sub read_protocol {
         }
     }
     close $fh;
-    fill_ranges($_) for @fill;
+    fill_range($_) for @fill;
     foreach my $pfx (keys %name_to_value_expanded) {
         $max_name_length= length($pfx) if $max_name_length < length($pfx);
     }
@@ -85,7 +88,10 @@ sub replace_block {
         print $out $_;
         last if /^=for autoupdater start/ || /^# start autoupdated section/;
     }
-    $blob=~s/\s+$//mg;
+
+    $blob =~ s/[ \t]+$//mg;
+    $blob =~ s/\s+\z//;
+
     print $out "\n$blob\n\n";
     while (<$in>) {
         if (/^=for autoupdater stop/ || /^# stop autoupdated section/) {
@@ -113,11 +119,12 @@ sub update_buildtools {
     )
 }
 
-sub update_srl_error_h {
-    replace_block("Perl/shared/srl_error.h",
+sub update_srl_taginfo_h {
+    replace_block("Perl/shared/srl_taginfo.h",
         join("\n",
             "* NOTE this section is autoupdated by $0",
             "*/",
+            "",
             "static const char * const tag_name[] = {",
             ( map {
                 my $str= Data::Dumper::qquote(chr($_));
@@ -126,11 +133,32 @@ sub update_srl_error_h {
                     $max_name_length+3, qq("$value_to_name_expanded{$_}") . ($_==127 ? " " : ","), $str, $_, $_, $_
             } 0 .. 127 ),
             "};",
+            "",
+            (
+                map {
+                    sprintf "#define SRL_HDR_%-*s %3d",
+                        $max_name_length+3, $_->{name}, $_->{value}
+                } grep { $_->{masked} } @meta
+            ),
+            "",
+            ( map {
+                my $n = $_;
+                my $v = $range{$n};
+                my $c =
+                        join "    \\\n   ",
+                        "#define CASE_SRL_HDR_$n",
+                        join ":    \\\n   ",
+                        map { "case SRL_HDR_$_->{name}" } @$v;
+
+                $c."\n\n";
+            } sort keys %range ),
+            "",
             "/*",
             "* NOTE the above section is auto-updated by $0",
         )
-    )
+    );
 }
+
 
 sub update_JavaSerealHeader {
     my $declarations = "* NOTE this section is autoupdated by $0 */\n";
@@ -175,7 +203,7 @@ chdir "$git_dir/.."
     or die "Failed to chdir to root of repo '$git_dir/..': $!";
 read_protocol();
 update_buildtools();
-update_srl_error_h();
+update_srl_taginfo_h();
 update_table("sereal_spec.pod");
 update_table("Perl/shared/srl_protocol.h");
 update_JavaSerealHeader();
