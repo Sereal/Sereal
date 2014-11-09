@@ -51,18 +51,7 @@ extern "C" {
 #include "srl_common.h"
 #include "ptable.h"
 #include "srl_buffer.h"
-
-#if defined(HAVE_CSNAPPY)
-#include <csnappy.h>
-#else
-#include "snappy/csnappy_compress.c"
-#endif
-
-#if defined(HAVE_MINIZ)
-#include <miniz.h>
-#else
-#include "miniz.h"
-#endif
+#include "srl_compress.h"
 
 /* The ENABLE_DANGEROUS_HACKS (passed through from ENV via Makefile.PL) enables
  * optimizations that may make the code so cozy with a particular version of the
@@ -316,7 +305,8 @@ srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
     if (enc->tmp_buf.start != NULL)
         srl_buf_free_buffer(aTHX_ &enc->tmp_buf);
 
-    Safefree(enc->snappy_workmem);
+    srl_destroy_snappy_workmem(enc->snappy_workmem);
+
     if (enc->ref_seenhash != NULL)
         PTABLE_free(enc->ref_seenhash);
     if (enc->freezeobj_svhash != NULL)
@@ -599,20 +589,6 @@ srl_init_string_deduper_hv(pTHX_ srl_encoder_t *enc)
     enc->string_deduper_hv = newHV();
     return enc->string_deduper_hv;
 }
-
-/* Lazy working buffer alloc */
-SRL_STATIC_INLINE void
-srl_init_snappy_workmem(pTHX_ srl_encoder_t *enc)
-{
-    /* Lazy working buffer alloc */
-    if (expect_false( enc->snappy_workmem == NULL )) {
-        /* Cleaned up automatically by the cleanup handler */
-        Newx(enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES, char);
-        if (enc->snappy_workmem == NULL)
-            croak("Out of memory!");
-    }
-}
-
 
 void
 srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src)
@@ -909,48 +885,6 @@ srl_prepare_encoder(pTHX_ srl_encoder_t *enc)
     return enc;
 }
 
-
-/* Update a varint anywhere in the output stream with defined start and end
- * positions. This can produce non-canonical varints and is useful for filling
- * pre-allocated varints. */
-SRL_STATIC_INLINE void
-srl_update_varint_from_to(pTHX_ char *varint_start, char *varint_end, UV number)
-{
-    while (number >= 0x80) {                      /* while we are larger than 7 bits long */
-        *varint_start++ = (number & 0x7f) | 0x80; /* write out the least significant 7 bits, set the high bit */
-        number = number >> 7;                     /* shift off the 7 least significant bits */
-    }
-    /* if it is the same size we can use a canonical varint */
-    if ( varint_start == varint_end ) {
-        *varint_start = number;                   /* encode the last 7 bits without the high bit being set */
-    } else {
-        /* if not we produce a non-canonical varint, basically we stuff
-         * 0 bits (via 0x80) into the "tail" of the varint, until we can
-         * stick in a null to terminate the sequence. This means that the
-         * varint is effectively "self-padding", and we only need special
-         * logic in the encoder - a decoder will happily process a non-canonical
-         * varint with no problem */
-        *varint_start++ = (number & 0x7f) | 0x80;
-        while ( varint_start < varint_end )
-            *varint_start++ = 0x80;
-        *varint_start= 0;
-    }
-}
-
-
-/* Resets the compression header flag to OFF.
- * Obviously requires that a Sereal header was already written to the
- * encoder's output buffer. */
-SRL_STATIC_INLINE void
-srl_reset_compression_header_flag(srl_encoder_t *enc)
-{
-    /* sizeof(const char *) includes a count of \0 */
-    char *flags_and_version_byte = enc->buf.start + sizeof(SRL_MAGIC_STRING) - 1;
-    /* disable snappy flag in header */
-    *flags_and_version_byte = SRL_PROTOCOL_ENCODING_RAW |
-                              (*flags_and_version_byte & SRL_PROTOCOL_VERSION_MASK);
-}
-
 SRL_STATIC_INLINE srl_encoder_t *
 srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
 {
@@ -981,98 +915,18 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
         assert(BUF_POS_OFS(&enc->buf) > sereal_header_len);
         uncompressed_body_length = BUF_POS_OFS(&enc->buf) - sereal_header_len;
 
-        if (uncompressed_body_length < (STRLEN)enc->compress_threshold)
-        {
+        if (uncompressed_body_length < (STRLEN)enc->compress_threshold) {
             /* Don't bother with compression at all if we have less than $threshold bytes of payload */
-            srl_reset_compression_header_flag(enc);
+            srl_reset_compression_header_flag(&enc->buf);
         }
         else { /* Do Snappy or zlib compression of body */
-            const int is_snappy
-                = SRL_ENC_HAVE_OPTION(enc, (  SRL_F_COMPRESS_SNAPPY
-                                            | SRL_F_COMPRESS_SNAPPY_INCREMENTAL));
-            /* !is_snappy is the same as "is zlib" right now */
+            srl_compress_body(&enc->buf, sereal_header_len,
+                              enc->flags, enc->compress_level,
+                              &enc->snappy_workmem);
 
-            const int is_traditional_snappy
-                = (SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY));
-
-            srl_buffer_t old_buf; /* TODO can we use the enc->tmp_buf here to avoid allocations? */
-            char *varint_start= NULL;
-            char *varint_end= NULL;
-            size_t dest_len;
-
-            /* Get uncompressed payload and total packet output (after compression) lengths */
-            dest_len = sereal_header_len + 1
-                        + ( is_snappy ? (size_t)csnappy_max_compressed_length(uncompressed_body_length)
-                                      : (size_t)mz_compressBound(uncompressed_body_length)+SRL_MAX_VARINT_LENGTH );
-
-            /* Will have to embed compressed packet length as varint if not
-             * in traditional Snappy mode. (So needs to be added for any of
-             * ZLIB, or incremental Snappy.) */
-            if ( !is_traditional_snappy )
-                dest_len += SRL_MAX_VARINT_LENGTH;
-
-            if (is_snappy)
-                srl_init_snappy_workmem(aTHX_ enc);
-
-            /* Back up old buffer and allocate new one with correct size */
-            srl_buf_copy_buffer(aTHX_ &enc->buf, &old_buf);
-            srl_buf_init_buffer(aTHX_ &enc->buf, dest_len);
-
-            /* Copy Sereal header */
-            Copy(old_buf.start, enc->buf.pos, sereal_header_len, char);
-            enc->buf.pos += sereal_header_len;
-            SRL_ENC_UPDATE_BODY_POS(enc); /* will do the right thing wrt. protocol V1 / V2 */
-
-            /* Embed compressed packet length if Zlib */
-            if (!is_snappy)
-                srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, 0, uncompressed_body_length);
-
-            /* Embed compressed packet length if incr. Snappy or Zlib*/
-            if (expect_true( !is_traditional_snappy )) {
-                varint_start= enc->buf.pos;
-                srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, 0, dest_len);
-                varint_end= enc->buf.pos - 1;
-            }
-
-            if (is_snappy) {
-                uint32_t len = (uint32_t)dest_len;
-                csnappy_compress(old_buf.start + sereal_header_len, (uint32_t)uncompressed_body_length, enc->buf.pos, &len,
-                                 enc->snappy_workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
-                dest_len = (size_t)len;
-            }
-            else {
-                mz_ulong dl = (mz_ulong)dest_len;
-                int status = mz_compress2(
-                    (unsigned char *)enc->buf.pos,
-                    &dl,
-                    (const unsigned char *)(old_buf.start + sereal_header_len),
-                    (mz_ulong)uncompressed_body_length,
-                    enc->compress_level
-                );
-                (void)status;
-                assert(status == Z_OK);
-                dest_len = (size_t)dl;
-            }
-
-            assert(dest_len != 0);
-
-            /* If compression didn't help, swap back to old, uncompressed buffer */
-            if (dest_len >= uncompressed_body_length) {
-                /* swap in old, uncompressed buffer */
-                srl_buf_swap_buffer(aTHX_ &enc->buf, &old_buf);
-                /* disable compression flag */
-                srl_reset_compression_header_flag(enc);
-            }
-            else { /* go ahead with Snappy and do final fixups */
-                /* overwrite the max size varint with the real size of the compressed data */
-                if (varint_start)
-                    srl_update_varint_from_to(aTHX_ varint_start, varint_end, dest_len);
-                enc->buf.pos += dest_len;
-            }
-
-            srl_buf_free_buffer(aTHX_ &old_buf);
-            assert(enc->buf.pos <= enc->buf.end);
-        } /* End of "actually do compression" */
+            SRL_ENC_UPDATE_BODY_POS(enc);
+            DEBUG_ASSERT_BUF_SANE(buf);
+        }
     } /* End of "want compression?" */
 
     /* NOT doing a

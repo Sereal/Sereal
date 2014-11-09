@@ -35,6 +35,7 @@ srl_encoder.h
 srl_error.h
 srl_inline.h
 srl_protocol.h
+srl_compress.h
 t/001_load.t
 t/002_constants.t
 t/003_ptable.t
