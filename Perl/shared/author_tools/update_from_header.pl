@@ -99,8 +99,9 @@ sub replace_block {
     close $out;
     close $in;
 }
+
 sub update_buildtools {
-    my $dump= Data::Dumper->new([\@meta],['*TAG_INFO_ARRAY'])->Indent(1)->Dump();
+    my $dump= Data::Dumper->new([\@meta],['*TAG_INFO_ARRAY'])->Sortkeys(1)->Useqq(1)->Indent(1)->Dump();
     $dump =~ s/^(\s*)\{/$1# autoupdated by $0 do not modify directly!\n$1\{/mg;
     return replace_block(
         "Perl/shared/inc/Sereal/BuildTools.pm",

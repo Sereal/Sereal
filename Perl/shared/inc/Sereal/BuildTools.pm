@@ -117,1138 +117,1137 @@ our (%TAG_INFO_HASH, @TAG_INFO_ARRAY);
 @TAG_INFO_ARRAY = (
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'POS',
-    'masked' => 1,
-    'comment' => 'small positive integer - value in low 4 bits (identity)',
-    'value' => 0,
-    'name' => 'POS_0',
-    'masked_val' => 0,
-    'type_value' => 0
+    "comment" => "small positive integer - value in low 4 bits (identity)",
+    "masked" => 1,
+    "masked_val" => 0,
+    "name" => "POS_0",
+    "type_name" => "POS",
+    "type_value" => 0,
+    "value" => 0
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'POS',
-    'masked' => 1,
-    'value' => 1,
-    'name' => 'POS_1',
-    'masked_val' => 1,
-    'type_value' => 0
+    "masked" => 1,
+    "masked_val" => 1,
+    "name" => "POS_1",
+    "type_name" => "POS",
+    "type_value" => 0,
+    "value" => 1
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'POS',
-    'masked' => 1,
-    'value' => 2,
-    'name' => 'POS_2',
-    'masked_val' => 2,
-    'type_value' => 0
+    "masked" => 1,
+    "masked_val" => 2,
+    "name" => "POS_2",
+    "type_name" => "POS",
+    "type_value" => 0,
+    "value" => 2
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'POS',
-    'masked' => 1,
-    'value' => 3,
-    'name' => 'POS_3',
-    'masked_val' => 3,
-    'type_value' => 0
+    "masked" => 1,
+    "masked_val" => 3,
+    "name" => "POS_3",
+    "type_name" => "POS",
+    "type_value" => 0,
+    "value" => 3
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'POS',
-    'masked' => 1,
-    'value' => 4,
-    'name' => 'POS_4',
-    'masked_val' => 4,
-    'type_value' => 0
+    "masked" => 1,
+    "masked_val" => 4,
+    "name" => "POS_4",
+    "type_name" => "POS",
+    "type_value" => 0,
+    "value" => 4
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'POS',
-    'masked' => 1,
-    'value' => 5,
-    'name' => 'POS_5',
-    'masked_val' => 5,
-    'type_value' => 0
+    "masked" => 1,
+    "masked_val" => 5,
+    "name" => "POS_5",
+    "type_name" => "POS",
+    "type_value" => 0,
+    "value" => 5
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'POS',
-    'masked' => 1,
-    'value' => 6,
-    'name' => 'POS_6',
-    'masked_val' => 6,
-    'type_value' => 0
+    "masked" => 1,
+    "masked_val" => 6,
+    "name" => "POS_6",
+    "type_name" => "POS",
+    "type_value" => 0,
+    "value" => 6
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'POS',
-    'masked' => 1,
-    'value' => 7,
-    'name' => 'POS_7',
-    'masked_val' => 7,
-    'type_value' => 0
+    "masked" => 1,
+    "masked_val" => 7,
+    "name" => "POS_7",
+    "type_name" => "POS",
+    "type_value" => 0,
+    "value" => 7
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'POS',
-    'masked' => 1,
-    'value' => 8,
-    'name' => 'POS_8',
-    'masked_val' => 8,
-    'type_value' => 0
+    "masked" => 1,
+    "masked_val" => 8,
+    "name" => "POS_8",
+    "type_name" => "POS",
+    "type_value" => 0,
+    "value" => 8
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'POS',
-    'masked' => 1,
-    'value' => 9,
-    'name' => 'POS_9',
-    'masked_val' => 9,
-    'type_value' => 0
+    "masked" => 1,
+    "masked_val" => 9,
+    "name" => "POS_9",
+    "type_name" => "POS",
+    "type_value" => 0,
+    "value" => 9
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'POS',
-    'masked' => 1,
-    'value' => 10,
-    'name' => 'POS_10',
-    'masked_val' => 10,
-    'type_value' => 0
+    "masked" => 1,
+    "masked_val" => 10,
+    "name" => "POS_10",
+    "type_name" => "POS",
+    "type_value" => 0,
+    "value" => 10
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'POS',
-    'masked' => 1,
-    'value' => 11,
-    'name' => 'POS_11',
-    'masked_val' => 11,
-    'type_value' => 0
+    "masked" => 1,
+    "masked_val" => 11,
+    "name" => "POS_11",
+    "type_name" => "POS",
+    "type_value" => 0,
+    "value" => 11
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'POS',
-    'masked' => 1,
-    'value' => 12,
-    'name' => 'POS_12',
-    'masked_val' => 12,
-    'type_value' => 0
+    "masked" => 1,
+    "masked_val" => 12,
+    "name" => "POS_12",
+    "type_name" => "POS",
+    "type_value" => 0,
+    "value" => 12
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'POS',
-    'masked' => 1,
-    'value' => 13,
-    'name' => 'POS_13',
-    'masked_val' => 13,
-    'type_value' => 0
+    "masked" => 1,
+    "masked_val" => 13,
+    "name" => "POS_13",
+    "type_name" => "POS",
+    "type_value" => 0,
+    "value" => 13
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'POS',
-    'masked' => 1,
-    'value' => 14,
-    'name' => 'POS_14',
-    'masked_val' => 14,
-    'type_value' => 0
+    "masked" => 1,
+    "masked_val" => 14,
+    "name" => "POS_14",
+    "type_name" => "POS",
+    "type_value" => 0,
+    "value" => 14
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'POS',
-    'masked' => 1,
-    'comment' => 'small positive integer - value in low 4 bits (identity)',
-    'value' => 15,
-    'name' => 'POS_15',
-    'masked_val' => 15,
-    'type_value' => 0
+    "masked" => 1,
+    "masked_val" => 15,
+    "name" => "POS_15",
+    "type_name" => "POS",
+    "type_value" => 0,
+    "value" => 15
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'NEG',
-    'masked' => 1,
-    'comment' => 'small negative integer - value in low 4 bits (k+32)',
-    'value' => 16,
-    'name' => 'NEG_16',
-    'masked_val' => 16,
-    'type_value' => 16
+    "comment" => "small negative integer - value in low 4 bits (k+32)",
+    "masked" => 1,
+    "masked_val" => 16,
+    "name" => "NEG_16",
+    "type_name" => "NEG",
+    "type_value" => 16,
+    "value" => 16
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'NEG',
-    'masked' => 1,
-    'value' => 17,
-    'name' => 'NEG_15',
-    'masked_val' => 15,
-    'type_value' => 16
+    "masked" => 1,
+    "masked_val" => 15,
+    "name" => "NEG_15",
+    "type_name" => "NEG",
+    "type_value" => 16,
+    "value" => 17
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'NEG',
-    'masked' => 1,
-    'value' => 18,
-    'name' => 'NEG_14',
-    'masked_val' => 14,
-    'type_value' => 16
+    "masked" => 1,
+    "masked_val" => 14,
+    "name" => "NEG_14",
+    "type_name" => "NEG",
+    "type_value" => 16,
+    "value" => 18
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'NEG',
-    'masked' => 1,
-    'value' => 19,
-    'name' => 'NEG_13',
-    'masked_val' => 13,
-    'type_value' => 16
+    "masked" => 1,
+    "masked_val" => 13,
+    "name" => "NEG_13",
+    "type_name" => "NEG",
+    "type_value" => 16,
+    "value" => 19
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'NEG',
-    'masked' => 1,
-    'value' => 20,
-    'name' => 'NEG_12',
-    'masked_val' => 12,
-    'type_value' => 16
+    "masked" => 1,
+    "masked_val" => 12,
+    "name" => "NEG_12",
+    "type_name" => "NEG",
+    "type_value" => 16,
+    "value" => 20
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'NEG',
-    'masked' => 1,
-    'value' => 21,
-    'name' => 'NEG_11',
-    'masked_val' => 11,
-    'type_value' => 16
+    "masked" => 1,
+    "masked_val" => 11,
+    "name" => "NEG_11",
+    "type_name" => "NEG",
+    "type_value" => 16,
+    "value" => 21
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'NEG',
-    'masked' => 1,
-    'value' => 22,
-    'name' => 'NEG_10',
-    'masked_val' => 10,
-    'type_value' => 16
+    "masked" => 1,
+    "masked_val" => 10,
+    "name" => "NEG_10",
+    "type_name" => "NEG",
+    "type_value" => 16,
+    "value" => 22
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'NEG',
-    'masked' => 1,
-    'value' => 23,
-    'name' => 'NEG_9',
-    'masked_val' => 9,
-    'type_value' => 16
+    "masked" => 1,
+    "masked_val" => 9,
+    "name" => "NEG_9",
+    "type_name" => "NEG",
+    "type_value" => 16,
+    "value" => 23
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'NEG',
-    'masked' => 1,
-    'value' => 24,
-    'name' => 'NEG_8',
-    'masked_val' => 8,
-    'type_value' => 16
+    "masked" => 1,
+    "masked_val" => 8,
+    "name" => "NEG_8",
+    "type_name" => "NEG",
+    "type_value" => 16,
+    "value" => 24
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'NEG',
-    'masked' => 1,
-    'value' => 25,
-    'name' => 'NEG_7',
-    'masked_val' => 7,
-    'type_value' => 16
+    "masked" => 1,
+    "masked_val" => 7,
+    "name" => "NEG_7",
+    "type_name" => "NEG",
+    "type_value" => 16,
+    "value" => 25
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'NEG',
-    'masked' => 1,
-    'value' => 26,
-    'name' => 'NEG_6',
-    'masked_val' => 6,
-    'type_value' => 16
+    "masked" => 1,
+    "masked_val" => 6,
+    "name" => "NEG_6",
+    "type_name" => "NEG",
+    "type_value" => 16,
+    "value" => 26
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'NEG',
-    'masked' => 1,
-    'value' => 27,
-    'name' => 'NEG_5',
-    'masked_val' => 5,
-    'type_value' => 16
+    "masked" => 1,
+    "masked_val" => 5,
+    "name" => "NEG_5",
+    "type_name" => "NEG",
+    "type_value" => 16,
+    "value" => 27
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'NEG',
-    'masked' => 1,
-    'value' => 28,
-    'name' => 'NEG_4',
-    'masked_val' => 4,
-    'type_value' => 16
+    "masked" => 1,
+    "masked_val" => 4,
+    "name" => "NEG_4",
+    "type_name" => "NEG",
+    "type_value" => 16,
+    "value" => 28
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'NEG',
-    'masked' => 1,
-    'value' => 29,
-    'name' => 'NEG_3',
-    'masked_val' => 3,
-    'type_value' => 16
+    "masked" => 1,
+    "masked_val" => 3,
+    "name" => "NEG_3",
+    "type_name" => "NEG",
+    "type_value" => 16,
+    "value" => 29
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'NEG',
-    'masked' => 1,
-    'value' => 30,
-    'name' => 'NEG_2',
-    'masked_val' => 2,
-    'type_value' => 16
+    "masked" => 1,
+    "masked_val" => 2,
+    "name" => "NEG_2",
+    "type_name" => "NEG",
+    "type_value" => 16,
+    "value" => 30
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'NEG',
-    'masked' => 1,
-    'comment' => 'small negative integer - value in low 4 bits (k+32)',
-    'value' => 31,
-    'name' => 'NEG_1',
-    'masked_val' => 1,
-    'type_value' => 16
+    "masked" => 1,
+    "masked_val" => 1,
+    "name" => "NEG_1",
+    "type_name" => "NEG",
+    "type_value" => 16,
+    "value" => 31
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'VARINT',
-    'comment' => '<VARINT> - Varint variable length integer',
-    'value' => 32,
-    'name' => 'VARINT',
-    'type_value' => 32
+    "comment" => "<VARINT> - Varint variable length integer",
+    "name" => "VARINT",
+    "type_name" => "VARINT",
+    "type_value" => 32,
+    "value" => 32
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ZIGZAG',
-    'comment' => '<ZIGZAG-VARINT> - Zigzag variable length integer',
-    'value' => 33,
-    'name' => 'ZIGZAG',
-    'type_value' => 33
+    "comment" => "<ZIGZAG-VARINT> - Zigzag variable length integer",
+    "name" => "ZIGZAG",
+    "type_name" => "ZIGZAG",
+    "type_value" => 33,
+    "value" => 33
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'FLOAT',
-    'comment' => '<IEEE-FLOAT>',
-    'value' => 34,
-    'name' => 'FLOAT',
-    'type_value' => 34
+    "comment" => "<IEEE-FLOAT>",
+    "name" => "FLOAT",
+    "type_name" => "FLOAT",
+    "type_value" => 34,
+    "value" => 34
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'DOUBLE',
-    'comment' => '<IEEE-DOUBLE>',
-    'value' => 35,
-    'name' => 'DOUBLE',
-    'type_value' => 35
+    "comment" => "<IEEE-DOUBLE>",
+    "name" => "DOUBLE",
+    "type_name" => "DOUBLE",
+    "type_value" => 35,
+    "value" => 35
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'LONG_DOUBLE',
-    'comment' => '<IEEE-LONG-DOUBLE>',
-    'value' => 36,
-    'name' => 'LONG_DOUBLE',
-    'type_value' => 36
+    "comment" => "<IEEE-LONG-DOUBLE>",
+    "name" => "LONG_DOUBLE",
+    "type_name" => "LONG_DOUBLE",
+    "type_value" => 36,
+    "value" => 36
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'UNDEF',
-    'comment' => 'None - Perl undef var; eg my $var= undef;',
-    'value' => 37,
-    'name' => 'UNDEF',
-    'type_value' => 37
+    "comment" => "None - Perl undef var; eg my \$var= undef;",
+    "name" => "UNDEF",
+    "type_name" => "UNDEF",
+    "type_value" => 37,
+    "value" => 37
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'BINARY',
-    'comment' => '<LEN-VARINT> <BYTES> - binary/(latin1) string',
-    'value' => 38,
-    'name' => 'BINARY',
-    'type_value' => 38
+    "comment" => "<LEN-VARINT> <BYTES> - binary/(latin1) string",
+    "name" => "BINARY",
+    "type_name" => "BINARY",
+    "type_value" => 38,
+    "value" => 38
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'STR_UTF8',
-    'comment' => '<LEN-VARINT> <UTF8> - utf8 string',
-    'value' => 39,
-    'name' => 'STR_UTF8',
-    'type_value' => 39
+    "comment" => "<LEN-VARINT> <UTF8> - utf8 string",
+    "name" => "STR_UTF8",
+    "type_name" => "STR_UTF8",
+    "type_value" => 39,
+    "value" => 39
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'REFN',
-    'comment' => '<ITEM-TAG>    - ref to next item',
-    'value' => 40,
-    'name' => 'REFN',
-    'type_value' => 40
+    "comment" => "<ITEM-TAG>    - ref to next item",
+    "name" => "REFN",
+    "type_name" => "REFN",
+    "type_value" => 40,
+    "value" => 40
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'REFP',
-    'comment' => '<OFFSET-VARINT> - ref to previous item stored at offset',
-    'value' => 41,
-    'name' => 'REFP',
-    'type_value' => 41
+    "comment" => "<OFFSET-VARINT> - ref to previous item stored at offset",
+    "name" => "REFP",
+    "type_name" => "REFP",
+    "type_value" => 41,
+    "value" => 41
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'HASH',
-    'comment' => '<COUNT-VARINT> [<KEY-TAG> <ITEM-TAG> ...] - count followed by key/value pairs',
-    'value' => 42,
-    'name' => 'HASH',
-    'type_value' => 42
+    "comment" => "<COUNT-VARINT> [<KEY-TAG> <ITEM-TAG> ...] - count followed by key/value pairs",
+    "name" => "HASH",
+    "type_name" => "HASH",
+    "type_value" => 42,
+    "value" => 42
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ARRAY',
-    'comment' => '<COUNT-VARINT> [<ITEM-TAG> ...] - count followed by items',
-    'value' => 43,
-    'name' => 'ARRAY',
-    'type_value' => 43
+    "comment" => "<COUNT-VARINT> [<ITEM-TAG> ...] - count followed by items",
+    "name" => "ARRAY",
+    "type_name" => "ARRAY",
+    "type_value" => 43,
+    "value" => 43
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'OBJECT',
-    'comment' => '<STR-TAG> <ITEM-TAG> - class, object-item',
-    'value' => 44,
-    'name' => 'OBJECT',
-    'type_value' => 44
+    "comment" => "<STR-TAG> <ITEM-TAG> - class, object-item",
+    "name" => "OBJECT",
+    "type_name" => "OBJECT",
+    "type_value" => 44,
+    "value" => 44
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'OBJECTV',
-    'comment' => '<OFFSET-VARINT> <ITEM-TAG> - offset of previously used classname tag - object-item',
-    'value' => 45,
-    'name' => 'OBJECTV',
-    'type_value' => 45
+    "comment" => "<OFFSET-VARINT> <ITEM-TAG> - offset of previously used classname tag - object-item",
+    "name" => "OBJECTV",
+    "type_name" => "OBJECTV",
+    "type_value" => 45,
+    "value" => 45
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ALIAS',
-    'comment' => '<OFFSET-VARINT> - alias to item defined at offset',
-    'value' => 46,
-    'name' => 'ALIAS',
-    'type_value' => 46
+    "comment" => "<OFFSET-VARINT> - alias to item defined at offset",
+    "name" => "ALIAS",
+    "type_name" => "ALIAS",
+    "type_value" => 46,
+    "value" => 46
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'COPY',
-    'comment' => '<OFFSET-VARINT> - copy of item defined at offset',
-    'value' => 47,
-    'name' => 'COPY',
-    'type_value' => 47
+    "comment" => "<OFFSET-VARINT> - copy of item defined at offset",
+    "name" => "COPY",
+    "type_name" => "COPY",
+    "type_value" => 47,
+    "value" => 47
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'WEAKEN',
-    'comment' => '<REF-TAG> - Weaken the following reference',
-    'value' => 48,
-    'name' => 'WEAKEN',
-    'type_value' => 48
+    "comment" => "<REF-TAG> - Weaken the following reference",
+    "name" => "WEAKEN",
+    "type_name" => "WEAKEN",
+    "type_value" => 48,
+    "value" => 48
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'REGEXP',
-    'comment' => '<PATTERN-STR-TAG> <MODIFIERS-STR-TAG>',
-    'value' => 49,
-    'name' => 'REGEXP',
-    'type_value' => 49
+    "comment" => "<PATTERN-STR-TAG> <MODIFIERS-STR-TAG>",
+    "name" => "REGEXP",
+    "type_name" => "REGEXP",
+    "type_value" => 49,
+    "value" => 49
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'OBJECT_FREEZE',
-    'comment' => '<STR-TAG> <ITEM-TAG> - class, object-item. Need to call "THAW" method on class after decoding',
-    'value' => 50,
-    'name' => 'OBJECT_FREEZE',
-    'type_value' => 50
+    "comment" => "<STR-TAG> <ITEM-TAG> - class, object-item. Need to call \"THAW\" method on class after decoding",
+    "name" => "OBJECT_FREEZE",
+    "type_name" => "OBJECT_FREEZE",
+    "type_value" => 50,
+    "value" => 50
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'OBJECTV_FREEZE',
-    'comment' => '<OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT)',
-    'value' => 51,
-    'name' => 'OBJECTV_FREEZE',
-    'type_value' => 51
+    "comment" => "<OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT)",
+    "name" => "OBJECTV_FREEZE",
+    "type_name" => "OBJECTV_FREEZE",
+    "type_value" => 51,
+    "value" => 51
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'RESERVED',
-    'masked' => 1,
-    'comment' => 'reserved',
-    'value' => 52,
-    'name' => 'RESERVED_0',
-    'masked_val' => 0,
-    'type_value' => 52
+    "comment" => "reserved",
+    "masked" => 1,
+    "masked_val" => 0,
+    "name" => "RESERVED_0",
+    "type_name" => "RESERVED",
+    "type_value" => 52,
+    "value" => 52
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'RESERVED',
-    'masked' => 1,
-    'value' => 53,
-    'name' => 'RESERVED_1',
-    'masked_val' => 1,
-    'type_value' => 52
+    "masked" => 1,
+    "masked_val" => 1,
+    "name" => "RESERVED_1",
+    "type_name" => "RESERVED",
+    "type_value" => 52,
+    "value" => 53
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'RESERVED',
-    'masked' => 1,
-    'value' => 54,
-    'name' => 'RESERVED_2',
-    'masked_val' => 2,
-    'type_value' => 52
+    "masked" => 1,
+    "masked_val" => 2,
+    "name" => "RESERVED_2",
+    "type_name" => "RESERVED",
+    "type_value" => 52,
+    "value" => 54
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'RESERVED',
-    'masked' => 1,
-    'value' => 55,
-    'name' => 'RESERVED_3',
-    'masked_val' => 3,
-    'type_value' => 52
+    "masked" => 1,
+    "masked_val" => 3,
+    "name" => "RESERVED_3",
+    "type_name" => "RESERVED",
+    "type_value" => 52,
+    "value" => 55
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'RESERVED',
-    'masked' => 1,
-    'value' => 56,
-    'name' => 'RESERVED_4',
-    'masked_val' => 4,
-    'type_value' => 52
+    "masked" => 1,
+    "masked_val" => 4,
+    "name" => "RESERVED_4",
+    "type_name" => "RESERVED",
+    "type_value" => 52,
+    "value" => 56
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'CANONICAL_UNDEF',
-    'comment' => 'undef (PL_sv_undef) - "the" Perl undef (see notes)',
-    'value' => 57,
-    'name' => 'CANONICAL_UNDEF',
-    'type_value' => 57
+    "comment" => "undef (PL_sv_undef) - \"the\" Perl undef (see notes)",
+    "name" => "CANONICAL_UNDEF",
+    "type_name" => "CANONICAL_UNDEF",
+    "type_value" => 57,
+    "value" => 57
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'FALSE',
-    'comment' => 'false (PL_sv_no)',
-    'value' => 58,
-    'name' => 'FALSE',
-    'type_value' => 58
+    "comment" => "false (PL_sv_no)",
+    "name" => "FALSE",
+    "type_name" => "FALSE",
+    "type_value" => 58,
+    "value" => 58
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'TRUE',
-    'comment' => 'true  (PL_sv_yes)',
-    'value' => 59,
-    'name' => 'TRUE',
-    'type_value' => 59
+    "comment" => "true  (PL_sv_yes)",
+    "name" => "TRUE",
+    "type_name" => "TRUE",
+    "type_value" => 59,
+    "value" => 59
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'MANY',
-    'comment' => '<LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3)',
-    'value' => 60,
-    'name' => 'MANY',
-    'type_value' => 60
+    "comment" => "<LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3)",
+    "name" => "MANY",
+    "type_name" => "MANY",
+    "type_value" => 60,
+    "value" => 60
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'PACKET_START',
-    'comment' => '(first byte of magic string in header)',
-    'value' => 61,
-    'name' => 'PACKET_START',
-    'type_value' => 61
+    "comment" => "(first byte of magic string in header)",
+    "name" => "PACKET_START",
+    "type_name" => "PACKET_START",
+    "type_value" => 61,
+    "value" => 61
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'EXTEND',
-    'comment' => '<BYTE> - for additional tags',
-    'value' => 62,
-    'name' => 'EXTEND',
-    'type_value' => 62
+    "comment" => "<BYTE> - for additional tags",
+    "name" => "EXTEND",
+    "type_name" => "EXTEND",
+    "type_value" => 62,
+    "value" => 62
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'PAD',
-    'comment' => '(ignored tag, skip to next byte)',
-    'value' => 63,
-    'name' => 'PAD',
-    'type_value' => 63
+    "comment" => "(ignored tag, skip to next byte)",
+    "name" => "PAD",
+    "type_name" => "PAD",
+    "type_value" => 63,
+    "value" => 63
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ARRAYREF',
-    'masked' => 1,
-    'comment' => '[<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1)',
-    'value' => 64,
-    'name' => 'ARRAYREF_0',
-    'masked_val' => 0,
-    'type_value' => 64
+    "comment" => "[<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1)",
+    "masked" => 1,
+    "masked_val" => 0,
+    "name" => "ARRAYREF_0",
+    "type_name" => "ARRAYREF",
+    "type_value" => 64,
+    "value" => 64
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ARRAYREF',
-    'masked' => 1,
-    'value' => 65,
-    'name' => 'ARRAYREF_1',
-    'masked_val' => 1,
-    'type_value' => 64
+    "masked" => 1,
+    "masked_val" => 1,
+    "name" => "ARRAYREF_1",
+    "type_name" => "ARRAYREF",
+    "type_value" => 64,
+    "value" => 65
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ARRAYREF',
-    'masked' => 1,
-    'value' => 66,
-    'name' => 'ARRAYREF_2',
-    'masked_val' => 2,
-    'type_value' => 64
+    "masked" => 1,
+    "masked_val" => 2,
+    "name" => "ARRAYREF_2",
+    "type_name" => "ARRAYREF",
+    "type_value" => 64,
+    "value" => 66
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ARRAYREF',
-    'masked' => 1,
-    'value' => 67,
-    'name' => 'ARRAYREF_3',
-    'masked_val' => 3,
-    'type_value' => 64
+    "masked" => 1,
+    "masked_val" => 3,
+    "name" => "ARRAYREF_3",
+    "type_name" => "ARRAYREF",
+    "type_value" => 64,
+    "value" => 67
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ARRAYREF',
-    'masked' => 1,
-    'value' => 68,
-    'name' => 'ARRAYREF_4',
-    'masked_val' => 4,
-    'type_value' => 64
+    "masked" => 1,
+    "masked_val" => 4,
+    "name" => "ARRAYREF_4",
+    "type_name" => "ARRAYREF",
+    "type_value" => 64,
+    "value" => 68
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ARRAYREF',
-    'masked' => 1,
-    'value' => 69,
-    'name' => 'ARRAYREF_5',
-    'masked_val' => 5,
-    'type_value' => 64
+    "masked" => 1,
+    "masked_val" => 5,
+    "name" => "ARRAYREF_5",
+    "type_name" => "ARRAYREF",
+    "type_value" => 64,
+    "value" => 69
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ARRAYREF',
-    'masked' => 1,
-    'value' => 70,
-    'name' => 'ARRAYREF_6',
-    'masked_val' => 6,
-    'type_value' => 64
+    "masked" => 1,
+    "masked_val" => 6,
+    "name" => "ARRAYREF_6",
+    "type_name" => "ARRAYREF",
+    "type_value" => 64,
+    "value" => 70
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ARRAYREF',
-    'masked' => 1,
-    'value' => 71,
-    'name' => 'ARRAYREF_7',
-    'masked_val' => 7,
-    'type_value' => 64
+    "masked" => 1,
+    "masked_val" => 7,
+    "name" => "ARRAYREF_7",
+    "type_name" => "ARRAYREF",
+    "type_value" => 64,
+    "value" => 71
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ARRAYREF',
-    'masked' => 1,
-    'value' => 72,
-    'name' => 'ARRAYREF_8',
-    'masked_val' => 8,
-    'type_value' => 64
+    "masked" => 1,
+    "masked_val" => 8,
+    "name" => "ARRAYREF_8",
+    "type_name" => "ARRAYREF",
+    "type_value" => 64,
+    "value" => 72
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ARRAYREF',
-    'masked' => 1,
-    'value' => 73,
-    'name' => 'ARRAYREF_9',
-    'masked_val' => 9,
-    'type_value' => 64
+    "masked" => 1,
+    "masked_val" => 9,
+    "name" => "ARRAYREF_9",
+    "type_name" => "ARRAYREF",
+    "type_value" => 64,
+    "value" => 73
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ARRAYREF',
-    'masked' => 1,
-    'value' => 74,
-    'name' => 'ARRAYREF_10',
-    'masked_val' => 10,
-    'type_value' => 64
+    "masked" => 1,
+    "masked_val" => 10,
+    "name" => "ARRAYREF_10",
+    "type_name" => "ARRAYREF",
+    "type_value" => 64,
+    "value" => 74
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ARRAYREF',
-    'masked' => 1,
-    'value' => 75,
-    'name' => 'ARRAYREF_11',
-    'masked_val' => 11,
-    'type_value' => 64
+    "masked" => 1,
+    "masked_val" => 11,
+    "name" => "ARRAYREF_11",
+    "type_name" => "ARRAYREF",
+    "type_value" => 64,
+    "value" => 75
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ARRAYREF',
-    'masked' => 1,
-    'value' => 76,
-    'name' => 'ARRAYREF_12',
-    'masked_val' => 12,
-    'type_value' => 64
+    "masked" => 1,
+    "masked_val" => 12,
+    "name" => "ARRAYREF_12",
+    "type_name" => "ARRAYREF",
+    "type_value" => 64,
+    "value" => 76
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ARRAYREF',
-    'masked' => 1,
-    'value' => 77,
-    'name' => 'ARRAYREF_13',
-    'masked_val' => 13,
-    'type_value' => 64
+    "masked" => 1,
+    "masked_val" => 13,
+    "name" => "ARRAYREF_13",
+    "type_name" => "ARRAYREF",
+    "type_value" => 64,
+    "value" => 77
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ARRAYREF',
-    'masked' => 1,
-    'value' => 78,
-    'name' => 'ARRAYREF_14',
-    'masked_val' => 14,
-    'type_value' => 64
+    "masked" => 1,
+    "masked_val" => 14,
+    "name" => "ARRAYREF_14",
+    "type_name" => "ARRAYREF",
+    "type_value" => 64,
+    "value" => 78
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'ARRAYREF',
-    'masked' => 1,
-    'value' => 79,
-    'name' => 'ARRAYREF_15',
-    'masked_val' => 15,
-    'type_value' => 64
+    "masked" => 1,
+    "masked_val" => 15,
+    "name" => "ARRAYREF_15",
+    "type_name" => "ARRAYREF",
+    "type_value" => 64,
+    "value" => 79
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'HASHREF',
-    'masked' => 1,
-    'comment' => '[<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1)',
-    'value' => 80,
-    'name' => 'HASHREF_0',
-    'masked_val' => 0,
-    'type_value' => 80
+    "comment" => "[<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1)",
+    "masked" => 1,
+    "masked_val" => 0,
+    "name" => "HASHREF_0",
+    "type_name" => "HASHREF",
+    "type_value" => 80,
+    "value" => 80
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'HASHREF',
-    'masked' => 1,
-    'value' => 81,
-    'name' => 'HASHREF_1',
-    'masked_val' => 1,
-    'type_value' => 80
+    "masked" => 1,
+    "masked_val" => 1,
+    "name" => "HASHREF_1",
+    "type_name" => "HASHREF",
+    "type_value" => 80,
+    "value" => 81
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'HASHREF',
-    'masked' => 1,
-    'value' => 82,
-    'name' => 'HASHREF_2',
-    'masked_val' => 2,
-    'type_value' => 80
+    "masked" => 1,
+    "masked_val" => 2,
+    "name" => "HASHREF_2",
+    "type_name" => "HASHREF",
+    "type_value" => 80,
+    "value" => 82
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'HASHREF',
-    'masked' => 1,
-    'value' => 83,
-    'name' => 'HASHREF_3',
-    'masked_val' => 3,
-    'type_value' => 80
+    "masked" => 1,
+    "masked_val" => 3,
+    "name" => "HASHREF_3",
+    "type_name" => "HASHREF",
+    "type_value" => 80,
+    "value" => 83
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'HASHREF',
-    'masked' => 1,
-    'value' => 84,
-    'name' => 'HASHREF_4',
-    'masked_val' => 4,
-    'type_value' => 80
+    "masked" => 1,
+    "masked_val" => 4,
+    "name" => "HASHREF_4",
+    "type_name" => "HASHREF",
+    "type_value" => 80,
+    "value" => 84
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'HASHREF',
-    'masked' => 1,
-    'value' => 85,
-    'name' => 'HASHREF_5',
-    'masked_val' => 5,
-    'type_value' => 80
+    "masked" => 1,
+    "masked_val" => 5,
+    "name" => "HASHREF_5",
+    "type_name" => "HASHREF",
+    "type_value" => 80,
+    "value" => 85
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'HASHREF',
-    'masked' => 1,
-    'value' => 86,
-    'name' => 'HASHREF_6',
-    'masked_val' => 6,
-    'type_value' => 80
+    "masked" => 1,
+    "masked_val" => 6,
+    "name" => "HASHREF_6",
+    "type_name" => "HASHREF",
+    "type_value" => 80,
+    "value" => 86
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'HASHREF',
-    'masked' => 1,
-    'value' => 87,
-    'name' => 'HASHREF_7',
-    'masked_val' => 7,
-    'type_value' => 80
+    "masked" => 1,
+    "masked_val" => 7,
+    "name" => "HASHREF_7",
+    "type_name" => "HASHREF",
+    "type_value" => 80,
+    "value" => 87
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'HASHREF',
-    'masked' => 1,
-    'value' => 88,
-    'name' => 'HASHREF_8',
-    'masked_val' => 8,
-    'type_value' => 80
+    "masked" => 1,
+    "masked_val" => 8,
+    "name" => "HASHREF_8",
+    "type_name" => "HASHREF",
+    "type_value" => 80,
+    "value" => 88
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'HASHREF',
-    'masked' => 1,
-    'value' => 89,
-    'name' => 'HASHREF_9',
-    'masked_val' => 9,
-    'type_value' => 80
+    "masked" => 1,
+    "masked_val" => 9,
+    "name" => "HASHREF_9",
+    "type_name" => "HASHREF",
+    "type_value" => 80,
+    "value" => 89
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'HASHREF',
-    'masked' => 1,
-    'value' => 90,
-    'name' => 'HASHREF_10',
-    'masked_val' => 10,
-    'type_value' => 80
+    "masked" => 1,
+    "masked_val" => 10,
+    "name" => "HASHREF_10",
+    "type_name" => "HASHREF",
+    "type_value" => 80,
+    "value" => 90
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'HASHREF',
-    'masked' => 1,
-    'value' => 91,
-    'name' => 'HASHREF_11',
-    'masked_val' => 11,
-    'type_value' => 80
+    "masked" => 1,
+    "masked_val" => 11,
+    "name" => "HASHREF_11",
+    "type_name" => "HASHREF",
+    "type_value" => 80,
+    "value" => 91
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'HASHREF',
-    'masked' => 1,
-    'value' => 92,
-    'name' => 'HASHREF_12',
-    'masked_val' => 12,
-    'type_value' => 80
+    "masked" => 1,
+    "masked_val" => 12,
+    "name" => "HASHREF_12",
+    "type_name" => "HASHREF",
+    "type_value" => 80,
+    "value" => 92
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'HASHREF',
-    'masked' => 1,
-    'value' => 93,
-    'name' => 'HASHREF_13',
-    'masked_val' => 13,
-    'type_value' => 80
+    "masked" => 1,
+    "masked_val" => 13,
+    "name" => "HASHREF_13",
+    "type_name" => "HASHREF",
+    "type_value" => 80,
+    "value" => 93
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'HASHREF',
-    'masked' => 1,
-    'value' => 94,
-    'name' => 'HASHREF_14',
-    'masked_val' => 14,
-    'type_value' => 80
+    "masked" => 1,
+    "masked_val" => 14,
+    "name" => "HASHREF_14",
+    "type_name" => "HASHREF",
+    "type_value" => 80,
+    "value" => 94
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'HASHREF',
-    'masked' => 1,
-    'value' => 95,
-    'name' => 'HASHREF_15',
-    'masked_val' => 15,
-    'type_value' => 80
+    "masked" => 1,
+    "masked_val" => 15,
+    "name" => "HASHREF_15",
+    "type_name" => "HASHREF",
+    "type_value" => 80,
+    "value" => 95
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'comment' => '<BYTES> - binary/latin1 string, length encoded in low 5 bits of tag',
-    'value' => 96,
-    'name' => 'SHORT_BINARY_0',
-    'masked_val' => 0,
-    'type_value' => 96
+    "comment" => "<BYTES> - binary/latin1 string, length encoded in low 5 bits of tag",
+    "masked" => 1,
+    "masked_val" => 0,
+    "name" => "SHORT_BINARY_0",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 96
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 97,
-    'name' => 'SHORT_BINARY_1',
-    'masked_val' => 1,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 1,
+    "name" => "SHORT_BINARY_1",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 97
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 98,
-    'name' => 'SHORT_BINARY_2',
-    'masked_val' => 2,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 2,
+    "name" => "SHORT_BINARY_2",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 98
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 99,
-    'name' => 'SHORT_BINARY_3',
-    'masked_val' => 3,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 3,
+    "name" => "SHORT_BINARY_3",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 99
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 100,
-    'name' => 'SHORT_BINARY_4',
-    'masked_val' => 4,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 4,
+    "name" => "SHORT_BINARY_4",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 100
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 101,
-    'name' => 'SHORT_BINARY_5',
-    'masked_val' => 5,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 5,
+    "name" => "SHORT_BINARY_5",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 101
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 102,
-    'name' => 'SHORT_BINARY_6',
-    'masked_val' => 6,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 6,
+    "name" => "SHORT_BINARY_6",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 102
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 103,
-    'name' => 'SHORT_BINARY_7',
-    'masked_val' => 7,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 7,
+    "name" => "SHORT_BINARY_7",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 103
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 104,
-    'name' => 'SHORT_BINARY_8',
-    'masked_val' => 8,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 8,
+    "name" => "SHORT_BINARY_8",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 104
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 105,
-    'name' => 'SHORT_BINARY_9',
-    'masked_val' => 9,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 9,
+    "name" => "SHORT_BINARY_9",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 105
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 106,
-    'name' => 'SHORT_BINARY_10',
-    'masked_val' => 10,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 10,
+    "name" => "SHORT_BINARY_10",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 106
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 107,
-    'name' => 'SHORT_BINARY_11',
-    'masked_val' => 11,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 11,
+    "name" => "SHORT_BINARY_11",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 107
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 108,
-    'name' => 'SHORT_BINARY_12',
-    'masked_val' => 12,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 12,
+    "name" => "SHORT_BINARY_12",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 108
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 109,
-    'name' => 'SHORT_BINARY_13',
-    'masked_val' => 13,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 13,
+    "name" => "SHORT_BINARY_13",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 109
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 110,
-    'name' => 'SHORT_BINARY_14',
-    'masked_val' => 14,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 14,
+    "name" => "SHORT_BINARY_14",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 110
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 111,
-    'name' => 'SHORT_BINARY_15',
-    'masked_val' => 15,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 15,
+    "name" => "SHORT_BINARY_15",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 111
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 112,
-    'name' => 'SHORT_BINARY_16',
-    'masked_val' => 16,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 16,
+    "name" => "SHORT_BINARY_16",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 112
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 113,
-    'name' => 'SHORT_BINARY_17',
-    'masked_val' => 17,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 17,
+    "name" => "SHORT_BINARY_17",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 113
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 114,
-    'name' => 'SHORT_BINARY_18',
-    'masked_val' => 18,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 18,
+    "name" => "SHORT_BINARY_18",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 114
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 115,
-    'name' => 'SHORT_BINARY_19',
-    'masked_val' => 19,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 19,
+    "name" => "SHORT_BINARY_19",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 115
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 116,
-    'name' => 'SHORT_BINARY_20',
-    'masked_val' => 20,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 20,
+    "name" => "SHORT_BINARY_20",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 116
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 117,
-    'name' => 'SHORT_BINARY_21',
-    'masked_val' => 21,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 21,
+    "name" => "SHORT_BINARY_21",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 117
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 118,
-    'name' => 'SHORT_BINARY_22',
-    'masked_val' => 22,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 22,
+    "name" => "SHORT_BINARY_22",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 118
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 119,
-    'name' => 'SHORT_BINARY_23',
-    'masked_val' => 23,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 23,
+    "name" => "SHORT_BINARY_23",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 119
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 120,
-    'name' => 'SHORT_BINARY_24',
-    'masked_val' => 24,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 24,
+    "name" => "SHORT_BINARY_24",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 120
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 121,
-    'name' => 'SHORT_BINARY_25',
-    'masked_val' => 25,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 25,
+    "name" => "SHORT_BINARY_25",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 121
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 122,
-    'name' => 'SHORT_BINARY_26',
-    'masked_val' => 26,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 26,
+    "name" => "SHORT_BINARY_26",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 122
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 123,
-    'name' => 'SHORT_BINARY_27',
-    'masked_val' => 27,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 27,
+    "name" => "SHORT_BINARY_27",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 123
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 124,
-    'name' => 'SHORT_BINARY_28',
-    'masked_val' => 28,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 28,
+    "name" => "SHORT_BINARY_28",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 124
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 125,
-    'name' => 'SHORT_BINARY_29',
-    'masked_val' => 29,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 29,
+    "name" => "SHORT_BINARY_29",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 125
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 126,
-    'name' => 'SHORT_BINARY_30',
-    'masked_val' => 30,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 30,
+    "name" => "SHORT_BINARY_30",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 126
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    'type_name' => 'SHORT_BINARY',
-    'masked' => 1,
-    'value' => 127,
-    'name' => 'SHORT_BINARY_31',
-    'masked_val' => 31,
-    'type_value' => 96
+    "masked" => 1,
+    "masked_val" => 31,
+    "name" => "SHORT_BINARY_31",
+    "type_name" => "SHORT_BINARY",
+    "type_value" => 96,
+    "value" => 127
   }
 );
+
 $TAG_INFO_HASH{chr $_}= $TAG_INFO_ARRAY[$_] for 0 .. 127;
 push @EXPORT_OK, qw(%TAG_INFO_HASH @TAG_INFO_ARRAY);
 
