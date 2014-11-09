@@ -1800,75 +1800,61 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
     if (expect_false( BUF_DONE(dec) ))
         SRL_ERROR("unexpected end of input stream while expecting a single value");
 
-    tag= *dec->pos;
-    if (expect_false(tag & SRL_HDR_TRACK_FLAG)) {
-        tag= tag & ~SRL_HDR_TRACK_FLAG;
-        srl_track_sv(aTHX_ dec, dec->pos, into);
-    }
-    dec->pos++;
+    tag= *dec->pos++;
 
-    if ( tag <= SRL_HDR_POS_HIGH ) {
-        sv_setiv(into, tag); /* it will fit in an iv and they are faster */
-    }
-    else
-    if ( tag <= SRL_HDR_NEG_HIGH) {
-        sv_setiv(into, (IV)(tag - 32));
-    }
-    else
-    if ( IS_SRL_HDR_SHORT_BINARY(tag) ) {
-        len= (STRLEN)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
-        ASSERT_BUF_SPACE(dec, len, " while reading ascii string");
-        sv_setpvn(into,(char*)dec->pos,len);
-        dec->pos += len;
-    }
-    else
-    if ( IS_SRL_HDR_HASHREF(tag) ) {
-        srl_read_hash(aTHX_ dec, into, tag);
-        is_ref = 1;
-    }
-    else
-    if ( IS_SRL_HDR_ARRAYREF(tag) ) {
-        srl_read_array(aTHX_ dec, into, tag);
-        is_ref = 1;
-    }
-    else {
-        switch (tag) {
-            case SRL_HDR_VARINT:        srl_read_varint(aTHX_ dec, into);                 break;
-            case SRL_HDR_ZIGZAG:        srl_read_zigzag(aTHX_ dec, into);                 break;
-
-            case SRL_HDR_FLOAT:         srl_read_float(aTHX_ dec, into);                  break;
-            case SRL_HDR_DOUBLE:        srl_read_double(aTHX_ dec, into);                 break;
-            case SRL_HDR_LONG_DOUBLE:   srl_read_long_double(aTHX_ dec, into);            break;
-
-            case SRL_HDR_TRUE:          sv_setsv(into, &PL_sv_yes);                       break;
-            case SRL_HDR_FALSE:         sv_setsv(into, &PL_sv_no);                        break;
-            case SRL_HDR_CANONICAL_UNDEF: /* fallthrough */
-            case SRL_HDR_UNDEF:         sv_setsv(into, &PL_sv_undef);                     break;
-            case SRL_HDR_BINARY:        srl_read_string(aTHX_ dec, 0, into);              break;
-            case SRL_HDR_STR_UTF8:      srl_read_string(aTHX_ dec, 1, into);              break;
-
-            case SRL_HDR_WEAKEN:        srl_read_weaken(aTHX_ dec, into);       is_ref=1; break;
-            case SRL_HDR_REFN:          srl_read_refn(aTHX_ dec, into);         is_ref=1; break;
-            case SRL_HDR_REFP:          srl_read_refp(aTHX_ dec, into);         is_ref=1; break;
-            case SRL_HDR_OBJECT_FREEZE:
-            case SRL_HDR_OBJECT:        srl_read_object(aTHX_ dec, into, tag);  is_ref=1; break;
-            case SRL_HDR_OBJECTV_FREEZE:
-            case SRL_HDR_OBJECTV:       srl_read_objectv(aTHX_ dec, into, tag); is_ref=1; break;
-            case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into);                   break;
-            case SRL_HDR_EXTEND:        srl_read_extend(aTHX_ dec, into);                 break;
-            case SRL_HDR_HASH:          srl_read_hash(aTHX_ dec, into, 0);                break;
-            case SRL_HDR_ARRAY:         srl_read_array(aTHX_ dec, into, 0);               break;
-            case SRL_HDR_REGEXP:        srl_read_regexp(aTHX_ dec, into);                 break;
-
-            case SRL_HDR_PAD:           /* no op */
-                while (BUF_NOT_DONE(dec) && *dec->pos == SRL_HDR_PAD)
-                    dec->pos++;
-                goto read_again;
+  read_tag:
+    switch (tag) {
+        CASE_SRL_HDR_POS:           sv_setiv(into, tag);                              break;
+        CASE_SRL_HDR_NEG:           sv_setiv(into, (IV)(tag - 32));                   break;
+        CASE_SRL_HDR_SHORT_BINARY:
+            len= (STRLEN)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+            ASSERT_BUF_SPACE(dec, len, " while reading ascii string");
+            sv_setpvn(into,(char*)dec->pos,len);
+            dec->pos += len;
             break;
-            default:
+        CASE_SRL_HDR_HASHREF:       srl_read_hash(aTHX_ dec, into, tag);  is_ref = 1; break;
+        CASE_SRL_HDR_ARRAYREF:      srl_read_array(aTHX_ dec, into, tag); is_ref = 1; break;
+        case SRL_HDR_VARINT:        srl_read_varint(aTHX_ dec, into);                 break;
+        case SRL_HDR_ZIGZAG:        srl_read_zigzag(aTHX_ dec, into);                 break;
+
+        case SRL_HDR_FLOAT:         srl_read_float(aTHX_ dec, into);                  break;
+        case SRL_HDR_DOUBLE:        srl_read_double(aTHX_ dec, into);                 break;
+        case SRL_HDR_LONG_DOUBLE:   srl_read_long_double(aTHX_ dec, into);            break;
+
+        case SRL_HDR_TRUE:          sv_setsv(into, &PL_sv_yes);                       break;
+        case SRL_HDR_FALSE:         sv_setsv(into, &PL_sv_no);                        break;
+        case SRL_HDR_CANONICAL_UNDEF: /* fallthrough */
+        case SRL_HDR_UNDEF:         sv_setsv(into, &PL_sv_undef);                     break;
+        case SRL_HDR_BINARY:        srl_read_string(aTHX_ dec, 0, into);              break;
+        case SRL_HDR_STR_UTF8:      srl_read_string(aTHX_ dec, 1, into);              break;
+
+        case SRL_HDR_WEAKEN:        srl_read_weaken(aTHX_ dec, into);       is_ref=1; break;
+        case SRL_HDR_REFN:          srl_read_refn(aTHX_ dec, into);         is_ref=1; break;
+        case SRL_HDR_REFP:          srl_read_refp(aTHX_ dec, into);         is_ref=1; break;
+        case SRL_HDR_OBJECT_FREEZE:
+        case SRL_HDR_OBJECT:        srl_read_object(aTHX_ dec, into, tag);  is_ref=1; break;
+        case SRL_HDR_OBJECTV_FREEZE:
+        case SRL_HDR_OBJECTV:       srl_read_objectv(aTHX_ dec, into, tag); is_ref=1; break;
+        case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into);                   break;
+        case SRL_HDR_EXTEND:        srl_read_extend(aTHX_ dec, into);                 break;
+        case SRL_HDR_HASH:          srl_read_hash(aTHX_ dec, into, 0);                break;
+        case SRL_HDR_ARRAY:         srl_read_array(aTHX_ dec, into, 0);               break;
+        case SRL_HDR_REGEXP:        srl_read_regexp(aTHX_ dec, into);                 break;
+
+        case SRL_HDR_PAD:           /* no op */
+            while (BUF_NOT_DONE(dec) && *dec->pos == SRL_HDR_PAD)
+                dec->pos++;
+            goto read_again;
+        break;
+        default:
+            if (tag & SRL_HDR_TRACK_FLAG) {
+                tag= tag & ~SRL_HDR_TRACK_FLAG;
+                srl_track_sv(aTHX_ dec, dec->pos-1, into);
+                goto read_tag;
+            } else { 
                 SRL_ERROR_UNEXPECTED(dec,tag, " single value");
-            break;
-        }
+            }
+        break;
     }
 
     /* they want us to set all SVs readonly, or only the non-ref */
