@@ -70,31 +70,26 @@ struct PTABLE_iter {
     struct PTABLE_entry     *cur_entry;
 };
 
+/*
+SRL_STATIC_INLINE PTABLE_t * PTABLE_new(void);
+SRL_STATIC_INLINE PTABLE_t * PTABLE_new_size(const U8 size_base2_exponent);
+SRL_STATIC_INLINE PTABLE_ENTRY_t * PTABLE_find(PTABLE_t *tbl, const void *key);
+SRL_STATIC_INLINE void * PTABLE_fetch(PTABLE_t *tbl, const void *key);
+SRL_STATIC_INLINE PTABLE_ENTRY_t * PTABLE_store(PTABLE_t *tbl, void *key, void *value);
+SRL_STATIC_INLINE void PTABLE_delete(PTABLE_t *tbl, void *key);
+SRL_STATIC_INLINE void PTABLE_grow(PTABLE_t *tbl);
+SRL_STATIC_INLINE void PTABLE_clear(PTABLE_t *tbl);
+SRL_STATIC_INLINE void PTABLE_clear_dec(pTHX_ PTABLE_t *tbl);
+SRL_STATIC_INLINE void PTABLE_free(PTABLE_t *tbl);
 
-STATIC PTABLE_t * PTABLE_new(void);
-STATIC PTABLE_t * PTABLE_new_size(const U8 size_base2_exponent);
-STATIC PTABLE_ENTRY_t * PTABLE_find(PTABLE_t *tbl, const void *key);
-STATIC void * PTABLE_fetch(PTABLE_t *tbl, const void *key);
-STATIC PTABLE_ENTRY_t * PTABLE_store(PTABLE_t *tbl, void *key, void *value);
-STATIC void PTABLE_delete(PTABLE_t *tbl, void *key);
-STATIC void PTABLE_grow(PTABLE_t *tbl);
-STATIC void PTABLE_clear(PTABLE_t *tbl);
-STATIC void PTABLE_clear_dec(pTHX_ PTABLE_t *tbl);
-STATIC void PTABLE_free(PTABLE_t *tbl);
-
-STATIC PTABLE_ITER_t * PTABLE_iter_new(PTABLE_t *tbl);
-STATIC PTABLE_ITER_t * PTABLE_iter_new_flags(PTABLE_t *tbl, int flags);
-STATIC PTABLE_ENTRY_t * PTABLE_iter_next(PTABLE_ITER_t *iter);
-STATIC void PTABLE_iter_free(PTABLE_ITER_t *iter);
+SRL_STATIC_INLINE PTABLE_ITER_t * PTABLE_iter_new(PTABLE_t *tbl);
+SRL_STATIC_INLINE PTABLE_ITER_t * PTABLE_iter_new_flags(PTABLE_t *tbl, int flags);
+SRL_STATIC_INLINE PTABLE_ENTRY_t * PTABLE_iter_next(PTABLE_ITER_t *iter);
+SRL_STATIC_INLINE void PTABLE_iter_free(PTABLE_ITER_t *iter);
+*/
 
 /* create a new pointer => pointer table */
 SRL_STATIC_INLINE PTABLE_t *
-PTABLE_new(void)
-{
-    return PTABLE_new_size(9);
-}
-
-STATIC PTABLE_t *
 PTABLE_new_size(const U8 size_base2_exponent)
 {
     PTABLE_t *tbl;
@@ -106,8 +101,14 @@ PTABLE_new_size(const U8 size_base2_exponent)
     return tbl;
 }
 
+SRL_STATIC_INLINE PTABLE_t *
+PTABLE_new(void)
+{
+    return PTABLE_new_size(9);
+}
+
 /* map an existing pointer using a table */
-STATIC PTABLE_ENTRY_t *
+SRL_STATIC_INLINE PTABLE_ENTRY_t *
 PTABLE_find(PTABLE_t *tbl, const void *key) {
     PTABLE_ENTRY_t *tblent;
     const UV hash = PTABLE_HASH(key);
@@ -126,34 +127,9 @@ PTABLE_fetch(PTABLE_t *tbl, const void *key)
     return tblent ? tblent->value : NULL;
 }
 
-/* add a new entry to a pointer => pointer table */
-
-STATIC PTABLE_ENTRY_t *
-PTABLE_store(PTABLE_t *tbl, void *key, void *value)
-{
-    PTABLE_ENTRY_t *tblent = PTABLE_find(tbl, key);
-
-    if (tblent) {
-        tblent->value = value;
-    } else {
-        const UV entry = PTABLE_HASH(key) & tbl->tbl_max;
-        Newx(tblent, 1, PTABLE_ENTRY_t);
-
-        tblent->key = key;
-        tblent->value = value;
-        tblent->next = tbl->tbl_ary[entry];
-        tbl->tbl_ary[entry] = tblent;
-        tbl->tbl_items++;
-        if (tblent->next && (tbl->tbl_items > tbl->tbl_max))
-            PTABLE_grow(tbl);
-    }
-
-    return tblent;
-}
-
 /* double the hash bucket size of an existing ptr table */
 
-STATIC void
+SRL_STATIC_INLINE void
 PTABLE_grow(PTABLE_t *tbl)
 {
     PTABLE_ENTRY_t **ary = tbl->tbl_ary;
@@ -184,9 +160,35 @@ PTABLE_grow(PTABLE_t *tbl)
     }
 }
 
+/* add a new entry to a pointer => pointer table */
+
+SRL_STATIC_INLINE PTABLE_ENTRY_t *
+PTABLE_store(PTABLE_t *tbl, void *key, void *value)
+{
+    PTABLE_ENTRY_t *tblent = PTABLE_find(tbl, key);
+
+    if (tblent) {
+        tblent->value = value;
+    } else {
+        const UV entry = PTABLE_HASH(key) & tbl->tbl_max;
+        Newx(tblent, 1, PTABLE_ENTRY_t);
+
+        tblent->key = key;
+        tblent->value = value;
+        tblent->next = tbl->tbl_ary[entry];
+        tbl->tbl_ary[entry] = tblent;
+        tbl->tbl_items++;
+        if (tblent->next && (tbl->tbl_items > tbl->tbl_max))
+            PTABLE_grow(tbl);
+    }
+
+    return tblent;
+}
+
+
 /* remove all the entries from a ptr table */
 
-STATIC void
+SRL_STATIC_INLINE void
 PTABLE_clear(PTABLE_t *tbl)
 {
     if (tbl && tbl->tbl_items) {
@@ -214,7 +216,7 @@ PTABLE_clear(PTABLE_t *tbl)
     }
 }
 
-STATIC void
+SRL_STATIC_INLINE void
 PTABLE_clear_dec(pTHX_ PTABLE_t *tbl)
 {
     if (tbl && tbl->tbl_items) {
@@ -246,7 +248,7 @@ PTABLE_clear_dec(pTHX_ PTABLE_t *tbl)
 
 /* remove one entry from a ptr table */
 
-STATIC void
+SRL_STATIC_INLINE void
 PTABLE_delete(PTABLE_t *tbl, void *key)
 {
     PTABLE_ENTRY_t *tblent;
@@ -275,23 +277,6 @@ PTABLE_delete(PTABLE_t *tbl, void *key)
     }
 }
 
-/* clear and free a ptr table */
-
-STATIC void
-PTABLE_free(PTABLE_t *tbl)
-{
-    if (!tbl)
-        return;
-
-    PTABLE_clear(tbl);
-    if (tbl->cur_iter) {
-        PTABLE_ITER_t *it = tbl->cur_iter;
-        tbl->cur_iter = NULL; /* avoid circular checks */
-        PTABLE_iter_free(it);
-    }
-    Safefree(tbl->tbl_ary);
-    Safefree(tbl);
-}
 
 
 #define PTABLE_ITER_NEXT_ELEM(iter, tbl)                                    \
@@ -311,13 +296,7 @@ PTABLE_free(PTABLE_t *tbl)
     } STMT_END
 
 /* Create new iterator object */
-STATIC PTABLE_ITER_t *
-PTABLE_iter_new(PTABLE_t *tbl)
-{
-    return PTABLE_iter_new_flags(tbl, 0);
-}
-
-STATIC PTABLE_ITER_t *
+SRL_STATIC_INLINE PTABLE_ITER_t *
 PTABLE_iter_new_flags(PTABLE_t *tbl, int flags)
 {
     PTABLE_ITER_t *iter;
@@ -339,8 +318,15 @@ PTABLE_iter_new_flags(PTABLE_t *tbl, int flags)
     return iter;
 }
 
+SRL_STATIC_INLINE PTABLE_ITER_t *
+PTABLE_iter_new(PTABLE_t *tbl)
+{
+    return PTABLE_iter_new_flags(tbl, 0);
+}
+
+
 /* Return next item from hash, NULL if at end */
-STATIC PTABLE_ENTRY_t *
+SRL_STATIC_INLINE PTABLE_ENTRY_t *
 PTABLE_iter_next(PTABLE_ITER_t *iter)
 {
     PTABLE_ENTRY_t *retval = iter->cur_entry;
@@ -350,7 +336,7 @@ PTABLE_iter_next(PTABLE_ITER_t *iter)
 }
 
 /* Free iterator object */
-STATIC void
+SRL_STATIC_INLINE void
 PTABLE_iter_free(PTABLE_ITER_t *iter)
 {
     /* If we're the iterator that can be auto-cleaned by the PTABLE,
@@ -361,7 +347,7 @@ PTABLE_iter_free(PTABLE_ITER_t *iter)
     Safefree(iter);
 }
 
-STATIC void
+SRL_STATIC_INLINE void
 PTABLE_debug_dump(PTABLE_t *tbl, void (*func)(PTABLE_ENTRY_t *e))
 {
     PTABLE_ENTRY_t *e;
@@ -370,6 +356,24 @@ PTABLE_debug_dump(PTABLE_t *tbl, void (*func)(PTABLE_ENTRY_t *e))
         func(e);
     }
     PTABLE_iter_free(iter);
+}
+
+/* clear and free a ptr table */
+
+SRL_STATIC_INLINE void
+PTABLE_free(PTABLE_t *tbl)
+{
+    if (!tbl)
+        return;
+
+    PTABLE_clear(tbl);
+    if (tbl->cur_iter) {
+        PTABLE_ITER_t *it = tbl->cur_iter;
+        tbl->cur_iter = NULL; /* avoid circular checks */
+        PTABLE_iter_free(it);
+    }
+    Safefree(tbl->tbl_ary);
+    Safefree(tbl);
 }
 
 #endif
