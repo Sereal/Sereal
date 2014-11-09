@@ -177,7 +177,7 @@ srl_ptable_debug_callback(PTABLE_ENTRY_t *e)
     printf("\n");
 }
 
-STATIC void
+SRL_STATIC_INLINE void
 srl_ptable_debug_dump(pTHX_ PTABLE_t *tbl)
 {
     PTABLE_debug_dump(tbl, srl_ptable_debug_callback);
