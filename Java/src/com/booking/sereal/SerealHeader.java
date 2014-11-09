@@ -51,11 +51,11 @@ public interface SerealHeader {
 	static final byte SRL_HDR_PACKET_START      = (byte)  61; /*  61 0x3d 0b00111101 (first byte of magic string in header) */
 	static final byte SRL_HDR_EXTEND            = (byte)  62; /*  62 0x3e 0b00111110 <BYTE> - for additional tags */
 	static final byte SRL_HDR_PAD               = (byte)  63; /*  63 0x3f 0b00111111 (ignored tag, skip to next byte) */
-	static final byte SRL_HDR_ARRAYREF_LOW      = (byte)  64; /*  64 0x40 0b01000000 [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1) */
 	static final byte SRL_HDR_ARRAYREF          = (byte)  64; /*  64 0x40 0b01000000 [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1) */
+	static final byte SRL_HDR_ARRAYREF_LOW      = (byte)  64; /*  64 0x40 0b01000000 [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1) */
 	static final byte SRL_HDR_ARRAYREF_HIGH     = (byte)  79; /*  79 0x4f 0b01001111 [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1) */
-	static final byte SRL_HDR_HASHREF_LOW       = (byte)  80; /*  80 0x50 0b01010000 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
 	static final byte SRL_HDR_HASHREF           = (byte)  80; /*  80 0x50 0b01010000 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
+	static final byte SRL_HDR_HASHREF_LOW       = (byte)  80; /*  80 0x50 0b01010000 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
 	static final byte SRL_HDR_HASHREF_HIGH      = (byte)  95; /*  95 0x5f 0b01011111 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
 	static final byte SRL_HDR_SHORT_BINARY      = (byte)  96; /*  96 0x60 0b01100000 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
 	static final byte SRL_HDR_SHORT_BINARY_LOW  = (byte)  96; /*  96 0x60 0b01100000 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */

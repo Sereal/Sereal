@@ -134,7 +134,7 @@ sub update_srl_error_h {
 sub update_JavaSerealHeader {
     my $declarations = "* NOTE this section is autoupdated by $0 */\n";
 
-    for my $name (sort { $name_to_value{$a} <=> $name_to_value{$b} } keys %name_to_value) {
+    for my $name (sort { $name_to_value{$a} <=> $name_to_value{$b} || $a cmp $b } keys %name_to_value) {
         my $byte = $name_to_value{$name};
         my $decl = sprintf("static final byte SRL_HDR_%-*s = (byte) %3d;", $max_name_length, $name, $byte);
         $declarations .= sprintf("\t%s /* %3d 0x%02x 0b%08b %s */\n",
