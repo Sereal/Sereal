@@ -46,8 +46,10 @@ SV * srl_merger_finish(pTHX_ srl_merger_t *mrg);
 #define SRL_F_TOPLEVEL_KEY_ARRAY                0x00002UL
 #define SRL_F_TOPLEVEL_KEY_HASH                 0x00004UL
 
-#define SRL_F_COMPRESS_SNAPPY_INCREMENTAL       0x00080UL
-#define SRL_F_COMPRESS_ZLIB                     0x00100UL
+/* WARNING: SRL_F_COMPRESS_SNAPPY               0x00040UL
+ *          SRL_F_COMPRESS_SNAPPY_INCREMENTAL   0x00080UL
+ *          SRL_F_COMPRESS_ZLIB                 0x00100UL
+ *          are in srl_compress.h */
 
 /* If set, use a hash to emit COPY() tags for all duplicated strings (including keys)
  * (slower, but great compression) */
