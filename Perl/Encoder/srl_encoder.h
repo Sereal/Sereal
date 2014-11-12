@@ -80,7 +80,7 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
 /* WARNING: SRL_F_COMPRESS_SNAPPY               0x00040UL
  *          SRL_F_COMPRESS_SNAPPY_INCREMENTAL   0x00080UL
  *          SRL_F_COMPRESS_ZLIB                 0x00100UL
- *          are moved to srl_compress.h
+ *          are moved to srl_compress.h */
 
 /* Only meaningful if SRL_F_WARN_UNKNOWN also set. If this one is set, then we don't warn
  * if the unsupported item has string overloading. */
