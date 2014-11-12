@@ -305,7 +305,7 @@ srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
     if (enc->tmp_buf.start != NULL)
         srl_buf_free_buffer(aTHX_ &enc->tmp_buf);
 
-    srl_destroy_snappy_workmem(enc->snappy_workmem);
+    srl_destroy_snappy_workmem(aTHX_ enc->snappy_workmem);
 
     if (enc->ref_seenhash != NULL)
         PTABLE_free(enc->ref_seenhash);
@@ -920,7 +920,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
             srl_reset_compression_header_flag(&enc->buf);
         }
         else { /* Do Snappy or zlib compression of body */
-            srl_compress_body(&enc->buf, sereal_header_len,
+            srl_compress_body(aTHX_ &enc->buf, sereal_header_len,
                               enc->flags, enc->compress_level,
                               &enc->snappy_workmem);
 
