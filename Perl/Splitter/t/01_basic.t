@@ -4,7 +4,7 @@ use warnings;
 use Test::More;
 use 5.10.1;
 
-use Sereal::Splitter;
+use Sereal::Splitter qw(SRL_ZLIB);
 
 use Data::HexDump;
 
@@ -93,7 +93,7 @@ if (1) {
     my $data = encode_sereal([ $t, $t ],
                              { dedupe_strings => 1} );
     print HexDump $data;
-    my $o = Sereal::Splitter->new({chunk_size => 200, input => $data});
+    my $o = Sereal::Splitter->new({chunk_size => 200, input => $data, compress => 2 });
 
     while (defined( my $chunk = $o->next_chunk())) {
         print HexDump $chunk;
