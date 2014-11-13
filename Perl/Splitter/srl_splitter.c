@@ -987,6 +987,7 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
 
         (SvPVX(compressed_chunk))[4] = 0x33;
 
+        sv_2mortal(splitter->chunk);
         return compressed_chunk;
         
     }
