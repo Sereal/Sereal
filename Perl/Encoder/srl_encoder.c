@@ -933,7 +933,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
                               &enc->snappy_workmem);
 
             SRL_ENC_UPDATE_BODY_POS(enc);
-            DEBUG_ASSERT_BUF_SANE(buf);
+            DEBUG_ASSERT_BUF_SANE(&enc->buf);
         }
     } /* End of "want compression?" */
 
