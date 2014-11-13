@@ -38,6 +38,9 @@ typedef struct {
     /* The current position, from the chunk body point of view, + 1*/
     UV chunk_current_offset;
 
+    IV compression_format;
+    IV compression_level;
+
 } srl_splitter_t;
 
 enum {

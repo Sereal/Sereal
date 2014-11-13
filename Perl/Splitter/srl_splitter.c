@@ -167,6 +167,28 @@ srl_splitter_t * srl_build_splitter_struct(pTHX_ HV *opt) {
         SRL_SPLITTER_TRACE("size_limit %" UVuf, splitter->size_limit);
     }
 
+    splitter->compression_format = 0;
+    svp = hv_fetchs(opt, "compress", 0);
+    if (svp && SvOK(*svp)) {
+        IV compression_format = SvIV(*svp);
+
+        /* See also Splitter.pm's constants */
+        switch (compression_format) {
+        case 0:
+            SRL_SPLITTER_TRACE("no compression %s", "");
+            break;
+        case 1:
+            croak("incremental snappy compression not yet supported. Try gzip");
+            break;
+        case 2:
+            splitter->compression_format = 2;
+            SRL_SPLITTER_TRACE("gzip compression %s", "");
+            break;
+        default:
+            croak("invalid valie for 'compress' parameter");
+        }
+    }
+
     _parse_header(splitter);
 
     /* initialize stacks */
@@ -875,18 +897,22 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
     /* for some reason, jump offset start at 1 in sereal spec, go figure why */
     splitter->chunk_current_offset = 1;
         
+    UV chunk_header_len = 0;
     /* srl magic */
     sv_catpvn(splitter->chunk, SRL_MAGIC_STRING_HIGHBIT, SRL_MAGIC_STRLEN);
     splitter->chunk_body_pos += SRL_MAGIC_STRLEN;
+    chunk_header_len += SRL_MAGIC_STRLEN;
 
     char tmp_str[SRL_MAX_VARINT_LENGTH];
     /* srl version-type type=raw, version=3 */
     sv_catpvn(splitter->chunk, "\3", 1);
     splitter->chunk_body_pos += 1;
+    chunk_header_len += 1;
 
     /* srl header suffix size: 0 */
     sv_catpvn(splitter->chunk, "\0", 1);
     splitter->chunk_body_pos += 1;
+    chunk_header_len += 1;
 
     tmp_str[0] = 0x28; /* REFN */
     sv_catpvn(splitter->chunk, tmp_str, 1);
@@ -899,7 +925,7 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
     /* append the varint of the maximum array's number of elements */
     UV varint_len = (UV) (_set_varint_nocheck(tmp_str, splitter->input_nb_elts) - tmp_str);
     SRL_SPLITTER_TRACE(" ---- VARINT LEN %lu value %lu", varint_len, splitter->input_nb_elts);
-    /* This is the car number where we're going to write the varint */
+    /* This is the char number where we're going to write the varint */
     UV varint_pos = SvCUR(splitter->chunk);
     sv_catpvn(splitter->chunk, tmp_str, varint_len);
     splitter->chunk_current_offset += varint_len;
@@ -909,7 +935,60 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
         char * varint_start = SvPVX(splitter->chunk) + varint_pos;
         char * varint_end = varint_start + varint_len - 1;
         _update_varint_from_to(varint_start, varint_end, splitter->chunk_nb_elts);
-        return splitter->chunk;
+
+        if (splitter->compression_format == 0) /* no compression */
+            return splitter->chunk;
+
+        /* gzip compression: reforge the SV completely */
+
+        UV uncompressed_body_length = SvCUR(splitter->chunk) - chunk_header_len;
+        SRL_SPLITTER_TRACE(" ------------- UNCOMPRESS BODY_LENGTH %lu", uncompressed_body_length);
+
+        size_t dest_len;
+        /* Get uncompressed payload and total packet output (after compression) lengths */
+        dest_len = chunk_header_len + 1 + (size_t)mz_compressBound(uncompressed_body_length) + (2 * SRL_MAX_VARINT_LENGTH);
+
+        SV* compressed_chunk = newSVpvn("", 0);
+        sv_catpvn(compressed_chunk, SvPVX(splitter->chunk), chunk_header_len);
+
+
+        SRL_SPLITTER_TRACE(" ------------- dest_len %lu", dest_len);
+        char * compressed_pos = SvGROW(compressed_chunk, dest_len);
+
+        compressed_pos += chunk_header_len;
+
+        /* append the varint of the uncompressed length */
+        compressed_pos = _set_varint_nocheck(compressed_pos, uncompressed_body_length);
+        /* append the varint of the compressed length */
+        char* varint_start2 = compressed_pos;
+        compressed_pos = _set_varint_nocheck(compressed_pos, dest_len);
+        char* varint_end2 = compressed_pos -1;
+
+
+                splitter->compression_level = MZ_DEFAULT_COMPRESSION;
+
+                mz_ulong dl = (mz_ulong)dest_len;
+                int status = mz_compress2(
+                    (unsigned char *) compressed_pos,
+                    &dl,
+                    (const unsigned char *)(SvPVX(splitter->chunk) + chunk_header_len),
+                    (mz_ulong)uncompressed_body_length,
+                    splitter->compression_level
+                );
+                (void)status;
+                assert(status == Z_OK);
+                dest_len = (size_t)dl;
+
+        SRL_SPLITTER_TRACE(" ------------- dest_len %lu", dest_len);
+
+        _update_varint_from_to(varint_start2, varint_end2, dest_len);
+
+        SvCUR_set(compressed_chunk, compressed_pos - SvPVX(compressed_chunk) + dest_len);
+
+        (SvPVX(compressed_chunk))[4] = 0x33;
+
+        return compressed_chunk;
+        
     }
     return &PL_sv_undef;
 }
