@@ -115,7 +115,7 @@ srl_stack_clear(pTHX_ srl_stack_t *stack)
                     (int) SRL_STACK_POS(stack));                      \
 } STMT_END
 
-SRL_STATIC_INLINE SRL_STACK_TYPE
+SRL_STATIC_INLINE void
 srl_stack_pop(pTHX_ srl_stack_t *stack)
 {
     if (expect_false(srl_stack_empty(stack)))
