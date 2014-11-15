@@ -35,3 +35,6 @@ t/700_roundtrip
 t/004_testset.t
 .gdb_history
 inc
+miniz.?
+srl_error.h
+srl_taginfo.h
