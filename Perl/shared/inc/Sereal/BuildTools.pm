@@ -72,6 +72,20 @@ sub generate_constant_includes {
         NAME => $constant_namespace,
         NAMES => \@int_const,
     );
+    {
+        open my $ifh, "<", "const-xs.inc"
+            or die "Can't read const-xs.inc: $!";
+        open my $ofh, ">", "const-xs.new"
+            or die "Can't write const-xs.new: $!";
+        while (<$ifh>) {
+            s/(IV\s+)iv;/${1}iv = 0;/g;
+            print $ofh $_;
+        }
+        close $ofh;
+        close $ifh;
+        rename "const-xs.new","const-xs.inc"
+            or die "Can't rename const-xs.new => const-xs.inc: $!";
+    }
     open my $ofh, ">", $file or die $!;
     print $ofh <<HERE;
 # Genereated code! Do not modify! See inc/Sereal/BuildTools.pm instead
