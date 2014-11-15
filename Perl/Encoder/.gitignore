@@ -17,6 +17,7 @@ lib/Sereal/Encoder/Constants.pm
 Makefile
 Makefile.old
 MYMETA.*
+miniz.?
 *.o
 pm_to_blib
 ppport.h
@@ -24,8 +25,10 @@ ptable.h
 Sereal-Encoder-*.tar.gz
 snappy
 srl_common.h
+srl_error.h
 srl_inline.h
 srl_protocol.h
+srl_taginfo.h
 *.swo
 *.swp
 t/004_testset.t
