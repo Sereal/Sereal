@@ -70,7 +70,10 @@ BEGIN {
     };
     no strict 'refs';
     $TestClass = $Class . "::Test";
-    *is_nv = *{$TestClass . "::is_nv"};
+    {
+        no warnings 'once';
+        *is_nv = *{$TestClass . "::is_nv"};
+    }
 }
 
 use Exporter;

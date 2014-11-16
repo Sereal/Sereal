@@ -28,7 +28,7 @@ public interface SerealHeader {
 	static final byte SRL_HDR_ZIGZAG            = (byte)  33; /*  33 0x21 0b00100001 <ZIGZAG-VARINT> - Zigzag variable length integer */
 	static final byte SRL_HDR_FLOAT             = (byte)  34; /*  34 0x22 0b00100010 <IEEE-FLOAT> 4 byte float */
 	static final byte SRL_HDR_DOUBLE            = (byte)  35; /*  35 0x23 0b00100011 <IEEE-DOUBLE> 8 byte double */
-	static final byte SRL_HDR_LONG_DOUBLE       = (byte)  36; /*  36 0x24 0b00100100 <LONG DOUBLE> 16 byte platform specific long double. NOT PORTABLE */
+	static final byte SRL_HDR_LONG_DOUBLE       = (byte)  36; /*  36 0x24 0b00100100 <LONG-DOUBLE> 16 byte platform specific long double. NOT PORTABLE */
 	static final byte SRL_HDR_UNDEF             = (byte)  37; /*  37 0x25 0b00100101 None - Perl undef var; eg my $var= undef; */
 	static final byte SRL_HDR_BINARY            = (byte)  38; /*  38 0x26 0b00100110 <LEN-VARINT> <BYTES> - binary/(latin1) string */
 	static final byte SRL_HDR_STR_UTF8          = (byte)  39; /*  39 0x27 0b00100111 <LEN-VARINT> <UTF8> - utf8 string */

@@ -919,6 +919,24 @@ union myfloat {
     NV nv;
 };
 
+#if SRL_USE_ALIGNED_LOADS_AND_STORES
+#define FP_LOAD(into,type,member,size,tagname) STMT_START {                 \
+    SRL_RDR_ASSERT_SPACE(dec->pbuf, size, " while reading " tagname);       \
+    {                                                                       \
+        union myfloat val;                                                  \
+        Copy(dec->buf.pos,val.c,sizeof(type),U8);                           \
+        sv_setnv(into, (NV)val.member);                                     \
+    }                                                                       \
+    dec->pos+= size;                                                        \
+} STMT_END
+#else
+#define FP_LOAD(into,type,member,size,tagname) STMT_START {                 \
+    SRL_RDR_ASSERT_SPACE(dec->pbuf, size, " while reading " tagname);       \
+    sv_setnv(into, (NV)*((type *)dec->buf.pos));                            \
+    dec->buf.pos+= size;                                                    \
+} STMT_END
+#endif
+
 /* XXX Most (if not all?) non-x86 platforms are strict in their
  * floating point alignment.  So maybe this logic should be the other
  * way: default to strict, and do sloppy only if x86? */
@@ -926,45 +944,24 @@ union myfloat {
 SRL_STATIC_INLINE void
 srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    union myfloat val;
-    SRL_RDR_ASSERT_SPACE(dec->pbuf, sizeof(float), " while reading FLOAT");
-#if SRL_USE_ALIGNED_LOADS_AND_STORES
-    Copy(dec->buf.pos,val.c,sizeof(float),U8);
-#else
-    val.f= *((float *)dec->buf.pos);
-#endif
-    sv_setnv(into, (NV)val.f);
-    dec->buf.pos+= sizeof(float);
+    assert( sizeof(float) == 4 );
+    FP_LOAD(into, float, f, 4, "FLOAT");
 }
 
 
 SRL_STATIC_INLINE void
 srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    union myfloat val;
-    SRL_RDR_ASSERT_SPACE(dec->pbuf, sizeof(double), " while reading DOUBLE");
-#if SRL_USE_ALIGNED_LOADS_AND_STORES
-    Copy(dec->buf.pos,val.c,sizeof(double),U8);
-#else
-    val.d= *((double *)dec->buf.pos);
-#endif
-    sv_setnv(into, (NV)val.d);
-    dec->buf.pos+= sizeof(double);
+    assert( sizeof(double) == 8 );
+    FP_LOAD(into, double, d, 8, "DOUBLE");
 }
 
 
 SRL_STATIC_INLINE void
 srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    union myfloat val;
-    SRL_RDR_ASSERT_SPACE(dec->pbuf, sizeof(long double), " while reading LONG_DOUBLE");
-#if SRL_USE_ALIGNED_LOADS_AND_STORES
-    Copy(dec->buf.pos,val.c,sizeof(long double),U8);
-#else
-    val.ld= *((long double *)dec->buf.pos);
-#endif
-    sv_setnv(into, (NV)val.ld);
-    dec->buf.pos+= 16;
+    assert( sizeof(long double) <= 16 );
+    FP_LOAD(into, long double, ld, 16, "LONG_DOUBLE");
 }
 
 
