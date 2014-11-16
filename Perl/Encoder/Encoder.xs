@@ -249,6 +249,29 @@ encode_sereal_with_header_data(src, hdr_user_data_src, opt = NULL)
     ST(0) = srl_dump_data_structure_mortal_sv(aTHX_ enc, src, hdr_user_data_src, SRL_ENC_SV_REUSE_MAYBE);
     XSRETURN(1);
 
+MODULE = Sereal::Encoder        PACKAGE = Sereal::Encoder::Test
+void
+is_nv(sv)
+    SV *sv
+PROTOTYPE: $
+CODE:
+    if(SvMAGICAL(sv))
+        mg_get(sv);
+
+    ST(0) = boolSV(SvNOK(sv) && !(SvNOK(sv) && SvIOK(sv) && SvPOK(sv)));
+    XSRETURN(1);
+
+void
+has_reduced_precision()
+PROTOTYPE:
+CODE:
+#if defined(USE_LONG_DOUBLE) && defined(HAS_LONG_DOUBLE) && !SRL_DO_LONG_DOUBLE
+    ST(0) = boolSV(1);
+#else
+    ST(0) = boolSV(0);
+#endif
+    XSRETURN(1);
+
 MODULE = Sereal::Encoder        PACKAGE = Sereal::Encoder::_ptabletest
 
 void
