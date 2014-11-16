@@ -6,18 +6,35 @@ use Data::Dumper;
 use Getopt::Long qw(GetOptions);
 our @constants;
 BEGIN {
-    my $err;
-    eval '
-        use Sereal::Encoder::Constants qw(:all);
-        @constants= @Sereal::Encoder::Constants::EXPORT_OK;
-        print "Loaded constants from $INC{q(Sereal/Encoder/Constants.pm)}\n";
-        1;
-    ' or do { $err= $@; eval '
-        use Sereal::Decoder::Constants qw(:all);
-        @constants= @Sereal::Decoder::Constants::EXPORT_OK;
-        print "Loaded constants from $INC{q(Sereal/Decoder/Constants.pm)}\n";
-        1;
-    ' } or die "No encoder/decoder constants: $err\n$@";
+    my $add_use_blib= "";
+    my $use= "";
+    my @check;
+    for my $type ("Decoder","Encoder") {
+        if (-e "blib/lib/Sereal/$type/Constants.pm") {
+            $add_use_blib="use blib;";
+            @check= ($type);
+            last;
+        }
+        push @check, $type;
+    }
+
+    my @err;
+    foreach my $check (@check) {
+        if (eval(my $code= sprintf '
+                %s
+                use Sereal::%s::Constants qw(:all);
+                @constants= @Sereal::%s::Constants::EXPORT_OK;
+                print "Loaded constants from $INC{q(Sereal/%s/Constants.pm)}\n";
+                1;
+            ', $add_use_blib, ($check) x 3))
+        {
+            @err= ();
+            last;
+        } else {
+            push @err, "Error:",$@ || "Zombie Error","\nCode:\n$code";
+        }
+    }
+    die @err if @err;
 }
 
 my $done;
