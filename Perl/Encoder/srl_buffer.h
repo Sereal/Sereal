@@ -235,50 +235,50 @@ srl_buf_cat_char_nocheck_int(pTHX_ srl_buffer_t *buf, const char c)
 
 
 SRL_STATIC_INLINE void
-srl_buf_cat_varint_raw_nocheck(pTHX_ srl_buffer_t *buf, UV n) {
+srl_buf_cat_varint_raw_nocheck(pTHX_ srl_buffer_t *buf, UV value) {
     DEBUG_ASSERT_BUF_SANE(buf);
     DEBUG_ASSERT_BUF_SPACE(buf, SRL_MAX_VARINT_LENGTH);
-    while (n >= 0x80) {                      /* while we are larger than 7 bits long */
-        *buf->pos++ = (n & 0x7f) | 0x80; /* write out the least significant 7 bits, set the high bit */
-        n = n >> 7;                          /* shift off the 7 least significant bits */
+    while (value >= 0x80) {                     /* while we are larger than 7 bits long */
+        *buf->pos++ = (value & 0x7f) | 0x80;    /* write out the least significant 7 bits, set the high bit */
+        value >>= 7;                            /* shift off the 7 least significant bits */
     }
-    *buf->pos++ = n;                     /* encode the last 7 bits without the high bit being set */
+    *buf->pos++ = (U8)value;                    /* encode the last 7 bits without the high bit being set */
     DEBUG_ASSERT_BUF_SANE(buf);
 }
 
 SRL_STATIC_INLINE UV
-srl_zigzag_iv(IV n) {
-    return (UV)((n << 1) ^ (n >> (sizeof(IV) * 8 - 1)));
+srl_zigzag_iv(IV value) {
+    return (UV)((value << 1) ^ (value >> (sizeof(IV) * 8 - 1)));
 }
 
 SRL_STATIC_INLINE void
-srl_buf_cat_zigzag_raw_nocheck(pTHX_ srl_buffer_t *buf, const IV n) {
-    srl_buf_cat_varint_raw_nocheck(aTHX_ buf, srl_zigzag_iv(n));
+srl_buf_cat_zigzag_raw_nocheck(pTHX_ srl_buffer_t *buf, const IV value) {
+    srl_buf_cat_varint_raw_nocheck(aTHX_ buf, srl_zigzag_iv(value));
 }
 
 SRL_STATIC_INLINE void
-srl_buf_cat_varint_nocheck(pTHX_ srl_buffer_t *buf, const char tag, UV n) {
+srl_buf_cat_varint_nocheck(pTHX_ srl_buffer_t *buf, const char tag, UV value) {
     DEBUG_ASSERT_BUF_SPACE(buf, 1);
     if (expect_true( tag ))
         *buf->pos++ = tag;
-    srl_buf_cat_varint_raw_nocheck(aTHX_ buf, n);
+    srl_buf_cat_varint_raw_nocheck(aTHX_ buf, value);
 }
 
 SRL_STATIC_INLINE void
-srl_buf_cat_zigzag_nocheck(pTHX_ srl_buffer_t *buf, const char tag, const IV n) {
-    srl_buf_cat_varint_nocheck(aTHX_ buf, tag, srl_zigzag_iv(n));
+srl_buf_cat_zigzag_nocheck(pTHX_ srl_buffer_t *buf, const char tag, const IV value) {
+    srl_buf_cat_varint_nocheck(aTHX_ buf, tag, srl_zigzag_iv(value));
 }
 
 SRL_STATIC_INLINE void
-srl_buf_cat_varint(pTHX_ srl_buffer_t *buf, const char tag, const UV n) {
+srl_buf_cat_varint(pTHX_ srl_buffer_t *buf, const char tag, const UV value) {
     /* this implements "varint" from google protocol buffers */
     BUF_SIZE_ASSERT(buf, SRL_MAX_VARINT_LENGTH + 1); /* always allocate space for the tag, overalloc is harmless */
-    srl_buf_cat_varint_nocheck(aTHX_ buf, tag, n);
+    srl_buf_cat_varint_nocheck(aTHX_ buf, tag, value);
 }
 
 SRL_STATIC_INLINE void
-srl_buf_cat_zigzag(pTHX_ srl_buffer_t *buf, const char tag, const IV n) {
-    srl_buf_cat_varint(aTHX_ buf, tag, srl_zigzag_iv(n));
+srl_buf_cat_zigzag(pTHX_ srl_buffer_t *buf, const char tag, const IV value) {
+    srl_buf_cat_varint(aTHX_ buf, tag, srl_zigzag_iv(value));
 }
 
 #endif
