@@ -189,6 +189,24 @@ srl_splitter_t * srl_build_splitter_struct(pTHX_ HV *opt) {
         }
     }
 
+    splitter->header_str = NULL;
+    splitter->header_len = 0;
+    svp = hv_fetchs(opt, "header_data_template", 0);
+    if (svp && SvOK(*svp)) {
+        STRLEN header_len;
+        splitter->header_str = SvPV(*svp, header_len);
+        splitter->header_sv = SvREFCNT_inc(*svp);
+        splitter->header_len = header_len;
+        SRL_SPLITTER_TRACE("header_data_template found, of length %lu", header_len);
+    }
+
+    splitter->header_count_idx = -1;
+    svp = hv_fetchs(opt, "header_count_idx", 0);
+    if (svp && SvOK(*svp)) {
+        splitter->header_count_idx = SvIV(*svp);
+        SRL_SPLITTER_TRACE("header_count_idx found, %ld", splitter->header_count_idx);
+    }
+
     _parse_header(splitter);
 
     /* initialize stacks */
@@ -235,6 +253,7 @@ srl_splitter_t * srl_build_splitter_struct(pTHX_ HV *opt) {
 void srl_destroy_splitter(pTHX_ srl_splitter_t *splitter) {
     _empty_hashes();
     SvREFCNT_dec(splitter->input_sv);
+    SvREFCNT_dec(splitter->header_sv);
     if (splitter->status_stack->data != NULL) {
         Safefree(splitter->status_stack->data);
     }
@@ -903,17 +922,23 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
     splitter->chunk_body_pos += SRL_MAGIC_STRLEN;
     chunk_header_len += SRL_MAGIC_STRLEN;
 
-    char tmp_str[SRL_MAX_VARINT_LENGTH];
     /* srl version-type type=raw, version=3 */
     sv_catpvn(splitter->chunk, "\3", 1);
     splitter->chunk_body_pos += 1;
     chunk_header_len += 1;
 
-    /* srl header suffix size: 0 */
-    sv_catpvn(splitter->chunk, "\0", 1);
-    splitter->chunk_body_pos += 1;
-    chunk_header_len += 1;
+    if ( ! splitter->header_len) {
+        /* no srl header */
+        sv_catpvn(splitter->chunk, "\0", 1);
+        splitter->chunk_body_pos += 1;
+        chunk_header_len += 1;
+    } else {
+        sv_catpvn(splitter->chunk, splitter->header_str, splitter->header_len);
+        splitter->chunk_body_pos += splitter->header_len;
+        chunk_header_len += splitter->header_len;
+    }
 
+    char tmp_str[SRL_MAX_VARINT_LENGTH];
     tmp_str[0] = 0x28; /* REFN */
     sv_catpvn(splitter->chunk, tmp_str, 1);
     splitter->chunk_current_offset += 1;
@@ -935,6 +960,16 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
         char * varint_start = SvPVX(splitter->chunk) + varint_pos;
         char * varint_end = varint_start + varint_len - 1;
         _update_varint_from_to(varint_start, varint_end, splitter->chunk_nb_elts);
+
+        if (splitter->header_count_idx != -1) {
+            /* chunk + magic size + version size + header varint size(8) + index where the count is */
+            char * header_count_varint_start = SvPVX(splitter->chunk) + SRL_MAGIC_STRLEN + 1 + splitter->header_count_idx;
+            /* note: instead of 8, it should be SRL_MAX_VARINT_LENGTH,
+               srl_decoder.c:831 is buggy: decoding of varint only support
+               varint of size 8 bytes, instead of 11 */
+            char * header_count_varint_end = header_count_varint_start + 8 - 1;
+            _update_varint_from_to(header_count_varint_start, header_count_varint_end, splitter->chunk_nb_elts);
+        }
 
         if (splitter->compression_format == 0) /* no compression */
             return splitter->chunk;
