@@ -134,7 +134,7 @@ sub build_defines {
 
     my $defines = join(" ", map { "-D$_" . (defined $ENV{$_} ? "=$ENV{$_}" : '') }
                             grep { exists $ENV{$_} }
-                            (qw(NOINLINE DEBUG MEMDEBUG NDEBUG), @defs));
+                            (qw(SRL_ALLOW_LONG_DOUBLE NOINLINE DEBUG MEMDEBUG NDEBUG), @defs));
 
     $defines .= " -DNDEBUG" unless $ENV{DEBUG};
     if ($Config{osname} eq 'hpux' && not $Config{gccversion}) {
