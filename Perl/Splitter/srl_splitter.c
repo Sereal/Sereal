@@ -190,6 +190,7 @@ srl_splitter_t * srl_build_splitter_struct(pTHX_ HV *opt) {
     }
 
     splitter->header_str = NULL;
+    splitter->header_sv = NULL;
     splitter->header_len = 0;
     svp = hv_fetchs(opt, "header_data_template", 0);
     if (svp && SvOK(*svp)) {
@@ -253,10 +254,10 @@ srl_splitter_t * srl_build_splitter_struct(pTHX_ HV *opt) {
 void srl_destroy_splitter(pTHX_ srl_splitter_t *splitter) {
     _empty_hashes();
     SvREFCNT_dec(splitter->input_sv);
-    SvREFCNT_dec(splitter->header_sv);
-    if (splitter->status_stack->data != NULL) {
+    if (splitter->header_sv != NULL)
+        SvREFCNT_dec(splitter->header_sv);
+    if (splitter->status_stack->data != NULL)
         Safefree(splitter->status_stack->data);
-    }
     Safefree(splitter);
 }
 
@@ -1024,7 +1025,6 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
 
         sv_2mortal(splitter->chunk);
         return compressed_chunk;
-        
     }
     return &PL_sv_undef;
 }
