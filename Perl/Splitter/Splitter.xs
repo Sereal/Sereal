@@ -16,7 +16,7 @@ MODULE = Sereal::Splitter		PACKAGE = Sereal::Splitter
 PROTOTYPES: DISABLE
 
 Sereal::Splitter
-new(CLASS, opt)
+new_xs(CLASS, opt)
     HV *opt;
   CODE:
     RETVAL = srl_build_splitter_struct(aTHX opt);

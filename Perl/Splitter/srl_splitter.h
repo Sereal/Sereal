@@ -27,6 +27,11 @@ typedef struct {
     srl_splitter_stack_t * status_stack;
     /* srl_splitter_stack_t * output_stack; */
 
+    SV* header_sv;
+    char* header_str;
+    STRLEN header_len;
+    IV header_count_idx;
+
     UV chunk_size;
     char* chunk_start;
     char* chunk_iter_start;
