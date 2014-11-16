@@ -5,6 +5,22 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 4 of the *
 *          encoder!                                            *
 ****************************************************************
+5.000_001 Sun Nov 12
+    * New protocol, work in progress.
+    * SRL_HDR_POS_VARINT replaces SRL_HDR_VARINT.
+      SRL_HDR_POS_VARINT does not overlap with SRL_HDR_POS, which
+      means that a canonical representation of positive integers
+      is possible by forbidding SRL_HDR_VARINT.
+      SRL_HDR_VARINT is still supported by the decoder in version 5,
+      but is considered non-canonical, and will not be produced by a v5
+      encoder. (This also simplifies backward support.)
+    * SRL_HDR_NEG_VARINT replaces SRL_HDR_ZIGZAG, producing a more
+      compact representation of negative integers. It does not
+      overlap SRL_HDR_NEG. SRL_HDR_ZIGZAG is still supported by
+      the decoder but is considered non-canonical, will not be produced
+      by a v5 encoder. (This also simplifies backward support.)
+    * Various test suite changed required to support version 5.
+
 4.004 Sun Nov 12
     * Fix build issues from C++ style comments
     * Fixup build_requires
@@ -20,6 +36,7 @@ Revision history for Perl extension Sereal-Encoder
 4.001_001 Mon Feb  6 11:13:40 CEST 2017
     * Sereal v4 release with Zstandard compression support
       https://github.com/facebook/zstd
+
 
 3.015 Thu Sep  1 20:18:44 CEST 2016
     * Fix builds under 5.25+

@@ -820,7 +820,10 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
             srl_buf_cat_char(&enc->buf, hdr);
         }
         else {
-            srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_VARINT, num);
+            srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_POS_VARINT, num - OFFSET_SRL_HDR_POS_VARINT);
+            /* XXX: Protocol 4 and lower produce SRL_HDR_VARINT, which potentially overlaps with SRL_HDR_POS:
+            srl_buf_cat_varint(aTHX_ enc, SRL_HDR_VARINT, num);
+            */
         }
     }
     else {
@@ -831,8 +834,10 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
             srl_buf_cat_char(&enc->buf, hdr);
         }
         else {
-            /* Needs ZIGZAG */
-            srl_buf_cat_zigzag(aTHX_ &enc->buf, SRL_HDR_ZIGZAG, num);
+            srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_NEG_VARINT,(UV)(-num - OFFSET_SRL_HDR_NEG_VARINT));
+            /* XXX: Protocol 3 and lower produce ZIGZAG, which is wasteful:
+            srl_buf_cat_zigzag(aTHX_ enc, SRL_HDR_ZIGZAG, num);
+            */
         }
     }
 }

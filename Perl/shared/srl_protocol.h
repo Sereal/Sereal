@@ -61,9 +61,9 @@
     OBJECTV_FREEZE    | "3"  |  51 | 0x33 | 0b00110011 | <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT)
     RESERVED_0        | "4"  |  52 | 0x34 | 0b00110100 | reserved
     RESERVED_1        | "5"  |  53 | 0x35 | 0b00110101 |
-    RESERVED_2        | "6"  |  54 | 0x36 | 0b00110110 |
-    RESERVED_3        | "7"  |  55 | 0x37 | 0b00110111 |
-    RESERVED_4        | "8"  |  56 | 0x38 | 0b00111000 | reserved
+    RESERVED_2        | "6"  |  54 | 0x36 | 0b00110110 | reserved
+    POS_VARINT        | "7"  |  55 | 0x37 | 0b00110111 | <VARINT> - Positive varint, n =  ( varint + 16 )
+    NEG_VARINT        | "8"  |  56 | 0x38 | 0b00111000 | <VARINT> - Negative varint, n = -( varint + 17 )
     CANONICAL_UNDEF   | "9"  |  57 | 0x39 | 0b00111001 | undef (PL_sv_undef) - "the" Perl undef (see notes)
     FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no)
     TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes)
@@ -215,7 +215,10 @@
  *       them, might have to explicit == check later. */
 #define SRL_HDR_RESERVED        ((U8)52)      /* reserved */
 #define SRL_HDR_RESERVED_LOW    ((U8)52)
-#define SRL_HDR_RESERVED_HIGH   ((U8)56)
+#define SRL_HDR_RESERVED_HIGH   ((U8)54)
+
+#define SRL_HDR_POS_VARINT      ((U8)55)      /* <VARINT> - Positive varint, n =  ( varint + 16 ) */
+#define SRL_HDR_NEG_VARINT      ((U8)56)      /* <VARINT> - Negative varint, n = -( varint + 17 ) */
 
 #define SRL_HDR_CANONICAL_UNDEF ((U8)57)      /* undef (PL_sv_undef) - "the" Perl undef (see notes) */
 #define SRL_HDR_FALSE           ((U8)58)      /* false (PL_sv_no)  */
@@ -252,5 +255,11 @@
 #define SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) ((tag) & SRL_MASK_SHORT_BINARY_LEN)
 #define SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag)     ((tag) & SRL_MASK_ARRAYREF_COUNT)
 #define SRL_HDR_HASHREF_LEN_FROM_TAG(tag)      ((tag) & SRL_MASK_HASHREF_COUNT)
+
+/* These define the offsets required to ensure SRL_HDR_POS and SRL_HDR_NEG do not overlap
+ * with SRL_HDR_POS_VARINT and SRL_HDR_NEG_VARINT - meaning there is a canonical representation
+ * of integers if we forbid SRL_HDR_VARINT which overlaps SRL_HDR_POS*/
+#define OFFSET_SRL_HDR_POS_VARINT   16
+#define OFFSET_SRL_HDR_NEG_VARINT   17
 
 #endif
