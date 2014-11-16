@@ -8,11 +8,30 @@
 
 /* WARNING: This is different from the protocol bit SRL_PROTOCOL_ENCODING_SNAPPY
  *          and SRL_PROTOCOL_ENCODING_ZLIB in that it's a flag indicating that
- *          we want to use Snappy or Zlib. */
+ *          we want to use Snappy or Zlib.
+ *
+ * DO NOT CHANGE THIS WITHOUT REVIEWING THE BITS IN srl_encoder.h and etc.
+ */
 
 #define SRL_F_COMPRESS_SNAPPY                   0x00040UL
 #define SRL_F_COMPRESS_SNAPPY_INCREMENTAL       0x00080UL
 #define SRL_F_COMPRESS_ZLIB                     0x00100UL
+#define SRL_F_COMPRESS_FLAGS_MASK               (SRL_F_COMPRESS_SNAPPY | \
+                                                 SRL_F_COMPRESS_SNAPPY_INCREMENTAL | \
+                                                 SRL_F_COMPRESS_ZLIB )
+const U8 SRL_F_COMPRESS_FLAGS_TO_PROTOCOL_ENCODING[8]= {
+            SRL_PROTOCOL_ENCODING_RAW,                      /* 0  */
+            SRL_PROTOCOL_ENCODING_SNAPPY,                   /* 1  */
+            SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL,       /* 2  */
+            SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL,       /* 3  */
+            SRL_PROTOCOL_ENCODING_ZLIB,                     /* 4  */
+            SRL_PROTOCOL_ENCODING_ZLIB,                     /* 5  */
+            SRL_PROTOCOL_ENCODING_ZLIB,                     /* 6  */
+            SRL_PROTOCOL_ENCODING_ZLIB                      /* 7  */
+        };
+/* currently SRL_F_COMPRESS_MASK is 0x001c0UL, which shift right 6 bits turns into 0x07 UL
+ * which means we can skips some conditionals. */
+#define SRL_F_COMPRESS_FLAGS_SHIFT 6
 
 #if defined(HAVE_CSNAPPY)
 #include <csnappy.h>
@@ -76,18 +95,11 @@ srl_destroy_snappy_workmem(pTHX_ void *workmem)
 
 /* Sets the compression header flag */
 SRL_STATIC_INLINE void
-srl_set_compression_header_flag(srl_buffer_t *buf, const U8 compressor)
+srl_set_compression_header_flag(srl_buffer_t *buf, const U32 compress_flags)
 {
     /* sizeof(const char *) includes a count of \0 */
     char *flags_and_version_byte = buf->start + sizeof(SRL_MAGIC_STRING) - 1;
-
-    if (compressor & SRL_F_COMPRESS_SNAPPY) {
-        *flags_and_version_byte |= SRL_PROTOCOL_ENCODING_SNAPPY;
-    } else if (compressor & SRL_F_COMPRESS_SNAPPY_INCREMENTAL) {
-        *flags_and_version_byte |= SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL;
-    } else if (compressor & SRL_F_COMPRESS_ZLIB) {
-        *flags_and_version_byte |= SRL_PROTOCOL_ENCODING_ZLIB;
-    }
+    *flags_and_version_byte |= SRL_F_COMPRESS_FLAGS_TO_PROTOCOL_ENCODING[ compress_flags >> 6 ];
 }
 
 /* Resets the compression header flag to OFF.
@@ -112,10 +124,10 @@ srl_reset_compression_header_flag(srl_buffer_t *buf)
 
 SRL_STATIC_INLINE void
 srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
-                  const U8 compressor, const int compress_level, void **workmem)
+                  const U32 compress_flags, const int compress_level, void **workmem)
 {
-    const int is_traditional_snappy = compressor & SRL_F_COMPRESS_SNAPPY;
-    const int is_snappy = compressor & (SRL_F_COMPRESS_SNAPPY | SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
+    const int is_traditional_snappy = compress_flags & SRL_F_COMPRESS_SNAPPY;
+    const int is_snappy = compress_flags & (SRL_F_COMPRESS_SNAPPY | SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
     /* !is_snappy is the same as "is zlib" right now */
 
     size_t uncompressed_body_length = BUF_POS_OFS(buf) - sereal_header_length;
@@ -195,7 +207,7 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
         buf->pos += compressed_body_length;
 
         /* enable compression flag */
-        srl_set_compression_header_flag(buf, compressor);
+        srl_set_compression_header_flag(buf, compress_flags);
     }
 
     srl_buf_free_buffer(aTHX_ &old_buf);

@@ -598,19 +598,13 @@ srl_init_string_deduper_hv(pTHX_ srl_encoder_t *enc)
     return enc->string_deduper_hv;
 }
 
+
 void
-srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src)
+srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src, const U32 compress_flags)
 {
     /* 4th to 8th bit are flags. Using 4th for snappy flag. FIXME needs to go in spec. */
-    const U8 flags = (
-                         SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY)
-                            ? SRL_PROTOCOL_ENCODING_SNAPPY
-                         : SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL)
-                            ? SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL
-                         : SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_ZLIB)
-                            ? SRL_PROTOCOL_ENCODING_ZLIB
-                         : SRL_PROTOCOL_ENCODING_RAW
-                     );
+
+    U8 flags= SRL_F_COMPRESS_FLAGS_TO_PROTOCOL_ENCODING[ compress_flags >> SRL_F_COMPRESS_FLAGS_SHIFT ];
     const U8 version_and_flags = (U8)enc->protocol_version | flags;
 
     /* 4 byte magic string + proto version
@@ -897,25 +891,16 @@ SRL_STATIC_INLINE srl_encoder_t *
 srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
 {
     enc = srl_prepare_encoder(aTHX_ enc);
+    const U32 compress_flags= SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_FLAGS_MASK);
 
-    if (expect_true(
-            !SRL_ENC_HAVE_OPTION(enc, (  SRL_F_COMPRESS_SNAPPY
-                                       | SRL_F_COMPRESS_SNAPPY_INCREMENTAL
-                                       | SRL_F_COMPRESS_ZLIB))
-       ))
-    {
-        srl_write_header(aTHX_ enc, user_header_src);
-        SRL_ENC_UPDATE_BODY_POS(enc);
-        srl_dump_sv(aTHX_ enc, src);
-        srl_fixup_weakrefs(aTHX_ enc);
-    }
-    else { /* Have some sort of compression */
+    if (expect_false(compress_flags))
+    { /* Have some sort of compression */
         ptrdiff_t sereal_header_len;
         STRLEN uncompressed_body_length;
 
         /* Alas, have to write entire packet first since the header length
          * will determine offsets. */
-        srl_write_header(aTHX_ enc, user_header_src);
+        srl_write_header(aTHX_ enc, user_header_src, compress_flags);
         sereal_header_len = BUF_POS_OFS(&enc->buf);
         SRL_ENC_UPDATE_BODY_POS(enc);
         srl_dump_sv(aTHX_ enc, src);
@@ -929,13 +914,20 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
         }
         else { /* Do Snappy or zlib compression of body */
             srl_compress_body(aTHX_ &enc->buf, sereal_header_len,
-                              enc->flags, enc->compress_level,
+                              compress_flags, enc->compress_level,
                               &enc->snappy_workmem);
 
             SRL_ENC_UPDATE_BODY_POS(enc);
             DEBUG_ASSERT_BUF_SANE(&enc->buf);
         }
     } /* End of "want compression?" */
+    else
+    {
+        srl_write_header(aTHX_ enc, user_header_src, compress_flags);
+        SRL_ENC_UPDATE_BODY_POS(enc);
+        srl_dump_sv(aTHX_ enc, src);
+        srl_fixup_weakrefs(aTHX_ enc);
+    }
 
     /* NOT doing a
      *   SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);

@@ -56,7 +56,7 @@ void srl_clear_encoder(pTHX_ srl_encoder_t *enc);
 void srl_destroy_encoder(pTHX_ srl_encoder_t *enc);
 
 /* Write Sereal packet header to output buffer */
-void srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src);
+void srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src, const U32 compress_flags);
 /* Start dumping a top-level SV */
 SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src, const U32 flags);
 
