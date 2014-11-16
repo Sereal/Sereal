@@ -4,7 +4,7 @@ use warnings;
 require Exporter;
 our @ISA= qw(Exporter);
 
-our $VERSION = '4.004'; # Don't forget to update the TestCompat set for testing against installed encoders!
+our $VERSION = '5.000_001'; # Don't forget to update the TestCompat set for testing against installed encoders!
 
 our (@EXPORT_OK, %DEFINE, %TAG_INFO_HASH, @TAG_INFO_ARRAY);
 
@@ -34,6 +34,7 @@ BEGIN {
       "SRL_HDR_NEG" => 16,
       "SRL_HDR_NEG_HIGH" => 31,
       "SRL_HDR_NEG_LOW" => 16,
+      "SRL_HDR_NEG_VARINT" => 53,
       "SRL_HDR_OBJECT" => 44,
       "SRL_HDR_OBJECTV" => 45,
       "SRL_HDR_OBJECTV_FREEZE" => 51,
@@ -43,12 +44,13 @@ BEGIN {
       "SRL_HDR_POS" => 0,
       "SRL_HDR_POS_HIGH" => 15,
       "SRL_HDR_POS_LOW" => 0,
+      "SRL_HDR_POS_VARINT" => 52,
       "SRL_HDR_REFN" => 40,
       "SRL_HDR_REFP" => 41,
       "SRL_HDR_REGEXP" => 49,
-      "SRL_HDR_RESERVED" => 52,
+      "SRL_HDR_RESERVED" => 54,
       "SRL_HDR_RESERVED_HIGH" => 56,
-      "SRL_HDR_RESERVED_LOW" => 52,
+      "SRL_HDR_RESERVED_LOW" => 54,
       "SRL_HDR_SHORT_BINARY" => 96,
       "SRL_HDR_SHORT_BINARY_HIGH" => 127,
       "SRL_HDR_SHORT_BINARY_LOW" => 96,
@@ -82,7 +84,7 @@ BEGIN {
       "SRL_PROTOCOL_ENCODING_ZSTD" => 64,
       "SRL_PROTOCOL_HDR_CONTINUE" => 8,
       "SRL_PROTOCOL_HDR_USER_DATA" => 1,
-      "SRL_PROTOCOL_VERSION" => 4,
+      "SRL_PROTOCOL_VERSION" => 5,
       "SRL_PROTOCOL_VERSION_BITS" => 4,
       "SRL_PROTOCOL_VERSION_MASK" => 15
     );
@@ -544,13 +546,29 @@ push @EXPORT_OK, keys %DEFINE;
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
+    "comment" => "<VARINT> - Positive varint, n =  ( varint + 16 )",
+    "name" => "POS_VARINT",
+    "type_name" => "POS_VARINT",
+    "type_value" => 52,
+    "value" => 52
+  },
+  # autoupdated by author_tools/update_from_header.pl do not modify directly!
+  {
+    "comment" => "<VARINT> - Negative varint, n = -( varint + 17 )",
+    "name" => "NEG_VARINT",
+    "type_name" => "NEG_VARINT",
+    "type_value" => 53,
+    "value" => 53
+  },
+  # autoupdated by author_tools/update_from_header.pl do not modify directly!
+  {
     "comment" => "reserved",
     "masked" => 1,
     "masked_val" => 0,
     "name" => "RESERVED_0",
     "type_name" => "RESERVED",
-    "type_value" => 52,
-    "value" => 52
+    "type_value" => 54,
+    "value" => 54
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
@@ -558,8 +576,8 @@ push @EXPORT_OK, keys %DEFINE;
     "masked_val" => 1,
     "name" => "RESERVED_1",
     "type_name" => "RESERVED",
-    "type_value" => 52,
-    "value" => 53
+    "type_value" => 54,
+    "value" => 55
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
@@ -567,25 +585,7 @@ push @EXPORT_OK, keys %DEFINE;
     "masked_val" => 2,
     "name" => "RESERVED_2",
     "type_name" => "RESERVED",
-    "type_value" => 52,
-    "value" => 54
-  },
-  # autoupdated by author_tools/update_from_header.pl do not modify directly!
-  {
-    "masked" => 1,
-    "masked_val" => 3,
-    "name" => "RESERVED_3",
-    "type_name" => "RESERVED",
-    "type_value" => 52,
-    "value" => 55
-  },
-  # autoupdated by author_tools/update_from_header.pl do not modify directly!
-  {
-    "masked" => 1,
-    "masked_val" => 4,
-    "name" => "RESERVED_4",
-    "type_name" => "RESERVED",
-    "type_value" => 52,
+    "type_value" => 54,
     "value" => 56
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!

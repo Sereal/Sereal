@@ -44,8 +44,10 @@ public interface SerealHeader {
 	static final byte SRL_HDR_REGEXP            = (byte)  49; /*  49 0x31 0b00110001 <PATTERN-STR-TAG> <MODIFIERS-STR-TAG> */
 	static final byte SRL_HDR_OBJECT_FREEZE     = (byte)  50; /*  50 0x32 0b00110010 <STR-TAG> <ITEM-TAG> - class, object-item. Need to call "THAW" method on class after decoding */
 	static final byte SRL_HDR_OBJECTV_FREEZE    = (byte)  51; /*  51 0x33 0b00110011 <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT) */
-	static final byte SRL_HDR_RESERVED          = (byte)  52; /*  52 0x34 0b00110100 reserved */
-	static final byte SRL_HDR_RESERVED_LOW      = (byte)  52; /*  52 0x34 0b00110100 reserved */
+	static final byte SRL_HDR_POS_VARINT        = (byte)  52; /*  52 0x34 0b00110100 <VARINT> - Positive varint, n =  ( varint + 16 ) */
+	static final byte SRL_HDR_NEG_VARINT        = (byte)  53; /*  53 0x35 0b00110101 <VARINT> - Negative varint, n = -( varint + 17 ) */
+	static final byte SRL_HDR_RESERVED          = (byte)  54; /*  54 0x36 0b00110110 reserved */
+	static final byte SRL_HDR_RESERVED_LOW      = (byte)  54; /*  54 0x36 0b00110110 reserved */
 	static final byte SRL_HDR_RESERVED_HIGH     = (byte)  56; /*  56 0x38 0b00111000 reserved */
 	static final byte SRL_HDR_CANONICAL_UNDEF   = (byte)  57; /*  57 0x39 0b00111001 undef (PL_sv_undef) - "the" Perl undef (see notes) */
 	static final byte SRL_HDR_FALSE             = (byte)  58; /*  58 0x3a 0b00111010 false (PL_sv_no) */

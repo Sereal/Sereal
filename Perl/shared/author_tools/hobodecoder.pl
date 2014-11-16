@@ -139,7 +139,13 @@ sub parse_sv {
   $o -= 128 if $high;
   printf $fmt1, $p, $p-$hlen+1, $o, $high ? '*' : ' ', $bv, $ind;
 
-  if ($o == SRL_HDR_VARINT) {
+  if ($o == SRL_HDR_POS_VARINT) {
+    printf "POS_VARINT: %u\n", varint()+16;
+  }
+  elsif ($o == SRL_HDR_NEG_VARINT) {
+    printf "NEG_ZIGZAG: %d\n", -(varint()-17);
+  }
+  elsif ($o == SRL_HDR_VARINT) {
     printf "VARINT: %u\n", varint();
   }
   elsif ($o == SRL_HDR_ZIGZAG) {

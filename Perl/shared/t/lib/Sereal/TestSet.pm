@@ -18,7 +18,13 @@ use Storable qw(dclone);
 use Cwd;
 
 # Dynamically load constants from whatever is being tested
+<<<<<<< HEAD
 our ($Class, $ConstClass, $InRepo);
+our $PROTO_VERSION;
+=======
+our ($Class, $ConstClass, $TestClass, $InRepo, $PROTO_VERSION, $precision);
+
+>>>>>>> 7cb36fb... fixup
 sub get_git_top_dir {
     my @dirs = (0, 1, 2, 4);
     for my $d (@dirs) {
@@ -170,12 +176,14 @@ sub short_string {
 sub integer {
     if ($_[0] < 0) {
         return $_[0] < -16
-                ? die("zigzag not implemented in test suite")
+                ? ($PROTO_VERSION < 5 ? die("zigzag not implemented in test suite")
+                                      : chr(SRL_HDR_NEG_VARINT) . varint(-$_[0] - 17))
                 : chr(0b0001_0000 + abs($_[0]));
     }
     else {
         return $_[0] > 15
-                ? varint($_[0])
+                ? ($PROTO_VERSION < 5 ? chr(SRL_HDR_VARINT) . varint($_[0])
+                                      : chr(SRL_HDR_POS_VARINT) . varint($_[0] - 16))
                 : chr(0b0000_0000 + $_[0]);
     }
 }
@@ -192,7 +200,6 @@ sub varint {
     return $out;
 }
 
-our $PROTO_VERSION;
 
 sub Header {
     my $proto_version = shift || $PROTO_VERSION || SRL_PROTOCOL_VERSION;
@@ -211,7 +218,7 @@ sub offset {
     my ($str)= @_;
     Carp::confess("no protoversion") if !defined $PROTO_VERSION;
     if ($PROTO_VERSION >= 2) {
-        return length($str)+1;
+        return length($str) + 1;
     } else {
         return length($str) + length Header($PROTO_VERSION);
     }
@@ -290,11 +297,11 @@ sub setup_tests {
         [\1, chr(SRL_HDR_REFN).chr(0b0000_0001), "scalar ref to int"],
         [[], array(), "empty array ref"],
         [[1,2,3], array(chr(0b0000_0001), chr(0b0000_0010), chr(0b0000_0011)), "array ref"],
-        [1000, chr(SRL_HDR_VARINT).varint(1000), "large int"],
+        [1000, integer(1000), "large int"],
         [ [ map { $_, undef } 1..1000 ],
             array(
                 (map { chr($_) => chr(SRL_HDR_UNDEF) } (1 .. SRL_POS_MAX_SIZE)),
-                (map { chr(SRL_HDR_VARINT) . varint($_) => chr(SRL_HDR_UNDEF) } ((SRL_POS_MAX_SIZE+1) .. 1000))
+                (map { integer($_) => chr(SRL_HDR_UNDEF) } ((SRL_POS_MAX_SIZE+1) .. 1000))
             ),
             "array ref with pos and varints and undef"
         ],
@@ -632,6 +639,7 @@ sub setup_tests {
 sub have_encoder_and_decoder {
     my ($min_v)= @_;
     # $Class is the already-loaded class, so the one we're testing
+    
     my @need = $Class =~ /Encoder/ ? ("Decoder") :
                $Class =~ /Decoder/ ? ("Encoder") :
                                      ("Encoder", "Decoder");

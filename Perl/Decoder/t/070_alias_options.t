@@ -9,13 +9,14 @@ BEGIN {
         if !-d 't';
 }
 use Sereal::TestSet qw(:all);
+use Sereal::Decoder;
 
 my @tests= (
     [ 15,  alias_smallint => 1  ],
     [ 127, alias_varint_under => 128  ],
 );
 
-if (have_encoder_and_decoder()) {
+if (have_encoder_and_decoder(int($Sereal::Decoder::VERSION))) {
     my $num_tests= 0;
     $num_tests += ((16 + $_->[0] + 2) * 2) for @tests;
     plan tests => $num_tests;
