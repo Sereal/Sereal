@@ -237,14 +237,13 @@ sub setup_tests {
         [[], array(), "empty array ref"],
         [[1,2,3], array(chr(0b0000_0001), chr(0b0000_0010), chr(0b0000_0011)), "array ref"],
         [1000, chr(SRL_HDR_VARINT).varint(1000), "large int"],
-        [ [1..1000],
+        [ [ map { $_, undef } 1..1000 ],
             array(
-                (map chr, (1 .. SRL_POS_MAX_SIZE)),
-                (map chr(SRL_HDR_VARINT) . varint($_), ((SRL_POS_MAX_SIZE+1) .. 1000))
+                (map { chr($_) => chr(SRL_HDR_UNDEF) } (1 .. SRL_POS_MAX_SIZE)),
+                (map { chr(SRL_HDR_VARINT) . varint($_) => chr(SRL_HDR_UNDEF) } ((SRL_POS_MAX_SIZE+1) .. 1000))
             ),
-            "array ref with pos and varints"
+            "array ref with pos and varints and undef"
         ],
-
         [{}, hash(), "empty hash ref"],
         [{foo => "baaaaar"}, hash(short_string("foo"),short_string("baaaaar")), "simple hash ref"],
         [
