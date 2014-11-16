@@ -2,8 +2,8 @@ use strict;
 use warnings;
 use blib;
 use Benchmark qw(cmpthese :hireswallclock);
-use Sereal::Decoder qw(decode_sereal);
-use Sereal::Encoder qw(encode_sereal);
+use Sereal::Decoder qw(decode_sereal sereal_decode_with_object);
+use Sereal::Encoder qw(encode_sereal sereal_encode_with_object);
 use JSON::XS qw(decode_json encode_json);
 use Storable qw(nfreeze thaw);
 use Data::Undump qw(undump);
@@ -15,11 +15,12 @@ use Getopt::Long qw(GetOptions);
 require bytes;
 
 GetOptions(
-    'duration=f'                         => \( my $duration           = -3 ),
+    'secs|duration=f'                    => \( my $duration           = -5 ),
     'encoder'                            => \( my $encoder            = 0 ),
     'decoder'                            => \( my $decoder            = 0 ),
     'dump|d'                             => \( my $dump               = 0 ),
     'only=s@'                            => \( my $only               = undef ),
+    'exclude=s@'                         => \( my $exclude            = undef ),
     'tiny'                               => \( my $tiny_data          = 0 ),
     'small'                              => \( my $small_data         = 0 ),
     'medium'                             => \( my $medium_data        = 0 ),
@@ -31,12 +32,6 @@ GetOptions(
     'diagram_output=s'                   => \( my $diagram_output_dir = "" ),
 ) or die "Bad option";
 
-if ($only) {
-    $only = {
-        map { $_ => 1 }
-        map { split /\s*,\s*/, $_ } @$only
-    };
-}
 my $fail =
   $tiny_data + $small_data + $medium_data + $very_large_data + $large_data - 1;
 if ( $fail and $fail > 0 ) {
@@ -44,7 +39,8 @@ if ( $fail and $fail > 0 ) {
 }
 $encoder = 1 if not $encoder and not $decoder;
 
-our %opt = @ARGV;
+#our %opt = @ARGV;
+our %opt;
 
 my $data_set_name;
 srand(0);
@@ -55,84 +51,95 @@ push @str, substr( $chars, int( rand( int( length($chars) / 2 + 1 ) ) ), 10 )
 my @rand = map rand, 1 .. 1000;
 
 our (
-    $enc, $enc_snappy, $enc_zlib_fast, $enc_zlib_small, $dec,
+    $enc, $dec,
+    $enc_snappy,        $dec_snappy,
+    $enc_zlib_fast,     $dec_zlib_fast,
+    $enc_zlib_small,    $dec_zlib_small,
     $jsonxs, $msgpack, $dd_noindent, $dd_indent, $cbor
 );
+my $storable_tag= "strbl";
+my $sereal_tag= "srl";
 my %meta = (
-    json_xs => {
-        enc  => '$::jsonxs->encode($::data{json_xs});',
-        dec  => '$::jsonxs->decode($::encoded{json_xs});',
+    jxs => {
+        enc  => '$::jsonxs->encode($data);',
+        dec  => '$::jsonxs->decode($encoded);',
         name => 'JSON::XS OO',
         init => sub {
             $jsonxs = JSON::XS->new()->allow_nonref();
         },
     },
     ddl => {
-        enc  => 'DumpLimited($::data{ddl});',
-        dec  => 'Data::Undump::undump($::encoded{ddl});',
+        enc  => 'DumpLimited($data);',
+        dec  => 'Data::Undump::undump($encoded);',
         name => 'Data::Dump::Limited',
     },
-    msgpack => {
-        enc  => '$::msgpack->pack($::data{msgpack});',
-        dec  => '$::msgpack->unpack($::encoded{msgpack});',
+    mp => {
+        enc  => '$::msgpack->pack($data);',
+        dec  => '$::msgpack->unpack($encoded);',
         name => 'Data::MsgPack',
         init => sub {
             $msgpack = Data::MessagePack->new();
         },
     },
     cbor => {
-        enc  => '$::cbor->encode($::data{cbor});',
-        dec  => '$::cbor->decode($::encoded{cbor});',
+        enc  => '$::cbor->encode($data);',
+        dec  => '$::cbor->decode($encoded);',
         name => 'CBOR::XS',
         init => sub {
             $cbor= CBOR::XS->new();
         },
     },
-    dd_noindent => {
-        enc  => 'Data::Dumper->new([$::data{dd_noindent}])->Indent(0)->Dump();',
-        dec  => 'eval $::encoded{dd_noindent};',
+    dd_noind => {
+        enc  => 'Data::Dumper->new([$data])->Indent(0)->Dump();',
+        dec  => 'eval $encoded;',
         name => 'Data::Dumper no-indent',
     },
     dd => {
-        enc  => 'Dumper($::data{dd});',
-        dec  => 'eval $::encoded{dd};',
+        enc  => 'Dumper($data);',
+        dec  => 'eval $encoded;',
         name => 'Data::Dumper indented',
     },
-    storable => {
-        enc  => 'nfreeze($::data{storable});',
-        dec  => 'thaw($::encoded{storable});',
+    $storable_tag => {
+        enc  => 'nfreeze($data);',
+        dec  => 'thaw($encoded);',
         name => 'Storable',
     },
-    sereal_func => {
-        enc  => 'encode_sereal($::data{sereal_func}, \%::opt);',
-        dec  => 'decode_sereal($::encoded{sereal_func}, \%::opt);',
+    srl_func => {
+        enc  => 'encode_sereal($data, $opt);',
+        dec  => 'decode_sereal($encoded, $opt);',
         name => 'Sereal functional',
     },
-    sereal => {
-        enc  => '$::enc->encode($::data{sereal});',
-        dec  => '$::dec->decode($::encoded{sereal});',
+    srl_fwo => {
+        enc  => 'sereal_encode_with_object($::enc,$data);',
+        dec  => 'sereal_decode_with_object($::dec,$encoded);',
+        name => 'Sereal functional with object',
+    },
+    $sereal_tag => {
+        enc  => '$::enc->encode($data);',
+        dec  => '$::dec->decode($encoded);',
         name => 'Sereal OO',
         init => sub {
-            $enc = Sereal::Encoder->new( \%opt );
-            $dec //= Sereal::Decoder->new( \%opt );
+            $enc = Sereal::Encoder->new( %opt ? \%opt : () );
+            $dec = Sereal::Decoder->new( \%opt ? \%opt : () );
         },
     },
-    sereal_snappy => {
-        enc  => '$::enc_snappy->encode($::data{sereal_snappy});',
-        dec  => '$::dec->decode($::encoded{sereal_snappy});',
+    srl_snpy => {
+        enc  => '$::enc_snappy->encode($data);',
+        dec  => '$::dec_snappy->decode($encoded);',
         name => 'Sereal OO snappy',
         init => sub {
             $enc_snappy = Sereal::Encoder->new(
                 {
-                    %opt, compress => Sereal::Encoder::SRL_SNAPPY
+                    %opt,
+                    compress => Sereal::Encoder::SRL_SNAPPY
                 }
             );
-            $dec //= Sereal::Decoder->new( \%opt );
+            $dec_snappy = Sereal::Decoder->new( %opt ? \%opt : () );
         },
     },
-    sereal_zlib_fast => {
-        enc  => '$::enc_zlib_fast->encode($::data{sereal_zlib_fast});',
-        dec  => '$::x = $::dec->decode($::encoded{sereal_zlib_fast});',
+    srl_zfast => {
+        enc  => '$::enc_zlib_fast->encode($data);',
+        dec  => '$::dec_zlib_fast->decode($encoded);',
         name => 'Sereal OO zlib fast',
         init => sub {
             $enc_zlib_fast = Sereal::Encoder->new(
@@ -143,12 +150,12 @@ my %meta = (
                     compress_threshold => 0,
                 }
             );
-            $dec //= Sereal::Decoder->new( \%opt );
+            $dec_zlib_fast = Sereal::Decoder->new( %opt ? \%opt : () );
         },
     },
-    sereal_zlib_small => {
-        enc  => '$::enc_zlib_small->encode($::data{sereal_zlib_small});',
-        dec  => '$::dec->decode($::encoded{sereal_zlib_small});',
+    srl_zbest => {
+        enc  => '$::enc_zlib_small->encode($data);',
+        dec  => '$::dec_zlib_small->decode($encoded);',
         name => 'Sereal OO zib best',
         init => sub {
             $enc_zlib_small = Sereal::Encoder->new(
@@ -159,10 +166,28 @@ my %meta = (
                     compress_threshold => 0,
                 }
             );
-            $dec //= Sereal::Decoder->new( \%opt );
+            $dec_zlib_small = Sereal::Decoder->new( %opt ? \%opt : () );
         },
     },
 );
+if ($only) {
+    my @pat= map { split /\s*,\s*/, $_ } @$only;
+    $only = {};
+    foreach my $key (keys %meta) {
+        $key=~/$_/ and $only->{$key}= 1
+            for @pat;
+    }
+    die "Only [@pat] produced no matches!" unless keys %$only;
+}
+if ($exclude) {
+    my @pat= map { split /\s*,\s*/, $_ } @$exclude;
+    $exclude = {};
+    foreach my $key (keys %meta) {
+        $key=~/$_/ and $exclude->{$key}= 1
+            for @pat;
+    }
+    die "Exclude [@pat] produced no matches!" unless keys %$exclude;
+}
 
 our %data;
 our %encoded;
@@ -171,26 +196,45 @@ our %enc_bench;
 our %dec_bench;
 foreach my $key ( sort keys %meta ) {
     my $info = $meta{$key};
-    next if $only and not $only->{$key};
+    $info->{tag}= $key;
+    next if $only    and not $only->{$key}    and $key ne $storable_tag;
+    next if $exclude and     $exclude->{$key} and $key ne $storable_tag;
+    $info->{enc}=~s/\$data/\$::data{$key}/g;
+    $info->{dec}=~s/\$encoded/\$::encoded{$key}/g;
+    $info->{enc}=~s/\$opt/%opt ? "\\%::opt" : ""/ge;
+    $info->{dec}=~s/\$opt/%opt ? "\\%::opt" : ""/ge;
+
     $data{$key}    = make_data();
     $info->{init}->() if $info->{init};
     $encoded{$key} = eval $info->{enc}
       or die "Failed to eval $info->{enc}: $@";
     $decoded{$key} = eval '$::x = ' . $info->{dec} . '; 1'
       or die "Failed to eval $info->{dec}: $@\n$encoded{$key}\n";
-    $enc_bench{$key} = '$::x = ' . $info->{enc};
-    $dec_bench{$key} = '$::x = ' . $info->{dec};
     $info->{size}    = bytes::length( $encoded{$key} );
+    next if $only    and not $only->{$key};
+    next if $exclude and     $exclude->{$key};
+    $enc_bench{$key} = '$::x_' . $key . ' = ' . $info->{enc};
+    $dec_bench{$key} = '$::x_' . $key . ' = ' . $info->{dec};
 }
 
-my $sereal = $encoded{sereal};
+my $sereal = $encoded{$sereal_tag};
 print($sereal), exit if $dump;
 
-my $sereal_len = bytes::length($sereal);
-foreach my $info ( sort { $a->{name} cmp $b->{name} } values %meta ) {
+my $storable_len = bytes::length($encoded{$storable_tag});
+foreach my $info (
+    sort { $a->{size} <=> $b->{size} || $a->{name} cmp $b->{name} }
+    grep { defined $_->{size} }
+    values %meta
+) {
     next unless $info->{size};
-    printf "%-40s %12d bytes %.2f%% of sereal\n", $info->{name}, $info->{size},
-      $info->{size} / $sereal_len * 100;
+    if ($info->{tag} eq $storable_tag) {
+        printf "%-40s %12d bytes\n",
+            $info->{name} . " ($info->{tag})", $info->{size};
+    } else {
+        printf "%-40s %12d bytes %6.2f%% of $storable_tag\n",
+            $info->{name} . " ($info->{tag})", $info->{size},
+            $info->{size} / $storable_len * 100;
+    }
 }
 
 our $x;
