@@ -13,6 +13,7 @@ Merger.o
 Merger.c
 *.o
 srl_protocol.h
+srl_taginfo.h
 ptable.h
 const-c.inc
 const-xs.inc
