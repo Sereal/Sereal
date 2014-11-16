@@ -437,7 +437,7 @@ our (%TAG_INFO_HASH, @TAG_INFO_ARRAY);
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    "comment" => "<IEEE-FLOAT>",
+    "comment" => "<IEEE-FLOAT> 4 byte float",
     "name" => "FLOAT",
     "type_name" => "FLOAT",
     "type_value" => 34,
@@ -445,7 +445,7 @@ our (%TAG_INFO_HASH, @TAG_INFO_ARRAY);
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    "comment" => "<IEEE-DOUBLE>",
+    "comment" => "<IEEE-DOUBLE> 8 byte double",
     "name" => "DOUBLE",
     "type_name" => "DOUBLE",
     "type_value" => 35,
@@ -453,7 +453,7 @@ our (%TAG_INFO_HASH, @TAG_INFO_ARRAY);
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    "comment" => "<IEEE-LONG-DOUBLE>",
+    "comment" => "<LONG DOUBLE> 16 byte platform specific long double. NOT PORTABLE",
     "name" => "LONG_DOUBLE",
     "type_name" => "LONG_DOUBLE",
     "type_value" => 36,

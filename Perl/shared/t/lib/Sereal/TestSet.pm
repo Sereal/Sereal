@@ -16,7 +16,9 @@ use Config;
 
 # Dynamically load constants from whatever is being tested
 our $PROTO_VERSION;
-our ($Class, $ConstClass);
+our $precision; # six digits of precision.
+our ($Class, $ConstClass, $TestClass);
+
 BEGIN {
     if (-e "lib/Sereal/Encoder") {
         $Class = 'Sereal::Encoder';
@@ -38,6 +40,9 @@ BEGIN {
         my $err = $@ || 'Zombie Error';
         die "Failed to load/import constants from '$ConstClass': $err";
     };
+    no strict 'refs';
+    $TestClass = $Class . "::Test";
+    *is_nv = *{$TestClass . "::is_nv"};
 }
 
 use Exporter;
@@ -609,6 +614,9 @@ sub have_encoder_and_decoder {
              ."(got: $cmp_v, needed any of ".join(", ", keys %compat_versions).")");
         return();
     }
+    if (my $sub= UNIVERSAL::can("Sereal::Encoder::Test","has_reduced_precision")) {
+        $precision= 9 if $sub->();
+    }
     return 1;
 }
 
@@ -949,6 +957,14 @@ sub _deep_cmp {
             die "Unknown reftype '",reftype($x)."'";
         }
     } else {
+        if (defined $precision) {
+            if ( is_nv($x) ) {
+                $x= sprintf "%.*f", $precision, $x;
+            }
+            if ( is_nv($y) ) {
+                $y= sprintf "%.*f", $precision, $y;
+            }
+        }
         $cmp= _cmp_str($x,$y)
             and return $cmp;
     }

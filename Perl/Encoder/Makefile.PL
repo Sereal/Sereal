@@ -46,7 +46,9 @@ if ($ENV{DEBUG}) {
 else {
   $defines .= " -DNDEBUG";
 }
-
+if ($ENV{SRL_ALLOW_LONG_DOUBLE}) {
+    $defines .= " -DSRL_ALLOW_LONG_DOUBLE";
+}
 # TODO: This is identical with Decoder.
 if ($Config{osname} eq 'hpux' && not $Config{gccversion}) {
   # HP-UX cc does not support inline.

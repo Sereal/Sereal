@@ -700,19 +700,28 @@ srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
     MS_VC6_WORKAROUND_VOLATILE float f= (float)nv;
     MS_VC6_WORKAROUND_VOLATILE double d= (double)nv;
     /* TODO: this logic could be reworked to not duplicate so much code, which will help on win32 */
-    if ( f == nv || nv != nv ) {
+    if ( sizeof(NV) == sizeof(float) || f == nv || nv != nv ) {
         BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(f)); /* heuristic: header + string + simple value */
-        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_FLOAT);
+        srl_buf_cat_char_nocheck(&enc->buf,SRL_HDR_FLOAT);
         Copy((char *)&f, enc->buf.pos, sizeof(f), char);
         enc->buf.pos += sizeof(f);
-    } else if (d == nv) {
+    }
+    else
+#if SRL_DO_LONG_DOUBLE
+    if ( sizeof(NV) == sizeof(double) || d == nv)
+#endif
+    {
         BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(d)); /* heuristic: header + string + simple value */
-        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_DOUBLE);
+        srl_buf_cat_char_nocheck(&enc->buf,SRL_HDR_DOUBLE);
         Copy((char *)&d, enc->buf.pos, sizeof(d), char);
         enc->buf.pos += sizeof(d);
-    } else {
-        BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(nv)); /* heuristic: header + string + simple value */
-        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_LONG_DOUBLE);
+    }
+#if SRL_DO_LONG_DOUBLE
+    else
+    {
+        BUF_SIZE_ASSERT(enc, 1 + 16); /* heuristic: header + string + simple value */
+        srl_buf_cat_char_nocheck(&enc->buf,SRL_HDR_LONG_DOUBLE);
+        assert( sizeof(nv) <= 16 );
         Copy((char *)&nv, enc->buf.pos, sizeof(nv), char);
 #if SRL_EXTENDED_PRECISION_LONG_DOUBLE
         /* x86 uses an 80 bit extended precision. on 64 bit machines
@@ -720,10 +729,14 @@ srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
          * the unused 2/6 bytes are not necessarily zeroed, potentially
          * allowing internal memory to be exposed. We therefore zero
          * the unused bytes here. */
-        memset(enc->buf.pos+10, 0, sizeof(nv) - 10);
+        memset(enc->buf.pos + 10, 0, 6);
+#else
+        if (sizeof(nv) < 16)
+            memset(enc->buf.pos + sizeof(nv), 0, 16 - sizeof(nv));
 #endif
-        enc->buf.pos += sizeof(nv);
+        enc->buf.pos += 16;
     }
+#endif
 }
 
 

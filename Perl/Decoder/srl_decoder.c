@@ -1180,10 +1180,11 @@ srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
 /* declare a union so that we are guaranteed the right alignment
  * rules - this is required for e.g. ARM */
 union myfloat {
-    U8 c[sizeof(long double)];
+    U8 c[16];
     float f;
     double d;
     long double ld;
+    NV nv;
 };
 
 /* XXX Most (if not all?) non-x86 platforms are strict in their
@@ -1224,14 +1225,14 @@ SRL_STATIC_INLINE void
 srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
-    ASSERT_BUF_SPACE(dec, sizeof(long double), " while reading LONG_DOUBLE");
+    ASSERT_BUF_SPACE(dec, 16, " while reading LONG_DOUBLE");
 #if SRL_USE_ALIGNED_LOADS_AND_STORES
     Copy(dec->pos,val.c,sizeof(long double),U8);
 #else
     val.ld= *((long double *)dec->pos);
 #endif
     sv_setnv(into, (NV)val.ld);
-    dec->pos+= sizeof(long double);
+    dec->pos+= 16;
 }
 
 
