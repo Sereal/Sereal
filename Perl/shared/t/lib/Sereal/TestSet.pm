@@ -15,6 +15,7 @@ use Scalar::Util qw(reftype blessed refaddr);
 use Config;
 
 # Dynamically load constants from whatever is being tested
+our $PROTO_VERSION;
 our ($Class, $ConstClass);
 BEGIN {
     if (-e "lib/Sereal/Encoder") {
@@ -130,12 +131,14 @@ sub short_string {
 sub integer {
     if ($_[0] < 0) {
         return $_[0] < -16
-                ? die("zigzag not implemented in test suite")
+                ? ($PROTO_VERSION < 4 ? die("zigzag not implemented in test suite")
+                                      : chr(SRL_HDR_NEG_VARINT) . varint(-$_[0] - 17))
                 : chr(0b0001_0000 + abs($_[0]));
     }
     else {
         return $_[0] > 15
-                ? varint($_[0])
+                ? ($PROTO_VERSION < 4 ? chr(SRL_HDR_VARINT) . varint($_[0])
+                                      : chr(SRL_HDR_POS_VARINT) . varint($_[0] - 16))
                 : chr(0b0000_0000 + $_[0]);
     }
 }
@@ -152,7 +155,6 @@ sub varint {
     return $out;
 }
 
-our $PROTO_VERSION;
 
 sub Header {
     my $proto_version = shift || $PROTO_VERSION || SRL_PROTOCOL_VERSION;
@@ -239,11 +241,11 @@ sub setup_tests {
         [\1, chr(SRL_HDR_REFN).chr(0b0000_0001), "scalar ref to int"],
         [[], array(), "empty array ref"],
         [[1,2,3], array(chr(0b0000_0001), chr(0b0000_0010), chr(0b0000_0011)), "array ref"],
-        [1000, chr(SRL_HDR_VARINT).varint(1000), "large int"],
+        [1000, integer(1000), "large int"],
         [ [ map { $_, undef } 1..1000 ],
             array(
                 (map { chr($_) => chr(SRL_HDR_UNDEF) } (1 .. SRL_POS_MAX_SIZE)),
-                (map { chr(SRL_HDR_VARINT) . varint($_) => chr(SRL_HDR_UNDEF) } ((SRL_POS_MAX_SIZE+1) .. 1000))
+                (map { integer($_) => chr(SRL_HDR_UNDEF) } ((SRL_POS_MAX_SIZE+1) .. 1000))
             ),
             "array ref with pos and varints and undef"
         ],
@@ -577,6 +579,7 @@ sub have_encoder_and_decoder {
     # $Class is the already-loaded class, so the one we're testing
     my $need = $Class =~ /Encoder/ ? "Decoder" : "Encoder";
     my $need_class = "Sereal::$need";
+
     my %compat_versions = map {$_ => 1} $Class->_test_compat();
 
     if (defined(my $top_dir = get_git_top_dir())) {
@@ -589,10 +592,11 @@ sub have_encoder_and_decoder {
 
     eval "use $need_class; 1"
     or do {
-        note("Could not locate $need_class for testing" . ($@ ? " (Exception: $@)" : ""));
+        diag("Could not locate $need_class for testing" . ($@ ? " (Exception: $@)" : ""));
         return();
     };
     my $cmp_v = $need_class->VERSION;
+
     if ($min_v and $cmp_v <= $min_v) {
         note("Could not load correct version of $need_class for testing "
              ."(got: $cmp_v, needed at least $min_v)");

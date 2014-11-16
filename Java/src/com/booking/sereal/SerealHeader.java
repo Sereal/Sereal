@@ -43,7 +43,9 @@ public interface SerealHeader {
 	static final byte SRL_HDR_OBJECTV_FREEZE    = (byte)  51; /*  51 0x33 0b00110011 <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT) */
 	static final byte SRL_HDR_RESERVED          = (byte)  52; /*  52 0x34 0b00110100 reserved */
 	static final byte SRL_HDR_RESERVED_LOW      = (byte)  52; /*  52 0x34 0b00110100 reserved */
-	static final byte SRL_HDR_RESERVED_HIGH     = (byte)  56; /*  56 0x38 0b00111000 reserved */
+	static final byte SRL_HDR_RESERVED_HIGH     = (byte)  54; /*  54 0x36 0b00110110 reserved */
+	static final byte SRL_HDR_POS_VARINT        = (byte)  55; /*  55 0x37 0b00110111 <VARINT> - Positive varint, n =  ( varint + 16 ) */
+	static final byte SRL_HDR_NEG_VARINT        = (byte)  56; /*  56 0x38 0b00111000 <VARINT> - Negative varint, n = -( varint + 17 ) */
 	static final byte SRL_HDR_CANONICAL_UNDEF   = (byte)  57; /*  57 0x39 0b00111001 undef (PL_sv_undef) - "the" Perl undef (see notes) */
 	static final byte SRL_HDR_FALSE             = (byte)  58; /*  58 0x3a 0b00111010 false (PL_sv_no) */
 	static final byte SRL_HDR_TRUE              = (byte)  59; /*  59 0x3b 0b00111011 true  (PL_sv_yes) */

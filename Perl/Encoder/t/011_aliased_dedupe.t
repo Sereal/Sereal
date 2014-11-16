@@ -16,7 +16,7 @@ use Sereal::TestSet qw(:all);
 use Data::Dumper; # must be loaded AFTER the test set (bug in perl)
 use Test::More;
 
-my $ok = have_encoder_and_decoder();
+my $ok = have_encoder_and_decoder(int $Sereal::Encoder::VERSION);
 if (not $ok) {
     plan skip_all => 'Did not find right version of decoder';
 }

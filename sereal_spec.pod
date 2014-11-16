@@ -61,7 +61,7 @@ A header consists of multiple components:
 A "magic string" that identifies a document as being in the Sereal format.
 In protocol version 1 and 2, the value of this string is "=srl",
 and when decoded as an unsigned 32 bit integer on a little endian machine
-has a value of 0x6C72733D. Vesion 1 and 2 of the protocol require this
+has a value of 0x6C72733D. Version 1 and 2 of the protocol require this
 magic string.
 
 In protocol version 3 the magic string has been changed to "=\xF3rl",
@@ -278,9 +278,9 @@ header.
     OBJECTV_FREEZE    | "3"  |  51 | 0x33 | 0b00110011 | <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT)
     RESERVED_0        | "4"  |  52 | 0x34 | 0b00110100 | reserved
     RESERVED_1        | "5"  |  53 | 0x35 | 0b00110101 |
-    RESERVED_2        | "6"  |  54 | 0x36 | 0b00110110 |
-    RESERVED_3        | "7"  |  55 | 0x37 | 0b00110111 |
-    RESERVED_4        | "8"  |  56 | 0x38 | 0b00111000 | reserved
+    RESERVED_2        | "6"  |  54 | 0x36 | 0b00110110 | reserved
+    POS_VARINT        | "7"  |  55 | 0x37 | 0b00110111 | <VARINT> - Positive varint, n =  ( varint + 16 )
+    NEG_VARINT        | "8"  |  56 | 0x38 | 0b00111000 | <VARINT> - Negative varint, n = -( varint + 17 )
     CANONICAL_UNDEF   | "9"  |  57 | 0x39 | 0b00111001 | undef (PL_sv_undef) - "the" Perl undef (see notes)
     FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no)
     TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes)

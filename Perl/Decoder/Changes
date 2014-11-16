@@ -3,6 +3,22 @@ Revision history for Perl extension Sereal-Decoder
 * Warning: For a seamless upgrade, upgrade to version 3
 *          of the decoder before upgrading to version 3 of the
 *          encoder!
+4.000_001
+  * New protocol, work in progress.
+  * SRL_HDR_POS_VARINT replaces SRL_HDR_VARINT.
+    SRL_HDR_POS_VARINT does not overlap with SRL_HDR_POS, which
+    means that a canonical representation of positive integers
+    is possible by forbidding SRL_HDR_VARINT.
+    SRL_HDR_VARINT is still supported in the decoder in version 4,
+    but considered non-canonical, and will not be produced by a v4
+    encoder. (This also simplifies backward support.)
+  * SRL_HDR_NEG_VARINT replaces SRL_HDR_ZIGZAG, producing a more
+    compact representation of negative integers. It does not
+    overlap SRL_HDR_NEG. SRL_HDR_ZIGZAG is still supported by
+    the decoder but is considered non-canonical, will not be produced
+    by a v4 encoder. (This also simplifies backward support.)
+  * Various test suite changed required to support version 4.
+
 3.003 Oct 19 2014
   * Niko Tyni fixed the 64-bit big endian Sereal bug! (Yay Niko!)
   * Sereal::Decoder::Constants will now have a defined $VERSION

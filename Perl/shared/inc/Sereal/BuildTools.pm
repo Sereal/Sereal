@@ -609,20 +609,18 @@ our (%TAG_INFO_HASH, @TAG_INFO_ARRAY);
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    "masked" => 1,
-    "masked_val" => 3,
-    "name" => "RESERVED_3",
-    "type_name" => "RESERVED",
-    "type_value" => 52,
+    "comment" => "<VARINT> - Positive varint, n =  ( varint + 16 )",
+    "name" => "POS_VARINT",
+    "type_name" => "POS_VARINT",
+    "type_value" => 55,
     "value" => 55
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    "masked" => 1,
-    "masked_val" => 4,
-    "name" => "RESERVED_4",
-    "type_name" => "RESERVED",
-    "type_value" => 52,
+    "comment" => "<VARINT> - Negative varint, n = -( varint + 17 )",
+    "name" => "NEG_VARINT",
+    "type_name" => "NEG_VARINT",
+    "type_value" => 56,
     "value" => 56
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!

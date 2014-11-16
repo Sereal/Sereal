@@ -135,8 +135,13 @@ SRL_STATIC_INLINE void srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_double(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_float(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into);
+
+SRL_STATIC_INLINE void srl_read_varint_offset(pTHX_ srl_decoder_t *dec, SV* into, SV** container, UV offset);
 SRL_STATIC_INLINE void srl_read_varint_into(pTHX_ srl_decoder_t *dec, SV* into, SV** container);
 SRL_STATIC_INLINE void srl_read_zigzag_into(pTHX_ srl_decoder_t *dec, SV* into, SV** container);
+SRL_STATIC_INLINE void srl_read_neg_varint(pTHX_ srl_decoder_t *dec, SV* into, SV** container);
+SRL_STATIC_INLINE void srl_read_pos_varint(pTHX_ srl_decoder_t *dec, SV* into, SV** container);
+
 SRL_STATIC_INLINE void srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into);
 SRL_STATIC_INLINE void srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag);
 SRL_STATIC_INLINE void srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag);
@@ -708,7 +713,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
 
         if (expect_false( dec->proto_version == 1 ))
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_PROTOCOL_V1); /* compat mode */
-        else if (expect_false( dec->proto_version > 3 || dec->proto_version < 1 ))
+        else if (expect_false( dec->proto_version > SRL_PROTOCOL_VERSION || dec->proto_version < 1 ))
             SRL_ERRORf1("Unsupported Sereal protocol version %u", dec->proto_version);
 
         if (dec->encoding_flags == SRL_PROTOCOL_ENCODING_RAW) {
@@ -1074,7 +1079,7 @@ srl_alias_iv(pTHX_ srl_decoder_t *dec, SV **container, IV iv)
 
 
 SRL_STATIC_INLINE void
-srl_setiv(pTHX_ srl_decoder_t *dec, SV *into, SV **container, IV iv)
+srl_setiv(pTHX_ srl_decoder_t* dec, SV* into, SV** container, IV iv)
 {
     if ( expect_false( container && IS_IV_ALIAS(dec,iv) )) {
         srl_alias_iv(aTHX_ dec, container, iv);
@@ -1106,9 +1111,9 @@ srl_setiv(pTHX_ srl_decoder_t *dec, SV *into, SV **container, IV iv)
 }
 
 SRL_STATIC_INLINE void
-srl_read_varint_into(pTHX_ srl_decoder_t *dec, SV* into, SV **container)
+srl_read_varint_offset(pTHX_ srl_decoder_t *dec, SV* into, SV** container, UV offset)
 {
-    UV uv= srl_read_varint_uv(aTHX_ dec);
+    UV uv= srl_read_varint_uv(aTHX_ dec) + offset;
     if (expect_true(uv <= (UV)IV_MAX)) {
         srl_setiv(aTHX_ dec, into, container, (IV)uv);
     } else {
@@ -1119,6 +1124,24 @@ srl_read_varint_into(pTHX_ srl_decoder_t *dec, SV* into, SV **container)
     }
 }
 
+SRL_STATIC_INLINE void
+srl_read_varint_into(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
+{
+    srl_read_varint_offset(aTHX_ dec, into, container, 0);
+}
+
+SRL_STATIC_INLINE void
+srl_read_pos_varint(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
+{
+    srl_read_varint_offset(aTHX_ dec, into, container, OFFSET_SRL_HDR_POS_VARINT);
+}
+
+SRL_STATIC_INLINE void
+srl_read_neg_varint(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
+{
+    IV iv= -((IV)(srl_read_varint_uv(aTHX_ dec) + OFFSET_SRL_HDR_NEG_VARINT));
+    srl_setiv(aTHX_ dec, into, container, iv);
+}
 
 SRL_STATIC_INLINE IV
 srl_read_zigzag_iv(pTHX_ srl_decoder_t *dec)
@@ -1129,7 +1152,7 @@ srl_read_zigzag_iv(pTHX_ srl_decoder_t *dec)
 }
 
 SRL_STATIC_INLINE void
-srl_read_zigzag_into(pTHX_ srl_decoder_t *dec, SV* into, SV **container)
+srl_read_zigzag_into(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
 {
     srl_setiv(aTHX_ dec, into, container, srl_read_zigzag_iv(aTHX_ dec));
 }
@@ -1881,7 +1904,6 @@ srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
 }
 
 
-
 /****************************************************************************
  * MAIN DISPATCH SUB - ALL ROADS LEAD HERE                                  *
  ****************************************************************************/
@@ -1918,6 +1940,8 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
         CASE_SRL_HDR_ARRAYREF:      srl_read_array(aTHX_ dec, into, tag); is_ref = 1; break;
         case SRL_HDR_VARINT:        srl_read_varint_into(aTHX_ dec, into, container); break;
         case SRL_HDR_ZIGZAG:        srl_read_zigzag_into(aTHX_ dec, into, container); break;
+        case SRL_HDR_NEG_VARINT:    srl_read_neg_varint(aTHX_ dec, into, container);  break;
+        case SRL_HDR_POS_VARINT:    srl_read_pos_varint(aTHX_ dec, into, container);  break;
 
         case SRL_HDR_FLOAT:         srl_read_float(aTHX_ dec, into);                  break;
         case SRL_HDR_DOUBLE:        srl_read_double(aTHX_ dec, into);                 break;
