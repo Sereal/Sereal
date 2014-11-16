@@ -205,13 +205,39 @@ srl_buf_cat_char_nocheck_int(pTHX_ srl_buffer_t *buf, const char c)
 
 /* define constant for other code to use in preallocations */
 #define SRL_MAX_VARINT_LENGTH 11
+/*
+ * This implements "varint" and "zigzag varint" types as used in protobufs, etc.
+ *
+ * varint is a variable length encoding of unsigned integers, where the low
+ * 7 bits of the input value are encoded into each byte of output, with the high bit
+ * used as a flag to indicate there is another byte worth of bits to be read.
+ *
+ * zigzag is a way of encoding signed integers as an unsigned integer in such a way
+ * that positive and negative numbers are interleaved, so that z0=0, z1=-1, z2=1,
+ * z3=-2, z4=2, etc. When the zigzag form is represented as a varint, the result is
+ * that both negative and positive number take space proportional to their distance
+ * from zero.
+ *
+ * see: https://developers.google.com/protocol-buffers/docs/encoding#types
+ *
+ */
+#define srl_varint_size(x) (    \
+    z <= (1UL << 7)  ? 1 :    \
+    z <= (1UL << 14) ? 2 :    \
+    z <= (1UL << 21) ? 3 :    \
+    z <= (1UL << 28) ? 4 :    \
+    z <= (1UL << 35) ? 5 :    \
+    z <= (1UL << 42) ? 6 :    \
+    z <= (1UL << 49) ? 7 :    \
+    z <= (1UL << 56) ? 8 :    \
+    z <= (1UL << 63) ? 9 :    \
+                     10 )
+
 
 SRL_STATIC_INLINE void
-srl_buf_cat_varint_nocheck(pTHX_ srl_buffer_t *buf, const char tag, UV n) {
+srl_buf_cat_varint_raw_nocheck(pTHX_ srl_buffer_t *buf, UV n) {
     DEBUG_ASSERT_BUF_SANE(buf);
-    DEBUG_ASSERT_BUF_SPACE(buf, (tag==0 ? 0 : 1) + SRL_MAX_VARINT_LENGTH);
-    if (expect_true( tag ))
-        *buf->pos++ = tag;
+    DEBUG_ASSERT_BUF_SPACE(buf, SRL_MAX_VARINT_LENGTH);
     while (n >= 0x80) {                      /* while we are larger than 7 bits long */
         *buf->pos++ = (n & 0x7f) | 0x80; /* write out the least significant 7 bits, set the high bit */
         n = n >> 7;                          /* shift off the 7 least significant bits */
@@ -220,33 +246,39 @@ srl_buf_cat_varint_nocheck(pTHX_ srl_buffer_t *buf, const char tag, UV n) {
     DEBUG_ASSERT_BUF_SANE(buf);
 }
 
+SRL_STATIC_INLINE UV
+srl_zigzag_iv(IV n) {
+    return (UV)((n << 1) ^ (n >> (sizeof(IV) * 8 - 1)));
+}
+
+SRL_STATIC_INLINE void
+srl_buf_cat_zigzag_raw_nocheck(pTHX_ srl_buffer_t *buf, const IV n) {
+    srl_buf_cat_varint_raw_nocheck(aTHX_ buf, srl_zigzag_iv(n));
+}
+
+SRL_STATIC_INLINE void
+srl_buf_cat_varint_nocheck(pTHX_ srl_buffer_t *buf, const char tag, UV n) {
+    DEBUG_ASSERT_BUF_SPACE(buf, 1);
+    if (expect_true( tag ))
+        *buf->pos++ = tag;
+    srl_buf_cat_varint_raw_nocheck(aTHX_ buf, n);
+}
+
+SRL_STATIC_INLINE void
+srl_buf_cat_zigzag_nocheck(pTHX_ srl_buffer_t *buf, const char tag, const IV n) {
+    srl_buf_cat_varint_nocheck(aTHX_ buf, tag, srl_zigzag_iv(n));
+}
+
 SRL_STATIC_INLINE void
 srl_buf_cat_varint(pTHX_ srl_buffer_t *buf, const char tag, const UV n) {
     /* this implements "varint" from google protocol buffers */
-    DEBUG_ASSERT_BUF_SANE(buf);
     BUF_SIZE_ASSERT(buf, SRL_MAX_VARINT_LENGTH + 1); /* always allocate space for the tag, overalloc is harmless */
     srl_buf_cat_varint_nocheck(aTHX_ buf, tag, n);
 }
 
 SRL_STATIC_INLINE void
-srl_buf_cat_zigzag_nocheck(pTHX_ srl_buffer_t *buf, const char tag, const IV n) {
-    const UV z= (n << 1) ^ (n >> (sizeof(IV) * 8 - 1));
-    srl_buf_cat_varint_nocheck(aTHX_ buf, tag, z);
-}
-
-SRL_STATIC_INLINE void
 srl_buf_cat_zigzag(pTHX_ srl_buffer_t *buf, const char tag, const IV n) {
-    /*
-     * This implements googles "zigzag varints" which effectively interleave negative
-     * and positive numbers.
-     *
-     * see: https://developers.google.com/protocol-buffers/docs/encoding#types
-     *
-     * Note: maybe for negative numbers we should just invert and then treat as a positive?
-     *
-     */
-    const UV z= (n << 1) ^ (n >> (sizeof(IV) * 8 - 1));
-    srl_buf_cat_varint(aTHX_ buf, tag, z);
+    srl_buf_cat_varint(aTHX_ buf, tag, srl_zigzag_iv(n));
 }
 
 #endif

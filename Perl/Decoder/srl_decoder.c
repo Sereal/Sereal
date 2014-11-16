@@ -1042,12 +1042,18 @@ srl_read_varint(pTHX_ srl_decoder_t *dec, SV* into)
 }
 
 
-SRL_STATIC_INLINE void
-srl_read_zigzag(pTHX_ srl_decoder_t *dec, SV* into)
+SRL_STATIC_INLINE IV
+srl_read_zigzag_iv(pTHX_ srl_decoder_t *dec)
 {
     UV n= srl_read_varint_uv(aTHX_ dec);
     IV i= (n >> 1) ^ (-(n & 1));
-    sv_setiv(into, i);
+    return i;
+}
+
+SRL_STATIC_INLINE void
+srl_read_zigzag(pTHX_ srl_decoder_t *dec, SV* into)
+{
+    sv_setiv(into, srl_read_zigzag_iv(aTHX_ dec));
 }
 
 
