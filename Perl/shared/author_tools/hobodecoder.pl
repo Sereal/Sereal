@@ -263,9 +263,7 @@ sub parse_av {
   printf "(%u)\n", $len;
   $ind .= "  ";
   while ($len--) {
-    my $t = substr($data, 0, 1);
-    my $o = ord($t);
-      parse_sv($ind);
+    parse_sv($ind,\$len);
   }
 }
 
@@ -276,8 +274,6 @@ sub parse_hv {
   $ind .= "  ";
   my $flipflop = 0;
   while ($len--) {
-    my $t = substr($data, 0, 1);
-    my $o = ord($t);
     printf  "$fmt2%s:\n",("") x $lead_items, $ind, ($flipflop++ %2 == 1 ? "VALUE" : "KEY");
     parse_sv($ind."  ");
   }
@@ -305,12 +301,12 @@ sub varint {
   return $x;
 }
 
-BEGIN{
-my $_shift= length(pack"j",0) * 8 - 1;
-sub zigzag {
-    my $n= varint();
-    return ($n >> 1) ^ (-($n & 1));
+sub _zigzag {
+    my $n= $_[0];
+    return $n & 1 ? -(($n >> 1)+1) : ($n >> 1);
 }
+sub zigzag {
+    return _zigzag(varint());
 }
 
 GetOptions(
