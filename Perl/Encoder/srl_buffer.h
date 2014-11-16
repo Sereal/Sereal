@@ -73,7 +73,7 @@
 SRL_STATIC_INLINE int
 srl_buf_init_buffer(pTHX_ srl_buffer_t *buf, const STRLEN init_size)
 {
-    Newx(buf->start, init_size, char);
+    Newx(buf->start, init_size, srl_buffer_char);
     if (expect_false( buf->start == NULL ))
         return 1;
     buf->end = buf->start + init_size - 1;
@@ -123,11 +123,11 @@ srl_buf_grow_nocheck(pTHX_ srl_buffer_t *buf, size_t minlen)
     /* assert that Renew means GROWING the buffer */
     assert(buf->start + new_size > buf->end);
 
-    Renew(buf->start, new_size, char);
+    Renew(buf->start, new_size, srl_buffer_char);
     if (buf->start == NULL)
         croak("Out of memory!");
 
-    buf->end = (char *)(buf->start + new_size);
+    buf->end = (srl_buffer_char*) (buf->start + new_size);
     buf->pos = buf->start + pos_ofs;
     SRL_SET_BODY_POS(buf, buf->start + body_ofs);
 

@@ -49,7 +49,7 @@ const U8 SRL_F_COMPRESS_FLAGS_TO_PROTOCOL_ENCODING[8]= {
  * positions. This can produce non-canonical varints and is useful for filling
  * pre-allocated varints. */
 SRL_STATIC_INLINE void
-srl_update_varint_from_to(pTHX_ char *varint_start, char *varint_end, UV number)
+srl_update_varint_from_to(pTHX_ unsigned char *varint_start, unsigned char *varint_end, UV number)
 {
     while (number >= 0x80) {                      /* while we are larger than 7 bits long */
         *varint_start++ = (number & 0x7f) | 0x80; /* write out the least significant 7 bits, set the high bit */
@@ -98,7 +98,7 @@ SRL_STATIC_INLINE void
 srl_set_compression_header_flag(srl_buffer_t *buf, const U32 compress_flags)
 {
     /* sizeof(const char *) includes a count of \0 */
-    char *flags_and_version_byte = buf->start + sizeof(SRL_MAGIC_STRING) - 1;
+    srl_buffer_char *flags_and_version_byte = buf->start + sizeof(SRL_MAGIC_STRING) - 1;
     *flags_and_version_byte |= SRL_F_COMPRESS_FLAGS_TO_PROTOCOL_ENCODING[ compress_flags >> 6 ];
 }
 
@@ -109,7 +109,7 @@ SRL_STATIC_INLINE void
 srl_reset_compression_header_flag(srl_buffer_t *buf)
 {
     /* sizeof(const char *) includes a count of \0 */
-    char *flags_and_version_byte = buf->start + sizeof(SRL_MAGIC_STRING) - 1;
+    srl_buffer_char *flags_and_version_byte = buf->start + sizeof(SRL_MAGIC_STRING) - 1;
 
     /* disable snappy flag in header */
     *flags_and_version_byte = SRL_PROTOCOL_ENCODING_RAW |
@@ -132,8 +132,8 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
 
     size_t uncompressed_body_length = BUF_POS_OFS(buf) - sereal_header_length;
     size_t compressed_body_length;
-    char *varint_start = NULL;
-    char *varint_end = NULL;
+    srl_buffer_char *varint_start = NULL;
+    srl_buffer_char *varint_end = NULL;
     srl_buffer_t old_buf;
 
     DEBUG_ASSERT_BUF_SANE(buf);
@@ -172,16 +172,16 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
         uint32_t len = (uint32_t) compressed_body_length;
         srl_init_snappy_workmem(aTHX_ workmem);
 
-        csnappy_compress(old_buf.start + sereal_header_length, (uint32_t) uncompressed_body_length,
-                         buf->pos, &len, *workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
+        csnappy_compress((char*) old_buf.start + sereal_header_length, (uint32_t) uncompressed_body_length,
+                         (char*) buf->pos, &len, *workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
 
         compressed_body_length = (size_t) len;
     } else {
         mz_ulong dl = (mz_ulong) compressed_body_length;
         int status = mz_compress2(
-            (unsigned char *) buf->pos,
+            buf->pos,
             &dl,
-            (const unsigned char *) old_buf.start + sereal_header_length,
+            old_buf.start + sereal_header_length,
             (mz_ulong) uncompressed_body_length,
             compress_level
         );

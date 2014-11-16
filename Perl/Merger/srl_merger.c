@@ -160,8 +160,8 @@ SRL_STATIC_INLINE void srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag
 
 SRL_STATIC_INLINE ptable_entry_ptr srl_store_tracked_offset(pTHX_ srl_merger_t *mrg, UV from, UV to);
 SRL_STATIC_INLINE UV srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV offset);
-SRL_STATIC_INLINE strtable_entry_ptr srl_lookup_string(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int *ok);
-SRL_STATIC_INLINE strtable_entry_ptr srl_lookup_classname(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int *ok);
+SRL_STATIC_INLINE strtable_entry_ptr srl_lookup_string(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN len, int *ok);
+SRL_STATIC_INLINE strtable_entry_ptr srl_lookup_classname(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN len, int *ok);
 
 SRL_STATIC_INLINE ptable_ptr
 srl_init_tracked_offsets_tbl(pTHX_ srl_merger_t *mrg)
@@ -388,7 +388,7 @@ srl_merger_finish(pTHX_ srl_merger_t *mrg)
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
     if (!SRL_MRG_HAVE_OPTION(mrg, SRL_F_TOPLEVEL_KEY_SCALAR)) {
-        char* oldpos = mrg->obuf.pos;
+        srl_buffer_char* oldpos = mrg->obuf.pos;
         mrg->obuf.pos = mrg->obuf.start + mrg->obuf_padding_bytes_offset;
         DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
@@ -408,7 +408,7 @@ srl_merger_finish(pTHX_ srl_merger_t *mrg)
         DEBUG_ASSERT_BUF_SANE(buf);
     }
 
-    return newSVpvn(mrg->obuf.start, BUF_POS_OFS(&mrg->obuf));
+    return newSVpvn((char *) mrg->obuf.start, BUF_POS_OFS(&mrg->obuf));
 }
 
 SRL_STATIC_INLINE srl_merger_t *
@@ -441,17 +441,17 @@ srl_empty_merger_struct(pTHX)
 SRL_STATIC_INLINE void
 srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
 {
-    char *tmp;
     STRLEN len;
     UV header_len;
     U8 encoding_flags;
     U8 protocol_version;
+    srl_buffer_char *tmp;
 
-    tmp = (char*) SvPV(src, len);
+    tmp = (srl_buffer_char*) SvPV(src, len);
     mrg->ibuf.start = mrg->ibuf.pos = tmp;
     mrg->ibuf.end = mrg->ibuf.start + len;
 
-    IV proto_version_and_encoding_flags_int = srl_validate_header_version_pv_len(aTHX_ mrg->ibuf.start, len);
+    IV proto_version_and_encoding_flags_int = srl_validate_header_version_pv_len(aTHX_ (char*) mrg->ibuf.start, len);
 
     if (proto_version_and_encoding_flags_int < 1) {
         if (proto_version_and_encoding_flags_int == 0)
@@ -767,7 +767,7 @@ srl_merge_binary_utf8(pTHX_ srl_merger_t *mrg, ptable_entry_ptr ptable_entry)
     int ok;
     UV length, total_length;
     strtable_entry_ptr strtable_entry;
-    const char *tag_ptr = mrg->ibuf.pos;
+    srl_buffer_char *tag_ptr = mrg->ibuf.pos;
 
     DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
@@ -794,7 +794,7 @@ srl_merge_binary_utf8(pTHX_ srl_merger_t *mrg, ptable_entry_ptr ptable_entry)
             ptable_entry->value = INT2PTR(void *, strtable_entry->offset);
         }
     } else if (strtable_entry) {
-        mrg->ibuf.pos = (char*) tag_ptr;
+        mrg->ibuf.pos = tag_ptr;
         strtable_entry->offset = BODY_POS_OFS(&mrg->obuf);
         srl_buf_copy_content_nocheck(aTHX_ mrg, total_length);
 
@@ -802,7 +802,7 @@ srl_merge_binary_utf8(pTHX_ srl_merger_t *mrg, ptable_entry_ptr ptable_entry)
         STRTABLE_ASSERT_ENTRY_STR(mrg->string_deduper_tbl, strtable_entry,
                                   mrg->ibuf.pos - total_length, total_length);
     } else {
-        mrg->ibuf.pos = (char*) tag_ptr;
+        mrg->ibuf.pos = tag_ptr;
         srl_buf_copy_content_nocheck(aTHX_ mrg, total_length);
     }
 
@@ -905,7 +905,7 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
 {
     int ok;
     U8 strtag;
-    const char *strtag_ptr = NULL;
+    srl_buffer_char *strtag_ptr = NULL;
     ptable_entry_ptr ptable_entry = NULL;
 
     DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
@@ -964,7 +964,7 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
             // issue OBJECT tag and update strtable entry
             srl_buf_cat_char_nocheck(&mrg->obuf, objtag);
 
-            mrg->ibuf.pos = (char*) strtag_ptr; // reset input buffer to strta
+            mrg->ibuf.pos = strtag_ptr; // reset input buffer to start
             strtable_entry->offset = BODY_POS_OFS(&mrg->obuf);
             srl_buf_copy_content_nocheck(aTHX_ mrg, total_length);
 
@@ -975,7 +975,7 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
             // issue OBJECT tag
             srl_buf_cat_char_nocheck(&mrg->obuf, objtag);
 
-            mrg->ibuf.pos = (char*) strtag_ptr;
+            mrg->ibuf.pos = strtag_ptr;
             srl_buf_copy_content_nocheck(aTHX_ mrg, total_length);
         }
     } else if (strtag == SRL_HDR_COPY) {
@@ -1029,7 +1029,7 @@ srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV offset)
 }
 
 SRL_STATIC_INLINE strtable_entry_ptr
-srl_lookup_string(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int *ok)
+srl_lookup_string(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN len, int *ok)
 {
     *ok = 0;
     if (len <= 3 || len > STRTABLE_MAX_STR_SIZE || !SRL_MRG_HAVE_OPTION(mrg, SRL_F_DEDUPE_STRINGS))
@@ -1050,7 +1050,7 @@ srl_lookup_string(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int *ok)
 }
 
 SRL_STATIC_INLINE strtable_entry_ptr
-srl_lookup_classname(pTHX_ srl_merger_t *mrg, const char *src, STRLEN len, int *ok)
+srl_lookup_classname(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN len, int *ok)
 {
     *ok = 0;
     if (len <= 3 || len > STRTABLE_MAX_STR_SIZE || !SRL_MRG_HAVE_OPTION(mrg, SRL_F_DEDUPE_STRINGS))
@@ -1244,13 +1244,13 @@ srl_decompress_body_snappy(pTHX_ srl_buffer_t *buf, int incremental)
         ? (STRLEN) srl_read_varint_uv_length(aTHX_ buf, " while reading compressed packet size")
         : (STRLEN) (buf->end - buf->pos);
 
-    char *ptr, *old_pos = buf->pos;
+    srl_buffer_char *ptr, *old_pos = buf->pos;
     const ptrdiff_t sereal_header_len = buf->pos - buf->start;
     UV bytes_consumed = compressed_len + sereal_header_len;
 
     /* All bufl's above here, or we break C89 compilers */
 
-    snappy_header_len = csnappy_get_uncompressed_length(buf->pos,
+    snappy_header_len = csnappy_get_uncompressed_length((char *) buf->pos,
                                                         compressed_len,
                                                         &decompressed_len);
 
@@ -1259,15 +1259,15 @@ srl_decompress_body_snappy(pTHX_ srl_buffer_t *buf, int incremental)
 
     /* Allocate output buffer and swap it into place within the bufoder. */
     buf_sv = sv_2mortal(newSV(sereal_header_len + decompressed_len + 1));
-    ptr = (char *) SvPVX(buf_sv);
+    ptr = (srl_buffer_char *) SvPVX(buf_sv);
 
     buf->start = ptr;
     buf->pos = buf->start + sereal_header_len;
     buf->end = buf->pos + decompressed_len;
 
-    decompress_ok = csnappy_decompress_noheader(old_pos + snappy_header_len,
+    decompress_ok = csnappy_decompress_noheader((char *) old_pos + snappy_header_len,
                                                 compressed_len - snappy_header_len,
-                                                buf->pos,
+                                                (char *) buf->pos,
                                                 &decompressed_len);
 
     if (expect_false(decompress_ok != 0))

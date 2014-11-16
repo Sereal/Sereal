@@ -947,7 +947,7 @@ srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *user_he
     ){
         /* If not wasting more than 2x memory - FIXME fungible */
         SV *sv = sv_2mortal(newSV_type(SVt_PV));
-        SvPV_set(sv, enc->buf.start);
+        SvPV_set(sv, (char *) enc->buf.start);
         SvLEN_set(sv, BUF_SIZE(&enc->buf));
         SvCUR_set(sv, BUF_POS_OFS(&enc->buf));
         SvPOK_on(sv);
@@ -955,7 +955,7 @@ srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *user_he
         return sv;
     }
 
-    return sv_2mortal(newSVpvn(enc->buf.start, (STRLEN)BUF_POS_OFS(&enc->buf)));
+    return sv_2mortal(newSVpvn((char *)enc->buf.start, (STRLEN)BUF_POS_OFS(&enc->buf)));
 }
 
 SRL_STATIC_INLINE void
@@ -972,7 +972,7 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
     while ( NULL != (ent = PTABLE_iter_next(it)) ) {
         const ptrdiff_t offset = (ptrdiff_t)ent->value;
         if ( offset ) {
-            char *pos = enc->buf.body_pos + offset;
+            srl_buffer_char *pos = enc->buf.body_pos + offset;
             assert(*pos == SRL_HDR_WEAKEN);
             if (DEBUGHACK) warn("setting byte at offset %lu to PAD", (long unsigned int)offset);
             *pos = SRL_HDR_PAD;

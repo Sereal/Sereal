@@ -163,10 +163,10 @@ S_perl_hash_murmur_hash_64b (const unsigned char * const seed, const unsigned ch
     assert((tbl)->buf->end      >= STRTABLE_ENTRY_STR((tbl), (ent)));     \
 } STMT_END
 
-#define STRTABLE_ASSERT_ENTRY_STR(tbl, ent, str, len) STMT_START {        \
-    assert((ent)->length == (len));                                       \
-    assert((ent)->hash == STRTABLE_HASH((str), (len)));                   \
-    assert(strncmp(STRTABLE_ENTRY_STR((tbl), (ent)), (str), (len)) == 0); \
+#define STRTABLE_ASSERT_ENTRY_STR(tbl, ent, str, len) STMT_START {                         \
+    assert((ent)->length == (len));                                                        \
+    assert((ent)->hash == STRTABLE_HASH((str), (len)));                                    \
+    assert(strncmp((char *) STRTABLE_ENTRY_STR((tbl), (ent)), (char*) (str), (len)) == 0); \
 } STMT_END
 
 typedef struct STRTABLE         STRTABLE_t;
@@ -217,7 +217,7 @@ SRL_STATIC_INLINE STRTABLE_t * STRTABLE_new_size(const srl_buffer_t *buf, const 
 /* Caller has to fill offset field in returned STRTABLE_ENTRY_t.
  * Such approach shows better performance, BODY_POS_OFS() seems to be quite expensive
  * to calculate it on every call of STRTABLE_insert */
-SRL_STATIC_INLINE STRTABLE_ENTRY_t * STRTABLE_insert(STRTABLE_t *tbl, const char *str, U32 len, int *ok);
+SRL_STATIC_INLINE STRTABLE_ENTRY_t * STRTABLE_insert(STRTABLE_t *tbl, const unsigned char *str, U32 len, int *ok);
 
 SRL_STATIC_INLINE void STRTABLE_grow(STRTABLE_t *tbl);
 SRL_STATIC_INLINE void STRTABLE_clear(STRTABLE_t *tbl);
@@ -249,7 +249,7 @@ STRTABLE_new_size(const srl_buffer_t *buf, const U8 size_base2_exponent)
 
 /* lookup key, return if found, otherwise store */
 SRL_STATIC_INLINE STRTABLE_ENTRY_t *
-STRTABLE_insert(STRTABLE_t *tbl, const char *str, U32 len, int *ok)
+STRTABLE_insert(STRTABLE_t *tbl, const unsigned char *str, U32 len, int *ok)
 {
     STRTABLE_ENTRY_t *tblent;
     const U32 hash = STRTABLE_HASH(str, len);
@@ -263,7 +263,7 @@ STRTABLE_insert(STRTABLE_t *tbl, const char *str, U32 len, int *ok)
 
         if (   tblent->hash == hash
             && tblent->length == len
-            && strncmp(STRTABLE_ENTRY_STR(tbl, tblent), str, len) == 0
+            && strncmp((char*) STRTABLE_ENTRY_STR(tbl, tblent), (char*) str, len) == 0
         ) {
             *ok = 1;
             return tblent;

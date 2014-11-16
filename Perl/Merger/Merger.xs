@@ -95,7 +95,7 @@ test()
       Copy(testset[i], buf.pos, len, char);
       buf.pos += len;
 
-      ent = STRTABLE_insert(tbl, testset[i], len, &found);
+      ent = STRTABLE_insert(tbl, (unsigned char*) testset[i], len, &found);
       ent->offset = BODY_POS_OFS(&buf) - len;
 
       printf("%sok %u - insert %.*s\n", found ? "not " : "", (unsigned int)(1+i), (int)len, testset[i]);
@@ -105,7 +105,7 @@ test()
     buf.pos = buf.start;
     for (i = n; i > 0; --i) {
       len = i;
-      ent = STRTABLE_insert(tbl, testset[i - 1], len, &found);
+      ent = STRTABLE_insert(tbl, (unsigned char*) testset[i - 1], len, &found);
       printf("%sok %u - fetch %.*s\n", found ? "" : "not ", (unsigned int)(n+n-i+1), (int)len, testset[i-1]);
       if (!found) abort();
     }
