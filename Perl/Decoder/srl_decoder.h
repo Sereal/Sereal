@@ -24,7 +24,7 @@ typedef struct {
     AV* weakref_av;
 
     AV* alias_cache; /* used to cache integers of different sizes. */
-    UV alias_varint_under;
+    IV alias_varint_under;
 
     UV bytes_consumed;
     UV recursion_depth;                 /* Recursion depth of current decoder */
@@ -154,6 +154,13 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_DEC_UNSET_OPTION(dec, flag_num) ((dec)->flags &= ~flag_num)
 #define SRL_DEC_VOLATILE_FLAGS (SRL_F_DECODER_NEEDS_FINALIZE|SRL_F_DECODER_DECOMPRESS_SNAPPY|SRL_F_DECODER_PROTOCOL_V1|SRL_F_DECODER_DIRTY|SRL_F_DECODER_DECOMPRESS_ZLIB)
 #define SRL_DEC_RESET_VOLATILE_FLAGS(dec) ((dec)->flags &= ~SRL_DEC_VOLATILE_FLAGS)
+
+#define IS_IV_ALIAS(dec,iv)             \
+(                                       \
+    ((dec)->alias_varint_under) &&      \
+    ((iv) >= -16 )&&                    \
+    ((iv) < (dec)->alias_varint_under)  \
+)
 
 /* Options Parsing related code */
 #define SRL_INIT_OPTION(idx, str) STMT_START {                          \

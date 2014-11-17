@@ -109,9 +109,7 @@ void srl_decoder_destructor_hook(pTHX_ void *p);                    /* destructo
 /* srl_begin_decoding: set up the decoder to handle a given var */
 SRL_STATIC_INLINE srl_decoder_t *srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset);
 SRL_STATIC_INLINE void srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data); /* read/validate header */
-SRL_STATIC_INLINE void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into);   /* main recursive dump routine */
-SRL_STATIC_INLINE void srl_read_single_value_into_container(pTHX_ srl_decoder_t *dec,
-        SV** container);   /* wrapper for main recursive dump routine for handling aliasing  */
+SRL_STATIC_INLINE void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container); /* main recursive dump routine */
 SRL_STATIC_INLINE void srl_finalize_structure(pTHX_ srl_decoder_t *dec);             /* optional finalize structure logic */
 SRL_STATIC_INLINE void srl_clear_decoder(pTHX_ srl_decoder_t *dec);                 /* clean up decoder after a dump */
 SRL_STATIC_INLINE void srl_clear_decoder_body_state(pTHX_ srl_decoder_t *dec);      /* clean up after each document body */
@@ -134,8 +132,8 @@ SRL_STATIC_INLINE void srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_double(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_float(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into);
-SRL_STATIC_INLINE void srl_read_varint(pTHX_ srl_decoder_t *dec, SV* into);
-SRL_STATIC_INLINE void srl_read_zigzag(pTHX_ srl_decoder_t *dec, SV* into);
+SRL_STATIC_INLINE void srl_read_varint_into(pTHX_ srl_decoder_t *dec, SV* into, SV** container);
+SRL_STATIC_INLINE void srl_read_zigzag_into(pTHX_ srl_decoder_t *dec, SV* into, SV** container);
 SRL_STATIC_INLINE void srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into);
 SRL_STATIC_INLINE void srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag);
 SRL_STATIC_INLINE void srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag);
@@ -264,13 +262,7 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
             }
             /* create the alias cache */
             dec->alias_cache= newAV();
-            /* extend it to the right size 16 for NEG,
-             * dec->alias_varint_under is at least 15, and 1 more for zero,
-             * so we allocate enough for POS/NEG as well as for the additional varints*/
-            av_extend(dec->alias_cache, 16 + dec->alias_varint_under);
-            AvFILLp(dec->alias_cache)= 16 + dec->alias_varint_under - 1; /* remove 1 as this is $#ary */
         }
-
         /* they can enable aliasing of SMALLINT's alone */
         if ( !SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_ALIAS_SMALLINT) ) {
             my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_ALIAS_SMALLINT);
@@ -280,11 +272,18 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
                 SRL_DEC_SET_OPTION(dec,SRL_F_DECODER_ALIAS_SMALLINT);
                 /* create the alias cache */
                 dec->alias_cache= newAV();
-                /* extend it to the right size of 32 items */
-                av_extend(dec->alias_cache,32);
-                AvFILLp(dec->alias_cache)= 31; /* $#ary == 32 */
+                dec->alias_varint_under=16;
             }
         }
+
+        if (dec->alias_varint_under) {
+            /* extend it to the right size 16 for NEG,
+             * dec->alias_varint_under is at least 15, and 1 more for zero,
+             * so we allocate enough for POS/NEG as well as for the additional varints*/
+            av_extend(dec->alias_cache, 16 + dec->alias_varint_under);
+            AvFILLp(dec->alias_cache)= 16 + dec->alias_varint_under - 1; /* remove 1 as this is $#ary */
+        }
+
         /* check if they want us to use &PL_sv_undef for SRL_HEADER_UNDEF
          * even if this might break referential integrity. */
         my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_USE_UNDEF);
@@ -493,7 +492,7 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
     }
 
     /* The actual document body deserialization: */
-    srl_read_single_value(aTHX_ dec, body_into);
+    srl_read_single_value(aTHX_ dec, body_into, NULL);
     if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE))) {
         srl_finalize_structure(aTHX_ dec);
     }
@@ -739,7 +738,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
             if (bitfield & SRL_PROTOCOL_HDR_USER_DATA && header_user_data != NULL) {
                 /* Do an actual document body deserialization for the user data: */
                 SRL_UPDATE_BODY_POS(dec);
-                srl_read_single_value(aTHX_ dec, header_user_data);
+                srl_read_single_value(aTHX_ dec, header_user_data, NULL);
                 if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE))) {
                     srl_finalize_structure(aTHX_ dec);
                 }
@@ -1033,13 +1032,48 @@ srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char * const tag_name)
 /****************************************************************************
  * PRIVATE WORKER SUBS FOR DEPARSING                                        *
  ****************************************************************************/
+SRL_STATIC_INLINE void
+srl_alias_iv(pTHX_ srl_decoder_t *dec, SV **container, IV iv)
+{
+    SV *alias;
+    SV **av_array= AvARRAY(dec->alias_cache);
+    U32 ofs = iv + 16; /* we always cover from -16 up so we add 16 */
+
+    assert( IS_IV_ALIAS(dec,iv) );
+
+    if (!av_array[ofs] || av_array[ofs] == &PL_sv_undef) {
+        alias= newSViv(iv);
+        /* mark it as readonly so people dont try to modify it */
+        SvREADONLY_on(alias);
+        /* store it in the alias_cache array */
+        av_array[ofs]= alias;
+    } else {
+        alias= av_array[ofs];
+    }
+
+    SvREFCNT_inc(alias);
+
+    if (*container && *container != &PL_sv_undef)
+        SvREFCNT_dec(*container);
+    *container= alias;
+}
 
 SRL_STATIC_INLINE void
-srl_read_varint(pTHX_ srl_decoder_t *dec, SV* into)
+srl_setiv(pTHX_ srl_decoder_t *dec, SV *into, SV **container, IV iv)
+{
+    if ( container && IS_IV_ALIAS(dec,iv) ) {
+        srl_alias_iv(aTHX_ dec, container, iv);
+    } else {
+        sv_setiv(into, iv);
+    }
+}
+
+SRL_STATIC_INLINE void
+srl_read_varint_into(pTHX_ srl_decoder_t *dec, SV* into, SV **container)
 {
     UV uv= srl_read_varint_uv(aTHX_ dec);
     if (uv <= (UV)IV_MAX) {
-        sv_setiv(into, (IV)uv);
+        srl_setiv(aTHX_ dec, into, container, (IV)uv);
     } else {
         /* grr, this is ridiculous! */
         sv_setiv(into, 0);
@@ -1058,9 +1092,9 @@ srl_read_zigzag_iv(pTHX_ srl_decoder_t *dec)
 }
 
 SRL_STATIC_INLINE void
-srl_read_zigzag(pTHX_ srl_decoder_t *dec, SV* into)
+srl_read_zigzag_into(pTHX_ srl_decoder_t *dec, SV* into, SV **container)
 {
-    sv_setiv(into, srl_read_zigzag_iv(aTHX_ dec));
+    srl_setiv(aTHX_ dec, into, container, srl_read_zigzag_iv(aTHX_ dec));
 }
 
 
@@ -1169,91 +1203,8 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
         av_end= av_array + len;
 
         for ( ; av_array < av_end ; av_array++) {
-            /* this is: srl_read_single_value_into_container(aTHX_ dec, av_array);
-             * unrolled for arrays. */
-            {
-                SV *alias;
-                U32 item;
-                IV iv;
-                U8 tag = *dec->pos;
-
-                /* it helps to think of this somewhat like a switch, except it does
-                 * more complicated checks than a single integer expression lookup */
-
-                if (expect_false( tag == SRL_HDR_ALIAS )) {
-                    dec->pos++;
-                    item= srl_read_varint_uv_offset(aTHX_ dec," while reading ALIAS tag");
-                    alias= srl_fetch_item(aTHX_ dec, item, "ALIAS");
-                    /* jump forward to the shared aliasing logic */
-                    goto do_refcnt_inc_alias;
-                }
-                else
-                if (
-                    expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_ALIAS_CHECK_FLAGS) )
-                ) {
-                    if (
-                        tag == SRL_HDR_UNDEF &&
-                        SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_USE_UNDEF)
-                    ) {
-                        dec->pos++;
-                        alias= &PL_sv_undef;
-                        /* jump forward to the shared aliasing logic */
-                        goto do_alias;
-                    }
-                    else
-                    if (
-                        tag <= SRL_HDR_NEG_HIGH &&
-                        SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_ALIAS_SMALLINT)
-                    ) {
-                        dec->pos++;
-                        if ( tag <= SRL_HDR_POS_HIGH ) {
-                            iv= tag;
-                        } else {
-                            /* must be a SRL_HDR_NEG tag, subtract 32 to get real value */
-                            iv= tag - 32;
-                        }
-                        /* jump forward to the shared iv caching logic */
-                        goto do_aliased_iv;
-                    }
-                    else
-                    if (
-                        tag == SRL_HDR_VARINT &&
-                        SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_ALIAS_VARINT)
-                    ) {
-                        U8 *tag_start= dec->pos;
-                        dec->pos++;
-                        item= srl_read_varint_uv(aTHX_ dec);
-                        if ( item < dec->alias_varint_under ) {
-                            iv= (IV)item;
-
-                          do_aliased_iv:
-                            item = iv + 16; /* we always cover from -16 up so we add 16 */
-                            if (!AvARRAY(dec->alias_cache)[item] || AvARRAY(dec->alias_cache)[item] == &PL_sv_undef) {
-                                alias= newSViv(iv);
-                                /* mark it as readonly so people don't try to modify it */
-                                SvREADONLY_on(alias);
-                                /* store it in the alias_cache array */
-                                AvARRAY(dec->alias_cache)[item]= alias;
-                            } else {
-                                alias= AvARRAY(dec->alias_cache)[item];
-                            }
-
-                          do_refcnt_inc_alias:
-                            SvREFCNT_inc(alias);
-
-                          do_alias:
-                            *av_array= alias;
-                            return;
-                        }
-                        else {
-                            /* reset parse pointer and fallthrough */
-                            dec->pos= tag_start;
-                        }
-                    }
-                }
-                *av_array = FRESH_SV();
-                srl_read_single_value(aTHX_ dec, *av_array);
-            }
+            *av_array = FRESH_SV();
+            srl_read_single_value(aTHX_ dec, *av_array, av_array);
         }
     }
 }
@@ -1362,7 +1313,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         if (expect_false( !fetched_sv )) {
             SRL_ERROR_PANIC(dec,"failed to hv_store");
         }
-        srl_read_single_value_into_container(aTHX_ dec, fetched_sv);
+        srl_read_single_value(aTHX_ dec, *fetched_sv, fetched_sv );
     }
 }
 
@@ -1405,7 +1356,7 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
     }
     SRL_sv_set_rv_to(into, referent);
     if (!tag)
-        srl_read_single_value(aTHX_ dec, referent);
+        srl_read_single_value(aTHX_ dec, referent, NULL);
 }
 
 SRL_STATIC_INLINE void
@@ -1441,7 +1392,7 @@ srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into)
     SV* referent;
     /* TODO This really just wants a subset of the states that srl_read_single_value covers, right?
      *      Optimization opportunity? Or robustness against invalid packets issue? */
-    srl_read_single_value(aTHX_ dec, into);
+    srl_read_single_value(aTHX_ dec, into, NULL);
     if (expect_false( !SvROK(into) ))
         SRL_ERROR("WEAKEN op");
     referent= SvRV(into);
@@ -1492,7 +1443,7 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
     }  else {
         /* SRL_HDR_OBJECTV, not SRL_HDR_OBJECTV_FREEZE */
         /* now deparse the thing we are going to bless */
-        srl_read_single_value(aTHX_ dec, into);
+        srl_read_single_value(aTHX_ dec, into, NULL);
 
         /* and also stuff it into the av - we dont have to do any more book-keeping */
         av_push(av, SvREFCNT_inc(into));
@@ -1625,7 +1576,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
         av_push(av, SvREFCNT_inc(into));
 
         /* now deparse the thing we are going to bless */
-        srl_read_single_value(aTHX_ dec, into);
+        srl_read_single_value(aTHX_ dec, into, NULL);
 
 #if USE_588_WORKAROUND
         /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */
@@ -1660,7 +1611,7 @@ srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
     if (expect_false( method == NULL ))
         SRL_ERRORf1("No THAW method defined for class '%s'", HvNAME(class_stash));
 
-    srl_read_single_value(aTHX_ dec, into);
+    srl_read_single_value(aTHX_ dec, into, NULL);
 
     /* Assert that we got a top level array ref as the spec requires.
      * Not throwing an exception here violates expectations down the line and
@@ -1756,7 +1707,7 @@ SRL_STATIC_INLINE void
 srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 {
     SV *sv_pat= FRESH_SV();
-    srl_read_single_value(aTHX_ dec, sv_pat);
+    srl_read_single_value(aTHX_ dec, sv_pat, NULL);
     ASSERT_BUF_SPACE(dec, 1, " while reading regexp modifer tag");
     /* For now we will serialize the flags as ascii strings. Maybe we should use
      * something else but this is easy to debug and understand - since the modifiers
@@ -1878,108 +1829,19 @@ srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
     }
     dec->save_pos= dec->pos;
     dec->pos= dec->body_pos + item;
-    srl_read_single_value(aTHX_ dec, into);
+    srl_read_single_value(aTHX_ dec, into, NULL);
     dec->pos= dec->save_pos;
     dec->save_pos= 0;
 }
 
 
-SRL_STATIC_INLINE void
-srl_read_single_value_into_container(pTHX_ srl_decoder_t *dec, SV** container)
-{
-    SV *alias;
-    U32 item;
-    IV iv;
-    U8 tag = *dec->pos;
-
-    /* it helps to think of this somewhat like a switch, except it does
-     * more complicated checks than a single integer expression lookup */
-
-    if (expect_false( tag == SRL_HDR_ALIAS )) {
-        dec->pos++;
-        item= srl_read_varint_uv_offset(aTHX_ dec," while reading ALIAS tag");
-        alias= srl_fetch_item(aTHX_ dec, item, "ALIAS");
-        /* jump forward to the shared aliasing logic */
-        goto do_refcnt_inc_alias;
-    }
-    else
-    if (
-        expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_ALIAS_CHECK_FLAGS) )
-    ) {
-        if (
-            tag == SRL_HDR_UNDEF &&
-            SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_USE_UNDEF)
-        ) {
-            dec->pos++;
-            alias= &PL_sv_undef;
-            /* jump forward to the shared aliasing logic */
-            goto do_alias;
-        }
-        else
-        if (
-            tag <= SRL_HDR_NEG_HIGH &&
-            SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_ALIAS_SMALLINT)
-        ) {
-            dec->pos++;
-            if ( tag <= SRL_HDR_POS_HIGH ) {
-                iv= tag;
-            } else {
-                /* must be a SRL_HDR_NEG tag, subtract 32 to get real value */
-                iv= tag - 32;
-            }
-            /* jump forward to the shared iv caching logic */
-            goto do_aliased_iv;
-        }
-        else
-        if (
-            tag == SRL_HDR_VARINT &&
-            SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_ALIAS_VARINT)
-        ) {
-            U8 *tag_start= dec->pos;
-            dec->pos++;
-            item= srl_read_varint_uv(aTHX_ dec);
-            if ( item < dec->alias_varint_under ) {
-                iv= (IV)item;
-
-              do_aliased_iv:
-                item = iv + 16; /* we always cover from -16 up so we add 16 */
-                if (!AvARRAY(dec->alias_cache)[item] || AvARRAY(dec->alias_cache)[item] == &PL_sv_undef) {
-                    alias= newSViv(iv);
-                    /* mark it as readonly so people dont try to modify it */
-                    SvREADONLY_on(alias);
-                    /* store it in the alias_cache array */
-                    AvARRAY(dec->alias_cache)[item]= alias;
-                } else {
-                    alias= AvARRAY(dec->alias_cache)[item];
-                }
-
-              do_refcnt_inc_alias:
-                SvREFCNT_inc(alias);
-
-              do_alias:
-                if (*container && *container != &PL_sv_undef)
-                    SvREFCNT_dec(*container);
-                *container= alias;
-                return;
-            }
-            else {
-                /* reset parse pointer and fallthrough */
-                dec->pos= tag_start;
-            }
-        }
-    }
-    if (!*container || *container == &PL_sv_undef)
-        *container = FRESH_SV();
-    srl_read_single_value(aTHX_ dec, *container);
-    return;
-}
 
 /****************************************************************************
  * MAIN DISPATCH SUB - ALL ROADS LEAD HERE                                  *
  ****************************************************************************/
 
 SRL_STATIC_INLINE void
-srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
+srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
 {
     STRLEN len;
     U8 tag;
@@ -1997,8 +1859,12 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
 
   read_tag:
     switch (tag) {
-        CASE_SRL_HDR_POS:           sv_setiv(into, tag);                              break;
-        CASE_SRL_HDR_NEG:           sv_setiv(into, (IV)(tag - 32));                   break;
+        CASE_SRL_HDR_POS:
+            srl_setiv(aTHX_ dec, into, container, (IV)tag);
+            break;
+        CASE_SRL_HDR_NEG:
+            srl_setiv(aTHX_ dec, into, container, (IV)(tag - 32));
+            break;
         CASE_SRL_HDR_SHORT_BINARY:
             len= (STRLEN)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
             ASSERT_BUF_SPACE(dec, len, " while reading ascii string");
@@ -2007,8 +1873,8 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
             break;
         CASE_SRL_HDR_HASHREF:       srl_read_hash(aTHX_ dec, into, tag);  is_ref = 1; break;
         CASE_SRL_HDR_ARRAYREF:      srl_read_array(aTHX_ dec, into, tag); is_ref = 1; break;
-        case SRL_HDR_VARINT:        srl_read_varint(aTHX_ dec, into);                 break;
-        case SRL_HDR_ZIGZAG:        srl_read_zigzag(aTHX_ dec, into);                 break;
+        case SRL_HDR_VARINT:        srl_read_varint_into(aTHX_ dec, into, container); break;
+        case SRL_HDR_ZIGZAG:        srl_read_zigzag_into(aTHX_ dec, into, container); break;
 
         case SRL_HDR_FLOAT:         srl_read_float(aTHX_ dec, into);                  break;
         case SRL_HDR_DOUBLE:        srl_read_double(aTHX_ dec, into);                 break;
@@ -2016,8 +1882,19 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
 
         case SRL_HDR_TRUE:          sv_setsv(into, &PL_sv_yes);                       break;
         case SRL_HDR_FALSE:         sv_setsv(into, &PL_sv_no);                        break;
-        case SRL_HDR_CANONICAL_UNDEF: /* fallthrough */
-        case SRL_HDR_UNDEF:         sv_setsv(into, &PL_sv_undef);                     break;
+
+        case SRL_HDR_CANONICAL_UNDEF: /* fallthrough (XXX: is this right?)*/
+        case SRL_HDR_UNDEF:
+        {
+            if (container && SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_USE_UNDEF)){
+                SvREFCNT_dec(into);
+                *container= &PL_sv_undef;
+            } else {
+                sv_setsv(into, &PL_sv_undef);
+            }
+        }
+        break;
+
         case SRL_HDR_BINARY:        srl_read_string(aTHX_ dec, 0, into);              break;
         case SRL_HDR_STR_UTF8:      srl_read_string(aTHX_ dec, 1, into);              break;
 
@@ -2033,7 +1910,20 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
         case SRL_HDR_HASH:          srl_read_hash(aTHX_ dec, into, 0);                break;
         case SRL_HDR_ARRAY:         srl_read_array(aTHX_ dec, into, 0);               break;
         case SRL_HDR_REGEXP:        srl_read_regexp(aTHX_ dec, into);                 break;
-
+        case SRL_HDR_ALIAS:
+        {
+            UV offset;
+            SV *alias;
+            if (!container)
+                SRL_ERROR("ALIAS tag not inside container, corrupt packet?");
+            offset= srl_read_varint_uv_offset(aTHX_ dec," while reading ALIAS tag");
+            alias= srl_fetch_item(aTHX_ dec, offset, "ALIAS");
+            SvREFCNT_inc(alias);
+            SvREFCNT_dec(into);
+            *container= alias;
+            goto done;
+        }
+        break;
         case SRL_HDR_PAD:           /* no op */
             while (BUF_NOT_DONE(dec) && *dec->pos == SRL_HDR_PAD)
                 dec->pos++;
@@ -2056,5 +1946,6 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
         SvREADONLY_on(into);
     }
 
+  done:
     dec->recursion_depth--;
 }
