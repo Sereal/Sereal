@@ -1179,6 +1179,10 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
 #define IS_LVALUE 1
 #endif
 
+#ifndef HvRITER_set
+#define HvRITER_set(sv,v) HvRITER(sv) = v
+#endif
+
 SRL_STATIC_INLINE void
 srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
     UV num_keys;
@@ -1194,11 +1198,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
     /* in some versions of Perl HvRITER() is not properly set on an upgrade SV
      * so we explicitly set it ourselves */
 #ifdef FIXUP_RITER
-#ifdef HvRITER_set
     HvRITER_set(into,-1);
-#else
-    HvRITER(into)= -1;
-#endif
 #endif
 
     /* Limit the maximum number of hash keys that we accept to whetever was configured */
