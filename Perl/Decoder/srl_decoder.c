@@ -1807,7 +1807,6 @@ srl_read_single_value_into_container(pTHX_ srl_decoder_t *dec, SV** container)
     U32 item;
     IV iv;
     U8 tag = *dec->pos;
-    U8 *tag_start= dec->pos;
 
     /* it helps to think of this somewhat like a switch, except it does
      * more complicated checks than a single integer expression lookup */
@@ -1821,12 +1820,11 @@ srl_read_single_value_into_container(pTHX_ srl_decoder_t *dec, SV** container)
     }
     else
     if (
-        SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_ALIAS_CHECK_FLAGS)
+        expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_ALIAS_CHECK_FLAGS) )
     ) {
-
         if (
-            SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_USE_UNDEF) &&
-            tag == SRL_HDR_UNDEF
+            tag == SRL_HDR_UNDEF &&
+            SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_USE_UNDEF)
         ) {
             dec->pos++;
             alias= &PL_sv_undef;
@@ -1835,8 +1833,8 @@ srl_read_single_value_into_container(pTHX_ srl_decoder_t *dec, SV** container)
         }
         else
         if (
-            SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_ALIAS_SMALLINT) &&
-            tag <= SRL_HDR_NEG_HIGH
+            tag <= SRL_HDR_NEG_HIGH &&
+            SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_ALIAS_SMALLINT)
         ) {
             dec->pos++;
             if ( tag <= SRL_HDR_POS_HIGH ) {
@@ -1850,9 +1848,10 @@ srl_read_single_value_into_container(pTHX_ srl_decoder_t *dec, SV** container)
         }
         else
         if (
-            SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_ALIAS_VARINT) &&
-            tag == SRL_HDR_VARINT
+            tag == SRL_HDR_VARINT &&
+            SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_ALIAS_VARINT)
         ) {
+            U8 *tag_start= dec->pos;
             dec->pos++;
             item= srl_read_varint_uv(aTHX_ dec);
             if ( item < dec->alias_varint_under ) {
