@@ -528,13 +528,20 @@ srl_decode_header_into(pTHX_ srl_decoder_t *origdec, SV *src, SV* header_into, U
     return header_into;
 }
 
+/* this SHOULD be newSV_type(SVt_NULL) but newSV(0) is faster :-( */
+#if 1
+#define FRESH_SV() newSV(0)
+#else
+#define FRESH_SV() newSV_type(SVt_NULL);
+#endif
+
 /* This is the main routine to deserialize a Sereal document
  * w/o data in header. */
 SV *
 srl_decode_into(pTHX_ srl_decoder_t *dec, SV *src, SV* body_into, UV start_offset)
 {
     if (expect_true(!body_into))
-        body_into= sv_2mortal(newSV_type(SVt_NULL));
+        body_into= sv_2mortal(FRESH_SV());
     srl_decode_into_internal(aTHX_ dec, src, NULL, body_into, start_offset);
     return body_into;
 }
@@ -1308,7 +1315,7 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
         referent= &PL_sv_undef;
     }
     else {
-        referent= newSV(SVt_NULL);
+        referent= FRESH_SV();
         SvTEMP_off(referent);
         tag = 0;
     }
@@ -1664,7 +1671,7 @@ srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into)
 SRL_STATIC_INLINE void
 srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    SV *sv_pat= newSV_type(SVt_NULL);
+    SV *sv_pat= FRESH_SV();
     srl_read_single_value(aTHX_ dec, sv_pat);
     ASSERT_BUF_SPACE(dec, 1, " while reading regexp modifer tag");
     /* For now we will serialize the flags as ascii strings. Maybe we should use
@@ -1879,7 +1886,7 @@ srl_read_single_value_into_container(pTHX_ srl_decoder_t *dec, SV** container)
         }
     }
     if (!*container || *container == &PL_sv_undef)
-        *container = newSV_type(SVt_NULL);
+        *container = FRESH_SV();
     srl_read_single_value(aTHX_ dec, *container);
     return;
 }
