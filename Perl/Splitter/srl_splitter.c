@@ -43,8 +43,8 @@ extern "C" {
 
 #include "srl_protocol.h"
 
-#define SRL_SPLITTER_TRACE(msg, args...) warn((msg), args)
-//#define SRL_SPLITTER_TRACE(msg, args...)
+//#define SRL_SPLITTER_TRACE(msg, args...) warn((msg), args)
+#define SRL_SPLITTER_TRACE(msg, args...)
 
 #include "srl_splitter.h"
 #include "srl_common.h"
@@ -913,6 +913,9 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
     splitter->chunk_nb_elts = 0;
 
     splitter->chunk_body_pos = splitter->chunk_start;
+
+    /* allocate the chunk to avoid multiple memory allocation */
+    SvGROW(splitter->chunk, splitter->size_limit + 50);
 
     /* for some reason, jump offset start at 1 in sereal spec, go figure why */
     splitter->chunk_current_offset = 1;
