@@ -127,7 +127,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
                                         ? srl_init_freezeobj_svhash(enc)    \
                                         : (enc)->freezeobj_svhash )
 
-#define SRL_ENC_UPDATE_BODY_POS(enc) SRL_UPDATE_BODY_POS(&(enc)->buf, (enc)->protocol_version)
+#define SRL_ENC_UPDATE_BODY_POS(enc) SRL_UPDATE_BODY_POS(&(enc)->buf, (enc)->protocol_version == 1)
 
 #ifndef MAX_CHARSET_NAME_LENGTH
 #    define MAX_CHARSET_NAME_LENGTH 2

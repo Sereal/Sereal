@@ -52,6 +52,7 @@ extern "C" {
 #include "srl_protocol.h"
 #include "srl_taginfo.h"
 #include "srl_error.h"
+#include "srl_buffer.h"
 
 #if defined(HAVE_CSNAPPY)
 #include <csnappy.h>
@@ -148,10 +149,10 @@ SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 
 
 #define ASSERT_BUF_SPACE(dec,len,msg) STMT_START {                  \
-    if (expect_false( (UV)BUF_SPACE((dec)) < (UV)(len) )) {         \
+    if (expect_false( (UV)BUF_SPACE(&(dec)->buf) < (UV)(len) )) {   \
         SRL_ERRORf3("Unexpected termination of packet%s, "          \
                     "want %lu bytes, only have %lu available",      \
-                    (msg), (UV)(len), (UV)BUF_SPACE((dec)));        \
+                    (msg), (UV)(len), (UV)BUF_SPACE(&(dec)->buf));  \
     }                                                               \
 } STMT_END
 
@@ -387,11 +388,10 @@ srl_realloc_empty_buffer(pTHX_ srl_decoder_t *dec,
     buf_sv = sv_2mortal( newSV(header_len + body_len + 1 ));
     buf = (unsigned char *)SvPVX(buf_sv);
 
-    dec->buf_start = buf;
-    dec->pos = buf + header_len;
-    SRL_UPDATE_BODY_POS(dec);
-    dec->buf_end = dec->pos + body_len;
-    dec->buf_len = body_len + header_len;
+    dec->buf.start = buf;
+    dec->buf.pos = buf + header_len;
+    SRL_DEC_UPDATE_BODY_POS(dec);
+    dec->buf.end = dec->buf.pos + body_len;
 }
 
 /* Decompress a Snappy-compressed document body and put the resulting
@@ -401,34 +401,34 @@ srl_decompress_body_snappy(pTHX_ srl_decoder_t *dec)
 {
     uint32_t dest_len;
     unsigned char *old_pos;
-    const ptrdiff_t sereal_header_len = dec->pos - dec->buf_start;
+    const ptrdiff_t sereal_header_len = dec->buf.pos - dec->buf.start;
     const STRLEN compressed_packet_len =
         dec->encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL
         ? (STRLEN)srl_read_varint_uv_length(aTHX_ dec, " while reading compressed packet size")
-        : (STRLEN)(dec->buf_end - dec->pos);
+        : (STRLEN)(dec->buf.end - dec->buf.pos);
     int decompress_ok;
     int header_len;
 
     /* All decl's above here, or we break C89 compilers */
 
-    dec->bytes_consumed= compressed_packet_len + (dec->pos - dec->buf_start);
+    dec->bytes_consumed= compressed_packet_len + (dec->buf.pos - dec->buf.start);
 
     header_len = csnappy_get_uncompressed_length(
-            (char *)dec->pos,
+            (char *)dec->buf.pos,
             compressed_packet_len,
             &dest_len
             );
     if (header_len == CSNAPPY_E_HEADER_BAD)
         SRL_ERROR("Invalid Snappy header in Snappy-compressed Sereal packet");
 
-    old_pos = dec->pos;
+    old_pos = dec->buf.pos;
 
     /* Allocate output buffer and swap it into place within the decoder. */
     srl_realloc_empty_buffer(aTHX_ dec, sereal_header_len, dest_len);
 
     decompress_ok = csnappy_decompress_noheader((char *)(old_pos + header_len),
             compressed_packet_len - header_len,
-            (char *)dec->pos,
+            (char *)dec->buf.pos,
             &dest_len);
     if (expect_false( decompress_ok != 0 ))
     {
@@ -442,7 +442,7 @@ SRL_STATIC_INLINE void
 srl_decompress_body_zlib(pTHX_ srl_decoder_t *dec)
 {
     unsigned char *old_pos;
-    const ptrdiff_t sereal_header_len = dec->pos - dec->buf_start;
+    const ptrdiff_t sereal_header_len = dec->buf.pos - dec->buf.start;
     const STRLEN uncompressed_packet_len = (STRLEN)srl_read_varint_uv(aTHX_ dec);
     const STRLEN compressed_packet_len =
         (STRLEN)srl_read_varint_uv_length(aTHX_ dec, " while reading compressed packet size");
@@ -451,16 +451,16 @@ srl_decompress_body_zlib(pTHX_ srl_decoder_t *dec)
 
     /* All decl's above here, or we break C89 compilers */
 
-    dec->bytes_consumed= compressed_packet_len + (dec->pos - dec->buf_start);
+    dec->bytes_consumed= compressed_packet_len + (dec->buf.pos - dec->buf.start);
 
-    old_pos = dec->pos;
+    old_pos = dec->buf.pos;
 
 
     /* Allocate output buffer and swap it into place within the decoder. */
     srl_realloc_empty_buffer(aTHX_ dec, sereal_header_len, uncompressed_packet_len);
     tmp = uncompressed_packet_len;
     decompress_ok = mz_uncompress(
-        (unsigned char *)dec->pos,
+        (unsigned char *)dec->buf.pos,
         &tmp,
         (const unsigned char *)old_pos,
         compressed_packet_len
@@ -483,7 +483,7 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
     assert(origdec != NULL);
     dec = srl_begin_decoding(aTHX_ origdec, src, start_offset);
     srl_read_header(aTHX_ dec, header_into);
-    SRL_UPDATE_BODY_POS(dec);
+    SRL_DEC_UPDATE_BODY_POS(dec);
     if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY) )) {
         srl_decompress_body_snappy(aTHX_ dec);
         origdec->bytes_consumed = dec->bytes_consumed;
@@ -501,7 +501,7 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
     /* If we aren't reading from a decompressed buffer we have to remember the number
      * of bytes used for the user to query. */
     if (dec->bytes_consumed == 0) {
-        dec->bytes_consumed = dec->pos - dec->buf_start;
+        dec->bytes_consumed = dec->buf.pos - dec->buf.start;
         origdec->bytes_consumed = dec->bytes_consumed;
     }
 
@@ -555,12 +555,12 @@ srl_decode_all_into(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV *body
 SRL_STATIC_INLINE void
 srl_clear_decoder(pTHX_ srl_decoder_t *dec)
 {
-    if (dec->buf_start == dec->buf_end)
+    if (dec->buf.start == dec->buf.end)
         return;
 
     srl_clear_decoder_body_state(aTHX_ dec);
     SRL_DEC_RESET_VOLATILE_FLAGS(dec);
-    dec->body_pos = dec->buf_start = dec->buf_end = dec->pos = dec->save_pos = NULL;
+    dec->buf.body_pos = dec->buf.start = dec->buf.end = dec->buf.pos = dec->save_pos = NULL;
 }
 
 SRL_STATIC_INLINE void
@@ -618,10 +618,9 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset)
     if (expect_false( start_offset > len )) {
         SRL_ERROR("Start offset is beyond input string length");
     }
-    dec->buf_start= dec->pos= tmp + start_offset;
-    dec->buf_end= dec->buf_start + len - start_offset;
-    dec->buf_len= len - start_offset;
-    SRL_SET_BODY_POS(dec, dec->buf_start);
+    dec->buf.start= dec->buf.pos= tmp + start_offset;
+    dec->buf.end= dec->buf.start + len - start_offset;
+    SRL_SET_BODY_POS(&dec->buf, dec->buf.start);
     dec->bytes_consumed = 0;
 
     return dec;
@@ -673,7 +672,7 @@ SRL_STATIC_INLINE void
 srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
 {
     UV header_len;
-    IV proto_version_and_encoding_flags_int= srl_validate_header_version_pv_len(aTHX_ (char *)BUF_POS(dec), BUF_SPACE(dec));
+    IV proto_version_and_encoding_flags_int= srl_validate_header_version_pv_len(aTHX_ (char *)dec->buf.pos, BUF_SPACE(&dec->buf));
 
     if ( expect_false(proto_version_and_encoding_flags_int < 1) ) {
         if (proto_version_and_encoding_flags_int == 0)
@@ -682,7 +681,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
             SRL_ERROR("Bad Sereal header: Not a valid Sereal document.");
     }
     else {
-        dec->pos += 5;
+        dec->buf.pos += 5;
 
         dec->proto_version = (U8)(proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
         dec->encoding_flags = (U8)(proto_version_and_encoding_flags_int & SRL_PROTOCOL_ENCODING_MASK);
@@ -720,7 +719,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
                          dec->encoding_flags >> SRL_PROTOCOL_VERSION_BITS);
         }
 
-        /* Must do this via a temporary as it modifes dec->pos itself */
+        /* Must do this via a temporary as it modifes dec->buf.pos itself */
         header_len= srl_read_varint_uv_length(aTHX_ dec, " while reading header");
 
         if (dec->proto_version > 1 && header_len) {
@@ -728,10 +727,10 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
              *  - 8bit bitfield
              *  - if lowest bit set, we have custom-header-user-data after the bitfield
              *  => Only read header user data if an SV* was passed in to fill. */
-            const U8 bitfield = *(dec->pos++);
+            const U8 bitfield = *(dec->buf.pos++);
             if (bitfield & SRL_PROTOCOL_HDR_USER_DATA && header_user_data != NULL) {
                 /* Do an actual document body deserialization for the user data: */
-                SRL_UPDATE_BODY_POS(dec);
+                SRL_DEC_UPDATE_BODY_POS(dec);
                 srl_read_single_value(aTHX_ dec, header_user_data);
                 if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE))) {
                     srl_finalize_structure(aTHX_ dec);
@@ -740,13 +739,13 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
             }
             else {
                 /* Either off in bitfield or no user data wanted, skip to end of header */
-                dec->pos += header_len - 1; /* header_len includes bitfield */
+                dec->buf.pos += header_len - 1; /* header_len includes bitfield */
             }
         }
         else {
             /* Skip header since we don't have any defined header-content in this
              * protocol version. */
-            dec->pos += header_len;
+            dec->buf.pos += header_len;
         }
     }
 }
@@ -823,14 +822,14 @@ srl_read_varint_uv_safe(pTHX_ srl_decoder_t *dec)
     UV uv= 0;
     unsigned int lshift= 0;
 
-    while (BUF_NOT_DONE(dec) && *dec->pos & 0x80) {
-        uv |= ((UV)(*dec->pos++ & 0x7F) << lshift);
+    while (BUF_NOT_DONE(&dec->buf) && *dec->buf.pos & 0x80) {
+        uv |= ((UV)(*dec->buf.pos++ & 0x7F) << lshift);
         lshift += 7;
         if (lshift > (sizeof(UV) * 8))
             SRL_ERROR("varint too big");
     }
-    if (expect_true( BUF_NOT_DONE(dec) )) {
-        uv |= ((UV)*dec->pos++ << lshift);
+    if (expect_true( BUF_NOT_DONE(&dec->buf) )) {
+        uv |= ((UV)*dec->buf.pos++ << lshift);
     } else {
         SRL_ERROR("end of packet reached before varint parsed");
     }
@@ -886,20 +885,20 @@ srl_read_varint_uv_nocheck(pTHX_ srl_decoder_t *dec)
     UV uv= 0;
     unsigned int lshift= 0;
 
-    while (*dec->pos & 0x80) {
-        uv |= ((UV)(*dec->pos++ & 0x7F) << lshift);
+    while (*dec->buf.pos & 0x80) {
+        uv |= ((UV)(*dec->buf.pos++ & 0x7F) << lshift);
         lshift += 7;
         if (expect_false( lshift > (sizeof(UV) * 8) ))
             SRL_ERROR("varint too big");
     }
-    uv |= ((UV)(*dec->pos++) << lshift);
+    uv |= ((UV)(*dec->buf.pos++) << lshift);
     return uv;
 }
 
 SRL_STATIC_INLINE UV
 srl_read_varint_u32_nocheck(pTHX_ srl_decoder_t *dec)
 {
-    const U8* ptr = dec->pos;
+    const U8* ptr = dec->buf.pos;
     U32 b;
 
     U32 part0 = 0;
@@ -917,7 +916,7 @@ srl_read_varint_u32_nocheck(pTHX_ srl_decoder_t *dec)
     SRL_ERROR("varint overflows U32, cannot restore packet");
 
    done:
-    dec->pos= (U8*)ptr;
+    dec->buf.pos= (U8*)ptr;
 
     return part0;
 }
@@ -926,11 +925,11 @@ SRL_STATIC_INLINE UV
 srl_read_varint_u64_nocheck(pTHX_ srl_decoder_t *dec)
 {
     UV uv;
-    const U8* ptr = dec->pos;
+    const U8* ptr = dec->buf.pos;
 
     SET_UV_FROM_VARINT(uv, ptr);
 
-    dec->pos= (U8*)ptr;
+    dec->buf.pos= (U8*)ptr;
 
     return uv;
 }
@@ -940,7 +939,7 @@ srl_read_varint_u64_nocheck(pTHX_ srl_decoder_t *dec)
 SRL_STATIC_INLINE UV
 srl_read_varint_uv(pTHX_ srl_decoder_t *dec)
 {
-    if (expect_true( dec->buf_end - dec->pos >= 10 ) || (dec->buf_end[-1] & 0x80)) {
+    if (expect_true( dec->buf.end - dec->buf.pos >= 10 ) || (dec->buf.end[-1] & 0x80)) {
         if (sizeof(UV)==sizeof(U32)) {
             return srl_read_varint_u32_nocheck(aTHX_ dec);
         } else {
@@ -956,9 +955,9 @@ srl_read_varint_uv_offset(pTHX_ srl_decoder_t *dec, const char * const errstr)
 {
     UV len= srl_read_varint_uv(aTHX_ dec);
 
-    if (dec->body_pos + len >= dec->pos) {
+    if (dec->buf.body_pos + len >= dec->buf.pos) {
         SRL_ERRORf4("Corrupted packet%s. Offset %lu points past current position %lu in packet with length of %lu bytes long",
-                errstr, (unsigned long)len, (unsigned long)BUF_POS_OFS(dec), (unsigned long)dec->buf_len);
+                errstr, (unsigned long)len, (unsigned long)BUF_POS_OFS(&dec->buf), (unsigned long) BUF_SIZE(&dec->buf));
     }
     return len;
 }
@@ -990,7 +989,7 @@ srl_track_thawed(srl_decoder_t *dec, U8 *track_pos, SV *sv)
 {
     if (!dec->ref_thawhash)
         dec->ref_thawhash = PTABLE_new();
-    PTABLE_store(dec->ref_thawhash, (void *)(track_pos - dec->body_pos), (void *)sv);
+    PTABLE_store(dec->ref_thawhash, (void *)(track_pos - dec->buf.body_pos), (void *)sv);
 }
 
 
@@ -1008,7 +1007,7 @@ srl_fetch_thawed(srl_decoder_t *dec, UV item)
 SRL_STATIC_INLINE void
 srl_track_sv(pTHX_ srl_decoder_t *dec, U8 *track_pos, SV *sv)
 {
-    PTABLE_store(dec->ref_seenhash, (void *)(track_pos - dec->body_pos), (void *)sv);
+    PTABLE_store(dec->ref_seenhash, (void *)(track_pos - dec->buf.body_pos), (void *)sv);
 }
 
 
@@ -1063,17 +1062,17 @@ srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
     UV len= srl_read_varint_uv_length(aTHX_ dec, " while reading string");
     if (is_utf8 && SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8)) {
         /* checks for invalid byte sequences. */
-        if (expect_false( !is_utf8_string((U8*)dec->pos, len) )) {
+        if (expect_false( !is_utf8_string((U8*)dec->buf.pos, len) )) {
             SRL_ERROR("Invalid UTF8 byte sequence");
         }
     }
-    sv_setpvn(into,(char *)dec->pos,len);
+    sv_setpvn(into,(char *)dec->buf.pos,len);
     if (is_utf8) {
         SvUTF8_on(into);
     } else {
         SvUTF8_off(into);
     }
-    dec->pos+= len;
+    dec->buf.pos+= len;
 }
 
 /* declare a union so that we are guaranteed the right alignment
@@ -1095,12 +1094,12 @@ srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
     union myfloat val;
     ASSERT_BUF_SPACE(dec, sizeof(float), " while reading FLOAT");
 #if SRL_USE_ALIGNED_LOADS_AND_STORES
-    Copy(dec->pos,val.c,sizeof(float),U8);
+    Copy(dec->buf.pos,val.c,sizeof(float),U8);
 #else
-    val.f= *((float *)dec->pos);
+    val.f= *((float *)dec->buf.pos);
 #endif
     sv_setnv(into, (NV)val.f);
-    dec->pos+= sizeof(float);
+    dec->buf.pos+= sizeof(float);
 }
 
 
@@ -1110,12 +1109,12 @@ srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
     union myfloat val;
     ASSERT_BUF_SPACE(dec, sizeof(double), " while reading DOUBLE");
 #if SRL_USE_ALIGNED_LOADS_AND_STORES
-    Copy(dec->pos,val.c,sizeof(double),U8);
+    Copy(dec->buf.pos,val.c,sizeof(double),U8);
 #else
-    val.d= *((double *)dec->pos);
+    val.d= *((double *)dec->buf.pos);
 #endif
     sv_setnv(into, (NV)val.d);
-    dec->pos+= sizeof(double);
+    dec->buf.pos+= sizeof(double);
 }
 
 
@@ -1125,12 +1124,12 @@ srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
     union myfloat val;
     ASSERT_BUF_SPACE(dec, sizeof(long double), " while reading LONG_DOUBLE");
 #if SRL_USE_ALIGNED_LOADS_AND_STORES
-    Copy(dec->pos,val.c,sizeof(long double),U8);
+    Copy(dec->buf.pos,val.c,sizeof(long double),U8);
 #else
-    val.ld= *((long double *)dec->pos);
+    val.ld= *((long double *)dec->buf.pos);
 #endif
     sv_setnv(into, (NV)val.ld);
-    dec->pos+= sizeof(long double);
+    dec->buf.pos+= sizeof(long double);
 }
 
 
@@ -1216,20 +1215,20 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         U32 flags= 0;
 #endif
         ASSERT_BUF_SPACE(dec,1," while reading key tag byte for HASH");
-        tag= (*dec->pos++)&127;
+        tag= (*dec->buf.pos++)&127;
         if (IS_SRL_HDR_SHORT_BINARY(tag)) {
             key_len= (IV)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
             ASSERT_BUF_SPACE(dec,key_len," while reading string/SHORT_BINARY key");
-            from= dec->pos;
-            dec->pos += key_len;
+            from= dec->buf.pos;
+            dec->buf.pos += key_len;
         } else if (tag == SRL_HDR_BINARY) {
             key_len= (IV)srl_read_varint_uv_length(aTHX_ dec, " while reading string/BINARY key");
-            from= dec->pos;
-            dec->pos += key_len;
+            from= dec->buf.pos;
+            dec->buf.pos += key_len;
         } else if (tag == SRL_HDR_STR_UTF8) {
             key_len= (IV)srl_read_varint_uv_length(aTHX_ dec, " while reading UTF8 key");
-            from= dec->pos;
-            dec->pos += key_len;
+            from= dec->buf.pos;
+            dec->buf.pos += key_len;
 #ifdef OLDHASH
             key_len= -key_len;
 #else
@@ -1237,7 +1236,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
 #endif
         } else if (tag == SRL_HDR_COPY) {
             UV ofs= srl_read_varint_uv_offset(aTHX_ dec, " while reading COPY tag");
-            from= dec->body_pos + ofs;
+            from= dec->buf.body_pos + ofs;
             tag= *from++;
             /* note we do NOT validate these items, as we have alread read them
              * and if they were a problem we would not be here to process them! */
@@ -1281,13 +1280,13 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
 {
     SV *referent;
     ASSERT_BUF_SPACE(dec, 1, " while reading REFN referent");
-    U8 tag= *(dec->pos); /* Look ahead for special vars. */
+    U8 tag= *(dec->buf.pos); /* Look ahead for special vars. */
     if (tag == SRL_HDR_TRUE) {
-        dec->pos++;
+        dec->buf.pos++;
         referent= &PL_sv_yes;
     }
     else if (tag == SRL_HDR_FALSE) {
-        dec->pos++;
+        dec->buf.pos++;
         referent= &PL_sv_no;
     }
     /*
@@ -1304,7 +1303,7 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
         ||
         ( SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_USE_UNDEF) && tag == SRL_HDR_UNDEF )
     ) {
-        dec->pos++;
+        dec->buf.pos++;
         referent= &PL_sv_undef;
     }
     else {
@@ -1443,25 +1442,25 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
     ASSERT_BUF_SPACE(dec,1," while reading classname tag");
 
     /* Now read the class name and cache it */
-    storepos= BODY_POS_OFS(dec);
-    tag= *dec->pos++;
+    storepos= BODY_POS_OFS(&dec->buf);
+    tag= *dec->buf.pos++;
     if (IS_SRL_HDR_SHORT_BINARY(tag)) {
         key_len= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
-        from= dec->pos;
-        dec->pos += key_len;
+        from= dec->buf.pos;
+        dec->buf.pos += key_len;
     }
     else
     if (tag == SRL_HDR_STR_UTF8) {
         key_len= srl_read_varint_uv_length(aTHX_ dec, " while reading UTF8 class name");
         flags = flags | SVf_UTF8;
-        from= dec->pos;
-        dec->pos += key_len;
+        from= dec->buf.pos;
+        dec->buf.pos += key_len;
     }
     else
     if (tag == SRL_HDR_BINARY) {
         key_len= srl_read_varint_uv_length(aTHX_ dec, " while reading string/BINARY class name");
-        from= dec->pos;
-        dec->pos += key_len;
+        from= dec->buf.pos;
+        dec->buf.pos += key_len;
     }
     else
     if (tag == SRL_HDR_COPY) {
@@ -1478,7 +1477,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
         /* Check if we actually got a class_stash back. If we didn't then we need
          * to deserialize the class name */
         if (!class_stash) {
-            from= dec->body_pos + ofs;
+            from= dec->buf.body_pos + ofs;
             tag= *from++;
             /* Note we do NOT validate these items, as we have already read them
              * and if they were a problem we would not be here to process them! */
@@ -1564,7 +1563,7 @@ srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
      * that representation in the refs hash.
      */
 
-    unsigned char *fixup_pos= dec->pos + 1; /* get the tag for the WHATEVER */
+    unsigned char *fixup_pos= dec->buf.pos + 1; /* get the tag for the WHATEVER */
 
     if (expect_false( method == NULL ))
         SRL_ERRORf1("No THAW method defined for class '%s'", HvNAME(class_stash));
@@ -1644,7 +1643,7 @@ srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into)
     const UV len = srl_read_varint_uv_length(aTHX_ dec, " while reading reserved");
     (void)tag; /* unused as of now */
 
-    dec->pos += len; /* discard */
+    dec->buf.pos += len; /* discard */
     sv_setsv(into, &PL_sv_undef);
 }
 
@@ -1670,13 +1669,13 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
     /* For now we will serialize the flags as ascii strings. Maybe we should use
      * something else but this is easy to debug and understand - since the modifiers
      * are tagged it doesn't matter much, we can add other tags later */
-    if ( expect_true( IS_SRL_HDR_SHORT_BINARY(*dec->pos) ) ) {
-        U8 mod_len= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(*dec->pos++);
+    if ( expect_true( IS_SRL_HDR_SHORT_BINARY(*dec->buf.pos) ) ) {
+        U8 mod_len= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(*dec->buf.pos++);
         U32 flags= 0;
         ASSERT_BUF_SPACE(dec, mod_len, " while reading regexp modifiers");
         while (mod_len > 0) {
             mod_len--;
-            switch (*dec->pos++) {
+            switch (*dec->buf.pos++) {
                 case 'm':
                     flags= flags | PMf_MULTILINE;
                     break;
@@ -1782,13 +1781,13 @@ srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
     if (expect_false( dec->save_pos )) {
         SRL_ERRORf1("COPY(%d) called during parse", (int)item);
     }
-    if (expect_false( (IV)item > dec->buf_end - dec->buf_start )) {
+    if (expect_false( (IV)item > dec->buf.end - dec->buf.start )) {
         SRL_ERRORf1("COPY(%d) points out of packet", (int)item);
     }
-    dec->save_pos= dec->pos;
-    dec->pos= dec->body_pos + item;
+    dec->save_pos= dec->buf.pos;
+    dec->buf.pos= dec->buf.body_pos + item;
     srl_read_single_value(aTHX_ dec, into);
-    dec->pos= dec->save_pos;
+    dec->buf.pos= dec->save_pos;
     dec->save_pos= 0;
 }
 
@@ -1799,14 +1798,14 @@ srl_read_single_value_into_container(pTHX_ srl_decoder_t *dec, SV** container)
     SV *alias;
     U32 item;
     IV iv;
-    U8 tag = *dec->pos;
-    U8 *tag_start= dec->pos;
+    U8 tag = *dec->buf.pos;
+    U8 *tag_start= dec->buf.pos;
 
     /* it helps to think of this somewhat like a switch, except it does
      * more complicated checks than a single integer expression lookup */
 
     if (expect_false( tag == SRL_HDR_ALIAS )) {
-        dec->pos++;
+        dec->buf.pos++;
         item= srl_read_varint_uv_offset(aTHX_ dec," while reading ALIAS tag");
         alias= srl_fetch_item(aTHX_ dec, item, "ALIAS");
         /* jump forward to the shared aliasing logic */
@@ -1821,7 +1820,7 @@ srl_read_single_value_into_container(pTHX_ srl_decoder_t *dec, SV** container)
             SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_USE_UNDEF) &&
             tag == SRL_HDR_UNDEF
         ) {
-            dec->pos++;
+            dec->buf.pos++;
             alias= &PL_sv_undef;
             /* jump forward to the shared aliasing logic */
             goto do_alias;
@@ -1831,7 +1830,7 @@ srl_read_single_value_into_container(pTHX_ srl_decoder_t *dec, SV** container)
             SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_ALIAS_SMALLINT) &&
             tag <= SRL_HDR_NEG_HIGH
         ) {
-            dec->pos++;
+            dec->buf.pos++;
             if ( tag <= SRL_HDR_POS_HIGH ) {
                 iv= tag;
             } else {
@@ -1846,7 +1845,7 @@ srl_read_single_value_into_container(pTHX_ srl_decoder_t *dec, SV** container)
             SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_ALIAS_VARINT) &&
             tag == SRL_HDR_VARINT
         ) {
-            dec->pos++;
+            dec->buf.pos++;
             item= srl_read_varint_uv(aTHX_ dec);
             if ( item < dec->alias_varint_under ) {
                 iv= (IV)item;
@@ -1874,7 +1873,7 @@ srl_read_single_value_into_container(pTHX_ srl_decoder_t *dec, SV** container)
             }
             else {
                 /* reset parse pointer and fallthrough */
-                dec->pos= tag_start;
+                dec->buf.pos= tag_start;
             }
         }
     }
@@ -1900,10 +1899,10 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
     }
 
   read_again:
-    if (expect_false( BUF_DONE(dec) ))
+    if (expect_false( BUF_DONE(&dec->buf) ))
         SRL_ERROR("unexpected end of input stream while expecting a single value");
 
-    tag= *dec->pos++;
+    tag= *dec->buf.pos++;
 
   read_tag:
     switch (tag) {
@@ -1912,8 +1911,8 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
         CASE_SRL_HDR_SHORT_BINARY:
             len= (STRLEN)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
             ASSERT_BUF_SPACE(dec, len, " while reading ascii string");
-            sv_setpvn(into,(char*)dec->pos,len);
-            dec->pos += len;
+            sv_setpvn(into,(char*)dec->buf.pos,len);
+            dec->buf.pos += len;
             break;
         CASE_SRL_HDR_HASHREF:       srl_read_hash(aTHX_ dec, into, tag);  is_ref = 1; break;
         CASE_SRL_HDR_ARRAYREF:      srl_read_array(aTHX_ dec, into, tag); is_ref = 1; break;
@@ -1945,14 +1944,14 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into)
         case SRL_HDR_REGEXP:        srl_read_regexp(aTHX_ dec, into);                 break;
 
         case SRL_HDR_PAD:           /* no op */
-            while (BUF_NOT_DONE(dec) && *dec->pos == SRL_HDR_PAD)
-                dec->pos++;
+            while (BUF_NOT_DONE(&dec->buf) && *dec->buf.pos == SRL_HDR_PAD)
+                dec->buf.pos++;
             goto read_again;
         break;
         default:
             if (tag & SRL_HDR_TRACK_FLAG) {
                 tag= tag & ~SRL_HDR_TRACK_FLAG;
-                srl_track_sv(aTHX_ dec, dec->pos-1, into);
+                srl_track_sv(aTHX_ dec, dec->buf.pos-1, into);
                 goto read_tag;
             } else { 
                 SRL_ERROR_UNEXPECTED(dec,tag, " single value");

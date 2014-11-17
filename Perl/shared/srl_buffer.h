@@ -31,9 +31,9 @@
 
 /* these are mostly for right between (de)serializing the header and the body */
 #define SRL_SET_BODY_POS(buf, pos_ptr) ((buf)->body_pos = pos_ptr)
-#define SRL_UPDATE_BODY_POS(buf, protocol_version)                          \
+#define SRL_UPDATE_BODY_POS(buf, is_protocol_version_one)                   \
     STMT_START {                                                            \
-        if (expect_false((protocol_version) == 1)) {                        \
+        if (expect_false(is_protocol_version_one)) {                        \
             SRL_SET_BODY_POS((buf), (buf)->start);                          \
         } else {                                                            \
             SRL_SET_BODY_POS((buf), (buf)->pos-1);                          \
