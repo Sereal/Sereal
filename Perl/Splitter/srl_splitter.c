@@ -56,7 +56,7 @@ extern "C" {
 
 #include "uthash.h"
 
-#define STACK_SIZE_INCR 64
+#define STACK_SIZE_INCR 1024
 
 #define IS_SRL_HDR_ARRAYREF(tag) (((tag) & SRL_HDR_ARRAYREF) == SRL_HDR_ARRAYREF)
 #define IS_SRL_HDR_HASHREF(tag) (((tag) & SRL_HDR_HASHREF) == SRL_HDR_HASHREF)
