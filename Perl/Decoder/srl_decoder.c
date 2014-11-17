@@ -1169,7 +1169,91 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
         av_end= av_array + len;
 
         for ( ; av_array < av_end ; av_array++) {
-            srl_read_single_value_into_container(aTHX_ dec, av_array);
+            /* this is: srl_read_single_value_into_container(aTHX_ dec, av_array);
+             * unrolled for arrays. */
+            {
+                SV *alias;
+                U32 item;
+                IV iv;
+                U8 tag = *dec->pos;
+
+                /* it helps to think of this somewhat like a switch, except it does
+                 * more complicated checks than a single integer expression lookup */
+
+                if (expect_false( tag == SRL_HDR_ALIAS )) {
+                    dec->pos++;
+                    item= srl_read_varint_uv_offset(aTHX_ dec," while reading ALIAS tag");
+                    alias= srl_fetch_item(aTHX_ dec, item, "ALIAS");
+                    /* jump forward to the shared aliasing logic */
+                    goto do_refcnt_inc_alias;
+                }
+                else
+                if (
+                    expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_ALIAS_CHECK_FLAGS) )
+                ) {
+                    if (
+                        tag == SRL_HDR_UNDEF &&
+                        SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_USE_UNDEF)
+                    ) {
+                        dec->pos++;
+                        alias= &PL_sv_undef;
+                        /* jump forward to the shared aliasing logic */
+                        goto do_alias;
+                    }
+                    else
+                    if (
+                        tag <= SRL_HDR_NEG_HIGH &&
+                        SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_ALIAS_SMALLINT)
+                    ) {
+                        dec->pos++;
+                        if ( tag <= SRL_HDR_POS_HIGH ) {
+                            iv= tag;
+                        } else {
+                            /* must be a SRL_HDR_NEG tag, subtract 32 to get real value */
+                            iv= tag - 32;
+                        }
+                        /* jump forward to the shared iv caching logic */
+                        goto do_aliased_iv;
+                    }
+                    else
+                    if (
+                        tag == SRL_HDR_VARINT &&
+                        SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_ALIAS_VARINT)
+                    ) {
+                        U8 *tag_start= dec->pos;
+                        dec->pos++;
+                        item= srl_read_varint_uv(aTHX_ dec);
+                        if ( item < dec->alias_varint_under ) {
+                            iv= (IV)item;
+
+                          do_aliased_iv:
+                            item = iv + 16; /* we always cover from -16 up so we add 16 */
+                            if (!AvARRAY(dec->alias_cache)[item] || AvARRAY(dec->alias_cache)[item] == &PL_sv_undef) {
+                                alias= newSViv(iv);
+                                /* mark it as readonly so people don't try to modify it */
+                                SvREADONLY_on(alias);
+                                /* store it in the alias_cache array */
+                                AvARRAY(dec->alias_cache)[item]= alias;
+                            } else {
+                                alias= AvARRAY(dec->alias_cache)[item];
+                            }
+
+                          do_refcnt_inc_alias:
+                            SvREFCNT_inc(alias);
+
+                          do_alias:
+                            *av_array= alias;
+                            return;
+                        }
+                        else {
+                            /* reset parse pointer and fallthrough */
+                            dec->pos= tag_start;
+                        }
+                    }
+                }
+                *av_array = FRESH_SV();
+                srl_read_single_value(aTHX_ dec, *av_array);
+            }
         }
     }
 }
