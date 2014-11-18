@@ -283,7 +283,7 @@ srl_build_merger_struct(pTHX_ HV *opt)
     srl_buf_cat_char_nocheck(&mrg->obuf, (U8) mrg->protocol_version);
     srl_buf_cat_char_nocheck(&mrg->obuf, '\0');
 
-    SRL_UPDATE_BODY_POS(&mrg->obuf, mrg->protocol_version == 1);
+    SRL_UPDATE_BODY_POS(&mrg->obuf, mrg->protocol_version);
 
     if (!SRL_MRG_HAVE_OPTION(mrg, SRL_F_TOPLEVEL_KEY_SCALAR)) {
         srl_buf_cat_char_nocheck(&mrg->obuf, SRL_HDR_REFN);
@@ -404,7 +404,7 @@ srl_merger_finish(pTHX_ srl_merger_t *mrg)
          * so body's offset is fixed and always 5
          * (i.e. =srl + 1 byte for version + 1 byte for header) */
         srl_compress_body(&mrg->obuf, 6, mrg->flags, 0, &mrg->snappy_workmem);
-        SRL_UPDATE_BODY_POS(&mrg->obuf, mrg->protocol_version == 1);
+        SRL_UPDATE_BODY_POS(&mrg->obuf, mrg->protocol_version);
         DEBUG_ASSERT_BUF_SANE(buf);
     }
 
@@ -484,7 +484,7 @@ srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
         SRL_ERROR(mrg->ibuf, "Sereal document encoded in an unknown format");
     }
 
-    SRL_UPDATE_BODY_POS(&mrg->ibuf, protocol_version == 1);
+    SRL_UPDATE_BODY_POS(&mrg->ibuf, protocol_version);
     DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
 }
 

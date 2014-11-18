@@ -4,12 +4,15 @@
 #include "EXTERN.h"
 #include "perl.h"
 #include "assert.h"
-#include "srl_buffer_types.h"
 
 typedef struct PTABLE * ptable_ptr;
 typedef struct {
-    srl_buffer_t buf;
+    unsigned char *buf_start;           /* ptr to "physical" start of input buffer */
+    unsigned char *buf_end;             /* ptr to end of input buffer */
+    unsigned char *pos;                 /* ptr to current position within input buffer */
     unsigned char *save_pos;            /* used for COPY tags */
+    unsigned char *body_pos;            /* in Sereal V2, all offsets are relative to the body */
+    STRLEN buf_len;
 
     U32 flags;                          /* flag-like options: See SRL_F_DECODER_* defines in srl_decoder.c */
     UV max_recursion_depth;             /* Configurable limit on the number of recursive calls we're willing to make */
@@ -54,9 +57,25 @@ void srl_destroy_decoder(pTHX_ srl_decoder_t *dec);
 /* destructor hook - called automagically */
 void srl_decoder_destructor_hook(pTHX_ void *p);
 
+#define BUF_POS(dec) ((dec)->pos)
+#define BUF_SPACE(dec) ((dec)->buf_end - (dec)->pos)
+#define BUF_POS_OFS(dec) ((dec)->pos - (dec)->buf_start)
+#define BUF_SIZE(dec) ((dec)->buf_end - (dec)->buf_start)
+#define BUF_NOT_DONE(dec) ((dec)->pos < (dec)->buf_end)
+#define BUF_DONE(dec) ((dec)->pos >= (dec)->buf_end)
+
+#define BODY_POS_OFS(enc) ((dec)->pos - (dec)->body_pos)
+
 /* these are mostly for right between deserializing the header and the body */
-#define SRL_DEC_UPDATE_BODY_POS(dec) \
-    SRL_UPDATE_BODY_POS(&(dec)->buf, SRL_DEC_HAVE_OPTION((dec), SRL_F_DECODER_PROTOCOL_V1))
+#define SRL_SET_BODY_POS(dec, pos_ptr) ((dec)->body_pos = pos_ptr)
+#define SRL_UPDATE_BODY_POS(dec)                                                    \
+    STMT_START {                                                                    \
+        if (expect_false(SRL_DEC_HAVE_OPTION((dec), SRL_F_DECODER_PROTOCOL_V1))) {  \
+            SRL_SET_BODY_POS(dec, (dec)->buf_start);                                \
+        } else {                                                                    \
+            SRL_SET_BODY_POS(dec, (dec)->pos-1);                                    \
+        }                                                                           \
+    } STMT_END
 
 /* Macro to assert that the type of an SV is complex enough to
  * be an RV. Differs on old perls since there used to be an RV type.
