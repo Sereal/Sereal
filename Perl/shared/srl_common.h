@@ -53,7 +53,7 @@
  * traps (silently) do not happen.
  *
  * The Linux kernel and the Solarix x86 set the "AM".  The Windows and
- * OX X do not.  The *BSD behavior is unknown, though suspecting they do.
+ * OS X do not.  The *BSD behavior is unknown, though suspecting they do.
  *
  * http://en.wikipedia.org/wiki/Control_register
  * http://en.wikipedia.org/wiki/FLAGS_register_(computing)
