@@ -11,7 +11,7 @@ Sereal::Splitter - splits a Sereal blob in chunks of roughly the same size
   my $splitter = Sereal::Splitter->new(
     { input => $data, chunk_size => 1, compress => SRL_ZLIB,
       header_data_template => create_header_data_template(
-        { date => time(), elements => '__$CNT__' }
+        { date => time(), elements_count => '__$CNT__' }
       )
     }
   );
@@ -130,13 +130,6 @@ sub create_header_data_template {
 
     # version-type
     $length += $fh->read(my $version_type, 1);
-    print " --- length $length\n";
-
-    # # opt_suffix
-    # my $opt_suffix_size;
-    # $opt_suffix_size = _varint($fh, $length);
-
-    # print " --- length $length\n";
 
     $blob = substr $blob, $length, -1;
     
@@ -152,8 +145,6 @@ sub new {
             my $l = length $str_to_replace;
             my $copy = $header_data_template;
             substr($copy, $where, $l, chr(0x20) . chr(0) x ($l-1) );
-            use Data::HexDump;
-            print HexDump $copy;
             $args = { %{$args},
                       header_data_template => $copy,
                       header_count_idx => $where + 1,

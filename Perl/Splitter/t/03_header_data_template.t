@@ -7,7 +7,6 @@ use 5.10.1;
 use Sereal::Splitter qw(create_header_data_template);
 
 use Data::Dumper;
-use Data::HexDump;
 
 use blib '../Encoder';
 use blib '../Decoder';
@@ -24,7 +23,6 @@ if (1) {
     
 
     while (defined( my $chunk = $o->next_chunk())) {
-        print HexDump $chunk;
         my $struct = decode_sereal($chunk);
         say " *** 1 " . Dumper($struct); use Data::Dumper;
         (my $header) = @{decode_sereal_with_header_data($chunk)};
