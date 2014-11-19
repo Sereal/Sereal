@@ -301,7 +301,9 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_SET_READONLY_SCALARS);
 
     }
-
+    dec->flags_readonly= SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_SET_READONLY ) ? 1 :
+                         SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_SET_READONLY_SCALARS) ? 2 :
+                         0;
     return dec;
 }
 
@@ -1941,11 +1943,19 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
     }
 
     /* they want us to set all SVs readonly, or only the non-ref */
-    if (  SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_SET_READONLY) ||
-          (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_SET_READONLY_SCALARS) && !is_ref) ) {
-        SvREADONLY_on(into);
-    }
+#define SUPPORT_READONLY 1
+#if SUPPORT_READONLY
+        if ( expect_false(dec->flags_readonly) )
+        {
+            if (
+                 dec->flags_readonly == 1 || !is_ref
+            ) {
+                SvREADONLY_on(into);
+            }
+        }
+#endif
 
   done:
     dec->recursion_depth--;
+    return;
 }
