@@ -16,7 +16,7 @@ use Sereal::Decoder qw(decode_sereal);
 if (1) {
     # no refp / copy tag
     my $data = encode_sereal([ {foo => 1 }, {bar => 2} ]);
-    print HexDump $data;
+#    print HexDump $data;
     my $o = Sereal::Splitter->new({chunk_size => 1, input => $data});
     
 
@@ -108,13 +108,3 @@ if (1) {
 pass;
 
 done_testing;
-
-
-  # 4 5 6 7    8 9    10   11   12
-  # O [ A REFP 6 REFP 4 ] COPY 5
-
-  # 4 5 6 7    8 9    10   11 12 13   14 15   16
-  # O [ A REFP 6 REFP 4  ] [  A  REFP 6  REFP 4  ]
-
-
-
