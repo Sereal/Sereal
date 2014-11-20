@@ -17,6 +17,7 @@ my $module = "Sereal::Splitter";
  inc::Sereal::BuildTools::link_files($shared_dir) if $in_source_repo;
  inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
 
+`rm -rf t/004_testset.t t/700_roundtrip t/data t/lib`;
 our $OPTIMIZE;
 
 # TODO Configure/optimize for miniz:

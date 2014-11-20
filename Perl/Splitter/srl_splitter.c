@@ -493,7 +493,7 @@ SRL_STATIC_INLINE int _parse(srl_splitter_t * splitter) {
             }
         }
     }
-    SRL_SPLITTER_TRACE("------------ END ITERATING ------- deepness value: %d", splitter->deepness);
+    SRL_SPLITTER_TRACE("* END ITERATING (deepness value: %d)", splitter->deepness);
     if (splitter->deepness != 0)
         croak("Something wrong happens: parsing finished but deepness is not zero");
 
@@ -953,7 +953,6 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
 
     /* append the varint of the maximum array's number of elements */
     UV varint_len = (UV) (_set_varint_nocheck(tmp_str, splitter->input_nb_elts) - tmp_str);
-    SRL_SPLITTER_TRACE(" ---- VARINT LEN %lu value %lu", varint_len, splitter->input_nb_elts);
     /* This is the char number where we're going to write the varint */
     UV varint_pos = SvCUR(splitter->chunk);
     sv_catpvn(splitter->chunk, tmp_str, varint_len);
@@ -981,7 +980,7 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
         /* gzip compression: reforge the SV completely */
 
         UV uncompressed_body_length = SvCUR(splitter->chunk) - chunk_header_len;
-        SRL_SPLITTER_TRACE(" ------------- UNCOMPRESS BODY_LENGTH %lu", uncompressed_body_length);
+        SRL_SPLITTER_TRACE(" * UNCOMPRESS BODY_LENGTH %lu", uncompressed_body_length);
 
         size_t dest_len;
         /* Get uncompressed payload and total packet output (after compression) lengths */
@@ -991,7 +990,7 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
         sv_catpvn(compressed_chunk, SvPVX(splitter->chunk), chunk_header_len);
 
 
-        SRL_SPLITTER_TRACE(" ------------- dest_len %lu", dest_len);
+        SRL_SPLITTER_TRACE(" * ALLOCATED DEST LEN %lu", dest_len);
         char * compressed_pos = SvGROW(compressed_chunk, dest_len);
 
         compressed_pos += chunk_header_len;
@@ -1018,7 +1017,7 @@ SV* srl_splitter_next_chunk(srl_splitter_t * splitter) {
                 assert(status == Z_OK);
                 dest_len = (size_t)dl;
 
-        SRL_SPLITTER_TRACE(" ------------- dest_len %lu", dest_len);
+        SRL_SPLITTER_TRACE(" * COMPRESSED LEN %lu", dest_len);
 
         _update_varint_from_to(varint_start2, varint_end2, dest_len);
 
