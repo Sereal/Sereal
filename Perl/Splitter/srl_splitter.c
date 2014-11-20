@@ -98,6 +98,13 @@ SRL_STATIC_INLINE char* _set_varint_nocheck(char* buf, UV n);
 SRL_STATIC_INLINE bool _maybe_flush_chunk (srl_splitter_t *splitter, char* end_pos, char* next_start_pos);
 SRL_STATIC_INLINE void _empty_hashes();
 SRL_STATIC_INLINE void _check_for_duplicates(srl_splitter_t * splitter, char* binary_start_pos, UV len, bool is_utf8);
+SRL_STATIC_INLINE void _cat_to_chunk(srl_splitter_t *splitter, char* str, UV str_len);
+
+SRL_STATIC_INLINE void _cat_to_chunk(srl_splitter_t *splitter, char* str, UV str_len) {
+        sv_catpvn(splitter->chunk, str, str_len);
+        splitter->chunk_current_offset += str_len;
+        splitter->chunk_size += str_len;
+}
 
 typedef struct {
     char* key;         /* the string to dedup */
@@ -523,14 +530,10 @@ void _check_for_duplicates(srl_splitter_t * splitter, char* binary_start_pos, UV
         /* the copy tag */
         char tmp[SRL_MAX_VARINT_LENGTH];
         tmp[0] = 0x2f;
-        sv_catpvn(splitter->chunk, tmp, 1 );
-        splitter->chunk_current_offset += 1;
-        splitter->chunk_size += 1;
+        _cat_to_chunk(splitter, tmp, 1 );
 
         UV len = (UV) (_set_varint_nocheck(tmp, element->value) - tmp);
-        sv_catpvn(splitter->chunk, tmp, len);
-        splitter->chunk_current_offset += len;
-        splitter->chunk_size += len;
+        _cat_to_chunk(splitter, tmp, len);
 
     } else {
         UV offset = splitter->chunk_current_offset + ( binary_start_pos - splitter->chunk_iter_start);
@@ -682,23 +685,17 @@ SRL_STATIC_INLINE void _read_refp(srl_splitter_t * splitter) {
         /* insert a refp */
         char tmp_str[SRL_MAX_VARINT_LENGTH];
         tmp_str[0] = 0x29;
-        sv_catpvn(splitter->chunk, tmp_str, 1 );
-        splitter->chunk_current_offset += 1;
-        splitter->chunk_size += 1;
+        _cat_to_chunk(splitter, tmp_str, 1 );
         
         /* append the offset as a varint */
         UV varint_len = (UV) (_set_varint_nocheck(tmp_str, new_offset) - tmp_str);
-        sv_catpvn(splitter->chunk, tmp_str, varint_len);
-        splitter->chunk_current_offset += varint_len;
-        splitter->chunk_size += varint_len;
+        _cat_to_chunk(splitter, tmp_str, varint_len);
     } else {
 
         /* otherwise insert an refn tag instead of the refp */
         char tmp_str[1];
         tmp_str[0] = 0x28;
-        sv_catpvn(splitter->chunk, tmp_str, 1 );
-        splitter->chunk_current_offset += 1;
-        splitter->chunk_size += 1;
+        _cat_to_chunk(splitter, tmp_str, 1 );
 
         splitter->deepness++;
         stack_push(splitter->status_stack, ST_DEEPNESS_UP);
@@ -741,9 +738,7 @@ SRL_STATIC_INLINE void _read_objectv(srl_splitter_t * splitter, bool is_freeze) 
     /* insert an object tag instead of the objectv tag */
     char tmp_str[1];
     tmp_str[0] = (is_freeze ? 0x32 : 0x2c);
-    sv_catpvn(splitter->chunk, tmp_str, 1 );
-    splitter->chunk_current_offset += 1;
-    splitter->chunk_size += 1;
+    _cat_to_chunk(splitter, tmp_str, 1 );
 
     /* set the instructions in the stack. Warning, we are pushing, so the order
        will be reversed when we pop */
@@ -820,15 +815,11 @@ SRL_STATIC_INLINE void _read_alias(srl_splitter_t * splitter) {
         /* insert an ALIAS tag */
         char tmp_str[SRL_MAX_VARINT_LENGTH];
         tmp_str[0] = 0x2e;
-        sv_catpvn(splitter->chunk, tmp_str, 1 );
-        splitter->chunk_current_offset += 1;
-        splitter->chunk_size += 1;
+        _cat_to_chunk(splitter, tmp_str, 1 );
         
         /* append the offset as a varint */
         UV varint_len = (UV) (_set_varint_nocheck(tmp_str, new_offset) - tmp_str);
-        sv_catpvn(splitter->chunk, tmp_str, varint_len);
-        splitter->chunk_current_offset += varint_len;
-        splitter->chunk_size += varint_len;
+        _cat_to_chunk(splitter, tmp_str, varint_len);
     } else {
 
         /* otherwise duplicate the data here */
@@ -1094,9 +1085,7 @@ SRL_STATIC_INLINE bool _maybe_flush_chunk (srl_splitter_t *splitter, char* end_p
         next_start_pos = splitter->pos;
     if (end_pos > splitter->chunk_iter_start) {
         len = (UV) (end_pos - splitter->chunk_iter_start);
-        sv_catpvn(splitter->chunk, splitter->chunk_iter_start, len );
-        splitter->chunk_size += len;
-        splitter->chunk_current_offset += len;
+        _cat_to_chunk(splitter, splitter->chunk_iter_start, len );
         did_we_flush = 1;
     }
     /* still do that, if the caller wanted to set a special next_start_pos */
