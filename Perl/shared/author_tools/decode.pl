@@ -42,7 +42,7 @@ use Fcntl qw[O_RDONLY O_WRONLY O_CREAT O_TRUNC];
 sub MB () { 2 ** 20 }
 
 my %Opt;
-my @Opt = ('input=s', 'output=s', 'type=s', 'elem=f', 'build', 'repeat=i');
+my @Opt = ('input=s', 'output=s', 'type=s', 'elem=f', 'build', 'repeat=i', 'size');
 my %OptO = map { my ($n) = /^(\w+)/; $_ => \$Opt{$n} } @Opt;
 my @OptU = map { "--$_" } @Opt;
 
@@ -150,9 +150,11 @@ if (defined $Opt{build}) {
     } else {
 	die "$0: Unexpected type '$Opt{type}'\n";
     }
-    $dt = timeit(sub { $data_size = total_size($data);});
-    printf("data size %d bytes (%.1fMB) %.1f sec\n",
-	   $data_size, $data_size / MB, $dt);
+    if ($Opt{size}) {
+	$dt = timeit(sub { $data_size = total_size($data);});
+	printf("data size %d bytes (%.1fMB) %.1f sec\n",
+	       $data_size, $data_size / MB, $dt);
+    }
 
     my $encoder = Sereal::Encoder->new;
 
@@ -229,9 +231,11 @@ my $decoder = Sereal::Decoder->new;
 	printf("decode avg %.2f sec (%.1f MB/sec) stddev %.2f sec (%.2f)\n",
 	       $avg, $blob_size / (MB * $avg), $stddev, $stddev / $avg); 
     }
-    $dt = timeit(sub { $data_size = total_size($data); });
-    printf("data size %d bytes (%.1fMB) %.1f sec\n",
-	   $data_size, $data_size / MB, $dt);
+    if ($Opt{size}) {
+	$dt = timeit(sub { $data_size = total_size($data); });
+	printf("data size %d bytes (%.1fMB) %.1f sec\n",
+	       $data_size, $data_size / MB, $dt);
+    }
 }
 
 exit(0);
