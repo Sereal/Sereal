@@ -42,7 +42,7 @@ use Fcntl qw[O_RDONLY O_WRONLY O_CREAT O_TRUNC];
 sub MB () { 2 ** 20 }
 
 my %Opt;
-my @Opt = ('input=s', 'output=s', 'type=s', 'elem=f', 'build', 'repeat=i', 'size');
+my @Opt = ('input=s', 'output=s', 'type=s', 'elem=f', 'build', 'repeat=i');
 my %OptO = map { my ($n) = /^(\w+)/; $_ => \$Opt{$n} } @Opt;
 my @OptU = map { "--$_" } @Opt;
 
@@ -55,8 +55,11 @@ my $data_size;
 my $blob_size;
 my $dt;
 
-$Opt{type} //= 'graph';
-$Opt{elem} //= 1e5;
+$Opt{type}   //= 'graph';
+$Opt{elem}   //= 1e5;
+$Opt{repeat} //= 5;
+
+die "$0: Unexpected --repeat=$Opt{repeat}\n" if $Opt{repeat} < 1;
 
 sub timeit {
     my $code = shift;
@@ -150,11 +153,9 @@ if (defined $Opt{build}) {
     } else {
 	die "$0: Unexpected type '$Opt{type}'\n";
     }
-    if ($Opt{size}) {
-	$dt = timeit(sub { $data_size = total_size($data);});
-	printf("data size %d bytes (%.1fMB) %.1f sec\n",
-	       $data_size, $data_size / MB, $dt);
-    }
+    $dt = timeit(sub { $data_size = total_size($data);});
+    printf("data size %d bytes (%.1fMB) %.1f sec\n",
+	   $data_size, $data_size / MB, $dt);
 
     my $encoder = Sereal::Encoder->new;
 
@@ -187,9 +188,6 @@ if (defined $Opt{build}) {
     if (defined $Opt{output}) {
 	die "$0: --input with --output makes no sense\n";
     }
-    if (defined $Opt{elem}) {
-	die "$0: --elem without --build makes no sense\n";
-    }
     print "opening input\n";
     my $fh;
     sysopen($fh, $Opt{input}, O_RDONLY) or die qq[sysopen "$Opt{input}": $!\n];
@@ -212,7 +210,6 @@ my $decoder = Sereal::Decoder->new;
     print "decoding blob\n";
     my @dt;
     $blob_size = length($blob);
-    $Opt{repeat} //= 5;
     for my $i (1..$Opt{repeat}) {
 	$dt = timeit(sub { $data = $decoder->decode($blob); });
 	printf("%d/%d: decode from %d bytes (%.1fM) %.3f sec (%.f MB/sec)\n",
@@ -234,11 +231,9 @@ my $decoder = Sereal::Decoder->new;
 	printf("decode avg %.2f sec (%.1f MB/sec) stddev %.2f sec (%.2f)\n",
 	       $avg, $blob_size / (MB * $avg), $stddev, $stddev / $avg); 
     }
-    if ($Opt{size}) {
-	$dt = timeit(sub { $data_size = total_size($data); });
-	printf("data size %d bytes (%.1fMB) %.1f sec\n",
-	       $data_size, $data_size / MB, $dt);
-    }
+    $dt = timeit(sub { $data_size = total_size($data); });
+    printf("data size %d bytes (%.1fMB) %.1f sec\n",
+	   $data_size, $data_size / MB, $dt);
 }
 
 exit(0);
