@@ -65,6 +65,17 @@ die "$0: Unexpected --repeat=$Opt{repeat}\n" if $Opt{repeat} < 1;
 die "$0: Unexpected --type=$Opt{type}\n$0: Expected --type=@{[join('|', sort keys %TYPE)]}\n"
     unless exists $TYPE{$Opt{type}};
 
+if (defined $Opt{build}) {
+    die "$0: --input with --build makes no sense\n" if defined $Opt{input};
+} else {
+    die "$0: --output without --build makes no sense\n" if defined $Opt{output};
+    die "$0: --elem without --build makes no sense\n" if defined $Opt{elem};
+    die "$0: Must specify either --build or --input\n" unless defined $Opt{input};
+}
+if (defined ($Opt{output})) {
+    die "$0: --input with --output makes no sense\n" if defined $Opt{input};
+}
+
 sub timeit {
     my $code = shift;
     my $t0 = time();
@@ -74,10 +85,6 @@ sub timeit {
 }
 
 if (defined $Opt{build}) {
-    if (defined $Opt{input}) {
-	die "$0: --build with --input makes no sense\n";
-    }
-
     print "building data\n";
     if ($Opt{type} eq 'graph') {
 	print "building graph\n";
@@ -189,9 +196,6 @@ if (defined $Opt{build}) {
 	       $blob_size, $blob_size / MB, $dt, $blob_size / (MB * $dt));
     }
 } elsif (defined $Opt{input}) {
-    if (defined $Opt{output}) {
-	die "$0: --input with --output makes no sense\n";
-    }
     print "opening input\n";
     my $fh;
     sysopen($fh, $Opt{input}, O_RDONLY) or die qq[sysopen "$Opt{input}": $!\n];
@@ -204,8 +208,6 @@ if (defined $Opt{build}) {
     $blob_size = length($blob);
     printf("read %d bytes (%.1f MB) %.3f sec (%.1f MB/sec)\n",
 	   $blob_size, $blob_size / MB, $dt, $blob_size / (MB * $dt));
-} else {
-    die "$0: Must specify either --build or --input\n";
 }
 
 my $decoder = Sereal::Decoder->new;
