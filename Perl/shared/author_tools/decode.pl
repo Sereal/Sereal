@@ -55,18 +55,9 @@ my $data_size;
 my $blob_size;
 my $dt;
 
-my %TYPE = map { $_ => 1 } qw[aoi aof aos hoi hof graph];
-
-$Opt{type}   //= 'graph';
-$Opt{elem}   //= 1e5;
-$Opt{repeat} //= 5;
-
-die "$0: Unexpected --repeat=$Opt{repeat}\n" if $Opt{repeat} < 1;
-die "$0: Unexpected --type=$Opt{type}\n$0: Expected --type=@{[join('|', sort keys %TYPE)]}\n"
-    unless exists $TYPE{$Opt{type}};
-
 if (defined $Opt{build}) {
     die "$0: --input with --build makes no sense\n" if defined $Opt{input};
+    $Opt{elem} //= 1e5;
 } else {
     die "$0: --output without --build makes no sense\n" if defined $Opt{output};
     die "$0: --elem without --build makes no sense\n" if defined $Opt{elem};
@@ -75,6 +66,15 @@ if (defined $Opt{build}) {
 if (defined ($Opt{output})) {
     die "$0: --input with --output makes no sense\n" if defined $Opt{input};
 }
+
+$Opt{type} //= 'graph';
+$Opt{repeat} //= 5;
+
+my %TYPE = map { $_ => 1 } qw[aoi aof aos hoi hof graph];
+
+die "$0: Unexpected --repeat=$Opt{repeat}\n" if $Opt{repeat} < 1;
+die "$0: Unexpected --type=$Opt{type}\n$0: Expected --type=@{[join('|', sort keys %TYPE)]}\n"
+    unless exists $TYPE{$Opt{type}};
 
 sub timeit {
     my $code = shift;
