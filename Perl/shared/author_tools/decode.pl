@@ -55,11 +55,15 @@ my $data_size;
 my $blob_size;
 my $dt;
 
+my %TYPE = map { $_ => 1 } qw[aoi aof aos hoi hof graph];
+
 $Opt{type}   //= 'graph';
 $Opt{elem}   //= 1e5;
 $Opt{repeat} //= 5;
 
 die "$0: Unexpected --repeat=$Opt{repeat}\n" if $Opt{repeat} < 1;
+die "$0: Unexpected --type=$Opt{type}\n$0: Expected --type=@{[join('|', sort keys %TYPE)]}\n"
+    unless exists $TYPE{$Opt{type}};
 
 sub timeit {
     my $code = shift;
