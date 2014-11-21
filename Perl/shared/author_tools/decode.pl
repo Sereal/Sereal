@@ -187,6 +187,9 @@ if (defined $Opt{build}) {
     if (defined $Opt{output}) {
 	die "$0: --input with --output makes no sense\n";
     }
+    if (defined $Opt{elem}) {
+	die "$0: --elem without --build makes no sense\n";
+    }
     print "opening input\n";
     my $fh;
     sysopen($fh, $Opt{input}, O_RDONLY) or die qq[sysopen "$Opt{input}": $!\n];
