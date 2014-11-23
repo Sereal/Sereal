@@ -43,6 +43,9 @@ extern "C" {
 #if (PERL_VERSION < 10)
 #   define FIXUP_RITER 1
 #endif
+#if (PERL_VERSION >= 10)
+#   define FAST_IV 1
+#endif
 #define DEFAULT_MAX_RECUR_DEPTH 10000
 
 #include "srl_decoder.h"
@@ -1068,6 +1071,8 @@ srl_alias_iv(pTHX_ srl_decoder_t *dec, SV **container, IV iv)
     *container= alias;
 }
 
+
+
 SRL_STATIC_INLINE void
 srl_setiv(pTHX_ srl_decoder_t *dec, SV *into, SV **container, IV iv)
 {
@@ -1078,15 +1083,23 @@ srl_setiv(pTHX_ srl_decoder_t *dec, SV *into, SV **container, IV iv)
          * see regularly - this wins about 35% speedup for us
          * but involve gratuitious intimacy with the internals.
          * */
+#ifdef FAST_IV
         if ( SvTYPE(into) == SVt_NULL ) {
             /* XXX: dont need to do this, we are null already */
             /* SvFLAGS(into) &= ~SVTYPEMASK; */
-            assert(SVt_NULL == 0 && ((SvFLAGS(into) & SVTYPEMASK) == 0));
-            SvFLAGS(into) |= SVt_IV;
+            assert(
+                (SVt_NULL == 0) &&
+                ((SvFLAGS(into) & (SVTYPEMASK|SVf_OOK|SVf_OK|SVf_IVisUVSVf_UTF8)) == 0)
+            );
             SvANY(into) = (XPVIV*)((char*)&(into->sv_u.svu_iv) - STRUCT_OFFSET(XPVIV, xiv_iv));
-            SvIOK_only(into);
+            /* replace this: */
+            /* SvIOK_only(into); */
+            /* with this: */
+            SvFLAGS(into) |= (SVt_IV | SVf_IOK | SVp_IOK);
             SvIV_set(into, iv);
-        } else {
+        } else
+#endif
+        {
             sv_setiv(into, iv);
         }
     }
