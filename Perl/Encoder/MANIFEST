@@ -1,4 +1,5 @@
 author_tools/bench.pl
+author_tools/decode.pl
 author_tools/different_sereal_docs.sh
 author_tools/freeze_thaw_timing.pl
 author_tools/hobodecoder.pl
