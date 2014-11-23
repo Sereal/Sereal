@@ -144,6 +144,14 @@ SRL_STATIC_INLINE void srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *clas
 /* FIXME unimplemented!!! */
 SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 
+#define DEPTH_INCREMENT(dec) STMT_START {                                           \
+    if (expect_false(++dec->recursion_depth > dec->max_recursion_depth)) {                        \
+            SRL_ERRORf1("Reached recursion limit (%lu) during deserialization",     \
+            (unsigned long)dec->max_recursion_depth);                               \
+    }                                                                               \
+} STMT_END
+
+#define DEPTH_DECREMENT(dec) dec->recursion_depth--
 
 #define ASSERT_BUF_SPACE(dec,len,msg) STMT_START {                  \
     if (expect_false( (UV)BUF_SPACE((dec)) < (UV)(len) )) {         \
@@ -1185,6 +1193,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
         len= tag & 15;
         SRL_sv_set_rv_to(into, referent);
         into= referent;
+        DEPTH_INCREMENT(dec);
     } else {
         len= srl_read_varint_uv_count(aTHX_ dec," while reading ARRAY");
         (void)SvUPGRADE(into, SVt_PVAV);
@@ -1209,6 +1218,8 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
             srl_read_single_value(aTHX_ dec, *av_array, av_array);
         }
     }
+    if (tag)
+        DEPTH_DECREMENT(dec);
 }
 
 #ifndef HV_FETCH_LVALUE
@@ -1228,6 +1239,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         num_keys= tag & 15;
         SRL_sv_set_rv_to(into, referent);
         into= referent;
+        DEPTH_INCREMENT(dec);
     } else {
         num_keys= srl_read_varint_uv_count(aTHX_ dec," while reading HASH");
         (void)SvUPGRADE(into, SVt_PVHV);
@@ -1317,6 +1329,8 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         }
         srl_read_single_value(aTHX_ dec, *fetched_sv, fetched_sv );
     }
+    if (tag)
+        DEPTH_DECREMENT(dec);
 }
 
 
@@ -1357,8 +1371,11 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
         tag = 0;
     }
     SRL_sv_set_rv_to(into, referent);
-    if (!tag)
+    if (!tag) {
+        DEPTH_INCREMENT(dec);
         srl_read_single_value(aTHX_ dec, referent, NULL);
+        DEPTH_DECREMENT(dec);
+    }
 }
 
 SRL_STATIC_INLINE void
@@ -1842,16 +1859,13 @@ srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
  * MAIN DISPATCH SUB - ALL ROADS LEAD HERE                                  *
  ****************************************************************************/
 
+
 SRL_STATIC_INLINE void
 srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
 {
     STRLEN len;
     U8 tag;
     int is_ref = 0;
-    if (++dec->recursion_depth > dec->max_recursion_depth) {
-        SRL_ERRORf1("Reached recursion limit (%lu) during deserialization",
-                (unsigned long)dec->max_recursion_depth);
-    }
 
   read_again:
     if (expect_false( BUF_DONE(dec) ))
@@ -1923,7 +1937,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
             SvREFCNT_inc(alias);
             SvREFCNT_dec(into);
             *container= alias;
-            goto done;
+            return;
         }
         break;
         case SRL_HDR_PAD:           /* no op */
@@ -1955,7 +1969,5 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
         }
 #endif
 
-  done:
-    dec->recursion_depth--;
     return;
 }
