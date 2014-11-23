@@ -1071,10 +1071,24 @@ srl_alias_iv(pTHX_ srl_decoder_t *dec, SV **container, IV iv)
 SRL_STATIC_INLINE void
 srl_setiv(pTHX_ srl_decoder_t *dec, SV *into, SV **container, IV iv)
 {
-    if ( container && IS_IV_ALIAS(dec,iv) ) {
+    if ( expect_false( container && IS_IV_ALIAS(dec,iv) )) {
         srl_alias_iv(aTHX_ dec, container, iv);
     } else {
-        sv_setiv(into, iv);
+        /* unroll sv_setiv() for the SVt_NULL case, which we will
+         * see regularly - this wins about 35% speedup for us
+         * but involve gratuitious intimacy with the internals.
+         * */
+        if ( SvTYPE(into) == SVt_NULL ) {
+            /* XXX: dont need to do this, we are null already */
+            /* SvFLAGS(into) &= ~SVTYPEMASK; */
+            assert(SVt_NULL == 0 && ((SvFLAGS(into) & SVTYPEMASK) == 0));
+            SvFLAGS(into) |= SVt_IV;
+            SvANY(into) = (XPVIV*)((char*)&(into->sv_u.svu_iv) - STRUCT_OFFSET(XPVIV, xiv_iv));
+            SvIOK_only(into);
+            SvIV_set(into, iv);
+        } else {
+            sv_setiv(into, iv);
+        }
     }
 }
 
