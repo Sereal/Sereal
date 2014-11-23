@@ -4,13 +4,10 @@ use blib;
 use Benchmark qw(cmpthese :hireswallclock);
 use Sereal::Decoder qw(decode_sereal sereal_decode_with_object);
 use Sereal::Encoder qw(encode_sereal sereal_encode_with_object);
-use JSON::XS qw(decode_json encode_json);
 use Storable qw(nfreeze thaw);
-use Data::Undump qw(undump);
 use Data::Dumper qw(Dumper);
-use Data::Dumper::Limited qw(DumpLimited);
-use Data::MessagePack;
-use CBOR::XS qw(encode_cbor decode_cbor);
+
+
 use Getopt::Long qw(GetOptions);
 require bytes;
 
@@ -67,16 +64,22 @@ my %meta = (
         init => sub {
             $jsonxs = JSON::XS->new()->allow_nonref();
         },
+        use => 'use JSON::XS qw(decode_json encode_json);',
     },
     ddl => {
         enc  => 'DumpLimited($data);',
         dec  => 'Data::Undump::undump($encoded);',
         name => 'Data::Dump::Limited',
+        use  => [
+                    'use Data::Undump qw(undump);',
+                    'use Data::Dumper::Limited qw(DumpLimited);',
+                ],
     },
     mp => {
         enc  => '$::msgpack->pack($data);',
         dec  => '$::msgpack->unpack($encoded);',
         name => 'Data::MsgPack',
+        use  => 'use Data::MessagePack;',
         init => sub {
             $msgpack = Data::MessagePack->new();
         },
@@ -85,6 +88,7 @@ my %meta = (
         enc  => '$::cbor->encode($data);',
         dec  => '$::cbor->decode($encoded);',
         name => 'CBOR::XS',
+        use => 'use CBOR::XS qw(encode_cbor decode_cbor);',
         init => sub {
             $cbor= CBOR::XS->new();
         },
@@ -199,6 +203,14 @@ foreach my $key ( sort keys %meta ) {
     $info->{tag}= $key;
     next if $only    and not $only->{$key}    and $key ne $storable_tag;
     next if $exclude and     $exclude->{$key} and $key ne $storable_tag;
+    if (my $use= $info->{use}) {
+        $use= [$use] unless ref $use;
+        $use= join ";\n", @$use, 1;
+        unless (eval $use) {
+            warn "Can't load dependencies for $info->{name}, skipping\n";
+            next;
+        }
+    }
     $info->{enc}=~s/\$data/\$::data{$key}/g;
     $info->{dec}=~s/\$encoded/\$::encoded{$key}/g;
     $info->{enc}=~s/\$opt/%opt ? "\\%::opt" : ""/ge;
