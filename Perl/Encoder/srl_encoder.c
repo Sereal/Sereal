@@ -137,13 +137,23 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
 /*
 	Apparently regexes in 5.10 are "modern" but with 5.8 internals
 */
+#ifndef RXf_PMf_STD_PMMOD_SHIFT
 #    define RXf_PMf_STD_PMMOD_SHIFT 12
+#endif
+#ifndef RE_EXTFLAGS
 #    define RX_EXTFLAGS(re)	((re)->extflags)
+#endif
+#ifndef RX_PRECOMP
 #    define RX_PRECOMP(re) ((re)->precomp)
+#endif
+#ifndef RX_PRELEN
 #    define RX_PRELEN(re) ((re)->prelen)
+#endif
 
 /* Maybe this is only on OS X, where SvUTF8(sv) exists but looks at flags that don't exist */
+#ifndef RX_UTF8
 #    define RX_UTF8(re) (RX_EXTFLAGS(re) & RXf_UTF8)
+#endif
 
 #elif defined(SvRX)
 #    define MODERN_REGEXP
