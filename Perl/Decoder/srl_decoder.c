@@ -1082,7 +1082,7 @@ SRL_STATIC_INLINE void
 srl_read_varint_into(pTHX_ srl_decoder_t *dec, SV* into, SV **container)
 {
     UV uv= srl_read_varint_uv(aTHX_ dec);
-    if (uv <= (UV)IV_MAX) {
+    if (expect_true(uv <= (UV)IV_MAX)) {
         srl_setiv(aTHX_ dec, into, container, (IV)uv);
     } else {
         /* grr, this is ridiculous! */
@@ -1112,7 +1112,7 @@ SRL_STATIC_INLINE void
 srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
 {
     UV len= srl_read_varint_uv_length(aTHX_ dec, " while reading string");
-    if (is_utf8 && SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8)) {
+    if (expect_false(is_utf8 && SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8))) {
         /* checks for invalid byte sequences. */
         if (expect_false( !is_utf8_string((U8*)dec->pos, len) )) {
             SRL_ERROR("Invalid UTF8 byte sequence");
