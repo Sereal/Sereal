@@ -49,7 +49,7 @@ public interface SerealHeader {
 	static final byte SRL_HDR_CANONICAL_UNDEF   = (byte)  57; /*  57 0x39 0b00111001 undef (PL_sv_undef) - "the" Perl undef (see notes) */
 	static final byte SRL_HDR_FALSE             = (byte)  58; /*  58 0x3a 0b00111010 false (PL_sv_no) */
 	static final byte SRL_HDR_TRUE              = (byte)  59; /*  59 0x3b 0b00111011 true  (PL_sv_yes) */
-	static final byte SRL_HDR_MANY              = (byte)  60; /*  60 0x3c 0b00111100 <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3) */
+	static final byte SRL_HDR_MANY              = (byte)  60; /*  60 0x3c 0b00111100 <LEN-BYTES> <TYPE-BYTE> <DATA> */
 	static final byte SRL_HDR_PACKET_START      = (byte)  61; /*  61 0x3d 0b00111101 (first byte of magic string in header) */
 	static final byte SRL_HDR_EXTEND            = (byte)  62; /*  62 0x3e 0b00111110 <BYTE> - for additional tags */
 	static final byte SRL_HDR_PAD               = (byte)  63; /*  63 0x3f 0b00111111 (ignored tag, skip to next byte) */

@@ -120,7 +120,7 @@ my $fmt1= "%06u/%06u: %02x%1s %03s %s";
 my $fmt2= "%-6s %-6s  %-2s%1s %-3s %s";
 my $lead_items= 5; # 1 less than the fmt2
 sub parse_sv {
-  my ($ind) = @_;
+  my ($ind, $rcnt) = @_;
 
   my $p= length($done);
   my $t = substr($data, 0, 1, '');
@@ -191,6 +191,64 @@ sub parse_sv {
   elsif ($o == SRL_HDR_ARRAY) {
     printf "ARRAY";
     parse_av($ind);
+  }
+  elsif ($o == SRL_HDR_MANY) {
+    die "MANY in an unexpected position" unless $rcnt;
+    if ( ord(substr($data,0,1)) == SRL_MANY_IVDRLE ) {
+        substr($data,0,1,"");
+        my $items= varint();
+        printf "MANY-IVDRLE(%d)\n", $items;
+        my @rle;
+        while ( $items-- > 0 ) {
+            push @rle, my $z= zigzag();
+        }
+        my $idx= 0;
+        my $last= 0;
+        my @val;
+        while ($idx<@rle) {
+            my $len= $rle[$idx++];
+            if ($len > 0) {
+                do {
+                    my $this= $rle[$idx++] + $last;
+                    push @val, $this;
+                    $last= $this;
+                } while --$len>0;
+            } elsif ($len <= -4) {
+                my $thisd= $rle[$idx++];
+                while ($len++ < 0 ) {
+                    my $this= $thisd + $last;
+                    push @val, $this;
+                    $last= $this;
+                }
+            } elsif ($len == -2 || $len == -1) {
+                my $thisd= $rle[$idx++];
+                my $count_cz= 1;
+                if ($len == -2) {
+                    $count_cz= $rle[$idx++];
+                }
+                do {
+                    my $this= $thisd + $last;
+                    push @val, $thisd + $last;
+                    $last = $this;
+                    my $cz= $rle[$idx++];
+                    while ($cz++ < 0 ) {
+                        push @val, $this;
+                    }
+                } while --$count_cz>0;
+            }
+        }
+        my $max= @val > @rle ? 0+@val : 0+@rle;
+        foreach my $i (0..$max-1) {
+            printf  "$fmt2  %s\n",
+                ("") x $lead_items, $ind,
+                join " ",
+                    defined $val[$i] ? sprintf("Val %7d", $val[$i]) : (),
+                    defined $rle[$i] ? sprintf("RLE %7d", $rle[$i]) : (),
+        }
+        $$rcnt -= @val - 1;
+    } else {
+        die "Unknown MANY type";
+    }
   }
   elsif (SRL_HDR_HASHREF_LOW <= $o && $o <= SRL_HDR_HASHREF_HIGH) {
     printf "HASHREF";

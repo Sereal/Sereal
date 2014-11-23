@@ -1050,8 +1050,8 @@ srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char * const tag_name)
 /****************************************************************************
  * PRIVATE WORKER SUBS FOR DEPARSING                                        *
  ****************************************************************************/
-SRL_STATIC_INLINE void
-srl_alias_iv(pTHX_ srl_decoder_t *dec, SV **container, IV iv)
+SRL_STATIC_INLINE SV*
+srl_get_alias_iv(pTHX_ srl_decoder_t *dec, IV iv)
 {
     SV *alias;
     SV **av_array= AvARRAY(dec->alias_cache);
@@ -1068,45 +1068,67 @@ srl_alias_iv(pTHX_ srl_decoder_t *dec, SV **container, IV iv)
     } else {
         alias= av_array[ofs];
     }
-
     SvREFCNT_inc(alias);
 
+    return alias;
+}
+
+SRL_STATIC_INLINE void
+srl_alias_iv(pTHX_ srl_decoder_t *dec, SV **container, IV iv)
+{
     if (*container && *container != &PL_sv_undef)
         SvREFCNT_dec(*container);
-    *container= alias;
+    *container= srl_get_alias_iv(aTHX_ dec, iv);
 }
 
 
+SRL_STATIC_INLINE SV*
+srl_raw_setiv(pTHX_ SV* into, IV iv)
+{
+    /* unroll sv_setiv() for the SVt_NULL case, which we will
+     * see regularly - this wins about 35% speedup for us
+     * but involve gratuitious intimacy with the internals.
+     * */
+#ifdef FAST_IV
+    if ( expect_true(SvTYPE(into) == SVt_NULL) ) {
+        /* XXX: dont need to do this, we are null already */
+        /* SvFLAGS(into) &= ~SVTYPEMASK; */
+        assert(
+            (SVt_NULL == 0) &&
+            ((SvFLAGS(into) & (SVTYPEMASK|SVf_OOK|SVf_OK|SVf_IVisUVSVf_UTF8)) == 0)
+        );
+        SvANY(into) = (XPVIV*)((char*)&(into->sv_u.svu_iv) - STRUCT_OFFSET(XPVIV, xiv_iv));
+        /* replace this: */
+        /* SvIOK_only(into); */
+        /* with this: */
+        SvFLAGS(into) |= (SVt_IV | SVf_IOK | SVp_IOK);
+        SvIV_set(into, iv);
+    } else
+#endif
+    {
+        sv_setiv(into, iv);
+    }
+    return into;
+}
 
 SRL_STATIC_INLINE void
 srl_setiv(pTHX_ srl_decoder_t* dec, SV* into, SV** container, IV iv)
 {
-    if ( expect_false( container && IS_IV_ALIAS(dec,iv) )) {
+    if ( expect_false( container && IS_IV_ALIAS(dec,iv) ) ) {
         srl_alias_iv(aTHX_ dec, container, iv);
     } else {
-        /* unroll sv_setiv() for the SVt_NULL case, which we will
-         * see regularly - this wins about 35% speedup for us
-         * but involve gratuitious intimacy with the internals.
-         * */
-#ifdef FAST_IV
-        if ( SvTYPE(into) == SVt_NULL ) {
-            /* XXX: dont need to do this, we are null already */
-            /* SvFLAGS(into) &= ~SVTYPEMASK; */
-            assert(
-                (SVt_NULL == 0) &&
-                ((SvFLAGS(into) & (SVTYPEMASK|SVf_OOK|SVf_OK|SVf_IVisUVSVf_UTF8)) == 0)
-            );
-            SvANY(into) = (XPVIV*)((char*)&(into->sv_u.svu_iv) - STRUCT_OFFSET(XPVIV, xiv_iv));
-            /* replace this: */
-            /* SvIOK_only(into); */
-            /* with this: */
-            SvFLAGS(into) |= (SVt_IV | SVf_IOK | SVp_IOK);
-            SvIV_set(into, iv);
-        } else
-#endif
-        {
-            sv_setiv(into, iv);
-        }
+        srl_raw_setiv(aTHX_ into, iv);
+    }
+}
+
+SRL_STATIC_INLINE SV*
+srl_newiv(pTHX_ srl_decoder_t* dec, IV iv)
+{
+    if ( expect_false( IS_IV_ALIAS(dec,iv) ) ) {
+        return srl_get_alias_iv(aTHX_ dec, iv);
+    } else {
+        SV *into= FRESH_SV();
+        return srl_raw_setiv(aTHX_ into, iv);
     }
 }
 
@@ -1251,7 +1273,7 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
         SV **av_array;
         SV **av_end;
 
-        ASSERT_BUF_SPACE(dec,len,"while reading array contents, insuffienct remaining tags for specified array size");
+        ASSERT_BUF_SPACE(dec,1,"while reading array contents, insuffienct remaining tags for specified array size");
 
         /* make sure the array has room */
         av_extend((AV*)into, len-1);
@@ -1262,8 +1284,65 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
         av_end= av_array + len;
 
         for ( ; av_array < av_end ; av_array++) {
-            *av_array = FRESH_SV();
-            srl_read_single_value(aTHX_ dec, *av_array, av_array);
+            if (*dec->pos != SRL_HDR_MANY) {
+                *av_array = FRESH_SV();
+                srl_read_single_value(aTHX_ dec, *av_array, av_array);
+            } else {
+                U8 type = *(++dec->pos);
+                if (type == SRL_MANY_IVDRLE) {
+                    IV rle_count, cz, cz_count, last = 0, thisd, this;
+                    dec->pos++;
+                    (void)srl_read_varint_uv(aTHX_ dec);
+                    while ( (rle_count= srl_read_zigzag_iv(aTHX_ dec)) ) {
+                        if (rle_count>0) {
+                            while (rle_count > 0) {
+                                thisd = srl_read_zigzag_iv(aTHX_ dec);
+                                this= last + thisd;
+                                *av_array++= srl_newiv(aTHX_ dec, this);
+                                last= this;
+                                rle_count--;
+                            }
+                        } else if (rle_count <= -4) {
+                            thisd = srl_read_zigzag_iv(aTHX_ dec);
+                            while (rle_count < 0) {
+                                this= last + thisd;
+                                *av_array++= srl_newiv(aTHX_ dec, this);
+                                last= this;
+                                rle_count++;
+                            }
+                        } else {
+                            if ( rle_count == -1 ) {
+                                thisd = srl_read_zigzag_iv(aTHX_ dec);
+                                cz_count= 1;
+                            }
+                            else
+                            if ( rle_count == -2 ) {
+                                thisd = srl_read_zigzag_iv(aTHX_ dec);
+                                cz_count= srl_read_zigzag_iv(aTHX_ dec);
+                            }
+                            else
+                            {
+                                croak("bad rle");
+                            }
+
+                            do {
+                                this = last + thisd;
+                                *av_array++= srl_newiv(aTHX_ dec, this);
+                                last = this;
+                                cz = srl_read_zigzag_iv(aTHX_ dec);
+                                while (cz_count < 0) {
+                                    *av_array++= srl_newiv(aTHX_ dec, this);
+                                    cz++;
+                                }
+                            } while (--cz_count > 0);
+                        }
+                    }
+                }
+                else
+                {
+                    croak("Unhandled type");
+                }
+            }
         }
     }
     if (tag)

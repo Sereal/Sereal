@@ -1059,6 +1059,339 @@ srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
     return;
 }
 
+SRL_STATIC_INLINE int
+srl_encode_many_iv_delta_rle(pTHX_ srl_encoder_t *enc, SV **probe_start, SV **probe_end, IV items)
+{
+    SV **probe;
+
+    IV rle_start[items+2];
+    IV *rle_end, *rle, *count;
+    IV *metacount= NULL;
+    IV thisv, lastv, thisd, lastd;
+
+    IV samecount= 0;
+    UV rle_length;
+    UV size_native= 0;
+    UV size_rle= 0;
+    UV z;
+    const IV min_repeat= 4;             /* min in a repeat block */
+    const IV look_back= min_repeat - 1; /* how far back to go when
+                                           we encounter a repeat sequence,
+                                           always 1 less than min_repeat */
+
+
+
+    /* The worst case is we have no repeat sequence long enough to compact
+     * into a repeat sequence, in which case we will output two integers more
+     * than our output sequence, one for the count for a "no-repeat" block,
+     * and one for the end byte. In theory our worst case could be worse
+     * than that if we allowed repeat blocks to be created from a repeat
+     * sequence of less than 3, so we assert that we dont do that.
+     */
+    assert(min_repeat>=4); /* if min_repeat smaller than 3 then we could
+                              produce a rle sequence longer than our allocated
+                              buffer. Also we use len= -1 and len -2 for special
+                              purposes. */
+    count= rle_start;
+    rle= rle_start + 1;
+
+    *count= 1;
+    *rle++= thisv= lastv= thisd= lastd= SvIV(*probe_start);
+    z=srl_zigzag_iv(thisv);
+    size_native += srl_varint_size(z);
+
+    /* DELTA-RLE encoding
+     *
+     * Run-Length encoded deltas of the input stream.
+     * We calculate the delta, that is the difference between
+     * each item and the item before it in the input set.
+     * We then run length encode the resulting stream of deltas.
+     * Delta encoding allows large values to "cancel" each other
+     * out and allow us to output shorter values, and the run
+     * length encoding allows us to pack common sequences
+     * efficiently. Run length encoding worse case is only
+     * one integer more than simply having a length prefixed
+     * list of deltas, and for some data sets, particularly
+     * sorted lists, and lists with may repeated elements,
+     * can produce massive reductions in output.
+     *
+     * Output consists of a set of length prefixed tuples, with
+     * 0 or more items following the length.
+     *
+     * The length determines the type of data that will follow:
+     *
+     * Len is:
+     *
+     *  > 0: The following len items are literal deltas.
+     *       (+len,V1,...,Vlen)
+     *
+     * == 0: End of RLE data, no further data at all.
+     *       (0)
+     *
+     * ==-1: The sequence consists of the following literal,
+     *       followed by a count of how many zeros follow the
+     *       literal, with the count being not less than 4.
+     *       (-1,V,CZ)
+     *
+     * ==-2: The squence consists of two or more -1 sequences
+     *       with the same value merged together with a count
+     *       of CZ. Each CZ represents one (V, 0 x CZ) sequence.
+     *       (-2,V,count,CZ1,CZ2,...,CZcount)
+     *
+     * ==-3: Reserved
+     *
+     * <=-4: The following item is repeated abs(len) times.
+     *       (-len,V)
+     *
+     */
+
+    if (0) {
+        warn(
+            "idx: %3ld samecount: %3s lastv: %3s thisv: %3ld lastd:%3s "
+            "thisd:%3ld count:%3ld count-idx: %3ld rle-idx: %3ld\n",
+            0L, "", "", thisv, "", thisd, *count, count - rle_start, rle - rle_start
+        );
+    }
+    for (
+        probe= probe_start + 1 ;
+        probe < probe_end ;
+        probe++, lastv= thisv, lastd= thisd
+    ) {
+        thisv= SvIV(*probe);
+        z= srl_zigzag_iv(thisv);
+        size_native += srl_varint_size(z);
+
+        thisd= thisv - lastv;
+        samecount = lastd == thisd ? samecount + 1 : 0;
+
+        if ( samecount >= look_back ) {
+            /* either we are already in a repeat sequence, or
+             * we now have enough repeated items at the end of
+             * a non-repeat block that we can convert them into
+             * a repeat block. */
+            if (*count < 0) {
+                /* we are in a repeat already, so just decrement the counter
+                 * (which means increase the length)*/
+                (*count)--;
+            }
+            else
+            {
+                int rle_ofs = 2; /* rle is how many items after count? */
+                /* we were in a non-repeat block, and we have just found enough
+                 * items to convert to repeat bock.
+                 *
+                 * We have two "simple" cases:
+                 *
+                 *     (c, x,  x, x), [x]
+                 *
+                 * which we convert to
+                 *
+                 *    (-c, x), []
+                 *
+                 * and for some number of v's:
+                 *
+                 *     (c, v,  x, x,   x), [x]
+                 *
+                 * which we convert into:
+                 *
+                 *   (c-3, v), (cz=-4, x),  []
+                 *
+                 * however a special case is where c-3 == 1 and x == 0:
+                 *
+                 *  (1, v), (-4, 0), []
+                 *
+                 *  turns into
+                 *
+                 *  (-1, v, cz=-4), [],
+                 *
+                 *  and as a further special case when we have two -1 triplets
+                 *  in a row with the same v, we turn them into a -2 tuple::
+                 *
+                 *  (-1, v, cz1), (-1, v, cz2), []
+                 *
+                 *  becomes:
+                 *
+                 *  (-2, v, c=2, cz1, cz2), []
+                 *
+                 *  and
+                 *
+                 *  (-2, v,   c, cz1, cz2), (-1, v, cz2), []
+                 *
+                 *  becomes
+                 *
+                 *  (-2, v, c+1, cz1, cz2, cz3), [],
+                 *
+                 */
+                if (*count > look_back) {
+                    /* we have c, v, x, x, x, [x] */
+                    *count -= look_back; /* subtract away the repeated items */
+
+                    if (*count == 1 && thisd == 0) {
+                        /* check if we have a common pattern produced
+                         * by delta encoding lists of repeated items,
+                         * where we have delta sequence like:
+                         *
+                         * c, v, 0, 0, 0, [0]
+                         *
+                         * and encode them in to triples of:
+                         *
+                         * -1, v, cz=-4,
+                         *
+                         * (making the 0 in the repeat tuple implicit)
+                         *
+                         * When we have two such triples in a row with the
+                         * same v, we turn it into a -2 sequence:
+                         *
+                         * -2, v, c=2, cz1, cz2, [],
+                         *
+                         */
+                        /* set rle_ofs to 1 as we are going to skip the trailing 0 */
+                        rle_ofs= 1;
+
+                        if (!metacount || metacount[1] != count[1] ||
+                                (metacount + 3 + (metacount[0] == -1 ? 0 : metacount[2])) != count ) {
+                            /* c, v, 0, 0, 0, [0]
+                             * becomes
+                             * -1, v, -4, []
+                             */
+                            *count= -1;
+                            metacount= count;
+                            count= rle - look_back;
+                        }
+                        else
+                        /* we have a metacount! */
+                        {
+                            if (metacount[0] == -1) {
+                                /*              C 0    1     2
+                                 *M 0  1     2    3    4     5
+                                 *(-1, v, cz1), (-1,   v, cz2), []
+                                 *  =>
+                                 *(-2, v,   c, cz1, cz2),
+                                 *M 0  1     2    3    4     5
+                                 */
+                                metacount[4]= metacount[5];
+                                metacount[3]= metacount[2];
+                                metacount[2]= 2;
+                                metacount[0]= -2;
+                            } else {
+                                /*  M                    C
+                                 *  0  1  2    3    4    5   6    7
+                                 * -2, v, c, cz1, cz2,  -1,  v, cz3
+                                 *  =>
+                                 * -2, v, c, cz1, cz2, cz3
+                                 */
+                                metacount[2]++;
+                                metacount[2 + metacount[2] ]= count[2];
+                            }
+                            count= metacount + 2 + metacount[2];
+                        }
+
+                    } /* endif: *count == 1 && thisd == 0 */
+                    else {
+                        /* not optimizable */
+                        count= rle - look_back;
+                        metacount= NULL;
+                    }
+
+                }  /* endif: *count > look_back */
+                else {
+                    /* no need to move count here, just change it from
+                     * representing a non-repeat sequence to representing
+                     * a repeat sequence. */
+                    metacount= NULL;
+                }
+                rle = count + rle_ofs;
+                *count= -min_repeat;
+            }
+        } else {
+            /* we do not have three repeated in a row */
+            if ( *count > 0 ) {
+                /* we are already in a "non-repeat" block, so simply
+                 * increment the counter */
+                (*count)++;
+            } else {
+                /* we were in a repeat sequence, so we need to start a new
+                 * non-repeat block */
+                count= rle++;
+                *count= 1;
+            }
+            *rle++ = thisd;
+        }
+        if (0) {
+            warn(
+                "idx: %3ld samecount: %3ld lastv: %3ld thisv: %3ld "
+                "lastd:%3ld thisd:%3ld count:%3ld count-idx: %3ld rle-idx: %3ld mc-idx: %3ld\n",
+                probe - probe_start, samecount, lastv, thisv,
+                lastd, thisd, *count, count - rle_start, rle - rle_start,
+                metacount ? metacount - rle_start : -1);
+        }
+    }
+    *rle++= 0;
+    rle_end= rle;
+    rle_length= rle_end - rle_start;
+    BUF_SIZE_ASSERT(&enc->buf, 3 + (SRL_MAX_VARINT_LENGTH * rle_length));
+    srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_MANY);
+    srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_MANY_IVDRLE, rle_end - rle_start);
+    size_rle= 0;
+    for (rle= rle_start; rle < rle_end; rle++) {
+        UV z= srl_zigzag_iv(*rle);
+        size_rle+= srl_varint_size(z);
+        srl_buf_cat_zigzag_raw_nocheck(aTHX_ &enc->buf, *rle);
+    }
+    if (0) {
+        SV *scratch= sv_newmortal();
+        U32 nl= 0;
+#define do_sep                                                   \
+STMT_START {                                                \
+U32 new_nl= SvCUR(scratch)/80;                          \
+sv_catpvf(scratch, "%s", (new_nl > nl) ? ",\n" : ", "); \
+nl= new_nl;                                             \
+} STMT_END
+        for (rle= rle_start; rle < rle_end;) {
+            IV len= *rle++;
+            if (len <= -min_repeat) {
+                IV v= *rle++;
+                sv_catpvf(scratch, "[ %3ld: %3ld ]", len, v);
+            } else if (len == -1) {
+                IV v= *rle++;
+                IV c= *rle++;
+                sv_catpvf(scratch, "{ %3ld: %3ld, %3ld}", len, v, c);
+            } else if (len == -2) {
+                IV v= *rle++;
+                IV c= *rle++;
+
+                sv_catpvf(scratch, "< %3ld: %3ld, %3ld: ", len, v, c);
+                while ( c-- > 0 ) {
+                    IV cz= *rle++;
+                    sv_catpvf(scratch, "%3ld", cz);
+                    do_sep;
+                }
+                sv_catpvf(scratch, ">");
+
+            } else if (len > 0) {
+                sv_catpvf(scratch, "( %3ld: ", len);
+                while ( len-- > 0 ) {
+                    IV v= *rle++;
+                    sv_catpvf(scratch, "%3ld", v);
+                    do_sep;
+                }
+                sv_catpvf(scratch, ")");
+            } else if (len == 0) {
+                sv_catpv(scratch, "0\n");
+                break;
+            } else {
+                croak("Unknown length: %ld", len);
+            }
+            do_sep;
+        }
+        warn_sv(scratch);
+        warn("Stored elements: %5ld RLE-Delta Length: %5ld Size native: %5ld rle: %5ld\n",
+                items, rle_end - rle_start, size_native, size_rle);
+
+    }
+    return 1;
+}
+
 SRL_STATIC_INLINE void
 srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
 {
@@ -1086,13 +1419,43 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
             svp = av_fetch(src, i, 0);
             CALL_SRL_DUMP_SV(enc, *svp);
         }
-    } else {
+    } else if (0) {
         SV **end;
         svp= AvARRAY(src);
         end= svp + n;
         for ( ; svp < end ; svp++) {
             CALL_SRL_DUMP_SV(enc, *svp);
         }
+    } else {
+        SV **end;
+        SV** probe_end= NULL;
+        svp= AvARRAY(src);
+        end= svp + n;
+        while (svp < end) {
+            if ( probe_end < svp && SvREFCNT(*svp) == 1 && SvIOK(*svp) ) {
+                SV** probe_start= svp;
+                SV** probe= svp + 1;
+                IV items;
+                while ( probe < end && SvREFCNT(*probe) == 1 && SvIOK(*probe) ) {
+                    probe++;
+                }
+                items = probe - probe_start;
+                probe_end= probe;
+
+                if ( items > 3 &&
+                    srl_encode_many_iv_delta_rle(aTHX_ enc, probe_start, probe_end, items))
+                {
+                    svp= probe_end;
+                    continue;
+                }
+            }
+            CALL_SRL_DUMP_SV(enc, *svp);
+            svp++;
+        }
+        /*
+        for ( ; svp < end ; svp++) {
+        }
+        */
     }
 }
 

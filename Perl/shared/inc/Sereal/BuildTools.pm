@@ -649,7 +649,7 @@ our (%TAG_INFO_HASH, @TAG_INFO_ARRAY);
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    "comment" => "<LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3)",
+    "comment" => "<LEN-BYTES> <TYPE-BYTE> <DATA>",
     "name" => "MANY",
     "type_name" => "MANY",
     "type_value" => 60,

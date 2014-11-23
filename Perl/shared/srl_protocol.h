@@ -67,7 +67,7 @@
     CANONICAL_UNDEF   | "9"  |  57 | 0x39 | 0b00111001 | undef (PL_sv_undef) - "the" Perl undef (see notes)
     FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no)
     TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes)
-    MANY              | "<"  |  60 | 0x3c | 0b00111100 | <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3)
+    MANY              | "<"  |  60 | 0x3c | 0b00111100 | <LEN-BYTES> <TYPE-BYTE> <DATA>
     PACKET_START      | "="  |  61 | 0x3d | 0b00111101 | (first byte of magic string in header)
     EXTEND            | ">"  |  62 | 0x3e | 0b00111110 | <BYTE> - for additional tags
     PAD               | "?"  |  63 | 0x3f | 0b00111111 | (ignored tag, skip to next byte)
@@ -223,7 +223,22 @@
 #define SRL_HDR_FALSE           ((char)58)      /* false (PL_sv_no)  */
 #define SRL_HDR_TRUE            ((char)59)      /* true  (PL_sv_yes) */
 
-#define SRL_HDR_MANY            ((char)60)      /* <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3) */
+#define SRL_HDR_MANY            ((char)60)      /* <LEN-BYTES> <TYPE-BYTE> <DATA> */
+#define SRL_MANY_REPEAT    ((char)0)            /* Repeat: <COUNT-VARINT> <TAG> */
+#define SRL_MANY_IVDRLE    ((char)1)            /* IV delta run-length-encoded: <COUNT-VARINT> <ZIGZAG> x count...
+                                                   RLE is a sequence of (length, items*) tuples
+                                                   of the *delta* of the input IV's encoded
+                                                   as zigzag integers.
+
+                                                   length <= -4 : next item is repeated K times.
+                                                   length == -2 : (-2,V,C,CZ1,...,CZc) a value V followed 
+                                                                  by CZ zeros, repeated C times.
+                                                   length == -1 : (-1,V,CZ) a value V followed by CZ zeros. 
+                                                   length ==  0 : end of sequence, nothing follows count.
+                                                   length  >  0 : next K items are deltas.
+                                                */
+
+
 #define SRL_HDR_PACKET_START    ((char)61)      /* (first byte of magic string in header) */
 
 
