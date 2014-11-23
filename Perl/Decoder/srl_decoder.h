@@ -7,11 +7,11 @@
 
 typedef struct PTABLE * ptable_ptr;
 typedef struct {
-    unsigned char *buf_start;           /* ptr to "physical" start of input buffer */
-    unsigned char *buf_end;             /* ptr to end of input buffer */
-    unsigned char *pos;                 /* ptr to current position within input buffer */
-    unsigned char *save_pos;            /* used for COPY tags */
-    unsigned char *body_pos;            /* in Sereal V2, all offsets are relative to the body */
+    const unsigned char *buf_start;           /* ptr to "physical" start of input buffer */
+    const unsigned char *buf_end;             /* ptr to end of input buffer */
+    const unsigned char *pos;                 /* ptr to current position within input buffer */
+    const unsigned char *save_pos;            /* used for COPY tags */
+    const unsigned char *body_pos;            /* in Sereal V2, all offsets are relative to the body */
     STRLEN buf_len;
 
     U32 flags;                          /* flag-like options: See SRL_F_DECODER_* defines in srl_decoder.c */

@@ -138,7 +138,7 @@ SRL_STATIC_INLINE void srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* i
 SRL_STATIC_INLINE void srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag);
 SRL_STATIC_INLINE void srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag);
 
-SRL_STATIC_INLINE void srl_track_sv(pTHX_ srl_decoder_t *dec, U8 *track_pos, SV *sv);
+SRL_STATIC_INLINE void srl_track_sv(pTHX_ srl_decoder_t *dec, const U8 *track_pos, SV *sv);
 SRL_STATIC_INLINE void srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into);
 
 /* FIXME unimplemented!!! */
@@ -409,7 +409,7 @@ SRL_STATIC_INLINE void
 srl_decompress_body_snappy(pTHX_ srl_decoder_t *dec)
 {
     uint32_t dest_len;
-    unsigned char *old_pos;
+    const unsigned char *old_pos;
     const ptrdiff_t sereal_header_len = dec->pos - dec->buf_start;
     const STRLEN compressed_packet_len =
         dec->encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL
@@ -450,7 +450,7 @@ srl_decompress_body_snappy(pTHX_ srl_decoder_t *dec)
 SRL_STATIC_INLINE void
 srl_decompress_body_zlib(pTHX_ srl_decoder_t *dec)
 {
-    unsigned char *old_pos;
+    const unsigned char *old_pos;
     const ptrdiff_t sereal_header_len = dec->pos - dec->buf_start;
     const STRLEN uncompressed_packet_len = (STRLEN)srl_read_varint_uv(aTHX_ dec);
     const STRLEN compressed_packet_len =
@@ -1002,7 +1002,7 @@ srl_read_varint_uv_count(pTHX_ srl_decoder_t *dec, const char * const errstr)
 }
 
 SRL_STATIC_INLINE void
-srl_track_thawed(srl_decoder_t *dec, U8 *track_pos, SV *sv)
+srl_track_thawed(srl_decoder_t *dec, const U8 *track_pos, SV *sv)
 {
     if (!dec->ref_thawhash)
         dec->ref_thawhash = PTABLE_new();
@@ -1022,7 +1022,7 @@ srl_fetch_thawed(srl_decoder_t *dec, UV item)
 }
 
 SRL_STATIC_INLINE void
-srl_track_sv(pTHX_ srl_decoder_t *dec, U8 *track_pos, SV *sv)
+srl_track_sv(pTHX_ srl_decoder_t *dec, const U8 *track_pos, SV *sv)
 {
     PTABLE_store(dec->ref_seenhash, (void *)(track_pos - dec->body_pos), (void *)sv);
 }
@@ -1264,7 +1264,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
     /* NOTE: contents of hash are stored VALUE/KEY, reverse from normal perl
      * storage, this is because it simplifies the hash storage logic somewhat */
     for (; num_keys > 0 ; num_keys--) {
-        U8 *from;
+        const U8 *from;
         U8 tag;
         SV **fetched_sv;
         I32 key_len;
@@ -1491,7 +1491,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
     I32 flags= GV_ADD;
     U8 tag;
     U32 key_len = 0;
-    U8 *from = NULL;
+    const U8 *from = NULL;
 
     if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS) ))
         SRL_ERROR_REFUSE_OBJECT();
@@ -1625,7 +1625,7 @@ srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
      * that representation in the refs hash.
      */
 
-    unsigned char *fixup_pos= dec->pos + 1; /* get the tag for the WHATEVER */
+    const unsigned char *fixup_pos= dec->pos + 1; /* get the tag for the WHATEVER */
 
     if (expect_false( method == NULL ))
         SRL_ERRORf1("No THAW method defined for class '%s'", HvNAME(class_stash));
