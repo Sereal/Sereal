@@ -1089,7 +1089,7 @@ srl_setiv(pTHX_ srl_decoder_t *dec, SV *into, SV **container, IV iv)
             /* SvFLAGS(into) &= ~SVTYPEMASK; */
             assert(
                 (SVt_NULL == 0) &&
-                ((SvFLAGS(into) & (SVTYPEMASK|SVf_OOK|SVf_OK|SVf_IVisUVSVf_UTF8)) == 0)
+                ((SvFLAGS(into) & (SVTYPEMASK|SVf_OOK|SVf_OK|SVf_IVisUV|SVf_UTF8)) == 0)
             );
             SvANY(into) = (XPVIV*)((char*)&(into->sv_u.svu_iv) - STRUCT_OFFSET(XPVIV, xiv_iv));
             /* replace this: */
