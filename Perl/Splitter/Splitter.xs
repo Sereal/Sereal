@@ -19,7 +19,7 @@ Sereal::Splitter
 new_xs(CLASS, opt)
     HV *opt;
   CODE:
-    RETVAL = srl_build_splitter_struct(aTHX opt);
+    RETVAL = srl_build_splitter_struct(aTHX_ opt);
   OUTPUT: RETVAL
 
 void
@@ -32,7 +32,7 @@ SV*
 next_chunk(splitter)
     Sereal::Splitter splitter;
   CODE:
-    RETVAL = srl_splitter_next_chunk(splitter);
+    RETVAL = srl_splitter_next_chunk(aTHX_ splitter);
   OUTPUT: RETVAL
 
 
