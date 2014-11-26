@@ -347,7 +347,7 @@ void _parse_header(pTHX_ srl_splitter_t *splitter) {
     // move after protocol version
     splitter->pos += 1;
     
-    header_len= _read_varint_uv_nocheck(aTHX_ splitter);
+    header_len= _read_varint_uv_nocheck(splitter);
 
     SRL_SPLITTER_TRACE("header len is %lu", header_len);
 
