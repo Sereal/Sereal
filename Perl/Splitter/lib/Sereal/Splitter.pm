@@ -90,6 +90,8 @@ use constant SRL_UNCOMPRESSED => 0;
 use constant SRL_SNAPPY       => 1;
 use constant SRL_ZLIB         => 2;
 
+use IO::File;
+
 use Exporter 'import';
 our @EXPORT_OK = qw(
   SRL_UNCOMPRESSED
