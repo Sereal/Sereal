@@ -1082,7 +1082,7 @@ SRL_STATIC_INLINE void _update_varint_from_to(char *varint_start, char *varint_e
     }
 }
 
-SRL_STATIC_INLINE bool _maybe_flush_chunk (srl_splitter_t *splitter, char* end_pos, char* next_start_pos) {
+SRL_STATIC_INLINE bool _maybe_flush_chunk (pTHX_ srl_splitter_t *splitter, char* end_pos, char* next_start_pos) {
     UV len;
     bool did_we_flush = 0;
     if (end_pos == NULL)
