@@ -1,3 +1,4 @@
+big.srl
 const-c.inc
 const-xs.inc
 inc/Devel/CheckLib.pm
@@ -23,5 +24,7 @@ srl_protocol.h
 srl_splitter.c
 srl_splitter.h
 t/01_basic.t
+t/02_big.t
+t/03_header_data_template.t
 typemap
 uthash.h
