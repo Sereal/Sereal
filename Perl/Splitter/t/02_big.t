@@ -2,7 +2,6 @@
 use strict;
 use warnings;
 use Test::More;
-use 5.10.1;
 
 use Sereal::Splitter;
 

@@ -2,7 +2,6 @@
 use strict;
 use warnings;
 use Test::More;
-use 5.10.1;
 
 use Sereal::Splitter qw(create_header_data_template);
 
@@ -24,9 +23,9 @@ if (1) {
 
     while (defined( my $chunk = $o->next_chunk())) {
         my $struct = decode_sereal($chunk);
-        say " *** 1 " . Dumper($struct); use Data::Dumper;
+        is_deeply($struct, [ {foo => 1 }, {bar => 2} ]);
         (my $header) = @{decode_sereal_with_header_data($chunk)};
-        say " *** 2 " . Dumper($header); use Data::Dumper;
+        is($header->{count}, 2);
     }
 
     pass;

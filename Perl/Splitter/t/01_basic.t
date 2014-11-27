@@ -2,7 +2,6 @@
 use strict;
 use warnings;
 use Test::More;
-use 5.10.1;
 
 use Sereal::Splitter qw(SRL_ZLIB);
 
@@ -23,7 +22,7 @@ if (1) {
     while (defined( my $chunk = $o->next_chunk())) {
 #        print HexDump $chunk;
         my $struct = decode_sereal($chunk);
-        say Dumper($struct); use Data::Dumper;
+        print Dumper($struct); use Data::Dumper;
     }
 
     pass;
@@ -42,7 +41,7 @@ if (1) {
     while (defined( my $chunk = $o->next_chunk())) {
 #        print HexDump $chunk;
         my $struct = decode_sereal($chunk);
-        say Dumper($struct); use Data::Dumper;
+        print Dumper($struct); use Data::Dumper;
     }
 
     pass;
@@ -61,7 +60,7 @@ if (1) {
     while (defined( my $chunk = $o->next_chunk())) {
 #        print HexDump $chunk;
         my $struct = decode_sereal($chunk);
-        say Dumper($struct); use Data::Dumper;
+        print Dumper($struct); use Data::Dumper;
     }
 
     pass;
@@ -80,7 +79,7 @@ if (1) {
     while (defined( my $chunk = $o->next_chunk())) {
 #        print HexDump $chunk;
         my $struct = decode_sereal($chunk);
-        say Dumper($struct); use Data::Dumper;
+        print Dumper($struct); use Data::Dumper;
     }
 
     pass;
@@ -98,7 +97,7 @@ if (1) {
     while (defined( my $chunk = $o->next_chunk())) {
 #        print HexDump $chunk;
         my $struct = decode_sereal($chunk);
-        say Dumper($struct); use Data::Dumper;
+        print Dumper($struct); use Data::Dumper;
     }
 
     pass;
