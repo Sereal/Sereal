@@ -1060,7 +1060,7 @@ SRL_STATIC_INLINE UV _read_varint_uv_nocheck(srl_splitter_t *splitter) {
 /* Update a varint anywhere in the output stream with defined start and end
  * positions. This can produce non-canonical varints and is useful for filling
  * pre-allocated varints. */
-SRL_STATIC_INLINE void _update_varint_from_to(pTHX_ char *varint_start, char *varint_end, UV number) {
+SRL_STATIC_INLINE void _update_varint_from_to(char *varint_start, char *varint_end, UV number) {
     while (number >= 0x80) {                      /* while we are larger than 7 bits long */
         *varint_start++ = (number & 0x7f) | 0x80; /* write out the least significant 7 bits, set the high bit */
         number = number >> 7;                     /* shift off the 7 least significant bits */
