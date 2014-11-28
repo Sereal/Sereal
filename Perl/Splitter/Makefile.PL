@@ -72,6 +72,9 @@ WriteMakefile1(
         'File::Path' => 0,
         'ExtUtils::ParseXS' => '2.21',
         'Data::Dumper' => '0',
+        'Sereal::Encoder' => '0',
+        'Sereal::Decoder' => '0',
+        'Data::Dumper' => '0',
     },
     NAME              => $module,
     VERSION_FROM      => 'lib/Sereal/Splitter.pm', # finds $VERSION

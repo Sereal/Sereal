@@ -1,4 +1,5 @@
 big.srl
+Changes
 const-c.inc
 const-xs.inc
 inc/Devel/CheckLib.pm
@@ -19,10 +20,12 @@ snappy/csnappy_internal.h
 snappy/csnappy_internal_userspace.h
 Splitter.xs
 srl_common.h
+srl_error.h
 srl_inline.h
 srl_protocol.h
 srl_splitter.c
 srl_splitter.h
+srl_taginfo.h
 t/01_basic.t
 t/02_big.t
 t/03_header_data_template.t

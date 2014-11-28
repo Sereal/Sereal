@@ -7,8 +7,6 @@ use Sereal::Splitter qw(SRL_ZLIB);
 
 #use Data::HexDump;
 
-use blib '../Encoder';
-use blib '../Decoder';
 use Sereal::Encoder qw(encode_sereal);
 use Sereal::Decoder qw(decode_sereal);
 

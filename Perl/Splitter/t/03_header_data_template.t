@@ -7,8 +7,6 @@ use Sereal::Splitter qw(create_header_data_template);
 
 use Data::Dumper;
 
-use blib '../Encoder';
-use blib '../Decoder';
 use Sereal::Encoder qw(encode_sereal);
 use Sereal::Decoder qw(decode_sereal decode_sereal_with_header_data);
 
