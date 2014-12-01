@@ -269,8 +269,13 @@ void srl_destroy_splitter(pTHX_ srl_splitter_t *splitter) {
     SvREFCNT_dec(splitter->input_sv);
     if (splitter->header_sv != NULL)
         SvREFCNT_dec(splitter->header_sv);
-    if (splitter->status_stack->data != NULL)
-        Safefree(splitter->status_stack->data);
+
+    if (splitter->status_stack) {
+        if (splitter->status_stack->data != NULL)
+            Safefree(splitter->status_stack->data);
+        Safefree(splitter->status_stack);
+    }
+
     Safefree(splitter);
 }
 
