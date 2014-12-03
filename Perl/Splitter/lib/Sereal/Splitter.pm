@@ -84,7 +84,7 @@ use strict;
 use warnings;
 use Carp;
 
-our $VERSION     = '0.810';
+our $VERSION     = '0.820';
 
 use constant SRL_UNCOMPRESSED => 0;
 use constant SRL_SNAPPY       => 1;
