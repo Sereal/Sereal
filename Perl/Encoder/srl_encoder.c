@@ -42,7 +42,7 @@ extern "C" {
 #endif
 
 /* hv_backreferences_p is not marked as exported in embed.fnc in any perl */
-#if (PERL_VERSION >= 10 && !defined(WIN32) && !defined(_WIN32))
+#if (PERL_VERSION >= 10)
 #define HAS_HV_BACKREFS
 #endif
 
@@ -1324,6 +1324,16 @@ srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_ut
 }
 
 
+AV *
+srl_hv_backreferences_p_safe(pTHX_ HV *hv) {
+    if (SvOOK(hv)) {
+        struct xpvhv_aux * const iter = HvAUX(hv);
+        return iter->xhv_backreferences;
+    } else {
+        return NULL;
+    }
+}
+
 
 /* Dumps generic SVs and delegates
  * to more specialized functions for RVs, etc. */
@@ -1367,7 +1377,7 @@ redo_dump:
     }
 #ifdef HAS_HV_BACKREFS
     if (expect_false( svt == SVt_PVHV && SvOOK(src) )) {
-        backrefs= *Perl_hv_backreferences_p(aTHX_ (HV *)src);
+        backrefs= srl_hv_backreferences_p_safe(aTHX_ (HV *)src);
         if (DEBUGHACK) warn("backreferences %p", src);
     }
 #endif
@@ -1430,10 +1440,12 @@ redo_dump:
             PTABLE_store(ref_seenhash, src, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
         }
     }
+
     if (expect_false( weakref_ofs != 0 )) {
         sv_dump(src);
-        croak("Corrupted weakref? weakref_ofs=0 (this should not happen)");
+        croak("Corrupted weakref? weakref_ofs should be 0, but got %d (this should not happen)", weakref_ofs);
     }
+
     if (replacement) {
         if (SvROK(replacement))  {
             src= SvRV(replacement);
