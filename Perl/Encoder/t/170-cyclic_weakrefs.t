@@ -1,5 +1,4 @@
-#  Tests for self referential tree save and reload.
-#  Assures us that the data can be serialised, saved out and then reloaded.
+#  Tests for self referential tree save and reload where most refs to the root are weakened.
 use strict;
 use warnings;
 
