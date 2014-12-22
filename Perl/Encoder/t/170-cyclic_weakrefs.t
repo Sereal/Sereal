@@ -1,12 +1,9 @@
 #  Tests for self referential tree save and reload.
 #  Assures us that the data can be serialised, saved out and then reloaded.
-
-use 5.010;
 use strict;
 use warnings;
-use English qw { -no_match_vars };
 
-use Scalar::Util qw /blessed unweaken weaken/;
+use Scalar::Util qw /unweaken weaken/;
 
 use Sereal ();
 
@@ -101,7 +98,7 @@ sub test_save_and_reload {
         is_deeply (
             $decoded_data,
             $data,
-            "Data structures match for Sereal, $context_text",
+            "Data structures match, $context_text",
         );
     }
 
