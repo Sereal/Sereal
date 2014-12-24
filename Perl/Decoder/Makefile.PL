@@ -86,6 +86,9 @@ WriteMakefile1(
         'File::Path' => 0,
         'ExtUtils::ParseXS' => '2.21',
     },
+    CONFIGURE_REQUIRES => {
+        'ExtUtils::MakeMaker' => '7.0',
+    },
     NAME              => $module,
     VERSION_FROM      => 'lib/Sereal/Decoder.pm', # finds $VERSION
     PREREQ_PM         => {
@@ -105,7 +108,8 @@ WriteMakefile1(
 );
 $ENV{OPTIMIZE} = $OPTIMIZE;
 
-sub WriteMakefile1 {  #Written by Alexandr Ciornii, version 0.20. Added by eumm-upgrade.
+sub WriteMakefile1 {
+    #Original by Alexandr Ciornii, modified by Yves Orton
     my %params=@_;
     my $eumm_version=$ExtUtils::MakeMaker::VERSION;
     $eumm_version=eval $eumm_version;
@@ -120,7 +124,10 @@ sub WriteMakefile1 {  #Written by Alexandr Ciornii, version 0.20. Added by eumm-
         $params{PREREQ_PM}={ %{$params{PREREQ_PM} || {}} , %{$params{BUILD_REQUIRES}} };
         delete $params{BUILD_REQUIRES};
     }
-    delete $params{CONFIGURE_REQUIRES} if $eumm_version < 6.52;
+    if ($params{CONFIGURE_REQUIRES} and $eumm_version < 6.52) {
+        $params{PREREQ_PM}={ %{$params{PREREQ_PM} || {}}, %{$params{CONFIGURE_REQUIRES}} };
+        delete $params{CONFIGURE_REQUIRES};
+    }
     delete $params{MIN_PERL_VERSION} if $eumm_version < 6.48;
     delete $params{META_MERGE} if $eumm_version < 6.46;
     delete $params{META_ADD} if $eumm_version < 6.46;
@@ -129,5 +136,6 @@ sub WriteMakefile1 {  #Written by Alexandr Ciornii, version 0.20. Added by eumm-
     delete $params{ABSTRACT_FROM} if $] < 5.005;
     delete $params{BINARY_LOCATION} if $] < 5.005;
     delete $params{OPTIMIZE} if $^O eq 'MSWin32';
+
     WriteMakefile(%params);
 }
