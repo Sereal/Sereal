@@ -1,28 +1,50 @@
 #  Tests for self referential tree save and reload where most refs to the root are weakened.
 use strict;
 use warnings;
-
+use File::Spec;
 use Scalar::Util qw /unweaken weaken/;
 
-use Sereal ();
+#use Sereal ();
+use Sereal::Encoder;
 
 local $| = 1;
 
+use lib File::Spec->catdir(qw(t lib));
+BEGIN {
+    lib->import('lib')
+        if !-d 't';
+}
+
+use Sereal::TestSet qw(:all);
+use Sereal::BulkTest qw(:all);
 use Test::More;
 
-#  Child to parent refs are weak, root node is stored once in the hash
-#  Was failing on x64 Strawberry perls 5.16.3, 5.18.4, 5.20.1
-test_save_and_reload ();
 
-#  Child to parent refs are weak, but we store the root node twice in the hash
-#  (second time is in the "TREE_BY_NAME" subhash)
-#  Was failing on x64 Strawberry perls 5.16.3, passing on 5.18.4, 5.20.1
-test_save_and_reload (store_root_by_name => 1);
+my $ok = have_encoder_and_decoder();
+if (not $ok) {
+    plan skip_all => 'Did not find right version of decoder';
+}
+else {
+    run_weakref_tests();
+}
 
-#  child to parent refs are strong
-#  Should pass
-test_save_and_reload (no_weaken_refs => 1);
 
+sub run_weakref_tests {
+    #  Child to parent refs are weak, root node is stored once in the hash
+    #  Was failing on x64 Strawberry perls 5.16.3, 5.18.4, 5.20.1
+    test_save_and_reload ();
+    
+    #  Child to parent refs are weak, but we store the root node twice in the hash
+    #  (second time is in the "TREE_BY_NAME" subhash)
+    #  Was failing on x64 Strawberry perls 5.16.3, passing on 5.18.4, 5.20.1
+    test_save_and_reload (store_root_by_name => 1);
+    
+    #  child to parent refs are strong
+    #  Should pass
+    test_save_and_reload (no_weaken_refs => 1);
+}
+
+pass();
 done_testing();
 
 exit;
