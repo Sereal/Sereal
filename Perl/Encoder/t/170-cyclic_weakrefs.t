@@ -9,8 +9,6 @@ use Sereal ();
 local $| = 1;
 
 use Test::More;
-use Test::Exception;
-
 
 #  Child to parent refs are weak, root node is stored once in the hash
 #  Was failing on x64 Strawberry perls 5.16.3, 5.18.4, 5.20.1
@@ -84,16 +82,16 @@ sub test_save_and_reload {
     my $decoder = Sereal::Decoder->new;
     my ($encoded_data, $decoded_data);
 
-    lives_ok {
-        $encoded_data = $encoder->encode($data)
-    } "Encoded using Sereal, $context_text";
+    $encoded_data = eval {$encoder->encode($data)};
+    my $e = $@;
+    ok (!$e, "Encoded without exception, $context_text");
 
     #  no point testing if serialisation failed
     if ($encoded_data) {
-        lives_ok {
-            $decoder->decode ($encoded_data, $decoded_data);
-        } "Decoded using Sereal, $context_text";
-    
+        eval {$decoder->decode ($encoded_data, $decoded_data)};
+        my $e = $@;
+        ok (!$e, "Decoded using Sereal, $context_text");
+
         is_deeply (
             $decoded_data,
             $data,
