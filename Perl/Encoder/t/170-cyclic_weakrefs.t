@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use File::Spec;
-use Scalar::Util qw /unweaken weaken/;
+use Scalar::Util qw /weaken/;
 
 #use Sereal ();
 use Sereal::Encoder;
