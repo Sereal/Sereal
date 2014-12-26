@@ -1323,7 +1323,7 @@ srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_ut
     enc->buf.pos += src_len;
 }
 
-
+#ifdef HAS_HV_BACKREFS
 AV *
 srl_hv_backreferences_p_safe(pTHX_ HV *hv) {
     if (SvOOK(hv)) {
@@ -1333,7 +1333,7 @@ srl_hv_backreferences_p_safe(pTHX_ HV *hv) {
         return NULL;
     }
 }
-
+#endif
 
 /* Dumps generic SVs and delegates
  * to more specialized functions for RVs, etc. */
