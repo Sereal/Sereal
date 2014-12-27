@@ -6,8 +6,10 @@ please see the Encoder and Decoder changelogs:
    * https://github.com/Sereal/Sereal/blob/master/Perl/Decoder/Changes
    * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
 
-3.003_001
+3.004 Dec 27 2014
   * Performance optimizations and other miscellaneous changes.
+  * Build improvements.
+  * Win32 fixes for weakrefs.
 
 3.003 Oct 19 2014
   * Niko Tyni fixed the 64-bit big endian Sereal bug! (Yay Niko!)

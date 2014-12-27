@@ -3,8 +3,11 @@ Revision history for Perl extension Sereal-Decoder
 * Warning: For a seamless upgrade, upgrade to version 3
 *          of the decoder before upgrading to version 3 of the
 *          encoder!
-3.003_001
+
+3.004 Dec 27 2014
   * Performance optimizations and other miscellaneous changes.
+  * Build improvements.
+  * Win32 fixes for weakrefs.
 
 3.003 Oct 19 2014
   * Niko Tyni fixed the 64-bit big endian Sereal bug! (Yay Niko!)
