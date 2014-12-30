@@ -112,3 +112,49 @@ test()
 
     STRTABLE_free(tbl);
     srl_buf_free_buffer(aTHX_ &buf);
+
+#define POPULATE_STRTABLE(from, to)                     \
+    for (i = from; i < to; ++i) {                       \
+        len = sprintf((char*) b, "%d", (int) i);        \
+        Copy(b, buf.pos, len, char);                    \
+        buf.pos += len;                                 \
+                                                        \
+        ent = STRTABLE_insert(tbl, b, len, &found);     \
+        ent->offset = i;                                \
+        if (found) abort(); /* shoul never happen */    \
+    }
+
+void
+test_purge()
+  PREINIT:
+    STRTABLE_t *tbl;
+    STRTABLE_ENTRY_t *ent;
+    srl_buffer_t buf;
+    UV i, len;
+    unsigned char b[128];
+    int found;
+  CODE:
+    srl_buf_init_buffer(aTHX_ &buf, 1024 * 1024);
+    tbl = STRTABLE_new(&buf);
+
+    POPULATE_STRTABLE(0, 10);
+    STRTABLE_purge(tbl, 0);
+    printf("%sok - STRTABLE purged to 0\n", tbl->tbl_items == 0 ? "" : "not ");
+
+    POPULATE_STRTABLE(0, 100);
+    STRTABLE_purge(tbl, 0);
+    printf("%sok - STRTABLE purged to 0\n", tbl->tbl_items == 0 ? "" : "not ");
+
+    POPULATE_STRTABLE(0, 500);
+    STRTABLE_purge(tbl, 0);
+    printf("%sok - STRTABLE purged to 0\n", tbl->tbl_items == 0 ? "" : "not ");
+
+    POPULATE_STRTABLE(0, 500);
+    STRTABLE_purge(tbl, 100);
+    printf("%sok - STRTABLE purged to 100\n", tbl->tbl_items == 100 ? "" : "not ");
+
+    POPULATE_STRTABLE(100, 200);
+    printf("%sok - STRTABLE filled to 200\n", tbl->tbl_items == 200 ? "" : "not ");
+
+    STRTABLE_free(tbl);
+    srl_buf_free_buffer(aTHX_ &buf);
