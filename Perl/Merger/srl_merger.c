@@ -405,7 +405,7 @@ srl_merger_finish(pTHX_ srl_merger_t *mrg)
          * (i.e. =srl + 1 byte for version + 1 byte for header) */
         srl_compress_body(&mrg->obuf, 6, mrg->flags, 0, &mrg->snappy_workmem);
         SRL_UPDATE_BODY_POS(&mrg->obuf, mrg->protocol_version);
-        DEBUG_ASSERT_BUF_SANE(buf);
+        DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
     }
 
     return newSVpvn((char *) mrg->obuf.start, BUF_POS_OFS(&mrg->obuf));
