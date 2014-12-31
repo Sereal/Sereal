@@ -1,6 +1,8 @@
 /* Must be defined before including Perl header files or we slow down by 2x! */
 #define PERL_NO_GET_CONTEXT
 
+#define NO_XSLOCKS // TODO not sure if it's a good idea to use it
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -162,6 +164,7 @@ SRL_STATIC_INLINE ptable_entry_ptr srl_store_tracked_offset(pTHX_ srl_merger_t *
 SRL_STATIC_INLINE UV srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV offset);
 SRL_STATIC_INLINE strtable_entry_ptr srl_lookup_string(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN len, int *ok);
 SRL_STATIC_INLINE strtable_entry_ptr srl_lookup_classname(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN len, int *ok);
+SRL_STATIC_INLINE void srl_cleanup_dedup_tlbs(aTHX_ srl_merger_t *mrg, UV offset);
 
 SRL_STATIC_INLINE ptable_ptr
 srl_init_tracked_offsets_tbl(pTHX_ srl_merger_t *mrg)
@@ -334,6 +337,7 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
 {
     assert(mrg != NULL);
 
+    UV offset_before_append = BODY_POS_OFS(&mrg->obuf);
     srl_set_input_buffer(aTHX_ mrg, src);
     srl_build_track_table(aTHX_ mrg);
 
@@ -343,7 +347,18 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
     GROW_BUF(&mrg->obuf, (size_t) BUF_SIZE(&mrg->ibuf));
 
     mrg->ibuf.pos = mrg->ibuf.body_pos + 1;
-    srl_merge_single_value(aTHX_ mrg);
+
+    dXCPT;
+    XCPT_TRY_START {
+        srl_merge_single_value(aTHX_ mrg);
+    } XCPT_TRY_END
+
+    XCPT_CATCH {
+        mrg->obuf.pos = mrg->obuf.body_pos + offset_before_append;
+        srl_cleanup_dedup_tlbs(aTHX_ mrg, offset_before_append);
+        DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
+        XCPT_RETHROW;
+    }
 
     mrg->cnt_of_merged_elements++;
 }
@@ -356,6 +371,7 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
     SSize_t i;
     SV **svptr;
     SSize_t tidx = av_top_index(src);
+    UV offset_before_append = BODY_POS_OFS(&mrg->obuf);
 
     STRLEN size = 0;
     for (i = 0; i <= tidx; ++i) {
@@ -370,12 +386,23 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
      * of course this's is very rough estimation */
     GROW_BUF(&mrg->obuf, size);
 
+    dXCPT;
     for (i = 0; i <= tidx; ++i) {
         srl_set_input_buffer(aTHX_ mrg, *av_fetch(src, i, 0));
         srl_build_track_table(aTHX_ mrg);
 
         mrg->ibuf.pos = mrg->ibuf.body_pos + 1;
-        srl_merge_single_value(aTHX_ mrg);
+
+        XCPT_TRY_START {
+            srl_merge_single_value(aTHX_ mrg);
+        } XCPT_TRY_END
+
+        XCPT_CATCH {
+            mrg->obuf.pos = mrg->obuf.body_pos + offset_before_append;
+            srl_cleanup_dedup_tlbs(aTHX_ mrg, offset_before_append);
+            DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
+            XCPT_RETHROW;
+        }
 
         mrg->cnt_of_merged_elements++;
     }
@@ -1068,6 +1095,23 @@ srl_lookup_classname(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN l
     }
 
     return ent;
+}
+
+SRL_STATIC_INLINE void
+srl_cleanup_dedup_tlbs(aTHX_ srl_merger_t *mrg, UV offset)
+{
+    if (!SRL_MRG_HAVE_OPTION(mrg, SRL_F_DEDUPE_STRINGS))
+        return;
+
+    if (mrg->string_deduper_tbl) {
+        SRL_MERGER_TRACE("purge records with offset higher then %lu in string_deduper_tbl", (unsigned long) offset);
+        STRTABLE_purge(mrg->string_deduper_tbl, offset);
+    }
+
+    if (mrg->classname_deduper_tbl) {
+        SRL_MERGER_TRACE("purge records with offset higher then %lu in classname_deduper_tbl", (unsigned long) offset);
+        STRTABLE_purge(mrg->classname_deduper_tbl, offset);
+    }
 }
 
 SRL_STATIC_INLINE void
