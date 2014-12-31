@@ -1039,8 +1039,8 @@ srl_lookup_string(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN len,
     assert(ent != NULL);
 
     if (*ok) {
-        SRL_MERGER_TRACE("srl_lookup_string: got duplicate '%.*s' target %lld",
-                         (int) len, src, ent->offset);
+        SRL_MERGER_TRACE("srl_lookup_string: got duplicate '%.*s' target %lu",
+                         (int) len, src, (unsigned long) ent->offset);
     } else {
         SRL_MERGER_TRACE("srl_lookup_string: not found duplicate '%.*s'",
                          (int) len, src);
@@ -1060,8 +1060,8 @@ srl_lookup_classname(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN l
     assert(ent != NULL);
 
     if (*ok) {
-        SRL_MERGER_TRACE("srl_lookup_classname: got duplicate '%.*s' target %lld",
-                         (int) len, src, ent->offset);
+        SRL_MERGER_TRACE("srl_lookup_classname: got duplicate '%.*s' target %lu",
+                         (int) len, src, (unsigned long) ent->offset);
     } else {
         SRL_MERGER_TRACE("srl_lookup_classname: not found duplicate '%.*s'",
                          (int) len, src);
