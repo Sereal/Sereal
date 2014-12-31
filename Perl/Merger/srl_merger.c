@@ -303,7 +303,7 @@ srl_destroy_merger(pTHX_ srl_merger_t *mrg)
 {
     srl_buf_free_buffer(aTHX_ &mrg->obuf);
 
-    srl_destroy_snappy_workmem(mrg->snappy_workmem);
+    srl_destroy_snappy_workmem(aTHX_ mrg->snappy_workmem);
 
     if (mrg->tracked_offsets) {
         srl_stack_destroy(aTHX_ mrg->tracked_offsets);
@@ -403,7 +403,7 @@ srl_merger_finish(pTHX_ srl_merger_t *mrg)
         /* there is no support of user's Sereal header,
          * so body's offset is fixed and always 5
          * (i.e. =srl + 1 byte for version + 1 byte for header) */
-        srl_compress_body(&mrg->obuf, 6, mrg->flags, 0, &mrg->snappy_workmem);
+        srl_compress_body(aTHX_ &mrg->obuf, 6, mrg->flags, 0, &mrg->snappy_workmem);
         SRL_UPDATE_BODY_POS(&mrg->obuf, mrg->protocol_version);
         DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
     }
