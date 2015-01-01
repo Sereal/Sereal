@@ -52,6 +52,13 @@ finish(mrg)
     RETVAL = srl_merger_finish(aTHX_ mrg);
   OUTPUT: RETVAL
 
+UV
+elements_merged(mrg)
+    srl_merger_t *mrg;
+  CODE:
+    RETVAL = (UV) mrg->cnt_of_merged_elements;
+  OUTPUT: RETVAL
+
 MODULE = Sereal::Merger        PACKAGE = Sereal::Merger::Constants
 PROTOTYPES: DISABLE
 
