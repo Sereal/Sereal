@@ -371,7 +371,7 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
     SSize_t i;
     SV **svptr;
     SSize_t tidx = av_top_index(src);
-    UV offset_before_append = BODY_POS_OFS(&mrg->obuf);
+    UV offset_before_append;
 
     STRLEN size = 0;
     for (i = 0; i <= tidx; ++i) {
@@ -388,6 +388,7 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
 
     dXCPT;
     for (i = 0; i <= tidx; ++i) {
+        offset_before_append = BODY_POS_OFS(&mrg->obuf);
         srl_set_input_buffer(aTHX_ mrg, *av_fetch(src, i, 0));
         srl_build_track_table(aTHX_ mrg);
 
