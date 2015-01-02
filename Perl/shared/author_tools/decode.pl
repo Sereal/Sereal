@@ -23,7 +23,7 @@
 # For the array and hash the number of elements is trivial, for the graph
 # the total number of elements (in its hash-of-hashes) is O(N log N).
 #
-# The number decode repeats is controlled by --repeat=N.
+# The number decode repeats is controlled by --repeat_decode=N and --repeat_decode=N.
 #
 # The encode input needs to be built only once, the --output tells
 # where to save the encoded blob.  The encode blob can be read back
@@ -42,7 +42,7 @@ use Fcntl qw[O_RDONLY O_WRONLY O_CREAT O_TRUNC];
 sub MB () { 2 ** 20 }
 
 my %Opt;
-my @Opt = ('input=s', 'output=s', 'type=s', 'elem=f', 'build', 'repeat=i', 'size');
+my @Opt = ('input=s', 'output=s', 'type=s', 'elem=f', 'build', 'repeat_encode=i', 'repeat_decode=i', 'size');
 my %OptO = map { my ($n) = /^(\w+)/; $_ => \$Opt{$n} } @Opt;
 my @OptU = map { "--$_" } @Opt;
 
@@ -68,11 +68,13 @@ if (defined ($Opt{output})) {
 }
 
 $Opt{type} //= 'graph';
-$Opt{repeat} //= 5;
+$Opt{repeat_encode} //= 1;
+$Opt{repeat_decode} //= 5;
 
 my %TYPE = map { $_ => 1 } qw[aoi aof aos hoi hof graph];
 
-die "$0: Unexpected --repeat=$Opt{repeat}\n" if $Opt{repeat} < 1;
+die "$0: Unexpected --repeat=$Opt{repeat_encode}\n" if $Opt{repeat_encode} < 1;
+die "$0: Unexpected --repeat=$Opt{repeat_decode}\n" if $Opt{repeat_decode} < 1;
 die "$0: Unexpected --type=$Opt{type}\n$0: Expected --type=@{[join('|', sort keys %TYPE)]}\n"
     unless exists $TYPE{$Opt{type}};
 
@@ -195,13 +197,21 @@ if (defined $Opt{build}) {
 
     {
 	print "encoding data\n";
-	$dt = timeit(
-	    sub {
-		$blob = $encoder->encode($data);
-	    });
-	$blob_size = length($blob);
-	printf("encode to %d bytes (%.1fMB) %.3f sec (%.1f MB/sec)\n",
-	       $blob_size, $blob_size / MB, $dt, $blob_size / (MB * $dt));
+        my @dt;
+        for my $i (1..$Opt{repeat_encode}) {
+            $dt = timeit(sub { $blob = $encoder->encode($data); });
+            $blob_size = length($blob);
+            printf("%d/%d: encode to %d bytes (%.1fMB) %.3f sec (%.1f MB/sec)\n",
+                   $i, $Opt{repeat_encode}, $blob_size, $blob_size / MB, $dt, $blob_size / (MB * $dt),
+                   $dt, $blob_size / (MB * $dt));
+            push @dt, $dt;
+        }
+        if (@dt) {
+            my %stats = stats(@dt);
+            printf("encode avg %.2f sec (%.1f MB/sec) stddev %.2f sec (%.2f) min %.2f med %.2f max %.2f\n",
+                   $stats{avg}, $blob_size / (MB * $stats{avg}), $stats{stddev}, $stats{rstddev},
+                   $stats{min}, $stats{med}, $stats{max});
+        }
     }
 
     if (defined $Opt{output}) {
@@ -237,12 +247,12 @@ my $decoder = Sereal::Decoder->new;
 
 {
     print "decoding blob\n";
-    my @dt;
     $blob_size = length($blob);
-    for my $i (1..$Opt{repeat}) {
+    my @dt;
+    for my $i (1..$Opt{repeat_decode}) {
 	$dt = timeit(sub { $data = $decoder->decode($blob); });
 	printf("%d/%d: decode from %d bytes (%.1fM) %.3f sec (%.f MB/sec)\n",
-	       $i, $Opt{repeat}, $blob_size, $blob_size / MB,
+	       $i, $Opt{repeat_decode}, $blob_size, $blob_size / MB,
 	       $dt, $blob_size / (MB * $dt));
 	push @dt, $dt;
     }
