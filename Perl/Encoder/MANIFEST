@@ -50,7 +50,6 @@ t/110_nobless.t
 t/120_hdr_data.t
 t/130_freezethaw.t
 t/160_recursion.t
-t/170-cyclic_weakrefs.t
 t/170_cyclic_weakrefs.t
 t/200_bulk.t
 t/300_fail.t
