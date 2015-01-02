@@ -84,6 +84,27 @@ sub timeit {
     return $dt;
 }
 
+sub stats {
+    my @st = sort { $a <=> $b } @_;
+    my $min = $st[0];
+    my $max = $st[-1];
+    my $med = @st == 2 ? ($st[@st/2-1] + $st[@st/2]) / 2 : $st[@st/2];
+    my $sum = 0;
+    for my $t (@_) {
+        $sum += $t;
+    }
+    my $avg = $sum / @_;
+    my $sqsum = 0;
+    for my $t (@_) {
+        $sqsum += ($avg - $t) ** 2;
+    }
+    my $stddev = sqrt($sqsum / @_);
+    return ( avg => $avg,
+             stddev => $stddev,
+             rstddev => $avg ? $stddev / $avg : undef,
+             min => $min, med => $med, max => $max );
+}
+
 if (defined $Opt{build}) {
     print "building data\n";
     if ($Opt{type} eq 'graph') {
@@ -226,22 +247,10 @@ my $decoder = Sereal::Decoder->new;
 	push @dt, $dt;
     }
     if (@dt) {
-        my @st = sort { $a <=> $b } @dt;
-        my $min = $st[0];
-        my $max = $st[-1];
-        my $med = @st == 2 ? ($st[@st/2-1] + $st[@st/2]) / 2 : $st[@st/2];
-	my $sum = 0;
-	for my $t (@dt) {
-	    $sum += $t;
-	}
-	my $avg = $sum / @dt;
-	my $sqsum = 0; 
-	for my $t (@dt) {
-	    $sqsum += ($avg - $t) ** 2;
-	}
-	my $stddev = sqrt($sqsum / @dt);
+        my %stats = stats(@dt);
 	printf("decode avg %.2f sec (%.1f MB/sec) stddev %.2f sec (%.2f) min %.2f med %.2f max %.2f\n",
-	       $avg, $blob_size / (MB * $avg), $stddev, $stddev / $avg, $min, $med, $max);
+	       $stats{avg}, $blob_size / (MB * $stats{avg}), $stats{stddev}, $stats{rstddev},
+               $stats{min}, $stats{med}, $stats{max});
     }
     if ($Opt{size}) {
 	$dt = timeit(sub { $data_size = total_size($data); });
