@@ -181,6 +181,11 @@ if (defined $Opt{build}) {
 	$blob_size = length($blob);
 	printf("encode to %d bytes (%.1fMB) %.3f sec (%.1f MB/sec)\n",
 	       $blob_size, $blob_size / MB, $dt, $blob_size / (MB * $dt));
+        if ($Opt{size}) {
+            if ($blob_size) {
+                printf("data size / blob size %.3f\n", $data_size / $blob_size);
+            }
+        }
     }
 
     if (defined $Opt{output}) {
