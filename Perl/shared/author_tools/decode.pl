@@ -226,6 +226,10 @@ my $decoder = Sereal::Decoder->new;
 	push @dt, $dt;
     }
     if (@dt) {
+        my @st = sort { $a <=> $b } @dt;
+        my $min = $st[0];
+        my $max = $st[-1];
+        my $med = @st == 2 ? ($st[@st/2-1] + $st[@st/2]) / 2 : $st[@st/2];
 	my $sum = 0;
 	for my $t (@dt) {
 	    $sum += $t;
@@ -236,8 +240,8 @@ my $decoder = Sereal::Decoder->new;
 	    $sqsum += ($avg - $t) ** 2;
 	}
 	my $stddev = sqrt($sqsum / @dt);
-	printf("decode avg %.2f sec (%.1f MB/sec) stddev %.2f sec (%.2f)\n",
-	       $avg, $blob_size / (MB * $avg), $stddev, $stddev / $avg); 
+	printf("decode avg %.2f sec (%.1f MB/sec) stddev %.2f sec (%.2f) min %.2f med %.2f max %.2f\n",
+	       $avg, $blob_size / (MB * $avg), $stddev, $stddev / $avg, $min, $med, $max);
     }
     if ($Opt{size}) {
 	$dt = timeit(sub { $data_size = total_size($data); });
