@@ -13,6 +13,7 @@ use Devel::Peek;
 use Encode qw(encode_utf8 is_utf8);
 use Scalar::Util qw(reftype blessed refaddr);
 use Config;
+use Carp qw(confess);
 
 # Dynamically load constants from whatever is being tested
 our ($Class, $ConstClass);
@@ -121,10 +122,21 @@ sub dump_bless {
 }
 
 sub short_string {
-    die if length($_[0]) > SRL_MASK_SHORT_BINARY_LEN;
-    my $tag = SRL_HDR_SHORT_BINARY_LOW + length($_[0]);
-    $tag |= SRL_HDR_TRACK_FLAG if $_[1];
-    return pack("c a*",$tag,$_[0]);
+    my ($str, $alias)= @_;
+    $alias ||= 0;
+    my $length= length($str);
+    if ($length > SRL_MASK_SHORT_BINARY_LEN) {
+        confess "String too long for short_string(), alias=$alias length=$length";
+    }
+    my $tag = SRL_HDR_SHORT_BINARY_LOW + length($str);
+    if ($tag > SRL_HDR_SHORT_BINARY_HIGH) {
+        confess "Tag value larger than SRL_HDR_SHORT_BINARY_HIGH, tag=$tag; alias=$alias; length=$length";
+    }
+    $tag |= SRL_HDR_TRACK_FLAG if $alias;
+    if ($tag > 255) {
+        confess "Tag value over 255 in short_string(), tag=$tag; alias=$alias; length=$length; SRL_HDR_TRACK_FLAG=", SRL_HDR_TRACK_FLAG;
+    }
+    return chr($tag) . $str;
 }
 
 sub integer {
