@@ -149,8 +149,8 @@ SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 
 #define DEPTH_INCREMENT(dec) STMT_START {                                           \
     if (expect_false(++dec->recursion_depth > dec->max_recursion_depth)) {                        \
-            SRL_ERRORf1("Reached recursion limit (%lu) during deserialization",     \
-            (unsigned long)dec->max_recursion_depth);                               \
+            SRL_ERRORf1("Reached recursion limit (%"UVuf") during deserialization",     \
+            (UV)dec->max_recursion_depth);                               \
     }                                                                               \
 } STMT_END
 
@@ -159,7 +159,7 @@ SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 #define ASSERT_BUF_SPACE(dec,len,msg) STMT_START {                  \
     if (expect_false( (UV)BUF_SPACE((dec)) < (UV)(len) )) {         \
         SRL_ERRORf3("Unexpected termination of packet%s, "          \
-                    "want %lu bytes, only have %lu available",      \
+                    "want %"UVuf" bytes, only have %"UVuf" available",      \
                     (msg), (UV)(len), (UV)BUF_SPACE((dec)));        \
     }                                                               \
 } STMT_END
@@ -182,7 +182,7 @@ STATIC void
 srl_ptable_debug_callback(PTABLE_ENTRY_t *e)
 {
     dTHX;
-    printf("KEY=%lu\nVALUE:\n", (unsigned long)e->key);
+    printf("KEY=%"UVuf"\nVALUE:\n", (UV)e->key);
     sv_dump((SV *)e->value);
     printf("\n");
 }
@@ -976,8 +976,8 @@ srl_read_varint_uv_offset(pTHX_ srl_decoder_t *dec, const char * const errstr)
     UV len= srl_read_varint_uv(aTHX_ dec);
 
     if (dec->body_pos + len >= dec->pos) {
-        SRL_ERRORf4("Corrupted packet%s. Offset %lu points past current position %lu in packet with length of %lu bytes long",
-                errstr, (unsigned long)len, (unsigned long)BUF_POS_OFS(dec), (unsigned long)dec->buf_len);
+        SRL_ERRORf4("Corrupted packet%s. Offset %"UVuf" points past current position %"UVuf" in packet with length of %"UVuf" bytes long",
+                errstr, (UV)len, (UV)BUF_POS_OFS(dec), (UV)dec->buf_len);
     }
     return len;
 }
@@ -998,7 +998,7 @@ srl_read_varint_uv_count(pTHX_ srl_decoder_t *dec, const char * const errstr)
 {
     UV len= srl_read_varint_uv(aTHX_ dec);
     if (len > I32_MAX) {
-        SRL_ERRORf3("Corrupted packet%s. Count %lu exceeds I32_MAX (%i), which is impossible.",
+        SRL_ERRORf3("Corrupted packet%s. Count %"UVuf" exceeds I32_MAX (%i), which is impossible.",
                 errstr, len, I32_MAX);
     }
     return len;
@@ -1037,7 +1037,7 @@ srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char * const tag_name)
     SV *sv= (SV *)PTABLE_fetch(dec->ref_seenhash, (void *)item);
     if (expect_false( !sv )) {
         /*srl_ptable_debug_dump(aTHX_ dec->ref_seenhash);*/
-        SRL_ERRORf2("%s(%d) references an unknown item", tag_name, (int)item);
+        SRL_ERRORf2("%s(%"UVuf") references an unknown item", tag_name, item);
     }
     return sv;
 }
@@ -1476,7 +1476,7 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
                   "preceding OBJECT(_FREEZE) to define classname");
     av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)ofs);
     if (expect_false( NULL == av )) {
-        SRL_ERRORf1("Corrupted packet. OBJECTV(_FREEZE) references unknown classname offset: %lu", (unsigned long)ofs);
+        SRL_ERRORf1("Corrupted packet. OBJECTV(_FREEZE) references unknown classname offset: %"UVuf, (UV)ofs);
     }
 
     /* checking tag: SRL_HDR_OBJECTV_FREEZE or SRL_HDR_OBJECTV? */
@@ -1607,7 +1607,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
         /* we have a class stash so we should have a ref_bless_av as well. */
         av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)storepos);
         if ( !av )
-            SRL_ERRORf1("Panic, no ref_bless_av for %lu", (unsigned long)storepos);
+            SRL_ERRORf1("Panic, no ref_bless_av for %"UVuf, (UV)storepos);
     }
 
     if (expect_false( obj_tag == SRL_HDR_OBJECT_FREEZE )) {

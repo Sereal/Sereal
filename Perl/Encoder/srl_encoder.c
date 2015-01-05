@@ -406,8 +406,8 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
             if (enc->protocol_version < 1
                 || enc->protocol_version > SRL_PROTOCOL_VERSION)
             {
-                croak("Specified Sereal protocol version ('%lu') is invalid",
-                      (unsigned long)enc->protocol_version);
+                croak("Specified Sereal protocol version ('%"UVuf") is invalid",
+                      (UV)enc->protocol_version);
             }
         }
         else {
@@ -984,7 +984,7 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
         if ( offset ) {
             srl_buffer_char *pos = enc->buf.body_pos + offset;
             assert(*pos == SRL_HDR_WEAKEN);
-            if (DEBUGHACK) warn("setting byte at offset %lu to PAD", (long unsigned int)offset);
+            if (DEBUGHACK) warn("setting byte at offset %"UVuf" to PAD", (UV)offset);
             *pos = SRL_HDR_PAD;
         }
     }
@@ -1358,8 +1358,8 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     assert(src);
 
     if (expect_false( ++enc->recursion_depth == enc->max_recursion_depth )) {
-        croak("Hit maximum recursion depth (%lu), aborting serialization",
-              (unsigned long)enc->max_recursion_depth);
+        croak("Hit maximum recursion depth (%"UVuf"), aborting serialization",
+              (UV)enc->max_recursion_depth);
     }
 
 redo_dump:
@@ -1386,11 +1386,11 @@ redo_dump:
         PTABLE_ENTRY_t *pe= PTABLE_find(weak_seenhash, src);
         if (!pe) {
             /* not seen it before */
-            if (DEBUGHACK) warn("scalar %p - is weak referent, storing %lu", src, weakref_ofs);
+            if (DEBUGHACK) warn("scalar %p - is weak referent, storing %"UVuf, src, weakref_ofs);
             /* if weakref_ofs is false we got here some way that holds a refcount on this item */
             PTABLE_store(weak_seenhash, src, INT2PTR(void *, weakref_ofs));
         } else {
-            if (DEBUGHACK) warn("scalar %p - is weak referent, seen before value:%lu weakref_ofs:%lu",
+            if (DEBUGHACK) warn("scalar %p - is weak referent, seen before value:%"UVuf" weakref_ofs:%"UVuf,
                     src, (UV)pe->value, (UV)weakref_ofs);
             if (pe->value)
                 pe->value= INT2PTR(void *, weakref_ofs);
@@ -1425,25 +1425,25 @@ redo_dump:
             if (expect_false(oldoffset)) {
                 /* we have seen it before, so we do not need to bless it again */
                 if (ref_rewrite_pos) {
-                    if (DEBUGHACK) warn("ref to %p as %lu", src, (long unsigned int)oldoffset);
+                    if (DEBUGHACK) warn("ref to %p as %"UVuf, src, (UV)oldoffset);
                     enc->buf.pos= enc->buf.body_pos + ref_rewrite_pos;
                     srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_REFP, (UV)oldoffset);
                 } else {
-                    if (DEBUGHACK) warn("alias to %p as %lu", src, (long unsigned int)oldoffset);
+                    if (DEBUGHACK) warn("alias to %p as %"UVuf, src, (UV)oldoffset);
                     srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_ALIAS, (UV)oldoffset);
                 }
                 SRL_SET_TRACK_FLAG(*(enc->buf.body_pos + oldoffset));
                 --enc->recursion_depth;
                 return;
             }
-            if (DEBUGHACK) warn("storing %p as %lu", src, (long unsigned int)BODY_POS_OFS(&enc->buf));
+            if (DEBUGHACK) warn("storing %p as %"UVuf, src, (UV)BODY_POS_OFS(&enc->buf));
             PTABLE_store(ref_seenhash, src, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
         }
     }
 
     if (expect_false( weakref_ofs != 0 )) {
         sv_dump(src);
-        croak("Corrupted weakref? weakref_ofs should be 0, but got %d (this should not happen)", weakref_ofs);
+        croak("Corrupted weakref? weakref_ofs should be 0, but got %"UVuf" (this should not happen)", weakref_ofs);
     }
 
     if (replacement) {
