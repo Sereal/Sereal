@@ -787,7 +787,7 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
          * if the entire deserialization completes. */
         while ( NULL != (ent = PTABLE_iter_next(it)) ) {
             HV *stash = (HV* )ent->value;
-            AV *ref_bless_av  = PTABLE_fetch(dec->ref_bless_av, ent->key);
+            AV *ref_bless_av  = (AV *) PTABLE_fetch(dec->ref_bless_av, ent->key);
             I32 len;
             if (expect_false( !stash || !ref_bless_av )) {
                 PTABLE_iter_free(it);
@@ -1349,7 +1349,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
 #ifdef OLDHASH
         fetched_sv= hv_fetch((HV *)into, (char *)from, key_len, IS_LVALUE);
 #else
-        fetched_sv= hv_common((HV *)into, NULL, (char *)from, key_len, flags, HV_FETCH_LVALUE|HV_FETCH_JUST_SV, NULL, 0);
+        fetched_sv= (SV **) hv_common((HV *)into, NULL, (char *)from, key_len, flags, HV_FETCH_LVALUE|HV_FETCH_JUST_SV, NULL, 0);
 #endif
         if (expect_false( !fetched_sv )) {
             SRL_ERROR_PANIC(dec,"failed to hv_store");
@@ -1481,7 +1481,7 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
 
     /* checking tag: SRL_HDR_OBJECTV_FREEZE or SRL_HDR_OBJECTV? */
     if (expect_false( obj_tag == SRL_HDR_OBJECTV_FREEZE )) {
-        HV *class_stash= PTABLE_fetch(dec->ref_stashes, (void *)ofs);
+        HV *class_stash= (HV *) PTABLE_fetch(dec->ref_stashes, (void *)ofs);
         if (expect_false( class_stash == NULL ))
             SRL_ERROR("Corrupted packet. OBJECTV(_FREEZE) used without "
                       "preceding OBJECT(_FREEZE) to define classname");
@@ -1561,7 +1561,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
          * anymore. So first we check if we have a stash. If we do, then we can avoid
          * some work. */
         if (expect_true( dec->ref_stashes != NULL )) {
-            class_stash= PTABLE_fetch(dec->ref_stashes, (void *)ofs);
+            class_stash= (HV *) PTABLE_fetch(dec->ref_stashes, (void *)ofs);
         }
         /* Check if we actually got a class_stash back. If we didn't then we need
          * to deserialize the class name */
