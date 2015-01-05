@@ -11,7 +11,7 @@
 #define SRL_ERRORf4(buf, fmt, var1, var2, var3, var4)    croak(SRL_BASE_ERROR_FORMAT fmt,  SRL_BASE_ERROR_ARGS(buf), (var1), (var2), (var3), (var4))
 
 #define SRL_ERROR_UNIMPLEMENTED(buf, tag, str) \
-    SRL_ERRORf3((buf), "Tag %u %s is unimplemented at ofs: %lu", (tag), (str), (buf).pos - (buf).start)
+    SRL_ERRORf3((buf), "Tag %u %s is unimplemented at ofs: %u", (tag), (str), (unsigned int) ((buf).pos - (buf).start))
 
 #define SRL_ERROR_UNTERMINATED(buf, tag, str)                                                                 \
     SRL_ERRORf4((buf), "Tag SRL_HDR_%s %s was not terminated properly at ofs %lu with %lu to go",             \

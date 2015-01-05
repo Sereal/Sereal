@@ -1,6 +1,8 @@
 /* Must be defined before including Perl header files or we slow down by 2x! */
 #define PERL_NO_GET_CONTEXT
 
+#define NO_XSLOCKS // TODO not sure if it's a good idea to use it
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -162,6 +164,7 @@ SRL_STATIC_INLINE ptable_entry_ptr srl_store_tracked_offset(pTHX_ srl_merger_t *
 SRL_STATIC_INLINE UV srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV offset);
 SRL_STATIC_INLINE strtable_entry_ptr srl_lookup_string(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN len, int *ok);
 SRL_STATIC_INLINE strtable_entry_ptr srl_lookup_classname(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN len, int *ok);
+SRL_STATIC_INLINE void srl_cleanup_dedup_tlbs(aTHX_ srl_merger_t *mrg, UV offset);
 
 SRL_STATIC_INLINE ptable_ptr
 srl_init_tracked_offsets_tbl(pTHX_ srl_merger_t *mrg)
@@ -303,7 +306,7 @@ srl_destroy_merger(pTHX_ srl_merger_t *mrg)
 {
     srl_buf_free_buffer(aTHX_ &mrg->obuf);
 
-    srl_destroy_snappy_workmem(mrg->snappy_workmem);
+    srl_destroy_snappy_workmem(aTHX_ mrg->snappy_workmem);
 
     if (mrg->tracked_offsets) {
         srl_stack_destroy(aTHX_ mrg->tracked_offsets);
@@ -334,6 +337,7 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
 {
     assert(mrg != NULL);
 
+    UV offset_before_append = BODY_POS_OFS(&mrg->obuf);
     srl_set_input_buffer(aTHX_ mrg, src);
     srl_build_track_table(aTHX_ mrg);
 
@@ -343,7 +347,18 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
     GROW_BUF(&mrg->obuf, (size_t) BUF_SIZE(&mrg->ibuf));
 
     mrg->ibuf.pos = mrg->ibuf.body_pos + 1;
-    srl_merge_single_value(aTHX_ mrg);
+
+    dXCPT;
+    XCPT_TRY_START {
+        srl_merge_single_value(aTHX_ mrg);
+    } XCPT_TRY_END
+
+    XCPT_CATCH {
+        mrg->obuf.pos = mrg->obuf.body_pos + offset_before_append;
+        srl_cleanup_dedup_tlbs(aTHX_ mrg, offset_before_append);
+        DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
+        XCPT_RETHROW;
+    }
 
     mrg->cnt_of_merged_elements++;
 }
@@ -356,6 +371,7 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
     SSize_t i;
     SV **svptr;
     SSize_t tidx = av_top_index(src);
+    UV offset_before_append = BODY_POS_OFS(&mrg->obuf);
 
     STRLEN size = 0;
     for (i = 0; i <= tidx; ++i) {
@@ -370,12 +386,23 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
      * of course this's is very rough estimation */
     GROW_BUF(&mrg->obuf, size);
 
+    dXCPT;
     for (i = 0; i <= tidx; ++i) {
         srl_set_input_buffer(aTHX_ mrg, *av_fetch(src, i, 0));
         srl_build_track_table(aTHX_ mrg);
 
         mrg->ibuf.pos = mrg->ibuf.body_pos + 1;
-        srl_merge_single_value(aTHX_ mrg);
+
+        XCPT_TRY_START {
+            srl_merge_single_value(aTHX_ mrg);
+        } XCPT_TRY_END
+
+        XCPT_CATCH {
+            mrg->obuf.pos = mrg->obuf.body_pos + offset_before_append;
+            srl_cleanup_dedup_tlbs(aTHX_ mrg, offset_before_append);
+            DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
+            XCPT_RETHROW;
+        }
 
         mrg->cnt_of_merged_elements++;
     }
@@ -403,9 +430,9 @@ srl_merger_finish(pTHX_ srl_merger_t *mrg)
         /* there is no support of user's Sereal header,
          * so body's offset is fixed and always 5
          * (i.e. =srl + 1 byte for version + 1 byte for header) */
-        srl_compress_body(&mrg->obuf, 6, mrg->flags, 0, &mrg->snappy_workmem);
+        srl_compress_body(aTHX_ &mrg->obuf, 6, mrg->flags, 0, &mrg->snappy_workmem);
         SRL_UPDATE_BODY_POS(&mrg->obuf, mrg->protocol_version);
-        DEBUG_ASSERT_BUF_SANE(buf);
+        DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
     }
 
     return newSVpvn((char *) mrg->obuf.start, BUF_POS_OFS(&mrg->obuf));
@@ -465,7 +492,7 @@ srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
     protocol_version = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
 
     if (expect_false(protocol_version > 3 || protocol_version < 1)) {
-        SRL_ERRORf1(mrg->ibuf, "Unsupported Sereal protocol version %u", mrg->protocol_version);
+        SRL_ERRORf1(mrg->ibuf, "Unsupported Sereal protocol version %u", (unsigned int) mrg->protocol_version);
     }
 
     // skip header in any case
@@ -1039,8 +1066,8 @@ srl_lookup_string(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN len,
     assert(ent != NULL);
 
     if (*ok) {
-        SRL_MERGER_TRACE("srl_lookup_string: got duplicate '%.*s' target %lld",
-                         (int) len, src, ent->offset);
+        SRL_MERGER_TRACE("srl_lookup_string: got duplicate '%.*s' target %lu",
+                         (int) len, src, (unsigned long) ent->offset);
     } else {
         SRL_MERGER_TRACE("srl_lookup_string: not found duplicate '%.*s'",
                          (int) len, src);
@@ -1060,14 +1087,31 @@ srl_lookup_classname(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN l
     assert(ent != NULL);
 
     if (*ok) {
-        SRL_MERGER_TRACE("srl_lookup_classname: got duplicate '%.*s' target %lld",
-                         (int) len, src, ent->offset);
+        SRL_MERGER_TRACE("srl_lookup_classname: got duplicate '%.*s' target %lu",
+                         (int) len, src, (unsigned long) ent->offset);
     } else {
         SRL_MERGER_TRACE("srl_lookup_classname: not found duplicate '%.*s'",
                          (int) len, src);
     }
 
     return ent;
+}
+
+SRL_STATIC_INLINE void
+srl_cleanup_dedup_tlbs(aTHX_ srl_merger_t *mrg, UV offset)
+{
+    if (!SRL_MRG_HAVE_OPTION(mrg, SRL_F_DEDUPE_STRINGS))
+        return;
+
+    if (mrg->string_deduper_tbl) {
+        SRL_MERGER_TRACE("purge records with offset higher then %lu in string_deduper_tbl", (unsigned long) offset);
+        STRTABLE_purge(mrg->string_deduper_tbl, offset);
+    }
+
+    if (mrg->classname_deduper_tbl) {
+        SRL_MERGER_TRACE("purge records with offset higher then %lu in classname_deduper_tbl", (unsigned long) offset);
+        STRTABLE_purge(mrg->classname_deduper_tbl, offset);
+    }
 }
 
 SRL_STATIC_INLINE void
