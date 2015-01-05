@@ -1365,8 +1365,9 @@ SRL_STATIC_INLINE void
 srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
 {
     SV *referent;
+    U8 tag;
     ASSERT_BUF_SPACE(dec, 1, " while reading REFN referent");
-    U8 tag= *(dec->pos); /* Look ahead for special vars. */
+    tag= *(dec->pos); /* Look ahead for special vars. */
     if (tag == SRL_HDR_TRUE) {
         dec->pos++;
         referent= &PL_sv_yes;
