@@ -235,8 +235,9 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
     }                                                                               \
     else                                                                            \
     {                                                                               \
-        SvGETMAGIC(src);                                                            \
-        svtype svt= SvTYPE((src));                                                  \
+	svtype svt;								    \
+	SvGETMAGIC(src);							    \
+	svt= SvTYPE((src));							    \
         if (svt < SVt_PVMG &&                                                       \
             SvREFCNT((src)) == 1 &&                                                 \
             !SvROK((src))                                                           \
@@ -900,8 +901,10 @@ srl_prepare_encoder(pTHX_ srl_encoder_t *enc)
 SRL_STATIC_INLINE srl_encoder_t *
 srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
 {
+    U32 compress_flags;
+
     enc = srl_prepare_encoder(aTHX_ enc);
-    const U32 compress_flags= SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_FLAGS_MASK);
+    compress_flags= SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_FLAGS_MASK);
 
     if (expect_false(compress_flags))
     { /* Have some sort of compression */
