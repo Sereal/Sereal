@@ -785,7 +785,7 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
             SV *replacement= NULL;
             PTABLE_t *freezeobj_svhash = SRL_GET_FREEZEOBJ_SVHASH(enc);
             if (SvREFCNT(referent)>1) {
-                replacement= PTABLE_fetch(freezeobj_svhash, referent);
+                replacement= (SV *) PTABLE_fetch(freezeobj_svhash, referent);
             }
             if (!replacement) {
                 int count;
