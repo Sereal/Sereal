@@ -36,7 +36,6 @@ use Time::HiRes qw[time];
 use Sereal::Encoder;
 use Sereal::Decoder;
 use Getopt::Long;
-use Devel::Size qw[total_size];
 use Fcntl qw[O_RDONLY O_WRONLY O_CREAT O_TRUNC];
 
 sub MB () { 2 ** 20 }
@@ -54,6 +53,15 @@ my $size;
 my $data_size;
 my $blob_size;
 my $dt;
+
+if (defined $Opt{size}) {
+    eval 'require Devel::Size';
+    unless ($@) {
+        Devel::Size::import('total_size');
+    } else {
+        die "$0: --size but Devel::Size not found\n";
+    }
+}
 
 if (defined $Opt{build}) {
     die "$0: --input with --build makes no sense\n" if defined $Opt{input};
