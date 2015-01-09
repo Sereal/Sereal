@@ -81,8 +81,6 @@ $Opt{repeat_decode} //= 5;
 
 my %TYPE = map { $_ => 1 } qw[aoi aof aos hoi hof graph];
 
-die "$0: Unexpected --repeat=$Opt{repeat_encode}\n" if $Opt{repeat_encode} < 1;
-die "$0: Unexpected --repeat=$Opt{repeat_decode}\n" if $Opt{repeat_decode} < 1;
 die "$0: Unexpected --type=$Opt{type}\n$0: Expected --type=@{[join('|', sort keys %TYPE)]}\n"
     unless exists $TYPE{$Opt{type}};
 
