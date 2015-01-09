@@ -210,8 +210,7 @@ if (defined $Opt{build}) {
             $dt = timeit(sub { $blob = $encoder->encode($data); });
             $blob_size = length($blob);
             printf("%d/%d: encode to %d bytes (%.1fMB) %.3f sec (%.1f MB/sec)\n",
-                   $i, $Opt{repeat_encode}, $blob_size, $blob_size / MB, $dt, $blob_size / (MB * $dt),
-                   $dt, $blob_size / (MB * $dt));
+                   $i, $Opt{repeat_encode}, $blob_size, $blob_size / MB, $dt, $blob_size / (MB * $dt));
             push @dt, $dt;
         }
         if (@dt) {
