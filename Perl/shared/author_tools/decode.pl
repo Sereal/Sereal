@@ -96,7 +96,7 @@ sub stats {
     my @st = sort { $a <=> $b } @_;
     my $min = $st[0];
     my $max = $st[-1];
-    my $med = @st == 2 ? ($st[@st/2-1] + $st[@st/2]) / 2 : $st[@st/2];
+    my $med = @st % 2 ? $st[@st/2] : ($st[@st/2-1] + $st[@st/2]) / 2;
     my $sum = 0;
     for my $t (@_) {
         $sum += $t;
