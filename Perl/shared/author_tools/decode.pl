@@ -259,7 +259,7 @@ my $decoder = Sereal::Decoder->new;
     my @dt;
     for my $i (1..$Opt{repeat_decode}) {
 	$dt = timeit(sub { $data = $decoder->decode($blob); });
-	printf("%d/%d: decode from %d bytes (%.1fM) %.3f sec (%.f MB/sec)\n",
+	printf("%d/%d: decode from %d bytes (%.1fM) %.3f sec (%.1f MB/sec)\n",
 	       $i, $Opt{repeat_decode}, $blob_size, $blob_size / MB,
 	       $dt, $blob_size / (MB * $dt));
 	push @dt, $dt;
