@@ -344,7 +344,7 @@ STRTABLE_clear(STRTABLE_t *tbl)
     if (tbl && tbl->tbl_items) {
         struct STRTABLE_arena *arena = tbl->tbl_arena;
 
-        Zero(tbl->tbl_ary, tbl->tbl_max + 1, struct STRTABLE_arena **);
+        Zero(tbl->tbl_ary, tbl->tbl_max + 1, struct STRTABLE_entry **);
 
         while (arena) {
             struct STRTABLE_arena *next = arena->next;
