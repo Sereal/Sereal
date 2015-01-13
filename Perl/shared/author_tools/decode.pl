@@ -79,7 +79,7 @@ $Opt{type} //= 'graph';
 $Opt{repeat_encode} //= 1;
 $Opt{repeat_decode} //= 5;
 
-my %TYPE = map { $_ => 1 } qw[aoi aof aos hoi hof graph];
+my %TYPE = map { $_ => 1 } qw[aoi aof aos hoi hof hos graph];
 
 die "$0: Unexpected --type=$Opt{type}\n$0: Expected --type=@{[join('|', sort keys %TYPE)]}\n"
     unless exists $TYPE{$Opt{type}};
