@@ -13,6 +13,7 @@
 #
 # Other inputs types (--type=T) are
 # aoi (array of int) (value == key)
+# aoir (array of int) (value == randomly shuffled key)
 # aof (array of float) (rand())
 # aos (array of string) (value eq key)
 # hoi (hash of int)
@@ -37,6 +38,7 @@ use Sereal::Encoder;
 use Sereal::Decoder;
 use Getopt::Long;
 use Fcntl qw[O_RDONLY O_WRONLY O_CREAT O_TRUNC];
+use List::Util qw[shuffle];
 
 sub MB () { 2 ** 20 }
 
@@ -79,7 +81,7 @@ $Opt{type} //= 'graph';
 $Opt{repeat_encode} //= 1;
 $Opt{repeat_decode} //= 5;
 
-my %TYPE = map { $_ => 1 } qw[aoi aof aos hoi hof hos graph];
+my %TYPE = map { $_ => 1 } qw[aoi aoir aof aos hoi hof hos graph];
 
 die "$0: Unexpected --type=$Opt{type}\n$0: Expected --type=@{[join('|', sort keys %TYPE)]}\n"
     unless exists $TYPE{$Opt{type}};
@@ -168,6 +170,15 @@ if (defined $Opt{build}) {
 	$dt = timeit(
 	    sub {
 		for my $i (1..$E) {
+		    push @$data, $i;
+		}
+	    });
+    } elsif ($Opt{type} eq 'aoir') {
+	print "building aoir\n";
+	$E = $Opt{elem};
+	$dt = timeit(
+	    sub {
+		for my $i (shuffle 1..$E) {
 		    push @$data, $i;
 		}
 	    });
