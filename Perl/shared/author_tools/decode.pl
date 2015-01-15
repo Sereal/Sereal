@@ -195,7 +195,7 @@ if (defined $Opt{build}) {
 	$dt = timeit(
 	    sub {
 		for my $i (1..$E) {
-		    $data->{$i} = "$i";
+		    $data->{$i} = $i;
 		}
 	    });
     } elsif ($Opt{type} eq 'hof') {
