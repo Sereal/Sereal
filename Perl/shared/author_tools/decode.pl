@@ -43,7 +43,18 @@ use List::Util qw[shuffle];
 sub MB () { 2 ** 20 }
 
 my %Opt;
-my @Opt = ('input=s', 'output=s', 'type=s', 'elem=f', 'build', 'repeat_encode=i', 'repeat_decode=i', 'size');
+my @Opt = ('input=s', 'output=s', 'type=s', 'elem=f', 'build',
+           'repeat_encode=i', 'repeat_decode=i',
+
+           # If non-zero, will drop the minimum and maximum
+           # values before computing statistics IF the number
+           # of measurements is at least this limit.  So with
+           # a value of 5 will leave 3 measurements.  Lowers
+           # the stddev, should not affect avg/median (much).
+           # Helpful in reducing cache effects.
+           'min_max_drop_limit=i',
+
+           'size');
 my %OptO = map { my ($n) = /^(\w+)/; $_ => \$Opt{$n} } @Opt;
 my @OptU = map { "--$_" } @Opt;
 
@@ -78,6 +89,7 @@ if (defined ($Opt{output})) {
 $Opt{type} //= 'graph';
 $Opt{repeat_encode} //= 1;
 $Opt{repeat_decode} //= 5;
+$Opt{min_max_drop_limit} //= 0;
 
 my %TYPE = map { $_ => 1 } qw[aoi aoir aof aos hoi hof hos graph];
 
@@ -116,11 +128,13 @@ sub timeit {
     return $dt;
 }
 
-sub stats_basic {
-    my @st = sort { $a <=> $b } @_;
-    my $min = $st[0];
-    my $max = $st[-1];
-    my $med = @st % 2 ? $st[@st/2] : ($st[@st/2-1] + $st[@st/2]) / 2;
+sub __stats {
+    # The caller is supposed to have done this sorting
+    # already, but let's be wasteful and paranoid.
+    my @v = sort { $a <=> $b } @_;
+    my $min = $v[0];
+    my $max = $v[-1];
+    my $med = @v % 2 ? $v[@v/2] : ($v[@v/2-1] + $v[@v/2]) / 2;
     my $sum = 0;
     for my $t (@_) {
         $sum += $t;
@@ -140,7 +154,14 @@ sub stats_basic {
 sub stats {
     my %stats;
     for my $k (qw(wall cpu)) {
-        $stats{$k} = { stats_basic(map { $_->{$k} } @_) };
+        my @v = sort { $a <=> $b } map { $_->{$k} } @_;
+        if ($Opt{min_max_drop_limit} > 0 &&
+            @v >= $Opt{min_max_drop_limit}) {
+            print "$k: dropping min and max ($v[0] and $v[-1])\n";
+            shift @v;
+            pop @v;
+        }
+        $stats{$k} = { __stats(@v) };
     }
     return %stats;
 }
