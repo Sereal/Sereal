@@ -57,11 +57,9 @@ my $blob_size;
 my $dt;
 
 if (defined $Opt{size}) {
-    eval 'require Devel::Size';
-    unless ($@) {
-        Devel::Size::import('total_size');
-    } else {
-        die "$0: --size but Devel::Size not found\n";
+    eval 'use Devel::Size qw[total_size]';
+    if ($@) {
+        die "$0: --size but Devel::Size=total_size not found\n";
     }
 }
 
