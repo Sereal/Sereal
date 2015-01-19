@@ -254,9 +254,10 @@ if (defined $Opt{build}) {
         if (@dt) {
             my %stats = stats(@dt);
             for my $k (qw(wall cpu)) {
+                my $avg = $stats{$k}{avg};
                 printf("encode %-4s avg %.2f sec (%.1f MB/sec) stddev %.2f sec (%.2f) min %.2f med %.2f max %.2f\n",
                        $k,
-                       $stats{$k}{avg}, $blob_size / (MB * $stats{$k}{avg}), $stats{$k}{stddev}, $stats{$k}{rstddev},
+                       $avg, $avg ? $blob_size / (MB * $avg) : 0, $stats{$k}{stddev}, $avg ? $stats{$k}{rstddev} : 0,
                        $stats{$k}{min}, $stats{$k}{med}, $stats{$k}{max});
             }
         }
@@ -318,9 +319,10 @@ my $decoder = Sereal::Decoder->new;
     if (@dt) {
         my %stats = stats(@dt);
         for my $k (qw(wall cpu)) {
+            my $avg = $stats{$k}{avg};
             printf("decode %-4s avg %.2f sec (%.1f MB/sec) stddev %.2f sec (%.2f) min %.2f med %.2f max %.2f\n",
                    $k,
-                   $stats{$k}{avg}, $blob_size / (MB * $stats{$k}{avg}), $stats{$k}{stddev}, $stats{$k}{rstddev},
+                   $avg, $avg ? $blob_size / (MB * $stats{$k}{avg}) : 0, $stats{$k}{stddev}, $avg ? $stats{$k}{rstddev} : 0,
                    $stats{$k}{min}, $stats{$k}{med}, $stats{$k}{max});
         }
     }
