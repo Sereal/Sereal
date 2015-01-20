@@ -257,6 +257,9 @@ less than 16 items, and and is not referenced more than once. This flag will
 override this optimization and use a standard REFN ARRAY style tag output. This
 is primarily useful for producing canoncial output and for testing Sereal itself.
 
+See L</CANONICAL REPRESENTATION> for why you might want to use this, and
+for the various caveats involved.
+
 =head3 sort_keys
 
 Normally C<Sereal::Encoder> will output hashes in whatever order is convenient,
@@ -619,6 +622,65 @@ supports different floating point precisions and will generally choose the most
 compact that can represent your floating point number correctly.
 
 =back
+
+There's also a few cases where Sereal will produce different documents
+for values that you might think are the same thing because if you
+compared the values with C<eq> or C<==> in pure-Perl you'd they'd be
+considered as the same value. However they're not really the same
+value.
+
+A good example of this is cases where L<Test::Deep> and Sereal's
+canonical mode differ. We have tests for some of these cases in
+F<t/030_canonical_vs_test_deep.t>. Here's the issues we've noticed so
+far:
+
+=over 4
+
+=item Sereal considers ASCII strings with the UTF-8 flag to be different from the same string without the UTF-8 flag
+
+Consider:
+
+    my $language_code = "en";
+
+v.s.:
+
+    my $language_code = "en";
+    utf8::upgrade($en);
+
+Sereal's canonical mode will encode these strings differently, as it
+should, since the UTF-8 flag will be passed along on interpolation.
+
+But this can be confusing if you're just getting some user-supplied
+ASCII strings that you may inadvertently toggle the UTF-8 flag on,
+e.g. because you're comparing an ASCII value in a database to a value
+submitted in a UTF-8 web form.
+
+=item Sereal will encode strings that look like numbers as strings, unless they've been used in numeric context
+
+I.e. these values will be encoded differently, respectively:
+
+    my $IV_x = "12345";
+    my $IV_y = "12345" + 0;
+    my $NV_x = "12.345";
+    my $NV_y = "12.345" + 0;
+
+But as noted above something like Test::Deep will consider these to be
+the same thing.
+
+=back
+
+We might produce certain aggressive flags to the canonical mode in the
+future to deal with this. For the cases noted above some combination
+of turning the UTF-8 flag on on all strings, or stripping it from
+strings that have it but are ASCII-only would "work", similarly we
+could scan strings to see if they match C<looks_like_number()> and if
+so numify them.
+
+This would produce output that either would be a lot bigger (having to
+encode all numbers as strings), or would be more expensive to generate
+(having to scan strings for numeric or non-ASCII context), and for
+some cases like the UTF-8 flag munging wouldn't be suitable for
+general use outside of canonicialization.
 
 =back
 
