@@ -624,12 +624,12 @@ compact that can represent your floating point number correctly.
 =back
 
 There's also a few cases where Sereal will produce different documents
-for values that you might think are the same thing because if you
-compared the values with C<eq> or C<==> in pure-Perl you'd they'd be
-considered as the same value. However they're not really the same
-value.
+for values that you might think are the same thing, because if you
+e.g. compared them with C<eq> or C<==> in perl itself would think they
+were equivalent. However for the purposes of serialization they're not
+the same value.
 
-A good example of this is cases where L<Test::Deep> and Sereal's
+A good example of these cases is where L<Test::Deep> and Sereal's
 canonical mode differ. We have tests for some of these cases in
 F<t/030_canonical_vs_test_deep.t>. Here's the issues we've noticed so
 far:
