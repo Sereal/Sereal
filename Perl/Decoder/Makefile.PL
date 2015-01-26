@@ -34,7 +34,7 @@ if ($Config{gccversion}) {
     if ($Config{gccversion} =~ /clang/) { # clang.
         $OPTIMIZE .= '-Weverything ';
         $moderngccish = 1;
-    } elsif ($Config{gccversion} =~ /^[23]\./) { # Ancient gcc.
+    } elsif ($Config{gccversion} =~ /^[123]\./) { # Ancient gcc.
         $OPTIMIZE .= '-W ';
     } else { # Modern gcc.
         $OPTIMIZE .= '-Wextra ';
