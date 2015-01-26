@@ -28,19 +28,25 @@ our $OPTIMIZE;
 my $libs = '';
 my $objects = '$(BASEEXT)$(OBJ_EXT) srl_decoder$(OBJ_EXT)';
 my $defines = join " ", map "-D$_", grep exists $ENV{$_}, qw(NOINLINE DEBUG MEMDEBUG NDEBUG);
+my $moderngccish = 0;
 if ($Config{gccversion}) {
     $OPTIMIZE = '-O3 ';
     if ($Config{gccversion} =~ /clang/) { # clang.
         $OPTIMIZE .= '-Weverything ';
+        $moderngccish = 1;
     } elsif ($Config{gccversion} =~ /^[23]\./) { # Ancient gcc.
         $OPTIMIZE .= '-W ';
     } else { # Modern gcc.
         $OPTIMIZE .= '-Wextra ';
+        $moderngccish = 1;
     }
 } elsif ($Config{osname} eq 'MSWin32') {
     $OPTIMIZE = '-O2 -W4';
 } else {
     $OPTIMIZE = $Config{optimize};
+}
+if ($moderngccish) {
+    $OPTIMIZE .= '-Werror=declaration-after-statement ';
 }
 $OPTIMIZE =~ s/^ +//;
 $OPTIMIZE =~ s/ +$//;
