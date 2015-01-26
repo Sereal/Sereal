@@ -28,16 +28,17 @@ our $OPTIMIZE;
 my $libs = '';
 my $objects = '$(BASEEXT)$(OBJ_EXT) srl_decoder$(OBJ_EXT)';
 my $defines = join " ", map "-D$_", grep exists $ENV{$_}, qw(NOINLINE DEBUG MEMDEBUG NDEBUG);
+
 my $moderngccish = 0;
+my $clang = 0;
 if ($Config{gccversion}) {
     $OPTIMIZE = '-O3 ';
     if ($Config{gccversion} =~ /[Cc]lang/) { # clang.
-        $OPTIMIZE .= '-Weverything ';
+        $clang = 1;
         $moderngccish = 1;
     } elsif ($Config{gccversion} =~ /^[123]\./) { # Ancient gcc.
-        $OPTIMIZE .= '-W ';
+        $moderngccish = 0;
     } else { # Modern gcc.
-        $OPTIMIZE .= '-Wextra ';
         $moderngccish = 1;
     }
 } elsif ($Config{osname} eq 'MSWin32') {
@@ -45,16 +46,20 @@ if ($Config{gccversion}) {
 } else {
     $OPTIMIZE = $Config{optimize};
 }
+
+# For trapping C++ // comments we would need -std=c89 (aka -ansi)
+# but that may be asking too much of different platforms.
 if ($moderngccish) {
-    $OPTIMIZE .= '-Werror=declaration-after-statement ';
+    $OPTIMIZE .= ' -Werror=declaration-after-statement';
 }
-$OPTIMIZE =~ s/^ +//;
-$OPTIMIZE =~ s/ +$//;
 
 if ($ENV{DEBUG}) {
   $OPTIMIZE .= ' -g';
-  $OPTIMIZE .= ' -Wextra' if $ENV{DEBUG} > 1 && $Config{gccversion};
-  $OPTIMIZE .= ' -pedantic' if $ENV{DEBUG} > 5 && $Config{gccversion}; # not pretty
+  if ($ENV{DEBUG} > 0 && $Config{gccversion}) {
+      $OPTIMIZE .= ' -Wextra' if $ENV{DEBUG} > 1;
+      $OPTIMIZE .= ' -pedantic' if $ENV{DEBUG} > 5; # not pretty
+      $OPTIMIZE .= ' -Weverything' if ($ENV{DEBUG} > 6 && $clang); # really not pretty
+  }
 }
 else {
   $defines .= " -DNDEBUG";
