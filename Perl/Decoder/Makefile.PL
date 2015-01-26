@@ -29,12 +29,21 @@ my $libs = '';
 my $objects = '$(BASEEXT)$(OBJ_EXT) srl_decoder$(OBJ_EXT)';
 my $defines = join " ", map "-D$_", grep exists $ENV{$_}, qw(NOINLINE DEBUG MEMDEBUG NDEBUG);
 if ($Config{gccversion}) {
-    $OPTIMIZE = '-O3 -Wall -W';
+    $OPTIMIZE = '-O3 ';
+    if ($Config{gccversion} =~ /clang/) { # clang.
+        $OPTIMIZE .= '-Weverything ';
+    } elsif ($Config{gccversion} =~ /^[23]\./) { # Ancient gcc.
+        $OPTIMIZE .= '-W ';
+    } else { # Modern gcc.
+        $OPTIMIZE .= '-Wextra ';
+    }
 } elsif ($Config{osname} eq 'MSWin32') {
     $OPTIMIZE = '-O2 -W4';
 } else {
     $OPTIMIZE = $Config{optimize};
 }
+$OPTIMIZE =~ s/^ +//;
+$OPTIMIZE =~ s/ +$//;
 
 if ($ENV{DEBUG}) {
   $OPTIMIZE .= ' -g';
