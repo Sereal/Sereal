@@ -31,7 +31,7 @@ my $defines = join " ", map "-D$_", grep exists $ENV{$_}, qw(NOINLINE DEBUG MEMD
 my $moderngccish = 0;
 if ($Config{gccversion}) {
     $OPTIMIZE = '-O3 ';
-    if ($Config{gccversion} =~ /clang/) { # clang.
+    if ($Config{gccversion} =~ /[Cc]lang/) { # clang.
         $OPTIMIZE .= '-Weverything ';
         $moderngccish = 1;
     } elsif ($Config{gccversion} =~ /^[123]\./) { # Ancient gcc.
