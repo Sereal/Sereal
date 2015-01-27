@@ -11,6 +11,8 @@ my (
     %value_to_comment_expanded  # values from srl_protocol_expanded, with comments from file.
 );
 my $max_name_length= 0;
+my %define;
+my %define_is_str;
 
 sub fill_range {
     my $pfx= shift;
@@ -36,6 +38,7 @@ sub fill_range {
         $meta[$value]{masked_val}= $n;
         $meta[$value]{masked}= 1;
 
+        #$define{"SRL_HDR_".$name}= $value;
     }
     $value_to_comment_expanded{ $name_to_value_expanded{$pfx . "_HIGH"} } = $value_to_comment_expanded{ $ofs };
 }
@@ -45,8 +48,10 @@ sub read_protocol {
 
     my @fill;
     while (<$fh>) {
-        if(m!^#define\s+SRL_HDR_(\S+)\s+\(\(char\)(\d+)\)\s*(?:/\*\s*(.*?)\s*\*/)?\s*\z!i) {
-            my ($name, $value, $comment)= ($1, $2, $3);
+        chomp;
+        my $orig= $_;
+        if(m!^#define\s+(SRL_HDR_(\S+))\s+\(\(U8\)(\d+)\)\s*(?:/\*\s*(.*?)\s*\*/)?\s*\z!i) {
+            my ($full_name, $name, $value, $comment)= ($1, $2, $3, $4);
             $value= 0+$value;
             $name_to_value{$name}= $value;
             $name_to_value_expanded{$name}= $value;
@@ -61,6 +66,21 @@ sub read_protocol {
                 $meta[$value]{type_value}= $value;
                 $meta[$value]{comment}= $comment if defined $comment;
             }
+            $define{$full_name}= $value;
+        } elsif (s!^#define (SRL_\w+)\s+!!) {
+            my $def= $1;
+            s!/\*.*?(?:\*/|$)!!m;
+            s!\(U8\)!!g;
+            s!(SRL_\w+)!
+                $define{$1} // die "Unknown define '$1'";
+            !ge;
+            s!\A\s+!!;
+            s!\s+\z!!;
+            my $val;
+            my $code= "\$val= $_; 1";
+            eval $code or die "Failed to eval $code (from $orig): $@";
+            $define{$def}= $val;
+            $define_is_str{$def}= 1 if /[""]/;
         }
     }
     close $fh;
@@ -68,6 +88,7 @@ sub read_protocol {
     foreach my $pfx (keys %name_to_value_expanded) {
         $max_name_length= length($pfx) if $max_name_length < length($pfx);
     }
+    #print Data::Dumper->new([\%define, \%define_is_str])->Useqq(1)->Sortkeys(1)->Dump();
 }
 
 sub open_swap {
@@ -84,39 +105,67 @@ sub open_swap {
 sub replace_block {
     my ($file,$blob)= @_;
     my ($in,$out)= open_swap($file);
-    while (<$in>) {
-        print $out $_;
-        last if /^=for autoupdater start/ || /^# start autoupdated section/;
-    }
+    my $gotit;
+    READ: {
 
-    $blob =~ s/[ \t]+$//mg;
-    $blob =~ s/\s+\z//;
-
-    print $out "\n$blob\n\n";
-    while (<$in>) {
-        if (/^=for autoupdater stop/ || /^# stop autoupdated section/) {
+        while (<$in>) {
             print $out $_;
-            last;
+            last if $gotit= (/^=for autoupdater start/ || /^# start autoupdated section/);
         }
-    }
-    while (<$in>) {
-        print $out $_;
+
+        unless ($gotit) {
+            warn "didnt find autoupdater start!\n";
+            last READ;
+        }
+
+        $blob =~ s/[ \t]+$//mg;
+        $blob =~ s/\s+\z//;
+
+        print $out "\n$blob\n\n";
+
+        while (<$in>) {
+            if (/^=for autoupdater stop/ || /^# stop autoupdated section/) {
+                print $out $_;
+                $gotit= 0;
+                last;
+            }
+        }
+
+        if ($gotit) {
+            warn "didnt find autoupdater start!\n";
+            last READ;
+        }
+
+        while (<$in>) {
+            print $out $_;
+        }
     }
     close $out;
     close $in;
+    return;
 }
 
-sub update_buildtools {
+sub update_constants {
     my $dump= Data::Dumper->new([\@meta],['*TAG_INFO_ARRAY'])->Sortkeys(1)->Useqq(1)->Indent(1)->Dump();
     $dump =~ s/^(\s*)\{/$1# autoupdated by $0 do not modify directly!\n$1\{/mg;
-    return replace_block(
-        "Perl/shared/inc/Sereal/BuildTools.pm",
-        join "\n",
-            "our (%TAG_INFO_HASH, \@TAG_INFO_ARRAY);",
-            $dump,
-            "\$TAG_INFO_HASH{chr \$_}= \$TAG_INFO_ARRAY[\$_] for 0 .. 127;",
-            "push \@EXPORT_OK, qw(%TAG_INFO_HASH \@TAG_INFO_ARRAY);",
-    )
+    my $defines= Data::Dumper->new([\%define],['*DEFINE'])->Sortkeys(1)->Useqq(1)->Indent(1)->Dump;
+    $defines=~s/^/    /mg;
+
+    foreach my $mod_suffix (qw(Encoder Decoder)) {
+        replace_block(
+            "Perl/$mod_suffix/lib/Sereal/$mod_suffix/Constants.pm",
+            join "\n",
+                "BEGIN {",
+                $defines,
+                "}",
+                "",
+                "use constant \\%DEFINE;",
+                "push \@EXPORT_OK, keys %DEFINE;",
+                $dump,
+                "\$TAG_INFO_HASH{chr \$_}= \$TAG_INFO_ARRAY[\$_] for 0 .. 127;",
+                "push \@EXPORT_OK, qw(%TAG_INFO_HASH \@TAG_INFO_ARRAY);",
+        )
+    }
 }
 
 sub update_srl_taginfo_h {
@@ -202,7 +251,7 @@ chomp($git_dir);
 chdir "$git_dir/.."
     or die "Failed to chdir to root of repo '$git_dir/..': $!";
 read_protocol();
-update_buildtools();
+update_constants();
 update_srl_taginfo_h();
 update_table("sereal_spec.pod");
 update_table("Perl/shared/srl_protocol.h");

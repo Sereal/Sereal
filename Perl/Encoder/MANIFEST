@@ -8,8 +8,6 @@ author_tools/stringify_test.c
 author_tools/update_from_header.pl
 author_tools/valgrind.supp
 Changes
-const-c.inc
-const-xs.inc
 Encoder.xs
 inc/Devel/CheckLib.pm
 inc/Sereal/BuildTools.pm
@@ -46,6 +44,8 @@ t/010_desperate.t
 t/011_aliased_dedupe.t
 t/020_sort_keys.t
 t/021_sort_keys_option.t
+t/022_canonical_refs.t
+t/030_canonical_vs_test_deep.t
 t/110_nobless.t
 t/120_hdr_data.t
 t/130_freezethaw.t

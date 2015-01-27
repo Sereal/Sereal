@@ -8,8 +8,6 @@ author_tools/stringify_test.c
 author_tools/update_from_header.pl
 author_tools/valgrind.supp
 Changes
-const-c.inc
-const-xs.inc
 Decoder.xs
 inc/Devel/CheckLib.pm
 inc/Sereal/BuildTools.pm

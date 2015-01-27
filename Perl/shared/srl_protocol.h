@@ -1,5 +1,5 @@
-#ifndef SRL_PROTOCOL_H_
-#define SRL_PROTOCOL_H_
+#ifndef SEEN_SRL_PROTOCOL_H_
+#define SEEN_SRL_PROTOCOL_H_
 
 /*
 =for autoupdater start
@@ -159,7 +159,7 @@
 #define SRL_PROTOCOL_VERSION_BITS       ( 4 )           /* how many bits we use for the version, the rest go to the encoding */
 #define SRL_PROTOCOL_VERSION_MASK       ( ( 1 << SRL_PROTOCOL_VERSION_BITS ) - 1 )
 
-#define SRL_PROTOCOL_ENCODING_MASK      ( ~SRL_PROTOCOL_VERSION_MASK )
+#define SRL_PROTOCOL_ENCODING_MASK      ( SRL_PROTOCOL_VERSION_MASK << SRL_PROTOCOL_VERSION_BITS )
 #define SRL_PROTOCOL_ENCODING_RAW       ( 0 << SRL_PROTOCOL_VERSION_BITS )
 #define SRL_PROTOCOL_ENCODING_SNAPPY    ( 1 << SRL_PROTOCOL_VERSION_BITS )
 #define SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL    ( 2 << SRL_PROTOCOL_VERSION_BITS )

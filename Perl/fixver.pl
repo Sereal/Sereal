@@ -5,6 +5,8 @@ use Getopt::Long;
 my @files= qw(
     Decoder/lib/Sereal/Decoder.pm
     Encoder/lib/Sereal/Encoder.pm
+    Decoder/lib/Sereal/Decoder/Constants.pm
+    Encoder/lib/Sereal/Encoder/Constants.pm
     Sereal/lib/Sereal.pm
     Sereal/Makefile.PL
 );

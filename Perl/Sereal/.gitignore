@@ -10,8 +10,6 @@ MYMETA.*
 *.o
 srl_protocol.h
 ptable.h
-const-c.inc
-const-xs.inc
 srl_inline.h
 ppport.h
 dt

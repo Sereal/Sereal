@@ -11,9 +11,6 @@
 #include "srl_common.h"
 #include "srl_decoder.h"
 #include "srl_protocol.h"
-/* Generated code for exposing C constants to Perl */
-#include "const-c.inc"
-
 
 #ifndef GvCV_set
 # define GvCV_set(gv, cv) (GvCV(gv) = (cv))
@@ -505,10 +502,3 @@ bytes_consumed(dec)
   CODE:
     RETVAL = dec->bytes_consumed;
   OUTPUT: RETVAL
-
-
-MODULE = Sereal::Decoder        PACKAGE = Sereal::Decoder::Constants
-PROTOTYPES: DISABLE
-
-INCLUDE: const-xs.inc
-

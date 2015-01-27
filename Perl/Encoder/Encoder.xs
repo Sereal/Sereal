@@ -13,7 +13,6 @@
 
 /* Generated code for exposing C constants to Perl */
 #include "srl_protocol.h"
-#include "const-c.inc"
 
 #include "ptable.h"
 
@@ -246,11 +245,6 @@ encode_sereal_with_header_data(src, hdr_user_data_src, opt = NULL)
      * buffer isn't ever going to be reused. */
     ST(0) = srl_dump_data_structure_mortal_sv(aTHX_ enc, src, hdr_user_data_src, SRL_ENC_SV_REUSE_MAYBE);
     XSRETURN(1);
-
-MODULE = Sereal::Encoder        PACKAGE = Sereal::Encoder::Constants
-PROTOTYPES: DISABLE
-
-INCLUDE: const-xs.inc
 
 MODULE = Sereal::Encoder        PACKAGE = Sereal::Encoder::_ptabletest
 

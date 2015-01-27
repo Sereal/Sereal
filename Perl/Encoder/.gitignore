@@ -3,8 +3,6 @@ author_tools
 *.bak
 blib/
 callgrind.out.*
-const-c.inc
-const-xs.inc
 dt
 Encoder.bs
 Encoder.c
@@ -13,7 +11,6 @@ Encoder.so
 .gdb_history
 inc
 inc/Devel/CheckLib.pm
-lib/Sereal/Encoder/Constants.pm
 Makefile
 Makefile.old
 MYMETA.*

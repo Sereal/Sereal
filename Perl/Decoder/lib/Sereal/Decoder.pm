@@ -11,7 +11,7 @@ our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 # not for public consumption, just for testing.
 (my $num_version = $VERSION) =~ s/_//;
 my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 300 .. int($num_version * 100) ) ]; # compat with 3.00 to ...
-sub _test_compat {return(@$TestCompat, $VERSION)}
+sub _test_compat { return(@$TestCompat, $VERSION) }
 
 use Exporter 'import';
 our @EXPORT_OK = qw(

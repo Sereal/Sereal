@@ -18,16 +18,16 @@ use Carp qw(confess);
 # Dynamically load constants from whatever is being tested
 our ($Class, $ConstClass);
 BEGIN {
-    if (-e "lib/Sereal/Encoder") {
+    if (-e "lib/Sereal/Encoder.pm") {
         $Class = 'Sereal::Encoder';
     }
-    elsif (-e "lib/Sereal/Decoder") {
+    elsif (-e "lib/Sereal/Decoder.pm") {
         $Class = 'Sereal::Decoder';
     }
-    elsif (-e "lib/Sereal/Merger") {
+    elsif (-e "lib/Sereal/Merger.pm") {
         $Class = 'Sereal::Merger';
     }
-    elsif (-e "lib/Sereal/Splitter") {
+    elsif (-e "lib/Sereal/Splitter.pm") {
         $Class = 'Sereal::Splitter';
     } else {
         die "Could not find an applicable Sereal constants location";
@@ -589,7 +589,6 @@ sub have_encoder_and_decoder {
     # $Class is the already-loaded class, so the one we're testing
     my $need = $Class =~ /Encoder/ ? "Decoder" : "Encoder";
     my $need_class = "Sereal::$need";
-    my %compat_versions = map {$_ => 1} $Class->_test_compat();
 
     if (defined(my $top_dir = get_git_top_dir())) {
         my $blib_dir = File::Spec->catdir($top_dir, 'Perl', $need, "blib");
@@ -598,6 +597,11 @@ sub have_encoder_and_decoder {
             blib->import($blib_dir);
         }
     }
+    eval "use $Class; 1"
+    or do {
+        note("Could not locate $Class for testing" . ($@ ? " (Exception: $@)" : ""));
+        return();
+    };
 
     eval "use $need_class; 1"
     or do {
@@ -612,6 +616,7 @@ sub have_encoder_and_decoder {
     }
     $cmp_v =~ s/_//;
     $cmp_v = sprintf("%.2f", int($cmp_v*100)/100);
+    my %compat_versions = map {$_ => 1} $Class->_test_compat();
     if (not defined $cmp_v or not exists $compat_versions{$cmp_v}) {
         note("Could not load correct version of $need_class for testing "
              ."(got: $cmp_v, needed any of ".join(", ", keys %compat_versions).")");
