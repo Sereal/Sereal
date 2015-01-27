@@ -11,6 +11,10 @@ please see the Encoder and Decoder changelogs:
 *          of the decoder before upgrading to version 3 of the *
 *          encoder!                                            *
 ****************************************************************
+3.005_001 Jan 27 2015
+  * Win32 fixes
+  * Build improvements
+  * Changes to how we generate constants
 
 3.005 Jan 05 2015
   * Build improvements related to char signedness being platform
