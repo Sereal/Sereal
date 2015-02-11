@@ -17,7 +17,6 @@ srl_taginfo.h
 ptable.h
 const-c.inc
 const-xs.inc
-lib/Sereal/Merger/Constants.pm
 srl_inline.h
 ppport.h
 t/test_set.pl

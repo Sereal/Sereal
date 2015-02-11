@@ -9,9 +9,6 @@
 #include "../Encoder/srl_buffer.h"
 #include "strtable.h"
 
-/* Generated code for exposing C constants to Perl */
-#include "const-c.inc"
-
 typedef srl_merger_t * Sereal__Merger;
 
 MODULE = Sereal::Merger		PACKAGE = Sereal::Merger
@@ -58,11 +55,6 @@ elements_merged(mrg)
   CODE:
     RETVAL = (UV) mrg->cnt_of_merged_elements;
   OUTPUT: RETVAL
-
-MODULE = Sereal::Merger        PACKAGE = Sereal::Merger::Constants
-PROTOTYPES: DISABLE
-
-INCLUDE: const-xs.inc
 
 MODULE = Sereal::Merger        PACKAGE = Sereal::Merger::_strtabletest
 
