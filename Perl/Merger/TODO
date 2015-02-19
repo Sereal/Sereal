@@ -1,9 +1,7 @@
 TODO:
-- compression/decompression
-- error handling
+- support zlib decompression
 - dedupe srl_read_varint-* functions and perhaps other common code with Encoder, Decoder (like parse/write Sereal document header)
 - more tests
 - documentation
 - add support of optional user-headers
 - wrap-functions like merge_sereal, merge_sereal_all, etc...
-- control of recursion depth
