@@ -1,8 +1,6 @@
 /* Must be defined before including Perl header files or we slow down by 2x! */
 #define PERL_NO_GET_CONTEXT
 
-#define NO_XSLOCKS // TODO not sure if it's a good idea to use it
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -337,30 +335,35 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
 {
     assert(mrg != NULL);
 
-    UV offset_before_append = BODY_POS_OFS(&mrg->obuf);
     srl_set_input_buffer(aTHX_ mrg, src);
     srl_build_track_table(aTHX_ mrg);
+
+    if (mrg->obuf_last_successfull_offset) {
+        /* If obuf_last_successfull_offset is true then last merge
+         * operation has failed. It means that some cleanup operation needs to
+         * be done. */
+
+        SRL_MERGER_TRACE("last merge operation has failed, need to do some cleanup (offset %d)",
+                          mrg->obuf_last_successfull_offset);
+
+        mrg->obuf.pos = mrg->obuf.body_pos + mrg->obuf_last_successfull_offset;
+        srl_cleanup_dedup_tlbs(aTHX_ mrg, mrg->obuf_last_successfull_offset);
+        DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
+    }
 
     /* preallocate space in obuf,
      * but this is still not enough because due to
      * varint we might need more space in obug then size of ibuf */
     GROW_BUF(&mrg->obuf, (size_t) BUF_SIZE(&mrg->ibuf));
 
+    /* save current offset as last successfull */
+    mrg->obuf_last_successfull_offset = BODY_POS_OFS(&mrg->obuf);
+
     mrg->ibuf.pos = mrg->ibuf.body_pos + 1;
-
-    dXCPT;
-    XCPT_TRY_START {
-        srl_merge_single_value(aTHX_ mrg);
-    } XCPT_TRY_END
-
-    XCPT_CATCH {
-        mrg->obuf.pos = mrg->obuf.body_pos + offset_before_append;
-        srl_cleanup_dedup_tlbs(aTHX_ mrg, offset_before_append);
-        DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
-        XCPT_RETHROW;
-    }
+    srl_merge_single_value(aTHX_ mrg);
 
     mrg->cnt_of_merged_elements++;
+    mrg->obuf_last_successfull_offset = 0;
 }
 
 void
@@ -370,10 +373,22 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
 
     SSize_t i;
     SV **svptr;
-    SSize_t tidx = av_top_index(src);
-    UV offset_before_append;
-
     STRLEN size = 0;
+    SSize_t tidx = av_top_index(src);
+
+    if (mrg->obuf_last_successfull_offset) {
+        /* If obuf_last_successfull_offset is true then last merge
+         * operation has failed. It means that some cleanup operation needs to
+         * be done. */
+
+        SRL_MERGER_TRACE("last merge operation has failed, need to do some cleanup (offset %d)",
+                          mrg->obuf_last_successfull_offset);
+
+        mrg->obuf.pos = mrg->obuf.body_pos + mrg->obuf_last_successfull_offset;
+        srl_cleanup_dedup_tlbs(aTHX_ mrg, mrg->obuf_last_successfull_offset);
+        DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
+    }
+
     for (i = 0; i <= tidx; ++i) {
         svptr = av_fetch(src, i, 0);
         if (expect_false(svptr == NULL))
@@ -386,26 +401,18 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
      * of course this's is very rough estimation */
     GROW_BUF(&mrg->obuf, size);
 
-    dXCPT;
     for (i = 0; i <= tidx; ++i) {
-        offset_before_append = BODY_POS_OFS(&mrg->obuf);
         srl_set_input_buffer(aTHX_ mrg, *av_fetch(src, i, 0));
         srl_build_track_table(aTHX_ mrg);
 
+        /* save current offset as last successfull */
+        mrg->obuf_last_successfull_offset = BODY_POS_OFS(&mrg->obuf);
+
         mrg->ibuf.pos = mrg->ibuf.body_pos + 1;
-
-        XCPT_TRY_START {
-            srl_merge_single_value(aTHX_ mrg);
-        } XCPT_TRY_END
-
-        XCPT_CATCH {
-            mrg->obuf.pos = mrg->obuf.body_pos + offset_before_append;
-            srl_cleanup_dedup_tlbs(aTHX_ mrg, offset_before_append);
-            DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
-            XCPT_RETHROW;
-        }
+        srl_merge_single_value(aTHX_ mrg);
 
         mrg->cnt_of_merged_elements++;
+        mrg->obuf_last_successfull_offset = 0;
     }
 }
 
@@ -414,6 +421,14 @@ srl_merger_finish(pTHX_ srl_merger_t *mrg)
 {
     assert(mrg != NULL);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
+
+    if (mrg->obuf_last_successfull_offset) {
+        SRL_MERGER_TRACE("last merge operation has failed, reset to offset %d",
+                          mrg->obuf_last_successfull_offset);
+
+        mrg->obuf.pos = mrg->obuf.body_pos + mrg->obuf_last_successfull_offset;
+        DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
+    }
 
     if (!SRL_MRG_HAVE_OPTION(mrg, SRL_F_TOPLEVEL_KEY_SCALAR)) {
         srl_buffer_char* oldpos = mrg->obuf.pos;
@@ -456,6 +471,7 @@ srl_empty_merger_struct(pTHX)
     /* Zero fields */
     mrg->cnt_of_merged_elements = 0;
     mrg->obuf_padding_bytes_offset = 0;
+    mrg->obuf_last_successfull_offset = 0;
     mrg->protocol_version = SRL_PROTOCOL_VERSION;
     mrg->classname_deduper_tbl = NULL;
     mrg->string_deduper_tbl = NULL;

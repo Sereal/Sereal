@@ -25,6 +25,7 @@ typedef struct {
     struct STRTABLE *string_deduper_tbl;  /* track strings we have seen before, by content */
     struct STRTABLE *classname_deduper_tbl;  /* track classnames we have seen before, by content */
 
+    UV obuf_last_successfull_offset;      /* pointer to last byte of last successfully merged Sereal document */
     UV obuf_padding_bytes_offset;         /* pointer to start of SRL_MAX_VARINT_LENGTH padding bytes */
     U32 cnt_of_merged_elements;           /* total count of merged elements so far */
     U32 protocol_version;                 /* the version of the Sereal protocol to emit. */
