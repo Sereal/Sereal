@@ -27,6 +27,10 @@ typedef struct {
 
     UV obuf_last_successfull_offset;      /* pointer to last byte of last successfully merged Sereal document */
     UV obuf_padding_bytes_offset;         /* pointer to start of SRL_MAX_VARINT_LENGTH padding bytes */
+
+    UV recursion_depth;                   /* recursion depth of current document */
+    UV max_recursion_depth;               /* configurable limit on the number of recursive calls we're willing to make */
+
     U32 cnt_of_merged_elements;           /* total count of merged elements so far */
     U32 protocol_version;                 /* the version of the Sereal protocol to emit. */
     U32 flags;                            /* flag-like options: See SRL_F_* defines */

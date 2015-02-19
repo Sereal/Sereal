@@ -115,6 +115,7 @@ extern "C" {
 #define SRL_MRG_HAVE_OPTION(mrg, flag_num) ((mrg)->flags & (flag_num))
 
 #define SRL_MAX_VARINT_LENGTH_U32 5
+#define DEFAULT_MAX_RECUR_DEPTH 10000
 
 #include "srl_merger.h"
 #include "srl_common.h"
@@ -263,6 +264,10 @@ srl_build_merger_struct(pTHX_ HV *opt)
                     croak("Invalid Sereal compression format");
             }
         }
+
+        svp = hv_fetchs(opt, "max_recursion_depth", 0);
+        if (svp && SvOK(*svp))
+            mrg->max_recursion_depth = SvUV(*svp);
     }
 
     /* 4 byte magic string + proto version
@@ -359,6 +364,7 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
     /* save current offset as last successfull */
     mrg->obuf_last_successfull_offset = BODY_POS_OFS(&mrg->obuf);
 
+    mrg->recursion_depth = 0;
     mrg->ibuf.pos = mrg->ibuf.body_pos + 1;
     srl_merge_single_value(aTHX_ mrg);
 
@@ -408,6 +414,7 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
         /* save current offset as last successfull */
         mrg->obuf_last_successfull_offset = BODY_POS_OFS(&mrg->obuf);
 
+        mrg->recursion_depth = 0;
         mrg->ibuf.pos = mrg->ibuf.body_pos + 1;
         srl_merge_single_value(aTHX_ mrg);
 
@@ -467,6 +474,9 @@ srl_empty_merger_struct(pTHX)
         Safefree(mrg);
         croak("Out of memory");
     }
+
+    mrg->recursion_depth = 0;
+    mrg->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
 
     /* Zero fields */
     mrg->cnt_of_merged_elements = 0;
@@ -635,8 +645,12 @@ srl_merge_single_value(pTHX_ srl_merger_t *mrg)
     ptable_entry_ptr ptable_entry;
 
 read_again:
+    assert(mrg->recursion_depth >= 0);
     DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
+
+    if (expect_false(++mrg->recursion_depth > mrg->max_recursion_depth))
+        SRL_ERRORf1(mrg->ibuf, "Reached recursion limit (%lu) during merging", mrg->max_recursion_depth);
 
     ptable_entry = NULL;
     if (expect_false(BUF_DONE(&mrg->ibuf)))
@@ -758,6 +772,7 @@ read_again:
         }
     }
 
+    --mrg->recursion_depth;
     DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 }
