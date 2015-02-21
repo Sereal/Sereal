@@ -42,7 +42,7 @@ srl_merger_t *srl_build_merger_struct(pTHX_ HV *opt);         /* constructor fro
 void srl_destroy_merger(pTHX_ srl_merger_t *mrg);             /* explicit destructor */
 void srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src);     /* merge one item */
 void srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src); /* merge all items from src */
-SV * srl_merger_finish(pTHX_ srl_merger_t *mrg);
+SV * srl_merger_finish(pTHX_ srl_merger_t *mrg, SV *user_header_src);
 
 /* define option bits in srl_merger_t's flags member */
 

@@ -43,10 +43,11 @@ append_all(mrg, src)
     srl_merger_append_all(aTHX_ mrg, src);
 
 SV*
-finish(mrg)
+finish(mrg, user_header = NULL)
     srl_merger_t *mrg;
+    SV *user_header;
   CODE:
-    RETVAL = srl_merger_finish(aTHX_ mrg);
+    RETVAL = srl_merger_finish(aTHX_ mrg, user_header);
   OUTPUT: RETVAL
 
 UV

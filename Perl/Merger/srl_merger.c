@@ -116,6 +116,8 @@ extern "C" {
 
 #define SRL_MAX_VARINT_LENGTH_U32 5
 #define DEFAULT_MAX_RECUR_DEPTH 10000
+#define SRL_PREALLOCATE_FOR_USER_HEADER 1024
+#define SRL_MINIMALISTIC_HEADER_SIZE 6 // =srl + 1 byte for version + 1 byte for header
 
 #include "srl_merger.h"
 #include "srl_common.h"
@@ -131,6 +133,7 @@ typedef struct PTABLE * ptable_ptr;
 typedef PTABLE_ENTRY_t *ptable_entry_ptr;
 
 /* predeclare all our subs so we have one definitive authority for their signatures */
+SRL_STATIC_INLINE UV srl_varint_length(pTHX_ UV value);
 SRL_STATIC_INLINE UV srl_read_varint_uv_safe(pTHX_ srl_buffer_t *buf);
 SRL_STATIC_INLINE UV srl_read_varint_uv_nocheck(pTHX_ srl_buffer_t *buf);
 SRL_STATIC_INLINE UV srl_read_varint_uv(pTHX_ srl_buffer_t *buf);
@@ -158,6 +161,7 @@ SRL_STATIC_INLINE void srl_merge_array(pTHX_ srl_merger_t *mrg, const U8 tag, UV
 SRL_STATIC_INLINE void srl_merge_binary_utf8(pTHX_ srl_merger_t *mrg, ptable_entry_ptr ptable_entry);
 SRL_STATIC_INLINE void srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag, ptable_entry_ptr ptable_entry);
 SRL_STATIC_INLINE void srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag);
+SRL_STATIC_INLINE void srl_fill_header(pTHX_ srl_merger_t *mrg, const char *user_header, STRLEN user_header_len);
 
 SRL_STATIC_INLINE ptable_entry_ptr srl_store_tracked_offset(pTHX_ srl_merger_t *mrg, UV from, UV to);
 SRL_STATIC_INLINE UV srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV offset);
@@ -270,26 +274,15 @@ srl_build_merger_struct(pTHX_ HV *opt)
             mrg->max_recursion_depth = SvUV(*svp);
     }
 
-    /* 4 byte magic string + proto version
-     * + potentially uncompressed size varint
-     * +  1 byte varint that indicates zero-length header
-     * if not SRL_F_TOPLEVEL_KEY_SCALAR
-     * +  1 byte SRL_HDR_REFN
-     * +  1 byte SRL_HDR_ARRAY|HASH
-     * +  SRL_MAX_VARINT_LENGTH_U32 bytes for padding varint */
-    GROW_BUF(&mrg->obuf, sizeof(SRL_MAGIC_STRING) + 1 + 1 +
-             SRL_MRG_HAVE_OPTION(mrg, SRL_F_TOPLEVEL_KEY_SCALAR) ? 0 : 1 + 1 + SRL_MAX_VARINT_LENGTH_U32);
-
-    if (expect_true(mrg->protocol_version > 2)) {
-        srl_buf_cat_str_s_nocheck(&mrg->obuf, SRL_MAGIC_STRING_HIGHBIT);
+    if (mrg->protocol_version == 1) {
+        srl_fill_header(mrg, NULL, 0);
     } else {
-        srl_buf_cat_str_s_nocheck(&mrg->obuf, SRL_MAGIC_STRING);
+        /* Preallocate memory for buffer.
+         * SRL_PREALLOCATE_FOR_USER_HEADER for potential user header + 100 bytes for body */
+        GROW_BUF(&mrg->obuf, SRL_PREALLOCATE_FOR_USER_HEADER + 100);
+        mrg->obuf.pos = mrg->obuf.start + SRL_PREALLOCATE_FOR_USER_HEADER;
+        SRL_UPDATE_BODY_POS(&mrg->obuf, mrg->protocol_version);
     }
-
-    srl_buf_cat_char_nocheck(&mrg->obuf, (U8) mrg->protocol_version);
-    srl_buf_cat_char_nocheck(&mrg->obuf, '\0');
-
-    SRL_UPDATE_BODY_POS(&mrg->obuf, mrg->protocol_version);
 
     if (!SRL_MRG_HAVE_OPTION(mrg, SRL_F_TOPLEVEL_KEY_SCALAR)) {
         srl_buf_cat_char_nocheck(&mrg->obuf, SRL_HDR_REFN);
@@ -302,6 +295,37 @@ srl_build_merger_struct(pTHX_ HV *opt)
     }
 
     return mrg;
+}
+
+SRL_STATIC_INLINE void
+srl_fill_header(pTHX_ srl_merger_t *mrg, const char *user_header, STRLEN user_header_len)
+{
+    /* 4 byte magic string + proto version
+     * + potentially uncompressed size varint
+     * +  1 byte varint that indicates zero-length header */
+    GROW_BUF(&mrg->obuf, 128);
+
+    if (expect_true(mrg->protocol_version > 2)) {
+        srl_buf_cat_str_s_nocheck(&mrg->obuf, SRL_MAGIC_STRING_HIGHBIT);
+    } else {
+        srl_buf_cat_str_s_nocheck(&mrg->obuf, SRL_MAGIC_STRING);
+    }
+
+    srl_buf_cat_char_nocheck(&mrg->obuf, (U8) mrg->protocol_version);
+
+    if (user_header == NULL) {
+        srl_buf_cat_char_nocheck(&mrg->obuf, '\0');
+    } else {
+        if (expect_false(mrg->protocol_version < 2))
+            croak("Cannot serialize user header data in Sereal protocol V1 mode!"); // TODO
+
+        srl_buf_cat_varint_nocheck(aTHX_ &mrg->obuf, 0, (UV) (user_header_len + 1)); /* Encode header length, +1 for bit field */
+        srl_buf_cat_char_nocheck(&mrg->obuf, '\1');                                  /* Encode bitfield */
+        Copy(user_header, mrg->obuf.pos, user_header_len, char);                     /* Copy user header data */
+        mrg->obuf.pos += user_header_len;
+    }
+
+    SRL_UPDATE_BODY_POS(&mrg->obuf, mrg->protocol_version);
 }
 
 void
@@ -424,41 +448,123 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
 }
 
 SV *
-srl_merger_finish(pTHX_ srl_merger_t *mrg)
+srl_merger_finish(pTHX_ srl_merger_t *mrg, SV *user_header_src)
 {
-    assert(mrg != NULL);
+    UV end_offset;
+    UV body_offset;
+    UV srl_start_offset = 0;
+
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
     if (mrg->obuf_last_successfull_offset) {
-        SRL_MERGER_TRACE("last merge operation has failed, reset to offset %d",
+        SRL_MERGER_TRACE("last merge operation has failed, reset to offset %"UVuf"",
                           mrg->obuf_last_successfull_offset);
 
         mrg->obuf.pos = mrg->obuf.body_pos + mrg->obuf_last_successfull_offset;
         DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
     }
 
+    /* store offset to the end of the document */
+    end_offset = BODY_POS_OFS(&mrg->obuf);
+    body_offset = mrg->obuf.body_pos - mrg->obuf.start;
+
     if (!SRL_MRG_HAVE_OPTION(mrg, SRL_F_TOPLEVEL_KEY_SCALAR)) {
-        srl_buffer_char* oldpos = mrg->obuf.pos;
         mrg->obuf.pos = mrg->obuf.start + mrg->obuf_padding_bytes_offset;
         DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
         srl_buf_cat_varint_nocheck(aTHX_ &mrg->obuf, 0, mrg->cnt_of_merged_elements);
         DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
-        mrg->obuf.pos = oldpos;
+        mrg->obuf.pos = mrg->obuf.body_pos + end_offset;
         DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
     }
+
+    if (user_header_src) {
+        char *user_header;
+        STRLEN user_header_len;
+        U8 encoding_flags, protocol_version;
+        IV proto_version_and_encoding_flags_int;
+        UV need_space_for_sereal_and_user_headers = 0;
+
+        if (mrg->protocol_version < 2)
+            croak("Sereal version does not support headers");
+
+        user_header = (char*) SvPV(user_header_src, user_header_len);
+        proto_version_and_encoding_flags_int = srl_validate_header_version_pv_len(aTHX_ user_header, user_header_len);
+        if (expect_false(proto_version_and_encoding_flags_int < 1))
+            croak("Bad Sereal header: Not a valid Sereal document.");
+
+        protocol_version = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
+        if (expect_false(protocol_version != mrg->protocol_version))
+            croak("The versions of body and header do not match");
+
+        encoding_flags = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_ENCODING_MASK);
+        if (expect_false(encoding_flags != SRL_PROTOCOL_ENCODING_RAW))
+            croak("The header has unsupported format.");
+
+        if (expect_false(user_header_len < SRL_MINIMALISTIC_HEADER_SIZE))
+            croak("Provided user header is too short");
+
+        /* here some byte magic goes. The main idea is to fix user_header
+         * inside preallocated space. However, due to varint it becomes quite
+         * tricky */
+
+        user_header     += SRL_MINIMALISTIC_HEADER_SIZE;
+        user_header_len -= SRL_MINIMALISTIC_HEADER_SIZE;
+
+        // =srl + 1 byte for version + 1 byte for header
+        need_space_for_sereal_and_user_headers
+            = 4                                             /* srl magic */ 
+            + 1                                             /* byte for version */
+            + 1                                             /* user_header bit field */
+            + srl_varint_length(aTHX_ user_header_len + 1)  /* user_header_len in varint representation, add one because of bit field */
+            + user_header_len;
+
+        if (SRL_PREALLOCATE_FOR_USER_HEADER < need_space_for_sereal_and_user_headers) {
+            croak("User header excided SRL_PREALLOCATE_FOR_USER_HEADER. Need to reallocate memory but too lazy to implement this"); // TODO
+        }
+
+        // move position to where Sereal and user headers should start with */
+        srl_start_offset = SRL_PREALLOCATE_FOR_USER_HEADER - need_space_for_sereal_and_user_headers;
+        mrg->obuf.pos = mrg->obuf.start + srl_start_offset;
+
+        srl_fill_header(aTHX_ mrg, user_header, user_header_len);
+        DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
+
+        if (expect_false(body_offset != (UV) (mrg->obuf.pos - mrg->obuf.start - 1))) {
+            croak("Bizare! Body pointer has different offset after writing Sereal header! Current offset=%"UVuf", expected=%"UVuf,
+                  (UV) (mrg->obuf.pos - mrg->obuf.start), body_offset);
+        }
+
+        mrg->obuf.pos += end_offset;
+    } else if (mrg->protocol_version > 1) {
+        assert(SRL_PREALLOCATE_FOR_USER_HEADER > SRL_MINIMALISTIC_HEADER_SIZE);
+
+        // move position to where Sereal and user headers should start with */
+        srl_start_offset = SRL_PREALLOCATE_FOR_USER_HEADER - SRL_MINIMALISTIC_HEADER_SIZE;
+        mrg->obuf.pos = mrg->obuf.start + srl_start_offset;
+
+        srl_fill_header(aTHX_ mrg, NULL, 0);
+        DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
+
+        if (expect_false(body_offset != (UV) (mrg->obuf.pos - mrg->obuf.start - 1))) {
+            croak("Bizare! Body pointer has different offset after writing Sereal header!");
+        }
+
+        mrg->obuf.pos += end_offset;
+    }
+
+    DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
     if (SRL_MRG_HAVE_OPTION(mrg, SRL_F_COMPRESS_SNAPPY_INCREMENTAL)) {
-        /* there is no support of user's Sereal header,
-         * so body's offset is fixed and always 5
-         * (i.e. =srl + 1 byte for version + 1 byte for header) */
-        srl_compress_body(aTHX_ &mrg->obuf, 6, mrg->flags, 0, &mrg->snappy_workmem);
+        srl_compress_body(aTHX_ &mrg->obuf, body_offset, mrg->flags, 0, &mrg->snappy_workmem);
         SRL_UPDATE_BODY_POS(&mrg->obuf, mrg->protocol_version);
-        DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
     }
 
-    return newSVpvn((char *) mrg->obuf.start, BUF_POS_OFS(&mrg->obuf));
+    assert(srl_start_offset <= (UV) BUF_POS_OFS(&mrg->obuf));
+    DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
+
+    return newSVpvn((char *) mrg->obuf.start + srl_start_offset, BUF_POS_OFS(&mrg->obuf) - srl_start_offset);
 }
 
 SRL_STATIC_INLINE srl_merger_t *
@@ -1188,6 +1294,18 @@ srl_copy_varint(pTHX_ srl_merger_t *mrg)
 /* VARINT function
  * copy-pasted from srl_decoder.h
  */
+
+SRL_STATIC_INLINE UV
+srl_varint_length(pTHX_ UV value)
+{
+    UV length = 0;
+    while (value >= 0x80) {
+        length++;
+        value >>= 7;
+    }
+
+    return ++length;
+}
 
 SRL_STATIC_INLINE UV
 srl_read_varint_uv(pTHX_ srl_buffer_t *buf)
