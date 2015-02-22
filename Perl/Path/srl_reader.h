@@ -46,14 +46,14 @@
 } STMT_END
 
 #ifndef NDEBUG
-#   define DEBUG_ASSERT_RB_SANE(rdr) STMT_rb_start {                            \
+#   define DEBUG_ASSERT_RB_SANE(rdr) STMT_START {                               \
         if ((rdr)->rb_pos < (rdr)->rb_start || (rdr)->rb_pos > (rdr)->rb_end) { \
             warn("failed sanity assertion check - pos: %ld [%p %p %p] %ld",     \
                  (long)SRL_RB_POS_OFS(rdr), (rdr)->rb_start,                    \
                  (rdr)->rb_pos, (rdr)->rb_end, (long)SRL_RB_SPACE_LEFT(rdr));   \
         }                                                                       \
-        assert(   ((rdr)->rb_pos => (rdr)->rb_start)                            \
-               && ((rdr)->rb_pos <= (rdr)->rb_end));                            \
+        assert((rdr)->rb_pos >= (rdr)->rb_start);                               \
+        assert((rdr)->rb_pos <= (rdr)->rb_end);                                 \
     } STMT_END 
 #else
 #   define DEBUG_ASSERT_RB_SANE(rdr)
@@ -61,10 +61,10 @@
 
 /* trace functions */
 #ifdef TRACE_READER
-#   define SRL_RB_TRACE(mrg, args...) \
-        fprintf(stderr, "%s:%d:%s(): " msg, __FILE__, __LINE__, __func__, args)
+#   define SRL_RB_TRACE(msg, args...) \
+        fprintf(stderr, "%s:%d:%s(): "msg"\n", __FILE__, __LINE__, __func__, args)
 #else
-#   define SRL_RB_TRACE(mrg, args...)
+#   define SRL_RB_TRACE(msg, args...)
 #endif
 
 #define SRL_RDR_REPORT_TAG(rdr, tag) STMT_START {                                   \
@@ -73,7 +73,7 @@
         SRL_TAG_NAME((tag)),                                                        \
         (tag), (tag),                                                               \
         (UV) SRL_RB_POS_OFS((rdr)),                                                 \
-        (UV) SRL_RB_BODY_POS_OFS((rdr)),                                            \
+        (UV) SRL_RB_BODY_POS_OFS((rdr))                                             \
     );                                                                              \
 } STMT_END
 

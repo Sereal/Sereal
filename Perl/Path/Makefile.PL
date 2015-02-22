@@ -9,7 +9,7 @@ use Config;
 my $shared_dir = "../shared";
 my $in_source_repo = -d "../../.git" and -d $shared_dir;
 
-my $module = "Sereal::Path";
+my $module = "Sereal::Path::Iterator";
 
 unshift @INC, ".", "./inc";
 unshift @INC, $shared_dir, "$shared_dir/inc" if $in_source_repo;
@@ -122,12 +122,12 @@ WriteMakefile1(
         'ExtUtils::MakeMaker' => '7.0',
     },
     NAME              => $module,
-    VERSION_FROM      => 'lib/Sereal/Path.pm', # finds $VERSION
+    VERSION_FROM      => 'lib/Sereal/Path/Iterator.pm', # finds $VERSION
     PREREQ_PM         => {
         'XSLoader' => 0,
     }, # e.g., Module::Name => 1.1
     LICENSE => 'perl',
-    ABSTRACT_FROM     => 'lib/Sereal/Path.pm',
+    ABSTRACT_FROM     => 'lib/Sereal/Path/Iterator.pm',
     AUTHOR            => 'Ivan Kruglov <ivan.kruglov@yahoo.com>',
     LIBS              => [$libs], # e.g., '-lm'
     DEFINE            => $defines,

@@ -10,7 +10,8 @@ SRL_STATIC_INLINE void
 srl_skip_varint(pTHX_ srl_reader_t *rdr)
 {
     U8 max_varint_len = sizeof(UV) == sizeof(U32) ? 5 : 10;
-    while (SRL_RB_NOT_DONE(rdr) && *rdr->rb_pos++ & 0x80) {
+    while (SRL_RB_NOT_DONE(rdr) && *rdr->rb_pos & 0x80) {
+        rdr->rb_pos++;
         if (!max_varint_len--)
             SRL_RDR_ERROR(rdr, "varint too long");
     }

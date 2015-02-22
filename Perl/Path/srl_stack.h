@@ -22,11 +22,11 @@
            ((stack)->ptr >= (stack)->begin && (stack)->ptr <= (stack)->end)); \
 } STMT_END
 
-#ifdef TRACE_READER
-#   define SRL_STACK_TRACE(mrg, args...)                                      \
-        fprintf(stderr, "%s:%d:%s(): " msg, __FILE__, __LINE__, __func__, args)
+#ifdef TRACE_STACK
+#   define SRL_STACK_TRACE(msg, args...)                                      \
+        fprintf(stderr, "%s:%d:%s(): Stack: "msg"\n", __FILE__, __LINE__, __func__, args)
 #else
-#   define SRL_STACK_TRACE(mrg, args...)
+#   define SRL_STACK_TRACE(msg, args...)
 #endif
 
 #define SRL_STACK_SIZE(stack)  (((stack)->end - (stack)->begin) + 1)

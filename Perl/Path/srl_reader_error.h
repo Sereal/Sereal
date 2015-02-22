@@ -12,8 +12,9 @@
 #define SRL_RDR_ERRORf3(r, fmt, var1, var2, var3)          croak(SRL_RDR_BASE_ERROR_FORMAT fmt,  SRL_RDR_BASE_ERROR_ARGS((r)), (var1), (var2), (var3))
 #define SRL_RDR_ERRORf4(r, fmt, var1, var2, var3, var4)    croak(SRL_RDR_BASE_ERROR_FORMAT fmt,  SRL_RDR_BASE_ERROR_ARGS((r)), (var1), (var2), (var3), (var4))
 
-#define SRL_RDR_ERROR_UNIMPLEMENTED(r, tag, str)           SRL_RDR_ERRORf2((r), "Tag %u SRL_HDR_%s is unimplemented", (tag), (str))
+#define SRL_RDR_ERROR_UNIMPLEMENTED(r, tag, str)           SRL_RDR_ERRORf3((r), "Tag %u (0x%x) '%s' is unimplemented", (tag), (tag), (str))
 #define SRL_RDR_ERROR_UNEXPECTED(r, tag, msg)              SRL_RDR_ERRORf2((r), "Unexpected tag SRL_HDR_%s while expecting %s", SRL_TAG_NAME((tag)), (msg))
 #define SRL_RDR_ERROR_BAD_COPY(r, tag)                     SRL_RDR_ERRORf1((r), "While processing tag SRL_HDR_%s encountered a bad COPY tag", SRL_TAG_NAME((tag)))
+#define SRL_RDR_ERROR_EOF(r, msg)                          SRL_RDR_ERRORf1((r), "Premature end of document while expecting %s", (msg));
 
 #endif
