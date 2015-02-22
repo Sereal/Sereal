@@ -248,4 +248,8 @@
 
 #define SRL_SET_TRACK_FLAG(where) ((where) |= SRL_HDR_TRACK_FLAG)
 
+#define SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) ((tag) & SRL_MASK_SHORT_BINARY_LEN)
+#define SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag)     ((tag) & SRL_MASK_ARRAYREF_COUNT)
+#define SRL_HDR_HASHREF_LEN_FROM_TAG(tag)      ((tag) & SRL_MASK_HASHREF_COUNT)
+
 #endif
