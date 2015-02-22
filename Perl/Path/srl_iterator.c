@@ -72,8 +72,30 @@ typedef struct {
 #define srl_stack_type_t srl_stack_type_t // TODO
 #include "srl_stack.h"
 
+/* this SHOULD be newSV_type(SVt_NULL) but newSV(0) is faster :-( */
+#if 1
+#define FRESH_SV() newSV(0)
+#else
+#define FRESH_SV() newSV_type(SVt_NULL);
+#endif
+
 /* function declaration */
 SRL_STATIC_INLINE UV srl_next_or_step(pTHX_ srl_iterator_t *iter, IV next, IV step);
+SRL_STATIC_INLINE srl_reader_char_ptr srl_advance_to_object(pTHX_ srl_iterator_t *iter, srl_reader_char_ptr pos);
+/* copy-paste from srl_decoder.c TODO */
+SRL_STATIC_INLINE void srl_setiv(pTHX_ srl_iterator_t *iter, SV *into, SV **container, IV iv);
+SRL_STATIC_INLINE void srl_read_long_double(pTHX_ srl_iterator_t *iter, SV* into);
+SRL_STATIC_INLINE void srl_read_double(pTHX_ srl_iterator_t *iter, SV* into);
+SRL_STATIC_INLINE void srl_read_float(pTHX_ srl_iterator_t *iter, SV* into);
+SRL_STATIC_INLINE void srl_read_string(pTHX_ srl_iterator_t *iter, int is_utf8, SV* into);
+SRL_STATIC_INLINE void srl_read_varint_into(pTHX_ srl_iterator_t *iter, SV* into, SV** container);
+SRL_STATIC_INLINE void srl_read_zigzag_into(pTHX_ srl_iterator_t *iter, SV* into, SV** container);
+
+/* wrappers */
+UV srl_next_n(pTHX_ srl_iterator_t *iter, UV next) { return srl_next_or_step(iter, (IV) next, -1); }
+UV srl_step_n(pTHX_ srl_iterator_t *iter, UV step) { return srl_next_or_step(iter, -1, (IV) step); }
+UV srl_eof(pTHX_ srl_iterator_t *iter)             { return SRL_RB_DONE(iter) ? 1 : 0; }
+UV srl_offset(pTHX_ srl_iterator_t *iter)          { return SRL_RB_BODY_POS_OFS(iter); }
 
 srl_iterator_t *
 srl_build_iterator_struct(pTHX_ HV *opt)
@@ -368,49 +390,6 @@ return_value:
     return SRL_RB_BODY_POS_OFS(iter);
 }
 
-UV
-srl_next_n(pTHX_ srl_iterator_t *iter, UV next)
-{
-    return srl_next_or_step(iter, (IV) next, -1);
-}
-
-UV
-srl_step_n(pTHX_ srl_iterator_t *iter, UV step)
-{
-    return srl_next_or_step(iter, -1, (IV) step);
-}
-
-UV
-srl_eof(pTHX_ srl_iterator_t *iter)
-{
-    DEBUG_ASSERT_RB_SANE(iter);
-    return SRL_RB_DONE(iter) ? 1 : 0;
-}
-
-UV
-srl_offset(pTHX_ srl_iterator_t *iter)
-{
-    DEBUG_ASSERT_RB_SANE(iter);
-    return (UV) SRL_RB_BODY_POS_OFS(iter);
-}
-
-SRL_STATIC_INLINE srl_reader_char_ptr
-srl_advance_to_object(pTHX_ srl_iterator_t *iter, srl_reader_char_ptr pos)
-{
-    for (; expect_true(SRL_RB_NOT_DONE(iter)); ++pos) {
-        switch (*pos & ~SRL_HDR_TRACK_FLAG) {
-            case SRL_HDR_PAD:
-            case SRL_HDR_REFN:
-            case SRL_HDR_WEAKEN:
-                continue;
-            default:
-                return pos;
-        }
-    }
-
-    croak("eof reached"); // TODO
-}
-
 SV *
 srl_get_key(pTHX_ srl_iterator_t *iter)
 {
@@ -476,7 +455,7 @@ srl_get_key(pTHX_ srl_iterator_t *iter)
     }
 
     result = newSVpvn((const char *) iter->rb_pos, length); 
-    iter->rb_pos = orig_pos;
+    iter->rb_pos = orig_pos; // restore original position
     DEBUG_ASSERT_RB_SANE(iter);
     return result;
 }
@@ -597,7 +576,7 @@ srl_object_type(pTHX_ srl_iterator_t *iter)
     U8 tag;
     srl_reader_char_ptr pos;
 
-    pos = srl_advance_to_object(iter, iter->rb_pos);
+    pos = srl_advance_to_object(aTHX_ iter, iter->rb_pos);
     tag = *pos & ~SRL_HDR_TRACK_FLAG;
 
      /* TODO think about SRL_HDR_HASH without REFN
@@ -630,6 +609,207 @@ srl_object_type(pTHX_ srl_iterator_t *iter)
     }
 
     SRL_RDR_ERROR_UNEXPECTED(iter, tag, " HASH");
+}
+
+SRL_STATIC_INLINE srl_reader_char_ptr
+srl_advance_to_object(pTHX_ srl_iterator_t *iter, srl_reader_char_ptr pos)
+{
+    for (; expect_true(SRL_RB_NOT_DONE(iter)); ++pos) {
+        switch (*pos & ~SRL_HDR_TRACK_FLAG) {
+            case SRL_HDR_PAD:
+            case SRL_HDR_REFN:
+            case SRL_HDR_WEAKEN:
+                continue;
+            default:
+                return pos;
+        }
+    }
+
+    SRL_RDR_ERROR_EOF(iter, "");
+}
+
+SV *
+srl_decode(pTHX_ srl_iterator_t *iter)
+{
+    U8 tag;
+    SV *into;
+    UV length, offset;
+    srl_reader_char_ptr orig_pos;
+
+    DEBUG_ASSERT_RB_SANE(iter);
+
+    into = sv_2mortal(FRESH_SV());
+    orig_pos = iter->rb_pos; // must restore upon return
+
+    tag = *iter->rb_pos & ~SRL_HDR_TRACK_FLAG;
+    SRL_RDR_REPORT_TAG(iter, tag);
+    iter->rb_pos++;
+
+    switch (tag) {
+        CASE_SRL_HDR_POS:           srl_setiv(aTHX_ iter, into, NULL, (IV) tag);        break;
+        CASE_SRL_HDR_NEG:           srl_setiv(aTHX_ iter, into, NULL, (IV) (tag - 32)); break;
+
+        CASE_SRL_HDR_SHORT_BINARY:
+            length = (STRLEN)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+            SRL_RB_ASSERT_SPACE(iter, length, " while reading ascii string");
+            sv_setpvn(into, (char*) iter->rb_pos, length);
+            break;
+
+        case SRL_HDR_VARINT:        srl_read_varint_into(aTHX_ iter, into, NULL);       break;
+        case SRL_HDR_ZIGZAG:        srl_read_zigzag_into(aTHX_ iter, into, NULL);       break;
+
+        case SRL_HDR_FLOAT:         srl_read_float(aTHX_ iter, into);                   break;
+        case SRL_HDR_DOUBLE:        srl_read_double(aTHX_ iter, into);                  break;
+        case SRL_HDR_LONG_DOUBLE:   srl_read_long_double(aTHX_ iter, into);             break;
+
+        case SRL_HDR_TRUE:          sv_setsv(into, &PL_sv_yes);                         break;
+        case SRL_HDR_FALSE:         sv_setsv(into, &PL_sv_no);                          break;
+
+        case SRL_HDR_BINARY:        srl_read_string(aTHX_ iter, 0, into);               break;
+        case SRL_HDR_STR_UTF8:      srl_read_string(aTHX_ iter, 1, into);               break; 
+
+        case SRL_HDR_UNDEF:
+        case SRL_HDR_CANONICAL_UNDEF:
+            sv_setsv(into, &PL_sv_undef);
+            break;
+
+        default:
+            SRL_RDR_ERRORf1(iter, "Do not support decoding tag %s", SRL_TAG_NAME(tag));
+    }
+
+    iter->rb_pos = orig_pos; // restore original position
+    DEBUG_ASSERT_RB_SANE(iter);
+    return into;
+}
+
+/*********************************************************
+ * TODO copy-paste from srl_decoder.c with minor changes *
+ *********************************************************/
+
+SRL_STATIC_INLINE void
+srl_setiv(pTHX_ srl_iterator_t *iter, SV *into, SV **container, IV iv)
+{
+    /* unroll sv_setiv() for the SVt_NULL case, which we will
+     * see regularly - this wins about 35% speedup for us
+     * but involve gratuitious intimacy with the internals.
+     * */
+#ifdef FAST_IV
+    if ( SvTYPE(into) == SVt_NULL ) {
+        /* XXX: dont need to do this, we are null already */
+        /* SvFLAGS(into) &= ~SVTYPEMASK; */
+        assert(
+            (SVt_NULL == 0) &&
+            ((SvFLAGS(into) & (SVTYPEMASK|SVf_OOK|SVf_OK|SVf_IVisUV|SVf_UTF8)) == 0)
+        );
+        SvANY(into) = (XPVIV*)((char*)&(into->sv_u.svu_iv) - STRUCT_OFFSET(XPVIV, xiv_iv));
+        /* replace this: */
+        /* SvIOK_only(into); */
+        /* with this: */
+        SvFLAGS(into) |= (SVt_IV | SVf_IOK | SVp_IOK);
+        SvIV_set(into, iv);
+    } else
+#endif
+    {
+        sv_setiv(into, iv);
+    }
+}
+
+SRL_STATIC_INLINE void
+srl_read_varint_into(pTHX_ srl_iterator_t *iter, SV* into, SV **container)
+{
+    UV uv= srl_read_varint_uv(aTHX_ iter);
+    if (expect_true(uv <= (UV)IV_MAX)) {
+        srl_setiv(aTHX_ iter, into, container, (IV)uv);
+    } else {
+        /* grr, this is ridiculous! */
+        sv_setiv(into, 0);
+        SvIsUV_on(into);
+        SvUV_set(into, uv);
+    }
+}
+
+
+SRL_STATIC_INLINE IV
+srl_read_zigzag_iv(pTHX_ srl_iterator_t *iter)
+{
+    UV n= srl_read_varint_uv(aTHX_ iter);
+    IV i= (n >> 1) ^ (-(n & 1));
+    return i;
+}
+
+SRL_STATIC_INLINE void
+srl_read_zigzag_into(pTHX_ srl_iterator_t *iter, SV* into, SV **container)
+{
+    srl_setiv(aTHX_ iter, into, container, srl_read_zigzag_iv(aTHX_ iter));
+}
+
+SRL_STATIC_INLINE void
+srl_read_string(pTHX_ srl_iterator_t *iter, int is_utf8, SV* into)
+{
+    UV len= srl_read_varint_uv_length(aTHX_ iter, " while reading string");
+    sv_setpvn(into,(char *)iter->rb_pos,len);
+    if (is_utf8) {
+        SvUTF8_on(into);
+    } else {
+        SvUTF8_off(into);
+    }
+    iter->rb_pos+= len;
+}
+
+/* iterlare a union so that we are guaranteed the right alignment
+ * rules - this is required for e.g. ARM */
+union myfloat {
+    U8 c[sizeof(long double)];
+    float f;
+    double d;
+    long double ld;
+};
+
+/* XXX Most (if not all?) non-x86 platforms are strict in their
+ * floating point alignment.  So maybe this logic should be the other
+ * way: default to strict, and do sloppy only if x86? */
+
+SRL_STATIC_INLINE void
+srl_read_float(pTHX_ srl_iterator_t *iter, SV* into)
+{
+    union myfloat val;
+    SRL_RB_ASSERT_SPACE(iter, sizeof(float), " while reading FLOAT");
+#if SRL_USE_ALIGNED_LOADS_AND_STORES
+    Copy(iter->rb_pos,val.c,sizeof(float),U8);
+#else
+    val.f= *((float *)iter->rb_pos);
+#endif
+    sv_setnv(into, (NV)val.f);
+    iter->rb_pos+= sizeof(float);
+}
+
+SRL_STATIC_INLINE void
+srl_read_double(pTHX_ srl_iterator_t *iter, SV* into)
+{
+    union myfloat val;
+    SRL_RB_ASSERT_SPACE(iter, sizeof(double), " while reading DOUBLE");
+#if SRL_USE_ALIGNED_LOADS_AND_STORES
+    Copy(iter->rb_pos,val.c,sizeof(double),U8);
+#else
+    val.d= *((double *)iter->rb_pos);
+#endif
+    sv_setnv(into, (NV)val.d);
+    iter->rb_pos+= sizeof(double);
+}
+
+
+SRL_STATIC_INLINE void
+srl_read_long_double(pTHX_ srl_iterator_t *iter, SV* into)
+{
+    union myfloat val;
+    SRL_RB_ASSERT_SPACE(iter, sizeof(long double), " while reading LONG_DOUBLE");
+#if SRL_USE_ALIGNED_LOADS_AND_STORES
+    Copy(iter->rb_pos,val.c,sizeof(long double),U8);
+#else
+    val.ld= *((long double *)iter->rb_pos);
+#endif
+    sv_setnv(into, (NV)val.ld);
+    iter->rb_pos+= sizeof(long double);
 }
 
 /* SRL_STATIC_INLINE void

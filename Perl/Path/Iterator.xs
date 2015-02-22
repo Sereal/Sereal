@@ -106,3 +106,11 @@ get_key(iter)
   CODE:
     RETVAL = srl_get_key(iter);
   OUTPUT: RETVAL
+
+SV *
+decode(iter)
+    srl_iterator_t *iter;
+  CODE:
+    RETVAL = srl_decode(iter);
+    SvREFCNT_inc(RETVAL);
+  OUTPUT: RETVAL
