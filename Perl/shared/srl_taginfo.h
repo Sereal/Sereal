@@ -1,5 +1,8 @@
 #ifndef SRL_TAGINFO_H
 #define SRL_TAGINFO_H
+
+#define SRL_TAG_NAME(tag) (tag_name[(tag) & 127])
+
 /*
 
 =for autoupdater start
