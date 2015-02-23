@@ -12,10 +12,14 @@ use Scalar::Util qw[blessed];
 use Sereal::Path::Iterator;
 
 sub new {
-    my $iter = shift;
-    croak("iterator is required") unless $iter;
-    croak("iterator must be of type Sereal::Path::Iterator")
-      unless $iter->isa eq 'Sereal::Path::Iterator';
+    defined $_[1] or "first argument must be defined";
+
+    my $iter;
+    if (blessed($_[1]) && $_[1]->isa(Sereal::Path::Iterator)) {
+        $iter = $_[1];
+    } else {
+        $iter = Sereal::Path::Iterator->new($_[1]);
+    }
 
     bless {
         iter       => $iter,
@@ -56,6 +60,7 @@ sub asPath {
     for (my $i=1; $i<$n; $i++) {
         $p .= /^[0-9]+$/ ? ("[".$x[$i]."]") : ("['".$x[$i]."']");
     }
+
     return $p;
 }
 
@@ -63,13 +68,15 @@ sub store {
     my ($self, $path, $value) = @_;
     push @{ $self->{'result'} }, ( $self->{'resultType'} eq "PATH"
                                    ? $self->asPath($path)
-                                   : $value ) if $p;
-    return !!$p;
+                                   : $value ) if $path;
+    return !!$path;
 }
 
 sub trace {
     my ($self, $expr, $path) = @_;
     my $iter = $self->{iter};
+
+    return if $iter->eof;
     return $self->store($path, $iter->decode) if "$expr" eq '';
     
     my ($loc, $x);
@@ -80,7 +87,6 @@ sub trace {
     }
 
     my $iter_type = $iter->type;
-
     if ($iter_type eq 'ARRAY' && $loc =~ /^[0-9]+$/) { # /^\-?[0-9]+$/
         my $iter_count = $iter->count;
         if ($loc < $iter_count) { # TODO add support of negative $loc

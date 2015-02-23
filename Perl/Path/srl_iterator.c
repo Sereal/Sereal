@@ -596,18 +596,30 @@ srl_object_type(pTHX_ srl_iterator_t *iter)
     SV *type = sv_2mortal(FRESH_SV());
     srl_reader_char_ptr orig_pos = iter->rb_pos;
 
-    for (; expect_true(SRL_RB_NOT_DONE(iter)); ++iter->rb_pos) {
+    if (expect_false(SRL_RB_DONE(iter)))
+        SRL_RDR_ERROR_EOF(iter, "ARRAY or HASH or SCALAR");
+
+    while(expect_true(SRL_RB_NOT_DONE(iter))) {
         tag = *iter->rb_pos & ~SRL_HDR_TRACK_FLAG;
+        SRL_RDR_REPORT_TAG(iter, tag);
+        iter->rb_pos++;
+
         switch (tag) {
+            case SRL_HDR_PAD:
+            case SRL_HDR_REFN:
+            case SRL_HDR_WEAKEN:
+                /* advanced pointer to the object */
+                continue;
+
             case SRL_HDR_HASH:
             CASE_SRL_HDR_HASHREF:
                 sv_setpv(type, "HASH");
-                break;
+                goto return_result;
 
             case SRL_HDR_ARRAY:
             CASE_SRL_HDR_ARRAYREF:
                 sv_setpv(type, "ARRAY");
-                break;
+                goto return_result;
 
             CASE_SRL_HDR_POS:
             CASE_SRL_HDR_NEG:
@@ -624,7 +636,7 @@ srl_object_type(pTHX_ srl_iterator_t *iter)
             case SRL_HDR_UNDEF:
             case SRL_HDR_CANONICAL_UNDEF:
                 sv_setpv(type, "SCALAR");
-                break;
+                goto return_result;
 
             default:
                 iter->rb_pos = orig_pos;
@@ -632,6 +644,7 @@ srl_object_type(pTHX_ srl_iterator_t *iter)
         }
     }
 
+return_result:
     iter->rb_pos = orig_pos;
     DEBUG_ASSERT_RB_SANE(iter);
 
@@ -648,11 +661,17 @@ srl_object_count(pTHX_ srl_iterator_t *iter)
     UV count;
     srl_reader_char_ptr orig_pos = iter->rb_pos;
 
+    if (expect_false(SRL_RB_DONE(iter)))
+        SRL_RDR_ERROR_EOF(iter, "ARRAY or HASH or SCALAR");
+
     /* TODO think about SRL_HDR_HASH without REFN
      * should we care about this case? */
 
-    for (; expect_true(SRL_RB_NOT_DONE(iter)); ++iter->rb_pos) {
+    while(expect_true(SRL_RB_NOT_DONE(iter))) {
         tag = *iter->rb_pos & ~SRL_HDR_TRACK_FLAG;
+        SRL_RDR_REPORT_TAG(iter, tag);
+        iter->rb_pos++;
+
         switch (tag) {
             case SRL_HDR_PAD:
             case SRL_HDR_REFN:
@@ -662,16 +681,16 @@ srl_object_count(pTHX_ srl_iterator_t *iter)
 
             CASE_SRL_HDR_HASHREF:
                 count = SRL_HDR_HASHREF_LEN_FROM_TAG(tag);
-                break;
+                goto return_result;
 
             CASE_SRL_HDR_ARRAYREF:
                 count = SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag);
-                break;
+                goto return_result;
 
             case SRL_HDR_HASH:
             case SRL_HDR_ARRAY:
                 count = srl_read_varint_uv_count(aTHX_ iter, " while reading ARRAY or HASH");
-                break;
+                goto return_result;
 
             default:
                 iter->rb_pos = orig_pos;
@@ -679,6 +698,7 @@ srl_object_count(pTHX_ srl_iterator_t *iter)
         }
     }
 
+return_result:
     iter->rb_pos = orig_pos;
     DEBUG_ASSERT_RB_SANE(iter);
 
