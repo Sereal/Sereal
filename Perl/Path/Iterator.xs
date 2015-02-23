@@ -19,7 +19,7 @@ new(CLASS, src = NULL, opt = NULL)
     HV *opt;
   CODE:
     RETVAL = srl_build_iterator_struct(aTHX_ opt);
-    if (src) srl_set_document(RETVAL, src); // XXX
+    if (src) srl_set_document(RETVAL, src);
   OUTPUT: RETVAL
 
 void
@@ -46,20 +46,6 @@ eof(iter)
     srl_iterator_t *iter;
   CODE:
     RETVAL = srl_eof(iter);
-  OUTPUT: RETVAL
-
-UV
-offset(iter)
-    srl_iterator_t *iter;
-  CODE:
-    RETVAL = srl_offset(iter);
-  OUTPUT: RETVAL
-
-SV *
-type(iter)
-    srl_iterator_t *iter;
-  CODE:
-    RETVAL = srl_object_type(iter);
   OUTPUT: RETVAL
 
 UV
@@ -93,6 +79,35 @@ step_n(iter, step)
   OUTPUT: RETVAL
 
 UV
+parent(iter)
+    srl_iterator_t *iter;
+  CODE:
+    RETVAL = srl_parent(iter);
+  OUTPUT: RETVAL
+
+UV
+offset(iter)
+    srl_iterator_t *iter;
+  CODE:
+    RETVAL = srl_offset(iter);
+  OUTPUT: RETVAL
+
+SV *
+type(iter)
+    srl_iterator_t *iter;
+  CODE:
+    RETVAL = srl_object_type(iter);
+    SvREFCNT_inc(RETVAL);
+  OUTPUT: RETVAL
+
+UV
+count(iter)
+    srl_iterator_t *iter;
+  CODE:
+    RETVAL = srl_object_count(iter);
+  OUTPUT: RETVAL
+
+UV
 find_key(iter, name)
     srl_iterator_t *iter;
     SV *name;
@@ -105,6 +120,7 @@ get_key(iter)
     srl_iterator_t *iter;
   CODE:
     RETVAL = srl_get_key(iter);
+    SvREFCNT_inc(RETVAL);
   OUTPUT: RETVAL
 
 SV *

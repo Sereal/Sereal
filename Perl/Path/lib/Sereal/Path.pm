@@ -11,17 +11,21 @@ use Carp;
 use Scalar::Util qw[blessed];
 use Sereal::Path::Iterator;
 
-sub new
-{
+sub new {
+    my $iter = shift;
+    croak("iterator is required") unless $iter;
+    croak("iterator must be of type Sereal::Path::Iterator")
+      unless $iter->isa eq 'Sereal::Path::Iterator';
+
     bless {
+        iter       => $iter,
         obj        => undef,
         resultType => 'VALUE',
         result     => [],
     }, $_[0];
 }
 
-sub normalize
-{
+sub normalize {
     my ($self, $x) = @_;
     $x =~ s/[\['](\??\(.*?\))[\]']/_callback_01($self,$1)/eg;
     $x =~ s/'?\.'?|\['?/;/g;
@@ -32,45 +36,40 @@ sub normalize
     return $x;
 }
 
-sub _callback_01
-{
+sub _callback_01 {
     my ($self, $m1) = @_;
     push @{ $self->{'result'} }, $m1;
     my $last_index = scalar @{ $self->{'result'} } - 1;
     return "[#${last_index}]";
 }
 
-sub _callback_02
-{
+sub _callback_02 {
     my ($self, $m1) = @_;
     return $self->{'result'}->[$m1];
 }
 
-sub asPath
-{
+sub asPath {
     my ($self, $path) = @_;
     my @x = split /\;/, $path;
     my $p = '$';
     my $n = scalar(@x);
-    for (my $i=1; $i<$n; $i++)
-    {
+    for (my $i=1; $i<$n; $i++) {
         $p .= /^[0-9]+$/ ? ("[".$x[$i]."]") : ("['".$x[$i]."']");
     }
     return $p;
 }
 
-sub store
-{
-    my ($self, $p, $v) = @_;
-    push @{ $self->{'result'} }, ( $self->{'resultType'} eq "PATH" ? $self->asPath($p) : $v )
-        if $p;
+sub store {
+    my ($self, $path, $value) = @_;
+    push @{ $self->{'result'} }, ( $self->{'resultType'} eq "PATH"
+                                   ? $self->asPath($path)
+                                   : $value ) if $p;
     return !!$p;
 }
 
-sub trace
-{
-    my ($self, $expr, $iter, $path) = @_;
-    
+sub trace {
+    my ($self, $expr, $path) = @_;
+    my $iter = $self->{iter};
     return $self->store($path, $iter->decode) if "$expr" eq '';
     
     my ($loc, $x);
@@ -79,31 +78,45 @@ sub trace
         $loc  = shift @x;
         $x    = join ';', @x;
     }
-    
-    # in Perl need to distinguish between arrays and hashes.
-    if ($iter->type eq 'ARRAY' and $loc =~ /^\-?[0-9]+$/ {
-        #and exists $val->[$loc])
-        $iter->step;
-        $iter->next for (my $i = 0; $i < $loc; $i++); # TODO
-        $self->trace($x, $iter, sprintf('%s;%s', $path, $loc));
-    } elsif ($iter->type eq 'HASH' and exists $val->{$loc})
-    {
-        $self->trace($x, $val->{$loc}, sprintf('%s;%s', $path, $loc));
+
+    my $iter_type = $iter->type;
+
+    if ($iter_type eq 'ARRAY' && $loc =~ /^[0-9]+$/) { # /^\-?[0-9]+$/
+        my $iter_count = $iter->count;
+        if ($loc < $iter_count) { # TODO add support of negative $loc
+            $iter->step or die "failed to do step";
+            for (my $i = 0; $i < $loc; $i++) {
+                $iter->next or die "failed to do next";
+            }
+
+            return $self->trace($x, sprintf('%s;%s', $path, $loc));
+        }
     }
-    elsif ($loc eq '*')
-    {
-        $self->walk($loc, $x, $iter, $path, \&_callback_03);
+
+    if ($iter_type eq 'HASH') {
+        $iter->step or die "failed to do step";
+        if ($iter->find_key($loc)) {
+            return $self->trace($x, sprintf('%s;%s', $path, $loc));
+        }
+
+        $iter->parent or die "failed to goto parent";
     }
+
+    if ($loc eq '*') {
+        return $self->walk($loc, $x, $path, \&_callback_03);
+    }
+
     #elsif ($loc eq '..')
     #{
     #    $self->trace($x, $val, $path);
     #    $self->walk($loc, $x, $val, $path, \&_callback_04);
     #}
-    elsif ($loc =~ /\,/)  # [name1,name2,...]
-    {
-        $self->trace($_.';'.$x, $iter, $path)
-            foreach split /\,/, $loc;
+
+    if ($loc =~ /\,/) { # [name1,name2,...]
+        $self->trace($_ . ';' . $x, $path) foreach split /\,/, $loc;
+        return;
     }
+
     #elsif ($loc =~ /^\(.*?\)$/) # [(expr)]
     #{
     #    my $evalx = $self->evalx($loc, $val, substr($path, rindex($path,";")+1));
@@ -114,16 +127,15 @@ sub trace
     #    # my $evalx = $self->evalx($loc, $val, substr($path, rindex($path,";")+1));
     #    $self->walk($loc, $x, $val, $path, \&_callback_05);
     #}
-    elsif ($loc =~ /^(-?[0-9]*):(-?[0-9]*):?(-?[0-9]*)$/) # [start:end:step]  python slice syntax
-    {
-        $self->slice($loc, $x, $iter, $path);
-    }
+    #elsif ($loc =~ /^(-?[0-9]*):(-?[0-9]*):?(-?[0-9]*)$/) # [start:end:step]  python slice syntax
+    #{
+    #    $self->slice($loc, $x, $iter, $path);
+    #}
 }
 
-sub _callback_03
-{
-    my ($self, $m, $l, $x, $v, $p) = @_;
-    $self->trace($m.";".$x,$v,$p);
+sub _callback_03 {
+    my ($self, $m, $loc, $expr, $path) = @_;
+    $self->trace($m . ";" . $expr, $path);
 }
 
 #sub _callback_04
@@ -162,97 +174,70 @@ sub _callback_03
 #        if $evalx;
 #}
 
-sub walk
-{
-    my ($self, $loc, $expr, $iter, $path, $f) = @_;
+sub walk {
+    my ($self, $loc, $expr, $path, $f) = @_;
+    my $iter = $self->{iter};
+    my $iter_type = $iter->type;
     
-    if (isArray($val))
-    {
-        map {
-            $f->($self, $_, $loc, $expr, $val, $path);
-        } 0..scalar @$val;
-    }
-    
-    elsif (isObject($val))
-    {
-        map {
-            $f->($self, $_, $loc, $expr, $val, $path);
-        } keys %$val;
-    }
-    
-    else
-    {
+    if ($iter_type eq 'ARRAY') {
+        my $cnt = $iter->count;
+        for (my $i = 0; $i < $cnt; $i++) {
+            $f->($self, $i, $loc, $expr, $path);
+        }
+    } elsif ($iter_type eq 'HASH') {
+        my $cnt = $iter->count;
+        for (my $i = 0; $i < $cnt; $i++) {
+            $iter->next or die "failed to do next";
+            $f->($self, $i, $loc, $expr, $path);
+        }
+    } else {
         croak('walk called on non hashref/arrayref value, died');
     }
 }
 
-sub slice
-{
-    my ($self, $loc, $expr, $v, $path) = @_;
-    
-    $loc =~ s/^(-?[0-9]*):(-?[0-9]*):?(-?[0-9]*)$/$1:$2:$3/;
-    my @s   = split /\:/, $loc;
-    my $len = scalar @$v;
-    
-    my $start = $s[0]+0 ? $s[0]+0 : 0;
-    my $end   = $s[1]+0 ? $s[1]+0 : $len;
-    my $step  = $s[2]+0 ? $s[2]+0 : 1;
-    
-    $start = ($start < 0) ? max(0,$start+$len) : min($len,$start);
-    $end   = ($end < 0)   ? max(0,$end+$len)   : min($len,$end);
-    
-    for (my $i=$start; $i<$end; $i+=$step)
-    {
-        $self->trace($i.";".$expr, $v, $path);
-    }
-}
-
-sub max
-{
-    return $_[0] > $_[1] ? $_[0] : $_[1];
-}
-
-sub min
-{
-    return $_[0] < $_[1] ? $_[0] : $_[1];
-}
-
-sub evalx
-{
-    my ($self, $x, $v, $vname) = @_;
-    
-    croak('non-safe evaluation, died') if $JSON::Path::Safe;
-        
-    my $expr = $x;
-    $expr =~ s/\$root/\$self->{'obj'}/g;
-    $expr =~ s/\$_/\$v/g;
-    
-    local $@ = undef;
-    my $res = eval $expr;
-    
-    if ($@)
-    {
-        croak("eval failed: `$expr`, died");
-    }
-    
-    return $res;
-}
-
-sub isObject
-{
-    my $obj = shift;
-    return 1 if ref($obj) eq 'HASH';
-    return 1 if blessed($obj) && $obj->can('typeof') && $obj->typeof eq 'HASH';
-    return;
-}
-
-sub isArray
-{
-    my $obj = shift;
-    return 1 if ref($obj) eq 'ARRAY';
-    return 1 if blessed($obj) && $obj->can('typeof') && $obj->typeof eq 'ARRAY';
-    return;
-}
+#sub slice {
+#    my ($self, $loc, $expr, $v, $path) = @_;
+#    
+#    $loc =~ s/^(-?[0-9]*):(-?[0-9]*):?(-?[0-9]*)$/$1:$2:$3/;
+#    my @s   = split /\:/, $loc;
+#    my $len = scalar @$v;
+#    
+#    my $start = $s[0]+0 ? $s[0]+0 : 0;
+#    my $end   = $s[1]+0 ? $s[1]+0 : $len;
+#    my $step  = $s[2]+0 ? $s[2]+0 : 1;
+#    
+#    $start = ($start < 0) ? max(0,$start+$len) : min($len,$start);
+#    $end   = ($end < 0)   ? max(0,$end+$len)   : min($len,$end);
+#    
+#    for (my $i=$start; $i<$end; $i+=$step)
+#    {
+#        $self->trace($i.";".$expr, $v, $path);
+#    }
+#}
+#
+#sub max { return $_[0] > $_[1] ? $_[0] : $_[1] }
+#sub min { return $_[0] < $_[1] ? $_[0] : $_[1] }
+#
+#sub evalx
+#{
+#    my ($self, $x, $v, $vname) = @_;
+#    
+#    croak('non-safe evaluation, died') if $JSON::Path::Safe;
+#        
+#    my $expr = $x;
+#    $expr =~ s/\$root/\$self->{'obj'}/g;
+#    $expr =~ s/\$_/\$v/g;
+#    
+#    local $@ = undef;
+#    my $res = eval $expr;
+#    
+#    if ($@)
+#    {
+#        croak("eval failed: `$expr`, died");
+#    }
+#    
+#    return $res;
+#}
 
 1;
 

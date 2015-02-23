@@ -24,12 +24,15 @@ void srl_reset(pTHX_ srl_iterator_t *iter);
 UV srl_eof(pTHX_ srl_iterator_t *iter);
 UV srl_next_n(pTHX_ srl_iterator_t *iter, UV next);
 UV srl_step_n(pTHX_ srl_iterator_t *iter, UV step);
+UV srl_parent(pTHX_ srl_iterator_t *iter);
+
 UV srl_offset(pTHX_ srl_iterator_t *iter);
+UV srl_object_count(pTHX_ srl_iterator_t *iter);
+SV * srl_object_type(pTHX_ srl_iterator_t *iter);
 
 IV srl_find_key(pTHX_ srl_iterator_t *iter, SV *name);
 SV * srl_get_key(pTHX_ srl_iterator_t *iter);
 
-SV * srl_object_type(pTHX_ srl_iterator_t *iter);
 SV * srl_decode(pTHX_ srl_iterator_t *iter);
 
 #endif
