@@ -217,7 +217,6 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 		return 0, ErrTruncated
 	}
 
-	var err error
 	tag := by[idx]
 
 	// skip over any padding bytes
@@ -239,6 +238,7 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 	//fmt.Printf("start decode: tag %d (0x%x) at %d\n", int(tag), int(tag), idx)
 	idx++
 
+	var err error
 	switch {
 	case tag < typeVARINT:
 		*ptr = d.decodeInt(tag)
@@ -440,7 +440,6 @@ func (d *Decoder) decodeArray(by []byte, idx int, ln int, ptr *interface{}, isRe
 		return 0, ErrCorrupt{errBadSliceSize}
 	}
 
-	var err error
 	var slice []interface{}
 
 	if ln == 0 {
@@ -456,6 +455,7 @@ func (d *Decoder) decodeArray(by []byte, idx int, ln int, ptr *interface{}, isRe
 		*ptr = slice
 	}
 
+	var err error
 	for i := 0; i < ln; i++ {
 		idx, err = d.decode(by, idx, &slice[i])
 		if err != nil {
@@ -490,9 +490,6 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 
 	//TODO trackme
 
-	var err error
-	var res []byte
-
 	tag := by[idx]
 	for tag == typePAD || tag == typePAD|trackFlag {
 		idx++
@@ -508,6 +505,7 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 
 	//fmt.Printf("decodeStringish: tag %d (0x%x) at %d\n", int(tag), int(tag), idx)
 
+	var res []byte
 	switch {
 	case tag == typeBINARY, tag == typeSTR_UTF8:
 		ln, sz := varintdecode(by[idx:])
@@ -535,6 +533,7 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 			return nil, 0, ErrCorrupt{errBadOffset}
 		}
 
+		var err error
 		res, _, err = d.decodeStringish(by, offs)
 		if err != nil {
 			return nil, 0, err
@@ -572,12 +571,12 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		return 0, ErrTruncated
 	}
 
-	var err error
 	ptrKind := ptr.Kind()
 
 	// at this point structure of decoding document is uknown, make a shortcut
 	if ptrKind == reflect.Interface && ptr.IsNil() {
 		var iface interface{}
+		var err error
 		idx, err = d.decode(by, idx, &iface)
 		ptr.Set(reflect.ValueOf(iface))
 		return idx, err
@@ -601,6 +600,7 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 	//fmt.Printf("start decodeViaReflection: tag %d (0x%x) at %d\n", int(tag), int(tag), idx)
 	idx++
 
+	var err error
 	switch {
 	case tag < typeVARINT:
 		setInt(ptr, d.decodeInt(tag))
@@ -764,14 +764,13 @@ func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflec
 		return 0, ErrCorrupt{errBadHashSize}
 	}
 
-	var err error
-
 	switch ptr.Kind() {
 	case reflect.Map:
 		if ptr.IsNil() {
 			ptr.Set(reflect.MakeMap(ptr.Type()))
 		}
 
+		var err error
 		for i := 0; i < ln; i++ {
 			var key []byte
 			key, idx, err = d.decodeStringish(by, idx)
@@ -801,6 +800,7 @@ func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflec
 
 	case reflect.Struct:
 		tags := d.tcache.Get(ptr)
+		var err error
 		for i := 0; i < ln; i++ {
 			var key []byte
 			key, idx, err = d.decodeStringish(by, idx)
@@ -839,19 +839,21 @@ func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflec
 }
 
 func (d *Decoder) decodeREFP_ALIAS(by []byte, idx int, isREFP bool) (reflect.Value, int, error) {
-	var res reflect.Value
 	offs, sz := varintdecode(by[idx:])
 	idx += sz
 
 	if offs < 0 || offs >= idx {
+		var res reflect.Value
 		return res, 0, ErrCorrupt{errBadOffset}
 	}
 
 	rv, ok := d.tracked[offs]
 	if !ok {
+		var res reflect.Value
 		return res, 0, ErrCorrupt{errUntrackedOffsetREFP}
 	}
 
+	var res reflect.Value
 	if rv.Kind() == reflect.Ptr && rv.Elem().Kind() == reflect.Interface {
 		// rv contains *interface{},
 		// i.e. it was saved in decode() path
@@ -1079,7 +1081,6 @@ func (d *Decoder) getUnmarshalerType(name string) (reflect.Type, bool) {
 }
 
 func instantiateZero(typ reflect.Type) reflect.Value {
-
 	if typ.Kind() == reflect.Ptr {
 		return reflect.New(typ.Elem())
 	}

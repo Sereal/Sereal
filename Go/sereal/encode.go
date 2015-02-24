@@ -120,8 +120,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 	strTable := make(map[string]int)
 	ptrTable := make(map[uintptr]int)
 
-	var encBody []byte
-	encBody = make([]byte, 0, e.ExpectedSize)
+	encBody := make([]byte, 0, e.ExpectedSize)
 
 	switch e.version {
 	case 1:
@@ -306,8 +305,7 @@ func (e *Encoder) encodeInt(by []byte, k reflect.Kind, i int64) []byte {
 }
 
 func (e *Encoder) encodeFloat(by []byte, f float32) []byte {
-	var u uint32
-	u = math.Float32bits(f)
+	u := math.Float32bits(f)
 	by = append(by, typeFLOAT)
 	by = append(by, byte(u))
 	by = append(by, byte(u>>8))
@@ -317,8 +315,7 @@ func (e *Encoder) encodeFloat(by []byte, f float32) []byte {
 }
 
 func (e *Encoder) encodeDouble(by []byte, f float64) []byte {
-	var u uint64
-	u = math.Float64bits(f)
+	u := math.Float64bits(f)
 	by = append(by, typeDOUBLE)
 	by = append(by, byte(u))
 	by = append(by, byte(u>>8))
@@ -415,8 +412,6 @@ func (e *Encoder) encodeStrMap(by []byte, m map[string]interface{}, isRefNext bo
  * Encode via reflection
  *************************************/
 func (e *Encoder) encodeViaReflection(b []byte, rv reflect.Value, isKeyOrClass bool, isRefNext bool, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
-	var err error
-
 	if !e.DisableFREEZE && rv.Kind() != reflect.Invalid {
 		if m, ok := rv.Interface().(encoding.BinaryMarshaler); ok {
 			by, err := m.MarshalBinary()
@@ -435,6 +430,7 @@ func (e *Encoder) encodeViaReflection(b []byte, rv reflect.Value, isKeyOrClass b
 		rv = rv.Elem()
 	}
 
+	var err error
 	switch rk := rv.Kind(); rk {
 	case reflect.Slice:
 		// uint8 case is handled in encode()
@@ -487,8 +483,8 @@ func (e *Encoder) encodeMap(by []byte, m reflect.Value, isRefNext bool, strTable
 	by = append(by, typeHASH)
 	by = varint(by, uint(len(keys)))
 
-	var err error
 	if e.PerlCompat {
+		var err error
 		for _, k := range keys {
 			by = e.encodeString(by, k.String(), true, strTable)
 			if by, err = e.encode(by, m.MapIndex(k), false, false, strTable, ptrTable); err != nil {
@@ -496,6 +492,7 @@ func (e *Encoder) encodeMap(by []byte, m reflect.Value, isRefNext bool, strTable
 			}
 		}
 	} else {
+		var err error
 		for _, k := range keys {
 			if by, err = e.encode(by, k, true, false, strTable, ptrTable); err != nil {
 				return by, err
@@ -569,7 +566,6 @@ func (e *Encoder) encodePointer(by []byte, rv reflect.Value, strTable map[string
 		by = varint(by, uint(offs))
 		by[offs] |= trackFlag // original offset now tracked
 	} else {
-
 		lenbOrig := len(by)
 
 		by = append(by, typeREFN)

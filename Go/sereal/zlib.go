@@ -14,7 +14,6 @@ const (
 )
 
 func (c ZlibCompressor) compress(buf []byte) ([]byte, error) {
-
 	// Prepend a compressed block with its length, i.e.:
 	//
 	// <Varint><Varint><Zlib Blob>
@@ -28,12 +27,12 @@ func (c ZlibCompressor) compress(buf []byte) ([]byte, error) {
 		c.Level = ZlibDefaultCompression
 	}
 
-	var head []byte
 	tail, err := zlibEncode(buf, c.Level)
 	if err != nil {
 		return nil, err
 	}
 
+	var head []byte
 	head = varint(head, uint(len(buf)))
 	head = varint(head, uint(len(tail)))
 
