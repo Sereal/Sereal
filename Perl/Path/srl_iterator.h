@@ -15,23 +15,33 @@ typedef struct {
     SV *tmp_buf_owner;
 }  srl_iterator_t;
 
-srl_iterator_t *srl_build_iterator_struct(pTHX_ HV *opt);         /* constructor from options */
-void srl_destroy_iterator(pTHX_ srl_iterator_t *iter);            /* explicit destructor */
+/* constructor/destructor */
+srl_iterator_t *srl_build_iterator_struct(pTHX_ HV *opt);
+void srl_destroy_iterator(pTHX_ srl_iterator_t *iter);
 
+/* Sereal document */
 void srl_set_document(pTHX_ srl_iterator_t *iter, SV *src);
 void srl_reset(pTHX_ srl_iterator_t *iter);
 
+/* navigation */
 UV srl_eof(pTHX_ srl_iterator_t *iter);
-UV srl_next_n(pTHX_ srl_iterator_t *iter, UV next);
-UV srl_step_n(pTHX_ srl_iterator_t *iter, UV step);
-UV srl_parent(pTHX_ srl_iterator_t *iter);
-
+void srl_next(pTHX_ srl_iterator_t *iter, UV n);
+void srl_step_in(pTHX_ srl_iterator_t *iter, UV n);
+void srl_step_out(pTHX_ srl_iterator_t *iter, UV n);
+UV srl_continue_until_depth(pTHX_ srl_iterator_t *iter, UV depth);
 UV srl_offset(pTHX_ srl_iterator_t *iter);
-UV srl_object_count(pTHX_ srl_iterator_t *iter);
-SV * srl_object_type(pTHX_ srl_iterator_t *iter);
 
-IV srl_find_key(pTHX_ srl_iterator_t *iter, SV *name);
-SV * srl_get_key(pTHX_ srl_iterator_t *iter);
+/* expose stack status */
+IV srl_stack_depth(pTHX_ srl_iterator_t *iter);
+UV srl_stack_index(pTHX_ srl_iterator_t *iter);
+SV * srl_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr);
+
+/* information about current object */
+SV * srl_object_info(pTHX_ srl_iterator_t *iter, UV *length_ptr);
+
+/* hash parsing */
+SV * srl_hash_key(pTHX_ srl_iterator_t *iter);
+IV srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name);
 
 SV * srl_decode(pTHX_ srl_iterator_t *iter);
 

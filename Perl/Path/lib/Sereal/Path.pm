@@ -86,57 +86,24 @@ sub trace {
         $x    = join ';', @x;
     }
 
-    my $iter_type = $iter->type;
-    if ($iter_type eq 'ARRAY' && $loc =~ /^[0-9]+$/) { # /^\-?[0-9]+$/
-        my $iter_count = $iter->count;
-        if ($loc < $iter_count) { # TODO add support of negative $loc
-            $iter->step or die "failed to do step";
-            for (my $i = 0; $i < $loc; $i++) {
-                $iter->next or die "failed to do next";
-            }
-
-            return $self->trace($x, sprintf('%s;%s', $path, $loc));
-        }
+    my ($type, $cnt) = $iter->info;
+    if ($type eq 'ARRAY' && $loc =~ /^[0-9]+$/ && $loc < $cnt) {
+        # /^\-?[0-9]+$/ # TODO add support of negative $loc
+        $iter->step_in;
+        $iter->next foreach (1..$loc);
+        return $self->trace($x, sprintf('%s;%s', $path, $loc));
     }
 
-    if ($iter_type eq 'HASH') {
-        $iter->step or die "failed to do step";
-        if ($iter->find_key($loc)) {
-            return $self->trace($x, sprintf('%s;%s', $path, $loc));
-        }
-
-        $iter->parent or die "failed to goto parent";
+    if ($type eq 'HASH') {
+        $iter->step_in;
+        return $self->trace($x, sprintf('%s;%s', $path, $loc))
+            if $iter->hash_exists($loc);
+        $iter->step_out;
     }
 
     if ($loc eq '*') {
         return $self->walk($loc, $x, $path, \&_callback_03);
     }
-
-    #elsif ($loc eq '..')
-    #{
-    #    $self->trace($x, $val, $path);
-    #    $self->walk($loc, $x, $val, $path, \&_callback_04);
-    #}
-
-    if ($loc =~ /\,/) { # [name1,name2,...]
-        $self->trace($_ . ';' . $x, $path) foreach split /\,/, $loc;
-        return;
-    }
-
-    #elsif ($loc =~ /^\(.*?\)$/) # [(expr)]
-    #{
-    #    my $evalx = $self->evalx($loc, $val, substr($path, rindex($path,";")+1));
-    #    $self->trace($evalx.';'.$x, $val, $path);
-    #}
-    #elsif ($loc =~ /^\?\(.*?\)$/) # [?(expr)]
-    #{
-    #    # my $evalx = $self->evalx($loc, $val, substr($path, rindex($path,";")+1));
-    #    $self->walk($loc, $x, $val, $path, \&_callback_05);
-    #}
-    #elsif ($loc =~ /^(-?[0-9]*):(-?[0-9]*):?(-?[0-9]*)$/) # [start:end:step]  python slice syntax
-    #{
-    #    $self->slice($loc, $x, $iter, $path);
-    #}
 }
 
 sub _callback_03 {
@@ -144,106 +111,38 @@ sub _callback_03 {
     $self->trace($m . ";" . $expr, $path);
 }
 
-#sub _callback_04
-#{
-#    my ($self, $m, $l, $x, $v, $p) = @_;
-#    
-#    if (isArray($v)
-#    and isArray($v->[$m]) || isObject($v->[$m]))
-#    {
-#        $self->trace("..;".$x, $v->[$m], $p.";".$m);
-#    }
-#    elsif (isObject($v)
-#    and isArray($v->{$m}) || isObject($v->{$m}))
-#    {
-#        $self->trace("..;".$x, $v->{$m}, $p.";".$m);
-#    }
-#}
-#
-#sub _callback_05
-#{
-#    my ($self, $m, $l, $x, $v, $p) = @_;
-#    
-#    $l =~ s/^\?\((.*?)\)$/$1/g;
-#    
-#    my $evalx;
-#    if (isArray($v))
-#    {
-#        $evalx = $self->evalx($l, $v->[$m]);
-#    }
-#    elsif (isObject($v))
-#    {
-#        $evalx = $self->evalx($l, $v->{$m});
-#    }
-#    
-#    $self->trace($m.";".$x, $v, $p)
-#        if $evalx;
-#}
-
 sub walk {
     my ($self, $loc, $expr, $path, $f) = @_;
     my $iter = $self->{iter};
-    my $iter_type = $iter->type;
+    my ($type, $cnt) = $iter->info;
     
-    if ($iter_type eq 'ARRAY') {
-        my $cnt = $iter->count;
+    if ($type eq 'ARRAY') {
+        #$iter->step_in;
+        my $depth = $iter->stack_depth + 1;
+        warn("------- ARRAY $depth ");
         for (my $i = 0; $i < $cnt; $i++) {
+            warn("-----------------------------------");
             $f->($self, $i, $loc, $expr, $path);
+            if ($iter->stack_depth > $depth) {
+                warn("------- ARRAY continue_until_depth($depth)");
+                $iter->continue_until_depth($depth)
+            }
         }
-    } elsif ($iter_type eq 'HASH') {
-        my $cnt = $iter->count;
+    } elsif ($type eq 'HASH') {
+        $iter->step_in;
+        my $depth = $iter->depth;
+        warn("------- HASH $depth ");
+
         for (my $i = 0; $i < $cnt; $i++) {
-            $iter->next or die "failed to do next";
+            $iter->next;
             $f->($self, $i, $loc, $expr, $path);
+            $iter->continue_until_depth($depth)
+                if $iter->stack_depth > $depth;
         }
     } else {
         croak('walk called on non hashref/arrayref value, died');
     }
 }
-
-#sub slice {
-#    my ($self, $loc, $expr, $v, $path) = @_;
-#    
-#    $loc =~ s/^(-?[0-9]*):(-?[0-9]*):?(-?[0-9]*)$/$1:$2:$3/;
-#    my @s   = split /\:/, $loc;
-#    my $len = scalar @$v;
-#    
-#    my $start = $s[0]+0 ? $s[0]+0 : 0;
-#    my $end   = $s[1]+0 ? $s[1]+0 : $len;
-#    my $step  = $s[2]+0 ? $s[2]+0 : 1;
-#    
-#    $start = ($start < 0) ? max(0,$start+$len) : min($len,$start);
-#    $end   = ($end < 0)   ? max(0,$end+$len)   : min($len,$end);
-#    
-#    for (my $i=$start; $i<$end; $i+=$step)
-#    {
-#        $self->trace($i.";".$expr, $v, $path);
-#    }
-#}
-#
-#sub max { return $_[0] > $_[1] ? $_[0] : $_[1] }
-#sub min { return $_[0] < $_[1] ? $_[0] : $_[1] }
-#
-#sub evalx
-#{
-#    my ($self, $x, $v, $vname) = @_;
-#    
-#    croak('non-safe evaluation, died') if $JSON::Path::Safe;
-#        
-#    my $expr = $x;
-#    $expr =~ s/\$root/\$self->{'obj'}/g;
-#    $expr =~ s/\$_/\$v/g;
-#    
-#    local $@ = undef;
-#    my $res = eval $expr;
-#    
-#    if ($@)
-#    {
-#        croak("eval failed: `$expr`, died");
-#    }
-#    
-#    return $res;
-#}
 
 1;
 

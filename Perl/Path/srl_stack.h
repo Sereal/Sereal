@@ -30,7 +30,7 @@
 #endif
 
 #define SRL_STACK_SIZE(stack)  (((stack)->end - (stack)->begin) + 1)
-#define SRL_STACK_POS(stack)   ((stack)->ptr ? (stack)->ptr - (stack)->begin : -1)
+#define SRL_STACK_DEPTH(stack) ((stack)->ptr ? (stack)->ptr - (stack)->begin : -1)
 
 typedef struct srl_stack srl_stack_t;
 struct srl_stack {
@@ -59,7 +59,7 @@ srl_stack_init(pTHX_ srl_stack_t * stack, size_t size)
 SRL_STATIC_INLINE void
 srl_stack_grow(pTHX_ srl_stack_t *stack)
 {
-    ptrdiff_t pos   = SRL_STACK_POS(stack);
+    ptrdiff_t pos   = SRL_STACK_DEPTH(stack);
     size_t new_size = SRL_STACK_SIZE(stack) * 2;
     assert(new_size <= 1024 * 1024);
 
@@ -109,7 +109,7 @@ srl_stack_clear(pTHX_ srl_stack_t *stack)
                                                                       \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
     SRL_STACK_TRACE("pushed value on stack, current idx %d",          \
-                    (int) SRL_STACK_POS(stack));                      \
+                    (int) SRL_STACK_DEPTH(stack));                      \
 } STMT_END
 
 #define srl_stack_push_val(stack, val) STMT_START {                   \
@@ -128,7 +128,7 @@ srl_stack_clear(pTHX_ srl_stack_t *stack)
                                                                       \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
     SRL_STACK_TRACE("pushed value on stack, current idx %d",          \
-                    (int) SRL_STACK_POS(stack));                      \
+                    (int) SRL_STACK_DEPTH(stack));                      \
 } STMT_END
 
 
@@ -143,7 +143,7 @@ srl_stack_clear(pTHX_ srl_stack_t *stack)
                                                                       \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
     SRL_STACK_TRACE("poped stack, current idx %d",                    \
-                    (int) SRL_STACK_POS(stack));                      \
+                    (int) SRL_STACK_DEPTH(stack));                      \
 } STMT_END
 
 SRL_STATIC_INLINE void

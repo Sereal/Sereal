@@ -48,41 +48,33 @@ eof(iter)
     RETVAL = srl_eof(iter);
   OUTPUT: RETVAL
 
-UV
-next(iter)
+void
+next(iter, n = NULL)
     srl_iterator_t *iter;
+    SV *n;
   CODE:
-    RETVAL = srl_next_n(iter, 1);
-  OUTPUT: RETVAL
+    srl_next(iter, n ? SvUV(n) : 1);
+
+void
+step_in(iter, n = NULL)
+    srl_iterator_t *iter;
+    SV *n;
+  CODE:
+    srl_step_in(iter, n ? SvUV(n) : 1);
+
+void
+step_out(iter, n = NULL)
+    srl_iterator_t *iter;
+    SV *n;
+  CODE:
+    srl_step_out(iter, n ? SvUV(n) : 1);
 
 UV
-step(iter)
+continue_until_depth(iter, depth)
     srl_iterator_t *iter;
+    UV depth;
   CODE:
-    RETVAL = srl_step_n(iter, 1);
-  OUTPUT: RETVAL
-
-UV
-next_n(iter, next)
-    srl_iterator_t *iter;
-    UV next;
-  CODE:
-    RETVAL = srl_next_n(iter, next);
-  OUTPUT: RETVAL
-
-UV
-step_n(iter, step)
-    srl_iterator_t *iter;
-    UV step;
-  CODE:
-    RETVAL = srl_step_n(iter, step);
-  OUTPUT: RETVAL
-
-UV
-parent(iter)
-    srl_iterator_t *iter;
-  CODE:
-    RETVAL = srl_parent(iter);
+    RETVAL = srl_continue_until_depth(iter, depth);
   OUTPUT: RETVAL
 
 UV
@@ -92,34 +84,59 @@ offset(iter)
     RETVAL = srl_offset(iter);
   OUTPUT: RETVAL
 
-SV *
-type(iter)
+void
+info(iter)
+    srl_iterator_t *iter;
+  PREINIT:
+    SV *type;
+    UV length;
+  PPCODE:
+    type = srl_object_info(iter, &length);
+
+    EXTEND(SP, 2);
+    PUSHs(type);
+    PUSHs(sv_2mortal(newSVuv(length)));
+
+UV
+stack_depth(iter)
     srl_iterator_t *iter;
   CODE:
-    RETVAL = srl_object_type(iter);
-    SvREFCNT_inc(RETVAL);
+    RETVAL = srl_stack_depth(iter);
   OUTPUT: RETVAL
 
 UV
-count(iter)
+stack_index(iter)
     srl_iterator_t *iter;
   CODE:
-    RETVAL = srl_object_count(iter);
+    RETVAL = srl_stack_index(iter);
   OUTPUT: RETVAL
 
-UV
-find_key(iter, name)
+void
+stack_info(iter)
+    srl_iterator_t *iter;
+  PREINIT:
+    SV *type;
+    UV length;
+  PPCODE:
+    type = srl_stack_info(iter, &length);
+
+    EXTEND(SP, 2);
+    PUSHs(type);
+    PUSHs(sv_2mortal(newSVuv(length)));
+
+IV
+hash_exists(iter, name)
     srl_iterator_t *iter;
     SV *name;
   CODE:
-    RETVAL = srl_find_key(iter, name);
+    RETVAL = srl_hash_exists(iter, name);
   OUTPUT: RETVAL
 
 SV *
-get_key(iter)
+hash_key(iter)
     srl_iterator_t *iter;
   CODE:
-    RETVAL = srl_get_key(iter);
+    RETVAL = srl_hash_key(iter);
     SvREFCNT_inc(RETVAL);
   OUTPUT: RETVAL
 
