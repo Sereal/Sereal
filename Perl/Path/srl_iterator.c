@@ -71,7 +71,7 @@ typedef struct {
     _stack_ptr->tag = (tag);                                    \
 } STMT_END
 
-#define srl_stack_type_t srl_stack_type_t // TODO
+#define srl_stack_type_t srl_stack_type_t
 #include "srl_stack.h"
 
 /* this SHOULD be newSV_type(SVt_NULL) but newSV(0) is faster :-( */
@@ -245,6 +245,7 @@ void
 srl_reset(pTHX_ srl_iterator_t *iter)
 {
     U8 tag = '\0';
+    SRL_RB_TRACE("%d", 1); // TODO
     srl_stack_clear(iter->stack);
     srl_stack_push_and_set(iter, tag, 1);
     iter->rb_pos = iter->rb_body_pos + iter->first_tag_offset;
@@ -278,22 +279,22 @@ read_again:
 
         case SRL_HDR_HASH:
             length = srl_read_varint_uv_count(aTHX_ iter, " while reading HASH");
-            srl_stack_push_and_set(iter, tag, length * 2);
+            if (length > 0) srl_stack_push_and_set(iter, tag, length * 2);
             break;
 
         case SRL_HDR_ARRAY:
             length = srl_read_varint_uv_count(aTHX_ iter, " while reading ARRAY");
-            srl_stack_push_and_set(iter, tag, length);
+            if (length > 0) srl_stack_push_and_set(iter, tag, length);
             break;
 
         CASE_SRL_HDR_HASHREF:
             length = SRL_HDR_HASHREF_LEN_FROM_TAG(tag);
-            srl_stack_push_and_set(iter, tag, length * 2);
+            if (length > 0) srl_stack_push_and_set(iter, tag, length * 2);
             break;
 
         CASE_SRL_HDR_ARRAYREF:
             length = SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag);
-            srl_stack_push_and_set(iter, tag, length);
+            if (length > 0) srl_stack_push_and_set(iter, tag, length);
             break;
 
         CASE_SRL_HDR_POS:
@@ -349,14 +350,14 @@ read_again:
     /* stack might has been grown */
     stack_ptr_orig = stack->begin + stack_depth_orig;
 
+    /* if parsed object is a container (i.e. HASH/ARRAY/OBJECT)
+     * this decrease counter on parent's stack */
+    stack_ptr_orig->idx--;
+
     /* stack magic :-) */
     SRL_RB_TRACE("Iterator: stack_ptr_orig: idx=%d depth=%d; stack->ptr: idx=%d depth=%d",
                  (int) stack_ptr_orig->idx, (int) (stack_ptr_orig - stack->begin),
                  (int) stack->ptr->idx,     (int) (stack->ptr - stack->begin));
-
-    /* if parsed object is a container (i.e. HASH/ARRAY/OBJECT)
-     * this decrease counter on parent's stack */
-    stack_ptr_orig->idx--;
 
     /* stack_ptr_orig == stack->ptr makes sure that we don't wrap parent's
      * stack before we finished processing child's one */
@@ -379,6 +380,7 @@ void
 srl_step_in(pTHX_ srl_iterator_t *iter, UV n)
 {
     DEBUG_ASSERT_RB_SANE(iter);
+    SRL_RB_TRACE("n=%"UVuf, n);
 
     SRL_ITER_ASSERT_STACK(iter);
     if (expect_false(n == 0)) return;
@@ -406,6 +408,7 @@ srl_next(pTHX_ srl_iterator_t *iter, UV n)
     IV expected_depth = SRL_STACK_DEPTH(stack);
 
     DEBUG_ASSERT_RB_SANE(iter);
+    SRL_RB_TRACE("n=%"UVuf, n);
 
     SRL_ITER_ASSERT_STACK(iter);
     if (expect_false(n == 0)) return;
@@ -433,14 +436,63 @@ srl_next(pTHX_ srl_iterator_t *iter, UV n)
     DEBUG_ASSERT_RB_SANE(iter);
 }
 
+UV
+srl_next_at_depth(pTHX_ srl_iterator_t *iter, UV expected_depth) {
+    srl_stack_t *stack = iter->stack;
+    IV current_depth = SRL_STACK_DEPTH(stack);
+
+    DEBUG_ASSERT_RB_SANE(iter);
+    SRL_RB_TRACE("expected_depth=%"UVuf, expected_depth);
+
+    SRL_ITER_ASSERT_STACK(iter);
+    if (expect_false(expected_depth == current_depth))
+        return current_depth;
+
+    if (expect_false(expected_depth > current_depth)) {
+        SRL_ITER_ERRORf2("srl_next_at_depth() can only go downstairs,"
+                         "so expect_depth=%"UVuf" > current_depth=%"IVdf,
+                         expected_depth, current_depth);
+    }
+
+    while (expect_true(SRL_RB_NOT_DONE(iter))) {
+        srl_step_internal(aTHX_ iter);
+
+        current_depth = SRL_STACK_DEPTH(stack);
+        SRL_RB_TRACE("Iterator: current_depth=%"IVdf" expected_depth=%"UVuf, current_depth, expected_depth);
+
+        if (current_depth == (IV) expected_depth) {
+            SRL_RB_TRACE("Iterator: Reached expected stack depth: %"UVuf")", expected_depth);
+            break;
+        } else if (current_depth < (IV) expected_depth) {
+            /* This situation is possible when last child object is parsed. In this case
+             * child's Sereal representation will end that the same offset as parent's one. */
+            SRL_RB_TRACE("Iterator: srl_continue_until_depth() led to depth lower then expected, "
+                         "expected=%"UVuf", actual=%"IVdf, (IV) expected_depth, current_depth);
+            break;
+        }
+    }
+
+    if (expect_false(current_depth > (IV) expected_depth)) {
+        SRL_ITER_ERRORf2("Next() led to wrong stack depth, expected=%"IVdf", actual=%"IVdf,
+                          expected_depth, current_depth);
+    }
+
+    DEBUG_ASSERT_RB_SANE(iter);
+    return current_depth;
+}
+
 void
 srl_step_out(pTHX_ srl_iterator_t *iter, UV n)
 {
     UV offset;
     srl_stack_t *stack = iter->stack;
 
+    DEBUG_ASSERT_RB_SANE(iter);
+    SRL_RB_TRACE("n=%"UVuf, n);
+
     SRL_ITER_ASSERT_EOF(iter, "stringish");
     SRL_ITER_ASSERT_STACK(iter);
+    // if (expect_false(n == 0)) return; XXX keep it as a feature?
 
     while (n--) {
         srl_stack_pop_nocheck(stack);
@@ -454,42 +506,6 @@ srl_step_out(pTHX_ srl_iterator_t *iter, UV n)
     stack->ptr->idx = stack->ptr->count;
 
     DEBUG_ASSERT_RB_SANE(iter);
-}
-
-UV
-srl_continue_until_depth(pTHX_ srl_iterator_t *iter, UV expected_depth) {
-    srl_stack_t *stack = iter->stack;
-    IV current_depth = SRL_STACK_DEPTH(stack);
-
-    DEBUG_ASSERT_RB_SANE(iter);
-
-    SRL_ITER_ASSERT_STACK(iter);
-    if (expect_false(expected_depth == current_depth))
-        return current_depth;
-
-    while (expect_true(SRL_RB_NOT_DONE(iter))) {
-        srl_step_internal(aTHX_ iter);
-
-        current_depth = SRL_STACK_DEPTH(stack);
-        if (current_depth == (IV) expected_depth) {
-            SRL_RB_TRACE("Iterator: Reached expected stack depth: %"IVdf")", expected_depth);
-            break;
-        } else if (current_depth < (IV) expected_depth) {
-            /* This situation is possible when last child object is parsed. In this case
-             * child's Sereal representation will end that the same offset as parent's one. */
-            SRL_RB_TRACE("Iterator: srl_continue_until_depth() led to depth lower then expected, "
-                         "expected=%"IVdf", actual=%"IVdf, (IV) expected_depth, current_depth);
-            break;
-        }
-    }
-
-    if (expect_false(current_depth > (IV) expected_depth)) {
-        SRL_ITER_ERRORf2("Next() led to wrong stack depth, expected=%"IVdf", actual=%"IVdf,
-                          expected_depth, current_depth);
-    }
-
-    DEBUG_ASSERT_RB_SANE(iter);
-    return current_depth;
 }
 
 SV *
@@ -574,12 +590,13 @@ srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name)
 {
     U8 tag;
     STRLEN name_len;
-    UV length, offset;
+    UV length, offset, idx;
     const char *key_ptr;
     const char *name_ptr = SvPV(name, name_len);
     srl_reader_char_ptr orig_pos = iter->rb_pos;
 
     srl_stack_t *stack = iter->stack;
+    IV stack_depth = SRL_STACK_DEPTH(stack);
     srl_stack_type_t *stack_ptr = stack->ptr;
 #   define SRL_KEY_NO_FOUND (-1)
 
@@ -587,7 +604,9 @@ srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name)
     SRL_ITER_ASSERT_STACK(iter);
     SRL_ITER_ASSERT_HASH_ON_STACK(iter);
 
+    assert(stack_ptr->idx > 0);
     DEBUG_ASSERT_RB_SANE(iter);
+    SRL_RB_TRACE("name=%.*s", (int) name_len, name_ptr);
 
     /* if key is not in the hash and we're processeing
      * last last element, stack can be empty here */
@@ -595,6 +614,12 @@ srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name)
         // assert that we're on the same stack depth
         assert(iter->stack->ptr == stack_ptr);
         DEBUG_ASSERT_RB_SANE(iter);
+
+        /* at the end of an iteration we call srl_next which can
+         * lead to invalid stack pointer (moved below current stack)
+         * if current pair is the last on in hash. In order to correctly handle
+         * this case we store stack index BEFORE processing and check it later */
+        idx = stack_ptr->idx;
 
         tag = *iter->rb_pos & ~SRL_HDR_TRACK_FLAG;
         SRL_RDR_REPORT_TAG(iter, tag);
@@ -657,8 +682,6 @@ srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name)
             SRL_RDR_ERROR_EOF(iter, "string content");
         }
 
-        warn("=========== %.*s == %.*s", name_len, name_ptr, length, key_ptr);
-
         if (   length == name_len
             && strncmp(name_ptr, key_ptr, name_len) == 0)
         {
@@ -668,6 +691,11 @@ srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name)
         }
 
         srl_next(aTHX_ iter, 1);
+        if (--idx == 0) break;
+
+        /* stack might have been modified */
+        assert(stack_depth <= SRL_STACK_DEPTH(stack));
+        stack_ptr = stack->begin + stack_depth;
     }
 
     iter->rb_pos = orig_pos; // restore original position
@@ -796,12 +824,11 @@ srl_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
             break;
 
         default:
-            SRL_RDR_ERROR_UNEXPECTED(iter, stack_tag, "ARRAY or HASH or SCALAR");
+            SRL_RDR_ERROR_UNEXPECTED(iter, stack_ptr->tag, "ARRAY or HASH or SCALAR");
     }
 
     return type;
 }
-
 
 SV *
 srl_decode(pTHX_ srl_iterator_t *iter)
@@ -994,26 +1021,3 @@ srl_read_long_double(pTHX_ srl_iterator_t *iter, SV* into)
     sv_setnv(into, (NV)val.ld);
     iter->rb_pos+= sizeof(long double);
 }
-
-/* SRL_STATIC_INLINE void
-srl_reset_to_offset(pTHX_ srl_iterator_t *iter, UV body_offset)
-{
-    UV stack_offset;
-    srl_stack_t *stack = iter->stack;
-    while (!srl_stack_empty(stack)) {
-        stack_offset = stack->ptr->offset;
-        if (stack_offset > body_offset) {
-            srl_stack_pop_nocheck(stack);
-        } else if (stack_offset == body_offset) {
-            break;
-        } else {
-            croak("failed to find given offset on stack %"UVuf, body_offset); // TODO
-        }
-    }
-
-    if (srl_stack_empty(stack))
-        croak("srl_reset_to_offset led to empty stack"); // TODO
-
-    iter->rb_pos = iter->rb_body_pos + body_offset;
-    DEBUG_ASSERT_RB_SANE(iter);
-} */

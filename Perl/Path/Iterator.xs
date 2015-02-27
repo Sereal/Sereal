@@ -70,11 +70,11 @@ step_out(iter, n = NULL)
     srl_step_out(iter, n ? SvUV(n) : 1);
 
 UV
-continue_until_depth(iter, depth)
+srl_next_at_depth(iter, depth)
     srl_iterator_t *iter;
     UV depth;
   CODE:
-    RETVAL = srl_continue_until_depth(iter, depth);
+    RETVAL = srl_next_at_depth(iter, depth);
   OUTPUT: RETVAL
 
 UV

@@ -29,7 +29,7 @@ sub new {
     }, $_[0];
 }
 
-sub normalize {
+sub _normalize {
     my ($self, $x) = @_;
     $x =~ s/[\['](\??\(.*?\))[\]']/_callback_01($self,$1)/eg;
     $x =~ s/'?\.'?|\['?/;/g;
@@ -40,31 +40,7 @@ sub normalize {
     return $x;
 }
 
-sub _callback_01 {
-    my ($self, $m1) = @_;
-    push @{ $self->{'result'} }, $m1;
-    my $last_index = scalar @{ $self->{'result'} } - 1;
-    return "[#${last_index}]";
-}
-
-sub _callback_02 {
-    my ($self, $m1) = @_;
-    return $self->{'result'}->[$m1];
-}
-
-sub asPath {
-    my ($self, $path) = @_;
-    my @x = split /\;/, $path;
-    my $p = '$';
-    my $n = scalar(@x);
-    for (my $i=1; $i<$n; $i++) {
-        $p .= /^[0-9]+$/ ? ("[".$x[$i]."]") : ("['".$x[$i]."']");
-    }
-
-    return $p;
-}
-
-sub store {
+sub _store {
     my ($self, $path, $value) = @_;
     push @{ $self->{'result'} }, ( $self->{'resultType'} eq "PATH"
                                    ? $self->asPath($path)
@@ -72,7 +48,116 @@ sub store {
     return !!$path;
 }
 
-sub trace {
+sub traverse {
+    my ($self, $expr) = @_;
+
+    my $norm = $self->_normalize($expr);
+    $norm =~ s/^\$;//;
+
+    $self->{iter}->reset;
+    return $self->_trace_next_object($norm, '$');
+}
+
+sub _trace_next_object {
+    my ($self, $expr, $path) = @_;
+    my $iter = $self->{iter};
+
+    warn("_trace_next_object: expr=$expr path=$path");
+
+    return if $iter->eof;
+    return $self->_store($path, $iter->decode) if "$expr" eq '';
+    
+    my ($loc, $x);
+    {
+        my @x = split /\;/, $expr;
+        $loc  = shift @x;
+        $x    = join ';', @x;
+    }
+
+    my ($type, $cnt) = $iter->info;
+    warn("_trace_next_object: type=$type cnt=$cnt loc=$loc");
+
+    if ($type eq 'ARRAY' && $loc =~ /^[0-9]+$/ && $loc < $cnt) {
+        warn("_trace_next_object: ARRAY loc=$loc");
+        # /^\-?[0-9]+$/ # TODO add support of negative $loc
+        $iter->step_in;
+        $iter->next foreach (1..$loc); # TODO $iter->array_goto
+        return $self->_trace_next_object($x, sprintf('%s;%s', $path, $loc));
+    }
+
+    if ($type eq 'HASH') {
+        warn("_trace_next_object: HASH");
+
+        $iter->step_in;
+        if ($iter->hash_exists($loc)) {
+            warn("_trace_next_object: HASH key found=$loc");
+            return $self->_trace_next_object($x, sprintf('%s;%s', $path, $loc))
+        }
+        $iter->step_out;
+    }
+
+    if ($loc eq '*') {
+        if ($type eq 'ARRAY') {
+            warn("_trace_next_object: WALK ARRAY");
+
+            $iter->step_in;
+            my $depth = $iter->stack_depth;
+
+            foreach (1..$cnt) {
+                warn("_trace_next_object: WALK ARRAY offset=" . $iter->offset);
+                $self->_trace_next_object($x, $path);
+                if ($iter->stack_depth > $depth) {
+                    warn("_trace_next_object: WALK ARRAY srl_next_at_depth($depth)");
+                   $iter->srl_next_at_depth($depth)
+                }
+            }
+        } elsif ($type eq 'HASH') {
+            die("!!!");
+        }
+
+        #return $self->walk($loc, $x, $path, \&_callback_03);
+    }
+}
+
+sub walk {
+    my ($self, $loc, $expr, $path, $f) = @_;
+    my $iter = $self->{iter};
+    my ($type, $cnt) = $iter->info;
+    
+    if ($type eq 'ARRAY') {
+        $iter->step_in;
+        my $depth = $iter->stack_depth;
+
+        for (my $i = 0; $i < $cnt; $i++) {
+            $f->($self, $i, $loc, $expr, $path);
+
+            my ($self, $m, $loc, $expr, $path) = @_;
+            $self->trace($m . ";" . $expr, $path);
+
+            #if ($iter->stack_depth > $depth) {
+            #    $iter->continue_until_depth($depth)
+            #}
+        }
+    } elsif ($type eq 'HASH') {
+        $iter->step_in;
+        my $depth = $iter->depth;
+        warn("------- HASH $depth ");
+
+        for (my $i = 0; $i < $cnt; $i++) {
+            $iter->next;
+            $f->($self, $i, $loc, $expr, $path);
+            $iter->continue_until_depth($depth)
+                if $iter->stack_depth > $depth;
+        }
+    } else {
+        croak('walk called on non hashref/arrayref value, died');
+    }
+}
+
+sub _trace_object {
+}
+
+sub _trace {
     my ($self, $expr, $path) = @_;
     my $iter = $self->{iter};
 
@@ -106,42 +191,16 @@ sub trace {
     }
 }
 
-sub _callback_03 {
-    my ($self, $m, $loc, $expr, $path) = @_;
-    $self->trace($m . ";" . $expr, $path);
+sub _callback_01 {
+    my ($self, $m1) = @_;
+    push @{ $self->{'result'} }, $m1;
+    my $last_index = scalar @{ $self->{'result'} } - 1;
+    return "[#${last_index}]";
 }
 
-sub walk {
-    my ($self, $loc, $expr, $path, $f) = @_;
-    my $iter = $self->{iter};
-    my ($type, $cnt) = $iter->info;
-    
-    if ($type eq 'ARRAY') {
-        #$iter->step_in;
-        my $depth = $iter->stack_depth + 1;
-        warn("------- ARRAY $depth ");
-        for (my $i = 0; $i < $cnt; $i++) {
-            warn("-----------------------------------");
-            $f->($self, $i, $loc, $expr, $path);
-            if ($iter->stack_depth > $depth) {
-                warn("------- ARRAY continue_until_depth($depth)");
-                $iter->continue_until_depth($depth)
-            }
-        }
-    } elsif ($type eq 'HASH') {
-        $iter->step_in;
-        my $depth = $iter->depth;
-        warn("------- HASH $depth ");
-
-        for (my $i = 0; $i < $cnt; $i++) {
-            $iter->next;
-            $f->($self, $i, $loc, $expr, $path);
-            $iter->continue_until_depth($depth)
-                if $iter->stack_depth > $depth;
-        }
-    } else {
-        croak('walk called on non hashref/arrayref value, died');
-    }
+sub _callback_02 {
+    my ($self, $m1) = @_;
+    return $self->{'result'}->[$m1];
 }
 
 1;

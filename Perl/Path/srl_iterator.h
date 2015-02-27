@@ -28,7 +28,7 @@ UV srl_eof(pTHX_ srl_iterator_t *iter);
 void srl_next(pTHX_ srl_iterator_t *iter, UV n);
 void srl_step_in(pTHX_ srl_iterator_t *iter, UV n);
 void srl_step_out(pTHX_ srl_iterator_t *iter, UV n);
-UV srl_continue_until_depth(pTHX_ srl_iterator_t *iter, UV depth);
+UV srl_next_at_depth(pTHX_ srl_iterator_t *iter, UV depth);
 UV srl_offset(pTHX_ srl_iterator_t *iter);
 
 /* expose stack status */
