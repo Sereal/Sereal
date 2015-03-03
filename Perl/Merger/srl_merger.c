@@ -372,7 +372,7 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
          * operation has failed. It means that some cleanup operation needs to
          * be done. */
 
-        SRL_MERGER_TRACE("last merge operation has failed, need to do some cleanup (offset %d)",
+        SRL_MERGER_TRACE("last merge operation has failed, need to do some cleanup (offset %"UVuf")",
                           mrg->obuf_last_successfull_offset);
 
         mrg->obuf.pos = mrg->obuf.body_pos + mrg->obuf_last_successfull_offset;
@@ -411,7 +411,7 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
          * operation has failed. It means that some cleanup operation needs to
          * be done. */
 
-        SRL_MERGER_TRACE("last merge operation has failed, need to do some cleanup (offset %d)",
+        SRL_MERGER_TRACE("last merge operation has failed, need to do some cleanup (offset %"UVuf")",
                           mrg->obuf_last_successfull_offset);
 
         mrg->obuf.pos = mrg->obuf.body_pos + mrg->obuf_last_successfull_offset;
