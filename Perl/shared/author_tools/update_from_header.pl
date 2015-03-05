@@ -151,7 +151,7 @@ sub update_constants {
     my $defines= Data::Dumper->new([\%define],['*DEFINE'])->Sortkeys(1)->Useqq(1)->Indent(1)->Dump;
     $defines=~s/^/    /mg;
 
-    foreach my $mod_suffix (qw(Encoder Decoder Merger)) {
+    foreach my $mod_suffix (qw(Encoder Decoder Merger Splitter)) {
         replace_block(
             "Perl/$mod_suffix/lib/Sereal/$mod_suffix/Constants.pm",
             join "\n",

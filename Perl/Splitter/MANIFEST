@@ -1,7 +1,5 @@
 big.srl
 Changes
-const-c.inc
-const-xs.inc
 inc/Devel/CheckLib.pm
 inc/Sereal/BuildTools.pm
 lib/Sereal/Splitter.pm

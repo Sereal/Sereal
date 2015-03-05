@@ -7,9 +7,6 @@
 #include "srl_splitter.h"
 #include "srl_protocol.h"
 
-
-#include "const-c.inc"
-
 typedef srl_splitter_t * Sereal__Splitter;
 
 MODULE = Sereal::Splitter		PACKAGE = Sereal::Splitter
@@ -34,11 +31,3 @@ next_chunk(splitter)
   CODE:
     RETVAL = srl_splitter_next_chunk(aTHX_ splitter);
   OUTPUT: RETVAL
-
-
-
-MODULE = Sereal::Splitter        PACKAGE = Sereal::Splitter::Constants
-PROTOTYPES: DISABLE
-
-INCLUDE: const-xs.inc
-
