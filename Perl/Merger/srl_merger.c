@@ -564,7 +564,7 @@ srl_merger_finish(pTHX_ srl_merger_t *mrg, SV *user_header_src)
     assert(srl_start_offset <= (UV) BUF_POS_OFS(&mrg->obuf));
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
-    return newSVpvn((char *) mrg->obuf.start + srl_start_offset, BUF_POS_OFS(&mrg->obuf) - srl_start_offset);
+    return newSVpvn((char *) mrg->obuf.start + srl_start_offset, BUF_POS_OFS(&mrg->obuf) - srl_start_offset - 1);
 }
 
 SRL_STATIC_INLINE srl_merger_t *
