@@ -15,7 +15,7 @@
 #include <string.h>
 #include "ppport.h"
 #include "srl_inline.h"
-#include "../Encoder/srl_buffer_types.h"
+#include "srl_buffer_types.h"
 
 #ifndef PERL_HASH_FUNC_MURMUR_HASH_64A
 /* This code is from Austin Appleby and is in the public domain.

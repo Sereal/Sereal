@@ -6,7 +6,7 @@
 #include "srl_common.h"
 #include "srl_merger.h"
 #include "srl_protocol.h"
-#include "../Encoder/srl_buffer.h"
+#include "srl_buffer.h"
 #include "strtable.h"
 
 typedef srl_merger_t * Sereal__Merger;

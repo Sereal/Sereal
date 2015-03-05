@@ -126,8 +126,8 @@ extern "C" {
 #include "srl_protocol.h"
 #include "srl_inline.h"
 #include "srl_mrg_error.h"
-#include "../Encoder/srl_buffer.h"
-#include "../Encoder/srl_compress.h"
+#include "srl_buffer.h"
+#include "srl_compress.h"
 
 typedef struct PTABLE * ptable_ptr;
 typedef PTABLE_ENTRY_t *ptable_entry_ptr;

@@ -12,7 +12,7 @@
 #endif
 
 #include "srl_stack.h"
-#include "../Encoder/srl_buffer_types.h"
+#include "srl_buffer_types.h"
 
 /* the merger main struct */
 typedef struct {
