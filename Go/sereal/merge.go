@@ -487,7 +487,7 @@ LOOP:
 			mbuf = appendTagVarint(mbuf, dbuf[didx], uint(targetOffset))
 			didx += sz + 1
 
-			if tag == typeALIAS { // FIXME trackFlag should be set for REFP too
+			if tag == typeALIAS || tag == typeREFP {
 				mbuf[targetOffset] |= trackFlag
 			} else if tag == typeOBJECTV || tag == typeOBJECTV_FREEZE {
 				stack = append(stack, 1)
