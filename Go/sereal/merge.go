@@ -460,7 +460,7 @@ LOOP:
 			}
 
 			if dedupString {
-				val := dbuf[didx+1 : didx+length] // FIXME should be dbuf[didx+sz+1 : didx+length]
+				val := dbuf[didx+sz+1 : didx+length]
 				if savedOffset, ok := m.strTable[string(val)]; ok {
 					mbuf = appendTagVarint(mbuf, typeCOPY, uint(savedOffset))
 					mrgRelativeIdx = savedOffset
