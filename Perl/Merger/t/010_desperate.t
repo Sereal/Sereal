@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 # most be loaded before Sereal::TestSet
-use Sereal::Merger;
+use Sereal::Merger qw(SRL_TOP_LEVEL_SCALAR);
 use Sereal::Encoder qw(encode_sereal);
 use Sereal::Encoder::Constants qw(:all);
 use File::Spec;
@@ -23,9 +23,9 @@ use Data::Dumper; # must be loaded AFTER the test set (bug in perl)
 use Test::More;
 
 run_tests("plain");
-#run_tests("no_shared_hk", {no_shared_hashkeys => 1});
+# this's not true dedupe_strings test as dedupe_strings => 1 is not passed to
+# Sereal::Merger due to different implementations of deduping logic
 run_tests("dedupe_strings", {dedupe_strings => 1});
-#run_tests("aliased_dedupe_strings", {aliased_dedupe_strings => 1});
 done_testing();
 
 sub run_tests {
@@ -43,7 +43,7 @@ sub run_tests {
         $x = Header() . $x;
     }
 
-    my $mrg = Sereal::Merger->new({ top_level_element => 0 }); # TODO use const SRL_SCALAR
+    my $mrg = Sereal::Merger->new({ top_level_element => SRL_TOP_LEVEL_SCALAR });
     my $enc = Sereal::Encoder->new($opt_hash ? $opt_hash : ());
 
     my $out;
