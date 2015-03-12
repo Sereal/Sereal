@@ -2,7 +2,6 @@ package Sereal::Path;
 
 use 5.008;
 use strict qw(vars refs);
-no warnings;
 
 our $AUTHORITY = 'cpan:TOBYINK';
 our $VERSION   = '0.1';
@@ -86,6 +85,7 @@ sub _trace_next_object {
     }
 
     if ($type eq 'HASH') {
+        my $depth = $iter->stack_depth;
         warn("_trace_next_object: HASH");
 
         $iter->step_in;
@@ -93,7 +93,9 @@ sub _trace_next_object {
             warn("_trace_next_object: HASH key found=$loc");
             return $self->_trace_next_object($x, sprintf('%s;%s', $path, $loc))
         }
-        $iter->step_out;
+
+        warn("_trace_next_object: HASH key not found=$loc");
+        $iter->srl_next_at_depth($depth);
     }
 
     if ($loc eq '*') {
@@ -104,11 +106,11 @@ sub _trace_next_object {
             my $depth = $iter->stack_depth;
 
             foreach (1..$cnt) {
-                warn("_trace_next_object: WALK ARRAY offset=" . $iter->offset);
+                warn("_trace_next_object: WALK ARRAY offset=" . $iter->offset . " iter=" . $_);
                 $self->_trace_next_object($x, $path);
                 if ($iter->stack_depth > $depth) {
                     warn("_trace_next_object: WALK ARRAY srl_next_at_depth($depth)");
-                   $iter->srl_next_at_depth($depth)
+                    $iter->srl_next_at_depth($depth)
                 }
             }
         } elsif ($type eq 'HASH') {
@@ -117,6 +119,8 @@ sub _trace_next_object {
 
         #return $self->walk($loc, $x, $path, \&_callback_03);
     }
+
+    warn("_trace_next_object: end of function");
 }
 
 sub walk {
@@ -134,9 +138,9 @@ sub walk {
             my ($self, $m, $loc, $expr, $path) = @_;
             $self->trace($m . ";" . $expr, $path);
 
-            #if ($iter->stack_depth > $depth) {
-            #    $iter->continue_until_depth($depth)
-            #}
+            if ($iter->stack_depth > $depth) {
+                $iter->continue_until_depth($depth)
+            }
         }
     } elsif ($type eq 'HASH') {
         $iter->step_in;

@@ -9,10 +9,11 @@ typedef struct srl_stack * srl_stack_ptr;
 
 /* the iterator main struct */
 typedef struct {
-    SRL_READER_STRUCT;
+    SRL_READER_STRUCT_BUF;
     srl_stack_ptr stack;
     UV first_tag_offset;
     SV *tmp_buf_owner;
+    SRL_READER_STRUCT_VER;
 }  srl_iterator_t;
 
 /* constructor/destructor */

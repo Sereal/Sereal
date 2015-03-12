@@ -1,5 +1,5 @@
-#ifndef SRL_READER_rdrOMPRESS_H_
-#define SRL_READER_rdrOMPRESS_H_
+#ifndef SRL_READER_DEOMPRESS_H_
+#define SRL_READER_DEOMPRESS_H_
 
 #include "srl_inline.h"
 #include "srl_common.h"
@@ -23,6 +23,8 @@
  * of the current reader's buffer. Sets reader position to right after the
  * header and makes the reader state internally consistent. The buffer is
  * owned by a mortal SV which is returned. */
+/* TODO reuse the buffer */
+
 SRL_STATIC_INLINE SV *
 srl_realloc_empty_buffer(pTHX_ srl_reader_t *rdr,
                          const STRLEN header_len,
@@ -129,4 +131,5 @@ srl_decompress_body_zlib(pTHX_ srl_reader_t *rdr, SV** buf_owner)
 
     return bytes_consumed;
 }
+
 #endif

@@ -46,11 +46,14 @@ extern "C" {
 #   define TRACE_READER 1
 #   define TRACE_STACK 1
 #endif
+#   define TRACE_READER 1
+#   define TRACE_STACK 1
 
 #include "srl_common.h"
 #include "srl_inline.h"
 #include "srl_protocol.h"
 #include "srl_iterator.h"
+#include "srl_reader_misc.h"
 #include "srl_reader_error.h"
 #include "srl_reader_varint.h"
 #include "srl_reader_decompress.h"
@@ -188,6 +191,7 @@ srl_set_document(pTHX_ srl_iterator_t *iter, SV *src)
     UV header_len;
     U8 encoding_flags;
     srl_reader_char_ptr tmp;
+    IV proto_version_and_encoding_flags_int;
 
     /* clear previous buffer */
     if (iter->tmp_buf_owner) {
@@ -199,7 +203,7 @@ srl_set_document(pTHX_ srl_iterator_t *iter, SV *src)
     iter->rb_start = iter->rb_pos = tmp;
     iter->rb_end = iter->rb_start + len;
 
-    IV proto_version_and_encoding_flags_int = srl_validate_header_version_pv_len(aTHX_ iter->rb_start, len);
+    proto_version_and_encoding_flags_int = srl_validate_header_version_pv_len(aTHX_ iter->rb_start, len);
 
     if (proto_version_and_encoding_flags_int < 1) {
         if (proto_version_and_encoding_flags_int == 0)
@@ -210,10 +214,10 @@ srl_set_document(pTHX_ srl_iterator_t *iter, SV *src)
 
     iter->rb_pos += 5;
     encoding_flags = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_ENCODING_MASK);
-    iter->r_protocol_version = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
+    iter->rb_protocol_version = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
 
-    if (expect_false(iter->r_protocol_version > 3 || iter->r_protocol_version < 1)) {
-        SRL_RDR_ERRORf1(iter, "Unsupported Sereal protocol version %u", (unsigned int) iter->r_protocol_version);
+    if (expect_false(iter->rb_protocol_version > 3 || iter->rb_protocol_version < 1)) {
+        SRL_RDR_ERRORf1(iter, "Unsupported Sereal protocol version %u", (unsigned int) iter->rb_protocol_version);
     }
 
     // skip header in any case
@@ -245,7 +249,7 @@ void
 srl_reset(pTHX_ srl_iterator_t *iter)
 {
     U8 tag = '\0';
-    SRL_RB_TRACE("%d", 1); // TODO
+    SRL_RB_TRACE();
     srl_stack_clear(iter->stack);
     srl_stack_push_and_set(iter, tag, 1);
     iter->rb_pos = iter->rb_body_pos + iter->first_tag_offset;
@@ -368,7 +372,7 @@ read_again:
         stack_ptr_orig = stack->ptr;
 
         if (expect_false(srl_stack_empty(stack))) {
-            SRL_RB_TRACE("Iterator: end of stack reached %d", 1); // TODO
+            SRL_RB_TRACE("Iterator: end of stack reached");
             break;
         }
     }
@@ -389,7 +393,7 @@ srl_step_in(pTHX_ srl_iterator_t *iter, UV n)
         srl_step_internal(aTHX_ iter);
 
         if (--n == 0) {
-            SRL_RB_TRACE("Iterator: Did expected number of steps %d", 1); // TODO
+            SRL_RB_TRACE("Iterator: Did expected number of steps");
             break;
         }
     }
@@ -461,7 +465,7 @@ srl_next_at_depth(pTHX_ srl_iterator_t *iter, UV expected_depth) {
         SRL_RB_TRACE("Iterator: current_depth=%"IVdf" expected_depth=%"UVuf, current_depth, expected_depth);
 
         if (current_depth == (IV) expected_depth) {
-            SRL_RB_TRACE("Iterator: Reached expected stack depth: %"UVuf")", expected_depth);
+            SRL_RB_TRACE("Iterator: Reached expected stack depth: %"UVuf, expected_depth);
             break;
         } else if (current_depth < (IV) expected_depth) {
             /* This situation is possible when last child object is parsed. In this case
@@ -598,7 +602,7 @@ srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name)
     srl_stack_t *stack = iter->stack;
     IV stack_depth = SRL_STACK_DEPTH(stack);
     srl_stack_type_t *stack_ptr = stack->ptr;
-#   define SRL_KEY_NO_FOUND (-1)
+#   define SRL_KEY_NO_FOUND (0) /* 0 is invalid offset */
 
     SRL_ITER_ASSERT_EOF(iter, "stringish");
     SRL_ITER_ASSERT_STACK(iter);
@@ -702,7 +706,7 @@ srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name)
     DEBUG_ASSERT_RB_SANE(iter);
 
     /* XXX what if stack_ptr->idx == 0 here ??? */
-    SRL_RB_TRACE("Iterator: didn't found key '%.*s", (int) name_len, name_ptr);
+    SRL_RB_TRACE("Iterator: didn't found key '%.*s'", (int) name_len, name_ptr);
     return SRL_KEY_NO_FOUND;
 }
 
