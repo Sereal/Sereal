@@ -251,6 +251,7 @@ STRTABLE_new_size(const srl_buffer_t *buf, const U8 size_base2_exponent)
 SRL_STATIC_INLINE STRTABLE_ENTRY_t *
 STRTABLE_insert(STRTABLE_t *tbl, const unsigned char *str, U32 len, int *ok)
 {
+    UV entry;
     STRTABLE_ENTRY_t *tblent;
     const U32 hash = STRTABLE_HASH(str, len);
 
@@ -283,7 +284,7 @@ STRTABLE_insert(STRTABLE_t *tbl, const unsigned char *str, U32 len, int *ok)
        tbl->tbl_arena_end = new_arena->array + sizeof(new_arena->array) / sizeof(new_arena->array[0]);
     }
 
-    const UV entry = hash & tbl->tbl_max;
+    entry = hash & tbl->tbl_max;
     tblent = tbl->tbl_arena_next++;
 
     /* tblent->offset has to be set by caller,

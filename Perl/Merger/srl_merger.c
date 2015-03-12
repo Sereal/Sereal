@@ -399,8 +399,6 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
 void
 srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
 {
-    assert(mrg != NULL);
-
     SSize_t i;
     SV **svptr;
     STRLEN size = 0;
@@ -606,12 +604,13 @@ srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
     U8 encoding_flags;
     U8 protocol_version;
     srl_buffer_char *tmp;
+    IV proto_version_and_encoding_flags_int;
 
     tmp = (srl_buffer_char*) SvPV(src, len);
     mrg->ibuf.start = mrg->ibuf.pos = tmp;
     mrg->ibuf.end = mrg->ibuf.start + len;
 
-    IV proto_version_and_encoding_flags_int = srl_validate_header_version_pv_len(aTHX_ (char*) mrg->ibuf.start, len);
+    proto_version_and_encoding_flags_int = srl_validate_header_version_pv_len(aTHX_ (char*) mrg->ibuf.start, len);
 
     if (proto_version_and_encoding_flags_int < 1) {
         if (proto_version_and_encoding_flags_int == 0)
@@ -886,6 +885,7 @@ read_again:
 SRL_STATIC_INLINE void
 srl_merge_array(pTHX_ srl_merger_t *mrg, const U8 tag, UV length)
 {
+    unsigned int i;
     DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
@@ -895,7 +895,6 @@ srl_merge_array(pTHX_ srl_merger_t *mrg, const U8 tag, UV length)
         srl_buf_cat_tag_nocheck(mrg, tag);
     }
 
-    unsigned int i;
     for (i = 0; i < length; ++i) {
         srl_merge_single_value(aTHX_ mrg);
     }
@@ -907,6 +906,7 @@ srl_merge_array(pTHX_ srl_merger_t *mrg, const U8 tag, UV length)
 SRL_STATIC_INLINE void
 srl_merge_hash(pTHX_ srl_merger_t *mrg, const U8 tag, UV length)
 {
+    unsigned int i;
     DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
@@ -916,7 +916,6 @@ srl_merge_hash(pTHX_ srl_merger_t *mrg, const U8 tag, UV length)
         srl_buf_cat_tag_nocheck(mrg, tag);
     }
 
-    unsigned int i;
     for (i = 0; i < length; ++i) {
         srl_merge_stringish(aTHX_ mrg);
         srl_merge_single_value(aTHX_ mrg);
@@ -1018,7 +1017,7 @@ srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag, ptable_entry_ptr p
 SRL_STATIC_INLINE void
 srl_merge_stringish(pTHX_ srl_merger_t *mrg)
 {
-    U8 tag;
+    U8 tag, newtag;
     UV offset = 0;
     ptable_entry_ptr ptable_entry = NULL;
 
@@ -1050,7 +1049,7 @@ srl_merge_stringish(pTHX_ srl_merger_t *mrg)
         offset = srl_read_varint_uv_offset(aTHX_ &mrg->ibuf, " while reading COPY");
         offset = srl_lookup_tracked_offset(aTHX_ mrg, offset); // convert ibuf offset to obuf offset
 
-        U8 newtag = *(mrg->obuf.body_pos + offset);
+        newtag = *(mrg->obuf.body_pos + offset);
         if (expect_false(newtag != SRL_HDR_BINARY && newtag != SRL_HDR_STR_UTF8 && newtag < SRL_HDR_SHORT_BINARY_LOW)) {
             SRL_ERROR_BAD_COPY(mrg->ibuf, newtag);
         }
@@ -1100,6 +1099,7 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
     strtag_ptr = mrg->ibuf.pos++; // skip string tag in input buffer
 
     if (strtag == SRL_HDR_BINARY || strtag == SRL_HDR_STR_UTF8 || strtag >= SRL_HDR_SHORT_BINARY_LOW) {
+        strtable_entry_ptr strtable_entry;
         UV length = strtag >= SRL_HDR_SHORT_BINARY_LOW
                   ? SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(strtag)
                   : srl_read_varint_uv_length(aTHX_ &mrg->ibuf, " while reading BINARY or STR_UTF8");
@@ -1110,7 +1110,7 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
         assert((mrg->ibuf.pos - strtag_ptr) > 0);
         assert((mrg->ibuf.pos - strtag_ptr) <= SRL_MAX_VARINT_LENGTH);
 
-        strtable_entry_ptr strtable_entry = srl_lookup_classname(aTHX_ mrg, strtag_ptr, total_length, &ok);
+        strtable_entry = srl_lookup_classname(aTHX_ mrg, strtag_ptr, total_length, &ok);
 
         if (ok) {
             // issue OBJECTV || OBJECTV_FREEZE tag
@@ -1144,10 +1144,11 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
             srl_buf_copy_content_nocheck(aTHX_ mrg, total_length);
         }
     } else if (strtag == SRL_HDR_COPY) {
+        U8 newtag;
         UV offset = srl_read_varint_uv_offset(aTHX_ &mrg->ibuf, " while reading COPY");
         offset = srl_lookup_tracked_offset(aTHX_ mrg, offset); // convert ibuf offset to obuf offset
 
-        U8 newtag = *(mrg->obuf.body_pos + offset);
+        newtag = *(mrg->obuf.body_pos + offset);
         if (expect_false(newtag != SRL_HDR_BINARY && newtag != SRL_HDR_STR_UTF8 && newtag < SRL_HDR_SHORT_BINARY_LOW)) {
             SRL_ERROR_BAD_COPY(mrg->ibuf, newtag);
         }
@@ -1179,11 +1180,12 @@ srl_store_tracked_offset(pTHX_ srl_merger_t *mrg, UV from, UV to)
 SRL_STATIC_INLINE UV
 srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV offset)
 {
+    UV len;
     void *res = PTABLE_fetch(SRL_GET_TRACKED_OFFSETS_TBL(mrg), INT2PTR(void *, offset));
     if (expect_false(!res))
         SRL_ERRORf1(mrg->ibuf, "bad target offset %lu", offset);
 
-    UV len = PTR2UV(res);
+    len = PTR2UV(res);
     SRL_MERGER_TRACE("srl_lookup_tracked_offset: %lu -> %lu", offset, len);
     if (expect_false(mrg->obuf.body_pos + len >= mrg->obuf.pos)) {
         SRL_ERRORf3(mrg->obuf, "Corrupted packet. Offset %lu points past current iposition %lu in packet with length of %lu bytes long",
@@ -1196,11 +1198,13 @@ srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV offset)
 SRL_STATIC_INLINE strtable_entry_ptr
 srl_lookup_string(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN len, int *ok)
 {
+    strtable_entry_ptr ent;
+
     *ok = 0;
     if (len <= 3 || len > STRTABLE_MAX_STR_SIZE || !SRL_MRG_HAVE_OPTION(mrg, SRL_F_DEDUPE_STRINGS))
         return NULL;
 
-    strtable_entry_ptr ent = STRTABLE_insert(SRL_GET_STRING_DEDUPER_TBL(mrg), src, len, ok);
+    ent = STRTABLE_insert(SRL_GET_STRING_DEDUPER_TBL(mrg), src, len, ok);
     assert(ent != NULL);
 
     if (*ok) {
@@ -1217,11 +1221,13 @@ srl_lookup_string(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN len,
 SRL_STATIC_INLINE strtable_entry_ptr
 srl_lookup_classname(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN len, int *ok)
 {
+    strtable_entry_ptr ent;
+
     *ok = 0;
     if (len <= 3 || len > STRTABLE_MAX_STR_SIZE || !SRL_MRG_HAVE_OPTION(mrg, SRL_F_DEDUPE_STRINGS))
         return NULL;
 
-    strtable_entry_ptr ent = STRTABLE_insert(SRL_GET_CLASSNAME_DEDUPER_TBL(mrg), src, len, ok);
+    ent = STRTABLE_insert(SRL_GET_CLASSNAME_DEDUPER_TBL(mrg), src, len, ok);
     assert(ent != NULL);
 
     if (*ok) {

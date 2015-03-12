@@ -152,10 +152,11 @@ srl_stack_peek(pTHX_ srl_stack_t *stack)
 SRL_STATIC_INLINE void
 srl_stack_rsort(pTHX_ srl_stack_t *stack)
 {
+    size_t size;
     DEBUG_ASSERT_STACK_SANE(stack);
     if (expect_false(srl_stack_empty(stack))) return;
 
-    size_t size = SRL_STACK_SPACE(stack);
+    size = SRL_STACK_SPACE(stack);
     QSORT(SRL_STACK_TYPE, stack->begin, size, SRL_SRL_STACK_TYPE_GT);
     //qsort((void *) stack->begin, size, sizeof(SRL_STACK_TYPE), __compare_SRL_STACK_TYPE);
 
@@ -165,11 +166,12 @@ srl_stack_rsort(pTHX_ srl_stack_t *stack)
 SRL_STATIC_INLINE void
 srl_stack_dedupe(pTHX_ srl_stack_t *stack)
 {
+    SRL_STACK_TYPE *i, *j;
     DEBUG_ASSERT_STACK_SANE(stack);
     if (expect_false(srl_stack_empty(stack))) return;
 
-    SRL_STACK_TYPE *i = stack->begin;
-    SRL_STACK_TYPE *j = stack->begin;
+    i = stack->begin;
+    j = stack->begin;
     for (; i <= stack->ptr; i++) {
         if (*j != *i) *++j = *i;
     }
