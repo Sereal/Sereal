@@ -46,8 +46,6 @@ extern "C" {
 #   define TRACE_READER 1
 #   define TRACE_STACK 1
 #endif
-#   define TRACE_READER 1
-#   define TRACE_STACK 1
 
 #include "srl_common.h"
 #include "srl_inline.h"
@@ -84,7 +82,7 @@ typedef struct {
 #define FRESH_SV() newSV_type(SVt_NULL);
 #endif
 
-#define SRL_ITER_BASE_ERROR_FORMAT              "Sereal::Path::Iterator: Error in %s line %u: "
+#define SRL_ITER_BASE_ERROR_FORMAT              "Sereal::Path::Iterator: Error in %s:%u "
 #define SRL_ITER_BASE_ERROR_ARGS                __FILE__, __LINE__
 
 #define SRL_ITER_ERROR(msg)                     croak(SRL_ITER_BASE_ERROR_FORMAT "%s", SRL_ITER_BASE_ERROR_ARGS, (msg))
@@ -589,6 +587,10 @@ srl_hash_key(pTHX_ srl_iterator_t *iter)
     return result;
 }
 
+/* Function looks for name key in current hash. If the key is found, the function stops
+ * at the key's value object. If the key is not found, the function traverses
+ * entire hash and stops after the end of the hash */
+
 IV
 srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name)
 {
@@ -597,7 +599,6 @@ srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name)
     UV length, offset, idx;
     const char *key_ptr;
     const char *name_ptr = SvPV(name, name_len);
-    srl_reader_char_ptr orig_pos = iter->rb_pos;
 
     srl_stack_t *stack = iter->stack;
     IV stack_depth = SRL_STACK_DEPTH(stack);
@@ -702,9 +703,6 @@ srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name)
         stack_ptr = stack->begin + stack_depth;
     }
 
-    iter->rb_pos = orig_pos; // restore original position
-    DEBUG_ASSERT_RB_SANE(iter);
-
     /* XXX what if stack_ptr->idx == 0 here ??? */
     SRL_RB_TRACE("Iterator: didn't found key '%.*s'", (int) name_len, name_ptr);
     return SRL_KEY_NO_FOUND;
@@ -714,7 +712,7 @@ SV *
 srl_object_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
 {
     U8 tag;
-    UV length;
+    UV length, offset;
     SV *type = sv_2mortal(FRESH_SV());
     srl_reader_char_ptr orig_pos = iter->rb_pos;
 
@@ -774,6 +772,11 @@ read_again:
             sv_setpv(type, "SCALAR");
             break;
 
+        case SRL_HDR_COPY:
+            offset = srl_read_varint_uv_offset(aTHX_ iter, " while reading COPY tag");
+            iter->rb_pos = iter->rb_body_pos + offset;
+            goto read_again;
+
         default:
             iter->rb_pos = orig_pos;
             SRL_RDR_ERROR_UNEXPECTED(iter, tag, "ARRAY or HASH or SCALAR");
@@ -788,7 +791,7 @@ read_again:
 IV
 srl_stack_depth(pTHX_ srl_iterator_t *iter)
 {
-    SRL_ITER_ASSERT_STACK(iter);
+    //SRL_ITER_ASSERT_STACK(iter);
     return SRL_STACK_DEPTH(iter->stack);
 }
 

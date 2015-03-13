@@ -11,7 +11,7 @@ use Scalar::Util qw[blessed];
 use Sereal::Path::Iterator;
 
 sub new {
-    defined $_[1] or "first argument must be defined";
+    defined $_[1] or die "first argument must be defined";
 
     my $iter;
     if (blessed($_[1]) && $_[1]->isa(Sereal::Path::Iterator)) {
@@ -61,7 +61,7 @@ sub _trace_next_object {
     my ($self, $expr, $path) = @_;
     my $iter = $self->{iter};
 
-    warn("_trace_next_object: expr=$expr path=$path");
+    #warn("_trace_next_object: expr=$expr path=$path");
 
     return if $iter->eof;
     return $self->_store($path, $iter->decode) if "$expr" eq '';
@@ -74,137 +74,49 @@ sub _trace_next_object {
     }
 
     my ($type, $cnt) = $iter->info;
-    warn("_trace_next_object: type=$type cnt=$cnt loc=$loc");
+    my $odepth = $iter->stack_depth;
+    #warn("_trace_next_object: type=$type cnt=$cnt loc=$loc odepth=$odepth");
 
-    if ($type eq 'ARRAY' && $loc =~ /^[0-9]+$/ && $loc < $cnt) {
-        warn("_trace_next_object: ARRAY loc=$loc");
-        # /^\-?[0-9]+$/ # TODO add support of negative $loc
-        $iter->step_in;
-        $iter->next foreach (1..$loc); # TODO $iter->array_goto
-        return $self->_trace_next_object($x, sprintf('%s;%s', $path, $loc));
-    }
-
-    if ($type eq 'HASH') {
-        my $depth = $iter->stack_depth;
-        warn("_trace_next_object: HASH");
-
-        $iter->step_in;
-        if ($iter->hash_exists($loc)) {
-            warn("_trace_next_object: HASH key found=$loc");
-            return $self->_trace_next_object($x, sprintf('%s;%s', $path, $loc))
-        }
-
-        warn("_trace_next_object: HASH key not found=$loc");
-        $iter->srl_next_at_depth($depth);
-    }
-
-    if ($loc eq '*') {
-        if ($type eq 'ARRAY') {
-            warn("_trace_next_object: WALK ARRAY");
-
+    if ($type eq 'ARRAY') {
+        if ($loc eq '*') {
             $iter->step_in;
             my $depth = $iter->stack_depth;
+            #warn("_trace_next_object: WALK ARRAY, depth=$depth");
 
-            foreach (1..$cnt) {
-                warn("_trace_next_object: WALK ARRAY offset=" . $iter->offset . " iter=" . $_);
+            foreach (1 .. $cnt) {
+                $depth == $iter->stack_depth or die "assert depth inside walking array failed";
+                #warn("_trace_next_object: WALK ARRAY offset=" . $iter->offset . " iter=$_ depth=$depth");
+
                 $self->_trace_next_object($x, $path);
+
+                #warn(sprintf('$iter->stack_depth > $depth (%s > %s)', $iter->stack_depth, $depth));
                 if ($iter->stack_depth > $depth) {
-                    warn("_trace_next_object: WALK ARRAY srl_next_at_depth($depth)");
+                    #warn("_trace_next_object: WALK ARRAY srl_next_at_depth($depth)");
                     $iter->srl_next_at_depth($depth)
                 }
             }
-        } elsif ($type eq 'HASH') {
-            die("!!!");
-        }
 
-        #return $self->walk($loc, $x, $path, \&_callback_03);
-    }
-
-    warn("_trace_next_object: end of function");
-}
-
-sub walk {
-    my ($self, $loc, $expr, $path, $f) = @_;
-    my $iter = $self->{iter};
-    my ($type, $cnt) = $iter->info;
-    
-    if ($type eq 'ARRAY') {
-        $iter->step_in;
-        my $depth = $iter->stack_depth;
-
-        for (my $i = 0; $i < $cnt; $i++) {
-            $f->($self, $i, $loc, $expr, $path);
-
-            my ($self, $m, $loc, $expr, $path) = @_;
-            $self->trace($m . ";" . $expr, $path);
-
-            if ($iter->stack_depth > $depth) {
-                $iter->continue_until_depth($depth)
-            }
+            $depth == $iter->stack_depth and die "assert depth after walking failed";
+        } elsif ($loc =~ /^[0-9]+$/) { # /^\-?[0-9]+$/ # TODO add support of negative $loc
+            #warn("_trace_next_object: ARRAY loc=$loc");
+            $iter->step_in;
+            $iter->next foreach (1 .. $loc); # TODO $iter->array_goto
+            return $self->_trace_next_object($x, "$path;$loc");
         }
     } elsif ($type eq 'HASH') {
         $iter->step_in;
-        my $depth = $iter->depth;
-        warn("------- HASH $depth ");
+        my $depth = $iter->stack_depth;
+        #warn("_trace_next_object: HASH depth=$depth");
 
-        for (my $i = 0; $i < $cnt; $i++) {
-            $iter->next;
-            $f->($self, $i, $loc, $expr, $path);
-            $iter->continue_until_depth($depth)
-                if $iter->stack_depth > $depth;
+        if ($iter->hash_exists($loc)) {
+            #warn("_trace_next_object: HASH key found=$loc depth=$depth");
+            return $self->_trace_next_object($x, "$path;$loc");
         }
-    } else {
-        croak('walk called on non hashref/arrayref value, died');
-    }
-}
 
-sub _trace_object {
-}
-
-sub _trace {
-    my ($self, $expr, $path) = @_;
-    my $iter = $self->{iter};
-
-    return if $iter->eof;
-    return $self->store($path, $iter->decode) if "$expr" eq '';
-    
-    my ($loc, $x);
-    {
-        my @x = split /\;/, $expr;
-        $loc  = shift @x;
-        $x    = join ';', @x;
+        #warn("_trace_next_object: HASH key not found=$loc depth=$depth offset=" . $iter->offset);
     }
 
-    my ($type, $cnt) = $iter->info;
-    if ($type eq 'ARRAY' && $loc =~ /^[0-9]+$/ && $loc < $cnt) {
-        # /^\-?[0-9]+$/ # TODO add support of negative $loc
-        $iter->step_in;
-        $iter->next foreach (1..$loc);
-        return $self->trace($x, sprintf('%s;%s', $path, $loc));
-    }
-
-    if ($type eq 'HASH') {
-        $iter->step_in;
-        return $self->trace($x, sprintf('%s;%s', $path, $loc))
-            if $iter->hash_exists($loc);
-        $iter->step_out;
-    }
-
-    if ($loc eq '*') {
-        return $self->walk($loc, $x, $path, \&_callback_03);
-    }
-}
-
-sub _callback_01 {
-    my ($self, $m1) = @_;
-    push @{ $self->{'result'} }, $m1;
-    my $last_index = scalar @{ $self->{'result'} } - 1;
-    return "[#${last_index}]";
-}
-
-sub _callback_02 {
-    my ($self, $m1) = @_;
-    return $self->{'result'}->[$m1];
+    ##warn("_trace_next_object: end of function depth=" . $iter->stack_depth);
 }
 
 1;

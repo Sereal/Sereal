@@ -97,7 +97,7 @@ info(iter)
     PUSHs(type);
     PUSHs(sv_2mortal(newSVuv(length)));
 
-UV
+IV
 stack_depth(iter)
     srl_iterator_t *iter;
   CODE:

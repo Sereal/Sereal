@@ -3,7 +3,7 @@
 
 #include "srl_taginfo.h"
 
-#define SRL_RDR_BASE_ERROR_FORMAT  "Sereal: Error in %s line %u and char %"UVuf" of input: "
+#define SRL_RDR_BASE_ERROR_FORMAT  "Sereal: Error in %s:%u and char %"UVuf" of input: "
 #define SRL_RDR_BASE_ERROR_ARGS(r) __FILE__, __LINE__, (UV) (1 + (r)->rb_pos - (r)->rb_start)
 
 #define SRL_RDR_ERROR(r, msg)                              croak(SRL_RDR_BASE_ERROR_FORMAT "%s", SRL_RDR_BASE_ERROR_ARGS((r)), (msg))

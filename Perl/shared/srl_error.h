@@ -2,7 +2,7 @@
 #define SRL_ERROR_H_
 #include "srl_taginfo.h"
 
-#define SRL_BASE_ERROR_FORMAT "Sereal: Error in %s line %u and char %i of input: "
+#define SRL_BASE_ERROR_FORMAT "Sereal: Error in %s:%u and char %i of input: "
 #define SRL_BASE_ERROR_ARGS __FILE__, __LINE__, (int) (1 + dec->pos - dec->buf_start)
 
 #define SRL_ERROR(msg)                          croak(SRL_BASE_ERROR_FORMAT "%s", SRL_BASE_ERROR_ARGS, (msg))
