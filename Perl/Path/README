@@ -1,0 +1,16 @@
+Sereal::Path for Sereal is the same as XPath for XML or JSON::Path for JSON.
+However, it has the advantage of working with encoded data i.e. there is no
+need to decode a document before firing queries against it.
+
+Current code is in deep beta state.
+
+At this moment Sereal::Path supports only:
+* simplified query syntax
+    - accessing an element in an array by its index
+    - accessing hash's key by its name
+    - walking over all elements of an array
+* deserialization of scalars
+
+Examples:
+
+perl -I blib/arch/ -I blib/lib/ -MData::Dumper -MSereal -MSereal::Path -wle 'my $enc = encode_sereal([ { test => 'value1' }, { test => 'value2' } ]); my $path = Sereal::Path->new($enc); $path->traverse("\$[*].test"); print Dumper($path->{result});'
