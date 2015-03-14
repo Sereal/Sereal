@@ -124,6 +124,13 @@ stack_info(iter)
     PUSHs(type);
     PUSHs(sv_2mortal(newSVuv(length)));
 
+void
+array_goto(iter, idx)
+    srl_iterator_t *iter;
+    IV idx;
+  CODE:
+    srl_array_goto(iter, idx);
+
 IV
 hash_exists(iter, name)
     srl_iterator_t *iter;

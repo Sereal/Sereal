@@ -101,6 +101,18 @@ typedef struct {
     }                                                                               \
 } STMT_END
 
+#define SRL_ITER_ASSERT_ARRAY_ON_STACK(iter) STMT_START {                           \
+    U8 _tag = iter->stack->ptr->tag;                                                \
+    if (expect_false(                                                               \
+            _tag != SRL_HDR_ARRAY                                                   \
+         && (_tag < SRL_HDR_ARRAYREF_LOW || _tag > SRL_HDR_ARRAYREF_HIGH)           \
+       ))                                                                           \
+    {                                                                               \
+        SRL_RDR_ERRORf1(iter, "expect to have ARRAY tag on stack but got %s",       \
+                        SRL_TAG_NAME(_tag));                                        \
+    }                                                                               \
+} STMT_END
+
 #define SRL_ITER_ASSERT_HASH_ON_STACK(iter) STMT_START {                            \
     U8 _tag = iter->stack->ptr->tag;                                                \
     if (expect_false(                                                               \
@@ -508,6 +520,42 @@ srl_step_out(pTHX_ srl_iterator_t *iter, UV n)
     stack->ptr->idx = stack->ptr->count;
 
     DEBUG_ASSERT_RB_SANE(iter);
+}
+
+void
+srl_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
+{
+    U32 s_idx;
+    srl_stack_t *stack = iter->stack;
+    srl_stack_type_t *stack_ptr = stack->ptr;
+
+    SRL_ITER_ASSERT_EOF(iter, "stringish");
+    SRL_ITER_ASSERT_STACK(iter);
+    SRL_ITER_ASSERT_ARRAY_ON_STACK(iter);
+
+    if (idx >= 0) {
+        s_idx = stack->ptr->count - idx;
+        if (idx >= stack->ptr->count) {
+            SRL_ITER_ERRORf2("Index is out of range, idx=%d count=%u",
+                             idx, stack->ptr->count);
+        }
+    } else {
+        s_idx = -idx;
+        if (s_idx > stack->ptr->count) {
+            SRL_ITER_ERRORf2("Index is out of range, idx=%d count=%u",
+                             idx, stack->ptr->count);
+        }
+    }
+
+    if (s_idx == stack->ptr->idx) {
+        return; // already at expected position
+    } else if (s_idx > stack->ptr->idx) {
+        SRL_ITER_ERRORf2("Can't go backwards, idx=%d, count=%u",
+                         idx, stack->ptr->count);
+    }
+
+    srl_next(aTHX_ iter, stack->ptr->idx - s_idx);
+    assert(stack->ptr->idx == s_idx);
 }
 
 SV *

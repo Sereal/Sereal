@@ -40,6 +40,9 @@ SV * srl_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr);
 /* information about current object */
 SV * srl_object_info(pTHX_ srl_iterator_t *iter, UV *length_ptr);
 
+/* array parsing */
+void srl_array_goto(pTHX_ srl_iterator_t *iter, I32 idx);
+
 /* hash parsing */
 SV * srl_hash_key(pTHX_ srl_iterator_t *iter);
 IV srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name);

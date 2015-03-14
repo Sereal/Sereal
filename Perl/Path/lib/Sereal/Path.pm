@@ -97,10 +97,10 @@ sub _trace_next_object {
             }
 
             $depth == $iter->stack_depth and die "assert depth after walking failed";
-        } elsif ($loc =~ /^[0-9]+$/) { # /^\-?[0-9]+$/ # TODO add support of negative $loc
+        } elsif ($loc =~ /^\-?[0-9]+$/) {
             #warn("_trace_next_object: ARRAY loc=$loc");
             $iter->step_in;
-            $iter->next foreach (1 .. $loc); # TODO $iter->array_goto
+            $iter->array_goto($loc);
             return $self->_trace_next_object($x, "$path;$loc");
         }
     } elsif ($type eq 'HASH') {
