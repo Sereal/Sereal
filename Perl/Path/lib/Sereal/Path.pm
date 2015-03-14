@@ -3,7 +3,7 @@ package Sereal::Path;
 use 5.008;
 use strict qw(vars refs);
 
-our $AUTHORITY = 'cpan:TOBYINK';
+our $AUTHORITY = 'cpan:IKRUGLOV';
 our $VERSION   = '0.1';
 
 use Carp;
@@ -30,12 +30,12 @@ sub new {
 
 sub _normalize {
     my ($self, $x) = @_;
-    $x =~ s/[\['](\??\(.*?\))[\]']/_callback_01($self,$1)/eg;
+    #$x =~ s/[\['](\??\(.*?\))[\]']/_callback_01($self,$1)/eg;
     $x =~ s/'?\.'?|\['?/;/g;
     $x =~ s/;;;|;;/;..;/g;
     $x =~ s/;\$|'?\]|'$//g;
-    $x =~ s/#([0-9]+)/_callback_02($self,$1)/eg;
-    $self->{'result'} = [];   # result array was temporarily used as a buffer
+    #$x =~ s/#([0-9]+)/_callback_02($self,$1)/eg;
+    #$self->{'result'} = [];   # result array was temporarily used as a buffer
     return $x;
 }
 
@@ -74,8 +74,7 @@ sub _trace_next_object {
     }
 
     my ($type, $cnt) = $iter->info;
-    my $odepth = $iter->stack_depth;
-    #warn("_trace_next_object: type=$type cnt=$cnt loc=$loc odepth=$odepth");
+    #warn("_trace_next_object: type=$type cnt=$cnt loc=$loc odepth=" . $iter->stack_depth);
 
     if ($type eq 'ARRAY') {
         if ($loc eq '*') {
@@ -105,15 +104,14 @@ sub _trace_next_object {
         }
     } elsif ($type eq 'HASH') {
         $iter->step_in;
-        my $depth = $iter->stack_depth;
-        #warn("_trace_next_object: HASH depth=$depth");
+        #warn("_trace_next_object: HASH depth=" . $iter->stack_depth);
 
         if ($iter->hash_exists($loc)) {
-            #warn("_trace_next_object: HASH key found=$loc depth=$depth");
+            #warn("_trace_next_object: HASH key found=$loc depth=" . $iter->stack_depth);
             return $self->_trace_next_object($x, "$path;$loc");
         }
 
-        #warn("_trace_next_object: HASH key not found=$loc depth=$depth offset=" . $iter->offset);
+        #warn("_trace_next_object: HASH key not found=$loc depth=" . $iter->stack_depth . " offset=" . $iter->offset);
     }
 
     ##warn("_trace_next_object: end of function depth=" . $iter->stack_depth);

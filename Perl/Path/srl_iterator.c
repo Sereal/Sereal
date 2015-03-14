@@ -511,8 +511,9 @@ srl_step_out(pTHX_ srl_iterator_t *iter, UV n)
     while (n--) {
         srl_stack_pop_nocheck(stack);
 
-        if (expect_false(srl_stack_empty(stack)))
-            croak("It was last object on stack, no more parents");
+        if (expect_false(srl_stack_empty(stack))) {
+            SRL_ITER_ERROR("It was last object on stack, no more parents");
+        }
     }
 
     offset = stack->ptr->offset; 
