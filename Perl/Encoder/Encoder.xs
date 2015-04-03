@@ -94,8 +94,6 @@ THX_ck_entersub_args_sereal_encode_with_object(pTHX_ OP *entersubop, GV *namegv,
 
   for (cvop = firstargop; cvop->op_sibling; cvop = cvop->op_sibling) ;
 
-  lastargop = pushop;
-
   for (arity = 0, lastargop = pushop, argop = firstargop; argop != cvop;
        lastargop = argop, argop = argop->op_sibling)
   {
