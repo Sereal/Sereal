@@ -504,7 +504,7 @@ srl_step_out(pTHX_ srl_iterator_t *iter, UV n)
     DEBUG_ASSERT_RB_SANE(iter);
     SRL_RB_TRACE("n=%"UVuf, n);
 
-    SRL_ITER_ASSERT_EOF(iter, "stringish");
+    SRL_ITER_ASSERT_EOF(iter, "serialized object");
     SRL_ITER_ASSERT_STACK(iter);
     // if (expect_false(n == 0)) return; XXX keep it as a feature?
 
@@ -530,7 +530,10 @@ srl_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
     srl_stack_t *stack = iter->stack;
     srl_stack_type_t *stack_ptr = stack->ptr;
 
-    SRL_ITER_ASSERT_EOF(iter, "stringish");
+    DEBUG_ASSERT_RB_SANE(iter);
+    SRL_RB_TRACE("idx=%d", idx);
+
+    SRL_ITER_ASSERT_EOF(iter, "array element");
     SRL_ITER_ASSERT_STACK(iter);
     SRL_ITER_ASSERT_ARRAY_ON_STACK(iter);
 
@@ -896,7 +899,7 @@ srl_decode(pTHX_ srl_iterator_t *iter)
 
     DEBUG_ASSERT_RB_SANE(iter);
 
-    SRL_ITER_ASSERT_EOF(iter, "serizlized object");
+    SRL_ITER_ASSERT_EOF(iter, "serialized object");
 
     into = sv_2mortal(FRESH_SV());
     orig_pos = iter->rb_pos; // must restore upon return
