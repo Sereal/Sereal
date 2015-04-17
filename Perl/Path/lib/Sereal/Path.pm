@@ -54,6 +54,7 @@ sub traverse {
     $norm =~ s/^\$;//;
 
     $self->{iter}->reset;
+    #warn("norm=$norm");
     return $self->_trace_next_object($norm, '$');
 }
 
@@ -77,7 +78,12 @@ sub _trace_next_object {
     #warn("_trace_next_object: type=$type cnt=$cnt loc=$loc odepth=" . $iter->stack_depth);
 
     if ($type eq 'ARRAY') {
-        if ($loc eq '*') {
+        if ($loc =~ /^\-?[0-9]+$/) {
+            #warn("_trace_next_object: ARRAY loc=$loc");
+            $iter->step_in;
+            $iter->array_goto($loc);
+            return $self->_trace_next_object($x, "$path;$loc");
+        } elsif ($loc eq '*') {
             $iter->step_in;
             my $depth = $iter->stack_depth;
             #warn("_trace_next_object: WALK ARRAY, depth=$depth");
@@ -96,22 +102,43 @@ sub _trace_next_object {
             }
 
             $depth == $iter->stack_depth and die "assert depth after walking failed";
-        } elsif ($loc =~ /^\-?[0-9]+$/) {
-            #warn("_trace_next_object: ARRAY loc=$loc");
+        } elsif ($loc =~ m/\,/) {
             $iter->step_in;
-            $iter->array_goto($loc);
-            return $self->_trace_next_object($x, "$path;$loc");
+            my $depth = $iter->stack_depth;
+            my @idxs = map { $_ >= 0 ? $_ : $cnt + $_ }
+                       grep { /^\-?[0-9]+$/ }
+                       split(/\,/, $loc);
+
+            # TODO verify that array is sorted
+            foreach my $idx (@idxs) {
+                $iter->array_goto($idx);
+                $self->_trace_next_object($x, "$path;$idx");
+                $iter->srl_next_at_depth($depth) if $iter->stack_depth > $depth;
+            }
         }
     } elsif ($type eq 'HASH') {
-        $iter->step_in;
-        #warn("_trace_next_object: HASH depth=" . $iter->stack_depth);
+        if ($loc eq '*') {
+        } elsif ($loc =~ m/\,/) {
+            $iter->step_in;
+            my $depth = $iter->stack_depth;
+            my @names = grep { $_ } split(/\,/, $loc);
 
-        if ($iter->hash_exists($loc)) {
-            #warn("_trace_next_object: HASH key found=$loc depth=" . $iter->stack_depth);
-            return $self->_trace_next_object($x, "$path;$loc");
+            foreach my $name (@names) {
+                $self->_trace_next_object($x, "$path;$name")
+                    if $iter->hash_exists($name);
+                $self->step_out();
+            }
+        } else {
+            $iter->step_in;
+            #warn("_trace_next_object: HASH depth=" . $iter->stack_depth);
+
+            if ($iter->hash_exists($loc)) {
+                #warn("_trace_next_object: HASH key found=$loc depth=" . $iter->stack_depth);
+                return $self->_trace_next_object($x, "$path;$loc");
+            }
+
+            #warn("_trace_next_object: HASH key not found=$loc depth=" . $iter->stack_depth . " offset=" . $iter->offset);
         }
-
-        #warn("_trace_next_object: HASH key not found=$loc depth=" . $iter->stack_depth . " offset=" . $iter->offset);
     }
 
     ##warn("_trace_next_object: end of function depth=" . $iter->stack_depth);
