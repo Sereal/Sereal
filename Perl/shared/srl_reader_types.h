@@ -9,6 +9,7 @@ struct srl_reader_buffer {
     srl_reader_char_ptr end;      /* ptr to end of input buffer */
     srl_reader_char_ptr pos;      /* ptr to current possition */
     srl_reader_char_ptr body_pos; /* in Sereal V2, all offsets are relative to the body */
+    U8 encoding_flags;
     U8 protocol_version;          /* Sereal protocol version */
 };
 

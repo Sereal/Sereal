@@ -6,6 +6,7 @@
 #include "srl_reader.h"
 #include "srl_reader_error.h"
 #include "srl_reader_varint.h"
+#include "srl_protocol.h"
 
 #if defined(HAVE_CSNAPPY)
     #include <csnappy.h>
@@ -54,7 +55,7 @@ srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
  * buf_owner parameter and unmortalize it. */
 
 SRL_STATIC_INLINE UV
-srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, U8 encoding_flags, SV** buf_owner)
+srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
 {
     SV *buf_sv;
     int header_len;
@@ -62,15 +63,16 @@ srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, U8 encoding_flags, SV
     uint32_t dest_len;
     UV bytes_consumed;
 
-    srl_reader_char_ptr old_pos = buf->pos;
+    srl_reader_char_ptr old_pos;
     const STRLEN sereal_header_len = (STRLEN) SRL_RDR_POS_OFS(buf);
     const STRLEN compressed_packet_len =
-        encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL
+        buf->encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL
         ? (STRLEN) srl_read_varint_uv_length(aTHX_ buf, " while reading compressed packet size")
         : (STRLEN) SRL_RDR_SPACE_LEFT(buf);
 
     /* All bufl's above here, or we break C89 compilers */
-    bytes_consumed = sereal_header_len + compressed_packet_len;
+    old_pos = buf->pos;
+    bytes_consumed = compressed_packet_len + SRL_RDR_POS_OFS(buf);
     header_len = csnappy_get_uncompressed_length((char *)buf->pos,
                                                  compressed_packet_len,
                                                  &dest_len);
@@ -88,7 +90,7 @@ srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, U8 encoding_flags, SV
                                                 &dest_len);
 
     if (expect_false( decompress_ok != 0 )) {
-        SRL_RDR_ERRORf1(buf, "Snappy bufompression of Sereal packet payload failed with error %i!",
+        SRL_RDR_ERRORf1(buf, "Snappy decompression of Sereal packet payload failed with error %i!",
                         decompress_ok);
     }
 
@@ -108,14 +110,15 @@ srl_decompress_body_zlib(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
     mz_ulong tmp;
     int decompress_ok;
     UV bytes_consumed;
-    srl_reader_char_ptr old_pos = buf->pos;;
+    srl_reader_char_ptr old_pos;
     const STRLEN sereal_header_len = (STRLEN)SRL_RDR_POS_OFS(buf);
     const STRLEN uncompressed_packet_len = (STRLEN)srl_read_varint_uv(aTHX_ buf);
     const STRLEN compressed_packet_len =
         (STRLEN)srl_read_varint_uv_length(aTHX_ buf, " while reading compressed packet size");
 
     /* All decl's above here, or we break C89 compilers */
-    bytes_consumed = compressed_packet_len + sereal_header_len;
+    old_pos = buf->pos;
+    bytes_consumed = compressed_packet_len + SRL_RDR_POS_OFS(buf);
 
     /* Allocate output buffer and swap it into place within the decoder. */
     buf_sv = srl_realloc_empty_buffer(aTHX_ buf, sereal_header_len, uncompressed_packet_len);

@@ -22,10 +22,15 @@ ptable.h
 Sereal-Decoder-*.tar*
 snappy
 srl_common.h
-srl_error.h
 srl_inline.h
 srl_protocol.h
 srl_taginfo.h
+srl_reader.h
+srl_reader_decompress.h
+srl_reader_misc.h
+srl_reader_error.h
+srl_reader_types.h
+srl_reader_varint.h
 *.swo
 *.swp
 t/004_testset.t

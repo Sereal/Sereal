@@ -19,6 +19,7 @@
     (buf)->end = NULL;                                                         \
     (buf)->pos = NULL;                                                         \
     (buf)->body_pos = NULL;                                                    \
+    (buf)->encoding_flags = 0;                                                 \
     (buf)->protocol_version = 0;                                               \
 } STMT_END
 

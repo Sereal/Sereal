@@ -16,6 +16,8 @@
 #define SRL_RDR_ERROR_UNEXPECTED(buf, tag, msg)              SRL_RDR_ERRORf2((buf), "Unexpected tag SRL_HDR_%s while expecting %s", SRL_TAG_NAME((tag)), (msg))
 #define SRL_RDR_ERROR_BAD_COPY(buf, tag)                     SRL_RDR_ERRORf1((buf), "While processing tag SRL_HDR_%s encountered a bad COPY tag", SRL_TAG_NAME((tag)))
 #define SRL_RDR_ERROR_EOF(buf, msg)                          SRL_RDR_ERRORf1((buf), "Premature end of document while expecting %s", (msg));
+#define SRL_RDR_ERROR_REFUSE_OBJECT(buf)                     SRL_RDR_ERROR((buf),   "Encountered object in input, but the 'refuse_objects' option is in effect");
+#define SRL_RDR_ERROR_PANIC(buf, msg)                        SRL_RDR_ERRORf1((buf), "Panic: %s", msg);
 
 /* trace functions */
 #ifdef TRACE_READER
