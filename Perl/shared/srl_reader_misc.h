@@ -8,7 +8,7 @@
 
 /* not sure that this's the best location for this function */
 SRL_STATIC_INLINE IV
-srl_validate_header_version_pv_len(pTHX_ srl_reader_char_ptr strdata, STRLEN len)
+srl_validate_header_version(pTHX_ srl_reader_char_ptr strdata, STRLEN len)
 {
     if ( len >= SRL_MAGIC_STRLEN + 3 ) {
         /* + 3 above because:

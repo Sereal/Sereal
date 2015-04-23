@@ -22,7 +22,6 @@ ptable.h
 Sereal-Encoder-*.tar.gz
 snappy
 srl_common.h
-srl_error.h
 srl_inline.h
 srl_protocol.h
 srl_taginfo.h

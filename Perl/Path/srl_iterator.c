@@ -228,7 +228,7 @@ srl_set_document(pTHX_ srl_iterator_t *iter, SV *src)
     iter->buf.start = iter->buf.pos = tmp;
     iter->buf.end = iter->buf.start + len;
 
-    proto_version_and_encoding_flags_int = srl_validate_header_version_pv_len(aTHX_ iter->buf.start, len);
+    proto_version_and_encoding_flags_int = srl_validate_header_version(aTHX_ iter->buf.start, len);
 
     if (proto_version_and_encoding_flags_int < 1) {
         if (proto_version_and_encoding_flags_int == 0)
