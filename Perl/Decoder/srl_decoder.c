@@ -98,7 +98,6 @@ void srl_decoder_destructor_hook(pTHX_ void *p);                    /* destructo
 /* srl_begin_decoding: set up the decoder to handle a given var */
 SRL_STATIC_INLINE srl_decoder_t *srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset);
 SRL_STATIC_INLINE void srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data); /* read/validate header */
-SRL_STATIC_INLINE void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container); /* main recursive dump routine */
 SRL_STATIC_INLINE void srl_finalize_structure(pTHX_ srl_decoder_t *dec);             /* optional finalize structure logic */
 SRL_STATIC_INLINE void srl_clear_decoder(pTHX_ srl_decoder_t *dec);                 /* clean up decoder after a dump */
 SRL_STATIC_INLINE void srl_clear_decoder_body_state(pTHX_ srl_decoder_t *dec);      /* clean up after each document body */
@@ -1557,7 +1556,7 @@ srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
  * MAIN DISPATCH SUB - ALL ROADS LEAD HERE                                  *
  ****************************************************************************/
 
-SRL_STATIC_INLINE void
+void
 srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
 {
     STRLEN len;
