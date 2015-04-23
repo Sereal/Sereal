@@ -11,6 +11,10 @@ Path.bs
 Path.so
 Path.o
 Path.c
+Iterator.bs
+Iterator.so
+Iterator.o
+Iterator.c
 *.o
 srl_error.h
 srl_protocol.h
@@ -19,6 +23,12 @@ ptable.h
 const-c.inc
 const-xs.inc
 srl_inline.h
+srl_reader.h
+srl_reader_decompress.h
+srl_reader_error.h
+srl_reader_misc.h
+srl_reader_types.h
+srl_reader_varint.h
 ppport.h
 t/test_set.pl
 et
