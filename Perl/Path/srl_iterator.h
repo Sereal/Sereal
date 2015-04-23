@@ -14,6 +14,7 @@ typedef struct {
     srl_stack_ptr stack;
     UV first_tag_offset;
     SV *tmp_buf_owner;
+    void *dec; // srl_decoder object
 }  srl_iterator_t;
 
 /* constructor/destructor */

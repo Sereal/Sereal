@@ -55,6 +55,10 @@ extern "C" {
 #include "srl_reader_varint.h"
 #include "srl_reader_decompress.h"
 
+// XXX use srl_decoder as shared object???
+#include "../Decoder/srl_decoder.h"
+#include "../Decoder/srl_decoder.c"
+
 typedef struct {
     UV offset;      // offset of the tag
     U32 count;      // number of child objects
@@ -183,6 +187,7 @@ srl_build_iterator_struct(pTHX_ HV *opt)
     iter->stack = stack;
     iter->tmp_buf_owner = NULL;
     iter->first_tag_offset = 0;
+    iter->dec = NULL;
 
     /* load options */
     if (opt != NULL) {
@@ -204,6 +209,9 @@ srl_destroy_iterator(pTHX_ srl_iterator_t *iter)
 
     if (iter->tmp_buf_owner)
         SvREFCNT_dec(iter->tmp_buf_owner);
+
+    if (iter->dec)
+        srl_destroy_decoder((srl_decoder_t*) iter->dec);
 
     Safefree(iter);
     return;
@@ -908,6 +916,16 @@ srl_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
 SV *
 srl_decode(pTHX_ srl_iterator_t *iter)
 {
-    croak("unimplemented");
+    SV *into = sv_2mortal(FRESH_SV());
+    if (!iter->dec)
+        iter->dec = (void*) srl_build_decoder_struct(NULL, NULL);
+
+    srl_decoder_t* dec = (srl_decoder_t*) iter->dec;
+    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+    Copy(&iter->buf, &dec->buf, 1, srl_reader_buffer_t);
+    DEBUG_ASSERT_RDR_SANE(dec->pbuf);
+
+    srl_read_single_value(dec, into, NULL);
+    return into;
 }
 
