@@ -141,15 +141,6 @@ typedef struct {
 /* function declaration */
 SRL_STATIC_INLINE void srl_step_internal(pTHX_ srl_iterator_t *iter);
 
-/* copy-paste from srl_decoder.c TODO */
-SRL_STATIC_INLINE void srl_setiv(pTHX_ srl_iterator_t *iter, SV *into, SV **container, IV iv);
-SRL_STATIC_INLINE void srl_read_long_double(pTHX_ srl_iterator_t *iter, SV* into);
-SRL_STATIC_INLINE void srl_read_double(pTHX_ srl_iterator_t *iter, SV* into);
-SRL_STATIC_INLINE void srl_read_float(pTHX_ srl_iterator_t *iter, SV* into);
-SRL_STATIC_INLINE void srl_read_string(pTHX_ srl_iterator_t *iter, int is_utf8, SV* into);
-SRL_STATIC_INLINE void srl_read_varint_into(pTHX_ srl_iterator_t *iter, SV* into, SV** container);
-SRL_STATIC_INLINE void srl_read_zigzag_into(pTHX_ srl_iterator_t *iter, SV* into, SV** container);
-
 /* wrappers */
 UV srl_eof(pTHX_ srl_iterator_t *iter)                { return SRL_RDR_DONE(iter->pbuf) ? 1 : 0; }
 UV srl_offset(pTHX_ srl_iterator_t *iter)             { return SRL_RDR_BODY_POS_OFS(iter->pbuf); }
@@ -247,8 +238,9 @@ srl_set_document(pTHX_ srl_iterator_t *iter, SV *src)
     }
 
     iter->buf.pos += 5;
-    encoding_flags = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_ENCODING_MASK);
+    iter->buf.encoding_flags = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_ENCODING_MASK);
     iter->buf.protocol_version = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
+    encoding_flags = iter->buf.encoding_flags;
 
     if (expect_false(iter->buf.protocol_version > 3 || iter->buf.protocol_version < 1)) {
         SRL_RDR_ERRORf1(iter->pbuf, "Unsupported Sereal protocol version %u", (unsigned int) iter->buf.protocol_version);
@@ -263,7 +255,7 @@ srl_set_document(pTHX_ srl_iterator_t *iter, SV *src)
     } else if (   encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
                || encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL)
     {
-        srl_decompress_body_snappy(aTHX_ iter->pbuf, encoding_flags, &iter->tmp_buf_owner);
+        srl_decompress_body_snappy(aTHX_ iter->pbuf, &iter->tmp_buf_owner);
         SvREFCNT_inc(iter->tmp_buf_owner);
     } else if (encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB) {
         srl_decompress_body_zlib(aTHX_ iter->pbuf, &iter->tmp_buf_owner);
@@ -287,7 +279,7 @@ srl_reset(pTHX_ srl_iterator_t *iter)
     srl_stack_clear(iter->stack);
     srl_stack_push_and_set(iter, tag, 1);
     iter->buf.pos = iter->buf.body_pos + iter->first_tag_offset;
-    DEBUG_ASSERT_RDR_SANE(iter);
+    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
 /* Main routine. Caller must ensure that EOF is NOT reached */
@@ -300,7 +292,7 @@ srl_step_internal(pTHX_ srl_iterator_t *iter)
     srl_stack_t *stack = iter->stack;
     IV stack_depth_orig = SRL_STACK_DEPTH(stack); // keep track of original depth
 
-    DEBUG_ASSERT_RDR_SANE(iter);
+    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 
 read_again:
     tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
@@ -411,13 +403,13 @@ read_again:
         }
     }
 
-    DEBUG_ASSERT_RDR_SANE(iter);
+    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
 void
 srl_step_in(pTHX_ srl_iterator_t *iter, UV n)
 {
-    DEBUG_ASSERT_RDR_SANE(iter);
+    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     SRL_ITER_TRACE("n=%"UVuf, n);
 
     SRL_ITER_ASSERT_STACK(iter);
@@ -436,7 +428,7 @@ srl_step_in(pTHX_ srl_iterator_t *iter, UV n)
         SRL_ITER_ERRORf1("Failed to do %"UVuf" steps. Likely EOF was reached", n);
     }
 
-    DEBUG_ASSERT_RDR_SANE(iter);
+    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
 void
@@ -471,7 +463,7 @@ srl_next(pTHX_ srl_iterator_t *iter, UV n)
                           expected_depth, SRL_STACK_DEPTH(stack));
     }
 
-    DEBUG_ASSERT_RDR_SANE(iter);
+    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
 UV
