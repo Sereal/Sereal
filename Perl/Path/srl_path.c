@@ -104,11 +104,13 @@ srl_path_reset(pTHX_ srl_path_t *path, SV *src)
 void
 srl_traverse(pTHX_ srl_path_t *path, AV *expr, SV *route)
 {
+    SV *route_copy;
     if (!path->iter)
         croak("Set Iter first"); // TODO
 
     // TODO perhaps, copy query and route
-    srl_parse_next(path, expr, route);
+    route_copy = sv_2mortal(newSVsv(route));
+    srl_parse_next(path, expr, route_copy);
 }
 
 void
@@ -120,9 +122,17 @@ srl_parse_next(pTHX_ srl_path_t *path, AV *expr, SV *route)
     assert(expr != NULL);
     assert(route != NULL);
 
+    /* for (int i = 0; i <= av_top_index(expr); ++i) {
+        SV **sv = av_fetch(expr, i, 0);
+        STRLEN len;
+        SV *str = SvPV(*sv, len);
+        warn("%d => %.*s", i, (int) len, str);
+    } */
+
     if (srl_eof(iter)) return;
     if (av_top_index(expr) < 0) { // expr is empty
         SV *res = srl_decode(iter);
+        SvREFCNT_inc(res);
         av_push(path->results, res); // TODO store route if needed
         return;
     }
