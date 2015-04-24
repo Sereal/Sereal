@@ -2,6 +2,7 @@
 srl_encoder_t * O_OBJECT
 srl_decoder_t * O_OBJECT
 srl_merger_t  * O_OBJECT
+srl_path_t    * O_OBJECT
 srl_iterator_t * O_OBJECT
 
 # T_OBJECT

@@ -9,7 +9,7 @@ use Config;
 my $shared_dir = "../shared";
 my $in_source_repo = -d "../../.git" and -d $shared_dir;
 
-my $module = "Sereal::Path::Iterator";
+my $module = "Sereal::Path";
 
 unshift @INC, ".", "./inc";
 unshift @INC, $shared_dir, "$shared_dir/inc" if $in_source_repo;
@@ -26,7 +26,7 @@ inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
 our $OPTIMIZE;
 
 my $libs = '';
-my $objects = '$(BASEEXT)$(OBJ_EXT) srl_iterator$(OBJ_EXT)';
+my $objects = '$(BASEEXT)$(OBJ_EXT) srl_path$(OBJ_EXT)';
 my $defines = join " ", map "-D$_", grep exists $ENV{$_},
               qw(NOINLINE DEBUG MEMDEBUG NDEBUG ENABLE_DANGEROUS_HACKS);
 
@@ -122,12 +122,12 @@ WriteMakefile1(
         'ExtUtils::MakeMaker' => '7.0',
     },
     NAME              => $module,
-    VERSION_FROM      => 'lib/Sereal/Path/Iterator.pm', # finds $VERSION
+    VERSION_FROM      => 'lib/Sereal/Path.pm', # finds $VERSION
     PREREQ_PM         => {
         'XSLoader' => 0,
     }, # e.g., Module::Name => 1.1
     LICENSE => 'perl',
-    ABSTRACT_FROM     => 'lib/Sereal/Path/Iterator.pm',
+    ABSTRACT_FROM     => 'lib/Sereal/Path.pm',
     AUTHOR            => 'Ivan Kruglov <ivan.kruglov@yahoo.com>',
     LIBS              => [$libs], # e.g., '-lm'
     DEFINE            => $defines,

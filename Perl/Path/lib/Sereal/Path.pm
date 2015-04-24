@@ -1,32 +1,14 @@
 package Sereal::Path;
-
 use 5.008;
-use strict qw(vars refs);
+use strict;
+use warnings;
+use Carp qw/croak/;
+use XSLoader;
 
-our $AUTHORITY = 'cpan:IKRUGLOV';
-our $VERSION   = '0.1';
+our $VERSION    = '0.001';
+our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 
-use Carp;
-use Scalar::Util qw[blessed];
-use Sereal::Path::Iterator;
-
-sub new {
-    defined $_[1] or die "first argument must be defined";
-
-    my $iter;
-    if (blessed($_[1]) && $_[1]->isa(Sereal::Path::Iterator)) {
-        $iter = $_[1];
-    } else {
-        $iter = Sereal::Path::Iterator->new($_[1]);
-    }
-
-    bless {
-        iter       => $iter,
-        obj        => undef,
-        resultType => 'VALUE',
-        result     => [],
-    }, $_[0];
-}
+XSLoader::load(__PACKAGE__, $Sereal::Path::VERSION);
 
 sub _normalize {
     my ($self, $x) = @_;
@@ -39,112 +21,161 @@ sub _normalize {
     return $x;
 }
 
-sub _store {
-    my ($self, $path, $value) = @_;
-    push @{ $self->{'result'} }, ( $self->{'resultType'} eq "PATH"
-                                   ? $self->asPath($path)
-                                   : $value ) if $path;
-    return !!$path;
-}
-
 sub traverse {
-    my ($self, $expr) = @_;
-
-    my $norm = $self->_normalize($expr);
+    my ($self, $query) = @_;
+    my $norm = $self->_normalize($query);
     $norm =~ s/^\$;//;
-
-    $self->{iter}->reset;
-    #warn("norm=$norm");
-    return $self->_trace_next_object($norm, '$');
-}
-
-sub _trace_next_object {
-    my ($self, $expr, $path) = @_;
-    my $iter = $self->{iter};
-
-    #warn("_trace_next_object: expr=$expr path=$path");
-
-    return if $iter->eof;
-    return $self->_store($path, $iter->decode) if "$expr" eq '';
-    
-    my ($loc, $x);
-    {
-        my @x = split /\;/, $expr;
-        $loc  = shift @x;
-        $x    = join ';', @x;
-    }
-
-    my ($type, $cnt) = $iter->info;
-    #warn("_trace_next_object: type=$type cnt=$cnt loc=$loc odepth=" . $iter->stack_depth);
-
-    if ($type eq 'ARRAY') {
-        if ($loc =~ /^\-?[0-9]+$/) {
-            #warn("_trace_next_object: ARRAY loc=$loc");
-            $iter->step_in;
-            $iter->array_goto($loc);
-            return $self->_trace_next_object($x, "$path;$loc");
-        } elsif ($loc eq '*') {
-            $iter->step_in;
-            my $depth = $iter->stack_depth;
-            #warn("_trace_next_object: WALK ARRAY, depth=$depth");
-
-            foreach (1 .. $cnt) {
-                $depth == $iter->stack_depth or die "assert depth inside walking array failed";
-                #warn("_trace_next_object: WALK ARRAY offset=" . $iter->offset . " iter=$_ depth=$depth");
-
-                $self->_trace_next_object($x, $path);
-
-                #warn(sprintf('$iter->stack_depth > $depth (%s > %s)', $iter->stack_depth, $depth));
-                if ($iter->stack_depth > $depth) {
-                    #warn("_trace_next_object: WALK ARRAY srl_next_at_depth($depth)");
-                    $iter->srl_next_at_depth($depth)
-                }
-            }
-
-            $depth == $iter->stack_depth and die "assert depth after walking failed";
-        } elsif ($loc =~ m/\,/) {
-            $iter->step_in;
-            my $depth = $iter->stack_depth;
-            my @idxs = map { $_ >= 0 ? $_ : $cnt + $_ }
-                       grep { /^\-?[0-9]+$/ }
-                       split(/\,/, $loc);
-
-            # TODO verify that array is sorted
-            foreach my $idx (@idxs) {
-                $iter->array_goto($idx);
-                $self->_trace_next_object($x, "$path;$idx");
-                $iter->srl_next_at_depth($depth) if $iter->stack_depth > $depth;
-            }
-        }
-    } elsif ($type eq 'HASH') {
-        if ($loc eq '*') {
-        } elsif ($loc =~ m/\,/) {
-            $iter->step_in;
-            my $depth = $iter->stack_depth;
-            my @names = grep { $_ } split(/\,/, $loc);
-
-            foreach my $name (@names) {
-                $self->_trace_next_object($x, "$path;$name")
-                    if $iter->hash_exists($name);
-                $self->step_out();
-            }
-        } else {
-            $iter->step_in;
-            #warn("_trace_next_object: HASH depth=" . $iter->stack_depth);
-
-            if ($iter->hash_exists($loc)) {
-                #warn("_trace_next_object: HASH key found=$loc depth=" . $iter->stack_depth);
-                return $self->_trace_next_object($x, "$path;$loc");
-            }
-
-            #warn("_trace_next_object: HASH key not found=$loc depth=" . $iter->stack_depth . " offset=" . $iter->offset);
-        }
-    }
-
-    ##warn("_trace_next_object: end of function depth=" . $iter->stack_depth);
+    my @expr = split(/;/, $norm);
+    return $self->_traverse(\@expr, '$');
 }
 
 1;
+
+# use 5.008;
+# use strict qw(vars refs);
+
+# our $AUTHORITY = 'cpan:IKRUGLOV';
+# our $VERSION   = '0.1';
+
+# use Carp;
+# use Scalar::Util qw[blessed];
+# use Sereal::Path::Iterator;
+
+# sub new {
+    # defined $_[1] or die "first argument must be defined";
+
+    # my $iter;
+    # if (blessed($_[1]) && $_[1]->isa(Sereal::Path::Iterator)) {
+        # $iter = $_[1];
+    # } else {
+        # $iter = Sereal::Path::Iterator->new($_[1]);
+    # }
+
+    # bless {
+        # iter       => $iter,
+        # obj        => undef,
+        # resultType => 'VALUE',
+        # result     => [],
+    # }, $_[0];
+# }
+
+# sub _normalize {
+    # my ($self, $x) = @_;
+    # #$x =~ s/[\['](\??\(.*?\))[\]']/_callback_01($self,$1)/eg;
+    # $x =~ s/'?\.'?|\['?/;/g;
+    # $x =~ s/;;;|;;/;..;/g;
+    # $x =~ s/;\$|'?\]|'$//g;
+    # #$x =~ s/#([0-9]+)/_callback_02($self,$1)/eg;
+    # #$self->{'result'} = [];   # result array was temporarily used as a buffer
+    # return $x;
+# }
+
+# sub _store {
+    # my ($self, $path, $value) = @_;
+    # push @{ $self->{'result'} }, ( $self->{'resultType'} eq "PATH"
+                                   # ? $self->asPath($path)
+                                   # : $value ) if $path;
+    # return !!$path;
+# }
+
+# sub traverse {
+    # my ($self, $expr) = @_;
+
+    # my $norm = $self->_normalize($expr);
+    # $norm =~ s/^\$;//;
+
+    # $self->{iter}->reset;
+    # #warn("norm=$norm");
+    # return $self->_trace_next_object($norm, '$');
+# }
+
+# sub _trace_next_object {
+    # my ($self, $expr, $path) = @_;
+    # my $iter = $self->{iter};
+
+    # #warn("_trace_next_object: expr=$expr path=$path");
+
+    # return if $iter->eof;
+    # return $self->_store($path, $iter->decode) if "$expr" eq '';
+    
+    # my ($loc, $x);
+    # {
+        # my @x = split /\;/, $expr;
+        # $loc  = shift @x;
+        # $x    = join ';', @x;
+    # }
+
+    # my ($type, $cnt) = $iter->info;
+    # #warn("_trace_next_object: type=$type cnt=$cnt loc=$loc odepth=" . $iter->stack_depth);
+
+    # if ($type eq 'ARRAY') {
+        # if ($loc =~ /^\-?[0-9]+$/) {
+            # #warn("_trace_next_object: ARRAY loc=$loc");
+            # $iter->step_in;
+            # $iter->array_goto($loc);
+            # return $self->_trace_next_object($x, "$path;$loc");
+        # } elsif ($loc eq '*') {
+            # $iter->step_in;
+            # my $depth = $iter->stack_depth;
+            # #warn("_trace_next_object: WALK ARRAY, depth=$depth");
+
+            # foreach (1 .. $cnt) {
+                # $depth == $iter->stack_depth or die "assert depth inside walking array failed";
+                # #warn("_trace_next_object: WALK ARRAY offset=" . $iter->offset . " iter=$_ depth=$depth");
+
+                # $self->_trace_next_object($x, $path);
+
+                # #warn(sprintf('$iter->stack_depth > $depth (%s > %s)', $iter->stack_depth, $depth));
+                # if ($iter->stack_depth > $depth) {
+                    # #warn("_trace_next_object: WALK ARRAY srl_next_at_depth($depth)");
+                    # $iter->srl_next_at_depth($depth)
+                # }
+            # }
+
+            # $depth == $iter->stack_depth and die "assert depth after walking failed";
+        # } elsif ($loc =~ m/\,/) {
+            # $iter->step_in;
+            # my $depth = $iter->stack_depth;
+            # my @idxs = map { $_ >= 0 ? $_ : $cnt + $_ }
+                       # grep { /^\-?[0-9]+$/ }
+                       # split(/\,/, $loc);
+
+            # # TODO verify that array is sorted
+            # foreach my $idx (@idxs) {
+                # $iter->array_goto($idx);
+                # $self->_trace_next_object($x, "$path;$idx");
+                # $iter->srl_next_at_depth($depth) if $iter->stack_depth > $depth;
+            # }
+        # }
+    # } elsif ($type eq 'HASH') {
+        # if ($loc eq '*') {
+        # } elsif ($loc =~ m/\,/) {
+            # $iter->step_in;
+            # my $depth = $iter->stack_depth;
+            # my @names = grep { $_ } split(/\,/, $loc);
+
+            # foreach my $name (@names) {
+                # $self->_trace_next_object($x, "$path;$name")
+                    # if $iter->hash_exists($name);
+                # $self->step_out();
+            # }
+        # } else {
+            # $iter->step_in;
+            # #warn("_trace_next_object: HASH depth=" . $iter->stack_depth);
+
+            # if ($iter->hash_exists($loc)) {
+                # #warn("_trace_next_object: HASH key found=$loc depth=" . $iter->stack_depth);
+                # return $self->_trace_next_object($x, "$path;$loc");
+            # }
+
+            # #warn("_trace_next_object: HASH key not found=$loc depth=" . $iter->stack_depth . " offset=" . $iter->offset);
+        # }
+    # }
+
+    # ##warn("_trace_next_object: end of function depth=" . $iter->stack_depth);
+# }
+
+# 1;
 
 __END__
 

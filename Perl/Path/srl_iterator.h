@@ -5,17 +5,19 @@
 #include "perl.h"
 #include "srl_reader_types.h"
 
-typedef struct srl_stack * srl_stack_ptr;
+typedef struct srl_stack    * srl_stack_ptr;
+typedef struct srl_iterator * srl_iterator_ptr;
+typedef struct srl_iterator srl_iterator_t;
 
 /* the iterator main struct */
-typedef struct {
+struct srl_iterator {
     srl_reader_buffer_t buf;
     srl_reader_buffer_ptr pbuf;
     srl_stack_ptr stack;
     UV first_tag_offset;
     SV *tmp_buf_owner;
     void *dec; // srl_decoder object
-}  srl_iterator_t;
+};
 
 /* constructor/destructor */
 srl_iterator_t *srl_build_iterator_struct(pTHX_ HV *opt);
