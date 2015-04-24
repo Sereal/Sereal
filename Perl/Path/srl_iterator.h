@@ -36,10 +36,10 @@ UV srl_offset(pTHX_ srl_iterator_t *iter);
 /* expose stack status */
 IV srl_stack_depth(pTHX_ srl_iterator_t *iter);
 UV srl_stack_index(pTHX_ srl_iterator_t *iter);
-SV * srl_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr);
+UV srl_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr);
 
 /* information about current object */
-SV * srl_object_info(pTHX_ srl_iterator_t *iter, UV *length_ptr);
+UV srl_object_info(pTHX_ srl_iterator_t *iter, UV *length_ptr);
 
 /* array parsing */
 void srl_array_goto(pTHX_ srl_iterator_t *iter, I32 idx);
@@ -49,5 +49,9 @@ SV * srl_hash_key(pTHX_ srl_iterator_t *iter);
 IV srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name);
 
 SV * srl_decode(pTHX_ srl_iterator_t *iter);
+
+#define SRL_ITER_OBJ_IS_SCALAR  (1 << 1)
+#define SRL_ITER_OBJ_IS_ARRAY   (1 << 2)
+#define SRL_ITER_OBJ_IS_HASH    (1 << 3)
 
 #endif

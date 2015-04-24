@@ -784,18 +784,16 @@ srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name)
     return SRL_KEY_NO_FOUND;
 }
 
-SV *
+UV
 srl_object_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
 {
     U8 tag;
-    UV length, offset;
-    SV *type = sv_2mortal(FRESH_SV());
+    UV length, offset, type = 0;
     srl_reader_char_ptr orig_pos = iter->buf.pos;
 
-    assert(length_ptr);
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 
-    *length_ptr = 0;
+    if (length_ptr) *length_ptr = 0;
 
 read_again:
     SRL_ITER_ASSERT_EOF(iter, "serialized object");
@@ -812,23 +810,23 @@ read_again:
             goto read_again;
 
         case SRL_HDR_HASH:
-            *length_ptr = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading HASH");
-            sv_setpv(type, "HASH");
+            type = SRL_ITER_OBJ_IS_HASH;
+            if (length_ptr) *length_ptr = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading HASH");
             break;
 
         CASE_SRL_HDR_HASHREF:
-            *length_ptr = SRL_HDR_HASHREF_LEN_FROM_TAG(tag);
-            sv_setpv(type, "HASH");
+            type = SRL_ITER_OBJ_IS_HASH;
+            if (length_ptr) *length_ptr = SRL_HDR_HASHREF_LEN_FROM_TAG(tag);
             break;
 
         case SRL_HDR_ARRAY:
-            *length_ptr = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading ARRAY");
-            sv_setpv(type, "ARRAY");
+            type = SRL_ITER_OBJ_IS_ARRAY;
+            if (length_ptr) *length_ptr = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading ARRAY");
             break;
 
         CASE_SRL_HDR_ARRAYREF:
-            *length_ptr = SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag);
-            sv_setpv(type, "ARRAY");
+            type = SRL_ITER_OBJ_IS_ARRAY;
+            if (length_ptr) *length_ptr = SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag);
             break;
 
         CASE_SRL_HDR_POS:
@@ -845,13 +843,13 @@ read_again:
         case SRL_HDR_FALSE:
         case SRL_HDR_UNDEF:
         case SRL_HDR_CANONICAL_UNDEF:
-            sv_setpv(type, "SCALAR");
+            type = SRL_ITER_OBJ_IS_SCALAR;
             break;
 
-        case SRL_HDR_COPY:
+        /* case SRL_HDR_COPY:
             offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading COPY tag");
             iter->buf.pos = iter->buf.body_pos + offset;
-            goto read_again;
+            goto read_again; */ // TODO
 
         default:
             iter->buf.pos = orig_pos;
@@ -860,7 +858,6 @@ read_again:
 
     iter->buf.pos = orig_pos;
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
-
     return type;
 }
 
@@ -879,35 +876,29 @@ srl_stack_index(pTHX_ srl_iterator_t *iter)
     return (UV) (iter->stack->ptr->count - iter->stack->ptr->idx);
 }
 
-SV *
+UV
 srl_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
 {
+    UV type = 0;
     srl_stack_t *stack = iter->stack;
     srl_stack_type_t *stack_ptr = stack->ptr;
-    SV *type = sv_2mortal(FRESH_SV());
 
     SRL_ITER_ASSERT_STACK(iter);
-    *length_ptr = stack_ptr->count; 
+    if (length_ptr) *length_ptr = stack_ptr->count;
 
     switch (stack_ptr->tag) {
         case SRL_HDR_HASH:
-            sv_setpv(type, "HASH");
-            break;
-
         CASE_SRL_HDR_HASHREF:
-            sv_setpv(type, "HASH");
+            type = SRL_ITER_OBJ_IS_HASH;
             break;
 
         case SRL_HDR_ARRAY:
-            sv_setpv(type, "ARRAY");
-            break;
-
         CASE_SRL_HDR_ARRAYREF:
-            sv_setpv(type, "ARRAY");
+            type = SRL_ITER_OBJ_IS_ARRAY;
             break;
 
         default:
-            SRL_RDR_ERROR_UNEXPECTED(iter->pbuf, stack_ptr->tag, "ARRAY or HASH or SCALAR");
+            SRL_RDR_ERROR_UNEXPECTED(iter->pbuf, stack_ptr->tag, "ARRAY or HASH");
     }
 
     return type;

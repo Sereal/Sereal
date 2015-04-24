@@ -88,13 +88,29 @@ void
 info(iter)
     srl_iterator_t *iter;
   PREINIT:
-    SV *type;
+    UV type;
     UV length;
+    SV *str_type;
   PPCODE:
-    type = srl_object_info(iter, &length);
+    switch (srl_object_info(iter, &length)) {
+        case SRL_ITER_OBJ_IS_ARRAY:
+            str_type = newSVpv("ARRAY", 5);
+            break;
+
+        case SRL_ITER_OBJ_IS_HASH:
+            str_type = newSVpv("HASH", 4);
+            break;
+
+        case SRL_ITER_OBJ_IS_SCALAR:
+            str_type = newSVpv("SCALAR", 6);
+            break;
+
+        default:
+            croak("should not be here");
+    }
 
     EXTEND(SP, 2);
-    PUSHs(type);
+    PUSHs(sv_2mortal(str_type));
     PUSHs(sv_2mortal(newSVuv(length)));
 
 IV
@@ -115,13 +131,25 @@ void
 stack_info(iter)
     srl_iterator_t *iter;
   PREINIT:
-    SV *type;
+    UV type;
     UV length;
+    SV *str_type;
   PPCODE:
-    type = srl_stack_info(iter, &length);
+    switch (srl_stack_info(iter, &length)) {
+        case SRL_ITER_OBJ_IS_ARRAY:
+            str_type = newSVpv("ARRAY", 5);
+            break;
+
+        case SRL_ITER_OBJ_IS_HASH:
+            str_type = newSVpv("HASH", 4);
+            break;
+
+        default:
+            croak("should not be here");
+    }
 
     EXTEND(SP, 2);
-    PUSHs(type);
+    PUSHs(sv_2mortal(str_type));
     PUSHs(sv_2mortal(newSVuv(length)));
 
 void
