@@ -35,6 +35,14 @@ reset(path, src)
   CODE:
     srl_path_reset(path, src);
 
+SV *
+results(path)
+    srl_path_t *path;
+  CODE:
+    RETVAL = srl_path_results(aTHX_ path);
+    SvREFCNT_inc(RETVAL); // XXX ????
+  OUTPUT: RETVAL
+
 void
 _traverse(path, expr, route)
     srl_path_t *path;

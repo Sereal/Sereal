@@ -15,5 +15,6 @@ srl_path_t * srl_build_path_struct(pTHX_ HV *opt);
 void srl_destroy_path(pTHX_ srl_path_t *path);
 void srl_path_reset(pTHX_ srl_path_t *path, SV *src);
 void srl_path_traverse(pTHX_ srl_path_t *path, AV *expr, SV *route);
+SV * srl_path_results(pTHX_ srl_path_t *path);
 
 #endif
