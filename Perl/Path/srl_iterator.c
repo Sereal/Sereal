@@ -575,13 +575,14 @@ srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
     assert(stack->ptr->idx == s_idx);
 }
 
-SV *
-srl_iterator_hash_key(pTHX_ srl_iterator_t *iter)
+const char *
+srl_iterator_hash_key(pTHX_ srl_iterator_t *iter, STRLEN *len_out)
 {
     U8 tag;
-    SV *result;
     UV length, offset;
+    const char *result = NULL;
     srl_reader_char_ptr orig_pos = iter->buf.pos;
+    *len_out = 0;
 
     SRL_ITER_ASSERT_EOF(iter, "stringish");
     SRL_ITER_ASSERT_STACK(iter);
@@ -646,10 +647,19 @@ srl_iterator_hash_key(pTHX_ srl_iterator_t *iter)
         SRL_RDR_ERROR_EOF(iter->pbuf, "string content");
     }
 
-    result = sv_2mortal(newSVpvn((const char *) iter->buf.pos, length));
+    *len_out = length;
+    result = (const char *) iter->buf.pos;
     iter->buf.pos = orig_pos; // restore original position
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     return result;
+}
+
+SV *
+srl_iterator_hash_key_sv(pTHX_ srl_iterator_t *iter)
+{
+    STRLEN length;
+    const char *str = srl_iterator_hash_key(aTHX_ iter, &length);
+    return sv_2mortal(newSVpvn(str, length));
 }
 
 /* Function looks for name key in current hash. If the key is found, the function stops

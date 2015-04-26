@@ -171,7 +171,7 @@ SV *
 hash_key(iter)
     srl_iterator_t *iter;
   CODE:
-    RETVAL = srl_iterator_hash_key(iter);
+    RETVAL = srl_iterator_hash_key_sv(iter);
     SvREFCNT_inc(RETVAL);
   OUTPUT: RETVAL
 

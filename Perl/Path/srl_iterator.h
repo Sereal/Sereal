@@ -57,7 +57,8 @@ UV srl_iterator_object_info(pTHX_ srl_iterator_t *iter, UV *length_ptr);
 void srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx);
 
 /* hash parsing */
-SV * srl_iterator_hash_key(pTHX_ srl_iterator_t *iter);
+const char * srl_iterator_hash_key(pTHX_ srl_iterator_t *iter, STRLEN *len_out);
+SV * srl_iterator_hash_key_sv(pTHX_ srl_iterator_t *iter);
 IV srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN name_len);
 IV srl_iterator_hash_exists_sv(pTHX_ srl_iterator_t *iter, SV *name);
 
