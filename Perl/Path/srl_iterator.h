@@ -40,7 +40,7 @@ void srl_iterator_reset(pTHX_ srl_iterator_t *iter);
 void srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n);
 void srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n);
 void srl_iterator_step_out(pTHX_ srl_iterator_t *iter, UV n);
-UV srl_iterator_next_at_depth(pTHX_ srl_iterator_t *iter, UV depth);
+UV srl_iterator_next_until_depth(pTHX_ srl_iterator_t *iter, UV depth);
 UV srl_iterator_offset(pTHX_ srl_iterator_t *iter);
 UV srl_iterator_eof(pTHX_ srl_iterator_t *iter);
 

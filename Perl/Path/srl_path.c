@@ -313,7 +313,7 @@ srl_parse_array(pTHX_ srl_path_t *path, int expr_idx, SV *route)
             assert(srl_iterator_stack_depth(iter) == depth);
             srl_parse_next_int(path, expr_idx + 1, route, array_idx);
             if (srl_iterator_stack_depth(iter) > depth)
-                srl_iterator_next_at_depth(iter, depth);
+                srl_iterator_next_until_depth(iter, depth);
         }
     } else if (is_number(loc_str, loc_len)) {                                           // [10]
         I32 array_idx = atoi(loc_str);

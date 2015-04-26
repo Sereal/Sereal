@@ -469,11 +469,11 @@ srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n)
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
-/* srl_iterator_next_at_depth() moves iterator forward until expected stack level (depth)
+/* srl_iterator_next_until_depth() moves iterator forward until expected stack level (depth)
  * is reached. It can only go down the stack. */
 
 UV
-srl_iterator_next_at_depth(pTHX_ srl_iterator_t *iter, UV expected_depth) {
+srl_iterator_next_until_depth(pTHX_ srl_iterator_t *iter, UV expected_depth) {
     srl_stack_t *stack = iter->stack;
     IV current_depth = SRL_STACK_DEPTH(stack);
 
@@ -482,7 +482,7 @@ srl_iterator_next_at_depth(pTHX_ srl_iterator_t *iter, UV expected_depth) {
 
     SRL_ITER_ASSERT_STACK(iter);
     if (expect_false((IV) expected_depth > current_depth)) {
-        SRL_ITER_ERRORf2("srl_iterator_next_at_depth() can only go downstairs,"
+        SRL_ITER_ERRORf2("srl_iterator_next_until_depth() can only go downstairs,"
                          "so expect_depth=%"UVuf" > current_depth=%"IVdf,
                          expected_depth, current_depth);
     }
