@@ -48,7 +48,8 @@ void srl_array_goto(pTHX_ srl_iterator_t *iter, I32 idx);
 
 /* hash parsing */
 SV * srl_hash_key(pTHX_ srl_iterator_t *iter);
-IV srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name);
+IV srl_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN name_len);
+IV srl_hash_exists_sv(pTHX_ srl_iterator_t *iter, SV *name);
 
 SV * srl_decode(pTHX_ srl_iterator_t *iter);
 

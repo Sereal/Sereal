@@ -668,13 +668,11 @@ srl_hash_key(pTHX_ srl_iterator_t *iter)
  * entire hash and stops after the end of the hash */
 
 IV
-srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name)
+srl_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN name_len)
 {
     U8 tag;
-    STRLEN name_len;
     UV length, offset, idx;
     const char *key_ptr;
-    const char *name_ptr = SvPV(name, name_len);
 
     srl_stack_t *stack = iter->stack;
     IV stack_depth = SRL_STACK_DEPTH(stack);
@@ -687,7 +685,7 @@ srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name)
 
     assert(stack_ptr->idx > 0);
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
-    SRL_ITER_TRACE("name=%.*s", (int) name_len, name_ptr);
+    SRL_ITER_TRACE("name=%.*s", (int) name_len, name);
 
     /* if key is not in the hash and we're processeing
      * last last element, stack can be empty here */
@@ -764,10 +762,10 @@ srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name)
         }
 
         if (   length == name_len
-            && strncmp(name_ptr, key_ptr, name_len) == 0)
+            && strncmp(name, key_ptr, name_len) == 0)
         {
             SRL_ITER_TRACE("Iterator: found key '%.*s' at offset %"UVuf,
-                         (int) name_len, name_ptr, SRL_RDR_BODY_POS_OFS(iter->pbuf));
+                         (int) name_len, name, SRL_RDR_BODY_POS_OFS(iter->pbuf));
             return SRL_RDR_BODY_POS_OFS(iter->pbuf);
         }
 
@@ -780,8 +778,16 @@ srl_hash_exists(pTHX_ srl_iterator_t *iter, SV *name)
     }
 
     /* XXX what if stack_ptr->idx == 0 here ??? */
-    SRL_ITER_TRACE("Iterator: didn't found key '%.*s'", (int) name_len, name_ptr);
+    SRL_ITER_TRACE("Iterator: didn't found key '%.*s'", (int) name_len, name);
     return SRL_KEY_NO_FOUND;
+}
+
+IV
+srl_hash_exists_sv(pTHX_ srl_iterator_t *iter, SV *name)
+{
+    STRLEN name_len;
+    const char *name_ptr = SvPV(name, name_len);
+    return srl_hash_exists(aTHX_ iter, name_ptr, name_len);
 }
 
 UV

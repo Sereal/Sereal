@@ -164,7 +164,7 @@ hash_exists(iter, name)
     srl_iterator_t *iter;
     SV *name;
   CODE:
-    RETVAL = srl_hash_exists(iter, name);
+    RETVAL = srl_hash_exists_sv(iter, name);
   OUTPUT: RETVAL
 
 SV *
