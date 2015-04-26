@@ -19,7 +19,7 @@ new(CLASS, src = NULL, opt = NULL)
     HV *opt;
   CODE:
     RETVAL = srl_build_iterator_struct(aTHX_ opt);
-    if (src) srl_set_document(RETVAL, src);
+    if (src) srl_iterator_set_document(RETVAL, src);
   OUTPUT: RETVAL
 
 void
@@ -33,19 +33,19 @@ set_document(iter, src)
     srl_iterator_t *iter;
     SV *src;
   CODE:
-    srl_set_document(iter, src);
+    srl_iterator_set_document(iter, src);
 
 void
 reset(iter)
     srl_iterator_t *iter;
   CODE:
-    srl_reset(iter);
+    srl_iterator_reset(iter);
 
 UV
 eof(iter)
     srl_iterator_t *iter;
   CODE:
-    RETVAL = srl_eof(iter);
+    RETVAL = srl_iterator_eof(iter);
   OUTPUT: RETVAL
 
 void
@@ -53,35 +53,35 @@ next(iter, n = NULL)
     srl_iterator_t *iter;
     SV *n;
   CODE:
-    srl_next(iter, n ? SvUV(n) : 1);
+    srl_iterator_next(iter, n ? SvUV(n) : 1);
 
 void
 step_in(iter, n = NULL)
     srl_iterator_t *iter;
     SV *n;
   CODE:
-    srl_step_in(iter, n ? SvUV(n) : 1);
+    srl_iterator_step_in(iter, n ? SvUV(n) : 1);
 
 void
 step_out(iter, n = NULL)
     srl_iterator_t *iter;
     SV *n;
   CODE:
-    srl_step_out(iter, n ? SvUV(n) : 1);
+    srl_iterator_step_out(iter, n ? SvUV(n) : 1);
 
 UV
 srl_next_at_depth(iter, depth)
     srl_iterator_t *iter;
     UV depth;
   CODE:
-    RETVAL = srl_next_at_depth(iter, depth);
+    RETVAL = srl_iterator_next_at_depth(iter, depth);
   OUTPUT: RETVAL
 
 UV
 offset(iter)
     srl_iterator_t *iter;
   CODE:
-    RETVAL = srl_offset(iter);
+    RETVAL = srl_iterator_offset(iter);
   OUTPUT: RETVAL
 
 void
@@ -92,16 +92,16 @@ info(iter)
     UV length;
     SV *str_type;
   PPCODE:
-    switch (srl_object_info(iter, &length)) {
-        case SRL_ITER_OBJ_IS_ARRAY:
+    switch (srl_iterator_object_info(iter, &length)) {
+        case SRL_ITERATOR_OBJ_IS_ARRAY:
             str_type = newSVpv("ARRAY", 5);
             break;
 
-        case SRL_ITER_OBJ_IS_HASH:
+        case SRL_ITERATOR_OBJ_IS_HASH:
             str_type = newSVpv("HASH", 4);
             break;
 
-        case SRL_ITER_OBJ_IS_SCALAR:
+        case SRL_ITERATOR_OBJ_IS_SCALAR:
             str_type = newSVpv("SCALAR", 6);
             break;
 
@@ -117,14 +117,14 @@ IV
 stack_depth(iter)
     srl_iterator_t *iter;
   CODE:
-    RETVAL = srl_stack_depth(iter);
+    RETVAL = srl_iterator_stack_depth(iter);
   OUTPUT: RETVAL
 
 UV
 stack_index(iter)
     srl_iterator_t *iter;
   CODE:
-    RETVAL = srl_stack_index(iter);
+    RETVAL = srl_iterator_stack_index(iter);
   OUTPUT: RETVAL
 
 void
@@ -135,12 +135,12 @@ stack_info(iter)
     UV length;
     SV *str_type;
   PPCODE:
-    switch (srl_stack_info(iter, &length)) {
-        case SRL_ITER_OBJ_IS_ARRAY:
+    switch (srl_iterator_stack_info(iter, &length)) {
+        case SRL_ITERATOR_OBJ_IS_ARRAY:
             str_type = newSVpv("ARRAY", 5);
             break;
 
-        case SRL_ITER_OBJ_IS_HASH:
+        case SRL_ITERATOR_OBJ_IS_HASH:
             str_type = newSVpv("HASH", 4);
             break;
 
@@ -157,21 +157,21 @@ array_goto(iter, idx)
     srl_iterator_t *iter;
     IV idx;
   CODE:
-    srl_array_goto(iter, idx);
+    srl_iterator_array_goto(iter, idx);
 
 IV
 hash_exists(iter, name)
     srl_iterator_t *iter;
     SV *name;
   CODE:
-    RETVAL = srl_hash_exists_sv(iter, name);
+    RETVAL = srl_iterator_hash_exists_sv(iter, name);
   OUTPUT: RETVAL
 
 SV *
 hash_key(iter)
     srl_iterator_t *iter;
   CODE:
-    RETVAL = srl_hash_key(iter);
+    RETVAL = srl_iterator_hash_key(iter);
     SvREFCNT_inc(RETVAL);
   OUTPUT: RETVAL
 
@@ -179,6 +179,6 @@ SV *
 decode(iter)
     srl_iterator_t *iter;
   CODE:
-    RETVAL = srl_decode(iter);
+    RETVAL = srl_iterator_decode(iter);
     SvREFCNT_inc(RETVAL);
   OUTPUT: RETVAL

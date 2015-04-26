@@ -131,11 +131,11 @@ extern "C" {
 } STMT_END
 
 /* function declaration */
-SRL_STATIC_INLINE void srl_step_internal(pTHX_ srl_iterator_t *iter);
+SRL_STATIC_INLINE void srl_iterator_step_internal(pTHX_ srl_iterator_t *iter);
 
 /* wrappers */
-UV srl_eof(pTHX_ srl_iterator_t *iter)                { return SRL_RDR_DONE(iter->pbuf) ? 1 : 0; }
-UV srl_offset(pTHX_ srl_iterator_t *iter)             { return SRL_RDR_BODY_POS_OFS(iter->pbuf); }
+UV srl_iterator_eof(pTHX_ srl_iterator_t *iter)     { return SRL_RDR_DONE(iter->pbuf) ? 1 : 0; }
+UV srl_iterator_offset(pTHX_ srl_iterator_t *iter)  { return SRL_RDR_BODY_POS_OFS(iter->pbuf); }
 
 SRL_STATIC_INLINE const char *
 srl_debug_tabulator(pTHX_ srl_iterator_t *iter)
@@ -206,7 +206,7 @@ srl_destroy_iterator(pTHX_ srl_iterator_t *iter)
 }
 
 void
-srl_set_document(pTHX_ srl_iterator_t *iter, SV *src)
+srl_iterator_set_document(pTHX_ srl_iterator_t *iter, SV *src)
 {
     STRLEN len;
     UV header_len;
@@ -264,11 +264,11 @@ srl_set_document(pTHX_ srl_iterator_t *iter, SV *src)
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 
     iter->first_tag_offset = SRL_RDR_BODY_POS_OFS(iter->pbuf);
-    srl_reset(aTHX_ iter);
+    srl_iterator_reset(aTHX_ iter);
 }
 
 void
-srl_reset(pTHX_ srl_iterator_t *iter)
+srl_iterator_reset(pTHX_ srl_iterator_t *iter)
 {
     U8 tag = '\0';
     SRL_ITER_TRACE();
@@ -280,7 +280,7 @@ srl_reset(pTHX_ srl_iterator_t *iter)
 
 /* Main routine. Caller must ensure that EOF is NOT reached */
 SRL_STATIC_INLINE void
-srl_step_internal(pTHX_ srl_iterator_t *iter)
+srl_iterator_step_internal(pTHX_ srl_iterator_t *iter)
 {
     U8 tag;
     UV length;
@@ -403,7 +403,7 @@ read_again:
 }
 
 void
-srl_step_in(pTHX_ srl_iterator_t *iter, UV n)
+srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
 {
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     SRL_ITER_TRACE("n=%"UVuf, n);
@@ -412,7 +412,7 @@ srl_step_in(pTHX_ srl_iterator_t *iter, UV n)
     if (expect_false(n == 0)) return;
 
     while (expect_true(SRL_RDR_NOT_DONE(iter->pbuf))) {
-        srl_step_internal(aTHX_ iter);
+        srl_iterator_step_internal(aTHX_ iter);
 
         if (--n == 0) {
             SRL_ITER_TRACE("Iterator: Did expected number of steps");
@@ -428,7 +428,7 @@ srl_step_in(pTHX_ srl_iterator_t *iter, UV n)
 }
 
 void
-srl_next(pTHX_ srl_iterator_t *iter, UV n)
+srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n)
 {
     srl_stack_t *stack = iter->stack;
     IV expected_depth = SRL_STACK_DEPTH(stack);
@@ -442,7 +442,7 @@ srl_next(pTHX_ srl_iterator_t *iter, UV n)
         SRL_ITER_ERROR("Nothing to parse at this depth");
 
     while (expect_true(SRL_RDR_NOT_DONE(iter->pbuf))) {
-        srl_step_internal(aTHX_ iter);
+        srl_iterator_step_internal(aTHX_ iter);
 
         if (SRL_STACK_DEPTH(stack) <= expected_depth && --n == 0) {
             SRL_ITER_TRACE("Iterator: Did expected number of steps at depth %"IVdf, expected_depth);
@@ -463,7 +463,7 @@ srl_next(pTHX_ srl_iterator_t *iter, UV n)
 }
 
 UV
-srl_next_at_depth(pTHX_ srl_iterator_t *iter, UV expected_depth) {
+srl_iterator_next_at_depth(pTHX_ srl_iterator_t *iter, UV expected_depth) {
     srl_stack_t *stack = iter->stack;
     IV current_depth = SRL_STACK_DEPTH(stack);
 
@@ -475,13 +475,13 @@ srl_next_at_depth(pTHX_ srl_iterator_t *iter, UV expected_depth) {
         return current_depth;
 
     if (expect_false((IV) expected_depth > current_depth)) {
-        SRL_ITER_ERRORf2("srl_next_at_depth() can only go downstairs,"
+        SRL_ITER_ERRORf2("srl_iterator_next_at_depth() can only go downstairs,"
                          "so expect_depth=%"UVuf" > current_depth=%"IVdf,
                          expected_depth, current_depth);
     }
 
     while (expect_true(SRL_RDR_NOT_DONE(iter->pbuf))) {
-        srl_step_internal(aTHX_ iter);
+        srl_iterator_step_internal(aTHX_ iter);
 
         current_depth = SRL_STACK_DEPTH(stack);
         SRL_ITER_TRACE("Iterator: current_depth=%"IVdf" expected_depth=%"UVuf, current_depth, expected_depth);
@@ -508,7 +508,7 @@ srl_next_at_depth(pTHX_ srl_iterator_t *iter, UV expected_depth) {
 }
 
 void
-srl_step_out(pTHX_ srl_iterator_t *iter, UV n)
+srl_iterator_step_out(pTHX_ srl_iterator_t *iter, UV n)
 {
     UV offset;
     srl_stack_t *stack = iter->stack;
@@ -536,7 +536,7 @@ srl_step_out(pTHX_ srl_iterator_t *iter, UV n)
 }
 
 void
-srl_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
+srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
 {
     U32 s_idx;
     srl_stack_t *stack = iter->stack;
@@ -570,12 +570,12 @@ srl_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
                          idx, stack->ptr->count);
     }
 
-    srl_next(aTHX_ iter, stack->ptr->idx - s_idx);
+    srl_iterator_next(aTHX_ iter, stack->ptr->idx - s_idx);
     assert(stack->ptr->idx == s_idx);
 }
 
 SV *
-srl_hash_key(pTHX_ srl_iterator_t *iter)
+srl_iterator_hash_key(pTHX_ srl_iterator_t *iter)
 {
     U8 tag;
     SV *result;
@@ -656,7 +656,7 @@ srl_hash_key(pTHX_ srl_iterator_t *iter)
  * entire hash and stops after the end of the hash */
 
 IV
-srl_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN name_len)
+srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN name_len)
 {
     U8 tag;
     UV length, offset, idx;
@@ -682,7 +682,7 @@ srl_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN name_len)
         assert(iter->stack->ptr == stack_ptr);
         DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 
-        /* at the end of an iteration we call srl_next which can
+        /* at the end of an iteration we call srl_iterator_next which can
          * lead to invalid stack pointer (moved below current stack)
          * if current pair is the last on in hash. In order to correctly handle
          * this case we store stack index BEFORE processing and check it later */
@@ -757,7 +757,7 @@ srl_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN name_len)
             return SRL_RDR_BODY_POS_OFS(iter->pbuf);
         }
 
-        srl_next(aTHX_ iter, 1);
+        srl_iterator_next(aTHX_ iter, 1);
         if (--idx == 0) break;
 
         /* stack might have been modified */
@@ -771,15 +771,15 @@ srl_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN name_len)
 }
 
 IV
-srl_hash_exists_sv(pTHX_ srl_iterator_t *iter, SV *name)
+srl_iterator_hash_exists_sv(pTHX_ srl_iterator_t *iter, SV *name)
 {
     STRLEN name_len;
     const char *name_ptr = SvPV(name, name_len);
-    return srl_hash_exists(aTHX_ iter, name_ptr, name_len);
+    return srl_iterator_hash_exists(aTHX_ iter, name_ptr, name_len);
 }
 
 UV
-srl_object_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
+srl_iterator_object_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
 {
     U8 tag;
     UV length, offset, type = 0;
@@ -804,22 +804,22 @@ read_again:
             goto read_again;
 
         case SRL_HDR_HASH:
-            type = SRL_ITER_OBJ_IS_HASH;
+            type = SRL_ITERATOR_OBJ_IS_HASH;
             if (length_ptr) *length_ptr = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading HASH");
             break;
 
         CASE_SRL_HDR_HASHREF:
-            type = SRL_ITER_OBJ_IS_HASH;
+            type = SRL_ITERATOR_OBJ_IS_HASH;
             if (length_ptr) *length_ptr = SRL_HDR_HASHREF_LEN_FROM_TAG(tag);
             break;
 
         case SRL_HDR_ARRAY:
-            type = SRL_ITER_OBJ_IS_ARRAY;
+            type = SRL_ITERATOR_OBJ_IS_ARRAY;
             if (length_ptr) *length_ptr = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading ARRAY");
             break;
 
         CASE_SRL_HDR_ARRAYREF:
-            type = SRL_ITER_OBJ_IS_ARRAY;
+            type = SRL_ITERATOR_OBJ_IS_ARRAY;
             if (length_ptr) *length_ptr = SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag);
             break;
 
@@ -837,7 +837,7 @@ read_again:
         case SRL_HDR_FALSE:
         case SRL_HDR_UNDEF:
         case SRL_HDR_CANONICAL_UNDEF:
-            type = SRL_ITER_OBJ_IS_SCALAR;
+            type = SRL_ITERATOR_OBJ_IS_SCALAR;
             break;
 
         /* case SRL_HDR_COPY:
@@ -862,14 +862,14 @@ srl_iterator_stack(pTHX_ srl_iterator_t *iter)
 }
 
 IV
-srl_stack_depth(pTHX_ srl_iterator_t *iter)
+srl_iterator_stack_depth(pTHX_ srl_iterator_t *iter)
 {
     //SRL_ITER_ASSERT_STACK(iter);
     return SRL_STACK_DEPTH(iter->stack);
 }
 
 UV
-srl_stack_index(pTHX_ srl_iterator_t *iter)
+srl_iterator_stack_index(pTHX_ srl_iterator_t *iter)
 {
     SRL_ITER_ASSERT_STACK(iter);
     assert(iter->stack->ptr->count >= iter->stack->ptr->idx); 
@@ -877,7 +877,7 @@ srl_stack_index(pTHX_ srl_iterator_t *iter)
 }
 
 UV
-srl_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
+srl_iterator_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
 {
     UV type = 0;
     srl_stack_t *stack = iter->stack;
@@ -889,12 +889,12 @@ srl_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
     switch (stack_ptr->tag) {
         case SRL_HDR_HASH:
         CASE_SRL_HDR_HASHREF:
-            type = SRL_ITER_OBJ_IS_HASH;
+            type = SRL_ITERATOR_OBJ_IS_HASH;
             break;
 
         case SRL_HDR_ARRAY:
         CASE_SRL_HDR_ARRAYREF:
-            type = SRL_ITER_OBJ_IS_ARRAY;
+            type = SRL_ITERATOR_OBJ_IS_ARRAY;
             break;
 
         default:
@@ -905,7 +905,7 @@ srl_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
 }
 
 SV *
-srl_decode(pTHX_ srl_iterator_t *iter)
+srl_iterator_decode(pTHX_ srl_iterator_t *iter)
 {
     SV *into = sv_2mortal(newSV_type(SVt_NULL));
     if (!iter->dec)
