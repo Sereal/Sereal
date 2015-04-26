@@ -13,6 +13,7 @@ extern "C" {
 #endif
 
 #include <stdlib.h>
+#include <assert.h>
 
 #ifndef PERL_VERSION
 #    include <patchlevel.h>

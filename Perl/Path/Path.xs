@@ -44,4 +44,4 @@ _traverse(path, expr, route)
     if (SvTYPE(expr) != SVt_RV) croak("query mush be arrayref");
     expr = SvRV(expr);
     if (SvTYPE(expr) != SVt_PVAV) croak("query mush be arrayref");
-    srl_traverse(path, (AV*) expr, route);
+    srl_path_traverse(path, (AV*) expr, route);

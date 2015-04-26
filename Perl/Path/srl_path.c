@@ -13,6 +13,7 @@ extern "C" {
 #endif
 
 #include <stdlib.h>
+#include <assert.h>
 
 #ifndef PERL_VERSION
 #    include <patchlevel.h>
@@ -41,24 +42,27 @@ extern "C" {
 #define HAS_SV2OBJ
 #endif
 
-#ifndef NDEBUG
-#   define TRACE_READER 1
-#   define TRACE_STACK 1
-#endif
-
 #include "srl_common.h"
 #include "srl_inline.h"
 #include "srl_protocol.h"
 #include "srl_path.h"
+#include "srl_iterator.h"
 #include "srl_reader_error.h"
 
-#include "srl_iterator.h"
-#include "srl_iterator.c"
+SRL_STATIC_INLINE void srl_parse_next(pTHX_ srl_path_t *path, int expr_idx, SV *route);
+SRL_STATIC_INLINE void srl_parse_next_int(pTHX_ srl_path_t *path, int expr_idx, SV *route, UV n);
+SRL_STATIC_INLINE void srl_parse_next_str(pTHX_ srl_path_t *path, int expr_idx, SV *route,
+                                          const char *str, STRLEN len);
 
-void srl_parse_next(pTHX_ srl_path_t *path, AV *expr, SV *route);
-void srl_parse_hash(pTHX_ srl_path_t *path, SV *loc, AV *expr, SV *route);
-void srl_parse_array(pTHX_ srl_path_t *path, SV *loc, AV *expr, SV *route);
-int is_number(const char *str, size_t len);
+SRL_STATIC_INLINE void srl_parse_hash(pTHX_ srl_path_t *path, int expr_idx, SV *route);
+SRL_STATIC_INLINE void srl_parse_array(pTHX_ srl_path_t *path, int expr_idx, SV *route);
+
+SRL_STATIC_INLINE int is_all(const char *str, STRLEN len);
+SRL_STATIC_INLINE int is_list(const char *str, STRLEN len);
+SRL_STATIC_INLINE int is_number(const char *str, STRLEN len);
+SRL_STATIC_INLINE int next_item_in_list(const char *list, STRLEN list_len,
+                                        const char **item_out, STRLEN *item_len_out);
+SRL_STATIC_INLINE void print_route(SV *route, const char *str);
 
 srl_path_t *
 srl_build_path_struct(pTHX_ HV *opt)
@@ -68,7 +72,10 @@ srl_build_path_struct(pTHX_ HV *opt)
     if (path == NULL) croak("Out of memory");
 
     path->iter = NULL;
+    path->expr = NULL;
     path->results = NULL;
+
+    if (opt != NULL) {}
     return path;
 }
 
@@ -88,6 +95,8 @@ srl_destroy_path(pTHX_ srl_path_t *path)
 void
 srl_path_reset(pTHX_ srl_path_t *path, SV *src)
 {
+    path->expr = NULL;
+
     if (path->results) SvREFCNT_dec(path->results);
     path->results = newAV();
 
@@ -97,29 +106,31 @@ srl_path_reset(pTHX_ srl_path_t *path, SV *src)
     if (sv_isa(src, "Sereal::Path::Iterator")) {
         croak("not implemented");
     } else {
-        srl_set_document(path->iter, src);
+        srl_iterator_set_document(path->iter, src);
     }
 }
 
 void
-srl_traverse(pTHX_ srl_path_t *path, AV *expr, SV *route)
+srl_path_traverse(pTHX_ srl_path_t *path, AV *expr, SV *route)
 {
     SV *route_copy;
     if (!path->iter)
         croak("Set Iter first"); // TODO
 
-    // TODO perhaps, copy query and route
+    assert(expr != NULL);
+    assert(route != NULL);
+
+    path->expr = expr; // TODO perhaps, copy expr
     route_copy = sv_2mortal(newSVsv(route));
-    srl_parse_next(path, expr, route_copy);
+    srl_parse_next(path, 0, route_copy);
 }
 
-void
-srl_parse_next(pTHX_ srl_path_t *path, AV *expr, SV *route)
+SRL_STATIC_INLINE void
+srl_parse_next(pTHX_ srl_path_t *path, int expr_idx, SV *route)
 {
-    SV *loc;
     srl_iterator_t *iter = path->iter;
 
-    assert(expr != NULL);
+    warn("srl_parse_next");
     assert(route != NULL);
 
     /* for (int i = 0; i <= av_top_index(expr); ++i) {
@@ -129,80 +140,137 @@ srl_parse_next(pTHX_ srl_path_t *path, AV *expr, SV *route)
         warn("%d => %.*s", i, (int) len, str);
     } */
 
-    if (srl_eof(iter)) return;
-    if (av_top_index(expr) < 0) { // expr is empty
-        SV *res = srl_decode(iter);
-        SvREFCNT_inc(res);
-        av_push(path->results, res); // TODO store route if needed
+    if (srl_iterator_eof(iter)) return;
+    if (expr_idx > av_top_index(path->expr)) { // scaned entiry expr
+        print_route(route, "to decode");
+        // SV *res = srl_iterator_decode(iter);
+        // SvREFCNT_inc(res);
+        // av_push(path->results, res); // TODO store route if needed
         return;
     }
 
-    loc = av_shift(expr);
-    loc = sv_2mortal(loc);
-
-    switch (srl_object_info(iter, NULL)) {
-        case SRL_ITER_OBJ_IS_HASH:
-            srl_step_in(iter, 1);
-            srl_parse_hash(path, loc, expr, route);
+    switch (srl_iterator_object_info(iter, NULL)) {
+        case SRL_ITERATOR_OBJ_IS_HASH:
+            srl_iterator_step_in(iter, 1);
+            srl_parse_hash(path, expr_idx, route);
             break;
 
-        case SRL_ITER_OBJ_IS_ARRAY:
-            srl_step_in(iter, 1);
-            srl_parse_array(path, loc, expr, route);
+        case SRL_ITERATOR_OBJ_IS_ARRAY:
+            srl_iterator_step_in(iter, 1);
+            srl_parse_array(path, expr_idx, route);
             break;
     }
 }
 
-void
-srl_parse_hash(pTHX_ srl_path_t *path, SV *loc, AV *expr, SV *route)
+SRL_STATIC_INLINE void
+srl_parse_next_str(pTHX_ srl_path_t *path, int expr_idx, SV *route,
+                   const char *str, STRLEN len)
 {
-    U8 tag;
-    U32 count;
-    srl_iterator_t *iter = path->iter;
-    srl_stack_t *stack = iter->stack;
-
-    assert(loc != NULL);
-    assert(expr != NULL);
-    assert(!srl_stack_empty(stack));
-
-    tag = stack->ptr->tag;
-    count = stack->ptr->count;
-    assert(tag == SRL_HDR_HASH || (tag >= SRL_HDR_HASHREF_LOW && tag < SRL_HDR_HASHREF_HIGH));
+    STRLEN route_len = SvCUR(route);
+    sv_catpvf(route, ";%.*s", (int) len, str); // append parsed object to route
+    srl_parse_next(path, expr_idx, route);
+    SvCUR_set(route, route_len);  // restore original value
 }
 
-void
-srl_parse_array(pTHX_ srl_path_t *path, SV *loc, AV *expr, SV *route)
+SRL_STATIC_INLINE void
+srl_parse_next_int(pTHX_ srl_path_t *path, int expr_idx, SV *route, UV n)
+{
+    STRLEN route_len = SvCUR(route);
+    sv_catpvf(route, ";[%"UVuf"]", n); // append parsed object to route
+    srl_parse_next(path, expr_idx, route);
+    SvCUR_set(route, route_len);  // restore original value
+}
+
+SRL_STATIC_INLINE void
+srl_parse_hash(pTHX_ srl_path_t *path, int expr_idx, SV *route)
 {
     U8 tag;
+    IV depth;
     U32 count;
-    UV depth;
-    STRLEN loc_len;
+    srl_iterator_ptr iter = path->iter;
+    srl_iterator_stack_ptr stack_ptr = srl_iterator_stack(iter);
+    STRLEN loc_len, route_len = SvCUR(route);
     const char *loc_str;
-    srl_iterator_t *iter = path->iter;
-    srl_stack_t *stack = iter->stack;
-    STRLEN route_len = SvLEN(route);
+    SV *loc;
 
-    assert(loc != NULL);
-    assert(expr != NULL);
-    assert(!srl_stack_empty(stack));
+    assert(route != NULL);
+    assert(expr_idx >= 0);
+    assert(expr_idx <= av_top_index(path->expr));
+    assert(stack_ptr != NULL);
 
-    tag = stack->ptr->tag;
-    count = stack->ptr->count;
-    depth = SRL_STACK_DEPTH(stack);
-    assert(tag == SRL_HDR_ARRAY || (tag >= SRL_HDR_ARRAYREF_LOW && tag < SRL_HDR_ARRAYREF_HIGH));
-
+    tag   = stack_ptr->tag;
+    count = stack_ptr->count;
+    depth = srl_iterator_stack_depth(iter);
+    loc   = *av_fetch(path->expr, expr_idx, 0);
     loc_str = SvPV(loc, loc_len);
 
-    if (strncmp(loc_str, "*", 1) == 0) {
-        for (int i = 0; i < count; ++i) {
-            assert(SRL_STACK_DEPTH(stack) == depth);
+    assert(tag == SRL_HDR_HASH || (tag >= SRL_HDR_HASHREF_LOW && tag <= SRL_HDR_HASHREF_HIGH));
+    warn("srl_parse_hash tag=%d (0x%x) count=%d depth=%d loc=%s",
+         tag, tag, (int) count, (int) depth, loc_str);
 
-            sv_catpvf(route, ";[%d]", i); // append parsed object to route
-            srl_parse_next(path, expr, route);
-            SvLEN_set(route, route_len);  // restore original value
+    if (is_all(loc_str, loc_len)) {                                                     // *
+        croak("not implemented yet");
+    } else if (is_list(loc_str, loc_len)) {                                             // [name1,name2]
+        STRLEN item_len;
+        const char *item = NULL;
+        while (next_item_in_list(loc_str, loc_len, &item, &item_len)) {
+            warn("ITEM len=%d value=%.*s depth=%d", (int) item_len, (int) item_len, item,
+                 (int) srl_iterator_stack_depth(iter));
 
-            if (SRL_STACK_DEPTH(stack) > depth)
-                srl_next_at_depth(iter, depth);
+            if (item_len == 0) continue;
+            assert(srl_iterator_stack_depth(iter) == depth);
+
+            if (srl_iterator_hash_exists(iter, item, item_len)) {
+                srl_parse_next_str(path, expr_idx + 1, route, item, item_len);
+                srl_iterator_step_out(iter, srl_iterator_stack_depth(iter) - depth);
+            } else {
+                assert(srl_iterator_stack_depth(iter) == depth);
+                srl_iterator_step_out(iter, 0);
+            }
+        }
+    } else {                                                                            // name
+        //srl_iterator_step_out(iter, 0); // goto to the begging of the hash
+        if (srl_iterator_hash_exists(iter, loc_str, loc_len)) {
+            srl_parse_next_str(path, expr_idx + 1, route, loc_str, loc_len);
+        }
+    }
+}
+
+SRL_STATIC_INLINE void
+srl_parse_array(pTHX_ srl_path_t *path, int expr_idx, SV *route)
+{
+    U8 tag;
+    IV depth;
+    U32 count;
+    srl_iterator_ptr iter = path->iter;
+    srl_iterator_stack_ptr stack_ptr = srl_iterator_stack(iter);
+    STRLEN route_len = SvCUR(route);
+    const char *loc_str;
+    STRLEN loc_len;
+    SV *loc;
+
+    assert(route != NULL);
+    assert(expr_idx >= 0);
+    assert(expr_idx <= av_top_index(path->expr));
+    assert(stack_ptr != NULL);
+
+    tag   = stack_ptr->tag;
+    count = stack_ptr->count;
+    depth = srl_iterator_stack_depth(iter);
+    loc = *av_fetch(path->expr, expr_idx, 0);
+    loc_str = SvPV(loc, loc_len);
+
+    assert(tag == SRL_HDR_ARRAY || (tag >= SRL_HDR_ARRAYREF_LOW && tag <= SRL_HDR_ARRAYREF_HIGH));
+    warn("srl_parse_array tag=%d (0x%x) count=%d depth=%d loc=%s",
+         tag, tag, (int) count, (int) depth, loc_str);
+
+    if (is_all(loc_str, loc_len)) {                                                     // *
+        for (U32 i = 0; i < count; ++i) {
+            assert(srl_iterator_stack_depth(iter) == depth);
+            srl_parse_next_int(path, expr_idx + 1, route, i);
+
+            if (srl_iterator_stack_depth(iter) > depth)
+                srl_iterator_next_at_depth(iter, depth);
         }
     //} else if (is_number(loc_str, loc_len)) {
     //    croak("not implemented");
@@ -211,17 +279,64 @@ srl_parse_array(pTHX_ srl_path_t *path, SV *loc, AV *expr, SV *route)
     }
 }
 
-int
-is_number(const char *str, size_t len) {
+SRL_STATIC_INLINE int
+is_all(const char *str, STRLEN len)
+{
+    return len == 1 ? str[0] == '*' : 0;
+}
+
+SRL_STATIC_INLINE int
+is_list(const char *str, STRLEN len)
+{
+    for (STRLEN i = 0; i < len; ++i) {
+        if (str[i] == ',') return 1;
+    }
+
+    return 0;
+}
+
+SRL_STATIC_INLINE int
+is_number(const char *str, STRLEN len)
+{
     if (*str == '-') {
         str++;
         len--;
     }
 
-    for (int i = 0; i < len; ++i) {
+    for (STRLEN i = 0; i < len; ++i) {
         if (str[i] < '0' || str[i] > '9')
             return 0;
     }
 
     return len != 0;
+}
+
+SRL_STATIC_INLINE int
+next_item_in_list(const char *list, STRLEN list_len, const char **item_out, STRLEN *item_len_out)
+{
+    const char *start_pos = *item_out
+                          ? *item_out + *item_len_out + 1
+                          : list;
+
+    assert(start_pos >= list);
+
+    if (start_pos - list >= (ptrdiff_t) list_len) return 0;
+    list_len -= (start_pos - list);
+    list = start_pos;
+
+    while (list_len-- && *list != ',') list++;
+
+    *item_out = start_pos;
+    *item_len_out = (list - start_pos);
+    return 1;
+}
+
+SRL_STATIC_INLINE void
+print_route(SV *route, const char *str)
+{
+//#ifndef NDEBUG
+    STRLEN len;
+    const char *ptr = SvPV(route, len);
+    warn("route (%s): %.*s", str, (int) len, ptr);
+//#endif
 }
