@@ -33,6 +33,7 @@ my $defines = join" ", map { "-D$_" . (defined $ENV{$_} ? "=$ENV{$_}" : '') } gr
 my $moderngccish = 0;
 my $clang = 0;
 if ($Config{gccversion}) {
+    $OPTIMIZE = '-O3 ';
     if ($Config{gccversion} =~ /[Cc]lang/) { # clang.
         $clang = 1;
         $moderngccish = 1;
