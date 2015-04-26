@@ -917,7 +917,7 @@ srl_decode(pTHX_ srl_iterator_t *iter)
     Copy(&iter->buf, &dec->buf, 1, srl_reader_buffer_t);
     DEBUG_ASSERT_RDR_SANE(dec->pbuf);
 
-    srl_read_single_value(dec, into, NULL);
+    srl_decode_single_value(dec, into, NULL);
     return into;
 }
 

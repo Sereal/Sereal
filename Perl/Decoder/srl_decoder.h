@@ -48,7 +48,7 @@ SV *srl_decode_header_into(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, U
 /* decode both header and body - must pass in two SVs to write into */
 void srl_decode_all_into(pTHX_ srl_decoder_t *dec, SV *src, SV *header_into, SV *body_into, UV start_offset);
 /* main recursive dump routine, for internal usage only!!! */
-void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container);
+void srl_decode_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container);
 
 /* Explicit destructor */
 void srl_destroy_decoder(pTHX_ srl_decoder_t *dec);
