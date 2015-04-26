@@ -80,13 +80,6 @@ typedef struct {
 #define srl_stack_type_t srl_stack_type_t
 #include "srl_stack.h"
 
-/* this SHOULD be newSV_type(SVt_NULL) but newSV(0) is faster :-( */
-#if 1
-#define FRESH_SV() newSV(0)
-#else
-#define FRESH_SV() newSV_type(SVt_NULL);
-#endif
-
 #define SRL_ITER_BASE_ERROR_FORMAT              "Sereal::Path::Iterator: Error in %s:%u "
 #define SRL_ITER_BASE_ERROR_ARGS                __FILE__, __LINE__
 
@@ -915,7 +908,7 @@ srl_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
 SV *
 srl_decode(pTHX_ srl_iterator_t *iter)
 {
-    SV *into = sv_2mortal(FRESH_SV());
+    SV *into = sv_2mortal(newSV_type(SVt_NULL));
     if (!iter->dec)
         iter->dec = (void*) srl_build_decoder_struct(NULL, NULL);
 
