@@ -471,10 +471,10 @@ srl_next_at_depth(pTHX_ srl_iterator_t *iter, UV expected_depth) {
     SRL_ITER_TRACE("expected_depth=%"UVuf, expected_depth);
 
     SRL_ITER_ASSERT_STACK(iter);
-    if (expect_false(expected_depth == current_depth))
+    if (expect_false((IV) expected_depth == current_depth))
         return current_depth;
 
-    if (expect_false(expected_depth > current_depth)) {
+    if (expect_false((IV) expected_depth > current_depth)) {
         SRL_ITER_ERRORf2("srl_next_at_depth() can only go downstairs,"
                          "so expect_depth=%"UVuf" > current_depth=%"IVdf,
                          expected_depth, current_depth);
@@ -551,7 +551,7 @@ srl_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
 
     if (idx >= 0) {
         s_idx = stack->ptr->count - idx;
-        if (idx >= stack->ptr->count) {
+        if (idx >= (I32) stack->ptr->count) {
             SRL_ITER_ERRORf2("Index is out of range, idx=%d count=%u",
                              idx, stack->ptr->count);
         }
