@@ -5,9 +5,11 @@
 #include "perl.h"
 #include "srl_reader_types.h"
 
-typedef struct srl_stack    * srl_stack_ptr;
-typedef struct srl_iterator * srl_iterator_ptr;
-typedef struct srl_iterator srl_iterator_t;
+typedef struct srl_iterator         * srl_iterator_ptr;
+typedef struct srl_iterator         srl_iterator_t;
+typedef struct srl_iterator_stack   srl_iterator_stack_t;
+typedef struct srl_iterator_stack   * srl_iterator_stack_ptr;
+typedef struct srl_stack            * srl_stack_ptr;
 
 /* the iterator main struct */
 struct srl_iterator {
@@ -17,6 +19,13 @@ struct srl_iterator {
     UV first_tag_offset;
     SV *tmp_buf_owner;
     void *dec; // srl_decoder object
+};
+
+struct srl_iterator_stack {
+    UV offset;      // offset of the tag
+    U32 count;      // number of child objects
+    U32 idx;        // index of current object, in negative format
+    U8 tag;
 };
 
 /* constructor/destructor */
@@ -36,6 +45,7 @@ UV srl_next_at_depth(pTHX_ srl_iterator_t *iter, UV depth);
 UV srl_offset(pTHX_ srl_iterator_t *iter);
 
 /* expose stack status */
+srl_iterator_stack_ptr srl_iterator_stack(pTHX_ srl_iterator_t *iter);
 IV srl_stack_depth(pTHX_ srl_iterator_t *iter);
 UV srl_stack_index(pTHX_ srl_iterator_t *iter);
 UV srl_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr);

@@ -61,15 +61,8 @@ extern "C" {
 #include "../Decoder/srl_decoder.h"
 #include "../Decoder/srl_decoder.c"
 
-typedef struct {
-    UV offset;      // offset of the tag
-    U32 count;      // number of child objects
-    U32 idx;        // index of current object, in negative format
-    U8 tag;
-} srl_stack_type_t;
-
 #define srl_stack_push_and_set(iter, tag, length) STMT_START {  \
-    srl_stack_type_t * _stack_ptr;                              \
+    srl_iterator_stack_ptr _stack_ptr;                          \
     srl_stack_push_ptr((iter)->stack, _stack_ptr);              \
     _stack_ptr->offset = SRL_RDR_BODY_POS_OFS((iter->pbuf));    \
     _stack_ptr->count = (length);                               \
@@ -77,7 +70,7 @@ typedef struct {
     _stack_ptr->tag = (tag);                                    \
 } STMT_END
 
-#define srl_stack_type_t srl_stack_type_t
+#define srl_stack_type_t srl_iterator_stack_t
 #include "srl_stack.h"
 
 #define SRL_ITER_BASE_ERROR_FORMAT              "Sereal::Path::Iterator: Error in %s:%u "
@@ -291,7 +284,7 @@ srl_step_internal(pTHX_ srl_iterator_t *iter)
 {
     U8 tag;
     UV length;
-    srl_stack_type_t *stack_ptr_orig;
+    srl_iterator_stack_ptr stack_ptr_orig;
     srl_stack_t *stack = iter->stack;
     IV stack_depth_orig = SRL_STACK_DEPTH(stack); // keep track of original depth
 
@@ -547,7 +540,7 @@ srl_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
 {
     U32 s_idx;
     srl_stack_t *stack = iter->stack;
-    srl_stack_type_t *stack_ptr = stack->ptr;
+    srl_iterator_stack_ptr stack_ptr = stack->ptr;
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     SRL_ITER_TRACE("idx=%d", idx);
@@ -671,7 +664,7 @@ srl_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN name_len)
 
     srl_stack_t *stack = iter->stack;
     IV stack_depth = SRL_STACK_DEPTH(stack);
-    srl_stack_type_t *stack_ptr = stack->ptr;
+    srl_iterator_stack_ptr stack_ptr = stack->ptr;
 #   define SRL_KEY_NO_FOUND (0) /* 0 is invalid offset */
 
     SRL_ITER_ASSERT_EOF(iter, "stringish");
@@ -862,6 +855,12 @@ read_again:
     return type;
 }
 
+srl_iterator_stack_ptr
+srl_iterator_stack(pTHX_ srl_iterator_t *iter)
+{
+    return srl_stack_empty(iter->stack) ? NULL : iter->stack->ptr;
+}
+
 IV
 srl_stack_depth(pTHX_ srl_iterator_t *iter)
 {
@@ -882,7 +881,7 @@ srl_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
 {
     UV type = 0;
     srl_stack_t *stack = iter->stack;
-    srl_stack_type_t *stack_ptr = stack->ptr;
+    srl_iterator_stack_ptr stack_ptr = stack->ptr;
 
     SRL_ITER_ASSERT_STACK(iter);
     if (length_ptr) *length_ptr = stack_ptr->count;
