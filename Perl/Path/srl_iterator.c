@@ -133,6 +133,7 @@ extern "C" {
 
 /* function declaration */
 SRL_STATIC_INLINE void srl_iterator_step_internal(pTHX_ srl_iterator_t *iter);
+SRL_STATIC_INLINE void srl_iterator_wrap_stack(pTHX_ srl_iterator_t *iter, IV depth);
 
 /* wrappers */
 UV srl_iterator_eof(pTHX_ srl_iterator_t *iter)     { return SRL_RDR_DONE(iter->pbuf) ? 1 : 0; }
@@ -279,17 +280,37 @@ srl_iterator_reset(pTHX_ srl_iterator_t *iter)
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
+SRL_STATIC_INLINE void
+srl_iterator_wrap_stack(pTHX_ srl_iterator_t *iter, IV depth)
+{
+    srl_stack_t *stack = iter->stack;
+    while (!srl_stack_empty(stack) && stack->ptr->idx == 0) {
+        if (SRL_STACK_DEPTH(stack) == depth) break;
+        srl_stack_pop_nocheck(stack);
+    }
+
+    if (srl_stack_empty(stack))
+        SRL_ITER_TRACE("Iterator: end of stack reached");
+}
+
 /* Main routine. Caller must ensure that EOF is NOT reached */
 SRL_STATIC_INLINE void
 srl_iterator_step_internal(pTHX_ srl_iterator_t *iter)
 {
     U8 tag;
     UV length;
-    srl_iterator_stack_ptr stack_ptr_orig;
     srl_stack_t *stack = iter->stack;
+    srl_iterator_stack_ptr stack_ptr_orig;
     IV stack_depth_orig = SRL_STACK_DEPTH(stack); // keep track of original depth
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+
+    srl_iterator_wrap_stack(aTHX_ iter, -1);
+    if (srl_stack_empty(stack)) return;
+
+    stack->ptr->idx--;
+    SRL_ITER_TRACE("Iterator: stack->ptr: idx=%d depth=%d",
+                   stack->ptr->idx, (int) SRL_STACK_DEPTH(stack));
 
 read_again:
     tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
@@ -374,59 +395,38 @@ read_again:
             break;
     }
 
-    /* stack might has been grown */
-    stack_ptr_orig = stack->begin + stack_depth_orig;
-
-    /* if parsed object is a container (i.e. HASH/ARRAY/OBJECT)
-     * this decrease counter on parent's stack */
-    stack_ptr_orig->idx--;
-
-    /* stack magic :-) */
-    SRL_ITER_TRACE("Iterator: stack_ptr_orig: idx=%d depth=%d; stack->ptr: idx=%d depth=%d",
-                 (int) stack_ptr_orig->idx, (int) (stack_ptr_orig - stack->begin),
-                 (int) stack->ptr->idx,     (int) (stack->ptr - stack->begin));
-
-    /* stack_ptr_orig == stack->ptr makes sure that we don't wrap parent's
-     * stack before we finished processing child's one */
-    while (   stack_ptr_orig == stack->ptr
-           && stack_ptr_orig->idx == 0)
-    {
-        srl_stack_pop_nocheck(stack); // we asserted stack_ptr_orig before
-        stack_ptr_orig = stack->ptr;
-
-        if (expect_false(srl_stack_empty(stack))) {
-            SRL_ITER_TRACE("Iterator: end of stack reached");
-            break;
-        }
-    }
-
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
+
+/* srl_iterator_step_in() does N steps. Where step is a serialized object */
 
 void
 srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
 {
+    srl_stack_t *stack = iter->stack;
+
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     SRL_ITER_TRACE("n=%"UVuf, n);
 
     SRL_ITER_ASSERT_STACK(iter);
     if (expect_false(n == 0)) return;
 
-    while (expect_true(SRL_RDR_NOT_DONE(iter->pbuf))) {
+    while (expect_true(!srl_stack_empty(stack))) {
+        if (n == 0) break;
         srl_iterator_step_internal(aTHX_ iter);
-
-        if (--n == 0) {
-            SRL_ITER_TRACE("Iterator: Did expected number of steps");
-            break;
-        }
+        n--;
     }
 
     if (expect_false(n != 0)) {
         SRL_ITER_ERRORf1("Failed to do %"UVuf" steps. Likely EOF was reached", n);
     }
 
+    SRL_ITER_TRACE("Iterator: Did expected number of steps");
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
+
+/* srl_iterator_next() does N step on current stack.
+ * It garantees that iterator remains on current stack level upon returing */
 
 void
 srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n)
@@ -442,26 +442,31 @@ srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n)
     if (expect_false(stack->ptr->idx == 0))
         SRL_ITER_ERROR("Nothing to parse at this depth");
 
-    while (expect_true(SRL_RDR_NOT_DONE(iter->pbuf))) {
-        srl_iterator_step_internal(aTHX_ iter);
-
-        if (SRL_STACK_DEPTH(stack) <= expected_depth && --n == 0) {
-            SRL_ITER_TRACE("Iterator: Did expected number of steps at depth %"IVdf, expected_depth);
-            break;
+    while (expect_true(!srl_stack_empty(stack))) {
+        if (SRL_STACK_DEPTH(stack) == expected_depth) {
+            if (n == 0) break;
+            else n--;
         }
+
+        srl_iterator_step_internal(aTHX_ iter);
+        srl_iterator_wrap_stack(aTHX_ iter, expected_depth);
     }
 
     if (expect_false(n != 0)) {
         SRL_ITER_ERRORf1("Failed to do %"UVuf" next steps. Likely EOF was reached", n);
     }
 
-    if (expect_false(SRL_STACK_DEPTH(stack) > expected_depth)) {
+    if (expect_false(SRL_STACK_DEPTH(stack) != expected_depth)) {
         SRL_ITER_ERRORf2("next() led to wrong stack depth, expected=%"IVdf", actual=%"IVdf,
                           expected_depth, SRL_STACK_DEPTH(stack));
     }
 
+    SRL_ITER_TRACE("Iterator: Did expected number of steps at depth %"IVdf, expected_depth);
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
+
+/* srl_iterator_next_at_depth() moves iterator forward until expected stack level (depth)
+ * is reached. It can only go down the stack. */
 
 UV
 srl_iterator_next_at_depth(pTHX_ srl_iterator_t *iter, UV expected_depth) {
@@ -469,41 +474,32 @@ srl_iterator_next_at_depth(pTHX_ srl_iterator_t *iter, UV expected_depth) {
     IV current_depth = SRL_STACK_DEPTH(stack);
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
-    SRL_ITER_TRACE("expected_depth=%"UVuf, expected_depth);
+    SRL_ITER_TRACE("Iterator: expected_depth=%"UVuf, expected_depth);
 
     SRL_ITER_ASSERT_STACK(iter);
-    if (expect_false((IV) expected_depth == current_depth))
-        return current_depth;
-
     if (expect_false((IV) expected_depth > current_depth)) {
         SRL_ITER_ERRORf2("srl_iterator_next_at_depth() can only go downstairs,"
                          "so expect_depth=%"UVuf" > current_depth=%"IVdf,
                          expected_depth, current_depth);
     }
 
-    while (expect_true(SRL_RDR_NOT_DONE(iter->pbuf))) {
+    if (expect_false((IV) expected_depth == current_depth))
+        return current_depth;
+
+    while (expect_true(!srl_stack_empty(stack))) {
         srl_iterator_step_internal(aTHX_ iter);
+        srl_iterator_wrap_stack(aTHX_ iter, expected_depth);
 
         current_depth = SRL_STACK_DEPTH(stack);
-        SRL_ITER_TRACE("Iterator: current_depth=%"IVdf" expected_depth=%"UVuf, current_depth, expected_depth);
-
-        if (current_depth == (IV) expected_depth) {
-            SRL_ITER_TRACE("Iterator: Reached expected stack depth: %"UVuf, expected_depth);
-            break;
-        } else if (current_depth < (IV) expected_depth) {
-            /* This situation is possible when last child object is parsed. In this case
-             * child's Sereal representation will end that the same offset as parent's one. */
-            SRL_ITER_TRACE("Iterator: srl_continue_until_depth() led to depth lower then expected, "
-                         "expected=%"UVuf", actual=%"IVdf, (IV) expected_depth, current_depth);
-            break;
-        }
+        if (current_depth == (IV) expected_depth) break;
     }
 
-    if (expect_false(current_depth > (IV) expected_depth)) {
+    if (expect_false(current_depth != (IV) expected_depth)) {
         SRL_ITER_ERRORf2("Next() led to wrong stack depth, expected=%"IVdf", actual=%"IVdf,
                           expected_depth, current_depth);
     }
 
+    SRL_ITER_TRACE("Iterator: Reached expected stack depth: %"UVuf, expected_depth);
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     return current_depth;
 }
@@ -517,13 +513,12 @@ srl_iterator_step_out(pTHX_ srl_iterator_t *iter, UV n)
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     SRL_ITER_TRACE("n=%"UVuf, n);
 
-    SRL_ITER_ASSERT_EOF(iter, "serialized object");
     SRL_ITER_ASSERT_STACK(iter);
+    // SRL_ITER_ASSERT_EOF(iter, "serialized object"); XXX need ability to go back on last element
     // if (expect_false(n == 0)) return; XXX keep it as a feature?
 
     while (n--) {
         srl_stack_pop_nocheck(stack);
-
         if (expect_false(srl_stack_empty(stack))) {
             SRL_ITER_ERROR("It was last object on stack, no more parents");
         }
@@ -571,6 +566,7 @@ srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
                          idx, stack->ptr->count);
     }
 
+    // srl_iterator_next garantee that we remans on current stack
     srl_iterator_next(aTHX_ iter, stack->ptr->idx - s_idx);
     assert(stack->ptr->idx == s_idx);
 }
@@ -654,40 +650,30 @@ srl_iterator_hash_key(pTHX_ srl_iterator_t *iter)
 
 /* Function looks for name key in current hash. If the key is found, the function stops
  * at the key's value object. If the key is not found, the function traverses
- * entire hash and stops after the end of the hash */
+ * entire hash and stops after the end of the hash. But remains stack unwrapper. */
 
 IV
 srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN name_len)
 {
     U8 tag;
-    UV length, offset, idx;
+    UV length, offset;
     const char *key_ptr;
 
     srl_stack_t *stack = iter->stack;
     IV stack_depth = SRL_STACK_DEPTH(stack);
-    srl_iterator_stack_ptr stack_ptr = stack->ptr;
 #   define SRL_KEY_NO_FOUND (0) /* 0 is invalid offset */
 
     SRL_ITER_ASSERT_EOF(iter, "stringish");
     SRL_ITER_ASSERT_STACK(iter);
     SRL_ITER_ASSERT_HASH_ON_STACK(iter);
 
-    assert(stack_ptr->idx > 0);
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     SRL_ITER_TRACE("name=%.*s", (int) name_len, name);
 
-    /* if key is not in the hash and we're processeing
-     * last last element, stack can be empty here */
-    while (!srl_stack_empty(stack) && stack_ptr->idx--) {
-        // assert that we're on the same stack depth
-        assert(iter->stack->ptr == stack_ptr);
+    while (stack->ptr->idx--) {
+        assert(stack->ptr->idx % 2 == 1);
+        assert(SRL_STACK_DEPTH(stack) == stack_depth);
         DEBUG_ASSERT_RDR_SANE(iter->pbuf);
-
-        /* at the end of an iteration we call srl_iterator_next which can
-         * lead to invalid stack pointer (moved below current stack)
-         * if current pair is the last on in hash. In order to correctly handle
-         * this case we store stack index BEFORE processing and check it later */
-        idx = stack_ptr->idx;
 
         tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
         SRL_ITER_REPORT_TAG(iter, tag);
@@ -758,15 +744,10 @@ srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN na
             return SRL_RDR_BODY_POS_OFS(iter->pbuf);
         }
 
+        // srl_iterator_next garantee that we remans on current stack
         srl_iterator_next(aTHX_ iter, 1);
-        if (--idx == 0) break;
-
-        /* stack might have been modified */
-        assert(stack_depth <= SRL_STACK_DEPTH(stack));
-        stack_ptr = stack->begin + stack_depth;
     }
 
-    /* XXX what if stack_ptr->idx == 0 here ??? */
     SRL_ITER_TRACE("Iterator: didn't found key '%.*s'", (int) name_len, name);
     return SRL_KEY_NO_FOUND;
 }
@@ -865,7 +846,6 @@ srl_iterator_stack(pTHX_ srl_iterator_t *iter)
 IV
 srl_iterator_stack_depth(pTHX_ srl_iterator_t *iter)
 {
-    //SRL_ITER_ASSERT_STACK(iter);
     return SRL_STACK_DEPTH(iter->stack);
 }
 
@@ -908,12 +888,15 @@ srl_iterator_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
 SV *
 srl_iterator_decode(pTHX_ srl_iterator_t *iter)
 {
-    SV *into = sv_2mortal(newSV_type(SVt_NULL));
+    SV *into;
+    SRL_ITER_ASSERT_EOF(iter, "serialized object");
+    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+
+    into = sv_2mortal(newSV_type(SVt_NULL));
     if (!iter->dec)
         iter->dec = (void*) srl_build_decoder_struct(NULL, NULL);
 
     srl_decoder_t* dec = (srl_decoder_t*) iter->dec;
-    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     Copy(&iter->buf, &dec->buf, 1, srl_reader_buffer_t);
     DEBUG_ASSERT_RDR_SANE(dec->pbuf);
 
