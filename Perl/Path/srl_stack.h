@@ -24,7 +24,7 @@
 
 #ifdef TRACE_STACK
 #   define SRL_STACK_TRACE(msg, args...)                                      \
-        fprintf(stderr, "%s:%d:%s(): Stack: "msg"\n", __FILE__, __LINE__, __func__, args)
+        fprintf(stderr, "%s:%d:%s(): "msg"\n", __FILE__, __LINE__, __func__, args)
 #else
 #   define SRL_STACK_TRACE(msg, args...)
 #endif

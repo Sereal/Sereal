@@ -43,9 +43,10 @@ extern "C" {
 #endif
 
 #ifndef NDEBUG
-#   if DEBUG > 1
-#       define TRACE_READER 1
+#   if DEBUG > 4
 #       define TRACE_STACK 1
+#       define TRACE_READER 1
+#       define TRACE_ITERATOR 1
 #   endif
 #endif
 
@@ -81,19 +82,22 @@ extern "C" {
 #define SRL_ITER_ERRORf1(fmt, var)              croak(SRL_ITER_BASE_ERROR_FORMAT fmt,  SRL_ITER_BASE_ERROR_ARGS, (var))
 #define SRL_ITER_ERRORf2(fmt, var1, var2)       croak(SRL_ITER_BASE_ERROR_FORMAT fmt,  SRL_ITER_BASE_ERROR_ARGS, (var1), (var2))
 
-#define SRL_ITER_TRACE(msg, args...)            SRL_RDR_TRACE("%s" msg, srl_debug_tabulator(iter), ## args)
-
-#define SRL_ITER_REPORT_TAG(iter, tag) STMT_START {                                 \
-    SRL_RDR_TRACE(                                                                  \
-        "%s"                                                                        \
-        "Reader: tag SRL_HDR_%s (int: %d hex: 0x%x) at ofs %"UVuf" body_ofs %"UVuf, \
-        srl_debug_tabulator((iter)),                                                \
-        SRL_TAG_NAME((tag)),                                                        \
-        (tag), (tag),                                                               \
-        (UV) SRL_RDR_POS_OFS((iter)->pbuf),                                         \
-        (UV) SRL_RDR_BODY_POS_OFS((iter)->pbuf)                                     \
-    );                                                                              \
-} STMT_END
+#ifdef TRACE_ITERATOR
+#   define SRL_ITER_TRACE(msg, args...)            SRL_RDR_TRACE("%s" msg, srl_debug_tabulator(iter), ## args)
+#   define SRL_ITER_REPORT_TAG(iter, tag) STMT_START {                              \
+        SRL_RDR_TRACE(                                                              \
+            "%stag SRL_HDR_%s (int: %d hex: 0x%x) at ofs %"UVuf" body_ofs %"UVuf,   \
+            srl_debug_tabulator((iter)),                                            \
+            SRL_TAG_NAME((tag)),                                                    \
+            (tag), (tag),                                                           \
+            (UV) SRL_RDR_POS_OFS((iter)->pbuf),                                     \
+            (UV) SRL_RDR_BODY_POS_OFS((iter)->pbuf)                                 \
+        );                                                                          \
+    } STMT_END
+#else
+#   define SRL_ITER_TRACE(msg, args...)
+#   define SRL_ITER_REPORT_TAG(iter, tag)
+#endif
 
 #define SRL_ITER_ASSERT_EOF(iter, msg) STMT_START {                                 \
     if (expect_false(SRL_RDR_DONE((iter)->pbuf))) {                                 \
@@ -290,7 +294,7 @@ srl_iterator_wrap_stack(pTHX_ srl_iterator_t *iter, IV depth)
     }
 
     if (srl_stack_empty(stack))
-        SRL_ITER_TRACE("Iterator: end of stack reached");
+        SRL_ITER_TRACE("end of stack reached");
 }
 
 /* Main routine. Caller must ensure that EOF is NOT reached */
@@ -309,7 +313,7 @@ srl_iterator_step_internal(pTHX_ srl_iterator_t *iter)
     if (srl_stack_empty(stack)) return;
 
     stack->ptr->idx--;
-    SRL_ITER_TRACE("Iterator: stack->ptr: idx=%d depth=%d",
+    SRL_ITER_TRACE("stack->ptr: idx=%d depth=%d",
                    stack->ptr->idx, (int) SRL_STACK_DEPTH(stack));
 
 read_again:
@@ -421,7 +425,7 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
         SRL_ITER_ERRORf1("Failed to do %"UVuf" steps. Likely EOF was reached", n);
     }
 
-    SRL_ITER_TRACE("Iterator: Did expected number of steps");
+    SRL_ITER_TRACE("Did expected number of steps");
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
@@ -461,7 +465,7 @@ srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n)
                           expected_depth, SRL_STACK_DEPTH(stack));
     }
 
-    SRL_ITER_TRACE("Iterator: Did expected number of steps at depth %"IVdf, expected_depth);
+    SRL_ITER_TRACE("Did expected number of steps at depth %"IVdf, expected_depth);
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
@@ -474,7 +478,7 @@ srl_iterator_next_at_depth(pTHX_ srl_iterator_t *iter, UV expected_depth) {
     IV current_depth = SRL_STACK_DEPTH(stack);
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
-    SRL_ITER_TRACE("Iterator: expected_depth=%"UVuf, expected_depth);
+    SRL_ITER_TRACE("expected_depth=%"UVuf, expected_depth);
 
     SRL_ITER_ASSERT_STACK(iter);
     if (expect_false((IV) expected_depth > current_depth)) {
@@ -499,7 +503,7 @@ srl_iterator_next_at_depth(pTHX_ srl_iterator_t *iter, UV expected_depth) {
                           expected_depth, current_depth);
     }
 
-    SRL_ITER_TRACE("Iterator: Reached expected stack depth: %"UVuf, expected_depth);
+    SRL_ITER_TRACE("Reached expected stack depth: %"UVuf, expected_depth);
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     return current_depth;
 }
@@ -739,7 +743,7 @@ srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN na
         if (   length == name_len
             && strncmp(name, key_ptr, name_len) == 0)
         {
-            SRL_ITER_TRACE("Iterator: found key '%.*s' at offset %"UVuf,
+            SRL_ITER_TRACE("found key '%.*s' at offset %"UVuf,
                          (int) name_len, name, SRL_RDR_BODY_POS_OFS(iter->pbuf));
             return SRL_RDR_BODY_POS_OFS(iter->pbuf);
         }
@@ -748,7 +752,7 @@ srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN na
         srl_iterator_next(aTHX_ iter, 1);
     }
 
-    SRL_ITER_TRACE("Iterator: didn't found key '%.*s'", (int) name_len, name);
+    SRL_ITER_TRACE("didn't found key '%.*s'", (int) name_len, name);
     return SRL_KEY_NO_FOUND;
 }
 

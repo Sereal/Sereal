@@ -42,12 +42,25 @@ extern "C" {
 #define HAS_SV2OBJ
 #endif
 
+#ifndef NDEBUG
+#   if DEBUG > 1
+#       define TRACE_READER     1
+#       define TRACE_SRL_PATH   1
+#   endif
+#endif
+
 #include "srl_common.h"
 #include "srl_inline.h"
 #include "srl_protocol.h"
 #include "srl_path.h"
 #include "srl_iterator.h"
 #include "srl_reader_error.h"
+
+#ifdef TRACE_SRL_PATH
+#   define SRL_PATH_TRACE(msg, args...) SRL_RDR_TRACE(msg, ## args)
+#else
+#   define SRL_PATH_TRACE(msg, args...)
+#endif
 
 SRL_STATIC_INLINE void srl_parse_next(pTHX_ srl_path_t *path, int expr_idx, SV *route);
 SRL_STATIC_INLINE void srl_parse_next_int(pTHX_ srl_path_t *path, int expr_idx, SV *route, UV n);
@@ -130,8 +143,8 @@ srl_parse_next(pTHX_ srl_path_t *path, int expr_idx, SV *route)
 {
     srl_iterator_t *iter = path->iter;
 
-    warn("srl_parse_next");
     assert(route != NULL);
+    SRL_PATH_TRACE("expr_idx=%d", expr_idx);
 
     /* for (int i = 0; i <= av_top_index(expr); ++i) {
         SV **sv = av_fetch(expr, i, 0);
@@ -205,8 +218,8 @@ srl_parse_hash(pTHX_ srl_path_t *path, int expr_idx, SV *route)
     loc_str = SvPV(loc, loc_len);
 
     assert(tag == SRL_HDR_HASH || (tag >= SRL_HDR_HASHREF_LOW && tag <= SRL_HDR_HASHREF_HIGH));
-    warn("srl_parse_hash tag=%d (0x%x) count=%d depth=%d loc=%s",
-         tag, tag, (int) count, (int) depth, loc_str);
+    SRL_PATH_TRACE("parse hash tag=%d (0x%x) of size=%d at depth=%d, loc=%s",
+                   tag, tag, (int) count, (int) depth, loc_str);
 
     if (is_all(loc_str, loc_len)) {                                                     // *
         croak("not implemented yet");
@@ -214,11 +227,11 @@ srl_parse_hash(pTHX_ srl_path_t *path, int expr_idx, SV *route)
         STRLEN item_len;
         const char *item = NULL;
         while (next_item_in_list(loc_str, loc_len, &item, &item_len)) {
-            warn("ITEM len=%d value=%.*s depth=%d", (int) item_len, (int) item_len, item,
-                 (int) srl_iterator_stack_depth(iter));
+            assert(srl_iterator_stack_depth(iter) == depth);
+            SRL_PATH_TRACE("scan for item=%.*s in hash at depth=%d", (int) item_len, item,
+                           (int) srl_iterator_stack_depth(iter));
 
             if (item_len == 0) continue;
-            assert(srl_iterator_stack_depth(iter) == depth);
 
             if (srl_iterator_hash_exists(iter, item, item_len)) {
                 srl_parse_next_str(path, expr_idx + 1, route, item, item_len);
@@ -229,7 +242,6 @@ srl_parse_hash(pTHX_ srl_path_t *path, int expr_idx, SV *route)
             }
         }
     } else {                                                                            // name
-        //srl_iterator_step_out(iter, 0); // goto to the begging of the hash
         if (srl_iterator_hash_exists(iter, loc_str, loc_len)) {
             srl_parse_next_str(path, expr_idx + 1, route, loc_str, loc_len);
         }
@@ -261,14 +273,16 @@ srl_parse_array(pTHX_ srl_path_t *path, int expr_idx, SV *route)
     loc_str = SvPV(loc, loc_len);
 
     assert(tag == SRL_HDR_ARRAY || (tag >= SRL_HDR_ARRAYREF_LOW && tag <= SRL_HDR_ARRAYREF_HIGH));
-    warn("srl_parse_array tag=%d (0x%x) count=%d depth=%d loc=%s",
-         tag, tag, (int) count, (int) depth, loc_str);
+    SRL_PATH_TRACE("parse array tag=%d (0x%x) of size=%d at depth=%d, loc=%s",
+                    tag, tag, (int) count, (int) depth, loc_str);
 
     if (is_all(loc_str, loc_len)) {                                                     // *
         for (U32 i = 0; i < count; ++i) {
+            SRL_PATH_TRACE("scan for item=%d in array at depth=%d",
+                           (int) i, (int) srl_iterator_stack_depth(iter));
+
             assert(srl_iterator_stack_depth(iter) == depth);
             srl_parse_next_int(path, expr_idx + 1, route, i);
-
             if (srl_iterator_stack_depth(iter) > depth)
                 srl_iterator_next_at_depth(iter, depth);
         }
@@ -334,9 +348,9 @@ next_item_in_list(const char *list, STRLEN list_len, const char **item_out, STRL
 SRL_STATIC_INLINE void
 print_route(SV *route, const char *str)
 {
-//#ifndef NDEBUG
+#ifdef TRACE_SRL_PATH
     STRLEN len;
     const char *ptr = SvPV(route, len);
-    warn("route (%s): %.*s", str, (int) len, ptr);
-//#endif
+    SRL_PATH_TRACE("route (%s): %.*s", str, (int) len, ptr);
+#endif
 }
