@@ -285,16 +285,19 @@ srl_iterator_reset(pTHX_ srl_iterator_t *iter)
 }
 
 SRL_STATIC_INLINE void
-srl_iterator_wrap_stack(pTHX_ srl_iterator_t *iter, IV depth)
+srl_iterator_wrap_stack(pTHX_ srl_iterator_t *iter, IV expected_depth)
 {
     srl_stack_t *stack = iter->stack;
-    while (!srl_stack_empty(stack) && stack->ptr->idx == 0) {
-        if (SRL_STACK_DEPTH(stack) == depth) break;
-        srl_stack_pop_nocheck(stack);
-    }
+    if (expect_false(SRL_STACK_DEPTH(stack) < expected_depth))
+        SRL_ITER_ERRORf2("expected depth %"IVdf" is higher than current depth %"IVdf,
+                         expected_depth, SRL_STACK_DEPTH(stack));
 
-    if (srl_stack_empty(stack))
-        SRL_ITER_TRACE("end of stack reached");
+    while (!srl_stack_empty(stack) && stack->ptr->idx == 0) {
+        if (SRL_STACK_DEPTH(stack) == expected_depth) break;
+        srl_stack_pop_nocheck(stack);
+        if (srl_stack_empty(stack))
+            SRL_ITER_TRACE("end of stack reached");
+    }
 }
 
 /* Main routine. Caller must ensure that EOF is NOT reached */
@@ -469,16 +472,18 @@ srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n)
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
-/* srl_iterator_next_until_depth() moves iterator forward until expected stack level (depth)
- * is reached. It can only go down the stack. */
+/* srl_iterator_next_until_depth_and_idx() moves iterator forward until
+ * expected stack level (depth) and index is reached. It can only go down the stack. */
 
-UV
-srl_iterator_next_until_depth(pTHX_ srl_iterator_t *iter, UV expected_depth) {
+void
+srl_iterator_next_until_depth_and_idx(pTHX_ srl_iterator_t *iter, UV expected_depth, U32 expected_idx) {
+    U32 current_idx;
     srl_stack_t *stack = iter->stack;
     IV current_depth = SRL_STACK_DEPTH(stack);
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
-    SRL_ITER_TRACE("expected_depth=%"UVuf, expected_depth);
+    SRL_ITER_TRACE("expected_depth=%"UVuf" expected_idx=%u",
+                   expected_depth, expected_idx);
 
     SRL_ITER_ASSERT_STACK(iter);
     if (expect_false((IV) expected_depth > current_depth)) {
@@ -487,25 +492,36 @@ srl_iterator_next_until_depth(pTHX_ srl_iterator_t *iter, UV expected_depth) {
                          expected_depth, current_depth);
     }
 
-    if (expect_false((IV) expected_depth == current_depth))
-        return current_depth;
+    current_idx = stack->ptr->idx;
+    if (expect_false((IV) expected_depth == current_depth && expected_idx == current_idx))
+        return;
 
     while (expect_true(!srl_stack_empty(stack))) {
         srl_iterator_step_internal(aTHX_ iter);
         srl_iterator_wrap_stack(aTHX_ iter, expected_depth);
 
         current_depth = SRL_STACK_DEPTH(stack);
-        if (current_depth == (IV) expected_depth) break;
+        if (expect_false(srl_stack_empty(stack)))
+            break;
+
+        current_idx  = stack->ptr->idx;
+        if (current_depth == (IV) expected_depth && current_idx == expected_idx)
+            break;
     }
 
     if (expect_false(current_depth != (IV) expected_depth)) {
-        SRL_ITER_ERRORf2("Next() led to wrong stack depth, expected=%"IVdf", actual=%"IVdf,
+        SRL_ITER_ERRORf2("func led to wrong stack depth, expected=%"IVdf", actual=%"IVdf,
                           expected_depth, current_depth);
     }
 
-    SRL_ITER_TRACE("Reached expected stack depth: %"UVuf, expected_depth);
+    if (expect_false(current_idx != expected_idx)) {
+        SRL_ITER_ERRORf2("func led to wrong stack index, expected=%u, actual=%u",
+                          expected_idx, current_idx);
+    }
+
+    SRL_ITER_TRACE("Reached expected stack depth: %"UVuf " and idx: %u",
+                   expected_depth, expected_idx);
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
-    return current_depth;
 }
 
 void
@@ -540,7 +556,6 @@ srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
 {
     U32 s_idx;
     srl_stack_t *stack = iter->stack;
-    srl_iterator_stack_ptr stack_ptr = stack->ptr;
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     SRL_ITER_TRACE("idx=%d", idx);
