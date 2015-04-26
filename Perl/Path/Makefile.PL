@@ -27,7 +27,7 @@ our $OPTIMIZE;
 
 my $libs = '';
 my $objects = '$(BASEEXT)$(OBJ_EXT) srl_path$(OBJ_EXT)';
-my $defines = join " ", map "-D$_", grep exists $ENV{$_},
+my $defines = join" ", map { "-D$_" . (defined $ENV{$_} ? "=$ENV{$_}" : '') } grep { exists $ENV{$_} }
               qw(NOINLINE DEBUG MEMDEBUG NDEBUG ENABLE_DANGEROUS_HACKS);
 
 my $moderngccish = 0;

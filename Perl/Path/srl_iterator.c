@@ -42,8 +42,10 @@ extern "C" {
 #endif
 
 #ifndef NDEBUG
-#   define TRACE_READER 1
-#   define TRACE_STACK 1
+#   if DEBUG > 1
+#       define TRACE_READER 1
+#       define TRACE_STACK 1
+#   endif
 #endif
 
 #include "srl_common.h"
