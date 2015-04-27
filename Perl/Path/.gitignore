@@ -29,6 +29,8 @@ srl_reader_error.h
 srl_reader_misc.h
 srl_reader_types.h
 srl_reader_varint.h
+srl_decoder.h
+srl_decoder.c
 ppport.h
 et
 typemap
