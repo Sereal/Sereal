@@ -1,5 +1,5 @@
-#ifndef SRL_RDRER_ERROR_H_
-#define SRL_RDRER_ERROR_H_
+#ifndef SRL_READER_ERROR_H_
+#define SRL_READER_ERROR_H_
 
 #include "srl_taginfo.h"
 

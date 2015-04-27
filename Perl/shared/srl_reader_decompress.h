@@ -1,5 +1,5 @@
-#ifndef SRL_READER_DEOMPRESS_H_
-#define SRL_READER_DEOMPRESS_H_
+#ifndef SRL_READER_DECOMPRESS_H_
+#define SRL_READER_DECOMPRESS_H_
 
 #include "srl_inline.h"
 #include "srl_common.h"

@@ -1,5 +1,5 @@
-#ifndef SRL_bufER_VARINT_H_
-#define SRL_bufER_VARINT_H_
+#ifndef SRL_READER_VARINT_H_
+#define SRL_READER_VARINT_H_
 
 #include "srl_inline.h"
 #include "srl_common.h"
