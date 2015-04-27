@@ -7,7 +7,9 @@
 #include "srl_reader_types.h"
 
 typedef struct PTABLE * ptable_ptr;
-typedef struct {
+typedef struct srl_decoder srl_decoder_t;
+
+struct srl_decoder {
     srl_reader_buffer_t buf;
     srl_reader_buffer_ptr pbuf;
     const unsigned char *save_pos;      /* used for COPY tags */
@@ -27,7 +29,7 @@ typedef struct {
     UV bytes_consumed;
     UV recursion_depth;                 /* Recursion depth of current decoder */
     U32 flags_readonly;
-} srl_decoder_t;
+};
 
 typedef struct {
     SV *sv;
