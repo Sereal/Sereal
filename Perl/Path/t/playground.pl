@@ -16,7 +16,9 @@ my $encoded = do {
 
 my $p = Sereal::Path->new($encoded);
 #$p->traverse('$[*].__uuid__,__handler_epoch__,__dc_name__');
-$p->traverse('$[*].__uuid__');
+$p->traverse('$.*.\'__uuid__\'');
+print Dumper $p->results;
+$p->traverse('$.*.\'__dc_name__\'');
 my $result = $p->results;
 print Dumper $result;
 exit 1;
