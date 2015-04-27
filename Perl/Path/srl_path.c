@@ -151,6 +151,8 @@ srl_path_traverse(pTHX_ srl_path_t *path, AV *expr, SV *route)
     path->results = newAV();
     path->expr = expr; // TODO perhaps, copy expr
     route_copy = sv_2mortal(newSVsv(route));
+
+    srl_iterator_reset(path->iter);
     srl_parse_next(path, 0, route_copy);
 }
 
