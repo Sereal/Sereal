@@ -3,6 +3,7 @@ use 5.008;
 use strict;
 use warnings;
 
+use File::Basename qw(basename);
 use ExtUtils::MakeMaker;
 use Config;
 
@@ -17,6 +18,13 @@ require inc::Sereal::BuildTools;
 inc::Sereal::BuildTools::link_files($shared_dir, 'without_tests') if $in_source_repo;
 inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
 
+# link Sereal::Decoder files
+foreach my $file (qw(../Decoder/srl_decoder.h ../Decoder/srl_decoder.c)) {
+    -f $file or die "Required file doesn't exist: $file";
+    my $basename = basename($file);
+    -f $basename or symlink($file, $basename);
+}
+
 # TODO Configure/optimize for miniz:
 #   * Important: For best perf. be sure to customize the below macros for your target platform:
 #     #define MINIZ_USE_UNALIGNED_LOADS_AND_STORES 1
@@ -26,7 +34,7 @@ inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
 our $OPTIMIZE;
 
 my $libs = '';
-my $objects = '$(BASEEXT)$(OBJ_EXT) srl_path$(OBJ_EXT) srl_iterator$(OBJ_EXT)';
+my $objects = '$(BASEEXT)$(OBJ_EXT) srl_path$(OBJ_EXT) srl_iterator$(OBJ_EXT) srl_decoder$(OBJ_EXT)';
 my $defines = join" ", map { "-D$_" . (defined $ENV{$_} ? "=$ENV{$_}" : '') } grep { exists $ENV{$_} }
               qw(NOINLINE DEBUG MEMDEBUG NDEBUG ENABLE_DANGEROUS_HACKS);
 
@@ -119,6 +127,7 @@ WriteMakefile1(
     BUILD_REQUIRES => {
         'File::Find' => 0,
         'File::Path' => 0,
+        'File::Basename' => 0,
         'ExtUtils::ParseXS' => '2.21',
     },
     CONFIGURE_REQUIRES => {
@@ -137,9 +146,6 @@ WriteMakefile1(
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
     OPTIMIZE          => $OPTIMIZE,
     OBJECT            => $objects,
-    test              => {
-        TESTS => "t/*.t t/*/*/*.t",
-    },
 );
 $ENV{OPTIMIZE} = $OPTIMIZE;
 

@@ -50,18 +50,23 @@ extern "C" {
 #   endif
 #endif
 
+#if !defined(HAVE_CSNAPPY)
+/* XXX
+ * This is a dirty hack, snappy/csnappy_decompress.c will be included by srl_decoder.c
+ * Also, read comments in srl_reader_decompress.h
+ * */
+// #include "snappy/csnappy_decompress.c"
+#endif
+
 #include "srl_common.h"
 #include "srl_inline.h"
 #include "srl_protocol.h"
 #include "srl_iterator.h"
+#include "srl_decoder.h"
 #include "srl_reader_misc.h"
 #include "srl_reader_error.h"
 #include "srl_reader_varint.h"
 #include "srl_reader_decompress.h"
-
-// XXX use srl_decoder as shared object???
-#include "../Decoder/srl_decoder.h"
-#include "../Decoder/srl_decoder.c"
 
 #define srl_stack_push_and_set(iter, tag, length) STMT_START {  \
     srl_iterator_stack_ptr _stack_ptr;                          \
