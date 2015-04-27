@@ -1,6 +1,6 @@
 language: go
 go:
-    - 1.2
+    - 1.4
 
 language: ruby
 rvm:
@@ -18,6 +18,5 @@ perl:
     - "5.14"
     - "5.12"
     - "5.10"
-    - "5.8"
 install: /bin/true
 script: travis/all.sh
