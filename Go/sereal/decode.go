@@ -368,9 +368,8 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 func (d *Decoder) decodeInt(tag byte) int {
 	if (tag & 0x10) == 0x10 {
 		return int(tag) - 32 // negative number
-	} else {
-		return int(tag)
 	}
+	return int(tag)
 }
 
 func (d *Decoder) decodeVarint(by []byte, idx int) (int, int) {

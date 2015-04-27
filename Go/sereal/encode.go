@@ -334,9 +334,8 @@ func (e *Encoder) encodeString(by []byte, s string, isKeyOrClass bool, strTable 
 			by = append(by, typeCOPY)
 			by = varint(by, uint(copyOffs))
 			return by
-		} else {
-			strTable[s] = len(by)
 		}
+		strTable[s] = len(by)
 	}
 
 	by = append(by, typeSTR_UTF8)
@@ -350,10 +349,9 @@ func (e *Encoder) encodeBytes(by []byte, byt []byte, isKeyOrClass bool, strTable
 			by = append(by, typeCOPY)
 			by = varint(by, uint(copyOffs))
 			return by
-		} else {
-			// save for later
-			strTable[string(byt)] = len(by)
 		}
+		// save for later
+		strTable[string(byt)] = len(by)
 	}
 
 	if l := len(byt); l < 32 {

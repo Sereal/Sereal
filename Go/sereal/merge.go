@@ -9,6 +9,7 @@ import (
 
 type topLevelElementType int
 
+// Top-level data structures for merged documents
 const (
 	TopLevelArray topLevelElementType = iota
 	TopLevelArrayRef
@@ -19,6 +20,7 @@ const (
 const maxUint32 = 1<<32 - 1
 const hashKeysValuesFlag = uint32(1 << 31)
 
+// Merger merges multiple sereal documents without reconstructing them
 type Merger struct {
 	buf        []byte
 	strTable   map[string]int
@@ -67,7 +69,7 @@ type mergerDoc struct {
 	bodyOffset int // 1-based
 }
 
-// use latest version
+// NewMerger returns a merger using the latest sereal version
 func NewMerger() *Merger {
 	return &Merger{
 		TopLevelElement:      TopLevelArrayRef,
@@ -75,6 +77,7 @@ func NewMerger() *Merger {
 	}
 }
 
+// NewMergerV2 returns a merger for processing sereal v2 documents
 func NewMergerV2() *Merger {
 	return &Merger{
 		version:              2,
@@ -83,6 +86,7 @@ func NewMergerV2() *Merger {
 	}
 }
 
+// NewMergerV3 returns a merger for processing sereal v3 documents
 func NewMergerV3() *Merger {
 	return &Merger{
 		version:              3,
@@ -143,8 +147,7 @@ func (m *Merger) initMerger() error {
 	return nil
 }
 
-// apart of error, Append() returns number of
-// added elements to top level structure
+// Append adds the sereal document b and returns the number of elements added to the top-level structure
 func (m *Merger) Append(b []byte) (int, error) {
 	if err := m.initMerger(); err != nil {
 		return 0, err
@@ -198,7 +201,7 @@ func (m *Merger) Append(b []byte) (int, error) {
 		}
 	}
 
-	old_length := m.length
+	oldLength := m.length
 	lastElementOffset := len(m.buf)
 
 	// first pass: build table of tracked tags
@@ -219,9 +222,10 @@ func (m *Merger) Append(b []byte) (int, error) {
 		return 0, err
 	}
 
-	return m.length - old_length, nil
+	return m.length - oldLength, nil
 }
 
+// Finish is called to terminate the merging process
 func (m *Merger) Finish() ([]byte, error) {
 	if err := m.initMerger(); err != nil {
 		return m.buf, err
@@ -347,11 +351,11 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 			return errors.New("unexpected start of new document")
 
 		default:
-			return fmt.Errorf("unknown tag: %d (0x%x) at offset %d!", tag, tag, idx)
+			return fmt.Errorf("unknown tag: %d (0x%x) at offset %d", tag, tag, idx)
 		}
 	}
 
-	for idx, _ := range doc.trackTable {
+	for idx := range doc.trackTable {
 		doc.trackIdxs = append(doc.trackIdxs, idx)
 	}
 
@@ -567,7 +571,7 @@ LOOP:
 
 		default:
 			// TODO typeMANY
-			return fmt.Errorf("unknown tag: %d (0x%x) at offset %d!", tag, tag, didx)
+			return fmt.Errorf("unknown tag: %d (0x%x) at offset %d", tag, tag, didx)
 		}
 
 		stack[level]--

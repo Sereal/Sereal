@@ -7,6 +7,7 @@ type ZlibCompressor struct {
 	Level int // compression level, set to ZlibDefaultCompression by default
 }
 
+// Zlib constants
 const (
 	ZlibBestSpeed          = zlib.BestSpeed
 	ZlibBestCompression    = zlib.BestCompression

@@ -2,6 +2,7 @@ package sereal
 
 import "errors"
 
+// Errors
 var (
 	ErrBadHeaderUTF8 = errors.New("bad header: it seems your document was accidentally UTF-8 encoded")
 	ErrBadHeader     = errors.New("bad header: not a valid Sereal document")
@@ -13,8 +14,13 @@ var (
 
 	ErrTruncated  = errors.New("truncated document")
 	ErrUnknownTag = errors.New("unknown tag byte")
+)
 
-	// internal constants used for corrupt
+// ErrCorrupt is returned if the sereal document was corrupt
+type ErrCorrupt struct{ Err string }
+
+// internal constants used for corrupt
+var (
 	errBadSliceSize         = "bad size for slice"
 	errBadStringSize        = "bad size for string"
 	errBadOffset            = "bad offset"
@@ -24,7 +30,5 @@ var (
 	errUntrackedOffsetAlias = "untracked offset for alias"
 	errNestedCOPY           = "bad nested copy tag"
 )
-
-type ErrCorrupt struct{ Err string }
 
 func (c ErrCorrupt) Error() string { return "sereal: corrupt document" }
