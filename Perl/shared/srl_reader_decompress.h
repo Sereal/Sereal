@@ -11,7 +11,20 @@
 #if defined(HAVE_CSNAPPY)
     #include <csnappy.h>
 #else
-    #include "snappy/csnappy_decompress.c"
+/* PLEASE READ!!!
+ * Since the decompression code was migrated to this header file
+ * and it's not a good practise to include C files into headers (actually, doing so
+ * cases 'duplicate symbol' errors in Sereal::Path, expected huh?) and I didn't
+ * found right way how to compile snappy's implementation files and link them
+ * (main problem is that snappy files in a subdirectory) I'm only including
+ * header file here and a dev should include C file in his code.
+ *
+ * It should be something like this:
+ * #if !defined(HAVE_CSNAPPY)
+ * # include "snappy/csnappy_decompress.c"
+ * #endif
+ */
+    #include "snappy/csnappy.h"
 #endif
 
 #if defined(HAVE_MINIZ)

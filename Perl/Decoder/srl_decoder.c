@@ -48,6 +48,10 @@ extern "C" {
 #endif
 #define DEFAULT_MAX_RECUR_DEPTH 10000
 
+#if !defined(HAVE_CSNAPPY)
+# include "snappy/csnappy_decompress.c"
+#endif
+
 #include "srl_decoder.h"
 
 #include "srl_common.h"
