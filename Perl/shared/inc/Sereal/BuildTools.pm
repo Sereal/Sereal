@@ -4,6 +4,7 @@ use warnings;
 
 sub link_files {
   my $shared_dir = shift;
+  my $exlude_tests = shift;
   # This fires from a git source tree only.
   # Right now, all devs are on Linux. Feel free to make portable.
   eval {
@@ -18,6 +19,7 @@ sub link_files {
             my $f = $_;
             s/^\Q$shared_dir\E\/?// or die $_;
             return unless $_;
+            return if $exlude_tests && m#^/?t/#;
             
             if (-d $f) {
               File::Path::mkpath($_)
