@@ -210,7 +210,7 @@ srl_destroy_iterator(pTHX_ srl_iterator_t *iter)
         SvREFCNT_dec(iter->tmp_buf_owner);
 
     if (iter->dec)
-        srl_destroy_decoder((srl_decoder_t*) iter->dec);
+        srl_destroy_decoder(iter->dec);
 
     Safefree(iter);
     return;
@@ -927,14 +927,12 @@ srl_iterator_decode(pTHX_ srl_iterator_t *iter)
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 
     into = sv_2mortal(newSV_type(SVt_NULL));
-    if (!iter->dec)
-        iter->dec = (void*) srl_build_decoder_struct(NULL, NULL);
+    if (!iter->dec) iter->dec = srl_build_decoder_struct(NULL, NULL);
 
-    srl_decoder_t* dec = (srl_decoder_t*) iter->dec;
-    Copy(&iter->buf, &dec->buf, 1, srl_reader_buffer_t);
-    DEBUG_ASSERT_RDR_SANE(dec->pbuf);
+    Copy(&iter->buf, &iter->dec->buf, 1, srl_reader_buffer_t);
+    DEBUG_ASSERT_RDR_SANE(iter->dec->pbuf);
 
-    srl_decode_single_value(dec, into, NULL);
+    srl_decode_single_value(iter->dec, into, NULL);
     return into;
 }
 
