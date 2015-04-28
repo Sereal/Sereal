@@ -236,7 +236,7 @@ srl_parse_hash(pTHX_ srl_path_t *path, int expr_idx, SV *route)
     assert(route != NULL);
     assert(expr_idx >= 0);
     assert(expr_idx <= av_top_index(path->expr));
-    assert(srl_iterator_stack(iter) != NULL);
+    assert(srl_iterator_stack(aTHX_ iter) != NULL);
 
     loc   = *av_fetch(path->expr, expr_idx, 0);
     loc_str = SvPV(loc, loc_len);
@@ -269,7 +269,7 @@ srl_parse_hash_all(pTHX_ srl_path_t *path, int expr_idx, SV *route)
     for (idx = 0; idx < count; idx += 2, expected_idx -= 2) {
         srl_iterator_next_until_depth_and_idx(aTHX_ iter, expected_depth, expected_idx);
         assert(srl_iterator_stack(aTHX_ iter)->idx == expected_idx);
-        assert(srl_iterator_stack_depth(aTHX _iter) == expected_depth);
+        assert(srl_iterator_stack_depth(aTHX_ iter) == expected_depth);
 
         item = srl_iterator_hash_key(aTHX_ iter, &item_len);
         SRL_PATH_TRACE("walk over item=%.*s in hash at depth=%"IVdf,
@@ -335,7 +335,7 @@ srl_parse_array(pTHX_ srl_path_t *path, int expr_idx, SV *route)
     assert(route != NULL);
     assert(expr_idx >= 0);
     assert(expr_idx <= av_top_index(path->expr));
-    assert(srl_iterator_stack(iter) != NULL);
+    assert(srl_iterator_stack(aTHX_ iter) != NULL);
 
     loc = *av_fetch(path->expr, expr_idx, 0);
     loc_str = SvPV(loc, loc_len);
