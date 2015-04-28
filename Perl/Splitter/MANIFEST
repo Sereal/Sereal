@@ -18,7 +18,6 @@ snappy/csnappy_internal.h
 snappy/csnappy_internal_userspace.h
 Splitter.xs
 srl_common.h
-srl_error.h
 srl_inline.h
 srl_protocol.h
 srl_splitter.c

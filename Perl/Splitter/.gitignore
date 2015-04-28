@@ -21,6 +21,12 @@ srl_inline.h
 ppport.h
 typemap
 srl_common.h
+srl_reader.h
+srl_reader_decompress.h
+srl_reader_error.h
+srl_reader_misc.h
+srl_reader_types.h
+srl_reader_varint.h
 Sereal-Splitter-*.tar*
 author_tools
 t/data/corpus
