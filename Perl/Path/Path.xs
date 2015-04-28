@@ -19,7 +19,7 @@ new(CLASS, src = NULL, opt = NULL)
     HV *opt;
   CODE:
     RETVAL = srl_build_path_struct(aTHX_ opt);
-    if (src) srl_path_reset(RETVAL, src);
+    if (src) srl_path_reset(aTHX_ RETVAL, src);
   OUTPUT: RETVAL
 
 void
@@ -33,7 +33,7 @@ reset(path, src)
     srl_path_t *path;
     SV *src;
   CODE:
-    srl_path_reset(path, src);
+    srl_path_reset(aTHX_ path, src);
 
 SV *
 results(path)
@@ -52,4 +52,4 @@ _traverse(path, expr, route)
     if (SvTYPE(expr) != SVt_RV) croak("query mush be arrayref");
     expr = SvRV(expr);
     if (SvTYPE(expr) != SVt_PVAV) croak("query mush be arrayref");
-    srl_path_traverse(path, (AV*) expr, route);
+    srl_path_traverse(aTHX_ path, (AV*) expr, route);

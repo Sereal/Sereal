@@ -83,12 +83,10 @@ srl_stack_destroy(pTHX_ srl_stack_t *stack)
     Safefree(stack->begin);
 }
 
-SRL_STATIC_INLINE void
-srl_stack_clear(pTHX_ srl_stack_t *stack)
-{
-    DEBUG_ASSERT_STACK_SANE(stack);
-    stack->ptr = NULL;
-}
+#define srl_stack_clear(stack) STMT_START {                           \
+    DEBUG_ASSERT_STACK_SANE(stack);                                   \
+    (stack)->ptr = NULL;                                              \
+} STMT_END
 
 #define srl_stack_ptr(stack)   ((stack)->ptr)
 #define srl_stack_empty(stack) ((stack)->ptr == NULL)
@@ -102,14 +100,14 @@ srl_stack_clear(pTHX_ srl_stack_t *stack)
         (val_ptr) = (stack)->begin;                                   \
     } else {                                                          \
         if (expect_false(srl_stack_full(stack)))                      \
-            srl_stack_grow((stack));                                  \
+            srl_stack_grow(aTHX_ (stack));                            \
                                                                       \
         (val_ptr) = ++(stack)->ptr;                                   \
     }                                                                 \
                                                                       \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
     SRL_STACK_TRACE("pushed value on stack, current idx %d",          \
-                    (int) SRL_STACK_DEPTH(stack));                      \
+                    (int) SRL_STACK_DEPTH(stack));                    \
 } STMT_END
 
 #define srl_stack_push_val(stack, val) STMT_START {                   \
@@ -119,7 +117,7 @@ srl_stack_clear(pTHX_ srl_stack_t *stack)
         (stack)->ptr = (stack)->begin;                                \
     } else {                                                          \
         if (expect_false(srl_stack_full(stack)))                      \
-            srl_stack_grow((stack));                                  \
+            srl_stack_grow(aTHX_ (stack));                            \
                                                                       \
         (stack)->ptr++;                                               \
     }                                                                 \
@@ -128,7 +126,7 @@ srl_stack_clear(pTHX_ srl_stack_t *stack)
                                                                       \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
     SRL_STACK_TRACE("pushed value on stack, current idx %d",          \
-                    (int) SRL_STACK_DEPTH(stack));                      \
+                    (int) SRL_STACK_DEPTH(stack));                    \
 } STMT_END
 
 
@@ -143,17 +141,15 @@ srl_stack_clear(pTHX_ srl_stack_t *stack)
                                                                       \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
     SRL_STACK_TRACE("poped stack, current idx %d",                    \
-                    (int) SRL_STACK_DEPTH(stack));                      \
+                    (int) SRL_STACK_DEPTH(stack));                    \
 } STMT_END
 
-SRL_STATIC_INLINE void
-srl_stack_pop(pTHX_ srl_stack_t *stack)
-{
-    if (expect_false(srl_stack_empty(stack)))
-        croak("Pop empty stack");
-
-    srl_stack_pop_nocheck(stack);
-}
+#define srl_stack_pop(stack) STMT_START {                             \
+    if (expect_false(srl_stack_empty(stack)))                         \
+        croak("Pop empty stack");                                     \
+                                                                      \
+    srl_stack_pop_nocheck(stack);                                     \
+} STMT_END
 
 SRL_STATIC_INLINE srl_stack_type_t
 srl_stack_peek_nocheck(pTHX_ srl_stack_t *stack)
