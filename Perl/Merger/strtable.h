@@ -29,7 +29,7 @@
 */
 
 /* a 64 bit hash where we only use the low 32 bits */
-PERL_STATIC_INLINE U32
+SRL_STATIC_INLINE U32
 S_perl_hash_murmur_hash_64a (const unsigned char * const seed, const unsigned char *str, const STRLEN len)
 {
         const U64TYPE m = 0xc6a4a7935bd1e995;
@@ -86,7 +86,7 @@ S_perl_hash_murmur_hash_64a (const unsigned char * const seed, const unsigned ch
 */
 
 /* a 64-bit hash for 32-bit platforms where we only use the low 32 bits */
-PERL_STATIC_INLINE U32
+SRL_STATIC_INLINE U32
 S_perl_hash_murmur_hash_64b (const unsigned char * const seed, const unsigned char *str, STRLEN len)
 {
         const U32 m = 0x5bd1e995;
