@@ -30,6 +30,7 @@
 #endif
 
 #define SRL_STACK_SIZE(stack)  (((stack)->end - (stack)->begin) + 1)
+#define SRL_STACK_SPACE(stack) (((stack)->ptr - (stack)->begin) + 1)
 #define SRL_STACK_DEPTH(stack) ((stack)->ptr ? (stack)->ptr - (stack)->begin : -1)
 
 typedef struct srl_stack srl_stack_t;
@@ -122,7 +123,7 @@ srl_stack_destroy(pTHX_ srl_stack_t *stack)
         (stack)->ptr++;                                               \
     }                                                                 \
                                                                       \
-    (stack)->ptr = val;                                               \
+    *(stack)->ptr = (val);                                            \
                                                                       \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
     SRL_STACK_TRACE("pushed value on stack, current idx %d",          \

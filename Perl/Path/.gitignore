@@ -23,6 +23,7 @@ ptable.h
 const-c.inc
 const-xs.inc
 srl_inline.h
+srl_stack.h
 srl_reader.h
 srl_reader_decompress.h
 srl_reader_error.h

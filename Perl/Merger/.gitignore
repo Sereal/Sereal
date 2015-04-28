@@ -24,6 +24,7 @@ et
 t/lib/Sereal/TestSet.pm
 typemap
 srl_common.h
+srl_stack.h
 srl_reader.h
 srl_reader_decompress.h
 srl_reader_error.h
@@ -41,3 +42,5 @@ t/700_roundtrip
 t/004_testset.t
 .gdb_history
 inc
+miniz.c
+miniz.h

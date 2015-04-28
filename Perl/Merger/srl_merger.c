@@ -112,12 +112,17 @@ extern "C" {
 # include "snappy/csnappy_decompress.c"
 #endif
 
+#define srl_stack_type_t UV
+#define SRL_SRL_STACK_TYPE_GT(a, b) ((*a) > (*b))
+
+#include "qsort.h"
 #include "srl_merger.h"
 #include "srl_common.h"
 #include "ptable.h"
 #include "strtable.h"
 #include "srl_protocol.h"
 #include "srl_inline.h"
+#include "srl_stack.h"
 #include "srl_reader.h"
 #include "srl_reader_error.h"
 #include "srl_reader_misc.h"
@@ -131,6 +136,8 @@ typedef PTABLE_ENTRY_t *ptable_entry_ptr;
 
 SRL_STATIC_INLINE void srl_buf_copy_content_nocheck(pTHX_ srl_merger_t *mrg, size_t len);
 SRL_STATIC_INLINE void srl_copy_varint(pTHX_ srl_merger_t *mrg);
+SRL_STATIC_INLINE void srl_stack_rsort(pTHX_ srl_stack_t *stack);
+SRL_STATIC_INLINE void srl_stack_dedupe(pTHX_ srl_stack_t *stack);
 
 SRL_STATIC_INLINE ptable_ptr   srl_init_tracked_offsets_tbl(pTHX_ srl_merger_t *mrg);
 SRL_STATIC_INLINE strtable_ptr srl_init_string_deduper_tbl(pTHX_ srl_merger_t *mrg);
@@ -645,7 +652,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
     DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
 
     if (mrg->tracked_offsets)
-        srl_stack_clear(aTHX_ mrg->tracked_offsets);
+        srl_stack_clear(mrg->tracked_offsets);
 
     while (expect_true(BUF_NOT_DONE(mrg->pibuf))) {
         /* since we're doing full pass, it's not necessary to
@@ -695,7 +702,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
                         case SRL_HDR_OBJECTV:
                         case SRL_HDR_OBJECTV_FREEZE:
                             offset = srl_read_varint_uv_offset(aTHX_ mrg->pibuf, " while reading COPY, OBJECTV or OBJECTV_FREEZE");
-                            srl_stack_push(SRL_GET_TRACKED_OFFSETS(mrg), offset);
+                            srl_stack_push_val(SRL_GET_TRACKED_OFFSETS(mrg), offset);
                             break;
 
                         case SRL_HDR_PAD:
@@ -1285,4 +1292,35 @@ srl_copy_varint(pTHX_ srl_merger_t *mrg)
 
     DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
+}
+
+SRL_STATIC_INLINE void
+srl_stack_rsort(pTHX_ srl_stack_t *stack)
+{
+    size_t size;
+    DEBUG_ASSERT_STACK_SANE(stack);
+    if (expect_false(srl_stack_empty(stack))) return;
+
+    size = SRL_STACK_SPACE(stack);
+    QSORT(srl_stack_type_t, stack->begin, size, SRL_SRL_STACK_TYPE_GT);
+    //qsort((void *) stack->begin, size, sizeof(SRL_STACK_TYPE), __compare_SRL_STACK_TYPE);
+
+    stack->ptr = stack->begin + size - 1;
+}
+
+SRL_STATIC_INLINE void
+srl_stack_dedupe(pTHX_ srl_stack_t *stack)
+{
+    srl_stack_type_t *i, *j;
+    DEBUG_ASSERT_STACK_SANE(stack);
+    if (expect_false(srl_stack_empty(stack))) return;
+
+    i = stack->begin;
+    j = stack->begin;
+    for (; i <= stack->ptr; i++) {
+        if (*j != *i) *++j = *i;
+    }
+
+    stack->ptr = j;
+    DEBUG_ASSERT_STACK_SANE(stack);
 }
