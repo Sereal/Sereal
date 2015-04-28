@@ -167,7 +167,7 @@ SRL_STATIC_INLINE ptable_entry_ptr srl_store_tracked_offset(pTHX_ srl_merger_t *
 SRL_STATIC_INLINE UV srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV offset);
 SRL_STATIC_INLINE strtable_entry_ptr srl_lookup_string(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN len, int *ok);
 SRL_STATIC_INLINE strtable_entry_ptr srl_lookup_classname(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN len, int *ok);
-SRL_STATIC_INLINE void srl_cleanup_dedup_tlbs(aTHX_ srl_merger_t *mrg, UV offset);
+SRL_STATIC_INLINE void srl_cleanup_dedup_tlbs(pTHX_ srl_merger_t *mrg, UV offset);
 
 SRL_STATIC_INLINE ptable_ptr
 srl_init_tracked_offsets_tbl(pTHX_ srl_merger_t *mrg)
@@ -275,7 +275,7 @@ srl_build_merger_struct(pTHX_ HV *opt)
     }
 
     if (mrg->protocol_version == 1) {
-        srl_fill_header(mrg, NULL, 0);
+        srl_fill_header(aTHX_ mrg, NULL, 0);
     } else {
         /* Preallocate memory for buffer.
          * SRL_PREALLOCATE_FOR_USER_HEADER for potential user header + 100 bytes for body */
@@ -1242,7 +1242,7 @@ srl_lookup_classname(pTHX_ srl_merger_t *mrg, const unsigned char *src, STRLEN l
 }
 
 SRL_STATIC_INLINE void
-srl_cleanup_dedup_tlbs(aTHX_ srl_merger_t *mrg, UV offset)
+srl_cleanup_dedup_tlbs(pTHX_ srl_merger_t *mrg, UV offset)
 {
     if (!SRL_MRG_HAVE_OPTION(mrg, SRL_F_DEDUPE_STRINGS))
         return;
