@@ -528,7 +528,7 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset)
 IV
 srl_validate_header_version_pv_len(pTHX_ char *strdata, STRLEN len)
 {
-    return srl_validate_header_version((srl_reader_char_ptr) strdata, len);
+    return srl_validate_header_version(aTHX_ (srl_reader_char_ptr) strdata, len);
 }
 
 SRL_STATIC_INLINE void
