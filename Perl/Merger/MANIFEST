@@ -35,6 +35,11 @@ srl_merger.h
 srl_inline.h
 srl_protocol.h
 srl_taginfo.h
-srl_mrg_error.h
 srl_stack.h
+srl_reader.h
+srl_reader_decompress.h
+srl_reader_error.h
+srl_reader_misc.h
+srl_reader_types.h
+srl_reader_varint.h
 typemap

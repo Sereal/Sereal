@@ -12,12 +12,14 @@
 #endif
 
 #include "srl_stack.h"
+#include "srl_reader_types.h"
 #include "srl_buffer_types.h"
 
 /* the merger main struct */
 typedef struct {
     srl_buffer_t obuf;                    /* output buffer */
-    srl_buffer_t ibuf;                    /* input buffer, MUST NOT be deallocated by srl_buf_free_buffer() */
+    srl_reader_buffer_t ibuf;             /* input buffer, MUST NOT be deallocated by srl_buf_free_buffer() */
+    srl_reader_buffer_ptr pibuf;          /* pointer to ibuf */
     srl_stack_t     *tracked_offsets;     /* sorted list of offsets from ibuf which
                                              reffered by COPY, OBJECTV or OBJECTV_FREEZE tag */
 

@@ -51,6 +51,7 @@
              (UV)SRL_RDR_POS_OFS(buf), (buf)->start, (buf)->pos,               \
              (buf)->end, (UV)SRL_RDR_SPACE_LEFT(buf));                         \
     }                                                                          \
+    assert(((buf)->start <= (buf)->pos) && ((buf)->pos <= (buf)->end));        \
 } STMT_END 
 #else
 #   define DEBUG_ASSERT_RDR_SANE(buf)

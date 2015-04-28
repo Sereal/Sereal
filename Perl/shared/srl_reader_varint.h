@@ -23,6 +23,18 @@ srl_skip_varint(pTHX_ srl_reader_buffer_t *buf)
 }
 
 SRL_STATIC_INLINE UV
+srl_varint_length(pTHX_ UV value)
+{
+    UV length = 0;
+    while (value >= 0x80) {
+        length++;
+        value >>= 7;
+    }
+
+    return ++length;
+}
+
+SRL_STATIC_INLINE UV
 srl_read_varint_uv_safe(pTHX_ srl_reader_buffer_t *buf)
 {
     UV uv= 0;

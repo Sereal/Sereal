@@ -68,22 +68,11 @@ extern "C" {
     SRL_MERGER_TRACE(                                                \
         "%s: tag %d (0x%X) at abs %d, rel %d (obuf abs %d, rel %d)", \
         __FUNCTION__, (tag), (tag),                                  \
-        (int) BUF_POS_OFS(&(mrg)->ibuf),                             \
-        (int) BODY_POS_OFS(&(mrg)->ibuf),                            \
+        (int) SRL_RDR_POS_OFS((mrg)->pibuf),                         \
+        (int) SRL_RDR_BODY_POS_OFS((mrg)->pibuf),                    \
         (int) BUF_POS_OFS(&(mrg)->obuf),                             \
         (int) BODY_POS_OFS(&(mrg)->obuf)                             \
     );                                                               \
-} STMT_END
-
-#define ASSERT_BUF_SPACE(buf, len, msg) STMT_START {         \
-    if (expect_false((UV) BUF_SPACE(buf) < (UV) (len))) {    \
-        SRL_ERRORf3(                                         \
-            (*buf),                                          \
-            "Unexpected termination of packet%s, "           \
-            "want %lu bytes, only have %lu available",       \
-            (msg), (UV) (len), (UV) BUF_SPACE(buf)           \
-        );                                                   \
-    }                                                        \
 } STMT_END
 
 #define GROW_BUF(buf, minlen) STMT_START {                            \
@@ -119,29 +108,26 @@ extern "C" {
 #define SRL_PREALLOCATE_FOR_USER_HEADER 1024
 #define SRL_MINIMALISTIC_HEADER_SIZE 6 // =srl + 1 byte for version + 1 byte for header
 
+#if !defined(HAVE_CSNAPPY)
+# include "snappy/csnappy_decompress.c"
+#endif
+
 #include "srl_merger.h"
 #include "srl_common.h"
 #include "ptable.h"
 #include "strtable.h"
 #include "srl_protocol.h"
 #include "srl_inline.h"
-#include "srl_mrg_error.h"
+#include "srl_reader.h"
+#include "srl_reader_error.h"
+#include "srl_reader_misc.h"
+#include "srl_reader_varint.h"
+#include "srl_reader_decompress.h"
 #include "srl_buffer.h"
 #include "srl_compress.h"
 
 typedef struct PTABLE * ptable_ptr;
 typedef PTABLE_ENTRY_t *ptable_entry_ptr;
-
-/* predeclare all our subs so we have one definitive authority for their signatures */
-SRL_STATIC_INLINE UV srl_varint_length(pTHX_ UV value);
-SRL_STATIC_INLINE UV srl_read_varint_uv_safe(pTHX_ srl_buffer_t *buf);
-SRL_STATIC_INLINE UV srl_read_varint_uv_nocheck(pTHX_ srl_buffer_t *buf);
-SRL_STATIC_INLINE UV srl_read_varint_uv(pTHX_ srl_buffer_t *buf);
-SRL_STATIC_INLINE UV srl_read_varint_uv_offset(pTHX_ srl_buffer_t *buf, const char * const errstr);
-SRL_STATIC_INLINE UV srl_read_varint_uv_length(pTHX_ srl_buffer_t *buf, const char * const errstr);
-SRL_STATIC_INLINE UV srl_read_varint_uv_count(pTHX_ srl_buffer_t *buf, const char * const errstr);
-SRL_STATIC_INLINE IV srl_validate_header_version_pv_len(pTHX_ char *strdata, STRLEN len);
-SRL_STATIC_INLINE UV srl_decompress_body_snappy(pTHX_ srl_buffer_t *buf, int incremental);
 
 SRL_STATIC_INLINE void srl_buf_copy_content_nocheck(pTHX_ srl_merger_t *mrg, size_t len);
 SRL_STATIC_INLINE void srl_copy_varint(pTHX_ srl_merger_t *mrg);
@@ -383,7 +369,7 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
     /* preallocate space in obuf,
      * but this is still not enough because due to
      * varint we might need more space in obug then size of ibuf */
-    GROW_BUF(&mrg->obuf, (size_t) BUF_SIZE(&mrg->ibuf));
+    GROW_BUF(&mrg->obuf, (size_t) SRL_RDR_SIZE(mrg->pibuf));
 
     /* save current offset as last successfull */
     mrg->obuf_last_successfull_offset = BODY_POS_OFS(&mrg->obuf);
@@ -488,7 +474,7 @@ srl_merger_finish(pTHX_ srl_merger_t *mrg, SV *user_header_src)
             croak("Sereal version does not support headers");
 
         user_header = (char*) SvPV(user_header_src, user_header_len);
-        proto_version_and_encoding_flags_int = srl_validate_header_version_pv_len(aTHX_ user_header, user_header_len);
+        proto_version_and_encoding_flags_int = srl_validate_header_version(aTHX_ (srl_reader_char_ptr) user_header, user_header_len);
         if (expect_false(proto_version_and_encoding_flags_int < 1))
             croak("Bad Sereal header: Not a valid Sereal document.");
 
@@ -579,6 +565,9 @@ srl_empty_merger_struct(pTHX)
         croak("Out of memory");
     }
 
+    SRL_RDR_CLEAR(&mrg->ibuf);
+    mrg->pibuf = &mrg->ibuf;
+
     mrg->recursion_depth = 0;
     mrg->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
 
@@ -601,50 +590,50 @@ srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
 {
     STRLEN len;
     UV header_len;
-    U8 encoding_flags;
-    U8 protocol_version;
     srl_buffer_char *tmp;
     IV proto_version_and_encoding_flags_int;
+
+    SRL_RDR_CLEAR(&mrg->ibuf);
 
     tmp = (srl_buffer_char*) SvPV(src, len);
     mrg->ibuf.start = mrg->ibuf.pos = tmp;
     mrg->ibuf.end = mrg->ibuf.start + len;
 
-    proto_version_and_encoding_flags_int = srl_validate_header_version_pv_len(aTHX_ (char*) mrg->ibuf.start, len);
+    proto_version_and_encoding_flags_int = srl_validate_header_version(aTHX_ (srl_reader_char_ptr) mrg->ibuf.start, len);
 
     if (proto_version_and_encoding_flags_int < 1) {
         if (proto_version_and_encoding_flags_int == 0)
-            SRL_ERROR(mrg->ibuf, "Bad Sereal header: It seems your document was accidentally UTF-8 encoded");
+            SRL_RDR_ERROR(mrg->pibuf, "Bad Sereal header: It seems your document was accidentally UTF-8 encoded");
         else
-            SRL_ERROR(mrg->ibuf, "Bad Sereal header: Not a valid Sereal document.");
+            SRL_RDR_ERROR(mrg->pibuf, "Bad Sereal header: Not a valid Sereal document.");
     }
 
     mrg->ibuf.pos += 5;
-    encoding_flags = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_ENCODING_MASK);
-    protocol_version = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
+    mrg->ibuf.encoding_flags = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_ENCODING_MASK);
+    mrg->ibuf.protocol_version = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
 
-    if (expect_false(protocol_version > 3 || protocol_version < 1)) {
-        SRL_ERRORf1(mrg->ibuf, "Unsupported Sereal protocol version %u", (unsigned int) mrg->protocol_version);
+    if (expect_false(mrg->ibuf.protocol_version > 3 || mrg->ibuf.protocol_version < 1)) {
+        SRL_RDR_ERRORf1(mrg->pibuf, "Unsupported Sereal protocol version %u", (unsigned int) mrg->ibuf.protocol_version);
     }
 
     // skip header in any case
-    header_len = srl_read_varint_uv_length(aTHX_ &mrg->ibuf, " while reading header");
+    header_len = srl_read_varint_uv_length(aTHX_ mrg->pibuf, " while reading header");
     mrg->ibuf.pos += header_len;
 
-    if (encoding_flags == SRL_PROTOCOL_ENCODING_RAW) {
+    if (mrg->ibuf.encoding_flags == SRL_PROTOCOL_ENCODING_RAW) {
         /* no op */
-    } else if (   encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
-               || encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL)
+    } else if (   mrg->ibuf.encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
+               || mrg->ibuf.encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL)
     {
-        srl_decompress_body_snappy(aTHX_ &mrg->ibuf, encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL);
-    } else if (encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB) {
-        SRL_ERROR(mrg->ibuf, "zlib compression is not implemented");
+        srl_decompress_body_snappy(aTHX_ mrg->pibuf, NULL);
+    } else if (mrg->ibuf.encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB) {
+        srl_decompress_body_zlib(aTHX_ mrg->pibuf, NULL);
     } else {
-        SRL_ERROR(mrg->ibuf, "Sereal document encoded in an unknown format");
+        SRL_RDR_ERROR(mrg->pibuf, "Sereal document encoded in an unknown format");
     }
 
-    SRL_UPDATE_BODY_POS(&mrg->ibuf, protocol_version);
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    SRL_RDR_UPDATE_BODY_POS(mrg->pibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
 }
 
 SRL_STATIC_INLINE void
@@ -653,12 +642,12 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
     U8 tag;
     UV offset, length;
 
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
 
     if (mrg->tracked_offsets)
         srl_stack_clear(aTHX_ mrg->tracked_offsets);
 
-    while (expect_true(BUF_NOT_DONE(&mrg->ibuf))) {
+    while (expect_true(BUF_NOT_DONE(mrg->pibuf))) {
         /* since we're doing full pass, it's not necessary to
          * add items into tracked_offsets here. They will be added
          * by corresponding REFP/ALIAS/COPY and other tags */
@@ -673,7 +662,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
             switch (tag) {
                 case SRL_HDR_VARINT:
                 case SRL_HDR_ZIGZAG:
-                    srl_read_varint_uv(aTHX_ &mrg->ibuf); // TODO test/implement srl_skip_varint()
+                    srl_read_varint_uv(aTHX_ mrg->pibuf); // TODO test/implement srl_skip_varint()
                     break;
 
                 case SRL_HDR_FLOAT:         mrg->ibuf.pos += 4;     break;
@@ -682,13 +671,13 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
 
                 case SRL_HDR_BINARY:
                 case SRL_HDR_STR_UTF8:
-                    length = srl_read_varint_uv_length(aTHX_ &mrg->ibuf, " while reading BINARY or STR_UTF8");
+                    length = srl_read_varint_uv_length(aTHX_ mrg->pibuf, " while reading BINARY or STR_UTF8");
                     mrg->ibuf.pos += length;
                     break;
 
                 case SRL_HDR_HASH:
                 case SRL_HDR_ARRAY:
-                    srl_read_varint_uv_count(aTHX_ &mrg->ibuf, " while reading ARRAY or HASH");
+                    srl_read_varint_uv_count(aTHX_ mrg->pibuf, " while reading ARRAY or HASH");
                     break;
 
                 case SRL_HDR_TRUE:
@@ -705,7 +694,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
                         case SRL_HDR_ALIAS:
                         case SRL_HDR_OBJECTV:
                         case SRL_HDR_OBJECTV_FREEZE:
-                            offset = srl_read_varint_uv_offset(aTHX_ &mrg->ibuf, " while reading COPY, OBJECTV or OBJECTV_FREEZE");
+                            offset = srl_read_varint_uv_offset(aTHX_ mrg->pibuf, " while reading COPY, OBJECTV or OBJECTV_FREEZE");
                             srl_stack_push(SRL_GET_TRACKED_OFFSETS(mrg), offset);
                             break;
 
@@ -720,7 +709,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
                             break;
 
                         default:
-                            SRL_ERROR_UNIMPLEMENTED(mrg->ibuf, tag, "");
+                            SRL_RDR_ERROR_UNIMPLEMENTED(mrg->pibuf, tag, "");
                             break;
                     }
             }
@@ -739,7 +728,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
         //}
     }
 
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
 }
 
 SRL_STATIC_INLINE void
@@ -749,23 +738,24 @@ srl_merge_single_value(pTHX_ srl_merger_t *mrg)
     UV length, offset;
     ptable_entry_ptr ptable_entry;
 
+
 read_again:
     assert(mrg->recursion_depth >= 0);
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
     if (expect_false(++mrg->recursion_depth > mrg->max_recursion_depth))
-        SRL_ERRORf1(mrg->ibuf, "Reached recursion limit (%lu) during merging", mrg->max_recursion_depth);
+        SRL_RDR_ERRORf1(mrg->pibuf, "Reached recursion limit (%lu) during merging", mrg->max_recursion_depth);
 
     ptable_entry = NULL;
-    if (expect_false(BUF_DONE(&mrg->ibuf)))
-        SRL_ERROR(mrg->ibuf, "Unexpected termination of input buffer");
+    if (expect_false(SRL_RDR_DONE(mrg->pibuf)))
+        SRL_RDR_ERROR(mrg->pibuf, "Unexpected termination of input buffer");
 
     tag = *mrg->ibuf.pos & ~SRL_HDR_TRACK_FLAG;
     SRL_REPORT_CURRENT_TAG(mrg, tag);
 
     if (mrg->tracked_offsets && !srl_stack_empty(mrg->tracked_offsets)) {
-        UV itag_offset = BODY_POS_OFS(&mrg->ibuf);
+        UV itag_offset = SRL_RDR_BODY_POS_OFS(mrg->pibuf);
         if (expect_false(itag_offset == srl_stack_peek_nocheck(aTHX_ mrg->tracked_offsets))) {
             // trackme case
             srl_stack_pop_nocheck(mrg->tracked_offsets);
@@ -807,13 +797,13 @@ read_again:
 
             case SRL_HDR_HASH:
                 mrg->ibuf.pos++; // skip tag in input buffer
-                length = srl_read_varint_uv_count(aTHX_ &mrg->ibuf, " while reading ARRAY or HASH");
+                length = srl_read_varint_uv_count(aTHX_ mrg->pibuf, " while reading ARRAY or HASH");
                 srl_merge_hash(aTHX_ mrg, tag, length);
                 break;
 
             case SRL_HDR_ARRAY:
                 mrg->ibuf.pos++; // skip tag in input buffer
-                length = srl_read_varint_uv_count(aTHX_ &mrg->ibuf, " while reading ARRAY or HASH");
+                length = srl_read_varint_uv_count(aTHX_ mrg->pibuf, " while reading ARRAY or HASH");
                 srl_merge_array(aTHX_ mrg, tag, length);
                 break;
 
@@ -823,7 +813,7 @@ read_again:
                     case SRL_HDR_REFP:
                     case SRL_HDR_ALIAS:
                         mrg->ibuf.pos++; // skip tag in input buffer
-                        offset = srl_read_varint_uv_offset(aTHX_ &mrg->ibuf, " while reading COPY/ALIAS/REFP");
+                        offset = srl_read_varint_uv_offset(aTHX_ mrg->pibuf, " while reading COPY/ALIAS/REFP");
                         offset = srl_lookup_tracked_offset(aTHX_ mrg, offset); // convert ibuf offset to obuf offset
                         srl_buf_cat_varint(aTHX_ &mrg->obuf, tag, offset);
 
@@ -850,7 +840,7 @@ read_again:
 
                         tag = *mrg->ibuf.pos;
                         if (expect_false(tag < SRL_HDR_SHORT_BINARY_LOW))
-                            SRL_ERROR_UNEXPECTED(mrg->ibuf, tag, "SRL_HDR_SHORT_BINARY");
+                            SRL_RDR_ERROR_UNEXPECTED(mrg->pibuf, tag, "SRL_HDR_SHORT_BINARY");
 
                         srl_buf_copy_content_nocheck(aTHX_ mrg, SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) + 1);
                         break;
@@ -858,27 +848,27 @@ read_again:
                     case SRL_HDR_OBJECTV:
                     case SRL_HDR_OBJECTV_FREEZE:
                         mrg->ibuf.pos++; // skip tag in input buffer
-                        offset = srl_read_varint_uv_offset(aTHX_ &mrg->ibuf, " while reading OBJECTV/OBJECTV_FREEZE");
+                        offset = srl_read_varint_uv_offset(aTHX_ mrg->pibuf, " while reading OBJECTV/OBJECTV_FREEZE");
                         offset = srl_lookup_tracked_offset(aTHX_ mrg, offset); // convert ibuf offset to obuf offset
                         srl_buf_cat_varint(aTHX_ &mrg->obuf, tag, offset);
                         goto read_again;
 
                     case SRL_HDR_PAD:
-                        while (BUF_NOT_DONE(&mrg->ibuf) && *mrg->ibuf.pos == SRL_HDR_PAD) {
+                        while (SRL_RDR_NOT_DONE(mrg->pibuf) && *mrg->ibuf.pos == SRL_HDR_PAD) {
                             srl_buf_cat_tag_nocheck(mrg, SRL_HDR_PAD);
                         }
 
                         goto read_again;
 
                      default:
-                        SRL_ERROR_UNIMPLEMENTED(mrg->ibuf, tag, "");
+                        SRL_RDR_ERROR_UNIMPLEMENTED(mrg->pibuf, tag, "");
                         break;
                 }
         }
     }
 
     --mrg->recursion_depth;
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 }
 
@@ -886,7 +876,7 @@ SRL_STATIC_INLINE void
 srl_merge_array(pTHX_ srl_merger_t *mrg, const U8 tag, UV length)
 {
     unsigned int i;
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
     if (tag == SRL_HDR_ARRAY) {
@@ -899,7 +889,7 @@ srl_merge_array(pTHX_ srl_merger_t *mrg, const U8 tag, UV length)
         srl_merge_single_value(aTHX_ mrg);
     }
 
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 }
 
@@ -907,7 +897,7 @@ SRL_STATIC_INLINE void
 srl_merge_hash(pTHX_ srl_merger_t *mrg, const U8 tag, UV length)
 {
     unsigned int i;
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
     if (tag == SRL_HDR_HASH) {
@@ -921,7 +911,7 @@ srl_merge_hash(pTHX_ srl_merger_t *mrg, const U8 tag, UV length)
         srl_merge_single_value(aTHX_ mrg);
     }
 
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 }
 
@@ -931,13 +921,13 @@ srl_merge_binary_utf8(pTHX_ srl_merger_t *mrg, ptable_entry_ptr ptable_entry)
     int ok;
     UV length, total_length;
     strtable_entry_ptr strtable_entry;
-    srl_buffer_char *tag_ptr = mrg->ibuf.pos;
+    srl_reader_char_ptr tag_ptr = mrg->ibuf.pos;
 
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
     mrg->ibuf.pos++; // skip tag in input buffer
-    length = srl_read_varint_uv_length(aTHX_ &mrg->ibuf, " while reading BINARY or STR_UTF8");
+    length = srl_read_varint_uv_length(aTHX_ mrg->pibuf, " while reading BINARY or STR_UTF8");
 
     assert((mrg->ibuf.pos - tag_ptr) > 0);
     assert((mrg->ibuf.pos - tag_ptr) <= SRL_MAX_VARINT_LENGTH);
@@ -970,7 +960,7 @@ srl_merge_binary_utf8(pTHX_ srl_merger_t *mrg, ptable_entry_ptr ptable_entry)
         srl_buf_copy_content_nocheck(aTHX_ mrg, total_length);
     }
 
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 }
 
@@ -981,7 +971,7 @@ srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag, ptable_entry_ptr p
     strtable_entry_ptr strtable_entry;
     UV length = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) + 1; // + 1 for tag
 
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
     // +1 because need to respect tag
@@ -1010,7 +1000,7 @@ srl_merge_short_binary(pTHX_ srl_merger_t *mrg, const U8 tag, ptable_entry_ptr p
         srl_buf_copy_content_nocheck(aTHX_ mrg, length);
     }
 
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 }
 
@@ -1021,18 +1011,18 @@ srl_merge_stringish(pTHX_ srl_merger_t *mrg)
     UV offset = 0;
     ptable_entry_ptr ptable_entry = NULL;
 
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
-    if (expect_false(BUF_DONE(&mrg->ibuf)))
-        SRL_ERROR(mrg->ibuf, "Unexpected termination of input buffer");
+    if (expect_false(SRL_RDR_DONE(mrg->pibuf)))
+        SRL_RDR_ERROR(mrg->pibuf, "Unexpected termination of input buffer");
 
     tag = *mrg->ibuf.pos;
     tag = tag & ~SRL_HDR_TRACK_FLAG;
     SRL_REPORT_CURRENT_TAG(mrg, tag);
 
     if (mrg->tracked_offsets && !srl_stack_empty(mrg->tracked_offsets)) {
-        UV itag_offset = BODY_POS_OFS(&mrg->ibuf);
+        UV itag_offset = SRL_RDR_BODY_POS_OFS(mrg->pibuf);
         if (expect_false(itag_offset == srl_stack_peek_nocheck(aTHX_ mrg->tracked_offsets))) {
             // trackme case
             srl_stack_pop_nocheck(mrg->tracked_offsets);
@@ -1046,21 +1036,21 @@ srl_merge_stringish(pTHX_ srl_merger_t *mrg)
         srl_merge_binary_utf8(aTHX_ mrg, ptable_entry);
     } else if (tag == SRL_HDR_COPY) {
         mrg->ibuf.pos++; // skip tag in input buffer
-        offset = srl_read_varint_uv_offset(aTHX_ &mrg->ibuf, " while reading COPY");
+        offset = srl_read_varint_uv_offset(aTHX_ mrg->pibuf, " while reading COPY");
         offset = srl_lookup_tracked_offset(aTHX_ mrg, offset); // convert ibuf offset to obuf offset
 
         newtag = *(mrg->obuf.body_pos + offset);
         if (expect_false(newtag != SRL_HDR_BINARY && newtag != SRL_HDR_STR_UTF8 && newtag < SRL_HDR_SHORT_BINARY_LOW)) {
-            SRL_ERROR_BAD_COPY(mrg->ibuf, newtag);
+            SRL_RDR_ERROR_BAD_COPY(mrg->pibuf, newtag);
         }
 
         srl_buf_cat_varint(aTHX_ &mrg->obuf, tag, offset);
         //otag_offset = offset;
     } else {
-        SRL_ERROR_UNEXPECTED(mrg->ibuf, tag, "stringish");
+        SRL_RDR_ERROR_UNEXPECTED(mrg->pibuf, tag, "stringish");
     }
 
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 }
 
@@ -1069,10 +1059,10 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
 {
     int ok;
     U8 strtag;
-    srl_buffer_char *strtag_ptr = NULL;
+    srl_reader_char_ptr strtag_ptr = NULL;
     ptable_entry_ptr ptable_entry = NULL;
 
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
     mrg->ibuf.pos++; // skip object tag
@@ -1081,7 +1071,7 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
     SRL_REPORT_CURRENT_TAG(mrg, strtag);
 
     if (mrg->tracked_offsets && !srl_stack_empty(mrg->tracked_offsets)) {
-        UV itag_offset = BODY_POS_OFS(&mrg->ibuf);
+        UV itag_offset = SRL_RDR_BODY_POS_OFS(mrg->pibuf);
         if (expect_false(itag_offset == srl_stack_peek_nocheck(aTHX_ mrg->tracked_offsets))) {
             // trackme case
             srl_stack_pop_nocheck(mrg->tracked_offsets);
@@ -1102,7 +1092,7 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
         strtable_entry_ptr strtable_entry;
         UV length = strtag >= SRL_HDR_SHORT_BINARY_LOW
                   ? SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(strtag)
-                  : srl_read_varint_uv_length(aTHX_ &mrg->ibuf, " while reading BINARY or STR_UTF8");
+                  : srl_read_varint_uv_length(aTHX_ mrg->pibuf, " while reading BINARY or STR_UTF8");
 
         /* total_length is size of classname including STRTAG and varint (for BINARY or STR_UTF8) */
         UV total_length = length + (mrg->ibuf.pos - strtag_ptr);
@@ -1145,21 +1135,21 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
         }
     } else if (strtag == SRL_HDR_COPY) {
         U8 newtag;
-        UV offset = srl_read_varint_uv_offset(aTHX_ &mrg->ibuf, " while reading COPY");
+        UV offset = srl_read_varint_uv_offset(aTHX_ mrg->pibuf, " while reading COPY");
         offset = srl_lookup_tracked_offset(aTHX_ mrg, offset); // convert ibuf offset to obuf offset
 
         newtag = *(mrg->obuf.body_pos + offset);
         if (expect_false(newtag != SRL_HDR_BINARY && newtag != SRL_HDR_STR_UTF8 && newtag < SRL_HDR_SHORT_BINARY_LOW)) {
-            SRL_ERROR_BAD_COPY(mrg->ibuf, newtag);
+            SRL_RDR_ERROR_BAD_COPY(mrg->pibuf, newtag);
         }
 
         srl_buf_cat_varint(aTHX_ &mrg->obuf, strtag, offset);
         //otag_offset = offset;
     } else {
-        SRL_ERROR_UNEXPECTED(mrg->ibuf, strtag, "stringish");
+        SRL_RDR_ERROR_UNEXPECTED(mrg->pibuf, strtag, "stringish");
     }
 
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
     srl_merge_single_value(aTHX_ mrg);
@@ -1183,13 +1173,13 @@ srl_lookup_tracked_offset(pTHX_ srl_merger_t *mrg, UV offset)
     UV len;
     void *res = PTABLE_fetch(SRL_GET_TRACKED_OFFSETS_TBL(mrg), INT2PTR(void *, offset));
     if (expect_false(!res))
-        SRL_ERRORf1(mrg->ibuf, "bad target offset %lu", offset);
+        SRL_RDR_ERRORf1(mrg->pibuf, "bad target offset %lu", offset);
 
     len = PTR2UV(res);
     SRL_MERGER_TRACE("srl_lookup_tracked_offset: %lu -> %lu", offset, len);
     if (expect_false(mrg->obuf.body_pos + len >= mrg->obuf.pos)) {
-        SRL_ERRORf3(mrg->obuf, "Corrupted packet. Offset %lu points past current iposition %lu in packet with length of %lu bytes long",
-                    (unsigned long) offset, (unsigned long) BUF_POS_OFS(&mrg->obuf), (unsigned long) BUF_SIZE(&mrg->obuf));
+        croak("Corrupted packet. Offset %lu points past current position %lu in packet with length of %lu bytes long",
+              (unsigned long) offset, (unsigned long) BUF_POS_OFS(&mrg->obuf), (unsigned long) BUF_SIZE(&mrg->obuf));
     }
 
     return len;
@@ -1267,7 +1257,7 @@ srl_buf_copy_content_nocheck(pTHX_ srl_merger_t *mrg, size_t len)
     mrg->ibuf.pos += len;
     mrg->obuf.pos += len;
 
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 }
 
@@ -1276,202 +1266,23 @@ srl_copy_varint(pTHX_ srl_merger_t *mrg)
 {
     unsigned int lshift = 0;
 
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     GROW_BUF(&mrg->obuf, SRL_MAX_VARINT_LENGTH);
 
-    while (BUF_NOT_DONE(&mrg->ibuf) && *mrg->ibuf.pos & 0x80) {
+    while (BUF_NOT_DONE(mrg->pibuf) && *mrg->ibuf.pos & 0x80) {
         *mrg->obuf.pos++ = *mrg->ibuf.pos++;
         lshift += 7;
 
         if (expect_false(lshift > (sizeof(UV) * 8)))
-            SRL_ERROR(mrg->ibuf, "varint too big");
+            SRL_RDR_ERROR(mrg->pibuf, "varint too big");
     }
 
-    if (expect_true(BUF_NOT_DONE(&mrg->ibuf))) {
+    if (expect_true(BUF_NOT_DONE(mrg->pibuf))) {
         *mrg->obuf.pos++ = *mrg->ibuf.pos++;
     } else {
-        SRL_ERROR(mrg->ibuf, "varint terminated prematurely");
+        SRL_RDR_ERROR(mrg->pibuf, "varint terminated prematurely");
     }
 
-    DEBUG_ASSERT_BUF_SANE(&mrg->ibuf);
+    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
-}
-
-/* VARINT function
- * copy-pasted from srl_decoder.h
- */
-
-SRL_STATIC_INLINE UV
-srl_varint_length(pTHX_ UV value)
-{
-    UV length = 0;
-    while (value >= 0x80) {
-        length++;
-        value >>= 7;
-    }
-
-    return ++length;
-}
-
-SRL_STATIC_INLINE UV
-srl_read_varint_uv(pTHX_ srl_buffer_t *buf)
-{
-    if (expect_true(BUF_SPACE(buf) > 10))
-        return srl_read_varint_uv_nocheck(aTHX_ buf);
-    else
-        return srl_read_varint_uv_safe(aTHX_ buf);
-}
-
-SRL_STATIC_INLINE UV
-srl_read_varint_uv_safe(pTHX_ srl_buffer_t *buf)
-{
-    UV uv= 0;
-    unsigned int lshift= 0;
-
-    while (BUF_NOT_DONE(buf) && *buf->pos & 0x80) {
-        uv |= ((UV) (*buf->pos++ & 0x7F) << lshift);
-        lshift += 7;
-        if (lshift > (sizeof(UV) * 8))
-            SRL_ERROR(*buf, "varint too big");
-    }
-
-    if (expect_true(BUF_NOT_DONE(buf))) {
-        uv |= ((UV) *buf->pos++ << lshift);
-    } else {
-        SRL_ERROR(*buf, "varint terminated prematurely");
-    }
-
-    return uv;
-}
-
-SRL_STATIC_INLINE UV
-srl_read_varint_uv_nocheck(pTHX_ srl_buffer_t *buf)
-{
-    UV uv= 0;
-    unsigned int lshift= 0;
-
-    while (*buf->pos & 0x80) {
-        uv |= ((UV) (*buf->pos++ & 0x7F) << lshift);
-        lshift += 7;
-
-        if (expect_false(lshift > (sizeof(UV) * 8)))
-            SRL_ERROR(*buf, "varint too big");
-    }
-
-    uv |= ((UV) (*buf->pos++) << lshift);
-    return uv;
-}
-
-SRL_STATIC_INLINE UV
-srl_read_varint_uv_offset(pTHX_ srl_buffer_t *buf, const char * const errstr)
-{
-    UV len= srl_read_varint_uv(aTHX_ buf);
-    if (expect_false(buf->body_pos + len >= buf->pos)) {
-        SRL_ERRORf4(*buf, "Corrupted packet%s. Offset %lu points past current iposition %lu in packet with length of %lu bytes long",
-                    errstr, (unsigned long)len, (unsigned long) BUF_POS_OFS(buf), (unsigned long) BUF_SIZE(buf));
-    }
-
-    return len;
-}
-
-SRL_STATIC_INLINE UV
-srl_read_varint_uv_length(pTHX_ srl_buffer_t *buf, const char * const errstr)
-{
-    UV len= srl_read_varint_uv(aTHX_ buf);
-    ASSERT_BUF_SPACE(buf, len, errstr);
-    return len;
-}
-
-SRL_STATIC_INLINE UV
-srl_read_varint_uv_count(pTHX_ srl_buffer_t *buf, const char * const errstr)
-{
-    UV len= srl_read_varint_uv(aTHX_ buf);
-    if (len > I32_MAX) {
-        SRL_ERRORf3(*buf, "Corrupted packet%s. Count %lu exceeds I32_MAX (%i), which is imipossible.", errstr, len, I32_MAX);
-    }
-
-    return len;
-}
-
-SRL_STATIC_INLINE IV
-srl_validate_header_version_pv_len(pTHX_ char *strdata, STRLEN len)
-{
-    if (len >= SRL_MAGIC_STRLEN + 3) {
-        /* + 3 above because:
-         * at least one version/flag byte,
-         * one byte for header len,
-         * one type byte (smallest payload)
-         */
-
-        /* Do NOT do *((U32*)strdata at least for these reasons:
-         * (1) Unaligned access can "Bus error" on you
-         *     (char* can be much less aligned than U32).
-         * (2) In ILP64 even if aligned the U32 would be 64 bits wide,
-         *     and the deref would read 8 bytes, more than the smallest
-         *     (valid) message.
-         * (3) Endianness.
-         */
-        U8 version_encoding= strdata[SRL_MAGIC_STRLEN];
-        U8 version= version_encoding & SRL_PROTOCOL_VERSION_MASK;
-
-        if (memEQ(SRL_MAGIC_STRING, strdata, SRL_MAGIC_STRLEN)) {
-            if ( 0 < version && version < 3 ) {
-                return version_encoding;
-            }
-        } else if (memEQ(SRL_MAGIC_STRING_HIGHBIT, strdata, SRL_MAGIC_STRLEN)) {
-            if ( 3 <= version ) {
-                return version_encoding;
-           }
-        } else if (memEQ(SRL_MAGIC_STRING_HIGHBIT_UTF8, strdata, SRL_MAGIC_STRLEN)) {
-            return 0;
-        }
-    }
-
-    return -1;
-}
-
-/* Decompress a Snappy-compressed document body and put the resulting
- * document body back in the place of the old compressed blob. */
-SRL_STATIC_INLINE UV
-srl_decompress_body_snappy(pTHX_ srl_buffer_t *buf, int incremental)
-{
-    SV *buf_sv;
-    uint32_t decompressed_len;
-    int decompress_ok, snappy_header_len;
-
-    const STRLEN compressed_len
-        = incremental
-        ? (STRLEN) srl_read_varint_uv_length(aTHX_ buf, " while reading compressed packet size")
-        : (STRLEN) (buf->end - buf->pos);
-
-    srl_buffer_char *ptr, *old_pos = buf->pos;
-    const ptrdiff_t sereal_header_len = buf->pos - buf->start;
-    UV bytes_consumed = compressed_len + sereal_header_len;
-
-    /* All bufl's above here, or we break C89 compilers */
-
-    snappy_header_len = csnappy_get_uncompressed_length((char *) buf->pos,
-                                                        compressed_len,
-                                                        &decompressed_len);
-
-    if (snappy_header_len == CSNAPPY_E_HEADER_BAD)
-        SRL_ERROR(*buf, "Invalid Snappy header in Snappy-compressed Sereal packet");
-
-    /* Allocate output buffer and swap it into place within the bufoder. */
-    buf_sv = sv_2mortal(newSV(sereal_header_len + decompressed_len + 1));
-    ptr = (srl_buffer_char *) SvPVX(buf_sv);
-
-    buf->start = ptr;
-    buf->pos = buf->start + sereal_header_len;
-    buf->end = buf->pos + decompressed_len;
-
-    decompress_ok = csnappy_decompress_noheader((char *) old_pos + snappy_header_len,
-                                                compressed_len - snappy_header_len,
-                                                (char *) buf->pos,
-                                                &decompressed_len);
-
-    if (expect_false(decompress_ok != 0))
-        SRL_ERRORf1(*buf, "Snappy decompression of Sereal packet payload failed with error %i!", decompress_ok);
-
-    return bytes_consumed;
 }

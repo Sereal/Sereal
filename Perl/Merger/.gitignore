@@ -24,6 +24,12 @@ et
 t/lib/Sereal/TestSet.pm
 typemap
 srl_common.h
+srl_reader.h
+srl_reader_decompress.h
+srl_reader_error.h
+srl_reader_misc.h
+srl_reader_types.h
+srl_reader_varint.h
 Sereal-Merger-*.tar*
 callgrind.out.*
 author_tools
