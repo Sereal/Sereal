@@ -106,6 +106,11 @@ With approval from Booking.com, this module was generalized
 and published on CPAN, for which the authors would like to express
 their gratitude.
 
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
 =head1 COPYRIGHT AND LICENSE
 
 Copyright (C) 2012, 2013, 2014 by Steffen Mueller
