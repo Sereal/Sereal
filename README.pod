@@ -136,4 +136,3 @@ Copyright (C) 2012, 2013, 2014 by Steffen Mueller
 Copyright (C) 2012, 2013, 2014 by Yves Orton
 
 =cut
-
