@@ -20,6 +20,11 @@ type serealHeader struct {
 }
 
 func readHeader(b []byte) (serealHeader, error) {
+
+	if len(b) <= headerSize {
+		return serealHeader{}, ErrBadHeader
+	}
+
 	first4Bytes := binary.LittleEndian.Uint32(b[:4])
 
 	var h serealHeader
@@ -111,6 +116,10 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 	}
 
 	bodyStart := headerSize + header.suffixSize
+
+	if bodyStart > len(b) || bodyStart < 0 {
+		return ErrCorrupt{errBadOffset}
+	}
 
 	switch header.version {
 	case 1:
@@ -401,7 +410,7 @@ func (d *Decoder) decodeDouble(by []byte, idx int) (float64, int, error) {
 }
 
 func (d *Decoder) decodeHash(by []byte, idx int, ln int, ptr *interface{}, isRef bool) (int, error) {
-	if ln < 0 || ln > math.MaxInt32 {
+	if ln < 0 || ln > math.MaxInt32 || 2*ln > len(by) {
 		return 0, ErrCorrupt{errBadHashSize}
 	}
 
@@ -435,7 +444,7 @@ func (d *Decoder) decodeHash(by []byte, idx int, ln int, ptr *interface{}, isRef
 }
 
 func (d *Decoder) decodeArray(by []byte, idx int, ln int, ptr *interface{}, isRef bool) (int, error) {
-	if ln < 0 || ln > math.MaxInt32 {
+	if ln < 0 || ln > math.MaxInt32 || ln > len(by) {
 		return 0, ErrCorrupt{errBadSliceSize}
 	}
 
@@ -466,7 +475,7 @@ func (d *Decoder) decodeArray(by []byte, idx int, ln int, ptr *interface{}, isRe
 }
 
 func (d *Decoder) decodeBinary(by []byte, idx int, ln int, makeCopy bool) ([]byte, int, error) {
-	if ln < 0 {
+	if ln < 0 || ln > math.MaxInt32 {
 		return nil, 0, ErrCorrupt{errBadStringSize}
 	} else if idx+ln > len(by) {
 		return nil, 0, ErrTruncated
@@ -510,7 +519,7 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 		ln, sz := varintdecode(by[idx:])
 		idx += sz
 
-		if ln < 0 {
+		if ln < 0 || ln > math.MaxInt32 {
 			return nil, 0, ErrCorrupt{errBadStringSize}
 		} else if idx+ln > len(by) {
 			return nil, 0, ErrTruncated

@@ -1,6 +1,9 @@
 package sereal
 
-import "compress/zlib"
+import (
+	"compress/zlib"
+	"math"
+)
 
 // ZlibCompressor compresses a Sereal document using the zlib format.
 type ZlibCompressor struct {
@@ -47,6 +50,11 @@ func (c ZlibCompressor) decompress(buf []byte) ([]byte, error) {
 
 	// Read the claimed length of the compressed document
 	cln, csz := varintdecode(buf)
+
+	if cln < 0 || cln > math.MaxInt32 || csz+cln > len(buf) {
+		return nil, ErrCorrupt{errBadOffset}
+	}
+
 	buf = buf[csz : csz+cln]
 
 	// XXX Perhaps check if len(buf) == cln

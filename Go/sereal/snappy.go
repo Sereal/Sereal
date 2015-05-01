@@ -1,5 +1,7 @@
 package sereal
 
+import "math"
+
 // SnappyCompressor compresses a Sereal document using the Snappy format.
 type SnappyCompressor struct {
 	Incremental bool // enable incremental parsing
@@ -30,6 +32,9 @@ func (c SnappyCompressor) compress(b []byte) ([]byte, error) {
 func (c SnappyCompressor) decompress(b []byte) ([]byte, error) {
 	if c.Incremental {
 		ln, sz := varintdecode(b)
+		if ln < 0 || sz+ln > len(b) || ln > math.MaxInt32 {
+			return nil, ErrCorrupt{errBadOffset}
+		}
 		b = b[sz : sz+ln]
 	}
 
