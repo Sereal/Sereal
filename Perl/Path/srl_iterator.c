@@ -114,6 +114,7 @@ extern "C" {
     if (expect_false(srl_stack_empty((iter)->stack))) {                             \
         SRL_ITER_ERROR("Stack is empty! Inconsistent state!");                      \
     }                                                                               \
+    assert((iter)->stack->ptr->idx >= 0);                                           \
 } STMT_END
 
 #define SRL_ITER_ASSERT_ARRAY_ON_STACK(iter) STMT_START {                           \
@@ -332,9 +333,13 @@ srl_iterator_step_internal(pTHX_ srl_iterator_t *iter)
     srl_iterator_wrap_stack(aTHX_ iter, -1);
     if (srl_stack_empty(stack)) return;
 
+    SRL_ITER_ASSERT_STACK(iter);
+
     stack->ptr->idx--;
     SRL_ITER_TRACE("stack->ptr: idx=%d depth=%d",
                    stack->ptr->idx, (int) SRL_STACK_DEPTH(stack));
+
+    SRL_ITER_ASSERT_STACK(iter);
 
 read_again:
     tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
@@ -504,8 +509,8 @@ srl_iterator_next_until_depth_and_idx(pTHX_ srl_iterator_t *iter, UV expected_de
 
     SRL_ITER_ASSERT_STACK(iter);
     if (expect_false((IV) expected_depth > current_depth)) {
-        SRL_ITER_ERRORf2("srl_iterator_next_until_depth() can only go downstairs,"
-                         "so expect_depth=%"UVuf" > current_depth=%"IVdf,
+        SRL_ITER_ERRORf2("srl_iterator_next_until_depth() can only go forward, "
+                         "so expected_depth=%"UVuf" should not be greater then current_depth=%"IVdf,
                          expected_depth, current_depth);
     }
 
@@ -514,7 +519,6 @@ srl_iterator_next_until_depth_and_idx(pTHX_ srl_iterator_t *iter, UV expected_de
         return;
 
     while (expect_true(!srl_stack_empty(stack))) {
-        srl_iterator_step_internal(aTHX_ iter);
         srl_iterator_wrap_stack(aTHX_ iter, expected_depth);
 
         current_depth = SRL_STACK_DEPTH(stack);
@@ -524,6 +528,14 @@ srl_iterator_next_until_depth_and_idx(pTHX_ srl_iterator_t *iter, UV expected_de
         current_idx  = stack->ptr->idx;
         if (current_depth == (IV) expected_depth && current_idx == expected_idx)
             break;
+
+        if (expect_false(current_depth == (IV) expected_depth && expected_idx > current_idx)) {
+            SRL_ITER_ERRORf2("srl_iterator_next_until_depth() can only go forward, "
+                             "so expected_idx=%d should not be greater then current_idx=%d",
+                             expected_idx, current_idx);
+        }
+
+        srl_iterator_step_internal(aTHX_ iter);
     }
 
     if (expect_false(current_depth != (IV) expected_depth)) {
@@ -571,7 +583,7 @@ srl_iterator_step_out(pTHX_ srl_iterator_t *iter, UV n)
 void
 srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
 {
-    U32 s_idx;
+    I32 s_idx;
     srl_stack_t *stack = iter->stack;
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
@@ -589,7 +601,7 @@ srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
         }
     } else {
         s_idx = -idx;
-        if (s_idx > stack->ptr->count) {
+        if (s_idx > (I32) stack->ptr->count) {
             SRL_ITER_ERRORf2("Index is out of range, idx=%d count=%u",
                              idx, stack->ptr->count);
         }
@@ -716,7 +728,9 @@ srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN na
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     SRL_ITER_TRACE("name=%.*s", (int) name_len, name);
 
-    while (stack->ptr->idx--) {
+    while (stack->ptr->idx) {
+        stack->ptr->idx--; // do not make it be part of while clause
+        SRL_ITER_ASSERT_STACK(iter);
         assert(stack->ptr->idx % 2 == 1);
         assert(SRL_STACK_DEPTH(stack) == stack_depth);
         DEBUG_ASSERT_RDR_SANE(iter->pbuf);
@@ -899,7 +913,7 @@ UV
 srl_iterator_stack_index(pTHX_ srl_iterator_t *iter)
 {
     SRL_ITER_ASSERT_STACK(iter);
-    assert(iter->stack->ptr->count >= iter->stack->ptr->idx); 
+    assert((I32) iter->stack->ptr->count >= iter->stack->ptr->idx); 
     return (UV) (iter->stack->ptr->count - iter->stack->ptr->idx);
 }
 

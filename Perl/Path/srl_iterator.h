@@ -25,7 +25,7 @@ struct srl_iterator {
 struct srl_iterator_stack {
     UV offset;      // offset of the tag
     U32 count;      // number of child objects
-    U32 idx;        // index of current object, in negative format
+    I32 idx;        // index of current object, in negative format
     U8 tag;
 };
 

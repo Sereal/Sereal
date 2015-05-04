@@ -261,13 +261,13 @@ srl_parse_hash_all(pTHX_ srl_path_t *path, int expr_idx, SV *route)
     srl_iterator_ptr iter = path->iter;
     srl_iterator_stack_ptr stack_ptr = srl_iterator_stack(aTHX_ iter);
     IV expected_depth = srl_iterator_stack_depth(aTHX_ iter);
-    U32 expected_idx = stack_ptr->idx;
+    I32 expected_idx = stack_ptr->idx;
     U32 count = stack_ptr->count;
     const char *item = NULL;
     STRLEN item_len;
     U32 idx;
 
-    assert(expected_idx == count); // we're at the begining
+    assert(expected_idx == (I32) count); // we're at the begining
     SRL_PATH_TRACE("parse all items in hash of size=%d at depth=%"IVdf,
                    count, expected_depth);
 
@@ -360,11 +360,11 @@ srl_parse_array_all(pTHX_ srl_path_t *path, int expr_idx, SV *route)
     srl_iterator_ptr iter = path->iter;
     srl_iterator_stack_ptr stack_ptr = srl_iterator_stack(aTHX_ iter);
     IV expected_depth  = srl_iterator_stack_depth(aTHX_ iter);
-    U32 expected_idx = stack_ptr->idx;
+    I32 expected_idx = stack_ptr->idx;
     U32 count = stack_ptr->count;
     U32 idx;
 
-    assert(expected_idx == count); // we're at the begining
+    assert(expected_idx == (I32) count); // we're at the begining
     SRL_PATH_TRACE("parse all items in array of size=%d at depth=%"IVdf,
                    count, expected_depth);
 
