@@ -227,6 +227,7 @@ srl_iterator_set_document(pTHX_ srl_iterator_t *iter, SV *src)
     STRLEN len;
     UV header_len;
     U8 encoding_flags;
+    U8 protocol_version;
     srl_reader_char_ptr tmp;
     IV proto_version_and_encoding_flags_int;
 
@@ -258,12 +259,11 @@ srl_iterator_set_document(pTHX_ srl_iterator_t *iter, SV *src)
     }
 
     iter->buf.pos += 5;
-    iter->buf.encoding_flags = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_ENCODING_MASK);
-    iter->buf.protocol_version = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
-    encoding_flags = iter->buf.encoding_flags;
+    encoding_flags = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_ENCODING_MASK);
+    protocol_version = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
 
-    if (expect_false(iter->buf.protocol_version > 3 || iter->buf.protocol_version < 1)) {
-        SRL_RDR_ERRORf1(iter->pbuf, "Unsupported Sereal protocol version %u", (unsigned int) iter->buf.protocol_version);
+    if (expect_false(protocol_version > 3 || protocol_version < 1)) {
+        SRL_RDR_ERRORf1(iter->pbuf, "Unsupported Sereal protocol version %u", (unsigned int) protocol_version);
     }
 
     // skip header in any case
@@ -275,7 +275,7 @@ srl_iterator_set_document(pTHX_ srl_iterator_t *iter, SV *src)
     } else if (   encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
                || encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL)
     {
-        srl_decompress_body_snappy(aTHX_ iter->pbuf, &iter->tmp_buf_owner);
+        srl_decompress_body_snappy(aTHX_ iter->pbuf, encoding_flags, &iter->tmp_buf_owner);
         SvREFCNT_inc(iter->tmp_buf_owner);
     } else if (encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB) {
         srl_decompress_body_zlib(aTHX_ iter->pbuf, &iter->tmp_buf_owner);
@@ -284,7 +284,8 @@ srl_iterator_set_document(pTHX_ srl_iterator_t *iter, SV *src)
         SRL_RDR_ERROR(iter->pbuf, "Sereal document encoded in an unknown format");
     }
 
-    SRL_RDR_UPDATE_BODY_POS(iter->pbuf);
+    /* this function *MUST* be called after calling srl_decompress_body* */
+    SRL_RDR_UPDATE_BODY_POS(iter->pbuf, protocol_version);
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 
     iter->first_tag_offset = SRL_RDR_BODY_POS_OFS(iter->pbuf);

@@ -19,14 +19,12 @@
     (buf)->end = NULL;                                                         \
     (buf)->pos = NULL;                                                         \
     (buf)->body_pos = NULL;                                                    \
-    (buf)->encoding_flags = 0;                                                 \
-    (buf)->protocol_version = 0;                                               \
 } STMT_END
 
 /* Sereal v1 and newer version use start body offset from different positions */
 #define SRL_RDR_SET_BODY_POS(buf, pos) ((buf)->body_pos = (pos))
-#define SRL_RDR_UPDATE_BODY_POS(buf) STMT_START {                              \
-    if (expect_false(((buf)->protocol_version) == 1)) {                        \
+#define SRL_RDR_UPDATE_BODY_POS(buf, protocol_version) STMT_START {            \
+    if (expect_false((protocol_version) == 1)) {                               \
         SRL_RDR_SET_BODY_POS((buf), (buf)->start);                             \
     } else {                                                                   \
         SRL_RDR_SET_BODY_POS((buf), (buf)->pos - 1);                           \

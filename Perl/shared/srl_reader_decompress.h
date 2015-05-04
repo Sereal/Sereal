@@ -57,7 +57,7 @@ srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
     buf->pos = b + header_len;
     buf->end = buf->pos + body_len;
 
-    SRL_RDR_UPDATE_BODY_POS(buf);
+    //SRL_RDR_UPDATE_BODY_POS(buf); // XXX caller *MUST* call by himself/herself
     return b_sv;
 }
 
@@ -65,10 +65,11 @@ srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
  * body back in the place of the old compressed blob. The function internaly
  * creates temporary buffer which is owned by mortal SV. If the caller is
  * interested in keeping the buffer around for longer time, it should pass
- * buf_owner parameter and unmortalize it. */
+ * buf_owner parameter and unmortalize it.
+ * The caller *MUST* call SRL_RDR_UPDATE_BODY_POS right after existing from this function. */
 
 SRL_STATIC_INLINE UV
-srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
+srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, U8 encoding_flags, SV** buf_owner)
 {
     SV *buf_sv;
     int header_len;
@@ -79,7 +80,7 @@ srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
     srl_reader_char_ptr old_pos;
     const STRLEN sereal_header_len = (STRLEN) SRL_RDR_POS_OFS(buf);
     const STRLEN compressed_packet_len =
-        buf->encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL
+        encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL
         ? (STRLEN) srl_read_varint_uv_length(aTHX_ buf, " while reading compressed packet size")
         : (STRLEN) SRL_RDR_SPACE_LEFT(buf);
 
@@ -114,7 +115,8 @@ srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
  * document body back in the place of the old compressed blob. The function
  * internaly creates temporary buffer which is owned by mortal SV. If the
  * caller is interested in keeping the buffer around for longer time, it should
- * pass buf_owner parameter and unmortalize it. */
+ * pass buf_owner parameter and unmortalize it.
+ * The caller *MUST* call SRL_RDR_UPDATE_BODY_POS right after existing from this function. */
 
 SRL_STATIC_INLINE UV
 srl_decompress_body_zlib(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)

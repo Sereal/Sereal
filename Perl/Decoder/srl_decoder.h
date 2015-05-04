@@ -28,6 +28,8 @@ struct srl_decoder {
 
     UV bytes_consumed;
     UV recursion_depth;                 /* Recursion depth of current decoder */
+    U8 proto_version;
+    U8 encoding_flags;
     U32 flags_readonly;
 };
 

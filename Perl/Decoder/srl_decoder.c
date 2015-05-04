@@ -373,14 +373,16 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
     assert(origdec != NULL);
     dec = srl_begin_decoding(aTHX_ origdec, src, start_offset);
     srl_read_header(aTHX_ dec, header_into);
-    SRL_RDR_UPDATE_BODY_POS(dec->pbuf);
     if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY) )) {
-        dec->bytes_consumed = srl_decompress_body_snappy(aTHX_ dec->pbuf, NULL);
+        dec->bytes_consumed = srl_decompress_body_snappy(aTHX_ dec->pbuf, dec->encoding_flags, NULL);
         origdec->bytes_consumed = dec->bytes_consumed;
     } else if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_ZLIB) )) {
         dec->bytes_consumed = srl_decompress_body_zlib(aTHX_ dec->pbuf, NULL);
         origdec->bytes_consumed = dec->bytes_consumed;
     }
+
+    /* this function *MUST* be called right after srl_decompress* functions */
+    SRL_RDR_UPDATE_BODY_POS(dec->pbuf, dec->proto_version);
 
     /* The actual document body deserialization: */
     srl_read_single_value(aTHX_ dec, body_into, NULL);
@@ -533,7 +535,6 @@ SRL_STATIC_INLINE void
 srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
 {
     UV header_len;
-    U8 proto_version, encoding_flags;
     IV proto_version_and_encoding_flags_int= srl_validate_header_version(aTHX_ dec->buf.pos, SRL_RDR_SPACE_LEFT(dec->pbuf));
 
     if ( expect_false(proto_version_and_encoding_flags_int < 1) ) {
@@ -543,24 +544,22 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
             SRL_RDR_ERROR(dec->pbuf, "Bad Sereal header: Not a valid Sereal document.");
     }
     else {
-        proto_version  = (U8)(proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
-        encoding_flags = (U8)(proto_version_and_encoding_flags_int & SRL_PROTOCOL_ENCODING_MASK);
-
         dec->buf.pos += 5;
-        dec->buf.encoding_flags = encoding_flags;
-        dec->buf.protocol_version = proto_version;
 
-        if (expect_false( proto_version == 1 ))
+        dec->proto_version  = (U8)(proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
+        dec->encoding_flags = (U8)(proto_version_and_encoding_flags_int & SRL_PROTOCOL_ENCODING_MASK);
+
+        if (expect_false( dec->proto_version == 1 ))
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_PROTOCOL_V1); /* compat mode */
-        else if (expect_false( proto_version > 3 || proto_version < 1 ))
-            SRL_RDR_ERRORf1(dec->pbuf, "Unsupported Sereal protocol version %u", proto_version);
+        else if (expect_false( dec->proto_version > 3 || dec->proto_version < 1 ))
+            SRL_RDR_ERRORf1(dec->pbuf, "Unsupported Sereal protocol version %u", dec->proto_version);
 
-        if (encoding_flags == SRL_PROTOCOL_ENCODING_RAW) {
+        if (dec->encoding_flags == SRL_PROTOCOL_ENCODING_RAW) {
             /* no op */
         }
         else
-        if (   encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
-            || encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL)
+        if (   dec->encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
+            || dec->encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL)
         {
             if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_SNAPPY) )) {
                 SRL_RDR_ERROR(dec->pbuf, "Sereal document is compressed with Snappy, "
@@ -569,7 +568,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
             dec->flags |= SRL_F_DECODER_DECOMPRESS_SNAPPY;
         }
         else
-        if (encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB)
+        if (dec->encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB)
         {
             if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_ZLIB) )) {
                 SRL_RDR_ERROR(dec->pbuf, "Sereal document is compressed with ZLIB, "
@@ -580,13 +579,13 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
         else
         {
             SRL_RDR_ERRORf1(dec->pbuf, "Sereal document encoded in an unknown format '%d'",
-                            encoding_flags >> SRL_PROTOCOL_VERSION_BITS);
+                            dec->encoding_flags >> SRL_PROTOCOL_VERSION_BITS);
         }
 
         /* Must do this via a temporary as it modifes dec->buf.pos itself */
         header_len= srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading header");
 
-        if (proto_version > 1 && header_len) {
+        if (dec->proto_version > 1 && header_len) {
             /* We have a protocol V2+ extensible header:
              *  - 8bit bitfield
              *  - if lowest bit set, we have custom-header-user-data after the bitfield
@@ -594,7 +593,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
             const U8 bitfield = *(dec->buf.pos++);
             if (bitfield & SRL_PROTOCOL_HDR_USER_DATA && header_user_data != NULL) {
                 /* Do an actual document body deserialization for the user data: */
-                SRL_RDR_UPDATE_BODY_POS(dec->pbuf);
+                SRL_RDR_UPDATE_BODY_POS(dec->pbuf, dec->proto_version);
                 srl_read_single_value(aTHX_ dec, header_user_data, NULL);
                 if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE))) {
                     srl_finalize_structure(aTHX_ dec);
