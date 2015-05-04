@@ -21,6 +21,7 @@ srl_inline.h
 ppport.h
 typemap
 srl_common.h
+srl_stack.h
 srl_reader.h
 srl_reader_decompress.h
 srl_reader_error.h
