@@ -26,7 +26,20 @@ sub traverse {
     my $norm = $self->_normalize($query);
     $norm =~ s/^\$;//;
     my @expr = split(/;/, $norm);
-    return $self->_traverse(\@expr, '$');
+    $self->_traverse(\@expr, '$');
+    return $self->results;
+}
+
+sub value {
+    my ($self, $query) = @_;
+    my $values = $self->traverse($query);
+    return $values->[0];
+}
+
+sub values {
+    my ($self, $query) = @_;
+    my $values = $self->traverse($query);
+    return wantarray ? @$values : scalar @$values;
 }
 
 1;
