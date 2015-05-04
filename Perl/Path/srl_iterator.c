@@ -184,6 +184,7 @@ srl_build_iterator_struct(pTHX_ HV *opt)
     SRL_RDR_CLEAR(&iter->buf);
     iter->pbuf = &iter->buf;
     iter->stack = stack;
+    iter->document = NULL;
     iter->tmp_buf_owner = NULL;
     iter->first_tag_offset = 0;
     iter->dec = NULL;
@@ -206,11 +207,14 @@ srl_destroy_iterator(pTHX_ srl_iterator_t *iter)
         Safefree(iter->stack);
     }
 
-    if (iter->tmp_buf_owner)
-        SvREFCNT_dec(iter->tmp_buf_owner);
-
     if (iter->dec)
         srl_destroy_decoder(aTHX_ iter->dec);
+
+    if (iter->document)
+        SvREFCNT_dec(iter->document);
+
+    if (iter->tmp_buf_owner)
+        SvREFCNT_dec(iter->tmp_buf_owner);
 
     Safefree(iter);
     return;
@@ -230,6 +234,14 @@ srl_iterator_set_document(pTHX_ srl_iterator_t *iter, SV *src)
         SvREFCNT_dec(iter->tmp_buf_owner);
         iter->tmp_buf_owner = NULL;
     }
+
+    if (iter->document) {
+        SvREFCNT_dec(iter->document);
+        iter->document = NULL;
+    }
+
+    iter->document = src;
+    SvREFCNT_inc(iter->document);
 
     tmp = (srl_reader_char_ptr) SvPV(src, len);
     iter->buf.start = iter->buf.pos = tmp;

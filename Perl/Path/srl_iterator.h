@@ -18,6 +18,7 @@ struct srl_iterator {
     srl_stack_ptr stack;
     UV first_tag_offset;
     SV *tmp_buf_owner;
+    SV *document;
     struct srl_decoder *dec;
 };
 

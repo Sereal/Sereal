@@ -123,13 +123,13 @@ srl_path_reset(pTHX_ srl_path_t *path, SV *src)
 {
     path->expr = NULL;
 
+    if (path->iter) srl_destroy_iterator(aTHX_ path->iter);
+    path->iter = srl_build_iterator_struct(aTHX_ NULL);
+
     if (path->results) {
         SvREFCNT_dec(path->results);
         path->results = NULL;
     }
-
-    if (path->iter) srl_destroy_iterator(aTHX_ path->iter);
-    path->iter = srl_build_iterator_struct(aTHX_ NULL);
 
     if (sv_isa(src, "Sereal::Path::Iterator")) {
         croak("not implemented");
@@ -147,6 +147,11 @@ srl_path_traverse(pTHX_ srl_path_t *path, AV *expr, SV *route)
 
     assert(expr != NULL);
     assert(route != NULL);
+
+    if (path->results) {
+        SvREFCNT_dec(path->results);
+        path->results = NULL;
+    }
 
     path->results = newAV();
     path->expr = expr; // TODO perhaps, copy expr
