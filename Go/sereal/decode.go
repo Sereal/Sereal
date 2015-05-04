@@ -548,7 +548,7 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 		}
 
 	default:
-		return nil, 0, fmt.Errorf("expect stringhish at offset %d but got %d (0x%x)", idx, int(tag), int(tag))
+		return nil, 0, fmt.Errorf("expect stringish at offset %d but got %d (0x%x)", idx, int(tag), int(tag))
 	}
 
 	//fmt.Printf("decodeStringish res: %s at %d\n", string(res), idx)
