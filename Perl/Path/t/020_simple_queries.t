@@ -5,7 +5,7 @@ use warnings;
 use JSON::Path;
 use Sereal::Path;
 use Sereal::Encoder qw/encode_sereal/;
-use Test::More tests => 25;
+use Test::More tests => 29;
 use Data::Dumper;
 
 sub hobodecode {
@@ -30,6 +30,10 @@ my %plain_data = (
         dataset => [ { a => '1', b => '2' }, { a => '3', b => '4', c => 5 } ],
         queries => [ '$[*][a]', '$.*.b', '$[*][a,b]', '$[*][c]' ]
     },
+    'walk over hash of arrays' => {
+        dataset => { first => [ 0, 1, 2 ], second => [ 'a', 'b', 'c' ], third => [ 3, 4 ] },
+        queries => [ '$[*][0]', '$[*][1]', '$[*][0,1]', '$[*][-1,-2]' ]
+    },
 );
 
 foreach my $name (keys %plain_data) {
@@ -40,7 +44,7 @@ foreach my $name (keys %plain_data) {
         my @got = sort $sp->values($q);
         my @expected = sort JSON::Path->new($q)->values($ds);
         is_deeply(\@got, \@expected, "dataset '$name' query $q")
-            or warn "got:\n" . Dumper(\@got) . "expected:\n" . Dumper (\@expected);
+            or diag("got:\n" . Dumper(\@got) . "expected:\n" . Dumper(\@expected));
     }
 }
 
