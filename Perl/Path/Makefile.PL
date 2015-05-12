@@ -114,7 +114,7 @@ WriteMakefile1(
         'Data::Dumper' => '0',
         'Sereal::Encoder' => '3.00',
         'Sereal::Decoder' => '3.00',
-        'JSON::Path'      => '0.205',
+        #'JSON::Path'      => '0.205',
     },
     BUILD_REQUIRES => {
         'File::Find' => 0,
