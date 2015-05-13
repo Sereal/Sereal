@@ -162,12 +162,13 @@ srl_debug_tabulator(pTHX_ srl_iterator_t *iter)
 srl_iterator_t *
 srl_build_iterator_struct(pTHX_ HV *opt)
 {
+    srl_stack_t *stack = NULL;
     srl_iterator_t *iter = NULL;
+
     Newx(iter, 1, srl_iterator_t);
     if (iter == NULL)
         croak("Out of memory");
 
-    srl_stack_t *stack = NULL;
     Newx(stack, 1, srl_stack_t);
     if (stack == NULL) {
         Safefree(iter);
@@ -326,8 +327,6 @@ srl_iterator_step_internal(pTHX_ srl_iterator_t *iter)
     U8 tag;
     UV length;
     srl_stack_t *stack = iter->stack;
-    srl_iterator_stack_ptr stack_ptr_orig;
-    IV stack_depth_orig = SRL_STACK_DEPTH(stack); // keep track of original depth
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 
@@ -825,7 +824,7 @@ UV
 srl_iterator_object_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
 {
     U8 tag;
-    UV length, offset, type = 0;
+    UV type = 0;
     srl_reader_char_ptr orig_pos = iter->buf.pos;
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
@@ -884,7 +883,7 @@ read_again:
             break;
 
         /* case SRL_HDR_COPY:
-            offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading COPY tag");
+            UV offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading COPY tag");
             iter->buf.pos = iter->buf.body_pos + offset;
             goto read_again; */ // TODO
 

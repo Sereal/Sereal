@@ -37,6 +37,8 @@ if ($Config{gccversion}) {
     if ($Config{gccversion} =~ /[Cc]lang/) { # clang.
         $clang = 1;
         $moderngccish = 1;
+        # http://clang.llvm.org/compatibility.html
+        $OPTIMIZE .= ' -std=gnu89';
     } elsif ($Config{gccversion} =~ /^[123]\./) { # Ancient gcc.
         $moderngccish = 0;
     } else { # Modern gcc.

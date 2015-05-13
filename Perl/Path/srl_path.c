@@ -191,8 +191,9 @@ srl_parse_next(pTHX_ srl_path_t *path, int expr_idx, SV *route)
 
     if (srl_iterator_eof(aTHX_ iter)) return;
     if (expr_idx > av_top_index(path->expr)) { // scaned entiry expr
+        SV *res;
         print_route(route, "to decode");
-        SV *res = srl_iterator_decode(aTHX_ iter);
+        res = srl_iterator_decode(aTHX_ iter);
         SvREFCNT_inc(res); // TODO ????
         av_push(path->results, res); // TODO store route if needed
         return;
@@ -233,7 +234,6 @@ srl_parse_next_int(pTHX_ srl_path_t *path, int expr_idx, SV *route, IV n)
 SRL_STATIC_INLINE void
 srl_parse_hash(pTHX_ srl_path_t *path, int expr_idx, SV *route)
 {
-    srl_iterator_ptr iter = path->iter;
     const char *loc_str;
     STRLEN loc_len;
     SV *loc;
@@ -241,7 +241,7 @@ srl_parse_hash(pTHX_ srl_path_t *path, int expr_idx, SV *route)
     assert(route != NULL);
     assert(expr_idx >= 0);
     assert(expr_idx <= av_top_index(path->expr));
-    assert(srl_iterator_stack(aTHX_ iter) != NULL);
+    assert(srl_iterator_stack(aTHX_ path->iter) != NULL);
 
     loc   = *av_fetch(path->expr, expr_idx, 0);
     loc_str = SvPV(loc, loc_len);
@@ -331,8 +331,6 @@ srl_parse_hash_item(pTHX_ srl_path_t *path, int expr_idx, SV *route,
 SRL_STATIC_INLINE void
 srl_parse_array(pTHX_ srl_path_t *path, int expr_idx, SV *route)
 {
-    srl_iterator_ptr iter = path->iter;
-    srl_iterator_stack_ptr stack_ptr = srl_iterator_stack(aTHX_ iter);
     const char *loc_str;
     STRLEN loc_len;
     SV *loc;
@@ -340,7 +338,7 @@ srl_parse_array(pTHX_ srl_path_t *path, int expr_idx, SV *route)
     assert(route != NULL);
     assert(expr_idx >= 0);
     assert(expr_idx <= av_top_index(path->expr));
-    assert(srl_iterator_stack(aTHX_ iter) != NULL);
+    assert(srl_iterator_stack(aTHX_ path->iter) != NULL);
 
     loc = *av_fetch(path->expr, expr_idx, 0);
     loc_str = SvPV(loc, loc_len);
@@ -426,7 +424,8 @@ is_all(const char *str, STRLEN len)
 SRL_STATIC_INLINE int
 is_list(const char *str, STRLEN len)
 {
-    for (STRLEN i = 0; i < len; ++i) {
+    STRLEN i;
+    for (i = 0; i < len; ++i) {
         if (str[i] == ',') return 1;
     }
 
@@ -436,12 +435,13 @@ is_list(const char *str, STRLEN len)
 SRL_STATIC_INLINE int
 is_number(const char *str, STRLEN len)
 {
+    STRLEN i;
     if (*str == '-') {
         str++;
         len--;
     }
 
-    for (STRLEN i = 0; i < len; ++i) {
+    for (i = 0; i < len; ++i) {
         if (str[i] < '0' || str[i] > '9')
             return 0;
     }
