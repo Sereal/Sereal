@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION    = '0.002';
+our $VERSION    = '0.003';
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 
 XSLoader::load(__PACKAGE__, $Sereal::Path::VERSION);
