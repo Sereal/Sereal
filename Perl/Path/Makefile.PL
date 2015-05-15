@@ -113,6 +113,7 @@ WriteMakefile1(
         'File::Spec' => 0,
         'Test::LongString' => '0',
         'Test::Warn' => '0',
+        'Test::Deep' => '0',
         'Data::Dumper' => '0',
         'Sereal::Encoder' => '3.00',
         'Sereal::Decoder' => '3.00',
@@ -139,6 +140,9 @@ WriteMakefile1(
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
     OPTIMIZE          => $OPTIMIZE,
     OBJECT            => $objects,
+    test              => {
+        TESTS => "t/*.t t/*/*/*.t",
+    },
 );
 $ENV{OPTIMIZE} = $OPTIMIZE;
 
