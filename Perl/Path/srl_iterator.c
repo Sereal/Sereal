@@ -80,6 +80,7 @@ extern "C" {
 #define srl_stack_type_t srl_iterator_stack_t
 #include "srl_stack.h"
 
+#define SRL_ITER_NOT_FOUND (0) /* 0 is invalid offset */
 #define SRL_ITER_BASE_ERROR_FORMAT              "Sereal::Path::Iterator: Error in %s:%u "
 #define SRL_ITER_BASE_ERROR_ARGS                __FILE__, __LINE__
 
@@ -580,7 +581,7 @@ srl_iterator_step_out(pTHX_ srl_iterator_t *iter, UV n)
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
-void
+IV
 srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
 {
     I32 s_idx;
@@ -596,19 +597,19 @@ srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
     if (idx >= 0) {
         s_idx = stack->ptr->count - idx;
         if (idx >= (I32) stack->ptr->count) {
-            SRL_ITER_ERRORf2("Index is out of range, idx=%d count=%u",
-                             idx, stack->ptr->count);
+            SRL_ITER_TRACE("Index is out of range, idx=%d count=%u", idx, stack->ptr->count);
+            return SRL_ITER_NOT_FOUND;
         }
     } else {
         s_idx = -idx;
         if (s_idx > (I32) stack->ptr->count) {
-            SRL_ITER_ERRORf2("Index is out of range, idx=%d count=%u",
-                             idx, stack->ptr->count);
+            SRL_ITER_TRACE("Index is out of range, idx=%d count=%u", idx, stack->ptr->count);
+            return SRL_ITER_NOT_FOUND;
         }
     }
 
     if (s_idx == stack->ptr->idx) {
-        return; // already at expected position
+        return SRL_RDR_BODY_POS_OFS(iter->pbuf); // already at expected position
     } else if (s_idx > stack->ptr->idx) {
         SRL_ITER_ERRORf2("Can't go backwards, idx=%d, count=%u",
                          idx, stack->ptr->count);
@@ -617,6 +618,7 @@ srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
     // srl_iterator_next garantee that we remans on current stack
     srl_iterator_next(aTHX_ iter, stack->ptr->idx - s_idx);
     assert(stack->ptr->idx == s_idx);
+    return SRL_RDR_BODY_POS_OFS(iter->pbuf);
 }
 
 const char *
@@ -719,7 +721,6 @@ srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN na
 
     srl_stack_t *stack = iter->stack;
     IV stack_depth = SRL_STACK_DEPTH(stack);
-#   define SRL_KEY_NO_FOUND (0) /* 0 is invalid offset */
 
     SRL_ITER_ASSERT_EOF(iter, "stringish");
     SRL_ITER_ASSERT_STACK(iter);
@@ -809,7 +810,7 @@ srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN na
     }
 
     SRL_ITER_TRACE("didn't found key '%.*s'", (int) name_len, name);
-    return SRL_KEY_NO_FOUND;
+    return SRL_ITER_NOT_FOUND;
 }
 
 IV

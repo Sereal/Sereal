@@ -55,7 +55,7 @@ UV srl_iterator_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr);
 UV srl_iterator_object_info(pTHX_ srl_iterator_t *iter, UV *length_ptr);
 
 /* array parsing */
-void srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx);
+IV srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx);
 
 /* hash parsing */
 const char * srl_iterator_hash_key(pTHX_ srl_iterator_t *iter, STRLEN *len_out);

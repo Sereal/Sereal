@@ -398,9 +398,10 @@ srl_parse_array_list(pTHX_ srl_path_t *path, int expr_idx, SV *route,
         SRL_PATH_TRACE("scan for item=%d in array at depth=%"IVdf,
                        idx, srl_iterator_stack_depth(aTHX_ iter));
 
-        srl_iterator_array_goto(aTHX_ iter, idx);
-        srl_parse_next_int(aTHX_ path, expr_idx + 1, route, idx);
-        srl_iterator_step_out(aTHX_ iter, srl_iterator_stack_depth(aTHX_ iter) - depth);
+        if (srl_iterator_array_goto(aTHX_ iter, idx)) {
+            srl_parse_next_int(aTHX_ path, expr_idx + 1, route, idx);
+            srl_iterator_step_out(aTHX_ iter, srl_iterator_stack_depth(aTHX_ iter) - depth);
+        }
     }
 }
 
@@ -411,8 +412,9 @@ srl_parse_array_item(pTHX_ srl_path_t *path, int expr_idx, SV *route, I32 idx)
     SRL_PATH_TRACE("parse item %d in array of size=%d at depth=%"IVdf,
                    idx, srl_iterator_stack(aTHX_ iter)->count, srl_iterator_stack_depth(aTHX_ iter));
 
-    srl_iterator_array_goto(aTHX_ iter, idx);
-    srl_parse_next_int(aTHX_ path, expr_idx + 1, route, idx);
+    if (srl_iterator_array_goto(aTHX_ iter, idx)) {
+        srl_parse_next_int(aTHX_ path, expr_idx + 1, route, idx);
+    }
 }
 
 SRL_STATIC_INLINE int
