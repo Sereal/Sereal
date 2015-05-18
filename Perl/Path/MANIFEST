@@ -42,8 +42,9 @@ srl_reader_misc.h
 srl_reader_types.h
 srl_reader_varint.h
 typemap
-001_load.t
-010_formats.t
-020_interface.t
-030_quiery_syntax.t
-040_simple_queries.t
+t/001_load.t
+t/010_formats.t
+t/020_interface.t
+t/030_quiery_syntax.t
+t/040_simple_queries.t
+t/050_complex_queries.t
