@@ -21,8 +21,8 @@ require JSON::Path if $verify_by_json_path;
 my %plain_data = (
     'plain array (single element queries)' => {
         dataset => [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ],
-        queries => [ '$[0]', '$[3]', '$[9]', '$[-1]', '$[-5]', '$[-10]', '$[10]' ],
-        results => [ [1],     [4],    [10],   [10],    [6],     [1],      []     ],
+        queries => [ '$[0]', '$[3]', '$[9]', '$[-1]', '$[-5]', '$[-10]', '$[10]', '$[0:1]', '$[2:5]', '$[9:]', '$[:3]'  ],
+        results => [ [1],     [4],    [10],   [10],    [6],     [1],      [],      [1],     [3,4,5],    [10],   [1,2,3] ],
     },
     'plain array (multiple element queries)' => {
         dataset => [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ],

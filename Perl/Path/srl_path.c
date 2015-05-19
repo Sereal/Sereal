@@ -81,11 +81,13 @@ SRL_STATIC_INLINE void srl_parse_hash_item(pTHX_ srl_path_t *path, int expr_idx,
 SRL_STATIC_INLINE void srl_parse_array(pTHX_ srl_path_t *path, int expr_idx, SV *route);
 SRL_STATIC_INLINE void srl_parse_array_all(pTHX_ srl_path_t *path, int expr_idx, SV *route);
 SRL_STATIC_INLINE void srl_parse_array_list(pTHX_ srl_path_t *path, int expr_idx, SV *route, const char *list, STRLEN list_len);
+SRL_STATIC_INLINE void srl_parse_array_range(pTHX_ srl_path_t *path, int expr_idx, SV *route, int *range);
 SRL_STATIC_INLINE void srl_parse_array_item(pTHX_ srl_path_t *path, int expr_idx, SV *route, I32 idx);
 
 SRL_STATIC_INLINE int is_all(const char *str, STRLEN len);
 SRL_STATIC_INLINE int is_list(const char *str, STRLEN len);
 SRL_STATIC_INLINE int is_number(const char *str, STRLEN len);
+SRL_STATIC_INLINE int * is_range(const char *str, STRLEN len, int *out);
 SRL_STATIC_INLINE int next_item_in_list(const char *list, STRLEN list_len,
                                         const char **item_out, STRLEN *item_len_out);
 SRL_STATIC_INLINE void print_route(SV *route, const char *str);
@@ -331,6 +333,7 @@ srl_parse_hash_item(pTHX_ srl_path_t *path, int expr_idx, SV *route,
 SRL_STATIC_INLINE void
 srl_parse_array(pTHX_ srl_path_t *path, int expr_idx, SV *route)
 {
+    int range[3];
     const char *loc_str;
     STRLEN loc_len;
     SV *loc;
@@ -349,6 +352,8 @@ srl_parse_array(pTHX_ srl_path_t *path, int expr_idx, SV *route)
         srl_parse_array_item(aTHX_ path, expr_idx, route, atoi(loc_str));
     } else if (is_list(loc_str, loc_len)) {                                             // [0,1,2]
         srl_parse_array_list(aTHX_ path, expr_idx, route, loc_str, loc_len);
+    } else if (is_range(loc_str, loc_len, (int*) &range)) {                             // [start:stop:step]
+        srl_parse_array_range(aTHX_ path, expr_idx, route, (int*) &range);
     }
 }
 
@@ -406,6 +411,46 @@ srl_parse_array_list(pTHX_ srl_path_t *path, int expr_idx, SV *route,
 }
 
 SRL_STATIC_INLINE void
+srl_parse_array_range(pTHX_ srl_path_t *path, int expr_idx, SV *route, int *range)
+{
+    I32 idx, start, stop, step;
+    srl_iterator_ptr iter = path->iter;
+    srl_iterator_stack_ptr stack = srl_iterator_stack(iter);
+    IV expected_depth = srl_iterator_stack_depth(aTHX_ iter);
+    I32 expected_idx;
+
+    start = range[0];
+    stop = range[1];
+    step = range[2];
+
+#   define MIN(a,b) (((a)<(b))?(a):(b))
+#   define MAX(a,b) (((a)>(b))?(a):(b))
+    start = start < 0 ? MAX(0, start + stack->count) : MIN(stack->count, start);
+    stop  = stop  < 0 ? MAX(0, stop  + stack->count) : MIN(stack->count, stop);
+    step  = step ? step : 1;
+
+    if (step < 0) {
+        warn("nagative step in not supported"); // TODO
+        return;
+    }
+
+    SRL_PATH_TRACE("parse items '%d:%d:%d' in array of size=%d at depth=%"IVdf,
+                   start, stop, step, stack->count, expected_depth);
+
+    expected_idx = stack->idx - start;
+
+    for (idx = start; idx < stop; idx += step, expected_idx -= step) {
+        srl_iterator_next_until_depth_and_idx(aTHX_ iter, expected_depth, expected_idx);
+        assert(srl_iterator_stack_depth(aTHX_ iter) == expected_depth);
+
+        SRL_PATH_TRACE("walk over item=%d in array at depth=%d",
+                       idx, (int) srl_iterator_stack_depth(aTHX_ iter));
+
+        srl_parse_next_int(aTHX_ path, expr_idx + 1, route, idx);
+    }
+}
+
+SRL_STATIC_INLINE void
 srl_parse_array_item(pTHX_ srl_path_t *path, int expr_idx, SV *route, I32 idx)
 {
     srl_iterator_ptr iter = path->iter;
@@ -432,6 +477,74 @@ is_list(const char *str, STRLEN len)
     }
 
     return 0;
+}
+
+int * _is_range(const char *str, STRLEN len, int *out) { return is_range(str, len, out); }
+
+SRL_STATIC_INLINE int *
+is_range(const char *str, STRLEN len, int *out)
+{
+    char *ptr;
+    int pos[2];
+    STRLEN i, ndel;
+    int start_len, stop_len, step_len;
+    int valid = 0;
+
+    for (i = 0, ndel = 0; i < len; ++i) {
+        if (str[i] == ':') {
+            if (ndel >= 2) return NULL;
+            pos[ndel++] = i;
+        }
+    }
+
+    switch (ndel) {
+        case 2: // [start:stop:step]
+            start_len = pos[0];
+            stop_len = pos[1] - pos[0] - 1;
+            step_len = len - pos[1] - 1;
+            assert(start_len + stop_len + step_len + 2 == len);
+
+            valid =    (start_len != 0 || stop_len != 0 || step_len != 0)
+                    && (start_len == 0 || is_number(str, start_len))
+                    && (stop_len == 0 || is_number(str + pos[0] + 1, stop_len))
+                    && (step_len == 0 || is_number(str + pos[1] + 1, step_len));
+
+            if (!valid) return NULL;
+
+            ptr = strndup(str, len);
+            ptr[pos[0]] = '\0';
+            ptr[pos[1]] = '\0';
+
+            out[0] = start_len == 0 ? 0 : atoi(ptr);                        // start
+            out[1] = stop_len == 0 ? 0x7FFFFFFF : atoi(ptr+ pos[0] + 1);    // stop
+            out[2] = step_len == 0 ? 1 : atoi(ptr + pos[1] + 1);            // step
+            free((void*) ptr);
+
+            return out;
+
+        case 1: // [start:stop]
+            start_len = pos[0];
+            stop_len = len - pos[0] - 1;
+            assert(start_len + stop_len + 1 == len);
+
+            valid =    (start_len != 0 || stop_len != 0)
+                    && (start_len == 0 || is_number(str, pos[0]))
+                    && (stop_len == 0 || is_number(str + pos[0] + 1, stop_len));
+
+            if (!valid) return NULL;
+
+            ptr = strndup(str, len);
+            ptr[pos[0]] = '\0';
+
+            out[0] = start_len == 0 ? 0 : atoi(ptr);                        // start
+            out[1] = stop_len == 0 ? 0x7FFFFFFF : atoi(ptr+ pos[0] + 1);    // stop
+            out[2] = 1;
+            free((void*) ptr);
+
+            return out;
+    }
+
+    return NULL;
 }
 
 SRL_STATIC_INLINE int

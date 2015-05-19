@@ -17,4 +17,7 @@ void srl_path_reset(pTHX_ srl_path_t *path, SV *src);
 void srl_path_traverse(pTHX_ srl_path_t *path, AV *expr, SV *route);
 SV * srl_path_results(pTHX_ srl_path_t *path);
 
+// for testing purposes
+int * _is_range(const char *str, STRLEN len, int *out);
+
 #endif

@@ -53,3 +53,21 @@ _traverse(path, expr, route)
     expr = SvRV(expr);
     if (SvTYPE(expr) != SVt_PVAV) croak("query mush be arrayref");
     srl_path_traverse(aTHX_ path, (AV*) expr, route);
+
+MODULE = Sereal::Path               PACKAGE = Sereal::Path::_tests
+
+AV *
+is_range(src)
+    SV *src;
+  CODE:
+    STRLEN len;
+    int values[3];
+    const char *str = SvPV(src, len);
+
+    RETVAL = newAV();
+    if (_is_range(str, len, (int*) &values)) {
+        av_push(RETVAL, newSViv(values[0]));
+        av_push(RETVAL, newSViv(values[1]));
+        av_push(RETVAL, newSViv(values[2]));
+    }
+  OUTPUT: RETVAL
