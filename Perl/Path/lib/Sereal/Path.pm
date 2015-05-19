@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION    = '0.003';
+our $VERSION    = '0.004';
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 
 XSLoader::load(__PACKAGE__, $Sereal::Path::VERSION);
@@ -94,7 +94,7 @@ between XPath, JSONPath and Sereal::Path:
                                                               is the native array operator.
   |               [,]                 [,]                     Union operator in XPath results in a combination of node sets.
                                                               JSONPath allows alternate names or array indices as a set.
-  n/a             [start:end:step]    not impl                Array slice operator borrowed from ES4.
+  n/a             [start:end:step]    [start:end:step]        Array slice operator borrowed from ES4.
   []              ?()                 not impl                Applies a filter (script) expression.
   n/a             ()                  not impl                Script expression, using the underlying script engine.
   ()              n/a                 n/a                     Grouping in Xpath
