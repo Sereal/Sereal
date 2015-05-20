@@ -192,7 +192,7 @@ srl_parse_next(pTHX_ srl_path_t *path, int expr_idx, SV *route)
     SRL_PATH_TRACE("expr_idx=%d", expr_idx);
 
     if (srl_iterator_eof(aTHX_ iter)) return;
-    if (expr_idx > av_top_index(path->expr)) { // scaned entiry expr
+    if (expr_idx > av_len(path->expr)) { // scaned entiry expr
         SV *res;
         print_route(route, "to decode");
         res = srl_iterator_decode(aTHX_ iter);
@@ -242,7 +242,7 @@ srl_parse_hash(pTHX_ srl_path_t *path, int expr_idx, SV *route)
 
     assert(route != NULL);
     assert(expr_idx >= 0);
-    assert(expr_idx <= av_top_index(path->expr));
+    assert(expr_idx <= av_len(path->expr));
     assert(srl_iterator_stack(aTHX_ path->iter) != NULL);
 
     loc   = *av_fetch(path->expr, expr_idx, 0);
@@ -340,7 +340,7 @@ srl_parse_array(pTHX_ srl_path_t *path, int expr_idx, SV *route)
 
     assert(route != NULL);
     assert(expr_idx >= 0);
-    assert(expr_idx <= av_top_index(path->expr));
+    assert(expr_idx <= av_len(path->expr));
     assert(srl_iterator_stack(aTHX_ path->iter) != NULL);
 
     loc = *av_fetch(path->expr, expr_idx, 0);

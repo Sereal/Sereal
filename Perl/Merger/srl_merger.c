@@ -395,7 +395,7 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
     SSize_t i;
     SV **svptr;
     STRLEN size = 0;
-    SSize_t tidx = av_top_index(src);
+    SSize_t tidx = av_len(src);
 
     if (mrg->obuf_last_successfull_offset) {
         /* If obuf_last_successfull_offset is true then last merge
