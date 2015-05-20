@@ -7,8 +7,8 @@
 /* the iterator main struct */
 typedef struct {
     struct srl_iterator *iter;
-    AV *expr;
-    AV *results;
+    AV *expr;       // srl_path_t do *NOT* own results
+    AV *results;    // srl_path_t own results
 } srl_path_t;
 
 srl_path_t * srl_build_path_struct(pTHX_ HV *opt);

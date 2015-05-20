@@ -140,8 +140,7 @@ void
 srl_path_traverse(pTHX_ srl_path_t *path, AV *expr, SV *route)
 {
     SV *route_copy;
-    if (!path->iter)
-        croak("Set Iter first"); // TODO
+    if (!path->iter) croak("No document to traverse");
 
     assert(expr != NULL);
     assert(route != NULL);
@@ -149,7 +148,7 @@ srl_path_traverse(pTHX_ srl_path_t *path, AV *expr, SV *route)
     CLEAN_RESULTS(path);
 
     path->results = newAV();
-    path->expr = expr; // TODO perhaps, copy expr
+    path->expr = expr;
     route_copy = sv_2mortal(newSVsv(route));
 
     srl_iterator_reset(aTHX_ path->iter);
@@ -410,10 +409,7 @@ srl_parse_array_range(pTHX_ srl_path_t *path, int expr_idx, SV *route, int *rang
     stop  = stop  < 0 ? MAX(0, stop  + stack->count) : MIN(stack->count, stop);
     step  = step ? step : 1;
 
-    if (step < 0) {
-        warn("nagative step in not supported"); // TODO
-        return;
-    }
+    if (step < 0) croak("negative step in not supported");
 
     SRL_PATH_TRACE("parse items '%d:%d:%d' in array of size=%d at depth=%"IVdf,
                    start, stop, step, stack->count, expected_depth);
