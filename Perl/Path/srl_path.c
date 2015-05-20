@@ -42,12 +42,6 @@ extern "C" {
 #define HAS_SV2OBJ
 #endif
 
-#if PERL_VERSION < 12
-#   define SVt_RV_FAKE SVt_RV
-#else
-#   define SVt_RV_FAKE SVt_IV
-#endif
-
 #ifndef NDEBUG
 #   if DEBUG > 1
 #       define TRACE_READER     1
@@ -67,6 +61,13 @@ extern "C" {
 #else
 #   define SRL_PATH_TRACE(msg, args...)
 #endif
+
+#define CLEAN_RESULTS(p) STMT_START {   \
+    if ((p)->results) {                 \
+        SvREFCNT_dec((p)->results);     \
+        (p)->results = NULL;            \
+    }                                   \
+} STMT_END
 
 SRL_STATIC_INLINE void srl_parse_next(pTHX_ srl_path_t *path, int expr_idx, SV *route);
 SRL_STATIC_INLINE void srl_parse_next_int(pTHX_ srl_path_t *path, int expr_idx, SV *route, IV n);
@@ -110,8 +111,7 @@ srl_build_path_struct(pTHX_ HV *opt)
 void
 srl_destroy_path(pTHX_ srl_path_t *path)
 {
-    if (path->results)
-        SvREFCNT_dec(path->results);
+    CLEAN_RESULTS(path);
 
     if (path->iter)
         srl_destroy_iterator(aTHX_ path->iter);
@@ -124,14 +124,10 @@ void
 srl_path_reset(pTHX_ srl_path_t *path, SV *src)
 {
     path->expr = NULL;
+    CLEAN_RESULTS(path);
 
     if (path->iter) srl_destroy_iterator(aTHX_ path->iter);
     path->iter = srl_build_iterator_struct(aTHX_ NULL);
-
-    if (path->results) {
-        SvREFCNT_dec(path->results);
-        path->results = NULL;
-    }
 
     if (sv_isa(src, "Sereal::Path::Iterator")) {
         croak("not implemented");
@@ -150,10 +146,7 @@ srl_path_traverse(pTHX_ srl_path_t *path, AV *expr, SV *route)
     assert(expr != NULL);
     assert(route != NULL);
 
-    if (path->results) {
-        SvREFCNT_dec(path->results);
-        path->results = NULL;
-    }
+    CLEAN_RESULTS(path);
 
     path->results = newAV();
     path->expr = expr; // TODO perhaps, copy expr
@@ -166,21 +159,9 @@ srl_path_traverse(pTHX_ srl_path_t *path, AV *expr, SV *route)
 SV *
 srl_path_results(pTHX_ srl_path_t *path)
 {
-    SV *into, *referent;
-    AV *results = path->results;
-    if (!results)
-        return sv_2mortal(newSV_type(SVt_NULL));
-
+    AV *results = path->results ? path->results : newAV();
     path->results = NULL;
-    referent = (SV*) results;
-    into = sv_2mortal(newSV_type(SVt_NULL));
-
-    // copy-pasted from decoder
-    sv_upgrade(into, SVt_RV_FAKE);
-    SvTEMP_off(referent);
-    SvRV_set(into, referent);
-    SvROK_on(into);
-    return into;
+    return sv_2mortal(newRV_noinc((SV*) results));
 }
 
 SRL_STATIC_INLINE void
@@ -196,7 +177,7 @@ srl_parse_next(pTHX_ srl_path_t *path, int expr_idx, SV *route)
         SV *res;
         print_route(route, "to decode");
         res = srl_iterator_decode(aTHX_ iter);
-        SvREFCNT_inc(res); // TODO ????
+        SvREFCNT_inc(res);
         av_push(path->results, res); // TODO store route if needed
         return;
     }

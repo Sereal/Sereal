@@ -38,10 +38,9 @@ reset(path, src)
 SV *
 results(path)
     srl_path_t *path;
-  CODE:
-    RETVAL = srl_path_results(aTHX_ path);
-    SvREFCNT_inc(RETVAL); // XXX ????
-  OUTPUT: RETVAL
+  PPCODE:
+    ST(0) = srl_path_results(aTHX_ path);
+    XSRETURN(1);
 
 void
 _traverse(path, expr, route)
@@ -56,18 +55,23 @@ _traverse(path, expr, route)
 
 MODULE = Sereal::Path               PACKAGE = Sereal::Path::_tests
 
-AV *
+SV *
 is_range(src)
     SV *src;
-  CODE:
+  PREINIT:
+    AV *av;
     STRLEN len;
     int values[3];
-    const char *str = SvPV(src, len);
+    const char *str;
+  PPCODE:
+    av = newAV();
+    ST(0) = newRV_noinc((SV*) av);
+    str = SvPV(src, len);
 
-    RETVAL = newAV();
     if (_is_range(str, len, (int*) &values)) {
-        av_push(RETVAL, newSViv(values[0]));
-        av_push(RETVAL, newSViv(values[1]));
-        av_push(RETVAL, newSViv(values[2]));
+        av_push(av, newSViv(values[0]));
+        av_push(av, newSViv(values[1]));
+        av_push(av, newSViv(values[2]));
     }
-  OUTPUT: RETVAL
+
+    XSRETURN(1);
