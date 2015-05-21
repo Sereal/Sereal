@@ -15,7 +15,7 @@ sub hobodecode {
     close $fh;
 }
 
-my $verify_by_json_path = $ENV{VERIFY_BY_JSON_PATH} // 0;
+my $verify_by_json_path = $ENV{VERIFY_BY_JSON_PATH} || 0;
 require JSON::Path if $verify_by_json_path;
 
 my %plain_data = (
