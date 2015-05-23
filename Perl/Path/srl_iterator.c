@@ -798,7 +798,7 @@ srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN na
         }
 
         if (   length == name_len
-            && strncmp(name, key_ptr, name_len) == 0)
+            && memcmp(name, key_ptr, name_len) == 0)
         {
             SRL_ITER_TRACE("found key '%.*s' at offset %"UVuf,
                          (int) name_len, name, SRL_RDR_BODY_POS_OFS(iter->pbuf));

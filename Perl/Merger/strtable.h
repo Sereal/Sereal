@@ -166,7 +166,7 @@ S_perl_hash_murmur_hash_64b (const unsigned char * const seed, const unsigned ch
 #define STRTABLE_ASSERT_ENTRY_STR(tbl, ent, str, len) STMT_START {                         \
     assert((ent)->length == (len));                                                        \
     assert((ent)->hash == STRTABLE_HASH((str), (len)));                                    \
-    assert(strncmp((char *) STRTABLE_ENTRY_STR((tbl), (ent)), (char*) (str), (len)) == 0); \
+    assert(memcmp((char *) STRTABLE_ENTRY_STR((tbl), (ent)), (char*) (str), (len)) == 0); \
 } STMT_END
 
 typedef struct STRTABLE         STRTABLE_t;
@@ -264,7 +264,7 @@ STRTABLE_insert(STRTABLE_t *tbl, const unsigned char *str, U32 len, int *ok)
 
         if (   tblent->hash == hash
             && tblent->length == len
-            && strncmp((char*) STRTABLE_ENTRY_STR(tbl, tblent), (char*) str, len) == 0
+            && memcmp((char*) STRTABLE_ENTRY_STR(tbl, tblent), (char*) str, len) == 0
         ) {
             *ok = 1;
             return tblent;
