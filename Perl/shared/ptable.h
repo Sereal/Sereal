@@ -1,17 +1,11 @@
-/* Taken from Chocolateboy's autobox module. License same as perl's and
- * this same as this module's license.
- */
-
-/*
- * This is a customized version of the pointer table implementation in sv.c
- */
-
-#ifndef PTABLE_H_
-#define PTABLE_H_
+#ifndef _PTABLE_H_
+#define _PTABLE_H_
 
 #include <assert.h>
-#include <limits.h>
+#include <stdlib.h>
+#include <string.h>
 #include "ppport.h"
+#include "srl_inline.h"
 
 #if PTRSIZE == 8
     /*
@@ -44,336 +38,220 @@
 #endif
 
 #define PTABLE_HASH(ptr) ptr_hash(PTR2nat(ptr))
+#define PTABLE_SKIP_EMPTY(entry) if ((entry).key == NULL) { continue; }
 
-#define PTABLE_FLAG_AUTOCLEAN 1
-
-typedef struct PTABLE_entry PTABLE_ENTRY_t;
-typedef struct PTABLE       PTABLE_t;
-typedef struct PTABLE_iter  PTABLE_ITER_t;
-
-struct PTABLE_entry {
-    struct PTABLE_entry     *next;
-    void                    *key;
-    void                    *value;
+struct PTABLE_ENTRY {
+    void *key;
+    void *value;
 };
 
 struct PTABLE {
-    struct PTABLE_entry     **tbl_ary;
-    UV                      tbl_max;
-    UV                      tbl_items;
-    PTABLE_ITER_t           *cur_iter; /* one iterator at a time can be auto-freed */
+    struct PTABLE_ENTRY *entries;
+    U32 keys;
+    U32 capacity; // has to be power of 2
 };
 
-struct PTABLE_iter {
-    struct PTABLE           *table;
-    UV                      bucket_num;
-    struct PTABLE_entry     *cur_entry;
-};
-
-/*
-SRL_STATIC_INLINE PTABLE_t * PTABLE_new(void);
-SRL_STATIC_INLINE PTABLE_t * PTABLE_new_size(const U8 size_base2_exponent);
-SRL_STATIC_INLINE PTABLE_ENTRY_t * PTABLE_find(PTABLE_t *tbl, const void *key);
-SRL_STATIC_INLINE void * PTABLE_fetch(PTABLE_t *tbl, const void *key);
-SRL_STATIC_INLINE PTABLE_ENTRY_t * PTABLE_store(PTABLE_t *tbl, void *key, void *value);
-SRL_STATIC_INLINE void PTABLE_delete(PTABLE_t *tbl, void *key);
-SRL_STATIC_INLINE void PTABLE_grow(PTABLE_t *tbl);
-SRL_STATIC_INLINE void PTABLE_clear(PTABLE_t *tbl);
-SRL_STATIC_INLINE void PTABLE_clear_dec(pTHX_ PTABLE_t *tbl);
-SRL_STATIC_INLINE void PTABLE_free(PTABLE_t *tbl);
-
-SRL_STATIC_INLINE PTABLE_ITER_t * PTABLE_iter_new(PTABLE_t *tbl);
-SRL_STATIC_INLINE PTABLE_ITER_t * PTABLE_iter_new_flags(PTABLE_t *tbl, int flags);
-SRL_STATIC_INLINE PTABLE_ENTRY_t * PTABLE_iter_next(PTABLE_ITER_t *iter);
-SRL_STATIC_INLINE void PTABLE_iter_free(PTABLE_ITER_t *iter);
-*/
-
-/* create a new pointer => pointer table */
-SRL_STATIC_INLINE PTABLE_t *
-PTABLE_new_size(const U8 size_base2_exponent)
-{
-    PTABLE_t *tbl;
-    Newxz(tbl, 1, PTABLE_t);
-    tbl->tbl_max = (1 << size_base2_exponent) - 1;
-    tbl->tbl_items = 0;
-    tbl->cur_iter = NULL;
-    Newxz(tbl->tbl_ary, tbl->tbl_max + 1, PTABLE_ENTRY_t*);
-    return tbl;
-}
-
-SRL_STATIC_INLINE PTABLE_t *
-PTABLE_new(void)
-{
-    return PTABLE_new_size(9);
-}
-
-/* map an existing pointer using a table */
-SRL_STATIC_INLINE PTABLE_ENTRY_t *
-PTABLE_find(PTABLE_t *tbl, const void *key) {
-    PTABLE_ENTRY_t *tblent;
-    const UV hash = PTABLE_HASH(key);
-    tblent = tbl->tbl_ary[hash & tbl->tbl_max];
-    for (; tblent; tblent = tblent->next) {
-        if (tblent->key == key)
-            return tblent;
-    }
-    return NULL;
-}
-
-SRL_STATIC_INLINE void *
-PTABLE_fetch(PTABLE_t *tbl, const void *key)
-{
-    PTABLE_ENTRY_t const *const tblent = PTABLE_find(tbl, key);
-    return tblent ? tblent->value : NULL;
-}
-
-/* double the hash bucket size of an existing ptr table */
+typedef struct PTABLE PTABLE_t;
+typedef struct PTABLE_ENTRY PTABLE_ENTRY_t;
+typedef struct PTABLE_ENTRY *PTABLE_ENTRY_ptr;
 
 SRL_STATIC_INLINE void
-PTABLE_grow(PTABLE_t *tbl)
+PTABLE_init(PTABLE_t *tbl, U32 capacity)
 {
-    PTABLE_ENTRY_t **ary = tbl->tbl_ary;
-    const UV oldsize = tbl->tbl_max + 1;
-    UV newsize = oldsize * 2;
-    UV i;
+    assert((capacity & (capacity - 1)) == 0); // capacity must be power of 2
 
-    Renew(ary, newsize, PTABLE_ENTRY_t*);
-    Zero(&ary[oldsize], newsize - oldsize, PTABLE_ENTRY_t*);
-    tbl->tbl_max = --newsize;
-    tbl->tbl_ary = ary;
-
-    for (i = 0; i < oldsize; i++, ary++) {
-        PTABLE_ENTRY_t **curentp, **entp, *ent;
-        if (!*ary)
-            continue;
-        curentp = ary + oldsize;
-        for (entp = ary, ent = *ary; ent; ent = *entp) {
-            if ((newsize & PTABLE_HASH(ent->key)) != i) {
-                *entp = ent->next;
-                ent->next = *curentp;
-                *curentp = ent;
-                continue;
-            } else {
-                entp = &ent->next;
-            }
-        }
-    }
+    tbl->keys = 0;
+    tbl->entries = NULL;
+    tbl->capacity = capacity;
+    Newxz(tbl->entries, capacity, PTABLE_ENTRY_t);
+    if (!tbl->entries) croak("Out of memory");
 }
 
-/* add a new entry to a pointer => pointer table */
-
-SRL_STATIC_INLINE PTABLE_ENTRY_t *
-PTABLE_store(PTABLE_t *tbl, void *key, void *value)
+SRL_STATIC_INLINE PTABLE_t *
+PTABLE_new()
 {
-    PTABLE_ENTRY_t *tblent = PTABLE_find(tbl, key);
-
-    if (tblent) {
-        tblent->value = value;
-    } else {
-        const UV entry = PTABLE_HASH(key) & tbl->tbl_max;
-        Newx(tblent, 1, PTABLE_ENTRY_t);
-
-        tblent->key = key;
-        tblent->value = value;
-        tblent->next = tbl->tbl_ary[entry];
-        tbl->tbl_ary[entry] = tblent;
-        tbl->tbl_items++;
-        if (tblent->next && (tbl->tbl_items > tbl->tbl_max))
-            PTABLE_grow(tbl);
-    }
-
-    return tblent;
+    PTABLE_t *tbl = NULL;
+    Newx(tbl, 1, PTABLE_t);
+    if (tbl) PTABLE_init(tbl, 8);
+    return tbl;
 }
-
-
-/* remove all the entries from a ptr table */
 
 SRL_STATIC_INLINE void
 PTABLE_clear(PTABLE_t *tbl)
 {
-    if (tbl && tbl->tbl_items) {
-        register PTABLE_ENTRY_t * * const array = tbl->tbl_ary;
-        UV riter = tbl->tbl_max;
-
-        do {
-            PTABLE_ENTRY_t *entry = array[riter];
-
-            while (entry) {
-                PTABLE_ENTRY_t * const oentry = entry;
-                entry = entry->next;
-                Safefree(oentry);
-            }
-
-            /* chocolateboy 2008-01-08
-             *
-             * make sure we clear the array entry, so that subsequent probes fail
-             */
-
-            array[riter] = NULL;
-        } while (riter--);
-
-        tbl->tbl_items = 0;
-    }
+    tbl->keys = 0;
+    Zero(tbl->entries, tbl->capacity, PTABLE_ENTRY_t);
 }
 
 SRL_STATIC_INLINE void
-PTABLE_clear_dec(pTHX_ PTABLE_t *tbl)
+PTABLE_clear_dec(PTABLE_t *tbl)
 {
-    if (tbl && tbl->tbl_items) {
-        register PTABLE_ENTRY_t * * const array = tbl->tbl_ary;
-        UV riter = tbl->tbl_max;
-
-        do {
-            PTABLE_ENTRY_t *entry = array[riter];
-
-            while (entry) {
-                PTABLE_ENTRY_t * const oentry = entry;
-                entry = entry->next;
-                if (oentry->value)
-                    SvREFCNT_dec((SV*)(oentry->value));
-                Safefree(oentry);
-            }
-
-            /* chocolateboy 2008-01-08
-             *
-             * make sure we clear the array entry, so that subsequent probes fail
-             */
-
-            array[riter] = NULL;
-        } while (riter--);
-
-        tbl->tbl_items = 0;
+    U32 i;
+    for (i = 0; i < tbl->capacity; ++i) {
+        PTABLE_SKIP_EMPTY(tbl->entries[i]);
+        if (tbl->entries[i].value) SvREFCNT_dec((SV*) tbl->entries[i].value);
     }
+
+    PTABLE_clear(tbl);
 }
-
-/* remove one entry from a ptr table */
-
-SRL_STATIC_INLINE void
-PTABLE_delete(PTABLE_t *tbl, void *key)
-{
-    PTABLE_ENTRY_t *tblent;
-    PTABLE_ENTRY_t *tblent_prev;
-
-    if (!tbl || !tbl->tbl_items) {
-        return;
-    } else {
-        const UV hash = PTABLE_HASH(key);
-        tblent_prev = NULL;
-        tblent = tbl->tbl_ary[hash & tbl->tbl_max];
-
-        for (; tblent; tblent_prev = tblent, tblent = tblent->next) {
-            if (tblent->key == key) {
-                if (tblent_prev != NULL) {
-                    tblent_prev->next = tblent->next;
-                }
-                else {
-                    /* First entry in chain */
-                    tbl->tbl_ary[hash & tbl->tbl_max] = tblent->next;
-                }
-                Safefree(tblent);
-                break;
-            }
-        }
-    }
-}
-
-
-
-#define PTABLE_ITER_NEXT_ELEM(iter, tbl)                                    \
-    STMT_START {                                                            \
-        if ((iter)->cur_entry && (iter)->cur_entry->next) {                 \
-            (iter)->cur_entry = (iter)->cur_entry->next;                    \
-        }                                                                   \
-        else {                                                              \
-            do {                                                            \
-                if ((iter)->bucket_num > (tbl)->tbl_max) {                  \
-                    (iter)->cur_entry = NULL;                               \
-                    break;                                                  \
-                }                                                           \
-                (iter)->cur_entry = (tbl)->tbl_ary[(iter)->bucket_num++];   \
-            } while ((iter)->cur_entry == NULL);                            \
-        }                                                                   \
-    } STMT_END
-
-/* Create new iterator object */
-SRL_STATIC_INLINE PTABLE_ITER_t *
-PTABLE_iter_new_flags(PTABLE_t *tbl, int flags)
-{
-    PTABLE_ITER_t *iter;
-    Newx(iter, 1, PTABLE_ITER_t);
-    iter->table = tbl;
-    iter->bucket_num = 0;
-    iter->cur_entry = NULL;
-
-    if (flags & PTABLE_FLAG_AUTOCLEAN)
-        tbl->cur_iter = iter;
-    if (tbl->tbl_items == 0) {
-        /* Prevent hash bucket scanning.
-         * This can be a significant optimization on large, empty hashes. */
-        iter->bucket_num = INT_MAX;
-        return iter;
-    }
-    PTABLE_ITER_NEXT_ELEM(iter, tbl);
-    assert(iter->cur_entry != NULL);
-    return iter;
-}
-
-SRL_STATIC_INLINE PTABLE_ITER_t *
-PTABLE_iter_new(PTABLE_t *tbl)
-{
-    return PTABLE_iter_new_flags(tbl, 0);
-}
-
-
-/* Return next item from hash, NULL if at end */
-SRL_STATIC_INLINE PTABLE_ENTRY_t *
-PTABLE_iter_next(PTABLE_ITER_t *iter)
-{
-    PTABLE_ENTRY_t *retval = iter->cur_entry;
-    PTABLE_t *tbl = iter->table;
-    PTABLE_ITER_NEXT_ELEM(iter, tbl);
-    return retval;
-}
-
-/* Free iterator object */
-SRL_STATIC_INLINE void
-PTABLE_iter_free(PTABLE_ITER_t *iter)
-{
-    /* If we're the iterator that can be auto-cleaned by the PTABLE,
-     * then unregister. */
-    if (iter->table->cur_iter == iter)
-        iter->table->cur_iter = NULL;
-
-    Safefree(iter);
-}
-
-SRL_STATIC_INLINE void
-PTABLE_debug_dump(PTABLE_t *tbl, void (*func)(PTABLE_ENTRY_t *e))
-{
-    PTABLE_ENTRY_t *e;
-    PTABLE_ITER_t *iter = PTABLE_iter_new(tbl);
-    while (NULL != (e = PTABLE_iter_next(iter))) {
-        func(e);
-    }
-    PTABLE_iter_free(iter);
-}
-
-/* clear and free a ptr table */
 
 SRL_STATIC_INLINE void
 PTABLE_free(PTABLE_t *tbl)
 {
-    if (!tbl)
-        return;
-
-    PTABLE_clear(tbl);
-    if (tbl->cur_iter) {
-        PTABLE_ITER_t *it = tbl->cur_iter;
-        tbl->cur_iter = NULL; /* avoid circular checks */
-        PTABLE_iter_free(it);
-    }
-    Safefree(tbl->tbl_ary);
+    if (tbl) Safefree(tbl->entries);
     Safefree(tbl);
+}
+
+SRL_STATIC_INLINE void
+PTABLE_grow(PTABLE_t *tbl)
+{
+    U32 half_capacity = tbl->capacity;
+    U32 capacity = tbl->capacity * 2;
+    U32 i, hash, slot, mask = capacity - 1;
+    PTABLE_ENTRY_t *entries, *n_entries = NULL;
+    if (half_capacity >= 0x80000000) croak("Max capacity reached");
+
+    entries = tbl->entries;
+    Newxz(n_entries, capacity, PTABLE_ENTRY_t);
+    if (!n_entries) croak("Out of memory");
+
+    for (i = 0; i < half_capacity; ++i) {
+        PTABLE_SKIP_EMPTY(entries[i]);
+        hash = PTABLE_HASH(entries[i].key);
+        slot = hash & mask;
+
+        while (1) {
+            if (n_entries[slot].key == NULL) {
+                n_entries[slot] = entries[i];
+                break;
+            }
+            slot = (slot + 1) & mask;
+        }
+    }
+
+    Safefree(tbl->entries);
+    tbl->entries = n_entries;
+    tbl->capacity = capacity;
+}
+
+SRL_STATIC_INLINE PTABLE_ENTRY_ptr
+PTABLE_insert(PTABLE_t *tbl, void *key, int *found)
+{
+    U32 slot, mask;
+    PTABLE_ENTRY_t *entries;
+    *found = 0;
+
+    // need to grow buffer before inserting as we return pointer
+    if ((tbl->keys + 1) >= (tbl->capacity >> 1)) // tbl->capacity / 2
+        PTABLE_grow(tbl);
+
+    entries = tbl->entries;
+    mask = tbl->capacity - 1;
+    slot = PTABLE_HASH(key) & mask;
+
+    while (1) {
+        if (entries[slot].key == NULL) {
+            entries[slot].key = key;
+            tbl->keys++;
+            return entries + slot;
+        }
+
+        if (entries[slot].key == key) {
+            *found = 1;
+            return entries + slot;
+        }
+
+        slot = (slot + 1) & mask;
+    }
+}
+
+SRL_STATIC_INLINE void
+PTABLE_store(PTABLE_t *tbl, void *key, void *value)
+{
+    U32 mask = tbl->capacity - 1;
+    U32 slot = PTABLE_HASH(key) & mask;
+    PTABLE_ENTRY_t *entries = tbl->entries;
+
+    while (1) {
+        if (entries[slot].key == NULL) {
+            entries[slot].key = key;
+            entries[slot].value = value;
+            tbl->keys++;
+
+            if (tbl->keys >= (tbl->capacity >> 1)) // tbl->capacity / 2
+                PTABLE_grow(tbl);
+
+            return;
+        }
+
+        if (entries[slot].key == key) {
+            entries[slot].value = value;
+            return;
+        }
+
+        slot = (slot + 1) & mask;
+    }
+}
+
+SRL_STATIC_INLINE void *
+PTABLE_fetch(PTABLE_t *tbl, void *key)
+{
+    U32 mask = tbl->capacity - 1;
+    U32 slot = PTABLE_HASH(key) & mask;
+    PTABLE_ENTRY_t *entries = tbl->entries;
+
+    while (1) {
+        if (entries[slot].key == NULL) return NULL;
+        if (entries[slot].key == key)  return entries[slot].value;
+        slot = (slot + 1) & mask;
+    }
+}
+
+SRL_STATIC_INLINE void
+PTABLE_delete(PTABLE_t *tbl, void *key)
+{
+    /*
+     * 1. Find and remove the desired element
+     * 2. Go to the next bucket
+     * 3. If the bucket is empty, quit
+     * 4. If the bucket is full, delete the element in that bucket and re-add
+     *    it to the hash table using the normal means. The item must be removed
+     *    before re-adding, because it is likely that the item could be added back
+     *    into its original spot.
+     * 5. Repeat step 2.
+     */
+
+    U32 mask = tbl->capacity - 1;
+    U32 slot = PTABLE_HASH(key) & mask;
+    PTABLE_ENTRY_t *entries = tbl->entries;
+
+    while (1) {
+        if (entries[slot].key == NULL) return;
+        if (entries[slot].key == key) {
+            entries[slot].key = NULL;
+            tbl->keys--;
+
+            for (slot = (slot + 1) & mask; entries[slot].key; slot = (slot + 1) & mask) {
+                tbl->keys--;
+                entries[slot].key = NULL;
+                PTABLE_store(tbl, key, entries[slot].value);
+            }
+
+            return;
+        }
+
+        slot = (slot + 1) & mask;
+    }
+}
+
+SRL_STATIC_INLINE void
+PTABLE_debug_dump(PTABLE_t *tbl, void (*func)(PTABLE_ENTRY_ptr e))
+{
+    U32 i;
+    for (i = 0; i < tbl->capacity; ++i) {
+        PTABLE_SKIP_EMPTY(tbl->entries[i]);
+        func(tbl->entries + i);
+    }
 }
 
 #endif

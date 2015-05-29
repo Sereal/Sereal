@@ -577,28 +577,28 @@ srl_build_encoder_struct_alike(pTHX_ srl_encoder_t *proto)
 SRL_STATIC_INLINE PTABLE_t *
 srl_init_string_hash(srl_encoder_t *enc)
 {
-    enc->str_seenhash = PTABLE_new_size(4);
+    enc->str_seenhash = PTABLE_new();
     return enc->str_seenhash;
 }
 
 SRL_STATIC_INLINE PTABLE_t *
 srl_init_ref_hash(srl_encoder_t *enc)
 {
-    enc->ref_seenhash = PTABLE_new_size(4);
+    enc->ref_seenhash = PTABLE_new();
     return enc->ref_seenhash;
 }
 
 SRL_STATIC_INLINE PTABLE_t *
 srl_init_weak_hash(srl_encoder_t *enc)
 {
-    enc->weak_seenhash = PTABLE_new_size(3);
+    enc->weak_seenhash = PTABLE_new();
     return enc->weak_seenhash;
 }
 
 SRL_STATIC_INLINE PTABLE_t *
 srl_init_freezeobj_svhash(srl_encoder_t *enc)
 {
-    enc->freezeobj_svhash = PTABLE_new_size(3);
+    enc->freezeobj_svhash = PTABLE_new();
     return enc->freezeobj_svhash;
 }
 
@@ -799,6 +799,7 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
                 PUSHs(src);
                 PUSHs(enc->sereal_string_sv); /* not NULL if SRL_F_ENABLE_FREEZE_SUPPORT is set */
                 replacement= (SV*)newAV();
+
                 PTABLE_store(freezeobj_svhash, referent, replacement);
 
                 PUTBACK;
@@ -837,15 +838,16 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement)
     } else if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS) )) {
         return;
     } else {
+        int found;
         const HV *stash = SvSTASH(referent);
         PTABLE_t *string_seenhash = SRL_GET_STR_PTR_SEENHASH(enc);
-        const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, (SV *)stash);
+        PTABLE_ENTRY_ptr entry = PTABLE_insert(string_seenhash, (SV *)stash, &found);
 
-        if (oldoffset != 0) {
+        if (found) {
             /* Issue COPY instead of literal class name string */
             srl_buf_cat_varint(aTHX_ &enc->buf,
                                      expect_false(replacement) ? SRL_HDR_OBJECTV_FREEZE : SRL_HDR_OBJECTV,
-                                     (UV)oldoffset);
+                                     (UV)entry->value);
         }
         else {
             const char *class_name = HvNAME_get(stash);
@@ -861,7 +863,7 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement)
             srl_buf_cat_char(&enc->buf, expect_false(replacement) ? SRL_HDR_OBJECT_FREEZE : SRL_HDR_OBJECT);
 
             /* remember current offset before advancing it */
-            PTABLE_store(string_seenhash, (void *)stash, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
+            entry->value = INT2PTR(void *, BODY_POS_OFS(&enc->buf));
 
             /* HvNAMEUTF8 not in older perls and it would be 0 for those anyway */
 #if PERL_VERSION >= 16
@@ -974,16 +976,18 @@ srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *user_he
 SRL_STATIC_INLINE void
 srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
 {
+    U32 i;
+    ptrdiff_t offset;
     PTABLE_t *weak_seenhash = SRL_GET_WEAK_SEENHASH(enc);
-    PTABLE_ITER_t *it = PTABLE_iter_new(weak_seenhash);
-    PTABLE_ENTRY_t *ent;
+    PTABLE_ENTRY_ptr entries = weak_seenhash->entries;
 
     /* we now walk the weak_seenhash and set any tags it points
      * at to the PAD opcode, this basically turns the first weakref
      * we encountered into a normal ref when there is only a weakref
      * pointing at the structure. */
-    while ( NULL != (ent = PTABLE_iter_next(it)) ) {
-        const ptrdiff_t offset = (ptrdiff_t)ent->value;
+    for (i = 0; i < weak_seenhash->capacity; ++i) {
+        PTABLE_SKIP_EMPTY(entries[i]);
+        offset = (ptrdiff_t)entries[i].value;
         if ( offset ) {
             srl_buffer_char *pos = enc->buf.body_pos + offset;
             assert(*pos == SRL_HDR_WEAKEN);
@@ -991,8 +995,6 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
             *pos = SRL_HDR_PAD;
         }
     }
-
-    PTABLE_iter_free(it);
 }
 
 
@@ -1253,17 +1255,17 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
 #endif
             )
         {
+            int found;
             PTABLE_t *string_seenhash = SRL_GET_STR_PTR_SEENHASH(enc);
-            const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, str);
-            if (oldoffset != 0) {
+            PTABLE_ENTRY_ptr entry = PTABLE_insert(string_seenhash, str, &found);
+            if (found) {
                 /* Issue COPY instead of literal hash key string */
-                srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_COPY, (UV)oldoffset);
+                srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_COPY, (UV)entry->value);
                 return;
             }
             else {
                 /* remember current offset before advancing it */
-                const ptrdiff_t newoffset = BODY_POS_OFS(&enc->buf);
-                PTABLE_store(string_seenhash, (void *)str, INT2PTR(void *, newoffset));
+                entry->value = INT2PTR(void *, BODY_POS_OFS(&enc->buf));
             }
         }
         len= HeKLEN(src);
@@ -1385,18 +1387,19 @@ redo_dump:
     }
 #endif
     if (expect_false( mg || backrefs )) {
+        int found;
         PTABLE_t *weak_seenhash= SRL_GET_WEAK_SEENHASH(enc);
-        PTABLE_ENTRY_t *pe= PTABLE_find(weak_seenhash, src);
-        if (!pe) {
+        PTABLE_ENTRY_ptr entry = PTABLE_insert(weak_seenhash, src, &found);
+        if (!found) {
             /* not seen it before */
             if (DEBUGHACK) warn("scalar %p - is weak referent, storing %"UVuf, src, weakref_ofs);
             /* if weakref_ofs is false we got here some way that holds a refcount on this item */
-            PTABLE_store(weak_seenhash, src, INT2PTR(void *, weakref_ofs));
+            entry->value = INT2PTR(void *, weakref_ofs);
         } else {
             if (DEBUGHACK) warn("scalar %p - is weak referent, seen before value:%"UVuf" weakref_ofs:%"UVuf,
-                    src, (UV)pe->value, (UV)weakref_ofs);
-            if (pe->value)
-                pe->value= INT2PTR(void *, weakref_ofs);
+                    src, (UV)entry->value, (UV)weakref_ofs);
+            if (entry->value)
+                entry->value= INT2PTR(void *, weakref_ofs);
         }
         refcount++;
         weakref_ofs= 0;
@@ -1423,9 +1426,11 @@ redo_dump:
             return;
         }
         else {
+            int found;
             PTABLE_t *ref_seenhash= SRL_GET_REF_SEENHASH(enc);
-            const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(ref_seenhash, src);
-            if (expect_false(oldoffset)) {
+            PTABLE_ENTRY_ptr entry = PTABLE_insert(ref_seenhash, src, &found);
+            if (found) {
+                const ptrdiff_t oldoffset = (ptrdiff_t) entry->value;
                 /* we have seen it before, so we do not need to bless it again */
                 if (ref_rewrite_pos) {
                     if (DEBUGHACK) warn("ref to %p as %"UVuf, src, (UV)oldoffset);
@@ -1440,7 +1445,7 @@ redo_dump:
                 return;
             }
             if (DEBUGHACK) warn("storing %p as %"UVuf, src, (UV)BODY_POS_OFS(&enc->buf));
-            PTABLE_store(ref_seenhash, src, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
+            entry->value = INT2PTR(void *, BODY_POS_OFS(&enc->buf));
         }
     }
 

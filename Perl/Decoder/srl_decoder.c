@@ -644,19 +644,18 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
     if (dec->weakref_av)
         av_clear(dec->weakref_av);
     if (dec->ref_stashes) {
-        /* The iterator could be leaked on exceptions if not for PTABLE_FLAG_AUTOCLEAN. */
-        PTABLE_ITER_t *it = PTABLE_iter_new_flags(dec->ref_stashes, PTABLE_FLAG_AUTOCLEAN);
-        PTABLE_ENTRY_t *ent;
+        U32 i, capacity = dec->ref_stashes->capacity;
+        PTABLE_ENTRY_ptr entries = dec->ref_stashes->entries;
 
         /* We have gotten here without error, so bless all the objects.
          * We defer to the end like this so that we only bless data structures
          * if the entire deserialization completes. */
-        while ( NULL != (ent = PTABLE_iter_next(it)) ) {
-            HV *stash = (HV* )ent->value;
-            AV *ref_bless_av  = (AV *) PTABLE_fetch(dec->ref_bless_av, ent->key);
+        for (i = 0; i < capacity; ++i) {
+            PTABLE_SKIP_EMPTY(entries[i]);
+            HV *stash = (HV* )entries[i].value;
+            AV *ref_bless_av  = (AV *) PTABLE_fetch(dec->ref_bless_av, entries[i].key);
             I32 len;
             if (expect_false( !stash || !ref_bless_av )) {
-                PTABLE_iter_free(it);
                 SRL_RDR_ERROR(dec->pbuf, "missing stash or ref_bless_av!");
             }
             for( len= av_len(ref_bless_av) + 1 ; len > 0 ; len-- ) {
@@ -686,7 +685,6 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
                         }
 #endif
                     } else {
-                        PTABLE_iter_free(it);
                         SRL_RDR_ERROR(dec->pbuf, "object missing from ref_bless_av array?");
                     }
                 } else {
@@ -695,7 +693,6 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
                 SvREFCNT_dec(obj);
             }
         }
-        PTABLE_iter_free(it);
     }
 }
 

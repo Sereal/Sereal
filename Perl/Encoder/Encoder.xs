@@ -249,15 +249,14 @@ MODULE = Sereal::Encoder        PACKAGE = Sereal::Encoder::_ptabletest
 void
 test()
   PREINIT:
+    UV res;
     PTABLE_t *tbl;
-    PTABLE_ITER_t *iter;
-    PTABLE_ENTRY_t *ent;
     UV i, n = 20;
     char *check[20];
     char fail[5] = "not ";
     char noop[1] = "";
   CODE:
-    tbl = PTABLE_new_size(10);
+    tbl = PTABLE_new();
     for (i = 0; i < (UV)n; ++i) {
       PTABLE_store(tbl, INT2PTR(void *,(1000+i)), INT2PTR(void *, (1000+i)));
       check[i] = fail;
@@ -266,9 +265,9 @@ test()
       const UV res = (UV)PTABLE_fetch(tbl, INT2PTR(void *, (1000+i)));
       printf("%sok %u - fetch %u\n", (res == (UV)(1000+i)) ? noop : fail, (unsigned int)(1+i), (unsigned int)(i+1));
     }
-    iter = PTABLE_iter_new(tbl);
-    while ( NULL != (ent = PTABLE_iter_next(iter)) ) {
-      const UV res = (PTR2UV(ent->value)) - 1000;
+    for (i = 0; i < tbl->capacity; ++i) {
+      PTABLE_SKIP_EMPTY(tbl->entries[i]);
+      res = (PTR2UV(tbl->entries[i].value)) - 1000;
       if (res < 20)
         check[res] = noop;
       else
@@ -277,5 +276,4 @@ test()
     for (i = 0; i < (UV)n; ++i) {
       printf("%sok %u - iter %u\n", check[i], (unsigned int)(21+i), (unsigned int)(i+1));
     }
-    PTABLE_iter_free(iter);
     PTABLE_free(tbl);
