@@ -32,7 +32,7 @@ my $defines = join " ", map "-D$_", grep exists $ENV{$_}, qw(NOINLINE DEBUG MEMD
 my $moderngccish = 0;
 my $clang = 0;
 if ($Config{gccversion}) {
-    $OPTIMIZE = '-O3 ';
+    $OPTIMIZE = '-O3';
     if ($Config{gccversion} =~ /[Cc]lang/) { # clang.
         $clang = 1;
         $moderngccish = 1;
