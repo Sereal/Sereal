@@ -2,7 +2,7 @@
 
 package sereal
 
-import "code.google.com/p/snappy-go/snappy"
+import "github.com/golang/snappy/snappy"
 
 func snappyEncode(dst, src []byte) ([]byte, error) { return snappy.Encode(dst, src) }
 
