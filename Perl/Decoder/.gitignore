@@ -19,6 +19,7 @@ MYMETA.*
 pm_to_blib
 ppport.h
 ptable.h
+strtable.h
 Sereal-Decoder-*.tar*
 snappy
 srl_common.h

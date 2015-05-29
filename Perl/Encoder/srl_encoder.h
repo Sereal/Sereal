@@ -15,6 +15,7 @@
 #include "srl_buffer_types.h"
 
 typedef struct PTABLE * ptable_ptr;
+typedef struct STRTABLE * strtable_ptr;
 typedef struct {
     srl_buffer_t buf;
     srl_buffer_t tmp_buf;     /* temporary buffer for swapping */
@@ -29,7 +30,9 @@ typedef struct {
     ptable_ptr weak_seenhash; /* ptr table for avoiding dangling weakrefs */
     ptable_ptr str_seenhash;  /* ptr table for issuing COPY commands based on PTRS (used for classnames and keys) */
     ptable_ptr freezeobj_svhash; /* ptr table for tracking objects and their frozen replacments via FREEZE */
-    HV *string_deduper_hv;    /* track strings we have seen before, by content */
+
+    strtable_ptr str_binary_deduper_hash; /* strtable to track binary strings we have seen before, by content */
+    strtable_ptr str_utf8_deduper_hash;   /* strtable to track utf8 strings we have seen before, by content */
 
     void *snappy_workmem;     /* lazily allocated if and only if using Snappy */
     IV compress_threshold;    /* do not compress things smaller than this even if compression enabled */

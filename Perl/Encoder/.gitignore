@@ -19,6 +19,7 @@ miniz.?
 pm_to_blib
 ppport.h
 ptable.h
+strtable.h
 Sereal-Encoder-*.tar.gz
 snappy
 srl_common.h
