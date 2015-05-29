@@ -60,10 +60,10 @@ func readHeader(b []byte) (serealHeader, error) {
 
 // A Decoder reads and decodes Sereal objects from an input buffer
 type Decoder struct {
-	tracked map[int]reflect.Value
-	umcache map[string]reflect.Type
-	tcache  tagsCache
-	//copyDepth int
+	tracked   map[int]reflect.Value
+	umcache   map[string]reflect.Type
+	tcache    tagsCache
+	copyDepth int
 
 	PerlCompat bool
 }
@@ -315,11 +315,16 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 		}
 
 	case tag == typeCOPY:
+		if d.copyDepth > 0 {
+			return 0, ErrCorrupt{errNestedCOPY}
+		}
+
 		offs, sz := varintdecode(by[idx:])
 		idx += sz
 
-		// TODO nestedCopy
+		d.copyDepth++
 		_, err = d.decode(by, offs, ptr)
+		d.copyDepth--
 
 	case tag == typeREFN:
 		if d.PerlCompat {
@@ -534,6 +539,10 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 		idx += ln
 
 	case tag == typeCOPY:
+		if d.copyDepth > 0 {
+			return nil, 0, ErrCorrupt{errNestedCOPY}
+		}
+
 		offs, sz := varintdecode(by[idx:])
 		idx += sz
 
@@ -542,7 +551,9 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 		}
 
 		var err error
+		d.copyDepth++
 		res, _, err = d.decodeStringish(by, offs)
+		d.copyDepth--
 		if err != nil {
 			return nil, 0, err
 		}
@@ -686,11 +697,16 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		}
 
 	case tag == typeCOPY:
+		if d.copyDepth > 0 {
+			return 0, ErrCorrupt{errNestedCOPY}
+		}
+
 		offs, sz := varintdecode(by[idx:])
 		idx += sz
 
-		// TODO nestedCopy
+		d.copyDepth++
 		_, err = d.decodeViaReflection(by, offs, ptr)
+		d.copyDepth--
 
 	case tag == typeREFN:
 		idx, err = d.decodeViaReflection(by, idx, ptr)
