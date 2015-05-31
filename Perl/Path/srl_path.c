@@ -395,7 +395,7 @@ srl_parse_array_range(pTHX_ srl_path_t *path, int expr_idx, SV *route, int *rang
 {
     I32 idx, start, stop, step;
     srl_iterator_ptr iter = path->iter;
-    srl_iterator_stack_ptr stack = srl_iterator_stack(iter);
+    srl_iterator_stack_ptr stack = srl_iterator_stack(aTHX_ iter);
     IV expected_depth = srl_iterator_stack_depth(aTHX_ iter);
     I32 expected_idx;
 
@@ -403,10 +403,10 @@ srl_parse_array_range(pTHX_ srl_path_t *path, int expr_idx, SV *route, int *rang
     stop = range[1];
     step = range[2];
 
-#   define MIN(a,b) (((a)<(b))?(a):(b))
-#   define MAX(a,b) (((a)>(b))?(a):(b))
-    start = start < 0 ? MAX(0, start + stack->count) : MIN(stack->count, start);
-    stop  = stop  < 0 ? MAX(0, stop  + stack->count) : MIN(stack->count, stop);
+#   define SRL_MIN(a,b) (((a)<(b))?(a):(b))
+#   define SRL_MAX(a,b) (((a)>(b))?(a):(b))
+    start = start < 0 ? SRL_MAX(0, start + (I32) stack->count) : SRL_MIN((I32) stack->count, start);
+    stop  = stop  < 0 ? SRL_MAX(0, stop  + (I32) stack->count) : SRL_MIN((I32) stack->count, stop);
     step  = step ? step : 1;
 
     if (step < 0) croak("negative step in not supported");
@@ -462,9 +462,9 @@ SRL_STATIC_INLINE int *
 is_range(const char *str, STRLEN len, int *out)
 {
     char *ptr;
-    int pos[2];
+    STRLEN pos[2];
     STRLEN i, ndel;
-    int start_len, stop_len, step_len;
+    STRLEN start_len, stop_len, step_len;
     int valid = 0;
 
     for (i = 0, ndel = 0; i < len; ++i) {
