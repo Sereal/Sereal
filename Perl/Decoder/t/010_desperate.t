@@ -28,13 +28,14 @@ note("All done folks!");
 sub run_tests {
     my ($extra_name, $opt_hash) = @_;
     my $dec = Sereal::Decoder->new($opt_hash ? $opt_hash : ());
+    setup_tests(2);
     foreach my $bt (@BasicTests) {
         my ($in, $exp, $name) = @$bt;
 
         next if $ENV{SEREAL_TEST} and $ENV{SEREAL_TEST} ne $name;
 
         $exp = $exp->($opt_hash) if ref($exp) eq 'CODE';
-        $exp = "$Header$exp";
+        $exp = Header() . $exp;
 
         my ($out, $out2, $out3);
         my $ok= eval { decode_sereal($exp, $opt_hash ? $opt_hash : undef, $out); 1};

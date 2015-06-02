@@ -1,0 +1,35 @@
+#!/usr/bin/env ruby
+
+# encoding: UTF-8
+require 'pp'
+begin
+  require File.join(".",File.dirname(__FILE__),'..','lib','sereal')
+rescue LoadError
+  require 'sereal'
+end
+
+class SerealPerlObject
+  def inspect
+    "#{@class} - #{@value.inspect}"
+  end
+end
+
+content = ENV['Sereal_STREAM'] ? STDIN : ARGF.read
+compress = Sereal::RAW
+debug = ENV['Sereal_DEBUG'] ? Sereal::DEBUG : 0
+debug |= ENV['Sereal_REF'] ? Sereal::REF : 0
+debug |= ENV['Sereal_COPY'] ? Sereal::COPY : 0
+
+{'Sereal_SNAPPY' => Sereal::SNAPPY,'Sereal_SNAPPY_INCR' => Sereal::SNAPPY_INCR }.each do |k,v|
+  if ENV[k]
+    compress = v
+  end
+end
+
+if ENV['Sereal_STREAM'] || content[0..3] == '=srl'
+  Sereal.decode(content,debug | Sereal::THAW) do |x|
+    PP.pp(x)
+  end
+else
+  STDOUT.write(Sereal.encode(eval(content), compress | debug))
+end

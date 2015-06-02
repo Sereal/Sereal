@@ -1,0 +1,19 @@
+   TODO:
+    - lots of duplicatish code to remove:
+           decode cases are similar too: array/ref, map/ref/ array/binary/short-binary
+    - discard values that don't need to be built
+        - profiling shows that we can spend a lot of time setting values in maps that we might throw away
+        - if we don't need to keep the value, we should try to not actually create it in memory
+    - how do we handle hashes?
+       : only string keys are supported -- do we call value.String() or panic()?
+       : what other coersions (ints <-> strings)
+    - roundtrip test: perl obj -> perl-sereal stream -> go1 obj -> go-sereal stream -> go2 obj, DeepEqual(go1, go2)
+    - class names need their own string table (for OBJECTV)
+    - string table should have hash keys only? (unless dedup strings is true?)
+    - string vs. byte array handling?
+    - match 'ptr->array':ARRAYREF and 'ptr->hash':HASHREF
+        - go can't do this in one-pass: we don't have ref counts
+    - where applicable handle potential errors by hand instead of resorting to panic/defer
+        : e.g. UnmarshalHeaderBody() when given a too small document, returns "slice bounds out of range";
+        : it would be nicer to return something like "bad header: not a valid Sereal document"
+    - check FIXME in merge.go

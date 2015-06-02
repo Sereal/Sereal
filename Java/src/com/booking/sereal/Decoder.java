@@ -14,12 +14,16 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
 
+import org.xerial.snappy.Snappy;
+
 /**
  * WIP Decoder for Sereal WIP
  */
 public class Decoder implements SerealHeader {
 
-	public enum ObjectType {
+    private final boolean prefer_latin1;
+
+    public enum ObjectType {
 		PERL_OBJECT, // Perl style object (name + hash)
 		POJO // Dynamically compile a Plain Old Java Object
 	}
@@ -88,7 +92,9 @@ public class Decoder implements SerealHeader {
 		int size = (int) f.length(); // yeah yeah truncate
 		log.fine( "File size: " + size );
 		ByteBuffer buf = ByteBuffer.allocate( size );
-		new FileInputStream( f ).getChannel().read( buf );
+		FileInputStream fi = new FileInputStream( f );
+		fi.getChannel().read( buf );
+		fi.close();
 		log.fine( "Raw: " + new String( buf.array() ) );
 
 		setData( buf );
@@ -119,6 +125,8 @@ public class Decoder implements SerealHeader {
 
 	private boolean preservePadding = false;
 
+	private ByteBuffer realData;
+
 	/**
 	 * Create a new Decoder
 	 *
@@ -132,6 +140,7 @@ public class Decoder implements SerealHeader {
 		objectType = this.options.containsKey( "object_type" ) ? ((ObjectType) this.options.get( "object_type" )) : ObjectType.PERL_OBJECT;
 		perlRefs = this.options.containsKey( "use_perl_refs" ) ? ((Boolean) this.options.get( "use_perl_refs" )) : false;
 		preservePadding = this.options.containsKey( "preserve_pad_tags" ) ? ((Boolean) this.options.get( "preserve_pad_tags" )) : false;
+        prefer_latin1 = this.options.containsKey("prefer_latin1") ? ((Boolean) this.options.get("prefer_latin1")) : false;
 	}
 
 	private void checkHeader() throws SerealException {
@@ -180,11 +189,14 @@ public class Decoder implements SerealHeader {
 		}
 		properties.put( "protocol_version", protocolVersion );
 
-		int encoding = protoAndFlags & ~15;
+		int encoding = (protoAndFlags & ~15) >> 4;
 		log.fine( "Encoding: " + encoding );
-		if( encoding == 1 && options.containsKey( "snappy_support" ) ) {
+		if((encoding == 1 || encoding == 2) && !options.containsKey( "snappy_support" ) ) {
 			throw new SerealException( "Unsupported encoding: Snappy" );
+		} else if(encoding < 0 || encoding > 2) {
+			throw new SerealException( "Unsupported encoding: unknown");
 		}
+		
 		properties.put( "encoding", encoding );
 
 	}
@@ -193,8 +205,9 @@ public class Decoder implements SerealHeader {
 	 *
 	 * @return deserealized object
 	 * @throws SerealException
+	 * @throws IOException 
 	 */
-	public Object decode() throws SerealException {
+	public Object decode() throws SerealException, IOException {
 
 		if( data == null ) {
 			throw new SerealException( "No data set" );
@@ -206,12 +219,35 @@ public class Decoder implements SerealHeader {
 		checkProtoAndFlags();
 		checkHeaderSuffix();
 
+		realData = data;
+		int encoding = (Integer) properties.get( "encoding" );
+		if( encoding == 1 || encoding == 2 ) {
+			uncompressSnappy();
+		}
 		Object out = readSingleValue();
 
 		log.fine( "Read: " + out );
-		log.fine( "Data left: " + (data.limit() - data.position()) );
+		log.fine( "Data left: " + (realData.limit() - realData.position()) );
 
 		return out;
+	}
+
+	private void uncompressSnappy() throws IOException, SerealException {
+		int len = realData.limit() - realData.position() -1;
+		
+		if((Integer) properties.get("encoding") == 2) {
+			len = (int) read_varint();
+		}
+		int pos = realData.position();
+		byte[] compressed = new byte[len];
+		realData.get( compressed, 0, len );
+		byte[] uncompressed = new byte[pos + Snappy.uncompressedLength( compressed, 0, len ) ];
+		if(!Snappy.isValidCompressedBuffer( compressed)) {
+			throw new SerealException("Invalid snappy data");
+		}
+		Snappy.uncompress( compressed, 0, len, uncompressed, pos );
+		this.data = ByteBuffer.wrap( uncompressed );
+		this.data.position(pos);
 	}
 
 	/**
@@ -249,7 +285,9 @@ public class Decoder implements SerealHeader {
 	}
 
 	/**
-	 * Reads a byte array, but was called read_binary in C, so for grepping porposes I kept the name
+	 * Reads a byte array, but was called read_binary in C, so for grepping purposes I kept the name
+	 * 
+	 * For some reason we call them Latin1Strings.
 	 * @return
 	 */
 	byte[] read_binary() {
@@ -263,7 +301,7 @@ public class Decoder implements SerealHeader {
 		return out;
 	}
 
-	private Map<CharSequence, Object> read_hash(byte tag) throws SerealException {
+	private Map<String, Object> read_hash(byte tag, int track) throws SerealException {
 		long num_keys = 0;
 		if( tag == 0 ) {
 			num_keys = read_varint();
@@ -271,14 +309,25 @@ public class Decoder implements SerealHeader {
 			num_keys = tag & 15;
 		}
 
-		Map<CharSequence, Object> hash = new LinkedHashMap<CharSequence, Object>( (int) num_keys );
+		Map<String, Object> hash = new HashMap<String, Object>( (int) num_keys );
+        if( track != 0 ) { // track ourself
+            track_stuff( track, hash );
+        }
 
 		log.fine( "Reading " + num_keys + " hash elements" );
 
 		for(int i = 0; i < num_keys; i++) {
-			CharSequence key = (CharSequence) readSingleValue();
+            Object keyObject = readSingleValue();
+            CharSequence key;
+            if(keyObject instanceof CharSequence) {
+                key = (CharSequence) keyObject;
+            } else if(keyObject instanceof byte[]) {
+                key = new Latin1String((byte[]) keyObject);
+            } else {
+                throw new SerealException("A key is expected to be a byte or character sequence, but got " + keyObject.toString());
+            }
 			Object val = readSingleValue();
-			hash.put( key, val );
+			hash.put( key.toString(), val );
 		}
 
 		return hash;
@@ -332,11 +381,11 @@ public class Decoder implements SerealHeader {
 			log.fine( "Read small negative int:" + (tag - 32) );
 			out = tag - 32;
 		} else if( (tag & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW ) {
-			CharSequence short_binary = read_short_binary( tag );
-			log.fine( "Read short binary: " + short_binary + " length " + short_binary.length() );
-			out = short_binary;
+			byte[] short_binary = read_short_binary( tag );
+			log.fine( "Read short binary: " + short_binary + " length " + short_binary.length );
+            out = prefer_latin1 ? new Latin1String(short_binary) : short_binary;
 		} else if( (tag & SRL_HDR_HASHREF) == SRL_HDR_HASHREF ) {
-			Map<CharSequence, Object> hash = read_hash( tag );
+			Map<String, Object> hash = read_hash( tag, track );
 			log.fine( "Read hash: " + hash );
 			out = hash;
 		} else if( (tag & SRL_HDR_ARRAYREF) == SRL_HDR_ARRAYREF ) {
@@ -378,8 +427,8 @@ public class Decoder implements SerealHeader {
 				break;
 			case SRL_HDR_BINARY:
 				byte[] bytes = read_binary();
-				log.fine( "Read binary: " + Utils.hexStringFromByteArray( bytes ) );
-				out = bytes;
+				log.fine( "Read binary: " + bytes );
+				out = prefer_latin1 ? new Latin1String(bytes) : bytes;
 				break;
 			case SRL_HDR_STR_UTF8:
 				String utf8 = read_UTF8();
@@ -388,15 +437,11 @@ public class Decoder implements SerealHeader {
 				break;
 			case SRL_HDR_REFN:
 				log.fine( "Reading ref to next" );
+                PerlReference refn = new PerlReference(readSingleValue());
 				if( perlRefs ) {
-					PerlReference refn = new PerlReference();
-					if( track != 0 ) {
-						track_stuff( track, refn );
-					}
-					refn.value = readSingleValue();
 					out = refn;
 				} else {
-					out = readSingleValue();
+					out = refn.getValue();
 				}
 				log.fine( "Read ref: " + Utils.dump( out ) );
 				break;
@@ -438,16 +483,12 @@ public class Decoder implements SerealHeader {
 			case SRL_HDR_WEAKEN:
 				log.fine("Weakening the next thing");
 				// so the next thing HAS to be a ref (afaict) which means we can track it
-				PerlReference placeHolder = new PerlReference();
-				WeakReference wref = new WeakReference( placeHolder );
-				if( track != 0 ) {
-					track_stuff( track, wref );
-				}
-				placeHolder.value = ((PerlReference)readSingleValue()).value;
+				PerlReference placeHolder = new PerlReference(((PerlReference)readSingleValue()).getValue());
+				WeakReference<PerlReference> wref = new WeakReference<PerlReference>( placeHolder );
 				out = wref;
 				break;
 			case SRL_HDR_HASH:
-				Object hash = read_hash( (byte) 0 );
+				Object hash = read_hash( (byte) 0, track );
 				log.fine( "Read hash: " + hash );
 				out = hash;
 				break;
@@ -486,12 +527,12 @@ public class Decoder implements SerealHeader {
 	 * @param tag
 	 * @return
 	 */
-	CharSequence read_short_binary(byte tag) {
+	byte[] read_short_binary(byte tag) {
 		int length = tag & SRL_MASK_SHORT_BINARY_LEN;
 		log.fine( "Short binary, length: " + length );
 		byte[] buf = new byte[length];
 		data.get( buf );
-		return new Latin1String( Charset.forName( "ISO-8859-1" ).decode( ByteBuffer.wrap( buf ) ).toString() );
+		return buf;
 	}
 
 	/**
@@ -539,7 +580,14 @@ public class Decoder implements SerealHeader {
 
 		int flags = 0;
 		Object str = readSingleValue();
-		String regex = str instanceof Latin1String ? ((Latin1String)str).getString() : (String) str;
+        String regex;
+        if(str instanceof CharSequence) {
+            regex = ((CharSequence) str).toString();
+        } else if (str instanceof byte[]) {
+            regex = (new Latin1String((byte[]) str)).toString();
+        } else {
+            throw new SerealException("Regex has to be built from a char or byte sequence");
+        }
 		log.fine( "Read pattern: " + regex );
 
 		// now read modifiers
@@ -573,9 +621,7 @@ public class Decoder implements SerealHeader {
 			throw new SerealException( "Expecting SRL_HDR_SHORT_BINARY for modifiers of regexp, got: " + tag );
 		}
 
-		Pattern out = Pattern.compile( regex, flags );
-
-		return out;
+		return Pattern.compile( regex, flags );
 	}
 
 	private Object read_object() throws SerealException {
@@ -648,5 +694,11 @@ public class Decoder implements SerealHeader {
 		Object ref = thing; // autoboxing ftw
 		tracked.put( "track_" + pos, ref );
 	}
+
+    public void reset() {
+        data = null;
+        realData = null;
+        tracked.clear();
+    }
 
 }

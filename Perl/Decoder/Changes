@@ -1,81 +1,69 @@
 Revision history for Perl extension Sereal-Decoder
 
-0.01  Tue Aug  8 17:09 2012
-  - original version; internal release.
+****************************************************************
+* Warning: For a seamless upgrade, upgrade to version 3        *
+*          of the decoder before upgrading to version 3 of the *
+*          encoder!                                            *
+****************************************************************
+3.005_001 Jan 27 2015
+  * Win32 fixes
+  * Build improvements
+  * Changes to how we generate constants
 
-0.02  Tue Aug  8 17:09 2012
-  - internal release.
+3.005 Jan 05 2015
+  * Build improvements related to char signedness being platform
+    dependent.
 
-0.03  Tue Sep  4 17:09 2012
-  - internal release.
+3.004 Dec 27 2014
+  * Performance optimizations and other miscellaneous changes.
+  * Build improvements.
+  * Win32 fixes for weakrefs.
 
-0.04  Thu Sep  6 16:00 2012
-  - internal release.
+3.003 Oct 19 2014
+  * Niko Tyni fixed the 64-bit big endian Sereal bug! (Yay Niko!)
+  * Sereal::Decoder::Constants will now have a defined $VERSION
+  * Setup META.yml correctly so that certain dependencies are
+    marked as being test dependencies and not build or run-time
+    dependencies.
+  * Allow one to build against an externally supplied version
+    of csnappy or miniz. Thanks to Petr Písař <ppisar@redhat.com>
 
-0.05  Fri Sep  7 14:00 2012
-  - internal release.
+3.002 Aug 20 2014
+  * Summary of changes from 3.001 - 3.002
+  - Introduce "set_readonly" option to decoder
+  - Introduce "set_readonly_scalars" option to decoder
 
-0.06  Mon Sep 10 11:00 2012
-  - First public release (CPAN).
-  - Beta quality software.
+  * Bug fixes
+  - Fix assertion fails in DEBUG perls (Brian Fraser)
+  - Fix segfault with "into" interface when decoding references and
+    strings into the same target SV. See new test t/550_decode_into.t
 
-0.07  Tue Sep 11 14:00 2012
-  - Improved robustness to bad input data.
-  - Test fixes for threaded perls (likely working around a bug in Perl)
-  - Improved documentation.
+  * Test Infra Changes
+  - Split up bulk tests to speed up testing and make it easier
+    to see when a failure is restricted to a specific option.
 
-0.08  Thu Sep 13 17:00 2012
-  - Documentation fixes
-  - Better tests
+  * Big-Endian Support
+  - Improved support for Big-Endian machines. We now build and pass test
+    on Sparc and HP-UX and other platforms with big-endian or strict
+    alignedness requirements. Much thanks to Jarkko Hietaniemi,
+    Gregor Herrmann, and H. Merijn Brand for for their assistance with
+    this.
+  - We still have issues with s390x (Z/Os) with Sereal. If someone wants
+    to help it would be appreciated.
 
-0.09  Fri Sep 14 09:40 2012
-  - Removes use of variadic macros for compatibility with inferior
-    compilers.
-  - "looks_like_sereal" method/function for a quick way to check for
-    valid Sereal *headers*.
-  - More liberal set of encoder versions we run the full tests with.
+3.001
+  - Upgrade to version 3 of the protocol
+    * Add Zlib compression support to the protocol
+    * Add Zlib support to Encoder/Decoder
+    * Add CANONICAL_UNDEF tag to represent PL_sv_undef
+    * Change magic header so it is trivial to detect
+      and reject utf8 encoded Sereal packets.
+  - Change how we serialize variables which have more
+    than one of IOK, NOK, and POK set. In general we
+    favour the numeric form, with the exception of when
+    all three are set when we favour the string form
+    (this is to handle engineering notation like "0E0"
+    where numeric and string equivalence may differ)
 
-0.10  Mon Sep 17 13:40 20120
-  - New 'refuse_objects' option causes the decoder to throw an
-    exception when encountering objects in the input data.
-    See the "ROBUSTNESS" section in the documentation for why that
-    is a good idea.
-  - Fixes to error messages.
-  - Compiler warning fixes.
+Full change history available at https://github.com/Sereal/Sereal
 
-0.11  Tue Sep 18 13:00 2012
-  - 5.8.5 fixes.
-  - Fixes to other languages' reference data output.
-
-0.12 - unreleased
-
-0.13  Tue Oct  2 15:00 2012
-  * Important bug fix, important gotcha! *
-  - Work around bug in perls <= 5.8.8:
-      Multiple references to the same object that has overloading were
-      dropping overloadedness on the second and following occurrence.
-    => The work-around for this old perl bug means that we have to
-       bless objects as we find them during deserialization. By default,
-       on newer perls, we only do the bless()ing once after being done
-       with serialization. We normally do this for security reasons
-       (destructors!). This means that for perls <= 5.8.8, we necessarily
-       have the same (very limited) security problem that Storable has
-       at all times. Sucks, but better to have it working on 5.8.8 at all.
-    => For newer perls, we DO NOT have that security problem!
-    => The work-around also slows down operation on 5.8.8 and older. Keep
-       that in mind when comparing serialization techniques. Thank you.
-
-0.14 - unreleased
-
-0.15  Wed Oct 17 13:00 2012
-  - Decoder option validate_utf8
-    With this option (turned off by default for performance reasons)
-    the decoder will emit an error on malformed UTF-8. This will
-    *not* check for invalid code points; this can be added later, but Perls
-    that are recent enough will warn on those anyway.
-  - Thread-safety fix on Perls >= 5.8.7. Sereal is still not thread-safe
-    on older Perls 
-
-0.16 - unreleased
-0.17 - unreleased
-0.18 - unreleased

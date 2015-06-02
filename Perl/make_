@@ -1,0 +1,12 @@
+#!/bin/bash
+pushd ~/git_tree/Sereal/Perl/Encoder
+perl Makefile.PL
+make "$@"
+popd
+pushd ~/git_tree/Sereal/Perl/Decoder
+perl Makefile.PL
+make "$@"
+popd
+
+
+

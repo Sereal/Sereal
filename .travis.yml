@@ -1,0 +1,22 @@
+language: go
+go:
+    - 1.4
+
+language: ruby
+rvm:
+  - 1.9.3
+  - 2.0.0
+  - 2.1.0
+
+language: perl
+perl:
+    - "5.20-extras"
+    - "5.20"
+    - "5.18"
+    - "5.18-extras"
+    - "5.16"
+    - "5.14"
+    - "5.12"
+    - "5.10"
+install: /bin/true
+script: travis/all.sh

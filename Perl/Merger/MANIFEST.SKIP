@@ -1,0 +1,56 @@
+# Avoid archives of this distribution
+\bSereal-Merger-[\d\.\_]+
+\bSereal-Merger-\.c$
+\bMerger\.c$
+\bt\.pl$
+\bt\.c$
+MYMETA\..*$
+
+\bt\.c$
+\bt\.pl$
+\b.*\.(?:o|bs)$
+
+# Avoid version control files.
+\bRCS\b
+\bCVS\b
+,v$
+\B\.svn\b
+\B\.cvsignore$
+\B\.gitignore$
+\B\.git
+
+# Avoid Makemaker generated and utility files.
+\bMakefile$
+\bblib
+\bMakeMaker-\d
+\bpm_to_blib$
+\bblibdirs$
+^MANIFEST\.SKIP$
+
+# Avoid Module::Build generated and utility files.
+\bBuild$
+\bBuild.bat$
+\b_build
+
+# Avoid Devel::Cover generated files
+\bcover_db
+
+# Avoid temp and backup files.
+~$
+\.tmp$
+\.old$
+\.bak$
+\#$
+\.#
+\.rej$
+\..*\.sw[po]$
+\.o$
+\.bs$
+
+# Avoid OS-specific files/dirs
+#   Mac OSX metadata
+\B\.DS_Store
+#   Mac OSX SMB mount metadata files
+\B\._
+callgrind\.out\..*$
+\.gdb_history

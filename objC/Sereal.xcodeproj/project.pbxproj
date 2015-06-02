@@ -1,0 +1,536 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA14DA4317B5F2600063B3CD /* csnappy_compat.h in Headers */ = {isa = PBXBuildFile; fileRef = AA14DA3D17B5F2600063B3CD /* csnappy_compat.h */; };
+		AA14DA4417B5F2600063B3CD /* csnappy_compress.c in Sources */ = {isa = PBXBuildFile; fileRef = AA14DA3E17B5F2600063B3CD /* csnappy_compress.c */; };
+		AA14DA4517B5F2600063B3CD /* csnappy_decompress.c in Sources */ = {isa = PBXBuildFile; fileRef = AA14DA3F17B5F2600063B3CD /* csnappy_decompress.c */; };
+		AA14DA4617B5F2600063B3CD /* csnappy_internal_userspace.h in Headers */ = {isa = PBXBuildFile; fileRef = AA14DA4017B5F2600063B3CD /* csnappy_internal_userspace.h */; };
+		AA14DA4717B5F2600063B3CD /* csnappy_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = AA14DA4117B5F2600063B3CD /* csnappy_internal.h */; };
+		AA14DA4817B5F2600063B3CD /* csnappy.h in Headers */ = {isa = PBXBuildFile; fileRef = AA14DA4217B5F2600063B3CD /* csnappy.h */; };
+		AA14DA4B17B5FF8A0063B3CD /* SrlObject.h in Headers */ = {isa = PBXBuildFile; fileRef = AA14DA4917B5FF8A0063B3CD /* SrlObject.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		AA14DA4C17B5FF8A0063B3CD /* SrlObject.m in Sources */ = {isa = PBXBuildFile; fileRef = AA14DA4A17B5FF8A0063B3CD /* SrlObject.m */; };
+		AAC06AD817D09332000194BB /* Sereal.h in Headers */ = {isa = PBXBuildFile; fileRef = AADA654417B5249D0055792A /* Sereal.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		AADA653817B5249D0055792A /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AADA653717B5249D0055792A /* Cocoa.framework */; };
+		AADA654617B5249D0055792A /* Sereal.m in Sources */ = {isa = PBXBuildFile; fileRef = AADA654517B5249D0055792A /* Sereal.m */; };
+		AADA654A17B524B50055792A /* srl_protocol.h in Headers */ = {isa = PBXBuildFile; fileRef = AA394A3E17B3C17D007BA2AF /* srl_protocol.h */; };
+		AADA654B17B524B50055792A /* SrlEncoder.h in Headers */ = {isa = PBXBuildFile; fileRef = AA394A3F17B3C200007BA2AF /* SrlEncoder.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		AADA654C17B524B50055792A /* SrlEncoder.m in Sources */ = {isa = PBXBuildFile; fileRef = AA394A4017B3C200007BA2AF /* SrlEncoder.m */; };
+		AADA654D17B524B50055792A /* SrlDecoder.h in Headers */ = {isa = PBXBuildFile; fileRef = AA394A4217B3C20D007BA2AF /* SrlDecoder.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		AADA654E17B524B50055792A /* SrlDecoder.m in Sources */ = {isa = PBXBuildFile; fileRef = AA394A4317B3C20D007BA2AF /* SrlDecoder.m */; };
+		AADA654F17B524B50055792A /* SrlAdditions.h in Headers */ = {isa = PBXBuildFile; fileRef = AA394A4517B3C6A3007BA2AF /* SrlAdditions.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		AADA655017B524B50055792A /* SrlAdditions.m in Sources */ = {isa = PBXBuildFile; fileRef = AA394A4617B3C6A3007BA2AF /* SrlAdditions.m */; };
+		AADA656B17BCD51E0055792A /* SenTestingKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AADA656A17BCD51E0055792A /* SenTestingKit.framework */; };
+		AADA656C17BCD51E0055792A /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AADA653717B5249D0055792A /* Cocoa.framework */; };
+		AADA657217BCD51E0055792A /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = AADA657017BCD51E0055792A /* InfoPlist.strings */; };
+		AADA657517BCD51E0055792A /* SerealTest.m in Sources */ = {isa = PBXBuildFile; fileRef = AADA657417BCD51E0055792A /* SerealTest.m */; };
+		AADA657C17BCD6750055792A /* Sereal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AADA653617B5249D0055792A /* Sereal.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		AADA657A17BCD66F0055792A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AAA4C71317B3C0C80076EACA /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AADA653517B5249D0055792A;
+			remoteInfo = Sereal;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		AA14DA3D17B5F2600063B3CD /* csnappy_compat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = csnappy_compat.h; path = snappy/csnappy_compat.h; sourceTree = "<group>"; };
+		AA14DA3E17B5F2600063B3CD /* csnappy_compress.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = csnappy_compress.c; path = snappy/csnappy_compress.c; sourceTree = "<group>"; };
+		AA14DA3F17B5F2600063B3CD /* csnappy_decompress.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = csnappy_decompress.c; path = snappy/csnappy_decompress.c; sourceTree = "<group>"; };
+		AA14DA4017B5F2600063B3CD /* csnappy_internal_userspace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = csnappy_internal_userspace.h; path = snappy/csnappy_internal_userspace.h; sourceTree = "<group>"; };
+		AA14DA4117B5F2600063B3CD /* csnappy_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = csnappy_internal.h; path = snappy/csnappy_internal.h; sourceTree = "<group>"; };
+		AA14DA4217B5F2600063B3CD /* csnappy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = csnappy.h; path = snappy/csnappy.h; sourceTree = "<group>"; };
+		AA14DA4917B5FF8A0063B3CD /* SrlObject.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SrlObject.h; sourceTree = "<group>"; };
+		AA14DA4A17B5FF8A0063B3CD /* SrlObject.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SrlObject.m; sourceTree = "<group>"; };
+		AA394A3E17B3C17D007BA2AF /* srl_protocol.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = srl_protocol.h; sourceTree = SOURCE_ROOT; };
+		AA394A3F17B3C200007BA2AF /* SrlEncoder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SrlEncoder.h; sourceTree = "<group>"; };
+		AA394A4017B3C200007BA2AF /* SrlEncoder.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SrlEncoder.m; sourceTree = "<group>"; };
+		AA394A4217B3C20D007BA2AF /* SrlDecoder.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SrlDecoder.h; sourceTree = "<group>"; };
+		AA394A4317B3C20D007BA2AF /* SrlDecoder.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SrlDecoder.m; sourceTree = "<group>"; };
+		AA394A4517B3C6A3007BA2AF /* SrlAdditions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SrlAdditions.h; sourceTree = "<group>"; };
+		AA394A4617B3C6A3007BA2AF /* SrlAdditions.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SrlAdditions.m; sourceTree = "<group>"; };
+		AAA4C71E17B3C0C80076EACA /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		AAA4C72217B3C0C80076EACA /* Sereal-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Sereal-Info.plist"; sourceTree = "<group>"; };
+		AAA4C72417B3C0C80076EACA /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		AAA4C72617B3C0C80076EACA /* Sereal-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Sereal-Prefix.pch"; sourceTree = "<group>"; };
+		AADA653617B5249D0055792A /* Sereal.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Sereal.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		AADA653717B5249D0055792A /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
+		AADA653A17B5249D0055792A /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+		AADA653B17B5249D0055792A /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = System/Library/Frameworks/CoreData.framework; sourceTree = SDKROOT; };
+		AADA653C17B5249D0055792A /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		AADA654417B5249D0055792A /* Sereal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Sereal.h; sourceTree = "<group>"; };
+		AADA654517B5249D0055792A /* Sereal.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = Sereal.m; sourceTree = "<group>"; };
+		AADA656917BCD51E0055792A /* SerealTest.octest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SerealTest.octest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AADA656A17BCD51E0055792A /* SenTestingKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SenTestingKit.framework; path = Library/Frameworks/SenTestingKit.framework; sourceTree = DEVELOPER_DIR; };
+		AADA656F17BCD51E0055792A /* SerealTest-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "SerealTest-Info.plist"; sourceTree = "<group>"; };
+		AADA657117BCD51E0055792A /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		AADA657317BCD51E0055792A /* SerealTest.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SerealTest.h; sourceTree = "<group>"; };
+		AADA657417BCD51E0055792A /* SerealTest.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SerealTest.m; sourceTree = "<group>"; };
+		AADA657617BCD51E0055792A /* SerealTest-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "SerealTest-Prefix.pch"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AADA653217B5249D0055792A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AADA653817B5249D0055792A /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AADA656517BCD51E0055792A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AADA657C17BCD6750055792A /* Sereal.framework in Frameworks */,
+				AADA656B17BCD51E0055792A /* SenTestingKit.framework in Frameworks */,
+				AADA656C17BCD51E0055792A /* Cocoa.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		AA14DA3C17B5F24D0063B3CD /* Snappy */ = {
+			isa = PBXGroup;
+			children = (
+				AA14DA3D17B5F2600063B3CD /* csnappy_compat.h */,
+				AA14DA3E17B5F2600063B3CD /* csnappy_compress.c */,
+				AA14DA3F17B5F2600063B3CD /* csnappy_decompress.c */,
+				AA14DA4017B5F2600063B3CD /* csnappy_internal_userspace.h */,
+				AA14DA4117B5F2600063B3CD /* csnappy_internal.h */,
+				AA14DA4217B5F2600063B3CD /* csnappy.h */,
+			);
+			name = Snappy;
+			sourceTree = "<group>";
+		};
+		AAA4C71217B3C0C80076EACA = {
+			isa = PBXGroup;
+			children = (
+				AA14DA3C17B5F24D0063B3CD /* Snappy */,
+				AAA4C72017B3C0C80076EACA /* Sereal */,
+				AADA656D17BCD51E0055792A /* SerealTest */,
+				AAA4C71D17B3C0C80076EACA /* Frameworks */,
+				AAA4C71C17B3C0C80076EACA /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AAA4C71C17B3C0C80076EACA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AADA653617B5249D0055792A /* Sereal.framework */,
+				AADA656917BCD51E0055792A /* SerealTest.octest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AAA4C71D17B3C0C80076EACA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				AAA4C71E17B3C0C80076EACA /* CoreFoundation.framework */,
+				AADA653717B5249D0055792A /* Cocoa.framework */,
+				AADA656A17BCD51E0055792A /* SenTestingKit.framework */,
+				AADA653917B5249D0055792A /* Other Frameworks */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		AAA4C72017B3C0C80076EACA /* Sereal */ = {
+			isa = PBXGroup;
+			children = (
+				AAA4C72C17B3C0D40076EACA /* Src */,
+				AAA4C72117B3C0C80076EACA /* Supporting Files */,
+			);
+			path = Sereal;
+			sourceTree = "<group>";
+		};
+		AAA4C72117B3C0C80076EACA /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				AAA4C72217B3C0C80076EACA /* Sereal-Info.plist */,
+				AAA4C72317B3C0C80076EACA /* InfoPlist.strings */,
+				AAA4C72617B3C0C80076EACA /* Sereal-Prefix.pch */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		AAA4C72C17B3C0D40076EACA /* Src */ = {
+			isa = PBXGroup;
+			children = (
+				AADA654417B5249D0055792A /* Sereal.h */,
+				AADA654517B5249D0055792A /* Sereal.m */,
+				AA394A3E17B3C17D007BA2AF /* srl_protocol.h */,
+				AA394A3F17B3C200007BA2AF /* SrlEncoder.h */,
+				AA394A4017B3C200007BA2AF /* SrlEncoder.m */,
+				AA394A4217B3C20D007BA2AF /* SrlDecoder.h */,
+				AA394A4317B3C20D007BA2AF /* SrlDecoder.m */,
+				AA394A4517B3C6A3007BA2AF /* SrlAdditions.h */,
+				AA394A4617B3C6A3007BA2AF /* SrlAdditions.m */,
+				AA14DA4917B5FF8A0063B3CD /* SrlObject.h */,
+				AA14DA4A17B5FF8A0063B3CD /* SrlObject.m */,
+			);
+			name = Src;
+			sourceTree = "<group>";
+		};
+		AADA653917B5249D0055792A /* Other Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				AADA653A17B5249D0055792A /* AppKit.framework */,
+				AADA653B17B5249D0055792A /* CoreData.framework */,
+				AADA653C17B5249D0055792A /* Foundation.framework */,
+			);
+			name = "Other Frameworks";
+			sourceTree = "<group>";
+		};
+		AADA656D17BCD51E0055792A /* SerealTest */ = {
+			isa = PBXGroup;
+			children = (
+				AADA657317BCD51E0055792A /* SerealTest.h */,
+				AADA657417BCD51E0055792A /* SerealTest.m */,
+				AADA656E17BCD51E0055792A /* Supporting Files */,
+			);
+			path = SerealTest;
+			sourceTree = "<group>";
+		};
+		AADA656E17BCD51E0055792A /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				AADA656F17BCD51E0055792A /* SerealTest-Info.plist */,
+				AADA657017BCD51E0055792A /* InfoPlist.strings */,
+				AADA657617BCD51E0055792A /* SerealTest-Prefix.pch */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		AADA653317B5249D0055792A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AAC06AD817D09332000194BB /* Sereal.h in Headers */,
+				AADA654B17B524B50055792A /* SrlEncoder.h in Headers */,
+				AADA654D17B524B50055792A /* SrlDecoder.h in Headers */,
+				AA14DA4B17B5FF8A0063B3CD /* SrlObject.h in Headers */,
+				AADA654F17B524B50055792A /* SrlAdditions.h in Headers */,
+				AADA654A17B524B50055792A /* srl_protocol.h in Headers */,
+				AA14DA4317B5F2600063B3CD /* csnappy_compat.h in Headers */,
+				AA14DA4617B5F2600063B3CD /* csnappy_internal_userspace.h in Headers */,
+				AA14DA4717B5F2600063B3CD /* csnappy_internal.h in Headers */,
+				AA14DA4817B5F2600063B3CD /* csnappy.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		AADA653517B5249D0055792A /* Sereal */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AADA654717B5249D0055792A /* Build configuration list for PBXNativeTarget "Sereal" */;
+			buildPhases = (
+				AADA653117B5249D0055792A /* Sources */,
+				AADA653217B5249D0055792A /* Frameworks */,
+				AADA653417B5249D0055792A /* Resources */,
+				AADA653317B5249D0055792A /* Headers */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Sereal;
+			productName = Sereal;
+			productReference = AADA653617B5249D0055792A /* Sereal.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		AADA656817BCD51E0055792A /* SerealTest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AADA657717BCD51E0055792A /* Build configuration list for PBXNativeTarget "SerealTest" */;
+			buildPhases = (
+				AADA656417BCD51E0055792A /* Sources */,
+				AADA656517BCD51E0055792A /* Frameworks */,
+				AADA656617BCD51E0055792A /* Resources */,
+				AADA656717BCD51E0055792A /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AADA657B17BCD66F0055792A /* PBXTargetDependency */,
+			);
+			name = SerealTest;
+			productName = SerealTest;
+			productReference = AADA656917BCD51E0055792A /* SerealTest.octest */;
+			productType = "com.apple.product-type.bundle";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AAA4C71317B3C0C80076EACA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0500;
+				ORGANIZATIONNAME = "Andrea Guzzo";
+			};
+			buildConfigurationList = AAA4C71617B3C0C80076EACA /* Build configuration list for PBXProject "Sereal" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = AAA4C71217B3C0C80076EACA;
+			productRefGroup = AAA4C71C17B3C0C80076EACA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AADA653517B5249D0055792A /* Sereal */,
+				AADA656817BCD51E0055792A /* SerealTest */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AADA653417B5249D0055792A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AADA656617BCD51E0055792A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AADA657217BCD51E0055792A /* InfoPlist.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		AADA656717BCD51E0055792A /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Run the unit tests in this test bundle.\n\"${SYSTEM_DEVELOPER_DIR}/Tools/RunUnitTests\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AADA653117B5249D0055792A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AADA654617B5249D0055792A /* Sereal.m in Sources */,
+				AADA654C17B524B50055792A /* SrlEncoder.m in Sources */,
+				AADA654E17B524B50055792A /* SrlDecoder.m in Sources */,
+				AADA655017B524B50055792A /* SrlAdditions.m in Sources */,
+				AA14DA4417B5F2600063B3CD /* csnappy_compress.c in Sources */,
+				AA14DA4517B5F2600063B3CD /* csnappy_decompress.c in Sources */,
+				AA14DA4C17B5FF8A0063B3CD /* SrlObject.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AADA656417BCD51E0055792A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AADA657517BCD51E0055792A /* SerealTest.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AADA657B17BCD66F0055792A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AADA653517B5249D0055792A /* Sereal */;
+			targetProxy = AADA657A17BCD66F0055792A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		AAA4C72317B3C0C80076EACA /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				AAA4C72417B3C0C80076EACA /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		AADA657017BCD51E0055792A /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				AADA657117BCD51E0055792A /* en */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		AAA4C72717B3C0C80076EACA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		AAA4C72817B3C0C80076EACA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.8;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		AADA654817B5249D0055792A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_VERSION = A;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "Sereal/Sereal-Prefix.pch";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
+				INFOPLIST_FILE = "Sereal/Sereal-Info.plist";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Debug;
+		};
+		AADA654917B5249D0055792A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_VERSION = A;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "Sereal/Sereal-Prefix.pch";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
+				INFOPLIST_FILE = "Sereal/Sereal-Info.plist";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = framework;
+			};
+			name = Release;
+		};
+		AADA657817BCD51E0055792A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = "\"$(DEVELOPER_LIBRARY_DIR)/Frameworks\"";
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "SerealTest/SerealTest-Prefix.pch";
+				INFOPLIST_FILE = "SerealTest/SerealTest-Info.plist";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = octest;
+			};
+			name = Debug;
+		};
+		AADA657917BCD51E0055792A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = "\"$(DEVELOPER_LIBRARY_DIR)/Frameworks\"";
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "SerealTest/SerealTest-Prefix.pch";
+				INFOPLIST_FILE = "SerealTest/SerealTest-Info.plist";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				WRAPPER_EXTENSION = octest;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AAA4C71617B3C0C80076EACA /* Build configuration list for PBXProject "Sereal" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AAA4C72717B3C0C80076EACA /* Debug */,
+				AAA4C72817B3C0C80076EACA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AADA654717B5249D0055792A /* Build configuration list for PBXNativeTarget "Sereal" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AADA654817B5249D0055792A /* Debug */,
+				AADA654917B5249D0055792A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AADA657717BCD51E0055792A /* Build configuration list for PBXNativeTarget "SerealTest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AADA657817BCD51E0055792A /* Debug */,
+				AADA657917BCD51E0055792A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = AAA4C71317B3C0C80076EACA /* Project object */;
+}

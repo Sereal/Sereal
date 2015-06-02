@@ -2,153 +2,263 @@ use strict;
 use warnings;
 use blib;
 use Benchmark qw(cmpthese :hireswallclock);
-use Sereal::Decoder qw(decode_sereal);
-use Sereal::Encoder qw(encode_sereal);
-use JSON::XS qw(decode_json encode_json);
+use Sereal::Decoder qw(decode_sereal sereal_decode_with_object);
+use Sereal::Encoder qw(encode_sereal sereal_encode_with_object);
 use Storable qw(nfreeze thaw);
-use Data::Undump qw(undump);
 use Data::Dumper qw(Dumper);
-use Data::Dumper::Limited qw(DumpLimited);
-use Data::MessagePack;
+
+
 use Getopt::Long qw(GetOptions);
+require bytes;
 
-my (
-    $duration,
-    $encoder,
-    $decoder,
-    $dump,
-    $tiny_data,
-    $small_data,
-    $medium_data,
-    $large_data,
-    $very_large_data,
-    $nobless,
-    $diagrams,
-    $diagram_output_dir,
-);
-BEGIN {
-    my $sereal_only = 0;
-    GetOptions(
-        'duration=f' => \($duration=-3),
-        'encoder'   => \$encoder,
-        'decoder'   => \$decoder,
-        'dump|d'    => \$dump,
-        'tiny'      => \$tiny_data,
-        'small'     => \$small_data,
-        'medium'    => \$medium_data,
-        'large'     => \$large_data,
-        'very_large|very-large|verylarge' => \$very_large_data,
-        'no_bless|no-bless|nobless'    => \$nobless,
-        'sereal_only|sereal-only|serealonly' => \$sereal_only,
-        'diagrams'  => \$diagrams,
-        'diagram_output=s' => \$diagram_output_dir,
-    );
-    eval "sub SEREAL_ONLY () { $sereal_only }";
-}
+GetOptions(
+    'secs|duration=f'                    => \( my $duration           = -5 ),
+    'encoder'                            => \( my $encoder            = 0 ),
+    'decoder'                            => \( my $decoder            = 0 ),
+    'dump|d'                             => \( my $dump               = 0 ),
+    'only=s@'                            => \( my $only               = undef ),
+    'exclude=s@'                         => \( my $exclude            = undef ),
+    'tiny'                               => \( my $tiny_data          = 0 ),
+    'small'                              => \( my $small_data         = 0 ),
+    'medium'                             => \( my $medium_data        = 0 ),
+    'large'                              => \( my $large_data         = 0 ),
+    'very_large|very-large|verylarge'    => \( my $very_large_data    = 0 ),
+    'no_bless|no-bless|nobless'          => \( my $nobless            = 0 ),
+    'sereal_only|sereal-only|serealonly' => \( my $sereal_only        = 0 ),
+    'diagrams'                           => \( my $diagrams           = 0 ),
+    'diagram_output=s'                   => \( my $diagram_output_dir = "" ),
+) or die "Bad option";
 
-my $fail = do {no warnings; $tiny_data + $small_data + $medium_data + $very_large_data + $large_data - 1};
-if ($fail and $fail > 0) {
+my $fail =
+  $tiny_data + $small_data + $medium_data + $very_large_data + $large_data - 1;
+if ( $fail and $fail > 0 ) {
     die "Only one of --tiny, --small, --medium, --large, --very-large allowed!";
 }
 $encoder = 1 if not $encoder and not $decoder;
 
-our %opt = @ARGV;
-
-our $mpo = Data::MessagePack->new();
+#our %opt = @ARGV;
+our %opt;
 
 my $data_set_name;
 srand(0);
-my $chars = join("", "a".."z", "A".."Z") x 2;
+my $chars = join( "", "a" .. "z", "A" .. "Z" ) x 2;
 my @str;
-push @str, substr($chars, int(rand(int(length($chars)/2+1))), 10) for 1..1000;
-my @rand = map rand, 1..1000;
-our %data;
+push @str, substr( $chars, int( rand( int( length($chars) / 2 + 1 ) ) ), 10 )
+  for 1 .. 1000;
+my @rand = map rand, 1 .. 1000;
 
-$data{$_}= make_data() for qw(sereal sereal_func dd1 dd2 ddl mp json_xs storable sereal_snappy);
-
-our $enc = Sereal::Encoder->new(\%opt);
-our $enc_snappy = Sereal::Encoder->new({%opt, snappy => 1});
-our $dec = Sereal::Decoder->new(\%opt);
-
-our ($json_xs, $dd1, $dd2, $ddl, $sereal, $storable, $mp, $sereal_snappy);
-# do this first before any of the other dumpers "contaminate" the iv/pv issue
-$sereal   = $enc->encode($data{sereal});
-$sereal_snappy   = $enc_snappy->encode($data{sereal_snappy});
-if (!SEREAL_ONLY) {
-    $json_xs  = encode_json($data{json_xs}) if !$medium_data or $nobless;
-    $dd1      = Data::Dumper->new([$data{dd1}])->Indent(0)->Dump();
-    $dd2      = Dumper($data{dd2});
-    $ddl      = DumpLimited($data{ddl}) if !$medium_data or $nobless;
-    $mp       = $mpo->pack($data{mp}) if !$medium_data or $nobless;
-    $storable = nfreeze($data{storable}); # must be last
+our (
+    $enc, $dec,
+    $enc_snappy,        $dec_snappy,
+    $enc_zlib_fast,     $dec_zlib_fast,
+    $enc_zlib_small,    $dec_zlib_small,
+    $jsonxs, $msgpack, $dd_noindent, $dd_indent, $cbor
+);
+my $storable_tag= "strbl";
+my $sereal_tag= "srl";
+my %meta = (
+    jxs => {
+        enc  => '$::jsonxs->encode($data);',
+        dec  => '$::jsonxs->decode($encoded);',
+        name => 'JSON::XS OO',
+        init => sub {
+            $jsonxs = JSON::XS->new()->allow_nonref();
+        },
+        use => 'use JSON::XS qw(decode_json encode_json);',
+    },
+    ddl => {
+        enc  => 'DumpLimited($data);',
+        dec  => 'Data::Undump::undump($encoded);',
+        name => 'Data::Dump::Limited',
+        use  => [
+                    'use Data::Undump qw(undump);',
+                    'use Data::Dumper::Limited qw(DumpLimited);',
+                ],
+    },
+    mp => {
+        enc  => '$::msgpack->pack($data);',
+        dec  => '$::msgpack->unpack($encoded);',
+        name => 'Data::MsgPack',
+        use  => 'use Data::MessagePack;',
+        init => sub {
+            $msgpack = Data::MessagePack->new();
+        },
+    },
+    cbor => {
+        enc  => '$::cbor->encode($data);',
+        dec  => '$::cbor->decode($encoded);',
+        name => 'CBOR::XS',
+        use => 'use CBOR::XS qw(encode_cbor decode_cbor);',
+        init => sub {
+            $cbor= CBOR::XS->new();
+        },
+    },
+    dd_noind => {
+        enc  => 'Data::Dumper->new([$data])->Indent(0)->Dump();',
+        dec  => 'eval $encoded;',
+        name => 'Data::Dumper no-indent',
+    },
+    dd => {
+        enc  => 'Dumper($data);',
+        dec  => 'eval $encoded;',
+        name => 'Data::Dumper indented',
+    },
+    $storable_tag => {
+        enc  => 'nfreeze($data);',
+        dec  => 'thaw($encoded);',
+        name => 'Storable',
+    },
+    srl_func => {
+        enc  => 'encode_sereal($data, $opt);',
+        dec  => 'decode_sereal($encoded, $opt);',
+        name => 'Sereal functional',
+    },
+    srl_fwo => {
+        enc  => 'sereal_encode_with_object($::enc,$data);',
+        dec  => 'sereal_decode_with_object($::dec,$encoded);',
+        name => 'Sereal functional with object',
+    },
+    $sereal_tag => {
+        enc  => '$::enc->encode($data);',
+        dec  => '$::dec->decode($encoded);',
+        name => 'Sereal OO',
+        init => sub {
+            $enc = Sereal::Encoder->new( %opt ? \%opt : () );
+            $dec = Sereal::Decoder->new( \%opt ? \%opt : () );
+        },
+    },
+    srl_snpy => {
+        enc  => '$::enc_snappy->encode($data);',
+        dec  => '$::dec_snappy->decode($encoded);',
+        name => 'Sereal OO snappy',
+        init => sub {
+            $enc_snappy = Sereal::Encoder->new(
+                {
+                    %opt,
+                    compress => Sereal::Encoder::SRL_SNAPPY
+                }
+            );
+            $dec_snappy = Sereal::Decoder->new( %opt ? \%opt : () );
+        },
+    },
+    srl_zfast => {
+        enc  => '$::enc_zlib_fast->encode($data);',
+        dec  => '$::dec_zlib_fast->decode($encoded);',
+        name => 'Sereal OO zlib fast',
+        init => sub {
+            $enc_zlib_fast = Sereal::Encoder->new(
+                {
+                    %opt,
+                    compress           => Sereal::Encoder::SRL_ZLIB,
+                    compress_level     => 1,
+                    compress_threshold => 0,
+                }
+            );
+            $dec_zlib_fast = Sereal::Decoder->new( %opt ? \%opt : () );
+        },
+    },
+    srl_zbest => {
+        enc  => '$::enc_zlib_small->encode($data);',
+        dec  => '$::dec_zlib_small->decode($encoded);',
+        name => 'Sereal OO zib best',
+        init => sub {
+            $enc_zlib_small = Sereal::Encoder->new(
+                {
+                    %opt,
+                    compress           => Sereal::Encoder::SRL_ZLIB,
+                    compress_level     => 10,
+                    compress_threshold => 0,
+                }
+            );
+            $dec_zlib_small = Sereal::Decoder->new( %opt ? \%opt : () );
+        },
+    },
+);
+if ($only) {
+    my @pat= map { split /\s*,\s*/, $_ } @$only;
+    $only = {};
+    foreach my $key (keys %meta) {
+        $key=~/$_/ and $only->{$key}= 1
+            for @pat;
+    }
+    die "Only [@pat] produced no matches!" unless keys %$only;
 }
+if ($exclude) {
+    my @pat= map { split /\s*,\s*/, $_ } @$exclude;
+    $exclude = {};
+    foreach my $key (keys %meta) {
+        $key=~/$_/ and $exclude->{$key}= 1
+            for @pat;
+    }
+    die "Exclude [@pat] produced no matches!" unless keys %$exclude;
+}
+
+our %data;
+our %encoded;
+our %decoded;
+our %enc_bench;
+our %dec_bench;
+foreach my $key ( sort keys %meta ) {
+    my $info = $meta{$key};
+    $info->{tag}= $key;
+    next if $only    and not $only->{$key}    and $key ne $storable_tag;
+    next if $exclude and     $exclude->{$key} and $key ne $storable_tag;
+    if (my $use= $info->{use}) {
+        $use= [$use] unless ref $use;
+        $use= join ";\n", @$use, 1;
+        unless (eval $use) {
+            warn "Can't load dependencies for $info->{name}, skipping\n";
+            next;
+        }
+    }
+    $info->{enc}=~s/\$data/\$::data{$key}/g;
+    $info->{dec}=~s/\$encoded/\$::encoded{$key}/g;
+    $info->{enc}=~s/\$opt/%opt ? "\\%::opt" : ""/ge;
+    $info->{dec}=~s/\$opt/%opt ? "\\%::opt" : ""/ge;
+
+    $data{$key}    = make_data();
+    $info->{init}->() if $info->{init};
+    $encoded{$key} = eval $info->{enc}
+      or die "Failed to eval $info->{enc}: $@";
+    $decoded{$key} = eval '$::x = ' . $info->{dec} . '; 1'
+      or die "Failed to eval $info->{dec}: $@\n$encoded{$key}\n";
+    $info->{size}    = bytes::length( $encoded{$key} );
+    next if $only    and not $only->{$key};
+    next if $exclude and     $exclude->{$key};
+    $enc_bench{$key} = '$::x_' . $key . ' = ' . $info->{enc};
+    $dec_bench{$key} = '$::x_' . $key . ' = ' . $info->{dec};
+}
+
+my $sereal = $encoded{$sereal_tag};
 print($sereal), exit if $dump;
 
-my $sereal_len= bytes::length($sereal);
-require bytes;
-my @size_datasets;
-if (!SEREAL_ONLY) {
-    @size_datasets = (
-        (($medium_data && !$nobless) ? () : (
-            ["JSON::XS",  bytes::length($json_xs)],
-            ["Data::Dumper::Limited", bytes::length($ddl)],
-            ["Data::MessagePack", bytes::length($mp)],
-        )),
-        ["Data::Dumper (1)", bytes::length($dd1)],
-        ["Data::Dumper (2)", bytes::length($dd2)],
-        ["Storable", bytes::length($storable)],
-        ["Sereal::Encoder",  bytes::length($sereal)],
-        ["Sereal::Encoder, Snappy",  bytes::length($sereal_snappy)],
-    );
-    for my $tuple (@size_datasets) {
-        my ($name, $size) = @$tuple;
-        printf "%-40s %12d bytes %.2f%% of sereal\n", $name, $size, $size/$sereal_len *100;
+my $storable_len = bytes::length($encoded{$storable_tag});
+foreach my $info (
+    sort { $a->{size} <=> $b->{size} || $a->{name} cmp $b->{name} }
+    grep { defined $_->{size} }
+    values %meta
+) {
+    next unless $info->{size};
+    if ($info->{tag} eq $storable_tag) {
+        printf "%-40s %12d bytes\n",
+            $info->{name} . " ($info->{tag})", $info->{size};
+    } else {
+        printf "%-40s %12d bytes %6.2f%% of $storable_tag\n",
+            $info->{name} . " ($info->{tag})", $info->{size},
+            $info->{size} / $storable_len * 100;
     }
 }
 
 our $x;
-my ($encoder_result, $decoder_result);
+my ( $encoder_result, $decoder_result );
 if ($encoder) {
-    $encoder_result = cmpthese(
-        $duration,
-        {
-            (!SEREAL_ONLY
-                ? (
-                    ($medium_data && !$nobless ? () : (
-                        json_xs => '$::x = encode_json($::data{json_xs});',
-                        ddl => '$::x = DumpLimited($::data{ddl});',
-                        msgpack => '$::x = $::mpo->pack($::data{mp});',
-                    )),
-                    dd_noindent => '$::x = Data::Dumper->new([$::data{dd1}])->Indent(0)->Dump();',
-                    dd => '$::x = Dumper($::data{dd2});',
-                    storable => '$::x = nfreeze($::data{storable});',
-                ) : ()),
-            sereal_func => '$::x = encode_sereal($::data{sereal_func}, \%::opt);',
-            sereal => '$::x = $::enc->encode($::data{sereal});',
-            sereal_snappy => '$::x = $::enc_snappy->encode($::data{sereal_snappy});',
-        }
-    );
+    print "\n* Timing encoders\n";
+    $encoder_result = cmpthese( $duration, \%enc_bench );
 }
 
 if ($decoder) {
-    $decoder_result = cmpthese(
-        $duration,
-        {
-            (!SEREAL_ONLY
-                ? (
-                    ($medium_data && !$nobless ? () : (
-                        json_xs => '$::x = decode_json($::json_xs);',
-                        undump_ddl => '$::x = Data::Undump::undump($::ddl);',
-                        msgpack => '$::x = $::mpo->unpack($::mp);',
-                    )),
-                    eval_dd => '$::x = eval $::dd1;',
-                    storable => '$::x = thaw($::storable);',
-                ) : ()),
-            sereal_func => '$::x = decode_sereal($::sereal, \%::opt);',
-            sereal => '$::x = $::dec->decode($::sereal);',
-            sereal_snappy => '$::x = $::dec->decode($::sereal_snappy);',
-        }
-    );
+    print "\n* Timing decoders\n";
+    $decoder_result = cmpthese( $duration, \%dec_bench );
 }
 
 sub make_data {
@@ -158,52 +268,116 @@ sub make_data {
     }
     elsif ($small_data) {
         $data_set_name = "small hash";
-        return { foo=> 1, bar => [100,101,102], str => "this is a \x{df} string which has to be serialized" };
+        return {
+            foo => 1,
+            bar => [ 100, 101, 102 ],
+            str => "this is a \x{df} string which has to be serialized"
+        };
     }
     elsif ($medium_data) {
         my @obj = (
-            { foo => 1, bar => [100,101,102], str => "this is a \x{df} string which has to be serialized" },
-            { foo => 2, bar => [103,103,106,999], str2 => "this is a \x{df} aaaaaastring which has to be serialized" },
-            { foozle => 3, bar => [100], str3 => "this is a \x{df} string which haaaaadsadas to be serialized" },
-            { foozle => 3, bar => [], st4r => "this is a \x{df} string which has to be sdassdaerialized" },
-            { foo => 1, bar => [100,101,102], s5tr => "this is a \x{df} string which has to be serialized" },
-            { foo => 2, bar => [103,103,106,999], str => "this is a \x{df} aaaaaastring which has to be serialized" },
-            { foozle => 3, bar => [100], str => "this is a \x{df} string which haaaaadsadas to be serialized" },
-            { foozle => 3, bar => [], str2 => "this is a \x{df} string which has to be sdassdaerialized" },
-            { foo2 => -99999, bar => [100,101,102], str2 => "this is a \x{df} string which has to be serialized" },
-            { foo2 => 213, bar => [103,103,106,999], str => "this is a \x{df} aaaaaastring which has to be serialized" },
-            { foozle2 => undef, bar => [100], str => "this is a \x{df} string which haaaaadsadas to be serialized" },
-            { foozle2 => undef, bar => [1..20], str => "this is a \x{df} string which has to be sdassdaerialized" },
+            {
+                foo => 1,
+                bar => [ 100, 101, 102 ],
+                str => "this is a \x{df} string which has to be serialized"
+            },
+            {
+                foo => 2,
+                bar => [ 103, 103, 106, 999 ],
+                str2 =>
+                  "this is a \x{df} aaaaaastring which has to be serialized"
+            },
+            {
+                foozle => 3,
+                bar    => [100],
+                str3 =>
+                  "this is a \x{df} string which haaaaadsadas to be serialized"
+            },
+            {
+                foozle => 3,
+                bar    => [],
+                st4r =>
+                  "this is a \x{df} string which has to be sdassdaerialized"
+            },
+            {
+                foo  => 1,
+                bar  => [ 100, 101, 102 ],
+                s5tr => "this is a \x{df} string which has to be serialized"
+            },
+            {
+                foo => 2,
+                bar => [ 103, 103, 106, 999 ],
+                str =>
+                  "this is a \x{df} aaaaaastring which has to be serialized"
+            },
+            {
+                foozle => 3,
+                bar    => [100],
+                str =>
+                  "this is a \x{df} string which haaaaadsadas to be serialized"
+            },
+            {
+                foozle => 3,
+                bar    => [],
+                str2 =>
+                  "this is a \x{df} string which has to be sdassdaerialized"
+            },
+            {
+                foo2 => -99999,
+                bar  => [ 100, 101, 102 ],
+                str2 => "this is a \x{df} string which has to be serialized"
+            },
+            {
+                foo2 => 213,
+                bar  => [ 103, 103, 106, 999 ],
+                str =>
+                  "this is a \x{df} aaaaaastring which has to be serialized"
+            },
+            {
+                foozle2 => undef,
+                bar     => [100],
+                str =>
+                  "this is a \x{df} string which haaaaadsadas to be serialized"
+            },
+            {
+                foozle2 => undef,
+                bar     => [ 1 .. 20 ],
+                str =>
+                  "this is a \x{df} string which has to be sdassdaerialized"
+            },
         );
         my @classes = qw(Baz Baz Baz3 Baz2 Baz Baz Baz3 Baz2 Baz Baz Baz3 Baz2);
-        if (!$nobless) {
-            bless($obj[$_], $classes[$_]) for 0..$#obj;
-            $data_set_name = "array of small objects with relations";
-        }
-        else {
+        if ( $nobless ) {
             $data_set_name = "array of small hashes with relations";
         }
-        foreach my $i (1..$#obj) {
-            $obj[$i]->{parent} = $obj[$i-1];
+        else {
+            bless( $obj[$_], $classes[$_] ) for 0 .. $#obj;
+            $data_set_name = "array of small objects with relations";
+        }
+        foreach my $i ( 1 .. $#obj ) {
+            $obj[$i]->{parent} = $obj[ $i - 1 ];
         }
         return \@obj;
     }
-    elsif ($very_large_data) { # "large data"
+    elsif ($very_large_data) {    # "large data"
         $data_set_name = "really rather large data structure";
         my @refs = (
-            [1..10000], {@str}, {@str}, [1..10000],
+            [ 1 .. 10000 ],
+            {@str}, {@str}, [ 1 .. 10000 ],
             {@str}, [@rand], {@str}, {@str},
         );
         return [
-            \@refs, \@refs, [map {[reverse 1..100]} (0..1000)], [map {+{foo => "bar", baz => "buz"}} 1..2000]
-        ]
+            \@refs, \@refs,
+            [ map { [ reverse 1 .. 100 ] } ( 0 .. 1000 ) ],
+            [ map { +{ foo => "bar", baz => "buz" } } 1 .. 2000 ]
+        ];
     }
-    else { # "large data"
+    else {    # "large data"
         $data_set_name = "large data structure";
         return [
-            [1..10000], {@str}, {@str}, [1..10000],
+            [ 1 .. 10000 ], {@str}, {@str}, [ 1 .. 10000 ],
             {@str}, [@rand], {@str}, {@str},
-        ]
+        ];
     }
 }
 
@@ -212,49 +386,52 @@ if ($diagrams) {
     SOOT::Init(0);
     SOOT->import(":all");
 
-    my ($enc_data, $dec_data);
+    my ( $enc_data, $dec_data );
     $enc_data = cmpthese_to_sanity($encoder_result) if $encoder_result;
     $dec_data = cmpthese_to_sanity($decoder_result) if $decoder_result;
 
-    foreach my $dia (["Encoder performance [1/s]", $enc_data],
-                     ["Decoder performance [1/s]", $dec_data],)
+    foreach my $dia (
+        [ "Encoder performance [1/s]", $enc_data ],
+        [ "Decoder performance [1/s]", $dec_data ],
+      )
     {
-        my ($title, $d) = @$dia;
+        my ( $title, $d ) = @$dia;
         next if not $d;
         $_->[0] =~ s/_/ /g, $_->[0] =~ s/sereal /sereal, / for @$d;
         make_bar_chart(
-            substr($title, 0, 3),
+            substr( $title, 0, 3 ),
             $d,
             {
-                title => $title,
+                title    => $title,
                 filename => do {
                     my $x = $title;
                     $x =~ s/\[1\/s\]/per second/;
-                    $data_set_name . " - " . $x
+                    $data_set_name . " - " . $x;
                 },
             }
         );
     }
 
     my %names = (
-        "JSON::XS" => 'json xs',
-        "Data::Dumper::Limited" => 'ddl',
-        "Data::MessagePack" => "msgpack",
-        "Data::Dumper (1)" => "dd noindent",
-        "Data::Dumper (2)" => "dd",
-        "Storable" => 'storable',
-        "Sereal::Encoder" => 'sereal',
+        "JSON::XS"                => 'json xs',
+        "Data::Dumper::Limited"   => 'ddl',
+        "Data::MessagePack"       => "msgpack",
+        "Data::Dumper (1)"        => "dd noindent",
+        "Data::Dumper (2)"        => "dd",
+        "Storable"                => 'storable',
+        "Sereal::Encoder"         => 'sereal',
         "Sereal::Encoder, Snappy" => 'sereal, snappy',
     );
 
     make_bar_chart(
         "size",
         [
-            sort {$b->[1] <=> $a->[1]} map [ $names{$_->[0]}||die, $_->[1] ], @size_datasets
+            sort { $b->[1] <=> $a->[1] }
+            map { $_->{size} ? [ $_->{name}, $_->{size} ] : () } values %meta
         ],
         {
-            title => "Encoded output sizes [bytes]",
-            color => kRed(),
+            title    => "Encoded output sizes [bytes]",
+            color    => kRed(),
             filename => $data_set_name . " - Encoded output sizes in bytes",
         },
     );
@@ -262,21 +439,23 @@ if ($diagrams) {
 }
 
 sub make_bar_chart {
-    my ($name, $data, $opts) = @_;
-    my $h = TH1D->new($name, ($opts->{title}||$name), scalar(@$data), -0.5, scalar(@$data)-0.5);
+    my ( $name, $data, $opts ) = @_;
+    my $h = TH1D->new( $name, ( $opts->{title} || $name ),
+        scalar(@$data), -0.5, scalar(@$data) - 0.5 );
     $h->keep;
-    $h->SetFillColor($opts->{color} || kBlue());
+    $h->SetFillColor( $opts->{color} || kBlue() );
     $h->SetBarOffset(0.12);
     $h->SetBarWidth(0.74);
     $h->SetStats(0);
     $h->GetXaxis()->SetLabelSize(0.06);
     $h->GetXaxis()->SetLabelOffset(0.009);
-    $h->GetYaxis()->SetTitle($opts->{title}) if defined $opts->{title};
+    $h->GetYaxis()->SetTitle( $opts->{title} ) if defined $opts->{title};
     $h->GetYaxis()->SetTitleSize(0.045);
-    for my $i (1..@$data) {
-        my ($label, $rate) = @{ $data->[$i-1] };
-        $h->GetXaxis()->SetBinLabel($i, $label);
-        $h->SetBinContent($i, 0+$rate);
+
+    for my $i ( 1 .. @$data ) {
+        my ( $label, $rate ) = @{ $data->[ $i - 1 ] };
+        $h->GetXaxis()->SetBinLabel( $i, $label );
+        $h->SetBinContent( $i, 0 + $rate );
     }
     my $c = TCanvas->new->keep;
     $c->GetPad(0)->SetBottomMargin(0.175);
@@ -287,20 +466,21 @@ sub make_bar_chart {
     if ($diagram_output_dir) {
         require File::Path;
         File::Path::mkpath($diagram_output_dir);
-        my $file = $opts->{filename} || do {my $f = $opts->{title}; $f =~ s/[^a-zA-Z0-9_\ ]/_/g; $f};
+        my $file = $opts->{filename}
+          || do { my $f = $opts->{title}; $f =~ s/[^a-zA-Z0-9_\ ]/_/g; $f };
         $c->SaveAs("$diagram_output_dir/$file.png");
     }
 }
 
 sub cmpthese_to_sanity {
-    my $res = shift;
+    my $res  = shift;
     my @rows = map {
         my $rate = $_->[1];
-        if (not $rate =~ s/\s*\/\s*s$//) {
-            $rate = 1/$rate;
+        if ( not $rate =~ s/\s*\/\s*s$// ) {
+            $rate = 1 / $rate;
         }
-        [$_->[0], $rate]
-    } grep {defined $_->[0] and $_->[0] =~ /\S/} @$res;
+        [ $_->[0], $rate ]
+    } grep { defined $_->[0] and $_->[0] =~ /\S/ } @$res;
     return \@rows;
 }
-
+print "\n";

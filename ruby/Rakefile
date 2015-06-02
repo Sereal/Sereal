@@ -1,0 +1,16 @@
+require 'rake/extensiontask'
+require 'rake/testtask'
+require 'rdoc/task'
+RDOC_FILES = FileList["ext/sereal/sereal.c"]
+
+spec = Gem::Specification.load('sereal.gemspec')
+Rake::ExtensionTask.new('sereal', spec)
+Rake::TestTask.new do |t|
+  t.libs << 'test'
+end
+Rake::RDocTask.new do |rd|
+    rd.main = "ext/sereal/sereal.c"
+    rd.rdoc_files.include("ext/sereal/sereal.c")
+end
+desc "Run tests"
+task :default => :compile

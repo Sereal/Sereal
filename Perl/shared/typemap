@@ -1,8 +1,12 @@
-# from "perlobject.map"  Dean Roehrich, version 19960302
-
 # O_OBJECT	-> link an opaque C or C++ object to a blessed Perl object.
 srl_encoder_t * O_OBJECT
 srl_decoder_t * O_OBJECT
+srl_merger_t  * O_OBJECT
+srl_path_t    * O_OBJECT
+srl_iterator_t * O_OBJECT
+
+# T_OBJECT
+Sereal::Splitter  T_PTROBJ
 
 ######################################################################
 OUTPUT
@@ -17,9 +21,8 @@ INPUT
 
 O_OBJECT
 	if( sv_isobject($arg) && (SvTYPE(SvRV($arg)) == SVt_PVMG) )
-		$var = ($type)SvIV((SV*)SvRV( $arg ));
+		$var = INT2PTR($type, SvIV((SV*)SvRV( $arg )));
 	else{
 		warn( \"${Package}::$func_name() -- $var is not a blessed SV reference\" );
 		XSRETURN_UNDEF;
 	}
-

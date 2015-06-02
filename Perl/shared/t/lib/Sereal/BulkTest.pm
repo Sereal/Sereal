@@ -66,12 +66,12 @@ sub read_files {
     }
 
     my $count= 0;
-    foreach (@$corpus) {
-        $count++ if $sub->($_);
+    foreach my $test (@$corpus) {
+        $count++ if $sub->($test);
     }
     return $count;
 }
-
+#use Devel::Peek;
 sub run_bulk_tests {
     my %opt = @_;
 
@@ -79,21 +79,30 @@ sub run_bulk_tests {
         my $total= read_files(sub { return 1 });
         my $read= 0;
         my $eval_ok= read_files(sub {
+            my $struct= $_[0];
             diag("read $read\n") unless ++$read % 1000;
-            my ($dump,$undump);
+            my ($dump, $undump);
             my $ok= eval {
                 $dump = Sereal::Encoder::encode_sereal($_[0]);
-                $undump= Sereal::Decoder::decode_sereal($dump);
+                $undump= Sereal::Decoder::decode_sereal($dump, $opt{decoder_options} || {});
                 1;
             };
             my $err = $@ || 'Zombie error';
             ok($ok,"Error return is empty")
                 or diag("Error was: '$err'"), return $ok;
+            if ($ok and ref($struct) eq "HASH") {
+                my $each_count= 0;
 
-            my $eval_dump= Data::Dumper->new([ $_[0] ])->Sortkeys(1)->Dump();
-            my $undump_dump= Data::Dumper->new([ $undump ])->Sortkeys(1)->Dump();
-            $ok= is_string($undump_dump, $eval_dump)
-                or diag $_[0];
+                $each_count++ while my($k,$v)= each %$undump;
+
+                my $keys_count= 0 + keys %$struct;
+                is($each_count,$keys_count,"Number of keys match");
+            }
+
+            my $struct_dd= Data::Dumper->new([ $struct ])->Sortkeys(1)->Dump();
+            my $undump_dd= Data::Dumper->new([ $undump ])->Sortkeys(1)->Dump();
+            $ok= is_string($undump_dd, $struct_dd)
+                or diag $struct_dd;
             return $ok;
         });
         is($total,$eval_ok);
@@ -110,7 +119,7 @@ sub run_bulk_tests {
                     read_files(sub{return 1})
                 },
                 'decode_sereal' => sub{
-                    read_files(sub { return( decode_sereal($_[0]) ); }, 'sereal')
+                    read_files(sub { return( decode_sereal($_[0], $opt{decoder_options} || {} ) ); }, 'sereal')
                 },
                 'eval' => sub{
                     read_files(sub { return( eval $_[0] ); }, 'raw')
@@ -130,5 +139,4 @@ sub run_bulk_tests {
         note join "\n","", map {sprintf"%-20s" . (" %20s" x (@$_-1)), @$_ } @$result;
     }
 }
-
 1;

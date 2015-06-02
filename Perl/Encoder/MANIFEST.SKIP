@@ -53,3 +53,4 @@ MYMETA\..*$
 #   Mac OSX SMB mount metadata files
 \B\._
 callgrind\.out\..*$
+\.gdb_history

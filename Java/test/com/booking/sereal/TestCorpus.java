@@ -114,6 +114,7 @@ public class TestCorpus {
 			FileInputStream fis = new FileInputStream( target );
 			ByteBuffer buf = ByteBuffer.allocate( (int) target.length() );
 			fis.getChannel().read( buf );
+			fis.close();
 			if( verbose ) {
 				System.out.println( "From file: " + Utils.hexStringFromByteArray( buf.array(), 4 ) );
 				System.out.println( "Encoded  : " + Utils.hexStringFromByteArray( encoded.array(), 4 ) );

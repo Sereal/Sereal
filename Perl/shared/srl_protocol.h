@@ -1,5 +1,5 @@
-#ifndef SRL_PROTOCOL_H_
-#define SRL_PROTOCOL_H_
+#ifndef SEEN_SRL_PROTOCOL_H_
+#define SEEN_SRL_PROTOCOL_H_
 
 /*
 =for autoupdater start
@@ -44,7 +44,7 @@
     FLOAT             | "\"" |  34 | 0x22 | 0b00100010 | <IEEE-FLOAT>
     DOUBLE            | "#"  |  35 | 0x23 | 0b00100011 | <IEEE-DOUBLE>
     LONG_DOUBLE       | "\$" |  36 | 0x24 | 0b00100100 | <IEEE-LONG-DOUBLE>
-    UNDEF             | "%"  |  37 | 0x25 | 0b00100101 | None - Perl undef
+    UNDEF             | "%"  |  37 | 0x25 | 0b00100101 | None - Perl undef var; eg my $var= undef;
     BINARY            | "&"  |  38 | 0x26 | 0b00100110 | <LEN-VARINT> <BYTES> - binary/(latin1) string
     STR_UTF8          | "'"  |  39 | 0x27 | 0b00100111 | <LEN-VARINT> <UTF8> - utf8 string
     REFN              | "("  |  40 | 0x28 | 0b00101000 | <ITEM-TAG>    - ref to next item
@@ -57,17 +57,17 @@
     COPY              | "/"  |  47 | 0x2f | 0b00101111 | <OFFSET-VARINT> - copy of item defined at offset
     WEAKEN            | "0"  |  48 | 0x30 | 0b00110000 | <REF-TAG> - Weaken the following reference
     REGEXP            | "1"  |  49 | 0x31 | 0b00110001 | <PATTERN-STR-TAG> <MODIFIERS-STR-TAG>
-    RESERVED_0        | "2"  |  50 | 0x32 | 0b00110010 | reserved
-    RESERVED_1        | "3"  |  51 | 0x33 | 0b00110011 |
-    RESERVED_2        | "4"  |  52 | 0x34 | 0b00110100 |
-    RESERVED_3        | "5"  |  53 | 0x35 | 0b00110101 |
-    RESERVED_4        | "6"  |  54 | 0x36 | 0b00110110 |
-    RESERVED_5        | "7"  |  55 | 0x37 | 0b00110111 |
-    RESERVED_6        | "8"  |  56 | 0x38 | 0b00111000 |
-    RESERVED_7        | "9"  |  57 | 0x39 | 0b00111001 | reserved
+    OBJECT_FREEZE     | "2"  |  50 | 0x32 | 0b00110010 | <STR-TAG> <ITEM-TAG> - class, object-item. Need to call "THAW" method on class after decoding
+    OBJECTV_FREEZE    | "3"  |  51 | 0x33 | 0b00110011 | <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT)
+    RESERVED_0        | "4"  |  52 | 0x34 | 0b00110100 | reserved
+    RESERVED_1        | "5"  |  53 | 0x35 | 0b00110101 |
+    RESERVED_2        | "6"  |  54 | 0x36 | 0b00110110 |
+    RESERVED_3        | "7"  |  55 | 0x37 | 0b00110111 |
+    RESERVED_4        | "8"  |  56 | 0x38 | 0b00111000 | reserved
+    CANONICAL_UNDEF   | "9"  |  57 | 0x39 | 0b00111001 | undef (PL_sv_undef) - "the" Perl undef (see notes)
     FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no)
     TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes)
-    MANY              | "<"  |  60 | 0x3c | 0b00111100 | <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 2)
+    MANY              | "<"  |  60 | 0x3c | 0b00111100 | <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3)
     PACKET_START      | "="  |  61 | 0x3d | 0b00111101 | (first byte of magic string in header)
     EXTEND            | ">"  |  62 | 0x3e | 0b00111110 | <BYTE> - for additional tags
     PAD               | "?"  |  63 | 0x3f | 0b00111111 | (ignored tag, skip to next byte)
@@ -140,18 +140,34 @@
 */
 
 /* magic string, protocol version and encoding information */
-#define SRL_MAGIC_STRING                "=srl"          /* Magic string for header. Every packet starts with this */
-#define SRL_MAGIC_STRING_LILIPUTIAN     0x6c72733d      /* SRL_MAGIC_STRING as a little endian integer */
+#define SRL_MAGIC_STRLEN                4               /* Length of SRL_MAGIC_STRING */
 
-#define SRL_PROTOCOL_VERSION            ( 1 )           /* this is the first. for some reason we did not use 0 */
+#define SRL_MAGIC_STRING                "=srl"          /* Magic string for header. Every packet starts with this or "=\xF3rl",
+                                                         * which is the high-bit-set-on-the-"s" equivalent. */
+#define SRL_MAGIC_STRING_UINT_LE                0x6C72733D  /* SRL_MAGIC_STRING as a little endian integer */
+#define SRL_MAGIC_STRING_UINT_BE                0x3D73726C  /* SRL_MAGIC_STRING as a big endian integer */
+
+#define SRL_MAGIC_STRING_HIGHBIT                "=\xF3rl"   /* Magic string for header, with high bit set for UTF8 sanity check. */
+#define SRL_MAGIC_STRING_HIGHBIT_UINT_LE        0x6C72F33D  /* SRL_MAGIC_STRING_HIGHBIT as a little endian integer */
+#define SRL_MAGIC_STRING_HIGHBIT_UINT_BE        0x3DF3726C  /* SRL_MAGIC_STRING_HIGHBIT as a big endian integer */
+
+#define SRL_MAGIC_STRING_HIGHBIT_UTF8           "=\xC3\xB3rl"   /* Magic string for header, corrupted by accidental UTF8 encoding */
+#define SRL_MAGIC_STRING_HIGHBIT_UTF8_UINT_LE   0x72B3C33D      /* first four bytes of SRL_MAGIC_STRING encoded as UTF8, little endian */
+#define SRL_MAGIC_STRING_HIGHBIT_UTF8_UINT_BE   0x3DC3B372      /* first four bytes of SRL_MAGIC_STRING encoded as UTF8, big endian */
+
+#define SRL_PROTOCOL_VERSION            ( 3 )
 #define SRL_PROTOCOL_VERSION_BITS       ( 4 )           /* how many bits we use for the version, the rest go to the encoding */
 #define SRL_PROTOCOL_VERSION_MASK       ( ( 1 << SRL_PROTOCOL_VERSION_BITS ) - 1 )
 
-#define SRL_PROTOCOL_ENCODING_MASK      ( ~SRL_PROTOCOL_VERSION_MASK )
+#define SRL_PROTOCOL_ENCODING_MASK      ( SRL_PROTOCOL_VERSION_MASK << SRL_PROTOCOL_VERSION_BITS )
 #define SRL_PROTOCOL_ENCODING_RAW       ( 0 << SRL_PROTOCOL_VERSION_BITS )
 #define SRL_PROTOCOL_ENCODING_SNAPPY    ( 1 << SRL_PROTOCOL_VERSION_BITS )
+#define SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL    ( 2 << SRL_PROTOCOL_VERSION_BITS )
+#define SRL_PROTOCOL_ENCODING_ZLIB      ( 3 << SRL_PROTOCOL_VERSION_BITS )
 
-
+/* Bits in the header bitfield */
+#define SRL_PROTOCOL_HDR_USER_DATA      ( 1 )
+#define SRL_PROTOCOL_HDR_CONTINUE       ( 8 ) /* TODO Describe in spec - not urgent since not meaningful yet */
 
 /* Useful constants */
 /* See also range constants below for the header byte */
@@ -162,70 +178,78 @@
 /* _LOW and _HIGH versions refering to INCLUSIVE range boundaries */
 
 
-#define SRL_HDR_POS             ((char)0)       /* small positive integer - value in low 4 bits (identity) */
-#define SRL_HDR_POS_LOW         ((char)0)       /* small positive integer - value in low 4 bits (identity) */
-#define SRL_HDR_POS_HIGH        ((char)15)      /* small positive integer - value in low 4 bits (identity) */
+#define SRL_HDR_POS             ((U8)0)       /* small positive integer - value in low 4 bits (identity) */
+#define SRL_HDR_POS_LOW         ((U8)0)       /* small positive integer - value in low 4 bits (identity) */
+#define SRL_HDR_POS_HIGH        ((U8)15)      /* small positive integer - value in low 4 bits (identity) */
 
-#define SRL_HDR_NEG             ((char)16)      /* small negative integer - value in low 4 bits (k+32) */
-#define SRL_HDR_NEG_LOW         ((char)16)      /* small negative integer - value in low 4 bits (k+32) */
-#define SRL_HDR_NEG_HIGH        ((char)31)      /* small negative integer - value in low 4 bits (k+32) */
+#define SRL_HDR_NEG             ((U8)16)      /* small negative integer - value in low 4 bits (k+32) */
+#define SRL_HDR_NEG_LOW         ((U8)16)      /* small negative integer - value in low 4 bits (k+32) */
+#define SRL_HDR_NEG_HIGH        ((U8)31)      /* small negative integer - value in low 4 bits (k+32) */
 
-#define SRL_HDR_VARINT          ((char)32)      /* <VARINT> - Varint variable length integer */
-#define SRL_HDR_ZIGZAG          ((char)33)      /* <ZIGZAG-VARINT> - Zigzag variable length integer */
-#define SRL_HDR_FLOAT           ((char)34)      /* <IEEE-FLOAT> */
-#define SRL_HDR_DOUBLE          ((char)35)      /* <IEEE-DOUBLE> */
-#define SRL_HDR_LONG_DOUBLE     ((char)36)      /* <IEEE-LONG-DOUBLE> */
-#define SRL_HDR_UNDEF           ((char)37)      /* None - Perl undef */
-#define SRL_HDR_BINARY          ((char)38)      /* <LEN-VARINT> <BYTES> - binary/(latin1) string */
-#define SRL_HDR_STR_UTF8        ((char)39)      /* <LEN-VARINT> <UTF8> - utf8 string */
+#define SRL_HDR_VARINT          ((U8)32)      /* <VARINT> - Varint variable length integer */
+#define SRL_HDR_ZIGZAG          ((U8)33)      /* <ZIGZAG-VARINT> - Zigzag variable length integer */
+#define SRL_HDR_FLOAT           ((U8)34)      /* <IEEE-FLOAT> */
+#define SRL_HDR_DOUBLE          ((U8)35)      /* <IEEE-DOUBLE> */
+#define SRL_HDR_LONG_DOUBLE     ((U8)36)      /* <IEEE-LONG-DOUBLE> */
+#define SRL_HDR_UNDEF           ((U8)37)      /* None - Perl undef var; eg my $var= undef; */
+#define SRL_HDR_BINARY          ((U8)38)      /* <LEN-VARINT> <BYTES> - binary/(latin1) string */
+#define SRL_HDR_STR_UTF8        ((U8)39)      /* <LEN-VARINT> <UTF8> - utf8 string */
 
-#define SRL_HDR_REFN            ((char)40)      /* <ITEM-TAG>    - ref to next item */
-#define SRL_HDR_REFP            ((char)41)      /* <OFFSET-VARINT> - ref to previous item stored at offset */
-#define SRL_HDR_HASH            ((char)42)      /* <COUNT-VARINT> [<KEY-TAG> <ITEM-TAG> ...] - count followed by key/value pairs */
-#define SRL_HDR_ARRAY           ((char)43)      /* <COUNT-VARINT> [<ITEM-TAG> ...] - count followed by items */
-#define SRL_HDR_OBJECT          ((char)44)      /* <STR-TAG> <ITEM-TAG> - class, object-item */
-#define SRL_HDR_OBJECTV         ((char)45)      /* <OFFSET-VARINT> <ITEM-TAG> - offset of previously used classname tag - object-item */
-#define SRL_HDR_ALIAS           ((char)46)      /* <OFFSET-VARINT> - alias to item defined at offset */
-#define SRL_HDR_COPY            ((char)47)      /* <OFFSET-VARINT> - copy of item defined at offset */
+#define SRL_HDR_REFN            ((U8)40)      /* <ITEM-TAG>    - ref to next item */
+#define SRL_HDR_REFP            ((U8)41)      /* <OFFSET-VARINT> - ref to previous item stored at offset */
+#define SRL_HDR_HASH            ((U8)42)      /* <COUNT-VARINT> [<KEY-TAG> <ITEM-TAG> ...] - count followed by key/value pairs */
+#define SRL_HDR_ARRAY           ((U8)43)      /* <COUNT-VARINT> [<ITEM-TAG> ...] - count followed by items */
+#define SRL_HDR_OBJECT          ((U8)44)      /* <STR-TAG> <ITEM-TAG> - class, object-item */
+#define SRL_HDR_OBJECTV         ((U8)45)      /* <OFFSET-VARINT> <ITEM-TAG> - offset of previously used classname tag - object-item */
+#define SRL_HDR_ALIAS           ((U8)46)      /* <OFFSET-VARINT> - alias to item defined at offset */
+#define SRL_HDR_COPY            ((U8)47)      /* <OFFSET-VARINT> - copy of item defined at offset */
 
-#define SRL_HDR_WEAKEN          ((char)48)      /* <REF-TAG> - Weaken the following reference */
-#define SRL_HDR_REGEXP          ((char)49)      /* <PATTERN-STR-TAG> <MODIFIERS-STR-TAG>*/
+#define SRL_HDR_WEAKEN          ((U8)48)      /* <REF-TAG> - Weaken the following reference */
+#define SRL_HDR_REGEXP          ((U8)49)      /* <PATTERN-STR-TAG> <MODIFIERS-STR-TAG>*/
+
+#define SRL_HDR_OBJECT_FREEZE   ((U8)50)      /* <STR-TAG> <ITEM-TAG> - class, object-item. Need to call "THAW" method on class after decoding */
+#define SRL_HDR_OBJECTV_FREEZE  ((U8)51)      /* <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT) */
 
 /* Note: Can do reserved check with a range now, but as we start using
  *       them, might have to explicit == check later. */
-#define SRL_HDR_RESERVED        ((char)50)      /* reserved */
-#define SRL_HDR_RESERVED_LOW    ((char)50)
-#define SRL_HDR_RESERVED_HIGH   ((char)57)
+#define SRL_HDR_RESERVED        ((U8)52)      /* reserved */
+#define SRL_HDR_RESERVED_LOW    ((U8)52)
+#define SRL_HDR_RESERVED_HIGH   ((U8)56)
 
-#define SRL_HDR_FALSE           ((char)58)      /* false (PL_sv_no)  */
-#define SRL_HDR_TRUE            ((char)59)      /* true  (PL_sv_yes) */
+#define SRL_HDR_CANONICAL_UNDEF ((U8)57)      /* undef (PL_sv_undef) - "the" Perl undef (see notes) */
+#define SRL_HDR_FALSE           ((U8)58)      /* false (PL_sv_no)  */
+#define SRL_HDR_TRUE            ((U8)59)      /* true  (PL_sv_yes) */
 
-#define SRL_HDR_MANY            ((char)60)      /* <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 2) */
-#define SRL_HDR_PACKET_START    ((char)61)      /* (first byte of magic string in header) */
-
-
-#define SRL_HDR_EXTEND          ((char)62)      /* <BYTE> - for additional tags */
-#define SRL_HDR_PAD             ((char)63)      /* (ignored tag, skip to next byte) */
-#define SRL_HDR_ARRAYREF        ((char)64)      /* [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1)*/
-#define SRL_MASK_ARRAYREF_COUNT ((char)15)      /* mask to get low bits from tag */
-#define SRL_HDR_ARRAYREF_LOW    ((char)64)
-#define SRL_HDR_ARRAYREF_HIGH   ((char)79)
+#define SRL_HDR_MANY            ((U8)60)      /* <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3) */
+#define SRL_HDR_PACKET_START    ((U8)61)      /* (first byte of magic string in header) */
 
 
-#define SRL_HDR_HASHREF         ((char)80)      /* [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1)*/
-#define SRL_MASK_HASHREF_COUNT  ((char)15)      /* mask to get low bits from tag */
-#define SRL_HDR_HASHREF_LOW     ((char)80)
-#define SRL_HDR_HASHREF_HIGH    ((char)95)
+#define SRL_HDR_EXTEND          ((U8)62)      /* <BYTE> - for additional tags */
+#define SRL_HDR_PAD             ((U8)63)      /* (ignored tag, skip to next byte) */
+#define SRL_HDR_ARRAYREF        ((U8)64)      /* [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1)*/
+#define SRL_MASK_ARRAYREF_COUNT ((U8)15)      /* mask to get low bits from tag */
+#define SRL_HDR_ARRAYREF_LOW    ((U8)64)
+#define SRL_HDR_ARRAYREF_HIGH   ((U8)79)
 
-#define SRL_HDR_SHORT_BINARY    ((char)96)      /* <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
-#define SRL_HDR_SHORT_BINARY_LOW       ((char)96)
-#define SRL_HDR_SHORT_BINARY_HIGH      ((char)127)
-#define SRL_MASK_SHORT_BINARY_LEN      ((char)31)      /* mask to get length of SRL_HDR_SHORT_BINARY type tags */
 
-#define SRL_HDR_TRACK_FLAG      ((char)128)         /* if this bit is set track the item */
+#define SRL_HDR_HASHREF         ((U8)80)      /* [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1)*/
+#define SRL_MASK_HASHREF_COUNT  ((U8)15)      /* mask to get low bits from tag */
+#define SRL_HDR_HASHREF_LOW     ((U8)80)
+#define SRL_HDR_HASHREF_HIGH    ((U8)95)
+
+#define SRL_HDR_SHORT_BINARY    ((U8)96)      /* <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
+#define SRL_HDR_SHORT_BINARY_LOW       ((U8)96)
+#define SRL_HDR_SHORT_BINARY_HIGH      ((U8)127)
+#define SRL_MASK_SHORT_BINARY_LEN      ((U8)31)      /* mask to get length of SRL_HDR_SHORT_BINARY type tags */
+
+#define SRL_HDR_TRACK_FLAG      ((U8)128)         /* if this bit is set track the item */
 
 /* TODO */
 
-#define SRL_SET_FBIT(where) ((where) |= SRL_HDR_TRACK_FLAG)
+#define SRL_SET_TRACK_FLAG(where) ((where) |= SRL_HDR_TRACK_FLAG)
+
+#define SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) ((tag) & SRL_MASK_SHORT_BINARY_LEN)
+#define SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag)     ((tag) & SRL_MASK_ARRAYREF_COUNT)
+#define SRL_HDR_HASHREF_LEN_FROM_TAG(tag)      ((tag) & SRL_MASK_HASHREF_COUNT)
 
 #endif

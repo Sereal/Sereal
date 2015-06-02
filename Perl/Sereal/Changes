@@ -1,0 +1,70 @@
+Revision history for Perl extension Sereal
+
+Sereal is a dependency package that pulls in the real Sereal::Encoder
+and Sereal::Decoder.  For the actual changes between Sereal releases,
+please see the Encoder and Decoder changelogs:
+   * https://github.com/Sereal/Sereal/blob/master/Perl/Decoder/Changes
+   * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
+
+****************************************************************
+* Warning: For a seamless upgrade, upgrade to version 3        *
+*          of the decoder before upgrading to version 3 of the *
+*          encoder!                                            *
+****************************************************************
+3.005_001 Jan 27 2015
+  * Win32 fixes
+  * Build improvements
+  * Changes to how we generate constants
+
+3.005 Jan 05 2015
+  * Build improvements related to char signedness being platform
+    dependent.
+
+3.004 Dec 27 2014
+  * Performance optimizations and other miscellaneous changes.
+  * Build improvements.
+  * Win32 fixes for weakrefs.
+
+3.003 Oct 19 2014
+  * Niko Tyni fixed the 64-bit big endian Sereal bug! (Yay Niko!)
+  * Setup META.yml correctly so that certain dependencies are
+    marked as being test dependencies and not build or run-time
+    dependencies.
+  * Allow one to build against an externally supplied version
+    of csnappy or miniz. Thanks to Petr Písař <ppisar@redhat.com>
+
+3.002 Aug 20 2014
+  Summary of changes from 3.001 - 3.002
+  - Encoder: Introduce "canonical" option to encoder
+  - Encoder: Introduce "canonical_refs" option to encoder
+  - Decoder: Introduce "set_readonly" option to decoder
+  - Decooder: Introduce "set_readonly_scalars" option to decoder
+
+  * Decoder Bug fixes
+  - Fix assertion fails in DEBUG perls (Brian Fraser)
+  - Fix segfault with "into" interface when decoding references and
+    strings into the same target SV. See new test t/550_decode_into.t
+
+  * Test Infra Changes
+  - Split up bulk tests to speed up testing and make it easier
+    to see when a failure is restricted to a specific option.
+
+  * Big-Endian Support
+  - Improved support for Big-Endian machines. We now build and pass test
+    on Sparc and HP-UX and other platforms with big-endian or strict
+    alignedness requirements. Much thanks to Jarkko Hietaniemi,
+    Gregor Herrmann, and H. Merijn Brand for for their assistance with
+    this.
+  - We still have issues with s390x (Z/Os) with Sereal. If someone wants
+    to help it would be appreciated.
+
+3.001
+  - Production release 1 of protocol version 3
+  - Zlib support
+  - CANONICAL_UNDEF,
+  - new magic header to make it easier to detect
+    UTF8 encoded data.
+  - Minor changes to how scalar values are serialized
+    to favour more compact representations.
+
+Full change history available at https://github.com/Sereal/Sereal

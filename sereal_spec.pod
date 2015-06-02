@@ -10,24 +10,36 @@ Sereal - Protocol definition
 
 This document describes the format and encoding of a Sereal data packet.
 
+=head1 VERSION
+
+This is the Sereal specification version 3.00.
+
+The integer part of the document version corresponds to
+the Sereal protocol version. For details on incompatible changes between
+major protocol versions, see the L</"PROTOCOL CHANGES"> below.
+
 =head1 DESCRIPTION
 
 A serialized structure is converted into a "document". A document is made
-up of two parts, the header and the body.
+up of two parts, the document header and the document body.
 
 =head2 General Points
 
-=over 4
+=head3 Strictness
 
-=item Little Endian
+A compliant Sereal decoder must detect invalid documents and handle them
+as a safe exception in the respective implementation language.
+That is to say, without a crash or worse.
+
+=head3 Little Endian
 
 All numeric data is in little endian format.
 
-=item IEEE Floats
+=head3 IEEE Floats
 
 Floating points types are in IEEE format.
 
-=item Varints
+=head3 Varints
 
 Heavy use is made of a variable length integer encoding commonly called
 a "varint" (Google calls it a Varint128). This encoding uses the high bit
@@ -38,32 +50,43 @@ next etc.
 
 See L<Google's description|https://developers.google.com/protocol-buffers/docs/encoding#varints>.
 
-=back
-
-=head2 Header Format
+=head2 Document Header Format
 
 A header consists of multiple components:
 
    <MAGIC> <VERSION-TYPE> <HEADER-SUFFIX-SIZE> <OPT-SUFFIX>
 
-=over 4
-
-=item MAGIC
+=head3 MAGIC
 
 A "magic string" that identifies a document as being in the Sereal format.
-The value of this string is "=srl", and when decoded as an unsigned 32 bit
-integer on a little endian machine has a value of 0x6c72733d.
+In protocol version 1 and 2, the value of this string is "=srl",
+and when decoded as an unsigned 32 bit integer on a little endian machine
+has a value of 0x6C72733D. Vesion 1 and 2 of the protocol require this
+magic string.
 
-=item VERSION-TYPE
+In protocol version 3 the magic string has been changed to "=\xF3rl",
+where \xF3 is "s" with the high bit set. The little endian integer form
+of this string is 0x6C72F33D. Having a hight bit set in the magic string
+makes it easy to detect when a Sereal document has been accidentally
+UTF-8 encoded because the \xF3 is translated to \xC3\xB3.
+
+Decoders are required to support the magic string associated to the
+protocol versions they can decode, so if a decoder can handle v1, v2, and
+v3 then it should handle both magic header.
+
+It is an error to use a new magic header on a v1 or v2 packet, and it is
+an error to use the old magic header in v3 or later.
+
+=head3 VERSION-TYPE
 
 A single byte, of which the high 4 bits are used to represent the "type"
 of the document, and the low 4 bits used to represent the version of the
 Sereal protocol the document complies with.
 
-Up until now there has only been one version of Sereal released so the
-low bits will be 1.
+Up until now there have been versions 1, 2, and 3 of the Sereal protocol.
+So the low four bits will be one of those values in little-endian.
 
-Currently only two types are defined:
+Currently only three types are defined:
 
 =over 4
 
@@ -73,14 +96,47 @@ Raw Sereal format. The data can be processed verbatim.
 
 =item 1
 
-Compressed Sereal format, using Google's Snappy compression internally.
+B<This is not a valid document type for Sereal protocol version 2 and up!>
+
+In Sereal protocol version 1, this used to be
+"Compressed Sereal format, using Google's Snappy compression internally."
+It has long been advised to prefer I<2>, "incremental-decoding-enabled
+compressed Sereal," wherever possible.
+
+=item 2
+
+Compressed Sereal format, using Google's Snappy compression internally as
+format I<1>, but supporting incremental-parsing. Long preferred over
+I<1> as this is considered a bug fix in the Snappy compression support.
+
+The format is:
+
+  <Varint><Snappy Blob>
+
+where the varint signifies the length of the Snappy-compressed blob
+following it. See L</"NOTES ON IMPLEMENTATION"> below for a discussion on
+how to implement this efficiently.
+
+=item 3
+
+Compressed Sereal format, using zlib compression. This does similar framing
+as the incremental Snappy compression (2):
+
+  <Varint><Varint><Zlib Blob>
+
+where the first varint indicates the length of the uncompressed document,
+the second varint indicates the length of the compressed document.
+See L</"NOTES ON IMPLEMENTATION"> below for a discussion on
+how to implement this efficiently.
+
+This compression format is new in v3 of the specification.
 
 =back
 
 Additional compression types are envisaged and will be assigned type
 numbers by the maintainers of the protocol.
 
-=item HEADER-SUFFIX-SIZE
+=head3 HEADER-SUFFIX-SIZE
 
 The structure of the header includes support for embedding additional data.
 This is accomplished by specifying the length of the suffix
@@ -89,15 +145,41 @@ binary 0. This is intended for future format extensions that retain some
 level of compatibility for old decoders (which know how to skip the
 extended header due to the embedded length).
 
-=item OPT-SUFFIX
+=head3 OPT-SUFFIX
 
 The suffix may contain whatever data the encoder wishes to embed in the
-header. In version 1 of the protocol the decoder will never look inside
-this data. Later versions may introduce new rules for this field.
+header. In version 1 of the protocol the decoder never looked inside
+this data. Later versions may introduce additional rules for this field.
+Starting from version 2 of the protocol, this variable-length part of the header
+may be empty or have the following format:
+
+    <8bit-BITFIELD> <OPT-USER-META-DATA>
+
+=over 2
+
+=item 8bit-BITFIELD
+
+If not present, all bits are assumed off. In version 2 and 3 of the protocol,
+only the least significant bit is meaningful: If set, the bitfield is
+followed by the C<E<lt>USER-META-DATAE<gt>>. If not set, there is
+no user meta data.
+
+=item OPT-USER-META-DATA
+
+If the least significant bit of the preceding bitfield is set, this
+may be an arbitrary Sereal document body. Like any other Sereal
+document body, it is self-contained and can be deserialized independently
+from any other document bodies in the Sereal document. This document
+body is NEVER compressed.
+
+This is intended for embedding small amounts of meta data, such as
+routing information, in a document that allows users to avoid
+deserializing very large document bodies needlessly or having to
+call into decompression logic.
 
 =back
 
-=head2 Body Format
+=head2 Document Body Format
 
 The body is made up of tagged data items:
 
@@ -107,9 +189,7 @@ Tagged items can be containers that hold other tagged items.
 At the top level, the body holds only ONE tagged item (often
 an array or hash) that holds others.
 
-=over 4
-
-=item TAG
+=head3 TAG
 
 A tag is a single byte which specifies the type of the data being decoded.
 
@@ -124,17 +204,18 @@ Some tags, such as POS, NEG and SHORT_BINARY contain embedded in them
 either the data (in the case of POS and NEG) or the length of the
 OPT-DATA section (in the case of SHORT_BINARY).
 
-=item OPT-DATA
+=head3 OPT-DATA
 
 This field may contain an arbitrary set of bytes, either determined
 implicitly by the tag (such as for FLOAT), explicitly in the tag (as in
 SHORT_BINARY) or in a varint following the tag (such as for STRING).
 
-=back
-
 When referring to an offset below, what's meant is a varint encoded
-absolute integer byte position. That is, an offset of 10 refers to the
-tenth byte in the Sereal document (including its header).
+absolute integer byte position in the document body.
+That is, an offset of 10 refers to the
+tenth byte in the Sereal document body (ie. excluding its header).
+Sereal version 1 used to mandate offsets from the start of the document
+header.
 
 =head3 Tags
 
@@ -180,7 +261,7 @@ tenth byte in the Sereal document (including its header).
     FLOAT             | "\"" |  34 | 0x22 | 0b00100010 | <IEEE-FLOAT>
     DOUBLE            | "#"  |  35 | 0x23 | 0b00100011 | <IEEE-DOUBLE>
     LONG_DOUBLE       | "\$" |  36 | 0x24 | 0b00100100 | <IEEE-LONG-DOUBLE>
-    UNDEF             | "%"  |  37 | 0x25 | 0b00100101 | None - Perl undef
+    UNDEF             | "%"  |  37 | 0x25 | 0b00100101 | None - Perl undef var; eg my $var= undef;
     BINARY            | "&"  |  38 | 0x26 | 0b00100110 | <LEN-VARINT> <BYTES> - binary/(latin1) string
     STR_UTF8          | "'"  |  39 | 0x27 | 0b00100111 | <LEN-VARINT> <UTF8> - utf8 string
     REFN              | "("  |  40 | 0x28 | 0b00101000 | <ITEM-TAG>    - ref to next item
@@ -193,17 +274,17 @@ tenth byte in the Sereal document (including its header).
     COPY              | "/"  |  47 | 0x2f | 0b00101111 | <OFFSET-VARINT> - copy of item defined at offset
     WEAKEN            | "0"  |  48 | 0x30 | 0b00110000 | <REF-TAG> - Weaken the following reference
     REGEXP            | "1"  |  49 | 0x31 | 0b00110001 | <PATTERN-STR-TAG> <MODIFIERS-STR-TAG>
-    RESERVED_0        | "2"  |  50 | 0x32 | 0b00110010 | reserved
-    RESERVED_1        | "3"  |  51 | 0x33 | 0b00110011 |
-    RESERVED_2        | "4"  |  52 | 0x34 | 0b00110100 |
-    RESERVED_3        | "5"  |  53 | 0x35 | 0b00110101 |
-    RESERVED_4        | "6"  |  54 | 0x36 | 0b00110110 |
-    RESERVED_5        | "7"  |  55 | 0x37 | 0b00110111 |
-    RESERVED_6        | "8"  |  56 | 0x38 | 0b00111000 |
-    RESERVED_7        | "9"  |  57 | 0x39 | 0b00111001 | reserved
+    OBJECT_FREEZE     | "2"  |  50 | 0x32 | 0b00110010 | <STR-TAG> <ITEM-TAG> - class, object-item. Need to call "THAW" method on class after decoding
+    OBJECTV_FREEZE    | "3"  |  51 | 0x33 | 0b00110011 | <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT)
+    RESERVED_0        | "4"  |  52 | 0x34 | 0b00110100 | reserved
+    RESERVED_1        | "5"  |  53 | 0x35 | 0b00110101 |
+    RESERVED_2        | "6"  |  54 | 0x36 | 0b00110110 |
+    RESERVED_3        | "7"  |  55 | 0x37 | 0b00110111 |
+    RESERVED_4        | "8"  |  56 | 0x38 | 0b00111000 | reserved
+    CANONICAL_UNDEF   | "9"  |  57 | 0x39 | 0b00111001 | undef (PL_sv_undef) - "the" Perl undef (see notes)
     FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no)
     TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes)
-    MANY              | "<"  |  60 | 0x3c | 0b00111100 | <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 2)
+    MANY              | "<"  |  60 | 0x3c | 0b00111100 | <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3)
     PACKET_START      | "="  |  61 | 0x3d | 0b00111101 | (first byte of magic string in header)
     EXTEND            | ">"  |  62 | 0x3e | 0b00111110 | <BYTE> - for additional tags
     PAD               | "?"  |  63 | 0x3f | 0b00111111 | (ignored tag, skip to next byte)
@@ -274,7 +355,7 @@ tenth byte in the Sereal document (including its header).
 
 =for autoupdater stop
 
-=head4 The Track Bit And Cyclic Data Structures
+=head3 The Track Bit And Cyclic Data Structures
 
 The protocol uses a combination of the offset of a tracked tag and the
 flag bit to be able to encode and reconstruct cyclic structures in a single
@@ -286,11 +367,11 @@ bit of the original tag has been set.
 
 When a decoder encounters a tag with its flag set it will remember the
 offset of the tag in the output packet and the item that was decoded from
-that tag. At a later point in the packet there will be an ALIAS or REFP
+that tag. At a later point in the packet there may be an ALIAS or REFP
 instruction which will refer to the item by its offset, and the decoder
 will reuse it as needed.
 
-=head4 The COPY Tag
+=head3 The COPY Tag
 
 Sometimes it is convenient to be able to reuse a previously emitted
 sequence in the packet to reduce duplication. For instance a data
@@ -302,12 +383,12 @@ was inserted into the packet stream as a replacement for the COPY tag.
 Note, that in this case the track flag is B<not> set. It is assumed the
 decoder can jump back to reread the tag from its location alone.
 
-Copy tags are forbidden from referring to another COPY tag, and are also
+COPY tags are forbidden from referring to another COPY tag, and are also
 forbidden from referring to anything containing a COPY tag, with the
 exception that a COPY tag used as a value may refer to an tag that uses
 a COPY tag for a classname or hash key.
 
-=head4 String Types
+=head3 String Types
 
 Sereal supports three string representations. Two are "encodingless" and
 are SHORT_BINARY and BINARY, where binary means "raw bytes". The other
@@ -320,21 +401,162 @@ SHORT_BINARY stores the length of the string in the tag itself and is used
 for strings of less than 32 characters long. Both BINARY and STR_UTF8
 use a varint to indicate the number of B<bytes> (octets) in the string.
 
-=head4 Hash Keys
+=head3 Hash Keys
 
 Hash keys are always one of the string types, or a COPY tag referencing a
 string.
 
-=head4 Handling objects
+=head3 Handling Objects
 
 Objects are serialized as a class name and a tag which represents the
-objects data. In Perl land this will always be a reference. Mapping perl
-objects to other languages is left to the future.
+objects data. In Perl land this will always be a reference. Mapping Perl
+objects to other languages is left to the future, but the OBJECT_FREEZE
+and OBJECTV_FREEZE tags provide a basic method of doing that, see below.
 
 Note that classnames MUST be a string, or a COPY tag referencing a string.
 
 OBJECTV varints MUST reference a previously used classname, and not an
 arbitrary string.
+
+Sereal implementations may choose to allow authors of classes to provide
+hooks for custom object serialization. Depending on the Sereal
+implementation, this feature may require enabling with an encoder
+option on the encoding side, but compliant decoders must
+at least recognize the OBJECT_FREEZE and OBJECTV_FREEZE tags. The
+interface shall be such that if enabled in the encoder, for each
+object in the input that has a C<FREEZE> method, the encoder will invoke
+said C<FREEZE> method on the object and pass in the string C<Sereal>
+to allow distinguishing from other serializers (this is inspired by
+the C<CBOR::XS> CBOR implementation). If there is no C<FREEZE> method
+available, then a normal OBJECT or OBJECTV tag is emitted, serializing
+the object content deeply. If invoked, the C<FREEZE> method must return
+a list of data structures that are serializable by Sereal. The encoder
+shall emit an OBJECT_FREEZE or OBJECTV_FREEZE tag followed by a reference
+(REFN) to an array (ARRAY) of the Sereal-encoded data structures that
+were returned from C<FREEZE>.
+
+Upon decoding OBJECT_FREEZE or OBJECTV_FREEZE, a compliant decoder
+(unless explicitly instructed not to) will invoke the C<THAW>
+class method of the given class. (Likely, implementations should
+throw a fatal error if no such method exists for a class referenced
+by OBJECT(V)_FREEZE.) Arguments to that method will be the string
+C<Sereal> as first argument, and then the decoded data structures
+that were returned from the C<FREEZE> call.
+The return value of that C<THAW> call needs
+to be included in the final output structure. See the documentation
+of the Perl Sereal implemenation for examples of FREEZE/THAW methods.
+
+=head3 Dealing with undefined values
+
+The concept of undef is a little tricky in Perl. A variable may be
+undefined, in addition there is also a definitive "undef" which Perl
+uses in many situations. This definitive "undef" is a globally shared,
+immutable value. Its use is vaguely equivalent to aliasing the same,
+read-only copy of a Perl value that happens to be undefined.
+
+The difference can be illustrated with the following code:
+
+    my $x;
+    print +(\$x    == \$x)     ? "same" : "different", "\n";
+    print +(\undef == \undef)  ? "same" : "different", "\n";
+    print +(\$x    == \undef)  ? "same" : "different", "\n";
+
+which should print out
+
+    same
+    same
+    different
+
+In protocol versions 1 and 2 it was not possible to represent both forms
+of undef correctly, and Sereal defaulted to the "undefined variable"
+interpretation represented by the UNDEF tag in most situations.
+
+As of protocol version 3 the CANONICAL_UNDEF tag is used to handle this special
+case of undef so that Perl data structures can round trip properly.
+Other languages are free to treat CANONICAL_UNDEF and UNDEF as is appropriate
+to their language semantics:
+If there is an equivalent to this globally shared undefined value (PL_sv_undef in Perl's
+implementation) then they should map CANONICAL_UNDEF
+accordingly, otherwise they are free to treat CANONICAL_UNDEF the same as UNDEF.
+
+=head1 PROTOCOL CHANGES
+
+=head2 Protocol Version 3
+
+In Sereal protocol version 3, the magic string has been changed to make it
+easier to detect UTF-8 encoded data by setting the high bit on the 's'
+character, thus changing the older "=srl" to "=\xF3rl". Encoders generating
+version 3 of the protocol or later must use the new header, and encoders
+generating version 1 or 2 of the protocol must use the old header.
+
+Also new is the "zlib" compression (document type 3). As detailed above, its
+structure is
+
+  <Varint><Varint><Zlib Blob>
+
+where the first varint indicates the length of the uncompressed document,
+the second varint indicates the length of the compressed document.
+
+Additionally there is the new CANONICAL_UNDEF tag, used to represent Perl's
+canonical, shared undefined value (PL_sv_undef) in certain edge cases.
+See L<Dealing with undefined values> for details.
+
+=head2 Protocol Version 2
+
+In Sereal protocol version 2, offsets were changed from being relative to
+the start of the document (including header) to being relative to the start
+of the document body (ie. excluding the document header). This means that
+Sereal document bodies are now self-contained - relocatable within the document.
+Note that the offset is 1-based, which means that to point the first byte
+of the body its value must be 1.
+
+Additionally, protocol version 2 introduced the 8bit bit-field (8bit-BITFIELD)
+in the variable-length/optional header part (OPT-SUFFIX) of the document
+and the user-meta-data section (OPT-USER-META-DATA) of the variable-length header.
+
+Protocol version 2 introduces the OBJECT_FREEZE and OBJECTV_FREEZE tags in
+place of two previously reserved tags. The meaning and implementation of these
+two tags is described in the L</"Handling Objects"> section of this document.
+In a nutshell, it allows application developers to have custom hooks for
+serializing and deserializing the instances of their classes.
+
+=head1 NOTES ON IMPLEMENTATION
+
+=head2 Encoding the Length of Compressed Documents
+
+With Sereal body format type 2 (see above), you need to encode (as a varint)
+the length of the Snappy-compressed document as a prefix to the document body.
+This is somewhat tricky to do efficiently since at first sight,
+the amount of space required to encode a varint depends on the size of the
+output. This means that you need to do the normal Sereal-encoding of the
+document body, then compress the output of that, then append the varint
+encoded length of the compressed data to a Sereal header, then append the
+compressed data. In this naive way of implementing this Snappy compression
+support, you may end up having to copy around the entire document up to three
+times (and may end up having to allocate 3x the space, too). That is very
+inefficient.
+
+There is a better way, though, that's just a tiny bit subtle.
+Thankfully, you have an upper bound on the
+size of the compressed blob. It's the uncompressed blob plus the size of
+the Snappy header (a Snappy library call can tell you what that is in
+practice). What you can do is before compressing, you allocate a varint
+that is long enough to encode an integer that is big enough to represent
+the upper limit on the compressed output size. Then you proceed to
+point the compressor into the buffer right after the thusly preallocated
+varint. After compression, you'll know the real size of the compressed
+blob. Now, you go back to the varint and fill it in. If the reserved
+space for the varint is B<larger> than what you actually need, then
+thanks to the way varints work, you can simply set the high bit on the
+last byte of the varint, and continue to set the high bits of all following
+padding bytes B<except the last>, which you set to 0 (NUL). For details
+on why that works, please refer to the Google ProtoBuf documentation
+referenced earlier. With this specially crafted varint, any normal
+varint parsing function will treat it as a single varint and skip right
+to the start of theSnappy-compressed blob. The varint is a correct
+varint, just not in the canonical form. With this modified plan, you
+should only need one extra malloc, and (beyond that which the Snappy
+implementation does), no extra, large memcpy operations.
 
 =head1 AUTHOR
 
@@ -356,9 +578,9 @@ and CPAN, for which the authors would like to express their gratitude.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2012 by Steffen Mueller
+Copyright (C) 2012, 2013, 2014 by Steffen Mueller
 
-Copyright (C) 2012 by Yves Orton
+Copyright (C) 2012, 2013, 2014 by Yves Orton
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

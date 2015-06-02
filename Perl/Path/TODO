@@ -1,0 +1,6 @@
+- not implemented operators
+- internal indexes
+- documentation
+- improve tests
+- handling REFP, COPY, ALIAS tags
+- return paths (returns canonical JSONPaths that point towards those structures)

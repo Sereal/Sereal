@@ -1,0 +1,5 @@
+lib/
+tmp
+sereal-*.gem
+__stream_rb_bench_sereal.stream
+__stream_rb_bench_msgpack.stream

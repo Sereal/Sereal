@@ -3,6 +3,7 @@
 *~
 *.bak
 Java/bin/
+Java/target/
 Python/build
 *.o
 *.so
