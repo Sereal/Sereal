@@ -622,7 +622,7 @@ srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src, const U32 compre
      * + potentially uncompressed size varint
      * +  1 byte varint that indicates zero-length header */
     BUF_SIZE_ASSERT(&enc->buf, sizeof(SRL_MAGIC_STRING) + 1 + 1);
-    if (LIKELY( enc->protocol_version > 2 ))
+    if (expect_true( enc->protocol_version > 2 ))
       srl_buf_cat_str_s_nocheck(&enc->buf, SRL_MAGIC_STRING_HIGHBIT);
     else
       srl_buf_cat_str_s_nocheck(&enc->buf, SRL_MAGIC_STRING);
