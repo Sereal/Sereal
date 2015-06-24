@@ -112,7 +112,7 @@ are ignored. They are otherwise recognized for compatibility only.
 The size threshold (in bytes) of the uncompressed output below which
 compression is not even attempted even if enabled.
 Defaults to one kilobyte (1024 bytes). Set this to 0 and C<compress> to
-a non-zero value to always attempt to compress.
+a non-C<SRL_UNCOMPRESSED> value to always attempt to compress.
 Note that the document will not be compressed if the resulting size
 will be bigger than the original size (even if C<compress_threshold> is 0).
 
