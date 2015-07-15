@@ -1,12 +1,20 @@
 #!/bin/bash
 pushd ~/git_tree/Sereal/Perl/Encoder
 perl Makefile.PL
-make "$@"
+make
 popd
 pushd ~/git_tree/Sereal/Perl/Decoder
 perl Makefile.PL
-make "$@"
+make
 popd
-
+if [ "$#" != "0" ]
+then
+    pushd ~/git_tree/Sereal/Perl/Encoder
+    make "$@"
+    popd
+    pushd ~/git_tree/Sereal/Perl/Decoder
+    make "$@"
+    popd
+fi
 
 
