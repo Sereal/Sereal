@@ -371,12 +371,16 @@ srl_empty_encoder_struct(pTHX)
     return enc;
 }
 
-#define my_hv_fetchs(he,val,opt,idx) STMT_START {                   \
-    he = hv_fetch_ent(opt, options[idx].sv, 0, options[idx].hash);  \
-    if (he)                                                         \
-        val= HeVAL(he);                                             \
-    else                                                            \
-        val= NULL;                                                  \
+#define my_hv_fetchs(fetched_he, val_sv, opt_hv, opt_key_idx, keys_seen_counter) \
+STMT_START {                                                        \
+    fetched_he = hv_fetch_ent(opt_hv, options[opt_key_idx].sv, 0,   \
+            options[opt_key_idx].hash);                             \
+    if (fetched_he) {                                               \
+        val_sv= HeVAL(fetched_he);                                  \
+        keys_seen_counter++;                                        \
+    } else {                                                        \
+        val_sv= NULL;                                               \
+    }                                                               \
 } STMT_END
 
 /* Builds the C-level configuration and state struct. */
@@ -385,7 +389,10 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
 {
     srl_encoder_t *enc;
     SV *val;
+    SV *canonical_val_sv= NULL;
     HE *he;
+    I32 keys_seen_counter = 0;
+    I32 tried_canonical = 0;
 
     enc = srl_empty_encoder_struct(aTHX);
     enc->flags = 0;
@@ -395,13 +402,13 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
         int undef_unknown = 0;
         int compression_format = 0;
         /* SRL_F_SHARED_HASHKEYS on by default */
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_NO_SHARED_HASHKEYS);
+        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_NO_SHARED_HASHKEYS, keys_seen_counter);
         if ( !val || !SvTRUE(val) )
             SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
 
         /* Needs to be before the snappy options */
         /* enc->protocol_version defaults to SRL_PROTOCOL_VERSION. */
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_PROTOCOL_VERSION);
+        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_PROTOCOL_VERSION, keys_seen_counter);
         if (val && SvOK(val)) {
             enc->protocol_version = SvUV(val);
             if (enc->protocol_version < 1
@@ -413,20 +420,20 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
         }
         else {
             /* Compatibility with the old way to specify older protocol version */
-            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_USE_PROTOCOL_V1);
+            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_USE_PROTOCOL_V1, keys_seen_counter);
             if ( val && SvTRUE(val) )
                 enc->protocol_version = 1;
         }
 
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CROAK_ON_BLESS);
+        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CROAK_ON_BLESS, keys_seen_counter);
         if ( val && SvTRUE(val) )
             SRL_ENC_SET_OPTION(enc, SRL_F_CROAK_ON_BLESS);
 
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_NO_BLESS_OBJECTS);
+        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_NO_BLESS_OBJECTS, keys_seen_counter);
         if ( val && SvTRUE(val) )
             SRL_ENC_SET_OPTION(enc, SRL_F_NO_BLESS_OBJECTS);
 
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_FREEZE_CALLBACKS);
+        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_FREEZE_CALLBACKS, keys_seen_counter);
         if ( val && SvTRUE(val) ) {
             if (SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS))
                 croak("The no_bless_objects and freeze_callback_support "
@@ -435,7 +442,7 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
             enc->sereal_string_sv = newSVpvs("Sereal");
         }
 
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_COMPRESS);
+        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_COMPRESS, keys_seen_counter);
         if (val) {
             compression_format = SvIV(val);
 
@@ -452,7 +459,7 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
                     croak("Zlib compression was introduced in protocol version 3 and you are asking for only version %i", (int)enc->protocol_version);
 
                 enc->compress_level = MZ_DEFAULT_COMPRESSION;
-                my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_COMPRESS_LEVEL);
+                my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_COMPRESS_LEVEL, keys_seen_counter);
                 if ( val && SvTRUE(val) ) {
                     IV lvl = SvIV(val);
                     if (expect_false( lvl < 1 || lvl > 10 )) /* Sekrit: compression lvl 10 is a miniz thing that doesn't exist in normal zlib */
@@ -467,14 +474,14 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
         else {
             /* Only bother with old compression options if necessary */
 
-            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_SNAPPY_INCR);
+            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_SNAPPY_INCR, keys_seen_counter);
             if ( val && SvTRUE(val) ) {
                 SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
                 compression_format = 1;
             }
              else {
                 /* snappy_incr >> snappy */
-                my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_SNAPPY);
+                my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_SNAPPY, keys_seen_counter);
                 if ( val && SvTRUE(val) ) {
                     /* incremental is the new black in V2 */
                     if (expect_true( enc->protocol_version > 1 ))
@@ -486,34 +493,42 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
             }
         }
 
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_UNDEF_UNKNOWN);
+        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_UNDEF_UNKNOWN, keys_seen_counter);
         if ( val && SvTRUE(val) ) {
             undef_unknown = 1;
             SRL_ENC_SET_OPTION(enc, SRL_F_UNDEF_UNKNOWN);
         }
 
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_SORT_KEYS);
-        if ( !val )
-            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CANONICAL);
+        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_SORT_KEYS, keys_seen_counter);
+        if ( !val ) {
+            my_hv_fetchs(he, canonical_val_sv, opt, SRL_ENC_OPT_IDX_CANONICAL, keys_seen_counter);
+            tried_canonical= 1;
+            val= canonical_val_sv;
+        }
         if ( val && SvTRUE(val) )
             SRL_ENC_SET_OPTION(enc, SRL_F_SORT_KEYS);
 
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CANONICAL_REFS);
-        if ( !val )
-            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CANONICAL);
+        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CANONICAL_REFS, keys_seen_counter);
+        if ( !val ) {
+            if (!tried_canonical) {
+                my_hv_fetchs(he, canonical_val_sv, opt, SRL_ENC_OPT_IDX_CANONICAL, keys_seen_counter);
+                tried_canonical= 1;
+            }
+            val= canonical_val_sv;
+        }
         if ( val && SvTRUE(val) )
             SRL_ENC_SET_OPTION(enc, SRL_F_CANONICAL_REFS);
 
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_ALIASED_DEDUPE_STRINGS);
+        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_ALIASED_DEDUPE_STRINGS, keys_seen_counter);
         if ( val && SvTRUE(val) )
             SRL_ENC_SET_OPTION(enc, SRL_F_ALIASED_DEDUPE_STRINGS | SRL_F_DEDUPE_STRINGS);
         else {
-            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_DEDUPE_STRINGS);
+            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_DEDUPE_STRINGS, keys_seen_counter);
             if ( val && SvTRUE(val) )
                 SRL_ENC_SET_OPTION(enc, SRL_F_DEDUPE_STRINGS);
         }
 
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_STRINGIFY_UNKNOWN);
+        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_STRINGIFY_UNKNOWN, keys_seen_counter);
         if ( val && SvTRUE(val) ) {
             if (expect_false( undef_unknown ))
                 croak("'undef_unknown' and 'stringify_unknown' "
@@ -521,7 +536,7 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
             SRL_ENC_SET_OPTION(enc, SRL_F_STRINGIFY_UNKNOWN);
         }
 
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_WARN_UNKNOWN);
+        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_WARN_UNKNOWN, keys_seen_counter);
         if ( val && SvTRUE(val) ) {
             SRL_ENC_SET_OPTION(enc, SRL_F_WARN_UNKNOWN);
             if (SvIV(val) < 0)
@@ -530,20 +545,51 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
 
         if (compression_format) {
             enc->compress_threshold = 1024;
-            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_COMPRESS_THRESHOLD);
+            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_COMPRESS_THRESHOLD, keys_seen_counter);
             if ( val && SvOK(val) )
                 enc->compress_threshold = SvIV(val);
             else if (compression_format == 1) {
                 /* compression_format==1 is some sort of Snappy */
-                my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_SNAPPY_THRESHOLD);
+                my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_SNAPPY_THRESHOLD, keys_seen_counter);
                 if ( val && SvOK(val) )
                     enc->compress_threshold = SvIV(val);
             }
         }
 
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_MAX_RECURSION_DEPTH);
+        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_MAX_RECURSION_DEPTH, keys_seen_counter);
         if ( val && SvTRUE(val) )
             enc->max_recursion_depth = SvUV(val);
+
+        if ( HvUSEDKEYS(opt) != keys_seen_counter ) {
+            HE *he;
+            (void)hv_iterinit(opt); /* return value not reliable according to API docs */
+            while ((he = hv_iternext(opt))) {
+                I32 found_key= 0;
+                I32 idx;
+                STRLEN key_len;
+                char *key_pv= HePV(he, key_len);
+                U32 key_hash= HeHASH(he);
+
+                for ( idx = 0; idx <= SRL_ENC_OPT_COUNT; idx++ ) {
+                    if ( key_hash == options[idx].hash ) {
+                        STRLEN opt_len;
+                        char *opt_pv= SvPV(options[idx].sv, opt_len);
+                        if ( opt_len == key_len 
+                            && strnEQ(key_pv,opt_pv,key_len) 
+                        ) {
+                            found_key= 1;
+                            break;
+                        }
+                    }
+                }
+                if ( ! found_key ) {
+                    STRLEN len;
+                    char *pv= HePV(he, len);
+                    warn("Found unknown key '%*s' in options hash", (int)len, pv);
+                }
+            }
+            warn("There are %ld unknown keys in options hash", HvUSEDKEYS(opt) - keys_seen_counter);
+        }
     }
     else {
         /* SRL_F_SHARED_HASHKEYS on by default */
