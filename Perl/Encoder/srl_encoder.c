@@ -397,7 +397,10 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     enc->flags = 0;
 
     /* load options */
-    if (opt != NULL) {
+    if (opt == NULL) {
+        /* SRL_F_SHARED_HASHKEYS on by default */
+        SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
+    } else {
         int undef_unknown = 0;
         int compression_format = 0;
         /* SRL_F_SHARED_HASHKEYS on by default */
@@ -600,10 +603,6 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
                 }
             }
         }
-    }
-    else {
-        /* SRL_F_SHARED_HASHKEYS on by default */
-        SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
     }
 
     DEBUG_ASSERT_BUF_SANE(&enc->buf);
