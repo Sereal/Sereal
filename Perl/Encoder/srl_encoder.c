@@ -371,9 +371,9 @@ srl_empty_encoder_struct(pTHX)
     return enc;
 }
 
-#define GET_OPT_SV(val_sv, opt_hv, opt_key_idx, keys_seen_counter) \
+#define GET_OPT_SV(val_sv, opt_key_idx) \
 STMT_START {                                                        \
-    HE *fetched_he = hv_fetch_ent(opt_hv, options[opt_key_idx].sv, 0,   \
+    HE *fetched_he = hv_fetch_ent(opt, options[opt_key_idx].sv, 0,   \
             options[opt_key_idx].hash);                             \
     if (fetched_he) {                                               \
         val_sv= HeVAL(fetched_he);                                  \
@@ -404,13 +404,13 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
         int undef_unknown = 0;
         int compression_format = 0;
         /* SRL_F_SHARED_HASHKEYS on by default */
-        GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_NO_SHARED_HASHKEYS, keys_seen_counter);
+        GET_OPT_SV(val, SRL_ENC_OPT_IDX_NO_SHARED_HASHKEYS);
         if ( !val || !SvTRUE(val) )
             SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
 
         /* Needs to be before the snappy options */
         /* enc->protocol_version defaults to SRL_PROTOCOL_VERSION. */
-        GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_PROTOCOL_VERSION, keys_seen_counter);
+        GET_OPT_SV(val, SRL_ENC_OPT_IDX_PROTOCOL_VERSION);
         if (val && SvOK(val)) {
             enc->protocol_version = SvUV(val);
             if (enc->protocol_version < 1
@@ -422,20 +422,20 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
         }
         else {
             /* Compatibility with the old way to specify older protocol version */
-            GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_USE_PROTOCOL_V1, keys_seen_counter);
+            GET_OPT_SV(val, SRL_ENC_OPT_IDX_USE_PROTOCOL_V1);
             if ( val && SvTRUE(val) )
                 enc->protocol_version = 1;
         }
 
-        GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_CROAK_ON_BLESS, keys_seen_counter);
+        GET_OPT_SV(val, SRL_ENC_OPT_IDX_CROAK_ON_BLESS);
         if ( val && SvTRUE(val) )
             SRL_ENC_SET_OPTION(enc, SRL_F_CROAK_ON_BLESS);
 
-        GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_NO_BLESS_OBJECTS, keys_seen_counter);
+        GET_OPT_SV(val, SRL_ENC_OPT_IDX_NO_BLESS_OBJECTS);
         if ( val && SvTRUE(val) )
             SRL_ENC_SET_OPTION(enc, SRL_F_NO_BLESS_OBJECTS);
 
-        GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_FREEZE_CALLBACKS, keys_seen_counter);
+        GET_OPT_SV(val, SRL_ENC_OPT_IDX_FREEZE_CALLBACKS);
         if ( val && SvTRUE(val) ) {
             if (SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS))
                 croak("The no_bless_objects and freeze_callback_support "
@@ -444,7 +444,7 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
             enc->sereal_string_sv = newSVpvs("Sereal");
         }
 
-        GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_COMPRESS, keys_seen_counter);
+        GET_OPT_SV(val, SRL_ENC_OPT_IDX_COMPRESS);
         if (val) {
             compression_format = SvIV(val);
 
@@ -461,7 +461,7 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
                     croak("Zlib compression was introduced in protocol version 3 and you are asking for only version %i", (int)enc->protocol_version);
 
                 enc->compress_level = MZ_DEFAULT_COMPRESSION;
-                GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_COMPRESS_LEVEL, keys_seen_counter);
+                GET_OPT_SV(val, SRL_ENC_OPT_IDX_COMPRESS_LEVEL);
                 if ( val && SvTRUE(val) ) {
                     IV lvl = SvIV(val);
                     if (expect_false( lvl < 1 || lvl > 10 )) /* Sekrit: compression lvl 10 is a miniz thing that doesn't exist in normal zlib */
@@ -476,14 +476,14 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
         else {
             /* Only bother with old compression options if necessary */
 
-            GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_SNAPPY_INCR, keys_seen_counter);
+            GET_OPT_SV(val, SRL_ENC_OPT_IDX_SNAPPY_INCR);
             if ( val && SvTRUE(val) ) {
                 SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
                 compression_format = 1;
             }
              else {
                 /* snappy_incr >> snappy */
-                GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_SNAPPY, keys_seen_counter);
+                GET_OPT_SV(val, SRL_ENC_OPT_IDX_SNAPPY);
                 if ( val && SvTRUE(val) ) {
                     /* incremental is the new black in V2 */
                     if (expect_true( enc->protocol_version > 1 ))
@@ -495,25 +495,25 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
             }
         }
 
-        GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_UNDEF_UNKNOWN, keys_seen_counter);
+        GET_OPT_SV(val, SRL_ENC_OPT_IDX_UNDEF_UNKNOWN);
         if ( val && SvTRUE(val) ) {
             undef_unknown = 1;
             SRL_ENC_SET_OPTION(enc, SRL_F_UNDEF_UNKNOWN);
         }
 
-        GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_SORT_KEYS, keys_seen_counter);
+        GET_OPT_SV(val, SRL_ENC_OPT_IDX_SORT_KEYS);
         if ( !val ) {
-            GET_OPT_SV(canonical_val_sv, opt, SRL_ENC_OPT_IDX_CANONICAL, keys_seen_counter);
+            GET_OPT_SV(canonical_val_sv, opt, SRL_ENC_OPT_IDX_CANONICAL);
             tried_canonical= 1;
             val= canonical_val_sv;
         }
         if ( val && SvTRUE(val) )
             SRL_ENC_SET_OPTION(enc, SRL_F_SORT_KEYS);
 
-        GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_CANONICAL_REFS, keys_seen_counter);
+        GET_OPT_SV(val, SRL_ENC_OPT_IDX_CANONICAL_REFS);
         if ( !val ) {
             if (!tried_canonical) {
-                GET_OPT_SV(canonical_val_sv, opt, SRL_ENC_OPT_IDX_CANONICAL, keys_seen_counter);
+                GET_OPT_SV(canonical_val_sv, opt, SRL_ENC_OPT_IDX_CANONICAL);
                 tried_canonical= 1;
             }
             val= canonical_val_sv;
@@ -521,16 +521,16 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
         if ( val && SvTRUE(val) )
             SRL_ENC_SET_OPTION(enc, SRL_F_CANONICAL_REFS);
 
-        GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_ALIASED_DEDUPE_STRINGS, keys_seen_counter);
+        GET_OPT_SV(val, SRL_ENC_OPT_IDX_ALIASED_DEDUPE_STRINGS);
         if ( val && SvTRUE(val) )
             SRL_ENC_SET_OPTION(enc, SRL_F_ALIASED_DEDUPE_STRINGS | SRL_F_DEDUPE_STRINGS);
         else {
-            GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_DEDUPE_STRINGS, keys_seen_counter);
+            GET_OPT_SV(val, SRL_ENC_OPT_IDX_DEDUPE_STRINGS);
             if ( val && SvTRUE(val) )
                 SRL_ENC_SET_OPTION(enc, SRL_F_DEDUPE_STRINGS);
         }
 
-        GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_STRINGIFY_UNKNOWN, keys_seen_counter);
+        GET_OPT_SV(val, SRL_ENC_OPT_IDX_STRINGIFY_UNKNOWN);
         if ( val && SvTRUE(val) ) {
             if (expect_false( undef_unknown ))
                 croak("'undef_unknown' and 'stringify_unknown' "
@@ -538,7 +538,7 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
             SRL_ENC_SET_OPTION(enc, SRL_F_STRINGIFY_UNKNOWN);
         }
 
-        GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_WARN_UNKNOWN, keys_seen_counter);
+        GET_OPT_SV(val, SRL_ENC_OPT_IDX_WARN_UNKNOWN);
         if ( val && SvTRUE(val) ) {
             SRL_ENC_SET_OPTION(enc, SRL_F_WARN_UNKNOWN);
             if (SvIV(val) < 0)
@@ -547,18 +547,18 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
 
         if (compression_format) {
             enc->compress_threshold = 1024;
-            GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_COMPRESS_THRESHOLD, keys_seen_counter);
+            GET_OPT_SV(val, SRL_ENC_OPT_IDX_COMPRESS_THRESHOLD);
             if ( val && SvOK(val) )
                 enc->compress_threshold = SvIV(val);
             else if (compression_format == 1) {
                 /* compression_format==1 is some sort of Snappy */
-                GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_SNAPPY_THRESHOLD, keys_seen_counter);
+                GET_OPT_SV(val, SRL_ENC_OPT_IDX_SNAPPY_THRESHOLD);
                 if ( val && SvOK(val) )
                     enc->compress_threshold = SvIV(val);
             }
         }
 
-        GET_OPT_SV(val, opt, SRL_ENC_OPT_IDX_MAX_RECURSION_DEPTH, keys_seen_counter);
+        GET_OPT_SV(val, SRL_ENC_OPT_IDX_MAX_RECURSION_DEPTH);
         if ( val && SvTRUE(val) )
             enc->max_recursion_depth = SvUV(val);
 
