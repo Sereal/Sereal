@@ -983,7 +983,8 @@ sub deep_cmp {
 
 sub run_roundtrip_tests_internal {
     my ($ename, $opt, $encode_decode_callbacks) = @_;
-    require Data::Dumper;
+
+    local $Sereal::Encoder::DetectBadOpt = 0;
 
     my $decoder = Sereal::Decoder->new($opt);
     my $encoder = Sereal::Encoder->new($opt);

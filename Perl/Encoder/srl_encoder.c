@@ -561,34 +561,45 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
             enc->max_recursion_depth = SvUV(val);
 
         if ( HvUSEDKEYS(opt) != keys_seen_counter ) {
-            HE *he;
-            (void)hv_iterinit(opt); /* return value not reliable according to API docs */
-            while ((he = hv_iternext(opt))) {
-                I32 found_key= 0;
-                I32 idx;
-                STRLEN key_len;
-                char *key_pv= HePV(he, key_len);
-                U32 key_hash= HeHASH(he);
+            SV *DetectBadOpt= get_sv("Sereal::Encoder::DetectBadOpt",GV_ADD);
+            if (SvTRUE(DetectBadOpt)) {
+                HE *he;
+                (void)hv_iterinit(opt); /* return value not reliable according to API docs */
+                while ((he = hv_iternext(opt))) {
+                    I32 found_key= 0;
+                    I32 idx;
+                    STRLEN key_len;
+                    char *key_pv= HePV(he, key_len);
+                    U32 key_hash= HeHASH(he);
 
-                for ( idx = 0; idx <= SRL_ENC_OPT_COUNT; idx++ ) {
-                    if ( key_hash == options[idx].hash ) {
-                        STRLEN opt_len;
-                        char *opt_pv= SvPV(options[idx].sv, opt_len);
-                        if ( opt_len == key_len 
-                            && strnEQ(key_pv,opt_pv,key_len) 
-                        ) {
-                            found_key= 1;
-                            break;
+                    for ( idx = 0; idx <= SRL_ENC_OPT_COUNT; idx++ ) {
+                        if ( key_hash == options[idx].hash ) {
+                            STRLEN opt_len;
+                            char *opt_pv= SvPV(options[idx].sv, opt_len);
+                            if ( opt_len == key_len
+                                && strnEQ(key_pv,opt_pv,key_len)
+                            ) {
+                                found_key= 1;
+                                break;
+                            }
+                        }
+                    }
+                    if ( ! found_key ) {
+                        STRLEN len;
+                        char *pv= HePV(he, len);
+                        if (SvIV(DetectBadOpt) > 1) {
+                            croak("Fatal error, found unknown key '%*s' in options hash", (int)len, pv);
+                        } else {
+                            warn("Warning, found unknown key '%*s' in options hash", (int)len, pv);
                         }
                     }
                 }
-                if ( ! found_key ) {
-                    STRLEN len;
-                    char *pv= HePV(he, len);
-                    warn("Found unknown key '%*s' in options hash", (int)len, pv);
+                if (SvIV(DetectBadOpt) > 1 ) {
+                    croak("Fatal error, there are %ld unknown keys in options hash", HvUSEDKEYS(opt) - keys_seen_counter);
+                } else {
+                    warn("Warning, there are %ld unknown keys in options hash", HvUSEDKEYS(opt) - keys_seen_counter);
                 }
             }
-            warn("There are %ld unknown keys in options hash", HvUSEDKEYS(opt) - keys_seen_counter);
         }
     }
     else {

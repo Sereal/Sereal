@@ -29,6 +29,7 @@ our @EXPORT_OK = qw(
   SRL_SNAPPY
   SRL_ZLIB
 );
+our $DetectBadOpt= 1; # 0: nothing, 1: warn, 2: croak
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 # export by default if run from command line
 our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
