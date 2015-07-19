@@ -503,7 +503,7 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
 
         GET_OPT_SV(val, SRL_ENC_OPT_IDX_SORT_KEYS);
         if ( !val ) {
-            GET_OPT_SV(canonical_val_sv, opt, SRL_ENC_OPT_IDX_CANONICAL);
+            GET_OPT_SV(canonical_val_sv, SRL_ENC_OPT_IDX_CANONICAL);
             tried_canonical= 1;
             val= canonical_val_sv;
         }
@@ -513,7 +513,7 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
         GET_OPT_SV(val, SRL_ENC_OPT_IDX_CANONICAL_REFS);
         if ( !val ) {
             if (!tried_canonical) {
-                GET_OPT_SV(canonical_val_sv, opt, SRL_ENC_OPT_IDX_CANONICAL);
+                GET_OPT_SV(canonical_val_sv, SRL_ENC_OPT_IDX_CANONICAL);
                 tried_canonical= 1;
             }
             val= canonical_val_sv;
