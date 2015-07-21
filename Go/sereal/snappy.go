@@ -12,10 +12,7 @@ func (c SnappyCompressor) compress(b []byte) ([]byte, error) {
 	//     store the compressed document, which isn't necessary.  You
 	//     could probably write directly to the slice after the header
 	//     and after the varint holding the length
-	compressed, err := snappyEncode(nil, b)
-	if err != nil {
-		return nil, err
-	}
+	compressed := snappyEncode(nil, b)
 
 	if c.Incremental {
 		// shrink down b to reuse the allocated buffer
