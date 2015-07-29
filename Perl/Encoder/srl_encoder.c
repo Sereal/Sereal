@@ -372,16 +372,7 @@ srl_empty_encoder_struct(pTHX)
 }
 
 #define GET_OPT_SV(val_sv, opt_key_idx) \
-STMT_START {                                                        \
-    HE *fetched_he = hv_fetch_ent(opt, options[opt_key_idx].sv, 0,   \
-            options[opt_key_idx].hash);                             \
-    if (fetched_he) {                                               \
-        val_sv= HeVAL(fetched_he);                                  \
-        keys_seen_counter++;                                        \
-    } else {                                                        \
-        val_sv= NULL;                                               \
-    }                                                               \
-} STMT_END
+        val_sv= opts_sv[opt_key_idx]
 
 /* Builds the C-level configuration and state struct. */
 srl_encoder_t *
@@ -403,6 +394,42 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     } else {
         int undef_unknown = 0;
         int compression_format = 0;
+
+        SV *opts_sv[SRL_ENC_OPT_COUNT];
+        HE *he;
+        Zero(opts_sv,SRL_ENC_OPT_COUNT,SV*);
+        (void)hv_iterinit(opt); /* return value not reliable according to API docs */
+    nextkey:
+        while ((he = hv_iternext(opt))) {
+            I32 idx;
+            STRLEN key_len;
+            char *key_pv= HePV(he, key_len);
+            U32 key_hash= HeHASH(he);
+            SV *val_sv= NULL;
+
+            for ( idx = 0; idx <= SRL_ENC_OPT_COUNT; idx++ ) {
+                if ( key_hash == options[idx].hash ) {
+                    STRLEN opt_len;
+                    char *opt_pv= SvPV(options[idx].sv, opt_len);
+                    if ( opt_len == key_len
+                        && strnEQ(key_pv,opt_pv,key_len)
+                    ) {
+                        opts_sv[idx]= val_sv= HeVAL(he);
+                        break;
+                    }
+                }
+            }
+            if ( ! val_sv ) {
+                SV *DetectBadOpt= get_sv("Sereal::Encoder::DetectBadOpt",GV_ADD);
+                IV level = SvIV(DetectBadOpt);
+                if ( level > 1 ) {
+                    croak("Fatal error, found unknown key '%*s' in options hash", (int)key_len, key_pv);
+                } else if ( level == 1 ) {
+                    warn("Warning, found unknown key '%*s' in options hash", (int)key_len, key_pv);
+                }
+            }
+        }
+
         /* SRL_F_SHARED_HASHKEYS on by default */
         GET_OPT_SV(val, SRL_ENC_OPT_IDX_NO_SHARED_HASHKEYS);
         if ( !val || !SvTRUE(val) )
@@ -561,48 +588,6 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
         GET_OPT_SV(val, SRL_ENC_OPT_IDX_MAX_RECURSION_DEPTH);
         if ( val && SvTRUE(val) )
             enc->max_recursion_depth = SvUV(val);
-
-        if ( HvUSEDKEYS(opt) != keys_seen_counter ) {
-            SV *DetectBadOpt= get_sv("Sereal::Encoder::DetectBadOpt",GV_ADD);
-            if (SvTRUE(DetectBadOpt)) {
-                HE *he;
-                (void)hv_iterinit(opt); /* return value not reliable according to API docs */
-                while ((he = hv_iternext(opt))) {
-                    I32 found_key= 0;
-                    I32 idx;
-                    STRLEN key_len;
-                    char *key_pv= HePV(he, key_len);
-                    U32 key_hash= HeHASH(he);
-
-                    for ( idx = 0; idx <= SRL_ENC_OPT_COUNT; idx++ ) {
-                        if ( key_hash == options[idx].hash ) {
-                            STRLEN opt_len;
-                            char *opt_pv= SvPV(options[idx].sv, opt_len);
-                            if ( opt_len == key_len
-                                && strnEQ(key_pv,opt_pv,key_len)
-                            ) {
-                                found_key= 1;
-                                break;
-                            }
-                        }
-                    }
-                    if ( ! found_key ) {
-                        STRLEN len;
-                        char *pv= HePV(he, len);
-                        if (SvIV(DetectBadOpt) > 1) {
-                            croak("Fatal error, found unknown key '%*s' in options hash", (int)len, pv);
-                        } else {
-                            warn("Warning, found unknown key '%*s' in options hash", (int)len, pv);
-                        }
-                    }
-                }
-                if (SvIV(DetectBadOpt) > 1 ) {
-                    croak("Fatal error, there are %ld unknown keys in options hash", HvUSEDKEYS(opt) - keys_seen_counter);
-                } else {
-                    warn("Warning, there are %ld unknown keys in options hash", HvUSEDKEYS(opt) - keys_seen_counter);
-                }
-            }
-        }
     }
 
     DEBUG_ASSERT_BUF_SANE(&enc->buf);
