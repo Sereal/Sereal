@@ -419,6 +419,9 @@ func (e *Encoder) encodeViaReflection(b []byte, rv reflect.Value, isKeyOrClass b
 
 			b = append(b, typeOBJECT_FREEZE)
 			b = e.encodeString(b, concreteName(rv), true, strTable)
+			b = append(b, typeREFN)
+			b = append(b, typeARRAY)
+			b = varint(b, uint(1))
 			return e.encode(b, reflect.ValueOf(by), false, false, strTable, ptrTable)
 		}
 	}
