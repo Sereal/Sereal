@@ -186,7 +186,7 @@ SRL_STATIC_INLINE UV
 srl_read_varint_uv_offset(pTHX_ srl_reader_buffer_t *buf, const char * const errstr)
 {
     UV len= srl_read_varint_uv(aTHX_ buf);
-    if (buf->body_pos + len >= buf->pos) {
+    if (expect_false( buf->body_pos + len >= buf->pos )) {
         SRL_RDR_ERRORf4(buf, "Corrupted packet%s. Offset %"UVuf" points past current position %"UVuf" in packet with length of %"UVuf" bytes long",
                          errstr, len, (UV)SRL_RDR_POS_OFS(buf), (UV)SRL_RDR_SIZE(buf));
     }
@@ -205,7 +205,7 @@ SRL_STATIC_INLINE UV
 srl_read_varint_uv_count(pTHX_ srl_reader_buffer_t *buf, const char * const errstr)
 {
     UV len= srl_read_varint_uv(aTHX_ buf);
-    if (len > I32_MAX) {
+    if (expect_false( len > I32_MAX )) {
         SRL_RDR_ERRORf3(buf, "Corrupted packet%s. Count %"UVuf" exceeds I32_MAX (%i), which is impossible.",
                          errstr, len, I32_MAX);
     }
