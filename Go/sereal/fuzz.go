@@ -10,7 +10,9 @@ func Fuzz(data []byte) int {
 		return 0
 	}
 
-	if headerSize+header.suffixSize > len(data) || bodyStart < 0 {
+	bodyStart := headerSize + header.suffixSize
+
+	if bodyStart > len(data) || bodyStart < 0 {
 		return 0
 	}
 
