@@ -948,16 +948,22 @@ func (d *Decoder) decodeObjectFreezeViaReflection(by []byte, idx int, ptr reflec
 		return 0, err
 	}
 
+	if by[idx] != typeREFN && by[idx+1] != typeARRAY {
+		return 0, fmt.Errorf("OBJECT_FREEZE not followed by REF to ARRAY: %x", by[idx])
+	}
+
 	var iface interface{}
 	if idx, err = d.decode(by, idx, &iface); err != nil {
 		return 0, err
 	}
 
-	// spec says 'any object', but we only support byte slices
-	var ok bool
-	if classData, ok = iface.([]byte); !ok {
-		return 0, fmt.Errorf("OBJECT_FREEZE supports []byte only")
+	wrapper := iface.([]interface{})
+	if len(wrapper) != 1 {
+		return 0, fmt.Errorf("OBJECT_FREEZE not followed by a single ARRAY item")
 	}
+
+	// Expecting a single item in the array ref
+	classData = wrapper[0].([]byte)
 
 	strClassName := string(className)
 
@@ -965,6 +971,7 @@ func (d *Decoder) decodeObjectFreezeViaReflection(by []byte, idx int, ptr reflec
 		ptr.Set(reflect.ValueOf(&PerlFreeze{strClassName, classData}))
 	} else {
 		if obj, ok := findUnmarshaler(ptr); ok {
+
 			if err := obj.UnmarshalBinary(classData); err != nil {
 				return 0, err
 			}
