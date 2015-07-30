@@ -185,12 +185,15 @@ srl_read_varint_uv(pTHX_ srl_reader_buffer_t *buf)
 SRL_STATIC_INLINE UV
 srl_read_varint_uv_offset(pTHX_ srl_reader_buffer_t *buf, const char * const errstr)
 {
-    UV len= srl_read_varint_uv(aTHX_ buf);
-    if (expect_false( buf->body_pos + len >= buf->pos )) {
+    const UV offset= srl_read_varint_uv(aTHX_ buf);
+    /* A "copy" reference can only refer to things that precede it
+     * in the same body. This check asserts that it at least does not
+     * refer to anything that is yet to be decoded. */
+    if (expect_false( buf->body_pos + offset >= buf->pos )) {
         SRL_RDR_ERRORf4(buf, "Corrupted packet%s. Offset %"UVuf" points past current position %"UVuf" in packet with length of %"UVuf" bytes long",
-                         errstr, len, (UV)SRL_RDR_POS_OFS(buf), (UV)SRL_RDR_SIZE(buf));
+                         errstr, offset, (UV)SRL_RDR_POS_OFS(buf), (UV)SRL_RDR_SIZE(buf));
     }
-    return len;
+    return offset;
 }
 
 SRL_STATIC_INLINE UV
