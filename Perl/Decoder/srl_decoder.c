@@ -179,6 +179,19 @@ srl_ptable_debug_dump(pTHX_ PTABLE_t *tbl)
         val= NULL;                                                  \
 } STMT_END
 
+/* Multiple places in this file that want to use srl_read_varint_uv_length
+ * but don't have a buffer struct handy. */
+SRL_STATIC_INLINE UV
+S_read_varint_uv_length_char_ptr(pTHX_ const char *from, const char *end, const char * const errstr)
+{
+    srl_reader_buffer_t buf;
+    buf.pos = from;
+    buf.end = end;
+    buf.start = NULL; /* meh */
+    return srl_read_varint_uv_length(aTHX_ &buf, errstr);
+}
+
+
 /* PUBLIC ROUTINES */
 
 /* Builds the C-level configuration and state struct.
@@ -1008,21 +1021,17 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
             }
             else
             if (tag == SRL_HDR_BINARY) {
-                /* srl_read_varint_uv_length wants a buffer, not a char* */
-                const unsigned char *tmp = dec->buf.pos;
-                dec->buf.pos = from;
-                key_len = (KEYLENTYPE)srl_read_varint_uv_length(aTHX_ dec->pbuf,
-                                                                " while reading (byte) string length (via COPY)");
-                dec->buf.pos = tmp;
+                key_len = (KEYLENTYPE)S_read_varint_uv_length_char_ptr(
+                    aTHX_ from, dec->buf.end,
+                    " while reading (byte) string length (via COPY)"
+                );
             }
             else
             if (tag == SRL_HDR_STR_UTF8) {
-                /* srl_read_varint_uv_length wants a buffer, not a char* */
-                const unsigned char *tmp = dec->buf.pos;
-                dec->buf.pos = from;
-                key_len = (KEYLENTYPE)srl_read_varint_uv_length(aTHX_ dec->pbuf,
-                                                                " while reading UTF8-encoded string length (via COPY)");
-                dec->buf.pos = tmp;
+                key_len = (KEYLENTYPE)S_read_varint_uv_length_char_ptr(
+                    aTHX_ from, dec->buf.end,
+                    " while reading UTF8-encoded string length (via COPY)"
+                );
 #ifdef OLDHASH
                 key_len= -key_len;
 #else
@@ -1266,11 +1275,17 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
             }
             else
             if (tag == SRL_HDR_BINARY) {
-                SET_UV_FROM_VARINT(dec->pbuf, key_len, from);
+                key_len = (KEYLENTYPE)S_read_varint_uv_length_char_ptr(
+                    aTHX_ from, dec->buf.end,
+                    " while reading (byte) length for class name (via COPY)"
+                );
             }
             else
             if (tag == SRL_HDR_STR_UTF8) {
-                SET_UV_FROM_VARINT(dec->pbuf, key_len, from);
+                key_len = (KEYLENTYPE)S_read_varint_uv_length_char_ptr(
+                    aTHX_ from, dec->buf.end,
+                    " while reading UTF8 string length for class name (via COPY)"
+                );
                 flags = flags | SVf_UTF8;
             }
             else {
