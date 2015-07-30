@@ -1008,11 +1008,21 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
             }
             else
             if (tag == SRL_HDR_BINARY) {
-                SET_UV_FROM_VARINT(dec->pbuf, key_len, from);
+                /* srl_read_varint_uv_length wants a buffer, not a char* */
+                char *tmp = dec->buf.pos;
+                dec->buf.pos = from;
+                key_len = (KEYLENTYPE)srl_read_varint_uv_length(aTHX_ dec->pbuf,
+                                                                " while reading (byte) string length (via COPY)");
+                dec->buf.pos = tmp;
             }
             else
             if (tag == SRL_HDR_STR_UTF8) {
-                SET_UV_FROM_VARINT(dec->pbuf, key_len, from);
+                /* srl_read_varint_uv_length wants a buffer, not a char* */
+                char *tmp = dec->buf.pos;
+                dec->buf.pos = from;
+                key_len = (KEYLENTYPE)srl_read_varint_uv_length(aTHX_ dec->pbuf,
+                                                                " while reading UTF8-encoded string length (via COPY)");
+                dec->buf.pos = tmp;
 #ifdef OLDHASH
                 key_len= -key_len;
 #else
