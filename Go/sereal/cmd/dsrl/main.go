@@ -2,11 +2,12 @@ package main
 
 import (
 	"flag"
-	"github.com/Sereal/Sereal/Go/sereal"
-	"github.com/davecgh/go-spew/spew"
 	"io/ioutil"
 	"log"
 	"os"
+
+	"github.com/Sereal/Sereal/Go/sereal"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func process(fname string, b []byte) {
