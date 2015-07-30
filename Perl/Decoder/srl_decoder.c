@@ -925,12 +925,15 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
 }
 
 #ifndef HV_FETCH_LVALUE
-#define OLDHASH
-#define IS_LVALUE 1
+#   define OLDHASH
+#   define IS_LVALUE 1
+#   define KEYLENTYPE IV
+#else
+#   define KEYLENTYPE STRLEN
 #endif
 
 #ifndef HvRITER_set
-#define HvRITER_set(sv,v) HvRITER(sv) = v
+#   define HvRITER_set(sv,v) HvRITER(sv) = v
 #endif
 
 SRL_STATIC_INLINE void
@@ -969,23 +972,24 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         const U8 *from;
         U8 tag;
         SV **fetched_sv;
-        I32 key_len;
 #ifndef OLDHASH
         U32 flags= 0;
 #endif
+        KEYLENTYPE key_len;
+
         SRL_RDR_ASSERT_SPACE(dec->pbuf,1," while reading key tag byte for HASH");
         tag= (*dec->buf.pos++)&127;
         if (IS_SRL_HDR_SHORT_BINARY(tag)) {
-            key_len= (IV)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+            key_len= (KEYLENTYPE)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
             SRL_RDR_ASSERT_SPACE(dec->pbuf,key_len," while reading string/SHORT_BINARY key");
             from= dec->buf.pos;
             dec->buf.pos += key_len;
         } else if (tag == SRL_HDR_BINARY) {
-            key_len= (IV)srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading string/BINARY key");
+            key_len= (KEYLENTYPE)srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading string/BINARY key");
             from= dec->buf.pos;
             dec->buf.pos += key_len;
         } else if (tag == SRL_HDR_STR_UTF8) {
-            key_len= (IV)srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading UTF8 key");
+            key_len= (KEYLENTYPE)srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading UTF8 key");
             from= dec->buf.pos;
             dec->buf.pos += key_len;
 #ifdef OLDHASH
@@ -1000,7 +1004,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
             /* note we do NOT validate these items, as we have alread read them
              * and if they were a problem we would not be here to process them! */
             if (IS_SRL_HDR_SHORT_BINARY(tag)) {
-                key_len= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+                key_len= (KEYLENTYPE)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
             }
             else
             if (tag == SRL_HDR_BINARY) {
