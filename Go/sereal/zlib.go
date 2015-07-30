@@ -45,11 +45,17 @@ func (c ZlibCompressor) compress(buf []byte) ([]byte, error) {
 
 func (c ZlibCompressor) decompress(buf []byte) ([]byte, error) {
 	// Read the claimed length of the uncompressed document
-	uln, usz := varintdecode(buf)
+	uln, usz, err := varintdecode(buf)
+	if err != nil {
+		return nil, err
+	}
 	buf = buf[usz:]
 
 	// Read the claimed length of the compressed document
-	cln, csz := varintdecode(buf)
+	cln, csz, err := varintdecode(buf)
+	if err != nil {
+		return nil, err
+	}
 
 	if cln < 0 || cln > math.MaxInt32 || csz+cln > len(buf) {
 		return nil, ErrCorrupt{errBadOffset}

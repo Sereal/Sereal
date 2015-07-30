@@ -300,7 +300,10 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 			idx++
 
 		case tag == typeVARINT, tag == typeZIGZAG:
-			_, sz := varintdecode(buf[idx+1:])
+			_, sz, err := varintdecode(buf[idx+1:])
+			if err != nil {
+				return err
+			}
 			idx += sz + 1
 
 		case tag == typeFLOAT:
@@ -313,7 +316,10 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 			idx += 17 // 16 bytes + tag
 
 		case tag == typeBINARY, tag == typeSTR_UTF8:
-			ln, sz := varintdecode(buf[idx+1:])
+			ln, sz, err := varintdecode(buf[idx+1:])
+			if err != nil {
+				return err
+			}
 			idx += sz + ln + 1
 
 			if ln < 0 || ln > maxUint32 {
@@ -323,13 +329,19 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 			}
 
 		case tag == typeARRAY, tag == typeHASH:
-			_, sz := varintdecode(buf[idx+1:])
+			_, sz, err := varintdecode(buf[idx+1:])
+			if err != nil {
+				return err
+			}
 			idx += sz + 1
 
 		case tag == typeCOPY, tag == typeALIAS, tag == typeREFP,
 			tag == typeOBJECTV, tag == typeOBJECTV_FREEZE:
 
-			offset, sz := varintdecode(buf[idx+1:])
+			offset, sz, err := varintdecode(buf[idx+1:])
+			if err != nil {
+				return err
+			}
 			if offset < 0 || offset >= idx {
 				return fmt.Errorf("tag %d refers to invalid offset: %d", tag, offset)
 			}
@@ -368,7 +380,10 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 	dbuf := doc.buf
 	didx := doc.startIdx
 
-	expElements, offset := m.expectedElements(dbuf[didx:])
+	expElements, offset, err := m.expectedElements(dbuf[didx:])
+	if err != nil {
+		return err
+	}
 	if expElements < 0 || expElements > maxUint32 {
 		return fmt.Errorf("bad amount of expected elements: %d", expElements)
 	}
@@ -425,7 +440,10 @@ LOOP:
 			didx++
 
 		case tag == typeVARINT, tag == typeZIGZAG:
-			_, sz := varintdecode(dbuf[didx+1:])
+			_, sz, err := varintdecode(dbuf[didx+1:])
+			if err != nil {
+				return err
+			}
 			mbuf = append(mbuf, dbuf[didx:didx+sz+1]...)
 			didx += sz + 1
 
@@ -453,7 +471,11 @@ LOOP:
 			if tag > typeSHORT_BINARY_0 {
 				ln = int(tag & 0x1F) // get length from tag
 			} else {
-				ln, sz = varintdecode(dbuf[didx+1:])
+				var err error
+				ln, sz, err = varintdecode(dbuf[didx+1:])
+				if err != nil {
+					return err
+				}
 			}
 
 			length := sz + ln + 1
@@ -481,7 +503,10 @@ LOOP:
 		case tag == typeCOPY, tag == typeREFP, tag == typeALIAS,
 			tag == typeOBJECTV, tag == typeOBJECTV_FREEZE:
 
-			offset, sz := varintdecode(dbuf[didx+1:])
+			offset, sz, err := varintdecode(dbuf[didx+1:])
+			if err != nil {
+				return err
+			}
 			targetOffset, ok := doc.trackTable[offset]
 
 			if !ok || targetOffset < 0 {
@@ -498,7 +523,11 @@ LOOP:
 			}
 
 		case tag == typeARRAY, tag == typeHASH:
-			ln, sz := varintdecode(dbuf[didx+1:])
+			ln, sz, err := varintdecode(dbuf[didx+1:])
+			if err != nil {
+				return err
+
+			}
 			if ln < 0 {
 				return errors.New("bad array or hash length")
 			}
@@ -588,7 +617,7 @@ LOOP:
 	return nil
 }
 
-func (m *Merger) expectedElements(b []byte) (int, int) {
+func (m *Merger) expectedElements(b []byte) (int, int, error) {
 	if m.KeepFlat {
 		tag0 := b[0] &^ trackFlag
 		tag1 := b[1] &^ trackFlag
@@ -596,21 +625,21 @@ func (m *Merger) expectedElements(b []byte) (int, int) {
 		switch m.TopLevelElement {
 		case TopLevelArray:
 			if tag0 == typeARRAY {
-				ln, sz := varintdecode(b[1:])
-				return ln, sz + 1
+				ln, sz, err := varintdecode(b[1:])
+				return ln, sz + 1, err
 			}
 
 		case TopLevelArrayRef:
 			if tag0 == typeREFN && tag1 == typeARRAY {
-				ln, sz := varintdecode(b[2:])
-				return ln, sz + 2
+				ln, sz, err := varintdecode(b[2:])
+				return ln, sz + 2, err
 			} else if tag0 >= typeARRAYREF_0 && tag0 < typeARRAYREF_0+16 {
-				return int(tag0 & 0xF), 1
+				return int(tag0 & 0xF), 1, nil
 			}
 		}
 	}
 
-	return 1, 0 // by default expect only one element
+	return 1, 0, nil // by default expect only one element
 }
 
 func isShallowStringish(tag byte) bool {
@@ -629,7 +658,11 @@ func readString(buf []byte) (int, []byte, error) {
 	if tag > typeSHORT_BINARY_0 {
 		ln = int(tag & 0x1F) // get length from tag
 	} else {
-		ln, offset = varintdecode(buf[1:])
+		var err error
+		ln, offset, err = varintdecode(buf[1:])
+		if err != nil {
+			return 0, nil, err
+		}
 	}
 
 	offset++ // respect tag itself

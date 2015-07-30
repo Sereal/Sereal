@@ -29,6 +29,7 @@ var (
 	errStringish            = "expected stringish for classname"
 	errUntrackedOffsetAlias = "untracked offset for alias"
 	errNestedCOPY           = "bad nested copy tag"
+	errBadVarint            = "bad varint"
 )
 
 func (c ErrCorrupt) Error() string { return "sereal: corrupt document" }

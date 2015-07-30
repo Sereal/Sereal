@@ -51,7 +51,11 @@ func readHeader(b []byte) (serealHeader, error) {
 		return serealHeader{}, ErrBadHeader
 	}
 
-	ln, sz := varintdecode(b[5:])
+	ln, sz, err := varintdecode(b[5:])
+	if err != nil {
+		return serealHeader{}, err
+	}
+
 	h.suffixSize = ln + sz
 	h.suffixStart = headerSize + sz
 
@@ -254,14 +258,17 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 
 	case tag == typeVARINT:
 		var val int
-		if val, idx = d.decodeVarint(by, idx); val < 0 {
+		if val, idx, err = d.decodeVarint(by, idx); err != nil {
+			return 0, err
+		}
+		if val < 0 {
 			*ptr = uint(val)
 		} else {
 			*ptr = val
 		}
 
 	case tag == typeZIGZAG:
-		*ptr, idx = d.decodeZigzag(by, idx)
+		*ptr, idx, err = d.decodeZigzag(by, idx)
 
 	case tag == typeFLOAT:
 		*ptr, idx, err = d.decodeFloat(by, idx)
@@ -277,33 +284,65 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 
 	case tag == typeHASH:
 		// see commends at top of the function
-		ln, sz := varintdecode(by[idx:])
+		var ln, sz int
+		ln, sz, err = varintdecode(by[idx:])
+		if err != nil {
+			return 0, err
+		}
 		idx, err = d.decodeHash(by, idx+sz, ln, ptr, false)
 
 	case tag >= typeHASHREF_0 && tag < typeHASHREF_0+16:
 		idx, err = d.decodeHash(by, idx, int(tag&0x0f), ptr, d.PerlCompat)
+		if err != nil {
+			return 0, err
+		}
 
 	case tag == typeARRAY:
 		// see commends at top of the function
-		ln, sz := varintdecode(by[idx:])
+		var ln, sz int
+		ln, sz, err = varintdecode(by[idx:])
+		if err != nil {
+			return 0, err
+		}
 		idx, err = d.decodeArray(by, idx+sz, ln, ptr, false)
+		if err != nil {
+			return 0, err
+		}
 
 	case tag >= typeARRAYREF_0 && tag < typeARRAYREF_0+16:
 		idx, err = d.decodeArray(by, idx, int(tag&0x0f), ptr, d.PerlCompat)
+		if err != nil {
+			return 0, err
+		}
 
 	case tag == typeSTR_UTF8:
 		var val []byte
-		ln, sz := varintdecode(by[idx:])
-		if val, idx, err = d.decodeBinary(by, idx+sz, ln, false); err == nil {
-			*ptr = string(val)
+		var ln, sz int
+		ln, sz, err = varintdecode(by[idx:])
+		if err != nil {
+			return 0, err
 		}
+		if val, idx, err = d.decodeBinary(by, idx+sz, ln, false); err != nil {
+			return 0, err
+		}
+		*ptr = string(val)
 
 	case tag == typeBINARY:
-		ln, sz := varintdecode(by[idx:])
+		var ln, sz int
+		ln, sz, err = varintdecode(by[idx:])
+		if err != nil {
+			return 0, err
+		}
 		*ptr, idx, err = d.decodeBinary(by, idx+sz, ln, true)
+		if err != nil {
+			return 0, err
+		}
 
 	case tag >= typeSHORT_BINARY_0 && tag < typeSHORT_BINARY_0+32:
 		*ptr, idx, err = d.decodeBinary(by, idx, int(tag&0x1f), true)
+		if err != nil {
+			return 0, err
+		}
 
 	case tag == typeUNDEF, tag == typeCANONICAL_UNDEF:
 		if d.PerlCompat && tag == typeCANONICAL_UNDEF {
@@ -319,7 +358,11 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 			return 0, ErrCorrupt{errNestedCOPY}
 		}
 
-		offs, sz := varintdecode(by[idx:])
+		var offs, sz int
+		offs, sz, err = varintdecode(by[idx:])
+		if err != nil {
+			return 0, err
+		}
 		idx += sz
 
 		d.copyDepth++
@@ -386,14 +429,14 @@ func (d *Decoder) decodeInt(tag byte) int {
 	return int(tag)
 }
 
-func (d *Decoder) decodeVarint(by []byte, idx int) (int, int) {
-	i, sz := varintdecode(by[idx:])
-	return i, idx + sz
+func (d *Decoder) decodeVarint(by []byte, idx int) (int, int, error) {
+	i, sz, err := varintdecode(by[idx:])
+	return i, idx + sz, err
 }
 
-func (d *Decoder) decodeZigzag(by []byte, idx int) (int, int) {
-	i, sz := varintdecode(by[idx:])
-	return int(-(1 + (uint64(i) >> 1))), idx + sz
+func (d *Decoder) decodeZigzag(by []byte, idx int) (int, int, error) {
+	i, sz, err := varintdecode(by[idx:])
+	return int(-(1 + (uint64(i) >> 1))), idx + sz, err
 }
 
 func (d *Decoder) decodeFloat(by []byte, idx int) (float32, int, error) {
@@ -521,7 +564,10 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 	var res []byte
 	switch {
 	case tag == typeBINARY, tag == typeSTR_UTF8:
-		ln, sz := varintdecode(by[idx:])
+		ln, sz, err := varintdecode(by[idx:])
+		if err != nil {
+			return nil, 0, err
+		}
 		idx += sz
 
 		if ln < 0 || ln > math.MaxInt32 {
@@ -543,14 +589,16 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 			return nil, 0, ErrCorrupt{errNestedCOPY}
 		}
 
-		offs, sz := varintdecode(by[idx:])
+		offs, sz, err := varintdecode(by[idx:])
+		if err != nil {
+			return nil, 0, err
+		}
 		idx += sz
 
 		if offs < 0 || offs >= len(by) {
 			return nil, 0, ErrCorrupt{errBadOffset}
 		}
 
-		var err error
 		d.copyDepth++
 		res, _, err = d.decodeStringish(by, offs)
 		d.copyDepth--
@@ -626,58 +674,85 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 
 	case tag == typeVARINT:
 		var val int
-		val, idx = d.decodeVarint(by, idx)
+		val, idx, err = d.decodeVarint(by, idx)
+		if err != nil {
+			return 0, err
+		}
 		setInt(ptr, val)
 
 	case tag == typeZIGZAG:
 		var val int
-		val, idx = d.decodeZigzag(by, idx)
+		val, idx, err = d.decodeZigzag(by, idx)
+		if err != nil {
+			return 0, err
+		}
 		setInt(ptr, val)
 
 	case tag == typeFLOAT:
 		var val float32
-		if val, idx, err = d.decodeFloat(by, idx); err == nil {
-			ptr.SetFloat(float64(val))
+		if val, idx, err = d.decodeFloat(by, idx); err != nil {
+			return 0, err
 		}
+		ptr.SetFloat(float64(val))
 
 	case tag == typeDOUBLE:
 		var val float64
-		if val, idx, err = d.decodeDouble(by, idx); err == nil {
-			ptr.SetFloat(float64(val))
+		if val, idx, err = d.decodeDouble(by, idx); err != nil {
+			return 0, err
 		}
+		ptr.SetFloat(float64(val))
 
 	case tag == typeTRUE, tag == typeFALSE:
 		ptr.SetBool(tag == typeTRUE)
 
 	case tag == typeBINARY:
 		var val []byte
-		ln, sz := varintdecode(by[idx:])
-		if val, idx, err = d.decodeBinary(by, idx+sz, ln, false); err == nil {
-			setBinary(ptr, val)
+		var ln, sz int
+		ln, sz, err = varintdecode(by[idx:])
+		if err != nil {
+			return 0, err
 		}
+		if val, idx, err = d.decodeBinary(by, idx+sz, ln, false); err != nil {
+			return 0, err
+		}
+		setBinary(ptr, val)
 
 	case tag >= typeSHORT_BINARY_0 && tag < typeSHORT_BINARY_0+32:
 		var val []byte
-		if val, idx, err = d.decodeBinary(by, idx, int(tag&0x1f), false); err == nil {
-			setBinary(ptr, val)
+		if val, idx, err = d.decodeBinary(by, idx, int(tag&0x1f), false); err != nil {
+			return 0, err
 		}
+		setBinary(ptr, val)
 
 	case tag == typeSTR_UTF8:
 		var val []byte
-		ln, sz := varintdecode(by[idx:])
-		if val, idx, err = d.decodeBinary(by, idx+sz, ln, false); err == nil {
-			ptr.SetString(string(val))
+		var ln, sz int
+		ln, sz, err = varintdecode(by[idx:])
+		if err != nil {
+			return 0, err
 		}
+		if val, idx, err = d.decodeBinary(by, idx+sz, ln, false); err != nil {
+			return 0, err
+		}
+		ptr.SetString(string(val))
 
 	case tag == typeHASH:
-		ln, sz := varintdecode(by[idx:])
+		var ln, sz int
+		ln, sz, err = varintdecode(by[idx:])
+		if err != nil {
+			return 0, err
+		}
 		idx, err = d.decodeHashViaReflection(by, idx+sz, ln, ptr)
 
 	case tag >= typeHASHREF_0 && tag < typeHASHREF_0+16:
 		idx, err = d.decodeHashViaReflection(by, idx, int(tag&0x0f), ptr)
 
 	case tag == typeARRAY:
-		ln, sz := varintdecode(by[idx:])
+		var ln, sz int
+		ln, sz, err = varintdecode(by[idx:])
+		if err != nil {
+			return 0, err
+		}
 		idx, err = d.decodeArrayViaReflection(by, idx+sz, ln, ptr)
 
 	case tag >= typeARRAYREF_0 && tag < typeARRAYREF_0+16:
@@ -701,7 +776,11 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 			return 0, ErrCorrupt{errNestedCOPY}
 		}
 
-		offs, sz := varintdecode(by[idx:])
+		var offs, sz int
+		offs, sz, err = varintdecode(by[idx:])
+		if err != nil {
+			return 0, err
+		}
 		idx += sz
 
 		d.copyDepth++
@@ -713,9 +792,11 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 
 	case tag == typeREFP, tag == typeALIAS:
 		var val reflect.Value
-		if val, idx, err = d.decodeREFP_ALIAS(by, idx, tag == typeREFP); err == nil {
-			ptr.Set(val.Elem())
+		if val, idx, err = d.decodeREFP_ALIAS(by, idx, tag == typeREFP); err != nil {
+			return 0, err
+
 		}
+		ptr.Set(val.Elem())
 
 	case tag == typeWEAKEN:
 		if d.PerlCompat {
@@ -728,9 +809,10 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 
 	case tag == typeREGEXP:
 		var pregexp *PerlRegexp
-		if pregexp, idx, err = d.decodeRegexp(by, idx); err == nil {
-			ptr.Set(reflect.ValueOf(pregexp))
+		if pregexp, idx, err = d.decodeRegexp(by, idx); err != nil {
+			return 0, err
 		}
+		ptr.Set(reflect.ValueOf(pregexp))
 
 	case tag == typeOBJECT, tag == typeOBJECTV:
 		idx, err = d.decodeObjectViaReflection(by, idx, ptr, tag == typeOBJECTV)
@@ -863,7 +945,11 @@ func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflec
 }
 
 func (d *Decoder) decodeREFP_ALIAS(by []byte, idx int, isREFP bool) (reflect.Value, int, error) {
-	offs, sz := varintdecode(by[idx:])
+	offs, sz, err := varintdecode(by[idx:])
+	if err != nil {
+		var res reflect.Value
+		return res, 0, err
+	}
 	idx += sz
 
 	if offs < 0 || offs >= idx {
@@ -910,7 +996,10 @@ func (d *Decoder) decodeObjectViaReflection(by []byte, idx int, ptr reflect.Valu
 		className, idx, err = d.decodeStringish(by, idx)
 	} else {
 		// typeOBJECTV
-		offs, sz := varintdecode(by[idx:])
+		offs, sz, err := varintdecode(by[idx:])
+		if err != nil {
+			return 0, err
+		}
 		idx += sz
 		className, _, err = d.decodeStringish(by, offs)
 	}
@@ -937,11 +1026,20 @@ func (d *Decoder) decodeObjectFreezeViaReflection(by []byte, idx int, ptr reflec
 	if !isObjectV {
 		// typeOBJECT_FREEZE
 		className, idx, err = d.decodeStringish(by, idx)
+		if err != nil {
+			return 0, err
+		}
 	} else {
 		// typeOBJECTV_FREEZE
-		offs, sz := varintdecode(by[idx:])
+		offs, sz, err := varintdecode(by[idx:])
+		if err != nil {
+			return 0, err
+		}
 		idx += sz
 		className, _, err = d.decodeStringish(by, offs)
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	if err != nil {
@@ -1038,24 +1136,24 @@ func setBinary(ptr reflect.Value, val []byte) {
 	}
 }
 
-func varintdecode(by []byte) (n int, sz int) {
+func varintdecode(by []byte) (n int, sz int, err error) {
 	s := uint(0) // shift count
 	for i, b := range by {
 		n |= int(b&0x7f) << s
 		s += 7
 
 		if (b & 0x80) == 0 {
-			return n, i + 1
+			return n, i + 1, nil
 		}
 
 		if s > 63 {
 			// too many continuation bits
-			panic("bad varint")
+			return 0, i + 1, ErrCorrupt{errBadVarint}
 		}
 	}
 
 	// byte without continuation bit
-	panic("bad varint")
+	return 0, len(by), ErrCorrupt{errBadVarint}
 }
 
 func findUnmarshaler(ptr reflect.Value) (encoding.BinaryUnmarshaler, bool) {

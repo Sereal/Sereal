@@ -28,7 +28,11 @@ func (c SnappyCompressor) compress(b []byte) ([]byte, error) {
 
 func (c SnappyCompressor) decompress(b []byte) ([]byte, error) {
 	if c.Incremental {
-		ln, sz := varintdecode(b)
+		ln, sz, err := varintdecode(b)
+		if err != nil {
+			return nil, err
+		}
+
 		if ln < 0 || sz+ln > len(b) || ln > math.MaxInt32 {
 			return nil, ErrCorrupt{errBadOffset}
 		}
