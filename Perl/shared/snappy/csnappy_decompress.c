@@ -340,7 +340,7 @@ csnappy_decompress_noheader(
 		src = scratch;				\
 		end_minus5 = scratch + available - 5;	\
 	}
-	
+
 	LOOP_COND();
 	for (;;) {
 		opcode = *(const uint8_t *)src++;
@@ -371,7 +371,7 @@ csnappy_decompress_noheader(
 				src += extra_bytes;
 				available = end_minus5 + 5 - src;
 			}
-                        if (unlikely(available < (int32_t)length))
+                        if (unlikely(available < (uint32_t)length))
 				return CSNAPPY_E_DATA_MALFORMED;
 			ret = SAW__Append(&writer, src, length);
 			if (ret < 0)
