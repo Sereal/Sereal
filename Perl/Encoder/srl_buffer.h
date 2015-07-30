@@ -203,8 +203,6 @@ srl_buf_cat_char_nocheck_int(pTHX_ srl_buffer_t *buf, const char c)
 }
 #define srl_buf_cat_char_nocheck(buf, c) srl_buf_cat_char_nocheck_int(aTHX_ buf, c)
 
-/* define constant for other code to use in preallocations */
-#define SRL_MAX_VARINT_LENGTH 11
 /*
  * This implements "varint" and "zigzag varint" types as used in protobufs, etc.
  *

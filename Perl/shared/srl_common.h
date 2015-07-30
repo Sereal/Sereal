@@ -68,4 +68,8 @@
 #  define SRL_TRY_ENABLE_STRICT_ALIGN() (void)0
 #endif
 
+/* define constant for other code to use in preallocations or buffer space
+ * assertions */
+#define SRL_MAX_VARINT_LENGTH 11
+
 #endif

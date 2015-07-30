@@ -158,7 +158,7 @@ SRL_STATIC_INLINE UV
 srl_read_varint_uv(pTHX_ srl_reader_buffer_t *buf)
 {
     // TODO check expect_true logic
-    if (expect_true( buf->end - buf->pos >= 10 ) || (buf->end[-1] & 0x80)) {
+    if (expect_true( buf->end - buf->pos >= SRL_MAX_VARINT_LENGTH ) || (buf->end[-1] & 0x80)) {
         if (sizeof(UV) == sizeof(U32)) {
             return srl_read_varint_u32_nocheck(aTHX_ buf);
         } else {
