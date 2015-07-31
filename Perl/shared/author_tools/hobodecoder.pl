@@ -270,7 +270,7 @@ sub parse_av {
 sub parse_hv {
   my ($ind, $o) = @_;
   my $len = (defined $o ? $o & 15 : varint()) * 2;
-  printf "(%u)\n", $len;
+  printf "(%u)\n", $len / 2;
   $ind .= "  ";
   my $flipflop = 0;
   while ($len--) {
