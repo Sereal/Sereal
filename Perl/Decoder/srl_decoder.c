@@ -182,13 +182,16 @@ srl_ptable_debug_dump(pTHX_ PTABLE_t *tbl)
 /* Multiple places in this file that want to use srl_read_varint_uv_length
  * but don't have a buffer struct handy. */
 SRL_STATIC_INLINE UV
-S_read_varint_uv_length_char_ptr(pTHX_ const char *from, const char *end, const char * const errstr)
+S_read_varint_uv_length_char_ptr(pTHX_ const char **from, const char *end, const char * const errstr)
 {
+    UV rv;
     srl_reader_buffer_t buf;
-    buf.pos = from;
+    buf.pos = *from;
     buf.end = end;
     buf.start = NULL; /* meh */
-    return srl_read_varint_uv_length(aTHX_ &buf, errstr);
+    rv = srl_read_varint_uv_length(aTHX_ &buf, errstr);
+    *from = buf.pos;
+    return rv;
 }
 
 
@@ -1022,14 +1025,14 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
             else
             if (tag == SRL_HDR_BINARY) {
                 key_len = (KEYLENTYPE)S_read_varint_uv_length_char_ptr(
-                    aTHX_ from, dec->buf.end,
+                    aTHX_ (const char **)&from, dec->buf.end,
                     " while reading (byte) string length (via COPY)"
                 );
             }
             else
             if (tag == SRL_HDR_STR_UTF8) {
                 key_len = (KEYLENTYPE)S_read_varint_uv_length_char_ptr(
-                    aTHX_ from, dec->buf.end,
+                    aTHX_ (const char **)&from, dec->buf.end,
                     " while reading UTF8-encoded string length (via COPY)"
                 );
 #ifdef OLDHASH
@@ -1276,14 +1279,14 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
             else
             if (tag == SRL_HDR_BINARY) {
                 key_len = (KEYLENTYPE)S_read_varint_uv_length_char_ptr(
-                    aTHX_ from, dec->buf.end,
+                    aTHX_ (const char **)&from, dec->buf.end,
                     " while reading (byte) length for class name (via COPY)"
                 );
             }
             else
             if (tag == SRL_HDR_STR_UTF8) {
                 key_len = (KEYLENTYPE)S_read_varint_uv_length_char_ptr(
-                    aTHX_ from, dec->buf.end,
+                    aTHX_ (const char **)&from, dec->buf.end,
                     " while reading UTF8 string length for class name (via COPY)"
                 );
                 flags = flags | SVf_UTF8;
