@@ -1,7 +1,16 @@
 #!/bin/sh
 
+failed=""
+
 for lang in perl go ruby; do
-    travis/$lang.sh || failed=1
+    if ! travis/$lang.sh ; then
+        failed="$failed $lang"
+    fi
 done
 
-[ -z "$failed" ] || exit 1
+if [ -n "$failed" ]; then
+    echo "Failed languages: $failed"
+    exit 1
+fi
+
+exit 0
