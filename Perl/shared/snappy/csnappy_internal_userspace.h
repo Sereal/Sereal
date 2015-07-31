@@ -117,11 +117,6 @@ Albert Lee
 #define __LITTLE_ENDIAN	1234
 #define __BYTE_ORDER	LITTLE_ENDIAN
 
-#elif defined(__GNUC__) || defined(__ANDROID__) || defined(__CYGWIN__)
-
-#include <endian.h>
-#include <byteswap.h>
-
 #elif defined(__APPLE__)
 
 #include <machine/endian.h>
@@ -132,6 +127,11 @@ Albert Lee
 #define __BYTE_ORDER BYTE_ORDER
 #define __LITTLE_ENDIAN LITTLE_ENDIAN
 #define __BIG_ENDIAN BIG_ENDIAN
+
+#elif defined(__GNUC__) || defined(__ANDROID__) || defined(__CYGWIN__)
+
+#include <endian.h>
+#include <byteswap.h>
 
 #elif defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
 
