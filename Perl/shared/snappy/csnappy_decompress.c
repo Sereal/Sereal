@@ -266,7 +266,7 @@ SAW__AppendFastPath(struct SnappyArrayWriter *this,
 		    const char *ip, uint32_t len)
 {
 	char *op = this->op;
-	const int space_left = this->op_limit - op;
+	const uint32_t space_left = this->op_limit - op;
 	if (likely(space_left >= 16)) {
 		UnalignedCopy64(ip, op);
 		UnalignedCopy64(ip + 8, op + 8);
@@ -284,7 +284,7 @@ SAW__Append(struct SnappyArrayWriter *this,
 	    const char *ip, uint32_t len)
 {
 	char *op = this->op;
-	const int space_left = this->op_limit - op;
+	const uint32_t space_left = this->op_limit - op;
         if (unlikely(space_left < (int32_t)len))
 		return CSNAPPY_E_OUTPUT_OVERRUN;
 	memcpy(op, ip, len);
@@ -297,7 +297,7 @@ SAW__AppendFromSelf(struct SnappyArrayWriter *this,
 		    uint32_t offset, uint32_t len)
 {
 	char *op = this->op;
-	const int space_left = this->op_limit - op;
+	const uint32_t space_left = this->op_limit - op;
 	/* -1u catches offset==0 */
 	if (op - this->base <= offset - 1u)
 		return CSNAPPY_E_DATA_MALFORMED;

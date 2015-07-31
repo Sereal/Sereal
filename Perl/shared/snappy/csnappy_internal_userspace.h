@@ -117,7 +117,7 @@ Albert Lee
 #define __LITTLE_ENDIAN	1234
 #define __BYTE_ORDER	LITTLE_ENDIAN
 
-#elif defined(__GLIBC__) || defined(__ANDROID__) || defined(__CYGWIN__)
+#elif defined(__GNUC__) || defined(__ANDROID__) || defined(__CYGWIN__)
 
 #include <endian.h>
 #include <byteswap.h>
