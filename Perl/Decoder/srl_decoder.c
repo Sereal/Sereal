@@ -155,6 +155,13 @@ SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
             }                                           \
         } STMT_END
 
+#define SRL_sv_set_rv_to(into,referent)             \
+    STMT_START {                                    \
+        SRL_prepare_SV_for_RV(into);                \
+        SvTEMP_off(referent);                       \
+        SvRV_set(into, referent);                   \
+        SvROK_on(into);                             \
+    } STMT_END
 
 STATIC void
 srl_ptable_debug_callback(PTABLE_ENTRY_t *e)

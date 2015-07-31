@@ -83,14 +83,6 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
         }                                                           \
     } STMT_END
 
-#define SRL_sv_set_rv_to(into,referent)             \
-    STMT_START {                                    \
-        SRL_prepare_SV_for_RV(into);                \
-        SvTEMP_off(referent);                       \
-        SvRV_set(into, referent);                   \
-        SvROK_on(into);                             \
-    } STMT_END
-
 /* If set, the decoder struct needs to be cleared instead of freed at
  * the end of a deserialization operation */
 #define SRL_F_REUSE_DECODER                     0x00000001UL
