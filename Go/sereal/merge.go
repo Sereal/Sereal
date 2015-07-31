@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 )
 
@@ -17,7 +18,6 @@ const (
 	// TopLevelHashRef
 )
 
-const maxUint32 = 1<<32 - 1
 const hashKeysValuesFlag = uint32(1 << 31)
 
 // Merger merges multiple sereal documents without reconstructing them
@@ -322,7 +322,7 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 			}
 			idx += sz + ln + 1
 
-			if ln < 0 || ln > maxUint32 {
+			if ln < 0 || ln > math.MaxUint32 {
 				return fmt.Errorf("bad size for string: %d", ln)
 			} else if idx > len(buf) {
 				return fmt.Errorf("truncated document, expect %d bytes", len(buf)-idx)
@@ -384,7 +384,7 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 	if err != nil {
 		return err
 	}
-	if expElements < 0 || expElements > maxUint32 {
+	if expElements < 0 || expElements > math.MaxUint32 {
 		return fmt.Errorf("bad amount of expected elements: %d", expElements)
 	}
 
@@ -479,7 +479,7 @@ LOOP:
 			}
 
 			length := sz + ln + 1
-			if ln < 0 || ln > maxUint32 {
+			if ln < 0 || ln > math.MaxUint32 {
 				return fmt.Errorf("bad size for string: %d", ln)
 			} else if didx+length > len(dbuf) {
 				return fmt.Errorf("truncated document, expect %d bytes", len(dbuf)-didx-length)
@@ -666,7 +666,7 @@ func readString(buf []byte) (int, []byte, error) {
 	}
 
 	offset++ // respect tag itself
-	if ln < 0 || ln > maxUint32 {
+	if ln < 0 || ln > math.MaxUint32 {
 		return 0, nil, fmt.Errorf("bad size for string: %d", ln)
 	} else if offset+ln > len(buf) {
 		return 0, nil, fmt.Errorf("truncated document, expect %d bytes", len(buf)-ln-offset)
