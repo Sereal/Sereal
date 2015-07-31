@@ -363,6 +363,9 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+		if offs < 0 || offs >= idx {
+			return 0, ErrCorrupt{errBadOffset}
+		}
 		idx += sz
 
 		d.copyDepth++
@@ -593,11 +596,10 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 		if err != nil {
 			return nil, 0, err
 		}
-		idx += sz
-
-		if offs < 0 || offs >= len(by) {
+		if offs < 0 || offs >= idx {
 			return nil, 0, ErrCorrupt{errBadOffset}
 		}
+		idx += sz
 
 		d.copyDepth++
 		res, _, err = d.decodeStringish(by, offs)
@@ -780,6 +782,9 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		offs, sz, err = varintdecode(by[idx:])
 		if err != nil {
 			return 0, err
+		}
+		if offs < 0 || offs >= idx {
+			return 0, ErrCorrupt{errBadOffset}
 		}
 		idx += sz
 
