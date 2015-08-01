@@ -1051,7 +1051,11 @@ func (d *Decoder) decodeObjectFreezeViaReflection(by []byte, idx int, ptr reflec
 		return 0, err
 	}
 
-	if by[idx] != typeREFN && by[idx+1] != typeARRAY {
+	if idx+1 >= len(by) {
+		return 0, ErrTruncated
+	}
+
+	if by[idx] != typeREFN || by[idx+1] != typeARRAY {
 		return 0, fmt.Errorf("OBJECT_FREEZE not followed by REF to ARRAY: %x", by[idx])
 	}
 
@@ -1060,13 +1064,19 @@ func (d *Decoder) decodeObjectFreezeViaReflection(by []byte, idx int, ptr reflec
 		return 0, err
 	}
 
-	wrapper := iface.([]interface{})
+	wrapper, ok := iface.([]interface{})
+	if !ok {
+		return 0, fmt.Errorf("OBJECT_FREEZE didn't contain a viable array")
+	}
+
 	if len(wrapper) != 1 {
 		return 0, fmt.Errorf("OBJECT_FREEZE not followed by a single ARRAY item")
 	}
 
 	// Expecting a single item in the array ref
-	classData = wrapper[0].([]byte)
+	if classData, ok = wrapper[0].([]byte); !ok {
+		return 0, fmt.Errorf("OBJECT_FREEZE didn't a viable byte array")
+	}
 
 	strClassName := string(className)
 
