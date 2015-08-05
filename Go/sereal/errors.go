@@ -30,6 +30,10 @@ var (
 	errUntrackedOffsetAlias = "untracked offset for alias"
 	errNestedCOPY           = "bad nested copy tag"
 	errBadVarint            = "bad varint"
+	errFreezeNotRefnArray   = "OBJECT_FREEZE value not REFN+ARRAY"
+	errFreezeNotArray       = "OBJECT_FREEZE value not an array"
+	errFreezeMultipleElts   = "OBJECT_FREEZE array contains multiple elements"
+	errFreezeNotByteSlice   = "OBJECT_FREEZE array not []byte"
 )
 
 func (c ErrCorrupt) Error() string { return "sereal: corrupt document" }
