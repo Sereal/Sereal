@@ -14,6 +14,8 @@ var (
 
 	ErrTruncated  = errors.New("truncated document")
 	ErrUnknownTag = errors.New("unknown tag byte")
+
+	ErrTooLarge = errors.New("sereal: document too large to be compressed with snappy")
 )
 
 // ErrCorrupt is returned if the sereal document was corrupt
