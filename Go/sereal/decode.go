@@ -536,7 +536,8 @@ func (d *Decoder) decodeArray(by []byte, idx int, ln int, ptr *interface{}, isRe
 func (d *Decoder) decodeBinary(by []byte, idx int, ln int, makeCopy bool) ([]byte, int, error) {
 	if ln < 0 || ln > math.MaxInt32 {
 		return nil, 0, ErrCorrupt{errBadStringSize}
-	} else if idx+ln > len(by) {
+	}
+	if idx+ln > len(by) {
 		return nil, 0, ErrTruncated
 	}
 
@@ -592,6 +593,10 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 
 	case tag >= typeSHORT_BINARY_0 && tag < typeSHORT_BINARY_0+32:
 		ln := int(tag & 0x1F) // get length from tag
+		if idx+ln > len(by) {
+			return nil, 0, ErrTruncated
+		}
+
 		res = by[idx : idx+ln]
 		idx += ln
 
@@ -845,6 +850,10 @@ func (d *Decoder) decodeArrayViaReflection(by []byte, idx int, ln int, ptr refle
 		return 0, ErrCorrupt{errBadSliceSize}
 	}
 
+	if idx+ln > len(by) {
+		return 0, ErrTruncated
+	}
+
 	switch ptr.Kind() {
 	case reflect.Slice:
 		if ptr.IsNil() || ptr.Len() == 0 {
@@ -881,6 +890,10 @@ func (d *Decoder) decodeArrayViaReflection(by []byte, idx int, ln int, ptr refle
 func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflect.Value) (int, error) {
 	if ln < 0 || ln > math.MaxInt32 {
 		return 0, ErrCorrupt{errBadHashSize}
+	}
+
+	if idx+2*ln > len(by) {
+		return 0, ErrTruncated
 	}
 
 	switch ptr.Kind() {
