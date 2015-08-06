@@ -461,8 +461,12 @@ func (d *Decoder) decodeDouble(by []byte, idx int) (float64, int, error) {
 }
 
 func (d *Decoder) decodeHash(by []byte, idx int, ln int, ptr *interface{}, isRef bool) (int, error) {
-	if ln < 0 || ln > math.MaxInt32 || 2*ln > len(by) {
+	if ln < 0 || ln > math.MaxInt32 {
 		return 0, ErrCorrupt{errBadHashSize}
+	}
+
+	if idx+2*ln > len(by) {
+		return 0, ErrTruncated
 	}
 
 	hash := make(map[string]interface{}, ln)
@@ -495,8 +499,12 @@ func (d *Decoder) decodeHash(by []byte, idx int, ln int, ptr *interface{}, isRef
 }
 
 func (d *Decoder) decodeArray(by []byte, idx int, ln int, ptr *interface{}, isRef bool) (int, error) {
-	if ln < 0 || ln > math.MaxInt32 || ln > len(by) {
+	if ln < 0 || ln > math.MaxInt32 {
 		return 0, ErrCorrupt{errBadSliceSize}
+	}
+
+	if idx+ln > len(by) {
+		return 0, ErrTruncated
 	}
 
 	var slice []interface{}
