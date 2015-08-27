@@ -8,8 +8,11 @@ test: test_dir
 
 compat: test_dir
 	-rm -f test_dir/test_data_*-go.out
-	-go test -test.run=TestCorpus
+	-rm -f test_freeze/*-go.out
+	go test -test.run=TestCorpus
+	go test -test.run=TestPrepareFreezeRoundtrip
 	prove ./test-compat.pl
+	env RUN_FREEZE=1 go test -test.run=TestFreezeRoundtrip
 
 ../../Perl/Decoder/blib:
 	cd ../../Perl/Decoder/ ; perl Makefile.PL
@@ -26,6 +29,7 @@ test_dir: ../../Perl/Decoder/blib ../../Perl/Encoder/blib test_dir/VERSION_$(COR
 
 test_files:
 	mkdir -p test_dir
+	mkdir -p test_freeze
 	perl -Mblib=../../Perl/Encoder/blib -MSereal::Encoder cmd/gen/test-decode-struct.pl test_dir
 
 test_dir/VERSION_$(CORPUS_PROTO_VER):

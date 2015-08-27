@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -622,5 +623,154 @@ func TestUnmarshalHeaderError(t *testing.T) {
 			t.Errorf("test case #%v:\ngot   : %v\nwanted: %v", i, got, wanted)
 			continue
 		}
+	}
+}
+
+func TestPrepareFreezeRoundtrip(t *testing.T) {
+	_, err := os.Stat("test_freeze")
+	if os.IsNotExist(err) {
+		return
+	}
+
+	now := time.Now()
+
+	type StructWithTime struct{ time.Time }
+
+	tests := []struct {
+		what     string
+		input    interface{}
+		outvar   interface{}
+		expected interface{}
+	}{
+
+		{
+			"Time",
+			now,
+			time.Time{},
+			now,
+		},
+		{
+			"Time_ptr",
+			&now,
+			&time.Time{},
+			&now,
+		},
+		{
+			"struct_Time",
+			StructWithTime{now},
+			StructWithTime{},
+			StructWithTime{now},
+		},
+		{
+			"struct_Time_ptr",
+			&StructWithTime{now},
+			&StructWithTime{},
+			&StructWithTime{now},
+		},
+	}
+
+	for _, compat := range []bool{false, true} {
+		for _, v := range tests {
+			e := Encoder{PerlCompat: compat}
+			d := Decoder{}
+
+			var name string
+			if compat {
+				name = "compat_" + v.what
+			} else {
+				name = v.what
+			}
+
+			rinput := reflect.ValueOf(v.input)
+
+			x, err := e.Marshal(rinput.Interface())
+			if err != nil {
+				t.Errorf("error marshalling %s: %s\n", v.what, err)
+				continue
+			}
+
+			err = ioutil.WriteFile("test_freeze/"+name+"-go.out", x, 0600)
+			if err != nil {
+				t.Error(err)
+			}
+
+			routvar := reflect.New(reflect.TypeOf(v.outvar))
+			routvar.Elem().Set(reflect.ValueOf(v.outvar))
+
+			err = d.Unmarshal(x, routvar.Interface())
+			if err != nil {
+				t.Errorf("error unmarshalling %s: %s\n", v.what, err)
+				continue
+			}
+
+			if !reflect.DeepEqual(routvar.Elem().Interface(), v.expected) {
+				t.Errorf("roundtrip mismatch for %s: got: %#v expected: %#v\n", v.what, routvar.Elem().Interface(), v.expected)
+			}
+		}
+	}
+}
+
+func TestFreezeRoundtrip(t *testing.T) {
+	if os.Getenv("RUN_FREEZE") == "1" {
+		d := Decoder{}
+
+		buf, err := ioutil.ReadFile("test_freeze/Time-go.out")
+		if err != nil {
+			t.Error(err)
+		}
+		var then time.Time
+		d.Unmarshal(buf, &then)
+
+		type StructWithTime struct{ time.Time }
+		tests := []struct {
+			what     string
+			outvar   interface{}
+			expected interface{}
+		}{
+
+			{
+				"Time",
+				time.Time{},
+				then,
+			},
+			{
+				"Time_ptr",
+				&time.Time{},
+				&then,
+			},
+			{
+				"struct_Time",
+				StructWithTime{},
+				StructWithTime{then},
+			},
+			{
+				"struct_Time_ptr",
+				&StructWithTime{},
+				&StructWithTime{then},
+			},
+		}
+
+		for _, v := range tests {
+			for _, compat := range []string{"", "compat_"} {
+				x, err := ioutil.ReadFile("test_freeze/" + compat + v.what + "-perl.out")
+				if err != nil {
+					t.Error(err)
+				}
+
+				routvar := reflect.New(reflect.TypeOf(v.outvar))
+				routvar.Elem().Set(reflect.ValueOf(v.outvar))
+
+				err = d.Unmarshal(x, routvar.Interface())
+				if err != nil {
+					t.Errorf("error unmarshalling %s: %s\n", v.what, err)
+					continue
+				}
+
+				if !reflect.DeepEqual(routvar.Elem().Interface(), v.expected) {
+					t.Errorf("roundtrip mismatch for %s: got: %#v expected: %#v\n", v.what, routvar.Elem().Interface(), v.expected)
+				}
+			}
+		}
+
 	}
 }
