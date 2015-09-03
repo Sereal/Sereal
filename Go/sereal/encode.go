@@ -410,7 +410,7 @@ func (e *Encoder) encodeStrMap(by []byte, m map[string]interface{}, isRefNext bo
  * Encode via reflection
  *************************************/
 func (e *Encoder) encodeViaReflection(b []byte, rv reflect.Value, isKeyOrClass bool, isRefNext bool, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
-	if !e.DisableFREEZE && rv.Kind() != reflect.Invalid {
+	if !e.DisableFREEZE && rv.Kind() != reflect.Invalid && rv.Kind() != reflect.Ptr {
 		if m, ok := rv.Interface().(encoding.BinaryMarshaler); ok {
 			by, err := m.MarshalBinary()
 			if err != nil {
