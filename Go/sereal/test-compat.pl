@@ -288,7 +288,7 @@ for my $n (glob("test_dir/test_data_?????")) {
 is($skipped, $skip_total, "skipped expected number of tests");
 
 {
-    foreach my $class ("time.Time", "github.com/Sereal/Sereal/Go/sereal.StructWithTime") {
+    foreach my $class ("time.Time", "github.com/Sereal/Sereal/Go/sereal.StructWithTime", "_/home/travis/build/Sereal/Sereal/Go/sereal.StructWithTime") {
         no strict 'refs';
         *{"${class}::THAW"} = sub { my ( $pkg, $srl, $val ) = @_; bless \$val, $pkg };
         *{"${class}::FREEZE"} = sub { ${$_[0]} };
