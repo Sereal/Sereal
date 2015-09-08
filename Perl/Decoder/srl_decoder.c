@@ -334,7 +334,7 @@ srl_build_decoder_struct_alike(pTHX_ srl_decoder_t *proto)
     dec->max_recursion_depth = proto->max_recursion_depth;
     dec->max_num_hash_entries = proto->max_num_hash_entries;
 
-    if (dec->alias_cache) {
+    if (proto->alias_cache) {
         dec->alias_cache = proto->alias_cache;
         SvREFCNT_inc(dec->alias_cache);
     }
