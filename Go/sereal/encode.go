@@ -571,7 +571,9 @@ func (e *Encoder) encodePointer(by []byte, rv reflect.Value, strTable map[string
 
 		by = append(by, typeREFN)
 
-		ptrTable[rvptr] = lenbOrig
+		if rvptr != 0 {
+			ptrTable[rvptr] = lenbOrig
+		}
 
 		var err error
 		by, err = e.encode(by, rv.Elem(), false, true, strTable, ptrTable)
