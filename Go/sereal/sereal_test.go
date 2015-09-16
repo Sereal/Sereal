@@ -478,6 +478,67 @@ func TestDecodeToStruct(t *testing.T) {
 	}
 }
 
+func TestStructsWithPtrs(t *testing.T) {
+	type First struct{ I int }
+	type Second struct{ S string }
+	type NestedPtr struct {
+		A *First
+		B *Second
+	}
+	tests := []struct {
+		what     string
+		input    interface{}
+		outvar   interface{}
+		expected interface{}
+	}{
+		{
+			"struct with two fields of different types",
+			NestedPtr{&First{1}, &Second{"two"}},
+			NestedPtr{},
+			NestedPtr{&First{1}, &Second{"two"}},
+		},
+		{
+			"struct with two nils of different types",
+			NestedPtr{},
+			NestedPtr{},
+			NestedPtr{},
+		},
+	}
+
+	e := &Encoder{}
+	d := &Decoder{}
+
+	for _, v := range tests {
+
+		rinput := reflect.ValueOf(v.input)
+
+		x, err := e.Marshal(rinput.Interface())
+		if err != nil {
+			t.Errorf("error marshalling %s: %s\n", v.what, err)
+			continue
+		}
+
+		routvar := reflect.New(reflect.TypeOf(v.outvar))
+		routvar.Elem().Set(reflect.ValueOf(v.outvar))
+
+		err = d.Unmarshal(x, routvar.Interface())
+		if err != nil {
+			t.Errorf("error unmarshalling %s: %s\n", v.what, err)
+			continue
+		}
+
+		for i := 0; i < routvar.Elem().NumField(); i++ {
+			outfield := routvar.Elem().Field(i)
+			outfield.Interface()
+			expfield := reflect.ValueOf(v.expected).Field(i)
+
+			if !reflect.DeepEqual(outfield.Interface(), expfield.Interface()) {
+				t.Errorf("roundtrip mismatch for %s: got: %#v expected: %#v\n", v.what, outfield.Interface(), expfield.Interface())
+			}
+		}
+	}
+}
+
 type ErrorBinaryUnmarshaler int
 
 var errUnmarshaler = errors.New("error binary unmarshaler")
