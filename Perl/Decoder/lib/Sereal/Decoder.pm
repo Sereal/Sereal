@@ -18,6 +18,10 @@ our @EXPORT_OK = qw(
     decode_sereal looks_like_sereal decode_sereal_with_header_data
     scalar_looks_like_sereal
     sereal_decode_with_object sereal_decode_with_header_with_object
+    sereal_decode_only_header_with_object
+    sereal_decode_only_header_with_offset_with_object
+    sereal_decode_with_header_and_offset_with_object
+    sereal_decode_with_offset_with_object
 );
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 # export by default if run from command line
