@@ -930,6 +930,13 @@ func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflec
 			}
 		}
 
+	case reflect.Ptr:
+		if ptr.IsNil() {
+			n := reflect.New(ptr.Type().Elem())
+			ptr.Set(n)
+		}
+
+		return d.decodeHashViaReflection(by, idx, ln, ptr.Elem())
 	case reflect.Struct:
 		tags := d.tcache.Get(ptr)
 		var err error
