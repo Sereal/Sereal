@@ -45,15 +45,15 @@ Sereal::Decoder - Fast, compact, powerful binary deserialization
 
   use Sereal::Decoder
     qw(decode_sereal sereal_decode_with_object scalar_looks_like_sereal);
-  
+
   my $decoder = Sereal::Decoder->new({...options...});
-  
+
   my $structure;
   $decoder->decode($blob, $structure); # deserializes into $structure
-  
+
   # or if you don't have references to the top level structure, this works, too:
   $structure = $decoder->decode($blob);
-  
+
   # alternatively functional interface: (See Sereal::Performance)
   sereal_decode_with_object($decoder, $blob, $structure);
   $structure = sereal_decode_with_object($decoder, $blob);
@@ -61,7 +61,7 @@ Sereal::Decoder - Fast, compact, powerful binary deserialization
   # much slower functional interface with no persistent objects:
   decode_sereal($blob, {... options ...}, $structure);
   $structure = decode_sereal($blob, {... options ...});
-  
+
   # Not a full validation, but just a quick check for a reasonable header:
   my $is_likely_sereal = scalar_looks_like_sereal($some_string);
   # or:
@@ -376,6 +376,62 @@ Takes a decoder object reference as first parameter, followed by a byte string
 to deserialize. Optionally takes third and fourth parameters, which are
 the output scalars to write to. See the documentation for C<decode_with_header>
 above for details.
+
+This functional interface is marginally faster than the OO interface
+since it avoids method resolution overhead and, on sufficiently modern
+Perl versions, can usually avoid subroutine call overhead. See
+L<Sereal::Performance> for a discussion on how to tune Sereal for maximum
+performance if you need to.
+
+=head2 sereal_decode_only_header_with_object
+
+The functional interface that is equivalent to using C<decode_only_header>.
+Takes a decoder object reference as first parameter, followed by a byte string
+to deserialize. Optionally takes a third parameters, which outputs scalars to write to.
+See the documentation for C<decode_with_header> above for details.
+
+This functional interface is marginally faster than the OO interface
+since it avoids method resolution overhead and, on sufficiently modern
+Perl versions, can usually avoid subroutine call overhead. See
+L<Sereal::Performance> for a discussion on how to tune Sereal for maximum
+performance if you need to.
+
+=head2 sereal_decode_only_header_with_offset_with_object
+
+The functional interface that is equivalent to using C<decode_only_header_with_offset>.
+Same as the C<sereal_decode_only_header_with_object> function,
+except as the third parameter, you must
+pass an integer offset into the input string, at which the decoding is
+to start. The optional "pass-in" style scalar (see C<sereal_decode_only_header_with_object> above)
+is relegated to being the fourth parameter.
+
+This functional interface is marginally faster than the OO interface
+since it avoids method resolution overhead and, on sufficiently modern
+Perl versions, can usually avoid subroutine call overhead. See
+L<Sereal::Performance> for a discussion on how to tune Sereal for maximum
+performance if you need to.
+
+=head2 sereal_decode_with_header_and_offset_with_object
+
+The functional interface that is equivalent to using C<decode_with_header_and_offset>.
+Same as the C<sereal_decode_with_header_with_object> function, except as the third parameter, you must
+pass an integer offset into the input string, at which the decoding is
+to start. The optional "pass-in" style scalars (see C<sereal_decode_with_header_with_object> above)
+are relegated to being the fourth and fifth parameters.
+
+This functional interface is marginally faster than the OO interface
+since it avoids method resolution overhead and, on sufficiently modern
+Perl versions, can usually avoid subroutine call overhead. See
+L<Sereal::Performance> for a discussion on how to tune Sereal for maximum
+performance if you need to.
+
+=head2 sereal_decode_with_offset_with_object
+
+The functional interface that is equivalent to using C<decode_with_offset>.
+Same as the C<sereal_decode_with_object> function, except as the third parameter, you must
+pass an integer offset into the input string, at which the decoding is
+to start. The optional "pass-in" style scalar (see C<sereal_decode_with_object> above)
+is relegated to being the third parameter.
 
 This functional interface is marginally faster than the OO interface
 since it avoids method resolution overhead and, on sufficiently modern
