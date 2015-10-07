@@ -34,7 +34,7 @@ srl_iterator_t *srl_build_iterator_struct(pTHX_ HV *opt);
 void srl_destroy_iterator(pTHX_ srl_iterator_t *iter);
 
 /* Sereal document */
-void srl_iterator_set_document(pTHX_ srl_iterator_t *iter, SV *src);
+void srl_iterator_set(pTHX_ srl_iterator_t *iter, SV *src);
 void srl_iterator_reset(pTHX_ srl_iterator_t *iter);
 
 /* navigation */

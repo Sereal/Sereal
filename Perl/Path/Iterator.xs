@@ -19,7 +19,7 @@ new(CLASS, src = NULL, opt = NULL)
     HV *opt;
   CODE:
     RETVAL = srl_build_iterator_struct(aTHX_ opt);
-    if (src) srl_iterator_set_document(aTHX_ RETVAL, src);
+    if (src) srl_iterator_set(aTHX_ RETVAL, src);
   OUTPUT: RETVAL
 
 void
@@ -29,11 +29,11 @@ DESTROY(iter)
     srl_destroy_iterator(aTHX_ iter);
 
 void
-set_document(iter, src)
+set(iter, src)
     srl_iterator_t *iter;
     SV *src;
   CODE:
-    srl_iterator_set_document(aTHX_ iter, src);
+    srl_iterator_set(aTHX_ iter, src);
 
 void
 reset(iter)

@@ -224,7 +224,7 @@ srl_destroy_iterator(pTHX_ srl_iterator_t *iter)
 }
 
 void
-srl_iterator_set_document(pTHX_ srl_iterator_t *iter, SV *src)
+srl_iterator_set(pTHX_ srl_iterator_t *iter, SV *src)
 {
     STRLEN len;
     UV header_len;

@@ -132,7 +132,7 @@ srl_path_reset(pTHX_ srl_path_t *path, SV *src)
     if (sv_isa(src, "Sereal::Path::Iterator")) {
         croak("not implemented");
     } else {
-        srl_iterator_set_document(aTHX_ path->iter, src);
+        srl_iterator_set(aTHX_ path->iter, src);
     }
 }
 
