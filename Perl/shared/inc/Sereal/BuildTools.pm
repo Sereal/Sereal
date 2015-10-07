@@ -5,10 +5,11 @@ use warnings;
 sub link_files {
   my $shared_dir = shift;
   my $exlude_tests = shift;
+  my $force = shift;
   # This fires from a git source tree only.
   # Right now, all devs are on Linux. Feel free to make portable.
   eval {
-    if (-d "../../.git" and -d $shared_dir) {
+    if ((-d "../../.git" and -d $shared_dir) or $force) {
       # overwrite by default
       require File::Find;
       require File::Path;

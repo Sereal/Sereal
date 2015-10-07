@@ -15,6 +15,11 @@ Iterator.bs
 Iterator.so
 Iterator.o
 Iterator.c
+Iterator/*.o
+Iterator/*.h
+Iterator/*.c
+Iterator/*.xs
+Iterator/lib
 *.o
 srl_error.h
 srl_protocol.h

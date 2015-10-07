@@ -69,14 +69,13 @@ step_out(iter, n = NULL)
   CODE:
     srl_iterator_step_out(aTHX_ iter, n ? SvUV(n) : 1);
 
-UV
+void
 srl_next_until_depth_and_idx(iter, depth, idx)
     srl_iterator_t *iter;
     UV depth;
     U32 idx;
   CODE:
-    RETVAL = srl_iterator_next_until_depth_and_idx(aTHX_ iter, depth, idx);
-  OUTPUT: RETVAL
+    srl_iterator_next_until_depth_and_idx(aTHX_ iter, depth, idx);
 
 UV
 offset(iter)
