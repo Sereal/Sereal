@@ -101,6 +101,10 @@ between XPath, JSONPath and Sereal::Path:
 
 Items which are marked as 'not impl' will be implemented at later stages of the project.
 
+=head1 IMPORTANT
+
+Sereal::Path is still under development. It's possible that API will be change at any moment.
+
 =head1 ACKNOWLEDGMENT
 
 This module was inspired by JSON::Path module by Toby Inkster which is a port
