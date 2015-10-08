@@ -17,10 +17,10 @@ ok(0 == $sp->values('$[1]'), '->values() in scalar context upon mismatch');
 is_deeply([ $sp->values('$[0]') ], [ 'test' ], '->values() in list context upon match');
 is_deeply([ $sp->values('$[1]') ], [],         '->values() in list context upon match');
 
-my $ok = eval { $sp->reset(encode_sereal([ 'reset' ])); 1 };
-ok($ok, "reset Sereal::Path");
+my $ok = eval { $sp->set(encode_sereal([ 'set' ])); 1 };
+ok($ok, "set Sereal::Path");
 
-ok($sp->value('$[0]') eq 'reset', '->value() upon match after reseting');
-ok(!defined $sp->value('$[1]'),   '->value() upon mismatch after reseting');
+ok($sp->value('$[0]') eq 'set', '->value() upon match after seting');
+ok(!defined $sp->value('$[1]'),   '->value() upon mismatch after seting');
 
 done_testing();

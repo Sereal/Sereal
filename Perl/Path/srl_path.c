@@ -121,7 +121,7 @@ srl_destroy_path(pTHX_ srl_path_t *path)
 }
 
 void
-srl_path_reset(pTHX_ srl_path_t *path, SV *src)
+srl_path_set(pTHX_ srl_path_t *path, SV *src)
 {
     path->expr = NULL;
     CLEAN_RESULTS(path);

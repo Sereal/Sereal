@@ -19,7 +19,7 @@ new(CLASS, src = NULL, opt = NULL)
     HV *opt;
   CODE:
     RETVAL = srl_build_path_struct(aTHX_ opt);
-    if (src) srl_path_reset(aTHX_ RETVAL, src);
+    if (src) srl_path_set(aTHX_ RETVAL, src);
   OUTPUT: RETVAL
 
 void
@@ -29,11 +29,11 @@ DESTROY(path)
     srl_destroy_path(aTHX_ path);
 
 void
-reset(path, src)
+set(path, src)
     srl_path_t *path;
     SV *src;
   CODE:
-    srl_path_reset(aTHX_ path, src);
+    srl_path_set(aTHX_ path, src);
 
 SV *
 results(path)
