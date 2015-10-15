@@ -11,3 +11,13 @@ our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 XSLoader::load(__PACKAGE__, $Sereal::Path::Iterator::VERSION);
 
 1;
+
+__END__
+
+=encoding utf8
+
+=head1 NAME
+
+Sereal::Path::Iterator - iterator over Sereal documents
+
+=end
