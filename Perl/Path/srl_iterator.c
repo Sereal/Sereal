@@ -825,7 +825,7 @@ UV
 srl_iterator_object_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
 {
     U8 tag;
-    UV type = 0;
+    UV offset, type = 0;
     srl_reader_char_ptr orig_pos = iter->buf.pos;
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
@@ -883,10 +883,11 @@ read_again:
             type = SRL_ITERATOR_OBJ_IS_SCALAR;
             break;
 
-        /* case SRL_HDR_COPY:
-            UV offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading COPY tag");
+        case SRL_HDR_REFP:
+        case SRL_HDR_COPY:
+            offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading COPY tag");
             iter->buf.pos = iter->buf.body_pos + offset;
-            goto read_again; */ // TODO
+            goto read_again;
 
         default:
             iter->buf.pos = orig_pos;
