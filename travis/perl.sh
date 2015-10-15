@@ -16,3 +16,6 @@ cpanm Sereal::Encoder
 
 pushd Perl/Splitter; perl Makefile.PL && make ; popd
 pushd Perl/Splitter; make test ; popd
+
+pushd Perl/Path; perl Makefile.PL && make ; popd
+pushd Perl/Path; make test ; popd
