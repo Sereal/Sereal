@@ -29,6 +29,7 @@ my $libs = '';
 my $objects = '$(BASEEXT)$(OBJ_EXT) srl_path$(OBJ_EXT) srl_iterator$(OBJ_EXT) srl_decoder$(OBJ_EXT)';
 my $defines = join" ", map { "-D$_" . (defined $ENV{$_} ? "=$ENV{$_}" : '') } grep { exists $ENV{$_} }
               qw(NOINLINE DEBUG MEMDEBUG NDEBUG ENABLE_DANGEROUS_HACKS);
+$defines .= ' -DFOLLOW_REFERENCES_IF_NOT_STASHED';
 
 my $moderngccish = 0;
 my $clang = 0;

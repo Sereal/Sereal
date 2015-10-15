@@ -129,6 +129,7 @@ SRL_STATIC_INLINE void srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 o
 
 SRL_STATIC_INLINE void srl_track_sv(pTHX_ srl_decoder_t *dec, const U8 *track_pos, SV *sv);
 SRL_STATIC_INLINE void srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into);
+SRL_STATIC_INLINE SV * srl_follow_reference(pTHX_ srl_decoder_t *dec, UV offset);
 
 /* FIXME unimplemented!!! */
 SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
@@ -733,10 +734,12 @@ SRL_STATIC_INLINE SV *
 srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char * const tag_name)
 {
     SV *sv= (SV *)PTABLE_fetch(dec->ref_seenhash, (void *)item);
+#ifndef FOLLOW_REFERENCES_IF_NOT_STASHED
     if (expect_false( !sv )) {
         /*srl_ptable_debug_dump(aTHX_ dec->ref_seenhash);*/
         SRL_RDR_ERRORf2(dec->pbuf, "%s(%"UVuf") references an unknown item", tag_name, item);
     }
+#endif
     return sv;
 }
 
@@ -1114,6 +1117,17 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
     }
 }
 
+SRL_STATIC_INLINE SV *
+srl_follow_reference(pTHX_ srl_decoder_t *dec, UV offset)
+{
+    SV* into = FRESH_SV();
+    srl_reader_char_ptr pos = dec->buf.pos;
+    dec->buf.pos = dec->buf.body_pos + offset;
+    srl_read_single_value(aTHX_ dec, into, NULL);
+    dec->buf.pos = pos;
+    return into;
+}
+
 SRL_STATIC_INLINE void
 srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into)
 {
@@ -1126,6 +1140,12 @@ srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into)
         return;
     }
     referent= srl_fetch_item(aTHX_ dec, item, "REFP");
+
+#ifdef FOLLOW_REFERENCES_IF_NOT_STASHED
+    if (referent == NULL)
+        referent = srl_follow_reference(aTHX_ dec, item);
+#endif
+
     (void)SvREFCNT_inc(referent);
 
     SRL_sv_set_rv_to(into, referent);
