@@ -451,7 +451,7 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
         SRL_ITER_ERRORf1("Failed to do %"UVuf" steps. Likely EOF was reached", n);
     }
 
-    SRL_ITER_TRACE("Did expected number of steps");
+    SRL_ITER_TRACE("Completed expected number of steps");
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 

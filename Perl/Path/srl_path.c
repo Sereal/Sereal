@@ -62,11 +62,17 @@ extern "C" {
 #   define SRL_PATH_TRACE(msg, args...)
 #endif
 
-#define CLEAN_RESULTS(p) STMT_START {   \
+#define CLEAR_RESULTS(p) STMT_START {   \
     if ((p)->results) {                 \
         SvREFCNT_dec((p)->results);     \
         (p)->results = NULL;            \
     }                                   \
+} STMT_END
+
+#define CLEAR_ITERATOR(p) STMT_START {       \
+    if ((p)->iter && (p)->i_own_iterator) {  \
+        srl_destroy_iterator(aTHX_ p->iter); \
+    }                                        \
 } STMT_END
 
 SRL_STATIC_INLINE void srl_parse_next(pTHX_ srl_path_t *path, int expr_idx, SV *route);
@@ -103,6 +109,7 @@ srl_build_path_struct(pTHX_ HV *opt)
     path->iter = NULL;
     path->expr = NULL;
     path->results = NULL;
+    path->i_own_iterator = 0;
 
     if (opt != NULL) {}
     return path;
@@ -111,28 +118,28 @@ srl_build_path_struct(pTHX_ HV *opt)
 void
 srl_destroy_path(pTHX_ srl_path_t *path)
 {
-    CLEAN_RESULTS(path);
-
-    if (path->iter)
-        srl_destroy_iterator(aTHX_ path->iter);
-
+    CLEAR_RESULTS(path);
+    CLEAR_ITERATOR(path);
     Safefree(path);
-    return;
 }
 
 void
 srl_path_set(pTHX_ srl_path_t *path, SV *src)
 {
     path->expr = NULL;
-    CLEAN_RESULTS(path);
+    CLEAR_RESULTS(path);
+    CLEAR_ITERATOR(path);
 
-    if (path->iter) srl_destroy_iterator(aTHX_ path->iter);
-    path->iter = srl_build_iterator_struct(aTHX_ NULL);
-
-    if (sv_isa(src, "Sereal::Path::Iterator")) {
+    if (sv_isobject(src) && sv_isa(src, "Sereal::Path::Iterator")) {
         croak("not implemented");
-    } else {
+        path->iter = INT2PTR(srl_iterator_ptr, SvIV((SV*) SvRV(src)));
+        path->i_own_iterator = 0;
+    } else if (SvPOK(src)) {
+        path->iter = srl_build_iterator_struct(aTHX_ NULL);
+        path->i_own_iterator = 1;
         srl_iterator_set(aTHX_ path->iter, src);
+    } else {
+        croak("Sereal::Path: input should be either Sereal::Path::Iterator object or encoded Sereal document");
     }
 }
 
@@ -145,7 +152,7 @@ srl_path_traverse(pTHX_ srl_path_t *path, AV *expr, SV *route)
     assert(expr != NULL);
     assert(route != NULL);
 
-    CLEAN_RESULTS(path);
+    CLEAR_RESULTS(path);
 
     path->results = newAV();
     path->expr = expr;
