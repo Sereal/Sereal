@@ -645,7 +645,8 @@ my $min_iv = do {use integer; -$max_iv-1}; # 2s complement assumption
 
 my @numstr= map { ; no warnings; $_ < 0 and warn "this shouldnt happpen"; $_ }
     ( "    1    ", "0.0", "00000.0000", "0.0.0.0", ".0","    .0", " 22",
-      "01", "01.1", "   0   ", ".0", "0.001" );
+      "01", "01.1", "   0   ", ".0", "0.001", ".1", "  .1", ".2", "00", ".00",
+      "0 but true", "0E0");
 my $eng0e0= "0e0";
 my $eng0e1= "0e1";
 my $eng2= "1e3";
@@ -703,7 +704,7 @@ our @ScalarRoundtripTests = (
         1023,1024,1025,
         8191,8192,8193,
     )),
-    ["TODO troublesome num/strs", @numstr],
+    ["troublesome num/strs", @numstr],
     ["long latin1 string", "üll" x 10000],
     ["long utf8 string", do {use utf8; " עדיין חשב" x 10000}],
     ["long utf8 string with only ascii", do {use utf8; "foo" x 10000}],

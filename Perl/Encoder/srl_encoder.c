@@ -187,34 +187,57 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
 #define DO_POK_REGEXP(enc, src, svt) /*no-op*/
 #endif
 
-#define _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt)                    \
-    if (SvIOK(src)) {                                                   \
-    /* if its an integer its an integer */                              \
-        if (SvNOK(src) && SvPOK(src)) {                                 \
-            /* as far as I can tell the only strings which      */      \
-            /* set all three flags are engineering notation,    */      \
-            /* like "0E0" and friends - we especially need      */      \
-            /* to do this when the IV is 0, but we do it always */      \
-            /* if they put eng notation in, maybe then want it  */      \
-            /* out too. */                                              \
-            /* dump the string form */                                  \
-            srl_dump_svpv(aTHX_ enc, src);                              \
-        }                                                               \
-        else {                                                          \
-            /* dump ints */                                             \
-            srl_dump_ivuv(aTHX_ enc, src);                              \
-        }                                                               \
+#define _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt)                        \
+    if (SvPOK(src)) {                                                       \
+        if ( SvIOK(src) ) {                                                 \
+            if ( SvNOK(src) ) {                                             \
+                /* as far as I can tell the only strings which      */      \
+                /* set all three flags are engineering notation,    */      \
+                /* like "0E0" and friends - we especially need      */      \
+                /* to do this when the IV is 0, but we do it always */      \
+                /* if they put eng notation in, maybe then want it  */      \
+                /* out too. */                                              \
+                srl_dump_svpv(aTHX_ enc, src);                              \
+            }                                                               \
+            else {                                                          \
+                STRLEN L;                                                   \
+                char *PV= SvPV(src, L);                                     \
+                if ( SvIV(src) ? (PV[0] < '1' || PV[0] > '9') : L > 1) {    \
+                    srl_dump_svpv(aTHX_ enc, src);                          \
+                } else {                                                    \
+                    srl_dump_ivuv(aTHX_ enc, src);                          \
+                }                                                           \
+            }                                                               \
+        }                                                                   \
+        else                                                                \
+        if ( SvNOK(src) ) {                                                 \
+            STRLEN L;                                                       \
+            char *PV= SvPV(src, L);                                         \
+            if ( SvNV(src) ? (PV[0] < '1' || PV[0] > '9') : L > 1) {        \
+                srl_dump_svpv(aTHX_ enc, src);                              \
+            }                                                               \
+            else {                                                          \
+                srl_dump_nv(aTHX_ enc, src);                                \
+            }                                                               \
+        }                                                                   \
+        else {                                                              \
+            DO_POK_REGEXP(enc,src,svt)                                      \
+            srl_dump_svpv(aTHX_ enc, src);                                  \
+        }                                                                   \
+    }                                                                       \
+    else                                                                    \
+    if (SvIOK(src)) {                                                       \
+        srl_dump_ivuv(aTHX_ enc, src);                                  \
     }                                                                   \
     else                                                                \
     /* if its a float then its a float */                               \
     if (SvNOK(src)) {                                                   \
-        /* dump floats */                                               \
         srl_dump_nv(aTHX_ enc, src);                                    \
     }                                                                   \
     else                                                                \
     /* The POKp, IOKp, NOKp checks below deal with PVLV */              \
     /* if its POK or POKp, then we treat it as a string */              \
-    if (SvPOK(src) || SvPOKp(src)) {                                    \
+    if (SvPOKp(src)) {                                                  \
         DO_POK_REGEXP(enc,src,svt)                                      \
         srl_dump_svpv(aTHX_ enc, src);                                  \
     }                                                                   \
