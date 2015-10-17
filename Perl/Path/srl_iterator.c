@@ -323,6 +323,56 @@ srl_iterator_reset(pTHX_ srl_iterator_t *iter)
     srl_iterator_restore_stack_position(aTHX_ iter);
 }
 
+void
+srl_iterator_unite(pTHX_ srl_iterator_t *iter)
+{
+    UV offset;
+    srl_stack_t *stack = iter->stack;
+    SRL_ITER_TRACE("--------------------------");
+
+    if (expect_false(SRL_STACK_DEPTH(stack) <= 0))
+        SRL_ITER_ERROR("There is nothing to unite. Please call disjoin first.");
+
+    while (!SRL_ITER_STACK_ON_ROOT(stack)) {
+        srl_stack_pop(stack);
+    }
+
+    offset = stack->ptr->offset;
+    srl_stack_pop(stack); // remove SRL_ITER_STACK_ROOT_TAG
+
+    SRL_ITER_ASSERT_STACK(iter);
+    iter->buf.pos = iter->buf.body_pos + offset;
+
+    SRL_ITER_REPORT_STACK_STATE(iter);
+    SRL_ITER_TRACE("ofs %"UVuf" body_ofs %"UVuf,
+                   (UV) SRL_RDR_POS_OFS((iter)->pbuf),
+                   (UV) SRL_RDR_BODY_POS_OFS((iter)->pbuf));
+
+    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+}
+
+void
+srl_iterator_disjoin(pTHX_ srl_iterator_t *iter)
+{
+    srl_iterator_stack_ptr stack_ptr;
+
+    SRL_ITER_REPORT_STACK_STATE(iter);
+    SRL_ITER_TRACE("ofs %"UVuf" body_ofs %"UVuf,
+                   (UV) SRL_RDR_POS_OFS((iter)->pbuf),
+                   (UV) SRL_RDR_BODY_POS_OFS((iter)->pbuf));
+
+    // This record apart of being a boundary stores offset to idx's tag (i.e
+    // current tag). By default stack keeps offset to tag's starting point
+    // (i.e. continer located in the buf).
+
+    srl_stack_push_ptr(iter->stack, stack_ptr);
+    stack_ptr->offset = SRL_RDR_BODY_POS_OFS(iter->pbuf); // disjoint point
+    stack_ptr->tag = SRL_ITER_STACK_ROOT_TAG;
+    stack_ptr->count = 1;
+    stack_ptr->idx = 1;
+}
+
+
 SRL_STATIC_INLINE void
 srl_iterator_restore_stack_position(pTHX_ srl_iterator_t *iter)
 {

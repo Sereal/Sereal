@@ -36,6 +36,10 @@ void srl_destroy_iterator(pTHX_ srl_iterator_t *iter);
 void srl_iterator_set(pTHX_ srl_iterator_t *iter, SV *src);
 void srl_iterator_reset(pTHX_ srl_iterator_t *iter);
 
+/* nested XXX */
+void srl_iterator_unite(pTHX_ srl_iterator_t *iter);
+void srl_iterator_disjoin(pTHX_ srl_iterator_t *iter);
+
 /* navigation */
 void srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n);
 void srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n);

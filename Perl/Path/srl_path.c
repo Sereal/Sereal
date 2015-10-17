@@ -131,7 +131,6 @@ srl_path_set(pTHX_ srl_path_t *path, SV *src)
     CLEAR_ITERATOR(path);
 
     if (sv_isobject(src) && sv_isa(src, "Sereal::Path::Iterator")) {
-        croak("not implemented");
         path->iter = INT2PTR(srl_iterator_ptr, SvIV((SV*) SvRV(src)));
         path->i_own_iterator = 0;
     } else if (SvPOK(src)) {

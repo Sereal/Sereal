@@ -41,6 +41,18 @@ reset(iter)
   CODE:
     srl_iterator_reset(aTHX_ iter);
 
+void
+unite(iter)
+    srl_iterator_t *iter;
+  CODE:
+    srl_iterator_unite(aTHX_ iter);
+
+void
+disjoin(iter)
+    srl_iterator_t *iter;
+  CODE:
+    srl_iterator_disjoin(aTHX_ iter);
+
 UV
 eof(iter)
     srl_iterator_t *iter;
