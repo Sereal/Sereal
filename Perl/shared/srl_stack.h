@@ -107,7 +107,7 @@ srl_stack_destroy(pTHX_ srl_stack_t *stack)
     }                                                                 \
                                                                       \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
-    SRL_STACK_TRACE("pushed value on stack, current idx %d",          \
+    SRL_STACK_TRACE("pushed value on stack, current depth %d",        \
                     (int) SRL_STACK_DEPTH(stack));                    \
 } STMT_END
 
@@ -126,7 +126,7 @@ srl_stack_destroy(pTHX_ srl_stack_t *stack)
     *(stack)->ptr = (val);                                            \
                                                                       \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
-    SRL_STACK_TRACE("pushed value on stack, current idx %d",          \
+    SRL_STACK_TRACE("pushed value on stack, current depth %d",        \
                     (int) SRL_STACK_DEPTH(stack));                    \
 } STMT_END
 
@@ -141,7 +141,7 @@ srl_stack_destroy(pTHX_ srl_stack_t *stack)
     }                                                                 \
                                                                       \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
-    SRL_STACK_TRACE("poped stack, current idx %d",                    \
+    SRL_STACK_TRACE("poped stack, current depth %d",                  \
                     (int) SRL_STACK_DEPTH(stack));                    \
 } STMT_END
 

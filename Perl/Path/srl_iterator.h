@@ -16,7 +16,6 @@ struct srl_iterator {
     srl_reader_buffer_t buf;
     srl_reader_buffer_ptr pbuf;
     srl_stack_ptr stack;
-    UV first_tag_offset;
     SV *tmp_buf_owner;
     SV *document;
     struct srl_decoder *dec;
@@ -68,5 +67,6 @@ SV * srl_iterator_decode(pTHX_ srl_iterator_t *iter); // return mortalized SV
 #define SRL_ITERATOR_OBJ_IS_SCALAR  (1 << 1)
 #define SRL_ITERATOR_OBJ_IS_ARRAY   (1 << 2)
 #define SRL_ITERATOR_OBJ_IS_HASH    (1 << 3)
+#define SRL_ITERATOR_OBJ_IS_ROOT    (1 << 4)
 
 #endif

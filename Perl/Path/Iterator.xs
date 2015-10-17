@@ -105,6 +105,10 @@ info(iter)
             str_type = newSVpv("SCALAR", 6);
             break;
 
+        case SRL_ITERATOR_OBJ_IS_ROOT:
+            str_type = newSVpv("ROOT", 4);
+            break;
+
         default:
             croak("should not be here");
     }
