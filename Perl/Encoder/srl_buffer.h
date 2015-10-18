@@ -7,12 +7,6 @@
 #include "srl_common.h"
 #include "srl_buffer_types.h"
 
-#ifdef MEMDEBUG
-#   define BUFFER_GROWTH_FACTOR 1
-#else
-#   define BUFFER_GROWTH_FACTOR 2
-#endif
-
 /* The static's below plus the ifndef sort of make this header only
  * usable in one place per compilation unit. Drop "static" when necessary.
  * For now, potentially smaller code wins. */
@@ -106,8 +100,11 @@ srl_buf_swap_buffer(pTHX_ srl_buffer_t *buf1, srl_buffer_t *buf2)
     Copy(&tmp, buf2, 1, srl_buffer_t);
 }
 
+/* old_size + (new_size / 4) */
+#define OVERALLOC_FUNC(cur_size,req_size) (cur_size + (req_size >> 2))
+
 SRL_STATIC_INLINE void
-srl_buf_grow_nocheck(pTHX_ srl_buffer_t *buf, size_t minlen)
+srl_buf_grow_nocheck(pTHX_ srl_buffer_t *buf, const size_t minlen)
 {
     const size_t pos_ofs= BUF_POS_OFS(buf); /* have to store the offset of pos */
     const size_t body_ofs= buf->body_pos - buf->start; /* have to store the offset of the body */
@@ -115,8 +112,8 @@ srl_buf_grow_nocheck(pTHX_ srl_buffer_t *buf, size_t minlen)
     const size_t new_size = minlen;
 #else
     const size_t cur_size = BUF_SIZE(buf);
-    const size_t grown_len = (size_t)(cur_size * BUFFER_GROWTH_FACTOR);
-    const size_t new_size = 100 + (minlen > grown_len ? minlen : grown_len);
+    const size_t tmp_size = OVERALLOC_FUNC(cur_size, minlen);
+    const size_t new_size = (minlen > tmp_size) ? minlen : tmp_size;
 #endif
 
     DEBUG_ASSERT_BUF_SANE(buf);
@@ -126,6 +123,7 @@ srl_buf_grow_nocheck(pTHX_ srl_buffer_t *buf, size_t minlen)
     Renew(buf->start, new_size, srl_buffer_char);
     if (buf->start == NULL)
         croak("Out of memory!");
+    if (0) warn("Renew(%ld)", new_size);
 
     buf->end = (srl_buffer_char*) (buf->start + new_size);
     buf->pos = buf->start + pos_ofs;

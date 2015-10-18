@@ -133,7 +133,6 @@ THX_xsfunc_sereal_encode_with_object(pTHX_ CV *cv)
 
 #define MY_CXT_KEY "Sereal::Encoder::_stash" XS_VERSION
 
-
 typedef struct {
     sv_with_hash options[SRL_ENC_OPT_COUNT];
 } my_cxt_t;

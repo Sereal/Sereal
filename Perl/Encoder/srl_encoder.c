@@ -1067,6 +1067,13 @@ srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
     return;
 }
 
+#define ASSUME_BYTES_PER_TAG 4
+#define BUF_SIZE_ASSERT_AV(b,n) \
+        BUF_SIZE_ASSERT((b), 2 + SRL_MAX_VARINT_LENGTH + (1 * ASSUME_BYTES_PER_TAG * (n) ) )
+/* heuristic: 6 * n = liberal estimate of min size of n hashkeys */
+#define BUF_SIZE_ASSERT_HV(b, n) \
+        BUF_SIZE_ASSERT((b), 2 + SRL_MAX_VARINT_LENGTH + (2 * ASSUME_BYTES_PER_TAG * (n) ) )
+
 SRL_STATIC_INLINE void
 srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
 {
@@ -1076,7 +1083,7 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
     n = av_len(src)+1;
 
     /* heuristic: n is virtually the min. size of any element */
-    BUF_SIZE_ASSERT(&enc->buf, 2 + SRL_MAX_VARINT_LENGTH + n);
+    BUF_SIZE_ASSERT_AV(&enc->buf, n);
 
     if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
         enc->buf.pos--; /* backup over previous REFN */
@@ -1135,6 +1142,7 @@ he_cmp_slow(const void *a, const void *b)
     return sv_cmp( HeSVKEY_force( *(HE **)b), HeSVKEY_force( *(HE **)a ) );
 }
 
+
 SRL_STATIC_INLINE void
 srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 {
@@ -1149,9 +1157,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
         n = 0;
         while ((he = hv_iternext(src))) { ++n; }
 
-        /* heuristic: n     = ~min size of n values;
-         *            + 3*n = very conservative min size of n hashkeys if all COPY */
-        BUF_SIZE_ASSERT(&enc->buf, 2 + SRL_MAX_VARINT_LENGTH + 3 * n);
+        BUF_SIZE_ASSERT_HV(&enc->buf, n);
 
         if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
             enc->buf.pos--; /* back up over the previous REFN */
@@ -1216,9 +1222,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
         }
     } else {
         n= HvUSEDKEYS(src);
-        /* heuristic: n       = ~min size of n values;
-         *            + 3 * n = very conservative min size of n hashkeys if all COPY */
-        BUF_SIZE_ASSERT(&enc->buf, 2 + SRL_MAX_VARINT_LENGTH + 3 * n);
+        BUF_SIZE_ASSERT_HV(&enc->buf, n);
         if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
             enc->buf.pos--; /* backup over the previous REFN */
             srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_HASHREF + n);
