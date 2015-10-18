@@ -643,6 +643,9 @@ my $lots_of_9C = do {
 my $max_iv = ~0 >> 1;
 my $min_iv = do {use integer; -$max_iv-1}; # 2s complement assumption
 
+my @numstr= map { ; no warnings; $_ < 0 and warn "this shouldnt happpen"; $_ }
+    ( "    1    ", "0.0", "00000.0000", "0.0.0.0", ".0","    .0", " 22",
+      "01", "01.1", "   0   ", ".0", "0.001" );
 my $eng0e0= "0e0";
 my $eng0e1= "0e1";
 my $eng2= "1e3";
@@ -700,7 +703,7 @@ our @ScalarRoundtripTests = (
         1023,1024,1025,
         8191,8192,8193,
     )),
-
+    ["TODO troublesome num/strs", @numstr],
     ["long latin1 string", "üll" x 10000],
     ["long utf8 string", do {use utf8; " עדיין חשב" x 10000}],
     ["long utf8 string with only ascii", do {use utf8; "foo" x 10000}],
@@ -992,6 +995,7 @@ sub run_roundtrip_tests_internal {
     foreach my $rt (@RoundtripTests) {
         my ($name, $data) = @$rt;
 
+        TODO:
         foreach my $meth (
               ['object-oriented',
                 sub {$encoder->encode($_[0])},
@@ -1010,6 +1014,8 @@ sub run_roundtrip_tests_internal {
                 sub {$decoder->decode_only_header($_[0])}],
         ) {
             my ($mname, $enc, $dec) = @$meth;
+
+            local $TODO= $name=~/TODO/ ? $name : undef;
 
             next if $mname =~ /header/ and $opt->{use_protocol_v1};
 
