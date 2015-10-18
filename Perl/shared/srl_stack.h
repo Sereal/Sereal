@@ -20,6 +20,8 @@
     assert((stack)->begin <= (stack)->end);                                   \
     assert((stack)->ptr == NULL ||                                            \
            ((stack)->ptr >= (stack)->begin && (stack)->ptr <= (stack)->end)); \
+    assert(((stack)->ptr == NULL && (stack)->depth == -1) ||                  \
+           ((stack)->ptr - (stack)->begin) == (stack)->depth);                \
 } STMT_END
 
 #ifdef TRACE_STACK
@@ -31,11 +33,12 @@
 
 #define SRL_STACK_SIZE(stack)  (((stack)->end - (stack)->begin) + 1)
 #define SRL_STACK_SPACE(stack) (((stack)->ptr - (stack)->begin) + 1)
-#define SRL_STACK_DEPTH(stack) ((stack)->ptr ? (stack)->ptr - (stack)->begin : -1)
+#define SRL_STACK_DEPTH(stack) ((stack)->depth)
 
 typedef struct srl_stack srl_stack_t;
 struct srl_stack {
     srl_stack_type_t *begin, *end, *ptr;
+    IV depth; // benchmarking showed that calculating depth takes up to 5%, so we store it
 };
 
 /* Allocate new arrfer (but not the stack struct */
@@ -52,6 +55,7 @@ srl_stack_init(pTHX_ srl_stack_t * stack, size_t size)
 
     stack->end = stack->begin + size - 1;
     stack->ptr = NULL;
+    stack->depth = -1;
 
     assert(SRL_STACK_SIZE(stack) == (int) size);
     return 0;
@@ -87,6 +91,7 @@ srl_stack_destroy(pTHX_ srl_stack_t *stack)
 #define srl_stack_clear(stack) STMT_START {                           \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
     (stack)->ptr = NULL;                                              \
+    (stack)->depth = -1;                                              \
 } STMT_END
 
 #define srl_stack_ptr(stack)   ((stack)->ptr)
@@ -106,6 +111,8 @@ srl_stack_destroy(pTHX_ srl_stack_t *stack)
         (val_ptr) = ++(stack)->ptr;                                   \
     }                                                                 \
                                                                       \
+    (stack)->depth++;                                                 \
+                                                                      \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
     SRL_STACK_TRACE("pushed value on stack, current depth %d",        \
                     (int) SRL_STACK_DEPTH(stack));                    \
@@ -124,6 +131,7 @@ srl_stack_destroy(pTHX_ srl_stack_t *stack)
     }                                                                 \
                                                                       \
     *(stack)->ptr = (val);                                            \
+    (stack)->depth++;                                                 \
                                                                       \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
     SRL_STACK_TRACE("pushed value on stack, current depth %d",        \
@@ -139,6 +147,8 @@ srl_stack_destroy(pTHX_ srl_stack_t *stack)
     } else {                                                          \
         (stack)->ptr--;                                               \
     }                                                                 \
+                                                                      \
+    (stack)->depth--;                                                 \
                                                                       \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
     SRL_STACK_TRACE("poped stack, current depth %d",                  \
