@@ -422,6 +422,10 @@ srl_iterator_restore_stack_position(pTHX_ srl_iterator_t *iter)
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);                                                          \
                                                                                                 \
 read_again:                                                                                     \
+    if (expect_false(SRL_RDR_DONE(iter->pbuf))) {                                               \
+        SRL_ITER_ERROR("EOF is reached");                                                       \
+    }                                                                                           \
+                                                                                                \
     tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;                                                 \
     SRL_ITER_REPORT_TAG(iter, tag);                                                             \
     iter->buf.pos++;                                                                            \

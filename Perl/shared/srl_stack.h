@@ -96,7 +96,7 @@ srl_stack_destroy(pTHX_ srl_stack_t *stack)
 
 #define srl_stack_ptr(stack)   ((stack)->ptr)
 #define srl_stack_empty(stack) ((stack)->ptr == NULL)
-#define srl_stack_full(stack)  ((stack)->ptr == (stack)->end)
+#define srl_stack_full(stack)  ((stack)->ptr >= (stack)->end)
 
 #define srl_stack_push_ptr(stack, val_ptr) STMT_START {               \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
