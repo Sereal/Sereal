@@ -26,7 +26,6 @@ struct srl_iterator {
     srl_reader_buffer_ptr pbuf;
     srl_stack_t stack;
     srl_stack_ptr pstack;
-    SV *tmp_buf_owner;
     SV *document;
     struct srl_decoder *dec;
 };

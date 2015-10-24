@@ -191,7 +191,6 @@ srl_build_iterator_struct(pTHX_ HV *opt)
     iter->pbuf = &iter->buf;
     iter->pstack = &iter->stack;
     iter->document = NULL;
-    iter->tmp_buf_owner = NULL;
     iter->dec = NULL;
 
     /* load options */
@@ -215,16 +214,13 @@ srl_destroy_iterator(pTHX_ srl_iterator_t *iter)
     if (iter->document)
         SvREFCNT_dec(iter->document);
 
-    if (iter->tmp_buf_owner)
-        SvREFCNT_dec(iter->tmp_buf_owner);
-
     Safefree(iter);
-    return;
 }
 
 void
 srl_iterator_set(pTHX_ srl_iterator_t *iter, SV *src)
 {
+    SV *sv;
     STRLEN len;
     UV header_len;
     U8 encoding_flags;
@@ -232,12 +228,6 @@ srl_iterator_set(pTHX_ srl_iterator_t *iter, SV *src)
     srl_reader_char_ptr tmp;
     IV proto_version_and_encoding_flags_int;
     srl_iterator_stack_ptr stack_ptr = NULL;
-
-    /* clear previous buffer */
-    if (iter->tmp_buf_owner) {
-        SvREFCNT_dec(iter->tmp_buf_owner);
-        iter->tmp_buf_owner = NULL;
-    }
 
     if (iter->document) {
         SvREFCNT_dec(iter->document);
@@ -277,11 +267,15 @@ srl_iterator_set(pTHX_ srl_iterator_t *iter, SV *src)
     } else if (   encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
                || encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL)
     {
-        srl_decompress_body_snappy(aTHX_ iter->pbuf, encoding_flags, &iter->tmp_buf_owner);
-        SvREFCNT_inc(iter->tmp_buf_owner);
+        srl_decompress_body_snappy(aTHX_ iter->pbuf, encoding_flags, &sv);
+        SvREFCNT_dec(iter->document);
+        SvREFCNT_inc(sv);
+        iter->document = sv;
     } else if (encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB) {
-        srl_decompress_body_zlib(aTHX_ iter->pbuf, &iter->tmp_buf_owner);
-        SvREFCNT_inc(iter->tmp_buf_owner);
+        srl_decompress_body_zlib(aTHX_ iter->pbuf, &sv);
+        SvREFCNT_dec(iter->document);
+        SvREFCNT_inc(sv);
+        iter->document = sv;
     } else {
         SRL_RDR_ERROR(iter->pbuf, "Sereal document encoded in an unknown format");
     }
