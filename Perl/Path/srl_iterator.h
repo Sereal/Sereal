@@ -9,23 +9,26 @@ typedef struct srl_iterator         * srl_iterator_ptr;
 typedef struct srl_iterator         srl_iterator_t;
 typedef struct srl_iterator_stack   srl_iterator_stack_t;
 typedef struct srl_iterator_stack   * srl_iterator_stack_ptr;
-typedef struct srl_stack            * srl_stack_ptr;
+
+struct srl_iterator_stack {
+    I32 idx;        // index of current object, in negative format
+    U32 count;      // number of child objects
+    UV offset;      // offset of the tag
+    U8 tag;
+};
+
+#define srl_stack_type_t srl_iterator_stack_t
+#include "srl_stack.h"
 
 /* the iterator main struct */
 struct srl_iterator {
     srl_reader_buffer_t buf;
     srl_reader_buffer_ptr pbuf;
-    srl_stack_ptr stack;
+    srl_stack_t stack;
+    srl_stack_ptr pstack;
     SV *tmp_buf_owner;
     SV *document;
     struct srl_decoder *dec;
-};
-
-struct srl_iterator_stack {
-    UV offset;      // offset of the tag
-    U32 count;      // number of child objects
-    I32 idx;        // index of current object, in negative format
-    U8 tag;
 };
 
 /* constructor/destructor */

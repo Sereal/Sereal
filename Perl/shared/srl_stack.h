@@ -36,9 +36,11 @@
 #define SRL_STACK_DEPTH(stack) ((stack)->depth)
 
 typedef struct srl_stack srl_stack_t;
+typedef struct srl_stack * srl_stack_ptr;
+
 struct srl_stack {
-    srl_stack_type_t *begin, *end, *ptr;
     IV depth; // benchmarking showed that calculating depth takes up to 5%, so we store it
+    srl_stack_type_t *ptr, *begin, *end;
 };
 
 /* Allocate new arrfer (but not the stack struct */
@@ -101,7 +103,7 @@ srl_stack_destroy(pTHX_ srl_stack_t *stack)
 #define srl_stack_push_ptr(stack, val_ptr) STMT_START {               \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
                                                                       \
-    if (srl_stack_empty(stack)) {                                     \
+    if (expect_false(srl_stack_empty(stack))) {                       \
         (stack)->ptr = (stack)->begin;                                \
         (val_ptr) = (stack)->begin;                                   \
     } else {                                                          \
@@ -121,7 +123,7 @@ srl_stack_destroy(pTHX_ srl_stack_t *stack)
 #define srl_stack_push_val(stack, val) STMT_START {                   \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
                                                                       \
-    if (srl_stack_empty(stack)) {                                     \
+    if (expect_false(srl_stack_empty(stack))) {                       \
         (stack)->ptr = (stack)->begin;                                \
     } else {                                                          \
         if (expect_false(srl_stack_full(stack)))                      \
