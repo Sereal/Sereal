@@ -68,9 +68,10 @@ extern "C" {
 #include "srl_reader_varint.h"
 #include "srl_reader_decompress.h"
 
+#define SRL_RDR_BODY_POS_OFS_(buf) ((buf).pos - (buf).body_pos)
 #define srl_stack_push_and_set(_iter, _tag, _length, _stack_ptr) STMT_START {   \
     srl_stack_push_ptr((_iter)->pstack, (_stack_ptr));                          \
-    (_stack_ptr)->offset = SRL_RDR_BODY_POS_OFS((_iter)->pbuf);                 \
+    (_stack_ptr)->offset = SRL_RDR_BODY_POS_OFS_((_iter)->buf);                 \
     (_stack_ptr)->count = (_length);                                            \
     (_stack_ptr)->idx = (_length);                                              \
     (_stack_ptr)->tag = (_tag);                                                 \
@@ -354,11 +355,10 @@ srl_iterator_disjoin(pTHX_ srl_iterator_t *iter)
 SRL_STATIC_INLINE void
 srl_iterator_restore_stack_position(pTHX_ srl_iterator_t *iter)
 {
-    srl_stack_t *stack = iter->pstack;
     SRL_ITER_ASSERT_STACK(iter);
 
-    stack->ptr->idx = stack->ptr->count;
-    iter->buf.pos = iter->buf.body_pos + stack->ptr->offset;
+    iter->stack.ptr->idx = iter->stack.ptr->count;
+    iter->buf.pos = iter->buf.body_pos + iter->stack.ptr->offset;
 
     SRL_ITER_REPORT_STACK_STATE(iter);
     SRL_ITER_TRACE("ofs %"UVuf" body_ofs %"UVuf,
@@ -419,7 +419,7 @@ read_again:                                                                     
         case 0x40: /* ARRAYREF_0 .. HASHREF_15 */                                               \
             /* for HASHREF_0 .. HASHREF_15 multiple length by two */                            \
             length = (tag & 0xF) << ((tag & 0x10) ? 1 : 0);                                     \
-            if (length > 0) srl_stack_push_and_set(iter, tag, length, stack_ptr);               \
+            srl_stack_push_and_set(iter, tag, length, stack_ptr);                               \
             break;                                                                              \
                                                                                                 \
         case 0x60: /* SHORT_BINARY_0 .. SHORT_BINARY_31 */                                      \
@@ -430,12 +430,12 @@ read_again:                                                                     
             switch (tag) {                                                                      \
                 case SRL_HDR_HASH:                                                              \
                     length = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading HASH"); \
-                    if (length > 0) srl_stack_push_and_set(iter, tag, length * 2, stack_ptr);   \
+                    srl_stack_push_and_set(iter, tag, length * 2, stack_ptr);                   \
                     break;                                                                      \
                                                                                                 \
                 case SRL_HDR_ARRAY:                                                             \
                     length = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading ARRAY");\
-                    if (length > 0) srl_stack_push_and_set(iter, tag, length, stack_ptr);       \
+                    srl_stack_push_and_set(iter, tag, length, stack_ptr);                       \
                     break;                                                                      \
                                                                                                 \
                 case SRL_HDR_VARINT:                                                            \
