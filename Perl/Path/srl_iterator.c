@@ -412,80 +412,78 @@ read_again:                                                                     
     /* No code which decrease step, next or stack's counters should be added here.              \
      * Otherwise the counters will be decreased twicer for tags like REFN, ALIAS, etc. */       \
                                                                                                 \
-    switch (tag) {                                                                              \
-        CASE_SRL_HDR_SHORT_BINARY:                                                              \
+    switch (tag & 0xE0) {                                                                       \
+        case 0x0: /* POS_0 .. NEG_1 */                                                          \
+            break;                                                                              \
+                                                                                                \
+        case 0x40: /* ARRAYREF_0 .. HASHREF_15 */                                               \
+            /* for HASHREF_0 .. HASHREF_15 multiple length by two */                            \
+            length = (tag & 0xF) << ((tag & 0x10) ? 1 : 0);                                     \
+            if (length > 0) srl_stack_push_and_set(iter, tag, length, stack_ptr);               \
+            break;                                                                              \
+                                                                                                \
+        case 0x60: /* SHORT_BINARY_0 .. SHORT_BINARY_31 */                                      \
             iter->buf.pos += SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);                            \
             break;                                                                              \
                                                                                                 \
-        case SRL_HDR_HASH:                                                                      \
-            length = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading HASH");         \
-            if (length > 0) srl_stack_push_and_set(iter, tag, length * 2, stack_ptr);           \
-            break;                                                                              \
-                                                                                                \
-        case SRL_HDR_ARRAY:                                                                     \
-            length = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading ARRAY");        \
-            if (length > 0) srl_stack_push_and_set(iter, tag, length, stack_ptr);               \
-            break;                                                                              \
-                                                                                                \
-        CASE_SRL_HDR_HASHREF:                                                                   \
-            length = SRL_HDR_HASHREF_LEN_FROM_TAG(tag);                                         \
-            if (length > 0) srl_stack_push_and_set(iter, tag, length * 2, stack_ptr);           \
-            break;                                                                              \
-                                                                                                \
-        CASE_SRL_HDR_ARRAYREF:                                                                  \
-            length = SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag);                                        \
-            if (length > 0) srl_stack_push_and_set(iter, tag, length, stack_ptr);               \
-            break;                                                                              \
-                                                                                                \
-        CASE_SRL_HDR_POS:                                                                       \
-        CASE_SRL_HDR_NEG:                                                                       \
-            break;                                                                              \
-                                                                                                \
-        case SRL_HDR_VARINT:                                                                    \
-        case SRL_HDR_ZIGZAG:                                                                    \
-            srl_skip_varint(aTHX_ iter->pbuf);                                                  \
-            break;                                                                              \
-                                                                                                \
-        case SRL_HDR_FLOAT:         iter->buf.pos += 4;      break;                             \
-        case SRL_HDR_DOUBLE:        iter->buf.pos += 8;      break;                             \
-        case SRL_HDR_LONG_DOUBLE:   iter->buf.pos += 16;     break;                             \
-                                                                                                \
-        case SRL_HDR_TRUE:                                                                      \
-        case SRL_HDR_FALSE:                                                                     \
-        case SRL_HDR_UNDEF:                                                                     \
-        case SRL_HDR_CANONICAL_UNDEF:                                                           \
-            break;                                                                              \
-                                                                                                \
-        case SRL_HDR_REFN:                                                                      \
-        case SRL_HDR_ALIAS:                                                                     \
-        case SRL_HDR_WEAKEN:                                                                    \
-            goto read_again;                                                                    \
-                                                                                                \
-        case SRL_HDR_PAD:                                                                       \
-            while (SRL_RDR_NOT_DONE(iter->pbuf) && *iter->buf.pos++ == SRL_HDR_PAD) {};         \
-            goto read_again;                                                                    \
-                                                                                                \
-        case SRL_HDR_BINARY:                                                                    \
-        case SRL_HDR_STR_UTF8:                                                                  \
-            length = srl_read_varint_uv_length(aTHX_ iter->pbuf,                                \
-                                              " while reading BINARY or STR_UTF8");             \
-            iter->buf.pos += length;                                                            \
-            break;                                                                              \
-                                                                                                \
-        case SRL_HDR_COPY:                                                                      \
-        case SRL_HDR_REFP:                                                                      \
-            srl_skip_varint(aTHX_ iter->pbuf);                                                  \
-            break;                                                                              \
-                                                                                                \
-        /* case SRL_HDR_OBJECTV: */                                                             \
-        /* case SRL_HDR_OBJECTV_FREEZE: */                                                      \
-        /* case SRL_HDR_REGEXP: */                                                              \
-        /* case SRL_HDR_OBJECT: */                                                              \
-        /* case SRL_HDR_OBJECT_FREEZE: */                                                       \
-                                                                                                \
         default:                                                                                \
-            SRL_RDR_ERROR_UNIMPLEMENTED(iter->pbuf, tag, "");                                   \
-            break;                                                                              \
+            switch (tag) {                                                                      \
+                case SRL_HDR_HASH:                                                              \
+                    length = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading HASH"); \
+                    if (length > 0) srl_stack_push_and_set(iter, tag, length * 2, stack_ptr);   \
+                    break;                                                                      \
+                                                                                                \
+                case SRL_HDR_ARRAY:                                                             \
+                    length = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading ARRAY");\
+                    if (length > 0) srl_stack_push_and_set(iter, tag, length, stack_ptr);       \
+                    break;                                                                      \
+                                                                                                \
+                case SRL_HDR_VARINT:                                                            \
+                case SRL_HDR_ZIGZAG:                                                            \
+                    srl_skip_varint(aTHX_ iter->pbuf);                                          \
+                    break;                                                                      \
+                                                                                                \
+                case SRL_HDR_FLOAT:         iter->buf.pos += 4;      break;                     \
+                case SRL_HDR_DOUBLE:        iter->buf.pos += 8;      break;                     \
+                case SRL_HDR_LONG_DOUBLE:   iter->buf.pos += 16;     break;                     \
+                                                                                                \
+                case SRL_HDR_TRUE:                                                              \
+                case SRL_HDR_FALSE:                                                             \
+                case SRL_HDR_UNDEF:                                                             \
+                case SRL_HDR_CANONICAL_UNDEF:                                                   \
+                    break;                                                                      \
+                                                                                                \
+                case SRL_HDR_REFN:                                                              \
+                case SRL_HDR_ALIAS:                                                             \
+                case SRL_HDR_WEAKEN:                                                            \
+                    goto read_again;                                                            \
+                                                                                                \
+                case SRL_HDR_PAD:                                                               \
+                    while (SRL_RDR_NOT_DONE(iter->pbuf) && *iter->buf.pos++ == SRL_HDR_PAD) {}; \
+                    goto read_again;                                                            \
+                                                                                                \
+                case SRL_HDR_BINARY:                                                            \
+                case SRL_HDR_STR_UTF8:                                                          \
+                    length = srl_read_varint_uv_length(aTHX_ iter->pbuf,                        \
+                                                      " while reading BINARY or STR_UTF8");     \
+                    iter->buf.pos += length;                                                    \
+                    break;                                                                      \
+                                                                                                \
+                case SRL_HDR_COPY:                                                              \
+                case SRL_HDR_REFP:                                                              \
+                    srl_skip_varint(aTHX_ iter->pbuf);                                          \
+                    break;                                                                      \
+                                                                                                \
+                /* case SRL_HDR_OBJECTV: */                                                     \
+                /* case SRL_HDR_OBJECTV_FREEZE: */                                              \
+                /* case SRL_HDR_REGEXP: */                                                      \
+                /* case SRL_HDR_OBJECT: */                                                      \
+                /* case SRL_HDR_OBJECT_FREEZE: */                                               \
+                                                                                                \
+                default:                                                                        \
+                    SRL_RDR_ERROR_UNIMPLEMENTED(iter->pbuf, tag, "");                           \
+                    break;                                                                      \
+            }                                                                                   \
     }                                                                                           \
                                                                                                 \
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);                                                          \
