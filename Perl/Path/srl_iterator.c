@@ -178,10 +178,16 @@ srl_iterator_t *
 srl_build_iterator_struct(pTHX_ HV *opt)
 {
     srl_iterator_t *iter = NULL;
-
     Newx(iter, 1, srl_iterator_t);
-    if (iter == NULL)
-        croak("Out of memory");
+    if (iter == NULL) croak("Out of memory");
+    srl_init_iterator(aTHX_ iter, opt);
+    return iter;
+}
+
+void
+srl_init_iterator(pTHX_ srl_iterator_t *iter, HV *opt)
+{
+    assert(iter != NULL);
 
     if (expect_false(srl_stack_init(aTHX_ &iter->stack, 32) != 0)) {
         Safefree(iter);
@@ -200,21 +206,48 @@ srl_build_iterator_struct(pTHX_ HV *opt)
         if (svp && SvTRUE(*svp))
             SRL_iter_SET_OPTION(iter, SRL_F_DEDUPE_STRINGS); */
     }
-
-    return iter;
 }
 
 void
-srl_destroy_iterator(pTHX_ srl_iterator_t *iter)
+srl_copy_iterator(pTHX_ srl_iterator_t *from, srl_iterator_t *to)
 {
-    srl_stack_destroy(aTHX_ iter->pstack);
+    srl_iterator_ptr iter = from;
+
+    assert(from != NULL);
+    assert(to != NULL);
+    SRL_ITER_TRACE("from=%p to=%p", from, to);
+
+    if (srl_stack_copy(aTHX_ &from->stack, &to->stack) != 0)
+        croak("Out of memory");
+
+    /* it's assumed that buf holds buffer owned by sv */
+    to->document = from->document;
+    if (to->document) SvREFCNT_inc(to->document);
+    Copy(&from->buf, &to->buf, 1, srl_reader_buffer_t);
+
+    to->pstack = &to->stack;
+    to->pbuf = &to->buf;
+    to->dec = NULL;
+
+    assert(to->buf.pos == from->buf.pos);
+}
+
+void
+srl_deinit_iterator(pTHX_ srl_iterator_t *iter)
+{
+    assert(iter != NULL);
 
     if (iter->dec)
         srl_destroy_decoder(aTHX_ iter->dec);
 
     if (iter->document)
         SvREFCNT_dec(iter->document);
+}
 
+void
+srl_destroy_iterator(pTHX_ srl_iterator_t *iter)
+{
+    srl_deinit_iterator(iter);
     Safefree(iter);
 }
 

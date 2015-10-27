@@ -90,6 +90,35 @@ srl_stack_destroy(pTHX_ srl_stack_t *stack)
     Safefree(stack->begin);
 }
 
+SRL_STATIC_INLINE int
+srl_stack_copy(pTHX_ srl_stack_t *from, srl_stack_t *to)
+{
+    size_t size;
+    assert(from != NULL);
+    assert(to != NULL);
+
+    to->begin = NULL;
+    size = SRL_STACK_SIZE(from);
+
+    Newx(to->begin, size, srl_stack_type_t);
+    if (expect_false(to->begin == NULL))
+        return 1;
+
+    if (from->ptr == NULL) {
+        to->ptr = NULL;
+    } else {
+        Copy(from->begin, to->begin, SRL_STACK_SPACE(from), srl_stack_type_t);
+        to->ptr = to->begin + from->depth;
+    }
+
+    to->end = to->begin + size - 1;
+    to->depth = from->depth;
+
+    DEBUG_ASSERT_STACK_SANE(to);
+    assert(SRL_STACK_SIZE(to) == (int) size);
+    return 0;
+}
+
 #define srl_stack_clear(stack) STMT_START {                           \
     DEBUG_ASSERT_STACK_SANE(stack);                                   \
     (stack)->ptr = NULL;                                              \
