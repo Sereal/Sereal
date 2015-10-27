@@ -402,12 +402,12 @@ srl_iterator_restore_stack_position(pTHX_ srl_iterator_t *iter)
 }
 
 #define srl_iterator_wrap_stack(iter, expected_depth, stack_ptr) STMT_START {                   \
-    SRL_ITER_TRACE("expected_depth=%"IVdf, (expected_depth));                                   \
+    SRL_ITER_TRACE("expected_depth=%"IVdf, (IV) (expected_depth));                              \
     SRL_ITER_REPORT_STACK_STATE(iter);                                                          \
                                                                                                 \
-    assert(((expected_depth) > (IV) iter->stack.depth) == 0);                                   \
+    assert((((IV) (expected_depth)) > iter->stack.depth) == 0);                                 \
                                                                                                 \
-    while (    (iter)->stack.depth != (expected_depth)                                          \
+    while (    (iter)->stack.depth != (IV) (expected_depth)                                     \
             && (stack_ptr)->idx == 0                                                            \
             && (stack_ptr)->tag != SRL_ITER_STACK_ROOT_TAG                                      \
           )                                                                                     \
@@ -629,8 +629,8 @@ srl_iterator_next_until_depth_and_idx(pTHX_ srl_iterator_t *iter, UV expected_de
         srl_iterator_step_internal(iter, stack_ptr);
     }
 
-    assert(stack_ptr->idx == expected_idx);
-    assert(iter->stack.depth == expected_depth);
+    assert(stack_ptr->idx == (IV) expected_idx);
+    assert(iter->stack.depth == (IV) expected_depth);
     SRL_ITER_TRACE("Reached expected stack depth: %"UVuf " and idx: %u",
                    expected_depth, expected_idx);
 
