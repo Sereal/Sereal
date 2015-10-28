@@ -1,5 +1,11 @@
 Revision history for Perl extension Sereal-Path
 
+0.009 Oct 28 2015
+  * rework build procedure
+  * reuse available SV to store decompressed documents
+  * performance optimizations
+  * changelogs
+
 0.008 Oct 18 2015
   * experimental support of disjoin() and unite() function in iterator
   * Sereal::Path accept Sereal::Path::Iterator as input

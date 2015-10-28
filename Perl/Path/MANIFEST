@@ -7,6 +7,7 @@ author_tools/numeric_str_length.c
 author_tools/stringify_test.c
 author_tools/update_from_header.pl
 author_tools/valgrind.supp
+Changes
 inc/Devel/CheckLib.pm
 inc/Sereal/BuildTools.pm
 Iterator/inc/Devel/CheckLib.pm
