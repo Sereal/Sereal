@@ -9,7 +9,7 @@ unshift @INC, "..", "../inc";
 unshift @INC, $shared_dir, "$shared_dir/inc" if $in_source_repo;
 
 require inc::Sereal::BuildTools;
-inc::Sereal::BuildTools::link_files($shared_dir, 'without_tests', 'force') if $in_source_repo;
+inc::Sereal::BuildTools::link_files($shared_dir, 'without_tests') if $in_source_repo;
 
 if ($in_source_repo) {
     foreach (qw/srl_decoder.h srl_decoder.c/) {

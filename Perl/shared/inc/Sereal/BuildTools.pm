@@ -7,40 +7,37 @@ use Config;
 sub link_files {
   my $shared_dir = shift;
   my $exlude_tests = shift;
-  my $force = shift;
   # This fires from a git source tree only.
   # Right now, all devs are on Linux. Feel free to make portable.
   eval {
-    if ((-d "../../.git" and -d $shared_dir) or $force) {
-      # overwrite by default
-      require File::Find;
-      require File::Path;
-      require File::Spec;
-      File::Find::find(
-        { no_chdir => 1,
-          wanted => sub {
-            my $f = $_;
-            s/^\Q$shared_dir\E\/?// or die $_;
-            return unless $_;
-            return if $exlude_tests && m#^/?t/#;
-            
-            if (-d $f) {
-              File::Path::mkpath($_)
-            }
-            elsif (-f $f) {
-              return if $f =~ /(?:\.bak|\.sw[po]|~)$/;
-              my @d = File::Spec->splitdir($_);
-              my $fname = pop @d;
-              my $ref = join "/", ("..") x scalar(@d);
-              my $subd = join "/", @d;
-              chdir $subd if length($ref);
-              symlink(join("/", grep length, $ref, $shared_dir, $subd, $fname), $fname);
-              chdir($ref) if length($ref);
-            }
-          },
-        }, $shared_dir
-      );
-    }
+    # overwrite by default
+    require File::Find;
+    require File::Path;
+    require File::Spec;
+    File::Find::find(
+      { no_chdir => 1,
+        wanted => sub {
+          my $f = $_;
+          s/^\Q$shared_dir\E\/?// or die $_;
+          return unless $_;
+          return if $exlude_tests && m#^/?t/#;
+
+          if (-d $f) {
+            File::Path::mkpath($_)
+          }
+          elsif (-f $f) {
+            return if $f =~ /(?:\.bak|\.sw[po]|~)$/;
+            my @d = File::Spec->splitdir($_);
+            my $fname = pop @d;
+            my $ref = join "/", ("..") x scalar(@d);
+            my $subd = join "/", @d;
+            chdir $subd if length($ref);
+            symlink(join("/", grep length, $ref, $shared_dir, $subd, $fname), $fname);
+            chdir($ref) if length($ref);
+          }
+        },
+      }, $shared_dir
+    );
     1
   } or warn $@;
 }
