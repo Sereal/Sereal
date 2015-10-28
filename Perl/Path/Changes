@@ -1,0 +1,29 @@
+Revision history for Perl extension Sereal-Path
+
+0.008 Oct 18 2015
+  * experimental support of disjoin() and unite() function in iterator
+  * Sereal::Path accept Sereal::Path::Iterator as input
+  * performance optimizations
+
+0.007 Oct 15 2015
+  * basic support of decoding REFP and COPY tags
+  * basic support of using Sereal::Path::Iterator as separate module
+  * fix complication errors on some platforms
+  * tests improvments
+
+0.006 May 23 2015
+  * perl 5.8 compatilibity fix
+  * fix various refcounting issues
+  * use memcmp instead of strncmp
+
+0.005 May 20 2015
+  * fix compilation issues
+
+0.004 May 19 2015
+  * add support of slice operator
+
+0.003 May 13 2015
+  * C89 compatibility fixes
+
+Full change history available at https://github.com/Sereal/Sereal
+
