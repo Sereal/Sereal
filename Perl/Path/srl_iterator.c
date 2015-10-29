@@ -211,8 +211,6 @@ srl_init_iterator(pTHX_ srl_iterator_t *iter, HV *opt)
 void
 srl_copy_iterator(pTHX_ srl_iterator_t *from, srl_iterator_t *to)
 {
-    srl_iterator_ptr iter = from;
-
     assert(from != NULL);
     assert(to != NULL);
     SRL_ITER_TRACE("from=%p to=%p", from, to);
