@@ -80,7 +80,6 @@ extern "C" {
 #define SRL_ITER_STACK_ROOT_TAG SRL_HDR_PACKET_START
 #define SRL_ITER_STACK_ON_ROOT(stack) ((stack)->ptr->tag == SRL_ITER_STACK_ROOT_TAG)
 
-#define SRL_ITER_NOT_FOUND (0) /* 0 is invalid offset */
 #define SRL_ITER_BASE_ERROR_FORMAT              "Sereal::Path::Iterator: Error in %s:%u "
 #define SRL_ITER_BASE_ERROR_ARGS                __FILE__, __LINE__
 
@@ -699,6 +698,37 @@ srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
     srl_iterator_next(aTHX_ iter, stack_ptr->idx - s_idx);
     assert(stack_ptr->idx == s_idx);
     return SRL_RDR_BODY_POS_OFS(iter->pbuf);
+}
+
+IV
+srl_iterator_array_exists(pTHX_ srl_iterator_t *iter, I32 idx)
+{
+    I32 s_idx;
+    srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
+
+    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+    SRL_ITER_ASSERT_EOF(iter, "array element");
+    SRL_ITER_ASSERT_STACK(iter);
+    SRL_ITER_ASSERT_ARRAY_ON_STACK(iter);
+
+    SRL_ITER_TRACE("idx=%d", idx);
+    SRL_ITER_REPORT_STACK_STATE(iter);
+
+    if (idx >= 0) {
+        s_idx = stack_ptr->count - idx;
+        if (idx >= (I32) stack_ptr->count) {
+            SRL_ITER_TRACE("Index is out of range, idx=%d count=%u", idx, stack_ptr->count);
+            return SRL_ITER_NOT_FOUND;
+        }
+    } else {
+        s_idx = -idx;
+        if (s_idx > (I32) stack_ptr->count) {
+            SRL_ITER_TRACE("Index is out of range, idx=%d count=%u", idx, stack_ptr->count);
+            return SRL_ITER_NOT_FOUND;
+        }
+    }
+
+    return s_idx;
 }
 
 const char *
