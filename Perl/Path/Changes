@@ -1,5 +1,9 @@
 Revision history for Perl extension Sereal-Path
 
+0.010 Oct 29 2015
+  * experimental code for Sereal::Path::Tie
+  * fix occasional build problems
+
 0.009 Oct 28 2015
   * rework build procedure
   * reuse available SV to store decompressed documents
