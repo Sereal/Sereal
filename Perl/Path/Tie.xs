@@ -45,7 +45,7 @@ iterator_to_tied_sv(pTHX_ srl_iterator_t *iter)
             Newx(array, 1, sereal_iterator_tied_array_t); 
             if (!array) croak("Out of memory");
 
-            srl_copy_iterator(aTHX_ iter, &array->iter);
+            srl_shallow_copy_iterator(aTHX_ iter, &array->iter);
 
             array_obj = sv_setref_pv(newSV_type(SVt_NULL),
                                      "Sereal::Path::Tie::Array",
@@ -54,6 +54,7 @@ iterator_to_tied_sv(pTHX_ srl_iterator_t *iter)
             result = sv_2mortal(newRV_noinc((SV*) newAV()));
             sv_magic(SvRV(result), array_obj, PERL_MAGIC_tied, NULL, 0);
 
+            srl_iterator_disjoin(aTHX_ &array->iter); // mark current possion as new root
             srl_iterator_step_in(aTHX_ &array->iter, 1);
             break;
 
@@ -61,7 +62,7 @@ iterator_to_tied_sv(pTHX_ srl_iterator_t *iter)
             Newx(hash, 1, sereal_iterator_tied_hash_t); 
             if (!hash) croak("Out of memory");
 
-            srl_copy_iterator(aTHX_ iter, &hash->iter);
+            srl_shallow_copy_iterator(aTHX_ iter, &hash->iter);
 
             hash_obj = sv_setref_pv(newSV_type(SVt_NULL),
                                     "Sereal::Path::Tie::Hash",
@@ -70,6 +71,7 @@ iterator_to_tied_sv(pTHX_ srl_iterator_t *iter)
             result = sv_2mortal(newRV_noinc((SV*) newHV()));
             sv_magic(SvRV(result), hash_obj, PERL_MAGIC_tied, NULL, 0);
 
+            srl_iterator_disjoin(aTHX_ &hash->iter); // mark current possion as new root
             srl_iterator_step_in(aTHX_ &hash->iter, 1);
             hash->depth = srl_iterator_stack_depth(aTHX_ &hash->iter);
             break;

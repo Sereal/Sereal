@@ -35,7 +35,7 @@ srl_iterator_t *srl_build_iterator_struct(pTHX_ HV *opt);    // allocate structu
 void srl_init_iterator(pTHX_ srl_iterator_t *iter, HV *opt); // initialize structure
 void srl_deinit_iterator(pTHX_ srl_iterator_t *iter);        // deinitalize structure without freeing it
 void srl_destroy_iterator(pTHX_ srl_iterator_t *iter);       // destroy structure and free it
-void srl_copy_iterator(pTHX_ srl_iterator_t *from, srl_iterator_t *to);
+void srl_shallow_copy_iterator(pTHX_ srl_iterator_t *from, srl_iterator_t *to);
 
 /* Sereal document */
 void srl_iterator_set(pTHX_ srl_iterator_t *iter, SV *src);
