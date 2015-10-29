@@ -292,7 +292,7 @@ srl_parse_hash_list(pTHX_ srl_path_t *path, int expr_idx, SV *route,
         SRL_PATH_TRACE("scan for item=%.*s in hash at depth=%"IVdf,
                        (int) item_len, item, srl_iterator_stack_depth(aTHX_ iter));
 
-        if (srl_iterator_hash_exists(aTHX_ iter, item, item_len)) {
+        if (srl_iterator_hash_exists(aTHX_ iter, item, item_len) != SRL_ITER_NOT_FOUND) {
             srl_parse_next_str(aTHX_ path, expr_idx + 1, route, item, item_len);
             srl_iterator_step_out(aTHX_ iter, srl_iterator_stack_depth(aTHX_ iter) - depth);
         } else {
@@ -311,7 +311,7 @@ srl_parse_hash_item(pTHX_ srl_path_t *path, int expr_idx, SV *route,
                    srl_iterator_stack(aTHX_ iter)->count,
                    srl_iterator_stack_depth(aTHX_ iter));
 
-    if (srl_iterator_hash_exists(aTHX_ iter, str, str_len)) {
+    if (srl_iterator_hash_exists(aTHX_ iter, str, str_len) != SRL_ITER_NOT_FOUND) {
         srl_parse_next_str(aTHX_ path, expr_idx + 1, route, str, str_len);
     }
 }
@@ -389,7 +389,7 @@ srl_parse_array_list(pTHX_ srl_path_t *path, int expr_idx, SV *route,
         SRL_PATH_TRACE("scan for item=%d in array at depth=%"IVdf,
                        idx, srl_iterator_stack_depth(aTHX_ iter));
 
-        if (srl_iterator_array_goto(aTHX_ iter, idx)) {
+        if (srl_iterator_array_goto(aTHX_ iter, idx) != SRL_ITER_NOT_FOUND) {
             srl_parse_next_int(aTHX_ path, expr_idx + 1, route, idx);
             srl_iterator_step_out(aTHX_ iter, srl_iterator_stack_depth(aTHX_ iter) - depth);
         }
@@ -440,7 +440,7 @@ srl_parse_array_item(pTHX_ srl_path_t *path, int expr_idx, SV *route, I32 idx)
     SRL_PATH_TRACE("parse item %d in array of size=%d at depth=%"IVdf,
                    idx, srl_iterator_stack(aTHX_ iter)->count, srl_iterator_stack_depth(aTHX_ iter));
 
-    if (srl_iterator_array_goto(aTHX_ iter, idx)) {
+    if (srl_iterator_array_goto(aTHX_ iter, idx) != SRL_ITER_NOT_FOUND) {
         srl_parse_next_int(aTHX_ path, expr_idx + 1, route, idx);
     }
 }
