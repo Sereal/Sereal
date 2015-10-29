@@ -3,21 +3,20 @@ use 5.008;
 use strict;
 use warnings;
 
-my $shared_dir = "../shared";
-my $in_source_repo = -d "../../.git" and -d $shared_dir;
-
-unshift @INC, ".", "./inc";
+my $shared_dir = "../../shared";
+my $in_source_repo = -d "../../../.git" and -d $shared_dir;
+unshift @INC, "..", "../inc";
 unshift @INC, $shared_dir, "$shared_dir/inc" if $in_source_repo;
 
 require inc::Sereal::BuildTools;
 inc::Sereal::BuildTools::link_files($shared_dir, 'without_tests') if $in_source_repo;
 
-my $libs = '';
-my $defines = inc::Sereal::BuildTools::build_defines();
-my $objects = '$(BASEEXT)$(OBJ_EXT) srl_path$(OBJ_EXT) srl_index.o Iterator/srl_iterator.o Iterator/srl_decoder.o';
-
-# Prefer external libraries over the bundled one
-inc::Sereal::BuildTools::check_external_libraries(\$libs, \$defines, \$objects);
+if ($in_source_repo) {
+    foreach (qw/lib Tie.xs/) {
+        -l $_ && unlink($_);
+        symlink("../$_", $_) or warn $!;
+    }
+}
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
@@ -34,14 +33,6 @@ inc::Sereal::BuildTools::WriteMakefile(
         },
         'meta-spec' => { version => 2 },
     },
-    TEST_REQUIRES => {
-        'Test::More' => 0.88,
-        'Test::Deep' => '0',
-        'Scalar::Util' => 0,
-        'Data::Dumper' => '0',
-        'Sereal::Encoder' => '3.00',
-        'Sereal::Decoder' => '3.00',
-    },
     BUILD_REQUIRES => {
         'File::Find' => 0,
         'File::Path' => 0,
@@ -50,16 +41,14 @@ inc::Sereal::BuildTools::WriteMakefile(
     CONFIGURE_REQUIRES => {
         'ExtUtils::MakeMaker' => '7.0',
     },
-    NAME              => 'Sereal::Path',
-    VERSION_FROM      => 'lib/Sereal/Path.pm', # finds $VERSION
+    NAME              => 'Sereal::Path::Tie',
+    VERSION_FROM      => 'lib/Sereal/Path/Tie.pm', # finds $VERSION
     PREREQ_PM         => { 'XSLoader' => 0 },
     LICENSE           => 'perl',
-    ABSTRACT_FROM     => 'lib/Sereal/Path.pm',
+    ABSTRACT_FROM     => 'lib/Sereal/Path/Tie.pm',
     AUTHOR            => 'Ivan Kruglov <ivan.kruglov@yahoo.com>',
-    DEFINE            => $defines,
-    INC               => '-I.', # e.g., '-I. -I/usr/include/other'
+    DEFINE            => inc::Sereal::BuildTools::build_defines(),
+    INC               => '-I..', # e.g., '-I. -I/usr/include/other'
     OPTIMIZE          => inc::Sereal::BuildTools::build_optimize(),
-    OBJECT            => $objects,
-    test              => { TESTS => "t/*.t t/*/*/*.t" },
-    DIR               => [ 'Iterator', 'Tie' ],
+    OBJECT            => '$(BASEEXT)$(OBJ_EXT) ../Iterator/srl_iterator.o ../Iterator/srl_decoder.o',
 );

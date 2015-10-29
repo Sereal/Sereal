@@ -6,6 +6,8 @@
 .gdb_history
 Iterator/
 !Iterator/Makefile.PL
+Tie/
+!Tie/Makefile.PL
 MYMETA.*
 Makefile
 Makefile.old

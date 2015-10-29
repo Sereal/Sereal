@@ -64,6 +64,7 @@ UV srl_iterator_object_info(pTHX_ srl_iterator_t *iter, UV *length_ptr);
 
 /* array parsing */
 IV srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx);
+IV srl_iterator_array_exists(pTHX_ srl_iterator_t *iter, I32 idx);
 
 /* hash parsing */
 const char * srl_iterator_hash_key(pTHX_ srl_iterator_t *iter, STRLEN *len_out);
@@ -72,6 +73,8 @@ IV srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN
 IV srl_iterator_hash_exists_sv(pTHX_ srl_iterator_t *iter, SV *name);
 
 SV * srl_iterator_decode(pTHX_ srl_iterator_t *iter); // return mortalized SV
+
+#define SRL_ITER_NOT_FOUND (-1)
 
 #define SRL_ITERATOR_OBJ_IS_SCALAR  (1 << 1)
 #define SRL_ITERATOR_OBJ_IS_ARRAY   (1 << 2)
