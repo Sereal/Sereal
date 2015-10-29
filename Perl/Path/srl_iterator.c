@@ -101,17 +101,27 @@ extern "C" {
         );                                                                          \
     } STMT_END
 #   define SRL_ITER_REPORT_STACK_STATE(iter) STMT_START {                           \
-        srl_iterator_stack_ptr stack_ptr = (iter)->pstack->ptr;                     \
-        SRL_RDR_TRACE(                                                              \
-            "%s stack state depth=%"IVdf" tag=SRL_HDR_%s (int: %d hex: 0x%x) "      \
-            "count=%u idx=%d offset=%"UVuf,                                         \
-            srl_debug_tabulator((iter)),                                            \
-            SRL_STACK_DEPTH((iter)->pstack),                                        \
-            SRL_TAG_NAME(stack_ptr->tag), stack_ptr->tag, stack_ptr->tag,           \
-            stack_ptr->count,                                                       \
-            stack_ptr->idx,                                                         \
-            stack_ptr->offset                                                       \
-        );                                                                          \
+        if (srl_stack_empty((iter)->pstack)) {                                      \
+            SRL_RDR_TRACE(                                                          \
+                "%s %p stack state depth=%"IVdf,                                    \
+                srl_debug_tabulator((iter)),                                        \
+                (iter),                                                             \
+                SRL_STACK_DEPTH((iter)->pstack)                                     \
+            );                                                                      \
+        } else {                                                                    \
+            srl_iterator_stack_ptr stack_ptr = (iter)->pstack->ptr;                 \
+            SRL_RDR_TRACE(                                                          \
+                "%s %p stack state depth=%"IVdf" tag=SRL_HDR_%s "                   \
+                "(int: %d hex: 0x%x) count=%u idx=%d offset=%"UVuf,                 \
+                srl_debug_tabulator((iter)),                                        \
+                (iter),                                                             \
+                SRL_STACK_DEPTH((iter)->pstack),                                    \
+                SRL_TAG_NAME(stack_ptr->tag), stack_ptr->tag, stack_ptr->tag,       \
+                stack_ptr->count,                                                   \
+                stack_ptr->idx,                                                     \
+                stack_ptr->offset                                                   \
+            );                                                                      \
+        }                                                                           \
     } STMT_END
 #else
 #   define SRL_ITER_TRACE(msg, args...)
