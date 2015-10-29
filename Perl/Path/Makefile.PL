@@ -61,4 +61,5 @@ inc::Sereal::BuildTools::WriteMakefile(
     OPTIMIZE          => inc::Sereal::BuildTools::build_optimize(),
     OBJECT            => $objects,
     test              => { TESTS => "t/*.t t/*/*/*.t" },
+    DIR               => [ 'Iterator' ],
 );
