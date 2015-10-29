@@ -244,7 +244,7 @@ srl_deinit_iterator(pTHX_ srl_iterator_t *iter)
 void
 srl_destroy_iterator(pTHX_ srl_iterator_t *iter)
 {
-    srl_deinit_iterator(iter);
+    srl_deinit_iterator(aTHX_ iter);
     Safefree(iter);
 }
 

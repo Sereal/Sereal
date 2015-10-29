@@ -71,7 +71,7 @@ iterator_to_tied_sv(pTHX_ srl_iterator_t *iter)
             sv_magic(SvRV(result), hash_obj, PERL_MAGIC_tied, NULL, 0);
 
             srl_iterator_step_in(aTHX_ &hash->iter, 1);
-            hash->depth = srl_iterator_stack_depth(&hash->iter);
+            hash->depth = srl_iterator_stack_depth(aTHX_ &hash->iter);
             break;
 
         default:
