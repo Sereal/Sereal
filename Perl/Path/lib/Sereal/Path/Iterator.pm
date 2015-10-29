@@ -20,4 +20,4 @@ __END__
 
 Sereal::Path::Iterator - iterator over Sereal documents
 
-=end
+=cut
