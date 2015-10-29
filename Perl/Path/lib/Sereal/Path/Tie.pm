@@ -20,4 +20,4 @@ __END__
 
 Sereal::Path::Tie - interface to Sereal documents via tied variables
 
-=end
+=cut
