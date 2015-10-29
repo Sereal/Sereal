@@ -77,6 +77,7 @@ extern "C" {
     (_stack_ptr)->tag = (_tag);                                                 \
 } STMT_END
 
+#define SRL_ITER_STACK_PREALLOCATE (32)
 #define SRL_ITER_STACK_ROOT_TAG SRL_HDR_PACKET_START
 #define SRL_ITER_STACK_ON_ROOT(stack) ((stack)->ptr->tag == SRL_ITER_STACK_ROOT_TAG)
 
@@ -198,7 +199,7 @@ srl_init_iterator(pTHX_ srl_iterator_t *iter, HV *opt)
 {
     assert(iter != NULL);
 
-    if (expect_false(srl_stack_init(aTHX_ &iter->stack, 32) != 0)) {
+    if (expect_false(srl_stack_init(aTHX_ &iter->stack, SRL_ITER_STACK_PREALLOCATE) != 0)) {
         Safefree(iter);
         croak("Out of memory");
     }
@@ -218,20 +219,20 @@ srl_init_iterator(pTHX_ srl_iterator_t *iter, HV *opt)
 }
 
 void
-srl_copy_iterator(pTHX_ srl_iterator_t *from, srl_iterator_t *to)
+srl_shallow_copy_iterator(pTHX_ srl_iterator_t *from, srl_iterator_t *to)
 {
-    srl_iterator_t *iter = from;
+    srl_iterator_t *iter = from; // for SRL_ITER_TRACE
     assert(from != NULL);
     assert(to != NULL);
     SRL_ITER_TRACE("from=%p to=%p", from, to);
 
-    if (srl_stack_copy(aTHX_ &from->stack, &to->stack) != 0)
+    if (expect_false(srl_stack_init(aTHX_ &to->stack, SRL_ITER_STACK_PREALLOCATE) != 0))
         croak("Out of memory");
 
     /* it's assumed that buf holds buffer owned by sv */
     to->document = from->document;
-    if (to->document) SvREFCNT_inc(to->document);
-    Copy(&from->buf, &to->buf, 1, srl_reader_buffer_t);
+    if (to->document) SvREFCNT_inc(to->document);       // shallow document copy
+    Copy(&from->buf, &to->buf, 1, srl_reader_buffer_t); // shallow buffer copy
 
     to->pstack = &to->stack;
     to->pbuf = &to->buf;
