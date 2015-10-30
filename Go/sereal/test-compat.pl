@@ -32,7 +32,7 @@ sub slurp {
 # 100% reliable and accurate. To mitigate it we also maintain a counter holding
 # a total number of tests to be skipped.
 #
-my $skip_total = 194;
+my $skip_total = 195;
 my %skip = map { $_ => 1 } (
     'array ref to aliases blessed array',
     'array ref to aliases complex hash',
@@ -125,6 +125,7 @@ my %skip = map { $_ => 1 } (
     'array ref to aliases undef',
     'array ref to aliases utf8 string',
     'array ref to aliases var strings',
+    'array ref to aliases troublesome num/strs',
     "array ref to aliases largeish negative int -302001",
     "array ref to aliases largeish negative int -1234567",
     "array ref to aliases largeish negative int -12345678",
