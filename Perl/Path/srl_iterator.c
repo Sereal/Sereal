@@ -247,7 +247,7 @@ srl_deinit_iterator(pTHX_ srl_iterator_t *iter)
 void
 srl_destroy_iterator(pTHX_ srl_iterator_t *iter)
 {
-    srl_deinit_iterator(iter);
+    srl_deinit_iterator(aTHX_ iter);
     Safefree(iter);
 }
 
@@ -730,7 +730,7 @@ srl_iterator_hash_key(pTHX_ srl_iterator_t *iter, STRLEN *len_out)
             length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading BINARY");
             break;
 
-        case SRL_HDR_STR_UTF8:      
+        case SRL_HDR_STR_UTF8:
             // TODO deal with UTF8
             length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading STR_UTF8");
             break;
@@ -835,7 +835,7 @@ srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN na
                 iter->buf.pos += length;
                 break;
 
-            case SRL_HDR_STR_UTF8:      
+            case SRL_HDR_STR_UTF8:
                 // TODO deal with UTF8
                 length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading STR_UTF8");
                 key_ptr = (const char *) iter->buf.pos;
@@ -953,7 +953,7 @@ read_again:
         CASE_SRL_HDR_NEG:
         CASE_SRL_HDR_SHORT_BINARY:
         case SRL_HDR_BINARY:
-        case SRL_HDR_STR_UTF8:      
+        case SRL_HDR_STR_UTF8:
         case SRL_HDR_VARINT:
         case SRL_HDR_ZIGZAG:
         case SRL_HDR_FLOAT:
@@ -998,7 +998,7 @@ UV
 srl_iterator_stack_index(pTHX_ srl_iterator_t *iter)
 {
     SRL_ITER_ASSERT_STACK(iter);
-    assert((I32) iter->stack.ptr->count >= iter->stack.ptr->idx); 
+    assert((I32) iter->stack.ptr->count >= iter->stack.ptr->idx);
     return (UV) (iter->stack.ptr->count - iter->stack.ptr->idx);
 }
 
