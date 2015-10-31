@@ -23,8 +23,6 @@ struct sereal_iterator_tied_hash {
     IV depth;
 };
 
-// TODO UNTIE
-
 SRL_STATIC_INLINE SV *
 iterator_to_tied_sv(pTHX_ srl_iterator_t *iter)
 {
@@ -208,6 +206,11 @@ SPLICE(this, offset, length, LIST)
   CODE:
     croak("Tied to Sereal::Path::Tie::Array array is read-only");
 
+void
+UNTIE(this)
+  CODE:
+    croak("UNTIE is not supported");
+
 MODULE = Sereal::Path::Tie   PACKAGE = Sereal::Path::Tie::Hash
 PROTOTYPES: DISABLE
 
@@ -306,3 +309,8 @@ void
 CLEAR(this)
   CODE:
     croak("Tied to Sereal::Path::Tie::Hash hash is read-only");
+
+void
+UNTIE(this)
+  CODE:
+    croak("UNTIE is not supported");
