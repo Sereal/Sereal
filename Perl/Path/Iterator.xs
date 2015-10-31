@@ -6,6 +6,7 @@
 #include "srl_common.h"
 #include "srl_protocol.h"
 #include "srl_iterator.h"
+#include "srl_index.h"
 
 typedef srl_iterator_t * Sereal__Path__Iterator;
 
@@ -198,3 +199,10 @@ decode(iter)
     RETVAL = srl_iterator_decode(aTHX_ iter);
     SvREFCNT_inc(RETVAL);
   OUTPUT: RETVAL
+
+void
+create_index(iter)
+    srl_iterator_t *iter;
+  CODE:
+    srl_create_index(aTHX_ iter);
+

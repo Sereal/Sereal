@@ -14,7 +14,7 @@ inc::Sereal::BuildTools::link_files($shared_dir, 'without_tests') if $in_source_
 
 my $libs = '';
 my $defines = inc::Sereal::BuildTools::build_defines();
-my $objects = '$(BASEEXT)$(OBJ_EXT) srl_path$(OBJ_EXT) Iterator/srl_iterator.o Iterator/srl_decoder.o';
+my $objects = '$(BASEEXT)$(OBJ_EXT) srl_path$(OBJ_EXT) srl_index.o Iterator/srl_iterator.o Iterator/srl_decoder.o';
 
 # Prefer external libraries over the bundled one
 inc::Sereal::BuildTools::check_external_libraries(\$libs, \$defines, \$objects);

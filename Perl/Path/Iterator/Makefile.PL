@@ -17,14 +17,14 @@ if ($in_source_repo) {
         symlink("../../Decoder/$_", $_) or warn $!;
     }
 
-    foreach (qw/lib Iterator.xs srl_iterator.h srl_iterator.c/) {
+    foreach (qw/lib Iterator.xs srl_iterator.h srl_iterator.c srl_index.h srl_index.c/) {
         -l $_ && unlink($_);
         symlink("../$_", $_) or warn $!;
     }
 }
 
 my $libs = '';
-my $objects = '$(BASEEXT)$(OBJ_EXT) srl_iterator$(OBJ_EXT) srl_decoder$(OBJ_EXT)';
+my $objects = '$(BASEEXT)$(OBJ_EXT) srl_index$(OBJ_EXT) srl_iterator$(OBJ_EXT) srl_decoder$(OBJ_EXT)';
 my $defines = inc::Sereal::BuildTools::build_defines();
 $defines .= ' -DFOLLOW_REFERENCES_IF_NOT_STASHED';
 
