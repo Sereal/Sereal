@@ -1,0 +1,89 @@
+INTRODUCTION
+
+This is v1 of a proposal for indexes in Sereal::Path.
+
+
+DEFINITIONS
+
+We need to build indexes for scalars, arrays and hashes.
+
+Indexes could be recursive: array of hashes of arrays of ints.
+
+We call the Sereal-encoded document, the "sblock", and the memory block where
+all the indexes will be laid out, the "iblock".
+
+We want to be able to cap memory usage for these indexes (but maybe will leave
+that for v2).
+
+
+POINTERS
+
+An index pointer can point to a position in the sblock, or to a position in
+the iblock, where another index starts (in case of nested structures).
+
+If indexes are laid out in a single block of memory, both pointers can be
+represented as an offset into the corresponding memory block, using the most
+significant bit to differentiate sblock vs iblock.
+
+
+INDEX DEPTH
+
+We want support for limitting the depth of the index, which we call D.  D==0
+means no limit, otherwise it specifies how deep the index goes.  Maybe this
+will be left for v2.
+
+
+SCALARS
+
+Index for a scalar is just a pointer to the encoded scalar in sblock.
+
+In the final implementation, it is possible to replace all of these scalar
+indexes with a direct pointer to sblock.
+
+
+ARRAYS
+
+Metadata:
+N: size of array (number of elements)
+B: block size (for partial indexes, see below)
+T: top position already indexed (for incremental indexes, see below)
+
+Index for an array is an array, N prepended, where each element is a pointer
+in iblock where the index for the element lives.  This way accessing element X
+in the array index is O(1).
+
+For scalar elements, we can point directly to the encoded scalar in sblock.
+
+Partial index: specify and store B, store only int(N/B)+1 elements in the
+index.  When searching for position X, access element int(X/B) with index and
+then do a linear search on sblock for the (X%B) element after that.
+
+T can be used to build index incrementally: when asking for element X, we
+build the index up to that element; when later accessing element Y, if Y<X we
+use the index, otherwise we access X with index and search from there on,
+expanding the index as we go.  Drawback is the fact that growing the index
+later makes it harder to manage its memory, but this can be handled by
+reserving the memory for the whole index on first creation, given N.
+
+
+HASHES
+
+Metadata:
+N: size of hash (number of keys)
+
+There doesn't seem to be a way to build a partial index for a hash, since
+there is no way (as with arrays) to "interpolate" the position of a given key
+when we only know the positions of a subset of the keys.
+
+Index for a hash is an array, size prepended, where each element is a pair of
+pointers: a key, pointing to where in iblock the index for the hash key lives,
+and a value, pointing to where in iblock the index for the hash value lives.
+
+For scalar keys and values, we can point directly to the corresponding encoded
+scalar in sblock.
+
+Notice how this index, once built, will save all the iteration over sblock to
+find hash elements, but it will NOT make it easier to access a given key
+directly; each key access requires an O(N) search over the index.  We could
+use another data structure to make this search more efficient, but that means
+a more complex representation, which could be left for v2.
