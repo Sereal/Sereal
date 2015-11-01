@@ -226,7 +226,7 @@ srl_shallow_copy_iterator(pTHX_ srl_iterator_t *from, srl_iterator_t *to)
     assert(to != NULL);
     SRL_ITER_TRACE("from=%p to=%p", from, to);
 
-    if (expect_false(srl_stack_init(aTHX_ &to->stack, SRL_ITER_STACK_PREALLOCATE) != 0))
+    if (expect_false(srl_stack_copy(aTHX_ &from->stack, &to->stack)) != 0)
         croak("Out of memory");
 
     /* it's assumed that buf holds buffer owned by sv */
@@ -344,7 +344,7 @@ srl_iterator_reset(pTHX_ srl_iterator_t *iter)
     srl_iterator_restore_stack_position(aTHX_ iter);
 }
 
-void
+IV
 srl_iterator_unite(pTHX_ srl_iterator_t *iter)
 {
     UV offset;
@@ -370,9 +370,10 @@ srl_iterator_unite(pTHX_ srl_iterator_t *iter)
                    (UV) SRL_RDR_BODY_POS_OFS((iter)->pbuf));
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+    return iter->stack.depth;
 }
 
-void
+IV
 srl_iterator_disjoin(pTHX_ srl_iterator_t *iter)
 {
     srl_iterator_stack_ptr stack_ptr;
@@ -391,6 +392,8 @@ srl_iterator_disjoin(pTHX_ srl_iterator_t *iter)
     stack_ptr->tag = SRL_ITER_STACK_ROOT_TAG;
     stack_ptr->count = 1;
     stack_ptr->idx = 1;
+
+    return iter->stack.depth;
 }
 
 
