@@ -198,6 +198,17 @@ sub offseti {
     }
 }
 
+sub _permute {
+    return [] unless @_;
+    my $vals= shift;
+    my @rest= _permute(@_);
+    map { my $v= $_; map { [ $v, @$_ ] } @rest } @$vals;
+}
+
+sub permute_array {
+    map { array(@$_) }  _permute(@_);
+}
+
 sub debug_checks {
     my ($data_ref, $encoded_ref, $decoded_ref, $debug) = @_;
     if ($debug or defined $ENV{DEBUG_SEREAL}) {
@@ -557,17 +568,33 @@ sub setup_tests {
             sub { \@_ }->(!1,!0),
             array(chr(SRL_HDR_FALSE),chr(SRL_HDR_TRUE)),  # this is the "correct" response.
             "true/false (prefered order)",
-            array(chr(SRL_HDR_FALSE),short_string("1")),  # this is what threaded perls will probably match
-            array(short_string(""),chr(SRL_HDR_TRUE)),    # accept this also (but we dont expect we will)
-            array(short_string(""),short_string("1")),    # accept this also (but we dont expect we will)
+            permute_array(
+                [
+                    short_string(""),
+                    chr(SRL_HDR_FALSE),
+                ],
+                [
+                    chr(SRL_HDR_TRUE),
+                    short_string("1"),
+                    integer(1)
+                ]
+            ),  # this is what threaded perls will probably match
         ],
         [
             sub { \@_ }->(!1,!0),
             array(short_string(""),short_string("1")),    # this is the expected value on perl 5.14 unthreaded
             "true/false (reversed alternates)",
-            array(short_string(""),chr(SRL_HDR_TRUE)),    # from here we just reverse the order from the first test
-            array(chr(SRL_HDR_FALSE),short_string("1")),  # ....
-            array(chr(SRL_HDR_FALSE),chr(SRL_HDR_TRUE)),
+            permute_array(
+                [
+                    short_string(""),
+                    chr(SRL_HDR_FALSE)
+                ],
+                [
+                    chr(SRL_HDR_TRUE),
+                    integer(1),
+                    short_string("1")
+                ]
+            ),
         ],
     );
 }
