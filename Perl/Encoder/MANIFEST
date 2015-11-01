@@ -34,6 +34,13 @@ srl_encoder.c
 srl_encoder.h
 srl_inline.h
 srl_protocol.h
+srl_reader.h
+srl_reader_decompress.h
+srl_reader_error.h
+srl_reader_misc.h
+srl_reader_types.h
+srl_reader_varint.h
+srl_stack.h
 srl_taginfo.h
 t/001_load.t
 t/002_constants.t
