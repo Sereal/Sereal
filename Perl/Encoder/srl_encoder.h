@@ -37,6 +37,7 @@ typedef struct {
 
                               /* only used if SRL_F_ENABLE_FREEZE_SUPPORT is set. */
     SV *sereal_string_sv;     /* SV that says "Sereal" for FREEZE support */
+    SV *scratch_sv;           /* SV used by encoder for scratch operations */
 } srl_encoder_t;
 
 typedef struct {

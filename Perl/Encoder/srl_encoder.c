@@ -353,6 +353,7 @@ srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
         SvREFCNT_dec(enc->string_deduper_hv);
 
     SvREFCNT_dec(enc->sereal_string_sv);
+    SvREFCNT_dec(enc->scratch_sv);
 
     Safefree(enc);
 }
@@ -390,6 +391,7 @@ srl_empty_encoder_struct(pTHX)
 
     enc->freezeobj_svhash = NULL;
     enc->sereal_string_sv = NULL;
+    enc->scratch_sv = NULL;
 
     return enc;
 }
@@ -412,6 +414,7 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
 
     enc = srl_empty_encoder_struct(aTHX);
     enc->flags = 0;
+    enc->scratch_sv= newSViv(0);
 
     /* load options */
     if (opt != NULL) {
@@ -592,7 +595,7 @@ srl_build_encoder_struct_alike(pTHX_ srl_encoder_t *proto)
         enc->sereal_string_sv = newSVpvs("Sereal");
     }
     enc->protocol_version = proto->protocol_version;
-
+    enc->scratch_sv= newSViv(0);
     DEBUG_ASSERT_BUF_SANE(&enc->buf);
     return enc;
 }
