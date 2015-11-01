@@ -375,7 +375,7 @@ sub make_data {
     else {    # "large data"
         $data_set_name = "large data structure";
         return [
-            [ 1 .. 10000 ], {@str}, {@str}, [ 1 .. 10000 ],
+            [ map { my $y= "$_"; $_ } 1 .. 10000 ], {@str}, {@str}, [ map { my $y= "$_"; $_ } 1 .. 10000 ],
             {@str}, [@rand], {@str}, {@str},
         ];
     }
