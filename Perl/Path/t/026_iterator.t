@@ -30,12 +30,9 @@ is($spi->decode(), 'd');
 $spi->next();
 $spi->step_out();
 
-# $g = 82;  # Correct behaviour, but tests fail
-$g = 70;  # Incorrect behaviour, but tests pass
-
-is($spi->decode(), $g+0);
+is($spi->decode(), 82);
 $spi->next();
-is($spi->decode(), $g+1);
+is($spi->decode(), 83);
 $spi->next();
 
 $spi->step_out();
