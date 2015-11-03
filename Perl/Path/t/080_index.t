@@ -12,17 +12,12 @@ my $data =
     [
      21,
      22,
-     23,
      [
       'a',
       'b',
      ],
+     23,
      24,
-#     {
-#         gonzo => 1966,
-#         ale => 1971,
-#         ages => [ 13, 10 ],
-#     },
     ];
 
 my $spi = Sereal::Path::Iterator->new(encode_sereal($data));
