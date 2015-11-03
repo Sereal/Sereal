@@ -23,7 +23,7 @@ the iblock, where another index starts (in case of nested structures).
 
 If indexes are laid out in a single block of memory, both pointers can be
 represented as an offset into the corresponding memory block, using the most
-significant bit to differentiate sblock vs iblock.
+significant bits to differentiate sblock vs iblock.
 
 
 INDEX DEPTH
@@ -58,12 +58,13 @@ Partial index: specify and store B, store only int(N/B)+1 elements in the
 index.  When searching for position X, access element int(X/B) with index and
 then do a linear search on sblock for the (X%B) element after that.
 
-T can be used to build index incrementally: when asking for element X, we
-build the index up to that element; when later accessing element Y, if Y<X we
-use the index, otherwise we access X with index and search from there on,
-expanding the index as we go.  Drawback is the fact that growing the index
-later makes it harder to manage its memory, but this can be handled by
-reserving the memory for the whole index on first creation, given N.
+Incremental index: T can be used to build index incrementally.  When asking
+for element X, we build the index up to that element; when later accessing
+element Y, if Y<X we use the index, otherwise we access element X with index
+and search from there on, expanding the index as we go.  Drawback is the fact
+that growing the index later makes it harder to manage its memory, but this
+can be handled by reserving the memory for the whole index on first creation,
+given N.
 
 
 HASHES
@@ -79,11 +80,9 @@ Index for a hash is an array, size prepended, where each element is a pair of
 pointers: a key, pointing to where in iblock the index for the hash key lives,
 and a value, pointing to where in iblock the index for the hash value lives.
 
+Keys are stored in this array using linear probing: compute an initial
+candidate position for the key using hash(key)%size; starting there, search
+for a free slot where to put the key.
+
 For scalar keys and values, we can point directly to the corresponding encoded
 scalar in sblock.
-
-Notice how this index, once built, will save all the iteration over sblock to
-find hash elements, but it will NOT make it easier to access a given key
-directly; each key access requires an O(N) search over the index.  We could
-use another data structure to make this search more efficient, but that means
-a more complex representation, which could be left for v2.
