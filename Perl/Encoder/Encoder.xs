@@ -5,7 +5,7 @@
 #include "perl.h"
 #include "XSUB.h"
 
-#define NEED_newSV_type
+#define NEED_newSV_type_GLOBAL
 #include "ppport.h"
 
 #include "srl_encoder.h"
