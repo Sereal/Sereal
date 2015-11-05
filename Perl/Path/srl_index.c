@@ -47,26 +47,31 @@ extern "C" {
 
 /* Allocate new array (but not the index struct) */
 SRL_STATIC_INLINE int
-srl_index_init(pTHX_ srl_index_t * index, int size, srl_iterator_t* iter)
+srl_index_init(pTHX_
+               srl_index_t* index,
+               srl_iterator_t* iter,
+               int maxsize,
+               int maxdepth)
 {
-    assert(size > 0);
+    assert(maxsize > 0);
     assert(index != NULL);
 
-    fprintf(stderr, "Will reset iterator\n");
+    fprintf(stderr, "Will reset iterator, size [%d], depth [%d]\n", maxsize, maxdepth);
     srl_iterator_reset(aTHX_ iter);
     index->iter = iter;
+    index->maxdepth = maxdepth;
 
-    fprintf(stderr, "Will allocate [%d] bytes\n", size);
+    fprintf(stderr, "Will allocate [%d] bytes\n", maxsize);
     index->beg = NULL;
-    Newx(index->beg, size, char);
+    Newx(index->beg, maxsize, char);
     if (expect_false(index->beg == NULL))
         return 1;
 
-    index->end = index->beg + size;
+    index->end = index->beg + maxsize;
     index->ptr = index->beg;
 
-    fprintf(stderr, "Will assert correct size is [%d] bytes\n", size);
-    assert(SRL_INDEX_SIZE(index) == (int) size);
+    fprintf(stderr, "Will assert correct size is [%d] bytes\n", maxsize);
+    assert(SRL_INDEX_SIZE(index) == maxsize);
     return 0;
 }
 
@@ -80,13 +85,14 @@ srl_index_deinit(pTHX_ srl_index_t *index)
 
 srl_index_t *
 srl_index_build(pTHX_
-                srl_iterator_t* iter)
+                srl_iterator_t* iter,
+                int maxsize,
+                int maxdepth)
 {
     srl_index_t *index = NULL;
     Newx(index, 1, srl_index_t);
-    fprintf(stderr, "Allocated index\n");
     if (index == NULL) croak("Out of memory");
-    srl_index_init(aTHX_ index, 1000000, iter);
+    srl_index_init(aTHX_ index, iter, maxsize, maxdepth);
     return index;
 }
 
@@ -387,9 +393,11 @@ static srl_indexed_element_t* walk_iterator_hash(pTHX_
                                                  UV offset,
                                                  UV length);
 
-srl_index_t* srl_create_index(pTHX_ srl_iterator_t* iter)
+srl_index_t* srl_create_index(pTHX_ srl_iterator_t* iter,
+                              int maxsize,
+                              int maxdepth)
 {
-    srl_index_t* index = srl_index_build(aTHX_ iter);
+    srl_index_t* index = srl_index_build(aTHX_ iter, maxsize, maxdepth);
     dump_index(index);
     walk_iterator(aTHX_ index, 0);
     dump_index(index);
@@ -414,6 +422,7 @@ static srl_indexed_element_t* walk_iterator(pTHX_
     offset = srl_iterator_offset(aTHX_ iter);
     fprintf(stderr, "[%d] GONZO: we got a %s, length %zu, offset %zu\n",
             depth, GetSVType(type), length, offset);
+
     switch (type) {
     case SRL_ITERATOR_OBJ_IS_SCALAR:
         elem = walk_iterator_scalar(aTHX_ index, depth+1, offset, length);
@@ -450,7 +459,7 @@ static srl_indexed_element_t* walk_iterator_scalar(pTHX_
         return 0;
     }
 
-    fprintf(stderr, "[%d] GONZO: walking scalar, length %zu, offset %zu\n", depth, length, offset);
+    fprintf(stderr, "[%d] GONZO: pointer to scalar in SRL, offset %zu\n", depth, offset);
     val = srl_iterator_decode(aTHX_ iter);
     dump_sv(aTHX_ val);
 
@@ -476,6 +485,11 @@ static srl_indexed_element_t* walk_iterator_array(pTHX_
     srl_iterator_t* iter = index->iter;
     if (srl_iterator_eof(aTHX_ iter)) {
         return 0;
+    }
+
+    if (index->maxdepth > 0 && depth >= index->maxdepth) {
+        fprintf(stderr, "[%d] GONZO: pointer to array in SRL, offset %zu\n", depth, offset);
+        return srl_allocate_element(aTHX_ index, SRL_INDEX_TYPE_ARRAY_SRL, offset);
     }
 
     fprintf(stderr, "[%d] GONZO: walking array, length %zu, offset %zu\n", depth, length, offset);
@@ -543,6 +557,11 @@ static srl_indexed_element_t* walk_iterator_hash(pTHX_
     srl_iterator_t* iter = index->iter;
     if (srl_iterator_eof(aTHX_ iter)) {
         return 0;
+    }
+
+    if (index->maxdepth > 0 && depth >= index->maxdepth) {
+        fprintf(stderr, "[%d] GONZO: pointer to hash in SRL, offset %zu\n", depth, offset);
+        return srl_allocate_element(aTHX_ index, SRL_INDEX_TYPE_HASH_SRL, offset);
     }
 
     fprintf(stderr, "[%d] GONZO: walking hash, length %zu, offset %zu\n", depth, length, offset);

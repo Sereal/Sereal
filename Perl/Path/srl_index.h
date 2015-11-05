@@ -36,6 +36,7 @@ typedef struct srl_indexed_hash srl_indexed_hash_t;
 struct srl_index {
     srl_iterator_t* iter;
     char *ptr, *beg, *end;
+    int maxdepth;
 };
 
 struct srl_indexed_element {
@@ -77,6 +78,8 @@ struct srl_indexed_hash {
 // array -> { struct, [ UVs ] }
 // array -> { struct, [ array elements ] }
 
-srl_index_t* srl_create_index(pTHX_ srl_iterator_t* iter);
+srl_index_t* srl_create_index(pTHX_ srl_iterator_t* iter,
+                              int maxsize,
+                              int maxdepth);
 
 #endif

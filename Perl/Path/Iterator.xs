@@ -201,8 +201,9 @@ decode(iter)
   OUTPUT: RETVAL
 
 void
-create_index(iter)
+create_index(iter, size, depth)
     srl_iterator_t *iter;
+    UV size;
+    UV depth;
   CODE:
-    srl_create_index(aTHX_ iter);
-
+    srl_create_index(aTHX_ iter, size, depth);
