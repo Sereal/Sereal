@@ -37,6 +37,6 @@ my $data =
 
 my $spi = Sereal::Path::Iterator->new(encode_sereal($data));
 
-$spi->create_index();
+$spi->create_index(1_000_000, 2);
 
 done_testing();
