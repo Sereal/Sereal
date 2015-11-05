@@ -229,7 +229,7 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
 
         fprintf(stderr, "[%d] Array %p in IDX with %u elements\n", depth, array, size);
         for (j = 0; j < size; ++j) {
-            srl_indexed_element_t* elem = (srl_indexed_element_t*) &array->dataset[j];
+            srl_indexed_array_element_t* elem = (srl_indexed_array_element_t*) &array->dataset[j];
             srl_indexed_element_t* ref = 0;
             // ref = (srl_indexed_element_t*) srl_index_ptr_for_offset(index, elem->offset);
             fprintf(stderr, "[%d] Member #%d %p", depth, j, elem);
@@ -237,7 +237,7 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
                 fprintf(stderr, " points to %p", ref);
             }
             fprintf(stderr, "\n");
-            dump_index_data(index, ref ? ref : elem, depth+1);
+            dump_index_data(index, ref ? ref : (srl_indexed_element_t*) elem, depth+1);
         }
         break;
     }
@@ -274,8 +274,6 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
             ktype = elem->flags & SRL_INDEX_TYPE_MASK;
             ksize = elem->flags & SRL_INDEX_SIZE_MASK;
             switch (ktype) {
-                srl_indexed_element_t* kref = 0;
-
                 case SRL_INDEX_TYPE_HELEM_KS_IDX:
                 case SRL_INDEX_TYPE_HELEM_KS_SRL:
                     fprintf(stderr, "[%d] Hash key SMALL: [%*.*s]\n",
@@ -283,11 +281,12 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
                     break;
 
                 case SRL_INDEX_TYPE_HELEM_KL_IDX:
-                case SRL_INDEX_TYPE_HELEM_KL_SRL:
-                    kref = (srl_indexed_element_t*) srl_index_ptr_for_offset(index, elem->key.h.str);
+                case SRL_INDEX_TYPE_HELEM_KL_SRL: {
+                    srl_indexed_element_t* kref = (srl_indexed_element_t*) srl_index_ptr_for_offset(index, elem->key.h.str);
                     fprintf(stderr, "[%d] Hash key LARGE, %d bytes, hash %u => %p\n",
                             depth, ksize, elem->key.h.hash, kref);
                     break;
+                }
             }
 
             dump_index_data(index, ref ? ref : (srl_indexed_element_t*) elem, depth+1);
