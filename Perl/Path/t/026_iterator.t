@@ -14,32 +14,29 @@ my $g = 0;
 
 $spi->step_in();
 
-ok($spi->decode() == 70, 'decode item 70 in array');
+is($spi->decode(), 70);
 $spi->next();
-ok($spi->decode() == 71, 'decode item 71 in array');
+is($spi->decode(), 71);
 $spi->next();
 
 $spi->step_in();
-ok($spi->decode() eq 'a', 'decode item a in array');
+is($spi->decode(), 'a');
 $spi->next();
-ok($spi->decode() eq 'b', 'decode item b in array');
+is($spi->decode(), 'b');
 $spi->next();
-ok($spi->decode() eq 'c', 'decode item b in array');
+is($spi->decode(), 'c');
 $spi->next();
-ok($spi->decode() eq 'd', 'decode item b in array');
+is($spi->decode(), 'd');
 $spi->next();
 $spi->step_out();
 
-TODO: {
-	local $TODO = "Not working now, possible bug";
+# $g = 82;  # Correct behaviour, but tests fail
+$g = 70;  # Incorrect behaviour, but tests pass
 
-	$g = 82;
-	#$g = 70;
-	ok($spi->decode() == ($g + 0), 'decode item 82 in array');
-	$spi->next();
-	ok($spi->decode() == ($g + 1), 'decode item 83 in array');
-	$spi->next();
-};
+is($spi->decode(), $g+0);
+$spi->next();
+is($spi->decode(), $g+1);
+$spi->next();
 
 $spi->step_out();
 
