@@ -28,20 +28,22 @@ extern "C" {
 #define SRL_INDEX_LEFT(index)  (((index)->end - (index)->ptr))
 
 // TODO: we could reserve a single byte for flags, instead of two bytes.
-// That would leave 7 bytes for size.        
+// That would leave 7 bytes for size.
 #define SRL_INDEX_TYPE_MASK         (0xFF000000)
 #define SRL_INDEX_SIZE_MASK         (0x00FFFFFF)
 
-#define SRL_INDEX_TYPE_EMPTY           (0x00000000) // empty slot
-#define SRL_INDEX_TYPE_SCALAR_SRL      (0x01000000) // offset points to tag
-#define SRL_INDEX_TYPE_POINTER_IDX     (0x02000000) // offset points to child
-#define SRL_INDEX_TYPE_ARRAY_IDX       (0x03000000) // offset points to child
-#define SRL_INDEX_TYPE_ARRAY_SRL       (0x04000000) // offset points to tag
-#define SRL_INDEX_TYPE_HASH_IDX        (0x05000000) // offset points to tag
-#define SRL_INDEX_TYPE_HASH_KEY_SMALL  (0x06000000) // key is small, stored directly in idx
-#define SRL_INDEX_TYPE_HASH_KEY_LARGE  (0x07000000) // key is large, offset points to tag
-#define SRL_INDEX_TYPE_HASH_SRL        (0x08000000) // offset points to tag
-#define SRL_INDEX_TYPE_LAST            (0x09000000)
+#define SRL_INDEX_TYPE_EMPTY          (0x00000000) // empty slot
+#define SRL_INDEX_TYPE_SCALAR_SRL     (0x01000000) // offset points to tag
+#define SRL_INDEX_TYPE_ARRAY_SRL      (0x02000000) // offset points to tag
+#define SRL_INDEX_TYPE_ARRAY_IDX      (0x03000000) // offset points to child
+#define SRL_INDEX_TYPE_AELEM_IDX      (0x04000000) // offset points to child
+#define SRL_INDEX_TYPE_HASH_SRL       (0x05000000) // offset points to tag
+#define SRL_INDEX_TYPE_HASH_IDX       (0x06000000) // offset points to child
+#define SRL_INDEX_TYPE_HELEM_KS_IDX   (0x07000000) // key is small, stored directly in idx
+#define SRL_INDEX_TYPE_HELEM_KS_SRL   (0x08000000) // key is small, offset points to tag
+#define SRL_INDEX_TYPE_HELEM_KL_IDX   (0x09000000) // key is large, stored directly in idx
+#define SRL_INDEX_TYPE_HELEM_KL_SRL   (0x0a000000) // key is large, offset points to tag
+#define SRL_INDEX_TYPE_LAST           (0x0b000000)
 
 /* Allocate new array (but not the index struct) */
 SRL_STATIC_INLINE int
@@ -142,18 +144,18 @@ srl_allocate_array(pTHX_ srl_index_t *index, size_t length, uint32_t type, uint3
 {
     size_t size;
     srl_indexed_array_t *ptr;
-    fprintf(stderr, "Will allocate array with [%zu] elements\n", length);
+    fprintf(stderr, "GONZO: Will allocate array with [%zu] elements\n", length);
     SRL_INDEX_TRACE("index array of length %zu", length);
     if (expect_false(length > SRL_INDEX_SIZE_MASK)) return NULL;
 
     size = sizeof(srl_indexed_array_t) + length * sizeof(srl_indexed_array_element_t);
-    fprintf(stderr, "That means %ld bytes\n", (long) size);
+    fprintf(stderr, "GONZO: That means %ld bytes\n", (long) size);
     ptr = (srl_indexed_array_t*) srl_index_allocate(aTHX_ index, size);
     if (expect_false(ptr == NULL)) return NULL;
 
     ptr->offset = offset;
     ptr->flags = type | length;
-    fprintf(stderr, "Type %x, Length %lx (%lu), Flags %x\n", type, length, length, ptr->flags);
+    fprintf(stderr, "GONZO: Type %x, Length %lx (%lu), Flags %x\n", type, length, length, ptr->flags);
     return ptr;
 }
 
@@ -162,15 +164,18 @@ srl_allocate_hash(pTHX_ srl_index_t *index, size_t length, uint32_t type, uint32
 {
     size_t size;
     srl_indexed_hash_t *ptr;
+    fprintf(stderr, "GONZO: Will allocate hash with [%zu] elements\n", length);
     SRL_INDEX_TRACE("index hash of length %zu", length);
     if (expect_false(length > SRL_INDEX_SIZE_MASK)) return NULL;
 
     size = sizeof(srl_indexed_hash_t) + length * sizeof(srl_indexed_hash_element_t);
+    fprintf(stderr, "GONZO: That means %ld bytes\n", (long) size);
     ptr = (srl_indexed_hash_t*) srl_index_allocate(aTHX_ index, size);
     if (expect_false(ptr == NULL)) return NULL;
 
     ptr->offset = offset;
     ptr->flags = type | length;
+    fprintf(stderr, "GONZO: Type %x, Length %lx (%lu), Flags %x\n", type, length, length, ptr->flags);
     return ptr;
 }
 
@@ -179,15 +184,17 @@ srl_allocate_hash(pTHX_ srl_index_t *index, size_t length, uint32_t type, uint32
 static const char* GetObjType(int type)
 {
     static const char* name[] = {
-        "NONE",
+        "EMPTY",
         "SCALAR_SRL",
-        "POINTER_IDX",
-        "ARRAY_IDX",
         "ARRAY_SRL",
-        "HASH_IDX",
-        "HASH_KEY_SMALL",
-        "HASH_KEY_LARGE",
+        "ARRAY_IDX",
+        "AELEM_IDX",
         "HASH_SRL",
+        "HASH_IDX",
+        "HELEM_KS_IDX",
+        "HELEM_KS_SRL",
+        "HELEM_KL_IDX",
+        "HELEM_KL_SRL",
     };
 
     type >>= 24;
@@ -212,12 +219,9 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
         fprintf(stderr, "[%d] Scalar in SRL offset %u\n", depth, elem->offset);
         break;
 
-    case SRL_INDEX_TYPE_POINTER_IDX: {
-        srl_indexed_element_t* ref = (srl_indexed_element_t*) srl_index_ptr_for_offset(index, elem->offset);
-        fprintf(stderr, "[%d] Pointer %p in IDX\n", depth, ref);
-        dump_index_data(index, ref, depth+1);
+    case SRL_INDEX_TYPE_ARRAY_SRL:
+        fprintf(stderr, "[%d] Array in SRL offset %u\n", depth, elem->offset);
         break;
-    }
 
     case SRL_INDEX_TYPE_ARRAY_IDX: {
         int j;
@@ -227,7 +231,7 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
         for (j = 0; j < size; ++j) {
             srl_indexed_element_t* elem = (srl_indexed_element_t*) &array->dataset[j];
             srl_indexed_element_t* ref = 0;
-            // ref = srl_index_ptr_for_offset(index, elem->offset);
+            // ref = (srl_indexed_element_t*) srl_index_ptr_for_offset(index, elem->offset);
             fprintf(stderr, "[%d] Member #%d %p", depth, j, elem);
             if (ref) {
                 fprintf(stderr, " points to %p", ref);
@@ -235,16 +239,75 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
             fprintf(stderr, "\n");
             dump_index_data(index, ref ? ref : elem, depth+1);
         }
+        break;
     }
 
-    case SRL_INDEX_TYPE_ARRAY_SRL:
-        fprintf(stderr, "[%d] Array in SRL offset %u\n", depth, elem->offset);
+    case SRL_INDEX_TYPE_AELEM_IDX: {
+        srl_indexed_array_element_t* ref = (srl_indexed_array_element_t*) srl_index_ptr_for_offset(index, elem->offset);
+        fprintf(stderr, "[%d] Array element %p in IDX\n", depth, ref);
+        dump_index_data(index, (srl_indexed_element_t*) ref, depth+1);
+        break;
+    }
+
+    case SRL_INDEX_TYPE_HASH_SRL:
+        fprintf(stderr, "[%d] Hash in SRL offset %u\n", depth, elem->offset);
         break;
 
-    case SRL_INDEX_TYPE_HASH_IDX:
-    case SRL_INDEX_TYPE_HASH_KEY_SMALL:
-    case SRL_INDEX_TYPE_HASH_KEY_LARGE:
-    case SRL_INDEX_TYPE_HASH_SRL:
+    case SRL_INDEX_TYPE_HASH_IDX: {
+        int j;
+        srl_indexed_hash_t* hash = (srl_indexed_hash_t*) elem;
+
+        fprintf(stderr, "[%d] Hash %p in IDX with %u elements\n", depth, hash, size);
+        for (j = 0; j < size; ++j) {
+            uint32_t ktype = 0;
+            uint32_t ksize = 0;
+
+            srl_indexed_hash_element_t* elem = (srl_indexed_hash_element_t*) &hash->dataset[j];
+            srl_indexed_element_t* ref = 0;
+            // ref = (srl_indexed_element_t*) srl_index_ptr_for_offset(index, elem->offset);
+            fprintf(stderr, "[%d] Member #%d %p", depth, j, elem);
+            if (ref) {
+                fprintf(stderr, " points to %p", ref);
+            }
+            fprintf(stderr, "\n");
+
+            ktype = elem->flags & SRL_INDEX_TYPE_MASK;
+            ksize = elem->flags & SRL_INDEX_SIZE_MASK;
+            switch (ktype) {
+                srl_indexed_element_t* kref = 0;
+
+                case SRL_INDEX_TYPE_HELEM_KS_IDX:
+                case SRL_INDEX_TYPE_HELEM_KS_SRL:
+                    fprintf(stderr, "[%d] Hash key SMALL: [%*.*s]\n",
+                            depth, (int) ksize, (int) ksize, elem->key.str);
+                    break;
+
+                case SRL_INDEX_TYPE_HELEM_KL_IDX:
+                case SRL_INDEX_TYPE_HELEM_KL_SRL:
+                    kref = (srl_indexed_element_t*) srl_index_ptr_for_offset(index, elem->key.h.str);
+                    fprintf(stderr, "[%d] Hash key LARGE, %d bytes, hash %u => %p\n",
+                            depth, ksize, elem->key.h.hash, kref);
+                    break;
+            }
+
+            dump_index_data(index, ref ? ref : (srl_indexed_element_t*) elem, depth+1);
+        }
+        break;
+    }
+
+    case SRL_INDEX_TYPE_HELEM_KS_IDX:
+    case SRL_INDEX_TYPE_HELEM_KL_IDX: {
+        srl_indexed_hash_element_t* ref = (srl_indexed_hash_element_t*) srl_index_ptr_for_offset(index, elem->offset);
+        fprintf(stderr, "[%d] Hash element %p in IDX\n", depth, ref);
+        dump_index_data(index, (srl_indexed_element_t*) ref, depth+1);
+        break;
+    }
+
+    case SRL_INDEX_TYPE_HELEM_KS_SRL:
+    case SRL_INDEX_TYPE_HELEM_KL_SRL:
+        fprintf(stderr, "[%d] Hash element in SRL offset %u\n", depth, elem->offset);
+        break;
+
     default:
         fprintf(stderr, "[%d] UNSUPPORTED\n", depth);
         break;
@@ -262,6 +325,7 @@ static void dump_index(srl_index_t* index)
     } else {
         fprintf(stderr, "using %u bytes\n", used);
         dump_index_data(index, (srl_indexed_element_t*) index->beg, 0);
+        fprintf(stderr, "DONE dumping index\n");
     }
 }
 
@@ -391,20 +455,14 @@ static srl_indexed_element_t* walk_iterator_scalar(pTHX_
     val = srl_iterator_decode(aTHX_ iter);
     dump_sv(aTHX_ val);
 
-    //    if (! elem) {
     return srl_allocate_element(aTHX_ index, SRL_INDEX_TYPE_SCALAR_SRL, offset);
-        //    } else {
-        // elem->offset = offset;
-        //elem->flags = SRL_INDEX_TYPE_SCALAR_SRL;
-        //fprintf(stderr, "GONZO: prexisting scalar offset %u\n", offset);
-        //}
 }
 
 static void show_iterator(pTHX_ const char* msg, srl_iterator_t* iter)
 {
     IV sd = srl_iterator_stack_depth(aTHX_ iter);
     UV si = srl_iterator_stack_index(aTHX_ iter);
-    fprintf(stderr, "GONZO: %s => stack is %ld / %lu\n", msg, sd, si);
+    fprintf(stderr, "GONZO: %s => stack is depth %ld / index %lu\n", msg, sd, si);
 }
 
 static srl_indexed_element_t* walk_iterator_array(pTHX_
@@ -446,7 +504,7 @@ static srl_indexed_element_t* walk_iterator_array(pTHX_
         elem = walk_iterator(aTHX_ index, depth);
         cur = &array->dataset[pos];
         cur->offset = srl_index_offset_for_ptr(index, elem);
-        cur->flags = SRL_INDEX_TYPE_POINTER_IDX;
+        cur->flags = SRL_INDEX_TYPE_AELEM_IDX;
 
         ++pos;
         srl_iterator_next(aTHX_ iter, 1);
@@ -462,10 +520,16 @@ static srl_indexed_element_t* walk_iterator_array(pTHX_
     return (srl_indexed_element_t*) array;
 }
 
-static uint32_t compute_hash(const char* key)
+// I've had nice results with djb2 by Dan Bernstein.
+static uint32_t compute_hash(const char* str)
 {
-    // TODO
-    return 0;
+  uint32_t h = 5381;
+  int c;
+
+  while ((c = *str++))
+    h = ((h << 5) + h) + c; /* h * 33 + c */
+
+  return h;
 }
 
 static srl_indexed_element_t* walk_iterator_hash(pTHX_
@@ -520,25 +584,32 @@ static srl_indexed_element_t* walk_iterator_hash(pTHX_
         elem = walk_iterator(aTHX_ index, depth);
         h = compute_hash(key);
         r = j = h % length;
-        fprintf(stderr, "[%d] GONZO: hash %d, pos %d\n", depth, h, j);
+        fprintf(stderr, "[%d] GONZO: hash %u, slot %d\n", depth, h, j);
         while (1) {
             srl_indexed_hash_element_t* cur = &hash->dataset[j];
-            if ((cur->offset & SRL_INDEX_TYPE_MASK) == SRL_INDEX_TYPE_EMPTY) {
+            uint32_t ktype = cur->flags & SRL_INDEX_TYPE_MASK;
+            fprintf(stderr, "[%d] GONZO: current slot %d - %p is type 0x%02X - %s\n",
+                    depth, j, cur, ktype >> 24, GetObjType(ktype));
+
+            if (ktype == SRL_INDEX_TYPE_EMPTY) {
                 if (len <= SRL_INDEX_HASH_KEY_SMALL_LENGTH) {
-                    fprintf(stderr, "[%d] GONZO: found slot, small key of length %lu\n", depth, length);
+                    fprintf(stderr, "[%d] GONZO: found slot, small key of length %lu\n", depth, len);
                     memcpy(cur->key.str, key, len);
-                    memset(cur->key.str + len, 0, SRL_INDEX_HASH_KEY_SMALL_LENGTH - len);
-                    cur->flags = SRL_INDEX_TYPE_HASH_KEY_SMALL;
+                    ktype = SRL_INDEX_TYPE_HELEM_KS_IDX;
                 } else {
-                    fprintf(stderr, "[%d] GONZO: found slot, large key of length %lu\n", depth, length);
+                    fprintf(stderr, "[%d] GONZO: found slot, large key of length %lu\n", depth, len);
                     cur->key.h.hash = h;
                     cur->key.h.str = offset;
-                    cur->flags = SRL_INDEX_TYPE_HASH_KEY_LARGE;
+                    ktype = SRL_INDEX_TYPE_HELEM_KL_IDX;
                 }
+                cur->flags = ktype | len;
                 cur->offset = srl_index_offset_for_ptr(index, elem);
+                fprintf(stderr, "[%d] GONZO: slot %d - %p ended up as type 0x%02X - %s\n",
+                        depth, j, cur, ktype >> 24, GetObjType(ktype));
                 break;
             }
             j = (j + 1) % length;
+            fprintf(stderr, "[%d] GONZO: trying next slot %d\n", depth, j);
             if (j == r) {
                 // No free slots, impossible!!!
                 abort();
