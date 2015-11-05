@@ -10,14 +10,22 @@ use Data::Dumper;
 
 my $data =
     [
-     21,
-     22,
-     [
-      'a',
-      'b',
-     ],
-     23,
-     24,
+        21,
+        22,
+        # [
+        #   'a',
+        #   'b',
+        #   'c',
+        # ],
+        {
+            # 'Thorin' => 'Dwarf',
+            # 'Frodo' => 'Hobbit',
+            # 'Gandalf' => [ 'Wizard', 'Ainu' ],
+            'Iluvatar' => [ 'Maia', 'God' ],
+            # 'Oakenshield' => [ 'Dwarf' ],
+        }
+        # 23,
+        # 24,
     ];
 
 my $spi = Sereal::Path::Iterator->new(encode_sereal($data));
