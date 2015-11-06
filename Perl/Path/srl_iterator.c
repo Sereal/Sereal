@@ -168,7 +168,7 @@ extern "C" {
 } STMT_END
 
 /* function declaration */
-SRL_STATIC_INLINE void srl_iterator_restore_stack_position(pTHX_ srl_iterator_t *iter);
+SRL_STATIC_INLINE void srl_iterator_rewind_stack_position(pTHX_ srl_iterator_t *iter);
 
 /* wrappers */
 UV srl_iterator_eof(pTHX_ srl_iterator_t *iter)     { return SRL_RDR_DONE(iter->pbuf) ? 1 : 0; }
@@ -341,7 +341,7 @@ srl_iterator_reset(pTHX_ srl_iterator_t *iter)
         srl_stack_pop(stack); // does empty check internally
     }
 
-    srl_iterator_restore_stack_position(aTHX_ iter);
+    srl_iterator_rewind_stack_position(aTHX_ iter);
 }
 
 IV
@@ -398,7 +398,7 @@ srl_iterator_disjoin(pTHX_ srl_iterator_t *iter)
 
 
 SRL_STATIC_INLINE void
-srl_iterator_restore_stack_position(pTHX_ srl_iterator_t *iter)
+srl_iterator_rewind_stack_position(pTHX_ srl_iterator_t *iter)
 {
     SRL_ITER_ASSERT_STACK(iter);
 
@@ -556,6 +556,40 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
+void
+srl_iterator_step_out(pTHX_ srl_iterator_t *iter, UV n)
+{
+    U32 expected_idx;
+    IV expected_depth = iter->stack.depth;
+    srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
+
+    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+    SRL_ITER_ASSERT_STACK(iter);
+
+    SRL_ITER_TRACE("n=%"UVuf, n);
+    SRL_ITER_REPORT_STACK_STATE(iter);
+
+    if (expect_false(n == 0)) return;
+
+    while (n--) {
+        if (expect_false(stack_ptr->tag == SRL_ITER_STACK_ROOT_TAG)) {
+            SRL_ITER_ERROR("Root of the stack is reached");
+        }
+
+        stack_ptr--;
+        expected_depth--;
+    }
+
+    // srl_iterator_step_internal() decrease idx before parsing it,
+    // so there is no need to decrese idx here
+    expected_idx = stack_ptr->idx;
+
+    assert(expected_idx >= 0);
+    assert(expected_depth >= 0);
+
+    srl_iterator_until(aTHX_ iter, (UV) expected_depth, expected_idx);
+}
+
 /* srl_iterator_next() does N step on current stack.
  * It garantees that iterator remains on current stack level upon returing */
 
@@ -597,11 +631,11 @@ srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n)
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
-/* srl_iterator_next_until_depth_and_idx() moves iterator forward until
- * expected stack level (depth) and index is reached. It can only go down the stack. */
+/* srl_iterator_until() moves iterator forward until expected stack level
+ * (depth) and index is reached. It can only go down the stack. */
 
 void
-srl_iterator_next_until_depth_and_idx(pTHX_ srl_iterator_t *iter, UV expected_depth, U32 expected_idx) {
+srl_iterator_until(pTHX_ srl_iterator_t *iter, UV expected_depth, U32 expected_idx) {
     IV current_depth = iter->stack.depth;
     srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
 
@@ -650,7 +684,7 @@ srl_iterator_next_until_depth_and_idx(pTHX_ srl_iterator_t *iter, UV expected_de
 }
 
 void
-srl_iterator_step_out(pTHX_ srl_iterator_t *iter, UV n)
+srl_iterator_rewind(pTHX_ srl_iterator_t *iter, UV n)
 {
     srl_stack_t *stack = iter->pstack;
 
@@ -660,18 +694,15 @@ srl_iterator_step_out(pTHX_ srl_iterator_t *iter, UV n)
     SRL_ITER_TRACE("n=%"UVuf, n);
     SRL_ITER_REPORT_STACK_STATE(iter);
 
-    // SRL_ITER_ASSERT_EOF(iter, "serialized object"); XXX need ability to go back on last element
-    // if (expect_false(n == 0)) return; XXX keep it as a feature?
-
     while (n--) {
         if (expect_false(SRL_ITER_STACK_ON_ROOT(stack))) {
-            SRL_ITER_ERROR("It was last object on stack, no more parents");
+            SRL_ITER_ERROR("Root of the stack is reached");
         }
 
         srl_stack_pop_nocheck(stack);
     }
 
-    srl_iterator_restore_stack_position(aTHX_ iter);
+    srl_iterator_rewind_stack_position(aTHX_ iter);
 }
 
 IV

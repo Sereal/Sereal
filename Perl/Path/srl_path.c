@@ -260,7 +260,7 @@ srl_parse_hash_all(pTHX_ srl_path_t *path, int expr_idx, SV *route)
                    count, expected_depth);
 
     for (idx = 0; idx < count; idx += 2, expected_idx -= 2) {
-        srl_iterator_next_until_depth_and_idx(aTHX_ iter, expected_depth, expected_idx);
+        srl_iterator_until(aTHX_ iter, expected_depth, expected_idx);
         assert(srl_iterator_stack(aTHX_ iter)->idx == expected_idx);
         assert(srl_iterator_stack_depth(aTHX_ iter) == expected_depth);
 
@@ -294,9 +294,9 @@ srl_parse_hash_list(pTHX_ srl_path_t *path, int expr_idx, SV *route,
 
         if (srl_iterator_hash_exists(aTHX_ iter, item, item_len) != SRL_ITER_NOT_FOUND) {
             srl_parse_next_str(aTHX_ path, expr_idx + 1, route, item, item_len);
-            srl_iterator_step_out(aTHX_ iter, srl_iterator_stack_depth(aTHX_ iter) - depth);
+            srl_iterator_rewind(aTHX_ iter, srl_iterator_stack_depth(aTHX_ iter) - depth);
         } else {
-            srl_iterator_step_out(aTHX_ iter, 0);
+            srl_iterator_rewind(aTHX_ iter, 0);
         }
     }
 }
@@ -358,7 +358,7 @@ srl_parse_array_all(pTHX_ srl_path_t *path, int expr_idx, SV *route)
                    count, expected_depth);
 
     for (idx = 0; idx < count; ++idx, --expected_idx) {
-        srl_iterator_next_until_depth_and_idx(aTHX_ iter, expected_depth, expected_idx);
+        srl_iterator_until(aTHX_ iter, expected_depth, expected_idx);
         assert(srl_iterator_stack_depth(aTHX_ iter) == expected_depth);
 
         SRL_PATH_TRACE("walk over item=%d in array at depth=%d",
@@ -391,7 +391,7 @@ srl_parse_array_list(pTHX_ srl_path_t *path, int expr_idx, SV *route,
 
         if (srl_iterator_array_goto(aTHX_ iter, idx) != SRL_ITER_NOT_FOUND) {
             srl_parse_next_int(aTHX_ path, expr_idx + 1, route, idx);
-            srl_iterator_step_out(aTHX_ iter, srl_iterator_stack_depth(aTHX_ iter) - depth);
+            srl_iterator_rewind(aTHX_ iter, srl_iterator_stack_depth(aTHX_ iter) - depth);
         }
     }
 }
@@ -423,7 +423,7 @@ srl_parse_array_range(pTHX_ srl_path_t *path, int expr_idx, SV *route, int *rang
     expected_idx = stack->idx - start;
 
     for (idx = start; idx < stop; idx += step, expected_idx -= step) {
-        srl_iterator_next_until_depth_and_idx(aTHX_ iter, expected_depth, expected_idx);
+        srl_iterator_until(aTHX_ iter, expected_depth, expected_idx);
         assert(srl_iterator_stack_depth(aTHX_ iter) == expected_depth);
 
         SRL_PATH_TRACE("walk over item=%d in array at depth=%d",
