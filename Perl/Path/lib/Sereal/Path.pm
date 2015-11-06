@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use Carp qw/croak/;
 use XSLoader;
+use Sereal::Path::Iterator;
 
 our $VERSION    = '0.010';
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
