@@ -46,10 +46,17 @@ IV srl_iterator_unite(pTHX_ srl_iterator_t *iter);
 IV srl_iterator_disjoin(pTHX_ srl_iterator_t *iter);
 
 /* navigation */
+/* skip n next elements at current depth */
 void srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n);
+/* do n steps */
 void srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n);
+/* run until elements at current depth ends and go one level down; do this n times */
 void srl_iterator_step_out(pTHX_ srl_iterator_t *iter, UV n);
-void srl_iterator_next_until_depth_and_idx(pTHX_ srl_iterator_t *iter, UV expected_depth, U32 expected_idx);
+/* run until depth and idx reached */
+void srl_iterator_until(pTHX_ srl_iterator_t *iter, UV expected_depth, U32 expected_idx);
+/* if n == 0, go to first element, otherwise pop stack n times and go to first element */
+void srl_iterator_rewind(pTHX_ srl_iterator_t *iter, UV n);
+
 UV srl_iterator_offset(pTHX_ srl_iterator_t *iter);
 UV srl_iterator_eof(pTHX_ srl_iterator_t *iter);
 

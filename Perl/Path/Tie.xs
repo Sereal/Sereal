@@ -178,7 +178,7 @@ FETCH(this, key)
     } else {
         stack_ptr = srl_iterator_stack(aTHX_ this->iter);
         if (idx > stack_ptr->idx)
-            srl_iterator_step_out(aTHX_ this->iter, 0);
+            srl_iterator_rewind(aTHX_ this->iter, 0);
     
         srl_iterator_array_goto(aTHX_ this->iter, key);
         ST(0) = srl_tie_new_tied_sv(aTHX_ this->iter, this->iter_sv);
@@ -201,7 +201,7 @@ EXISTS(this, key)
     IV result;
   PPCODE:
     srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
-    srl_iterator_step_out(aTHX_ this->iter, 0); 
+    srl_iterator_rewind(aTHX_ this->iter, 0);
     result = srl_iterator_array_exists(aTHX_ this->iter, key);
     ST(0) = (result == SRL_ITER_NOT_FOUND ? &PL_sv_undef : &PL_sv_yes);
     XSRETURN(1);
@@ -282,7 +282,7 @@ FETCH(this, key)
     // tmp = SvPV(key, len);
     // warn("!!! FETCH %s %d", tmp, SvREFCNT(this->iter_sv));
     srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
-    srl_iterator_step_out(aTHX_ this->iter, 0); 
+    srl_iterator_rewind(aTHX_ this->iter, 0);
 
     if (srl_iterator_hash_exists_sv(aTHX_ this->iter, key) == SRL_ITER_NOT_FOUND) {
         ST(0) = &PL_sv_undef;
@@ -297,7 +297,7 @@ EXISTS(this, key)
     SV *key;
   PPCODE:
     srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
-    srl_iterator_step_out(aTHX_ this->iter, 0); 
+    srl_iterator_rewind(aTHX_ this->iter, 0);
     ST(0) = srl_iterator_hash_exists_sv(aTHX_ this->iter, key) == SRL_ITER_NOT_FOUND
           ? &PL_sv_undef
           : &PL_sv_yes;
@@ -312,7 +312,7 @@ FIRSTKEY(this)
         ST(0) = &PL_sv_undef;
     } else {
         this->last_idx = this->count;
-        srl_iterator_step_out(aTHX_ this->iter, 0); 
+        srl_iterator_rewind(aTHX_ this->iter, 0);
         ST(0) = srl_iterator_hash_key_sv(aTHX_ this->iter);
     }
     XSRETURN(1);
@@ -332,12 +332,9 @@ NEXTKEY(this, last)
         this->last_idx -= 2;
         stack_ptr = srl_iterator_stack(aTHX_ this->iter);
         if (this->last_idx > stack_ptr->idx)
-            srl_iterator_step_out(aTHX_ this->iter, 0);
+            srl_iterator_rewind(aTHX_ this->iter, 0);
 
-        srl_iterator_next_until_depth_and_idx(aTHX_ this->iter,
-                                              this->depth,
-                                              this->last_idx);
-
+        srl_iterator_until(aTHX_ this->iter, this->depth, this->last_idx);
         ST(0) = srl_iterator_hash_key_sv(aTHX_ this->iter);
     }
     XSRETURN(1);
