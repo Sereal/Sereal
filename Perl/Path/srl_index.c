@@ -39,9 +39,9 @@ extern "C" {
 #define SRL_INDEX_TYPE_AELEM_IDX      (0x04000000) // offset points to child
 #define SRL_INDEX_TYPE_HASH_SRL       (0x05000000) // offset points to tag
 #define SRL_INDEX_TYPE_HASH_IDX       (0x06000000) // offset points to child
-#define SRL_INDEX_TYPE_HELEM_KS_IDX   (0x07000000) // key is small, stored directly in idx
+#define SRL_INDEX_TYPE_HELEM_KS_IDX   (0x07000000) // key is small, offset points to child
 #define SRL_INDEX_TYPE_HELEM_KS_SRL   (0x08000000) // key is small, offset points to tag
-#define SRL_INDEX_TYPE_HELEM_KL_IDX   (0x09000000) // key is large, stored directly in idx
+#define SRL_INDEX_TYPE_HELEM_KL_IDX   (0x09000000) // key is large, offset points to child
 #define SRL_INDEX_TYPE_HELEM_KL_SRL   (0x0a000000) // key is large, offset points to tag
 #define SRL_INDEX_TYPE_LAST           (0x0b000000)
 
@@ -50,28 +50,27 @@ SRL_STATIC_INLINE int
 srl_index_init(pTHX_
                srl_index_t* index,
                srl_iterator_t* iter,
-               int maxsize,
-               int maxdepth)
+               srl_index_options_t* options)
 {
-    assert(maxsize > 0);
+    assert(options->maxsize > 0);
     assert(index != NULL);
 
-    fprintf(stderr, "Will reset iterator, size [%d], depth [%d]\n", maxsize, maxdepth);
+    fprintf(stderr, "Will reset iterator, size [%d], depth [%d]\n",
+            options->maxsize, options->maxdepth);
     srl_iterator_reset(aTHX_ iter);
     index->iter = iter;
-    index->maxdepth = maxdepth;
+    index->options = *options;
 
-    fprintf(stderr, "Will allocate [%d] bytes\n", maxsize);
+    fprintf(stderr, "Will allocate [%d] bytes\n", index->options.maxsize);
     index->beg = NULL;
-    Newx(index->beg, maxsize, char);
+    Newx(index->beg, index->options.maxsize, char);
     if (expect_false(index->beg == NULL))
         return 1;
 
-    index->end = index->beg + maxsize;
+    index->end = index->beg + index->options.maxsize;
     index->ptr = index->beg;
 
-    fprintf(stderr, "Will assert correct size is [%d] bytes\n", maxsize);
-    assert(SRL_INDEX_SIZE(index) == maxsize);
+    assert(SRL_INDEX_SIZE(index) == index->options.maxsize);
     return 0;
 }
 
@@ -86,13 +85,12 @@ srl_index_deinit(pTHX_ srl_index_t *index)
 srl_index_t *
 srl_index_build(pTHX_
                 srl_iterator_t* iter,
-                int maxsize,
-                int maxdepth)
+                srl_index_options_t* options)
 {
     srl_index_t *index = NULL;
     Newx(index, 1, srl_index_t);
     if (index == NULL) croak("Out of memory");
-    srl_index_init(aTHX_ index, iter, maxsize, maxdepth);
+    srl_index_init(aTHX_ index, iter, options);
     return index;
 }
 
@@ -394,10 +392,9 @@ static srl_indexed_element_t* walk_iterator_hash(pTHX_
                                                  UV length);
 
 srl_index_t* srl_create_index(pTHX_ srl_iterator_t* iter,
-                              int maxsize,
-                              int maxdepth)
+                              srl_index_options_t* options)
 {
-    srl_index_t* index = srl_index_build(aTHX_ iter, maxsize, maxdepth);
+    srl_index_t* index = srl_index_build(aTHX_ iter, options);
     dump_index(index);
     walk_iterator(aTHX_ index, 0);
     dump_index(index);
@@ -487,7 +484,7 @@ static srl_indexed_element_t* walk_iterator_array(pTHX_
         return 0;
     }
 
-    if (index->maxdepth > 0 && depth >= index->maxdepth) {
+    if (index->options.maxdepth > 0 && depth >= index->options.maxdepth) {
         fprintf(stderr, "[%d] GONZO: pointer to array in SRL, offset %zu\n", depth, offset);
         return srl_allocate_element(aTHX_ index, SRL_INDEX_TYPE_ARRAY_SRL, offset);
     }
@@ -559,7 +556,7 @@ static srl_indexed_element_t* walk_iterator_hash(pTHX_
         return 0;
     }
 
-    if (index->maxdepth > 0 && depth >= index->maxdepth) {
+    if (index->options.maxdepth > 0 && depth >= index->options.maxdepth) {
         fprintf(stderr, "[%d] GONZO: pointer to hash in SRL, offset %zu\n", depth, offset);
         return srl_allocate_element(aTHX_ index, SRL_INDEX_TYPE_HASH_SRL, offset);
     }

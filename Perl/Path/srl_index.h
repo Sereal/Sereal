@@ -25,7 +25,13 @@
 // [ 1, 2, 3, 4 ] => srl_indexed_container{ type=ARRAY, size=4, [ offsets to tags ] }
 // [ [1], [2] ]   => srl_indexed_container{ type=ARRAY, size=2, [ ptr to elements ] }
 
+struct srl_index_options {
+    int maxsize;
+    int maxdepth;
+};
+
 typedef struct srl_index srl_index_t;
+typedef struct srl_index_options srl_index_options_t;
 typedef struct srl_indexed_element srl_indexed_element_t;
 typedef struct srl_indexed_array_element srl_indexed_array_element_t;
 typedef struct srl_indexed_array srl_indexed_array_t;
@@ -35,8 +41,8 @@ typedef struct srl_indexed_hash srl_indexed_hash_t;
 
 struct srl_index {
     srl_iterator_t* iter;
+    srl_index_options_t options;
     char *ptr, *beg, *end;
-    int maxdepth;
 };
 
 struct srl_indexed_element {
@@ -79,7 +85,6 @@ struct srl_indexed_hash {
 // array -> { struct, [ array elements ] }
 
 srl_index_t* srl_create_index(pTHX_ srl_iterator_t* iter,
-                              int maxsize,
-                              int maxdepth);
+                              srl_index_options_t* options);
 
 #endif

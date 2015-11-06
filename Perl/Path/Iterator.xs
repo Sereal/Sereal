@@ -201,9 +201,25 @@ decode(iter)
   OUTPUT: RETVAL
 
 void
-create_index(iter, size, depth)
+create_index(iter, options)
     srl_iterator_t *iter;
-    UV size;
-    UV depth;
+    HV* options;
+  PREINIT:
+    srl_index_options_t opt;
+    SV** svp;
   CODE:
-    srl_create_index(aTHX_ iter, size, depth);
+    opt.maxsize = 1000000;
+    opt.maxdepth = 0;
+    if (options != NULL) {
+      svp = hv_fetch(options, "maxsize", 7, 0);
+      if (svp && SvIOK(*svp)) {
+        opt.maxsize = SvIV(*svp);
+      }
+
+      svp = hv_fetch(options, "maxdepth", 8, 0);
+      if (svp && SvIOK(*svp)) {
+        opt.maxdepth = SvIV(*svp);
+      }
+    }
+
+    srl_create_index(aTHX_ iter, &opt);
