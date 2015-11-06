@@ -12,7 +12,7 @@ typedef struct srl_iterator_stack   * srl_iterator_stack_ptr;
 
 struct srl_iterator_stack {
     I32 idx;        // index of current object, in negative format
-    U32 count;      // number of child objects
+    U32 length;     // number of child objects
     UV offset;      // offset of the tag
     U8 tag;
 };

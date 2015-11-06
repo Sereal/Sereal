@@ -250,16 +250,16 @@ srl_parse_hash_all(pTHX_ srl_path_t *path, int expr_idx, SV *route)
     srl_iterator_stack_ptr stack_ptr = srl_iterator_stack(aTHX_ iter);
     IV expected_depth = srl_iterator_stack_depth(aTHX_ iter);
     I32 expected_idx = stack_ptr->idx;
-    U32 count = stack_ptr->count;
+    U32 length = stack_ptr->length;
     const char *item = NULL;
     STRLEN item_len;
     U32 idx;
 
-    assert(expected_idx == (I32) count); // we're at the begining
+    assert(expected_idx == (I32) length); // we're at the begining
     SRL_PATH_TRACE("parse all items in hash of size=%d at depth=%"IVdf,
-                   count, expected_depth);
+                   length, expected_depth);
 
-    for (idx = 0; idx < count; idx += 2, expected_idx -= 2) {
+    for (idx = 0; idx < length; idx += 2, expected_idx -= 2) {
         srl_iterator_until(aTHX_ iter, expected_depth, expected_idx);
         assert(srl_iterator_stack(aTHX_ iter)->idx == expected_idx);
         assert(srl_iterator_stack_depth(aTHX_ iter) == expected_depth);
@@ -283,7 +283,7 @@ srl_parse_hash_list(pTHX_ srl_path_t *path, int expr_idx, SV *route,
     IV depth = srl_iterator_stack_depth(aTHX_ iter);
 
     SRL_PATH_TRACE("parse items '%.*s' in hash of size=%d at depth=%"IVdf,
-                   (int) list_len, list, srl_iterator_stack(aTHX_ iter)->count, depth);
+                   (int) list_len, list, srl_iterator_stack(aTHX_ iter)->length, depth);
 
     while (next_item_in_list(list, list_len, &item, &item_len)) {
         assert(srl_iterator_stack_depth(aTHX_ iter) == depth);
@@ -308,7 +308,7 @@ srl_parse_hash_item(pTHX_ srl_path_t *path, int expr_idx, SV *route,
     srl_iterator_ptr iter = path->iter;
     SRL_PATH_TRACE("parse item '%.*s' in hash of size=%d at depth=%"IVdf,
                    (int) str_len, str,
-                   srl_iterator_stack(aTHX_ iter)->count,
+                   srl_iterator_stack(aTHX_ iter)->length,
                    srl_iterator_stack_depth(aTHX_ iter));
 
     if (srl_iterator_hash_exists(aTHX_ iter, str, str_len) != SRL_ITER_NOT_FOUND) {
@@ -350,14 +350,14 @@ srl_parse_array_all(pTHX_ srl_path_t *path, int expr_idx, SV *route)
     srl_iterator_stack_ptr stack_ptr = srl_iterator_stack(aTHX_ iter);
     IV expected_depth  = srl_iterator_stack_depth(aTHX_ iter);
     I32 expected_idx = stack_ptr->idx;
-    U32 count = stack_ptr->count;
+    U32 length = stack_ptr->length;
     U32 idx;
 
-    assert(expected_idx == (I32) count); // we're at the begining
+    assert(expected_idx == (I32) length); // we're at the begining
     SRL_PATH_TRACE("parse all items in array of size=%d at depth=%"IVdf,
-                   count, expected_depth);
+                   length, expected_depth);
 
-    for (idx = 0; idx < count; ++idx, --expected_idx) {
+    for (idx = 0; idx < length; ++idx, --expected_idx) {
         srl_iterator_until(aTHX_ iter, expected_depth, expected_idx);
         assert(srl_iterator_stack_depth(aTHX_ iter) == expected_depth);
 
@@ -379,7 +379,7 @@ srl_parse_array_list(pTHX_ srl_path_t *path, int expr_idx, SV *route,
     IV depth = srl_iterator_stack_depth(aTHX_ iter);
 
     SRL_PATH_TRACE("parse items '%.*s' in array of size=%d at depth=%"IVdf,
-                   (int) list_len, list, srl_iterator_stack(iter)->count, depth);
+                   (int) list_len, list, srl_iterator_stack(iter)->length, depth);
 
     while (next_item_in_list(list, list_len, &item, &item_len)) {
         assert(srl_iterator_stack_depth(aTHX_ iter) == depth);
@@ -411,14 +411,14 @@ srl_parse_array_range(pTHX_ srl_path_t *path, int expr_idx, SV *route, int *rang
 
 #   define SRL_MIN(a,b) (((a)<(b))?(a):(b))
 #   define SRL_MAX(a,b) (((a)>(b))?(a):(b))
-    start = start < 0 ? SRL_MAX(0, start + (I32) stack->count) : SRL_MIN((I32) stack->count, start);
-    stop  = stop  < 0 ? SRL_MAX(0, stop  + (I32) stack->count) : SRL_MIN((I32) stack->count, stop);
+    start = start < 0 ? SRL_MAX(0, start + (I32) stack->length) : SRL_MIN((I32) stack->length, start);
+    stop  = stop  < 0 ? SRL_MAX(0, stop  + (I32) stack->length) : SRL_MIN((I32) stack->length, stop);
     step  = step ? step : 1;
 
     if (step < 0) croak("negative step in not supported");
 
     SRL_PATH_TRACE("parse items '%d:%d:%d' in array of size=%d at depth=%"IVdf,
-                   start, stop, step, stack->count, expected_depth);
+                   start, stop, step, stack->length, expected_depth);
 
     expected_idx = stack->idx - start;
 
@@ -438,7 +438,7 @@ srl_parse_array_item(pTHX_ srl_path_t *path, int expr_idx, SV *route, I32 idx)
 {
     srl_iterator_ptr iter = path->iter;
     SRL_PATH_TRACE("parse item %d in array of size=%d at depth=%"IVdf,
-                   idx, srl_iterator_stack(aTHX_ iter)->count, srl_iterator_stack_depth(aTHX_ iter));
+                   idx, srl_iterator_stack(aTHX_ iter)->length, srl_iterator_stack_depth(aTHX_ iter));
 
     if (srl_iterator_array_goto(aTHX_ iter, idx) != SRL_ITER_NOT_FOUND) {
         srl_parse_next_int(aTHX_ path, expr_idx + 1, route, idx);
