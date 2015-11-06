@@ -33,17 +33,15 @@ extern "C" {
 #define SRL_INDEX_SIZE_MASK         (0x00FFFFFF)
 
 #define SRL_INDEX_TYPE_EMPTY          (0x00000000) // empty slot
-#define SRL_INDEX_TYPE_SCALAR_SRL     (0x01000000) // offset points to tag
-#define SRL_INDEX_TYPE_ARRAY_SRL      (0x02000000) // offset points to tag
-#define SRL_INDEX_TYPE_ARRAY_IDX      (0x03000000) // offset points to child
-#define SRL_INDEX_TYPE_AELEM_IDX      (0x04000000) // offset points to child
-#define SRL_INDEX_TYPE_HASH_SRL       (0x05000000) // offset points to tag
-#define SRL_INDEX_TYPE_HASH_IDX       (0x06000000) // offset points to child
-#define SRL_INDEX_TYPE_HELEM_KS_IDX   (0x07000000) // key is small, offset points to child
-#define SRL_INDEX_TYPE_HELEM_KS_SRL   (0x08000000) // key is small, offset points to tag
-#define SRL_INDEX_TYPE_HELEM_KL_IDX   (0x09000000) // key is large, offset points to child
-#define SRL_INDEX_TYPE_HELEM_KL_SRL   (0x0a000000) // key is large, offset points to tag
-#define SRL_INDEX_TYPE_LAST           (0x0b000000)
+#define SRL_INDEX_TYPE_OFFSET_SRL     (0x01000000) // offset points to tag
+#define SRL_INDEX_TYPE_ARRAY_IDX      (0x02000000) // offset points to child
+#define SRL_INDEX_TYPE_AELEM_IDX      (0x03000000) // offset points to child
+#define SRL_INDEX_TYPE_HASH_IDX       (0x04000000) // offset points to child
+#define SRL_INDEX_TYPE_HELEM_KS_IDX   (0x05000000) // key is small, offset points to child
+#define SRL_INDEX_TYPE_HELEM_KS_SRL   (0x06000000) // key is small, offset points to tag
+#define SRL_INDEX_TYPE_HELEM_KL_IDX   (0x07000000) // key is large, offset points to child
+#define SRL_INDEX_TYPE_HELEM_KL_SRL   (0x08000000) // key is large, offset points to tag
+#define SRL_INDEX_TYPE_LAST           (0x09000000)
 
 /* Allocate new array (but not the index struct) */
 SRL_STATIC_INLINE int
@@ -189,11 +187,9 @@ static const char* GetObjType(int type)
 {
     static const char* name[] = {
         "EMPTY",
-        "SCALAR_SRL",
-        "ARRAY_SRL",
+        "OFFSET_SRL",
         "ARRAY_IDX",
         "AELEM_IDX",
-        "HASH_SRL",
         "HASH_IDX",
         "HELEM_KS_IDX",
         "HELEM_KS_SRL",
@@ -219,12 +215,8 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
     fprintf(stderr, "[%d] Elem %p Flags 0x%08X Type 0x%02X - %s\n",
             depth, elem, elem->flags, type >> 24, GetObjType(type));
     switch (type) {
-    case SRL_INDEX_TYPE_SCALAR_SRL:
-        fprintf(stderr, "[%d] Scalar in SRL offset %u\n", depth, elem->offset);
-        break;
-
-    case SRL_INDEX_TYPE_ARRAY_SRL:
-        fprintf(stderr, "[%d] Array in SRL offset %u\n", depth, elem->offset);
+    case SRL_INDEX_TYPE_OFFSET_SRL:
+        fprintf(stderr, "[%d] Offset in SRL %u\n", depth, elem->offset);
         break;
 
     case SRL_INDEX_TYPE_ARRAY_IDX: {
@@ -252,10 +244,6 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
         dump_index_data(index, (srl_indexed_element_t*) ref, depth+1);
         break;
     }
-
-    case SRL_INDEX_TYPE_HASH_SRL:
-        fprintf(stderr, "[%d] Hash in SRL offset %u\n", depth, elem->offset);
-        break;
 
     case SRL_INDEX_TYPE_HASH_IDX: {
         int j;
@@ -395,6 +383,10 @@ srl_index_t* srl_create_index(pTHX_ srl_iterator_t* iter,
                               srl_index_options_t* options)
 {
     srl_index_t* index = srl_index_build(aTHX_ iter, options);
+    if (!index) {
+        return 0;
+    }
+
     dump_index(index);
     walk_iterator(aTHX_ index, 0);
     dump_index(index);
@@ -435,10 +427,12 @@ static srl_indexed_element_t* walk_iterator(pTHX_
 
     case SRL_ITERATOR_OBJ_IS_ROOT:
     default:
-        fprintf(stderr, "GONZO: can't handle sereal type\n");
-        elem = 0;
+        fprintf(stderr, "[%d] GONZO: can't handle sereal type\n", depth);
         break;
     }
+
+    fprintf(stderr, "[%d] GONZO: walked and got %s pointer\n",
+            depth, elem ? "INDIRECT" : "DIRECT");
     // srl_iterator_next(aTHX_ iter, 1);
     return elem;
 }
@@ -460,7 +454,7 @@ static srl_indexed_element_t* walk_iterator_scalar(pTHX_
     val = srl_iterator_decode(aTHX_ iter);
     dump_sv(aTHX_ val);
 
-    return srl_allocate_element(aTHX_ index, SRL_INDEX_TYPE_SCALAR_SRL, offset);
+    return srl_allocate_element(aTHX_ index, SRL_INDEX_TYPE_OFFSET_SRL, offset);
 }
 
 static void show_iterator(pTHX_ const char* msg, srl_iterator_t* iter)
@@ -486,7 +480,7 @@ static srl_indexed_element_t* walk_iterator_array(pTHX_
 
     if (index->options.maxdepth > 0 && depth >= index->options.maxdepth) {
         fprintf(stderr, "[%d] GONZO: pointer to array in SRL, offset %zu\n", depth, offset);
-        return srl_allocate_element(aTHX_ index, SRL_INDEX_TYPE_ARRAY_SRL, offset);
+        return srl_allocate_element(aTHX_ index, SRL_INDEX_TYPE_OFFSET_SRL, offset);
     }
 
     fprintf(stderr, "[%d] GONZO: walking array, length %zu, offset %zu\n", depth, length, offset);
@@ -501,8 +495,8 @@ static srl_indexed_element_t* walk_iterator_array(pTHX_
     fprintf(stderr, "[%d] GONZO: vvv IN\n", depth);
     show_iterator(aTHX_ "after step_in", iter);
     while (1) {
-        srl_indexed_array_element_t* cur;
-        srl_indexed_element_t* elem;
+        srl_indexed_array_element_t* cur = 0;
+        srl_indexed_element_t* elem = 0;
         if (pos >= length) {
             break;
         }
@@ -511,10 +505,15 @@ static srl_indexed_element_t* walk_iterator_array(pTHX_
         }
 
         fprintf(stderr, "[%d] GONZO: processing element %d\n", depth, pos);
-        elem = walk_iterator(aTHX_ index, depth);
         cur = &array->dataset[pos];
-        cur->offset = srl_index_offset_for_ptr(index, elem);
-        cur->flags = SRL_INDEX_TYPE_AELEM_IDX;
+        elem = walk_iterator(aTHX_ index, depth);
+        if (!elem) {
+            cur->offset = offset;
+            cur->flags = SRL_INDEX_TYPE_OFFSET_SRL;
+        } else {
+            cur->offset = srl_index_offset_for_ptr(index, elem);
+            cur->flags = SRL_INDEX_TYPE_AELEM_IDX;
+        }
 
         ++pos;
         srl_iterator_next(aTHX_ iter, 1);
@@ -558,7 +557,7 @@ static srl_indexed_element_t* walk_iterator_hash(pTHX_
 
     if (index->options.maxdepth > 0 && depth >= index->options.maxdepth) {
         fprintf(stderr, "[%d] GONZO: pointer to hash in SRL, offset %zu\n", depth, offset);
-        return srl_allocate_element(aTHX_ index, SRL_INDEX_TYPE_HASH_SRL, offset);
+        return srl_allocate_element(aTHX_ index, SRL_INDEX_TYPE_OFFSET_SRL, offset);
     }
 
     fprintf(stderr, "[%d] GONZO: walking hash, length %zu, offset %zu\n", depth, length, offset);
@@ -610,15 +609,19 @@ static srl_indexed_element_t* walk_iterator_hash(pTHX_
                 if (len <= SRL_INDEX_HASH_KEY_SMALL_LENGTH) {
                     fprintf(stderr, "[%d] GONZO: found slot, small key of length %lu\n", depth, len);
                     memcpy(cur->key.str, key, len);
-                    ktype = SRL_INDEX_TYPE_HELEM_KS_IDX;
+                    ktype = elem ? SRL_INDEX_TYPE_HELEM_KS_IDX : SRL_INDEX_TYPE_HELEM_KS_SRL;
                 } else {
                     fprintf(stderr, "[%d] GONZO: found slot, large key of length %lu\n", depth, len);
                     cur->key.h.hash = h;
                     cur->key.h.str = offset;
-                    ktype = SRL_INDEX_TYPE_HELEM_KL_IDX;
+                    ktype = elem ? SRL_INDEX_TYPE_HELEM_KL_IDX : SRL_INDEX_TYPE_HELEM_KL_SRL;
                 }
                 cur->flags = ktype | len;
-                cur->offset = srl_index_offset_for_ptr(index, elem);
+                if (!elem) {
+                    cur->offset = offset;
+                } else {
+                    cur->offset = srl_index_offset_for_ptr(index, elem);
+                }
                 fprintf(stderr, "[%d] GONZO: slot %d - %p ended up as type 0x%02X - %s\n",
                         depth, j, cur, ktype >> 24, GetObjType(ktype));
                 break;

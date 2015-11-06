@@ -37,9 +37,12 @@ my $data =
 
 my $spi = Sereal::Path::Iterator->new(encode_sereal($data));
 
-# my $depth = 2; # will not index the Middle Earth hash
-my $depth = 0; # no limits on depth
+my $size = 40;     # limit index memory to 40 bytes
+# my $size = 0;      # no limits on size
 
-$spi->create_index({maxsize => 1_000_000, maxdepth => $depth});
+my $depth = 2;     # will not index the Middle Earth hash
+# my $depth = 0;     # no limits on depth
+
+$spi->create_index({maxsize => $size, maxdepth => $depth});
 
 done_testing();
