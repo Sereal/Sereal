@@ -208,17 +208,38 @@ create_index(iter, options)
     srl_index_options_t opt;
     SV** svp;
   CODE:
-    opt.maxsize = 1000000;
-    opt.maxdepth = 0;
+    opt.memory_size = 1000000;
+    opt.index_depth = 0;
+    opt.hash_factor = 1.0;
+
     if (options != NULL) {
-      svp = hv_fetch(options, "maxsize", 7, 0);
+      const char* name;
+
+      name = "memory_size";
+      svp = hv_fetch(options, name, strlen(name), 0);
       if (svp && SvIOK(*svp)) {
-        opt.maxsize = SvIV(*svp);
+        int size = SvIV(*svp);
+        if (size > 0 && size < 10000000) {
+          opt.memory_size = size;
+        }
       }
 
-      svp = hv_fetch(options, "maxdepth", 8, 0);
+      name = "index_depth";
+      svp = hv_fetch(options, name, strlen(name), 0);
       if (svp && SvIOK(*svp)) {
-        opt.maxdepth = SvIV(*svp);
+        int depth = SvIV(*svp);
+        if (depth >= 0 && depth < 100) {
+          opt.index_depth = depth;
+        }
+      }
+
+      name = "hash_factor";
+      svp = hv_fetch(options, name, strlen(name), 0);
+      if (svp && SvNOK(*svp)) {
+        float factor = SvNV(*svp);
+        if (factor >= 1.0 && factor <= 3.0) {
+          opt.hash_factor = factor;
+        }
       }
     }
 

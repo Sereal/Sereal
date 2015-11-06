@@ -50,25 +50,23 @@ srl_index_init(pTHX_
                srl_iterator_t* iter,
                srl_index_options_t* options)
 {
-    assert(options->maxsize > 0);
+    assert(options->memory_size > 0);
     assert(index != NULL);
 
-    fprintf(stderr, "Will reset iterator, size [%d], depth [%d]\n",
-            options->maxsize, options->maxdepth);
     srl_iterator_reset(aTHX_ iter);
     index->iter = iter;
     index->options = *options;
 
-    fprintf(stderr, "Will allocate [%d] bytes\n", index->options.maxsize);
+    fprintf(stderr, "Will allocate [%d] bytes\n", index->options.memory_size);
     index->beg = NULL;
-    Newx(index->beg, index->options.maxsize, char);
+    Newx(index->beg, index->options.memory_size, char);
     if (expect_false(index->beg == NULL))
         return 1;
 
-    index->end = index->beg + index->options.maxsize;
+    index->end = index->beg + index->options.memory_size;
     index->ptr = index->beg;
 
-    assert(SRL_INDEX_SIZE(index) == index->options.maxsize);
+    assert(SRL_INDEX_SIZE(index) == index->options.memory_size);
     return 0;
 }
 
@@ -157,7 +155,7 @@ srl_allocate_array(pTHX_ srl_index_t *index, size_t length, uint32_t type, uint3
 
     ptr->offset = offset;
     ptr->flags = type | length;
-    fprintf(stderr, "GONZO: Type %x, Length %lx (%lu), Flags %x\n", type, length, length, ptr->flags);
+    fprintf(stderr, "GONZO: Type 0x%x, Length 0x%lx (%lu), Flags 0x%x\n", type, length, length, ptr->flags);
     return ptr;
 }
 
@@ -177,7 +175,7 @@ srl_allocate_hash(pTHX_ srl_index_t *index, size_t length, uint32_t type, uint32
 
     ptr->offset = offset;
     ptr->flags = type | length;
-    fprintf(stderr, "GONZO: Type %x, Length %lx (%lu), Flags %x\n", type, length, length, ptr->flags);
+    fprintf(stderr, "GONZO: Type 0x%x, Length 0x%lx (%lu), Flags 0x%x\n", type, length, length, ptr->flags);
     return ptr;
 }
 
@@ -214,6 +212,7 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
 
     fprintf(stderr, "[%d] Elem %p Flags 0x%08X Type 0x%02X - %s\n",
             depth, elem, elem->flags, type >> 24, GetObjType(type));
+
     switch (type) {
     case SRL_INDEX_TYPE_OFFSET_SRL:
         fprintf(stderr, "[%d] Offset in SRL %u\n", depth, elem->offset);
@@ -297,6 +296,10 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
     case SRL_INDEX_TYPE_HELEM_KS_SRL:
     case SRL_INDEX_TYPE_HELEM_KL_SRL:
         fprintf(stderr, "[%d] Hash element in SRL offset %u\n", depth, elem->offset);
+        break;
+
+    case SRL_INDEX_TYPE_EMPTY:
+        // empty slot, probably for an oversized hash table, just ignore
         break;
 
     default:
@@ -478,7 +481,7 @@ static srl_indexed_element_t* walk_iterator_array(pTHX_
         return 0;
     }
 
-    if (index->options.maxdepth > 0 && depth >= index->options.maxdepth) {
+    if (index->options.index_depth > 0 && depth >= index->options.index_depth) {
         fprintf(stderr, "[%d] GONZO: pointer to array in SRL, offset %zu\n", depth, offset);
         return srl_allocate_element(aTHX_ index, SRL_INDEX_TYPE_OFFSET_SRL, offset);
     }
@@ -549,21 +552,28 @@ static srl_indexed_element_t* walk_iterator_hash(pTHX_
 {
     int pos = 0;
     srl_indexed_hash_t* hash = 0;
+    int hsize = length;
+    int collisions = 0;
 
     srl_iterator_t* iter = index->iter;
     if (srl_iterator_eof(aTHX_ iter)) {
         return 0;
     }
 
-    if (index->options.maxdepth > 0 && depth >= index->options.maxdepth) {
+    if (index->options.index_depth > 0 && depth >= index->options.index_depth) {
         fprintf(stderr, "[%d] GONZO: pointer to hash in SRL, offset %zu\n", depth, offset);
         return srl_allocate_element(aTHX_ index, SRL_INDEX_TYPE_OFFSET_SRL, offset);
     }
 
+    if (index->options.hash_factor > 1.0) {
+        hsize *= index->options.hash_factor;
+        fprintf(stderr, "[%d] GONZO: index hash will use %d slots to store %d elements\n",
+                depth, hsize, length);
+    }
     fprintf(stderr, "[%d] GONZO: walking hash, length %zu, offset %zu\n", depth, length, offset);
     hash = srl_allocate_hash(aTHX_
                              index,
-                             length,
+                             hsize,
                              SRL_INDEX_TYPE_HASH_IDX,
                              offset);
     fprintf(stderr, "[%d] GONZO: allocated hash %p\n", depth, hash);
@@ -597,7 +607,7 @@ static srl_indexed_element_t* walk_iterator_hash(pTHX_
         }
         elem = walk_iterator(aTHX_ index, depth);
         h = compute_hash(key);
-        r = j = h % length;
+        r = j = h % hsize;
         fprintf(stderr, "[%d] GONZO: hash %u, slot %d\n", depth, h, j);
         while (1) {
             srl_indexed_hash_element_t* cur = &hash->dataset[j];
@@ -626,7 +636,9 @@ static srl_indexed_element_t* walk_iterator_hash(pTHX_
                         depth, j, cur, ktype >> 24, GetObjType(ktype));
                 break;
             }
-            j = (j + 1) % length;
+
+            ++collisions;
+            j = (j + 1) % hsize;
             fprintf(stderr, "[%d] GONZO: trying next slot %d\n", depth, j);
             if (j == r) {
                 // No free slots, impossible!!!
@@ -641,6 +653,7 @@ static srl_indexed_element_t* walk_iterator_hash(pTHX_
     srl_iterator_step_out(aTHX_ iter, 1);
     fprintf(stderr, "[%d] GONZO: ^^^ OUT\n", depth);
     fprintf(stderr, "[%d] GONZO: finished walking hash\n", depth);
+    fprintf(stderr, "[%d] GONZO: there were %d collisions\n", depth, collisions);
 
     return (srl_indexed_element_t*) hash;
 }

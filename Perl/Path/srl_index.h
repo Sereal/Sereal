@@ -26,8 +26,9 @@
 // [ [1], [2] ]   => srl_indexed_container{ type=ARRAY, size=2, [ ptr to elements ] }
 
 struct srl_index_options {
-    int maxsize;
-    int maxdepth;
+    int memory_size;   // size in bytes of memory arena for index
+    int index_depth;   // how deep the index will walk into the Sereal document
+    float hash_factor; // multiplier for hash table sizes, to have some slack
 };
 
 typedef struct srl_index srl_index_t;
