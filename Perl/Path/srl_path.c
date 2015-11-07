@@ -254,8 +254,7 @@ srl_parse_hash_all(pTHX_ srl_path_t *path, int expr_idx, SV *route)
     STRLEN item_len;
     U32 idx;
 
-    SRL_PATH_TRACE("parse all items in hash of size=%d at depth=%"IVdf,
-                   length, expected_depth);
+    SRL_PATH_TRACE("parse all items in hash of size=%d at depth=%"IVdf, length, depth);
 
     for (idx = 0; idx < length; idx += 2) {
         srl_iterator_until(aTHX_ iter, depth, idx);
@@ -350,8 +349,7 @@ srl_parse_array_all(pTHX_ srl_path_t *path, int expr_idx, SV *route)
     U32 length = stack_ptr->length;
     U32 idx;
 
-    SRL_PATH_TRACE("parse all items in array of size=%d at depth=%"IVdf,
-                   length, expected_depth);
+    SRL_PATH_TRACE("parse all items in array of size=%d at depth=%"IVdf, length, depth);
 
     for (idx = 0; idx < length; ++idx) {
         srl_iterator_until(aTHX_ iter, depth, idx);
@@ -413,7 +411,7 @@ srl_parse_array_range(pTHX_ srl_path_t *path, int expr_idx, SV *route, int *rang
     if (step < 0) croak("negative step in not supported");
 
     SRL_PATH_TRACE("parse items '%d:%d:%d' in array of size=%d at depth=%"IVdf,
-                   start, stop, step, stack->length, expected_depth);
+                   start, stop, step, stack->length, depth);
 
     for (idx = start; idx < stop; idx += step) {
         srl_iterator_until(aTHX_ iter, depth, idx);

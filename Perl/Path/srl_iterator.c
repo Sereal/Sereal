@@ -721,7 +721,7 @@ srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
     SRL_ITER_REPORT_STACK_STATE(iter);
 
     nidx = srl_iterator_normalize_idx(aTHX_ idx, stack_ptr->length);
-    if (nidx < 0 || nidx >= stack_ptr->length) {
+    if (nidx < 0 || nidx >= (I32) stack_ptr->length) {
         SRL_ITER_TRACE("Index is out of range, idx=%d nidx=%d length=%u",
                        idx, nidx, stack_ptr->length);
         return SRL_ITER_NOT_FOUND;
@@ -756,7 +756,7 @@ srl_iterator_array_exists(pTHX_ srl_iterator_t *iter, I32 idx)
     SRL_ITER_REPORT_STACK_STATE(iter);
 
     nidx = srl_iterator_normalize_idx(aTHX_ idx, stack_ptr->length);
-    if (nidx < 0 || nidx >= stack_ptr->length) {
+    if (nidx < 0 || nidx >= (I32) stack_ptr->length) {
         SRL_ITER_TRACE("Index is out of range, idx=%d nidx=%d length=%u",
                        idx, nidx, stack_ptr->length);
         return SRL_ITER_NOT_FOUND;
