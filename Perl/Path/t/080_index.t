@@ -15,7 +15,18 @@ my $data =
         [
             'a',
             'b',
+            [
+                1,
+                2,
+                3,
+                4,
+                5,
+            ],
             'c',
+        ],
+        [
+            'x',
+            'y',
         ],
         {
             'Thorin'      => 'Dwarf',
@@ -24,6 +35,7 @@ my $data =
             'Morgoth'     => 'Maia',
             'Iluvatar'    => 'God',
             'Aragorn'     => 'Man',
+            'Elrond'      => ['Man', 'Elf'],
             'Mandos'      => 'Maia',
             'Saruman'     => 'Wizard',
             'Boromir'     => 'Man',

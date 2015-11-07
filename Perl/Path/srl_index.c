@@ -396,6 +396,90 @@ srl_index_t* srl_create_index(pTHX_ srl_iterator_t* iter,
     return index;
 }
 
+#if 1
+
+static srl_indexed_element_t* walk_iterator(pTHX_
+                                            srl_index_t* index,
+                                            int depth)
+{
+    struct Stack {
+        UV ptyp;
+        UV plen;
+        UV ppos;
+    } stack[256];
+    int scur = 0;
+    UV ptyp;
+    UV ppos  = 0;
+    UV plen  = 0;
+
+    srl_iterator_t* iter = index->iter;
+    while (iter) {
+        UV type   = 0;
+        UV length = 0;
+        UV offset = 0;
+
+        if (plen > 0 && ppos >= plen) {
+            fprintf(stderr, "[%2d] GONZO: STEP OUT\n", scur);
+            if (scur <= 0) {
+                break;
+            }
+            --scur;
+            ptyp = stack[scur].ptyp;
+            plen = stack[scur].plen;
+            ppos = stack[scur].ppos;
+            ++ppos;
+            srl_iterator_step_out(aTHX_ iter, 1);
+            continue;
+        }
+
+        if (srl_iterator_eof(aTHX_ iter)) {
+            break;
+        }
+
+        type   = srl_iterator_object_info(aTHX_ iter, &length);
+        offset = srl_iterator_offset(aTHX_ iter);
+        fprintf(stderr, "[%2d] GONZO: pos %3zu, type %6s, len %4zu, off %4zu",
+                scur, ppos, GetSVType(type), length, offset);
+        switch (type) {
+            SV* val = 0;
+
+            case SRL_ITERATOR_OBJ_IS_SCALAR:
+                fprintf(stderr, " (in %6s) => ", GetSVType(ptyp));
+                val = srl_iterator_decode(aTHX_ iter);
+                dump_sv(aTHX_ val);
+                break;
+
+            case SRL_ITERATOR_OBJ_IS_ARRAY:
+            case SRL_ITERATOR_OBJ_IS_HASH:
+                fprintf(stderr, "\n");
+                stack[scur].ptyp = ptyp;
+                stack[scur].plen = plen;
+                stack[scur].ppos = ppos;
+                ++scur;
+                ppos = 0;
+                plen = type == SRL_ITERATOR_OBJ_IS_HASH ? (2*length) : length;
+                ptyp = type;
+                srl_iterator_step_in(aTHX_ iter, 1);
+                fprintf(stderr, "[%2d] GONZO: STEP IN\n", scur);
+                continue;
+                break;
+
+            case SRL_ITERATOR_OBJ_IS_ROOT:
+            default:
+                fprintf(stderr, "\n");
+                fprintf(stderr, "[%2d] GONZO: can't handle sereal type\n", scur);
+                break;
+        }
+
+        srl_iterator_next(aTHX_ iter, 1);
+        // fprintf(stderr, "[%2d] GONZO: STEP NEXT\n", scur);
+        ++ppos;
+    }
+    return 0;
+}
+
+#else
+
 static srl_indexed_element_t* walk_iterator(pTHX_
                                             srl_index_t* index,
                                             int depth)
@@ -439,6 +523,8 @@ static srl_indexed_element_t* walk_iterator(pTHX_
     // srl_iterator_next(aTHX_ iter, 1);
     return elem;
 }
+
+#endif
 
 static srl_indexed_element_t* walk_iterator_scalar(pTHX_
                                                    srl_index_t* index,
