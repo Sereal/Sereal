@@ -12,11 +12,11 @@ my $data =
     [
         21,
         22,
-        # [
-        #   'a',
-        #   'b',
-        #   'c',
-        # ],
+        [
+            'a',
+            'b',
+            'c',
+        ],
         {
             'Thorin'      => 'Dwarf',
             'Frodo'       => 'Hobbit',
@@ -30,9 +30,9 @@ my $data =
             'Meriadoc'    => 'Hobbit',
             'Peregrin'    => 'Hobbit',
             'Balin'       => 'Dwarf',
-        }
-        # 23,
-        # 24,
+        },
+        23,
+        24,
     ];
 
 my $spi = Sereal::Path::Iterator->new(encode_sereal($data));

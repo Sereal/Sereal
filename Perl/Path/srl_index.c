@@ -552,7 +552,7 @@ static srl_indexed_element_t* walk_iterator_hash(pTHX_
 {
     int pos = 0;
     srl_indexed_hash_t* hash = 0;
-    int hsize = length;
+    UV hsize = length;
     int collisions = 0;
 
     srl_iterator_t* iter = index->iter;
@@ -567,7 +567,7 @@ static srl_indexed_element_t* walk_iterator_hash(pTHX_
 
     if (index->options.hash_factor > 1.0) {
         hsize *= index->options.hash_factor;
-        fprintf(stderr, "[%d] GONZO: index hash will use %d slots to store %d elements\n",
+        fprintf(stderr, "[%d] GONZO: index hash will use %zu slots to store %zu elements\n",
                 depth, hsize, length);
     }
     fprintf(stderr, "[%d] GONZO: walking hash, length %zu, offset %zu\n", depth, length, offset);
