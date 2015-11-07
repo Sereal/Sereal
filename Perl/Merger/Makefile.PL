@@ -23,46 +23,14 @@ inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
 #     #define MINIZ_LITTLE_ENDIAN 1
 #     #define MINIZ_HAS_64BIT_REGISTERS 1
 
-our $OPTIMIZE;
+my $optimize = inc::Sereal::BuildTools::build_optimize();
 
 my $libs = '';
 my $objects = '$(BASEEXT)$(OBJ_EXT) srl_merger$(OBJ_EXT)';
 my $defines = join " ", map "-D$_", grep exists $ENV{$_},
               qw(NOINLINE DEBUG MEMDEBUG NDEBUG ENABLE_DANGEROUS_HACKS);
 
-my $clang = 0;
-if ($Config{gccversion}) {
-    $OPTIMIZE = '-O3';
-    if ($Config{gccversion} =~ /[Cc]lang/) { # clang.
-        $clang = 1;
-    }
-
-    my $gccversion = 0;
-    if ( $Config{gccversion} =~ /^(\d+\.\d+)/ ) {
-        $gccversion = $1;
-    }
-
-    if ( $clang || $gccversion >= 4.3 ) {
-        # -Werror= introduced in GCC 4.3
-        # For trapping C++ // comments we would need -std=c89 (aka -ansi)
-        # but that may be asking too much of different platforms.
-        $OPTIMIZE .= ' -Werror=declaration-after-statement ';
-    }
-} elsif ($Config{osname} eq 'MSWin32') {
-    $OPTIMIZE = '-O2 -W4';
-} else {
-    $OPTIMIZE = $Config{optimize};
-}
-
-if ($ENV{DEBUG}) {
-  $OPTIMIZE .= ' -g';
-  if ($ENV{DEBUG} > 0 && $Config{gccversion}) {
-      $OPTIMIZE .= ' -Wextra' if $ENV{DEBUG} > 1;
-      $OPTIMIZE .= ' -pedantic' if $ENV{DEBUG} > 5; # not pretty
-      $OPTIMIZE .= ' -Weverything' if ($ENV{DEBUG} > 6 && $clang); # really not pretty
-  }
-}
-else {
+if (!$ENV{DEBUG}) {
   $defines .= " -DNDEBUG";
 }
 
@@ -124,10 +92,10 @@ WriteMakefile1(
     LIBS              => [$libs], # e.g., '-lm'
     DEFINE            => $defines,
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
-    OPTIMIZE          => $OPTIMIZE,
+    OPTIMIZE          => $optimize,
     OBJECT            => $objects,
 );
-$ENV{OPTIMIZE} = $OPTIMIZE;
+$ENV{OPTIMIZE} = $optimize;
 
 sub WriteMakefile1 {
     #Original by Alexandr Ciornii, modified by Yves Orton
