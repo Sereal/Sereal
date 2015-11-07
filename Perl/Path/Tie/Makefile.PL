@@ -18,6 +18,13 @@ if ($in_source_repo) {
     }
 }
 
+my $libs = '';
+my $objects = '$(BASEEXT)$(OBJ_EXT) ../Iterator/srl_iterator.o ../Iterator/srl_decoder.o';
+my $defines = inc::Sereal::BuildTools::build_defines();
+
+# Prefer external libraries over the bundled one.
+inc::Sereal::BuildTools::check_external_libraries(\$libs, \$defines, \$objects);
+
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 inc::Sereal::BuildTools::WriteMakefile(
@@ -47,8 +54,9 @@ inc::Sereal::BuildTools::WriteMakefile(
     LICENSE           => 'perl',
     ABSTRACT_FROM     => 'lib/Sereal/Path/Tie.pm',
     AUTHOR            => 'Ivan Kruglov <ivan.kruglov@yahoo.com>',
-    DEFINE            => inc::Sereal::BuildTools::build_defines(),
+    LIBS              => [$libs], # e.g., '-lm'
+    DEFINE            => $defines,
     INC               => '-I..', # e.g., '-I. -I/usr/include/other'
     OPTIMIZE          => inc::Sereal::BuildTools::build_optimize(),
-    OBJECT            => '$(BASEEXT)$(OBJ_EXT) ../Iterator/srl_iterator.o ../Iterator/srl_decoder.o',
+    OBJECT            => $objects,
 );

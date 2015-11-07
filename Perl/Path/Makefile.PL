@@ -56,6 +56,7 @@ inc::Sereal::BuildTools::WriteMakefile(
     LICENSE           => 'perl',
     ABSTRACT_FROM     => 'lib/Sereal/Path.pm',
     AUTHOR            => 'Ivan Kruglov <ivan.kruglov@yahoo.com>',
+    LIBS              => [$libs], # e.g., '-lm'
     DEFINE            => $defines,
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
     OPTIMIZE          => inc::Sereal::BuildTools::build_optimize(),
