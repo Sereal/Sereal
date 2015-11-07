@@ -177,7 +177,7 @@ FETCH(this, key)
         ST(0) = &PL_sv_undef;
     } else {
         stack_ptr = srl_iterator_stack(aTHX_ this->iter);
-        if (idx > stack_ptr->idx)
+        if ((stack_ptr->length - idx) > stack_ptr->ridx)
             srl_iterator_rewind(aTHX_ this->iter, 0);
     
         srl_iterator_array_goto(aTHX_ this->iter, key);
@@ -331,7 +331,7 @@ NEXTKEY(this, last)
 
         this->last_idx -= 2;
         stack_ptr = srl_iterator_stack(aTHX_ this->iter);
-        if (this->last_idx > stack_ptr->idx)
+        if (this->last_idx > stack_ptr->ridx)
             srl_iterator_rewind(aTHX_ this->iter, 0);
 
         srl_iterator_until(aTHX_ this->iter, this->depth, this->last_idx);

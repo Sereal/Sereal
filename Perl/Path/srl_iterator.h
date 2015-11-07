@@ -53,7 +53,7 @@ void srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n);
 /* run until elements at current depth ends and go one level down; do this n times */
 void srl_iterator_step_out(pTHX_ srl_iterator_t *iter, UV n);
 /* run until depth and idx reached */
-void srl_iterator_until(pTHX_ srl_iterator_t *iter, UV expected_depth, U32 expected_idx);
+void srl_iterator_until(pTHX_ srl_iterator_t *iter, UV depth, U32 idx);
 /* if n == 0, go to first element, otherwise pop stack n times and go to first element */
 void srl_iterator_rewind(pTHX_ srl_iterator_t *iter, UV n);
 
@@ -72,6 +72,12 @@ UV srl_iterator_object_info(pTHX_ srl_iterator_t *iter, UV *length_ptr);
 /* array parsing */
 IV srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx);
 IV srl_iterator_array_exists(pTHX_ srl_iterator_t *iter, I32 idx);
+
+SRL_STATIC_INLINE I32
+srl_iterator_normalize_idx(pTHX_ I32 idx, UV length)
+{
+    return idx < 0 ? length + idx : idx;
+}
 
 /* hash parsing */
 const char * srl_iterator_hash_key(pTHX_ srl_iterator_t *iter, STRLEN *len_out);
