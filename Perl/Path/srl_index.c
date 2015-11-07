@@ -343,23 +343,23 @@ static const char* GetSVType(int type)
 static void dump_sv(pTHX_ SV* sv)
 {
     if (SvROK(sv)) {
-        fprintf(stderr, "%s", "REF\n");
+        fprintf(stderr, "%s", "R\n");
     } else if (SvTYPE(sv) == SVt_PVAV) {
-        fprintf(stderr, "%s", "ARRAY\n");
+        fprintf(stderr, "%s", "A\n");
     } else if (SvTYPE(sv) == SVt_PVHV) {
-        fprintf(stderr, "%s", "HASH\n");
+        fprintf(stderr, "%s", "H\n");
     } else if (SvTYPE(sv) >= SVt_PVAV) {
-        fprintf(stderr, "%s", "OTHER\n");
+        fprintf(stderr, "%s", "O\n");
     } else if (SvIOK(sv)) {
         IV v = SvIV(sv);
-        fprintf(stderr, "INT[%ld]\n", (long) v);
+        fprintf(stderr, "I[%ld]\n", (long) v);
     } else if (SvNOK(sv)) {
         double v = SvNV(sv);
-        fprintf(stderr, "REAL[%lf]\n", v);
+        fprintf(stderr, "R[%lf]\n", v);
     } else if (SvPOK(sv)) {
         STRLEN l;
         char* v = SvPV(sv, l);
-        fprintf(stderr, "STRING[%*.*s]\n", (int) l, (int) l, v);
+        fprintf(stderr, "S[%*.*s]\n", (int) l, (int) l, v);
     }
 }
 
