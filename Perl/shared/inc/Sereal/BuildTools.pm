@@ -103,7 +103,10 @@ sub build_defines {
 }
 
 sub build_optimize {
-    my $opts = shift || {};
+    my $cc_flags = shift || {};
+
+    my $std_mode = $cc_flags->{std};
+    my $catch_violations = exists $cc_flags->{catch_violations} ? $cc_flags->{catch_violations} : 1;
 
     my $OPTIMIZE;
 
@@ -119,20 +122,21 @@ sub build_optimize {
             $gccversion = $1;
         }
 
-        if ( $clang || $gccversion >= 4.3 ) {
+        if ( $catch_violations && ($clang || $gccversion >= 4.3) ) {
             # -Werror= introduced in GCC 4.3
             # For trapping C++ // comments we would need -std=c89 (aka -ansi)
             # but that may be asking too much of different platforms.
             $OPTIMIZE .= ' -Werror=declaration-after-statement ';
         }
 
-        if ( $clang && $opts->{std} ) {
-            $OPTIMIZE .= " -std=$opts->{std}"; # http://clang.llvm.org/compatibility.html
-        }
     } elsif ($Config{osname} eq 'MSWin32') {
         $OPTIMIZE = '-O2 -W4';
     } else {
         $OPTIMIZE = $Config{optimize};
+    }
+
+    if ( $clang && $std_mode ) {
+        $OPTIMIZE .= " -std=$std_mode"; # http://clang.llvm.org/compatibility.html
     }
 
     if ($ENV{DEBUG}) {

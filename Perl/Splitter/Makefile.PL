@@ -18,7 +18,7 @@ my $module = "Sereal::Splitter";
  inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
 
 `rm -rf t/004_testset.t t/700_roundtrip t/data t/lib`;
-my $optimize = inc::Sereal::BuildTools::build_optimize();
+my $optimize = inc::Sereal::BuildTools::build_optimize({ catch_violations => 0 });
 
 # TODO Configure/optimize for miniz:
 #   * Important: For best perf. be sure to customize the below macros for your target platform:
