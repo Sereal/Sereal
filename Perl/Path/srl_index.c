@@ -398,9 +398,10 @@ srl_index_t* srl_create_index(pTHX_ srl_iterator_t* iter,
 
 #if 1
 
-static srl_indexed_element_t* walk_iterator(pTHX_
-                                            srl_index_t* index,
-                                            int depth)
+static /* UNUSED */ srl_indexed_element_t*
+walk_iterator(pTHX_
+              srl_index_t* index,
+              int /* UNUSED */ depth)
 {
     struct Stack {
         UV ptyp;
@@ -452,16 +453,19 @@ static srl_indexed_element_t* walk_iterator(pTHX_
             case SRL_ITERATOR_OBJ_IS_ARRAY:
             case SRL_ITERATOR_OBJ_IS_HASH:
                 fprintf(stderr, "\n");
-                stack[scur].ptyp = ptyp;
-                stack[scur].plen = plen;
-                stack[scur].ppos = ppos;
-                ++scur;
-                ppos = 0;
-                plen = type == SRL_ITERATOR_OBJ_IS_HASH ? (2*length) : length;
-                ptyp = type;
-                srl_iterator_step_in(aTHX_ iter, 1);
-                fprintf(stderr, "[%2d] GONZO: STEP IN\n", scur);
-                continue;
+                if (index->options.index_depth == 0 ||
+                    index->options.index_depth > scur) {
+                    stack[scur].ptyp = ptyp;
+                    stack[scur].plen = plen;
+                    stack[scur].ppos = ppos;
+                    ++scur;
+                    ppos = 0;
+                    plen = type == SRL_ITERATOR_OBJ_IS_HASH ? (2*length) : length;
+                    ptyp = type;
+                    srl_iterator_step_in(aTHX_ iter, 1);
+                    fprintf(stderr, "[%2d] GONZO: STEP IN\n", scur);
+                    continue;
+                }
                 break;
 
             case SRL_ITERATOR_OBJ_IS_ROOT:
