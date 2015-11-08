@@ -57,7 +57,6 @@ srl_index_init(pTHX_
     index->iter = iter;
     index->options = *options;
 
-    fprintf(stderr, "Will allocate [%d] bytes\n", index->options.memory_size);
     index->beg = NULL;
     Newx(index->beg, index->options.memory_size, char);
     if (expect_false(index->beg == NULL))
@@ -312,12 +311,13 @@ static void dump_index(srl_index_t* index)
 {
     uint32_t used = 0;
 
-    fprintf(stderr, "NICE index at %p, ", index);
+    fprintf(stderr, "START dumping index at %p, max %d bytes",
+            index, index->options.memory_size);
     used = SRL_INDEX_USED(index);
     if (used == 0) {
-        fprintf(stderr, "EMPTY\n");
+        fprintf(stderr, " EMPTY\n");
     } else {
-        fprintf(stderr, "using %u bytes\n", used);
+        fprintf(stderr, ", using %u bytes\n", used);
         dump_index_data(index, (srl_indexed_element_t*) index->beg, 0);
         fprintf(stderr, "DONE dumping index\n");
     }
@@ -390,6 +390,7 @@ srl_index_t* srl_create_index(pTHX_ srl_iterator_t* iter,
         return 0;
     }
 
+    fprintf(stderr, "====================\n");
     dump_index(index);
     walk_iterator(aTHX_ index, 0);
     dump_index(index);
