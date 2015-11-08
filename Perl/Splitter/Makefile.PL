@@ -26,21 +26,7 @@ my $optimize = inc::Sereal::BuildTools::build_optimize({ catch_violations => 0 }
 #     #define MINIZ_LITTLE_ENDIAN 1
 #     #define MINIZ_HAS_64BIT_REGISTERS 1
 
-my $defines = join " ", map "-D$_", grep exists $ENV{$_}, qw(NOINLINE DEBUG MEMDEBUG NDEBUG);
-if (!$ENV{DEBUG}) {
-  $defines .= " -DNDEBUG";
-}
-
-# TODO: This is identical with Encoder.
-if ($Config{osname} eq 'hpux' && not $Config{gccversion}) {
-  # HP-UX cc does not support inline.
-  # Or rather, it does, but it depends on the compiler flags,
-  # assumedly -AC99 instead of -Ae would work.
-  # But we cannot change the compiler config too much from
-  # the one that was used to compile Perl,
-  # so we just fake the inline away.
-  $defines .= " -Dinline= ";
-}
+my $defines = inc::Sereal::BuildTools::build_defines();
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.

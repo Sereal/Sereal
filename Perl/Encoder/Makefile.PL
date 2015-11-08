@@ -27,23 +27,7 @@ my $optimize = inc::Sereal::BuildTools::build_optimize();
 
 my $libs = '';
 my $objects = '$(BASEEXT)$(OBJ_EXT) srl_encoder$(OBJ_EXT)';
-my $defines = join " ", map "-D$_", grep exists $ENV{$_},
-              qw(NOINLINE DEBUG MEMDEBUG NDEBUG ENABLE_DANGEROUS_HACKS);
-
-if (!$ENV{DEBUG} ) {
-  $defines .= " -DNDEBUG";
-}
-
-# TODO: This is identical with Decoder.
-if ($Config{osname} eq 'hpux' && not $Config{gccversion}) {
-  # HP-UX cc does not support inline.
-  # Or rather, it does, but it depends on the compiler flags,
-  # assumedly -AC99 instead of -Ae would work.
-  # But we cannot change the compiler config too much from
-  # the one that was used to compile Perl,
-  # so we just fake the inline away.
-  $defines .= " -Dinline= ";
-}
+my $defines = inc::Sereal::BuildTools::build_defines('ENABLE_DANGEROUS_HACKS');
 
 # Prefer external libraries over the bundled one.
 inc::Sereal::BuildTools::check_external_libraries(\$libs, \$defines, \$objects);
@@ -60,7 +44,7 @@ if ($defines !~ /HAVE_CSNAPPY/) {
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
-WriteMakefile1(
+inc::Sereal::BuildTools::WriteMakefile(
     MIN_PERL_VERSION => '5.008',
     META_MERGE => {
         resources => {
@@ -108,35 +92,3 @@ WriteMakefile1(
     },
 );
 $ENV{OPTIMIZE} = $optimize;
-
-sub WriteMakefile1 {
-    #Original by Alexandr Ciornii, modified by Yves Orton
-    my %params=@_;
-    my $eumm_version=$ExtUtils::MakeMaker::VERSION;
-    $eumm_version=eval $eumm_version;
-    die "EXTRA_META is deprecated" if exists $params{EXTRA_META};
-    die "License not specified" if not exists $params{LICENSE};
-    if ($params{TEST_REQUIRES} and $eumm_version < 6.6303) {
-        $params{BUILD_REQUIRES}={ %{$params{BUILD_REQUIRES} || {}} , %{$params{TEST_REQUIRES}} };
-        delete $params{TEST_REQUIRES};
-    }
-    if ($params{BUILD_REQUIRES} and $eumm_version < 6.5503) {
-        #EUMM 6.5502 has problems with BUILD_REQUIRES
-        $params{PREREQ_PM}={ %{$params{PREREQ_PM} || {}} , %{$params{BUILD_REQUIRES}} };
-        delete $params{BUILD_REQUIRES};
-    }
-    if ($params{CONFIGURE_REQUIRES} and $eumm_version < 6.52) {
-        $params{PREREQ_PM}={ %{$params{PREREQ_PM} || {}}, %{$params{CONFIGURE_REQUIRES}} };
-        delete $params{CONFIGURE_REQUIRES};
-    }
-    delete $params{MIN_PERL_VERSION} if $eumm_version < 6.48;
-    delete $params{META_MERGE} if $eumm_version < 6.46;
-    delete $params{META_ADD} if $eumm_version < 6.46;
-    delete $params{LICENSE} if $eumm_version < 6.31;
-    delete $params{AUTHOR} if $] < 5.005;
-    delete $params{ABSTRACT_FROM} if $] < 5.005;
-    delete $params{BINARY_LOCATION} if $] < 5.005;
-    delete $params{OPTIMIZE} if $^O eq 'MSWin32';
-
-    WriteMakefile(%params);
-}
