@@ -71,9 +71,10 @@ extern "C" {
 #define SRL_RDR_BODY_POS_OFS_(buf) ((buf).pos - (buf).body_pos)
 #define srl_stack_push_and_set(_iter, _tag, _length, _stack_ptr) STMT_START {   \
     srl_stack_push_ptr((_iter)->pstack, (_stack_ptr));                          \
-    (_stack_ptr)->offset = SRL_RDR_BODY_POS_OFS_((_iter)->buf);                 \
-    (_stack_ptr)->length = (_length);                                           \
     (_stack_ptr)->ridx = (_length);                                             \
+    (_stack_ptr)->length = (_length);                                           \
+    (_stack_ptr)->offset = SRL_RDR_BODY_POS_OFS_((_iter)->buf);                 \
+    (_stack_ptr)->prev_depth= 0;                                                \
     (_stack_ptr)->tag = (_tag);                                                 \
 } STMT_END
 
@@ -431,7 +432,23 @@ srl_iterator_rewind_stack_position(pTHX_ srl_iterator_t *iter)
           )                                                                                     \
     {                                                                                           \
         srl_stack_pop_nocheck((iter)->pstack);                                                  \
+        SRL_ITER_REPORT_STACK_STATE((iter));                                                    \
         (stack_ptr) = (iter)->stack.ptr;                                                        \
+                                                                                                \
+        if ((stack_ptr)->prev_depth) {                                                          \
+            iter->buf.pos = iter->buf.body_pos + (stack_ptr)->prev_depth;                       \
+            (stack_ptr)->prev_depth = 0;                                                        \
+                                                                                                \
+            /* Offset stored in prev_depth is offset of REFP tag. */                            \
+            /* At the same time, ridx was already decremented for REFP (see comments in */      \
+            /* srl_iterator_step_internal(). To compensate this, we increate ridx. */           \
+            (stack_ptr)->ridx++;                                                                \
+                                                                                                \
+            SRL_ITER_TRACE_WITH_POSITION("wrap_stack restore offset");                          \
+            DEBUG_ASSERT_RDR_SANE(iter->pbuf);                                                  \
+            SRL_ITER_REPORT_STACK_STATE(iter);                                                  \
+        }                                                                                       \
+                                                                                                \
         if (SRL_ITER_STACK_ON_ROOT(iter->pstack))                                               \
             SRL_ITER_TRACE_WITH_POSITION("root of stack reached");                              \
     }                                                                                           \
@@ -446,6 +463,10 @@ srl_iterator_rewind_stack_position(pTHX_ srl_iterator_t *iter)
     if (expect_false((stack_ptr)->ridx == 0))                                                   \
         SRL_ITER_ERRORf1("Nothing to parse at depth=%"IVdf, SRL_STACK_DEPTH(iter->pstack));     \
                                                                                                 \
+    /* Iterator decrement ridx *before* parsing an element. This's done for simplicity. */      \
+    /* Also, it has some sense. For scalars there is no difference in when idx is decremented.*/\
+    /* For arrays/hashes/and objects think this way: element at current depth will be */        \
+    /* parsed as soon as iterator finished parsing element at depth+1. */                       \
     (stack_ptr)->ridx--;                                                                        \
                                                                                                 \
     SRL_ITER_ASSERT_STACK(iter);                                                                \
@@ -545,6 +566,9 @@ read_again:                                                                     
 void
 srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
 {
+    UV offset;
+    U8 tag, otag;
+    srl_reader_char_ptr orig_pos;
     srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
@@ -555,6 +579,57 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
 
     while (n--) {
         srl_iterator_wrap_stack(iter, -1, stack_ptr);
+
+        orig_pos = iter->buf.pos;
+        tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
+        SRL_ITER_REPORT_TAG(iter, tag);
+        iter->buf.pos++;
+
+        switch (tag) {
+            case SRL_HDR_REFP:
+                /* store offset for REFP tag. Will be used in srl_iterator_wrap_stack() */
+                stack_ptr->prev_depth = orig_pos - iter->buf.body_pos; // almost same sa SRL_RDR_BODY_POS_OFS
+
+                offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading REFP tag");
+                iter->buf.pos = iter->buf.body_pos + offset;
+                DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+
+                tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
+                SRL_ITER_TRACE_WITH_POSITION("tag SRL_HDR_REFP points to tag SRL_HDR_%s",
+                                             SRL_TAG_NAME(tag));
+
+                switch (tag) {
+                    case SRL_HDR_HASH:
+                    case SRL_HDR_ARRAY:
+                        goto step_in;
+
+                    case SRL_HDR_OBJECTV:
+                    case SRL_HDR_OBJECTV_FREEZE:
+                    case SRL_HDR_OBJECT:
+                    case SRL_HDR_OBJECT_FREEZE:
+                        croak("not implemented OBJECT");
+
+                    CASE_SRL_HDR_HASHREF:
+                    CASE_SRL_HDR_ARRAYREF:
+                        croak("not implemente HASHREF ARRAYREF");
+
+                    default:
+                        goto restore_pos_and_step_in;
+                }
+                break;
+
+            case SRL_HDR_COPY:
+            case SRL_HDR_ALIAS:
+                croak("not implemented COPY/ALIAS");
+
+            default:
+restore_pos_and_step_in:
+                stack_ptr->prev_depth = 0;
+                iter->buf.pos = orig_pos;
+                break;
+        }
+
+step_in:
         srl_iterator_step_internal(iter, stack_ptr);
     }
 
