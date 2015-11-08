@@ -693,6 +693,51 @@ which is simply serializing a cache key, and thus there's little harm in an
 occasional false-negative, but think carefully before applying Sereal in other
 use-cases.
 
+=head1 KNOWN ISSUES
+
+=over 4
+
+=item Strings Or Numbers
+
+Perl does not make a strong distinction between strings and numbers, and from
+an internal point of view it can be difficult to tell what the "right"
+representation is for a given variable.
+
+Sereal tries to not be lossy. So if it detects that the string value of a var,
+and the numeric value are different it will generally round trip the *string*
+value. This means that "special" strings often used in Perl function returns,
+like "0 but true", and "0e0", will round trip in a way that their normal Perl
+semantics are preserved. However this also means that "non canonical" values,
+like " 100 ", which will numify as 100 without warnings, will round trip as
+their string values.
+
+Perl also has some operators, the binary operators, ^, | and &, which do different
+things depending on whether their arguments had been used in numeric context as
+the following examples show:
+
+    perl -le'my $x="1"; $i=int($x); print unpack "H*", $x ^ "1"'
+    30
+
+    perl -le'my $x="1"; print unpack "H*", $x ^ "1"'
+    00
+
+    perl -le'my $x=" 1 "; $i=int($x); print unpack "H*", $x ^ "1"'
+    30
+
+    perl -le'my $x=" 1 "; print unpack "H*", $x ^ "1"'
+    113120
+
+Sereal currently cannot round trip this property properly.
+
+An extreme case of this problem is that of "dualvars", which can be created using
+the Scalar::Util::dualvar() function. This function allows one to create variables
+which have string and integer values which are completely unrelated to each other.
+Sereal currently will choose the *string* value when it detects these items.
+
+It is possible that a future release of the protocol will fix these issues.
+
+=back 4
+
 =head1 BUGS, CONTACT AND SUPPORT
 
 For reporting bugs, please use the github bug tracker at

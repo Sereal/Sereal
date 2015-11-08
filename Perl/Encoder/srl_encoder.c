@@ -189,21 +189,45 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
 
 #define _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt)                        \
     if (SvPOK(src)) {                                                       \
+        STRLEN L;                                                           \
+        char *PV= SvPV(src, L);                                             \
         if ( SvIOK(src) ) {                                                 \
-            if ( SvNOK(src) ) {                                             \
-                /* as far as I can tell the only strings which      */      \
-                /* set all three flags are engineering notation,    */      \
-                /* like "0E0" and friends - we especially need      */      \
-                /* to do this when the IV is 0, but we do it always */      \
-                /* if they put eng notation in, maybe then want it  */      \
-                /* out too. */                                              \
+            if ( SvIV(src) == 0 ) {                                         \
+                if ( L == 0 ) {                                             \
+                    /* zero length string, 0 int - same as PL_sv_no */      \
+                    srl_buf_cat_char(&enc->buf, SRL_HDR_FALSE);             \
+                }                                                           \
+                else if ( L == 1 && PV[0] == '0' ) {                        \
+                    /* its a true 0 */                                      \
+                    srl_buf_cat_char(&enc->buf, SRL_HDR_POS + 0);           \
+                }                                                           \
+                else {                                                      \
+                    /* must be a string */                                  \
+                    srl_dump_svpv(aTHX_ enc, src);                          \
+                }                                                           \
+            }                                                               \
+            else                                                            \
+            if (                                                            \
+                !L ||                                                       \
+                !isDIGIT(PV[L-1]) ||                                        \
+                (                                                           \
+                 SvIV(src) > 0                                              \
+                 ? ( PV[0] == '0' || !isDIGIT(PV[0]) )                      \
+                 : ( L < 2 || PV[0] != '-' || PV[1] == '0' || !isDIGIT(PV[1]) ) \
+                )                                                           \
+            ) {                                                             \
                 srl_dump_svpv(aTHX_ enc, src);                              \
             }                                                               \
             else {                                                          \
-                STRLEN L;                                                   \
-                char *PV= SvPV(src, L);                                     \
-                if ( SvIV(src) ? (PV[0] < '1' || PV[0] > '9') : L > 1) {    \
-                    srl_dump_svpv(aTHX_ enc, src);                          \
+                if ( SvNOK(src) ) {                                         \
+                    /* fallback to checking if the canonical stringified*/  \
+                    /* int is the same as the buffer */                     \
+                    sv_setiv(enc->scratch_sv,SvIV(src));                    \
+                    if ( sv_cmp(enc->scratch_sv,src) ) {                    \
+                        srl_dump_svpv(aTHX_ enc, src);                      \
+                    } else {                                                \
+                        srl_dump_ivuv(aTHX_ enc, src);                      \
+                    }                                                       \
                 } else {                                                    \
                     srl_dump_ivuv(aTHX_ enc, src);                          \
                 }                                                           \
@@ -211,9 +235,16 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
         }                                                                   \
         else                                                                \
         if ( SvNOK(src) ) {                                                 \
-            STRLEN L;                                                       \
-            char *PV= SvPV(src, L);                                         \
-            if ( SvNV(src) ? (PV[0] < '1' || PV[0] > '9') : L > 1) {        \
+            if ( L <= 8 ||                                                  \
+                !isDIGIT(PV[0]) ||                                          \
+                !isDIGIT(PV[L-1]) ||                                        \
+                PV[L-1] == '0' ||                                           \
+                 (                                                          \
+                  SvNV(src) > 0.0                                           \
+                  ? ( PV[0] == '.' || (PV[0] == '0' && PV[1] != '.') )      \
+                  : ( PV[0] != '-' || PV[1] == '.' || (PV[1] == '0' && PV[2] != '.')) \
+                )                                                           \
+            ) {                                                             \
                 srl_dump_svpv(aTHX_ enc, src);                              \
             }                                                               \
             else {                                                          \
@@ -226,7 +257,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
         }                                                                   \
     }                                                                       \
     else                                                                    \
-    if (SvIOK(src)) {                                                       \
+    if ( SvIOK(src) ) {                                                     \
         srl_dump_ivuv(aTHX_ enc, src);                                  \
     }                                                                   \
     else                                                                \
