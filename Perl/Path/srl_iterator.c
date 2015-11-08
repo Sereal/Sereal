@@ -482,7 +482,7 @@ read_again:                                                                     
     iter->buf.pos++;                                                                            \
                                                                                                 \
     /* No code which decrease step, next or stack's counters should be added here.              \
-     * Otherwise the counters will be decreased twicer for tags like REFN, ALIAS, etc. */       \
+     * Otherwise the counters will be decreased twicer for tags like REFN, WEAKEN , etc. */     \
                                                                                                 \
     switch (tag & 0xE0) {                                                                       \
         case 0x0: /* POS_0 .. NEG_1 */                                                          \
@@ -526,7 +526,6 @@ read_again:                                                                     
                     break;                                                                      \
                                                                                                 \
                 case SRL_HDR_REFN:                                                              \
-                case SRL_HDR_ALIAS:                                                             \
                 case SRL_HDR_WEAKEN:                                                            \
                     goto read_again;                                                            \
                                                                                                 \
@@ -543,6 +542,7 @@ read_again:                                                                     
                                                                                                 \
                 case SRL_HDR_COPY:                                                              \
                 case SRL_HDR_REFP:                                                              \
+                case SRL_HDR_ALIAS:                                                             \
                     srl_skip_varint(aTHX_ iter->pbuf);                                          \
                     break;                                                                      \
                                                                                                 \
