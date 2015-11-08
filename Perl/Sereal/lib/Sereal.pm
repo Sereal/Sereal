@@ -5,14 +5,28 @@ use warnings;
 our $VERSION = '3.005_001';
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 use Sereal::Encoder 3.005_001 qw(encode_sereal sereal_encode_with_object);
-use Sereal::Decoder 3.005_001 qw(decode_sereal looks_like_sereal sereal_decode_with_object);
-
+use Sereal::Decoder 3.005_001 qw(
+    decode_sereal looks_like_sereal decode_sereal_with_header_data
+    scalar_looks_like_sereal
+    sereal_decode_with_object sereal_decode_with_header_with_object
+    sereal_decode_only_header_with_object
+    sereal_decode_only_header_with_offset_with_object
+    sereal_decode_with_header_and_offset_with_object
+    sereal_decode_with_offset_with_object
+);
 use Exporter 'import';
 our @EXPORT_OK = qw(
   encode_sereal decode_sereal
   looks_like_sereal
   sereal_encode_with_object
   sereal_decode_with_object
+  decode_sereal_with_header_data
+  scalar_looks_like_sereal
+  sereal_decode_with_header_with_object
+  sereal_decode_only_header_with_object
+  sereal_decode_only_header_with_offset_with_object
+  sereal_decode_with_header_and_offset_with_object
+  sereal_decode_with_offset_with_object
 );
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 # export by default if run from command line
@@ -43,7 +57,7 @@ Sereal - Fast, compact, powerful binary (de-)serialization
 
 I<Sereal> is an efficient, compact-output, binary and feature-rich
 serialization protocol. The Perl encoder is implemented as the
-L<Sereal::Encoder> module, the Perl decoder correspondingly as 
+L<Sereal::Encoder> module, the Perl decoder correspondingly as
 L<Sereal::Decoder>. They are distributed separately to allow for
 safe upgrading without downtime. (Hint: Upgrade the decoder everywhere
 first, then the encoder.)
