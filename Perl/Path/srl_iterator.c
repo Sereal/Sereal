@@ -585,51 +585,43 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
         SRL_ITER_REPORT_TAG(iter, tag);
         iter->buf.pos++;
 
-        switch (tag) {
-            case SRL_HDR_REFP:
-                /* store offset for REFP tag. Will be used in srl_iterator_wrap_stack() */
-                stack_ptr->prev_depth = orig_pos - iter->buf.body_pos; // almost same sa SRL_RDR_BODY_POS_OFS
+        if (tag == SRL_HDR_REFP || tag == SRL_HDR_ALIAS) {
+            /* store offset for REFP tag. Will be used in srl_iterator_wrap_stack() */
+            stack_ptr->prev_depth = orig_pos - iter->buf.body_pos; // almost same sa SRL_RDR_BODY_POS_OFS
 
-                offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading REFP tag");
-                iter->buf.pos = iter->buf.body_pos + offset;
-                DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+            offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading REFP tag");
+            iter->buf.pos = iter->buf.body_pos + offset;
+            DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 
-                tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
-                SRL_ITER_TRACE_WITH_POSITION("tag SRL_HDR_REFP points to tag SRL_HDR_%s",
-                                             SRL_TAG_NAME(tag));
+            tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
+            SRL_ITER_TRACE_WITH_POSITION("tag SRL_HDR_REFP points to tag SRL_HDR_%s",
+                                         SRL_TAG_NAME(tag));
 
-                switch (tag) {
-                    case SRL_HDR_HASH:
-                    case SRL_HDR_ARRAY:
-                        goto step_in;
+            switch (tag) {
+                case SRL_HDR_HASH:
+                case SRL_HDR_ARRAY:
+                    break;
 
-                    case SRL_HDR_OBJECTV:
-                    case SRL_HDR_OBJECTV_FREEZE:
-                    case SRL_HDR_OBJECT:
-                    case SRL_HDR_OBJECT_FREEZE:
-                        croak("not implemented OBJECT");
+                case SRL_HDR_OBJECTV:
+                case SRL_HDR_OBJECTV_FREEZE:
+                case SRL_HDR_OBJECT:
+                case SRL_HDR_OBJECT_FREEZE:
+                    croak("not implemented OBJECT");
 
-                    CASE_SRL_HDR_HASHREF:
-                    CASE_SRL_HDR_ARRAYREF:
-                        croak("not implemente HASHREF ARRAYREF");
+                CASE_SRL_HDR_HASHREF:
+                CASE_SRL_HDR_ARRAYREF:
+                    croak("not implemente HASHREF ARRAYREF");
 
-                    default:
-                        goto restore_pos_and_step_in;
-                }
-                break;
-
-            case SRL_HDR_COPY:
-            case SRL_HDR_ALIAS:
-                croak("not implemented COPY/ALIAS");
-
-            default:
-restore_pos_and_step_in:
-                stack_ptr->prev_depth = 0;
-                iter->buf.pos = orig_pos;
-                break;
+                default:
+                    stack_ptr->prev_depth = 0;
+                    iter->buf.pos = orig_pos;
+                    break;
+            }
+        } else {
+            stack_ptr->prev_depth = 0;
+            iter->buf.pos = orig_pos;
         }
 
-step_in:
         srl_iterator_step_internal(iter, stack_ptr);
     }
 
