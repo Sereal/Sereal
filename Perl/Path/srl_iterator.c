@@ -90,13 +90,25 @@ extern "C" {
 #define SRL_ITER_ERRORf3(fmt, var1, var2, var3) croak(SRL_ITER_BASE_ERROR_FORMAT fmt,  SRL_ITER_BASE_ERROR_ARGS, (var1), (var2), (var3))
 
 #ifdef TRACE_ITERATOR
-#   define SRL_ITER_TRACE(msg, args...)            SRL_RDR_TRACE("%s " msg, srl_debug_tabulator(iter), ## args)
+#   define SRL_ITER_TRACE(msg, args...)                                             \
+        SRL_RDR_TRACE("%s " msg, srl_debug_tabulator(iter), ## args)
+
+#   define SRL_ITER_TRACE_WITH_POSITION(msg, args...) STMT_START {                  \
+        SRL_RDR_TRACE(                                                              \
+            "%s " msg " (ofs %"UVuf" body_ofs %"UVuf")",                            \
+            srl_debug_tabulator(iter),                                              \
+            ## args,                                                                \
+            (UV) SRL_RDR_POS_OFS((iter)->pbuf),                                     \
+            (UV) SRL_RDR_BODY_POS_OFS((iter)->pbuf)                                 \
+        );                                                                          \
+    } STMT_END
+
 #   define SRL_ITER_REPORT_TAG(iter, tag) STMT_START {                              \
         SRL_RDR_TRACE(                                                              \
-            "%s tag SRL_HDR_%s (int: %d hex: 0x%x) at ofs %"UVuf" body_ofs %"UVuf,  \
+            "%s tag SRL_HDR_%s (hex: 0x%x) at ofs %"UVuf" body_ofs %"UVuf,          \
             srl_debug_tabulator((iter)),                                            \
             SRL_TAG_NAME((tag)),                                                    \
-            (tag), (tag),                                                           \
+            (tag),                                                                  \
             (UV) SRL_RDR_POS_OFS((iter)->pbuf),                                     \
             (UV) SRL_RDR_BODY_POS_OFS((iter)->pbuf)                                 \
         );                                                                          \
@@ -109,21 +121,24 @@ extern "C" {
                 SRL_STACK_DEPTH((iter)->pstack)                                     \
             );                                                                      \
         } else {                                                                    \
-            srl_iterator_stack_ptr stack_ptr = (iter)->pstack->ptr;                 \
+            srl_iterator_stack_ptr stack_ptr = (iter)->stack.ptr;                   \
             SRL_RDR_TRACE(                                                          \
-                "%s stack state depth=%"IVdf" tag=SRL_HDR_%s "                      \
-                "(int: %d hex: 0x%x) length=%u ridx=%d offset=%"UVuf,               \
+                "%s stack state depth=%"IVdf" tag=SRL_HDR_%s (hex: 0x%x)"           \
+                " idx=%d (rdix=%d) offset=%"UVuf" length=%u",                       \
                 srl_debug_tabulator((iter)),                                        \
                 SRL_STACK_DEPTH((iter)->pstack),                                    \
-                SRL_TAG_NAME(stack_ptr->tag), stack_ptr->tag, stack_ptr->tag,       \
-                stack_ptr->length,                                                  \
+                SRL_TAG_NAME(stack_ptr->tag),                                       \
+                stack_ptr->tag,                                                     \
+                stack_ptr->length - stack_ptr->ridx,                                \
                 stack_ptr->ridx,                                                    \
-                stack_ptr->offset                                                   \
+                stack_ptr->offset,                                                  \
+                stack_ptr->length                                                   \
             );                                                                      \
         }                                                                           \
     } STMT_END
 #else
 #   define SRL_ITER_TRACE(msg, args...)
+#   define SRL_ITER_TRACE_WITH_POSITION(msg, args...)
 #   define SRL_ITER_REPORT_TAG(iter, tag)
 #   define SRL_ITER_REPORT_STACK_STATE(iter)
 #endif
@@ -362,10 +377,8 @@ srl_iterator_unite(pTHX_ srl_iterator_t *iter)
     SRL_ITER_ASSERT_STACK(iter);
     iter->buf.pos = iter->buf.body_pos + offset;
 
+    SRL_ITER_TRACE_WITH_POSITION("after unite");
     SRL_ITER_REPORT_STACK_STATE(iter);
-    SRL_ITER_TRACE("ofs %"UVuf" body_ofs %"UVuf,
-                   (UV) SRL_RDR_POS_OFS((iter)->pbuf),
-                   (UV) SRL_RDR_BODY_POS_OFS((iter)->pbuf));
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     return iter->stack.depth;
@@ -376,10 +389,8 @@ srl_iterator_disjoin(pTHX_ srl_iterator_t *iter)
 {
     srl_iterator_stack_ptr stack_ptr;
 
+    SRL_ITER_TRACE_WITH_POSITION("before disjoin");
     SRL_ITER_REPORT_STACK_STATE(iter);
-    SRL_ITER_TRACE("ofs %"UVuf" body_ofs %"UVuf,
-                   (UV) SRL_RDR_POS_OFS((iter)->pbuf),
-                   (UV) SRL_RDR_BODY_POS_OFS((iter)->pbuf));
 
     // This record apart of being a boundary stores offset to ridx's tag (i.e
     // current tag). By default stack keeps offset to tag's starting point
@@ -403,16 +414,13 @@ srl_iterator_rewind_stack_position(pTHX_ srl_iterator_t *iter)
     iter->stack.ptr->ridx = iter->stack.ptr->length;
     iter->buf.pos = iter->buf.body_pos + iter->stack.ptr->offset;
 
+    SRL_ITER_TRACE_WITH_POSITION("after rewind");
     SRL_ITER_REPORT_STACK_STATE(iter);
-    SRL_ITER_TRACE("ofs %"UVuf" body_ofs %"UVuf,
-                   (UV) SRL_RDR_POS_OFS((iter)->pbuf),
-                   (UV) SRL_RDR_BODY_POS_OFS((iter)->pbuf));
-
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
 #define srl_iterator_wrap_stack(iter, expected_depth, stack_ptr) STMT_START {                   \
-    SRL_ITER_TRACE("expected_depth=%"IVdf, (IV) (expected_depth));                              \
+    SRL_ITER_TRACE_WITH_POSITION("wrap_stack depth=%"IVdf, (IV) (expected_depth));              \
     SRL_ITER_REPORT_STACK_STATE(iter);                                                          \
                                                                                                 \
     assert((((IV) (expected_depth)) > iter->stack.depth) == 0);                                 \
@@ -425,7 +433,7 @@ srl_iterator_rewind_stack_position(pTHX_ srl_iterator_t *iter)
         srl_stack_pop_nocheck((iter)->pstack);                                                  \
         (stack_ptr) = (iter)->stack.ptr;                                                        \
         if (SRL_ITER_STACK_ON_ROOT(iter->pstack))                                               \
-            SRL_ITER_TRACE("root of stack reached");                                            \
+            SRL_ITER_TRACE_WITH_POSITION("root of stack reached");                              \
     }                                                                                           \
 } STMT_END
 
@@ -542,7 +550,7 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     SRL_ITER_ASSERT_STACK(iter);
 
-    SRL_ITER_TRACE("n=%"UVuf, n);
+    SRL_ITER_TRACE_WITH_POSITION("n=%"UVuf, n);
     SRL_ITER_REPORT_STACK_STATE(iter);
 
     while (n--) {
@@ -550,7 +558,7 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
         srl_iterator_step_internal(iter, stack_ptr);
     }
 
-    SRL_ITER_TRACE("Completed expected number of steps");
+    SRL_ITER_TRACE_WITH_POSITION("Completed expected number of steps");
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
@@ -564,7 +572,7 @@ srl_iterator_step_out(pTHX_ srl_iterator_t *iter, UV n)
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     SRL_ITER_ASSERT_STACK(iter);
 
-    SRL_ITER_TRACE("n=%"UVuf, n);
+    SRL_ITER_TRACE_WITH_POSITION("n=%"UVuf, n);
     SRL_ITER_REPORT_STACK_STATE(iter);
 
     if (expect_false(n == 0)) return;
@@ -601,7 +609,7 @@ srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n)
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     SRL_ITER_ASSERT_STACK(iter);
 
-    SRL_ITER_TRACE("n=%"UVuf, n);
+    SRL_ITER_TRACE_WITH_POSITION("n=%"UVuf, n);
     SRL_ITER_REPORT_STACK_STATE(iter);
 
     if (expect_false(n == 0)) return;
@@ -626,7 +634,7 @@ srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n)
                           expected_depth, iter->stack.depth);
     }
 
-    SRL_ITER_TRACE("Did expected number of steps at depth %"IVdf, expected_depth);
+    SRL_ITER_TRACE_WITH_POSITION("Did expected number of steps at depth %"IVdf, expected_depth);
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
@@ -642,9 +650,8 @@ srl_iterator_until(pTHX_ srl_iterator_t *iter, UV depth, U32 idx) {
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     SRL_ITER_ASSERT_STACK(iter);
 
-    SRL_ITER_TRACE("depth=%"UVuf" idx=%d", depth, idx);
+    SRL_ITER_TRACE_WITH_POSITION("depth=%"UVuf" idx=%d", depth, idx);
     SRL_ITER_REPORT_STACK_STATE(iter);
-
 
     if (expect_false((IV) depth > current_depth)) {
         SRL_ITER_ERRORf2("srl_iterator_until() can only go forward, "
@@ -671,7 +678,7 @@ srl_iterator_until(pTHX_ srl_iterator_t *iter, UV depth, U32 idx) {
         srl_iterator_wrap_stack(iter, depth, stack_ptr);
 
         if (iter->stack.depth == (IV) depth) {
-            if (stack_ptr->ridx == (IV) ridx)  break;
+            if (stack_ptr->ridx == (IV) ridx) break;
             assert(((IV) ridx > stack_ptr->ridx) == 0);
         }
 
@@ -680,7 +687,7 @@ srl_iterator_until(pTHX_ srl_iterator_t *iter, UV depth, U32 idx) {
 
     assert(stack_ptr->ridx == (IV) ridx);
     assert(iter->stack.depth == (IV) depth);
-    SRL_ITER_TRACE("Reached expected stack depth: %"UVuf " and ridx: %u", depth, ridx);
+    SRL_ITER_TRACE_WITH_POSITION("Reached expected stack depth: %"UVuf " idx: %u ridx: %d", depth, idx, ridx);
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
@@ -692,7 +699,7 @@ srl_iterator_rewind(pTHX_ srl_iterator_t *iter, UV n)
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     SRL_ITER_ASSERT_STACK(iter);
 
-    SRL_ITER_TRACE("n=%"UVuf, n);
+    SRL_ITER_TRACE_WITH_POSITION("n=%"UVuf, n);
     SRL_ITER_REPORT_STACK_STATE(iter);
 
     while (n--) {
@@ -717,7 +724,7 @@ srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
     SRL_ITER_ASSERT_STACK(iter);
     SRL_ITER_ASSERT_ARRAY_ON_STACK(iter);
 
-    SRL_ITER_TRACE("idx=%d", idx);
+    SRL_ITER_TRACE_WITH_POSITION("idx=%d", idx);
     SRL_ITER_REPORT_STACK_STATE(iter);
 
     nidx = srl_iterator_normalize_idx(aTHX_ idx, stack_ptr->length);
@@ -752,7 +759,7 @@ srl_iterator_array_exists(pTHX_ srl_iterator_t *iter, I32 idx)
     SRL_ITER_ASSERT_STACK(iter);
     SRL_ITER_ASSERT_ARRAY_ON_STACK(iter);
 
-    SRL_ITER_TRACE("idx=%d", idx);
+    SRL_ITER_TRACE_WITH_POSITION("idx=%d", idx);
     SRL_ITER_REPORT_STACK_STATE(iter);
 
     nidx = srl_iterator_normalize_idx(aTHX_ idx, stack_ptr->length);
@@ -870,7 +877,7 @@ srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN na
     SRL_ITER_ASSERT_STACK(iter);
     SRL_ITER_ASSERT_HASH_ON_STACK(iter);
 
-    SRL_ITER_TRACE("name=%.*s", (int) name_len, name);
+    SRL_ITER_TRACE_WITH_POSITION("name=%.*s", (int) name_len, name);
     SRL_ITER_REPORT_STACK_STATE(iter);
 
     while (stack_ptr->ridx) {
@@ -944,8 +951,7 @@ srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN na
         if (   length == name_len
             && memcmp(name, key_ptr, name_len) == 0)
         {
-            SRL_ITER_TRACE("found key '%.*s' at offset %"UVuf,
-                         (int) name_len, name, SRL_RDR_BODY_POS_OFS(iter->pbuf));
+            SRL_ITER_TRACE_WITH_POSITION("found key '%.*s'", (int) name_len, name);
             return SRL_RDR_BODY_POS_OFS(iter->pbuf);
         }
 
