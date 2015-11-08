@@ -1,5 +1,18 @@
 Revision history for Perl extension Sereal-Path
 
+0.011 Nov 08 2015
+  * changes in API:
+    - srl_iterator_next_until_depth_and_idx() renamed to srl_iterator_until()
+    - functions works with (straigh) idx, not revered on (ridx)
+    - add srl_iterator_rewind()
+    - semantic of srl_iterator_step_out() is changed. Now, calling
+      srl_iterator_step_out() moves iterator to next element at depth-1
+  * fix memleaks
+  * fix various compilation issues
+  * Tie interface share underlying iterator
+  * srl_iterator_step_in() works correctly with REFP tag
+  * more tests
+
 0.010 Oct 29 2015
   * experimental code for Sereal::Path::Tie
   * fix occasional build problems
