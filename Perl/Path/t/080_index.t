@@ -66,8 +66,8 @@ my $all_data = [
 my $memory_size = 1_000_000;  # limit index memory to 1M bytes
 # my $memory_size = 40;         # limit index memory to 40 bytes
 
-# my $index_depth = 0;     # no limits on index depth
-my $index_depth = 2;     # will not index the Middle Earth hash
+my $index_depth = 0;     # no limits on index depth
+# my $index_depth = 2;     # will not index the Middle Earth hash
 
 my $hash_factor = 1.5;   # make hash tables use this many times the required space
 # my $hash_factor = 1.0;   # make hash tables use exactly the required space
