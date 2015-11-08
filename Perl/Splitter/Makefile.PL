@@ -18,7 +18,7 @@ my $module = "Sereal::Splitter";
  inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
 
 `rm -rf t/004_testset.t t/700_roundtrip t/data t/lib`;
-our $OPTIMIZE;
+my $optimize = inc::Sereal::BuildTools::build_optimize({ catch_violations => 0 });
 
 # TODO Configure/optimize for miniz:
 #   * Important: For best perf. be sure to customize the below macros for your target platform:
@@ -27,18 +27,7 @@ our $OPTIMIZE;
 #     #define MINIZ_HAS_64BIT_REGISTERS 1
 
 my $defines = join " ", map "-D$_", grep exists $ENV{$_}, qw(NOINLINE DEBUG MEMDEBUG NDEBUG);
-if ($Config{gccversion}) {
-    $OPTIMIZE = '-O3 -Wall -W';
-} elsif ($Config{osname} eq 'MSWin32') {
-    $OPTIMIZE = '-O2 -W4';
-} else {
-    $OPTIMIZE = $Config{optimize};
-}
-
-if ($ENV{DEBUG}) {
-  $OPTIMIZE .= ' -g';
-}
-else {
+if (!$ENV{DEBUG}) {
   $defines .= " -DNDEBUG";
 }
 
@@ -87,13 +76,13 @@ WriteMakefile1(
     LIBS              => [''], # e.g., '-lm'
     DEFINE            => $defines,
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
-    OPTIMIZE          => $OPTIMIZE,
+    OPTIMIZE          => $optimize,
     OBJECT            => '$(O_FILES)',
     test              => {
         TESTS => "t/*.t t/*/*/*.t"
     },
 );
-$ENV{OPTIMIZE} = $OPTIMIZE;
+$ENV{OPTIMIZE} = $optimize;
 
 sub WriteMakefile1 {  #Written by Alexandr Ciornii, version 0.20. Added by eumm-upgrade.
     my %params=@_;

@@ -103,31 +103,40 @@ sub build_defines {
 }
 
 sub build_optimize {
-    my $OPTIMIZE;
-    my $clang = 0;
-    my $moderngccish = 0;
+    my $cc_flags = shift || {};
 
+    my $std_mode = $cc_flags->{std};
+    my $catch_violations = exists $cc_flags->{catch_violations} ? $cc_flags->{catch_violations} : 1;
+
+    my $OPTIMIZE;
+
+    my $clang = 0;
     if ($Config{gccversion}) {
         $OPTIMIZE = '-O3';
         if ($Config{gccversion} =~ /[Cc]lang/) { # clang.
             $clang = 1;
-            $moderngccish = 1;
-            $OPTIMIZE .= ' -std=gnu89'; # http://clang.llvm.org/compatibility.html
-        } elsif ($Config{gccversion} =~ /^[123]\./) { # Ancient gcc.
-            $moderngccish = 0;
-        } else { # Modern gcc.
-            $moderngccish = 1;
         }
+
+        my $gccversion = 0;
+        if ( $Config{gccversion} =~ /^(\d+\.\d+)/ ) {
+            $gccversion = $1;
+        }
+
+        if ( $catch_violations && ($clang || $gccversion >= 4.3) ) {
+            # -Werror= introduced in GCC 4.3
+            # For trapping C++ // comments we would need -std=c89 (aka -ansi)
+            # but that may be asking too much of different platforms.
+            $OPTIMIZE .= ' -Werror=declaration-after-statement ';
+        }
+
     } elsif ($Config{osname} eq 'MSWin32') {
         $OPTIMIZE = '-O2 -W4';
     } else {
         $OPTIMIZE = $Config{optimize};
     }
 
-    # For trapping C++ // comments we would need -std=c89 (aka -ansi)
-    # but that may be asking too much of different platforms.
-    if ($moderngccish) {
-        $OPTIMIZE .= ' -Werror=declaration-after-statement ';
+    if ( $clang && $std_mode ) {
+        $OPTIMIZE .= " -std=$std_mode"; # http://clang.llvm.org/compatibility.html
     }
 
     if ($ENV{DEBUG}) {

@@ -17,7 +17,7 @@ require inc::Sereal::BuildTools;
 inc::Sereal::BuildTools::link_files($shared_dir) if $in_source_repo;
 inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
 
-our $OPTIMIZE;
+my $optimize = inc::Sereal::BuildTools::build_optimize();
 
 # TODO Configure/optimize for miniz:
 #   * Important: For best perf. be sure to customize the below macros for your target platform:
@@ -28,40 +28,7 @@ our $OPTIMIZE;
 my $libs = '';
 my $objects = '$(BASEEXT)$(OBJ_EXT) srl_decoder$(OBJ_EXT)';
 my $defines = join " ", map "-D$_", grep exists $ENV{$_}, qw(NOINLINE DEBUG MEMDEBUG NDEBUG);
-
-my $moderngccish = 0;
-my $clang = 0;
-if ($Config{gccversion}) {
-    $OPTIMIZE = '-O3';
-    if ($Config{gccversion} =~ /[Cc]lang/) { # clang.
-        $clang = 1;
-        $moderngccish = 1;
-    } elsif ($Config{gccversion} =~ /^[123]\./) { # Ancient gcc.
-        $moderngccish = 0;
-    } else { # Modern gcc.
-        $moderngccish = 1;
-    }
-} elsif ($Config{osname} eq 'MSWin32') {
-    $OPTIMIZE = '-O2 -W4';
-} else {
-    $OPTIMIZE = $Config{optimize};
-}
-
-# For trapping C++ // comments we would need -std=c89 (aka -ansi)
-# but that may be asking too much of different platforms.
-if ($moderngccish) {
-    $OPTIMIZE .= ' -Werror=declaration-after-statement';
-}
-
-if ($ENV{DEBUG}) {
-  $OPTIMIZE .= ' -g';
-  if ($ENV{DEBUG} > 0 && $Config{gccversion}) {
-      $OPTIMIZE .= ' -Wextra' if $ENV{DEBUG} > 1;
-      $OPTIMIZE .= ' -pedantic' if $ENV{DEBUG} > 5; # not pretty
-      $OPTIMIZE .= ' -Weverything' if ($ENV{DEBUG} > 6 && $clang); # really not pretty
-  }
-}
-else {
+if (!$ENV{DEBUG}) {
   $defines .= " -DNDEBUG";
 }
 
@@ -122,13 +89,13 @@ WriteMakefile1(
     LIBS              => [$libs], # e.g., '-lm'
     DEFINE            => $defines,
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
-    OPTIMIZE          => $OPTIMIZE,
+    OPTIMIZE          => $optimize,
     OBJECT            => $objects,
     test              => {
         TESTS => "t/*.t t/*/*/*.t"
     },
 );
-$ENV{OPTIMIZE} = $OPTIMIZE;
+$ENV{OPTIMIZE} = $optimize;
 
 sub WriteMakefile1 {
     #Original by Alexandr Ciornii, modified by Yves Orton
