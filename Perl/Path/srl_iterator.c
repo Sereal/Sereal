@@ -557,8 +557,8 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
 void
 srl_iterator_step_out(pTHX_ srl_iterator_t *iter, UV n)
 {
-    U32 expected_idx;
-    IV expected_depth = iter->stack.depth;
+    U32 idx;
+    IV depth = iter->stack.depth;
     srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
@@ -575,18 +575,18 @@ srl_iterator_step_out(pTHX_ srl_iterator_t *iter, UV n)
         }
 
         stack_ptr--;
-        expected_depth--;
+        depth--;
     }
 
-    // srl_iterator_step_internal() decrease ridx before parsing it,
-    // so there is no need to decrese ridx here
-    expected_idx = stack_ptr->length - stack_ptr->ridx;
+    idx = stack_ptr->length - stack_ptr->ridx;
+    SRL_ITER_TRACE_WITH_POSITION("target depth: %"UVuf" idx=%u ridx=%d (length=%d at target depth)",
+                                 depth, idx, stack_ptr->ridx, stack_ptr->length);
 
-    assert(expected_idx >= 0);
-    assert(expected_idx <= stack_ptr->length);
-    assert(expected_depth >= 0);
+    assert(idx >= 0);
+    assert(idx <= stack_ptr->length);
+    assert(depth >= 0);
 
-    srl_iterator_until(aTHX_ iter, (UV) expected_depth, expected_idx);
+    srl_iterator_until(aTHX_ iter, (UV) depth, idx);
 }
 
 /* srl_iterator_next() does N step on current stack.
