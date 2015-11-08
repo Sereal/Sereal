@@ -105,7 +105,6 @@ sub build_defines {
 sub build_optimize {
     my $cc_flags = shift || {};
 
-    my $std_mode = $cc_flags->{std};
     my $catch_violations = exists $cc_flags->{catch_violations} ? $cc_flags->{catch_violations} : 1;
 
     my $OPTIMIZE;
@@ -133,10 +132,6 @@ sub build_optimize {
         $OPTIMIZE = '-O2 -W4';
     } else {
         $OPTIMIZE = $Config{optimize};
-    }
-
-    if ( $clang && $std_mode ) {
-        $OPTIMIZE .= " -std=$std_mode"; # http://clang.llvm.org/compatibility.html
     }
 
     if ($ENV{DEBUG}) {

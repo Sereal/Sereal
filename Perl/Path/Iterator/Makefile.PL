@@ -63,6 +63,6 @@ inc::Sereal::BuildTools::WriteMakefile(
     LIBS              => [$libs], # e.g., '-lm'
     DEFINE            => $defines,
     INC               => '-I..', # e.g., '-I. -I/usr/include/other'
-    OPTIMIZE          => inc::Sereal::BuildTools::build_optimize({ std => 'gnu89' }),
+    OPTIMIZE          => inc::Sereal::BuildTools::build_optimize(),
     OBJECT            => $objects,
 );
