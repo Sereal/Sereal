@@ -44,6 +44,7 @@ struct sereal_iterator_tied_hash {
     IV depth;
     U32 count;
     I32 last_idx;
+    HV *store;
 };
 
 SRL_STATIC_INLINE void
@@ -105,6 +106,7 @@ srl_tie_new_tied_sv(pTHX_ srl_iterator_t *iter, SV *iter_sv)
             Newx(hash, 1, sereal_iterator_tied_hash_t);
             if (!hash) croak("Out of memory");
 
+            hash->store = NULL;
             tied = (sereal_iterator_tied_t*) hash;
             tied_class_name = "Sereal::Path::Tie::Hash";
             result = sv_2mortal(newRV_noinc((SV*) newHV()));
@@ -268,6 +270,8 @@ void
 DESTROY(this)
     sereal_iterator_tied_hash_t *this;
   CODE:
+    if (this->store != NULL)
+        SvREFCNT_dec((SV*) this->store);
     SvREFCNT_dec(this->iter_sv);
     Safefree(this);
 
@@ -276,11 +280,16 @@ FETCH(this, key)
     sereal_iterator_tied_hash_t *this;
     SV *key;
   PREINIT:
-  //  char *tmp;
-  //  STRLEN len;
+    HE *he;
   PPCODE:
-    // tmp = SvPV(key, len);
-    // warn("!!! FETCH %s %d", tmp, SvREFCNT(this->iter_sv));
+    if (this->store != NULL) {
+        he = hv_fetch_ent(this->store, key, 0, 0);
+        if (he) {
+            ST(0) = sv_2mortal(SvREFCNT_inc(HeVAL(he)));
+            XSRETURN(1);
+        }
+    }
+
     srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
     srl_iterator_rewind(aTHX_ this->iter, 0);
 
@@ -289,6 +298,7 @@ FETCH(this, key)
     } else {
         ST(0) = srl_tie_new_tied_sv(aTHX_ this->iter, this->iter_sv);
     }
+
     XSRETURN(1);
 
 void
@@ -296,11 +306,18 @@ EXISTS(this, key)
     sereal_iterator_tied_hash_t *this;
     SV *key;
   PPCODE:
+    if (this->store != NULL && hv_exists_ent(this->store, key, 0)) {
+        ST(0) = &PL_sv_yes;
+        XSRETURN(1);
+    }
+
     srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
     srl_iterator_rewind(aTHX_ this->iter, 0);
+
     ST(0) = srl_iterator_hash_exists_sv(aTHX_ this->iter, key) == SRL_ITER_NOT_FOUND
           ? &PL_sv_undef
           : &PL_sv_yes;
+
     XSRETURN(1);
 
 void
@@ -343,13 +360,20 @@ void
 SCALAR(this)
     sereal_iterator_tied_hash_t *this;
   PPCODE:
-    ST(0) = sv_2mortal(newSVuv(this->count));
+    ST(0) = sv_2mortal(newSVuv(this->count)); // TODO hv_scalar
     XSRETURN(1);
 
 void
 STORE(this, key, value)
+    sereal_iterator_tied_hash_t *this;
+    SV *key;
+    SV *value;
   CODE:
-    croak("Tied to Sereal::Path::Tie::Hash hash is read-only");
+    if (this->store == NULL)
+        this->store = newHV();
+
+    hv_store_ent(this->store, key, value, 0);
+    SvREFCNT_inc(value);
 
 void
 DELETE(this, key)
