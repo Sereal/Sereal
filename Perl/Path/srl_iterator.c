@@ -144,8 +144,10 @@ extern "C" {
 #   define SRL_ITER_REPORT_STACK_STATE(iter)
 #endif
 
+// note that it's different from SRL_RDR_DONE()
+#define SRL_RDR_DONE_(buf) ((buf).pos > (buf).end)
 #define SRL_ITER_ASSERT_EOF(iter, msg) STMT_START {                                 \
-    if (expect_false(SRL_RDR_DONE((iter)->pbuf))) {                                 \
+    if (expect_false(SRL_RDR_DONE_((iter)->buf))) {                                 \
         SRL_RDR_ERROR_EOF((iter)->pbuf, (msg));                                     \
     }                                                                               \
 } STMT_END

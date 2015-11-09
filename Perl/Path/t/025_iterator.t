@@ -31,4 +31,9 @@ is_deeply([$spi->info()], ['SCALAR', 0], 'second element in array is SCALAR');
 $spi->array_goto(4);
 is_deeply([$spi->info()], ['HASH', 0], 'fifth element in array is HASH');
 
+# hash_exists should not die
+$spi = Sereal::Path::Iterator->new(encode_sereal({}));
+$spi->step_in();
+$spi->hash_exists("test");
+
 done_testing();
