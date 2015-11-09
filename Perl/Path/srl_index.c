@@ -143,18 +143,16 @@ srl_allocate_array(pTHX_ srl_index_t *index, size_t length, uint32_t type, uint3
 {
     size_t size;
     srl_indexed_array_t *ptr;
-    fprintf(stderr, "GONZO: Will allocate array with [%zu] elements\n", length);
     SRL_INDEX_TRACE("index array of length %zu", length);
     if (expect_false(length > SRL_INDEX_SIZE_MASK)) return NULL;
 
     size = sizeof(srl_indexed_array_t) + length * sizeof(srl_indexed_array_element_t);
-    fprintf(stderr, "GONZO: That means %ld bytes\n", (long) size);
+    fprintf(stderr, "GONZO: allocating array, [%zu] elems, %lu bytes\n", length, size);
     ptr = (srl_indexed_array_t*) srl_index_allocate(aTHX_ index, size);
     if (expect_false(ptr == NULL)) return NULL;
 
     ptr->offset = offset;
     ptr->flags = type | length;
-    fprintf(stderr, "GONZO: Type 0x%x, Length 0x%lx (%lu), Flags 0x%x\n", type, length, length, ptr->flags);
     return ptr;
 }
 
@@ -163,18 +161,16 @@ srl_allocate_hash(pTHX_ srl_index_t *index, size_t length, uint32_t type, uint32
 {
     size_t size;
     srl_indexed_hash_t *ptr;
-    fprintf(stderr, "GONZO: Will allocate hash with [%zu] elements\n", length);
     SRL_INDEX_TRACE("index hash of length %zu", length);
     if (expect_false(length > SRL_INDEX_SIZE_MASK)) return NULL;
 
     size = sizeof(srl_indexed_hash_t) + length * sizeof(srl_indexed_hash_element_t);
-    fprintf(stderr, "GONZO: That means %ld bytes\n", (long) size);
+    fprintf(stderr, "GONZO: allocating hash, [%zu] elems, %lu bytes\n", length, size);
     ptr = (srl_indexed_hash_t*) srl_index_allocate(aTHX_ index, size);
     if (expect_false(ptr == NULL)) return NULL;
 
     ptr->offset = offset;
     ptr->flags = type | length;
-    fprintf(stderr, "GONZO: Type 0x%x, Length 0x%lx (%lu), Flags 0x%x\n", type, length, length, ptr->flags);
     return ptr;
 }
 
@@ -209,24 +205,24 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
     type = elem->flags & SRL_INDEX_TYPE_MASK;
     size = elem->flags & SRL_INDEX_SIZE_MASK;
 
-    fprintf(stderr, "[%d] Elem %p Flags 0x%08X Type 0x%02X - %s\n",
+    fprintf(stderr, "=[%d] Elem %p Flags 0x%08X Type 0x%02X - %s\n",
             depth, elem, elem->flags, type >> 24, GetObjType(type));
 
     switch (type) {
     case SRL_INDEX_TYPE_OFFSET_SRL:
-        fprintf(stderr, "[%d] Offset in SRL %u\n", depth, elem->offset);
+        fprintf(stderr, "=[%d] Offset in SRL %u\n", depth, elem->offset);
         break;
 
     case SRL_INDEX_TYPE_ARRAY_IDX: {
         int j;
         srl_indexed_array_t* array = (srl_indexed_array_t*) elem;
 
-        fprintf(stderr, "[%d] Array %p in IDX with %u elements\n", depth, array, size);
+        fprintf(stderr, "=[%d] Array %p in IDX with %u elements\n", depth, array, size);
         for (j = 0; j < size; ++j) {
             srl_indexed_array_element_t* elem = (srl_indexed_array_element_t*) &array->dataset[j];
             srl_indexed_element_t* ref = 0;
             // ref = (srl_indexed_element_t*) srl_index_ptr_for_offset(index, elem->offset);
-            fprintf(stderr, "[%d] Member #%d %p", depth, j, elem);
+            fprintf(stderr, "=[%d] Member #%d %p", depth, j, elem);
             if (ref) {
                 fprintf(stderr, " points to %p", ref);
             }
@@ -238,7 +234,7 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
 
     case SRL_INDEX_TYPE_AELEM_IDX: {
         srl_indexed_array_element_t* ref = (srl_indexed_array_element_t*) srl_index_ptr_for_offset(index, elem->offset);
-        fprintf(stderr, "[%d] Array element %p in IDX\n", depth, ref);
+        fprintf(stderr, "=[%d] Array element %p in IDX\n", depth, ref);
         dump_index_data(index, (srl_indexed_element_t*) ref, depth+1);
         break;
     }
@@ -247,7 +243,7 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
         int j;
         srl_indexed_hash_t* hash = (srl_indexed_hash_t*) elem;
 
-        fprintf(stderr, "[%d] Hash %p in IDX with %u elements\n", depth, hash, size);
+        fprintf(stderr, "=[%d] Hash %p in IDX with %u elements\n", depth, hash, size);
         for (j = 0; j < size; ++j) {
             uint32_t ktype = 0;
             uint32_t ksize = 0;
@@ -255,7 +251,7 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
             srl_indexed_hash_element_t* elem = (srl_indexed_hash_element_t*) &hash->dataset[j];
             srl_indexed_element_t* ref = 0;
             // ref = (srl_indexed_element_t*) srl_index_ptr_for_offset(index, elem->offset);
-            fprintf(stderr, "[%d] Member #%d %p", depth, j, elem);
+            fprintf(stderr, "=[%d] Member #%d %p", depth, j, elem);
             if (ref) {
                 fprintf(stderr, " points to %p", ref);
             }
@@ -266,14 +262,14 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
             switch (ktype) {
                 case SRL_INDEX_TYPE_HELEM_KS_IDX:
                 case SRL_INDEX_TYPE_HELEM_KS_SRL:
-                    fprintf(stderr, "[%d] Hash key SMALL: [%*.*s]\n",
+                    fprintf(stderr, "=[%d] Hash key SMALL: [%*.*s]\n",
                             depth, (int) ksize, (int) ksize, elem->key.str);
                     break;
 
                 case SRL_INDEX_TYPE_HELEM_KL_IDX:
                 case SRL_INDEX_TYPE_HELEM_KL_SRL: {
                     srl_indexed_element_t* kref = (srl_indexed_element_t*) srl_index_ptr_for_offset(index, elem->key.h.str);
-                    fprintf(stderr, "[%d] Hash key LARGE, %d bytes, hash %u => %p\n",
+                    fprintf(stderr, "=[%d] Hash key LARGE, %d bytes, hash %u => %p\n",
                             depth, ksize, elem->key.h.hash, kref);
                     break;
                 }
@@ -287,14 +283,14 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
     case SRL_INDEX_TYPE_HELEM_KS_IDX:
     case SRL_INDEX_TYPE_HELEM_KL_IDX: {
         srl_indexed_hash_element_t* ref = (srl_indexed_hash_element_t*) srl_index_ptr_for_offset(index, elem->offset);
-        fprintf(stderr, "[%d] Hash element %p in IDX\n", depth, ref);
+        fprintf(stderr, "=[%d] Hash element %p in IDX\n", depth, ref);
         dump_index_data(index, (srl_indexed_element_t*) ref, depth+1);
         break;
     }
 
     case SRL_INDEX_TYPE_HELEM_KS_SRL:
     case SRL_INDEX_TYPE_HELEM_KL_SRL:
-        fprintf(stderr, "[%d] Hash element in SRL offset %u\n", depth, elem->offset);
+        fprintf(stderr, "=[%d] Hash element in SRL offset %u\n", depth, elem->offset);
         break;
 
     case SRL_INDEX_TYPE_EMPTY:
@@ -302,7 +298,7 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
         break;
 
     default:
-        fprintf(stderr, "[%d] UNSUPPORTED\n", depth);
+        fprintf(stderr, "=[%d] UNSUPPORTED\n", depth);
         break;
     }
 }
@@ -399,40 +395,53 @@ srl_index_t* srl_create_index(pTHX_ srl_iterator_t* iter,
 
 #if 1
 
+// I've had nice results with djb2 by Dan Bernstein.
+static uint32_t compute_hash(const char* str)
+{
+  uint32_t h = 5381;
+  int c;
+
+  while ((c = *str++))
+    h = ((h << 5) + h) + c; /* h * 33 + c */
+
+  return h;
+}
+
+
 static /* UNUSED */ srl_indexed_element_t*
 walk_iterator(pTHX_
               srl_index_t* index,
               int /* UNUSED */ depth)
 {
-    struct Stack {
+    struct StackInfo {
         UV ptyp;
         UV ppos;
         UV plen;
         srl_indexed_element_t* pdat;
-    } stack[256];
-    int scur = 0;
-    UV ptyp = 0;
-    UV ppos = 0;
-    UV plen = 0;
-    srl_indexed_element_t* pdat = 0;
-
+        UV hsiz;
+        UV hpos;
+    } StackInfo;
+    struct Stack {
+        struct StackInfo info[256]; // TODO
+        int pos;
+    } stack;
     srl_iterator_t* iter = index->iter;
+
+    stack.pos = 0;
+    memset(&stack.info[stack.pos], 0, sizeof(StackInfo));
+
     while (iter) {
         UV type   = 0;
         UV length = 0;
         UV offset = 0;
 
-        if (plen > 0 && ppos >= plen) {
-            fprintf(stderr, "[%2d] GONZO: STEP OUT\n", scur);
-            if (scur <= 0) {
+        if (stack.info[stack.pos].plen > 0 && stack.info[stack.pos].ppos >= stack.info[stack.pos].plen) {
+            fprintf(stderr, "+[%d] GONZO: STEP OUT\n", stack.pos);
+            if (stack.pos <= 0) {
                 break;
             }
-            --scur;
-            ptyp = stack[scur].ptyp;
-            ppos = stack[scur].ppos;
-            plen = stack[scur].plen;
-            pdat = stack[scur].pdat;
-            ++ppos;
+            --stack.pos;
+            ++stack.info[stack.pos].ppos;
             srl_iterator_step_out(aTHX_ iter, 1);
             continue;
         }
@@ -443,41 +452,82 @@ walk_iterator(pTHX_
 
         type   = srl_iterator_object_info(aTHX_ iter, &length);
         offset = srl_iterator_offset(aTHX_ iter);
-        fprintf(stderr, "[%2d] GONZO: pos %3zu, type %6s, len %4zu, off %4zu",
-                scur, ppos, GetSVType(type), length, offset);
+        fprintf(stderr, "+[%d] GONZO: pos %3zu, type %6s, len %4zu, off %4zu",
+                stack.pos, stack.info[stack.pos].ppos, GetSVType(type), length, offset);
         switch (type) {
             SV* val = 0;
 
             case SRL_ITERATOR_OBJ_IS_SCALAR:
-                fprintf(stderr, " (in %6s) => ", GetSVType(ptyp));
+                fprintf(stderr, " (in %6s) => ", GetSVType(stack.info[stack.pos].ptyp));
                 val = srl_iterator_decode(aTHX_ iter);
                 dump_sv(aTHX_ val);
-                if (!ptyp) {
+                if (!stack.info[stack.pos].ptyp) {
                     // Scalar is at the top level
-                    fprintf(stderr, "[%2d] GONZO: indexing top-level scalar\n", scur);
+                    fprintf(stderr, "+[%d] GONZO: indexing top-level scalar\n", stack.pos);
                     srl_allocate_element(aTHX_ index, SRL_INDEX_TYPE_OFFSET_SRL, offset);
-                } else if (ptyp == SRL_ITERATOR_OBJ_IS_ARRAY) {
+                } else if (stack.info[stack.pos].ptyp == SRL_ITERATOR_OBJ_IS_ARRAY) {
                     // Scalar's parent is an array, store it directly there
-                    srl_indexed_array_element_t* data = (srl_indexed_array_element_t*) pdat;
-                    fprintf(stderr, "[%2d] GONZO: indexing scalar in array\n", scur);
+                    srl_indexed_array_element_t* data = (srl_indexed_array_element_t*) stack.info[stack.pos].pdat;
+                    fprintf(stderr, "+[%d] GONZO: indexing scalar in array\n", stack.pos);
                     if (!data) {
-                        fprintf(stderr, "[%2d] GONZO: null parent array data\n", scur);
+                        fprintf(stderr, "+[%d] GONZO: ERROR null parent array data\n", stack.pos);
                     } else {
-                        fprintf(stderr, "[%2d] GONZO: storing in parent pos %zu\n", scur, ppos);
-                        data[ppos].offset = offset;
-                        data[ppos].flags = SRL_INDEX_TYPE_OFFSET_SRL;
+                        fprintf(stderr, "+[%d] GONZO: storing in parent pos %zu\n", stack.pos, stack.info[stack.pos].ppos);
+                        data[stack.info[stack.pos].ppos].offset = offset;
+                        data[stack.info[stack.pos].ppos].flags = SRL_INDEX_TYPE_OFFSET_SRL;
                     }
-                } else if (ptyp == SRL_ITERATOR_OBJ_IS_HASH) {
+                } else if (stack.info[stack.pos].ptyp == SRL_ITERATOR_OBJ_IS_HASH) {
                     // Scalar's parent is an array, store it directly there
-                    srl_indexed_hash_element_t* data = (srl_indexed_hash_element_t*) pdat;
-                    fprintf(stderr, "[%2d] GONZO: indexing scalar in hash => %s\n",
-                            scur, (ppos%2) == 0 ? "KEY" : "VAL");
+                    srl_indexed_hash_element_t* data = (srl_indexed_hash_element_t*) stack.info[stack.pos].pdat;
+                    fprintf(stderr, "+[%d] GONZO: indexing scalar in hash => %s\n",
+                            stack.pos, (stack.info[stack.pos].ppos % 2) == 0 ? "KEY" : "VAL");
                     if (!data) {
-                        fprintf(stderr, "[%2d] GONZO: null parent hash data\n", scur);
+                        fprintf(stderr, "+[%d] GONZO: ERROR null parent hash data\n", stack.pos);
+                    } else if ((stack.info[stack.pos].ppos % 2) == 0) {
+                        // Storing key
+                        const char* kstr = 0;
+                        STRLEN klen = 0;
+                        uint32_t h = 0;
+                        uint32_t r = 0;
+
+                        kstr = srl_iterator_hash_key(aTHX_ iter, &klen);
+                        h = compute_hash(kstr);
+                        r = stack.info[stack.pos].hpos = h % stack.info[stack.pos].hsiz;
+                        fprintf(stderr, "+[%d] GONZO: processing KEY [%lu:%*.*s]\n",
+                                stack.pos, klen, (int) klen, (int) klen, kstr);
+                        fprintf(stderr, "+[%d] GONZO: hash %u, slot %lu\n", stack.pos, h, stack.info[stack.pos].hpos);
+                        while (1) {
+                            uint32_t ktyp = data[stack.info[stack.pos].hpos].flags & SRL_INDEX_TYPE_MASK;
+                            fprintf(stderr, "+[%d] GONZO: current slot %lu is type 0x%02X - %s\n",
+                                    stack.pos, stack.info[stack.pos].hpos, ktyp >> 24, GetObjType(ktyp));
+
+                            if (ktyp != SRL_INDEX_TYPE_EMPTY) {
+                                stack.info[stack.pos].hpos = (stack.info[stack.pos].hpos + 1) % stack.info[stack.pos].hsiz;
+                                fprintf(stderr, "+[%d] GONZO: trying next slot %lu\n", stack.pos, stack.info[stack.pos].hpos);
+                                if (stack.info[stack.pos].hpos == r) {
+                                    fprintf(stderr, "+[%d] GONZO: found no available slot, WTF!\n", stack.pos);
+                                    break;
+                                }
+                                continue;
+                            }
+
+                            if (klen <= SRL_INDEX_HASH_KEY_SMALL_LENGTH) {
+                                fprintf(stderr, "+[%d] GONZO: found slot, small key of length %lu\n", stack.pos, klen);
+                                memcpy(data[stack.info[stack.pos].hpos].key.str, kstr, klen);
+                                ktyp = SRL_INDEX_TYPE_HELEM_KS_SRL;
+                            } else {
+                                fprintf(stderr, "+[%d] GONZO: found slot, large key of length %lu\n", stack.pos, klen);
+                                data[stack.info[stack.pos].hpos].key.h.hash = h;
+                                data[stack.info[stack.pos].hpos].key.h.str = offset;
+                                ktyp = SRL_INDEX_TYPE_HELEM_KL_SRL;
+                            }
+                            data[stack.info[stack.pos].hpos].flags = ktyp | klen;
+                            break;
+                        }
                     } else {
-                        fprintf(stderr, "[%2d] GONZO: storing in parent pos %zu\n", scur, ppos);
-                        data[ppos].offset = offset;
-                        data[ppos].flags = SRL_INDEX_TYPE_OFFSET_SRL;
+                        // Storing value
+                        fprintf(stderr, "+[%d] GONZO: storing VAL in parent pos %zu\n", stack.pos, stack.info[stack.pos].hpos);
+                        data[stack.info[stack.pos].hpos].offset = offset;
                     }
                 }
                 break;
@@ -485,7 +535,7 @@ walk_iterator(pTHX_
             case SRL_ITERATOR_OBJ_IS_ARRAY:
                 fprintf(stderr, "\n");
                 if (index->options.index_depth != 0 &&
-                    index->options.index_depth <= scur) {
+                    index->options.index_depth <= stack.pos) {
                     // TODO
                 } else {
                     srl_indexed_array_t* array = srl_allocate_array(aTHX_
@@ -493,17 +543,54 @@ walk_iterator(pTHX_
                                                                    length,
                                                                    SRL_INDEX_TYPE_ARRAY_IDX,
                                                                    offset);
-                    stack[scur].ptyp = ptyp;
-                    stack[scur].ppos = ppos;
-                    stack[scur].plen = plen;
-                    stack[scur].pdat = pdat;
-                    ++scur;
-                    ppos = 0;
-                    plen = length;
-                    ptyp = type;
-                    pdat = (srl_indexed_element_t*) array->dataset;
+                    if (!stack.info[stack.pos].ptyp) {
+                        // Array is at the top level
+                        fprintf(stderr, "+[%d] GONZO: indexing top-level array\n", stack.pos);
+                    } else if (stack.info[stack.pos].ptyp == SRL_ITERATOR_OBJ_IS_ARRAY) {
+                        // Array's parent is an array, store it directly there
+                        srl_indexed_array_element_t* data = (srl_indexed_array_element_t*) stack.info[stack.pos].pdat;
+                        fprintf(stderr, "+[%d] GONZO: indexing array in array\n", stack.pos);
+                        if (!data) {
+                            fprintf(stderr, "+[%d] GONZO: ERROR null parent array data\n", stack.pos);
+                        } else {
+                            fprintf(stderr, "+[%d] GONZO: storing in parent pos %zu\n", stack.pos, stack.info[stack.pos].ppos);
+                            data[stack.info[stack.pos].ppos].offset = srl_index_offset_for_ptr(index, array);
+                            data[stack.info[stack.pos].ppos].flags = SRL_INDEX_TYPE_AELEM_IDX;
+                        }
+                    } else if (stack.info[stack.pos].ptyp == SRL_ITERATOR_OBJ_IS_HASH) {
+                        // Array's parent is a hash, store it directly there
+                        srl_indexed_hash_element_t* data = (srl_indexed_hash_element_t*) stack.info[stack.pos].pdat;
+                        fprintf(stderr, "+[%d] GONZO: indexing array in hash\n", stack.pos);
+                        if (!data) {
+                            fprintf(stderr, "+[%d] GONZO: ERROR null parent hash data\n", stack.pos);
+                        } else {
+                            uint32_t ktyp = data[stack.info[stack.pos].hpos].flags & SRL_INDEX_TYPE_MASK;
+                            uint32_t klen = data[stack.info[stack.pos].hpos].flags & SRL_INDEX_SIZE_MASK;
+                            switch (ktyp) {
+                                case SRL_INDEX_TYPE_HELEM_KS_SRL:
+                                    ktyp = SRL_INDEX_TYPE_HELEM_KS_IDX;
+                                    break;
+                                case SRL_INDEX_TYPE_HELEM_KL_SRL:
+                                    ktyp = SRL_INDEX_TYPE_HELEM_KL_IDX;
+                                    break;
+                            }
+
+                            fprintf(stderr, "+[%d] GONZO: storing in parent pos %zu\n", stack.pos, stack.info[stack.pos].hpos);
+                            data[stack.info[stack.pos].hpos].offset = srl_index_offset_for_ptr(index, array);
+                            data[stack.info[stack.pos].hpos].flags = ktyp | klen;
+                        }
+                    }
+
+                    ++stack.pos;
+                    stack.info[stack.pos].ppos = 0;
+                    stack.info[stack.pos].plen = length;
+                    stack.info[stack.pos].ptyp = type;
+                    stack.info[stack.pos].pdat = (srl_indexed_element_t*) array->dataset;
+                    stack.info[stack.pos].hsiz = 0;
+                    stack.info[stack.pos].hpos = 0;
+
                     srl_iterator_step_in(aTHX_ iter, 1);
-                    fprintf(stderr, "[%2d] GONZO: STEP IN\n", scur);
+                    fprintf(stderr, "+[%d] GONZO: STEP IN\n", stack.pos);
                     continue;
                 }
                 break;
@@ -511,7 +598,7 @@ walk_iterator(pTHX_
             case SRL_ITERATOR_OBJ_IS_HASH:
                 fprintf(stderr, "\n");
                 if (index->options.index_depth != 0 &&
-                    index->options.index_depth <= scur) {
+                    index->options.index_depth <= stack.pos) {
                     // TODO
                 } else {
                     srl_indexed_hash_t* hash = srl_allocate_hash(aTHX_
@@ -519,17 +606,54 @@ walk_iterator(pTHX_
                                                                 length,
                                                                 SRL_INDEX_TYPE_HASH_IDX,
                                                                 offset);
-                    stack[scur].ptyp = ptyp;
-                    stack[scur].ppos = ppos;
-                    stack[scur].plen = plen;
-                    stack[scur].pdat = pdat;
-                    ++scur;
-                    ppos = 0;
-                    plen = 2*length;  // keys and values
-                    ptyp = type;
-                    pdat = (srl_indexed_element_t*) hash->dataset;
+                    if (!stack.info[stack.pos].ptyp) {
+                        // Hash is at the top level
+                        fprintf(stderr, "+[%d] GONZO: indexing top-level hash\n", stack.pos);
+                    } else if (stack.info[stack.pos].ptyp == SRL_ITERATOR_OBJ_IS_ARRAY) {
+                        // Hash's parent is an array, store it directly there
+                        srl_indexed_array_element_t* data = (srl_indexed_array_element_t*) stack.info[stack.pos].pdat;
+                        fprintf(stderr, "+[%d] GONZO: indexing hash in array\n", stack.pos);
+                        if (!data) {
+                            fprintf(stderr, "+[%d] GONZO: ERROR null parent array data\n", stack.pos);
+                        } else {
+                            fprintf(stderr, "+[%d] GONZO: storing in parent pos %zu\n", stack.pos, stack.info[stack.pos].ppos);
+                            data[stack.info[stack.pos].ppos].offset = srl_index_offset_for_ptr(index, hash);
+                            data[stack.info[stack.pos].ppos].flags = SRL_INDEX_TYPE_AELEM_IDX;
+                        }
+                    } else if (stack.info[stack.pos].ptyp == SRL_ITERATOR_OBJ_IS_HASH) {
+                        // Hash's parent is a hash, store it directly there
+                        srl_indexed_hash_element_t* data = (srl_indexed_hash_element_t*) stack.info[stack.pos].pdat;
+                        fprintf(stderr, "+[%d] GONZO: indexing hash in hash\n", stack.pos);
+                        if (!data) {
+                            fprintf(stderr, "+[%d] GONZO: ERROR null parent hash data\n", stack.pos);
+                        } else {
+                            uint32_t ktyp = data[stack.info[stack.pos].hpos].flags & SRL_INDEX_TYPE_MASK;
+                            uint32_t klen = data[stack.info[stack.pos].hpos].flags & SRL_INDEX_SIZE_MASK;
+                            switch (ktyp) {
+                                case SRL_INDEX_TYPE_HELEM_KS_SRL:
+                                    ktyp = SRL_INDEX_TYPE_HELEM_KS_IDX;
+                                    break;
+                                case SRL_INDEX_TYPE_HELEM_KL_SRL:
+                                    ktyp = SRL_INDEX_TYPE_HELEM_KL_IDX;
+                                    break;
+                            }
+
+                            fprintf(stderr, "+[%d] GONZO: storing in parent pos %zu\n", stack.pos, stack.info[stack.pos].hpos);
+                            data[stack.info[stack.pos].hpos].offset = srl_index_offset_for_ptr(index, hash);
+                            data[stack.info[stack.pos].hpos].flags = ktyp | klen;
+                        }
+                    }
+
+                    ++stack.pos;
+                    stack.info[stack.pos].ppos = 0;
+                    stack.info[stack.pos].plen = 2*length;  // keys and values
+                    stack.info[stack.pos].ptyp = type;
+                    stack.info[stack.pos].pdat = (srl_indexed_element_t*) hash->dataset;
+                    stack.info[stack.pos].hsiz = length;
+                    stack.info[stack.pos].hpos = 0;
+
                     srl_iterator_step_in(aTHX_ iter, 1);
-                    fprintf(stderr, "[%2d] GONZO: STEP IN\n", scur);
+                    fprintf(stderr, "+[%d] GONZO: STEP IN\n", stack.pos);
                     continue;
                 }
                 break;
@@ -537,13 +661,13 @@ walk_iterator(pTHX_
             case SRL_ITERATOR_OBJ_IS_ROOT:
             default:
                 fprintf(stderr, "\n");
-                fprintf(stderr, "[%2d] GONZO: can't handle sereal type\n", scur);
+                fprintf(stderr, "+[%d] GONZO: can't handle sereal type\n", stack.pos);
                 break;
         }
 
         srl_iterator_next(aTHX_ iter, 1);
-        // fprintf(stderr, "[%2d] GONZO: STEP NEXT\n", scur);
-        ++ppos;
+        // fprintf(stderr, "+[%d] GONZO: STEP NEXT\n", scur);
+        ++stack.info[stack.pos].ppos;
     }
     return 0;
 }
@@ -686,18 +810,6 @@ static srl_indexed_element_t* walk_iterator_array(pTHX_
     fprintf(stderr, "[%d] GONZO: finished walking array\n", depth);
 
     return (srl_indexed_element_t*) array;
-}
-
-// I've had nice results with djb2 by Dan Bernstein.
-static uint32_t compute_hash(const char* str)
-{
-  uint32_t h = 5381;
-  int c;
-
-  while ((c = *str++))
-    h = ((h << 5) + h) + c; /* h * 33 + c */
-
-  return h;
 }
 
 static srl_indexed_element_t* walk_iterator_hash(pTHX_
