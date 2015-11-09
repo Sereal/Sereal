@@ -1,5 +1,9 @@
 Revision history for Perl extension Sereal-Path
 
+0.012 Nov 09 2015
+  * bug fixes
+  * (experimental) work around of autovivification in Sereal::Path::Tie::Hash
+
 0.011 Nov 08 2015
   * changes in API:
     - srl_iterator_next_until_depth_and_idx() renamed to srl_iterator_until()
