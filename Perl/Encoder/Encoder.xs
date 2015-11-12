@@ -53,8 +53,8 @@ THX_pp1_sereal_encode_with_object(pTHX_ U8 has_hdr)
   {
     croak("handle is not a Sereal::Encoder handle");
   }
-
-  enc= (srl_encoder_t *)SvIV(encoder_sv);
+  /* we should never have an IV smaller than a PTR */
+  enc= INT2PTR(srl_encoder_t *,SvIV(encoder_sv));
 
   if (header_sv && !SvOK(header_sv))
     header_sv = NULL;
@@ -262,7 +262,7 @@ test()
       check[i] = fail;
     }
     for (i = 0; i < (UV)n; ++i) {
-      const UV res = (UV)PTABLE_fetch(tbl, INT2PTR(void *, (1000+i)));
+      const UV res = PTR2UV(PTABLE_fetch(tbl, INT2PTR(void *, (1000+i))));
       printf("%sok %u - fetch %u\n", (res == (UV)(1000+i)) ? noop : fail, (unsigned int)(1+i), (unsigned int)(i+1));
     }
     iter = PTABLE_iter_new(tbl);

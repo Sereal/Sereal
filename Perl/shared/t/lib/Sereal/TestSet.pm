@@ -14,6 +14,7 @@ use Encode qw(encode_utf8 is_utf8);
 use Scalar::Util qw(reftype blessed refaddr);
 use Config;
 use Carp qw(confess);
+use Storable qw(dclone);
 
 # Dynamically load constants from whatever is being tested
 our ($Class, $ConstClass);
@@ -680,166 +681,170 @@ my $eng2= "1e3";
 
 my $sum= $eng0e0 + $eng0e1 + $eng2;
 
-our @ScalarRoundtripTests = (
-    # name, structure
-    ["undef", undef],
-    ["small int", 3],
-    ["small negative int", -8],
-    ["largeish int", 100000],
-    ["largeish negative int -302001",   -302001],
-    ["largeish negative int -1234567",  -1234567],
-    ["largeish negative int -12345678", -12345678],
 
-    (
-        map {["integer: $_", 0+$_]} (
-            # IV bounds of 8 bits
-            -1, 0, 1, -127, -128, -129, 42, 126, 127, 128, 129, 254, 255, 256, 257,
-            # IV bounds of 32 bits
-            -2147483647, -2147483648, -2147483649, 2147483646, 2147483647, 2147483648,
-            # IV bounds
-            $min_iv, do {use integer; $min_iv + 1}, do {use integer; $max_iv - 1},
-            $max_iv,
-            # UV bounds at 32 bits
-            0x7FFFFFFF, 0x80000000, 0x80000001, 0xFFFFFFFF, 0xDEADBEEF,
-            # UV bounds
-            $max_iv_p1, $max_uv_m1, $max_uv, $lots_of_9C,
-            $eng0e0, $eng0e1, $eng2,
-        )
-    ),
-    (map { ["float $_", 0+$_] } (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)),
-    ["short ascii string", "fooo"],
-    ["short latin1 string", "Müller"],
-    ["short utf8 string", do {use utf8; " עדיין ח"} ],
+sub _get_roundtrip_tests {
+    my @ScalarRoundtripTests = (
+        # name, structure
+        ["undef", undef],
+        ["small int", 3],
+        ["small negative int", -8],
+        ["largeish int", 100000],
+        ["largeish negative int -302001",   -302001],
+        ["largeish negative int -1234567",  -1234567],
+        ["largeish negative int -12345678", -12345678],
 
-    (map { [ "long ascii string 'a' x $_", do{"a" x $_} ] } (
-        9999,10000,10001,
-        1023,1024,1025,
-        8191,8192,8193,
-    )),
-    (map { [ "long ascii string 'ab' x $_", do{"ab" x $_} ] } (
-        9999,10000,10001,
-        1023,1024,1025,
-        8191,8192,8193,
-    )),
-    (map { [ "long ascii string 'abc' x $_", do{"abc" x $_} ] } (
-        9999,10000,10001,
-        1023,1024,1025,
-        8191,8192,8193,
-    )),
-    (map { [ "long ascii string 'abcd' x $_", do{"abcd" x $_} ] } (
-        9999,10000,10001,
-        1023,1024,1025,
-        8191,8192,8193,
-    )),
-    ["troublesome num/strs", @numstr],
-    ["long latin1 string", "üll" x 10000],
-    ["long utf8 string", do {use utf8; " עדיין חשב" x 10000}],
-    ["long utf8 string with only ascii", do {use utf8; "foo" x 10000}],
-    ["long utf8 string with only latin1 subset", do {use utf8; "üll" x 10000}],
+        (
+            map {["integer: $_", 0+$_]} (
+                # IV bounds of 8 bits
+                -1, 0, 1, -127, -128, -129, 42, 126, 127, 128, 129, 254, 255, 256, 257,
+                # IV bounds of 32 bits
+                -2147483647, -2147483648, -2147483649, 2147483646, 2147483647, 2147483648,
+                # IV bounds
+                $min_iv, do {use integer; $min_iv + 1}, do {use integer; $max_iv - 1},
+                $max_iv,
+                # UV bounds at 32 bits
+                0x7FFFFFFF, 0x80000000, 0x80000001, 0xFFFFFFFF, 0xDEADBEEF,
+                # UV bounds
+                $max_iv_p1, $max_uv_m1, $max_uv, $lots_of_9C,
+                $eng0e0, $eng0e1, $eng2,
+            )
+        ),
+        (map { ["float $_", 0+$_] } (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9)),
+        ["short ascii string", "fooo"],
+        ["short latin1 string", "Müller"],
+        ["short utf8 string", do {use utf8; " עדיין ח"} ],
 
-    ["simple regexp", qr/foo/],
-    ["regexp with inline modifiers", qr/(?i-xsm:foo)/],
-    ["regexp with modifiers", qr/foo/i],
-    ["float", 123013.139],
-    ["negative float",-1234.59],
-    ["small float 0.41",0.41],
-    ["negative small float -0.13",-0.13],
-    ["small int", 123],
-    ["empty string", ''],
-    ["simple array", []],
-    ["empty hash", {}],
-    ["simple hash", { foo => 'bar' }],
-    ["undef value", { foo => bar => baz => undef }],
-    ["simple array", [ 1 ]],
-    ["nested simple", [ 1, [ 2 ] ] ],
-    ["deep nest", [1,2,[3,4,{5=>6,7=>{8=>[]},9=>{}},{},[]]]],
-    ["complex hash", {
-        foo => 123,
-        bar => -159, pi => 3,
-        'baz' =>"foo",
-        'bop \''=> "\10"
-        ,'bop \'\\'=> "\x{100}" ,
-        'bop \'x\\x'    =>"x\x{100}"   , 'bing' =>   "x\x{100}",
-        x=>'y', z => 'p', i=> '1', l=>" \10", m=>"\10 ", n => " \10 ",
-    }],
-    ["complex hash with float", {
-        foo => 123,
-        bar => -159.23, a_pi => 3.14159,
-        'baz' =>"foo",
-        'bop \''=> "\10"
-        ,'bop \'\\'=> "\x{100}" ,
-        'bop \'x\\x'    =>"x\x{100}"   , 'bing' =>   "x\x{100}",
-        x=>'y', z => 'p', i=> '1', l=>" \10", m=>"\10 ", n => " \10 ",
-    }],
-    ["more complex", {
-        foo => [123],
-        "bar" => [-159, n => 3, { 'baz' => "foo", }, ],
-        'bop \''=> { "\10" => { 'bop \'\\'=> "\x{100}", h=>{
-        'bop \'x\\x'    =>"x\x{100}"   , 'bing' =>   "x\x{100}",
-        x=>'y',}, z => 'p' ,   }   ,
-        i    =>  '1' ,}, l=>" \10", m=>"\10 ", n => " \10 ",
-        o => undef ,p=>undef, q=>\undef, r=>\$eng0e0, u => \$eng0e1, w=>\$eng2
-    }],
-    ["more complex with float", {
-        foo => [123],
-        "bar" => [-159.23, a_pi => 3.14159, { 'baz' => "foo", }, ],
-        'bop \''=> { "\10" => { 'bop \'\\'=> "\x{100}", h=>{
-        'bop \'x\\x'    =>"x\x{100}"   , 'bing' =>   "x\x{100}",
-        x=>'y',}, z => 'p' ,   }   ,
-        i    =>  '1' ,}, l=>" \10", m=>"\10 ", n => " \10 ",
-        o => undef ,p=>undef, q=>\undef, r=>\$eng0e0, u => \$eng0e1, w=>\$eng2
-    }],
-    ['var strings', [ "\$", "\@", "\%" ]],
-    [ "quote keys", { "" => '"', "'" => "" }],
-    [ "ref to foo", \"foo" ],
-    [ "double ref to foo", \\"foo"],
-    [ "refy array", \\["foo"]],
-    [ "reffy hash", \\\{foo=>\"bar"}],
-    [ "blessed array", bless(\[],"foo")],
-    [ "utf8 string", "123\\277ABC\\x{DF}456"],
-    [ "escaped string", "\\012\345\267\145123\\277ABC\\x{DF}456"],
-    [ "more escapes", "\\0123\0124"],
-    [ "ref to undef", \undef],
-    [ "negative big num", -4123456789],
-    [ "positive big num", 4123456789],
-    [ "eng-ref", [\$eng0e0, \$eng0e1, \$eng2] ],
-    [ "undef", [\undef, \undef] ],
-);
+        (map { [ "long ascii string 'a' x $_", do{"a" x $_} ] } (
+            9999,10000,10001,
+            1023,1024,1025,
+            8191,8192,8193,
+        )),
+        (map { [ "long ascii string 'ab' x $_", do{"ab" x $_} ] } (
+            9999,10000,10001,
+            1023,1024,1025,
+            8191,8192,8193,
+        )),
+        (map { [ "long ascii string 'abc' x $_", do{"abc" x $_} ] } (
+            9999,10000,10001,
+            1023,1024,1025,
+            8191,8192,8193,
+        )),
+        (map { [ "long ascii string 'abcd' x $_", do{"abcd" x $_} ] } (
+            9999,10000,10001,
+            1023,1024,1025,
+            8191,8192,8193,
+        )),
+        ( map { [ ( $Sereal::Encoder::VERSION lt "3.003_002" ? "TODO" : "") 
+                    . " troublesome num/strs '$_'", $_ ] } @numstr ),
+        ["long latin1 string", "üll" x 10000],
+        ["long utf8 string", do {use utf8; " עדיין חשב" x 10000}],
+        ["long utf8 string with only ascii", do {use utf8; "foo" x 10000}],
+        ["long utf8 string with only latin1 subset", do {use utf8; "üll" x 10000}],
 
-use Storable qw(dclone);
-our @RoundtripTests = (
-    @ScalarRoundtripTests,
+        ["simple regexp", qr/foo/],
+        ["regexp with inline modifiers", qr/(?i-xsm:foo)/],
+        ["regexp with modifiers", qr/foo/i],
+        ["float", 123013.139],
+        ["negative float",-1234.59],
+        ["small float 0.41",0.41],
+        ["negative small float -0.13",-0.13],
+        ["small int", 123],
+        ["empty string", ''],
+        ["simple array", []],
+        ["empty hash", {}],
+        ["simple hash", { foo => 'bar' }],
+        ["undef value", { foo => bar => baz => undef }],
+        ["simple array", [ 1 ]],
+        ["nested simple", [ 1, [ 2 ] ] ],
+        ["deep nest", [1,2,[3,4,{5=>6,7=>{8=>[]},9=>{}},{},[]]]],
+        ["complex hash", {
+            foo => 123,
+            bar => -159, pi => 3,
+            'baz' =>"foo",
+            'bop \''=> "\10"
+            ,'bop \'\\'=> "\x{100}" ,
+            'bop \'x\\x'    =>"x\x{100}"   , 'bing' =>   "x\x{100}",
+            x=>'y', z => 'p', i=> '1', l=>" \10", m=>"\10 ", n => " \10 ",
+        }],
+        ["complex hash with float", {
+            foo => 123,
+            bar => -159.23, a_pi => 3.14159,
+            'baz' =>"foo",
+            'bop \''=> "\10"
+            ,'bop \'\\'=> "\x{100}" ,
+            'bop \'x\\x'    =>"x\x{100}"   , 'bing' =>   "x\x{100}",
+            x=>'y', z => 'p', i=> '1', l=>" \10", m=>"\10 ", n => " \10 ",
+        }],
+        ["more complex", {
+            foo => [123],
+            "bar" => [-159, n => 3, { 'baz' => "foo", }, ],
+            'bop \''=> { "\10" => { 'bop \'\\'=> "\x{100}", h=>{
+            'bop \'x\\x'    =>"x\x{100}"   , 'bing' =>   "x\x{100}",
+            x=>'y',}, z => 'p' ,   }   ,
+            i    =>  '1' ,}, l=>" \10", m=>"\10 ", n => " \10 ",
+            o => undef ,p=>undef, q=>\undef, r=>\$eng0e0, u => \$eng0e1, w=>\$eng2
+        }],
+        ["more complex with float", {
+            foo => [123],
+            "bar" => [-159.23, a_pi => 3.14159, { 'baz' => "foo", }, ],
+            'bop \''=> { "\10" => { 'bop \'\\'=> "\x{100}", h=>{
+            'bop \'x\\x'    =>"x\x{100}"   , 'bing' =>   "x\x{100}",
+            x=>'y',}, z => 'p' ,   }   ,
+            i    =>  '1' ,}, l=>" \10", m=>"\10 ", n => " \10 ",
+            o => undef ,p=>undef, q=>\undef, r=>\$eng0e0, u => \$eng0e1, w=>\$eng2
+        }],
+        ['var strings', [ "\$", "\@", "\%" ]],
+        [ "quote keys", { "" => '"', "'" => "" }],
+        [ "ref to foo", \"foo" ],
+        [ "double ref to foo", \\"foo"],
+        [ "refy array", \\["foo"]],
+        [ "reffy hash", \\\{foo=>\"bar"}],
+        [ "blessed array", bless(\[],"foo")],
+        [ "utf8 string", "123\\277ABC\\x{DF}456"],
+        [ "escaped string", "\\012\345\267\145123\\277ABC\\x{DF}456"],
+        [ "more escapes", "\\0123\0124"],
+        [ "ref to undef", \undef],
+        [ "negative big num", -4123456789],
+        [ "positive big num", 4123456789],
+        [ "eng-ref", [\$eng0e0, \$eng0e1, \$eng2] ],
+        [ "undef", [\undef, \undef] ],
+    );
 
-    ["[{foo => 1}, {foo => 2}] - repeated hash keys",
-      [{foo => 1}, {foo => 2}] ],
+    my @RoundtripTests = (
+        @ScalarRoundtripTests,
 
-    (map {["scalar ref to " . $_->[0], (\($_->[1]))]} @ScalarRoundtripTests),
-    (map {["nested scalar ref to " . $_->[0], (\\($_->[1]))]} @ScalarRoundtripTests),
-    (map {["array ref to " . $_->[0], ([$_->[1]])]} @ScalarRoundtripTests),
-    (map {["hash ref to " . $_->[0], ({foo => $_->[1]})]} @ScalarRoundtripTests),
-    # ---
-    (map {["array ref to duplicate " . $_->[0], ([$_->[1], $_->[1]])]} @ScalarRoundtripTests),
-    (map {[
-            "AoA of duplicates " . $_->[0],
-            ( [ $_->[1], [ $_->[1], $_->[1] ], $_->[1], [ $_->[1], $_->[1], $_->[1] ], $_->[1] ] )
-         ]} @ScalarRoundtripTests),
-    # ---
-    (map {["array ref to aliases " . $_->[0], (sub {\@_}->($_->[1], $_->[1]))]} @ScalarRoundtripTests),
-    (map {["array ref to scalar refs to same " . $_->[0], ([\($_->[1]), \($_->[1])])]} @ScalarRoundtripTests),
-);
+        ["[{foo => 1}, {foo => 2}] - repeated hash keys",
+          [{foo => 1}, {foo => 2}] ],
 
-if (eval "use Array::RefElem (av_store hv_store); 1") {
-    my $x= "alias!";
-    my (@av,%hv);
-    av_store(@av,0,$x);
-    av_store(@av,1,$x);
-    hv_store(%hv,"x", $x);
-    hv_store(%hv,"y", $x);
-    push @RoundtripTests,
-        [\@av,"alias in array"],
-        [\%hv,"alias in hash"],
-        [[\@av,\%hv,\$x], "alias hell"];
+        (map {["scalar ref to " . $_->[0], (\($_->[1]))]} @ScalarRoundtripTests),
+        (map {["nested scalar ref to " . $_->[0], (\\($_->[1]))]} @ScalarRoundtripTests),
+        (map {["array ref to " . $_->[0], ([$_->[1]])]} @ScalarRoundtripTests),
+        (map {["hash ref to " . $_->[0], ({foo => $_->[1]})]} @ScalarRoundtripTests),
+        # ---
+        (map {["array ref to duplicate " . $_->[0], ([$_->[1], $_->[1]])]} @ScalarRoundtripTests),
+        (map {[
+                "AoA of duplicates " . $_->[0],
+                ( [ $_->[1], [ $_->[1], $_->[1] ], $_->[1], [ $_->[1], $_->[1], $_->[1] ], $_->[1] ] )
+             ]} @ScalarRoundtripTests),
+        # ---
+        (map {["array ref to aliases " . $_->[0], (sub {\@_}->($_->[1], $_->[1]))]} @ScalarRoundtripTests),
+        (map {["array ref to scalar refs to same " . $_->[0], ([\($_->[1]), \($_->[1])])]} @ScalarRoundtripTests),
+    );
+    if (eval "use Array::RefElem (av_store hv_store); 1") {
+        my $x= "alias!";
+        my (@av,%hv);
+        av_store(@av,0,$x);
+        av_store(@av,1,$x);
+        hv_store(%hv,"x", $x);
+        hv_store(%hv,"y", $x);
+        push @RoundtripTests,
+            [\@av,"alias in array"],
+            [\%hv,"alias in hash"],
+            [[\@av,\%hv,\$x], "alias hell"];
+    }
+    return @RoundtripTests;
 }
+
 
 
 sub run_roundtrip_tests {
@@ -1019,7 +1024,7 @@ sub run_roundtrip_tests_internal {
     my $decoder = Sereal::Decoder->new($opt);
     my $encoder = Sereal::Encoder->new($opt);
     my %seen_name;
-
+    my @RoundtripTests= _get_roundtrip_tests();
     foreach my $rt (@RoundtripTests) {
         my ($name, $data) = @$rt;
 
@@ -1211,6 +1216,7 @@ sub write_test_files {
         protocol_version => $PROTO_VERSION,
         compress => $COMPRESS || Sereal::Encoder::SRL_UNCOMPRESSED(),
     });
+    my @RoundtripTests= _get_roundtrip_tests();
     foreach my $i (0..$#RoundtripTests) {
         my $testno = @BasicTests + $i + 1;
         my $t = $RoundtripTests[$i];

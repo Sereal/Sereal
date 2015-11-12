@@ -193,11 +193,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
         char *PV= SvPV(src, L);                                             \
         if ( SvIOK(src) ) {                                                 \
             if ( SvIV(src) == 0 ) {                                         \
-                if ( L == 0 ) {                                             \
-                    /* zero length string, 0 int - same as PL_sv_no */      \
-                    srl_buf_cat_char(&enc->buf, SRL_HDR_FALSE);             \
-                }                                                           \
-                else if ( L == 1 && PV[0] == '0' ) {                        \
+                if ( L == 1 && PV[0] == '0' ) {                             \
                     /* its a true 0 */                                      \
                     srl_buf_cat_char(&enc->buf, SRL_HDR_POS + 0);           \
                 }                                                           \

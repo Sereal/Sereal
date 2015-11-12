@@ -23,7 +23,14 @@ sub desc_special($) {
         return $_[0] == \undef() ? "undef" :
                 $_[0] == \!1 ? "false" :
                 $_[0] == \!0 ? "true" :
-                "not-special";
+                !defined($_[0]) ? "undef" :
+                length($_[0]) ? "not-special" :
+                do {
+                    my @warn;
+                    local $SIG{__WARN__}= sub { push @warn,$_[0] };
+                    my $i= int($_[0]);
+                    @warn ? "not-special" : "false";
+                };
 }
 
 foreach(
@@ -38,6 +45,5 @@ foreach(
     TODO: {
         todo_skip $todo, 1 if $todo;
         is( desc_special($dec->decode($enc->encode($var))), desc_special($var), $name );
-
     }
 }

@@ -5,6 +5,18 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 3 of the *
 *          encoder!                                            *
 ****************************************************************
+3.005_003 Nov 11 2015
+  * We can't serialize copies of false (ie, pv="" iv=0, POK/IOK)
+    as FALSE.
+  * Add missing Changes update for 3.005_002
+  * Fixups for cast warnings under -Wint-to-ptr builds by using
+    using PTR2INT and INT2PTR for casting our objects.
+
+3.005_002 Nov 08 2015
+  * Various subtle fixes to how we choose whether to serialize
+    the string or numeric version of a value, in particular to
+    ensure that "00" always round trips as "00", and related issues.
+
 3.005_001 Jan 27 2015
   * Win32 fixes
   * Build improvements
