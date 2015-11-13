@@ -229,12 +229,14 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
             break;
 
         case SRL_INDEX_TYPE_SCALAR:
-            fprintf(stderr, "=[%d] Scalar offset %u pointing to %s\n",
-                    depth, elem->offset,
-                    flag_index ? "Index" : "Sereal");
             if (flag_index) {
+                // We don't show this scalar pointing to the index, since it is
+                // just a placeholder to the real indexed element
                 elem = (srl_indexed_element_t*) srl_index_ptr_for_offset(index, elem->offset);
-                dump_index_data(index, elem, depth+1);
+                dump_index_data(index, elem, depth);  // "tail optimization"
+            } else {
+                fprintf(stderr, "=[%d] Scalar offset %u pointing to %s\n",
+                        depth, elem->offset, "Sereal");
             }
             break;
 
@@ -295,8 +297,12 @@ static void dump_index(srl_index_t* index)
 {
     uint32_t used = 0;
 
-    fprintf(stderr, "START dumping index at %p, max %d bytes",
-            index, index->options.memory_size);
+    fprintf(stderr, "START dumping index at %p, mem %d bytes, depth %d, hash %f",
+            index,
+            index->options.memory_size,
+            index->options.index_depth,
+            index->options.hash_factor);
+
     used = SRL_INDEX_USED(index);
     if (used == 0) {
         fprintf(stderr, " EMPTY\n");
@@ -375,7 +381,6 @@ srl_index_t* srl_create_index(pTHX_ srl_iterator_t* iter,
     }
 
     fprintf(stderr, "====================\n");
-    dump_index(index);
     walk_iterator(aTHX_ index, 0);
     dump_index(index);
     return index;
@@ -486,7 +491,7 @@ static void save_data_in_array(pTHX_
         return;
     }
 
-    fprintf(stderr, "+[%d] GONZO: storing in parent pos %zu\n", stack->pos, stack->info[stack->pos].ppos);
+    fprintf(stderr, "+[%d] GONZO: storing in parent array slot %zu\n", stack->pos, stack->info[stack->pos].ppos);
     data[stack->info[stack->pos].ppos].offset = offset;
     data[stack->info[stack->pos].ppos].flags = type;
 }
@@ -516,7 +521,7 @@ static void save_data_in_hash(pTHX_
         uint32_t ktyp = data[stack->info[stack->pos].hpos].flags & SRL_INDEX_TYPE_MASK;
         uint32_t klen = data[stack->info[stack->pos].hpos].flags & SRL_INDEX_SIZE_MASK;
 
-        fprintf(stderr, "+[%d] GONZO: storing VAL in parent pos %zu\n", stack->pos, stack->info[stack->pos].hpos);
+        fprintf(stderr, "+[%d] GONZO: storing VAL in parent hash slot %zu\n", stack->pos, stack->info[stack->pos].hpos);
         ktyp |= type;
         data[stack->info[stack->pos].hpos].offset = offset;
         data[stack->info[stack->pos].hpos].flags = ktyp | klen;
@@ -552,7 +557,6 @@ static void process_scalar(pTHX_
     }
 
     srl_iterator_next(aTHX_ iter, 1);
-    // fprintf(stderr, "+[%d] GONZO: STEP NEXT\n", scur);
     ++stack->info[stack->pos].ppos;
 }
 
@@ -640,14 +644,12 @@ static void process_hash(pTHX_
 
         case SRL_ITERATOR_OBJ_IS_ARRAY: {
             // Hash's parent is an array, store it directly there
-            fprintf(stderr, "+[%d] GONZO: indexing hash into array\n", stack->pos);
             save_data_in_array(aTHX_ stack, type, offset);
             break;
         }
 
         case SRL_ITERATOR_OBJ_IS_HASH: {
             // Hash's parent is a hash, store it directly there
-            fprintf(stderr, "+[%d] GONZO: indexing hash into hash\n", stack->pos);
             save_data_in_hash(aTHX_ iter, stack, type, offset);
             break;
         }
