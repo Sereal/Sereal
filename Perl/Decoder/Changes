@@ -5,6 +5,10 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 3 of the *
 *          encoder!                                            *
 ****************************************************************
+3.005_005 Nov 13 2015
+  * [DECODER] fix segfaults from heavily corrupted data
+  * [DECODER] fix build version tests
+
 3.005_004 Nov 13 2015
   * Build/test fixes and improvements. We were getting a bunch
   * of false test fails from fixing bugs. The round trip version

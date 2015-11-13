@@ -734,7 +734,7 @@ sub _get_roundtrip_tests {
             1023,1024,1025,
             8191,8192,8193,
         )),
-        ( map { [ ( $Sereal::Encoder::VERSION lt "3.003_002" ? "TODO" : "") 
+        ( map { [ ( $Sereal::Encoder::VERSION < 3.005002 ? "TODO" : "")
                     . " troublesome num/strs '$_'", $_ ] } @numstr ),
         ["long latin1 string", "üll" x 10000],
         ["long utf8 string", do {use utf8; " עדיין חשב" x 10000}],
