@@ -41,7 +41,9 @@ srl_reader_varint.h
 srl_stack.h
 srl_taginfo.h
 t/001_load.t
+t/002_have_enc_and_dec.t
 t/004_testset.t
+t/005_flags.t
 t/010_desperate.t
 t/020_incremental.t
 t/030_looks_like_sereal.t

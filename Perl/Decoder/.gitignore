@@ -34,7 +34,9 @@ srl_reader_varint.h
 srl_stack.h
 *.swo
 *.swp
+t/002_have_enc_and_dec.t
 t/004_testset.t
+t/005_flags.t
 t/700_roundtrip
 t/data/corpus
 t/lib

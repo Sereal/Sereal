@@ -44,6 +44,7 @@ srl_stack.h
 srl_taginfo.h
 t/001_load.t
 t/002_constants.t
+t/002_have_enc_and_dec.t
 t/003_ptable.t
 t/004_testset.t
 t/005_flags.t

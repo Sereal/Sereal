@@ -5,6 +5,11 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 3 of the *
 *          encoder!                                            *
 ****************************************************************
+3.005_004 Nov 13 2015
+  * [DECODER] Build/test fixes and improvements. We were getting
+  * a bunchof false test fails from fixing bugs. The round trip
+  * version checks have been fixed.
+
 3.005_003 Nov 11 2015
   * We can't serialize copies of false (ie, pv="" iv=0, POK/IOK)
     as FALSE.
