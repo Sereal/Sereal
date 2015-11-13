@@ -1065,6 +1065,10 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         if (expect_false( !fetched_sv )) {
             SRL_RDR_ERROR_PANIC(dec->pbuf, "failed to hv_store");
         }
+        else
+        if ( expect_false( SvTYPE(*fetched_sv) != SVt_NULL ) ) {
+            SRL_RDR_ERROR(dec->pbuf, "duplicate key in hash");
+        }
         srl_read_single_value(aTHX_ dec, *fetched_sv, fetched_sv );
     }
     if (tag)
