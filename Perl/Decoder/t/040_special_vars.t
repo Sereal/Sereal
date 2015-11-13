@@ -11,7 +11,7 @@ BEGIN {
 }
 use Sereal::TestSet qw(:all);
 
-if (have_encoder_and_decoder()) {
+if (have_encoder_and_decoder(3.005003)) {
     plan tests => 6;
 } else {
     plan skip_all => 'Did not find right version of encoder';

@@ -637,7 +637,7 @@ sub have_encoder_and_decoder {
         return();
     };
     my $cmp_v = $need_class->VERSION;
-    if ($min_v and $cmp_v <= $min_v) {
+    if ($min_v and $cmp_v < $min_v) {
         note("Could not load correct version of $need_class for testing "
              ."(got: $cmp_v, needed at least $min_v)");
         return;
