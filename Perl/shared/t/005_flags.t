@@ -1,38 +1,24 @@
-#!perl
 use strict;
 use warnings;
 
-# most be loaded before Sereal::TestSet
-use Sereal::Encoder qw(encode_sereal);
-use Sereal::Encoder::Constants qw(:all);
+use Sereal::Decoder;
+use Test::More;
 use File::Spec;
-
 use lib File::Spec->catdir(qw(t lib));
-
 BEGIN {
     lib->import('lib')
-      if !-d 't';
+        if !-d 't';
 }
-
 use Sereal::TestSet qw(:all);
 
-use Data::Dumper;    # must be loaded AFTER the test set (bug in perl)
-
-# These tests are extraordinarily basic, badly-done and really just
-# for basic sanity testing during development.
-
-use Test::More;
-
-my $ok = have_encoder_and_decoder();
-if ( not $ok ) {
-    plan skip_all => 'Did not find right version of decoder';
-}
-else {
+if (have_encoder_and_decoder(3.005003)) {
     run_tests("plain",                   {                             } );
     run_tests( "no_shared_hk",           { no_shared_hashkeys     => 1 } );
     run_tests( "dedupe_strings",         { dedupe_strings         => 1 } );
     run_tests( "aliased_dedupe_strings", { aliased_dedupe_strings => 1 } );
     done_testing();
+} else {
+    plan skip_all => 'Did not find right version of encoder';
 }
 
 sub run_tests {
