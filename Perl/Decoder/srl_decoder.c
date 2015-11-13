@@ -1321,6 +1321,9 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
                     " while reading UTF8 string length for class name (via COPY)"
                 );
                 flags = flags | SVf_UTF8;
+                if (!is_utf8_string(from, key_len)) {
+                    SRL_RDR_ERROR_PANIC(dec->pbuf, "utf8 flagged classname is not actually utf8");
+                }
             }
             else {
                 SRL_RDR_ERROR_BAD_COPY(dec->pbuf, SRL_HDR_OBJECT);
