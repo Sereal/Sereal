@@ -567,25 +567,27 @@ static void process_array(pTHX_
                           UV offset,
                           Stack* stack)
 {
-    UV type = SRL_INDEX_TYPE_ARRAY;
+    UV type = SRL_INDEX_TYPE_EMPTY;
     srl_indexed_array_t* array = 0;
 
     if (index->options.index_depth != 0 &&
         index->options.index_depth <= stack->pos) {
-        // TODO
-        return;
+        type = SRL_INDEX_TYPE_SCALAR;
+        SRL_INDEX_FLAG_CLR(type, SRL_INDEX_FLAG_POINTER_INDEX);
+    } else {
+        type = SRL_INDEX_TYPE_ARRAY;
+        SRL_INDEX_FLAG_SET(type, SRL_INDEX_FLAG_POINTER_INDEX);
+        array = srl_allocate_array(aTHX_
+                                   index,
+                                   length,
+                                   type,
+                                   offset);
+
+        type = SRL_INDEX_TYPE_SCALAR;
+        SRL_INDEX_FLAG_SET(type, SRL_INDEX_FLAG_POINTER_INDEX);
+        offset = srl_index_offset_for_ptr(index, array);
     }
 
-    SRL_INDEX_FLAG_SET(type, SRL_INDEX_FLAG_POINTER_INDEX);
-    array = srl_allocate_array(aTHX_
-                               index,
-                               length,
-                               type,
-                               offset);
-
-    type = SRL_INDEX_TYPE_SCALAR;
-    SRL_INDEX_FLAG_SET(type, SRL_INDEX_FLAG_POINTER_INDEX);
-    offset = srl_index_offset_for_ptr(index, array);
     switch (stack->info[stack->pos].ptyp) {
         case 0:
             // Array is at the top level
@@ -605,10 +607,17 @@ static void process_array(pTHX_
         }
     }
 
-    fprintf(stderr, "+[%d] GONZO: STEP IN => %p\n", stack->pos, array->dataset);
+    if (!array) {
+        fprintf(stderr, "+[%d] GONZO: Reached max depth %d\n", stack->pos, index->options.index_depth);
 
-    stack_push(stack, length, SRL_ITERATOR_OBJ_IS_ARRAY, (srl_indexed_element_t*) array->dataset, 0);
-    srl_iterator_step_in(aTHX_ iter, 1);
+        srl_iterator_next(aTHX_ iter, 1);
+        ++stack->info[stack->pos].ppos;
+    } else {
+        fprintf(stderr, "+[%d] GONZO: STEP IN => %p\n", stack->pos, array->dataset);
+
+        stack_push(stack, length, SRL_ITERATOR_OBJ_IS_ARRAY, (srl_indexed_element_t*) array->dataset, 0);
+        srl_iterator_step_in(aTHX_ iter, 1);
+    }
 }
 
 static void process_hash(pTHX_
@@ -618,24 +627,33 @@ static void process_hash(pTHX_
                          UV offset,
                          Stack* stack)
 {
-    UV type = SRL_INDEX_TYPE_HASH;
+    UV type = SRL_INDEX_TYPE_EMPTY;
     srl_indexed_hash_t* hash = 0;
+    UV hsize = length;
 
     if (index->options.index_depth != 0 &&
         index->options.index_depth <= stack->pos) {
-        // TODO
+        type = SRL_INDEX_TYPE_SCALAR;
+        SRL_INDEX_FLAG_CLR(type, SRL_INDEX_FLAG_POINTER_INDEX);
+    } else {
+        type = SRL_INDEX_TYPE_HASH;
+        SRL_INDEX_FLAG_SET(type, SRL_INDEX_FLAG_POINTER_INDEX);
+        if (index->options.hash_factor > 1.0) {
+            hsize *= index->options.hash_factor;
+            fprintf(stderr, "+[%d] GONZO: index hash will use %zu slots to store %zu elements\n",
+                    stack->pos, hsize, length);
+        }
+        hash = srl_allocate_hash(aTHX_
+                                 index,
+                                 hsize,
+                                 type,
+                                 offset);
+
+        type = SRL_INDEX_TYPE_SCALAR;
+        SRL_INDEX_FLAG_SET(type, SRL_INDEX_FLAG_POINTER_INDEX);
+        offset = srl_index_offset_for_ptr(index, hash);
     }
 
-    SRL_INDEX_FLAG_SET(type, SRL_INDEX_FLAG_POINTER_INDEX);
-    hash = srl_allocate_hash(aTHX_
-                             index,
-                             length,
-                             type,
-                             offset);
-
-    type = SRL_INDEX_TYPE_SCALAR;
-    SRL_INDEX_FLAG_SET(type, SRL_INDEX_FLAG_POINTER_INDEX);
-    offset = srl_index_offset_for_ptr(index, hash);
     switch (stack->info[stack->pos].ptyp) {
         case 0:
             // Hash is at the top level
@@ -655,11 +673,18 @@ static void process_hash(pTHX_
         }
     }
 
-    // 2*length because we must iterate over keys and values
-    stack_push(stack, 2*length, SRL_ITERATOR_OBJ_IS_HASH, (srl_indexed_element_t*) hash->dataset, length);
-    srl_iterator_step_in(aTHX_ iter, 1);
+    if (!hash) {
+        fprintf(stderr, "+[%d] GONZO: Reached max depth %d\n", stack->pos, index->options.index_depth);
 
-    fprintf(stderr, "+[%d] GONZO: STEP IN => %p\n", stack->pos, hash->dataset);
+        srl_iterator_next(aTHX_ iter, 1);
+        ++stack->info[stack->pos].ppos;
+    } else {
+        fprintf(stderr, "+[%d] GONZO: STEP IN => %p\n", stack->pos, hash->dataset);
+
+        // 2*length because we must iterate over keys and values
+        stack_push(stack, 2*length, SRL_ITERATOR_OBJ_IS_HASH, (srl_indexed_element_t*) hash->dataset, hsize);
+        srl_iterator_step_in(aTHX_ iter, 1);
+    }
 }
 
 static /* UNUSED */ srl_indexed_element_t*
