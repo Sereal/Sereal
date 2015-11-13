@@ -23,6 +23,31 @@ my $all_data = [
     # A simple hash
     { 'nl' => 31, 'cl' => 56, },
 
+    # Array of arrays
+    [
+        ['Tomas', 'Martin', 'Benjamin'],
+        ['Consuelo', 'Catalina'],
+        ['Sofia', 'Nicolas']
+    ],
+
+    # Hash of hashes
+    {
+        'Gonzo' => { 'Mario' => 1, 'Pilar'  => 0, },
+        'Ale'   => { 'Nato'  => 1, 'Monica' => 0, },
+    },
+
+    # Array of hashes
+    [
+        { 'Mario' => 1, 'Lore'    => 0, 'Gonzo'      => 1, },
+        { 'Ale'   => 0, 'Rodrigo' => 1, 'Maria Jose' => 0, },
+    ],
+
+    # Hash of arrays
+    {
+        'Even' => [ 2, 4,    ],
+        'Odd'  => [ 1, 3, 5, ],
+    },
+
     # A complex nested data collection
     [
         21,
