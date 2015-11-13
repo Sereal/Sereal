@@ -32,7 +32,7 @@ sub slurp {
 # 100% reliable and accurate. To mitigate it we also maintain a counter holding
 # a total number of tests to be skipped.
 #
-my $skip_total = 195;
+my $skip_total = 213;
 my %skip = map { $_ => 1 } (
     'array ref to aliases blessed array',
     'array ref to aliases complex hash',
@@ -126,6 +126,25 @@ my %skip = map { $_ => 1 } (
     'array ref to aliases utf8 string',
     'array ref to aliases var strings',
     'array ref to aliases troublesome num/strs',
+    "array ref to aliases  troublesome num/strs '    1    '",
+    "array ref to aliases  troublesome num/strs '0.0'",
+    "array ref to aliases  troublesome num/strs '00000.0000'",
+    "array ref to aliases  troublesome num/strs '0.0.0.0'",
+    "array ref to aliases  troublesome num/strs '.0'",
+    "array ref to aliases  troublesome num/strs '    .0'",
+    "array ref to aliases  troublesome num/strs ' 22'",
+    "array ref to aliases  troublesome num/strs '01'",
+    "array ref to aliases  troublesome num/strs '01.1'",
+    "array ref to aliases  troublesome num/strs '   0   '",
+    "array ref to aliases  troublesome num/strs '.0'",
+    "array ref to aliases  troublesome num/strs '0.001'",
+    "array ref to aliases  troublesome num/strs '.1'",
+    "array ref to aliases  troublesome num/strs '  .1'",
+    "array ref to aliases  troublesome num/strs '.2'",
+    "array ref to aliases  troublesome num/strs '00'",
+    "array ref to aliases  troublesome num/strs '.00'",
+    "array ref to aliases  troublesome num/strs '0 but true'",
+    "array ref to aliases  troublesome num/strs '0E0'",
     "array ref to aliases largeish negative int -302001",
     "array ref to aliases largeish negative int -1234567",
     "array ref to aliases largeish negative int -12345678",
