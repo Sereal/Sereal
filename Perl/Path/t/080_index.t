@@ -47,52 +47,13 @@ my $all_data = [
         'Even' => [ 2, 4,    ],
         'Odd'  => [ 1, 3, 5, ],
     },
-
-    # A complex nested data collection
-    [
-        21,
-        22,
-        [
-            'a',
-            'b',
-            [
-                1,
-                2,
-                3,
-                4,
-                5,
-            ],
-            'c',
-        ],
-        [
-            'x',
-            {
-                'Thorin'      => 'Dwarf',
-                'Frodo'       => 'Hobbit',
-                'Mithrandir'  => 'Wizard',
-                'Morgoth'     => 'Maia',
-                'Iluvatar'    => 'God',
-                'Aragorn'     => 'Man',
-                'Elrond'      => ['Man', 'Elf'],
-                'Mandos'      => 'Maia',
-                'Saruman'     => 'Wizard',
-                'Boromir'     => 'Man',
-                'Meriadoc'    => 'Hobbit',
-                'Peregrin'    => 'Hobbit',
-                'Balin'       => 'Dwarf',
-            },
-            'y',
-        ],
-        23,
-        24,
-    ],
 ];
 
 my $memory_size = 1_000_000;  # limit index memory to 1M bytes
 # my $memory_size = 40;         # limit index memory to 40 bytes
 
-my $index_depth = 0;     # no limits on index depth
-# my $index_depth = 2;     # will not index the Middle Earth hash
+# my $index_depth = 0;     # no limits on index depth
+my $index_depth = 1;     # will only index first-level keys
 
 my $hash_factor = 1.5;   # make hash tables use this many times the required space
 # my $hash_factor = 1.0;   # make hash tables use exactly the required space
