@@ -1141,22 +1141,30 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
     }
 }
 
+#define SIGN(cmp) (cmp < 0 ? -1 : cmp == 0 ? 0 : 1)
+
 /* compare hash entries, used when all keys are bytestrings */
 static int
 he_cmp_fast(const void *a_, const void *b_)
 {
     /* even though we are called as a callback from qsort there is
      * no need for a dTHX here, we don't use anything that needs it */
-    int cmp;
-
     HE *a = *(HE **)a_;
     HE *b = *(HE **)b_;
 
-    STRLEN la = HeKLEN (a);
-    STRLEN lb = HeKLEN (b);
+    STRLEN la = HeKLEN(a);
+    STRLEN lb = HeKLEN(b);
 
-    if (!(cmp = memcmp (HeKEY (b), HeKEY (a), lb < la ? lb : la)))
+    int cmp = memcmp(HeKEY(a), HeKEY(b), la < lb ? la : lb);
+    if (!cmp)
         cmp = lb - la;
+
+    if (0) warn(
+        "he_cmp_fast: %*s cmp %*s : %d",
+        (int)la, HeKEY(a),
+        (int)lb, HeKEY(b),
+        SIGN(cmp)
+    );
 
     return cmp;
 }
@@ -1169,9 +1177,40 @@ he_cmp_slow(const void *a, const void *b)
      * is possible in our argument signature, so we need to do a
      * dTHX; here ourselves. */
     dTHX;
-    return sv_cmp( HeSVKEY_force( *(HE **)b), HeSVKEY_force( *(HE **)a ) );
+    int cmp= sv_cmp( HeSVKEY_force( *(HE **)a), HeSVKEY_force( *(HE **)b ) );
+
+    if (0) warn(
+        "he_cmp_slow: %"SVf" cmp %"SVf" : %d",
+        HeSVKEY_force( *(HE **)a ),
+        HeSVKEY_force( *(HE **)b ),
+        SIGN(cmp)
+    );
+
+    return cmp;
 }
 
+static int
+idx_cmp(const void *a_, const void *b_, void *arg)
+{
+    /* we are called as a callback from qsort, so no pTHX
+     * is possible in our argument signature, so we need to do a
+     * dTHX; here ourselves. */
+    int cmp;
+    const U32 a = *(U32 *)a_;
+    const U32 b = *(U32 *)b_;
+    SV **kv_sv_array= (SV**)arg;
+    dTHX;
+
+    cmp= sv_cmp( kv_sv_array[ a * 2 ], kv_sv_array[ b * 2 ] );
+
+    if (0) warn(
+        "idx_cmp: %"SVf" (%d) cmp %"SVf" (%d) : %d",
+        kv_sv_array[ a * 2 ], a,
+        kv_sv_array[ b * 2 ], b,
+        SIGN(cmp)
+    );
+    return cmp;
+}
 
 SRL_STATIC_INLINE void
 srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
@@ -1182,12 +1221,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
     U32 dosort= SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS);
 
     if ( dosort || SvMAGICAL(src) ) {
-        UV i;
-        if ( SvMAGICAL(src) ) {
-            /* current we fail completely with tied hashes. Fix that. */
-            warn("Sereal: Warning: Ignoring sort option for tied hash, can't reliably sort tied hashes right.");
-            dosort = 0;
-        }
+        UV i= 0;
         /* for tied hashes, we have to iterate to find the number of entries. Alas... */
         (void)hv_iterinit(src); /* return value not reliable according to API docs */
         n = 0;
@@ -1203,58 +1237,99 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
         }
 
         (void)hv_iterinit(src); /* return value not reliable according to API docs */
-        i = 0;
         if ( dosort ) {
-            HE **he_array;
-            int fast = 1;
-            Newxz(he_array, n, HE*);
-            SAVEFREEPV(he_array);
-            while ((he = hv_iternext(src))) {
-                if (expect_false( i == n ))
-                    croak("Panic: Trying to dump a tied hash that has a different number of keys in each iteration is just daft. Do not do that.");
-                he_array[i++]= he;
-                if (HeKLEN (he) < 0 || HeKUTF8 (he))
-                    fast = 0;
-            }
-            if (expect_false( i != n ))
-                croak("Panic: Trying to dump a tied hash that has a different number of keys in each iteration is just daft. Do not do that.");
-            if (fast) {
-                qsort(he_array, n, sizeof (HE *), he_cmp_fast);
+            /* can't use the same optimizations we use for normal hashes with tied
+             * hashes - the HE*'s that are returned for tied hashes are temporary
+             * structures returned from the tie infra. So we make an array, and
+             * then sort it.*/
+            if ( SvMAGICAL(src) ) {
+                SV **kv_sv_array;
+                UV *idx_array;
+                Newx(kv_sv_array, n*2, SV*);
+                SAVEFREEPV(kv_sv_array);
+                Newx(idx_array, n, UV);
+                SAVEFREEPV(idx_array);
+                while ((he = hv_iternext(src))) {
+                    if (expect_false( i == n ))
+                        croak("Panic: cannot serialize a tied hash which changes its size!");
+                    kv_sv_array[i*2]= hv_iterkeysv(he);
+                    kv_sv_array[(i*2)+1]= hv_iterval(src,he);
+                    idx_array[i]= i;
+                    i++;
+                }
+                if (expect_false( i != n ))
+                    croak("Panic: can not serialize a tied hash which changes it size!");
+
+                {
+                    /* hack to forcefully disable "use bytes" */
+                    COP cop= *PL_curcop;
+                    cop.op_private= 0;
+
+                    ENTER;
+                    SAVETMPS;
+
+                    SAVEVPTR (PL_curcop);
+                    PL_curcop= &cop;
+
+                    qsort_r(idx_array, n, sizeof(UV), idx_cmp, kv_sv_array);
+
+                    FREETMPS;
+                    LEAVE;
+                }
+                for ( i= 0; i < n ; i++ ) {
+                    SV **tmp= kv_sv_array + (idx_array[i] * 2);
+                    CALL_SRL_DUMP_SV(enc, *tmp);
+                    tmp++;
+                    CALL_SRL_DUMP_SV(enc, *tmp);
+                }
             } else {
-                /* hack to forcefully disable "use bytes" */
-                COP cop= *PL_curcop;
-                cop.op_private= 0;
+                HE **he_array;
+                int fast = 1;
+                Newxz(he_array, n, HE*);
+                SAVEFREEPV(he_array);
+                while ((he = hv_iternext(src))) {
+                    he_array[i++]= he;
+                    if (HeKLEN (he) < 0 || HeKUTF8 (he))
+                        fast = 0;
+                }
+                if (fast) {
+                    qsort(he_array, n, sizeof (HE *), he_cmp_fast);
+                } else {
+                    /* hack to forcefully disable "use bytes" */
+                    COP cop= *PL_curcop;
+                    cop.op_private= 0;
 
-                ENTER;
-                SAVETMPS;
+                    ENTER;
+                    SAVETMPS;
 
-                SAVEVPTR (PL_curcop);
-                PL_curcop= &cop;
+                    SAVEVPTR (PL_curcop);
+                    PL_curcop= &cop;
 
-                qsort(he_array, n, sizeof (HE *), he_cmp_slow);
+                    qsort(he_array, n, sizeof (HE *), he_cmp_slow);
 
-                FREETMPS;
-                LEAVE;
-            }
-            for ( i= 0; i < n ; i++ ) {
-                SV *v;
-                he= he_array[i];
-                v= hv_iterval(src, he);
-                srl_dump_hk(aTHX_ enc, he, do_share_keys);
-                CALL_SRL_DUMP_SV(enc, v);
+                    FREETMPS;
+                    LEAVE;
+                }
+                for ( i= 0; i < n ; i++ ) {
+                    SV *v;
+                    he= he_array[i];
+                    v= hv_iterval(src, he);
+                    srl_dump_hk(aTHX_ enc, he, do_share_keys);
+                    CALL_SRL_DUMP_SV(enc, v);
+                }
             }
         } else {
             while ((he = hv_iternext(src))) {
                 SV *v;
                 if (expect_false( i == n ))
-                    croak("Panic: Trying to dump a tied hash that has a different number of keys in each iteration is just daft. Do not do that.");
+                    croak("Panic: cannot serialize a tied hash which changes its size!");
                 v= hv_iterval(src, he);
                 srl_dump_hk(aTHX_ enc, he, do_share_keys);
                 CALL_SRL_DUMP_SV(enc, v);
                 ++i;
             }
             if (expect_false( i != n ))
-                croak("Panic: Trying to dump a tied hash that has a different number of keys in each iteration is just daft. Do not do that.");
+                croak("Panic: cannot serialize a tied hash which changes its size!");
         }
     } else {
         n= HvUSEDKEYS(src);

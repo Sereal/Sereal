@@ -31,11 +31,14 @@ foreach my $i (0..$#keys) {
 
 my $enc_tied  = sereal_encode_with_object($enc, \%new_std_hash);
 my $enc_normal= sereal_encode_with_object($enc, \%normal_hash);
-diag hobodecode $enc_tied;
 
-TODO:{
-    local $::TODO= "Not reliable right now.";
-    is($enc_tied, $enc_normal, "Tied and untied are the same");
+
+is($enc_tied, $enc_normal, "Tied and untied are the same")
+or do {
+    diag "Normal:\n";
+    hobodecode $enc_normal;
+    diag "Tied: \n";
+    hobodecode $enc_tied;
 };
 
 my $dec_tied= decode_sereal($enc_tied);
