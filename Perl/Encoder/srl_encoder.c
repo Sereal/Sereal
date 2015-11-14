@@ -1179,9 +1179,15 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
     HE *he;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
     UV n;
+    U32 dosort= SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS);
 
-    if ( SvMAGICAL(src) || SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS) ) {
+    if ( dosort || SvMAGICAL(src) ) {
         UV i;
+        if ( SvMAGICAL(src) ) {
+            /* current we fail completely with tied hashes. Fix that. */
+            warn("Sereal: Warning: Ignoring sort option for tied hash, can't reliably sort tied hashes right.");
+            dosort = 0;
+        }
         /* for tied hashes, we have to iterate to find the number of entries. Alas... */
         (void)hv_iterinit(src); /* return value not reliable according to API docs */
         n = 0;
@@ -1198,7 +1204,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 
         (void)hv_iterinit(src); /* return value not reliable according to API docs */
         i = 0;
-        if (SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS)) {
+        if ( dosort ) {
             HE **he_array;
             int fast = 1;
             Newxz(he_array, n, HE*);
