@@ -5,28 +5,25 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 3 of the *
 *          encoder!                                            *
 ****************************************************************
-3.005_005 Nov 13 2015
-  * [DECODER] fix segfaults from heavily corrupted data
-  * [DECODER] fix build version tests
-
-3.005_004 Nov 13 2015
-  * [DECODER] Build/test fixes and improvements. We were getting
-  * a bunchof false test fails from fixing bugs. The round trip
-  * version checks have been fixed.
-
-3.005_003 Nov 11 2015
-  * We can't serialize copies of false (ie, pv="" iv=0, POK/IOK)
-    as FALSE.
-  * Add missing Changes update for 3.005_002
-  * Fixups for cast warnings under -Wint-to-ptr builds by using
-    using PTR2INT and INT2PTR for casting our objects.
-
-3.005_002 Nov 08 2015
-  * Various subtle fixes to how we choose whether to serialize
+3.006 Nov 14 2015
+  * [DECODER] fix segfaults from heavily corrupted data. Guards
+    against various pathological cases which could cause segfaults
+    fixed. Thanks to Damian Gryski and "fuzzing sereal with afl"
+    for finding these cases.
+  * [ENCODER] Various subtle fixes to how we choose whether to serialize
     the string or numeric version of a value, in particular to
     ensure that "00" always round trips as "00", and related issues.
-
-3.005_001 Jan 27 2015
+    Note this fix has correctness and performance consequences. In
+    some cases values that used to serialized as integers (arguably
+    incorrectly) will be serialized as strings instead, and some code
+    maybe be slower to serialize.
+    NOTE: Some issues related to this subject are not fixable without
+    a protocol change. In particular this change may affect the behavior
+    of code that uses binary logical operators on values serialized
+    with Perl.
+    Thanks to Zefram, Tom, and others for help with this issue.
+  * Fixups for cast warnings under -Wint-to-ptr builds by using
+    using PTR2INT and INT2PTR for casting our objects.
   * Win32 fixes
   * Build improvements
   * Changes to how we generate constants
