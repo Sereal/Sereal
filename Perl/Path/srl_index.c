@@ -133,6 +133,7 @@ srl_allocate_element(pTHX_ srl_index_t *index, uint32_t type, uint32_t offset)
     SRL_INDEX_TRACE("index scalar");
 
     size = sizeof(srl_indexed_element_t);
+    fprintf(stderr, "*** Allocating element, %lu bytes\n", size);
     ptr = (srl_indexed_element_t*) srl_index_allocate(aTHX_ index, size);
     if (expect_false(ptr == NULL)) return NULL;
 
@@ -150,6 +151,7 @@ srl_allocate_array(pTHX_ srl_index_t *index, size_t length, uint32_t type, uint3
     if (expect_false(length > SRL_INDEX_SIZE_MASK)) return NULL;
 
     size = sizeof(srl_indexed_array_t) + length * sizeof(srl_indexed_array_element_t);
+    fprintf(stderr, "*** Allocating array, %lu bytes\n", size);
     ptr = (srl_indexed_array_t*) srl_index_allocate(aTHX_ index, size);
     if (expect_false(ptr == NULL)) return NULL;
 
@@ -167,6 +169,7 @@ srl_allocate_hash(pTHX_ srl_index_t *index, size_t length, uint32_t type, uint32
     if (expect_false(length > SRL_INDEX_SIZE_MASK)) return NULL;
 
     size = sizeof(srl_indexed_hash_t) + length * sizeof(srl_indexed_hash_element_t);
+    fprintf(stderr, "*** Allocating hash, %lu bytes\n", size);
     ptr = (srl_indexed_hash_t*) srl_index_allocate(aTHX_ index, size);
     if (expect_false(ptr == NULL)) return NULL;
 
@@ -569,12 +572,12 @@ static void process_array(pTHX_
 {
     UV type = SRL_INDEX_TYPE_EMPTY;
     srl_indexed_array_t* array = 0;
+    int exceeded = (index->options.index_depth != 0 &&
+                    index->options.index_depth <= stack->pos);
 
-    if (index->options.index_depth != 0 &&
-        index->options.index_depth <= stack->pos) {
-        type = SRL_INDEX_TYPE_SCALAR;
-        SRL_INDEX_FLAG_CLR(type, SRL_INDEX_FLAG_POINTER_INDEX);
-    } else {
+    if (!exceeded) {
+        // when we have NOT exceeded the index's max depth,
+        // we try to build a new array index
         type = SRL_INDEX_TYPE_ARRAY;
         SRL_INDEX_FLAG_SET(type, SRL_INDEX_FLAG_POINTER_INDEX);
         array = srl_allocate_array(aTHX_
@@ -582,8 +585,16 @@ static void process_array(pTHX_
                                    length,
                                    type,
                                    offset);
+    }
 
-        type = SRL_INDEX_TYPE_SCALAR;
+    // if we do have a new array index, we need to point to it
+    // from the current container, which we do using a scalar
+    // pointing into the index; otherwise, whether because we
+    // exceeded the index's max depth, or because we ran out of
+    // memory (and could not create the array index), we simply
+    // use a scalar pointing to the current Sereal offset
+    type = SRL_INDEX_TYPE_SCALAR;
+    if (array) {
         SRL_INDEX_FLAG_SET(type, SRL_INDEX_FLAG_POINTER_INDEX);
         offset = srl_index_offset_for_ptr(index, array);
     }
@@ -608,7 +619,11 @@ static void process_array(pTHX_
     }
 
     if (!array) {
-        fprintf(stderr, "+[%d] GONZO: Reached max depth %d\n", stack->pos, index->options.index_depth);
+        if (exceeded) {
+            fprintf(stderr, "+[%d] GONZO: Reached max depth %d\n", stack->pos, index->options.index_depth);
+        } else {
+            fprintf(stderr, "+[%d] GONZO: Not enough memory to index array\n", stack->pos);
+        }
 
         srl_iterator_next(aTHX_ iter, 1);
         ++stack->info[stack->pos].ppos;
@@ -630,12 +645,14 @@ static void process_hash(pTHX_
     UV type = SRL_INDEX_TYPE_EMPTY;
     srl_indexed_hash_t* hash = 0;
     UV hsize = length;
+    int exceeded = (index->options.index_depth != 0 &&
+                    index->options.index_depth <= stack->pos);
 
-    if (index->options.index_depth != 0 &&
-        index->options.index_depth <= stack->pos) {
-        type = SRL_INDEX_TYPE_SCALAR;
-        SRL_INDEX_FLAG_CLR(type, SRL_INDEX_FLAG_POINTER_INDEX);
-    } else {
+    if (!exceeded) {
+        // when we have NOT exceeded the index's max depth,
+        // we try to build a new hash index; if the index
+        // has a hash factor greater than one, we increase
+        // the size of the new hash index by that factor
         type = SRL_INDEX_TYPE_HASH;
         SRL_INDEX_FLAG_SET(type, SRL_INDEX_FLAG_POINTER_INDEX);
         if (index->options.hash_factor > 1.0) {
@@ -648,8 +665,16 @@ static void process_hash(pTHX_
                                  hsize,
                                  type,
                                  offset);
+    }
 
-        type = SRL_INDEX_TYPE_SCALAR;
+    // if we do have a new hash index, we need to point to it
+    // from the current container, which we do using a scalar
+    // pointing into the index; otherwise, whether because we
+    // exceeded the index's max depth, or because we ran out of
+    // memory (and could not create the hash index), we simply
+    // use a scalar pointing to the current Sereal offset
+    type = SRL_INDEX_TYPE_SCALAR;
+    if (hash) {
         SRL_INDEX_FLAG_SET(type, SRL_INDEX_FLAG_POINTER_INDEX);
         offset = srl_index_offset_for_ptr(index, hash);
     }
@@ -674,7 +699,11 @@ static void process_hash(pTHX_
     }
 
     if (!hash) {
-        fprintf(stderr, "+[%d] GONZO: Reached max depth %d\n", stack->pos, index->options.index_depth);
+        if (exceeded) {
+            fprintf(stderr, "+[%d] GONZO: Reached max depth %d\n", stack->pos, index->options.index_depth);
+        } else {
+            fprintf(stderr, "+[%d] GONZO: Not enough memory to index hash\n", stack->pos);
+        }
 
         srl_iterator_next(aTHX_ iter, 1);
         ++stack->info[stack->pos].ppos;
