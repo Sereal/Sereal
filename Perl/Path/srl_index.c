@@ -244,48 +244,54 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
             break;
 
         case SRL_INDEX_TYPE_ARRAY: {
-            int j;
-            srl_indexed_array_t* array = (srl_indexed_array_t*) elem;
+            if (flag_index) {
+                int j;
+                srl_indexed_array_t* array = (srl_indexed_array_t*) elem;
 
-            fprintf(stderr, "=[%d] Array offset %u pointing to %s, %u elements\n",
-                    depth, elem->offset,
-                    flag_index ? "Index" : "Sereal",
-                    size);
+                fprintf(stderr, "=[%d] Array offset %u pointing to %s, %u elements\n",
+                        depth, elem->offset, "Index", size);
 
-            for (j = 0; j < size; ++j) {
-                srl_indexed_array_element_t* elem = (srl_indexed_array_element_t*) &array->dataset[j];
-                fprintf(stderr, "=[%d] Member #%d %p\n", depth, j, elem);
-                dump_index_data(index, (srl_indexed_element_t*) elem, depth+1);
+                for (j = 0; j < size; ++j) {
+                    srl_indexed_array_element_t* elem = (srl_indexed_array_element_t*) &array->dataset[j];
+                    fprintf(stderr, "=[%d] Member #%d %p\n", depth, j, elem);
+                    dump_index_data(index, (srl_indexed_element_t*) elem, depth+1);
+                }
+            } else {
+                fprintf(stderr, "=[%d] Array offset %u pointing to %s, %u elements\n",
+                        depth, elem->offset, "Sereal", size);
             }
             break;
         }
 
         case SRL_INDEX_TYPE_HASH: {
-            int j;
-            srl_indexed_hash_t* hash = (srl_indexed_hash_t*) elem;
+            if (flag_index) {
+                int j;
+                srl_indexed_hash_t* hash = (srl_indexed_hash_t*) elem;
 
-            fprintf(stderr, "=[%d] Hash offset %u pointing to %s, %u elements\n",
-                    depth, elem->offset,
-                    flag_index ? "Index" : "Sereal",
-                    size);
+                fprintf(stderr, "=[%d] Hash offset %u pointing to %s, %u elements\n",
+                        depth, elem->offset, "Index", size);
 
-            for (j = 0; j < size; ++j) {
-                srl_indexed_hash_element_t* elem = (srl_indexed_hash_element_t*) &hash->dataset[j];
-                uint32_t ktype = elem->flags & SRL_INDEX_TYPE_MASK;
-                uint32_t ksize = elem->flags & SRL_INDEX_SIZE_MASK;
-                uint32_t kflag_small = SRL_INDEX_FLAG_GET(ktype, SRL_INDEX_FLAG_KEY_SMALL);
-                fprintf(stderr, "=[%d] Member #%d %p\n", depth, j, elem);
+                for (j = 0; j < size; ++j) {
+                    srl_indexed_hash_element_t* elem = (srl_indexed_hash_element_t*) &hash->dataset[j];
+                    uint32_t ktype = elem->flags & SRL_INDEX_TYPE_MASK;
+                    uint32_t ksize = elem->flags & SRL_INDEX_SIZE_MASK;
+                    uint32_t kflag_small = SRL_INDEX_FLAG_GET(ktype, SRL_INDEX_FLAG_KEY_SMALL);
+                    fprintf(stderr, "=[%d] Member #%d %p\n", depth, j, elem);
 
-                if (kflag_small) {
-                    fprintf(stderr, "=[%d] Hash key SMALL: [%*.*s]\n",
-                            depth, (int) ksize, (int) ksize, elem->key.str);
-                } else {
-                    // srl_indexed_element_t* kref = (srl_indexed_element_t*) srl_index_ptr_for_offset(index, elem->key.h.str);
-                    fprintf(stderr, "=[%d] Hash key LARGE, %d bytes, hash %u, offset %u\n",
-                            depth, ksize, elem->key.h.hash, elem->key.h.str);
+                    if (kflag_small) {
+                        fprintf(stderr, "=[%d] Hash key SMALL: [%*.*s]\n",
+                                depth, (int) ksize, (int) ksize, elem->key.str);
+                    } else {
+                        // srl_indexed_element_t* kref = (srl_indexed_element_t*) srl_index_ptr_for_offset(index, elem->key.h.str);
+                        fprintf(stderr, "=[%d] Hash key LARGE, %d bytes, hash %u, offset %u\n",
+                                depth, ksize, elem->key.h.hash, elem->key.h.str);
+                    }
+
+                    dump_index_data(index, (srl_indexed_element_t*) elem, depth+1);
                 }
-
-                dump_index_data(index, (srl_indexed_element_t*) elem, depth+1);
+            } else {
+                fprintf(stderr, "=[%d] Hash offset %u pointing to %s, %u elements\n",
+                        depth, elem->offset, "Sereal", size);
             }
             break;
         }
@@ -593,8 +599,10 @@ static void process_array(pTHX_
     // exceeded the index's max depth, or because we ran out of
     // memory (and could not create the array index), we simply
     // use a scalar pointing to the current Sereal offset
-    type = SRL_INDEX_TYPE_SCALAR;
-    if (array) {
+    if (!array) {
+        type = SRL_INDEX_TYPE_ARRAY;
+    } else {
+        type = SRL_INDEX_TYPE_SCALAR;
         SRL_INDEX_FLAG_SET(type, SRL_INDEX_FLAG_POINTER_INDEX);
         offset = srl_index_offset_for_ptr(index, array);
     }
@@ -673,8 +681,10 @@ static void process_hash(pTHX_
     // exceeded the index's max depth, or because we ran out of
     // memory (and could not create the hash index), we simply
     // use a scalar pointing to the current Sereal offset
-    type = SRL_INDEX_TYPE_SCALAR;
-    if (hash) {
+    if (!hash) {
+        type = SRL_INDEX_TYPE_HASH;
+    } else {
+        type = SRL_INDEX_TYPE_SCALAR;
         SRL_INDEX_FLAG_SET(type, SRL_INDEX_FLAG_POINTER_INDEX);
         offset = srl_index_offset_for_ptr(index, hash);
     }
