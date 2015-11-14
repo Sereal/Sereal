@@ -178,7 +178,13 @@ srl_allocate_hash(pTHX_ srl_index_t *index, size_t length, uint32_t type, uint32
     return ptr;
 }
 
-#if 1
+
+// The functions protected by this variable are ONLY used to dump the
+// contents of an index, to help debugging.  They can be totally erased
+// from the code, they are not required.
+#define DUMP_INDEX 1
+
+#if defined(DUMP_INDEX) && (DUMP_INDEX > 0)
 
 static const char* GetObjType(uint32_t type)
 {
@@ -322,6 +328,17 @@ static void dump_index(srl_index_t* index)
     }
 }
 
+#endif // #if defined(DUMP_INDEX) && (DUMP_INDEX > 0)
+
+
+// The functions protected by this variable are ONLY used to show the
+// intermediate steps while we build an index.  They can be totally
+// erased from the code, they are not required.
+
+#define DUMP_ITERATOR 1
+
+#if defined(DUMP_ITERATOR) && (DUMP_ITERATOR > 0)
+
 static const char* GetSVType(int type)
 {
     if (type == SRL_ITERATOR_OBJ_IS_SCALAR) {
@@ -362,6 +379,8 @@ static void dump_sv(pTHX_ SV* sv)
     }
 }
 
+#endif // #if defined(DUMP_ITERATOR) && (DUMP_ITERATOR > 0)
+
 static void walk_iterator(pTHX_ srl_index_t* index);
 
 srl_index_t* srl_create_index(pTHX_ srl_iterator_t* iter,
@@ -374,11 +393,11 @@ srl_index_t* srl_create_index(pTHX_ srl_iterator_t* iter,
 
     fprintf(stderr, "====================\n");
     walk_iterator(aTHX_ index);
+#if defined(DUMP_INDEX) && (DUMP_INDEX > 0)
     dump_index(index);
+#endif
     return index;
 }
-
-#if 1
 
 typedef struct StackInfo {
     UV ptyp;
@@ -736,15 +755,27 @@ static void walk_iterator(pTHX_ srl_index_t* index)
 
         type   = srl_iterator_object_info(aTHX_ iter, &length);
         offset = srl_iterator_offset(aTHX_ iter);
+
+#if defined(DUMP_ITERATOR) && (DUMP_ITERATOR > 0)
         fprintf(stderr, "+[%d] GONZO: pos %3zu, type %6s, len %4zu, off %4zu",
                 stack.pos, stack.info[stack.pos].ppos, GetSVType(type), length, offset);
+#else
+        fprintf(stderr, "+[%d] GONZO: pos %3zu, type 0x%02lX, len %4zu, off %4zu",
+                stack.pos, stack.info[stack.pos].ppos, type, length, offset);
+#endif
         switch (type) {
+#if defined(DUMP_ITERATOR) && (DUMP_ITERATOR > 0)
             SV* val = 0;
+#endif
 
             case SRL_ITERATOR_OBJ_IS_SCALAR:
+#if defined(DUMP_ITERATOR) && (DUMP_ITERATOR > 0)
                 fprintf(stderr, " (in %6s) => ", GetSVType(stack.info[stack.pos].ptyp));
                 val = srl_iterator_decode(aTHX_ iter);
                 dump_sv(aTHX_ val);
+#else
+                fprintf(stderr, " (in 0x%02lX)\n", stack.info[stack.pos].ptyp);
+#endif
 
                 process_scalar(aTHX_ index, iter, length, offset, &stack);
                 break;
