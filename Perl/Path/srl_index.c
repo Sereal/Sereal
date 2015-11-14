@@ -27,23 +27,29 @@ extern "C" {
 #define SRL_INDEX_USED(index)  (((index)->ptr - (index)->beg))
 #define SRL_INDEX_LEFT(index)  (((index)->end - (index)->ptr))
 
+// field flags mix 1 byte for type and 3 bytes for size
+// the first two bits in type are actually boolean values, see below
 #define SRL_INDEX_TYPE_MASK           (0xFF000000)
 #define SRL_INDEX_SIZE_MASK           (0x00FFFFFF)
 #define SRL_INDEX_FLAG_MASK           (0xc0000000)
 
-#define SRL_INDEX_FLAG_POINTER_INDEX  (1<<31)      // offset point to index
-#define SRL_INDEX_FLAG_KEY_SMALL      (1<<30)      // key is small, stored in index
+// boolean values in type byte
+#define SRL_INDEX_FLAG_POINTER_INDEX  (1<<31)      // offset points to 1:index, 0:Sereal
+#define SRL_INDEX_FLAG_KEY_SMALL      (1<<30)      // key is 1:small (stored in index), 2:large
 
+// helper macros to get a boolean value, set it or clear it
 #define SRL_INDEX_FLAG_GET(var, flag) (var &   (flag))
 #define SRL_INDEX_FLAG_SET(var, flag) (var |=  (flag))
 #define SRL_INDEX_FLAG_CLR(var, flag) (var &= ~(flag))
 
+// possible values for types
 #define SRL_INDEX_TYPE_EMPTY          (0x00000000)
 #define SRL_INDEX_TYPE_SCALAR         (0x01000000)
 #define SRL_INDEX_TYPE_ARRAY          (0x02000000)
 #define SRL_INDEX_TYPE_HASH           (0x03000000)
 #define SRL_INDEX_TYPE_LAST           (0x04000000)
 
+// get actual type from flags, stripping boolean values
 #define SRL_INDEX_TYPE_GET(var)       ((var & SRL_INDEX_TYPE_MASK) & ~SRL_INDEX_FLAG_MASK)
 
 /* Allocate new array (but not the index struct) */
@@ -100,11 +106,14 @@ srl_index_destroy(pTHX_
     Safefree(index);
 }
 
+// TWO MACROS UNUSED?
 #define srl_index_ptr(index)   ((index)->ptr)
 #define srl_index_clear(index) STMT_START {                           \
     (index)->ptr = (index)->beg;                                      \
     DEBUG_ASSERT_INDEX_SANE(index);                                   \
 } STMT_END
+
+// convert from pointer to offset and back
 #define srl_index_offset_for_ptr(index, elem)   (((char*) (elem)) - (index)->beg)
 #define srl_index_ptr_for_offset(index, offset) ((char*) ((index)->beg + offset))
 
@@ -125,6 +134,7 @@ srl_index_allocate(pTHX_ srl_index_t *index, size_t size)
     return ptr;
 }
 
+// allocate an element in the index; usually used for scalars
 SRL_STATIC_INLINE srl_indexed_element_t*
 srl_allocate_element(pTHX_ srl_index_t *index, uint32_t type, uint32_t offset)
 {
@@ -142,6 +152,7 @@ srl_allocate_element(pTHX_ srl_index_t *index, uint32_t type, uint32_t offset)
     return (srl_indexed_element_t*) ptr;
 }
 
+// allocate an array in the index
 SRL_STATIC_INLINE srl_indexed_array_t*
 srl_allocate_array(pTHX_ srl_index_t *index, size_t length, uint32_t type, uint32_t offset)
 {
@@ -160,6 +171,7 @@ srl_allocate_array(pTHX_ srl_index_t *index, size_t length, uint32_t type, uint3
     return ptr;
 }
 
+// allocate a hash in the index
 SRL_STATIC_INLINE srl_indexed_hash_t*
 srl_allocate_hash(pTHX_ srl_index_t *index, size_t length, uint32_t type, uint32_t offset)
 {
@@ -186,6 +198,7 @@ srl_allocate_hash(pTHX_ srl_index_t *index, size_t length, uint32_t type, uint32
 
 #if defined(DUMP_INDEX) && (DUMP_INDEX > 0)
 
+// get a string showing the given index type
 static const char* GetObjType(uint32_t type)
 {
     static const char* type_name[SRL_INDEX_TYPE_LAST] = {
@@ -221,6 +234,7 @@ static const char* GetObjType(uint32_t type)
     return ret;
 }
 
+// dump (recursively) index data
 static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int depth)
 {
     uint32_t type = elem->flags & SRL_INDEX_TYPE_MASK;
@@ -308,6 +322,7 @@ static void dump_index_data(srl_index_t* index, srl_indexed_element_t* elem, int
     }
 }
 
+// dump a whole index by calling dump_index_data()
 static void dump_index(srl_index_t* index)
 {
     uint32_t used = 0;
@@ -339,6 +354,7 @@ static void dump_index(srl_index_t* index)
 
 #if defined(DUMP_ITERATOR) && (DUMP_ITERATOR > 0)
 
+// get a string showing the given iterator type
 static const char* GetSVType(int type)
 {
     if (type == SRL_ITERATOR_OBJ_IS_SCALAR) {
@@ -356,6 +372,7 @@ static const char* GetSVType(int type)
     return "UNKNOWN";
 }
 
+// dump an SV value
 static void dump_sv(pTHX_ SV* sv)
 {
     if (SvROK(sv)) {
@@ -381,8 +398,10 @@ static void dump_sv(pTHX_ SV* sv)
 
 #endif // #if defined(DUMP_ITERATOR) && (DUMP_ITERATOR > 0)
 
+// forward declaration
 static void walk_iterator(pTHX_ srl_index_t* index);
 
+// main (public) entry point
 srl_index_t* srl_create_index(pTHX_ srl_iterator_t* iter,
                               srl_index_options_t* options)
 {
@@ -399,6 +418,7 @@ srl_index_t* srl_create_index(pTHX_ srl_iterator_t* iter,
     return index;
 }
 
+// info stored for each level of our explicit call stack
 typedef struct StackInfo {
     UV ptyp;
     UV ppos;
@@ -408,17 +428,20 @@ typedef struct StackInfo {
     UV hpos;
 } StackInfo;
 
+// our explicit call stack, including its current position
 typedef struct Stack {
-    struct StackInfo info[256]; // TODO
+    struct StackInfo info[256]; // TODO: static size
     int pos;
 } Stack;
 
+// initialize a Stack structure
 static void stack_init(Stack* stack)
 {
     stack->pos = 0;
     memset(&stack->info[stack->pos], 0, sizeof(StackInfo));
 }
 
+// push an element in the call stack
 static void stack_push(Stack* stack, UV plen, UV ptyp, srl_indexed_element_t* pdat, UV hsiz)
 {
     ++stack->pos;
@@ -430,12 +453,14 @@ static void stack_push(Stack* stack, UV plen, UV ptyp, srl_indexed_element_t* pd
     stack->info[stack->pos].hpos = 0;
 }
 
+// pop an element from the call stack
 static void stack_pop(Stack* stack)
 {
     --stack->pos;
     ++stack->info[stack->pos].ppos;
 }
 
+// a simple hashing function for strings
 static uint32_t hash_string(const char* str)
 {
     // I've had nice results with djb2 by Dan Bernstein.
@@ -449,13 +474,13 @@ static uint32_t hash_string(const char* str)
     return h;
 }
 
+// save current iterator hash key in the index
 static void save_hash_key(const char* kstr,
                           UV klen,
                           UV offset,
                           Stack* stack,
                           srl_indexed_hash_element_t* data)
 {
-    // Storing key
     uint32_t h = hash_string(kstr);
     uint32_t r = stack->info[stack->pos].hpos = h % stack->info[stack->pos].hsiz;
     fprintf(stderr, "+[%d] GONZO: processing KEY [%lu:%*.*s], hash %u\n",
@@ -490,6 +515,7 @@ static void save_hash_key(const char* kstr,
     }
 }
 
+// save current position in iterator into parent, which is an array index
 static void save_data_in_array(pTHX_
                                Stack* stack,
                                UV type,
@@ -507,6 +533,7 @@ static void save_data_in_array(pTHX_
     data[stack->info[stack->pos].ppos].flags = type;
 }
 
+// save current position in iterator into parent, which is a hash index
 static void save_data_in_hash(pTHX_
                               srl_iterator_t* iter,
                               Stack* stack,
@@ -539,6 +566,7 @@ static void save_data_in_hash(pTHX_
     }
 }
 
+// process current position in iterator: a scalar
 static void process_scalar(pTHX_
                            srl_index_t* index,
                            srl_iterator_t* iter,
@@ -571,6 +599,7 @@ static void process_scalar(pTHX_
     ++stack->info[stack->pos].ppos;
 }
 
+// process current position in iterator: an array
 static void process_array(pTHX_
                           srl_index_t* index,
                           srl_iterator_t* iter,
@@ -645,6 +674,7 @@ static void process_array(pTHX_
     }
 }
 
+// process current position in iterator: a hash
 static void process_hash(pTHX_
                          srl_index_t* index,
                          srl_iterator_t* iter,
@@ -728,6 +758,7 @@ static void process_hash(pTHX_
     }
 }
 
+// main routine to fully walk and index an iterator
 static void walk_iterator(pTHX_ srl_index_t* index)
 {
     Stack stack;
