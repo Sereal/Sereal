@@ -390,7 +390,7 @@ SRL_STATIC_INLINE srl_encoder_t *
 srl_empty_encoder_struct(pTHX)
 {
     srl_encoder_t *enc;
-    Newx(enc, 1, srl_encoder_t);
+    Newxz(enc, 1, srl_encoder_t);
     if (enc == NULL)
         croak("Out of memory");
 
@@ -400,25 +400,8 @@ srl_empty_encoder_struct(pTHX)
         croak("Out of memory");
     }
 
-    /* Set the tmp buffer struct's char buffer to NULL so we don't free
-     * something nasty if it's unused. */
-    enc->tmp_buf.start = NULL;
-
     enc->protocol_version = SRL_PROTOCOL_VERSION;
-    enc->recursion_depth = 0;
     enc->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
-    enc->operational_flags = 0;
-    /*enc->flags = 0;*/ /* to be set elsewhere */
-
-    enc->weak_seenhash = NULL;
-    enc->str_seenhash = NULL;
-    enc->ref_seenhash = NULL;
-    enc->snappy_workmem = NULL;
-    enc->string_deduper_hv = NULL;
-
-    enc->freezeobj_svhash = NULL;
-    enc->sereal_string_sv = NULL;
-    enc->scratch_sv = NULL;
 
     return enc;
 }
