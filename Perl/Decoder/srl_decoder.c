@@ -1067,7 +1067,8 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         }
         else
         if ( expect_false( SvTYPE(*fetched_sv) != SVt_NULL ) ) {
-            SRL_RDR_ERROR(dec->pbuf, "duplicate key in hash");
+            /* sv_dump(*fetched_sv); */
+            SRL_RDR_ERRORf2(dec->pbuf, "duplicate key '%.*s' in hash", key_len, (char *)from);
         }
         srl_read_single_value(aTHX_ dec, *fetched_sv, fetched_sv );
     }
