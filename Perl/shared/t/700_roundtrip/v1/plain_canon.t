@@ -19,7 +19,7 @@ if (not $ok) {
     plan skip_all => 'Did not find right version of encoder (want 3.001006)';
 }
 else {
-    run_roundtrip_tests("plain_canon", { canonical => 1 });
+    run_roundtrip_tests("plain_canonical", { canonical => 1 });
 }
 
 pass();
