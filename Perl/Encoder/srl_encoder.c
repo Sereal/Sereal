@@ -1173,7 +1173,7 @@ he_cmp_slow(const void *a, const void *b)
 }
 
 static int
-idx_cmp(const void *a_, const void *b_, void *arg)
+idx_cmp_slow(const void *a_, const void *b_, void *arg)
 {
     /* we are called as a callback from qsort, so no pTHX
      * is possible in our argument signature, so we need to do a
@@ -1187,7 +1187,7 @@ idx_cmp(const void *a_, const void *b_, void *arg)
     cmp= sv_cmp( kv_sv_array[ a * 2 ], kv_sv_array[ b * 2 ] );
 
     if (0) warn(
-        "idx_cmp: %"SVf" (%d) cmp %"SVf" (%d) : %d",
+        "idx_cmp_slow: %"SVf" (%d) cmp %"SVf" (%d) : %d",
         kv_sv_array[ a * 2 ], a,
         kv_sv_array[ b * 2 ], b,
         SIGN(cmp)
@@ -1254,7 +1254,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
                     SAVEVPTR (PL_curcop);
                     PL_curcop= &cop;
 
-                    qsort_r(idx_array, n, sizeof(UV), idx_cmp, kv_sv_array);
+                    qsort_r(idx_array, n, sizeof(UV), idx_cmp_slow, kv_sv_array);
 
                     FREETMPS;
                     LEAVE;
