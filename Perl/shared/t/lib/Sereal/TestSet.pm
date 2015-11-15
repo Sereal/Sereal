@@ -1099,7 +1099,8 @@ sub run_roundtrip_tests_internal {
             eval {$decoded2 = $dec->($encoded2); 1}
                 or do {
                     my $err = $@ || 'Zombie error';
-                    diag("Got error while encoding the second time: $err");
+                    diag("Got error while decoding the second time: $err");
+                    # hobodecode($encoded2);
                 };
 
             defined($decoded2) == defined($data)
@@ -1127,7 +1128,7 @@ sub run_roundtrip_tests_internal {
             eval {$decoded3 = $dec->($encoded3); 1}
                 or do {
                     my $err = $@ || 'Zombie error';
-                    diag("Got error while encoding the third time: $err");
+                    diag("Got error while decoding the third time: $err");
                 };
 
             defined($decoded3) == defined($data)
