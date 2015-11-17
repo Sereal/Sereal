@@ -736,7 +736,7 @@ Sereal currently will choose the *string* value when it detects these items.
 
 It is possible that a future release of the protocol will fix these issues.
 
-=back 4
+=back
 
 =head1 BUGS, CONTACT AND SUPPORT
 
