@@ -45,6 +45,11 @@ typedef struct {
     U32 hash;
 } sv_with_hash;
 
+typedef struct {
+    SV *key;
+    SV *val;
+} kv_sv;
+
 /* constructor from options */
 srl_encoder_t *srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options);
 

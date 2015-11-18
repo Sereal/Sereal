@@ -1,7 +1,6 @@
 use strict;
 use warnings;
 
-use Sereal::Decoder;
 use Test::More;
 use File::Spec;
 use lib File::Spec->catdir(qw(t lib));
@@ -18,7 +17,7 @@ if (have_encoder_and_decoder(3.005003)) {
     run_tests( "aliased_dedupe_strings", { aliased_dedupe_strings => 1 } );
     done_testing();
 } else {
-    plan skip_all => 'Did not find right version of encoder';
+    plan skip_all => "Did not find right version of encoder/decoder";
 }
 
 sub run_tests {

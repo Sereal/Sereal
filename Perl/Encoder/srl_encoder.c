@@ -1180,23 +1180,22 @@ he_cmp_slow(const void *a, const void *b)
 }
 
 static int
-idx_cmp_slow(const void *a_, const void *b_, void *arg)
+kv_cmp_slow(const void *a_, const void *b_)
 {
     /* we are called as a callback from qsort, so no pTHX
      * is possible in our argument signature, so we need to do a
      * dTHX; here ourselves. */
     int cmp;
-    const U32 a = *(U32 *)a_;
-    const U32 b = *(U32 *)b_;
-    SV **kv_sv_array= (SV**)arg;
+    const kv_sv *a = (kv_sv *)a_;
+    const kv_sv *b = (kv_sv *)b_;
     dTHX;
 
-    cmp= sv_cmp( kv_sv_array[ a * 2 ], kv_sv_array[ b * 2 ] );
+    cmp= sv_cmp( a->key, b->key );
 
     if (0) warn(
-        "idx_cmp_slow: %"SVf" (%d) cmp %"SVf" (%d) : %d",
-        kv_sv_array[ a * 2 ], a,
-        kv_sv_array[ b * 2 ], b,
+        "kv_cmp_slow: %"SVf" cmp %"SVf": %d",
+        a->key,
+        b->key,
         SIGN(cmp)
     );
     return cmp;
@@ -1233,18 +1232,16 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
              * structures returned from the tie infra. So we make an array, and
              * then sort it.*/
             if ( SvMAGICAL(src) ) {
-                SV **kv_sv_array;
-                UV *idx_array;
-                Newx(kv_sv_array, n*2, SV*);
+                kv_sv *kv_sv_array;
+                kv_sv *kv_sv_array_end;
+                Newx(kv_sv_array, n, kv_sv);
                 SAVEFREEPV(kv_sv_array);
-                Newx(idx_array, n, UV);
-                SAVEFREEPV(idx_array);
+                kv_sv_array_end= kv_sv_array + n;
                 while ((he = hv_iternext(src))) {
                     if (expect_false( i == n ))
                         croak("Panic: cannot serialize a tied hash which changes its size!");
-                    kv_sv_array[i*2]= hv_iterkeysv(he);
-                    kv_sv_array[(i*2)+1]= hv_iterval(src,he);
-                    idx_array[i]= i;
+                    kv_sv_array[i].key= hv_iterkeysv(he);
+                    kv_sv_array[i].val= hv_iterval(src,he);
                     i++;
                 }
                 if (expect_false( i != n ))
@@ -1261,16 +1258,15 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
                     SAVEVPTR (PL_curcop);
                     PL_curcop= &cop;
 
-                    qsort_r(idx_array, n, sizeof(UV), idx_cmp_slow, kv_sv_array);
+                    qsort(kv_sv_array, n, sizeof(kv_sv), kv_cmp_slow);
 
                     FREETMPS;
                     LEAVE;
                 }
-                for ( i= 0; i < n ; i++ ) {
-                    SV **tmp= kv_sv_array + (idx_array[i] * 2);
-                    CALL_SRL_DUMP_SV(enc, *tmp);
-                    tmp++;
-                    CALL_SRL_DUMP_SV(enc, *tmp);
+                while ( kv_sv_array < kv_sv_array_end ) {
+                    CALL_SRL_DUMP_SV(enc, kv_sv_array->key);
+                    CALL_SRL_DUMP_SV(enc, kv_sv_array->val);
+                    kv_sv_array++;
                 }
             } else {
                 HE **he_array;

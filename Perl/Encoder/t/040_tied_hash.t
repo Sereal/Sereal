@@ -6,16 +6,22 @@ require Tie::Hash;
 our @ISA = qw(Tie::StdHash);
 
 package main;
-use lib 't/lib';
-use Sereal::TestSet qw(hobodecode);
 use Test::More;
-use Sereal::Encoder 3.005 qw(
-    sereal_encode_with_object
-);
-use Sereal::Decoder 3.005 qw(
-    decode_sereal
-);
-use Devel::Peek;
+use File::Spec;
+use lib File::Spec->catdir(qw(t lib));
+BEGIN {
+    lib->import('lib')
+        if !-d 't';
+}
+use Sereal::TestSet qw(:all);
+
+my @keys= ('foo', 'bar', 'mip', 'xap');
+my $have_decoder= have_encoder_and_decoder();
+if ($have_decoder) {
+    plan tests => 1 + (4 * @keys);
+} else {
+    plan tests => 1;
+}
 
 my $enc = Sereal::Encoder->new({
     sort_keys => 1,
@@ -23,14 +29,13 @@ my $enc = Sereal::Encoder->new({
 
 tie my %new_std_hash, 'NewStdHash';
 my %normal_hash;
-my @keys= ('foo', 'bar', 'mip', 'xap');
 foreach my $i (0..$#keys) {
     $new_std_hash{$keys[$i]} = $i;
     $normal_hash{$keys[$i]}= $i;
 }
 
-my $enc_tied  = sereal_encode_with_object($enc, \%new_std_hash);
-my $enc_normal= sereal_encode_with_object($enc, \%normal_hash);
+my $enc_tied  = $enc->encode(\%new_std_hash);
+my $enc_normal= $enc->encode(\%normal_hash);
 
 
 is($enc_tied, $enc_normal, "Tied and untied are the same")
@@ -41,14 +46,15 @@ or do {
     hobodecode $enc_tied;
 };
 
-my $dec_tied= decode_sereal($enc_tied);
-my $dec_normal= decode_sereal($enc_normal);
-
-foreach my $i (0..$#keys) {
-    is($dec_tied->{$keys[$i]},$i, "decoded tied");
-    is($dec_normal->{$keys[$i]},$i, "decoded normal");
-    is($new_std_hash{$keys[$i]},$i, "original tied");
-    is($normal_hash{$keys[$i]},$i, "original normal");
+if ($have_decoder) {
+    my $dec= Sereal::Decoder->new();
+    my $dec_tied= $dec->decode($enc_tied);
+    my $dec_normal= $dec->decode($enc_normal);
+    foreach my $i (0..$#keys) {
+        is($dec_tied->{$keys[$i]},$i, "decoded tied");
+        is($dec_normal->{$keys[$i]},$i, "decoded normal");
+        is($new_std_hash{$keys[$i]},$i, "original tied");
+        is($normal_hash{$keys[$i]},$i, "original normal");
+    }
 }
-done_testing;
 

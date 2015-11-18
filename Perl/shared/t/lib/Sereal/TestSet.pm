@@ -627,18 +627,18 @@ sub have_encoder_and_decoder {
     }
     eval "use $Class; 1"
     or do {
-        note("Could not locate $Class for testing" . ($@ ? " (Exception: $@)" : ""));
+        diag("Could not locate $Class for testing" . ($@ ? " (Exception: $@)" : ""));
         return();
     };
 
     eval "use $need_class; 1"
     or do {
-        note("Could not locate $need_class for testing" . ($@ ? " (Exception: $@)" : ""));
+        diag("Could not locate $need_class for testing" . ($@ ? " (Exception: $@)" : ""));
         return();
     };
     my $cmp_v = $need_class->VERSION;
     if ($min_v and $cmp_v < $min_v) {
-        note("Could not load correct version of $need_class for testing "
+        diag("Could not load correct version of $need_class for testing "
              ."(got: $cmp_v, needed at least $min_v)");
         return;
     }
@@ -646,7 +646,7 @@ sub have_encoder_and_decoder {
     $cmp_v = sprintf("%.2f", int($cmp_v*100)/100);
     my %compat_versions = map {$_ => 1} $Class->_test_compat();
     if (not defined $cmp_v or not exists $compat_versions{$cmp_v}) {
-        note("Could not load correct version of $need_class for testing "
+        diag("Could not load correct version of $need_class for testing "
              ."(got: $cmp_v, needed any of ".join(", ", keys %compat_versions).")");
         return();
     }
