@@ -123,6 +123,8 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
                                     ? srl_init_weak_hash(enc)       \
                                    : (enc)->weak_seenhash )
 
+#define SRL_GET_WEAK_SEENHASH_OR_NULL(enc) ((enc)->weak_seenhash)
+
 #define SRL_GET_FREEZEOBJ_SVHASH(enc) ( (enc)->freezeobj_svhash == NULL     \
                                         ? srl_init_freezeobj_svhash(enc)    \
                                         : (enc)->freezeobj_svhash )
@@ -1010,25 +1012,30 @@ srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *user_he
 SRL_STATIC_INLINE void
 srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
 {
-    PTABLE_t *weak_seenhash = SRL_GET_WEAK_SEENHASH(enc);
-    PTABLE_ITER_t *it = PTABLE_iter_new(weak_seenhash);
-    PTABLE_ENTRY_t *ent;
+    PTABLE_t *weak_seenhash = SRL_GET_WEAK_SEENHASH_OR_NULL(enc);
+    if (!weak_seenhash)
+        return;
 
-    /* we now walk the weak_seenhash and set any tags it points
-     * at to the PAD opcode, this basically turns the first weakref
-     * we encountered into a normal ref when there is only a weakref
-     * pointing at the structure. */
-    while ( NULL != (ent = PTABLE_iter_next(it)) ) {
-        const ptrdiff_t offset = (ptrdiff_t)ent->value;
-        if ( offset ) {
-            srl_buffer_char *pos = enc->buf.body_pos + offset;
-            assert(*pos == SRL_HDR_WEAKEN);
-            if (DEBUGHACK) warn("setting byte at offset %"UVuf" to PAD", (UV)offset);
-            *pos = SRL_HDR_PAD;
+    {
+        PTABLE_ITER_t *it = PTABLE_iter_new(weak_seenhash);
+        PTABLE_ENTRY_t *ent;
+
+        /* we now walk the weak_seenhash and set any tags it points
+         * at to the PAD opcode, this basically turns the first weakref
+         * we encountered into a normal ref when there is only a weakref
+         * pointing at the structure. */
+        while ( NULL != (ent = PTABLE_iter_next(it)) ) {
+            const ptrdiff_t offset = (ptrdiff_t)ent->value;
+            if ( offset ) {
+                srl_buffer_char *pos = enc->buf.body_pos + offset;
+                assert(*pos == SRL_HDR_WEAKEN);
+                if (DEBUGHACK) warn("setting byte at offset %"UVuf" to PAD", (UV)offset);
+                *pos = SRL_HDR_PAD;
+            }
         }
-    }
 
-    PTABLE_iter_free(it);
+        PTABLE_iter_free(it);
+    }
 }
 
 
