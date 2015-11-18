@@ -18,13 +18,16 @@ BEGIN {
 use Sereal::Encoder;
 plan tests => 1;
 use threads;
+use threads::shared;
 
 sub foo {}
 SCOPE: {
-  my $enc = Sereal::Encoder->new;
+    my $dat= shared_clone([undef]);
+    my $enc = Sereal::Encoder->new;
 
-  my $thr = threads->new(\&foo);
-  $thr->join;
+    my $thr = threads->new(\&foo);
+    $thr->join;
+    my $encoded= $enc->encode($dat);
 }
 
 pass();
