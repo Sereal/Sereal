@@ -1594,7 +1594,7 @@ redo_dump:
 #if defined(MODERN_REGEXP) && defined(REGEXP_NO_LONGER_POK)
     /* Only need to enter here if we have rather modern regexps AND they're
      * NO LONGER POK (5.17.6 and up). */
-    if (expect_false( svt == SVt_REGEXP ) ) {
+    if ( expect_false( svt == SVt_REGEXP ) ) {
         srl_dump_regexp(aTHX_ enc, src);
     }
     else
@@ -1650,8 +1650,9 @@ redo_dump:
         srl_dump_av(aTHX_ enc, (AV *)src, refcount);
     }
     else
-    if (!SvOK(src)) { /* undef and weird shit */
-        if ( svt > SVt_PVMG ) {  /* we exclude magic, because magic sv's can be undef too */
+    if ( ! SvOK(src) ) { /* undef and weird shit */
+        if ( svt == SVt_PVGV || svt > SVt_PVLV ) {
+            /* we exclude magic, because magic sv's can be undef too */
             /* called when we find an unsupported type/reference. May either throw exception
              * or write ONE (nested or single) item to the buffer. */
 #define SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt, refsv, ref_rewrite_pos)                     \
