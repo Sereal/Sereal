@@ -5,6 +5,9 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 3 of the *
 *          encoder!                                            *
 ****************************************************************
+3.006_001 .. 3.006_004
+  * Encoder fixes only.
+
 3.006 Nov 14 2015
   * [DECODER] fix segfaults from heavily corrupted data. Guards
     against various pathological cases which could cause segfaults
