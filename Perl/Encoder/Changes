@@ -5,6 +5,20 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 3 of the *
 *          encoder!                                            *
 ****************************************************************
+3.006_003 Nov 18 2015
+  * Third, and hopefully final implementation of sorted tied hashes
+    In short qsort_r() broke everything but Linux :-( Switching
+    to qsort() should fix the problem.
+  * Optimizations.
+  
+3.006_002
+  * Second try at fixing sorted tied hashes.
+  * Build fixes for 5.8.9
+  * Doc patches
+
+3.006_001
+  * First try at fixing sorted tied hashes
+
 3.006 Nov 14 2015
   * [DECODER] fix segfaults from heavily corrupted data. Guards
     against various pathological cases which could cause segfaults
