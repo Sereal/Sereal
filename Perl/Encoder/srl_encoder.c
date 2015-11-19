@@ -1150,9 +1150,9 @@ he_cmp_fast_inline(HE **a_, HE **b_)
         cmp = lb - la;
     return cmp;
 }
-#define ISLT_FAST(a,b)          ( he_cmp_fast_inline(a,b) < 0 )
-#define ISLT_HE_CMP_SLOW(a,b)   ( sv_cmp( HeSVKEY_force( *a ), HeSVKEY_force( *b ) ) < 0 )
-#define ISLT_KV(a,b)            ( sv_cmp( a->key, b->key ) < 0 )
+#define ISLT_HE_FAST(a,b)   ( he_cmp_fast_inline(a,b) < 0 )
+#define ISLT_HE_SLOW(a,b)   ( sv_cmp( HeSVKEY_force( *a ), HeSVKEY_force( *b ) ) < 0 )
+#define ISLT_KV(a,b)        ( sv_cmp( a->key, b->key ) < 0 )
 
 SRL_STATIC_INLINE void
 srl_dump_hv_unsorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, UV n)
@@ -1277,10 +1277,9 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
                 fast = 0;
         }
         if (fast) {
-            QSORT(HE *, he_array, n, ISLT_FAST)
-            // qsort(he_array, n, sizeof (HE *), he_cmp_fast);
+            QSORT(HE *, he_array, n, ISLT_HE_FAST)
         } else {
-            CALL_QSORT_NOBYTES(HE *, he_array, n, ISLT_HE_CMP_SLOW);
+            CALL_QSORT_NOBYTES(HE *, he_array, n, ISLT_HE_SLOW);
         }
         while ( he_array < he_array_end ) {
             SV *v;
