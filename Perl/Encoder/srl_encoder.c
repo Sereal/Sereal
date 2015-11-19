@@ -1307,17 +1307,20 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
 {
     HE *he;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
-    UV i= 0;
 
     (void)hv_iterinit(src); /* return value not reliable according to API docs */
     {
         HE **he_array;
+        HE **he_array_ptr;
+        HE **he_array_end;
         int fast = 1;
         Newxz(he_array, n, HE*);
         SAVEFREEPV(he_array);
+        he_array_ptr = he_array;
+        he_array_end = he_array + n;
         while ((he = hv_iternext(src))) {
-            he_array[i++]= he;
-            if (HeKLEN (he) < 0 || HeKUTF8 (he))
+            *he_array_ptr++ = he;
+            if ( HeKLEN(he) < 0 || HeKUTF8(he) )
                 fast = 0;
         }
         if (fast) {
@@ -1325,10 +1328,10 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
         } else {
             CALL_QSORT_NOBYTES(he_array, n, sizeof (HE *), he_cmp_slow);
         }
-        for ( i= 0; i < n ; i++ ) {
+        while ( he_array < he_array_end ) {
             SV *v;
-            he= he_array[i];
-            v= hv_iterval(src, he);
+            he = *he_array++;
+            v = hv_iterval(src, he);
             srl_dump_hk(aTHX_ enc, he, do_share_keys);
             CALL_SRL_DUMP_SV(enc, v);
         }
