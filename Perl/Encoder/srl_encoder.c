@@ -1245,6 +1245,24 @@ srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
         croak("Panic: cannot serialize a tied hash which changes its size!");
 }
 
+#define CALL_QSORT_NOBYTES(ARY, N, SIZE, F)                 \
+    STMT_START {                                            \
+        /* hack to forcefully disable "use bytes" */        \
+        COP cop= *PL_curcop;                                \
+        cop.op_private= 0;                                  \
+                                                            \
+        ENTER;                                              \
+        SAVETMPS;                                           \
+                                                            \
+        SAVEVPTR (PL_curcop);                               \
+        PL_curcop= &cop;                                    \
+                                                            \
+        qsort((ARY), (N), (SIZE), (F));                     \
+                                                            \
+        FREETMPS;                                           \
+        LEAVE;                                              \
+    } STMT_END
+
 SRL_STATIC_INLINE void
 srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
 {
@@ -1273,22 +1291,8 @@ srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
         if (expect_false( i != n ))
             croak("Panic: can not serialize a tied hash which changes it size!");
 
-        {
-            /* hack to forcefully disable "use bytes" */
-            COP cop= *PL_curcop;
-            cop.op_private= 0;
+        CALL_QSORT_NOBYTES(kv_sv_array, n, sizeof(kv_sv), kv_cmp_slow);
 
-            ENTER;
-            SAVETMPS;
-
-            SAVEVPTR (PL_curcop);
-            PL_curcop= &cop;
-
-            qsort(kv_sv_array, n, sizeof(kv_sv), kv_cmp_slow);
-
-            FREETMPS;
-            LEAVE;
-        }
         while ( kv_sv_array < kv_sv_array_end ) {
             CALL_SRL_DUMP_SV(enc, kv_sv_array->key);
             CALL_SRL_DUMP_SV(enc, kv_sv_array->val);
@@ -1296,6 +1300,7 @@ srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
         }
     }
 }
+
 
 SRL_STATIC_INLINE void
 srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
@@ -1318,20 +1323,7 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
         if (fast) {
             qsort(he_array, n, sizeof (HE *), he_cmp_fast);
         } else {
-            /* hack to forcefully disable "use bytes" */
-            COP cop= *PL_curcop;
-            cop.op_private= 0;
-
-            ENTER;
-            SAVETMPS;
-
-            SAVEVPTR (PL_curcop);
-            PL_curcop= &cop;
-
-            qsort(he_array, n, sizeof (HE *), he_cmp_slow);
-
-            FREETMPS;
-            LEAVE;
+            CALL_QSORT_NOBYTES(he_array, n, sizeof (HE *), he_cmp_slow);
         }
         for ( i= 0; i < n ; i++ ) {
             SV *v;
