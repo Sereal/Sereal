@@ -1270,14 +1270,13 @@ srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 }
 
 SRL_STATIC_INLINE void
-srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
+srl_dump_hv_sorted(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 {
     HE *he;
     UV n;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
-    const U32 dosort= SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS);
 
-    if ( dosort ) {
+    if ( 1 ) {
         UV i= 0;
         /* for tied hashes, we have to iterate to find the number of entries. Alas... */
         (void)hv_iterinit(src); /* return value not reliable according to API docs */
@@ -1373,6 +1372,17 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
                 }
             }
         }
+    }
+}
+
+SRL_STATIC_INLINE void
+srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
+{
+    HE *he;
+    UV n;
+
+    if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS) ) {
+        srl_dump_hv_sorted(aTHX_ enc, src, refcount);
     } else if ( SvMAGICAL(src) ) {
         srl_dump_hv_unsorted_mg(aTHX_ enc, src, refcount);
     } else {
