@@ -52,6 +52,7 @@ extern "C" {
 #include "ptable.h"
 #include "srl_buffer.h"
 #include "srl_compress.h"
+#include "qsort.h"
 
 /* The ENABLE_DANGEROUS_HACKS (passed through from ENV via Makefile.PL) enables
  * optimizations that may make the code so cozy with a particular version of the
@@ -1133,14 +1134,13 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
 
 #define SIGN(cmp) (cmp < 0 ? -1 : cmp == 0 ? 0 : 1)
 
-/* compare hash entries, used when all keys are bytestrings */
-static int
-he_cmp_fast(const void *a_, const void *b_)
+SRL_STATIC_INLINE int
+he_cmp_fast_inline(HE **a_, HE **b_)
 {
     /* even though we are called as a callback from qsort there is
      * no need for a dTHX here, we don't use anything that needs it */
-    HE *a = *(HE **)a_;
-    HE *b = *(HE **)b_;
+    HE *a = *a_;
+    HE *b = *b_;
 
     STRLEN la = HeKLEN(a);
     STRLEN lb = HeKLEN(b);
@@ -1150,13 +1150,21 @@ he_cmp_fast(const void *a_, const void *b_)
         cmp = lb - la;
 
     if (0) warn(
-        "he_cmp_fast: %*s cmp %*s : %d",
+        "he_cmp_fast_inline: %*s cmp %*s : %d",
         (int)la, HeKEY(a),
         (int)lb, HeKEY(b),
         SIGN(cmp)
     );
 
     return cmp;
+}
+#define ISLT_FAST(a,b) ( he_cmp_fast_inline(a,b) < 0 )
+
+/* compare hash entries, used when all keys are bytestrings */
+static int
+he_cmp_fast(const void *a_, const void *b_)
+{
+    return he_cmp_fast_inline((HE **)a_,(HE **)b_);
 }
 
 /* compare hash entries, used when some keys are sv's or utf8 */
@@ -1245,7 +1253,7 @@ srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
         croak("Panic: cannot serialize a tied hash which changes its size!");
 }
 
-#define CALL_QSORT_NOBYTES(ARY, N, SIZE, F)                 \
+#define CALL_QSORT_NOBYTES(TYPE, ARY, N, F)                 \
     STMT_START {                                            \
         /* hack to forcefully disable "use bytes" */        \
         COP cop= *PL_curcop;                                \
@@ -1257,7 +1265,7 @@ srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
         SAVEVPTR (PL_curcop);                               \
         PL_curcop= &cop;                                    \
                                                             \
-        qsort((ARY), (N), (SIZE), (F));                     \
+        qsort((ARY), (N), sizeof(TYPE), (F));               \
                                                             \
         FREETMPS;                                           \
         LEAVE;                                              \
@@ -1291,7 +1299,7 @@ srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
         if (expect_false( i != n ))
             croak("Panic: can not serialize a tied hash which changes it size!");
 
-        CALL_QSORT_NOBYTES(kv_sv_array, n, sizeof(kv_sv), kv_cmp_slow);
+        CALL_QSORT_NOBYTES(kv_sv, kv_sv_array, n, kv_cmp_slow);
 
         while ( kv_sv_array < kv_sv_array_end ) {
             CALL_SRL_DUMP_SV(enc, kv_sv_array->key);
@@ -1324,9 +1332,10 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
                 fast = 0;
         }
         if (fast) {
-            qsort(he_array, n, sizeof (HE *), he_cmp_fast);
+            QSORT(HE *, he_array, n, ISLT_FAST);
+            // qsort(he_array, n, sizeof (HE *), he_cmp_fast);
         } else {
-            CALL_QSORT_NOBYTES(he_array, n, sizeof (HE *), he_cmp_slow);
+            CALL_QSORT_NOBYTES(HE *, he_array, n, he_cmp_slow);
         }
         while ( he_array < he_array_end ) {
             SV *v;
