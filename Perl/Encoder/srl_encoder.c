@@ -1148,68 +1148,11 @@ he_cmp_fast_inline(HE **a_, HE **b_)
     int cmp = memcmp(HeKEY(a), HeKEY(b), la < lb ? la : lb);
     if (!cmp)
         cmp = lb - la;
-
-    if (0) warn(
-        "he_cmp_fast_inline: %*s cmp %*s : %d",
-        (int)la, HeKEY(a),
-        (int)lb, HeKEY(b),
-        SIGN(cmp)
-    );
-
     return cmp;
 }
-#define ISLT_FAST(a,b) ( he_cmp_fast_inline(a,b) < 0 )
-
-/* compare hash entries, used when all keys are bytestrings */
-static int
-he_cmp_fast(const void *a_, const void *b_)
-{
-    return he_cmp_fast_inline((HE **)a_,(HE **)b_);
-}
-
-#define ISLT_HE_CMP_SLOW(a,b) (sv_cmp(HeSVKEY_force(*a),HeSVKEY_force(*b))<0)
-/* compare hash entries, used when some keys are sv's or utf8 */
-static int
-he_cmp_slow(const void *a, const void *b)
-{
-    /* we are called as a callback from qsort, so no pTHX
-     * is possible in our argument signature, so we need to do a
-     * dTHX; here ourselves. */
-    dTHX;
-    int cmp= sv_cmp( HeSVKEY_force( *(HE **)a), HeSVKEY_force( *(HE **)b ) );
-
-    if (0) warn(
-        "he_cmp_slow: %"SVf" cmp %"SVf" : %d",
-        HeSVKEY_force( *(HE **)a ),
-        HeSVKEY_force( *(HE **)b ),
-        SIGN(cmp)
-    );
-
-    return cmp;
-}
-
-#define ISLT_KV(a,b) ( sv_cmp(a->key, b->key) < 0 )
-static int
-kv_cmp_slow(const void *a_, const void *b_)
-{
-    /* we are called as a callback from qsort, so no pTHX
-     * is possible in our argument signature, so we need to do a
-     * dTHX; here ourselves. */
-    int cmp;
-    const kv_sv *a = (kv_sv *)a_;
-    const kv_sv *b = (kv_sv *)b_;
-    dTHX;
-
-    cmp= sv_cmp( a->key, b->key );
-
-    if (0) warn(
-        "kv_cmp_slow: %"SVf" cmp %"SVf": %d",
-        a->key,
-        b->key,
-        SIGN(cmp)
-    );
-    return cmp;
-}
+#define ISLT_FAST(a,b)          ( he_cmp_fast_inline(a,b) < 0 )
+#define ISLT_HE_CMP_SLOW(a,b)   ( sv_cmp( HeSVKEY_force( *a ), HeSVKEY_force( *b ) ) < 0 )
+#define ISLT_KV(a,b)            ( sv_cmp( a->key, b->key ) < 0 )
 
 SRL_STATIC_INLINE void
 srl_dump_hv_unsorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, UV n)
