@@ -1202,12 +1202,45 @@ kv_cmp_slow(const void *a_, const void *b_)
 }
 
 SRL_STATIC_INLINE void
+srl_dump_hv_unsorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
+{
+    HE *he;
+    UV n= HvUSEDKEYS(src);
+    const int do_share_keys = HvSHAREKEYS((SV *)src);
+
+    BUF_SIZE_ASSERT_HV(&enc->buf, n);
+    if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
+        enc->buf.pos--; /* backup over the previous REFN */
+        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_HASHREF + n);
+    } else {
+        srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_HASH, n);
+    }
+    if (n) {
+        HE **he_ptr= HvARRAY(src);
+        HE **he_end= he_ptr + HvMAX(src) + 1;
+        do {
+            for (he= *he_ptr++; he; he= HeNEXT(he) ) {
+                SV *v= HeVAL(he);
+                if (v != &PL_sv_placeholder) {
+                    srl_dump_hk(aTHX_ enc, he, do_share_keys);
+                    CALL_SRL_DUMP_SV(enc, v);
+                    if (--n == 0) {
+                        he_ptr= he_end;
+                        break;
+                    }
+                }
+            }
+        } while ( he_ptr < he_end );
+    }
+}
+
+SRL_STATIC_INLINE void
 srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 {
     HE *he;
-    const int do_share_keys = HvSHAREKEYS((SV *)src);
     UV n;
-    U32 dosort= SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS);
+    const int do_share_keys = HvSHAREKEYS((SV *)src);
+    const U32 dosort= SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS);
 
     if ( dosort || SvMAGICAL(src) ) {
         UV i= 0;
@@ -1318,33 +1351,10 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
                 croak("Panic: cannot serialize a tied hash which changes its size!");
         }
     } else {
-        n= HvUSEDKEYS(src);
-        BUF_SIZE_ASSERT_HV(&enc->buf, n);
-        if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
-            enc->buf.pos--; /* backup over the previous REFN */
-            srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_HASHREF + n);
-        } else {
-            srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_HASH, n);
-        }
-        if (n) {
-            HE **he_ptr= HvARRAY(src);
-            HE **he_end= he_ptr + HvMAX(src) + 1;
-            do {
-                for (he= *he_ptr++; he; he= HeNEXT(he) ) {
-                    SV *v= HeVAL(he);
-                    if (v != &PL_sv_placeholder) {
-                        srl_dump_hk(aTHX_ enc, he, do_share_keys);
-                        CALL_SRL_DUMP_SV(enc, v);
-                        if (--n == 0) {
-                            he_ptr= he_end;
-                            break;
-                        }
-                    }
-                }
-            } while ( he_ptr < he_end );
-        }
+        srl_dump_hv_unsorted_nomg(aTHX_ enc, src, refcount);
     }
 }
+
 
 
 SRL_STATIC_INLINE void
