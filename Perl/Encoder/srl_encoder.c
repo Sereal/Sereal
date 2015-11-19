@@ -1135,13 +1135,9 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
 #define SIGN(cmp) (cmp < 0 ? -1 : cmp == 0 ? 0 : 1)
 
 SRL_STATIC_INLINE int
-he_cmp_fast_inline(HE **a_, HE **b_)
+he_cmp_fast_inline(HE *a, HE *b)
 {
-    /* even though we are called as a callback from qsort there is
-     * no need for a dTHX here, we don't use anything that needs it */
-    HE *a = *a_;
-    HE *b = *b_;
-
+    /* no need for a dTHX here, we don't use anything that needs it */
     STRLEN la = HeKLEN(a);
     STRLEN lb = HeKLEN(b);
 
@@ -1150,7 +1146,7 @@ he_cmp_fast_inline(HE **a_, HE **b_)
         cmp = lb - la;
     return cmp;
 }
-#define ISLT_HE_FAST(a,b)   ( he_cmp_fast_inline(a,b) < 0 )
+#define ISLT_HE_FAST(a,b)   ( he_cmp_fast_inline( *a, *b ) < 0 )
 #define ISLT_HE_SLOW(a,b)   ( sv_cmp( HeSVKEY_force( *a ), HeSVKEY_force( *b ) ) < 0 )
 #define ISLT_KV(a,b)        ( sv_cmp( a->key, b->key ) < 0 )
 
