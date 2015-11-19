@@ -1235,6 +1235,41 @@ srl_dump_hv_unsorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 }
 
 SRL_STATIC_INLINE void
+srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
+{
+    HE *he;
+    UV n= 0;
+    UV i= 0;
+    const int do_share_keys = HvSHAREKEYS((SV *)src);
+
+    /* for tied hashes, we have to iterate to find the number of entries. Alas... */
+    (void)hv_iterinit(src); /* return value not reliable according to API docs */
+    while ((he = hv_iternext(src))) { ++n; }
+
+    BUF_SIZE_ASSERT_HV(&enc->buf, n);
+
+    if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
+        enc->buf.pos--; /* back up over the previous REFN */
+        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_HASHREF + n);
+    } else {
+        srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_HASH, n);
+    }
+
+    (void)hv_iterinit(src); /* return value not reliable according to API docs */
+    while ((he = hv_iternext(src))) {
+        SV *v;
+        if (expect_false( i == n ))
+            croak("Panic: cannot serialize a tied hash which changes its size!");
+        v= hv_iterval(src, he);
+        srl_dump_hk(aTHX_ enc, he, do_share_keys);
+        CALL_SRL_DUMP_SV(enc, v);
+        ++i;
+    }
+    if (expect_false( i != n ))
+        croak("Panic: cannot serialize a tied hash which changes its size!");
+}
+
+SRL_STATIC_INLINE void
 srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 {
     HE *he;
@@ -1242,7 +1277,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
     const int do_share_keys = HvSHAREKEYS((SV *)src);
     const U32 dosort= SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS);
 
-    if ( dosort || SvMAGICAL(src) ) {
+    if ( dosort ) {
         UV i= 0;
         /* for tied hashes, we have to iterate to find the number of entries. Alas... */
         (void)hv_iterinit(src); /* return value not reliable according to API docs */
@@ -1259,7 +1294,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
         }
 
         (void)hv_iterinit(src); /* return value not reliable according to API docs */
-        if ( dosort ) {
+        if ( 1 ) {
             /* can't use the same optimizations we use for normal hashes with tied
              * hashes - the HE*'s that are returned for tied hashes are temporary
              * structures returned from the tie infra. So we make an array, and
@@ -1337,19 +1372,9 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
                     CALL_SRL_DUMP_SV(enc, v);
                 }
             }
-        } else {
-            while ((he = hv_iternext(src))) {
-                SV *v;
-                if (expect_false( i == n ))
-                    croak("Panic: cannot serialize a tied hash which changes its size!");
-                v= hv_iterval(src, he);
-                srl_dump_hk(aTHX_ enc, he, do_share_keys);
-                CALL_SRL_DUMP_SV(enc, v);
-                ++i;
-            }
-            if (expect_false( i != n ))
-                croak("Panic: cannot serialize a tied hash which changes its size!");
         }
+    } else if ( SvMAGICAL(src) ) {
+        srl_dump_hv_unsorted_mg(aTHX_ enc, src, refcount);
     } else {
         srl_dump_hv_unsorted_nomg(aTHX_ enc, src, refcount);
     }
