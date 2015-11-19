@@ -1167,6 +1167,7 @@ he_cmp_fast(const void *a_, const void *b_)
     return he_cmp_fast_inline((HE **)a_,(HE **)b_);
 }
 
+#define ISLT_HE_CMP_SLOW(a,b) (sv_cmp(HeSVKEY_force(*a),HeSVKEY_force(*b))<0)
 /* compare hash entries, used when some keys are sv's or utf8 */
 static int
 he_cmp_slow(const void *a, const void *b)
@@ -1187,6 +1188,7 @@ he_cmp_slow(const void *a, const void *b)
     return cmp;
 }
 
+#define ISLT_KV(a,b) ( sv_cmp(a->key, b->key) < 0 )
 static int
 kv_cmp_slow(const void *a_, const void *b_)
 {
@@ -1265,7 +1267,7 @@ srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
         SAVEVPTR (PL_curcop);                               \
         PL_curcop= &cop;                                    \
                                                             \
-        qsort((ARY), (N), sizeof(TYPE), (F));               \
+        QSORT(TYPE, ARY, N, F)                              \
                                                             \
         FREETMPS;                                           \
         LEAVE;                                              \
@@ -1299,7 +1301,7 @@ srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
         if (expect_false( i != n ))
             croak("Panic: can not serialize a tied hash which changes it size!");
 
-        CALL_QSORT_NOBYTES(kv_sv, kv_sv_array, n, kv_cmp_slow);
+        CALL_QSORT_NOBYTES(kv_sv, kv_sv_array, n, ISLT_KV);
 
         while ( kv_sv_array < kv_sv_array_end ) {
             CALL_SRL_DUMP_SV(enc, kv_sv_array->key);
@@ -1332,10 +1334,10 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
                 fast = 0;
         }
         if (fast) {
-            QSORT(HE *, he_array, n, ISLT_FAST);
+            QSORT(HE *, he_array, n, ISLT_FAST)
             // qsort(he_array, n, sizeof (HE *), he_cmp_fast);
         } else {
-            CALL_QSORT_NOBYTES(HE *, he_array, n, he_cmp_slow);
+            CALL_QSORT_NOBYTES(HE *, he_array, n, ISLT_HE_CMP_SLOW);
         }
         while ( he_array < he_array_end ) {
             SV *v;
