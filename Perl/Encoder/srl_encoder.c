@@ -1276,101 +1276,97 @@ srl_dump_hv_sorted(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
     UV n;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
 
-    if ( 1 ) {
-        UV i= 0;
-        /* for tied hashes, we have to iterate to find the number of entries. Alas... */
-        (void)hv_iterinit(src); /* return value not reliable according to API docs */
-        n = 0;
-        while ((he = hv_iternext(src))) { ++n; }
+    UV i= 0;
+    /* for tied hashes, we have to iterate to find the number of entries. Alas... */
+    (void)hv_iterinit(src); /* return value not reliable according to API docs */
+    n = 0;
+    while ((he = hv_iternext(src))) { ++n; }
 
-        BUF_SIZE_ASSERT_HV(&enc->buf, n);
+    BUF_SIZE_ASSERT_HV(&enc->buf, n);
 
-        if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
-            enc->buf.pos--; /* back up over the previous REFN */
-            srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_HASHREF + n);
-        } else {
-            srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_HASH, n);
+    if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
+        enc->buf.pos--; /* back up over the previous REFN */
+        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_HASHREF + n);
+    } else {
+        srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_HASH, n);
+    }
+
+    (void)hv_iterinit(src); /* return value not reliable according to API docs */
+    /* can't use the same optimizations we use for normal hashes with tied
+     * hashes - the HE*'s that are returned for tied hashes are temporary
+     * structures returned from the tie infra. So we make an array, and
+     * then sort it.*/
+    if ( SvMAGICAL(src) ) {
+        kv_sv *kv_sv_array;
+        kv_sv *kv_sv_array_end;
+        Newx(kv_sv_array, n, kv_sv);
+        SAVEFREEPV(kv_sv_array);
+        kv_sv_array_end= kv_sv_array + n;
+        while ((he = hv_iternext(src))) {
+            if (expect_false( i == n ))
+                croak("Panic: cannot serialize a tied hash which changes its size!");
+            kv_sv_array[i].key= hv_iterkeysv(he);
+            kv_sv_array[i].val= hv_iterval(src,he);
+            i++;
         }
+        if (expect_false( i != n ))
+            croak("Panic: can not serialize a tied hash which changes it size!");
 
-        (void)hv_iterinit(src); /* return value not reliable according to API docs */
-        if ( 1 ) {
-            /* can't use the same optimizations we use for normal hashes with tied
-             * hashes - the HE*'s that are returned for tied hashes are temporary
-             * structures returned from the tie infra. So we make an array, and
-             * then sort it.*/
-            if ( SvMAGICAL(src) ) {
-                kv_sv *kv_sv_array;
-                kv_sv *kv_sv_array_end;
-                Newx(kv_sv_array, n, kv_sv);
-                SAVEFREEPV(kv_sv_array);
-                kv_sv_array_end= kv_sv_array + n;
-                while ((he = hv_iternext(src))) {
-                    if (expect_false( i == n ))
-                        croak("Panic: cannot serialize a tied hash which changes its size!");
-                    kv_sv_array[i].key= hv_iterkeysv(he);
-                    kv_sv_array[i].val= hv_iterval(src,he);
-                    i++;
-                }
-                if (expect_false( i != n ))
-                    croak("Panic: can not serialize a tied hash which changes it size!");
+        {
+            /* hack to forcefully disable "use bytes" */
+            COP cop= *PL_curcop;
+            cop.op_private= 0;
 
-                {
-                    /* hack to forcefully disable "use bytes" */
-                    COP cop= *PL_curcop;
-                    cop.op_private= 0;
+            ENTER;
+            SAVETMPS;
 
-                    ENTER;
-                    SAVETMPS;
+            SAVEVPTR (PL_curcop);
+            PL_curcop= &cop;
 
-                    SAVEVPTR (PL_curcop);
-                    PL_curcop= &cop;
+            qsort(kv_sv_array, n, sizeof(kv_sv), kv_cmp_slow);
 
-                    qsort(kv_sv_array, n, sizeof(kv_sv), kv_cmp_slow);
+            FREETMPS;
+            LEAVE;
+        }
+        while ( kv_sv_array < kv_sv_array_end ) {
+            CALL_SRL_DUMP_SV(enc, kv_sv_array->key);
+            CALL_SRL_DUMP_SV(enc, kv_sv_array->val);
+            kv_sv_array++;
+        }
+    } else {
+        HE **he_array;
+        int fast = 1;
+        Newxz(he_array, n, HE*);
+        SAVEFREEPV(he_array);
+        while ((he = hv_iternext(src))) {
+            he_array[i++]= he;
+            if (HeKLEN (he) < 0 || HeKUTF8 (he))
+                fast = 0;
+        }
+        if (fast) {
+            qsort(he_array, n, sizeof (HE *), he_cmp_fast);
+        } else {
+            /* hack to forcefully disable "use bytes" */
+            COP cop= *PL_curcop;
+            cop.op_private= 0;
 
-                    FREETMPS;
-                    LEAVE;
-                }
-                while ( kv_sv_array < kv_sv_array_end ) {
-                    CALL_SRL_DUMP_SV(enc, kv_sv_array->key);
-                    CALL_SRL_DUMP_SV(enc, kv_sv_array->val);
-                    kv_sv_array++;
-                }
-            } else {
-                HE **he_array;
-                int fast = 1;
-                Newxz(he_array, n, HE*);
-                SAVEFREEPV(he_array);
-                while ((he = hv_iternext(src))) {
-                    he_array[i++]= he;
-                    if (HeKLEN (he) < 0 || HeKUTF8 (he))
-                        fast = 0;
-                }
-                if (fast) {
-                    qsort(he_array, n, sizeof (HE *), he_cmp_fast);
-                } else {
-                    /* hack to forcefully disable "use bytes" */
-                    COP cop= *PL_curcop;
-                    cop.op_private= 0;
+            ENTER;
+            SAVETMPS;
 
-                    ENTER;
-                    SAVETMPS;
+            SAVEVPTR (PL_curcop);
+            PL_curcop= &cop;
 
-                    SAVEVPTR (PL_curcop);
-                    PL_curcop= &cop;
+            qsort(he_array, n, sizeof (HE *), he_cmp_slow);
 
-                    qsort(he_array, n, sizeof (HE *), he_cmp_slow);
-
-                    FREETMPS;
-                    LEAVE;
-                }
-                for ( i= 0; i < n ; i++ ) {
-                    SV *v;
-                    he= he_array[i];
-                    v= hv_iterval(src, he);
-                    srl_dump_hk(aTHX_ enc, he, do_share_keys);
-                    CALL_SRL_DUMP_SV(enc, v);
-                }
-            }
+            FREETMPS;
+            LEAVE;
+        }
+        for ( i= 0; i < n ; i++ ) {
+            SV *v;
+            he= he_array[i];
+            v= hv_iterval(src, he);
+            srl_dump_hk(aTHX_ enc, he, do_share_keys);
+            CALL_SRL_DUMP_SV(enc, v);
         }
     }
 }
