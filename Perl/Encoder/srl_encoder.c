@@ -1270,7 +1270,7 @@ srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 }
 
 SRL_STATIC_INLINE void
-srl_dump_hv_sorted(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
+srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 {
     HE *he;
     UV n;
@@ -1296,7 +1296,7 @@ srl_dump_hv_sorted(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
      * hashes - the HE*'s that are returned for tied hashes are temporary
      * structures returned from the tie infra. So we make an array, and
      * then sort it.*/
-    if ( SvMAGICAL(src) ) {
+    {
         kv_sv *kv_sv_array;
         kv_sv *kv_sv_array_end;
         Newx(kv_sv_array, n, kv_sv);
@@ -1333,7 +1333,27 @@ srl_dump_hv_sorted(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
             CALL_SRL_DUMP_SV(enc, kv_sv_array->val);
             kv_sv_array++;
         }
+    }
+}
+
+SRL_STATIC_INLINE void
+srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
+{
+    HE *he;
+    UV n= HvUSEDKEYS(src);
+    const int do_share_keys = HvSHAREKEYS((SV *)src);
+    UV i= 0;
+
+    BUF_SIZE_ASSERT_HV(&enc->buf, n);
+    if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
+        enc->buf.pos--; /* back up over the previous REFN */
+        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_HASHREF + n);
     } else {
+        srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_HASH, n);
+    }
+
+    (void)hv_iterinit(src); /* return value not reliable according to API docs */
+    {
         HE **he_array;
         int fast = 1;
         Newxz(he_array, n, HE*);
@@ -1378,7 +1398,11 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
     UV n;
 
     if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS) ) {
-        srl_dump_hv_sorted(aTHX_ enc, src, refcount);
+        if ( SvMAGICAL(src) ) {
+            srl_dump_hv_sorted_mg(aTHX_ enc, src, refcount);
+        } else {
+            srl_dump_hv_sorted_nomg(aTHX_ enc, src, refcount);
+        }
     } else if ( SvMAGICAL(src) ) {
         srl_dump_hv_unsorted_mg(aTHX_ enc, src, refcount);
     } else {
