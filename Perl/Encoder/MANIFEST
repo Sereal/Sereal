@@ -20,6 +20,7 @@ miniz.c
 miniz.h
 ppport.h
 ptable.h
+qsort.h
 snappy/csnappy.h
 snappy/csnappy_compat.h
 snappy/csnappy_compress.c
