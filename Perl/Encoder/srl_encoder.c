@@ -1143,7 +1143,7 @@ he_cmp_fast_inline(HE *a, HE *b)
 
     int cmp = memcmp(HeKEY(a), HeKEY(b), la < lb ? la : lb);
     if (!cmp)
-        cmp = lb - la;
+        cmp = la - lb; /* "a" should less than "aa", so 1 - 2 == -1 */
     return cmp;
 }
 #define ISLT_HE_FAST(a,b)   ( he_cmp_fast_inline( *a, *b ) < 0 )

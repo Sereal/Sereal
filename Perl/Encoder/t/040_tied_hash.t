@@ -15,7 +15,7 @@ BEGIN {
 }
 use Sereal::TestSet qw(:all);
 
-my @keys= ('foo', 'bar', 'mip', 'xap');
+my @keys= ('foo', 'bar', 'mip', 'xap', 'food', 'fool', 'fools', 'barking', 'bark');
 my $have_decoder= have_encoder_and_decoder();
 if ($have_decoder) {
     plan tests => 1 + (4 * @keys);
