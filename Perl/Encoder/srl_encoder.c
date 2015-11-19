@@ -1202,58 +1202,34 @@ kv_cmp_slow(const void *a_, const void *b_)
 }
 
 SRL_STATIC_INLINE void
-srl_dump_hv_unsorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
+srl_dump_hv_unsorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, UV n)
 {
     HE *he;
-    UV n= HvUSEDKEYS(src);
     const int do_share_keys = HvSHAREKEYS((SV *)src);
+    HE **he_ptr= HvARRAY(src);
+    HE **he_end= he_ptr + HvMAX(src) + 1;
 
-    BUF_SIZE_ASSERT_HV(&enc->buf, n);
-    if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
-        enc->buf.pos--; /* backup over the previous REFN */
-        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_HASHREF + n);
-    } else {
-        srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_HASH, n);
-    }
-    if (n) {
-        HE **he_ptr= HvARRAY(src);
-        HE **he_end= he_ptr + HvMAX(src) + 1;
-        do {
-            for (he= *he_ptr++; he; he= HeNEXT(he) ) {
-                SV *v= HeVAL(he);
-                if (v != &PL_sv_placeholder) {
-                    srl_dump_hk(aTHX_ enc, he, do_share_keys);
-                    CALL_SRL_DUMP_SV(enc, v);
-                    if (--n == 0) {
-                        he_ptr= he_end;
-                        break;
-                    }
+    do {
+        for (he= *he_ptr++; he; he= HeNEXT(he) ) {
+            SV *v= HeVAL(he);
+            if (v != &PL_sv_placeholder) {
+                srl_dump_hk(aTHX_ enc, he, do_share_keys);
+                CALL_SRL_DUMP_SV(enc, v);
+                if (--n == 0) {
+                    he_ptr= he_end;
+                    break;
                 }
             }
-        } while ( he_ptr < he_end );
-    }
+        }
+    } while ( he_ptr < he_end );
 }
 
 SRL_STATIC_INLINE void
-srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
+srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
 {
     HE *he;
-    UV n= 0;
     UV i= 0;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
-
-    /* for tied hashes, we have to iterate to find the number of entries. Alas... */
-    (void)hv_iterinit(src); /* return value not reliable according to API docs */
-    while ((he = hv_iternext(src))) { ++n; }
-
-    BUF_SIZE_ASSERT_HV(&enc->buf, n);
-
-    if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
-        enc->buf.pos--; /* back up over the previous REFN */
-        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_HASHREF + n);
-    } else {
-        srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_HASH, n);
-    }
 
     (void)hv_iterinit(src); /* return value not reliable according to API docs */
     while ((he = hv_iternext(src))) {
@@ -1270,26 +1246,11 @@ srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 }
 
 SRL_STATIC_INLINE void
-srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
+srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
 {
     HE *he;
-    UV n;
-    const int do_share_keys = HvSHAREKEYS((SV *)src);
-
     UV i= 0;
-    /* for tied hashes, we have to iterate to find the number of entries. Alas... */
-    (void)hv_iterinit(src); /* return value not reliable according to API docs */
-    n = 0;
-    while ((he = hv_iternext(src))) { ++n; }
-
-    BUF_SIZE_ASSERT_HV(&enc->buf, n);
-
-    if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
-        enc->buf.pos--; /* back up over the previous REFN */
-        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_HASHREF + n);
-    } else {
-        srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_HASH, n);
-    }
+    const int do_share_keys = HvSHAREKEYS((SV *)src);
 
     (void)hv_iterinit(src); /* return value not reliable according to API docs */
     /* can't use the same optimizations we use for normal hashes with tied
@@ -1337,20 +1298,11 @@ srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 }
 
 SRL_STATIC_INLINE void
-srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
+srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
 {
     HE *he;
-    UV n= HvUSEDKEYS(src);
     const int do_share_keys = HvSHAREKEYS((SV *)src);
     UV i= 0;
-
-    BUF_SIZE_ASSERT_HV(&enc->buf, n);
-    if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
-        enc->buf.pos--; /* back up over the previous REFN */
-        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_HASHREF + n);
-    } else {
-        srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_HASH, n);
-    }
 
     (void)hv_iterinit(src); /* return value not reliable according to API docs */
     {
@@ -1396,17 +1348,41 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 {
     HE *he;
     UV n;
+    if ( SvMAGICAL(src) ) {
+        /* for tied hashes, we have to iterate to find the number of entries. Alas... */
+        n= 0;
+        (void)hv_iterinit(src); /* return value not reliable according to API docs */
+        while ((he = hv_iternext(src))) { ++n; }
+    }
+    else {
+        n= HvUSEDKEYS(src);
+    }
 
-    if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS) ) {
-        if ( SvMAGICAL(src) ) {
-            srl_dump_hv_sorted_mg(aTHX_ enc, src, refcount);
-        } else {
-            srl_dump_hv_sorted_nomg(aTHX_ enc, src, refcount);
-        }
-    } else if ( SvMAGICAL(src) ) {
-        srl_dump_hv_unsorted_mg(aTHX_ enc, src, refcount);
+    BUF_SIZE_ASSERT_HV(&enc->buf, n);
+    if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
+        enc->buf.pos--; /* backup over the previous REFN */
+        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_HASHREF + n);
     } else {
-        srl_dump_hv_unsorted_nomg(aTHX_ enc, src, refcount);
+        srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_HASH, n);
+    }
+
+    if ( n ) {
+        if ( SvMAGICAL(src) ) {
+            if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS) ) {
+                srl_dump_hv_sorted_mg(aTHX_ enc, src, n);
+            }
+            else {
+                srl_dump_hv_unsorted_mg(aTHX_ enc, src, n);
+            }
+        }
+        else {
+            if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS) ) {
+                srl_dump_hv_sorted_nomg(aTHX_ enc, src, n);
+            }
+            else {
+                srl_dump_hv_unsorted_nomg(aTHX_ enc, src, n);
+            }
+        }
     }
 }
 
