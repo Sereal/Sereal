@@ -11,6 +11,9 @@ please see the Encoder and Decoder changelogs:
 *          of the decoder before upgrading to version 3 of the *
 *          encoder!                                            *
 ****************************************************************
+3.006_005 Nov 20 2015
+  * [ENCODER] Rework sort logic to be more efficient
+
 3.006_004 Nov 18 2015
   * [ENCODER] Handle PVLV undefs
 
