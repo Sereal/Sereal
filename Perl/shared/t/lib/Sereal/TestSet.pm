@@ -74,6 +74,12 @@ BEGIN {
     };
     no strict 'refs';
     $TestClass = $Class . "::Test";
+    no warnings;
+    # this is a little deceptive. we are setting up a glob "symlink"
+    # before we actually use the code that fills in the glob. luckily,
+    # perl Does The Right Thing. We silence warnings to eliminate "used
+    # only once" complaints, as this sub is filled in when the main class
+    # loads via XS.
     *is_nv = *{$TestClass . "::is_nv"};
 }
 

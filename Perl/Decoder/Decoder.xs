@@ -523,3 +523,4 @@ CODE:
 
     ST(0) = boolSV(SvNOK(sv) && !(SvNOK(sv) && SvIOK(sv) && SvPOK(sv)));
     XSRETURN(1);
+

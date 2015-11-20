@@ -871,7 +871,7 @@ srl_read_pos_varint(pTHX_ srl_decoder_t *dec, SV* into, SV** container, const U8
 SRL_STATIC_INLINE void
 srl_read_neg_varint(pTHX_ srl_decoder_t *dec, SV* into, SV** container, const U8 *track_it)
 {
-    IV iv= -((IV)(srl_read_varint_uv(aTHX_ dec) + OFFSET_SRL_HDR_NEG_VARINT));
+    IV iv= -((IV)(srl_read_varint_uv(aTHX_ dec->pbuf) + OFFSET_SRL_HDR_NEG_VARINT));
     srl_setiv(aTHX_ dec, into, container, track_it, iv);
 }
 
