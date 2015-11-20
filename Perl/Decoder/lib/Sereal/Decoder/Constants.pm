@@ -22,6 +22,7 @@ BEGIN {
       "SRL_HDR_CANONICAL_UNDEF" => 57,
       "SRL_HDR_COPY" => 47,
       "SRL_HDR_DOUBLE" => 35,
+      "SRL_HDR_DUALVAR" => 54,
       "SRL_HDR_EXTEND" => 62,
       "SRL_HDR_FALSE" => 58,
       "SRL_HDR_FLOAT" => 34,
@@ -48,13 +49,15 @@ BEGIN {
       "SRL_HDR_REFN" => 40,
       "SRL_HDR_REFP" => 41,
       "SRL_HDR_REGEXP" => 49,
-      "SRL_HDR_RESERVED" => 52,
-      "SRL_HDR_RESERVED_HIGH" => 54,
-      "SRL_HDR_RESERVED_LOW" => 52,
+      "SRL_HDR_RESERVED" => 53,
+      "SRL_HDR_RESERVED_HIGH" => 53,
+      "SRL_HDR_RESERVED_LOW" => 53,
       "SRL_HDR_SHORT_BINARY" => 96,
       "SRL_HDR_SHORT_BINARY_HIGH" => 127,
       "SRL_HDR_SHORT_BINARY_LOW" => 96,
       "SRL_HDR_STR_UTF8" => 39,
+      "SRL_HDR_TAG_MASK" => 127,
+      "SRL_HDR_TIED_OBJECT" => 52,
       "SRL_HDR_TRACK_FLAG" => 128,
       "SRL_HDR_TRUE" => 59,
       "SRL_HDR_UNDEF" => 37,
@@ -546,30 +549,28 @@ push @EXPORT_OK, keys %DEFINE;
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    "comment" => "reserved",
-    "masked" => 1,
-    "masked_val" => 0,
-    "name" => "RESERVED_0",
-    "type_name" => "RESERVED",
+    "comment" => "<TAG> <OBJECT> - tied object, first item is the tied item, followed by an object type",
+    "name" => "TIED_OBJECT",
+    "type_name" => "TIED_OBJECT",
     "type_value" => 52,
     "value" => 52
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
+    "comment" => "reserved",
     "masked" => 1,
-    "masked_val" => 1,
-    "name" => "RESERVED_1",
+    "masked_val" => 0,
+    "name" => "RESERVED_0",
     "type_name" => "RESERVED",
-    "type_value" => 52,
+    "type_value" => 53,
     "value" => 53
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    "masked" => 1,
-    "masked_val" => 2,
-    "name" => "RESERVED_2",
-    "type_name" => "RESERVED",
-    "type_value" => 52,
+    "comment" => "Perl dualvar - <OPT-NUMTAG> <STR-TAG>",
+    "name" => "DUALVAR",
+    "type_name" => "DUALVAR",
+    "type_value" => 54,
     "value" => 54
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!

@@ -705,7 +705,7 @@ my $min_iv = do {use integer; -$max_iv-1}; # 2s complement assumption
 my @numstr= map { ; no warnings; $_ < 0 and warn "this shouldnt happpen"; $_ }
     ( "    1    ", "0.0", "00000.0000", "0.0.0.0", ".0","    .0", " 22",
       "01", "01.1", "   0   ", ".0", "0.001", ".1", "  .1", ".2", "00", ".00",
-      "0 but true", "0E0");
+      "0 but true", "0E0", "10 la la 10");
 my $eng0e0= "0e0";
 my $eng0e1= "0e1";
 my $eng2= "1e3";

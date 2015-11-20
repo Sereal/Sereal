@@ -31,6 +31,7 @@ struct srl_decoder {
     U8 proto_version;
     U8 encoding_flags;
     U32 flags_readonly;
+    SV *scratch_sv;
 };
 
 typedef struct {

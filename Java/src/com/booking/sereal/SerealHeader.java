@@ -44,9 +44,11 @@ public interface SerealHeader {
 	static final byte SRL_HDR_REGEXP            = (byte)  49; /*  49 0x31 0b00110001 <PATTERN-STR-TAG> <MODIFIERS-STR-TAG> */
 	static final byte SRL_HDR_OBJECT_FREEZE     = (byte)  50; /*  50 0x32 0b00110010 <STR-TAG> <ITEM-TAG> - class, object-item. Need to call "THAW" method on class after decoding */
 	static final byte SRL_HDR_OBJECTV_FREEZE    = (byte)  51; /*  51 0x33 0b00110011 <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT) */
-	static final byte SRL_HDR_RESERVED          = (byte)  52; /*  52 0x34 0b00110100 reserved */
-	static final byte SRL_HDR_RESERVED_LOW      = (byte)  52; /*  52 0x34 0b00110100 reserved */
-	static final byte SRL_HDR_RESERVED_HIGH     = (byte)  54; /*  54 0x36 0b00110110 reserved */
+	static final byte SRL_HDR_TIED_OBJECT       = (byte)  52; /*  52 0x34 0b00110100 <TAG> <OBJECT> - tied object, first item is the tied item, followed by an object type */
+	static final byte SRL_HDR_RESERVED          = (byte)  53; /*  53 0x35 0b00110101 reserved */
+	static final byte SRL_HDR_RESERVED_HIGH     = (byte)  53; /*  53 0x35 0b00110101 reserved */
+	static final byte SRL_HDR_RESERVED_LOW      = (byte)  53; /*  53 0x35 0b00110101 reserved */
+	static final byte SRL_HDR_DUALVAR           = (byte)  54; /*  54 0x36 0b00110110 Perl dualvar - <OPT-NUMTAG> <STR-TAG> */
 	static final byte SRL_HDR_POS_VARINT        = (byte)  55; /*  55 0x37 0b00110111 <VARINT> - Positive varint, n =  ( varint + 16 ) */
 	static final byte SRL_HDR_NEG_VARINT        = (byte)  56; /*  56 0x38 0b00111000 <VARINT> - Negative varint, n = -( varint + 17 ) */
 	static final byte SRL_HDR_CANONICAL_UNDEF   = (byte)  57; /*  57 0x39 0b00111001 undef (PL_sv_undef) - "the" Perl undef (see notes) */
@@ -65,6 +67,7 @@ public interface SerealHeader {
 	static final byte SRL_HDR_SHORT_BINARY      = (byte)  96; /*  96 0x60 0b01100000 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
 	static final byte SRL_HDR_SHORT_BINARY_LOW  = (byte)  96; /*  96 0x60 0b01100000 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
 	static final byte SRL_HDR_SHORT_BINARY_HIGH = (byte) 127; /* 127 0x7f 0b01111111 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
+	static final byte SRL_HDR_TAG_MASK          = (byte) 127; /* 127 0x7f 0b01111111 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
 	static final byte SRL_HDR_TRACK_FLAG        = (byte) 128; /* 128 0x80 0b10000000 if this bit is set track the item */
 /*
 * NOTE the above section is auto-updated by author_tools/update_from_header.pl

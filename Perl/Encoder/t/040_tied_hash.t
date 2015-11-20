@@ -39,6 +39,9 @@ my $enc = Sereal::Encoder->new({
 });
 
 tie my %new_std_hash, 'NewStdHash';
+use Devel::Peek;
+Dump(\%new_std_hash);
+diag tied(%new_std_hash);
 my %normal_hash;
 foreach my $i (0..$#keys) {
     $new_std_hash{$keys[$i]} = $i;

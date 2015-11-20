@@ -376,6 +376,8 @@ srl_destroy_decoder(pTHX_ srl_decoder_t *dec)
         PTABLE_free(dec->ref_thawhash);
     if (dec->alias_cache)
         SvREFCNT_dec(dec->alias_cache);
+    if (dec->scratch_sv)
+        SvREFCNT_dec(dec->scratch_sv);
     Safefree(dec);
 }
 
@@ -909,6 +911,78 @@ srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
     dec->buf.pos+= len;
 }
 
+SRL_STATIC_INLINE void
+srl_read_dualvar(pTHX_ srl_decoder_t *dec, SV* into) 
+{
+    SV *scratch;
+    SV **container= NULL;
+    IV iv;
+    NV nv;
+    U8 flags;
+    U8 tag;
+    STRLEN len;
+    
+    SRL_RDR_ASSERT_SPACE(dec->pbuf, 2, "in dualvar flags/num");
+    
+    flags= *dec->buf.pos++;
+    if (!dec->scratch_sv)
+        dec->scratch_sv= newSVnv(0.0);
+    scratch= dec->scratch_sv;
+
+    SvUPGRADE(into, SVt_PVNV);
+
+    tag= *dec->buf.pos++;
+    switch (tag) {
+        CASE_SRL_HDR_POS:
+            srl_setiv(aTHX_ dec, scratch, container, (IV)tag);
+            break;
+        CASE_SRL_HDR_NEG:
+            srl_setiv(aTHX_ dec, scratch, container, (IV)(tag - 32));
+            break;
+        case SRL_HDR_VARINT:        srl_read_varint_into(aTHX_ dec, scratch, container); break;
+        case SRL_HDR_ZIGZAG:        srl_read_zigzag_into(aTHX_ dec, scratch, container); break;
+        case SRL_HDR_NEG_VARINT:    srl_read_neg_varint(aTHX_ dec, scratch, container);  break;
+        case SRL_HDR_POS_VARINT:    srl_read_pos_varint(aTHX_ dec, scratch, container);  break;
+        case SRL_HDR_FLOAT:         srl_read_float(aTHX_ dec, scratch);                  break;
+        case SRL_HDR_DOUBLE:        srl_read_double(aTHX_ dec, scratch);                 break;
+        case SRL_HDR_LONG_DOUBLE:   srl_read_long_double(aTHX_ dec, scratch);            break;
+        default:
+            SRL_RDR_ERRORf1(dec->pbuf, "unexpected non numeric tag '%d' in dualvar", tag);
+    }
+    SRL_RDR_ASSERT_SPACE(dec->pbuf, 1, "in dualvar str");
+    tag= *dec->buf.pos++;
+    switch (tag) {
+        CASE_SRL_HDR_SHORT_BINARY:
+            len= (STRLEN)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+            SRL_RDR_ASSERT_SPACE(dec->pbuf, len, " while reading ascii string");
+            sv_setpvn(into,(char*)dec->buf.pos,len);
+            dec->buf.pos += len;
+            break;
+        case SRL_HDR_BINARY:        srl_read_string(aTHX_ dec, 0, into);              break;
+        case SRL_HDR_STR_UTF8:      srl_read_string(aTHX_ dec, 1, into);              break;
+        default:
+            SRL_RDR_ERRORf1(dec->pbuf, "unexpected non string tag '%d' in dualvar", tag);
+    }
+
+    if ( flags & 2 ) {
+        SvNV_set(into, SvNV(scratch));
+        SvNOK_on(into);
+    }
+    if ( flags & 1 ) {
+#ifdef SVf_IVisUV
+        if(SvUOK(scratch)) {
+            SvUV_set(into, SvUV(scratch));
+            SvIOK_on(into);
+            SvIsUV_on(into);
+        }
+#endif
+        else if(SvIOK(scratch)) {
+            SvIV_set(into, SvIV(scratch));
+            SvIOK_on(into);
+        }
+    }
+}
+
 /* declare a union so that we are guaranteed the right alignment
  * rules - this is required for e.g. ARM */
 union myfloat {
@@ -939,7 +1013,7 @@ union myfloat {
 
 /* XXX Most (if not all?) non-x86 platforms are strict in their
  * floating point alignment.  So maybe this logic should be the other
- * way: default to strict, and do sloppy only if x86? */
+ /* way: default to strict, and do sloppy only if x86? */
 
 SRL_STATIC_INLINE void
 srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
@@ -1770,14 +1844,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
         CASE_SRL_HDR_NEG:
             srl_setiv(aTHX_ dec, into, container, track_it, (IV)(tag - 32));
             break;
-        CASE_SRL_HDR_SHORT_BINARY:
-            len= (STRLEN)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
-            SRL_RDR_ASSERT_SPACE(dec->pbuf, len, " while reading ascii string");
-            sv_setpvn(into,(char*)dec->buf.pos,len);
-            dec->buf.pos += len;
-            break;
-        CASE_SRL_HDR_HASHREF:       srl_read_hash(aTHX_ dec, into, tag);  is_ref = 1; break;
-        CASE_SRL_HDR_ARRAYREF:      srl_read_array(aTHX_ dec, into, tag); is_ref = 1; break;
+        
         case SRL_HDR_VARINT:        srl_read_varint_into(aTHX_ dec, into, container, track_it); break;
         case SRL_HDR_ZIGZAG:        srl_read_zigzag_into(aTHX_ dec, into, container, track_it); break;
         case SRL_HDR_NEG_VARINT:    srl_read_neg_varint(aTHX_ dec, into, container, track_it);  break;
@@ -1803,10 +1870,17 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
             }
         }
         break;
-
+        
+        CASE_SRL_HDR_SHORT_BINARY:
+            len= (STRLEN)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+            SRL_RDR_ASSERT_SPACE(dec->pbuf, len, " while reading ascii string");
+            sv_setpvn(into,(char*)dec->buf.pos,len);
+            dec->buf.pos += len;
+            break;
         case SRL_HDR_BINARY:        srl_read_string(aTHX_ dec, 0, into);              break;
         case SRL_HDR_STR_UTF8:      srl_read_string(aTHX_ dec, 1, into);              break;
 
+        case SRL_HDR_DUALVAR:       srl_read_dualvar(aTHX_ dec, into);                break;
         case SRL_HDR_WEAKEN:        srl_read_weaken(aTHX_ dec, into);       is_ref=1; break;
         case SRL_HDR_REFN:          srl_read_refn(aTHX_ dec, into);         is_ref=1; break;
         case SRL_HDR_REFP:          srl_read_refp(aTHX_ dec, into);         is_ref=1; break;
@@ -1816,7 +1890,9 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
         case SRL_HDR_OBJECTV:       srl_read_objectv(aTHX_ dec, into, tag); is_ref=1; break;
         case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into);                   break;
         case SRL_HDR_EXTEND:        srl_read_extend(aTHX_ dec, into);                 break;
+        CASE_SRL_HDR_HASHREF:       srl_read_hash(aTHX_ dec, into, tag);  is_ref = 1; break;
         case SRL_HDR_HASH:          srl_read_hash(aTHX_ dec, into, 0);                break;
+        CASE_SRL_HDR_ARRAYREF:      srl_read_array(aTHX_ dec, into, tag); is_ref = 1; break;
         case SRL_HDR_ARRAY:         srl_read_array(aTHX_ dec, into, 0);               break;
         case SRL_HDR_REGEXP:        srl_read_regexp(aTHX_ dec, into);                 break;
         case SRL_HDR_ALIAS:

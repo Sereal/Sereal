@@ -85,6 +85,8 @@ extern "C" {
 SRL_STATIC_INLINE void srl_clear_seen_hashes(pTHX_ srl_encoder_t *enc);
 static void srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src);
 SRL_STATIC_INLINE void srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src);
+SRL_STATIC_INLINE void srl_dump_svpviv(pTHX_ srl_encoder_t *enc, SV *src);
+SRL_STATIC_INLINE void srl_dump_svpvnv(pTHX_ srl_encoder_t *enc, SV *src);
 SRL_STATIC_INLINE void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8);
 SRL_STATIC_INLINE void srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc);
 SRL_STATIC_INLINE void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcnt);
@@ -206,7 +208,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
                 }                                                           \
                 else {                                                      \
                     /* must be a string */                                  \
-                    srl_dump_svpv(aTHX_ enc, src);                          \
+                    srl_dump_svpviv(aTHX_ enc, src);                        \
                 }                                                           \
             }                                                               \
             else                                                            \
@@ -219,7 +221,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
                  : ( L < 2 || PV[0] != '-' || PV[1] == '0' || !isDIGIT(PV[1]) ) \
                 )                                                           \
             ) {                                                             \
-                srl_dump_svpv(aTHX_ enc, src);                              \
+                srl_dump_svpviv(aTHX_ enc, src);                            \
             }                                                               \
             else {                                                          \
                 if ( SvNOK(src) ) {                                         \
@@ -227,7 +229,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
                     /* int is the same as the buffer */                     \
                     sv_setiv(enc->scratch_sv,SvIV(src));                    \
                     if ( sv_cmp(enc->scratch_sv,src) ) {                    \
-                        srl_dump_svpv(aTHX_ enc, src);                      \
+                        srl_dump_svpviv(aTHX_ enc, src);                    \
                     } else {                                                \
                         srl_dump_ivuv(aTHX_ enc, src);                      \
                     }                                                       \
@@ -248,7 +250,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
                   : ( PV[0] != '-' || PV[1] == '.' || (PV[1] == '0' && PV[2] != '.')) \
                 )                                                           \
             ) {                                                             \
-                srl_dump_svpv(aTHX_ enc, src);                              \
+                srl_dump_svpvnv(aTHX_ enc, src);                            \
             }                                                               \
             else {                                                          \
                 srl_dump_nv(aTHX_ enc, src);                                \
@@ -1585,6 +1587,31 @@ srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src)
             }
         }
     }
+    srl_dump_pv(aTHX_ enc, str, len, SvUTF8(src));
+}
+
+SRL_STATIC_INLINE void
+srl_dump_svpviv(pTHX_ srl_encoder_t *enc, SV *src)
+{
+    STRLEN len;
+    const char * const str= SvPV(src, len);
+    U8 flags= SvNOK(src) ? 3 : 1;
+    srl_buf_cat_char(&enc->buf, SRL_HDR_DUALVAR);
+    srl_buf_cat_char(&enc->buf, flags);
+    srl_dump_ivuv(aTHX_ enc, src);
+    srl_dump_pv(aTHX_ enc, str, len, SvUTF8(src));
+}
+
+SRL_STATIC_INLINE void
+srl_dump_svpvnv(pTHX_ srl_encoder_t *enc, SV *src)
+{
+    STRLEN len;
+    const char * const str= SvPV(src, len);
+    U8 flags= SvIOK(src) ? 3 : 2;
+    
+    srl_buf_cat_char(&enc->buf, SRL_HDR_DUALVAR);
+    srl_buf_cat_char(&enc->buf, flags);
+    srl_dump_nv(aTHX_ enc, src);
     srl_dump_pv(aTHX_ enc, str, len, SvUTF8(src));
 }
 

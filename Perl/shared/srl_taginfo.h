@@ -63,11 +63,11 @@ static const char * const tag_name[] = {
 	"REGEXP",            /* "1"   49 0x31 0b00110001 */
 	"OBJECT_FREEZE",     /* "2"   50 0x32 0b00110010 */
 	"OBJECTV_FREEZE",    /* "3"   51 0x33 0b00110011 */
-	"RESERVED_0",        /* "4"   52 0x34 0b00110100 */
-	"RESERVED_1",        /* "5"   53 0x35 0b00110101 */
-	"RESERVED_2",        /* "6"   54 0x36 0b00110110 */
-        "POS_VARINT",        /* "7"   55 0x37 0b00110111 */
-        "NEG_VARINT",        /* "8"   56 0x38 0b00111000 */
+	"TIED_OBJECT",       /* "4"   52 0x34 0b00110100 */
+	"RESERVED_0",        /* "5"   53 0x35 0b00110101 */
+	"DUALVAR",           /* "6"   54 0x36 0b00110110 */
+	"POS_VARINT",        /* "7"   55 0x37 0b00110111 */
+	"NEG_VARINT",        /* "8"   56 0x38 0b00111000 */
 	"CANONICAL_UNDEF",   /* "9"   57 0x39 0b00111001 */
 	"FALSE",             /* ":"   58 0x3a 0b00111010 */
 	"TRUE",              /* ";"   59 0x3b 0b00111011 */
@@ -173,9 +173,7 @@ static const char * const tag_name[] = {
 #define SRL_HDR_NEG_3                 29
 #define SRL_HDR_NEG_2                 30
 #define SRL_HDR_NEG_1                 31
-#define SRL_HDR_RESERVED_0            52
-#define SRL_HDR_RESERVED_1            53
-#define SRL_HDR_RESERVED_2            54
+#define SRL_HDR_RESERVED_0            53
 #define SRL_HDR_ARRAYREF_0            64
 #define SRL_HDR_ARRAYREF_1            65
 #define SRL_HDR_ARRAYREF_2            66
@@ -318,9 +316,7 @@ static const char * const tag_name[] = {
 
 
 #define CASE_SRL_HDR_RESERVED    \
-   case SRL_HDR_RESERVED_0:    \
-   case SRL_HDR_RESERVED_1:    \
-   case SRL_HDR_RESERVED_2
+   case SRL_HDR_RESERVED_0
 
 
 #define CASE_SRL_HDR_SHORT_BINARY    \

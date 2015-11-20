@@ -59,9 +59,9 @@
     REGEXP            | "1"  |  49 | 0x31 | 0b00110001 | <PATTERN-STR-TAG> <MODIFIERS-STR-TAG>
     OBJECT_FREEZE     | "2"  |  50 | 0x32 | 0b00110010 | <STR-TAG> <ITEM-TAG> - class, object-item. Need to call "THAW" method on class after decoding
     OBJECTV_FREEZE    | "3"  |  51 | 0x33 | 0b00110011 | <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT)
-    RESERVED_0        | "4"  |  52 | 0x34 | 0b00110100 | reserved
-    RESERVED_1        | "5"  |  53 | 0x35 | 0b00110101 |
-    RESERVED_2        | "6"  |  54 | 0x36 | 0b00110110 | reserved
+    TIED_OBJECT       | "4"  |  52 | 0x34 | 0b00110100 | <TAG> <OBJECT> - tied object, first item is the tied item, followed by an object type
+    RESERVED_0        | "5"  |  53 | 0x35 | 0b00110101 | reserved
+    DUALVAR           | "6"  |  54 | 0x36 | 0b00110110 | Perl dualvar - <OPT-NUMTAG> <STR-TAG>
     POS_VARINT        | "7"  |  55 | 0x37 | 0b00110111 | <VARINT> - Positive varint, n =  ( varint + 16 )
     NEG_VARINT        | "8"  |  56 | 0x38 | 0b00111000 | <VARINT> - Negative varint, n = -( varint + 17 )
     CANONICAL_UNDEF   | "9"  |  57 | 0x39 | 0b00111001 | undef (PL_sv_undef) - "the" Perl undef (see notes)
@@ -210,13 +210,17 @@
 
 #define SRL_HDR_OBJECT_FREEZE   ((U8)50)      /* <STR-TAG> <ITEM-TAG> - class, object-item. Need to call "THAW" method on class after decoding */
 #define SRL_HDR_OBJECTV_FREEZE  ((U8)51)      /* <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT) */
+#define SRL_HDR_TIED_OBJECT     ((U8)52)      /* <TAG> <OBJECT> - tied object, first item is the tied item, followed by an object type */
 
 /* Note: Can do reserved check with a range now, but as we start using
  *       them, might have to explicit == check later. */
-#define SRL_HDR_RESERVED        ((U8)52)      /* reserved */
-#define SRL_HDR_RESERVED_LOW    ((U8)52)
-#define SRL_HDR_RESERVED_HIGH   ((U8)54)
-
+#define SRL_HDR_RESERVED        ((U8)53)      /* reserved */
+#define SRL_HDR_RESERVED_LOW    ((U8)53)
+#define SRL_HDR_RESERVED_HIGH   ((U8)53)
+/* TIED THING OBJECT
+ * DV NVAL STRVAL
+ */
+#define SRL_HDR_DUALVAR         ((U8)54)      /* Perl dualvar - <OPT-NUMTAG> <STR-TAG> */
 #define SRL_HDR_POS_VARINT      ((U8)55)      /* <VARINT> - Positive varint, n =  ( varint + 16 ) */
 #define SRL_HDR_NEG_VARINT      ((U8)56)      /* <VARINT> - Negative varint, n = -( varint + 17 ) */
 
@@ -248,6 +252,7 @@
 
 #define SRL_HDR_TRACK_FLAG      ((U8)128)         /* if this bit is set track the item */
 
+#define SRL_HDR_TAG_MASK    ((U8)127)
 /* TODO */
 
 #define SRL_SET_TRACK_FLAG(where) ((where) |= SRL_HDR_TRACK_FLAG)
@@ -255,6 +260,12 @@
 #define SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) ((tag) & SRL_MASK_SHORT_BINARY_LEN)
 #define SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag)     ((tag) & SRL_MASK_ARRAYREF_COUNT)
 #define SRL_HDR_HASHREF_LEN_FROM_TAG(tag)      ((tag) & SRL_MASK_HASHREF_COUNT)
+
+#define SRL_HDR_TAG_IS_STR(tag) (((tag & SRL_HDR_SHORT_BINARY) == SRL_HDR_SHORT_BINARY) || \
+                                 ((tag & (U8)126) == SRL_HDR_STR_BINARY))
+
+#define SRL_HDR_TAG_IS_NUM(tag) (((tag & (U8)127) <= SRL_HDR_LONG_DOUBLE) || \
+                                 ((tag & (U8)126) == SRL_HDR_NEG_VARINT))
 
 /* These define the offsets required to ensure SRL_HDR_POS and SRL_HDR_NEG do not overlap
  * with SRL_HDR_POS_VARINT and SRL_HDR_NEG_VARINT - meaning there is a canonical representation
