@@ -43,7 +43,7 @@
     ZIGZAG            | "!"  |  33 | 0x21 | 0b00100001 | <ZIGZAG-VARINT> - Zigzag variable length integer
     FLOAT             | "\"" |  34 | 0x22 | 0b00100010 | <IEEE-FLOAT> 4 byte float
     DOUBLE            | "#"  |  35 | 0x23 | 0b00100011 | <IEEE-DOUBLE> 8 byte double
-    LONG_DOUBLE       | "\$" |  36 | 0x24 | 0b00100100 | <LONG DOUBLE> 16 byte platform specific long double. NOT PORTABLE
+    LONG_DOUBLE       | "\$" |  36 | 0x24 | 0b00100100 | <LONG-DOUBLE> 16 byte platform specific long double. NOT PORTABLE
     UNDEF             | "%"  |  37 | 0x25 | 0b00100101 | None - Perl undef var; eg my $var= undef;
     BINARY            | "&"  |  38 | 0x26 | 0b00100110 | <LEN-VARINT> <BYTES> - binary/(latin1) string
     STR_UTF8          | "'"  |  39 | 0x27 | 0b00100111 | <LEN-VARINT> <UTF8> - utf8 string
@@ -191,7 +191,7 @@
 #define SRL_HDR_ZIGZAG          ((U8)33)      /* <ZIGZAG-VARINT> - Zigzag variable length integer */
 #define SRL_HDR_FLOAT           ((U8)34)      /* <IEEE-FLOAT> 4 byte float*/
 #define SRL_HDR_DOUBLE          ((U8)35)      /* <IEEE-DOUBLE> 8 byte double*/
-#define SRL_HDR_LONG_DOUBLE     ((U8)36)      /* <IEEE-LONG-DOUBLE> 16 byte platform specific long double. NOT PORTABLE*/
+#define SRL_HDR_LONG_DOUBLE     ((U8)36)      /* <LONG-DOUBLE> 16 byte platform specific long double. NOT PORTABLE*/
 #define SRL_HDR_UNDEF           ((U8)37)      /* None - Perl undef var; eg my $var= undef; */
 #define SRL_HDR_BINARY          ((U8)38)      /* <LEN-VARINT> <BYTES> - binary/(latin1) string */
 #define SRL_HDR_STR_UTF8        ((U8)39)      /* <LEN-VARINT> <UTF8> - utf8 string */
