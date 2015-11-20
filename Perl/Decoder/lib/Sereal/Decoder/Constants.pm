@@ -34,6 +34,7 @@ BEGIN {
       "SRL_HDR_NEG" => 16,
       "SRL_HDR_NEG_HIGH" => 31,
       "SRL_HDR_NEG_LOW" => 16,
+      "SRL_HDR_NEG_VARINT" => 56,
       "SRL_HDR_OBJECT" => 44,
       "SRL_HDR_OBJECTV" => 45,
       "SRL_HDR_OBJECTV_FREEZE" => 51,
@@ -43,11 +44,12 @@ BEGIN {
       "SRL_HDR_POS" => 0,
       "SRL_HDR_POS_HIGH" => 15,
       "SRL_HDR_POS_LOW" => 0,
+      "SRL_HDR_POS_VARINT" => 55,
       "SRL_HDR_REFN" => 40,
       "SRL_HDR_REFP" => 41,
       "SRL_HDR_REGEXP" => 49,
       "SRL_HDR_RESERVED" => 52,
-      "SRL_HDR_RESERVED_HIGH" => 56,
+      "SRL_HDR_RESERVED_HIGH" => 54,
       "SRL_HDR_RESERVED_LOW" => 52,
       "SRL_HDR_SHORT_BINARY" => 96,
       "SRL_HDR_SHORT_BINARY_HIGH" => 127,
@@ -572,20 +574,18 @@ push @EXPORT_OK, keys %DEFINE;
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    "masked" => 1,
-    "masked_val" => 3,
-    "name" => "RESERVED_3",
-    "type_name" => "RESERVED",
-    "type_value" => 52,
+    "comment" => "<VARINT> - Positive varint, n =  ( varint + 16 )",
+    "name" => "POS_VARINT",
+    "type_name" => "POS_VARINT",
+    "type_value" => 55,
     "value" => 55
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
   {
-    "masked" => 1,
-    "masked_val" => 4,
-    "name" => "RESERVED_4",
-    "type_name" => "RESERVED",
-    "type_value" => 52,
+    "comment" => "<VARINT> - Negative varint, n = -( varint + 17 )",
+    "name" => "NEG_VARINT",
+    "type_name" => "NEG_VARINT",
+    "type_value" => 56,
     "value" => 56
   },
   # autoupdated by author_tools/update_from_header.pl do not modify directly!
