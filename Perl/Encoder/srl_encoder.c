@@ -1157,8 +1157,6 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
     }
 }
 
-#define SIGN(cmp) (cmp < 0 ? -1 : cmp == 0 ? 0 : 1)
-
 SRL_STATIC_INLINE int
 he_cmp_fast_inline(HE *a, HE *b)
 {
@@ -1171,8 +1169,9 @@ he_cmp_fast_inline(HE *a, HE *b)
         cmp = la - lb; /* "a" should less than "aa", so 1 - 2 == -1 */
     return cmp;
 }
+
 #define ISLT_HE_FAST(a,b)   ( he_cmp_fast_inline( *a, *b ) < 0 )
-#define ISLT_HE_SLOW(a,b)   ( sv_cmp( HeSVKEY_force( *a ), HeSVKEY_force( *b ) ) < 0 )
+#define ISLT_HE_SLOW(a,b) ( sv_cmp( hv_iterkeysv( *a ), hv_iterkeysv( *b ) ) < 0 )
 #define ISLT_KV(a,b)        ( sv_cmp( a->key, b->key ) < 0 )
 
 SRL_STATIC_INLINE void
@@ -1218,6 +1217,7 @@ srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
     if (expect_false( i != n ))
         croak("Panic: cannot serialize a tied hash which changes its size!");
 }
+
 
 #define CALL_QSORT_NOBYTES(TYPE, ARY, N, F)                 \
     STMT_START {                                            \
