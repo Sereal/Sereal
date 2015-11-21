@@ -27,7 +27,11 @@ typedef struct {
     UV recursion_depth;       /* current Perl-ref recursion depth */
     ptable_ptr ref_seenhash;  /* ptr table for avoiding circular refs */
     ptable_ptr weak_seenhash; /* ptr table for avoiding dangling weakrefs */
-    ptable_ptr str_seenhash;  /* ptr table for issuing COPY commands based on PTRS (used for classnames and keys) */
+    ptable_ptr str_seenhash;  /* ptr table for issuing COPY commands based on PTRS (used for classnames and keys)
+                               * for now this is also coopted to track which objects we have dumped as objects,
+                               * and to ensure we only output a given object once.
+                               * Possibly this should be replaced with freezeobj_svhash, but this works fine.
+                               */
     ptable_ptr freezeobj_svhash; /* ptr table for tracking objects and their frozen replacments via FREEZE */
     HV *string_deduper_hv;    /* track strings we have seen before, by content */
 
@@ -137,6 +141,14 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
 
 #define SRL_ENC_SV_COPY_ALWAYS 0x00000000UL
 #define SRL_ENC_SV_REUSE_MAYBE 0x00000001UL
+
+#define SRL_UNSUPPORTED_SvTYPE(svt) (   \
+    /* svt == SVt_INVLIST || */         \
+    svt == SVt_PVGV ||                  \
+    svt == SVt_PVCV ||                  \
+    svt == SVt_PVFM ||                  \
+    svt == SVt_PVIO ||                  \
+    0 )
 
 /* by default we do not allow people to build with support for SRL_HDR_LONG_DOUBLE */
 #if defined(SRL_ALLOW_LONG_DOUBLE) && defined(USE_LONG_DOUBLE) && defined(HAS_LONG_DOUBLE)

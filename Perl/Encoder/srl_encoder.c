@@ -92,7 +92,7 @@ SRL_STATIC_INLINE void srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcnt
 SRL_STATIC_INLINE void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys);
 SRL_STATIC_INLINE void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
 SRL_STATIC_INLINE void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
-SRL_STATIC_INLINE void srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement);
+SRL_STATIC_INLINE int srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement);
 SRL_STATIC_INLINE SV *srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent);
 SRL_STATIC_INLINE PTABLE_t *srl_init_string_hash(srl_encoder_t *enc);
 SRL_STATIC_INLINE PTABLE_t *srl_init_ref_hash(srl_encoder_t *enc);
@@ -864,8 +864,11 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
 }
 
 /* Outputs a bless header and the class name (as some form of string or COPY).
- * Caller then has to output the actual reference payload. */
-SRL_STATIC_INLINE void
+ * Caller then has to output the actual reference payload.
+ * If it returns 1 it means the classname was written out and should NOT
+ * be overwritten by the ref rewrite logic (which handles REFP).
+ * If it returns 0 it means no classname was output. */
+SRL_STATIC_INLINE int
 srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement)
 {
     /* Check that we actually want to support objects */
@@ -874,11 +877,25 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement)
                 "using Sereal::Encoder was explicitly disabled using the "
                 "'croak_on_bless' option.");
     } else if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS) )) {
-        return;
+        return 0;
     } else {
         const HV *stash = SvSTASH(referent);
         PTABLE_t *string_seenhash = SRL_GET_STR_PTR_SEENHASH(enc);
-        const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, (SV *)stash);
+        svtype svt= SvTYPE(referent);
+        int is_av_or_hv= (svt == SVt_PVAV || svt== SVt_PVHV);
+        ptrdiff_t oldoffset= is_av_or_hv
+                           ? 0
+                           : (ptrdiff_t)PTABLE_fetch(string_seenhash, referent);
+
+        if (oldoffset) {
+            return 0;
+        } else {
+            svt= replacement ? SvTYPE(replacement) : SvTYPE(referent);
+            if (SRL_UNSUPPORTED_SvTYPE(svt)) {
+                return 0;
+            }
+            oldoffset= (ptrdiff_t)PTABLE_fetch(string_seenhash, (SV *)stash);
+        }
 
         if (oldoffset != 0) {
             /* Issue COPY instead of literal class name string */
@@ -909,7 +926,15 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement)
             srl_dump_pv(aTHX_ enc, class_name, len, 0);
 #endif
         }
+        if (is_av_or_hv) {
+            return 0;
+        } else {
+            /* use the string_seenhash to track which items we have seen before */
+            PTABLE_store(string_seenhash, (void *)referent, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
+            return 1;
+        }
     }
+    return 0;
 }
 
 
@@ -1602,10 +1627,13 @@ redo_dump:
 
         ref_rewrite_pos= BODY_POS_OFS(&enc->buf);
 
-        if (expect_false( sv_isobject(src) )) {
+        if ( expect_false( sv_isobject(src) ) ) {
             /* Write bless operator with class name */
             replacement= srl_get_frozen_object(aTHX_ enc, src, referent);
-            srl_dump_classname(aTHX_ enc, referent, replacement); /* 1 == have freeze call */
+            if (srl_dump_classname(aTHX_ enc, referent, replacement)) {
+                /* 1 means we should not rewrite away the classname */
+                ref_rewrite_pos= BODY_POS_OFS(&enc->buf);
+            }
         }
 
         srl_buf_cat_char(&enc->buf, SRL_HDR_REFN);
@@ -1636,11 +1664,11 @@ redo_dump:
     }
     else
     if ( ! SvOK(src) ) { /* undef and weird shit */
-        if ( svt == SVt_PVGV || svt > SVt_PVLV ) {
+        if ( SRL_UNSUPPORTED_SvTYPE(svt) ) {
             /* we exclude magic, because magic sv's can be undef too */
             /* called when we find an unsupported type/reference. May either throw exception
              * or write ONE (nested or single) item to the buffer. */
-#define SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt, refsv, ref_rewrite_pos)                     \
+#define SRL_HANDLE_UNSUPPORTED_SvTYPE(enc, src, svt, refsv, ref_rewrite_pos)                     \
             STMT_START {                                                                       \
                 if ( SRL_ENC_HAVE_OPTION((enc), SRL_F_UNDEF_UNKNOWN) ) {                       \
                     if (SRL_ENC_HAVE_OPTION((enc), SRL_F_WARN_UNKNOWN))                        \
@@ -1691,7 +1719,7 @@ redo_dump:
                           "by the Sereal encoding format", (svt), sv_reftype((src),0),(src));  \
                 }                                                                              \
             } STMT_END
-            SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt, refsv, ref_rewrite_pos);
+            SRL_HANDLE_UNSUPPORTED_SvTYPE(enc, src, svt, refsv, ref_rewrite_pos);
         }
         else if (src == &PL_sv_undef && enc->protocol_version >= 3 ) {
             srl_buf_cat_char(&enc->buf, SRL_HDR_CANONICAL_UNDEF);
@@ -1700,8 +1728,8 @@ redo_dump:
         }
     }
     else {
-        SRL_HANDLE_UNSUPPORTED_TYPE(enc, src, svt, refsv, ref_rewrite_pos);
-#undef SRL_HANDLE_UNSUPPORTED_TYPE
+        SRL_HANDLE_UNSUPPORTED_SvTYPE(enc, src, svt, refsv, ref_rewrite_pos);
+#undef SRL_HANDLE_UNSUPPORTED_SvTYPE
     }
     --enc->recursion_depth;
 }

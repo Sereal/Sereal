@@ -818,7 +818,7 @@ sub _get_roundtrip_tests {
 
     my @RoundtripTests = (
         @ScalarRoundtripTests,
-        [ "TODO BlessedArrayCheck", \@blessed_array_check],
+        [ "BlessedArrayCheck", \@blessed_array_check],
 
         ["[{foo => 1}, {foo => 2}] - repeated hash keys",
           [{foo => 1}, {foo => 2}] ],
