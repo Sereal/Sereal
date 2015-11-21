@@ -14,8 +14,19 @@ BEGIN {
         if !-d 't';
 }
 use Sereal::TestSet qw(:all);
-
-my @keys= ('foo', 'bar', 'mip', 'xap', 'food', 'fool', 'fools', 'barking', 'bark');
+my $u_df= "\xDFu";
+utf8::upgrade($u_df);
+my @keys= (
+    'foo', 'bar', 'mip', 'xap', 'food', 'fool', 'fools', 'barking', 'bark',
+    $u_df,
+    "\x{df}a",
+    "\x{c3}",
+    "\x{de}",
+    "\x{e0}",
+    "\x{100}",
+    "\x{123}",
+    "\x{c4}\x{80}",
+);
 my $have_decoder= have_encoder_and_decoder();
 if ($have_decoder) {
     plan tests => 1 + (4 * @keys);
