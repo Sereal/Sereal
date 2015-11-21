@@ -810,15 +810,21 @@ sub _get_roundtrip_tests {
         [ "undef", [\undef, \undef] ],
     );
 
-    my @blessed_array_check;
-    $blessed_array_check[0]="foo";
-    $blessed_array_check[1]=bless \$blessed_array_check[0], "BlessedArrayCheck";
-    $blessed_array_check[2]=\$blessed_array_check[0];
+    my @blessed_array_check1;
+    $blessed_array_check1[0]= "foo";
+    $blessed_array_check1[1]= bless \$blessed_array_check1[0], "BlessedArrayCheck";
+    $blessed_array_check1[2]= \$blessed_array_check1[0];
 
+    my @blessed_array_check2= (3,0,0,3);
+    $blessed_array_check2[1]= \$blessed_array_check2[0];
+    $blessed_array_check2[2]= \$blessed_array_check2[3];
+    bless \$blessed_array_check2[0], "BlessedArrayCheck";
+    bless \$blessed_array_check2[3], "BlessedArrayCheck";
 
     my @RoundtripTests = (
         @ScalarRoundtripTests,
-        [ "BlessedArrayCheck", \@blessed_array_check],
+        [ "BlessedArrayCheck 1", \@blessed_array_check1 ],
+        [ "BlessedArrayCheck 2", \@blessed_array_check2 ],
 
         ["[{foo => 1}, {foo => 2}] - repeated hash keys",
           [{foo => 1}, {foo => 2}] ],
