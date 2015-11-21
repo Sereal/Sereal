@@ -5,6 +5,11 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 3 of the *
 *          encoder!                                            *
 ****************************************************************
+3.006_006
+  * Fix incremental parsing of utf8 strings. See
+    https://rt.cpan.org/Public/Bug/Display.html?id=93892
+  * Encoder fixes.
+
 3.006_001 .. 3.006_005
   * Encoder fixes only.
 

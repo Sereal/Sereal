@@ -5,6 +5,10 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 3 of the *
 *          encoder!                                            *
 ****************************************************************
+3.006_006 Nov 21 2015
+  * Fix issues with serializing blessed scalars where we see the
+    blessed scalar before we see the reference to it.
+
 3.006_005 Nov 20 2015
   * Rework sort logic to be more efficient
 

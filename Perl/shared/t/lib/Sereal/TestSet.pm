@@ -681,6 +681,10 @@ my $eng2= "1e3";
 
 my $sum= $eng0e0 + $eng0e1 + $eng2;
 
+sub encoder_required {
+    my ($ver, $name)= @_;
+    return "" . ( $Sereal::Encoder::VERSION < $ver ? "TODO " : "") . $name;
+}
 
 sub _get_roundtrip_tests {
     my @ScalarRoundtripTests = (
@@ -734,8 +738,8 @@ sub _get_roundtrip_tests {
             1023,1024,1025,
             8191,8192,8193,
         )),
-        ( map { [ ( $Sereal::Encoder::VERSION < 3.005002 ? "TODO" : "")
-                    . " troublesome num/strs '$_'", $_ ] } @numstr ),
+        ( map { [ encoder_required(3.005002, " troublesome num/strs '$_'"),
+                  $_ ] } @numstr ),
         ["long latin1 string", "üll" x 10000],
         ["long utf8 string", do {use utf8; " עדיין חשב" x 10000}],
         ["long utf8 string with only ascii", do {use utf8; "foo" x 10000}],
@@ -828,9 +832,9 @@ sub _get_roundtrip_tests {
 
     my @RoundtripTests = (
         @ScalarRoundtripTests,
-        [ "BlessedArrayCheck 1", \@blessed_array_check1 ],
-        [ "BlessedArrayCheck 2", \@blessed_array_check2 ],
-        [ "Scalar Cross Blessed Array", \@sc_array ],
+        [ encoder_required(3.006006,"BlessedArrayCheck 1"), \@blessed_array_check1 ],
+        [ encoder_required(3.006006,"BlessedArrayCheck 2"), \@blessed_array_check2 ],
+        [ encoder_required(3.006006,"Scalar Cross Blessed Array"), \@sc_array ],
 
         ["[{foo => 1}, {foo => 2}] - repeated hash keys",
           [{foo => 1}, {foo => 2}] ],
