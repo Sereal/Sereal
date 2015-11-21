@@ -1157,23 +1157,6 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
     }
 }
 
-SRL_STATIC_INLINE int
-he_cmp_fast_inline(HE *a, HE *b)
-{
-    /* no need for a dTHX here, we don't use anything that needs it */
-    STRLEN la = HeKLEN(a);
-    STRLEN lb = HeKLEN(b);
-
-    int cmp = memcmp(HeKEY(a), HeKEY(b), la < lb ? la : lb);
-    if (!cmp)
-        cmp = la - lb; /* "a" should less than "aa", so 1 - 2 == -1 */
-    return cmp;
-}
-
-#define ISLT_HE_FAST(a,b)   ( he_cmp_fast_inline( *a, *b ) < 0 )
-#define ISLT_HE_SLOW(a,b) ( sv_cmp( hv_iterkeysv( *a ), hv_iterkeysv( *b ) ) < 0 )
-#define ISLT_KV(a,b)        ( sv_cmp( a->key, b->key ) < 0 )
-
 SRL_STATIC_INLINE void
 srl_dump_hv_unsorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, UV n)
 {
@@ -1218,6 +1201,22 @@ srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
         croak("Panic: cannot serialize a tied hash which changes its size!");
 }
 
+SRL_STATIC_INLINE int
+he_cmp_fast_inline(HE *a, HE *b)
+{
+    /* no need for a dTHX here, we don't use anything that needs it */
+    STRLEN la = HeKLEN(a);
+    STRLEN lb = HeKLEN(b);
+
+    int cmp = memcmp(HeKEY(a), HeKEY(b), la < lb ? la : lb);
+    if (!cmp)
+        cmp = la - lb; /* "a" should less than "aa", so 1 - 2 == -1 */
+    return cmp;
+}
+
+#define ISLT_HE_FAST(a,b)   ( he_cmp_fast_inline( *a, *b ) < 0 )
+#define ISLT_HE_SLOW(a,b) ( sv_cmp( hv_iterkeysv( *a ), hv_iterkeysv( *b ) ) < 0 )
+#define ISLT_KV(a,b)        ( sv_cmp( a->key, b->key ) < 0 )
 
 #define CALL_QSORT_NOBYTES(TYPE, ARY, N, F)                 \
     STMT_START {                                            \
