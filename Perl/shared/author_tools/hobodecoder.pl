@@ -4,6 +4,7 @@ use warnings;
 use Data::Dumper;
 
 use Getopt::Long qw(GetOptions);
+use Encode qw(encode_utf8 decode_utf8);
 our @constants;
 no warnings 'recursion';
 BEGIN {
@@ -156,13 +157,14 @@ sub parse_sv {
     my $len = $o;
     my $str = _chop_data_prefix( $len );
     $done .= $str;
-    printf "SHORT_BINARY(%u): '%s'\n", $len, $str;
+    printf "SHORT_BINARY(%u): '%s' (%s)\n", $len, encode_utf8($str), Data::Dumper::qquote($str);
   }
   elsif ($o == SRL_HDR_BINARY || $o == SRL_HDR_STR_UTF8) {
     my $l = varint();
     my $str = _chop_data_prefix( $l ); # fixme UTF8
     $done .= $str;
-    printf( ($o == SRL_HDR_STR_UTF8 ? "STR_UTF8" : "BINARY")."(%u): '%s'\n", $l, $str);
+    $str= decode_utf8($str) if $o == SRL_HDR_STR_UTF8;
+    printf( ($o == SRL_HDR_STR_UTF8 ? "STR_UTF8" : "BINARY")."(%u): '%s' (%s)\n", $l, encode_utf8($str), Data::Dumper::qquote($str));
   }
   elsif ($o == SRL_HDR_FLOAT) {
     printf "FLOAT(%f)\n", parse_float();
