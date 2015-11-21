@@ -532,8 +532,13 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset)
          * make a mortal copy, and then try to downgrade the copy.
          * The downgrade will croak if it cannot successfully downgrade
          * the buffer. If it is sucessful then decode the downgraded
-         * copy. */
-        src= sv_mortalcopy(src);
+         * copy.
+         * Note, we do not make the copy when we are in destructive parsing mode
+         * as we then are expected to modify the original string.
+         */
+        if ( ! SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL) ) {
+            src= sv_mortalcopy(src);
+        }
         sv_utf8_downgrade(src, 0);
     }
 

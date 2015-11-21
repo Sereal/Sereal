@@ -48,12 +48,11 @@ SCOPE: {
     is($data, '', "Data is gone after incremental parsing");
 }
 
-TODO: {
+SCOPE: {
     my $d = Sereal::Decoder->new({incremental => 1});
     my $data = '';
     $data .= SRL_MAGIC_STRING . chr(1).chr(0).chr(SRL_HDR_POS | $_) for 1..5;
     utf8::upgrade($data);
-    local $TODO= "Not fixed yet.";
 
     for (1..5) {
       my $out = $d->decode($data);
