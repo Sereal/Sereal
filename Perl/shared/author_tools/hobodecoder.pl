@@ -142,8 +142,8 @@ sub parse_sv {
   if ($o == SRL_HDR_POS_VARINT) {
     printf "POS_VARINT: %u\n", varint()+16;
   }
-  elsif ($o == SRL_HDR_NEG_ZIGZAG) {
-    printf "NEG_ZIGZAG: %d\n", -(zigzag()-17);
+  elsif ($o == SRL_HDR_NEG_VARINT) {
+    printf "NEG_VARINT: %d\n", -(varint()-17);
   }
   elsif ($o == SRL_HDR_VARINT) {
     printf "VARINT: %u\n", varint();
@@ -263,6 +263,17 @@ sub parse_sv {
   elsif ($o == SRL_HDR_TRUE) {
     printf "TRUE\n";
 
+  }
+  elsif ($o == SRL_HDR_DUALVAR) {
+    my $flags = ord(_chop_data_prefix( 1 ));
+    printf "DUALVAR %s\n",join(" ",$flags & 2 ? "NOK" : (), $flags & 1 ? "IOK" : ());
+    parse_sv($ind."  ");
+    parse_sv($ind."  ");
+  }
+  elsif ($o == SRL_HDR_TIED_OBJECT) {
+    printf "TIED_OBJECT\n";
+    parse_sv($ind."  ");
+    parse_sv($ind."  ");
   }
   else {
     printf "<UNKNOWN>\n";

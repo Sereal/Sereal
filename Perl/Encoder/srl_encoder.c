@@ -1642,6 +1642,27 @@ srl_hv_backreferences_p_safe(pTHX_ HV *hv) {
 }
 #endif
 
+SV *
+is_tied(pTHX_ SV *src) {
+    SV * tied;
+    const MAGIC *mg;
+    const char how = (SvTYPE(src) == SVt_PVHV || SvTYPE(src) == SVt_PVAV)
+                ? PERL_MAGIC_tied : PERL_MAGIC_tiedscalar;
+
+    if (isGV_with_GP(src) && !SvFAKE(src) && !(src = MUTABLE_SV(GvIOp(src))))
+        return NULL;
+
+    /* needed for blead? */
+    /* if (SvTYPE(src) == SVt_PVLV && LvTYPE(src) == 'y' &&
+        !(src = defelem_target(src, NULL))) 
+        return NULL;
+    */
+    if ((mg = SvTIED_mg(src, how))) {
+        return SvTIED_obj(src, mg);
+    }
+    return NULL;
+}
+
 /* Dumps generic SVs and delegates
  * to more specialized functions for RVs, etc. */
 /* TODO decide when to use the IV, when to use the PV, and when
@@ -1659,6 +1680,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     MAGIC *mg;
     AV *backrefs;
     SV* refsv= NULL;
+    SV* tied= NULL;
     SV* replacement= NULL;
     UV weakref_ofs= 0;              /* preserved between loops */
     SSize_t ref_rewrite_pos= 0;      /* preserved between loops - note SSize_t is a perl define */
@@ -1768,6 +1790,18 @@ redo_dump:
         /* Probably a "proper" solution would, but there are nits there that I dont want to chase right now. */
     }
 
+    if ( ( tied= is_tied(aTHX_ src) ) ) {
+        srl_buf_cat_char(&enc->buf, SRL_HDR_TIED_OBJECT);
+        if (svt == SVt_PVHV) {
+            srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_HASH, 0);
+        } else if(svt == SVt_PVAV) {
+            srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_ARRAY, 0);
+        } else {
+            srl_buf_cat_char(&enc->buf, 0);
+        }
+        src= tied;
+        goto redo_dump;
+    }
     /* --------------------------------- */
     _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt)
     else

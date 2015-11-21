@@ -1811,6 +1811,15 @@ srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
     dec->save_pos= 0;
 }
 
+SRL_STATIC_INLINE void
+srl_read_tied_object(pTHX_ srl_decoder_t *dec, SV* into)
+{
+    SV *tied= newSV(0);
+    srl_read_single_value(aTHX_ dec, into, NULL);
+    srl_read_single_value(aTHX_ dec, tied, NULL);
+    sv_dump(tied);
+    croak("cant handle tied value yet");
+}
 
 /****************************************************************************
  * MAIN DISPATCH SUB - ALL ROADS LEAD HERE                                  *
@@ -1895,6 +1904,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
         CASE_SRL_HDR_ARRAYREF:      srl_read_array(aTHX_ dec, into, tag); is_ref = 1; break;
         case SRL_HDR_ARRAY:         srl_read_array(aTHX_ dec, into, 0);               break;
         case SRL_HDR_REGEXP:        srl_read_regexp(aTHX_ dec, into);                 break;
+        case SRL_HDR_TIED_OBJECT:   srl_read_tied_object(aTHX_ dec, into);            break;
         case SRL_HDR_ALIAS:
         {
             UV offset;

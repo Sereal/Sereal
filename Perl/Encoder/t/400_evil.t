@@ -14,12 +14,14 @@ BEGIN {
         if !-d 't';
 }
 
-use Sereal::TestSet qw(:all);
 use Test::More;
+use Sereal::TestSet qw(:all);
 
-if (not have_encoder_and_decoder()) {
-    plan skip_all => 'Did not find right version of decoder';
-    exit 0;
+BEGIN {
+    if (not have_encoder_and_decoder()) {
+        plan skip_all => 'Did not find right version of decoder';
+        exit 0;
+    }
 }
 
 Sereal::Encoder->import(":all");
