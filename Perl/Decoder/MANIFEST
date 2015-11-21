@@ -21,7 +21,6 @@ miniz.c
 miniz.h
 ppport.h
 ptable.h
-qsort.h
 snappy/csnappy.h
 snappy/csnappy_compat.h
 snappy/csnappy_compress.c
@@ -58,6 +57,7 @@ t/160_recursion.t
 t/200_bulk.t
 t/210_bulk_readonly.t
 t/300_overload.t
+t/400_evil.t
 t/400_utf8validate.t
 t/500_utf8decoding.t
 t/550_decode_into.t
