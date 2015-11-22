@@ -1201,43 +1201,64 @@ srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
         croak("Panic: cannot serialize a tied hash which changes its size!");
 }
 
+/* sorting hashes - nothing in perl is easy. ever.
+ *
+ * Some things to keep in mind about perl hashes as you read this code:
+ *
+ * Hashes may be shared or not. Usually shared. This means they share their
+ * key data via PL_strtab.
+ *
+ * Hashes may be tied or not. Usually not. When tied the keys from the hash
+ * are available only as SV *'s, and when untied, the keys from the hash are
+ * accessed via HE *'s.
+ *
+ * Some HE's actually contains SV's but most contain a ptr/len combo with
+ * an utf8 flag. To make things even more interesting utf8 keys are
+ * normalized to latin1 by perl where possible before being stored in the HE,
+ * with the utf8 flag indicating "was utf8" instead of "is utf8" or "not utf8".
+ *
+ * The complexity about accessing the key for a hash can be managed away by
+ * perl via API's like hv_iterkeysv(), but using that means constructing mortal
+ * SV's for each key as we go.
+ *
+ * We could in theory use the HePV() interface, but one annoying result of the
+ * "was utf8" logic is that we can't use a sort comparator which looks
+ * at the raw binary of the keys when the keys might contain utf8. A utf8 key
+ * like "\xDF" will be downgraded to ascii in the HE form, but will be upgraded
+ * to the utf8 representation in the SV form. So if we want to do "fast" sorting
+ * we have to restrict it to non-utf8/non-sv keys, and force the use of the SV
+ * based API (which we have to use for tie's anyway) when we see a UTF8 key.
+ *
+ * Which is what we do below. In order to sort a hash we need to construct an
+ * array of its contents, in srl_dump_sorted_nomg() we walk the hash, checking
+ * each key, and copying each HE over into a scratch buffer which it then sorts.
+ * If during the transcription process it sees any utf8 or SV keys it exits
+ * immediately, and falls through to srl_dump_sort_mg(), which uses hv_iterkeysv()
+ * to construct an array of kv_sv instead, which we then sort.
+ */
+
+
+
 SRL_STATIC_INLINE int
-he_cmp_fast_inline(HE *a, HE *b)
+he_islt(const HE *a, const HE *b)
 {
     /* no need for a dTHX here, we don't use anything that needs it */
-    STRLEN la = HeKLEN(a);
-    STRLEN lb = HeKLEN(b);
-
-    int cmp = memcmp(HeKEY(a), HeKEY(b), la < lb ? la : lb);
-    if (!cmp)
-        cmp = la - lb; /* "a" should less than "aa", so 1 - 2 == -1 */
-    return cmp;
+    const STRLEN la = HeKLEN(a);
+    const STRLEN lb = HeKLEN(b);
+    const int cmp = memcmp(HeKEY(a), HeKEY(b), la < lb ? la : lb);
+    if (cmp) {
+        return cmp < 0;
+    } else {
+        return la < lb;
+    }
 }
 
-#define ISLT_HE_FAST(a,b)   ( he_cmp_fast_inline( *a, *b ) < 0 )
-#define ISLT_HE_SLOW(a,b) ( sv_cmp( hv_iterkeysv( *a ), hv_iterkeysv( *b ) ) < 0 )
-#define ISLT_KV(a,b)        ( sv_cmp( a->key, b->key ) < 0 )
+#define ISLT_HE(a,b)    he_islt( *a, *b )
+#define ISLT_KV(a,b)    ( sv_cmp( a->key, b->key ) < 0 )
 
-#define CALL_QSORT_NOBYTES(TYPE, ARY, N, F)                 \
-    STMT_START {                                            \
-        /* hack to forcefully disable "use bytes" */        \
-        COP cop= *PL_curcop;                                \
-        cop.op_private= 0;                                  \
-                                                            \
-        ENTER;                                              \
-        SAVETMPS;                                           \
-                                                            \
-        SAVEVPTR (PL_curcop);                               \
-        PL_curcop= &cop;                                    \
-                                                            \
-        QSORT(TYPE, ARY, N, F)                              \
-                                                            \
-        FREETMPS;                                           \
-        LEAVE;                                              \
-    } STMT_END
 
 SRL_STATIC_INLINE void
-srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
+srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n, const int is_tie)
 {
     HE *he;
     UV i= 0;
@@ -1256,15 +1277,31 @@ srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
         kv_sv_array_end= kv_sv_array + n;
         while ((he = hv_iternext(src))) {
             if (expect_false( i == n ))
-                croak("Panic: cannot serialize a tied hash which changes its size!");
+                croak("Panic: cannot serialize a %s hash which changes its size!",is_tie ? "tied" : "untied");
             kv_sv_array[i].key= hv_iterkeysv(he);
             kv_sv_array[i].val= hv_iterval(src,he);
             i++;
         }
         if (expect_false( i != n ))
-            croak("Panic: can not serialize a tied hash which changes it size!");
+            croak("Panic: can not serialize a %s hash which changes it size!", is_tie ? "tied" : "untied");
 
-        CALL_QSORT_NOBYTES(kv_sv, kv_sv_array, n, ISLT_KV);
+        {
+            /* hack to forcefully disable "use bytes" */
+            COP cop= *PL_curcop;
+            cop.op_private= 0;
+
+            ENTER;
+            SAVETMPS;
+
+            SAVEVPTR (PL_curcop);
+            PL_curcop= &cop;
+
+            /* now sort */
+            QSORT(kv_sv, kv_sv_array, n, ISLT_KV);
+
+            FREETMPS;
+            LEAVE;
+        }
 
         while ( kv_sv_array < kv_sv_array_end ) {
             CALL_SRL_DUMP_SV(enc, kv_sv_array->key);
@@ -1286,21 +1323,26 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
         HE **he_array;
         HE **he_array_ptr;
         HE **he_array_end;
-        int fast = 1;
         Newxz(he_array, n, HE*);
         SAVEFREEPV(he_array);
         he_array_ptr = he_array;
         he_array_end = he_array + n;
         while ((he = hv_iternext(src))) {
             *he_array_ptr++ = he;
-            if ( HeKLEN(he) < 0 || HeKUTF8(he) )
-                fast = 0;
+            if ( HeKLEN(he) < 0 || HeKUTF8(he) ) {
+                /* if we encounter an SV key, or a utf8 key,
+                 * then we have to fall back to extracting the key
+                 * as an SV, in which case we will just abandon what
+                 * we are doing and use the _mg api instead, which
+                 * handles the keys as sv's properly and efficiently.
+                 * In particular we dont want to call hv_iterkeysv()
+                 * in our comparator like we used to, or we could end
+                 * up creating a huge number of temporary sv's. */
+                srl_dump_hv_sorted_mg(aTHX_ enc, src, n, 0);
+                return;
+            }
         }
-        if (fast) {
-            QSORT(HE *, he_array, n, ISLT_HE_FAST)
-        } else {
-            CALL_QSORT_NOBYTES(HE *, he_array, n, ISLT_HE_SLOW);
-        }
+        QSORT(HE *, he_array, n, ISLT_HE)
         while ( he_array < he_array_end ) {
             SV *v;
             he = *he_array++;
@@ -1337,7 +1379,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
     if ( n ) {
         if ( SvMAGICAL(src) ) {
             if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS) ) {
-                srl_dump_hv_sorted_mg(aTHX_ enc, src, n);
+                srl_dump_hv_sorted_mg(aTHX_ enc, src, n, 1);
             }
             else {
                 srl_dump_hv_unsorted_mg(aTHX_ enc, src, n);
