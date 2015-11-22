@@ -52,10 +52,12 @@ typedef struct {
 typedef struct {
     union {
         SV *sv;
-        HE *he;
     } key;
-    SV *val;
-} KV_SV;
+    union {
+        HE *he;
+        SV *sv;
+    } val;
+} HE_SV;
 
 /* constructor from options */
 srl_encoder_t *srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options);
