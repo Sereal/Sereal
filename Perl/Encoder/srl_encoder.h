@@ -55,7 +55,7 @@ typedef struct {
         HE *he;
     } key;
     SV *val;
-} kv_sv;
+} KV_SV;
 
 /* constructor from options */
 srl_encoder_t *srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options);

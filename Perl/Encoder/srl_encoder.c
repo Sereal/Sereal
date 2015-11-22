@@ -1234,7 +1234,7 @@ srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
  * each key, and copying each HE over into a scratch buffer which it then sorts.
  * If during the transcription process it sees any utf8 or SV keys it exits
  * immediately, and falls through to srl_dump_sort_mg(), which uses hv_iterkeysv()
- * to construct an array of kv_sv instead, which we then sort.
+ * to construct an array of KV_SV instead, which we then sort.
  */
 
 
@@ -1258,7 +1258,7 @@ he_islt(const HE *a, const HE *b)
 
 
 SRL_STATIC_INLINE void
-srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n, kv_sv *kv_sv_array)
+srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n, KV_SV *kv_sv_array)
 {
     HE *he;
     UV i= 0;
@@ -1271,9 +1271,9 @@ srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n, kv_sv *kv_s
      * structures returned from the tie infra. So we make an array, and
      * then sort it.*/
     {
-        kv_sv *kv_sv_array_end;
+        KV_SV *kv_sv_array_end;
         if (!kv_sv_array) {
-            Newx(kv_sv_array, n, kv_sv);
+            Newx(kv_sv_array, n, KV_SV);
             SAVEFREEPV(kv_sv_array);
         }
         kv_sv_array_end= kv_sv_array + n;
@@ -1299,7 +1299,7 @@ srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n, kv_sv *kv_s
             PL_curcop= &cop;
 
             /* now sort */
-            QSORT(kv_sv, kv_sv_array, n, ISLT_KV);
+            QSORT(KV_SV, kv_sv_array, n, ISLT_KV);
 
             FREETMPS;
             LEAVE;
@@ -1322,10 +1322,10 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
 
     (void)hv_iterinit(src); /* return value not reliable according to API docs */
     {
-        kv_sv *kv_sv_array;
-        kv_sv *kv_sv_array_ptr;
-        kv_sv *kv_sv_array_end;
-        Newx(kv_sv_array, n, kv_sv);
+        KV_SV *kv_sv_array;
+        KV_SV *kv_sv_array_ptr;
+        KV_SV *kv_sv_array_end;
+        Newx(kv_sv_array, n, KV_SV);
         SAVEFREEPV(kv_sv_array);
         kv_sv_array_ptr = kv_sv_array;
         while ((he = hv_iternext(src))) {
@@ -1344,7 +1344,7 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
             }
             kv_sv_array_ptr++;
         }
-        QSORT(kv_sv, kv_sv_array, n, ISLT_HE)
+        QSORT(KV_SV, kv_sv_array, n, ISLT_HE)
         kv_sv_array_end = kv_sv_array + n;
         for ( kv_sv_array_end= kv_sv_array + n; kv_sv_array < kv_sv_array_end; kv_sv_array++ ) {
             SV *v;
