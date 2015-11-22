@@ -50,7 +50,10 @@ typedef struct {
 } sv_with_hash;
 
 typedef struct {
-    SV *key;
+    union {
+        SV *sv;
+        HE *he;
+    } key;
     SV *val;
 } kv_sv;
 

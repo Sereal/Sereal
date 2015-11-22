@@ -1253,16 +1253,17 @@ he_islt(const HE *a, const HE *b)
     }
 }
 
-#define ISLT_HE(a,b)    he_islt( *a, *b )
-#define ISLT_KV(a,b)    ( sv_cmp( a->key, b->key ) < 0 )
+#define ISLT_HE(a,b)    he_islt( a->key.he, b->key.he )
+#define ISLT_KV(a,b)    ( sv_cmp( a->key.sv, b->key.sv ) < 0 )
 
 
 SRL_STATIC_INLINE void
-srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n, const int is_tie)
+srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n, kv_sv *kv_sv_array)
 {
     HE *he;
     UV i= 0;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
+    const int is_tie= !kv_sv_array;
 
     (void)hv_iterinit(src); /* return value not reliable according to API docs */
     /* can't use the same optimizations we use for normal hashes with tied
@@ -1270,15 +1271,16 @@ srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n, const int i
      * structures returned from the tie infra. So we make an array, and
      * then sort it.*/
     {
-        kv_sv *kv_sv_array;
         kv_sv *kv_sv_array_end;
-        Newx(kv_sv_array, n, kv_sv);
-        SAVEFREEPV(kv_sv_array);
+        if (!kv_sv_array) {
+            Newx(kv_sv_array, n, kv_sv);
+            SAVEFREEPV(kv_sv_array);
+        }
         kv_sv_array_end= kv_sv_array + n;
         while ((he = hv_iternext(src))) {
             if (expect_false( i == n ))
                 croak("Panic: cannot serialize a %s hash which changes its size!",is_tie ? "tied" : "untied");
-            kv_sv_array[i].key= hv_iterkeysv(he);
+            kv_sv_array[i].key.sv= hv_iterkeysv(he);
             kv_sv_array[i].val= hv_iterval(src,he);
             i++;
         }
@@ -1304,7 +1306,7 @@ srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n, const int i
         }
 
         while ( kv_sv_array < kv_sv_array_end ) {
-            CALL_SRL_DUMP_SV(enc, kv_sv_array->key);
+            CALL_SRL_DUMP_SV(enc, kv_sv_array->key.sv);
             CALL_SRL_DUMP_SV(enc, kv_sv_array->val);
             kv_sv_array++;
         }
@@ -1320,15 +1322,14 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
 
     (void)hv_iterinit(src); /* return value not reliable according to API docs */
     {
-        HE **he_array;
-        HE **he_array_ptr;
-        HE **he_array_end;
-        Newxz(he_array, n, HE*);
-        SAVEFREEPV(he_array);
-        he_array_ptr = he_array;
-        he_array_end = he_array + n;
+        kv_sv *kv_sv_array;
+        kv_sv *kv_sv_array_ptr;
+        kv_sv *kv_sv_array_end;
+        Newx(kv_sv_array, n, kv_sv);
+        SAVEFREEPV(kv_sv_array);
+        kv_sv_array_ptr = kv_sv_array;
         while ((he = hv_iternext(src))) {
-            *he_array_ptr++ = he;
+            kv_sv_array_ptr->key.he = he;
             if ( HeKLEN(he) < 0 || HeKUTF8(he) ) {
                 /* if we encounter an SV key, or a utf8 key,
                  * then we have to fall back to extracting the key
@@ -1338,14 +1339,16 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
                  * In particular we dont want to call hv_iterkeysv()
                  * in our comparator like we used to, or we could end
                  * up creating a huge number of temporary sv's. */
-                srl_dump_hv_sorted_mg(aTHX_ enc, src, n, 0);
+                srl_dump_hv_sorted_mg(aTHX_ enc, src, n, kv_sv_array);
                 return;
             }
+            kv_sv_array_ptr++;
         }
-        QSORT(HE *, he_array, n, ISLT_HE)
-        while ( he_array < he_array_end ) {
+        QSORT(kv_sv, kv_sv_array, n, ISLT_HE)
+        kv_sv_array_end = kv_sv_array + n;
+        for ( kv_sv_array_end= kv_sv_array + n; kv_sv_array < kv_sv_array_end; kv_sv_array++ ) {
             SV *v;
-            he = *he_array++;
+            he = kv_sv_array->key.he;
             v = hv_iterval(src, he);
             srl_dump_hk(aTHX_ enc, he, do_share_keys);
             CALL_SRL_DUMP_SV(enc, v);
@@ -1379,7 +1382,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
     if ( n ) {
         if ( SvMAGICAL(src) ) {
             if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS) ) {
-                srl_dump_hv_sorted_mg(aTHX_ enc, src, n, 1);
+                srl_dump_hv_sorted_mg(aTHX_ enc, src, n, NULL);
             }
             else {
                 srl_dump_hv_unsorted_mg(aTHX_ enc, src, n);
