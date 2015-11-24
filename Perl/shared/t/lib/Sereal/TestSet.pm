@@ -627,13 +627,13 @@ sub have_encoder_and_decoder {
     }
     eval "use $Class; 1"
     or do {
-        diag("Could not locate $Class for testing" . ($@ ? " (Exception: $@)" : ""));
+        note("Could not locate $Class for testing" . ($@ ? " (Exception: $@)" : ""));
         return();
     };
 
     eval "use $need_class; 1"
     or do {
-        diag("Could not locate $need_class for testing" . ($@ ? " (Exception: $@)" : ""));
+        note("Could not locate $need_class for testing" . ($@ ? " (Exception: $@)" : ""));
         return();
     };
     my $cmp_v = $need_class->VERSION;
