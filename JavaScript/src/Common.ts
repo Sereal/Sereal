@@ -541,3 +541,55 @@ function getConsts2() {
 
 
 
+enum Tags {
+    MAGIC = 1039364716,//(0x6c) + (0x72 << 8) + (0x73 << 16) + (0x3d << 24) == 0x6c72733d;
+    SRL_MASK_SHORT_BINARY_LEN = 31, // lower 5 bits
+
+    POS = 0, /*   0 0x00 0b00000000 small positive integer - value in low 4 bits (identity) */
+    POS_LOW = 0, /*   0 0x00 0b00000000 small positive integer - value in low 4 bits (identity) */
+    POS_HIGH = 15, /*  15 0x0f 0b00001111 small positive integer - value in low 4 bits (identity) */
+    NEG = 16, /*  16 0x10 0b00010000 small negative integer - value in low 4 bits (k+32) */
+    NEG_LOW = 16, /*  16 0x10 0b00010000 small negative integer - value in low 4 bits (k+32) */
+    NEG_HIGH = 31, /*  31 0x1f 0b00011111 small negative integer - value in low 4 bits (k+32) */
+    VARINT = 32, /*  32 0x20 0b00100000 <VARINT> - Varint variable length integer */
+    ZIGZAG = 33, /*  33 0x21 0b00100001 <ZIGZAG-VARINT> - Zigzag variable length integer */
+    FLOAT = 34, /*  34 0x22 0b00100010 <IEEE-FLOAT> */
+    DOUBLE = 35, /*  35 0x23 0b00100011 <IEEE-DOUBLE> */
+    LONG_DOUBLE = 36, /*  36 0x24 0b00100100 <IEEE-LONG-DOUBLE> */
+    UNDEF = 37, /*  37 0x25 0b00100101 None - Perl undef var, eg my $var= undef, */
+    BINARY = 38, /*  38 0x26 0b00100110 <LEN-VARINT> <BYTES> - binary/(latin1) string */
+    STR_UTF8 = 39, /*  39 0x27 0b00100111 <LEN-VARINT> <UTF8> - utf8 string */
+    REFN = 40, /*  40 0x28 0b00101000 <ITEM-TAG>    - ref to next item */
+    REFP = 41, /*  41 0x29 0b00101001 <OFFSET-VARINT> - ref to previous item stored at offset */
+    HASH = 42, /*  42 0x2a 0b00101010 <COUNT-VARINT> [<KEY-TAG> <ITEM-TAG> ...] - count followed by key/value pairs */
+    ARRAY = 43, /*  43 0x2b 0b00101011 <COUNT-VARINT> [<ITEM-TAG> ...] - count followed by items */
+    OBJECT = 44, /*  44 0x2c 0b00101100 <STR-TAG> <ITEM-TAG> - class, object-item */
+    OBJECTV = 45, /*  45 0x2d 0b00101101 <OFFSET-VARINT> <ITEM-TAG> - offset of previously used classname tag - object-item */
+    ALIAS = 46, /*  46 0x2e 0b00101110 <OFFSET-VARINT> - alias to item defined at offset */
+    COPY = 47, /*  47 0x2f 0b00101111 <OFFSET-VARINT> - copy of item defined at offset */
+    WEAKEN = 48, /*  48 0x30 0b00110000 <REF-TAG> - Weaken the following reference */
+    REGEXP = 49, /*  49 0x31 0b00110001 <PATTERN-STR-TAG> <MODIFIERS-STR-TAG> */
+    OBJECT_FREEZE = 50, /*  50 0x32 0b00110010 <STR-TAG> <ITEM-TAG> - class, object-item. Need to call "THAW" method on class after decoding */
+    OBJECTV_FREEZE = 51, /*  51 0x33 0b00110011 <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT) */
+    RESERVED = 52, /*  52 0x34 0b00110100 reserved */
+    RESERVED_LOW = 52, /*  52 0x34 0b00110100 reserved */
+    RESERVED_HIGH = 56, /*  56 0x38 0b00111000 reserved */
+    CANONICAL_UNDEF = 57, /*  57 0x39 0b00111001 undef (PL_sv_undef) - "the" Perl undef (see notes) */
+    FALSE = 58, /*  58 0x3a 0b00111010 false (PL_sv_no) */
+    TRUE = 59, /*  59 0x3b 0b00111011 true  (PL_sv_yes) */
+    MANY = 60, /*  60 0x3c 0b00111100 <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3) */
+    PACKET_START = 61, /*  61 0x3d 0b00111101 (first byte of magic string in header) */
+    EXTEND = 62, /*  62 0x3e 0b00111110 <BYTE> - for additional tags */
+    PAD = 63, /*  63 0x3f 0b00111111 (ignored tag, skip to next byte) */
+    ARRAYREF = 64, /*  64 0x40 0b01000000 [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1) */
+    ARRAYREF_LOW = 64, /*  64 0x40 0b01000000 [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1) */
+    ARRAYREF_HIGH = 79, /*  79 0x4f 0b01001111 [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1) */
+    HASHREF = 80, /*  80 0x50 0b01010000 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
+    HASHREF_LOW = 80, /*  80 0x50 0b01010000 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
+    HASHREF_HIGH = 95, /*  95 0x5f 0b01011111 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
+    SHORT_BINARY = 96, /*  96 0x60 0b01100000 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
+    SHORT_BINARY_LOW = 96, /*  96 0x60 0b01100000 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
+    SHORT_BINARY_HIGH = 127, /* 127 0x7f 0b01111111 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
+    TRACK_FLAG = 128, /* 128 0x80 0b10000000 if this bit is set track the item */
+
+}

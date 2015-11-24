@@ -1,7 +1,6 @@
 /// <reference path="../src/External.ts"/>
 /// <reference path="../src/Common.ts"/>
 /// <reference path="../src/DataReader.ts"/>
-/// <reference path="../src/DataReader2.ts"/>
 /// <reference path="../src/Decoder.ts"/>
 /// <reference path="../libs/jquery/jquery.d.ts"/>
 
@@ -29,7 +28,7 @@ function main() {
 
 function decodeSereal(binaryText) {
     var _buf = str2ab2(binaryText);
-    _reader = new DataReader2(_buf);
+    _reader = new DataReader(_buf);
     var pos = 0;
     if (_reader.getInt32() != MAGIC)
         throw new Error();

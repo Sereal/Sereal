@@ -1,57 +1,51 @@
 class DataReader {
     constructor(public _buffer: ArrayBuffer) {
-        this._view = new DataView(_buffer);
-    }
-    _view: DataView;
-    _pos: number;
-    //var _this = this;
-    //Function.addTo(_this, [rewind, limit, getInt, get, hasRemaining, position, remaining, toString]);
-    //var _view = new DataView(_buffer);
-    //var _pos;
-
-    //_this._view = _view;
-
-    toString(): string {
-        return "DataReader pos=" + this._pos;
-    }
-    getDouble(): number {
-        throw new Error();
+        this.view = new DataView(_buffer);
+        this.pos = this.view.byteOffset;
     }
 
-    position(value?: number): number {
-        if (arguments.length == 0)
-            return this._pos;
-        this._pos = value;
-    }
-    rewind() {
-        this._pos = this._view.byteOffset;
-    }
-    hasRemaining(): boolean {
-        return this.remaining() > 0;
-    }
-    remaining(): number {
-        return this._view.byteLength - this._pos;
-    }
-    limit(): number {
-        return this._view.byteLength - this._pos;
-    }
+    view: DataView;
+    pos: number;
+
+    toString(): string { return "DataReader pos=" + this.pos; }
+    getDouble(): number { throw new Error(); }
+    rewind() { this.pos = this.view.byteOffset; }
+    hasRemaining(): boolean { return this.remaining() > 0; }
+    remaining(): number { return this.view.byteLength - this.pos; }
+    limit(): number { return this.view.byteLength - this.pos; }
+    order(type: ByteOrder) { throw new Error(); }
+    getInt32(): number { return this.getInt(); }
+    getInt8(): number { return this.getByte(); }
+    asInt8Array(): Int8Array { return new Int8Array(this._buffer); }
     getInt(): number {
-        var value = this._view.getInt32(this._pos);
-        this._pos += 4;
+        var value = this.view.getInt32(this.pos);
+        this.pos += 4;
         return value;
     }
-    getBytes(buf: ArrayBuffer): ArrayBuffer {
+    getBytesTo(buf: ArrayBuffer): ArrayBuffer {
         var arr = new Uint8Array(buf);
         for (var i = 0; i < arr.length; i++)
-            arr[i] = this.get();
+            arr[i] = this.getByte();
         return buf;
     }
-    get(): any {
-        var value = this._view.getInt8(this._pos);
-        this._pos++;
+    getByte(): any {
+        var value = this.view.getInt8(this.pos);
+        this.pos++;
         return value;
     }
-    order(type: ByteOrder) {
-        throw new Error();
+    getVarInt() {
+        var out = { bytesRead: null };
+        var value = varint.read(this.asInt8Array(), this.pos, out);
+        this.pos += out.bytesRead || 1;
+        return value;
     }
+    getBytes(length) {
+        if (length == null)
+            length = this._buffer.byteLength - this.pos;
+        var arr = new Int8Array(length);
+        for (var i = 0; i < length; i++)
+            arr[i] = this.getByte();
+        return arr.buffer;
+    }
+
 }
