@@ -1,0 +1,9 @@
+﻿{
+    "compilerOptions": {
+        "target": "es5",
+        "module": "amd",
+        "sourceMap": true,
+        "outFile": "build/sereal.js"
+    },
+    "exclude": [ "t" ]
+}
