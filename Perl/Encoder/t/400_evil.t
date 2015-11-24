@@ -1,7 +1,6 @@
 #!perl
 use strict;
 use warnings;
-use Sereal::Encoder qw(:all);
 use Data::Dumper;
 use File::Spec;
 use Scalar::Util qw(blessed);
@@ -23,6 +22,7 @@ if (not have_encoder_and_decoder()) {
     exit 0;
 }
 
+Sereal::Encoder->import(":all");
 Sereal::Decoder->import(":all");
 
 # First, test tied hashes. Expected behaviour: We don't segfault, we don't
