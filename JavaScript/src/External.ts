@@ -1,3 +1,4 @@
+"use strict";
 declare module Zlib {
     class Deflate {
         constructor(arr: Uint8Array);
@@ -50,6 +51,7 @@ interface JQueryXHR extends JQueryPromise {
 }
 
 interface String {
-    padLeft(totalLength:number, paddingChar:string): string;
+    padLeft(totalLength: number, paddingChar: string): string;
+    last(): string;
 }
-//String.prototype.toHex = function () { return this.toString(16); }
+    //String.prototype.toHex = function () { return this.toString(16); }

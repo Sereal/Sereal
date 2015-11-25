@@ -22,7 +22,7 @@
 
 	// args is the HelloWorld program to compile.
     //"args": [ "sereal.ts", "sereal2.ts", "common.ts" ],
-    "args": ["-p", "."],
+    "args": ["-d", "-p", "."],
 
 	// use the standard tsc problem matcher to find compile problems
 	// in the output.
