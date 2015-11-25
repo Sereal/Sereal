@@ -127,10 +127,11 @@ function str2ab(str) {
     return buf;
 }
 function str2ab2(str) {
-    var buf = new ArrayBuffer(str.length); // 2 bytes for each char
+    var buf = new ArrayBuffer(str.length);
     var bufView = new Uint8Array(buf);
     for (var i = 0, strLen = str.length; i < strLen; i++) {
-        bufView[i] = str.charCodeAt(i);
+        var byte = str.charCodeAt(i);
+        bufView[i] = byte;
     }
     return buf;
 }
@@ -682,22 +683,45 @@ var Tags;
     Tags[Tags["SHORT_BINARY_31"] = 127] = "SHORT_BINARY_31";
 })(Tags || (Tags = {}));
 var DataReader = (function () {
-    function DataReader(_buffer) {
-        this._buffer = _buffer;
-        this.view = new DataView(_buffer);
-        this.pos = this.view.byteOffset;
+    function DataReader(data) {
+        this.view = this.toDataView(data);
+        this.pos = 0;
+        console.log("DataReader created, data=" + this.toHex());
     }
+    DataReader.prototype.toDataView = function (data) {
+        if (data instanceof DataView)
+            return data;
+        if (ArrayBuffer.isView(data)) {
+            return new DataView(data.buffer, data.byteOffset, data.byteLength);
+        }
+        if (data instanceof ArrayBuffer) {
+            var buf = data;
+            return new DataView(buf); //, 0, buf.byteLength
+        }
+        console.warn("unknown data", data);
+        return null;
+    };
+    DataReader.prototype.toHex = function () {
+        var list = [];
+        for (var i = 0; i < this.view.byteLength; i++) {
+            list.push(this.view.getUint8(i).toHex().padLeft(2, "0"));
+        }
+        return list.join(" ");
+    };
+    ////** returns a zero based index position where view.byteOffset normalizes to zero
+    //getRelativePosition() {
+    //    return this.pos - this.view.byteOffset;
+    //}
     DataReader.prototype.toString = function () { return "DataReader pos=" + this.pos; };
     DataReader.prototype.getDouble = function () { throw new Error(); };
-    DataReader.prototype.rewind = function () { this.pos = this.view.byteOffset; };
+    DataReader.prototype.rewind = function () { this.pos = 0; };
     DataReader.prototype.hasRemaining = function () { return this.remaining() > 0; };
     DataReader.prototype.remaining = function () { return this.view.byteLength - this.pos; };
     DataReader.prototype.limit = function () { return this.view.byteLength - this.pos; };
     DataReader.prototype.order = function (type) { throw new Error(); };
     DataReader.prototype.getInt32 = function () { return this.getInt(); };
-    DataReader.prototype.getInt8 = function () { return this.getByte(); };
-    DataReader.prototype.asInt8Array = function () { return new Int8Array(this._buffer); };
-    DataReader.prototype.asUint8Array = function () { return new Uint8Array(this._buffer); };
+    //asInt8Array(): Int8Array { return new Int8Array(this.view.buffer, this.view.byteOffset, this.view.byteLength); }
+    DataReader.prototype.asUint8Array = function () { return new Uint8Array(this.view.buffer, this.view.byteOffset, this.view.byteLength); };
     DataReader.prototype.getInt = function () {
         var value = this.view.getInt32(this.pos);
         this.pos += 4;
@@ -724,11 +748,15 @@ var DataReader = (function () {
     };
     DataReader.prototype.getBytes = function (length) {
         if (length == null)
-            length = this._buffer.byteLength - this.pos;
-        var arr = new Uint8Array(length);
-        for (var i = 0; i < length; i++)
-            arr[i] = this.getByte();
-        return arr.buffer;
+            length = this.view.byteLength - this.pos;
+        var arr = new Uint8Array(this.view.buffer, this.view.byteOffset + this.pos, length);
+        this.pos += length;
+        return arr;
+    };
+    DataReader.prototype.getBytes2 = function (length) {
+        var arr = this.getBytes(length);
+        var reader = new DataReader(arr);
+        return reader;
     };
     return DataReader;
 })();
@@ -1127,8 +1155,8 @@ var Decoder = (function () {
         return this.tracked["track_" + offset];
     };
     /** Set the data to deserealize(for calling decode multiple times when there are concatenated packets)(never tested)     */
-    Decoder.prototype.setData = function (blob) {
-        this.data = new DataReader(blob);
+    Decoder.prototype.setData = function (data) {
+        this.data = new DataReader(data);
         this.data.rewind();
     };
     Decoder.prototype.track_stuff = function (pos, thing) {
@@ -1287,4 +1315,5 @@ var Decoder = (function () {
 //    data.position(pos);
 //}
 Number.prototype.toHex = function () { return this.toString(16); };
+//String.prototype.toHex = function () { return this.toString(16); }
 //# sourceMappingURL=sereal.js.map

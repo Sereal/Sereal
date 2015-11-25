@@ -1,19 +1,19 @@
 declare module Zlib {
     class Deflate {
-        constructor(arr: Int8Array);
-        compress(): Int8Array;
+        constructor(arr: Uint8Array);
+        compress(): Uint8Array;
     }
     class Inflate {
-        constructor(arr: Int8Array);
-        decompress(): Int8Array;
+        constructor(arr: Uint8Array);
+        decompress(): Uint8Array;
     }
     class RawInflate {
-        constructor(arr: Int8Array);
-        decompress(): Int8Array;
+        constructor(arr: Uint8Array);
+        decompress(): Uint8Array;
     }
     class InflateStream {
-        constructor(arr: Int8Array);
-        decompress(): Int8Array;
+        constructor(arr: Uint8Array);
+        decompress(): Uint8Array;
     }
 }
 
@@ -48,3 +48,8 @@ interface ArrayConstructor {
 interface JQueryXHR extends JQueryPromise {
 
 }
+
+interface String {
+    padLeft(totalLength:number, paddingChar:string): string;
+}
+//String.prototype.toHex = function () { return this.toString(16); }

@@ -1,4 +1,5 @@
 Number.prototype.toHex = function () { return this.toString(16); };
+//String.prototype.toHex = function () { return this.toString(16); }
 var __extends = (this && this.__extends) || function (d, b) {
     for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
     function __() { this.constructor = d; }
@@ -128,10 +129,11 @@ function str2ab(str) {
     return buf;
 }
 function str2ab2(str) {
-    var buf = new ArrayBuffer(str.length); // 2 bytes for each char
+    var buf = new ArrayBuffer(str.length);
     var bufView = new Uint8Array(buf);
     for (var i = 0, strLen = str.length; i < strLen; i++) {
-        bufView[i] = str.charCodeAt(i);
+        var byte = str.charCodeAt(i);
+        bufView[i] = byte;
     }
     return buf;
 }
@@ -683,22 +685,45 @@ var Tags;
     Tags[Tags["SHORT_BINARY_31"] = 127] = "SHORT_BINARY_31";
 })(Tags || (Tags = {}));
 var DataReader = (function () {
-    function DataReader(_buffer) {
-        this._buffer = _buffer;
-        this.view = new DataView(_buffer);
-        this.pos = this.view.byteOffset;
+    function DataReader(data) {
+        this.view = this.toDataView(data);
+        this.pos = 0;
+        console.log("DataReader created, data=" + this.toHex());
     }
+    DataReader.prototype.toDataView = function (data) {
+        if (data instanceof DataView)
+            return data;
+        if (ArrayBuffer.isView(data)) {
+            return new DataView(data.buffer, data.byteOffset, data.byteLength);
+        }
+        if (data instanceof ArrayBuffer) {
+            var buf = data;
+            return new DataView(buf); //, 0, buf.byteLength
+        }
+        console.warn("unknown data", data);
+        return null;
+    };
+    DataReader.prototype.toHex = function () {
+        var list = [];
+        for (var i = 0; i < this.view.byteLength; i++) {
+            list.push(this.view.getUint8(i).toHex().padLeft(2, "0"));
+        }
+        return list.join(" ");
+    };
+    ////** returns a zero based index position where view.byteOffset normalizes to zero
+    //getRelativePosition() {
+    //    return this.pos - this.view.byteOffset;
+    //}
     DataReader.prototype.toString = function () { return "DataReader pos=" + this.pos; };
     DataReader.prototype.getDouble = function () { throw new Error(); };
-    DataReader.prototype.rewind = function () { this.pos = this.view.byteOffset; };
+    DataReader.prototype.rewind = function () { this.pos = 0; };
     DataReader.prototype.hasRemaining = function () { return this.remaining() > 0; };
     DataReader.prototype.remaining = function () { return this.view.byteLength - this.pos; };
     DataReader.prototype.limit = function () { return this.view.byteLength - this.pos; };
     DataReader.prototype.order = function (type) { throw new Error(); };
     DataReader.prototype.getInt32 = function () { return this.getInt(); };
-    DataReader.prototype.getInt8 = function () { return this.getByte(); };
-    DataReader.prototype.asInt8Array = function () { return new Int8Array(this._buffer); };
-    DataReader.prototype.asUint8Array = function () { return new Uint8Array(this._buffer); };
+    //asInt8Array(): Int8Array { return new Int8Array(this.view.buffer, this.view.byteOffset, this.view.byteLength); }
+    DataReader.prototype.asUint8Array = function () { return new Uint8Array(this.view.buffer, this.view.byteOffset, this.view.byteLength); };
     DataReader.prototype.getInt = function () {
         var value = this.view.getInt32(this.pos);
         this.pos += 4;
@@ -725,11 +750,15 @@ var DataReader = (function () {
     };
     DataReader.prototype.getBytes = function (length) {
         if (length == null)
-            length = this._buffer.byteLength - this.pos;
-        var arr = new Uint8Array(length);
-        for (var i = 0; i < length; i++)
-            arr[i] = this.getByte();
-        return arr.buffer;
+            length = this.view.byteLength - this.pos;
+        var arr = new Uint8Array(this.view.buffer, this.view.byteOffset + this.pos, length);
+        this.pos += length;
+        return arr;
+    };
+    DataReader.prototype.getBytes2 = function (length) {
+        var arr = this.getBytes(length);
+        var reader = new DataReader(arr);
+        return reader;
     };
     return DataReader;
 })();
@@ -1090,8 +1119,8 @@ var Decoder = (function () {
         return this.tracked["track_" + offset];
     };
     /** Set the data to deserealize(for calling decode multiple times when there are concatenated packets)(never tested)     */
-    Decoder.prototype.setData = function (blob) {
-        this.data = new DataReader(blob);
+    Decoder.prototype.setData = function (data) {
+        this.data = new DataReader(data);
         this.data.rewind();
     };
     Decoder.prototype.track_stuff = function (pos, thing) {
@@ -1268,13 +1297,14 @@ var IndexPage = (function () {
         $(function () { return page.domReady(); });
     };
     IndexPage.prototype.domReady = function () {
-        var _this = this;
-        $.get("m1.txt").done(function (t) {
-            console.log(t);
-            console.log(atob(t));
-            _this.msgText = atob(t);
-            _this.main();
-        });
+        this.msgText = atob("PfNybDMLAUFobWV0YWRhdGEpjgB4AXNUU0snCgAAQH4P2A==");
+        this.main();
+        //$.get("m1.txt").done(t=> {
+        //    console.log(t);
+        //    console.log(atob(t));
+        //    this.msgText = atob(t);
+        //    this.main();
+        //});
     };
     IndexPage.prototype.main = function () {
         var binaryText = this.msgText; //localStorage.getItem("sereal");
@@ -1289,9 +1319,9 @@ var IndexPage = (function () {
     IndexPage.prototype.toBitString = function (byte) {
         return byte.toString(2).padLeft(8, "0");
     };
-    IndexPage.prototype.decodeDocumentBody2 = function (buffer) {
+    IndexPage.prototype.decodeDocumentBody2 = function (byteArray) {
         var dec = new Decoder({ prefer_latin1: true });
-        dec.setData(buffer);
+        dec.setData(byteArray);
         var x = dec.readSingleValue();
         console.log(x);
         return x;
@@ -1300,14 +1330,14 @@ var IndexPage = (function () {
         this.doc = new SerealDocument();
         var doc = this.doc;
         var _buf = str2ab2(binaryText);
-        this.reader = new DataReader(_buf);
+        this.reader = new DataReader(new DataView(_buf));
         var pos = 0;
         console.log({ pos: this.reader.pos });
         doc.magic = this.reader.getInt32();
         if (doc.magic != Consts.MAGIC)
             throw new Error();
         console.log({ pos: this.reader.pos });
-        var s = this.reader.getInt8().toString(2);
+        var s = this.reader.getByte().toString(2);
         doc.version = parseInt(s.substr(0, 4), 2);
         doc.type = parseInt(s.substr(4, 4), 2);
         console.log(doc.version, doc.type);
@@ -1320,8 +1350,8 @@ var IndexPage = (function () {
             console.log({ pos: this.reader.pos });
             if (doc.eight_bit_field.has_user_metadata) {
                 console.log({ pos: this.reader.pos });
-                var mdBuffer = this.reader.getBytes(doc.header_suffix_size - 1);
-                doc.user_metadata = this.decodeDocumentBody2(mdBuffer);
+                var mdByteArray = this.reader.getBytes(doc.header_suffix_size - 1);
+                doc.user_metadata = this.decodeDocumentBody2(mdByteArray);
                 console.log({ pos: this.reader.pos });
                 console.log("METADATA", doc.user_metadata);
             }
@@ -1333,8 +1363,8 @@ var IndexPage = (function () {
         console.log({ uncomp: doc.body_uncompressed_length, comp: doc.body_compressed_length });
         console.log({ pos: this.reader.pos, remaining: this.reader.remaining() });
         console.log(doc);
-        var deflated = this.tryDeflate();
-        doc.body = this.decodeDocumentBody2(deflated.buffer);
+        var deflated = this.deflate();
+        doc.body = this.decodeDocumentBody2(deflated);
         console.log("DONE!!!!!!!!!", doc);
         //if (doc.type == 3) {
         //    while (this.reader.hasRemaining() && tries < 11) {
@@ -1354,21 +1384,12 @@ var IndexPage = (function () {
         //    //console.log("FINISHED! DOC = ",doc);
         //}
     };
-    IndexPage.prototype.tryDeflate = function () {
+    IndexPage.prototype.deflate = function () {
         var pos = this.reader.pos;
-        if (!this.reader.hasRemaining())
-            return;
-        var buf = this.reader.getBytes();
-        var arr = new Int8Array(buf);
-        try {
-            var zip = new Zlib.Inflate(arr);
-            var deflated = zip.decompress();
-            return deflated;
-        }
-        catch (e) {
-            this.reader.pos = pos;
-            return null;
-        }
+        var arr = this.reader.getBytes();
+        var zip = new Zlib.Inflate(arr);
+        var deflated = zip.decompress();
+        return deflated;
     };
     IndexPage.prototype.decodeDocumentBody = function () {
         var byte = this.reader.getByte();

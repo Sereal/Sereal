@@ -26,12 +26,14 @@ class IndexPage {
         $(() => page.domReady());
     }
     domReady() {
-        $.get("m1.txt").done(t=> {
-            console.log(t);
-            console.log(atob(t));
-            this.msgText = atob(t);
-            this.main();
-        });
+        this.msgText = atob("PfNybDMLAUFobWV0YWRhdGEpjgB4AXNUU0snCgAAQH4P2A==");
+        this.main();
+        //$.get("m1.txt").done(t=> {
+        //    console.log(t);
+        //    console.log(atob(t));
+        //    this.msgText = atob(t);
+        //    this.main();
+        //});
     }
     main() {
         var binaryText = this.msgText;//localStorage.getItem("sereal");
@@ -48,9 +50,9 @@ class IndexPage {
         return byte.toString(2).padLeft(8, "0");
     }
 
-    decodeDocumentBody2(buffer: ArrayBuffer): any {
+    decodeDocumentBody2(byteArray: Uint8Array): any {
         var dec = new Decoder({ prefer_latin1: true });
-        dec.setData(buffer);
+        dec.setData(byteArray);
         var x = dec.readSingleValue();
         console.log(x);
         return x;
@@ -62,7 +64,7 @@ class IndexPage {
 
         var doc = this.doc;
         var _buf = str2ab2(binaryText);
-        this.reader = new DataReader(_buf);
+        this.reader = new DataReader(new DataView(_buf));
         var pos = 0;
         console.log({ pos: this.reader.pos });
         doc.magic = this.reader.getInt32();
@@ -70,7 +72,7 @@ class IndexPage {
             throw new Error();
 
         console.log({ pos: this.reader.pos });
-        var s = this.reader.getInt8().toString(2);
+        var s = this.reader.getByte().toString(2);
         doc.version = parseInt(s.substr(0, 4), 2);
         doc.type = parseInt(s.substr(4, 4), 2);
         console.log(doc.version, doc.type);
@@ -83,8 +85,8 @@ class IndexPage {
             console.log({ pos: this.reader.pos });
             if (doc.eight_bit_field.has_user_metadata) {
                 console.log({ pos: this.reader.pos });
-                var mdBuffer = this.reader.getBytes(doc.header_suffix_size - 1);
-                doc.user_metadata = this.decodeDocumentBody2(mdBuffer);
+                var mdByteArray = this.reader.getBytes(doc.header_suffix_size - 1);
+                doc.user_metadata = this.decodeDocumentBody2(mdByteArray);
                 console.log({ pos: this.reader.pos });
                 console.log("METADATA", doc.user_metadata);
             }
@@ -97,8 +99,8 @@ class IndexPage {
         console.log({ uncomp: doc.body_uncompressed_length, comp: doc.body_compressed_length });
         console.log({ pos: this.reader.pos, remaining: this.reader.remaining() });
         console.log(doc);
-        var deflated = this.tryDeflate();
-        doc.body = this.decodeDocumentBody2(deflated.buffer);
+        var deflated = this.deflate();
+        doc.body = this.decodeDocumentBody2(deflated);
         console.log("DONE!!!!!!!!!", doc);
 
 
@@ -121,21 +123,12 @@ class IndexPage {
         //}
     }
 
-    tryDeflate(): Uint8Array {
+    deflate(): Uint8Array {
         var pos = this.reader.pos;
-        if (!this.reader.hasRemaining())
-            return;
-        var buf = this.reader.getBytes();
-        var arr = new Int8Array(buf);
-        try {
-            var zip = new Zlib.Inflate(arr);
-            var deflated: Uint8Array = zip.decompress();
-            return deflated;
-        }
-        catch (e) {
-            this.reader.pos = pos;
-            return null;
-        }
+        var arr = this.reader.getBytes();
+        var zip = new Zlib.Inflate(arr);
+        var deflated = zip.decompress();
+        return deflated;
     }
 
     decodeDocumentBody() {

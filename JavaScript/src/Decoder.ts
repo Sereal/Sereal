@@ -412,8 +412,8 @@ class Decoder {
         return this.tracked["track_" + offset];
     }
     /** Set the data to deserealize(for calling decode multiple times when there are concatenated packets)(never tested)     */
-    setData(blob: ArrayBuffer) {
-        this.data = new DataReader(blob);
+    setData(data: Uint8Array): void {
+        this.data = new DataReader(data);
         this.data.rewind();
     }
 

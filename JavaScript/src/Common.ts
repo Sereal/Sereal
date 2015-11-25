@@ -74,6 +74,7 @@ interface Number {
 }
 Number.prototype.toHex = function () { return this.toString(16); }
 
+
 class varint {
     static MSB = 0x80;
     static REST = 0x7F;
@@ -121,10 +122,11 @@ function str2ab(str) {
 }
 
 function str2ab2(str) {
-    var buf = new ArrayBuffer(str.length); // 2 bytes for each char
+    var buf = new ArrayBuffer(str.length);
     var bufView = new Uint8Array(buf);
     for (var i = 0, strLen = str.length; i < strLen; i++) {
-        bufView[i] = str.charCodeAt(i);
+        var byte = str.charCodeAt(i);
+        bufView[i] = byte;
     }
     return buf;
 }
