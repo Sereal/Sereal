@@ -130,10 +130,9 @@ class Decoder {
 
         this.log.fine("Array length: " + length);
 
-        var /*Object[]*/ out = new Array(length);//new Object[length];
-        if (track != 0) { // track ourself
+        var out = new Array(length);
+        if (track != 0)  // track ourself
             this.track_stuff(track, out);
-        }
 
         for (var i = 0; i < length; i++) {
             out[i] = this.readSingleValue();
@@ -216,8 +215,8 @@ class Decoder {
         var tag = this.data.getByte();
 
         var track = 0;
-        if ((tag & Tags.TRACK_FLAG) != 0) {
-            tag = tag & ~Tags.TRACK_FLAG;
+        if ((tag & Consts.TRACK_FLAG) != 0) {
+            tag = tag & ~Consts.TRACK_FLAG;
             track = this.data.pos - 1;
             this.log.fine("Tracking stuff at position: " + track);
         }
@@ -225,25 +224,25 @@ class Decoder {
         this.log.fine("Tag: " + (tag & 0xFF));// + " = " + tag.toHex());
         var out;
 
-        if (tag <= Tags.POS_HIGH) {
+        if (tag <= Consts.POS_HIGH) {
             this.log.fine("Read small positive int:" + tag);
             out = tag;
         }
-        else if (tag <= Tags.NEG_HIGH) {
+        else if (tag <= Consts.NEG_HIGH) {
             this.log.fine("Read small negative int:" + (tag - 32));
             out = tag - 32;
         }
-        else if ((tag & Tags.SHORT_BINARY_LOW) == Tags.SHORT_BINARY_LOW) {
+        else if ((tag & Consts.SHORT_BINARY_LOW) == Consts.SHORT_BINARY_LOW) {
             var short_binary: ArrayBuffer = this.read_short_binary(tag);
             this.log.fine("Read short binary: " + short_binary + " length " + short_binary.byteLength);
             out = this.prefer_latin1 ? new Latin1String(short_binary).toString() : short_binary;
         }
-        else if ((tag & Tags.HASHREF) == Tags.HASHREF) {
+        else if ((tag & Tags.HASHREF_0) == Tags.HASHREF_0) {
             var hash = this.read_hash(tag, track);
             this.log.fine("Read hash: " + hash);
             out = hash;
         }
-        else if ((tag & Tags.ARRAYREF) == Tags.ARRAYREF) {
+        else if ((tag & Tags.ARRAYREF_0) == Tags.ARRAYREF_0) {
             this.log.fine("Reading arrayref");
             var arr: Object[] = this.read_array(tag, track);
             this.log.fine("Read arrayref: " + arr);
@@ -284,7 +283,7 @@ class Decoder {
     }
     /** Read a short binary ISO-8859-1 (latin1) string, the lower bits of the tag hold the length */
     read_short_binary(tag: number): ArrayBuffer {
-        var length: number = tag & Tags.SRL_MASK_SHORT_BINARY_LEN;
+        var length: number = tag & Consts.MASK_SHORT_BINARY_LEN;
         this.log.fine("Short binary, length: " + length);
         var buf = new ArrayBuffer(length);
         this.data.getBytesTo(buf);
@@ -319,8 +318,8 @@ class Decoder {
 
         // now read modifiers
         var /*byte*/ tag = this.data.getByte();
-        if ((tag & Tags.SHORT_BINARY_LOW) == Tags.SHORT_BINARY_LOW) {
-            var length: number = tag & Tags.SRL_MASK_SHORT_BINARY_LEN;
+        if ((tag & Consts.SHORT_BINARY_LOW) == Consts.SHORT_BINARY_LOW) {
+            var length: number = tag & Consts.MASK_SHORT_BINARY_LEN;
             while (length-- > 0) {
                 var /*byte*/ value = String.fromCharCode(this.data.getByte());
                 switch (value) {
@@ -357,8 +356,8 @@ class Decoder {
         var position = this.data.pos;
         var tag = this.data.getByte();
         var className;
-        if ((tag & Tags.SHORT_BINARY_LOW) == Tags.SHORT_BINARY_LOW) {
-            var length = tag & Tags.SRL_MASK_SHORT_BINARY_LEN;
+        if ((tag & Consts.SHORT_BINARY_LOW) == Consts.SHORT_BINARY_LOW) {
+            var length = tag & Consts.MASK_SHORT_BINARY_LEN;
             var /*byte[]*/ buf = new ArrayBuffer(length);
             this.data.getBytesTo(buf);
             className = new Latin1String(/*new String(*/buf/*)*/).toString();

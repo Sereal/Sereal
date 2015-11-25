@@ -1,6 +1,19 @@
 declare module Zlib {
     class Deflate {
-        constructor(arr: ArrayBuffer);
+        constructor(arr: Int8Array);
+        compress(): Int8Array;
+    }
+    class Inflate {
+        constructor(arr: Int8Array);
+        decompress(): Int8Array;
+    }
+    class RawInflate {
+        constructor(arr: Int8Array);
+        decompress(): Int8Array;
+    }
+    class InflateStream {
+        constructor(arr: Int8Array);
+        decompress(): Int8Array;
     }
 }
 
@@ -18,6 +31,7 @@ interface ObjectConstructor {
 interface Array<T> {
     //map<U>(callbackfn: (value: T, index: number, array: T[]) => U, thisArg?: any): U[];
     select<R>(selector: (item: T) => R): Array<R>;
+    forEachAsyncProgressive(action: (item: T, callback: () => void) => void, finalCallback: () => void);
 }
 interface Number {
     toHex(): string;
@@ -28,3 +42,9 @@ interface JQuery {
     makeGraph(opts: any): JQuery;
 }
 
+interface ArrayConstructor {
+    generateNumbers(from: number, until: number): number[];
+}
+interface JQueryXHR extends JQueryPromise {
+
+}

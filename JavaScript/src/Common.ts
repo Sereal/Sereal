@@ -84,25 +84,25 @@ class varint {
             , shift = 0
             , counter = offset
             , b
-            , l = buf.length
+            , l = buf.length;
 
         do {
             if (counter >= l) {
                 if (out != null)
-                    out.bytesRead = 0
-                return undefined
+                    out.bytesRead = 0;
+                return undefined;
             }
             b = buf[counter++]
             res += shift < 28
                 ? (b & varint.REST) << shift
-                : (b & varint.REST) * Math.pow(2, shift)
-            shift += 7
-        } while (b >= varint.MSB)
+                : (b & varint.REST) * Math.pow(2, shift);
+            shift += 7;
+        } while (b >= varint.MSB);
 
         if (out != null)
-            out.bytesRead = counter - offset
+            out.bytesRead = counter - offset;
 
-        return res
+        return res;
     }
 
 }
@@ -541,55 +541,152 @@ function getConsts2() {
 
 
 
-enum Tags {
+enum Consts {
     MAGIC = 1039364716,//(0x6c) + (0x72 << 8) + (0x73 << 16) + (0x3d << 24) == 0x6c72733d;
-    SRL_MASK_SHORT_BINARY_LEN = 31, // lower 5 bits
-
-    POS = 0, /*   0 0x00 0b00000000 small positive integer - value in low 4 bits (identity) */
+    MASK_SHORT_BINARY_LEN = 31, // lower 5 bits
     POS_LOW = 0, /*   0 0x00 0b00000000 small positive integer - value in low 4 bits (identity) */
     POS_HIGH = 15, /*  15 0x0f 0b00001111 small positive integer - value in low 4 bits (identity) */
-    NEG = 16, /*  16 0x10 0b00010000 small negative integer - value in low 4 bits (k+32) */
     NEG_LOW = 16, /*  16 0x10 0b00010000 small negative integer - value in low 4 bits (k+32) */
     NEG_HIGH = 31, /*  31 0x1f 0b00011111 small negative integer - value in low 4 bits (k+32) */
-    VARINT = 32, /*  32 0x20 0b00100000 <VARINT> - Varint variable length integer */
-    ZIGZAG = 33, /*  33 0x21 0b00100001 <ZIGZAG-VARINT> - Zigzag variable length integer */
-    FLOAT = 34, /*  34 0x22 0b00100010 <IEEE-FLOAT> */
-    DOUBLE = 35, /*  35 0x23 0b00100011 <IEEE-DOUBLE> */
-    LONG_DOUBLE = 36, /*  36 0x24 0b00100100 <IEEE-LONG-DOUBLE> */
-    UNDEF = 37, /*  37 0x25 0b00100101 None - Perl undef var, eg my $var= undef, */
-    BINARY = 38, /*  38 0x26 0b00100110 <LEN-VARINT> <BYTES> - binary/(latin1) string */
-    STR_UTF8 = 39, /*  39 0x27 0b00100111 <LEN-VARINT> <UTF8> - utf8 string */
-    REFN = 40, /*  40 0x28 0b00101000 <ITEM-TAG>    - ref to next item */
-    REFP = 41, /*  41 0x29 0b00101001 <OFFSET-VARINT> - ref to previous item stored at offset */
-    HASH = 42, /*  42 0x2a 0b00101010 <COUNT-VARINT> [<KEY-TAG> <ITEM-TAG> ...] - count followed by key/value pairs */
-    ARRAY = 43, /*  43 0x2b 0b00101011 <COUNT-VARINT> [<ITEM-TAG> ...] - count followed by items */
-    OBJECT = 44, /*  44 0x2c 0b00101100 <STR-TAG> <ITEM-TAG> - class, object-item */
-    OBJECTV = 45, /*  45 0x2d 0b00101101 <OFFSET-VARINT> <ITEM-TAG> - offset of previously used classname tag - object-item */
-    ALIAS = 46, /*  46 0x2e 0b00101110 <OFFSET-VARINT> - alias to item defined at offset */
-    COPY = 47, /*  47 0x2f 0b00101111 <OFFSET-VARINT> - copy of item defined at offset */
-    WEAKEN = 48, /*  48 0x30 0b00110000 <REF-TAG> - Weaken the following reference */
-    REGEXP = 49, /*  49 0x31 0b00110001 <PATTERN-STR-TAG> <MODIFIERS-STR-TAG> */
-    OBJECT_FREEZE = 50, /*  50 0x32 0b00110010 <STR-TAG> <ITEM-TAG> - class, object-item. Need to call "THAW" method on class after decoding */
-    OBJECTV_FREEZE = 51, /*  51 0x33 0b00110011 <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT) */
-    RESERVED = 52, /*  52 0x34 0b00110100 reserved */
-    RESERVED_LOW = 52, /*  52 0x34 0b00110100 reserved */
-    RESERVED_HIGH = 56, /*  56 0x38 0b00111000 reserved */
-    CANONICAL_UNDEF = 57, /*  57 0x39 0b00111001 undef (PL_sv_undef) - "the" Perl undef (see notes) */
-    FALSE = 58, /*  58 0x3a 0b00111010 false (PL_sv_no) */
-    TRUE = 59, /*  59 0x3b 0b00111011 true  (PL_sv_yes) */
-    MANY = 60, /*  60 0x3c 0b00111100 <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3) */
-    PACKET_START = 61, /*  61 0x3d 0b00111101 (first byte of magic string in header) */
-    EXTEND = 62, /*  62 0x3e 0b00111110 <BYTE> - for additional tags */
-    PAD = 63, /*  63 0x3f 0b00111111 (ignored tag, skip to next byte) */
-    ARRAYREF = 64, /*  64 0x40 0b01000000 [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1) */
     ARRAYREF_LOW = 64, /*  64 0x40 0b01000000 [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1) */
     ARRAYREF_HIGH = 79, /*  79 0x4f 0b01001111 [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1) */
-    HASHREF = 80, /*  80 0x50 0b01010000 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
     HASHREF_LOW = 80, /*  80 0x50 0b01010000 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
     HASHREF_HIGH = 95, /*  95 0x5f 0b01011111 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
-    SHORT_BINARY = 96, /*  96 0x60 0b01100000 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
     SHORT_BINARY_LOW = 96, /*  96 0x60 0b01100000 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
     SHORT_BINARY_HIGH = 127, /* 127 0x7f 0b01111111 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
     TRACK_FLAG = 128, /* 128 0x80 0b10000000 if this bit is set track the item */
+}
+
+
+
+enum Tags {
+    POS_0 = 0,
+    POS_1 = 1,
+    POS_2 = 2,
+    POS_3 = 3,
+    POS_4 = 4,
+    POS_5 = 5,
+    POS_6 = 6,
+    POS_7 = 7,
+    POS_8 = 8,
+    POS_9 = 9,
+    POS_10 = 10,
+    POS_11 = 11,
+    POS_12 = 12,
+    POS_13 = 13,
+    POS_14 = 14,
+    POS_15 = 15,
+    NEG_16 = 16,
+    NEG_15 = 17,
+    NEG_14 = 18,
+    NEG_13 = 19,
+    NEG_12 = 20,
+    NEG_11 = 21,
+    NEG_10 = 22,
+    NEG_9 = 23,
+    NEG_8 = 24,
+    NEG_7 = 25,
+    NEG_6 = 26,
+    NEG_5 = 27,
+    NEG_4 = 28,
+    NEG_3 = 29,
+    NEG_2 = 30,
+    NEG_1 = 31,
+    VARINT = 32,
+    ZIGZAG = 33,
+    FLOAT = 34,
+    DOUBLE = 35,
+    LONG_DOUBLE = 36,
+    UNDEF = 37,
+    BINARY = 38,
+    STR_UTF8 = 39,
+    REFN = 40,
+    REFP = 41,
+    HASH = 42,
+    ARRAY = 43,
+    OBJECT = 44,
+    OBJECTV = 45,
+    ALIAS = 46,
+    COPY = 47,
+    WEAKEN = 48,
+    REGEXP = 49,
+    OBJECT_FREEZE = 50,
+    OBJECTV_FREEZE = 51,
+    RESERVED_0 = 52,
+    RESERVED_1 = 53,
+    RESERVED_2 = 54,
+    RESERVED_3 = 55,
+    RESERVED_4 = 56,
+    CANONICAL_UNDEF = 57,
+    FALSE = 58,
+    TRUE = 59,
+    MANY = 60,
+    PACKET_START = 61,
+    EXTEND = 62,
+    PAD = 63,
+    ARRAYREF_0 = 64,
+    ARRAYREF_1 = 65,
+    ARRAYREF_2 = 66,
+    ARRAYREF_3 = 67,
+    ARRAYREF_4 = 68,
+    ARRAYREF_5 = 69,
+    ARRAYREF_6 = 70,
+    ARRAYREF_7 = 71,
+    ARRAYREF_8 = 72,
+    ARRAYREF_9 = 73,
+    ARRAYREF_10 = 74,
+    ARRAYREF_11 = 75,
+    ARRAYREF_12 = 76,
+    ARRAYREF_13 = 77,
+    ARRAYREF_14 = 78,
+    ARRAYREF_15 = 79,
+    HASHREF_0 = 80,
+    HASHREF_1 = 81,
+    HASHREF_2 = 82,
+    HASHREF_3 = 83,
+    HASHREF_4 = 84,
+    HASHREF_5 = 85,
+    HASHREF_6 = 86,
+    HASHREF_7 = 87,
+    HASHREF_8 = 88,
+    HASHREF_9 = 89,
+    HASHREF_10 = 90,
+    HASHREF_11 = 91,
+    HASHREF_12 = 92,
+    HASHREF_13 = 93,
+    HASHREF_14 = 94,
+    HASHREF_15 = 95,
+    SHORT_BINARY_0 = 96,
+    SHORT_BINARY_1 = 97,
+    SHORT_BINARY_2 = 98,
+    SHORT_BINARY_3 = 99,
+    SHORT_BINARY_4 = 100,
+    SHORT_BINARY_5 = 101,
+    SHORT_BINARY_6 = 102,
+    SHORT_BINARY_7 = 103,
+    SHORT_BINARY_8 = 104,
+    SHORT_BINARY_9 = 105,
+    SHORT_BINARY_10 = 106,
+    SHORT_BINARY_11 = 107,
+    SHORT_BINARY_12 = 108,
+    SHORT_BINARY_13 = 109,
+    SHORT_BINARY_14 = 110,
+    SHORT_BINARY_15 = 111,
+    SHORT_BINARY_16 = 112,
+    SHORT_BINARY_17 = 113,
+    SHORT_BINARY_18 = 114,
+    SHORT_BINARY_19 = 115,
+    SHORT_BINARY_20 = 116,
+    SHORT_BINARY_21 = 117,
+    SHORT_BINARY_22 = 118,
+    SHORT_BINARY_23 = 119,
+    SHORT_BINARY_24 = 120,
+    SHORT_BINARY_25 = 121,
+    SHORT_BINARY_26 = 122,
+    SHORT_BINARY_27 = 123,
+    SHORT_BINARY_28 = 124,
+    SHORT_BINARY_29 = 125,
+    SHORT_BINARY_30 = 126,
+    SHORT_BINARY_31 = 127
 
 }

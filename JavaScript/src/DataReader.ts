@@ -17,6 +17,7 @@ class DataReader {
     getInt32(): number { return this.getInt(); }
     getInt8(): number { return this.getByte(); }
     asInt8Array(): Int8Array { return new Int8Array(this._buffer); }
+    asUint8Array(): Int8Array { return new Uint8Array(this._buffer); }
     getInt(): number {
         var value = this.view.getInt32(this.pos);
         this.pos += 4;
@@ -29,20 +30,22 @@ class DataReader {
         return buf;
     }
     getByte(): any {
-        var value = this.view.getInt8(this.pos);
+        var value = this.view.getUint8(this.pos);
         this.pos++;
         return value;
     }
-    getVarInt() {
+    getVarInt():number {
         var out = { bytesRead: null };
-        var value = varint.read(this.asInt8Array(), this.pos, out);
-        this.pos += out.bytesRead || 1;
+        var value = varint.read(this.asUint8Array(), this.pos, out);
+        if (out.bytesRead == null)
+            throw new Error();
+        this.pos += out.bytesRead;
         return value;
     }
-    getBytes(length) {
+    getBytes(length?:number): ArrayBuffer {
         if (length == null)
             length = this._buffer.byteLength - this.pos;
-        var arr = new Int8Array(length);
+        var arr = new Uint8Array(length);
         for (var i = 0; i < length; i++)
             arr[i] = this.getByte();
         return arr.buffer;

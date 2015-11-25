@@ -535,16 +535,56 @@ function getConsts2() {
     };
     return obj;
 }
+var Consts;
+(function (Consts) {
+    Consts[Consts["MAGIC"] = 1039364716] = "MAGIC";
+    Consts[Consts["MASK_SHORT_BINARY_LEN"] = 31] = "MASK_SHORT_BINARY_LEN";
+    Consts[Consts["POS_LOW"] = 0] = "POS_LOW";
+    Consts[Consts["POS_HIGH"] = 15] = "POS_HIGH";
+    Consts[Consts["NEG_LOW"] = 16] = "NEG_LOW";
+    Consts[Consts["NEG_HIGH"] = 31] = "NEG_HIGH";
+    Consts[Consts["ARRAYREF_LOW"] = 64] = "ARRAYREF_LOW";
+    Consts[Consts["ARRAYREF_HIGH"] = 79] = "ARRAYREF_HIGH";
+    Consts[Consts["HASHREF_LOW"] = 80] = "HASHREF_LOW";
+    Consts[Consts["HASHREF_HIGH"] = 95] = "HASHREF_HIGH";
+    Consts[Consts["SHORT_BINARY_LOW"] = 96] = "SHORT_BINARY_LOW";
+    Consts[Consts["SHORT_BINARY_HIGH"] = 127] = "SHORT_BINARY_HIGH";
+    Consts[Consts["TRACK_FLAG"] = 128] = "TRACK_FLAG";
+})(Consts || (Consts = {}));
 var Tags;
 (function (Tags) {
-    Tags[Tags["MAGIC"] = 1039364716] = "MAGIC";
-    Tags[Tags["SRL_MASK_SHORT_BINARY_LEN"] = 31] = "SRL_MASK_SHORT_BINARY_LEN";
-    Tags[Tags["POS"] = 0] = "POS";
-    Tags[Tags["POS_LOW"] = 0] = "POS_LOW";
-    Tags[Tags["POS_HIGH"] = 15] = "POS_HIGH";
-    Tags[Tags["NEG"] = 16] = "NEG";
-    Tags[Tags["NEG_LOW"] = 16] = "NEG_LOW";
-    Tags[Tags["NEG_HIGH"] = 31] = "NEG_HIGH";
+    Tags[Tags["POS_0"] = 0] = "POS_0";
+    Tags[Tags["POS_1"] = 1] = "POS_1";
+    Tags[Tags["POS_2"] = 2] = "POS_2";
+    Tags[Tags["POS_3"] = 3] = "POS_3";
+    Tags[Tags["POS_4"] = 4] = "POS_4";
+    Tags[Tags["POS_5"] = 5] = "POS_5";
+    Tags[Tags["POS_6"] = 6] = "POS_6";
+    Tags[Tags["POS_7"] = 7] = "POS_7";
+    Tags[Tags["POS_8"] = 8] = "POS_8";
+    Tags[Tags["POS_9"] = 9] = "POS_9";
+    Tags[Tags["POS_10"] = 10] = "POS_10";
+    Tags[Tags["POS_11"] = 11] = "POS_11";
+    Tags[Tags["POS_12"] = 12] = "POS_12";
+    Tags[Tags["POS_13"] = 13] = "POS_13";
+    Tags[Tags["POS_14"] = 14] = "POS_14";
+    Tags[Tags["POS_15"] = 15] = "POS_15";
+    Tags[Tags["NEG_16"] = 16] = "NEG_16";
+    Tags[Tags["NEG_15"] = 17] = "NEG_15";
+    Tags[Tags["NEG_14"] = 18] = "NEG_14";
+    Tags[Tags["NEG_13"] = 19] = "NEG_13";
+    Tags[Tags["NEG_12"] = 20] = "NEG_12";
+    Tags[Tags["NEG_11"] = 21] = "NEG_11";
+    Tags[Tags["NEG_10"] = 22] = "NEG_10";
+    Tags[Tags["NEG_9"] = 23] = "NEG_9";
+    Tags[Tags["NEG_8"] = 24] = "NEG_8";
+    Tags[Tags["NEG_7"] = 25] = "NEG_7";
+    Tags[Tags["NEG_6"] = 26] = "NEG_6";
+    Tags[Tags["NEG_5"] = 27] = "NEG_5";
+    Tags[Tags["NEG_4"] = 28] = "NEG_4";
+    Tags[Tags["NEG_3"] = 29] = "NEG_3";
+    Tags[Tags["NEG_2"] = 30] = "NEG_2";
+    Tags[Tags["NEG_1"] = 31] = "NEG_1";
     Tags[Tags["VARINT"] = 32] = "VARINT";
     Tags[Tags["ZIGZAG"] = 33] = "ZIGZAG";
     Tags[Tags["FLOAT"] = 34] = "FLOAT";
@@ -565,9 +605,11 @@ var Tags;
     Tags[Tags["REGEXP"] = 49] = "REGEXP";
     Tags[Tags["OBJECT_FREEZE"] = 50] = "OBJECT_FREEZE";
     Tags[Tags["OBJECTV_FREEZE"] = 51] = "OBJECTV_FREEZE";
-    Tags[Tags["RESERVED"] = 52] = "RESERVED";
-    Tags[Tags["RESERVED_LOW"] = 52] = "RESERVED_LOW";
-    Tags[Tags["RESERVED_HIGH"] = 56] = "RESERVED_HIGH";
+    Tags[Tags["RESERVED_0"] = 52] = "RESERVED_0";
+    Tags[Tags["RESERVED_1"] = 53] = "RESERVED_1";
+    Tags[Tags["RESERVED_2"] = 54] = "RESERVED_2";
+    Tags[Tags["RESERVED_3"] = 55] = "RESERVED_3";
+    Tags[Tags["RESERVED_4"] = 56] = "RESERVED_4";
     Tags[Tags["CANONICAL_UNDEF"] = 57] = "CANONICAL_UNDEF";
     Tags[Tags["FALSE"] = 58] = "FALSE";
     Tags[Tags["TRUE"] = 59] = "TRUE";
@@ -575,16 +617,70 @@ var Tags;
     Tags[Tags["PACKET_START"] = 61] = "PACKET_START";
     Tags[Tags["EXTEND"] = 62] = "EXTEND";
     Tags[Tags["PAD"] = 63] = "PAD";
-    Tags[Tags["ARRAYREF"] = 64] = "ARRAYREF";
-    Tags[Tags["ARRAYREF_LOW"] = 64] = "ARRAYREF_LOW";
-    Tags[Tags["ARRAYREF_HIGH"] = 79] = "ARRAYREF_HIGH";
-    Tags[Tags["HASHREF"] = 80] = "HASHREF";
-    Tags[Tags["HASHREF_LOW"] = 80] = "HASHREF_LOW";
-    Tags[Tags["HASHREF_HIGH"] = 95] = "HASHREF_HIGH";
-    Tags[Tags["SHORT_BINARY"] = 96] = "SHORT_BINARY";
-    Tags[Tags["SHORT_BINARY_LOW"] = 96] = "SHORT_BINARY_LOW";
-    Tags[Tags["SHORT_BINARY_HIGH"] = 127] = "SHORT_BINARY_HIGH";
-    Tags[Tags["TRACK_FLAG"] = 128] = "TRACK_FLAG";
+    Tags[Tags["ARRAYREF_0"] = 64] = "ARRAYREF_0";
+    Tags[Tags["ARRAYREF_1"] = 65] = "ARRAYREF_1";
+    Tags[Tags["ARRAYREF_2"] = 66] = "ARRAYREF_2";
+    Tags[Tags["ARRAYREF_3"] = 67] = "ARRAYREF_3";
+    Tags[Tags["ARRAYREF_4"] = 68] = "ARRAYREF_4";
+    Tags[Tags["ARRAYREF_5"] = 69] = "ARRAYREF_5";
+    Tags[Tags["ARRAYREF_6"] = 70] = "ARRAYREF_6";
+    Tags[Tags["ARRAYREF_7"] = 71] = "ARRAYREF_7";
+    Tags[Tags["ARRAYREF_8"] = 72] = "ARRAYREF_8";
+    Tags[Tags["ARRAYREF_9"] = 73] = "ARRAYREF_9";
+    Tags[Tags["ARRAYREF_10"] = 74] = "ARRAYREF_10";
+    Tags[Tags["ARRAYREF_11"] = 75] = "ARRAYREF_11";
+    Tags[Tags["ARRAYREF_12"] = 76] = "ARRAYREF_12";
+    Tags[Tags["ARRAYREF_13"] = 77] = "ARRAYREF_13";
+    Tags[Tags["ARRAYREF_14"] = 78] = "ARRAYREF_14";
+    Tags[Tags["ARRAYREF_15"] = 79] = "ARRAYREF_15";
+    Tags[Tags["HASHREF_0"] = 80] = "HASHREF_0";
+    Tags[Tags["HASHREF_1"] = 81] = "HASHREF_1";
+    Tags[Tags["HASHREF_2"] = 82] = "HASHREF_2";
+    Tags[Tags["HASHREF_3"] = 83] = "HASHREF_3";
+    Tags[Tags["HASHREF_4"] = 84] = "HASHREF_4";
+    Tags[Tags["HASHREF_5"] = 85] = "HASHREF_5";
+    Tags[Tags["HASHREF_6"] = 86] = "HASHREF_6";
+    Tags[Tags["HASHREF_7"] = 87] = "HASHREF_7";
+    Tags[Tags["HASHREF_8"] = 88] = "HASHREF_8";
+    Tags[Tags["HASHREF_9"] = 89] = "HASHREF_9";
+    Tags[Tags["HASHREF_10"] = 90] = "HASHREF_10";
+    Tags[Tags["HASHREF_11"] = 91] = "HASHREF_11";
+    Tags[Tags["HASHREF_12"] = 92] = "HASHREF_12";
+    Tags[Tags["HASHREF_13"] = 93] = "HASHREF_13";
+    Tags[Tags["HASHREF_14"] = 94] = "HASHREF_14";
+    Tags[Tags["HASHREF_15"] = 95] = "HASHREF_15";
+    Tags[Tags["SHORT_BINARY_0"] = 96] = "SHORT_BINARY_0";
+    Tags[Tags["SHORT_BINARY_1"] = 97] = "SHORT_BINARY_1";
+    Tags[Tags["SHORT_BINARY_2"] = 98] = "SHORT_BINARY_2";
+    Tags[Tags["SHORT_BINARY_3"] = 99] = "SHORT_BINARY_3";
+    Tags[Tags["SHORT_BINARY_4"] = 100] = "SHORT_BINARY_4";
+    Tags[Tags["SHORT_BINARY_5"] = 101] = "SHORT_BINARY_5";
+    Tags[Tags["SHORT_BINARY_6"] = 102] = "SHORT_BINARY_6";
+    Tags[Tags["SHORT_BINARY_7"] = 103] = "SHORT_BINARY_7";
+    Tags[Tags["SHORT_BINARY_8"] = 104] = "SHORT_BINARY_8";
+    Tags[Tags["SHORT_BINARY_9"] = 105] = "SHORT_BINARY_9";
+    Tags[Tags["SHORT_BINARY_10"] = 106] = "SHORT_BINARY_10";
+    Tags[Tags["SHORT_BINARY_11"] = 107] = "SHORT_BINARY_11";
+    Tags[Tags["SHORT_BINARY_12"] = 108] = "SHORT_BINARY_12";
+    Tags[Tags["SHORT_BINARY_13"] = 109] = "SHORT_BINARY_13";
+    Tags[Tags["SHORT_BINARY_14"] = 110] = "SHORT_BINARY_14";
+    Tags[Tags["SHORT_BINARY_15"] = 111] = "SHORT_BINARY_15";
+    Tags[Tags["SHORT_BINARY_16"] = 112] = "SHORT_BINARY_16";
+    Tags[Tags["SHORT_BINARY_17"] = 113] = "SHORT_BINARY_17";
+    Tags[Tags["SHORT_BINARY_18"] = 114] = "SHORT_BINARY_18";
+    Tags[Tags["SHORT_BINARY_19"] = 115] = "SHORT_BINARY_19";
+    Tags[Tags["SHORT_BINARY_20"] = 116] = "SHORT_BINARY_20";
+    Tags[Tags["SHORT_BINARY_21"] = 117] = "SHORT_BINARY_21";
+    Tags[Tags["SHORT_BINARY_22"] = 118] = "SHORT_BINARY_22";
+    Tags[Tags["SHORT_BINARY_23"] = 119] = "SHORT_BINARY_23";
+    Tags[Tags["SHORT_BINARY_24"] = 120] = "SHORT_BINARY_24";
+    Tags[Tags["SHORT_BINARY_25"] = 121] = "SHORT_BINARY_25";
+    Tags[Tags["SHORT_BINARY_26"] = 122] = "SHORT_BINARY_26";
+    Tags[Tags["SHORT_BINARY_27"] = 123] = "SHORT_BINARY_27";
+    Tags[Tags["SHORT_BINARY_28"] = 124] = "SHORT_BINARY_28";
+    Tags[Tags["SHORT_BINARY_29"] = 125] = "SHORT_BINARY_29";
+    Tags[Tags["SHORT_BINARY_30"] = 126] = "SHORT_BINARY_30";
+    Tags[Tags["SHORT_BINARY_31"] = 127] = "SHORT_BINARY_31";
 })(Tags || (Tags = {}));
 var DataReader = (function () {
     function DataReader(_buffer) {
@@ -602,6 +698,7 @@ var DataReader = (function () {
     DataReader.prototype.getInt32 = function () { return this.getInt(); };
     DataReader.prototype.getInt8 = function () { return this.getByte(); };
     DataReader.prototype.asInt8Array = function () { return new Int8Array(this._buffer); };
+    DataReader.prototype.asUint8Array = function () { return new Uint8Array(this._buffer); };
     DataReader.prototype.getInt = function () {
         var value = this.view.getInt32(this.pos);
         this.pos += 4;
@@ -614,20 +711,22 @@ var DataReader = (function () {
         return buf;
     };
     DataReader.prototype.getByte = function () {
-        var value = this.view.getInt8(this.pos);
+        var value = this.view.getUint8(this.pos);
         this.pos++;
         return value;
     };
     DataReader.prototype.getVarInt = function () {
         var out = { bytesRead: null };
-        var value = varint.read(this.asInt8Array(), this.pos, out);
-        this.pos += out.bytesRead || 1;
+        var value = varint.read(this.asUint8Array(), this.pos, out);
+        if (out.bytesRead == null)
+            throw new Error();
+        this.pos += out.bytesRead;
         return value;
     };
     DataReader.prototype.getBytes = function (length) {
         if (length == null)
             length = this._buffer.byteLength - this.pos;
-        var arr = new Int8Array(length);
+        var arr = new Uint8Array(length);
         for (var i = 0; i < length; i++)
             arr[i] = this.getByte();
         return arr.buffer;
@@ -736,10 +835,9 @@ var Decoder = (function () {
             length = tag & 15;
         }
         this.log.fine("Array length: " + length);
-        var /*Object[]*/ out = new Array(length); //new Object[length];
-        if (track != 0) {
+        var out = new Array(length);
+        if (track != 0)
             this.track_stuff(track, out);
-        }
         for (var i = 0; i < length; i++) {
             out[i] = this.readSingleValue();
             this.log.fine("Read array element " + i + ": " + Utils.dump(out[i]));
@@ -807,32 +905,32 @@ var Decoder = (function () {
         this.checkNoEOD();
         var tag = this.data.getByte();
         var track = 0;
-        if ((tag & Tags.TRACK_FLAG) != 0) {
-            tag = tag & ~Tags.TRACK_FLAG;
+        if ((tag & Consts.TRACK_FLAG) != 0) {
+            tag = tag & ~Consts.TRACK_FLAG;
             track = this.data.pos - 1;
             this.log.fine("Tracking stuff at position: " + track);
         }
         this.log.fine("Tag: " + (tag & 0xFF)); // + " = " + tag.toHex());
         var out;
-        if (tag <= Tags.POS_HIGH) {
+        if (tag <= Consts.POS_HIGH) {
             this.log.fine("Read small positive int:" + tag);
             out = tag;
         }
-        else if (tag <= Tags.NEG_HIGH) {
+        else if (tag <= Consts.NEG_HIGH) {
             this.log.fine("Read small negative int:" + (tag - 32));
             out = tag - 32;
         }
-        else if ((tag & Tags.SHORT_BINARY_LOW) == Tags.SHORT_BINARY_LOW) {
+        else if ((tag & Consts.SHORT_BINARY_LOW) == Consts.SHORT_BINARY_LOW) {
             var short_binary = this.read_short_binary(tag);
             this.log.fine("Read short binary: " + short_binary + " length " + short_binary.byteLength);
             out = this.prefer_latin1 ? new Latin1String(short_binary).toString() : short_binary;
         }
-        else if ((tag & Tags.HASHREF) == Tags.HASHREF) {
+        else if ((tag & Tags.HASHREF_0) == Tags.HASHREF_0) {
             var hash = this.read_hash(tag, track);
             this.log.fine("Read hash: " + hash);
             out = hash;
         }
-        else if ((tag & Tags.ARRAYREF) == Tags.ARRAYREF) {
+        else if ((tag & Tags.ARRAYREF_0) == Tags.ARRAYREF_0) {
             this.log.fine("Reading arrayref");
             var arr = this.read_array(tag, track);
             this.log.fine("Read arrayref: " + arr);
@@ -870,7 +968,7 @@ var Decoder = (function () {
     };
     /** Read a short binary ISO-8859-1 (latin1) string, the lower bits of the tag hold the length */
     Decoder.prototype.read_short_binary = function (tag) {
-        var length = tag & Tags.SRL_MASK_SHORT_BINARY_LEN;
+        var length = tag & Consts.MASK_SHORT_BINARY_LEN;
         this.log.fine("Short binary, length: " + length);
         var buf = new ArrayBuffer(length);
         this.data.getBytesTo(buf);
@@ -904,8 +1002,8 @@ var Decoder = (function () {
         this.log.fine("Read pattern: " + regex);
         // now read modifiers
         var /*byte*/ tag = this.data.getByte();
-        if ((tag & Tags.SHORT_BINARY_LOW) == Tags.SHORT_BINARY_LOW) {
-            var length = tag & Tags.SRL_MASK_SHORT_BINARY_LEN;
+        if ((tag & Consts.SHORT_BINARY_LOW) == Consts.SHORT_BINARY_LOW) {
+            var length = tag & Consts.MASK_SHORT_BINARY_LEN;
             while (length-- > 0) {
                 var /*byte*/ value = String.fromCharCode(this.data.getByte());
                 switch (value) {
@@ -940,8 +1038,8 @@ var Decoder = (function () {
         var position = this.data.pos;
         var tag = this.data.getByte();
         var className;
-        if ((tag & Tags.SHORT_BINARY_LOW) == Tags.SHORT_BINARY_LOW) {
-            var length = tag & Tags.SRL_MASK_SHORT_BINARY_LEN;
+        if ((tag & Consts.SHORT_BINARY_LOW) == Consts.SHORT_BINARY_LOW) {
+            var length = tag & Consts.MASK_SHORT_BINARY_LEN;
             var /*byte[]*/ buf = new ArrayBuffer(length);
             this.data.getBytesTo(buf);
             className = new Latin1String(/*new String(*/ buf /*)*/).toString();
@@ -1156,112 +1254,181 @@ var Decoder = (function () {
 /// <reference path="../src/DataReader.ts"/>
 /// <reference path="../src/Decoder.ts"/>
 /// <reference path="../libs/jquery/jquery.d.ts"/>
-var C = getConsts2();
-var TAGS = [];
-getConsts().forEach(function (t) { return TAGS[parseInt(t.Dec)] = t; });
-var _dv;
-var _reader;
-var MAGIC = 1039364716; //(0x6c) + (0x72 << 8) + (0x73 << 16) + (0x3d << 24);
-function main() {
-    var binaryText = localStorage.getItem("sereal");
-    var res = decodeSereal(binaryText);
-    console.log(res);
-    //var dec = new Decoder();
-    //dec.setData(str2ab2(binaryText));
-    //var x = dec.decode();
-    //console.log(x);
-    //return;
-}
-function decodeSereal(binaryText) {
-    var _buf = str2ab2(binaryText);
-    _reader = new DataReader(_buf);
-    var pos = 0;
-    if (_reader.getInt32() != MAGIC)
-        throw new Error();
-    var s = _reader.getInt8().toString(2);
-    var version = parseInt(s.substr(0, 4), 2);
-    var type = parseInt(s.substr(4, 4), 2);
-    console.log({ version: version, type: type });
-    var headerSuffixSize = _reader.getVarInt();
-    var eightBitField = _reader.getInt8();
-    var hasUserMetadata = toBitString(eightBitField).last() == "1";
-    if (hasUserMetadata) {
-        var md = decodeDocumentBody2(_reader.getBytes(headerSuffixSize));
-        console.log(md);
+var SerealDocument = (function () {
+    function SerealDocument() {
     }
-    if (type == 3) {
-        var arr = new Int8Array(_reader.getBytes());
-        var zip = new Zlib.Deflate(arr);
+    return SerealDocument;
+})();
+var IndexPage = (function () {
+    function IndexPage() {
+        this.C = getConsts2();
     }
-    //console.log(x);
-    function toBitString(byte) {
+    IndexPage.main = function () {
+        var page = new IndexPage();
+        $(function () { return page.domReady(); });
+    };
+    IndexPage.prototype.domReady = function () {
+        var _this = this;
+        $.get("m1.txt").done(function (t) {
+            console.log(t);
+            console.log(atob(t));
+            _this.msgText = atob(t);
+            _this.main();
+        });
+    };
+    IndexPage.prototype.main = function () {
+        var binaryText = this.msgText; //localStorage.getItem("sereal");
+        var res = this.decodeSereal(binaryText);
+        console.log(res);
+        //var dec = new Decoder();
+        //dec.setData(str2ab2(binaryText));
+        //var x = dec.decode();
+        //console.log(x);
+        //return;
+    };
+    IndexPage.prototype.toBitString = function (byte) {
         return byte.toString(2).padLeft(8, "0");
-    }
-    function decodeDocumentBody2(buffer) {
+    };
+    IndexPage.prototype.decodeDocumentBody2 = function (buffer) {
         var dec = new Decoder({ prefer_latin1: true });
         dec.setData(buffer);
         var x = dec.readSingleValue();
         console.log(x);
         return x;
-    }
-    function decodeDocumentBody() {
-        var byte = _reader.getByte();
-        var bits = toBitString(byte);
+    };
+    IndexPage.prototype.decodeSereal = function (binaryText) {
+        this.doc = new SerealDocument();
+        var doc = this.doc;
+        var _buf = str2ab2(binaryText);
+        this.reader = new DataReader(_buf);
+        var pos = 0;
+        console.log({ pos: this.reader.pos });
+        doc.magic = this.reader.getInt32();
+        if (doc.magic != Consts.MAGIC)
+            throw new Error();
+        console.log({ pos: this.reader.pos });
+        var s = this.reader.getInt8().toString(2);
+        doc.version = parseInt(s.substr(0, 4), 2);
+        doc.type = parseInt(s.substr(4, 4), 2);
+        console.log(doc.version, doc.type);
+        console.log("before header_suffix_size", { pos: this.reader.pos });
+        doc.header_suffix_size = this.reader.getVarInt();
+        console.log("after header_suffix_size", { pos: this.reader.pos });
+        if (doc.header_suffix_size > 0) {
+            doc.eight_bit_field = { value: this.reader.getByte(), };
+            doc.eight_bit_field.has_user_metadata = this.toBitString(doc.eight_bit_field.value).last() == "1";
+            console.log({ pos: this.reader.pos });
+            if (doc.eight_bit_field.has_user_metadata) {
+                console.log({ pos: this.reader.pos });
+                var mdBuffer = this.reader.getBytes(doc.header_suffix_size - 1);
+                doc.user_metadata = this.decodeDocumentBody2(mdBuffer);
+                console.log({ pos: this.reader.pos });
+                console.log("METADATA", doc.user_metadata);
+            }
+        }
+        console.log({ pos: this.reader.pos });
+        doc.body_uncompressed_length = this.reader.getVarInt();
+        console.log({ pos: this.reader.pos });
+        doc.body_compressed_length = this.reader.getVarInt();
+        console.log({ uncomp: doc.body_uncompressed_length, comp: doc.body_compressed_length });
+        console.log({ pos: this.reader.pos, remaining: this.reader.remaining() });
+        console.log(doc);
+        var deflated = this.tryDeflate();
+        doc.body = this.decodeDocumentBody2(deflated.buffer);
+        console.log("DONE!!!!!!!!!", doc);
+        //if (doc.type == 3) {
+        //    while (this.reader.hasRemaining() && tries < 11) {
+        //        if (this.tryDeflate()) {
+        //            console.log("success!!!");
+        //            break;
+        //        }
+        //        this.reader.getByte();
+        //        tries++;
+        //    }
+        //    //var buf = this.reader.getBytes();
+        //    //var arr = new Int8Array(buf);
+        //    //var zip = new Zlib.InflateStream(arr);
+        //    //var deflated: Int8Array = zip.decompress();
+        //    //var deflatedBuf = deflated.buffer;
+        //    //doc.body = this.decodeDocumentBody2(deflatedBuf);
+        //    //console.log("FINISHED! DOC = ",doc);
+        //}
+    };
+    IndexPage.prototype.tryDeflate = function () {
+        var pos = this.reader.pos;
+        if (!this.reader.hasRemaining())
+            return;
+        var buf = this.reader.getBytes();
+        var arr = new Int8Array(buf);
+        try {
+            var zip = new Zlib.Inflate(arr);
+            var deflated = zip.decompress();
+            return deflated;
+        }
+        catch (e) {
+            this.reader.pos = pos;
+            return null;
+        }
+    };
+    IndexPage.prototype.decodeDocumentBody = function () {
+        var byte = this.reader.getByte();
+        var bits = this.toBitString(byte);
         console.log(bits);
         var trackFlag = bits[0] == "1";
         var tagDec = parseInt(bits.substr(1), 2);
-        var tag = TAGS[tagDec];
+        //var tag = this.TAGS[tagDec];
         //throw new Error();
-    }
-}
-function test() {
-    $('#graph').makeGraph({
-        sources: [
-            {
-                source: "Proxy",
-                options: {
-                    url: "http://rk101riak-01.ams4.prod.booking.com:8098/api/v1/events?primary_urls=1&epoch=1447922840&dcs=1&types=WEB"
+    };
+    IndexPage.prototype.test = function () {
+        $('#graph').makeGraph({
+            sources: [
+                {
+                    source: "Proxy",
+                    options: {
+                        url: "http://rk101riak-01.ams4.prod.booking.com:8098/api/v1/events?primary_urls=1&epoch=1447922840&dcs=1&types=WEB"
+                    }
+                }
+            ],
+        });
+        var oReq = new XMLHttpRequest();
+        oReq.open("GET", "/html/out2.htm", true);
+        oReq.responseType = "arraybuffer";
+        oReq.onload = function (oEvent) {
+            var arrayBuffer = oReq.response; // Note: not oReq.responseText
+            if (arrayBuffer) {
+                var byteArray = new Uint8Array(arrayBuffer);
+                console.log(byteArray);
+                for (var i = 0; i < byteArray.byteLength; i++) {
                 }
             }
-        ],
-    });
-    var oReq = new XMLHttpRequest();
-    oReq.open("GET", "/html/out2.htm", true);
-    oReq.responseType = "arraybuffer";
-    oReq.onload = function (oEvent) {
-        var arrayBuffer = oReq.response; // Note: not oReq.responseText
-        if (arrayBuffer) {
-            var byteArray = new Uint8Array(arrayBuffer);
-            console.log(byteArray);
-            for (var i = 0; i < byteArray.byteLength; i++) {
-            }
-        }
+        };
+        oReq.send(null);
     };
-    oReq.send(null);
-}
-function generate(text) {
-    var lines = text.lines();
-    var tokens = lines[0].split('|');
-    var rows = lines.skip(2).select(function (line) {
-        var i = 0;
-        var values = tokens.select(function (token) {
-            var s = line.substr(i, token.length);
-            i += token.length + 1;
-            return s.trim();
+    IndexPage.prototype.generate = function (text) {
+        var lines = text.lines();
+        var tokens = lines[0].split('|');
+        var rows = lines.skip(2).select(function (line) {
+            var i = 0;
+            var values = tokens.select(function (token) {
+                var s = line.substr(i, token.length);
+                i += token.length + 1;
+                return s.trim();
+            });
+            return values;
         });
-        return values;
-    });
-    var props = tokens.select(function (t) { return t.trim(); });
-    var list = rows.select(function (row) {
+        var props = tokens.select(function (t) { return t.trim(); });
+        var list = rows.select(function (row) {
+            var obj = {};
+            props.forEach(function (prop, i) { return obj[prop] = row[i]; });
+            return obj;
+        });
+        $("textarea").val(list.select(function (t) { return Q.stringifyFormatted(t); }).join(",\n"));
+        return list;
+    };
+    IndexPage.prototype.generate2 = function () {
         var obj = {};
-        props.forEach(function (prop, i) { return obj[prop] = row[i]; });
-        return obj;
-    });
-    $("textarea").val(list.select(function (t) { return Q.stringifyFormatted(t); }).join(",\n"));
-    return list;
-}
-function generate2() {
-    var obj = {};
-    getConsts().forEach(function (t) { return obj[t.Tag] = t.Dec; });
-    return Object.keys(obj).select(function (key) { return key + ":" + obj[key]; }).join(",\n");
-}
+        getConsts().forEach(function (t) { return obj[t.Tag] = t.Dec; });
+        return Object.keys(obj).select(function (key) { return key + ":" + obj[key]; }).join(",\n");
+    };
+    return IndexPage;
+})();
