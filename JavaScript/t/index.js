@@ -710,10 +710,6 @@ var DataReader = (function () {
         }
         return list.join(" ");
     };
-    ////** returns a zero based index position where view.byteOffset normalizes to zero
-    //getRelativePosition() {
-    //    return this.pos - this.view.byteOffset;
-    //}
     DataReader.prototype.toString = function () { return "DataReader pos=" + this.pos; };
     DataReader.prototype.getDouble = function () { throw new Error(); };
     DataReader.prototype.rewind = function () { this.pos = 0; };
@@ -722,7 +718,6 @@ var DataReader = (function () {
     DataReader.prototype.limit = function () { return this.view.byteLength - this.pos; };
     DataReader.prototype.order = function (type) { throw new Error(); };
     DataReader.prototype.getInt32 = function () { return this.getInt(); };
-    //asInt8Array(): Int8Array { return new Int8Array(this.view.buffer, this.view.byteOffset, this.view.byteLength); }
     DataReader.prototype.asUint8Array = function () { return new Uint8Array(this.view.buffer, this.view.byteOffset, this.view.byteLength); };
     DataReader.prototype.getInt = function () {
         var value = this.view.getInt32(this.pos);

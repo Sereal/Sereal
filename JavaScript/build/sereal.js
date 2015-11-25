@@ -708,10 +708,6 @@ var DataReader = (function () {
         }
         return list.join(" ");
     };
-    ////** returns a zero based index position where view.byteOffset normalizes to zero
-    //getRelativePosition() {
-    //    return this.pos - this.view.byteOffset;
-    //}
     DataReader.prototype.toString = function () { return "DataReader pos=" + this.pos; };
     DataReader.prototype.getDouble = function () { throw new Error(); };
     DataReader.prototype.rewind = function () { this.pos = 0; };
@@ -720,7 +716,6 @@ var DataReader = (function () {
     DataReader.prototype.limit = function () { return this.view.byteLength - this.pos; };
     DataReader.prototype.order = function (type) { throw new Error(); };
     DataReader.prototype.getInt32 = function () { return this.getInt(); };
-    //asInt8Array(): Int8Array { return new Int8Array(this.view.buffer, this.view.byteOffset, this.view.byteLength); }
     DataReader.prototype.asUint8Array = function () { return new Uint8Array(this.view.buffer, this.view.byteOffset, this.view.byteLength); };
     DataReader.prototype.getInt = function () {
         var value = this.view.getInt32(this.pos);
@@ -760,44 +755,6 @@ var DataReader = (function () {
     };
     return DataReader;
 })();
-//class DataReader2 {
-//    constructor(public _buffer: ArrayBuffer) {
-//        this.view = new DataView(_buffer);
-//        this.pos = this.view.byteOffset;
-//    }
-//    view: DataView;
-//    pos: number;
-//    toString():string { return "DataReader2 pos=" + this.pos; }
-//    rewind(): void { this.pos = this.view.byteOffset; }
-//    limit():number { return this.view.byteLength - this.pos; }
-//    getInt32(): number { return this.getInt(); }
-//    getInt8(): number { return this.getByte(); }
-//    asInt8Array(): Int8Array { return new Int8Array(this._buffer); }
-//    getInt() {
-//        var value = this.view.getInt32(this.pos);
-//        this.pos += 4;
-//        return value;
-//    }
-//    getByte() {
-//        var value = this.view.getInt8(this.pos);
-//        this.pos++;
-//        return value;
-//    }
-//    getVarInt() {
-//        var out = { bytesRead: null };
-//        var value = varint.read(this.asInt8Array(), this.pos, out);
-//        this.pos += out.bytesRead || 1;
-//        return value;
-//    }
-//    getBytes(length) {
-//        if (length == null)
-//            length = this._buffer.byteLength - this.pos;
-//        var arr = new Int8Array(length);
-//        for (var i = 0; i < length; i++)
-//            arr[i] = this.getByte();
-//        return arr.buffer;
-//    }
-//}
 /** Decoder for Sereal */
 var Decoder = (function () {
     function Decoder(options) {
@@ -1316,4 +1273,3 @@ var Decoder = (function () {
 //}
 Number.prototype.toHex = function () { return this.toString(16); };
 //String.prototype.toHex = function () { return this.toString(16); }
-//# sourceMappingURL=sereal.js.map

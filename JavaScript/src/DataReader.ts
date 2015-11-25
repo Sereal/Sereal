@@ -28,11 +28,6 @@ class DataReader {
         }
         return list.join(" ");
     }
-
-    ////** returns a zero based index position where view.byteOffset normalizes to zero
-    //getRelativePosition() {
-    //    return this.pos - this.view.byteOffset;
-    //}
     toString(): string { return "DataReader pos=" + this.pos; }
     getDouble(): number { throw new Error(); }
     rewind() { this.pos = 0; }
@@ -41,7 +36,6 @@ class DataReader {
     limit(): number { return this.view.byteLength - this.pos; }
     order(type: ByteOrder) { throw new Error(); }
     getInt32(): number { return this.getInt(); }
-    //asInt8Array(): Int8Array { return new Int8Array(this.view.buffer, this.view.byteOffset, this.view.byteLength); }
     asUint8Array(): Int8Array { return new Uint8Array(this.view.buffer, this.view.byteOffset, this.view.byteLength); }
     getInt(): number {
         var value = this.view.getInt32(this.pos);
