@@ -130,6 +130,8 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
 /* if set in flags, then do not use ARRAYREF or HASHREF ever */
 #define SRL_F_CANONICAL_REFS                    0x08000UL
 
+#define SRL_F_SORT_KEYS_PERL                    0x10000UL
+#define SRL_F_SORT_KEYS_PERL_REV                0x20000UL
 /* ====================================================================
  * oper flags
  */

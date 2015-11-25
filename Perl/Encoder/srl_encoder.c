@@ -534,8 +534,15 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
         my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_SORT_KEYS);
         if ( !val )
             my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CANONICAL);
-        if ( val && SvTRUE(val) )
+        if ( val && SvTRUE(val) ) {
             SRL_ENC_SET_OPTION(enc, SRL_F_SORT_KEYS);
+            if (SvIV(val) > 1) {
+                SRL_ENC_SET_OPTION(enc, SRL_F_SORT_KEYS_PERL);
+                if (SvIV(val) > 2) {
+                    SRL_ENC_SET_OPTION(enc, SRL_F_SORT_KEYS_PERL_REV);
+                }
+            }
+        }
 
         my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CANONICAL_REFS);
         if ( !val )
@@ -1276,75 +1283,55 @@ he_sv_islt_fast(const HE_SV *a, const HE_SV *b)
     return memcmp(a_ptr, b_ptr, a_len < b_len ? a_len : b_len ) < 0;
 }
 
-
-SRL_STATIC_INLINE int
-he_sv_islt_slow(const HE_SV *a, const HE_SV *b)
-{
-    /* no need for a dTHX here, we don't use anything that needs it */
-    char *a_ptr;
-    char *b_ptr;
-    int a_isutf8;
-    int b_isutf8;
-    int cmp;
-    const STRLEN a_len= a->key.sv ? SvCUR(a->key.sv) : HeKLEN(a->val.he);
-    const STRLEN b_len= b->key.sv ? SvCUR(b->key.sv) : HeKLEN(b->val.he);
-
-    a_ptr= a->key.sv ? SvPVX(a->key.sv) : HeKEY(a->val.he);
-    b_ptr= b->key.sv ? SvPVX(b->key.sv) : HeKEY(b->val.he);
-    cmp= memcmp(a_ptr, b_ptr, a_len < b_len ? a_len : b_len );
-    if ( cmp ) {
-        return cmp < 0;
-    }
-    if ( a_len != b_len ) {
-        return a_len < b_len;
-    }
-    /* consider a utf8 key, and its "raw" utf8 representation as binary */
-    a_isutf8= (a->key.sv ? SvUTF8(a->key.sv) : HeKUTF8(a->val.he)) ? 0 : 1;
-    b_isutf8= (b->key.sv ? SvUTF8(b->key.sv) : HeKUTF8(b->val.he)) ? 0 : 1;
-    return a_isutf8 < b_isutf8;
-}
-
-#if 1
 #define ISLT_HE_SV(a,b)    he_sv_islt_fast( a, b )
-#else
-#define ISLT_HE_SV(a,b)    he_sv_islt_slow( a, b )
-#endif
+#define ISLT_SV_CMP(a,b)   sv_cmp(a->key.sv, b->key.sv) == sort_dir
 
 
 SRL_STATIC_INLINE void
 srl_qsort(pTHX_ srl_encoder_t *enc, const UV n, HE_SV *array)
 {
-    /* hack to forcefully disable "use bytes" */
-    COP cop= *PL_curcop;
-    cop.op_private= 0;
+    if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS_PERL) ) {
+        int sort_dir= SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS_PERL_REV) ? 1 : -1;
+        /* hack to forcefully disable "use bytes" */
+        COP cop= *PL_curcop;
+        cop.op_private= 0;
 
-    ENTER;
-    SAVETMPS;
+        ENTER;
+        SAVETMPS;
 
-    SAVEVPTR (PL_curcop);
-    PL_curcop= &cop;
+        SAVEVPTR (PL_curcop);
+        PL_curcop= &cop;
+       
+        /* now sort */
+        QSORT(HE_SV, array, n, ISLT_SV_CMP);
 
-    /* now sort */
-    QSORT(HE_SV, array, n, ISLT_HE_SV);
-
-    FREETMPS;
-    LEAVE;
+        FREETMPS;
+        LEAVE;
+    } else {
+        /* now sort */
+        QSORT(HE_SV, array, n, ISLT_HE_SV);
+    }
 }
 
 
 SRL_STATIC_INLINE void
-srl_dump_hv_sorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n, HE_SV *array)
+srl_dump_hv_sorted_sv_slow(pTHX_ srl_encoder_t *enc, HV *src, const UV n, HE_SV *array)
 {
     HE *he;
     UV i= 0;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
     const int is_tie= !array;
 
+    /* This sub is used for ties, and for hashes with SV keys in them,
+     * and when the user requests SORT_KEYS_PERL, it is the slowest way
+     * and most memory hungry way to serialize a hash. We will use the 
+     * full perl api for extracting the contents of the hash, which fortifies
+     * us against ties, and we will convert all keys into mortal
+     * sv's where necessary. This means we can use sv_cmp on the keys
+     * if we wish.
+     */
+
     (void)hv_iterinit(src); /* return value not reliable according to API docs */
-    /* can't use the same optimizations we use for normal hashes with tied
-     * hashes - the HE*'s that are returned for tied hashes are temporary
-     * structures returned from the tie infra. So we make an array, and
-     * then sort it.*/
     {
         HE_SV *array_end;
         if (!array) {
@@ -1379,6 +1366,10 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
     HE *he;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
 
+    /* This sub is used only for untied hashes and when the user wants
+     * sorted keys, but not necessarily the order that perl would use. 
+     */
+
     (void)hv_iterinit(src); /* return value not reliable according to API docs */
     {
         HE_SV *array;
@@ -1396,7 +1387,9 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
             array_ptr->val.he = he;
             array_ptr++;
         }
-        QSORT(HE_SV, array, n, ISLT_HE_SV)
+        
+        srl_qsort(aTHX_ enc, n, array);
+
         array_end = array + n;
         for ( array_end= array + n; array < array_end; array++ ) {
             SV *v;
@@ -1432,9 +1425,11 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
     }
 
     if ( n ) {
-        if ( SvMAGICAL(src) ) {
-            if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS) ) {
-                srl_dump_hv_sorted_mg(aTHX_ enc, src, n, NULL);
+        if ( SvMAGICAL(src) || SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS_PERL) ) {
+            /* SORT_KEYS_PERL implies SORT_KEYS, but we check for either just to be
+             * careful - yves*/
+            if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS|SRL_F_SORT_KEYS_PERL) ) {
+                srl_dump_hv_sorted_sv_slow(aTHX_ enc, src, n, NULL);
             }
             else {
                 srl_dump_hv_unsorted_mg(aTHX_ enc, src, n);

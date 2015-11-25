@@ -5,6 +5,29 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 3 of the *
 *          encoder!                                            *
 ****************************************************************
+3.006_007 Nov 25 2015
+  * CHANGED: Sort order for sort_keys=1 is now defined to be
+    "in order by length of bytes, then by byte order of the 
+    underlying string, then by utd8ness, with non-utf8 first". 
+    This sort order was chosen because it requires the least 
+    operations to perform in the most cases, has a bounded number
+    of cases where we would have to create any temporary SV's or 
+    to do operations that require us to introspect codepoints in
+    utf8 strings. IOW purely performance. Note that so long
+    as you compare data created with the same sort_keys setting
+    you will ALWAYS get the same order *in process*, regardless
+    of what you choose. Backwards compatible support for  the
+    old order is available via sort_keys=3.
+    
+    ADDED: sort_keys=2 to provide "perl cmp order"
+           (Its just there because it is easy to do, not for any
+            good reason.)
+    ADDED: sort_keys=3 to provide "rev perl cmp order"
+
+    Legacy sort order was equivalent to sort_keys=3, use this 
+    option *ONLY* if you are extremely sensitive to changes in the
+    sorted order (or "canonical form").
+
 3.006_006 Nov 21 2015
   * Fix issues with serializing blessed scalars where we see the
     blessed scalar before we see the reference to it.
