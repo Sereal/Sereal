@@ -3,8 +3,24 @@ use strict;
 use warnings;
 
 use ExtUtils::MakeMaker;
-
+use Cwd;
 our $VERSION = '3.006_006';
+
+my $shared_dir = "../shared";
+my $in_source_repo = -d "../../.git" and -d $shared_dir;
+
+my $module = "Sereal";
+
+unshift @INC, ".", "./inc";
+unshift @INC, $shared_dir, "$shared_dir/inc" if $in_source_repo;
+
+if ($in_source_repo) {
+    eval "use blib '../Encoder'; use blib '../Decoder'; 1"
+        or die "failed to use blib: $@";
+}
+
+require inc::Sereal::BuildTools;
+inc::Sereal::BuildTools::link_files($shared_dir,"tests_only") if $in_source_repo;
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
@@ -35,6 +51,9 @@ WriteMakefile1(
     LICENSE => 'perl',
     ABSTRACT_FROM => 'lib/Sereal.pm',
     AUTHOR => 'Steffen Mueller <smueller@cpan.org>',
+    test              => {
+        TESTS => "t/*.t t/*/*/*.t",
+    },
 );
 
 sub WriteMakefile1 {  #Written by Alexandr Ciornii, version 0.20. Added by eumm-upgrade.

@@ -15,11 +15,38 @@ use Scalar::Util qw(reftype blessed refaddr);
 use Config;
 use Carp qw(confess);
 use Storable qw(dclone);
+use Cwd;
 
 # Dynamically load constants from whatever is being tested
-our ($Class, $ConstClass);
+our ($Class, $ConstClass, $InRepo);
+sub get_git_top_dir {
+    my @dirs = (0, 1, 2);
+    for my $d (@dirs) {
+        my $tdir = File::Spec->catdir(map File::Spec->updir, 1..$d);
+        my $gdir = File::Spec->catdir($tdir, '.git');
+        return $tdir
+            if -d $gdir;
+    }
+    return();
+}
+
+BEGIN{
+    if (defined(my $top_dir = get_git_top_dir())) {
+        for my $need ('Encoder', 'Decoder') {
+            my $blib_dir = File::Spec->catdir($top_dir, 'Perl', $need, "blib");
+            if (-d $blib_dir) {
+                require blib;
+                blib->import($blib_dir);
+            }
+        }
+        $InRepo=1;
+    }
+}
 BEGIN {
-    if (-e "lib/Sereal/Encoder.pm") {
+    if (-e "lib/Sereal.pm") {
+        $Class = 'Sereal::Encoder';
+    }
+    elsif (-e "lib/Sereal/Encoder.pm") {
         $Class = 'Sereal::Encoder';
     }
     elsif (-e "lib/Sereal/Decoder.pm") {
@@ -31,7 +58,7 @@ BEGIN {
     elsif (-e "lib/Sereal/Splitter.pm") {
         $Class = 'Sereal::Splitter';
     } else {
-        die "Could not find an applicable Sereal constants location";
+        die "Could not find an applicable Sereal constants location (in: ",cwd(),")";
     }
     $ConstClass = $Class . "::Constants";
     eval "use $ConstClass ':all'; 1"
@@ -601,16 +628,6 @@ sub setup_tests {
 }
 
 
-sub get_git_top_dir {
-    my @dirs = (0, 1, 2);
-    for my $d (@dirs) {
-        my $tdir = File::Spec->catdir(map File::Spec->updir, 1..$d);
-        my $gdir = File::Spec->catdir($tdir, '.git');
-        return $tdir
-            if -d $gdir;
-    }
-    return();
-}
 
 sub have_encoder_and_decoder {
     my ($min_v)= @_;
@@ -618,13 +635,6 @@ sub have_encoder_and_decoder {
     my $need = $Class =~ /Encoder/ ? "Decoder" : "Encoder";
     my $need_class = "Sereal::$need";
 
-    if (defined(my $top_dir = get_git_top_dir())) {
-        my $blib_dir = File::Spec->catdir($top_dir, 'Perl', $need, "blib");
-        if (-d $blib_dir) {
-            require blib;
-            blib->import($blib_dir);
-        }
-    }
     eval "use $Class; 1"
     or do {
         note("Could not locate $Class for testing" . ($@ ? " (Exception: $@)" : ""));

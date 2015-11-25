@@ -1,0 +1,1 @@
+../../Encoder/t/030_canonical_vs_test_deep.t

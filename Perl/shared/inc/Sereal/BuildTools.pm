@@ -6,7 +6,10 @@ use Config;
 
 sub link_files {
   my $shared_dir = shift;
-  my $exlude_tests = shift;
+  my $do_tests = shift || "";
+  my $exclude_tests= $do_tests eq "without_tests";
+  my $tests_only= $do_tests eq "tests_only";
+
   # This fires from a git source tree only.
   # Right now, all devs are on Linux. Feel free to make portable.
   eval {
@@ -20,7 +23,8 @@ sub link_files {
           my $f = $_;
           s/^\Q$shared_dir\E\/?// or die $_;
           return unless $_;
-          return if $exlude_tests && m#^/?t/#;
+          return if $exclude_tests && m#^/?t/#;
+          return if $tests_only && !m#^/?t/#;
 
           if (-d $f) {
             File::Path::mkpath($_)

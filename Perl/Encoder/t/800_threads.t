@@ -14,6 +14,13 @@ BEGIN {
     exit(0);
   }
 }
+use File::Spec;
+use lib File::Spec->catdir(qw(t lib));
+BEGIN {
+    lib->import('lib')
+        if !-d 't';
+}
+use Sereal::TestSet qw(:all);
 
 use Sereal::Encoder;
 plan tests => 1;

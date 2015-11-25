@@ -1,0 +1,1 @@
+../../Decoder/t/060_each.t
