@@ -45,13 +45,14 @@ foreach my $file (@files) {
 
 print <<"EOF_TEXT";
 
-git clean -dfx
-for d in Decoder/ Encoder/; do pushd \$d; perl Makefile.PL && make && make manifest && make disttest && make dist; popd; done;
-
-git clean -dfx
-for d in Encoder/ Decoder/; do pushd \$d; perl Makefile.PL && make && make manifest && make disttest && make dist; popd; done;
-
-export PERL5OPT="-Mblib=/home/yorton/git_tree/Sereal/Perl/Encoder/ -Mblib=/home/yorton/git_tree/Sereal/Perl/Decoder/"; pushd Sereal; perl Makefile.PL &&  make && make disttest && make dist; popd; unset PERL5OPT;
+git clean -dfx &&
+pushd Encoder && perl Makefile.PL && make && make test && popd &&
+git clean -dfx &&
+pushd Decoder && perl Makefile.PL && make && make test && popd &&
+pushd Encoder && perl Makefile.PL && make && make manifest && make disttest && make dist && popd &&
+pushd Decoder && perl Makefile.PL && make && make manifest && make disttest && make dist && popd &&
+pushd Sereal && perl Makefile.PL && make && make manifest && make test && make dist && popd && 
+echo "All is well!";
 
 git commit -a -m'Release v$to - $reason' && git tag Sereal-Decoder-$to -m'Release Sereal::Decoder version $to ($reason)' && git tag Sereal-Encoder-$to -m'Release Sereal::Encoder version $to ($reason)' && git tag Sereal-$to -m'Sereal v$to - Update encoder ($reason)' && git push && git push --tags
 

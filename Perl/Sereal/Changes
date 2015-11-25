@@ -11,6 +11,12 @@ please see the Encoder and Decoder changelogs:
 *          of the decoder before upgrading to version 3 of the *
 *          encoder!                                            *
 ****************************************************************
+3.006_007 Nov 25 2015
+  * [DECODER] Build fixes for boxes without any Sereal installed (it seems
+    to be common on certain types of smokers, and not on others).
+  * [ENCODER]: base sort order changed, new sort orders added. 
+    See Sereal::Encoders CHANGES files.
+
 3.006_005 Nov 20 2015
   * [ENCODER] Rework sort logic to be more efficient
 

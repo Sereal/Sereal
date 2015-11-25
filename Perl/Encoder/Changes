@@ -28,6 +28,9 @@ Revision history for Perl extension Sereal-Encoder
     option *ONLY* if you are extremely sensitive to changes in the
     sorted order (or "canonical form").
 
+  * [DECODER] Build fixes for boxes without any Sereal installed (it seems
+    to be common on certain types of smokers, and not on others).
+
 3.006_006 Nov 21 2015
   * Fix issues with serializing blessed scalars where we see the
     blessed scalar before we see the reference to it.

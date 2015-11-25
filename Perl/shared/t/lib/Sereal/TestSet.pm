@@ -20,7 +20,7 @@ use Cwd;
 # Dynamically load constants from whatever is being tested
 our ($Class, $ConstClass, $InRepo);
 sub get_git_top_dir {
-    my @dirs = (0, 1, 2);
+    my @dirs = (0, 1, 2, 4);
     for my $d (@dirs) {
         my $tdir = File::Spec->catdir(map File::Spec->updir, 1..$d);
         my $gdir = File::Spec->catdir($tdir, '.git');
