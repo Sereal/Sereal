@@ -59,9 +59,9 @@
  * http://en.wikipedia.org/wiki/FLAGS_register_(computing)
  */
 #ifdef SRL_X86_OR_X64_CPU
-#  if __x86_64__ || __x86_64
+#  if defined(__x86_64__) || defined(__x86_64)
 #    define SRL_TRY_ENABLE_STRICT_ALIGN() asm("pushf\norl $0x40000, (%rsp)\npopf")
-#  elif __i386__ || __i386
+#  elif defined(__i386__) || defined(__i386)
 #    define SRL_TRY_ENABLE_STRICT_ALIGN() asm("pushf\norl $0x40000, (%esp)\npopf")
 #  endif
 #else
