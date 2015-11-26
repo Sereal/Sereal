@@ -68,6 +68,7 @@ sub run_tests {
 
         TODO: {
             # we must do this test before we test numeric equivalence
+            no warnings 'numeric';
             my $have= ($decoded ^ '1');
             my $want= ($tests{$test} ^ '1');
             local $TODO = $have ne $want ? "Cannot reliably round trip NIOK flag(s)" : undef;
