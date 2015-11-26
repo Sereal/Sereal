@@ -64,6 +64,7 @@ extern "C" {
 #include "srl_iterator.h"
 #include "srl_decoder.h"
 #include "srl_reader_misc.h"
+#define WANT_SRL_RDR_TRACE /* allow use of SRL_RDR_TRACE */
 #include "srl_reader_error.h"
 #include "srl_reader_varint.h"
 #include "srl_reader_decompress.h"
