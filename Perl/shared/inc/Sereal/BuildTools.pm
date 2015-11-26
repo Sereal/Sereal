@@ -3,6 +3,7 @@ use strict;
 use warnings;
 
 use Config;
+use constant OSNAME => $^O;
 
 sub link_files {
   my $shared_dir = shift;
@@ -36,7 +37,14 @@ sub link_files {
             my $ref = join "/", ("..") x scalar(@d);
             my $subd = join "/", @d;
             chdir $subd if length($ref);
-            symlink(join("/", grep length, $ref, $shared_dir, $subd, $fname), $fname);
+            my $srcfname = join("/", grep length, $ref, $shared_dir, $subd, $fname);
+            if (OSNAME eq 'MSWin32') {
+              die "link($srcfname, $fname) failed: $!"
+                unless link($srcfname, $fname); #only NTFS implements it
+            }
+            else {
+              symlink($srcfname, $fname);
+            }
             chdir($ref) if length($ref);
           }
         },
