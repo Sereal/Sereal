@@ -13,6 +13,7 @@ BEGIN {
         if !-d 't';
 }
 
+no warnings 'utf8';
 my @valid_utf8 = (
     [ latin1 => "=srl\x01\x00'\x06Au feu" => 'Au feu' ],
     [ utf8   => "=srl\x01\x00'\x08\xc3\x80 l'eau" => "\xC0 l'eau" ],
