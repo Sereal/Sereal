@@ -9,33 +9,22 @@ please see the Encoder and Decoder changelogs:
 ****************************************************************
 * Warning: For a seamless upgrade, upgrade to version 3        *
 *          of the decoder before upgrading to version 3 of the *
-*          encoder!                                            *
+*          encoder! This may mean you should NOT install the   *
+*          Sereal package and instead install the Encoder or   *
+*          Decoder independently.                              *
 ****************************************************************
-3.006_007 Nov 25 2015
+3.007 Nov 26 2015
   * [DECODER] Build fixes for boxes without any Sereal installed (it seems
     to be common on certain types of smokers, and not on others).
-  * [ENCODER]: base sort order changed, new sort orders added. 
+  * [ENCODER]: Base sort order changed, new sort orders added.
+    Rework sort logic to be more efficient, fix sorted tied hashes,
+    define new sort order.
     See Sereal::Encoders CHANGES files.
-
-3.006_005 Nov 20 2015
-  * [ENCODER] Rework sort logic to be more efficient
-
-3.006_004 Nov 18 2015
   * [ENCODER] Handle PVLV undefs
-
-3.006_003 Nov 18 2015
-  * [ENCODER] Third, and hopefully final implementation of sorted tied hashes
-    In short qsort_r() broke everything but Linux :-( Switching
-    to qsort() should fix the problem.
-  * [ENCODER] Optimizations.
-
-3.006_002
-  * [ENCODER] Second try at fixing sorted tied hashes.
+  * [ENCODER] General optimizations.
   * [ENCODER] Build fixes for 5.8.9
   * [ENCODER] Doc patches
-
-3.006_001
-  * [ENCODER] First try at fixing sorted tied hashes
+  * Win32 build fixes.
 
 3.006 Nov 14 2015
   * [DECODER] fix segfaults from heavily corrupted data. Guards

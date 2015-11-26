@@ -5,18 +5,13 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 3 of the *
 *          encoder!                                            *
 ****************************************************************
-3.006_007 Nov 25 2015
+3.007 Nov 26 2015
   * Build fixes for boxes without any Sereal installed (it seems
     to be common on certain types of smokers, and not on others).
   * [ENCODER]: new sort orders added. 
-  
-3.006_006
   * Fix incremental parsing of utf8 strings. See
     https://rt.cpan.org/Public/Bug/Display.html?id=93892
   * Encoder fixes.
-
-3.006_001 .. 3.006_005
-  * Encoder fixes only.
 
 3.006 Nov 14 2015
   * [DECODER] fix segfaults from heavily corrupted data. Guards
