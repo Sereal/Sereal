@@ -1653,7 +1653,6 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
 
   read_tag:
     switch (tag) {
-
         CASE_SRL_HDR_POS:
             srl_setiv(aTHX_ dec, into, container, (IV)tag);
             break;
@@ -1738,14 +1737,14 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
     /* they want us to set all SVs readonly, or only the non-ref */
 #define SUPPORT_READONLY 1
 #if SUPPORT_READONLY
-        if ( expect_false(dec->flags_readonly) )
-        {
-            if (
-                 dec->flags_readonly == 1 || !is_ref
-            ) {
-                SvREADONLY_on(into);
-            }
+    if ( expect_false(dec->flags_readonly) )
+    {
+        if (
+             dec->flags_readonly == 1 || !is_ref
+        ) {
+            SvREADONLY_on(into);
         }
+    }
 #endif
 
     return;
