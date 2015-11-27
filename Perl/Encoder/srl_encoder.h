@@ -98,10 +98,12 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
  * set since we otherwise croak.  Corresponds to the 'warn_unknown' option. */
 #define SRL_F_WARN_UNKNOWN                      0x00020UL
 
-/* WARNING: SRL_F_COMPRESS_SNAPPY               0x00040UL
- *          SRL_F_COMPRESS_SNAPPY_INCREMENTAL   0x00080UL
- *          SRL_F_COMPRESS_ZLIB                 0x00100UL
- *          are moved to srl_compress.h */
+/* WARNING:
+ * #define SRL_F_COMPRESS_SNAPPY               0x00040UL
+ * #define SRL_F_COMPRESS_SNAPPY_INCREMENTAL   0x00080UL
+ * #define SRL_F_COMPRESS_ZLIB                 0x00100UL
+ * are moved to srl_compress.h
+ */
 
 /* Only meaningful if SRL_F_WARN_UNKNOWN also set. If this one is set, then we don't warn
  * if the unsupported item has string overloading. */

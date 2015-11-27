@@ -207,6 +207,12 @@ DESTROY(enc)
   CODE:
     srl_destroy_encoder(aTHX_ enc);
 
+U32
+flags(enc)
+    srl_encoder_t *enc;
+  CODE:
+    RETVAL = enc->flags;
+  OUTPUT: RETVAL
 
 void
 encode_sereal(src, opt = NULL)
@@ -278,3 +284,5 @@ test()
     }
     PTABLE_iter_free(iter);
     PTABLE_free(tbl);
+
+

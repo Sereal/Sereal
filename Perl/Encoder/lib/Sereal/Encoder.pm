@@ -16,9 +16,52 @@ sub _test_compat {return(@$TestCompat, $VERSION)}
 # Make sure to keep these constants in sync with the C code in srl_encoder.c.
 # I know they could be exported from C using things like ExtUtils::Constant,
 # but that's too much of a hassle for just three numbers.
-use constant SRL_UNCOMPRESSED => 0;
-use constant SRL_SNAPPY       => 1;
-use constant SRL_ZLIB         => 2;
+use constant {
+    SRL_UNCOMPRESSED => 0,
+    SRL_SNAPPY       => 1,
+    SRL_ZLIB         => 2,
+};
+use constant #begin generated
+{
+  'SRL_F_ALIASED_DEDUPE_STRINGS' => 4096,
+  'SRL_F_CANONICAL_REFS' => 32768,
+  'SRL_F_COMPRESS_SNAPPY' => 64,
+  'SRL_F_COMPRESS_SNAPPY_INCREMENTAL' => 128,
+  'SRL_F_COMPRESS_ZLIB' => 256,
+  'SRL_F_CROAK_ON_BLESS' => 4,
+  'SRL_F_DEDUPE_STRINGS' => 2048,
+  'SRL_F_ENABLE_FREEZE_SUPPORT' => 16384,
+  'SRL_F_NOWARN_UNKNOWN_OVERLOAD' => 512,
+  'SRL_F_NO_BLESS_OBJECTS' => 8192,
+  'SRL_F_REUSE_ENCODER' => 2,
+  'SRL_F_SHARED_HASHKEYS' => 1,
+  'SRL_F_SORT_KEYS' => 1024,
+  'SRL_F_SORT_KEYS_PERL' => 65536,
+  'SRL_F_SORT_KEYS_PERL_REV' => 131072,
+  'SRL_F_STRINGIFY_UNKNOWN' => 16,
+  'SRL_F_UNDEF_UNKNOWN' => 8,
+  'SRL_F_WARN_UNKNOWN' => 32,
+  '_FLAG_NAME' => [
+                    'SHARED_HASHKEYS',
+                    'REUSE',
+                    'CROAK_ON_BLESS',
+                    'UNDEF_UNKNOWN',
+                    'STRINGIFY_UNKNOWN',
+                    'WARN_UNKNOWN',
+                    'COMPRESS_SNAPPY',
+                    'COMPRESS_SNAPPY_INCREMENTAL',
+                    'COMPRESS_ZLIB',
+                    'NOWARN_UNKNOWN_OVERLOAD',
+                    'SORT_KEYS',
+                    'DEDUPE_STRINGS',
+                    'ALIASED_DEDUPE_STRINGS',
+                    'NO_BLESS_OBJECTS',
+                    'ENABLE_FREEZE_SUPPORT',
+                    'CANONICAL_REFS',
+                    'SORT_KEYS_PERL',
+                    'SORT_KEYS_PERL_REV'
+                  ]
+}; #end generated
 
 use Exporter 'import';
 our @EXPORT_OK = qw(
@@ -46,6 +89,18 @@ sub encode_to_file {
         or die "Failed to print to '$file': $!";
     close $fh
         or die "Failed to close '$file': $!";
+}
+
+my $flags= sub {
+    my ($int, $ary)= @_;
+    return map {
+        ($ary->[$_] and $int & (1 << $_)) ? $ary->[$_] : ()
+    } (0..$#$ary);
+};
+
+sub flag_names {
+    my ($self, $val)= @_;
+    return $flags->($val // $self->flags, _FLAG_NAME);
 }
 
 1;
