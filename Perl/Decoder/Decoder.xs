@@ -429,7 +429,7 @@ new(CLASS, opt = NULL)
     dMY_CXT;
   CODE:
     RETVAL = srl_build_decoder_struct(aTHX_ opt, MY_CXT.options);
-    RETVAL->flags |= SRL_F_REUSE_DECODER;
+    RETVAL->flags |= SRL_F_DECODER_REUSE;
   OUTPUT: RETVAL
 
 void

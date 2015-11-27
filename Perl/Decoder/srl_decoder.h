@@ -85,7 +85,7 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 
 /* If set, the decoder struct needs to be cleared instead of freed at
  * the end of a deserialization operation */
-#define SRL_F_REUSE_DECODER                     0x00000001UL
+#define SRL_F_DECODER_REUSE                     0x00000001UL
 /* If set, then the decoder is already in use and srl_decode_into will
  * clone its own new decoder. */
 #define SRL_F_DECODER_DIRTY                     0x00000002UL

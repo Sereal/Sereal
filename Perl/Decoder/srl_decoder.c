@@ -379,7 +379,7 @@ srl_decoder_destructor_hook(pTHX_ void *p)
     srl_decoder_t *dec = (srl_decoder_t *)p;
 
     /* Only free decoder if not for reuse */
-    if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_REUSE_DECODER)) {
+    if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REUSE)) {
         srl_destroy_decoder(aTHX_ dec);
     }
     else {
@@ -515,7 +515,7 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset)
     if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DIRTY)) {
         srl_decoder_t * const proto = dec;
         dec = srl_build_decoder_struct_alike(aTHX_ proto);
-        SRL_DEC_UNSET_OPTION(dec, SRL_F_REUSE_DECODER);
+        SRL_DEC_UNSET_OPTION(dec, SRL_F_DECODER_REUSE);
     }
 
     /* Needs to be before setting DIRTY because DIRTY is volatile. */
