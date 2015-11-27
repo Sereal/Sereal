@@ -1,7 +1,6 @@
 use strict;
 use warnings;
 
-use Sereal::Decoder;
 use Test::More;
 use File::Spec;
 use lib File::Spec->catdir(qw(t lib));

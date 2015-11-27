@@ -121,8 +121,8 @@ SRL_STATIC_INLINE void srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_double(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_float(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into);
-SRL_STATIC_INLINE void srl_read_varint_into(pTHX_ srl_decoder_t *dec, SV* into, SV** container);
-SRL_STATIC_INLINE void srl_read_zigzag_into(pTHX_ srl_decoder_t *dec, SV* into, SV** container);
+SRL_STATIC_INLINE void srl_read_varint_into(pTHX_ srl_decoder_t *dec, SV* into, SV** container, const U8 *track_it);
+SRL_STATIC_INLINE void srl_read_zigzag_into(pTHX_ srl_decoder_t *dec, SV* into, SV** container, const U8 *track_it);
 SRL_STATIC_INLINE void srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into);
 SRL_STATIC_INLINE void srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag);
 SRL_STATIC_INLINE void srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag);
@@ -752,7 +752,7 @@ srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char * const tag_name)
  * PRIVATE WORKER SUBS FOR DEPARSING                                        *
  ****************************************************************************/
 SRL_STATIC_INLINE void
-srl_alias_iv(pTHX_ srl_decoder_t *dec, SV **container, IV iv)
+srl_alias_iv(pTHX_ srl_decoder_t *dec, SV **container, const U8 *track_it, IV iv)
 {
     SV *alias;
     SV **av_array= AvARRAY(dec->alias_cache);
@@ -775,15 +775,17 @@ srl_alias_iv(pTHX_ srl_decoder_t *dec, SV **container, IV iv)
     if (*container && *container != &PL_sv_undef)
         SvREFCNT_dec(*container);
     *container= alias;
+    if (track_it)
+        srl_track_sv(aTHX_ dec, track_it, alias);
 }
 
 
 
 SRL_STATIC_INLINE void
-srl_setiv(pTHX_ srl_decoder_t *dec, SV *into, SV **container, IV iv)
+srl_setiv(pTHX_ srl_decoder_t *dec, SV *into, SV **container, const U8 *track_it, IV iv)
 {
     if ( expect_false( container && IS_IV_ALIAS(dec,iv) )) {
-        srl_alias_iv(aTHX_ dec, container, iv);
+        srl_alias_iv(aTHX_ dec, container, track_it, iv);
     } else {
         /* unroll sv_setiv() for the SVt_NULL case, which we will
          * see regularly - this wins about 35% speedup for us
@@ -812,11 +814,11 @@ srl_setiv(pTHX_ srl_decoder_t *dec, SV *into, SV **container, IV iv)
 }
 
 SRL_STATIC_INLINE void
-srl_read_varint_into(pTHX_ srl_decoder_t *dec, SV* into, SV **container)
+srl_read_varint_into(pTHX_ srl_decoder_t *dec, SV* into, SV **container, const U8 *track_it)
 {
     UV uv= srl_read_varint_uv(aTHX_ dec->pbuf);
     if (expect_true(uv <= (UV)IV_MAX)) {
-        srl_setiv(aTHX_ dec, into, container, (IV)uv);
+        srl_setiv(aTHX_ dec, into, container, track_it, (IV)uv);
     } else {
         /* grr, this is ridiculous! */
         sv_setiv(into, 0);
@@ -835,9 +837,9 @@ srl_read_zigzag_iv(pTHX_ srl_decoder_t *dec)
 }
 
 SRL_STATIC_INLINE void
-srl_read_zigzag_into(pTHX_ srl_decoder_t *dec, SV* into, SV **container)
+srl_read_zigzag_into(pTHX_ srl_decoder_t *dec, SV* into, SV **container, const U8 *track_it)
 {
-    srl_setiv(aTHX_ dec, into, container, srl_read_zigzag_iv(aTHX_ dec));
+    srl_setiv(aTHX_ dec, into, container, track_it, srl_read_zigzag_iv(aTHX_ dec));
 }
 
 
@@ -1644,6 +1646,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
     STRLEN len;
     U8 tag;
     int is_ref = 0;
+    const U8 *track_it = NULL;
 
   read_again:
     if (expect_false( SRL_RDR_DONE(dec->pbuf) ))
@@ -1654,10 +1657,10 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
   read_tag:
     switch (tag) {
         CASE_SRL_HDR_POS:
-            srl_setiv(aTHX_ dec, into, container, (IV)tag);
+            srl_setiv(aTHX_ dec, into, container, track_it, (IV)tag);
             break;
         CASE_SRL_HDR_NEG:
-            srl_setiv(aTHX_ dec, into, container, (IV)(tag - 32));
+            srl_setiv(aTHX_ dec, into, container, track_it, (IV)(tag - 32));
             break;
         CASE_SRL_HDR_SHORT_BINARY:
             len= (STRLEN)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
@@ -1667,8 +1670,8 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
             break;
         CASE_SRL_HDR_HASHREF:       srl_read_hash(aTHX_ dec, into, tag);  is_ref = 1; break;
         CASE_SRL_HDR_ARRAYREF:      srl_read_array(aTHX_ dec, into, tag); is_ref = 1; break;
-        case SRL_HDR_VARINT:        srl_read_varint_into(aTHX_ dec, into, container); break;
-        case SRL_HDR_ZIGZAG:        srl_read_zigzag_into(aTHX_ dec, into, container); break;
+        case SRL_HDR_VARINT:        srl_read_varint_into(aTHX_ dec, into, container, track_it); break;
+        case SRL_HDR_ZIGZAG:        srl_read_zigzag_into(aTHX_ dec, into, container, track_it); break;
 
         case SRL_HDR_FLOAT:         srl_read_float(aTHX_ dec, into);                  break;
         case SRL_HDR_DOUBLE:        srl_read_double(aTHX_ dec, into);                 break;
@@ -1683,6 +1686,8 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
             if (container && SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_USE_UNDEF)){
                 SvREFCNT_dec(into);
                 *container= &PL_sv_undef;
+                if ( track_it )
+                    srl_track_sv(aTHX_ dec, track_it, *container);
             } else {
                 sv_setsv(into, &PL_sv_undef);
             }
@@ -1715,6 +1720,8 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
             SvREFCNT_inc(alias);
             SvREFCNT_dec(into);
             *container= alias;
+            if (track_it)
+                srl_track_sv(aTHX_ dec, track_it, alias);
             return;
         }
         break;
@@ -1726,7 +1733,8 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
         default:
             if (tag & SRL_HDR_TRACK_FLAG) {
                 tag= tag & ~SRL_HDR_TRACK_FLAG;
-                srl_track_sv(aTHX_ dec, dec->buf.pos-1, into);
+                track_it = dec->buf.pos-1;
+                srl_track_sv(aTHX_ dec, track_it, into);
                 goto read_tag;
             } else { 
                 SRL_RDR_ERROR_UNEXPECTED(dec->pbuf, tag, " single value");
@@ -1746,6 +1754,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
         }
     }
 #endif
+
 
     return;
 }

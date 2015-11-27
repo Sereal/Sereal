@@ -5,6 +5,7 @@ author_tools/freeze_thaw_timing.pl
 author_tools/hobodecoder.pl
 author_tools/numeric_str_length.c
 author_tools/stringify_test.c
+author_tools/update_flag_consts.pl
 author_tools/update_from_header.pl
 author_tools/valgrind.supp
 Changes
@@ -50,6 +51,7 @@ t/030_looks_like_sereal.t
 t/040_special_vars.t
 t/060_each.t
 t/070_alias_options.t
+t/071_alias_reserealize.t
 t/080_set_readonly.t
 t/110_nobless.t
 t/150_dec_exception.t
