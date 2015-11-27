@@ -140,7 +140,7 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
 /* Set while the encoder is in active use / dirty */
 #define SRL_OF_ENCODER_DIRTY                 1UL
 
-#define SRL_ENC_HAVE_OPTION(enc, flag_num) ((enc)->flags & flag_num)
+#define SRL_ENC_HAVE_OPTION(enc, flag_num) ((enc)->flags & (flag_num))
 #define SRL_ENC_SET_OPTION(enc, flag_num) STMT_START {(enc)->flags |= (flag_num);}STMT_END
 #define SRL_ENC_RESET_OPTION(enc, flag_num) STMT_START {(enc)->flags &= ~(flag_num);}STMT_END
 
