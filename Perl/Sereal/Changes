@@ -13,6 +13,14 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+3.008 Nov 27 2015
+  * [ENCODER] FIX: Make sure that reserializing a data structure created
+    using alias_varint_under does not produce a corrupted dataset.
+    Thanks to Iskra for the report.
+  * [ENCODER] FIX: Precedence issue related to sort keys options.
+    Thanks to Petr Písař <ppisar@redhat.com> for the report and fix.
+  * [ENCODER/DECODER] FIX: Win32 build issues.
+
 3.007 Nov 26 2015
   * [DECODER] Build fixes for boxes without any Sereal installed (it seems
     to be common on certain types of smokers, and not on others).

@@ -4,7 +4,7 @@ use warnings;
 
 use ExtUtils::MakeMaker;
 use Cwd;
-our $VERSION = '3.007';
+our $VERSION = '3.008';
 
 my $shared_dir = "../shared";
 my $in_source_repo = -d "../../.git" and -d $shared_dir;

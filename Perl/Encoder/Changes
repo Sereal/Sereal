@@ -5,6 +5,14 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 3 of the *
 *          encoder!                                            *
 ****************************************************************
+3.008 Nov 27 2015
+  * FIX: Make sure that reserializing a data structure created
+    using alias_varint_under does not produce a corrupted dataset.
+    Thanks to Iskra for the report.
+  * FIX: Precedence issue related to sort keys options. Thanks
+    to Petr Písař <ppisar@redhat.com> for the report and fix.
+  * FIX: Win32 build issues, thanks to bulk88 for help.
+
 3.007 Nov 26 2015
   * FIX: sorting should now work with tied hashes, and
     be in general faster.
