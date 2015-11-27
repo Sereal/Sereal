@@ -111,7 +111,7 @@ use constant #begin generated
 }; #end generated
 
 sub decode_from_file {
-    my ($self, $file)= @_;
+    my ($self, $file, )= @_; # pos 3 is "target var" if one is provided
     open my $fh, "<", $file
         or die "Failed to open '$file' for read: $!";
     my $buf= do{ local $/; <> };
@@ -123,11 +123,8 @@ sub decode_from_file {
             push @ret, $self->decode($buf);
         }
         return @ret;
-    } elsif (!defined wantarray) {
-        $self->decode($file, $_[2]);
-    } else {
-        return $self->decode($file);
     }
+    return $self->decode($file, $_[2]);
 }
 
 my $flags= sub {

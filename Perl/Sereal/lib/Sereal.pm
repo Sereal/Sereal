@@ -17,6 +17,10 @@ use Sereal::Decoder 3.007 qw(
 
 use Exporter 'import';
 our @EXPORT_OK = qw(
+  get_sereal_decoder
+  get_sereal_encoder
+  clear_sereal_object_cache
+
   encode_sereal decode_sereal
   write_sereal read_sereal
   looks_like_sereal
@@ -34,46 +38,34 @@ our %EXPORT_TAGS = (all => \@EXPORT_OK);
 # export by default if run from command line
 our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
 
+our %ENCODERS;
+our %DECODERS;
+
+sub _key { join "\t", map { $_ => $_[0]->{$_} } sort keys %{$_[0]} }
+
+sub clear_sereal_object_cache {
+    %ENCODERS= ();
+    %DECODERS= ();
+}
+
+sub get_sereal_encoder {
+    my ($opts)= @_;
+    return $ENCODERS{_key($opts)} ||= Sereal::Encoder->new($opts);
+}
+
+sub get_sereal_decoder {
+    my ($opts)= @_;
+    return $DECODERS{_key($opts)} ||= Sereal::Decoder->new($opts);
+}
+
 sub write_sereal {
-    my $obj= ref $_[0] ? shift(@_) : undef;
-    my $file= shift;
-    open my $fh, ">", $file
-        or die "Failed to open '$file': $!";
-    if ($obj) {
-        print $fh $obj->encode( $_[0] );
-    } else {
-        print $fh encode_sereal( $_[0], $_[1] );
-    }
-    close $fh;
+    my ($file, $struct, $append, $opts)= @_;
+    get_sereal_encoder($opts)->write_to_file($file, $_[1], $append);
 }
 
 sub read_sereal {
-    my $obj= ref $_[0] ? shift(@_) : undef;
-    my ( $file, $opts )= @_;
-    my $ref;
-    if ( $opts and $opts->{incremental} ) {
-        if ( defined $opts->{_incremental_state} and
-            ! length $opts->{_incremental_state} )
-        {
-            delete $opts->{_incremental_state};
-            return;
-        } else {
-            $ref= \$opts->{_incremental_state};
-        }
-    }
-    if ( !$ref or !defined $$ref ) {
-        my $buf;
-        $ref ||= \$buf;
-        open my $fh, "<", $file
-            or die "Failed to open '$file': $!";
-        $$ref= do{local $/; scalar <>};
-        close $fh;
-    }
-    if ($obj) {
-        return $obj->decode($$ref);
-    } else {
-        return decode_sereal($$ref, $opts);
-    }
+    my ($file, $opts)= @_;
+    get_sereal_decoder($opts)->read_from_file($file,$_[2]);
 }
 
 1;
