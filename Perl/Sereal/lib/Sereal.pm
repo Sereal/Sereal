@@ -18,6 +18,7 @@ use Sereal::Decoder 3.007 qw(
 use Exporter 'import';
 our @EXPORT_OK = qw(
   encode_sereal decode_sereal
+  write_sereal read_sereal
   looks_like_sereal
   sereal_encode_with_object
   sereal_decode_with_object
@@ -32,6 +33,48 @@ our @EXPORT_OK = qw(
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 # export by default if run from command line
 our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
+
+sub write_sereal {
+    my $obj= ref $_[0] ? shift(@_) : undef;
+    my $file= shift;
+    open my $fh, ">", $file
+        or die "Failed to open '$file': $!";
+    if ($obj) {
+        print $fh $obj->encode( $_[0] );
+    } else {
+        print $fh encode_sereal( $_[0], $_[1] );
+    }
+    close $fh;
+}
+
+sub read_sereal {
+    my $obj= ref $_[0] ? shift(@_) : undef;
+    my ( $file, $opts )= @_;
+    my $ref;
+    if ( $opts and $opts->{incremental} ) {
+        if ( defined $opts->{_incremental_state} and
+            ! length $opts->{_incremental_state} )
+        {
+            delete $opts->{_incremental_state};
+            return;
+        } else {
+            $ref= \$opts->{_incremental_state};
+        }
+    }
+    if ( !$ref or !defined $$ref ) {
+        my $buf;
+        $ref ||= \$buf;
+        open my $fh, "<", $file
+            or die "Failed to open '$file': $!";
+        $$ref= do{local $/; scalar <>};
+        close $fh;
+    }
+    if ($obj) {
+        return $obj->decode($$ref);
+    } else {
+        return decode_sereal($$ref, $opts);
+    }
+}
 
 1;
 

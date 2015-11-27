@@ -28,8 +28,17 @@ our %EXPORT_TAGS = (all => \@EXPORT_OK);
 our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
 
 sub CLONE_SKIP { 1 }
-
 XSLoader::load('Sereal::Decoder', $XS_VERSION);
+
+sub decode_from_file {
+    my ($self, $file)= @_;
+    open my $fh, "<", $file
+        or die "Failed to open '$file' for read: $!";
+    my $buf= do{ local $/; <> };
+    close $fh
+        or die "Failed to close '$file': $!";
+    return $self->decode($file);
+}
 
 1;
 

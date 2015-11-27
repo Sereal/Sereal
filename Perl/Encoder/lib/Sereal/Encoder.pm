@@ -37,6 +37,17 @@ sub CLONE_SKIP {1}
 
 XSLoader::load('Sereal::Encoder', $XS_VERSION);
 
+sub encode_to_file {
+    my ($self, $file, $struct, $append)= @_;
+    my $mode= $append ? ">>" : ">";
+    open my $fh, $mode, $file
+        or die "Failed to open '$file' mode '$mode': $!";
+    print $fh $self->encode($struct)
+        or die "Failed to print to '$file': $!";
+    close $fh
+        or die "Failed to close '$file': $!";
+}
+
 1;
 
 __END__

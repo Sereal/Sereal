@@ -502,3 +502,11 @@ bytes_consumed(dec)
   CODE:
     RETVAL = dec->bytes_consumed;
   OUTPUT: RETVAL
+
+U32
+flags(dec)
+    srl_decoder_t *dec;
+  CODE:
+    RETVAL = dec->flags;
+  OUTPUT: RETVAL
+
