@@ -29,6 +29,86 @@ our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
 
 sub CLONE_SKIP { 1 }
 XSLoader::load('Sereal::Decoder', $XS_VERSION);
+use constant #begin generated
+{
+  'SRL_F_DECODER_ALIAS_CHECK_FLAGS' => 28672,
+  'SRL_F_DECODER_ALIAS_SMALLINT' => 4096,
+  'SRL_F_DECODER_ALIAS_VARINT' => 8192,
+  'SRL_F_DECODER_DECOMPRESS_SNAPPY' => 8,
+  'SRL_F_DECODER_DECOMPRESS_ZLIB' => 16,
+  'SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL' => 1024,
+  'SRL_F_DECODER_DIRTY' => 2,
+  'SRL_F_DECODER_NEEDS_FINALIZE' => 4,
+  'SRL_F_DECODER_NO_BLESS_OBJECTS' => 512,
+  'SRL_F_DECODER_PROTOCOL_V1' => 2048,
+  'SRL_F_DECODER_READONLY_FLAGS' => 98304,
+  'SRL_F_DECODER_REFUSE_OBJECTS' => 128,
+  'SRL_F_DECODER_REFUSE_SNAPPY' => 32,
+  'SRL_F_DECODER_REFUSE_ZLIB' => 64,
+  'SRL_F_DECODER_REUSE' => 1,
+  'SRL_F_DECODER_SET_READONLY' => 32768,
+  'SRL_F_DECODER_SET_READONLY_SCALARS' => 65536,
+  'SRL_F_DECODER_USE_UNDEF' => 16384,
+  'SRL_F_DECODER_VALIDATE_UTF8' => 256,
+  'SRL_F_DECODER_VOLATILE_FLAGS' => 2078,
+  '_FLAG_NAME' => [
+                    'REUSE',
+                    'DIRTY',
+                    'NEEDS_FINALIZE',
+                    'DECOMPRESS_SNAPPY',
+                    'DECOMPRESS_ZLIB',
+                    'REFUSE_SNAPPY',
+                    'REFUSE_ZLIB',
+                    'REFUSE_OBJECTS',
+                    'VALIDATE_UTF8',
+                    'NO_BLESS_OBJECTS',
+                    'DESTRUCTIVE_INCREMENTAL',
+                    'PROTOCOL_V1',
+                    'ALIAS_SMALLINT',
+                    'ALIAS_VARINT',
+                    'USE_UNDEF',
+                    'SET_READONLY',
+                    'SET_READONLY_SCALARS'
+                  ],
+  '_FLAG_NAME_STATIC' => [
+                                'REUSE',
+                                undef,
+                                undef,
+                                undef,
+                                undef,
+                                'REFUSE_SNAPPY',
+                                'REFUSE_ZLIB',
+                                'REFUSE_OBJECTS',
+                                'VALIDATE_UTF8',
+                                'NO_BLESS_OBJECTS',
+                                'DESTRUCTIVE_INCREMENTAL',
+                                undef,
+                                'ALIAS_SMALLINT',
+                                'ALIAS_VARINT',
+                                'USE_UNDEF',
+                                'SET_READONLY',
+                                'SET_READONLY_SCALARS'
+                              ],
+  '_FLAG_NAME_VOLATILE' => [
+                             undef,
+                             'DIRTY',
+                             'NEEDS_FINALIZE',
+                             'DECOMPRESS_SNAPPY',
+                             'DECOMPRESS_ZLIB',
+                             undef,
+                             undef,
+                             undef,
+                             undef,
+                             undef,
+                             undef,
+                             'PROTOCOL_V1',
+                             undef,
+                             undef,
+                             undef,
+                             undef,
+                             undef
+                           ]
+}; #end generated
 
 sub decode_from_file {
     my ($self, $file)= @_;
@@ -37,7 +117,39 @@ sub decode_from_file {
     my $buf= do{ local $/; <> };
     close $fh
         or die "Failed to close '$file': $!";
-    return $self->decode($file);
+    if (wantarray && ($self->flags & SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL)) {
+        my @ret;
+        while (length $buf) {
+            push @ret, $self->decode($buf);
+        }
+        return @ret;
+    } elsif (!defined wantarray) {
+        $self->decode($file, $_[2]);
+    } else {
+        return $self->decode($file);
+    }
+}
+
+my $flags= sub {
+    my ($int, $ary)= @_;
+    return map {
+        ($ary->[$_] and $int & (1 << $_)) ? $ary->[$_] : ()
+    } (0..$#$ary);
+};
+
+sub flag_names {
+    my ($self, $val)= @_;
+    return $flags->($val // $self->flags, _FLAG_NAME);
+}
+
+sub flag_names_volatile {
+    my ($self, $val)= @_;
+    return $flags->($val // $self->flags, _FLAG_NAME_VOLATILE);
+}
+
+sub flag_names_static {
+    my ($self, $val)= @_;
+    return $flags->($val // $self->flags, _FLAG_NAME_STATIC);
 }
 
 1;
