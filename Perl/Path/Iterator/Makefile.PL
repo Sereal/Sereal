@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 my $shared_dir = "../../shared";
-my $in_source_repo = -d "../../../.git" and -d $shared_dir;
+my $in_source_repo = -d "../../../.git" && -d $shared_dir;
 unshift @INC, "..", "../inc";
 unshift @INC, $shared_dir, "$shared_dir/inc" if $in_source_repo;
 

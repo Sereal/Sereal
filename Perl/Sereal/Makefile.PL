@@ -7,7 +7,7 @@ use Cwd;
 our $VERSION = '3.009';
 
 my $shared_dir = "../shared";
-my $in_source_repo = -d "../../.git" and -d $shared_dir;
+my $in_source_repo = -d "../../.git" && -d $shared_dir;
 
 my $module = "Sereal";
 
