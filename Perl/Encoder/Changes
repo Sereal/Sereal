@@ -5,6 +5,9 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 3 of the *
 *          encoder!                                            *
 ****************************************************************
+3.009 Nov 30 2015
+  * Re-relase 3.008 with updated META files.
+
 3.008 Nov 27 2015
   * FIX: Make sure that reserializing a data structure created
     using alias_varint_under does not produce a corrupted dataset.

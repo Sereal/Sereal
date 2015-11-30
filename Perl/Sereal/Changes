@@ -13,6 +13,9 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+3.009 Nov 30 2015
+  * Re-relase 3.008 with updated META files.
+
 3.008 Nov 27 2015
   * [ENCODER] FIX: Make sure that reserializing a data structure created
     using alias_varint_under does not produce a corrupted dataset.

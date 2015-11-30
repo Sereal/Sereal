@@ -4,7 +4,7 @@ use warnings;
 require Exporter;
 our @ISA= qw(Exporter);
 
-our $VERSION = '3.008'; # Don't forget to update the TestCompat set for testing against installed encoders!
+our $VERSION = '3.009'; # Don't forget to update the TestCompat set for testing against installed encoders!
 
 our (@EXPORT_OK, %DEFINE, %TAG_INFO_HASH, @TAG_INFO_ARRAY);
 
