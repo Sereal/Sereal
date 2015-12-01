@@ -45,16 +45,13 @@ foreach my $file (@files) {
 
 print <<"EOF_TEXT";
 
-git clean -dfx &&
-pushd Encoder && perl Makefile.PL && make && make test && popd &&
-git clean -dfx &&
-pushd Decoder && perl Makefile.PL && make && make test && popd &&
-pushd Encoder && perl Makefile.PL && make && make manifest && make disttest && make dist && popd &&
-pushd Decoder && perl Makefile.PL && make && make manifest && make disttest && make dist && popd &&
-pushd Sereal && perl Makefile.PL && make && make manifest && make test && make dist && popd && 
-echo "All is well!";
+./make_all
 
-git commit -a -m'Release v$to - $reason' && git tag Sereal-Decoder-$to -m'Release Sereal::Decoder version $to ($reason)' && git tag Sereal-Encoder-$to -m'Release Sereal::Encoder version $to ($reason)' && git tag Sereal-$to -m'Sereal v$to - Update encoder ($reason)' && git push && git push --tags
+git commit -a -m'Release v$to - $reason' &&
+git tag Sereal-Decoder-$to -m'Release Sereal::Decoder version $to ($reason)' &&
+git tag Sereal-Encoder-$to -m'Release Sereal::Encoder version $to ($reason)' &&
+git tag Sereal-$to -m'Sereal v$to - Update encoder ($reason)' &&
+git push && git push --tags
 
 cpan-upload-http -verbose Encoder/Sereal-Encoder-$to.tar.gz Decoder/Sereal-Decoder-$to.tar.gz Sereal/Sereal-$to.tar.gz
 EOF_TEXT

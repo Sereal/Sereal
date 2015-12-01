@@ -1,0 +1,11 @@
+#!/bin/bash
+
+git clean -dfx &&
+    pushd Encoder && perl Makefile.PL && make && make test && popd &&
+    git clean -dfx &&
+    pushd Decoder && perl Makefile.PL && make && make test && popd &&
+    pushd Encoder && perl Makefile.PL && make && make manifest && make disttest && make dist && popd &&
+    pushd Decoder && perl Makefile.PL && make && make manifest && make disttest && make dist && popd &&
+    pushd Sereal && perl Makefile.PL && make && make manifest && make test && make dist && popd &&
+    echo "All is well!";
+

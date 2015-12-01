@@ -7,12 +7,19 @@ use ExtUtils::MakeMaker;
 use Config;
 
 my $shared_dir = "../shared";
-my $in_source_repo = -d "../../.git" and -d $shared_dir;
+my $its_our_repo_file= "../this_is_the_Sereal_repo.txt";
+my $in_source_repo =(       -d "../../.git"
+                        and -d $shared_dir
+                        and -e "../this_is_the_Sereal_repo.txt"
+                );
 
-my $module = "Sereal::Encoder";
 
 unshift @INC, ".", "./inc";
-unshift @INC, $shared_dir, "$shared_dir/inc" if $in_source_repo;
+unshift @INC, $shared_dir, "$shared_dir/inc"
+    if $in_source_repo;
+
+
+my $module = "Sereal::Encoder";
 require inc::Sereal::BuildTools;
 inc::Sereal::BuildTools::link_files($shared_dir) if $in_source_repo;
 inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;

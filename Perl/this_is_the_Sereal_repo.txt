@@ -1,0 +1,4 @@
+Please leave this file here. We check for its presence
+to determine if we are building in the git repo.
+
+Thanks, Yves

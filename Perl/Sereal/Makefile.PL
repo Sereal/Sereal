@@ -7,18 +7,24 @@ use Cwd;
 our $VERSION = '3.009';
 
 my $shared_dir = "../shared";
-my $in_source_repo = -d "../../.git" && -d $shared_dir;
+my $its_our_repo_file= "../this_is_the_Sereal_repo.txt";
+my $in_source_repo =(       -d "../../.git"
+                        and -d $shared_dir
+                        and -e "../this_is_the_Sereal_repo.txt"
+                );
 
-my $module = "Sereal";
 
 unshift @INC, ".", "./inc";
-unshift @INC, $shared_dir, "$shared_dir/inc" if $in_source_repo;
+unshift @INC, $shared_dir, "$shared_dir/inc"
+    if $in_source_repo;
 
 if ($in_source_repo) {
-    eval "use blib '../Encoder'; use blib '../Decoder'; 1"
-        or die "failed to use blib: $@";
+    eval "use blib '../Encoder/blib'; use blib '../Decoder/blib'; 1"
+        or die "While building in Sereal.git, failed to use blib: $@\n",
+               "You probably need to run `make` in the Encoder and Decoder directories\n";
 }
 
+my $module = "Sereal";
 require inc::Sereal::BuildTools;
 inc::Sereal::BuildTools::link_files($shared_dir,"tests_only") if $in_source_repo;
 
