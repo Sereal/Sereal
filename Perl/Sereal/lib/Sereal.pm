@@ -2,10 +2,10 @@ package Sereal;
 use 5.008;
 use strict;
 use warnings;
-our $VERSION = '3.009';
+our $VERSION = '3.010';
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
-use Sereal::Encoder 3.009 qw(encode_sereal sereal_encode_with_object);
-use Sereal::Decoder 3.009 qw(
+use Sereal::Encoder 3.010 qw(encode_sereal sereal_encode_with_object);
+use Sereal::Decoder 3.010 qw(
     decode_sereal looks_like_sereal decode_sereal_with_header_data
     scalar_looks_like_sereal
     sereal_decode_with_object sereal_decode_with_header_with_object

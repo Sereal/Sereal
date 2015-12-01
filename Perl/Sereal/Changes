@@ -13,6 +13,13 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+3.010 Nov 30 2015
+  * Fix silly build issue for Sereal. We do some magic so that things
+    "Just Work" when building from withing the git repo, but that magic
+    was failing due to a precedence issue in the magic detection logic.
+    This mean that users building in a git based .cpan dir would see
+    breakage.
+
 3.009 Nov 30 2015
   * Re-relase 3.008 with updated META files.
 
