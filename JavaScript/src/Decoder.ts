@@ -1,177 +1,145 @@
 "use strict";
 
 module Sereal {
-    export interface DecoderOptions {
-        /** (defaults to PERL_OBJECT) */
-        object_type?: string;
-        /** if true wraps things in References to we can "perfectly" roundtrip */
-        use_perl_refs?: boolean;
-        preserve_pad_tags?: boolean;
-        prefer_latin1?: boolean;
-    }
 
-    /** Decoder for Sereal */
     export class Decoder {
 
-        static PERL_OBJECT = "PERL_OBJECT"; // Perl style object (name + hash)
-        static POJO = "POJO";               // Dynamically compile a Plain Old Java Object
+        private perlStyleObjects: boolean = false;
+        private prefer_latin1: boolean = true;
+        private log = console;
+        private reader: DataReader;
+        private tracked: Object;
+        private objectType: string;
+        private perlRefs = false;
+        private preservePadding = false;
+        private doc: SerealDocument;
+        private debug: boolean = false;
+        private tagReaders: Array<(tag?: number, trackPos?: number) => any> = new Array(128);
 
-        prefer_latin1: boolean;
-        log = console;
-        reader: DataReader;
-        tracked: Object = {};
-        objectType: string;
-        perlRefs = false;
-        preservePadding = false;
-        _data: Uint8Array;
-        doc: SerealDocument;
-
-        tagReaders: Array<() => any> = new Array(128);
-
-        constructor(options: DecoderOptions = null) {
-            if (options == null)
-                options = {};
-            //this.options = options == null ? new HashMap<String, Object>() : options;
-
-            this.objectType = options.object_type || Decoder.PERL_OBJECT;
-            this.perlRefs = options.use_perl_refs || false;//( "use_perl_refs" ) ? ((Boolean) options.get( "use_perl_refs" )) : false;
-            this.preservePadding = options.preserve_pad_tags || false;//" ) ? ((Boolean) options.get( "preserve_pad_tags" )) : false;
-            this.prefer_latin1 = options.prefer_latin1 || false;//") ? ((Boolean) options.get("prefer_latin1")) : false;
-
-            this.tagReaders[Tags.VARINT] = this.read_varint;
-            this.tagReaders[Tags.ZIGZAG] = this.read_zigzag;
-            this.tagReaders[Tags.DOUBLE] = this.read_double;
-
-            this.tagReaders[Tags.DOUBLE] = this.read_double;
-            this.tagReaders[Tags.TRUE] = () => true;
-            this.tagReaders[Tags.FALSE] = () => false;
-            this.tagReaders[Tags.UNDEF] = () => null;
-            this.tagReaders[Tags.BINARY] = this.read_binary;
-            this.tagReaders[Tags.STR_UTF8] = this.read_UTF8;
-
-            this.tagReaders[Tags.REFN] = this.read_refn;
-            this.tagReaders[Tags.REFP] = this.read_refp;
-
-            this.tagReaders[Tags.OBJECT] = this.read_object;
-            this.tagReaders[Tags.OBJECTV] = this.read_object_v;
-
-            this.tagReaders[Tags.COPY] = this.read_copy;
-            this.tagReaders[Tags.ALIAS] = this.read_alias;
-            this.tagReaders[Tags.WEAKEN] = this.read_weaken;
-
-
-            this.tagReaders[Tags.REGEXP] = this.read_regex;
-
+        constructor() {
+            this.mapTagReaders();
         }
 
+        init(data: any) {
+            this.tracked = {};
+            this.reader = new DataReader(data);
+        }
 
+        decodeDocument(data?: any) {
+            if (data != null) {
+                this.init(data);
+            }
 
-        decodeBinaryText(binaryText: string): SerealDocument {
             this.doc = new SerealDocument();
-
             var doc = this.doc;
-            var _buf = Utils.str2ab2(binaryText);
-            this.reader = new DataReader(new DataView(_buf));
-            console.log({ pos: this.reader.pos });
-            doc.magic = this.reader.readInt32();
-            if (doc.magic != Consts.MAGIC)
+            doc.header = new SerealDocumentHeader();
+
+
+            doc.header.magic = this.reader.readInt32();
+            if (doc.header.magic != Consts.MAGIC)
                 throw new Error();
 
-            console.log({ pos: this.reader.pos });
             var s = this.reader.readByte().toString(2);
-            doc.version = parseInt(s.substr(0, 4), 2);
-            doc.type = parseInt(s.substr(4, 4), 2);
-            console.log(doc.version, doc.type);
-            doc.header_suffix_size = this.reader.readVarInt();
-            if (doc.header_suffix_size > 0) {
-                doc.eight_bit_field = { value: this.reader.readByte(), };
-                doc.eight_bit_field.has_user_metadata = doc.eight_bit_field.value.to8BitString().last() == "1";
-                if (doc.eight_bit_field.has_user_metadata) {
-                    var mdByteArray = this.reader.readBytes(doc.header_suffix_size - 1);
-                    doc.user_metadata = this.decodeDocumentBody(mdByteArray);
+            doc.header.version = parseInt(s.substr(0, 4), 2);
+            doc.header.type = parseInt(s.substr(4, 4), 2);
+
+            doc.header.header_suffix_size = this.reader.readVarInt();
+            if (doc.header.header_suffix_size > 0) {
+                doc.header.eight_bit_field = { value: this.reader.readByte() };
+                doc.header.eight_bit_field.has_user_metadata = doc.header.eight_bit_field.value.to8BitString().last() == "1";
+                if (doc.header.eight_bit_field.has_user_metadata) {
+                    var md = this.reader.readBytes(doc.header.header_suffix_size - 1);
+                    doc.user_metadata = this.decodeDocumentBody(md);
                 }
             }
 
-            if (doc.type != 3)
+            if (doc.header.type != 3)
                 throw new Error("only doc.type==3 is implemented");
 
-            doc.body_uncompressed_length = this.reader.readVarInt();
-            doc.body_compressed_length = this.reader.readVarInt();
-
-            console.log(doc);
+            doc.header.body_uncompressed_length = this.reader.readVarInt();
+            doc.header.body_compressed_length = this.reader.readVarInt();
 
             var deflated = this.deflate();
             doc.body = this.decodeDocumentBody(deflated);
-            console.log("DONE!!!!!!!!!", doc);
             return doc;
         }
 
-        decodeDocumentBody(byteArray: Uint8Array): any {
-            var dec = new Decoder({ prefer_latin1: true });
-            dec.data = byteArray;
-            var x = dec.readSingleValue();
-            console.log(x);
+        decodeDocumentBody(data: Uint8Array): any {
+            var dec = new Decoder();
+            dec.reader = new DataReader(data);
+            var x = dec.read();
             return x;
         }
 
+        read(): any {
+            var byte = this.reader.readByte();
+            var tag = byte;
+
+            var trackPos = null;
+            if ((byte & Consts.TRACK_FLAG) != 0) {
+                tag = byte & ~Consts.TRACK_FLAG;
+                trackPos = this.reader.pos; // actually it's pos-1+1;   -1 to get back to the tag pos, +1 because indexes are 1 based
+            }
+            if (this.debug) this.log.debug("reading", { tag: tag, tagName: Tags[tag], absPos: this.reader.absPos, trackPos });
+
+            var func = this.tagReaders[tag];
+            if (func == null)
+                throw new SerealException("Tag not supported: " + tag);
+            var out = func.call(this, tag, trackPos);
+
+            if (trackPos != null)  // we double-track arrays ATM (but they just overwrite)
+                this.track(trackPos, out);
+
+            if (this.debug) this.log.debug("read", { tag: Tags[tag], value: out, pos: this.reader.pos, trackPos, });
+            return out;
+        }
 
         deflate(): Uint8Array {
             var pos = this.reader.pos;
-            var arr = this.reader.readBytes();
-            if (arr.length != this.doc.body_compressed_length)
-                throw new Error();
+            var arr = this.reader.readBytes(this.doc.header.body_compressed_length);
             var zip = new Zlib.Inflate(arr);
             var deflated = zip.decompress();
-            if (deflated.length != this.doc.body_uncompressed_length)
-                throw new Error();
+            if (deflated.length != this.doc.header.body_uncompressed_length)
+                throw new Error("decompressed length doesn't match");
             return deflated;
         }
 
-
-
-        read_weaken() {
+        read_weaken():any {
             //this.log.debug("Weakening the next thing");
             // so the next thing HAS to be a ref (afaict) which means we can track it
-            var placeHolder = new PerlReference(this.readSingleValue().getValue());
+            var placeHolder = new PerlReference(this.read().getValue());
             var /*WeakReference<PerlReference>*/ wref = new WeakReference(placeHolder);
             return wref;
         }
-        read_alias() {
-            //this.log.debug("Reading an alias");
-            var alias = new Alias(this.get_tracked_item());
-            //this.log.debug("Read alias: ", alias);
+        read_alias(): any {
+            var alias = new Alias(this.read_tracked_item());
             return alias;
         }
-        read_object_v() {
+        read_object_v(): PerlObject {
             //this.log.debug("Reading an objectv");
-            var className: string = <string>this.get_tracked_item();
-            this.log.debug("Read an objectv of class: ", className);
-            var out = new PerlObject(className, this.readSingleValue());
+            var className: string = <string>this.read_tracked_item();
+            var out = new PerlObject(className, this.read());
             return out;
         }
-        read_refp() {
+        read_refp():any {
             var offset_prev = this.read_varint();
             var prv_value = this.getTracked(offset_prev);
             var prev = this.perlRefs ? new PerlReference(prv_value) : prv_value;
-            this.log.debug("Read prev: ", prev);
             return prev;
         }
-        read_refn() {
-            //this.log.debug("read_refn", "Reading ref to next");
-            var out;
-            var /*PerlReference*/ refn = new PerlReference(this.readSingleValue());
-            if (this.perlRefs) {
-                out = refn;
-            }
-            else {
-                out = refn.getValue();
-            }
-            this.log.debug("read_refn", "Read ref: ", out);
+        read_refn(): any {
+            var out = this.read();
+            if (this.perlRefs)
+                out = new PerlReference(out);
             return out;
         }
-        read_double() {
+        read_double(): number {
             var d = this.reader.readDouble();
             return d;
+        }
+        read_array(tag: number, trackPos: number): Object[] {
+            var length = this.read_varint();
+            return this._read_array(length, trackPos);
         }
         /**
          * if tag == 0, next is varint for number of elements, otherwise lower 4 bits are length
@@ -179,77 +147,49 @@ module Sereal {
          * @param tag lower 4 bits is length or 0 for next varint is length
          * @param track we might need to track since array elements could refer to us
          */
-        read_array(tag: number, trackPos: number): Object[] {
-
-            var length: number = 0;
-            if (tag == 0) {
-                length = this.read_varint();
-            }
-            else {
-                length = tag & 15;
-            }
-
-            this.log.debug("Array length: ", length);
-
-            var out = new Array(length);
-            if (trackPos != null)  // track ourself
-                this.track(trackPos, out);
-
-            for (var i = 0; i < length; i++) {
-                out[i] = this.readSingleValue();
-                this.log.debug("Read array element ", i, out[i]);
-            }
-
-            return out;
+        read_array_ref(tag: number, trackPos: number): Object[] {
+            var length = tag & 15;
+            return this._read_array(length, trackPos);
         }
-        /** Reads a byte array, but was called read_binary in C, so for grepping purposes I kept the name. */
-        read_binary(): any {
-            this.log.debug("read_binary");
 
-            var /*int*/ length = this.read_varint();
-            var /*byte[]*/ out = new Uint8Array(length);//byte[length];
+        _read_array(length: number, trackPos: number): Object[] {
+            var arr = new Array(length);
+            if (trackPos != null)
+                this.track(trackPos, arr);
+
             for (var i = 0; i < length; i++) {
-                out[i] = this.reader.readByte();
+                arr[i] = this.read();
+                if (this.debug) this.log.debug("Read array element ", i, arr[i]);
             }
+            return arr;
+        }
 
-            var buf = out.buffer;
-            if (this.prefer_latin1) {
-                var res2 = new Latin1String(buf).toString();
-                this.log.debug("returning Latin1String", JSON.stringify(res2));
-                return res2;
-            }
-            return buf;
+        read_binary(): any {
+            var length = this.read_varint();
+            var s = this.reader.readString(length);
+            return s;
         }
         read_hash(tag: number, trackPos: number): Object {
-            var num_keys = 0;
-            if (tag == 0) {
-                num_keys = this.read_varint();
-            }
-            else {
-                num_keys = tag & 15; //parseInt(tag.to8BitString().substr(4), 2);
-            }
+            var num_keys = this.read_varint();
+            return this._read_hash(num_keys, trackPos);
+        }
 
-            var hash = {};//new HashMap<String, Object>( num_keys );
-            if (trackPos != null) { // track ourself
+        read_hash_ref(tag: number, trackPos: number): Object {
+            var num_keys = tag & 15;
+            return this._read_hash(num_keys, trackPos);
+        }
+
+        _read_hash(num_keys: number, trackPos: number): Object {
+            var hash = {};
+            if (trackPos != null)
                 this.track(trackPos, hash);
-            }
 
-            this.log.debug("Reading ", num_keys, " hash elements");
+            if (this.debug) this.log.debug("Reading ", num_keys, " hash elements");
 
             for (var i = 0; i < num_keys; i++) {
-                var keyObject = this.readSingleValue();
-                var key: string;
-                if (typeof (keyObject) == "string") {
-                    key = <string>keyObject;
-                }
-                else if (keyObject instanceof ArrayBuffer) {
-                    key = new Latin1String(keyObject).toString();
-                }
-                else {
-                    key = keyObject.toString();
-                    console.warn("A key is expected to be a byte or character sequence, but got ", keyObject);
-                }
-                var val = this.readSingleValue();
+                var keyObject = this.read();
+                var key: string = keyObject;
+                var val = this.read();
                 hash[key] = val;
             }
 
@@ -259,97 +199,28 @@ module Sereal {
             var x = this.reader.readVarInt();
             return x;
         }
-        readSingleValue(): any {
 
-            this.checkNoEOD();
 
-            var byte = this.reader.readByte();
-            var tag = byte;
-
-            var trackPos = null;
-            if ((byte & Consts.TRACK_FLAG) != 0) {
-                tag = byte & ~Consts.TRACK_FLAG;
-                trackPos = this.reader.pos;// - 1;
-                this.log.debug("Tracking stuff at position: ", trackPos);
-            }
-            this.log.debug("reading", { tag: tag, tagName: Tags[tag], absPos: this.reader.absPos, trackPos });
-
-            //this.log.debug("Tag: " + (tag & 0xFF));// + " = " + tag.toHex());
-            var out;
-
-            if (tag <= Consts.POS_HIGH) {
-                this.log.debug("Read small positive int:", tag);
-                out = tag;
-            }
-            else if (tag <= Consts.NEG_HIGH) {
-                this.log.debug("Read small negative int:", (tag - 32));
-                out = tag - 32;
-            }
-            else if ((tag & Consts.SHORT_BINARY_LOW) == Consts.SHORT_BINARY_LOW) {
-                var short_binary: ArrayBuffer = this.read_short_binary(tag);
-                out = this.prefer_latin1 ? new Latin1String(short_binary).toString() : short_binary;
-                this.log.debug("Read short binary: ", { short_binary, length: short_binary.byteLength, value: out });
-            }
-            else if ((tag & Tags.HASHREF_0) == Tags.HASHREF_0) {
-                var hash = this.read_hash(tag, trackPos);
-                this.log.debug("Read hash: ", hash);
-                out = hash;
-            }
-            else if ((tag & Tags.ARRAYREF_0) == Tags.ARRAYREF_0) {
-                //this.log.debug("Reading arrayref");
-                var arr: Object[] = this.read_array(tag, trackPos);
-                this.log.debug("Read arrayref: ", arr);
-                out = arr;
-            }
-            else if (this.tagReaders[tag] != null) {
-                var func = this.tagReaders[tag];
-                out = func.call(this);
-            }
-            else {
-                switch (tag) {
-                    case Tags.HASH:
-                        var hash = this.read_hash(0, trackPos);
-                        this.log.debug("Read hash: ", hash);
-                        out = hash;
-                        break;
-                    case Tags.ARRAY:
-                        //this.log.debug("Reading array");
-                        var arr = this.read_array(0, trackPos);
-                        this.log.debug("Read array: ", arr);
-                        out = arr;
-                        break;
-                    case Tags.PAD:
-                        this.log.debug("Padding byte: skip");
-                        return this.preservePadding ? new Padded(this.readSingleValue()) : this.readSingleValue();
-                    default:
-                        throw new SerealException("Tag not supported: " + tag);
-                }
-            }
-
-            if (trackPos != null) { // we double-track arrays ATM (but they just overwrite)
-                this.track(trackPos, out);
-            }
-            this.log.debug("read", { tag: Tags[tag], value: out, pos: this.reader.pos, trackPos, });
-
-            return out;
-
+        read_pos(tag: number): number {
+            return tag;
         }
 
-        assertEqual(x: any, y: any) {
-            if (x == y)
-                return true;
-            console.error("not equal", x, y);
-            return false;
+        read_neg(tag: number): number {
+            return tag - 32;
         }
+
+        read_pad(): any {
+            var res = this.read();
+            if (this.preservePadding)
+                return new Padded(res);
+            return res;
+        }
+
         /** Read a short binary ISO-8859-1 (latin1) string, the lower bits of the tag hold the length */
-        read_short_binary(tag: number): ArrayBuffer {
+        read_short_binary(tag: number): string {
             var length: number = tag & Consts.MASK_SHORT_BINARY_LEN;
-            var length2 = parseInt(tag.to8BitString().substr(3), 2);
-            this.assertEqual(length, length2);
-            this.log.debug("Short binary, length: " + length);
-            var buf = new ArrayBuffer(length);
-            this.reader.readBytesTo(buf);
-            return buf;
+            var s = this.reader.readString(length);
+            return s;
         }
         read_UTF8(): string {
             throw new Error("notimplemented");
@@ -364,47 +235,14 @@ module Sereal {
             return (n >>> 1) ^ (-(n & 1)); // note the unsigned right shift
         }
         read_regex(): RegExp {
-            var flags = "";
-            var str = this.readSingleValue();
-            var regex: string;
-            if (typeof (str) == "string") {
-                regex = str.toString();
-            }
-            else if (str instanceof ArrayBuffer) {
-                regex = new Latin1String(str).toString();
-            }
-            else {
-                throw new SerealException("Regex has to be built from a char or byte sequence");
-            }
-            this.log.debug("Read pattern: " + regex);
+            var flags;
+            var regex:string = this.read();
 
             // now read modifiers
-            var /*byte*/ tag = this.reader.readByte();
+            var tag = this.reader.readByte();
             if ((tag & Consts.SHORT_BINARY_LOW) == Consts.SHORT_BINARY_LOW) {
                 var length: number = tag & Consts.MASK_SHORT_BINARY_LEN;
-                while (length-- > 0) {
-                    var value = String.fromCharCode(this.reader.readByte());
-                    switch (value) {
-                        case 'm':
-                            flags += "m";
-                            break;
-                        case 's':
-                            flags += "s";
-                            break;
-                        case 'i':
-                            flags += "i";
-                            break;
-                        case 'x':
-                            flags += "x";//flags | Pattern.COMMENTS;
-                            break;
-                        case 'p':
-                            // ignored
-                            break;
-                        default:
-                            throw new SerealException("Unknown regex modifier: " + value);
-                    }
-
-                }
+                flags = this.reader.readString(length);
             }
             else {
                 throw new SerealException("Expecting SHORT_BINARY for modifiers of regexp, got: " + tag);
@@ -412,41 +250,38 @@ module Sereal {
 
             return new RegExp(regex, flags);
         }
+
         read_object(): Object {
             // first read the classname
-            // Maybe we should have some kind of read_string() method?
             var position = this.reader.pos;
             var tag = this.reader.readByte();
             var className;
             if ((tag & Consts.SHORT_BINARY_LOW) == Consts.SHORT_BINARY_LOW) {
                 var length = tag & Consts.MASK_SHORT_BINARY_LEN;
-                var /*byte[]*/ buf = new ArrayBuffer(length);
-                this.reader.readBytesTo(buf);
-                className = new Latin1String(/*new String(*/buf/*)*/).toString();
+                className = this.reader.readString(length);
             }
             else {
                 throw new SerealException("Don't know how to read classname from tag" + tag);
             }
-            // apparently class names do not need a track_bit set to be the target of objectv's. WTF
+            // apparently class names do not need a track_bit set to be the target of objectv's
             this.track(position, className);
 
-            this.log.debug("Object Classname: " + className);
+            if (this.debug) this.log.debug("Object Classname: " + className);
 
             // now read the struct (better be a hash!)
-            var structure = this.readSingleValue();
-            this.log.debug("Object Type: " + structure.getClass().getName());
-            if (structure instanceof Object) {
+            var structure = this.read();
+
+            if (typeof(structure)=="object") {
                 // now "bless" this into a class, perl style
-                //@SuppressWarnings("unchecked")
                 var classData = structure;
                 try {
-                    // either an existing java class
-                    var c = Class.forName(className.getString());
-                    return Utils.bless(c, classData);
+                    // either an existing class
+                    var c = this.getClassByName(className.getString());
+                    return this.bless(c, classData);
                 } catch (e) {
                     // or we make a new one
-                    if (this.objectType == Decoder.POJO) {
-                        return Utils.bless(className.getString(), classData);
+                    if (!this.perlStyleObjects) {
+                        return this.bless(className.getString(), classData);
                     }
                     else {
                         // or we make a Perl-style one
@@ -455,52 +290,35 @@ module Sereal {
 
                 }
             }
-            else if (structure.getClass().isArray()) {
+            else if (structure instanceof Array) {
                 // nothing we can really do here except make Perl objects..
                 return new PerlObject(className.getString(), structure);
             }
             else if (structure instanceof PerlReference) {
                 return new PerlObject(className.getString(), structure);
             }
-
             // it's a regexp for example
             return structure;
+        }
 
-        }
-        get_tracked_item(): Object {
+        read_tracked_item(): Object {
             var offset = this.read_varint();
-            this.log.debug("Creating ref to item previously read at offset: ", offset, this.tracked["track_" + offset]);
-            this.log.debug("keys: ", Object.keys(this.tracked), " vals: ", Object.values(this.tracked));
             return this.getTracked(offset);
-        }
-        /** Set the data to deserealize(for calling decode multiple times when there are concatenated packets)(never tested)     */
-        set data(data: Uint8Array) {
-            this._data = data;
-            this.reader = new DataReader(data);
         }
 
         track(pos: number, val: Object) {
-            this.log.debug("track_stuff", "Saving ", val, " at offset ", pos);
+            if (this.debug) this.log.debug("track_stuff", "Saving ", val, " at offset ", pos);
             var ref = val; // autoboxing ftw
-            this.tracked["track_" + pos] = ref;
+            var key = pos.toString();
+            this.tracked[key] = ref;
         }
 
         getTracked(pos: number) {
-            var key = "track_" + pos;
+            var key = pos.toString();
             if (!this.tracked.hasOwnProperty(key))
                 throw new Error("tracked object not found");
-            var val = this.tracked["track_" + pos];
+            var val = this.tracked[pos];
             return val;
-        }
-
-        reset() {
-            this.reader = null;
-            this.tracked = {};//.clear();
-        }
-        checkNoEOD(): void {
-            if (this.reader.remaining() > 0)
-                return;
-            throw new SerealException("Unexpected end of data at byte "+ this.reader.absPos);
         }
 
         /**
@@ -520,16 +338,155 @@ module Sereal {
         read_copy(): any {
 
             var originalPosition: number = this.read_varint();
-            var currentPosition: number = this.reader.pos; // remember where we parked
+            var currentPosition: number = this.reader.pos;
 
-            // note: you might think you'd like to use mark() and reset(), but setting position(..) discards the mark
-            this.reader.pos = originalPosition;
-            var copy = this.readSingleValue();
+            this.reader.pos = originalPosition - 1;
+            var copy = this.read();
             this.reader.pos = currentPosition; // go back to where we were
 
             return copy;
         }
 
+
+        getClassByName(name: string): Function {
+            throw new Error();
+        }
+
+        bless(ctor: Function, obj: Object): Object {
+            throw new Error();
+        }
+
+        mapTagReaders() {
+            this.tagReaders[Tags.POS_0] = this.read_pos;
+            this.tagReaders[Tags.POS_1] = this.read_pos;
+            this.tagReaders[Tags.POS_2] = this.read_pos;
+            this.tagReaders[Tags.POS_3] = this.read_pos;
+            this.tagReaders[Tags.POS_4] = this.read_pos;
+            this.tagReaders[Tags.POS_5] = this.read_pos;
+            this.tagReaders[Tags.POS_6] = this.read_pos;
+            this.tagReaders[Tags.POS_7] = this.read_pos;
+            this.tagReaders[Tags.POS_8] = this.read_pos;
+            this.tagReaders[Tags.POS_9] = this.read_pos;
+            this.tagReaders[Tags.POS_10] = this.read_pos;
+            this.tagReaders[Tags.POS_11] = this.read_pos;
+            this.tagReaders[Tags.POS_12] = this.read_pos;
+            this.tagReaders[Tags.POS_13] = this.read_pos;
+            this.tagReaders[Tags.POS_14] = this.read_pos;
+            this.tagReaders[Tags.POS_15] = this.read_pos;
+            this.tagReaders[Tags.NEG_16] = this.read_neg;
+            this.tagReaders[Tags.NEG_15] = this.read_neg;
+            this.tagReaders[Tags.NEG_14] = this.read_neg;
+            this.tagReaders[Tags.NEG_13] = this.read_neg;
+            this.tagReaders[Tags.NEG_12] = this.read_neg;
+            this.tagReaders[Tags.NEG_11] = this.read_neg;
+            this.tagReaders[Tags.NEG_10] = this.read_neg;
+            this.tagReaders[Tags.NEG_9] = this.read_neg;
+            this.tagReaders[Tags.NEG_8] = this.read_neg;
+            this.tagReaders[Tags.NEG_7] = this.read_neg;
+            this.tagReaders[Tags.NEG_6] = this.read_neg;
+            this.tagReaders[Tags.NEG_5] = this.read_neg;
+            this.tagReaders[Tags.NEG_4] = this.read_neg;
+            this.tagReaders[Tags.NEG_3] = this.read_neg;
+            this.tagReaders[Tags.NEG_2] = this.read_neg;
+            this.tagReaders[Tags.NEG_1] = this.read_neg;
+
+            this.tagReaders[Tags.VARINT] = this.read_varint;
+            this.tagReaders[Tags.ZIGZAG] = this.read_zigzag;
+            this.tagReaders[Tags.DOUBLE] = this.read_double;
+            this.tagReaders[Tags.FLOAT] = () => this.reader.readFloat();
+
+            this.tagReaders[Tags.TRUE] = () => true;
+            this.tagReaders[Tags.FALSE] = () => false;
+            this.tagReaders[Tags.UNDEF] = () => null;
+            this.tagReaders[Tags.BINARY] = this.read_binary;
+            this.tagReaders[Tags.STR_UTF8] = this.read_UTF8;
+
+            this.tagReaders[Tags.REFN] = this.read_refn;
+            this.tagReaders[Tags.REFP] = this.read_refp;
+
+            this.tagReaders[Tags.OBJECT] = this.read_object;
+            this.tagReaders[Tags.OBJECTV] = this.read_object_v;
+
+            this.tagReaders[Tags.COPY] = this.read_copy;
+            this.tagReaders[Tags.ALIAS] = this.read_alias;
+            this.tagReaders[Tags.WEAKEN] = this.read_weaken;
+
+
+            this.tagReaders[Tags.REGEXP] = this.read_regex;
+            this.tagReaders[Tags.PAD] = this.read_pad;
+
+            this.tagReaders[Tags.HASH] = this.read_hash;
+            this.tagReaders[Tags.ARRAY] = this.read_array;
+
+            this.tagReaders[Tags.ARRAYREF_0] = this.read_array_ref;
+            this.tagReaders[Tags.ARRAYREF_1] = this.read_array_ref;
+            this.tagReaders[Tags.ARRAYREF_2] = this.read_array_ref;
+            this.tagReaders[Tags.ARRAYREF_3] = this.read_array_ref;
+            this.tagReaders[Tags.ARRAYREF_4] = this.read_array_ref;
+            this.tagReaders[Tags.ARRAYREF_5] = this.read_array_ref;
+            this.tagReaders[Tags.ARRAYREF_6] = this.read_array_ref;
+            this.tagReaders[Tags.ARRAYREF_7] = this.read_array_ref;
+            this.tagReaders[Tags.ARRAYREF_8] = this.read_array_ref;
+            this.tagReaders[Tags.ARRAYREF_9] = this.read_array_ref;
+            this.tagReaders[Tags.ARRAYREF_10] = this.read_array_ref;
+            this.tagReaders[Tags.ARRAYREF_11] = this.read_array_ref;
+            this.tagReaders[Tags.ARRAYREF_12] = this.read_array_ref;
+            this.tagReaders[Tags.ARRAYREF_13] = this.read_array_ref;
+            this.tagReaders[Tags.ARRAYREF_14] = this.read_array_ref;
+            this.tagReaders[Tags.ARRAYREF_15] = this.read_array_ref;
+
+            this.tagReaders[Tags.HASHREF_0] = this.read_hash_ref;
+            this.tagReaders[Tags.HASHREF_1] = this.read_hash_ref;
+            this.tagReaders[Tags.HASHREF_2] = this.read_hash_ref;
+            this.tagReaders[Tags.HASHREF_3] = this.read_hash_ref;
+            this.tagReaders[Tags.HASHREF_4] = this.read_hash_ref;
+            this.tagReaders[Tags.HASHREF_5] = this.read_hash_ref;
+            this.tagReaders[Tags.HASHREF_6] = this.read_hash_ref;
+            this.tagReaders[Tags.HASHREF_7] = this.read_hash_ref;
+            this.tagReaders[Tags.HASHREF_8] = this.read_hash_ref;
+            this.tagReaders[Tags.HASHREF_9] = this.read_hash_ref;
+            this.tagReaders[Tags.HASHREF_10] = this.read_hash_ref;
+            this.tagReaders[Tags.HASHREF_11] = this.read_hash_ref;
+            this.tagReaders[Tags.HASHREF_12] = this.read_hash_ref;
+            this.tagReaders[Tags.HASHREF_13] = this.read_hash_ref;
+            this.tagReaders[Tags.HASHREF_14] = this.read_hash_ref;
+            this.tagReaders[Tags.HASHREF_15] = this.read_hash_ref;
+
+            this.tagReaders[Tags.SHORT_BINARY_0] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_1] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_2] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_3] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_4] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_5] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_6] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_7] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_8] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_9] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_10] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_11] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_12] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_13] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_14] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_15] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_16] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_17] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_18] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_19] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_20] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_21] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_22] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_23] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_24] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_25] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_26] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_27] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_28] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_29] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_30] = this.read_short_binary;
+            this.tagReaders[Tags.SHORT_BINARY_31] = this.read_short_binary;
+
+
+        }
     }
 
 

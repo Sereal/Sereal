@@ -1,5 +1,10 @@
 declare module Sereal {
     class SerealDocument {
+        user_metadata: any;
+        body: any;
+        header: SerealDocumentHeader;
+    }
+    class SerealDocumentHeader {
         magic: number;
         version: number;
         type: number;
@@ -8,8 +13,6 @@ declare module Sereal {
             value: number;
             has_user_metadata?: boolean;
         };
-        user_metadata: any;
-        body: any;
         body_compressed_length: number;
         body_uncompressed_length: number;
     }
@@ -36,13 +39,6 @@ declare module Sereal {
     }
     class SerealException extends Error {
     }
-    class Class {
-        static forName(name: string): Function;
-    }
-    enum ByteOrder {
-        LITTLE_ENDIAN = 1,
-        BIG_ENDIAN = 2,
-    }
     class WeakReference {
         obj: Object;
         constructor(obj: Object);
@@ -59,26 +55,39 @@ declare module Sereal {
         }): number;
     }
     class Utils {
-        static dump(obj: any): void;
-        static bless(ctor: Function, obj: Object): Object;
         static ab2str(buf: ArrayBuffer): string;
         static str2ab(str: string): ArrayBuffer;
         static str2ab2(str: string): ArrayBuffer;
         static ab2str2(buf: ArrayBuffer): string;
+        static bytesToString(arr: Uint8Array): string;
+        static stringToBytes(str: string): Uint8Array;
     }
     enum Consts {
+        /** (0x6c) + (0x72 << 8) + (0x73 << 16) + (0x3d << 24) == 0x6c72733d */
         MAGIC = 1039364716,
+        /** lower 5 bits */
         MASK_SHORT_BINARY_LEN = 31,
+        /** 0 0x00 0b00000000 small positive integer - value in low 4 bits (identity) */
         POS_LOW = 0,
+        /** 15 0x0f 0b00001111 small positive integer - value in low 4 bits (identity) */
         POS_HIGH = 15,
+        /** 16 0x10 0b00010000 small negative integer - value in low 4 bits (k+32) */
         NEG_LOW = 16,
+        /** 31 0x1f 0b00011111 small negative integer - value in low 4 bits (k+32) */
         NEG_HIGH = 31,
+        /** 64 0x40 0b01000000 [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1) */
         ARRAYREF_LOW = 64,
+        /** 79 0x4f 0b01001111 [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1) */
         ARRAYREF_HIGH = 79,
+        /** 80 0x50 0b01010000 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
         HASHREF_LOW = 80,
+        /** 95 0x5f 0b01011111 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
         HASHREF_HIGH = 95,
+        /** 96 0x60 0b01100000 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
         SHORT_BINARY_LOW = 96,
+        /** 127 0x7f 0b01111111 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
         SHORT_BINARY_HIGH = 127,
+        /** 128 0x80 0b10000000 if this bit is set track the item */
         TRACK_FLAG = 128,
     }
     enum Tags {
@@ -221,6 +230,8 @@ declare module Sereal {
         constructor(data: any);
         view: DataView;
         pos: number;
+        readString(length: number): string;
+        readFloat(): number;
         readDouble(): number;
         readInt32(): number;
         asUint8Array(): Uint8Array;
@@ -237,64 +248,56 @@ declare module Sereal {
     }
 }
 declare module Sereal {
-    interface DecoderOptions {
-        /** (defaults to PERL_OBJECT) */
-        object_type?: string;
-        /** if true wraps things in References to we can "perfectly" roundtrip */
-        use_perl_refs?: boolean;
-        preserve_pad_tags?: boolean;
-        prefer_latin1?: boolean;
-    }
-    /** Decoder for Sereal */
     class Decoder {
-        static PERL_OBJECT: string;
-        static POJO: string;
-        prefer_latin1: boolean;
-        log: Console;
-        reader: DataReader;
-        tracked: Object;
-        objectType: string;
-        perlRefs: boolean;
-        preservePadding: boolean;
-        _data: Uint8Array;
-        doc: SerealDocument;
-        tagReaders: Array<() => any>;
-        constructor(options?: DecoderOptions);
-        decodeBinaryText(binaryText: string): SerealDocument;
-        decodeDocumentBody(byteArray: Uint8Array): any;
+        private perlStyleObjects;
+        private prefer_latin1;
+        private log;
+        private reader;
+        private tracked;
+        private objectType;
+        private perlRefs;
+        private preservePadding;
+        private doc;
+        private debug;
+        private tagReaders;
+        constructor();
+        init(data: any): void;
+        decodeDocument(data?: any): SerealDocument;
+        decodeDocumentBody(data: Uint8Array): any;
+        read(): any;
         deflate(): Uint8Array;
-        read_weaken(): WeakReference;
-        read_alias(): Alias;
+        read_weaken(): any;
+        read_alias(): any;
         read_object_v(): PerlObject;
         read_refp(): any;
         read_refn(): any;
         read_double(): number;
+        read_array(tag: number, trackPos: number): Object[];
         /**
          * if tag == 0, next is varint for number of elements, otherwise lower 4 bits are length
          *
          * @param tag lower 4 bits is length or 0 for next varint is length
          * @param track we might need to track since array elements could refer to us
          */
-        read_array(tag: number, trackPos: number): Object[];
-        /** Reads a byte array, but was called read_binary in C, so for grepping purposes I kept the name. */
+        read_array_ref(tag: number, trackPos: number): Object[];
+        _read_array(length: number, trackPos: number): Object[];
         read_binary(): any;
         read_hash(tag: number, trackPos: number): Object;
+        read_hash_ref(tag: number, trackPos: number): Object;
+        _read_hash(num_keys: number, trackPos: number): Object;
         read_varint(): number;
-        readSingleValue(): any;
-        assertEqual(x: any, y: any): boolean;
+        read_pos(tag: number): number;
+        read_neg(tag: number): number;
+        read_pad(): any;
         /** Read a short binary ISO-8859-1 (latin1) string, the lower bits of the tag hold the length */
-        read_short_binary(tag: number): ArrayBuffer;
+        read_short_binary(tag: number): string;
         read_UTF8(): string;
         read_zigzag(): number;
         read_regex(): RegExp;
         read_object(): Object;
-        get_tracked_item(): Object;
-        /** Set the data to deserealize(for calling decode multiple times when there are concatenated packets)(never tested)     */
-        data: Uint8Array;
+        read_tracked_item(): Object;
         track(pos: number, val: Object): void;
         getTracked(pos: number): any;
-        reset(): void;
-        checkNoEOD(): void;
         /**
         * From the spec:
         * Sometimes it is convenient to be able to reuse a previously emitted sequence in the packet to reduce duplication. For instance a data structure with many
@@ -310,6 +313,9 @@ declare module Sereal {
         * @throws SerealException
         */
         read_copy(): any;
+        getClassByName(name: string): Function;
+        bless(ctor: Function, obj: Object): Object;
+        mapTagReaders(): void;
     }
 }
 declare module Zlib {

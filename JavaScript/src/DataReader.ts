@@ -8,8 +8,22 @@ module Sereal {
         }
         view: DataView;
         pos: number;
+        readString(length: number): string {
+            var arr = this.readBytes(length);
+            var s = Utils.bytesToString(arr);
+            return s;
+        }
 
-        readDouble(): number { throw new Error(); }
+        readFloat(): number {
+            var val = this.view.getFloat32(this.pos, true); //little endian
+            this.pos += 4;
+            return val;
+        }
+        readDouble(): number {
+            var val = this.view.getFloat64(this.pos, true); //little endian
+            this.pos += 8;
+            return val;
+        }
         readInt32(): number { return this.readInt(); }
         asUint8Array(): Uint8Array { return new Uint8Array(this.view.buffer, this.view.byteOffset, this.view.byteLength); }
         readInt(): number {
@@ -60,9 +74,10 @@ module Sereal {
         static toDataView(data: any): DataView {
             if (data instanceof DataView)
                 return data;
-            if (ArrayBuffer.isView(data)) {
+            if (typeof (data) == "string")
+                data = Utils.stringToBytes(data);
+            if (ArrayBuffer.isView(data)) 
                 return new DataView(data.buffer, data.byteOffset, data.byteLength);
-            }
             if (data instanceof ArrayBuffer) {
                 var buf: ArrayBuffer = data;
                 return new DataView(buf);//, 0, buf.byteLength

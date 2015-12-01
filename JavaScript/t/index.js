@@ -9,22 +9,27 @@ var IndexPage = (function () {
         $(function () { return page.domReady(); });
     };
     IndexPage.prototype.domReady = function () {
-        //$.get("sereal_message.txt").done(res => {
-        //    this.msgText = atob(res);
-        //    this.main();
-        //});
-        var samples = [
-            "PfNybDMLAUFobWV0YWRhdGEpjgB4AXNUU0snCgAAQH4P2A==",
-            "PfNybDMLAUFobWV0YWRhdGFSzgB4AV3AOxWAIAAF0KNuzs6el8MKpgDxryj+JYWLCxkIQhsqMMMtJaEVq5u264dxmvmyim0/zut+XilIiFMPGEwEHeNL8CtbpMiQO048HnM=",
-            "PfNybDMLAUFobWV0YWRhdGFq3QB4AWXAvRFAMBgG4ENHq3Zf6YxgmzfiJwkh/mUKjcYMBrGNFdTOEycBOHFUdJxPCkURJIXINPtAQZeLnG4HJe0emMGP8AELlvG8KCshVd3otjP9ME7zsm72BbmuJxI=",
-            "PfNybDMLAUFobWV0YWRhdGFu2wB4AV3KOxJAMBRG4dHSqs0tjSXYzR8hL0K8ZR8aK7IbW1Ck4uvOzMmLBJpSVJZ9QNB5PSXgwSpeN0IqbdrO9oMbp3lZt/3wUDE4cciwGspQ0x2hCc0c/l4EFiqB",
-            "PfNybDMLAUFobWV0YWRhdGFy4AB4AWXJORJAMABG4dHSqk1KNHqVq/yxZCPELvfQOILLuYIZKuNrXvHC2IMkPqjBjyIBYEHzoqwYF1LVjW470w/jNC/rZlGGp5MQUBRRhorsx5WCvREuck0/wJ91A0uaK2I=",
-            "PfNybAMLAUFobWV0YWRhdGEoKgJheSVheCgqAWFhYWI=",
-            "PfNybDMLAUFobWV0YWRhdGGlAccAeAG9ybkNgDAMAEAhdkGBrZzExn+BKAIjMSVMwbVXthnuRfa/wCjPdABArbW11ntHRCIa3zGziKiqmbl7RGQmXOv5AsYSQQc=",
-        ];
-        var sample = samples[2];
-        this.msgText = atob(sample);
-        this.main();
+        var _this = this;
+        $.get("/sereal/riak_event_base64.txt").done(function (res) {
+            _this.msgText = atob(res);
+            var res2 = res.replaceAll("\r", "").replaceAll("\n", "");
+            var msgText2 = atob(res2);
+            if (msgText2 != _this.msgText)
+                throw new Error();
+            _this.main();
+        });
+        //var samples = [
+        //    "PfNybDMLAUFobWV0YWRhdGEpjgB4AXNUU0snCgAAQH4P2A==",
+        //    "PfNybDMLAUFobWV0YWRhdGFSzgB4AV3AOxWAIAAF0KNuzs6el8MKpgDxryj+JYWLCxkIQhsqMMMtJaEVq5u264dxmvmyim0/zut+XilIiFMPGEwEHeNL8CtbpMiQO048HnM=",
+        //    "PfNybDMLAUFobWV0YWRhdGFq3QB4AWXAvRFAMBgG4ENHq3Zf6YxgmzfiJwkh/mUKjcYMBrGNFdTOEycBOHFUdJxPCkURJIXINPtAQZeLnG4HJe0emMGP8AELlvG8KCshVd3otjP9ME7zsm72BbmuJxI=",
+        //    "PfNybDMLAUFobWV0YWRhdGFu2wB4AV3KOxJAMBRG4dHSqs0tjSXYzR8hL0K8ZR8aK7IbW1Ck4uvOzMmLBJpSVJZ9QNB5PSXgwSpeN0IqbdrO9oMbp3lZt/3wUDE4cciwGspQ0x2hCc0c/l4EFiqB",
+        //    "PfNybDMLAUFobWV0YWRhdGFy4AB4AWXJORJAMABG4dHSqk1KNHqVq/yxZCPELvfQOILLuYIZKuNrXvHC2IMkPqjBjyIBYEHzoqwYF1LVjW470w/jNC/rZlGGp5MQUBRRhorsx5WCvREuck0/wJ91A0uaK2I=",
+        //    "PfNybAMLAUFobWV0YWRhdGEoKgJheSVheCgqAWFhYWI=",
+        //    "PfNybDMLAUFobWV0YWRhdGGlAccAeAG9ybkNgDAMAEAhdkGBrZzExn+BKAIjMSVMwbVXthnuRfa/wCjPdABArbW11ntHRCIa3zGziKiqmbl7RGQmXOv5AsYSQQc=",
+        //];
+        //var sample = samples[2];
+        //this.msgText = atob(sample);
+        //this.main();
         //this.msgText = localStorage.getItem("sereal");
         //$.get("m1.txt").done(t=> {
         //    console.log(t);
@@ -35,9 +40,9 @@ var IndexPage = (function () {
     };
     IndexPage.prototype.main = function () {
         var binaryText = this.msgText; //
-        var dec = new Sereal.Decoder({ prefer_latin1: true });
-        var res = dec.decodeBinaryText(binaryText);
-        console.log(res);
+        var dec = new Sereal.Decoder();
+        var doc = dec.decodeDocument(binaryText);
+        console.log(doc);
     };
     IndexPage.prototype.generate = function (text) {
         var lines = text.lines();

@@ -19,12 +19,6 @@ declare module Zlib {
 }
 
 
-declare class Q {
-    static stringifyFormatted(value: any): string;
-
-}
-
-
 interface ObjectConstructor {
     values(obj: Object): string[];
 }
@@ -36,8 +30,10 @@ interface Array<T> {
 }
 interface Number {
     toHex(): string;
+    to8BitString(): string;
 }
 Number.prototype.toHex = function () { return this.toString(16); }
+Number.prototype.to8BitString = function () { return this.toString(2).padLeft(8, "0"); }
 
 interface JQuery {
     makeGraph(opts: any): JQuery;
