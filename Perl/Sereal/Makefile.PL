@@ -47,6 +47,11 @@ WriteMakefile1(
         'Test::More' => 0.88,
         'Sereal::Encoder' => $VERSION,
         'Sereal::Decoder' => $VERSION,
+        'Scalar::Util' => 0,
+        'File::Spec' => 0,
+        'Test::LongString' => '0',
+        'Test::Warn' => '0',
+        'Data::Dumper' => '0',
     },
     NAME              => 'Sereal',
     VERSION_FROM      => 'lib/Sereal.pm', # finds $VERSION
