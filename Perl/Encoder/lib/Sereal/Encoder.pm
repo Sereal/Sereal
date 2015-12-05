@@ -302,7 +302,7 @@ do so.
 Do note that the setting is somewhat approximate. Setting it to 10000 may break at
 somewhere between 9997 and 10003 nested structures depending on their types.
 
-=head3 canoncial
+=head3 canonical
 
 Enable all options which are related to producing canonical output, so that
 two strucutures with similar contents produce the same serialized form.
@@ -321,7 +321,7 @@ in a future release by enabling other options than those listed here.
 Normally C<Sereal::Encoder> will ARRAYREF and HASHREF tags when the item contains
 less than 16 items, and and is not referenced more than once. This flag will
 override this optimization and use a standard REFN ARRAY style tag output. This
-is primarily useful for producing canoncial output and for testing Sereal itself.
+is primarily useful for producing canonical output and for testing Sereal itself.
 
 See L</CANONICAL REPRESENTATION> for why you might want to use this, and
 for the various caveats involved.
