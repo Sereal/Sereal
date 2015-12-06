@@ -13,6 +13,11 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+3.012 Dec  6 2015
+  * Yet another release related to broken META files. 
+    ExtUtils::MakeMaker and CPAN::Meta need to be up to date
+    or the META files miss stuff.
+
 3.011 Dec  6 2015
   * No significant changes. Doc typo fixes, and build tweaks.
 
