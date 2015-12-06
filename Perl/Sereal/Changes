@@ -13,6 +13,9 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+3.011 Dec  6 2015
+  * No significant changes. Doc typo fixes, and build tweaks.
+
 3.010 Nov 30 2015
   * Fix silly build issue for Sereal. We do some magic so that things
     "Just Work" when building from withing the git repo, but that magic
