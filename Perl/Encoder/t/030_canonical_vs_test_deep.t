@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Sereal::Encoder qw(encode_sereal);
 use Test::More;
-
+use version;
 my %tests = (
     # IMPORTANT: If you add new types of cases here please update the
     # "CANONICAL REPRESENTATION" documentation.

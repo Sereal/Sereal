@@ -100,7 +100,7 @@ my $flags= sub {
 
 sub flag_names {
     my ($self, $val)= @_;
-    return $flags->($val // $self->flags, _FLAG_NAME);
+    return $flags->(defined $val ? $val : $self->flags, _FLAG_NAME);
 }
 
 1;
