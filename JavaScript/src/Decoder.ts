@@ -61,7 +61,7 @@ module Sereal {
                 doc.body = this.decodeDocumentBody(deflated);
             }
             else if (doc.header.type == 0) {
-                doc.body = this.decodeDocumentBody(deflated);
+                doc.body = this.decodeDocumentBody();
             }
             else {
                 throw new Error("only doc.type==3 or 0 are implemented");
@@ -69,10 +69,10 @@ module Sereal {
             return doc;
         }
 
-        decodeDocumentBody(data: Uint8Array): any {
+        decodeDocumentBody(data?: Uint8Array): any {
             var dec = new Decoder();
             if (data == null)
-                dec.reader = this.reader;
+                dec.reader = this.reader.toDataReader();
             else
                 dec.reader = new DataReader(data);
             var x = dec.read();
@@ -345,12 +345,15 @@ module Sereal {
         */
         read_copy(): any {
 
-            var originalPosition: number = this.read_varint();
-            var currentPosition: number = this.reader.pos;
+            var copyPos = this.read_varint();
+            copyPos--;   //indexes are 1 based in sereal, 0 based in the reader.
+            var currentPos = this.reader.pos;
+            if (this.debug) console.log("copy_tag - jumping from " + currentPos + " to "+copyPos);
 
-            this.reader.pos = originalPosition - 1;
+            this.reader.pos = copyPos;
             var copy = this.read();
-            this.reader.pos = currentPosition; // go back to where we were
+            this.reader.pos = currentPos; // go back to where we were
+            if (this.debug) console.log("copy_tag - after reading from " +copyPos + " jumping back from " + this.reader.pos + " to " + currentPos);
 
             return copy;
         }
@@ -406,6 +409,7 @@ module Sereal {
             this.tagReaders[Tags.TRUE] = () => true;
             this.tagReaders[Tags.FALSE] = () => false;
             this.tagReaders[Tags.UNDEF] = () => null;
+            this.tagReaders[Tags.CANONICAL_UNDEF] = () => undefined;
             this.tagReaders[Tags.BINARY] = this.read_binary;
             this.tagReaders[Tags.STR_UTF8] = this.read_UTF8;
 
@@ -414,6 +418,9 @@ module Sereal {
 
             this.tagReaders[Tags.OBJECT] = this.read_object;
             this.tagReaders[Tags.OBJECTV] = this.read_object_v;
+
+            this.tagReaders[Tags.OBJECT_FREEZE] = this.read_object;  //TODO: properly support freeze objects - invoke 'thaw'
+            this.tagReaders[Tags.OBJECTV_FREEZE] = this.read_object_v; //TODO: properly support freeze objects - invoke 'thaw'
 
             this.tagReaders[Tags.COPY] = this.read_copy;
             this.tagReaders[Tags.ALIAS] = this.read_alias;

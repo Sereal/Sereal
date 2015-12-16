@@ -296,6 +296,13 @@ var Sereal;
         };
         DataReader.prototype.readInt32 = function () { return this.readInt(); };
         DataReader.prototype.asUint8Array = function () { return new Uint8Array(this.view.buffer, this.view.byteOffset, this.view.byteLength); };
+        /**
+         *  returns a new datareader from the current position until the rest of the data
+         */
+        DataReader.prototype.toDataReader = function () {
+            var view = new DataView(this.view.buffer, this.view.byteOffset + this.pos, this.view.byteLength - this.pos);
+            return new DataReader(view);
+        };
         DataReader.prototype.readInt = function () {
             var value = this.view.getInt32(this.pos);
             this.pos += 4;
@@ -408,7 +415,7 @@ var Sereal;
                 doc.body = this.decodeDocumentBody(deflated);
             }
             else if (doc.header.type == 0) {
-                doc.body = this.decodeDocumentBody(deflated);
+                doc.body = this.decodeDocumentBody();
             }
             else {
                 throw new Error("only doc.type==3 or 0 are implemented");
@@ -418,7 +425,7 @@ var Sereal;
         Decoder.prototype.decodeDocumentBody = function (data) {
             var dec = new Decoder();
             if (data == null)
-                dec.reader = this.reader;
+                dec.reader = this.reader.toDataReader();
             else
                 dec.reader = new Sereal.DataReader(data);
             var x = dec.read();
@@ -666,11 +673,16 @@ var Sereal;
         * @throws SerealException
         */
         Decoder.prototype.read_copy = function () {
-            var originalPosition = this.read_varint();
-            var currentPosition = this.reader.pos;
-            this.reader.pos = originalPosition - 1;
+            var copyPos = this.read_varint();
+            copyPos--; //indexes are 1 based in sereal, 0 based in the reader.
+            var currentPos = this.reader.pos;
+            if (this.debug)
+                console.log("copy_tag - jumping from " + currentPos + " to " + copyPos);
+            this.reader.pos = copyPos;
             var copy = this.read();
-            this.reader.pos = currentPosition; // go back to where we were
+            this.reader.pos = currentPos; // go back to where we were
+            if (this.debug)
+                console.log("copy_tag - after reading from " + copyPos + " jumping back from " + this.reader.pos + " to " + currentPos);
             return copy;
         };
         Decoder.prototype.getClassByName = function (name) {
@@ -720,12 +732,15 @@ var Sereal;
             this.tagReaders[Sereal.Tags.TRUE] = function () { return true; };
             this.tagReaders[Sereal.Tags.FALSE] = function () { return false; };
             this.tagReaders[Sereal.Tags.UNDEF] = function () { return null; };
+            this.tagReaders[Sereal.Tags.CANONICAL_UNDEF] = function () { return undefined; };
             this.tagReaders[Sereal.Tags.BINARY] = this.read_binary;
             this.tagReaders[Sereal.Tags.STR_UTF8] = this.read_UTF8;
             this.tagReaders[Sereal.Tags.REFN] = this.read_refn;
             this.tagReaders[Sereal.Tags.REFP] = this.read_refp;
             this.tagReaders[Sereal.Tags.OBJECT] = this.read_object;
             this.tagReaders[Sereal.Tags.OBJECTV] = this.read_object_v;
+            this.tagReaders[Sereal.Tags.OBJECT_FREEZE] = this.read_object; //TODO: properly support freeze objects - invoke 'thaw'
+            this.tagReaders[Sereal.Tags.OBJECTV_FREEZE] = this.read_object_v; //TODO: properly support freeze objects - invoke 'thaw'
             this.tagReaders[Sereal.Tags.COPY] = this.read_copy;
             this.tagReaders[Sereal.Tags.ALIAS] = this.read_alias;
             this.tagReaders[Sereal.Tags.WEAKEN] = this.read_weaken;
