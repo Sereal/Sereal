@@ -39,9 +39,10 @@ module Sereal {
             if (doc.header.magic != Consts.MAGIC)
                 throw new Error();
 
-            var s = this.reader.readByte().to8BitString();
-            doc.header.version = parseInt(s.substr(4, 4), 2);
-            doc.header.type = parseInt(s.substr(0, 4), 2);
+            var versionAndType = this.reader.readByte();
+
+            doc.header.version= versionAndType & 15;
+            doc.header.type = (versionAndType & ~15) >> 4;
 
             doc.header.header_suffix_size = this.reader.readVarInt();
             if (doc.header.header_suffix_size > 0) {

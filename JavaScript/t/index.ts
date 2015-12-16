@@ -1,4 +1,4 @@
-/// <reference path="../libs/jquery/jquery.d.ts"/>
+/// <reference path="jquery.d.ts"/>
 /// <reference path="../build/sereal.d.ts"/>
 
 "use strict";

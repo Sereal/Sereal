@@ -274,6 +274,9 @@ var Sereal;
 "use strict";
 var Sereal;
 (function (Sereal) {
+    /**
+     * A wrapper for DataView that also handles its own position index
+     */
     var DataReader = (function () {
         function DataReader(data) {
             this.view = DataReader.toDataView(data);
@@ -396,9 +399,9 @@ var Sereal;
             doc.header.magic = this.reader.readInt32();
             if (doc.header.magic != Sereal.Consts.MAGIC)
                 throw new Error();
-            var s = this.reader.readByte().to8BitString();
-            doc.header.version = parseInt(s.substr(4, 4), 2);
-            doc.header.type = parseInt(s.substr(0, 4), 2);
+            var versionAndType = this.reader.readByte();
+            doc.header.version = versionAndType & 15;
+            doc.header.type = (versionAndType & ~15) >> 4;
             doc.header.header_suffix_size = this.reader.readVarInt();
             if (doc.header.header_suffix_size > 0) {
                 doc.header.eight_bit_field = { value: this.reader.readByte() };
@@ -820,4 +823,22 @@ var Sereal;
 "use strict";
 Number.prototype.toHex = function () { return this.toString(16); };
 Number.prototype.to8BitString = function () { return this.toString(2).padLeft(8, "0"); };
-//String.prototype.toHex = function () { return this.toString(16); }
+String.prototype.padLeft = function (totalWidth, paddingChar) {
+    if (paddingChar == null || paddingChar == "")
+        paddingChar = " ";
+    var s = this;
+    while (s.length < totalWidth)
+        s = paddingChar + s;
+    return s;
+};
+String.prototype.last = function (predicate) {
+    if (this.length == 0)
+        return null;
+    if (predicate == null)
+        return this[this.length - 1];
+    for (var i = this.length; i >= 0; i--) {
+        if (predicate(this[i]))
+            return this[i];
+    }
+    return null;
+};
