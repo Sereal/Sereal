@@ -100,6 +100,8 @@ module Sereal {
     export enum Consts {
         /** (0x6c) + (0x72 << 8) + (0x73 << 16) + (0x3d << 24) == 0x6c72733d */
         MAGIC = 1039364716,
+        /** (0x6c) + (0x72 << 8) + (0x73 << 16) + (0x3d << 24) == 0x6c72733d */
+        MAGIC_OLD = 1039364716,
         /** lower 5 bits */
         MASK_SHORT_BINARY_LEN = 31, 
         /** 0 0x00 0b00000000 small positive integer - value in low 4 bits (identity) */

@@ -10,6 +10,11 @@ var IndexPage = (function () {
     };
     IndexPage.prototype.domReady = function () {
         var _this = this;
+        var bytes = Sereal.Utils.stringToBytes(localStorage.getItem("test"));
+        var dec = new Sereal.Decoder();
+        var doc = dec.decodeDocument(bytes);
+        console.log(doc);
+        return;
         $.get("/sereal/riak_event_base64.txt").done(function (res) {
             _this.msgText = atob(res);
             var res2 = res.replaceAll("\r", "").replaceAll("\n", "");

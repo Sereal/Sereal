@@ -39,9 +39,9 @@ module Sereal {
             if (doc.header.magic != Consts.MAGIC)
                 throw new Error();
 
-            var s = this.reader.readByte().toString(2);
-            doc.header.version = parseInt(s.substr(0, 4), 2);
-            doc.header.type = parseInt(s.substr(4, 4), 2);
+            var s = this.reader.readByte().to8BitString();
+            doc.header.version = parseInt(s.substr(4, 4), 2);
+            doc.header.type = parseInt(s.substr(0, 4), 2);
 
             doc.header.header_suffix_size = this.reader.readVarInt();
             if (doc.header.header_suffix_size > 0) {
@@ -53,20 +53,28 @@ module Sereal {
                 }
             }
 
-            if (doc.header.type != 3)
-                throw new Error("only doc.type==3 is implemented");
 
-            doc.header.body_uncompressed_length = this.reader.readVarInt();
-            doc.header.body_compressed_length = this.reader.readVarInt();
-
-            var deflated = this.deflate();
-            doc.body = this.decodeDocumentBody(deflated);
+            if (doc.header.type == 3) {
+                doc.header.body_uncompressed_length = this.reader.readVarInt();
+                doc.header.body_compressed_length = this.reader.readVarInt();
+                var deflated = this.deflate();
+                doc.body = this.decodeDocumentBody(deflated);
+            }
+            else if (doc.header.type == 0) {
+                doc.body = this.decodeDocumentBody(deflated);
+            }
+            else {
+                throw new Error("only doc.type==3 or 0 are implemented");
+            }
             return doc;
         }
 
         decodeDocumentBody(data: Uint8Array): any {
             var dec = new Decoder();
-            dec.reader = new DataReader(data);
+            if (data == null)
+                dec.reader = this.reader;
+            else
+                dec.reader = new DataReader(data);
             var x = dec.read();
             return x;
         }
@@ -104,7 +112,7 @@ module Sereal {
             return deflated;
         }
 
-        read_weaken():any {
+        read_weaken(): any {
             //this.log.debug("Weakening the next thing");
             // so the next thing HAS to be a ref (afaict) which means we can track it
             var placeHolder = new PerlReference(this.read().getValue());
@@ -121,7 +129,7 @@ module Sereal {
             var out = new PerlObject(className, this.read());
             return out;
         }
-        read_refp():any {
+        read_refp(): any {
             var offset_prev = this.read_varint();
             var prv_value = this.getTracked(offset_prev);
             var prev = this.perlRefs ? new PerlReference(prv_value) : prv_value;
@@ -223,11 +231,11 @@ module Sereal {
             return s;
         }
         read_UTF8(): string {
-            throw new Error("notimplemented");
-            //TODO:
-            //var /*int*/ length = this.read_varint();
-            //var /*byte[]*/ buf = new ArrayBuffer(length);
-            //this.data.get(buf);
+            var length = this.read_varint();
+            //var buf = new ArrayBuffer(length);
+            //this.reader.readBytesTo(buf);
+            var s = this.reader.readString(length);
+            return s;
             //return Charset.forName("UTF-8").decode(ByteBuffer.wrap(buf)).toString();
         }
         read_zigzag(): number {
@@ -236,7 +244,7 @@ module Sereal {
         }
         read_regex(): RegExp {
             var flags;
-            var regex:string = this.read();
+            var regex: string = this.read();
 
             // now read modifiers
             var tag = this.reader.readByte();
@@ -271,7 +279,7 @@ module Sereal {
             // now read the struct (better be a hash!)
             var structure = this.read();
 
-            if (typeof(structure)=="object") {
+            if (typeof (structure) == "object") {
                 // now "bless" this into a class, perl style
                 var classData = structure;
                 try {

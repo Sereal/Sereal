@@ -111,6 +111,8 @@ var Sereal;
     (function (Consts) {
         /** (0x6c) + (0x72 << 8) + (0x73 << 16) + (0x3d << 24) == 0x6c72733d */
         Consts[Consts["MAGIC"] = 1039364716] = "MAGIC";
+        /** (0x6c) + (0x72 << 8) + (0x73 << 16) + (0x3d << 24) == 0x6c72733d */
+        Consts[Consts["MAGIC_OLD"] = 1039364716] = "MAGIC_OLD";
         /** lower 5 bits */
         Consts[Consts["MASK_SHORT_BINARY_LEN"] = 31] = "MASK_SHORT_BINARY_LEN";
         /** 0 0x00 0b00000000 small positive integer - value in low 4 bits (identity) */
@@ -387,9 +389,9 @@ var Sereal;
             doc.header.magic = this.reader.readInt32();
             if (doc.header.magic != Sereal.Consts.MAGIC)
                 throw new Error();
-            var s = this.reader.readByte().toString(2);
-            doc.header.version = parseInt(s.substr(0, 4), 2);
-            doc.header.type = parseInt(s.substr(4, 4), 2);
+            var s = this.reader.readByte().to8BitString();
+            doc.header.version = parseInt(s.substr(4, 4), 2);
+            doc.header.type = parseInt(s.substr(0, 4), 2);
             doc.header.header_suffix_size = this.reader.readVarInt();
             if (doc.header.header_suffix_size > 0) {
                 doc.header.eight_bit_field = { value: this.reader.readByte() };
@@ -399,17 +401,26 @@ var Sereal;
                     doc.user_metadata = this.decodeDocumentBody(md);
                 }
             }
-            if (doc.header.type != 3)
-                throw new Error("only doc.type==3 is implemented");
-            doc.header.body_uncompressed_length = this.reader.readVarInt();
-            doc.header.body_compressed_length = this.reader.readVarInt();
-            var deflated = this.deflate();
-            doc.body = this.decodeDocumentBody(deflated);
+            if (doc.header.type == 3) {
+                doc.header.body_uncompressed_length = this.reader.readVarInt();
+                doc.header.body_compressed_length = this.reader.readVarInt();
+                var deflated = this.deflate();
+                doc.body = this.decodeDocumentBody(deflated);
+            }
+            else if (doc.header.type == 0) {
+                doc.body = this.decodeDocumentBody(deflated);
+            }
+            else {
+                throw new Error("only doc.type==3 or 0 are implemented");
+            }
             return doc;
         };
         Decoder.prototype.decodeDocumentBody = function (data) {
             var dec = new Decoder();
-            dec.reader = new Sereal.DataReader(data);
+            if (data == null)
+                dec.reader = this.reader;
+            else
+                dec.reader = new Sereal.DataReader(data);
             var x = dec.read();
             return x;
         };
@@ -550,11 +561,11 @@ var Sereal;
             return s;
         };
         Decoder.prototype.read_UTF8 = function () {
-            throw new Error("notimplemented");
-            //TODO:
-            //var /*int*/ length = this.read_varint();
-            //var /*byte[]*/ buf = new ArrayBuffer(length);
-            //this.data.get(buf);
+            var length = this.read_varint();
+            //var buf = new ArrayBuffer(length);
+            //this.reader.readBytesTo(buf);
+            var s = this.reader.readString(length);
+            return s;
             //return Charset.forName("UTF-8").decode(ByteBuffer.wrap(buf)).toString();
         };
         Decoder.prototype.read_zigzag = function () {
