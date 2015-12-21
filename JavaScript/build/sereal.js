@@ -387,7 +387,10 @@ var Sereal;
         }
         Decoder.prototype.init = function (data) {
             this.tracked = {};
-            this.reader = new Sereal.DataReader(data);
+            if (data instanceof Sereal.DataReader)
+                this.reader = data;
+            else
+                this.reader = new Sereal.DataReader(data);
         };
         Decoder.prototype.decodeDocument = function (data) {
             if (data != null) {
@@ -428,9 +431,9 @@ var Sereal;
         Decoder.prototype.decodeDocumentBody = function (data) {
             var dec = new Decoder();
             if (data == null)
-                dec.reader = this.reader.toDataReader();
+                dec.init(this.reader.toDataReader());
             else
-                dec.reader = new Sereal.DataReader(data);
+                dec.init(new Sereal.DataReader(data));
             var x = dec.read();
             return x;
         };

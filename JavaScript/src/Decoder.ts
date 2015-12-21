@@ -22,7 +22,10 @@ module Sereal {
 
         init(data: any) {
             this.tracked = {};
-            this.reader = new DataReader(data);
+            if (data instanceof DataReader)
+                this.reader = <DataReader>data;
+            else
+                this.reader = new DataReader(data);
         }
 
         decodeDocument(data?: any) {
@@ -73,9 +76,9 @@ module Sereal {
         decodeDocumentBody(data?: Uint8Array): any {
             var dec = new Decoder();
             if (data == null)
-                dec.reader = this.reader.toDataReader();
+                dec.init(this.reader.toDataReader());
             else
-                dec.reader = new DataReader(data);
+                dec.init(new DataReader(data));
             var x = dec.read();
             return x;
         }
