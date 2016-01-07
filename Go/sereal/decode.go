@@ -478,15 +478,14 @@ func (d *Decoder) decodeHash(by []byte, idx int, ln int, ptr *interface{}, isRef
 	}
 
 	var err error
-	var key []byte
-	var value interface{}
-
 	for i := 0; i < ln; i++ {
+		var key []byte
 		key, idx, err = d.decodeStringish(by, idx)
 		if err != nil {
 			return 0, err
 		}
 
+		var value interface{}
 		idx, err = d.decode(by, idx, &value)
 		if err != nil {
 			return 0, err
