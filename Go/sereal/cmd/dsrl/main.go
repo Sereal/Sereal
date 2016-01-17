@@ -31,7 +31,7 @@ func unmarshal(b []byte) (intf map[string]interface{}, crash uint64, err error) 
 	defer func() {
 		if p := recover(); p != nil {
 			var stack [5]uintptr
-			runtime.Callers(2, stack[:])
+			runtime.Callers(4, stack[:])
 			crash = sipuintptr(stack[:])
 			err = p.(error)
 		}
