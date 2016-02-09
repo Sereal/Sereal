@@ -41,7 +41,7 @@ BEGIN {
 
 my $done;
 my $data;
-my $hlen;
+my $hlen = -1;
 my $indent = "";
 
 sub _chop_data_prefix {
@@ -135,7 +135,7 @@ sub parse_sv {
   $done .= $t;
   my $o = ord($t);
   my $bv= $o;
-  my $high = $o > 128;
+  my $high = $o >= 128;
   $o -= 128 if $high;
   printf $fmt1, $p, $p-$hlen+1, $o, $high ? '*' : ' ', $bv, $ind;
 
