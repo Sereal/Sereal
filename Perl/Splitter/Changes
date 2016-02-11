@@ -1,5 +1,9 @@
 Revision history for Perl extension Sereal-Splitter
 
+0.830
+  * fix bad crafting of COPY and REFP tags without high bit set while the
+    original tag had it
+
 0.820
   * fix memleak
 
