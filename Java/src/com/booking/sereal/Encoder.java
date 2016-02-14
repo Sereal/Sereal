@@ -394,6 +394,8 @@ public class Encoder {
 			write_regex( (Pattern) obj );
 		} else if( type == Double.class ) {
 			write_double( (Double) obj );
+		} else if( type == Float.class ) {
+			write_float( (Float) obj );
 		} else if( type == Padded.class ) {
 			// emit pad bytes until we hit a real object
 			while( obj instanceof Padded ) {
@@ -506,6 +508,20 @@ public class Encoder {
 		}
 		data.add( db );
 		size += 8;
+	}
+
+	private void write_float(Float f) {
+
+		data.add( new byte[] { SerealHeader.SRL_HDR_FLOAT } );
+		size++;
+
+		int bits = Float.floatToIntBits( f ); // very convienent, thanks Java guys! :)
+		byte[] db = new byte[4];
+		for(int i = 0; i < 4; i++) {
+			db[i] = (byte) ((bits >> (i * 8)) & 0xff);
+		}
+		data.add( db );
+		size += 4;
 	}
 
 	private void write_ref_previous(Object obj) {

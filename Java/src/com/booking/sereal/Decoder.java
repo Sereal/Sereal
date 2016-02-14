@@ -381,6 +381,14 @@ public class Decoder implements SerealHeader {
 				if (debugTrace) trace( "Read zigzag: " + zz );
 				out = zz;
 				break;
+			case SRL_HDR_FLOAT:
+				// Java defaults to BE, maybe we can jsut do this generally, don't know yet (but think so)
+				data.order( ByteOrder.LITTLE_ENDIAN );
+				float f = data.getFloat();
+				data.order( ByteOrder.BIG_ENDIAN );
+				if (debugTrace) trace( "Read float: " + f );
+				out = f;
+				break;
 			case SRL_HDR_DOUBLE:
 				// Java defaults to BE, maybe we can jsut do this generally, don't know yet (but think so)
 				data.order( ByteOrder.LITTLE_ENDIAN );
