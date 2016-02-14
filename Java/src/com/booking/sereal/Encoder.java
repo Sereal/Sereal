@@ -258,6 +258,35 @@ public class Encoder {
 		trackForCopy(latin1, location);
 	}
 
+	/**
+	 * Encode a long ascii string
+	 * 
+	 * @param latin1
+	 *           String to encode as US-ASCII bytes
+	 */
+	void write_binary(byte[] latin1) {
+
+		if (debugTrace) trace( "Writing binary: " + latin1 );
+
+		// maybe we can just COPY (but obviously not emit a copy tag for ourselves)
+		if( isTrackedForCopy( latin1 ) && getTrackedItemCopy( latin1 ) != this.data.size() ) {
+			write_copy( latin1 );
+			return;
+		}
+
+		int length = latin1.length;
+		int location = data.size();
+
+		// length of string
+		data.add( new byte[] { (byte) SerealHeader.SRL_HDR_BINARY } );
+		size++;
+
+		write_bytearray( latin1 );
+
+		track(latin1, location);
+		trackForCopy(latin1, location);
+	}
+
 	protected void write_copy(Object obj) {
 
 		int prevLocation = getTrackedItemCopy(obj);
@@ -681,7 +710,7 @@ public class Encoder {
 			if( str.length() < SerealHeader.SRL_MASK_SHORT_BINARY_LEN ) {
 				write_short_binary( latin1 );
 			} else {
-				write_bytearray( latin1 );
+				write_binary( latin1 );
 			}
 
 		} else {
