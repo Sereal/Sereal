@@ -22,7 +22,7 @@ sub slurp {
     return $d;
 }
 
-# Some parts of the Sereal specification are deliberately not
+# Some parts of the Sereal specification (like unsigned integers) are deliberately not
 # implemented in Java. As a result a set of tests checking omitted functionality
 # will fail. To reduce a level of false negatives here we list names of all
 # tests that are supposed to fail and skip them later.
@@ -31,8 +31,37 @@ sub slurp {
 # 100% reliable and accurate. To mitigate it we also maintain a counter holding
 # a total number of tests to be skipped.
 #
-my $skip_total = 194;
+# those overflow a signed long
+my @big_integers = qw(
+    -9223372036854775808
+    -9223372036854775807
+    9223372036854775808
+    18446744073709551614
+    18446744073709551615
+    11285066962739960988
+);
+# those could be fixed by mangling the output the correct way, but I
+# don't think it's worth the trouble
+my @big_integer_tests = (
+    'integer: %s',
+    'scalar ref to integer: %s',
+    'nested scalar ref to integer: %s',
+    'array ref to integer: %s',
+    'hash ref to integer: %s',
+    'array ref to duplicate integer: %s',
+    'AoA of duplicates integer: %s',
+    'array ref to aliases integer: %s',
+    'array ref to scalar refs to same integer: %s',
+);
+my $skip_total =
+    (@big_integer_tests * @big_integers) +
+    1;
 my %skip = map { $_ => 1 } (
+    (map {
+        my $pattern = $_;
+        map sprintf($pattern, $_), @big_integers
+     } @big_integer_tests),
+    'TODO Scalar Cross Blessed Array',
 );
 
 my $skipped = 0;
