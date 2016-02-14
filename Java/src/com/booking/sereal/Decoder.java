@@ -324,11 +324,11 @@ public class Decoder implements SerealHeader {
 
 		byte b = data.get();
 		while( data.hasRemaining() && (b < 0) ) {
-			uv |= (b & 127) << lshift; // add 7 bits
+			uv |= ((long) b & 127) << lshift; // add 7 bits
 			lshift += 7;
 			b = data.get();
 		}
-		uv |= b << lshift; // add final (or first if there is only 1)
+		uv |= (long) b << lshift; // add final (or first if there is only 1)
 
 		return uv;
 
