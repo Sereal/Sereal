@@ -205,7 +205,7 @@ public class Encoder {
 		data.add( new byte[] { SerealHeader.SRL_HDR_ZIGZAG } );
 		size++;
 
-		write_varint( (n << 1) ^ (n >> 63) ); // note the unsigned right shift
+		write_varint( (n << 1) ^ (n >> 63) ); // note the signed right shift
 	}
 
 	private int getAHashCode(Object obj) {
