@@ -417,6 +417,8 @@ public class Encoder {
 			write_string_type( (String) obj );
 		} else if( type == Latin1String.class ) {
 			write_string_type( (Latin1String) obj );
+		} else if( type == byte[].class ) {
+			write_string_type( (byte[]) obj );
 		} else if( type.isArray() ) {
 			write_array( obj );
 		} else if( type == Pattern.class ) {
@@ -647,14 +649,6 @@ public class Encoder {
 
 		if (debugTrace) trace( "Emitting an array of length " + count );
 
-		// exception: byte[] should be output as SRL_HDR_BINARY
-		if( obj.getClass().getComponentType() == byte.class ) {
-			data.add( new byte[] { (SerealHeader.SRL_HDR_BINARY) } );
-			size++;
-			write_bytearray( (byte[]) obj );
-			return;
-		}
-
 		// double tracking (but not for byte arrays!)
 		track( obj, data.size() );
 
@@ -701,6 +695,15 @@ public class Encoder {
 	}
 
 	private Charset charset_utf8 = Charset.forName( "UTF-8" );
+
+	private void write_string_type(byte[] bytes) throws SerealException {
+		if (debugTrace) trace( "Encoding byte array as latin1: " + bytes );
+		if( bytes.length < SerealHeader.SRL_MASK_SHORT_BINARY_LEN ) {
+			write_short_binary( bytes );
+		} else {
+			write_binary( bytes );
+		}
+	}
 
 	private void write_string_type(CharSequence str) throws SerealException {
 
