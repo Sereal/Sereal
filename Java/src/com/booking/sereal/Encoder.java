@@ -381,7 +381,10 @@ public class Encoder {
 
 		if (debugTrace) trace( "Currently tracked: " + Utils.dump( tracked ) );
 
-		if( isTracked( obj ) ) {
+		if( isTracked( obj ) &&
+		    // it would be better to avoid tracking numbers at all,
+		    // but it would break Alias support
+				!(obj instanceof Number) ) {
 			if (debugTrace) trace( "Track: We saw this before: " + Utils.dump( obj ) + " at location " + getTrackedItem( obj ) );
 			write_ref_previous( obj );
 			return;
