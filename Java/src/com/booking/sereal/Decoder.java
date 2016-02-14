@@ -98,6 +98,8 @@ public class Decoder implements SerealHeader {
 
 	private boolean preservePadding = false;
 
+	private boolean preserveUndef = false;
+
 	private ByteBuffer realData;
 
 	/**
@@ -113,6 +115,7 @@ public class Decoder implements SerealHeader {
 		objectType = this.options.containsKey( "object_type" ) ? ((ObjectType) this.options.get( "object_type" )) : ObjectType.PERL_OBJECT;
 		perlRefs = this.options.containsKey( "use_perl_refs" ) ? ((Boolean) this.options.get( "use_perl_refs" )) : false;
 		preservePadding = this.options.containsKey( "preserve_pad_tags" ) ? ((Boolean) this.options.get( "preserve_pad_tags" )) : false;
+		preserveUndef = this.options.containsKey( "preserve_undef" ) ? ((Boolean) this.options.get( "preserve_undef" )) : false;
         prefer_latin1 = this.options.containsKey("prefer_latin1") ? ((Boolean) this.options.get("prefer_latin1")) : false;
 	}
 
@@ -396,7 +399,10 @@ public class Decoder implements SerealHeader {
 				break;
 			case SRL_HDR_UNDEF:
 				if (debugTrace) trace( "Read a null/undef" );
-				out = null;
+				if (preserveUndef)
+					out = new PerlUndef();
+				else
+					out = null;
 				break;
 			case SRL_HDR_BINARY:
 				byte[] bytes = read_binary();

@@ -40,6 +40,7 @@ public class TestCorpus {
 		Map<String, Object> decoder_options = new HashMap<String, Object>();
 		decoder_options.put( "use_perl_refs", true ); // so ref to int will give a Reference object and not just an int
 		decoder_options.put( "preserve_pad_tags", true ); // so pad bytes are saved
+		decoder_options.put( "preserve_undef", true ); // for undef referential integrity
 
 		dec = new Decoder( decoder_options );
 		enc = new Encoder( null );

@@ -360,10 +360,11 @@ public class Encoder {
 
 		// track it (for COPY and REFP tags)
 		int obj_location = data.size(); // segment where we start putting this item
-		track( obj, obj_location );
+		if (obj != null)
+			track( obj, obj_location );
 
 		// this needs to be first for obvious reasons :)
-		if( obj == null ) {
+		if( obj == null || obj instanceof PerlUndef ) {
 			if (debugTrace) trace( "Emitting a NULL/undef" );
 			data.add( new byte[] { SerealHeader.SRL_HDR_UNDEF } );
 			size++;
