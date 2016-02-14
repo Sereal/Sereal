@@ -10,7 +10,6 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
 
 import org.junit.Assert;
 
@@ -76,8 +75,8 @@ public class TestCorpus {
 			verbose = true;
 			System.out.println( "Decoding a single file: " + target.getAbsolutePath() );
 			// more logging
-			dec.log.setLevel( Level.FINE );
-			enc.log.setLevel( Level.FINE );
+			dec.debugTrace = true;
+			enc.debugTrace = true;
 			roundtrip( target );
 		}
 

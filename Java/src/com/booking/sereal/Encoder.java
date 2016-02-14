@@ -11,7 +11,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.logging.Level;
 import java.util.regex.Pattern;
 
 /**
@@ -21,39 +20,13 @@ import java.util.regex.Pattern;
  */
 public class Encoder {
 
-	// set up logging: be compatible with log4j etc but not suffer so much :)
-	interface Log {
-		void info(String info);
+	boolean debugTrace;
 
-		void fine(String info);
-
-		void setLevel(Level lvl);
+	private void trace(String info) {
+		if (!debugTrace)
+			throw new RuntimeException("All calls to trace() must be guarded with 'if (debugTrace)'");
+		System.out.println( info );
 	}
-
-	Log log = new Log() {
-
-		private Level level = Level.INFO;
-
-		@Override
-		public void info(String info) {
-			System.out.println( "INFO: " + info );
-		}
-
-		@Override
-		public void fine(String info) {
-			if( level.intValue() <= Level.FINE.intValue() ) {
-				System.out.println( info );
-			}
-		}
-
-		@Override
-		public void setLevel(Level lvl) {
-			this.level = lvl;
-		}
-
-	};
-
-	// end logging
 
 	// so we don't need to allocate this every time we encode a varint
 	private byte[] varint_buf = new byte[12];
@@ -124,15 +97,15 @@ public class Encoder {
 		// set tracking bits for everything we tracked
 		for(int segment : tracked_and_used) {
 			byte[] tag_data = data.get( segment );
-			log.fine( "Setting a tracking bit for " + Utils.hexStringFromByteArray( tag_data ) + ", segment: " + segment );
+			if (debugTrace) trace( "Setting a tracking bit for " + Utils.hexStringFromByteArray( tag_data ) + ", segment: " + segment );
 			tag_data[0] |= SerealHeader.SRL_HDR_TRACK_FLAG;
-			log.fine( "Setting a tracking bit for " + Utils.hexStringFromByteArray( tag_data ) + ", segment: " + segment );
+			if (debugTrace) trace( "Setting a tracking bit for " + Utils.hexStringFromByteArray( tag_data ) + ", segment: " + segment );
 		}
 
 		// now that everything is encoded, we have correct refcounts of arrays,
 		// so we should convert any that are SRL_HDR_ARRAYREF to SRL_HDR_ARRAY+count if their refcount > 1
 		// and do the same for hashes
-		log.fine( "Refcounts: " + Utils.dump( refcounts ) );
+		if (debugTrace) trace( "Refcounts: " + Utils.dump( refcounts ) );
 		fixrefs( true );
 		fixrefs( false );
 
@@ -151,13 +124,13 @@ public class Encoder {
 
 	private void fixOffsets(Map<Integer, Integer> segmentMap) {
 		for(Entry<Integer, Integer> entry : segmentMap.entrySet()) { // segment where the refp is
-			log.fine( "Translating segment to offset for copy segment: " + entry.getKey() + " pointing to segment: " + entry.getValue() );
+			if (debugTrace) trace( "Translating segment to offset for copy segment: " + entry.getKey() + " pointing to segment: " + entry.getValue() );
 
 			int offset = 0;
 			for(int s = 0; s < entry.getValue(); s++) {
 				offset += data.get( s ).length;
 			}
-			log.fine( "Offset is: " + offset );
+			if (debugTrace) trace( "Offset is: " + offset );
 			data.set( entry.getKey(), varintFromLong( offset ) );
 		}
 	}
@@ -165,7 +138,7 @@ public class Encoder {
 	private void fixrefs(boolean array) {
 		for(Entry<Object, Integer> entry : (array ? arrayrefs : hashrefs).entrySet()) {
 			int segment = entry.getValue();
-			log.fine( "Ref fixups: segment=" + segment + " refcount:" + refcounts.get( entry.getKey() ) + " data= " + Utils.dump( entry.getKey() ) );
+			if (debugTrace) trace( "Ref fixups: segment=" + segment + " refcount:" + refcounts.get( entry.getKey() ) + " data= " + Utils.dump( entry.getKey() ) );
 			if( refcounts.containsKey( entry.getKey() ) && refcounts.get( entry.getKey() ) > 1 ) {
 				byte[] tag_data = data.get( segment );
 				byte track_mask = (byte) (tag_data[0] & SerealHeader.SRL_HDR_TRACK_FLAG);
@@ -175,7 +148,7 @@ public class Encoder {
 						(byte) (count & ~(array ? SerealHeader.SRL_HDR_ARRAYREF_LOW : SerealHeader.SRL_HDR_HASHREF_LOW)) } // varints < 16 are always a byte :)
 				);
 				size += 1;// we added 1 byte
-				log.fine( "Converted segment " + segment + ": " + Utils.hexStringFromByteArray( tag_data ) + " to: "
+				if (debugTrace) trace( "Converted segment " + segment + ": " + Utils.hexStringFromByteArray( tag_data ) + " to: "
 						+ Utils.hexStringFromByteArray( data.get( segment ) ) );
 			}
 		}
@@ -185,7 +158,7 @@ public class Encoder {
 		ByteBuffer buf = ByteBuffer.allocate( size );
 		int s = 0;
 		for(byte[] segment : data) {
-			log.fine( "getData(): Segment " + (s++) + ": " + Utils.hexStringFromByteArray( segment ) );
+			if (debugTrace) trace( "getData(): Segment " + (s++) + ": " + Utils.hexStringFromByteArray( segment ) );
 			buf.put( segment );
 		}
 		return buf;
@@ -258,7 +231,7 @@ public class Encoder {
 	 */
 	void write_short_binary(byte[] latin1) throws SerealException {
 
-		log.fine( "Writing short binary: " + latin1 );
+		if (debugTrace) trace( "Writing short binary: " + latin1 );
 
 		// maybe we can just COPY (but obviously not emit a copy tag for ourselves)
 		if( isTrackedForCopy( latin1 ) && getTrackedItemCopy( latin1 ) != this.data.size() ) {
@@ -288,7 +261,7 @@ public class Encoder {
 	protected void write_copy(Object obj) {
 
 		int prevLocation = getTrackedItemCopy(obj);
-		log.fine( "Emitting a COPY for location " + prevLocation );
+		if (debugTrace) trace( "Emitting a COPY for location " + prevLocation );
 		
 		data.add( new byte[] { SerealHeader.SRL_HDR_COPY } );
 		size++;
@@ -309,7 +282,7 @@ public class Encoder {
 	 */
 	void write_regex(Pattern p) throws SerealException {
 
-		log.fine( "Writing a Pattern: " + Utils.dump( p ) );
+		if (debugTrace) trace( "Writing a Pattern: " + Utils.dump( p ) );
 
 		String flags = "";
 		flags += (p.flags() & Pattern.MULTILINE) != 0 ? "m" : "";
@@ -377,10 +350,10 @@ public class Encoder {
 	@SuppressWarnings("unchecked")
 	private void encode(Object obj) throws SerealException {
 
-		log.fine( "Currently tracked: " + Utils.dump( tracked ) );
+		if (debugTrace) trace( "Currently tracked: " + Utils.dump( tracked ) );
 
 		if( isTracked( obj ) ) {
-			log.fine( "Track: We saw this before: " + Utils.dump( obj ) + " at location " + getTrackedItem( obj ) );
+			if (debugTrace) trace( "Track: We saw this before: " + Utils.dump( obj ) + " at location " + getTrackedItem( obj ) );
 			write_ref_previous( obj );
 			return;
 		}
@@ -391,14 +364,14 @@ public class Encoder {
 
 		// this needs to be first for obvious reasons :)
 		if( obj == null ) {
-			log.fine( "Emitting a NULL/undef" );
+			if (debugTrace) trace( "Emitting a NULL/undef" );
 			data.add( new byte[] { SerealHeader.SRL_HDR_UNDEF } );
 			size++;
 			return;
 		}
 
 		Class<?> type = obj.getClass();
-		log.fine( "Encoding type: " + type );
+		if (debugTrace) trace( "Encoding type: " + type );
 
 		// this is ugly :)
 		if( type == Long.class || type == Integer.class || type == Byte.class ) {
@@ -467,7 +440,7 @@ public class Encoder {
 	private void write_object(PerlObject po) throws SerealException {
 
 		if( saved_classnames.containsKey( po.getName() ) ) {
-			log.fine( "Already emitted this classname, making objectv for " + po.getName() );
+			if (debugTrace) trace( "Already emitted this classname, making objectv for " + po.getName() );
 
 			data.add( new byte[] { SerealHeader.SRL_HDR_OBJECTV } );
 			size++;
@@ -511,12 +484,12 @@ public class Encoder {
 	}
 	
 	private void track(Object obj, int obj_location) {
-		log.fine( "Tracking " + (obj == null ? "NULL/undef" : obj.getClass().getName()) + "@" + System.identityHashCode( obj ) + " at location " + obj_location );
+		if (debugTrace) trace( "Tracking " + (obj == null ? "NULL/undef" : obj.getClass().getName()) + "@" + System.identityHashCode( obj ) + " at location " + obj_location );
 		tracked.put( System.identityHashCode( obj ), obj_location );
 	}
 	
 	private void trackForCopy(Object obj, int obj_location) {
-		log.fine( "Tracking " + (obj == null ? "NULL/undef" : obj.getClass().getName()) + "@" + getAHashCode( obj ) + " at location " + obj_location );
+		if (debugTrace) trace( "Tracking " + (obj == null ? "NULL/undef" : obj.getClass().getName()) + "@" + getAHashCode( obj ) + " at location " + obj_location );
 		trackedCopy.put(getAHashCode(obj), obj_location);
 	}
 
@@ -537,7 +510,7 @@ public class Encoder {
 	private void write_ref_previous(Object obj) {
 
 		int prev_location = getTrackedItem( obj );
-		log.fine( "Emitting a REFP for location " + prev_location );
+		if (debugTrace) trace( "Emitting a REFP for location " + prev_location );
 
 		data.add( new byte[] { SerealHeader.SRL_HDR_REFP } );
 		size++;
@@ -551,7 +524,7 @@ public class Encoder {
 	private void write_alias(Object obj) {
 
 		int prev_location = getTrackedItem( obj );
-		log.fine( "Emitting a REFP for location " + prev_location );
+		if (debugTrace) trace( "Emitting a REFP for location " + prev_location );
 
 		data.add( new byte[] { SerealHeader.SRL_HDR_ALIAS } );
 		size++;
@@ -564,13 +537,13 @@ public class Encoder {
 
 	private void write_hash(HashMap<String, Object> hash) throws SerealException {
 
-		log.fine( "Writing hash: " + Utils.dump( hash ) );
+		if (debugTrace) trace( "Writing hash: " + Utils.dump( hash ) );
 
 		refcount( hash, 1 ); // in Perl hashes are always implicitly refs
 
 		int count = hash.size();
 		if( count < 16 ) { // store size in lower 4 bits
-			log.fine( "Tracking HASHREF in segment " + data.size() );
+			if (debugTrace) trace( "Tracking HASHREF in segment " + data.size() );
 			hashrefs.put( hash, data.size() );
 
 			data.add( new byte[] { (byte) (SerealHeader.SRL_HDR_HASHREF_LOW + count) } );
@@ -591,7 +564,7 @@ public class Encoder {
 
 	private void write_ref(PerlReference ref) throws SerealException {
 
-		log.fine( "Emitting a REFN for @" + System.identityHashCode( ref ) + " -> @" + System.identityHashCode( ref.getValue() ) );
+		if (debugTrace) trace( "Emitting a REFN for @" + System.identityHashCode( ref ) + " -> @" + System.identityHashCode( ref.getValue() ) );
 
 		refcount( ref.getValue(), 1 );
 
@@ -605,16 +578,16 @@ public class Encoder {
 	private void refcount(Object value, int change) {
 
 		if( value == null ) {
-			log.fine( "Not bothering with refcounts for NULL/undef" );
+			if (debugTrace) trace( "Not bothering with refcounts for NULL/undef" );
 			return;
 		}
 
 		if( !value.getClass().isArray() && value.getClass() != HashMap.class && value.getClass() != LinkedHashMap.class ) {
-			log.fine( "Not bothering with refcounts for: " + value.getClass().getSimpleName() );
+			if (debugTrace) trace( "Not bothering with refcounts for: " + value.getClass().getSimpleName() );
 			return;
 		}
 
-		log.fine( "Refcount " + (change > 0 ? "+" : "") + change + " for: @" + System.identityHashCode( value ) );
+		if (debugTrace) trace( "Refcount " + (change > 0 ? "+" : "") + change + " for: @" + System.identityHashCode( value ) );
 
 		int count = refcounts.containsKey( value ) ? refcounts.get( value ) : 0;
 		refcounts.put( value, count + change );
@@ -626,7 +599,7 @@ public class Encoder {
 		// checking length without casting to Object[] since they might primitives
 		int count = Array.getLength( obj );
 
-		log.fine( "Emitting an array of length " + count );
+		if (debugTrace) trace( "Emitting an array of length " + count );
 
 		// exception: byte[] should be output as SRL_HDR_BINARY
 		if( obj.getClass().getComponentType() == byte.class ) {
@@ -661,7 +634,7 @@ public class Encoder {
 		 * COM programming :)
 		 */
 		if( count < 16 ) {
-			log.fine( "Tracking ARRAYREF: segment=" + (data.size() - 1) + " byte=" + Utils.hexStringFromByteArray( data.get( data.size() - 1 ) ) );
+			if (debugTrace) trace( "Tracking ARRAYREF: segment=" + (data.size() - 1) + " byte=" + Utils.hexStringFromByteArray( data.get( data.size() - 1 ) ) );
 			arrayrefs.put( obj, data.size() );
 
 			data.add( new byte[] { (byte) (SerealHeader.SRL_HDR_ARRAYREF + count) } );
@@ -674,7 +647,7 @@ public class Encoder {
 
 		// write the objects (works for both Objects and primitives)
 		for(int index = 0; index < count; index++) {
-			log.fine( "Emitting array index " + index + " ("
+			if (debugTrace) trace( "Emitting array index " + index + " ("
 					+ (Array.get( obj, index ) == null ? " NULL/undef" : Array.get( obj, index ).getClass().getSimpleName()) + ")" );
 			encode( Array.get( obj, index ) );
 		}
@@ -686,7 +659,7 @@ public class Encoder {
 	private void write_string_type(CharSequence str) throws SerealException {
 
 		if( str instanceof Latin1String ) {
-			log.fine( "Encoding as latin1: " + str );
+			if (debugTrace) trace( "Encoding as latin1: " + str );
 			byte[] latin1 = ((Latin1String) str).getBytes();
 			if( str.length() < SerealHeader.SRL_MASK_SHORT_BINARY_LEN ) {
 				write_short_binary( latin1 );
@@ -695,7 +668,7 @@ public class Encoder {
 			}
 
 		} else {
-			log.fine( "Encoding as utf8: " + str );
+			if (debugTrace) trace( "Encoding as utf8: " + str );
 			data.add( new byte[] { SerealHeader.SRL_HDR_STR_UTF8 } );
 			size++;
 

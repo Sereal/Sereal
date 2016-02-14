@@ -11,7 +11,6 @@ import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
-import java.util.logging.Level;
 import java.util.regex.Pattern;
 
 import org.junit.Assert;
@@ -58,8 +57,8 @@ public class RoundtripTest {
 				Pattern.compile( "foo", Pattern.DOTALL | Pattern.MULTILINE | Pattern.COMMENTS | Pattern.CASE_INSENSITIVE ), Pattern.compile( "(?:foo)" ),
 				Pattern.compile( "[0-9]{3}" ), Pattern.compile( "foo(bar)?" ), Pattern.compile( "(foo(bar))" ), };
 
-		encoder.log.setLevel( Level.FINE );
-		decoder.log.setLevel( Level.FINE );
+		encoder.debugTrace = true;
+		decoder.debugTrace = true;
 
 		for(Pattern p : patterns) {
 
