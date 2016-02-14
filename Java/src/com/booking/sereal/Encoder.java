@@ -717,6 +717,7 @@ public class Encoder {
 		refcounts.clear();
 		saved_classnames.clear();
 		refp_segments.clear();
+		copy_segments.clear();
 		init();
 	}
 
