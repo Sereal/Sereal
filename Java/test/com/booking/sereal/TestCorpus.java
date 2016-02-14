@@ -31,8 +31,9 @@ public class TestCorpus {
 	private static StructureDecoder sd = new StructureDecoder();
 	private static Decoder dec;
 	private static Encoder enc;
-	static boolean writeEncoded = false;
+	static boolean writeEncoded = true;
 	static boolean abortOnFirstError = false;
+	static boolean testRoundtrip = false;
 	static boolean verbose = false;
 
 	static {
@@ -105,7 +106,7 @@ public class TestCorpus {
 			System.out.print( "OK" );
 			ok_enc++;
 			if( writeEncoded ) {
-				FileOutputStream fos = new FileOutputStream( new File( target.getAbsolutePath() + "_java_encoded" ) );
+				FileOutputStream fos = new FileOutputStream( new File( target.getAbsolutePath() + "-java.out" ) );
 				fos.write( encoded.array() );
 				fos.close();
 			}
@@ -115,14 +116,19 @@ public class TestCorpus {
 			fis.getChannel().read( buf );
 			fis.close();
 			if( verbose ) {
+				System.out.println();
 				System.out.println( "From file: " + Utils.hexStringFromByteArray( buf.array(), 4 ) );
 				System.out.println( "Encoded  : " + Utils.hexStringFromByteArray( encoded.array(), 4 ) );
 				System.out.println( "\nStructure: " + sd.decodeFile( target ) );
 			}
-			System.out.print( " Roundtrip: " );
-			Assert.assertArrayEquals( "Roundtrip fail for: " + target.getName(), buf.array(), encoded.array() );
-			System.out.println( "OK" );
-			ok_round++;
+			if (testRoundtrip) {
+				System.out.print( " Roundtrip: " );
+				Assert.assertArrayEquals( "Roundtrip fail for: " + target.getName(), buf.array(), encoded.array() );
+				System.out.println( "OK" );
+				ok_round++;
+			} else {
+				System.out.println();
+			}
 		} catch (SerealException e) {
 			e.printStackTrace( System.out );
 			return false;
@@ -181,7 +187,8 @@ public class TestCorpus {
 		}
 		System.out.printf( "Decoded: %d/%d = %.2f%%\n", ok_dec, tests.size(), ((double) 100 * ok_dec / tests.size()) );
 		System.out.printf( "Encoded: %d/%d = %.2f%%\n", ok_enc, tests.size(), ((double) 100 * ok_enc / tests.size()) );
-		System.out.printf( "Roundtrip: %d/%d = %.2f%%\n", ok_round, tests.size(), ((double) 100 * ok_round / tests.size()) );
+		if (testRoundtrip)
+			System.out.printf( "Roundtrip: %d/%d = %.2f%%\n", ok_round, tests.size(), ((double) 100 * ok_round / tests.size()) );
 
 	}
 
