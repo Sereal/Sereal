@@ -131,7 +131,9 @@ public class Encoder {
 				offset += data.get( s ).length;
 			}
 			if (debugTrace) trace( "Offset is: " + offset );
-			data.set( entry.getKey(), varintFromLong( offset ) );
+			byte[] offsetBytes = varintFromLong( offset );
+			size += offsetBytes.length - data.get(entry.getKey()).length;
+			data.set( entry.getKey(), offsetBytes );
 		}
 	}
 
