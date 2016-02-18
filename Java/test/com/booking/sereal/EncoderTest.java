@@ -20,11 +20,12 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void header() {
+	public void header() throws SerealException {
 
-		ByteBuffer data = encoder.getData();
+		ByteBuffer data = encoder.write(0);
 
-		assertEquals( "Minimal header size incorrect", 6, data.limit() );
+		data.rewind();
+		assertEquals( "Minimal header size incorrect", 7, data.limit() );
 		assertEquals( "Header is not MAGIC", SerealHeader.MAGIC, data.getInt() );
 		assertEquals( "Protocol version fail", 1, data.get() );
 		assertEquals( "Header suffix not 0", 0, data.get() ); // is a varint, but should be 0
@@ -35,7 +36,7 @@ public class EncoderTest {
 	public void short_binary() {
 
 		try {
-			encoder.write_short_binary( new Latin1String("foo").getBytes() );
+			encoder.write( new Latin1String("foo").getBytes() );
 		} catch (SerealException e) {
 			fail( e.getMessage() );
 		}
@@ -54,11 +55,11 @@ public class EncoderTest {
 
 		try {
 
-			encoder.write_bytearray( new byte[] { 0x66, 0x6f, 0x6f } );
-			encoder.write_regex( Pattern.compile( "(?:foo)[0-9]{3}\\z", Pattern.CASE_INSENSITIVE ) );
-			encoder.write_short_binary( new Latin1String("Hello, Sereal!").getBytes() );
-			encoder.write_varint( 2395846 );
-			encoder.write_zigzag( -345 );
+			encoder.write( new byte[] { 0x66, 0x6f, 0x6f } );
+			encoder.write( Pattern.compile( "(?:foo)[0-9]{3}\\z", Pattern.CASE_INSENSITIVE ) );
+			encoder.write( new Latin1String("Hello, Sereal!").getBytes() );
+			encoder.write( 2395846 );
+			encoder.write( -345 );
 
 			encoder.getData();
 
@@ -69,22 +70,42 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void copy() {
-
+	public void bytearrayCopy() {
 		// write 3 copies of a string (that should be copied)
 		try {
-			encoder.write_short_binary( new Latin1String("This is quite a long string").getBytes() );
-			encoder.write_short_binary( new Latin1String("This is quite a long string").getBytes() );
-			encoder.write_short_binary( new Latin1String("This is quite a long string").getBytes() );
+			encoder.write( new Object[] {
+				new Latin1String("This is quite a long string").getBytes(),
+				new Latin1String("This is quite a long string").getBytes(),
+				new Latin1String("This is quite a long string").getBytes(),
+			});
 		} catch (SerealException e) {
 			fail( e.getMessage() );
 		}
 
 		ByteBuffer data = encoder.getData();
-		
-		// should end with 0x2f06 (x2) (0x26 is copy tag, 0x06 is varint encoded offset of copy)
-		assertEquals( "String was not copied", "0x3d73726c01007b546869732069732071756974652061206c6f6e6720737472696e672f062f06",
+
+		// should end with 0x2f09 (x2) (0x2f is copy tag, 0x09 is varint encoded offset of copy)
+		assertEquals( "String was not copied", "0x3d73726c0100282b037b546869732069732071756974652061206c6f6e6720737472696e672f092f09",
 				Utils.hexStringFromByteArray( data.array() ) );
-		
+	}
+
+	@Test
+	public void stringCopy() {
+		// write 3 copies of a string (that should be copied)
+		try {
+			encoder.write( new Object[] {
+				new String("This is quite a long string"),
+				new String("This is quite a long string"),
+				new String("This is quite a long string"),
+			});
+		} catch (SerealException e) {
+			fail( e.getMessage() );
+		}
+
+		ByteBuffer data = encoder.getData();
+
+		// should end with 0x2f09 (x2) (0x2f is copy tag, 0x09 is varint encoded offset of copy)
+		assertEquals( "String was not copied", "0x3d73726c0100282b03271b546869732069732071756974652061206c6f6e6720737472696e672f092f09",
+				Utils.hexStringFromByteArray( data.array() ) );
 	}
 }

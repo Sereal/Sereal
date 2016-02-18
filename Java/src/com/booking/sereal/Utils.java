@@ -382,8 +382,6 @@ public class Utils {
 			return ind + "Alias: " + dump( ((Alias)o).getValue(), indent );
 		} else if( o instanceof PerlReference ) {
 			return ind + "Perlref@" + System.identityHashCode( o ) +": " + dump( ((PerlReference)o).getValue(), indent);
-		} else if( o instanceof Padded ) {
-			return ind + "(PAD) " + dump( ((Padded)o).getValue(), 0);
 		} else if( o instanceof WeakReference) {
 			return ind + "(weakref@" + System.identityHashCode( o ) + ") " + dump( ((WeakReference)o).get(), 0 );
 		} else if( o instanceof PerlObject) {

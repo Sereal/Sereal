@@ -30,20 +30,20 @@ public class RoundtripTest {
 	public void setup() {
 
 		encoder = new Encoder( null );
-		Map<String, Object> decoder_options = new HashMap<String, Object>();
-		decoder_options.put("use_perl_refs", true); // so ref to int will give a Reference object and not just an int
 		decoder = new Decoder( null );
 		rand = new Random();
 	}
 
 	@Test
-	public void varint() {
+	public void varint() throws IOException, SerealException {
 
 		int t = 1 * 1000 * 1000; // test a million random ints
 		while( t-- > 0 ) {
 			int n = rand.nextInt( Integer.MAX_VALUE );
-			decoder.setData( ByteBuffer.wrap( encoder.varintFromLong(n) ) );
-			assertTrue( "Varint not decoded correctly: " + n, decoder.read_varint() == n );
+			decoder.setData( encoder.write(n) );
+			assertTrue( "Varint not decoded correctly: " + n, ((Long) decoder.decode()) == n );
+			encoder.reset();
+			decoder.reset();
 		}
 
 	}
@@ -83,9 +83,6 @@ public class RoundtripTest {
 
 		int n = 10 * 1000;
 		while( n-- > 0 ) {
-
-			encoder.reset();
-
 			// make some random bytes
 			byte[] pre = new byte[rand.nextInt( 100 )];
             rand.nextBytes( pre );
@@ -98,8 +95,10 @@ public class RoundtripTest {
 			} catch (SerealException e) {
 				fail( e.getMessage() );
 			}
-		}
 
+			encoder.reset();
+			decoder.reset();
+		}
 	}
 
 	@Test
@@ -131,7 +130,7 @@ public class RoundtripTest {
 
 		Latin1String str = new Latin1String( "Hello, Sereal!" );
 		try {
-			encoder.write_short_binary( str.getBytes() );
+			encoder.write( str.getBytes() );
 		} catch (SerealException e) {
 			fail( e.getMessage() );
 		}
@@ -147,9 +146,9 @@ public class RoundtripTest {
 	}
 
 	@Test
-	public void booleans() throws IOException {
+	public void booleans() throws IOException, SerealException {
 
-		encoder.write_boolean( true );
+		encoder.write( true );
 		decoder.setData( encoder.getData() );
 		try {
 			assertTrue( (Boolean) decoder.decode() );
@@ -158,7 +157,7 @@ public class RoundtripTest {
 		}
 
 		encoder = new Encoder( null );
-		encoder.write_boolean( false );
+		encoder.write( false );
 		decoder.setData( encoder.getData() );
 		try {
 			assertFalse( (Boolean) decoder.decode() );

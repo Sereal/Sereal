@@ -96,8 +96,6 @@ public class Decoder implements SerealHeader {
 
 	private boolean perlRefs = false;
 
-	private boolean preservePadding = false;
-
 	private boolean preserveUndef = false;
 
 	private ByteBuffer realData;
@@ -114,7 +112,6 @@ public class Decoder implements SerealHeader {
 
 		objectType = this.options.containsKey( "object_type" ) ? ((ObjectType) this.options.get( "object_type" )) : ObjectType.PERL_OBJECT;
 		perlRefs = this.options.containsKey( "use_perl_refs" ) ? ((Boolean) this.options.get( "use_perl_refs" )) : false;
-		preservePadding = this.options.containsKey( "preserve_pad_tags" ) ? ((Boolean) this.options.get( "preserve_pad_tags" )) : false;
 		preserveUndef = this.options.containsKey( "preserve_undef" ) ? ((Boolean) this.options.get( "preserve_undef" )) : false;
         prefer_latin1 = this.options.containsKey("prefer_latin1") ? ((Boolean) this.options.get("prefer_latin1")) : false;
 	}
@@ -363,12 +360,20 @@ public class Decoder implements SerealHeader {
 		} else if( (tag & SRL_HDR_HASHREF) == SRL_HDR_HASHREF ) {
 			Map<String, Object> hash = read_hash( tag, track );
 			if (debugTrace) trace( "Read hash: " + hash );
-			out = hash;
+			if (perlRefs) {
+				out = new PerlReference(hash);
+			} else {
+				out = hash;
+			}
 		} else if( (tag & SRL_HDR_ARRAYREF) == SRL_HDR_ARRAYREF ) {
 			if (debugTrace) trace( "Reading arrayref" );
 			Object[] arr = read_array( tag, track );
 			if (debugTrace) trace( "Read arrayref: " + arr );
-			out = arr;
+			if (perlRefs) {
+				out = new PerlReference(arr);
+			} else {
+				out = arr;
+			}
 		} else {
 			switch (tag) {
 			case SRL_HDR_VARINT:
@@ -424,11 +429,16 @@ public class Decoder implements SerealHeader {
 				break;
 			case SRL_HDR_REFN:
 				if (debugTrace) trace( "Reading ref to next" );
-                PerlReference refn = new PerlReference(readSingleValue());
 				if( perlRefs ) {
+					PerlReference refn = new PerlReference(null);
+					// track early for weak references
+					if( track != 0 ) { // track ourself
+						track_stuff( track, refn );
+					}
+					refn.setValue(readSingleValue());
 					out = refn;
 				} else {
-					out = refn.getValue();
+					out = readSingleValue();
 				}
 				if (debugTrace) trace( "Read ref: " + Utils.dump( out ) );
 				break;
@@ -491,9 +501,9 @@ public class Decoder implements SerealHeader {
 				if (debugTrace) trace( "Read regexp: " + pattern );
 				out = pattern;
 				break;
-			case SRL_HDR_PAD:
-				if (debugTrace) trace("Padding byte: skip");
-				return preservePadding ? new Padded(readSingleValue()) : readSingleValue();
+                       case SRL_HDR_PAD:
+                               if (debugTrace) trace("Padding byte: skip");
+                               return readSingleValue();
 			default:
 				throw new SerealException( "Tag not supported: " + tag );
 			}
