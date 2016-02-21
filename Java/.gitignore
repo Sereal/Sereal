@@ -1,2 +1,4 @@
-test_dir
-maven.classpath
+/test_dir
+/maven.classpath
+/target
+/benchmarks/target

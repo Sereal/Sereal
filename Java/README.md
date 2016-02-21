@@ -18,3 +18,10 @@ Run the full compatibility test suite (builds and uses the Perl Sereal
 implementation)
 
     $ make compat CORPUS_PROTO_VER=1
+
+Run the benchmarks:
+
+    $ cd benchmarks
+    $ mvn clean package
+    # use java -jar target/benchmarks.jar -h for detailed usage
+    $ java -jar target/benchmarks.jar
