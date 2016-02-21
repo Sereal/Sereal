@@ -1,5 +1,7 @@
 package com.booking.sereal;
 
+import com.booking.sereal.impl.RefpMap;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -90,7 +92,7 @@ public class Decoder implements SerealHeader {
 	private ByteBuffer data;
 
 	// where we track items for REFP purposes
-	private Map<String, Object> tracked = new HashMap<String, Object>();
+	private RefpMap tracked = new RefpMap();
 
 	private ObjectType objectType;
 
@@ -308,9 +310,9 @@ public class Decoder implements SerealHeader {
 
 	private Object get_tracked_item() {
 		long offset = read_varint();
-		if (debugTrace) trace( "Creating ref to item previously read at offset: " + offset + " which is: " + tracked.get( "track_" + offset ) );
-		if (debugTrace) trace( "keys: " + tracked.keySet() + " vals: " + tracked.values() );
-		return tracked.get( "track_" + offset );
+		if (debugTrace) trace( "Creating ref to item previously read at offset: " + offset + " which is: " + tracked.get( offset ) );
+		if (debugTrace) trace( "Currently tracked: " + Utils.dump( tracked ) );
+		return tracked.get( offset );
 	}
 
 	// top bit set (0x80) means next byte is 7 bits more more varint
@@ -445,10 +447,10 @@ public class Decoder implements SerealHeader {
 			case SRL_HDR_REFP:
 				if (debugTrace) trace( "Reading REFP (ref to prev)" );
 				long offset_prev = read_varint();
-				if( !tracked.containsKey( "track_" + offset_prev ) ) {
+				Object prv_value = tracked.get(offset_prev);
+				if (prv_value == RefpMap.NOT_FOUND) {
 					throw new SerealException( "REFP to offset " + offset_prev + ", which is not tracked" );
 				}
-				Object prv_value = tracked.get( "track_" + offset_prev );
 				Object prev = perlRefs ? new PerlReference(prv_value) : prv_value;
 				if (debugTrace) trace( "Read prev: " + Utils.dump( prev ) );
 				out = prev;
@@ -686,10 +688,9 @@ public class Decoder implements SerealHeader {
 		data.rewind();
 	}
 
-	private void track_stuff(int pos, Object thing) {
-		if (debugTrace) trace( "Saving " + thing + " at offset " + pos );
-		Object ref = thing; // autoboxing ftw
-		tracked.put( "track_" + pos, ref );
+	private void track_stuff(int pos, Object ref) {
+		if (debugTrace) trace( "Saving " + ref + " at offset " + pos );
+		tracked.put( pos, ref );
 	}
 
     public void reset() {
