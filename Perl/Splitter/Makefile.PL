@@ -21,7 +21,7 @@ require inc::Sereal::BuildTools;
 inc::Sereal::BuildTools::link_files($shared_dir,"without_tests") if $in_source_repo;
 inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
 
-my $optimize = inc::Sereal::BuildTools::build_optimize({ catch_violations => 1 });
+my $optimize = inc::Sereal::BuildTools::build_optimize({ catch_violations => 0 });
 
 # TODO Configure/optimize for miniz:
 #   * Important: For best perf. be sure to customize the below macros for your target platform:
