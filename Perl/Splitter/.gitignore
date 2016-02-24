@@ -37,3 +37,4 @@ snappy
 t/700_roundtrip
 t/004_testset.t
 inc
+qsort.h
