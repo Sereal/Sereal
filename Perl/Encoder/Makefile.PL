@@ -18,7 +18,6 @@ unshift @INC, ".", "./inc";
 unshift @INC, $shared_dir, "$shared_dir/inc"
     if $in_source_repo;
 
-
 my $module = "Sereal::Encoder";
 require inc::Sereal::BuildTools;
 inc::Sereal::BuildTools::link_files($shared_dir) if $in_source_repo;

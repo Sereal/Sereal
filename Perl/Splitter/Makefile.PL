@@ -6,16 +6,20 @@ use warnings;
 use ExtUtils::MakeMaker;
 use Config;
 
+# this is boiler plate init code borrowed from the Encoder/Decoder
+# we do not use that much of it, except for link_files() below, which
+# we use differently from Encoder/Decoder as we do not want the shared
+# tests. we could probably manage this stuff better.
 my $shared_dir = "../shared";
 my $in_source_repo = -d "../../.git" && -d $shared_dir;
 
 my $module = "Sereal::Splitter";
 
- unshift @INC, ".", "./inc";
- unshift @INC, $shared_dir, "$shared_dir/inc" if $in_source_repo;
- require inc::Sereal::BuildTools;
- inc::Sereal::BuildTools::link_files($shared_dir) if $in_source_repo;
- inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
+unshift @INC, ".", "./inc";
+unshift @INC, $shared_dir, "$shared_dir/inc" if $in_source_repo;
+require inc::Sereal::BuildTools;
+inc::Sereal::BuildTools::link_files($shared_dir,"without_tests") if $in_source_repo;
+inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
 
 `rm -rf t/004_testset.t t/700_roundtrip t/data t/lib`;
 my $optimize = inc::Sereal::BuildTools::build_optimize({ catch_violations => 0 });
