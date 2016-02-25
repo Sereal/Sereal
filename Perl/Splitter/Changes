@@ -1,5 +1,8 @@
 Revision history for Perl extension Sereal-Splitter
 
+0.840
+  * additional fixes for bad crafting of COPY and OBJECTs tags
+
 0.830
   * fix bad crafting of COPY and REFP tags without high bit set while the
     original tag had it
