@@ -5,8 +5,6 @@ use Test::More;
 
 use Sereal::Splitter;
 
-use Data::Dumper;
-
 use Sereal::Encoder qw(encode_sereal);
 use Sereal::Decoder qw(decode_sereal);
 
@@ -40,7 +38,7 @@ while (1) {
         my $new_data = encode_sereal($new_struct, { dedupe_strings => 1 });
 
         is_deeply($chunk_struct, $new_struct, "validating $st -> " . ($st + $elts - 1));
-        
+
         $st += $elts;
     }
 }

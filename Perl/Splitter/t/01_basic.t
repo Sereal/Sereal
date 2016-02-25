@@ -5,20 +5,15 @@ use Test::More;
 
 use Sereal::Splitter qw(SRL_ZLIB);
 
-#use Data::HexDump;
-
 use Sereal::Encoder qw(encode_sereal);
 use Sereal::Decoder qw(decode_sereal);
 
 if (1) {
     # no refp / copy tag
     my $data = encode_sereal([ {foo => 1 }, {bar => 2} ]);
-#    print HexDump $data;
     my $o = Sereal::Splitter->new({chunk_size => 1, input => $data});
-    
 
     while (defined( my $chunk = $o->next_chunk())) {
-#        print HexDump $chunk;
         my $struct = decode_sereal($chunk);
         print Dumper($struct); use Data::Dumper;
     }
@@ -32,12 +27,9 @@ if (1) {
     my $data = encode_sereal([ {foobarbaz => 1 },
                                {foobarbaz => 2 } ],
                              { dedupe_strings => 1} );
-#    print HexDump $data;
     my $o = Sereal::Splitter->new({chunk_size => 200, input => $data});
-    
 
     while (defined( my $chunk = $o->next_chunk())) {
-#        print HexDump $chunk;
         my $struct = decode_sereal($chunk);
         print Dumper($struct); use Data::Dumper;
     }
@@ -51,12 +43,9 @@ if (1) {
     my $data = encode_sereal([ {foobarbaz => 1 },
                                {foobarbaz => 2} ],
                              { dedupe_strings => 1} );
-#    print HexDump $data;
     my $o = Sereal::Splitter->new({chunk_size => 1, input => $data});
-    
 
     while (defined( my $chunk = $o->next_chunk())) {
-#        print HexDump $chunk;
         my $struct = decode_sereal($chunk);
         print Dumper($struct); use Data::Dumper;
     }
@@ -70,12 +59,9 @@ if (1) {
     my $data = encode_sereal([ bless({aaa => 1 }, 'My::Foo'),
                                bless({bbb => 1 }, 'My::Foo') ],
                              { dedupe_strings => 1} );
-#    print HexDump $data;
     my $o = Sereal::Splitter->new({chunk_size => 200, input => $data});
-    
 
     while (defined( my $chunk = $o->next_chunk())) {
-#        print HexDump $chunk;
         my $struct = decode_sereal($chunk);
         print Dumper($struct); use Data::Dumper;
     }
@@ -89,11 +75,9 @@ if (1) {
     my $t = { foo => 1 };
     my $data = encode_sereal([ $t, $t ],
                              { dedupe_strings => 1} );
-#    print HexDump $data;
     my $o = Sereal::Splitter->new({chunk_size => 200, input => $data, compress => 2 });
 
     while (defined( my $chunk = $o->next_chunk())) {
-#        print HexDump $chunk;
         my $struct = decode_sereal($chunk);
         print Dumper($struct); use Data::Dumper;
     }
