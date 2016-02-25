@@ -76,16 +76,16 @@ SRL_STATIC_INLINE srl_splitter_t * srl_empty_splitter_struct(pTHX);
 SRL_STATIC_INLINE void _parse_header(pTHX_ srl_splitter_t *splitter);
 SRL_STATIC_INLINE UV _read_varint_uv_nocheck(srl_splitter_t *splitter);
 SRL_STATIC_INLINE int _parse(pTHX_ srl_splitter_t * splitter);
-SRL_STATIC_INLINE void _read_tag(pTHX_ srl_splitter_t * splitter, char tag, bool tag_is_tracked);
+SRL_STATIC_INLINE void _read_tag(pTHX_ srl_splitter_t * splitter, char tag);
 SRL_STATIC_INLINE void _read_varint(srl_splitter_t * splitter);
 SRL_STATIC_INLINE void _read_zigzag(srl_splitter_t * splitter);
 SRL_STATIC_INLINE void _read_float(srl_splitter_t * splitter);
 SRL_STATIC_INLINE void _read_double(srl_splitter_t * splitter);
 SRL_STATIC_INLINE void _read_long_double(srl_splitter_t * splitter);
-SRL_STATIC_INLINE void _read_string(pTHX_ srl_splitter_t * splitter, bool is_utf8, bool tag_is_tracked);
+SRL_STATIC_INLINE void _read_string(pTHX_ srl_splitter_t * splitter, bool is_utf8);
 SRL_STATIC_INLINE void _read_weaken(srl_splitter_t * splitter);
 SRL_STATIC_INLINE void _read_refn(srl_splitter_t * splitter);
-SRL_STATIC_INLINE void _read_refp(pTHX_ srl_splitter_t * splitter, bool tag_is_tracked);
+SRL_STATIC_INLINE void _read_refp(pTHX_ srl_splitter_t * splitter);
 SRL_STATIC_INLINE void _read_object(srl_splitter_t * splitter, bool is_freeze);
 SRL_STATIC_INLINE void _read_objectv(pTHX_ srl_splitter_t * splitter, bool is_freeze);
 SRL_STATIC_INLINE void _read_copy(pTHX_ srl_splitter_t * splitter);
@@ -97,7 +97,7 @@ SRL_STATIC_INLINE void _update_varint_from_to(char *varint_start, char *varint_e
 SRL_STATIC_INLINE char* _set_varint_nocheck(char* buf, UV n);
 SRL_STATIC_INLINE bool _maybe_flush_chunk (pTHX_ srl_splitter_t *splitter, char* end_pos, char* next_start_pos);
 SRL_STATIC_INLINE void _empty_hashes(pTHX);
-SRL_STATIC_INLINE void _check_for_duplicates(pTHX_ srl_splitter_t * splitter, char* binary_start_pos, UV len, bool is_utf8, bool tag_is_tracked);
+SRL_STATIC_INLINE void _check_for_duplicates(pTHX_ srl_splitter_t * splitter, char* binary_start_pos, UV len, bool is_utf8);
 SRL_STATIC_INLINE void _cat_to_chunk(pTHX_ srl_splitter_t *splitter, char* str, UV str_len);
 SRL_STATIC_INLINE UV stack_pop(srl_splitter_stack_t * stack);
 SRL_STATIC_INLINE bool stack_is_empty(srl_splitter_stack_t * stack);
@@ -160,6 +160,9 @@ srl_splitter_t * srl_build_splitter_struct(pTHX_ HV *opt) {
     STRLEN input_len;
 
     splitter = srl_empty_splitter_struct(aTHX);
+
+    splitter->dont_check_for_duplicate = 0;
+    splitter->tag_is_tracked = 0;
 
     /* load options */
     svp = hv_fetchs(opt, "input", 0);
@@ -454,6 +457,8 @@ SRL_STATIC_INLINE int _parse(pTHX_ srl_splitter_t * splitter) {
 
     char tag;
 
+    bool force_tracking_tag = 0;
+
     while( ! stack_is_empty(splitter->status_stack) ) {
         UV status = stack_pop(splitter->status_stack);
         UV absolute_offset;
@@ -464,12 +469,30 @@ SRL_STATIC_INLINE int _parse(pTHX_ srl_splitter_t * splitter) {
             splitter->deepness--;
             SRL_SPLITTER_TRACE(" * DEEPNESS UP -- deepness value: %d", splitter->deepness);
             break;
+        case ST_TRACK_NEXT_VALUE:
+	    force_tracking_tag = 1;
+	    break;
+        case ST_DONT_CHECK_FOR_DUPLICATE:
+	    splitter->dont_check_for_duplicate = 1;
+	    break;
         case ST_VALUE:
             tag = *(splitter->pos);
             SRL_SPLITTER_TRACE(" * VALUE tag %d -- deepness value: %d", tag, splitter->deepness);
-	    bool tag_is_tracked = 0;
+	    if (force_tracking_tag) {
+		force_tracking_tag = 0;
+		/* we were asked to turn this tag into a tracked tag. First
+		   save chunk until the current position, then insert the tag
+		   with the traking bit set, then carry on after the tag. */
+		/* This will flush the chunk until just before the tag ( first
+		   pos is non inclusive), and continue the chunk after the tag
+		   (hence the splitter->pos + 1) */
+		_maybe_flush_chunk(aTHX_ splitter, splitter->pos, splitter->pos + 1);
+		/* Here we insert the tag with the tracking bit set, in place of the original tag */
+		tag = tag | SRL_HDR_TRACK_FLAG;
+		_cat_to_chunk(aTHX_ splitter, &tag, 1 );
+	    }
             if (tag & SRL_HDR_TRACK_FLAG) {
-		tag_is_tracked = 1;
+		splitter->tag_is_tracked = 1;
                 tag = tag & ~SRL_HDR_TRACK_FLAG;
                 SRL_SPLITTER_TRACE("    * tag must be tracked, %ld\n", splitter->pos - splitter->input_body_pos);
 
@@ -488,8 +511,11 @@ SRL_STATIC_INLINE int _parse(pTHX_ srl_splitter_t * splitter) {
                     HASH_ADD_KEYPTR(hh, offset_hashtable, &(element->key), sizeof(UV), element);
                 }
             }
+	    /* move after the tag */
             splitter->pos++;
-            _read_tag(aTHX_ splitter, tag, tag_is_tracked);
+            _read_tag(aTHX_ splitter, tag);
+	    splitter->dont_check_for_duplicate = 0;
+	    splitter->tag_is_tracked = 0;
             break;
         case ST_ABSOLUTE_JUMP:
             /* before jumping, flush the chunk */
@@ -529,8 +555,12 @@ SRL_STATIC_INLINE int _parse(pTHX_ srl_splitter_t * splitter) {
     return 0;
 }
 
-void _check_for_duplicates(pTHX_ srl_splitter_t * splitter, char* binary_start_pos, UV len, bool is_utf8, bool tag_is_tracked) {
+void _check_for_duplicates(pTHX_ srl_splitter_t * splitter, char* binary_start_pos, UV len, bool is_utf8) {
     dedupe_el_t *element = NULL;
+    if (splitter->dont_check_for_duplicate) {
+	splitter->pos += len;
+	return;
+    }
     if (is_utf8) {
         HASH_FIND(hh, dedupe_hashtable_utf8, splitter->pos, len, element);
     } else {
@@ -542,7 +572,7 @@ void _check_for_duplicates(pTHX_ srl_splitter_t * splitter, char* binary_start_p
 
         /* the copy tag */
         char tmp[SRL_MAX_VARINT_LENGTH];
-        tmp[0] = ( tag_is_tracked ? SRL_HDR_COPY | SRL_HDR_TRACK_FLAG : SRL_HDR_COPY );
+        tmp[0] = ( splitter->tag_is_tracked ? SRL_HDR_COPY | SRL_HDR_TRACK_FLAG : SRL_HDR_COPY );
         _cat_to_chunk(aTHX_ splitter, tmp, 1 );
 
         UV len = (UV) (_set_varint_nocheck(tmp, element->value) - tmp);
@@ -566,7 +596,7 @@ void _check_for_duplicates(pTHX_ srl_splitter_t * splitter, char* binary_start_p
 }
 
 void
-_read_tag(pTHX_ srl_splitter_t * splitter, char tag, bool tag_is_tracked)
+_read_tag(pTHX_ srl_splitter_t * splitter, char tag)
 {
     /* first, self-contained tags*/
     if ( tag <= SRL_HDR_POS_HIGH ) {
@@ -577,7 +607,7 @@ _read_tag(pTHX_ srl_splitter_t * splitter, char tag, bool tag_is_tracked)
         UV len = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
         SRL_SPLITTER_TRACE(" * SHORT BINARY of length %lu", len);
         char *binary_start_pos = splitter->pos - 1;
-        _check_for_duplicates(aTHX_ splitter, binary_start_pos, len, 0, tag_is_tracked);
+        _check_for_duplicates(aTHX_ splitter, binary_start_pos, len, 0);
     } else if ( IS_SRL_HDR_HASHREF(tag) ) {
         int len = tag & 0xF;
         SRL_SPLITTER_TRACE(" * SHORT HASHREF of length %d", len);
@@ -606,11 +636,11 @@ _read_tag(pTHX_ srl_splitter_t * splitter, char tag, bool tag_is_tracked)
             case SRL_HDR_FALSE:          /* no op */                      break;
             case SRL_HDR_CANONICAL_UNDEF:
             case SRL_HDR_UNDEF:          /* no op */                      break;
-            case SRL_HDR_BINARY:         _read_string(aTHX_ splitter, 0, tag_is_tracked);    break;
-            case SRL_HDR_STR_UTF8:       _read_string(aTHX_ splitter, 1, tag_is_tracked);    break;
+            case SRL_HDR_BINARY:         _read_string(aTHX_ splitter, 0);    break;
+            case SRL_HDR_STR_UTF8:       _read_string(aTHX_ splitter, 1);    break;
             case SRL_HDR_WEAKEN:         _read_weaken(splitter);       break;
             case SRL_HDR_REFN:           _read_refn(splitter);         break;
-            case SRL_HDR_REFP:           _read_refp(aTHX_ splitter, tag_is_tracked);         break;
+            case SRL_HDR_REFP:           _read_refp(aTHX_ splitter);         break;
             case SRL_HDR_HASH:           _read_hash(splitter);         break;
             case SRL_HDR_ARRAY:          _read_array(splitter);        break;
             case SRL_HDR_OBJECT:         _read_object(splitter, 0);    break;
@@ -653,11 +683,11 @@ SRL_STATIC_INLINE void _read_long_double(srl_splitter_t * splitter) {
     splitter->pos += sizeof(long double);
 }
 
-SRL_STATIC_INLINE void _read_string(pTHX_ srl_splitter_t * splitter, bool is_utf8, bool tag_is_tracked) {
+SRL_STATIC_INLINE void _read_string(pTHX_ srl_splitter_t * splitter, bool is_utf8) {
     char *binary_start_pos = splitter->pos - 1;
     UV len = _read_varint_uv_nocheck(splitter);
     SRL_SPLITTER_TRACE(" * STRING of length %lu", len);
-    _check_for_duplicates(aTHX_ splitter, binary_start_pos, len, is_utf8, tag_is_tracked);
+    _check_for_duplicates(aTHX_ splitter, binary_start_pos, len, is_utf8);
 }
 
 SRL_STATIC_INLINE void _read_weaken(srl_splitter_t * splitter) {
@@ -674,7 +704,7 @@ SRL_STATIC_INLINE void _read_refn(srl_splitter_t * splitter) {
     stack_push(splitter->status_stack, ST_VALUE);
 }
 
-SRL_STATIC_INLINE void _read_refp(pTHX_ srl_splitter_t * splitter, bool tag_is_tracked) {
+SRL_STATIC_INLINE void _read_refp(pTHX_ srl_splitter_t * splitter) {
     /* we save the position at the refp tag */
     char* saved_pos = splitter->pos - 1;
     UV offset = _read_varint_uv_nocheck(splitter);
@@ -697,7 +727,7 @@ SRL_STATIC_INLINE void _read_refp(pTHX_ srl_splitter_t * splitter, bool tag_is_t
         UV new_offset = element->value;
         /* insert a refp */
         char tmp_str[SRL_MAX_VARINT_LENGTH];
-        tmp_str[0] = ( tag_is_tracked ? SRL_HDR_REFP | SRL_HDR_TRACK_FLAG : SRL_HDR_REFP );
+        tmp_str[0] = ( splitter->tag_is_tracked ? SRL_HDR_REFP | SRL_HDR_TRACK_FLAG : SRL_HDR_REFP );
         _cat_to_chunk(aTHX_ splitter, tmp_str, 1 );
         
         /* append the offset as a varint */
@@ -705,9 +735,9 @@ SRL_STATIC_INLINE void _read_refp(pTHX_ srl_splitter_t * splitter, bool tag_is_t
         _cat_to_chunk(aTHX_ splitter, tmp_str, varint_len);
     } else {
 
-        /* otherwise insert an refn tag instead of the refp */
+        /* otherwise insert an refn tag instead of the refp, and copy the pointed content */
         char tmp_str[1];
-        tmp_str[0] = 0x28;
+        tmp_str[0] = ( splitter->tag_is_tracked ? SRL_HDR_REFN | SRL_HDR_TRACK_FLAG : SRL_HDR_REFN );
         _cat_to_chunk(aTHX_ splitter, tmp_str, 1 );
 
         splitter->deepness++;
@@ -748,9 +778,13 @@ SRL_STATIC_INLINE void _read_objectv(pTHX_ srl_splitter_t * splitter, bool is_fr
     /* if we have to flush the chunk first, let's do it, until before the OBJECTV tag */
     _maybe_flush_chunk(aTHX_ splitter, saved_pos, NULL);
 
-    /* insert an object tag instead of the objectv tag */
+    /* insert an object tag instead of the objectv tag. The check_for_duplicate
+     * will hopefully remove duplication */
     char tmp_str[1];
-    tmp_str[0] = (is_freeze ? 0x32 : 0x2c);
+    tmp_str[0] = (is_freeze ? SRL_HDR_OBJECT_FREEZE : SRL_HDR_OBJECT);
+    if (splitter->tag_is_tracked) {
+	tmp_str[0] = (tmp_str[0] | SRL_HDR_TRACK_FLAG);
+    }
     _cat_to_chunk(aTHX_ splitter, tmp_str, 1 );
 
     /* set the instructions in the stack. Warning, we are pushing, so the order
@@ -773,6 +807,13 @@ SRL_STATIC_INLINE void _read_objectv(pTHX_ srl_splitter_t * splitter, bool is_fr
 }
 
 SRL_STATIC_INLINE void _read_copy(pTHX_ srl_splitter_t * splitter) {
+
+    /* When we see a copy tag, we do the copy immediately, it makes things
+     * easier than trying to recompute the pointer, make sure it points to
+     * something in the current chunk, etc. Instead we do the copy. But have no
+     * fear, the check_for_duplicates will be called later on and will remove
+     * duplication that may have been introduced here */
+
     /* we save the position at the copy tag */
     char* saved_pos = splitter->pos - 1;
     UV offset = _read_varint_uv_nocheck(splitter);
@@ -797,6 +838,19 @@ SRL_STATIC_INLINE void _read_copy(pTHX_ srl_splitter_t * splitter) {
 
     /* parse the pointed value */
     stack_push(splitter->status_stack, ST_VALUE);
+    if (splitter->tag_is_tracked) {
+	/* It may be that the original COPY tag (that we are replacing by the
+	 * pointed value) had his tracking bit set. In this case, when we do
+	 * the copy, we need to promote whatever is pointed by the copy tag to
+	 * a tracked element. That's the ST_TRACK_NEXT_VALUE command that we
+	 * add here in the state stack */
+
+	stack_push(splitter->status_stack, ST_TRACK_NEXT_VALUE);
+
+	/* Also tells that the next ST_VALUE should not be checked for duplication */
+	stack_push(splitter->status_stack, ST_DONT_CHECK_FOR_DUPLICATE);
+
+    }
 
     /* then do the jump */
     char * landing_pos = splitter->input_body_pos + offset - 1;
@@ -805,6 +859,11 @@ SRL_STATIC_INLINE void _read_copy(pTHX_ srl_splitter_t * splitter) {
 }
 
 SRL_STATIC_INLINE void _read_alias(pTHX_ srl_splitter_t * splitter) {
+
+    /* Note: In this fonction we don't handle the case where the alias tag is
+     * tracked (as we do in _read_copy), because alias tag *cannot* be tracked.
+     * It can't have its high bit set. */
+
     /* we save the position at the alias tag */
     char* saved_pos = splitter->pos - 1;
     UV offset = _read_varint_uv_nocheck(splitter);
@@ -827,7 +886,7 @@ SRL_STATIC_INLINE void _read_alias(pTHX_ srl_splitter_t * splitter) {
         UV new_offset = element->value;
         /* insert an ALIAS tag */
         char tmp_str[SRL_MAX_VARINT_LENGTH];
-        tmp_str[0] = 0x2e;
+        tmp_str[0] = SRL_HDR_ALIAS;
         _cat_to_chunk(aTHX_ splitter, tmp_str, 1 );
         
         /* append the offset as a varint */
@@ -947,11 +1006,11 @@ SV* srl_splitter_next_chunk(pTHX_ srl_splitter_t * splitter) {
     }
 
     char tmp_str[SRL_MAX_VARINT_LENGTH];
-    tmp_str[0] = 0x28; /* REFN */
+    tmp_str[0] = SRL_HDR_REFN;
     sv_catpvn(splitter->chunk, tmp_str, 1);
     splitter->chunk_current_offset += 1;
 
-    tmp_str[0] = 0x2b; /* ARRAY */
+    tmp_str[0] = SRL_HDR_ARRAY;
     sv_catpvn(splitter->chunk, tmp_str, 1);
     splitter->chunk_current_offset += 1;
 
@@ -1027,6 +1086,7 @@ SV* srl_splitter_next_chunk(pTHX_ srl_splitter_t * splitter) {
 
         SvCUR_set(compressed_chunk, compressed_pos - SvPVX(compressed_chunk) + dest_len);
 
+	/* This means "sereal version = 3, and compression method = gzip" */
         (SvPVX(compressed_chunk))[4] = 0x33;
 
         sv_2mortal(splitter->chunk);

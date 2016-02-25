@@ -46,6 +46,9 @@ typedef struct {
     IV compression_format;
     IV compression_level;
 
+    bool tag_is_tracked;
+    bool dont_check_for_duplicate;
+
 } srl_splitter_t;
 
 enum {
@@ -53,6 +56,8 @@ enum {
     ST_TRACK,
     ST_DEEPNESS_UP,
     ST_ABSOLUTE_JUMP,
+    ST_TRACK_NEXT_VALUE,
+    ST_DONT_CHECK_FOR_DUPLICATE
 };
 
 srl_splitter_t * srl_build_splitter_struct(pTHX_ HV *opt);
