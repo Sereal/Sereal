@@ -35,6 +35,7 @@ struct sereal_iterator_tied_array {
     SV *iter_sv;
     IV depth;
     U32 count;
+    AV *store;
 };
 
 // same memory layout as in sereal_iterator_tied
@@ -94,6 +95,7 @@ srl_tie_new_tied_sv(pTHX_ srl_iterator_t *iter, SV *iter_sv)
             sereal_iterator_tied_array_t *array = NULL;
             Newx(array, 1, sereal_iterator_tied_array_t);
             if (!array) croak("Out of memory");
+            array->store = NULL;
 
             tied = (sereal_iterator_tied_t*) array;
             tied_class_name = "Sereal::Path::Tie::Array";
@@ -171,7 +173,15 @@ FETCH(this, key)
   PREINIT:
     IV idx;
     srl_iterator_stack_ptr stack_ptr;
+    SV **svptr;
   PPCODE:
+    if (this->store != NULL) {
+        svptr = av_fetch(this->store, key, 0);
+        if (svptr) {
+            ST(0) = sv_2mortal(SvREFCNT_inc(*svptr));
+            XSRETURN(1);
+        }
+    }
     srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
 
     idx = srl_iterator_array_exists(aTHX_ this->iter, key);
@@ -210,8 +220,15 @@ EXISTS(this, key)
 
 void
 STORE(this, key, value)
+    sereal_iterator_tied_array_t *this;
+    I32 key;
+    SV *value;
   CODE:
-    croak("Tied to Sereal::Path::Tie::Array array is read-only");
+    if (this->store == NULL)
+        this->store = newAV();
+
+    av_store(this->store, key, value);
+    SvREFCNT_inc(value);
 
 void
 STORESIZE(this, count)
