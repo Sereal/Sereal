@@ -104,6 +104,8 @@ public class Decoder implements SerealHeader {
 
 	private ByteBuffer realData;
 
+	private Charset charset_utf8 = Charset.forName("UTF-8");
+
 	/**
 	 * Create a new Decoder
 	 *
@@ -571,9 +573,18 @@ public class Decoder implements SerealHeader {
 
 	private String read_UTF8() {
 		int length = (int) read_varint();
-		byte[] buf = new byte[length];
-		data.get( buf );
-		return Charset.forName( "UTF-8" ).decode( ByteBuffer.wrap( buf ) ).toString();
+
+		if (data.hasArray()) {
+			int position = data.position();
+
+			data.position(position + length);
+
+			return new String(data.array(), data.arrayOffset() + position, length, charset_utf8);
+		} else {
+			byte[] buf = new byte[length];
+			data.get( buf );
+			return new String(buf, charset_utf8);
+		}
 	}
 
 	long read_zigzag() {
