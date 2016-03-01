@@ -98,6 +98,8 @@ public class Decoder implements SerealHeader {
 
 	private boolean perlRefs = false;
 
+	private boolean perlAlias = false;
+
 	private boolean preserveUndef = false;
 
 	private ByteBuffer realData;
@@ -114,6 +116,7 @@ public class Decoder implements SerealHeader {
 
 		objectType = this.options.containsKey( "object_type" ) ? ((ObjectType) this.options.get( "object_type" )) : ObjectType.PERL_OBJECT;
 		perlRefs = this.options.containsKey( "use_perl_refs" ) ? ((Boolean) this.options.get( "use_perl_refs" )) : false;
+		perlAlias = this.options.containsKey( "use_perl_alias" ) ? ((Boolean) this.options.get( "use_perl_alias" )) : false;
 		preserveUndef = this.options.containsKey( "preserve_undef" ) ? ((Boolean) this.options.get( "preserve_undef" )) : false;
         prefer_latin1 = this.options.containsKey("prefer_latin1") ? ((Boolean) this.options.get("prefer_latin1")) : false;
 	}
@@ -475,9 +478,14 @@ public class Decoder implements SerealHeader {
 				break;
 			case SRL_HDR_ALIAS:
 				if (debugTrace) trace("Reading an alias");
-				Object alias = new Alias(get_tracked_item());
-				if (debugTrace) trace( "Read alias: " + Utils.dump( alias ) );
-				out = alias;
+				Object value = get_tracked_item();
+
+				if (perlAlias) {
+					out = new PerlAlias(value);
+				} else {
+					out = value;
+				}
+				if (debugTrace) trace( "Read alias: " + Utils.dump( out ) );
 				break;
 			case SRL_HDR_WEAKEN:
 				if (debugTrace) trace("Weakening the next thing");

@@ -39,11 +39,13 @@ public class TestCorpus {
 	static {
 		Map<String, Object> decoder_options = new HashMap<String, Object>();
 		decoder_options.put( "use_perl_refs", true ); // so ref to int will give a Reference object and not just an int
+		decoder_options.put( "use_perl_alias", true );
 		decoder_options.put( "preserve_undef", true ); // for undef referential integrity
 		dec = new Decoder( decoder_options );
 
 		Map<String, Object> encoder_options = new HashMap<String, Object>();
 		encoder_options.put( "use_perl_refs", true ); // so ref to int will give a Reference object and not just an int
+		encoder_options.put( "use_perl_alias", true );
 
 		enc = new Encoder( encoder_options );
 	}
@@ -93,6 +95,7 @@ public class TestCorpus {
 	private static boolean roundtrip(File target) {
 
 		enc.reset();
+		dec.reset();
 
 		try {
 			System.out.print( "Testing " + target.getName() + " -" );

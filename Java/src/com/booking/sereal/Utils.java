@@ -378,8 +378,8 @@ public class Utils {
 					+ (((pat.flags() & Pattern.UNIX_LINES) > 0) ? "u" : "")
 					+ "@" + System.identityHashCode( o );
 
-		} else if( o instanceof Alias ) {
-			return ind + "Alias: " + dump( ((Alias)o).getValue(), indent );
+		} else if( o instanceof PerlAlias ) {
+			return ind + "Alias: " + dump( ((PerlAlias)o).getValue(), indent );
 		} else if( o instanceof PerlReference ) {
 			return ind + "Perlref@" + System.identityHashCode( o ) +": " + dump( ((PerlReference)o).getValue(), indent);
 		} else if( o instanceof WeakReference) {

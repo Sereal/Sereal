@@ -55,7 +55,7 @@ my @big_integer_tests = (
 );
 my $skip_total =
     (@big_integer_tests * @big_integers) +
-    3;
+    4;
 my %skip = map { $_ => 1 } (
     (map {
         my $pattern = $_;
@@ -64,6 +64,8 @@ my %skip = map { $_ => 1 } (
     'TODO Scalar Cross Blessed Array',
     'scalar cross',
     'weak scalar cross',
+    'BlessedArrayCheck 1',
+    'BlessedArrayCheck 2',
 );
 
 my $skipped = 0;

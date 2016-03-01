@@ -5,6 +5,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import org.junit.Before;
@@ -107,5 +109,46 @@ public class EncoderTest {
 		// should end with 0x2f09 (x2) (0x2f is copy tag, 0x09 is varint encoded offset of copy)
 		assertEquals( "String was not copied", "0x3d73726c0100282b03271b546869732069732071756974652061206c6f6e6720737472696e672f092f09",
 				Utils.hexStringFromByteArray( data.array() ) );
+	}
+
+	@Test
+	public void references() throws SerealException {
+		Boolean booleanValue = new Boolean(true);
+		Integer integerValue = new Integer(12);
+		byte[] bytesValue = new byte[] { 0x66, 0x6f, 0x6f };
+		Map<String, Object> mapValue = new HashMap<String, Object>();
+		Object[] arrayValue = new Object[0];
+		String stringValue = "foo";
+		ByteBuffer data;
+
+		data = encoder.write(new Object[] {booleanValue, booleanValue});
+		assertEquals("0x3d73726c0100282b023b3b",
+			     Utils.hexStringFromByteArray(data.array()));
+		encoder.reset();
+
+		data = encoder.write(new Object[] {integerValue, integerValue});
+		assertEquals("0x3d73726c0100282b020c0c",
+			     Utils.hexStringFromByteArray(data.array()));
+		encoder.reset();
+
+		data = encoder.write(new Object[] {bytesValue, bytesValue});
+		assertEquals("0x3d73726c0100282b0263666f6f2f09",
+			     Utils.hexStringFromByteArray(data.array()));
+		encoder.reset();
+
+		data = encoder.write(new Object[] {stringValue, stringValue});
+		assertEquals("0x3d73726c0100282b022703666f6f2f09",
+			     Utils.hexStringFromByteArray(data.array()));
+		encoder.reset();
+
+		data = encoder.write(new Object[] {mapValue, mapValue});
+		assertEquals("0x3d73726c0100282b0228aa00290a",
+			     Utils.hexStringFromByteArray(data.array()));
+		encoder.reset();
+
+		data = encoder.write(new Object[] {arrayValue, arrayValue});
+		assertEquals("0x3d73726c0100282b0228ab00290a",
+			     Utils.hexStringFromByteArray(data.array()));
+		encoder.reset();
 	}
 }

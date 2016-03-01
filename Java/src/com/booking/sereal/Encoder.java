@@ -35,6 +35,8 @@ public class Encoder {
 
 	private boolean perlRefs = false;
 
+	private boolean perlAlias = false;
+
 	// so we don't need to allocate this every time we encode a varint
 	private byte[] varint_buf = new byte[12];
 
@@ -44,6 +46,7 @@ public class Encoder {
 
 	// track things we've encoded so we can emit refs and copies
 	private IdentityMap tracked = new IdentityMap();
+	private IdentityMap aliases, maybeAliases;
 	private BytearrayCopyMap trackedBytearrayCopy = new BytearrayCopyMap();
 	private StringCopyMap trackedStringCopy = new StringCopyMap();
 
@@ -53,6 +56,12 @@ public class Encoder {
 
 	public Encoder(Map<String, Object> options) {
 		perlRefs = options != null && options.containsKey( "use_perl_refs" ) ? ((Boolean) options.get( "use_perl_refs" )) : false;
+		perlAlias = options != null && options.containsKey( "use_perl_alias" ) ? ((Boolean) options.get( "use_perl_alias" )) : false;
+
+		if (perlAlias) {
+			aliases = new IdentityMap();
+			maybeAliases = new IdentityMap();
+		}
 	}
 
 	// write header and version/encoding
@@ -147,7 +156,6 @@ public class Encoder {
 		// save it
 		appendBytes(latin1);
 
-		track(latin1, location);
 		trackForCopy(latin1, location);
 	}
 
@@ -174,7 +182,6 @@ public class Encoder {
 		appendByte(SerealHeader.SRL_HDR_BINARY);
 		appendBytesWithLength(latin1);
 
-		track(latin1, location);
 		trackForCopy(latin1, location);
 	}
 
@@ -247,20 +254,19 @@ public class Encoder {
 	private void encode(Object obj) throws SerealException {
 		if (debugTrace) trace( "Currently tracked: " + Utils.dump( tracked ) );
 
-		long trackedOffset = getTrackedItem(obj);
-		if(trackedOffset != IdentityMap.NOT_FOUND &&
-		    // it would be better to avoid tracking numbers at all,
-		    // but it would break Alias support
-				!(obj instanceof Number)) {
-			if (debugTrace) trace( "Track: We saw this before: " + Utils.dump( obj ) + " at location " + getTrackedItem( obj ) );
-			appendRefp(trackedOffset);
-			return;
-		}
-
-		// track it (for COPY and REFP tags)
+		// track it (for ALIAS tags)
 		long location = size;
-		if (obj != null)
-			track(obj, location);
+
+		if (perlAlias) {
+			long aliasOffset = aliases.get(obj);
+			if(aliasOffset != IdentityMap.NOT_FOUND) {
+				if (debugTrace) trace( "Track: We saw this before: " + Utils.dump( obj ) + " at location " + aliasOffset );
+				appendAlias(aliasOffset);
+				return;
+			} else {
+				maybeAliases.put(obj, location);
+			}
+		}
 
 		// this needs to be first for obvious reasons :)
 		if( obj == null || obj instanceof PerlUndef ) {
@@ -278,7 +284,8 @@ public class Encoder {
 		} else if (type == Boolean.class) {
 			appendBoolean((Boolean) obj);
 		} else if (obj instanceof Map) {
-			appendMap((Map<Object, Object>) obj);
+			if (perlRefs || !tryAppendRefp(obj))
+				appendMap((Map<Object, Object>) obj);
 		} else if (type == String.class) {
 			appendStringType((String) obj);
 		} else if (type == Latin1String.class) {
@@ -286,7 +293,8 @@ public class Encoder {
 		} else if (type == byte[].class) {
 			appendStringType((byte[]) obj);
 		} else if (type.isArray()) {
-			appendArray(obj);
+			if (perlRefs || !tryAppendRefp(obj))
+				appendArray(obj);
 		} else if (type == Pattern.class) {
 			appendRegex((Pattern) obj);
 		} else if (type == Double.class) {
@@ -307,10 +315,25 @@ public class Encoder {
 
 			PerlReference wref = (PerlReference) ((WeakReference<PerlReference>) obj).get(); // pretend weakref is a marker
 			encode( wref );
-		} else if (type == Alias.class) {
-			long trackedAlias = getTrackedItem(((Alias) obj).getValue());
+		} else if (type == PerlAlias.class) {
+			Object value = ((PerlAlias) obj).getValue();
 
-			appendAlias(trackedAlias);
+			if (perlAlias) {
+				long maybeAlias = maybeAliases.get(value);
+				long alias = aliases.get(value);
+
+				if (alias != IdentityMap.NOT_FOUND) {
+					appendAlias(alias);
+				} else if (maybeAlias != IdentityMap.NOT_FOUND) {
+					appendAlias(maybeAlias);
+					aliases.put(value, maybeAlias);
+				} else {
+					encode(value);
+					aliases.put(value, location);
+				}
+			} else {
+				encode(value);
+			}
 		} else if (type == PerlObject.class) {
 			appendPerlObject((PerlObject) obj);
 
@@ -398,8 +421,20 @@ public class Encoder {
 		appendVarint(location);
 	}
 
+	private boolean tryAppendRefp(Object obj) {
+		long location = getTrackedItem(obj);
+
+		if (location != IdentityMap.NOT_FOUND) {
+			appendRefp(location);
+
+			return true;
+		} else {
+			return false;
+		}
+	}
+
 	private void appendAlias(long location) {
-		if (debugTrace) trace( "Emitting a REFP for location " + location );
+		if (debugTrace) trace( "Emitting an ALIAS for location " + location );
 
 		setTrackBit(location);
 		appendByte(SerealHeader.SRL_HDR_ALIAS);
@@ -411,6 +446,7 @@ public class Encoder {
 
 		if (!perlRefs) {
 			appendByte(SerealHeader.SRL_HDR_REFN);
+			track(hash, size);
 		}
 		appendByte(SerealHeader.SRL_HDR_HASH);
 		appendVarint(hash.size());
@@ -425,15 +461,10 @@ public class Encoder {
 		if (debugTrace) trace( "Emitting a REFN for @" + System.identityHashCode( ref ) + " -> @" + System.identityHashCode( ref.getValue() ) );
 
 		Object refValue = ref.getValue();
-		long trackedOffset = getTrackedItem(refValue);
 
-		if (trackedOffset != IdentityMap.NOT_FOUND) {
-			appendRefp(trackedOffset);
-		} else {
-			appendByte(SerealHeader.SRL_HDR_REFN);
-			encode(refValue);
-		}
-
+		appendByte(SerealHeader.SRL_HDR_REFN);
+		track(refValue, size);
+		encode(refValue);
 	}
 
 	private void appendArray(Object obj) throws SerealException {
@@ -444,6 +475,7 @@ public class Encoder {
 
 		if (!perlRefs) {
 			appendByte(SerealHeader.SRL_HDR_REFN);
+			track(obj, size);
 		}
 		appendByte(SerealHeader.SRL_HDR_ARRAY);
 		appendVarint(count);
@@ -524,6 +556,10 @@ public class Encoder {
 		tracked.clear();
 		trackedBytearrayCopy.clear();
 		trackedStringCopy.clear();
+		if (perlAlias) {
+			aliases.clear();
+			maybeAliases.clear();
+		}
 		classnames.clear();
 	}
 
