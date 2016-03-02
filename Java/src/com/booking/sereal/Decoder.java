@@ -194,12 +194,12 @@ public class Decoder implements SerealHeader {
 	}
 
 	private void uncompressSnappy() throws IOException, SerealException {
-		int len = realData.limit() - realData.position() -1;
-		
+		int len = realData.limit() - realData.position();
+		int pos = realData.position();
+
 		if(encoding == 2) {
 			len = (int) read_varint();
 		}
-		int pos = realData.position();
 		byte[] compressed = new byte[len];
 		realData.get( compressed, 0, len );
 		byte[] uncompressed = new byte[pos + Snappy.uncompressedLength( compressed, 0, len ) ];
