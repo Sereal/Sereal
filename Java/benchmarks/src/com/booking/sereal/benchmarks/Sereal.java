@@ -69,6 +69,8 @@ public class Sereal {
             encoderLarge.reset();
         } catch (SerealException e) {
             throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -80,7 +82,7 @@ public class Sereal {
     }
 
     @Benchmark
-    public void encodeSmall() throws SerealException {
+    public void encodeSmall() throws SerealException, IOException {
         encoderSmall.write(solarSystem);
         encoderSmall.reset();
     }
@@ -93,7 +95,7 @@ public class Sereal {
     }
 
     @Benchmark
-    public void encodeLarge() throws SerealException {
+    public void encodeLarge() throws SerealException, IOException {
         encoderLarge.write(solarSystems);
         encoderLarge.reset();
     }

@@ -1,8 +1,15 @@
 package com.booking.sereal;
 
 public class EncoderOptions {
+	public enum CompressionType {
+		NONE,
+		SNAPPY,
+		ZLIB,
+	}
+
 	private boolean perlRefs = false;
 	private boolean perlAlias = false;
+	private CompressionType compressionType = CompressionType.NONE;
 
 	public boolean perlReferences() {
 		return perlRefs;
@@ -10,6 +17,10 @@ public class EncoderOptions {
 
 	public boolean perlAliases() {
 		return perlAlias;
+	}
+
+	public CompressionType compressionType() {
+		return compressionType;
 	}
 
 	public EncoderOptions perlReferences(boolean perlReferences) {
@@ -20,6 +31,12 @@ public class EncoderOptions {
 
 	public EncoderOptions perlAliases(boolean perlAliases) {
 		this.perlAlias = perlAliases;
+
+		return this;
+	}
+
+	public EncoderOptions compressionType(CompressionType compressionType) {
+		this.compressionType = compressionType;
 
 		return this;
 	}

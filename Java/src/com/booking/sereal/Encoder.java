@@ -1,9 +1,12 @@
 package com.booking.sereal;
 
+import static com.booking.sereal.EncoderOptions.CompressionType;
+
 import com.booking.sereal.impl.BytearrayCopyMap;
 import com.booking.sereal.impl.IdentityMap;
 import com.booking.sereal.impl.StringCopyMap;
 
+import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
@@ -18,6 +21,8 @@ import java.util.Set;
 import java.util.Map.Entry;
 import java.util.regex.Pattern;
 
+import org.xerial.snappy.Snappy;
+
 /**
  * WIP
  * Functions for encoding various things.
@@ -26,6 +31,7 @@ import java.util.regex.Pattern;
 public class Encoder {
 
 	private static final EncoderOptions DEFAULT_OPTIONS = new EncoderOptions();
+	private static final byte[] EMPTY_ARRAY = new byte[0];
 
 	boolean debugTrace;
 
@@ -37,6 +43,7 @@ public class Encoder {
 
 	private final boolean perlRefs;
 	private final boolean perlAlias;
+	private final CompressionType compressionType;
 
 	// so we don't need to allocate this every time we encode a varint
 	private byte[] varint_buf = new byte[12];
@@ -53,7 +60,9 @@ public class Encoder {
 
 	// where we store the various encoded things
 	private byte[] bytes = new byte[1024];
+	private byte[] compressedBytes = EMPTY_ARRAY;
 	private long size = 0; // size of everything encoded so far
+	private long headerSize, compressedSize;
 
 	public Encoder(EncoderOptions options) {
 		if (options == null)
@@ -61,6 +70,7 @@ public class Encoder {
 
 		perlRefs = options.perlReferences();
 		perlAlias = options.perlAliases();
+		compressionType = options.compressionType();
 
 		if (perlAlias) {
 			aliases = new IdentityMap();
@@ -72,11 +82,17 @@ public class Encoder {
 	private void init() {
 		appendBytesUnsafe(HEADER);
 
-		// protocol 1, no encoding
-		appendByteUnsafe((byte) 0x01);
+		// protocol 1
+		if (compressionType.equals(CompressionType.SNAPPY)) {
+			appendByteUnsafe((byte) 0x11);
+		} else {
+			appendByteUnsafe((byte) 0x01);
+		}
 
 		// no header suffix
 		appendByteUnsafe((byte) 0x00);
+
+		headerSize = size;
 	}
 
 	/**
@@ -85,11 +101,30 @@ public class Encoder {
 	 * @return
 	 */
 	public ByteBuffer getData() {
-		ByteBuffer buf = ByteBuffer.allocate((int) size);
+		if (compressedSize != 0) {
+			ByteBuffer buf = ByteBuffer.allocate((int) compressedSize);
 
-		buf.put(bytes, 0, (int) size);
+			buf.put(compressedBytes, 0, (int) compressedSize);
 
-		return buf;
+			return buf;
+		} else {
+			ByteBuffer buf = ByteBuffer.allocate((int) size);
+
+			buf.put(bytes, 0, (int) size);
+
+			return buf;
+		}
+	}
+
+	private void compressSnappy() throws IOException {
+		int maxSize = Snappy.maxCompressedLength((int) (size - headerSize));
+		// I don't think there is any point in overallocating here
+		if ((headerSize + maxSize) > compressedBytes.length)
+			compressedBytes = new byte[(int) (headerSize + maxSize)];
+
+		System.arraycopy(bytes, 0, compressedBytes, 0, (int) headerSize);
+		int compressed = Snappy.compress(bytes, (int) headerSize, (int) (size - headerSize), compressedBytes, (int) headerSize);
+		compressedSize = headerSize + compressed;
 	}
 
 	/**
@@ -247,9 +282,12 @@ public class Encoder {
 	 * @return a buffer with the encoded data
 	 * @throws SerealException
 	 */
-	public ByteBuffer write(Object obj) throws SerealException {
+	public ByteBuffer write(Object obj) throws SerealException, IOException {
 		init();
 		encode( obj );
+
+		if (compressionType.equals(CompressionType.SNAPPY))
+			compressSnappy();
 
 		return getData();
 	}
@@ -556,7 +594,7 @@ public class Encoder {
 	 * Call this when you reuse the encoder
 	 */
 	public void reset() {
-		size = 0;
+		size = headerSize = compressedSize = 0;
 		tracked.clear();
 		trackedBytearrayCopy.clear();
 		trackedStringCopy.clear();
