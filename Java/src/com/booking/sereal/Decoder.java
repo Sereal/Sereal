@@ -492,7 +492,12 @@ public class Decoder implements SerealHeader {
 			case SRL_HDR_WEAKEN:
 				if (debugTrace) trace("Weakening the next thing");
 				// so the next thing HAS to be a ref (afaict) which means we can track it
-				PerlReference placeHolder = new PerlReference(((PerlReference)readSingleValue()).getValue());
+				PerlReference placeHolder = new PerlReference(null);
+				// track early for weak references
+				if( track != 0 ) { // track ourself
+					track_stuff( track, placeHolder );
+				}
+				placeHolder.setValue(((PerlReference)readSingleValue()).getValue());
 				WeakReference<PerlReference> wref = new WeakReference<PerlReference>( placeHolder );
 				out = wref;
 				break;
