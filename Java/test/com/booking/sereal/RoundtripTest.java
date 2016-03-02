@@ -57,9 +57,6 @@ public class RoundtripTest {
 				Pattern.compile( "foo", Pattern.DOTALL | Pattern.MULTILINE | Pattern.COMMENTS | Pattern.CASE_INSENSITIVE ), Pattern.compile( "(?:foo)" ),
 				Pattern.compile( "[0-9]{3}" ), Pattern.compile( "foo(bar)?" ), Pattern.compile( "(foo(bar))" ), };
 
-		encoder.debugTrace = true;
-		decoder.debugTrace = true;
-
 		for(Pattern p : patterns) {
 
 			try {
@@ -114,7 +111,6 @@ public class RoundtripTest {
 		try {
 			// read all 3
 			Object[] o = (Object[]) decoder.decode();
-			System.err.println(Utils.dump( o ));
 			assertEquals( "Number of objects", 3, o.length );
 			for(Object s : o) {
 				assertEquals( str, s );
