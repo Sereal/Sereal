@@ -75,18 +75,12 @@ public class Decoder implements SerealHeader {
 		return structure;
 	}
 
-	private Map<String, Object> properties = new HashMap<String, Object>(); // where
-																									// we
-																									// save
-																									// protocol
-																									// version
-																									// and
-																									// encoding
-
 	private ByteBuffer data;
 
 	// where we track items for REFP purposes
 	private RefpMap tracked = new RefpMap();
+
+	private int encoding = -1;
 
 	private ObjectType objectType;
 
@@ -159,18 +153,14 @@ public class Decoder implements SerealHeader {
 		if( protocolVersion != 1 ) {
 			throw new SerealException( String.format( "Invalid Sereal header: unsupported protocol version %d", protocolVersion ) );
 		}
-		properties.put( "protocol_version", protocolVersion );
 
-		int encoding = (protoAndFlags & ~15) >> 4;
+		encoding = (protoAndFlags & ~15) >> 4;
 		if (debugTrace) trace( "Encoding: " + encoding );
 		if((encoding == 1 || encoding == 2) && refuseSnappy) {
 			throw new SerealException( "Unsupported encoding: Snappy" );
 		} else if(encoding < 0 || encoding > 2) {
 			throw new SerealException( "Unsupported encoding: unknown");
 		}
-		
-		properties.put( "encoding", encoding );
-
 	}
 
 	/**
@@ -192,7 +182,6 @@ public class Decoder implements SerealHeader {
 		checkHeaderSuffix();
 
 		realData = data;
-		int encoding = (Integer) properties.get( "encoding" );
 		if( encoding == 1 || encoding == 2 ) {
 			uncompressSnappy();
 		}
@@ -207,7 +196,7 @@ public class Decoder implements SerealHeader {
 	private void uncompressSnappy() throws IOException, SerealException {
 		int len = realData.limit() - realData.position() -1;
 		
-		if((Integer) properties.get("encoding") == 2) {
+		if(encoding == 2) {
 			len = (int) read_varint();
 		}
 		int pos = realData.position();
@@ -712,6 +701,7 @@ public class Decoder implements SerealHeader {
 	public void reset() {
 		data = null;
 		realData = null;
+		encoding = -1;
 		tracked.clear();
 	}
 }
