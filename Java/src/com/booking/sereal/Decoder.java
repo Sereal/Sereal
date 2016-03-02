@@ -709,10 +709,9 @@ public class Decoder implements SerealHeader {
 		tracked.put( pos, ref );
 	}
 
-    public void reset() {
-        data = null;
-        realData = null;
-        tracked.clear();
-    }
-
+	public void reset() {
+		data = null;
+		realData = null;
+		tracked.clear();
+	}
 }
