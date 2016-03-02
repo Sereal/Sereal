@@ -9,3 +9,8 @@
 - option to decode to different map/sequence types
 - handle List in encoder
 - stop using ByteBuffer in Decoder
+
+v2:
+- OBJECT_FREEZE/OBJECTV_FREEZE
+- 8bit-BITFIELD
+- OPT_SUFFIX, OPT-USER-META-DATA

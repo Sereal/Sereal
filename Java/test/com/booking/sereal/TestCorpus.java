@@ -35,6 +35,9 @@ public class TestCorpus {
 	static boolean verbose = false;
 
 	static {
+		String version = System.getenv().get("CORPUS_PROTO_VER");
+		String compression = System.getenv().get("CORPUS_COMPRESS");
+
 		DecoderOptions decoder_options = new DecoderOptions()
 			.perlReferences(true)
 			.perlAliases(true)
@@ -44,6 +47,20 @@ public class TestCorpus {
 		EncoderOptions encoder_options = new EncoderOptions()
 			.perlReferences(true)
 			.perlAliases(true);
+
+		// parse version/compression
+		if (version != null)
+			encoder_options.protocolVersion(Integer.parseInt(version));
+		if ("SRL_SNAPPY".equals(compression)) {
+			encoder_options.compressionType(EncoderOptions.CompressionType.SNAPPY);
+		} else if ("SRL_ZLIB".equals(compression)) {
+			encoder_options.compressionType(EncoderOptions.CompressionType.ZLIB);
+		} else if ("SRL_NONE".equals(compression)) {
+			encoder_options.compressionType(EncoderOptions.CompressionType.NONE);
+		} else if (compression != null) {
+			throw new IllegalArgumentException("Unknown compression type '" + compression + "'");
+		}
+
 		enc = new Encoder( encoder_options );
 	}
 

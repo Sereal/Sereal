@@ -9,6 +9,7 @@ public class EncoderOptions {
 
 	private boolean perlRefs = false;
 	private boolean perlAlias = false;
+	private int protocolVersion = 2;
 	private CompressionType compressionType = CompressionType.NONE;
 
 	public boolean perlReferences() {
@@ -17,6 +18,10 @@ public class EncoderOptions {
 
 	public boolean perlAliases() {
 		return perlAlias;
+	}
+
+	public int protocolVersion() {
+		return protocolVersion;
 	}
 
 	public CompressionType compressionType() {
@@ -31,6 +36,14 @@ public class EncoderOptions {
 
 	public EncoderOptions perlAliases(boolean perlAliases) {
 		this.perlAlias = perlAliases;
+
+		return this;
+	}
+
+	public EncoderOptions protocolVersion(int protocolVersion) {
+		if (protocolVersion < 0 || protocolVersion > 2)
+			throw new IllegalArgumentException("Unknown Sereal version " + protocolVersion);
+		this.protocolVersion = protocolVersion;
 
 		return this;
 	}

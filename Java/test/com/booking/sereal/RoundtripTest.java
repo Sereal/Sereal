@@ -8,6 +8,8 @@ import static org.junit.Assert.fail;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -16,20 +18,37 @@ import java.util.regex.Pattern;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameters;
 
 /**
  * Tests that [thing]->encode->decode->[thing] works successfully for all things.
  */
+@RunWith(Parameterized.class)
 public class RoundtripTest {
-
+	String description;
 	Encoder encoder;
 	Decoder decoder;
 	Random rand;
 
+	@Parameters
+	public static Collection<Object[]> data() {
+		return Arrays.asList(new Object[][] {
+			{ "default", new Encoder(null) },
+			{ "v1", new Encoder(new EncoderOptions().protocolVersion(1)) },
+			{ "v2", new Encoder(new EncoderOptions().protocolVersion(2)) },
+		});
+	}
+
+	public RoundtripTest(String _description, Encoder _encoder) {
+		description = _description;
+		encoder = _encoder;
+	}
+
 	@Before
 	public void setup() {
-
-		encoder = new Encoder( null );
+		encoder.reset();
 		decoder = new Decoder( null );
 		rand = new Random();
 	}

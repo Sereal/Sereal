@@ -43,6 +43,7 @@ public class Encoder {
 
 	private final boolean perlRefs;
 	private final boolean perlAlias;
+	private final int protocolVersion, encoding;
 	private final CompressionType compressionType;
 
 	// so we don't need to allocate this every time we encode a varint
@@ -62,7 +63,8 @@ public class Encoder {
 	private byte[] bytes = new byte[1024];
 	private byte[] compressedBytes = EMPTY_ARRAY;
 	private long size = 0; // size of everything encoded so far
-	private long headerSize, compressedSize;
+	private long compressedSize;
+	private int headerSize, headerOffset;
 
 	public Encoder(EncoderOptions options) {
 		if (options == null)
@@ -70,7 +72,20 @@ public class Encoder {
 
 		perlRefs = options.perlReferences();
 		perlAlias = options.perlAliases();
+		protocolVersion = options.protocolVersion();
 		compressionType = options.compressionType();
+
+		switch (protocolVersion) {
+		case 2:
+			encoding = compressionType.equals(CompressionType.SNAPPY) ? 2 : 0;
+			break;
+		case 1:
+			encoding = compressionType.equals(CompressionType.SNAPPY) ? 1 : 0;
+			break;
+		default:
+			encoding = 0;
+			break;
+		}
 
 		if (perlAlias) {
 			aliases = new IdentityMap();
@@ -81,18 +96,17 @@ public class Encoder {
 	// write header and version/encoding
 	private void init() {
 		appendBytesUnsafe(HEADER);
-
-		// protocol 1
-		if (compressionType.equals(CompressionType.SNAPPY)) {
-			appendByteUnsafe((byte) 0x11);
-		} else {
-			appendByteUnsafe((byte) 0x01);
-		}
+		appendByteUnsafe((byte) ((encoding << 4) | protocolVersion));
 
 		// no header suffix
 		appendByteUnsafe((byte) 0x00);
 
-		headerSize = size;
+		headerSize = (int) size;
+		if (protocolVersion > 1)
+			// because offsets start at 1
+			headerOffset = headerSize - 1;
+		else
+			headerOffset = 0;
 	}
 
 	/**
@@ -117,14 +131,43 @@ public class Encoder {
 	}
 
 	private void compressSnappy() throws IOException {
-		int maxSize = Snappy.maxCompressedLength((int) (size - headerSize));
-		// I don't think there is any point in overallocating here
-		if ((headerSize + maxSize) > compressedBytes.length)
-			compressedBytes = new byte[(int) (headerSize + maxSize)];
+		int maxSize = Snappy.maxCompressedLength((int) size - headerSize);
+		int sizeLength = encoding == 2 ? varintLength(maxSize) : 0;
 
-		System.arraycopy(bytes, 0, compressedBytes, 0, (int) headerSize);
-		int compressed = Snappy.compress(bytes, (int) headerSize, (int) (size - headerSize), compressedBytes, (int) headerSize);
-		compressedSize = headerSize + compressed;
+		// I don't think there is any point in overallocating here
+		if ((headerSize + sizeLength + maxSize) > compressedBytes.length)
+			compressedBytes = new byte[headerSize + sizeLength + maxSize];
+
+		System.arraycopy(bytes, 0, compressedBytes, 0, headerSize);
+		// varint-encoded 0, filling all space
+		for (int i = headerSize, max = headerSize + sizeLength - 1; i < max; ++i)
+			compressedBytes[i] = (byte) 128;
+		compressedBytes[headerSize + sizeLength - 1] = 0;
+
+		int compressed = Snappy.compress(bytes, headerSize, (int) size - headerSize, compressedBytes, headerSize + sizeLength);
+
+		if (encoding == 2) {
+			int length = 0, n = compressed;
+
+			while (n > 127) {
+				compressedBytes[headerSize + length++] = (byte) ((n & 127) | 128);
+				n >>= 7;
+			}
+			compressedBytes[headerSize + length++] = (byte) n;
+		}
+
+		compressedSize = headerSize + sizeLength + compressed;
+	}
+
+	private int varintLength(long n) {
+		int length = 0;
+
+		while (n > 127) {
+			n >>= 7;
+			length++;
+		}
+
+		return length + 1;
 	}
 
 	/**
@@ -137,7 +180,7 @@ public class Encoder {
 	 *           positive integer
 	 * @return
 	 */
-	private final void appendVarint(long n) {
+	private void appendVarint(long n) {
 		int length = 0;
 
 		while( n > 127 ) {
@@ -150,7 +193,7 @@ public class Encoder {
 	}
 
 	private void setTrackBit(long offset) {
-		bytes[(int) offset] |= (byte) 0x80;
+		bytes[(int) offset + headerOffset] |= (byte) 0x80;
 	}
 
 	/**
@@ -306,7 +349,7 @@ public class Encoder {
 				appendAlias(aliasOffset);
 				return;
 			} else {
-				maybeAliases.put(obj, location);
+				maybeAliases.put(obj, location - headerOffset);
 			}
 		}
 
@@ -371,7 +414,7 @@ public class Encoder {
 					aliases.put(value, maybeAlias);
 				} else {
 					encode(value);
-					aliases.put(value, location);
+					aliases.put(value, location - headerOffset);
 				}
 			} else {
 				encode(value);
@@ -395,7 +438,7 @@ public class Encoder {
 			appendVarint(nameOffset);
 		} else {
 			appendByte(SerealHeader.SRL_HDR_OBJECT);
-			classnames.put(po.getName(), size);
+			classnames.put(po.getName(), size - headerOffset);
 			appendStringType(po.getName());
 		}
 
@@ -422,17 +465,17 @@ public class Encoder {
 
 	private void track(Object obj, long obj_location) {
 		if (debugTrace) trace( "Tracking " + (obj == null ? "NULL/undef" : obj.getClass().getName()) + "@" + System.identityHashCode( obj ) + " at location " + obj_location );
-		tracked.put(obj, obj_location);
+		tracked.put(obj, obj_location - headerOffset);
 	}
 
 	private void trackForCopy(byte[] bytes, long location) {
 		if (debugTrace) trace( "Tracking for copy " + (bytes == null ? "NULL/undef" : "bytes") + " at location " + location );
-		trackedBytearrayCopy.put(bytes, location);
+		trackedBytearrayCopy.put(bytes, location - headerOffset);
 	}
 
 	private void trackForCopy(String string, long location) {
 		if (debugTrace) trace( "Tracking for copy " + (string == null ? "NULL/undef" : "string") + " at location " + location );
-		trackedStringCopy.put(string, location);
+		trackedStringCopy.put(string, location - headerOffset);
 	}
 
 	private void appendDouble(Double d) {
@@ -594,7 +637,7 @@ public class Encoder {
 	 * Call this when you reuse the encoder
 	 */
 	public void reset() {
-		size = headerSize = compressedSize = 0;
+		size = compressedSize = headerSize = 0;
 		tracked.clear();
 		trackedBytearrayCopy.clear();
 		trackedStringCopy.clear();

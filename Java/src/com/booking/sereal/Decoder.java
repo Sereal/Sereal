@@ -80,7 +80,9 @@ public class Decoder implements SerealHeader {
 	// where we track items for REFP purposes
 	private RefpMap tracked = new RefpMap();
 
+	private int protocolVersion = -1;
 	private int encoding = -1;
+	private int baseOffset = Integer.MAX_VALUE;
 
 	private ObjectType objectType;
 
@@ -147,10 +149,10 @@ public class Decoder implements SerealHeader {
 		}
 
 		int protoAndFlags = data.get();
-		int protocolVersion = protoAndFlags & 15; // 4 bits for version
+		protocolVersion = protoAndFlags & 15; // 4 bits for version
 
 		if (debugTrace) trace( "Version: " + protocolVersion );
-		if( protocolVersion != 1 ) {
+		if( protocolVersion < 0 || protocolVersion > 2 ) {
 			throw new SerealException( String.format( "Invalid Sereal header: unsupported protocol version %d", protocolVersion ) );
 		}
 
@@ -184,6 +186,17 @@ public class Decoder implements SerealHeader {
 		realData = data;
 		if( encoding == 1 || encoding == 2 ) {
 			uncompressSnappy();
+			if (protocolVersion == 1)
+				baseOffset = 0;
+			else
+				// because offsets start at 1
+				baseOffset = -1;
+		} else {
+			if (protocolVersion == 1)
+				baseOffset = 0;
+			else
+				// because offsets start at 1
+				baseOffset = data.position() - 1;
 		}
 		Object out = readSingleValue();
 
@@ -195,7 +208,7 @@ public class Decoder implements SerealHeader {
 
 	private void uncompressSnappy() throws IOException, SerealException {
 		int len = realData.limit() - realData.position();
-		int pos = realData.position();
+		int pos = protocolVersion == 1 ? realData.position() : 0;
 
 		if(encoding == 2) {
 			len = (int) read_varint();
@@ -328,7 +341,7 @@ public class Decoder implements SerealHeader {
 		int track = 0;
 		if( (tag & SRL_HDR_TRACK_FLAG) != 0 ) {
 			tag = (byte) (tag & ~SRL_HDR_TRACK_FLAG);
-			track = data.position() - 1;
+			track = data.position() - 1 - baseOffset;
 			if (debugTrace) trace( "Tracking stuff at position: " + track );
 		}
 
@@ -550,7 +563,7 @@ public class Decoder implements SerealHeader {
 		int currentPosition = data.position(); // remember where we parked
 
 		// note: you might think you'd like to use mark() and reset(), but setting position(..) discards the mark
-		data.position( originalPosition );
+		data.position( originalPosition + baseOffset );
 		Object copy = readSingleValue();
 		data.position( currentPosition ); // go back to where we were
 
@@ -644,7 +657,7 @@ public class Decoder implements SerealHeader {
 			throw new SerealException( "Don't know how to read classname from tag" + tag );
 		}
 		// apparently class names do not need a track_bit set to be the target of objectv's. WTF
-		track_stuff( position, className );
+		track_stuff( position - baseOffset, className );
 
 		if (debugTrace) trace( "Object Classname: " + className );
 
@@ -701,7 +714,8 @@ public class Decoder implements SerealHeader {
 	public void reset() {
 		data = null;
 		realData = null;
-		encoding = -1;
+		protocolVersion = encoding = -1;
+		baseOffset = Integer.MAX_VALUE;
 		tracked.clear();
 	}
 }
