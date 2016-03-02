@@ -4,6 +4,7 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
@@ -22,7 +23,7 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void header() throws SerealException {
+	public void header() throws SerealException, IOException {
 
 		ByteBuffer data = encoder.write(0);
 
@@ -35,13 +36,9 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void short_binary() {
+	public void short_binary() throws SerealException, IOException {
 
-		try {
-			encoder.write( new Latin1String("foo").getBytes() );
-		} catch (SerealException e) {
-			fail( e.getMessage() );
-		}
+		encoder.write( new Latin1String("foo").getBytes() );
 
 		ByteBuffer data = encoder.getData();
 		data.position( 6 ); // advance over the header
@@ -53,36 +50,24 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void allTypes() {
+	public void allTypes() throws SerealException, IOException {
+		encoder.write( new byte[] { 0x66, 0x6f, 0x6f } );
+		encoder.write( Pattern.compile( "(?:foo)[0-9]{3}\\z", Pattern.CASE_INSENSITIVE ) );
+		encoder.write( new Latin1String("Hello, Sereal!").getBytes() );
+		encoder.write( 2395846 );
+		encoder.write( -345 );
 
-		try {
-
-			encoder.write( new byte[] { 0x66, 0x6f, 0x6f } );
-			encoder.write( Pattern.compile( "(?:foo)[0-9]{3}\\z", Pattern.CASE_INSENSITIVE ) );
-			encoder.write( new Latin1String("Hello, Sereal!").getBytes() );
-			encoder.write( 2395846 );
-			encoder.write( -345 );
-
-			encoder.getData();
-
-		} catch (SerealException e) {
-			fail( e.getMessage() );
-		}
-
+		encoder.getData();
 	}
 
 	@Test
-	public void bytearrayCopy() {
+	public void bytearrayCopy() throws SerealException, IOException {
 		// write 3 copies of a string (that should be copied)
-		try {
-			encoder.write( new Object[] {
-				new Latin1String("This is quite a long string").getBytes(),
-				new Latin1String("This is quite a long string").getBytes(),
-				new Latin1String("This is quite a long string").getBytes(),
-			});
-		} catch (SerealException e) {
-			fail( e.getMessage() );
-		}
+		encoder.write( new Object[] {
+			new Latin1String("This is quite a long string").getBytes(),
+			new Latin1String("This is quite a long string").getBytes(),
+			new Latin1String("This is quite a long string").getBytes(),
+		});
 
 		ByteBuffer data = encoder.getData();
 
@@ -92,17 +77,13 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void stringCopy() {
+	public void stringCopy() throws SerealException, IOException {
 		// write 3 copies of a string (that should be copied)
-		try {
-			encoder.write( new Object[] {
-				new String("This is quite a long string"),
-				new String("This is quite a long string"),
-				new String("This is quite a long string"),
-			});
-		} catch (SerealException e) {
-			fail( e.getMessage() );
-		}
+		encoder.write( new Object[] {
+			new String("This is quite a long string"),
+			new String("This is quite a long string"),
+			new String("This is quite a long string"),
+		});
 
 		ByteBuffer data = encoder.getData();
 
@@ -112,7 +93,7 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void references() throws SerealException {
+	public void references() throws SerealException, IOException {
 		Boolean booleanValue = new Boolean(true);
 		Integer integerValue = new Integer(12);
 		byte[] bytesValue = new byte[] { 0x66, 0x6f, 0x6f };
