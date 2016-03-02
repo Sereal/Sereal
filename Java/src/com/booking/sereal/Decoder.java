@@ -1,5 +1,7 @@
 package com.booking.sereal;
 
+import static com.booking.sereal.DecoderOptions.ObjectType;
+
 import com.booking.sereal.impl.RefpMap;
 
 import java.io.File;
@@ -22,12 +24,7 @@ import org.xerial.snappy.Snappy;
  */
 public class Decoder implements SerealHeader {
 
-    private final boolean prefer_latin1;
-
-    public enum ObjectType {
-		PERL_OBJECT, // Perl style object (name + hash)
-		POJO // Dynamically compile a Plain Old Java Object
-	}
+	private static final DecoderOptions DEFAULT_OPTIONS = new DecoderOptions();
 
 	boolean debugTrace;
 
@@ -43,12 +40,11 @@ public class Decoder implements SerealHeader {
 	 * @param f
 	 *           data to decode
 	 * @param options
-	 *           options like Snappy or not
 	 * @return
 	 * @throws SerealException
 	 * @throws IOException
 	 */
-	public static Object decode_sereal(File f, Map<String, Object> options) throws SerealException, IOException {
+	public static Object decode_sereal(File f, DecoderOptions options) throws SerealException, IOException {
 
 		Decoder d = new Decoder( options );
 
@@ -79,8 +75,6 @@ public class Decoder implements SerealHeader {
 		return structure;
 	}
 
-	private Map<String, Object> options; // options (currently do not accept any)
-
 	private Map<String, Object> properties = new HashMap<String, Object>(); // where
 																									// we
 																									// save
@@ -96,11 +90,11 @@ public class Decoder implements SerealHeader {
 
 	private ObjectType objectType;
 
-	private boolean perlRefs = false;
-
-	private boolean perlAlias = false;
-
-	private boolean preserveUndef = false;
+	private final boolean perlRefs;
+	private final boolean perlAlias;
+	private final boolean preserveUndef;
+	private final boolean refuseSnappy;
+	private final boolean preferLatin1;
 
 	private ByteBuffer realData;
 
@@ -108,19 +102,17 @@ public class Decoder implements SerealHeader {
 
 	/**
 	 * Create a new Decoder
-	 *
-	 * @param options
-	 *           object_type: ObjectType (defaults to PERL_OBJECT)
-	 *           use_perl_refs: if true wraps things in References to we can "perfectly" roundtrip
 	 */
-	public Decoder(Map<String, Object> options) {
-		this.options = options == null ? new HashMap<String, Object>() : options;
+	public Decoder(DecoderOptions options) {
+		if (options == null)
+			options = DEFAULT_OPTIONS;
 
-		objectType = this.options.containsKey( "object_type" ) ? ((ObjectType) this.options.get( "object_type" )) : ObjectType.PERL_OBJECT;
-		perlRefs = this.options.containsKey( "use_perl_refs" ) ? ((Boolean) this.options.get( "use_perl_refs" )) : false;
-		perlAlias = this.options.containsKey( "use_perl_alias" ) ? ((Boolean) this.options.get( "use_perl_alias" )) : false;
-		preserveUndef = this.options.containsKey( "preserve_undef" ) ? ((Boolean) this.options.get( "preserve_undef" )) : false;
-        prefer_latin1 = this.options.containsKey("prefer_latin1") ? ((Boolean) this.options.get("prefer_latin1")) : false;
+		objectType = options.objectType();
+		perlRefs = options.perlReferences();
+		perlAlias = options.perlAliases();
+		preserveUndef = options.preserveUndef();
+		refuseSnappy = options.refuseSnappy();
+		preferLatin1 = options.preferLatin1();
 	}
 
 	private void checkHeader() throws SerealException {
@@ -171,7 +163,7 @@ public class Decoder implements SerealHeader {
 
 		int encoding = (protoAndFlags & ~15) >> 4;
 		if (debugTrace) trace( "Encoding: " + encoding );
-		if((encoding == 1 || encoding == 2) && !options.containsKey( "snappy_support" ) ) {
+		if((encoding == 1 || encoding == 2) && refuseSnappy) {
 			throw new SerealException( "Unsupported encoding: Snappy" );
 		} else if(encoding < 0 || encoding > 2) {
 			throw new SerealException( "Unsupported encoding: unknown");
@@ -363,7 +355,7 @@ public class Decoder implements SerealHeader {
 		} else if( (tag & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW ) {
 			byte[] short_binary = read_short_binary( tag );
 			if (debugTrace) trace( "Read short binary: " + short_binary + " length " + short_binary.length );
-            out = prefer_latin1 ? new Latin1String(short_binary) : short_binary;
+            out = preferLatin1 ? new Latin1String(short_binary) : short_binary;
 		} else if( (tag & SRL_HDR_HASHREF) == SRL_HDR_HASHREF ) {
 			Map<String, Object> hash = read_hash( tag, track );
 			if (debugTrace) trace( "Read hash: " + hash );
@@ -427,7 +419,7 @@ public class Decoder implements SerealHeader {
 			case SRL_HDR_BINARY:
 				byte[] bytes = read_binary();
 				if (debugTrace) trace( "Read binary: " + bytes );
-				out = prefer_latin1 ? new Latin1String(bytes) : bytes;
+				out = preferLatin1 ? new Latin1String(bytes) : bytes;
 				break;
 			case SRL_HDR_STR_UTF8:
 				String utf8 = read_UTF8();

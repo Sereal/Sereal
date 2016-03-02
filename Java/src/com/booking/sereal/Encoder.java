@@ -25,6 +25,8 @@ import java.util.regex.Pattern;
  */
 public class Encoder {
 
+	private static final EncoderOptions DEFAULT_OPTIONS = new EncoderOptions();
+
 	boolean debugTrace;
 
 	private void trace(String info) {
@@ -33,9 +35,8 @@ public class Encoder {
 		System.out.println( info );
 	}
 
-	private boolean perlRefs = false;
-
-	private boolean perlAlias = false;
+	private final boolean perlRefs;
+	private final boolean perlAlias;
 
 	// so we don't need to allocate this every time we encode a varint
 	private byte[] varint_buf = new byte[12];
@@ -54,9 +55,12 @@ public class Encoder {
 	private byte[] bytes = new byte[1024];
 	private long size = 0; // size of everything encoded so far
 
-	public Encoder(Map<String, Object> options) {
-		perlRefs = options != null && options.containsKey( "use_perl_refs" ) ? ((Boolean) options.get( "use_perl_refs" )) : false;
-		perlAlias = options != null && options.containsKey( "use_perl_alias" ) ? ((Boolean) options.get( "use_perl_alias" )) : false;
+	public Encoder(EncoderOptions options) {
+		if (options == null)
+			options = DEFAULT_OPTIONS;
+
+		perlRefs = options.perlReferences();
+		perlAlias = options.perlAliases();
 
 		if (perlAlias) {
 			aliases = new IdentityMap();

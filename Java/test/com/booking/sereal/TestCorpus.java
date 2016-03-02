@@ -7,9 +7,7 @@ import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.junit.Assert;
 
@@ -37,16 +35,15 @@ public class TestCorpus {
 	static boolean verbose = false;
 
 	static {
-		Map<String, Object> decoder_options = new HashMap<String, Object>();
-		decoder_options.put( "use_perl_refs", true ); // so ref to int will give a Reference object and not just an int
-		decoder_options.put( "use_perl_alias", true );
-		decoder_options.put( "preserve_undef", true ); // for undef referential integrity
+		DecoderOptions decoder_options = new DecoderOptions()
+			.perlReferences(true)
+			.perlAliases(true)
+			.preserveUndef(true);
 		dec = new Decoder( decoder_options );
 
-		Map<String, Object> encoder_options = new HashMap<String, Object>();
-		encoder_options.put( "use_perl_refs", true ); // so ref to int will give a Reference object and not just an int
-		encoder_options.put( "use_perl_alias", true );
-
+		EncoderOptions encoder_options = new EncoderOptions()
+			.perlReferences(true)
+			.perlAliases(true);
 		enc = new Encoder( encoder_options );
 	}
 
