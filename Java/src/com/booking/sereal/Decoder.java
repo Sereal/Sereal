@@ -4,9 +4,6 @@ import static com.booking.sereal.DecoderOptions.ObjectType;
 
 import com.booking.sereal.impl.RefpMap;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
@@ -30,51 +27,10 @@ public class Decoder implements SerealHeader {
 
 	boolean debugTrace;
 
-	private void trace(String info) {
+	void trace(String info) {
 		if (!debugTrace)
 			throw new RuntimeException("All calls to trace() must be guarded with 'if (debugTrace)'");
 		System.out.println( info );
-	}
-
-	/**
-	 * Decodes a sereal
-	 *
-	 * @param f
-	 *           data to decode
-	 * @param options
-	 * @return
-	 * @throws SerealException
-	 * @throws IOException
-	 */
-	public static Object decode_sereal(File f, DecoderOptions options) throws SerealException, IOException {
-
-		Decoder d = new Decoder( options );
-
-		return d.decodeFile( f );
-	}
-
-	public Object decodeFile(File f) throws SerealException, IOException {
-
-		if (debugTrace) trace( "Decoding: " + f.getName() );
-
-		if( !f.exists() ) {
-			throw new FileNotFoundException( "No such file: " + f.getCanonicalPath() );
-		}
-
-		// read everything
-		int size = (int) f.length(); // yeah yeah truncate
-		if (debugTrace) trace( "File size: " + size );
-		ByteBuffer buf = ByteBuffer.allocate( size );
-		FileInputStream fi = new FileInputStream( f );
-		fi.getChannel().read( buf );
-		fi.close();
-		if (debugTrace) trace( "Raw: " + new String( buf.array() ) );
-
-		setData( buf );
-		Object structure = decode();
-		if (debugTrace) trace( "Decoded: " + Utils.dump( structure ) );
-
-		return structure;
 	}
 
 	private ByteBuffer data;

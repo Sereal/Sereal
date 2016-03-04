@@ -1,12 +1,16 @@
 package com.booking.sereal;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.Reader;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.net.URI;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -352,4 +356,26 @@ public class Utils {
 
 	}
 
+	public static Object decodeFile(Decoder decoder, File f) throws SerealException, IOException {
+		if (decoder.debugTrace) decoder.trace( "Decoding: " + f.getName() );
+
+		if( !f.exists() ) {
+			throw new FileNotFoundException( "No such file: " + f.getCanonicalPath() );
+		}
+
+		// read everything
+		int size = (int) f.length(); // yeah yeah truncate
+		if (decoder.debugTrace) decoder.trace( "File size: " + size );
+		ByteBuffer buf = ByteBuffer.allocate( size );
+		FileInputStream fi = new FileInputStream( f );
+		fi.getChannel().read( buf );
+		fi.close();
+		if (decoder.debugTrace) decoder.trace( "Raw: " + new String( buf.array() ) );
+
+		decoder.setData( buf );
+		Object structure = decoder.decode();
+		if (decoder.debugTrace) decoder.trace( "Decoded: " + Utils.dump( structure ) );
+
+		return structure;
+	}
 }

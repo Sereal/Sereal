@@ -22,7 +22,7 @@ public class DeSereal {
 		Decoder dec = new Decoder( decoder_options );
 		final File target = new File( args[0] ).getCanonicalFile(); // to absorb ".." in paths
 //		dec.log.setLevel( Level.FINE );
-		Object data = dec.decodeFile( target );
+		Object data = Utils.decodeFile( dec, target );
 		System.out.println( Utils.dump( data ) );
 	}
 

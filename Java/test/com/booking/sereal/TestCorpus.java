@@ -113,7 +113,7 @@ public class TestCorpus {
 			System.out.print( "Testing " + target.getName() + " -" );
 
 			System.out.print( " Decode: " );
-			Object data = dec.decodeFile( target );
+			Object data = Utils.decodeFile( dec, target );
 			System.out.print( "OK" );
 			ok_dec++;
 			if( verbose ) {

@@ -36,7 +36,7 @@ public class Encoder {
 
 	boolean debugTrace;
 
-	private void trace(String info) {
+	void trace(String info) {
 		if (!debugTrace)
 			throw new RuntimeException("All calls to trace() must be guarded with 'if (debugTrace)'");
 		System.out.println( info );
