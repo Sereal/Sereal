@@ -378,10 +378,10 @@ public class Decoder implements SerealHeader {
 
 		if( tag <= SRL_HDR_POS_HIGH ) {
 			if (debugTrace) trace( "Read small positive int:" + tag );
-			out = tag;
+			out = (long) tag;
 		} else if( tag <= SRL_HDR_NEG_HIGH ) {
 			if (debugTrace) trace( "Read small negative int:" + (tag - 32) );
-			out = tag - 32;
+			out = (long) (tag - 32);
 		} else if( (tag & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW ) {
 			byte[] short_binary = read_short_binary( tag );
 			if (debugTrace) trace( "Read short binary: " + short_binary + " length " + short_binary.length );

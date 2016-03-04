@@ -55,17 +55,24 @@ public class RoundtripTest {
 	}
 
 	@Test
-	public void varint() throws IOException, SerealException {
+	public void varintSmall() throws IOException, SerealException {
+		for (int n = -100; n < 100; ++n) {
+			decoder.setData( encoder.write(n) );
+			assertTrue( "Varint not decoded correctly: " + n, ((Long) decoder.decode()) == n );
+			encoder.reset();
+			decoder.reset();
+		}
+	}
 
-		int t = 1 * 1000 * 1000; // test a million random ints
-		while( t-- > 0 ) {
+	@Test
+	public void varintRandom() throws IOException, SerealException {
+		for (int i = 0; i < 1000000; ++i) {
 			int n = rand.nextInt( Integer.MAX_VALUE );
 			decoder.setData( encoder.write(n) );
 			assertTrue( "Varint not decoded correctly: " + n, ((Long) decoder.decode()) == n );
 			encoder.reset();
 			decoder.reset();
 		}
-
 	}
 
 
