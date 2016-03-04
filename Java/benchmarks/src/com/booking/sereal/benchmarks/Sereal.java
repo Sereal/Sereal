@@ -63,10 +63,7 @@ public class Sereal {
 
         try {
             encodedSmall = encoderSmall.write(solarSystem);
-            encoderSmall.reset();
-
             encodedLarge = encoderLarge.write(solarSystems);
-            encoderLarge.reset();
         } catch (SerealException e) {
             throw new RuntimeException(e);
         } catch (IOException e) {
@@ -78,26 +75,22 @@ public class Sereal {
     public void decodeSmall() throws SerealException, IOException {
         decoderSmall.setData(encodedSmall);
         decoderSmall.decode();
-        decoderSmall.reset();
     }
 
     @Benchmark
     public void encodeSmall() throws SerealException, IOException {
         encoderSmall.write(solarSystem);
-        encoderSmall.reset();
     }
 
     @Benchmark
     public void decodeLarge() throws SerealException, IOException {
         decoderLarge.setData(encodedLarge);
         decoderLarge.decode();
-        decoderLarge.reset();
     }
 
     @Benchmark
     public void encodeLarge() throws SerealException, IOException {
         encoderLarge.write(solarSystems);
-        encoderLarge.reset();
     }
 
     public static void main(String[] args) throws RunnerException {

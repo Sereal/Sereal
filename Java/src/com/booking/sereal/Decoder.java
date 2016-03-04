@@ -693,6 +693,7 @@ public class Decoder implements SerealHeader {
 	 * @param blob
 	 */
 	public void setData(ByteBuffer blob) {
+		reset();
 		this.data = blob;
 		data.rewind();
 	}
@@ -702,7 +703,7 @@ public class Decoder implements SerealHeader {
 		tracked.put( pos, ref );
 	}
 
-	public void reset() {
+	private void reset() {
 		data = null;
 		realData = null;
 		protocolVersion = encoding = -1;

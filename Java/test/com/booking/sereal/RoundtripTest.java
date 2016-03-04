@@ -49,7 +49,6 @@ public class RoundtripTest {
 
 	@Before
 	public void setup() {
-		encoder.reset();
 		decoder = new Decoder();
 		rand = new Random();
 	}
@@ -59,8 +58,6 @@ public class RoundtripTest {
 		for (int n = -100; n < 100; ++n) {
 			decoder.setData( encoder.write(n) );
 			assertTrue( "Varint not decoded correctly: " + n, ((Long) decoder.decode()) == n );
-			encoder.reset();
-			decoder.reset();
 		}
 	}
 
@@ -70,8 +67,6 @@ public class RoundtripTest {
 			int n = rand.nextInt( Integer.MAX_VALUE );
 			decoder.setData( encoder.write(n) );
 			assertTrue( "Varint not decoded correctly: " + n, ((Long) decoder.decode()) == n );
-			encoder.reset();
-			decoder.reset();
 		}
 	}
 
@@ -87,8 +82,6 @@ public class RoundtripTest {
 		for(Pattern p : patterns) {
 
 			try {
-				encoder.reset();
-
 				decoder.setData( encoder.write( p ) );
 				Pattern actual = (Pattern) decoder.decode();
 
@@ -119,9 +112,6 @@ public class RoundtripTest {
 			} catch (SerealException e) {
 				fail( e.getMessage() );
 			}
-
-			encoder.reset();
-			decoder.reset();
 		}
 	}
 

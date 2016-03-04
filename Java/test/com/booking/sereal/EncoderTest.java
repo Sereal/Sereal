@@ -210,32 +210,26 @@ public class EncoderTest {
 		data = encoder.write(new Object[] {booleanValue, booleanValue});
 		assertEquals("0x3d73726c0100282b023b3b",
 			     Utils.hexStringFromByteArray(data.array()));
-		encoder.reset();
 
 		data = encoder.write(new Object[] {integerValue, integerValue});
 		assertEquals("0x3d73726c0100282b020c0c",
 			     Utils.hexStringFromByteArray(data.array()));
-		encoder.reset();
 
 		data = encoder.write(new Object[] {bytesValue, bytesValue});
 		assertEquals("0x3d73726c0100282b0263666f6f2f09",
 			     Utils.hexStringFromByteArray(data.array()));
-		encoder.reset();
 
 		data = encoder.write(new Object[] {stringValue, stringValue});
 		assertEquals("0x3d73726c0100282b022703666f6f2f09",
 			     Utils.hexStringFromByteArray(data.array()));
-		encoder.reset();
 
 		data = encoder.write(new Object[] {mapValue, mapValue});
 		assertEquals("0x3d73726c0100282b0228aa00290a",
 			     Utils.hexStringFromByteArray(data.array()));
-		encoder.reset();
 
 		data = encoder.write(new Object[] {arrayValue, arrayValue});
 		assertEquals("0x3d73726c0100282b0228ab00290a",
 			     Utils.hexStringFromByteArray(data.array()));
-		encoder.reset();
 	}
 
 	@Test
@@ -253,31 +247,25 @@ public class EncoderTest {
 		data = encoder.write(new Object[] {booleanValue, booleanValue});
 		assertEquals("0x3d73726c0200282b023b3b",
 			     Utils.hexStringFromByteArray(data.array()));
-		encoder.reset();
 
 		data = encoder.write(new Object[] {integerValue, integerValue});
 		assertEquals("0x3d73726c0200282b020c0c",
 			     Utils.hexStringFromByteArray(data.array()));
-		encoder.reset();
 
 		data = encoder.write(new Object[] {bytesValue, bytesValue});
 		assertEquals("0x3d73726c0200282b0263666f6f2f04",
 			     Utils.hexStringFromByteArray(data.array()));
-		encoder.reset();
 
 		data = encoder.write(new Object[] {stringValue, stringValue});
 		assertEquals("0x3d73726c0200282b022703666f6f2f04",
 			     Utils.hexStringFromByteArray(data.array()));
-		encoder.reset();
 
 		data = encoder.write(new Object[] {mapValue, mapValue});
 		assertEquals("0x3d73726c0200282b0228aa002905",
 			     Utils.hexStringFromByteArray(data.array()));
-		encoder.reset();
 
 		data = encoder.write(new Object[] {arrayValue, arrayValue});
 		assertEquals("0x3d73726c0200282b0228ab002905",
 			     Utils.hexStringFromByteArray(data.array()));
-		encoder.reset();
 	}
 }

@@ -105,10 +105,6 @@ public class TestCorpus {
 	static int ok_round = 0;
 
 	private static boolean roundtrip(File target) {
-
-		enc.reset();
-		dec.reset();
-
 		try {
 			System.out.print( "Testing " + target.getName() + " -" );
 

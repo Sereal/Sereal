@@ -400,6 +400,7 @@ public class Encoder {
 	 * @throws SerealException
 	 */
 	public ByteBuffer write(Object obj) throws SerealException, IOException {
+		reset();
 		init();
 		encode( obj );
 
@@ -720,7 +721,7 @@ public class Encoder {
 	 * Discard all previous tracking clear the buffers etc
 	 * Call this when you reuse the encoder
 	 */
-	public void reset() {
+	private void reset() {
 		size = compressedSize = headerSize = 0;
 		tracked.clear();
 		trackedBytearrayCopy.clear();
