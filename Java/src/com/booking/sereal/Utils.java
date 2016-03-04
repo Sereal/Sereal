@@ -29,6 +29,10 @@ import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 
 public class Utils {
+	private static final char[] hexDigits = {
+		'0', '1', '2', '3', '4', '5', '6', '7',
+		'8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+	};
 
 	/**
 	 * Join a list of strings with a separator
@@ -395,24 +399,30 @@ public class Utils {
 
 	}
 
-	public static String hexStringFromByteArray(byte[] in, int... grouping) {
-		String out = "";
+	public static String hexStringFromByteArray(byte[] in) {
+		return hexStringFromByteArray(in, -1);
+	}
 
-		int group = -1;//no group;
-		if( grouping.length > 0) {
-			group = grouping[0];
-		}
+	public static String hexStringFromByteArray(byte[] in, int group) {
+		StringBuilder out = new StringBuilder(
+			2 +
+			in.length * 2 +
+			(group != -1 ? (in.length / group + 1) : 0)
+		);
+		out.append("0x");
 
-		int count =0;
-		for(byte b : in) {
-			// System.out.println(b + " -> " + (b & 0xFF));
-			out += ((b & 0xFF) < 16 ? "0" : "") + Integer.toHexString( b & 0xFF );
-			if( group > 0 && (++count % group == 0) ) {
-				out += " ";
+		int count = 0;
+		for (byte b : in) {
+			out.append(hexDigits[(b >> 4) & 0xf]);
+			out.append(hexDigits[ b       & 0xf]);
+
+			if( group > 0 && (++count == group) ) {
+				out.append(' ');
+				count = 0;
 			}
 		}
 
-		return "0x" + out;
+		return out.toString();
 	}
 
 	public static String binStringFromByteArray(byte[] in) {
