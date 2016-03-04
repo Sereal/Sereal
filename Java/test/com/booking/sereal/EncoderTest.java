@@ -18,7 +18,7 @@ public class EncoderTest {
 	private Encoder encoder;
 
 	private Encoder defaultEncoder() {
-		return new Encoder(null);
+		return new Encoder();
 	}
 
 	private Encoder v1Encoder() {

@@ -35,7 +35,7 @@ public class RoundtripTest {
 	@Parameters
 	public static Collection<Object[]> data() {
 		return Arrays.asList(new Object[][] {
-			{ "default", new Encoder(null) },
+			{ "default", new Encoder() },
 			{ "v1", new Encoder(new EncoderOptions().protocolVersion(1)) },
 			{ "v2", new Encoder(new EncoderOptions().protocolVersion(2)) },
 			{ "v3", new Encoder(new EncoderOptions().protocolVersion(3)) },
@@ -50,7 +50,7 @@ public class RoundtripTest {
 	@Before
 	public void setup() {
 		encoder.reset();
-		decoder = new Decoder( null );
+		decoder = new Decoder();
 		rand = new Random();
 	}
 
@@ -172,7 +172,7 @@ public class RoundtripTest {
 			fail( e.getMessage() );
 		}
 
-		encoder = new Encoder( null );
+		encoder = new Encoder();
 		encoder.write( false );
 		decoder.setData( encoder.getData() );
 		try {

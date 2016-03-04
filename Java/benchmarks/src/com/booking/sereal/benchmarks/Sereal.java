@@ -20,10 +20,10 @@ public class Sereal {
     private static final Object[] solarSystems;
 
     private static ByteBuffer encodedSmall, encodedLarge;
-    private static Encoder encoderSmall = new Encoder(null);
-    private static Encoder encoderLarge = new Encoder(null);
-    private static Decoder decoderSmall = new Decoder(null);
-    private static Decoder decoderLarge = new Decoder(null);
+    private static Encoder encoderSmall = new Encoder();
+    private static Encoder encoderLarge = new Encoder();
+    private static Decoder decoderSmall = new Decoder();
+    private static Decoder decoderLarge = new Decoder();
 
     private static Map<String, Object> makePlanet(int pos, String name, double earthMasses, String[] notableSatellites) {
         Map<String, Object> planet = new HashMap<String, Object>();

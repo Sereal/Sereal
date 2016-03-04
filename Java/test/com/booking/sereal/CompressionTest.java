@@ -16,7 +16,7 @@ public class CompressionTest {
 	public void serealV1None() throws SerealException, IOException {
 		Encoder encoder = new Encoder(new EncoderOptions()
 			.protocolVersion(1));
-		Decoder decoder = new Decoder(null);
+		Decoder decoder = new Decoder();
 		ByteBuffer encoded = encoder.write(data);
 
 		assertEquals(0x01, encoded.get(4));
@@ -32,7 +32,7 @@ public class CompressionTest {
 			.protocolVersion(1)
 			.compressionThreshold(0)
 			.compressionType(EncoderOptions.CompressionType.SNAPPY));
-		Decoder decoder = new Decoder(null);
+		Decoder decoder = new Decoder();
 		ByteBuffer encoded = encoder.write(data);
 
 		assertEquals(0x11, encoded.get(4));
@@ -46,7 +46,7 @@ public class CompressionTest {
 	public void serealV2None() throws SerealException, IOException {
 		Encoder encoder = new Encoder(new EncoderOptions()
 			.protocolVersion(2));
-		Decoder decoder = new Decoder(null);
+		Decoder decoder = new Decoder();
 		ByteBuffer encoded = encoder.write(data);
 
 		assertEquals(0x02, encoded.get(4));
@@ -62,7 +62,7 @@ public class CompressionTest {
 			.protocolVersion(2)
 			.compressionThreshold(0)
 			.compressionType(EncoderOptions.CompressionType.SNAPPY));
-		Decoder decoder = new Decoder(null);
+		Decoder decoder = new Decoder();
 		ByteBuffer encoded = encoder.write(data);
 
 		assertEquals(0x22, encoded.get(4));
@@ -76,7 +76,7 @@ public class CompressionTest {
 	public void serealV3None() throws SerealException, IOException {
 		Encoder encoder = new Encoder(new EncoderOptions()
 			.protocolVersion(3));
-		Decoder decoder = new Decoder(null);
+		Decoder decoder = new Decoder();
 		ByteBuffer encoded = encoder.write(data);
 
 		assertEquals(0x03, encoded.get(4));
@@ -92,7 +92,7 @@ public class CompressionTest {
 			.protocolVersion(3)
 			.compressionThreshold(0)
 			.compressionType(EncoderOptions.CompressionType.SNAPPY));
-		Decoder decoder = new Decoder(null);
+		Decoder decoder = new Decoder();
 		ByteBuffer encoded = encoder.write(data);
 
 		assertEquals(0x23, encoded.get(4));
@@ -108,7 +108,7 @@ public class CompressionTest {
 			.protocolVersion(3)
 			.compressionThreshold(0)
 			.compressionType(EncoderOptions.CompressionType.ZLIB));
-		Decoder decoder = new Decoder(null);
+		Decoder decoder = new Decoder();
 		ByteBuffer encoded = encoder.write(data);
 
 		assertEquals(0x33, encoded.get(4));
@@ -125,7 +125,7 @@ public class CompressionTest {
 			.protocolVersion(3)
 			.compressionThreshold(166)
 			.compressionType(EncoderOptions.CompressionType.ZLIB));
-		Decoder decoder = new Decoder(null);
+		Decoder decoder = new Decoder();
 		ByteBuffer encoded = encoder.write(data);
 
 		assertEquals(0x33, encoded.get(4));
@@ -142,7 +142,7 @@ public class CompressionTest {
 			.protocolVersion(3)
 			.compressionThreshold(167)
 			.compressionType(EncoderOptions.CompressionType.ZLIB));
-		Decoder decoder = new Decoder(null);
+		Decoder decoder = new Decoder();
 		ByteBuffer encoded = encoder.write(data);
 
 		assertEquals(0x03, encoded.get(4));
@@ -159,7 +159,7 @@ public class CompressionTest {
 			.protocolVersion(3)
 			.compressionThreshold(0)
 			.compressionType(EncoderOptions.CompressionType.SNAPPY));
-		Decoder decoder = new Decoder(null);
+		Decoder decoder = new Decoder();
 		ByteBuffer encoded = encoder.write(smallData);
 
 		assertEquals(0x03, encoded.get(4));
@@ -176,7 +176,7 @@ public class CompressionTest {
 			.protocolVersion(3)
 			.compressionThreshold(0)
 			.compressionType(EncoderOptions.CompressionType.ZLIB));
-		Decoder decoder = new Decoder(null);
+		Decoder decoder = new Decoder();
 		ByteBuffer encoded = encoder.write(smallData);
 
 		assertEquals(0x03, encoded.get(4));

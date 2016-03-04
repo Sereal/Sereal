@@ -102,10 +102,11 @@ public class Decoder implements SerealHeader {
 	/**
 	 * Create a new Decoder
 	 */
-	public Decoder(DecoderOptions options) {
-		if (options == null)
-			options = DEFAULT_OPTIONS;
+	public Decoder() {
+		this(DEFAULT_OPTIONS);
+	}
 
+	public Decoder(DecoderOptions options) {
 		objectType = options.objectType();
 		perlRefs = options.perlReferences();
 		perlAlias = options.perlAliases();

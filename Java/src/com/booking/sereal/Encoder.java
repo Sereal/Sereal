@@ -70,10 +70,11 @@ public class Encoder {
 	private long compressedSize;
 	private int headerSize, headerOffset;
 
-	public Encoder(EncoderOptions options) {
-		if (options == null)
-			options = DEFAULT_OPTIONS;
+	public Encoder() {
+		this(DEFAULT_OPTIONS);
+	}
 
+	public Encoder(EncoderOptions options) {
 		perlRefs = options.perlReferences();
 		perlAlias = options.perlAliases();
 		protocolVersion = options.protocolVersion();
