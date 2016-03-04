@@ -72,7 +72,7 @@ public class RoundtripTest {
 
 
 	@Test
-	public void regex() throws IOException {
+	public void regex() throws IOException, SerealException {
 
 		Pattern[] patterns = new Pattern[] { Pattern.compile( "foo" ), Pattern.compile( "foo", Pattern.DOTALL ),
 				Pattern.compile( "foo", Pattern.DOTALL | Pattern.MULTILINE ), Pattern.compile( "foo", Pattern.DOTALL | Pattern.MULTILINE | Pattern.COMMENTS ),
@@ -80,82 +80,57 @@ public class RoundtripTest {
 				Pattern.compile( "[0-9]{3}" ), Pattern.compile( "foo(bar)?" ), Pattern.compile( "(foo(bar))" ), };
 
 		for(Pattern p : patterns) {
+			decoder.setData( encoder.write( p ) );
+			Pattern actual = (Pattern) decoder.decode();
 
-			try {
-				decoder.setData( encoder.write( p ) );
-				Pattern actual = (Pattern) decoder.decode();
-
-				Assert.assertEquals( "Pattern not equal: " + p.pattern() + " != " + actual.pattern(), p.pattern(), actual.pattern() );
-				Assert.assertEquals( "Flags not equal: " + p.flags() + " != " + actual.flags(), p.flags(), actual.flags() );
-			} catch (SerealException e) {
-				fail( e.getMessage() );
-			}
-
+			Assert.assertEquals( "Pattern not equal: " + p.pattern() + " != " + actual.pattern(), p.pattern(), actual.pattern() );
+			Assert.assertEquals( "Flags not equal: " + p.flags() + " != " + actual.flags(), p.flags(), actual.flags() );
 		}
 
 	}
 
 	@Test
-	public void byte_array() throws IOException {
+	public void byte_array() throws IOException, SerealException {
 
 		int n = 10 * 1000;
 		while( n-- > 0 ) {
 			// make some random bytes
 			byte[] pre = new byte[rand.nextInt( 100 )];
-            rand.nextBytes( pre );
+			rand.nextBytes( pre );
 
-			try {
-				decoder.setData( encoder.write( pre ) );
-				Object post = decoder.decode();
-                Assert.assertTrue(post instanceof byte[]);
-				Assert.assertArrayEquals(pre, (byte[]) post);
-			} catch (SerealException e) {
-				fail( e.getMessage() );
-			}
+			decoder.setData( encoder.write( pre ) );
+			Object post = decoder.decode();
+			Assert.assertTrue(post instanceof byte[]);
+			Assert.assertArrayEquals(pre, (byte[]) post);
 		}
 	}
 
 	@Test
-	public void copy() throws IOException {
+	public void copy() throws IOException, SerealException {
 		// write 3 copies of a string (that should be copied)
 		String str = "This is quite a long string";
-		try {
-			encoder.write( new String[]{str, str, str} );
-		} catch (SerealException e) {
-			fail( e.getMessage() );
-		}
-		decoder.setData( encoder.getData() );
-		try {
-			// read all 3
-			Object[] o = (Object[]) decoder.decode();
-			assertEquals( "Number of objects", 3, o.length );
-			for(Object s : o) {
-				assertEquals( str, s );
-			}
-		} catch (SerealException e) {
-			fail( e.getMessage() );
-		}
 
+		encoder.write( new String[]{str, str, str} );
+		decoder.setData( encoder.getData() );
+		// read all 3
+		Object[] o = (Object[]) decoder.decode();
+		assertEquals( "Number of objects", 3, o.length );
+		for(Object s : o) {
+			assertEquals( str, s );
+		}
 	}
 
 	@Test
-	public void short_binary() throws IOException {
+	public void short_binary() throws IOException, SerealException {
 
 		Latin1String str = new Latin1String( "Hello, Sereal!" );
-		try {
-			encoder.write( str.getBytes() );
-		} catch (SerealException e) {
-			fail( e.getMessage() );
-		}
+
+		encoder.write( str.getBytes() );
 
 		decoder.setData( encoder.getData() );
-		try {
-            Object obj = decoder.decode();
-            assertTrue(obj instanceof byte[]);
-			assertEquals( str, new Latin1String((byte[]) obj) );
-		} catch (SerealException e) {
-			fail( e.getMessage() );
-		}
+		Object obj = decoder.decode();
+		assertTrue(obj instanceof byte[]);
+		assertEquals( str, new Latin1String((byte[]) obj) );
 	}
 
 	@Test
@@ -163,20 +138,11 @@ public class RoundtripTest {
 
 		encoder.write( true );
 		decoder.setData( encoder.getData() );
-		try {
-			assertTrue( (Boolean) decoder.decode() );
-		} catch (SerealException e) {
-			fail( e.getMessage() );
-		}
+		assertTrue( (Boolean) decoder.decode() );
 
 		encoder = new Encoder();
 		encoder.write( false );
 		decoder.setData( encoder.getData() );
-		try {
-			assertFalse( (Boolean) decoder.decode() );
-		} catch (SerealException e) {
-			fail( e.getMessage() );
-		}
+		assertFalse( (Boolean) decoder.decode() );
 	}
-
 }

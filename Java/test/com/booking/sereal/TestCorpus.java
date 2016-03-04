@@ -143,25 +143,8 @@ public class TestCorpus {
 			} else {
 				System.out.println();
 			}
-		} catch (SerealException e) {
-			e.printStackTrace( System.out );
-			return false;
-		} catch (IOException e) {
-			e.printStackTrace();
-			return false;
-		} catch (AssertionError a) {
-			if( verbose ) {
-				System.out.println( a.getMessage() );
-			} else {
-				System.out.println( "Fail" );
-			}
-			return false;
 		} catch (Exception e) {
-			if( verbose ) {
-				e.printStackTrace();
-			} else {
-				System.out.println( "Fail" );
-			}
+			e.printStackTrace();
 			return false;
 		}
 
