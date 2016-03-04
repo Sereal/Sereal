@@ -108,15 +108,18 @@ public class Encoder {
 	}
 
 	// write header and version/encoding
-	private void init() {
+	private void init(Object header, boolean hasHeader) throws SerealException {
 		if (protocolVersion >= 3)
 			appendBytesUnsafe(HEADER_V3);
 		else
 			appendBytesUnsafe(HEADER);
 		appendByteUnsafe((byte) ((encoding << 4) | protocolVersion));
 
-		// no header suffix
-		appendByteUnsafe((byte) 0x00);
+		if (hasHeader) {
+			encodeUserHeader(header);
+		} else {
+			appendByteUnsafe((byte) 0x00);
+		}
 
 		headerSize = (int) size;
 		if (protocolVersion > 1)
@@ -124,6 +127,34 @@ public class Encoder {
 			headerOffset = headerSize - 1;
 		else
 			headerOffset = 0;
+	}
+
+	private void encodeUserHeader(Object header) throws SerealException {
+		long originalSize = size;
+
+		// be optimistic about encoded header size
+		size += 2; // one for the size, one for 8bit bitfield
+		encode(header);
+
+		int suffixSize = (int) (size - originalSize - 1);
+		if (suffixSize < 128) {
+			bytes[(int) originalSize] = (byte) suffixSize;
+			bytes[(int) originalSize + 1] = 0x01;
+		} else {
+			// we were too optimistic
+			int sizeLength = varintLength(suffixSize);
+
+			// make space
+			ensureAvailable(sizeLength - 1);
+			System.arraycopy(bytes, (int) originalSize + 2, bytes, (int) originalSize + sizeLength + 1, suffixSize - 1);
+			size += sizeLength - 1;
+
+			// now write size and 8bit bitfield
+			encodeVarint(suffixSize, bytes, (int) originalSize);
+			bytes[(int) originalSize + sizeLength] = 0x01;
+		}
+
+		resetTracked();
 	}
 
 	/**
@@ -400,8 +431,19 @@ public class Encoder {
 	 * @throws SerealException
 	 */
 	public ByteBuffer write(Object obj) throws SerealException, IOException {
+		return write(obj, null, false);
+	}
+
+	public ByteBuffer write(Object obj, Object header) throws SerealException, IOException {
+		return write(obj, header, true);
+	}
+
+	private ByteBuffer write(Object obj, Object header, boolean hasHeader) throws SerealException, IOException {
+		if (hasHeader && protocolVersion == 1)
+			throw new SerealException("Can't encode user header in Sereal protocol version 1");
+
 		reset();
-		init();
+		init(header, hasHeader);
 		encode( obj );
 
 		if (size - headerSize > compressionThreshold) {
@@ -723,6 +765,10 @@ public class Encoder {
 	 */
 	private void reset() {
 		size = compressedSize = headerSize = 0;
+		resetTracked();
+	}
+
+	private void resetTracked() {
 		tracked.clear();
 		trackedBytearrayCopy.clear();
 		trackedStringCopy.clear();

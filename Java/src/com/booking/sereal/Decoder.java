@@ -41,6 +41,8 @@ public class Decoder implements SerealHeader {
 	private int protocolVersion = -1;
 	private int encoding = -1;
 	private int baseOffset = Integer.MAX_VALUE;
+	private long userHeaderPosition = -1;
+	private long userHeaderSize = -1;
 
 	private ObjectType objectType;
 
@@ -85,14 +87,23 @@ public class Decoder implements SerealHeader {
 	}
 
 	private void checkHeaderSuffix() {
-
 		long suffix_size = read_varint();
+		long basePosition = data.position();
 
 		if (debugTrace) trace( "Header suffix size: " + suffix_size );
 
-		// skip everything in the optional suffix part
-		data.position( (int) (data.position() + suffix_size) );
+		userHeaderSize = 0;
+		if (suffix_size > 0) {
+			byte bitfield = data.get();
 
+			if ((bitfield & 0x01) == 0x01) {
+				userHeaderPosition = data.position();
+				userHeaderSize = suffix_size - 1;
+			}
+		}
+
+		// skip everything in the optional suffix part
+		data.position( (int) (basePosition + suffix_size) );
 	}
 
 	private void checkNoEOD() throws SerealException {
@@ -126,6 +137,48 @@ public class Decoder implements SerealHeader {
 		}
 	}
 
+	public boolean hasHeader() throws SerealException {
+		parseHeader();
+
+		return userHeaderSize > 0;
+	}
+
+	public long headerSize() throws SerealException {
+		parseHeader();
+
+		return userHeaderSize > 0 ? userHeaderSize : 0;
+	}
+
+	public Object decodeHeader() throws SerealException {
+		parseHeader();
+
+		if (userHeaderSize <= 0)
+			throw new SerealException("Sereal user header not present");
+		ByteBuffer originalData = data;
+		int originalPosition = data.position(), originalLimit = data.limit();
+		try {
+			data = realData;
+			data.limit((int) (userHeaderPosition + userHeaderSize));
+			data.position((int) userHeaderPosition);
+
+			return readSingleValue();
+		} finally {
+			data = originalData;
+			data.limit(originalLimit);
+			data.position(originalPosition);
+			resetTracked();
+		}
+	}
+
+	private void parseHeader() throws SerealException {
+		if (userHeaderSize >= 0)
+			return;
+
+		checkHeader();
+		checkProtoAndFlags();
+		checkHeaderSuffix();
+	}
+
 	/**
 	 *
 	 * @return deserealized object
@@ -140,11 +193,8 @@ public class Decoder implements SerealHeader {
 
 		if (debugTrace) trace( "Decoding: " + data.toString() + " - " + new String( data.array() ) );
 
-		checkHeader();
-		checkProtoAndFlags();
-		checkHeaderSuffix();
+		parseHeader();
 
-		realData = data;
 		if( encoding != 0 ) {
 			if (encoding == 1 || encoding == 2)
 				uncompressSnappy();
@@ -694,7 +744,7 @@ public class Decoder implements SerealHeader {
 	 */
 	public void setData(ByteBuffer blob) {
 		reset();
-		this.data = blob;
+		this.data = this.realData = blob;
 		data.rewind();
 	}
 
@@ -704,10 +754,14 @@ public class Decoder implements SerealHeader {
 	}
 
 	private void reset() {
-		data = null;
-		realData = null;
+		data = realData = null;
 		protocolVersion = encoding = -1;
 		baseOffset = Integer.MAX_VALUE;
+		userHeaderPosition = userHeaderSize = -1;
+		resetTracked();
+	}
+
+	private void resetTracked() {
 		tracked.clear();
 	}
 }
