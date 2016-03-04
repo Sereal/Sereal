@@ -46,6 +46,7 @@ public class Encoder {
 	private final boolean perlAlias;
 	private final int protocolVersion, encoding;
 	private final CompressionType compressionType;
+	private final long compressionThreshold;
 	private final Deflater deflater;
 
 	// so we don't need to allocate this every time we encode a varint
@@ -77,6 +78,7 @@ public class Encoder {
 		perlAlias = options.perlAliases();
 		protocolVersion = options.protocolVersion();
 		compressionType = options.compressionType();
+		compressionThreshold = options.compressionThreshold();
 
 		switch (protocolVersion) {
 		case 3:
@@ -94,7 +96,7 @@ public class Encoder {
 			break;
 		}
 		if (encoding == 3)
-			deflater = new Deflater();
+			deflater = new Deflater(options.zlibCompressionLevel());
 		else
 			deflater = null;
 
@@ -144,6 +146,11 @@ public class Encoder {
 		}
 	}
 
+	private void markNotCompressed() {
+		compressedSize = 0;
+		bytes[4] &= (byte) 0xf;
+	}
+
 	private void compressSnappy() throws IOException {
 		int maxSize = Snappy.maxCompressedLength((int) size - headerSize);
 		int sizeLength = encoding == 2 ? varintLength(maxSize) : 0;
@@ -159,14 +166,17 @@ public class Encoder {
 		compressedBytes[headerSize + sizeLength - 1] = 0;
 
 		int compressed = Snappy.compress(bytes, headerSize, (int) size - headerSize, compressedBytes, headerSize + sizeLength);
+		compressedSize = headerSize + sizeLength + compressed;
+		if (compressedSize > size) {
+			markNotCompressed();
+			return;
+		}
 
 		if (encoding == 2) {
 			int after = encodeVarint(compressed, compressedBytes, headerSize);
 			if (after != headerSize + sizeLength)
 				compressedBytes[after - 1] |= (byte) 0x80;
 		}
-
-		compressedSize = headerSize + sizeLength + compressed;
 	}
 
 	// from miniz.c
@@ -201,12 +211,15 @@ public class Encoder {
 		deflater.finish();
 
 		int compressed = deflater.deflate(compressedBytes, pos, compressedBytes.length - pos);
+		compressedSize = headerSize + sizeLength + sizeLength2 + compressed;
+		if (compressedSize > size) {
+			markNotCompressed();
+			return;
+		}
 
 		int after = encodeVarint(compressed, compressedBytes, encodedSizePos);
 		if (after != headerSize + sizeLength + sizeLength2)
 			compressedBytes[after - 1] |= (byte) 0x80;
-
-		compressedSize = headerSize + sizeLength + sizeLength2 + compressed;
 	}
 
 	private int varintLength(long n) {
@@ -389,10 +402,15 @@ public class Encoder {
 		init();
 		encode( obj );
 
-		if (compressionType.equals(CompressionType.SNAPPY))
-			compressSnappy();
-		else if (compressionType.equals(CompressionType.ZLIB))
-			compressZlib();
+		if (size - headerSize > compressionThreshold) {
+			if (compressionType.equals(CompressionType.SNAPPY))
+				compressSnappy();
+			else if (compressionType.equals(CompressionType.ZLIB))
+				compressZlib();
+		} else {
+			// we did not do compression after all
+			markNotCompressed();
+		}
 
 		return getData();
 	}

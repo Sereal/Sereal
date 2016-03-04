@@ -11,6 +11,8 @@ public class EncoderOptions {
 	private boolean perlAlias = false;
 	private int protocolVersion = 3;
 	private CompressionType compressionType = CompressionType.NONE;
+	private long compressionThreshold = 1024;
+	private int zlibCompressionLevel = 6;
 
 	public boolean perlReferences() {
 		return perlRefs;
@@ -26,6 +28,14 @@ public class EncoderOptions {
 
 	public CompressionType compressionType() {
 		return compressionType;
+	}
+
+	public long compressionThreshold() {
+		return compressionThreshold;
+	}
+
+	public int zlibCompressionLevel() {
+		return zlibCompressionLevel;
 	}
 
 	public EncoderOptions perlReferences(boolean perlReferences) {
@@ -50,6 +60,19 @@ public class EncoderOptions {
 
 	public EncoderOptions compressionType(CompressionType compressionType) {
 		this.compressionType = compressionType;
+
+		return this;
+	}
+
+	public EncoderOptions compressionThreshold(long compressionThreshold) {
+		this.compressionThreshold = compressionThreshold;
+
+		return this;
+	}
+
+	public EncoderOptions zlibCompressionLevel(int zlibCompressionLevel) {
+		this.zlibCompressionLevel = zlibCompressionLevel;
+
 
 		return this;
 	}
