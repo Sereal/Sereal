@@ -9,6 +9,8 @@
 - option to decode to different map/sequence types
 - handle List in encoder
 - stop using ByteBuffer in Decoder
+- test and refactor early tracking
+  (test test_data_00194, and all the early track_stuff calls)
 
 v2:
 - OBJECT_FREEZE/OBJECTV_FREEZE

@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
 import java.util.regex.Pattern;
+import java.util.zip.Deflater;
 
 import org.xerial.snappy.Snappy;
 
@@ -45,6 +46,7 @@ public class Encoder {
 	private final boolean perlAlias;
 	private final int protocolVersion, encoding;
 	private final CompressionType compressionType;
+	private final Deflater deflater;
 
 	// so we don't need to allocate this every time we encode a varint
 	private byte[] varint_buf = new byte[12];
@@ -52,6 +54,7 @@ public class Encoder {
 	private final Map<String, Long> classnames = new HashMap<String, Long>();
 
 	private final byte[] HEADER = ByteBuffer.allocate( 4 ).putInt( SerealHeader.MAGIC ).array();
+	private final byte[] HEADER_V3 = ByteBuffer.allocate( 4 ).putInt( SerealHeader.MAGIC_V3 ).array();
 
 	// track things we've encoded so we can emit refs and copies
 	private IdentityMap tracked = new IdentityMap();
@@ -76,6 +79,10 @@ public class Encoder {
 		compressionType = options.compressionType();
 
 		switch (protocolVersion) {
+		case 3:
+			encoding = compressionType.equals(CompressionType.ZLIB) ? 3 :
+				   compressionType.equals(CompressionType.SNAPPY) ? 2 : 0;
+			break;
 		case 2:
 			encoding = compressionType.equals(CompressionType.SNAPPY) ? 2 : 0;
 			break;
@@ -86,6 +93,10 @@ public class Encoder {
 			encoding = 0;
 			break;
 		}
+		if (encoding == 3)
+			deflater = new Deflater();
+		else
+			deflater = null;
 
 		if (perlAlias) {
 			aliases = new IdentityMap();
@@ -95,7 +106,10 @@ public class Encoder {
 
 	// write header and version/encoding
 	private void init() {
-		appendBytesUnsafe(HEADER);
+		if (protocolVersion >= 3)
+			appendBytesUnsafe(HEADER_V3);
+		else
+			appendBytesUnsafe(HEADER);
 		appendByteUnsafe((byte) ((encoding << 4) | protocolVersion));
 
 		// no header suffix
@@ -153,6 +167,46 @@ public class Encoder {
 		}
 
 		compressedSize = headerSize + sizeLength + compressed;
+	}
+
+	// from miniz.c
+	private int zlibMaxSize(int sourceLen) {
+		return Math.max(128 + (sourceLen * 110) / 100, 128 + sourceLen + ((sourceLen / (31 * 1024)) + 1) * 5);
+	}
+
+	private void compressZlib() {
+		deflater.reset();
+
+		int sourceSize = (int) size - headerSize;
+		int maxSize = zlibMaxSize(sourceSize);
+		int sizeLength = varintLength(sourceSize);
+		int sizeLength2 = varintLength(maxSize);
+		int pos = 0;
+
+		// I don't think there is any point in overallocating here
+		if ((headerSize + sizeLength + sizeLength2 + maxSize) > compressedBytes.length)
+			compressedBytes = new byte[headerSize + sizeLength + sizeLength2 + maxSize];
+
+		System.arraycopy(bytes, 0, compressedBytes, 0, headerSize);
+		pos += headerSize;
+		pos = encodeVarint(sourceSize, compressedBytes, pos);
+
+		// varint-encoded 0, filling all space
+		int encodedSizePos = pos;
+		for (int max = pos + sizeLength2 - 1; pos < max; )
+			compressedBytes[pos++] = (byte) 128;
+		compressedBytes[pos++] = 0;
+
+		deflater.setInput(bytes, headerSize, sourceSize);
+		deflater.finish();
+
+		int compressed = deflater.deflate(compressedBytes, pos, compressedBytes.length - pos);
+
+		int after = encodeVarint(compressed, compressedBytes, encodedSizePos);
+		if (after != headerSize + sizeLength + sizeLength2)
+			compressedBytes[after - 1] |= (byte) 0x80;
+
+		compressedSize = headerSize + sizeLength + sizeLength2 + compressed;
 	}
 
 	private int varintLength(long n) {
@@ -337,6 +391,8 @@ public class Encoder {
 
 		if (compressionType.equals(CompressionType.SNAPPY))
 			compressSnappy();
+		else if (compressionType.equals(CompressionType.ZLIB))
+			compressZlib();
 
 		return getData();
 	}
@@ -362,7 +418,10 @@ public class Encoder {
 		// this needs to be first for obvious reasons :)
 		if( obj == null || obj instanceof PerlUndef ) {
 			if (debugTrace) trace( "Emitting a NULL/undef" );
-			appendByte(SerealHeader.SRL_HDR_UNDEF);
+			if (protocolVersion == 3 && obj == PerlUndef.CANONICAL)
+				appendByte(SerealHeader.SRL_HDR_CANONICAL_UNDEF);
+			else
+				appendByte(SerealHeader.SRL_HDR_UNDEF);
 			return;
 		}
 

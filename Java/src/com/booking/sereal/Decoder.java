@@ -16,6 +16,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.util.zip.DataFormatException;
+import java.util.zip.Inflater;
 
 import org.xerial.snappy.Snappy;
 
@@ -93,6 +95,7 @@ public class Decoder implements SerealHeader {
 	private final boolean preferLatin1;
 
 	private ByteBuffer realData;
+	private Inflater inflater;
 
 	private Charset charset_utf8 = Charset.forName("UTF-8");
 
@@ -117,7 +120,8 @@ public class Decoder implements SerealHeader {
 			throw new SerealException( "Invalid Sereal header: too few bytes" );
 		}
 
-		if( data.getInt() != MAGIC ) {
+		int magic = data.getInt();
+		if (magic != MAGIC && magic != MAGIC_V3) {
 			throw new SerealException( "Invalid Seareal header: doesn't match magic" );
 		}
 
@@ -152,7 +156,7 @@ public class Decoder implements SerealHeader {
 		protocolVersion = protoAndFlags & 15; // 4 bits for version
 
 		if (debugTrace) trace( "Version: " + protocolVersion );
-		if( protocolVersion < 0 || protocolVersion > 2 ) {
+		if( protocolVersion < 0 || protocolVersion > 3 ) {
 			throw new SerealException( String.format( "Invalid Sereal header: unsupported protocol version %d", protocolVersion ) );
 		}
 
@@ -160,7 +164,7 @@ public class Decoder implements SerealHeader {
 		if (debugTrace) trace( "Encoding: " + encoding );
 		if((encoding == 1 || encoding == 2) && refuseSnappy) {
 			throw new SerealException( "Unsupported encoding: Snappy" );
-		} else if(encoding < 0 || encoding > 2) {
+		} else if(encoding < 0 || encoding > 3) {
 			throw new SerealException( "Unsupported encoding: unknown");
 		}
 	}
@@ -184,8 +188,11 @@ public class Decoder implements SerealHeader {
 		checkHeaderSuffix();
 
 		realData = data;
-		if( encoding == 1 || encoding == 2 ) {
-			uncompressSnappy();
+		if( encoding != 0 ) {
+			if (encoding == 1 || encoding == 2)
+				uncompressSnappy();
+			else
+				uncompressZlib();
 			if (protocolVersion == 1)
 				baseOffset = 0;
 			else
@@ -222,6 +229,26 @@ public class Decoder implements SerealHeader {
 		Snappy.uncompress( compressed, 0, len, uncompressed, pos );
 		this.data = ByteBuffer.wrap( uncompressed );
 		this.data.position(pos);
+	}
+
+	private void uncompressZlib() throws SerealException {
+		if (inflater == null)
+			inflater = new Inflater();
+		inflater.reset();
+
+		long uncompressedLength = read_varint();
+		long compressedLength = read_varint();
+		byte[] compressed = new byte[(int) compressedLength];
+		realData.get(compressed, 0, (int) compressedLength);
+		inflater.setInput(compressed);
+		byte[] uncompressed = new byte[(int) uncompressedLength];
+		try {
+			int inflatedSize = inflater.inflate(uncompressed);
+		} catch (DataFormatException e) {
+			throw new SerealException(e);
+		}
+		this.data = ByteBuffer.wrap(uncompressed);
+		this.data.position(0);
 	}
 
 	/**
@@ -415,6 +442,13 @@ public class Decoder implements SerealHeader {
 				if (debugTrace) trace( "Read a null/undef" );
 				if (preserveUndef)
 					out = new PerlUndef();
+				else
+					out = null;
+				break;
+			case SRL_HDR_CANONICAL_UNDEF:
+				if (debugTrace) trace( "Read a null/undef" );
+				if (preserveUndef)
+					out = PerlUndef.CANONICAL;
 				else
 					out = null;
 				break;

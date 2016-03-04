@@ -5,6 +5,8 @@ package com.booking.sereal;
  *
  */
 public final class PerlUndef {
+	public static final PerlUndef CANONICAL = new PerlUndef();
+
 	@Override
 	public String toString() {
 	    return "Undef";

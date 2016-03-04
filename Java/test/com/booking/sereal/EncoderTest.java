@@ -29,6 +29,10 @@ public class EncoderTest {
 		return new Encoder(new EncoderOptions().protocolVersion(2));
 	}
 
+	private Encoder v3Encoder() {
+		return new Encoder(new EncoderOptions().protocolVersion(2));
+	}
+
 	@Before
 	public void setup() {
 		encoder = null;
@@ -51,6 +55,20 @@ public class EncoderTest {
 	@Test
 	public void headerV2() throws SerealException, IOException {
 		encoder = v2Encoder();
+
+		ByteBuffer data = encoder.write(0);
+
+		data.rewind();
+		assertEquals( "Minimal header size incorrect", 7, data.limit() );
+		assertEquals( "Header is not MAGIC", SerealHeader.MAGIC, data.getInt() );
+		assertEquals( "Protocol version fail", 2, data.get() );
+		assertEquals( "Header suffix not 0", 0, data.get() ); // is a varint, but should be 0
+
+	}
+
+	@Test
+	public void headerV3() throws SerealException, IOException {
+		encoder = v3Encoder();
 
 		ByteBuffer data = encoder.write(0);
 

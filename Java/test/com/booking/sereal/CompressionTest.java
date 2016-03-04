@@ -68,4 +68,48 @@ public class CompressionTest {
 		decoder.setData(encoded);
 		assertEquals(data, decoder.decode());
 	}
+
+	@Test
+	public void serealV3None() throws SerealException, IOException {
+		Encoder encoder = new Encoder(new EncoderOptions()
+			.protocolVersion(3));
+		Decoder decoder = new Decoder(null);
+		ByteBuffer encoded = encoder.write(data);
+
+		assertEquals(0x03, encoded.get(4));
+		assertEquals(173, encoded.limit());
+
+		decoder.setData(encoded);
+		assertEquals(data, decoder.decode());
+	}
+
+	@Test
+	public void serealV3Snappy() throws SerealException, IOException {
+		Encoder encoder = new Encoder(new EncoderOptions()
+			.protocolVersion(3)
+			.compressionType(EncoderOptions.CompressionType.SNAPPY));
+		Decoder decoder = new Decoder(null);
+		ByteBuffer encoded = encoder.write(data);
+
+		assertEquals(0x23, encoded.get(4));
+		assertEquals(24, encoded.limit());
+
+		decoder.setData(encoded);
+		assertEquals(data, decoder.decode());
+	}
+
+	@Test
+	public void serealV3Zlib() throws SerealException, IOException {
+		Encoder encoder = new Encoder(new EncoderOptions()
+			.protocolVersion(3)
+			.compressionType(EncoderOptions.CompressionType.ZLIB));
+		Decoder decoder = new Decoder(null);
+		ByteBuffer encoded = encoder.write(data);
+
+		assertEquals(0x33, encoded.get(4));
+		assertEquals(24, encoded.limit());
+
+		decoder.setData(encoded);
+		assertEquals(data, decoder.decode());
+	}
 }

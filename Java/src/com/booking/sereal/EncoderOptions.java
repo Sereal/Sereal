@@ -9,7 +9,7 @@ public class EncoderOptions {
 
 	private boolean perlRefs = false;
 	private boolean perlAlias = false;
-	private int protocolVersion = 2;
+	private int protocolVersion = 3;
 	private CompressionType compressionType = CompressionType.NONE;
 
 	public boolean perlReferences() {
@@ -41,7 +41,7 @@ public class EncoderOptions {
 	}
 
 	public EncoderOptions protocolVersion(int protocolVersion) {
-		if (protocolVersion < 0 || protocolVersion > 2)
+		if (protocolVersion < 0 || protocolVersion > 3)
 			throw new IllegalArgumentException("Unknown Sereal version " + protocolVersion);
 		this.protocolVersion = protocolVersion;
 
