@@ -73,7 +73,7 @@ public class Decoder implements SerealHeader {
 
 	private void checkHeader() throws SerealException {
 
-		if( data.limit() < 4 ) {
+		if( data.remaining() < 4 ) {
 			throw new SerealException( "Invalid Sereal header: too few bytes" );
 		}
 
@@ -105,7 +105,7 @@ public class Decoder implements SerealHeader {
 
 	private void checkProtoAndFlags() throws SerealException {
 
-		if( data.limit() < 1 ) {
+		if( data.remaining() < 1 ) {
 			throw new SerealException( "Invalid Sereal header: no protocol/version byte" );
 		}
 
