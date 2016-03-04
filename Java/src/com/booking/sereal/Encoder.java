@@ -147,13 +147,9 @@ public class Encoder {
 		int compressed = Snappy.compress(bytes, headerSize, (int) size - headerSize, compressedBytes, headerSize + sizeLength);
 
 		if (encoding == 2) {
-			int length = 0, n = compressed;
-
-			while (n > 127) {
-				compressedBytes[headerSize + length++] = (byte) ((n & 127) | 128);
-				n >>= 7;
-			}
-			compressedBytes[headerSize + length++] = (byte) n;
+			int after = encodeVarint(compressed, compressedBytes, headerSize);
+			if (after != headerSize + sizeLength)
+				compressedBytes[after - 1] |= (byte) 0x80;
 		}
 
 		compressedSize = headerSize + sizeLength + compressed;
@@ -168,6 +164,16 @@ public class Encoder {
 		}
 
 		return length + 1;
+	}
+
+	private int encodeVarint(long n, byte[] buffer, int pos) {
+		while (n > 127) {
+			buffer[pos++] = (byte) ((n & 127) | 128);
+			n >>= 7;
+		}
+		buffer[pos++] = (byte) n;
+
+		return pos;
 	}
 
 	/**

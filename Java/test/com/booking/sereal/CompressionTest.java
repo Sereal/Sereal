@@ -9,7 +9,7 @@ import java.nio.ByteBuffer;
 import org.junit.Test;
 
 public class CompressionTest {
-	private static final String data = "aaaaaaaaaaaaaaaaaaaaaaaa";
+	private static final String data = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 
 	@Test
 	public void serealV1None() throws SerealException, IOException {
@@ -19,7 +19,7 @@ public class CompressionTest {
 		ByteBuffer encoded = encoder.write(data);
 
 		assertEquals(0x01, encoded.get(4));
-		assertEquals(32, encoded.limit());
+		assertEquals(173, encoded.limit());
 
 		decoder.setData(encoded);
 		assertEquals(data, decoder.decode());
@@ -34,7 +34,7 @@ public class CompressionTest {
 		ByteBuffer encoded = encoder.write(data);
 
 		assertEquals(0x11, encoded.get(4));
-		assertEquals(14, encoded.limit());
+		assertEquals(22, encoded.limit());
 
 		decoder.setData(encoded);
 		assertEquals(data, decoder.decode());
@@ -48,7 +48,7 @@ public class CompressionTest {
 		ByteBuffer encoded = encoder.write(data);
 
 		assertEquals(0x02, encoded.get(4));
-		assertEquals(32, encoded.limit());
+		assertEquals(173, encoded.limit());
 
 		decoder.setData(encoded);
 		assertEquals(data, decoder.decode());
@@ -63,7 +63,7 @@ public class CompressionTest {
 		ByteBuffer encoded = encoder.write(data);
 
 		assertEquals(0x22, encoded.get(4));
-		assertEquals(15, encoded.limit());
+		assertEquals(24, encoded.limit());
 
 		decoder.setData(encoded);
 		assertEquals(data, decoder.decode());
