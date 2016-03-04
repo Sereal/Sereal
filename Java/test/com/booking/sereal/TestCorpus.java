@@ -11,8 +11,6 @@ import java.util.List;
 
 import org.junit.Assert;
 
-import com.booking.sereal.Utils.Function;
-
 /**
  * To make the corpus of test files:
  * perl -I Perl/shared/t/lib/ -MSereal::TestSet -MSereal::Encoder -e'Sereal::TestSet::write_test_files("test_dir")'
@@ -186,29 +184,18 @@ public class TestCorpus {
 			}
 		} );
 
-		// turn them into Files
-		List<File> tests = Utils.map( filenames, new Function<String, File>() {
-
-			@Override
-			public File apply(String o) {
-				return new File( test_dir, o );
-			}
-
-		} );
-
-		for(File test : tests) {
-
-			boolean success = roundtrip( test );
+		for (String filename : filenames) {
+			boolean success = roundtrip(new File(test_dir, filename));
 			if( abortOnFirstError && !success ) {
 				System.out.println( "Aborting after first error" );
 				return;
 			}
 
 		}
-		System.out.printf( "Decoded: %d/%d = %.2f%%\n", ok_dec, tests.size(), ((double) 100 * ok_dec / tests.size()) );
-		System.out.printf( "Encoded: %d/%d = %.2f%%\n", ok_enc, tests.size(), ((double) 100 * ok_enc / tests.size()) );
+		System.out.printf( "Decoded: %d/%d = %.2f%%\n", ok_dec, filenames.length, ((double) 100 * ok_dec / filenames.length) );
+		System.out.printf( "Encoded: %d/%d = %.2f%%\n", ok_enc, filenames.length, ((double) 100 * ok_enc / filenames.length) );
 		if (testRoundtrip)
-			System.out.printf( "Roundtrip: %d/%d = %.2f%%\n", ok_round, tests.size(), ((double) 100 * ok_round / tests.size()) );
+			System.out.printf( "Roundtrip: %d/%d = %.2f%%\n", ok_round, filenames.length, ((double) 100 * ok_round / filenames.length) );
 
 	}
 
