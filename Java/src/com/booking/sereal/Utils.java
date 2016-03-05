@@ -1,11 +1,9 @@
 package com.booking.sereal;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.Reader;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
@@ -13,7 +11,6 @@ import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Calendar;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -78,10 +75,6 @@ public class Utils {
 		}
 		if( o == null ) {
 			return "(NULL)";
-		} else if( o instanceof Calendar ) {
-			return ((Calendar) o).getTime().toGMTString(); // deprecated but
-																			// easiest to see an
-																			// actual time :)
 		} else if( o instanceof Map ) {
 			StringBuilder sb = new StringBuilder( ind + "Map@" + System.identityHashCode( o )  +" {\n" );
 			Map map = (Map) o;
@@ -110,20 +103,6 @@ public class Utils {
 			}
 			sb.append( ind ).append( "]" );
 			return sb.toString();
-		} else if( o instanceof Reader ) {
-
-			StringBuilder sb = new StringBuilder();
-			BufferedReader in = new BufferedReader( (Reader) o );
-			String line;
-			try {
-				while( (line = in.readLine()) != null ) {
-					sb.append( line );
-				}
-			} catch (IOException e) {
-				sb.append( join( Arrays.asList( e.getStackTrace() ), "\n" ) );
-			}
-			return sb.toString();
-
 		} else if( o.getClass().isArray() ) {
 			StringBuilder sb = new StringBuilder( ind + "Array@" + System.identityHashCode( o )+" [\n" );
 			int length = Array.getLength( o );
