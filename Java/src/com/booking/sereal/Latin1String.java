@@ -4,36 +4,35 @@ import java.nio.charset.Charset;
 import java.util.Arrays;
 
 public class Latin1String implements CharSequence {
-
 	private final static Charset charset_latin1 = Charset.forName( "ISO-8859-1" );
-    private final byte[] bytes;
+	private final byte[] bytes;
 
 	public Latin1String(String s) {
-        this.bytes = s.getBytes(charset_latin1);
+		this.bytes = s.getBytes(charset_latin1);
 	}
 
-    public Latin1String(byte[] bytes) {
-        this.bytes = bytes;
-    }
+	public Latin1String(byte[] bytes) {
+		this.bytes = bytes;
+	}
 
 	@Override
 	public String toString() {
 		return new String(bytes, charset_latin1);
 	}
 
-    @Override
-    public int hashCode() {
-        return this.toString().hashCode();
-    }
-	
+	@Override
+	public int hashCode() {
+		return Arrays.hashCode(bytes);
+	}
+
 	@Override
 	public char charAt(int index) {
-		return this.toString().charAt(index);
+		return (char) bytes[index];
 	}
 
 	@Override
 	public int length() {
-		return this.toString().length();
+		return bytes.length;
 	}
 
 	@Override
@@ -49,15 +48,11 @@ public class Latin1String implements CharSequence {
 		return this.toString();
 	}
 
-    @Override
-    public boolean equals(Object o) {
-        boolean result = false;
+	@Override
+	public boolean equals(Object o) {
+		if (o == null || !(o instanceof Latin1String))
+			return false;
 
-        if(o instanceof Latin1String) {
-            Latin1String other = (Latin1String) o;
-            result = Arrays.equals(this.getBytes(), other.getBytes());
-        }
-
-        return result;
-    }
+		return Arrays.equals(this.bytes, ((Latin1String) o).bytes);
+	}
 }
