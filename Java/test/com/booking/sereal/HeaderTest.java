@@ -14,7 +14,7 @@ public class HeaderTest {
 
 	@Test
 	public void noHeader() throws SerealException {
-		decoder.setData(encoder.write(1));
+		decoder.setData(encoder.write(1).getData());
 
 		assertFalse(decoder.hasHeader());
 		assertEquals(0, decoder.headerSize());
@@ -23,7 +23,7 @@ public class HeaderTest {
 
 	@Test
 	public void withSmallHeader() throws SerealException {
-		decoder.setData(encoder.write(1, 77));
+		decoder.setData(encoder.write(1, 77).getData());
 
 		assertTrue(decoder.hasHeader());
 		assertEquals(2, decoder.headerSize());
@@ -33,7 +33,7 @@ public class HeaderTest {
 
 	@Test
 	public void withLargerHeader() throws SerealException {
-		decoder.setData(encoder.write(1, largeString));
+		decoder.setData(encoder.write(1, largeString).getData());
 
 		assertTrue(decoder.hasHeader());
 		assertEquals(203, decoder.headerSize());

@@ -1,6 +1,5 @@
 package com.booking.sereal;
 
-import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 
@@ -19,7 +18,7 @@ public class Latin1String implements CharSequence {
 
 	@Override
 	public String toString() {
-		return Charset.forName( "ISO-8859-1" ).decode( ByteBuffer.wrap(bytes) ).toString();
+		return new String(bytes, charset_latin1);
 	}
 
     @Override

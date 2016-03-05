@@ -30,10 +30,10 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 public class StructureDecoder {
-	private ByteBuffer buf;
+	private byte[] buf;
+	private int position;
 	private StringBuilder sb;
 
 	public Object decodeFile(File f) throws SerealException, IOException {
@@ -44,9 +44,9 @@ public class StructureDecoder {
 
 		// read everything
 		int size = (int) f.length(); // yeah yeah truncate
-		buf = ByteBuffer.allocate( size );
+		buf = new byte[size];
 		FileInputStream fi = new FileInputStream( f );
-		fi.getChannel().read( buf );
+		fi.read( buf );
 		fi.close();
 
 		String structure = decode();
@@ -58,10 +58,10 @@ public class StructureDecoder {
 
 		sb = new StringBuilder();
 
-		sb.append( "Bytes: " + Utils.hexStringFromByteArray( buf.array(), 4 ) );
+		sb.append( "Bytes: " + Utils.hexStringFromByteArray( buf, 4 ) );
 		sb.append( "\n" );
 
-		buf.position( 6 );
+		position = 6;
 
 		sb.append( "HEADER" );
 
@@ -72,7 +72,7 @@ public class StructureDecoder {
 
 	private void read() {
 
-		byte tag = buf.get();
+		byte tag = buf[position++];
 
 		String hex = Utils.hexStringFromByteArray( new byte[] { tag } );
 		sb.append( "\n" + hex + "=" );
@@ -108,7 +108,7 @@ public class StructureDecoder {
 				break;
 			case SRL_HDR_DOUBLE:
 				sb.append( "double" );
-				buf.getDouble();
+				position += 8;
 				break;
 			case SRL_HDR_TRUE:
 				sb.append( "true" );
@@ -181,7 +181,7 @@ public class StructureDecoder {
 	private void read_regex() {
 		read(); // string pattern
 		sb.append( "=pattern" );
-		read_short_binary( buf.get() ); // modifiers
+		read_short_binary( buf[position++] ); // modifiers
 		sb.append( "=modifiers" );
 	}
 
@@ -193,7 +193,7 @@ public class StructureDecoder {
 	private void read_UTF8() {
 		long length = read_varint();
 		sb.append( " length=" + length );
-		buf.position( (int) (buf.position() + length));
+		position += length;
 	}
 
 	private byte[] read_binary() {
@@ -211,11 +211,11 @@ public class StructureDecoder {
 		long uv = 0;
 		int lshift = 0;
 
-		byte b = buf.get();
-		while( buf.hasRemaining() && (b < 0) ) {
+		byte b = buf[position++];
+		while( (position < buf.length) && (b < 0) ) {
 			uv |= (b & 127) << lshift; // add 7 bits
 			lshift += 7;
-			b = buf.get();
+			b = buf[position++];
 		}
 		uv |= b << lshift; // add final (or first if there is only 1)
 
@@ -255,6 +255,6 @@ public class StructureDecoder {
 	private void read_short_binary(byte tag) {
 		int length = tag & SerealHeader.SRL_MASK_SHORT_BINARY_LEN;
 		sb.append( " length=" + length );
-		buf.position( buf.position() + length );
+		position += length;
 	}
 }

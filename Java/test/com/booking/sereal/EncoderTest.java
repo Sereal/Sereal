@@ -4,7 +4,7 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -32,6 +32,13 @@ public class EncoderTest {
 		return new Encoder(new EncoderOptions().protocolVersion(2));
 	}
 
+	private int getMagic(byte[] data) {
+		return ((data[0] & 0xff) << 24) +
+		       ((data[1] & 0xff) << 16) +
+		       ((data[2] & 0xff) <<  8) +
+		       ((data[3] & 0xff) <<  0);
+	}
+
 	@Before
 	public void setup() {
 		encoder = null;
@@ -41,13 +48,12 @@ public class EncoderTest {
 	public void headerV1() throws SerealException {
 		encoder = v1Encoder();
 
-		ByteBuffer data = encoder.write(0);
+		byte[] data = encoder.write(0).getData();
 
-		data.rewind();
-		assertEquals( "Minimal header size incorrect", 7, data.limit() );
-		assertEquals( "Header is not MAGIC", SerealHeader.MAGIC, data.getInt() );
-		assertEquals( "Protocol version fail", 1, data.get() );
-		assertEquals( "Header suffix not 0", 0, data.get() ); // is a varint, but should be 0
+		assertEquals( "Minimal header size incorrect", 7, data.length );
+		assertEquals( "Header is not MAGIC", SerealHeader.MAGIC, getMagic(data) );
+		assertEquals( "Protocol version fail", 1, data[4] );
+		assertEquals( "Header suffix not 0", 0, data[5] ); // is a varint, but should be 0
 
 	}
 
@@ -55,13 +61,12 @@ public class EncoderTest {
 	public void headerV2() throws SerealException {
 		encoder = v2Encoder();
 
-		ByteBuffer data = encoder.write(0);
+		byte[] data = encoder.write(0).getData();
 
-		data.rewind();
-		assertEquals( "Minimal header size incorrect", 7, data.limit() );
-		assertEquals( "Header is not MAGIC", SerealHeader.MAGIC, data.getInt() );
-		assertEquals( "Protocol version fail", 2, data.get() );
-		assertEquals( "Header suffix not 0", 0, data.get() ); // is a varint, but should be 0
+		assertEquals( "Minimal header size incorrect", 7, data.length );
+		assertEquals( "Header is not MAGIC", SerealHeader.MAGIC, getMagic(data) );
+		assertEquals( "Protocol version fail", 2, data[4] );
+		assertEquals( "Header suffix not 0", 0, data[5] ); // is a varint, but should be 0
 
 	}
 
@@ -69,13 +74,12 @@ public class EncoderTest {
 	public void headerV3() throws SerealException {
 		encoder = v3Encoder();
 
-		ByteBuffer data = encoder.write(0);
+		byte[] data = encoder.write(0).getData();
 
-		data.rewind();
-		assertEquals( "Minimal header size incorrect", 7, data.limit() );
-		assertEquals( "Header is not MAGIC", SerealHeader.MAGIC, data.getInt() );
-		assertEquals( "Protocol version fail", 2, data.get() );
-		assertEquals( "Header suffix not 0", 0, data.get() ); // is a varint, but should be 0
+		assertEquals( "Minimal header size incorrect", 7, data.length );
+		assertEquals( "Header is not MAGIC", SerealHeader.MAGIC, getMagic(data) );
+		assertEquals( "Protocol version fail", 2, data[4] );
+		assertEquals( "Header suffix not 0", 0, data[5] ); // is a varint, but should be 0
 
 	}
 
@@ -85,11 +89,8 @@ public class EncoderTest {
 
 		encoder.write( new Latin1String("foo").getBytes() );
 
-		ByteBuffer data = encoder.getData();
-		data.position( 6 ); // advance over the header
-
-		byte[] short_binary = new byte[4]; // 1 for the tag, then 3 bytes
-		data.get( short_binary );
+		byte[] data = encoder.getData();
+		byte[] short_binary = Arrays.copyOfRange(data, 6, 10);
 		assertArrayEquals( "Short binary encoding fail", new byte[] { 0x63, 0x66, 0x6f, 0x6f }, short_binary );
 
 	}
@@ -100,11 +101,8 @@ public class EncoderTest {
 
 		encoder.write( new Latin1String("foo").getBytes() );
 
-		ByteBuffer data = encoder.getData();
-		data.position( 6 ); // advance over the header
-
-		byte[] short_binary = new byte[4]; // 1 for the tag, then 3 bytes
-		data.get( short_binary );
+		byte[] data = encoder.getData();
+		byte[] short_binary = Arrays.copyOfRange(data, 6, 10);
 		assertArrayEquals( "Short binary encoding fail", new byte[] { 0x63, 0x66, 0x6f, 0x6f }, short_binary );
 
 	}
@@ -133,11 +131,11 @@ public class EncoderTest {
 			new Latin1String("This is quite a long string").getBytes(),
 		});
 
-		ByteBuffer data = encoder.getData();
+		byte[] data = encoder.getData();
 
 		// should end with 0x2f09 (x2) (0x2f is copy tag, 0x09 is varint encoded offset of copy)
 		assertEquals( "String was not copied", "0x3d73726c0100282b037b546869732069732071756974652061206c6f6e6720737472696e672f092f09",
-				Utils.hexStringFromByteArray( data.array() ) );
+				Utils.hexStringFromByteArray( data ) );
 	}
 
 	@Test
@@ -151,11 +149,11 @@ public class EncoderTest {
 			new Latin1String("This is quite a long string").getBytes(),
 		});
 
-		ByteBuffer data = encoder.getData();
+		byte[] data = encoder.getData();
 
 		// should end with 0x2f04 (x2) (0x2f is copy tag, 0x04 is varint encoded offset of copy)
 		assertEquals( "String was not copied", "0x3d73726c0200282b037b546869732069732071756974652061206c6f6e6720737472696e672f042f04",
-				Utils.hexStringFromByteArray( data.array() ) );
+				Utils.hexStringFromByteArray( data ) );
 	}
 
 	@Test
@@ -169,11 +167,11 @@ public class EncoderTest {
 			new String("This is quite a long string"),
 		});
 
-		ByteBuffer data = encoder.getData();
+		byte[] data = encoder.getData();
 
 		// should end with 0x2f09 (x2) (0x2f is copy tag, 0x09 is varint encoded offset of copy)
 		assertEquals( "String was not copied", "0x3d73726c0100282b03271b546869732069732071756974652061206c6f6e6720737472696e672f092f09",
-				Utils.hexStringFromByteArray( data.array() ) );
+				Utils.hexStringFromByteArray( data ) );
 	}
 
 	@Test
@@ -187,11 +185,11 @@ public class EncoderTest {
 			new String("This is quite a long string"),
 		});
 
-		ByteBuffer data = encoder.getData();
+		byte[] data = encoder.getData();
 
 		// should end with 0x2f04 (x2) (0x2f is copy tag, 0x04 is varint encoded offset of copy)
 		assertEquals( "String was not copied", "0x3d73726c0200282b03271b546869732069732071756974652061206c6f6e6720737472696e672f042f04",
-				Utils.hexStringFromByteArray( data.array() ) );
+				Utils.hexStringFromByteArray( data ) );
 	}
 
 	@Test
@@ -204,31 +202,31 @@ public class EncoderTest {
 		Map<String, Object> mapValue = new HashMap<String, Object>();
 		Object[] arrayValue = new Object[0];
 		String stringValue = "foo";
-		ByteBuffer data;
+		byte[] data;
 
-		data = encoder.write(new Object[] {booleanValue, booleanValue});
+		data = encoder.write(new Object[] {booleanValue, booleanValue}).getData();
 		assertEquals("0x3d73726c0100282b023b3b",
-			     Utils.hexStringFromByteArray(data.array()));
+			     Utils.hexStringFromByteArray(data));
 
-		data = encoder.write(new Object[] {integerValue, integerValue});
+		data = encoder.write(new Object[] {integerValue, integerValue}).getData();
 		assertEquals("0x3d73726c0100282b020c0c",
-			     Utils.hexStringFromByteArray(data.array()));
+			     Utils.hexStringFromByteArray(data));
 
-		data = encoder.write(new Object[] {bytesValue, bytesValue});
+		data = encoder.write(new Object[] {bytesValue, bytesValue}).getData();
 		assertEquals("0x3d73726c0100282b0263666f6f2f09",
-			     Utils.hexStringFromByteArray(data.array()));
+			     Utils.hexStringFromByteArray(data));
 
-		data = encoder.write(new Object[] {stringValue, stringValue});
+		data = encoder.write(new Object[] {stringValue, stringValue}).getData();
 		assertEquals("0x3d73726c0100282b022703666f6f2f09",
-			     Utils.hexStringFromByteArray(data.array()));
+			     Utils.hexStringFromByteArray(data));
 
-		data = encoder.write(new Object[] {mapValue, mapValue});
+		data = encoder.write(new Object[] {mapValue, mapValue}).getData();
 		assertEquals("0x3d73726c0100282b0228aa00290a",
-			     Utils.hexStringFromByteArray(data.array()));
+			     Utils.hexStringFromByteArray(data));
 
-		data = encoder.write(new Object[] {arrayValue, arrayValue});
+		data = encoder.write(new Object[] {arrayValue, arrayValue}).getData();
 		assertEquals("0x3d73726c0100282b0228ab00290a",
-			     Utils.hexStringFromByteArray(data.array()));
+			     Utils.hexStringFromByteArray(data));
 	}
 
 	@Test
@@ -241,30 +239,30 @@ public class EncoderTest {
 		Map<String, Object> mapValue = new HashMap<String, Object>();
 		Object[] arrayValue = new Object[0];
 		String stringValue = "foo";
-		ByteBuffer data;
+		byte[] data;
 
-		data = encoder.write(new Object[] {booleanValue, booleanValue});
+		data = encoder.write(new Object[] {booleanValue, booleanValue}).getData();
 		assertEquals("0x3d73726c0200282b023b3b",
-			     Utils.hexStringFromByteArray(data.array()));
+			     Utils.hexStringFromByteArray(data));
 
-		data = encoder.write(new Object[] {integerValue, integerValue});
+		data = encoder.write(new Object[] {integerValue, integerValue}).getData();
 		assertEquals("0x3d73726c0200282b020c0c",
-			     Utils.hexStringFromByteArray(data.array()));
+			     Utils.hexStringFromByteArray(data));
 
-		data = encoder.write(new Object[] {bytesValue, bytesValue});
+		data = encoder.write(new Object[] {bytesValue, bytesValue}).getData();
 		assertEquals("0x3d73726c0200282b0263666f6f2f04",
-			     Utils.hexStringFromByteArray(data.array()));
+			     Utils.hexStringFromByteArray(data));
 
-		data = encoder.write(new Object[] {stringValue, stringValue});
+		data = encoder.write(new Object[] {stringValue, stringValue}).getData();
 		assertEquals("0x3d73726c0200282b022703666f6f2f04",
-			     Utils.hexStringFromByteArray(data.array()));
+			     Utils.hexStringFromByteArray(data));
 
-		data = encoder.write(new Object[] {mapValue, mapValue});
+		data = encoder.write(new Object[] {mapValue, mapValue}).getData();
 		assertEquals("0x3d73726c0200282b0228aa002905",
-			     Utils.hexStringFromByteArray(data.array()));
+			     Utils.hexStringFromByteArray(data));
 
-		data = encoder.write(new Object[] {arrayValue, arrayValue});
+		data = encoder.write(new Object[] {arrayValue, arrayValue}).getData();
 		assertEquals("0x3d73726c0200282b0228ab002905",
-			     Utils.hexStringFromByteArray(data.array()));
+			     Utils.hexStringFromByteArray(data));
 	}
 }

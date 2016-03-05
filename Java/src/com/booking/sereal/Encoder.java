@@ -9,7 +9,6 @@ import com.booking.sereal.impl.StringCopyMap;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Array;
-import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -51,8 +50,18 @@ public class Encoder {
 
 	private final Map<String, Long> classnames = new HashMap<String, Long>();
 
-	private final byte[] HEADER = ByteBuffer.allocate( 4 ).putInt( SerealHeader.MAGIC ).array();
-	private final byte[] HEADER_V3 = ByteBuffer.allocate( 4 ).putInt( SerealHeader.MAGIC_V3 ).array();
+	private final byte[] HEADER = new byte[] {
+		(byte) (SerealHeader.MAGIC >> 24),
+		(byte) (SerealHeader.MAGIC >> 16),
+		(byte) (SerealHeader.MAGIC >>  8),
+		(byte) (SerealHeader.MAGIC >>  0),
+	};
+	private final byte[] HEADER_V3 = new byte[] {
+		(byte) (SerealHeader.MAGIC_V3 >> 24),
+		(byte) (SerealHeader.MAGIC_V3 >> 16),
+		(byte) (SerealHeader.MAGIC_V3 >>  8),
+		(byte) (SerealHeader.MAGIC_V3 >>  0),
+	};
 
 	// track things we've encoded so we can emit refs and copies
 	private IdentityMap tracked = new IdentityMap();
@@ -154,24 +163,19 @@ public class Encoder {
 		resetTracked();
 	}
 
-	/**
-	 * Returns the encoded data as a ByteBuffer
-	 * 
-	 * @return
-	 */
-	public ByteBuffer getData() {
+	public ByteArray getDataReference() {
 		if (compressedSize != 0) {
-			ByteBuffer buf = ByteBuffer.allocate((int) compressedSize);
-
-			buf.put(compressedBytes, 0, (int) compressedSize);
-
-			return buf;
+			return new ByteArray(compressedBytes, (int) compressedSize);
 		} else {
-			ByteBuffer buf = ByteBuffer.allocate((int) size);
+			return new ByteArray(bytes, (int) size);
+		}
+	}
 
-			buf.put(bytes, 0, (int) size);
-
-			return buf;
+	public byte[] getData() {
+		if (compressedSize != 0) {
+			return Arrays.copyOf(compressedBytes, (int) compressedSize);
+		} else {
+			return Arrays.copyOf(bytes, (int) size);
 		}
 	}
 
@@ -432,15 +436,15 @@ public class Encoder {
 	 * @return a buffer with the encoded data
 	 * @throws SerealException
 	 */
-	public ByteBuffer write(Object obj) throws SerealException {
+	public Encoder write(Object obj) throws SerealException {
 		return write(obj, null, false);
 	}
 
-	public ByteBuffer write(Object obj, Object header) throws SerealException {
+	public Encoder write(Object obj, Object header) throws SerealException {
 		return write(obj, header, true);
 	}
 
-	private ByteBuffer write(Object obj, Object header, boolean hasHeader) throws SerealException {
+	private Encoder write(Object obj, Object header, boolean hasHeader) throws SerealException {
 		if (hasHeader && protocolVersion == 1)
 			throw new SerealException("Can't encode user header in Sereal protocol version 1");
 
@@ -458,7 +462,7 @@ public class Encoder {
 			markNotCompressed();
 		}
 
-		return getData();
+		return this;
 	}
 
 	@SuppressWarnings("unchecked")

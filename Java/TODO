@@ -8,7 +8,6 @@
 - serialized data > 2GB
 - option to decode to different map/sequence types
 - handle List in encoder
-- stop using ByteBuffer in Decoder
 - test and refactor early tracking
   (test test_data_00194, and all the early track_stuff calls)
 - don't mark as UTF-8 strings that don't contain non-ASCII characters

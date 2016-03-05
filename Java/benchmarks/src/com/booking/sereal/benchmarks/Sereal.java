@@ -1,5 +1,6 @@
 package com.booking.sereal.benchmarks;
 
+import com.booking.sereal.ByteArray;
 import com.booking.sereal.Decoder;
 import com.booking.sereal.Encoder;
 import com.booking.sereal.SerealException;
@@ -11,7 +12,6 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.HashMap;
 
@@ -19,7 +19,7 @@ public class Sereal {
     private static final Map<String, Object> solarSystem = makeSolarSystem();
     private static final Object[] solarSystems;
 
-    private static ByteBuffer encodedSmall, encodedLarge;
+    private static ByteArray encodedSmall, encodedLarge;
     private static Encoder encoderSmall = new Encoder();
     private static Encoder encoderLarge = new Encoder();
     private static Decoder decoderSmall = new Decoder();
@@ -62,8 +62,8 @@ public class Sereal {
             solarSystems[i] = makeSolarSystem();
 
         try {
-            encodedSmall = encoderSmall.write(solarSystem);
-            encodedLarge = encoderLarge.write(solarSystems);
+            encodedSmall = new ByteArray(encoderSmall.write(solarSystem).getData());
+            encodedLarge = new ByteArray(encoderLarge.write(solarSystems).getData());
         } catch (SerealException e) {
             throw new RuntimeException(e);
         }

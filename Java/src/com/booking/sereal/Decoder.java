@@ -6,9 +6,8 @@ import com.booking.sereal.impl.RefpMap;
 
 import java.io.IOException;
 import java.lang.ref.WeakReference;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -32,7 +31,9 @@ public class Decoder implements SerealHeader {
 		System.out.println( info );
 	}
 
-	private ByteBuffer data;
+	private byte[] data;
+	private int position, size;
+	private ByteArray originalData;
 
 	// where we track items for REFP purposes
 	private RefpMap tracked = new RefpMap();
@@ -51,7 +52,6 @@ public class Decoder implements SerealHeader {
 	private final boolean refuseSnappy;
 	private final boolean preferLatin1;
 
-	private ByteBuffer realData;
 	private Inflater inflater;
 
 	private Charset charset_utf8 = Charset.forName("UTF-8");
@@ -74,52 +74,56 @@ public class Decoder implements SerealHeader {
 
 	private void checkHeader() throws SerealException {
 
-		if( data.remaining() < 4 ) {
+		if( (size - position) < 4 ) {
 			throw new SerealException( "Invalid Sereal header: too few bytes" );
 		}
 
-		int magic = data.getInt();
+		int magic = ((int) (data[position    ] & 0xff) << 24) +
+			    ((int) (data[position + 1] & 0xff) << 16) +
+			    ((int) (data[position + 2] & 0xff) <<  8) +
+			    ((int) (data[position + 3] & 0xff) <<  0);
+		position += 4;
 		if (magic != MAGIC && magic != MAGIC_V3) {
-			throw new SerealException( "Invalid Seareal header: doesn't match magic" );
+			throw new SerealException( String.format( "Invalid Seareal header (%08x): doesn't match magic", magic) );
 		}
 
 	}
 
 	private void checkHeaderSuffix() {
 		long suffix_size = read_varint();
-		long basePosition = data.position();
+		long basePosition = position;
 
 		if (debugTrace) trace( "Header suffix size: " + suffix_size );
 
 		userHeaderSize = 0;
 		if (suffix_size > 0) {
-			byte bitfield = data.get();
+			byte bitfield = data[position++];
 
 			if ((bitfield & 0x01) == 0x01) {
-				userHeaderPosition = data.position();
+				userHeaderPosition = position;
 				userHeaderSize = suffix_size - 1;
 			}
 		}
 
 		// skip everything in the optional suffix part
-		data.position( (int) (basePosition + suffix_size) );
+		position = (int) (basePosition + suffix_size);
 	}
 
 	private void checkNoEOD() throws SerealException {
 
-		if( data.remaining() == 0 ) {
-			throw new SerealException( "Unexpected end of data at byte " + data.limit() );
+		if( (size - position) <= 0 ) {
+			throw new SerealException( "Unexpected end of data at byte " + position );
 		}
 
 	}
 
 	private void checkProtoAndFlags() throws SerealException {
 
-		if( data.remaining() < 1 ) {
+		if( (size - position) < 1 ) {
 			throw new SerealException( "Invalid Sereal header: no protocol/version byte" );
 		}
 
-		int protoAndFlags = data.get();
+		int protoAndFlags = data[position++];
 		protocolVersion = protoAndFlags & 15; // 4 bits for version
 
 		if (debugTrace) trace( "Version: " + protocolVersion );
@@ -153,18 +157,18 @@ public class Decoder implements SerealHeader {
 
 		if (userHeaderSize <= 0)
 			throw new SerealException("Sereal user header not present");
-		ByteBuffer originalData = data;
-		int originalPosition = data.position(), originalLimit = data.limit();
+		byte[] originalData = data;
+		int originalPosition = position, originalSize = size;
 		try {
-			data = realData;
-			data.limit((int) (userHeaderPosition + userHeaderSize));
-			data.position((int) userHeaderPosition);
+			data = originalData;
+			size = (int) (userHeaderPosition + userHeaderSize);
+			position = (int) userHeaderPosition;
 
 			return readSingleValue();
 		} finally {
 			data = originalData;
-			data.limit(originalLimit);
-			data.position(originalPosition);
+			size = originalSize;
+			position = originalPosition;
 			resetTracked();
 		}
 	}
@@ -189,7 +193,7 @@ public class Decoder implements SerealHeader {
 			throw new SerealException( "No data set" );
 		}
 
-		if (debugTrace) trace( "Decoding: " + data.toString() + " - " + new String( data.array() ) );
+		if (debugTrace) trace( "Decoding: " + Utils.hexStringFromByteArray(data) );
 
 		parseHeader();
 
@@ -208,36 +212,35 @@ public class Decoder implements SerealHeader {
 				baseOffset = 0;
 			else
 				// because offsets start at 1
-				baseOffset = data.position() - 1;
+				baseOffset = position - 1;
 		}
 		Object out = readSingleValue();
 
 		if (debugTrace) trace( "Read: " + out );
-		if (debugTrace) trace( "Data left: " + (realData.limit() - realData.position()) );
+		if (debugTrace) trace( "Data left: " + (size - position) );
 
 		return out;
 	}
 
 	private void uncompressSnappy() throws SerealException {
-		int len = realData.limit() - realData.position();
-		int pos = protocolVersion == 1 ? realData.position() : 0;
+		int len = originalData.length - position;
+		int pos = protocolVersion == 1 ? position : 0;
 
 		if(encoding == 2) {
 			len = (int) read_varint();
 		}
-		byte[] compressed = new byte[len];
-		realData.get( compressed, 0, len );
 		byte[] uncompressed;
 		try {
-			if (!Snappy.isValidCompressedBuffer( compressed))
+			if (!Snappy.isValidCompressedBuffer(originalData.array, position, originalData.length - position))
 				throw new SerealException("Invalid snappy data");
-			uncompressed = new byte[pos + Snappy.uncompressedLength( compressed, 0, len ) ];
-			Snappy.uncompress( compressed, 0, len, uncompressed, pos );
+			uncompressed = new byte[pos + Snappy.uncompressedLength(originalData.array, position, originalData.length - position) ];
+			Snappy.uncompress(originalData.array, position, originalData.length - position, uncompressed, pos);
 		} catch (IOException e) {
 			throw new SerealException(e);
 		}
-		this.data = ByteBuffer.wrap( uncompressed );
-		this.data.position(pos);
+		this.data = uncompressed;
+		this.position = pos;
+		this.size = uncompressed.length;
 	}
 
 	private void uncompressZlib() throws SerealException {
@@ -247,17 +250,16 @@ public class Decoder implements SerealHeader {
 
 		long uncompressedLength = read_varint();
 		long compressedLength = read_varint();
-		byte[] compressed = new byte[(int) compressedLength];
-		realData.get(compressed, 0, (int) compressedLength);
-		inflater.setInput(compressed);
+		inflater.setInput(originalData.array, position, originalData.length - position);
 		byte[] uncompressed = new byte[(int) uncompressedLength];
 		try {
 			int inflatedSize = inflater.inflate(uncompressed);
 		} catch (DataFormatException e) {
 			throw new SerealException(e);
 		}
-		this.data = ByteBuffer.wrap(uncompressed);
-		this.data.position(0);
+		this.data = uncompressed;
+		this.position = 0;
+		this.size = uncompressed.length;
 	}
 
 	/**
@@ -301,12 +303,10 @@ public class Decoder implements SerealHeader {
 	 * @return
 	 */
 	private byte[] read_binary() {
-
 		int length = (int) read_varint();
-		byte[] out = new byte[length];
-		for(int i = 0; i < length; i++) {
-			out[i] = data.get();
-		}
+		byte[] out = Arrays.copyOfRange(data, position, position + length);
+
+		position += length;
 
 		return out;
 	}
@@ -356,11 +356,11 @@ public class Decoder implements SerealHeader {
 		long uv = 0;
 		int lshift = 0;
 
-		byte b = data.get();
-		while( data.hasRemaining() && (b < 0) ) {
+		byte b = data[position++];
+		while( (position < size) && (b < 0) ) {
 			uv |= ((long) b & 127) << lshift; // add 7 bits
 			lshift += 7;
-			b = data.get();
+			b = data[position++];
 		}
 		uv |= (long) b << lshift; // add final (or first if there is only 1)
 
@@ -372,12 +372,12 @@ public class Decoder implements SerealHeader {
 
 		checkNoEOD();
 
-		byte tag = data.get();
+		byte tag = data[position++];
 
 		int track = 0;
 		if( (tag & SRL_HDR_TRACK_FLAG) != 0 ) {
 			tag = (byte) (tag & ~SRL_HDR_TRACK_FLAG);
-			track = data.position() - 1 - baseOffset;
+			track = position - 1 - baseOffset;
 			if (debugTrace) trace( "Tracking stuff at position: " + track );
 		}
 
@@ -424,18 +424,26 @@ public class Decoder implements SerealHeader {
 				out = zz;
 				break;
 			case SRL_HDR_FLOAT:
-				// Java defaults to BE, maybe we can jsut do this generally, don't know yet (but think so)
-				data.order( ByteOrder.LITTLE_ENDIAN );
-				float f = data.getFloat();
-				data.order( ByteOrder.BIG_ENDIAN );
+				int floatBits = ((int) (data[position + 3] & 0xff) << 24) +
+						((int) (data[position + 2] & 0xff) << 16) +
+						((int) (data[position + 1] & 0xff) <<  8) +
+						((int) (data[position    ] & 0xff) <<  0);
+				position += 4;
+				float f = Float.intBitsToFloat(floatBits);
 				if (debugTrace) trace( "Read float: " + f );
 				out = f;
 				break;
 			case SRL_HDR_DOUBLE:
-				// Java defaults to BE, maybe we can jsut do this generally, don't know yet (but think so)
-				data.order( ByteOrder.LITTLE_ENDIAN );
-				double d = data.getDouble();
-				data.order( ByteOrder.BIG_ENDIAN );
+				long doubleBits = ((long) (data[position + 7] & 0xff) << 56) +
+						  ((long) (data[position + 6] & 0xff) << 48) +
+						  ((long) (data[position + 5] & 0xff) << 40) +
+						  ((long) (data[position + 4] & 0xff) << 32) +
+						  ((long) (data[position + 3] & 0xff) << 24) +
+						  ((long) (data[position + 2] & 0xff) << 16) +
+						  ((long) (data[position + 1] & 0xff) <<  8) +
+						  ((long) (data[position    ] & 0xff) <<  0);
+				position += 8;
+				double d = Double.longBitsToDouble(doubleBits);
 				if (debugTrace) trace( "Read double: " + d );
 				out = d;
 				break;
@@ -581,8 +589,8 @@ public class Decoder implements SerealHeader {
 	private byte[] read_short_binary(byte tag) {
 		int length = tag & SRL_MASK_SHORT_BINARY_LEN;
 		if (debugTrace) trace( "Short binary, length: " + length );
-		byte[] buf = new byte[length];
-		data.get( buf );
+		byte[] buf = Arrays.copyOfRange(data, position, position + length);
+		position += length;
 		return buf;
 	}
 
@@ -603,30 +611,22 @@ public class Decoder implements SerealHeader {
 	private Object read_copy() throws SerealException {
 
 		int originalPosition = (int) read_varint();
-		int currentPosition = data.position(); // remember where we parked
+		int currentPosition = position; // remember where we parked
 
-		// note: you might think you'd like to use mark() and reset(), but setting position(..) discards the mark
-		data.position( originalPosition + baseOffset );
+		position = originalPosition + baseOffset;
 		Object copy = readSingleValue();
-		data.position( currentPosition ); // go back to where we were
+		position = currentPosition; // go back to where we were
 
 		return copy;
 	}
 
 	private String read_UTF8() {
 		int length = (int) read_varint();
+		int originalPosition = position;
 
-		if (data.hasArray()) {
-			int position = data.position();
+		position += length;
 
-			data.position(position + length);
-
-			return new String(data.array(), data.arrayOffset() + position, length, charset_utf8);
-		} else {
-			byte[] buf = new byte[length];
-			data.get( buf );
-			return new String(buf, charset_utf8);
-		}
+		return new String(data, originalPosition, length, charset_utf8);
 	}
 
 	private long read_zigzag() {
@@ -651,11 +651,11 @@ public class Decoder implements SerealHeader {
 		if (debugTrace) trace( "Read pattern: " + regex );
 
 		// now read modifiers
-		byte tag = data.get();
+		byte tag = data[position++];
 		if( (tag & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW ) {
 			int length = tag & SRL_MASK_SHORT_BINARY_LEN;
 			while( length-- > 0 ) {
-				byte value = data.get();
+				byte value = data[position++];
 				switch (value) {
 				case 'm':
 					flags = flags | Pattern.MULTILINE;
@@ -688,19 +688,19 @@ public class Decoder implements SerealHeader {
 
 		// first read the classname
 		// Maybe we should have some kind of read_string() method?
-		int position = data.position();
-		byte tag = data.get();
+		int originalPosition = position;
+		byte tag = data[position++];
 		Latin1String className;
 		if( (tag & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW ) {
 			int length = tag & SRL_MASK_SHORT_BINARY_LEN;
-			byte[] buf = new byte[length];
-			data.get( buf );
+			byte[] buf = Arrays.copyOfRange(data, position, position + length);
+			position += length;
 			className = new Latin1String( new String( buf ) );
 		} else {
 			throw new SerealException( "Don't know how to read classname from tag" + tag );
 		}
 		// apparently class names do not need a track_bit set to be the target of objectv's. WTF
-		track_stuff( position - baseOffset, className );
+		track_stuff( originalPosition - baseOffset, className );
 
 		if (debugTrace) trace( "Object Classname: " + className );
 
@@ -737,17 +737,20 @@ public class Decoder implements SerealHeader {
 
 	}
 
-	/**
-	 * Set the data to deserealize
-	 * (for calling decode multiple times when there are concatenated packets)
-	 * (never tested)
-	 *
-	 * @param blob
-	 */
-	public void setData(ByteBuffer blob) {
+	public void setData(ByteArray blob) {
 		reset();
-		this.data = this.realData = blob;
-		data.rewind();
+		originalData = blob;
+		data = originalData.array;
+		size = originalData.length;
+		position = 0;
+	}
+
+	public void setData(byte[] blob) {
+		reset();
+		originalData = new ByteArray(blob);
+		data = blob;
+		size = blob.length;
+		position = 0;
 	}
 
 	private void track_stuff(int pos, Object ref) {
@@ -756,7 +759,8 @@ public class Decoder implements SerealHeader {
 	}
 
 	private void reset() {
-		data = realData = null;
+		originalData = null;
+		data = null;
 		protocolVersion = encoding = -1;
 		baseOffset = Integer.MAX_VALUE;
 		userHeaderPosition = userHeaderSize = -1;

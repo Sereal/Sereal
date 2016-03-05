@@ -8,7 +8,6 @@ import java.lang.ref.WeakReference;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.net.URI;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -345,13 +344,16 @@ public class Utils {
 		// read everything
 		int size = (int) f.length(); // yeah yeah truncate
 		if (decoder.debugTrace) decoder.trace( "File size: " + size );
-		ByteBuffer buf = ByteBuffer.allocate( size );
+		byte[] buf = new byte[size];
 		FileInputStream fi = new FileInputStream( f );
-		fi.getChannel().read( buf );
-		fi.close();
-		if (decoder.debugTrace) decoder.trace( "Raw: " + new String( buf.array() ) );
+		try {
+			fi.read(buf);
+		} finally {
+			fi.close();
+		}
+		if (decoder.debugTrace) decoder.trace( "Raw: " + new String( buf ) );
 
-		decoder.setData( buf );
+		decoder.setData(buf);
 		Object structure = decoder.decode();
 		if (decoder.debugTrace) decoder.trace( "Decoded: " + Utils.dump( structure ) );
 

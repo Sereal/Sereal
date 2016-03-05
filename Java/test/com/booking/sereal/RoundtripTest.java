@@ -54,7 +54,7 @@ public class RoundtripTest {
 	@Test
 	public void varintSmall() throws SerealException {
 		for (int n = -100; n < 100; ++n) {
-			decoder.setData( encoder.write(n) );
+			decoder.setData(encoder.write(n).getData());
 			assertTrue( "Varint not decoded correctly: " + n, ((Long) decoder.decode()) == n );
 		}
 	}
@@ -63,7 +63,7 @@ public class RoundtripTest {
 	public void varintRandom() throws SerealException {
 		for (int i = 0; i < 1000000; ++i) {
 			int n = rand.nextInt( Integer.MAX_VALUE );
-			decoder.setData( encoder.write(n) );
+			decoder.setData(encoder.write(n).getData());
 			assertTrue( "Varint not decoded correctly: " + n, ((Long) decoder.decode()) == n );
 		}
 	}
@@ -78,7 +78,7 @@ public class RoundtripTest {
 				Pattern.compile( "[0-9]{3}" ), Pattern.compile( "foo(bar)?" ), Pattern.compile( "(foo(bar))" ), };
 
 		for(Pattern p : patterns) {
-			decoder.setData( encoder.write( p ) );
+			decoder.setData(encoder.write(p).getData());
 			Pattern actual = (Pattern) decoder.decode();
 
 			Assert.assertEquals( "Pattern not equal: " + p.pattern() + " != " + actual.pattern(), p.pattern(), actual.pattern() );
@@ -96,7 +96,7 @@ public class RoundtripTest {
 			byte[] pre = new byte[rand.nextInt( 100 )];
 			rand.nextBytes( pre );
 
-			decoder.setData( encoder.write( pre ) );
+			decoder.setData(encoder.write(pre).getData());
 			Object post = decoder.decode();
 			Assert.assertTrue(post instanceof byte[]);
 			Assert.assertArrayEquals(pre, (byte[]) post);
@@ -109,7 +109,7 @@ public class RoundtripTest {
 		String str = "This is quite a long string";
 
 		encoder.write( new String[]{str, str, str} );
-		decoder.setData( encoder.getData() );
+		decoder.setData(encoder.getData());
 		// read all 3
 		Object[] o = (Object[]) decoder.decode();
 		assertEquals( "Number of objects", 3, o.length );
@@ -125,7 +125,7 @@ public class RoundtripTest {
 
 		encoder.write( str.getBytes() );
 
-		decoder.setData( encoder.getData() );
+		decoder.setData(encoder.getData());
 		Object obj = decoder.decode();
 		assertTrue(obj instanceof byte[]);
 		assertEquals( str, new Latin1String((byte[]) obj) );
@@ -135,12 +135,12 @@ public class RoundtripTest {
 	public void booleans() throws SerealException {
 
 		encoder.write( true );
-		decoder.setData( encoder.getData() );
+		decoder.setData(encoder.getData());
 		assertTrue( (Boolean) decoder.decode() );
 
 		encoder = new Encoder();
 		encoder.write( false );
-		decoder.setData( encoder.getData() );
+		decoder.setData(encoder.getData());
 		assertFalse( (Boolean) decoder.decode() );
 	}
 }

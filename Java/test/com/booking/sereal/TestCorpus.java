@@ -6,7 +6,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.List;
 
 import org.junit.Assert;
@@ -116,28 +115,28 @@ public class TestCorpus {
 				System.out.println( "\nDecoding Done: " + Utils.dump( data ) + "\n" );
 			}
 			System.out.print( " Encode: " );
-			ByteBuffer encoded = enc.write( data );
+			byte[] encoded = enc.write( data ).getData();
 			System.out.print( "OK" );
 			ok_enc++;
 			if( writeEncoded ) {
 				FileOutputStream fos = new FileOutputStream( new File( target.getAbsolutePath() + "-java.out" ) );
-				fos.write( encoded.array() );
+				fos.write( encoded );
 				fos.close();
 			}
 
 			FileInputStream fis = new FileInputStream( target );
-			ByteBuffer buf = ByteBuffer.allocate( (int) target.length() );
-			fis.getChannel().read( buf );
+			byte[] buf = new byte[(int) target.length()];
+			fis.read( buf );
 			fis.close();
 			if( verbose ) {
 				System.out.println();
-				System.out.println( "From file: " + Utils.hexStringFromByteArray( buf.array(), 4 ) );
-				System.out.println( "Encoded  : " + Utils.hexStringFromByteArray( encoded.array(), 4 ) );
+				System.out.println( "From file: " + Utils.hexStringFromByteArray( buf, 4 ) );
+				System.out.println( "Encoded  : " + Utils.hexStringFromByteArray( encoded, 4 ) );
 				System.out.println( "\nStructure: " + sd.decodeFile( target ) );
 			}
 			if (testRoundtrip) {
 				System.out.print( " Roundtrip: " );
-				Assert.assertArrayEquals( "Roundtrip fail for: " + target.getName(), buf.array(), encoded.array() );
+				Assert.assertArrayEquals( "Roundtrip fail for: " + target.getName(), buf, encoded );
 				System.out.println( "OK" );
 				ok_round++;
 			} else {
