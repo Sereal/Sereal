@@ -300,7 +300,7 @@ public class Decoder implements SerealHeader {
 	 * For some reason we call them Latin1Strings.
 	 * @return
 	 */
-	byte[] read_binary() {
+	private byte[] read_binary() {
 
 		int length = (int) read_varint();
 		byte[] out = new byte[length];
@@ -351,7 +351,7 @@ public class Decoder implements SerealHeader {
 	}
 
 	// top bit set (0x80) means next byte is 7 bits more more varint
-	long read_varint() {
+	private long read_varint() {
 
 		long uv = 0;
 		int lshift = 0;
@@ -368,7 +368,7 @@ public class Decoder implements SerealHeader {
 
 	}
 
-	Object readSingleValue() throws SerealException {
+	private Object readSingleValue() throws SerealException {
 
 		checkNoEOD();
 
@@ -578,7 +578,7 @@ public class Decoder implements SerealHeader {
 	 * @param tag
 	 * @return
 	 */
-	byte[] read_short_binary(byte tag) {
+	private byte[] read_short_binary(byte tag) {
 		int length = tag & SRL_MASK_SHORT_BINARY_LEN;
 		if (debugTrace) trace( "Short binary, length: " + length );
 		byte[] buf = new byte[length];
@@ -600,7 +600,7 @@ public class Decoder implements SerealHeader {
 	 * @return
 	 * @throws SerealException
 	 */
-	Object read_copy() throws SerealException {
+	private Object read_copy() throws SerealException {
 
 		int originalPosition = (int) read_varint();
 		int currentPosition = data.position(); // remember where we parked
@@ -629,14 +629,14 @@ public class Decoder implements SerealHeader {
 		}
 	}
 
-	long read_zigzag() {
+	private long read_zigzag() {
 
 		long n = read_varint();
 
 		return (n >>> 1) ^ (-(n & 1)); // note the unsigned right shift
 	}
 
-	Pattern read_regex() throws SerealException {
+	private Pattern read_regex() throws SerealException {
 
 		int flags = 0;
 		Object str = readSingleValue();

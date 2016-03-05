@@ -354,7 +354,7 @@ public class Encoder {
 	 * @param latin1
 	 *           String to encode as US-ASCII bytes
 	 */
-	void appendBinary(byte[] latin1) {
+	private void appendBinary(byte[] latin1) {
 		if (debugTrace) trace( "Writing binary: " + latin1 );
 
 		// maybe we can just COPY
@@ -374,7 +374,7 @@ public class Encoder {
 		trackForCopy(latin1, location);
 	}
 
-	protected void appendCopy(long location) {
+	private void appendCopy(long location) {
 		if (debugTrace) trace( "Emitting a COPY for location " + location );
 
 		appendByte(SerealHeader.SRL_HDR_COPY);
@@ -389,7 +389,7 @@ public class Encoder {
 	 * @throws SerealException
 	 *            if the pattern is longer that a short binary string
 	 */
-	void appendRegex(Pattern p) throws SerealException {
+	private void appendRegex(Pattern p) throws SerealException {
 
 		if (debugTrace) trace( "Writing a Pattern: " + Utils.dump( p ) );
 
@@ -416,12 +416,12 @@ public class Encoder {
 	 * @param in
 	 * @return
 	 */
-	void appendBytesWithLength(byte[] in) {
+	private void appendBytesWithLength(byte[] in) {
 		appendVarint(in.length);
 		appendBytes(in);
 	}
 
-	public void appendBoolean(boolean b) {
+	private void appendBoolean(boolean b) {
 		appendByte(b ? SerealHeader.SRL_HDR_TRUE : SerealHeader.SRL_HDR_FALSE);
 	}
 
