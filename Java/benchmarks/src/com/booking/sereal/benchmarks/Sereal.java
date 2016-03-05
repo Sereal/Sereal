@@ -66,8 +66,6 @@ public class Sereal {
             encodedLarge = encoderLarge.write(solarSystems);
         } catch (SerealException e) {
             throw new RuntimeException(e);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 

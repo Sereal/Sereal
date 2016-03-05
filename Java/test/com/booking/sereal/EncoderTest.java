@@ -4,7 +4,6 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
@@ -39,7 +38,7 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void headerV1() throws SerealException, IOException {
+	public void headerV1() throws SerealException {
 		encoder = v1Encoder();
 
 		ByteBuffer data = encoder.write(0);
@@ -53,7 +52,7 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void headerV2() throws SerealException, IOException {
+	public void headerV2() throws SerealException {
 		encoder = v2Encoder();
 
 		ByteBuffer data = encoder.write(0);
@@ -67,7 +66,7 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void headerV3() throws SerealException, IOException {
+	public void headerV3() throws SerealException {
 		encoder = v3Encoder();
 
 		ByteBuffer data = encoder.write(0);
@@ -81,7 +80,7 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void shortBinaryV1() throws SerealException, IOException {
+	public void shortBinaryV1() throws SerealException {
 		encoder = v1Encoder();
 
 		encoder.write( new Latin1String("foo").getBytes() );
@@ -96,7 +95,7 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void shortBinaryV2() throws SerealException, IOException {
+	public void shortBinaryV2() throws SerealException {
 		encoder = v2Encoder();
 
 		encoder.write( new Latin1String("foo").getBytes() );
@@ -111,7 +110,7 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void allTypes() throws SerealException, IOException {
+	public void allTypes() throws SerealException {
 		encoder = defaultEncoder();
 
 		encoder.write( new byte[] { 0x66, 0x6f, 0x6f } );
@@ -124,7 +123,7 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void bytearrayCopyV1() throws SerealException, IOException {
+	public void bytearrayCopyV1() throws SerealException {
 		encoder = v1Encoder();
 
 		// write 3 copies of a string (that should be copied)
@@ -142,7 +141,7 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void bytearrayCopyV2() throws SerealException, IOException {
+	public void bytearrayCopyV2() throws SerealException {
 		encoder = v2Encoder();
 
 		// write 3 copies of a string (that should be copied)
@@ -160,7 +159,7 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void stringCopyV1() throws SerealException, IOException {
+	public void stringCopyV1() throws SerealException {
 		encoder = v1Encoder();
 
 		// write 3 copies of a string (that should be copied)
@@ -178,7 +177,7 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void stringCopyV2() throws SerealException, IOException {
+	public void stringCopyV2() throws SerealException {
 		encoder = v2Encoder();
 
 		// write 3 copies of a string (that should be copied)
@@ -196,7 +195,7 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void referencesV1() throws SerealException, IOException {
+	public void referencesV1() throws SerealException {
 		encoder = v1Encoder();
 
 		Boolean booleanValue = new Boolean(true);
@@ -233,7 +232,7 @@ public class EncoderTest {
 	}
 
 	@Test
-	public void referencesV2() throws SerealException, IOException {
+	public void referencesV2() throws SerealException {
 		encoder = v2Encoder();
 
 		Boolean booleanValue = new Boolean(true);

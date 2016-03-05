@@ -3,7 +3,6 @@ package com.booking.sereal;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import org.junit.Test;
@@ -13,7 +12,7 @@ public class CompressionTest {
 	private static final String smallData = "aa";
 
 	@Test
-	public void serealV1None() throws SerealException, IOException {
+	public void serealV1None() throws SerealException {
 		Encoder encoder = new Encoder(new EncoderOptions()
 			.protocolVersion(1));
 		Decoder decoder = new Decoder();
@@ -27,7 +26,7 @@ public class CompressionTest {
 	}
 
 	@Test
-	public void serealV1Snappy() throws SerealException, IOException {
+	public void serealV1Snappy() throws SerealException {
 		Encoder encoder = new Encoder(new EncoderOptions()
 			.protocolVersion(1)
 			.compressionThreshold(0)
@@ -43,7 +42,7 @@ public class CompressionTest {
 	}
 
 	@Test
-	public void serealV2None() throws SerealException, IOException {
+	public void serealV2None() throws SerealException {
 		Encoder encoder = new Encoder(new EncoderOptions()
 			.protocolVersion(2));
 		Decoder decoder = new Decoder();
@@ -57,7 +56,7 @@ public class CompressionTest {
 	}
 
 	@Test
-	public void serealV2Snappy() throws SerealException, IOException {
+	public void serealV2Snappy() throws SerealException {
 		Encoder encoder = new Encoder(new EncoderOptions()
 			.protocolVersion(2)
 			.compressionThreshold(0)
@@ -73,7 +72,7 @@ public class CompressionTest {
 	}
 
 	@Test
-	public void serealV3None() throws SerealException, IOException {
+	public void serealV3None() throws SerealException {
 		Encoder encoder = new Encoder(new EncoderOptions()
 			.protocolVersion(3));
 		Decoder decoder = new Decoder();
@@ -87,7 +86,7 @@ public class CompressionTest {
 	}
 
 	@Test
-	public void serealV3Snappy() throws SerealException, IOException {
+	public void serealV3Snappy() throws SerealException {
 		Encoder encoder = new Encoder(new EncoderOptions()
 			.protocolVersion(3)
 			.compressionThreshold(0)
@@ -103,7 +102,7 @@ public class CompressionTest {
 	}
 
 	@Test
-	public void serealV3Zlib() throws SerealException, IOException {
+	public void serealV3Zlib() throws SerealException {
 		Encoder encoder = new Encoder(new EncoderOptions()
 			.protocolVersion(3)
 			.compressionThreshold(0)
@@ -119,7 +118,7 @@ public class CompressionTest {
 	}
 
 	@Test
-	public void aboveThreshold() throws SerealException, IOException {
+	public void aboveThreshold() throws SerealException {
 		Encoder encoder = new Encoder(new EncoderOptions()
 			// version-independent, but simplifies test
 			.protocolVersion(3)
@@ -136,7 +135,7 @@ public class CompressionTest {
 	}
 
 	@Test
-	public void belowThreshold() throws SerealException, IOException {
+	public void belowThreshold() throws SerealException {
 		Encoder encoder = new Encoder(new EncoderOptions()
 			// version-independent, but simplifies test
 			.protocolVersion(3)
@@ -153,7 +152,7 @@ public class CompressionTest {
 	}
 
 	@Test
-	public void onlyCompressWhenSmallerSnappy() throws SerealException, IOException {
+	public void onlyCompressWhenSmallerSnappy() throws SerealException {
 		Encoder encoder = new Encoder(new EncoderOptions()
 			// version-independent, but simplifies test
 			.protocolVersion(3)
@@ -170,7 +169,7 @@ public class CompressionTest {
 	}
 
 	@Test
-	public void onlyCompressWhenSmallerZlib() throws SerealException, IOException {
+	public void onlyCompressWhenSmallerZlib() throws SerealException {
 		Encoder encoder = new Encoder(new EncoderOptions()
 			// version-independent, but simplifies test
 			.protocolVersion(3)

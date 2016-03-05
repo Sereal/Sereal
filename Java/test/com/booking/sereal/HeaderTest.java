@@ -4,8 +4,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import java.io.IOException;
-
 import org.junit.Test;
 
 public class HeaderTest {
@@ -15,7 +13,7 @@ public class HeaderTest {
 	private Decoder decoder = new Decoder();
 
 	@Test
-	public void noHeader() throws SerealException, IOException {
+	public void noHeader() throws SerealException {
 		decoder.setData(encoder.write(1));
 
 		assertFalse(decoder.hasHeader());
@@ -24,7 +22,7 @@ public class HeaderTest {
 	}
 
 	@Test
-	public void withSmallHeader() throws SerealException, IOException {
+	public void withSmallHeader() throws SerealException {
 		decoder.setData(encoder.write(1, 77));
 
 		assertTrue(decoder.hasHeader());
@@ -34,7 +32,7 @@ public class HeaderTest {
 	}
 
 	@Test
-	public void withLargerHeader() throws SerealException, IOException {
+	public void withLargerHeader() throws SerealException {
 		decoder.setData(encoder.write(1, largeString));
 
 		assertTrue(decoder.hasHeader());

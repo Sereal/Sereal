@@ -5,7 +5,6 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Collection;
@@ -53,7 +52,7 @@ public class RoundtripTest {
 	}
 
 	@Test
-	public void varintSmall() throws IOException, SerealException {
+	public void varintSmall() throws SerealException {
 		for (int n = -100; n < 100; ++n) {
 			decoder.setData( encoder.write(n) );
 			assertTrue( "Varint not decoded correctly: " + n, ((Long) decoder.decode()) == n );
@@ -61,7 +60,7 @@ public class RoundtripTest {
 	}
 
 	@Test
-	public void varintRandom() throws IOException, SerealException {
+	public void varintRandom() throws SerealException {
 		for (int i = 0; i < 1000000; ++i) {
 			int n = rand.nextInt( Integer.MAX_VALUE );
 			decoder.setData( encoder.write(n) );
@@ -71,7 +70,7 @@ public class RoundtripTest {
 
 
 	@Test
-	public void regex() throws IOException, SerealException {
+	public void regex() throws SerealException {
 
 		Pattern[] patterns = new Pattern[] { Pattern.compile( "foo" ), Pattern.compile( "foo", Pattern.DOTALL ),
 				Pattern.compile( "foo", Pattern.DOTALL | Pattern.MULTILINE ), Pattern.compile( "foo", Pattern.DOTALL | Pattern.MULTILINE | Pattern.COMMENTS ),
@@ -89,7 +88,7 @@ public class RoundtripTest {
 	}
 
 	@Test
-	public void byte_array() throws IOException, SerealException {
+	public void byte_array() throws SerealException {
 
 		int n = 10 * 1000;
 		while( n-- > 0 ) {
@@ -105,7 +104,7 @@ public class RoundtripTest {
 	}
 
 	@Test
-	public void copy() throws IOException, SerealException {
+	public void copy() throws SerealException {
 		// write 3 copies of a string (that should be copied)
 		String str = "This is quite a long string";
 
@@ -120,7 +119,7 @@ public class RoundtripTest {
 	}
 
 	@Test
-	public void short_binary() throws IOException, SerealException {
+	public void short_binary() throws SerealException {
 
 		Latin1String str = new Latin1String( "Hello, Sereal!" );
 
@@ -133,7 +132,7 @@ public class RoundtripTest {
 	}
 
 	@Test
-	public void booleans() throws IOException, SerealException {
+	public void booleans() throws SerealException {
 
 		encoder.write( true );
 		decoder.setData( encoder.getData() );

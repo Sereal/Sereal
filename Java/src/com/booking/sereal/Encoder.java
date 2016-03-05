@@ -180,7 +180,7 @@ public class Encoder {
 		bytes[4] &= (byte) 0xf;
 	}
 
-	private void compressSnappy() throws IOException {
+	private void compressSnappy() throws SerealException {
 		int maxSize = Snappy.maxCompressedLength((int) size - headerSize);
 		int sizeLength = encoding == 2 ? varintLength(maxSize) : 0;
 
@@ -194,7 +194,12 @@ public class Encoder {
 			compressedBytes[i] = (byte) 128;
 		compressedBytes[headerSize + sizeLength - 1] = 0;
 
-		int compressed = Snappy.compress(bytes, headerSize, (int) size - headerSize, compressedBytes, headerSize + sizeLength);
+		int compressed;
+		try {
+			compressed = Snappy.compress(bytes, headerSize, (int) size - headerSize, compressedBytes, headerSize + sizeLength);
+		} catch (IOException e) {
+			throw new SerealException(e);
+		}
 		compressedSize = headerSize + sizeLength + compressed;
 		if (compressedSize > size) {
 			markNotCompressed();
@@ -427,15 +432,15 @@ public class Encoder {
 	 * @return a buffer with the encoded data
 	 * @throws SerealException
 	 */
-	public ByteBuffer write(Object obj) throws SerealException, IOException {
+	public ByteBuffer write(Object obj) throws SerealException {
 		return write(obj, null, false);
 	}
 
-	public ByteBuffer write(Object obj, Object header) throws SerealException, IOException {
+	public ByteBuffer write(Object obj, Object header) throws SerealException {
 		return write(obj, header, true);
 	}
 
-	private ByteBuffer write(Object obj, Object header, boolean hasHeader) throws SerealException, IOException {
+	private ByteBuffer write(Object obj, Object header, boolean hasHeader) throws SerealException {
 		if (hasHeader && protocolVersion == 1)
 			throw new SerealException("Can't encode user header in Sereal protocol version 1");
 

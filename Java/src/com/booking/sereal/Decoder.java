@@ -182,9 +182,8 @@ public class Decoder implements SerealHeader {
 	 *
 	 * @return deserealized object
 	 * @throws SerealException
-	 * @throws IOException 
 	 */
-	public Object decode() throws SerealException, IOException {
+	public Object decode() throws SerealException {
 
 		if( data == null ) {
 			throw new SerealException( "No data set" );
@@ -219,7 +218,7 @@ public class Decoder implements SerealHeader {
 		return out;
 	}
 
-	private void uncompressSnappy() throws IOException, SerealException {
+	private void uncompressSnappy() throws SerealException {
 		int len = realData.limit() - realData.position();
 		int pos = protocolVersion == 1 ? realData.position() : 0;
 
@@ -228,11 +227,15 @@ public class Decoder implements SerealHeader {
 		}
 		byte[] compressed = new byte[len];
 		realData.get( compressed, 0, len );
-		byte[] uncompressed = new byte[pos + Snappy.uncompressedLength( compressed, 0, len ) ];
-		if(!Snappy.isValidCompressedBuffer( compressed)) {
-			throw new SerealException("Invalid snappy data");
+		byte[] uncompressed;
+		try {
+			if (!Snappy.isValidCompressedBuffer( compressed))
+				throw new SerealException("Invalid snappy data");
+			uncompressed = new byte[pos + Snappy.uncompressedLength( compressed, 0, len ) ];
+			Snappy.uncompress( compressed, 0, len, uncompressed, pos );
+		} catch (IOException e) {
+			throw new SerealException(e);
 		}
-		Snappy.uncompress( compressed, 0, len, uncompressed, pos );
 		this.data = ByteBuffer.wrap( uncompressed );
 		this.data.position(pos);
 	}
