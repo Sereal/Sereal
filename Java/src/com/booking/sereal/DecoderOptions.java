@@ -1,17 +1,12 @@
 package com.booking.sereal;
 
 public class DecoderOptions {
-	public enum ObjectType {
-		PERL_OBJECT, // Perl style object (name + hash)
-		POJO // Dynamically compile a Plain Old Java Object
-	}
-
 	private boolean perlRefs = false;
 	private boolean perlAlias = false;
 	private boolean preserveUndef = false;
 	private boolean preferLatin1 = false;
 	private boolean refuseSnappy = false;
-	private ObjectType objectType = ObjectType.PERL_OBJECT;
+	private TypeMapper typeMapper = new DefaultTypeMapper();
 
 	public boolean perlReferences() {
 		return perlRefs;
@@ -33,8 +28,8 @@ public class DecoderOptions {
 		return refuseSnappy;
 	}
 
-	public ObjectType objectType() {
-		return objectType;
+	public TypeMapper typeMapper() {
+		return typeMapper;
 	}
 
 	public DecoderOptions perlReferences(boolean perlReferences) {
@@ -67,8 +62,8 @@ public class DecoderOptions {
 		return this;
 	}
 
-	public DecoderOptions objectType(ObjectType objectType) {
-		this.objectType = objectType;
+	public DecoderOptions typeMapper(TypeMapper typeMapper) {
+		this.typeMapper = typeMapper;
 
 		return this;
 	}

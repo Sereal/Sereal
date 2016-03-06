@@ -9,6 +9,7 @@ import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.regex.Pattern;
@@ -104,6 +105,7 @@ public class RoundtripTest {
 	}
 
 	@Test
+	@SuppressWarnings("unchecked")
 	public void copy() throws SerealException {
 		// write 3 copies of a string (that should be copied)
 		String str = "This is quite a long string";
@@ -111,8 +113,8 @@ public class RoundtripTest {
 		encoder.write( new String[]{str, str, str} );
 		decoder.setData(encoder.getData());
 		// read all 3
-		Object[] o = (Object[]) decoder.decode();
-		assertEquals( "Number of objects", 3, o.length );
+		List<Object> o = (List<Object>) decoder.decode();
+		assertEquals( "Number of objects", 3, o.size() );
 		for(Object s : o) {
 			assertEquals( str, s );
 		}

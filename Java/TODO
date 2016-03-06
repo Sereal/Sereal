@@ -6,7 +6,6 @@
 - fast primitive array encoding
 - encode string without copying
 - serialized data > 2GB
-- option to decode to different map/sequence types
 - test and refactor early tracking
   (test test_data_00194, and all the early track_stuff calls)
 - don't mark as UTF-8 strings that don't contain non-ASCII characters

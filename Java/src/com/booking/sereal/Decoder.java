@@ -1,14 +1,12 @@
 package com.booking.sereal;
 
-import static com.booking.sereal.DecoderOptions.ObjectType;
-
 import com.booking.sereal.impl.RefpMap;
 
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.nio.charset.Charset;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.zip.DataFormatException;
@@ -44,17 +42,18 @@ public class Decoder implements SerealHeader {
 	private long userHeaderPosition = -1;
 	private long userHeaderSize = -1;
 
-	private ObjectType objectType;
-
 	private final boolean perlRefs;
 	private final boolean perlAlias;
 	private final boolean preserveUndef;
 	private final boolean refuseSnappy;
 	private final boolean preferLatin1;
+	private final TypeMapper typeMapper;
+	private final boolean useObjectArray;
 
 	private Inflater inflater;
 
-	private Charset charset_utf8 = Charset.forName("UTF-8");
+	private static final Charset charset_utf8 = Charset.forName("UTF-8");
+	private static final Charset charset_latin1 = Charset.forName("ISO-8859-1");
 
 	/**
 	 * Create a new Decoder
@@ -64,12 +63,13 @@ public class Decoder implements SerealHeader {
 	}
 
 	public Decoder(DecoderOptions options) {
-		objectType = options.objectType();
 		perlRefs = options.perlReferences();
 		perlAlias = options.perlAliases();
 		preserveUndef = options.preserveUndef();
 		refuseSnappy = options.refuseSnappy();
 		preferLatin1 = options.preferLatin1();
+		typeMapper = options.typeMapper();
+		useObjectArray = typeMapper.useObjectArray();
 	}
 
 	private void checkHeader() throws SerealException {
@@ -272,15 +272,7 @@ public class Decoder implements SerealHeader {
 	 * @return
 	 * @throws SerealException
 	 */
-	private Object[] read_array(byte tag, int track) throws SerealException {
-
-		int length = 0;
-		if( tag == 0 ) {
-			length = (int) read_varint();
-		} else {
-			length = tag & 15;
-		}
-
+	private Object[] readNativeArray(int length, int track) throws SerealException {
 		if (debugTrace) trace( "Array length: " + length );
 
 		Object[] out = new Object[length];
@@ -291,6 +283,32 @@ public class Decoder implements SerealHeader {
 		for(int i = 0; i < length; i++) {
 			out[i] = readSingleValue();
 			if (debugTrace) trace( "Read array element " + i + ": " + Utils.dump( out[i] ) );
+		}
+
+		return out;
+	}
+
+	/**
+	 * if tag == 0, next is varint for number of elements,
+	 * otherwise lower 4 bits are length
+	 *
+	 * @param tag
+	 *           : lower 4 bits is length or 0 for next varint is length
+	 * @param track we might need to track since array elements could refer to us
+	 * @return
+	 * @throws SerealException
+	 */
+	private List<Object> readList(int length, int track) throws SerealException {
+		if (debugTrace) trace( "Array length: " + length );
+
+		List<Object> out = typeMapper.makeArray(length);
+		if( track != 0 ) { // track ourself
+			track_stuff( track, out );
+		}
+
+		for(int i = 0; i < length; i++) {
+			out.add(readSingleValue());
+			if (debugTrace) trace( "Read array element " + i + ": " + Utils.dump( out.get(i) ) );
 		}
 
 		return out;
@@ -311,15 +329,8 @@ public class Decoder implements SerealHeader {
 		return out;
 	}
 
-	private Map<String, Object> read_hash(byte tag, int track) throws SerealException {
-		long num_keys = 0;
-		if( tag == 0 ) {
-			num_keys = read_varint();
-		} else {
-			num_keys = tag & 15;
-		}
-
-		Map<String, Object> hash = new HashMap<String, Object>( (int) num_keys );
+	private Map<String, Object> readMap(int num_keys, int track) throws SerealException {
+		Map<String, Object> hash = typeMapper.makeMap( (int) num_keys );
         if( track != 0 ) { // track ourself
             track_stuff( track, hash );
         }
@@ -395,7 +406,7 @@ public class Decoder implements SerealHeader {
 			if (debugTrace) trace( "Read short binary: " + short_binary + " length " + short_binary.length );
             out = preferLatin1 ? new Latin1String(short_binary) : short_binary;
 		} else if( (tag & SRL_HDR_HASHREF) == SRL_HDR_HASHREF ) {
-			Map<String, Object> hash = read_hash( tag, track );
+			Map<String, Object> hash = readMap( tag & 0xf, track );
 			if (debugTrace) trace( "Read hash: " + hash );
 			if (perlRefs) {
 				out = new PerlReference(hash);
@@ -404,7 +415,12 @@ public class Decoder implements SerealHeader {
 			}
 		} else if( (tag & SRL_HDR_ARRAYREF) == SRL_HDR_ARRAYREF ) {
 			if (debugTrace) trace( "Reading arrayref" );
-			Object[] arr = read_array( tag, track );
+			Object arr;
+			if (useObjectArray) {
+				arr = readNativeArray(tag & 0xf, track);
+			} else {
+				arr = readList(tag & 0xf, track);
+			}
 			if (debugTrace) trace( "Read arrayref: " + arr );
 			if (perlRefs) {
 				out = new PerlReference(arr);
@@ -507,15 +523,15 @@ public class Decoder implements SerealHeader {
 				break;
 			case SRL_HDR_OBJECT:
 				if (debugTrace) trace( "Reading an object" );
-				Object obj = read_object();
+				Object obj = readObject();
 				if (debugTrace) trace( "Read object: " + obj );
 				out = obj;
 				break;
 			case SRL_HDR_OBJECTV:
 				if (debugTrace) trace( "Reading an objectv" );
-				CharSequence className = (CharSequence) get_tracked_item();
+				String className = readStringCopy();
 				if (debugTrace) trace( "Read an objectv of class: " + className);
-				out = new PerlObject( ((Latin1String)className).getString(), readSingleValue() );
+				out = readObject(className);
 				break;
 			case SRL_HDR_COPY:
 				if (debugTrace) trace( "Reading a copy" );
@@ -547,15 +563,18 @@ public class Decoder implements SerealHeader {
 				out = wref;
 				break;
 			case SRL_HDR_HASH:
-				Object hash = read_hash( (byte) 0, track );
+				Object hash = readMap( (int) read_varint(), track );
 				if (debugTrace) trace( "Read hash: " + hash );
 				out = hash;
 				break;
 			case SRL_HDR_ARRAY:
 				if (debugTrace) trace( "Reading array" );
-				Object[] arr = read_array( (byte) 0, track );
-				if (debugTrace) trace( "Read array: " + Utils.dump( arr ) );
-				out = arr;
+				if (useObjectArray) {
+					out = readNativeArray((int) read_varint(), track);
+				} else {
+					out = readList((int) read_varint(), track);
+				}
+				if (debugTrace) trace( "Read array: " + Utils.dump( out ) );
 				break;
 			case SRL_HDR_REGEXP:
 				if (debugTrace) trace( "Reading Regexp" );
@@ -615,6 +634,17 @@ public class Decoder implements SerealHeader {
 
 		position = originalPosition + baseOffset;
 		Object copy = readSingleValue();
+		position = currentPosition; // go back to where we were
+
+		return copy;
+	}
+
+	private String readStringCopy() throws SerealException {
+		int originalPosition = (int) read_varint();
+		int currentPosition = position; // remember where we parked
+
+		position = originalPosition + baseOffset;
+		String copy = readString();
 		position = currentPosition; // go back to where we were
 
 		return copy;
@@ -684,56 +714,45 @@ public class Decoder implements SerealHeader {
 		return Pattern.compile( regex, flags );
 	}
 
-	private Object read_object() throws SerealException {
-
-		// first read the classname
-		// Maybe we should have some kind of read_string() method?
-		int originalPosition = position;
-		byte tag = data[position++];
-		Latin1String className;
-		if( (tag & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW ) {
-			int length = tag & SRL_MASK_SHORT_BINARY_LEN;
-			byte[] buf = Arrays.copyOfRange(data, position, position + length);
-			position += length;
-			className = new Latin1String( new String( buf ) );
-		} else {
-			throw new SerealException( "Don't know how to read classname from tag" + tag );
-		}
-		// apparently class names do not need a track_bit set to be the target of objectv's. WTF
-		track_stuff( originalPosition - baseOffset, className );
+	private Object readObject() throws SerealException {
+		Object className = readString();
 
 		if (debugTrace) trace( "Object Classname: " + className );
+		return readObject(className.toString());
+	}
 
-		// now read the struct (better be a hash!)
+	private Object readObject(String className) throws SerealException {
 		Object structure = readSingleValue();
 		if (debugTrace) trace( "Object Type: " + structure.getClass().getName() );
-		if( structure instanceof Map ) {
-			// now "bless" this into a class, perl style
-			@SuppressWarnings("unchecked")
-			Map<String, Object> classData = (Map<String, Object>) structure;
-			try {
-				// either an existing java class
-				Class<?> c = Class.forName( className.getString() );
-				return Utils.bless( c, classData );
-			} catch (ClassNotFoundException e) {
-				// or we make a new one
-				if( objectType == ObjectType.POJO ) {
-					return Utils.bless( className.getString(), classData );
-				} else {
-					// or we make a Perl-style one
-					return new PerlObject( className.getString(), classData );
-				}
+		Object object = typeMapper.makeObject(className, structure);
+		if (debugTrace) trace( "Created object " + object.getClass().getName() );
+		return object;
+	}
 
-			}
-		} else if( structure.getClass().isArray() ) {
-			// nothing we can really do here except make Perl objects..
-			return new PerlObject( className.getString(), structure );
-		} else if( structure instanceof PerlReference ) {
-			return new PerlObject( className.getString(), structure);
+	private String readString() throws SerealException {
+		checkNoEOD();
+
+		byte tag = data[position++];
+
+		if( (tag & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW ) {
+			int length = tag & SRL_MASK_SHORT_BINARY_LEN;
+			String string = new String(data, position, length, charset_latin1);
+
+			position += length;
+
+			return string;
+		} else if (tag == SRL_HDR_BINARY) {
+			int length = (int) read_varint();
+			String string = new String(data, position, length, charset_latin1);
+
+			position += length;
+
+			return string;
+		} else if (tag == SRL_HDR_STR_UTF8) {
+			return read_UTF8();
+		} else {
+			throw new SerealException("Tag " + tag + " is not a string tag");
 		}
-
-		// it's a regexp for example
-		return structure;
 
 	}
 
