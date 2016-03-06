@@ -483,8 +483,10 @@ public class Encoder {
 			}
 		}
 
+		Class<?> type = obj == null ? PerlUndef.class : obj.getClass();
+
 		// this needs to be first for obvious reasons :)
-		if( obj == null || obj instanceof PerlUndef ) {
+		if (type == PerlUndef.class) {
 			if (debugTrace) trace( "Emitting a NULL/undef" );
 			if (protocolVersion == 3 && obj == PerlUndef.CANONICAL)
 				appendByte(SerealHeader.SRL_HDR_CANONICAL_UNDEF);
@@ -493,7 +495,6 @@ public class Encoder {
 			return;
 		}
 
-		Class<?> type = obj.getClass();
 		if (debugTrace) trace( "Encoding type: " + type );
 
 		// this is ugly :)
