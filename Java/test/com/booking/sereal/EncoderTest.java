@@ -276,7 +276,33 @@ public class EncoderTest {
 			     Utils.hexStringFromByteArray(data));
 	}
 
+	@Test
+	public void objects() throws SerealException {
+		encoder = defaultEncoder();
+
+		PerlObject fooObject1 = new PerlObject("Foo", makeMap("A", 7));
+		PerlObject fooObject2 = new PerlObject("Foo", makeMap("B", 8));
+		byte[] data;
+
+		data = encoder.write(new Object[] {fooObject1}).getData();
+		assertEquals("0x3df3726c0300282b012c2703466f6f282a0127014107",
+			     Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(new Object[] {fooObject1, fooObject2}).getData();
+		assertEquals("0x3df3726c0300282b022c2703466f6f282a01270141072d05282a0127014208",
+			     Utils.hexStringFromByteArray(data));
+	}
+
 	private List<Object> makeList(Object... items) {
 		return new ArrayList<Object>(Arrays.asList(items));
+	}
+
+	private Map<String, Object> makeMap(Object... items) {
+		Map<String, Object> res = new HashMap<String, Object>();
+
+		for (int i = 0; i < items.length; i += 2)
+			res.put((String) items[i], items[i + 1]);
+
+		return res;
 	}
 }

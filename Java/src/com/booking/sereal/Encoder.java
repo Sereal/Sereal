@@ -48,8 +48,6 @@ public class Encoder {
 	// so we don't need to allocate this every time we encode a varint
 	private byte[] varint_buf = new byte[12];
 
-	private final Map<String, Long> classnames = new HashMap<String, Long>();
-
 	private final byte[] HEADER = new byte[] {
 		(byte) (SerealHeader.MAGIC >> 24),
 		(byte) (SerealHeader.MAGIC >> 16),
@@ -68,6 +66,7 @@ public class Encoder {
 	private IdentityMap aliases, maybeAliases;
 	private BytearrayCopyMap trackedBytearrayCopy = new BytearrayCopyMap();
 	private StringCopyMap trackedStringCopy = new StringCopyMap();
+	private StringCopyMap trackedClassnames = new StringCopyMap();
 
 	// where we store the various encoded things
 	private byte[] bytes = new byte[1024];
@@ -561,7 +560,9 @@ public class Encoder {
 				encode(value);
 			}
 		} else if (type == PerlObject.class) {
-			appendPerlObject((PerlObject) obj);
+			PerlObject po = (PerlObject) obj;
+
+			appendPerlObject(po.getName(), po.getData());
 		} else if (obj instanceof Map) {
 			if (perlRefs || !tryAppendRefp(obj))
 				appendMap((Map<Object, Object>) obj);
@@ -575,21 +576,21 @@ public class Encoder {
 		}
 	}
 
-	private void appendPerlObject(PerlObject po) throws SerealException {
-		Long nameOffset = classnames.get(po.getName());
-		if (nameOffset != null) {
-			if (debugTrace) trace( "Already emitted this classname, making objectv for " + po.getName() );
+	private void appendPerlObject(String className, Object data) throws SerealException {
+		long nameOffset = trackedClassnames.get(className);
+		if (nameOffset != StringCopyMap.NOT_FOUND) {
+			if (debugTrace) trace( "Already emitted this classname, making objectv for " + className );
 
 			appendByte(SerealHeader.SRL_HDR_OBJECTV);
 			appendVarint(nameOffset);
 		} else {
 			appendByte(SerealHeader.SRL_HDR_OBJECT);
-			classnames.put(po.getName(), size - headerOffset);
-			appendStringType(po.getName());
+			trackedClassnames.put(className, size - headerOffset);
+			appendStringType(className);
 		}
 
 		// write the data structure
-		encode(po.getData());
+		encode(data);
 	}
 
 	/**
@@ -833,7 +834,7 @@ public class Encoder {
 			aliases.clear();
 			maybeAliases.clear();
 		}
-		classnames.clear();
+		trackedClassnames.clear();
 	}
 
 	private void ensureAvailable(int required) {
