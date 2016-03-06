@@ -509,8 +509,12 @@ public class Encoder {
 		} else if (type == byte[].class) {
 			appendStringType((byte[]) obj);
 		} else if (type.isArray()) {
-			if (perlRefs || !tryAppendRefp(obj))
-				appendArray(obj);
+			if (perlRefs || !tryAppendRefp(obj)) {
+				if (obj instanceof Object[])
+					appendArray((Object[]) obj);
+				else
+					appendArray(obj);
+			}
 		} else if (type == HashMap.class) {
 			if (perlRefs || !tryAppendRefp(obj))
 				appendMap((Map<Object, Object>) obj);
@@ -712,6 +716,25 @@ public class Encoder {
 			if (debugTrace) trace( "Emitting array index " + index + " ("
 					+ (Array.get( obj, index ) == null ? " NULL/undef" : Array.get( obj, index ).getClass().getSimpleName()) + ")" );
 			encode(Array.get(obj, index));
+		}
+	}
+
+	private void appendArray(Object[] array) throws SerealException {
+		int count = array.length;
+
+		if (debugTrace) trace( "Emitting an array of length " + count );
+
+		if (!perlRefs) {
+			appendByte(SerealHeader.SRL_HDR_REFN);
+			track(array, size);
+		}
+		appendByte(SerealHeader.SRL_HDR_ARRAY);
+		appendVarint(count);
+
+		for (Object item : array) {
+			if (debugTrace) trace( "Emitting array item: " + " ("
+					+ (item == null ? " NULL/undef" : item.getClass().getSimpleName()) + ")" );
+			encode(item);
 		}
 	}
 
