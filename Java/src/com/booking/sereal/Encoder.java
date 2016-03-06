@@ -502,12 +502,6 @@ public class Encoder {
 			appendNumber( ((Number) obj).longValue() );
 		} else if (type == Boolean.class) {
 			appendBoolean((Boolean) obj);
-		} else if (obj instanceof Map) {
-			if (perlRefs || !tryAppendRefp(obj))
-				appendMap((Map<Object, Object>) obj);
-		} else if (obj instanceof List) {
-			if (perlRefs || !tryAppendRefp(obj))
-				appendArray((List<Object>) obj);
 		} else if (type == String.class) {
 			appendStringType((String) obj);
 		} else if (type == Latin1String.class) {
@@ -517,6 +511,12 @@ public class Encoder {
 		} else if (type.isArray()) {
 			if (perlRefs || !tryAppendRefp(obj))
 				appendArray(obj);
+		} else if (type == HashMap.class) {
+			if (perlRefs || !tryAppendRefp(obj))
+				appendMap((Map<Object, Object>) obj);
+		} else if (type == ArrayList.class) {
+			if (perlRefs || !tryAppendRefp(obj))
+				appendArray((List<Object>) obj);
 		} else if (type == Pattern.class) {
 			appendRegex((Pattern) obj);
 		} else if (type == Double.class) {
@@ -558,7 +558,12 @@ public class Encoder {
 			}
 		} else if (type == PerlObject.class) {
 			appendPerlObject((PerlObject) obj);
-
+		} else if (obj instanceof Map) {
+			if (perlRefs || !tryAppendRefp(obj))
+				appendMap((Map<Object, Object>) obj);
+		} else if (obj instanceof List) {
+			if (perlRefs || !tryAppendRefp(obj))
+				appendArray((List<Object>) obj);
 		}
 
 		if (size == location) { // didn't write anything
