@@ -4,8 +4,10 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -227,6 +229,10 @@ public class EncoderTest {
 		data = encoder.write(new Object[] {arrayValue, arrayValue}).getData();
 		assertEquals("0x3d73726c0100282b0228ab00290a",
 			     Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(makeList(integerValue, integerValue)).getData();
+		assertEquals("0x3d73726c0100282b020c0c",
+			     Utils.hexStringFromByteArray(data));
 	}
 
 	@Test
@@ -264,5 +270,13 @@ public class EncoderTest {
 		data = encoder.write(new Object[] {arrayValue, arrayValue}).getData();
 		assertEquals("0x3d73726c0200282b0228ab002905",
 			     Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(makeList(integerValue, integerValue)).getData();
+		assertEquals("0x3d73726c0200282b020c0c",
+			     Utils.hexStringFromByteArray(data));
+	}
+
+	private List<Object> makeList(Object... items) {
+		return new ArrayList<Object>(Arrays.asList(items));
 	}
 }
