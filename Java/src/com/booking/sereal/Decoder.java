@@ -338,17 +338,9 @@ public class Decoder implements SerealHeader {
 		if (debugTrace) trace( "Reading " + num_keys + " hash elements" );
 
 		for(int i = 0; i < num_keys; i++) {
-            Object keyObject = readSingleValue();
-            CharSequence key;
-            if(keyObject instanceof CharSequence) {
-                key = (CharSequence) keyObject;
-            } else if(keyObject instanceof byte[]) {
-                key = new Latin1String((byte[]) keyObject);
-            } else {
-                throw new SerealException("A key is expected to be a byte or character sequence, but got " + keyObject.toString());
-            }
+			String key = readString();
 			Object val = readSingleValue();
-			hash.put( key.toString(), val );
+			hash.put( key, val );
 		}
 
 		return hash;
@@ -750,10 +742,11 @@ public class Decoder implements SerealHeader {
 			return string;
 		} else if (tag == SRL_HDR_STR_UTF8) {
 			return read_UTF8();
+		} else if (tag == SRL_HDR_COPY) {
+			return readStringCopy();
 		} else {
 			throw new SerealException("Tag " + tag + " is not a string tag");
 		}
-
 	}
 
 	public void setData(ByteArray blob) {
