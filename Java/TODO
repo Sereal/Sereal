@@ -1,0 +1,15 @@
+- ARRAYREF/HASHREF tags
+- optional string deduplication
+- test and refactor regex
+- test and refactor weak references
+- test and refactor objects
+- fast primitive array encoding
+- encode string without copying
+- serialized data > 2GB
+- test and refactor early tracking
+- don't mark as UTF-8 strings that don't contain non-ASCII characters
+- check map keys are encoded/decoded correctly
+- rewrite Makefile in Maven
+
+v2:
+- OBJECT_FREEZE/OBJECTV_FREEZE

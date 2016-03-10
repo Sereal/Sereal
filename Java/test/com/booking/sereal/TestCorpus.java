@@ -6,15 +6,9 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.logging.Level;
 
 import org.junit.Assert;
-
-import com.booking.sereal.Utils.Function;
 
 /**
  * To make the corpus of test files:
@@ -32,17 +26,39 @@ public class TestCorpus {
 	private static StructureDecoder sd = new StructureDecoder();
 	private static Decoder dec;
 	private static Encoder enc;
-	static boolean writeEncoded = false;
+	static boolean writeEncoded = true;
 	static boolean abortOnFirstError = false;
+	static boolean testRoundtrip = false;
 	static boolean verbose = false;
 
 	static {
-		Map<String, Object> decoder_options = new HashMap<String, Object>();
-		decoder_options.put( "use_perl_refs", true ); // so ref to int will give a Reference object and not just an int
-		decoder_options.put( "preserve_pad_tags", true ); // so pad bytes are saved
+		String version = System.getenv().get("CORPUS_PROTO_VER");
+		String compression = System.getenv().get("CORPUS_COMPRESS");
 
+		DecoderOptions decoder_options = new DecoderOptions()
+			.perlReferences(true)
+			.perlAliases(true)
+			.preserveUndef(true);
 		dec = new Decoder( decoder_options );
-		enc = new Encoder( null );
+
+		EncoderOptions encoder_options = new EncoderOptions()
+			.perlReferences(true)
+			.perlAliases(true);
+
+		// parse version/compression
+		if (version != null)
+			encoder_options.protocolVersion(Integer.parseInt(version));
+		if ("SRL_SNAPPY".equals(compression)) {
+			encoder_options.compressionType(EncoderOptions.CompressionType.SNAPPY);
+		} else if ("SRL_ZLIB".equals(compression)) {
+			encoder_options.compressionType(EncoderOptions.CompressionType.ZLIB);
+		} else if ("SRL_NONE".equals(compression)) {
+			encoder_options.compressionType(EncoderOptions.CompressionType.NONE);
+		} else if (compression != null) {
+			throw new IllegalArgumentException("Unknown compression type '" + compression + "'");
+		}
+
+		enc = new Encoder( encoder_options );
 	}
 
 	/**
@@ -76,8 +92,8 @@ public class TestCorpus {
 			verbose = true;
 			System.out.println( "Decoding a single file: " + target.getAbsolutePath() );
 			// more logging
-			dec.log.setLevel( Level.FINE );
-			enc.log.setLevel( Level.FINE );
+			dec.debugTrace = true;
+			enc.debugTrace = true;
 			roundtrip( target );
 		}
 
@@ -88,61 +104,46 @@ public class TestCorpus {
 	static int ok_round = 0;
 
 	private static boolean roundtrip(File target) {
-
-		enc.reset();
-
 		try {
 			System.out.print( "Testing " + target.getName() + " -" );
 
 			System.out.print( " Decode: " );
-			Object data = dec.decodeFile( target );
+			Object data = Utils.decodeFile( dec, target );
 			System.out.print( "OK" );
 			ok_dec++;
 			if( verbose ) {
 				System.out.println( "\nDecoding Done: " + Utils.dump( data ) + "\n" );
 			}
 			System.out.print( " Encode: " );
-			ByteBuffer encoded = enc.write( data );
+			byte[] encoded = enc.write( data ).getData();
 			System.out.print( "OK" );
 			ok_enc++;
 			if( writeEncoded ) {
-				FileOutputStream fos = new FileOutputStream( new File( target.getAbsolutePath() + "_java_encoded" ) );
-				fos.write( encoded.array() );
+				FileOutputStream fos = new FileOutputStream( new File( target.getAbsolutePath() + "-java.out" ) );
+				fos.write( encoded );
 				fos.close();
 			}
 
 			FileInputStream fis = new FileInputStream( target );
-			ByteBuffer buf = ByteBuffer.allocate( (int) target.length() );
-			fis.getChannel().read( buf );
+			byte[] buf = new byte[(int) target.length()];
+			fis.read( buf );
 			fis.close();
 			if( verbose ) {
-				System.out.println( "From file: " + Utils.hexStringFromByteArray( buf.array(), 4 ) );
-				System.out.println( "Encoded  : " + Utils.hexStringFromByteArray( encoded.array(), 4 ) );
+				System.out.println();
+				System.out.println( "From file: " + Utils.hexStringFromByteArray( buf, 4 ) );
+				System.out.println( "Encoded  : " + Utils.hexStringFromByteArray( encoded, 4 ) );
 				System.out.println( "\nStructure: " + sd.decodeFile( target ) );
 			}
-			System.out.print( " Roundtrip: " );
-			Assert.assertArrayEquals( "Roundtrip fail for: " + target.getName(), buf.array(), encoded.array() );
-			System.out.println( "OK" );
-			ok_round++;
-		} catch (SerealException e) {
-			e.printStackTrace( System.out );
-			return false;
-		} catch (IOException e) {
-			e.printStackTrace();
-			return false;
-		} catch (AssertionError a) {
-			if( verbose ) {
-				System.out.println( a.getMessage() );
+			if (testRoundtrip) {
+				System.out.print( " Roundtrip: " );
+				Assert.assertArrayEquals( "Roundtrip fail for: " + target.getName(), buf, encoded );
+				System.out.println( "OK" );
+				ok_round++;
 			} else {
-				System.out.println( "Fail" );
+				System.out.println();
 			}
-			return false;
 		} catch (Exception e) {
-			if( verbose ) {
-				e.printStackTrace();
-			} else {
-				System.out.println( "Fail" );
-			}
+			e.printStackTrace();
 			return false;
 		}
 
@@ -161,28 +162,18 @@ public class TestCorpus {
 			}
 		} );
 
-		// turn them into Files
-		List<File> tests = Utils.map( filenames, new Function<String, File>() {
-
-			@Override
-			public File apply(String o) {
-				return new File( test_dir, o );
-			}
-
-		} );
-
-		for(File test : tests) {
-
-			boolean success = roundtrip( test );
+		for (String filename : filenames) {
+			boolean success = roundtrip(new File(test_dir, filename));
 			if( abortOnFirstError && !success ) {
 				System.out.println( "Aborting after first error" );
 				return;
 			}
 
 		}
-		System.out.printf( "Decoded: %d/%d = %.2f%%\n", ok_dec, tests.size(), ((double) 100 * ok_dec / tests.size()) );
-		System.out.printf( "Encoded: %d/%d = %.2f%%\n", ok_enc, tests.size(), ((double) 100 * ok_enc / tests.size()) );
-		System.out.printf( "Roundtrip: %d/%d = %.2f%%\n", ok_round, tests.size(), ((double) 100 * ok_round / tests.size()) );
+		System.out.printf( "Decoded: %d/%d = %.2f%%\n", ok_dec, filenames.length, ((double) 100 * ok_dec / filenames.length) );
+		System.out.printf( "Encoded: %d/%d = %.2f%%\n", ok_enc, filenames.length, ((double) 100 * ok_enc / filenames.length) );
+		if (testRoundtrip)
+			System.out.printf( "Roundtrip: %d/%d = %.2f%%\n", ok_round, filenames.length, ((double) 100 * ok_round / filenames.length) );
 
 	}
 

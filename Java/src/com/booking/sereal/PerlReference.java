@@ -7,7 +7,7 @@ package com.booking.sereal;
  */
 public class PerlReference {
 
-	private final Object value;
+	private Object value;
 
 	public PerlReference(Object value) {
 		this.value = value;
@@ -15,6 +15,10 @@ public class PerlReference {
 
 	public Object getValue() {
 		return value;
+	}
+
+	void setValue(Object value) {
+		this.value = value;
 	}
 
     @Override

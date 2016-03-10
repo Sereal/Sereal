@@ -5,6 +5,9 @@ public interface SerealHeader {
 	// 0x6c72733d but little endian for some reason
 	static final int MAGIC = (0x6c) + (0x72 << 8) + (0x73 << 16) + (0x3d << 24);
 
+	// 0x6c72f33d but little endian for some reason
+	static final int MAGIC_V3 = (0x6c) + (0x72 << 8) + (0xf3 << 16) + (0x3d << 24);
+
 	static final byte SRL_MASK_SHORT_BINARY_LEN = (byte) 31; // lower 5 bits
 	
 	
