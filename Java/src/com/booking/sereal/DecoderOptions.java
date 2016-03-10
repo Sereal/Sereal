@@ -6,6 +6,8 @@ public class DecoderOptions {
 	private boolean preserveUndef = false;
 	private boolean preferLatin1 = false;
 	private boolean refuseSnappy = false;
+	private boolean refuseObjects = false;
+	private boolean stripObjects = false;
 	private TypeMapper typeMapper = new DefaultTypeMapper();
 
 	public boolean perlReferences() {
@@ -26,6 +28,14 @@ public class DecoderOptions {
 
 	public boolean refuseSnappy() {
 		return refuseSnappy;
+	}
+
+	public boolean refuseObjects() {
+		return refuseObjects;
+	}
+
+	public boolean stripObjects() {
+		return stripObjects;
 	}
 
 	public TypeMapper typeMapper() {
@@ -58,6 +68,18 @@ public class DecoderOptions {
 
 	public DecoderOptions refuseSnappy(boolean refuseSnappy) {
 		this.refuseSnappy = refuseSnappy;
+
+		return this;
+	}
+
+	public DecoderOptions refuseObjects(boolean refuseObjects) {
+		this.refuseObjects = refuseObjects;
+
+		return this;
+	}
+
+	public DecoderOptions stripObjects(boolean stripObjects) {
+		this.stripObjects = stripObjects;
 
 		return this;
 	}

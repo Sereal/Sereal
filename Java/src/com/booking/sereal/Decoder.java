@@ -47,6 +47,8 @@ public class Decoder implements SerealHeader {
 	private final boolean preserveUndef;
 	private final boolean refuseSnappy;
 	private final boolean preferLatin1;
+	private final boolean refuseObjects;
+	private final boolean stripObjects;
 	private final TypeMapper typeMapper;
 	private final boolean useObjectArray;
 
@@ -68,6 +70,8 @@ public class Decoder implements SerealHeader {
 		preserveUndef = options.preserveUndef();
 		refuseSnappy = options.refuseSnappy();
 		preferLatin1 = options.preferLatin1();
+		refuseObjects = options.refuseObjects();
+		stripObjects = options.stripObjects();
 		typeMapper = options.typeMapper();
 		useObjectArray = typeMapper.useObjectArray();
 	}
@@ -514,12 +518,16 @@ public class Decoder implements SerealHeader {
 				out = prev;
 				break;
 			case SRL_HDR_OBJECT:
+				if (refuseObjects)
+					throw new SerealException(String.format("Encountered object in input, but the 'refuseObject' option is in effect at offset %d of input", position));
 				if (debugTrace) trace( "Reading an object" );
 				Object obj = readObject();
 				if (debugTrace) trace( "Read object: " + obj );
 				out = obj;
 				break;
 			case SRL_HDR_OBJECTV:
+				if (refuseObjects)
+					throw new SerealException(String.format("Encountered object in input, but the 'refuseObject' option is in effect at offset %d of input", position));
 				if (debugTrace) trace( "Reading an objectv" );
 				String className = readStringCopy();
 				if (debugTrace) trace( "Read an objectv of class: " + className);
@@ -716,6 +724,8 @@ public class Decoder implements SerealHeader {
 	private Object readObject(String className) throws SerealException {
 		Object structure = readSingleValue();
 		if (debugTrace) trace( "Object Type: " + structure.getClass().getName() );
+		if (stripObjects)
+			return structure;
 		Object object = typeMapper.makeObject(className, structure);
 		if (debugTrace) trace( "Created object " + object.getClass().getName() );
 		return object;
