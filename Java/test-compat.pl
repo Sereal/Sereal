@@ -61,12 +61,14 @@ my %skip = map { $_ => 1 } (
         my $pattern = $_;
         map sprintf($pattern, $_), @big_integers
      } @big_integer_tests),
-    'TODO Scalar Cross Blessed Array',
-    'scalar cross',
-    'weak scalar cross',
     'BlessedArrayCheck 1',
     'BlessedArrayCheck 2',
     'Scalar Cross Blessed Array',
+    'TODO BlessedArrayCheck 1',
+    'TODO BlessedArrayCheck 2',
+    'TODO Scalar Cross Blessed Array',
+    'scalar cross',
+    'weak scalar cross',
 );
 
 my $skipped = 0;
