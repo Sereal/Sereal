@@ -25,7 +25,7 @@ the other projects.
 
 =head3 References
 
-We wanted to be able serialize shared references properly. Many
+We wanted to be able to serialize shared references properly. Many
 serialization formats do not support this out of the box. 
 
 =head3 Weak References
