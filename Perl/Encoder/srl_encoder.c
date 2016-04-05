@@ -282,7 +282,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
         srl_dump_nv(aTHX_ enc, src);                                    \
     }                                                                   \
 
-#define CALL_SRL_DUMP_SV(enc, src) STMT_START {                                     \
+#define CALL_SRL_DUMP_SV(enc, src) STMT_START {                                  \
     if (!(src)) {                                                                   \
         srl_buf_cat_char(&(enc)->buf, SRL_HDR_CANONICAL_UNDEF); /* is this right? */\
     }                                                                               \
@@ -302,6 +302,15 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
         } else {                                                                    \
             srl_dump_sv(aTHX_ (enc), (src));                                        \
         }                                                                           \
+    }                                                                               \
+} STMT_END
+
+#define CALL_SRL_DUMP_SVP(enc, srcp) STMT_START {                                   \
+    if (!(srcp)) {                                                                  \
+        srl_buf_cat_char(&(enc)->buf, SRL_HDR_CANONICAL_UNDEF); /* is this right? */\
+    } else {                                                                        \
+        SV *src= *srcp;                                                             \
+        CALL_SRL_DUMP_SV(enc,src);                                                  \
     }                                                                               \
 } STMT_END
 
@@ -1152,13 +1161,14 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
         UV i;
         for (i = 0; i < n; ++i) {
             svp = av_fetch(src, i, 0);
-            CALL_SRL_DUMP_SV(enc, *svp);
+            CALL_SRL_DUMP_SVP(enc, svp);
         }
     } else {
         SV **end;
         svp= AvARRAY(src);
         end= svp + n;
         for ( ; svp < end ; svp++) {
+            /* we cannot have a null *svp so we do not use CALL_SRL_DUMP_SVP() here */
             CALL_SRL_DUMP_SV(enc, *svp);
         }
     }
