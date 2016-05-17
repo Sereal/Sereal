@@ -861,3 +861,23 @@ func TestIssue130(t *testing.T) {
 		t.Errorf("roundtrip slice pointers failed\nwant\n%#v\ngot\n%#v", t1, t12)
 	}
 }
+
+func TestIssue131(t *testing.T) {
+	type A struct {
+		T *time.Time
+	}
+
+	t0 := time.Now()
+	a := A{T: &t0}
+
+	b, err := Marshal(&a)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var decoded A
+	err = Unmarshal(b, &decoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+}

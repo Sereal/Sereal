@@ -1206,6 +1206,11 @@ func varintdecode(by []byte) (n int, sz int, err error) {
 }
 
 func findUnmarshaler(ptr reflect.Value) (encoding.BinaryUnmarshaler, bool) {
+	if ptr.Kind() == reflect.Ptr && ptr.IsNil() {
+		p := reflect.New(ptr.Type().Elem())
+		ptr.Set(p)
+	}
+
 	if obj, ok := ptr.Interface().(encoding.BinaryUnmarshaler); ok {
 		return obj, true
 	}
