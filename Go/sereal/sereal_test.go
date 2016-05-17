@@ -835,3 +835,29 @@ func TestFreezeRoundtrip(t *testing.T) {
 
 	}
 }
+
+func TestIssue130(t *testing.T) {
+	t.Skip("Issue 130")
+
+	type AStructType struct {
+		EmptySlice  []*AStructType
+		EmptySlice2 []AStructType
+	}
+
+	t1 := &AStructType{}
+
+	b, err := Marshal(t1)
+	if err != nil {
+		t.Fatal("failed to marshal:", err)
+	}
+
+	t12 := &AStructType{}
+	err = Unmarshal(b, &t12)
+	if err != nil {
+		t.Fatal("failed to unmarshal:", err)
+	}
+
+	if !reflect.DeepEqual(t1, t12) {
+		t.Errorf("roundtrip slice pointers failed\nwant\n%#v\ngot\n%#v", t1, t12)
+	}
+}
