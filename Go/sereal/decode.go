@@ -915,13 +915,13 @@ func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflec
 				idx, err = d.decodeViaReflection(by, idx, value)
 			} else {
 				// there is no strkey in map, crete a new one
-				var iface interface{}
-				idx, err = d.decode(by, idx, &iface)
+				riface := reflect.New(ptr.Type().Elem())
+				idx, err = d.decodeViaReflection(by, idx, riface.Elem())
 				if err != nil {
 					return 0, err
 				}
 
-				ptr.SetMapIndex(keyValue, reflect.ValueOf(iface))
+				ptr.SetMapIndex(keyValue, riface.Elem())
 			}
 
 			if err != nil {

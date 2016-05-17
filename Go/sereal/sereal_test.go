@@ -881,3 +881,24 @@ func TestIssue131(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestIssue135(t *testing.T) {
+	type A struct {
+		M map[string][]int
+	}
+
+	u := A{M: make(map[string][]int)}
+
+	u.M["k99"] = []int{1, 2, 3}
+
+	b, err := Marshal(&u)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var decoded A
+	err = Unmarshal(b, &decoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
