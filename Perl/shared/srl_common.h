@@ -72,4 +72,25 @@
  * assertions */
 #define SRL_MAX_VARINT_LENGTH 11
 
+
+/* perl 5.25 op_sibling renaming related compat macros. Should probably
+ * live in ppport or so. */
+
+#ifndef OpSIBLING
+# define OpSIBLING(op) ((op)->op_sibling)
+#endif
+
+#ifndef OpHAS_SIBLING
+# define OpHAS_SIBLING(op) ((op)->op_sibling != NULL)
+#endif
+
+/* This is completely opting out, sigh */
+#ifndef op_parent
+# undef OpLASTSIB_set
+# undef OpMORESUB_set
+# define op_parent(op) NULL
+# define OpMORESIB_set(op, sib) ((op)->op_sibling = (sib))
+# define OpLASTSIB_set(op, parent) ((op)->op_sibling = NULL)
+#endif
+
 #endif

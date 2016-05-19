@@ -88,14 +88,14 @@ THX_ck_entersub_args_sereal_encode_with_object(pTHX_ OP *entersubop, GV *namegv,
 
   entersubop = ck_entersub_args_proto(entersubop, namegv, ckobj);
   pushop = cUNOPx(entersubop)->op_first;
-  if (!pushop->op_sibling)
+  if (!OpHAS_SIBLING(pushop))
     pushop = cUNOPx(pushop)->op_first;
-  firstargop = pushop->op_sibling;
+  firstargop = OpSIBLING(pushop);
 
-  for (cvop = firstargop; cvop->op_sibling; cvop = cvop->op_sibling) ;
+  for (cvop = firstargop; OpHAS_SIBLING(cvop); cvop = OpSIBLING(cvop)) ;
 
   for (arity = 0, lastargop = pushop, argop = firstargop; argop != cvop;
-       lastargop = argop, argop = argop->op_sibling)
+       lastargop = argop, argop = OpSIBLING(argop))
   {
     arity++;
   }
@@ -106,8 +106,8 @@ THX_ck_entersub_args_sereal_encode_with_object(pTHX_ OP *entersubop, GV *namegv,
   /* If we get here, we can replace the entersub with a suitable
    * sereal_encode_with_object custom OP. */
 
-  pushop->op_sibling = cvop;
-  lastargop->op_sibling = NULL;
+  OpMORESIB_set(pushop, cvop);
+  OpLASTSIB_set(lastargop, op_parent(lastargop));
   op_free(entersubop);
   newop = newUNOP(OP_NULL, 0, firstargop);
   newop->op_type    = OP_CUSTOM;

@@ -193,17 +193,17 @@ THX_ck_entersub_args_sereal_decoder(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
 
     entersubop = ck_entersub_args_proto(entersubop, namegv, (SV*)cv);
     pushop = cUNOPx(entersubop)->op_first;
-    if ( ! pushop->op_sibling )
+    if ( ! OpHAS_SIBLING(pushop) )
         pushop = cUNOPx(pushop)->op_first;
-    firstargop = pushop->op_sibling;
+    firstargop = OpSIBLING(pushop);
 
-    for (cvop = firstargop; cvop->op_sibling; cvop = cvop->op_sibling) ;
+    for (cvop = firstargop; OpHAS_SIBLING(cvop); cvop = OpSIBLING(cvop)) ;
 
     lastargop = pushop;
     for (
         arity = 0, lastargop = pushop, argop = firstargop;
         argop != cvop;
-        lastargop = argop, argop = argop->op_sibling
+        lastargop = argop, argop = OpSIBLING(argop)
     ){
         arity++;
     }
@@ -222,8 +222,8 @@ THX_ck_entersub_args_sereal_decoder(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
     if (arity > min_arity)
         opopt |= OPOPT_OUTARG_HEADER;
 
-    pushop->op_sibling = cvop;
-    lastargop->op_sibling = NULL;
+    OpMORESIB_set(pushop, cvop);
+    OpLASTSIB_set(lastargop, op_parent(lastargop));
     op_free(entersubop);
     newop = newUNOP(OP_NULL, 0, firstargop);
     newop->op_type    = OP_CUSTOM;

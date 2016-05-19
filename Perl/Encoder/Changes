@@ -5,6 +5,8 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 3 of the *
 *          encoder!                                            *
 ****************************************************************
+  * Fix builds under 5.25+
+
 3.014 Dec  7 2015
   * Fix builds under 5.8.9
 
