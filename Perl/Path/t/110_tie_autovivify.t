@@ -10,8 +10,8 @@ my $data = {
     foo => {},
     bar => undef,
 };
-
 my $tie = Sereal::Path::Tie::parse(encode_sereal($data));
+
 is_deeply($tie->{foo}{test},    $data->{foo}{test}, 'data->{foo}{test}');
 is_deeply($tie->{bar}{test},    $data->{bar}{test}, 'data->{bar}{test}');
 is_deeply($tie->{baz}{test},    $data->{baz}{test}, 'data->{baz}{test}');
@@ -21,6 +21,11 @@ is_deeply($tie->{baz}{test2}[200],    $data->{baz}{test2}[200], 'data->{baz}{tes
 is_deeply($tie->{baz}{test2}[200][0],    $data->{baz}{test2}[200][0], 'data->{baz}{test2}[200][0]');
 is_deeply($tie->{baz}{test2}[200][300],    $data->{baz}{test2}[200][300], 'data->{baz}{test2}[200][300]');
 
+TODO: {
+    local $TODO = "autovivified keys are not returned at the moment with keys traversal";
+    is_deeply([sort keys %$tie], [sort keys %$data], "sort keys data after vivification");
+}
+#=============================================================================================#
 
 $data = [ 4 ];
 $tie = Sereal::Path::Tie::parse(encode_sereal($data));
@@ -28,6 +33,8 @@ is_deeply($tie->[1][12],    $data->[1][12], 'data->[1][12]');
 is_deeply($tie->[200][12],    $data->[200][12], 'data->[200][12]');
 is_deeply($tie->[10]->{test},    $data->[10]->{test}, 'data->[0]->{test}');
 is_deeply($tie->[300]->{test},    $data->[300]->{test}, 'data->[300]->{test}');
+
+#=============================================================================================#
 
 done_testing();
 

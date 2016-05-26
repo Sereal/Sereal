@@ -44,7 +44,7 @@ struct sereal_iterator_tied_hash {
     SV *iter_sv;
     IV depth;
     U32 count;
-    I32 last_idx;
+    I32 cur_idx;
     HV *store;
 };
 
@@ -345,7 +345,7 @@ FIRSTKEY(this)
     if (this->count == 0) {
         ST(0) = &PL_sv_undef;
     } else {
-        this->last_idx = this->count;
+        this->cur_idx = 0;
         srl_iterator_rewind(aTHX_ this->iter, 0);
         ST(0) = srl_iterator_hash_key_sv(aTHX_ this->iter);
     }
@@ -356,19 +356,20 @@ NEXTKEY(this, last)
     sereal_iterator_tied_hash_t *this;
     SV *last;
   PREINIT:
-    srl_iterator_stack_ptr stack_ptr;
+    UV cur_stack_index;
   PPCODE:
-    if (this->last_idx <= 2) {
+    this->cur_idx += 2;
+    if (this->cur_idx >= 2*this->count) {
         ST(0) = &PL_sv_undef;
     } else {
         srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
 
-        this->last_idx -= 2;
-        stack_ptr = srl_iterator_stack(aTHX_ this->iter);
-        if (this->last_idx > stack_ptr->ridx)
+        cur_stack_index = srl_iterator_stack_index(this->iter);
+        if (this->cur_idx < cur_stack_index) {
             srl_iterator_rewind(aTHX_ this->iter, 0);
+        }
 
-        srl_iterator_until(aTHX_ this->iter, this->depth, this->last_idx);
+        srl_iterator_until(aTHX_ this->iter, this->depth, this->cur_idx);
         ST(0) = srl_iterator_hash_key_sv(aTHX_ this->iter);
     }
     XSRETURN(1);
