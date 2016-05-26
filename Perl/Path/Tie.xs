@@ -172,7 +172,6 @@ FETCH(this, key)
     I32 key;
   PREINIT:
     IV idx;
-    srl_iterator_stack_ptr stack_ptr;
     SV **svptr;
   PPCODE:
     if (this->store != NULL) {
@@ -188,9 +187,9 @@ FETCH(this, key)
     if (idx == SRL_ITER_NOT_FOUND) {
         ST(0) = &PL_sv_undef;
     } else {
-        stack_ptr = srl_iterator_stack(aTHX_ this->iter);
-        if ((stack_ptr->length - idx) > stack_ptr->ridx)
+        if (idx < srl_iterator_stack_index(aTHX_ this->iter)) {
             srl_iterator_rewind(aTHX_ this->iter, 0);
+        }
     
         srl_iterator_array_goto(aTHX_ this->iter, key);
         ST(0) = srl_tie_new_tied_sv(aTHX_ this->iter, this->iter_sv);
@@ -355,8 +354,6 @@ void
 NEXTKEY(this, last)
     sereal_iterator_tied_hash_t *this;
     SV *last;
-  PREINIT:
-    UV cur_stack_index;
   PPCODE:
     this->cur_idx += 2;
     if (this->cur_idx >= 2*this->count) {
@@ -364,8 +361,7 @@ NEXTKEY(this, last)
     } else {
         srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
 
-        cur_stack_index = srl_iterator_stack_index(this->iter);
-        if (this->cur_idx < cur_stack_index) {
+        if (this->cur_idx < srl_iterator_stack_index(aTHX_ this->iter)) {
             srl_iterator_rewind(aTHX_ this->iter, 0);
         }
 
