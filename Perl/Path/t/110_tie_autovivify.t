@@ -7,6 +7,7 @@ use Sereal::Path::Tie;
 use Sereal::Encoder qw/encode_sereal/;
 
 my $data = {
+    a => {aa => 1},
     foo => {},
     bar => undef,
 };
@@ -21,10 +22,8 @@ is_deeply($tie->{baz}{test2}[200],    $data->{baz}{test2}[200], 'data->{baz}{tes
 is_deeply($tie->{baz}{test2}[200][0],    $data->{baz}{test2}[200][0], 'data->{baz}{test2}[200][0]');
 is_deeply($tie->{baz}{test2}[200][300],    $data->{baz}{test2}[200][300], 'data->{baz}{test2}[200][300]');
 
-TODO: {
-    local $TODO = "autovivified keys are not returned at the moment with keys traversal";
-    is_deeply([sort keys %$tie], [sort keys %$data], "sort keys data after vivification");
-}
+is_deeply([sort keys %$tie], [sort keys %$data], "sort keys data after vivification");
+is_deeply($tie, $data, "full structure after vivification");
 #=============================================================================================#
 
 $data = [ 4 ];
