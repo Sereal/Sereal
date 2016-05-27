@@ -51,30 +51,30 @@ struct sereal_iterator_tied_hash {
 SRL_STATIC_INLINE void
 srl_tie_goto_depth_and_maybe_copy_iterator(pTHX_ sereal_iterator_tied_t *this)
 {
-    srl_iterator_t *iter = this->iter;
-    IV current_depth = srl_iterator_stack_depth(aTHX_ iter);
+    /* srl_iterator_t *iter = this->iter; */
+    /* IV current_depth = srl_iterator_stack_depth(aTHX_ iter); */
 
-    if (current_depth > this->depth) {
-        if (SvREFCNT(this->iter_sv) > 1) {
-            iter = NULL;
-            Newx(iter, 1, srl_iterator_t);
-            if (iter == NULL) croak("Out of memory");
+    /* if (current_depth > this->depth) { */
+        /* if (SvREFCNT(this->iter_sv) > 1) { */
+            /* iter = NULL; */
+            /* Newx(iter, 1, srl_iterator_t); */
+            /* if (iter == NULL) croak("Out of memory"); */
 
-            srl_shallow_copy_iterator(aTHX_ this->iter, iter);
-            SvREFCNT_dec(this->iter_sv);
+            /* srl_shallow_copy_iterator(aTHX_ this->iter, iter); */
+            /* SvREFCNT_dec(this->iter_sv); */
 
-            this->iter = iter;
-            this->iter_sv = sv_setref_pv(FRESH_SV(),
-                                         "Sereal::Path::Iterator",
-                                         (void*) iter);
-        }
+            /* this->iter = iter; */
+            /* this->iter_sv = sv_setref_pv(FRESH_SV(), */
+                                         /* "Sereal::Path::Iterator", */
+                                         /* (void*) iter); */
+        /* } */
 
-        current_depth = srl_iterator_unite(aTHX_ iter);
-        assert(current_depth == this->depth);
-    } else if (expect_false(current_depth < this->depth)) {
-        croak("Corrupted state! current_depth < this->depth (%"IVdf" < %"IVdf")",
-              current_depth, this->depth);
-    }
+        /* current_depth = srl_iterator_unite(aTHX_ iter); */
+        /* assert(current_depth == this->depth); */
+    /* } else if (expect_false(current_depth < this->depth)) { */
+        /* croak("Corrupted state! current_depth < this->depth (%"IVdf" < %"IVdf")", */
+              /* current_depth, this->depth); */
+    /* } */
 }
 
 SRL_STATIC_INLINE SV *
@@ -119,19 +119,27 @@ srl_tie_new_tied_sv(pTHX_ srl_iterator_t *iter, SV *iter_sv)
             croak("Expect to have ARRAY or HASH in iterator but got type '%"UVuf"'", type);
     }
 
-    tied->iter = iter;
-    tied->iter_sv = iter_sv;
-    SvREFCNT_inc(iter_sv);
+    {
+        // copy iterator logic
+        tied->iter = NULL;
+        Newx(tied->iter, 1, srl_iterator_t);
+        if (tied->iter == NULL) croak("Out of memory");
+        tied->iter_sv = sv_setref_pv(FRESH_SV(),
+                                     "Sereal::Path::Iterator",
+                                     (void*) tied->iter);
+
+        srl_shallow_copy_iterator(aTHX_ iter, tied->iter);
+    }
 
     obj = sv_2mortal(sv_setref_pv(FRESH_SV(), tied_class_name, tied));
     sv_magic(SvRV(result), obj, PERL_MAGIC_tied, NULL, 0);
 
-    depth = srl_iterator_disjoin(aTHX_ iter); // mark current possion as new root
-    srl_iterator_step_in(aTHX_ iter, 1);
+    depth = srl_iterator_disjoin(aTHX_ tied->iter); // mark current possion as new root
+    srl_iterator_step_in(aTHX_ tied->iter, 1);
     tied->depth = depth + 1;
     tied->count = count;
 
-    assert(srl_iterator_stack_depth(aTHX_ iter) == tied->depth);
+    assert(srl_iterator_stack_depth(aTHX_ tied->iter) == tied->depth);
     return result;
 }
 
