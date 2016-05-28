@@ -1,5 +1,10 @@
 Revision history for Perl extension Sereal-Path
 
+0.013 May 28 2016
+  * bug fixes
+  * extended test coverage
+  * (experimental) improved work around of autovivification
+
 0.012 Nov 09 2015
   * bug fixes
   * (experimental) work around of autovivification in Sereal::Path::Tie::Hash
