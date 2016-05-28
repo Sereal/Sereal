@@ -94,8 +94,8 @@ subtest "simple iteration over array", sub {
     is_deeply([sort @$tie], [sort @$data], "sort data");
 
     my (@pairs_tie, @pairs_data);
-    while (my $v = each @$tie) { push @pairs_tie, $v; }
-    while (my $v = each @$data) { push @pairs_data, $v; }
+    push @pairs_tie, $_ foreach @$tie;
+    push @pairs_data, $_ foreach @$data;
     is_deeply(\@pairs_tie, \@pairs_data, "sorted values");
 };
 

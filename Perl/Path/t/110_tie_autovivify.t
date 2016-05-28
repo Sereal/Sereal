@@ -59,8 +59,8 @@ subtest "autovivify and array", sub {
     is(exists($tie->[8][8]),   exists($data->[8][8]), 'exists($data->[8][8])');
 
     my (@pairs_tie, @pairs_data);
-    while (my $v = each @$tie) { push @pairs_tie, $v; }
-    while (my $v = each @$data) { push @pairs_data, $v; }
+    push @pairs_tie, $_ foreach @$tie;
+    push @pairs_data, $_ foreach @$data;
     is_deeply(\@pairs_tie, \@pairs_data, "values");
 
     is_deeply($tie, $data, "full structure after vivification");
