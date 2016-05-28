@@ -122,7 +122,7 @@ srl_tie_new_tied_sv(pTHX_ srl_iterator_t *iter, SV *iter_sv)
     }
 
     {
-        // copy iterator logic
+        // copy iterator logic TODO get remove of unnesseccary copying
         tied->iter = NULL;
         Newx(tied->iter, 1, srl_iterator_t);
         if (tied->iter == NULL) croak("Out of memory");
@@ -197,7 +197,7 @@ FETCH(this, key)
     if (idx == SRL_ITER_NOT_FOUND) {
         ST(0) = &PL_sv_undef;
     } else {
-        if (idx < srl_iterator_stack_index(aTHX_ this->iter)) {
+        if (idx < (IV) srl_iterator_stack_index(aTHX_ this->iter)) {
             srl_iterator_rewind(aTHX_ this->iter, 0);
         }
     
@@ -309,8 +309,7 @@ FETCH(this, key)
     HE *he;
   PPCODE:
     if (this->store != NULL) {
-        he = hv_fetch_ent(this->store, key, 0, 0);
-        if (he) {
+        if ((he = hv_fetch_ent(this->store, key, 0, 0)) != NULL) {
             ST(0) = sv_2mortal(SvREFCNT_inc(HeVAL(he)));
             XSRETURN(1);
         }
@@ -351,22 +350,24 @@ FIRSTKEY(this)
     sereal_iterator_tied_hash_t *this;
   PPCODE:
     srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
-    ST(0) = &PL_sv_undef;
+
     if (this->store != NULL && HvUSEDKEYS(this->store) > 0) {
+        this->cur_idx = -2; //indication that we should try to fetch next key from the store
+
         (void) hv_iterinit(this->store);
         ST(0) = hv_iterkeysv(hv_iternext(this->store));
-        this->cur_idx = -1; //indication that we should try to fetch next key from the store
+        XSRETURN(1);
     }
 
-    if (ST(0) == &PL_sv_undef) {
-        this->cur_idx = 0;
-        if (this->count == 0) {
-            ST(0) = &PL_sv_undef;
-        } else {
-            srl_iterator_rewind(aTHX_ this->iter, 0);
-            ST(0) = srl_iterator_hash_key_sv(aTHX_ this->iter);
-        }
+    if (this->count > 0) {
+        this->cur_idx = 0; // following call of NEXTKEY will set it to 2
+
+        srl_iterator_rewind(aTHX_ this->iter, 0);
+        ST(0) = srl_iterator_hash_key_sv(aTHX_ this->iter);
+        XSRETURN(1);
     }
+
+    ST(0) = &PL_sv_undef;
     XSRETURN(1);
 
 void
@@ -376,39 +377,27 @@ NEXTKEY(this, last)
   PREINIT:
     HE *he;
   PPCODE:
-    ST(0) = &PL_sv_undef;
-    if (this->cur_idx < 0) {
-        if ((he = hv_iternext(this->store)) != NULL) {
-            ST(0) = hv_iterkeysv(he);
-        }
+    if (this->cur_idx < 0 && (he = hv_iternext(this->store)) != NULL) {
+        ST(0) = hv_iterkeysv(he);
+        XSRETURN(1);
     }
 
-    while (ST(0) == &PL_sv_undef && (this->cur_idx < 0 || this->cur_idx < this->count)) {
-        if (this->cur_idx < 0) {
-            this->cur_idx = 0;
+    srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
+
+     for (this->cur_idx += 2; this->cur_idx < (I32) this->count; this->cur_idx += 2) {
+        if (this->cur_idx < (I32) srl_iterator_stack_index(aTHX_ this->iter)) {
             srl_iterator_rewind(aTHX_ this->iter, 0);
-            ST(0) = srl_iterator_hash_key_sv(aTHX_ this->iter);
-        } else {
-            this->cur_idx += 2;
-            if (this->cur_idx >= this->count) {
-                ST(0) = &PL_sv_undef;
-            } else {
-                srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
-
-                if (this->cur_idx < srl_iterator_stack_index(aTHX_ this->iter)) {
-                    srl_iterator_rewind(aTHX_ this->iter, 0);
-                }
-
-                srl_iterator_until(aTHX_ this->iter, this->depth, this->cur_idx);
-                ST(0) = srl_iterator_hash_key_sv(aTHX_ this->iter);
-            }
         }
-        if (ST(0) != &PL_sv_undef && this->store != NULL && hv_exists_ent(this->store, ST(0), 0)) {
-            ST(0) = &PL_sv_undef;
-            continue;
+
+        srl_iterator_until(aTHX_ this->iter, this->depth, this->cur_idx);
+        ST(0) = srl_iterator_hash_key_sv(aTHX_ this->iter);
+
+        if (this->store == NULL || hv_exists_ent(this->store, ST(0), 0) == 0) {
+            XSRETURN(1);
         }
     }
 
+    ST(0) = &PL_sv_undef;
     XSRETURN(1);
 
 void
