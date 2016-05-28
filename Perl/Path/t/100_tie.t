@@ -22,12 +22,16 @@ subtest "simple access in array", sub {
     is_deeply($tie->[2],    $data->[2],     'data[2]');
     is_deeply($tie->[3],    $data->[3],     'data[3]');
     is_deeply($tie->[4],    $data->[4],     'data[4]');
+    is_deeply($tie->[5],    $data->[5],     'data[5]');
 
     is_deeply($tie->[0],    { a => 1 },     'data[0]');
     is_deeply($tie->[1]{a}, 2,              'data[1]{a}');
-    is_deeply($tie->[2][0], $data->[2][0],  'data[2][0]');
+    is_deeply($tie->[2][0], "test",         'data[2][0]');
     is_deeply($tie->[3],    1,              'data[3]');
     is_deeply($tie->[4],    "hi",           'data[4]');
+
+    is_deeply(exists $tie->[1], exists $data->[1], 'exists $data->[1]');
+    is_deeply(exists $tie->[9], exists $data->[9], 'exists $data->[9]');
 };
 
 subtest "simple access in hash", sub {
@@ -41,13 +45,18 @@ subtest "simple access in hash", sub {
 
     is_deeply($tie,             $data,              "data hash");
     is_deeply($tie->{foo},      $data->{foo},       "data->{foo}");
-    is_deeply($tie->{foo},      1,                  "data->{foo}");
     is_deeply($tie->{bar},      $data->{bar},       "data->{bar}");
-    is_deeply($tie->{bar},      "abcdefg",          "data->{bar}");
     is_deeply($tie->{baz},      $data->{baz},       "data->{baz}");
-    is_deeply($tie->{baz},      { a => 1},          "data->{baz}");
     is_deeply($tie->{baz}->{a}, $data->{baz}->{a},  "data->{baz}->{a}");
+    is_deeply($tie->{missing},  $data->{missing},   "data->{missing}");
+
+    is_deeply($tie->{foo},      1,                  "data->{foo}");
+    is_deeply($tie->{bar},      "abcdefg",          "data->{bar}");
+    is_deeply($tie->{baz},      { a => 1},          "data->{baz}");
     is_deeply($tie->{baz}->{a}, 1,                  "data->{baz}->{a}");
+
+    is_deeply(exists $tie->{foo}, exists $data->{foo}, 'exists $data->{foo}');
+    is_deeply(exists $tie->{a},   exists $data->{a},   'exists $data->{a}');
 };
 
 subtest "simple iteration over hash", sub {
