@@ -7,6 +7,8 @@
 #include "srl_common.h"
 #include "srl_iterator.h"
 
+// TODO use autofifivy off
+
 /* this SHOULD be newSV_type(SVt_NULL) but newSV(0) is faster :-( */
 #if 1
 #   define FRESH_SV() newSV(0)
@@ -35,7 +37,7 @@ struct sereal_iterator_tied_array {
     SV *iter_sv;
     IV depth;
     U32 count;
-    AV *store;
+    AV *store; // internal storage to workaround autovivification
 };
 
 // same memory layout as in sereal_iterator_tied
@@ -45,7 +47,7 @@ struct sereal_iterator_tied_hash {
     IV depth;
     U32 count;
     I32 cur_idx;
-    HV *store;
+    HV *store; // internal storage to workaround autovivification
 };
 
 SRL_STATIC_INLINE void
@@ -185,12 +187,9 @@ FETCH(this, key)
     IV idx;
     SV **svptr;
   PPCODE:
-    if (this->store != NULL) {
-        svptr = av_fetch(this->store, key, 0);
-        if (svptr) {
-            ST(0) = sv_2mortal(SvREFCNT_inc(*svptr));
-            XSRETURN(1);
-        }
+    if (this->store != NULL && (svptr = av_fetch(this->store, key, 0)) != NULL) {
+        ST(0) = sv_2mortal(SvREFCNT_inc(*svptr));
+        XSRETURN(1);
     }
 
     srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
@@ -212,8 +211,13 @@ FETCH(this, key)
 void
 FETCHSIZE(this)
     sereal_iterator_tied_array_t *this;
+  PREINIT:
+    U32 len;
+    U32 avlen;
   PPCODE:
-    ST(0) = sv_2mortal(newSVuv(this->count));
+    avlen = (U32) (this->store != NULL ? av_len(this->store) + 1 : 0);
+    len = (avlen > this->count ? avlen : this->count);
+    ST(0) = sv_2mortal(newSVuv(len));
     XSRETURN(1);
 
 void
@@ -223,6 +227,11 @@ EXISTS(this, key)
   PREINIT:
     IV result;
   PPCODE:
+    if (this->store != NULL && av_exists(this->store, (SSize_t) key) != 0) {
+        ST(0) = &PL_sv_yes;
+        XSRETURN(1);
+    }
+
     srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
     srl_iterator_rewind(aTHX_ this->iter, 0);
     result = srl_iterator_array_exists(aTHX_ this->iter, key);
@@ -386,7 +395,7 @@ NEXTKEY(this, last)
 
     srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
 
-     for (this->cur_idx += 2; this->cur_idx < (I32) this->count; this->cur_idx += 2) {
+    for (this->cur_idx += 2; this->cur_idx < (I32) this->count; this->cur_idx += 2) {
         if (this->cur_idx < (I32) srl_iterator_stack_index(aTHX_ this->iter)) {
             srl_iterator_rewind(aTHX_ this->iter, 0);
         }
