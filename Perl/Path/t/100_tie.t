@@ -63,14 +63,11 @@ subtest "simple iteration over hash", sub {
     my $tie = Sereal::Path::Tie::parse(encode_sereal($data));
     is_deeply([sort keys %$tie], [sort keys %$data], "sort keys data");
 
-    my @pairs_tie;
+    my (@pairs_tie, @pairs_data);
     while (my ($k, $v) = each %$tie) { push @pairs_tie, [$k, $v]; }
     @pairs_tie = sort { $a->[0] cmp $b->[0] } @pairs_tie;
-
-    my @pairs_data;
     while (my ($k, $v) = each %$data) { push @pairs_data, [$k, $v]; }
     @pairs_data = sort { $a->[0] cmp $b->[0] } @pairs_data;
-
     is_deeply(\@pairs_tie, \@pairs_tie, "sorted kv pairs");
 
     my $data1 = {
@@ -87,13 +84,10 @@ subtest "simple iteration over array", sub {
     my $tie = Sereal::Path::Tie::parse(encode_sereal($data));
     is_deeply([sort @$tie], [sort @$data], "sort data");
 
-    my @pairs_tie;
+    my (@pairs_tie, @pairs_data);
     while (my $v = each @$tie) { push @pairs_tie, $v; }
-
-    my @pairs_data;
     while (my $v = each @$data) { push @pairs_data, $v; }
-
-    is_deeply([ sort @pairs_tie ], [ sort @pairs_data ], "sorted values");
+    is_deeply(\@pairs_tie, \@pairs_data, "sorted values");
 };
 
 done_testing();

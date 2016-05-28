@@ -172,6 +172,8 @@ void
 DESTROY(this)
     sereal_iterator_tied_array_t *this;
   CODE:
+    if (this->store != NULL)
+        SvREFCNT_dec((SV*) this->store);
     SvREFCNT_dec(this->iter_sv);
     Safefree(this);
 
