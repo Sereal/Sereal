@@ -3,6 +3,9 @@
 
 #include "erl_nif.h"
 
+// work around U8 being unknown here (see 94909904bdaf7357f515e7c3463636265fac8c64)
+#define U8 char
+
 #define debug_print(fmt, ...)                                           \
     do { if (DEBUG) fprintf(stderr, "%s:%d:%s(): " fmt, __FILE__,       \
                                 __LINE__, __func__, ##__VA_ARGS__); } while (0)
