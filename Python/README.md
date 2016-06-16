@@ -10,6 +10,6 @@ Basic implementation of the Sereal protocol in Python.
 
 ### Miscellaneous
 
-- Only Python 2.7
+- Python 3.5, 2.7
 - No Python encoder
 - Not Perl compatible
