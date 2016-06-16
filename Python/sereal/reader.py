@@ -57,5 +57,6 @@ class SrlDocumentReader(object):
         return self._read_unpack(fmt)
 
     def read_str(self, slen):
-        val = self.stream.read(slen)
-        return str(val)
+        fmt = '{0}s'.format(slen)
+        val = self._read_unpack(fmt)
+        return bytes.decode(val, encoding='utf-8')
