@@ -200,7 +200,7 @@ func (e *Encoder) encode(b []byte, v interface{}, isKeyOrClass bool, isRefNext b
 	case int32:
 		b = e.encodeInt(b, reflect.Int, int64(value))
 	case int64:
-		b = e.encodeInt(b, reflect.Int, int64(value))
+		b = e.encodeInt(b, reflect.Int, value)
 
 	case uint:
 		b = e.encodeInt(b, reflect.Uint, int64(value))
@@ -298,7 +298,7 @@ func (e *Encoder) encodeInt(by []byte, k reflect.Kind, i int64) []byte {
 			by = append(by, typeVARINT)
 		}
 
-		by = varint(by, uint(n))
+		by = varint(by, n)
 	}
 
 	return by

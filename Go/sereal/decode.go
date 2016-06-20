@@ -714,7 +714,7 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		if val, idx, err = d.decodeDouble(by, idx); err != nil {
 			return 0, err
 		}
-		ptr.SetFloat(float64(val))
+		ptr.SetFloat(val)
 
 	case tag == typeTRUE, tag == typeFALSE:
 		ptr.SetBool(tag == typeTRUE)
@@ -1028,7 +1028,8 @@ func (d *Decoder) decodeObjectViaReflection(by []byte, idx int, ptr reflect.Valu
 		className, idx, err = d.decodeStringish(by, idx)
 	} else {
 		// typeOBJECTV
-		offs, sz, err := varintdecode(by[idx:])
+		var offs, sz int
+		offs, sz, err = varintdecode(by[idx:])
 		if err != nil {
 			return 0, err
 		}
