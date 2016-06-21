@@ -992,7 +992,13 @@ func (d *Decoder) decodeREFP_ALIAS(by []byte, idx int, isREFP bool) (reflect.Val
 	rv, ok := d.tracked[offs]
 	if !ok {
 		var res reflect.Value
-		return res, 0, ErrCorrupt{errUntrackedOffsetREFP}
+		var corrupt ErrCorrupt
+		if isREFP {
+			corrupt.Err = errUntrackedOffsetREFP
+		} else {
+			corrupt.Err = errUntrackedOffsetAlias
+		}
+		return res, 0, corrupt
 	}
 
 	var res reflect.Value
