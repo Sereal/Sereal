@@ -28,7 +28,6 @@ var (
 	errBadOffset            = "bad offset"
 	errUntrackedOffsetREFP  = "untracked offset for REFP"
 	errBadHashSize          = "bad size for hash"
-	errStringish            = "expected stringish for classname"
 	errUntrackedOffsetAlias = "untracked offset for alias"
 	errNestedCOPY           = "bad nested copy tag"
 	errBadVarint            = "bad varint"

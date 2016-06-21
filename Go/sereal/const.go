@@ -30,8 +30,6 @@ const (
 	serealZlib
 )
 
-type typeTag byte
-
 const trackFlag = byte(0x80)
 
 const (
