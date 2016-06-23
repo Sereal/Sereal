@@ -20,38 +20,32 @@ func (tc *tagsCache) Get(ptr reflect.Value) map[string]int {
 		return m
 	}
 
-	numTags := 0
 	m := make(map[string]int)
 
 	l := ptrType.NumField()
 	for i := 0; i < l; i++ {
 		field := ptrType.Field(i).Tag.Get("sereal")
-		if field != "" {
-			m[field] = i
-			numTags++
+		if field == "-" {
+			// sereal tag is "-" -- skip
+			continue
 		}
-	}
 
-	if numTags != 0 {
-		tc.cmap[ptrType] = m
-		return m
-	}
-
-	// build one from the public names
-	for i := 0; i < l; i++ {
-		pkgpath := ptrType.Field(i).PkgPath
-		if pkgpath == "" { // exported
-			field := ptrType.Field(i).Name
-			m[field] = i
-			numTags++
+		if field == "" {
+			// no tag? make one from the field name
+			if pkgpath := ptrType.Field(i).PkgPath; pkgpath != "" {
+				// field not exported -- skip
+				continue
+			}
+			field = ptrType.Field(i).Name
 		}
+		m[field] = i
 	}
 
-	if numTags != 0 {
-		tc.cmap[ptrType] = m
-		return m
+	// empty map -- may as well store a nil
+	if len(m) == 0 {
+		m = nil
 	}
 
-	tc.cmap[ptrType] = nil
-	return nil
+	tc.cmap[ptrType] = m
+	return m
 }

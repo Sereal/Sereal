@@ -306,7 +306,7 @@ func TestStructs(t *testing.T) {
 	type ATags struct {
 		Name     string `sereal:"Phone"`
 		Phone    string `sereal:"Name"`
-		Siblings int    // no tag, isn't unpacked
+		Siblings int    `sereal:"-"` // don't serialize
 	}
 
 	type ALowerTags struct {
