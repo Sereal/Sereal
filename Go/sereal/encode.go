@@ -449,6 +449,26 @@ func (e *Encoder) encodeViaReflection(b []byte, rv reflect.Value, isKeyOrClass b
 	case reflect.Ptr:
 		b, err = e.encodePointer(b, rv, strTable, ptrTable)
 
+	case reflect.Bool:
+		if rv.Bool() {
+			b = append(b, typeTRUE)
+		} else {
+			b = append(b, typeFALSE)
+		}
+
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		b = e.encodeInt(b, rk, rv.Int())
+
+	case reflect.Float32:
+		b = e.encodeFloat(b, float32(rv.Float()))
+
+	case reflect.Float64:
+		b = e.encodeDouble(b, rv.Float())
+
+	case reflect.String:
+		b = e.encodeString(b, rv.String(), isKeyOrClass, strTable)
+
 	default:
 		panic(fmt.Sprintf("no support for type '%s' (%s)", rk.String(), rv.Type()))
 	}
