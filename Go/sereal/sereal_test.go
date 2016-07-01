@@ -314,6 +314,11 @@ func TestStructs(t *testing.T) {
 		Phone string `sereal:"phone"`
 	}
 
+	type BInt int
+	type AInt struct {
+		B BInt
+	}
+
 	tests := []struct {
 		what     string
 		input    interface{}
@@ -391,6 +396,12 @@ func TestStructs(t *testing.T) {
 			nested{nested1{Afoo}},
 			nested{},
 			nested{nested1{Afoo}},
+		},
+		{
+			"struct with int field",
+			AInt{B: BInt(3)},
+			AInt{},
+			AInt{B: BInt(3)},
 		},
 	}
 
