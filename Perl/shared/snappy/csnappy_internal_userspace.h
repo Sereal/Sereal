@@ -154,10 +154,6 @@ Albert Lee
 #define __LITTLE_ENDIAN LITTLE_ENDIAN
 #define __BIG_ENDIAN BIG_ENDIAN
 
-#elif defined(__GNUC__) || defined(__ANDROID__) || defined(__CYGWIN__)
-
-#include <endian.h>
-#include <byteswap.h>
 
 #elif defined(__sun)
 
@@ -204,6 +200,11 @@ Albert Lee
 #endif
 
 #define __SNAPPY_STRICT_ALIGN
+
+#elif defined(__GNUC__) || defined(__ANDROID__) || defined(__CYGWIN__)
+
+#include <endian.h>
+#include <byteswap.h>
 
 #endif
 
