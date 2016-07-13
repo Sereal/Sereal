@@ -380,12 +380,12 @@ EmitCopyLessThan64(char *op, int offset, int len)
 	if ((len < 12) && (offset < 2048)) {
 		int len_minus_4 = len - 4;
 		DCHECK_LT(len_minus_4, 8); /* Must fit in 3 bits */
-		*op++ = COPY_1_BYTE_OFFSET   |
-			((len_minus_4) << 2) |
+		*op++ = COPY_1_BYTE_OFFSET   +
+			((len_minus_4) << 2) +
 			((offset >> 8) << 5);
 		*op++ = offset & 0xff;
 	} else {
-		*op++ = COPY_2_BYTE_OFFSET | ((len-1) << 2);
+		*op++ = COPY_2_BYTE_OFFSET + ((len-1) << 2);
 		put_unaligned_le16(offset, op);
 		op += 2;
 	}
@@ -441,7 +441,7 @@ static INLINE EightBytesReference GetEightBytesAt(const char* ptr) {
 static INLINE uint32_t GetUint32AtOffset(uint64_t v, int offset) {
 	DCHECK_GE(offset, 0);
 	DCHECK_LE(offset, 4);
-#ifdef __LITTLE_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 	return v >> (8 * offset);
 #else
 	return v >> (32 - 8 * offset);

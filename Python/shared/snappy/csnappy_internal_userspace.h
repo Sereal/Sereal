@@ -34,6 +34,8 @@ Zeev Tarantov <zeev.tarantov@gmail.com>
 
 File modified for Sereal by
 Steffen Mueller <smueller@cpan.org>
+Yves Orton <demerphq@gmail.com>
+
 */
 
 #ifndef CSNAPPY_INTERNAL_USERSPACE_H_
@@ -115,11 +117,6 @@ Albert Lee
 #define __LITTLE_ENDIAN	1234
 #define __BYTE_ORDER	LITTLE_ENDIAN
 
-#elif defined(__GLIBC__) || defined(__ANDROID__) || defined(__CYGWIN__)
-
-#include <endian.h>
-#include <byteswap.h>
-
 #elif defined(__APPLE__)
 
 #include <machine/endian.h>
@@ -131,7 +128,7 @@ Albert Lee
 #define __LITTLE_ENDIAN LITTLE_ENDIAN
 #define __BIG_ENDIAN BIG_ENDIAN
 
-#elif defined(__FreeBSD__) || defined(__DragonFlyBSD__) || defined(__NetBSD__)
+#elif defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
 
 #include <sys/endian.h>
 #define bswap_16(x) bswap16(x)
@@ -151,6 +148,13 @@ Albert Lee
 #define __LITTLE_ENDIAN _LITTLE_ENDIAN
 #define __BIG_ENDIAN _BIG_ENDIAN
 
+#elif defined(__MINGW32__)
+#include <sys/param.h>
+#define __BYTE_ORDER BYTE_ORDER
+#define __LITTLE_ENDIAN LITTLE_ENDIAN
+#define __BIG_ENDIAN BIG_ENDIAN
+
+
 #elif defined(__sun)
 
 #include <sys/byteorder.h>
@@ -165,12 +169,69 @@ Albert Lee
 #define __BYTE_ORDER __BIG_ENDIAN
 #endif
 
-#elif defined(__MINGW32__)
-#include <sys/param.h>
-#define __BYTE_ORDER BYTE_ORDER
-#define __LITTLE_ENDIAN LITTLE_ENDIAN
-#define __BIG_ENDIAN BIG_ENDIAN
+#elif defined(__hpux)
 
+#ifdef __LP64__
+#define __LITTLE_ENDIAN 12345678
+#define __BIG_ENDIAN 87654321
+#define int64_t long
+#else
+#define __LITTLE_ENDIAN 1234
+#define __BIG_ENDIAN 4321
+#define int64_t long long
+#endif
+
+#define __BYTE_ORDER __BIG_ENDIAN /* HP-UX always */
+#define int32_t int
+#define int16_t short
+
+#define __SNAPPY_STRICT_ALIGN
+
+#elif defined(__s390x__) || defined(__zarch__) || defined(__SYSC_ZARCH__)
+
+#ifndef __BIG_ENDIAN
+#define __BIG_ENDIAN    87654321
+#endif
+#ifndef __LITTLE_ENDIAN
+#define __LITTLE_ENDIAN 12345678
+#endif
+#ifndef __BYTE_ORDER
+#define __BYTE_ORDER __BIG_ENDIAN
+#endif
+
+#define __SNAPPY_STRICT_ALIGN
+
+#elif defined(__GNUC__) || defined(__ANDROID__) || defined(__CYGWIN__)
+
+#include <endian.h>
+#include <byteswap.h>
+
+#endif
+
+#ifndef bswap_16
+#define bswap_16(x) \
+  (((uint16_t)(x) & 0xFF00) >> 8 | \
+   ((uint16_t)(x) & 0x00FF) << 8)
+#endif
+
+#ifndef bswap_32
+#define bswap_32(x) \
+  (((uint32_t)(x) & 0xFF000000) >> 24 | \
+   ((uint32_t)(x) & 0x00FF0000) >>  8 | \
+   ((uint32_t)(x) & 0x0000FF00) <<  8 | \
+   ((uint32_t)(x) & 0x000000FF) << 24)
+#endif
+
+#ifndef bswap_64
+#define bswap_64(x) \
+  (((uint64_t)(x) & 0xFF00000000000000) >> 56 | \
+   ((uint64_t)(x) & 0x00FF000000000000) >> 40 | \
+   ((uint64_t)(x) & 0x0000FF0000000000) >> 24 | \
+   ((uint64_t)(x) & 0x000000FF00000000) >>  8 | \
+   ((uint64_t)(x) & 0x00000000FF000000) <<  8 | \
+   ((uint64_t)(x) & 0x0000000000FF0000) << 24 | \
+   ((uint64_t)(x) & 0x000000000000FF00) << 40 | \
+   ((uint64_t)(x) & 0x00000000000000FF) << 56)
 #endif
 
 
@@ -219,7 +280,152 @@ static INLINE void UNALIGNED_STORE64(void *p, uint64_t v)
 	ptr->x = v;
 }
 
+#elif defined(__SNAPPY_STRICT_ALIGN) || defined(__sparc) || defined(__sparc__) /* strict architectures */
+
+/* For these platforms, there really are no unaligned loads/stores.
+ * Read/write everything as uint8_t. Smart compilers might recognize
+ * these patterns and generate something smart. */
+
+/* Possible future enhancement: see if the ptr is evenly divisible
+ * (as uintNN_t) by 2/4/8, and if so, do the cast-as-uintNN_t-ptr-
+ * and-deref-as-uintNN_t.  Balancing act: adding the branch
+ * will slow things down, while reading/writing aligned might speed
+ * things up. */
+
+#if __BYTE_ORDER == __BIG_ENDIAN
+
+static INLINE uint16_t UNALIGNED_LOAD16(const void *p)
+{
+	return
+          (uint16_t)(((uint8_t*)p)[0]) << 8 |
+          (uint16_t)(((uint8_t*)p)[1]);
+}
+
+static INLINE uint32_t UNALIGNED_LOAD32(const void *p)
+{
+	return
+          (uint32_t)(((uint8_t*)p)[0]) << 24 |
+          (uint32_t)(((uint8_t*)p)[1]) << 16 |
+          (uint32_t)(((uint8_t*)p)[2]) <<  8 |
+          (uint32_t)(((uint8_t*)p)[3]);
+}
+
+static INLINE uint64_t UNALIGNED_LOAD64(const void *p)
+{
+	return
+          (uint64_t)((uint8_t*)p)[0] << 56 |
+          (uint64_t)((uint8_t*)p)[1] << 48 |
+          (uint64_t)((uint8_t*)p)[2] << 40 |
+          (uint64_t)((uint8_t*)p)[3] << 32 |
+          (uint64_t)((uint8_t*)p)[4] << 24 |
+          (uint64_t)((uint8_t*)p)[5] << 16 |
+          (uint64_t)((uint8_t*)p)[5] <<  8 |
+          (uint64_t)((uint8_t*)p)[7];
+}
+
+static INLINE void UNALIGNED_STORE16(void *p, uint16_t v)
+{
+	uint8_t* s = (uint8_t*)p;
+	s[0] = (v & 0xFF00) >> 8;
+	s[1] = (v & 0x00FF);
+}
+
+static INLINE void UNALIGNED_STORE32(void *p, uint32_t v)
+{
+	uint8_t* s = (uint8_t*)p;
+	s[0] = (v & 0xFF000000) >> 24;
+	s[1] = (v & 0x00FF0000) >> 16;
+	s[2] = (v & 0x0000FF00) >>  8;
+	s[3] = (v & 0x000000FF);
+}
+
+static INLINE void UNALIGNED_STORE64(void *p, uint64_t v)
+{
+	uint8_t* s = (uint8_t*)p;
+	s[0] = (v & 0xFF00000000000000) >> 56;
+	s[1] = (v & 0x00FF000000000000) >> 48;
+	s[2] = (v & 0x0000FF0000000000) >> 40;
+	s[3] = (v & 0x000000FF00000000) >> 32;
+	s[4] = (v & 0x00000000FF000000) >> 24;
+	s[5] = (v & 0x0000000000FF0000) >> 16;
+	s[6] = (v & 0x000000000000FF00) >>  8;
+	s[7] = (v & 0x00000000000000FF);
+}
+
+#endif /* #if __BYTE_ORDER == __BIG_ENDIAN */
+
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+
+static INLINE uint16_t UNALIGNED_LOAD16(const void *p)
+{
+	return
+          (uint16_t)(((uint8_t*)p)[1]) << 8) |
+          (uint16_t)(((uint8_t*)p)[0]);
+}
+
+static INLINE uint32_t UNALIGNED_LOAD32(const void *p)
+{
+	return
+          (uint32_t)(((uint8_t*)p)[3]) << 24 |
+          (uint32_t)(((uint8_t*)p)[2]) << 16 |
+          (uint32_t)(((uint8_t*)p)[1]) <<  8 |
+          (uint32_t)(((uint8_t*)p)[0]);
+}
+
+static INLINE uint64_t UNALIGNED_LOAD64(const void *p)
+{
+	return
+          (uint64_t)(((uint8_t*)p)[7]) << 56 |
+          (uint64_t)(((uint8_t*)p)[6]) << 48 |
+          (uint64_t)(((uint8_t*)p)[5]) << 40 |
+          (uint64_t)(((uint8_t*)p)[4]) << 32 |
+          (uint64_t)(((uint8_t*)p)[3]) << 24 |
+          (uint64_t)(((uint8_t*)p)[2]) << 16 |
+          (uint64_t)(((uint8_t*)p)[1]) <<  8 |
+          (uint64_t)(((uint8_t*)p)[0]);
+}
+
+static INLINE void UNALIGNED_STORE16(void *p, uint16_t v)
+{
+	uint8_t* s = (uint8_t*)p;
+	s[1] = (v & 0xFF00) >> 8;
+	s[0] = (v & 0x00FF);
+}
+
+static INLINE void UNALIGNED_STORE32(void *p, uint32_t v)
+{
+	uint8_t* s = (uint8_t*)p;
+	s[3] = (v & 0xFF000000) >> 24;
+	s[2] = (v & 0x00FF0000) >> 16;
+	s[1] = (v & 0x0000FF00) >>  8;
+	s[0] = (v & 0x000000FF);
+}
+
+static INLINE void UNALIGNED_STORE64(void *p, uint64_t v)
+{
+	uint8_t* s = (uint8_t*)p;
+	s[7] = (v & 0xFF00000000000000) >> 56;
+	s[6] = (v & 0x00FF000000000000) >> 48;
+	s[5] = (v & 0x0000FF0000000000) >> 40;
+	s[4] = (v & 0x000000FF00000000) >> 32;
+	s[3] = (v & 0x00000000FF000000) >> 24;
+	s[2] = (v & 0x0000000000FF0000) >> 16;
+	s[1] = (v & 0x000000000000FF00) >>  8;
+	s[0] = (v & 0x00000000000000FF);
+}
+
+#endif /* #if __BYTE_ORDER == __LITTLE_ENDIAN */
+
 #else /* !(x86 || powerpc) && !(arm && !(old arm architectures)) */
+
+/* pragma pack is available in gcc (though originally apparently by
+ * Microsoft) and in some other compilers (probably inspired by either
+ * the two big ones), but there is no good portable way to detect
+ * whether it's supported.  The bad news: on platforms where it's not
+ * supported (unsupported pragmas are ignored) but which do require
+ * strict alignment, the below pragma pack trickery will fail.
+ * Therefore this option is the last and the default, and the platforms
+ * requiring strict alignment are detected earlier. */
 
 #pragma pack(1)
 struct una_u16 { uint16_t x; };
@@ -263,7 +469,7 @@ static INLINE void UNALIGNED_STORE64(void *p, uint64_t v)
 	ptr->x = v;
 }
 
-#endif /* !(x86 || powerpc) && !(arm && !armv5 && !armv6) */
+#endif /* defining UNALIGNED_LOADNN and UNALIGNED_STORENN */
 
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN

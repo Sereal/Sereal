@@ -117,11 +117,6 @@ Albert Lee
 #define __LITTLE_ENDIAN	1234
 #define __BYTE_ORDER	LITTLE_ENDIAN
 
-#elif defined(__GLIBC__) || defined(__ANDROID__) || defined(__CYGWIN__)
-
-#include <endian.h>
-#include <byteswap.h>
-
 #elif defined(__APPLE__)
 
 #include <machine/endian.h>
@@ -153,6 +148,13 @@ Albert Lee
 #define __LITTLE_ENDIAN _LITTLE_ENDIAN
 #define __BIG_ENDIAN _BIG_ENDIAN
 
+#elif defined(__MINGW32__)
+#include <sys/param.h>
+#define __BYTE_ORDER BYTE_ORDER
+#define __LITTLE_ENDIAN LITTLE_ENDIAN
+#define __BIG_ENDIAN BIG_ENDIAN
+
+
 #elif defined(__sun)
 
 #include <sys/byteorder.h>
@@ -166,12 +168,6 @@ Albert Lee
 #else
 #define __BYTE_ORDER __BIG_ENDIAN
 #endif
-
-#elif defined(__MINGW32__)
-#include <sys/param.h>
-#define __BYTE_ORDER BYTE_ORDER
-#define __LITTLE_ENDIAN LITTLE_ENDIAN
-#define __BIG_ENDIAN BIG_ENDIAN
 
 #elif defined(__hpux)
 
@@ -204,6 +200,11 @@ Albert Lee
 #endif
 
 #define __SNAPPY_STRICT_ALIGN
+
+#elif defined(__GNUC__) || defined(__ANDROID__) || defined(__CYGWIN__)
+
+#include <endian.h>
+#include <byteswap.h>
 
 #endif
 
