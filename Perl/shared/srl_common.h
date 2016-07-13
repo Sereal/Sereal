@@ -87,7 +87,7 @@
 /* This is completely opting out, sigh */
 #ifndef op_parent
 # undef OpLASTSIB_set
-# undef OpMORESUB_set
+# undef OpMORESIB_set
 # define op_parent(op) NULL
 # define OpMORESIB_set(op, sib) ((op)->op_sibling = (sib))
 # define OpLASTSIB_set(op, parent) ((op)->op_sibling = NULL)
