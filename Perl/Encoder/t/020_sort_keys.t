@@ -5,6 +5,14 @@ use Sereal::Encoder qw(encode_sereal);
 use List::Util qw(shuffle);
 use Test::More;
 
+BEGIN {
+        eval "use Hash::Util 'num_buckets'; 1" or
+        eval "sub num_buckets(\\%) { (split( m!/!, scalar %{\$_[0]}))[-1] } 1"
+        or die "Failed to set up num_buckets: $@";
+}
+
+# This logic needs to be revisted...
+#
 # Try and find 15 hash collisions in "A".."Z"
 # we will use the colliding keys to produce hashes
 # with the same contents, but with different key orders,
@@ -36,7 +44,8 @@ my %copy= %hash;
 my $copy_keys= join "", keys %copy;
 
 my %bigger= %hash;
-keys(%bigger)= $max++ while scalar(%bigger) eq scalar(%hash);
+keys(%bigger)= $max++
+    while num_buckets(%bigger) eq num_buckets(%hash);
 
 my %shuffled;
 $shuffled{$_}= $hash{$_} for shuffle keys %hash;
