@@ -2,8 +2,6 @@
 use strict;
 use warnings;
 # must be loaded before Sereal::TestSet
-use Sereal::Encoder qw(encode_sereal);
-use Sereal::Encoder::Constants qw(:all);
 use File::Spec;
 use Test::More;
 use Data::Dumper;
@@ -15,6 +13,8 @@ BEGIN {
 }
 
 use Sereal::TestSet qw(:all);
+use Sereal::Encoder qw(encode_sereal);
+use Sereal::Encoder::Constants qw(:all);
 
 my $ok = have_encoder_and_decoder();
 if (not $ok) {

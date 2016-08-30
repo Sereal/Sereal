@@ -1,9 +1,17 @@
 #!perl
 use strict;
 use warnings;
+use File::Spec;
+use lib File::Spec->catdir(qw(t lib));
+BEGIN {
+    lib->import('lib')
+        if !-d 't';
+}
+
+use Sereal::TestSet;
+use Test::More tests => 4;
 use Sereal::Decoder qw(decode_sereal);
 use Sereal::Decoder::Constants qw(:all);
-use Test::More tests => 4;
 
 for my $ref (\"", [], {}, \*STDERR) {
     eval {

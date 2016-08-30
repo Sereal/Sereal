@@ -1,7 +1,6 @@
 #!perl
 use strict;
 use warnings;
-use Sereal::Encoder qw(encode_sereal);
 use File::Spec;
 
 use lib File::Spec->catdir(qw(t lib));
@@ -11,6 +10,8 @@ BEGIN {
 }
 
 use Test::More;
+use Sereal::TestSet;
+use Sereal::Encoder qw(encode_sereal);
 
 my $recur_depth = 1000;
 my $ref = [];

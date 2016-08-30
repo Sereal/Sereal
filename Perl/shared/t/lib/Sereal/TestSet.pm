@@ -1194,8 +1194,14 @@ sub run_roundtrip_tests_internal {
                         my @clean= ($ename, $name);
                         s/[^\w.-]+/_/g, s/__+/_/g for @clean;
                         my $cleaned= join "/", @clean;
-                        my $dir= $0;
-                        $dir=~s!/[^/]+\z!/data/$clean[0]!;
+                        my ($v,$p,$d)= File::Spec->splitpath($0);
+                        my $dir= File::Spec->catpath(
+                            $v, 
+                            File::Spec->catdir(
+                                File::Spec->splitdir($p),
+                                "data",$clean[0]
+                            )
+                        );
                         mkpath $dir unless -d $dir;
                         my $base= "$dir/$clean[1].enc";
                         $seen_name{$combined_name}= $base;

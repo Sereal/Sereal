@@ -1,8 +1,6 @@
 #!perl
 use strict;
 use warnings;
-use Sereal::Encoder;
-use Sereal::Encoder::Constants qw(:all);
 use File::Spec;
 use Test::Warn;
 
@@ -13,8 +11,10 @@ BEGIN {
 }
 
 use Sereal::TestSet qw(:all);
-
 use Test::More tests => 19;
+
+use Sereal::Encoder;
+use Sereal::Encoder::Constants qw(:all);
 
 my ($ok, $err, $out);
 

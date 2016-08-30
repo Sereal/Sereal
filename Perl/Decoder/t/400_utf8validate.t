@@ -2,17 +2,18 @@
 
 use strict;
 use warnings;
-use Sereal::Decoder qw(decode_sereal);
 use Data::Dumper;
 use Test::More;
 use File::Spec;
 
 use lib File::Spec->catdir(qw(t lib));
 BEGIN {
-    lib->import('lib')
-        if !-d 't';
+  lib->import('lib')
+    if !-d 't';
 }
+use Sereal::TestSet;
 
+use Sereal::Decoder qw(decode_sereal);
 no warnings 'utf8';
 my @valid_utf8 = (
     [ latin1 => "=srl\x01\x00'\x06Au feu" => 'Au feu' ],

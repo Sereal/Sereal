@@ -4,9 +4,6 @@ use warnings;
 use File::Spec;
 use Scalar::Util qw /weaken/;
 
-#use Sereal ();
-use Sereal::Encoder;
-
 local $| = 1;
 
 use lib File::Spec->catdir(qw(t lib));
@@ -18,6 +15,7 @@ BEGIN {
 use Sereal::TestSet qw(:all);
 use Sereal::BulkTest qw(:all);
 use Test::More;
+use Sereal::Encoder;
 
 
 my $ok = have_encoder_and_decoder();

@@ -1,7 +1,6 @@
 #!perl
 use strict;
 use warnings;
-use Sereal::Encoder;
 use File::Spec;
 use Scalar::Util qw( blessed );
 use lib File::Spec->catdir(qw(t lib));
@@ -12,6 +11,7 @@ BEGIN {
 
 use Sereal::TestSet qw(:all);
 use Test::More;
+use Sereal::Encoder;
 
 my $ok = have_encoder_and_decoder();
 if (not $ok) {

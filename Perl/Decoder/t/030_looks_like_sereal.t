@@ -1,13 +1,21 @@
 #!perl
 use strict;
 use warnings;
-use Sereal::Decoder qw(decode_sereal looks_like_sereal scalar_looks_like_sereal);
-use Sereal::Decoder::Constants qw(:all);
+use File::Spec;
+use lib File::Spec->catdir(qw(t lib));
+BEGIN {
+    lib->import('lib')
+        if !-d 't';
+}
+use Sereal::TestSet;
+use Test::More;
 use Data::Dumper;
 use File::Spec;
 use Devel::Peek;
 
-use Test::More;
+use Sereal::Decoder qw(decode_sereal looks_like_sereal scalar_looks_like_sereal);
+use Sereal::Decoder::Constants qw(:all);
+
 
 sub doc {
     my ($high, $version, $good)= @_;

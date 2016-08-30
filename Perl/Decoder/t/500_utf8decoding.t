@@ -2,7 +2,6 @@
 
 use strict;
 use warnings;
-use Sereal::Decoder qw(decode_sereal);
 use Test::More;
 use File::Spec;
 use Encode;
@@ -12,14 +11,16 @@ BEGIN {
         if !-d 't';
 }
 use Sereal::TestSet qw(have_encoder_and_decoder);
-
-my $ok = have_encoder_and_decoder();
-if (not $ok) {
-    plan skip_all => 'Did not find right version of encoder';
-    done_testing();
-    exit(0);
+BEGIN {
+    my $ok = have_encoder_and_decoder();
+    if (not $ok) {
+        plan skip_all => 'Did not find right version of encoder';
+        done_testing();
+        exit(0);
+    }
 }
 require Sereal::Encoder;
+use Sereal::Decoder qw(decode_sereal);
 
 # Each test below will use the supplied encoder against
 # the supplied input data structure and will compare how

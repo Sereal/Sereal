@@ -1,8 +1,6 @@
 #!perl
 use strict;
 use warnings;
-use Sereal::Decoder qw(decode_sereal);
-use Sereal::Decoder::Constants qw(:all);
 use Data::Dumper;
 use File::Spec;
 use Devel::Peek;
@@ -14,8 +12,10 @@ BEGIN {
 }
 
 use Sereal::TestSet qw(:all);
-
 use Test::More tests => 8 + (2*6) + ( 31 * 3 );
+use Sereal::Decoder qw(decode_sereal);
+use Sereal::Decoder::Constants qw(:all);
+
 
 # Simple test to see whether we can get the number of bytes consumed
 # and whether offset works

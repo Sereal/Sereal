@@ -1,8 +1,6 @@
 #!perl
 use strict;
 use warnings;
-use Sereal::Encoder qw(:all);
-use Sereal::Encoder::Constants qw(:all);
 use File::Spec;
 use Scalar::Util qw( blessed );
 use lib File::Spec->catdir(qw(t lib));
@@ -12,6 +10,8 @@ BEGIN {
 }
 
 use Sereal::TestSet qw(:all);
+use Sereal::Encoder qw(:all);
+use Sereal::Encoder::Constants qw(:all);
 use Test::More;
 
 my $ref = Header(SRL_PROTOCOL_VERSION, chr(0b0000_1100)) . chr(0b0001_0000); # -16 in body, 12 in header

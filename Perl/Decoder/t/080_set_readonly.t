@@ -1,7 +1,6 @@
 use strict;
 use warnings;
 
-use Sereal::Decoder;
 use Test::More;
 use File::Spec;
 use lib File::Spec->catdir(qw(t lib));
@@ -10,6 +9,7 @@ BEGIN {
         if !-d 't';
 }
 use Sereal::TestSet qw(:all);
+use Sereal::Decoder;
 
 my @tests= (
     [ set_readonly => 1  ],

@@ -1,8 +1,15 @@
 #!perl
 use strict;
 use warnings;
-use Sereal::Encoder qw(encode_sereal);
+use File::Spec;
+use lib File::Spec->catdir(qw(t lib));
+BEGIN {
+    lib->import('lib')
+        if !-d 't';
+}
+use Sereal::TestSet;
 use Test::More;
+use Sereal::Encoder qw(encode_sereal);
 use version;
 my %tests = (
     # IMPORTANT: If you add new types of cases here please update the

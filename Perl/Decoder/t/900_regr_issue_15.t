@@ -1,7 +1,6 @@
 #!perl 
 use strict;
 use warnings;
-use Sereal::Decoder;
 use File::Spec;
 use lib File::Spec->catdir(qw(t lib));
 BEGIN {
@@ -11,6 +10,7 @@ BEGIN {
 
 use Sereal::TestSet qw(:all);
 use Test::More tests => 3;
+use Sereal::Decoder;
 
 # Regression test for issue 15 on github:
 # https://github.com/Sereal/Sereal/issues/15

@@ -1,8 +1,15 @@
 use strict;
 use warnings;
 use Test::More tests => 8;
-use Sereal::Decoder;
+use File::Spec;
+use lib File::Spec->catdir(qw(t lib));
+BEGIN {
+    lib->import('lib')
+        if !-d 't';
+}
+use Sereal::TestSet qw(have_encoder_and_decoder);
 
+use Sereal::Decoder;
 my $decoder= Sereal::Decoder->new();
 my $enc_ref= "=\363rl\3\0Qcfoo\1";
 my $enc_str= "=\363rl\3\0}blah blah blah blah blah blah";

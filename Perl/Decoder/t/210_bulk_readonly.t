@@ -1,7 +1,6 @@
 #!perl
 use strict;
 use warnings;
-use Sereal::Decoder;
 use Data::Dumper;
 use File::Spec;
 
@@ -17,6 +16,7 @@ BEGIN {
 use Sereal::TestSet qw(:all);
 use Sereal::BulkTest qw(:all);
 use Test::More;
+use Sereal::Decoder;
 
 my $ok = have_encoder_and_decoder();
 if (not $ok) {

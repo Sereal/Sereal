@@ -1,8 +1,6 @@
 #!perl
 use strict;
 use warnings;
-use Sereal::Decoder qw(decode_sereal);
-use Sereal::Decoder::Constants qw(:all);
 use Data::Dumper;
 use Test::More;
 use File::Spec;
@@ -14,6 +12,8 @@ BEGIN {
 }
 
 use Sereal::TestSet qw(:all);
+use Sereal::Decoder qw(decode_sereal);
+use Sereal::Decoder::Constants qw(:all);
 
 # These tests are a manual attempt at seeing the decoder blow up on
 # bad input. This obviously shouldn't segfault and neither leak

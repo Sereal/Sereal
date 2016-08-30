@@ -1,9 +1,6 @@
 #!perl
 use strict;
 use warnings;
-# must be loaded before Sereal::TestSet
-use Sereal::Encoder qw(encode_sereal);
-use Sereal::Encoder::Constants qw(:all);
 
 use File::Spec;
 use Scalar::Util qw(refaddr reftype);
@@ -13,6 +10,9 @@ BEGIN {
     if !-d 't';
 }
 use Sereal::TestSet qw(:all);
+
+use Sereal::Encoder qw(encode_sereal);
+use Sereal::Encoder::Constants qw(:all);
 use Data::Dumper; # must be loaded AFTER the test set (bug in perl)
 use Test::More;
 

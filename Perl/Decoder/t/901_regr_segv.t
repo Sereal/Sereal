@@ -2,6 +2,14 @@
 use strict;
 use warnings;
 use Test::More;
+use File::Spec;
+use lib File::Spec->catdir(qw(t lib));
+BEGIN {
+    lib->import('lib')
+        if !-d 't';
+}
+
+use Sereal::TestSet;
 use Sereal::Decoder;
 use Test::Warn;
 
