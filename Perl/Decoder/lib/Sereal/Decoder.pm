@@ -114,7 +114,7 @@ sub decode_from_file {
     my ($self, $file, )= @_; # pos 3 is "target var" if one is provided
     open my $fh, "<", $file
         or die "Failed to open '$file' for read: $!";
-    my $buf= do{ local $/; <> };
+    my $buf= do{ local $/; <$fh> };
     close $fh
         or die "Failed to close '$file': $!";
     if (wantarray && ($self->flags & SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL)) {
