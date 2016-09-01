@@ -619,7 +619,12 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
              *  - 8bit bitfield
              *  - if lowest bit set, we have custom-header-user-data after the bitfield
              *  => Only read header user data if an SV* was passed in to fill. */
-            const U8 bitfield = *(dec->buf.pos++);
+
+            U8 bitfield;
+
+            SRL_RDR_ASSERT_SPACE(dec->pbuf, 1, " while reading header flags");
+
+            bitfield = *(dec->buf.pos++);
             if (bitfield & SRL_PROTOCOL_HDR_USER_DATA && header_user_data != NULL) {
                 /* Do an actual document body deserialization for the user data: */
                 SRL_RDR_UPDATE_BODY_POS(dec->pbuf, dec->proto_version);
@@ -631,6 +636,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
             }
             else {
                 /* Either off in bitfield or no user data wanted, skip to end of header */
+                SRL_RDR_ASSERT_SPACE(dec->pbuf, header_len, " while reading header packet");
                 dec->buf.pos += header_len - 1; /* header_len includes bitfield */
             }
         }
