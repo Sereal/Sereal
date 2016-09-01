@@ -13,6 +13,11 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+3.015 Thu Sep  1 20:18:44 CEST 2016
+  * Fix builds under 5.25+
+  * Fix various buffer overun bugs found using AFL (thanks to dgryski)
+  * Fix issue in decode_from_file()
+
 3.014 Dec  7 2015
   * Fix builds under 5.8.9
 
