@@ -131,6 +131,8 @@ srl_decompress_body_zlib(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
     const STRLEN compressed_packet_len =
         (STRLEN)srl_read_varint_uv_length(aTHX_ buf, " while reading compressed packet size");
 
+    SRL_RDR_ASSERT_SPACE(buf, compressed_packet_len, " while reading compressed packet");
+
     /* All decl's above here, or we break C89 compilers */
     old_pos = buf->pos;
     bytes_consumed = compressed_packet_len + SRL_RDR_POS_OFS(buf);
