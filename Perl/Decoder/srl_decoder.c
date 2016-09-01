@@ -1025,10 +1025,12 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
             dec->buf.pos += key_len;
         } else if (tag == SRL_HDR_BINARY) {
             key_len= (KEYLENTYPE)srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading string/BINARY key");
+            SRL_RDR_ASSERT_SPACE(dec->pbuf,key_len," while reading binary key");
             from= dec->buf.pos;
             dec->buf.pos += key_len;
         } else if (tag == SRL_HDR_STR_UTF8) {
             key_len= (KEYLENTYPE)srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading UTF8 key");
+            SRL_RDR_ASSERT_SPACE(dec->pbuf,key_len," while reading string key");
             from= dec->buf.pos;
             dec->buf.pos += key_len;
 #ifdef OLDHASH
@@ -1284,6 +1286,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
     if (IS_SRL_HDR_SHORT_BINARY(tag)) {
         key_len= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
         from= dec->buf.pos;
+        SRL_RDR_ASSERT_SPACE(dec->pbuf,key_len," while reading short binary");
         dec->buf.pos += key_len;
     }
     else
@@ -1291,12 +1294,14 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
         key_len= srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading UTF8 class name");
         flags = flags | SVf_UTF8;
         from= dec->buf.pos;
+        SRL_RDR_ASSERT_SPACE(dec->pbuf,key_len," while reading utf8 string");
         dec->buf.pos += key_len;
     }
     else
     if (tag == SRL_HDR_BINARY) {
         key_len= srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading string/BINARY class name");
         from= dec->buf.pos;
+        SRL_RDR_ASSERT_SPACE(dec->pbuf,key_len," while reading binary");
         dec->buf.pos += key_len;
     }
     else
