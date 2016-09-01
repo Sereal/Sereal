@@ -32,8 +32,9 @@
 } STMT_END
 
 #define SRL_RDR_ASSERT_SPACE(buf, len, msg) STMT_START {                       \
-    if (expect_false((ptrdiff_t)SRL_RDR_SPACE_LEFT((buf))                      \
-                      < (ptrdiff_t)(len)))                                     \
+    if (expect_false(                                                          \
+         ((ptrdiff_t)SRL_RDR_SPACE_LEFT((buf)) < (ptrdiff_t)(len)) ||          \
+         ((ptrdiff_t)(len) < 0)))                                              \
     {                                                                          \
         SRL_RDR_ERRORf3((buf), "Unexpected termination of packet%s, "          \
                         "want %"UVuf" bytes, only have %"IVdf" available",     \
