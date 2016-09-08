@@ -602,7 +602,7 @@ several other modes which may also be enabled independently, and as and when
 we add new options to the encoder that would assist in this regard then
 the C<canonical> will also enable them. These options may come with a
 performance penalty so care should be taken to read the Changes file and
-test the peformance implications when upgrading a system that uses this
+test the performance implications when upgrading a system that uses this
 option.
 
 It is important to note that using canonical representation to determine
