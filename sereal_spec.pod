@@ -583,7 +583,7 @@ Copyright (C) 2012, 2013, 2014 by Steffen Mueller
 Copyright (C) 2012, 2013, 2014 by Yves Orton
 
 This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+it under the MIT license.
 
 =cut
 
