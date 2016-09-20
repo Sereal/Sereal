@@ -10,13 +10,14 @@ BEGIN {
 }
 use Sereal::TestSet qw(:all);
 use Sereal::Decoder;
+use Scalar::Util qw(weaken);
 
 my @tests= (
     [ set_readonly => 1  ],
 );
 
 if (have_encoder_and_decoder()) {
-    my $num_tests= 26;
+    my $num_tests= 28;
     plan tests => $num_tests;
 } else {
     plan skip_all => 'Did not find right version of encoder';
@@ -24,11 +25,14 @@ if (have_encoder_and_decoder()) {
 
 my $foo = bless([ 1, 2, 3 ],"foo");
 
+my $weak_blessed_href = bless({}, 'SomeClass');
+weaken($weak_blessed_href->{foo} = $weak_blessed_href);
 my $struct= {
     hashref => { a => [ "b", 5, bless({ foo => "bar"}, "SomeClass")] },
     string => "foobar",
     arrayref => [ "foobar" ],
     blessed_arrayref => $foo,
+    weak_blessed_href => $weak_blessed_href,
 };
 
 foreach my $name ( keys %$struct ) {
@@ -73,6 +77,7 @@ sub _recurse {
     }
     elsif ($ref eq 'HASH' || $ref eq 'SomeClass') {
         foreach (keys %$s) {
+            next if ref($s->{$_}) && $s->{$_} == $s;
             _recurse($s->{$_}, $path . '->{' . $_ . '}', $name, $scalars_only);
         }
     } elsif ($ref eq 'SCALAR') {
