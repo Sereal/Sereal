@@ -1250,7 +1250,15 @@ srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into)
         av_push(dec->weakref_av, SvREFCNT_inc(referent));
         SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE);
     }
-    sv_rvweaken(into);
+
+    /* If read-only reference, set to rw only to weaken it, otherwise "Modification of a read-only value attempted". */
+    if ( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_READONLY_FLAGS) && SvREADONLY(into)) {
+        SvREADONLY_off(into);
+        sv_rvweaken(into);
+        SvREADONLY_on(into);
+    } else {
+        sv_rvweaken(into);
+    }
 }
 
 SRL_STATIC_INLINE void
