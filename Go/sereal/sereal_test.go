@@ -913,3 +913,28 @@ func TestIssue135(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+type errorsInMarshal struct{}
+
+func (errorsInMarshal) MarshalBinary() ([]byte, error) {
+	return nil, errors.New("this object refuses to serialize")
+}
+
+func TestIssue150(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			// may happen due to bounds check
+			t.Fatalf("shouldn't panic with bounds error: recovered %v", r)
+		}
+	}()
+
+	b, err := Marshal(errorsInMarshal{})
+
+	if b != nil {
+		t.Fatal("Should not have serialized anything")
+	}
+
+	if err == nil || err.Error() != "this object refuses to serialize" {
+		t.Fatalf("should get error from inner marshal call, got %v", err)
+	}
+}
