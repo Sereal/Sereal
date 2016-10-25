@@ -10,14 +10,14 @@ BEGIN {
 }
 use Sereal::TestSet qw(:all);
 use Sereal::Decoder;
-use Scalar::Util qw(weaken);
+use Scalar::Util qw(reftype weaken);
 
 my @tests= (
     [ set_readonly => 1  ],
 );
 
 if (have_encoder_and_decoder()) {
-    my $num_tests= 28;
+    my $num_tests= 62;
     plan tests => $num_tests;
 } else {
     plan skip_all => 'Did not find right version of encoder';
@@ -25,10 +25,11 @@ if (have_encoder_and_decoder()) {
 
 my $foo = bless([ 1, 2, 3 ],"foo");
 
-my $weak_blessed_href = bless({}, 'SomeClass');
+my $weak_blessed_href = bless({ blah => 'bat', hash => { t => 1 } }, 'SomeClass');
 weaken($weak_blessed_href->{foo} = $weak_blessed_href);
 my $struct= {
     hashref => { a => [ "b", 5, bless({ foo => "bar"}, "SomeClass")] },
+    blessed_ref_with_refs => bless({ foo => { bar => 'test' }, bar => ['baz'], empty_href => {}, empty_aref => [] }, 'Blah'),
     string => "foobar",
     arrayref => [ "foobar" ],
     blessed_arrayref => $foo,
@@ -62,28 +63,33 @@ sub _recurse {
 
     $scalars_only ||= 0;
     my $should_be_readonly = $scalars_only ? !ref($s) : 1;
-    is(Internals::SvREADONLY($_[0]), $should_be_readonly,
+    is(Internals::SvREADONLY( $_[0] ), $should_be_readonly,
        "scalar_only: '$scalars_only'. We want ro: '$should_be_readonly'. struct: $name, path: $path"
       );
 
-    my $ref = ref $s
-      or return;
+    my $reftype = reftype($_[0])
+        or return;
 
-    if ($ref eq 'ARRAY' || $ref eq 'foo') { 
+    if ( length($path) ) {
+        is(&Internals::SvREADONLY( $_[0] ), $should_be_readonly,
+            "scalar_only: '$scalars_only'. We want ro: '$should_be_readonly'. struct: $name, path: $path"
+        );
+    }
+    if ($reftype eq 'ARRAY') {
         my $i = 0;
         foreach (@$s) {
             _recurse($_, $path . '->[' . $i . ']', $name, $scalars_only);
         }
     }
-    elsif ($ref eq 'HASH' || $ref eq 'SomeClass') {
+    elsif ($reftype eq 'HASH') {
         foreach (keys %$s) {
-            next if ref($s->{$_}) && $s->{$_} == $s;
+            next if reftype($s->{$_}) && $s->{$_} == $s;
             _recurse($s->{$_}, $path . '->{' . $_ . '}', $name, $scalars_only);
         }
-    } elsif ($ref eq 'SCALAR') {
+    } elsif ($reftype eq 'SCALAR') {
         _recurse($$s, '${' . $path . '}', $name, $scalars_only);
     } else {
-        die "unknown ref value '$ref'";
+        die "unknown ref type '$reftype'";
     }
 }
 
