@@ -225,7 +225,7 @@ desirable for robustness. See the section C<ROBUSTNESS> below.
 =head3 refuse_objects
 
 If set, the decoder will refuse deserializing any objects in the input stream and
-instead throw and exception. Defaults to off. See the section C<ROBUSTNESS> below.
+instead throw an exception. Defaults to off. See the section C<ROBUSTNESS> below.
 
 =head3 no_bless_objects
 
