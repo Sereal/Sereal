@@ -67,4 +67,3 @@ subtest "autovivify and array", sub {
 };
 
 done_testing();
-

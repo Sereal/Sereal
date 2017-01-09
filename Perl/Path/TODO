@@ -6,4 +6,3 @@
 - unsupported tags
 - return paths (returns canonical JSONPaths that point towards those structures)
 - how to handle step_in() in REFN REFN HASH/ARRAY
-- autovivification in Tie
