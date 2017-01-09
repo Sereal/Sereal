@@ -357,7 +357,6 @@ void
 srl_iterator_reset(pTHX_ srl_iterator_t *iter)
 {
     srl_stack_t *stack = iter->pstack;
-    SRL_ITER_TRACE("--------------------------");
 
     while (!SRL_ITER_STACK_ON_ROOT(stack)) {
         srl_stack_pop(stack); // does empty check internally
@@ -371,7 +370,6 @@ srl_iterator_unite(pTHX_ srl_iterator_t *iter)
 {
     UV offset;
     srl_stack_t *stack = iter->pstack;
-    SRL_ITER_TRACE("--------------------------");
 
     if (expect_false(SRL_STACK_DEPTH(stack) <= 0))
         SRL_ITER_ERROR("There is nothing to unite. Please call disjoin first.");

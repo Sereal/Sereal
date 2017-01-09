@@ -12,9 +12,6 @@ my $spi = Sereal::Path::Iterator->new(encode_sereal(
     [ 70, 71, ['a', 'b', 'c', 'd'], 82, 83, $a, $a, 84 ]
 ));
 
-open(my $fh, '>', 'test');
-print $fh encode_sereal([ 70, 71, ['a', 'b', 'c', 'd'], 82, 83, $a, $a, 84 ]);
-
 $spi->step_in();
 
 ok($spi->decode() == 70, 'decode item 70 in array');
