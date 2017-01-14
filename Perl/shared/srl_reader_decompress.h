@@ -27,6 +27,12 @@
     #include "snappy/csnappy.h"
 #endif
 
+#if defined(HAVE_ZSTD)
+    #include <zstd.h>
+#else
+// TODO
+#endif
+
 #if defined(HAVE_MINIZ)
     #include <miniz.h>
 #else
@@ -147,6 +153,49 @@ srl_decompress_body_zlib(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
 
     if (expect_false( decompress_ok != Z_OK )) {
         SRL_RDR_ERRORf1(buf, "ZLIB decompression of Sereal packet payload failed with error %i!", decompress_ok);
+    }
+
+    return bytes_consumed;
+}
+
+/* Decompress a zstd-compressed document body and put the resulting document
+ * body back in the place of the old compressed blob. The function internaly
+ * creates temporary buffer which is owned by mortal SV. If the caller is
+ * interested in keeping the buffer around for longer time, it should pass
+ * buf_owner parameter and unmortalize it.  The caller *MUST* call
+ * SRL_RDR_UPDATE_BODY_POS right after existing from this function. */
+
+SRL_STATIC_INLINE UV
+srl_decompress_body_zstd(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
+{
+    SV *buf_sv;
+    UV bytes_consumed;
+    size_t decompress_code;
+
+    srl_reader_char_ptr old_pos;
+    unsigned long long uncompressed_packet_len;
+    const STRLEN sereal_header_len = (STRLEN) SRL_RDR_POS_OFS(buf);
+    const STRLEN compressed_packet_len = (STRLEN) srl_read_varint_uv_length(aTHX_ buf,
+            " while reading compressed packet size");
+
+    /* All bufl's above here, or we break C89 compilers */
+    old_pos = buf->pos;
+    bytes_consumed = compressed_packet_len + SRL_RDR_POS_OFS(buf);
+
+    uncompressed_packet_len = ZSTD_getDecompressedSize((const void *)buf->pos, (size_t) compressed_packet_len);
+    if (expect_false(uncompressed_packet_len == 0))
+        SRL_RDR_ERROR(buf, "Invalid zstd packet with unknown uncompressed size");
+
+    /* Allocate output buffer and swap it into place within the decoder. */
+    buf_sv = srl_realloc_empty_buffer(aTHX_ buf, sereal_header_len, (STRLEN) uncompressed_packet_len);
+    if (buf_owner) *buf_owner = buf_sv;
+
+    decompress_code = ZSTD_decompress((void *)buf->pos, (size_t) uncompressed_packet_len,
+                                      (void *)old_pos,  (size_t) compressed_packet_len);
+
+    if (expect_false( ZSTD_isError(decompress_code) )) {
+        SRL_RDR_ERRORf1(buf, "Snappy decompression of Sereal packet payload failed with error %s!",
+                        ZSTD_getErrorName(decompress_code));
     }
 
     return bytes_consumed;

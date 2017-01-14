@@ -119,6 +119,10 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_F_DECODER_SET_READONLY              0x00008000UL
 /* Persistent flag: set non-ref SV readonly */
 #define SRL_F_DECODER_SET_READONLY_SCALARS      0x00010000UL
+/* Non-persistent flag! */
+#define SRL_F_DECODER_DECOMPRESS_ZSTD           0x00020000UL
+/* Persistent flag: Make the decoder REFUSE zstd-compressed documents */
+#define SRL_F_DECODER_REFUSE_ZSTD               0x00040000UL
 
 
 #define SRL_F_DECODER_ALIAS_CHECK_FLAGS   ( SRL_F_DECODER_ALIAS_SMALLINT | SRL_F_DECODER_ALIAS_VARINT | SRL_F_DECODER_USE_UNDEF )
@@ -127,7 +131,7 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_DEC_HAVE_OPTION(dec, flag_num) ((dec)->flags & flag_num)
 #define SRL_DEC_SET_OPTION(dec, flag_num) ((dec)->flags |= flag_num)
 #define SRL_DEC_UNSET_OPTION(dec, flag_num) ((dec)->flags &= ~flag_num)
-#define SRL_DEC_VOLATILE_FLAGS (SRL_F_DECODER_NEEDS_FINALIZE|SRL_F_DECODER_DECOMPRESS_SNAPPY|SRL_F_DECODER_PROTOCOL_V1|SRL_F_DECODER_DIRTY|SRL_F_DECODER_DECOMPRESS_ZLIB)
+#define SRL_DEC_VOLATILE_FLAGS (SRL_F_DECODER_NEEDS_FINALIZE|SRL_F_DECODER_DECOMPRESS_SNAPPY|SRL_F_DECODER_PROTOCOL_V1|SRL_F_DECODER_DIRTY|SRL_F_DECODER_DECOMPRESS_ZLIB|SRL_F_DECODER_DECOMPRESS_ZSTD)
 #define SRL_DEC_RESET_VOLATILE_FLAGS(dec) ((dec)->flags &= ~SRL_DEC_VOLATILE_FLAGS)
 
 #define IS_IV_ALIAS(dec,iv)             \
@@ -182,6 +186,9 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_DEC_OPT_STR_VALIDATE_UTF8               "validate_utf8"
 #define SRL_DEC_OPT_IDX_VALIDATE_UTF8               12
 
-#define SRL_DEC_OPT_COUNT                           13
+#define SRL_DEC_OPT_STR_REFUSE_ZSTD                 "refuse_zstd"
+#define SRL_DEC_OPT_IDX_REFUSE_ZSTD                 13
+
+#define SRL_DEC_OPT_COUNT                           14
 
 #endif

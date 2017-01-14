@@ -233,6 +233,10 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
         if ( val && SvTRUE(val) )
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_ZLIB);
 
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_REFUSE_ZSTD);
+        if ( val && SvTRUE(val) )
+            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_ZSTD);
+
         my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_REFUSE_OBJECTS);
         if ( val && SvTRUE(val) )
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS);
@@ -402,6 +406,9 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
         origdec->bytes_consumed = dec->bytes_consumed;
     } else if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_ZLIB) )) {
         dec->bytes_consumed = srl_decompress_body_zlib(aTHX_ dec->pbuf, NULL);
+        origdec->bytes_consumed = dec->bytes_consumed;
+    } else if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_ZSTD) )) {
+        dec->bytes_consumed = srl_decompress_body_zstd(aTHX_ dec->pbuf, NULL);
         origdec->bytes_consumed = dec->bytes_consumed;
     }
 
@@ -604,6 +611,15 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
                               "but this decoder is configured to refuse ZLIB-compressed input.");
             }
             dec->flags |= SRL_F_DECODER_DECOMPRESS_ZLIB;
+        }
+        else
+        if (dec->encoding_flags == SRL_PROTOCOL_ENCODING_ZSTD)
+        {
+            if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_ZSTD) )) {
+                SRL_RDR_ERROR(dec->pbuf, "Sereal document is compressed with ZSTD, "
+                              "but this decoder is configured to refuse ZSTD-compressed input.");
+            }
+            dec->flags |= SRL_F_DECODER_DECOMPRESS_ZSTD;
         }
         else
         {

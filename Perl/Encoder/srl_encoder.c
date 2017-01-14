@@ -508,6 +508,20 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
                     enc->compress_level = lvl;
                 }
                 break;
+            case 3:
+                SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_ZSTD);
+                if (enc->protocol_version < 3)
+                    croak("zstd compression was introduced in protocol version 3 and you are asking for only version %i", (int)enc->protocol_version);
+
+                enc->compress_level = 0; // default compression level
+                my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_COMPRESS_LEVEL);
+                if ( val && SvTRUE(val) ) {
+                    IV lvl = SvIV(val);
+                    if (expect_false( lvl < 1 || lvl > 22 )) /* TODO: ZSTD_maxCLevel() */
+                        croak("'compress_level' needs to be between 1 and 22");
+                    enc->compress_level = lvl;
+                }
+                break;
             default:
                 croak("Invalid Sereal compression format");
             }

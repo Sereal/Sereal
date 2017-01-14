@@ -16,10 +16,13 @@
 #define SRL_F_COMPRESS_SNAPPY                   0x00040UL
 #define SRL_F_COMPRESS_SNAPPY_INCREMENTAL       0x00080UL
 #define SRL_F_COMPRESS_ZLIB                     0x00100UL
+#define SRL_F_COMPRESS_ZSTD                     0x00200UL
 #define SRL_F_COMPRESS_FLAGS_MASK               (SRL_F_COMPRESS_SNAPPY | \
                                                  SRL_F_COMPRESS_SNAPPY_INCREMENTAL | \
-                                                 SRL_F_COMPRESS_ZLIB )
-const U8 SRL_F_COMPRESS_FLAGS_TO_PROTOCOL_ENCODING[8]= {
+                                                 SRL_F_COMPRESS_ZLIB | \
+                                                 SRL_F_COMPRESS_ZSTD)
+
+const U8 SRL_F_COMPRESS_FLAGS_TO_PROTOCOL_ENCODING[16]= {
             SRL_PROTOCOL_ENCODING_RAW,                      /* 0  */
             SRL_PROTOCOL_ENCODING_SNAPPY,                   /* 1  */
             SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL,       /* 2  */
@@ -27,7 +30,15 @@ const U8 SRL_F_COMPRESS_FLAGS_TO_PROTOCOL_ENCODING[8]= {
             SRL_PROTOCOL_ENCODING_ZLIB,                     /* 4  */
             SRL_PROTOCOL_ENCODING_ZLIB,                     /* 5  */
             SRL_PROTOCOL_ENCODING_ZLIB,                     /* 6  */
-            SRL_PROTOCOL_ENCODING_ZLIB                      /* 7  */
+            SRL_PROTOCOL_ENCODING_ZLIB,                     /* 7  */
+            SRL_PROTOCOL_ENCODING_ZSTD,                     /* 8  */
+            SRL_PROTOCOL_ENCODING_ZSTD,                     /* 9  */
+            SRL_PROTOCOL_ENCODING_ZSTD,                     /* 10 */
+            SRL_PROTOCOL_ENCODING_ZSTD,                     /* 11 */
+            SRL_PROTOCOL_ENCODING_ZSTD,                     /* 12 */
+            SRL_PROTOCOL_ENCODING_ZSTD,                     /* 13 */
+            SRL_PROTOCOL_ENCODING_ZSTD,                     /* 14 */
+            SRL_PROTOCOL_ENCODING_ZSTD,                     /* 15 */
         };
 /* currently SRL_F_COMPRESS_MASK is 0x001c0UL, which shift right 6 bits turns into 0x07 UL
  * which means we can skips some conditionals. */
@@ -43,6 +54,12 @@ const U8 SRL_F_COMPRESS_FLAGS_TO_PROTOCOL_ENCODING[8]= {
 #include <miniz.h>
 #else
 #include "miniz.h"
+#endif
+
+#if defined(HAVE_ZSTD)
+#include <zstd.h>
+#else
+// TODO
 #endif
 
 /* Update a varint anywhere in the output stream with defined start and end
@@ -127,8 +144,9 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
                   const U32 compress_flags, const int compress_level, void **workmem)
 {
     const int is_traditional_snappy = compress_flags & SRL_F_COMPRESS_SNAPPY;
-    const int is_snappy = compress_flags & (SRL_F_COMPRESS_SNAPPY | SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
-    /* !is_snappy is the same as "is zlib" right now */
+    const int is_incremental_snappy = compress_flags & SRL_F_COMPRESS_SNAPPY_INCREMENTAL;
+    const int is_zstd = compress_flags & SRL_F_COMPRESS_ZSTD;
+    const int is_zlib = !is_traditional_snappy && !is_incremental_snappy && !is_zstd;
 
     size_t uncompressed_body_length = BUF_POS_OFS(buf) - sereal_header_length;
     size_t compressed_body_length;
@@ -139,15 +157,19 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
     DEBUG_ASSERT_BUF_SANE(buf);
 
     /* Get estimated compressed payload length */
-    compressed_body_length
-        = (is_snappy ? (size_t) csnappy_max_compressed_length(uncompressed_body_length)
-                     : (size_t) mz_compressBound(uncompressed_body_length) + SRL_MAX_VARINT_LENGTH);
-
-    /* Will have to embed compressed packet length as varint if not
-     * in traditional Snappy mode. (So needs to be added for any of
-     * ZLIB, or incremental Snappy.) */
-    if (!is_traditional_snappy)
-        compressed_body_length += SRL_MAX_VARINT_LENGTH;
+    if (is_incremental_snappy) {
+        compressed_body_length = (size_t) csnappy_max_compressed_length(uncompressed_body_length);
+        compressed_body_length += SRL_MAX_VARINT_LENGTH; // will have to embed compressed packet length as varint
+    } else if (is_traditional_snappy) {
+        compressed_body_length = (size_t) csnappy_max_compressed_length(uncompressed_body_length);
+    } else if (is_zstd) {
+        compressed_body_length = ZSTD_compressBound(uncompressed_body_length);
+        compressed_body_length += SRL_MAX_VARINT_LENGTH; // will have to embed compressed packet length as varint
+    } else {
+        compressed_body_length = (size_t) mz_compressBound(uncompressed_body_length);
+        compressed_body_length += SRL_MAX_VARINT_LENGTH; // will have to embed uncommpressed packet length as varint
+        compressed_body_length += SRL_MAX_VARINT_LENGTH; // will have to embed compressed packet length as varint
+    }
 
     /* Back up old buffer and allocate new one with correct size */
     srl_buf_copy_buffer(aTHX_ buf, &old_buf);
@@ -158,17 +180,16 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
     buf->pos += sereal_header_length;
 
     /* Embed uncompressed packet length if Zlib */
-    if (!is_snappy)
-        srl_buf_cat_varint_nocheck(aTHX_ buf, 0, uncompressed_body_length);
+    if (is_zlib) srl_buf_cat_varint_nocheck(aTHX_ buf, 0, uncompressed_body_length);
 
-    /* Embed compressed packet length if incr. Snappy or Zlib*/
-    if (expect_true(!is_traditional_snappy)) {
+    /* Embed compressed packet length if incr. Snappy, Zlib or Zstd*/
+    if (is_incremental_snappy || is_zlib || is_zstd) {
         varint_start = buf->pos;
         srl_buf_cat_varint_nocheck(aTHX_ buf, 0, compressed_body_length);
         varint_end = buf->pos - 1;
     }
 
-    if (is_snappy) {
+    if (is_incremental_snappy || is_traditional_snappy) {
         uint32_t len = (uint32_t) compressed_body_length;
         srl_init_snappy_workmem(aTHX_ workmem);
 
@@ -176,7 +197,14 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
                          (char*) buf->pos, &len, *workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
 
         compressed_body_length = (size_t) len;
-    } else {
+    } else if (is_zstd) {
+        size_t code = ZSTD_compress((void*) buf->pos, compressed_body_length,
+                                    (void*) old_buf.start + sereal_header_length, uncompressed_body_length,
+                                    compress_level);
+
+        assert(ZSTD_isError(code) == 0);
+        compressed_body_length = code;
+    } else if (is_zlib) {
         mz_ulong dl = (mz_ulong) compressed_body_length;
         int status = mz_compress2(
             buf->pos,

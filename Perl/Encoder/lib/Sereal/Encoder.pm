@@ -20,6 +20,7 @@ use constant {
     SRL_UNCOMPRESSED => 0,
     SRL_SNAPPY       => 1,
     SRL_ZLIB         => 2,
+    SRL_ZSTD         => 3,
 };
 use constant #begin generated
 {

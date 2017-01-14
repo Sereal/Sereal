@@ -91,6 +91,20 @@ sub check_external_libraries {
     print "Using bundled miniz code\n";
     $$objects .= ' miniz$(OBJ_EXT)';
   }
+
+  if (
+    !$ENV{SEREAL_USE_BUNDLED_LIBS} &&
+    !$ENV{SEREAL_USE_BUNDLED_ZSTD} &&
+    Devel::CheckLib::check_lib(
+      lib      => 'zstd',
+      header   => 'zstd.h'
+  )) {
+    print "Using installed zstd library\n";
+    $$libs .= ' -lzstd';
+    $$defines .= ' -DHAVE_ZSTD';
+  } else {
+    print "Using bundled zstd code\n";
+  }
 }
 
 sub build_defines {
