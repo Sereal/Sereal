@@ -24,12 +24,13 @@ if ($in_source_repo) {
 }
 
 my $libs = '';
+my $subdirs = [];
 my $objects = '$(BASEEXT)$(OBJ_EXT) srl_iterator$(OBJ_EXT) srl_decoder$(OBJ_EXT)';
 my $defines = inc::Sereal::BuildTools::build_defines();
 $defines .= ' -DFOLLOW_REFERENCES_IF_NOT_STASHED';
 
 # Prefer external libraries over the bundled one.
-inc::Sereal::BuildTools::check_external_libraries(\$libs, \$defines, \$objects);
+inc::Sereal::BuildTools::check_external_libraries(\$libs, \$defines, \$objects, $subdirs);
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
@@ -65,4 +66,5 @@ inc::Sereal::BuildTools::WriteMakefile(
     INC               => '-I..', # e.g., '-I. -I/usr/include/other'
     OPTIMIZE          => inc::Sereal::BuildTools::build_optimize(),
     OBJECT            => $objects,
+    DIR               => $subdirs,
 );

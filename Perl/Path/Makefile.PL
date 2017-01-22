@@ -13,11 +13,13 @@ require inc::Sereal::BuildTools;
 inc::Sereal::BuildTools::link_files($shared_dir, 'without_tests') if $in_source_repo;
 
 my $libs = '';
+my $subdirs = [];
 my $defines = inc::Sereal::BuildTools::build_defines();
 my $objects = '$(BASEEXT)$(OBJ_EXT) srl_path$(OBJ_EXT) Iterator/srl_iterator.o Iterator/srl_decoder.o';
 
 # Prefer external libraries over the bundled one
-inc::Sereal::BuildTools::check_external_libraries(\$libs, \$defines, \$objects);
+inc::Sereal::BuildTools::check_external_libraries(\$libs, \$defines, \$objects, $subdirs);
+push @{ $subdirs }, 'Iterator', 'Tie';
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
@@ -62,5 +64,5 @@ inc::Sereal::BuildTools::WriteMakefile(
     OPTIMIZE          => inc::Sereal::BuildTools::build_optimize(),
     OBJECT            => $objects,
     test              => { TESTS => "t/*.t t/*/*/*.t" },
-    DIR               => [ 'Iterator', 'Tie' ],
+    DIR               => $subdirs,
 );
