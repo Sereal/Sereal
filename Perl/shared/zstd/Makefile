@@ -34,6 +34,9 @@ CPPFLAGS  += -DZSTD_LEGACY_SUPPORT=0
 
 .PHONY: default all clean
 
+test:
+test_dynamic:
+
 default: lib
 
 all: lib
