@@ -20,16 +20,13 @@ extern "C" {
 
 /* =====   ZSTDLIB_API : control library symbols visibility   ===== */
 #if defined(__GNUC__) && (__GNUC__ >= 4)
-#  define ZSTDLIB_VISIBILITY __attribute__ ((visibility ("default")))
-#else
-#  define ZSTDLIB_VISIBILITY
-#endif
-#if defined(ZSTD_DLL_EXPORT) && (ZSTD_DLL_EXPORT==1)
-#  define ZSTDLIB_API __declspec(dllexport) ZSTDLIB_VISIBILITY
+#  define ZSTDLIB_API __attribute__ ((visibility ("default")))
+#elif defined(ZSTD_DLL_EXPORT) && (ZSTD_DLL_EXPORT==1)
+#  define ZSTDLIB_API __declspec(dllexport)
 #elif defined(ZSTD_DLL_IMPORT) && (ZSTD_DLL_IMPORT==1)
-#  define ZSTDLIB_API __declspec(dllimport) ZSTDLIB_VISIBILITY /* It isn't required but allows to generate better code, saving a function pointer load from the IAT and an indirect jump.*/
+#  define ZSTDLIB_API __declspec(dllimport) /* It isn't required but allows to generate better code, saving a function pointer load from the IAT and an indirect jump.*/
 #else
-#  define ZSTDLIB_API ZSTDLIB_VISIBILITY
+#  define ZSTDLIB_API
 #endif
 
 
@@ -56,7 +53,7 @@ extern "C" {
 /*------   Version   ------*/
 #define ZSTD_VERSION_MAJOR    1
 #define ZSTD_VERSION_MINOR    1
-#define ZSTD_VERSION_RELEASE  3
+#define ZSTD_VERSION_RELEASE  2
 
 #define ZSTD_LIB_VERSION ZSTD_VERSION_MAJOR.ZSTD_VERSION_MINOR.ZSTD_VERSION_RELEASE
 #define ZSTD_QUOTE(str) #str
@@ -173,8 +170,8 @@ typedef struct ZSTD_CDict_s ZSTD_CDict;
 *   When compressing multiple messages / blocks with the same dictionary, it's recommended to load it just once.
 *   ZSTD_createCDict() will create a digested dictionary, ready to start future compression operations without startup delay.
 *   ZSTD_CDict can be created once and used by multiple threads concurrently, as its usage is read-only.
-*   `dictBuffer` can be released after ZSTD_CDict creation, as its content is copied within CDict */
-ZSTDLIB_API ZSTD_CDict* ZSTD_createCDict(const void* dictBuffer, size_t dictSize, int compressionLevel);
+*   `dict` can be released after ZSTD_CDict creation. */
+ZSTDLIB_API ZSTD_CDict* ZSTD_createCDict(const void* dict, size_t dictSize, int compressionLevel);
 
 /*! ZSTD_freeCDict() :
 *   Function frees memory allocated by ZSTD_createCDict(). */
@@ -194,8 +191,8 @@ typedef struct ZSTD_DDict_s ZSTD_DDict;
 
 /*! ZSTD_createDDict() :
 *   Create a digested dictionary, ready to start decompression operation without startup delay.
-*   dictBuffer can be released after DDict creation, as its content is copied inside DDict */
-ZSTDLIB_API ZSTD_DDict* ZSTD_createDDict(const void* dictBuffer, size_t dictSize);
+*   `dict` can be released after creation. */
+ZSTDLIB_API ZSTD_DDict* ZSTD_createDDict(const void* dict, size_t dictSize);
 
 /*! ZSTD_freeDDict() :
 *   Function frees memory allocated with ZSTD_createDDict() */
@@ -328,7 +325,7 @@ ZSTDLIB_API size_t ZSTD_DStreamOutSize(void);   /*!< recommended size for output
  * ***************************************************************************************/
 
 /* --- Constants ---*/
-#define ZSTD_MAGICNUMBER            0xFD2FB528   /* >= v0.8.0 */
+#define ZSTD_MAGICNUMBER            0xFD2FB528   /* v0.8 */
 #define ZSTD_MAGIC_SKIPPABLE_START  0x184D2A50U
 
 #define ZSTD_WINDOWLOG_MAX_32  25
@@ -348,9 +345,8 @@ ZSTDLIB_API size_t ZSTD_DStreamOutSize(void);   /*!< recommended size for output
 #define ZSTD_TARGETLENGTH_MAX 999
 
 #define ZSTD_FRAMEHEADERSIZE_MAX 18    /* for static allocation */
-#define ZSTD_FRAMEHEADERSIZE_MIN  6
 static const size_t ZSTD_frameHeaderSize_prefix = 5;
-static const size_t ZSTD_frameHeaderSize_min = ZSTD_FRAMEHEADERSIZE_MIN;
+static const size_t ZSTD_frameHeaderSize_min = 6;
 static const size_t ZSTD_frameHeaderSize_max = ZSTD_FRAMEHEADERSIZE_MAX;
 static const size_t ZSTD_skippableHeaderSize = 8;  /* magic number + skippable frame length */
 
@@ -401,15 +397,9 @@ ZSTDLIB_API ZSTD_CCtx* ZSTD_createCCtx_advanced(ZSTD_customMem customMem);
  *  Gives the amount of memory used by a given ZSTD_CCtx */
 ZSTDLIB_API size_t ZSTD_sizeof_CCtx(const ZSTD_CCtx* cctx);
 
-/*! ZSTD_createCDict_byReference() :
- *  Create a digested dictionary for compression
- *  Dictionary content is simply referenced, and therefore stays in dictBuffer.
- *  It is important that dictBuffer outlives CDict, it must remain read accessible throughout the lifetime of CDict */
-ZSTDLIB_API ZSTD_CDict* ZSTD_createCDict_byReference(const void* dictBuffer, size_t dictSize, int compressionLevel);
-
 /*! ZSTD_createCDict_advanced() :
  *  Create a ZSTD_CDict using external alloc and free, and customized compression parameters */
-ZSTDLIB_API ZSTD_CDict* ZSTD_createCDict_advanced(const void* dict, size_t dictSize, unsigned byReference,
+ZSTDLIB_API ZSTD_CDict* ZSTD_createCDict_advanced(const void* dict, size_t dictSize,
                                                   ZSTD_parameters params, ZSTD_customMem customMem);
 
 /*! ZSTD_sizeof_CDict() :
@@ -465,15 +455,6 @@ ZSTDLIB_API ZSTD_DCtx* ZSTD_createDCtx_advanced(ZSTD_customMem customMem);
  *  Gives the amount of memory used by a given ZSTD_DCtx */
 ZSTDLIB_API size_t ZSTD_sizeof_DCtx(const ZSTD_DCtx* dctx);
 
-/*! ZSTD_createDDict_byReference() :
- *  Create a digested dictionary, ready to start decompression operation without startup delay.
- *  Dictionary content is simply referenced, and therefore stays in dictBuffer.
- *  It is important that dictBuffer outlives DDict, it must remain read accessible throughout the lifetime of DDict */
-ZSTDLIB_API ZSTD_DDict* ZSTD_createDDict_byReference(const void* dictBuffer, size_t dictSize);
-
-ZSTDLIB_API ZSTD_DDict* ZSTD_createDDict_advanced(const void* dict, size_t dictSize,
-                                                  unsigned byReference, ZSTD_customMem customMem);
-
 /*! ZSTD_sizeof_DDict() :
  *  Gives the amount of memory used by a given ZSTD_DDict */
 ZSTDLIB_API size_t ZSTD_sizeof_DDict(const ZSTD_DDict* ddict);
@@ -482,13 +463,13 @@ ZSTDLIB_API size_t ZSTD_sizeof_DDict(const ZSTD_DDict* ddict);
  *  Provides the dictID stored within dictionary.
  *  if @return == 0, the dictionary is not conformant with Zstandard specification.
  *  It can still be loaded, but as a content-only dictionary. */
-ZSTDLIB_API unsigned ZSTD_getDictID_fromDict(const void* dict, size_t dictSize);
+unsigned ZSTD_getDictID_fromDict(const void* dict, size_t dictSize);
 
 /*! ZSTD_getDictID_fromDDict() :
  *  Provides the dictID of the dictionary loaded into `ddict`.
  *  If @return == 0, the dictionary is not conformant to Zstandard specification, or empty.
  *  Non-conformant dictionaries can still be loaded, but as content-only dictionaries. */
-ZSTDLIB_API unsigned ZSTD_getDictID_fromDDict(const ZSTD_DDict* ddict);
+unsigned ZSTD_getDictID_fromDDict(const ZSTD_DDict* ddict);
 
 /*! ZSTD_getDictID_fromFrame() :
  *  Provides the dictID required to decompressed the frame stored within `src`.
@@ -500,7 +481,7 @@ ZSTDLIB_API unsigned ZSTD_getDictID_fromDDict(const ZSTD_DDict* ddict);
  *  - `srcSize` is too small, and as a result, the frame header could not be decoded (only possible if `srcSize < ZSTD_FRAMEHEADERSIZE_MAX`).
  *  - This is not a Zstandard frame.
  *  When identifying the exact failure cause, it's possible to used ZSTD_getFrameParams(), which will provide a more precise error code. */
-ZSTDLIB_API unsigned ZSTD_getDictID_fromFrame(const void* src, size_t srcSize);
+unsigned ZSTD_getDictID_fromFrame(const void* src, size_t srcSize);
 
 
 /********************************************************************

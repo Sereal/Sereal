@@ -32,11 +32,12 @@ my $optimize = inc::Sereal::BuildTools::build_optimize();
 #     #define MINIZ_HAS_64BIT_REGISTERS 1
 
 my $libs = '';
+my $subdirs = [];
 my $objects = '$(BASEEXT)$(OBJ_EXT) srl_decoder$(OBJ_EXT)';
 my $defines = inc::Sereal::BuildTools::build_defines();
 
 # Prefer external libraries over the bundled one.
-inc::Sereal::BuildTools::check_external_libraries(\$libs, \$defines, \$objects);
+inc::Sereal::BuildTools::check_external_libraries(\$libs, \$defines, \$objects, $subdirs);
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
@@ -83,6 +84,7 @@ inc::Sereal::BuildTools::WriteMakefile(
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
     OPTIMIZE          => $optimize,
     OBJECT            => $objects,
+    DIR               => $subdirs,
     test              => {
         TESTS => "t/*.t t/*/*/*.t"
     },

@@ -60,7 +60,7 @@ sub generate_constant_includes {
 
 # Prefer external csnappy and miniz libraries over the bundled ones.
 sub check_external_libraries {
-  my ($libs, $defines, $objects) = @_;
+  my ($libs, $defines, $objects, $subdirs) = @_;
   require Devel::CheckLib;
 
   if (
@@ -104,6 +104,8 @@ sub check_external_libraries {
     $$defines .= ' -DHAVE_ZSTD';
   } else {
     print "Using bundled zstd code\n";
+    push @{ $subdirs }, 'zstd';
+    $$objects .= ' zstd/libzstd$(OBJ_EXT)';
   }
 }
 

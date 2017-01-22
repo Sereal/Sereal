@@ -59,7 +59,7 @@ const U8 SRL_F_COMPRESS_FLAGS_TO_PROTOCOL_ENCODING[16]= {
 #if defined(HAVE_ZSTD)
 #include <zstd.h>
 #else
-// TODO
+#include "zstd/zstd.h"
 #endif
 
 /* Update a varint anywhere in the output stream with defined start and end

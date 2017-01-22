@@ -30,7 +30,7 @@
 #if defined(HAVE_ZSTD)
     #include <zstd.h>
 #else
-// TODO
+    #include "zstd/zstd.h"
 #endif
 
 #if defined(HAVE_MINIZ)
