@@ -43,6 +43,5 @@ t/lib
 t/lib/Sereal/TestSet.pm
 t/test_set.pl
 typemap
-
 qsort.h
 zstd
