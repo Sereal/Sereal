@@ -158,5 +158,5 @@ zstd/compress/zstd_compress.c
 zstd/compress/zstd_opt.h
 zstd/decompress/huf_decompress.c
 zstd/decompress/zstd_decompress.c
-zstd/Makefile
+zstd/Makefile.PL
 zstd/zstd.h

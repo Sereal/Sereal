@@ -1,3 +1,10 @@
+use 5.008;
+
+use strict;
+use warnings;
+
+open(my $fh, '>', "Makefile") or die $!;
+print $fh q{
 # ################################################################
 # Copyright (c) 2016-present, Yann Collet, Facebook, Inc.
 # All rights reserved.
@@ -53,3 +60,4 @@ clean:
 	$(RM) core *.o *.a *.gcda
 	$(RM) decompress/*.o
 	@echo Cleaning zstd library completed
+};
