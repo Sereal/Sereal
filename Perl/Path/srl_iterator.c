@@ -336,6 +336,11 @@ srl_iterator_set(pTHX_ srl_iterator_t *iter, SV *src)
         SvREFCNT_dec(iter->document);
         SvREFCNT_inc(sv);
         iter->document = sv;
+    } else if (encoding_flags == SRL_PROTOCOL_ENCODING_ZSTD) {
+        srl_decompress_body_zstd(aTHX_ iter->pbuf, &sv);
+        SvREFCNT_dec(iter->document);
+        SvREFCNT_inc(sv);
+        iter->document = sv;
     } else {
         SRL_RDR_ERROR(iter->pbuf, "Sereal document encoded in an unknown format");
     }
