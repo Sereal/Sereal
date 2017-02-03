@@ -6,8 +6,8 @@ my %sets;
 my %flag_consts;
 my %flag_names;
 my (@flags, @static, @volatile);
-my $file= "srl_encoder.h";
-{
+my @files= ( "srl_encoder.h", "srl_compress.h" );
+foreach my $file (sort @files) {
     open my $fh, "<", $file
         or die "Failed to open '$file' for read: $!";
 
