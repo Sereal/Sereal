@@ -455,7 +455,7 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
             if (enc->protocol_version < 1
                 || enc->protocol_version > SRL_PROTOCOL_VERSION)
             {
-                croak("Specified Sereal protocol version ('%"UVuf") is invalid",
+                croak("Specified Sereal protocol version (%"UVuf") is invalid",
                       (UV)enc->protocol_version);
             }
         }
