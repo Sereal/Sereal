@@ -621,7 +621,7 @@ srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
     encoding_flags = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_ENCODING_MASK);
     protocol_version = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
 
-    if (expect_false(protocol_version > 3 || protocol_version < 1)) {
+    if (expect_false(protocol_version > SRL_PROTOCOL_VERSION || protocol_version < 1)) {
         SRL_RDR_ERRORf1(mrg->pibuf, "Unsupported Sereal protocol version %u", (unsigned int) protocol_version);
     }
 

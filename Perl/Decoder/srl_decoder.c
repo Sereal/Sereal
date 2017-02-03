@@ -587,7 +587,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
 
         if (expect_false( dec->proto_version == 1 ))
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_PROTOCOL_V1); /* compat mode */
-        else if (expect_false( dec->proto_version > 3 || dec->proto_version < 1 ))
+        else if (expect_false( dec->proto_version > SRL_PROTOCOL_VERSION || dec->proto_version < 1 ))
             SRL_RDR_ERRORf1(dec->pbuf, "Unsupported Sereal protocol version %u", dec->proto_version);
 
         if (dec->encoding_flags == SRL_PROTOCOL_ENCODING_RAW) {

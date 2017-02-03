@@ -30,7 +30,7 @@ done_testing();
 
 sub run_tests {
   my ($extra_name, $opt_hash) = @_;
-  setup_tests(3);
+  setup_tests(4);
   foreach my $bt (@BasicTests) {
     my (undef, $expect, $name, @alternate) = @$bt;
 

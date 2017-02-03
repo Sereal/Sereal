@@ -155,7 +155,7 @@
 #define SRL_MAGIC_STRING_HIGHBIT_UTF8_UINT_LE   0x72B3C33D      /* first four bytes of SRL_MAGIC_STRING encoded as UTF8, little endian */
 #define SRL_MAGIC_STRING_HIGHBIT_UTF8_UINT_BE   0x3DC3B372      /* first four bytes of SRL_MAGIC_STRING encoded as UTF8, big endian */
 
-#define SRL_PROTOCOL_VERSION            ( 3 )
+#define SRL_PROTOCOL_VERSION            ( 4 )
 #define SRL_PROTOCOL_VERSION_BITS       ( 4 )           /* how many bits we use for the version, the rest go to the encoding */
 #define SRL_PROTOCOL_VERSION_MASK       ( ( 1 << SRL_PROTOCOL_VERSION_BITS ) - 1 )
 
