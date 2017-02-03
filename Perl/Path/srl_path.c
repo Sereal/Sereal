@@ -53,7 +53,7 @@ extern "C" {
 #include "srl_inline.h"
 #include "srl_protocol.h"
 #include "srl_path.h"
-#include "srl_iterator.h"
+#include "Iterator/srl_iterator.h"
 #include "srl_reader_error.h"
 
 #ifdef TRACE_SRL_PATH

@@ -9,12 +9,12 @@ unshift @INC, "..", "../inc";
 unshift @INC, $shared_dir, "$shared_dir/inc" if $in_source_repo;
 
 require inc::Sereal::BuildTools;
-inc::Sereal::BuildTools::link_files($shared_dir, 'without_tests') if $in_source_repo;
+inc::Sereal::BuildTools::link_files($shared_dir, 'bare_minimum') if $in_source_repo;
 
 if ($in_source_repo) {
-    foreach (qw/lib Tie.xs/) {
+    foreach (qw/srl_iterator.h/) {
         -l $_ && unlink($_);
-        symlink("../$_", $_) or warn $!;
+        symlink("../Iterator/$_", $_) or warn $!;
     }
 }
 
@@ -22,9 +22,6 @@ my $libs = '';
 my $subdirs = [];
 my $objects = '$(BASEEXT)$(OBJ_EXT) ../Iterator/srl_iterator.o ../Iterator/srl_decoder.o';
 my $defines = inc::Sereal::BuildTools::build_defines();
-
-# Prefer external libraries over the bundled one.
-inc::Sereal::BuildTools::check_external_libraries(\$libs, \$defines, \$objects, $subdirs);
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
@@ -57,7 +54,7 @@ inc::Sereal::BuildTools::WriteMakefile(
     AUTHOR            => 'Ivan Kruglov <ivan.kruglov@yahoo.com>',
     LIBS              => [$libs], # e.g., '-lm'
     DEFINE            => $defines,
-    INC               => '-I..', # e.g., '-I. -I/usr/include/other'
+    INC               => '-I.', # e.g., '-I. -I/usr/include/other'
     OPTIMIZE          => inc::Sereal::BuildTools::build_optimize(),
     OBJECT            => $objects,
     DIR               => $subdirs,

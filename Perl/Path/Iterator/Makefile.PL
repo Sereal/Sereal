@@ -16,11 +16,6 @@ if ($in_source_repo) {
         -l $_ && unlink($_);
         symlink("../../Decoder/$_", $_) or warn $!;
     }
-
-    foreach (qw/lib Iterator.xs srl_iterator.h srl_iterator.c/) {
-        -l $_ && unlink($_);
-        symlink("../$_", $_) or warn $!;
-    }
 }
 
 my $libs = '';
@@ -63,7 +58,7 @@ inc::Sereal::BuildTools::WriteMakefile(
     AUTHOR            => 'Ivan Kruglov <ivan.kruglov@yahoo.com>',
     LIBS              => [$libs], # e.g., '-lm'
     DEFINE            => $defines,
-    INC               => '-I..', # e.g., '-I. -I/usr/include/other'
+    INC               => '-I.', # e.g., '-I. -I/usr/include/other'
     OPTIMIZE          => inc::Sereal::BuildTools::build_optimize(),
     OBJECT            => $objects,
     DIR               => $subdirs,
