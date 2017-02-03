@@ -192,11 +192,12 @@ and feature-rich binary protocol called I<Sereal>.
 Its sister module L<Sereal::Encoder> implements an encoder for this format.
 The two are released separately to allow for independent and safer upgrading.
 
-The Sereal protocol versions that are compatible with this decoder implementation
-are currently protocol versions 1, 2, and 3. As it stands, it will refuse to attempt to
-decode future versions of the protocol, but if necessary there is likely
-going to be an option to decode the parts of the input that are compatible
-with version 3 of the protocol. The protocol was designed to allow for this.
+The Sereal protocol versions that are compatible with this decoder
+implementation are currently protocol versions 1, 2, 3 and 4. As it stands, it
+will refuse to attempt to decode future versions of the protocol, but if
+necessary there is likely going to be an option to decode the parts of the
+input that are compatible with version 4 of the protocol. The protocol was
+designed to allow for this.
 
 The protocol specification and many other bits of documentation
 can be found in the github repository. Right now, the specification is at

@@ -12,7 +12,7 @@ This document describes the format and encoding of a Sereal data packet.
 
 =head1 VERSION
 
-This is the Sereal specification version 3.00.
+This is the Sereal specification version 4.00.
 
 The integer part of the document version corresponds to
 the Sereal protocol version. For details on incompatible changes between
@@ -64,15 +64,15 @@ and when decoded as an unsigned 32 bit integer on a little endian machine
 has a value of 0x6C72733D. Vesion 1 and 2 of the protocol require this
 magic string.
 
-In protocol version 3 the magic string has been changed to "=\xF3rl",
-where \xF3 is "s" with the high bit set. The little endian integer form
-of this string is 0x6C72F33D. Having a hight bit set in the magic string
-makes it easy to detect when a Sereal document has been accidentally
-UTF-8 encoded because the \xF3 is translated to \xC3\xB3.
+In protocol version 3 and higher the magic string has been changed to
+"=\xF3rl", where \xF3 is "s" with the high bit set. The little endian integer
+form of this string is 0x6C72F33D. Having a hight bit set in the magic string
+makes it easy to detect when a Sereal document has been accidentally UTF-8
+encoded because the \xF3 is translated to \xC3\xB3.
 
-Decoders are required to support the magic string associated to the
-protocol versions they can decode, so if a decoder can handle v1, v2, and
-v3 then it should handle both magic header.
+Decoders are required to support the magic string associated to the protocol
+versions they can decode, so if a decoder can handle v1, v2, v3 and v4 then it
+should handle both magic header.
 
 It is an error to use a new magic header on a v1 or v2 packet, and it is
 an error to use the old magic header in v3 or later.
@@ -83,7 +83,7 @@ A single byte, of which the high 4 bits are used to represent the "type"
 of the document, and the low 4 bits used to represent the version of the
 Sereal protocol the document complies with.
 
-Up until now there have been versions 1, 2, and 3 of the Sereal protocol.
+Up until now there have been versions 1, 2, 3 and 4 of the Sereal protocol.
 So the low four bits will be one of those values in little-endian.
 
 Currently only three types are defined:
@@ -130,6 +130,21 @@ See L</"NOTES ON IMPLEMENTATION"> below for a discussion on
 how to implement this efficiently.
 
 This compression format is new in v3 of the specification.
+
+=item 4
+
+Compressed Sereal format, using Zstandard compression internally as
+format I<4>.
+
+The format is:
+
+  <Varint><Zstd Blob>
+
+where the varint signifies the length of the zstd-compressed blob
+following it. See L</"NOTES ON IMPLEMENTATION"> below for a discussion on
+how to implement this efficiently.
+
+This compression format is new in v4 of the specification.
 
 =back
 

@@ -145,7 +145,7 @@ If you care greatly about performance, consider reading the L<Sereal::Performanc
 documentation after finishing this document.
 
 The Sereal protocol version emitted by this encoder implementation is currently
-protocol version 3 by default.
+protocol version 4 by default.
 
 The protocol specification and many other bits of documentation
 can be found in the github repository. Right now, the specification is at
@@ -171,11 +171,10 @@ by default.
 =head3 compress
 
 If this option provided and true, compression of the document body is enabled.
-As of Sereal version 3, two different compression techniques are supported
+As of Sereal version 4, three different compression techniques are supported
 and can be enabled by setting C<compress> to the respective named
 constants (exportable from the C<Sereal::Encoder> module):
-Snappy (named constant: C<SRL_SNAPPY>),
-and Zlib (C<SRL_ZLIB>).
+Snappy (named constant: C<SRL_SNAPPY>), Zlib (C<SRL_ZLIB>) and Zstd (C<SRL_ZSTD>).
 For your convenience, there is also a C<SRL_UNCOMPRESSED>
 constant.
 
@@ -193,8 +192,9 @@ will be bigger than the original size (even if C<compress_threshold> is 0).
 
 =head3 compress_level
 
-If Zlib compression is used, then this option will set a compression
-level from 1 (fastest) to 9 (best). Defaults to 6.
+If Zlib or Zstd compressions are used, then this option will set a compression
+level: Zlib uses range from 1 (fastest) to 9 (best). Defaults to 6. Zstd uses
+range from 1 (fastest) to 22 (best). Default is 3.
 
 =head3 snappy
 
