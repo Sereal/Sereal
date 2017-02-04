@@ -789,25 +789,12 @@ srl_iterator_rewind(pTHX_ srl_iterator_t *iter, UV n)
 IV
 srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
 {
-    I32 nidx, ridx;
+    I32 ridx;
     srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
+    IV nidx = srl_iterator_array_exists(aTHX_ iter, idx);
+    if (nidx == SRL_ITER_NOT_FOUND) return SRL_ITER_NOT_FOUND;
 
-    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
-    SRL_ITER_ASSERT_EOF(iter, "array element");
-    SRL_ITER_ASSERT_STACK(iter);
-    SRL_ITER_ASSERT_ARRAY_ON_STACK(iter);
-
-    SRL_ITER_TRACE_WITH_POSITION("idx=%d", idx);
-    SRL_ITER_REPORT_STACK_STATE(iter);
-
-    nidx = srl_iterator_normalize_idx(aTHX_ idx, stack_ptr->length);
-    if (nidx < 0 || nidx >= (I32) stack_ptr->length) {
-        SRL_ITER_TRACE("Index is out of range, idx=%d nidx=%d length=%u",
-                       idx, nidx, stack_ptr->length);
-        return SRL_ITER_NOT_FOUND;
-    }
-
-    ridx = stack_ptr->length - nidx;
+    ridx = stack_ptr->length - (I32) nidx;
     if (ridx == stack_ptr->ridx) {
         return SRL_RDR_BODY_POS_OFS(iter->pbuf); // already at expected position
     } else if (ridx > stack_ptr->ridx) {
