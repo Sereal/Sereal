@@ -7,6 +7,7 @@ use blib "../../Perl/Decoder/blib/";
 use blib "../../Perl/Encoder/blib/";
 use lib "../../Perl/shared/t/lib/";
 
+use Cwd;
 use Sereal::Decoder qw(decode_sereal);
 use Sereal::Encoder qw(encode_sereal);
 use Test::More;
@@ -311,12 +312,16 @@ for my $n (glob("test_dir/test_data_?????")) {
 is($skipped, $skip_total, "skipped expected number of tests");
 
 {
-    foreach my $class ("time.Time", "github.com/Sereal/Sereal/Go/sereal.StructWithTime", "_/home/travis/build/Sereal/Sereal/Go/sereal.StructWithTime") {
+    my $cwd = getcwd();
+    $cwd =~ s/sereal$//;
+    chop $cwd if $cwd =~ m/\/$/;
+    foreach my $class ("time.Time", "github.com/Sereal/Sereal/Go/sereal.StructWithTime", "_${cwd}/sereal.StructWithTime") {
         no strict 'refs';
         *{"${class}::THAW"} = sub { my ( $pkg, $srl, $val ) = @_; bless \$val, $pkg };
         *{"${class}::FREEZE"} = sub { ${$_[0]} };
     }
 
+    my ($version) = map { m/VERSION_([0-9]+)$/; $1 } glob("test_freeze/VERSION_*");
     for my $n (glob("test_freeze/*-go.out")) {
         my $testdata = slurp($n);
         my ( $name ) = ( $n =~ m{([^/]+)-go\.out$} );
@@ -335,7 +340,7 @@ is($skipped, $skip_total, "skipped expected number of tests");
         ( my $perl = $n ) =~ s{-go\.out$}{-perl.out};
 
         open my $fh, ">", $perl or die "Can't open $perl for writing: $!";
-        print $fh encode_sereal($g, { freeze_callbacks => 1 }) or die "print($perl): $!"; 
+        print $fh encode_sereal($g, { freeze_callbacks => 1, protocol_version => $version }) or die "print($perl): $!";
         close $fh or die "close($perl): $!";
 
         pass($name);

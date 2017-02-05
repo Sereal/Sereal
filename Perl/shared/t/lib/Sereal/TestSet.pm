@@ -1237,13 +1237,13 @@ sub _write_file {
 # For bootstrapping other language implementations' tests
 our $COMPRESS;
 sub write_test_files {
-    my $dir = shift;
+    my ($dir, $version) = @_;
     require File::Path;
     File::Path::mkpath($dir);
     my $make_data_file_name = sub {File::Spec->catfile($dir, sprintf("test_data_%05u", shift))};
     my $make_name_file_name = sub {File::Spec->catfile($dir, sprintf("test_name_%05u", shift))};
 
-    setup_tests();
+    setup_tests($version);
     foreach my $testno (1..@BasicTests) {
         my $t = $BasicTests[$testno-1];
         my $data = ref($t->[1]) eq 'CODE' ? $t->[1]->() : $t->[1];

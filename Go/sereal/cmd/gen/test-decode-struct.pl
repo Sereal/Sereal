@@ -30,6 +30,9 @@ my $obj2 = {
     }
 };
 
-open(my $fh, '>', $ARGV[0] . "/test-decode-struct.srl") or die $!;
-print $fh encode_sereal([ $obj1, $obj2, $obj1 ], { dedupe_strings => 1 });
+my $dir = $ARGV[0];
+open(my $fh, '>', "$dir/test-decode-struct.srl") or die $!;
+my ($version) = map { m/VERSION_([0-9]+)$/; $1 } glob("$dir/VERSION_*");
+printf "$0 uses protocol_version %d\n", $version || 'undef';
+print $fh encode_sereal([ $obj1, $obj2, $obj1 ], { dedupe_strings => 1, protocol_version => $version });
 exit;
