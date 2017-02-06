@@ -1,18 +1,20 @@
-CORPUS_PROTO_VER ?= 3
+CORPUS_PROTO_VER ?= 4
 CORPUS_COMPRESS ?= SRL_UNCOMPRESSED
+
+TAGS ?=
 
 test_all: test compat
 
 test: test_dir
-	-go test
+	-go test $(TAGS)
 
 compat: test_dir
 	-rm -f test_dir/test_data_*-go.out
 	-rm -f test_freeze/*-go.out
-	go test -test.run=TestCorpus
-	go test -test.run=TestPrepareFreezeRoundtrip
+	go test $(TAGS) -test.run=TestCorpus
+	go test $(TAGS) -test.run=TestPrepareFreezeRoundtrip
 	prove ./test-compat.pl
-	env RUN_FREEZE=1 go test -test.run=TestFreezeRoundtrip
+	env RUN_FREEZE=1 go test $(TAGS) -test.run=TestFreezeRoundtrip
 
 ../../Perl/Decoder/blib:
 	cd ../../Perl/Decoder/ ; perl Makefile.PL
