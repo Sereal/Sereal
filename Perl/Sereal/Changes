@@ -7,12 +7,16 @@ please see the Encoder and Decoder changelogs:
    * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
 
 ****************************************************************
-* Warning: For a seamless upgrade, upgrade to version 3        *
-*          of the decoder before upgrading to version 3 of the *
+* Warning: For a seamless upgrade, upgrade to version 4        *
+*          of the decoder before upgrading to version 4 of the *
 *          encoder! This may mean you should NOT install the   *
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+4.001_001 Mon Feb  6 11:13:40 CEST 2017
+  * Sereal v4 release with Zstandard compression support
+    https://github.com/facebook/zstd
+
 3.015 Thu Sep  1 20:18:44 CEST 2016
   * Fix builds under 5.25+
   * Fix various buffer overun bugs found using AFL (thanks to dgryski)
