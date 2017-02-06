@@ -28,6 +28,7 @@ const (
 	serealSnappy
 	serealSnappyIncremental
 	serealZlib
+	serealZstd
 )
 
 const trackFlag = byte(0x80)

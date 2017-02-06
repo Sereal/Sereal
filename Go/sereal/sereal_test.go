@@ -672,8 +672,8 @@ func TestUnmarshalHeaderError(t *testing.T) {
 		{"3df3726c0200", ErrBadHeader},
 		// Forbidden version 3 and obsolete "=srl" magic string
 		{"3d73726c0300", ErrBadHeader},
-		// Non-existing (yet) version 4, "=srl" with a high-bit-set-on-the-"s"
-		{"3df3726c0400", errors.New("document version '4' not yet supported")},
+		// Non-existing (yet) version 5, "=srl" with a high-bit-set-on-the-"s"
+		{"3df3726c0500", errors.New("document version '5' not yet supported")},
 	}
 
 	d := NewDecoder()
