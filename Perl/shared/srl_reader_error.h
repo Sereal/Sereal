@@ -21,14 +21,4 @@
 #define SRL_RDR_ERROR_REFUSE_OBJECT(buf)                     SRL_RDR_ERROR((buf),   "Encountered object in input, but the 'refuse_objects' option is in effect");
 #define SRL_RDR_ERROR_PANIC(buf, msg)                        SRL_RDR_ERRORf1((buf), "Panic: %s", msg);
 
-/* trace functions */
-#ifdef WANT_SRL_RDR_TRACE
-#ifdef TRACE_READER
-#   define SRL_RDR_TRACE(msg, args...) \
-        fprintf(stderr, "%s:%d:%s(): "msg"\n", __FILE__, __LINE__, __func__, ## args)
-#else
-#   define SRL_RDR_TRACE(msg, args...)
-#endif
-#endif
-
 #endif

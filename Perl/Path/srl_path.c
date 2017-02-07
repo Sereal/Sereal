@@ -57,7 +57,8 @@ extern "C" {
 #include "srl_reader_error.h"
 
 #ifdef TRACE_SRL_PATH
-#   define SRL_PATH_TRACE(msg, args...) SRL_RDR_TRACE(msg, ## args)
+#   define SRL_PATH_TRACE(msg, args...) \
+        fprintf(stderr, "%s:%d:%s(): "msg"\n", __FILE__, __LINE__, __func__, ## args)
 #else
 #   define SRL_PATH_TRACE(msg, args...)
 #endif

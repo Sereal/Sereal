@@ -92,13 +92,18 @@ extern "C" {
 #define SRL_ITER_ERRORf3(fmt, var1, var2, var3) croak(SRL_ITER_BASE_ERROR_FORMAT fmt,  SRL_ITER_BASE_ERROR_ARGS, (var1), (var2), (var3))
 
 #ifdef TRACE_ITERATOR
-#   define SRL_ITER_TRACE(msg, args...)                                             \
-        SRL_RDR_TRACE("%s " msg, srl_debug_tabulator(iter), ## args)
+#   define SRL_ITER_TRACE(msg, args...) STMT_START {                                \
+        fprintf(                                                                    \
+            stderr,                                                                 \
+            "%s %s:%d:%s(): "msg"\n",                                               \
+            srl_debug_tabulator(iter),                                              \
+            __FILE__, __LINE__, __func__, ## args                                   \
+        );                                                                          \
+    } STMT_END
 
 #   define SRL_ITER_TRACE_WITH_POSITION(msg, args...) STMT_START {                  \
-        SRL_RDR_TRACE(                                                              \
-            "%s " msg " (ofs %"UVuf" body_ofs %"UVuf")",                            \
-            srl_debug_tabulator(iter),                                              \
+        SRL_ITER_TRACE(                                                             \
+            msg" (ofs %"UVuf" body_ofs %"UVuf")",                                   \
             ## args,                                                                \
             (UV) SRL_RDR_POS_OFS((iter)->pbuf),                                     \
             (UV) SRL_RDR_BODY_POS_OFS((iter)->pbuf)                                 \
@@ -106,9 +111,8 @@ extern "C" {
     } STMT_END
 
 #   define SRL_ITER_REPORT_TAG(iter, tag) STMT_START {                              \
-        SRL_RDR_TRACE(                                                              \
-            "%s tag SRL_HDR_%s (hex: 0x%x) at ofs %"UVuf" body_ofs %"UVuf,          \
-            srl_debug_tabulator((iter)),                                            \
+        SRL_ITER_TRACE(                                                             \
+            "tag SRL_HDR_%s (hex: 0x%x) at ofs %"UVuf" body_ofs %"UVuf,             \
             SRL_TAG_NAME((tag)),                                                    \
             (tag),                                                                  \
             (UV) SRL_RDR_POS_OFS((iter)->pbuf),                                     \
@@ -117,17 +121,15 @@ extern "C" {
     } STMT_END
 #   define SRL_ITER_REPORT_STACK_STATE(iter) STMT_START {                           \
         if (srl_stack_empty((iter)->pstack)) {                                      \
-            SRL_RDR_TRACE(                                                          \
-                "%s stack state depth=%"IVdf,                                       \
-                srl_debug_tabulator((iter)),                                        \
+            SRL_ITER_TRACE(                                                         \
+                "stack state depth=%"IVdf,                                          \
                 SRL_STACK_DEPTH((iter)->pstack)                                     \
             );                                                                      \
         } else {                                                                    \
             srl_iterator_stack_ptr stack_ptr = (iter)->stack.ptr;                   \
-            SRL_RDR_TRACE(                                                          \
-                "%s stack state depth=%"IVdf" tag=SRL_HDR_%s (hex: 0x%x)"           \
+            SRL_ITER_TRACE(                                                         \
+                "stack state depth=%"IVdf" tag=SRL_HDR_%s (hex: 0x%x)"              \
                 " idx=%d offset=%"UVuf" length=%u",                                 \
-                srl_debug_tabulator((iter)),                                        \
                 SRL_STACK_DEPTH((iter)->pstack),                                    \
                 SRL_TAG_NAME(stack_ptr->tag),                                       \
                 stack_ptr->tag,                                                     \
