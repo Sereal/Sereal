@@ -5,7 +5,7 @@ use warnings;
 use Config;
 use constant OSNAME => $^O;
 
-my %bare_minimum_files= map { $_ => 1 } qw/
+my %bare_minimum_files= map { $_ => 1 } qw{
     typemap
     ppport.h
     srl_stack.h
@@ -15,7 +15,10 @@ my %bare_minimum_files= map { $_ => 1 } qw/
     srl_protocol.h
     srl_reader_error.h
     srl_reader_types.h
-/;
+    inc/Sereal/BuildTools.pm
+    inc/Sereal
+    inc
+};
 
 sub link_files {
   my $shared_dir = shift;
