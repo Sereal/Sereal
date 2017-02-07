@@ -496,6 +496,15 @@ accordingly, otherwise they are free to treat CANONICAL_UNDEF the same as UNDEF.
 
 =head1 PROTOCOL CHANGES
 
+=head2 Protocol Version 4
+
+"zstd" compression (document type 4) support is added. As detailed above, its
+structure is
+
+  <Varint><Zstd Blob>
+
+where the varint indicates the length of the compressed document.
+
 =head2 Protocol Version 3
 
 In Sereal protocol version 3, the magic string has been changed to make it
