@@ -109,28 +109,18 @@ info(iter)
   PREINIT:
     UV type;
     UV length;
-    SV *str_type;
+    int blessed;
+    const char *classname;
+    STRLEN classname_length;
+
   PPCODE:
-    switch (srl_iterator_object_info(aTHX_ iter, &length)) {
-        case SRL_ITERATOR_OBJ_IS_ARRAY:
-            str_type = newSVpv("ARRAY", 5);
-            break;
+    type = srl_iterator_info(aTHX_ iter, &length, &classname, &classname_length);
+    blessed = (type & SRL_ITERATOR_INFO_BLESSED) == SRL_ITERATOR_INFO_BLESSED;
 
-        case SRL_ITERATOR_OBJ_IS_HASH:
-            str_type = newSVpv("HASH", 4);
-            break;
-
-        case SRL_ITERATOR_OBJ_IS_SCALAR:
-            str_type = newSVpv("SCALAR", 6);
-            break;
-
-        default:
-            croak("should not be here");
-    }
-
-    EXTEND(SP, 2);
-    PUSHs(sv_2mortal(str_type));
+    EXTEND(SP, blessed ? 3 : 2);
+    PUSHs(sv_2mortal(newSVuv(type)));
     PUSHs(sv_2mortal(newSVuv(length)));
+    if (blessed) PUSHs(sv_2mortal(newSVpvn(classname, classname_length)));
 
 IV
 stack_depth(iter)
@@ -154,22 +144,22 @@ stack_info(iter)
     UV length;
     SV *str_type;
   PPCODE:
-    switch (srl_iterator_stack_info(aTHX_ iter, &length)) {
-        case SRL_ITERATOR_OBJ_IS_ARRAY:
-            str_type = newSVpv("ARRAY", 5);
-            break;
+    /* switch (srl_iterator_stack_info(aTHX_ iter, &length)) { */
+        /* case SRL_ITERATOR_OBJ_IS_ARRAY: */
+            /* str_type = newSVpv("ARRAY", 5); */
+            /* break; */
 
-        case SRL_ITERATOR_OBJ_IS_HASH:
-            str_type = newSVpv("HASH", 4);
-            break;
+        /* case SRL_ITERATOR_OBJ_IS_HASH: */
+            /* str_type = newSVpv("HASH", 4); */
+            /* break; */
 
-        default:
-            croak("should not be here");
-    }
+        /* default: */
+            /* croak("should not be here"); */
+    /* } */
 
-    EXTEND(SP, 2);
-    PUSHs(sv_2mortal(str_type));
-    PUSHs(sv_2mortal(newSVuv(length)));
+    /* EXTEND(SP, 2); */
+    /* PUSHs(sv_2mortal(str_type)); */
+    /* PUSHs(sv_2mortal(newSVuv(length))); */
 
 void
 array_goto(iter, idx)

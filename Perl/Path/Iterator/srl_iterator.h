@@ -68,7 +68,7 @@ UV srl_iterator_stack_index(pTHX_ srl_iterator_t *iter);
 UV srl_iterator_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr);
 
 /* information about current object */
-UV srl_iterator_object_info(pTHX_ srl_iterator_t *iter, UV *length_ptr);
+UV srl_iterator_info(pTHX_ srl_iterator_t *iter, UV *length_out, const char **classname_out, STRLEN *classname_lenght_out);
 
 /* array parsing */
 IV srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx);
@@ -90,9 +90,13 @@ SV * srl_iterator_decode(pTHX_ srl_iterator_t *iter); // return mortalized SV
 
 #define SRL_ITER_NOT_FOUND (-1)
 
-#define SRL_ITERATOR_OBJ_IS_SCALAR  (1 << 1)
-#define SRL_ITERATOR_OBJ_IS_ARRAY   (1 << 2)
-#define SRL_ITERATOR_OBJ_IS_HASH    (1 << 3)
-#define SRL_ITERATOR_OBJ_IS_ROOT    (1 << 4)
+#define SRL_ITERATOR_INFO_ROOT      (1 << 0)
+#define SRL_ITERATOR_INFO_REF       (2 << 0)
+#define SRL_ITERATOR_INFO_HASH      (3 << 0)
+#define SRL_ITERATOR_INFO_ARRAY     (4 << 0)
+#define SRL_ITERATOR_INFO_REGEXP    (5 << 0)
+#define SRL_ITERATOR_INFO_SCALAR    (6 << 0)
+#define SRL_ITERATOR_INFO_BLESSED   (1 << 8)
+#define SRL_ITERATOR_INFO_REF_TO    (1 << 16)
 
 #endif

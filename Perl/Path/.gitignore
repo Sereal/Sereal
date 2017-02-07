@@ -6,6 +6,9 @@
 .gdb_history
 Iterator/
 !Iterator/Makefile.PL
+!Iterator/lib/
+!Iterator/srl_iterator.*
+!Iterator/t/
 Tie/
 !Tie/Makefile.PL
 MYMETA.*

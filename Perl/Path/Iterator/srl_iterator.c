@@ -95,7 +95,7 @@ extern "C" {
 #   define SRL_ITER_TRACE(msg, args...) STMT_START {                                \
         fprintf(                                                                    \
             stderr,                                                                 \
-            "%s %s:%d:%s(): "msg"\n",                                               \
+            "%s%s:%d:%s(): "msg"\n",                                                \
             srl_debug_tabulator(iter),                                              \
             __FILE__, __LINE__, __func__, ## args                                   \
         );                                                                          \
@@ -187,6 +187,7 @@ extern "C" {
 
 /* function declaration */
 SRL_STATIC_INLINE void srl_iterator_rewind_stack_position(pTHX_ srl_iterator_t *iter);
+SRL_STATIC_INLINE void srl_iterator_read_stringish(pTHX_ srl_iterator_t *iter, const char **str_out, STRLEN *str_length_out);
 
 /* wrappers */
 UV srl_iterator_eof(pTHX_ srl_iterator_t *iter)     { return SRL_RDR_DONE(iter->pbuf) ? 1 : 0; }
@@ -877,12 +878,12 @@ srl_iterator_hash_key(pTHX_ srl_iterator_t *iter, STRLEN *len_out)
                     break;
 
                 case SRL_HDR_BINARY:
-                    SET_UV_FROM_VARINT(iter->pbuf, length, iter->buf.pos);
+                    SET_UV_FROM_VARINT(iter->pbuf, length, iter->buf.pos); // unsafe
                     break;
 
                 case SRL_HDR_STR_UTF8:
                     // TODO deal with UTF8
-                    SET_UV_FROM_VARINT(iter->pbuf, length, iter->buf.pos);
+                    SET_UV_FROM_VARINT(iter->pbuf, length, iter->buf.pos); // unsafe
                     break;
 
                 default:
@@ -1029,55 +1030,68 @@ srl_iterator_hash_exists_sv(pTHX_ srl_iterator_t *iter, SV *name)
 }
 
 UV
-srl_iterator_object_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
+srl_iterator_info(pTHX_ srl_iterator_t *iter, UV *length_out, const char **classname_out, STRLEN *classname_lenght_out)
 {
     U8 tag;
     UV offset, type = 0;
+    srl_reader_char_ptr orig_pos_objectv = NULL;
     srl_reader_char_ptr orig_pos = iter->buf.pos;
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 
-    if (length_ptr) *length_ptr = 0;
+    if (length_out) *length_out = 1;
+    if (classname_out) *classname_out = NULL;
+    if (classname_lenght_out) *classname_lenght_out = 0;
 
 read_again:
     SRL_ITER_ASSERT_EOF(iter, "serialized object");
-
     tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
     SRL_ITER_REPORT_TAG(iter, tag);
     iter->buf.pos++;
 
     switch (tag) {
-        case SRL_HDR_PAD:
-        case SRL_HDR_REFN:
-        case SRL_HDR_WEAKEN:
-            /* advanced pointer to the object */
-            goto read_again;
+        case SRL_HDR_OBJECTV:
+        case SRL_HDR_OBJECTV_FREEZE:
+            offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading OBJECTV or OBJECTV_FREEZE tag");
+            orig_pos_objectv = iter->buf.pos;
+            iter->buf.pos = iter->buf.body_pos + offset;
+            srl_iterator_read_stringish(aTHX_ iter, classname_out, classname_lenght_out);
+            iter->buf.pos = orig_pos_objectv;
+            type |= SRL_ITERATOR_INFO_BLESSED;
+            goto read_object;
 
-        case SRL_HDR_HASH:
-            type = SRL_ITERATOR_OBJ_IS_HASH;
-            if (length_ptr) *length_ptr = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading HASH");
-            break;
+        case SRL_HDR_OBJECT:
+        case SRL_HDR_OBJECT_FREEZE:
+            type |= SRL_ITERATOR_INFO_BLESSED;
+            srl_iterator_read_stringish(aTHX_ iter, classname_out, classname_lenght_out);
+            goto read_object;
+
+        case SRL_HDR_REFP:
+            offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading REFP tag");
+            iter->buf.pos = iter->buf.body_pos + offset;
+            // fallthrough
+
+        case SRL_HDR_REFN:
+            type |= SRL_ITERATOR_INFO_REF_TO;
+            goto read_ref;
 
         CASE_SRL_HDR_HASHREF:
-            type = SRL_ITERATOR_OBJ_IS_HASH;
-            if (length_ptr) *length_ptr = SRL_HDR_HASHREF_LEN_FROM_TAG(tag);
-            break;
-
-        case SRL_HDR_ARRAY:
-            type = SRL_ITERATOR_OBJ_IS_ARRAY;
-            if (length_ptr) *length_ptr = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading ARRAY");
+            type |= SRL_ITERATOR_INFO_HASH;
+            type |= SRL_ITERATOR_INFO_REF_TO;
+            if (length_out) *length_out= SRL_HDR_HASHREF_LEN_FROM_TAG(tag);
             break;
 
         CASE_SRL_HDR_ARRAYREF:
-            type = SRL_ITERATOR_OBJ_IS_ARRAY;
-            if (length_ptr) *length_ptr = SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag);
+            type |= SRL_ITERATOR_INFO_ARRAY;
+            type |= SRL_ITERATOR_INFO_REF_TO;
+            if (length_out) *length_out = SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag);
             break;
 
         CASE_SRL_HDR_POS:
         CASE_SRL_HDR_NEG:
         CASE_SRL_HDR_SHORT_BINARY:
         case SRL_HDR_BINARY:
-        case SRL_HDR_STR_UTF8:      
+        case SRL_HDR_STR_UTF8:
         case SRL_HDR_VARINT:
         case SRL_HDR_ZIGZAG:
         case SRL_HDR_FLOAT:
@@ -1087,20 +1101,216 @@ read_again:
         case SRL_HDR_FALSE:
         case SRL_HDR_UNDEF:
         case SRL_HDR_CANONICAL_UNDEF:
-            type = SRL_ITERATOR_OBJ_IS_SCALAR;
+            type |= SRL_ITERATOR_INFO_SCALAR;
             break;
 
-        case SRL_HDR_REFP:
+        case SRL_HDR_REGEXP:
+            type |= SRL_ITERATOR_INFO_REGEXP;
+            break;
+
+        case SRL_HDR_PAD:
+        case SRL_HDR_WEAKEN:
+            goto read_again;
+
         case SRL_HDR_COPY:
-            offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading COPY tag");
+        case SRL_HDR_ALIAS:
+            offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading COPY or ALIAS tag");
             iter->buf.pos = iter->buf.body_pos + offset;
             goto read_again;
 
+        case SRL_HDR_PACKET_START:
+            type |= SRL_ITERATOR_INFO_ROOT;
+            break;
+
         default:
             iter->buf.pos = orig_pos;
-            SRL_RDR_ERROR_UNEXPECTED(iter->pbuf, tag, "ARRAY or HASH or SCALAR");
+            SRL_RDR_ERROR_UNEXPECTED(iter->pbuf, tag, "item tag");
     }
 
+    goto finally;
+
+read_object:
+    // we're here because blessed object is being parsed. type has
+    // SRL_ITERATOR_INFO_BLESSED bit set. Since one can only bless references
+    // in perl below switch expects only references.
+
+    SRL_ITER_ASSERT_EOF(iter, "serialized object");
+    tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
+    SRL_ITER_REPORT_TAG(iter, tag);
+    iter->buf.pos++;
+
+    switch (tag) {
+        case SRL_HDR_REFP:
+            offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading REFP tag");
+            iter->buf.pos = iter->buf.body_pos + offset;
+            // fallthrough
+
+        case SRL_HDR_REFN:
+            type |= SRL_ITERATOR_INFO_REF_TO;
+            goto read_item;
+
+        CASE_SRL_HDR_HASHREF:
+            type |= SRL_ITERATOR_INFO_REF_TO;
+            type |= SRL_ITERATOR_INFO_HASH;
+            if (length_out) *length_out= SRL_HDR_HASHREF_LEN_FROM_TAG(tag);
+            break;
+
+        CASE_SRL_HDR_ARRAYREF:
+            type |= SRL_ITERATOR_INFO_REF_TO;
+            type |= SRL_ITERATOR_INFO_ARRAY;
+            if (length_out) *length_out= SRL_HDR_HASHREF_LEN_FROM_TAG(tag);
+            break;
+
+        case SRL_HDR_PAD:
+            goto read_object;
+
+        default:
+            iter->buf.pos = orig_pos;
+            SRL_RDR_ERROR_UNEXPECTED(iter->pbuf, tag, "reference");
+    }
+
+    goto finally;
+
+read_item:
+    SRL_ITER_ASSERT_EOF(iter, "serialized object");
+    tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
+    SRL_ITER_REPORT_TAG(iter, tag);
+    iter->buf.pos++;
+
+    switch (tag) {
+        case SRL_HDR_REFP:
+        case SRL_HDR_REFN:
+        CASE_SRL_HDR_HASHREF:
+        CASE_SRL_HDR_ARRAYREF:
+            type |= SRL_ITERATOR_INFO_REF;
+            break;
+
+        case SRL_HDR_OBJECTV:
+        case SRL_HDR_OBJECTV_FREEZE:
+        case SRL_HDR_OBJECT:
+        case SRL_HDR_OBJECT_FREEZE:
+            // assuming that all objects are references
+            type |= SRL_ITERATOR_INFO_REF;
+            break;
+
+        case SRL_HDR_HASH:
+            type |= SRL_ITERATOR_INFO_HASH;
+            if (length_out) *length_out = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading HASH");
+            break;
+
+        case SRL_HDR_ARRAY:
+            type |= SRL_ITERATOR_INFO_ARRAY;
+            if (length_out) *length_out = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading ARRAY");
+            break;
+
+        CASE_SRL_HDR_POS:
+        CASE_SRL_HDR_NEG:
+        CASE_SRL_HDR_SHORT_BINARY:
+        case SRL_HDR_BINARY:
+        case SRL_HDR_STR_UTF8:
+        case SRL_HDR_VARINT:
+        case SRL_HDR_ZIGZAG:
+        case SRL_HDR_FLOAT:
+        case SRL_HDR_DOUBLE:
+        case SRL_HDR_LONG_DOUBLE:
+        case SRL_HDR_TRUE:
+        case SRL_HDR_FALSE:
+        case SRL_HDR_UNDEF:
+        case SRL_HDR_CANONICAL_UNDEF:
+            type |= SRL_ITERATOR_INFO_SCALAR;
+            break;
+
+        case SRL_HDR_PAD:
+            goto read_item;
+
+        case SRL_HDR_COPY:
+            offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading COPY or ALIAS tag");
+            iter->buf.pos = iter->buf.body_pos + offset;
+            goto read_item;
+
+        default:
+            iter->buf.pos = orig_pos;
+            SRL_RDR_ERROR_UNEXPECTED(iter->pbuf, tag, "item tag");
+    }
+
+    goto finally;
+
+read_ref:
+    // We're here because REFN or REFP tags are parsed. At this point type has
+    // SRL_ITERATOR_INFO_REF_TO bit set. Below switch statement handles following cases:
+    // * any reference tag => SRL_ITERATOR_INFO_REF
+    // * any object tag    => SRL_ITERATOR_INFO_REF (becase in perl you can only bless references)
+    // * HASH/ARRAY        => SRL_ITERATOR_INFO_HASH/ARRAY
+    // * any scalar        => SRL_ITERATOR_INFO_SCALAR
+    // * regexp            => SRL_HDR_REGEXP
+
+    SRL_ITER_ASSERT_EOF(iter, "serialized object");
+    tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
+    SRL_ITER_REPORT_TAG(iter, tag);
+    iter->buf.pos++;
+
+    switch (tag) {
+        case SRL_HDR_REFP:
+        case SRL_HDR_REFN:
+        CASE_SRL_HDR_HASHREF:
+        CASE_SRL_HDR_ARRAYREF:
+            type |= SRL_ITERATOR_INFO_REF;
+            break;
+
+        case SRL_HDR_OBJECTV:
+        case SRL_HDR_OBJECTV_FREEZE:
+        case SRL_HDR_OBJECT:
+        case SRL_HDR_OBJECT_FREEZE:
+            // assuming that all objects are references
+            type |= SRL_ITERATOR_INFO_REF;
+            break;
+
+        case SRL_HDR_HASH:
+            type |= SRL_ITERATOR_INFO_HASH;
+            if (length_out) *length_out = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading HASH");
+            break;
+
+        case SRL_HDR_ARRAY:
+            type |= SRL_ITERATOR_INFO_ARRAY;
+            if (length_out) *length_out = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading ARRAY");
+            break;
+
+        CASE_SRL_HDR_POS:
+        CASE_SRL_HDR_NEG:
+        CASE_SRL_HDR_SHORT_BINARY:
+        case SRL_HDR_BINARY:
+        case SRL_HDR_STR_UTF8:
+        case SRL_HDR_VARINT:
+        case SRL_HDR_ZIGZAG:
+        case SRL_HDR_FLOAT:
+        case SRL_HDR_DOUBLE:
+        case SRL_HDR_LONG_DOUBLE:
+        case SRL_HDR_TRUE:
+        case SRL_HDR_FALSE:
+        case SRL_HDR_UNDEF:
+        case SRL_HDR_CANONICAL_UNDEF:
+            type |= SRL_ITERATOR_INFO_SCALAR;
+            break;
+
+        case SRL_HDR_REGEXP:
+            type |= SRL_ITERATOR_INFO_REGEXP;
+            break;
+
+        case SRL_HDR_PAD:
+        case SRL_HDR_WEAKEN:
+            goto read_ref;
+
+        case SRL_HDR_COPY:
+            offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading COPY or ALIAS tag");
+            iter->buf.pos = iter->buf.body_pos + offset;
+            goto read_ref;
+
+        default:
+            iter->buf.pos = orig_pos;
+            SRL_RDR_ERROR_UNEXPECTED(iter->pbuf, tag, "item tag");
+    }
+
+finally:
     iter->buf.pos = orig_pos;
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     return type;
@@ -1122,38 +1332,38 @@ UV
 srl_iterator_stack_index(pTHX_ srl_iterator_t *iter)
 {
     SRL_ITER_ASSERT_STACK(iter);
-    assert((I32) iter->stack.ptr->idx <= iter->stack.ptr->length);
+    assert(iter->stack.ptr->idx <= iter->stack.ptr->length);
     return (UV) iter->stack.ptr->idx;
 }
 
 UV
-srl_iterator_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr)
+srl_iterator_stack_info(pTHX_ srl_iterator_t *iter, UV *length_out)
 {
     UV type = 0;
-    srl_stack_t *stack = iter->pstack;
-    srl_iterator_stack_ptr stack_ptr = stack->ptr;
+    /* srl_stack_t *stack = iter->pstack; */
+    /* srl_iterator_stack_ptr stack_ptr = stack->ptr; */
 
-    SRL_ITER_ASSERT_STACK(iter);
-    if (length_ptr) *length_ptr = stack_ptr->length;
+    /* SRL_ITER_ASSERT_STACK(iter); */
+    /* if (length_out) *length_out = stack_ptr->length; */
 
-    switch (stack_ptr->tag) {
-        case SRL_ITER_STACK_ROOT_TAG:
-            type = SRL_ITERATOR_OBJ_IS_ROOT;
-            break;
+    /* switch (stack_ptr->tag) { */
+        /* case SRL_ITER_STACK_ROOT_TAG: */
+            /* type = SRL_ITERATOR_OBJ_IS_ROOT; */
+            /* break; */
 
-        case SRL_HDR_HASH:
-        CASE_SRL_HDR_HASHREF:
-            type = SRL_ITERATOR_OBJ_IS_HASH;
-            break;
+        /* case SRL_HDR_HASH: */
+        /* CASE_SRL_HDR_HASHREF: */
+            /* type = SRL_ITERATOR_OBJ_IS_HASH; */
+            /* break; */
 
-        case SRL_HDR_ARRAY:
-        CASE_SRL_HDR_ARRAYREF:
-            type = SRL_ITERATOR_OBJ_IS_ARRAY;
-            break;
+        /* case SRL_HDR_ARRAY: */
+        /* CASE_SRL_HDR_ARRAYREF: */
+            /* type = SRL_ITERATOR_OBJ_IS_ARRAY; */
+            /* break; */
 
-        default:
-            SRL_RDR_ERROR_UNEXPECTED(iter->pbuf, stack_ptr->tag, "ARRAY or HASH");
-    }
+        /* default: */
+            /* SRL_RDR_ERROR_UNEXPECTED(iter->pbuf, stack_ptr->tag, "ARRAY or HASH"); */
+    /* } */
 
     return type;
 }
@@ -1173,4 +1383,76 @@ srl_iterator_decode(pTHX_ srl_iterator_t *iter)
 
     srl_decode_single_value(aTHX_ iter->dec, into, NULL);
     return into;
+}
+
+void
+srl_iterator_read_stringish(pTHX_ srl_iterator_t *iter, const char **str_out, STRLEN *str_length_out)
+{
+    U8 tag;
+    UV length, offset;
+    *str_length_out = 0;
+    *str_out = NULL;
+
+    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+    SRL_ITER_ASSERT_EOF(iter, "stringish");
+    SRL_ITER_ASSERT_STACK(iter);
+
+    tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
+    SRL_ITER_REPORT_TAG(iter, tag);
+    iter->buf.pos++;
+
+    switch (tag) {
+        CASE_SRL_HDR_SHORT_BINARY:
+            length = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+            break;
+
+        case SRL_HDR_BINARY:
+            length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading BINARY");
+            break;
+
+        case SRL_HDR_STR_UTF8:
+            // TODO deal with UTF8
+            length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading STR_UTF8");
+            break;
+
+        case SRL_HDR_COPY:
+            offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading COPY tag");
+            iter->buf.pos = iter->buf.body_pos + offset;
+
+            /* Note we do NOT validate these items, as we have already read them
+             * and if they were a problem we would not be here to process them! */
+
+            SRL_ITER_ASSERT_EOF(iter, "stringish");
+            tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
+            SRL_ITER_REPORT_TAG(iter, tag);
+            iter->buf.pos++;
+
+            switch (tag) {
+                CASE_SRL_HDR_SHORT_BINARY:
+                    length = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+                    break;
+
+                case SRL_HDR_BINARY:
+                    length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading BINARY");
+                    break;
+
+                case SRL_HDR_STR_UTF8:
+                    // TODO deal with UTF8
+                    length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading STR_UTF8");
+                    break;
+
+                default:
+                    SRL_RDR_ERROR_BAD_COPY(iter->pbuf, SRL_HDR_COPY);
+            }
+
+            break;
+
+        default:
+            SRL_RDR_ERROR_UNEXPECTED(iter->pbuf, tag, "stringish");
+    }
+
+    SRL_RDR_ASSERT_SPACE(iter->pbuf, length, " while reading stringish");
+    *str_out = (const char *) iter->buf.pos;
+    *str_length_out = length;
+    iter->buf.pos += length;
 }
