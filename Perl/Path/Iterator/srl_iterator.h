@@ -11,7 +11,7 @@ typedef struct srl_iterator_stack   srl_iterator_stack_t;
 typedef struct srl_iterator_stack   * srl_iterator_stack_ptr;
 
 struct srl_iterator_stack {
-    I32 ridx;       // reverse index of current object, i.e. first element = length 
+    U32 idx;        // index of current object [0..length)
     U32 length;     // number of child objects
     UV offset;      // offset to first element
     UV prev_depth;  // offset at previous depth
