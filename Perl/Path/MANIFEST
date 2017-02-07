@@ -1,4 +1,5 @@
 Changes
+inc/Sereal/BuildTools.pm
 Iterator/author_tools/bench.pl
 Iterator/author_tools/decode.pl
 Iterator/author_tools/different_sereal_docs.sh
@@ -90,6 +91,7 @@ t/070_nested_iterators.t
 t/100_tie.t
 t/110_tie_autovivify.t
 t/playground.pl
+Tie/inc/Sereal/BuildTools.pm
 Tie/lib/Sereal/Path/Tie.pm
 Tie/Makefile.PL
 Tie/ppport.h

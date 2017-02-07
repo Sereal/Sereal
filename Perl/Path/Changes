@@ -1,5 +1,9 @@
 Revision history for Perl extension Sereal-Path
 
+0.014 Feb  7 2017
+  * bug fixes
+  * support of Sereal protocol v4
+
 0.013 May 28 2016
   * bug fixes
   * extended test coverage
