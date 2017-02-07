@@ -194,7 +194,7 @@ srl_decompress_body_zstd(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
                                       (void *)old_pos,  (size_t) compressed_packet_len);
 
     if (expect_false( ZSTD_isError(decompress_code) )) {
-        SRL_RDR_ERRORf1(buf, "Snappy decompression of Sereal packet payload failed with error %s!",
+        SRL_RDR_ERRORf1(buf, "Zstd decompression of Sereal packet payload failed with error %s!",
                         ZSTD_getErrorName(decompress_code));
     }
 
