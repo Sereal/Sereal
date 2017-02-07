@@ -39,7 +39,7 @@ FLAGS    = $(CPPFLAGS) $(CFLAGS)
 ZSTD_FILES := $(wildcard common/*.c compress/*.c decompress/*.c)
 CPPFLAGS  += -DZSTD_LEGACY_SUPPORT=0
 
-.PHONY: default all clean
+.PHONY: default all clean test test_dynamic
 
 test:
 test_dynamic:
