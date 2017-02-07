@@ -20,7 +20,7 @@ if ($in_source_repo) {
 
 my $libs = '';
 my $subdirs = [];
-my $objects = '$(BASEEXT)$(OBJ_EXT) ../Iterator/srl_iterator.o ../Iterator/srl_decoder.o';
+my $objects = '$(BASEEXT)$(OBJ_EXT) ../Iterator/srl_iterator.o ../Iterator/srl_decoder.o ../Iterator/miniz.o ../Iterator/zstd/libzstd.o';
 my $defines = inc::Sereal::BuildTools::build_defines();
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
