@@ -946,15 +946,14 @@ func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflec
 				return 0, err
 			}
 
-			fld := 0
-			found := false
-			strkey := string(key)
+			var fld int
+			var found bool
 
 			if tags == nil {
 				// do nothing
-			} else if fld, found = tags[strkey]; found {
+			} else if fld, found = tags[string(key)]; found {
 				idx, err = d.decodeViaReflection(by, idx, ptr.Field(fld))
-			} else if fld, found = tags[strings.Title(strkey)]; found {
+			} else if fld, found = tags[strings.Title(string(key))]; found {
 				idx, err = d.decodeViaReflection(by, idx, ptr.Field(fld))
 			}
 
