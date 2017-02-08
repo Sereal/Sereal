@@ -146,17 +146,22 @@ extern "C" {
 #   define SRL_ITER_REPORT_STACK_STATE(iter)
 #endif
 
-// note that it's different from SRL_RDR_DONE()
-#define SRL_RDR_DONE_(buf) ((buf).pos > (buf).end)
 #define SRL_ITER_ASSERT_EOF(iter, msg) STMT_START {                                 \
-    if (expect_false(SRL_RDR_DONE_((iter)->buf))) {                                 \
+    if (expect_false(SRL_RDR_DONE((iter)->pbuf))) {                                 \
         SRL_RDR_ERROR_EOF((iter)->pbuf, (msg));                                     \
+    }                                                                               \
+} STMT_END
+
+#define SRL_ITER_ASSERT_STACK_STRICT(iter) STMT_START {                             \
+    assert(!srl_stack_empty((iter)->pstack));                                       \
+    if (expect_false((iter)->stack.ptr->idx >= (iter)->stack.ptr->length)) {        \
+        SRL_ITER_ERRORf1("No elements at stack depth %"UVuf, (iter)->stack.depth);  \
     }                                                                               \
 } STMT_END
 
 #define SRL_ITER_ASSERT_STACK(iter) STMT_START {                                    \
     assert(!srl_stack_empty((iter)->pstack));                                       \
-    if (expect_false((iter)->stack.ptr->idx > (iter)->stack.ptr->length)) {        \
+    if (expect_false((iter)->stack.ptr->idx > (iter)->stack.ptr->length)) {         \
         SRL_ITER_ERROR("Stack is empty! Inconsistent state!");                      \
     }                                                                               \
 } STMT_END
@@ -570,71 +575,230 @@ read_again:                                                                     
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);                                                          \
 } STMT_END
 
+void
+srl_iterator_inspect_refn(pTHX_ srl_iterator_t *iter, U8 *tag_out, UV *length_out)
+{
+    U8 tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
+    SRL_ITER_ASSERT_EOF(iter, "tag");
+    SRL_ITER_REPORT_TAG(iter, tag);
+
+    switch (tag) {
+        case SRL_HDR_HASH:
+            iter->buf.pos++;
+            *length_out = 2 * srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading HASH");
+            *tag_out = SRL_HDR_HASH;
+            break;
+
+        case SRL_HDR_ARRAY:
+            iter->buf.pos++;
+            *length_out = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading ARRAY");
+            *tag_out = SRL_HDR_ARRAY;
+            break;
+
+        default:
+            *length_out = 1;
+            *tag_out = tag;
+            break;
+    }
+}
+
+void
+srl_iterator_inspect_refp(pTHX_ srl_iterator_t *iter, U8 *tag_out, UV *length_out)
+{
+    U8 tag;
+    UV offset;
+    SRL_ITER_ASSERT_EOF(iter, "tag offset");
+
+    offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading REFP tag");
+    iter->buf.pos = iter->buf.body_pos + offset;
+    SRL_ITER_ASSERT_EOF(iter, "tag");
+
+    tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
+    SRL_ITER_REPORT_TAG(iter, tag);
+
+    switch (tag) {
+        case SRL_HDR_HASH:
+            iter->buf.pos++;
+            *length_out = 2 * srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading HASH");
+            *tag_out = SRL_HDR_HASH;
+            break;
+
+        case SRL_HDR_ARRAY:
+            iter->buf.pos++;
+            *length_out = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading ARRAY");
+            *tag_out = SRL_HDR_ARRAY;
+            break;
+
+        default:
+            *length_out = 1;
+            *tag_out = tag;
+            break;
+    }
+}
+
+void
+srl_iterator_inspect_object(pTHX_ srl_iterator_t *iter, int is_objectv, U8 *tag_out, UV *length_out)
+{
+    U8 tag;
+    SRL_ITER_ASSERT_EOF(iter, "object name");
+
+    if (is_objectv) {
+        srl_skip_varint(aTHX_ iter->pbuf); // <OFFSET-VARINT>
+    } else {
+        srl_iterator_read_stringish(aTHX_ iter, NULL, NULL); // <STR-TAG>
+    }
+
+    tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
+    SRL_ITER_REPORT_TAG(iter, tag);
+    iter->buf.pos++;
+
+    switch (tag) {
+        CASE_SRL_HDR_HASHREF:
+            *length_out = 2 * SRL_HDR_HASHREF_LEN_FROM_TAG(tag);
+            *tag_out = tag;
+            break;
+
+        CASE_SRL_HDR_ARRAYREF:
+            *length_out = SRL_HDR_HASHREF_LEN_FROM_TAG(tag);
+            *tag_out = tag;
+            break;
+
+        case SRL_HDR_REFN:
+            srl_iterator_inspect_refn(aTHX_ iter, tag_out, length_out);
+            break;
+
+        case SRL_HDR_REFP:
+            srl_iterator_inspect_refp(aTHX_ iter, tag_out, length_out);
+            break;
+
+        default:
+            SRL_RDR_ERROR_UNEXPECTED(iter->pbuf, tag, "reference tag");
+    }
+}
+
 /* srl_iterator_step_in() does N steps. Where step is a serialized object */
 
 void
 srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
 {
-    UV offset;
     U8 tag, otag;
+    UV offset, length;
     srl_reader_char_ptr orig_pos;
     srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
-
-    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
-    SRL_ITER_ASSERT_STACK(iter);
 
     SRL_ITER_TRACE_WITH_POSITION("n=%"UVuf, n);
     SRL_ITER_REPORT_STACK_STATE(iter);
 
-    while (n--) {
-        srl_iterator_wrap_stack(iter, -1, stack_ptr);
+    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+    SRL_ITER_ASSERT_STACK(iter);
 
-        orig_pos = iter->buf.pos;
+    while (n) {
+        DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+        SRL_ITER_ASSERT_STACK_STRICT(iter);
+
+        --n;
+
+        /* Iterator decrement idx *before* parsing an element. This's done for simplicity. */
+        /* Also, it has some sense. For scalars there is no difference in when idx is decremented.*/
+        /* For arrays/hashes/and objects think this way: element at current depth will be */
+        /* parsed as soon as iterator finished parsing element at depth+1. */
+        stack_ptr->idx++;
+
+        SRL_ITER_ASSERT_STACK(iter);
+        DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+
+    read_again:
+        SRL_ITER_ASSERT_EOF(iter, "tag");
         tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
         SRL_ITER_REPORT_TAG(iter, tag);
         iter->buf.pos++;
 
-        if (tag == SRL_HDR_REFP || tag == SRL_HDR_ALIAS) {
-            /* store offset for REFP tag. Will be used in srl_iterator_wrap_stack() */
-            stack_ptr->prev_depth = orig_pos - iter->buf.body_pos; // almost same sa SRL_RDR_BODY_POS_OFS
+        /* No code which decrease step, next or stack's counters should be added here.
+         * Otherwise the counters will be decreased twicer for tags like REFN, WEAKEN , etc. */
 
-            offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading REFP tag");
-            iter->buf.pos = iter->buf.body_pos + offset;
-            DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+        switch (tag & 0xE0) {
+            case 0x0: /* POS_0 .. NEG_1 */
+                break;
 
-            tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
-            SRL_ITER_TRACE_WITH_POSITION("tag SRL_HDR_REFP points to tag SRL_HDR_%s",
-                                         SRL_TAG_NAME(tag));
+            case 0x40: /* ARRAYREF_0 .. HASHREF_15 */
+                /* for HASHREF_0 .. HASHREF_15 multiple length by two */
+                length = (tag & 0xF) << ((tag & 0x10) ? 1 : 0);
+                srl_stack_push_and_set(iter, tag, length, stack_ptr);
+                break;
 
-            switch (tag) {
-                case SRL_HDR_HASH:
-                case SRL_HDR_ARRAY:
-                    break;
+            case 0x60: /* SHORT_BINARY_0 .. SHORT_BINARY_31 */
+                iter->buf.pos += SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+                break;
 
-                case SRL_HDR_OBJECTV:
-                case SRL_HDR_OBJECTV_FREEZE:
-                case SRL_HDR_OBJECT:
-                case SRL_HDR_OBJECT_FREEZE:
-                    croak("not implemented OBJECT");
+            default:
+                switch (tag) {
+                    case SRL_HDR_REFN:
+                        srl_iterator_inspect_refn(aTHX_ iter, &tag, &length);
+                        srl_stack_push_and_set(iter, tag, length, stack_ptr);
+                        break;
 
-                CASE_SRL_HDR_HASHREF:
-                CASE_SRL_HDR_ARRAYREF:
-                    croak("not implemente HASHREF ARRAYREF");
+                    case SRL_HDR_REFP:
+                        /* store offset for REFP tag. Will be used in srl_iterator_wrap_stack() */
+                        /* stack_ptr->prev_depth = orig_pos - iter->buf.body_pos; // almost same sa SRL_RDR_BODY_POS_OFS */
+                        srl_iterator_inspect_refp(aTHX_ iter, &tag, &length);
+                        srl_stack_push_and_set(iter, tag, length, stack_ptr);
+                        break;
 
-                default:
-                    stack_ptr->prev_depth = 0;
-                    iter->buf.pos = orig_pos;
-                    break;
-            }
-        } else {
-            stack_ptr->prev_depth = 0;
-            iter->buf.pos = orig_pos;
+                    case SRL_HDR_OBJECT:
+                    case SRL_HDR_OBJECT_FREEZE:
+                        srl_iterator_inspect_object(aTHX_ iter, 0, &tag, &length);
+                        srl_stack_push_and_set(iter, tag, length, stack_ptr);
+                        break;
+
+                    case SRL_HDR_OBJECTV:
+                    case SRL_HDR_OBJECTV_FREEZE:
+                        srl_iterator_inspect_object(aTHX_ iter, 1, &tag, &length);
+                        srl_stack_push_and_set(iter, tag, length, stack_ptr);
+                        break;
+
+                    case SRL_HDR_VARINT:
+                    case SRL_HDR_ZIGZAG:
+                        srl_skip_varint(aTHX_ iter->pbuf);
+                        break;
+
+                    case SRL_HDR_FLOAT:         iter->buf.pos += 4;      break;
+                    case SRL_HDR_DOUBLE:        iter->buf.pos += 8;      break;
+                    case SRL_HDR_LONG_DOUBLE:   iter->buf.pos += 16;     break;
+
+                    case SRL_HDR_TRUE:
+                    case SRL_HDR_FALSE:
+                    case SRL_HDR_UNDEF:
+                    case SRL_HDR_CANONICAL_UNDEF:
+                        break;
+
+                    case SRL_HDR_WEAKEN:
+                        goto read_again;
+
+                    case SRL_HDR_PAD:
+                        while (SRL_RDR_NOT_DONE(iter->pbuf) && *iter->buf.pos++ == SRL_HDR_PAD) {};
+                        goto read_again;
+
+                    case SRL_HDR_BINARY:
+                    case SRL_HDR_STR_UTF8:
+                        length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading BINARY or STR_UTF8");
+                        iter->buf.pos += length; // TODO assert length
+                        break;
+
+                    case SRL_HDR_COPY:
+                        /* COPY is only used for deduping strings in hashes so consider as simple tag */
+                        srl_skip_varint(aTHX_ iter->pbuf); break;
+                        break;
+
+                    /* case SRL_HDR_ALIAS: */
+                    default:
+                        SRL_RDR_ERROR_UNIMPLEMENTED(iter->pbuf, tag, "");
+                        break;
+                }
         }
-
-        srl_iterator_step_internal(iter, stack_ptr);
     }
 
-    SRL_ITER_TRACE_WITH_POSITION("Completed expected number of steps");
+    if (n == 0) SRL_ITER_TRACE_WITH_POSITION("Completed expected number of steps");
+    else SRL_ITER_TRACE_WITH_POSITION("Didn't do all steps, still have %"UVuf, n);
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
@@ -1261,8 +1425,6 @@ srl_iterator_read_stringish(pTHX_ srl_iterator_t *iter, const char **str_out, ST
 {
     U8 tag;
     UV length, offset;
-    *str_length_out = 0;
-    *str_out = NULL;
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     SRL_ITER_ASSERT_EOF(iter, "stringish");
@@ -1324,7 +1486,7 @@ srl_iterator_read_stringish(pTHX_ srl_iterator_t *iter, const char **str_out, ST
     }
 
     SRL_RDR_ASSERT_SPACE(iter->pbuf, length, " while reading stringish");
-    *str_out = (const char *) iter->buf.pos;
-    *str_length_out = length;
+    if (str_out) *str_out = (const char *) iter->buf.pos;
+    if (str_length_out) *str_length_out = length;
     iter->buf.pos += length;
 }
