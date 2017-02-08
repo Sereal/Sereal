@@ -452,11 +452,6 @@ srl_iterator_rewind_stack_position(pTHX_ srl_iterator_t *iter)
             iter->buf.pos = iter->buf.body_pos + (stack_ptr)->prev_depth;                       \
             (stack_ptr)->prev_depth = 0;                                                        \
                                                                                                 \
-            /* Offset stored in prev_depth is offset of REFP tag. */                            \
-            /* At the same time, idx was already decremented for REFP (see comments in */       \
-            /* srl_iterator_step_internal(). To compensate this, we increate idx. */            \
-            (stack_ptr)->idx--;                                                                 \
-                                                                                                \
             SRL_ITER_TRACE_WITH_POSITION("wrap_stack restore offset");                          \
             DEBUG_ASSERT_RDR_SANE(iter->pbuf);                                                  \
             SRL_ITER_REPORT_STACK_STATE(iter);                                                  \
@@ -602,14 +597,15 @@ srl_iterator_inspect_refn(pTHX_ srl_iterator_t *iter, U8 *tag_out, UV *length_ou
     }
 }
 
-void
+UV
 srl_iterator_inspect_refp(pTHX_ srl_iterator_t *iter, U8 *tag_out, UV *length_out)
 {
     U8 tag;
-    UV offset;
+    UV offset, refp_parsed_offset;
     SRL_ITER_ASSERT_EOF(iter, "tag offset");
 
     offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading REFP tag");
+    refp_parsed_offset = SRL_RDR_BODY_POS_OFS(iter->pbuf);
     iter->buf.pos = iter->buf.body_pos + offset;
     SRL_ITER_ASSERT_EOF(iter, "tag");
 
@@ -634,6 +630,8 @@ srl_iterator_inspect_refp(pTHX_ srl_iterator_t *iter, U8 *tag_out, UV *length_ou
             *tag_out = tag;
             break;
     }
+
+    return refp_parsed_offset;
 }
 
 void
@@ -683,7 +681,6 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
 {
     U8 tag, otag;
     UV offset, length;
-    srl_reader_char_ptr orig_pos;
     srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
 
     SRL_ITER_TRACE_WITH_POSITION("n=%"UVuf, n);
@@ -739,8 +736,7 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
 
                     case SRL_HDR_REFP:
                         /* store offset for REFP tag. Will be used in srl_iterator_wrap_stack() */
-                        /* stack_ptr->prev_depth = orig_pos - iter->buf.body_pos; // almost same sa SRL_RDR_BODY_POS_OFS */
-                        srl_iterator_inspect_refp(aTHX_ iter, &tag, &length);
+                        stack_ptr->prev_depth = srl_iterator_inspect_refp(aTHX_ iter, &tag, &length);
                         srl_stack_push_and_set(iter, tag, length, stack_ptr);
                         break;
 
