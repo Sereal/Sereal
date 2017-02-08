@@ -832,78 +832,13 @@ srl_iterator_array_exists(pTHX_ srl_iterator_t *iter, I32 idx)
 const char *
 srl_iterator_hash_key(pTHX_ srl_iterator_t *iter, STRLEN *len_out)
 {
-    U8 tag;
-    UV length, offset;
     const char *result = NULL;
     srl_reader_char_ptr orig_pos = iter->buf.pos;
     *len_out = 0;
 
-    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
-    SRL_ITER_ASSERT_EOF(iter, "stringish");
-    SRL_ITER_ASSERT_STACK(iter);
     SRL_ITER_ASSERT_HASH_ON_STACK(iter);
-
-    tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
-    SRL_ITER_REPORT_TAG(iter, tag);
-    iter->buf.pos++;
-
-    switch (tag) {
-        CASE_SRL_HDR_SHORT_BINARY:
-            length = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
-            break;
-
-        case SRL_HDR_BINARY:
-            length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading BINARY");
-            break;
-
-        case SRL_HDR_STR_UTF8:      
-            // TODO deal with UTF8
-            length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading STR_UTF8");
-            break;
-
-        case SRL_HDR_COPY:
-            offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading COPY tag");
-            iter->buf.pos = iter->buf.body_pos + offset;
-
-            /* Note we do NOT validate these items, as we have already read them
-             * and if they were a problem we would not be here to process them! */
-
-            tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
-            SRL_ITER_REPORT_TAG(iter, tag);
-            iter->buf.pos++;
-
-            switch (tag) {
-                CASE_SRL_HDR_SHORT_BINARY:
-                    length = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
-                    break;
-
-                case SRL_HDR_BINARY:
-                    SET_UV_FROM_VARINT(iter->pbuf, length, iter->buf.pos); // unsafe
-                    break;
-
-                case SRL_HDR_STR_UTF8:
-                    // TODO deal with UTF8
-                    SET_UV_FROM_VARINT(iter->pbuf, length, iter->buf.pos); // unsafe
-                    break;
-
-                default:
-                    SRL_RDR_ERROR_BAD_COPY(iter->pbuf, SRL_HDR_HASH);
-            }
-
-            break;
-
-        default:
-            SRL_RDR_ERROR_UNEXPECTED(iter->pbuf, tag, "stringish");
-    }
-
-    if (expect_false(iter->buf.pos + length >= iter->buf.end)) {
-        SRL_RDR_ERROR_EOF(iter->pbuf, "string content");
-    }
-
-    *len_out = length;
-    result = (const char *) iter->buf.pos;
+    srl_iterator_read_stringish(aTHX_ iter, &result, len_out);
     iter->buf.pos = orig_pos; // restore original position
-    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     return result;
 }
 
@@ -922,8 +857,7 @@ srl_iterator_hash_key_sv(pTHX_ srl_iterator_t *iter)
 IV
 srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN name_len)
 {
-    U8 tag;
-    UV length, offset;
+    STRLEN key_length;
     const char *key_ptr;
 
     IV stack_depth = iter->stack.depth;
@@ -940,79 +874,16 @@ srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN na
     while (stack_ptr->idx < stack_ptr->length) {
         stack_ptr->idx++; // do not make it be part of while clause
         SRL_ITER_ASSERT_STACK(iter);
-        assert(stack_ptr->idx % 2 == 1);
+        assert(stack_ptr->idx % 2 == 0);
         assert(iter->stack.depth == stack_depth);
-        DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 
-        tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
-        SRL_ITER_REPORT_TAG(iter, tag);
-        iter->buf.pos++;
-
-        switch (tag) {
-            CASE_SRL_HDR_SHORT_BINARY:
-                length = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
-                key_ptr = (const char *) iter->buf.pos;
-                iter->buf.pos += length;
-                break;
-
-            case SRL_HDR_BINARY:
-                length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading BINARY");
-                key_ptr = (const char *) iter->buf.pos;
-                iter->buf.pos += length;
-                break;
-
-            case SRL_HDR_STR_UTF8:      
-                // TODO deal with UTF8
-                length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading STR_UTF8");
-                key_ptr = (const char *) iter->buf.pos;
-                iter->buf.pos += length;
-                break;
-
-            case SRL_HDR_COPY:
-                offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading COPY tag");
-                key_ptr = (const char *) iter->buf.body_pos + offset;
-                tag = *key_ptr & ~SRL_HDR_TRACK_FLAG;
-                key_ptr++;
-
-                /* Note we do NOT validate these items, as we have already read them
-                 * and if they were a problem we would not be here to process them! */
-
-                switch (tag) {
-                    CASE_SRL_HDR_SHORT_BINARY:
-                        length = SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
-                        break;
-
-                    case SRL_HDR_BINARY:
-                        SET_UV_FROM_VARINT(iter->pbuf, length, key_ptr);
-                        break;
-
-                    case SRL_HDR_STR_UTF8:
-                        // TODO deal with UTF8
-                        SET_UV_FROM_VARINT(iter->pbuf, length, key_ptr);
-                        break;
-
-                    default:
-                        SRL_RDR_ERROR_BAD_COPY(iter->pbuf, SRL_HDR_HASH);
-                }
-
-                break;
-
-            default:
-                SRL_RDR_ERROR_UNEXPECTED(iter->pbuf, tag, "stringish");
-        }
-
-        if (expect_false((srl_reader_char_ptr) key_ptr >= iter->buf.end)) {
-            SRL_RDR_ERROR_EOF(iter->pbuf, "string content");
-        }
-
-        if (   length == name_len
-            && memcmp(name, key_ptr, name_len) == 0)
-        {
+        srl_iterator_read_stringish(aTHX_ iter, &key_ptr, &key_length);
+        if (key_length == name_len && memcmp(name, key_ptr, name_len) == 0) {
             SRL_ITER_TRACE_WITH_POSITION("found key '%.*s'", (int) name_len, name);
             return SRL_RDR_BODY_POS_OFS(iter->pbuf);
         }
 
-        // srl_iterator_next garantee that we remans on current stack
+        // srl_iterator_next garantee that we remains on current stack
         srl_iterator_next(aTHX_ iter, 1);
         stack_ptr = iter->stack.ptr;
     }
@@ -1419,6 +1290,7 @@ srl_iterator_read_stringish(pTHX_ srl_iterator_t *iter, const char **str_out, ST
             offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading COPY tag");
             iter->buf.pos = iter->buf.body_pos + offset;
 
+            /* TODO */
             /* Note we do NOT validate these items, as we have already read them
              * and if they were a problem we would not be here to process them! */
 
