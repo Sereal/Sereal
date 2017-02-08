@@ -7,11 +7,11 @@
 MYMETA.*
 Makefile
 Makefile.old
-Path.bs
-Path.c
-Path.o
-Path.so
-Sereal-Path-*.tar*
+Tie.bs
+Tie.c
+Tie.o
+Tie.so
+Sereal-Tie-*.tar*
 author_tools
 blib/
 callgrind.out.*
@@ -25,6 +25,7 @@ pm_to_blib
 ppport.h
 ptable.h
 snappy
+srl_iterator.h
 srl_common.h
 srl_error.h
 srl_inline.h
@@ -39,3 +40,4 @@ srl_stack.h
 srl_taginfo.h
 typemap
 qsort.h
+zstd
