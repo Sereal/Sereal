@@ -596,6 +596,7 @@ func TestBinaryMarshaller(t *testing.T) {
 	err = d.Unmarshal(x, &i)
 	if err == nil {
 		t.Errorf("failed to generate error trying to unpack into non-slice/unmashaler")
+		return
 	}
 
 	// unpack into a byte slice
@@ -603,6 +604,10 @@ func TestBinaryMarshaller(t *testing.T) {
 
 	var data []byte
 	err = d.Unmarshal(x, &data)
+	if err != nil {
+		t.Errorf("error unpacking: %v", err)
+		return
+	}
 
 	if !bytes.Equal(bdata, data) {
 		t.Errorf("failed unpacking into byte-slice: got=%v wanted=%v\n", tm, now)
@@ -611,6 +616,10 @@ func TestBinaryMarshaller(t *testing.T) {
 	// unpack into a nil interface
 	var intf interface{}
 	err = d.Unmarshal(x, &intf)
+	if err != nil {
+		t.Errorf("error unpacking: %v", err)
+		return
+	}
 
 	var pfreeze *PerlFreeze
 	var ok bool
