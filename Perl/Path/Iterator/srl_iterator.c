@@ -74,8 +74,8 @@ extern "C" {
     srl_stack_push_ptr((_iter)->pstack, (_stack_ptr));                          \
     (_stack_ptr)->idx = 0;                                                      \
     (_stack_ptr)->length = (_length);                                           \
-    (_stack_ptr)->offset = SRL_RDR_BODY_POS_OFS_((_iter)->buf);                 \
-    (_stack_ptr)->prev_depth= 0;                                                \
+    (_stack_ptr)->first= SRL_RDR_BODY_POS_OFS_((_iter)->buf);                   \
+    (_stack_ptr)->end = 0;                                                      \
     (_stack_ptr)->tag = (_tag);                                                 \
 } STMT_END
 
@@ -130,15 +130,15 @@ extern "C" {
             srl_iterator_stack_ptr stack_ptr = (iter)->stack.ptr;                   \
             SRL_ITER_TRACE(                                                         \
                 "%sstack state depth=%"IVdf" tag=SRL_HDR_%s (hex: 0x%x)"            \
-                " idx=%d offset=%"UVuf" length=%u prev_depth=%"UVuf,                \
+                " idx=%d first=%"UVuf" length=%u end=%"UVuf,                        \
                 srl_debug_tabulator(iter),                                          \
                 SRL_STACK_DEPTH((iter)->pstack),                                    \
                 SRL_TAG_NAME(stack_ptr->tag),                                       \
                 stack_ptr->tag,                                                     \
                 stack_ptr->idx,                                                     \
-                stack_ptr->offset,                                                  \
+                stack_ptr->first,                                                   \
                 stack_ptr->length,                                                  \
-                stack_ptr->prev_depth                                               \
+                stack_ptr->end                                                      \
             );                                                                      \
         }                                                                           \
     } STMT_END
@@ -391,7 +391,7 @@ srl_iterator_unite(pTHX_ srl_iterator_t *iter)
         srl_stack_pop(stack);
     }
 
-    offset = stack->ptr->offset;
+    offset = stack->ptr->first;
     srl_stack_pop(stack); // remove SRL_ITER_STACK_ROOT_TAG
 
     SRL_ITER_ASSERT_STACK(iter);
@@ -417,7 +417,7 @@ srl_iterator_disjoin(pTHX_ srl_iterator_t *iter)
     // (i.e. continer located in the buf).
 
     srl_stack_push_ptr(iter->pstack, stack_ptr);
-    stack_ptr->offset = SRL_RDR_BODY_POS_OFS(iter->pbuf); // disjoint point
+    stack_ptr->first= SRL_RDR_BODY_POS_OFS(iter->pbuf); // disjoint point
     stack_ptr->tag = SRL_ITER_STACK_ROOT_TAG;
     stack_ptr->length = 1;
     stack_ptr->idx = 0;
@@ -431,7 +431,7 @@ srl_iterator_rewind_stack_position(pTHX_ srl_iterator_t *iter)
     SRL_ITER_ASSERT_STACK(iter);
 
     iter->stack.ptr->idx = 0;
-    iter->buf.pos = iter->buf.body_pos + iter->stack.ptr->offset;
+    iter->buf.pos = iter->buf.body_pos + iter->stack.ptr->first;
 
     SRL_ITER_TRACE_WITH_POSITION("after rewind");
     SRL_ITER_REPORT_STACK_STATE(iter);
@@ -500,7 +500,7 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
 
                     case SRL_HDR_REFP:
                         /* store offset for REFP tag. Will be used in srl_iterator_wrap_stack() */
-                        stack_ptr->prev_depth = srl_iterator_read_refp(aTHX_ iter, &tag, &length);
+                        stack_ptr->end = srl_iterator_read_refp(aTHX_ iter, &tag, &length);
                         srl_stack_push_and_set(iter, tag, length, stack_ptr);
                         break;
 
@@ -575,9 +575,9 @@ srl_iterator_wrap_stack(pTHX_ srl_iterator_t *iter, IV expected_depth)
         SRL_ITER_REPORT_STACK_STATE(iter);
         stack_ptr = iter->stack.ptr;
 
-        if (stack_ptr->prev_depth) {
-            iter->buf.pos = iter->buf.body_pos + stack_ptr->prev_depth;
-            stack_ptr->prev_depth = 0;
+        if (stack_ptr->end) {
+            iter->buf.pos = iter->buf.body_pos + stack_ptr->end;
+            stack_ptr->end = 0;
 
             SRL_ITER_TRACE_WITH_POSITION("wrap_stack restore offset");
             SRL_ITER_REPORT_STACK_STATE(iter);

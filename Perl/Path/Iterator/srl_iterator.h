@@ -13,8 +13,9 @@ typedef struct srl_iterator_stack   * srl_iterator_stack_ptr;
 struct srl_iterator_stack {
     U32 idx;        // index of current object [0..length)
     U32 length;     // number of child objects
-    UV offset;      // offset to first element
-    UV prev_depth;  // offset at previous depth
+    UV first;       // offset to first element
+    UV end;         // offset to end of this stack (i.e. offset after last
+                    // element. Not always set. Used only in REFP/ALIAS case
     U8 tag;
 };
 
