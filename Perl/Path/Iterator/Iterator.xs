@@ -94,7 +94,7 @@ rewind(iter, n = NULL)
     srl_iterator_t *iter;
     SV *n;
   CODE:
-    srl_iterator_rewind(aTHX_ iter, n ? SvUV(n) : 1);
+    srl_iterator_rewind(aTHX_ iter, n ? SvUV(n) : 0);
 
 UV
 offset(iter)

@@ -194,7 +194,6 @@ extern "C" {
 } STMT_END
 
 /* function declaration */
-SRL_STATIC_INLINE void srl_iterator_rewind_stack_position(pTHX_ srl_iterator_t *iter);
 SRL_STATIC_INLINE void srl_iterator_read_stringish(pTHX_ srl_iterator_t *iter, const char **str_out, STRLEN *str_length_out);
 SRL_STATIC_INLINE void srl_iterator_read_object(pTHX_ srl_iterator_t *iter, int is_objectv, U8 *tag_out, UV *length_out);
 SRL_STATIC_INLINE void srl_iterator_read_refn(pTHX_ srl_iterator_t *iter, U8 *tag_out, UV *length_out);
@@ -375,7 +374,7 @@ srl_iterator_reset(pTHX_ srl_iterator_t *iter)
         srl_stack_pop(stack); // does empty check internally
     }
 
-    srl_iterator_rewind_stack_position(aTHX_ iter);
+    srl_iterator_rewind(aTHX_ iter, 0);
 }
 
 IV
@@ -423,19 +422,6 @@ srl_iterator_disjoin(pTHX_ srl_iterator_t *iter)
     stack_ptr->idx = 0;
 
     return iter->stack.depth;
-}
-
-SRL_STATIC_INLINE void
-srl_iterator_rewind_stack_position(pTHX_ srl_iterator_t *iter)
-{
-    SRL_ITER_ASSERT_STACK(iter);
-
-    iter->stack.ptr->idx = 0;
-    iter->buf.pos = iter->buf.body_pos + iter->stack.ptr->first;
-
-    SRL_ITER_TRACE_WITH_POSITION("after rewind");
-    SRL_ITER_REPORT_STACK_STATE(iter);
-    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 }
 
 /* srl_iterator_step_in() does N steps. Where step is a serialized object */
@@ -780,7 +766,7 @@ srl_iterator_rewind(pTHX_ srl_iterator_t *iter, UV n)
     srl_stack_t *stack = iter->pstack;
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
-    SRL_ITER_ASSERT_STACK(iter);
+    SRL_ITER_ASSERT_STACK_NONSTRICT(iter);
 
     SRL_ITER_TRACE_WITH_POSITION("n=%"UVuf, n);
     SRL_ITER_REPORT_STACK_STATE(iter);
@@ -793,7 +779,14 @@ srl_iterator_rewind(pTHX_ srl_iterator_t *iter, UV n)
         srl_stack_pop_nocheck(stack);
     }
 
-    srl_iterator_rewind_stack_position(aTHX_ iter);
+    iter->stack.ptr->idx = 0;
+    iter->buf.pos = iter->buf.body_pos + iter->stack.ptr->first;
+
+    SRL_ITER_ASSERT_EOF(iter, "tag");
+    SRL_ITER_ASSERT_STACK(iter);
+    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+
+    SRL_ITER_REPORT_STACK_STATE(iter);
 }
 
 IV
