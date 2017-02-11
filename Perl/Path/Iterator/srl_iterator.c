@@ -1162,58 +1162,6 @@ finally:
     return type;
 }
 
-srl_iterator_stack_ptr
-srl_iterator_stack(pTHX_ srl_iterator_t *iter)
-{
-    return srl_stack_empty(iter->pstack) ? NULL : iter->stack.ptr;
-}
-
-IV
-srl_iterator_stack_depth(pTHX_ srl_iterator_t *iter)
-{
-    return SRL_STACK_DEPTH(iter->pstack);
-}
-
-UV
-srl_iterator_stack_index(pTHX_ srl_iterator_t *iter)
-{
-    SRL_ITER_ASSERT_STACK(iter);
-    assert(iter->stack.ptr->idx <= iter->stack.ptr->length);
-    return (UV) iter->stack.ptr->idx;
-}
-
-UV
-srl_iterator_stack_info(pTHX_ srl_iterator_t *iter, UV *length_out)
-{
-    UV type = 0;
-    /* srl_stack_t *stack = iter->pstack; */
-    /* srl_iterator_stack_ptr stack_ptr = stack->ptr; */
-
-    /* SRL_ITER_ASSERT_STACK(iter); */
-    /* if (length_out) *length_out = stack_ptr->length; */
-
-    /* switch (stack_ptr->tag) { */
-        /* case SRL_ITER_STACK_ROOT_TAG: */
-            /* type = SRL_ITERATOR_OBJ_IS_ROOT; */
-            /* break; */
-
-        /* case SRL_HDR_HASH: */
-        /* CASE_SRL_HDR_HASHREF: */
-            /* type = SRL_ITERATOR_OBJ_IS_HASH; */
-            /* break; */
-
-        /* case SRL_HDR_ARRAY: */
-        /* CASE_SRL_HDR_ARRAYREF: */
-            /* type = SRL_ITERATOR_OBJ_IS_ARRAY; */
-            /* break; */
-
-        /* default: */
-            /* SRL_RDR_ERROR_UNEXPECTED(iter->pbuf, stack_ptr->tag, "ARRAY or HASH"); */
-    /* } */
-
-    return type;
-}
-
 SV *
 srl_iterator_decode(pTHX_ srl_iterator_t *iter)
 {

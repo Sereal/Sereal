@@ -137,31 +137,6 @@ stack_index(iter)
   OUTPUT: RETVAL
 
 void
-stack_info(iter)
-    srl_iterator_t *iter;
-  PREINIT:
-    UV type;
-    UV length;
-    SV *str_type;
-  PPCODE:
-    /* switch (srl_iterator_stack_info(aTHX_ iter, &length)) { */
-        /* case SRL_ITERATOR_OBJ_IS_ARRAY: */
-            /* str_type = newSVpv("ARRAY", 5); */
-            /* break; */
-
-        /* case SRL_ITERATOR_OBJ_IS_HASH: */
-            /* str_type = newSVpv("HASH", 4); */
-            /* break; */
-
-        /* default: */
-            /* croak("should not be here"); */
-    /* } */
-
-    /* EXTEND(SP, 2); */
-    /* PUSHs(sv_2mortal(str_type)); */
-    /* PUSHs(sv_2mortal(newSVuv(length))); */
-
-void
 array_goto(iter, idx)
     srl_iterator_t *iter;
     IV idx;
