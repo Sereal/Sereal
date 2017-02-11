@@ -833,25 +833,19 @@ srl_iterator_array_exists(pTHX_ srl_iterator_t *iter, I32 idx)
     return nidx;
 }
 
-const char *
-srl_iterator_hash_key(pTHX_ srl_iterator_t *iter, STRLEN *len_out)
+void
+srl_iterator_hash_key(pTHX_ srl_iterator_t *iter, const char **keyname, STRLEN *keyname_length_out)
 {
-    const char *result = NULL;
-    srl_reader_char_ptr orig_pos = iter->buf.pos;
-    *len_out = 0;
-
+    srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
     SRL_ITER_ASSERT_HASH_ON_STACK(iter);
-    srl_iterator_read_stringish(aTHX_ iter, &result, len_out);
-    iter->buf.pos = orig_pos; // restore original position
-    return result;
-}
+    SRL_ITER_ASSERT_STACK(iter);
 
-SV *
-srl_iterator_hash_key_sv(pTHX_ srl_iterator_t *iter)
-{
-    STRLEN length;
-    const char *str = srl_iterator_hash_key(aTHX_ iter, &length);
-    return sv_2mortal(newSVpvn(str, length));
+    if (expect_false(stack_ptr->idx % 2 != 0)) {
+        SRL_ITER_ERRORf1("Current stack index %d is not hash key", stack_ptr->idx);
+    }
+
+    srl_iterator_read_stringish(aTHX_ iter, keyname, keyname_length_out);
+    stack_ptr->idx++;
 }
 
 /* Function looks for name key in current hash. If the key is found, the function stops
@@ -859,49 +853,26 @@ srl_iterator_hash_key_sv(pTHX_ srl_iterator_t *iter)
  * entire hash and stops after the end of the hash. But remains stack unwrapper. */
 
 IV
-srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN name_len)
+srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN name_length)
 {
-    STRLEN key_length;
-    const char *key_ptr;
+    const char *keyname;
+    STRLEN keyname_length;
 
-    IV stack_depth = iter->stack.depth;
-    srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
+    srl_iterator_rewind(aTHX_ iter, 0);
 
-    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
-    SRL_ITER_ASSERT_EOF(iter, "stringish");
-    SRL_ITER_ASSERT_STACK(iter);
-    SRL_ITER_ASSERT_HASH_ON_STACK(iter);
-
-    SRL_ITER_TRACE_WITH_POSITION("name=%.*s", (int) name_len, name);
-    SRL_ITER_REPORT_STACK_STATE(iter);
-
-    while (stack_ptr->idx < stack_ptr->length) {
-        stack_ptr->idx++; // do not make it be part of while clause
-        SRL_ITER_ASSERT_STACK(iter);
-        assert(stack_ptr->idx % 2 == 0);
-        assert(iter->stack.depth == stack_depth);
-
-        srl_iterator_read_stringish(aTHX_ iter, &key_ptr, &key_length);
-        if (key_length == name_len && memcmp(name, key_ptr, name_len) == 0) {
-            SRL_ITER_TRACE_WITH_POSITION("found key '%.*s'", (int) name_len, name);
+    while (iter->stack.ptr->idx < iter->stack.ptr->length) {
+        srl_iterator_hash_key(aTHX_ iter, &keyname, &keyname_length);
+        if (keyname_length == name_length && memcmp(name, keyname, name_length) == 0) {
+            SRL_ITER_TRACE_WITH_POSITION("found key '%.*s'", (int) name_length, name);
             return SRL_RDR_BODY_POS_OFS(iter->pbuf);
         }
 
-        // srl_iterator_next garantee that we remains on current stack
+        // step over value, srl_iterator_next() remains on current stack
         srl_iterator_next(aTHX_ iter, 1);
-        stack_ptr = iter->stack.ptr;
     }
 
-    SRL_ITER_TRACE("didn't found key '%.*s'", (int) name_len, name);
+    SRL_ITER_TRACE("didn't found key '%.*s'", (int) name_length, name);
     return SRL_ITER_NOT_FOUND;
-}
-
-IV
-srl_iterator_hash_exists_sv(pTHX_ srl_iterator_t *iter, SV *name)
-{
-    STRLEN name_len;
-    const char *name_ptr = SvPV(name, name_len);
-    return srl_iterator_hash_exists(aTHX_ iter, name_ptr, name_len);
 }
 
 UV

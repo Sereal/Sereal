@@ -82,10 +82,8 @@ srl_iterator_normalize_idx(pTHX_ I32 idx, UV length)
 }
 
 /* hash parsing */
-const char * srl_iterator_hash_key(pTHX_ srl_iterator_t *iter, STRLEN *len_out);
-SV * srl_iterator_hash_key_sv(pTHX_ srl_iterator_t *iter); // return mortalized SV
+void srl_iterator_hash_key(pTHX_ srl_iterator_t *iter, const char **keyname, STRLEN *keyname_length_out);
 IV srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN name_len);
-IV srl_iterator_hash_exists_sv(pTHX_ srl_iterator_t *iter, SV *name);
 
 SV * srl_iterator_decode(pTHX_ srl_iterator_t *iter); // return mortalized SV
 

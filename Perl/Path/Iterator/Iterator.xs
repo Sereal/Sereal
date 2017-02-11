@@ -180,16 +180,23 @@ IV
 hash_exists(iter, name)
     srl_iterator_t *iter;
     SV *name;
+  PREINIT:
+    const char *keyname;
+    STRLEN keyname_lenght;
   CODE:
-    RETVAL = srl_iterator_hash_exists_sv(aTHX_ iter, name);
+    keyname = (const char*) SvPV(name, keyname_lenght);
+    RETVAL = srl_iterator_hash_exists(aTHX_ iter, keyname, keyname_lenght) == SRL_ITER_NOT_FOUND ? 0 : 1;
   OUTPUT: RETVAL
 
 SV *
 hash_key(iter)
     srl_iterator_t *iter;
+  PREINIT:
+    const char *keyname;
+    STRLEN keyname_length;
   CODE:
-    RETVAL = srl_iterator_hash_key_sv(aTHX_ iter);
-    SvREFCNT_inc(RETVAL);
+    srl_iterator_hash_key(aTHX_ iter, &keyname, &keyname_length);
+    RETVAL = newSVpvn(keyname, keyname_length);
   OUTPUT: RETVAL
 
 SV *
