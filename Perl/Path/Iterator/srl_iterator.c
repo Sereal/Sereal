@@ -155,17 +155,17 @@ extern "C" {
     }                                                                               \
 } STMT_END
 
-#define SRL_ITER_ASSERT_STACK_STRICT(iter) STMT_START {                             \
+#define SRL_ITER_ASSERT_STACK(iter) STMT_START {                                    \
     assert(!srl_stack_empty((iter)->pstack));                                       \
     if (expect_false((iter)->stack.ptr->idx >= (iter)->stack.ptr->length)) {        \
         SRL_ITER_ERRORf1("No elements at stack depth %"UVuf, (iter)->stack.depth);  \
     }                                                                               \
 } STMT_END
 
-#define SRL_ITER_ASSERT_STACK(iter) STMT_START {                                    \
+#define SRL_ITER_ASSERT_STACK_NONSTRICT(iter) STMT_START {                          \
     assert(!srl_stack_empty((iter)->pstack));                                       \
     if (expect_false((iter)->stack.ptr->idx > (iter)->stack.ptr->length)) {         \
-        SRL_ITER_ERROR("Stack is empty! Inconsistent state!");                      \
+        SRL_ITER_ERRORf1("No elements at stack depth %"UVuf, (iter)->stack.depth);  \
     }                                                                               \
 } STMT_END
 
@@ -449,13 +449,11 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
 
     SRL_ITER_TRACE_WITH_POSITION("n=%"UVuf, n);
     SRL_ITER_REPORT_STACK_STATE(iter);
-
-    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
-    SRL_ITER_ASSERT_STACK(iter);
+    if (expect_false(n == 0)) return;
 
     while (n) {
         DEBUG_ASSERT_RDR_SANE(iter->pbuf);
-        SRL_ITER_ASSERT_STACK_STRICT(iter);
+        SRL_ITER_ASSERT_STACK(iter);
 
         --n;
 
@@ -464,9 +462,6 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
         /* For arrays/hashes/and objects think this way: element at current depth will be */
         /* parsed as soon as iterator finished parsing element at depth+1. */
         stack_ptr->idx++;
-
-        SRL_ITER_ASSERT_STACK(iter);
-        DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 
     read_again:
         SRL_ITER_ASSERT_EOF(iter, "tag");
@@ -565,6 +560,9 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
 SRL_STATIC_INLINE void
 srl_iterator_wrap_stack(pTHX_ srl_iterator_t *iter, IV expected_depth)
 {
+    SRL_ITER_TRACE_WITH_POSITION("expected_depth=%"IVdf, expected_depth);
+    SRL_ITER_REPORT_STACK_STATE(iter);
+
     srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
     while (    iter->stack.depth > expected_depth
             && stack_ptr->idx == stack_ptr->length
@@ -581,8 +579,9 @@ srl_iterator_wrap_stack(pTHX_ srl_iterator_t *iter, IV expected_depth)
 
             SRL_ITER_TRACE_WITH_POSITION("wrap_stack restore offset");
             SRL_ITER_REPORT_STACK_STATE(iter);
-            DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+
             SRL_ITER_ASSERT_EOF(iter, "tag");
+            DEBUG_ASSERT_RDR_SANE(iter->pbuf);
         }
 
         if (SRL_ITER_STACK_ON_ROOT(iter->pstack)) {
@@ -598,13 +597,15 @@ srl_iterator_step_out(pTHX_ srl_iterator_t *iter, UV n)
     IV expected_depth = iter->stack.depth - (IV) n;
     srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
 
-    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
-    SRL_ITER_ASSERT_STACK(iter);
-
     SRL_ITER_TRACE_WITH_POSITION("n=%"UVuf, n);
     SRL_ITER_REPORT_STACK_STATE(iter);
-
     if (expect_false(n == 0)) return;
+
+    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+    // step_out can we execute we all elements
+    // are parsed on current stack level
+    SRL_ITER_ASSERT_STACK_NONSTRICT(iter);
+
     if (expect_false(expected_depth < 0)) {
         SRL_ITER_ERRORf1("Can't do %"UVuf" steps out", n);
     }
@@ -639,18 +640,13 @@ srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n)
     IV expected_depth = iter->stack.depth;
     srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
 
+    SRL_ITER_TRACE_WITH_POSITION("n=%"UVuf, n);
+    if (expect_false(n == 0)) return;
+
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     SRL_ITER_ASSERT_STACK(iter);
 
-    SRL_ITER_TRACE_WITH_POSITION("n=%"UVuf, n);
-    SRL_ITER_REPORT_STACK_STATE(iter);
-
-    if (expect_false(n == 0)) return;
-
     while (1) {
-        SRL_ITER_TRACE_WITH_POSITION("wrap_stack depth=%"IVdf, expected_depth);
-        SRL_ITER_REPORT_STACK_STATE(iter);
-
         // wrapping stack
         srl_iterator_wrap_stack(aTHX_ iter, expected_depth);
         stack_ptr = iter->stack.ptr;
@@ -661,10 +657,9 @@ srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n)
             else n--;
         }
 
-        // doing next step
-        SRL_ITER_ASSERT_STACK_STRICT(iter);
-        DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+        SRL_ITER_ASSERT_STACK(iter);
 
+        /* Doing next step! */
         /* Iterator increment idx *before* parsing an element. This's done for simplicity. */
         /* Also, it has some sense. For scalars there is no difference in when idx is decremented.*/
         /* For arrays/hashes/and objects think this way: element at current depth will be */
@@ -673,6 +668,8 @@ srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n)
 
     read_again:
         SRL_ITER_ASSERT_EOF(iter, "EOF is reached");
+        DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+
         tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
         SRL_ITER_REPORT_TAG(iter, tag);
         iter->buf.pos++;
@@ -1259,7 +1256,7 @@ srl_iterator_decode(pTHX_ srl_iterator_t *iter)
     SV *into;
     SRL_ITER_TRACE_WITH_POSITION("decode object at");
     SRL_ITER_ASSERT_EOF(iter, "serialized object");
-    SRL_ITER_ASSERT_STACK_STRICT(iter);
+    SRL_ITER_ASSERT_STACK(iter);
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 
     into = sv_2mortal(newSV_type(SVt_NULL));
@@ -1386,7 +1383,6 @@ srl_iterator_read_stringish(pTHX_ srl_iterator_t *iter, const char **str_out, ST
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     SRL_ITER_ASSERT_EOF(iter, "stringish");
-    SRL_ITER_ASSERT_STACK(iter);
 
     tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
     SRL_ITER_REPORT_TAG(iter, tag);
