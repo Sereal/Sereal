@@ -795,44 +795,38 @@ srl_iterator_rewind(pTHX_ srl_iterator_t *iter, UV n)
     SRL_ITER_REPORT_STACK_STATE(iter);
 }
 
-IV
+void
 srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
 {
     srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
     IV nidx = srl_iterator_array_exists(aTHX_ iter, idx);
-    if (nidx == SRL_ITER_NOT_FOUND) return SRL_ITER_NOT_FOUND;
+    if (nidx == SRL_ITER_NOT_FOUND) {
+        SRL_ITER_ERRORf1("Array index %d does not exists", idx);
+    }
 
-    if (nidx == stack_ptr->idx) {
-        return SRL_RDR_BODY_POS_OFS(iter->pbuf); // already at expected position
-    } else if (nidx < stack_ptr->idx) {
-        SRL_ITER_ERRORf2("Can't go backwards, idx=%"IVdf", length=%u",
-                         nidx, stack_ptr->length);
+    if (nidx == stack_ptr->idx) return;
+    if (nidx < stack_ptr->idx) {
+        srl_iterator_rewind(aTHX_ iter, 0);
     }
 
     // srl_iterator_next garantee that we remans on current stack
     srl_iterator_next(aTHX_ iter, nidx - stack_ptr->idx);
     assert(stack_ptr->idx == nidx);
-    return SRL_RDR_BODY_POS_OFS(iter->pbuf);
 }
 
 IV
 srl_iterator_array_exists(pTHX_ srl_iterator_t *iter, I32 idx)
 {
     I32 nidx;
-    srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
+    U32 length = iter->stack.ptr->length;
 
-    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
-    SRL_ITER_ASSERT_EOF(iter, "array element");
     SRL_ITER_ASSERT_STACK(iter);
-    SRL_ITER_ASSERT_ARRAY_ON_STACK(iter);
-
+    /* SRL_ITER_ASSERT_ARRAY_ON_STACK(iter); */ // do not require array to be on stack
     SRL_ITER_TRACE_WITH_POSITION("idx=%d", idx);
-    SRL_ITER_REPORT_STACK_STATE(iter);
 
-    nidx = srl_iterator_normalize_idx(aTHX_ idx, stack_ptr->length);
-    if (nidx < 0 || nidx >= (I32) stack_ptr->length) {
-        SRL_ITER_TRACE("Index is out of range, idx=%d nidx=%d length=%u",
-                       idx, nidx, stack_ptr->length);
+    nidx = srl_iterator_normalize_idx(aTHX_ idx, length);
+    if (nidx < 0 || nidx >= (I32) length) {
+        SRL_ITER_TRACE("Index is out of range, idx=%d nidx=%d length=%u", idx, nidx, length);
         return SRL_ITER_NOT_FOUND;
     }
 

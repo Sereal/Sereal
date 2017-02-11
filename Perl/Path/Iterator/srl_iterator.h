@@ -72,7 +72,7 @@ UV srl_iterator_stack_info(pTHX_ srl_iterator_t *iter, UV *length_ptr);
 UV srl_iterator_info(pTHX_ srl_iterator_t *iter, UV *length_out, const char **classname_out, STRLEN *classname_lenght_out);
 
 /* array parsing */
-IV srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx);
+void srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx);
 IV srl_iterator_array_exists(pTHX_ srl_iterator_t *iter, I32 idx);
 
 SRL_STATIC_INLINE I32

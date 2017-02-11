@@ -169,6 +169,14 @@ array_goto(iter, idx)
     srl_iterator_array_goto(aTHX_ iter, idx);
 
 IV
+array_exists(iter, idx)
+    srl_iterator_t *iter;
+    IV idx;
+  CODE:
+    RETVAL = srl_iterator_array_exists(aTHX_ iter, idx) == SRL_ITER_NOT_FOUND ? 0 : 1;
+  OUTPUT: RETVAL
+
+IV
 hash_exists(iter, name)
     srl_iterator_t *iter;
     SV *name;
