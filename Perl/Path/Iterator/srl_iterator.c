@@ -155,6 +155,12 @@ extern "C" {
     }                                                                               \
 } STMT_END
 
+#define SRL_ITER_ASSERT_EOF_NONSTRICT(iter, msg) STMT_START {                       \
+    if (expect_false((iter)->pbuf->pos > (iter)->pbuf->end)) {                      \
+        SRL_RDR_ERROR_EOF((iter)->pbuf, (msg));                                     \
+    }                                                                               \
+} STMT_END
+
 #define SRL_ITER_ASSERT_STACK(iter) STMT_START {                                    \
     assert(!srl_stack_empty((iter)->pstack));                                       \
     if (expect_false((iter)->stack.ptr->idx >= (iter)->stack.ptr->length)) {        \
@@ -566,7 +572,7 @@ srl_iterator_wrap_stack(pTHX_ srl_iterator_t *iter, IV expected_depth)
             SRL_ITER_TRACE_WITH_POSITION("wrap_stack restore offset");
             SRL_ITER_REPORT_STACK_STATE(iter);
 
-            SRL_ITER_ASSERT_EOF(iter, "tag");
+            SRL_ITER_ASSERT_EOF_NONSTRICT(iter, "tag");
             DEBUG_ASSERT_RDR_SANE(iter->pbuf);
         }
 
