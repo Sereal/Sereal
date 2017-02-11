@@ -1157,10 +1157,16 @@ SRL_STATIC_INLINE SV *
 srl_follow_reference(pTHX_ srl_decoder_t *dec, UV offset)
 {
     SV* into = FRESH_SV();
-    srl_reader_char_ptr pos = dec->buf.pos;
-    dec->buf.pos = dec->buf.body_pos + offset;
+    srl_reader_char_ptr orig_pos = dec->buf.pos;
+    srl_reader_char_ptr new_pos = dec->buf.body_pos + offset;
+
+    if (new_pos >= orig_pos) {
+        SRL_RDR_ERROR(dec->pbuf, "Corrupted packed. Reference offset points forward!");
+    }
+
+    dec->buf.pos = new_pos;
     srl_read_single_value(aTHX_ dec, into, NULL);
-    dec->buf.pos = pos;
+    dec->buf.pos = orig_pos;
     return into;
 }
 
