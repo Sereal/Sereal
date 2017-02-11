@@ -8,94 +8,177 @@ use Test::Exception;
 use Sereal::Path::Iterator;
 use Sereal::Encoder qw/encode_sereal/;
 
-my $enc = encode_sereal(
-    [
-        70,
-        71,
-        [
-            'a',
-            'b',
-            'c',
-            'd',
-            {
-                foo => 'barbar',
-                foobar => bless [
-                    1,
-                    2,
-                    3,
-                    bless [
-                        \"scalar"
-                    ], "Foo",
-                ], "Foo",
-            }
-        ]
-    ],
-    { sort_keys => 1 },
-);
+subtest "step over simple item", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(70));
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+};
 
-my $spi = Sereal::Path::Iterator->new($enc);
+subtest "step into ARRAY", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        [ 70, 71 ],
+    ));
 
-$spi->step_in();
-is($spi->decode(), 70, 'decode item 70 in array');
-$spi->step_in();
-is($spi->decode(), 71, 'decode item 71 in array');
-$spi->step_in();
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    is($spi->decode(), 70, 'decode 70');
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    is($spi->decode(), 71, 'decode 71');
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    dies_ok(sub { $spi->step_in() }, 'expect step in to die');
+};
 
-$spi->step_in();
-is($spi->decode(), 'a', 'decode item a in array');
-$spi->step_in();
-is($spi->decode(), 'b', 'decode item b in array');
-$spi->step_in();
-is($spi->decode(), 'c', 'decode item c in array');
-$spi->step_in();
-is($spi->decode(), 'd', 'decode item d in array');
-$spi->step_in();
+subtest "step into HASH", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        { foo => 'bar' }
+    ));
 
-is_deeply(
-    [ $spi->info() ],
-    [ SRL_INFO_REF_TO | SRL_INFO_HASH, 2 ],
-    'get information about hashref'
-);
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    is($spi->decode(), 'foo', 'decode foo');
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    is($spi->decode(), 'bar', 'decode bar');
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    dies_ok(sub { $spi->step_in() }, 'expect step in to die');
+};
 
-$spi->step_in();
-is($spi->decode(), 'foo', 'decode hash key #1');
-$spi->step_in();
-is($spi->decode(), 'barbar', 'decode hash value #1');
-$spi->step_in();
-is($spi->decode(), 'foobar', 'decode hash key #2');
-$spi->step_in();
+subtest "step into long ARRAY", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        [ 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 ],
+    ));
 
-is_deeply(
-    [ $spi->info() ],
-    [ SRL_INFO_BLESSED | SRL_INFO_REF_TO | SRL_INFO_ARRAY, 4, 'Foo' ],
-    'get information about blessed arrayhref'
-);
+    for (10..30) {
+        lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+        is($spi->decode(), $_, "decode $_");
+    }
 
-$spi->step_in();
-is($spi->decode(), 1, 'decode item 1 in blessed array');
-$spi->step_in();
-is($spi->decode(), 2, 'decode item 2 in blessed array');
-$spi->step_in();
-is($spi->decode(), 3, 'decode item 3 in blessed array');
-$spi->step_in();
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    dies_ok(sub { $spi->step_in() }, 'expect step in to die');
+};
 
-is_deeply(
-    [ $spi->info() ],
-    [ SRL_INFO_BLESSED | SRL_INFO_REF_TO | SRL_INFO_ARRAY, 1, 'Foo' ],
-    'get information about blessed arrayref'
-);
+subtest "step into long HASH", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        {
+            10 => 110,
+            11 => 111,
+            12 => 112,
+            13 => 113,
+            14 => 114,
+            15 => 115,
+            16 => 116,
+            17 => 117,
+            18 => 118,
+            19 => 119,
+            20 => 120,
+            21 => 121,
+            22 => 122,
+            23 => 123,
+            24 => 124,
+            25 => 125,
+            26 => 126,
+            27 => 127,
+            28 => 128,
+            29 => 129,
+            30 => 130,
+        },
+        { sort_keys => 1 },
+    ));
 
-$spi->step_in();
-is_deeply(
-    [ $spi->info() ],
-    [ SRL_INFO_REF_TO | SRL_INFO_SCALAR, 1 ],
-    'get information about scalarref'
-);
+    for (10..30) {
+        my ($k, $v) = ($_, 100+$_);
+        lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+        is($spi->decode(), $k, "decode key $k");
+        lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+        is($spi->decode(), $v, "decode value $v");
+    }
 
-$spi->step_in();
-is($spi->decode(), "scalar", 'decode scalar');
-$spi->step_in();
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    dies_ok(sub { $spi->step_in() }, 'expect step in to die');
+};
 
-dies_ok(sub { $spi->step_in() }, "expecting last step_in to die");
+subtest "step into reference", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        [ 'a', \[ 'b', \\'c' ] ]
+    ));
+
+    $spi->step_in();
+    is($spi->decode(), 'a', 'decode a');
+    lives_ok(sub { $spi->step_in(3) }, 'expect step in to live');
+    is($spi->decode(), 'b', 'decode b');
+    lives_ok(sub { $spi->step_in(3) }, 'expect step in to live');
+    is($spi->decode(), 'c', 'decode c');
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    dies_ok(sub { $spi->step_in() }, 'expect step in to die');
+};
+
+subtest "step into REFP", sub {
+    my $a = [ 100 ];
+    push @{ $a }, $a;
+    my $spi = Sereal::Path::Iterator->new(encode_sereal($a));
+
+    $spi->step_in();
+    is($spi->decode(), '100', 'decode 100');
+    lives_ok(sub { $spi->step_in(2) }, 'expect step in to live');
+    is($spi->decode(), '100', 'decode 100');
+    lives_ok(sub { $spi->step_in(2) }, 'expect step in to live');
+    is($spi->decode(), '100', 'decode 100');
+    # and so on, cyclic reference
+};
+
+subtest "step over COPY", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        { foo => { foo => 'bar' } }
+    ));
+
+    $spi->step_in();
+    is($spi->decode(), 'foo', 'decode foo');
+    lives_ok(sub { $spi->step_in(2) }, 'expect step in to live');
+    is($spi->decode(), 'foo', 'decode foo');
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    is($spi->decode(), 'bar', 'decode bar');
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    dies_ok(sub { $spi->step_in() }, 'expect step in to die');
+};
+
+subtest "step into blessed ARRAY", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        bless [ 200 ], "Foo"
+    ));
+
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    is($spi->decode(), '200', 'decode 200');
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    dies_ok(sub { $spi->step_in() }, 'expect step in to die');
+};
+
+subtest "step into blessed HASH", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        bless { foo => 'bar' }, "Foo"
+    ));
+
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    is($spi->decode(), 'foo', 'decode foo');
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    is($spi->decode(), 'bar', 'decode bar');
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    dies_ok(sub { $spi->step_in() }, 'expect step in to die');
+};
+
+subtest "step into reference to blessed object", sub {
+    my $b = bless [ 200 ], "Foo";
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(\$b));
+    lives_ok(sub { $spi->step_in(2) }, 'expect step in to live');
+    is($spi->decode(), '200', 'decode 200');
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    dies_ok(sub { $spi->step_in() }, 'expect step in to die');
+};
+
+subtest "step into blessed blessed ARRAY (OBJECTV)", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        bless(\(bless [ 200 ], "Foo"), "Foo")
+    ));
+
+    lives_ok(sub { $spi->step_in(2) }, 'expect step in to live');
+    is($spi->decode(), '200', 'decode 200');
+    lives_ok(sub { $spi->step_in() }, 'expect step in to live');
+    dies_ok(sub { $spi->step_in() }, 'expect step in to die');
+};
 
 done_testing();
