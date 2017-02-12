@@ -38,6 +38,15 @@ inc::Sereal::BuildTools::WriteMakefile(
         },
         'meta-spec' => { version => 2 },
     },
+    TEST_REQUIRES => {
+        'Test::More' => 0.88,
+        'Test::Deep' => '0',
+        'Test::Exception' => '0',
+        'Scalar::Util' => 0,
+        'Data::Dumper' => '0',
+        'Sereal::Encoder' => '3.00',
+        'Sereal::Decoder' => '3.00',
+    },
     BUILD_REQUIRES => {
         'File::Find' => 0,
         'File::Path' => 0,
@@ -57,5 +66,6 @@ inc::Sereal::BuildTools::WriteMakefile(
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
     OPTIMIZE          => inc::Sereal::BuildTools::build_optimize(),
     OBJECT            => $objects,
+    test              => { TESTS => "t/*.t t/*/*/*.t" },
     DIR               => $subdirs,
 );

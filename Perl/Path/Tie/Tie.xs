@@ -50,35 +50,6 @@ struct sereal_iterator_tied_hash {
     HV *store; // internal storage to workaround autovivification
 };
 
-SRL_STATIC_INLINE void
-srl_tie_goto_depth_and_maybe_copy_iterator(pTHX_ sereal_iterator_tied_t *this)
-{
-    /* srl_iterator_t *iter = this->iter; */
-    /* IV current_depth = srl_iterator_stack_depth(aTHX_ iter); */
-
-    /* if (current_depth > this->depth) { */
-        /* if (SvREFCNT(this->iter_sv) > 1) { */
-            /* iter = NULL; */
-            /* Newx(iter, 1, srl_iterator_t); */
-            /* if (iter == NULL) croak("Out of memory"); */
-
-            /* srl_shallow_copy_iterator(aTHX_ this->iter, iter); */
-            /* SvREFCNT_dec(this->iter_sv); */
-
-            /* this->iter = iter; */
-            /* this->iter_sv = sv_setref_pv(FRESH_SV(), */
-                                         /* "Sereal::Path::Iterator", */
-                                         /* (void*) iter); */
-        /* } */
-
-        /* current_depth = srl_iterator_unite(aTHX_ iter); */
-        /* assert(current_depth == this->depth); */
-    /* } else if (expect_false(current_depth < this->depth)) { */
-        /* croak("Corrupted state! current_depth < this->depth (%"IVdf" < %"IVdf")", */
-              /* current_depth, this->depth); */
-    /* } */
-}
-
 SRL_STATIC_INLINE SV *
 srl_tie_new_tied_sv(pTHX_ srl_iterator_t *iter, SV *iter_sv)
 {
@@ -87,44 +58,39 @@ srl_tie_new_tied_sv(pTHX_ srl_iterator_t *iter, SV *iter_sv)
     SV *obj, *result;
     const char* tied_class_name;
     sereal_iterator_tied_t *tied;
-    UV type = srl_iterator_object_info(aTHX_ iter, &count);
+    U32 type = srl_iterator_info(aTHX_ iter, &count, NULL, NULL);
 
-    switch (type) {
-        case SRL_ITERATOR_OBJ_IS_SCALAR:
-            return srl_iterator_decode(aTHX_ iter);
+    if ((type & SRL_ITERATOR_INFO_REF_TO) == 0) {
+        return srl_iterator_decode(aTHX_ iter);
+    }
 
-        case SRL_ITERATOR_OBJ_IS_ARRAY: {
-            sereal_iterator_tied_array_t *array = NULL;
-            Newx(array, 1, sereal_iterator_tied_array_t);
-            if (!array) croak("Out of memory");
-            array->store = NULL;
+    if (type & SRL_ITERATOR_INFO_HASH) {
+        sereal_iterator_tied_hash_t *hash = NULL;
+        Newx(hash, 1, sereal_iterator_tied_hash_t);
+        if (!hash) croak("Out of memory");
 
-            tied = (sereal_iterator_tied_t*) array;
-            tied_class_name = "Sereal::Path::Tie::Array";
-            tied->count = count;
-            result = sv_2mortal(newRV_noinc((SV*) newAV()));
-            break;
-        }
+        hash->store = NULL;
+        tied = (sereal_iterator_tied_t*) hash;
+        tied_class_name = "Sereal::Path::Tie::Hash";
+        tied->count = count * 2; // for proper iterating
+        result = sv_2mortal(newRV_noinc((SV*) newHV()));
+    } else if (type & SRL_ITERATOR_INFO_ARRAY) {
+        sereal_iterator_tied_array_t *array = NULL;
+        Newx(array, 1, sereal_iterator_tied_array_t);
+        if (!array) croak("Out of memory");
+        array->store = NULL;
 
-        case SRL_ITERATOR_OBJ_IS_HASH: {
-            sereal_iterator_tied_hash_t *hash = NULL;
-            Newx(hash, 1, sereal_iterator_tied_hash_t);
-            if (!hash) croak("Out of memory");
-
-            hash->store = NULL;
-            tied = (sereal_iterator_tied_t*) hash;
-            tied_class_name = "Sereal::Path::Tie::Hash";
-            tied->count = count * 2; // for proper iterating
-            result = sv_2mortal(newRV_noinc((SV*) newHV()));
-            break;
-        }
-
-        default:
-            croak("Expect to have ARRAY or HASH in iterator but got type '%"UVuf"'", type);
+        tied = (sereal_iterator_tied_t*) array;
+        tied_class_name = "Sereal::Path::Tie::Array";
+        tied->count = count;
+        result = sv_2mortal(newRV_noinc((SV*) newAV()));
+    } else {
+        return srl_iterator_decode(aTHX_ iter);
     }
 
     {
-        // copy iterator logic TODO get remove of unnesseccary copying
+        // copy iterator logic
+        // TODO get remove of unnesseccary copying
         tied->iter = NULL;
         Newx(tied->iter, 1, srl_iterator_t);
         if (tied->iter == NULL) croak("Out of memory");
@@ -138,11 +104,8 @@ srl_tie_new_tied_sv(pTHX_ srl_iterator_t *iter, SV *iter_sv)
     obj = sv_2mortal(sv_setref_pv(FRESH_SV(), tied_class_name, tied));
     sv_magic(SvRV(result), obj, PERL_MAGIC_tied, NULL, 0);
 
-    depth = srl_iterator_disjoin(aTHX_ tied->iter); // mark current possion as new root
     srl_iterator_step_in(aTHX_ tied->iter, 1);
-    tied->depth = depth + 1;
-
-    assert(srl_iterator_stack_depth(aTHX_ tied->iter) == tied->depth);
+    tied->depth = srl_iterator_stack_depth(aTHX_ tied->iter);
     return result;
 }
 
@@ -192,16 +155,10 @@ FETCH(this, key)
         XSRETURN(1);
     }
 
-    srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
-
     idx = srl_iterator_array_exists(aTHX_ this->iter, key);
     if (idx == SRL_ITER_NOT_FOUND) {
         ST(0) = &PL_sv_undef;
     } else {
-        if (idx < (IV) srl_iterator_stack_index(aTHX_ this->iter)) {
-            srl_iterator_rewind(aTHX_ this->iter, 0);
-        }
-    
         srl_iterator_array_goto(aTHX_ this->iter, key);
         ST(0) = srl_tie_new_tied_sv(aTHX_ this->iter, this->iter_sv);
     }
@@ -232,8 +189,6 @@ EXISTS(this, key)
         XSRETURN(1);
     }
 
-    srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
-    srl_iterator_rewind(aTHX_ this->iter, 0);
     result = srl_iterator_array_exists(aTHX_ this->iter, key);
     ST(0) = (result == SRL_ITER_NOT_FOUND ? &PL_sv_undef : &PL_sv_yes);
     XSRETURN(1);
@@ -318,6 +273,8 @@ FETCH(this, key)
     SV *key;
   PREINIT:
     HE *he;
+    const char *keyname;
+    STRLEN keyname_length;
   PPCODE:
     if (this->store != NULL) {
         if ((he = hv_fetch_ent(this->store, key, 0, 0)) != NULL) {
@@ -326,10 +283,8 @@ FETCH(this, key)
         }
     }
 
-    srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
-    srl_iterator_rewind(aTHX_ this->iter, 0);
-
-    if (srl_iterator_hash_exists_sv(aTHX_ this->iter, key) == SRL_ITER_NOT_FOUND) {
+    keyname = SvPV(key, keyname_length);
+    if (srl_iterator_hash_exists(aTHX_ this->iter, keyname, keyname_length) == SRL_ITER_NOT_FOUND) {
         ST(0) = &PL_sv_undef;
     } else {
         ST(0) = srl_tie_new_tied_sv(aTHX_ this->iter, this->iter_sv);
@@ -341,16 +296,17 @@ void
 EXISTS(this, key)
     sereal_iterator_tied_hash_t *this;
     SV *key;
+  PREINIT:
+    const char *keyname;
+    STRLEN keyname_length;
   PPCODE:
     if (this->store != NULL && hv_exists_ent(this->store, key, 0)) {
         ST(0) = &PL_sv_yes;
         XSRETURN(1);
     }
 
-    srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
-    srl_iterator_rewind(aTHX_ this->iter, 0);
-
-    ST(0) = srl_iterator_hash_exists_sv(aTHX_ this->iter, key) == SRL_ITER_NOT_FOUND
+    keyname = SvPV(key, keyname_length);
+    ST(0) = srl_iterator_hash_exists(aTHX_ this->iter, keyname, keyname_length) == SRL_ITER_NOT_FOUND
           ? &PL_sv_undef
           : &PL_sv_yes;
 
@@ -359,11 +315,12 @@ EXISTS(this, key)
 void
 FIRSTKEY(this)
     sereal_iterator_tied_hash_t *this;
+  PREINIT:
+    const char *keyname;
+    STRLEN keyname_length;
   PPCODE:
-    srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
-
     if (this->store != NULL && HvUSEDKEYS(this->store) > 0) {
-        this->cur_idx = -2; //indication that we should try to fetch next key from the store
+        this->cur_idx = -1; //indication that we should try to fetch next key from the store
 
         (void) hv_iterinit(this->store);
         ST(0) = hv_iterkeysv(hv_iternext(this->store));
@@ -371,10 +328,10 @@ FIRSTKEY(this)
     }
 
     if (this->count > 0) {
-        this->cur_idx = 0; // following call of NEXTKEY will set it to 2
-
         srl_iterator_rewind(aTHX_ this->iter, 0);
-        ST(0) = srl_iterator_hash_key_sv(aTHX_ this->iter);
+        srl_iterator_hash_key(aTHX_ this->iter, &keyname, &keyname_length);
+        this->cur_idx = 1; // following call of NEXTKEY will set it to 2
+        ST(0) = sv_2mortal(newSVpvn(keyname, keyname_length));
         XSRETURN(1);
     }
 
@@ -387,21 +344,27 @@ NEXTKEY(this, last)
     SV *last;
   PREINIT:
     HE *he;
+    U32 stack_idx;
+    const char *keyname;
+    STRLEN keyname_length;
   PPCODE:
     if (this->cur_idx < 0 && (he = hv_iternext(this->store)) != NULL) {
         ST(0) = hv_iterkeysv(he);
         XSRETURN(1);
     }
 
-    srl_tie_goto_depth_and_maybe_copy_iterator(aTHX_ (sereal_iterator_tied_t*) this);
-
-    for (this->cur_idx += 2; this->cur_idx < (I32) this->count; this->cur_idx += 2) {
-        if (this->cur_idx < (I32) srl_iterator_stack_index(aTHX_ this->iter)) {
+    assert(this->depth == srl_iterator_stack_depth(aTHX_ this->iter));
+    for (this->cur_idx += 1; this->cur_idx < (I32) this->count; this->cur_idx += 1) {
+        stack_idx = srl_iterator_stack_index(aTHX_ this->iter);
+        if (this->cur_idx < (I32) stack_idx) {
             srl_iterator_rewind(aTHX_ this->iter, 0);
+            stack_idx = 0;
         }
 
-        srl_iterator_until(aTHX_ this->iter, this->depth, this->cur_idx);
-        ST(0) = srl_iterator_hash_key_sv(aTHX_ this->iter);
+        srl_iterator_next(aTHX_ this->iter, this->cur_idx - stack_idx);
+        srl_iterator_hash_key(aTHX_ this->iter, &keyname, &keyname_length);
+        ST(0) = sv_2mortal(newSVpvn(keyname, keyname_length));
+        this->cur_idx += 1;
 
         if (this->store == NULL || hv_exists_ent(this->store, ST(0), 0) == 0) {
             XSRETURN(1);
