@@ -76,7 +76,7 @@ srl_iterator_stack_index(pTHX_ srl_iterator_t *iter)
 }
 
 /* information about current object */
-UV srl_iterator_info(pTHX_ srl_iterator_t *iter, UV *length_out, const char **classname_out, STRLEN *classname_lenght_out);
+U32 srl_iterator_info(pTHX_ srl_iterator_t *iter, UV *length_out, const char **classname_out, STRLEN *classname_lenght_out);
 
 /* array parsing */
 void srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx);

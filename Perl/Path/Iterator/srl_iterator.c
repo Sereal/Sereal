@@ -875,11 +875,12 @@ srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN na
     return SRL_ITER_NOT_FOUND;
 }
 
-UV
+U32
 srl_iterator_info(pTHX_ srl_iterator_t *iter, UV *length_out, const char **classname_out, STRLEN *classname_lenght_out)
 {
     U8 tag;
-    UV offset, type = 0;
+    UV offset;
+    U32 type = 0;
     srl_reader_char_ptr orig_pos_objectv = NULL;
     srl_reader_char_ptr orig_pos = iter->buf.pos;
 
