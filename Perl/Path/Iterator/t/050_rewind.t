@@ -15,6 +15,12 @@ subtest "simple rewind", sub {
     is($spi->decode(), 70, 'decode 70');
 };
 
+subtest "rewind in empty array", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal([]));
+    $spi->step_in();
+    lives_ok(sub { $spi->rewind() }, 'expect rewind to live');
+};
+
 subtest "rewind in nested array", sub {
     my $spi = Sereal::Path::Iterator->new(encode_sereal(
         [ 100, [ 200, 300 ], 400 ],

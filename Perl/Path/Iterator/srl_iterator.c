@@ -788,8 +788,11 @@ srl_iterator_rewind(pTHX_ srl_iterator_t *iter, UV n)
     iter->stack.ptr->idx = 0;
     iter->buf.pos = iter->buf.body_pos + iter->stack.ptr->first;
 
-    SRL_ITER_ASSERT_EOF(iter, "tag");
-    SRL_ITER_ASSERT_STACK(iter);
+    // can't do strict checking here because
+    // if rewinding after parsing entire body is possible
+    // also if length == 0 check gives false positive
+    SRL_ITER_ASSERT_EOF_NONSTRICT(iter, "tag");
+    SRL_ITER_ASSERT_STACK_NONSTRICT(iter);
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 
     SRL_ITER_REPORT_STACK_STATE(iter);

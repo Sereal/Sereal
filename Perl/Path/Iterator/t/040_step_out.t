@@ -27,6 +27,12 @@ subtest "step out from simple HASH", sub {
     dies_ok(sub { $spi->next() }, 'expect step next to die');
 };
 
+subtest "step out from empty HASH", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal({}));
+    $spi->step_in();
+    lives_ok(sub { $spi->step_out() }, 'expect step out to live');
+};
+
 subtest "step out from nested ARRAY", sub {
     my $spi = Sereal::Path::Iterator->new(encode_sereal(
         [ [ [ 100 ] ], 200 ]
