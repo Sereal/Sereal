@@ -82,14 +82,6 @@ step_out(iter, n = NULL)
     srl_iterator_step_out(aTHX_ iter, n ? SvUV(n) : 1);
 
 void
-until(iter, depth, idx)
-    srl_iterator_t *iter;
-    UV depth;
-    U32 idx;
-  CODE:
-    srl_iterator_until(aTHX_ iter, depth, idx);
-
-void
 rewind(iter, n = NULL)
     srl_iterator_t *iter;
     SV *n;

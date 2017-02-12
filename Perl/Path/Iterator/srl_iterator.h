@@ -54,8 +54,6 @@ void srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n);
 void srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n);
 /* run until elements at current depth ends and go one level down; do this n times */
 void srl_iterator_step_out(pTHX_ srl_iterator_t *iter, UV n);
-/* run until depth and idx reached */
-void srl_iterator_until(pTHX_ srl_iterator_t *iter, UV depth, U32 idx);
 /* if n == 0, go to first element, otherwise pop stack n times and go to first element */
 void srl_iterator_rewind(pTHX_ srl_iterator_t *iter, UV n);
 
