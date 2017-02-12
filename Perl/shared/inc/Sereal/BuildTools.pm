@@ -16,7 +16,9 @@ my %bare_minimum_files= map { $_ => 1 } qw{
     srl_reader_error.h
     srl_reader_types.h
     inc/Sereal/BuildTools.pm
+    inc/Devel/CheckLib.pm
     inc/Sereal
+    inc/Devel
     inc
 };
 
