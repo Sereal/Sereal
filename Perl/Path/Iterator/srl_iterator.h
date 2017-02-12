@@ -68,6 +68,12 @@ srl_iterator_stack_depth(pTHX_ srl_iterator_t *iter)
 }
 
 SRL_STATIC_INLINE U32
+srl_iterator_stack_length(pTHX_ srl_iterator_t *iter)
+{
+    return iter->stack.ptr->length;
+}
+
+SRL_STATIC_INLINE U32
 srl_iterator_stack_index(pTHX_ srl_iterator_t *iter)
 {
     return iter->stack.ptr->idx;
