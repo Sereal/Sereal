@@ -1296,6 +1296,7 @@ srl_iterator_read_stringish(pTHX_ srl_iterator_t *iter, const char **str_out, ST
 {
     U8 tag;
     UV length, offset;
+    srl_reader_char_ptr new_pos = NULL;
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
     SRL_ITER_ASSERT_EOF(iter, "stringish");
@@ -1320,13 +1321,10 @@ srl_iterator_read_stringish(pTHX_ srl_iterator_t *iter, const char **str_out, ST
 
         case SRL_HDR_COPY:
             offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading COPY tag");
+            new_pos = iter->buf.pos;
             iter->buf.pos = iter->buf.body_pos + offset;
-
-            /* TODO */
-            /* Note we do NOT validate these items, as we have already read them
-             * and if they were a problem we would not be here to process them! */
-
             SRL_ITER_ASSERT_EOF(iter, "stringish");
+
             tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
             SRL_ITER_REPORT_TAG(iter, tag);
             iter->buf.pos++;
@@ -1358,5 +1356,8 @@ srl_iterator_read_stringish(pTHX_ srl_iterator_t *iter, const char **str_out, ST
     SRL_RDR_ASSERT_SPACE(iter->pbuf, length, " while reading stringish");
     if (str_out) *str_out = (const char *) iter->buf.pos;
     if (str_length_out) *str_length_out = length;
-    iter->buf.pos += length;
+
+    // set new bouf position
+    if (new_pos) iter->buf.pos = new_pos;
+    else iter->buf.pos += length;
 }
