@@ -2,32 +2,70 @@
 use strict;
 use warnings;
 
-use Sereal::Path;
-use Sereal::Encoder qw/encode_sereal/;
 use Test::More;
+use Test::Exception;
+use Sereal::Path::Iterator;
+use Sereal::Encoder qw/encode_sereal/;
 
-my $a = {};
-my $data = [ $a, $a ];
-my $sp = Sereal::Path->new;
-my $error = '';
+subtest "descode simple item", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(100));
+    is($spi->decode(), 100, 'decode 100');
+};
 
-# decode REFP
-$sp->set(encode_sereal($data));
-my $val = eval { $sp->value('$[1]') } or $error = $@;
-is_deeply($val, $a, "decode REFP: $error");
+subtest "decode REFP", sub {
+    my $a = [ 1, 2, 3 ];
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        [ $a, $a ],
+    ));
 
-$sp->set(encode_sereal([$data, $data]));
-$val = eval { $sp->value('$[1][1]') } or $error = $@;
-is_deeply($val, $a, "decode deep REFP: $error");
+    $spi->step_in();
+    $spi->next();
+    is_deeply($spi->decode(), $a, 'decode array');
+};
 
-# decode COPY
-my $str = 'long_test_string';
-$sp->set(encode_sereal([$str, $str], { dedupe_strings => 1 }));
-$val = eval { $sp->value('$[1]') } or $error = $@;
-is_deeply($val, $str, "decode COPY $error");
+subtest "decode nested REFP", sub {
+    my $a = [ 1, 2, 3 ];
+    my $b = [ 4, 5, 6, $a ];
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        [ $a, $b ],
+    ));
 
-# $sp->set(encode_sereal([$str, $str], { dedupe_strings => 1, aliased_dedupe_strings => 1 }));
-# $val = eval { $sp->value('$[1]') } or $error = $@;
-# is_deeply($val, $str, "decode ALIAS $error");
+    $spi->step_in();
+    $spi->next();
+    is_deeply($spi->decode(), $b, 'decode array');
+};
+
+subtest "decode COPY", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        [ 'long_test_string', 'long_test_string' ],
+        { dedupe_strings => 1 },
+    ));
+
+    $spi->step_in(2);
+    is($spi->decode(), 'long_test_string', 'decode string');
+};
+
+# subtest "decode OBJECTV", sub {
+    # my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        # [ (bless {}, "Foo"), (bless {}, "Foo") ],
+    # ));
+
+    # $spi->step_in();
+    # $spi->next();
+    # is($spi->decode(), (bless {}, "Foo"), 'decode blessed');
+# };
+
+# subtest "decode ALIAS", sub {
+    # my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        # [ 'long_test_string', 'long_test_string', [ 'long_test_string' ] ],
+        # { dedupe_strings => 1, aliased_dedupe_strings => 1 },
+    # ));
+
+    # $spi->step_in(2);
+    # is($spi->decode(), 'long_test_string', 'decode string');
+    # $spi->next();
+    # use Data::Dumper;
+    # print Dumper $spi->decode();
+# };
 
 done_testing();
