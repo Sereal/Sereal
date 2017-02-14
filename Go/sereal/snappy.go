@@ -1,6 +1,10 @@
 package sereal
 
-import "math"
+import (
+	"math"
+
+	"github.com/golang/snappy"
+)
 
 // SnappyCompressor compresses a Sereal document using the Snappy format.
 type SnappyCompressor struct {
@@ -17,7 +21,7 @@ func (c SnappyCompressor) compress(b []byte) ([]byte, error) {
 		return nil, ErrTooLarge
 	}
 
-	compressed := snappyEncode(nil, b)
+	compressed := snappy.Encode(nil, b)
 
 	if c.Incremental {
 		// shrink down b to reuse the allocated buffer
@@ -44,7 +48,7 @@ func (c SnappyCompressor) decompress(b []byte) ([]byte, error) {
 		b = b[sz : sz+ln]
 	}
 
-	decompressed, err := snappyDecode(nil, b)
+	decompressed, err := snappy.Decode(nil, b)
 	if err != nil {
 		return nil, err
 	}
