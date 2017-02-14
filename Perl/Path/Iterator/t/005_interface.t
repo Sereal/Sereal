@@ -9,6 +9,8 @@ use Sereal::Path::Iterator;
 use Sereal::Encoder qw/encode_sereal/;
 
 subtest "parse document", sub {
+    (my $srl_enc_version = $Sereal::Encoder::VERSION) =~ s/_//;
+
     my %options = (
         v1                    => { protocol_version => 1 },
         v1_snappy             => { protocol_version => 1, snappy => 1 },
@@ -19,11 +21,14 @@ subtest "parse document", sub {
         v3                    => { protocol_version => 3 },
         v3_snappy             => { protocol_version => 3, compress => Sereal::Encoder::SRL_SNAPPY },
         v3_zlib               => { protocol_version => 3, compress => Sereal::Encoder::SRL_ZLIB },
-        v4                    => { protocol_version => 4 },
-        v4_snappy             => { protocol_version => 4, compress => Sereal::Encoder::SRL_SNAPPY },
-        v4_zlib               => { protocol_version => 4, compress => Sereal::Encoder::SRL_ZLIB },
-        v4_zstd               => { protocol_version => 4, compress => 3 }, # SRL_ZSTD
     );
+
+    if (int($srl_enc_version) >= 4) {
+        $options{v4}        = { protocol_version => 4 };
+        $options{v4_snappy} = { protocol_version => 4, compress => Sereal::Encoder::SRL_SNAPPY };
+        $options{v4_zlib}   = { protocol_version => 4, compress => Sereal::Encoder::SRL_ZLIB };
+        $options{v4_zstd}   = { protocol_version => 4, compress => 3 }; # SRL_ZSTD
+    }
 
     my $body = 'a' x (10 * 1024);
     foreach (sort keys %options) {
