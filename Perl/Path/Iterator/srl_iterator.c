@@ -552,10 +552,10 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
 SRL_STATIC_INLINE void
 srl_iterator_wrap_stack(pTHX_ srl_iterator_t *iter, IV expected_depth)
 {
+    srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
     SRL_ITER_TRACE_WITH_POSITION("expected_depth=%"IVdf, expected_depth);
     SRL_ITER_REPORT_STACK_STATE(iter);
 
-    srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
     while (    iter->stack.depth > expected_depth
             && stack_ptr->idx == stack_ptr->length
             && stack_ptr->tag != SRL_ITER_STACK_ROOT_TAG
