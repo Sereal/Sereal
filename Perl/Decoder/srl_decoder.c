@@ -1156,7 +1156,7 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
 SRL_STATIC_INLINE SV *
 srl_follow_refp_reference(pTHX_ srl_decoder_t *dec, UV offset)
 {
-    SV* into = FRESH_SV();
+    SV* into = sv_2mortal(FRESH_SV());
     srl_reader_char_ptr orig_pos = dec->buf.pos;
     srl_reader_char_ptr new_pos = dec->buf.body_pos + offset;
 
