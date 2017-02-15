@@ -1176,7 +1176,8 @@ srl_iterator_decode(pTHX_ srl_iterator_t *iter)
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 
     into = sv_2mortal(newSV_type(SVt_NULL));
-    if (!iter->dec) iter->dec = srl_build_decoder_struct(aTHX_ NULL, NULL);
+    if (iter->dec) srl_clear_decoder_body_state(aTHX_ iter->dec);
+    else iter->dec = srl_build_decoder_struct(aTHX_ NULL, NULL);
 
     Copy(&iter->buf, &iter->dec->buf, 1, srl_reader_buffer_t);
     DEBUG_ASSERT_RDR_SANE(iter->dec->pbuf);
