@@ -123,12 +123,13 @@ SRL_STATIC_INLINE void srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV
 SRL_STATIC_INLINE void srl_read_varint_into(pTHX_ srl_decoder_t *dec, SV* into, SV** container, const U8 *track_it);
 SRL_STATIC_INLINE void srl_read_zigzag_into(pTHX_ srl_decoder_t *dec, SV* into, SV** container, const U8 *track_it);
 SRL_STATIC_INLINE void srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into);
-SRL_STATIC_INLINE void srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag);
+SRL_STATIC_INLINE void srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_name_only);
 SRL_STATIC_INLINE void srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag);
 
 SRL_STATIC_INLINE void srl_track_sv(pTHX_ srl_decoder_t *dec, const U8 *track_pos, SV *sv);
 SRL_STATIC_INLINE void srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into);
 SRL_STATIC_INLINE SV * srl_follow_reference(pTHX_ srl_decoder_t *dec, UV offset);
+SRL_STATIC_INLINE AV * srl_follow_objectv_reference(pTHX_ srl_decoder_t *dec, UV offset);
 
 /* FIXME unimplemented!!! */
 SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
@@ -1169,6 +1170,28 @@ srl_follow_reference(pTHX_ srl_decoder_t *dec, UV offset)
     return into;
 }
 
+SRL_STATIC_INLINE AV *
+srl_follow_objectv_reference(pTHX_ srl_decoder_t *dec, STRLEN offset)
+{
+    AV *av= NULL;
+    srl_reader_char_ptr orig_pos = dec->buf.pos;
+    srl_reader_char_ptr new_pos = dec->buf.body_pos + offset;
+
+    if (new_pos >= orig_pos) {
+        SRL_RDR_ERROR(dec->pbuf, "Corrupted packed. Reference offset points forward!");
+    }
+
+    SRL_ASSERT_REF_PTR_TABLES(dec); // init dec->ref_stashes and dec->ref_bless_av
+
+    dec->buf.pos = new_pos;
+    /* call srl_read_object() with read_class_name_only=1 */
+    /* into and obj_tag are not used in this case */
+    srl_read_object(aTHX_ dec, NULL, 0, 1);
+    av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)offset);
+    dec->buf.pos = orig_pos;
+    return av;
+}
+
 SRL_STATIC_INLINE void
 srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into)
 {
@@ -1241,12 +1264,22 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
 
     ofs= srl_read_varint_uv_offset(aTHX_ dec->pbuf, " while reading OBJECTV(_FREEZE) classname");
 
-    if (expect_false( !dec->ref_bless_av ))
+    if (expect_false( !dec->ref_bless_av )) {
+#ifdef FOLLOW_REFERENCES_IF_NOT_STASHED
+        SRL_ASSERT_REF_PTR_TABLES(dec); // init dec->ref_stashes and dec->ref_bless_av
+#else
         SRL_RDR_ERROR(dec->pbuf, "Corrupted packet. OBJECTV(_FREEZE) used without "
                       "preceding OBJECT(_FREEZE) to define classname");
+#endif
+    }
+
     av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)ofs);
     if (expect_false( NULL == av )) {
-        SRL_RDR_ERRORf1(dec->pbuf, "Corrupted packet. OBJECTV(_FREEZE) references unknown classname offset: %"UVuf, (UV)ofs);
+#ifdef FOLLOW_REFERENCES_IF_NOT_STASHED
+        av = srl_follow_objectv_reference(aTHX_ dec, ofs);
+        if (expect_false( NULL == av ))
+#endif
+            SRL_RDR_ERRORf1(dec->pbuf, "Corrupted packet. OBJECTV(_FREEZE) references unknown classname offset: %"UVuf, (UV)ofs);
     }
 
     /* checking tag: SRL_HDR_OBJECTV_FREEZE or SRL_HDR_OBJECTV? */
@@ -1279,7 +1312,7 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
 }
 
 SRL_STATIC_INLINE void
-srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
+srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_name_only)
 {
     HV *class_stash= NULL;
     AV *av= NULL;
@@ -1392,6 +1425,16 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
         if ( !av )
             SRL_RDR_ERRORf1(dec->pbuf, "Panic, no ref_bless_av for %"UVuf, (UV)storepos);
     }
+
+#ifdef FOLLOW_REFERENCES_IF_NOT_STASHED
+    /* at this point we have class name read and have coressponding records in
+     * dec->dec->ref_stashes and dec->ref_bless_av. So, we can simply fetch
+     * from hashes outside this function. The code */
+    if (read_class_name_only) return;
+#else
+    assert(into != NULL);
+    assert(obj_tag != 0);
+#endif
 
     if (expect_false( obj_tag == SRL_HDR_OBJECT_FREEZE )) {
         srl_read_frozen_object(aTHX_ dec, class_stash, into);
@@ -1733,7 +1776,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
         case SRL_HDR_REFN:          srl_read_refn(aTHX_ dec, into);         is_ref=1; break;
         case SRL_HDR_REFP:          srl_read_refp(aTHX_ dec, into);         is_ref=1; break;
         case SRL_HDR_OBJECT_FREEZE:
-        case SRL_HDR_OBJECT:        srl_read_object(aTHX_ dec, into, tag);  is_ref=1; break;
+        case SRL_HDR_OBJECT:        srl_read_object(aTHX_ dec, into, tag, 0); is_ref=1; break;
         case SRL_HDR_OBJECTV_FREEZE:
         case SRL_HDR_OBJECTV:       srl_read_objectv(aTHX_ dec, into, tag); is_ref=1; break;
         case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into);                   break;
