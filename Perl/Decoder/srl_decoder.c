@@ -105,7 +105,6 @@ SRL_STATIC_INLINE void srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user
 SRL_STATIC_INLINE void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container); /* main recursive dump routine */
 SRL_STATIC_INLINE void srl_finalize_structure(pTHX_ srl_decoder_t *dec);             /* optional finalize structure logic */
 SRL_STATIC_INLINE void srl_clear_decoder(pTHX_ srl_decoder_t *dec);                 /* clean up decoder after a dump */
-SRL_STATIC_INLINE void srl_clear_decoder_body_state(pTHX_ srl_decoder_t *dec);      /* clean up after each document body */
 
 /* the internal routines to handle each kind of object we have to deserialize */
 SRL_STATIC_INLINE void srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into);
@@ -493,7 +492,7 @@ srl_clear_decoder(pTHX_ srl_decoder_t *dec)
     dec->buf.body_pos = dec->buf.start = dec->buf.end = dec->buf.pos = dec->save_pos = NULL;
 }
 
-SRL_STATIC_INLINE void
+void
 srl_clear_decoder_body_state(pTHX_ srl_decoder_t *dec)
 {
     SRL_DEC_UNSET_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE);

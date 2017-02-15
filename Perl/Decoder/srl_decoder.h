@@ -57,6 +57,9 @@ void srl_decode_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
 /* Explicit destructor */
 void srl_destroy_decoder(pTHX_ srl_decoder_t *dec);
 
+/* clean up after each document body */
+void srl_clear_decoder_body_state(pTHX_ srl_decoder_t *dec);
+
 /* destructor hook - called automagically */
 void srl_decoder_destructor_hook(pTHX_ void *p);
 
