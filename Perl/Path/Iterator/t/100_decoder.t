@@ -45,15 +45,26 @@ subtest "decode COPY", sub {
     is($spi->decode(), 'long_test_string', 'decode string');
 };
 
-# subtest "decode OBJECTV", sub {
-    # my $spi = Sereal::Path::Iterator->new(encode_sereal(
-        # [ (bless {}, "Foo"), (bless {}, "Foo") ],
-    # ));
+subtest "decode OBJECTV", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        [ (bless { a => 1 }, "Foo"), (bless { b => 1 }, "Foo") ],
+    ));
 
-    # $spi->step_in();
-    # $spi->next();
-    # is($spi->decode(), (bless {}, "Foo"), 'decode blessed');
-# };
+    $spi->step_in();
+    $spi->next();
+    is_deeply($spi->decode(), { b => 1 }, 'decode blessed');
+};
+
+subtest "double decode of OBJECTV", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        [ (bless {}, "Foo"), (bless {}, "Foo") ],
+    ));
+
+    $spi->step_in();
+    $spi->next();
+    is_deeply($spi->decode(), {}, 'decode blessed');
+    is_deeply($spi->decode(), {}, 'decode blessed');
+};
 
 # subtest "decode ALIAS", sub {
     # my $spi = Sereal::Path::Iterator->new(encode_sereal(
