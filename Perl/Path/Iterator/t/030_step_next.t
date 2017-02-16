@@ -66,6 +66,17 @@ subtest "step over REFP and COPY", sub {
     dies_ok(sub { $spi->next() }, 'expect step next to die');
 };
 
+subtest "step over ALIAS", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        [ 'long_test_string', 'long_test_string', 'another_string' ],
+        { dedupe_strings => 1, aliased_dedupe_strings => 1 },
+    ));
+
+    $spi->step_in();
+    lives_ok(sub { $spi->next(2) }, 'expect step next to live');
+    is($spi->decode(), 'another_string', 'decode another_string');
+};
+
 subtest "step over blessed references", sub {
     my $spi = Sereal::Path::Iterator->new(encode_sereal(
         [

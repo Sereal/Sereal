@@ -128,7 +128,7 @@ SRL_STATIC_INLINE void srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 o
 
 SRL_STATIC_INLINE void srl_track_sv(pTHX_ srl_decoder_t *dec, const U8 *track_pos, SV *sv);
 SRL_STATIC_INLINE void srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into);
-SRL_STATIC_INLINE SV * srl_follow_refp_reference(pTHX_ srl_decoder_t *dec, UV offset);
+SRL_STATIC_INLINE SV * srl_follow_refp_alias_reference(pTHX_ srl_decoder_t *dec, UV offset);
 SRL_STATIC_INLINE AV * srl_follow_objectv_reference(pTHX_ srl_decoder_t *dec, UV offset);
 
 /* FIXME unimplemented!!! */
@@ -1154,7 +1154,7 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
 }
 
 SRL_STATIC_INLINE SV *
-srl_follow_refp_reference(pTHX_ srl_decoder_t *dec, UV offset)
+srl_follow_refp_alias_reference(pTHX_ srl_decoder_t *dec, UV offset)
 {
     SV* into = sv_2mortal(FRESH_SV());
     srl_reader_char_ptr orig_pos = dec->buf.pos;
@@ -1207,7 +1207,7 @@ srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into)
 
 #ifdef FOLLOW_REFERENCES_IF_NOT_STASHED
     if (referent == NULL)
-        referent = srl_follow_refp_reference(aTHX_ dec, item);
+        referent = srl_follow_refp_alias_reference(aTHX_ dec, item);
 #endif
 
     (void)SvREFCNT_inc(referent);
@@ -1792,6 +1792,9 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
                 SRL_RDR_ERROR(dec->pbuf, "ALIAS tag not inside container, corrupt packet?");
             offset= srl_read_varint_uv_offset(aTHX_ dec->pbuf," while reading ALIAS tag");
             alias= srl_fetch_item(aTHX_ dec, offset, "ALIAS");
+#ifdef FOLLOW_REFERENCES_IF_NOT_STASHED
+            if (!alias) alias= srl_follow_refp_alias_reference(aTHX_ dec, offset);
+#endif
             SvREFCNT_inc(alias);
             SvREFCNT_dec(into);
             *container= alias;

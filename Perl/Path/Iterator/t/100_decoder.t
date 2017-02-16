@@ -66,17 +66,17 @@ subtest "double decode of OBJECTV", sub {
     is_deeply($spi->decode(), {}, 'decode blessed');
 };
 
-# subtest "decode ALIAS", sub {
-    # my $spi = Sereal::Path::Iterator->new(encode_sereal(
-        # [ 'long_test_string', 'long_test_string', [ 'long_test_string' ] ],
-        # { dedupe_strings => 1, aliased_dedupe_strings => 1 },
-    # ));
+subtest "decode ALIAS", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        [ 'long_test_string', 'long_test_string', [ 'long_test_string' ] ],
+        { dedupe_strings => 1, aliased_dedupe_strings => 1 },
+    ));
 
-    # $spi->step_in(2);
-    # is($spi->decode(), 'long_test_string', 'decode string');
-    # $spi->next();
-    # use Data::Dumper;
-    # print Dumper $spi->decode();
-# };
+    $spi->step_in(2);
+    dies_ok(sub { $spi->decode() }, 'decode aliased string directly is no supported');
+
+    $spi->next();
+    is_deeply($spi->decode(), [ 'long_test_string' ], 'decode aliased indirectly');
+};
 
 done_testing();

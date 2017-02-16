@@ -204,6 +204,7 @@ SRL_STATIC_INLINE void srl_iterator_read_stringish(pTHX_ srl_iterator_t *iter, c
 SRL_STATIC_INLINE void srl_iterator_read_object(pTHX_ srl_iterator_t *iter, int is_objectv, U8 *tag_out, UV *length_out);
 SRL_STATIC_INLINE void srl_iterator_read_refn(pTHX_ srl_iterator_t *iter, U8 *tag_out, UV *length_out);
 SRL_STATIC_INLINE UV   srl_iterator_read_refp(pTHX_ srl_iterator_t *iter, U8 *tag_out, UV *length_out);
+SRL_STATIC_INLINE UV   srl_iterator_read_alias(pTHX_ srl_iterator_t *iter, int *is_ref_out, U8 *tag_out, UV *length_out);
 
 /* wrappers */
 UV srl_iterator_eof(pTHX_ srl_iterator_t *iter)     { return SRL_RDR_DONE(iter->pbuf) ? 1 : 0; }
@@ -536,7 +537,21 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
                         srl_skip_varint(aTHX_ iter->pbuf); break;
                         break;
 
-                    /* case SRL_HDR_ALIAS: */
+                    case SRL_HDR_ALIAS: {
+                        int is_ref = 0;
+                        offset = srl_iterator_read_alias(aTHX_ iter, &is_ref, &tag, &length);
+                        // offset points to end of ALIAS + varint
+                        if (is_ref) {
+                            stack_ptr->end = offset;
+                            srl_stack_push_and_set(iter, tag, length, stack_ptr);
+                        } else {
+                            iter->buf.pos = iter->buf.body_pos + offset;
+                            SRL_ITER_ASSERT_EOF(iter, "tag");
+                        }
+
+                        break;
+                    }
+
                     default:
                         SRL_RDR_ERROR_UNIMPLEMENTED(iter->pbuf, tag, "");
                         break;
@@ -1169,20 +1184,29 @@ finally:
 SV *
 srl_iterator_decode(pTHX_ srl_iterator_t *iter)
 {
+    U8 tag;
     SV *into;
     SRL_ITER_TRACE_WITH_POSITION("decode object at");
     SRL_ITER_ASSERT_EOF(iter, "serialized object");
     SRL_ITER_ASSERT_STACK(iter);
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 
-    into = sv_2mortal(newSV_type(SVt_NULL));
     if (iter->dec) srl_clear_decoder_body_state(aTHX_ iter->dec);
     else iter->dec = srl_build_decoder_struct(aTHX_ NULL, NULL);
 
     Copy(&iter->buf, &iter->dec->buf, 1, srl_reader_buffer_t);
     DEBUG_ASSERT_RDR_SANE(iter->dec->pbuf);
 
-    srl_decode_single_value(aTHX_ iter->dec, into, NULL);
+    tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
+    SRL_ITER_REPORT_TAG(iter, tag);
+
+    if (tag == SRL_HDR_ALIAS) {
+        croak("Direct deserialization of ALIAS is not supported!");
+    } else {
+        into = sv_2mortal(newSV_type(SVt_NULL));
+        srl_decode_single_value(aTHX_ iter->dec, into, NULL);
+    }
+
     return into;
 }
 
@@ -1290,6 +1314,54 @@ srl_iterator_read_object(pTHX_ srl_iterator_t *iter, int is_objectv, U8 *tag_out
         default:
             SRL_RDR_ERROR_UNEXPECTED(iter->pbuf, tag, "reference tag");
     }
+}
+
+SRL_STATIC_INLINE UV
+srl_iterator_read_alias(pTHX_ srl_iterator_t *iter, int *is_ref_out, U8 *tag_out, UV *length_out)
+{
+    U8 tag;
+    UV offset, alias_parsed_offset;
+    SRL_ITER_ASSERT_EOF(iter, "tag offset");
+
+    offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading ALIAS tag");
+    alias_parsed_offset= SRL_RDR_BODY_POS_OFS(iter->pbuf);
+    SRL_ITER_TRACE("alias_parsed_offset=%"UVuf, alias_parsed_offset);
+
+    iter->buf.pos = iter->buf.body_pos + offset;
+    SRL_ITER_ASSERT_EOF(iter, "tag");
+
+    tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
+    SRL_ITER_REPORT_TAG(iter, tag);
+    iter->buf.pos++;
+
+    switch (tag) {
+        CASE_SRL_HDR_HASHREF:
+        CASE_SRL_HDR_ARRAYREF:
+        case SRL_HDR_REFN:
+        case SRL_HDR_REFP:
+            *is_ref_out = 1;
+            *length_out = 1;
+            *tag_out = tag;
+            break;
+
+        case SRL_HDR_OBJECT:
+        case SRL_HDR_OBJECT_FREEZE:
+            srl_iterator_read_object(aTHX_ iter, 0, tag_out, length_out);
+            *is_ref_out = 1;
+            break;
+
+        case SRL_HDR_OBJECTV:
+        case SRL_HDR_OBJECTV_FREEZE:
+            srl_iterator_read_object(aTHX_ iter, 1, tag_out, length_out);
+            *is_ref_out = 1;
+            break;
+
+        default:
+            *is_ref_out = 0;
+            break;
+    }
+
+    return alias_parsed_offset;
 }
 
 SRL_STATIC_INLINE void

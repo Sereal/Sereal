@@ -181,4 +181,16 @@ subtest "step into blessed blessed ARRAY (OBJECTV)", sub {
     dies_ok(sub { $spi->step_in() }, 'expect step in to die');
 };
 
+subtest "step into ALIAS of scalar", sub {
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        [ 'long_test_string', 'long_test_string', 'another_string' ],
+        { dedupe_strings => 1, aliased_dedupe_strings => 1 },
+    ));
+
+    lives_ok(sub { $spi->step_in(3) }, 'expect step in to live');
+    is($spi->decode(), 'another_string', 'decode another_string');
+};
+
+# TODO step into ALIAS of reference/object
+
 done_testing();
