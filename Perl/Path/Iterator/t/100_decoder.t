@@ -73,8 +73,7 @@ subtest "decode ALIAS", sub {
     ));
 
     $spi->step_in(2);
-    dies_ok(sub { $spi->decode() }, 'decode aliased string directly is no supported');
-
+    is($spi->decode(), 'long_test_string', 'decode aliased string directly');
     $spi->next();
     is_deeply($spi->decode(), [ 'long_test_string' ], 'decode aliased indirectly');
 };

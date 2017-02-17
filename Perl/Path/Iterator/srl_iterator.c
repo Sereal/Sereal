@@ -1166,7 +1166,7 @@ read_ref:
             goto read_ref;
 
         case SRL_HDR_COPY:
-            offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading COPY or ALIAS tag");
+            offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading COPY tag");
             iter->buf.pos = iter->buf.body_pos + offset;
             goto read_ref;
 
@@ -1189,7 +1189,6 @@ srl_iterator_decode(pTHX_ srl_iterator_t *iter)
     SRL_ITER_TRACE_WITH_POSITION("decode object at");
     SRL_ITER_ASSERT_EOF(iter, "serialized object");
     SRL_ITER_ASSERT_STACK(iter);
-    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 
     if (iter->dec) srl_clear_decoder_body_state(aTHX_ iter->dec);
     else iter->dec = srl_build_decoder_struct(aTHX_ NULL, NULL);
@@ -1201,12 +1200,21 @@ srl_iterator_decode(pTHX_ srl_iterator_t *iter)
     SRL_ITER_REPORT_TAG(iter, tag);
 
     if (tag == SRL_HDR_ALIAS) {
-        croak("Direct deserialization of ALIAS is not supported!");
-    } else {
-        into = sv_2mortal(newSV_type(SVt_NULL));
-        srl_decode_single_value(aTHX_ iter->dec, into, NULL);
+        UV offset;
+        srl_reader_char_ptr orig_pos = iter->buf.pos;
+
+        iter->buf.pos++;
+        offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading ALIAS tag");
+        iter->buf.pos = orig_pos;
+
+        iter->dec->pbuf->pos = iter->dec->pbuf->body_pos + offset;
+        if (SRL_RDR_DONE(iter->dec->pbuf)) {
+            SRL_RDR_ERROR_EOF(iter->dec->pbuf, "serialized object");
+        }
     }
 
+    into = sv_2mortal(newSV_type(SVt_NULL));
+    srl_decode_single_value(aTHX_ iter->dec, into, NULL);
     return into;
 }
 
