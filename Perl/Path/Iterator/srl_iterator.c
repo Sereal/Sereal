@@ -287,6 +287,8 @@ srl_deinit_iterator(pTHX_ srl_iterator_t *iter)
 
     if (iter->document)
         SvREFCNT_dec(iter->document);
+
+    srl_stack_deinit(aTHX_ &iter->stack);
 }
 
 void
