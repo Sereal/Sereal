@@ -1,8 +1,4 @@
 - not implemented operators
 - internal indexes
 - documentation
-- improve tests
-- handling REFP, COPY, ALIAS tags (partly done, need tests)
-- unsupported tags
 - return paths (returns canonical JSONPaths that point towards those structures)
-- how to handle step_in() in REFN REFN HASH/ARRAY
