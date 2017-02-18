@@ -6,6 +6,7 @@ srl_path_t    * O_OBJECT
 srl_iterator_t * O_OBJECT
 sereal_iterator_tied_hash_t  * O_OBJECT
 sereal_iterator_tied_array_t * O_OBJECT
+sereal_iterator_tied_scalar_t * O_OBJECT
 
 # T_OBJECT
 Sereal::Splitter  T_PTROBJ

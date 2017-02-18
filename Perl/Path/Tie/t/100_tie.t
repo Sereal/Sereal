@@ -59,6 +59,18 @@ subtest "simple access in hash", sub {
     is_deeply(exists $tie->{a},   exists $data->{a},   'exists $data->{a}');
 };
 
+subtest "simple access in scalar", sub {
+    my $s = "string";
+    my $data = \\\$s;
+    my $tie = Sereal::Path::Tie::parse(encode_sereal($data));
+
+    use Test::Differences;
+    eq_or_diff($tie,             $data,              '$data');
+    eq_or_diff($$tie,            $$data,             '$$data');
+    eq_or_diff($$$tie,           $$$data,            '$$$data');
+    eq_or_diff($$$$tie,          $$$$data,           '$$$$data');
+};
+
 subtest "simple iteration over hash", sub {
     my $data = {
         c1 => { f => 1 },

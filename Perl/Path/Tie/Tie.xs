@@ -19,15 +19,25 @@
 typedef struct sereal_iterator_tied sereal_iterator_tied_t;
 typedef struct sereal_iterator_tied_hash sereal_iterator_tied_hash_t;
 typedef struct sereal_iterator_tied_array sereal_iterator_tied_array_t;
+typedef struct sereal_iterator_tied_scalar sereal_iterator_tied_scalar_t;
 
 typedef srl_iterator_t * Sereal__Path__Iterator;
 typedef struct sereal_iterator_tied_hash *Sereal__Path__Tie__Hash;
 typedef struct sereal_iterator_tied_array *Sereal__Path__Tie__Array;
+typedef struct sereal_iterator_tied_scalar *Sereal__Path__Tie__Scalar;
 
 struct sereal_iterator_tied {
     srl_iterator_t *iter;   // it's assumed that iter_sv owns iter
     IV depth;
     U32 count;
+};
+
+// same memory layout as in sereal_iterator_tied
+struct sereal_iterator_tied_scalar {
+    srl_iterator_t *iter;
+    IV depth;
+    U32 count;
+    SV *store; // internal storage to workaround autovivification
 };
 
 // same memory layout as in sereal_iterator_tied
@@ -84,6 +94,17 @@ srl_tie_new_tied_sv(pTHX_ srl_iterator_t *iter)
         tied->count = count;
         result = sv_2mortal(newRV_noinc((SV*) newAV()));
         how = PERL_MAGIC_tied;
+    } else if ((type & SRL_ITERATOR_INFO_REF_TO) == SRL_ITERATOR_INFO_REF_TO) {
+        sereal_iterator_tied_scalar_t *scalar = NULL;
+        Newx(scalar, 1, sereal_iterator_tied_scalar_t);
+        if (!scalar) croak("Out of memory");
+        scalar->store = NULL;
+
+        tied = (sereal_iterator_tied_t*) scalar;
+        tied_class_name = "Sereal::Path::Tie::Scalar";
+        tied->count = count;
+        result = sv_2mortal(newRV_noinc(FRESH_SV()));
+        how = PERL_MAGIC_tiedscalar;
     } else {
         return srl_iterator_decode(aTHX_ iter);
     }
@@ -137,6 +158,47 @@ parse(src)
     ST(0) = srl_tie_new_tied_sv(aTHX_ iter);
     srl_destroy_iterator(aTHX_ iter);
     XSRETURN(1);
+
+MODULE = Sereal::Path::Tie   PACKAGE = Sereal::Path::Tie::Scalar
+PROTOTYPES: DISABLE
+
+void
+DESTROY(this)
+    sereal_iterator_tied_scalar_t *this;
+  CODE:
+    if (this->store != NULL)
+        SvREFCNT_dec(this->store);
+    if (this->iter != NULL)
+        srl_destroy_iterator(aTHX_ this->iter);
+    Safefree(this);
+
+void
+FETCH(this)
+    sereal_iterator_tied_scalar_t *this;
+  PPCODE:
+    if (this->store == NULL) {
+        ST(0) = srl_tie_new_tied_sv(aTHX_ this->iter);
+    } else {
+        ST(0) = sv_2mortal(SvREFCNT_inc(this->store));
+    }
+
+    XSRETURN(1);
+
+void
+STORE(this, value)
+    sereal_iterator_tied_scalar_t *this;
+    SV *value;
+  CODE:
+    if (this->store != NULL)
+        SvREFCNT_dec(this->store);
+
+    this->store = value;
+    SvREFCNT_inc(value);
+
+void
+UNTIE(this)
+  CODE:
+    croak("UNTIE is not supported");
 
 MODULE = Sereal::Path::Tie   PACKAGE = Sereal::Path::Tie::Array
 PROTOTYPES: DISABLE
