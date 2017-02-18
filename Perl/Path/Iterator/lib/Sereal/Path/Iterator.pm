@@ -10,14 +10,14 @@ our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 
 # TODO autogenerate constants from srl_iterator.h
 use constant {
-    SRL_INFO_ROOT    => (1 << 8),
-    SRL_INFO_REF     => (2 << 8),
-    SRL_INFO_HASH    => (3 << 8),
-    SRL_INFO_ARRAY   => (4 << 8),
-    SRL_INFO_REGEXP  => (5 << 8),
-    SRL_INFO_SCALAR  => (6 << 8),
-    SRL_INFO_BLESSED => (1 << 16),
-    SRL_INFO_REF_TO  => (2 << 16),
+    SRL_INFO_ROOT    => (1  << 8),
+    SRL_INFO_REF     => (2  << 8),
+    SRL_INFO_HASH    => (4  << 8),
+    SRL_INFO_ARRAY   => (8  << 8),
+    SRL_INFO_REGEXP  => (16 << 8),
+    SRL_INFO_SCALAR  => (32 << 8),
+    SRL_INFO_BLESSED => (1  << 16),
+    SRL_INFO_REF_TO  => (2  << 16),
 };
 
 use Exporter 'import';

@@ -101,13 +101,13 @@ SV * srl_iterator_decode(pTHX_ srl_iterator_t *iter); // return mortalized SV
 #define SRL_ITER_NOT_FOUND (-1)
 
 #define SRL_ITERATOR_INFO_TAG_MASK  (0xFF)
-#define SRL_ITERATOR_INFO_ROOT      (1 << 8)
-#define SRL_ITERATOR_INFO_REF       (2 << 8)
-#define SRL_ITERATOR_INFO_HASH      (3 << 8)
-#define SRL_ITERATOR_INFO_ARRAY     (4 << 8)
-#define SRL_ITERATOR_INFO_REGEXP    (5 << 8)
-#define SRL_ITERATOR_INFO_SCALAR    (6 << 8)
-#define SRL_ITERATOR_INFO_BLESSED   (1 << 16)
-#define SRL_ITERATOR_INFO_REF_TO    (2 << 16)
+#define SRL_ITERATOR_INFO_ROOT      (1  << 8)
+#define SRL_ITERATOR_INFO_REF       (2  << 8)
+#define SRL_ITERATOR_INFO_HASH      (4  << 8)
+#define SRL_ITERATOR_INFO_ARRAY     (8  << 8)
+#define SRL_ITERATOR_INFO_REGEXP    (16 << 8)
+#define SRL_ITERATOR_INFO_SCALAR    (32 << 8)
+#define SRL_ITERATOR_INFO_BLESSED   (1  << 16)
+#define SRL_ITERATOR_INFO_REF_TO    (2  << 16)
 
 #endif
