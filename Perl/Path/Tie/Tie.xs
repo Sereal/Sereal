@@ -26,7 +26,6 @@ typedef struct sereal_iterator_tied_array *Sereal__Path__Tie__Array;
 
 struct sereal_iterator_tied {
     srl_iterator_t *iter;   // it's assumed that iter_sv owns iter
-    SV *iter_sv;
     IV depth;
     U32 count;
 };
@@ -34,7 +33,6 @@ struct sereal_iterator_tied {
 // same memory layout as in sereal_iterator_tied
 struct sereal_iterator_tied_array {
     srl_iterator_t *iter;
-    SV *iter_sv;
     IV depth;
     U32 count;
     AV *store; // internal storage to workaround autovivification
@@ -43,7 +41,6 @@ struct sereal_iterator_tied_array {
 // same memory layout as in sereal_iterator_tied
 struct sereal_iterator_tied_hash {
     srl_iterator_t *iter;
-    SV *iter_sv;
     IV depth;
     U32 count;
     I32 cur_idx;
@@ -51,11 +48,12 @@ struct sereal_iterator_tied_hash {
 };
 
 SRL_STATIC_INLINE SV *
-srl_tie_new_tied_sv(pTHX_ srl_iterator_t *iter, SV *iter_sv)
+srl_tie_new_tied_sv(pTHX_ srl_iterator_t *iter)
 {
+    int how;
     IV depth;
     UV count;
-    SV *obj, *result;
+    SV *tie, *result;
     const char* tied_class_name;
     sereal_iterator_tied_t *tied;
     U32 type = srl_iterator_info(aTHX_ iter, &count, NULL, NULL);
@@ -64,7 +62,7 @@ srl_tie_new_tied_sv(pTHX_ srl_iterator_t *iter, SV *iter_sv)
         return srl_iterator_decode(aTHX_ iter);
     }
 
-    if (type & SRL_ITERATOR_INFO_HASH) {
+    if ((type & SRL_ITERATOR_INFO_HASH) == SRL_ITERATOR_INFO_HASH) {
         sereal_iterator_tied_hash_t *hash = NULL;
         Newx(hash, 1, sereal_iterator_tied_hash_t);
         if (!hash) croak("Out of memory");
@@ -74,7 +72,8 @@ srl_tie_new_tied_sv(pTHX_ srl_iterator_t *iter, SV *iter_sv)
         tied_class_name = "Sereal::Path::Tie::Hash";
         tied->count = count * 2; // for proper iterating
         result = sv_2mortal(newRV_noinc((SV*) newHV()));
-    } else if (type & SRL_ITERATOR_INFO_ARRAY) {
+        how = PERL_MAGIC_tied;
+    } else if ((type & SRL_ITERATOR_INFO_ARRAY) == SRL_ITERATOR_INFO_ARRAY) {
         sereal_iterator_tied_array_t *array = NULL;
         Newx(array, 1, sereal_iterator_tied_array_t);
         if (!array) croak("Out of memory");
@@ -84,6 +83,7 @@ srl_tie_new_tied_sv(pTHX_ srl_iterator_t *iter, SV *iter_sv)
         tied_class_name = "Sereal::Path::Tie::Array";
         tied->count = count;
         result = sv_2mortal(newRV_noinc((SV*) newAV()));
+        how = PERL_MAGIC_tied;
     } else {
         return srl_iterator_decode(aTHX_ iter);
     }
@@ -94,15 +94,26 @@ srl_tie_new_tied_sv(pTHX_ srl_iterator_t *iter, SV *iter_sv)
         tied->iter = NULL;
         Newx(tied->iter, 1, srl_iterator_t);
         if (tied->iter == NULL) croak("Out of memory");
-        tied->iter_sv = sv_setref_pv(FRESH_SV(),
-                                     "Sereal::Path::Iterator",
-                                     (void*) tied->iter);
-
         srl_shallow_copy_iterator(aTHX_ iter, tied->iter);
     }
 
-    obj = sv_2mortal(sv_setref_pv(FRESH_SV(), tied_class_name, tied));
-    sv_magic(SvRV(result), obj, PERL_MAGIC_tied, NULL, 0);
+    /* 
+     * (1) creates new RV pointing to SV
+     * (2) blesses SV to tied_class_name and store srl_iterator_tied_t* into SV
+     * (3) mortalizes SV becase sv_magic() increas counter:
+     * http://perldoc.perl.org/perlguts.html#Assigning-Magic
+     * The obj argument is stored in the mg_obj field of the MAGIC structure.
+     * If it is not the same as the sv argument, the reference count of the obj
+     * object is incremented. If it is the same, or if the how argument is
+     * PERL_MAGIC_arylen , or if it is a NULL pointer, then obj is merely
+     * stored, without the reference count being incremented.
+     * (4) adds magic referenced by tie to result SV
+     */
+
+    tie = newRV_noinc(FRESH_SV());                  // (1)
+    tie = sv_setref_pv(tie, tied_class_name, tied); // (2)
+    tie = sv_2mortal(tie);                          // (3)
+    sv_magic(SvRV(result), tie, how, NULL, 0);      // (4)
 
     srl_iterator_step_in(aTHX_ tied->iter, 1);
     tied->depth = srl_iterator_stack_depth(aTHX_ tied->iter);
@@ -116,18 +127,15 @@ SV *
 parse(src)
     SV *src;
   PREINIT:
-    SV *iter_sv;
     srl_iterator_t *iter;
   PPCODE:
     if (SvTYPE(src) >= SVt_PVAV)
         croak("Argument must be a SCALAR");
 
     iter = srl_build_iterator_struct(aTHX_ NULL);
-    iter_sv = sv_setref_pv(FRESH_SV(), "Sereal::Path::Iterator", (void*) iter);
-    iter_sv = sv_2mortal(iter_sv);
-
     srl_iterator_set(aTHX_ iter, src);
-    ST(0) = srl_tie_new_tied_sv(aTHX_ iter, iter_sv);
+    ST(0) = srl_tie_new_tied_sv(aTHX_ iter);
+    srl_destroy_iterator(aTHX_ iter);
     XSRETURN(1);
 
 MODULE = Sereal::Path::Tie   PACKAGE = Sereal::Path::Tie::Array
@@ -139,7 +147,8 @@ DESTROY(this)
   CODE:
     if (this->store != NULL)
         SvREFCNT_dec((SV*) this->store);
-    SvREFCNT_dec(this->iter_sv);
+    if (this->iter != NULL)
+        srl_destroy_iterator(aTHX_ this->iter);
     Safefree(this);
 
 void
@@ -160,7 +169,7 @@ FETCH(this, key)
         ST(0) = &PL_sv_undef;
     } else {
         srl_iterator_array_goto(aTHX_ this->iter, key);
-        ST(0) = srl_tie_new_tied_sv(aTHX_ this->iter, this->iter_sv);
+        ST(0) = srl_tie_new_tied_sv(aTHX_ this->iter);
     }
 
     XSRETURN(1);
@@ -264,7 +273,8 @@ DESTROY(this)
   CODE:
     if (this->store != NULL)
         SvREFCNT_dec((SV*) this->store);
-    SvREFCNT_dec(this->iter_sv);
+    if (this->iter != NULL)
+        srl_destroy_iterator(aTHX_ this->iter);
     Safefree(this);
 
 void
@@ -287,7 +297,7 @@ FETCH(this, key)
     if (srl_iterator_hash_exists(aTHX_ this->iter, keyname, keyname_length) == SRL_ITER_NOT_FOUND) {
         ST(0) = &PL_sv_undef;
     } else {
-        ST(0) = srl_tie_new_tied_sv(aTHX_ this->iter, this->iter_sv);
+        ST(0) = srl_tie_new_tied_sv(aTHX_ this->iter);
     }
 
     XSRETURN(1);
