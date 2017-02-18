@@ -111,6 +111,7 @@ srl_tie_new_tied_sv(pTHX_ srl_iterator_t *iter)
 
     {
         // copy iterator logic
+        // TODO fix potential memleaks, how to free memory if srl_shallow_copy_iterator() croaks????
         // TODO get remove of unnesseccary copying
         tied->iter = NULL;
         Newx(tied->iter, 1, srl_iterator_t);
