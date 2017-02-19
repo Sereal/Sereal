@@ -130,11 +130,7 @@ Gonzalo Diethem <gonzalo.diethelm@gmail.com>
 
 =head1 COPYRIGHT AND LICENCE
 
-Copyright 2007 Stefan Goessner.
-
-Copyright 2010-2013 Toby Inkster.
-
-Copyright 2014-2016 Ivan Kruglov.
+Copyright 2014-2017 Ivan Kruglov.
 
 This module is tri-licensed. It is available under the X11 (a.k.a. MIT)
 licence; you can also redistribute it and/or modify it under the same
