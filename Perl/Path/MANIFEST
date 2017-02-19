@@ -110,6 +110,7 @@ Tie/srl_reader_types.h
 Tie/srl_stack.h
 Tie/srl_taginfo.h
 Tie/t/001_load.t
+Tie/t/010_new.t
 Tie/t/100_tie.t
 Tie/t/110_tie_autovivify.t
 Tie/Tie.xs
