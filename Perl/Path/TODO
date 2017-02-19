@@ -1,4 +1,4 @@
 - not implemented operators
 - internal indexes
-- documentation
 - return paths (returns canonical JSONPaths that point towards those structures)
+- TODOs in code
