@@ -4,6 +4,7 @@ use warnings;
 
 use Test::More;
 use Sereal::Path::Tie;
+use Sereal::Path::Iterator;
 use Sereal::Encoder qw/encode_sereal/;
 
 subtest "autovivify and hash", sub {
@@ -13,7 +14,8 @@ subtest "autovivify and hash", sub {
         bar => undef,
     };
 
-    my $tie = Sereal::Path::Tie::parse(encode_sereal($data));
+    my $spi = Sereal::Path::Iterator->new(encode_sereal($data));
+    my $tie = Sereal::Path::Tie->new($spi);
 
     is_deeply($tie->{test},                 $data->{test},                  'data->{test}');
     is_deeply($tie->{foo}{test},            $data->{foo}{test},             'data->{foo}{test}');
@@ -42,7 +44,8 @@ subtest "autovivify and hash", sub {
 
 subtest "autovivify and array", sub {
     my $data = [ 4 ];
-    my $tie = Sereal::Path::Tie::parse(encode_sereal($data));
+    my $spi = Sereal::Path::Iterator->new(encode_sereal($data));
+    my $tie = Sereal::Path::Tie->new($spi);
 
     is_deeply($tie->[2][0], $data->[2][0],      'autofifivy data->[2]');
     is(scalar(@$tie),       scalar(@$data),     'scalar(@$data)');

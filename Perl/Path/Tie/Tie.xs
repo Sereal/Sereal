@@ -146,18 +146,23 @@ MODULE = Sereal::Path::Tie   PACKAGE = Sereal::Path::Tie
 PROTOTYPES: DISABLE
 
 SV *
-parse(src)
-    SV *src;
+new(CLASS, src)
+    const char *CLASS;
+    SV *src
   PREINIT:
     srl_iterator_t *iter;
   PPCODE:
-    if (SvTYPE(src) >= SVt_PVAV)
-        croak("Argument must be a SCALAR");
+    if (   !sv_isobject(src)
+        || !sv_isa(src, "Sereal::Path::Iterator")
+        || SvTYPE(SvRV(src)) != SVt_PVMG)
+    {
+        warn("Sereal::Path::Iterator::new() -- src is not "
+             "a blessed 'Sereal::Path::Iterator' SV reference");
+        XSRETURN_UNDEF;
+    }
 
-    iter = srl_build_iterator_struct(aTHX_ NULL);
-    srl_iterator_set(aTHX_ iter, src);
+    iter = INT2PTR(srl_iterator_t*, SvIV((SV*) SvRV(src)));
     ST(0) = srl_tie_new_tied_sv(aTHX_ iter);
-    srl_destroy_iterator(aTHX_ iter);
     XSRETURN(1);
 
 MODULE = Sereal::Path::Tie   PACKAGE = Sereal::Path::Tie::Scalar

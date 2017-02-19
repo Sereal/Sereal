@@ -4,6 +4,7 @@ use warnings;
 
 use Test::More;
 use Sereal::Path::Tie;
+use Sereal::Path::Iterator;
 use Sereal::Encoder qw/encode_sereal/;
 
 subtest "simple access in array", sub {
@@ -15,7 +16,8 @@ subtest "simple access in array", sub {
         "hi",
     ];
 
-    my $tie = Sereal::Path::Tie::parse(encode_sereal($data));
+    my $spi = Sereal::Path::Iterator->new(encode_sereal($data));
+    my $tie = Sereal::Path::Tie->new($spi);
     is_deeply($tie,         $data,          'data array');
     is_deeply($tie->[0],    $data->[0],     'data[0]');
     is_deeply($tie->[1],    $data->[1],     'data[1]');
@@ -41,7 +43,8 @@ subtest "simple access in hash", sub {
         baz => { a => 1 },
     };
 
-    my $tie = Sereal::Path::Tie::parse(encode_sereal($data));
+    my $spi = Sereal::Path::Iterator->new(encode_sereal($data));
+    my $tie = Sereal::Path::Tie->new($spi);
 
     is_deeply($tie,             $data,              "data hash");
     is_deeply($tie->{foo},      $data->{foo},       "data->{foo}");
@@ -62,7 +65,8 @@ subtest "simple access in hash", sub {
 subtest "simple access in scalar", sub {
     my $s = "string";
     my $data = \\\$s;
-    my $tie = Sereal::Path::Tie::parse(encode_sereal($data));
+    my $spi = Sereal::Path::Iterator->new(encode_sereal($data));
+    my $tie = Sereal::Path::Tie->new($spi);
 
     use Test::Differences;
     eq_or_diff($tie,             $data,              '$data');
@@ -81,7 +85,8 @@ subtest "simple iteration over hash", sub {
         },
     };
 
-    my $tie = Sereal::Path::Tie::parse(encode_sereal($data));
+    my $spi = Sereal::Path::Iterator->new(encode_sereal($data));
+    my $tie = Sereal::Path::Tie->new($spi);
     is_deeply([sort keys %$tie], [sort keys %$data], "sort keys data");
 
     my (@pairs_tie, @pairs_data);
@@ -96,13 +101,15 @@ subtest "simple iteration over hash", sub {
         b => 2,
     };
 
-    my $tie1 = Sereal::Path::Tie::parse(encode_sereal($data1));
+    my $spi1 = Sereal::Path::Iterator->new(encode_sereal($data1));
+    my $tie1 = Sereal::Path::Tie->new($spi1);
     is_deeply([sort values %$tie1], [sort values %$data1], "sort values data");
 };
 
 subtest "simple iteration over array", sub {
     my $data = [ 'foo', 'bar', 'baz' ];
-    my $tie = Sereal::Path::Tie::parse(encode_sereal($data));
+    my $spi = Sereal::Path::Iterator->new(encode_sereal($data));
+    my $tie = Sereal::Path::Tie->new($spi);
     is_deeply([sort @$tie], [sort @$data], "sort data");
 
     my (@pairs_tie, @pairs_data);
