@@ -57,7 +57,6 @@ void srl_iterator_step_out(pTHX_ srl_iterator_t *iter, UV n);
 /* if n == 0, go to first element, otherwise pop stack n times and go to first element */
 void srl_iterator_rewind(pTHX_ srl_iterator_t *iter, UV n);
 
-UV srl_iterator_offset(pTHX_ srl_iterator_t *iter);
 UV srl_iterator_eof(pTHX_ srl_iterator_t *iter);
 
 /* expose stack status */

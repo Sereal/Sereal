@@ -208,7 +208,6 @@ SRL_STATIC_INLINE UV   srl_iterator_read_alias(pTHX_ srl_iterator_t *iter, int *
 
 /* wrappers */
 UV srl_iterator_eof(pTHX_ srl_iterator_t *iter)     { return SRL_RDR_DONE(iter->pbuf) ? 1 : 0; }
-UV srl_iterator_offset(pTHX_ srl_iterator_t *iter)  { return SRL_RDR_BODY_POS_OFS(iter->pbuf); }
 
 SRL_STATIC_INLINE const char *
 srl_debug_tabulator(pTHX_ srl_iterator_t *iter)

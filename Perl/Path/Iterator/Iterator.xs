@@ -88,13 +88,6 @@ rewind(iter, n = NULL)
   CODE:
     srl_iterator_rewind(aTHX_ iter, n ? SvUV(n) : 0);
 
-UV
-offset(iter)
-    srl_iterator_t *iter;
-  CODE:
-    RETVAL = srl_iterator_offset(aTHX_ iter);
-  OUTPUT: RETVAL
-
 void
 info(iter)
     srl_iterator_t *iter;
