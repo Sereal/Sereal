@@ -1,5 +1,17 @@
 Revision history for Perl extension Sereal-Path
 
+4.001_001 Feb 19 2017
+  * rethink internal logic of Sereal::Path::Iterator. As result API has
+    changed. Please consult documentation for details.
+  * ass support of tied scalar in Sereal::Path::Tie
+  * add support of OBJECT/OBJECTV tags
+  * add support of ALIAS tags
+  * fix issue of how to handle REFN REFN case
+  * imporved tests
+  * improved documentation
+  * use new versioning schema similar to Sereal::Encode/Decoder
+  * bug fixes
+
 0.014 Feb  7 2017
   * bug fixes
   * support of Sereal protocol v4
