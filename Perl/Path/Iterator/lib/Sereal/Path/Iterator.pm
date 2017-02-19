@@ -36,7 +36,7 @@ our %EXPORT_TAGS = (all => \@EXPORT);
 
 sub CLONE_SKIP {1}
 
-XSLoader::load(__PACKAGE__, $Sereal::Path::Iterator::VERSION);
+XSLoader::load(__PACKAGE__, $XS_VERSION);
 
 1;
 

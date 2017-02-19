@@ -9,7 +9,7 @@ use Sereal::Path::Iterator;
 our $VERSION    = '0.014';
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 
-XSLoader::load(__PACKAGE__, $Sereal::Path::Tie::VERSION);
+XSLoader::load(__PACKAGE__, $XS_VERSION);
 
 1;
 
