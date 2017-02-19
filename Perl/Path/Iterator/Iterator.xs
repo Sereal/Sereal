@@ -121,6 +121,13 @@ stack_index(iter)
     RETVAL = srl_iterator_stack_index(aTHX_ iter);
   OUTPUT: RETVAL
 
+UV
+stack_length(iter)
+    srl_iterator_t *iter;
+  CODE:
+    RETVAL = srl_iterator_stack_length(aTHX_ iter);
+  OUTPUT: RETVAL
+
 void
 array_goto(iter, idx)
     srl_iterator_t *iter;
