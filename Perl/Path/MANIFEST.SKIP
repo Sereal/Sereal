@@ -1,3 +1,5 @@
+fixver-sp.pl
+
 # Avoid archives of this distribution
 \bSereal-Path-[\d\.\_]+
 \bSereal-Path-\.c$
