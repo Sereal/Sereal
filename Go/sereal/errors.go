@@ -37,4 +37,4 @@ var (
 	errFreezeNotByteSlice   = "OBJECT_FREEZE array not []byte"
 )
 
-func (c ErrCorrupt) Error() string { return "sereal: corrupt document" }
+func (c ErrCorrupt) Error() string { return "sereal: corrupt document:" + c.Err }
