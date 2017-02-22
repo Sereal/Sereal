@@ -3,6 +3,7 @@ use strict;
 use warnings;
 
 use Test::More;
+use Test::Differences;
 use Sereal::Path::Tie;
 use Sereal::Path::Iterator;
 use Sereal::Encoder qw/encode_sereal/;
@@ -68,7 +69,6 @@ subtest "simple access in scalar", sub {
     my $spi = Sereal::Path::Iterator->new(encode_sereal($data));
     my $tie = Sereal::Path::Tie->new($spi);
 
-    use Test::Differences;
     eq_or_diff($tie,             $data,              '$data');
     eq_or_diff($$tie,            $$data,             '$$data');
     eq_or_diff($$$tie,           $$$data,            '$$$data');

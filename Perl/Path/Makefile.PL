@@ -36,6 +36,7 @@ inc::Sereal::BuildTools::WriteMakefile(
         'Test::More' => 0.88,
         'Test::Deep' => 0,
         'Test::Exception' => 0.38,
+        'Test::Differences' => 0,
         'Scalar::Util' => 0,
         'Data::Dumper' => 0,
         'Sereal::Encoder' => '3.00',
