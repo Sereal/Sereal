@@ -1,5 +1,8 @@
 Revision history for Perl extension Sereal-Path
 
+4.001_002 Feb 22 2017
+  * fixed build issues
+
 4.001_001 Feb 19 2017
   * rethink internal logic of Sereal::Path::Iterator. As result API has
     changed. Please consult documentation for details.

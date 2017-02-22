@@ -6,7 +6,7 @@ use Carp qw/croak/;
 use XSLoader;
 use Sereal::Path::Iterator;
 
-our $VERSION    = '4.001_001';
+our $VERSION = '4.001_002';
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 
 XSLoader::load(__PACKAGE__, $XS_VERSION);
