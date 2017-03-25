@@ -216,7 +216,16 @@ func TestCorpus(t *testing.T) {
 	}
 }
 
-func TestSnappyArray(t *testing.T) {
+func TestSnappyArray(t *testing.T) { testCompressedArray(t, "snappy", SnappyCompressor{true}) }
+func TestZlibArray(t *testing.T)   { testCompressedArray(t, "zlib", ZlibCompressor{}) }
+
+func testCompressedArray(t *testing.T, name string, compression compressor) {
+	defer func() {
+		if r := recover(); r != nil {
+			// may happen due to bounds check
+			t.Fatalf("shouldn't panic with bounds error: recovered %v", r)
+		}
+	}()
 
 	e := &Encoder{}
 	d := &Decoder{}
@@ -224,7 +233,8 @@ func TestSnappyArray(t *testing.T) {
 	// test many duplicated strings -- this uses both the string table and snappy compressiong
 	// this ensures we're not messing up the offsets when decoding
 
-	manydups := make([]string, 2048)
+	n := 2048
+	manydups := make([]string, n)
 	for i := 0; i < len(manydups); i++ {
 		manydups[i] = "hello, world " + strconv.Itoa(i%10)
 	}
@@ -235,29 +245,29 @@ func TestSnappyArray(t *testing.T) {
 		return
 	}
 
-	e.Compression = SnappyCompressor{Incremental: true}
+	e.Compression = compression
 	e.CompressionThreshold = 0 // always compress
 	snencoded, err := e.Marshal(manydups)
 
 	if err != nil {
-		t.Fatalf("snappy encoding a large array generated an error: %v", err)
+		t.Fatalf("%s encoding a large array generated an error: %v", name, err)
 	}
 
 	if len(encoded) <= len(snencoded) {
-		t.Fatalf("snappy failed to compress redundant array: encoded=%d snappy=%d\n", len(encoded), len(snencoded))
+		t.Fatalf("%s failed to compress redundant array: encoded=%d snappy=%d\n", name, len(encoded), len(snencoded))
 	}
 
 	var decoded []string
 	err = d.Unmarshal(snencoded, &decoded)
 	if err != nil {
-		t.Fatalf("snappy decoding generated error: %v", err)
+		t.Fatalf("%s decoding generated error: %v", name, err)
 	}
 
-	if len(decoded) != 2048 {
+	if len(decoded) != n {
 		t.Fatalf("got wrong number of elements back: wanted=%d got=%d\n", len(manydups), len(decoded))
 	}
 
-	for i := 0; i < 2048; i++ {
+	for i := 0; i < n; i++ {
 		s := decoded[i]
 		expected := "hello, world " + strconv.Itoa(i%10)
 		if s != expected {
