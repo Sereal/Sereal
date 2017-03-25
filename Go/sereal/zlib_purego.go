@@ -5,6 +5,7 @@ package sereal
 import (
 	"bytes"
 	"compress/zlib"
+	"fmt"
 	"sync"
 )
 
@@ -13,22 +14,25 @@ var zlibWriterPools = make(map[int]*sync.Pool)
 func init() {
 	// -1 => 9
 	for i := zlib.DefaultCompression; i <= zlib.BestCompression; i++ {
+		level := i
 		zlibWriterPools[i] = &sync.Pool{
 			New: func() interface{} {
-				zw, _ := zlib.NewWriterLevel(nil, i)
+				zw, _ := zlib.NewWriterLevel(nil, level)
 				return zw
 			},
 		}
 	}
-
 }
 
 func zlibEncode(buf []byte, level int) ([]byte, error) {
+	pool := zlibWriterPools[level]
+	if pool == nil {
+		return nil, fmt.Errorf("unknown level %d", level)
+	}
 
 	var comp bytes.Buffer
-
-	zw := zlibWriterPools[level].Get().(*zlib.Writer)
-	defer zlibWriterPools[level].Put(zw)
+	zw := pool.Get().(*zlib.Writer)
+	defer pool.Put(zw)
 	zw.Reset(&comp)
 
 	_, err := zw.Write(buf)
