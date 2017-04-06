@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.zip.Deflater;
 
+import com.github.luben.zstd.Zstd;
 import org.xerial.snappy.Snappy;
 
 /**
@@ -43,7 +44,8 @@ public class Encoder {
 	private final int protocolVersion, encoding;
 	private final CompressionType compressionType;
 	private final long compressionThreshold;
-	private final Deflater deflater;
+	private final int zlibCompressionLevel;
+	private final int zstdCompressionLevel;
 
 	// so we don't need to allocate this every time we encode a varint
 	private byte[] varint_buf = new byte[12];
@@ -85,8 +87,15 @@ public class Encoder {
 		protocolVersion = options.protocolVersion();
 		compressionType = options.compressionType();
 		compressionThreshold = options.compressionThreshold();
+		zlibCompressionLevel = options.zlibCompressionLevel();
+		zstdCompressionLevel = options.zstdCompressionLevel();
 
 		switch (protocolVersion) {
+		case 4:
+			encoding = compressionType.equals(CompressionType.ZSTD) ? 4 :
+					compressionType.equals(CompressionType.ZLIB) ? 3 :
+					compressionType.equals(CompressionType.SNAPPY) ? 2 : 0;
+			break;
 		case 3:
 			encoding = compressionType.equals(CompressionType.ZLIB) ? 3 :
 				   compressionType.equals(CompressionType.SNAPPY) ? 2 : 0;
@@ -101,10 +110,6 @@ public class Encoder {
 			encoding = 0;
 			break;
 		}
-		if (encoding == 3)
-			deflater = new Deflater(options.zlibCompressionLevel());
-		else
-			deflater = null;
 
 		if (perlAlias) {
 			aliases = new IdentityMap();
@@ -191,11 +196,7 @@ public class Encoder {
 		if ((headerSize + sizeLength + maxSize) > compressedBytes.length)
 			compressedBytes = new byte[headerSize + sizeLength + maxSize];
 
-		System.arraycopy(bytes, 0, compressedBytes, 0, headerSize);
-		// varint-encoded 0, filling all space
-		for (int i = headerSize, max = headerSize + sizeLength - 1; i < max; ++i)
-			compressedBytes[i] = (byte) 128;
-		compressedBytes[headerSize + sizeLength - 1] = 0;
+		prepareHeader(bytes, compressedBytes, headerSize, sizeLength);
 
 		int compressed;
 		try {
@@ -210,9 +211,7 @@ public class Encoder {
 		}
 
 		if (encoding == 2) {
-			int after = encodeVarint(compressed, compressedBytes, headerSize);
-			if (after != headerSize + sizeLength)
-				compressedBytes[after - 1] |= (byte) 0x80;
+			finishHeader(compressedBytes, compressed, headerSize, sizeLength);
 		}
 	}
 
@@ -222,7 +221,7 @@ public class Encoder {
 	}
 
 	private void compressZlib() {
-		deflater.reset();
+		Deflater deflater = new Deflater(zlibCompressionLevel);
 
 		int sourceSize = (int) size - headerSize;
 		int maxSize = zlibMaxSize(sourceSize);
@@ -259,7 +258,43 @@ public class Encoder {
 			compressedBytes[after - 1] |= (byte) 0x80;
 	}
 
-	private int varintLength(long n) {
+	private void compressZstd() throws SerealException {
+		long maxSize = Zstd.compressBound((int) size - headerSize);
+		int sizeLength = varintLength(maxSize);
+
+		if (headerSize + sizeLength + maxSize > Integer.MAX_VALUE)
+			throw new SerealException("Compressed data size exceeds integer MAX_VALUE: " + (headerSize + maxSize));
+		if (headerSize + sizeLength + maxSize > compressedBytes.length)
+			compressedBytes = new byte[(int) (headerSize + sizeLength + maxSize)];
+
+		prepareHeader(bytes, compressedBytes, headerSize, sizeLength);
+
+		long compressed = Zstd.compressUsingDict(compressedBytes, headerSize + sizeLength, bytes, headerSize,
+				(int) size - headerSize, new byte[0], zstdCompressionLevel);
+		compressedSize = headerSize + sizeLength + compressed;
+		if (compressedSize > size) {
+			markNotCompressed();
+			return;
+		}
+
+		finishHeader(compressedBytes, compressed, headerSize, sizeLength);
+	}
+
+	private static void prepareHeader(byte[] originBytes, byte[] compressedBytes, int headerSize, int sizeLength) {
+		System.arraycopy(originBytes, 0, compressedBytes, 0, headerSize);
+		// varint-encoded 0, filling all space
+		for (int i = headerSize; i < headerSize + sizeLength - 1; i++)
+			compressedBytes[i] = (byte) 128;
+		compressedBytes[headerSize + sizeLength - 1] = 0;
+	}
+
+	private static void finishHeader(byte[] compressedBytes, long compressedSize, int headerSize, int sizeLength) {
+		int after = encodeVarint(compressedSize, compressedBytes, headerSize);
+		if (after != headerSize + sizeLength)
+			compressedBytes[after - 1] |= (byte) 0x80;
+	}
+
+	private static int varintLength(long n) {
 		int length = 0;
 
 		while (n > 127) {
@@ -270,7 +305,7 @@ public class Encoder {
 		return length + 1;
 	}
 
-	private int encodeVarint(long n, byte[] buffer, int pos) {
+	private static int encodeVarint(long n, byte[] buffer, int pos) {
 		while (n > 127) {
 			buffer[pos++] = (byte) ((n & 127) | 128);
 			n >>= 7;
@@ -456,6 +491,8 @@ public class Encoder {
 				compressSnappy();
 			else if (compressionType.equals(CompressionType.ZLIB))
 				compressZlib();
+			else if (compressionType.equals(CompressionType.ZSTD))
+				compressZstd();
 		} else {
 			// we did not do compression after all
 			markNotCompressed();

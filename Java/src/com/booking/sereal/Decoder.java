@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
+import com.github.luben.zstd.Zstd;
 import org.xerial.snappy.Snappy;
 
 /**
@@ -131,15 +132,17 @@ public class Decoder implements SerealHeader {
 		protocolVersion = protoAndFlags & 15; // 4 bits for version
 
 		if (debugTrace) trace( "Version: " + protocolVersion );
-		if( protocolVersion < 0 || protocolVersion > 3 ) {
+		if( protocolVersion < 0 || protocolVersion > 4 ) {
 			throw new SerealException( String.format( "Invalid Sereal header: unsupported protocol version %d", protocolVersion ) );
 		}
 
 		encoding = (protoAndFlags & ~15) >> 4;
 		if (debugTrace) trace( "Encoding: " + encoding );
-		if((encoding == 1 || encoding == 2) && refuseSnappy) {
+		if ((encoding == 1 || encoding == 2) && refuseSnappy) {
 			throw new SerealException( "Unsupported encoding: Snappy" );
-		} else if(encoding < 0 || encoding > 3) {
+		} else if (encoding == 4 && protocolVersion < 4) {
+			throw new SerealException( "Unsupported encoding zstd for protocol version " + protocolVersion );
+		} else if (encoding < 0 || encoding > 4) {
 			throw new SerealException( "Unsupported encoding: unknown");
 		}
 	}
@@ -204,8 +207,10 @@ public class Decoder implements SerealHeader {
 		if( encoding != 0 ) {
 			if (encoding == 1 || encoding == 2)
 				uncompressSnappy();
-			else
+			else if (encoding == 3)
 				uncompressZlib();
+			else if (encoding == 4)
+				uncompressZstd();
 			if (protocolVersion == 1)
 				baseOffset = 0;
 			else
@@ -261,6 +266,21 @@ public class Decoder implements SerealHeader {
 		} catch (DataFormatException e) {
 			throw new SerealException(e);
 		}
+		this.data = uncompressed;
+		this.position = 0;
+		this.size = uncompressed.length;
+	}
+
+	private void uncompressZstd() throws SerealException {
+		int len = (int) read_varint();
+
+		byte[] compressedData = Arrays.copyOfRange(originalData.array, position, originalData.array.length);
+		long decompressedSize = Zstd.decompressedSize(compressedData);
+		if (decompressedSize > Integer.MAX_VALUE)
+			throw new SerealException("Decompressed size exceeds integer MAX_VALUE: " + decompressedSize);
+
+		byte[] uncompressed = new byte[(int) decompressedSize];
+		Zstd.decompress(uncompressed, compressedData);
 		this.data = uncompressed;
 		this.position = 0;
 		this.size = uncompressed.length;

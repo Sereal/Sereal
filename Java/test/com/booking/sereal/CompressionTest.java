@@ -182,4 +182,52 @@ public class CompressionTest {
 		decoder.setData(encoded);
 		assertEquals(smallData, decoder.decode());
 	}
+
+	@Test
+	public void serealZstd() throws SerealException {
+		Encoder encoder = new Encoder(new EncoderOptions()
+				.protocolVersion(4)
+				.compressionThreshold(0)
+				.compressionType(EncoderOptions.CompressionType.ZSTD));
+		Decoder decoder = new Decoder();
+		byte[] encoded = encoder.write(data).getData();
+
+		assertEquals(0x44, encoded[4]);
+		assertEquals(28, encoded.length);
+
+		decoder.setData(encoded);
+		assertEquals(data, decoder.decode());
+	}
+
+	@Test
+	public void serealZstdSmallData() throws SerealException {
+		Encoder encoder = new Encoder(new EncoderOptions()
+				.protocolVersion(4)
+				.compressionThreshold(0)
+				.compressionType(EncoderOptions.CompressionType.ZSTD));
+		Decoder decoder = new Decoder();
+		byte[] encoded = encoder.write(smallData).getData();
+
+		assertEquals(0x04, encoded[4]);
+		assertEquals(10, encoded.length);
+
+		decoder.setData(encoded);
+		assertEquals(smallData, decoder.decode());
+	}
+
+	@Test
+	public void serealZstdBelowThreshold() throws SerealException {
+		Encoder encoder = new Encoder(new EncoderOptions()
+				.protocolVersion(4)
+				.compressionThreshold(167)
+				.compressionType(EncoderOptions.CompressionType.ZSTD));
+		Decoder decoder = new Decoder();
+		byte[] encoded = encoder.write(data).getData();
+
+		assertEquals(0x04, encoded[4]);
+		assertEquals(173, encoded.length);
+
+		decoder.setData(encoded);
+		assertEquals(data, decoder.decode());
+	}
 }

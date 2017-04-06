@@ -31,7 +31,11 @@ public class EncoderTest {
 	}
 
 	private Encoder v3Encoder() {
-		return new Encoder(new EncoderOptions().protocolVersion(2));
+		return new Encoder(new EncoderOptions().protocolVersion(3));
+	}
+
+	private Encoder v4Encoder() {
+		return new Encoder(new EncoderOptions().protocolVersion(4));
 	}
 
 	private int getMagic(byte[] data) {
@@ -79,8 +83,21 @@ public class EncoderTest {
 		byte[] data = encoder.write(0).getData();
 
 		assertEquals( "Minimal header size incorrect", 7, data.length );
-		assertEquals( "Header is not MAGIC", SerealHeader.MAGIC, getMagic(data) );
-		assertEquals( "Protocol version fail", 2, data[4] );
+		assertEquals( "Header is not MAGIC", SerealHeader.MAGIC_V3, getMagic(data) );
+		assertEquals( "Protocol version fail", 3, data[4] );
+		assertEquals( "Header suffix not 0", 0, data[5] ); // is a varint, but should be 0
+
+	}
+
+	@Test
+	public void headerV4() throws SerealException {
+		encoder = v4Encoder();
+
+		byte[] data = encoder.write(0).getData();
+
+		assertEquals( "Minimal header size incorrect", 7, data.length );
+		assertEquals( "Header is not MAGIC", SerealHeader.MAGIC_V3, getMagic(data) );
+		assertEquals( "Protocol version fail", 4, data[4] );
 		assertEquals( "Header suffix not 0", 0, data[5] ); // is a varint, but should be 0
 
 	}
@@ -285,11 +302,11 @@ public class EncoderTest {
 		byte[] data;
 
 		data = encoder.write(new Object[] {fooObject1}).getData();
-		assertEquals("0x3df3726c0300282b012c2703466f6f282a0127014107",
+		assertEquals("0x3df3726c0400282b012c2703466f6f282a0127014107",
 			     Utils.hexStringFromByteArray(data));
 
 		data = encoder.write(new Object[] {fooObject1, fooObject2}).getData();
-		assertEquals("0x3df3726c0300282b022c2703466f6f282a01270141072d05282a0127014208",
+		assertEquals("0x3df3726c0400282b022c2703466f6f282a01270141072d05282a0127014208",
 			     Utils.hexStringFromByteArray(data));
 	}
 
