@@ -8,6 +8,7 @@ var (
 	ErrBadHeader     = errors.New("bad header: not a valid Sereal document")
 	ErrBadSnappy     = errors.New("snappy compression only valid for v1 documents")
 	ErrBadZlibV3     = errors.New("zlib compression only valid for v3 documents and up")
+	ErrBadZstdV4     = errors.New("zstd compression only valid for v4 documents and up")
 
 	ErrHeaderPointer = errors.New("expected pointer for header")
 	ErrBodyPointer   = errors.New("expected pointer for body")

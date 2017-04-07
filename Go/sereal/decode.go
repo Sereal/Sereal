@@ -132,6 +132,8 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 		break
 	case 3:
 		break
+	case 4:
+		break
 	default:
 		return fmt.Errorf("document version '%d' not yet supported", header.version)
 	}
@@ -156,6 +158,12 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 			return ErrBadZlibV3
 		}
 		decomp = ZlibCompressor{}
+
+	case serealZstd:
+		if header.version < 4 {
+			return ErrBadZstdV4
+		}
+		decomp = ZstdCompressor{}
 
 	default:
 		return fmt.Errorf("document type '%d' not yet supported", header.doctype)
