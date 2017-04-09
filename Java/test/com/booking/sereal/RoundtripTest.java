@@ -38,6 +38,7 @@ public class RoundtripTest {
 			{ "v1", new Encoder(new EncoderOptions().protocolVersion(1)) },
 			{ "v2", new Encoder(new EncoderOptions().protocolVersion(2)) },
 			{ "v3", new Encoder(new EncoderOptions().protocolVersion(3)) },
+			{ "v4", new Encoder(new EncoderOptions().protocolVersion(4)) },
 		});
 	}
 

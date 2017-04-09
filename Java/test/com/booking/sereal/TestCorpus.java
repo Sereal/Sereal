@@ -52,6 +52,8 @@ public class TestCorpus {
 			encoder_options.compressionType(EncoderOptions.CompressionType.SNAPPY);
 		} else if ("SRL_ZLIB".equals(compression)) {
 			encoder_options.compressionType(EncoderOptions.CompressionType.ZLIB);
+		} else if ("SRL_ZSTD".equals(compression)) {
+			encoder_options.compressionType(EncoderOptions.CompressionType.ZSTD);
 		} else if ("SRL_NONE".equals(compression)) {
 			encoder_options.compressionType(EncoderOptions.CompressionType.NONE);
 		} else if (compression != null) {

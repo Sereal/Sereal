@@ -5,14 +5,16 @@ public class EncoderOptions {
 		NONE,
 		SNAPPY,
 		ZLIB,
+		ZSTD,
 	}
 
 	private boolean perlRefs = false;
 	private boolean perlAlias = false;
-	private int protocolVersion = 3;
+	private int protocolVersion = 4;
 	private CompressionType compressionType = CompressionType.NONE;
 	private long compressionThreshold = 1024;
 	private int zlibCompressionLevel = 6;
+	private int zstdCompressionLevel = 3;
 
 	public boolean perlReferences() {
 		return perlRefs;
@@ -38,6 +40,10 @@ public class EncoderOptions {
 		return zlibCompressionLevel;
 	}
 
+	public int zstdCompressionLevel() {
+		return zstdCompressionLevel;
+	}
+
 	public EncoderOptions perlReferences(boolean perlReferences) {
 		this.perlRefs = perlReferences;
 
@@ -51,7 +57,7 @@ public class EncoderOptions {
 	}
 
 	public EncoderOptions protocolVersion(int protocolVersion) {
-		if (protocolVersion < 0 || protocolVersion > 3)
+		if (protocolVersion < 0 || protocolVersion > 4)
 			throw new IllegalArgumentException("Unknown Sereal version " + protocolVersion);
 		this.protocolVersion = protocolVersion;
 
@@ -74,6 +80,11 @@ public class EncoderOptions {
 		this.zlibCompressionLevel = zlibCompressionLevel;
 
 
+		return this;
+	}
+
+	public EncoderOptions zstdCompressionLevel(int zstdCompressionLevel) {
+		this.zstdCompressionLevel = zstdCompressionLevel;
 		return this;
 	}
 }
