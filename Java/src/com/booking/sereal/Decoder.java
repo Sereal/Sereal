@@ -280,7 +280,9 @@ public class Decoder implements SerealHeader {
 			throw new SerealException("Decompressed size exceeds integer MAX_VALUE: " + decompressedSize);
 
 		byte[] uncompressed = new byte[(int) decompressedSize];
-		Zstd.decompress(uncompressed, compressedData);
+		long status = Zstd.decompress(uncompressed, compressedData);
+		if (Zstd.isError(status))
+			throw new SerealException(Zstd.getErrorName(status));
 		this.data = uncompressed;
 		this.position = 0;
 		this.size = uncompressed.length;
