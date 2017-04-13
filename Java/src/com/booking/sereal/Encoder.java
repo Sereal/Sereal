@@ -44,7 +44,7 @@ public class Encoder {
 	private final int protocolVersion, encoding;
 	private final CompressionType compressionType;
 	private final long compressionThreshold;
-	private final int zlibCompressionLevel;
+	private final Deflater deflater;
 	private final int zstdCompressionLevel;
 
 	// so we don't need to allocate this every time we encode a varint
@@ -87,7 +87,6 @@ public class Encoder {
 		protocolVersion = options.protocolVersion();
 		compressionType = options.compressionType();
 		compressionThreshold = options.compressionThreshold();
-		zlibCompressionLevel = options.zlibCompressionLevel();
 		zstdCompressionLevel = options.zstdCompressionLevel();
 
 		switch (protocolVersion) {
@@ -110,6 +109,10 @@ public class Encoder {
 			encoding = 0;
 			break;
 		}
+		if (encoding == 3)
+			deflater = new Deflater(options.zlibCompressionLevel());
+		else
+			deflater = null;
 
 		if (perlAlias) {
 			aliases = new IdentityMap();
@@ -221,7 +224,7 @@ public class Encoder {
 	}
 
 	private void compressZlib() {
-		Deflater deflater = new Deflater(zlibCompressionLevel);
+		deflater.reset();
 
 		int sourceSize = (int) size - headerSize;
 		int maxSize = zlibMaxSize(sourceSize);
@@ -271,6 +274,8 @@ public class Encoder {
 
 		long compressed = Zstd.compressUsingDict(compressedBytes, headerSize + sizeLength, bytes, headerSize,
 				(int) size - headerSize, new byte[0], zstdCompressionLevel);
+		if (Zstd.isError(compressed))
+			throw new SerealException(Zstd.getErrorName(compressed));
 		compressedSize = headerSize + sizeLength + compressed;
 		if (compressedSize > size) {
 			markNotCompressed();
