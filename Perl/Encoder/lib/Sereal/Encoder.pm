@@ -29,12 +29,11 @@ use constant #begin generated
   'SRL_F_COMPRESS_SNAPPY' => 64,
   'SRL_F_COMPRESS_SNAPPY_INCREMENTAL' => 128,
   'SRL_F_COMPRESS_ZLIB' => 256,
-  'SRL_F_COMPRESS_ZSTD' => 512,
+  'SRL_F_COMPRESS_ZSTD' => 262144,
   'SRL_F_CROAK_ON_BLESS' => 4,
   'SRL_F_DEDUPE_STRINGS' => 2048,
   'SRL_F_ENABLE_FREEZE_SUPPORT' => 16384,
   'SRL_F_ENCODER_COMPRESS_FLAGS_MASK' => '0',
-  'SRL_F_ENCODER_COMPRESS_FLAGS_SHIFT' => 6,
   'SRL_F_NOWARN_UNKNOWN_OVERLOAD' => 512,
   'SRL_F_NO_BLESS_OBJECTS' => 8192,
   'SRL_F_REUSE_ENCODER' => 2,
@@ -59,7 +58,6 @@ use constant #begin generated
                     'COMPRESS_SNAPPY',
                     'COMPRESS_SNAPPY_INCREMENTAL',
                     'COMPRESS_ZLIB',
-                    'COMPRESS_ZSTD',
                     'NOWARN_UNKNOWN_OVERLOAD',
                     'SORT_KEYS',
                     'DEDUPE_STRINGS',
@@ -68,7 +66,8 @@ use constant #begin generated
                     'ENABLE_FREEZE_SUPPORT',
                     'CANONICAL_REFS',
                     'SORT_KEYS_PERL',
-                    'SORT_KEYS_PERL_REV'
+                    'SORT_KEYS_PERL_REV',
+                    'COMPRESS_ZSTD'
                   ]
 }; #end generated
 

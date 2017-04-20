@@ -684,7 +684,7 @@ srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src, const U32 compre
 {
     /* 4th to 8th bit are flags. Using 4th for snappy flag. FIXME needs to go in spec. */
 
-    U8 flags= SRL_F_COMPRESS_FLAGS_TO_PROTOCOL_ENCODING[ compress_flags >> SRL_F_COMPRESS_FLAGS_SHIFT ];
+    U8 flags= srl_get_compression_header_flag(compress_flags);
     const U8 version_and_flags = (U8)enc->protocol_version | flags;
 
     /* 4 byte magic string + proto version

@@ -16,33 +16,15 @@
 #define SRL_F_COMPRESS_SNAPPY                   0x00040UL
 #define SRL_F_COMPRESS_SNAPPY_INCREMENTAL       0x00080UL
 #define SRL_F_COMPRESS_ZLIB                     0x00100UL
-#define SRL_F_COMPRESS_ZSTD                     0x00200UL
+#define SRL_F_COMPRESS_ZSTD                     0x40000UL
+/* WARNING: IF ADDING NEW COMPRESSION MAKE SURE THAT NEW CONSTANT DOES NOT
+ *          COLLIDE WITH CONSTANTS IN srl_encoder.h!
+ */
+
 #define SRL_F_COMPRESS_FLAGS_MASK               (SRL_F_COMPRESS_SNAPPY | \
                                                  SRL_F_COMPRESS_SNAPPY_INCREMENTAL | \
                                                  SRL_F_COMPRESS_ZLIB | \
                                                  SRL_F_COMPRESS_ZSTD)
-
-const U8 SRL_F_COMPRESS_FLAGS_TO_PROTOCOL_ENCODING[16]= {
-            SRL_PROTOCOL_ENCODING_RAW,                      /* 0  */
-            SRL_PROTOCOL_ENCODING_SNAPPY,                   /* 1  */
-            SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL,       /* 2  */
-            SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL,       /* 3  */
-            SRL_PROTOCOL_ENCODING_ZLIB,                     /* 4  */
-            SRL_PROTOCOL_ENCODING_ZLIB,                     /* 5  */
-            SRL_PROTOCOL_ENCODING_ZLIB,                     /* 6  */
-            SRL_PROTOCOL_ENCODING_ZLIB,                     /* 7  */
-            SRL_PROTOCOL_ENCODING_ZSTD,                     /* 8  */
-            SRL_PROTOCOL_ENCODING_ZSTD,                     /* 9  */
-            SRL_PROTOCOL_ENCODING_ZSTD,                     /* 10 */
-            SRL_PROTOCOL_ENCODING_ZSTD,                     /* 11 */
-            SRL_PROTOCOL_ENCODING_ZSTD,                     /* 12 */
-            SRL_PROTOCOL_ENCODING_ZSTD,                     /* 13 */
-            SRL_PROTOCOL_ENCODING_ZSTD,                     /* 14 */
-            SRL_PROTOCOL_ENCODING_ZSTD,                     /* 15 */
-        };
-/* currently SRL_F_COMPRESS_MASK is 0x001c0UL, which shift right 6 bits turns into 0x07 UL
- * which means we can skips some conditionals. */
-#define SRL_F_COMPRESS_FLAGS_SHIFT 6
 
 #if defined(HAVE_CSNAPPY)
 #include <csnappy.h>
@@ -110,13 +92,29 @@ srl_destroy_snappy_workmem(pTHX_ void *workmem)
     Safefree(workmem);
 }
 
+SRL_STATIC_INLINE U8
+srl_get_compression_header_flag(const U32 compress_flags)
+{
+    if (compress_flags & SRL_F_COMPRESS_SNAPPY) {
+        return SRL_PROTOCOL_ENCODING_SNAPPY;
+    } else if (compress_flags & SRL_F_COMPRESS_SNAPPY_INCREMENTAL) {
+        return SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL;
+    } else if (compress_flags & SRL_F_COMPRESS_ZLIB) {
+        return SRL_PROTOCOL_ENCODING_ZLIB;
+    } else if (compress_flags & SRL_F_COMPRESS_ZSTD) {
+        return SRL_PROTOCOL_ENCODING_ZSTD;
+    } else {
+        return SRL_PROTOCOL_ENCODING_RAW;
+    }
+}
+
 /* Sets the compression header flag */
 SRL_STATIC_INLINE void
 srl_set_compression_header_flag(srl_buffer_t *buf, const U32 compress_flags)
 {
     /* sizeof(const char *) includes a count of \0 */
     srl_buffer_char *flags_and_version_byte = buf->start + sizeof(SRL_MAGIC_STRING) - 1;
-    *flags_and_version_byte |= SRL_F_COMPRESS_FLAGS_TO_PROTOCOL_ENCODING[ compress_flags >> 6 ];
+    *flags_and_version_byte |= srl_get_compression_header_flag(compress_flags);
 }
 
 /* Resets the compression header flag to OFF.
