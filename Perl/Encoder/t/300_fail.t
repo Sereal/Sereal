@@ -11,10 +11,11 @@ BEGIN {
 }
 
 use Sereal::TestSet qw(:all);
-use Test::More tests => 19;
+use Test::More tests => 22;
 
 use Sereal::Encoder;
 use Sereal::Encoder::Constants qw(:all);
+use Sereal::Decoder;
 
 my ($ok, $err, $out);
 
@@ -153,4 +154,24 @@ SCOPE: {
         "warn_unknown == -1 warns about stringified sub without overloading";
 }
 
+# test that snappy_incr and warn_unknown work together
+SCOPE: {
+    my $e = Sereal::Encoder->new({snappy_incr => 1, warn_unknown => -1});
+    my $d = Sereal::Decoder->new();
+
+    my $payload = [ 'abcd' x 1024 ];
+    $ok = eval {$out = $e->encode($payload); 1};
+    $err = $@ || 'Zombie error';
+    ok($ok, "snappy_incr and warn_unknown makes CODE encoding not fail");
+
+    my $decoded;
+    $ok = eval {$decoded = $d->decode($out); 1};
+    $err = $@ || 'Zombie error';
+    ok($ok, "snappy_incr and warn_unknown produced decodable output")
+    or do {
+        hobodecode($out) if $ENV{DEBUG_SEREAL};
+    };
+
+    is_deeply($decoded, $payload, 'results matches');
+}
 
