@@ -1054,12 +1054,19 @@ sub run_roundtrip_tests_internal {
     my ($ename, $opt, $encode_decode_callbacks) = @_;
     require Data::Dumper;
 
+    my $failed = 0;
+
     my $decoder = Sereal::Decoder->new($opt);
     my $encoder = Sereal::Encoder->new($opt);
     my %seen_name;
     my @RoundtripTests= _get_roundtrip_tests();
     foreach my $rt (@RoundtripTests) {
         my ($name, $data) = @$rt;
+
+        if ($failed > 20) {
+            fail("too many test failures to continue");
+            last;
+        }
 
         TODO:
         foreach my $meth (
@@ -1089,13 +1096,15 @@ sub run_roundtrip_tests_internal {
             eval {$encoded = $enc->($data); 1}
                 or do {
                     my $err = $@ || 'Zombie error';
-                    diag("Got error while encoding: $err");
+                    fail("$name ($ename, $mname, encoding failed)");
+                    $failed++;
                 };
 
             defined($encoded)
                 or do {
                     fail("$name ($ename, $mname, encoded defined)");
                     debug_checks(\$data, \$encoded, undef);
+                    $failed++;
                     next; #test
                 };
 
@@ -1103,13 +1112,16 @@ sub run_roundtrip_tests_internal {
             eval {$decoded = $dec->($encoded); 1}
                 or do {
                     my $err = $@ || 'Zombie error';
-                    diag("Got error while decoding: $err");
+                    fail("$name ($ename, $mname, decoding failed)");
+                    $failed++;
+                    next;
                 };
 
             defined($decoded) == defined($data)
                 or do {
                     fail("$name ($ename, $mname, decoded definedness)");
                     debug_checks(\$data, \$encoded, undef);
+                    $failed++;
                     next; #test
                 };
 
@@ -1118,13 +1130,15 @@ sub run_roundtrip_tests_internal {
             eval {$encoded2 = $enc->($decoded); 1}
                 or do {
                     my $err = $@ || 'Zombie error';
-                    diag("Got error while encoding the second time: $err");
+                    fail("$name ($ename, $mname, second encoding failed)");
+                    $failed++;
+                    next; #test
                 };
 
             defined $encoded2
                 or do {
                     fail("$name ($ename, $mname, encoded2 defined)");
-                    debug_checks(\$data, \$encoded, \$decoded);
+                    $failed++;
                     next; #test
                 };
 
@@ -1132,13 +1146,15 @@ sub run_roundtrip_tests_internal {
             eval {$decoded2 = $dec->($encoded2); 1}
                 or do {
                     my $err = $@ || 'Zombie error';
-                    diag("Got error while decoding the second time: $err");
-                    # hobodecode($encoded2);
+                    fail("$name ($ename, $mname, second decoding failed)");
+                    $failed++;
+                    next; #test
                 };
 
             defined($decoded2) == defined($data)
                 or do {
                     fail("$name ($ename, $mname, decoded2 defined)");
+                    $failed++;
                     next; #test
                 };
 
@@ -1147,13 +1163,15 @@ sub run_roundtrip_tests_internal {
             eval {$encoded3 = $enc->($decoded2); 1}
                 or do {
                     my $err = $@ || 'Zombie error';
-                    diag("Got error while encoding the third time: $err");
+                    fail("$name ($ename, $mname, third encoding failed)");
+                    $failed++;
+                    next; #test
                 };
 
             defined $encoded3
                 or do {
                     fail("$name ($ename, $mname, encoded3 defined)");
-                    debug_checks(\$data, \$encoded, \$decoded);
+                    $failed++;
                     next; #test
                 };
 
@@ -1161,31 +1179,38 @@ sub run_roundtrip_tests_internal {
             eval {$decoded3 = $dec->($encoded3); 1}
                 or do {
                     my $err = $@ || 'Zombie error';
-                    diag("Got error while decoding the third time: $err");
+                    fail("$name ($ename, $mname, third decoding failed)");
+                    $failed++;
+                    next; #test
                 };
 
             defined($decoded3) == defined($data)
                 or do {
                     fail("$name ($ename, $mname, decoded3 defined)");
+                    $failed++;
                     next; #test
                 };
 
-            deep_cmp($decoded, $data,       "$name ($ename, $mname, decoded vs data)") or next; #test
-            deep_cmp($decoded2, $data,      "$name ($ename, $mname, decoded2 vs data)") or next; #test
-            deep_cmp($decoded2, $decoded,   "$name ($ename, $mname, decoded2 vs decoded)") or next; #test
-
-            deep_cmp($decoded3, $data,      "$name ($ename, $mname, decoded3 vs data)") or next; #test
-            deep_cmp($decoded3, $decoded,   "$name ($ename, $mname, decoded3 vs decoded)") or next; #test
-            deep_cmp($decoded3, $decoded2,  "$name ($ename, $mname, decoded3 vs decoded2)") or next; #test
+            deep_cmp($decoded, $data,       "$name ($ename, $mname, decoded vs data)")
+                or do { $failed++; next }; #test
+            deep_cmp($decoded2, $data,      "$name ($ename, $mname, decoded2 vs data)")
+                or do { $failed++; next }; #test
+            deep_cmp($decoded2, $decoded,   "$name ($ename, $mname, decoded2 vs decoded)")
+                or do { $failed++; next }; #test
+            deep_cmp($decoded3, $data,      "$name ($ename, $mname, decoded3 vs data)")
+                or do { $failed++; next }; #test
+            deep_cmp($decoded3, $decoded,   "$name ($ename, $mname, decoded3 vs decoded)")
+                or do { $failed++; next }; #test
+            deep_cmp($decoded3, $decoded2,  "$name ($ename, $mname, decoded3 vs decoded2)")
+                or do { $failed++; next }; #test
 
             if ( $ename =~ /canon/ ) {
-                deep_cmp($encoded2, $encoded,  "$name ($ename, $mname, encoded2 vs encoded)") or do {
-                    diag Dumper($encoded2);
-                    diag Dumper($encoded);
-                    next; #test
-                };
-                deep_cmp($encoded3, $encoded2, "$name ($ename, $mname, encoded3 vs encoded2)") or next; #test
-                deep_cmp($encoded3, $encoded,  "$name ($ename, $mname, encoded3 vs encoded)") or next; #test
+                deep_cmp($encoded2, $encoded,  "$name ($ename, $mname, encoded2 vs encoded)")
+                    or do { $failed++; next }; #test
+                deep_cmp($encoded3, $encoded2, "$name ($ename, $mname, encoded3 vs encoded2)")
+                    or do { $failed++; next }; #test
+                deep_cmp($encoded3, $encoded,  "$name ($ename, $mname, encoded3 vs encoded)")
+                    or do { $failed++; next }; #test
 
                 if ($ENV{SEREAL_TEST_SAVE_OUTPUT} and $mname eq 'object-oriented') {
                     use File::Path;
