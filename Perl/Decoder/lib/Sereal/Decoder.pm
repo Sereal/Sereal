@@ -361,7 +361,7 @@ It accepts an optional second parameter, which is a scalar to write the body
 to, and an optional third parameter, which is a scalar to write the header to.
 
 Regardless of the number of parameters received, C<decode_with_header> returns
-an ArrayRef containing the deserialized body, and the deserialized header, in
+an ArrayRef containing the deserialized header, and the deserialized body, in
 this order.
 
 See C<decode> for the subtle difference between the one, two and three
