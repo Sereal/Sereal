@@ -73,6 +73,7 @@ t/700_roundtrip/v4/plain.t
 t/700_roundtrip/v4/plain_canon.t
 t/700_roundtrip/v4/readonly.t
 t/700_roundtrip/v4/snappy.t
+t/700_roundtrip/v4/snappy_and_warn_unknown.t
 t/700_roundtrip/v4/snappy_canon.t
 t/700_roundtrip/v4/snappy_incr.t
 t/700_roundtrip/v4/snappy_incr_canon.t
