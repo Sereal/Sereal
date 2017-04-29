@@ -1,5 +1,3 @@
-// +build !clibs
-
 package sereal
 
 import (
