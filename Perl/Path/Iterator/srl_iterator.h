@@ -96,6 +96,7 @@ void srl_iterator_hash_key(pTHX_ srl_iterator_t *iter, const char **keyname, STR
 IV srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN name_len);
 
 SV * srl_iterator_decode(pTHX_ srl_iterator_t *iter); // return mortalized SV
+SV * srl_iterator_decode_and_next(pTHX_ srl_iterator_t *iter); // return mortalized SV
 
 #define SRL_ITER_NOT_FOUND (-1)
 
