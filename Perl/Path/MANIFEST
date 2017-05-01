@@ -52,6 +52,7 @@ Iterator/t/060_eof.t
 Iterator/t/070_array.t
 Iterator/t/080_hash.t
 Iterator/t/100_decoder.t
+Iterator/t/110_decode_and_next.t
 Iterator/typemap
 Iterator/zstd/common/bitstream.h
 Iterator/zstd/common/entropy_common.c
