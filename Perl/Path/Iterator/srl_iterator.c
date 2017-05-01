@@ -1183,6 +1183,20 @@ finally:
 }
 
 SV *
+srl_iterator_decode_and_next(pTHX_ srl_iterator_t *iter)
+{
+    SV *sv = srl_iterator_decode(aTHX_ iter);
+    iter->pbuf->pos = iter->dec->pbuf->pos;
+    iter->stack.ptr->idx++;
+
+    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
+    SRL_ITER_ASSERT_STACK_NONSTRICT(iter);
+    SRL_ITER_ASSERT_EOF_NONSTRICT(iter, "tag");
+
+    return sv;
+}
+
+SV *
 srl_iterator_decode(pTHX_ srl_iterator_t *iter)
 {
     U8 tag;

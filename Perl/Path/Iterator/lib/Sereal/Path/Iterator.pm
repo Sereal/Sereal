@@ -304,6 +304,12 @@ by C<info>. In particular, length for hashes will be twice bigger.
 
 C<decode> decodes object at current position. Also check L<KNOWN ISSUES>.
 
+=head2 decode_and_next
+
+C<decode_and_next> is experimental method combining C<decode> and C<next> in
+one call. Internal optimizations let's this method avoiding double parsing
+which happens if one uses C<decode> followed by C<next>.
+
 =head1 KNOWN ISSUES
 
 =over 4

@@ -173,3 +173,11 @@ decode(iter)
     RETVAL = srl_iterator_decode(aTHX_ iter);
     SvREFCNT_inc(RETVAL);
   OUTPUT: RETVAL
+
+SV *
+decode_and_next(iter)
+    srl_iterator_t *iter;
+  CODE:
+    RETVAL = srl_iterator_decode_and_next(aTHX_ iter);
+    SvREFCNT_inc(RETVAL);
+  OUTPUT: RETVAL
