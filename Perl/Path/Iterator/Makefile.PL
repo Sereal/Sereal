@@ -48,8 +48,8 @@ inc::Sereal::BuildTools::WriteMakefile(
         'Test::Exception' => 0.38,
         'Scalar::Util' => 0,
         'Data::Dumper' => 0,
-        'Sereal::Encoder' => '3.00',
-        'Sereal::Decoder' => '3.00',
+        'Sereal::Encoder' => 3.015,
+        'Sereal::Decoder' => 3.015,
     },
     BUILD_REQUIRES => {
         'File::Find' => 0,
