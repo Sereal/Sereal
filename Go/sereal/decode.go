@@ -520,7 +520,7 @@ func (d *Decoder) decodeArray(by []byte, idx int, ln int, ptr *interface{}, isRe
 		// FIXME this is not optimal
 		slice = make([]interface{}, 0, 1)
 	} else {
-		slice = make([]interface{}, ln, ln)
+		slice = make([]interface{}, ln)
 	}
 
 	if isRef {
@@ -549,7 +549,7 @@ func (d *Decoder) decodeBinary(by []byte, idx int, ln int, makeCopy bool) ([]byt
 	}
 
 	if makeCopy {
-		res := make([]byte, ln, ln)
+		res := make([]byte, ln)
 		copy(res, by[idx:idx+ln])
 		return res, idx + ln, nil
 	}
@@ -1182,7 +1182,7 @@ func setBinary(ptr reflect.Value, val []byte) {
 	switch ptr.Kind() {
 	case reflect.Slice:
 		if ptr.Type().Elem().Kind() == reflect.Uint8 && ptr.IsNil() {
-			slice := make([]byte, len(val), len(val))
+			slice := make([]byte, len(val))
 			ptr.Set(reflect.ValueOf(slice))
 		}
 
