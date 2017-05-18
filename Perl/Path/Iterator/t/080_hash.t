@@ -11,7 +11,7 @@ use Sereal::Encoder qw/encode_sereal/;
 subtest "hash keys", sub {
     my $spi = Sereal::Path::Iterator->new(encode_sereal(
         { map { ($_ => undef) } qw/1 2 3 4 5 6 7 8 9/ },
-        { sort_keys => 1 }
+        { sort_keys => 2 }
     ));
 
     $spi->step_in();
@@ -27,7 +27,7 @@ subtest "dedpulicated hash key", sub {
             { foo => 'bar1', foofoo => 'barbar1' },
             { foo => 'bar2', foofoo => 'barbar2' },
         ],
-        { sort_keys => 1 },
+        { sort_keys => 2 },
     ));
 
     $spi->step_in();
@@ -43,7 +43,7 @@ subtest "dedpulicated hash key", sub {
 subtest "hash key exists", sub {
     my $spi = Sereal::Path::Iterator->new(encode_sereal(
         { map { ($_ => undef) } qw/1 2 3 4 5 6 7 8 9/ },
-        { sort_keys => 1 }
+        { sort_keys => 2 }
     ));
 
     $spi->step_in();

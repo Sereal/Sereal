@@ -78,7 +78,7 @@ subtest "step into long HASH", sub {
             29 => 129,
             30 => 130,
         },
-        { sort_keys => 1 },
+        { sort_keys => 2 },
     ));
 
     for (10..30) {
