@@ -1,5 +1,12 @@
 Revision history for Perl extension Sereal-Path
 
+4.001_004 May 18 2017
+  * bump Sereal prereq version to 3.015 (issue #168)
+  * fix failing tests in some cases due to sort
+
+4.001_003 May 01 2017
+  * implement decode_and_next()
+
 4.001_002 Feb 22 2017
   * fixed build issues
 
