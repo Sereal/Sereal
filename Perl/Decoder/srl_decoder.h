@@ -150,6 +150,10 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
     PERL_HASH(MY_CXT.options[idx].hash, (str ""), (sizeof(str) - 1));   \
 } STMT_END
 
+/* NOTE WELL: WHEN YOU ADD AN OPTION YOU **MUST** ADD A
+ * CORRESPONDING CALL TO SRL_INIT_OPTION() to Decoder.xs */
+
+
 #define SRL_DEC_OPT_STR_ALIAS_SMALLINT              "alias_smallint"
 #define SRL_DEC_OPT_IDX_ALIAS_SMALLINT              0
 
@@ -191,6 +195,9 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 
 #define SRL_DEC_OPT_STR_REFUSE_ZSTD                 "refuse_zstd"
 #define SRL_DEC_OPT_IDX_REFUSE_ZSTD                 13
+
+/* NOTE WELL: WHEN YOU ADD AN OPTION YOU **MUST** ADD A
+ * CORRESPONDING CALL TO SRL_INIT_OPTION() to Decoder.xs */
 
 #define SRL_DEC_OPT_COUNT                           14
 
