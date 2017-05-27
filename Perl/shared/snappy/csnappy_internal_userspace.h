@@ -123,6 +123,13 @@ Albert Lee
 #define __LITTLE_ENDIAN	1234
 #define __BYTE_ORDER	LITTLE_ENDIAN
 
+#elif defined(_AIX)
+
+#include <sys/machine.h>
+#define __LITTLE_ENDIAN LITTLE_ENDIAN
+#define __BIG_ENDIAN BIG_ENDIAN
+#define __BYTE_ORDER __BIG_ENDIAN
+
 #elif defined(__APPLE__)
 
 #include <machine/endian.h>
