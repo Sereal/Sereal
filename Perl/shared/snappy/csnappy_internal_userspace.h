@@ -71,7 +71,13 @@ typedef __int32 int32_t; /* Sereal specific change, see csnappy_decompress.c(271
 #endif
 
 #else
-#include <stdint.h>
+
+#if defined(__SUNPRO_C) || defined(_AIX)
+# include <inttypes.h>
+#else
+# include <stdint.h>
+#endif
+
 #endif
 
 #ifdef _GNU_SOURCE
