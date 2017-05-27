@@ -71,7 +71,13 @@ typedef __int32 int32_t; /* Sereal specific change, see csnappy_decompress.c(271
 #endif
 
 #else
-#include <stdint.h>
+
+#if defined(__SUNPRO_C) || defined(_AIX)
+# include <inttypes.h>
+#else
+# include <stdint.h>
+#endif
+
 #endif
 
 #ifdef _GNU_SOURCE
@@ -116,6 +122,13 @@ Albert Lee
 #define __BIG_ENDIAN	4321
 #define __LITTLE_ENDIAN	1234
 #define __BYTE_ORDER	LITTLE_ENDIAN
+
+#elif defined(_AIX)
+
+#include <sys/machine.h>
+#define __LITTLE_ENDIAN LITTLE_ENDIAN
+#define __BIG_ENDIAN BIG_ENDIAN
+#define __BYTE_ORDER __BIG_ENDIAN
 
 #elif defined(__APPLE__)
 
