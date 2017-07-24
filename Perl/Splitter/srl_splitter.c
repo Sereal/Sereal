@@ -43,8 +43,8 @@ extern "C" {
 
 #include "srl_protocol.h"
 
-//#define SRL_SPLITTER_TRACE(msg, args...) warn((msg), args)
-#define SRL_SPLITTER_TRACE(msg, args...)
+//#define SRL_SPLITTER_TRACE(msg, ...) warn((msg), __VA_ARGS__)
+#define SRL_SPLITTER_TRACE(msg, ...)
 
 #include "srl_splitter.h"
 #include "srl_common.h"
