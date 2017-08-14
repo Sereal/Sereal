@@ -1171,7 +1171,7 @@ srl_follow_refp_alias_reference(pTHX_ srl_decoder_t *dec, UV offset)
 }
 
 SRL_STATIC_INLINE AV *
-srl_follow_objectv_reference(pTHX_ srl_decoder_t *dec, STRLEN offset)
+srl_follow_objectv_reference(pTHX_ srl_decoder_t *dec, UV offset)
 {
     AV *av= NULL;
     srl_reader_char_ptr orig_pos = dec->buf.pos;
@@ -1276,7 +1276,7 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
     av= (AV *)PTABLE_fetch(dec->ref_bless_av, (void *)ofs);
     if (expect_false( NULL == av )) {
 #ifdef FOLLOW_REFERENCES_IF_NOT_STASHED
-        av = srl_follow_objectv_reference(aTHX_ dec, ofs);
+        av = srl_follow_objectv_reference(aTHX_ dec, (UV) ofs);
         if (expect_false( NULL == av ))
 #endif
             SRL_RDR_ERRORf1(dec->pbuf, "Corrupted packet. OBJECTV(_FREEZE) references unknown classname offset: %"UVuf, (UV)ofs);
