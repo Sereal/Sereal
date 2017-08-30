@@ -1,0 +1,59 @@
+<!doctype html5>
+<html>
+
+<head>
+    <script src="../build/sereal.js"></script>
+    <script>
+        var urls = [
+"./srl/test1.srl",
+"./srl/test4.srl",
+"./srl/test5.srl",
+"./srl/test21.srl",
+"./srl/test22.srl",
+"./srl/test23.srl",
+"./srl/test24.srl",
+"./srl/test27.srl",
+"./srl/test29.srl",
+"./srl/test2.srl",
+"./srl/test3.srl",
+        ];
+        async function main() {
+            for (var url of urls) {
+                try {
+                    var res = await decode(url);
+                    console.log(url, res);
+                }
+                catch (err) {
+                    console.log(url, err);
+                }
+            }
+        }
+
+        async function decode(url) {
+            var bytes = await getBinary(url);
+            var dec = new Sereal.Decoder();
+            var doc = dec.decodeDocument(bytes);  // DataReader or TypedArray
+            var data = doc.body;
+            return data;
+        }
+        function getBinary(url) {
+            return new Promise((resolve, reject) => {
+                var xhr = new XMLHttpRequest();
+                xhr.open("GET", url, true);
+                xhr.responseType = "arraybuffer";
+                xhr.onload = e => {
+                    var byteArray = xhr.response;
+                    var arr = new Uint8Array(byteArray);
+                    resolve(arr);
+                };
+                xhr.send();
+            });
+        }
+    </script>
+</head>
+
+<body onload="main()">
+    <p>Please run this page using a static web server (http), and open the console to see the results</p>
+</body>
+
+</html>
