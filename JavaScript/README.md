@@ -9,5 +9,6 @@ Usage
 ```
 var dec = new Sereal.Decoder();
 var doc = dec.decodeDocument(bytes);  // DataReader, or any data object that can be passed into DataReader (e.g. Uint8Array)
-var data = <Array<any>>doc.body || [];
+var data = doc.body;
+console.log(data);
 ```
