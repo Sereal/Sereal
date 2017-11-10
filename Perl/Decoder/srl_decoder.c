@@ -1088,6 +1088,9 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         } else {
             SRL_RDR_ERROR_UNEXPECTED(dec->pbuf, tag, "a stringish type");
         }
+        if (SvREADONLY(into)) {
+            SvREADONLY_off(into);
+        }
 #ifdef OLDHASH
         fetched_sv= hv_fetch((HV *)into, (char *)from, key_len, IS_LVALUE);
 #else
@@ -1236,7 +1239,7 @@ srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into)
         SRL_RDR_ERROR(dec->pbuf, "WEAKEN op");
     referent= SvRV(into);
     /* we have to be careful to not allow the referent's refcount
-     * to go to zero in the process of us weakening the the ref.
+     * to go to zero in the process of us weakening the ref.
      * For instance this may be aliased or reused later by a non-weakref
      * which will "fix" the refcount, however we need to be able to deserialize
      * in the opposite order, so if the referent's refcount is 1
@@ -1250,7 +1253,15 @@ srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into)
         av_push(dec->weakref_av, SvREFCNT_inc(referent));
         SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE);
     }
-    sv_rvweaken(into);
+
+    /* If read-only reference, set to rw only to weaken it, otherwise "Modification of a read-only value attempted". */
+    if ( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_READONLY_FLAGS) && SvREADONLY(into)) {
+        SvREADONLY_off(into);
+        sv_rvweaken(into);
+        SvREADONLY_on(into);
+    } else {
+        sv_rvweaken(into);
+    }
 }
 
 SRL_STATIC_INLINE void
@@ -1828,7 +1839,12 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
         if (
              dec->flags_readonly == 1 || !is_ref
         ) {
-            SvREADONLY_on(into);
+            if (is_ref && !SvREADONLY(SvRV(into)) ) {
+                SvREADONLY_on(SvRV(into));
+            }
+            if (!SvREADONLY(into)) {
+                SvREADONLY_on(into);
+            }
         }
     }
 #endif
