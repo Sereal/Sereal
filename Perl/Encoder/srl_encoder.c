@@ -160,12 +160,16 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
 
 #elif defined(SvRX)
 #    define MODERN_REGEXP
+#    if ( PERL_VERSION > 27 || (PERL_VERSION == 27 && PERL_SUBVERSION >= 3) )
+     /* Commit df6b4bd56551f2d39f7c0019c23f27181d8c39c4
+      * changed the behavior mentioned below, so that the POK flag is on again. Sigh.
+      * So this branch is a deliberate NO-OP, it just makes the conditions easier to read.*/
+#    elif ( PERL_VERSION > 17 || (PERL_VERSION == 17 && PERL_SUBVERSION >= 6) )
      /* With commit 8d919b0a35f2b57a6bed2f8355b25b19ac5ad0c5 (perl.git) and
       * release 5.17.6, regular expression are no longer SvPOK (IOW are no longer
       * considered to be containing a string).
       * This breaks some of the REGEXP detection logic in srl_dump_sv, so
       * we need yet another CPP define. */
-#    if PERL_VERSION > 17 || (PERL_VERSION == 17 && PERL_SUBVERSION >= 6)
 #        define REGEXP_NO_LONGER_POK
 #    endif
 #else

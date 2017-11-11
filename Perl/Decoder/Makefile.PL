@@ -58,6 +58,7 @@ inc::Sereal::BuildTools::WriteMakefile(
         'Test::More' => 0.88,
         'Scalar::Util' => 0,
         'File::Spec' => 0,
+        'Test::Deep' => '0',
         'Test::LongString' => '0',
         'Test::Warn' => '0',
         'Data::Dumper' => '0',

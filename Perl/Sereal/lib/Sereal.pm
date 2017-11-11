@@ -2,10 +2,10 @@ package Sereal;
 use 5.008;
 use strict;
 use warnings;
-our $VERSION = '4.001_003';
+our $VERSION = '4.002';
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
-use Sereal::Encoder 4.001_003 qw(encode_sereal sereal_encode_with_object);
-use Sereal::Decoder 4.001_003 qw(
+use Sereal::Encoder 4.002 qw(encode_sereal sereal_encode_with_object);
+use Sereal::Decoder 4.002 qw(
     decode_sereal looks_like_sereal decode_sereal_with_header_data
     scalar_looks_like_sereal
     sereal_decode_with_object sereal_decode_with_header_with_object
@@ -131,6 +131,24 @@ Again, see L<Sereal::Performance> for information about those.
 After loading the C<Sereal> module, both C<Sereal::Encoder> and
 C<Sereal::Decoder> are guaranteed to be loaded, so you can use
 their object-oriented interface.
+
+=head2 get_sereal_encoder($OPTSHASH)
+
+Returns a Sereal::Encoder with the given options. This encoder will be shared by other calls
+to this function.
+
+=head2 get_sereal_decoder($OPTSHASH)
+
+Returns a Sereal::Decoder with the given options. This encoder will be shared by other calls
+to this function.
+
+=head2 write_sereal($FILENAME,$STRUCT,$APPEND,$OPTS)
+
+Write a sereal packet to $FILENAME. See Sereal::Encoder::write_to_file().
+
+=head2 read_sereal($FILENAME,$OPTS)
+
+Read a sereal packet from a file. See Sereal::Decoder::read_from_file().
 
 =head1 BUGS, CONTACT AND SUPPORT
 

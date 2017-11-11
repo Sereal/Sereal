@@ -70,6 +70,7 @@ inc::Sereal::BuildTools::WriteMakefile(
         'File::Spec' => 0,
         'Test::LongString' => '0',
         'Test::Warn' => '0',
+        'Test::Deep' => '0',
         'Data::Dumper' => '0',
         'Sereal::Decoder' => '3.00',
     },
