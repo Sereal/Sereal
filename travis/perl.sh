@@ -2,6 +2,8 @@
 
 set -e
 
+cpanm Test::Differences
+cpanm Test::Exception
 cpanm Test::LongString
 cpanm Test::Warn
 
