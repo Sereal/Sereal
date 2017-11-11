@@ -30,7 +30,9 @@ CFLAGS  += -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasi
            -Wpointer-arith
 CFLAGS  += $(MOREFLAGS)
 FLAGS    = $(CPPFLAGS) $(CFLAGS)
-RM	 = rm -f
+AR       = ar
+ARFLAGS  = rcs
+RM       = rm -f
 
 ZSTD_FILES := } . join(' ', @zstd_files) . q{
 CPPFLAGS  += -DZSTD_LEGACY_SUPPORT=0
@@ -47,7 +49,7 @@ all: lib
 libzstd.o: $(ZSTD_FILES)
 	@echo compiling static library
 	$(CC) $(FLAGS) -c $(ZSTD_FILES)
-	$(AR) rcs libzstd.o *.o
+	$(AR) $(ARFLAGS) libzstd.o *.o
 
 lib: libzstd.o
 
