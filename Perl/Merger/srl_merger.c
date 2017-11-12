@@ -329,7 +329,7 @@ srl_destroy_merger(pTHX_ srl_merger_t *mrg)
     srl_destroy_snappy_workmem(aTHX_ mrg->snappy_workmem);
 
     if (mrg->tracked_offsets) {
-        srl_stack_destroy(aTHX_ mrg->tracked_offsets);
+        srl_stack_deinit(aTHX_ mrg->tracked_offsets);
         Safefree(mrg->tracked_offsets);
         mrg->tracked_offsets = NULL;
     }
