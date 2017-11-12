@@ -1,11 +1,12 @@
 # $Id: CheckLib.pm,v 1.25 2008/10/27 12:16:23 drhyde Exp $
 
-package Devel::CheckLib;
+package #
+Devel::CheckLib;
 
 use 5.00405; #postfix foreach
 use strict;
 use vars qw($VERSION @ISA @EXPORT);
-$VERSION = '0.98';
+$VERSION = '1.11';
 use Config qw(%Config);
 use Text::ParseWords 'quotewords';
 
@@ -54,7 +55,7 @@ and link to the libraries.
 
 It works by trying to compile some code - which defaults to this:
 
-    int main(void) { return 0; }
+    int main(int argc, char *argv[]) { return 0; }
 
 and linking it to the specified libraries.  If something pops out the end
 which looks executable, it gets executed, and if main() returns 0 we know
@@ -109,10 +110,15 @@ representing additional paths to search for libraries.
 
 =item LIBS
 
-a C<ExtUtils::MakeMaker>-style space-seperated list of
+a C<ExtUtils::MakeMaker>-style space-separated list of
 libraries (each preceded by '-l') and directories (preceded by '-L').
 
 This can also be supplied on the command-line.
+
+=item debug
+
+If true - emit information during processing that can be used for
+debugging.
 
 =back
 
@@ -132,10 +138,27 @@ representing additional paths to search for headers.
 
 =item INC
 
-a C<ExtUtils::MakeMaker>-style space-seperated list of
+a C<ExtUtils::MakeMaker>-style space-separated list of
 incpaths, each preceded by '-I'.
 
 This can also be supplied on the command-line.
+
+=item ccflags
+
+Extra flags to pass to the compiler.
+
+=item ldflags
+
+Extra flags to pass to the linker.
+
+=item analyze_binary
+
+a callback function that will be invoked in order to perform custom
+analysis of the generated binary. The callback arguments are the
+library name and the path to the binary just compiled.
+
+It is possible to use this callback, for instance, to inspect the
+binary for further dependencies.
 
 =back
 
@@ -172,6 +195,68 @@ sub check_lib {
     return $@ ? 0 : 1;
 }
 
+# borrowed from Text::ParseWords
+sub _parse_line {
+    my($delimiter, $keep, $line) = @_;
+    my($word, @pieces);
+
+    no warnings 'uninitialized';  # we will be testing undef strings
+
+    while (length($line)) {
+        # This pattern is optimised to be stack conservative on older perls.
+        # Do not refactor without being careful and testing it on very long strings.
+        # See Perl bug #42980 for an example of a stack busting input.
+        $line =~ s/^
+                    (?:
+                        # double quoted string
+                        (")                             # $quote
+                        ((?>[^\\"]*(?:\\.[^\\"]*)*))"   # $quoted
+        | # --OR--
+                        # singe quoted string
+                        (')                             # $quote
+                        ((?>[^\\']*(?:\\.[^\\']*)*))'   # $quoted
+                    |   # --OR--
+                        # unquoted string
+                        (                               # $unquoted
+                            (?:\\.|[^\\"'])*?
+                        )
+                        # followed by
+                        (                               # $delim
+                            \Z(?!\n)                    # EOL
+                        |   # --OR--
+                            (?-x:$delimiter)            # delimiter
+                        |   # --OR--
+                            (?!^)(?=["'])               # a quote
+                        )
+        )//xs or return;    # extended layout
+        my ($quote, $quoted, $unquoted, $delim) = (($1 ? ($1,$2) : ($3,$4)), $5, $6);
+
+        return() unless( defined($quote) || length($unquoted) || length($delim));
+
+        if ($keep) {
+            $quoted = "$quote$quoted$quote";
+        }
+        else {
+            $unquoted =~ s/\\(.)/$1/sg;
+            if (defined $quote) {
+                $quoted =~ s/\\(.)/$1/sg if ($quote eq '"');
+            }
+        }
+        $word .= substr($line, 0, 0); # leave results tainted
+        $word .= defined $quote ? $quoted : $unquoted;
+
+        if (length($delim)) {
+            push(@pieces, $word);
+            push(@pieces, $delim) if ($keep eq 'delimiters');
+            undef $word;
+        }
+        if (!length($line)) {
+            push(@pieces, $word);
+        }
+    }
+    return(@pieces);
+}
+
 sub assert_lib {
     my %args = @_;
     my (@libs, @libpaths, @headers, @incpaths);
@@ -185,10 +270,14 @@ sub assert_lib {
         if $args{header};
     @incpaths = (ref($args{incpath}) ? @{$args{incpath}} : $args{incpath}) 
         if $args{incpath};
+    my $analyze_binary = $args{analyze_binary};
+
+    my @argv = @ARGV;
+    push @argv, _parse_line('\s+', 0, $ENV{PERL_MM_OPT}||'');
 
     # work-a-like for Makefile.PL's LIBS and INC arguments
     # if given as command-line argument, append to %args
-    for my $arg (@ARGV) {
+    for my $arg (@argv) {
         for my $mm_attr_key (qw(LIBS INC)) {
             if (my ($mm_attr_value) = $arg =~ /\A $mm_attr_key = (.*)/x) {
             # it is tempting to put some \s* into the expression, but the
@@ -202,7 +291,7 @@ sub assert_lib {
     # using special form of split to trim whitespace
     if(defined($args{LIBS})) {
         foreach my $arg (split(' ', $args{LIBS})) {
-            die("LIBS argument badly-formed: $arg\n") unless($arg =~ /^-l/i);
+            die("LIBS argument badly-formed: $arg\n") unless($arg =~ /^-[lLR]/);
             push @{$arg =~ /^-l/ ? \@libs : \@libpaths}, substr($arg, 2);
         }
     }
@@ -213,9 +302,10 @@ sub assert_lib {
         }
     }
 
-    my ($cc, $ld) = _findcc();
+    my ($cc, $ld) = _findcc($args{debug}, $args{ccflags}, $args{ldflags});
     my @missing;
     my @wrongresult;
+    my @wronganalysis;
     my @use_headers;
 
     # first figure out which headers we can't find ...
@@ -240,7 +330,8 @@ sub assert_lib {
                 "/Fe$exefile",
                 (map { '/I'.Win32::GetShortPathName($_) } @incpaths),
 		"/link",
-		@$ld
+		@$ld,
+		split(' ', $Config{libs}),
             );
         } elsif($Config{cc} =~ /bcc32(\.exe)?/) {    # Borland
             @sys_cmd = (
@@ -263,9 +354,8 @@ sub assert_lib {
         my $rv = $args{debug} ? system(@sys_cmd) : _quiet_system(@sys_cmd);
         push @missing, $header if $rv != 0 || ! -x $exefile;
         _cleanup_exe($exefile);
-        unlink $ofile if -e $ofile;
         unlink $cfile;
-    } 
+    }
 
     # now do each library in turn with headers
     my($ch, $cfile) = File::Temp::tempfile(
@@ -274,7 +364,7 @@ sub assert_lib {
     my $ofile = $cfile;
     $ofile =~ s/\.c$/$Config{_o}/;
     print $ch qq{#include <$_>\n} foreach (@headers);
-    print $ch "int main(void) { ".($args{function} || 'return 0;')." }\n";
+    print $ch "int main(int argc, char *argv[]) { ".($args{function} || 'return 0;')." }\n";
     close($ch);
     for my $lib ( @libs ) {
         my $exefile = File::Temp::mktemp( 'assertlibXXXXXXXX' ) . $Config{_exe};
@@ -293,6 +383,7 @@ sub assert_lib {
                 (map { '/I'.Win32::GetShortPathName($_) } @incpaths),
                 "/link",
                 @$ld,
+                split(' ', $Config{libs}),
                 (map {'/libpath:'.Win32::GetShortPathName($_)} @libpaths),
             );
         } elsif($Config{cc} eq 'CC/DECC') {          # VMS
@@ -318,12 +409,24 @@ sub assert_lib {
             );
         }
         warn "# @sys_cmd\n" if $args{debug};
+        local $ENV{LD_RUN_PATH} = join(":", grep $_, @libpaths, $ENV{LD_RUN_PATH}) unless $^O eq 'MSWin32';
+        local $ENV{PATH} = join(";", @libpaths).";".$ENV{PATH} if $^O eq 'MSWin32';
         my $rv = $args{debug} ? system(@sys_cmd) : _quiet_system(@sys_cmd);
-        push @missing, $lib if $rv != 0 || ! -x $exefile;
-        my $absexefile = File::Spec->rel2abs($exefile);
-        $absexefile = '"'.$absexefile.'"' if $absexefile =~ m/\s/;
-        push @wrongresult, $lib if $rv == 0 && -x $exefile && system($absexefile) != 0;
-        unlink $ofile if -e $ofile;
+        if ($rv != 0 || ! -x $exefile) {
+            push @missing, $lib;
+        }
+        else {
+            my $absexefile = File::Spec->rel2abs($exefile);
+            $absexefile = '"'.$absexefile.'"' if $absexefile =~ m/\s/;
+            if (system($absexefile) != 0) {
+                push @wrongresult, $lib;
+            }
+            else {
+                if ($analyze_binary) {
+                    push @wronganalysis, $lib if !$analyze_binary->($lib, $exefile)
+                }
+            }
+        }
         _cleanup_exe($exefile);
     } 
     unlink $cfile;
@@ -332,23 +435,29 @@ sub assert_lib {
     die("Can't link/include C library $miss_string, aborting.\n") if @missing;
     my $wrong_string = join( q{, }, map { qq{'$_'} } @wrongresult);
     die("wrong result: $wrong_string\n") if @wrongresult;
+    my $analysis_string = join(q{, }, map { qq{'$_'} } @wronganalysis );
+    die("wrong analysis: $analysis_string") if @wronganalysis;
 }
 
 sub _cleanup_exe {
     my ($exefile) = @_;
     my $ofile = $exefile;
     $ofile =~ s/$Config{_exe}$/$Config{_o}/;
-    unlink $exefile if -f $exefile;
-    unlink $ofile if -f $ofile;
-    unlink "$exefile\.manifest" if -f "$exefile\.manifest";
+    # List of files to remove
+    my @rmfiles;
+    push @rmfiles, $exefile, $ofile, "$exefile\.manifest";
     if ( $Config{cc} eq 'cl' ) {
         # MSVC also creates foo.ilk and foo.pdb
         my $ilkfile = $exefile;
         $ilkfile =~ s/$Config{_exe}$/.ilk/;
         my $pdbfile = $exefile;
         $pdbfile =~ s/$Config{_exe}$/.pdb/;
-        unlink $ilkfile if -f $ilkfile;
-        unlink $pdbfile if -f $pdbfile;
+	push @rmfiles, $ilkfile, $pdbfile;
+    }
+    foreach (@rmfiles) {
+	if ( -f $_ ) {
+	    unlink $_ or warn "Could not remove $_: $!";
+	}
     }
     return
 }
@@ -357,24 +466,53 @@ sub _cleanup_exe {
 # where $cc is an array ref of compiler name, compiler flags
 # where $ld is an array ref of linker flags
 sub _findcc {
+    my ($debug, $user_ccflags, $user_ldflags) = @_;
     # Need to use $keep=1 to work with MSWin32 backslashes and quotes
     my $Config_ccflags =  $Config{ccflags};  # use copy so ASPerl will compile
     my @Config_ldflags = ();
-    for my $config_val ( @Config{qw(ldflags perllibs)} ){
+    for my $config_val ( @Config{qw(ldflags)} ){
         push @Config_ldflags, $config_val if ( $config_val =~ /\S/ );
     }
-    my @ccflags = grep { length } quotewords('\s+', 1, $Config_ccflags||'');
-    my @ldflags = grep { length } quotewords('\s+', 1, @Config_ldflags);
+    my @ccflags = grep { length } quotewords('\s+', 1, $Config_ccflags||'', $user_ccflags||'');
+    my @ldflags = grep { length && $_ !~ m/^-Wl/ } quotewords('\s+', 1, @Config_ldflags, $user_ldflags||'');
     my @paths = split(/$Config{path_sep}/, $ENV{PATH});
     my @cc = split(/\s+/, $Config{cc});
-    return ( [ @cc, @ccflags ], \@ldflags ) if -x $cc[0];
-    foreach my $path (@paths) {
-        my $compiler = File::Spec->catfile($path, $cc[0]) . ($^O eq 'cygwin' ? '' : $Config{_exe});
-        return ([ $compiler, @cc[1 .. $#cc], @ccflags ], \@ldflags)
-            if -x $compiler;
+    if (check_compiler ($cc[0], $debug)) {
+	return ( [ @cc, @ccflags ], \@ldflags );
     }
-    die("Couldn't find your C compiler\n");
+    # Find the extension for executables.
+    my $exe = $Config{_exe};
+    if ($^O eq 'cygwin') {
+	$exe = '';
+    }
+    foreach my $path (@paths) {
+	# Look for "$path/$cc[0].exe"
+        my $compiler = File::Spec->catfile($path, $cc[0]) . $exe;
+	if (check_compiler ($compiler, $debug)) {
+	    return ([ $compiler, @cc[1 .. $#cc], @ccflags ], \@ldflags)
+	}
+        next if ! $exe;
+	# Look for "$path/$cc[0]" without the .exe, if necessary.
+        $compiler = File::Spec->catfile($path, $cc[0]);
+	if (check_compiler ($compiler, $debug)) {
+	    return ([ $compiler, @cc[1 .. $#cc], @ccflags ], \@ldflags)
+	}
+    }
+    die("Couldn't find your C compiler.\n");
 }
+
+sub check_compiler
+{
+    my ($compiler, $debug) = @_;
+    if (-f $compiler && -x $compiler) {
+	if ($debug) {
+	    warn("# Compiler seems to be $compiler\n");
+	}
+	return 1;
+    }
+    return '';
+}
+
 
 # code substantially borrowed from IPC::Run3
 sub _quiet_system {
@@ -412,7 +550,7 @@ sub _quiet_system {
 You must have a C compiler installed.  We check for C<$Config{cc}>,
 both literally as it is in Config.pm and also in the $PATH.
 
-It has been tested with varying degrees on rigourousness on:
+It has been tested with varying degrees of rigorousness on:
 
 =over
 
