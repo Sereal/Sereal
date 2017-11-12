@@ -632,34 +632,35 @@ sub setup_tests {
 sub have_encoder_and_decoder {
     my ($min_v)= @_;
     # $Class is the already-loaded class, so the one we're testing
-    my $need = $Class =~ /Encoder/ ? "Decoder" : "Encoder";
-    my $need_class = "Sereal::$need";
+    my @need = $Class =~ /Encoder/ ? ("Decoder") :
+               $Class =~ /Decoder/ ? ("Encoder") :
+                                     ("Encoder", "Decoder");
+    my @need_class = ($Class, map { "Sereal::$_" } @need);
 
-    eval "use $Class; 1"
-    or do {
-        note("Could not locate $Class for testing" . ($@ ? " (Exception: $@)" : ""));
-        return();
-    };
+    foreach my $class (@need_class) {
+        eval "use $class; 1"
+        or do {
+            note("Could not locate $class for testing" . ($@ ? " (Exception: $@)" : ""));
+            return();
+        };
+        my $cmp_v= $class->VERSION;
 
-    eval "use $need_class; 1"
-    or do {
-        note("Could not locate $need_class for testing" . ($@ ? " (Exception: $@)" : ""));
-        return();
-    };
-    my $cmp_v = $need_class->VERSION;
-    if ($min_v and $cmp_v < $min_v) {
-        diag("Could not load correct version of $need_class for testing "
-             ."(got: $cmp_v, needed at least $min_v)");
-        return;
+        if ($min_v and $cmp_v < $min_v) {
+            diag("Could not load correct version of $class for testing "
+                 ."(got: $cmp_v, needed at least $min_v)");
+            return;
+        }
+
+        $cmp_v =~ s/_//;
+        $cmp_v = sprintf("%.2f", int($cmp_v*100)/100);
+        my %compat_versions = map {$_ => 1} $Class->_test_compat();
+        if (not defined $cmp_v or not exists $compat_versions{$cmp_v}) {
+            diag("Could not load correct version of $class for testing "
+                 ."(got: $cmp_v, needed any of ".join(", ", keys %compat_versions).")");
+            return();
+        }
     }
-    $cmp_v =~ s/_//;
-    $cmp_v = sprintf("%.2f", int($cmp_v*100)/100);
-    my %compat_versions = map {$_ => 1} $Class->_test_compat();
-    if (not defined $cmp_v or not exists $compat_versions{$cmp_v}) {
-        diag("Could not load correct version of $need_class for testing "
-             ."(got: $cmp_v, needed any of ".join(", ", keys %compat_versions).")");
-        return();
-    }
+
     return 1;
 }
 
