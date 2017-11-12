@@ -5,6 +5,10 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 4 of the *
 *          encoder!                                            *
 ****************************************************************
+4.004 Sun Nov 12
+    * Fix build issues from C++ style comments
+    * Fixup build_requires
+
 4.003 Sun Nov 12
     * Fixup Devel::CheckLib usage
     * Do not compress using Snappy if the buffer is larger 2**32
