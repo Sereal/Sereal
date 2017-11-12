@@ -40,6 +40,10 @@ inc/Devel/CheckLib.pm
 snappy
 t/700_roundtrip
 t/004_testset.t
+t/002_have_enc_and_dec.t
+t/005_flags.t
+zstd/
+
 .gdb_history
 inc
 miniz.c

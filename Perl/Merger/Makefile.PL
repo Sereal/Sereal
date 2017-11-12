@@ -61,6 +61,8 @@ inc::Sereal::BuildTools::WriteMakefile(
     BUILD_REQUIRES => {
         'File::Find' => 0,
         'File::Path' => 0,
+        'Sereal::Encoder' => '4.000',
+        'Sereal::Decoder' => '4.000',
         'ExtUtils::ParseXS' => '2.21',
     },
     CONFIGURE_REQUIRES => {
