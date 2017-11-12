@@ -73,7 +73,7 @@ inc::Sereal::BuildTools::WriteMakefile(
         'Test::Deep' => '0',
         'Test::Differences' => '0',
         'Data::Dumper' => '0',
-        'Sereal::Decoder' => '4.02',
+        'Sereal::Decoder' => '4.002',
     },
     BUILD_REQUIRES => {
         'File::Find' => 0,
