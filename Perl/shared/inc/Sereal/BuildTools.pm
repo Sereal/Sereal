@@ -1,4 +1,5 @@
-package inc::Sereal::BuildTools;
+package #
+inc::Sereal::BuildTools;
 use strict;
 use warnings;
 
