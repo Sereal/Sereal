@@ -55,7 +55,7 @@ extern "C" {
  * This is a dirty hack, snappy/csnappy_decompress.c will be included by srl_decoder.c
  * Also, read comments in srl_reader_decompress.h
  * */
-// #include "snappy/csnappy_decompress.c"
+/* #include "snappy/csnappy_decompress.c" */
 #endif
 
 #include "srl_common.h"
@@ -216,7 +216,7 @@ srl_debug_tabulator(pTHX_ srl_iterator_t *iter)
     static char buf[1024];
     for (; i < SRL_STACK_DEPTH(iter->pstack); ++i) buf[i] = '+';
     buf[i] = '\0';
-    return (const char *) buf; // XXX
+    return (const char *) buf; /* XXX */
 }
 
 srl_iterator_t *
@@ -256,7 +256,7 @@ srl_init_iterator(pTHX_ srl_iterator_t *iter, HV *opt)
 void
 srl_shallow_copy_iterator(pTHX_ srl_iterator_t *from, srl_iterator_t *to)
 {
-    srl_iterator_t *iter = from; // for SRL_ITER_TRACE
+    srl_iterator_t *iter = from; /* for SRL_ITER_TRACE */
     assert(from != NULL);
     assert(to != NULL);
     SRL_ITER_TRACE("from=%p to=%p", from, to);
@@ -266,8 +266,8 @@ srl_shallow_copy_iterator(pTHX_ srl_iterator_t *from, srl_iterator_t *to)
 
     /* it's assumed that buf holds buffer owned by sv */
     to->document = from->document;
-    if (to->document) SvREFCNT_inc(to->document);       // shallow document copy
-    Copy(&from->buf, &to->buf, 1, srl_reader_buffer_t); // shallow buffer copy
+    if (to->document) SvREFCNT_inc(to->document);       /* shallow document copy */
+    Copy(&from->buf, &to->buf, 1, srl_reader_buffer_t); /* shallow buffer copy */
 
     to->pstack = &to->stack;
     to->pbuf = &to->buf;
@@ -338,7 +338,7 @@ srl_iterator_set(pTHX_ srl_iterator_t *iter, SV *src)
         SRL_RDR_ERRORf1(iter->pbuf, "Unsupported Sereal protocol version %u", (unsigned int) protocol_version);
     }
 
-    // skip header in any case
+    /* skip header in any case */
     header_len = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading header");
     iter->buf.pos += header_len;
 
@@ -379,7 +379,7 @@ srl_iterator_reset(pTHX_ srl_iterator_t *iter)
     srl_stack_t *stack = iter->pstack;
 
     while (!SRL_ITER_STACK_ON_ROOT(stack)) {
-        srl_stack_pop(stack); // does empty check internally
+        srl_stack_pop(stack); /* does empty check internally */
     }
 
     srl_iterator_rewind(aTHX_ iter, 0);
@@ -399,7 +399,7 @@ srl_iterator_unite(pTHX_ srl_iterator_t *iter)
     }
 
     offset = stack->ptr->first;
-    srl_stack_pop(stack); // remove SRL_ITER_STACK_ROOT_TAG
+    srl_stack_pop(stack); /* remove SRL_ITER_STACK_ROOT_TAG */
 
     SRL_ITER_ASSERT_STACK(iter);
     iter->buf.pos = iter->buf.body_pos + offset;
@@ -419,12 +419,12 @@ srl_iterator_disjoin(pTHX_ srl_iterator_t *iter)
     SRL_ITER_TRACE_WITH_POSITION("before disjoin");
     SRL_ITER_REPORT_STACK_STATE(iter);
 
-    // This record apart of being a boundary stores offset to idx's tag (i.e
-    // current tag). By default stack keeps offset to tag's starting point
-    // (i.e. continer located in the buf).
+    /* This record apart of being a boundary stores offset to idx's tag (i.e */
+    /* current tag). By default stack keeps offset to tag's starting point */
+    /* (i.e. continer located in the buf). */
 
     srl_stack_push_ptr(iter->pstack, stack_ptr);
-    stack_ptr->first= SRL_RDR_BODY_POS_OFS(iter->pbuf); // disjoint point
+    stack_ptr->first= SRL_RDR_BODY_POS_OFS(iter->pbuf); /* disjoint point */
     stack_ptr->tag = SRL_ITER_STACK_ROOT_TAG;
     stack_ptr->length = 1;
     stack_ptr->idx = 0;
@@ -530,7 +530,7 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
                     case SRL_HDR_BINARY:
                     case SRL_HDR_STR_UTF8:
                         length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading BINARY or STR_UTF8");
-                        iter->buf.pos += length; // TODO assert length
+                        iter->buf.pos += length; /* TODO assert length */
                         break;
 
                     case SRL_HDR_COPY:
@@ -541,7 +541,7 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
                     case SRL_HDR_ALIAS: {
                         int is_ref = 0;
                         offset = srl_iterator_read_alias(aTHX_ iter, &is_ref, &tag, &length);
-                        // offset points to end of ALIAS + varint
+                        /* offset points to end of ALIAS + varint */
                         if (is_ref) {
                             stack_ptr->end = offset;
                             srl_stack_push_and_set(iter, tag, length, stack_ptr);
@@ -610,8 +610,8 @@ srl_iterator_step_out(pTHX_ srl_iterator_t *iter, UV n)
     if (expect_false(n == 0)) return;
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
-    // step_out can we execute we all elements
-    // are parsed on current stack level
+    /* step_out can we execute we all elements */
+    /* are parsed on current stack level */
     SRL_ITER_ASSERT_STACK_NONSTRICT(iter);
 
     if (expect_false(expected_depth < 0)) {
@@ -655,11 +655,11 @@ srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n)
     SRL_ITER_ASSERT_STACK(iter);
 
     while (1) {
-        // wrapping stack
+        /* wrapping stack */
         srl_iterator_wrap_stack(aTHX_ iter, expected_depth);
         stack_ptr = iter->stack.ptr;
 
-        // checking conditions
+        /* checking conditions */
         if (iter->stack.depth == expected_depth) {
             if (n == 0) break;
             else n--;
@@ -804,9 +804,9 @@ srl_iterator_rewind(pTHX_ srl_iterator_t *iter, UV n)
     iter->stack.ptr->idx = 0;
     iter->buf.pos = iter->buf.body_pos + iter->stack.ptr->first;
 
-    // can't do strict checking here because
-    // if rewinding after parsing entire body is possible
-    // also if length == 0 check gives false positive
+    /* can't do strict checking here because */
+    /* if rewinding after parsing entire body is possible */
+    /* also if length == 0 check gives false positive */
     SRL_ITER_ASSERT_EOF_NONSTRICT(iter, "tag");
     SRL_ITER_ASSERT_STACK_NONSTRICT(iter);
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
@@ -828,7 +828,7 @@ srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
         srl_iterator_rewind(aTHX_ iter, 0);
     }
 
-    // srl_iterator_next garantee that we remans on current stack
+    /* srl_iterator_next garantee that we remans on current stack */
     srl_iterator_next(aTHX_ iter, nidx - stack_ptr->idx);
     assert(stack_ptr->idx == nidx);
 }
@@ -840,7 +840,7 @@ srl_iterator_array_exists(pTHX_ srl_iterator_t *iter, I32 idx)
     U32 length = iter->stack.ptr->length;
 
     SRL_ITER_ASSERT_STACK(iter);
-    /* SRL_ITER_ASSERT_ARRAY_ON_STACK(iter); */ // do not require array to be on stack
+    /* SRL_ITER_ASSERT_ARRAY_ON_STACK(iter); */ /* do not require array to be on stack */
     SRL_ITER_TRACE_WITH_POSITION("idx=%d", idx);
 
     nidx = srl_iterator_normalize_idx(aTHX_ idx, length);
@@ -886,7 +886,7 @@ srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN na
             return SRL_RDR_BODY_POS_OFS(iter->pbuf);
         }
 
-        // step over value, srl_iterator_next() remains on current stack
+        /* step over value, srl_iterator_next() remains on current stack */
         srl_iterator_next(aTHX_ iter, 1);
     }
 
@@ -935,7 +935,7 @@ read_again:
         case SRL_HDR_REFP:
             offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading REFP tag");
             iter->buf.pos = iter->buf.body_pos + offset;
-            // fallthrough
+            /* fallthrough */
 
         case SRL_HDR_REFN:
             type |= SRL_ITERATOR_INFO_REF_TO;
@@ -996,9 +996,9 @@ read_again:
     goto finally;
 
 read_object:
-    // we're here because blessed object is being parsed. type has
-    // SRL_ITERATOR_INFO_BLESSED bit set. Since one can only bless references
-    // in perl below switch expects only references.
+    /* we're here because blessed object is being parsed. type has */
+    /* SRL_ITERATOR_INFO_BLESSED bit set. Since one can only bless references */
+    /* in perl below switch expects only references. */
 
     SRL_ITER_ASSERT_EOF(iter, "serialized object");
     tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
@@ -1009,7 +1009,7 @@ read_object:
         case SRL_HDR_REFP:
             offset = srl_read_varint_uv_offset(aTHX_ iter->pbuf, " while reading REFP tag");
             iter->buf.pos = iter->buf.body_pos + offset;
-            // fallthrough
+            /* fallthrough */
 
         case SRL_HDR_REFN:
             type |= SRL_ITERATOR_INFO_REF_TO;
@@ -1055,7 +1055,7 @@ read_item:
         case SRL_HDR_OBJECTV_FREEZE:
         case SRL_HDR_OBJECT:
         case SRL_HDR_OBJECT_FREEZE:
-            // assuming that all objects are references
+            /* assuming that all objects are references */
             type |= SRL_ITERATOR_INFO_REF;
             break;
 
@@ -1102,13 +1102,13 @@ read_item:
     goto finally;
 
 read_ref:
-    // We're here because REFN or REFP tags are parsed. At this point type has
-    // SRL_ITERATOR_INFO_REF_TO bit set. Below switch statement handles following cases:
-    // * any reference tag => SRL_ITERATOR_INFO_REF
-    // * any object tag    => SRL_ITERATOR_INFO_REF (becase in perl you can only bless references)
-    // * HASH/ARRAY        => SRL_ITERATOR_INFO_HASH/ARRAY
-    // * any scalar        => SRL_ITERATOR_INFO_SCALAR
-    // * regexp            => SRL_HDR_REGEXP
+    /* We're here because REFN or REFP tags are parsed. At this point type has */
+    /* SRL_ITERATOR_INFO_REF_TO bit set. Below switch statement handles following cases: */
+    /* * any reference tag => SRL_ITERATOR_INFO_REF */
+    /* * any object tag    => SRL_ITERATOR_INFO_REF (becase in perl you can only bless references) */
+    /* * HASH/ARRAY        => SRL_ITERATOR_INFO_HASH/ARRAY */
+    /* * any scalar        => SRL_ITERATOR_INFO_SCALAR */
+    /* * regexp            => SRL_HDR_REGEXP */
 
     SRL_ITER_ASSERT_EOF(iter, "serialized object");
     tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
@@ -1127,7 +1127,7 @@ read_ref:
         case SRL_HDR_OBJECTV_FREEZE:
         case SRL_HDR_OBJECT:
         case SRL_HDR_OBJECT_FREEZE:
-            // assuming that all objects are references
+            /* assuming that all objects are references */
             type |= SRL_ITERATOR_INFO_REF;
             break;
 
@@ -1306,9 +1306,9 @@ srl_iterator_read_object(pTHX_ srl_iterator_t *iter, int is_objectv, U8 *tag_out
     SRL_ITER_ASSERT_EOF(iter, "object name");
 
     if (is_objectv) {
-        srl_skip_varint(aTHX_ iter->pbuf); // <OFFSET-VARINT>
+        srl_skip_varint(aTHX_ iter->pbuf); /* <OFFSET-VARINT> */
     } else {
-        srl_iterator_read_stringish(aTHX_ iter, NULL, NULL); // <STR-TAG>
+        srl_iterator_read_stringish(aTHX_ iter, NULL, NULL); /* <STR-TAG> */
     }
 
     tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
@@ -1411,7 +1411,7 @@ srl_iterator_read_stringish(pTHX_ srl_iterator_t *iter, const char **str_out, ST
             break;
 
         case SRL_HDR_STR_UTF8:
-            // TODO deal with UTF8
+            /* TODO deal with UTF8 */
             length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading STR_UTF8");
             break;
 
@@ -1435,7 +1435,7 @@ srl_iterator_read_stringish(pTHX_ srl_iterator_t *iter, const char **str_out, ST
                     break;
 
                 case SRL_HDR_STR_UTF8:
-                    // TODO deal with UTF8
+                    /* TODO deal with UTF8 */
                     length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading STR_UTF8");
                     break;
 
@@ -1453,7 +1453,7 @@ srl_iterator_read_stringish(pTHX_ srl_iterator_t *iter, const char **str_out, ST
     if (str_out) *str_out = (const char *) iter->buf.pos;
     if (str_length_out) *str_length_out = length;
 
-    // set new bouf position
+    /* set new bouf position */
     if (new_pos) iter->buf.pos = new_pos;
     else iter->buf.pos += length;
 }

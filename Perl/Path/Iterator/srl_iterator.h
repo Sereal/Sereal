@@ -11,11 +11,11 @@ typedef struct srl_iterator_stack   srl_iterator_stack_t;
 typedef struct srl_iterator_stack   * srl_iterator_stack_ptr;
 
 struct srl_iterator_stack {
-    U32 idx;        // index of current object [0..length)
-    U32 length;     // number of child objects
-    UV first;       // offset to first element
-    UV end;         // offset to end of this stack (i.e. offset after last
-                    // element. Not always set. Used only in REFP/ALIAS case
+    U32 idx;        /* index of current object [0..length) */
+    U32 length;     /* number of child objects */
+    UV first;       /* offset to first element */
+    UV end;         /* offset to end of this stack (i.e. offset after last */
+                    /* element. Not always set. Used only in REFP/ALIAS case */
     U8 tag;
 };
 
@@ -33,10 +33,10 @@ struct srl_iterator {
 };
 
 /* constructor/destructor */
-srl_iterator_t *srl_build_iterator_struct(pTHX_ HV *opt);    // allocate structure and initalize
-void srl_init_iterator(pTHX_ srl_iterator_t *iter, HV *opt); // initialize structure
-void srl_deinit_iterator(pTHX_ srl_iterator_t *iter);        // deinitalize structure without freeing it
-void srl_destroy_iterator(pTHX_ srl_iterator_t *iter);       // destroy structure and free it
+srl_iterator_t *srl_build_iterator_struct(pTHX_ HV *opt);    /* allocate structure and initalize */
+void srl_init_iterator(pTHX_ srl_iterator_t *iter, HV *opt); /* initialize structure */
+void srl_deinit_iterator(pTHX_ srl_iterator_t *iter);        /* deinitalize structure without freeing it */
+void srl_destroy_iterator(pTHX_ srl_iterator_t *iter);       /* destroy structure and free it */
 void srl_shallow_copy_iterator(pTHX_ srl_iterator_t *from, srl_iterator_t *to);
 
 /* Sereal document */
@@ -95,8 +95,8 @@ srl_iterator_normalize_idx(pTHX_ I32 idx, UV length)
 void srl_iterator_hash_key(pTHX_ srl_iterator_t *iter, const char **keyname, STRLEN *keyname_length_out);
 IV srl_iterator_hash_exists(pTHX_ srl_iterator_t *iter, const char *name, STRLEN name_len);
 
-SV * srl_iterator_decode(pTHX_ srl_iterator_t *iter); // return mortalized SV
-SV * srl_iterator_decode_and_next(pTHX_ srl_iterator_t *iter); // return mortalized SV
+SV * srl_iterator_decode(pTHX_ srl_iterator_t *iter); /* return mortalized SV */
+SV * srl_iterator_decode_and_next(pTHX_ srl_iterator_t *iter); /* return mortalized SV */
 
 #define SRL_ITER_NOT_FOUND (-1)
 
