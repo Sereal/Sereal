@@ -43,7 +43,7 @@ extern "C" {
 
 #include "srl_protocol.h"
 
-//#define SRL_SPLITTER_TRACE(msg, args...) warn((msg), args)
+/*#define SRL_SPLITTER_TRACE(msg, args...) warn((msg), args) */
 #define SRL_SPLITTER_TRACE(msg, args...)
 
 #include "srl_splitter.h"
@@ -304,7 +304,7 @@ void _parse_header(pTHX_ srl_splitter_t *splitter) {
     int is_snappy_encoded = 0;
     int is_snappyincr_encoded = 0;
 
-    // SRL_MAGIC_STRLEN + PROTOCOL_LENGTH + OPTIONAL-HEADER-SIZE(at least 1 byte) + DATA(at least 1 byte)
+    /* SRL_MAGIC_STRLEN + PROTOCOL_LENGTH + OPTIONAL-HEADER-SIZE(at least 1 byte) + DATA(at least 1 byte) */
     if (splitter->input_len < SRL_MAGIC_STRLEN + 1 + 1 + 1){
         croak("input Sereal string lacks data");
     } else if ( (high_magic_string = strncmp(splitter->input_str, SRL_MAGIC_STRING, SRL_MAGIC_STRLEN))
@@ -352,14 +352,14 @@ void _parse_header(pTHX_ srl_splitter_t *splitter) {
 
     SRL_SPLITTER_TRACE("header version is %hhu", version);
 
-    // move after protocol version
+    /* move after protocol version */
     splitter->pos += 1;
     
     header_len= _read_varint_uv_nocheck(splitter);
 
     SRL_SPLITTER_TRACE("header len is %lu", header_len);
 
-    //TODO: add code for processing the header
+    /*TODO: add code for processing the header */
     splitter->pos += header_len;
 
     if (version < 2) {
@@ -380,7 +380,7 @@ void _parse_header(pTHX_ srl_splitter_t *splitter) {
             compressed_len = splitter->input_len - (splitter->pos - splitter->input_str);
         }
         SRL_SPLITTER_TRACE("snappy compressed len %"UVuf, compressed_len);
-        // splitter->pos is now at start of compressed payload
+        /* splitter->pos is now at start of compressed payload */
 
         int snappy_header_len;
         char *old_pos;
@@ -394,7 +394,7 @@ void _parse_header(pTHX_ srl_splitter_t *splitter) {
             croak("invalid Snappy header in Snappy-compressed Sereal packet");
         }
 
-        // allocate a new SV for uncompressed data
+        /* allocate a new SV for uncompressed data */
         SvREFCNT_dec(splitter->input_sv);
         splitter->input_sv = newSVpvs("");
         new_input_str = SvGROW(splitter->input_sv, uncompressed_len);
@@ -420,7 +420,7 @@ void _parse_header(pTHX_ srl_splitter_t *splitter) {
         UV compressed_len = _read_varint_uv_nocheck(splitter);
         char * new_input_str;
 
-        // splitter->pos is now at start of compressed payload
+        /* splitter->pos is now at start of compressed payload */
         SRL_SPLITTER_TRACE("unzipping %s", "");
         SRL_SPLITTER_TRACE("compressed_len : %" UVuf, compressed_len);
         SRL_SPLITTER_TRACE("uncompressed_len : %" UVuf, uncompressed_len);
@@ -428,7 +428,7 @@ void _parse_header(pTHX_ srl_splitter_t *splitter) {
                  
         mz_ulong tmp = uncompressed_len;
 
-        // allocate a new SV for uncompressed data
+        /* allocate a new SV for uncompressed data */
         SvREFCNT_dec(splitter->input_sv);
         splitter->input_sv = newSVpvs("");
         new_input_str = SvGROW(splitter->input_sv, uncompressed_len);
