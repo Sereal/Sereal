@@ -63,7 +63,7 @@ srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
     buf->pos = b + header_len;
     buf->end = buf->pos + body_len;
 
-    //SRL_RDR_UPDATE_BODY_POS(buf); // XXX caller *MUST* call by himself/herself
+    /*SRL_RDR_UPDATE_BODY_POS(buf); // XXX caller *MUST* call by himself/herself */
     return b_sv;
 }
 

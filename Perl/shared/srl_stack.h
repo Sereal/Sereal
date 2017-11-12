@@ -39,7 +39,7 @@ typedef struct srl_stack srl_stack_t;
 typedef struct srl_stack * srl_stack_ptr;
 
 struct srl_stack {
-    IV depth; // benchmarking showed that calculating depth takes up to 5%, so we store it
+    IV depth; /* benchmarking showed that calculating depth takes up to 5%, so we store it */
     srl_stack_type_t *ptr, *begin, *end;
 };
 
