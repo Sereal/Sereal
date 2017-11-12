@@ -1008,6 +1008,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
     { /* Have some sort of compression */
         ptrdiff_t sereal_header_len;
         STRLEN uncompressed_body_length;
+        const STRLEN max_len = 1 << 32 - 1;
 
         /* Alas, have to write entire packet first since the header length
          * will determine offsets. */
@@ -1019,7 +1020,12 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
         assert(BUF_POS_OFS(&enc->buf) > sereal_header_len);
         uncompressed_body_length = BUF_POS_OFS(&enc->buf) - sereal_header_len;
 
-        if (uncompressed_body_length < (STRLEN)enc->compress_threshold) {
+        if ((uncompressed_body_length < (STRLEN)enc->compress_threshold) || uncompressed_body_length > max_len) {
+            if (uncompressed_body_length > max_len) {
+                /* we dont support SNAPPY on super long buffers, it has a 2**32 limit
+                 * and we currently don't support splitting things up. See Issue #88 */
+                warn("disabling SNAPPY compression as buffer is too large!");
+            }
             /* Don't bother with compression at all if we have less than $threshold bytes of payload */
             srl_reset_compression_header_flag(&enc->buf);
         }
