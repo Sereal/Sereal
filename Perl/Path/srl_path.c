@@ -181,12 +181,12 @@ srl_parse_next(pTHX_ srl_path_t *path, int expr_idx, SV *route)
     SRL_PATH_TRACE("expr_idx=%d", expr_idx);
 
     if (srl_iterator_eof(aTHX_ iter)) return;
-    if (expr_idx > av_len(path->expr)) { // scaned entiry expr
+    if (expr_idx > av_len(path->expr)) { /* scaned entiry expr */
         SV *res;
         print_route(route, "to decode");
         res = srl_iterator_decode(aTHX_ iter);
         SvREFCNT_inc(res);
-        av_push(path->results, res); // TODO store route if needed
+        av_push(path->results, res); /* TODO store route if needed */
         return;
     }
 
@@ -205,18 +205,18 @@ srl_parse_next_str(pTHX_ srl_path_t *path, int expr_idx, SV *route,
                    const char *str, STRLEN len)
 {
     STRLEN route_len = SvCUR(route);
-    sv_catpvf(route, ";%.*s", (int) len, str); // append parsed object to route
+    sv_catpvf(route, ";%.*s", (int) len, str); /* append parsed object to route */
     srl_parse_next(aTHX_ path, expr_idx, route);
-    SvCUR_set(route, route_len);  // restore original value
+    SvCUR_set(route, route_len);  /* restore original value */
 }
 
 SRL_STATIC_INLINE void
 srl_parse_next_int(pTHX_ srl_path_t *path, int expr_idx, SV *route, IV n)
 {
     STRLEN route_len = SvCUR(route);
-    sv_catpvf(route, ";[%"UVuf"]", n); // append parsed object to route
+    sv_catpvf(route, ";[%"UVuf"]", n); /* append parsed object to route */
     srl_parse_next(aTHX_ path, expr_idx, route);
-    SvCUR_set(route, route_len);  // restore original value
+    SvCUR_set(route, route_len);  /* restore original value */
 }
 
 SRL_STATIC_INLINE void
@@ -233,11 +233,11 @@ srl_parse_hash(pTHX_ srl_path_t *path, int expr_idx, SV *route)
     loc   = *av_fetch(path->expr, expr_idx, 0);
     loc_str = SvPV(loc, loc_len);
 
-    if (is_all(loc_str, loc_len)) {                                                     // *
+    if (is_all(loc_str, loc_len)) {                                                     /* * */
         srl_parse_hash_all(aTHX_ path, expr_idx, route);
-    } else if (is_list(loc_str, loc_len)) {                                             // [name1,name2]
+    } else if (is_list(loc_str, loc_len)) {                                             /* [name1,name2] */
         srl_parse_hash_list(aTHX_ path, expr_idx, route, loc_str, loc_len);
-    } else {                                                                            // name
+    } else {                                                                            /* name */
         srl_parse_hash_item(aTHX_ path, expr_idx, route, loc_str, loc_len);
     }
 }
@@ -318,13 +318,13 @@ srl_parse_array(pTHX_ srl_path_t *path, int expr_idx, SV *route)
     loc = *av_fetch(path->expr, expr_idx, 0);
     loc_str = SvPV(loc, loc_len);
 
-    if (is_all(loc_str, loc_len)) {                                                     // *
+    if (is_all(loc_str, loc_len)) {                                                     /* * */
         srl_parse_array_all(aTHX_ path, expr_idx, route);
-    } else if (is_number(loc_str, loc_len)) {                                           // [10]
+    } else if (is_number(loc_str, loc_len)) {                                           /* [10] */
         srl_parse_array_item(aTHX_ path, expr_idx, route, atoi(loc_str));
-    } else if (is_list(loc_str, loc_len)) {                                             // [0,1,2]
+    } else if (is_list(loc_str, loc_len)) {                                             /* [0,1,2] */
         srl_parse_array_list(aTHX_ path, expr_idx, route, loc_str, loc_len);
-    } else if (is_range(loc_str, loc_len, (int*) &range)) {                             // [start:stop:step]
+    } else if (is_range(loc_str, loc_len, (int*) &range)) {                             /* [start:stop:step] */
         srl_parse_array_range(aTHX_ path, expr_idx, route, (int*) &range);
     }
 }
@@ -484,7 +484,7 @@ is_range(const char *str, STRLEN len, int *out)
     }
 
     switch (ndel) {
-        case 2: // [start:stop:step]
+        case 2: /* [start:stop:step] */
             start_len = pos[0];
             stop_len = pos[1] - pos[0] - 1;
             step_len = len - pos[1] - 1;
@@ -501,14 +501,14 @@ is_range(const char *str, STRLEN len, int *out)
             ptr[pos[0]] = '\0';
             ptr[pos[1]] = '\0';
 
-            out[0] = start_len == 0 ? 0 : atoi(ptr);                        // start
-            out[1] = stop_len == 0 ? 0x7FFFFFFF : atoi(ptr+ pos[0] + 1);    // stop
-            out[2] = step_len == 0 ? 1 : atoi(ptr + pos[1] + 1);            // step
+            out[0] = start_len == 0 ? 0 : atoi(ptr);                        /* start */
+            out[1] = stop_len == 0 ? 0x7FFFFFFF : atoi(ptr+ pos[0] + 1);    /* stop */
+            out[2] = step_len == 0 ? 1 : atoi(ptr + pos[1] + 1);            /* step */
             free((void*) ptr);
 
             return out;
 
-        case 1: // [start:stop]
+        case 1: /* [start:stop] */
             start_len = pos[0];
             stop_len = len - pos[0] - 1;
             assert(start_len + stop_len + 1 == len);
@@ -522,8 +522,8 @@ is_range(const char *str, STRLEN len, int *out)
             ptr = strndup(str, len);
             ptr[pos[0]] = '\0';
 
-            out[0] = start_len == 0 ? 0 : atoi(ptr);                        // start
-            out[1] = stop_len == 0 ? 0x7FFFFFFF : atoi(ptr+ pos[0] + 1);    // stop
+            out[0] = start_len == 0 ? 0 : atoi(ptr);                        /* start */
+            out[1] = stop_len == 0 ? 0x7FFFFFFF : atoi(ptr+ pos[0] + 1);    /* stop */
             out[2] = 1;
             free((void*) ptr);
 
