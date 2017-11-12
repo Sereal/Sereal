@@ -2,6 +2,7 @@
 
 set -e
 
+cpanm Test::Deep
 cpanm Test::Differences
 cpanm Test::Exception
 cpanm Test::LongString

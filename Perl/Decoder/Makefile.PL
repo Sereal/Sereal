@@ -55,12 +55,13 @@ inc::Sereal::BuildTools::WriteMakefile(
         'meta-spec' => { version => 2 },
     },
     TEST_REQUIRES  => {
-        'Test::More' => 0.88,
-        'Scalar::Util' => 0,
-        'File::Spec' => 0,
-        'Test::Deep' => '0',
+        'Test::More' => '0.88',
+        'Scalar::Util' => '0',
+        'File::Spec' => '0',
         'Test::LongString' => '0',
         'Test::Warn' => '0',
+        'Test::Deep' => '0',
+        'Test::Differences' => '0',
         'Data::Dumper' => '0',
     },
     BUILD_REQUIRES => {
