@@ -157,16 +157,16 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
     /* Get estimated compressed payload length */
     if (is_incremental_snappy) {
         compressed_body_length = (size_t) csnappy_max_compressed_length(uncompressed_body_length);
-        compressed_body_length += SRL_MAX_VARINT_LENGTH; // will have to embed compressed packet length as varint
+        compressed_body_length += SRL_MAX_VARINT_LENGTH; /* will have to embed compressed packet length as varint */
     } else if (is_traditional_snappy) {
         compressed_body_length = (size_t) csnappy_max_compressed_length(uncompressed_body_length);
     } else if (is_zstd) {
         compressed_body_length = ZSTD_compressBound(uncompressed_body_length);
-        compressed_body_length += SRL_MAX_VARINT_LENGTH; // will have to embed compressed packet length as varint
+        compressed_body_length += SRL_MAX_VARINT_LENGTH; /* will have to embed compressed packet length as varint */
     } else {
         compressed_body_length = (size_t) mz_compressBound(uncompressed_body_length);
-        compressed_body_length += SRL_MAX_VARINT_LENGTH; // will have to embed uncommpressed packet length as varint
-        compressed_body_length += SRL_MAX_VARINT_LENGTH; // will have to embed compressed packet length as varint
+        compressed_body_length += SRL_MAX_VARINT_LENGTH; /* will have to embed uncommpressed packet length as varint */
+        compressed_body_length += SRL_MAX_VARINT_LENGTH; /* will have to embed compressed packet length as varint */
     }
 
     /* Back up old buffer and allocate new one with correct size */

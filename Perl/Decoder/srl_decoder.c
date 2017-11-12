@@ -1184,7 +1184,7 @@ srl_follow_objectv_reference(pTHX_ srl_decoder_t *dec, UV offset)
         SRL_RDR_ERROR(dec->pbuf, "Corrupted packed. Reference offset points forward!");
     }
 
-    SRL_ASSERT_REF_PTR_TABLES(dec); // init dec->ref_stashes and dec->ref_bless_av
+    SRL_ASSERT_REF_PTR_TABLES(dec); /* init dec->ref_stashes and dec->ref_bless_av */
 
     dec->buf.pos = new_pos;
     /* call srl_read_object() with read_class_name_only=1 */
@@ -1277,7 +1277,7 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
 
     if (expect_false( !dec->ref_bless_av )) {
 #ifdef FOLLOW_REFERENCES_IF_NOT_STASHED
-        SRL_ASSERT_REF_PTR_TABLES(dec); // init dec->ref_stashes and dec->ref_bless_av
+        SRL_ASSERT_REF_PTR_TABLES(dec); /* init dec->ref_stashes and dec->ref_bless_av */
 #else
         SRL_RDR_ERROR(dec->pbuf, "Corrupted packet. OBJECTV(_FREEZE) used without "
                       "preceding OBJECT(_FREEZE) to define classname");
