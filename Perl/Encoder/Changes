@@ -5,6 +5,14 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 4 of the *
 *          encoder!                                            *
 ****************************************************************
+4.003 Sun Nov 12
+    * Fixup Devel::CheckLib usage
+    * Do not compress using Snappy if the buffer is larger 2**32
+    * Build fixes
+
+4.002
+    * Full release of Zstandard compression support etc.
+
 4.001_001 Mon Feb  6 11:13:40 CEST 2017
     * Sereal v4 release with Zstandard compression support
       https://github.com/facebook/zstd
