@@ -271,7 +271,7 @@ STRTABLE_insert(STRTABLE_t *tbl, const unsigned char *str, U32 len, int *ok)
         }
     }
 
-    // didn't found record, tblent == NULL
+    /* didn't found record, tblent == NULL */
     assert(tblent == NULL);
 
     if (tbl->tbl_arena_next == tbl->tbl_arena_end) {
@@ -400,11 +400,11 @@ STRTABLE_purge(STRTABLE_t *tbl, UV offset)
     arena = tbl->tbl_arena;
     arena_start = &arena->array[0];
 
-    next = tbl->tbl_arena_next;     // pointer to next available for usage element
-    entry = next - 1;               // pointer to currently inspected element
+    next = tbl->tbl_arena_next;     /* pointer to next available for usage element */
+    entry = next - 1;               /* pointer to currently inspected element */
 
     while (entry->offset >= offset) {
-        //warn("entry->offset: %d", entry->offset);
+        /*warn("entry->offset: %d", entry->offset); */
 
         /* start of remove entry from hash buckets.
          * Hash buckets are single-linked lists,
@@ -433,34 +433,34 @@ STRTABLE_purge(STRTABLE_t *tbl, UV offset)
         /* end of remove entry from hash buckets */
 
         if (entry == arena_start) {
-            //warn("entry == arena_start");
+            /*warn("entry == arena_start"); */
 
-            // entry ptr reach start of arena.
-            // If there is no arenas - our table is empty,
-            // so, make first element in arena to be available
-            // for further allocations
+            /* entry ptr reach start of arena. */
+            /* If there is no arenas - our table is empty, */
+            /* so, make first element in arena to be available */
+            /* for further allocations */
             struct STRTABLE_arena * next_arena = arena->next;
             if (!next_arena) {
-                //warn("!next_arena");
+                /*warn("!next_arena"); */
                 next = entry;
                 break;
             }
 
-            // Otherwise, move entry pointer to last item in next arena
-            // Next iteration would free this arena and
-            // adjust next pointer accordingly.
-            // See comments for next if statemnt.
+            /* Otherwise, move entry pointer to last item in next arena */
+            /* Next iteration would free this arena and */
+            /* adjust next pointer accordingly. */
+            /* See comments for next if statemnt. */
             entry = next_arena->array + arena_size - 1;
             --next;
         } else if (next == arena_start) {
-            //warn("next == arena_start");
+            /*warn("next == arena_start"); */
  
-            // next pointer reached start of arena
-            // meaning this arena is not used any more.
-            // Free arena and move next to last element in next arena.
-            // It's not possible and arena->next is NULL here,
-            // because if so, we would already exit.
-            // See entry == arena_start
+            /* next pointer reached start of arena */
+            /* meaning this arena is not used any more. */
+            /* Free arena and move next to last element in next arena. */
+            /* It's not possible and arena->next is NULL here, */
+            /* because if so, we would already exit. */
+            /* See entry == arena_start */
             struct STRTABLE_arena *next_arena = arena->next;
             Safefree(arena);
 
