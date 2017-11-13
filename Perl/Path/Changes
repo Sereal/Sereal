@@ -3,6 +3,7 @@ Revision history for Perl extension Sereal-Path
 4.004 Nov 13 2017
   * fix Devel::CheckLib
   * convert C++ comments to C comments
+  * bump Sereal prereq version to 4.004
 
 4.003 Aug 15 2017
   * fix compilation on FreeBSD
