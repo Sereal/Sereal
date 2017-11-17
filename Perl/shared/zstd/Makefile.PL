@@ -2,6 +2,7 @@ use 5.008;
 
 use strict;
 use warnings;
+use Config;
 
 my @zstd_files = (
     glob('common/*.c'),
@@ -23,6 +24,7 @@ print $fh q{
 # This file is modified version (unnecessary parts are removed) of original
 # Makefile provided in zstd repository
 
+CC       = } . $Config{cc} . q{
 CPPFLAGS+= -I. -I./common -DXXH_NAMESPACE=ZSTD_
 CFLAGS  ?= -O3
 CFLAGS  += -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 \
