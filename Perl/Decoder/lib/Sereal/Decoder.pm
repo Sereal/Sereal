@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '4.004'; # Don't forget to update the TestCompat set for testing against installed encoders!
+our $VERSION = '4.005'; # Don't forget to update the TestCompat set for testing against installed encoders!
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 
 # not for public consumption, just for testing.
@@ -120,6 +120,7 @@ use constant #begin generated
 
 sub decode_from_file {
     my ($self, $file, )= @_; # pos 3 is "target var" if one is provided
+    $self= $self->new() unless ref $self;
     open my $fh, "<", $file
         or die "Failed to open '$file' for read: $!";
     my $buf= do{ local $/; <$fh> };
@@ -132,7 +133,7 @@ sub decode_from_file {
         }
         return @ret;
     }
-    return $self->decode($file, $_[2]);
+    return $self->decode($buf, $_[2]);
 }
 
 my $flags= sub {
@@ -447,6 +448,19 @@ following example is correct, as only the header is deserialized:
   my $count = $decoder->bytes_consumed;
   # $count is 0
 
+=head2 decode_from_file
+
+    Sereal::Decoder->decode_from_file($file);
+    $decoder->decode_from_file($file);
+
+Read and decode the file specified. If called in list context
+and incremental mode is enabled then decodes all packets
+contained in the file and returns a list, otherwise decodes
+the first (or only) packet in the file. Accepts an optinal
+"target" variable as a second argument.
+
+=head1 EXPORTABLE FUNCTIONS
+
 =head2 looks_like_sereal
 
 Performs some rudimentary check to determine if the argument
@@ -480,8 +494,6 @@ either C<=srl> for protocol version 1 and 2 or C<=\xF3rl> for protocol
 version 3 and later. This function checks that the magic string
 corresponds with the reported version number, as well as other
 checks, which may be enhanced in the future.
-
-=head1 EXPORTABLE FUNCTIONS
 
 =head2 sereal_decode_with_object
 

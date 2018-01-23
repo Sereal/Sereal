@@ -13,6 +13,11 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+4.005 Tues Jan 23, 2018
+    * Encoder: Document encode_to_file()
+    * Decoder: Document and fix decode_from_file()
+    * Sereal: fixup docs on write_file()/decode_file()
+
 4.004 Sun Nov 12
     * Fix build issues from C++ style comments
     * Fixup build_requires

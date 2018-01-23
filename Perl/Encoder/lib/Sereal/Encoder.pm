@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '4.004'; # Don't forget to update the TestCompat set for testing against installed decoders!
+our $VERSION = '4.005'; # Don't forget to update the TestCompat set for testing against installed decoders!
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 
 # not for public consumption, just for testing.
@@ -90,6 +90,7 @@ XSLoader::load('Sereal::Encoder', $XS_VERSION);
 
 sub encode_to_file {
     my ($self, $file, $struct, $append)= @_;
+    $self= $self->new() unless ref $self;
     my $mode= $append ? ">>" : ">";
     open my $fh, $mode, $file
         or die "Failed to open '$file' for " . ($append ? "append" : "write") . ": $!";
@@ -452,6 +453,16 @@ argument, optionally followed by a header data structure.
 A header is intended for embedding small amounts of meta data, such as routing
 information, in a document that allows users to avoid deserializing main body
 needlessly.
+
+=head2 encode_to_file
+
+    Sereal::Decoder->encode_to_file($file,$data,$append);
+    $encoder->encode_to_file($file,$data,$append);
+
+Encode the data specified and write it the named file.
+If $append is true then the written data is appended to any
+existing data, otherwise any existing data will be overwritten.
+Dies if any errors occur during writing the encoded data.
 
 =head1 EXPORTABLE FUNCTIONS
 

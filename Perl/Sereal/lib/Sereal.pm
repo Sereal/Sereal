@@ -2,10 +2,10 @@ package Sereal;
 use 5.008;
 use strict;
 use warnings;
-our $VERSION = '4.004';
+our $VERSION = '4.005';
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
-use Sereal::Encoder 4.004 qw(encode_sereal sereal_encode_with_object);
-use Sereal::Decoder 4.004 qw(
+use Sereal::Encoder 4.005 qw(encode_sereal sereal_encode_with_object);
+use Sereal::Decoder 4.005 qw(
     decode_sereal looks_like_sereal decode_sereal_with_header_data
     scalar_looks_like_sereal
     sereal_decode_with_object sereal_decode_with_header_with_object
@@ -21,8 +21,10 @@ our @EXPORT_OK = qw(
   get_sereal_encoder
   clear_sereal_object_cache
 
-  encode_sereal decode_sereal
-  write_sereal read_sereal
+  encode_sereal
+  decode_sereal
+  write_sereal
+  read_sereal
   looks_like_sereal
   sereal_encode_with_object
   sereal_decode_with_object
@@ -58,14 +60,14 @@ sub get_sereal_decoder {
     return $DECODERS{_key($opts)} ||= Sereal::Decoder->new($opts);
 }
 
-sub write_sereal {
+sub write_sereal_file {
     my ($file, $struct, $append, $opts)= @_;
-    get_sereal_encoder($opts)->write_to_file($file, $_[1], $append);
+    get_sereal_encoder($opts)->encode_to_file($file, $_[1], $append);
 }
 
-sub read_sereal {
+sub read_sereal_file {
     my ($file, $opts)= @_;
-    get_sereal_decoder($opts)->read_from_file($file,$_[2]);
+    get_sereal_decoder($opts)->decode_from_file($file,$_[2]);
 }
 
 1;
@@ -80,14 +82,29 @@ Sereal - Fast, compact, powerful binary (de-)serialization
 
 =head1 SYNOPSIS
 
-  use Sereal qw(encode_sereal decode_sereal
-                sereal_encode_with_object
-                sereal_decode_with_object
-                looks_like_sereal);
-  # Note: For performance reasons, you should prefer the OO interface,
-  #       or sereal_(en|de)code_with_object over the stateless
-  #       encode_sereal/decode_sereal functions.
-  #       See the Sereal::Performance documentation for details.
+    use Sereal qw(
+      get_sereal_decoder
+      get_sereal_encoder
+      clear_sereal_object_cache
+      encode_sereal
+      decode_sereal
+      write_sereal
+      read_sereal
+      looks_like_sereal
+      sereal_encode_with_object
+      sereal_decode_with_object
+      decode_sereal_with_header_data
+      scalar_looks_like_sereal
+      sereal_decode_with_header_with_object
+      sereal_decode_only_header_with_object
+      sereal_decode_only_header_with_offset_with_object
+      sereal_decode_with_header_and_offset_with_object
+      sereal_decode_with_offset_with_object
+    );
+    # Note: For performance reasons, you should prefer the OO interface,
+    #       or sereal_(en|de)code_with_object over the stateless
+    #       encode_sereal/decode_sereal functions.
+    #       See the Sereal::Performance documentation for details.
 
 =head1 DESCRIPTION
 
@@ -144,11 +161,11 @@ to this function.
 
 =head2 write_sereal($FILENAME,$STRUCT,$APPEND,$OPTS)
 
-Write a sereal packet to $FILENAME. See Sereal::Encoder::write_to_file().
+Write a sereal packet to $FILENAME. See Sereal::Encoder::encode_to_file().
 
 =head2 read_sereal($FILENAME,$OPTS)
 
-Read a sereal packet from a file. See Sereal::Decoder::read_from_file().
+Read a sereal packet from a file. See Sereal::Decoder::decode_from_file().
 
 =head1 BUGS, CONTACT AND SUPPORT
 
