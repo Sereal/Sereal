@@ -79,6 +79,7 @@ our @EXPORT_OK = qw(
   SRL_UNCOMPRESSED
   SRL_SNAPPY
   SRL_ZLIB
+  SRL_ZSTD
 );
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 # export by default if run from command line
