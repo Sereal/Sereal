@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '4.005'; # Don't forget to update the TestCompat set for testing against installed encoders!
+our $VERSION = '4.006'; # Don't forget to update the TestCompat set for testing against installed encoders!
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 
 # not for public consumption, just for testing.
@@ -133,7 +133,7 @@ sub decode_from_file {
         }
         return @ret;
     }
-    return $self->decode($buf, $_[2]);
+    return $self->decode($buf, @_ > 2 ? $_[2] : ());
 }
 
 my $flags= sub {

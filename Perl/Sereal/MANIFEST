@@ -12,6 +12,7 @@ t/003_basic.t
 t/003_ptable.t
 t/004_testset.t
 t/005_flags.t
+t/006_sereal_file.t
 t/010_desperate.t
 t/011_aliased_dedupe.t
 t/020_incremental.t

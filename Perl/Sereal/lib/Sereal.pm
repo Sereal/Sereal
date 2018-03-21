@@ -2,10 +2,10 @@ package Sereal;
 use 5.008;
 use strict;
 use warnings;
-our $VERSION = '4.005';
+our $VERSION = '4.006';
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
-use Sereal::Encoder 4.005 qw(encode_sereal sereal_encode_with_object);
-use Sereal::Decoder 4.005 qw(
+use Sereal::Encoder 4.006 qw(encode_sereal sereal_encode_with_object);
+use Sereal::Decoder 4.006 qw(
     decode_sereal looks_like_sereal decode_sereal_with_header_data
     scalar_looks_like_sereal
     sereal_decode_with_object sereal_decode_with_header_with_object
@@ -23,8 +23,8 @@ our @EXPORT_OK = qw(
 
   encode_sereal
   decode_sereal
-  write_sereal
-  read_sereal
+  write_sereal_file
+  read_sereal_file
   looks_like_sereal
   sereal_encode_with_object
   sereal_decode_with_object
@@ -67,7 +67,7 @@ sub write_sereal_file {
 
 sub read_sereal_file {
     my ($file, $opts)= @_;
-    get_sereal_decoder($opts)->decode_from_file($file,$_[2]);
+    get_sereal_decoder($opts)->decode_from_file($file,@_ > 2 ? $_[2] : ());
 }
 
 1;
@@ -159,11 +159,11 @@ to this function.
 Returns a Sereal::Decoder with the given options. This encoder will be shared by other calls
 to this function.
 
-=head2 write_sereal($FILENAME,$STRUCT,$APPEND,$OPTS)
+=head2 write_sereal_file($FILENAME,$STRUCT,$APPEND,$OPTS)
 
 Write a sereal packet to $FILENAME. See Sereal::Encoder::encode_to_file().
 
-=head2 read_sereal($FILENAME,$OPTS)
+=head2 read_sereal_file($FILENAME,$OPTS,$ROOT)
 
 Read a sereal packet from a file. See Sereal::Decoder::decode_from_file().
 
