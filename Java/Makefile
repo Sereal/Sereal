@@ -40,4 +40,7 @@ test_dir/COMPRESS_$(CORPUS_COMPRESS):
 maven.classpath:
 	mvn -q -Dmdep.outputFile=maven.classpath dependency:build-classpath
 
+clean:
+	mvn clean
+
 .PHONY: test_all test compat
