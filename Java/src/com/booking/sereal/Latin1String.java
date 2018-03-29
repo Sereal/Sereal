@@ -56,8 +56,18 @@ public class Latin1String implements CharSequence {
 
 	@Override
 	public boolean equals(Object o) {
-		if (o == null || !(o instanceof Latin1String))
+		if (this == o) {
+			return true;
+		}
+		if (o == null) {
 			return false;
+		}
+		if (this.hashCode() != o.hashCode()) {
+			return false;
+		}
+		if (!this.getClass().equals(o.getClass())) {
+			return false;
+		}
 
 		return Arrays.equals(this.bytes, ((Latin1String) o).bytes);
 	}
