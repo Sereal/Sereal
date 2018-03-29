@@ -8,6 +8,8 @@ test_all: test compat
 test: test_dir
 	-go test $(TAGS)
 
+check: test
+
 compat: test_dir
 	-rm -f test_dir/test_data_*-go.out
 	-rm -f test_freeze/*-go.out

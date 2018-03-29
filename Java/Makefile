@@ -6,6 +6,8 @@ test_all: test compat
 test: test_dir
 	mvn test
 
+check: test
+
 compat: test_dir maven.classpath
 	mvn test-compile
 	-rm -f test_dir/test_data_*-java.out
