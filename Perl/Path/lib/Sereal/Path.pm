@@ -84,7 +84,7 @@ please use appropriate link above.
   my $sp = Sereal::Path->new(encode_sereal($data));
   
   # $result will contain { foo => 'bar' }
-  my $result = sp->traverse('$[0]');
+  my $result = $sp->traverse('$[0]');
 
   # $result1 will contain [ 'bar', 'barbar' ]
   my $result1 = $sp->traverse('$[*][foo]');
