@@ -65,6 +65,12 @@ class SrlDecoder(object):
         elif tag == const.SRL_TYPE_FLOAT:
             return self.reader.read_float()
 
+        elif tag == const.SRL_TYPE_VARINT:
+            return self.reader.read_varint()
+
+        elif tag == const.SRL_TYPE_UNDEF:
+            return None
+
         elif (tag == const.SRL_TYPE_BINARY):
             return self._decode_binary(tag)
 
