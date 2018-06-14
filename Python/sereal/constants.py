@@ -6,7 +6,9 @@ SRL_SHORT_BINARY_LEN                = 31
 
 SRL_TYPE_POS_0                      = 0
 SRL_NEG_16                          = 16
+SRL_TYPE_VARINT                     = 32
 SRL_TYPE_FLOAT                      = 34
+SRL_TYPE_UNDEF                      = 37
 SRL_TYPE_BINARY                     = 38
 SRL_TYPE_REFN                       = 40
 SRL_TYPE_REFP                       = 41
