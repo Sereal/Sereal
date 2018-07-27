@@ -457,7 +457,7 @@ needlessly.
 
 =head2 encode_to_file
 
-    Sereal::Decoder->encode_to_file($file,$data,$append);
+    Sereal::Encoder->encode_to_file($file,$data,$append);
     $encoder->encode_to_file($file,$data,$append);
 
 Encode the data specified and write it the named file.
