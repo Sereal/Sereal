@@ -8,7 +8,6 @@ public class DecoderOptions {
   private boolean refuseSnappy = false;
   private boolean refuseObjects = false;
   private boolean stripObjects = false;
-  private boolean forceJavaStringObjects = false;
 
   private TypeMapper typeMapper = new DefaultTypeMapper();
 
@@ -40,10 +39,6 @@ public class DecoderOptions {
     return stripObjects;
   }
 
-  public boolean forceJavaStringObjects() {
-    return forceJavaStringObjects;
-  }
-
   public TypeMapper typeMapper() {
     return typeMapper;
   }
@@ -56,12 +51,6 @@ public class DecoderOptions {
 
   public DecoderOptions perlAliases(boolean perlAliases) {
     this.perlAlias = perlAliases;
-
-    return this;
-  }
-
-  public DecoderOptions forceJavaStringObjects(boolean forceJavaStringObjects) {
-    this.forceJavaStringObjects = forceJavaStringObjects;
 
     return this;
   }
