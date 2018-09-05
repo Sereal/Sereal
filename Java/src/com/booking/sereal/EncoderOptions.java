@@ -8,6 +8,7 @@ public class EncoderOptions {
 		ZSTD,
 	}
 
+
 	private boolean perlRefs = false;
 	private boolean perlAlias = false;
 	private int protocolVersion = 4;

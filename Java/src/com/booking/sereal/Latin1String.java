@@ -6,16 +6,17 @@ import java.util.Arrays;
 public class Latin1String implements CharSequence {
 	private final static Charset charset_latin1 = Charset.forName( "ISO-8859-1" );
 	private final byte[] bytes;
-	private Integer hashcode;
+	private boolean hashCodeSet = false;
+	private int hashcode;
 
 	public Latin1String(String s) {
 		this.bytes = s.getBytes(charset_latin1);
-		this.hashcode = null;
+		this.hashCodeSet = false;
 	}
 
 	public Latin1String(byte[] bytes) {
 		this.bytes = bytes;
-		this.hashcode = null;
+		this.hashCodeSet = false;
 	}
 
 	@Override
@@ -25,10 +26,10 @@ public class Latin1String implements CharSequence {
 
 	@Override
 	public int hashCode() {
-		if (hashcode == null) {
-			hashcode = new Integer(Arrays.hashCode(bytes));
+		if (!hashCodeSet) {
+			hashcode = Arrays.hashCode(bytes);
 		}
-		return hashcode.intValue();
+		return hashcode;
 	}
 
 	@Override
