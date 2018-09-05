@@ -1,92 +1,104 @@
 package com.booking.sereal;
 
 public class DecoderOptions {
-	private boolean perlRefs = false;
-	private boolean perlAlias = false;
-	private boolean preserveUndef = false;
-	private boolean preferLatin1 = false;
-	private boolean refuseSnappy = false;
-	private boolean refuseObjects = false;
-	private boolean stripObjects = false;
-	private TypeMapper typeMapper = new DefaultTypeMapper();
+  private boolean perlRefs = false;
+  private boolean perlAlias = false;
+  private boolean preserveUndef = false;
+  private boolean preferLatin1 = false;
+  private boolean refuseSnappy = false;
+  private boolean refuseObjects = false;
+  private boolean stripObjects = false;
+  private boolean forceJavaStringObjects = false;
 
-	public boolean perlReferences() {
-		return perlRefs;
-	}
+  private TypeMapper typeMapper = new DefaultTypeMapper();
 
-	public boolean perlAliases() {
-		return perlAlias;
-	}
+  public boolean perlReferences() {
+    return perlRefs;
+  }
 
-	public boolean preserveUndef() {
-		return preserveUndef;
-	}
+  public boolean perlAliases() {
+    return perlAlias;
+  }
 
-	public boolean preferLatin1() {
-		return preferLatin1;
-	}
+  public boolean preserveUndef() {
+    return preserveUndef;
+  }
 
-	public boolean refuseSnappy() {
-		return refuseSnappy;
-	}
+  public boolean preferLatin1() {
+    return preferLatin1;
+  }
 
-	public boolean refuseObjects() {
-		return refuseObjects;
-	}
+  public boolean refuseSnappy() {
+    return refuseSnappy;
+  }
 
-	public boolean stripObjects() {
-		return stripObjects;
-	}
+  public boolean refuseObjects() {
+    return refuseObjects;
+  }
 
-	public TypeMapper typeMapper() {
-		return typeMapper;
-	}
+  public boolean stripObjects() {
+    return stripObjects;
+  }
 
-	public DecoderOptions perlReferences(boolean perlReferences) {
-		this.perlRefs = perlReferences;
+  public boolean forceJavaStringObjects() {
+    return forceJavaStringObjects;
+  }
 
-		return this;
-	}
+  public TypeMapper typeMapper() {
+    return typeMapper;
+  }
 
-	public DecoderOptions perlAliases(boolean perlAliases) {
-		this.perlAlias = perlAliases;
+  public DecoderOptions perlReferences(boolean perlReferences) {
+    this.perlRefs = perlReferences;
 
-		return this;
-	}
+    return this;
+  }
 
-	public DecoderOptions preserveUndef(boolean preserveUndef) {
-		this.preserveUndef = preserveUndef;
+  public DecoderOptions perlAliases(boolean perlAliases) {
+    this.perlAlias = perlAliases;
 
-		return this;
-	}
+    return this;
+  }
 
-	public DecoderOptions preferLatin1(boolean preferLatin1) {
-		this.preferLatin1 = preferLatin1;
+  public DecoderOptions forceJavaStringObjects(boolean forceJavaStringObjects) {
+    this.forceJavaStringObjects = forceJavaStringObjects;
 
-		return this;
-	}
+    return this;
+  }
 
-	public DecoderOptions refuseSnappy(boolean refuseSnappy) {
-		this.refuseSnappy = refuseSnappy;
+  public DecoderOptions preserveUndef(boolean preserveUndef) {
+    this.preserveUndef = preserveUndef;
 
-		return this;
-	}
+    return this;
+  }
 
-	public DecoderOptions refuseObjects(boolean refuseObjects) {
-		this.refuseObjects = refuseObjects;
+  public DecoderOptions preferLatin1(boolean preferLatin1) {
+    this.preferLatin1 = preferLatin1;
 
-		return this;
-	}
+    return this;
+  }
 
-	public DecoderOptions stripObjects(boolean stripObjects) {
-		this.stripObjects = stripObjects;
+  public DecoderOptions refuseSnappy(boolean refuseSnappy) {
+    this.refuseSnappy = refuseSnappy;
 
-		return this;
-	}
+    return this;
+  }
 
-	public DecoderOptions typeMapper(TypeMapper typeMapper) {
-		this.typeMapper = typeMapper;
+  public DecoderOptions refuseObjects(boolean refuseObjects) {
+    this.refuseObjects = refuseObjects;
 
-		return this;
-	}
+    return this;
+  }
+
+  public DecoderOptions stripObjects(boolean stripObjects) {
+    this.stripObjects = stripObjects;
+
+    return this;
+  }
+
+  public DecoderOptions typeMapper(TypeMapper typeMapper) {
+    this.typeMapper = typeMapper;
+
+    return this;
+  }
 }

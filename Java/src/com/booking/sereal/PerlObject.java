@@ -10,31 +10,31 @@ import java.util.Map;
  */
 public class PerlObject {
 
-	private String name;
-	private final Object data;
+  private final Object data;
+  private String name;
 
-	public PerlObject(String className, Object obj) {
-		this.name = className;
-		this.data = obj;
-	}
+  public PerlObject(String className, Object obj) {
+    this.name = className;
+    this.data = obj;
+  }
 
-	public String getName() {
-		return name;
-	}
+  public String getName() {
+    return name;
+  }
 
-	public boolean isHash() {
-		return getData() instanceof Map;
-	}
+  public boolean isHash() {
+    return getData() instanceof Map;
+  }
 
-	public boolean isArray() {
-		return getData().getClass().isArray();
-	}
+  public boolean isArray() {
+    return getData().getClass().isArray();
+  }
 
-	public boolean isReference() {
-		return !isHash() && !isArray();
-	}
+  public boolean isReference() {
+    return !isHash() && !isArray();
+  }
 
-	public Object getData() {
-		return data;
-	}
+  public Object getData() {
+    return data;
+  }
 }
