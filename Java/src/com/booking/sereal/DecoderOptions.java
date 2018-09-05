@@ -8,7 +8,7 @@ public class DecoderOptions {
   private boolean refuseSnappy = false;
   private boolean refuseObjects = false;
   private boolean stripObjects = false;
-  private boolean forceJavaStringObjects = false;
+  private boolean forceJavaStringForByteArrayValues = false;
 
   private TypeMapper typeMapper = new DefaultTypeMapper();
 
@@ -40,8 +40,8 @@ public class DecoderOptions {
     return stripObjects;
   }
 
-  public boolean forceJavaStringObjects() {
-    return forceJavaStringObjects;
+  public boolean forceJavaStringForByteArrayValues() {
+    return forceJavaStringForByteArrayValues;
   }
 
   public TypeMapper typeMapper() {
@@ -60,8 +60,8 @@ public class DecoderOptions {
     return this;
   }
 
-  public DecoderOptions forceJavaStringObjects(boolean forceJavaStringObjects) {
-    this.forceJavaStringObjects = forceJavaStringObjects;
+  public DecoderOptions forceJavaStringForByteArrayValues(boolean forceJavaStringForByteArrayValues) {
+    this.forceJavaStringForByteArrayValues = forceJavaStringForByteArrayValues;
 
     return this;
   }

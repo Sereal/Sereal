@@ -25,6 +25,7 @@ public class Decoder implements SerealHeader {
   private final boolean preserveUndef;
   private final boolean refuseSnappy;
   private final boolean preferLatin1;
+  private final boolean forceJavaStringForByteArrayValues;
   private final boolean refuseObjects;
   private final boolean stripObjects;
   private final TypeMapper typeMapper;
@@ -52,6 +53,7 @@ public class Decoder implements SerealHeader {
     preserveUndef = options.preserveUndef();
     refuseSnappy = options.refuseSnappy();
     preferLatin1 = options.preferLatin1();
+    forceJavaStringForByteArrayValues = options.forceJavaStringForByteArrayValues();
     refuseObjects = options.refuseObjects();
     stripObjects = options.stripObjects();
     typeMapper = options.typeMapper();
@@ -411,7 +413,11 @@ public class Decoder implements SerealHeader {
       byte[] short_binary = read_short_binary(tag);
       if (debugTrace)
         trace("Read short binary: " + short_binary + " length " + short_binary.length);
-      out = preferLatin1 ? new Latin1String(short_binary) : short_binary;
+      if (forceJavaStringForByteArrayValues) {
+        out = new String(short_binary);
+      } else {
+        out = preferLatin1 ? new Latin1String(short_binary) : short_binary;
+      }
     } else if ((tag & SRL_HDR_HASHREF) == SRL_HDR_HASHREF) {
       Map<String, Object> hash = readMap(tag & 0xf, track);
       if (debugTrace) trace("Read hash: " + hash);
@@ -493,7 +499,11 @@ public class Decoder implements SerealHeader {
         case SRL_HDR_BINARY:
           byte[] bytes = read_binary();
           if (debugTrace) trace("Read binary: " + bytes);
-          out = preferLatin1 ? new Latin1String(bytes) : bytes;
+          if (forceJavaStringForByteArrayValues) {
+            out = new String(bytes);
+          } else {
+            out = preferLatin1 ? new Latin1String(bytes) : bytes;
+          }
           break;
         case SRL_HDR_STR_UTF8:
           String utf8 = read_UTF8();
