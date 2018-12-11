@@ -169,31 +169,7 @@ func (m *Merger) Append(b []byte) (int, error) {
 		bodyOffset: -1, // 1-based offsets
 	}
 
-	var decomp decompressor
-	switch docHeader.doctype {
-	case serealRaw:
-		// nothing
-
-	case serealSnappy:
-		if doc.version != 1 {
-			return 0, errors.New("snappy compression only valid for v1 documents")
-		}
-
-		decomp = SnappyCompressor{Incremental: false}
-
-	case serealSnappyIncremental:
-		decomp = SnappyCompressor{Incremental: true}
-
-	case serealZlib:
-		if doc.version < 3 {
-			return 0, errors.New("zlib compression only valid for v3 documents and up")
-		}
-
-		decomp = ZlibCompressor{}
-
-	default:
-		return 0, fmt.Errorf("document type '%d' not yet supported", docHeader.doctype)
-	}
+	decomp, err := documentDecompressor(docHeader.version, docHeader.doctype)
 
 	if decomp != nil {
 		if doc.buf, err = decomp.decompress(nil, doc.buf); err != nil {

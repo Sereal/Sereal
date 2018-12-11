@@ -108,6 +108,63 @@ func (d *Decoder) Unmarshal(b []byte, vbody interface{}) (err error) {
 	return d.UnmarshalHeaderBody(b, nil, vbody)
 }
 
+func checkHeader(b []byte) (serealHeader, error) {
+	header, err := readHeader(b)
+	if err != nil {
+		return header, err
+	}
+
+	switch header.version {
+	case 1:
+		break
+	case 2:
+		break
+	case 3:
+		break
+	case 4:
+		break
+	default:
+		return header, fmt.Errorf("document version '%d' not yet supported", header.version)
+	}
+
+	return header, nil
+}
+
+func documentDecompressor(version byte, doctype documentType) (decompressor, error) {
+	var decomp decompressor
+
+	switch doctype {
+	case serealRaw:
+		// nothing
+
+	case serealSnappy:
+		if version != 1 {
+			return nil, ErrBadSnappy
+		}
+		decomp = SnappyCompressor{Incremental: false}
+
+	case serealSnappyIncremental:
+		decomp = SnappyCompressor{Incremental: true}
+
+	case serealZlib:
+		if version < 3 {
+			return nil, ErrBadZlibV3
+		}
+		decomp = ZlibCompressor{}
+
+	case serealZstd:
+		if version < 4 {
+			return nil, ErrBadZstdV4
+		}
+		decomp = ZstdCompressor{}
+
+	default:
+		return nil, fmt.Errorf("document type '%d' not yet supported", doctype)
+	}
+
+	return decomp, nil
+}
+
 // UnmarshalHeaderBody parses the Sereal-encoded buffer b extracts the header and body data into vheader and vbody, respectively
 func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody interface{}) (err error) {
 	defer func() {
@@ -124,8 +181,12 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 		}
 	}()
 
-	header, err := readHeader(b)
+	header, err := checkHeader(b)
+	if err != nil {
+		return err
+	}
 
+	decomp, err := documentDecompressor(header.version, header.doctype)
 	if err != nil {
 		return err
 	}
@@ -134,50 +195,6 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 
 	if bodyStart > len(b) || bodyStart < 0 {
 		return ErrCorrupt{errBadOffset}
-	}
-
-	switch header.version {
-	case 1:
-		break
-	case 2:
-		break
-	case 3:
-		break
-	case 4:
-		break
-	default:
-		return fmt.Errorf("document version '%d' not yet supported", header.version)
-	}
-
-	var decomp decompressor
-
-	switch header.doctype {
-	case serealRaw:
-		// nothing
-
-	case serealSnappy:
-		if header.version != 1 {
-			return ErrBadSnappy
-		}
-		decomp = SnappyCompressor{Incremental: false}
-
-	case serealSnappyIncremental:
-		decomp = SnappyCompressor{Incremental: true}
-
-	case serealZlib:
-		if header.version < 3 {
-			return ErrBadZlibV3
-		}
-		decomp = ZlibCompressor{}
-
-	case serealZstd:
-		if header.version < 4 {
-			return ErrBadZstdV4
-		}
-		decomp = ZstdCompressor{}
-
-	default:
-		return fmt.Errorf("document type '%d' not yet supported", header.doctype)
 	}
 
 	if vheader != nil && header.suffixSize != 1 {
