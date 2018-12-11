@@ -62,6 +62,17 @@ func readHeader(b []byte) (serealHeader, error) {
 	return h, nil
 }
 
+// LooksLikeSereal perofrms a quick and rudimentary check whether the buffer contains a Sereal document
+func LooksLikeSereal(b []byte) bool {
+	if len(b) < 7 {
+		return false
+	}
+
+	_, err := readHeader(b)
+
+	return err != nil
+}
+
 // A Decoder reads and decodes Sereal objects from an input buffer
 type Decoder struct {
 	tracked   map[int]reflect.Value
