@@ -724,6 +724,18 @@ func TestPrepareFreezeRoundtrip(t *testing.T) {
 	}
 
 	now := time.Now()
+	// Marshal/Unmarshal does not preserve field equality, so just perform
+	// a marshal/unmarshal round-trip here before starting the test
+	{
+		b, err := now.MarshalBinary()
+		if err != nil {
+			t.Fatal("Failed to marshal time.Time")
+		}
+		err = now.UnmarshalBinary(b)
+		if err != nil {
+			t.Fatal("Failed to unmarshal time.Time")
+		}
+	}
 
 	type StructWithTime struct{ time.Time }
 
