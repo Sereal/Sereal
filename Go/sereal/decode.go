@@ -70,7 +70,7 @@ func LooksLikeSereal(b []byte) bool {
 
 	_, err := readHeader(b)
 
-	return err != nil
+	return err == nil
 }
 
 // A Decoder reads and decodes Sereal objects from an input buffer
