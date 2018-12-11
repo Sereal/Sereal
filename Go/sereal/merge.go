@@ -196,7 +196,7 @@ func (m *Merger) Append(b []byte) (int, error) {
 	}
 
 	if decomp != nil {
-		if doc.buf, err = decomp.decompress(doc.buf); err != nil {
+		if doc.buf, err = decomp.decompress(nil, doc.buf); err != nil {
 			return 0, err
 		}
 	}

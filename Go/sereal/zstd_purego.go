@@ -12,6 +12,6 @@ func zstdEncode(buf []byte, level int) ([]byte, error) {
 	return nil, errNoZstd
 }
 
-func zstdDecode(buf []byte) ([]byte, error) {
+func zstdDecode(d, buf []byte) ([]byte, error) {
 	return nil, errNoZstd
 }

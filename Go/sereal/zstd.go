@@ -41,7 +41,7 @@ func (c ZstdCompressor) compress(buf []byte) ([]byte, error) {
 	return head, nil
 }
 
-func (c ZstdCompressor) decompress(buf []byte) ([]byte, error) {
+func (c ZstdCompressor) decompress(d, buf []byte) ([]byte, error) {
 	// Read the claimed length of the compressed document
 	ln, sz, err := varintdecode(buf)
 	if err != nil {
@@ -54,5 +54,5 @@ func (c ZstdCompressor) decompress(buf []byte) ([]byte, error) {
 
 	buf = buf[sz : sz+ln]
 
-	return zstdDecode(buf)
+	return zstdDecode(d, buf)
 }

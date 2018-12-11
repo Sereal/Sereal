@@ -84,7 +84,7 @@ type Decoder struct {
 }
 
 type decompressor interface {
-	decompress(b []byte) ([]byte, error)
+	decompress(d, b []byte) ([]byte, error)
 }
 
 // NewDecoder returns a decoder with default flags
@@ -203,7 +203,7 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 		/* XXX instead of creating an uncompressed copy of the document,
 		 *     it would be more flexible to use a sort of "Reader" interface */
 		if decomp != nil {
-			decompBody, err := decomp.decompress(b[bodyStart:])
+			decompBody, err := decomp.decompress(nil, b[bodyStart:])
 			if err != nil {
 				return err
 			}

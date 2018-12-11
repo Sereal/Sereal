@@ -11,7 +11,7 @@ func zstdEncode(buf []byte, level int) ([]byte, error) {
 	return dst, err
 }
 
-func zstdDecode(buf []byte) ([]byte, error) {
-	dst, err := zstd.Decompress(nil, buf)
+func zstdDecode(d, buf []byte) ([]byte, error) {
+	dst, err := zstd.Decompress(d, buf)
 	return dst, err
 }

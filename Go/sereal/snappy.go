@@ -35,7 +35,7 @@ func (c SnappyCompressor) compress(b []byte) ([]byte, error) {
 	return b, nil
 }
 
-func (c SnappyCompressor) decompress(b []byte) ([]byte, error) {
+func (c SnappyCompressor) decompress(d, b []byte) ([]byte, error) {
 	if c.Incremental {
 		ln, sz, err := varintdecode(b)
 		if err != nil {
@@ -48,7 +48,7 @@ func (c SnappyCompressor) decompress(b []byte) ([]byte, error) {
 		b = b[sz : sz+ln]
 	}
 
-	decompressed, err := snappy.Decode(nil, b)
+	decompressed, err := snappy.Decode(d, b)
 	if err != nil {
 		return nil, err
 	}

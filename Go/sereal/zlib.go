@@ -43,7 +43,7 @@ func (c ZlibCompressor) compress(buf []byte) ([]byte, error) {
 	return append(head, tail...), nil
 }
 
-func (c ZlibCompressor) decompress(buf []byte) ([]byte, error) {
+func (c ZlibCompressor) decompress(d, buf []byte) ([]byte, error) {
 	// Read the claimed length of the uncompressed document
 	uln, usz, err := varintdecode(buf)
 	if err != nil {
