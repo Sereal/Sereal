@@ -1306,3 +1306,62 @@ func instantiateZero(typ reflect.Type) reflect.Value {
 	v := reflect.New(typ)
 	return v.Addr()
 }
+
+// DecompressDocument changes the compression type of a Sereal document without performing a full re-serialization
+//
+// One use case is to use this before decoding, to avoid the implicit allocation.
+func DecompressDocument(dst, b []byte) (r []byte, err error) {
+	header, err := checkHeader(b)
+	if err != nil {
+		return nil, err
+	}
+
+	decomp, err := documentDecompressor(header.version, header.doctype)
+	if err != nil {
+		return nil, err
+	}
+
+	bodyStart := headerSize + header.suffixSize
+
+	if bodyStart > len(b) || bodyStart < 0 {
+		return nil, ErrCorrupt{errBadOffset}
+	}
+
+	if decomp != nil {
+		var decompressInto []byte
+		if dst != nil && len(dst) >= len(b) {
+			decompressInto = dst[bodyStart:len(dst)]
+		} else {
+			decompressInto = nil
+		}
+
+		decompBody, err := decomp.decompress(decompressInto, b[bodyStart:])
+		if err != nil {
+			return nil, err
+		}
+
+		if len(dst) > 0 && hasSameBuffer(decompBody, dst) {
+			copy(dst[0:bodyStart], b[0:bodyStart])
+			dst = dst[0 : bodyStart+len(decompBody)]
+		} else {
+			dst = make([]byte, 0, bodyStart+len(decompBody))
+			dst = append(dst, b[0:bodyStart]...)
+			dst = append(dst, decompBody...)
+		}
+
+		// set type to 0 (not compressed)
+		dst[4] = dst[4] & 0x0f
+	} else {
+		dst = append(dst[:0], b...)
+	}
+
+	return dst, nil
+}
+
+// hasSameBuffer returns true if the two slices share the same array (it only works for slices with capacity > 0)
+func hasSameBuffer(a, b []byte) bool {
+	aCap, bCap := cap(a), cap(b)
+	aExt, bExt := a[:aCap], b[:bCap]
+
+	return &aExt[aCap-1] == &bExt[bCap-1]
+}
