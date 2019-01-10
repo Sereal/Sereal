@@ -61,7 +61,7 @@ A header consists of multiple components:
 A "magic string" that identifies a document as being in the Sereal format.
 In protocol version 1 and 2, the value of this string is "=srl",
 and when decoded as an unsigned 32 bit integer on a little endian machine
-has a value of 0x6C72733D. Vesion 1 and 2 of the protocol require this
+has a value of 0x6C72733D. Version 1 and 2 of the protocol require this
 magic string.
 
 In protocol version 3 and higher the magic string has been changed to
