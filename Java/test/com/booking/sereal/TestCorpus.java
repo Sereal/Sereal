@@ -6,6 +6,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.Assert;
@@ -163,6 +164,7 @@ public class TestCorpus {
 				return arg1.contains( "test_data_" );
 			}
 		} );
+		Arrays.sort(filenames);
 
 		for (String filename : filenames) {
 			boolean success = roundtrip(new File(test_dir, filename));
@@ -170,7 +172,6 @@ public class TestCorpus {
 				System.out.println( "Aborting after first error" );
 				return;
 			}
-
 		}
 		System.out.printf( "Decoded: %d/%d = %.2f%%\n", ok_dec, filenames.length, ((double) 100 * ok_dec / filenames.length) );
 		System.out.printf( "Encoded: %d/%d = %.2f%%\n", ok_enc, filenames.length, ((double) 100 * ok_enc / filenames.length) );
