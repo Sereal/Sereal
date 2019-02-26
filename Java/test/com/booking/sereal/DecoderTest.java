@@ -5,7 +5,9 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThat;
 
+import com.booking.sereal.EncoderOptions.CompressionType;
 import java.lang.ref.WeakReference;
+import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
 
@@ -44,5 +46,39 @@ public class DecoderTest {
     assertThat(first, instanceOf(PerlObject.class));
     assertThat(second, instanceOf(WeakReference.class));
     assertSame(((PerlObject) first).getData(), ((WeakReference) second).get());
+  }
+
+  @Test
+  public void ignoresTrailingData() throws SerealException {
+    testDecodeWithTrailing(new EncoderOptions());
+    testDecodeWithTrailing(
+      new EncoderOptions()
+        .compressionThreshold(1)
+        .compressionType(CompressionType.SNAPPY));
+    testDecodeWithTrailing(
+      new EncoderOptions()
+        .compressionThreshold(1)
+        .compressionType(CompressionType.ZLIB));
+    testDecodeWithTrailing(
+      new EncoderOptions()
+        .compressionThreshold(1)
+        .compressionType(CompressionType.ZSTD));
+  }
+
+  private void testDecodeWithTrailing(EncoderOptions options) throws SerealException {
+    String originalString = "abcddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
+    Encoder encoder = new Encoder(options);
+    Decoder decoder = new Decoder();
+
+    encoder.write(originalString);
+    byte[] originalData = encoder.getData();
+    byte[] trailData = Arrays.copyOf(originalData, originalData.length + 10);
+    System.arraycopy("XXXXXXXXXXXXXXX".getBytes(), 0, trailData, originalData.length, 10);
+
+    decoder.setData(originalData);
+    assertThat(decoder.decode(), equalTo(originalString));
+
+    decoder.setData(trailData);
+    assertThat(decoder.decode(), equalTo(originalString));
   }
 }

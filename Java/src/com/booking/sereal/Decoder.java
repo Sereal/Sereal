@@ -224,15 +224,15 @@ public class Decoder implements SerealHeader {
     byte[] uncompressed;
     try {
       if (!Snappy.isValidCompressedBuffer(
-          originalData.array, position, originalData.length - position))
+          originalData.array, position, len))
         throw new SerealException("Invalid snappy data");
       uncompressed =
           new byte
               [pos
                   + Snappy.uncompressedLength(
-                      originalData.array, position, originalData.length - position)];
+                      originalData.array, position, len)];
       Snappy.uncompress(
-          originalData.array, position, originalData.length - position, uncompressed, pos);
+          originalData.array, position, len, uncompressed, pos);
     } catch (IOException e) {
       throw new SerealException(e);
     }
@@ -247,7 +247,7 @@ public class Decoder implements SerealHeader {
 
     long uncompressedLength = read_varint();
     long compressedLength = read_varint();
-    inflater.setInput(originalData.array, position, originalData.length - position);
+    inflater.setInput(originalData.array, position, (int) compressedLength);
     byte[] uncompressed = new byte[(int) uncompressedLength];
     try {
       int inflatedSize = inflater.inflate(uncompressed);
@@ -262,8 +262,7 @@ public class Decoder implements SerealHeader {
   private void uncompressZstd() throws SerealException {
     int len = (int) read_varint();
 
-    byte[] compressedData =
-        Arrays.copyOfRange(originalData.array, position, originalData.array.length);
+    byte[] compressedData = Arrays.copyOfRange(originalData.array, position, position + len);
     long decompressedSize = Zstd.decompressedSize(compressedData);
     if (decompressedSize > Integer.MAX_VALUE)
       throw new SerealException("Decompressed size exceeds integer MAX_VALUE: " + decompressedSize);
