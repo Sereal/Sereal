@@ -49,7 +49,7 @@ print <<"EOF_TEXT";
 git commit -a -m'Release v$to - $reason' &&
 git tag Sereal-Decoder-$to -m'Release Sereal::Decoder version $to ($reason)' &&
 git tag Sereal-Encoder-$to -m'Release Sereal::Encoder version $to ($reason)' &&
-git tag Sereal-$to -m'Sereal v$to - Update encoder ($reason)' &&
+git tag Sereal-$to -m'Release Sereal version $to ($reason)' &&
 git push && git push --tags
 
 cpan-upload-http -verbose Encoder/Sereal-Encoder-$to.tar.gz Decoder/Sereal-Decoder-$to.tar.gz Sereal/Sereal-$to.tar.gz
