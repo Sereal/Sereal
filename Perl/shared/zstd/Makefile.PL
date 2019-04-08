@@ -41,12 +41,12 @@ CPPFLAGS  += -DZSTD_LEGACY_SUPPORT=0
 
 .PHONY: default all clean test test_dynamic
 
+all: lib
+
 test:
 test_dynamic:
 
 default: lib
-
-all: lib
 
 libzstd.o: $(ZSTD_FILES)
 	@echo compiling static library
