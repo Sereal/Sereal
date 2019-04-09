@@ -191,13 +191,13 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
         uint32_t len = (uint32_t) compressed_body_length;
         srl_init_snappy_workmem(aTHX_ workmem);
 
-        csnappy_compress((char*) old_buf.start + sereal_header_length, (uint32_t) uncompressed_body_length,
+        csnappy_compress((char*) (old_buf.start + sereal_header_length), (uint32_t) uncompressed_body_length,
                          (char*) buf->pos, &len, *workmem, CSNAPPY_WORKMEM_BYTES_POWER_OF_TWO);
 
         compressed_body_length = (size_t) len;
     } else if (is_zstd) {
         size_t code = ZSTD_compress((void*) buf->pos, compressed_body_length,
-                                    (void*) old_buf.start + sereal_header_length, uncompressed_body_length,
+                                    (void*) (old_buf.start + sereal_header_length), uncompressed_body_length,
                                     compress_level);
 
         assert(ZSTD_isError(code) == 0);
