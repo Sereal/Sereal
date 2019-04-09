@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '4.006'; # Don't forget to update the TestCompat set for testing against installed encoders!
+our $VERSION = '4.007'; # Don't forget to update the TestCompat set for testing against installed encoders!
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 
 # not for public consumption, just for testing.
@@ -15,9 +15,12 @@ sub _test_compat { return(@$TestCompat, $VERSION) }
 
 use Exporter 'import';
 our @EXPORT_OK = qw(
-    decode_sereal looks_like_sereal decode_sereal_with_header_data
+    decode_sereal
+    looks_like_sereal
+    decode_sereal_with_header_data
     scalar_looks_like_sereal
-    sereal_decode_with_object sereal_decode_with_header_with_object
+    sereal_decode_with_object
+    sereal_decode_with_header_with_object
     sereal_decode_only_header_with_object
     sereal_decode_only_header_with_offset_with_object
     sereal_decode_with_header_and_offset_with_object
@@ -459,8 +462,6 @@ contained in the file and returns a list, otherwise decodes
 the first (or only) packet in the file. Accepts an optinal
 "target" variable as a second argument.
 
-=head1 EXPORTABLE FUNCTIONS
-
 =head2 looks_like_sereal
 
 Performs some rudimentary check to determine if the argument
@@ -469,7 +470,7 @@ comprehensive and a true result does not mean that the document
 is valid, merely that it appears to be valid. On the other hand
 a false result is always reliable.
 
-The return of this function may be treated as a simple boolean but
+The return of this method may be treated as a simple boolean but
 is in fact a more complex return. When the argument does not
 look anything like a Sereal document then the return is perl's FALSE,
 which has the property of being string equivalent to "" and
@@ -480,7 +481,7 @@ it returns 0 (the number, which is string equivalent to "0"), and
 otherwise returns the protocol version of the document. This means
 you can write something like this:
 
-    $type= looks_like_sereal($thing);
+    $type= Sereal::Decoder->looks_like_sereal($thing);
     if ($type eq '') {
         say "Not a Sereal document";
     } elsif ($type eq '0') {
@@ -494,6 +495,13 @@ either C<=srl> for protocol version 1 and 2 or C<=\xF3rl> for protocol
 version 3 and later. This function checks that the magic string
 corresponds with the reported version number, as well as other
 checks, which may be enhanced in the future.
+
+Note that looks_like_sereal() may be called as a class or object method,
+and may also be called as a single argument function. See the related
+scalar_looks_like_sereal() for a version which may ONLY be called as a
+function, not as a method (and which is typically much faster).
+
+=head1 EXPORTABLE FUNCTIONS
 
 =head2 sereal_decode_with_object
 
@@ -603,6 +611,10 @@ it cannot reuse the decoder object.
 =head2 scalar_looks_like_sereal
 
 The functional interface that is equivalent to using C<looks_like_sereal>.
+
+Note that this version cannot be called as a method. It is normally executed
+as a custom opcode, as such errors about its usage may be caught at compile
+time, and it should be much faster than looks_like_sereal.
 
 =head1 ROBUSTNESS
 

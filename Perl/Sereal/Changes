@@ -13,10 +13,19 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+4.007 Tues Apr 9, 2019
+    * Sereal: restore write_sereal(), read_sereal() as aliases to write_sereal_file()
+      and read_sereal_file(). Better tests for exported subs. Add SRL_UNCOMPRESSED,
+      SRL_SNAPPY, SRL_ZLIB, SRL_ZSTD exports.
+    * Decoder: tweak docs for looks_like_sereal/scalar_looks_like_sereal
+
+4.006 Mon Apr 8, 2019
+    * Sereal: fix read_sereal_file(),
+
 4.005 Tues Jan 23, 2018
     * Encoder: Document encode_to_file()
     * Decoder: Document and fix decode_from_file()
-    * Sereal: fixup docs on write_file()/decode_file()
+    * Sereal: fixup docs on write_sereal_file()/read_sereal_file()
 
 4.004 Sun Nov 12
     * Fix build issues from C++ style comments

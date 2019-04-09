@@ -2,13 +2,23 @@ package Sereal;
 use 5.008;
 use strict;
 use warnings;
-our $VERSION = '4.006';
+our $VERSION = '4.007';
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
-use Sereal::Encoder 4.006 qw(encode_sereal sereal_encode_with_object);
-use Sereal::Decoder 4.006 qw(
-    decode_sereal looks_like_sereal decode_sereal_with_header_data
+use Sereal::Encoder 4.007 qw(
+    encode_sereal
+    sereal_encode_with_object
+    SRL_UNCOMPRESSED
+    SRL_SNAPPY
+    SRL_ZLIB
+    SRL_ZSTD
+);
+use Sereal::Decoder 4.007 qw(
+    decode_sereal
+    looks_like_sereal
+    decode_sereal_with_header_data
     scalar_looks_like_sereal
-    sereal_decode_with_object sereal_decode_with_header_with_object
+    sereal_decode_with_object
+    sereal_decode_with_header_with_object
     sereal_decode_only_header_with_object
     sereal_decode_only_header_with_offset_with_object
     sereal_decode_with_header_and_offset_with_object
@@ -17,24 +27,35 @@ use Sereal::Decoder 4.006 qw(
 
 use Exporter 'import';
 our @EXPORT_OK = qw(
-  get_sereal_decoder
-  get_sereal_encoder
-  clear_sereal_object_cache
+    get_sereal_decoder
+    get_sereal_encoder
+    clear_sereal_object_cache
 
-  encode_sereal
-  decode_sereal
-  write_sereal_file
-  read_sereal_file
-  looks_like_sereal
-  sereal_encode_with_object
-  sereal_decode_with_object
-  decode_sereal_with_header_data
-  scalar_looks_like_sereal
-  sereal_decode_with_header_with_object
-  sereal_decode_only_header_with_object
-  sereal_decode_only_header_with_offset_with_object
-  sereal_decode_with_header_and_offset_with_object
-  sereal_decode_with_offset_with_object
+    encode_sereal
+    decode_sereal
+
+    read_sereal
+    read_sereal_file
+    write_sereal
+    write_sereal_file
+
+    looks_like_sereal
+    scalar_looks_like_sereal
+
+    sereal_encode_with_object
+    sereal_decode_with_object
+    decode_sereal_with_header_data
+
+    sereal_decode_with_header_with_object
+    sereal_decode_only_header_with_object
+    sereal_decode_only_header_with_offset_with_object
+    sereal_decode_with_header_and_offset_with_object
+    sereal_decode_with_offset_with_object
+
+    SRL_UNCOMPRESSED
+    SRL_SNAPPY
+    SRL_ZLIB
+    SRL_ZSTD
 );
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
 # export by default if run from command line
@@ -46,8 +67,10 @@ our %DECODERS;
 sub _key { join "\t", map { $_ => $_[0]->{$_} } sort keys %{$_[0]} }
 
 sub clear_sereal_object_cache {
+    my $count= keys(%DECODERS) + keys(%ENCODERS);
     %ENCODERS= ();
     %DECODERS= ();
+    return $count;
 }
 
 sub get_sereal_encoder {
@@ -70,6 +93,11 @@ sub read_sereal_file {
     get_sereal_decoder($opts)->decode_from_file($file,@_ > 2 ? $_[2] : ());
 }
 
+*read_sereal= *read_sereal= *read_sereal_file;
+*write_sereal= *write_sereal= *write_sereal_file;
+
+
+
 1;
 
 __END__
@@ -83,23 +111,35 @@ Sereal - Fast, compact, powerful binary (de-)serialization
 =head1 SYNOPSIS
 
     use Sereal qw(
-      get_sereal_decoder
-      get_sereal_encoder
-      clear_sereal_object_cache
-      encode_sereal
-      decode_sereal
-      write_sereal
-      read_sereal
-      looks_like_sereal
-      sereal_encode_with_object
-      sereal_decode_with_object
-      decode_sereal_with_header_data
-      scalar_looks_like_sereal
-      sereal_decode_with_header_with_object
-      sereal_decode_only_header_with_object
-      sereal_decode_only_header_with_offset_with_object
-      sereal_decode_with_header_and_offset_with_object
-      sereal_decode_with_offset_with_object
+        get_sereal_decoder
+        get_sereal_encoder
+        clear_sereal_object_cache
+
+        encode_sereal
+        decode_sereal
+
+        read_sereal
+        read_sereal_file
+        write_sereal
+        write_sereal_file
+
+        looks_like_sereal
+        scalar_looks_like_sereal
+
+        sereal_encode_with_object
+        sereal_decode_with_object
+        decode_sereal_with_header_data
+
+        sereal_decode_with_header_with_object
+        sereal_decode_only_header_with_object
+        sereal_decode_only_header_with_offset_with_object
+        sereal_decode_with_header_and_offset_with_object
+        sereal_decode_with_offset_with_object
+
+        SRL_UNCOMPRESSED
+        SRL_SNAPPY
+        SRL_ZLIB
+        SRL_ZSTD
     );
     # Note: For performance reasons, you should prefer the OO interface,
     #       or sereal_(en|de)code_with_object over the stateless
@@ -159,13 +199,26 @@ to this function.
 Returns a Sereal::Decoder with the given options. This encoder will be shared by other calls
 to this function.
 
+=head2 clear_sereal_object_cache
+
+Clears cache of objects created via get_sereal_encoder() and get_sereal_decoder(). Returns
+the number of objects that were removed from the cache (the sum of both types).
+
 =head2 write_sereal_file($FILENAME,$STRUCT,$APPEND,$OPTS)
 
 Write a sereal packet to $FILENAME. See Sereal::Encoder::encode_to_file().
 
+=head2 write_sereal($FILENAME,$STRUCT,$APPEND,$OPTS)
+
+alias for write_sereal_file()
+
 =head2 read_sereal_file($FILENAME,$OPTS,$ROOT)
 
 Read a sereal packet from a file. See Sereal::Decoder::decode_from_file().
+
+=head2 read_sereal($FILENAME,$OPTS,$ROOT)
+
+alias for read_sereal_file()
 
 =head1 BUGS, CONTACT AND SUPPORT
 

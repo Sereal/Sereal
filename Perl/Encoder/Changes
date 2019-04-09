@@ -5,6 +5,12 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 4 of the *
 *          encoder!                                            *
 ****************************************************************
+4.007 Tues Apr 9, 2019
+    * Version bump only
+
+4.006 Mon Apr 8, 2019
+    * Version bump only
+
 4.005 Tues Jan 23, 2018
     * Document encode_to_file()
 
