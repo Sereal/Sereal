@@ -1,6 +1,5 @@
 /test_dir
 /maven.classpath
-/target
-/benchmarks/target
+**/target
 .idea/
-*.iml
+**/*.iml

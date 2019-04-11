@@ -1,7 +1,7 @@
 Sereal implementation in Java
 =============================
 
-Java1.6 required.
+Java8 required.
 
 Hack
 ----
