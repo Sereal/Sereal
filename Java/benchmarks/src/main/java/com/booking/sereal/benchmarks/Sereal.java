@@ -6,6 +6,14 @@ import com.booking.sereal.Encoder;
 import com.booking.sereal.SerealException;
 
 import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Measurement;
+import org.openjdk.jmh.annotations.Mode;
+import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.Timeout;
+import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
@@ -14,7 +22,14 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import java.io.IOException;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
 
+@Warmup(iterations = 20, time = 1)
+@Measurement(iterations = 20, time = 1)
+@BenchmarkMode(Mode.Throughput)
+@Timeout(time = 10, timeUnit = TimeUnit.MINUTES)
+@Fork(value = 10)
+@State(Scope.Benchmark)
 public class Sereal {
     private static final Map<String, Object> solarSystem = makeSolarSystem();
     private static final Object[] solarSystems;

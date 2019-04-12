@@ -13,10 +13,6 @@
 
     <name>JMH benchmark sample: Java</name>
 
-    <prerequisites>
-        <maven>3.0</maven>
-    </prerequisites>
-
     <properties>
         <jmh.version>1.21</jmh.version>
         <uberjar.name>benchmarks</uberjar.name>
@@ -55,7 +51,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.1</version>
                 <configuration>
                     <compilerVersion>${javac.target}</compilerVersion>
                     <source>${javac.target}</source>
@@ -65,7 +60,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>2.2</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
