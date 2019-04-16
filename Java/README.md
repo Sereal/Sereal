@@ -1,7 +1,7 @@
 Sereal implementation in Java
 =============================
 
-Java1.6 required.
+Java8 required.
 
 Hack
 ----
@@ -21,7 +21,6 @@ implementation)
 
 Run the benchmarks:
 
-    $ cd benchmarks
     $ mvn clean package
-    # use java -jar target/benchmarks.jar -h for detailed usage
-    $ java -jar target/benchmarks.jar
+    # use java -jar benchmarks/target/benchmarks.jar -h for detailed usage
+    $ java -jar benchmarks/target/benchmarks.jar

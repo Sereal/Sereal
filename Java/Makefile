@@ -11,7 +11,7 @@ check: test
 compat: test_dir maven.classpath
 	mvn test-compile
 	-rm -f test_dir/test_data_*-java.out
-	-java -cp `cat maven.classpath`:target/classes:target/test-classes com.booking.sereal.TestCorpus test_dir
+	-java -cp `cat maven.classpath`:sereal/target/classes:sereal/target/test-classes com.booking.sereal.TestCorpus test_dir
 	prove ./test-compat.pl
 
 ../Perl/Decoder/blib:

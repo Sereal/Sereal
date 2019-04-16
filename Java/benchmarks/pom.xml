@@ -2,18 +2,28 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.sample</groupId>
+    <parent>
+        <groupId>com.booking.sereal</groupId>
+        <artifactId>parent</artifactId>
+        <version>0.0.2-SNAPSHOT</version>
+    </parent>
+
     <artifactId>benchmarks</artifactId>
-    <version>1.0</version>
     <packaging>jar</packaging>
 
     <name>JMH benchmark sample: Java</name>
 
-    <prerequisites>
-        <maven>3.0</maven>
-    </prerequisites>
+    <properties>
+        <jmh.version>1.21</jmh.version>
+        <uberjar.name>benchmarks</uberjar.name>
+    </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>com.booking.sereal</groupId>
+            <artifactId>sereal</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-core</artifactId>
@@ -28,22 +38,12 @@
         <dependency>
             <groupId>org.xerial.snappy</groupId>
             <artifactId>snappy-java</artifactId>
-            <version>1.0.5</version>
-            <type>jar</type>
         </dependency>
         <dependency>
             <groupId>com.github.luben</groupId>
             <artifactId>zstd-jni</artifactId>
-            <version>1.1.4</version>
         </dependency>
     </dependencies>
-
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <jmh.version>1.11.3</jmh.version>
-        <javac.target>1.6</javac.target>
-        <uberjar.name>benchmarks</uberjar.name>
-    </properties>
 
     <build>
       <sourceDirectory>src</sourceDirectory>
@@ -51,7 +51,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.1</version>
                 <configuration>
                     <compilerVersion>${javac.target}</compilerVersion>
                     <source>${javac.target}</source>
@@ -61,7 +60,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>2.2</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -89,21 +87,6 @@
                                     </excludes>
                                 </filter>
                             </filters>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>build-helper-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <phase>generate-sources</phase>
-                        <goals><goal>add-source</goal></goals>
-                        <configuration>
-                            <sources>
-                                <source>../src</source>
-                            </sources>
                         </configuration>
                     </execution>
                 </executions>
