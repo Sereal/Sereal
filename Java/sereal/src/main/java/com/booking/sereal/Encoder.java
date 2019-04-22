@@ -566,11 +566,25 @@ public class Encoder {
         appendRef(ref);
       }
     } else if (type == WeakReference.class) {
+      Object value = ((WeakReference<Object>) obj).get();
+      boolean isRef = isDefinitelyReference(value);
+      long currentOffset = size;
+
       appendByte(SerealHeader.SRL_HDR_WEAKEN);
 
-      PerlReference wref =
-          (PerlReference) ((WeakReference<PerlReference>) obj).get(); // pretend weakref is a marker
-      encode(wref);
+      if (!isRef) {
+        appendByte(SerealHeader.SRL_HDR_PAD);
+      }
+      encode(value);
+      if (!isRef) {
+        if (!isRefTag(bytes[(int) currentOffset + 2])) {
+          bytes[(int) currentOffset + 1] = SerealHeader.SRL_HDR_REFN;
+        }
+      } else {
+        if (!isRefTag(bytes[(int) currentOffset + 1])) {
+          throw new SerealException("Internal error while encoding weak reference");
+        }
+      }
     } else if (type == PerlAlias.class) {
       Object value = ((PerlAlias) obj).getValue();
 
@@ -878,6 +892,30 @@ public class Encoder {
         appendVarint(l);
       }
     }
+  }
+
+  private boolean isDefinitelyReference(Object value) {
+    if (value instanceof Map || value instanceof List) {
+      return true;
+    } else if (value instanceof PerlReference) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private boolean isRefTag(byte tag) {
+    // the first branch is the common case, the other two branchs are unlikely
+    if (tag == SerealHeader.SRL_HDR_REFN ||
+        tag == SerealHeader.SRL_HDR_REFP) {
+      return true;
+    } else if ((tag & SerealHeader.SRL_HDR_ARRAYREF) == SerealHeader.SRL_HDR_ARRAYREF) {
+      return true;
+    } else if ((tag & SerealHeader.SRL_HDR_HASHREF) == SerealHeader.SRL_HDR_HASHREF) {
+      return true;
+    }
+
+    return false;
   }
 
   /** Discard all previous tracking clear the buffers etc Call this when you reuse the encoder */

@@ -4,8 +4,10 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -308,6 +310,28 @@ public class EncoderTest {
 		data = encoder.write(new Object[] {fooObject1, fooObject2}).getData();
 		assertEquals("0x3df3726c0400282b022c2703466f6f282a01270141072d05282a0127014208",
 			     Utils.hexStringFromByteArray(data));
+	}
+
+	@Test
+	public void weakReferences() throws SerealException {
+		String string = "abc";
+		List<Object> emptyList = Collections.emptyList();
+
+		encoder = defaultEncoder();
+
+		byte[] data;
+
+		data = encoder.write(new WeakReference<>(new PerlReference(string))).getData();
+		assertEquals("0x3df3726c040030282703616263",
+			Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(new WeakReference<>(string)).getData();
+		assertEquals("0x3df3726c040030282703616263",
+			Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(new WeakReference<>(emptyList)).getData();
+		assertEquals("0x3df3726c040030282b00",
+			Utils.hexStringFromByteArray(data));
 	}
 
 	private List<Object> makeList(Object... items) {
