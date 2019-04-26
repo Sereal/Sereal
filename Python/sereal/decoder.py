@@ -109,6 +109,12 @@ class SrlDecoder(object):
             python_flags = reduce(lambda x, y: x | re.RegexFlag[str(y).upper()], flags, 0)
             return re.compile(pattern, python_flags)
 
+        elif tag == const.SRL_TYPE_FALSE:
+            return False
+
+        elif tag == const.SRL_TYPE_TRUE:
+            return True
+
         elif tag == const.SRL_TYPE_COPY:
             return self._get_copy()
 
