@@ -19,6 +19,7 @@ SRL_TYPE_ARRAY                      = 43
 SRL_TYPE_OBJECT                     = 44
 SRL_TYPE_COPY                       = 47
 SRL_TYPE_REGEXP                     = 49
+SRL_TYPE_CANONICAL_UNDEF            = 57
 SRL_TYPE_FALSE                      = 58
 SRL_TYPE_TRUE                       = 59
 SRL_TYPE_ARRAYREF_0                 = 64

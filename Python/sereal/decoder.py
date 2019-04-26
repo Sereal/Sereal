@@ -109,6 +109,9 @@ class SrlDecoder(object):
             python_flags = reduce(lambda x, y: x | re.RegexFlag[str(y).upper()], flags, 0)
             return re.compile(pattern, python_flags)
 
+        elif tag == const.SRL_TYPE_CANONICAL_UNDEF:
+            return None
+
         elif tag == const.SRL_TYPE_FALSE:
             return False
 
