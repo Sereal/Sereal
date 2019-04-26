@@ -1,4 +1,7 @@
 import os
+import re
+
+from functools import reduce
 
 from sereal import constants as const
 from sereal import reader
@@ -33,13 +36,16 @@ class SrlDecoder(object):
         doc_version = (doc_version_type & 15)
         doc_type = (doc_version_type >> 4) & 15
 
-        if (doc_version != 3):
+        if (doc_version not in [3, 4]):
             raise exception.SrlError('bad header: unsupported protocol version {}'.format(doc_version))
 
         if (doc_type < 0 or doc_type > 3):
             raise exception.SrlError('bad header: unsupported document type {}'.format(doc_type))
 
         header_suffix_size = self.reader.read_varint()
+        if header_suffix_size:
+            # Skipping the suffix.
+            self.reader._read_unpack('{0}s'.format(header_suffix_size))
 
         self.header['version'] = doc_version
         self.header['type'] = doc_type
@@ -50,57 +56,77 @@ class SrlDecoder(object):
     def _decode_bytes(self):
         tag = self.reader.read_uint8()
 
+        #print('tag', hex(tag))
+
         track_pos = None
 
         if (tag & const.SRL_TRACK_BIT) != 0:
             tag = tag & ~const.SRL_TRACK_BIT
             track_pos = self.reader.tell() - self.body_offset
+            #print('tag, track_pos', hex(tag), track_pos)
 
-        if (tag >= const.SRL_TYPE_POS_0 and tag < const.SRL_TYPE_POS_0+16):
-            return int(tag)
+        if tag >= const.SRL_TYPE_POS_0 and tag < const.SRL_TYPE_POS_0 + 16:
+            return self._track_item(track_pos, int(tag))
 
-        elif tag >= const.SRL_NEG_16 and tag < const.SRL_NEG_16+16:
-            return int(tag) - 32
+        elif tag >= const.SRL_NEG_16 and tag < const.SRL_NEG_16 + 16:
+            return self._track_item(track_pos, int(tag) - 32)
 
         elif tag == const.SRL_TYPE_FLOAT:
-            return self.reader.read_float()
+            return self._track_item(track_pos, self.reader.read_float())
+
+        elif tag == const.SRL_TYPE_DOUBLE:
+            return self._track_item(track_pos, self.reader.read_double())
 
         elif tag == const.SRL_TYPE_VARINT:
-            return self.reader.read_varint()
+            return self._track_item(track_pos, self.reader.read_varint())
 
         elif tag == const.SRL_TYPE_UNDEF:
-            return None
+            return self._track_item(track_pos, None)
 
-        elif (tag == const.SRL_TYPE_BINARY):
-            return self._decode_binary(tag)
+        elif tag == const.SRL_TYPE_BINARY:
+            return self._track_item(track_pos, self._decode_binary(tag))
 
-        elif (tag == const.SRL_TYPE_REFN):
-            return self._decode_refn(tag)
+        elif tag == const.SRL_TYPE_REFN:
+            return self._track_item(track_pos, self._decode_refn(tag))
 
         elif tag == const.SRL_TYPE_REFP:
-            return self._decode_refp()
+            return self._track_item(track_pos, self._decode_refp())
 
-        elif (tag == const.SRL_TYPE_HASH):
+        elif tag == const.SRL_TYPE_HASH:
             ln = self.reader.read_varint()
-            return self._decode_hash(ln, track_pos)
+            return self._track_item(track_pos, self._decode_hash(ln))
 
-        elif (tag == const.SRL_TYPE_ARRAY):
+        elif tag == const.SRL_TYPE_ARRAY:
             ln = self.reader.read_varint()
-            return self._decode_array(ln, track_pos)
+            return self._track_item(track_pos, self._decode_array(ln))
+
+        elif tag == const.SRL_TYPE_OBJECT:
+            name = self._decode_bytes()
+            obj = self._decode_bytes()
+            return self._track_item(track_pos, {
+                'class': name,
+                'object': obj,
+            })
+
+        elif tag == const.SRL_TYPE_REGEXP:
+            pattern = self._decode_bytes()
+            flags = self._decode_bytes()
+            python_flags = reduce(lambda x, y: x | re.RegexFlag[str(y).upper()], flags, 0)
+            return self._track_item(track_pos, re.compile(pattern, python_flags))
 
         elif tag == const.SRL_TYPE_COPY:
-            return self._get_copy()
+            return self._track_item(track_pos, self._get_copy())
 
-        elif (tag >= const.SRL_TYPE_ARRAYREF_0 and tag < const.SRL_TYPE_ARRAYREF_0+16):
+        elif tag >= const.SRL_TYPE_ARRAYREF_0 and tag < const.SRL_TYPE_ARRAYREF_0 + 16:
             ln = tag & 15
-            return self._decode_array(ln, track_pos)
+            return self._track_item(track_pos, self._decode_array(ln))
 
-        elif (tag >= const.SRL_TYPE_HASHREF_0 and tag < const.SRL_TYPE_HASHREF_0+16):
+        elif tag >= const.SRL_TYPE_HASHREF_0 and tag < const.SRL_TYPE_HASHREF_0 + 16:
             ln = tag & 15
-            return self._decode_hash(ln, track_pos)
+            return self._track_item(track_pos, self._decode_hash(ln))
 
-        elif (tag >= const.SRL_TYPE_SHORT_BINARY_0 and tag < const.SRL_TYPE_SHORT_BINARY_0+32):
-            return self._decode_short_binary(tag)
+        elif tag >= const.SRL_TYPE_SHORT_BINARY_0 and tag < const.SRL_TYPE_SHORT_BINARY_0 + 32:
+            return self._track_item(track_pos, self._decode_short_binary(tag))
 
         else:
             raise exception.SrlError('bad tag: unsupported tag {}'.format(tag))
@@ -117,22 +143,16 @@ class SrlDecoder(object):
 
         return copy
 
-    def _decode_array(self, ln, track_pos):
+    def _decode_array(self, ln):
         a = []
-
-        if track_pos is not None:
-            self._track_item(track_pos, a)
 
         for i in range(0, ln):
             a.append(self._decode_bytes())
 
         return a
 
-    def _decode_hash(self, ln, track_pos):
+    def _decode_hash(self, ln):
         h = {}
-
-        if track_pos is not None:
-            self._track_item(track_pos, h)
 
         for i in range(0, ln):
             key = self._decode_bytes()
@@ -148,11 +168,13 @@ class SrlDecoder(object):
         return self._decode_bytes()
 
     def _track_item(self, track_pos, item):
-        key = str(track_pos)
-        self.tracked_items[key] = item
+        if track_pos is None:
+            return item
+        self.tracked_items[track_pos] = item
+        return item
 
     def _decode_refp(self):
-        key = str(self.reader.read_varint())
+        key = self.reader.read_varint()
         return self.tracked_items[key]
 
     def _decode_short_binary(self, tag):
