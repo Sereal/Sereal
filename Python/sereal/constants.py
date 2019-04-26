@@ -11,6 +11,7 @@ SRL_TYPE_FLOAT                      = 34
 SRL_TYPE_DOUBLE                     = 35
 SRL_TYPE_UNDEF                      = 37
 SRL_TYPE_BINARY                     = 38
+SRL_TYPE_STR_UTF8                   = 39
 SRL_TYPE_REFN                       = 40
 SRL_TYPE_REFP                       = 41
 SRL_TYPE_HASH                       = 42

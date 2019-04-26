@@ -73,6 +73,12 @@ class SrlDecoder(object):
             return None
 
         elif tag == const.SRL_TYPE_BINARY:
+            # Note: self.reader.read_str() automatically decodes as utf-8.
+            # Thus, this returns a string, instead of returning bytes.
+            return self._decode_binary(tag)
+
+        elif tag == const.SRL_TYPE_STR_UTF8:
+            # self.reader.read_str() automatically decodes as utf-8
             return self._decode_binary(tag)
 
         elif tag == const.SRL_TYPE_REFN:
@@ -115,6 +121,8 @@ class SrlDecoder(object):
             return self._decode_hash(ln)
 
         elif tag >= const.SRL_TYPE_SHORT_BINARY_0 and tag < const.SRL_TYPE_SHORT_BINARY_0 + 32:
+            # Note: self.reader.read_str() automatically decodes as utf-8.
+            # Thus, this returns a string, instead of returning bytes.
             return self._decode_short_binary(tag)
 
         else:
