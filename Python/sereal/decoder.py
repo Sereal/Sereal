@@ -53,83 +53,85 @@ class SrlDecoder(object):
     def _decode_body(self):
         return self._decode_bytes()
 
+    def _decode_tag(self, tag):
+        if tag >= const.SRL_TYPE_POS_0 and tag < const.SRL_TYPE_POS_0 + 16:
+            return int(tag)
+
+        elif tag >= const.SRL_NEG_16 and tag < const.SRL_NEG_16 + 16:
+            return int(tag) - 32
+
+        elif tag == const.SRL_TYPE_FLOAT:
+            return self.reader.read_float()
+
+        elif tag == const.SRL_TYPE_DOUBLE:
+            return self.reader.read_double()
+
+        elif tag == const.SRL_TYPE_VARINT:
+            return self.reader.read_varint()
+
+        elif tag == const.SRL_TYPE_UNDEF:
+            return None
+
+        elif tag == const.SRL_TYPE_BINARY:
+            return self._decode_binary(tag)
+
+        elif tag == const.SRL_TYPE_REFN:
+            return self._decode_refn(tag)
+
+        elif tag == const.SRL_TYPE_REFP:
+            return self._decode_refp()
+
+        elif tag == const.SRL_TYPE_HASH:
+            ln = self.reader.read_varint()
+            return self._decode_hash(ln)
+
+        elif tag == const.SRL_TYPE_ARRAY:
+            ln = self.reader.read_varint()
+            return self._decode_array(ln)
+
+        elif tag == const.SRL_TYPE_OBJECT:
+            name = self._decode_bytes()
+            obj = self._decode_bytes()
+            return {
+                'class': name,
+                'object': obj,
+            }
+
+        elif tag == const.SRL_TYPE_REGEXP:
+            pattern = self._decode_bytes()
+            flags = self._decode_bytes()
+            python_flags = reduce(lambda x, y: x | re.RegexFlag[str(y).upper()], flags, 0)
+            return re.compile(pattern, python_flags)
+
+        elif tag == const.SRL_TYPE_COPY:
+            return self._get_copy()
+
+        elif tag >= const.SRL_TYPE_ARRAYREF_0 and tag < const.SRL_TYPE_ARRAYREF_0 + 16:
+            ln = tag & 15
+            return self._decode_array(ln)
+
+        elif tag >= const.SRL_TYPE_HASHREF_0 and tag < const.SRL_TYPE_HASHREF_0 + 16:
+            ln = tag & 15
+            return self._decode_hash(ln)
+
+        elif tag >= const.SRL_TYPE_SHORT_BINARY_0 and tag < const.SRL_TYPE_SHORT_BINARY_0 + 32:
+            return self._decode_short_binary(tag)
+
+        else:
+            raise exception.SrlError('bad tag: unsupported tag {}'.format(tag))
+
     def _decode_bytes(self):
-        tag = self.reader.read_uint8()
-
-        #print('tag', hex(tag))
-
         track_pos = None
+        tag = self.reader.read_uint8()
+        #print('tag', hex(tag))
 
         if (tag & const.SRL_TRACK_BIT) != 0:
             tag = tag & ~const.SRL_TRACK_BIT
             track_pos = self.reader.tell() - self.body_offset
             #print('tag, track_pos', hex(tag), track_pos)
 
-        if tag >= const.SRL_TYPE_POS_0 and tag < const.SRL_TYPE_POS_0 + 16:
-            return self._track_item(track_pos, int(tag))
+        return self._track_item(track_pos, self._decode_tag(tag))
 
-        elif tag >= const.SRL_NEG_16 and tag < const.SRL_NEG_16 + 16:
-            return self._track_item(track_pos, int(tag) - 32)
-
-        elif tag == const.SRL_TYPE_FLOAT:
-            return self._track_item(track_pos, self.reader.read_float())
-
-        elif tag == const.SRL_TYPE_DOUBLE:
-            return self._track_item(track_pos, self.reader.read_double())
-
-        elif tag == const.SRL_TYPE_VARINT:
-            return self._track_item(track_pos, self.reader.read_varint())
-
-        elif tag == const.SRL_TYPE_UNDEF:
-            return self._track_item(track_pos, None)
-
-        elif tag == const.SRL_TYPE_BINARY:
-            return self._track_item(track_pos, self._decode_binary(tag))
-
-        elif tag == const.SRL_TYPE_REFN:
-            return self._track_item(track_pos, self._decode_refn(tag))
-
-        elif tag == const.SRL_TYPE_REFP:
-            return self._track_item(track_pos, self._decode_refp())
-
-        elif tag == const.SRL_TYPE_HASH:
-            ln = self.reader.read_varint()
-            return self._track_item(track_pos, self._decode_hash(ln))
-
-        elif tag == const.SRL_TYPE_ARRAY:
-            ln = self.reader.read_varint()
-            return self._track_item(track_pos, self._decode_array(ln))
-
-        elif tag == const.SRL_TYPE_OBJECT:
-            name = self._decode_bytes()
-            obj = self._decode_bytes()
-            return self._track_item(track_pos, {
-                'class': name,
-                'object': obj,
-            })
-
-        elif tag == const.SRL_TYPE_REGEXP:
-            pattern = self._decode_bytes()
-            flags = self._decode_bytes()
-            python_flags = reduce(lambda x, y: x | re.RegexFlag[str(y).upper()], flags, 0)
-            return self._track_item(track_pos, re.compile(pattern, python_flags))
-
-        elif tag == const.SRL_TYPE_COPY:
-            return self._track_item(track_pos, self._get_copy())
-
-        elif tag >= const.SRL_TYPE_ARRAYREF_0 and tag < const.SRL_TYPE_ARRAYREF_0 + 16:
-            ln = tag & 15
-            return self._track_item(track_pos, self._decode_array(ln))
-
-        elif tag >= const.SRL_TYPE_HASHREF_0 and tag < const.SRL_TYPE_HASHREF_0 + 16:
-            ln = tag & 15
-            return self._track_item(track_pos, self._decode_hash(ln))
-
-        elif tag >= const.SRL_TYPE_SHORT_BINARY_0 and tag < const.SRL_TYPE_SHORT_BINARY_0 + 32:
-            return self._track_item(track_pos, self._decode_short_binary(tag))
-
-        else:
-            raise exception.SrlError('bad tag: unsupported tag {}'.format(tag))
 
     def _get_copy(self):
         copy_pos = self.reader.read_varint()
