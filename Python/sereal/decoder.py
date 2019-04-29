@@ -69,6 +69,9 @@ class SrlDecoder(object):
         elif tag == const.SRL_TYPE_VARINT:
             return self.reader.read_varint()
 
+        elif tag == const.SRL_TYPE_ZIGZAG:
+            return self._decode_zigzag()
+
         elif tag == const.SRL_TYPE_UNDEF:
             return None
 
@@ -178,6 +181,11 @@ class SrlDecoder(object):
             h[key] = self._decode_bytes()
 
         return h
+
+    def _decode_zigzag(self):
+        uv = self.reader.read_varint()
+        iv = (uv >> 1) ^ (-(uv & 1))
+        return iv
 
     def _decode_binary(self, tag):
         ln = self.reader.read_varint()
