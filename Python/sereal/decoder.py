@@ -99,12 +99,10 @@ class SrlDecoder(object):
             return self._decode_array(ln)
 
         elif tag == const.SRL_TYPE_OBJECT:
-            name = self._decode_bytes()
-            obj = self._decode_bytes()
-            return {
-                'class': name,
-                'object': obj,
-            }
+            return self._decode_object()
+
+        elif tag == const.SRL_TYPE_OBJECTV:
+            return self._decode_objectv()
 
         elif tag == const.SRL_TYPE_REGEXP:
             pattern = self._decode_bytes()
@@ -140,12 +138,12 @@ class SrlDecoder(object):
         else:
             raise exception.SrlError('bad tag: unsupported tag {}'.format(tag))
 
-    def _decode_bytes(self):
+    def _decode_bytes(self, force_track_pos=False):
         track_pos = None
         tag = self.reader.read_uint8()
         #print('tag', hex(tag))
 
-        if (tag & const.SRL_TRACK_BIT) != 0:
+        if (tag & const.SRL_TRACK_BIT) != 0 or force_track_pos:
             tag = tag & ~const.SRL_TRACK_BIT
             track_pos = self.reader.tell() - self.body_offset
             #print('tag, track_pos', hex(tag), track_pos)
@@ -182,6 +180,24 @@ class SrlDecoder(object):
 
         return h
 
+    def _decode_object(self):
+        # Saving the classname in case an OBJECTV refers to it later.
+        name = self._decode_bytes(force_track_pos=True)
+        obj = self._decode_bytes()
+        return {
+            'class': name,
+            'object': obj,
+        }
+
+    def _decode_objectv(self):
+        key = self.reader.read_varint()
+        name = self.tracked_items[key]
+        obj = self._decode_bytes()
+        return {
+            'class': name,
+            'object': obj,
+        }
+
     def _decode_zigzag(self):
         uv = self.reader.read_varint()
         iv = (uv >> 1) ^ (-(uv & 1))
@@ -198,6 +214,7 @@ class SrlDecoder(object):
         if track_pos is None:
             return item
         self.tracked_items[track_pos] = item
+        #print('_track_item({0}, {1})'.format(track_pos, item))
         return item
 
     def _decode_refp(self):

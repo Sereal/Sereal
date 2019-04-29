@@ -18,6 +18,7 @@ SRL_TYPE_REFP                       = 41
 SRL_TYPE_HASH                       = 42
 SRL_TYPE_ARRAY                      = 43
 SRL_TYPE_OBJECT                     = 44
+SRL_TYPE_OBJECTV                    = 45
 SRL_TYPE_COPY                       = 47
 SRL_TYPE_REGEXP                     = 49
 SRL_TYPE_CANONICAL_UNDEF            = 57
