@@ -167,15 +167,12 @@ public class Utils {
   }
 
   public static Object decodeFile(Decoder decoder, File f) throws SerealException, IOException {
-    if (decoder.debugTrace) decoder.trace("Decoding: " + f.getName());
-
     if (!f.exists()) {
       throw new FileNotFoundException("No such file: " + f.getCanonicalPath());
     }
 
     // read everything
     int size = (int) f.length(); // yeah yeah truncate
-    if (decoder.debugTrace) decoder.trace("File size: " + size);
     byte[] buf = new byte[size];
     FileInputStream fi = new FileInputStream(f);
     try {
@@ -183,11 +180,9 @@ public class Utils {
     } finally {
       fi.close();
     }
-    if (decoder.debugTrace) decoder.trace("Raw: " + new String(buf));
 
     decoder.setData(buf);
     Object structure = decoder.decode();
-    if (decoder.debugTrace) decoder.trace("Decoded: " + Utils.dump(structure));
 
     return structure;
   }

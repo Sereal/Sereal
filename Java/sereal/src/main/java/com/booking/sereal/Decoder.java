@@ -30,7 +30,6 @@ public class Decoder implements SerealHeader {
   private final boolean stripObjects;
   private final TypeMapper typeMapper;
   private final boolean useObjectArray;
-  boolean debugTrace;
   private byte[] data;
   private int position, size;
   private ByteArray originalData;
@@ -60,12 +59,6 @@ public class Decoder implements SerealHeader {
     useObjectArray = typeMapper.useObjectArray();
   }
 
-  void trace(String info) {
-    if (!debugTrace)
-      throw new RuntimeException("All calls to trace() must be guarded with 'if (debugTrace)'");
-    System.out.println(info);
-  }
-
   private void checkHeader() throws SerealException {
 
     if ((size - position) < 4) {
@@ -87,8 +80,6 @@ public class Decoder implements SerealHeader {
   private void checkHeaderSuffix() {
     long suffix_size = read_varint();
     long basePosition = position;
-
-    if (debugTrace) trace("Header suffix size: " + suffix_size);
 
     userHeaderSize = 0;
     if (suffix_size > 0) {
@@ -120,14 +111,12 @@ public class Decoder implements SerealHeader {
     int protoAndFlags = data[position++];
     protocolVersion = protoAndFlags & 15; // 4 bits for version
 
-    if (debugTrace) trace("Version: " + protocolVersion);
     if (protocolVersion < 0 || protocolVersion > 4) {
       throw new SerealException(
           String.format("Invalid Sereal header: unsupported protocol version %d", protocolVersion));
     }
 
     encoding = (protoAndFlags & ~15) >> 4;
-    if (debugTrace) trace("Encoding: " + encoding);
     if ((encoding == 1 || encoding == 2) && refuseSnappy) {
       throw new SerealException("Unsupported encoding: Snappy");
     } else if (encoding == 4 && protocolVersion < 4) {
@@ -188,8 +177,6 @@ public class Decoder implements SerealHeader {
       throw new SerealException("No data set");
     }
 
-    if (debugTrace) trace("Decoding: " + Utils.hexStringFromByteArray(data));
-
     parseHeader();
 
     if (encoding != 0) {
@@ -207,9 +194,6 @@ public class Decoder implements SerealHeader {
         baseOffset = position - 1;
     }
     Object out = readSingleValue();
-
-    if (debugTrace) trace("Read: " + out);
-    if (debugTrace) trace("Data left: " + (size - position));
 
     return out;
   }
@@ -284,8 +268,6 @@ public class Decoder implements SerealHeader {
    * @throws SerealException
    */
   private Object[] readNativeArray(int length, int track) throws SerealException {
-    if (debugTrace) trace("Array length: " + length);
-
     Object[] out = new Object[length];
     if (track != 0) { // track ourself
       track_stuff(track, out);
@@ -293,7 +275,6 @@ public class Decoder implements SerealHeader {
 
     for (int i = 0; i < length; i++) {
       out[i] = readSingleValue();
-      if (debugTrace) trace("Read array element " + i + ": " + Utils.dump(out[i]));
     }
 
     return out;
@@ -308,8 +289,6 @@ public class Decoder implements SerealHeader {
    * @throws SerealException
    */
   private List<Object> readList(int length, int track) throws SerealException {
-    if (debugTrace) trace("Array length: " + length);
-
     List<Object> out = typeMapper.makeArray(length);
     if (track != 0) { // track ourself
       track_stuff(track, out);
@@ -317,7 +296,6 @@ public class Decoder implements SerealHeader {
 
     for (int i = 0; i < length; i++) {
       out.add(readSingleValue());
-      if (debugTrace) trace("Read array element " + i + ": " + Utils.dump(out.get(i)));
     }
 
     return out;
@@ -345,8 +323,6 @@ public class Decoder implements SerealHeader {
       track_stuff(track, hash);
     }
 
-    if (debugTrace) trace("Reading " + num_keys + " hash elements");
-
     for (int i = 0; i < num_keys; i++) {
       String key = readString();
       Object val = readSingleValue();
@@ -358,13 +334,6 @@ public class Decoder implements SerealHeader {
 
   private Object get_tracked_item() {
     long offset = read_varint();
-    if (debugTrace)
-      trace(
-          "Creating ref to item previously read at offset: "
-              + offset
-              + " which is: "
-              + tracked.get(offset));
-    if (debugTrace) trace("Currently tracked: " + Utils.dump(tracked));
     return tracked.get(offset);
   }
 
@@ -395,23 +364,16 @@ public class Decoder implements SerealHeader {
     if ((tag & SRL_HDR_TRACK_FLAG) != 0) {
       tag = (byte) (tag & ~SRL_HDR_TRACK_FLAG);
       track = position - 1 - baseOffset;
-      if (debugTrace) trace("Tracking stuff at position: " + track);
     }
 
-    if (debugTrace)
-      trace("Tag: " + (tag & 0xFF) + " = " + Utils.hexStringFromByteArray(new byte[] {tag}));
     Object out;
 
     if (tag <= SRL_HDR_POS_HIGH) {
-      if (debugTrace) trace("Read small positive int:" + tag);
       out = (long) tag;
     } else if (tag <= SRL_HDR_NEG_HIGH) {
-      if (debugTrace) trace("Read small negative int:" + (tag - 32));
       out = (long) (tag - 32);
     } else if ((tag & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW) {
       byte[] short_binary = read_short_binary(tag);
-      if (debugTrace)
-        trace("Read short binary: " + short_binary + " length " + short_binary.length);
       if (forceJavaStringForByteArrayValues) {
         out = new String(short_binary);
       } else {
@@ -419,21 +381,18 @@ public class Decoder implements SerealHeader {
       }
     } else if ((tag & SRL_HDR_HASHREF) == SRL_HDR_HASHREF) {
       Map<String, Object> hash = readMap(tag & 0xf, track);
-      if (debugTrace) trace("Read hash: " + hash);
       if (perlRefs) {
         out = new PerlReference(hash);
       } else {
         out = hash;
       }
     } else if ((tag & SRL_HDR_ARRAYREF) == SRL_HDR_ARRAYREF) {
-      if (debugTrace) trace("Reading arrayref");
       Object arr;
       if (useObjectArray) {
         arr = readNativeArray(tag & 0xf, track);
       } else {
         arr = readList(tag & 0xf, track);
       }
-      if (debugTrace) trace("Read arrayref: " + arr);
       if (perlRefs) {
         out = new PerlReference(arr);
       } else {
@@ -443,12 +402,10 @@ public class Decoder implements SerealHeader {
       switch (tag) {
         case SRL_HDR_VARINT:
           long l = read_varint();
-          if (debugTrace) trace("Read varint: " + l);
           out = l;
           break;
         case SRL_HDR_ZIGZAG:
           long zz = read_zigzag();
-          if (debugTrace) trace("Read zigzag: " + zz);
           out = zz;
           break;
         case SRL_HDR_FLOAT:
@@ -459,7 +416,6 @@ public class Decoder implements SerealHeader {
                   + ((int) (data[position] & 0xff) << 0);
           position += 4;
           float f = Float.intBitsToFloat(floatBits);
-          if (debugTrace) trace("Read float: " + f);
           out = f;
           break;
         case SRL_HDR_DOUBLE:
@@ -474,30 +430,24 @@ public class Decoder implements SerealHeader {
                   + ((long) (data[position] & 0xff) << 0);
           position += 8;
           double d = Double.longBitsToDouble(doubleBits);
-          if (debugTrace) trace("Read double: " + d);
           out = d;
           break;
         case SRL_HDR_TRUE:
-          if (debugTrace) trace("Read: TRUE");
           out = true;
           break;
         case SRL_HDR_FALSE:
-          if (debugTrace) trace("Read: FALSE");
           out = false;
           break;
         case SRL_HDR_UNDEF:
-          if (debugTrace) trace("Read a null/undef");
           if (preserveUndef) out = new PerlUndef();
           else out = null;
           break;
         case SRL_HDR_CANONICAL_UNDEF:
-          if (debugTrace) trace("Read a null/undef");
           if (preserveUndef) out = PerlUndef.CANONICAL;
           else out = null;
           break;
         case SRL_HDR_BINARY:
           byte[] bytes = read_binary();
-          if (debugTrace) trace("Read binary: " + bytes);
           if (forceJavaStringForByteArrayValues) {
             out = new String(bytes);
           } else {
@@ -506,11 +456,9 @@ public class Decoder implements SerealHeader {
           break;
         case SRL_HDR_STR_UTF8:
           String utf8 = read_UTF8();
-          if (debugTrace) trace("Read UTF8: " + utf8);
           out = utf8;
           break;
         case SRL_HDR_REFN:
-          if (debugTrace) trace("Reading ref to next");
           if (perlRefs) {
             PerlReference refn = new PerlReference(null);
             // track early for weak references
@@ -522,17 +470,14 @@ public class Decoder implements SerealHeader {
           } else {
             out = readSingleValue();
           }
-          if (debugTrace) trace("Read ref: " + Utils.dump(out));
           break;
         case SRL_HDR_REFP:
-          if (debugTrace) trace("Reading REFP (ref to prev)");
           long offset_prev = read_varint();
           Object prv_value = tracked.get(offset_prev);
           if (prv_value == RefpMap.NOT_FOUND) {
             throw new SerealException("REFP to offset " + offset_prev + ", which is not tracked");
           }
           Object prev = perlRefs ? new PerlReference(prv_value) : prv_value;
-          if (debugTrace) trace("Read prev: " + Utils.dump(prev));
           out = prev;
           break;
         case SRL_HDR_OBJECT:
@@ -541,9 +486,7 @@ public class Decoder implements SerealHeader {
                 String.format(
                     "Encountered object in input, but the 'refuseObject' option is in effect at offset %d of input",
                     position));
-          if (debugTrace) trace("Reading an object");
           Object obj = readObject();
-          if (debugTrace) trace("Read object: " + obj);
           out = obj;
           break;
         case SRL_HDR_OBJECTV:
@@ -552,19 +495,14 @@ public class Decoder implements SerealHeader {
                 String.format(
                     "Encountered object in input, but the 'refuseObject' option is in effect at offset %d of input",
                     position));
-          if (debugTrace) trace("Reading an objectv");
           String className = readStringCopy();
-          if (debugTrace) trace("Read an objectv of class: " + className);
           out = readObject(className);
           break;
         case SRL_HDR_COPY:
-          if (debugTrace) trace("Reading a copy");
           Object copy = read_copy();
-          if (debugTrace) trace("Read copy: " + copy);
           out = copy;
           break;
         case SRL_HDR_ALIAS:
-          if (debugTrace) trace("Reading an alias");
           Object value = get_tracked_item();
 
           if (perlAlias) {
@@ -572,10 +510,8 @@ public class Decoder implements SerealHeader {
           } else {
             out = value;
           }
-          if (debugTrace) trace("Read alias: " + Utils.dump(out));
           break;
         case SRL_HDR_WEAKEN:
-          if (debugTrace) trace("Weakening the next thing");
           // so the next thing HAS to be a ref (afaict) which means we can track it
           if (perlRefs) {
             PerlReference placeHolder = new PerlReference(null);
@@ -598,26 +534,20 @@ public class Decoder implements SerealHeader {
           break;
         case SRL_HDR_HASH:
           Object hash = readMap((int) read_varint(), track);
-          if (debugTrace) trace("Read hash: " + hash);
           out = hash;
           break;
         case SRL_HDR_ARRAY:
-          if (debugTrace) trace("Reading array");
           if (useObjectArray) {
             out = readNativeArray((int) read_varint(), track);
           } else {
             out = readList((int) read_varint(), track);
           }
-          if (debugTrace) trace("Read array: " + Utils.dump(out));
           break;
         case SRL_HDR_REGEXP:
-          if (debugTrace) trace("Reading Regexp");
           Pattern pattern = read_regex();
-          if (debugTrace) trace("Read regexp: " + pattern);
           out = pattern;
           break;
         case SRL_HDR_PAD:
-          if (debugTrace) trace("Padding byte: skip");
           return readSingleValue();
         default:
           throw new SerealException("Tag not supported: " + tag);
@@ -627,7 +557,6 @@ public class Decoder implements SerealHeader {
     if (track != 0) { // we double-track arrays ATM (but they just overwrite)
       track_stuff(track, out);
     }
-    if (debugTrace) trace("returning: " + out);
 
     return out;
   }
@@ -640,7 +569,6 @@ public class Decoder implements SerealHeader {
    */
   private byte[] read_short_binary(byte tag) {
     int length = tag & SRL_MASK_SHORT_BINARY_LEN;
-    if (debugTrace) trace("Short binary, length: " + length);
     byte[] buf = Arrays.copyOfRange(data, position, position + length);
     position += length;
     return buf;
@@ -714,7 +642,6 @@ public class Decoder implements SerealHeader {
     } else {
       throw new SerealException("Regex has to be built from a char or byte sequence");
     }
-    if (debugTrace) trace("Read pattern: " + regex);
 
     // now read modifiers
     byte tag = data[position++];
@@ -753,16 +680,13 @@ public class Decoder implements SerealHeader {
   private Object readObject() throws SerealException {
     Object className = readString();
 
-    if (debugTrace) trace("Object Classname: " + className);
     return readObject(className.toString());
   }
 
   private Object readObject(String className) throws SerealException {
     Object structure = readSingleValue();
-    if (debugTrace) trace("Object Type: " + structure.getClass().getName());
     if (stripObjects) return structure;
     Object object = typeMapper.makeObject(className, structure);
-    if (debugTrace) trace("Created object " + object.getClass().getName());
     return object;
   }
 
@@ -811,7 +735,6 @@ public class Decoder implements SerealHeader {
   }
 
   private void track_stuff(int pos, Object ref) {
-    if (debugTrace) trace("Saving " + ref + " at offset " + pos);
     tracked.put(pos, ref);
   }
 

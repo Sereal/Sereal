@@ -95,8 +95,6 @@ public class TestCorpus {
 			verbose = true;
 			System.out.println( "Decoding a single file: " + target.getAbsolutePath() );
 			// more logging
-			dec.debugTrace = true;
-			enc.debugTrace = true;
 			roundtrip( target );
 		}
 

@@ -45,7 +45,6 @@ public class Encoder {
         (byte) (SerealHeader.MAGIC_V3 >> 8),
         (byte) (SerealHeader.MAGIC_V3 >> 0),
       };
-  boolean debugTrace;
   // so we don't need to allocate this every time we encode a varint
   private byte[] varint_buf = new byte[12];
   // track things we've encoded so we can emit refs and copies
@@ -141,12 +140,6 @@ public class Encoder {
     buffer[pos++] = (byte) n;
 
     return pos;
-  }
-
-  void trace(String info) {
-    if (!debugTrace)
-      throw new RuntimeException("All calls to trace() must be guarded with 'if (debugTrace)'");
-    System.out.println(info);
   }
 
   // write header and version/encoding
@@ -367,8 +360,6 @@ public class Encoder {
    * @throws SerealException if the string is not short enough
    */
   private void appendShortBinary(byte[] latin1) throws SerealException {
-    if (debugTrace) trace("Writing short binary: " + latin1);
-
     // maybe we can just COPY
     long copyOffset = getTrackedItemCopy(latin1);
     if (copyOffset != BytearrayCopyMap.NOT_FOUND) {
@@ -398,8 +389,6 @@ public class Encoder {
    * @param latin1 String to encode as US-ASCII bytes
    */
   private void appendBinary(byte[] latin1) {
-    if (debugTrace) trace("Writing binary: " + latin1);
-
     // maybe we can just COPY
     long copyOffset = getTrackedItemCopy(latin1);
     if (copyOffset != BytearrayCopyMap.NOT_FOUND) {
@@ -418,8 +407,6 @@ public class Encoder {
   }
 
   private void appendCopy(long location) {
-    if (debugTrace) trace("Emitting a COPY for location " + location);
-
     appendByte(SerealHeader.SRL_HDR_COPY);
     appendVarint(location);
   }
@@ -432,8 +419,6 @@ public class Encoder {
    * @throws SerealException if the pattern is longer that a short binary string
    */
   private void appendRegex(Pattern p) throws SerealException {
-
-    if (debugTrace) trace("Writing a Pattern: " + Utils.dump(p));
 
     byte[] flags = new byte[4];
     int flags_size = 0;
@@ -500,16 +485,12 @@ public class Encoder {
 
   @SuppressWarnings("unchecked")
   private void encode(Object obj) throws SerealException {
-    if (debugTrace) trace("Currently tracked: " + Utils.dump(tracked));
-
     // track it (for ALIAS tags)
     long location = size;
 
     if (perlAlias) {
       long aliasOffset = aliases.get(obj);
       if (aliasOffset != IdentityMap.NOT_FOUND) {
-        if (debugTrace)
-          trace("Track: We saw this before: " + Utils.dump(obj) + " at location " + aliasOffset);
         appendAlias(aliasOffset);
         return;
       } else {
@@ -521,14 +502,11 @@ public class Encoder {
 
     // this needs to be first for obvious reasons :)
     if (type == PerlUndef.class) {
-      if (debugTrace) trace("Emitting a NULL/undef");
       if (protocolVersion == 3 && obj == PerlUndef.CANONICAL)
         appendByte(SerealHeader.SRL_HDR_CANONICAL_UNDEF);
       else appendByte(SerealHeader.SRL_HDR_UNDEF);
       return;
     }
-
-    if (debugTrace) trace("Encoding type: " + type);
 
     // this is ugly :)
     if (type == Long.class || type == Integer.class || type == Byte.class) {
@@ -623,7 +601,6 @@ public class Encoder {
   private void appendPerlObject(String className, Object data) throws SerealException {
     long nameOffset = trackedClassnames.get(className);
     if (nameOffset != StringCopyMap.NOT_FOUND) {
-      if (debugTrace) trace("Already emitted this classname, making objectv for " + className);
 
       appendByte(SerealHeader.SRL_HDR_OBJECTV);
       appendVarint(nameOffset);
@@ -654,34 +631,14 @@ public class Encoder {
   }
 
   private void track(Object obj, long obj_location) {
-    if (debugTrace)
-      trace(
-          "Tracking "
-              + (obj == null ? "NULL/undef" : obj.getClass().getName())
-              + "@"
-              + System.identityHashCode(obj)
-              + " at location "
-              + obj_location);
     tracked.put(obj, obj_location - headerOffset);
   }
 
   private void trackForCopy(byte[] bytes, long location) {
-    if (debugTrace)
-      trace(
-          "Tracking for copy "
-              + (bytes == null ? "NULL/undef" : "bytes")
-              + " at location "
-              + location);
     trackedBytearrayCopy.put(bytes, location - headerOffset);
   }
 
   private void trackForCopy(String string, long location) {
-    if (debugTrace)
-      trace(
-          "Tracking for copy "
-              + (string == null ? "NULL/undef" : "string")
-              + " at location "
-              + location);
     trackedStringCopy.put(string, location - headerOffset);
   }
 
@@ -706,8 +663,6 @@ public class Encoder {
   }
 
   private void appendRefp(long location) {
-    if (debugTrace) trace("Emitting a REFP for location " + location);
-
     setTrackBit(location);
     appendByte(SerealHeader.SRL_HDR_REFP);
     appendVarint(location);
@@ -726,16 +681,12 @@ public class Encoder {
   }
 
   private void appendAlias(long location) {
-    if (debugTrace) trace("Emitting an ALIAS for location " + location);
-
     setTrackBit(location);
     appendByte(SerealHeader.SRL_HDR_ALIAS);
     appendVarint(location);
   }
 
   private void appendMap(Map<Object, Object> hash) throws SerealException {
-    if (debugTrace) trace("Writing hash: " + Utils.dump(hash));
-
     if (!perlRefs) {
       appendByte(SerealHeader.SRL_HDR_REFN);
       track(hash, size);
@@ -750,13 +701,6 @@ public class Encoder {
   }
 
   private void appendRef(PerlReference ref) throws SerealException {
-    if (debugTrace)
-      trace(
-          "Emitting a REFN for @"
-              + System.identityHashCode(ref)
-              + " -> @"
-              + System.identityHashCode(ref.getValue()));
-
     Object refValue = ref.getValue();
 
     appendByte(SerealHeader.SRL_HDR_REFN);
@@ -768,8 +712,6 @@ public class Encoder {
     // checking length without casting to Object[] since they might primitives
     int count = Array.getLength(obj);
 
-    if (debugTrace) trace("Emitting an array of length " + count);
-
     if (!perlRefs) {
       appendByte(SerealHeader.SRL_HDR_REFN);
       track(obj, size);
@@ -779,23 +721,12 @@ public class Encoder {
 
     // write the objects (works for both Objects and primitives)
     for (int index = 0; index < count; index++) {
-      if (debugTrace)
-        trace(
-            "Emitting array index "
-                + index
-                + " ("
-                + (Array.get(obj, index) == null
-                    ? " NULL/undef"
-                    : Array.get(obj, index).getClass().getSimpleName())
-                + ")");
       encode(Array.get(obj, index));
     }
   }
 
   private void appendArray(Object[] array) throws SerealException {
     int count = array.length;
-
-    if (debugTrace) trace("Emitting an array of length " + count);
 
     if (!perlRefs) {
       appendByte(SerealHeader.SRL_HDR_REFN);
@@ -805,20 +736,12 @@ public class Encoder {
     appendVarint(count);
 
     for (Object item : array) {
-      if (debugTrace)
-        trace(
-            "Emitting array item: "
-                + " ("
-                + (item == null ? " NULL/undef" : item.getClass().getSimpleName())
-                + ")");
       encode(item);
     }
   }
 
   private void appendArray(List<Object> list) throws SerealException {
     int count = list.size();
-
-    if (debugTrace) trace("Emitting an array of length " + count);
 
     if (!perlRefs) {
       appendByte(SerealHeader.SRL_HDR_REFN);
@@ -828,18 +751,11 @@ public class Encoder {
     appendVarint(count);
 
     for (Object item : list) {
-      if (debugTrace)
-        trace(
-            "Emitting array item: "
-                + " ("
-                + (item == null ? " NULL/undef" : item.getClass().getSimpleName())
-                + ")");
       encode(item);
     }
   }
 
   private void appendStringType(byte[] bytes) throws SerealException {
-    if (debugTrace) trace("Encoding byte array as latin1: " + bytes);
     if (bytes.length < SerealHeader.SRL_MASK_SHORT_BINARY_LEN) {
       appendShortBinary(bytes);
     } else {
@@ -848,7 +764,6 @@ public class Encoder {
   }
 
   private void appendStringType(Latin1String str) throws SerealException {
-    if (debugTrace) trace("Encoding as latin1: " + str);
     byte[] latin1 = str.getBytes();
     if (str.length() < SerealHeader.SRL_MASK_SHORT_BINARY_LEN) {
       appendShortBinary(latin1);
@@ -858,8 +773,6 @@ public class Encoder {
   }
 
   private void appendStringType(String str) throws SerealException {
-    if (debugTrace) trace("Encoding as utf8: " + str);
-
     // maybe we can just COPY
     long copyOffset = getTrackedItemCopy(str);
     if (copyOffset != StringCopyMap.NOT_FOUND) {
