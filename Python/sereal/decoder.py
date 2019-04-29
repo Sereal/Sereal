@@ -8,7 +8,7 @@ from sereal import reader
 from sereal import exception
 
 class SrlDecoder(object):
-    def __init__(self):
+    def __init__(self, object_factory=None):
         super(SrlDecoder, self).__init__()
         self.header = {
             'version': None,
@@ -18,6 +18,7 @@ class SrlDecoder(object):
         self.tracked_items = {}
         self.perl_compatible = False
         self.body_offset = 0
+        self.object_factory = object_factory if object_factory is not None else self._default_object_factory
 
     def decode(self, byte_str):
         self.reader = reader.SrlDocumentReader(byte_str)
@@ -183,19 +184,20 @@ class SrlDecoder(object):
     def _decode_object(self):
         # Saving the classname in case an OBJECTV refers to it later.
         name = self._decode_bytes(force_track_pos=True)
-        obj = self._decode_bytes()
-        return {
-            'class': name,
-            'object': obj,
-        }
+        data = self._decode_bytes()
+        return self.object_factory(classname=name, data=data)
 
     def _decode_objectv(self):
         key = self.reader.read_varint()
         name = self.tracked_items[key]
-        obj = self._decode_bytes()
+        data = self._decode_bytes()
+        return self.object_factory(classname=name, data=data)
+
+    @staticmethod
+    def _default_object_factory(classname, data):
         return {
-            'class': name,
-            'object': obj,
+            'class': classname,
+            'object': data,
         }
 
     def _decode_zigzag(self):
