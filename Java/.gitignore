@@ -1,5 +1,5 @@
 /test_dir
-/maven.classpath
+/sereal/maven.classpath
 **/target
 .idea/
 **/*.iml
