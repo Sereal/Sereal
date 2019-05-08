@@ -57,6 +57,6 @@ lib: libzstd.o
 
 clean:
 	$(RM) core *.o *.a *.gcda
-	$(RM) decompress/*.o
+	$(RM) common/*.o compress/*.o decompress/*.o
 	@echo Cleaning zstd library completed
 };
