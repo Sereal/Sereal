@@ -1,4 +1,6 @@
 sudo: false
+install: true
+
 language: go
 go:
     - 1.4
@@ -8,6 +10,19 @@ rvm:
   - 1.9.3
   - 2.0.0
   - 2.1.0
+
+language: java
+jdk:
+  - openjdk8
+cache:
+  directories:
+    - '$HOME/.m2/repository'
+    - '$HOME/.sonar/cache'
+    - "$HOME/apache-maven-3.6.1"
+before_install:
+- export M2_HOME=$HOME/apache-maven-3.6.1
+- if [ ! -d $M2_HOME/bin ]; then curl https://archive.apache.org/dist/maven/maven-3/3.6.1/binaries/apache-maven-3.6.1-bin.tar.gz | tar zxf - -C $HOME; fi
+- export PATH=$M2_HOME/bin:$PATH
 
 language: perl
 perl:
@@ -19,5 +34,6 @@ perl:
     - "5.14"
     - "5.12"
     - "5.10"
-install: /bin/true
-script: travis/all.sh
+
+script: 
+  - travis/all.sh
