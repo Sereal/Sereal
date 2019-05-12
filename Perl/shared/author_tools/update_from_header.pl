@@ -221,7 +221,7 @@ sub update_JavaSerealHeader {
 
     $declarations .= "/*\n* NOTE the above section is auto-updated by $0";
 
-    replace_block("Java/src/com/booking/sereal/SerealHeader.java", $declarations);
+    replace_block("Java/sereal/src/main/java/com/booking/sereal/SerealHeader.java", $declarations);
 
 }
 
