@@ -114,7 +114,7 @@ sub replace_block {
         }
 
         unless ($gotit) {
-            warn "didnt find autoupdater start!\n";
+            warn "didnt find autoupdater start in $file!\n";
             last READ;
         }
 
@@ -132,7 +132,7 @@ sub replace_block {
         }
 
         if ($gotit) {
-            warn "didnt find autoupdater start!\n";
+            warn "didnt find autoupdater end in $file!\n";
             last READ;
         }
 
