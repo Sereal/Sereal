@@ -50,14 +50,18 @@ public class EncoderOptions {
   }
 
   public EncoderOptions protocolVersion(int protocolVersion) {
-    if (protocolVersion < 0 || protocolVersion > 4)
+    if (protocolVersion < 1 || protocolVersion > 4) {
       throw new IllegalArgumentException("Unknown Sereal version " + protocolVersion);
+    }
     this.protocolVersion = protocolVersion;
 
     return this;
   }
 
   public EncoderOptions compressionType(CompressionType compressionType) {
+    if (protocolVersion < compressionType.minProtocolVersion) {
+      throw new IllegalArgumentException("Compression " + compressionType + " not supported in Sereal protocol" + protocolVersion);
+    }
     this.compressionType = compressionType;
 
     return this;
@@ -81,9 +85,17 @@ public class EncoderOptions {
   }
 
   public enum CompressionType {
-    NONE,
-    SNAPPY,
-    ZLIB,
-    ZSTD,
+    NONE(1, SerealHeader.SRL_ENCODING_NONE),
+    SNAPPY(1, -1),
+    ZLIB(3, SerealHeader.SRL_ENCODING_ZLIB),
+    ZSTD(4, SerealHeader.SRL_ENCODING_ZSTD);
+
+    final byte minProtocolVersion;
+    final byte encoding;
+
+    CompressionType(int minProtocolVersion, int encoding) {
+      this.minProtocolVersion = (byte) minProtocolVersion;
+      this.encoding = (byte) encoding;
+    }
   }
 }

@@ -10,6 +10,12 @@ public interface SerealHeader {
 
   byte SRL_MASK_SHORT_BINARY_LEN = (byte) 31; // lower 5 bits
 
+  byte SRL_ENCODING_NONE = 0;
+  byte SRL_ENCODING_SNAPPY_LEGACY = 1;
+  byte SRL_ENCODING_SNAPPY = 2;
+  byte SRL_ENCODING_ZLIB = 3;
+  byte SRL_ENCODING_ZSTD = 4;
+
   /*
   	Note: Despite this interface already being named SerealHeader we still use SRL_HDR_
   			as a prefix so grepping will show both these and the C ones.
