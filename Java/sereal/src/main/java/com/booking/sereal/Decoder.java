@@ -31,7 +31,7 @@ public class Decoder implements SerealHeader {
   private final TypeMapper typeMapper;
   private final boolean useObjectArray;
   private byte[] data;
-  private int position, size;
+  private int position, end;
   private ByteArray originalData;
   // where we track items for REFP purposes
   private RefpMap tracked = new RefpMap();
@@ -61,7 +61,7 @@ public class Decoder implements SerealHeader {
 
   private void checkHeader() throws SerealException {
 
-    if ((size - position) < 4) {
+    if ((end - position) < 4) {
       throw new SerealException("Invalid Sereal header: too few bytes");
     }
 
@@ -97,14 +97,14 @@ public class Decoder implements SerealHeader {
 
   private void checkNoEOD() throws SerealException {
 
-    if ((size - position) <= 0) {
+    if ((end - position) <= 0) {
       throw new SerealException("Unexpected end of data at byte " + position);
     }
   }
 
   private void checkProtoAndFlags() throws SerealException {
 
-    if ((size - position) < 1) {
+    if ((end - position) < 1) {
       throw new SerealException("Invalid Sereal header: no protocol/version byte");
     }
 
@@ -144,16 +144,16 @@ public class Decoder implements SerealHeader {
 
     if (userHeaderSize <= 0) throw new SerealException("Sereal user header not present");
     byte[] originalData = data;
-    int originalPosition = position, originalSize = size;
+    int originalPosition = position, originalSize = end;
     try {
       data = originalData;
-      size = (int) (userHeaderPosition + userHeaderSize);
+      end = (int) (userHeaderPosition + userHeaderSize);
       position = (int) userHeaderPosition;
 
       return readSingleValue();
     } finally {
       data = originalData;
-      size = originalSize;
+      end = originalSize;
       position = originalPosition;
       resetTracked();
     }
@@ -199,8 +199,8 @@ public class Decoder implements SerealHeader {
   }
 
   private void uncompressSnappy() throws SerealException {
-    int len = originalData.length - position;
-    int pos = protocolVersion == 1 ? position : 0;
+    int len = originalData.length - (position - originalData.start);
+    int pos = protocolVersion == 1 ? position : originalData.start;
 
     if (encoding == 2) {
       len = (int) read_varint();
@@ -222,7 +222,7 @@ public class Decoder implements SerealHeader {
     }
     this.data = uncompressed;
     this.position = pos;
-    this.size = uncompressed.length;
+    this.end = uncompressed.length;
   }
 
   private void uncompressZlib() throws SerealException {
@@ -240,7 +240,7 @@ public class Decoder implements SerealHeader {
     }
     this.data = uncompressed;
     this.position = 0;
-    this.size = uncompressed.length;
+    this.end = uncompressed.length;
   }
 
   private void uncompressZstd() throws SerealException {
@@ -256,7 +256,7 @@ public class Decoder implements SerealHeader {
     if (Zstd.isError(status)) throw new SerealException(Zstd.getErrorName(status));
     this.data = uncompressed;
     this.position = 0;
-    this.size = uncompressed.length;
+    this.end = uncompressed.length;
   }
 
   /**
@@ -344,7 +344,7 @@ public class Decoder implements SerealHeader {
     int lshift = 0;
 
     byte b = data[position++];
-    while ((position < size) && (b < 0)) {
+    while ((position < end) && (b < 0)) {
       uv |= ((long) b & 127) << lshift; // add 7 bits
       lshift += 7;
       b = data[position++];
@@ -722,15 +722,15 @@ public class Decoder implements SerealHeader {
     reset();
     originalData = blob;
     data = originalData.array;
-    size = originalData.length;
-    position = 0;
+    end = originalData.start + originalData.length;
+    position = originalData.start;
   }
 
   public void setData(byte[] blob) {
     reset();
     originalData = new ByteArray(blob);
     data = blob;
-    size = blob.length;
+    end = blob.length;
     position = 0;
   }
 

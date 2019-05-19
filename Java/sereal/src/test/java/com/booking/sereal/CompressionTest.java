@@ -19,7 +19,7 @@ public class CompressionTest {
 		assertEquals(0x01, encoded[4]);
 		assertEquals(173, encoded.length);
 
-		decoder.setData(encoded);
+		setPaddedData(decoder, encoded);
 		assertEquals(data, decoder.decode());
 	}
 
@@ -35,7 +35,7 @@ public class CompressionTest {
 		assertEquals(0x11, encoded[4]);
 		assertEquals(22, encoded.length);
 
-		decoder.setData(encoded);
+		setPaddedData(decoder, encoded);
 		assertEquals(data, decoder.decode());
 	}
 
@@ -49,7 +49,7 @@ public class CompressionTest {
 		assertEquals(0x02, encoded[4]);
 		assertEquals(173, encoded.length);
 
-		decoder.setData(encoded);
+		setPaddedData(decoder, encoded);
 		assertEquals(data, decoder.decode());
 	}
 
@@ -65,7 +65,7 @@ public class CompressionTest {
 		assertEquals(0x22, encoded[4]);
 		assertEquals(24, encoded.length);
 
-		decoder.setData(encoded);
+		setPaddedData(decoder, encoded);
 		assertEquals(data, decoder.decode());
 	}
 
@@ -79,7 +79,7 @@ public class CompressionTest {
 		assertEquals(0x03, encoded[4]);
 		assertEquals(173, encoded.length);
 
-		decoder.setData(encoded);
+		setPaddedData(decoder, encoded);
 		assertEquals(data, decoder.decode());
 	}
 
@@ -95,7 +95,7 @@ public class CompressionTest {
 		assertEquals(0x23, encoded[4]);
 		assertEquals(24, encoded.length);
 
-		decoder.setData(encoded);
+		setPaddedData(decoder, encoded);
 		assertEquals(data, decoder.decode());
 	}
 
@@ -111,7 +111,7 @@ public class CompressionTest {
 		assertEquals(0x33, encoded[4]);
 		assertEquals(24, encoded.length);
 
-		decoder.setData(encoded);
+		setPaddedData(decoder, encoded);
 		assertEquals(data, decoder.decode());
 	}
 
@@ -128,7 +128,7 @@ public class CompressionTest {
 		assertEquals(0x33, encoded[4]);
 		assertEquals(24, encoded.length);
 
-		decoder.setData(encoded);
+		setPaddedData(decoder, encoded);
 		assertEquals(data, decoder.decode());
 	}
 
@@ -145,7 +145,7 @@ public class CompressionTest {
 		assertEquals(0x03, encoded[4]);
 		assertEquals(173, encoded.length);
 
-		decoder.setData(encoded);
+		setPaddedData(decoder, encoded);
 		assertEquals(data, decoder.decode());
 	}
 
@@ -162,7 +162,7 @@ public class CompressionTest {
 		assertEquals(0x03, encoded[4]);
 		assertEquals(10, encoded.length);
 
-		decoder.setData(encoded);
+		setPaddedData(decoder, encoded);
 		assertEquals(smallData, decoder.decode());
 	}
 
@@ -179,7 +179,7 @@ public class CompressionTest {
 		assertEquals(0x03, encoded[4]);
 		assertEquals(10, encoded.length);
 
-		decoder.setData(encoded);
+		setPaddedData(decoder, encoded);
 		assertEquals(smallData, decoder.decode());
 	}
 
@@ -195,7 +195,7 @@ public class CompressionTest {
 		assertEquals(0x44, encoded[4]);
 		assertEquals(28, encoded.length);
 
-		decoder.setData(encoded);
+		setPaddedData(decoder, encoded);
 		assertEquals(data, decoder.decode());
 	}
 
@@ -211,7 +211,7 @@ public class CompressionTest {
 		assertEquals(0x04, encoded[4]);
 		assertEquals(10, encoded.length);
 
-		decoder.setData(encoded);
+		setPaddedData(decoder, encoded);
 		assertEquals(smallData, decoder.decode());
 	}
 
@@ -227,7 +227,16 @@ public class CompressionTest {
 		assertEquals(0x04, encoded[4]);
 		assertEquals(173, encoded.length);
 
-		decoder.setData(encoded);
+		setPaddedData(decoder, encoded);
 		assertEquals(data, decoder.decode());
+	}
+
+	static void setPaddedData(Decoder decoder, byte[] data) {
+		byte[] padded = new byte[data.length + 6];
+		for (int i = 0; i < padded.length; ++i) {
+			padded[i] = (byte) (Math.random() * 256);
+		}
+		System.arraycopy(data, 0, padded, 3, data.length);
+		decoder.setData(new ByteArray(padded, 3, data.length));
 	}
 }
