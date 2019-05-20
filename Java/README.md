@@ -21,6 +21,6 @@ implementation)
 
 Run the benchmarks:
 
-    $ mvn clean package
+    $ mvn -P benchmarks clean package
     # use java -jar benchmarks/target/benchmarks.jar -h for detailed usage
     $ java -jar benchmarks/target/benchmarks.jar

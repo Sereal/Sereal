@@ -15,7 +15,6 @@
 
     <modules>
         <module>sereal</module>
-        <module>benchmarks</module>
     </modules>
 
     <dependencyManagement>
@@ -83,4 +82,13 @@
         </plugins>
     </build>
 
+    <profiles>
+        <profile>
+            <id>benchmarks</id>
+            <modules>
+                <module>sereal</module>
+                <module>benchmarks</module>
+            </modules>
+        </profile>
+    </profiles>
 </project>
