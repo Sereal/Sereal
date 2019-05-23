@@ -2,7 +2,6 @@ package com.booking.sereal;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -217,10 +216,10 @@ public class EncoderTest {
 	public void referencesV1() throws SerealException {
 		encoder = v1Encoder();
 
-		Boolean booleanValue = new Boolean(true);
-		Integer integerValue = new Integer(12);
+		Boolean booleanValue = Boolean.TRUE;
+		Integer integerValue = Integer.valueOf(12);
 		byte[] bytesValue = new byte[] { 0x66, 0x6f, 0x6f };
-		Map<String, Object> mapValue = new HashMap<String, Object>();
+		Map<String, Object> mapValue = new HashMap<>();
 		Object[] arrayValue = new Object[0];
 		String stringValue = "foo";
 		byte[] data;
@@ -258,10 +257,10 @@ public class EncoderTest {
 	public void referencesV2() throws SerealException {
 		encoder = v2Encoder();
 
-		Boolean booleanValue = new Boolean(true);
-		Integer integerValue = new Integer(12);
+		Boolean booleanValue = Boolean.TRUE;
+		Integer integerValue = Integer.valueOf(12);
 		byte[] bytesValue = new byte[] { 0x66, 0x6f, 0x6f };
-		Map<String, Object> mapValue = new HashMap<String, Object>();
+		Map<String, Object> mapValue = new HashMap<>();
 		Object[] arrayValue = new Object[0];
 		String stringValue = "foo";
 		byte[] data;
@@ -335,11 +334,11 @@ public class EncoderTest {
 	}
 
 	private List<Object> makeList(Object... items) {
-		return new ArrayList<Object>(Arrays.asList(items));
+		return new ArrayList<>(Arrays.asList(items));
 	}
 
 	private Map<String, Object> makeMap(Object... items) {
-		Map<String, Object> res = new HashMap<String, Object>();
+		Map<String, Object> res = new HashMap<>();
 
 		for (int i = 0; i < items.length; i += 2)
 			res.put((String) items[i], items[i + 1]);

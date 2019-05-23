@@ -2,7 +2,6 @@ package com.booking.sereal;
 
 import org.junit.Test;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -16,7 +15,7 @@ public class DecoderStringTest {
     Decoder dString = new Decoder(new DecoderOptions().forceJavaStringForByteArrayValues(true));
     Decoder dBytes = new Decoder(new DecoderOptions().forceJavaStringForByteArrayValues(false));
 
-    StringBuffer big = new StringBuffer(1000);
+    StringBuilder big = new StringBuilder(1000);
     for (int i = 0; i < 1000; i++) {
       big.append("abc");
     }
@@ -31,8 +30,10 @@ public class DecoderStringTest {
     byte[] encoded = e.write(data).getData();
     dString.setData(encoded);
     dBytes.setData(encoded);
-    HashMap<String,Object> decodedString = (HashMap) dString.decode();
-    HashMap<String,Object> decodedBytes = (HashMap) dBytes.decode();
+    @SuppressWarnings("unchecked")
+    HashMap<String,Object> decodedString = (HashMap<String, Object>) dString.decode();
+    @SuppressWarnings("unchecked")
+    HashMap<String,Object> decodedBytes = (HashMap<String, Object>) dBytes.decode();
 
     assertEquals(decodedBytes.get(keyShort).getClass(),byte[].class);
     assertEquals(decodedString.get(keyShort).getClass(),String.class);
