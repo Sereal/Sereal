@@ -183,6 +183,26 @@ public class TokenEncoderTest {
 
       assertThat(bodyBytes(encoder), expectedBytesNested(0x27, 0xfe, 0x00, longAscii.getBytes()));
     }
+
+    // char array
+    {
+      TokenEncoder encoder = encoder();
+
+      encoder.appendString(longAscii.toCharArray());
+      assertEquals(1, encoder.trackOffsetLastValue());
+
+      assertThat(bodyBytes(encoder), expectedBytesNested(0x27, 0xfe, 0x00, longAscii.getBytes()));
+    }
+
+    // char array range
+    {
+      TokenEncoder encoder = encoder();
+
+      encoder.appendString(longAscii.toCharArray(), 2, longAscii.length() - 4);
+      assertEquals(1, encoder.trackOffsetLastValue());
+
+      assertThat(bodyBytes(encoder), expectedBytesNested(0x27, 0xfa, 0x00, Arrays.copyOfRange(longAscii.getBytes(), 2, longAscii.length() - 2)));
+    }
   }
 
   @Test

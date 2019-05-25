@@ -549,7 +549,7 @@ public class TokenEncoder {
   public void appendString(char[] string, int offset, int length) throws SerealException {
     currentContext.count++;
     trackOffset = size;
-    appendCharBuffer(CharBuffer.wrap(string, offset, offset + length));
+    appendCharBuffer(CharBuffer.wrap(string, offset, length));
   }
 
   private void appendCharBuffer(CharBuffer string) throws SerealException {
