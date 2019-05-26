@@ -56,6 +56,7 @@ public class TokenDecoderAccessorsTest {
       assertEquals(SerealToken.UTF8, decoder.poisonNextToken());
       assertTrue(decoder.binaryIsUtf8());
       assertEquals(8, decoder.binarySliceStart());
+      assertEquals(11, decoder.binarySliceEnd());
       assertEquals(3, decoder.binarySliceLength());
     }
 
@@ -65,6 +66,7 @@ public class TokenDecoderAccessorsTest {
       assertEquals(SerealToken.BINARY, decoder.poisonNextToken());
       assertFalse(decoder.binaryIsUtf8());
       assertEquals(7, decoder.binarySliceStart());
+      assertEquals(10, decoder.binarySliceEnd());
       assertEquals(3, decoder.binarySliceLength());
     }
 
@@ -74,6 +76,7 @@ public class TokenDecoderAccessorsTest {
       assertEquals(SerealToken.BINARY, decoder.poisonNextToken());
       assertFalse(decoder.binaryIsUtf8());
       assertEquals(8, decoder.binarySliceStart());
+      assertEquals(48, decoder.binarySliceEnd());
       assertEquals(40, decoder.binarySliceLength());
     }
   }

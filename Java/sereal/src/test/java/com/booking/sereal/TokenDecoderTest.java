@@ -6,9 +6,15 @@ import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.regex.Pattern;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 
 public class TokenDecoderTest {
+  @Rule
+  public ExpectedException exceptionRule = ExpectedException.none();
+
   @Test
   public void decodeLong() throws SerealException {
     // small positive tag
@@ -389,7 +395,7 @@ public class TokenDecoderTest {
 
   @Test
   public void decodeObject() throws SerealException {
-    // object with string tag
+    // object with short binary tag
     {
       TokenDecoder decoder = decoder(0x28, 0x2c, 0x62, 0x41, 0x42, 0x07);
 
@@ -397,6 +403,48 @@ public class TokenDecoderTest {
 
       assertEquals(SerealToken.OBJECT_START, decoder.poisonNextToken());
       assertEquals("AB", new String(
+        decoder.decoderBuffer(),
+        decoder.binarySliceStart(),
+        decoder.binarySliceLength(),
+        StandardCharsets.UTF_8)
+      );
+
+      assertEquals(SerealToken.LONG, decoder.poisonNextToken());
+      assertEquals(7, decoder.longValue());
+
+      assertEquals(SerealToken.OBJECT_END, decoder.poisonNextToken());
+      assertEquals(SerealToken.END, decoder.poisonNextToken());
+    }
+
+    // object with long binary tag
+    {
+      TokenDecoder decoder = decoder(0x28, 0x2c, 0x26, 0x02, 0x43, 0x44, 0x07);
+
+      assertEquals(SerealToken.REFN, decoder.poisonNextToken());
+
+      assertEquals(SerealToken.OBJECT_START, decoder.poisonNextToken());
+      assertEquals("CD", new String(
+        decoder.decoderBuffer(),
+        decoder.binarySliceStart(),
+        decoder.binarySliceLength(),
+        StandardCharsets.UTF_8)
+      );
+
+      assertEquals(SerealToken.LONG, decoder.poisonNextToken());
+      assertEquals(7, decoder.longValue());
+
+      assertEquals(SerealToken.OBJECT_END, decoder.poisonNextToken());
+      assertEquals(SerealToken.END, decoder.poisonNextToken());
+    }
+
+    // object with string tag
+    {
+      TokenDecoder decoder = decoder(0x28, 0x2c, 0x27, 0x03, 0xEA, 0xB0, 0x81, 0x07);
+
+      assertEquals(SerealToken.REFN, decoder.poisonNextToken());
+
+      assertEquals(SerealToken.OBJECT_START, decoder.poisonNextToken());
+      assertEquals("각", new String(
         decoder.decoderBuffer(),
         decoder.binarySliceStart(),
         decoder.binarySliceLength(),
@@ -546,6 +594,34 @@ public class TokenDecoderTest {
 
       assertEquals(SerealToken.END, decoder.poisonNextToken());
     }
+  }
+
+  @Test
+  public void decodeRegexpFlags() throws SerealException {
+    assertEquals(Pattern.MULTILINE, TokenDecoder.decodeRegexpFlags("!m!".getBytes(), 1, 2));
+    assertEquals(Pattern.DOTALL, TokenDecoder.decodeRegexpFlags("!s!".getBytes(), 1, 2));
+    assertEquals(Pattern.COMMENTS, TokenDecoder.decodeRegexpFlags("!x!".getBytes(), 1, 2));
+    assertEquals(Pattern.CASE_INSENSITIVE, TokenDecoder.decodeRegexpFlags("!i!".getBytes(), 1, 2));
+    assertEquals(0, TokenDecoder.decodeRegexpFlags("!p!".getBytes(), 1, 2));
+
+    assertEquals(Pattern.MULTILINE|Pattern.COMMENTS, TokenDecoder.decodeRegexpFlags("!mx!".getBytes(), 1, 3));
+  }
+
+  @Test
+  public void decodeInvalidRegexpFlags() throws SerealException {
+    exceptionRule.expect(SerealException.class);
+    exceptionRule.expectMessage("Unknown regexp modifier: '$'");
+
+    TokenDecoder.decodeRegexpFlags("$".getBytes(), 0, 1);
+  }
+
+  @Test
+  public void skipPad() throws SerealException {
+    TokenDecoder decoder = decoder(0x3f, 0x01, 0x3f);
+
+    assertEquals(SerealToken.LONG, decoder.poisonNextToken());
+    assertEquals(1, decoder.longValue());
+    assertEquals(SerealToken.END, decoder.poisonNextToken());
   }
 
   private TokenDecoder decoder(int... ints) throws SerealException {

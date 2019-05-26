@@ -142,7 +142,7 @@ public class TokenDecoder {
     int protoAndFlags = data[position++];
     protocolVersion = protoAndFlags & 15; // 4 bits for version
 
-    if (protocolVersion > 4) {
+    if (protocolVersion < 1 || protocolVersion > 4) {
       throw new SerealException(
           String.format("Invalid Sereal header: unsupported protocol version %d", protocolVersion));
     }
@@ -831,7 +831,7 @@ public class TokenDecoder {
           // ignored
           break;
         default:
-          throw new SerealException("Unknown regexp modifier: " + value);
+          throw new SerealException(String.format("Unknown regexp modifier: '%c'", value));
       }
     }
 
