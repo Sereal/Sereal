@@ -56,6 +56,9 @@ public class TokenEncoder {
   private static final int CONTEXT_ARRAY = 2;
   private static final int CONTEXT_OBJECT = 3;
   private static final int CONTEXT_WEAKEN = 4;
+  private static final int CONTEXT_INITIAL = 5;
+  private static final int CONTEXT_HEADER = 6;
+  private static final int CONTEXT_FINAL = 7;
 
   private static final EncoderOptions DEFAULT_OPTIONS = new EncoderOptions();
   private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
@@ -157,6 +160,7 @@ public class TokenEncoder {
    * The contents of the buffer willl become invalid after calling any of the mutator methods.
    */
   public ByteArray getDataReference() {
+    checkParts();
     if (compressedSize != 0) {
       return new ByteArray(compressedBytes, compressedSize);
     } else {
@@ -166,10 +170,26 @@ public class TokenEncoder {
 
   /** Get a copy of the encoded document. */
   public byte[] getData() {
+    checkParts();
     if (compressedSize != 0) {
       return Arrays.copyOf(compressedBytes, compressedSize);
     } else {
       return Arrays.copyOf(bytes, size);
+    }
+  }
+
+  private void checkParts() {
+    if (currentContext.outer != null) {
+      if (currentContext.type != CONTEXT_ROOT) {
+        throw new IllegalStateException("Missing endHash/endArray/endObject call");
+      } else {
+        throw new IllegalStateException("Missing endHeader/endDocument call");
+      }
+    }
+    if (currentContext.type == CONTEXT_INITIAL || currentContext.type == CONTEXT_HEADER) {
+      throw new IllegalStateException("Missing startDocument/endDocument calls");
+    } else if (currentContext.type != CONTEXT_FINAL) {
+      throw new IllegalStateException("");
     }
   }
 
@@ -200,6 +220,7 @@ public class TokenEncoder {
       appendBytesUnsafe(HEADER);
     }
     appendByteUnsafe((byte) ((encoding << 4) | protocolVersion));
+    currentContext = new Context(null, CONTEXT_INITIAL, 0, 0);
   }
 
   /**
@@ -210,9 +231,17 @@ public class TokenEncoder {
   public void startHeader() throws SerealException {
     if (protocolVersion == 1) {
       throw new SerealException("Can't encode user header in Sereal protocol version 1");
+    } else if (currentContext.outer != null) {
+      throw new IllegalStateException("startHeader called while already inside startHeader/startDocumentt");
+    } else if (currentContext.type != CONTEXT_INITIAL) {
+      if (currentContext.type == CONTEXT_HEADER) {
+        throw new IllegalStateException("startHeader called twice");
+      } else {
+        throw new IllegalStateException("startHeader called after emitting document body");
+      }
     }
 
-    currentContext = new Context(null, CONTEXT_ROOT, size, 1);
+    currentContext = new Context(currentContext, CONTEXT_ROOT, size, 1);
     // be optimistic about encoded header size
     size += 2; // one for the size, one for 8bit bitfield
     // because offsets start at 1
@@ -224,7 +253,7 @@ public class TokenEncoder {
    */
   public void endHeader() throws SerealException {
     if (currentContext.type != CONTEXT_ROOT) {
-      throw new SerealException("Mismatched begin/end calls");
+      throw new IllegalStateException("Mismatched begin/end calls");
     }
     checkCount(currentContext);
     hasHeader = true;
@@ -254,12 +283,21 @@ public class TokenEncoder {
       encodeVarint(suffixSize, bytes, originalSize);
       bytes[originalSize + sizeLength] = 0x01;
     }
+    currentContext = new Context(null, CONTEXT_HEADER, -1, 0);
   }
 
   /**
    * Set up the encoder to emit data for the Sereal body.
    */
   public void startDocument() throws SerealException {
+    if (currentContext.outer != null) {
+      throw new IllegalStateException("startDocument called while already inside startHeader/startDocument");
+    }
+    if (currentContext.type == CONTEXT_FINAL) {
+      throw new IllegalStateException("startDocument called twice");
+    }
+
+    currentContext = new Context(null, CONTEXT_FINAL, -1, 0);
     if (!hasHeader) {
       appendByteUnsafe((byte) 0x00);
       headerSize = size;
@@ -269,7 +307,7 @@ public class TokenEncoder {
       }
     }
 
-    currentContext = new Context(null, CONTEXT_ROOT, -1, 1);
+    currentContext = new Context(currentContext, CONTEXT_ROOT, -1, 1);
     if (protocolVersion > 1) {
       // because offsets start at 1
       headerOffset = headerSize - 1;
@@ -283,7 +321,7 @@ public class TokenEncoder {
    */
   public void endDocument() throws SerealException {
     if (currentContext.type != CONTEXT_ROOT) {
-      throw new SerealException("Mismatched begin/end calls");
+      throw new IllegalStateException("Mismatched begin/end calls");
     }
     checkCount(currentContext);
     if (!compressionType.equals(CompressionType.NONE) && size - headerSize > compressionThreshold) {
@@ -298,6 +336,7 @@ public class TokenEncoder {
       // we did not do compression after all
       markNotCompressed();
     }
+    currentContext = currentContext.outer;
   }
 
   private void checkCount(Context context) throws SerealException {
@@ -349,7 +388,7 @@ public class TokenEncoder {
    */
   public void endWeaken() throws SerealException {
     if (currentContext.type != CONTEXT_WEAKEN) {
-      throw new SerealException("Mismatched begin/end calls");
+      throw new IllegalStateException("Mismatched begin/end calls");
     }
     checkCount(currentContext);
     if (bytes[currentContext.position] == SerealHeader.SRL_HDR_PAD) {
@@ -723,7 +762,7 @@ public class TokenEncoder {
    */
   public void endHash() throws SerealException {
     if (currentContext.type != CONTEXT_HASH) {
-      throw new SerealException("Mismatched begin/end calls");
+      throw new IllegalStateException("Mismatched begin/end calls");
     }
     if ((currentContext.count & 0x1) != 0) {
       throw new SerealException("Odd value count in hash");
@@ -813,7 +852,7 @@ public class TokenEncoder {
    */
   public void endArray() throws SerealException {
     if (currentContext.type != CONTEXT_ARRAY) {
-      throw new SerealException("Mismatched begin/end calls");
+      throw new IllegalStateException("Mismatched begin/end calls");
     }
     checkCount(currentContext);
     if (currentContext.expectedCount == -1) {
@@ -901,7 +940,7 @@ public class TokenEncoder {
    */
   public void endObject() throws SerealException {
     if (currentContext.type != CONTEXT_OBJECT) {
-      throw new SerealException("Mismatched begin/end calls");
+      throw new IllegalStateException("Mismatched begin/end calls");
     }
     checkCount(currentContext);
     currentContext = currentContext.outer;

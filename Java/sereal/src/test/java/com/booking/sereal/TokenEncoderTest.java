@@ -787,7 +787,6 @@ public class TokenEncoderTest {
     {
       encoder.startDocument();
       encoder.appendString("abc");
-      encoder.endDocument();
 
       assertThat(bodyBytes(encoder), expectedBytes(0x27, 0x03, 0x61, 0x62, 0x63));
     }
@@ -798,7 +797,6 @@ public class TokenEncoderTest {
     {
       encoder.startDocument();
       encoder.appendLong(70);
-      encoder.endDocument();
 
       assertThat(bodyBytes(encoder), expectedBytes(0x20, 70));
     }
