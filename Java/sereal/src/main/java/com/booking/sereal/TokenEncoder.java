@@ -146,7 +146,8 @@ public class TokenEncoder {
 
   /** Reset internal state as it was right after construction. */
   public void reset() {
-    size = compressedSize = headerSize = 0;
+    size = compressedSize = headerSize = headerOffset = trackOffset = 0;
+    hasHeader = false;
     start();
   }
 
@@ -214,6 +215,8 @@ public class TokenEncoder {
     currentContext = new Context(null, CONTEXT_ROOT, size, 1);
     // be optimistic about encoded header size
     size += 2; // one for the size, one for 8bit bitfield
+    // because offsets start at 1
+    headerOffset = size - 1;
   }
 
   /**

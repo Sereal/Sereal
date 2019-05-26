@@ -3,6 +3,7 @@ package com.booking.sereal;
 import static org.hamcrest.Matchers.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -203,6 +204,18 @@ public class TokenEncoderTest {
 
       assertThat(bodyBytes(encoder), expectedBytesNested(0x27, 0xfa, 0x00, Arrays.copyOfRange(longAscii.getBytes(), 2, longAscii.length() - 2)));
     }
+  }
+
+  @Test
+  public void encodeRawUtf8() throws SerealException {
+    byte[] bytes = TestUtils.byteArray(0xea, 0xEA, 0xB0, 0x81, 0xea);
+
+    TokenEncoder encoder = encoder();
+
+    encoder.appendUTF8(bytes, 1, 3);
+    assertEquals(1, encoder.trackOffsetLastValue());
+
+    assertThat(bodyBytes(encoder), expectedBytes(0x27, 0x03, 0xEA, 0xB0, 0x81));
   }
 
   @Test
@@ -561,6 +574,21 @@ public class TokenEncoderTest {
       assertThat(bodyBytes(encoder), expectedBytes(0x28, 0x2c, 0x27, 0x03, 0x61, 0x62, 0x63, 0x07));
     }
 
+    // object with char[] classname
+    {
+      TokenEncoder encoder = encoder();
+
+      encoder.appendRefNext();
+      assertEquals(1, encoder.trackOffsetLastValue());
+      encoder.startObject("abc".toCharArray());
+      assertEquals(2, encoder.trackOffsetLastValue());
+      encoder.appendLong(7);
+      assertEquals(8, encoder.trackOffsetLastValue());
+      encoder.endObject();
+
+      assertThat(bodyBytes(encoder), expectedBytes(0x28, 0x2c, 0x27, 0x03, 0x61, 0x62, 0x63, 0x07));
+    }
+
     // object with copy tag classname
     {
       TokenEncoder encoder = encoder();
@@ -754,6 +782,65 @@ public class TokenEncoderTest {
     }
   }
 
+  @Test
+  public void trackOffsets() throws SerealException {
+    TokenEncoder encoder = new TokenEncoder();
+
+    {
+      encoder.startHeader();
+      assertEquals(1, encoder.trackOffsetNextValue());
+
+      encoder.appendRefNext();
+      assertEquals(1, encoder.trackOffsetLastValue());
+      assertEquals(2, encoder.trackOffsetNextValue());
+
+      encoder.startArrayValue(2);
+      assertEquals(2, encoder.trackOffsetLastValue());
+      assertEquals(4, encoder.trackOffsetNextValue());
+
+      encoder.appendString("ab");
+      assertEquals(4, encoder.trackOffsetLastValue());
+      assertEquals(8, encoder.trackOffsetNextValue());
+
+      encoder.appendLong(1234);
+      assertEquals(8, encoder.trackOffsetLastValue());
+      assertEquals(11, encoder.trackOffsetNextValue());
+
+      encoder.endArray();
+      assertEquals(8, encoder.trackOffsetLastValue());
+      assertEquals(11, encoder.trackOffsetNextValue());
+
+      encoder.endHeader();
+    }
+
+    {
+      encoder.startDocument();
+      assertEquals(1, encoder.trackOffsetNextValue());
+
+      encoder.appendRefNext();
+      assertEquals(1, encoder.trackOffsetLastValue());
+      assertEquals(2, encoder.trackOffsetNextValue());
+
+      encoder.startArrayValue(2);
+      assertEquals(2, encoder.trackOffsetLastValue());
+      assertEquals(4, encoder.trackOffsetNextValue());
+
+      encoder.appendString("ab");
+      assertEquals(4, encoder.trackOffsetLastValue());
+      assertEquals(8, encoder.trackOffsetNextValue());
+
+      encoder.appendLong(1234);
+      assertEquals(8, encoder.trackOffsetLastValue());
+      assertEquals(11, encoder.trackOffsetNextValue());
+
+      encoder.endArray();
+      assertEquals(8, encoder.trackOffsetLastValue());
+      assertEquals(11, encoder.trackOffsetNextValue());
+
+      encoder.endDocument();
+    }
+  }
+
   private static TokenEncoder encoder() throws SerealException {
     TokenEncoder encoder = new TokenEncoder();
 
@@ -764,6 +851,7 @@ public class TokenEncoderTest {
   }
 
   private static byte[] bodyBytes(TokenEncoder encoder) throws SerealException {
+    assertTrue(encoder.isComplete());
     encoder.endDocuemnt();
     byte[] document = encoder.getData();
 
