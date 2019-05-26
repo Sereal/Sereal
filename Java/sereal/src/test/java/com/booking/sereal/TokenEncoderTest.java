@@ -7,7 +7,9 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 import org.hamcrest.Matcher;
 import org.junit.Rule;
@@ -749,10 +751,29 @@ public class TokenEncoderTest {
     {
       TokenEncoder encoder = encoder();
 
-      encoder.appendRegexp(Pattern.compile("abc", Pattern.MULTILINE));
+      encoder.appendRegexp(Pattern.compile("abc"));
       assertEquals(1, encoder.trackOffsetLastValue());
 
-      assertThat(bodyBytes(encoder), expectedBytes(0x31, 0x27, 0x03, 0x61, 0x62, 0x63, 0x61, 'm'));
+      assertThat(bodyBytes(encoder), expectedBytes(0x31, 0x27, 0x03, 0x61, 0x62, 0x63, 0x60));
+    }
+
+    Map<Integer, String> testFlags = new HashMap<Integer, String>() {{
+      put(Pattern.MULTILINE, "m");
+      put(Pattern.DOTALL, "s");
+      put(Pattern.COMMENTS, "x");
+      put(Pattern.CASE_INSENSITIVE, "i");
+      put(Pattern.CASE_INSENSITIVE|Pattern.COMMENTS, "ix");
+    }};
+    for (Map.Entry<Integer, String> entry : testFlags.entrySet()) {
+      int flags = entry.getKey();
+      byte[] flagLetters = entry.getValue().getBytes();
+
+      TokenEncoder encoder = encoder();
+
+      encoder.appendRegexp(Pattern.compile("abc", flags));
+      assertEquals(1, encoder.trackOffsetLastValue());
+
+      assertThat(bodyBytes(encoder), expectedBytesNested(0x31, 0x27, 0x03, 0x61, 0x62, 0x63, 0x60 + flagLetters.length, flagLetters));
     }
   }
 
