@@ -96,7 +96,7 @@ public class TokenHeaderAndCompressionTest {
 
     encoder.startDocument();
     encoder.appendString(LONG_STRING);
-    encoder.endDocuemnt();
+    encoder.endDocument();
 
     assertEquals((byte) versionEncoding, encoder.getDataReference().array[4]);
     assertEquals(expectedLength, encoder.getDataReference().length);

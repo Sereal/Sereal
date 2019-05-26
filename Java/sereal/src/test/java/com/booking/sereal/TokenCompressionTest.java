@@ -77,7 +77,7 @@ public class TokenCompressionTest {
 
     encoder.startDocument();
     encoder.appendString(LONG_STRING);
-    encoder.endDocuemnt();
+    encoder.endDocument();
 
     assertEquals((byte) expectedType, encoder.getDataReference().array[4]);
     assertEquals(expectedLength, encoder.getDataReference().length);
@@ -93,7 +93,7 @@ public class TokenCompressionTest {
 
     encoder.startDocument();
     encoder.appendString(LONG_STRING);
-    encoder.endDocuemnt();
+    encoder.endDocument();
 
     assertEquals((byte) expectedType, encoder.getDataReference().array[4]);
     assertEquals(expectedLength, encoder.getDataReference().length);
@@ -108,7 +108,7 @@ public class TokenCompressionTest {
 
     encoder.startDocument();
     encoder.appendBinary(RANDOM_BINARY);
-    encoder.endDocuemnt();
+    encoder.endDocument();
 
     assertEquals((byte) expectedType, encoder.getDataReference().array[4]);
     assertEquals(expectedLength, encoder.getDataReference().length);

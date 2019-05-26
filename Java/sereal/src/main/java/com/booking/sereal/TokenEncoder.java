@@ -29,7 +29,7 @@ import org.xerial.snappy.Snappy;
  *   encoder.appendLong(4);
  *   encoder.endArray();
  *
- *   encoder.endDocuemnt();
+ *   encoder.endDocument();
  *
  *   byte[] data = encoder.getData();
  * }
@@ -281,7 +281,7 @@ public class TokenEncoder {
   /**
    * Complete encoding of the Sereal body.
    */
-  public void endDocuemnt() throws SerealException {
+  public void endDocument() throws SerealException {
     if (currentContext.type != CONTEXT_ROOT) {
       throw new SerealException("Mismatched begin/end calls");
     }

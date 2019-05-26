@@ -765,7 +765,7 @@ public class TokenEncoderTest {
     {
       encoder.startDocument();
       encoder.appendString("abc");
-      encoder.endDocuemnt();
+      encoder.endDocument();
 
       assertThat(bodyBytes(encoder), expectedBytes(0x27, 0x03, 0x61, 0x62, 0x63));
     }
@@ -776,7 +776,7 @@ public class TokenEncoderTest {
     {
       encoder.startDocument();
       encoder.appendLong(70);
-      encoder.endDocuemnt();
+      encoder.endDocument();
 
       assertThat(bodyBytes(encoder), expectedBytes(0x20, 70));
     }
@@ -852,7 +852,7 @@ public class TokenEncoderTest {
 
   private static byte[] bodyBytes(TokenEncoder encoder) throws SerealException {
     assertTrue(encoder.isComplete());
-    encoder.endDocuemnt();
+    encoder.endDocument();
     byte[] document = encoder.getData();
 
     return Arrays.copyOfRange(document, 6, document.length);
