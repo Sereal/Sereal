@@ -1,6 +1,7 @@
 package com.booking.sereal;
 
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
@@ -860,6 +861,33 @@ public class TokenEncoderTest {
 
       encoder.endDocument();
     }
+  }
+
+  @Test
+  public void longHeader() throws SerealException {
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < 129; ++i) {
+      sb.append((char) ('A' + i % 26));
+    }
+
+    TokenEncoder encoder = new TokenEncoder();
+
+    encoder.startHeader();
+    encoder.appendString(sb);
+    encoder.endHeader();
+
+    encoder.startDocument();
+    encoder.appendLong(7);
+    encoder.endDocument();
+
+    assertArrayEquals(TestUtils.byteArrayNested(
+      0x3d, 0xf3, 0x72, 0x6c,
+      0x04,
+      0x85, 0x01, // 135 bytes: 1 for opt-suffix, 1 for utf-8 tag, 2 for lenght, 129 for the data
+      0x01,
+      0x27, 0x81, 0x01, sb.toString().getBytes(),
+      0x07
+    ), encoder.getData());
   }
 
   private static TokenEncoder encoder() throws SerealException {
