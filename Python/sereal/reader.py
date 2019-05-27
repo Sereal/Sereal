@@ -56,6 +56,10 @@ class SrlDocumentReader(object):
         fmt = '<f'
         return self._read_unpack(fmt)
 
+    def read_double(self):
+        fmt = '<d'
+        return self._read_unpack(fmt)
+
     def read_str(self, slen):
         fmt = '{0}s'.format(slen)
         val = self._read_unpack(fmt)
