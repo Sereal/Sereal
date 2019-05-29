@@ -17,8 +17,10 @@ import java.util.zip.Deflater;
 import static com.booking.sereal.EncoderOptions.CompressionType;
 
 /**
- * WIP Functions for encoding various things. TODO: Probably just call all methods write() and not
- * have them return the encoded value
+ * Sereal encoder with Perl-like interface.
+ * <p>
+ * This class can be used to encode Perl-like data-structures: (boxed) primitive types, strings, arrays
+ * and maps.
  */
 public class Encoder {
 
@@ -61,10 +63,12 @@ public class Encoder {
   private int headerSize, headerOffset;
   private Charset charset_utf8 = Charset.forName("UTF-8");
 
+  /** Create a new Encoder with default options. */
   public Encoder() {
     this(DEFAULT_OPTIONS);
   }
 
+  /** Create a new Encoder with the specified options. */
   public Encoder(EncoderOptions options) {
     perlRefs = options.perlReferences();
     perlAlias = options.perlAliases();
@@ -194,6 +198,11 @@ public class Encoder {
     resetTracked();
   }
 
+  /**
+   * After a call to {@code write()}, returns a reference of the encoded data.
+   * <p>
+   * The reference is only valid until the next call to {@code write()}.
+   */
   public ByteArray getDataReference() {
     if (compressedSize != 0) {
       return new ByteArray(compressedBytes, (int) compressedSize);
@@ -202,6 +211,9 @@ public class Encoder {
     }
   }
 
+  /**
+   * After a call to {@code write()}, returns a copy of the encoded data.
+   */
   public byte[] getData() {
     if (compressedSize != 0) {
       return Arrays.copyOf(compressedBytes, (int) compressedSize);
@@ -449,16 +461,19 @@ public class Encoder {
   }
 
   /**
-   * Write something to the encoder.
-   *
-   * @param obj
-   * @return a buffer with the encoded data
-   * @throws SerealException
+   * Create a new Sereal document containing the specified value in the body.
+   * <p>
+   * Each call to this method overwrites the current Sereal document.
    */
   public Encoder write(Object obj) throws SerealException {
     return write(obj, null, false);
   }
 
+  /**
+   * Create a new Sereal document with the given header and body.
+   * <p>
+   * Each call to this method overwrites the current Sereal document.
+   */
   public Encoder write(Object obj, Object header) throws SerealException {
     return write(obj, header, true);
   }

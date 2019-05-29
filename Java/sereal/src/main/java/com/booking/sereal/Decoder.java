@@ -14,7 +14,12 @@ import java.util.regex.Pattern;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
-/** WIP Decoder for Sereal WIP */
+/**
+ * Sereal decoder with Perl-like interface.
+ * <p>
+ * This class can be used to decoder Perl-like data-structures: (boxed) primitive types, strings, arrays
+ * and maps.
+ */
 public class Decoder implements SerealHeader {
 
   private static final DecoderOptions DEFAULT_OPTIONS = new DecoderOptions();
@@ -41,11 +46,13 @@ public class Decoder implements SerealHeader {
   private long userHeaderPosition = -1;
   private long userHeaderSize = -1;
   private Inflater inflater;
-  /** Create a new Decoder */
+
+  /** Create a new Decoder with default options. */
   public Decoder() {
     this(DEFAULT_OPTIONS);
   }
 
+  /** Create a new Decoder with the specified options. */
   public Decoder(DecoderOptions options) {
     perlRefs = options.perlReferences();
     perlAlias = options.perlAliases();
@@ -127,18 +134,23 @@ public class Decoder implements SerealHeader {
     }
   }
 
+  /** {@code true} if the Sereal document has an header. */
   public boolean hasHeader() throws SerealException {
     parseHeader();
 
     return userHeaderSize > 0;
   }
 
+  /** Size of the Sereal header, 0 if there is no header. */
   public long headerSize() throws SerealException {
     parseHeader();
 
     return userHeaderSize > 0 ? userHeaderSize : 0;
   }
 
+  /**
+   * Decode the Sereal document header and returns the decoded value.
+   */
   public Object decodeHeader() throws SerealException {
     parseHeader();
 
@@ -168,8 +180,7 @@ public class Decoder implements SerealHeader {
   }
 
   /**
-   * @return deserealized object
-   * @throws SerealException
+   * Decode the Sereal document body and returns the decoded value.
    */
   public Object decode() throws SerealException {
 
@@ -718,6 +729,11 @@ public class Decoder implements SerealHeader {
     }
   }
 
+  /**
+   * Set the Sereal data to be decoded.
+   * <p>
+   * The caller must not modify the data while it is owned by the decoder.
+   */
   public void setData(ByteArray blob) {
     reset();
     originalData = blob;
@@ -726,6 +742,11 @@ public class Decoder implements SerealHeader {
     position = originalData.start;
   }
 
+  /**
+   * Set the Sereal data to be decoded.
+   * <p>
+   * The caller must not modify the data while it is owned by the decoder.
+   */
   public void setData(byte[] blob) {
     reset();
     originalData = new ByteArray(blob);
