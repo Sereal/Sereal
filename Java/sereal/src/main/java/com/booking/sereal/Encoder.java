@@ -4,6 +4,7 @@ import com.booking.sereal.impl.BytearrayCopyMap;
 import com.booking.sereal.impl.IdentityMap;
 import com.booking.sereal.impl.StringCopyMap;
 import com.github.luben.zstd.Zstd;
+import java.math.BigInteger;
 import org.xerial.snappy.Snappy;
 
 import java.io.IOException;
@@ -26,6 +27,12 @@ public class Encoder {
 
   private static final EncoderOptions DEFAULT_OPTIONS = new EncoderOptions();
   private static final byte[] EMPTY_ARRAY = new byte[0];
+  private static final BigInteger LONG_MIN_VALUE = BigInteger.valueOf(Long.MIN_VALUE);
+  private static final BigInteger LONG_MAX_VALUE = BigInteger.valueOf(Long.MAX_VALUE);
+  private static final BigInteger UNSIGNED_LONG_MAX_VALUE = new BigInteger(1, new byte[] {
+    (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff,
+  });
+
   private final boolean perlRefs;
   private final boolean perlAlias;
   private final int protocolVersion, encoding;
@@ -549,6 +556,8 @@ public class Encoder {
       appendDouble((Double) obj);
     } else if (type == Float.class) {
       appendFloat((Float) obj);
+    } else if (type == BigInteger.class) {
+      appendBigInteger((BigInteger) obj);
     } else if (type == PerlReference.class) {
       PerlReference ref = (PerlReference) obj;
       long trackedRef = getTrackedItem(ref.getValue());
@@ -819,6 +828,24 @@ public class Encoder {
         appendByte(SerealHeader.SRL_HDR_VARINT);
         appendVarint(l);
       }
+    }
+  }
+
+  private void appendBigInteger(BigInteger bi) throws SerealException {
+    int compareToZero = bi.compareTo(BigInteger.ZERO);
+    if (compareToZero < 0 && bi.compareTo(LONG_MIN_VALUE) >= 0) {
+      appendNumber(bi.longValue());
+    } else if (compareToZero > 0 && bi.compareTo(UNSIGNED_LONG_MAX_VALUE) <= 0) {
+      if (bi.compareTo(LONG_MAX_VALUE) <= 0) {
+        appendNumber(bi.longValue());
+      } else {
+        appendByte(SerealHeader.SRL_HDR_VARINT);
+        appendVarint(bi.longValue());
+      }
+    } else if (compareToZero == 0) {
+      appendNumber(0);
+    } else {
+      throw new SerealException("BigInteger value is outside representable range");
     }
   }
 

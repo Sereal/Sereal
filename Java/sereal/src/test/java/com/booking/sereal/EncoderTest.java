@@ -4,6 +4,7 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
 import java.lang.ref.WeakReference;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -365,6 +366,45 @@ public class EncoderTest {
 
 		data = encoder.write(Long.MAX_VALUE).getData();
 		assertEquals("0x3df3726c040020ffffffffffffffff7f",
+			Utils.hexStringFromByteArray(data));
+	}
+
+	@Test
+	public void bigInteger() throws SerealException {
+		encoder = defaultEncoder();
+
+		byte[] data;
+
+		data = encoder.write(BigInteger.valueOf(0)).getData();
+		assertEquals("0x3df3726c040000",
+			Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(BigInteger.valueOf(15)).getData();
+		assertEquals("0x3df3726c04000f",
+			Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(BigInteger.valueOf(16)).getData();
+		assertEquals("0x3df3726c04002010",
+			Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(BigInteger.valueOf(-16)).getData();
+		assertEquals("0x3df3726c040010",
+			Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(BigInteger.valueOf(-17)).getData();
+		assertEquals("0x3df3726c04002121",
+			Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(BigInteger.valueOf(Long.MIN_VALUE)).getData();
+		assertEquals("0x3df3726c040021ffffffffffffffffff01",
+			Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(BigInteger.valueOf(Long.MAX_VALUE)).getData();
+		assertEquals("0x3df3726c040020ffffffffffffffff7f",
+			Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(new BigInteger(1, TestUtils.byteArray(0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff))).getData();
+		assertEquals("0x3df3726c040020ffffffffffffffffff01",
 			Utils.hexStringFromByteArray(data));
 	}
 
