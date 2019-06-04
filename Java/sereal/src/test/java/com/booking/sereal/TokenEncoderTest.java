@@ -73,6 +73,16 @@ public class TokenEncoderTest {
       assertThat(bodyBytes(encoder), expectedBytes(0x20, 0xf6, 0x69));
     }
 
+    // varint Long.MAX_VALUE
+    {
+      TokenEncoder encoder = encoder();
+
+      encoder.appendLong(Long.MAX_VALUE);
+      assertEquals(1, encoder.trackOffsetLastValue());
+
+      assertThat(bodyBytes(encoder), expectedBytes(0x20, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f));
+    }
+
     // zig-zga
     {
       TokenEncoder encoder = encoder();
@@ -81,6 +91,16 @@ public class TokenEncoderTest {
       assertEquals(1, encoder.trackOffsetLastValue());
 
       assertThat(bodyBytes(encoder), expectedBytes(0x21, 0xeb, 0xd3, 0x01));
+    }
+
+    // zig-zag Long.MIN_VALUE
+    {
+      TokenEncoder encoder = encoder();
+
+      encoder.appendLong(Long.MIN_VALUE);
+      assertEquals(1, encoder.trackOffsetLastValue());
+
+      assertThat(bodyBytes(encoder), expectedBytes(0x21, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01));
     }
   }
 

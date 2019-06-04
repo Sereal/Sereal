@@ -333,6 +333,41 @@ public class EncoderTest {
 			Utils.hexStringFromByteArray(data));
 	}
 
+	@Test
+	public void longInteger() throws SerealException {
+		encoder = defaultEncoder();
+
+		byte[] data;
+
+		data = encoder.write(0L).getData();
+		assertEquals("0x3df3726c040000",
+			Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(15L).getData();
+		assertEquals("0x3df3726c04000f",
+			Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(16L).getData();
+		assertEquals("0x3df3726c04002010",
+			Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(-16L).getData();
+		assertEquals("0x3df3726c040010",
+			Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(-17L).getData();
+		assertEquals("0x3df3726c04002121",
+			Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(Long.MIN_VALUE).getData();
+		assertEquals("0x3df3726c040021ffffffffffffffffff01",
+			Utils.hexStringFromByteArray(data));
+
+		data = encoder.write(Long.MAX_VALUE).getData();
+		assertEquals("0x3df3726c040020ffffffffffffffff7f",
+			Utils.hexStringFromByteArray(data));
+	}
+
 	private List<Object> makeList(Object... items) {
 		return new ArrayList<>(Arrays.asList(items));
 	}

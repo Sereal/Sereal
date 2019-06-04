@@ -1114,8 +1114,8 @@ public class TokenEncoder {
   private static int varintLength(long n) {
     int length = 0;
 
-    while (n > 127) {
-      n >>= 7;
+    while (Long.compareUnsigned(n, 127) > 0) {
+      n >>>= 7;
       length++;
     }
 
@@ -1123,9 +1123,9 @@ public class TokenEncoder {
   }
 
   private static int encodeVarint(long n, byte[] buffer, int pos) {
-    while (n > 127) {
+    while (Long.compareUnsigned(n, 127) > 0) {
       buffer[pos++] = (byte) ((n & 127) | 128);
-      n >>= 7;
+      n >>>= 7;
     }
     buffer[pos++] = (byte) n;
 

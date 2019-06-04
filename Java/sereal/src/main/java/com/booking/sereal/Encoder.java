@@ -128,8 +128,8 @@ public class Encoder {
   private static int varintLength(long n) {
     int length = 0;
 
-    while (n > 127) {
-      n >>= 7;
+    while (Long.compareUnsigned(n, 127) > 0) {
+      n >>>= 7;
       length++;
     }
 
@@ -341,9 +341,9 @@ public class Encoder {
   private void appendVarint(long n) {
     int length = 0;
 
-    while (n > 127) {
+    while (Long.compareUnsigned(n, 127) > 0) {
       varint_buf[length++] = (byte) ((n & 127) | 128);
-      n >>= 7;
+      n >>>= 7;
     }
     varint_buf[length++] = (byte) n;
 

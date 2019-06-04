@@ -63,13 +63,12 @@ public class RoundtripTest {
 
 	@Test
 	public void varintRandom() throws SerealException {
-		for (int i = 0; i < 1000000; ++i) {
+		for (int i = 0; i < 100000; ++i) {
 			int n = rand.nextInt( Integer.MAX_VALUE );
 			decoder.setData(encoder.write(n).getData());
 			assertTrue( "Varint not decoded correctly: " + n, ((Long) decoder.decode()) == n );
 		}
 	}
-
 
 	@Test
 	public void regex() throws SerealException {
