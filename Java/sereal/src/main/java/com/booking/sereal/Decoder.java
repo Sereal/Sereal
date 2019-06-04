@@ -2,6 +2,7 @@ package com.booking.sereal;
 
 import com.booking.sereal.impl.RefpMap;
 import com.github.luben.zstd.Zstd;
+import java.math.BigInteger;
 import org.xerial.snappy.Snappy;
 
 import java.io.IOException;
@@ -413,7 +414,17 @@ public class Decoder implements SerealHeader {
       switch (tag) {
         case SRL_HDR_VARINT:
           long l = read_varint();
-          out = l;
+          if (l >= 0) {
+            out = l;
+          } else {
+            // long int greater than Long.MAX_VALUE wrapped around to negative: return a BigInteger
+            byte[] buffer = new byte[8];
+            for (int i = 7; i >= 0; --i) {
+              buffer[i] = (byte) (l & 0xff);
+              l >>= 8;
+            }
+            out = new BigInteger(1, buffer);
+          }
           break;
         case SRL_HDR_ZIGZAG:
           long zz = read_zigzag();

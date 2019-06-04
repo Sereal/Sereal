@@ -7,6 +7,7 @@ import static org.junit.Assert.assertThat;
 
 import com.booking.sereal.EncoderOptions.CompressionType;
 import java.lang.ref.WeakReference;
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
@@ -80,5 +81,16 @@ public class DecoderTest {
 
     decoder.setData(trailData);
     assertThat(decoder.decode(), equalTo(originalString));
+  }
+
+  @Test
+  public void testDecodeWithLargeNumber() throws Exception  {
+    Decoder decoder = new Decoder();
+    // the long value 11781050652756758130 is larger thant Long.MAX_VALUE, can't be represented as a Long, so it's returned as a BigInteger
+    decoder.setData(TestUtils.byteArray(0x3d, 0xf3, 0x72, 0x6c, 0x4, 0x0, 0x20, 0xf2, 0x9c, 0xcd, 0xb3, 0xe6, 0xe4, 0xac, 0xbf, 0xa3, 0x01));
+    Object decoded = decoder.decode();
+
+    assertThat(decoded, instanceOf(BigInteger.class));
+    assertThat(decoded.toString(), equalTo("11781050652756758130"));
   }
 }
