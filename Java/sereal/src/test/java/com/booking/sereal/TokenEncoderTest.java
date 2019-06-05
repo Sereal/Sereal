@@ -105,6 +105,59 @@ public class TokenEncoderTest {
   }
 
   @Test
+  public void encodeUnsignedLong() throws SerealException {
+    // small positive tag
+    for (int smallPos = 0; smallPos < 16; ++smallPos) {
+      TokenEncoder encoder = encoder();
+
+      encoder.appendUnsignedLong(smallPos);
+      assertEquals(1, encoder.trackOffsetLastValue());
+
+      assertThat(bodyBytes(encoder), expectedBytes(smallPos));
+    }
+
+    // boundary condition for positive
+    {
+      TokenEncoder encoder = encoder();
+
+      encoder.appendUnsignedLong(16);
+      assertEquals(1, encoder.trackOffsetLastValue());
+
+      assertThat(bodyBytes(encoder), expectedBytes(0x20, 0x10));
+    }
+
+    // varint
+    {
+      TokenEncoder encoder = encoder();
+
+      encoder.appendUnsignedLong(13558);
+      assertEquals(1, encoder.trackOffsetLastValue());
+
+      assertThat(bodyBytes(encoder), expectedBytes(0x20, 0xf6, 0x69));
+    }
+
+    // varint Long.MAX_VALUE
+    {
+      TokenEncoder encoder = encoder();
+
+      encoder.appendUnsignedLong(Long.MAX_VALUE);
+      assertEquals(1, encoder.trackOffsetLastValue());
+
+      assertThat(bodyBytes(encoder), expectedBytes(0x20, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f));
+    }
+
+    // varint max unsigned value
+    {
+      TokenEncoder encoder = encoder();
+
+      encoder.appendUnsignedLong(0xffffffffffffffffL);
+      assertEquals(1, encoder.trackOffsetLastValue());
+
+      assertThat(bodyBytes(encoder), expectedBytes(0x20, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01));
+    }
+  }
+
+  @Test
   public void encodeBoolean() throws SerealException {
     {
       TokenEncoder encoder = encoder();

@@ -469,6 +469,24 @@ public class TokenEncoder {
   }
 
   /**
+   * Append an unsigned integer value. Negative value are encoded as the positive 640bit value with the same bit pattern.
+   * <p>
+   * Depending on the value, uses one one of {@code POS_*} or {@code VARINT} Sereal tags.
+   *
+   * @param l Value to be appended.
+   */
+  public void appendUnsignedLong(long l) throws SerealException {
+    currentContext.count++;
+    trackOffset = size;
+    if (l >= 0 && l < 16) {
+      appendByte((byte) (SerealHeader.SRL_HDR_POS_LOW | l));
+    } else {
+      appendByte(SerealHeader.SRL_HDR_VARINT);
+      appendVarint(l);
+    }
+  }
+
+  /**
    * Append a Sereal {@code FLOAT} tag.
    */
   public void appendFloat(float f) throws SerealException {
