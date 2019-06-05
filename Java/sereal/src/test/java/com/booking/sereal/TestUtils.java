@@ -40,6 +40,14 @@ public class TestUtils {
             String.format("Value %d at index %d is out of range", longValue, i));
         }
         bytes[index++] = (byte) longValue;
+      } else if (value instanceof Character) {
+        char charValue = (Character) value;
+
+        if (charValue > 255) {
+          throw new IllegalArgumentException(
+            String.format("Value %d at index %d is out of range", (int) charValue, i));
+        }
+        bytes[index++] = (byte) charValue;
       } else if (value instanceof List) {
         byte[] bytesValue = byteArrayNested(((List) value).toArray());
 

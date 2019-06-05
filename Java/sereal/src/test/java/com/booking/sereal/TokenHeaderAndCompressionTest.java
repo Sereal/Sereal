@@ -1,9 +1,14 @@
 package com.booking.sereal;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import org.junit.Test;
+import org.xerial.snappy.Snappy;
 
 public class TokenHeaderAndCompressionTest {
   private static final String LONG_STRING;
@@ -14,6 +19,55 @@ public class TokenHeaderAndCompressionTest {
       sb.append('a');
     }
     LONG_STRING = sb.toString();
+  }
+
+  @Test
+  public void serealV1HeaderNone() throws SerealException {
+    byte[] document = TestUtils.byteArray(
+      0x3d, 0x73, 0x72, 0x6c,
+      0x01,
+      // Sereal v1 did not require any header structure
+      0x08, 0x01, 'g', 'a', 'r', 'b', 'a', 'g', 'e',
+      0x0f);
+    TokenDecoder decoder = new TokenDecoder();
+    setPaddedData(decoder, document);
+
+    assertFalse(decoder.hasHeader());
+
+    decoder.prepareDecodeBody();
+
+    assertEquals(SerealToken.LONG, decoder.nextToken());
+    assertEquals(15, decoder.longValue());
+
+    assertEquals(SerealToken.END, decoder.nextToken());
+  }
+
+  @Test
+  public void serealV1HeaderSnappy() throws IOException, SerealException {
+    byte[] compressedBody = new byte[30];
+    int compressed = Snappy.compress(TestUtils.byteArray(0x0f), 0, 1, compressedBody, 0);
+    if (compressed <= 1) {
+      throw new IllegalStateException("Something went wrong");
+    }
+
+    byte[] document = TestUtils.byteArrayNested(
+      0x3d, 0x73, 0x72, 0x6c,
+      0x11,
+      // Sereal v1 did not require any header structure
+      0x08, 0x01, 'g', 'a', 'r', 'b', 'a', 'g', 'e',
+      Arrays.copyOf(compressedBody, compressed));
+
+    TokenDecoder decoder = new TokenDecoder();
+    setPaddedData(decoder, document);
+
+    assertFalse(decoder.hasHeader());
+
+    decoder.prepareDecodeBody();
+
+    assertEquals(SerealToken.LONG, decoder.nextToken());
+    assertEquals(15, decoder.longValue());
+
+    assertEquals(SerealToken.END, decoder.nextToken());
   }
 
   @Test
@@ -177,9 +231,11 @@ public class TokenHeaderAndCompressionTest {
     assertEquals(SerealToken.END, decoder.poisonNextToken());
   }
 
-
   private void setPaddedData(TokenDecoder decoder, TokenEncoder encoder) {
-    byte[] data = encoder.getData();
+    setPaddedData(decoder, encoder.getData());
+  }
+
+  private void setPaddedData(TokenDecoder decoder, byte[] data) {
     byte[] padded = new byte[data.length + 6];
     for (int i = 0; i < padded.length; ++i) {
       padded[i] = (byte) (Math.random() * 256);

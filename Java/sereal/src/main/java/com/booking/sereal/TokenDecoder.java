@@ -53,7 +53,26 @@ public class TokenDecoder {
     }
   }
 
+  private static class AllowedEncoding {
+    private final EncoderOptions.CompressionType compressionType;
+    private final int encoding, minVersion, maxVersion;
+
+    AllowedEncoding(EncoderOptions.CompressionType compressionType, int encoding, int minVersion, int maxVersion) {
+      this.compressionType = compressionType;
+      this.encoding = encoding;
+      this.minVersion = minVersion;
+      this.maxVersion = maxVersion;
+    }
+  }
+
   private static final DecoderOptions DEFAULT_OPTIONS = new DecoderOptions();
+  private static final AllowedEncoding[] ALLOWED_ENCODINGS = new AllowedEncoding[] {
+    new AllowedEncoding(EncoderOptions.CompressionType.NONE, 0, 1, Integer.MAX_VALUE),
+    new AllowedEncoding(EncoderOptions.CompressionType.SNAPPY, 1, 1, 1),
+    new AllowedEncoding(EncoderOptions.CompressionType.SNAPPY, 2, 2, Integer.MAX_VALUE),
+    new AllowedEncoding(EncoderOptions.CompressionType.ZLIB, 3, 3, Integer.MAX_VALUE),
+    new AllowedEncoding(EncoderOptions.CompressionType.ZSTD, 4, 4, Integer.MAX_VALUE),
+  };
 
   private static final int CONTEXT_ROOT = 0;
   private static final int CONTEXT_HASH = 1;
@@ -94,40 +113,19 @@ public class TokenDecoder {
   public TokenDecoder(DecoderOptions options) {
   }
 
-  private void checkHeader() throws SerealException {
-    if ((end - position) < 4) {
-      throw new SerealException("Invalid Sereal header: too few bytes");
-    }
-
-    int magic =
-        ((data[position] & 0xff) << 24)
-            + ((data[position + 1] & 0xff) << 16)
-            + ((data[position + 2] & 0xff) << 8)
-            + (data[position + 3] & 0xff);
-    position += 4;
-    if (magic != SerealHeader.MAGIC && magic != SerealHeader.MAGIC_V3) {
-      throw new SerealException(
-          String.format("Invalid Seareal header (%08x): doesn't match magic", magic));
-    }
-  }
-
   private void checkHeaderSuffix() {
-    long suffixSize = readVarint();
-    long basePosition = position;
+    int suffixSize = (int) readVarint();
 
     userHeaderSize = 0;
-    userHeaderPosition = position;
-    if (suffixSize > 0) {
+    userHeaderPosition = position + suffixSize;
+    if (protocolVersion >= 2 && suffixSize > 0) {
       byte bitfield = data[position++];
 
       if ((bitfield & 0x01) == 0x01) {
         userHeaderPosition = position;
-        userHeaderSize = (int) suffixSize - 1;
+        userHeaderSize = suffixSize - 1;
       }
     }
-
-    // skip everything in the optional suffix part
-    position = (int) (basePosition + suffixSize);
   }
 
   private void checkNoEOD() throws SerealException {
@@ -136,26 +134,40 @@ public class TokenDecoder {
     }
   }
 
-  private void checkProtoAndFlags() throws SerealException {
-    if ((end - position) < 1) {
-      throw new SerealException("Invalid Sereal header: no protocol/version byte");
-    }
-
-    int protoAndFlags = data[position++];
-    protocolVersion = protoAndFlags & 15; // 4 bits for version
-
-    if (protocolVersion < 1 || protocolVersion > 4) {
+  private void checkMagicProtoAndFlags() throws SerealException {
+    int magic =
+        ((data[position] & 0xff) << 24)
+            + ((data[position + 1] & 0xff) << 16)
+            + ((data[position + 2] & 0xff) << 8)
+            + (data[position + 3] & 0xff);
+    protocolVersion = data[position + 4] & 15; // 4 bits for version
+    if (magic != SerealHeader.MAGIC && magic != SerealHeader.MAGIC_V3) {
+      throw new SerealException(
+        String.format("Invalid Sereal header (%08x): doesn't match magic", magic));
+    } else if (protocolVersion < 1 || protocolVersion > 4) {
       throw new SerealException(
           String.format("Invalid Sereal header: unsupported protocol version %d", protocolVersion));
+    } else if (magic == SerealHeader.MAGIC && protocolVersion > 2) {
+      throw new SerealException(
+        String.format("Invalid Sereal header: magic v1 with protocol version %d", protocolVersion));
+    } else if (magic == SerealHeader.MAGIC_V3 && protocolVersion < 3) {
+      throw new SerealException(
+        String.format("Invalid Sereal header: magic v3 with protocol version %d", protocolVersion));
     }
 
-    encoding = (protoAndFlags & ~15) >> 4;
-    if (encoding == 4 && protocolVersion < 4) {
-      throw new SerealException(
-          "Unsupported encoding zstd for protocol version " + protocolVersion);
-    } else if (encoding < 0 || encoding > 4) {
-      throw new SerealException("Unsupported encoding: unknown");
+    encoding = (data[position + 4] >> 4) & 0xf;
+    if (encoding > 4) {
+      throw new SerealException("Unsupported Sereal body encoding " + encoding);
     }
+    for (AllowedEncoding allowedEncoding : ALLOWED_ENCODINGS) {
+      if (allowedEncoding.encoding == encoding) {
+        if (protocolVersion < allowedEncoding.minVersion || protocolVersion > allowedEncoding.maxVersion) {
+          throw new SerealException(String.format("Unsupported encoding %d (%s) for Sereal protocol %d",
+            encoding, allowedEncoding.compressionType, protocolVersion));
+        }
+      }
+    }
+    position += 5;
   }
 
   /**
@@ -202,29 +214,28 @@ public class TokenDecoder {
   }
 
   private void parseHeader() throws SerealException {
+    if (originalData == null) {
+      throw new SerealException("No data set");
+    }
     if (userHeaderSize >= 0) {
       return;
     }
-
-    checkHeader();
-    checkProtoAndFlags();
-    checkHeaderSuffix();
-
-    if (encoding == 0) {
-      bodyData = data;
-      bodyPosition = position;
-      bodySize = end;
+    if (originalData.length < 7) {
+      throw new SerealException("Invalid Sereal document: total size is too small");
     }
+
+    data = originalData.array;
+    end = originalData.start + originalData.length;
+    position = originalData.start;
+
+    checkMagicProtoAndFlags();
+    checkHeaderSuffix();
   }
 
   /**
    * Set up the decoder to iterate over the Sereal document body.
    */
   public void prepareDecodeBody() throws SerealException {
-    if (data == null) {
-      throw new SerealException("No data set");
-    }
-
     parseHeader();
 
     if (bodyData == null) {
@@ -239,7 +250,9 @@ public class TokenDecoder {
           uncompressZstd();
         }
       } else {
-        throw new SerealException("Corrupted internal state");
+        bodyData = data;
+        bodyPosition = userHeaderPosition + userHeaderSize;
+        bodySize = originalData.start + originalData.length;
       }
     }
 
@@ -789,9 +802,6 @@ public class TokenDecoder {
   public void setData(ByteArray blob) {
     reset();
     originalData = blob;
-    data = originalData.array;
-    end = originalData.start + originalData.length;
-    position = originalData.start;
   }
 
   /**
@@ -802,11 +812,7 @@ public class TokenDecoder {
    * @param blob Sereal data.
    */
   public void setData(byte[] blob) {
-    reset();
-    originalData = new ByteArray(blob);
-    data = blob;
-    end = blob.length;
-    position = 0;
+    setData(new ByteArray(blob));
   }
 
   /** Discard all internal state. */
