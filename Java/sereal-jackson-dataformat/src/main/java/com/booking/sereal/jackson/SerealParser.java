@@ -55,6 +55,7 @@ public class SerealParser extends ParserMinimalBase {
 
       switch (serealToken) {
         case LONG:
+        case UNSIGNED_LONG:
           return (_currToken = JsonToken.VALUE_NUMBER_INT);
         case BINARY:
           if (tokenDecoder.isHashKey()) {
@@ -217,6 +218,8 @@ public class SerealParser extends ParserMinimalBase {
         return String.valueOf(tokenDecoder.doubleValue());
       case LONG:
         return String.valueOf(tokenDecoder.longValue());
+      case UNSIGNED_LONG:
+        return tokenDecoder.bigintValue().toString();
       case REGEXP:
         return null; // so getEmbeddedObject is called
       case ARRAY_START:
@@ -253,6 +256,8 @@ public class SerealParser extends ParserMinimalBase {
         return tokenDecoder.floatValue();
       case DOUBLE:
         return tokenDecoder.doubleValue();
+      case UNSIGNED_LONG:
+        return tokenDecoder.bigintValue();
       default:
         throw this._formatError("Unable to coerce Sereal token %s to a number", serealToken);
     }
@@ -267,6 +272,8 @@ public class SerealParser extends ParserMinimalBase {
         return NumberType.FLOAT;
       case DOUBLE:
         return NumberType.DOUBLE;
+      case UNSIGNED_LONG:
+        return NumberType.BIG_INTEGER;
       default:
         throw this._formatError("Unable to coerce Sereal token %s to a number", serealToken);
     }
@@ -281,6 +288,7 @@ public class SerealParser extends ParserMinimalBase {
   public long getLongValue() throws IOException {
     switch (serealToken) {
       case LONG:
+      case UNSIGNED_LONG:
         return tokenDecoder.longValue();
       case DOUBLE:
         return (long) tokenDecoder.doubleValue();
@@ -300,6 +308,8 @@ public class SerealParser extends ParserMinimalBase {
         return BigInteger.valueOf((long) tokenDecoder.floatValue());
       case LONG:
         return BigInteger.valueOf(tokenDecoder.longValue());
+      case UNSIGNED_LONG:
+        return tokenDecoder.bigintValue();
       default:
         throw this._formatError("Unable to coerce Sereal token %s to a big integer", serealToken);
     }
@@ -314,6 +324,8 @@ public class SerealParser extends ParserMinimalBase {
         return (float) tokenDecoder.doubleValue();
       case LONG:
         return tokenDecoder.longValue();
+      case UNSIGNED_LONG:
+        return tokenDecoder.bigintValue().floatValue();
       default:
         throw this._formatError("Unable to coerce Sereal token %s to a float", serealToken);
     }
@@ -328,6 +340,8 @@ public class SerealParser extends ParserMinimalBase {
         return tokenDecoder.floatValue();
       case LONG:
         return tokenDecoder.longValue();
+      case UNSIGNED_LONG:
+        return tokenDecoder.bigintValue().doubleValue();
       default:
         throw this._formatError("Unable to coerce Sereal token %s to a double", serealToken);
     }
@@ -342,6 +356,8 @@ public class SerealParser extends ParserMinimalBase {
         return new BigDecimal(tokenDecoder.floatValue());
       case LONG:
         return new BigDecimal(tokenDecoder.longValue());
+      case UNSIGNED_LONG:
+        return new BigDecimal(tokenDecoder.bigintValue());
       default:
         throw this._formatError("Unable to coerce Sereal token %s to a decimal", serealToken);
     }

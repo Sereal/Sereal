@@ -2,6 +2,7 @@ package com.booking.sereal;
 
 import com.github.luben.zstd.Zstd;
 import java.io.IOException;
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.regex.Pattern;
 import java.util.zip.DataFormatException;
@@ -71,6 +72,7 @@ public class TokenDecoder {
   private int userHeaderPosition = -1;
   private int userHeaderSize = -1;
   private Inflater inflater;
+  private byte[] bigintBuffer;
 
   private Context currentContext;
   private SerealToken currentToken = SerealToken.NONE;
@@ -427,7 +429,7 @@ public class TokenDecoder {
       switch (tag) {
         case SerealHeader.SRL_HDR_VARINT:
           longValue = readVarint();
-          return (currentToken = SerealToken.LONG);
+          return (currentToken = (longValue >= 0 ? SerealToken.LONG : SerealToken.UNSIGNED_LONG));
         case SerealHeader.SRL_HDR_ZIGZAG:
           longValue = readZigzag();
           return (currentToken = SerealToken.LONG);
@@ -581,10 +583,31 @@ public class TokenDecoder {
   /**
    * Current {@code long} value.
    * <p>
-   * Defined for {@link SerealToken#LONG}.
+   * Defined for {@link SerealToken#LONG} and {@link SerealToken#UNSIGNED_LONG}.
    */
   public long longValue() {
     return longValue;
+  }
+
+  /**
+   * Current {@code long} value as a {@link java.math.BigInteger}.
+   * <p>
+   * Defined for {@link SerealToken#LONG} and {@link SerealToken#UNSIGNED_LONG}.
+   */
+  public BigInteger bigintValue() {
+    if (currentToken == SerealToken.UNSIGNED_LONG) {
+      if (bigintBuffer == null) {
+        bigintBuffer = new byte[8];
+      }
+      long temp = longValue;
+      for (int i = 7; i >= 0; --i) {
+        bigintBuffer[i] = (byte) (temp & 0xff);
+        temp >>= 8;
+      }
+      return new BigInteger(1, bigintBuffer);
+    } else {
+      return BigInteger.valueOf(longValue);
+    }
   }
 
   /**

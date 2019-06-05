@@ -37,6 +37,16 @@ public class SerealParserTest {
   }
 
   @Test
+  public void parseUnsignedInt() throws SerealException, IOException {
+    SerealParser parser = setupParser(encoder -> encoder.appendUnsignedLong(0xfeffffffffffffffL));
+
+    assertEquals(JsonToken.VALUE_NUMBER_INT, parser.nextToken());
+    assertEquals(new BigInteger("18374686479671623679"), parser.getBigIntegerValue());
+
+    assertNull(parser.nextToken());
+  }
+
+  @Test
   public void parseFloat() throws SerealException, IOException {
     SerealParser parser = setupParser(encoder -> encoder.appendFloat(1.25f));
 
@@ -432,6 +442,21 @@ public class SerealParserTest {
       assertEquals(1234.125D, parser.getDoubleValue(), 0.0);
       assertEquals(new BigInteger("1234"), parser.getBigIntegerValue());
       assertEquals(new BigDecimal("1234.125"), parser.getDecimalValue());
+    }
+
+    {
+      SerealParser parser = setupParser(encoder -> encoder.appendUnsignedLong(0xfeffffffffffffffL));
+
+      assertEquals(JsonToken.VALUE_NUMBER_INT, parser.nextToken());
+      assertEquals(JsonParser.NumberType.BIG_INTEGER, parser.getNumberType());
+      assertThat(parser.getNumberValue(), instanceOf(BigInteger.class));
+      assertEquals(new BigInteger("18374686479671623679"), parser.getNumberValue());
+      assertEquals(-1, parser.getIntValue());
+      assertEquals(-72057594037927937L, parser.getLongValue());
+      assertEquals(1.8374686479671624E19F, parser.getFloatValue(), 0.0);
+      assertEquals(1.8374686479671624E19D, parser.getDoubleValue(), 0.0);
+      assertEquals(new BigInteger("18374686479671623679"), parser.getBigIntegerValue());
+      assertEquals(new BigDecimal("18374686479671623679"), parser.getDecimalValue());
     }
   }
 

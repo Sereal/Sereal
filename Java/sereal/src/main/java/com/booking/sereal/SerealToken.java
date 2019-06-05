@@ -13,6 +13,14 @@ public enum SerealToken {
   LONG,
 
   /**
+   * A positive integer value larger than {@link java.lang.Long#MAX_VALUE}.
+   * <p>
+   * Java does not have unsigned values, so the value is returned as a signed (negative) {@code long}
+   * with the same bit pattern as the unsigned value.
+   */
+  UNSIGNED_LONG,
+
+  /**
    * A binary/ISO-8859-1 string.
    */
   BINARY,

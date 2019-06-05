@@ -4,6 +4,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.regex.Pattern;
@@ -23,6 +24,7 @@ public class TokenDecoderTest {
 
       assertEquals(SerealToken.LONG, decoder.poisonNextToken());
       assertEquals(smallPos, decoder.longValue());
+      assertEquals(BigInteger.valueOf(smallPos), decoder.bigintValue());
       assertEquals(SerealToken.END, decoder.poisonNextToken());
     }
 
@@ -32,6 +34,7 @@ public class TokenDecoderTest {
 
       assertEquals(SerealToken.LONG, decoder.poisonNextToken());
       assertEquals(smallNeg, decoder.longValue());
+      assertEquals(BigInteger.valueOf(smallNeg), decoder.bigintValue());
       assertEquals(SerealToken.END, decoder.poisonNextToken());
     }
 
@@ -41,15 +44,47 @@ public class TokenDecoderTest {
 
       assertEquals(SerealToken.LONG, decoder.poisonNextToken());
       assertEquals(13558, decoder.longValue());
+      assertEquals(BigInteger.valueOf(13558), decoder.bigintValue());
       assertEquals(SerealToken.END, decoder.poisonNextToken());
     }
 
-    // zig-zga
+    // zig-zag
     {
       TokenDecoder decoder = decoder(0x21, 0xeb, 0xd3, 0x01);
 
       assertEquals(SerealToken.LONG, decoder.poisonNextToken());
       assertEquals(-13558, decoder.longValue());
+      assertEquals(BigInteger.valueOf(-13558), decoder.bigintValue());
+      assertEquals(SerealToken.END, decoder.poisonNextToken());
+    }
+
+    // large positive varint, larger positive long representable in Java
+    {
+      TokenDecoder decoder = decoder(0x20, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f);
+
+      assertEquals(SerealToken.LONG, decoder.poisonNextToken());
+      assertEquals(Long.MAX_VALUE, decoder.longValue());
+      assertEquals(BigInteger.valueOf(Long.MAX_VALUE), decoder.bigintValue());
+      assertEquals(SerealToken.END, decoder.poisonNextToken());
+    }
+
+    // large negative zig-zag, smaller negative long representable in Perl/Java
+    {
+      TokenDecoder decoder = decoder(0x21, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01);
+
+      assertEquals(SerealToken.LONG, decoder.poisonNextToken());
+      assertEquals(Long.MIN_VALUE, decoder.longValue());
+      assertEquals(BigInteger.valueOf(Long.MIN_VALUE), decoder.bigintValue());
+      assertEquals(SerealToken.END, decoder.poisonNextToken());
+    }
+
+    // large positive varint, larger positive long representable in Perl, larger than Java long
+    {
+      TokenDecoder decoder = decoder(0x20, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x01);
+
+      assertEquals(SerealToken.UNSIGNED_LONG, decoder.poisonNextToken());
+      assertEquals(0xffffffffffffffffL, decoder.longValue());
+      assertEquals(new BigInteger("18446744073709551615"), decoder.bigintValue());
       assertEquals(SerealToken.END, decoder.poisonNextToken());
     }
   }
