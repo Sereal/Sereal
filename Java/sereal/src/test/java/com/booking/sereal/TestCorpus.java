@@ -55,7 +55,7 @@ public class TestCorpus {
 			encoder_options.compressionType(EncoderOptions.CompressionType.ZLIB);
 		} else if ("SRL_ZSTD".equals(compression)) {
 			encoder_options.compressionType(EncoderOptions.CompressionType.ZSTD);
-		} else if ("SRL_NONE".equals(compression)) {
+		} else if ("SRL_UNCOMPRESSED".equals(compression)) {
 			encoder_options.compressionType(EncoderOptions.CompressionType.NONE);
 		} else if (compression != null) {
 			throw new IllegalArgumentException("Unknown compression type '" + compression + "'");
