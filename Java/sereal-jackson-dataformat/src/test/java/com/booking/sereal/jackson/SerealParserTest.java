@@ -230,6 +230,44 @@ public class SerealParserTest {
   }
 
   @Test
+  public void parseCopyHashKey() throws SerealException, IOException {
+    SerealParser parser = setupParser(encoder -> {
+      encoder.startArray();
+
+      encoder.startHash();
+      encoder.appendString("defg");
+      int stringOffset = encoder.trackOffsetLastValue();
+      encoder.appendLong(7);
+      encoder.endHash();
+
+      encoder.startHash();
+      encoder.appendCopy(stringOffset);
+      encoder.appendLong(7);
+      encoder.endHash();
+      encoder.endArray();
+    });
+
+    assertEquals(JsonToken.START_ARRAY, parser.nextToken());
+
+    assertEquals(JsonToken.START_OBJECT, parser.nextToken());
+    assertEquals(JsonToken.FIELD_NAME, parser.nextToken());
+    assertEquals("defg", parser.getText());
+    assertEquals(JsonToken.VALUE_NUMBER_INT, parser.nextToken());
+    assertEquals(7, parser.getLongValue());
+    assertEquals(JsonToken.END_OBJECT, parser.nextToken());
+
+    assertEquals(JsonToken.START_OBJECT, parser.nextToken());
+    assertEquals(JsonToken.FIELD_NAME, parser.nextToken());
+    assertEquals("defg", parser.getText());
+    assertEquals(JsonToken.VALUE_NUMBER_INT, parser.nextToken());
+    assertEquals(7, parser.getLongValue());
+    assertEquals(JsonToken.END_OBJECT, parser.nextToken());
+
+    assertEquals(JsonToken.END_ARRAY, parser.nextToken());
+    assertNull(parser.nextToken());
+  }
+
+  @Test
   public void parseAlias() throws SerealException, IOException {
     SerealParser parser = setupParser(encoder -> {
       encoder.startArray();

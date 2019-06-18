@@ -724,7 +724,11 @@ public class TokenDecoder {
 
   /** {@code true} if the current token is a hash key, {@code false} otherwise. */
   public boolean isHashKey() {
-    return currentContext.type == CONTEXT_HASH && (currentContext.remaining & 1) == 1;
+    Context context = currentContext;
+    while (context.type == CONTEXT_SUBDECODE) {
+      context = context.outer;
+    }
+    return context.type == CONTEXT_HASH && (context.remaining & 1) == 1;
   }
 
   private void readShortBinary(byte tag) {

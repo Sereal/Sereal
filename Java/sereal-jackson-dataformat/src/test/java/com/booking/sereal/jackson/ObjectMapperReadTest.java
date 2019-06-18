@@ -1,5 +1,6 @@
 package com.booking.sereal.jackson;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -36,6 +37,9 @@ public class ObjectMapperReadTest {
 
   private static class ArrayFields {
     public List<String> stringList;
+    public String[] stringArray;
+    public List<ScalarFields> scalarFieldsList;
+    public ScalarFields[] scalarFieldsArray;
   }
 
   private static class ObjectFields {
@@ -69,13 +73,81 @@ public class ObjectMapperReadTest {
   }
 
   @Test
-  public void arrayField() throws SerealException, IOException {
+  public void listField() throws SerealException, IOException {
     Map<String, Object> hash = new HashMap<String, Object>() {{
       put("stringList", Arrays.asList("abc", "def"));
     }};
     ArrayFields decoded = decodeAs(hash, ArrayFields.class);
 
     assertEquals(Arrays.asList("abc", "def"), decoded.stringList);
+  }
+
+  @Test
+  public void arrayField() throws SerealException, IOException {
+    Map<String, Object> hash = new HashMap<String, Object>() {{
+      put("stringArray", new String[] {"abc", "def"});
+    }};
+    ArrayFields decoded = decodeAs(hash, ArrayFields.class);
+
+    assertArrayEquals(new String[] {"abc", "def"}, decoded.stringArray);
+  }
+
+  @Test
+  public void objectListField() throws SerealException, IOException {
+    Map<String, Object> hash = new HashMap<String, Object>() {{
+      put("scalarFieldsList", Arrays.asList(
+        new HashMap<String, Object>() {{
+          put("stringField", "abc");
+        }},
+        new HashMap<String, Object>() {{
+          put("longField", 7L);
+        }}
+      ));
+    }};
+    ArrayFields decoded = decodeAs(hash, ArrayFields.class);
+
+    assertEquals(2, decoded.scalarFieldsList.size());
+    assertEquals("abc", decoded.scalarFieldsList.get(0).stringField);
+    assertEquals(7L, decoded.scalarFieldsList.get(1).longField);
+  }
+
+  @Test
+  public void objectArrayField() throws SerealException, IOException {
+    Map<String, Object> hash = new HashMap<String, Object>() {{
+      put("scalarFieldsArray", Arrays.asList(
+        new HashMap<String, Object>() {{
+          put("stringField", "abc");
+        }},
+        new HashMap<String, Object>() {{
+          put("longField", 7L);
+        }}
+      ));
+    }};
+    ArrayFields decoded = decodeAs(hash, ArrayFields.class);
+
+    assertEquals(2, decoded.scalarFieldsArray.length);
+    assertEquals("abc", decoded.scalarFieldsArray[0].stringField);
+    assertEquals(7L, decoded.scalarFieldsArray[1].longField);
+  }
+
+  @Test
+  public void copyTagFieldName() throws SerealException, IOException {
+    Map<String, Object> hash = new HashMap<String, Object>() {{
+      put("scalarFieldsList", Arrays.asList(
+        new HashMap<String, Object>() {{
+          put("stringField", "abc");
+        }},
+        new HashMap<String, Object>() {{
+          // this gets emitted as a COPY tag
+          put("stringField", "def");
+        }}
+      ));
+    }};
+    ArrayFields decoded = decodeAs(hash, ArrayFields.class);
+
+    assertEquals(2, decoded.scalarFieldsList.size());
+    assertEquals("abc", decoded.scalarFieldsList.get(0).stringField);
+    assertEquals("def", decoded.scalarFieldsList.get(1).stringField);
   }
 
   @Test
