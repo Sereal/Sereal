@@ -223,13 +223,17 @@ THX_ck_entersub_args_sereal_decoder(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
     if (arity > min_arity)
         opopt |= OPOPT_OUTARG_HEADER;
 
-    OpMORESIB_set(pushop, cvop);
-    OpLASTSIB_set(lastargop, op_parent(lastargop));
+    /* cut out all ops between the pushmark and the RV2CV */
+    op_sibling_splice(NULL, pushop, arity, NULL);
+    /* then throw everything else out */
     op_free(entersubop);
-    newop = newUNOP(OP_NULL, 0, firstargop);
+    newop = newUNOP(OP_NULL, 0, NULL);
     newop->op_type    = OP_CUSTOM;
     newop->op_private = opopt;
     newop->op_ppaddr = opopt & OPOPT_LOOKS_LIKE ? THX_pp_looks_like_sereal : THX_pp_sereal_decode;
+    /* attach the spliced-out args as children of the custom op, while
+     * deleting the stub op created by newUNOP() */
+    op_sibling_splice(newop, NULL, 1, firstargop);
     return newop;
 }
 
