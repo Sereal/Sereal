@@ -18,6 +18,7 @@ class SrlDecoder(object):
         self.tracked_items = {}
         self.perl_compatible = False
         self.body_offset = 0
+        self.copy_depth = 0
         self.object_factory = object_factory if object_factory is not None else self._default_object_factory
 
     def decode(self, byte_str):
@@ -153,13 +154,18 @@ class SrlDecoder(object):
 
 
     def _get_copy(self):
+        if self.copy_depth > 0:
+            raise exception.SrlError('bad nested copy tag: recursive copy tag found')
+
         copy_pos = self.reader.read_varint()
         copy_pos += self.body_offset-1
 
         curr_pos = self.reader.tell()
 
         self.reader.seek(copy_pos, os.SEEK_SET)
+        self.copy_depth += 1
         copy = self._decode_bytes()
+        self.copy_depth -= 1
         self.reader.seek(curr_pos, os.SEEK_SET)
 
         return copy
