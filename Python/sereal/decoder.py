@@ -88,13 +88,10 @@ class SrlDecoder(object):
             return None
 
         elif tag == const.SRL_TYPE_BINARY:
-            # Note: self.reader.read_str() automatically decodes as utf-8.
-            # Thus, this returns a string, instead of returning bytes.
             return self._decode_binary(tag)
 
         elif tag == const.SRL_TYPE_STR_UTF8:
-            # self.reader.read_str() automatically decodes as utf-8
-            return self._decode_binary(tag)
+            return self._decode_str_utf8(tag)
 
         elif tag == const.SRL_TYPE_REFN:
             return self._decode_refn(tag)
@@ -153,12 +150,10 @@ class SrlDecoder(object):
     def _decode_bytes(self, force_track_pos=False):
         track_pos = None
         tag = self.reader.read_uint8()
-        #print('tag', hex(tag))
 
         if (tag & const.SRL_TRACK_BIT) != 0 or force_track_pos:
             tag = tag & ~const.SRL_TRACK_BIT
             track_pos = self.reader.tell() - self.body_offset
-            #print('tag, track_pos', hex(tag), track_pos)
 
         return self._track_item(track_pos, self._decode_tag(tag))
 
@@ -221,9 +216,23 @@ class SrlDecoder(object):
         iv = (uv >> 1) ^ (-(uv & 1))
         return iv
 
-    def _decode_binary(self, tag):
+    def _decode_str_utf8(self, tag):
         ln = self.reader.read_varint()
         return self.reader.read_str(ln)
+
+    def _decode_binary(self, tag):
+        ln = self.reader.read_varint()
+        if self.settings[const.SETTING_BIN_MODE_CLASSIC]:
+            return self.reader.read_str(ln)
+        else:
+            return self.reader.read_bin(ln)
+
+    def _decode_short_binary(self, tag):
+        ln = tag & const.SRL_SHORT_BINARY_LEN
+        if self.settings[const.SETTING_BIN_MODE_CLASSIC]:
+            return self.reader.read_str(ln)
+        else:
+            return self.reader.read_bin(ln)
 
     def _decode_refn(self, tag):
         return self._decode_bytes()
@@ -232,13 +241,8 @@ class SrlDecoder(object):
         if track_pos is None:
             return item
         self.tracked_items[track_pos] = item
-        #print('_track_item({0}, {1})'.format(track_pos, item))
         return item
 
     def _decode_refp(self):
         key = self.reader.read_varint()
         return self.tracked_items[key]
-
-    def _decode_short_binary(self, tag):
-        ln = tag & const.SRL_SHORT_BINARY_LEN
-        return self.reader.read_str(ln)

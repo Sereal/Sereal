@@ -60,7 +60,12 @@ class SrlDocumentReader(object):
         fmt = '<d'
         return self._read_unpack(fmt)
 
-    def read_str(self, slen):
+    def read_str(self, slen, str_encoding='utf-8'):
         fmt = '{0}s'.format(slen)
         val = self._read_unpack(fmt)
-        return bytes.decode(val, encoding='utf-8')
+        return bytes.decode(val, encoding=str_encoding)
+
+    def read_bin(self, slen):
+        fmt = '{0}s'.format(slen)
+        val = self._read_unpack(fmt)
+        return val

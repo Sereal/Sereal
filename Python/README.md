@@ -17,6 +17,6 @@ Basic implementation of the Sereal protocol in Python.
 
 ### Miscellaneous
 
-- Python 3.5, 2.7
+- Python 3.5+
 - No Python encoder
 - Not Perl compatible
