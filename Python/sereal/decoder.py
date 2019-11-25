@@ -8,8 +8,18 @@ from sereal import reader
 from sereal import exception
 
 class SrlDecoder(object):
-    def __init__(self, object_factory=None):
+    def __init__(self, object_factory=None, **settings):
         super(SrlDecoder, self).__init__()
+
+        # default decode behaviour settings
+        self.settings = {
+            const.SETTING_BIN_MODE_CLASSIC: True
+        }
+
+        for k in self.settings:
+            if k in settings:
+                self.settings[k] = settings[k]
+
         self.header = {
             'version': None,
             'type': None

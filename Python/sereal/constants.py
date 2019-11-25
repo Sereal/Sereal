@@ -27,3 +27,5 @@ SRL_TYPE_TRUE                       = 59
 SRL_TYPE_ARRAYREF_0                 = 64
 SRL_TYPE_HASHREF_0                  = 80
 SRL_TYPE_SHORT_BINARY_0             = 96
+
+SETTING_BIN_MODE_CLASSIC = 'bin_mode_classic'
