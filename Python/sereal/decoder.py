@@ -89,10 +89,10 @@ class SrlDecoder(object):
             return None
 
         elif tag == const.SRL_TYPE_BINARY:
-            return self._decode_binary(tag)
+            return self._decode_binary()
 
         elif tag == const.SRL_TYPE_STR_UTF8:
-            return self._decode_str_utf8(tag)
+            return self._decode_str_utf8()
 
         elif tag == const.SRL_TYPE_REFN:
             return self._decode_refn(tag)
@@ -216,11 +216,11 @@ class SrlDecoder(object):
         iv = (uv >> 1) ^ (-(uv & 1))
         return iv
 
-    def _decode_str_utf8(self, tag):
+    def _decode_str_utf8(self):
         ln = self.reader.read_varint()
         return self.reader.read_str(ln)
 
-    def _decode_binary(self, tag):
+    def _decode_binary(self):
         ln = self.reader.read_varint()
         if self.settings[const.SETTING_BIN_MODE_CLASSIC]:
             return self.reader.read_str(ln)
