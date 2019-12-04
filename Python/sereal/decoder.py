@@ -9,7 +9,7 @@ from sereal import exception
 
 
 class SrlDecoder(object):
-    def __init__(self, object_factory=None, bin_mode_classic=True):
+    def __init__(self, object_factory=None, bin_mode_classic=True, re_bytes=False):
         super(SrlDecoder, self).__init__()
 
         self.header = {
@@ -23,6 +23,7 @@ class SrlDecoder(object):
         self.copy_depth = 0
         self.object_factory = object_factory if object_factory is not None else self._default_object_factory
         self.bin_mode_classic = bin_mode_classic
+        self.re_bytes = re_bytes
 
     def decode(self, byte_str):
         self.reader = reader.SrlDocumentReader(byte_str)
@@ -109,6 +110,12 @@ class SrlDecoder(object):
         elif tag == const.SRL_TYPE_REGEXP:
             pattern = self._decode_bytes()
             flags = self._decode_bytes()
+            if not self.bin_mode_classic:
+                flags = flags.decode('utf-8')
+            if not self.bin_mode_classic and not self.re_bytes:
+                pattern = pattern.decode('utf-8')
+            elif self.bin_mode_classic and self.re_bytes:
+                pattern = pattern.encode('utf-8')
             python_flags = reduce(lambda x, y: x | re.RegexFlag[str(y).upper()], flags, 0)
             return re.compile(pattern, python_flags)
 
