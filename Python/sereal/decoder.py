@@ -7,6 +7,7 @@ from sereal import constants as const
 from sereal import reader
 from sereal import exception
 
+
 class SrlDecoder(object):
     def __init__(self, object_factory=None, bin_mode_classic=True):
         super(SrlDecoder, self).__init__()
@@ -34,16 +35,16 @@ class SrlDecoder(object):
         magic = self.reader.read_uint32()
 
         if (hex(magic) != const.SRL_MAGIC_STRING_HIGHBIT_UINT_LE):
-           raise exception.SrlError('bad header: invalid magic string')
+            raise exception.SrlError('bad header: invalid magic string')
 
         doc_version_type = self.reader.read_uint8()
         doc_version = (doc_version_type & 15)
         doc_type = (doc_version_type >> 4) & 15
 
-        if (doc_version not in [3, 4]):
+        if doc_version not in [3, 4]:
             raise exception.SrlError('bad header: unsupported protocol version {}'.format(doc_version))
 
-        if (doc_type < 0 or doc_type > 3):
+        if doc_type < 0 or doc_type > 3:
             raise exception.SrlError('bad header: unsupported document type {}'.format(doc_type))
 
         header_suffix_size = self.reader.read_varint()
@@ -148,7 +149,6 @@ class SrlDecoder(object):
             track_pos = self.reader.tell() - self.body_offset
 
         return self._track_item(track_pos, self._decode_tag(tag))
-
 
     def _get_copy(self):
         if self.copy_depth > 0:
