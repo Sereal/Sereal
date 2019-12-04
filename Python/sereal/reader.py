@@ -2,6 +2,7 @@ import os
 from io import BytesIO
 import struct
 
+
 class SrlDocumentReader(object):
     def __init__(self, byte_str):
         super(SrlDocumentReader, self).__init__()
@@ -17,7 +18,7 @@ class SrlDocumentReader(object):
         plen = struct.calcsize(fmt)
         b = self.stream.read(plen)
 
-        if (plen != len(b)):
+        if plen != len(b):
             return 0
 
         value = struct.unpack(fmt, b)[0]
@@ -26,7 +27,7 @@ class SrlDocumentReader(object):
     def tell(self):
         return self.stream.tell()
 
-    def seek(self, offset, wench = os.SEEK_CUR):
+    def seek(self, offset, wench=os.SEEK_CUR):
         # seek returns the new absolute position
         if not self.stream.seekable():
             return 0
