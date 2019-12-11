@@ -37,7 +37,7 @@ library and its headers are available.
 
     check_lib_or_exit( lib => 'jpeg', header => 'jpeglib.h' );
     check_lib_or_exit( lib => [ 'iconv', 'jpeg' ] );
-  
+
     # or prompt for path to library and then do this:
     check_lib_or_exit( lib => 'jpeg', libpath => $additional_path );
 

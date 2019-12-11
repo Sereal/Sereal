@@ -86,15 +86,15 @@ Sereal protocol the document complies with.
 Up until now there have been versions 1, 2, 3 and 4 of the Sereal protocol.
 So the low four bits will be one of those values in little-endian.
 
-Currently only three types are defined:
+Currently only five types are defined:
 
 =over 4
 
-=item 0
+=item Z<>0
 
 Raw Sereal format. The data can be processed verbatim.
 
-=item 1
+=item Z<>1
 
 B<This is not a valid document type for Sereal protocol version 2 and up!>
 
@@ -103,7 +103,7 @@ In Sereal protocol version 1, this used to be
 It has long been advised to prefer I<2>, "incremental-decoding-enabled
 compressed Sereal," wherever possible.
 
-=item 2
+=item Z<>2
 
 Compressed Sereal format, using Google's Snappy compression internally as
 format I<1>, but supporting incremental-parsing. Long preferred over
@@ -117,7 +117,7 @@ where the varint signifies the length of the Snappy-compressed blob
 following it. See L</"NOTES ON IMPLEMENTATION"> below for a discussion on
 how to implement this efficiently.
 
-=item 3
+=item Z<>3
 
 Compressed Sereal format, using zlib compression. This does similar framing
 as the incremental Snappy compression (2):
@@ -131,7 +131,7 @@ how to implement this efficiently.
 
 This compression format is new in v3 of the specification.
 
-=item 4
+=item Z<>4
 
 Compressed Sereal format, using Zstandard compression internally as
 format I<4>.

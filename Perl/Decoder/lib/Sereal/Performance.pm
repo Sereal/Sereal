@@ -19,16 +19,16 @@ Sereal::Performance - Getting the most out of the Perl-Sereal implementation
   # Usually, Sereal is a lot faster than most of one's code,
   # so unless you are doing bulk encoding/decoding, you are
   # better off optimizing for maintainability.
-  
+
   use Sereal qw(sereal_encode_with_object
                 sereal_decode_with_object);
   my $enc = Sereal::Encoder->new();
   my $dec = Sereal::Decoder->new();
-  
+
   my $big_data_structure = {...};
-  
+
   my $srldoc = sereal_encode_with_object($enc, $big_data_structure);
-  
+
   my $and_back = sereal_decode_with_object($dec, $srldoc);
 
 =head1 DESCRIPTION

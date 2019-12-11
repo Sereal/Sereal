@@ -79,10 +79,10 @@ please use appropriate link above.
 
   use Sereal::Path;
   use Sereal::Encoder qw/encode_sereal/;
-  
+
   my $data = [ { foo => 'bar' }, { foo => 'barbar' } ];
   my $sp = Sereal::Path->new(encode_sereal($data));
-  
+
   # $result will contain { foo => 'bar' }
   my $result = $sp->traverse('$[0]');
 
