@@ -86,7 +86,7 @@ Sereal protocol the document complies with.
 Up until now there have been versions 1, 2, 3 and 4 of the Sereal protocol.
 So the low four bits will be one of those values in little-endian.
 
-Currently only three types are defined:
+Currently only five types are defined:
 
 =over 4
 
