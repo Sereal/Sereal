@@ -272,12 +272,10 @@ public class Decoder implements SerealHeader {
   }
 
   /**
-   * if tag == 0, next is varint for number of elements, otherwise lower 4 bits are length
+   * Decode a Sereal ARRAY tag to anative Java arrya
    *
-   * @param tag : lower 4 bits is length or 0 for next varint is length
+   * @param length number of items in the array
    * @param track we might need to track since array elements could refer to us
-   * @return
-   * @throws SerealException
    */
   private Object[] readNativeArray(int length, int track) throws SerealException {
     Object[] out = new Object[length];
@@ -293,12 +291,10 @@ public class Decoder implements SerealHeader {
   }
 
   /**
-   * if tag == 0, next is varint for number of elements, otherwise lower 4 bits are length
+   * Decode a Sereal ARRAY tag to anative Java List
    *
-   * @param tag : lower 4 bits is length or 0 for next varint is length
+   * @param length number of items in the list
    * @param track we might need to track since array elements could refer to us
-   * @return
-   * @throws SerealException
    */
   private List<Object> readList(int length, int track) throws SerealException {
     List<Object> out = typeMapper.makeArray(length);
@@ -317,8 +313,6 @@ public class Decoder implements SerealHeader {
    * Reads a byte array, but was called read_binary in C, so for grepping purposes I kept the name
    *
    * <p>For some reason we call them Latin1Strings.
-   *
-   * @return
    */
   private byte[] read_binary() {
     int length = (int) read_varint();
@@ -586,8 +580,7 @@ public class Decoder implements SerealHeader {
   /**
    * Read a short binary ISO-8859-1 (latin1) string, the lower bits of the tag hold the length
    *
-   * @param tag
-   * @return
+   * @param tag the Sereal SHORT_BINARY_* tag
    */
   private byte[] read_short_binary(byte tag) {
     int length = tag & SRL_MASK_SHORT_BINARY_LEN;
@@ -609,9 +602,6 @@ public class Decoder implements SerealHeader {
    * <p>Copy tags are forbidden from referring to another COPY tag, and are also forbidden from
    * referring to anything containing a COPY tag, with the exception that a COPY tag used as a value
    * may refer to an tag that uses a COPY tag for a classname or hash key.
-   *
-   * @return
-   * @throws SerealException
    */
   private Object read_copy() throws SerealException {
 

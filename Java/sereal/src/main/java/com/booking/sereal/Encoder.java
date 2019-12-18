@@ -343,7 +343,6 @@ public class Encoder {
    * be a tag that denotes the next item *is* a varint. So don't forget to write that tag.
    *
    * @param n positive integer
-   * @return
    */
   private void appendVarint(long n) {
     int length = 0;
@@ -364,8 +363,7 @@ public class Encoder {
   /**
    * Encode a number as zigzag
    *
-   * @param n
-   * @return
+   * @param n nageative integer
    */
   private void appendZigZag(long n) {
     appendByte(SerealHeader.SRL_HDR_ZIGZAG);
@@ -453,10 +451,7 @@ public class Encoder {
   }
 
   /**
-   * Encodes a byte array
-   *
-   * @param in
-   * @return
+   * Encodes a byte array emitting both length and data
    */
   private void appendBytesWithLength(byte[] in) {
     appendVarint(in.length);
@@ -639,8 +634,8 @@ public class Encoder {
   }
 
   /**
-   * @param obj
-   * @return location in bytestream of object
+   * @param obj object that might have been already encoded earlier in the bytestream
+   * @return location of object in bytestream, or {@link IdentityMap#NOT_FOUND}
    */
   private long getTrackedItem(Object obj) {
     return tracked.get(obj);
