@@ -13,6 +13,10 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+4.007_001 Weds Jan 29, 2020
+    * Encoder/Decoder: Build fixes for modern perls.
+    * Encoder/Decoder: Pod fixes
+
 4.007 Tues Apr 9, 2019
     * Sereal: restore write_sereal(), read_sereal() as aliases to write_sereal_file()
       and read_sereal_file(). Better tests for exported subs. Add SRL_UNCOMPRESSED,

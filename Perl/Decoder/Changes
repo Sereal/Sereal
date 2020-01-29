@@ -5,6 +5,10 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 4 of the *
 *          encoder!                                            *
 ****************************************************************
+4.007_001 Weds Jan 29, 2020
+    * Build fixes for modern perls.
+    * Pod fixes
+
 4.007 Tues Apr 9, 2019
     * Tweak docs for looks_like_sereal/scalar_looks_like_sereal
 
