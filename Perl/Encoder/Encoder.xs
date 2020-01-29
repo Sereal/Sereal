@@ -105,14 +105,26 @@ THX_ck_entersub_args_sereal_encode_with_object(pTHX_ OP *entersubop, GV *namegv,
 
   /* If we get here, we can replace the entersub with a suitable
    * sereal_encode_with_object custom OP. */
-
+#ifdef op_sibling_splice
+  /* cut out all ops between the pushmark and the RV2CV */
+  op_sibling_splice(NULL, pushop, arity, NULL);
+  /* then throw everything else out */
+  op_free(entersubop);
+  newop = newUNOP(OP_NULL, 0, NULL);
+#else
   OpMORESIB_set(pushop, cvop);
   OpLASTSIB_set(lastargop, op_parent(lastargop));
   op_free(entersubop);
+#endif
   newop = newUNOP(OP_NULL, 0, firstargop);
   newop->op_type    = OP_CUSTOM;
   newop->op_private = arity == 3;
   newop->op_ppaddr = THX_pp_sereal_encode_with_object;
+#ifdef op_sibling_splice
+  /* attach the spliced-out args as children of the custom op, while
+   * deleting the stub op created by newUNOP() */
+  op_sibling_splice(newop, NULL, 1, firstargop);
+#endif
 
   return newop;
 }
