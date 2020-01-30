@@ -13,7 +13,7 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
-4.007_001 Weds Jan 29, 2020
+4.008 Thurs Jan 30, 2020
     * Encoder/Decoder: Build fixes for modern perls.
     * Encoder/Decoder: Pod fixes
 
