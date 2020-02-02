@@ -4,7 +4,7 @@ use warnings;
 
 use ExtUtils::MakeMaker;
 use Cwd;
-our $VERSION = '4.009_001';
+our $VERSION = '4.009_002';
 
 my $shared_dir = "../shared";
 my $its_our_repo_file= "../this_is_the_Sereal_repo.txt";
