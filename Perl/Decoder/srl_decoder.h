@@ -201,4 +201,17 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 
 #define SRL_DEC_OPT_COUNT                           14
 
+#if ((PERL_VERSION > 10) || (PERL_VERSION == 10 && PERL_SUBVERSION > 1 ))
+#   define MODERN_REGEXP
+#   define REGEXP_HAS_P_MODIFIER
+#   define REGEXP_TYPE  "MODERN_REGEXP"
+#elif PERL_VERSION == 10
+#   define TRANSITION_REGEXP
+#   define REGEXP_HAS_P_MODIFIER
+#   define REGEXP_TYPE  "TRANSITION_REGEXP"
+#else
+#   define OLD_REGEXP
+#   define REGEXP_TYPE  "OLD_REGEXP"
+#endif
+
 #endif

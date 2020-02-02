@@ -526,3 +526,8 @@ flags(dec)
     RETVAL = dec->flags;
   OUTPUT: RETVAL
 
+SV*
+regexp_internals_type()
+  CODE:
+    RETVAL = newSVpvs(REGEXP_TYPE);
+  OUTPUT: RETVAL
