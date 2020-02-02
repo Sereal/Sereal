@@ -86,12 +86,14 @@ Steffen Mueller <smueller@cpan.org>
 #  error either __LITTLE_ENDIAN or __BIG_ENDIAN, plus __BYTE_ORDER must be defined
 #endif
 
-#define ARCH_ARM_HAVE_UNALIGNED \
-    defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) || defined(__ARM_ARCH_6K__) || defined(__ARM_ARCH_6Z__) || defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6T2__) || defined(__ARMV6__) || \
+#if defined(__ARM_ARCH_6__) || defined(__ARM_ARCH_6J__) || defined(__ARM_ARCH_6K__) || defined(__ARM_ARCH_6Z__) || defined(__ARM_ARCH_6ZK__) || defined(__ARM_ARCH_6T2__) || defined(__ARMV6__) || \
     defined(__ARM_ARCH_7__) || defined(__ARM_ARCH_7A__) || defined(__ARM_ARCH_7R__) || defined(__ARM_ARCH_7M__)
+#  define ARCH_ARM_HAVE_UNALIGNED
+#endif
+
 
 static INLINE void UnalignedCopy64(const void *src, void *dst) {
-#if defined(__i386__) || defined(__x86_64__) || defined(__powerpc__) || ARCH_ARM_HAVE_UNALIGNED
+#if defined(__i386__) || defined(__x86_64__) || defined(__powerpc__) || defined(ARCH_ARM_HAVE_UNALIGNED) || defined(__aarch64__)
   if ((sizeof(void *) == 8) || (sizeof(long) == 8)) {
     UNALIGNED_STORE64(dst, UNALIGNED_LOAD64(src));
   } else {
@@ -118,7 +120,7 @@ static INLINE void UnalignedCopy64(const void *src, void *dst) {
 }
 
 #if defined(__arm__)
-  #if ARCH_ARM_HAVE_UNALIGNED
+  #if defined(ARCH_ARM_HAVE_UNALIGNED)
      static INLINE uint32_t get_unaligned_le(const void *p, uint32_t n)
      {
        uint32_t wordmask = (1U << (8 * n)) - 1;
