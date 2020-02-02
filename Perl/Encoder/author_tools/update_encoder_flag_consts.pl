@@ -11,8 +11,12 @@ foreach my $file (sort @files) {
     open my $fh, "<", $file
         or die "Failed to open '$file' for read: $!";
 
+    my $line= "";
     while (<$fh>) {
-        if ( m/#define (SRL_F_(\w+))\s+(.*)/ || /(\w+(VOLATILE_FLAGS))\s+(.*)/ ) {
+        chomp;
+        $line .= $_;
+        if ($line=~s/\s*\\\z//) { next; }
+        if ( $line=~m/#define (SRL_F_(\w+))\s+(.*)/s || $line=~m/(\w+(VOLATILE_FLAGS))\s+(.*)/s ) {
             #print;
             my $full_name= $1;
             my $name= $2;
@@ -26,6 +30,7 @@ foreach my $file (sort @files) {
                 $sets{"SRL_F_ENCODER_" . $name}= 0+eval $value;
             }
         }
+        $line="";
     }
     foreach my $key ( sort { $flag_consts{$a} <=> $flag_consts{$b} } keys %flag_consts ) {
         if (defined $sets{SRL_F_ENCODER_VOLATILE_FLAGS}) {

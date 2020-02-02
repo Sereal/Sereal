@@ -1,0 +1,20 @@
+#!/bin/bash
+git clean -dfx
+echo updating headers
+perl shared/author_tools/update_from_header.pl
+pushd Encoder
+echo updating Encoder flag constants
+perl author_tools/update_encoder_flag_consts.pl
+popd
+pushd Decoder
+echo updating Decoder flag constants
+perl author_tools/update_decoder_flag_consts.pl
+popd
+for f in $(find Decoder Encoder Sereal shared -name \*.pm -or -name \*.pl -or -name \*.PL -or -name \*.t)
+do 
+    echo Tidying $f
+    perltidy -w -b -it=2 -ple -bbb -bbc -bbs -nolq -l=100 -noll -nola -nwls='=' -isbc -nolc -otr -kis -ci=4 -se -sot -sct -nsbl -fs -fsb='#start-no-tidy' -fse='#end-no-tidy' -boc -iscl $f
+done
+# we don't own this file, so lets not mess with it
+git checkout shared/inc/Devel/CheckLib.pm
+git clean -dfx

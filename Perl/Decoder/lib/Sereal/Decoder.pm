@@ -32,6 +32,7 @@ our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
 
 sub CLONE_SKIP { 1 }
 XSLoader::load('Sereal::Decoder', $XS_VERSION);
+#start-no-tidy
 use constant #begin generated
 {
   'SRL_F_DECODER_ALIAS_CHECK_FLAGS' => 28672,
@@ -120,6 +121,7 @@ use constant #begin generated
                              undef
                            ]
 }; #end generated
+#end-no-tidy
 
 sub decode_from_file {
     my ($self, $file, )= @_; # pos 3 is "target var" if one is provided

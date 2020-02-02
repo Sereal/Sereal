@@ -55,4 +55,4 @@ MYMETA\..*$
 callgrind\.out\..*$
 \.gdb_history
 
-qsort.h
+qsort\.h

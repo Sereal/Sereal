@@ -35,7 +35,7 @@ foreach my $file (@files) {
     open my $out, ">", $file
         or die "Failed to open for write '$file': $!";
     while (<$in>) {
-        s/\$VERSION = '[^']+'/\$VERSION = '$to_str'/g;
+        s/(\$VERSION\s*=\s*)'[^']+'/$1'$to_str'/g;
         if ($special{$file}) {
             s/(Sereal::(En|De)coder) (\d+\.\d+(?:_\d+)?)/$1 $to/g;
         }

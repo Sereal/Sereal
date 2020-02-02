@@ -22,6 +22,7 @@ use constant {
     SRL_ZLIB         => 2,
     SRL_ZSTD         => 3,
 };
+#start-no-tidy
 use constant #begin generated
 {
   'SRL_F_ALIASED_DEDUPE_STRINGS' => 4096,
@@ -33,7 +34,7 @@ use constant #begin generated
   'SRL_F_CROAK_ON_BLESS' => 4,
   'SRL_F_DEDUPE_STRINGS' => 2048,
   'SRL_F_ENABLE_FREEZE_SUPPORT' => 16384,
-  'SRL_F_ENCODER_COMPRESS_FLAGS_MASK' => '0',
+  'SRL_F_ENCODER_COMPRESS_FLAGS_MASK' => 262592,
   'SRL_F_NOWARN_UNKNOWN_OVERLOAD' => 512,
   'SRL_F_NO_BLESS_OBJECTS' => 8192,
   'SRL_F_REUSE_ENCODER' => 2,
@@ -70,6 +71,7 @@ use constant #begin generated
                     'COMPRESS_ZSTD'
                   ]
 }; #end generated
+#end-no-tidy
 
 use Exporter 'import';
 our @EXPORT_OK = qw(

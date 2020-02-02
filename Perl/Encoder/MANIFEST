@@ -5,7 +5,7 @@ author_tools/freeze_thaw_timing.pl
 author_tools/hobodecoder.pl
 author_tools/numeric_str_length.c
 author_tools/stringify_test.c
-author_tools/update_flag_consts.pl
+author_tools/update_encoder_flag_consts.pl
 author_tools/update_from_header.pl
 author_tools/valgrind.supp
 Changes
