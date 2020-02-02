@@ -1,0 +1,6 @@
+#!/bin/bash
+cp -v ../../zstd/lib/common/* shared/zstd/common/
+cp -v ../../zstd/lib/compress/* shared/zstd/compress/
+cp -v ../../zstd/lib/decompress/* shared/zstd/decompress/
+cp -v ../../zstd/lib/*.[hc] shared/zstd/
+
