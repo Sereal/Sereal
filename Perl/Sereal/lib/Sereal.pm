@@ -2,8 +2,8 @@ package Sereal;
 use 5.008;
 use strict;
 use warnings;
-our $VERSION = '4.009_002';
-our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
+our $VERSION= '4.009_002';
+our $XS_VERSION= $VERSION; $VERSION= eval $VERSION;
 use Sereal::Encoder 4.009_002 qw(
     encode_sereal
     sereal_encode_with_object
@@ -26,7 +26,7 @@ use Sereal::Decoder 4.009_002 qw(
 );
 
 use Exporter 'import';
-our @EXPORT_OK = qw(
+our @EXPORT_OK= qw(
     get_sereal_decoder
     get_sereal_encoder
     clear_sereal_object_cache
@@ -57,14 +57,17 @@ our @EXPORT_OK = qw(
     SRL_ZLIB
     SRL_ZSTD
 );
-our %EXPORT_TAGS = (all => \@EXPORT_OK);
+our %EXPORT_TAGS= ( all => \@EXPORT_OK );
+
 # export by default if run from command line
-our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
+our @EXPORT= ( ( caller() )[1] eq '-e' ? @EXPORT_OK : () );
 
 our %ENCODERS;
 our %DECODERS;
 
-sub _key { join "\t", map { $_ => $_[0]->{$_} } sort keys %{$_[0]} }
+sub _key {
+    join "\t", map { $_ => $_[0]->{$_} } sort keys %{ $_[0] };
+}
 
 sub clear_sereal_object_cache {
     my $count= keys(%DECODERS) + keys(%ENCODERS);
@@ -75,28 +78,26 @@ sub clear_sereal_object_cache {
 
 sub get_sereal_encoder {
     my ($opts)= @_;
-    return $ENCODERS{_key($opts)} ||= Sereal::Encoder->new($opts);
+    return $ENCODERS{ _key($opts) } ||= Sereal::Encoder->new($opts);
 }
 
 sub get_sereal_decoder {
     my ($opts)= @_;
-    return $DECODERS{_key($opts)} ||= Sereal::Decoder->new($opts);
+    return $DECODERS{ _key($opts) } ||= Sereal::Decoder->new($opts);
 }
 
 sub write_sereal_file {
-    my ($file, $struct, $append, $opts)= @_;
-    get_sereal_encoder($opts)->encode_to_file($file, $_[1], $append);
+    my ( $file, $struct, $append, $opts )= @_;
+    get_sereal_encoder($opts)->encode_to_file( $file, $_[1], $append );
 }
 
 sub read_sereal_file {
-    my ($file, $opts)= @_;
-    get_sereal_decoder($opts)->decode_from_file($file,@_ > 2 ? $_[2] : ());
+    my ( $file, $opts )= @_;
+    get_sereal_decoder($opts)->decode_from_file( $file, @_ > 2 ? $_[2] : () );
 }
 
 *read_sereal= *read_sereal= *read_sereal_file;
 *write_sereal= *write_sereal= *write_sereal_file;
-
-
 
 1;
 

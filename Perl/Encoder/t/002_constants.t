@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use File::Spec;
 use lib File::Spec->catdir(qw(t lib));
+
 BEGIN {
     lib->import('lib')
         if !-d 't';
@@ -15,6 +16,6 @@ use Sereal::Encoder::Constants qw(:all);
 
 use Test::More tests => 2;
 
-is(SRL_MAGIC_STRING, "=srl", "check magic string");
-is(SRL_HDR_UNDEF, 37, "check arbitrary header constant");
+is( SRL_MAGIC_STRING, "=srl", "check magic string" );
+is( SRL_HDR_UNDEF,    37,     "check arbitrary header constant" );
 

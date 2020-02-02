@@ -4,13 +4,12 @@ use strict;
 use warnings;
 use Config;
 
-my @zstd_files = (
+my @zstd_files= (
     glob('common/*.c'),
     glob('compress/*.c'),
-    glob('decompress/*.c')
-);
+    glob('decompress/*.c') );
 
-open(my $fh, '>', "Makefile") or die $!;
+open( my $fh, '>', "Makefile" ) or die $!;
 print $fh q{
 # ################################################################
 # Copyright (c) 2016-present, Yann Collet, Facebook, Inc.
@@ -36,7 +35,7 @@ AR       = ar
 ARFLAGS  = rcs
 RM       = rm -f
 
-ZSTD_FILES := } . join(' ', @zstd_files) . q{
+ZSTD_FILES := } . join( ' ', @zstd_files ) . q{
 CPPFLAGS  += -DZSTD_LEGACY_SUPPORT=0
 
 .PHONY: default all clean test test_dynamic

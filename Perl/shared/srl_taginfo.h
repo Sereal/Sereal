@@ -7,7 +7,7 @@
 
 =for autoupdater start
 
-* NOTE this section is autoupdated by author_tools/update_from_header.pl
+* NOTE this section is autoupdated by Sereal.git:Perl/shared/author_tools/update_from_header.pl
 */
 
 static const char * const tag_name[] = {
@@ -364,7 +364,7 @@ static const char * const tag_name[] = {
 
 
 /*
-* NOTE the above section is auto-updated by author_tools/update_from_header.pl
+* NOTE the above section is auto-updated by Sereal.git:Perl/shared/author_tools/update_from_header.pl
 
 =for autoupdater stop
 

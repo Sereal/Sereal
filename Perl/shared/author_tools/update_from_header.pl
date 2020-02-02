@@ -7,8 +7,7 @@ my (
     %range,                     # base types.
     %name_to_value,             # just the names in the srl_protocol.h
     %name_to_value_expanded,    # names from srl_protocol, but with the LOW/HIGH data expanded
-    %value_to_name_expanded
-    ,    # values from srl_protocol_expanded, mapping back, note value points at FIRST name
+    %value_to_name_expanded, # values from srl_protocol_expanded, mapping back, note value points at FIRST name
     %value_to_comment_expanded    # values from srl_protocol_expanded, with comments from file.
 );
 my $max_name_length= 0;
@@ -240,14 +239,18 @@ sub update_JavaSerealHeader {
     {
         my $byte= $name_to_value{$name};
         my $decl= sprintf( "byte SRL_HDR_%-*s = (byte) %3d;", $max_name_length, $name, $byte );
-        $declarations .= sprintf( "  %s /* %3d 0x%02x 0b%08b %s */\n",
-            $decl, $byte, $byte, $byte, $value_to_comment_expanded{$byte} || "" );
+        $declarations .= sprintf(
+            "  %s /* %3d 0x%02x 0b%08b %s */\n",
+            $decl, $byte, $byte, $byte, $value_to_comment_expanded{$byte} || ""
+        );
     }
 
     $declarations .= "/*\n* NOTE the above section is auto-updated by $ZERO";
 
-    replace_block( "Java/sereal/src/main/java/com/booking/sereal/SerealHeader.java",
-        $declarations );
+    replace_block(
+        "Java/sereal/src/main/java/com/booking/sereal/SerealHeader.java",
+        $declarations
+    );
 
 }
 

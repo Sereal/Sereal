@@ -5,6 +5,7 @@ use Data::Dumper;
 use File::Spec;
 
 use lib File::Spec->catdir(qw(t lib));
+
 BEGIN {
     lib->import('lib')
         if !-d 't';
@@ -13,20 +14,18 @@ BEGIN {
 use Sereal::TestSet qw(:all);
 use Test::More;
 
-my $ok = have_encoder_and_decoder();
-if (not $ok) {
+my $ok= have_encoder_and_decoder();
+if ( not $ok ) {
     plan skip_all => 'Did not find right version of encoder';
 }
 else {
     run_roundtrip_tests(
-        'zstd_force',     
-        { 
-            compress => Sereal::Encoder::SRL_ZSTD(), 
+        'zstd_force',
+        {
+            compress           => Sereal::Encoder::SRL_ZSTD(),
             compress_threshold => 0,
-        } 
-    );
+        } );
 }
-
 
 pass();
 done_testing();

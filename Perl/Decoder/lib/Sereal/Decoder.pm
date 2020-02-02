@@ -5,16 +5,16 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '4.009_002'; # Don't forget to update the TestCompat set for testing against installed encoders!
-our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
+our $VERSION= '4.009_002'; # Don't forget to update the TestCompat set for testing against installed encoders!
+our $XS_VERSION= $VERSION; $VERSION= eval $VERSION;
 
 # not for public consumption, just for testing.
-(my $num_version = $VERSION) =~ s/_//;
-my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 400 .. int($num_version * 100) ) ]; # compat with 4.00 to ...
-sub _test_compat { return(@$TestCompat, $VERSION) }
+( my $num_version= $VERSION ) =~ s/_//;
+my $TestCompat= [ map sprintf( "%.2f", $_ / 100 ), reverse( 400 .. int( $num_version * 100 ) ) ]; # compat with 4.00 to ...
+sub _test_compat { return ( @$TestCompat, $VERSION ) }
 
 use Exporter 'import';
-our @EXPORT_OK = qw(
+our @EXPORT_OK= qw(
     decode_sereal
     looks_like_sereal
     decode_sereal_with_header_data
@@ -26,12 +26,13 @@ our @EXPORT_OK = qw(
     sereal_decode_with_header_and_offset_with_object
     sereal_decode_with_offset_with_object
 );
-our %EXPORT_TAGS = (all => \@EXPORT_OK);
+our %EXPORT_TAGS= ( all => \@EXPORT_OK );
+
 # export by default if run from command line
-our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
+our @EXPORT= ( ( caller() )[1] eq '-e' ? @EXPORT_OK : () );
 
 sub CLONE_SKIP { 1 }
-XSLoader::load('Sereal::Decoder', $XS_VERSION);
+XSLoader::load( 'Sereal::Decoder', $XS_VERSION );
 #start-no-tidy
 use constant #begin generated
 {
@@ -124,43 +125,41 @@ use constant #begin generated
 #end-no-tidy
 
 sub decode_from_file {
-    my ($self, $file, )= @_; # pos 3 is "target var" if one is provided
+    my ( $self, $file, )= @_;    # pos 3 is "target var" if one is provided
     $self= $self->new() unless ref $self;
     open my $fh, "<", $file
         or die "Failed to open '$file' for read: $!";
-    my $buf= do{ local $/; <$fh> };
+    my $buf= do { local $/; <$fh> };
     close $fh
         or die "Failed to close '$file': $!";
-    if (wantarray && ($self->flags & SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL)) {
+    if ( wantarray && ( $self->flags & SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL ) ) {
         my @ret;
-        while (length $buf) {
+        while ( length $buf ) {
             push @ret, $self->decode($buf);
         }
         return @ret;
     }
-    return $self->decode($buf, @_ > 2 ? $_[2] : ());
+    return $self->decode( $buf, @_ > 2 ? $_[2] : () );
 }
 
 my $flags= sub {
-    my ($int, $ary)= @_;
-    return map {
-        ($ary->[$_] and $int & (1 << $_)) ? $ary->[$_] : ()
-    } (0..$#$ary);
+    my ( $int, $ary )= @_;
+    return map { ( $ary->[$_] and $int & ( 1 << $_ ) ) ? $ary->[$_] : () } ( 0 .. $#$ary );
 };
 
 sub flag_names {
-    my ($self, $val)= @_;
-    return $flags->(defined $val ? $val : $self->flags, _FLAG_NAME);
+    my ( $self, $val )= @_;
+    return $flags->( defined $val ? $val : $self->flags, _FLAG_NAME );
 }
 
 sub flag_names_volatile {
-    my ($self, $val)= @_;
-    return $flags->($val // $self->flags, _FLAG_NAME_VOLATILE);
+    my ( $self, $val )= @_;
+    return $flags->( $val // $self->flags, _FLAG_NAME_VOLATILE );
 }
 
 sub flag_names_static {
-    my ($self, $val)= @_;
-    return $flags->($val // $self->flags, _FLAG_NAME_STATIC);
+    my ( $self, $val )= @_;
+    return $flags->( $val // $self->flags, _FLAG_NAME_STATIC );
 }
 
 1;

@@ -8,6 +8,7 @@ use File::Spec;
 # bulk data testing.
 
 use lib File::Spec->catdir(qw(t lib));
+
 BEGIN {
     lib->import('lib')
         if !-d 't';
@@ -18,15 +19,15 @@ use Sereal::BulkTest qw(:all);
 use Test::More;
 use Sereal::Decoder;
 
-my $ok = have_encoder_and_decoder();
-if (not $ok) {
+my $ok= have_encoder_and_decoder();
+if ( not $ok ) {
     plan skip_all => 'Did not find right version of encoder';
 }
 else {
-    my %opt = (
-        bench => scalar(grep /^--bench$/, @ARGV),
+    my %opt= (
+        bench => scalar( grep /^--bench$/, @ARGV ),
     );
-    run_bulk_tests(%opt, decoder_options => { set_readonly => 1});
+    run_bulk_tests( %opt, decoder_options => { set_readonly => 1 } );
 }
 
 pass();

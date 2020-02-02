@@ -22,7 +22,7 @@ public interface SerealHeader {
 
 =for autoupdater start
 
-* NOTE this section is autoupdated by Perl/shared/author_tools/update_from_header.pl */
+* NOTE this section is autoupdated by Sereal.git:Perl/shared/author_tools/update_from_header.pl */
   byte SRL_HDR_POS               = (byte)   0; /*   0 0x00 0b00000000 small positive integer - value in low 4 bits (identity) */
   byte SRL_HDR_POS_LOW           = (byte)   0; /*   0 0x00 0b00000000 small positive integer - value in low 4 bits (identity) */
   byte SRL_HDR_POS_HIGH          = (byte)  15; /*  15 0x0f 0b00001111 small positive integer - value in low 4 bits (identity) */
@@ -70,7 +70,7 @@ public interface SerealHeader {
   byte SRL_HDR_SHORT_BINARY_HIGH = (byte) 127; /* 127 0x7f 0b01111111 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
   byte SRL_HDR_TRACK_FLAG        = (byte) 128; /* 128 0x80 0b10000000 if this bit is set track the item */
 /*
-* NOTE the above section is auto-updated by Perl/shared/author_tools/update_from_header.pl
+* NOTE the above section is auto-updated by Sereal.git:Perl/shared/author_tools/update_from_header.pl
 
 =for autoupdater stop
   	*/

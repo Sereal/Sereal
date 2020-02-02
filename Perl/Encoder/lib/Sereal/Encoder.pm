@@ -5,13 +5,13 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION = '4.009_002'; # Don't forget to update the TestCompat set for testing against installed decoders!
-our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
+our $VERSION= '4.009_002'; # Don't forget to update the TestCompat set for testing against installed decoders!
+our $XS_VERSION= $VERSION; $VERSION= eval $VERSION;
 
 # not for public consumption, just for testing.
-(my $num_version = $VERSION) =~ s/_//;
-my $TestCompat = [ map sprintf("%.2f", $_/100), reverse( 400 .. int($num_version * 100) ) ]; # compat with 4.00 to ...
-sub _test_compat {return(@$TestCompat, $VERSION)}
+( my $num_version= $VERSION ) =~ s/_//;
+my $TestCompat= [ map sprintf( "%.2f", $_ / 100 ), reverse( 400 .. int( $num_version * 100 ) ) ]; # compat with 4.00 to ...
+sub _test_compat { return ( @$TestCompat, $VERSION ) }
 
 # Make sure to keep these constants in sync with the C code in srl_encoder.c.
 # I know they could be exported from C using things like ExtUtils::Constant,
@@ -74,29 +74,30 @@ use constant #begin generated
 #end-no-tidy
 
 use Exporter 'import';
-our @EXPORT_OK = qw(
-  encode_sereal
-  encode_sereal_with_header_data
-  sereal_encode_with_object
-  SRL_UNCOMPRESSED
-  SRL_SNAPPY
-  SRL_ZLIB
-  SRL_ZSTD
+our @EXPORT_OK= qw(
+    encode_sereal
+    encode_sereal_with_header_data
+    sereal_encode_with_object
+    SRL_UNCOMPRESSED
+    SRL_SNAPPY
+    SRL_ZLIB
+    SRL_ZSTD
 );
-our %EXPORT_TAGS = (all => \@EXPORT_OK);
+our %EXPORT_TAGS= ( all => \@EXPORT_OK );
+
 # export by default if run from command line
-our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
+our @EXPORT= ( ( caller() )[1] eq '-e' ? @EXPORT_OK : () );
 
-sub CLONE_SKIP {1}
+sub CLONE_SKIP { 1 }
 
-XSLoader::load('Sereal::Encoder', $XS_VERSION);
+XSLoader::load( 'Sereal::Encoder', $XS_VERSION );
 
 sub encode_to_file {
-    my ($self, $file, $struct, $append)= @_;
+    my ( $self, $file, $struct, $append )= @_;
     $self= $self->new() unless ref $self;
     my $mode= $append ? ">>" : ">";
     open my $fh, $mode, $file
-        or die "Failed to open '$file' for " . ($append ? "append" : "write") . ": $!";
+        or die "Failed to open '$file' for " . ( $append ? "append" : "write" ) . ": $!";
     print $fh $self->encode($struct)
         or die "Failed to print to '$file': $!";
     close $fh
@@ -104,15 +105,13 @@ sub encode_to_file {
 }
 
 my $flags= sub {
-    my ($int, $ary)= @_;
-    return map {
-        ($ary->[$_] and $int & (1 << $_)) ? $ary->[$_] : ()
-    } (0..$#$ary);
+    my ( $int, $ary )= @_;
+    return map { ( $ary->[$_] and $int & ( 1 << $_ ) ) ? $ary->[$_] : () } ( 0 .. $#$ary );
 };
 
 sub flag_names {
-    my ($self, $val)= @_;
-    return $flags->(defined $val ? $val : $self->flags, _FLAG_NAME);
+    my ( $self, $val )= @_;
+    return $flags->( defined $val ? $val : $self->flags, _FLAG_NAME );
 }
 
 1;
