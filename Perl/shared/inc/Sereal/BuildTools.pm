@@ -5,6 +5,7 @@ use warnings;
 
 use Config;
 use constant OSNAME => $^O;
+use constant HAS_QUAD => eval { pack "Q", 1 } ? 1 : 0;
 
 my %bare_minimum_files= map { $_ => 1 } qw{
     typemap
@@ -82,6 +83,10 @@ sub generate_constant_includes {
 sub check_external_libraries {
   my ($libs, $defines, $objects, $subdirs) = @_;
   require Devel::CheckLib;
+
+  if (HAS_QUAD && $Config{gccversion}) {
+    $$defines .= " -D_LARGEFILE64_SOURCE";
+  }
 
   if (
     !$ENV{SEREAL_USE_BUNDLED_LIBS} &&
