@@ -56,6 +56,7 @@ t/080_set_readonly.t
 t/110_nobless.t
 t/150_dec_exception.t
 t/160_recursion.t
+t/190_customop.t
 t/200_bulk.t
 t/210_bulk_readonly.t
 t/300_overload.t
