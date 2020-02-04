@@ -13,7 +13,7 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
-4.009_003
+4.010 Tues February 4, 2020
     * Encoder/Decoder: Update miniz
     * Encoder/Decoder: Update zstd
     * Sereal/Encoder/Decoder: perltidy perl code to a standard style

@@ -5,7 +5,7 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 4 of the *
 *          encoder!                                            *
 ****************************************************************
-4.009_003
+4.010 Tues February 4, 2020
     * Update miniz
     * Update zstd
     * perltidy perl code to a standard style

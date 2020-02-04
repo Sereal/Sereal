@@ -4,7 +4,7 @@ use warnings;
 
 use ExtUtils::MakeMaker;
 use Cwd;
-our $VERSION= '4.009_003';
+our $VERSION= '4.010';
 
 my $shared_dir= "../shared";
 my $its_our_repo_file= "../this_is_the_Sereal_repo.txt";
@@ -57,7 +57,7 @@ WriteMakefile1(
     },                                  # e.g., Module::Name => 1.1
     LICENSE       => 'perl',
     ABSTRACT_FROM => 'lib/Sereal.pm',
-    AUTHOR        => 'Steffen Mueller <smueller@cpan.org>',
+    AUTHOR        => 'Steffen Mueller <smueller@cpan.org>, Yves Orton <yves@cpan.org>',
     test          => {
         TESTS => "t/*.t t/*/*/*.t",
     },
