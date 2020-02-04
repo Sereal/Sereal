@@ -416,6 +416,29 @@ SHORT_BINARY stores the length of the string in the tag itself and is used
 for strings of less than 32 characters long. Both BINARY and STR_UTF8
 use a varint to indicate the number of B<bytes> (octets) in the string.
 
+Note that the use of the term "BINARY" simply means that we do not know
+what encoding the data uses, it does not imply that such data is B<not>
+text, nor does STR_UTF8 imply that the data B<is> text (although it is
+likely).
+
+What STR_UTF8 B<does> imply that the data is encoded using the
+rules for encoding C<utf8>, which is similar but subtly distinct from
+true C<UTF-8>. The main distinction between the two is that Perls
+C<utf8> can be used to represent a wider range of codepoints than
+C<UTF-8>, including codepoints that are forbidden in C<UTF-8>, such as
+codepoints C<U+D800> through C<U+DFFF> inclusive (which are used ONLY in
+C<UTF-16>), and codepoints larger than C<U+10FFFF> which is the maximum
+allowable Unicode codepoint.
+
+Sereal does NOT validate that such STR_UTF8 strings *are* correctly encoded
+as it trusts Perl to do the right thing. When implementing Sereal in other
+languages it is up to the implementor how to handle these illegal
+codepoints, we do not expect such data to reliably round trip between
+Perl and another language as some languages, eg Javascript cannot properly
+handle such data. It is extremely rare to see code that actually makes
+use of such codepoints, and Perl will not do so on its own.
+
+
 =head3 Hash Keys
 
 Hash keys are always one of the string types, or a COPY tag referencing a
