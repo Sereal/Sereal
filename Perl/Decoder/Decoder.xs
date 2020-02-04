@@ -224,24 +224,33 @@ THX_ck_entersub_args_sereal_decoder(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
         opopt |= OPOPT_OUTARG_HEADER;
 
 #ifdef op_sibling_splice
+    /* op_sibling_splice is new in 5.31 and we have to do things differenly */
+
     /* cut out all ops between the pushmark and the RV2CV */
     op_sibling_splice(NULL, pushop, arity, NULL);
     /* then throw everything else out */
     op_free(entersubop);
     newop = newUNOP(OP_NULL, 0, NULL);
+
 #else
-     OpMORESIB_set(pushop, cvop);
-     OpLASTSIB_set(lastargop, op_parent(lastargop));
-     op_free(entersubop);
-     newop = newUNOP(OP_NULL, 0, firstargop);
+
+    OpMORESIB_set(pushop, cvop);
+    OpLASTSIB_set(lastargop, op_parent(lastargop));
+    op_free(entersubop);
+    newop = newUNOP(OP_NULL, 0, firstargop);
+
 #endif
+
     newop->op_type    = OP_CUSTOM;
     newop->op_private = opopt;
     newop->op_ppaddr = opopt & OPOPT_LOOKS_LIKE ? THX_pp_looks_like_sereal : THX_pp_sereal_decode;
+
 #ifdef op_sibling_splice
+
     /* attach the spliced-out args as children of the custom op, while
      * deleting the stub op created by newUNOP() */
     op_sibling_splice(newop, NULL, 1, firstargop);
+
 #endif
 
     return newop;
