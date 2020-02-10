@@ -7,6 +7,7 @@ from sereal import constants as const
 from sereal import reader
 from sereal import exception
 
+
 class SrlDecoder(object):
     def __init__(self, object_factory=None, **settings):
         super(SrlDecoder, self).__init__()
@@ -42,16 +43,16 @@ class SrlDecoder(object):
         magic = self.reader.read_uint32()
 
         if (hex(magic) != const.SRL_MAGIC_STRING_HIGHBIT_UINT_LE):
-           raise exception.SrlError('bad header: invalid magic string')
+            raise exception.SrlError('bad header: invalid magic string')
 
         doc_version_type = self.reader.read_uint8()
         doc_version = (doc_version_type & 15)
         doc_type = (doc_version_type >> 4) & 15
 
-        if (doc_version not in [3, 4]):
+        if doc_version not in [3, 4]:
             raise exception.SrlError('bad header: unsupported protocol version {}'.format(doc_version))
 
-        if (doc_type < 0 or doc_type > 3):
+        if doc_type < 0 or doc_type > 3:
             raise exception.SrlError('bad header: unsupported document type {}'.format(doc_type))
 
         header_suffix_size = self.reader.read_varint()
@@ -88,10 +89,10 @@ class SrlDecoder(object):
             return None
 
         elif tag == const.SRL_TYPE_BINARY:
-            return self._decode_binary(tag)
+            return self._decode_binary()
 
         elif tag == const.SRL_TYPE_STR_UTF8:
-            return self._decode_str_utf8(tag)
+            return self._decode_str_utf8()
 
         elif tag == const.SRL_TYPE_REFN:
             return self._decode_refn(tag)
@@ -157,7 +158,6 @@ class SrlDecoder(object):
 
         return self._track_item(track_pos, self._decode_tag(tag))
 
-
     def _get_copy(self):
         if self.copy_depth > 0:
             raise exception.SrlError('bad nested copy tag: recursive copy tag found')
@@ -216,11 +216,11 @@ class SrlDecoder(object):
         iv = (uv >> 1) ^ (-(uv & 1))
         return iv
 
-    def _decode_str_utf8(self, tag):
+    def _decode_str_utf8(self):
         ln = self.reader.read_varint()
         return self.reader.read_str(ln)
 
-    def _decode_binary(self, tag):
+    def _decode_binary(self):
         ln = self.reader.read_varint()
         if self.settings[const.SETTING_BIN_MODE_CLASSIC]:
             return self.reader.read_str(ln)
