@@ -10,6 +10,14 @@ Basic implementation of the Sereal protocol in Python.
 
 ### Decoder behaviour settings
 
+    object_factory: Function to customize the construction of an object.
+        The default function is:
+        def _default_object_factory(classname, data):
+            return {
+                'class': classname,
+                'object': data,
+            }
+
     bin_mode_classic: Specify the binary mode to use when decoding BINARY tags.
         If bin_mode_classic is True the decoder will auto decode all BINARY tags as UTF-8 encoded
         If bin_mode_classic is False the decoder will read BINARY tags verbatim
