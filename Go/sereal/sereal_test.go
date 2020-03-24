@@ -85,7 +85,7 @@ func testRoundtrip(t *testing.T, perlCompat bool, version int) {
 			_ = vt // avoid "declared but not used"
 
 		case []interface{}:
-			unSlice := make([]interface{}, 0)
+			var unSlice []interface{}
 			err = d.Unmarshal(b, &unSlice)
 			if err != nil {
 				t.Errorf("error during unmarshal: %s\n", err)
@@ -95,7 +95,7 @@ func testRoundtrip(t *testing.T, perlCompat bool, version int) {
 			}
 
 		case map[string]interface{}:
-			unMap := make(map[string]interface{}, 0)
+			var unMap map[string]interface{}
 			err = d.Unmarshal(b, &unMap)
 			if err != nil {
 				t.Errorf("error during unmarshal: %s\n", err)
