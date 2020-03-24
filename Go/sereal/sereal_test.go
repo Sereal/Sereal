@@ -43,18 +43,20 @@ var roundtrips = []interface{}{
 	[]interface{}{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14},
 	[]interface{}{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
 	[]interface{}{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
-	[]interface{}{1, 100, 1000, 2000, 0xdeadbeef, float32(2.2), "hello, world", map[string]interface{}{"foo": []interface{}{1, 2, 3}}},
-	map[string]interface{}{"foo": 1, "bar": 2, "baz": "qux"},
+	[]interface{}{1, 100, 1000, 2000, nil, 0xdeadbeef, float32(2.2), "hello, world", map[string]interface{}{"foo": []interface{}{1, 2, 3}}},
+	map[string]interface{}{"foo": 1, "bar": 2, "baz": "qux", "nilval": nil},
 }
 
 func TestRoundtripGo(t *testing.T) {
 	testRoundtrip(t, false, 1)
 	testRoundtrip(t, false, 2)
+	testRoundtrip(t, false, 3)
 }
 
 func TestRoundtripPerl(t *testing.T) {
 	testRoundtrip(t, true, 1)
 	testRoundtrip(t, true, 2)
+	testRoundtrip(t, true, 3)
 }
 
 func testRoundtrip(t *testing.T, perlCompat bool, version int) {
@@ -68,14 +70,42 @@ func testRoundtrip(t *testing.T, perlCompat bool, version int) {
 			t.Errorf("failed marshalling with perlCompat=%t : %v: %s\n", perlCompat, v, err)
 		}
 		var unp interface{}
-
 		err = d.Unmarshal(b, &unp)
 		if err != nil {
-			t.Errorf("perl compat: error during unmarshall: %s\n", err)
+			t.Errorf("error during unmarshal: %s\n", err)
 		}
+
 		if !reflect.DeepEqual(v, unp) {
 			t.Errorf("failed roundtripping with perlCompat=%t: %#v: got %#v\n", perlCompat, v, unp)
 		}
+
+		// for a couple of common "root" types also try unmarshalling to the same type
+		switch vt := v.(type) {
+		default:
+			_ = vt // avoid "declared but not used"
+
+		case []interface{}:
+			unSlice := make([]interface{}, 0)
+			err = d.Unmarshal(b, &unSlice)
+			if err != nil {
+				t.Errorf("error during unmarshal: %s\n", err)
+			}
+			if !reflect.DeepEqual(v, unSlice) {
+				t.Errorf("failed roundtripping with perlCompat=%t & unmarshal to []interface{}: %#v: got %#v\n", perlCompat, v, unSlice)
+			}
+
+		case map[string]interface{}:
+			unMap := make(map[string]interface{}, 0)
+			err = d.Unmarshal(b, &unMap)
+			if err != nil {
+				t.Errorf("error during unmarshal: %s\n", err)
+			}
+			if !reflect.DeepEqual(v, unMap) {
+				t.Errorf("failed roundtripping with perlCompat=%t & unmarshal to map[string]interface{}: %#v: got %#v\n", perlCompat, v, unMap)
+			}
+
+		}
+
 	}
 }
 
