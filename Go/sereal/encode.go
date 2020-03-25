@@ -3,6 +3,7 @@ package sereal
 import (
 	"encoding"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -220,6 +221,9 @@ func (e *Encoder) encode(b []byte, v interface{}, isKeyOrClass bool, isRefNext b
 	case float64:
 		b = e.encodeDouble(b, value)
 
+	case json.Number:
+		b = e.encodeJsonNumber(b, value, isKeyOrClass, strTable)
+
 	case string:
 		b = e.encodeString(b, value, isKeyOrClass, strTable)
 
@@ -328,6 +332,18 @@ func (e *Encoder) encodeDouble(by []byte, f float64) []byte {
 	by = append(by, byte(u>>48))
 	by = append(by, byte(u>>56))
 	return by
+}
+
+func (e *Encoder) encodeJsonNumber(by []byte, n json.Number, isKeyOrClass bool, strTable map[string]int) []byte {
+	if int64Value, err := n.Int64(); err == nil {
+		return e.encodeInt(by, reflect.Int, int64Value)
+	}
+
+	if float64Value, err := n.Float64(); err == nil {
+		return e.encodeDouble(by, float64Value)
+	}
+
+	return e.encodeString(by, n.String(), isKeyOrClass, strTable)
 }
 
 func (e *Encoder) encodeString(by []byte, s string, isKeyOrClass bool, strTable map[string]int) []byte {
