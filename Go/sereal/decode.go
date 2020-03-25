@@ -695,7 +695,9 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		var iface interface{}
 		var err error
 		idx, err = d.decode(by, idx, &iface)
-		ptr.Set(reflect.ValueOf(iface))
+		if iface != nil {
+			ptr.Set(reflect.ValueOf(iface))
+		}
 		return idx, err
 	}
 
