@@ -3,12 +3,14 @@ package sereal
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -1068,4 +1070,91 @@ func testDecompressDocument(t *testing.T, e *Encoder, dst []byte) bool {
 	}
 
 	return cap(dst) > 0 && hasSameBuffer(dst, d)
+}
+
+var jsonRoundTrips = []string{
+	"{\"foo\":\"bar\"}",
+	"{\"foo\":1000000000000000001,\"bar\":0.001,\"baz\":\"100500\"}",
+}
+
+var jsonNonRoundTrips = [][]string{
+	[]string{
+		"{\"foo\":8797135498471177000,\"bar\":1730933667817769214,\"baz\":13165229215395525219,\"xaz\":1316522921539552521900000000000100500}",
+		"{\"foo\":8797135498471177000,\"bar\":1730933667817769214,\"baz\":\"13165229215395525219\",\"xaz\":\"1316522921539552521900000000000100500\"}",
+	},
+}
+
+func jsonUnmarshalUseNumber(inputJson string) (map[string]interface{}, error) {
+
+	dec := json.NewDecoder(strings.NewReader(string(inputJson)))
+	dec.UseNumber()
+
+	var result map[string]interface{}
+	err := dec.Decode(&result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func testJson(t *testing.T, version int, inputJson string, expectedJson string) {
+	dataFromJson, err := jsonUnmarshalUseNumber(inputJson)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	e := &Encoder{PerlCompat: false, version: version}
+	d := &Decoder{PerlCompat: false}
+
+	serealString, err := e.Marshal(dataFromJson)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var dataFromSereal map[string]interface{}
+	err = d.Unmarshal(serealString, &dataFromSereal)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outputJson, err := json.Marshal(dataFromSereal)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dataFromJsonAfterSereal, err := jsonUnmarshalUseNumber(string(outputJson))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedDataFromJson, err := jsonUnmarshalUseNumber(expectedJson)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(expectedDataFromJson, dataFromJsonAfterSereal) {
+		t.Errorf("failed json roundtripping: %#v: got %#v\n", version, dataFromJsonAfterSereal)
+	}
+
+}
+
+func testJsonRoundtrip(t *testing.T, version int, inputJson string) {
+	testJson(t, version, inputJson, inputJson)
+}
+
+func TestJsonCompat(t *testing.T) {
+	for _, jsonString := range jsonRoundTrips {
+		testJsonRoundtrip(t, 1, jsonString)
+		testJsonRoundtrip(t, 2, jsonString)
+		testJsonRoundtrip(t, 3, jsonString)
+	}
+
+	for _, jsonPair := range jsonNonRoundTrips {
+		inputJson := jsonPair[0]
+		expectedJson := jsonPair[1]
+		testJson(t, 1, inputJson, expectedJson)
+		testJson(t, 2, inputJson, expectedJson)
+		testJson(t, 3, inputJson, expectedJson)
+	}
 }
