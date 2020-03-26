@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/big"
 	"reflect"
 	"runtime"
 	"unsafe"
@@ -337,6 +338,14 @@ func (e *Encoder) encodeDouble(by []byte, f float64) []byte {
 func (e *Encoder) encodeJsonNumber(by []byte, n json.Number, isKeyOrClass bool, strTable map[string]int) []byte {
 	if int64Value, err := n.Int64(); err == nil {
 		return e.encodeInt(by, reflect.Int, int64Value)
+	}
+
+	// we do not want to lose precision for large integers, as those are often IDs of things
+	// so if a value looks like a positive integer, but does not fit to int64, better keep it as a string
+	// uint64 values which don't fit to signed int are a common example
+	bigInt, isBigInt := new(big.Int).SetString(n.String(), 10)
+	if isBigInt && bigInt.Cmp(big.NewInt(0)) > 0 {
+		return e.encodeString(by, n.String(), isKeyOrClass, strTable)
 	}
 
 	if float64Value, err := n.Float64(); err == nil {

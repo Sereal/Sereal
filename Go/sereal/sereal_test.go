@@ -1077,6 +1077,13 @@ var jsonRoundTrips = []string{
 	"{\"foo\":1000000000000000001,\"bar\":0.001,\"baz\":\"100500\"}",
 }
 
+var jsonNonRoundTrips = [][]string{
+	[]string{
+		"{\"foo\":8797135498471177000,\"bar\":1730933667817769214,\"baz\":13165229215395525219}",
+		"{\"foo\":8797135498471177000,\"bar\":1730933667817769214,\"baz\":\"13165229215395525219\"}",
+	},
+}
+
 func jsonUnmarshalUseNumber(inputJson string) (map[string]interface{}, error) {
 
 	dec := json.NewDecoder(strings.NewReader(string(inputJson)))
@@ -1091,7 +1098,7 @@ func jsonUnmarshalUseNumber(inputJson string) (map[string]interface{}, error) {
 	return result, nil
 }
 
-func testJsonRoundtrip(t *testing.T, version int, inputJson string) {
+func testJson(t *testing.T, version int, inputJson string, expectedJson string) {
 	dataFromJson, err := jsonUnmarshalUseNumber(inputJson)
 	if err != nil {
 		t.Fatal(err)
@@ -1121,10 +1128,19 @@ func testJsonRoundtrip(t *testing.T, version int, inputJson string) {
 		t.Fatal(err)
 	}
 
-	if !reflect.DeepEqual(dataFromJson, dataFromJsonAfterSereal) {
+	expectedDataFromJson, err := jsonUnmarshalUseNumber(expectedJson)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(expectedDataFromJson, dataFromJsonAfterSereal) {
 		t.Errorf("failed json roundtripping: %#v: got %#v\n", version, dataFromJsonAfterSereal)
 	}
 
+}
+
+func testJsonRoundtrip(t *testing.T, version int, inputJson string) {
+	testJson(t, version, inputJson, inputJson)
 }
 
 func TestJsonCompat(t *testing.T) {
@@ -1132,5 +1148,13 @@ func TestJsonCompat(t *testing.T) {
 		testJsonRoundtrip(t, 1, jsonString)
 		testJsonRoundtrip(t, 2, jsonString)
 		testJsonRoundtrip(t, 3, jsonString)
+	}
+
+	for _, jsonPair := range jsonNonRoundTrips {
+		inputJson := jsonPair[0]
+		expectedJson := jsonPair[1]
+		testJson(t, 1, inputJson, expectedJson)
+		testJson(t, 2, inputJson, expectedJson)
+		testJson(t, 3, inputJson, expectedJson)
 	}
 }
