@@ -7,9 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/big"
 	"reflect"
 	"runtime"
+	"strconv"
 	"unsafe"
 )
 
@@ -336,16 +336,19 @@ func (e *Encoder) encodeDouble(by []byte, f float64) []byte {
 }
 
 func (e *Encoder) encodeJsonNumber(by []byte, n json.Number, isKeyOrClass bool, strTable map[string]int) []byte {
-	if int64Value, err := n.Int64(); err == nil {
+	int64Value, err := n.Int64()
+	if err == nil {
 		return e.encodeInt(by, reflect.Int, int64Value)
-	}
+	} else {
 
-	// we do not want to lose precision for large integers, as those are often IDs of things
-	// so if a value looks like a positive integer, but does not fit to int64, better keep it as a string
-	// uint64 values which don't fit to signed int are a common example
-	bigInt, isBigInt := new(big.Int).SetString(n.String(), 10)
-	if isBigInt && bigInt.Cmp(big.NewInt(0)) > 0 {
-		return e.encodeString(by, n.String(), isKeyOrClass, strTable)
+		// we do not want to lose precision for large integers, as those are often IDs or hashsums of things
+		// so if the error we got is about the number not fitting into the int64 datatype, better keep it as a string instead of converting to float and losing precision
+		// uint64 values which don't fit to signed int are a common example, but the value might be of arbitrary size
+
+		numErr, isNumErr := err.(*strconv.NumError)
+		if isNumErr && numErr.Err == strconv.ErrRange {
+			return e.encodeString(by, n.String(), isKeyOrClass, strTable)
+		}
 	}
 
 	if float64Value, err := n.Float64(); err == nil {
