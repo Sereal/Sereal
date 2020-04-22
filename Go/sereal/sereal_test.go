@@ -1158,3 +1158,55 @@ func TestJsonCompat(t *testing.T) {
 		testJson(t, 3, inputJson, expectedJson)
 	}
 }
+
+func getSomeData(keyCount int) map[string]interface{} {
+	retVal := map[string]interface{}{}
+	for i := 0; i < keyCount; i++ {
+		retVal["key_"+string(i)] = "value_" + string(i)
+	}
+
+	return retVal
+}
+
+func addCapacity(b []byte, multiplier int) []byte {
+	return append(make([]byte, 0, len(b)*multiplier), b...)
+}
+
+func TestDoubleUnmarshal(t *testing.T) {
+	encoderWithCompression := &Encoder{
+		CompressionThreshold: 1024,
+		Compression:          SnappyCompressor{Incremental: true},
+	}
+
+	for _, keyCount := range []int{1, 10, 100, 1000, 10000} {
+		data := getSomeData(keyCount)
+		serealData, err := encoderWithCompression.Marshal(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		slicesToCheck := [][]byte{serealData}
+		for _, multiplier := range []int{2, 5, 1000} {
+			slicesToCheck = append(slicesToCheck, addCapacity(serealData, multiplier))
+		}
+
+		for _, slice := range slicesToCheck {
+			// unmarshal
+			result := make(map[string]interface{}, 0)
+			if err := Unmarshal(slice, &result); err != nil {
+				t.Fatal(err)
+			}
+
+			// unmarshal from the same slice again
+			result = make(map[string]interface{}, 0)
+			if err := Unmarshal(slice, &result); err != nil {
+				t.Fatal(err)
+			}
+
+			// check data
+			if !reflect.DeepEqual(data, result) {
+				t.Errorf("Data does not match after double unmarshal")
+			}
+		}
+	}
+}
