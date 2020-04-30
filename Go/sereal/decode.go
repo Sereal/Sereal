@@ -225,10 +225,10 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 				return err
 			}
 
-			// shrink down b to reuse the allocated buffer
-			b = b[:0]
-			b = append(b, b[:bodyStart]...)
-			b = append(b, decompBody...)
+			newBody := make([]byte, 0, len(b[:bodyStart])+len(decompBody))
+			newBody = append(newBody, b[:bodyStart]...)
+			newBody = append(newBody, decompBody...)
+			b = newBody
 		}
 
 		d.tracked = make(map[int]reflect.Value)
