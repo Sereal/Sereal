@@ -152,7 +152,7 @@ THX_pp1_looks_like_sereal(pTHX)
         if ( ret < 0 ) {
             SETs(&PL_sv_no);
         } else {
-            SETs(newSViv(ret & SRL_PROTOCOL_VERSION_MASK));
+            SETs(sv_2mortal(newSViv(ret & SRL_PROTOCOL_VERSION_MASK)));
         }
     } else {
         SETs(&PL_sv_no);
