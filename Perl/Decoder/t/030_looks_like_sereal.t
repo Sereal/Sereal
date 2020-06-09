@@ -13,7 +13,6 @@ use Test::More;
 use Data::Dumper;
 use File::Spec;
 use Devel::Peek;
-use Test::MemoryGrowth;
 
 use Sereal::Decoder qw(decode_sereal looks_like_sereal scalar_looks_like_sereal);
 use Sereal::Decoder::Constants qw(:all);
@@ -66,7 +65,7 @@ my @tests= (
     [ "=Srl" . chr(1) . chr(0) . chr(SRL_HDR_UNDEF), "", "wrong magic string is not Sereal" ],
 );
 
-plan tests => 3 + @tests * 5;
+plan tests => 2 + @tests * 5;
 
 is( prototype( \&looks_like_sereal ),        undef );
 is( prototype( \&scalar_looks_like_sereal ), "\$" );
@@ -80,5 +79,3 @@ foreach my $t (@tests) {
     is( $decoder->looks_like_sereal($input),        $outcome, "$name (object method)" );
     is( Sereal::Decoder->looks_like_sereal($input), $outcome, "$name (class method)" );
 }
-
-no_growth { looks_like_sereal(doc(1,3,1)) } 'looks_like_sereal not grow memory';
