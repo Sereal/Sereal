@@ -5,6 +5,10 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 4 of the *
 *          encoder!                                            *
 ****************************************************************
+4.012 Weds June 10, 2020
+    * Fix memory leak, thanks to Kirill Sysoev
+    * Fix memory leak in looks_like_sereal(), thanks to Kirill Sysoev
+
 4.011 Tues February 4, 2020
     * Fix and test custom opcode logic for 5.31.2 and later.
 
