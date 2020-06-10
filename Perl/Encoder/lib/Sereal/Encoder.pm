@@ -16,14 +16,17 @@ sub _test_compat { return ( @$TestCompat, $VERSION ) }
 # Make sure to keep these constants in sync with the C code in srl_encoder.c.
 # I know they could be exported from C using things like ExtUtils::Constant,
 # but that's too much of a hassle for just three numbers.
-use constant {
+#start-no-tidy
+my ($compress_consts, $full_consts);
+BEGIN {
+$compress_consts= {
     SRL_UNCOMPRESSED => 0,
     SRL_SNAPPY       => 1,
     SRL_ZLIB         => 2,
     SRL_ZSTD         => 3,
 };
-#start-no-tidy
-use constant #begin generated
+$full_consts=
+#begin generated
 {
   'SRL_F_ALIASED_DEDUPE_STRINGS' => 4096,
   'SRL_F_CANONICAL_REFS' => 32768,
@@ -70,20 +73,28 @@ use constant #begin generated
                     'SORT_KEYS_PERL_REV',
                     'COMPRESS_ZSTD'
                   ]
-}; #end generated
+};
+#end generated
+}
+use constant $compress_consts;
+use constant $full_consts;
 #end-no-tidy
 
 use Exporter 'import';
-our @EXPORT_OK= qw(
+our @EXPORT_OK= (qw(
     encode_sereal
     encode_sereal_with_header_data
     sereal_encode_with_object
-    SRL_UNCOMPRESSED
-    SRL_SNAPPY
-    SRL_ZLIB
-    SRL_ZSTD
+), sort { $a cmp $b } 
+(
+    keys(%$compress_consts),
+    keys(%$full_consts)
+));
+our %EXPORT_TAGS= (
+    all            => \@EXPORT_OK,
+    compress_const => [ sort keys %$compress_consts ],
+    full_const     => [ sort(keys(%$compress_consts),keys(%$full_consts)) ],
 );
-our %EXPORT_TAGS= ( all => \@EXPORT_OK );
 
 # export by default if run from command line
 our @EXPORT= ( ( caller() )[1] eq '-e' ? @EXPORT_OK : () );
