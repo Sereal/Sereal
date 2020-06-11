@@ -13,6 +13,10 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+4.014 Thurs June 11, 2020
+    * Fix build issue on non-win32 platforms.
+    * Update zstd to 1.4.5
+
 4.012 Tues February 4, 2020
     * Fix memory leak in looks_like_sereal(), thanks to Kirill Sysoev
 

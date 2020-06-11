@@ -5,6 +5,10 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 4 of the *
 *          encoder!                                            *
 ****************************************************************
+4.014 Thurs June 11, 2020
+    * Fix build issue on non-win32 platforms.
+    * Update zstd to 1.4.5
+
 4.012 Weds June 10, 2020
     * Fix memory leak in looks_like_sereal(), thanks to Kirill Sysoev
 

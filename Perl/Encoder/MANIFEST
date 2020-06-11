@@ -149,6 +149,8 @@ zstd/compress/zstd_compress_literals.c
 zstd/compress/zstd_compress_literals.h
 zstd/compress/zstd_compress_sequences.c
 zstd/compress/zstd_compress_sequences.h
+zstd/compress/zstd_compress_superblock.c
+zstd/compress/zstd_compress_superblock.h
 zstd/compress/zstd_cwksp.h
 zstd/compress/zstd_double_fast.c
 zstd/compress/zstd_double_fast.h

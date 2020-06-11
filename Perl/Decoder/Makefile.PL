@@ -59,7 +59,7 @@ inc::Sereal::BuildTools::WriteMakefile(
         'Test::Deep'         => '0',
         'Test::Differences'  => '0',
         'Data::Dumper'       => '0',
-        'Test::MemoryGrowth' => '0',
+        ($^O eq "linux" ? ( 'Test::MemoryGrowth' => '0' ) : () ),
     },
     BUILD_REQUIRES => {
         'XSLoader'          => 0,

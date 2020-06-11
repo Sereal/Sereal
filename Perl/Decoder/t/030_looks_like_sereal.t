@@ -13,7 +13,6 @@ use Test::More;
 use Data::Dumper;
 use File::Spec;
 use Devel::Peek;
-use Test::MemoryGrowth;
 
 use Sereal::Decoder qw(decode_sereal looks_like_sereal scalar_looks_like_sereal);
 use Sereal::Decoder::Constants qw(:all);
@@ -81,4 +80,8 @@ foreach my $t (@tests) {
     is( Sereal::Decoder->looks_like_sereal($input), $outcome, "$name (class method)" );
 }
 
-no_growth { looks_like_sereal(doc(1,3,1)) } 'looks_like_sereal not grow memory';
+SKIP:{
+    skip "Build test only needs to run on linux", 1 if $^O ne "linux";
+    require Test::MemoryGrowth;
+    Test::MemoryGrowth::no_growth(sub{ looks_like_sereal(doc(1,3,1)) },'looks_like_sereal should not leak');
+}
