@@ -2,6 +2,8 @@ package com.booking.sereal;
 
 import com.booking.sereal.impl.RefpMap;
 import com.github.luben.zstd.Zstd;
+
+import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
 import org.xerial.snappy.Snappy;
 
@@ -36,6 +38,8 @@ public class Decoder implements SerealHeader {
   private final boolean stripObjects;
   private final TypeMapper typeMapper;
   private final boolean useObjectArray;
+  private final int decodeBufferSize;
+  private final int maxSize;
   private byte[] data;
   private int position, end;
   private ByteArray originalData;
@@ -65,6 +69,8 @@ public class Decoder implements SerealHeader {
     stripObjects = options.stripObjects();
     typeMapper = options.typeMapper();
     useObjectArray = typeMapper.useObjectArray();
+    decodeBufferSize = options.bufferSize();
+    maxSize = options.maxSize();
   }
 
   private void checkHeader() throws SerealException {
@@ -217,18 +223,18 @@ public class Decoder implements SerealHeader {
     if (encoding == 2) {
       len = (int) read_varint();
     }
+
     byte[] uncompressed;
     try {
-      if (!Snappy.isValidCompressedBuffer(
-          originalData.array, position, len))
+      if (!Snappy.isValidCompressedBuffer(originalData.array, position, len)) {
         throw new SerealException("Invalid snappy data");
-      uncompressed =
-          new byte
-              [pos
-                  + Snappy.uncompressedLength(
-                      originalData.array, position, len)];
-      Snappy.uncompress(
-          originalData.array, position, len, uncompressed, pos);
+      }
+      int uncompressedLength = Snappy.uncompressedLength(originalData.array, position, len);
+      if (uncompressedLength > this.maxSize) {
+        throw new SerealException("The expected uncompressed size is larger than the allowed maximum size");
+      }
+      uncompressed = new byte[pos + uncompressedLength];
+      Snappy.uncompress(originalData.array, position, len, uncompressed, pos);
     } catch (IOException e) {
       throw new SerealException(e);
     }
@@ -238,21 +244,40 @@ public class Decoder implements SerealHeader {
   }
 
   private void uncompressZlib() throws SerealException {
-    if (inflater == null) inflater = new Inflater();
+    if (inflater == null) {
+      inflater = new Inflater();
+    }
     inflater.reset();
 
     long uncompressedLength = read_varint();
+    if (uncompressedLength > this.maxSize) {
+      throw new SerealException("The expected uncompressed size is larger than the allowed maximum size");
+    }
+
     long compressedLength = read_varint();
     inflater.setInput(originalData.array, position, (int) compressedLength);
-    byte[] uncompressed = new byte[(int) uncompressedLength];
-    try {
-      int inflatedSize = inflater.inflate(uncompressed);
-    } catch (DataFormatException e) {
+    try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+      byte[] buffer = new byte[this.decodeBufferSize];
+      while (!inflater.finished()) {
+        if (outputStream.size() > this.maxSize) {
+          throw new SerealException("The uncompressed size is larger than the allowed maximum size");
+        } else if (outputStream.size() > uncompressedLength) {
+          throw new SerealException("The uncompressed size is larger than the expected size");
+        }
+        int count = inflater.inflate(buffer);
+        if (count == 0 ) {
+          break;
+        }
+        outputStream.write(buffer, 0, count);
+      }
+      this.data = outputStream.toByteArray();
+    } catch (DataFormatException | IOException e) {
       throw new SerealException(e);
+    } finally {
+      inflater.end();
     }
-    this.data = uncompressed;
     this.position = 0;
-    this.end = uncompressed.length;
+    this.end = this.data.length;
   }
 
   private void uncompressZstd() throws SerealException {
@@ -260,12 +285,18 @@ public class Decoder implements SerealHeader {
 
     byte[] compressedData = Arrays.copyOfRange(originalData.array, position, position + len);
     long decompressedSize = Zstd.decompressedSize(compressedData);
-    if (decompressedSize > Integer.MAX_VALUE)
-      throw new SerealException("Decompressed size exceeds integer MAX_VALUE: " + decompressedSize);
 
+    if (decompressedSize > this.maxSize) {
+      throw new SerealException("The expected uncompressed size is larger than the allowed maximum size");
+    }
+    if (decompressedSize > Integer.MAX_VALUE) {
+      throw new SerealException("Decompressed size exceeds integer MAX_VALUE: " + decompressedSize);
+    }
     byte[] uncompressed = new byte[(int) decompressedSize];
     long status = Zstd.decompress(uncompressed, compressedData);
-    if (Zstd.isError(status)) throw new SerealException(Zstd.getErrorName(status));
+    if (Zstd.isError(status)) {
+      throw new SerealException(Zstd.getErrorName(status));
+    }
     this.data = uncompressed;
     this.position = 0;
     this.end = uncompressed.length;

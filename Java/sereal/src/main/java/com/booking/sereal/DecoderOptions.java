@@ -10,6 +10,11 @@ public class DecoderOptions {
   private boolean stripObjects = false;
   private boolean forceJavaStringForByteArrayValues = false;
 
+  // Size to use on the buffer used to read the data. Defaults to 1KB
+  private int decodeBufferSize = 1024;
+  // Maximum size allowed for the data. Defaults to 100MB
+  private int maxSize = 100 * 1024 * 1024;
+
   private TypeMapper typeMapper = new DefaultTypeMapper();
 
   public boolean perlReferences() {
@@ -46,6 +51,14 @@ public class DecoderOptions {
 
   public TypeMapper typeMapper() {
     return typeMapper;
+  }
+
+  public int bufferSize() {
+    return decodeBufferSize;
+  }
+
+  public int maxSize() {
+    return maxSize;
   }
 
   public DecoderOptions perlReferences(boolean perlReferences) {
@@ -98,6 +111,18 @@ public class DecoderOptions {
 
   public DecoderOptions typeMapper(TypeMapper typeMapper) {
     this.typeMapper = typeMapper;
+
+    return this;
+  }
+
+  public DecoderOptions bufferSize(int bufferSize) {
+    this.decodeBufferSize = bufferSize;
+
+    return this;
+  }
+
+  public DecoderOptions maxBufferSize(int maxSize) {
+    this.maxSize = maxSize;
 
     return this;
   }
