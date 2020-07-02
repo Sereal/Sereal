@@ -17,6 +17,7 @@ struct srl_decoder {
     U32 flags;                          /* flag-like options: See SRL_F_DECODER_* defines in srl_decoder.c */
     UV max_recursion_depth;             /* Configurable limit on the number of recursive calls we're willing to make */
     UV max_num_hash_entries;            /* Configured maximum number of acceptable entries in a hash */
+    UV max_num_array_entries;           /* Configured maximum number of acceptable entries in an array */
     ptable_ptr ref_seenhash;            /* ptr table for avoiding circular refs */
     ptable_ptr ref_thawhash;          /* ptr table for dealing with non ref thawed items */
     ptable_ptr ref_stashes;             /* ptr table for tracking stashes we will bless into - key: ofs, value: stash */
@@ -196,10 +197,13 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_DEC_OPT_STR_REFUSE_ZSTD                 "refuse_zstd"
 #define SRL_DEC_OPT_IDX_REFUSE_ZSTD                 13
 
+#define SRL_DEC_OPT_STR_MAX_NUM_ARRAY_ENTRIES       "max_num_array_entries"
+#define SRL_DEC_OPT_IDX_MAX_NUM_ARRAY_ENTRIES       14
+
 /* NOTE WELL: WHEN YOU ADD AN OPTION YOU **MUST** ADD A
  * CORRESPONDING CALL TO SRL_INIT_OPTION() to Decoder.xs */
 
-#define SRL_DEC_OPT_COUNT                           14
+#define SRL_DEC_OPT_COUNT                           15
 
 #if ((PERL_VERSION > 10) || (PERL_VERSION == 10 && PERL_SUBVERSION > 1 ))
 #   define MODERN_REGEXP

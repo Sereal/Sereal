@@ -20,7 +20,7 @@ use Sereal::Decoder::Constants qw(:all);
 # bad input. This obviously shouldn't segfault and neither leak
 # memory.
 
-plan tests => 56;
+plan tests => 72;
 my ( $ok, $out, $err );
 
 SCOPE: {
@@ -56,6 +56,23 @@ SCOPE: {
     check_fail(
         $hash_packet, qr/Sereal: Error/, "Setting hash limit option (999)",
         { max_num_hash_entries => 999 } );
+
+    # Tests for limiting number of acceptable array entries
+    my $array_packet= Header() . array( map short_string($_), 1 .. 1000 );
+    my $ar= decode_sereal($array_packet);
+    is( ref($ar),           "ARRAY", "Deserializes as array" );
+    is( scalar( @$ar ),      1000,   "Array has 1000 entries" );
+    $ar= decode_sereal( $array_packet, { max_num_array_entries => 0 } );
+    is( ref($ar), "ARRAY", "Deserializes as array (2)" );
+    $ar= decode_sereal( $array_packet, { max_num_array_entries => 1000 } );
+    is( ref($ar), "ARRAY", "Deserializes as array (3)" );
+
+    check_fail(
+        $array_packet, qr/Sereal: Error/, "Setting array limit option (1)",
+        { max_num_array_entries => 1 } );
+    check_fail(
+        $array_packet, qr/Sereal: Error/, "Setting array limit option (999)",
+        { max_num_array_entries => 999 } );
 
     my $valid_packet= Header(2) . short_string("foo");
     my $foo= decode_sereal($valid_packet);

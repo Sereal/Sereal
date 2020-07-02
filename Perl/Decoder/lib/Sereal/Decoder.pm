@@ -265,12 +265,19 @@ somewhere between 9997 and 10003 nested structures depending on their types.
 
 =head3 max_num_hash_entries
 
-If set to a non-zero value (default: 0), then C<Sereal::Decoder> will refuse
+If set to a non-zero value (default: 10000), then C<Sereal::Decoder> will refuse
 to deserialize any hash/dictionary (or hash-based object) with more than
 that number of entries. This is to be able to respond quickly to any future
-hash-collision attacks on Perl's hash function. Chances are, you don't want
-or need this. For a gentle introduction to the topic from the cryptographic
-point of view, see L<http://en.wikipedia.org/wiki/Collision_attack>.
+hash-collision attacks on Perl's hash function, and also the memory exhaustion
+attacks on Sereal itself. For a gentle introduction to the topic from the
+cryptographic point of view, see L<http://en.wikipedia.org/wiki/Collision_attack>.
+
+=head3 max_num_array_entries
+
+If set to a non-zero value (default: 10000), then C<Sereal::Decoder> will refuse
+to deserialize any array with more than that number of entries.
+This is to be able to respond quickly to any future memory exhaustion attacks on
+Sereal.
 
 =head3 incremental
 
