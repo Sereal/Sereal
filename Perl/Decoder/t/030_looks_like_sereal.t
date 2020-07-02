@@ -82,6 +82,6 @@ foreach my $t (@tests) {
 
 SKIP:{
     skip "Build test only needs to run on linux", 1 if $^O ne "linux";
-    require Test::MemoryGrowth;
+    skip "Test requires Test::MemoryGrowth", 1 if !eval "require Test::MemoryGrowth; 1";
     Test::MemoryGrowth::no_growth(sub{ looks_like_sereal(doc(1,3,1)) },'looks_like_sereal should not leak');
 }

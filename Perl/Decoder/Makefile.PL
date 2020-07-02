@@ -66,6 +66,7 @@ inc::Sereal::BuildTools::WriteMakefile(
         'File::Find'        => 0,
         'File::Path'        => 0,
         'ExtUtils::ParseXS' => '2.21',
+        ($^O eq "linux" ? ( 'Test::MemoryGrowth' => '0' ) : () ),
     },
     CONFIGURE_REQUIRES => {
         'ExtUtils::MakeMaker' => '7.0',
