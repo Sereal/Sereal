@@ -3,7 +3,9 @@
 failed=""
 
 for lang in perl go ruby all; do
+    echo "Testing $lang"
     if ! travis/$lang.sh ; then
+        echo "Failed $lang"
         failed="$failed $lang"
     fi
 done
