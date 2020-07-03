@@ -537,7 +537,7 @@ in both time and space efficiency with the best alternatives.
 This mechanism is enabled using the C<freeze_callbacks> option of the encoder.
 It is inspired by the equivalent mechanism in L<CBOR::XS> and differs only
 in one minor detail, explained below. The general mechanism is documented
-in the I<A GENERIC OBJECT SERIALIATION PROTOCOL> section of L<Types::Serializer>.
+in the I<A GENERIC OBJECT SERIALIATION PROTOCOL> section of L<Types::Serialiser>.
 Similar to CBOR using C<CBOR>, Sereal uses the string C<Sereal> as a serializer
 identifier for the callbacks.
 
