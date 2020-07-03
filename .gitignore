@@ -2,3 +2,5 @@
 *.swo
 *~
 *.bak
+
+.idea/
