@@ -2,10 +2,8 @@
 
 failed=""
 
-for lang in perl go ruby all; do
-    echo "Testing $lang"
+for lang in perl go ruby java; do
     if ! travis/$lang.sh ; then
-        echo "Failed $lang"
         failed="$failed $lang"
     fi
 done
