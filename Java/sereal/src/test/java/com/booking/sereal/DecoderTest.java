@@ -2,14 +2,20 @@ package com.booking.sereal;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.booking.sereal.EncoderOptions.CompressionType;
 import java.lang.ref.WeakReference;
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import org.junit.Assert;
 import org.junit.Test;
 
 public class DecoderTest {
@@ -92,5 +98,114 @@ public class DecoderTest {
 
     assertThat(decoded, instanceOf(BigInteger.class));
     assertThat(decoded.toString(), equalTo("11781050652756758130"));
+  }
+
+  @Test
+  public void testDecodeArrays() throws SerealException {
+    Encoder encoder = new Encoder();
+    Decoder decoder = new Decoder();
+
+    int size = 100;
+    List<String> stringArray = new ArrayList<>();
+    for (int i = 0; i < size; i++) {
+      stringArray.add(new String("Value " + i + " of the array"));
+    }
+    encoder.write(stringArray);
+    byte[] data = encoder.getData();
+
+    decoder.setData(data);
+    ArrayList<String> result = (ArrayList<String>) decoder.decode();
+
+    assertEquals(size, result.size());
+    for (int i = 0; i < size; i++) {
+      assertEquals("Value " + i + " of the array", result.get(i));
+    }
+  }
+
+  @Test
+  public void testDecodeTooLargeArrays() throws SerealException {
+    Encoder encoder = new Encoder();
+    Decoder decoder = new Decoder(new DecoderOptions().maxNumArrayEntries(100));
+
+    int size = 1000;
+    List<String> stringArray = new ArrayList<>();
+    for (int i = 0; i < size; i++) {
+      stringArray.add(new String("Value " + i + " of the array"));
+    }
+    encoder.write(stringArray);
+    byte[] data = encoder.getData();
+
+    decoder.setData(data);
+
+    Exception exception = Assert.assertThrows(SerealException.class, () -> decoder.decode());
+    assertEquals("Got input array with 1000 entries, but the configured maximum is just 100", exception.getMessage());
+  }
+
+  @Test
+  public void testDecodeHashMap() throws SerealException {
+    Encoder encoder = new Encoder();
+    Decoder decoder = new Decoder();
+
+    int size = 100;
+    Map<String, String> stringMap = new HashMap<>();
+    for (int i = 0; i < size; i++) {
+      stringMap.put(String.valueOf(i), "Value " + i + " of the map");
+    }
+    encoder.write(stringMap);
+    byte[] data = encoder.getData();
+
+    decoder.setData(data);
+    Map<String, String> result = (HashMap<String, String>) decoder.decode();
+
+    assertEquals(size, result.keySet().size());
+    for (int i = 0; i < size; i++) {
+      assertEquals("Value " + i + " of the map", result.get(String.valueOf(i)));
+    }
+  }
+
+  @Test
+  public void testDecodeTooLargeHashMap() throws SerealException {
+    Encoder encoder = new Encoder();
+    Decoder decoder = new Decoder(new DecoderOptions().maxNumMapEntries(100));
+
+    int size = 1000;
+    Map<String, String> stringMap = new HashMap<>();
+    for (int i = 0; i < size; i++) {
+      stringMap.put(String.valueOf(i), "Value " + i + " of the map");
+    }
+    encoder.write(stringMap);
+    byte[] data = encoder.getData();
+
+    decoder.setData(data);
+
+    Exception exception = Assert.assertThrows(SerealException.class, () -> decoder.decode());
+    assertEquals("Got input hash with 1000 entries, but the configured maximum is just 100", exception.getMessage());
+  }
+
+  @Test
+  public void testDecodeLargeStrings() throws SerealException {
+    Encoder encoder = new Encoder();
+    Decoder decoder = new Decoder(new DecoderOptions().maxStringLength(10));
+    String shortString = "OK";
+    encoder.write(shortString);
+    decoder.setData(encoder.getData());
+    String result = (String) decoder.decode();
+    assertEquals(shortString, result);
+
+    String largeString = "Lorem ipsum dolor sit amet";
+    encoder.write(largeString);
+    decoder.setData(encoder.getData());
+
+    Exception exception = Assert.assertThrows(SerealException.class, () -> decoder.decode());
+    assertEquals("Got input string with 26 characters, but the configured maximum is just 10", exception.getMessage());
+
+    encoder.write(new Object[]{
+            new String("abc"),
+            new String(largeString),
+            new String("xyz"),
+    });
+    decoder.setData(encoder.getData());
+    exception = Assert.assertThrows(SerealException.class, () -> decoder.decode());
+    assertEquals("Got input string with 26 characters, but the configured maximum is just 10", exception.getMessage());
   }
 }

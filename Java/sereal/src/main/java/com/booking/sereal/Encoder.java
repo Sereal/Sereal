@@ -40,6 +40,12 @@ public class Encoder {
   private final long compressionThreshold;
   private final Deflater deflater;
   private final int zstdCompressionLevel;
+
+  private final int maxRecursionDepth;
+  private final int maxNumMapEntries;
+  private final int maxNumArrayEntries;
+  private final int maxStringLength;
+
   private final byte[] HEADER =
       new byte[] {
         (byte) (SerealHeader.MAGIC >> 24),
@@ -70,6 +76,8 @@ public class Encoder {
   private int headerSize, headerOffset;
   private Charset charset_utf8 = Charset.forName("UTF-8");
 
+  private int recursionDepth = 0;
+
   /** Create a new Encoder with default options. */
   public Encoder() {
     this(DEFAULT_OPTIONS);
@@ -83,6 +91,11 @@ public class Encoder {
     compressionType = options.compressionType();
     compressionThreshold = options.compressionThreshold();
     zstdCompressionLevel = options.zstdCompressionLevel();
+
+    maxRecursionDepth = options.maxRecursionDepth();
+    maxNumMapEntries = options.maxNumMapEntries();
+    maxNumArrayEntries = options.maxNumArrayEntries();
+    maxStringLength = options.maxStringLength();
 
     switch (protocolVersion) {
       case 4:
@@ -505,6 +518,8 @@ public class Encoder {
     // track it (for ALIAS tags)
     long location = size;
 
+    depthIncrement();
+
     if (perlAlias) {
       long aliasOffset = aliases.get(obj);
       if (aliasOffset != IdentityMap.NOT_FOUND) {
@@ -611,6 +626,8 @@ public class Encoder {
       if (perlRefs || !tryAppendRefp(obj)) appendArray((List<Object>) obj);
     }
 
+    depthDecrement();
+
     if (size == location) { // didn't write anything
       throw new SerealException(
           "Don't know how to encode: " + type.getName() + " = " + obj.toString());
@@ -706,6 +723,11 @@ public class Encoder {
   }
 
   private void appendMap(Map<Object, Object> hash) throws SerealException {
+
+    if (maxNumMapEntries != 0 && hash.size() > maxNumMapEntries) {
+      throw new SerealException("Got input hash with " + hash.size() + " entries, but the configured maximum is just " + maxNumMapEntries);
+    }
+
     if (!perlRefs) {
       appendByte(SerealHeader.SRL_HDR_REFN);
       track(hash, size);
@@ -731,6 +753,10 @@ public class Encoder {
     // checking length without casting to Object[] since they might primitives
     int count = Array.getLength(obj);
 
+    if (maxNumArrayEntries != 0 && count > maxNumArrayEntries) {
+      throw new SerealException("Got input array with " + count + " entries, but the configured maximum is just " + maxNumArrayEntries);
+    }
+
     if (!perlRefs) {
       appendByte(SerealHeader.SRL_HDR_REFN);
       track(obj, size);
@@ -747,6 +773,10 @@ public class Encoder {
   private void appendArray(Object[] array) throws SerealException {
     int count = array.length;
 
+    if (maxNumArrayEntries != 0 && count > maxNumArrayEntries) {
+      throw new SerealException("Got input array with " + count + " entries, but the configured maximum is just " + maxNumArrayEntries);
+    }
+
     if (!perlRefs) {
       appendByte(SerealHeader.SRL_HDR_REFN);
       track(array, size);
@@ -761,6 +791,10 @@ public class Encoder {
 
   private void appendArray(List<Object> list) throws SerealException {
     int count = list.size();
+
+    if (maxNumArrayEntries != 0 && count > maxNumArrayEntries) {
+      throw new SerealException("Got input array with " + count + " entries, but the configured maximum is just " + maxNumArrayEntries);
+    }
 
     if (!perlRefs) {
       appendByte(SerealHeader.SRL_HDR_REFN);
@@ -792,6 +826,10 @@ public class Encoder {
   }
 
   private void appendStringType(String str) throws SerealException {
+    if (maxStringLength != 0 && str.length() > maxStringLength) {
+      throw new SerealException("Got input string with " + str.length() + " characters, but the configured maximum is just " + maxStringLength);
+    }
+
     // maybe we can just COPY
     long copyOffset = getTrackedItemCopy(str);
     if (copyOffset != StringCopyMap.NOT_FOUND) {
@@ -870,7 +908,7 @@ public class Encoder {
 
   /** Discard all previous tracking clear the buffers etc Call this when you reuse the encoder */
   private void reset() {
-    size = compressedSize = headerSize = 0;
+    size = compressedSize = headerSize = recursionDepth = 0;
     resetTracked();
   }
 
@@ -919,5 +957,17 @@ public class Encoder {
   private void appendByteUnsafe(byte data) {
     bytes[(int) size] = data;
     size++;
+  }
+
+  private void depthIncrement() throws SerealException {
+    ++recursionDepth;
+
+    if (recursionDepth > maxRecursionDepth) {
+      throw new SerealException("Reached recursion limit (" + maxRecursionDepth + ") during deserialization");
+    }
+  }
+
+  private void depthDecrement() {
+    recursionDepth--;
   }
 }

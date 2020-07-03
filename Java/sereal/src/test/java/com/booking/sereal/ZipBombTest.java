@@ -57,7 +57,7 @@ public class ZipBombTest {
                 .compressionThreshold(0)
                 .compressionType(EncoderOptions.CompressionType.SNAPPY));
         byte[] encoded = encoder.write(data).getData();
-        System.out.println("Sereal Begin       : " + bytesToHex(encoded, 25));
+        //System.out.println("Sereal Begin       : " + bytesToHex(encoded, 25));
         //System.out.println("Encoded data size is " + sizeFormat(encoded.length) + " bytes");
         //System.out.println("Compression ratio is " + sizeFormat(data.length / encoded.length));
 
@@ -232,14 +232,13 @@ public class ZipBombTest {
 
         //System.out.println("Encoded data size is " + sizeFormat(encoded.length) + " bytes");
         //System.out.println("Compression ratio is " + sizeFormat(data.length / encoded.length));
-
-        System.out.println("Sereal Begin       : " + bytesToHex(encoded, 15));
+        //System.out.println("Sereal Begin       : " + bytesToHex(encoded, 15));
 
         assertEquals(0x44, encoded[4]);
 
         // Lets validate we have the expected uncompress size: 100MB
-        assertEquals((byte) 0x97, encoded[6]);
-        assertEquals((byte) 0xCB, encoded[7]);
+        assertEquals((byte) 0x9F, encoded[6]);
+        assertEquals((byte) 0x99, encoded[7]);
 
         byte[] forgedArray = new byte[encoded.length - 4];
         System.arraycopy(encoded, 0, forgedArray, 0, 10);

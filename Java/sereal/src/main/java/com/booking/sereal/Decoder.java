@@ -40,6 +40,12 @@ public class Decoder implements SerealHeader {
   private final boolean useObjectArray;
   private final int decodeBufferSize;
   private final int maxSize;
+
+  private final int maxRecursionDepth;
+  private final int maxNumMapEntries;
+  private final int maxNumArrayEntries;
+  private final int maxStringLength;
+
   private byte[] data;
   private int position, end;
   private ByteArray originalData;
@@ -51,6 +57,8 @@ public class Decoder implements SerealHeader {
   private long userHeaderPosition = -1;
   private long userHeaderSize = -1;
   private Inflater inflater;
+
+  private int recursionDepth = 0;
 
   /** Create a new Decoder with default options. */
   public Decoder() {
@@ -70,7 +78,12 @@ public class Decoder implements SerealHeader {
     typeMapper = options.typeMapper();
     useObjectArray = typeMapper.useObjectArray();
     decodeBufferSize = options.bufferSize();
-    maxSize = options.maxSize();
+    maxSize = options.maxBufferSize();
+
+    maxRecursionDepth = options.maxRecursionDepth();
+    maxNumMapEntries = options.maxNumMapEntries();
+    maxNumArrayEntries = options.maxNumArrayEntries();
+    maxStringLength = options.maxStringLength();
   }
 
   private void checkHeader() throws SerealException {
@@ -191,6 +204,8 @@ public class Decoder implements SerealHeader {
    */
   public Object decode() throws SerealException {
 
+    recursionDepth = 0;
+
     if (data == null) {
       throw new SerealException("No data set");
     }
@@ -273,8 +288,6 @@ public class Decoder implements SerealHeader {
       this.data = outputStream.toByteArray();
     } catch (DataFormatException | IOException e) {
       throw new SerealException(e);
-    } finally {
-      inflater.end();
     }
     this.position = 0;
     this.end = this.data.length;
@@ -309,6 +322,10 @@ public class Decoder implements SerealHeader {
    * @param track we might need to track since array elements could refer to us
    */
   private Object[] readNativeArray(int length, int track) throws SerealException {
+    if (maxNumArrayEntries != 0 && length > maxNumArrayEntries) {
+      throw new SerealException("Got input array with " + length + " entries, but the configured maximum is just " + maxNumArrayEntries);
+    }
+
     Object[] out = new Object[length];
     if (track != 0) { // track ourself
       track_stuff(track, out);
@@ -328,6 +345,11 @@ public class Decoder implements SerealHeader {
    * @param track we might need to track since array elements could refer to us
    */
   private List<Object> readList(int length, int track) throws SerealException {
+
+    if (maxNumArrayEntries != 0 && length > maxNumArrayEntries) {
+      throw new SerealException("Got input array with " + length + " entries, but the configured maximum is just " + maxNumArrayEntries);
+    }
+
     List<Object> out = typeMapper.makeArray(length);
     if (track != 0) { // track ourself
       track_stuff(track, out);
@@ -355,6 +377,11 @@ public class Decoder implements SerealHeader {
   }
 
   private Map<String, Object> readMap(int num_keys, int track) throws SerealException {
+
+    if (maxNumMapEntries != 0 && num_keys > maxNumMapEntries) {
+      throw new SerealException("Got input hash with " + num_keys + " entries, but the configured maximum is just " + maxNumMapEntries);
+    }
+
     Map<String, Object> hash = typeMapper.makeMap((int) num_keys);
     if (track != 0) { // track ourself
       track_stuff(track, hash);
@@ -417,13 +444,19 @@ public class Decoder implements SerealHeader {
         out = preferLatin1 ? new Latin1String(short_binary) : short_binary;
       }
     } else if ((tag & SRL_HDR_HASHREF) == SRL_HDR_HASHREF) {
+      depthIncrement();
+
       Map<String, Object> hash = readMap(tag & 0xf, track);
       if (perlRefs) {
         out = new PerlReference(hash);
       } else {
         out = hash;
       }
+
+      depthDecrement();
     } else if ((tag & SRL_HDR_ARRAYREF) == SRL_HDR_ARRAYREF) {
+      depthIncrement();
+
       Object arr;
       if (useObjectArray) {
         arr = readNativeArray(tag & 0xf, track);
@@ -435,6 +468,8 @@ public class Decoder implements SerealHeader {
       } else {
         out = arr;
       }
+
+      depthDecrement();
     } else {
       switch (tag) {
         case SRL_HDR_VARINT:
@@ -506,6 +541,8 @@ public class Decoder implements SerealHeader {
           out = utf8;
           break;
         case SRL_HDR_REFN:
+          depthIncrement();
+
           if (perlRefs) {
             PerlReference refn = new PerlReference(null);
             // track early for weak references
@@ -517,6 +554,8 @@ public class Decoder implements SerealHeader {
           } else {
             out = readSingleValue();
           }
+
+          depthDecrement();
           break;
         case SRL_HDR_REFP:
           long offset_prev = read_varint();
@@ -657,11 +696,15 @@ public class Decoder implements SerealHeader {
     return copy;
   }
 
-  private String read_UTF8() {
+  private String read_UTF8() throws SerealException {
     int length = (int) read_varint();
     int originalPosition = position;
 
     position += length;
+
+    if (maxStringLength != 0 && length > maxStringLength) {
+      throw new SerealException("Got input string with " + length + " characters, but the configured maximum is just " + maxStringLength);
+    }
 
     return new String(data, originalPosition, length, charset_utf8);
   }
@@ -802,5 +845,17 @@ public class Decoder implements SerealHeader {
 
   private void resetTracked() {
     tracked.clear();
+  }
+
+  private void depthIncrement() throws SerealException {
+    ++recursionDepth;
+
+    if (recursionDepth > maxRecursionDepth) {
+      throw new SerealException("Reached recursion limit (" + maxRecursionDepth + ") during deserialization");
+    }
+  }
+
+  private void depthDecrement() {
+    recursionDepth--;
   }
 }
