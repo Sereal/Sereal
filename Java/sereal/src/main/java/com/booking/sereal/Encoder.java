@@ -44,6 +44,7 @@ public class Encoder {
   private final int maxRecursionDepth;
   private final int maxNumMapEntries;
   private final int maxNumArrayEntries;
+  private final int maxStringLength;
 
   private final byte[] HEADER =
       new byte[] {
@@ -94,6 +95,7 @@ public class Encoder {
     maxRecursionDepth = options.maxRecursionDepth();
     maxNumMapEntries = options.maxNumMapEntries();
     maxNumArrayEntries = options.maxNumArrayEntries();
+    maxStringLength = options.maxStringLength();
 
     switch (protocolVersion) {
       case 4:
@@ -824,6 +826,10 @@ public class Encoder {
   }
 
   private void appendStringType(String str) throws SerealException {
+    if (maxStringLength != 0 && str.length() > maxStringLength) {
+      throw new SerealException("Got input string with " + str.length() + " characters, but the configured maximum is just " + maxStringLength);
+    }
+
     // maybe we can just COPY
     long copyOffset = getTrackedItemCopy(str);
     if (copyOffset != StringCopyMap.NOT_FOUND) {

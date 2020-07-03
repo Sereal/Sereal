@@ -445,4 +445,22 @@ public class EncoderTest {
 		Exception exception = Assert.assertThrows(SerealException.class, () -> encoder.write(stringArray));
 		assertEquals("Got input array with 1000 entries, but the configured maximum is just 100", exception.getMessage());
 	}
+
+	@Test
+	public void testEncodeLargeStrings() throws SerealException {
+		Encoder encoder = new Encoder(new EncoderOptions().maxStringLength(10));
+		String shortString = "OK";
+		encoder.write(shortString);
+
+		String largeString = "Lorem ipsum dolor sit amet";
+		Exception exception = Assert.assertThrows(SerealException.class, () -> encoder.write(largeString));
+		assertEquals("Got input string with 26 characters, but the configured maximum is just 10", exception.getMessage());
+
+		exception = Assert.assertThrows(SerealException.class, () -> encoder.write(new Object[]{
+				new String("abc"),
+				new String(largeString),
+				new String("xyz"),
+		}));
+		assertEquals("Got input string with 26 characters, but the configured maximum is just 10", exception.getMessage());
+	}
 }

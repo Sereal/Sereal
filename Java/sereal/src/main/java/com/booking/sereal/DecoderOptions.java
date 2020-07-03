@@ -11,8 +11,9 @@ public class DecoderOptions {
   private boolean forceJavaStringForByteArrayValues = false;
 
   private int maxRecursionDepth = 10_000;
-  private int maxNumMapEntries = 10_000;
-  private int maxNumArrayEntries = 10_000;
+  private int maxNumMapEntries = 0;
+  private int maxNumArrayEntries = 0;
+  private int maxStringLength = 0;
 
   // Size to use on the buffer used to read the data. Defaults to 1KB
   private int decodeBufferSize = 1024;
@@ -82,7 +83,7 @@ public class DecoderOptions {
   }
 
   /**
-   * If set to a non-zero value (default: 10000), then {@link Decoder} will refuse
+   * If set to a non-zero value (default: 0), then {@link Decoder} will refuse
    * to deserialize any hash/dictionary (or hash-based object) with more than
    * that number of entries. This is to be able to respond quickly to any future
    * hash-collision attacks on Perl's hash function. Chances are, you don't want
@@ -98,7 +99,7 @@ public class DecoderOptions {
   }
 
   /**
-   * If set to a non-zero value (default: 10000), then {@link Decoder} will refuse
+   * If set to a non-zero value (default: 0), then {@link Decoder} will refuse
    * to deserialize any array with more than that number of entries.
    * This is to be able to respond quickly to any future memory exhaustion attacks on
    * Sereal.
@@ -109,6 +110,20 @@ public class DecoderOptions {
    */
   public int maxNumArrayEntries() {
     return maxNumArrayEntries;
+  }
+
+  /**
+   * If set to a non-zero value (default: 0), then {@link Decoder} will refuse
+   * to deserialize any string with more than that number of characters.
+   * This is to be able to respond quickly to any future memory exhaustion attacks on
+   * Sereal.
+   *
+   * This value can be override with {@link DecoderOptions#maxStringLength(int)} option
+   *
+   * @return maximum supported string length
+   */
+  public int maxStringLength() {
+    return maxStringLength;
   }
 
   public DecoderOptions perlReferences(boolean perlReferences) {
@@ -191,6 +206,12 @@ public class DecoderOptions {
 
   public DecoderOptions maxNumArrayEntries(int maxNumArrayEntries) {
     this.maxNumArrayEntries = maxNumArrayEntries;
+
+    return this;
+  }
+
+  public DecoderOptions maxStringLength(int maxStringLength) {
+    this.maxStringLength = maxStringLength;
 
     return this;
   }

@@ -44,6 +44,7 @@ public class Decoder implements SerealHeader {
   private final int maxRecursionDepth;
   private final int maxNumMapEntries;
   private final int maxNumArrayEntries;
+  private final int maxStringLength;
 
   private byte[] data;
   private int position, end;
@@ -82,6 +83,7 @@ public class Decoder implements SerealHeader {
     maxRecursionDepth = options.maxRecursionDepth();
     maxNumMapEntries = options.maxNumMapEntries();
     maxNumArrayEntries = options.maxNumArrayEntries();
+    maxStringLength = options.maxStringLength();
   }
 
   private void checkHeader() throws SerealException {
@@ -694,11 +696,15 @@ public class Decoder implements SerealHeader {
     return copy;
   }
 
-  private String read_UTF8() {
+  private String read_UTF8() throws SerealException {
     int length = (int) read_varint();
     int originalPosition = position;
 
     position += length;
+
+    if (maxStringLength != 0 && length > maxStringLength) {
+      throw new SerealException("Got input string with " + length + " characters, but the configured maximum is just " + maxStringLength);
+    }
 
     return new String(data, originalPosition, length, charset_utf8);
   }

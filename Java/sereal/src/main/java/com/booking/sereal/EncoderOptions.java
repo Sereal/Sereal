@@ -10,8 +10,9 @@ public class EncoderOptions {
   private int zstdCompressionLevel = 3;
 
   private int maxRecursionDepth = 10_000;
-  private int maxNumMapEntries = 10_000;
-  private int maxNumArrayEntries = 10_000;
+  private int maxNumMapEntries = 0;
+  private int maxNumArrayEntries = 0;
+  private int maxStringLength = 0;
 
   public boolean perlReferences() {
     return perlRefs;
@@ -58,7 +59,7 @@ public class EncoderOptions {
   }
 
   /**
-   * If set to a non-zero value (default: 10000), then {@link Encoder} will refuse
+   * If set to a non-zero value (default: 0), then {@link Encoder} will refuse
    * to deserialize any hash/dictionary (or hash-based object) with more than
    * that number of entries. This is to be able to respond quickly to any future
    * hash-collision attacks on Perl's hash function. Chances are, you don't want
@@ -74,8 +75,8 @@ public class EncoderOptions {
   }
 
   /**
-   * If set to a non-zero value (default: 10000), then {@link Encoder} will refuse
-   * to deserialize any array with more than that number of entries.
+   * If set to a non-zero value (default: 0), then {@link Encoder} will refuse
+   * to serialize any array with more than that number of entries.
    * This is to be able to respond quickly to any future memory exhaustion attacks on
    * Sereal.
    *
@@ -85,6 +86,20 @@ public class EncoderOptions {
    */
   public int maxNumArrayEntries() {
     return maxNumArrayEntries;
+  }
+
+  /**
+   * If set to a non-zero value (default: 0), then {@link Encoder} will refuse
+   * to deserialize any string with more than that number of characters.
+   * This is to be able to respond quickly to any future memory exhaustion attacks on
+   * Sereal.
+   *
+   * This value can be override with {@link EncoderOptions#maxStringLength(int)} option
+   *
+   * @return maximum supported string length
+   */
+  public int maxStringLength() {
+    return maxStringLength;
   }
 
   public EncoderOptions perlReferences(boolean perlReferences) {
@@ -149,6 +164,12 @@ public class EncoderOptions {
 
   public EncoderOptions maxNumArrayEntries(int maxNumArrayEntries) {
     this.maxNumArrayEntries = maxNumArrayEntries;
+
+    return this;
+  }
+
+  public EncoderOptions maxStringLength(int maxStringLength) {
+    this.maxStringLength = maxStringLength;
 
     return this;
   }

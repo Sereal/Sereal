@@ -182,4 +182,30 @@ public class DecoderTest {
     assertEquals("Got input hash with 1000 entries, but the configured maximum is just 100", exception.getMessage());
   }
 
+  @Test
+  public void testDecodeLargeStrings() throws SerealException {
+    Encoder encoder = new Encoder();
+    Decoder decoder = new Decoder(new DecoderOptions().maxStringLength(10));
+    String shortString = "OK";
+    encoder.write(shortString);
+    decoder.setData(encoder.getData());
+    String result = (String) decoder.decode();
+    assertEquals(shortString, result);
+
+    String largeString = "Lorem ipsum dolor sit amet";
+    encoder.write(largeString);
+    decoder.setData(encoder.getData());
+
+    Exception exception = Assert.assertThrows(SerealException.class, () -> decoder.decode());
+    assertEquals("Got input string with 26 characters, but the configured maximum is just 10", exception.getMessage());
+
+    encoder.write(new Object[]{
+            new String("abc"),
+            new String(largeString),
+            new String("xyz"),
+    });
+    decoder.setData(encoder.getData());
+    exception = Assert.assertThrows(SerealException.class, () -> decoder.decode());
+    assertEquals("Got input string with 26 characters, but the configured maximum is just 10", exception.getMessage());
+  }
 }
