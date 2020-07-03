@@ -46,6 +46,7 @@ extern "C" {
 #if (PERL_VERSION >= 10)
 #   define FAST_IV 1
 #endif
+
 #define DEFAULT_MAX_RECUR_DEPTH 10000
 
 #if !defined(HAVE_CSNAPPY)
@@ -218,7 +219,10 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
 
     dec->ref_seenhash = PTABLE_new();
     dec->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
-    dec->max_num_hash_entries = 0; /* 0 == any number */
+     /* 0 == any number for array, hash & string */
+    dec->max_num_hash_entries = 0;
+    dec->max_num_array_entries = 0;
+    dec->max_string_length = 0;
 
     SRL_RDR_CLEAR(&dec->buf);
     dec->pbuf = &dec->buf;
@@ -256,6 +260,14 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
         my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_MAX_NUM_HASH_ENTRIES);
         if ( val && SvTRUE(val) )
             dec->max_num_hash_entries = SvUV(val);
+
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_MAX_NUM_ARRAY_ENTRIES);
+        if ( val && SvTRUE(val) )
+            dec->max_num_array_entries = SvUV(val);
+
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_MAX_STRING_LENGTH);
+        if ( val && SvTRUE(val) )
+            dec->max_string_length = SvUV(val);
 
         my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_DESTRUCTIVE_INCREMENTAL);
         if ( val && SvTRUE(val) )
@@ -338,6 +350,8 @@ srl_build_decoder_struct_alike(pTHX_ srl_decoder_t *proto)
     dec->ref_seenhash = PTABLE_new();
     dec->max_recursion_depth = proto->max_recursion_depth;
     dec->max_num_hash_entries = proto->max_num_hash_entries;
+    dec->max_num_array_entries = proto->max_num_array_entries;
+    dec->max_string_length = proto->max_string_length;
 
     if (proto->alias_cache) {
         dec->alias_cache = proto->alias_cache;
@@ -869,6 +883,11 @@ SRL_STATIC_INLINE void
 srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
 {
     UV len= srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading string");
+    /* Limit the maximum size of the string that we accept to whatever was configured */
+    if (expect_false( dec->max_string_length != 0 && len > dec->max_string_length )) {
+        SRL_RDR_ERRORf2(dec->pbuf, "Got input string with %u characters, but the configured maximum is just %u",
+                (int)len, (int)dec->max_string_length);
+    }
     if (expect_false(is_utf8 && SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8))) {
         /* checks for invalid byte sequences. */
         if (expect_false( !is_utf8_string((U8*)dec->buf.pos, len) )) {
@@ -956,7 +975,11 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
         (void)SvUPGRADE(into, SVt_PVAV);
     }
 
-    if (len) {
+    /* Limit the maximum number of elements that we accept to whatever was configured */
+    if (expect_false( dec->max_num_array_entries != 0 && len > dec->max_num_array_entries )) {
+        SRL_RDR_ERRORf2(dec->pbuf, "Got input array with %u entries, but the configured maximum is just %u",
+                (int)len, (int)dec->max_num_array_entries);
+    } else if (len) {
         SV **av_array;
         SV **av_end;
 
