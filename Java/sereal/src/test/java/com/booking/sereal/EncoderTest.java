@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -419,5 +420,29 @@ public class EncoderTest {
 			res.put((String) items[i], items[i + 1]);
 
 		return res;
+	}
+
+	@Test
+	public void testEncodeTooLargeHashMap() {
+		Encoder encoder = new Encoder(new EncoderOptions().maxNumMapEntries(100));
+		int size = 1000;
+		Map<String, String> stringMap = new HashMap<>();
+		for (int i = 0; i < size; i++) {
+			stringMap.put(String.valueOf(i), "Value " + i + " of the map");
+		}
+		Exception exception = Assert.assertThrows(SerealException.class, () -> encoder.write(stringMap));
+		assertEquals("Got input hash with 1000 entries, but the configured maximum is just 100", exception.getMessage());
+	}
+
+	@Test
+	public void testEncodeTooLargeArrays() {
+		Encoder encoder = new Encoder(new EncoderOptions().maxNumArrayEntries(100));
+		int size = 1000;
+		List<String> stringArray = new ArrayList<>();
+		for (int i = 0; i < size; i++) {
+			stringArray.add(new String("Value " + i + " of the array"));
+		}
+		Exception exception = Assert.assertThrows(SerealException.class, () -> encoder.write(stringArray));
+		assertEquals("Got input array with 1000 entries, but the configured maximum is just 100", exception.getMessage());
 	}
 }
