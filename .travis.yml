@@ -1,9 +1,10 @@
-sudo: false
 install: true
+dist: xenial
+os: linux
 
 language: go
 go:
-    - 1.4
+  - 1.4
 
 language: ruby
 rvm:
@@ -20,20 +21,20 @@ cache:
     - '$HOME/.sonar/cache'
     - "$HOME/apache-maven-3.6.1"
 before_install:
-- export M2_HOME=$HOME/apache-maven-3.6.1
-- if [ ! -d $M2_HOME/bin ]; then curl https://archive.apache.org/dist/maven/maven-3/3.6.1/binaries/apache-maven-3.6.1-bin.tar.gz | tar zxf - -C $HOME; fi
-- export PATH=$M2_HOME/bin:$PATH
+  - export M2_HOME=$HOME/apache-maven-3.6.1
+  - if [ ! -d $M2_HOME/bin ]; then curl https://archive.apache.org/dist/maven/maven-3/3.6.1/binaries/apache-maven-3.6.1-bin.tar.gz | tar zxf - -C $HOME; fi
+  - export PATH=$M2_HOME/bin:$PATH
 
 language: perl
 perl:
-    - "5.20-extras"
-    - "5.20"
-    - "5.18"
-    - "5.18-extras"
-    - "5.16"
-    - "5.14"
-    - "5.12"
-    - "5.10"
+  - "5.30"
+  - "5.28"
+  - "5.20"
+  - "5.18"
+  - "5.16"
+  - "5.14"
+  - "5.12"
+  - "5.10"
 
-script: 
+script:
   - travis/all.sh

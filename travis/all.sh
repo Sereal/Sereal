@@ -2,7 +2,7 @@
 
 failed=""
 
-for lang in perl go ruby; do
+for lang in perl go ruby all; do
     if ! travis/$lang.sh ; then
         failed="$failed $lang"
     fi
