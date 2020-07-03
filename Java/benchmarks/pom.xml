@@ -14,7 +14,7 @@
     <name>JMH benchmark sample: Java</name>
 
     <properties>
-        <jmh.version>1.21</jmh.version>
+        <jmh.version>1.23</jmh.version>
         <uberjar.name>benchmarks</uberjar.name>
     </properties>
 
