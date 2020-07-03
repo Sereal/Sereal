@@ -20,7 +20,7 @@ use Sereal::Decoder::Constants qw(:all);
 # bad input. This obviously shouldn't segfault and neither leak
 # memory.
 
-plan tests => 72;
+plan tests => 88;
 my ( $ok, $out, $err );
 
 SCOPE: {
@@ -73,6 +73,23 @@ SCOPE: {
     check_fail(
         $array_packet, qr/Sereal: Error/, "Setting array limit option (999)",
         { max_num_array_entries => 999 } );
+
+    # Tests for limiting number of characters in a (NOT short) string
+    my $string_packet= "\x3d\xf3\x72\x6c\x04\x00\x26\xe8\x07" . ('a' x 1000);
+    my $str= decode_sereal($string_packet);
+    is( ref($str),           "",     "Deserializes as scalar" );
+    is( length( $str ),     1000,    "String has 1000 characters" );
+    $str= decode_sereal( $string_packet, { max_string_length => 0 } );
+    is( ref($str), "", "Deserializes as string (2)" );
+    $str= decode_sereal( $string_packet, { max_string_length => 1000 } );
+    is( ref($str), "", "Deserializes as string (3)" );
+
+    check_fail(
+        $string_packet, qr/Sereal: Error/, "Setting string limit option (1)",
+        { max_string_length => 1 } );
+    check_fail(
+        $string_packet, qr/Sereal: Error/, "Setting array limit option (999)",
+        { max_string_length => 999 } );
 
     my $valid_packet= Header(2) . short_string("foo");
     my $foo= decode_sereal($valid_packet);
