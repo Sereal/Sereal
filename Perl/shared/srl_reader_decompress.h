@@ -48,7 +48,9 @@
 SRL_STATIC_INLINE SV *
 srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
                          const STRLEN header_len,
-                         const STRLEN body_len)
+                         const STRLEN body_len,
+                         const STRLEN uncompressed_len,
+                         char *compression_type)
 {
     SV *b_sv;
     srl_reader_char_ptr b;
@@ -56,7 +58,28 @@ srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
     /* Let perl clean this up. Yes, it's not the most efficient thing
      * ever, but it's just one mortal per full decompression, so not
      * a bottle-neck. */
-    b_sv = sv_2mortal( newSV(header_len + body_len + 1 ));
+    if (0) {
+        b_sv = sv_2mortal( newSV(header_len + body_len + 1 ));
+    } else {
+        STRLEN total_requested= header_len + body_len + 1;
+        char *tmp_buf;
+
+        if (total_requested < body_len)
+            croak("Decompressed buffer is impossibly large. Refusing to decode.");
+
+        tmp_buf= Perl_malloc(total_requested); /* perl well defined malloc wrapper */
+
+        if (!tmp_buf)
+            croak("Insufficient memory to '%s' decompress. Size uncompressed=%"UVuf" compressed=%"UVuf,
+                compression_type, uncompressed_len, total_requested );
+
+        b_sv= sv_newmortal();
+        sv_upgrade(b_sv,SVt_PV);
+        SvPVX(b_sv)= tmp_buf;
+        SvPOK_on(b_sv);
+        SvCUR(b_sv)= header_len + body_len;
+        SvLEN(b_sv)= header_len + body_len + 1;
+    }
     b = (srl_reader_char_ptr) SvPVX(b_sv);
 
     buf->start = b;
@@ -101,7 +124,8 @@ srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, U8 encoding_flags, SV
         SRL_RDR_ERROR(buf, "Invalid Snappy header in Snappy-compressed Sereal packet");
 
     /* Allocate output buffer and swap it into place within the bufoder. */
-    buf_sv = srl_realloc_empty_buffer(aTHX_ buf, sereal_header_len, dest_len);
+    buf_sv = srl_realloc_empty_buffer(aTHX_ buf, sereal_header_len, (STRLEN)dest_len,
+            compressed_packet_len, "Snappy");
     if (buf_owner) *buf_owner = buf_sv;
 
     decompress_ok = csnappy_decompress_noheader((char *)(old_pos + header_len),
@@ -144,7 +168,8 @@ srl_decompress_body_zlib(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
     bytes_consumed = compressed_packet_len + SRL_RDR_POS_OFS(buf);
 
     /* Allocate output buffer and swap it into place within the decoder. */
-    buf_sv = srl_realloc_empty_buffer(aTHX_ buf, sereal_header_len, uncompressed_packet_len);
+    buf_sv = srl_realloc_empty_buffer(aTHX_ buf, sereal_header_len, uncompressed_packet_len,
+            compressed_packet_len, "ZLIB");
     if (buf_owner) *buf_owner = buf_sv;
 
     tmp = uncompressed_packet_len;
@@ -187,7 +212,8 @@ srl_decompress_body_zstd(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
         SRL_RDR_ERROR(buf, "Invalid zstd packet with unknown uncompressed size");
 
     /* Allocate output buffer and swap it into place within the decoder. */
-    buf_sv = srl_realloc_empty_buffer(aTHX_ buf, sereal_header_len, (STRLEN) uncompressed_packet_len);
+    buf_sv = srl_realloc_empty_buffer(aTHX_ buf, sereal_header_len, (STRLEN) uncompressed_packet_len,
+            compressed_packet_len, "zstd");
     if (buf_owner) *buf_owner = buf_sv;
 
     decompress_code = ZSTD_decompress((void *)buf->pos, (size_t) uncompressed_packet_len,
