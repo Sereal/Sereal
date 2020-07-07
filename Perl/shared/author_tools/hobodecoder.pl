@@ -136,7 +136,7 @@ sub parse_long_double {
     return unpack( "D", $v );
 }
 
-my $fmt1= "%06u/%06u: %02x%1s %03s %s";
+my $fmt1= "%06d/%06d: %02x%1s %03s %s";
 my $fmt2= "%-6s %-6s  %-2s%1s %-3s %s";
 my $lead_items= 5;    # 1 less than the fmt2
 
@@ -229,7 +229,8 @@ sub parse_sv {
         parse_sv($ind);
     }
     elsif ( $o == SRL_HDR_PAD ) {
-        printf "PAD\n";
+        printf "[PAD]\n";
+        parse_sv($ind);
     }
     elsif ( $o == SRL_HDR_ALIAS ) {
         my $ofs= varint();
@@ -354,7 +355,9 @@ close $fh;
 
 print "\n\nTotal length: " . length($data) . "\n\n";
 
-parse_header();
 while ( length $data ) {
+    parse_header();
+    print "--- End header\n";
     $done= parse_sv("");
+    print "--- End Document\n";
 }
