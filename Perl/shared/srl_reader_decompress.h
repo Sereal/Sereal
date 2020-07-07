@@ -49,7 +49,7 @@ SRL_STATIC_INLINE SV *
 srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
                          const STRLEN header_len,
                          const STRLEN body_len,
-                         const STRLEN uncompressed_len,
+                         const STRLEN compressed_len,
                          char *compression_type,
                          size_t max_uncompressed_size)
 {
@@ -75,15 +75,15 @@ srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
         tmp_buf= Perl_malloc(total_requested); /* perl well defined malloc wrapper */
 
         if (!tmp_buf)
-            croak("Insufficient memory to '%s' decompress. Size uncompressed=%"UVuf" compressed=%"UVuf,
-                compression_type, uncompressed_len, total_requested );
+            croak("Insufficient memory to '%s' decompress. Size compressed=%"UVuf" uncompressed=%"UVuf,
+                compression_type, compressed_len, total_requested );
 
         b_sv= sv_newmortal();
         sv_upgrade(b_sv,SVt_PV);
         SvPVX(b_sv)= tmp_buf;
         SvPOK_on(b_sv);
         SvCUR(b_sv)= header_len + body_len;
-        SvLEN(b_sv)= header_len + body_len + 1;
+        SvLEN(b_sv)= total_requested;
     }
     b = (srl_reader_char_ptr) SvPVX(b_sv);
 

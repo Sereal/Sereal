@@ -55,6 +55,7 @@ t/071_alias_reserealize.t
 t/080_set_readonly.t
 t/110_nobless.t
 t/150_dec_exception.t
+t/155_zipbomb.t
 t/160_recursion.t
 t/190_customop.t
 t/200_bulk.t
