@@ -347,17 +347,17 @@ srl_iterator_set(pTHX_ srl_iterator_t *iter, SV *src)
     } else if (   encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
                || encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL)
     {
-        srl_decompress_body_snappy(aTHX_ iter->pbuf, encoding_flags, &sv);
+        srl_decompress_body_snappy(aTHX_ iter->pbuf, encoding_flags, &sv, 0);
         SvREFCNT_dec(iter->document);
         SvREFCNT_inc(sv);
         iter->document = sv;
     } else if (encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB) {
-        srl_decompress_body_zlib(aTHX_ iter->pbuf, &sv);
+        srl_decompress_body_zlib(aTHX_ iter->pbuf, &sv, 0);
         SvREFCNT_dec(iter->document);
         SvREFCNT_inc(sv);
         iter->document = sv;
     } else if (encoding_flags == SRL_PROTOCOL_ENCODING_ZSTD) {
-        srl_decompress_body_zstd(aTHX_ iter->pbuf, &sv);
+        srl_decompress_body_zstd(aTHX_ iter->pbuf, &sv, 0);
         SvREFCNT_dec(iter->document);
         SvREFCNT_inc(sv);
         iter->document = sv;

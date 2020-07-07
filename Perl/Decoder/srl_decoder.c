@@ -223,6 +223,7 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     dec->max_num_hash_entries = 0;
     dec->max_num_array_entries = 0;
     dec->max_string_length = 0;
+    dec->max_uncompressed_size = 0;
 
     SRL_RDR_CLEAR(&dec->buf);
     dec->pbuf = &dec->buf;
@@ -268,6 +269,10 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
         my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_MAX_STRING_LENGTH);
         if ( val && SvTRUE(val) )
             dec->max_string_length = SvUV(val);
+
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_MAX_UNCOMPRESSED_SIZE);
+        if ( val && SvTRUE(val) )
+            dec->max_uncompressed_size = SvUV(val);
 
         my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_DESTRUCTIVE_INCREMENTAL);
         if ( val && SvTRUE(val) )
@@ -352,6 +357,7 @@ srl_build_decoder_struct_alike(pTHX_ srl_decoder_t *proto)
     dec->max_num_hash_entries = proto->max_num_hash_entries;
     dec->max_num_array_entries = proto->max_num_array_entries;
     dec->max_string_length = proto->max_string_length;
+    dec->max_uncompressed_size = proto->max_uncompressed_size;
 
     if (proto->alias_cache) {
         dec->alias_cache = proto->alias_cache;
@@ -416,13 +422,13 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
     dec = srl_begin_decoding(aTHX_ origdec, src, start_offset);
     srl_read_header(aTHX_ dec, header_into);
     if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY) )) {
-        dec->bytes_consumed = srl_decompress_body_snappy(aTHX_ dec->pbuf, dec->encoding_flags, NULL);
+        dec->bytes_consumed = srl_decompress_body_snappy(aTHX_ dec->pbuf, dec->encoding_flags, NULL, dec->max_uncompressed_size);
         origdec->bytes_consumed = dec->bytes_consumed;
     } else if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_ZLIB) )) {
-        dec->bytes_consumed = srl_decompress_body_zlib(aTHX_ dec->pbuf, NULL);
+        dec->bytes_consumed = srl_decompress_body_zlib(aTHX_ dec->pbuf, NULL, dec->max_uncompressed_size);
         origdec->bytes_consumed = dec->bytes_consumed;
     } else if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_ZSTD) )) {
-        dec->bytes_consumed = srl_decompress_body_zstd(aTHX_ dec->pbuf, NULL);
+        dec->bytes_consumed = srl_decompress_body_zstd(aTHX_ dec->pbuf, NULL, dec->max_uncompressed_size);
         origdec->bytes_consumed = dec->bytes_consumed;
     }
 
