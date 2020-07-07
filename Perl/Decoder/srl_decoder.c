@@ -1600,7 +1600,7 @@ srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into)
 SRL_STATIC_INLINE void
 srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    SV *sv_pat= FRESH_SV();
+    SV *sv_pat= sv_2mortal(FRESH_SV());
     srl_read_single_value(aTHX_ dec, sv_pat, NULL);
     SRL_RDR_ASSERT_SPACE(dec->pbuf, 1, " while reading regexp modifer tag");
     /* For now we will serialize the flags as ascii strings. Maybe we should use
@@ -1637,6 +1637,8 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
         }
 #ifdef MODERN_REGEXP
         {
+            SV *referent;
+            SV tmp;
             /* This is ugly. We have to swap out the insides of our SV
              * with the one we get back from CALLREGCOMP, as there is no
              * way to get it to fill our SV.
@@ -1647,8 +1649,9 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
              */
 
             /* compile the regex */
-            SV *referent= (SV*)CALLREGCOMP(sv_pat, flags);
-            SV tmp;
+            referent= (SV*)CALLREGCOMP(sv_pat, flags);
+            if (!referent)
+                SRL_RDR_ERROR(dec->pbuf, "bad regexp pattern");
 
             /* make sure the SV came from us (it should) and
              * is bodyless */
@@ -1666,14 +1669,12 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 
             if (SWAP_DEBUG) { warn("after swap:"); sv_dump(into); sv_dump(referent); }
 
-            SvREFCNT_dec(sv_pat); /* I think we need this or we leak */
             /* and now throw away the head we got from the regexp engine. */
             SvREFCNT_dec(referent);
         }
 #elif defined( TRANSITION_REGEXP )
         {
             REGEXP *referent = CALLREGCOMP(aTHX_ sv_pat, flags);
-            SvREFCNT_dec(sv_pat);
             sv_magic( into, (SV*)referent, PERL_MAGIC_qr, 0, 0);
             SvFLAGS( into ) |= SVs_SMG;
         }
@@ -1689,7 +1690,6 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
             pm.op_pmflags= flags;
 
             re= CALLREGCOMP(aTHX_ pat, pat + pat_len, &pm);
-            SvREFCNT_dec(sv_pat);
             sv_magic( into, (SV*)re, PERL_MAGIC_qr, 0, 0);
             SvFLAGS( into ) |= SVs_SMG;
         }
