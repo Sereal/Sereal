@@ -39,6 +39,11 @@
     #include "miniz.h"
 #endif
 
+// Maximum size allowed for the data. Defaults to 100MB
+#ifndef MAX_UNCOMPRESSED_SIZE
+    #define MAX_UNCOMPRESSED_SIZE (100 * 1024 * 1024)
+#endif
+
 /* Creates a new buffer of size header_len + body_len + 1 and swaps it into place
  * of the current reader's buffer. Sets reader position to right after the
  * header and makes the reader state internally consistent. The buffer is
@@ -100,6 +105,9 @@ srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, U8 encoding_flags, SV
     if (header_len == CSNAPPY_E_HEADER_BAD)
         SRL_RDR_ERROR(buf, "Invalid Snappy header in Snappy-compressed Sereal packet");
 
+    if (dest_len > MAX_UNCOMPRESSED_SIZE)
+        SRL_RDR_ERROR(buf, "The expected uncompressed size is larger than the allowed maximum size");
+
     /* Allocate output buffer and swap it into place within the bufoder. */
     buf_sv = srl_realloc_empty_buffer(aTHX_ buf, sereal_header_len, dest_len);
     if (buf_owner) *buf_owner = buf_sv;
@@ -138,6 +146,9 @@ srl_decompress_body_zlib(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
         (STRLEN)srl_read_varint_uv_length(aTHX_ buf, " while reading compressed packet size");
 
     SRL_RDR_ASSERT_SPACE(buf, compressed_packet_len, " while reading compressed packet");
+
+    if (uncompressed_packet_len > MAX_UNCOMPRESSED_SIZE)
+        SRL_RDR_ERROR(buf, "The expected uncompressed size is larger than the allowed maximum size");
 
     /* All decl's above here, or we break C89 compilers */
     old_pos = buf->pos;
@@ -185,6 +196,9 @@ srl_decompress_body_zstd(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
     uncompressed_packet_len = ZSTD_getDecompressedSize((const void *)buf->pos, (size_t) compressed_packet_len);
     if (expect_false(uncompressed_packet_len == 0))
         SRL_RDR_ERROR(buf, "Invalid zstd packet with unknown uncompressed size");
+
+    if (uncompressed_packet_len > MAX_UNCOMPRESSED_SIZE)
+        SRL_RDR_ERROR(buf, "The expected uncompressed size is larger than the allowed maximum size");
 
     /* Allocate output buffer and swap it into place within the decoder. */
     buf_sv = srl_realloc_empty_buffer(aTHX_ buf, sereal_header_len, (STRLEN) uncompressed_packet_len);
