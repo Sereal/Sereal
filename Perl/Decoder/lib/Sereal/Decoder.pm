@@ -286,6 +286,13 @@ to deserialize any string with more than that number of characters.
 This is to be able to respond quickly to any future memory exhaustion attacks on
 Sereal.
 
+=head3 max_uncompressed_size
+
+If set to a non-zero value (default: 0), then C<Sereal::Decoder> will refuse
+to deserialize any blob with a size that exceds the value when uncompressed.
+This is to be able to respond quickly to any future memory exhaustion attacks on
+Sereal.
+
 =head3 incremental
 
 If set to a non-zero value (default: 0), then C<Sereal::Decoder> will

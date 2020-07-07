@@ -50,10 +50,15 @@ srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
                          const STRLEN header_len,
                          const STRLEN body_len,
                          const STRLEN uncompressed_len,
-                         char *compression_type)
+                         char *compression_type,
+                         size_t max_uncompressed_size)
 {
     SV *b_sv;
     srl_reader_char_ptr b;
+
+    /* Sereal::Merger & Sereal::Path::Iterator do not have this option yet */
+    if ((max_uncompressed_size != 0) && (body_len > max_uncompressed_size))
+        croak("The expected uncompressed size is larger than the allowed maximum size");
 
     /* Let perl clean this up. Yes, it's not the most efficient thing
      * ever, but it's just one mortal per full decompression, so not
@@ -98,7 +103,7 @@ srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
  * The caller *MUST* call SRL_RDR_UPDATE_BODY_POS right after existing from this function. */
 
 SRL_STATIC_INLINE UV
-srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, U8 encoding_flags, SV** buf_owner)
+srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, U8 encoding_flags, SV** buf_owner, size_t max_uncompressed_size)
 {
     SV *buf_sv;
     int header_len;
@@ -125,7 +130,7 @@ srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, U8 encoding_flags, SV
 
     /* Allocate output buffer and swap it into place within the bufoder. */
     buf_sv = srl_realloc_empty_buffer(aTHX_ buf, sereal_header_len, (STRLEN)dest_len,
-            compressed_packet_len, "Snappy");
+            compressed_packet_len, "Snappy", max_uncompressed_size);
     if (buf_owner) *buf_owner = buf_sv;
 
     decompress_ok = csnappy_decompress_noheader((char *)(old_pos + header_len),
@@ -149,7 +154,7 @@ srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, U8 encoding_flags, SV
  * The caller *MUST* call SRL_RDR_UPDATE_BODY_POS right after existing from this function. */
 
 SRL_STATIC_INLINE UV
-srl_decompress_body_zlib(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
+srl_decompress_body_zlib(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner, size_t max_uncompressed_size)
 {
     SV *buf_sv;
     mz_ulong tmp;
@@ -169,7 +174,7 @@ srl_decompress_body_zlib(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
 
     /* Allocate output buffer and swap it into place within the decoder. */
     buf_sv = srl_realloc_empty_buffer(aTHX_ buf, sereal_header_len, uncompressed_packet_len,
-            compressed_packet_len, "ZLIB");
+            compressed_packet_len, "ZLIB", max_uncompressed_size);
     if (buf_owner) *buf_owner = buf_sv;
 
     tmp = uncompressed_packet_len;
@@ -191,7 +196,7 @@ srl_decompress_body_zlib(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
  * SRL_RDR_UPDATE_BODY_POS right after existing from this function. */
 
 SRL_STATIC_INLINE UV
-srl_decompress_body_zstd(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
+srl_decompress_body_zstd(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner, size_t max_uncompressed_size)
 {
     SV *buf_sv;
     UV bytes_consumed;
@@ -213,7 +218,7 @@ srl_decompress_body_zstd(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner)
 
     /* Allocate output buffer and swap it into place within the decoder. */
     buf_sv = srl_realloc_empty_buffer(aTHX_ buf, sereal_header_len, (STRLEN) uncompressed_packet_len,
-            compressed_packet_len, "zstd");
+            compressed_packet_len, "zstd", max_uncompressed_size);
     if (buf_owner) *buf_owner = buf_sv;
 
     decompress_code = ZSTD_decompress((void *)buf->pos, (size_t) uncompressed_packet_len,

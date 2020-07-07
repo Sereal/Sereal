@@ -634,9 +634,9 @@ srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
     } else if (   encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
                || encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL)
     {
-        srl_decompress_body_snappy(aTHX_ mrg->pibuf, encoding_flags, NULL);
+        srl_decompress_body_snappy(aTHX_ mrg->pibuf, encoding_flags, NULL, 0);
     } else if (encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB) {
-        srl_decompress_body_zlib(aTHX_ mrg->pibuf, NULL);
+        srl_decompress_body_zlib(aTHX_ mrg->pibuf, NULL, 0);
     } else {
         SRL_RDR_ERROR(mrg->pibuf, "Sereal document encoded in an unknown format");
     }
