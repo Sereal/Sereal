@@ -13,6 +13,11 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+4.015 Weds  July 8, 2020
+    * Build fixes (missing dependency)
+    * Hardening against corrupted data
+    * New thresholds to manage decoding process
+
 4.014 Thurs June 11, 2020
     * Fix build issue on non-win32 platforms.
     * Update zstd to 1.4.5

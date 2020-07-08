@@ -5,6 +5,9 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 4 of the *
 *          encoder!                                            *
 ****************************************************************
+4.015 Weds  July 8, 2020
+    * Build fixes (missing dependency)
+
 4.014 Thurs June 11, 2020
     * Fix build issue on non-win32 platforms.
     * Update zstd to 1.4.5
