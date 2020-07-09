@@ -13,7 +13,6 @@ use Sereal::Decoder;
 use Sereal::TestSet qw(:all);
 use Test::More;
 
-plan tests => 24;
 
 sub MAX_UNCOMPRESSED_SIZE () { 100 * 1024 * 1024 } # 100MB
 sub MONSTER_BLOB () { "\0" x (MAX_UNCOMPRESSED_SIZE + 1) }
@@ -23,6 +22,7 @@ if ( not $ok ) {
     plan skip_all => 'Did not find right version of encoder';
 }
 else {
+    plan tests => 24;
     my %tests = (
         snappy  => Sereal::Encoder::SRL_SNAPPY(),
         zlib    => Sereal::Encoder::SRL_ZLIB(),

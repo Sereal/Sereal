@@ -13,6 +13,9 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+4.017 Thurs July 9, 2020
+    * The build fixes in 4.016 didn't work correctly, this should fix them.
+
 4.016 Thurs July 9, 2020
     * Fix some dependency issues in build process
 

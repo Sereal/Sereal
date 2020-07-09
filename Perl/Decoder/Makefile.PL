@@ -58,12 +58,14 @@ inc::Sereal::BuildTools::WriteMakefile(
         'Test::Deep'         => '0',
         'Test::Differences'  => '0',
         'Data::Dumper'       => '0',
+        'Test::LongString'   => '0',
     },
     BUILD_REQUIRES => {
         'XSLoader'          => 0,
         'File::Find'        => 0,
         'File::Path'        => 0,
         'ExtUtils::ParseXS' => '2.21',
+        'Test::LongString'   => '0',
     },
     CONFIGURE_REQUIRES => {
         'ExtUtils::MakeMaker' => '7.0',
