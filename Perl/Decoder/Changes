@@ -5,6 +5,9 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 4 of the *
 *          encoder!                                            *
 ****************************************************************
+4.016 Thurs July 9, 2020
+    * Fix some dependency issues in build process
+
 4.015 Weds  July 8, 2020
     * Build fixes (missing dependency)
     * Hardening against corrupted data
