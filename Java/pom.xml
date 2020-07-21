@@ -16,7 +16,7 @@
     </properties>
 
     <scm>
-        <connection>scm:git:ssh://github.com/Sereal/Sereal.git</connection>
+        <connection>scm:git:git@github.com/Sereal/Sereal.git</connection>
         <url>https://github.com/Sereal/Sereal.git</url>
     </scm>
 
