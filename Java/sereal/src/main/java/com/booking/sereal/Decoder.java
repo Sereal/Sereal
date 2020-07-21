@@ -100,7 +100,7 @@ public class Decoder implements SerealHeader {
     position += 4;
     if (magic != MAGIC && magic != MAGIC_V3) {
       throw new SerealException(
-          String.format("Invalid Seareal header (%08x): doesn't match magic", magic));
+          String.format("Invalid Sereal header (%08x): doesn't match magic", magic));
     }
   }
 
