@@ -3,7 +3,7 @@
 
     <groupId>com.booking.sereal</groupId>
     <artifactId>parent</artifactId>
-    <version>0.0.4</version>
+    <version>0.0.5-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <properties>
@@ -18,7 +18,7 @@
         <connection>scm:git:https://github.com/Sereal/Sereal.git</connection>
         <url>https://github.com/Sereal/Sereal.git</url>
         <developerConnection>scm:git:https://github.com/Sereal/Sereal.git</developerConnection>
-      <tag>Sereal-Java-0.0.4</tag>
+        <tag>Sereal-Java-0.0.4</tag>
   </scm>
 
     <modules>
