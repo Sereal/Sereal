@@ -15,9 +15,9 @@
     </properties>
 
     <scm>
-        <connection>scm:git:git@github.com/Sereal/Sereal.git</connection>
+        <connection>scm:git:https://github.com/Sereal/Sereal.git</connection>
         <url>https://github.com/Sereal/Sereal.git</url>
-        <developerConnection>scm:git:git@github.com:Sereal/Sereal.git</developerConnection>
+        <developerConnection>scm:git:https://github.com/Sereal/Sereal.git</developerConnection>
       <tag>Sereal-Java-0.0.4</tag>
   </scm>
 
