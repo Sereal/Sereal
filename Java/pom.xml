@@ -18,6 +18,7 @@
     <scm>
         <connection>scm:git:git@github.com/Sereal/Sereal.git</connection>
         <url>https://github.com/Sereal/Sereal.git</url>
+        <developerConnection>scm:git:git@github.com:Sereal/Sereal.git</developerConnection>
     </scm>
 
     <modules>
