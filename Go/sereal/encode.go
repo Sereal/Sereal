@@ -313,26 +313,12 @@ func (e *Encoder) encodeInt(by []byte, k reflect.Kind, i int64) []byte {
 
 func (e *Encoder) encodeFloat(by []byte, f float32) []byte {
 	u := math.Float32bits(f)
-	by = append(by, typeFLOAT)
-	by = append(by, byte(u))
-	by = append(by, byte(u>>8))
-	by = append(by, byte(u>>16))
-	by = append(by, byte(u>>24))
-	return by
+	return append(by, typeFLOAT, byte(u), byte(u>>8), byte(u>>16), byte(u>>24))
 }
 
 func (e *Encoder) encodeDouble(by []byte, f float64) []byte {
 	u := math.Float64bits(f)
-	by = append(by, typeDOUBLE)
-	by = append(by, byte(u))
-	by = append(by, byte(u>>8))
-	by = append(by, byte(u>>16))
-	by = append(by, byte(u>>24))
-	by = append(by, byte(u>>32))
-	by = append(by, byte(u>>40))
-	by = append(by, byte(u>>48))
-	by = append(by, byte(u>>56))
-	return by
+	return append(by, typeDOUBLE, byte(u), byte(u>>8), byte(u>>16), byte(u>>24), byte(u>>32), byte(u>>40), byte(u>>48), byte(u>>56))
 }
 
 func (e *Encoder) encodeJsonNumber(by []byte, n json.Number, isKeyOrClass bool, strTable map[string]int) []byte {

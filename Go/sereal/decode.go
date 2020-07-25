@@ -1332,7 +1332,7 @@ func DecompressDocument(dst, b []byte) (r []byte, err error) {
 	if decomp != nil {
 		var decompressInto []byte
 		if dst != nil && len(dst) >= len(b) {
-			decompressInto = dst[bodyStart:len(dst)]
+			decompressInto = dst[bodyStart:]
 		} else {
 			decompressInto = nil
 		}
@@ -1352,7 +1352,7 @@ func DecompressDocument(dst, b []byte) (r []byte, err error) {
 		}
 
 		// set type to 0 (not compressed)
-		dst[4] = dst[4] & 0x0f
+		dst[4] &= 0x0f
 	} else {
 		dst = append(dst[:0], b...)
 	}
