@@ -173,10 +173,11 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 				panic(r)
 			}
 
-			if s, ok := r.(string); ok {
-				err = errors.New(s)
-			} else {
-				err = r.(error)
+			switch t := r.(type) {
+			case string:
+				err = errors.New(t)
+			case error:
+				err = t
 			}
 		}
 	}()
