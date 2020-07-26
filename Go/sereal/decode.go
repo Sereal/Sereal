@@ -902,7 +902,7 @@ func (d *Decoder) decodeArrayViaReflection(by []byte, idx int, ln int, ptr refle
 		// do nothing
 
 	default:
-		panic(&reflect.ValueError{Method: "sereal.decodeArrayViaReflection", Kind: ptr.Kind()})
+		return 0, &reflect.ValueError{Method: "sereal.decodeArrayViaReflection", Kind: ptr.Kind()}
 	}
 
 	var err error
@@ -1008,7 +1008,7 @@ func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflec
 		}
 
 	default:
-		panic(&reflect.ValueError{Method: "sereal.decodeHashViaReflection", Kind: ptr.Kind()})
+		return 0, &reflect.ValueError{Method: "sereal.decodeHashViaReflection", Kind: ptr.Kind()}
 	}
 
 	return idx, nil
