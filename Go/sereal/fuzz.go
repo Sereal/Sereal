@@ -52,8 +52,9 @@ func Fuzz(data []byte) int {
 
 	}
 
-	if !reflect.DeepEqual(m, m2) {
-		panic("failed to roundtrip")
+	if !cmp.Equal(m, m2) {
+		s := cmp.Diff(m, m2)
+		panic("failed to roundtrip: " + s)
 	}
 
 	return 1
