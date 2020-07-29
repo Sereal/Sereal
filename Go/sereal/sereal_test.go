@@ -1162,7 +1162,7 @@ func TestJsonCompat(t *testing.T) {
 func getSomeData(keyCount int) map[string]interface{} {
 	retVal := map[string]interface{}{}
 	for i := 0; i < keyCount; i++ {
-		retVal["key_"+string(i)] = "value_" + string(i)
+		retVal["key_"+string(rune(i))] = "value_" + string(rune(i))
 	}
 
 	return retVal
