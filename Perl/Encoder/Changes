@@ -6,7 +6,7 @@ Revision history for Perl extension Sereal-Encoder
 *          encoder!                                            *
 ****************************************************************
 
-4.017_001 Thurs July 9, 2020
+4.018 Thurs Aug 3, 2020
     * Fix issue with gcc 10 with snappy compression.
 
 4.017 Thurs July 9, 2020
