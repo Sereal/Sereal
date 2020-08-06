@@ -32,6 +32,8 @@ public class Decoder implements SerealHeader {
   private final boolean perlAlias;
   private final boolean preserveUndef;
   private final boolean refuseSnappy;
+  private final boolean refuseZlib;
+  private final boolean refuseZstd;
   private final boolean preferLatin1;
   private final boolean forceJavaStringForByteArrayValues;
   private final boolean refuseObjects;
@@ -71,6 +73,8 @@ public class Decoder implements SerealHeader {
     perlAlias = options.perlAliases();
     preserveUndef = options.preserveUndef();
     refuseSnappy = options.refuseSnappy();
+    refuseZlib = options.refuseZlib();
+    refuseZstd = options.refuseZstd();
     preferLatin1 = options.preferLatin1();
     forceJavaStringForByteArrayValues = options.forceJavaStringForByteArrayValues();
     refuseObjects = options.refuseObjects();
@@ -146,6 +150,10 @@ public class Decoder implements SerealHeader {
     encoding = (protoAndFlags & ~15) >> 4;
     if ((encoding == 1 || encoding == 2) && refuseSnappy) {
       throw new SerealException("Unsupported encoding: Snappy");
+    } else if (encoding == 3 && refuseZlib) {
+      throw new SerealException("Unsupported encoding: Zlib");
+    } else if (encoding == 4 && refuseZstd) {
+      throw new SerealException("Unsupported encoding: Zstd");
     } else if (encoding == 4 && protocolVersion < 4) {
       throw new SerealException(
           "Unsupported encoding zstd for protocol version " + protocolVersion);
