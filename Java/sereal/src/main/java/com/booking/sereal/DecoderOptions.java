@@ -7,6 +7,8 @@ public class DecoderOptions {
   private boolean preferLatin1 = false;
   private boolean refuseSnappy = false;
   private boolean refuseObjects = false;
+  private boolean refuseZlib = false;
+  private boolean refuseZstd = false;
   private boolean stripObjects = false;
   private boolean forceJavaStringForByteArrayValues = false;
 
@@ -38,12 +40,44 @@ public class DecoderOptions {
     return preferLatin1;
   }
 
+  /**
+   * If set, the decoder will refuse Snappy-compressed input data. This can be
+   * desirable for robustness.
+   *
+   * @return {@code True} if Snappy is refused, {@False} otherwise
+   */
   public boolean refuseSnappy() {
     return refuseSnappy;
   }
 
+  /**
+   * If set, the decoder will refuse deserializing any objects in the input stream and
+   * instead throw an exception.
+   *
+   * @return {@code True} if Objects are refused, {@False} otherwise
+   */
   public boolean refuseObjects() {
     return refuseObjects;
+  }
+
+  /**
+   * If set, the decoder will refuse Zlib-compressed input data. This can be
+   * desirable for robustness.
+   *
+   * @return {@code True} if Zlib is refused, {@False} otherwise
+   */
+  public boolean refuseZlib() {
+    return refuseZlib;
+  }
+
+  /**
+   * If set, the decoder will refuse Zstd-compressed input data. This can be
+   * desirable for robustness.
+   *
+   * @return {@code True} if Zstd is refused, {@False} otherwise
+   */
+  public boolean refuseZstd() {
+    return refuseZstd;
   }
 
   public boolean stripObjects() {
@@ -170,6 +204,18 @@ public class DecoderOptions {
 
   public DecoderOptions stripObjects(boolean stripObjects) {
     this.stripObjects = stripObjects;
+
+    return this;
+  }
+
+  public DecoderOptions refuseZlib(boolean refuseZlib) {
+    this.refuseZlib = refuseZlib;
+
+    return this;
+  }
+
+  public DecoderOptions refuseZstd(boolean refuseZstd) {
+    this.refuseZstd = refuseZstd;
 
     return this;
   }
