@@ -173,10 +173,11 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 				panic(r)
 			}
 
-			if s, ok := r.(string); ok {
-				err = errors.New(s)
-			} else {
-				err = r.(error)
+			switch t := r.(type) {
+			case string:
+				err = errors.New(t)
+			case error:
+				err = t
 			}
 		}
 	}()
@@ -901,7 +902,7 @@ func (d *Decoder) decodeArrayViaReflection(by []byte, idx int, ln int, ptr refle
 		// do nothing
 
 	default:
-		panic(&reflect.ValueError{Method: "sereal.decodeArrayViaReflection", Kind: ptr.Kind()})
+		return 0, &reflect.ValueError{Method: "sereal.decodeArrayViaReflection", Kind: ptr.Kind()}
 	}
 
 	var err error
@@ -1007,7 +1008,7 @@ func (d *Decoder) decodeHashViaReflection(by []byte, idx int, ln int, ptr reflec
 		}
 
 	default:
-		panic(&reflect.ValueError{Method: "sereal.decodeHashViaReflection", Kind: ptr.Kind()})
+		return 0, &reflect.ValueError{Method: "sereal.decodeHashViaReflection", Kind: ptr.Kind()}
 	}
 
 	return idx, nil
@@ -1332,7 +1333,7 @@ func DecompressDocument(dst, b []byte) (r []byte, err error) {
 	if decomp != nil {
 		var decompressInto []byte
 		if dst != nil && len(dst) >= len(b) {
-			decompressInto = dst[bodyStart:len(dst)]
+			decompressInto = dst[bodyStart:]
 		} else {
 			decompressInto = nil
 		}
@@ -1352,7 +1353,7 @@ func DecompressDocument(dst, b []byte) (r []byte, err error) {
 		}
 
 		// set type to 0 (not compressed)
-		dst[4] = dst[4] & 0x0f
+		dst[4] &= 0x0f
 	} else {
 		dst = append(dst[:0], b...)
 	}
