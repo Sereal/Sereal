@@ -187,9 +187,9 @@ public class RecursionTest {
             byte[] encoded = encoder.write(nestedArray).getData();
            But the previous code would throw a StackOverflow
         */
-        ByteBuffer buffer = ByteBuffer.allocate(10_000);
+        ByteBuffer buffer = ByteBuffer.allocate(40_000);
         buffer.put(new byte[] {0x3D, (byte)0xF3, 0x72, 0x6C, 0x04, 0x00});
-        for (int i = 0; i < 2_000; i++) {
+        for (int i = 0; i < 10_000; i++) {
             buffer.put(new byte[] {0x28, 0x2B, 0x01});
         }
         byte[] encoded = buffer.array();
