@@ -499,7 +499,11 @@ public class Encoder {
 
     reset();
     init(header, hasHeader);
-    encode(obj);
+    try {
+      encode(obj);
+    } catch (StackOverflowError error) {
+      throw new SerealException("StackOverflowError: Reached recursion limit during serialization");
+    }
 
     if (size - headerSize > compressionThreshold) {
       if (compressionType.equals(CompressionType.SNAPPY)) compressSnappy();
@@ -517,8 +521,6 @@ public class Encoder {
   private void encode(Object obj) throws SerealException {
     // track it (for ALIAS tags)
     long location = size;
-
-    depthIncrement();
 
     if (perlAlias) {
       long aliasOffset = aliases.get(obj);
@@ -553,13 +555,26 @@ public class Encoder {
       appendStringType((byte[]) obj);
     } else if (type.isArray()) {
       if (perlRefs || !tryAppendRefp(obj)) {
-        if (obj instanceof Object[]) appendArray((Object[]) obj);
-        else appendArray(obj);
+        if (obj instanceof Object[]) {
+          if (!(obj instanceof String[])) {
+            depthIncrement();
+          }
+          appendArray((Object[]) obj);
+          if (!(obj instanceof String[])) {
+            depthDecrement();
+          }
+        } else {
+          appendArray(obj);
+        }
       }
-    } else if (type == HashMap.class) {
+    } else if (type == HashMap.class || obj instanceof Map) {
+      depthIncrement();
       if (perlRefs || !tryAppendRefp(obj)) appendMap((Map<Object, Object>) obj);
-    } else if (type == ArrayList.class) {
+      depthDecrement();
+    } else if (type == ArrayList.class || obj instanceof List) {
+      depthIncrement();
       if (perlRefs || !tryAppendRefp(obj)) appendArray((List<Object>) obj);
+      depthDecrement();
     } else if (type == Pattern.class) {
       appendRegex((Pattern) obj);
     } else if (type == Double.class) {
@@ -620,13 +635,7 @@ public class Encoder {
       PerlObject po = (PerlObject) obj;
 
       appendPerlObject(po.getName(), po.getData());
-    } else if (obj instanceof Map) {
-      if (perlRefs || !tryAppendRefp(obj)) appendMap((Map<Object, Object>) obj);
-    } else if (obj instanceof List) {
-      if (perlRefs || !tryAppendRefp(obj)) appendArray((List<Object>) obj);
     }
-
-    depthDecrement();
 
     if (size == location) { // didn't write anything
       throw new SerealException(
@@ -960,10 +969,8 @@ public class Encoder {
   }
 
   private void depthIncrement() throws SerealException {
-    ++recursionDepth;
-
-    if (recursionDepth > maxRecursionDepth) {
-      throw new SerealException("Reached recursion limit (" + maxRecursionDepth + ") during deserialization");
+    if (recursionDepth++ > maxRecursionDepth) {
+      throw new SerealException("Reached recursion limit (" + maxRecursionDepth + ") during serialization");
     }
   }
 

@@ -52,6 +52,13 @@ public class EncoderOptions {
    * Do note that the setting is somewhat approximate. Setting it to 10000 may break at
    * somewhere between 9997 and 10003 nested structures depending on their types.
    *
+   * It's also important to note that this value doesn't mirror the Perl implementation. Perl and Java
+   * Sereal wrappers are implemented in a different way. That means that the recursion depth marked
+   * as max in Perl may be different than the one needed in Java. The same applies for the Encoder
+   * and Decoder options.
+   *
+   * The Java stack can be controlled with different flags (for example -Xss) to change it's size.
+   *
    * @return maximum recursion depth
    */
   public int maxRecursionDepth() {

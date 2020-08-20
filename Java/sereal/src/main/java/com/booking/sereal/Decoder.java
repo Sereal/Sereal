@@ -234,7 +234,12 @@ public class Decoder implements SerealHeader {
         // because offsets start at 1
         baseOffset = position - 1;
     }
-    Object out = readSingleValue();
+    Object out;
+    try {
+      out = readSingleValue();
+    } catch (StackOverflowError error) {
+      throw new SerealException("StackOverflowError: Reached recursion limit during deserialization");
+    }
 
     return out;
   }
@@ -324,7 +329,7 @@ public class Decoder implements SerealHeader {
   }
 
   /**
-   * Decode a Sereal ARRAY tag to anative Java arrya
+   * Decode a Sereal ARRAY tag to a native Java arrya
    *
    * @param length number of items in the array
    * @param track we might need to track since array elements could refer to us
@@ -347,7 +352,7 @@ public class Decoder implements SerealHeader {
   }
 
   /**
-   * Decode a Sereal ARRAY tag to anative Java List
+   * Decode a Sereal ARRAY tag to a native Java List
    *
    * @param length number of items in the list
    * @param track we might need to track since array elements could refer to us
@@ -549,8 +554,6 @@ public class Decoder implements SerealHeader {
           out = utf8;
           break;
         case SRL_HDR_REFN:
-          depthIncrement();
-
           if (perlRefs) {
             PerlReference refn = new PerlReference(null);
             // track early for weak references
@@ -560,10 +563,10 @@ public class Decoder implements SerealHeader {
             refn.setValue(readSingleValue());
             out = refn;
           } else {
+            depthIncrement();
             out = readSingleValue();
+            depthDecrement();
           }
-
-          depthDecrement();
           break;
         case SRL_HDR_REFP:
           long offset_prev = read_varint();
@@ -627,15 +630,19 @@ public class Decoder implements SerealHeader {
           }
           break;
         case SRL_HDR_HASH:
+          depthIncrement();
           Object hash = readMap((int) read_varint(), track);
           out = hash;
+          depthDecrement();
           break;
         case SRL_HDR_ARRAY:
+          depthIncrement();
           if (useObjectArray) {
             out = readNativeArray((int) read_varint(), track);
           } else {
             out = readList((int) read_varint(), track);
           }
+          depthDecrement();
           break;
         case SRL_HDR_REGEXP:
           Pattern pattern = read_regex();
@@ -856,9 +863,7 @@ public class Decoder implements SerealHeader {
   }
 
   private void depthIncrement() throws SerealException {
-    ++recursionDepth;
-
-    if (recursionDepth > maxRecursionDepth) {
+    if (recursionDepth++ > maxRecursionDepth) {
       throw new SerealException("Reached recursion limit (" + maxRecursionDepth + ") during deserialization");
     }
   }
