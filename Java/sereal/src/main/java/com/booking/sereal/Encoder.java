@@ -83,7 +83,11 @@ public class Encoder {
     this(DEFAULT_OPTIONS);
   }
 
-  /** Create a new Encoder with the specified options. */
+  /**
+   * Create a new Encoder with the specified options.
+   *
+   * @param options {@link EncoderOptions} to apply.
+   */
   public Encoder(EncoderOptions options) {
     perlRefs = options.perlReferences();
     perlAlias = options.perlAliases();
@@ -222,6 +226,8 @@ public class Encoder {
    * After a call to {@code write()}, returns a reference of the encoded data.
    * <p>
    * The reference is only valid until the next call to {@code write()}.
+   *
+   * @return reference to the encoded data.
    */
   public ByteArray getDataReference() {
     if (compressedSize != 0) {
@@ -233,6 +239,8 @@ public class Encoder {
 
   /**
    * After a call to {@code write()}, returns a copy of the encoded data.
+   *
+   * @return copy of the encoded data.
    */
   public byte[] getData() {
     if (compressedSize != 0) {
@@ -479,6 +487,12 @@ public class Encoder {
    * Create a new Sereal document containing the specified value in the body.
    * <p>
    * Each call to this method overwrites the current Sereal document.
+   *
+   * @param obj Object to encode
+   *
+   * @return new Sereal document
+   *
+   * @throws SerealException Object could not be encoded.
    */
   public Encoder write(Object obj) throws SerealException {
     return write(obj, null, false);
@@ -488,6 +502,13 @@ public class Encoder {
    * Create a new Sereal document with the given header and body.
    * <p>
    * Each call to this method overwrites the current Sereal document.
+   *
+   * @param obj Object to encode
+   * @param header Sereal header
+   *
+   * @return new Sereal document
+   *
+   * @throws SerealException Object could not be encoded.
    */
   public Encoder write(Object obj, Object header) throws SerealException {
     return write(obj, header, true);

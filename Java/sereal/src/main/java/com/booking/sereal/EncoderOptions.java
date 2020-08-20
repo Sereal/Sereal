@@ -71,7 +71,7 @@ public class EncoderOptions {
    * that number of entries. This is to be able to respond quickly to any future
    * hash-collision attacks on Perl's hash function. Chances are, you don't want
    * or need this. For a gentle introduction to the topic from the cryptographic
-   * point of view, see <a href="http://en.wikipedia.org/wiki/Collision_attack"/>.
+   * point of view, see <a href="http://en.wikipedia.org/wiki/Collision_attack">Collision attack</a>.
    *
    * This value can be override with {@link EncoderOptions#maxNumMapEntries(int)} option
    *
@@ -109,6 +109,11 @@ public class EncoderOptions {
     return maxStringLength;
   }
 
+  /**
+   *
+   * @param perlReferences {@code true} if perlReferences are supported, {@code false} otherwise.
+   * @return EncoderOptions
+   */
   public EncoderOptions perlReferences(boolean perlReferences) {
     this.perlRefs = perlReferences;
 

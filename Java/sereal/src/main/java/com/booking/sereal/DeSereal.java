@@ -5,9 +5,9 @@ import java.io.IOException;
 
 public class DeSereal {
   /**
-   * @param args
-   * @throws IOException
-   * @throws SerealException
+   * @param args command arguments
+   * @throws IOException Indicated file cannot accessed.
+   * @throws SerealException Sereal data cannot be processed.
    */
   public static void main(String[] args) throws IOException, SerealException {
     if (args.length == 0) {

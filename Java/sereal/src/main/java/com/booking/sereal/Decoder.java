@@ -67,7 +67,11 @@ public class Decoder implements SerealHeader {
     this(DEFAULT_OPTIONS);
   }
 
-  /** Create a new Decoder with the specified options. */
+  /**
+   * Create a new Decoder with the specified options.
+   *
+   * @param options {@link DecoderOptions} to apply.
+   */
   public Decoder(DecoderOptions options) {
     perlRefs = options.perlReferences();
     perlAlias = options.perlAliases();
@@ -162,14 +166,26 @@ public class Decoder implements SerealHeader {
     }
   }
 
-  /** {@code true} if the Sereal document has an header. */
+  /**
+   * Indicates if the Sereal document has an header.
+   *
+   * @return {@code true} if the Sereal document has an header, {@code false} otherwise
+   *
+   * @throws SerealException if header cannot be parsed.
+   */
   public boolean hasHeader() throws SerealException {
     parseHeader();
 
     return userHeaderSize > 0;
   }
 
-  /** Size of the Sereal header, 0 if there is no header. */
+  /**
+   * Size of the Sereal header.
+   *
+   * @return Size of the Sereal header, 0 if there is no header.
+   *
+   * @throws SerealException if header cannot be parsed.
+   */
   public long headerSize() throws SerealException {
     parseHeader();
 
@@ -178,6 +194,10 @@ public class Decoder implements SerealHeader {
 
   /**
    * Decode the Sereal document header and returns the decoded value.
+   *
+   * @return returns the header decoded value.
+   *
+   * @throws SerealException if header cannot be parsed.
    */
   public Object decodeHeader() throws SerealException {
     parseHeader();
@@ -209,6 +229,10 @@ public class Decoder implements SerealHeader {
 
   /**
    * Decode the Sereal document body and returns the decoded value.
+   *
+   * @return the decoded value.
+   *
+   * @throws SerealException if data cannot be parsed.
    */
   public Object decode() throws SerealException {
 
@@ -823,6 +847,8 @@ public class Decoder implements SerealHeader {
    * Set the Sereal data to be decoded.
    * <p>
    * The caller must not modify the data while it is owned by the decoder.
+   *
+   * @param blob Sereal data to decode.
    */
   public void setData(ByteArray blob) {
     reset();
@@ -836,6 +862,8 @@ public class Decoder implements SerealHeader {
    * Set the Sereal data to be decoded.
    * <p>
    * The caller must not modify the data while it is owned by the decoder.
+   *
+   * @param blob Sereal data to decode.
    */
   public void setData(byte[] blob) {
     reset();

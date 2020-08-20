@@ -95,7 +95,11 @@ public class TokenEncoder {
     this(DEFAULT_OPTIONS);
   }
 
-  /** Create an new {@code TokenEncoder} with the specified options. */
+  /**
+   * Create an new {@code TokenEncoder} with the specified options.
+   *
+   * @param options {@link EncoderOptions} to use.
+   */
   public TokenEncoder(EncoderOptions options) {
     protocolVersion = (byte) options.protocolVersion();
     compressionType = options.compressionType();
@@ -117,18 +121,18 @@ public class TokenEncoder {
     start();
   }
 
-  /** Sereal protocol version used by this encoder. */
+  /** @return Sereal protocol version used by this encoder. */
   public int protocolVersion() {
     return protocolVersion;
   }
 
-  /** {@code true} after the root element has been completely written. */
+  /** @return {@code true} after the root element has been completely written. */
   public boolean isComplete() {
     return currentContext.type == CONTEXT_ROOT && currentContext.count == 1;
   }
 
   /**
-   * Sereal document offset of last written token.
+   * @return Sereal document offset of last written token.
    * <p>
    * The returned value can be used for the target of {@link TokenEncoder#appendCopy(int)},
    * {@link TokenEncoder#appendRefPrevious(int)} or {@link TokenEncoder#appendAlias(int)}.
@@ -138,7 +142,7 @@ public class TokenEncoder {
   }
 
   /**
-   * Sereal document offset of the next token that will be written.
+   * @return Sereal document offset of the next token that will be written.
    * <p>
    * The returned value can be used for the target of {@link TokenEncoder#appendCopy(int)},
    * {@link TokenEncoder#appendRefPrevious(int)} or {@link TokenEncoder#appendAlias(int)}.
@@ -155,9 +159,9 @@ public class TokenEncoder {
   }
 
   /**
-   * Get a reference to the encoded document.
+   * @return Get a reference to the encoded document.
    * <p>
-   * The contents of the buffer willl become invalid after calling any of the mutator methods.
+   * The contents of the buffer will become invalid after calling any of the mutator methods.
    */
   public ByteArray getDataReference() {
     checkParts();
@@ -168,7 +172,7 @@ public class TokenEncoder {
     }
   }
 
-  /** Get a copy of the encoded document. */
+  /** @return Get a copy of the encoded document. */
   public byte[] getData() {
     checkParts();
     if (compressedSize != 0) {
@@ -227,6 +231,8 @@ public class TokenEncoder {
    * Set up the encoder to emit data to the Sereal header.
    * <p>
    * Sereal header is optional, and if present it must be emitted before the main document.
+   *
+   * @throws SerealException header cannot be encoded.
    */
   public void startHeader() throws SerealException {
     if (protocolVersion == 1) {
@@ -250,6 +256,8 @@ public class TokenEncoder {
 
   /**
    * Complete encoding of the Sereal header.
+   *
+   * @throws SerealException header cannot be encoded.
    */
   public void endHeader() throws SerealException {
     if (currentContext.type != CONTEXT_ROOT) {
@@ -288,6 +296,8 @@ public class TokenEncoder {
 
   /**
    * Set up the encoder to emit data for the Sereal body.
+   *
+   * @throws SerealException document cannot be encoded.
    */
   public void startDocument() throws SerealException {
     if (currentContext.outer != null) {
@@ -318,6 +328,8 @@ public class TokenEncoder {
 
   /**
    * Complete encoding of the Sereal body.
+   *
+   * @throws SerealException document cannot be encoded.
    */
   public void endDocument() throws SerealException {
     if (currentContext.type != CONTEXT_ROOT) {
@@ -347,6 +359,8 @@ public class TokenEncoder {
 
   /**
    * Append a Sereal {@code REFN} tag.
+   *
+   * @throws SerealException reference cannot be encoded.
    */
   public void appendRefNext() throws SerealException {
     trackOffset = size;
@@ -357,6 +371,8 @@ public class TokenEncoder {
    * Append a Sereal {@code WEAKEN} tag.
    * <p>
    * The next value appended needs to be some kind of reference.
+   *
+   * @throws SerealException tag cannot be encoded.
    */
   public void appendWeaken() throws SerealException {
     trackOffset = size;
@@ -372,6 +388,10 @@ public class TokenEncoder {
    * <p>
    * If the emitted value is not a reference and {@code forceReference} is {@code true}, the value
    * is forced into a reference by using {@code REFN}.
+   *
+   * @param forceReference {@code true} to force the value as a reference, {@code false} otherwise
+   *
+   * @throws SerealException tag cannot be encoded.
    */
   public void startWeaken(boolean forceReference) throws SerealException {
     ensureAvailable(2);
@@ -385,6 +405,8 @@ public class TokenEncoder {
 
   /**
    * Completes writing a weak reference started with {@link TokenEncoder#startWeaken(boolean)}.
+   *
+   * @throws SerealException tag cannot be encoded.
    */
   public void endWeaken() throws SerealException {
     if (currentContext.type != CONTEXT_WEAKEN) {
@@ -408,6 +430,8 @@ public class TokenEncoder {
    * Append a Sereal {@code REFP} tag.
    *
    * @param offset Sereal document offset of the target of the reference.
+   *
+   * @throws SerealException reference cannot be encoded.
    */
   public void appendRefPrevious(int offset) throws SerealException {
     currentContext.count++;
@@ -421,6 +445,8 @@ public class TokenEncoder {
    * Append a Sereal {@code ALIAS} tag.
    *
    * @param offset Sereal document offset of the target of the alias.
+   *
+   * @throws SerealException tag cannot be encoded.
    */
   public void appendAlias(int offset) throws SerealException {
     currentContext.count++;
@@ -434,6 +460,8 @@ public class TokenEncoder {
    * Append a Sereal {@code COPY} tag.
    *
    * @param offset Sereal document offset of the target of the copy.
+   *
+   * @throws SerealException tag cannot be encoded.
    */
   public void appendCopy(int offset) throws SerealException {
     currentContext.count++;
@@ -448,6 +476,8 @@ public class TokenEncoder {
    * Depending on the value, uses one one of {@code POS_*}, {@code NEG_*}, {@code VARINT} or {@code ZIGZAG} Sereal tags.
    *
    * @param l Value to be appended.
+   *
+   * @throws SerealException value cannot be encoded.
    */
   public void appendLong(long l) throws SerealException {
     currentContext.count++;
@@ -474,6 +504,8 @@ public class TokenEncoder {
    * Depending on the value, uses one one of {@code POS_*} or {@code VARINT} Sereal tags.
    *
    * @param l Value to be appended.
+   *
+   * @throws SerealException value cannot be encoded.
    */
   public void appendUnsignedLong(long l) throws SerealException {
     currentContext.count++;
@@ -488,6 +520,8 @@ public class TokenEncoder {
 
   /**
    * Append a Sereal {@code FLOAT} tag.
+   *
+   * @throws SerealException tag cannot be encoded.
    */
   public void appendFloat(float f) throws SerealException {
     currentContext.count++;
@@ -503,6 +537,8 @@ public class TokenEncoder {
 
   /**
    * Append a Sereal {@code DOUBLE} tag.
+   *
+   * @throws SerealException tag cannot be encoded.
    */
   public void appendDouble(double d) throws SerealException {
     currentContext.count++;
@@ -518,6 +554,8 @@ public class TokenEncoder {
 
   /**
    * Append a Sereal {@code TRUE} or {@code FALSE} tag.
+   *
+   * @throws SerealException tag cannot be encoded.
    */
   public void appendBoolean(boolean b) throws SerealException {
     currentContext.count++;
@@ -527,6 +565,8 @@ public class TokenEncoder {
 
   /**
    * Append a Sereal {@code UNDEF} tag.
+   *
+   * @throws SerealException tag cannot be encoded.
    */
   public void appendUndef() throws SerealException {
     currentContext.count++;
@@ -536,6 +576,8 @@ public class TokenEncoder {
 
   /**
    * Append a Sereal {@code CANONICAL_UNDEF} tag.
+   *
+   * @throws SerealException tag cannot be encoded.
    */
   public void appendCanonicalUndef() throws SerealException {
     currentContext.count++;
@@ -549,6 +591,8 @@ public class TokenEncoder {
    * Depending on the value, uses one of {@code SHORT_BINARY_*} or {@code BINARY} Sereal tags.
    *
    * @param bytes Value to be appended.
+   *
+   * @throws SerealException value cannot be encoded.
    */
   public void appendBinary(byte[] bytes) throws SerealException {
     appendBinary(bytes, 0, bytes.length);
@@ -562,6 +606,8 @@ public class TokenEncoder {
    * @param bytes Value to be appended.
    * @param offset Index of the first byte to append.
    * @param length Number of bytes to append.
+   *
+   * @throws SerealException value cannot be encoded.
    */
   public void appendBinary(byte[] bytes, int offset, int length) throws SerealException {
     currentContext.count++;
@@ -581,6 +627,8 @@ public class TokenEncoder {
    * Append a Sereal {@code UTF8} tag.
    *
    * @param string the value to be appended
+   *
+   * @throws SerealException value cannot be encoded.
    */
   public void appendString(CharSequence string) throws SerealException {
     currentContext.count++;
@@ -592,6 +640,8 @@ public class TokenEncoder {
    * Append a Sereal {@code UTF8} tag.
    *
    * @param string Value to be appended.
+   *
+   * @throws SerealException value cannot be encoded.
    */
   public void appendString(char[] string) throws SerealException {
     currentContext.count++;
@@ -605,6 +655,8 @@ public class TokenEncoder {
    * @param string Value to be appended.
    * @param offset Index of the first character to append.
    * @param length Number of characters to append.
+   *
+   * @throws SerealException value cannot be encoded.
    */
   public void appendString(char[] string, int offset, int length) throws SerealException {
     currentContext.count++;
@@ -640,6 +692,8 @@ public class TokenEncoder {
    * @param utf8 Value to be appended.
    * @param offset Index of the first byte to append.
    * @param length Number of bytes to append.
+   *
+   * @throws SerealException value cannot be encoded.
    */
   public void appendUTF8(byte[] utf8, int offset, int length) throws SerealException {
     currentContext.count++;
@@ -656,6 +710,8 @@ public class TokenEncoder {
    * Pattern flags other than {@link java.util.regex.Pattern#MULTILINE}, {@link java.util.regex.Pattern#DOTALL},
    * {@link java.util.regex.Pattern#CASE_INSENSITIVE} and {@link java.util.regex.Pattern#COMMENTS} are
    * silently ignored.
+   *
+   * @throws SerealException value cannot be encoded.
    */
   public void appendRegexp(Pattern pattern) throws SerealException {
     currentContext.count++;

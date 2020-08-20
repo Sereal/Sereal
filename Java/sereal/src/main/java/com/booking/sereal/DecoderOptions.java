@@ -44,7 +44,7 @@ public class DecoderOptions {
    * If set, the decoder will refuse Snappy-compressed input data. This can be
    * desirable for robustness.
    *
-   * @return {@code True} if Snappy is refused, {@False} otherwise
+   * @return {@code True} if Snappy is refused, {@code False} otherwise
    */
   public boolean refuseSnappy() {
     return refuseSnappy;
@@ -54,7 +54,7 @@ public class DecoderOptions {
    * If set, the decoder will refuse deserializing any objects in the input stream and
    * instead throw an exception.
    *
-   * @return {@code True} if Objects are refused, {@False} otherwise
+   * @return {@code True} if Objects are refused, {@code False} otherwise
    */
   public boolean refuseObjects() {
     return refuseObjects;
@@ -64,7 +64,7 @@ public class DecoderOptions {
    * If set, the decoder will refuse Zlib-compressed input data. This can be
    * desirable for robustness.
    *
-   * @return {@code True} if Zlib is refused, {@False} otherwise
+   * @return {@code True} if Zlib is refused, {@code False} otherwise
    */
   public boolean refuseZlib() {
     return refuseZlib;
@@ -74,7 +74,7 @@ public class DecoderOptions {
    * If set, the decoder will refuse Zstd-compressed input data. This can be
    * desirable for robustness.
    *
-   * @return {@code True} if Zstd is refused, {@False} otherwise
+   * @return {@code True} if Zstd is refused, {@code False} otherwise
    */
   public boolean refuseZstd() {
     return refuseZstd;
@@ -129,7 +129,7 @@ public class DecoderOptions {
    * that number of entries. This is to be able to respond quickly to any future
    * hash-collision attacks on Perl's hash function. Chances are, you don't want
    * or need this. For a gentle introduction to the topic from the cryptographic
-   * point of view, see <a href="http://en.wikipedia.org/wiki/Collision_attack"/>.
+   * point of view, see <a href="http://en.wikipedia.org/wiki/Collision_attack">Collision attack</a>.
    *
    * This value can be override with {@link DecoderOptions#maxNumMapEntries(int)} option
    *

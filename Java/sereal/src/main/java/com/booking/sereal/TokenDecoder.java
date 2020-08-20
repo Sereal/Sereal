@@ -109,7 +109,11 @@ public class TokenDecoder {
     this(DEFAULT_OPTIONS);
   }
 
-  /** Create an new {@code TokenDecoder} with the specified options. */
+  /**
+   * Create an new {@code TokenDecoder} with the specified options.
+   *
+   * @param options {@link DecoderOptions} to use
+   */
   public TokenDecoder(DecoderOptions options) {
   }
 
@@ -171,7 +175,9 @@ public class TokenDecoder {
   }
 
   /**
-   * {@code true} if the document has a Sereal header.
+   * @return {@code true} if the document has a Sereal header.
+   *
+   * @throws SerealException header cannot be parsed.
    */
   public boolean hasHeader() throws SerealException {
     parseHeader();
@@ -180,7 +186,9 @@ public class TokenDecoder {
   }
 
   /**
-   * Size of the Sereal header, if present, 0 otherwise.
+   * @return Size of the Sereal header, if present, 0 otherwise.
+   *
+   * @throws SerealException header cannot be parsed.
    */
   public int headerSize() throws SerealException {
     parseHeader();
@@ -192,6 +200,8 @@ public class TokenDecoder {
    * Set up the decoder to iterate over the Sereal header.
    * <p>
    * This function will fail if {@link TokenDecoder#hasHeader()} returned {@code false}.
+   *
+   * @throws SerealException Token cannot be decoded.
    */
   public void prepareDecodeHeader() throws SerealException {
     parseHeader();
@@ -234,6 +244,8 @@ public class TokenDecoder {
 
   /**
    * Set up the decoder to iterate over the Sereal document body.
+   *
+   * @throws SerealException Token cannot be decoded.
    */
   public void prepareDecodeBody() throws SerealException {
     parseHeader();
@@ -370,6 +382,8 @@ public class TokenDecoder {
    * information about the token.
    *
    * @return The next token
+   *
+   * @throws SerealException Token cannot be decoded.
    */
   public SerealToken nextToken() throws SerealException {
     if (currentContext.remaining == 0) {
@@ -535,19 +549,23 @@ public class TokenDecoder {
    * one before this call.
    *
    * @param offset Sereal document offset.
+   *
+   * @throws SerealException Token cannot be decoded.
    */
   public void startSubDecode(int offset) throws SerealException {
     currentContext = new Context(currentContext, CONTEXT_SUBDECODE, 1, position);
     position = offset + baseOffset;
   }
 
-  /** After a call to {@link #nextToken}, return the current token. */
+  /**
+   * @return After a call to {@link #nextToken}, return the current token.
+   */
   public SerealToken currentToken() {
     return currentToken;
   }
 
   /**
-   * The element count of the current parsing context.
+   * @return The element count of the current parsing context.
    * <p>
    * Between {@link SerealToken#ARRAY_START} and {@link SerealToken#ARRAY_END} returns the number of elements in the array.
    * <p>
@@ -563,7 +581,7 @@ public class TokenDecoder {
   }
 
   /**
-   * Whether the offset of the current tag is the target of a reference.
+   * @return Whether the offset of the current tag is the target of a reference.
    * <p>
    * When it returns a non-zero value, it is the offset of a Sereal tag that is going to be references
    * by a later {@link SerealToken#ALIAS} or {@link SerealToken#REFP} token.
@@ -585,7 +603,7 @@ public class TokenDecoder {
   }
 
   /**
-   * Decoder position in the Sereal document.
+   * @return Decoder position in the Sereal document.
    * <p>
    * Defined for all tokens.
    */
@@ -594,7 +612,7 @@ public class TokenDecoder {
   }
 
   /**
-   * Current {@code long} value.
+   * @return Current {@code long} value.
    * <p>
    * Defined for {@link SerealToken#LONG} and {@link SerealToken#UNSIGNED_LONG}.
    */
@@ -603,7 +621,7 @@ public class TokenDecoder {
   }
 
   /**
-   * Current {@code long} value as a {@link java.math.BigInteger}.
+   * @return Current {@code long} value as a {@link java.math.BigInteger}.
    * <p>
    * Defined for {@link SerealToken#LONG} and {@link SerealToken#UNSIGNED_LONG}.
    */
@@ -624,7 +642,7 @@ public class TokenDecoder {
   }
 
   /**
-   * Current {@code float} value.
+   * @return Current {@code float} value.
    * <p>
    * Defined for {@link SerealToken#FLOAT}.
    */
@@ -633,7 +651,7 @@ public class TokenDecoder {
   }
 
   /**
-   * Current {@code double} value.
+   * @return Current {@code double} value.
    * <p>
    * Defined for {@link SerealToken#DOUBLE}.
    */
@@ -645,13 +663,15 @@ public class TokenDecoder {
    * All binary/string values are slices of this array.
    * <p>
    * Defined for {@link SerealToken#UTF8}, {@link SerealToken#BINARY}, {@link SerealToken#OBJECT_START} and {@link SerealToken#REGEXP}.
+   *
+   * @return Token binary data
    */
   public byte[] decoderBuffer() {
     return data;
   }
 
   /**
-   * Start offset of the current binary/string in {@link TokenDecoder#decoderBuffer()}.
+   * @return Start offset of the current binary/string in {@link TokenDecoder#decoderBuffer()}.
    * <p>
    * Defined for {@link SerealToken#UTF8}, {@link SerealToken#BINARY}, {@link SerealToken#OBJECT_START} and {@link SerealToken#REGEXP}.
    */
@@ -660,7 +680,7 @@ public class TokenDecoder {
   }
 
   /**
-   * End offset of the current binary/string in {@link TokenDecoder#decoderBuffer()}.
+   * @return End offset of the current binary/string in {@link TokenDecoder#decoderBuffer()}.
    * <p>
    * Defined for {@link SerealToken#UTF8}, {@link SerealToken#BINARY}, {@link SerealToken#OBJECT_START} and {@link SerealToken#REGEXP}.
    */
@@ -669,7 +689,7 @@ public class TokenDecoder {
   }
 
   /**
-   * Length of the current binary/string.
+   * @return Length of the current binary/string.
    * <p>
    * Defined for {@link SerealToken#UTF8}, {@link SerealToken#BINARY}, {@link SerealToken#OBJECT_START} and {@link SerealToken#REGEXP}.
    */
@@ -678,7 +698,7 @@ public class TokenDecoder {
   }
 
   /**
-   * Start offset of the current regexp flags in {@link TokenDecoder#decoderBuffer()}.
+   * @return Start offset of the current regexp flags in {@link TokenDecoder#decoderBuffer()}.
    * <p>
    * Defined for {@link SerealToken#REGEXP}.
    */
@@ -687,7 +707,7 @@ public class TokenDecoder {
   }
 
   /**
-   * End offset of the current regexp flags in {@link TokenDecoder#decoderBuffer()}.
+   * @return End offset of the current regexp flags in {@link TokenDecoder#decoderBuffer()}.
    * <p>
    * Defined for {@link SerealToken#REGEXP}.
    */
@@ -696,7 +716,7 @@ public class TokenDecoder {
   }
 
   /**
-   * Length of the regexp flags string.
+   * @return Length of the regexp flags string.
    * <p>
    * Defined for {@link SerealToken#REGEXP}.
    */
@@ -705,7 +725,7 @@ public class TokenDecoder {
   }
 
   /**
-   * {@code true} if the byte slice between {@link TokenDecoder#binarySliceStart()}/{@link TokenDecoder#binarySliceEnd()} is UTF-8 encoded.
+   * @return {@code true} if the byte slice between {@link TokenDecoder#binarySliceStart()}/{@link TokenDecoder#binarySliceEnd()} is UTF-8 encoded.
    * <p>
    * Always {@code true} for {@link SerealToken#UTF8}, always {@code false} for {@link SerealToken#BINARY}.
    */
@@ -714,7 +734,7 @@ public class TokenDecoder {
   }
 
   /**
-   * Offset into the Sereal document.
+   * @return Offset into the Sereal document.
    * <p>
    * Defined for {@link SerealToken#REFP}, {@link SerealToken#ALIAS} and {@link SerealToken#COPY} token.
    */
@@ -722,7 +742,7 @@ public class TokenDecoder {
     return backreferenceOffset;
   }
 
-  /** {@code true} if the current token is a hash key, {@code false} otherwise. */
+  /** @return {@code true} if the current token is a hash key, {@code false} otherwise. */
   public boolean isHashKey() {
     Context context = currentContext;
     while (context.type == CONTEXT_SUBDECODE) {
