@@ -364,6 +364,11 @@ func TestStructs(t *testing.T) {
 		Phone string `sereal:"phone"`
 	}
 
+	type AOmitTags struct {
+		Name  string `sereal:"name,omitempty"`
+		Phone string `sereal:"phone,omitempty"`
+	}
+
 	type BInt int
 	type AInt struct {
 		B BInt
@@ -452,6 +457,12 @@ func TestStructs(t *testing.T) {
 			AInt{B: BInt(3)},
 			AInt{},
 			AInt{B: BInt(3)},
+		},
+		{
+			"struct with omit field",
+			AOmitTags{Phone: "12345"},
+			AOmitTags{},
+			AOmitTags{Name: "", Phone: "12345"},
 		},
 	}
 
@@ -756,7 +767,72 @@ func TestUnmarshalHeaderError(t *testing.T) {
 		}
 	}
 }
+func TestStructAsMap(t *testing.T) {
+	type AOmitTags struct {
+		Name  string `sereal:"name,omitempty"`
+		Phone string `sereal:"phone,omitempty"`
+	}
 
+	tests := []struct {
+		what        string
+		inputStruct interface{}
+		inputMap    interface{}
+	}{
+
+		{
+			"Empty",
+			AOmitTags{},
+			map[string]interface{}{},
+		},
+	}
+
+	for _, compat := range []bool{false, true} {
+		for _, v := range tests {
+			eMap := Encoder{PerlCompat: compat}
+			eStructAsMap := Encoder{PerlCompat: compat, StructAsMap: true}
+			d := Decoder{}
+
+			var name string
+			if compat {
+				name = "compat_" + v.what
+			} else {
+				name = v.what
+			}
+
+			t.Run(name, func(t *testing.T) {
+				//encode both
+				rinputMap := reflect.ValueOf(v.inputMap)
+				xMap, err := eMap.Marshal(rinputMap.Interface())
+				if err != nil {
+					t.Errorf("error marshalling %s: %s\n", v.what, err)
+					return
+				}
+				rinputStruct := reflect.ValueOf(v.inputStruct)
+				xStruct, err := eStructAsMap.Marshal(rinputStruct.Interface())
+				if err != nil {
+					t.Errorf("error marshalling %s: %s\n", v.what, err)
+					return
+				}
+				//Decode
+				routMap := reflect.New(reflect.TypeOf(v.inputMap))
+				err = d.Unmarshal(xMap, routMap.Interface())
+				if err != nil {
+					t.Errorf("error unmarshalling %s: %s\n", v.what, err)
+					return
+				}
+				routStruct := reflect.New(reflect.TypeOf(v.inputMap)) //Decode like a map
+				err = d.Unmarshal(xStruct, routStruct.Interface())
+				if err != nil {
+					t.Errorf("error unmarshalling %s: %s\n", v.what, err)
+					return
+				}
+				if !reflect.DeepEqual(routStruct.Elem().Interface(), routMap.Elem().Interface()) {
+					t.Errorf("roundtrip mismatch for %s: got: %#v expected: %#v\n", v.what, routStruct.Elem().Interface(), routMap.Elem().Interface())
+				}
+			})
+		}
+	}
+}
 func TestPrepareFreezeRoundtrip(t *testing.T) {
 	_, err := os.Stat("test_freeze")
 	if os.IsNotExist(err) {
