@@ -784,6 +784,16 @@ func TestStructAsMap(t *testing.T) {
 			AOmitTags{},
 			map[string]interface{}{},
 		},
+		{
+			"Half",
+			AOmitTags{Phone: "12345"},
+			map[string]interface{}{"phone": "12345"},
+		},
+		{
+			"Full",
+			AOmitTags{Name: "mr foo", Phone: "12345"},
+			map[string]interface{}{"name": "mr foo", "phone": "12345"},
+		},
 	}
 
 	for _, compat := range []bool{false, true} {
@@ -828,6 +838,9 @@ func TestStructAsMap(t *testing.T) {
 				}
 				if !reflect.DeepEqual(routStruct.Elem().Interface(), routMap.Elem().Interface()) {
 					t.Errorf("roundtrip mismatch for %s: got: %#v expected: %#v\n", v.what, routStruct.Elem().Interface(), routMap.Elem().Interface())
+				}
+				if !reflect.DeepEqual(routStruct.Elem().Interface(), rinputMap.Interface()) {
+					t.Errorf("source mismatch for %s: got: %#v expected: %#v\n", v.what, routStruct.Elem().Interface(), rinputMap.Interface())
 				}
 			})
 		}
