@@ -25,7 +25,7 @@ func (tc *tagsCache) Get(ptr reflect.Value) map[string]tag {
 		return m
 	}
 
-	m := make(map[string]int)
+	m := make(map[string]tag)
 
 	l := ptrType.NumField()
 	for i := 0; i < l; i++ {
