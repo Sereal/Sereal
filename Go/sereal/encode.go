@@ -22,6 +22,7 @@ type Encoder struct {
 	DisableFREEZE        bool       // should we disable the FREEZE tag, which calls MarshalBinary
 	ExpectedSize         uint       // give a hint to encoder about expected size of encoded data
 	MaxRecursionDepth    int        // maximum recursion depth
+	StructAsMap          bool       // convert struct as map
 	version              int        // default version to encode
 	tcache               tagsCache
 }
@@ -594,8 +595,10 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, state *marshalState,
 		}
 	}
 
-	by = append(by, typeOBJECT)
-	by = e.encodeBytes(by, []byte(st.Type().Name()), true, state.strTable)
+	if !e.StructAsMap {
+		by = append(by, typeOBJECT)
+		by = e.encodeBytes(by, []byte(st.Type().Name()), true, state.strTable)
+	}
 
 	if e.PerlCompat {
 		// must be a reference
