@@ -3,16 +3,21 @@ package sereal
 import "reflect"
 
 type tagsCache struct {
-	cmap map[reflect.Type]map[string]int
+	cmap map[reflect.Type]map[string]tag
 }
 
-func (tc *tagsCache) Get(ptr reflect.Value) map[string]int {
+type tag struct {
+	id        int
+	omitEmpty bool
+}
+
+func (tc *tagsCache) Get(ptr reflect.Value) map[string]tag {
 	if ptr.Kind() != reflect.Struct {
 		return nil
 	}
 
 	if tc.cmap == nil {
-		tc.cmap = make(map[reflect.Type]map[string]int)
+		tc.cmap = make(map[reflect.Type]map[string]tag)
 	}
 
 	ptrType := ptr.Type()
@@ -24,21 +29,21 @@ func (tc *tagsCache) Get(ptr reflect.Value) map[string]int {
 
 	l := ptrType.NumField()
 	for i := 0; i < l; i++ {
-		field := ptrType.Field(i).Tag.Get("sereal")
-		if field == "-" {
+		name, opts := parseTag(ptrType.Field(i).Tag.Get("sereal"))
+		if name == "-" {
 			// sereal tag is "-" -- skip
 			continue
 		}
 
-		if field == "" {
+		if name == "" {
 			// no tag? make one from the field name
 			if pkgpath := ptrType.Field(i).PkgPath; pkgpath != "" {
 				// field not exported -- skip
 				continue
 			}
-			field = ptrType.Field(i).Name
+			name = ptrType.Field(i).Name
 		}
-		m[field] = i
+		m[name] = tag{i, opts.Contains("omitempty")}
 	}
 
 	// empty map -- may as well store a nil

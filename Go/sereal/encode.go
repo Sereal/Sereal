@@ -587,6 +587,12 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, state *marshalState,
 	}
 
 	tags := e.tcache.Get(st)
+	fieldsToSkip := 0
+	for _, i := range tags {
+		if i.omitEmpty && isEmptyValue(st.Field(i.id)) {
+			fieldsToSkip++
+		}
+	}
 
 	by = append(by, typeOBJECT)
 	by = e.encodeBytes(by, []byte(st.Type().Name()), true, state.strTable)
@@ -597,12 +603,16 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, state *marshalState,
 	}
 
 	by = append(by, typeHASH)
-	by = varint(by, uint(len(tags)))
+	by = varint(by, uint(len(tags)-fieldToSkip))
 
 	var err error
 	for f, i := range tags {
+		fv := st.Field(i.id)
+		if i.omitEmpty && isEmptyValue(fv) {
+			continue
+		}
 		by = e.encodeString(by, f, true, state.strTable)
-		if by, err = e.encode(by, st.Field(i), false, false, state, remainingDepth); err != nil {
+		if by, err = e.encode(by, fv, false, false, state, remainingDepth); err != nil {
 			return nil, err
 		}
 	}
