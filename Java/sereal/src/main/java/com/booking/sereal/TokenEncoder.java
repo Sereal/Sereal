@@ -81,7 +81,7 @@ public class TokenEncoder {
   private final byte protocolVersion, encoding;
   private final CompressionType compressionType;
   private final CharsetEncoder utf8Encoder = StandardCharsets.UTF_8.newEncoder();
-  private final Deflater deflater;
+  private Deflater deflater;
   private final int compressionThreshold;
   private Context currentContext;
   private byte[] bytes = new byte[1024], compressedBytes = EMPTY_BYTE_ARRAY;
@@ -1243,6 +1243,19 @@ public class TokenEncoder {
   void poisonBuffer() {
     for (int i = size; i < bytes.length; ++i) {
       bytes[i] = (byte) (Math.random() * 256);
+    }
+  }
+
+  /**
+   * Close the encoder to recycle the resources, it must be called by the client at the end of the
+   * use, otherwise, NullPointerException will be thrown when you reuse the ZLIB encoder.
+   * <p>
+   * Returns the native memory used by deflater explicitly before the garbage collector.
+   */
+  public void close() {
+    if (deflater != null) {
+      deflater.end();
+      deflater = null;
     }
   }
 }

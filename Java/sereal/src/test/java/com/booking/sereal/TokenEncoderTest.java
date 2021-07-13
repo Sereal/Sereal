@@ -484,6 +484,7 @@ public class TokenEncoderTest {
     encoder.appendLong(7);
     encoder.appendLong(8);
     encoder.endHash();
+    encoder.close();
   }
 
   @Test

@@ -64,6 +64,7 @@ public class EncoderTest {
 		assertEquals( "Protocol version fail", 1, data[4] );
 		assertEquals( "Header suffix not 0", 0, data[5] ); // is a varint, but should be 0
 
+		encoder.close();
 	}
 
 	@Test
@@ -77,6 +78,7 @@ public class EncoderTest {
 		assertEquals( "Protocol version fail", 2, data[4] );
 		assertEquals( "Header suffix not 0", 0, data[5] ); // is a varint, but should be 0
 
+		encoder.close();
 	}
 
 	@Test
@@ -90,6 +92,7 @@ public class EncoderTest {
 		assertEquals( "Protocol version fail", 3, data[4] );
 		assertEquals( "Header suffix not 0", 0, data[5] ); // is a varint, but should be 0
 
+		encoder.close();
 	}
 
 	@Test
@@ -103,6 +106,7 @@ public class EncoderTest {
 		assertEquals( "Protocol version fail", 4, data[4] );
 		assertEquals( "Header suffix not 0", 0, data[5] ); // is a varint, but should be 0
 
+		encoder.close();
 	}
 
 	@Test
@@ -127,6 +131,7 @@ public class EncoderTest {
 		byte[] short_binary = Arrays.copyOfRange(data, 6, 10);
 		assertArrayEquals( "Short binary encoding fail", new byte[] { 0x63, 0x66, 0x6f, 0x6f }, short_binary );
 
+		encoder.close();
 	}
 
 	@Test

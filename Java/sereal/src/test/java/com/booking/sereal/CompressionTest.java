@@ -113,6 +113,7 @@ public class CompressionTest {
 
 		setPaddedData(decoder, encoded);
 		assertEquals(data, decoder.decode());
+		decoder.close();
 	}
 
 	@Test
@@ -130,6 +131,7 @@ public class CompressionTest {
 
 		setPaddedData(decoder, encoded);
 		assertEquals(data, decoder.decode());
+		decoder.close();
 	}
 
 	@Test
@@ -147,6 +149,7 @@ public class CompressionTest {
 
 		setPaddedData(decoder, encoded);
 		assertEquals(data, decoder.decode());
+		decoder.close();
 	}
 
 	@Test
@@ -181,6 +184,7 @@ public class CompressionTest {
 
 		setPaddedData(decoder, encoded);
 		assertEquals(smallData, decoder.decode());
+		decoder.close();
 	}
 
 	@Test

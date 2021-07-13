@@ -37,6 +37,7 @@ public class ZipBombTest {
         byte[] decodedData = null;
         try {
             decodedData = (byte[]) decoder.decode();
+            decoder.close();
         } catch (SerealException ex) {
             thrownException = true;
         }
@@ -157,6 +158,7 @@ public class ZipBombTest {
         byte[] decodedData = null;
         try {
             decodedData = (byte[]) decoder.decode();
+            decoder.close();
         } catch (SerealException ex) {
             thrownException = true;
             assertEquals("The uncompressed size is larger than the expected size", ex.getMessage());

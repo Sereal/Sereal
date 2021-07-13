@@ -908,4 +908,16 @@ public class TokenDecoder {
     binaryIsUtf8 = Math.random() > 0.5;
     backreferenceOffset = (int) (Math.random() * Integer.MAX_VALUE);;
   }
+
+  /**
+   * Close the decoder to recycle the resources.
+   * <p>
+   * Returns the native memory used by inflater explicitly before the garbage collector.
+   */
+  public void close() {
+    if (inflater != null) {
+      inflater.end();
+      inflater = null;
+    }
+  }
 }
