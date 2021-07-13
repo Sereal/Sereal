@@ -899,4 +899,15 @@ public class Decoder implements SerealHeader {
   private void depthDecrement() {
     recursionDepth--;
   }
+
+  /**
+   * Close the decoder to recycle the resources.
+   * <p>
+   * Returns the native memory used by inflater explicitly before the garbage collector.
+   */
+  public void close() {
+    if (inflater != null) {
+      inflater.end();
+    }
+  }
 }
