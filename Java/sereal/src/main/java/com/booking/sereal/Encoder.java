@@ -38,7 +38,7 @@ public class Encoder {
   private final int protocolVersion, encoding;
   private final CompressionType compressionType;
   private final long compressionThreshold;
-  private final Deflater deflater;
+  private Deflater deflater;
   private final int zstdCompressionLevel;
 
   private final int maxRecursionDepth;
@@ -1001,13 +1001,14 @@ public class Encoder {
 
   /**
    * Close the encoder to recycle the resources, it must be called by the client at the end of the
-   * use, otherwise, the behaviour is undefined when you reuse the encoder after close().
+   * use, otherwise, NullPointerException will be thrown when you reuse the ZLIB encoder.
    * <p>
    * Returns the native memory used by deflater explicitly before the garbage collector.
    */
   public void close() {
     if (deflater != null) {
       deflater.end();
+      deflater = null;
     }
   }
 }
