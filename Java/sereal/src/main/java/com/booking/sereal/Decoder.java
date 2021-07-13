@@ -908,6 +908,7 @@ public class Decoder implements SerealHeader {
   public void close() {
     if (inflater != null) {
       inflater.end();
+      inflater = null;
     }
   }
 }

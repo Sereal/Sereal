@@ -917,6 +917,7 @@ public class TokenDecoder {
   public void close() {
     if (inflater != null) {
       inflater.end();
+      inflater = null;
     }
   }
 }
