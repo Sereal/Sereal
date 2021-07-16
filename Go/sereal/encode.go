@@ -21,6 +21,7 @@ type Encoder struct {
 	DisableDedup         bool       // should we disable deduping of class names and hash keys
 	DisableFREEZE        bool       // should we disable the FREEZE tag, which calls MarshalBinary
 	ExpectedSize         uint       // give a hint to encoder about expected size of encoded data
+	StructAsMap          bool       // convert struct as map
 	version              int        // default version to encode
 	tcache               tagsCache
 }
@@ -545,10 +546,18 @@ func (e *Encoder) encodeMap(by []byte, m reflect.Value, isRefNext bool, strTable
 }
 
 func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]int, ptrTable map[uintptr]int) ([]byte, error) {
-	tags := e.tcache.Get(st)
+	tags := make(map[string]reflect.Value)
+	for f, i := range e.tcache.Get(st) {
+		fv := st.Field(i.id)
+		if !(i.omitEmpty && isEmptyValue(fv)) {
+			tags[f] = fv
+		}
+	}
 
-	by = append(by, typeOBJECT)
-	by = e.encodeBytes(by, []byte(st.Type().Name()), true, strTable)
+	if !e.StructAsMap {
+		by = append(by, typeOBJECT)
+		by = e.encodeBytes(by, []byte(st.Type().Name()), true, strTable)
+	}
 
 	if e.PerlCompat {
 		// must be a reference
@@ -559,9 +568,9 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, strTable map[string]
 	by = varint(by, uint(len(tags)))
 
 	var err error
-	for f, i := range tags {
+	for f, fv := range tags {
 		by = e.encodeString(by, f, true, strTable)
-		if by, err = e.encode(by, st.Field(i), false, false, strTable, ptrTable); err != nil {
+		if by, err = e.encode(by, fv, false, false, strTable, ptrTable); err != nil {
 			return nil, err
 		}
 	}
