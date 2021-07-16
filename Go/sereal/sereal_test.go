@@ -309,7 +309,6 @@ func testCompressedArray(t *testing.T, name string, compression compressor) {
 }
 
 func TestStructs(t *testing.T) {
-
 	type A struct {
 		Name     string
 		Phone    string
@@ -345,6 +344,52 @@ func TestStructs(t *testing.T) {
 		pint   int
 	}
 
+	type PrimitivePointers struct {
+		ManyInts []*int
+		N        *int
+		U        *uint
+		I64      *int64
+		U64      *uint64
+		I32      *int32
+		U32      *uint32
+		I16      *int16
+		U16      *uint16
+		I8       *int8
+		U8       *uint8
+		F32      *float32
+		F64      *float64
+		B        *bool
+		BY       *byte
+	}
+
+	vi := int(-282)
+	vu := uint(282)
+	vi64 := int64(64)
+	vu64 := uint64(640)
+	vi32 := int32(32)
+	vu32 := uint32(320)
+	vi16 := int16(16)
+	vu16 := uint16(160)
+	vi8 := int8(8)
+	vu8 := uint8(80)
+	vf32 := float32(3200)
+	vf64 := float64(6400)
+	vb := true
+	vby := byte(128)
+
+	pfoo := PrimitivePointers{
+		[]*int{&vi, &vi, &vi, &vi, &vi, &vi, &vi, &vi},
+		&vi,
+		&vu,
+		&vi64, &vu64,
+		&vi32, &vu32,
+		&vi16, &vu16,
+		&vi8, &vu8,
+		&vf32, &vf64,
+		&vb,
+		&vby,
+	}
+
 	type ATags struct {
 		Name     string `sereal:"Phone"`
 		Phone    string `sereal:"Name"`
@@ -367,6 +412,21 @@ func TestStructs(t *testing.T) {
 		outvar   interface{}
 		expected interface{}
 	}{
+
+		{
+			"primitive pointers",
+			pfoo,
+			PrimitivePointers{},
+			pfoo,
+		},
+
+		{
+			"array of primitive pointer",
+			[]PrimitivePointers{pfoo, pfoo},
+			[]PrimitivePointers(nil),
+			[]PrimitivePointers{pfoo, pfoo},
+		},
+
 		{
 			"struct with fields",
 			Afoo,
@@ -430,7 +490,7 @@ func TestStructs(t *testing.T) {
 		{
 			"1-length slice of structs",
 			[]A{Afoo, Abar, Abaz},
-			[]A{A{}},
+			[]A{{}},
 			[]A{Afoo},
 		},
 		{
@@ -1078,7 +1138,7 @@ var jsonRoundTrips = []string{
 }
 
 var jsonNonRoundTrips = [][]string{
-	[]string{
+	{
 		"{\"foo\":8797135498471177000,\"bar\":1730933667817769214,\"baz\":13165229215395525219,\"xaz\":1316522921539552521900000000000100500}",
 		"{\"foo\":8797135498471177000,\"bar\":1730933667817769214,\"baz\":\"13165229215395525219\",\"xaz\":\"1316522921539552521900000000000100500\"}",
 	},
