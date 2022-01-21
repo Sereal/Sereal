@@ -242,4 +242,11 @@ sub WriteMakefile {
     ExtUtils::MakeMaker::WriteMakefile(%params);
 }
 
+sub MY::postamble {
+  return <<'MAKE_FRAG';
+zstd/libzstd$(OBJ_EXT): zstd/Makefile
+	cd zstd && $(MAKE) all
+MAKE_FRAG
+}
+
 1;
