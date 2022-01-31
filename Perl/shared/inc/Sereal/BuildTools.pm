@@ -178,7 +178,14 @@ sub build_optimize {
             $gccversion= $1;
         }
 
-        if ( $catch_violations && ( $clang || $gccversion >= 4.3 ) ) {
+        if ( $] < 5.035005 && $catch_violations && ( $clang || $gccversion >= 4.3 ) ) {
+
+            # v5.35.5 enables some C99 features including mixed declarations and code,
+            # and uses them in inline.h, hence we can't enable this warning flag
+            # without generating false positive warnings.
+            # Earlier versions of perl support older compilers that are strict C89,
+            # hence we still need to avoid mixed declarations and code, hence
+            # enable this warning on earlier perls so that we can still spot problems.
 
             # -Werror= introduced in GCC 4.3
             # For trapping C++ // comments we would need -std=c89 (aka -ansi)
