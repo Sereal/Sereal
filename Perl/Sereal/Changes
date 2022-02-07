@@ -13,6 +13,10 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+4.019 Mon Feb 7, 2022
+    * Fix build issue with latest perl - Thanks to Nicholas Clark
+    * Update zstd to 1.5.1
+
 4.018 Thurs Aug 3, 2020
     * Fix issue with gcc 10 with snappy compression.
 

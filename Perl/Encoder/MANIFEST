@@ -137,6 +137,7 @@ zstd/common/threading.h
 zstd/common/xxhash.c
 zstd/common/xxhash.h
 zstd/common/zstd_common.c
+zstd/common/zstd_deps.h
 zstd/common/zstd_errors.h
 zstd/common/zstd_internal.h
 zstd/compress/fse_compress.c
