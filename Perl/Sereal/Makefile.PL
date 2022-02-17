@@ -4,7 +4,7 @@ use warnings;
 
 use ExtUtils::MakeMaker;
 use Cwd;
-our $VERSION= '4.019';
+our $VERSION= '4.020';
 
 my $shared_dir= "../shared";
 my $its_our_repo_file= "../this_is_the_Sereal_repo.txt";
@@ -40,14 +40,16 @@ WriteMakefile1(
         'meta-spec' => { version => 2 },
     },
     TEST_REQUIRES => {
-        'Test::More'       => 0.88,
-        'Sereal::Encoder'  => $VERSION,
-        'Sereal::Decoder'  => $VERSION,
-        'Scalar::Util'     => 0,
-        'File::Spec'       => 0,
-        'Test::LongString' => '0',
-        'Test::Warn'       => '0',
         'Data::Dumper'     => '0',
+        'File::Spec'       => '0',
+        'Scalar::Util'     => '0',
+        'Sereal::Decoder'  => $VERSION,
+        'Sereal::Encoder'  => $VERSION,
+        'Test::Deep'        => '0',
+        'Test::Differences' => '0',
+        'Test::LongString'  => '0',
+        'Test::More'        => '0.88',
+        'Test::Warn'        => '0',
     },
     NAME         => 'Sereal',
     VERSION_FROM => 'lib/Sereal.pm',    # finds $VERSION

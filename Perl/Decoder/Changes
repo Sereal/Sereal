@@ -5,6 +5,13 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 4 of the *
 *          encoder!                                            *
 ****************************************************************
+4.020 Thurs Feb 17, 2022
+    * Fix "panic: free from wrong pool" errors on threaded builds.
+      This error is only visible on DEBUGGING perls however it exists
+      regardless. If you are using a threaded build upgrade to this!
+      Thanks to Andreas J. Koenig for finding the bug, and Nicholas Clark
+      for suggesting valgrind to debug and fix it.
+
 4.019 Mon Feb 7, 2022
     * Fix build issue with latest perl - Thanks to Nicholas Clark
     * Update zstd to 1.5.1

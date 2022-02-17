@@ -72,7 +72,7 @@ srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
         if (total_requested < body_len)
             croak("Decompressed buffer is impossibly large. Refusing to decode.");
 
-        tmp_buf= Perl_malloc(total_requested); /* perl well defined malloc wrapper */
+        Newx(tmp_buf,total_requested,char);
 
         if (!tmp_buf)
             croak("Insufficient memory to '%s' decompress. Size compressed=%"UVuf" uncompressed=%"UVuf,
