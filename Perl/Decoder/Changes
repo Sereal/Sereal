@@ -5,6 +5,12 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 4 of the *
 *          encoder!                                            *
 ****************************************************************
+4.021 Thurs Feb 17, 2022
+    * Make it possible to upgrade with passing tests when using
+      Sereal::Decoder 4.019 on threaded debugging perls.
+      IF YOU USE THREADED PERLS YOU ARE STRONGLY ADVISED TO UPDATE
+      TO THIS VERSION.
+
 4.020 Thurs Feb 17, 2022
     * Fix "panic: free from wrong pool" errors on threaded builds.
       This error is only visible on DEBUGGING perls however it exists
