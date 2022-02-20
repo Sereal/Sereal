@@ -1229,14 +1229,16 @@ sub run_roundtrip_tests_internal {
     require Data::Dumper;
 
     my $skip_long_string_tests= 0;
-    if ($Sereal::Decoder::VERSION == 4.019) {
+    if (
+        4.015 <= $Sereal::Decoder::VERSION && $Sereal::Decoder::VERSION <= 4.019
+    ) {
         my $perl_is_debugging= $Config{"ccflags"}=~/-DDEBUGGING/;
         my $perl_is_threaded= $Config{"useithreads"} || $Config{"usethreads"};
         if ($perl_is_debugging and $perl_is_threaded) {
             diag "Skipping round trip tests on this perl!\n",
-                 "Sereal::Decoder 4.019 has a known fault when used with threaded perls.\n",
+                 "Sereal::Decoder v4.015 - v4.019 has a known fault when used with threaded perls.\n",
                  "This fault will trigger assertion failures on DEBUGGING builds like this perl.\n",
-                 "Upgrade to Sereal::Decoder 4.020 *IMMEDIATELY!\n";
+                 "You are *STRONGLY* advised to upgrade to Sereal::Decoder 4.023 *IMMEDIATELY!\n";
             $skip_long_string_tests= 1;
             return;
         }

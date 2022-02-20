@@ -13,17 +13,16 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
-4.022 Thurs Feb 17, 2022
-    * Better logic to make it possible to upgrade with passing tests
-      when using Sereal::Decoder 4.019 on threaded debugging perls.
-      IF YOU USE THREADED PERLS YOU ARE STRONGLY ADVISED TO UPDATE
-      TO THIS VERSION OR LATER.
-
-4.021 Thurs Feb 17, 2022
+4.023 Sun Feb 20, 2022
     * Make it possible to upgrade with passing tests when using
-      Sereal::Decoder 4.019 on threaded debugging perls.
+      Sereal::Decoder 4.015 - 4.019 on threaded debugging perls.
+
       IF YOU USE THREADED PERLS YOU ARE STRONGLY ADVISED TO UPDATE
-      TO THE MOST RECENT VERSION.
+      TO THIS VERSION OR LATER. *UPGRADE THE DECODER IMMEDIATELY*.
+
+4.022 Sat Feb 19, 2022
+4.021 Fri Feb 18, 2022
+    * Early but incomplete versions of 4.023, skip these releases.
 
 4.020 Thurs Feb 17, 2022
     * Fix "panic: free from wrong pool" errors on threaded builds.
