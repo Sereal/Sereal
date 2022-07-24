@@ -70,7 +70,6 @@ struct PTABLE_iter {
     struct PTABLE_entry     *cur_entry;
 };
 
-/*
 SRL_STATIC_INLINE PTABLE_t * PTABLE_new(void);
 SRL_STATIC_INLINE PTABLE_t * PTABLE_new_size(const U8 size_base2_exponent);
 SRL_STATIC_INLINE PTABLE_ENTRY_t * PTABLE_find(PTABLE_t *tbl, const void *key);
@@ -84,9 +83,9 @@ SRL_STATIC_INLINE void PTABLE_free(PTABLE_t *tbl);
 
 SRL_STATIC_INLINE PTABLE_ITER_t * PTABLE_iter_new(PTABLE_t *tbl);
 SRL_STATIC_INLINE PTABLE_ITER_t * PTABLE_iter_new_flags(PTABLE_t *tbl, int flags);
+SRL_STATIC_INLINE PTABLE_ITER_t * PTABLE_iter_reset(PTABLE_ITER_t *iter);
 SRL_STATIC_INLINE PTABLE_ENTRY_t * PTABLE_iter_next(PTABLE_ITER_t *iter);
 SRL_STATIC_INLINE void PTABLE_iter_free(PTABLE_ITER_t *iter);
-*/
 
 /* create a new pointer => pointer table */
 SRL_STATIC_INLINE PTABLE_t *
@@ -302,11 +301,20 @@ PTABLE_iter_new_flags(PTABLE_t *tbl, int flags)
     PTABLE_ITER_t *iter;
     Newx(iter, 1, PTABLE_ITER_t);
     iter->table = tbl;
-    iter->bucket_num = 0;
-    iter->cur_entry = NULL;
 
     if (flags & PTABLE_FLAG_AUTOCLEAN)
         tbl->cur_iter = iter;
+    return PTABLE_iter_reset(iter);
+}
+
+/* setup or reset new iterator object */
+SRL_STATIC_INLINE PTABLE_ITER_t *
+PTABLE_iter_reset(PTABLE_ITER_t *iter)
+{
+    PTABLE_t *tbl = iter->table;
+    iter->bucket_num = 0;
+    iter->cur_entry = NULL;
+
     if (tbl->tbl_items == 0) {
         /* Prevent hash bucket scanning.
          * This can be a significant optimization on large, empty hashes. */

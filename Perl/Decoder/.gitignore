@@ -45,3 +45,4 @@ t/test_set.pl
 typemap
 qsort.h
 zstd
+*.srl

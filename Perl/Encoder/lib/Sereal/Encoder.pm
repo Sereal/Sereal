@@ -534,19 +534,20 @@ in both time and space efficiency with the best alternatives.
 
 =head1 FREEZE/THAW CALLBACK MECHANISM
 
-This mechanism is enabled using the C<freeze_callbacks> option of the encoder.
-It is inspired by the equivalent mechanism in L<CBOR::XS> and differs only
-in one minor detail, explained below. The general mechanism is documented
-in the I<A GENERIC OBJECT SERIALIATION PROTOCOL> section of L<Types::Serialiser>.
-Similar to CBOR using C<CBOR>, Sereal uses the string C<Sereal> as a serializer
-identifier for the callbacks.
+Some objects do not lend themselves naturally to naive perl
+datastructure level serialization. For instance XS code might use a
+hidden structure that would not get serialized, or an object may contain
+volatile data like a filehandle that would not be reconstituted
+properly. To support cases like this C<Sereal> supports a FREEZE and
+THAW api. When objects are serialized their FREEZE method is asked for a
+replacement representation, and when objects are deserialized their THAW
+method is asked to convert that replacement back to something useful.
 
-The one difference to the mechanism as supported by CBOR is that in Sereal,
-the C<FREEZE> callback must return a single value. That value can be any
-data structure supported by Sereal (hopefully without causing infinite recursion
-by including the original object). But C<FREEZE> can't return a list as with CBOR.
-This should not be any practical limitation whatsoever. Just return an array
-reference instead of a list.
+This mechanism is enabled using the C<freeze_callbacks> option of the encoder.
+It is inspired by the equivalent mechanism in L<CBOR::XS>. The general mechanism
+is documented in the I<A GENERIC OBJECT SERIALIATION PROTOCOL> section of
+L<Types::Serialiser>. Similar to CBOR using C<CBOR>, Sereal uses the string
+C<Sereal> as a serializer identifier for the callbacks.
 
 Here is a contrived example of a class implementing the C<FREEZE> / C<THAW> mechanism.
 

@@ -64,6 +64,7 @@ inc::Sereal::BuildTools::WriteMakefile(
     TEST_REQUIRES => {
         'Data::Dumper'      => '0',
         'File::Spec'        => '0',
+        'Hash::Util'        => '0',
         'Scalar::Util'      => '0',
         'Sereal::Decoder'   => '4.002',
         'Test::Deep'        => '0',
@@ -78,6 +79,7 @@ inc::Sereal::BuildTools::WriteMakefile(
         'File::Find'        => '0',
         'File::Path'        => '0',
         'File::Spec'        => '0',
+        'Hash::Util'        => '0',
         'Scalar::Util'      => '0',
         'Test::Deep'        => '0',
         'Test::Differences' => '0',

@@ -246,6 +246,12 @@ instead throw an exception. Defaults to off. See the section C<ROBUSTNESS> below
 If set, the decoder will deserialize any objects in the input stream but without
 blessing them. Defaults to off. See the section C<ROBUSTNESS> below.
 
+=head3 no_thaw_objects
+
+If set, the decoder will deserialize frozen objects in the objects stream as an
+array ref of arguments that would be passed into the THAW subroutine instead of
+calling THAW itself.
+
 =head3 validate_utf8
 
 If set, the decoder will refuse invalid UTF-8 byte sequences. This is off
@@ -673,6 +679,43 @@ C<FREEZE> callbacks, the C<THAW> class method may be invoked on the
 respective classes. If you can't trust the source of your Sereal documents,
 you may want to use the C<refuse_objects> option. For more details on
 the C<FREEZE/THAW> mechanism, please refer to L<Sereal::Encoder>.
+
+=head1 FREEZE/THAW CALLBACK MECHANISM
+
+Some objects do not lend themselves naturally to naive perl
+datastructure level serialization. For instance XS code might use a
+hidden structure that would not get serialized, or an object may contain
+volatile data like a filehandle that would not be reconstituted
+properly. To support cases like this C<Sereal> supports a FREEZE and
+THAW api. When objects are serialized their FREEZE method is asked for a
+replacement representation, and when objects are deserialized their THAW
+method is asked to convert that replacement back to something useful.
+
+For security reasons decoding an object will NOT autoload any modules
+to support THAW, however if the classes and methods are preloaded it
+will invoke THAW as required and an exception will be thrown if the class
+has not been loaded. It is possible to disable THAW in the decoder by using
+the C<no_thaw_objects> option, which when true causes frozen objects to
+be blessed into a special utility class "Sereal::Decoder::THAW_args"
+for debugging. The objects themselves are an array, whose last member
+will contain the class name the arguments are for.
+
+Prior to v4.024 the decoder had issues with frozen representations that
+contained other objects and did not define a specific order that items
+would be thawed and blessed, making it impractical to put an object
+inside of the frozen representation of another object.
+
+As of v4.024 frozen representations may contain other objects, and the
+order in which they are thawed is defined to be LIFO, thus the arguments
+to a THAW method will themselves be thawed (if need be) before the call
+to the containing objects THAW method. Thawing occurs only after all
+simple objects have been blessed into their appropriate object form.
+
+The FREEZE/THAW mechanism is inspired by the equivalent mechanism in
+L<CBOR::XS>. The general mechanism is documented in the
+I<A GENERIC OBJECT SERIALIATION PROTOCOL> section of L<Types::Serialiser>.
+Similar to CBOR using C<CBOR>, Sereal uses the string C<Sereal> as a
+serializer identifier for the callbacks.
 
 =head1 PERFORMANCE
 

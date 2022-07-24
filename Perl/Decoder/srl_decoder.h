@@ -21,10 +21,17 @@ struct srl_decoder {
     UV max_string_length;               /* Configured maximum length of the string */
     UV max_uncompressed_size;           /* Configured maximum size for uncompressed data */
     ptable_ptr ref_seenhash;            /* ptr table for avoiding circular refs */
-    ptable_ptr ref_thawhash;            /* ptr table for dealing with non ref thawed items */
-    ptable_ptr ref_stashes;             /* ptr table for tracking stashes we will bless into - key: ofs, value: stash */
-    ptable_ptr ref_bless_av;            /* ptr table for tracking which objects need to be bless - key: ofs, value: mortal AV (of refs)  */
+    ptable_ptr ref_thawhash;            /* ptr table for tracking which objects need to be thawed.
+                                           key: AV* from thaw args
+                                           value: mortal AV, [ HV *class_stash, SV *ref, ... ]
+                                           note that the key is the SvRV() of the ref parameters
+                                         */
+    ptable_ptr ref_stashes;             /* ptr table for tracking stashes we will bless into.
+                                           key: ofs, value: stash */
+    ptable_ptr ref_bless_av;            /* ptr table for tracking which objects need to be blessed.
+                                           key: ofs, value: mortal AV (of refs)  */
     AV* weakref_av;
+    AV* thaw_av;                        /* AV of refs which have to be thawed */
 
     AV* alias_cache; /* used to cache integers of different sizes. */
     IV alias_varint_under;
@@ -109,7 +116,7 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_F_DECODER_REFUSE_OBJECTS            0x00000080UL
 /* Persistent flag: Make the decoder validate UTT8 strings */
 #define SRL_F_DECODER_VALIDATE_UTF8             0x00000100UL
-/* Persistent flag: Make the encoder forget to bless */
+/* Persistent flag: Make the decoder forget to bless */
 #define SRL_F_DECODER_NO_BLESS_OBJECTS          0x00000200UL
 /* Persistent flag: Destructive incremental parsing */
 #define SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL   0x00000400UL
@@ -129,6 +136,8 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_F_DECODER_DECOMPRESS_ZSTD           0x00020000UL
 /* Persistent flag: Make the decoder REFUSE zstd-compressed documents */
 #define SRL_F_DECODER_REFUSE_ZSTD               0x00040000UL
+/* Persistent flag: Make the decoder forget to thaw */
+#define SRL_F_DECODER_NO_THAW_OBJECTS           0x00080000UL
 
 
 #define SRL_F_DECODER_ALIAS_CHECK_FLAGS   ( SRL_F_DECODER_ALIAS_SMALLINT | SRL_F_DECODER_ALIAS_VARINT | SRL_F_DECODER_USE_UNDEF )
@@ -208,10 +217,13 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_DEC_OPT_STR_MAX_UNCOMPRESSED_SIZE       "max_uncompressed_size"
 #define SRL_DEC_OPT_IDX_MAX_UNCOMPRESSED_SIZE       16
 
+#define SRL_DEC_OPT_STR_NO_THAW_OBJECTS            "no_thaw_objects"
+#define SRL_DEC_OPT_IDX_NO_THAW_OBJECTS            17
+
 /* NOTE WELL: WHEN YOU ADD AN OPTION YOU **MUST** ADD A
  * CORRESPONDING CALL TO SRL_INIT_OPTION() to Decoder.xs */
 
-#define SRL_DEC_OPT_COUNT                           17
+#define SRL_DEC_OPT_COUNT                           18
 
 #if ((PERL_VERSION > 10) || (PERL_VERSION == 10 && PERL_SUBVERSION > 1 ))
 #   define MODERN_REGEXP

@@ -131,6 +131,7 @@ SRL_STATIC_INLINE void srl_track_sv(pTHX_ srl_decoder_t *dec, const U8 *track_po
 SRL_STATIC_INLINE void srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into);
 SRL_STATIC_INLINE SV * srl_follow_refp_alias_reference(pTHX_ srl_decoder_t *dec, UV offset);
 SRL_STATIC_INLINE AV * srl_follow_objectv_reference(pTHX_ srl_decoder_t *dec, UV offset);
+SRL_STATIC_INLINE void srl_thaw_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *sv);
 
 /* FIXME unimplemented!!! */
 SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
@@ -246,9 +247,22 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
         if ( val && SvTRUE(val) )
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS);
 
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_NO_BLESS_OBJECTS);
-        if ( val && SvTRUE(val) )
-            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS);
+        {
+            int thaw_set = 0;
+            my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_NO_THAW_OBJECTS);
+            if ( val ) {
+                thaw_set= 1;
+                if (SvTRUE(val))
+                    SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NO_THAW_OBJECTS);
+            }
+
+            my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_NO_BLESS_OBJECTS);
+            if ( val && SvTRUE(val) ) {
+                SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS);
+                if (!thaw_set)
+                    SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NO_THAW_OBJECTS);
+            }
+        }
 
         my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_VALIDATE_UTF8);
         if ( val && SvTRUE(val) )
@@ -387,6 +401,10 @@ srl_destroy_decoder(pTHX_ srl_decoder_t *dec)
     }
     if (dec->ref_thawhash)
         PTABLE_free(dec->ref_thawhash);
+    if (dec->thaw_av) {
+        SvREFCNT_dec(dec->thaw_av);
+        dec->thaw_av = NULL;
+    }
     if (dec->alias_cache)
         SvREFCNT_dec(dec->alias_cache);
     Safefree(dec);
@@ -684,10 +702,105 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
     }
 }
 
+#define AV_PUSH(into_av, value_sv) STMT_START {     \
+    av_push(into_av, value_sv);                     \
+    SvREFCNT_inc(value_sv);                         \
+} STMT_END
+
+#define SAFE_NEW_AV(the_av) STMT_START {                            \
+    the_av= newAV();                                                \
+    if (!the_av)                                                    \
+        croak("out of memory at %s line %d.", __FILE__, __LINE__);   \
+} STMT_END
+
+#define SAFE_PTABLE_NEW(the_ptr_table) STMT_START {                 \
+    the_ptr_table= PTABLE_new();                                    \
+    if (!the_ptr_table)                                             \
+        croak("out of memory at %s line %d.", __FILE__, __LINE__);   \
+} STMT_END
+
+
+/* register a newly seen frozen object for THAWing later. */
+SRL_STATIC_INLINE void
+srl_track_frozen_object(srl_decoder_t *dec, HV *class_stash, SV *into)
+{
+    AV *info_av;
+    if (!dec->thaw_av)
+        SAFE_NEW_AV(dec->thaw_av);
+
+    AV_PUSH(dec->thaw_av, into);
+
+    if (!dec->ref_thawhash)
+        SAFE_PTABLE_NEW(dec->ref_thawhash);
+
+    PTABLE_store(dec->ref_thawhash, (void *)SvRV(into), (void *)class_stash);
+}
+
+
+/* Fetch or register a reference to an already seen frozen object.
+ * Called during deserialization (push=1) to handle duplicate references
+ * to the same frozen object. Called during finalization (push=) to get
+ * the data required to THAW the item, in this case the 'push' argument
+ * is false.
+ *
+ * Returns as an SV * either an HV or an AV (NULL is theoretically
+ * possibly also but should not occur in the current use). If an HV
+ * then it is the class stash for the item looked up, if an AV then it
+ * is a mortal array that contains a class stash as the first element,
+ * along with the additional items that need to be fixed to point at the
+ * unfrozen item. */
+SRL_STATIC_INLINE SV *
+srl_fetch_register_frozen_object(srl_decoder_t *dec, SV *item, const int push)
+{
+    if (dec->ref_thawhash) {
+        PTABLE_ENTRY_t *tblent = PTABLE_find(dec->ref_thawhash, SvRV(item));
+        if (tblent) {
+            AV *info_av = (AV*)tblent->value;
+            if (push) {
+                if (SvTYPE((SV*)info_av) != SVt_PVAV) {
+                    /* we have an HV* class_stash in the structure right now.
+                     * so we have to upgrade this case to be an AV containing the
+                     * class stash. */
+                    HV *class_stash= (HV*)info_av;
+                    SAFE_NEW_AV(info_av);
+                    sv_2mortal((SV*)info_av);
+                    AV_PUSH(info_av, (SV*)class_stash); /* push the old value into the array */
+                    tblent->value= (void *)info_av; /* point the tblent at this new value */
+                }
+                /* add the item as a duplicate reference for fixups later */
+                AV_PUSH(info_av, item);
+            }
+            return (SV*)info_av;
+        }
+    }
+    return NULL;
+}
+
 SRL_STATIC_INLINE void
 srl_finalize_structure(pTHX_ srl_decoder_t *dec)
 {
     int nobless = SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS);
+    int nothaw = SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NO_THAW_OBJECTS);
+
+    /* At this point the structure should be more or less reconstructed.
+     * The main exception is objects that need to be blessed. We defer
+     * this to as late as possible to avoid triggering DESTROY methods
+     * as part of our deserialization. The blessed objects can be
+     * divided into those which are frozen and thus require a call to
+     * THAW, and those which only required a call to bless.
+     *
+     * We handle the simple case first, as the frozen form of an object
+     * of one class might contain a simple object. In this case the
+     * order we call bless doesn't matter.
+     *
+     * Once all the simple bless operations have been performed we thaw
+     * the frozen items in LIFO order, replacing the referent of the
+     * reference to the frozen form with the thawed replacement. We may
+     * have to do this replacement operation multiple times if there are
+     * multiple references to the same frozen object in the data
+     * structure as the thaw operation occurs so late we cant use the
+     * normal cache mechanism to handle multiple references.
+     */
 
     if (dec->weakref_av)
         av_clear(dec->weakref_av);
@@ -738,37 +851,70 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
                         SRL_RDR_ERROR(dec->pbuf, "object missing from ref_bless_av array?");
                     }
                 } else {
-                    warn("serialization contains a duplicated key, ignoring");
+                    warn("Not blessing object that would be DESTROYed immediately. Malformed packet?");
                 }
                 SvREFCNT_dec(obj);
             }
         }
         PTABLE_iter_free(it);
     }
+    /* And finally after all the simple blessing is done we need to handle any FROZEN
+     * objects by calling their THAW method. We have to do this last as their frozen
+     * representation may contain simple objects created during the bless phase above.
+     */
+    if (dec->thaw_av) {
+        IV thaw_av_len= av_len(dec->thaw_av) + 1;
+        HV *debug_class= NULL;
+
+        /* Everything should be blessed now, so call thaw on each FROZEN
+         * object in LIFO order. Each frozen object will have at least one
+         * reference to it that must be fixed, there may be more if the same
+         * object was referenced multiple times in the data structure.
+         * For each item in thaw_av there should be a corresponding av with
+         * the class stash and any additional items that need to be fixed
+         * in it.
+         */
+        for ( ; thaw_av_len > 0 ; thaw_av_len-- ) {
+            SV *sv = av_pop(dec->thaw_av);
+            HV *class_stash = (HV*)srl_fetch_register_frozen_object(aTHX_ dec, sv, 0);
+            AV *additional_refs= NULL;
+            IV fixups = 0;
+            if (SvTYPE(class_stash) == SVt_PVAV) {
+                additional_refs = (AV*)class_stash;
+                fixups = av_len(additional_refs); /* no +1 because we do it before the class_stash shift */
+                class_stash = (HV *)av_shift((AV*)additional_refs);
+                SvREFCNT_dec(class_stash);
+            }
+            if (nothaw) {
+                /* do not actually thaw. In order to make it easier to find these cases in a dump
+                 * we push the class name into the AV, and then bless it into a special class
+                 * private to the Sereal project. */
+                char *classname = HvNAME(class_stash);
+                AV *av= (AV*)SvRV(sv);
+                if (!debug_class) {
+                    debug_class = gv_stashpvs("Sereal::Decoder::THAW_args",1);
+                }
+                av_push(av,newSVpvn(classname, strlen(classname)));
+                sv_bless(sv,debug_class);
+            } else {
+                /* thaw the first ref. */
+                srl_thaw_object(aTHX_ dec, class_stash, sv);
+                /* if there are any additional refs then stitch them in */
+                for ( ; fixups > 0; fixups--) {
+                    SV* into = av_pop(additional_refs);
+                    SvREFCNT_dec(SvRV(into));
+                    SvRV_set(into, SvRV(sv));
+                    SvREFCNT_inc(SvRV(sv));
+                    SvREFCNT_dec(into);
+                }
+            }
+            SvREFCNT_dec(sv);
+        }
+    }
 }
 
 
 /* PRIVATE UTILITY FUNCTIONS */
-
-SRL_STATIC_INLINE void
-srl_track_thawed(srl_decoder_t *dec, const U8 *track_pos, SV *sv)
-{
-    if (!dec->ref_thawhash)
-        dec->ref_thawhash = PTABLE_new();
-    PTABLE_store(dec->ref_thawhash, (void *)(track_pos - dec->buf.body_pos), (void *)sv);
-}
-
-
-SRL_STATIC_INLINE SV *
-srl_fetch_thawed(srl_decoder_t *dec, UV item)
-{
-    if (dec->ref_thawhash) {
-        SV *sv= (SV *)PTABLE_fetch(dec->ref_thawhash, (void *)item);
-        return sv;
-    } else {
-        return NULL;
-    }
-}
 
 SRL_STATIC_INLINE void
 srl_track_sv(pTHX_ srl_decoder_t *dec, const U8 *track_pos, SV *sv)
@@ -1139,7 +1285,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         DEPTH_DECREMENT(dec);
 }
 
-
+/* read reference to next thing */
 SRL_STATIC_INLINE void
 srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
 {
@@ -1224,22 +1370,17 @@ srl_follow_objectv_reference(pTHX_ srl_decoder_t *dec, UV offset)
     return av;
 }
 
+/* reuse a reference to a previous item */
 SRL_STATIC_INLINE void
 srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into)
 {
     /* something we did before */
-    UV item= srl_read_varint_uv_offset(aTHX_ dec->pbuf, " while reading REFP tag");
-    SV *thawed= srl_fetch_thawed(dec, item);
-    SV *referent;
-    if (thawed) {
-        sv_setsv(into, thawed);
-        return;
-    }
-    referent= srl_fetch_item(aTHX_ dec, item, "REFP");
+    UV ofs= srl_read_varint_uv_offset(aTHX_ dec->pbuf, " while reading REFP tag");
+    SV *referent= srl_fetch_item(aTHX_ dec, ofs, "REFP");
 
 #ifdef FOLLOW_REFERENCES_IF_NOT_STASHED
     if (referent == NULL)
-        referent = srl_follow_refp_alias_reference(aTHX_ dec, item);
+        referent = srl_follow_refp_alias_reference(aTHX_ dec, ofs);
 #endif
 
     (void)SvREFCNT_inc(referent);
@@ -1254,6 +1395,7 @@ srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into)
             SvAMAGIC_on(into);
     }
 #endif
+    srl_fetch_register_frozen_object(aTHX_ dec, into, 1);
 }
 
 
@@ -1327,9 +1469,9 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
         HV *class_stash= (HV *) PTABLE_fetch(dec->ref_stashes, (void *)ofs);
         if (expect_false( class_stash == NULL ))
             SRL_RDR_ERROR(dec->pbuf, "Corrupted packet. OBJECTV(_FREEZE) used without "
-                      "preceding OBJECT(_FREEZE) to define classname");
+                          "preceding OBJECT(_FREEZE) to define classname");
         srl_read_frozen_object(aTHX_ dec, class_stash, into);
-    }  else {
+    } else {
         /* SRL_HDR_OBJECTV, not SRL_HDR_OBJECTV_FREEZE */
         /* now deparse the thing we are going to bless */
         srl_read_single_value(aTHX_ dec, into, NULL);
@@ -1349,6 +1491,7 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
         }
 #endif
     }
+
 }
 
 SRL_STATIC_INLINE void
@@ -1476,15 +1619,16 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
     assert(obj_tag != 0);
 #endif
 
+    SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE);
     if (expect_false( obj_tag == SRL_HDR_OBJECT_FREEZE )) {
         srl_read_frozen_object(aTHX_ dec, class_stash, into);
-    }  else {
+    } else {
+
         /* We now have a stash so we /could/ bless... except that
          * we don't actually want to do so right now. We want to defer blessing
          * until the full packet has been read. Yes it is more overhead, but
          * we really dont want to trigger DESTROY methods from a partial
          * deparse. So we insert the item into an array to be blessed later. */
-        SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE);
         av_push(av, SvREFCNT_inc(into));
 
         /* now deparse the thing we are going to bless */
@@ -1495,35 +1639,32 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
         if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS))
             sv_bless(into, class_stash);
 #endif
-
     }
+}
+
+
+SRL_STATIC_INLINE void
+srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
+{
+    const unsigned char *fixup_pos= dec->buf.pos + 1; /* get the tag for the WHATEVER */
+    srl_read_single_value(aTHX_ dec, into, NULL);
+
+    srl_track_frozen_object(aTHX_ dec, class_stash, into);
 }
 
 /* Invoke a THAW callback on the given class. Pass in the next item in the
  * decoder stream. This is implementing the FREEZE/THAW part of
  * SRL_HDR_OBJECT_FREEZE and SRL_HDR_OBJECTV_FREEZE. */
-
 SRL_STATIC_INLINE void
-srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
+srl_thaw_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
 {
     GV *method = gv_fetchmethod_autoload(class_stash, "THAW", 0);
     char *classname = HvNAME(class_stash);
-    SV* referent;
-    SV *replacement;
-
-    /* At this point in the input stream we should have REFN WHATEVER. The WHATEVER
-     * may be referenced from multiple RV's in the data structure, which means that
-     * srl_read_single_value() will cache the *unthawed* representation when we finally
-     * process it. So we need to do some special bookkeeping here and then overwrite
-     * that representation in the refs hash.
-     */
-
-    const unsigned char *fixup_pos= dec->buf.pos + 1; /* get the tag for the WHATEVER */
+    SV *replacement = NULL;
+    AV *arg_av;
 
     if (expect_false( method == NULL ))
-        SRL_RDR_ERRORf1(dec->pbuf, "No THAW method defined for class '%s'", HvNAME(class_stash));
-
-    srl_read_single_value(aTHX_ dec, into, NULL);
+        SRL_RDR_ERRORf1(dec->pbuf, "No THAW method defined for class '%s'", classname);
 
     /* Assert that we got a top level array ref as the spec requires.
      * Not throwing an exception here violates expectations down the line and
@@ -1532,9 +1673,9 @@ srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
         SRL_RDR_ERROR(dec->pbuf, "Corrupted packet. OBJECT(V)_FREEZE used without "
                   "being followed by an array reference");
 
+    arg_av= (AV*)SvRV(into);
     {
         int count;
-        AV *arg_av= (AV*)SvRV(into);
         int arg_av_len = av_len(arg_av)+1;
         dSP;
 
@@ -1542,10 +1683,11 @@ srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
         SAVETMPS;
         PUSHMARK(SP);
 
-        EXTEND(SP, 3);
+        EXTEND(SP, 2+arg_av_len);
         /* TODO Consider more caching for some of this */
         PUSHs(sv_2mortal(newSVpvn(classname, strlen(classname))));
-        /* FIXME do not recreate the following SV. That's dumb and wasteful! - so long as it doesnt get modified! */
+        /* FIXME do not recreate the following SV. That's dumb and wasteful! -
+         * So long as it doesnt get modified! */
         PUSHs(sv_2mortal(newSVpvs("Sereal")));
         /* Push the args into the stack */
         for (count=0 ; count < arg_av_len; count++) {
@@ -1560,8 +1702,6 @@ srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
         if (expect_true( count == 1 )) {
             replacement = POPs;
             SvREFCNT_inc(replacement);
-        } else {
-            replacement = &PL_sv_undef;
         }
         /* If count is not 1, then it's 0. Then into is already undef. */
 
@@ -1569,25 +1709,14 @@ srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
         FREETMPS;
         LEAVE;
     }
+    SvREFCNT_dec(arg_av);
 
-    /* At this point "into" is an SvRV pointing at the *unthawed* representation.
-     * This means we need to a) remove the old unthawed item and dispose of it
-     * and b) make "into" point at the replacement, and c) if necessary store the
-     * replacement in the sv tracking hash so that future references to this item
-     * point at the *thawed* version. */
     if (SvROK(replacement)) {
-        SV *tmpsv= replacement;
-        replacement= SvRV(tmpsv);
-        SvREFCNT_inc(replacement);
-        SvREFCNT_dec(tmpsv);
-        referent= SvRV(into);
-        SvRV_set(into, replacement);
-        SvREFCNT_dec(referent);
-        if (*fixup_pos & SRL_HDR_TRACK_FLAG)
-            srl_track_sv(aTHX_ dec, fixup_pos, replacement);
-    } else if (*fixup_pos & SRL_HDR_TRACK_FLAG) {
-        srl_track_thawed(dec, fixup_pos, replacement);
-        sv_setsv(into, replacement);
+        SvRV_set(into,  SvRV(replacement));
+        SvREFCNT_inc(SvRV(replacement));
+        SvREFCNT_dec(replacement);
+    } else {
+        SvRV_set(into, newSV(0));
     }
 }
 
