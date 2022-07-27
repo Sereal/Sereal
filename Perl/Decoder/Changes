@@ -5,6 +5,11 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 4 of the *
 *          encoder!                                            *
 ****************************************************************
+4.024 Wed Jul 27, 2022
+    * Total rework of how THAW is invoked to resolve issues with
+      frozen representations containing blessed objects.
+
+
 4.023 Sun Feb 20, 2022
     * Make it possible to upgrade with passing tests when using
       Sereal::Decoder 4.015 - 4.019 on threaded debugging perls.

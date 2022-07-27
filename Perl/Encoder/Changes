@@ -5,6 +5,15 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 4 of the *
 *          encoder!                                            *
 ****************************************************************
+4.024 Wed Jul 27, 2022
+    * Changes to the FREEZE/THAW mechanism. Remove the part that
+      says that FREEZE cannot return a list. It can, and we have
+      supported it for a very long time, although I have not checked
+      how far back this support goes. If you use the FREEZE/THAW
+      API's you should upgrade to this version.
+    * Test fixes for t/020_sort_keys.t hanging on some perls
+      which do not come bundled with Hash::Util.
+
 4.023 Sun Feb 20, 2022
     * Make it possible to upgrade with passing tests when using
       Sereal::Decoder 4.015 - 4.019 on threaded debugging perls.
