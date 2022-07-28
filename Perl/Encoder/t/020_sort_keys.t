@@ -14,9 +14,21 @@ use List::Util qw(shuffle);
 use Test::More;
 
 BEGIN {
-    eval "use Hash::Util 'num_buckets'; 1"
-        or eval "sub num_buckets(\\%) { (split( m!/!, scalar %{\$_[0]}))[-1] } 1"
-        or die "Failed to set up num_buckets: $@";
+    if (!eval "use Hash::Util 'num_buckets'; 1") {
+        my %hash= ( test => 1);
+        my $scalar= scalar(%hash);
+        if ($scalar=~m!/!) {
+            eval "sub num_buckets(\\%) { (split( m!/!, scalar %{\$_[0]}))[-1] } 1"
+        } else {
+            plan skip_all => "Hash::Util not installed, this is perl $], scalar(%h)='$scalar'";
+        }
+    }
+}
+
+my %test= ( foo => 1, bar => 2);
+my $num_buckets= num_buckets(%test);
+if ($num_buckets < 8) {
+    plan skip_all => "num_buckets() not working as expected.";
 }
 
 # This logic needs to be revisted...
@@ -52,7 +64,7 @@ my %copy= %hash;
 my $copy_keys= join "", keys %copy;
 
 my %bigger= %hash;
-keys(%bigger)= $max++ while num_buckets(%bigger) eq num_buckets(%hash);
+keys(%bigger)= 1024;
 
 my %shuffled;
 $shuffled{$_}= $hash{$_} for shuffle keys %hash;
@@ -88,4 +100,3 @@ foreach my $x ( 0 .. $#keys ) {
         }
     }
 }
-
