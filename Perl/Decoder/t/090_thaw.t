@@ -11,7 +11,7 @@ BEGIN {
 }
 use Test::More;
 use Sereal::TestSet qw(:all);
-use Sereal::Decoder;
+use Sereal::Decoder qw(decode_sereal);
 use Data::Dumper;
 
 if ( !have_encoder_and_decoder() ) {
@@ -37,8 +37,6 @@ package Matcher {
 	}
 }
 
-use Sereal::Encoder;
-use Sereal::Decoder qw(decode_sereal);
 
 my $encoder_plain  = Sereal::Encoder->new();
 my $encoder_freeze = Sereal::Encoder->new({ freeze_callbacks => 1 });

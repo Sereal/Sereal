@@ -53,6 +53,7 @@ t/060_each.t
 t/070_alias_options.t
 t/071_alias_reserealize.t
 t/080_set_readonly.t
+t/090_thaw.t
 t/110_nobless.t
 t/150_dec_exception.t
 t/155_zipbomb.t

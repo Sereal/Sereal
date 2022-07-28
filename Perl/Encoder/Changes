@@ -5,6 +5,10 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 4 of the *
 *          encoder!                                            *
 ****************************************************************
+4.025 Thr Jul 28, 2022
+    * Release with build fixes for the Decoder under threaded
+      perls and MANIFEST update.
+
 4.024 Wed Jul 27, 2022
     * Changes to the FREEZE/THAW mechanism. Remove the part that
       says that FREEZE cannot return a list. It can, and we have

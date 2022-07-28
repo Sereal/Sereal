@@ -722,7 +722,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
 
 /* register a newly seen frozen object for THAWing later. */
 SRL_STATIC_INLINE void
-srl_track_frozen_object(srl_decoder_t *dec, HV *class_stash, SV *into)
+srl_track_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
 {
     AV *info_av;
     if (!dec->thaw_av)
@@ -750,7 +750,7 @@ srl_track_frozen_object(srl_decoder_t *dec, HV *class_stash, SV *into)
  * along with the additional items that need to be fixed to point at the
  * unfrozen item. */
 SRL_STATIC_INLINE SV *
-srl_fetch_register_frozen_object(srl_decoder_t *dec, SV *item, const int push)
+srl_fetch_register_frozen_object(pTHX_ srl_decoder_t *dec, SV *item, const int push)
 {
     if (dec->ref_thawhash) {
         PTABLE_ENTRY_t *tblent = PTABLE_find(dec->ref_thawhash, SvRV(item));
