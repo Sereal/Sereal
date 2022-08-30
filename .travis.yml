@@ -27,6 +27,9 @@ before_install:
 
 language: perl
 perl:
+  - "5.36"
+  - "5.34"
+  - "5.32"
   - "5.30"
   - "5.28"
   - "5.20"
