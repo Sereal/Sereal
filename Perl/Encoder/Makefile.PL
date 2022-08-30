@@ -66,7 +66,7 @@ inc::Sereal::BuildTools::WriteMakefile(
         'File::Spec'        => '0',
         'Hash::Util'        => '0',
         'Scalar::Util'      => '0',
-        'Sereal::Decoder'   => '4.002',
+        'Sereal::Decoder'   => '5.000',
         'Test::Deep'        => '0',
         'Test::Differences' => '0',
         'Test::LongString'  => '0',

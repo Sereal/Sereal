@@ -4,7 +4,7 @@ use warnings;
 require Exporter;
 our @ISA= qw(Exporter);
 
-our $VERSION= '4.025'; # Don't forget to update the TestCompat set for testing against installed encoders!
+our $VERSION= '5.000_000'; # Don't forget to update the TestCompat set for testing against installed encoders!
 
 our ( @EXPORT_OK, %DEFINE, %TAG_INFO_HASH, @TAG_INFO_ARRAY );
 
@@ -26,6 +26,7 @@ BEGIN {
         "SRL_HDR_EXTEND"                           => 62,
         "SRL_HDR_FALSE"                            => 58,
         "SRL_HDR_FLOAT"                            => 34,
+        "SRL_HDR_FLOAT_128"                        => 56,
         "SRL_HDR_HASH"                             => 42,
         "SRL_HDR_HASHREF"                          => 80,
         "SRL_HDR_HASHREF_HIGH"                     => 95,
@@ -35,6 +36,7 @@ BEGIN {
         "SRL_HDR_NEG"                              => 16,
         "SRL_HDR_NEG_HIGH"                         => 31,
         "SRL_HDR_NEG_LOW"                          => 16,
+        "SRL_HDR_NO"                               => 52,
         "SRL_HDR_OBJECT"                           => 44,
         "SRL_HDR_OBJECTV"                          => 45,
         "SRL_HDR_OBJECTV_FREEZE"                   => 51,
@@ -47,9 +49,9 @@ BEGIN {
         "SRL_HDR_REFN"                             => 40,
         "SRL_HDR_REFP"                             => 41,
         "SRL_HDR_REGEXP"                           => 49,
-        "SRL_HDR_RESERVED"                         => 52,
-        "SRL_HDR_RESERVED_HIGH"                    => 56,
-        "SRL_HDR_RESERVED_LOW"                     => 52,
+        "SRL_HDR_RESERVED"                         => 54,
+        "SRL_HDR_RESERVED_HIGH"                    => 55,
+        "SRL_HDR_RESERVED_LOW"                     => 54,
         "SRL_HDR_SHORT_BINARY"                     => 96,
         "SRL_HDR_SHORT_BINARY_HIGH"                => 127,
         "SRL_HDR_SHORT_BINARY_LOW"                 => 96,
@@ -59,16 +61,17 @@ BEGIN {
         "SRL_HDR_UNDEF"                            => 37,
         "SRL_HDR_VARINT"                           => 32,
         "SRL_HDR_WEAKEN"                           => 48,
+        "SRL_HDR_YES"                              => 53,
         "SRL_HDR_ZIGZAG"                           => 33,
         "SRL_MAGIC_STRING"                         => "=srl",
         "SRL_MAGIC_STRING_HIGHBIT"                 => "=\363rl",
-        "SRL_MAGIC_STRING_HIGHBIT_UINT_BE"         => "1039364716",
-        "SRL_MAGIC_STRING_HIGHBIT_UINT_LE"         => "1819472701",
+        "SRL_MAGIC_STRING_HIGHBIT_UINT_BE"         => 1039364716,
+        "SRL_MAGIC_STRING_HIGHBIT_UINT_LE"         => 1819472701,
         "SRL_MAGIC_STRING_HIGHBIT_UTF8"            => "=\303\263rl",
-        "SRL_MAGIC_STRING_HIGHBIT_UTF8_UINT_BE"    => "1036235634",
-        "SRL_MAGIC_STRING_HIGHBIT_UTF8_UINT_LE"    => "1924383549",
-        "SRL_MAGIC_STRING_UINT_BE"                 => "1030976108",
-        "SRL_MAGIC_STRING_UINT_LE"                 => "1819439933",
+        "SRL_MAGIC_STRING_HIGHBIT_UTF8_UINT_BE"    => 1036235634,
+        "SRL_MAGIC_STRING_HIGHBIT_UTF8_UINT_LE"    => 1924383549,
+        "SRL_MAGIC_STRING_UINT_BE"                 => 1030976108,
+        "SRL_MAGIC_STRING_UINT_LE"                 => 1819439933,
         "SRL_MAGIC_STRLEN"                         => 4,
         "SRL_MASK_ARRAYREF_COUNT"                  => 15,
         "SRL_MASK_HASHREF_COUNT"                   => 15,
@@ -83,7 +86,7 @@ BEGIN {
         "SRL_PROTOCOL_ENCODING_ZSTD"               => 64,
         "SRL_PROTOCOL_HDR_CONTINUE"                => 8,
         "SRL_PROTOCOL_HDR_USER_DATA"               => 1,
-        "SRL_PROTOCOL_VERSION"                     => 4,
+        "SRL_PROTOCOL_VERSION"                     => 5,
         "SRL_PROTOCOL_VERSION_BITS"                => 4,
         "SRL_PROTOCOL_VERSION_MASK"                => 15
     );
@@ -602,13 +605,30 @@ push @EXPORT_OK, keys %DEFINE;
 
     # autoupdated by Sereal.git:Perl/shared/author_tools/update_from_header.pl do not modify directly!
     {
-        "comment"    => "reserved",
+        "comment"    => "SvIsBOOL() == PL_No,  5.36 and later only (json false)",
+        "name"       => "NO",
+        "type_name"  => "NO",
+        "type_value" => 52,
+        "value"      => 52
+    },
+
+    # autoupdated by Sereal.git:Perl/shared/author_tools/update_from_header.pl do not modify directly!
+    {
+        "comment"    => "SvIsBOOL() == PL_Yes, 5.36 and later only (json true)",
+        "name"       => "YES",
+        "type_name"  => "YES",
+        "type_value" => 53,
+        "value"      => 53
+    },
+
+    # autoupdated by Sereal.git:Perl/shared/author_tools/update_from_header.pl do not modify directly!
+    {
         "masked"     => 1,
         "masked_val" => 0,
         "name"       => "RESERVED_0",
         "type_name"  => "RESERVED",
-        "type_value" => 52,
-        "value"      => 52
+        "type_value" => 54,
+        "value"      => 54
     },
 
     # autoupdated by Sereal.git:Perl/shared/author_tools/update_from_header.pl do not modify directly!
@@ -617,37 +637,16 @@ push @EXPORT_OK, keys %DEFINE;
         "masked_val" => 1,
         "name"       => "RESERVED_1",
         "type_name"  => "RESERVED",
-        "type_value" => 52,
-        "value"      => 53
-    },
-
-    # autoupdated by Sereal.git:Perl/shared/author_tools/update_from_header.pl do not modify directly!
-    {
-        "masked"     => 1,
-        "masked_val" => 2,
-        "name"       => "RESERVED_2",
-        "type_name"  => "RESERVED",
-        "type_value" => 52,
-        "value"      => 54
-    },
-
-    # autoupdated by Sereal.git:Perl/shared/author_tools/update_from_header.pl do not modify directly!
-    {
-        "masked"     => 1,
-        "masked_val" => 3,
-        "name"       => "RESERVED_3",
-        "type_name"  => "RESERVED",
-        "type_value" => 52,
+        "type_value" => 54,
         "value"      => 55
     },
 
     # autoupdated by Sereal.git:Perl/shared/author_tools/update_from_header.pl do not modify directly!
     {
-        "masked"     => 1,
-        "masked_val" => 4,
-        "name"       => "RESERVED_4",
-        "type_name"  => "RESERVED",
-        "type_value" => 52,
+        "comment"    => "quadmath _float128",
+        "name"       => "FLOAT_128",
+        "type_name"  => "FLOAT_128",
+        "type_value" => 56,
         "value"      => 56
     },
 

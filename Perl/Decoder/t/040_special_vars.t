@@ -46,6 +46,9 @@ foreach (
     my ( $name, $var, $todo )= @$_;
     TODO: {
         todo_skip $todo, 1 if $todo;
-        is( desc_special( $dec->decode( $enc->encode($var) ) ), desc_special($var), $name );
+        my $want= desc_special($var);
+        is( desc_special( $dec->decode( $enc->encode($var) ) ), $want, $name . " ($want)" );
+        use Devel::Peek;
+        Dump($dec->decode( $enc->encode($var) ) );
     }
 }

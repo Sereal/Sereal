@@ -194,11 +194,29 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
 #define DO_POK_REGEXP(enc, src, svt) /*no-op*/
 #endif
 
+
+
+#ifdef SvIsBOOL
+#define _SRL_CHECK_BOOL(enc, src, svt)                          \
+        if (SvIsBOOL(src)) {                                    \
+            if (PV == PL_No) {                                  \
+                srl_buf_cat_char(&enc->buf, SRL_HDR_NO);        \
+            } else {                                            \
+                assert(PV == Pl_Yes);                           \
+                srl_buf_cat_char(&enc->buf, SRL_HDR_YES);       \
+            }                                                   \
+        }                                                       \
+        else
+#else
+#define _SRL_CHECK_BOOL(enc, src, svt)
+#endif
+
 #define _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt)                        \
     if (SvPOK(src)) {                                                       \
         STRLEN L;                                                           \
         char *PV= SvPV(src, L);                                             \
         if ( SvIOK(src) ) {                                                 \
+            _SRL_CHECK_BOOL(enc, src, svt)                                  \
             if ( SvIV(src) == 0 ) {                                         \
                 if ( L == 1 && PV[0] == '0' ) {                             \
                     /* its a true 0 */                                      \
@@ -617,6 +635,10 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
         my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_MAX_RECURSION_DEPTH);
         if ( val && SvTRUE(val) )
             enc->max_recursion_depth = SvUV(val);
+
+        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_USE_STANDARD_DOUBLE);
+        if ( val && SvTRUE(val) )
+            SRL_ENC_SET_OPTION(enc, SRL_F_USE_STANDARD_DOUBLE);
     }
     else {
         /* SRL_F_SHARED_HASHKEYS on by default */
@@ -775,18 +797,28 @@ srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
     MS_VC6_WORKAROUND_VOLATILE double d= (double)nv;
     /* TODO: this logic could be reworked to not duplicate so much code, which will help on win32 */
     if ( f == nv || nv != nv ) {
-        BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(f)); /* heuristic: header + string + simple value */
+        BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(f)); /* tag + payload */
         srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_FLOAT);
         Copy((char *)&f, enc->buf.pos, sizeof(f), char);
         enc->buf.pos += sizeof(f);
-    } else if (d == nv) {
-        BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(d)); /* heuristic: header + string + simple value */
+    } else if (!HAS_LONG_FLOAT ||
+               d == nv ||
+               SRL_ENC_HAVE_OPTION(enc,SRL_F_USE_STANDARD_DOUBLE)
+    ) {
+        BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(d)); /* tag + payload */
         srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_DOUBLE);
         Copy((char *)&d, enc->buf.pos, sizeof(d), char);
         enc->buf.pos += sizeof(d);
     } else {
-        BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(nv)); /* heuristic: header + string + simple value */
-        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_LONG_DOUBLE);
+        assert(HAS_LONG_FLOAT);
+        BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(nv)); /* tag + payload */
+        srl_buf_cat_char_nocheck(&enc->buf,
+#ifdef HAS_QUADMATH
+                SRL_HDR_FLOAT_128
+#else
+                SRL_HDR_LONG_DOUBLE
+#endif
+        );
         Copy((char *)&nv, enc->buf.pos, sizeof(nv), char);
 #if SRL_EXTENDED_PRECISION_LONG_DOUBLE
         /* x86 uses an 80 bit extended precision. on 64 bit machines
@@ -1858,4 +1890,3 @@ redo_dump:
     }
     --enc->recursion_depth;
 }
-

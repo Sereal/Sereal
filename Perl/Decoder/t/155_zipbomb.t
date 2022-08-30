@@ -46,7 +46,7 @@ else {
         my $hugeblob= $enc->encode(MONSTER_BLOB);
 
         # Snappy compression
-        is(vec($hugeblob, 4, 8), 36);
+        ok(abs(vec($hugeblob, 4, 8)-36)<=1);
 
         # Lets validate we have the expected uncompress size: 100MB
         is(vec($hugeblob, 10, 8), 134);
@@ -74,7 +74,7 @@ else {
         my $hugeblob= $enc->encode(MONSTER_BLOB);
 
         # zlib compression
-        is(vec($hugeblob, 4, 8), 52);
+        ok(abs(vec($hugeblob, 4, 8)-52)<=1);
 
         # Lets validate we have the expected uncompress size: 100MB
         is(vec($hugeblob, 6, 8), 134);
@@ -102,7 +102,7 @@ else {
         my $hugeblob= $enc->encode(MONSTER_BLOB);
 
         # zstd compression
-        is(vec($hugeblob, 4, 8), 68);
+        ok(abs(vec($hugeblob, 4, 8)-68)<=1);
 
         # Lets validate we have the expected uncompress size: 100MB
         is(vec($hugeblob, 25, 8), 129);

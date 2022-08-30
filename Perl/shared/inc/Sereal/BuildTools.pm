@@ -145,6 +145,13 @@ sub build_defines {
             grep { exists $ENV{$_} } ( qw(NOINLINE DEBUG MEMDEBUG NDEBUG), @defs ) );
 
     $defines .= " -DNDEBUG" unless $ENV{DEBUG};
+
+    if ($Config{usequadmath}) {
+        $defines .= " -DHAS_QUADMATH";
+    } elsif ($Config{uselongdouble}) {
+        $defines .= " -DHAS_LONGDOUBLE";
+    }
+
     if ( $Config{osname} eq 'hpux' && not $Config{gccversion} ) {
 
         # HP-UX cc does not support inline.

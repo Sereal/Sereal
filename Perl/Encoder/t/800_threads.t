@@ -5,7 +5,7 @@ use Test::More;
 
 BEGIN {
     use Config;
-    if ( !$Config{'useithreads'} ) {
+    if ( !$Config{'useithreads'} and !$Config{'usethreads'} ) {
         print("1..0 # SKIP Perl not compiled with 'useithreads'\n");
         exit(0);
     }

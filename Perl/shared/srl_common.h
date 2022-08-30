@@ -14,6 +14,15 @@
 #define expect_true(expr)  expect((expr) != 0, 1)
 
 /* these defines are somewhat borrowed from miniz.c */
+#ifndef HAS_LONGDOUBLE
+#define SRL_EXTENDED_PRECISION_LONG_DOUBLE 0
+#endif
+
+#ifdef HAS_QUADMATH
+#define SRL_EXTENDED_PRECISION_LONG_DOUBLE 0
+#endif
+
+#define HAS_LONG_FLOAT (sizeof(NV) > sizeof(double))
 
 #if defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || defined(__i386) || defined(__i486__) || defined(__i486) || defined(i386) || defined(__ia64__) || defined(__x86_64__) || defined(__x86_64)
 /* SRL_X86_OR_X64_CPU is only used to help set the below macros. */

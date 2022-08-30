@@ -5,12 +5,14 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION= '4.025'; # Don't forget to update the TestCompat set for testing against installed decoders!
+our $VERSION= '5.000_000'; # Don't forget to update the TestCompat set for testing against installed decoders!
 our $XS_VERSION= $VERSION; $VERSION= eval $VERSION;
 
 # not for public consumption, just for testing.
 ( my $num_version= $VERSION ) =~ s/_//;
-my $TestCompat= [ map sprintf( "%.2f", $_ / 100 ), reverse( 400 .. int( $num_version * 100 ) ) ]; # compat with 4.00 to ...
+my $TestCompat= [ map sprintf( "%.2f", $_ / 100 ),
+                  reverse( 400 .. int( $num_version * 100 ) )
+                ]; # compat with 4.00 to ...
 sub _test_compat { return ( @$TestCompat, $VERSION ) }
 
 # Make sure to keep these constants in sync with the C code in srl_encoder.c.
@@ -435,6 +437,15 @@ but at the cost of potential action at a distance due to the aliasing.
 
 I<Beware:> The test suite currently does not cover this option as well as it
 probably should. Patches welcome.
+
+=head3 use_standard_double
+
+This option can be used to force Perls built with uselongdouble or quadmath
+to use DOUBLE instead of the native floating point. This can be helpful
+interoperating with Perls which do not support larger sized floats. Note
+that "uselongdouble" means different things in different places, so this
+option may be helpful for such builds. We do not enable this option by default
+for backwards compatibility reasons, and because doing so would lose precision.
 
 =head3 protocol_version
 

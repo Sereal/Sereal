@@ -120,6 +120,7 @@ SRL_STATIC_INLINE void srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_double(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_float(pTHX_ srl_decoder_t *dec, SV* into);
+SRL_STATIC_INLINE void srl_read_float_128(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into);
 SRL_STATIC_INLINE void srl_read_varint_into(pTHX_ srl_decoder_t *dec, SV* into, SV** container, const U8 *track_it);
 SRL_STATIC_INLINE void srl_read_zigzag_into(pTHX_ srl_decoder_t *dec, SV* into, SV** container, const U8 *track_it);
@@ -1062,6 +1063,9 @@ union myfloat {
     float f;
     double d;
     long double ld;
+#ifdef HAS_QUADMATH
+    __float128 nv;
+#endif
 };
 
 /* XXX Most (if not all?) non-x86 platforms are strict in their
@@ -1081,6 +1085,25 @@ srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
     sv_setnv(into, (NV)val.f);
     dec->buf.pos+= sizeof(float);
 }
+
+/* XXX Most (if not all?) non-x86 platforms are strict in their
+ * floating point alignment.  So maybe this logic should be the other
+ * way: default to strict, and do sloppy only if x86? */
+
+SRL_STATIC_INLINE void
+srl_read_float_128(pTHX_ srl_decoder_t *dec, SV* into)
+{
+#ifdef HAS_QUADMATH
+    union myfloat val;
+    SRL_RDR_ASSERT_SPACE(dec->pbuf, sizeof(NV), " while reading FLOAT");
+    Copy(dec->buf.pos,val.c,sizeof(NV),U8);
+    sv_setnv(into, (NV)val.nv);
+    dec->buf.pos += sizeof(NV);
+#else
+    SRL_RDR_ERROR(dec->pbuf, "FLOAT_128 not supported. No quadmath support in this perl.");
+#endif
+}
+
 
 
 SRL_STATIC_INLINE void
@@ -1906,11 +1929,18 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
         case SRL_HDR_ZIGZAG:        srl_read_zigzag_into(aTHX_ dec, into, container, track_it); break;
 
         case SRL_HDR_FLOAT:         srl_read_float(aTHX_ dec, into);                  break;
+
+        case SRL_HDR_FLOAT_128:     srl_read_float_128(aTHX_ dec, into);              break;
+
         case SRL_HDR_DOUBLE:        srl_read_double(aTHX_ dec, into);                 break;
+
         case SRL_HDR_LONG_DOUBLE:   srl_read_long_double(aTHX_ dec, into);            break;
 
-        case SRL_HDR_TRUE:          sv_setsv(into, &PL_sv_yes);                       break;
+        case SRL_HDR_NO:            /* fallthrough */
         case SRL_HDR_FALSE:         sv_setsv(into, &PL_sv_no);                        break;
+
+        case SRL_HDR_YES:           /* fallthrough */
+        case SRL_HDR_TRUE:          sv_setsv(into, &PL_sv_yes);                       break;
 
         case SRL_HDR_CANONICAL_UNDEF: /* fallthrough (XXX: is this right?)*/
         case SRL_HDR_UNDEF:

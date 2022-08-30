@@ -111,17 +111,17 @@ my $source= { foo => 1 };
     my $encoded= encode_sereal( ["foo"] );
     my $decoded= decode_sereal($encoded);
     is( $decoded->[0],               "foo", "encode_sereal/decode_sereal seem to work" );
-    is( looks_like_sereal($encoded), 4,     "functional looks_like_sereal() works as expected" );
+    is( looks_like_sereal($encoded), 5,     "functional looks_like_sereal() works as expected" );
     is(
-        Sereal::Decoder->new()->looks_like_sereal($encoded), 4,
+        Sereal::Decoder->new()->looks_like_sereal($encoded), 5,
         "object method looks_like_sereal() works as expected"
     );
     is(
-        Sereal::Decoder->looks_like_sereal($encoded), 4,
+        Sereal::Decoder->looks_like_sereal($encoded), 5,
         "class method looks_like_sereal() works as expected"
     );
     is(
-        scalar_looks_like_sereal($encoded), 4,
+        scalar_looks_like_sereal($encoded), 5,
         "functional scalar_looks_like_sereal() works as expected"
     );
     my $eval_ok= eval q{

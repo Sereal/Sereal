@@ -1,10 +1,13 @@
 Revision history for Perl extension Sereal-Decoder
 
 ****************************************************************
-* Warning: For a seamless upgrade, upgrade to version 4        *
-*          of the decoder before upgrading to version 4 of the *
+* Warning: For a seamless upgrade, upgrade to version 5        *
+*          of the decoder before upgrading to version 5 of the *
 *          encoder!                                            *
 ****************************************************************
+5.000_000 Tue Aug 30, 2022
+    * Support quadmath builds with FLOAT_128 tag type.
+
 4.025 Thr Jul 28, 2022
     * Release with build fixes for threaded perls and MANIFEST
       update. Oops.

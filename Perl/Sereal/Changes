@@ -7,12 +7,23 @@ please see the Encoder and Decoder changelogs:
    * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
 
 ****************************************************************
-* Warning: For a seamless upgrade, upgrade to version 4        *
-*          of the decoder before upgrading to version 4 of the *
+* Warning: For a seamless upgrade, upgrade to version 5        *
+*          of the decoder before upgrading to version 5 of the *
 *          encoder! This may mean you should NOT install the   *
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+5.000_000 Tue Aug 30, 2022
+    * Better handling of floating point values
+    * Support quadmath __float128 values as FLOAT_128.
+    * Better longdouble support.
+    * Add encoder option 'use_standard_double' which avoids
+      use of LONG_DOUBLE and FLOAT_128 and forces doubles
+      to go to the wire as DOUBLE instead. By default we use
+      the native double for back compat.
+
+----
+
 4.025 Thr Jul 28, 2022
     * Release with build fixes for the Decoder under threaded
       perls and MANIFEST update.

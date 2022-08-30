@@ -98,6 +98,7 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
  * set since we otherwise croak.  Corresponds to the 'warn_unknown' option. */
 #define SRL_F_WARN_UNKNOWN                      0x00020UL
 
+
 /* WARNING:
  * #define SRL_F_COMPRESS_SNAPPY               0x00040UL
  * #define SRL_F_COMPRESS_SNAPPY_INCREMENTAL   0x00080UL
@@ -140,6 +141,8 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
  * SRL_F_COMPRESS_ZSTD is defined in srl_compress.h
  * #define SRL_F_COMPRESS_ZSTD                  0x40000UL
  */
+
+#define SRL_F_USE_STANDARD_DOUBLE                  0x80000UL
 
 /* ====================================================================
  * oper flags
@@ -242,6 +245,9 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
 #define SRL_ENC_OPT_STR_WARN_UNKNOWN "warn_unknown"
 #define SRL_ENC_OPT_IDX_WARN_UNKNOWN 20
 
-#define SRL_ENC_OPT_COUNT 21
+#define SRL_ENC_OPT_STR_USE_STANDARD_DOUBLE "use_standard_double"
+#define SRL_ENC_OPT_IDX_USE_STANDARD_DOUBLE 21
+
+#define SRL_ENC_OPT_COUNT 22
 
 #endif
