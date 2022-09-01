@@ -7,6 +7,7 @@ Revision history for Perl extension Sereal-Decoder
 ****************************************************************
 5.000_000 Tue Aug 30, 2022
     * Support quadmath builds with FLOAT_128 tag type.
+    * Support YES/NO tags for booleans. Requires perl 5.36.
 
 4.025 Thr Jul 28, 2022
     * Release with build fixes for threaded perls and MANIFEST

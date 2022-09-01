@@ -695,8 +695,14 @@ sub check_for_dependency_issues {
             };
         my $cmp_v= $class->VERSION;
 
-        if ($Class eq $class and $class eq "Sereal::Encoder") {
-            $min_v //= $cmp_v;
+        if (!defined $min_v and $Class eq $class) {
+            if ($class eq "Sereal::Encoder") {
+                $min_v= $cmp_v;
+            } elsif ($class eq "Sereal::Decoder") {
+                if ($0=~m!/v(\d+)/!) {
+                    $min_v= $1;
+                }
+            }
         }
 
         if ( $min_v and $cmp_v < $min_v ) {

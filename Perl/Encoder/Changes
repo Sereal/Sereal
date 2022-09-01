@@ -13,6 +13,8 @@ Revision history for Perl extension Sereal-Encoder
       use of LONG_DOUBLE and FLOAT_128 and forces doubles
       to go to the wire as DOUBLE instead. By default we use
       the native double for back compat.
+    * Add support for YES and NO tags, to match the new booleans
+      we have in Perl. JSON this is for you. Requires Perl 5.36.
 
 4.025 Thr Jul 28, 2022
     * Release with build fixes for the Decoder under threaded

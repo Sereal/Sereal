@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION= '5.000_000'; # Don't forget to update the TestCompat set for testing against installed decoders!
+our $VERSION= '5.000_001'; # Don't forget to update the TestCompat set for testing against installed decoders!
 our $XS_VERSION= $VERSION; $VERSION= eval $VERSION;
 
 # not for public consumption, just for testing.
@@ -857,6 +857,13 @@ which have string and integer values which are completely unrelated to each othe
 Sereal currently will choose the *string* value when it detects these items.
 
 It is possible that a future release of the protocol will fix these issues.
+
+=item Booleans
+
+As of Perl 5.36 and protocol version 5 Sereal now supports booleans. The new
+tags SRL_HDR_YES and SRL_HDR_NO now represent perl bools, the old special
+variables that SRL_HDR_TRUE and SRL_HDR_FALSE may still be generated, but beyond
+being readonly these are equivalent to SRL_HDR_YES and SRL_HDR_NO.
 
 =back
 
