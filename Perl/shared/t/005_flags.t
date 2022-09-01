@@ -24,6 +24,7 @@ else {
 
 sub run_tests {
     my ( $extra_name, $opt_hash )= @_;
+    $opt_hash->{protocol_version} = 3;
 
     my $encoder= Sereal::Encoder->new($opt_hash);
     my $decoder= Sereal::Decoder->new($opt_hash);
@@ -86,4 +87,3 @@ sub run_tests {
         # hobodecode($out);
     }
 }
-

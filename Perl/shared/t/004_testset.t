@@ -17,14 +17,14 @@ use Sereal::TestSet qw(:all);
 use Test::More;
 
 # needs more tests
-ok( _deep_cmp( ["x"], {} ) );
-ok( _deep_cmp( { "x" => 1 }, { "y" => 1 } ) );
-ok( _deep_cmp( { "x" => 1 }, { "x" => 2 } ) );
-ok( _deep_cmp( { "x" => 1 }, { "x" => 2, "y" => 1 } ) );
-ok( !_deep_cmp( { "x" => 1 }, { "x" => 1 } ) );
-ok( !_deep_cmp( ["x"], ["x"] ) );
-ok( _deep_cmp( ["x"], [ "y", "p" ] ) );
-ok( _deep_cmp( [ "a", "x" ], ["y"] ) );
+ok( _test_deep_cmp( ["x"], {} ) );
+ok( _test_deep_cmp( { "x" => 1 }, { "y" => 1 } ) );
+ok( _test_deep_cmp( { "x" => 1 }, { "x" => 2 } ) );
+ok( _test_deep_cmp( { "x" => 1 }, { "x" => 2, "y" => 1 } ) );
+ok( !_test_deep_cmp( { "x" => 1 }, { "x" => 1 } ) );
+ok( !_test_deep_cmp( ["x"], ["x"] ) );
+ok( _test_deep_cmp( ["x"], [ "y", "p" ] ) );
+ok( _test_deep_cmp( [ "a", "x" ], ["y"] ) );
 ok( _cmp_str( "foo", "bar" ) );
 ok( !_cmp_str( "aaa", "aaa" ) );
 ok( _cmp_str( "aaacowbbb", "aaadogbb" ) );

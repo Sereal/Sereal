@@ -198,7 +198,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
 
 #ifdef SvIsBOOL
 #define _SRL_CHECK_BOOL(enc, src, svt)                          \
-        if (SvIsBOOL(src)) {                                    \
+        if (enc->protocol_version >=5 && SvIsBOOL(src)) {       \
             if (PV == PL_No) {                                  \
                 srl_buf_cat_char(&enc->buf, SRL_HDR_NO);        \
             } else {                                            \
@@ -795,15 +795,22 @@ srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
     NV nv= SvNV(src);
     MS_VC6_WORKAROUND_VOLATILE float f= (float)nv;
     MS_VC6_WORKAROUND_VOLATILE double d= (double)nv;
+#ifdef HAS_QUADMATH
+#define LONG_FLOAT_MIN_VER 5
+#else
+#define LONG_FLOAT_MIN_VER 4
+#endif
     /* TODO: this logic could be reworked to not duplicate so much code, which will help on win32 */
     if ( f == nv || nv != nv ) {
         BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(f)); /* tag + payload */
         srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_FLOAT);
         Copy((char *)&f, enc->buf.pos, sizeof(f), char);
         enc->buf.pos += sizeof(f);
-    } else if (!HAS_LONG_FLOAT ||
-               d == nv ||
-               SRL_ENC_HAVE_OPTION(enc,SRL_F_USE_STANDARD_DOUBLE)
+    } else if (
+        !HAS_LONG_FLOAT ||
+        d == nv ||
+        SRL_ENC_HAVE_OPTION(enc,SRL_F_USE_STANDARD_DOUBLE) ||
+        (enc->protocol_version < LONG_FLOAT_MIN_VER)
     ) {
         BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(d)); /* tag + payload */
         srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_DOUBLE);

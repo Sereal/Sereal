@@ -10,8 +10,8 @@ BEGIN {
         if !-d 't';
 }
 use Sereal::TestSet qw(:all);
-
-if ( have_encoder_and_decoder() ) {
+my $problem= check_for_dependency_issues();
+if ( !$problem or $problem!~/is missing/ ) {
     plan tests => 1;
 }
 else {
@@ -20,5 +20,8 @@ else {
 diag "Testing with both encoder and decoder.";
 diag "Sereal::Decoder v$Sereal::Decoder::VERSION";
 diag "Sereal::Encoder v$Sereal::Encoder::VERSION";
-ok(1);
-
+is($problem,"","There should be no Encoder/Decoder dependency problems.")
+    or diag "If this test fails it means you need to upgrade Sereal::Decoder first!\n"
+            . "You are strongly advised to follow this guidance, upgrading the Encoder\n"
+            . "before you upgrade the Decoder may lead to serious problems\n\n"
+            . "YOU HAVE BEEN WARNED.\n\n";

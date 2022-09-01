@@ -15,8 +15,8 @@
 #define SRL_RDR_ERRORf4(buf, fmt, var1, var2, var3, var4)    croak(SRL_RDR_BASE_ERROR_FORMAT(fmt),  (var1), (var2), (var3), (var4), SRL_RDR_BASE_ERROR_ARGS((buf)))
 
 #define SRL_RDR_ERROR_UNIMPLEMENTED(buf, tag, str)           SRL_RDR_ERRORf3((buf), "Tag %u (0x%x) '%s' is unimplemented", (tag), (tag), (str))
-#define SRL_RDR_ERROR_UNEXPECTED(buf, tag, msg)              SRL_RDR_ERRORf2((buf), "Unexpected tag SRL_HDR_%s while expecting %s", SRL_TAG_NAME((tag)), (msg))
-#define SRL_RDR_ERROR_BAD_COPY(buf, tag)                     SRL_RDR_ERRORf1((buf), "While processing tag SRL_HDR_%s encountered a bad COPY tag", SRL_TAG_NAME((tag)))
+#define SRL_RDR_ERROR_UNEXPECTED(buf, tag, msg)              SRL_RDR_ERRORf3((buf), "Unexpected tag SRL_HDR_%s (%02x) while expecting %s", SRL_TAG_NAME((tag)), (tag), (msg))
+#define SRL_RDR_ERROR_BAD_COPY(buf, tag)                     SRL_RDR_ERRORf2((buf), "While processing tag SRL_HDR_%s (%02x) encountered a bad COPY tag", SRL_TAG_NAME((tag)),(tag))
 #define SRL_RDR_ERROR_EOF(buf, msg)                          SRL_RDR_ERRORf1((buf), "Premature end of document while expecting %s", (msg));
 #define SRL_RDR_ERROR_REFUSE_OBJECT(buf)                     SRL_RDR_ERROR((buf),   "Encountered object in input, but the 'refuse_objects' option is in effect");
 #define SRL_RDR_ERROR_PANIC(buf, msg)                        SRL_RDR_ERRORf1((buf), "Panic: %s", msg);
