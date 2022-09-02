@@ -5,6 +5,17 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 5 of the *
 *          encoder!                                            *
 ****************************************************************
+5.000_002
+    * Prerelease CPAN testing. Build fixes for quadmath and
+      longdouble perls. Certain tests were failing with the old
+      versions which were subtly broken on quadmath or longdouble
+      machines. These tests are now skipped on these builds. You
+      will not be able to fully test this platform until you install
+      the Decoder, and then install the Encoder.
+
+5.000_001
+    * Prerelease CPAN testing for 5.000_000.
+
 5.000_000 Tue Aug 30, 2022
     * Better handling of floating point values
     * Support quadmath __float128 values as FLOAT_128.
@@ -15,6 +26,8 @@ Revision history for Perl extension Sereal-Encoder
       the native double for back compat.
     * Add support for YES and NO tags, to match the new booleans
       we have in Perl. JSON this is for you. Requires Perl 5.36.
+
+---
 
 4.025 Thr Jul 28, 2022
     * Release with build fixes for the Decoder under threaded

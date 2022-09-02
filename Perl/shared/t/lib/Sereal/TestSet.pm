@@ -701,6 +701,9 @@ sub check_for_dependency_issues {
             } elsif ($class eq "Sereal::Decoder") {
                 if ($0=~m!/v(\d+)/!) {
                     $min_v= $1;
+                    if ($Config{usequadmath} || $Config{uselongdouble}) {
+                        $min_v= 5;
+                    }
                 }
             }
         }

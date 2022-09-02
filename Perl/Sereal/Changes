@@ -13,6 +13,17 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+5.000_002
+    * Prerelease CPAN testing. Build fixes for quadmath and
+      longdouble perls. Certain tests were failing with the old
+      versions which were subtly broken on quadmath or longdouble
+      machines. These tests are now skipped on these builds. You
+      will not be able to fully test this platform until you install
+      the Decoder, and then install the Encoder.
+
+5.000_001
+    * Prerelease CPAN testing for 5.000_000.
+
 5.000_000 Tue Aug 30, 2022
     * Better handling of floating point values
     * Support quadmath __float128 values as FLOAT_128.
