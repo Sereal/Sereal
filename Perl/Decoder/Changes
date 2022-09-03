@@ -5,6 +5,11 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 5 of the *
 *          encoder!                                            *
 ****************************************************************
+5.001
+    * First official release of protocol 5. Better support for non
+      standard NV types. Support for the new Perl 5.36 bools.
+      Upgrade *Sereal::Decoder* FIRST.
+
 5.000_002
     * Prerelease CPAN testing. Build fixes for quadmath and
       longdouble perls. Certain tests were failing with the old

@@ -13,6 +13,11 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+5.001
+    * First official release of protocol 5. Better support for non
+      standard NV types. Support for the new Perl 5.36 bools.
+      Upgrade *Sereal::Decoder* FIRST.
+
 5.000_002
     * Prerelease CPAN testing. Build fixes for quadmath and
       longdouble perls. Certain tests were failing with the old
