@@ -430,8 +430,14 @@ public class SerealParserTest {
       JsonLocation currentLocation = parser.getCurrentLocation();
 
       // offsets are 2 and 3 because of the (implicit) REFN
-      assertEquals("[Source: UNKNOWN; line: 0, column: 2]", tokenLocation.toString());
-      assertEquals("[Source: UNKNOWN; line: 0, column: 3]", currentLocation.toString());
+      assertEquals(0, tokenLocation.getCharOffset());
+      assertEquals(2, tokenLocation.getByteOffset());
+      assertEquals(0, tokenLocation.getLineNr());
+      assertEquals(2, tokenLocation.getColumnNr());
+      assertEquals(0, currentLocation.getCharOffset());
+      assertEquals(3, currentLocation.getByteOffset());
+      assertEquals(0, currentLocation.getLineNr());
+      assertEquals(3, currentLocation.getColumnNr());
     }
   }
 
