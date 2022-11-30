@@ -12,6 +12,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
 
         <jackson.version>2.13.3</jackson.version>
+        <jackson-databind.version>2.13.4.1</jackson-databind.version>
     </properties>
 
     <scm>
@@ -36,7 +37,7 @@
             <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-databind</artifactId>
-                <version>${jackson.version}</version>
+                <version>${jackson-databind.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.xerial.snappy</groupId>
