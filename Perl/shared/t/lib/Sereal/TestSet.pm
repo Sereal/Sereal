@@ -675,7 +675,7 @@ sub setup_tests {
 
 sub have_encoder_and_decoder {
     my $ret= check_for_dependency_issues(@_);
-    diag $ret;
+    diag $ret if $ret;
     return !$ret;
 }
 

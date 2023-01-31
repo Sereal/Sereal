@@ -18,6 +18,7 @@ sub MAX_UNCOMPRESSED_SIZE () { 100 * 1024 * 1024 } # 100MB
 sub MONSTER_BLOB () { "\0" x (MAX_UNCOMPRESSED_SIZE + 1) }
 
 my $ok= have_encoder_and_decoder();
+my $enc_version = Sereal::Encoder->VERSION;
 if ( not $ok ) {
     plan skip_all => 'Did not find right version of encoder';
 }
@@ -26,18 +27,24 @@ else {
     my %tests = (
         snappy  => Sereal::Encoder::SRL_SNAPPY(),
         zlib    => Sereal::Encoder::SRL_ZLIB(),
-        zstd    => Sereal::Encoder::SRL_ZSTD(),
+        zstd    => eval { Sereal::Encoder::SRL_ZSTD() } // 0,
     );
+
     my $dec= Sereal::Decoder->new({ max_uncompressed_size => MAX_UNCOMPRESSED_SIZE });
     for my $compressor (sort keys %tests) {
-        my $enc= Sereal::Encoder->new({ compress => $tests{$compressor} });
-        my $hugeblob= $enc->encode(MONSTER_BLOB);
-        eval { $dec->decode($hugeblob) };
-        like(
-            $@,
-            qr/^The expected uncompressed size is larger than the allowed maximum size/,
-            "${compressor}-packed blob is too large to decode",
-        );
+        SKIP: {
+            skip "No ZTD in encoder version $enc_version", 1
+                if !$tests{$compressor};
+
+            my $enc= Sereal::Encoder->new({ compress => $tests{$compressor} });
+            my $hugeblob= $enc->encode(MONSTER_BLOB);
+            eval { $dec->decode($hugeblob) };
+            like(
+                $@,
+                qr/^The expected uncompressed size is larger than the allowed maximum size/,
+                "${compressor}-packed blob is too large to decode",
+            );
+        }
     }
 
     # XXX: The values come from inspecting the encoded data with author_tools/hobodecoder.pl
@@ -97,7 +104,9 @@ else {
         );
     }
 
-    {
+    SKIP:{
+        skip "No ZTD in encoder version $enc_version", 7
+            if $enc_version < 4.01;
         my $enc= Sereal::Encoder->new({ compress => $tests{zstd} });
         my $hugeblob= $enc->encode(MONSTER_BLOB);
 

@@ -13,6 +13,9 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+5.001_001
+    * Test compatibility fixes.
+
 5.001
     * First official release of protocol 5. Better support for non
       standard NV types. Support for the new Perl 5.36 bools.
