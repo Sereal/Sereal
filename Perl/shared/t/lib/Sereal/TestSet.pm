@@ -674,58 +674,37 @@ sub setup_tests {
 }
 
 sub have_encoder_and_decoder {
-    return !check_for_dependency_issues(@_);
+    my $ret= check_for_dependency_issues(@_);
+    diag $ret;
+    return !$ret;
 }
 
+my %have_version;
 sub check_for_dependency_issues {
     my ($min_v)= @_;
+    foreach my $class ("Sereal::Encoder", "Sereal::Decoder") {
+        eval "use $class; 1" or next;
+        $have_version{$class} = $class->VERSION;
+    }
+    my $Other = ($Class eq "Sereal::Decoder")
+                ? "Sereal::Encoder"
+                : "Sereal::Decoder";
 
-    # $Class is the already-loaded class, so the one we're testing
-    my @need=
-          $Class =~ /Encoder/ ? ("Decoder")
-        : $Class =~ /Decoder/ ? ("Encoder")
-        :                       ( "Decoder", "Encoder" );
-    my @need_class= ( $Class, map { "Sereal::$_" } @need );
+    my $this_version = $have_version{$Class}
+        or die "panic: No version for the module ($Class) we are building?";
 
-    foreach my $class (@need_class) {
-        eval "use $class; 1"
-            or do {
-                note( "Could not locate $class for testing" . ( $@ ? " (Exception: $@)" : "" ) );
-                return "$Class is missing.";
-            };
-        my $cmp_v= $class->VERSION;
+    my $other_version = $have_version{$Other}
+        or return "No $Other available to test with.";
 
-        if (!defined $min_v and $Class eq $class) {
-            if ($class eq "Sereal::Encoder") {
-                $min_v= $cmp_v;
-            } elsif ($class eq "Sereal::Decoder") {
-                if ($0=~m!/v(\d+)/!) {
-                    $min_v= $1;
-                    if ($Config{usequadmath} || $Config{uselongdouble}) {
-                        $min_v= 5;
-                    }
-                }
-            }
-        }
-
-        if ( $min_v and $cmp_v < $min_v ) {
-            diag(     "Could not load correct version of $class for testing "
-                    . "(got: $cmp_v, needed at least $min_v)" );
-            return "$class version $cmp_v too low, need version $min_v";
-        }
-
-        $cmp_v =~ s/_//;
-        $cmp_v= sprintf( "%.2f", int( $cmp_v * 100 ) / 100 );
-        my %compat_versions= map { $_ => 1 } $Class->_test_compat();
-        if ( not length($cmp_v) or not exists $compat_versions{$cmp_v} ) {
-            diag(     "Could not load correct version of $class for testing "
-                    . "(got: $cmp_v, needed any of "
-                    . join( ", ", keys %compat_versions )
-                    . ")" );
-            return "$class version $cmp_v not compatible, $Class is version $min_v"
+    if (!$min_v and $0 =~ m!/v(\d+)/!) {
+        $min_v= $1;
+        if ($Config{usequadmath} || $Config{uselongdouble}) {
+            $min_v= 5;
         }
     }
-
+    if ($min_v and $other_version < $min_v) {
+        return "This test requires version $min_v for $Other but we have version $other_version";
+    }
     return "";
 }
 

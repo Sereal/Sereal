@@ -8,11 +8,6 @@ use XSLoader;
 our $VERSION= '5.001'; # Don't forget to update the TestCompat set for testing against installed encoders!
 our $XS_VERSION= $VERSION; $VERSION= eval $VERSION;
 
-# not for public consumption, just for testing.
-( my $num_version= $VERSION ) =~ s/_//;
-my $TestCompat= [ map sprintf( "%.2f", $_ / 100 ), reverse( 400 .. int( $num_version * 100 ) ) ]; # compat with 4.00 to ...
-sub _test_compat { return ( @$TestCompat, $VERSION ) }
-
 use Exporter 'import';
 our @EXPORT_OK= qw(
     decode_sereal
