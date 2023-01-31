@@ -5,15 +5,8 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION= '5.001_001'; # Don't forget to update the TestCompat set for testing against installed decoders!
+our $VERSION= '5.001_001';
 our $XS_VERSION= $VERSION; $VERSION= eval $VERSION;
-
-# not for public consumption, just for testing.
-( my $num_version= $VERSION ) =~ s/_//;
-my $TestCompat= [ map sprintf( "%.2f", $_ / 100 ),
-                  reverse( 400 .. int( $num_version * 100 ) )
-                ]; # compat with 4.00 to ...
-sub _test_compat { return ( @$TestCompat, $VERSION ) }
 
 # Make sure to keep these constants in sync with the C code in srl_encoder.c.
 # I know they could be exported from C using things like ExtUtils::Constant,

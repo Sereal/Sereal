@@ -13,8 +13,11 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+5.001_002
+    * Test compatibility fixes when no perl is already installed.
+
 5.001_001
-    * Test compatibility fixes.
+    * Test compatibility fixes with version 3 and earlier.
 
 5.001
     * First official release of protocol 5. Better support for non
@@ -150,7 +153,7 @@ please see the Encoder and Decoder changelogs:
   * Fix builds under 5.8.9
 
 3.012 Dec  6 2015
-  * Yet another release related to broken META files. 
+  * Yet another release related to broken META files.
     ExtUtils::MakeMaker and CPAN::Meta need to be up to date
     or the META files miss stuff.
 
