@@ -1,11 +1,9 @@
 #!/bin/bash
 export SEREAL_USE_BUNDLED_LIBS=1
 git clean -dfX &&
-pushd Encoder && perl Makefile.PL && make && make test;
-popd
-git clean -dfX &&
-pushd Decoder && perl Makefile.PL && make && make test && popd &&
-pushd Encoder && perl Makefile.PL && make && make manifest && make disttest && make dist && popd &&
-pushd Decoder && perl Makefile.PL && make && make manifest && make disttest && make dist && popd &&
-pushd Sereal && perl Makefile.PL && make && make manifest && make test && make dist && popd &&
+pushd Decoder && perl Makefile.PL && make && popd &&
+pushd Encoder && perl Makefile.PL && make && popd &&
+pushd Decoder && perl Makefile.PL && make test && make manifest && make dist && popd &&
+pushd Encoder && perl Makefile.PL && make test && make manifest && make dist && popd &&
+pushd Sereal && perl Makefile.PL && make test && make manifest && make dist && popd &&
 echo "All is well!";
