@@ -27,14 +27,14 @@ else {
     my %tests = (
         snappy  => Sereal::Encoder::SRL_SNAPPY(),
         zlib    => Sereal::Encoder::SRL_ZLIB(),
-        zstd    => eval { Sereal::Encoder::SRL_ZSTD() } // 0,
+        zstd    => eval { Sereal::Encoder::SRL_ZSTD() },
     );
 
     my $dec= Sereal::Decoder->new({ max_uncompressed_size => MAX_UNCOMPRESSED_SIZE });
     for my $compressor (sort keys %tests) {
         SKIP: {
             skip "No ZTD in encoder version $enc_version", 1
-                if !$tests{$compressor};
+                unless defined $tests{$compressor};
 
             my $enc= Sereal::Encoder->new({ compress => $tests{$compressor} });
             my $hugeblob= $enc->encode(MONSTER_BLOB);
