@@ -26,11 +26,21 @@ if ($in_source_repo) {
 
 my $optimize= inc::Sereal::BuildTools::build_optimize();
 
-# TODO Configure/optimize for miniz:
+# Note you can Configure/optimize for miniz by modifying miniz.h
 #   * Important: For best perf. be sure to customize the below macros for your target platform:
 #     #define MINIZ_USE_UNALIGNED_LOADS_AND_STORES 1
 #     #define MINIZ_LITTLE_ENDIAN 1
 #     #define MINIZ_HAS_64BIT_REGISTERS 1
+# Or you can set USE_UNALIGNED in the env before running Makefile.PL
+
+if (!$in_source_repo and !length $ENV{USE_UNALIGNED}) {
+    my $use_unaligned= prompt("USE_UNALIGNED not set in env. Use unaligned loads and stores? yes/no","no");
+    $ENV{USE_UNALIGNED} = $use_unaligned eq "yes";
+} else {
+    $ENV{USE_UNALIGNED} ||= 1;
+    $ENV{USE_UNALIGNED} = 0 if $ENV{USE_UNALIGNED} ne 1
+                            && $ENV{USE_UNALIGNED} ne "yes";
+}
 
 my $libs= '';
 my $subdirs= [];

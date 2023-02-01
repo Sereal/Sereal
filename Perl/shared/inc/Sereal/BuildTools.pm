@@ -163,6 +163,12 @@ sub build_defines {
         $defines .= " -Dinline= ";
     }
 
+    $defines .= " -DMINIZ_NO_STDIO";
+    if ($ENV{USE_UNALIGNED}) {
+        $defines .= " -DMINIZ_USE_UNALIGNED_LOAD_AND_STORE=1";
+        $defines .= " -DMINIZ_UNALIGNED_USE_MEMCOPY";
+    }
+
     return $defines;
 }
 
