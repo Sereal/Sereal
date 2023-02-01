@@ -7,6 +7,8 @@ Revision history for Perl extension Sereal-Encoder
 ****************************************************************
 5.001_002
     * Test compatibility fixes when no perl is already installed.
+    * Decoder: Add t/195_backcompat.t to check if the latest decoder 
+      will seamlessly handle reading output from older versions. 
 
 5.001_001
     * Test compatibility fixes with version 3 and earlier.
