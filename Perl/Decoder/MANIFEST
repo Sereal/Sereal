@@ -59,6 +59,7 @@ t/150_dec_exception.t
 t/155_zipbomb.t
 t/160_recursion.t
 t/190_customop.t
+t/195_backcompat.t
 t/200_bulk.t
 t/210_bulk_readonly.t
 t/300_overload.t
