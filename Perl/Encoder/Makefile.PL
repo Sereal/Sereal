@@ -43,6 +43,11 @@ if (!$in_source_repo and !length $ENV{USE_UNALIGNED}) {
                             && $ENV{USE_UNALIGNED} ne "yes";
 }
 
+if (!$in_source_repo and !length $ENV{NO_ASM} and !length $ENV{ZSTD_DISABLE_ASM}) {
+    my $use_asm= prompt("neither NO_ASM nor ZSTD_DISABLE_ASM set in env. Use assembly in ZSTD? yes/no","yes");
+    $ENV{NO_ASM} = $use_asm ne "yes";
+}
+
 my $optimize= inc::Sereal::BuildTools::build_optimize();
 
 my $libs= '';
