@@ -5,6 +5,17 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 5 of the *
 *          encoder!                                            *
 ****************************************************************
+5.002
+    * Fixup Decoder tests to run on perl 5.8 which has no defined-or.
+    - Consolidated changes from 5.001_00x:
+    * Ensure that Encoder depends on the correct version of the Decoder.
+      Gracious thanks to Slaven Rezic for being so patient in helping
+      me get this release working properly.
+    * Test compatibility fixes when no perl is already installed.
+    * Add t/195_backcompat.t to check if the latest decoder will
+      seamlessly handle reading output from older versions.
+    * Test compatibility fixes with version 3 and earlier.
+
 5.001_003
     * Ensure that Encoder depends on the correct version of the Decoder.
       Gracious thanks to Slaven Rezic for being so patient in helping
