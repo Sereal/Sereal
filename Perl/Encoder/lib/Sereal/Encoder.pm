@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION= '5.001_002';
+our $VERSION= '5.001_003';
 our $XS_VERSION= $VERSION; $VERSION= eval $VERSION;
 
 # Make sure to keep these constants in sync with the C code in srl_encoder.c.

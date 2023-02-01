@@ -4,7 +4,8 @@ use warnings;
 
 use ExtUtils::MakeMaker;
 use Cwd;
-our $VERSION= '5.001_002';
+our $VERSION= '5.001_003';
+$VERSION = eval $VERSION or die "WTF: $VERSION: $@"; # deal with underbars
 
 my $shared_dir= "../shared";
 my $its_our_repo_file= "../this_is_the_Sereal_repo.txt";
@@ -54,8 +55,8 @@ WriteMakefile1(
     NAME         => 'Sereal',
     VERSION_FROM => 'lib/Sereal.pm',    # finds $VERSION
     PREREQ_PM    => {
-        'Sereal::Encoder' => $VERSION,
         'Sereal::Decoder' => $VERSION,
+        'Sereal::Encoder' => $VERSION,
     },                                  # e.g., Module::Name => 1.1
     LICENSE       => 'perl',
     ABSTRACT_FROM => 'lib/Sereal.pm',

@@ -7,6 +7,7 @@ my @files= qw(
     Encoder/lib/Sereal/Encoder.pm
     Decoder/lib/Sereal/Decoder/Constants.pm
     Encoder/lib/Sereal/Encoder/Constants.pm
+    Encoder/Makefile.PL
     Sereal/lib/Sereal.pm
     Sereal/Makefile.PL
 );
@@ -54,4 +55,3 @@ git push && git push --tags &&
 cpan-upload-http -verbose Encoder/Sereal-Encoder-$to.tar.gz Decoder/Sereal-Decoder-$to.tar.gz Sereal/Sereal-$to.tar.gz
 
 EOF_TEXT
-

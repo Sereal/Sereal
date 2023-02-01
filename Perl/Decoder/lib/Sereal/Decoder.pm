@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION= '5.001_002';
+our $VERSION= '5.001_003';
 our $XS_VERSION= $VERSION; $VERSION= eval $VERSION;
 
 use Exporter 'import';

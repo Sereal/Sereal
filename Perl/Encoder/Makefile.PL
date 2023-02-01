@@ -6,6 +6,9 @@ use warnings;
 use ExtUtils::MakeMaker;
 use Config;
 
+our $VERSION= '5.001_003'; # what version are we and what version of Decoder do we need.
+$VERSION = eval $VERSION or die "WTF: $VERSION: $@"; # deal with underbars
+
 my $shared_dir= "../shared";
 my $its_our_repo_file= "../this_is_the_Sereal_repo.txt";
 my $in_source_repo= ( -d "../../.git" and -d $shared_dir and -e "../this_is_the_Sereal_repo.txt" );
@@ -66,7 +69,7 @@ inc::Sereal::BuildTools::WriteMakefile(
         'File::Spec'        => '0',
         'Hash::Util'        => '0',
         'Scalar::Util'      => '0',
-        'Sereal::Decoder'   => '5.000',
+        'Sereal::Decoder'   => $VERSION,
         'Test::Deep'        => '0',
         'Test::Differences' => '0',
         'Test::LongString'  => '0',
@@ -81,6 +84,7 @@ inc::Sereal::BuildTools::WriteMakefile(
         'File::Spec'        => '0',
         'Hash::Util'        => '0',
         'Scalar::Util'      => '0',
+        'Sereal::Decoder'   => $VERSION,
         'Test::Deep'        => '0',
         'Test::Differences' => '0',
         'Test::LongString'  => '0',
@@ -93,6 +97,7 @@ inc::Sereal::BuildTools::WriteMakefile(
     NAME         => $module,
     VERSION_FROM => 'lib/Sereal/Encoder.pm',    # finds $VERSION
     PREREQ_PM    => {
+        'Sereal::Decoder' => $VERSION,
         'XSLoader' => 0,
     },                                          # e.g., Module::Name => 1.1
     LICENSE       => 'perl',

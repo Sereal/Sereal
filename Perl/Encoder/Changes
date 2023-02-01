@@ -5,6 +5,11 @@ Revision history for Perl extension Sereal-Encoder
 *          of the decoder before upgrading to version 5 of the *
 *          encoder!                                            *
 ****************************************************************
+5.001_003
+    * Ensure that Encoder depends on the correct version of the Decoder.
+      Gracious thanks to Slaven Rezic for being so patient in helping
+      me get 5.001_00x working properly.
+
 5.001_002
     * Test compatibility fixes when no perl is already installed.
     * Decoder: Add t/195_backcompat.t to check if the latest decoder 
