@@ -1,8 +1,8 @@
 Revision history for Perl extension Sereal
 
 Sereal is a dependency package that pulls in the real Sereal::Encoder
-and Sereal::Decoder.  For the actual changes between Sereal releases,
-please see the Encoder and Decoder changelogs:
+and Sereal::Decoder.  These are summaries or copies of the actual changes
+from the the Encoder and Decoder changelogs:
    * https://github.com/Sereal/Sereal/blob/master/Perl/Decoder/Changes
    * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
 
@@ -13,6 +13,10 @@ please see the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+5.002_001
+    * Update Miniz to 3.0.2, Zstd to 1.5.2 and Devel::CheckLib to 1.16
+    * Assorted build fixes related to these updates.
+
 5.002
     * Fixup Decoder tests to run on perl 5.8 which has no defined-or.
     - Consolidated changes from 5.001_00x:

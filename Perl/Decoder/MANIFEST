@@ -153,6 +153,7 @@ zstd/common/huf.h
 zstd/common/mem.h
 zstd/common/pool.c
 zstd/common/pool.h
+zstd/common/portability_macros.h
 zstd/common/threading.c
 zstd/common/threading.h
 zstd/common/xxhash.c
@@ -161,6 +162,8 @@ zstd/common/zstd_common.c
 zstd/common/zstd_deps.h
 zstd/common/zstd_errors.h
 zstd/common/zstd_internal.h
+zstd/common/zstd_trace.h
+zstd/compress/clevels.h
 zstd/compress/fse_compress.c
 zstd/compress/hist.c
 zstd/compress/hist.h
@@ -182,11 +185,13 @@ zstd/compress/zstd_lazy.c
 zstd/compress/zstd_lazy.h
 zstd/compress/zstd_ldm.c
 zstd/compress/zstd_ldm.h
+zstd/compress/zstd_ldm_geartab.h
 zstd/compress/zstd_opt.c
 zstd/compress/zstd_opt.h
 zstd/compress/zstdmt_compress.c
 zstd/compress/zstdmt_compress.h
 zstd/decompress/huf_decompress.c
+zstd/decompress/huf_decompress_amd64.S
 zstd/decompress/zstd_ddict.c
 zstd/decompress/zstd_ddict.h
 zstd/decompress/zstd_decompress.c
@@ -194,4 +199,6 @@ zstd/decompress/zstd_decompress_block.c
 zstd/decompress/zstd_decompress_block.h
 zstd/decompress/zstd_decompress_internal.h
 zstd/Makefile.PL
+zstd/zdict.h
 zstd/zstd.h
+zstd/zstd_errors.h

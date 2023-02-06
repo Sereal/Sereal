@@ -5,6 +5,10 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 5 of the *
 *          encoder!                                            *
 ****************************************************************
+5.002_001
+    * Update Miniz to 3.0.2, Zstd to 1.5.2 and Devel::CheckLib to 1.16
+    * Assorted build fixes related to these updates.
+
 5.002
     * Fixup Decoder tests to run on perl 5.8 which has no defined-or.
     - Consolidated changes from 5.001_00x:
