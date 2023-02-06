@@ -112,7 +112,8 @@ inc::Sereal::BuildTools::WriteMakefile(
         'Test::Warn'        => '0',
     },
     CONFIGURE_REQUIRES => {
-        'ExtUtils::MakeMaker' => '7.0',
+        'Devel::CheckLib'       => '1.16',
+        'ExtUtils::MakeMaker'   => '7.0',
     },
     NAME         => $module,
     VERSION_FROM => 'lib/Sereal/Encoder.pm',    # finds $VERSION
