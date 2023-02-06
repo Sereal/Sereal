@@ -8,7 +8,10 @@ use Config;
 
 my $shared_dir= "../shared";
 my $its_our_repo_file= "../this_is_the_Sereal_repo.txt";
-my $in_source_repo= ( -d "../../.git" and -d $shared_dir and -e "../this_is_the_Sereal_repo.txt" );
+my $in_source_repo= ( -d "../../.git" &&
+                      -d $shared_dir &&
+                      -e $its_our_repo_file &&
+                      !$ENV{CPAN_COMPAT} );
 
 unshift @INC, ".", "./inc";
 unshift @INC, $shared_dir, "$shared_dir/inc"
@@ -16,8 +19,10 @@ unshift @INC, $shared_dir, "$shared_dir/inc"
 
 my $module= "Sereal::Decoder";
 require inc::Sereal::BuildTools;
-inc::Sereal::BuildTools::link_files($shared_dir)             if $in_source_repo;
-inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
+if ($in_source_repo) {
+    inc::Sereal::BuildTools::link_files($shared_dir);
+    inc::Sereal::BuildTools::generate_constant_includes($module);
+}
 
 my $optimize= inc::Sereal::BuildTools::build_optimize();
 
