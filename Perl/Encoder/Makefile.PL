@@ -13,8 +13,8 @@ my $shared_dir= "../shared";
 my $its_our_repo_file= "../this_is_the_Sereal_repo.txt";
 my $in_source_repo= ( -d "../../.git" &&
                       -d $shared_dir &&
-                      -e $its_our_repo_file &&
-                      !$ENV{CPAN_COMPAT} );
+                      -e $its_our_repo_file );
+my $do_prompt= !$in_source_repo || $ENV{CPAN_COMPAT};
 
 unshift @INC, ".", "./inc";
 unshift @INC, $shared_dir, "$shared_dir/inc"
@@ -34,7 +34,7 @@ if ($in_source_repo) {
 #     #define MINIZ_HAS_64BIT_REGISTERS 1
 # Or you can set USE_UNALIGNED in the env before running Makefile.PL
 
-if (!$in_source_repo and !length $ENV{USE_UNALIGNED}) {
+if ($do_prompt and !defined $ENV{USE_UNALIGNED}) {
     my $use_unaligned= prompt("USE_UNALIGNED not set in env. Use unaligned loads and stores? yes/no","no");
     $ENV{USE_UNALIGNED} = $use_unaligned eq "yes";
 } else {
@@ -43,7 +43,7 @@ if (!$in_source_repo and !length $ENV{USE_UNALIGNED}) {
                             && $ENV{USE_UNALIGNED} ne "yes";
 }
 
-if (!$in_source_repo and !length $ENV{NO_ASM} and !length $ENV{ZSTD_DISABLE_ASM}) {
+if ($do_prompt and !defined $ENV{NO_ASM} and !defined $ENV{ZSTD_DISABLE_ASM}) {
     my $use_asm= prompt("neither NO_ASM nor ZSTD_DISABLE_ASM set in env. Use assembly in ZSTD? yes/no","yes");
     $ENV{NO_ASM} = $use_asm ne "yes";
 }
