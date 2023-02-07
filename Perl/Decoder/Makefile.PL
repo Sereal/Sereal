@@ -51,6 +51,9 @@ my $libs= '';
 my $subdirs= [];
 my $objects= '$(BASEEXT)$(OBJ_EXT) srl_decoder$(OBJ_EXT)';
 my $defines= inc::Sereal::BuildTools::build_defines();
+my $inc= '-I.';
+$inc .= ' -I/usr/local/include'
+    if $^O =~ /openbsd/;
 
 # Prefer external libraries over the bundled one.
 inc::Sereal::BuildTools::check_external_libraries( \$libs, \$defines, \$objects, $subdirs );
@@ -106,9 +109,9 @@ inc::Sereal::BuildTools::WriteMakefile(
     LICENSE       => 'perl',
     ABSTRACT_FROM => 'lib/Sereal/Decoder.pm',
     AUTHOR        => 'Steffen Mueller <smueller@cpan.org>, Yves Orton <yves@cpan.org>',
-    LIBS          => [$libs],                                                          # e.g., '-lm'
+    LIBS          => [$libs],   # e.g., '-lm'
     DEFINE        => $defines,
-    INC      => '-I.',                            # e.g., '-I. -I/usr/include/other'
+    INC      => $inc,           # e.g., '-I. -I/usr/local/include'
     OPTIMIZE => $optimize,
     OBJECT   => $objects,
     DIR      => $subdirs,

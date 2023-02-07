@@ -85,6 +85,9 @@ sub check_external_libraries {
     my ( $libs, $defines, $objects, $subdirs )= @_;
     require Devel::CheckLib;
 
+    $$libs .= ' -L/usr/local/lib'
+        if $^O =~ /openbsd/;
+
     if (
            !$ENV{SEREAL_USE_BUNDLED_LIBS}
         && !$ENV{SEREAL_USE_BUNDLED_CSNAPPY}
@@ -222,6 +225,10 @@ sub build_optimize {
             $OPTIMIZE .= ' -Weverything' if ( $ENV{DEBUG} > 6 && $clang );    # really not pretty
         }
     }
+
+    # silence warning about STMT_START and STMT_END.
+    $OPTIMIZE .= " -Wno-compound-token-split-by-macro"
+        if $clang;
 
     return $OPTIMIZE;
 }

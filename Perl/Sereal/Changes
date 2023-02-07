@@ -13,6 +13,11 @@ from the the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+5.002_002
+    * OpenBSD build fixes. Gracious thanks to Andrew Hewus Fresh
+      for providing guidance and access to an OpenBSD box to use to
+      debug and fix this.
+
 5.002_001
     * Update Miniz to 3.0.2, Zstd to 1.5.2 and Devel::CheckLib to 1.16
     * Assorted build fixes related to these updates.

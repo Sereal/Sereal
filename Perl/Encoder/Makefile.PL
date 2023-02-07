@@ -6,7 +6,7 @@ use warnings;
 use ExtUtils::MakeMaker;
 use Config;
 
-our $VERSION= '5.002_001'; # what version are we and what version of Decoder do we need.
+our $VERSION= '5.002_002'; # what version are we and what version of Decoder do we need.
 $VERSION = eval $VERSION or die "WTF: $VERSION: $@"; # deal with underbars
 
 my $shared_dir= "../shared";
@@ -54,12 +54,14 @@ my $libs= '';
 my $subdirs= [];
 my $objects= '$(BASEEXT)$(OBJ_EXT) srl_encoder$(OBJ_EXT)';
 my $defines= inc::Sereal::BuildTools::build_defines('ENABLE_DANGEROUS_HACKS');
+my $inc= '-I.';
+$inc .= ' -I/usr/local/include'
+    if $^O =~ /openbsd/;
 
 # Prefer external libraries over the bundled one.
 inc::Sereal::BuildTools::check_external_libraries( \$libs, \$defines, \$objects, $subdirs );
 
 if ( $defines !~ /HAVE_CSNAPPY/ ) {
-
     # from Compress::Snappy
     require Devel::CheckLib;
     my $ctz= Devel::CheckLib::check_lib(
@@ -124,9 +126,9 @@ inc::Sereal::BuildTools::WriteMakefile(
     LICENSE       => 'perl',
     ABSTRACT_FROM => 'lib/Sereal/Encoder.pm',
     AUTHOR        => 'Steffen Mueller <smueller@cpan.org>, Yves Orton <yves@cpan.org>',
-    LIBS          => [$libs],                                                          # e.g., '-lm'
+    LIBS          => [$libs],   # e.g., '-lm'
     DEFINE        => $defines,
-    INC      => '-I.',       # e.g., '-I. -I/usr/include/other'
+    INC      => $inc,           # e.g., '-I. -I/usr/local/include'
     OPTIMIZE => $optimize,
     DIR      => $subdirs,
     OBJECT   => $objects,
