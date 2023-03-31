@@ -17,6 +17,10 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
+var roundtripShared = []interface{}{
+	map[string]interface{}{"k1": 1},
+}
+
 var roundtrips = []interface{}{
 	true,
 	false,
@@ -47,6 +51,7 @@ var roundtrips = []interface{}{
 	[]interface{}{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
 	[]interface{}{1, 100, 1000, 2000, nil, 0xdeadbeef, float32(2.2), "hello, world", map[string]interface{}{"foo": []interface{}{1, 2, 3}}},
 	map[string]interface{}{"foo": 1, "bar": 2, "baz": "qux", "nilval": nil},
+	[]interface{}{roundtripShared[0], roundtripShared[0]},
 }
 
 func TestRoundtripGo(t *testing.T) {
