@@ -80,7 +80,10 @@ type Decoder struct {
 	tcache    tagsCache
 	copyDepth int
 
+	// PerlCompat produced a decoded data structure that preserves as much as possible the original Perl structure
 	PerlCompat bool
+	// DisableReferentialIntegrity produces a decoded data structure where Perl references are never decoded as Go pointers
+	DisableReferentialIntegrity bool
 }
 
 type decompressor interface {
@@ -1048,8 +1051,12 @@ func (d *Decoder) decodeREFP_ALIAS(by []byte, idx int, isREFP bool) (reflect.Val
 
 		if isREFP {
 			rvData := rv.Elem().Elem()
-			res = reflect.New(rvData.Type())
-			res.Elem().Set(rvData)
+			if d.DisableReferentialIntegrity {
+				res = rvData
+			} else {
+				res = reflect.New(rvData.Type())
+				res.Elem().Set(rvData)
+			}
 		} else {
 			res = rv.Elem()
 		}

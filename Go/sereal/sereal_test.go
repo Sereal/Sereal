@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/stretchr/testify/assert"
 )
 
 var roundtripShared = []interface{}{
@@ -1215,5 +1216,23 @@ func TestDoubleUnmarshal(t *testing.T) {
 				t.Errorf("Data does not match after double unmarshal")
 			}
 		}
+	}
+}
+
+func TestConsistentReferenceDecoding(t *testing.T) {
+	testRef := []byte{'=', 0xf3, 'r', 'l', 0x03, 0x00, typeARRAYREF_0 + 2, typeREFN, trackFlag | 0x01, typeREFP, 0x03}
+	one := 1
+
+	testDecode(t, true, []interface{}{1, 1}, testRef)
+	testDecode(t, false, []interface{}{one, &one}, testRef)
+}
+
+func testDecode(t *testing.T, noReferentialIntegrity bool, expected interface{}, serealData []byte) {
+	var decoded interface{}
+	d := &Decoder{DisableReferentialIntegrity: noReferentialIntegrity}
+	err := d.Unmarshal(serealData, &decoded)
+
+	if assert.NoError(t, err) {
+		assert.Equal(t, expected, decoded)
 	}
 }
