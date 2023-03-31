@@ -12,7 +12,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
 
         <jackson.version>2.13.3</jackson.version>
-        <jackson-databind.version>2.13.4.1</jackson-databind.version>
+        <jackson-databind.version>2.13.4.2</jackson-databind.version>
     </properties>
 
     <scm>
