@@ -15,7 +15,12 @@ import (
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
+	"github.com/stretchr/testify/assert"
 )
+
+var roundtripShared = []interface{}{
+	map[string]interface{}{"k1": 1},
+}
 
 var roundtrips = []interface{}{
 	true,
@@ -47,6 +52,7 @@ var roundtrips = []interface{}{
 	[]interface{}{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
 	[]interface{}{1, 100, 1000, 2000, nil, 0xdeadbeef, float32(2.2), "hello, world", map[string]interface{}{"foo": []interface{}{1, 2, 3}}},
 	map[string]interface{}{"foo": 1, "bar": 2, "baz": "qux", "nilval": nil},
+	[]interface{}{roundtripShared[0], roundtripShared[0]},
 }
 
 func TestRoundtripGo(t *testing.T) {
@@ -69,16 +75,18 @@ func testRoundtrip(t *testing.T, perlCompat bool, version int) {
 	for _, v := range roundtrips {
 		b, err := e.Marshal(v)
 		if err != nil {
-			t.Errorf("failed marshalling with perlCompat=%t : %v: %s\n", perlCompat, v, err)
+			t.Errorf("failed marshalling version=%d with perlCompat=%t : %v: %s\n", version, perlCompat, v, err)
+			continue
 		}
 		var unp interface{}
 		err = d.Unmarshal(b, &unp)
 		if err != nil {
-			t.Errorf("error during unmarshal: %s\n", err)
+			t.Errorf("error during unmarshal: version=%d with perlCOmpat=%t %s\n", version, perlCompat, err)
+			continue
 		}
 
 		if !reflect.DeepEqual(v, unp) {
-			t.Errorf("failed roundtripping with perlCompat=%t: %#v: got %#v\n", perlCompat, v, unp)
+			t.Errorf("failed roundtripping version=%d with perlCompat=%t: %#v: got %#v\n", version, perlCompat, v, unp)
 		}
 
 		// for a couple of common "root" types also try unmarshalling to the same type
@@ -93,7 +101,7 @@ func testRoundtrip(t *testing.T, perlCompat bool, version int) {
 				t.Errorf("error during unmarshal: %s\n", err)
 			}
 			if !reflect.DeepEqual(v, unSlice) {
-				t.Errorf("failed roundtripping with perlCompat=%t & unmarshal to []interface{}: %#v: got %#v\n", perlCompat, v, unSlice)
+				t.Errorf("failed roundtripping  version=%d with perlCompat=%t & unmarshal to []interface{}: %#v: got %#v\n", version, perlCompat, v, unSlice)
 			}
 
 		case map[string]interface{}:
@@ -103,7 +111,7 @@ func testRoundtrip(t *testing.T, perlCompat bool, version int) {
 				t.Errorf("error during unmarshal: %s\n", err)
 			}
 			if !reflect.DeepEqual(v, unMap) {
-				t.Errorf("failed roundtripping with perlCompat=%t & unmarshal to map[string]interface{}: %#v: got %#v\n", perlCompat, v, unMap)
+				t.Errorf("failed roundtripping  version=%d with perlCompat=%t & unmarshal to map[string]interface{}: %#v: got %#v\n", version, perlCompat, v, unMap)
 			}
 
 		}
@@ -1208,5 +1216,23 @@ func TestDoubleUnmarshal(t *testing.T) {
 				t.Errorf("Data does not match after double unmarshal")
 			}
 		}
+	}
+}
+
+func TestConsistentReferenceDecoding(t *testing.T) {
+	testRef := []byte{'=', 0xf3, 'r', 'l', 0x03, 0x00, typeARRAYREF_0 + 2, typeREFN, trackFlag | 0x01, typeREFP, 0x03}
+	one := 1
+
+	testDecode(t, true, []interface{}{1, 1}, testRef)
+	testDecode(t, false, []interface{}{one, &one}, testRef)
+}
+
+func testDecode(t *testing.T, noReferentialIntegrity bool, expected interface{}, serealData []byte) {
+	var decoded interface{}
+	d := &Decoder{DisableReferentialIntegrity: noReferentialIntegrity}
+	err := d.Unmarshal(serealData, &decoded)
+
+	if assert.NoError(t, err) {
+		assert.Equal(t, expected, decoded)
 	}
 }

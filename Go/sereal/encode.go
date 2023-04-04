@@ -126,7 +126,11 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 
 	switch e.version {
 	case 1:
+		encBody = append(encBody, encHeader...) // hack for offsets
 		encBody, err = e.encode(encBody, body, false, false, strTable, ptrTable)
+		if len(encBody) >= len(encHeader) {
+			encBody = encBody[len(encHeader):] // trim hacky bytes
+		}
 	case 2, 3:
 		encBody = append(encBody, 0) // hack for 1-based offsets
 		encBody, err = e.encode(encBody, body, false, false, strTable, ptrTable)
