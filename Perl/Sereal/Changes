@@ -13,6 +13,11 @@ from the the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+5.004
+    * Decoder fixes: Fix thaw ordering for frozen objects. Nested THAW
+      operations now happen in the documented LIFO order. Thanks to Marco 
+      Fontani for the report.
+
 5.003
     * Production release of 5.002_001 and 5.002_002
     * OpenBSD build fixes. Gracious thanks to Andrew Hewus Fresh

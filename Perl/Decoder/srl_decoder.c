@@ -721,22 +721,6 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
 } STMT_END
 
 
-/* register a newly seen frozen object for THAWing later. */
-SRL_STATIC_INLINE void
-srl_track_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
-{
-    AV *info_av;
-    if (!dec->thaw_av)
-        SAFE_NEW_AV(dec->thaw_av);
-
-    AV_PUSH(dec->thaw_av, into);
-
-    if (!dec->ref_thawhash)
-        SAFE_PTABLE_NEW(dec->ref_thawhash);
-
-    PTABLE_store(dec->ref_thawhash, (void *)SvRV(into), (void *)class_stash);
-}
-
 
 /* Fetch or register a reference to an already seen frozen object.
  * Called during deserialization (push=1) to handle duplicate references
@@ -1669,10 +1653,32 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
 SRL_STATIC_INLINE void
 srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
 {
-    const unsigned char *fixup_pos= dec->buf.pos + 1; /* get the tag for the WHATEVER */
+
+    AV *info_av;
+    if (!dec->thaw_av)
+        SAFE_NEW_AV(dec->thaw_av);
+
+    /* We do this BEFORE we call srl_read_single_value() so that
+       thaw_av contains the items in order of us seeing them in the serialized
+       dump. We will pop them off the list later on when we do the actual THAW.
+       Note that at the time we do this we haven't "filled out" the 'into' var
+       with the actual AV that is used for its frozen form. */
+
+    AV_PUSH(dec->thaw_av, into);
+
+    /* now fill out into with the AV that represents the object */
     srl_read_single_value(aTHX_ dec, into, NULL);
 
-    srl_track_frozen_object(aTHX_ dec, class_stash, into);
+    /* validate that we actually deparsed an AV */
+    assert(SvROK(into) && SvTYPE(SvRV(into)) == SVt_PVAV);
+
+    if (!dec->ref_thawhash)
+        SAFE_PTABLE_NEW(dec->ref_thawhash);
+
+    /* we need to do this *after* we have called srl_read_single_value() as
+       we use the address of the AV that into references as the key to find the
+       class stash. */
+    PTABLE_store(dec->ref_thawhash, (void *)SvRV(into), (void *)class_stash);
 }
 
 /* Invoke a THAW callback on the given class. Pass in the next item in the
