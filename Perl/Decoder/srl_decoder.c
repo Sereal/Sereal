@@ -876,7 +876,7 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
          * in it.
          */
         for ( ; thaw_av_len > 0 ; thaw_av_len-- ) {
-            SV *sv = av_pop(dec->thaw_av);
+            SV *sv = av_shift(dec->thaw_av);
             HV *class_stash = (HV*)srl_fetch_register_frozen_object(aTHX_ dec, sv, 0);
             AV *additional_refs= NULL;
             IV fixups = 0;
