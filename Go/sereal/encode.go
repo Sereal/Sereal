@@ -21,6 +21,7 @@ type Encoder struct {
 	DisableDedup         bool       // should we disable deduping of class names and hash keys
 	DisableFREEZE        bool       // should we disable the FREEZE tag, which calls MarshalBinary
 	ExpectedSize         uint       // give a hint to encoder about expected size of encoded data
+	MaxRecursionDepth    int        // maximum recursion depth
 	version              int        // default version to encode
 	tcache               tagsCache
 }
@@ -114,7 +115,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 
 		// this is both the flag byte (== "there is user data") and also a hack to make 1-based offsets work
 		henv := []byte{0x01} // flag byte == "there is user data"
-		encHeaderSuffix, err := e.encode(henv, header, false, false, &state)
+		encHeaderSuffix, err := e.encode(henv, header, false, false, &state, remainingRecursion(e.MaxRecursionDepth))
 
 		if err != nil {
 			return nil, err
@@ -127,6 +128,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		encHeader = append(encHeader, 0)
 	}
 
+	remainingDepth := remainingRecursion(e.MaxRecursionDepth)
 	state := marshalState{
 		strTable: make(map[string]int),
 		ptrTable: make(map[uintptr]int),
@@ -137,13 +139,13 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 	switch e.version {
 	case 1:
 		encBody = append(encBody, encHeader...) // hack for offsets
-		encBody, err = e.encode(encBody, body, false, false, &state)
+		encBody, err = e.encode(encBody, body, false, false, &state, remainingDepth)
 		if len(encBody) >= len(encHeader) {
 			encBody = encBody[len(encHeader):] // trim hacky bytes
 		}
 	case 2, 3:
 		encBody = append(encBody, 0) // hack for 1-based offsets
-		encBody, err = e.encode(encBody, body, false, false, &state)
+		encBody, err = e.encode(encBody, body, false, false, &state, remainingDepth)
 		if len(encBody) >= 1 {
 			encBody = encBody[1:] // trim hacky first byte
 		}
@@ -195,7 +197,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 /*************************************
  * Encode via static types - fast path
  *************************************/
-func (e *Encoder) encode(b []byte, v interface{}, isKeyOrClass bool, isRefNext bool, state *marshalState) ([]byte, error) {
+func (e *Encoder) encode(b []byte, v interface{}, isKeyOrClass bool, isRefNext bool, state *marshalState, remainingDepth int) ([]byte, error) {
 	var err error
 
 	switch value := v.(type) {
@@ -246,17 +248,17 @@ func (e *Encoder) encode(b []byte, v interface{}, isKeyOrClass bool, isRefNext b
 		b = e.encodeBytes(b, value, isKeyOrClass, state.strTable)
 
 	case []interface{}:
-		b, err = e.encodeIntfArray(b, value, isRefNext, state)
+		b, err = e.encodeIntfArray(b, value, isRefNext, state, remainingDepth)
 
 	case map[string]interface{}:
-		b, err = e.encodeStrMap(b, value, isRefNext, state)
+		b, err = e.encodeStrMap(b, value, isRefNext, state, remainingDepth)
 
 	case reflect.Value:
 		if value.Kind() == reflect.Invalid {
 			b = append(b, typeUNDEF)
 		} else {
 			// could be optimized to tail call
-			b, err = e.encode(b, value.Interface(), false, isRefNext, state)
+			b, err = e.encode(b, value.Interface(), false, isRefNext, state, remainingDepth)
 		}
 
 	case PerlUndef:
@@ -269,7 +271,7 @@ func (e *Encoder) encode(b []byte, v interface{}, isKeyOrClass bool, isRefNext b
 	case PerlObject:
 		b = append(b, typeOBJECT)
 		b = e.encodeBytes(b, []byte(value.Class), true, state.strTable)
-		b, err = e.encode(b, value.Reference, false, false, state)
+		b, err = e.encode(b, value.Reference, false, false, state, remainingDepth)
 
 	case PerlRegexp:
 		b = append(b, typeREGEXP)
@@ -278,7 +280,7 @@ func (e *Encoder) encode(b []byte, v interface{}, isKeyOrClass bool, isRefNext b
 
 	case PerlWeakRef:
 		b = append(b, typeWEAKEN)
-		b, err = e.encode(b, value.Reference, false, false, state)
+		b, err = e.encode(b, value.Reference, false, false, state, remainingDepth)
 
 	//case *interface{}:
 	//TODO handle here if easy
@@ -295,7 +297,7 @@ func (e *Encoder) encode(b []byte, v interface{}, isKeyOrClass bool, isRefNext b
 	// if one manages to properly implement *interface{} case, this block should be uncommented
 
 	default:
-		b, err = e.encodeViaReflection(b, reflect.ValueOf(value), isKeyOrClass, isRefNext, state)
+		b, err = e.encodeViaReflection(b, reflect.ValueOf(value), isKeyOrClass, isRefNext, state, remainingDepth)
 	}
 
 	return b, err
@@ -394,7 +396,12 @@ func (e *Encoder) encodeBytes(by []byte, byt []byte, isKeyOrClass bool, strTable
 	return append(by, byt...)
 }
 
-func (e *Encoder) encodeIntfArray(by []byte, arr []interface{}, isRefNext bool, state *marshalState) ([]byte, error) {
+func (e *Encoder) encodeIntfArray(by []byte, arr []interface{}, isRefNext bool, state *marshalState, remainingDepth int) ([]byte, error) {
+	remainingDepth--
+	if remainingDepth <= 0 {
+		return nil, ErrMaxRecursionLimit
+	}
+
 	if e.PerlCompat && !isRefNext {
 		by = append(by, typeREFN)
 	}
@@ -407,7 +414,7 @@ func (e *Encoder) encodeIntfArray(by []byte, arr []interface{}, isRefNext bool, 
 
 	var err error
 	for i := 0; i < l; i++ {
-		if by, err = e.encode(by, arr[i], false, false, state); err != nil {
+		if by, err = e.encode(by, arr[i], false, false, state, remainingDepth); err != nil {
 			return nil, err
 		}
 	}
@@ -415,7 +422,12 @@ func (e *Encoder) encodeIntfArray(by []byte, arr []interface{}, isRefNext bool, 
 	return by, nil
 }
 
-func (e *Encoder) encodeStrMap(by []byte, m map[string]interface{}, isRefNext bool, state *marshalState) ([]byte, error) {
+func (e *Encoder) encodeStrMap(by []byte, m map[string]interface{}, isRefNext bool, state *marshalState, remainingDepth int) ([]byte, error) {
+	remainingDepth--
+	if remainingDepth <= 0 {
+		return nil, ErrMaxRecursionLimit
+	}
+
 	if e.PerlCompat && !isRefNext {
 		by = append(by, typeREFN)
 	}
@@ -428,7 +440,7 @@ func (e *Encoder) encodeStrMap(by []byte, m map[string]interface{}, isRefNext bo
 	var err error
 	for k, v := range m {
 		by = e.encodeString(by, k, true, state.strTable)
-		if by, err = e.encode(by, v, false, false, state); err != nil {
+		if by, err = e.encode(by, v, false, false, state, remainingDepth); err != nil {
 			return by, err
 		}
 	}
@@ -439,7 +451,7 @@ func (e *Encoder) encodeStrMap(by []byte, m map[string]interface{}, isRefNext bo
 /*************************************
  * Encode via reflection
  *************************************/
-func (e *Encoder) encodeViaReflection(b []byte, rv reflect.Value, isKeyOrClass bool, isRefNext bool, state *marshalState) ([]byte, error) {
+func (e *Encoder) encodeViaReflection(b []byte, rv reflect.Value, isKeyOrClass bool, isRefNext bool, state *marshalState, remainingDepth int) ([]byte, error) {
 	if !e.DisableFREEZE && rv.Kind() != reflect.Invalid && rv.Kind() != reflect.Ptr {
 		if m, ok := rv.Interface().(encoding.BinaryMarshaler); ok {
 			by, err := m.MarshalBinary()
@@ -452,7 +464,7 @@ func (e *Encoder) encodeViaReflection(b []byte, rv reflect.Value, isKeyOrClass b
 			b = append(b, typeREFN)
 			b = append(b, typeARRAY)
 			b = varint(b, uint(1))
-			return e.encode(b, reflect.ValueOf(by), false, false, state)
+			return e.encode(b, reflect.ValueOf(by), false, false, state, remainingDepth)
 		}
 	}
 
@@ -468,16 +480,16 @@ func (e *Encoder) encodeViaReflection(b []byte, rv reflect.Value, isKeyOrClass b
 		fallthrough
 
 	case reflect.Array:
-		b, err = e.encodeArray(b, rv, isRefNext, state)
+		b, err = e.encodeArray(b, rv, isRefNext, state, remainingDepth)
 
 	case reflect.Map:
-		b, err = e.encodeMap(b, rv, isRefNext, state)
+		b, err = e.encodeMap(b, rv, isRefNext, state, remainingDepth)
 
 	case reflect.Struct:
-		b, err = e.encodeStruct(b, rv, state)
+		b, err = e.encodeStruct(b, rv, state, remainingDepth)
 
 	case reflect.Ptr:
-		b, err = e.encodePointer(b, rv, state)
+		b, err = e.encodePointer(b, rv, state, remainingDepth)
 
 	case reflect.Bool:
 		if rv.Bool() {
@@ -506,7 +518,12 @@ func (e *Encoder) encodeViaReflection(b []byte, rv reflect.Value, isKeyOrClass b
 	return b, err
 }
 
-func (e *Encoder) encodeArray(by []byte, arr reflect.Value, isRefNext bool, state *marshalState) ([]byte, error) {
+func (e *Encoder) encodeArray(by []byte, arr reflect.Value, isRefNext bool, state *marshalState, remainingDepth int) ([]byte, error) {
+	remainingDepth--
+	if remainingDepth <= 0 {
+		return nil, ErrMaxRecursionLimit
+	}
+
 	if e.PerlCompat && !isRefNext {
 		by = append(by, typeREFN)
 	}
@@ -517,7 +534,7 @@ func (e *Encoder) encodeArray(by []byte, arr reflect.Value, isRefNext bool, stat
 
 	var err error
 	for i := 0; i < l; i++ {
-		if by, err = e.encode(by, arr.Index(i), false, false, state); err != nil {
+		if by, err = e.encode(by, arr.Index(i), false, false, state, remainingDepth); err != nil {
 			return nil, err
 		}
 	}
@@ -525,7 +542,12 @@ func (e *Encoder) encodeArray(by []byte, arr reflect.Value, isRefNext bool, stat
 	return by, nil
 }
 
-func (e *Encoder) encodeMap(by []byte, m reflect.Value, isRefNext bool, state *marshalState) ([]byte, error) {
+func (e *Encoder) encodeMap(by []byte, m reflect.Value, isRefNext bool, state *marshalState, remainingDepth int) ([]byte, error) {
+	remainingDepth--
+	if remainingDepth <= 0 {
+		return nil, ErrMaxRecursionLimit
+	}
+
 	if e.PerlCompat && !isRefNext {
 		by = append(by, typeREFN)
 	}
@@ -538,18 +560,18 @@ func (e *Encoder) encodeMap(by []byte, m reflect.Value, isRefNext bool, state *m
 		var err error
 		for _, k := range keys {
 			by = e.encodeString(by, k.String(), true, state.strTable)
-			if by, err = e.encode(by, m.MapIndex(k), false, false, state); err != nil {
+			if by, err = e.encode(by, m.MapIndex(k), false, false, state, remainingDepth); err != nil {
 				return by, err
 			}
 		}
 	} else {
 		var err error
 		for _, k := range keys {
-			if by, err = e.encode(by, k, true, false, state); err != nil {
+			if by, err = e.encode(by, k, true, false, state, remainingDepth); err != nil {
 				return by, err
 			}
 
-			if by, err = e.encode(by, m.MapIndex(k), false, false, state); err != nil {
+			if by, err = e.encode(by, m.MapIndex(k), false, false, state, remainingDepth); err != nil {
 				return by, err
 			}
 		}
@@ -558,7 +580,12 @@ func (e *Encoder) encodeMap(by []byte, m reflect.Value, isRefNext bool, state *m
 	return by, nil
 }
 
-func (e *Encoder) encodeStruct(by []byte, st reflect.Value, state *marshalState) ([]byte, error) {
+func (e *Encoder) encodeStruct(by []byte, st reflect.Value, state *marshalState, remainingDepth int) ([]byte, error) {
+	remainingDepth--
+	if remainingDepth <= 0 {
+		return nil, ErrMaxRecursionLimit
+	}
+
 	tags := e.tcache.Get(st)
 
 	by = append(by, typeOBJECT)
@@ -575,7 +602,7 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, state *marshalState)
 	var err error
 	for f, i := range tags {
 		by = e.encodeString(by, f, true, state.strTable)
-		if by, err = e.encode(by, st.Field(i), false, false, state); err != nil {
+		if by, err = e.encode(by, st.Field(i), false, false, state, remainingDepth); err != nil {
 			return nil, err
 		}
 	}
@@ -583,20 +610,25 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, state *marshalState)
 	return by, nil
 }
 
-func (e *Encoder) encodePointer(by []byte, rv reflect.Value, state *marshalState) ([]byte, error) {
+func (e *Encoder) encodePointer(by []byte, rv reflect.Value, state *marshalState, remainingDepth int) ([]byte, error) {
+	remainingDepth--
+	if remainingDepth <= 0 {
+		return nil, ErrMaxRecursionLimit
+	}
+
 	// ikruglov
 	// I don't fully understand this logic, so leave it as is :-)
 
 	if rv.Elem().Kind() == reflect.Struct {
 		switch rv.Elem().Interface().(type) {
 		case PerlRegexp:
-			return e.encode(by, rv.Elem(), false, false, state)
+			return e.encode(by, rv.Elem(), false, false, state, remainingDepth)
 		case PerlUndef:
-			return e.encode(by, rv.Elem(), false, false, state)
+			return e.encode(by, rv.Elem(), false, false, state, remainingDepth)
 		case PerlObject:
-			return e.encode(by, rv.Elem(), false, false, state)
+			return e.encode(by, rv.Elem(), false, false, state, remainingDepth)
 		case PerlWeakRef:
-			return e.encode(by, rv.Elem(), false, false, state)
+			return e.encode(by, rv.Elem(), false, false, state, remainingDepth)
 		}
 	}
 
@@ -626,7 +658,7 @@ func (e *Encoder) encodePointer(by []byte, rv reflect.Value, state *marshalState
 		}
 
 		var err error
-		by, err = e.encode(by, rv.Elem(), false, true, state)
+		by, err = e.encode(by, rv.Elem(), false, true, state, remainingDepth)
 		if err != nil {
 			return nil, err
 		}
@@ -671,4 +703,12 @@ func getPointer(rv reflect.Value) uintptr {
 
 func concreteName(value reflect.Value) string {
 	return value.Type().PkgPath() + "." + value.Type().Name()
+}
+
+func remainingRecursion(maxDepth int) int {
+	if maxDepth <= 0 {
+		return 2147483647
+	}
+
+	return maxDepth
 }
