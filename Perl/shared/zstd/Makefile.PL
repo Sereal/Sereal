@@ -66,7 +66,7 @@ CFLAGS  += -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasi
            -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef \
            -Wpointer-arith
 CFLAGS  += $(MOREFLAGS)
-AR       = ar
+AR      ?= ar
 ARFLAGS  = rcs
 RM       = rm -f
 
