@@ -106,6 +106,13 @@ sub parse_header {
         my $out= Compress::Zlib::uncompress($data);
         $data= $out;
     }
+    elsif ( $encoding == SRL_PROTOCOL_ENCODING_ZSTD ) {
+        print "Header says: Document body is ZSTD-compressed.\n";
+        my $compressed_len= varint();
+        require Compress::Zstd;
+        my $out= Compress::Zstd::decompress($data);
+        $data= $out;
+    }
     else {
         die "Invalid encoding '" . ( $encoding >> SRL_PROTOCOL_VERSION_BITS ) . "'";
     }
