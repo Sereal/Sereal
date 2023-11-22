@@ -724,6 +724,7 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 	idx++
 
 	var err error
+
 	switch {
 	case tag < typeVARINT:
 		setInt(ptr, d.decodeInt(tag))
@@ -749,17 +750,30 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		if val, idx, err = d.decodeFloat(by, idx); err != nil {
 			return 0, err
 		}
-		ptr.SetFloat(float64(val))
+		if ptr.Kind() == reflect.Ptr {
+			setPtrFloat(ptr, float64(val))
+		} else {
+			ptr.SetFloat(float64(val))
+		}
 
 	case tag == typeDOUBLE:
 		var val float64
 		if val, idx, err = d.decodeDouble(by, idx); err != nil {
 			return 0, err
 		}
-		ptr.SetFloat(val)
+		if ptr.Kind() == reflect.Ptr {
+			setPtrFloat(ptr, float64(val))
+		} else {
+			ptr.SetFloat(float64(val))
+		}
 
 	case tag == typeTRUE, tag == typeFALSE:
-		ptr.SetBool(tag == typeTRUE)
+		if ptr.Kind() == reflect.Ptr {
+			boolValue := tag == typeTRUE
+			ptr.Set(reflect.ValueOf(&boolValue))
+		} else {
+			ptr.SetBool(tag == typeTRUE)
+		}
 
 	case tag == typeBINARY:
 		var val []byte
@@ -1211,8 +1225,61 @@ func setInt(ptr reflect.Value, i int) {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		ptr.SetUint(uint64(i))
 
+	case reflect.Ptr:
+		setPtrInt(ptr, i)
 	default:
+
 		panic(&reflect.ValueError{Method: "sereal.setInt", Kind: ptr.Kind()})
+	}
+}
+
+func setPtrFloat(ptr reflect.Value, f float64) {
+	switch ptr.Type().Elem().Kind() {
+	case reflect.Float32:
+		v := float32(f)
+		ptr.Set(reflect.ValueOf(&v))
+	case reflect.Float64:
+		v := float64(f)
+		ptr.Set(reflect.ValueOf(&v))
+	default:
+		panic(&reflect.ValueError{Method: "sereal.setPtrFloat", Kind: ptr.Type().Elem().Kind()})
+	}
+}
+
+func setPtrInt(ptr reflect.Value, i int) {
+	switch ptr.Type().Elem().Kind() {
+	case reflect.Int:
+		v := int(i)
+		ptr.Set(reflect.ValueOf(&v))
+	case reflect.Int8:
+		v := int8(i)
+		ptr.Set(reflect.ValueOf(&v))
+	case reflect.Int16:
+		v := int16(i)
+		ptr.Set(reflect.ValueOf(&v))
+	case reflect.Int32:
+		v := int32(i)
+		ptr.Set(reflect.ValueOf(&v))
+	case reflect.Int64:
+		v := int64(i)
+		ptr.Set(reflect.ValueOf(&v))
+	case reflect.Uint:
+		v := uint(i)
+		ptr.Set(reflect.ValueOf(&v))
+	case reflect.Uint8:
+		v := uint8(i)
+		ptr.Set(reflect.ValueOf(&v))
+	case reflect.Uint16:
+		v := uint16(i)
+		ptr.Set(reflect.ValueOf(&v))
+	case reflect.Uint32:
+		v := uint32(i)
+		ptr.Set(reflect.ValueOf(&v))
+	case reflect.Uint64:
+		v := uint64(i)
+		ptr.Set(reflect.ValueOf(&v))
+	default:
+		panic(&reflect.ValueError{Method: "sereal.setPtrInt", Kind: ptr.Type().Elem().Kind()})
 	}
 }
 
