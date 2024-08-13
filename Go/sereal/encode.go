@@ -22,6 +22,7 @@ type Encoder struct {
 	DisableFREEZE        bool       // should we disable the FREEZE tag, which calls MarshalBinary
 	ExpectedSize         uint       // give a hint to encoder about expected size of encoded data
 	MaxRecursionDepth    int        // maximum recursion depth
+	StructAsMap          bool       // convert struct as map
 	version              int        // default version to encode
 	tcache               tagsCache
 }
@@ -586,10 +587,18 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, state *marshalState,
 		return nil, ErrMaxRecursionLimit
 	}
 
-	tags := e.tcache.Get(st)
+	tags := make(map[string]reflect.Value)
+	for f, i := range e.tcache.Get(st) {
+		fv := st.Field(i.id)
+		if !(i.omitEmpty && isEmptyValue(fv)) {
+			tags[f] = fv
+		}
+	}
 
-	by = append(by, typeOBJECT)
-	by = e.encodeBytes(by, []byte(st.Type().Name()), true, state.strTable)
+	if !e.StructAsMap {
+		by = append(by, typeOBJECT)
+		by = e.encodeBytes(by, []byte(st.Type().Name()), true, state.strTable)
+	}
 
 	if e.PerlCompat {
 		// must be a reference
@@ -600,9 +609,9 @@ func (e *Encoder) encodeStruct(by []byte, st reflect.Value, state *marshalState,
 	by = varint(by, uint(len(tags)))
 
 	var err error
-	for f, i := range tags {
+	for f, fv := range tags {
 		by = e.encodeString(by, f, true, state.strTable)
-		if by, err = e.encode(by, st.Field(i), false, false, state, remainingDepth); err != nil {
+		if by, err = e.encode(by, fv, false, false, state, remainingDepth); err != nil {
 			return nil, err
 		}
 	}
