@@ -1654,7 +1654,6 @@ SRL_STATIC_INLINE void
 srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
 {
 
-    AV *info_av;
     if (!dec->thaw_av)
         SAFE_NEW_AV(dec->thaw_av);
 
