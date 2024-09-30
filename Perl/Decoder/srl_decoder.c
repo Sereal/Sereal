@@ -1740,9 +1740,13 @@ srl_thaw_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
     }
     SvREFCNT_dec(arg_av);
 
-    if (SvROK(replacement)) {
-        SvRV_set(into,  SvRV(replacement));
-        SvREFCNT_inc(SvRV(replacement));
+    if (replacement != NULL) {
+        if (SvROK(replacement)) {
+            SvRV_set(into,  SvRV(replacement));
+            SvREFCNT_inc(SvRV(replacement));
+        } else {
+            sv_setsv(into, newSVsv(replacement));
+        }
         SvREFCNT_dec(replacement);
     } else {
         SvRV_set(into, newSV(0));
