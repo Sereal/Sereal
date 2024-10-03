@@ -23,6 +23,14 @@ type PerlUndef struct {
 	canonical bool
 }
 
+type PerlNo struct{}
+
+type PerlYes struct{}
+
+type Float128 struct {
+	Bytes [16]byte
+}
+
 // perlCanonicalUndef is the value that represents the perl's PL_sv_undef and
 // is encoded via the CANONICAL_UNDEF tag. It must be the only instance having
 // the canonical field set to true.

@@ -62,6 +62,24 @@ func NewEncoderV3() *Encoder {
 	}
 }
 
+// NewEncoderV4 returns a new Encoder that encodes version 4
+func NewEncoderV4() *Encoder {
+	return &Encoder{
+		PerlCompat:           false,
+		CompressionThreshold: 1024,
+		version:              4,
+	}
+}
+
+// NewEncoderV5 returns a new Encoder that encodes version 5
+func NewEncoderV5() *Encoder {
+	return &Encoder{
+		PerlCompat:           false,
+		CompressionThreshold: 1024,
+		version:              5,
+	}
+}
+
 var defaultEncoder = NewEncoderV3()
 
 // Marshal encodes body with the default encoder
@@ -143,7 +161,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		if len(encBody) >= len(encHeader) {
 			encBody = encBody[len(encHeader):] // trim hacky bytes
 		}
-	case 2, 3:
+	case 2, 3, 4, 5:
 		encBody = append(encBody, 0) // hack for 1-based offsets
 		encBody, err = e.encode(encBody, body, false, false, &state, remainingDepth)
 		if len(encBody) >= 1 {
@@ -178,6 +196,11 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 				return nil, errors.New("zlib compression only valid for v3 documents and up")
 			}
 			doctype = serealZlib
+		case ZstdCompressor:
+			if e.version < 4 {
+				return nil, errors.New("zstd compression only valid for v4 documents and up")
+			}
+			doctype = serealZstd
 		default:
 			// Defensive programming: this point should never be
 			// reached in production code because the compressor
@@ -267,6 +290,16 @@ func (e *Encoder) encode(b []byte, v interface{}, isKeyOrClass bool, isRefNext b
 		} else {
 			b = append(b, typeUNDEF)
 		}
+
+	case PerlNo:
+		b = append(b, typeNO)
+
+	case PerlYes:
+		b = append(b, typeYES)
+
+	case Float128:
+		b = append(b, typeFLOAT128)
+		b = append(b, value.Bytes[:]...)
 
 	case PerlObject:
 		b = append(b, typeOBJECT)
@@ -628,6 +661,12 @@ func (e *Encoder) encodePointer(by []byte, rv reflect.Value, state *marshalState
 		case PerlObject:
 			return e.encode(by, rv.Elem(), false, false, state, remainingDepth)
 		case PerlWeakRef:
+			return e.encode(by, rv.Elem(), false, false, state, remainingDepth)
+		case PerlNo:
+			return e.encode(by, rv.Elem(), false, false, state, remainingDepth)
+		case PerlYes:
+			return e.encode(by, rv.Elem(), false, false, state, remainingDepth)
+		case Float128:
 			return e.encode(by, rv.Elem(), false, false, state, remainingDepth)
 		}
 	}
