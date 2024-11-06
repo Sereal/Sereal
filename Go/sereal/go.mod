@@ -9,7 +9,7 @@ require (
 	github.com/dgryski/go-ddmin v0.0.0-20210904190556-96a6d69f1034
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.5.9
-	github.com/klauspost/compress v1.17.10
+	github.com/klauspost/compress v1.17.11
 	github.com/stretchr/testify v1.8.2
 )
 
