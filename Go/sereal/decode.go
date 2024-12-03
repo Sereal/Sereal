@@ -861,7 +861,7 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 			return 0, err
 
 		}
-		if ptr.Kind() == reflect.Pointer {
+		if ptr.Kind() == reflect.Ptr {
 			ptr.Set(val)
 		} else {
 			ptr.Set(val.Elem())
