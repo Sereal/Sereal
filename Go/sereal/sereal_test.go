@@ -1236,3 +1236,25 @@ func testDecode(t *testing.T, noReferentialIntegrity bool, expected interface{},
 		assert.Equal(t, expected, decoded)
 	}
 }
+
+func TestCycle(t *testing.T) {
+	type Self struct {
+		Self *Self
+	}
+
+	t1 := new(Self)
+	t1.Self = t1
+	b, err := Marshal(t1)
+	if err != nil {
+		t.Fatalf("Cannot marshal a cycle to one self %s", err.Error())
+	}
+	t2 := new(Self)
+	err = Unmarshal(b, t2)
+	if err != nil {
+		t.Fatalf("Cannot unmarshal a cycle to one self %s", err.Error())
+	}
+
+	if t2 != t2.Self {
+		t.Fatalf("Cannot unmarshal a cycle to one self")
+	}
+}
