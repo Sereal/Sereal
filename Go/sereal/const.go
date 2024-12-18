@@ -54,6 +54,9 @@ const (
 	typeREGEXP          = 0x31
 	typeOBJECT_FREEZE   = 0x32
 	typeOBJECTV_FREEZE  = 0x33
+	typeNO              = 0x34
+	typeYES             = 0x35
+	typeFLOAT128        = 0x38
 	typeCANONICAL_UNDEF = 0x39
 	typeFALSE           = 0x3a
 	typeTRUE            = 0x3b
