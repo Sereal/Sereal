@@ -153,7 +153,7 @@ If you care greatly about performance, consider reading the L<Sereal::Performanc
 documentation after finishing this document.
 
 The Sereal protocol version emitted by this encoder implementation is currently
-protocol version 4 by default.
+protocol version 5 by default.
 
 The protocol specification and many other bits of documentation
 can be found in the github repository. Right now, the specification is at

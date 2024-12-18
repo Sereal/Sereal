@@ -84,18 +84,7 @@ inc::Sereal::BuildTools::WriteMakefile(
         'Test::Warn'         => '0',
     },
     BUILD_REQUIRES => {
-        'Data::Dumper'      => '0',
         'ExtUtils::ParseXS' => '2.21',
-        'File::Find'        => '0',
-        'File::Path'        => '0',
-        'File::Spec'        => '0',
-        'Scalar::Util'      => '0',
-        'Test::Deep'        => '0',
-        'Test::Differences' => '0',
-        'Test::LongString'  => '0',
-        'Test::More'        => '0.88',
-        'Test::Warn'        => '0',
-        'XSLoader'          => '0',
     },
     CONFIGURE_REQUIRES => {
         'Devel::CheckLib'       => '1.16',
