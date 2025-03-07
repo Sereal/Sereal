@@ -141,6 +141,8 @@ t/lib/Sereal/BulkTest.pm
 t/lib/Sereal/TestSet.pm
 typemap
 xt/900_rand.t
+zstd/common/allocations.h
+zstd/common/bits.h
 zstd/common/bitstream.h
 zstd/common/compiler.h
 zstd/common/cpu.h
@@ -190,6 +192,8 @@ zstd/compress/zstd_ldm.h
 zstd/compress/zstd_ldm_geartab.h
 zstd/compress/zstd_opt.c
 zstd/compress/zstd_opt.h
+zstd/compress/zstd_preSplit.c
+zstd/compress/zstd_preSplit.h
 zstd/compress/zstdmt_compress.c
 zstd/compress/zstdmt_compress.h
 zstd/decompress/huf_decompress.c

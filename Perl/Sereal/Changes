@@ -13,6 +13,10 @@ from the the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+5.004_001
+    * Update Zstd to 1.5.7, and other changes.
+    * Thanks to Marco Fontani, Ricardo Signes, and James Rouzier
+
 5.004
     * Decoder fixes: Fix thaw ordering for frozen objects. Nested THAW
       operations now happen in the documented LIFO order. Thanks to Marco 
