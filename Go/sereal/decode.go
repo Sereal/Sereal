@@ -118,13 +118,7 @@ func checkHeader(b []byte) (serealHeader, error) {
 	}
 
 	switch header.version {
-	case 1:
-		break
-	case 2:
-		break
-	case 3:
-		break
-	case 4:
+	case 1, 2, 3, 4, 5:
 		break
 	default:
 		return header, fmt.Errorf("document version '%d' not yet supported", header.version)
@@ -313,6 +307,9 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 	case tag == typeFLOAT:
 		*ptr, idx, err = d.decodeFloat(by, idx)
 
+	case tag == typeFLOAT128:
+		*ptr, idx, err = d.decodeFloat128(by, idx)
+
 	case tag == typeDOUBLE:
 		*ptr, idx, err = d.decodeDouble(by, idx)
 
@@ -321,6 +318,20 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 
 	case tag == typeFALSE:
 		*ptr = false
+
+	case tag == typeYES:
+		if d.PerlCompat {
+			*ptr = &PerlYes{}
+		} else {
+			*ptr = true
+		}
+
+	case tag == typeNO:
+		if d.PerlCompat {
+			*ptr = &PerlNo{}
+		} else {
+			*ptr = false
+		}
 
 	case tag == typeHASH:
 		// see commends at top of the function
@@ -489,6 +500,16 @@ func (d *Decoder) decodeFloat(by []byte, idx int) (float32, int, error) {
 
 	bits := uint32(by[idx]) | uint32(by[idx+1])<<8 | uint32(by[idx+2])<<16 | uint32(by[idx+3])<<24
 	return math.Float32frombits(bits), idx + 4, nil
+}
+
+func (d *Decoder) decodeFloat128(by []byte, idx int) (*Float128, int, error) {
+	if idx+15 >= len(by) {
+		return nil, 0, ErrTruncated
+	}
+
+	res := Float128{}
+	copy(res.Bytes[:], by[idx:idx+16])
+	return &res, idx + 16, nil
 }
 
 func (d *Decoder) decodeDouble(by []byte, idx int) (float64, int, error) {
@@ -758,8 +779,27 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		}
 		ptr.SetFloat(val)
 
+	case tag == typeFLOAT128:
+		var val *Float128
+		if val, idx, err = d.decodeFloat128(by, idx); err != nil {
+			return 0, err
+		}
+
+		ptr.Set(reflect.ValueOf(val))
+
 	case tag == typeTRUE, tag == typeFALSE:
 		ptr.SetBool(tag == typeTRUE)
+
+	case tag == typeNO, tag == typeYES:
+		if d.PerlCompat {
+			if tag == typeYES {
+				ptr.Set(reflect.ValueOf(&PerlYes{}))
+			} else {
+				ptr.Set(reflect.ValueOf(&PerlNo{}))
+			}
+		} else {
+			ptr.SetBool(tag == typeYES)
+		}
 
 	case tag == typeBINARY:
 		var val []byte
