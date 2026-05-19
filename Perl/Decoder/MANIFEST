@@ -136,6 +136,7 @@ t/900_regr_issue_15.t
 t/901_regr_segv.t
 t/902_bad_input.t
 t/903_reentrancy.t
+t/903_regr_oob_copy_shortbinary.t
 t/data/corpus
 t/lib/Sereal/BulkTest.pm
 t/lib/Sereal/TestSet.pm

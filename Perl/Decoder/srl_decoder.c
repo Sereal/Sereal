@@ -167,6 +167,8 @@ SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
         SvROK_on(into);                             \
     } STMT_END
 
+#define COPY_OFFSET_ERROR_FMT_PREFIX "Corrupted COPY tag, offset %d to %d must precede the tags own offset"
+
 STATIC void
 srl_ptable_debug_callback(PTABLE_ENTRY_t *e)
 {
@@ -1237,11 +1239,10 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
             flags= HVhek_UTF8;
 #endif
         } else if (tag == SRL_HDR_COPY) {
+            const U8 *copytag_start = dec->buf.pos - 1;
             UV ofs= srl_read_varint_uv_offset(aTHX_ dec->pbuf, " while reading COPY tag");
             from= dec->buf.body_pos + ofs;
             tag= *from++;
-            /* note we do NOT validate these items, as we have alread read them
-             * and if they were a problem we would not be here to process them! */
             if (IS_SRL_HDR_SHORT_BINARY(tag)) {
                 key_len= (KEYLENTYPE)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
             }
@@ -1249,14 +1250,14 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
             if (tag == SRL_HDR_BINARY) {
                 key_len = (KEYLENTYPE)S_read_varint_uv_length_char_ptr(
                     aTHX_ &from, dec->buf.end,
-                    " while reading (byte) string length (via COPY)"
+                    " while reading binary key via COPY"
                 );
             }
             else
             if (tag == SRL_HDR_STR_UTF8) {
                 key_len = (KEYLENTYPE)S_read_varint_uv_length_char_ptr(
                     aTHX_ &from, dec->buf.end,
-                    " while reading UTF8-encoded string length (via COPY)"
+                    " while reading UTF8-encoded key via COPY"
                 );
 #ifdef OLDHASH
                 key_len= -key_len;
@@ -1266,6 +1267,10 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
             }
             else {
                 SRL_RDR_ERROR_BAD_COPY(dec->pbuf, SRL_HDR_HASH);
+            }
+            if (expect_false(from + key_len > copytag_start)) {
+                SRL_RDR_ERRORf2(dec->pbuf,
+                    COPY_OFFSET_ERROR_FMT_PREFIX " while reading key",(int)ofs,(int)key_len);
             }
         } else {
             SRL_RDR_ERROR_UNEXPECTED(dec->pbuf, tag, "a stringish type");
@@ -1550,11 +1555,12 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
     }
     else
     if (tag == SRL_HDR_COPY) {
+        const U8 *copytag_start = dec->buf.pos - 1;
         ofs= srl_read_varint_uv_offset(aTHX_ dec->pbuf, " while reading COPY class name");
         storepos= ofs;
         /* if this string was seen before as part of a classname then we expect
          * a stash available below. However it might have been serialized as a key
-         * or something like that, which would mean we dont have an entry in ref_stashes
+         * or something like that, which would mean we don't have an entry in ref_stashes
          * anymore. So first we check if we have a stash. If we do, then we can avoid
          * some work. */
         if (expect_true( dec->ref_stashes != NULL )) {
@@ -1565,8 +1571,6 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
         if (!class_stash) {
             from= dec->buf.body_pos + ofs;
             tag= *from++;
-            /* Note we do NOT validate these items, as we have already read them
-             * and if they were a problem we would not be here to process them! */
             if (IS_SRL_HDR_SHORT_BINARY(tag)) {
                 key_len= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
             }
@@ -1574,14 +1578,14 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
             if (tag == SRL_HDR_BINARY) {
                 key_len = (KEYLENTYPE)S_read_varint_uv_length_char_ptr(
                     aTHX_ &from, dec->buf.end,
-                    " while reading (byte) length for class name (via COPY)"
+                    " while reading class name via COPY"
                 );
             }
             else
             if (tag == SRL_HDR_STR_UTF8) {
                 key_len = (KEYLENTYPE)S_read_varint_uv_length_char_ptr(
                     aTHX_ &from, dec->buf.end,
-                    " while reading UTF8 string length for class name (via COPY)"
+                    " while reading UTF8 class name via COPY"
                 );
                 flags = flags | SVf_UTF8;
                 if (!is_utf8_string(from, key_len)) {
@@ -1590,6 +1594,10 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
             }
             else {
                 SRL_RDR_ERROR_BAD_COPY(dec->pbuf, SRL_HDR_OBJECT);
+            }
+            if (expect_false(from + key_len > copytag_start)) {
+                SRL_RDR_ERRORf2(dec->pbuf,
+                    COPY_OFFSET_ERROR_FMT_PREFIX " while reading classname",(int)ofs,(int)ofs+key_len);
             }
         }
     } else {
@@ -1878,15 +1886,19 @@ srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into)
 SRL_STATIC_INLINE void
 srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    UV item= srl_read_varint_uv_offset(aTHX_ dec->pbuf, " while reading COPY tag");
+    const U8 *copytag_start = dec->buf.pos - 1;
+    UV ofs= srl_read_varint_uv_offset(aTHX_ dec->pbuf, " while reading COPY tag");
+    const U8 *target_start = dec->buf.body_pos + ofs;
+
     if (expect_false( dec->save_pos )) {
-        SRL_RDR_ERRORf1(dec->pbuf, "COPY(%d) called during parse", (int)item);
+        SRL_RDR_ERRORf2(dec->pbuf, "nested COPY at offset %d and %d",
+                (int)(dec->save_pos - dec->buf.body_pos), (int)ofs );
     }
-    if (expect_false( (IV)item > dec->buf.end - dec->buf.start )) {
-        SRL_RDR_ERRORf1(dec->pbuf, "COPY(%d) points out of packet", (int)item);
+    if (expect_false( target_start > copytag_start )) {
+        SRL_RDR_ERRORf1(dec->pbuf, "COPY target %d must preceed its own offset", (int)ofs);
     }
     dec->save_pos= dec->buf.pos;
-    dec->buf.pos= dec->buf.body_pos + item;
+    dec->buf.pos= target_start;
     srl_read_single_value(aTHX_ dec, into, NULL);
     dec->buf.pos= dec->save_pos;
     dec->save_pos= 0;

@@ -12,7 +12,7 @@ This document describes the format and encoding of a Sereal data packet.
 
 =head1 VERSION
 
-This is the Sereal specification version 4.00.
+This is the Sereal specification version 5.00.
 
 The integer part of the document version corresponds to
 the Sereal protocol version. For details on incompatible changes between
@@ -83,7 +83,7 @@ A single byte, of which the high 4 bits are used to represent the "type"
 of the document, and the low 4 bits used to represent the version of the
 Sereal protocol the document complies with.
 
-Up until now there have been versions 1, 2, 3 and 4 of the Sereal protocol.
+Up until now there have been versions 1, 2, 3 and 4, 5 of the Sereal protocol.
 So the low four bits will be one of those values in little-endian.
 
 Currently only five types are defined:
@@ -518,6 +518,11 @@ implementation) then they should map CANONICAL_UNDEF
 accordingly, otherwise they are free to treat CANONICAL_UNDEF the same as UNDEF.
 
 =head1 PROTOCOL CHANGES
+
+=head2 Protocol Version 5
+
+Add, the NO and YES tags to represent perl 5.36 booleans (basically JSON true/false)
+as well as FLOAT_128.
 
 =head2 Protocol Version 4
 
