@@ -68,11 +68,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - uses: actions/setup-java@v2
+      - uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: ${{ matrix.java }}
           cache: 'maven'
+          cache-dependency-path: '**/pom.xml'
 
       - name: Set up perl
         uses: shogo82148/actions-setup-perl@v1
