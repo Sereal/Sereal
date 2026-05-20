@@ -12,7 +12,7 @@ use Sereal::TestSet;
 use Test::More;
 use Sereal::Encoder qw(encode_sereal);
 use version;
-my %tests= (
+my %tests = (
 
     # IMPORTANT: If you add new types of cases here please update the
     # "CANONICAL REPRESENTATION" documentation.
@@ -21,7 +21,7 @@ my %tests= (
             return "en";
         },
         sub {
-            my $en= "en";
+            my $en = "en";
             utf8::upgrade($en);
             return $en;
         },
@@ -43,19 +43,19 @@ eval {
         unless version->new( Test::Deep->VERSION ) >= version->new('0.110');
     1;
 } or do {
-    my $error= $@ || "Zombie Error";
+    my $error = $@ || "Zombie Error";
     plan skip_all =>
         "We are skipping all our tests because we don't have a suitable Test::Deep here, got error: $error";
 };
 plan tests => keys(%tests) * 2;
 
 for my $test ( keys %tests ) {
-    my ( $x, $y )= @{ $tests{$test} };
-    my $x_value= $x->();
-    my $y_value= $y->();
+    my ( $x, $y ) = @{ $tests{$test} };
+    my $x_value = $x->();
+    my $y_value = $y->();
 
-    my $x_value_sereal= encode_sereal( $x_value, { canonical => 1 } );
-    my $y_value_sereal= encode_sereal( $y_value, { canonical => 1 } );
+    my $x_value_sereal = encode_sereal( $x_value, { canonical => 1 } );
+    my $y_value_sereal = encode_sereal( $y_value, { canonical => 1 } );
 
     cmp_ok(
         $x_value_sereal, 'ne', $y_value_sereal,

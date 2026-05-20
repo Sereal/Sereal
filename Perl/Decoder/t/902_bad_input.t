@@ -11,7 +11,7 @@ BEGIN {
 
 use Sereal::TestSet;
 use Test::More tests => 4;
-use Sereal::Decoder qw(decode_sereal);
+use Sereal::Decoder            qw(decode_sereal);
 use Sereal::Decoder::Constants qw(:all);
 
 for my $ref ( \"", [], {}, \*STDERR ) {

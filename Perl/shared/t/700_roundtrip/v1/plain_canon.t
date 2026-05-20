@@ -14,8 +14,8 @@ BEGIN {
 use Sereal::TestSet qw(:all);
 use Test::More;
 
-my $ok= have_encoder_and_decoder();
-$ok= 0 if $ok and $Sereal::Encoder::VERSION < 3.001006;
+my $ok = have_encoder_and_decoder();
+$ok = 0 if $ok and $Sereal::Encoder::VERSION < 3.001006;
 if ( not $ok ) {
     plan skip_all => 'Did not find right version of encoder (want 3.001006)';
 }

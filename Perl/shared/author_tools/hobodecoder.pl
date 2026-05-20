@@ -4,18 +4,18 @@ use warnings;
 use Data::Dumper;
 
 use Getopt::Long qw(GetOptions);
-use Encode qw(encode_utf8 decode_utf8);
+use Encode       qw(encode_utf8 decode_utf8);
 our @constants;
 no warnings 'recursion';
 
 BEGIN {
-    my $add_use_blib= "";
-    my $use= "";
+    my $add_use_blib = "";
+    my $use          = "";
     my @check;
     for my $type ( "Decoder", "Encoder" ) {
         if ( -e "blib/lib/Sereal/$type/Constants.pm" ) {
-            $add_use_blib= "use blib;";
-            @check= ($type);
+            $add_use_blib = "use blib;";
+            @check        = ($type);
             last;
         }
         push @check, $type;
@@ -25,7 +25,7 @@ BEGIN {
     foreach my $check (@check) {
         if (
             eval(
-                my $code= sprintf '
+                my $code = sprintf '
                 %s
                 use Sereal::%s::Constants qw(:all);
                 @constants= @Sereal::%s::Constants::EXPORT_OK;
@@ -34,7 +34,7 @@ BEGIN {
             ', $add_use_blib, ($check) x 3
             ) )
         {
-            @err= ();
+            @err = ();
             last;
         }
         else {
@@ -46,11 +46,11 @@ BEGIN {
 
 my $done;
 my $data;
-my $hlen= -1;
-my $indent= "";
+my $hlen   = -1;
+my $indent = "";
 
 sub _chop_data_prefix {
-    my ($len)= @_;
+    my ($len) = @_;
     die "Unexpected end of packet" unless length($data) >= $len;
     return substr( $data, 0, $len, '' );
 }
@@ -58,20 +58,20 @@ sub _chop_data_prefix {
 sub parse_header {
     $data =~ s/^(=[s\xF3]rl)(.)// or die "invalid header: $data";
     $done .= $1 . $2;
-    my $flags= $2;
-    my $len= varint();
-    my $hdr= _chop_data_prefix($len);
+    my $flags = $2;
+    my $len   = varint();
+    my $hdr   = _chop_data_prefix($len);
 
-    my $proto_version= ord($flags) & SRL_PROTOCOL_VERSION_MASK;
+    my $proto_version = ord($flags) & SRL_PROTOCOL_VERSION_MASK;
     print "Sereal protocol version: $proto_version\n";
     if ( length($hdr) ) {
         print "Header($len): " . join( " ", map ord, split //, $hdr ) . "\n";
-        if ( $proto_version >= 2 && ( ord( substr( $hdr, 0, 1 ) ) & 1 ) ) { # if first bit set => user header data
+        if ( $proto_version >= 2 && ( ord( substr( $hdr, 0, 1 ) ) & 1 ) ) {    # if first bit set => user header data
             print "Found user data in header:\n";
-            my $tmp_data= $data; # dance necessary because $data is treated as a global :( hobo, hobo, hobo!
-            $data= substr( $hdr, 1 );
+            my $tmp_data = $data;                                              # dance necessary because $data is treated as a global :( hobo, hobo, hobo!
+            $data = substr( $hdr, 1 );
             parse_sv("  ");
-            $data= $tmp_data;
+            $data = $tmp_data;
             print "End of user data in header. Body:\n";
         }
     }
@@ -79,7 +79,7 @@ sub parse_header {
         print "Empty Header.\n";
     }
 
-    my $encoding= ord($flags) & SRL_PROTOCOL_ENCODING_MASK;
+    my $encoding = ord($flags) & SRL_PROTOCOL_ENCODING_MASK;
 
     printf "%i %i %i\n", $encoding, ord(SRL_PROTOCOL_ENCODING_MASK), ord($flags);
     if ( $encoding == SRL_PROTOCOL_ENCODING_RAW ) {
@@ -88,57 +88,56 @@ sub parse_header {
     elsif ( $encoding == SRL_PROTOCOL_ENCODING_SNAPPY ) {
         print "Header says: Document body is Snappy-compressed.\n";
         require Compress::Snappy;
-        my $out= Compress::Snappy::decompress($data);
-        $data= $out;
+        my $out = Compress::Snappy::decompress($data);
+        $data = $out;
     }
     elsif ( $encoding == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL ) {
         print "Header says: Document body is Snappy-compressed (incremental).\n";
-        my $compressed_len= varint();
+        my $compressed_len = varint();
         require Compress::Snappy;
-        my $out= Compress::Snappy::decompress($data);
-        $data= $out;
+        my $out = Compress::Snappy::decompress($data);
+        $data = $out;
     }
     elsif ( $encoding == SRL_PROTOCOL_ENCODING_ZLIB ) {
         print "Header says: Document body is ZLIB-compressed.\n";
-        my $uncompressed_len= varint();
-        my $compressed_len= varint();
+        my $uncompressed_len = varint();
+        my $compressed_len   = varint();
         require Compress::Zlib;
-        my $out= Compress::Zlib::uncompress($data);
-        $data= $out;
+        my $out = Compress::Zlib::uncompress($data);
+        $data = $out;
     }
     elsif ( $encoding == SRL_PROTOCOL_ENCODING_ZSTD ) {
         print "Header says: Document body is ZSTD-compressed.\n";
-        my $compressed_len= varint();
+        my $compressed_len = varint();
         require Compress::Zstd;
-        my $out= Compress::Zstd::decompress($data);
-        $data= $out;
+        my $out = Compress::Zstd::decompress($data);
+        $data = $out;
     }
     else {
         die "Invalid encoding '" . ( $encoding >> SRL_PROTOCOL_VERSION_BITS ) . "'";
     }
-    $hlen= length($done);
+    $hlen = length($done);
 }
 
 my ( $len_f, $len_d, $len_D, $len_F );
 
 sub parse_float {
     $len_f ||= length( pack( "f", 0 ) );
-    my $v= _chop_data_prefix($len_f);
+    my $v = _chop_data_prefix($len_f);
     $done .= $v;
     return unpack( "f", $v );
 }
 
 sub parse_float_128 {
     $len_F ||= length( pack( "F", 0 ) );
-    my $v= _chop_data_prefix($len_F);
+    my $v = _chop_data_prefix($len_F);
     $done .= $v;
     return unpack( "F", $v );
 }
 
-
 sub parse_double {
     $len_d ||= length( pack( "d", 0 ) );
-    my $v= _chop_data_prefix($len_d);
+    my $v = _chop_data_prefix($len_d);
     $done .= $v;
     return unpack( "d", $v );
 }
@@ -146,24 +145,24 @@ sub parse_double {
 sub parse_long_double {
     $len_D ||= eval { length( pack( "D", 0.0 ) ) };
     die "Long double not supported" unless $len_D;
-    my $v= _chop_data_prefix($len_D);
+    my $v = _chop_data_prefix($len_D);
     $done .= $v;
     return unpack( "D", $v );
 }
 
-my $fmt1= "%06d/%06d: %02x%1s %03s %s";
-my $fmt2= "%-6s %-6s  %-2s%1s %-3s %s";
-my $lead_items= 5;    # 1 less than the fmt2
+my $fmt1       = "%06d/%06d: %02x%1s %03s %s";
+my $fmt2       = "%-6s %-6s  %-2s%1s %-3s %s";
+my $lead_items = 5;                              # 1 less than the fmt2
 
 sub parse_sv {
-    my ($ind)= @_;
+    my ($ind) = @_;
 
-    my $p= length($done);
-    my $t= _chop_data_prefix(1);
+    my $p = length($done);
+    my $t = _chop_data_prefix(1);
     $done .= $t;
-    my $o= ord($t);
-    my $bv= $o;
-    my $high= $o >= 128;
+    my $o    = ord($t);
+    my $bv   = $o;
+    my $high = $o >= 128;
     $o -= 128 if $high;
     printf $fmt1, $p, $p - $hlen + 1, $o, $high ? '*' : ' ', $bv, $ind;
 
@@ -177,21 +176,21 @@ sub parse_sv {
         printf "POS: %u\n", $o;
     }
     elsif ( SRL_HDR_NEG_LOW <= $o && $o <= SRL_HDR_NEG_HIGH ) {
-        $o= $o - 32;
+        $o = $o - 32;
         printf "NEG: %i\n", $o;
     }
     elsif ( $o >= SRL_HDR_SHORT_BINARY_LOW ) {
         $o -= SRL_HDR_SHORT_BINARY_LOW;
-        my $len= $o;
-        my $str= _chop_data_prefix($len);
+        my $len = $o;
+        my $str = _chop_data_prefix($len);
         $done .= $str;
         printf "SHORT_BINARY(%u): '%s' (%s)\n", $len, encode_utf8($str), unpack( "H*", $str );
     }
     elsif ( $o == SRL_HDR_BINARY || $o == SRL_HDR_STR_UTF8 ) {
-        my $l= varint();
-        my $str= _chop_data_prefix($l);    # fixme UTF8
+        my $l   = varint();
+        my $str = _chop_data_prefix($l);    # fixme UTF8
         $done .= $str;
-        $str= decode_utf8($str) if $o == SRL_HDR_STR_UTF8;
+        $str = decode_utf8($str) if $o == SRL_HDR_STR_UTF8;
         printf(
             ( $o == SRL_HDR_STR_UTF8 ? "STR_UTF8" : "BINARY" ) . "(%u): '%s' (%s)\n", $l,
             encode_utf8($str), unpack( "H*", encode_utf8($str) ) );
@@ -213,11 +212,11 @@ sub parse_sv {
         parse_sv( $ind . "  " );
     }
     elsif ( $o == SRL_HDR_REFP ) {
-        my $len= varint();
+        my $len = varint();
         printf "REFP(%u)\n", $len;
     }
     elsif ( $o == SRL_HDR_COPY ) {
-        my $len= varint();
+        my $len = varint();
         printf "COPY(%u)\n", $len;
     }
     elsif ( SRL_HDR_ARRAYREF_LOW <= $o && $o <= SRL_HDR_ARRAYREF_HIGH ) {
@@ -251,18 +250,18 @@ sub parse_sv {
         parse_sv($ind);
     }
     elsif ( $o == SRL_HDR_ALIAS ) {
-        my $ofs= varint();
+        my $ofs = varint();
         printf "ALIAS(%u)\n", $ofs;
     }
     elsif ( $o == SRL_HDR_OBJECTV ) {
-        my $ofs= varint();
-        printf "OBJECTV(%d)\n", $ofs;
+        my $ofs = varint();
+        printf "OBJECTV(%d)\n",                       $ofs;
         printf "$fmt2  Value:\n", ("") x $lead_items, $ind;
         parse_sv( $ind . "    " );
     }
     elsif ( $o == SRL_HDR_OBJECTV_FREEZE ) {
-        my $ofs= varint();
-        printf "OBJECTV_FREEZE(%d)\n", $ofs;
+        my $ofs = varint();
+        printf "OBJECTV_FREEZE(%d)\n",                $ofs;
         printf "$fmt2  Value:\n", ("") x $lead_items, $ind;
         parse_sv( $ind . "    " );
     }
@@ -302,8 +301,8 @@ sub parse_sv {
 }
 
 sub parse_av {
-    my ( $ind, $o )= @_;
-    my $len= defined $o ? $o & 15 : varint();
+    my ( $ind, $o ) = @_;
+    my $len = defined $o ? $o & 15 : varint();
     printf "(%u)\n", $len;
     $ind .= "  ";
     while ( $len-- ) {
@@ -312,8 +311,8 @@ sub parse_av {
 }
 
 sub parse_hv {
-    my ( $ind, $o )= @_;
-    my $len= ( defined $o ? $o & 15 : varint() );
+    my ( $ind, $o ) = @_;
+    my $len = ( defined $o ? $o & 15 : varint() );
     printf "(%u)\n", $len;
     $ind .= "  ";
     while ( $len-- ) {
@@ -326,16 +325,16 @@ sub parse_hv {
 
 # super inefficient
 sub varint {
-    my $x= 0;
-    my $lshift= 0;
+    my $x      = 0;
+    my $lshift = 0;
     while ( length($data) && ord( substr( $data, 0, 1 ) ) & 0x80 ) {
-        my $c= ord( _chop_data_prefix(1) );
+        my $c = ord( _chop_data_prefix(1) );
         $done .= chr($c);
         $x      += ( $c & 0x7F ) << $lshift;
         $lshift += 7;
     }
     if ( length($data) ) {
-        my $c= ord( _chop_data_prefix(1) );
+        my $c = ord( _chop_data_prefix(1) );
         $done .= chr($c);
         $x += $c << $lshift;
     }
@@ -346,7 +345,7 @@ sub varint {
 }
 
 sub _zigzag {
-    my $n= $_[0];
+    my $n = $_[0];
     return $n & 1 ? -( ( $n >> 1 ) + 1 ) : ( $n >> 1 );
 }
 
@@ -355,17 +354,17 @@ sub zigzag {
 }
 
 GetOptions(
-    my $opt= {},
+    my $opt = {},
     'e|stderr',
 );
 
-$|= 1;
+$| = 1;
 if ( $opt->{e} ) {
     select(STDERR);
 }
 
-local $/= undef;
-$data= <STDIN>;
+local $/ = undef;
+$data = <STDIN>;
 
 open my $fh, "| od -tu1c" or die $!;
 print $fh $data;
@@ -376,6 +375,6 @@ print "\n\nTotal length: " . length($data) . "\n\n";
 while ( length $data ) {
     parse_header();
     print "--- End header\n";
-    $done= parse_sv("");
+    $done = parse_sv("");
     print "--- End Document\n";
 }

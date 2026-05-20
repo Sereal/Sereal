@@ -4,48 +4,48 @@ use warnings;
 use Data::Dumper;
 my (
     @meta,
-    %range,                     # base types.
-    %name_to_value,             # just the names in the srl_protocol.h
-    %name_to_value_expanded,    # names from srl_protocol, but with the LOW/HIGH data expanded
-    %value_to_name_expanded, # values from srl_protocol_expanded, mapping back, note value points at FIRST name
+    %range,                       # base types.
+    %name_to_value,               # just the names in the srl_protocol.h
+    %name_to_value_expanded,      # names from srl_protocol, but with the LOW/HIGH data expanded
+    %value_to_name_expanded,      # values from srl_protocol_expanded, mapping back, note value points at FIRST name
     %value_to_comment_expanded    # values from srl_protocol_expanded, with comments from file.
 );
-my $max_name_length= 0;
+my $max_name_length = 0;
 my %define;
 my %define_is_str;
 
-my $ZERO= "Sereal.git:Perl/shared/author_tools/update_from_header.pl";
+my $ZERO = "Sereal.git:Perl/shared/author_tools/update_from_header.pl";
 
 sub fill_range {
-    my $pfx= shift;
+    my $pfx = shift;
     $pfx =~ s/_LOW//;
-    defined( my $ofs= $name_to_value_expanded{$pfx} )
+    defined( my $ofs = $name_to_value_expanded{$pfx} )
         or die "unknown $pfx";
     for my $value (
         $name_to_value_expanded{ $pfx . "_LOW" } .. $name_to_value_expanded{ $pfx . "_HIGH" } )
     {
-        my $n= $pfx =~ /NEG/ ? abs( $value - 32 ) : $value - $ofs;
-        my $name= $pfx . "_" . $n;
+        my $n    = $pfx =~ /NEG/ ? abs( $value - 32 ) : $value - $ofs;
+        my $name = $pfx . "_" . $n;
         $name_to_value_expanded{$name} ||= $value;
-        $value_to_name_expanded{$value}= $name;
+        $value_to_name_expanded{$value} = $name;
         $value_to_comment_expanded{$value} ||= '';
 
-        $meta[$value]{name}= $name;
-        $meta[$value]{value}= $value;
-        $meta[$value]{type_name}= $pfx;
-        $meta[$value]{type_value}= $ofs;
+        $meta[$value]{name}       = $name;
+        $meta[$value]{value}      = $value;
+        $meta[$value]{type_name}  = $pfx;
+        $meta[$value]{type_value} = $ofs;
 
         push @{ $range{$pfx} }, $meta[$value];
 
         #$meta[$value]{comment}= $value_to_comment_expanded{ $ofs }
         #    if exists $value_to_comment_expanded{ $ofs };
 
-        $meta[$value]{masked_val}= $n;
-        $meta[$value]{masked}= 1;
+        $meta[$value]{masked_val} = $n;
+        $meta[$value]{masked}     = 1;
 
         #$define{"SRL_HDR_".$name}= $value;
     }
-    $value_to_comment_expanded{ $name_to_value_expanded{ $pfx . "_HIGH" } }=
+    $value_to_comment_expanded{ $name_to_value_expanded{ $pfx . "_HIGH" } } =
         $value_to_comment_expanded{$ofs};
 }
 
@@ -56,27 +56,27 @@ sub read_protocol {
     my @fill;
     while (<$fh>) {
         chomp;
-        my $orig= $_;
+        my $orig = $_;
         if (m!^#define\s+(SRL_HDR_(\S+))\s+\(\(U8\)(\d+)\)\s*(?:/\*\s*(.*?)\s*\*/)?\s*\z!i) {
-            my ( $full_name, $name, $value, $comment )= ( $1, $2, $3, $4 );
-            $value= 0 + $value;
-            $name_to_value{$name}= $value;
-            $name_to_value_expanded{$name}= $value;
+            my ( $full_name, $name, $value, $comment ) = ( $1, $2, $3, $4 );
+            $value                         = 0 + $value;
+            $name_to_value{$name}          = $value;
+            $name_to_value_expanded{$name} = $value;
             $value_to_name_expanded{$value}    ||= $name;
             $value_to_comment_expanded{$value} ||= $comment;
             push @fill, $name if substr( $name, -4 ) eq '_LOW';
 
             if ( $value < 128 && !( $name =~ /_LOW/ or $name =~ /_HIGH/ ) ) {
-                $meta[$value]{name}= $name;
-                $meta[$value]{value}= $value;
-                $meta[$value]{type_name}= $name;
-                $meta[$value]{type_value}= $value;
-                $meta[$value]{comment}= $comment if defined $comment;
+                $meta[$value]{name}       = $name;
+                $meta[$value]{value}      = $value;
+                $meta[$value]{type_name}  = $name;
+                $meta[$value]{type_value} = $value;
+                $meta[$value]{comment}    = $comment if defined $comment;
             }
-            $define{$full_name}= $value;
+            $define{$full_name} = $value;
         }
         elsif (s!^#define (SRL_\w+)\s+!!) {
-            my $def= $1;
+            my $def = $1;
             s!/\*.*?(?:\*/|$)!!m;
             s!\(U8\)!!g;
             s!(SRL_\w+)!
@@ -85,23 +85,23 @@ sub read_protocol {
             s!\A\s+!!;
             s!\s+\z!!;
             my $val;
-            my $code= "\$val= $_; 1";
+            my $code = "\$val= $_; 1";
             eval $code or die "Failed to eval $code (from $orig): $@";
-            $define{$def}= $val;
-            $define_is_str{$def}= 1 if /[""]/;
+            $define{$def}        = $val;
+            $define_is_str{$def} = 1 if /[""]/;
         }
     }
     close $fh;
     fill_range($_) for @fill;
     foreach my $pfx ( keys %name_to_value_expanded ) {
-        $max_name_length= length($pfx) if $max_name_length < length($pfx);
+        $max_name_length = length($pfx) if $max_name_length < length($pfx);
     }
 
     #print Data::Dumper->new([\%define, \%define_is_str])->Useqq(1)->Sortkeys(1)->Dump();
 }
 
 sub open_swap {
-    my $file= shift;
+    my $file = shift;
     open my $fh, "<", $file
         or die "error opening $file for read:$!";
     rename $file, "$file.bak"
@@ -112,14 +112,14 @@ sub open_swap {
 }
 
 sub replace_block {
-    my ( $file, $blob )= @_;
-    my ( $in,   $out )= open_swap($file);
+    my ( $file, $blob ) = @_;
+    my ( $in,   $out )  = open_swap($file);
     my $gotit;
     READ: {
 
         while (<$in>) {
             print $out $_;
-            last if $gotit= ( /^=for autoupdater start/ || /^# start autoupdated section/ );
+            last if $gotit = ( /^=for autoupdater start/ || /^# start autoupdated section/ );
         }
 
         unless ($gotit) {
@@ -135,7 +135,7 @@ sub replace_block {
         while (<$in>) {
             if ( /^=for autoupdater stop/ || /^# stop autoupdated section/ ) {
                 print $out $_;
-                $gotit= 0;
+                $gotit = 0;
                 last;
             }
         }
@@ -155,15 +155,16 @@ sub replace_block {
 }
 
 sub update_constants {
-    my $dump= Data::Dumper->new( [ \@meta ], ['*TAG_INFO_ARRAY'] )->Sortkeys(1)->Useqq(1)->Indent(1)
+    my $dump =
+        Data::Dumper->new( [ \@meta ], ['*TAG_INFO_ARRAY'] )->Sortkeys(1)->Useqq(1)->Indent(1)
         ->Dump();
     $dump =~ s/^(\s*)\{/$1# autoupdated by $ZERO do not modify directly!\n$1\{/mg;
-    my $defines=
+    my $defines =
         Data::Dumper->new( [ \%define ], ['*DEFINE'] )->Sortkeys(1)->Useqq(1)->Indent(1)->Dump;
     $defines =~ s/^/    /mg;
 
     foreach my $mod_suffix (qw(Encoder Decoder Merger Splitter Path)) {
-        my $file= "Perl/$mod_suffix/lib/Sereal/$mod_suffix/Constants.pm";
+        my $file = "Perl/$mod_suffix/lib/Sereal/$mod_suffix/Constants.pm";
         replace_block(
             $file,
             join "\n",
@@ -195,8 +196,8 @@ sub update_srl_taginfo_h {
             "*/", "",
             "static const char * const tag_name[] = {", (
                 map {
-                    my $str= Data::Dumper::qquote( chr($_) );
-                    if ( $str =~ /^"\\[0-9]+"\z/ ) { $str= ""; }
+                    my $str = Data::Dumper::qquote( chr($_) );
+                    if ( $str =~ /^"\\[0-9]+"\z/ ) { $str = ""; }
                     sprintf qq(\t%-*s /* %-4s %3d 0x%02x 0b%08b */),
                         $max_name_length + 3,
                         qq("$value_to_name_expanded{$_}") . ( $_ == 127 ? " " : "," ), $str, $_, $_,
@@ -212,9 +213,9 @@ sub update_srl_taginfo_h {
             ),
             "", (
                 map {
-                    my $n= $_;
-                    my $v= $range{$n};
-                    my $c=
+                    my $n = $_;
+                    my $v = $range{$n};
+                    my $c =
                         join "    \\\n   ",
                         "#define CASE_SRL_HDR_$n",
                         join ":    \\\n   ",
@@ -230,15 +231,15 @@ sub update_srl_taginfo_h {
 }
 
 sub update_JavaSerealHeader {
-    my $declarations= "* NOTE this section is autoupdated by $ZERO */\n";
+    my $declarations = "* NOTE this section is autoupdated by $ZERO */\n";
 
     for my $name (
         sort { $name_to_value{$a} <=> $name_to_value{$b} || $a cmp $b }
         keys %name_to_value
         )
     {
-        my $byte= $name_to_value{$name};
-        my $decl= sprintf( "byte SRL_HDR_%-*s = (byte) %3d;", $max_name_length, $name, $byte );
+        my $byte = $name_to_value{$name};
+        my $decl = sprintf( "byte SRL_HDR_%-*s = (byte) %3d;", $max_name_length, $name, $byte );
         $declarations .= sprintf(
             "  %s /* %3d 0x%02x 0b%08b %s */\n",
             $decl, $byte, $byte, $byte, $value_to_comment_expanded{$byte} || ""
@@ -269,8 +270,8 @@ sub update_table {
                 "-" x 4, "-" x 3, "-" x 4, "-" x 10, "-" x 40
             ), (
                 map {
-                    my $str= Data::Dumper::qquote( chr($_) );
-                    if ( $str =~ /^"\\[0-9]+"\z/ ) { $str= ""; }
+                    my $str = Data::Dumper::qquote( chr($_) );
+                    if ( $str =~ /^"\\[0-9]+"\z/ ) { $str = ""; }
                     sprintf qq(    %-*s | %-4s | %3d | 0x%02x | 0b%08b | %s),
                         $max_name_length, $value_to_name_expanded{$_}, $str, $_, $_, $_,
                         $value_to_comment_expanded{$_}
@@ -282,7 +283,7 @@ sub update_table {
         ) );
 }
 
-my $git_dir= `git rev-parse --git-dir`
+my $git_dir = `git rev-parse --git-dir`
     or die;    # we will get a message from rev-parse iirc
 chomp($git_dir);
 chdir "$git_dir/.."

@@ -15,7 +15,7 @@ use Sereal::Decoder;
 use Test::Warn;
 
 SCOPE: {
-    my $d= Sereal::Decoder->new;
+    my $d = Sereal::Decoder->new;
     warnings_are {
         eval { $d->decode("=srl\1\0\321j\3\3\3\3\3\3\3\3\3\3.\1") }
     }

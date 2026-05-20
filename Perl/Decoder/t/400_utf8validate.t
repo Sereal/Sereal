@@ -16,7 +16,7 @@ use Sereal::TestSet;
 
 use Sereal::Decoder qw(decode_sereal);
 no warnings 'utf8';
-my @valid_utf8= (
+my @valid_utf8 = (
     [ latin1 => "=srl\x01\x00'\x06Au feu"          => 'Au feu' ],
     [ utf8   => "=srl\x01\x00'\x08\xc3\x80 l'eau"  => "\xC0 l'eau" ],
     [ bom    => "=srl\x01\x00'\x06\xEF\xBB\xBFfoo" => "\x{FEFF}foo" ],
@@ -29,7 +29,7 @@ my @valid_utf8= (
     [ ffpadded => "=srl\x01\x00&\x04\xFF\xFF\xFF\xFF" => "\xFF\xFF\xFF\xFF" ],
 );
 
-my @invalid_utf8= (
+my @invalid_utf8 = (
 
     # Only FF bytes
     [ ffpadded => "=srl\x01\x00'\x04\xFF\xFF\xFF\xFF" ],
@@ -44,10 +44,10 @@ my @invalid_utf8= (
 plan tests => 2 * @valid_utf8 + 2 * @invalid_utf8;
 
 for my $test (@valid_utf8) {
-    my ( $name, $exp, $expected )= @$test;
+    my ( $name, $exp, $expected ) = @$test;
     my $out;
-    my $ok= eval { decode_sereal( $exp, { validate_utf8 => 1 }, $out ); 1 };
-    my $err= $@ || 'Zombie error';
+    my $ok  = eval { decode_sereal( $exp, { validate_utf8 => 1 }, $out ); 1 };
+    my $err = $@ || 'Zombie error';
     ok( $ok, "$name: did not die" )
         or do {
         diag $err;
@@ -58,17 +58,17 @@ for my $test (@valid_utf8) {
 }
 
 for my $test (@invalid_utf8) {
-    my ( $name, $exp )= @$test;
+    my ( $name, $exp ) = @$test;
     my $out;
-    my $ok= eval { decode_sereal( $exp, undef, $out ); 1 };
-    my $err= $@ || 'Zombie error';
+    my $ok  = eval { decode_sereal( $exp, undef, $out ); 1 };
+    my $err = $@ || 'Zombie error';
     ok( $ok, "$name: did not die" )
         or do {
         diag $err;
         diag "input=", Data::Dumper::qquote($exp);
         next;
         };
-    $ok= eval { decode_sereal( $exp, { validate_utf8 => 1 }, $out ); 1 };
-    $err= $@ || 'Zombie error';
+    $ok  = eval { decode_sereal( $exp, { validate_utf8 => 1 }, $out ); 1 };
+    $err = $@ || 'Zombie error';
     like( $err, qr/Invalid UTF8 byte sequence/, "$name: die with a UTF8 error" );
 }

@@ -7,7 +7,7 @@ use lib File::Spec->catdir(qw(t lib));
 
 BEGIN {
     lib->import('lib')
-      if !-d 't';
+        if !-d 't';
 }
 use Test::More;
 use Sereal::TestSet qw(:all);
@@ -62,8 +62,7 @@ my $string  = 'string';
 my $blessed = bless {}, 'Bespoke';
 my $qr      = qr/foo/;
 
-my @test_data = (
-    {
+my @test_data = ( {
         data        => $string,
         description => 'Str'
     },
@@ -81,8 +80,7 @@ my @test_data = (
     },
     {
         data        => Matcher->new($blessed),
-        description =>
-          '(Object with FREEZE/THAW) containing an (Object without FREEZE/THAW)'
+        description => '(Object with FREEZE/THAW) containing an (Object without FREEZE/THAW)'
     },
 );
 
@@ -112,27 +110,34 @@ $VAR1 = bless(
     'Sereal::Decoder::THAW_args'
 );
 EOF_STRUCT
-my $decoded = decode_sereal( $encoder_freeze->encode( $test_data[-1]{data} ),
+my $decoded = decode_sereal(
+    $encoder_freeze->encode( $test_data[-1]{data} ),
     { no_thaw_objects => 1 } );
-is( strip_white( Dumper($decoded) ),
-    $want, "no_thaw_objects=1 worked as expected" );
+is(
+    strip_white( Dumper($decoded) ),
+    $want, "no_thaw_objects=1 worked as expected"
+);
 
 $want = strip_white(<<'EOF_STRUCT');
 $VAR1 = bless( { 'pattern' => {} }, 'Matcher' );
 EOF_STRUCT
 $decoded = decode_sereal(
     $encoder_freeze->encode( $test_data[-1]{data} ),
-    { no_thaw_objects => 0, no_bless_objects => 1 }
+    { no_thaw_objects => 0, no_bless_objects => 1 } );
+is(
+    strip_white( Dumper($decoded) ),
+    $want, "no_thaw_objects=0 no_bless_objects worked as expected"
 );
-is( strip_white( Dumper($decoded) ),
-    $want, "no_thaw_objects=0 no_bless_objects worked as expected" );
 
 $want = strip_white(<<'EOF_STRUCT');
 $VAR1 = bless( [ [ {} ], '22', 'Matcher' ], 'Sereal::Decoder::THAW_args' );
 EOF_STRUCT
-$decoded = decode_sereal( $encoder_freeze->encode( $test_data[-1]{data} ),
+$decoded = decode_sereal(
+    $encoder_freeze->encode( $test_data[-1]{data} ),
     { no_bless_objects => 1 } );
-is( strip_white( Dumper($decoded) ),
-    $want, "no_bless_objects=1 worked as expected" );
+is(
+    strip_white( Dumper($decoded) ),
+    $want, "no_bless_objects=1 worked as expected"
+);
 done_testing;
 __END__

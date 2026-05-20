@@ -1,65 +1,65 @@
 use strict;
 use warnings;
 use blib;
-use Benchmark qw(cmpthese :hireswallclock);
+use Benchmark       qw(cmpthese :hireswallclock);
 use Sereal::Decoder qw(decode_sereal sereal_decode_with_object);
 use Sereal::Encoder qw(encode_sereal sereal_encode_with_object);
-use Storable qw(nfreeze thaw);
-use Data::Dumper qw(Dumper);
+use Storable        qw(nfreeze thaw);
+use Data::Dumper    qw(Dumper);
 
 use Getopt::Long qw(GetOptions);
 require bytes;
 
 GetOptions(
-    'secs|duration=f'                    => \( my $duration= -5 ),
-    'encoder'                            => \( my $encoder= 0 ),
-    'decoder'                            => \( my $decoder= 0 ),
-    'dump|d'                             => \( my $dump= 0 ),
-    'only=s@'                            => \( my $only= undef ),
-    'exclude=s@'                         => \( my $exclude= undef ),
-    'tiny'                               => \( my $tiny_data= 0 ),
-    'small'                              => \( my $small_data= 0 ),
-    'medium'                             => \( my $medium_data= 0 ),
-    'large'                              => \( my $large_data= 0 ),
-    'very_large|very-large|verylarge'    => \( my $very_large_data= 0 ),
-    'no_bless|no-bless|nobless'          => \( my $nobless= 0 ),
-    'sereal_only|sereal-only|serealonly' => \( my $sereal_only= 0 ),
-    'diagrams'                           => \( my $diagrams= 0 ),
-    'diagram_output=s'                   => \( my $diagram_output_dir= "" ),
+    'secs|duration=f'                    => \( my $duration           = -5 ),
+    'encoder'                            => \( my $encoder            = 0 ),
+    'decoder'                            => \( my $decoder            = 0 ),
+    'dump|d'                             => \( my $dump               = 0 ),
+    'only=s@'                            => \( my $only               = undef ),
+    'exclude=s@'                         => \( my $exclude            = undef ),
+    'tiny'                               => \( my $tiny_data          = 0 ),
+    'small'                              => \( my $small_data         = 0 ),
+    'medium'                             => \( my $medium_data        = 0 ),
+    'large'                              => \( my $large_data         = 0 ),
+    'very_large|very-large|verylarge'    => \( my $very_large_data    = 0 ),
+    'no_bless|no-bless|nobless'          => \( my $nobless            = 0 ),
+    'sereal_only|sereal-only|serealonly' => \( my $sereal_only        = 0 ),
+    'diagrams'                           => \( my $diagrams           = 0 ),
+    'diagram_output=s'                   => \( my $diagram_output_dir = "" ),
 ) or die "Bad option";
 
-my $fail= $tiny_data + $small_data + $medium_data + $very_large_data + $large_data - 1;
+my $fail = $tiny_data + $small_data + $medium_data + $very_large_data + $large_data - 1;
 if ( $fail and $fail > 0 ) {
     die "Only one of --tiny, --small, --medium, --large, --very-large allowed!";
 }
-$encoder= 1 if not $encoder and not $decoder;
+$encoder = 1 if not $encoder and not $decoder;
 
 #our %opt = @ARGV;
 our %opt;
 
 my $data_set_name;
 srand(0);
-my $chars= join( "", "a" .. "z", "A" .. "Z" ) x 2;
+my $chars = join( "", "a" .. "z", "A" .. "Z" ) x 2;
 my @str;
 push @str, substr( $chars, int( rand( int( length($chars) / 2 + 1 ) ) ), 10 ) for 1 .. 1000;
-my @rand= map rand, 1 .. 1000;
+my @rand = map rand, 1 .. 1000;
 
 our (
     $enc,            $dec,
     $enc_snappy,     $dec_snappy,
     $enc_zlib_fast,  $dec_zlib_fast,
     $enc_zlib_small, $dec_zlib_small,
-    $jsonxs, $msgpack, $dd_noindent, $dd_indent, $cbor
+    $jsonxs,         $msgpack, $dd_noindent, $dd_indent, $cbor
 );
-my $storable_tag= "strbl";
-my $sereal_tag= "srl";
-my %meta= (
+my $storable_tag = "strbl";
+my $sereal_tag   = "srl";
+my %meta         = (
     jxs => {
         enc  => '$::jsonxs->encode($data);',
         dec  => '$::jsonxs->decode($encoded);',
         name => 'JSON::XS OO',
         init => sub {
-            $jsonxs= JSON::XS->new()->allow_nonref();
+            $jsonxs = JSON::XS->new()->allow_nonref();
         },
         use => 'use JSON::XS qw(decode_json encode_json);',
     },
@@ -78,7 +78,7 @@ my %meta= (
         name => 'Data::MsgPack',
         use  => 'use Data::MessagePack;',
         init => sub {
-            $msgpack= Data::MessagePack->new();
+            $msgpack = Data::MessagePack->new();
         },
     },
     cbor => {
@@ -87,7 +87,7 @@ my %meta= (
         name => 'CBOR::XS',
         use  => 'use CBOR::XS qw(encode_cbor decode_cbor);',
         init => sub {
-            $cbor= CBOR::XS->new();
+            $cbor = CBOR::XS->new();
         },
     },
     dd_noind => {
@@ -120,8 +120,8 @@ my %meta= (
         dec  => '$::dec->decode($encoded);',
         name => 'Sereal OO',
         init => sub {
-            $enc= Sereal::Encoder->new( %opt  ? \%opt : () );
-            $dec= Sereal::Decoder->new( \%opt ? \%opt : () );
+            $enc = Sereal::Encoder->new( %opt  ? \%opt : () );
+            $dec = Sereal::Decoder->new( \%opt ? \%opt : () );
         },
     },
     srl_snpy => {
@@ -129,11 +129,11 @@ my %meta= (
         dec  => '$::dec_snappy->decode($encoded);',
         name => 'Sereal OO snappy',
         init => sub {
-            $enc_snappy= Sereal::Encoder->new( {
+            $enc_snappy = Sereal::Encoder->new( {
                 %opt,
                 compress => Sereal::Encoder::SRL_SNAPPY
             } );
-            $dec_snappy= Sereal::Decoder->new( %opt ? \%opt : () );
+            $dec_snappy = Sereal::Decoder->new( %opt ? \%opt : () );
         },
     },
     srl_zfast => {
@@ -141,13 +141,13 @@ my %meta= (
         dec  => '$::dec_zlib_fast->decode($encoded);',
         name => 'Sereal OO zlib fast',
         init => sub {
-            $enc_zlib_fast= Sereal::Encoder->new( {
+            $enc_zlib_fast = Sereal::Encoder->new( {
                 %opt,
                 compress           => Sereal::Encoder::SRL_ZLIB,
                 compress_level     => 1,
                 compress_threshold => 0,
             } );
-            $dec_zlib_fast= Sereal::Decoder->new( %opt ? \%opt : () );
+            $dec_zlib_fast = Sereal::Decoder->new( %opt ? \%opt : () );
         },
     },
     srl_zbest => {
@@ -155,29 +155,29 @@ my %meta= (
         dec  => '$::dec_zlib_small->decode($encoded);',
         name => 'Sereal OO zib best',
         init => sub {
-            $enc_zlib_small= Sereal::Encoder->new( {
+            $enc_zlib_small = Sereal::Encoder->new( {
                 %opt,
                 compress           => Sereal::Encoder::SRL_ZLIB,
                 compress_level     => 10,
                 compress_threshold => 0,
             } );
-            $dec_zlib_small= Sereal::Decoder->new( %opt ? \%opt : () );
+            $dec_zlib_small = Sereal::Decoder->new( %opt ? \%opt : () );
         },
     },
 );
 if ($only) {
-    my @pat= map { split /\s*,\s*/, $_ } @$only;
-    $only= {};
+    my @pat = map { split /\s*,\s*/, $_ } @$only;
+    $only = {};
     foreach my $key ( keys %meta ) {
-        $key =~ /$_/ and $only->{$key}= 1 for @pat;
+        $key =~ /$_/ and $only->{$key} = 1 for @pat;
     }
     die "Only [@pat] produced no matches!" unless keys %$only;
 }
 if ($exclude) {
-    my @pat= map { split /\s*,\s*/, $_ } @$exclude;
-    $exclude= {};
+    my @pat = map { split /\s*,\s*/, $_ } @$exclude;
+    $exclude = {};
     foreach my $key ( keys %meta ) {
-        $key =~ /$_/ and $exclude->{$key}= 1 for @pat;
+        $key =~ /$_/ and $exclude->{$key} = 1 for @pat;
     }
     die "Exclude [@pat] produced no matches!" unless keys %$exclude;
 }
@@ -188,13 +188,13 @@ our %decoded;
 our %enc_bench;
 our %dec_bench;
 foreach my $key ( sort keys %meta ) {
-    my $info= $meta{$key};
-    $info->{tag}= $key;
-    next if $only and not $only->{$key} and $key ne $storable_tag;
-    next if $exclude and $exclude->{$key} and $key ne $storable_tag;
-    if ( my $use= $info->{use} ) {
-        $use= [$use] unless ref $use;
-        $use= join ";\n", @$use, 1;
+    my $info = $meta{$key};
+    $info->{tag} = $key;
+    next if $only    and not $only->{$key} and $key ne $storable_tag;
+    next if $exclude and $exclude->{$key}  and $key ne $storable_tag;
+    if ( my $use = $info->{use} ) {
+        $use = [$use] unless ref $use;
+        $use = join ";\n", @$use, 1;
         unless ( eval $use ) {
             warn "Can't load dependencies for $info->{name}, skipping\n";
             next;
@@ -205,23 +205,23 @@ foreach my $key ( sort keys %meta ) {
     $info->{enc} =~ s/\$opt/%opt ? "\\%::opt" : ""/ge;
     $info->{dec} =~ s/\$opt/%opt ? "\\%::opt" : ""/ge;
 
-    $data{$key}= make_data();
+    $data{$key} = make_data();
     $info->{init}->() if $info->{init};
-    $encoded{$key}= eval $info->{enc}
+    $encoded{$key} = eval $info->{enc}
         or die "Failed to eval $info->{enc}: $@";
-    $decoded{$key}= eval '$::x = ' . $info->{dec} . '; 1'
+    $decoded{$key} = eval '$::x = ' . $info->{dec} . '; 1'
         or die "Failed to eval $info->{dec}: $@\n$encoded{$key}\n";
-    $info->{size}= bytes::length( $encoded{$key} );
-    next if $only and not $only->{$key};
+    $info->{size} = bytes::length( $encoded{$key} );
+    next if $only    and not $only->{$key};
     next if $exclude and $exclude->{$key};
-    $enc_bench{$key}= '$::x_' . $key . ' = ' . $info->{enc};
-    $dec_bench{$key}= '$::x_' . $key . ' = ' . $info->{dec};
+    $enc_bench{$key} = '$::x_' . $key . ' = ' . $info->{enc};
+    $dec_bench{$key} = '$::x_' . $key . ' = ' . $info->{dec};
 }
 
-my $sereal= $encoded{$sereal_tag};
+my $sereal = $encoded{$sereal_tag};
 print($sereal), exit if $dump;
 
-my $storable_len= bytes::length( $encoded{$storable_tag} );
+my $storable_len = bytes::length( $encoded{$storable_tag} );
 foreach my $info (
     sort { $a->{size} <=> $b->{size} || $a->{name} cmp $b->{name} }
     grep { defined $_->{size} } values %meta
@@ -243,21 +243,21 @@ our $x;
 my ( $encoder_result, $decoder_result );
 if ($encoder) {
     print "\n* Timing encoders\n";
-    $encoder_result= cmpthese( $duration, \%enc_bench );
+    $encoder_result = cmpthese( $duration, \%enc_bench );
 }
 
 if ($decoder) {
     print "\n* Timing decoders\n";
-    $decoder_result= cmpthese( $duration, \%dec_bench );
+    $decoder_result = cmpthese( $duration, \%dec_bench );
 }
 
 sub make_data {
     if ($tiny_data) {
-        $data_set_name= "empty hash";
+        $data_set_name = "empty hash";
         return {};
     }
     elsif ($small_data) {
-        $data_set_name= "small hash";
+        $data_set_name = "small hash";
         return {
             foo => 1,
             bar => [ 100, 101, 102 ],
@@ -265,7 +265,7 @@ sub make_data {
         };
     }
     elsif ($medium_data) {
-        my @obj= ( {
+        my @obj = ( {
                 foo => 1,
                 bar => [ 100, 101, 102 ],
                 str => "this is a \x{df} string which has to be serialized"
@@ -326,22 +326,22 @@ sub make_data {
                 str     => "this is a \x{df} string which has to be sdassdaerialized"
             },
         );
-        my @classes= qw(Baz Baz Baz3 Baz2 Baz Baz Baz3 Baz2 Baz Baz Baz3 Baz2);
+        my @classes = qw(Baz Baz Baz3 Baz2 Baz Baz Baz3 Baz2 Baz Baz Baz3 Baz2);
         if ($nobless) {
-            $data_set_name= "array of small hashes with relations";
+            $data_set_name = "array of small hashes with relations";
         }
         else {
             bless( $obj[$_], $classes[$_] ) for 0 .. $#obj;
-            $data_set_name= "array of small objects with relations";
+            $data_set_name = "array of small objects with relations";
         }
         foreach my $i ( 1 .. $#obj ) {
-            $obj[$i]->{parent}= $obj[ $i - 1 ];
+            $obj[$i]->{parent} = $obj[ $i - 1 ];
         }
         return \@obj;
     }
     elsif ($very_large_data) {    # "large data"
-        $data_set_name= "really rather large data structure";
-        my @refs= (
+        $data_set_name = "really rather large data structure";
+        my @refs = (
             [ 1 .. 10000 ],
             {@str}, {@str}, [ 1 .. 10000 ],
             {@str}, [@rand], {@str}, {@str},
@@ -352,10 +352,10 @@ sub make_data {
             [ map { +{ foo => "bar", baz => "buz" } } 1 .. 2000 ] ];
     }
     else {                        # "large data"
-        $data_set_name= "large data structure";
+        $data_set_name = "large data structure";
         return [
-            [ map { my $y= "$_"; $_ } 1 .. 10000 ], {@str}, {@str},
-            [ map { my $y= "$_"; $_ } 1 .. 10000 ],
+            [ map { my $y = "$_"; $_ } 1 .. 10000 ], {@str}, {@str},
+            [ map { my $y = "$_"; $_ } 1 .. 10000 ],
             {@str}, [@rand], {@str}, {@str},
         ];
     }
@@ -367,15 +367,15 @@ if ($diagrams) {
     SOOT->import(":all");
 
     my ( $enc_data, $dec_data );
-    $enc_data= cmpthese_to_sanity($encoder_result) if $encoder_result;
-    $dec_data= cmpthese_to_sanity($decoder_result) if $decoder_result;
+    $enc_data = cmpthese_to_sanity($encoder_result) if $encoder_result;
+    $dec_data = cmpthese_to_sanity($decoder_result) if $decoder_result;
 
     foreach my $dia (
         [ "Encoder performance [1/s]", $enc_data ],
         [ "Decoder performance [1/s]", $dec_data ],
         )
     {
-        my ( $title, $d )= @$dia;
+        my ( $title, $d ) = @$dia;
         next if not $d;
         $_->[0] =~ s/_/ /g, $_->[0] =~ s/sereal /sereal, / for @$d;
         make_bar_chart(
@@ -384,14 +384,14 @@ if ($diagrams) {
             {
                 title    => $title,
                 filename => do {
-                    my $x= $title;
+                    my $x = $title;
                     $x =~ s/\[1\/s\]/per second/;
                     $data_set_name . " - " . $x;
                 },
             } );
     }
 
-    my %names= (
+    my %names = (
         "JSON::XS"                => 'json xs',
         "Data::Dumper::Limited"   => 'ddl',
         "Data::MessagePack"       => "msgpack",
@@ -406,7 +406,7 @@ if ($diagrams) {
         "size",
         [
             sort { $b->[1] <=> $a->[1] }
-            map { $_->{size} ? [ $_->{name}, $_->{size} ] : () } values %meta
+            map  { $_->{size} ? [ $_->{name}, $_->{size} ] : () } values %meta
         ],
         {
             title    => "Encoded output sizes [bytes]",
@@ -418,8 +418,8 @@ if ($diagrams) {
 }
 
 sub make_bar_chart {
-    my ( $name, $data, $opts )= @_;
-    my $h= TH1D->new(
+    my ( $name, $data, $opts ) = @_;
+    my $h = TH1D->new(
         $name, ( $opts->{title} || $name ),
         scalar(@$data), -0.5, scalar(@$data) - 0.5
     );
@@ -434,11 +434,11 @@ sub make_bar_chart {
     $h->GetYaxis()->SetTitleSize(0.045);
 
     for my $i ( 1 .. @$data ) {
-        my ( $label, $rate )= @{ $data->[ $i - 1 ] };
+        my ( $label, $rate ) = @{ $data->[ $i - 1 ] };
         $h->GetXaxis()->SetBinLabel( $i, $label );
         $h->SetBinContent( $i, 0 + $rate );
     }
-    my $c= TCanvas->new->keep;
+    my $c = TCanvas->new->keep;
     $c->GetPad(0)->SetBottomMargin(0.175);
     $c->GetPad(0)->SetLeftMargin(0.15);
     $c->GetPad(0)->SetRightMargin(0.115);
@@ -447,18 +447,18 @@ sub make_bar_chart {
     if ($diagram_output_dir) {
         require File::Path;
         File::Path::mkpath($diagram_output_dir);
-        my $file= $opts->{filename}
-            || do { my $f= $opts->{title}; $f =~ s/[^a-zA-Z0-9_\ ]/_/g; $f };
+        my $file = $opts->{filename}
+            || do { my $f = $opts->{title}; $f =~ s/[^a-zA-Z0-9_\ ]/_/g; $f };
         $c->SaveAs("$diagram_output_dir/$file.png");
     }
 }
 
 sub cmpthese_to_sanity {
-    my $res= shift;
-    my @rows= map {
-        my $rate= $_->[1];
+    my $res  = shift;
+    my @rows = map {
+        my $rate = $_->[1];
         if ( not $rate =~ s/\s*\/\s*s$// ) {
-            $rate= 1 / $rate;
+            $rate = 1 / $rate;
         }
         [ $_->[0], $rate ]
     } grep { defined $_->[0] and $_->[0] =~ /\S/ } @$res;

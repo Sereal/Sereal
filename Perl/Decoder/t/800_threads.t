@@ -21,9 +21,9 @@ use threads;
 
 sub foo { }
 SCOPE: {
-    my $enc= Sereal::Decoder->new;
+    my $enc = Sereal::Decoder->new;
 
-    my $thr= threads->new( \&foo );
+    my $thr = threads->new( \&foo );
     $thr->join;
 }
 

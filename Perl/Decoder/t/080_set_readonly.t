@@ -13,23 +13,23 @@ use Sereal::TestSet qw(:all);
 use Sereal::Decoder;
 use Scalar::Util qw(reftype weaken);
 
-my @tests= (
+my @tests = (
     [ set_readonly => 1 ],
 );
 
 if ( have_encoder_and_decoder() ) {
-    my $num_tests= 62;
+    my $num_tests = 62;
     plan tests => $num_tests;
 }
 else {
     plan skip_all => 'Did not find right version of encoder';
 }
 
-my $foo= bless( [ 1, 2, 3 ], "foo" );
+my $foo = bless( [ 1, 2, 3 ], "foo" );
 
-my $weak_blessed_href= bless( { blah => 'bat', hash => { t => 1 } }, 'SomeClass' );
-weaken( $weak_blessed_href->{foo}= $weak_blessed_href );
-my $struct= {
+my $weak_blessed_href = bless( { blah => 'bat', hash => { t => 1 } }, 'SomeClass' );
+weaken( $weak_blessed_href->{foo} = $weak_blessed_href );
+my $struct = {
     hashref               => { a => [ "b", 5, bless( { foo => "bar" }, "SomeClass" ) ] },
     blessed_ref_with_refs => bless(
         { foo => { bar => 'test' }, bar => ['baz'], empty_href => {}, empty_aref => [] }, 'Blah'
@@ -42,10 +42,10 @@ my $struct= {
 
 foreach my $name ( keys %$struct ) {
 
-    local $_= $struct->{$name};
-    my $enc= Sereal::Encoder->new;
-    my $dec= Sereal::Decoder->new( { set_readonly => 1 } );
-    my $dec2= Sereal::Decoder->new( { set_readonly_scalars => 1 } );
+    local $_ = $struct->{$name};
+    my $enc  = Sereal::Encoder->new;
+    my $dec  = Sereal::Decoder->new( { set_readonly         => 1 } );
+    my $dec2 = Sereal::Decoder->new( { set_readonly_scalars => 1 } );
 
     my $got;
     $dec->decode( $enc->encode($_), $got );
@@ -63,16 +63,16 @@ foreach my $name ( keys %$struct ) {
 }
 
 sub _recurse {
-    my ( $s, $path, $name, $scalars_only )= @_;
+    my ( $s, $path, $name, $scalars_only ) = @_;
 
     $scalars_only ||= 0;
-    my $should_be_readonly= $scalars_only ? !ref($s) : 1;
+    my $should_be_readonly = $scalars_only ? !ref($s) : 1;
     is(
         Internals::SvREADONLY( $_[0] ), $should_be_readonly,
         "scalar_only: '$scalars_only'. We want ro: '$should_be_readonly'. struct: $name, path: $path"
     );
 
-    my $reftype= reftype( $_[0] )
+    my $reftype = reftype( $_[0] )
         or return;
 
     if ( length($path) ) {
@@ -82,7 +82,7 @@ sub _recurse {
         );
     }
     if ( $reftype eq 'ARRAY' ) {
-        my $i= 0;
+        my $i = 0;
         foreach (@$s) {
             _recurse( $_, $path . '->[' . $i . ']', $name, $scalars_only );
         }

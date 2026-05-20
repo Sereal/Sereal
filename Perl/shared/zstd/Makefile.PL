@@ -6,37 +6,37 @@ use Config;
 use Data::Dumper;
 
 print "# Running zstd/Makefile.PL\n";
-my @c_files= (
+my @c_files = (
     glob('common/*.c'),
     glob('compress/*.c'),
     glob('decompress/*.c') );
-my @S_files= (
+my @S_files = (
     glob('common/*.S'),
     glob('compress/*.S'),
     glob('decompress/*.S') );
 
-my @source_files= @c_files;
-my $disable_asm= "";
-if ($ENV{NO_ASM} || $ENV{ZSTD_DISABLE_ASM}) {
-    $disable_asm= "CPPFLAGS += -DZSTD_DISABLE_ASM\n";
-} else {
+my @source_files = @c_files;
+my $disable_asm  = "";
+if ( $ENV{NO_ASM} || $ENV{ZSTD_DISABLE_ASM} ) {
+    $disable_asm = "CPPFLAGS += -DZSTD_DISABLE_ASM\n";
+}
+else {
     push @source_files, @S_files;
 }
-my $is_gcc= ($Config{cc}=~/gcc/ || $Config{gccversion});
+my $is_gcc = ( $Config{cc} =~ /gcc/ || $Config{gccversion} );
 my @targets;
 my @o_files;
 foreach my $source_file (@source_files) {
-    (my $o_file= $source_file)=~s/\.[cS]$/.o/;
-    $o_file=~s!^.*?/!!;
-    my $extra_flags= "";
-    if ($source_file =~ /zstd_decompress_block/ && $is_gcc) {
-        $extra_flags= "-fno-tree-vectorize";
+    ( my $o_file = $source_file ) =~ s/\.[cS]$/.o/;
+    $o_file =~ s!^.*?/!!;
+    my $extra_flags = "";
+    if ( $source_file =~ /zstd_decompress_block/ && $is_gcc ) {
+        $extra_flags = "-fno-tree-vectorize";
     }
     push @targets, sprintf "%s : %s\n\t\$(CC) \$(CPPFLAGS) \$(CFLAGS) %s -c %s\n",
         $o_file, $source_file, $extra_flags, $source_file;
     push @o_files, $o_file;
 }
-
 
 open( my $fh, '>', "Makefile" ) or die $!;
 print $fh q{
@@ -85,7 +85,7 @@ test_dynamic:
 
 default: lib
 
-} . join("\n", @targets) . q{
+} . join( "\n", @targets ) . q{
 
 libzstd.o: $(ZSTD_FILES)
 	@echo compiling static library

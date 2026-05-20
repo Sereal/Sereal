@@ -14,7 +14,7 @@ BEGIN {
 
 use Sereal::TestSet qw(:all);
 
-use Sereal::Encoder qw(encode_sereal);
+use Sereal::Encoder            qw(encode_sereal);
 use Sereal::Encoder::Constants qw(:all);
 
 use Data::Dumper;    # must be loaded AFTER the test set (bug in perl)
@@ -31,37 +31,37 @@ run_tests( "aliased_dedupe_strings", { aliased_dedupe_strings => 1 } );
 done_testing();
 
 sub run_tests {
-    my ( $extra_name, $opt_hash )= @_;
+    my ( $extra_name, $opt_hash ) = @_;
     setup_tests(5);
     foreach my $bt (@BasicTests) {
-        my ( undef, $expect, $name, @alternate )= @$bt;
+        my ( undef, $expect, $name, @alternate ) = @$bt;
 
-        $name= "unnamed" if not defined $name;
+        $name = "unnamed" if not defined $name;
 
         #next unless $name=~/PAD/;
 
         for my $x ( $expect, @alternate ) {
-            $x= $x->($opt_hash) if ref($x) eq 'CODE';
+            $x = $x->($opt_hash) if ref($x) eq 'CODE';
 
             # add the header ...
-            $x= Header() . $x;
+            $x = Header() . $x;
         }
 
-        my $enc= Sereal::Encoder->new( $opt_hash ? $opt_hash : () );
+        my $enc = Sereal::Encoder->new( $opt_hash ? $opt_hash : () );
         my $out;
         eval {
-            $out= $enc->encode( $bt->[0] );    # must use bt here or we get a copy
+            $out = $enc->encode( $bt->[0] );    # must use bt here or we get a copy
             1;
         } or die "Failed to encode: \n$@\n" . Data::Dumper::Dumper( $bt->[0] );
         ok( defined $out, "($extra_name) defined: $name" )
             or next;
 
-        my $alt= "";
+        my $alt = "";
         if ( $out ne $expect ) {
             foreach my $accept (@alternate) {
                 if ( $out eq $accept ) {
-                    $expect= $accept;
-                    $alt= " - alternate";
+                    $expect = $accept;
+                    $alt    = " - alternate";
                     last;
                 }
             }

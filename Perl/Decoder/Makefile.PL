@@ -6,25 +6,23 @@ use warnings;
 use ExtUtils::MakeMaker;
 use Config;
 
-my $shared_dir= "../shared";
-my $its_our_repo_file= "../this_is_the_Sereal_repo.txt";
-my $in_source_repo= ( -d "../../.git" &&
-                      -d $shared_dir &&
-                      -e $its_our_repo_file );
-my $do_prompt= !$in_source_repo || $ENV{CPAN_COMPAT};
+my $shared_dir        = "../shared";
+my $its_our_repo_file = "../this_is_the_Sereal_repo.txt";
+my $in_source_repo    = ( -d "../../.git" && -d $shared_dir && -e $its_our_repo_file );
+my $do_prompt         = !$in_source_repo || $ENV{CPAN_COMPAT};
 
 unshift @INC, ".", "./inc";
 unshift @INC, $shared_dir, "$shared_dir/inc"
     if $in_source_repo;
 
-my $module= "Sereal::Decoder";
+my $module = "Sereal::Decoder";
 require inc::Sereal::BuildTools;
 if ($in_source_repo) {
     inc::Sereal::BuildTools::link_files($shared_dir);
     inc::Sereal::BuildTools::generate_constant_includes($module);
 }
 
-my $optimize= inc::Sereal::BuildTools::build_optimize();
+my $optimize = inc::Sereal::BuildTools::build_optimize();
 
 # Note you can Configure/optimize for miniz by modifying miniz.h
 #   * Important: For best perf. be sure to customize the below macros for your target platform:
@@ -33,25 +31,31 @@ my $optimize= inc::Sereal::BuildTools::build_optimize();
 #     #define MINIZ_HAS_64BIT_REGISTERS 1
 # Or you can set USE_UNALIGNED in the env before running Makefile.PL
 
-if ($do_prompt and !defined $ENV{USE_UNALIGNED}) {
-    my $use_unaligned= prompt("USE_UNALIGNED not set in env. Use unaligned loads and stores? yes/no","no");
+if ( $do_prompt and !defined $ENV{USE_UNALIGNED} ) {
+    my $use_unaligned =
+        prompt( "USE_UNALIGNED not set in env. Use unaligned loads and stores? yes/no", "no" );
     $ENV{USE_UNALIGNED} = $use_unaligned eq "yes";
-} else {
+}
+else {
     $ENV{USE_UNALIGNED} ||= 1;
-    $ENV{USE_UNALIGNED} = 0 if $ENV{USE_UNALIGNED} ne 1
-                            && $ENV{USE_UNALIGNED} ne "yes";
+    $ENV{USE_UNALIGNED} = 0
+        if $ENV{USE_UNALIGNED} ne 1
+        && $ENV{USE_UNALIGNED} ne "yes";
 }
 
-if ($do_prompt and !defined $ENV{NO_ASM} and !defined $ENV{ZSTD_DISABLE_ASM}) {
-    my $use_asm= prompt("neither NO_ASM nor ZSTD_DISABLE_ASM set in env. Use assembly in ZSTD? yes/no","yes");
+if ( $do_prompt and !defined $ENV{NO_ASM} and !defined $ENV{ZSTD_DISABLE_ASM} ) {
+    my $use_asm = prompt(
+        "neither NO_ASM nor ZSTD_DISABLE_ASM set in env. Use assembly in ZSTD? yes/no",
+        "yes"
+    );
     $ENV{NO_ASM} = $use_asm ne "yes";
 }
 
-my $libs= '';
-my $subdirs= [];
-my $objects= '$(BASEEXT)$(OBJ_EXT) srl_decoder$(OBJ_EXT)';
-my $defines= inc::Sereal::BuildTools::build_defines();
-my $inc= '-I.';
+my $libs    = '';
+my $subdirs = [];
+my $objects = '$(BASEEXT)$(OBJ_EXT) srl_decoder$(OBJ_EXT)';
+my $defines = inc::Sereal::BuildTools::build_defines();
+my $inc     = '-I.';
 $inc .= ' -I/usr/local/include'
     if $^O =~ /openbsd/;
 
@@ -74,21 +78,21 @@ inc::Sereal::BuildTools::WriteMakefile(
         'meta-spec' => { version => 2 },
     },
     TEST_REQUIRES => {
-        'Data::Dumper'       => '0',
-        'File::Spec'         => '0',
-        'Scalar::Util'       => '0',
-        'Test::Deep'         => '0',
-        'Test::Differences'  => '0',
-        'Test::LongString'   => '0',
-        'Test::More'         => '0.88',
-        'Test::Warn'         => '0',
+        'Data::Dumper'      => '0',
+        'File::Spec'        => '0',
+        'Scalar::Util'      => '0',
+        'Test::Deep'        => '0',
+        'Test::Differences' => '0',
+        'Test::LongString'  => '0',
+        'Test::More'        => '0.88',
+        'Test::Warn'        => '0',
     },
     BUILD_REQUIRES => {
         'ExtUtils::ParseXS' => '2.21',
     },
     CONFIGURE_REQUIRES => {
-        'Devel::CheckLib'       => '1.16',
-        'ExtUtils::MakeMaker'   => '7.0',
+        'Devel::CheckLib'     => '1.16',
+        'ExtUtils::MakeMaker' => '7.0',
     },
     NAME         => $module,
     VERSION_FROM => 'lib/Sereal/Decoder.pm',    # finds $VERSION
@@ -98,12 +102,12 @@ inc::Sereal::BuildTools::WriteMakefile(
     LICENSE       => 'perl',
     ABSTRACT_FROM => 'lib/Sereal/Decoder.pm',
     AUTHOR        => 'Steffen Mueller <smueller@cpan.org>, Yves Orton <yves@cpan.org>',
-    LIBS          => [$libs],   # e.g., '-lm'
+    LIBS          => [$libs],                                                             # e.g., '-lm'
     DEFINE        => $defines,
-    INC      => $inc,           # e.g., '-I. -I/usr/local/include'
-    OPTIMIZE => $optimize,
-    OBJECT   => $objects,
-    DIR      => $subdirs,
-    test     => { TESTS => "t/*.t t/*/*/*.t" },
+    INC           => $inc,                                                                # e.g., '-I. -I/usr/local/include'
+    OPTIMIZE      => $optimize,
+    OBJECT        => $objects,
+    DIR           => $subdirs,
+    test          => { TESTS => "t/*.t t/*/*/*.t" },
 );
-$ENV{OPTIMIZE}= $optimize;
+$ENV{OPTIMIZE} = $optimize;

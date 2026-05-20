@@ -30,12 +30,12 @@ use threads::shared;
 
 sub foo { }
 SCOPE: {
-    my $dat= shared_clone( [undef] );
-    my $enc= Sereal::Encoder->new;
+    my $dat = shared_clone( [undef] );
+    my $enc = Sereal::Encoder->new;
 
-    my $thr= threads->new( \&foo );
+    my $thr = threads->new( \&foo );
     $thr->join;
-    my $encoded= $enc->encode($dat);
+    my $encoded = $enc->encode($dat);
 }
 
 pass();

@@ -16,8 +16,8 @@ if ( have_encoder_and_decoder(3.005003) ) {
 else {
     plan skip_all => 'Did not find right version of encoder';
 }
-my $enc= Sereal::Encoder->new;
-my $dec= Sereal::Decoder->new;
+my $enc = Sereal::Encoder->new;
+my $dec = Sereal::Decoder->new;
 
 sub desc_special($) {
     return
@@ -28,26 +28,27 @@ sub desc_special($) {
         : length( $_[0] )   ? "not-special"
         : do {
         my @warn;
-        local $SIG{__WARN__}= sub { push @warn, $_[0] };
-        my $i= int( $_[0] );
+        local $SIG{__WARN__} = sub { push @warn, $_[0] };
+        my $i = int( $_[0] );
         @warn ? "not-special" : "false";
         };
 }
 
 foreach (
-    [ "ref undef", \undef(), ],
-    [ "ref undef var", \do { my $z= undef }, ],
+    [ "ref undef",     \undef(), ],
+    [ "ref undef var", \do { my $z = undef }, ],
     [ "ref false",     \!1, ],
-    [ "ref false var", \do { my $z= !1 }, ],
+    [ "ref false var", \do { my $z = !1 }, ],
     [ "ref true",      \!0, ],
-    [ "ref true var ", \do { my $z= !0 }, ],
+    [ "ref true var ", \do { my $z = !0 }, ],
     )
 {
-    my ( $name, $var, $todo )= @$_;
+    my ( $name, $var, $todo ) = @$_;
     TODO: {
         todo_skip $todo, 1 if $todo;
-        my $want= desc_special($var);
+        my $want = desc_special($var);
         is( desc_special( $dec->decode( $enc->encode($var) ) ), $want, $name . " ($want)" );
+
         #use Devel::Peek;
         #Dump($dec->decode( $enc->encode($var) ) );
     }

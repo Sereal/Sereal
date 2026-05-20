@@ -4,9 +4,9 @@ use strict;
 use warnings;
 
 use Config;
-use constant OSNAME   => $^O;
+use constant OSNAME => $^O;
 
-my %bare_minimum_files= map { $_ => 1 } qw{
+my %bare_minimum_files = map { $_ => 1 } qw{
     typemap
     ppport.h
     srl_stack.h
@@ -24,11 +24,11 @@ my %bare_minimum_files= map { $_ => 1 } qw{
 };
 
 sub link_files {
-    my $shared_dir= shift;
-    my $mode= shift || "";
-    my $exclude_tests= $mode eq "without_tests";
-    my $tests_only= $mode eq "tests_only";
-    my $bare_minimum= $mode eq "bare_minimum";
+    my $shared_dir    = shift;
+    my $mode          = shift || "";
+    my $exclude_tests = $mode eq "without_tests";
+    my $tests_only    = $mode eq "tests_only";
+    my $bare_minimum  = $mode eq "bare_minimum";
 
     # This fires from a git source tree only.
     # Right now, all devs are on Linux. Feel free to make portable.
@@ -40,7 +40,7 @@ sub link_files {
         File::Find::find( {
                 no_chdir => 1,
                 wanted   => sub {
-                    my $f= $_;
+                    my $f = $_;
                     s/^\Q$shared_dir\E\/?// or die $_;
                     return unless $_;
                     return if $exclude_tests && m#^/?t/#;
@@ -52,12 +52,12 @@ sub link_files {
                     }
                     elsif ( -f $f ) {
                         return if $f =~ /(?:\.bak|\.sw[po]|~)$/;
-                        my @d= File::Spec->splitdir($_);
-                        my $fname= pop @d;
-                        my $ref= join "/", ("..") x scalar(@d);
-                        my $subd= join "/", @d;
+                        my @d     = File::Spec->splitdir($_);
+                        my $fname = pop @d;
+                        my $ref   = join "/", ("..") x scalar(@d);
+                        my $subd  = join "/", @d;
                         chdir $subd if length($ref);
-                        my $srcfname= join( "/", grep length, $ref, $shared_dir, $subd, $fname );
+                        my $srcfname = join( "/", grep length, $ref, $shared_dir, $subd, $fname );
                         if ( OSNAME eq 'MSWin32' ) {
                             die "link($srcfname, $fname) failed: $!"
                                 unless link( $srcfname, $fname );    #only NTFS implements it
@@ -82,7 +82,7 @@ sub generate_constant_includes {
 
 # Prefer external csnappy and miniz libraries over the bundled ones.
 sub check_external_libraries {
-    my ( $libs, $defines, $objects, $subdirs )= @_;
+    my ( $libs, $defines, $objects, $subdirs ) = @_;
     require Devel::CheckLib;
 
     $$libs .= ' -L/usr/local/lib'
@@ -141,17 +141,18 @@ sub check_external_libraries {
 }
 
 sub build_defines {
-    my (@defs)= @_;
+    my (@defs) = @_;
 
-    my $defines= join(
+    my $defines = join(
         " ", map { "-D$_" . ( defined $ENV{$_} ? "=$ENV{$_}" : '' ) }
             grep { exists $ENV{$_} } ( qw(NOINLINE DEBUG MEMDEBUG NDEBUG), @defs ) );
 
     $defines .= " -DNDEBUG" unless $ENV{DEBUG};
 
-    if ($Config{usequadmath}) {
+    if ( $Config{usequadmath} ) {
         $defines .= " -DHAS_QUADMATH";
-    } elsif ($Config{uselongdouble}) {
+    }
+    elsif ( $Config{uselongdouble} ) {
         $defines .= " -DHAS_LONGDOUBLE";
     }
 
@@ -167,7 +168,7 @@ sub build_defines {
     }
 
     $defines .= " -DMINIZ_NO_STDIO";
-    if ($ENV{USE_UNALIGNED}) {
+    if ( $ENV{USE_UNALIGNED} ) {
         $defines .= " -DMINIZ_USE_UNALIGNED_LOAD_AND_STORE=1";
         $defines .= " -DMINIZ_UNALIGNED_USE_MEMCOPY";
     }
@@ -176,22 +177,22 @@ sub build_defines {
 }
 
 sub build_optimize {
-    my $cc_flags= shift || {};
+    my $cc_flags = shift || {};
 
-    my $catch_violations= exists $cc_flags->{catch_violations} ? $cc_flags->{catch_violations} : 1;
+    my $catch_violations = exists $cc_flags->{catch_violations} ? $cc_flags->{catch_violations} : 1;
 
     my $OPTIMIZE;
 
-    my $clang= 0;
+    my $clang = 0;
     if ( $Config{gccversion} ) {
-        $OPTIMIZE= '-O3';
+        $OPTIMIZE = '-O3';
         if ( $Config{gccversion} =~ /[Cc]lang/ ) {    # clang.
-            $clang= 1;
+            $clang = 1;
         }
 
-        my $gccversion= 0;
+        my $gccversion = 0;
         if ( $Config{gccversion} =~ /^(\d+\.\d+)/ ) {
-            $gccversion= $1;
+            $gccversion = $1;
         }
 
         if ( $] < 5.035005 && $catch_violations && ( $clang || $gccversion >= 4.3 ) ) {
@@ -211,10 +212,10 @@ sub build_optimize {
 
     }
     elsif ( $Config{osname} eq 'MSWin32' ) {
-        $OPTIMIZE= '-O2 -W4';
+        $OPTIMIZE = '-O2 -W4';
     }
     else {
-        $OPTIMIZE= $Config{optimize};
+        $OPTIMIZE = $Config{optimize};
     }
 
     if ( $ENV{DEBUG} ) {
@@ -237,24 +238,24 @@ sub WriteMakefile {
     require ExtUtils::MakeMaker;
 
     #Original by Alexandr Ciornii, modified by Yves Orton
-    my %params= @_;
-    my $eumm_version= $ExtUtils::MakeMaker::VERSION;
-    $eumm_version= eval $eumm_version;
+    my %params       = @_;
+    my $eumm_version = $ExtUtils::MakeMaker::VERSION;
+    $eumm_version = eval $eumm_version;
     die "EXTRA_META is deprecated" if exists $params{EXTRA_META};
-    die "License not specified" if not exists $params{LICENSE};
+    die "License not specified"    if not exists $params{LICENSE};
     if ( $params{TEST_REQUIRES} and $eumm_version < 6.6303 ) {
-        $params{BUILD_REQUIRES}=
+        $params{BUILD_REQUIRES} =
             { %{ $params{BUILD_REQUIRES} || {} }, %{ $params{TEST_REQUIRES} } };
         delete $params{TEST_REQUIRES};
     }
     if ( $params{BUILD_REQUIRES} and $eumm_version < 6.5503 ) {
 
         #EUMM 6.5502 has problems with BUILD_REQUIRES
-        $params{PREREQ_PM}= { %{ $params{PREREQ_PM} || {} }, %{ $params{BUILD_REQUIRES} } };
+        $params{PREREQ_PM} = { %{ $params{PREREQ_PM} || {} }, %{ $params{BUILD_REQUIRES} } };
         delete $params{BUILD_REQUIRES};
     }
     if ( $params{CONFIGURE_REQUIRES} and $eumm_version < 6.52 ) {
-        $params{PREREQ_PM}= { %{ $params{PREREQ_PM} || {} }, %{ $params{CONFIGURE_REQUIRES} } };
+        $params{PREREQ_PM} = { %{ $params{PREREQ_PM} || {} }, %{ $params{CONFIGURE_REQUIRES} } };
         delete $params{CONFIGURE_REQUIRES};
     }
     delete $params{MIN_PERL_VERSION} if $eumm_version < 6.48;
@@ -270,7 +271,7 @@ sub WriteMakefile {
 }
 
 sub MY::postamble {
-  return <<'MAKE_FRAG';
+    return <<'MAKE_FRAG';
 zstd/libzstd$(OBJ_EXT): zstd/Makefile
 	cd zstd && $(MAKE) all
 MAKE_FRAG

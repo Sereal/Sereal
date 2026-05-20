@@ -10,7 +10,7 @@ BEGIN {
         if !-d 't';
 }
 use Sereal::TestSet qw(:all);
-my $v1= [
+my $v1 = [
     0,
     1,
     "foo",
@@ -33,14 +33,14 @@ else {
     plan skip_all => 'Did not find right version of encoder';
 }
 
-my $enc= Sereal::Encoder->new();
-my $dec= Sereal::Decoder->new( { alias_varint_under => 100000 } );
+my $enc = Sereal::Encoder->new();
+my $dec = Sereal::Decoder->new( { alias_varint_under => 100000 } );
 
-my $sereal_v1= $enc->encode($v1);
-my $v2= $dec->decode($sereal_v1);
+my $sereal_v1 = $enc->encode($v1);
+my $v2        = $dec->decode($sereal_v1);
 
-my $sereal_v2= $enc->encode($v2);
-my $v3= $dec->decode($sereal_v2);
+my $sereal_v2 = $enc->encode($v2);
+my $v3        = $dec->decode($sereal_v2);
 
 if (0) {
     diag "arrays: ";

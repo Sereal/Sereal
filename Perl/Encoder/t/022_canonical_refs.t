@@ -13,10 +13,10 @@ use Sereal::Encoder qw(encode_sereal);
 use Test::More tests => 2;
 
 {
-    my $v= [ {} ];
-    my $v_sereal= encode_sereal($v);
-    my $v2= [@$v];
-    my $v_new_sereal= encode_sereal($v);
+    my $v            = [ {} ];
+    my $v_sereal     = encode_sereal($v);
+    my $v2           = [@$v];
+    my $v_new_sereal = encode_sereal($v);
     cmp_ok(
         $v_sereal, 'ne', $v_new_sereal,
         "Without canonical_refs we're sensitive to refcount changes"
@@ -24,10 +24,10 @@ use Test::More tests => 2;
 }
 
 {
-    my $v= [ {} ];
-    my $v_sereal= encode_sereal( $v, { canonical_refs => 1 } );
-    my $v2= [@$v];
-    my $v_new_sereal= encode_sereal( $v, { canonical_refs => 1 } );
+    my $v            = [ {} ];
+    my $v_sereal     = encode_sereal( $v, { canonical_refs => 1 } );
+    my $v2           = [@$v];
+    my $v_new_sereal = encode_sereal( $v, { canonical_refs => 1 } );
     cmp_ok(
         $v_sereal, 'eq', $v_new_sereal,
         "With canonical_refs we're not sensitive to refcount changes"

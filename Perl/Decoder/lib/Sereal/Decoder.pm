@@ -5,11 +5,11 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION= '5.005';
-our $XS_VERSION= $VERSION; $VERSION= eval $VERSION;
+our $VERSION    = '5.005';
+our $XS_VERSION = $VERSION; $VERSION = eval $VERSION;
 
 use Exporter 'import';
-our @EXPORT_OK= qw(
+our @EXPORT_OK = qw(
     decode_sereal
     looks_like_sereal
     decode_sereal_with_header_data
@@ -21,10 +21,10 @@ our @EXPORT_OK= qw(
     sereal_decode_with_header_and_offset_with_object
     sereal_decode_with_offset_with_object
 );
-our %EXPORT_TAGS= ( all => \@EXPORT_OK );
+our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
 # export by default if run from command line
-our @EXPORT= ( ( caller() )[1] eq '-e' ? @EXPORT_OK : () );
+our @EXPORT = ( ( caller() )[1] eq '-e' ? @EXPORT_OK : () );
 
 sub CLONE_SKIP { 1 }
 XSLoader::load( 'Sereal::Decoder', $XS_VERSION );
@@ -41,6 +41,7 @@ use constant #begin generated
   'SRL_F_DECODER_DIRTY' => 2,
   'SRL_F_DECODER_NEEDS_FINALIZE' => 4,
   'SRL_F_DECODER_NO_BLESS_OBJECTS' => 512,
+  'SRL_F_DECODER_NO_THAW_OBJECTS' => 524288,
   'SRL_F_DECODER_PROTOCOL_V1' => 2048,
   'SRL_F_DECODER_READONLY_FLAGS' => 98304,
   'SRL_F_DECODER_REFUSE_OBJECTS' => 128,
@@ -72,7 +73,8 @@ use constant #begin generated
                     'SET_READONLY',
                     'SET_READONLY_SCALARS',
                     'DECOMPRESS_ZSTD',
-                    'REFUSE_ZSTD'
+                    'REFUSE_ZSTD',
+                    'NO_THAW_OBJECTS'
                   ],
   '_FLAG_NAME_STATIC' => [
                            'REUSE',
@@ -93,7 +95,8 @@ use constant #begin generated
                            'SET_READONLY',
                            'SET_READONLY_SCALARS',
                            undef,
-                           'REFUSE_ZSTD'
+                           'REFUSE_ZSTD',
+                           'NO_THAW_OBJECTS'
                          ],
   '_FLAG_NAME_VOLATILE' => [
                              undef,
@@ -114,17 +117,18 @@ use constant #begin generated
                              undef,
                              undef,
                              'DECOMPRESS_ZSTD',
+                             undef,
                              undef
                            ]
 }; #end generated
 #end-no-tidy
 
 sub decode_from_file {
-    my ( $self, $file, )= @_;    # pos 3 is "target var" if one is provided
-    $self= $self->new() unless ref $self;
+    my ( $self, $file, ) = @_;    # pos 3 is "target var" if one is provided
+    $self = $self->new() unless ref $self;
     open my $fh, "<", $file
         or die "Failed to open '$file' for read: $!";
-    my $buf= do { local $/; <$fh> };
+    my $buf = do { local $/; <$fh> };
     close $fh
         or die "Failed to close '$file': $!";
     if ( wantarray && ( $self->flags & SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL ) ) {
@@ -137,23 +141,23 @@ sub decode_from_file {
     return $self->decode( $buf, @_ > 2 ? $_[2] : () );
 }
 
-my $flags= sub {
-    my ( $int, $ary )= @_;
+my $flags = sub {
+    my ( $int, $ary ) = @_;
     return map { ( $ary->[$_] and $int & ( 1 << $_ ) ) ? $ary->[$_] : () } ( 0 .. $#$ary );
 };
 
 sub flag_names {
-    my ( $self, $val )= @_;
+    my ( $self, $val ) = @_;
     return $flags->( defined $val ? $val : $self->flags, _FLAG_NAME );
 }
 
 sub flag_names_volatile {
-    my ( $self, $val )= @_;
+    my ( $self, $val ) = @_;
     return $flags->( $val // $self->flags, _FLAG_NAME_VOLATILE );
 }
 
 sub flag_names_static {
-    my ( $self, $val )= @_;
+    my ( $self, $val ) = @_;
     return $flags->( $val // $self->flags, _FLAG_NAME_STATIC );
 }
 

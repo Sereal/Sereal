@@ -5,8 +5,8 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION= '5.005';
-our $XS_VERSION= $VERSION; $VERSION= eval $VERSION;
+our $VERSION    = '5.005';
+our $XS_VERSION = $VERSION; $VERSION = eval $VERSION;
 
 # Make sure to keep these constants in sync with the C code in srl_encoder.c.
 # I know they could be exported from C using things like ExtUtils::Constant,
@@ -42,6 +42,7 @@ $full_consts=
   'SRL_F_SORT_KEYS_PERL_REV' => 131072,
   'SRL_F_STRINGIFY_UNKNOWN' => 16,
   'SRL_F_UNDEF_UNKNOWN' => 8,
+  'SRL_F_USE_STANDARD_DOUBLE' => 524288,
   'SRL_F_WARN_UNKNOWN' => 32,
   '_FLAG_NAME' => [
                     'COMPRESS_SNAPPY',
@@ -66,42 +67,41 @@ $full_consts=
                     'CANONICAL_REFS',
                     'SORT_KEYS_PERL',
                     'SORT_KEYS_PERL_REV',
-                    'COMPRESS_ZSTD'
+                    'COMPRESS_ZSTD',
+                    'USE_STANDARD_DOUBLE'
                   ]
-};
-#end generated
+}; #end generated
 }
 use constant $compress_consts;
 use constant $full_consts;
 #end-no-tidy
 
 use Exporter 'import';
-our @EXPORT_OK= (qw(
-    encode_sereal
-    encode_sereal_with_header_data
-    sereal_encode_with_object
-), sort { $a cmp $b } 
-(
-    keys(%$compress_consts),
-    keys(%$full_consts)
-));
-our %EXPORT_TAGS= (
+our @EXPORT_OK = ( qw(
+        encode_sereal
+        encode_sereal_with_header_data
+        sereal_encode_with_object
+    ),
+    sort { $a cmp $b } (
+        keys(%$compress_consts),
+        keys(%$full_consts) ) );
+our %EXPORT_TAGS = (
     all            => \@EXPORT_OK,
     compress_const => [ sort keys %$compress_consts ],
-    full_const     => [ sort(keys(%$compress_consts),keys(%$full_consts)) ],
+    full_const     => [ sort( keys(%$compress_consts), keys(%$full_consts) ) ],
 );
 
 # export by default if run from command line
-our @EXPORT= ( ( caller() )[1] eq '-e' ? @EXPORT_OK : () );
+our @EXPORT = ( ( caller() )[1] eq '-e' ? @EXPORT_OK : () );
 
 sub CLONE_SKIP { 1 }
 
 XSLoader::load( 'Sereal::Encoder', $XS_VERSION );
 
 sub encode_to_file {
-    my ( $self, $file, $struct, $append )= @_;
-    $self= $self->new() unless ref $self;
-    my $mode= $append ? ">>" : ">";
+    my ( $self, $file, $struct, $append ) = @_;
+    $self = $self->new() unless ref $self;
+    my $mode = $append ? ">>" : ">";
     open my $fh, $mode, $file
         or die "Failed to open '$file' for " . ( $append ? "append" : "write" ) . ": $!";
     print $fh $self->encode($struct)
@@ -110,13 +110,13 @@ sub encode_to_file {
         or die "Failed to close '$file': $!";
 }
 
-my $flags= sub {
-    my ( $int, $ary )= @_;
+my $flags = sub {
+    my ( $int, $ary ) = @_;
     return map { ( $ary->[$_] and $int & ( 1 << $_ ) ) ? $ary->[$_] : () } ( 0 .. $#$ary );
 };
 
 sub flag_names {
-    my ( $self, $val )= @_;
+    my ( $self, $val ) = @_;
     return $flags->( defined $val ? $val : $self->flags, _FLAG_NAME );
 }
 

@@ -11,9 +11,9 @@ BEGIN {
 use Sereal::TestSet qw(have_encoder_and_decoder);
 
 use Sereal::Decoder;
-my $decoder= Sereal::Decoder->new();
-my $enc_ref= "=\363rl\3\0Qcfoo\1";
-my $enc_str= "=\363rl\3\0}blah blah blah blah blah blah";
+my $decoder = Sereal::Decoder->new();
+my $enc_ref = "=\363rl\3\0Qcfoo\1";
+my $enc_str = "=\363rl\3\0}blah blah blah blah blah blah";
 
 # Repeatedly decode "into" the $into variable.
 # Overwrting/reusing the data it contains.

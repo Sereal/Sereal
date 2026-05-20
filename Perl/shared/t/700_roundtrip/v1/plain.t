@@ -16,7 +16,7 @@ use Test::More;
 
 my $version;
 
-my $ok= have_encoder_and_decoder();
+my $ok = have_encoder_and_decoder();
 if ( not $ok ) {
     plan skip_all => 'Did not find right version of encoder';
 }

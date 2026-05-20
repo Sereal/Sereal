@@ -9,7 +9,7 @@ BEGIN {
         if !-d 't';
 }
 use Sereal::TestSet;
-use Sereal::Encoder qw(encode_sereal);
+use Sereal::Encoder            qw(encode_sereal);
 use Sereal::Encoder::Constants qw(:all);
 
 # Test a couple of the basic constants

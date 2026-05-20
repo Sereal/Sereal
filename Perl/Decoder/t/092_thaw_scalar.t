@@ -7,7 +7,7 @@ use lib File::Spec->catdir(qw(t lib));
 
 BEGIN {
     lib->import('lib')
-      if !-d 't';
+        if !-d 't';
 }
 use Test::More;
 use Sereal::TestSet qw(:all);
@@ -50,12 +50,12 @@ my $secret = "SECRET";
 
 ok(
     $secret,
-    decode_sereal($encoder_freeze->encode(Rot13->new($secret))),
+    decode_sereal( $encoder_freeze->encode( Rot13->new($secret) ) ),
 );
 
 ok(
     { secret => $secret },
-    decode_sereal($encoder_freeze->encode({ secret => Rot13->new($secret) })),
+    decode_sereal( $encoder_freeze->encode( { secret => Rot13->new($secret) } ) ),
 );
 
 done_testing;

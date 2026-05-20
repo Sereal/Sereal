@@ -19,8 +19,8 @@ else {
     plan skip_all => 'Did not find right version of encoder';
 }
 
-my $e= Sereal::Encoder->new();
-my $d= Sereal::Decoder->new();
+my $e = Sereal::Encoder->new();
+my $d = Sereal::Decoder->new();
 
 for ( 1 .. 1000, [ 'a' .. 'z' ], [ 'A' .. 'Z' ], [ 0 .. 100 ], [ 10000 .. 10512 ] ) {
     my %hash;
@@ -30,9 +30,9 @@ for ( 1 .. 1000, [ 'a' .. 'z' ], [ 'A' .. 'Z' ], [ 0 .. 100 ], [ 10000 .. 10512 
     else {
         $hash{ rand() }++ for 1 .. 26;
     }
-    my $undump= $d->decode( $e->encode( \%hash ) );
-    my $count= 0;
-    while ( my ( $h, $k )= each %$undump ) {
+    my $undump = $d->decode( $e->encode( \%hash ) );
+    my $count  = 0;
+    while ( my ( $h, $k ) = each %$undump ) {
         $count++;
     }
     is( $count, keys %hash, "Got the expected count of keys: [ @{[ sort keys %hash ]} ]" );

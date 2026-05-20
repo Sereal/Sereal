@@ -37,14 +37,14 @@ use Time::HiRes;
 use Sereal::Encoder;
 use Sereal::Decoder;
 use Getopt::Long;
-use Fcntl qw[O_RDONLY O_WRONLY O_CREAT O_TRUNC];
+use Fcntl      qw[O_RDONLY O_WRONLY O_CREAT O_TRUNC];
 use List::Util qw[shuffle];
 
 sub MB () { 2**20 }
 
 my %Opt;
-my @Opt= (
-    'input=s', 'output=s', 'type=s', 'elem=f', 'build',
+my @Opt = (
+    'input=s',         'output=s', 'type=s', 'elem=f', 'build',
     'repeat_encode=i', 'repeat_decode=i',
 
     # If non-zero, will drop the minimum and maximum
@@ -57,8 +57,8 @@ my @Opt= (
 
     'size'
 );
-my %OptO= map { my ($n)= /^(\w+)/; $_ => \$Opt{$n} } @Opt;
-my @OptU= map { "--$_" } @Opt;
+my %OptO = map { my ($n) = /^(\w+)/; $_ => \$Opt{$n} } @Opt;
+my @OptU = map { "--$_" } @Opt;
 
 GetOptions(%OptO) or die "GetOptions: @OptU\n";
 
@@ -94,14 +94,14 @@ $Opt{repeat_encode}      //= 1;
 $Opt{repeat_decode}      //= 5;
 $Opt{min_max_drop_limit} //= 0;
 
-my %TYPE= map { $_ => 1 } qw[aoi aoir aof aos hoi hof hos graph];
+my %TYPE = map { $_ => 1 } qw[aoi aoir aof aos hoi hof hos graph];
 
 die "$0: Unexpected --type=$Opt{type}\n$0: Expected --type=@{[join('|', sort keys %TYPE)]}\n"
     unless exists $TYPE{ $Opt{type} };
 
 sub Times::new {
-    my $t= Time::HiRes::time();
-    my ( $u, $s, $cu, $cs )= times();
+    my $t = Time::HiRes::time();
+    my ( $u, $s, $cu, $cs ) = times();
     bless {
         wall => $t,
         usr  => $u,
@@ -126,11 +126,11 @@ sub Times::cpu  { $_[0]->{cpu} }
 sub Times::pct { 100 * ( $_[0]->cpu > $_[0]->wall ? 1 : $_[0]->cpu / $_[0]->wall ) }
 
 sub timeit {
-    my $code= shift;
-    my $t0= Times->new();
-    my @res= $code->(@_);
-    my $t1= Times->new();
-    my $dt= $t1->diff($t0);
+    my $code = shift;
+    my $t0   = Times->new();
+    my @res  = $code->(@_);
+    my $t1   = Times->new();
+    my $dt   = $t1->diff($t0);
     return $dt;
 }
 
@@ -138,20 +138,20 @@ sub __stats {
 
     # The caller is supposed to have done this sorting
     # already, but let's be wasteful and paranoid.
-    my @v= sort { $a <=> $b } @_;
-    my $min= $v[0];
-    my $max= $v[-1];
-    my $med= @v % 2 ? $v[ @v / 2 ] : ( $v[ @v / 2 - 1 ] + $v[ @v / 2 ] ) / 2;
-    my $sum= 0;
+    my @v   = sort { $a <=> $b } @_;
+    my $min = $v[0];
+    my $max = $v[-1];
+    my $med = @v % 2 ? $v[ @v / 2 ] : ( $v[ @v / 2 - 1 ] + $v[ @v / 2 ] ) / 2;
+    my $sum = 0;
     for my $t (@_) {
         $sum += $t;
     }
-    my $avg= $sum / @_;
-    my $sqsum= 0;
+    my $avg   = $sum / @_;
+    my $sqsum = 0;
     for my $t (@_) {
         $sqsum += ( $avg - $t )**2;
     }
-    my $stddev= sqrt( $sqsum / @_ );
+    my $stddev = sqrt( $sqsum / @_ );
     return (
         avg     => $avg,
         stddev  => $stddev,
@@ -163,7 +163,7 @@ sub __stats {
 sub stats {
     my %stats;
     for my $k (qw(wall cpu)) {
-        my @v= sort { $a <=> $b } map { $_->{$k} } @_;
+        my @v = sort { $a <=> $b } map { $_->{$k} } @_;
         if (   $Opt{min_max_drop_limit} > 0
             && @v >= $Opt{min_max_drop_limit} )
         {
@@ -171,7 +171,7 @@ sub stats {
             shift @v;
             pop @v;
         }
-        $stats{$k}= { __stats(@v) };
+        $stats{$k} = { __stats(@v) };
     }
     return %stats;
 }
@@ -181,25 +181,25 @@ if ( defined $Opt{build} ) {
     my $E;
     if ( $Opt{type} eq 'graph' ) {
         print "building graph\n";
-        my $V= $Opt{elem};
-        $E= int( $V * log($V) / log(2) );
+        my $V = $Opt{elem};
+        $E = int( $V * log($V) / log(2) );
         printf(
             "data of %d (%.1fM) vertices %d (%.1fM) edges\n",
             $V, $V / MB, $E, $E / MB
         );
-        $dt= timeit(
+        $dt = timeit(
             sub {
                 for my $i ( 1 .. $E ) {
-                    my $a= int( rand($V) );
-                    my $b= int( rand($V) );
+                    my $a = int( rand($V) );
+                    my $b = int( rand($V) );
                     $data->{$a}{$b}++;
                 }
             } );
     }
     elsif ( $Opt{type} eq 'aoi' ) {
         print "building aoi\n";
-        $E= $Opt{elem};
-        $dt= timeit(
+        $E  = $Opt{elem};
+        $dt = timeit(
             sub {
                 for my $i ( 1 .. $E ) {
                     push @$data, $i;
@@ -208,8 +208,8 @@ if ( defined $Opt{build} ) {
     }
     elsif ( $Opt{type} eq 'aoir' ) {
         print "building aoir\n";
-        $E= $Opt{elem};
-        $dt= timeit(
+        $E  = $Opt{elem};
+        $dt = timeit(
             sub {
                 for my $i ( shuffle 1 .. $E ) {
                     push @$data, $i;
@@ -218,8 +218,8 @@ if ( defined $Opt{build} ) {
     }
     elsif ( $Opt{type} eq 'aof' ) {
         print "building aof\n";
-        $E= $Opt{elem};
-        $dt= timeit(
+        $E  = $Opt{elem};
+        $dt = timeit(
             sub {
                 for my $i ( 1 .. $E ) {
                     push @$data, rand();
@@ -228,8 +228,8 @@ if ( defined $Opt{build} ) {
     }
     elsif ( $Opt{type} eq 'aos' ) {
         print "building aos\n";
-        $E= $Opt{elem};
-        $dt= timeit(
+        $E  = $Opt{elem};
+        $dt = timeit(
             sub {
                 for my $i ( 1 .. $E ) {
                     push @$data, rand() . $$;
@@ -238,31 +238,31 @@ if ( defined $Opt{build} ) {
     }
     elsif ( $Opt{type} eq 'hoi' ) {
         print "building hoi\n";
-        $E= $Opt{elem};
-        $dt= timeit(
+        $E  = $Opt{elem};
+        $dt = timeit(
             sub {
                 for my $i ( 1 .. $E ) {
-                    $data->{$i}= $i;
+                    $data->{$i} = $i;
                 }
             } );
     }
     elsif ( $Opt{type} eq 'hof' ) {
         print "building hof\n";
-        $E= $Opt{elem};
-        $dt= timeit(
+        $E  = $Opt{elem};
+        $dt = timeit(
             sub {
                 for my $i ( 1 .. $E ) {
-                    $data->{$i}= rand();
+                    $data->{$i} = rand();
                 }
             } );
     }
     elsif ( $Opt{type} eq 'hos' ) {
         print "building hos\n";
-        $E= $Opt{elem};
-        $dt= timeit(
+        $E  = $Opt{elem};
+        $dt = timeit(
             sub {
                 for my $i ( 1 .. $E ) {
-                    $data->{$i}= "$i";
+                    $data->{$i} = "$i";
                 }
             } );
     }
@@ -274,21 +274,21 @@ if ( defined $Opt{build} ) {
         $dt->wall, $dt->usr, $dt->sys, $dt->cpu, $dt->pct, $E / $dt->wall
     );
     if ( $Opt{size} ) {
-        $dt= timeit( sub { $data_size= total_size($data); } );
+        $dt = timeit( sub { $data_size = total_size($data); } );
         printf(
             "data size %d bytes (%.1fMB) %.1f sec\n",
             $data_size, $data_size / MB, $dt->wall
         );
     }
 
-    my $encoder= Sereal::Encoder->new;
+    my $encoder = Sereal::Encoder->new;
 
     {
         print "encoding data\n";
         my @dt;
         for my $i ( 1 .. $Opt{repeat_encode} ) {
-            $dt= timeit( sub { $blob= $encoder->encode($data); } );
-            $blob_size= length($blob);
+            $dt        = timeit( sub { $blob = $encoder->encode($data); } );
+            $blob_size = length($blob);
             printf(
                 "%d/%d: encode to %d bytes (%.1fMB) %.2f sec %.2f usr %.2f sys %.2f cpu %3d%% (%.1f MB/sec)\n",
                 $i,       $Opt{repeat_encode}, $blob_size, $blob_size / MB, $dt->wall, $dt->usr,
@@ -297,9 +297,9 @@ if ( defined $Opt{build} ) {
             push @dt, $dt;
         }
         if (@dt) {
-            my %stats= stats(@dt);
+            my %stats = stats(@dt);
             for my $k (qw(wall cpu)) {
-                my $avg= $stats{$k}{avg};
+                my $avg = $stats{$k}{avg};
                 printf(
                     "encode %-4s avg %.2f sec (%.1f MB/sec) stddev %.2f sec (%.2f) min %.2f med %.2f max %.2f\n",
                     $k,
@@ -316,12 +316,12 @@ if ( defined $Opt{build} ) {
         sysopen( $fh, $Opt{output}, O_WRONLY | O_CREAT | O_TRUNC )
             or die qq[sysopen "$Opt{output}": $!\n];
         print "writing blob\n";
-        $dt= timeit(
+        $dt = timeit(
             sub {
                 syswrite( $fh, $blob )
                     or die qq[syswrite "$Opt{otput}": $!\n];
             } );
-        $blob_size= length($blob);
+        $blob_size = length($blob);
         printf(
             "wrote %d bytes (%.1f MB) %.2f sec  %.2f usr %.2f sys %.2f cpu %3d%% (%.1f MB/sec)\n",
             $blob_size, $blob_size / MB, $dt->wall, $dt->usr, $dt->sys, $dt->cpu, $dt->pct,
@@ -333,26 +333,26 @@ elsif ( defined $Opt{input} ) {
     my $fh;
     sysopen( $fh, $Opt{input}, O_RDONLY ) or die qq[sysopen "$Opt{input}": $!\n];
     print "reading blob\n";
-    $dt= timeit(
+    $dt = timeit(
         sub {
             sysread( $fh, $blob, -s $fh )
                 or die qq[sysread "$Opt{input}": $!\n];
         } );
-    $blob_size= length($blob);
+    $blob_size = length($blob);
     printf(
         "read %d bytes (%.1f MB) %.2f sec %.2f usr %.2f sys %.2f cpu %3d%% (%.1f MB/sec)\n",
         $blob_size, $blob_size / MB, $dt->wall, $dt->usr, $dt->sys, $dt->cpu, $dt->pct,
         $blob_size / ( MB * $dt->wall ) );
 }
 
-my $decoder= Sereal::Decoder->new;
+my $decoder = Sereal::Decoder->new;
 
 {
     print "decoding blob\n";
-    $blob_size= length($blob);
+    $blob_size = length($blob);
     my @dt;
     for my $i ( 1 .. $Opt{repeat_decode} ) {
-        $dt= timeit( sub { $data= $decoder->decode($blob); } );
+        $dt = timeit( sub { $data = $decoder->decode($blob); } );
         printf(
             "%d/%d: decode from %d bytes (%.1fM) %.2f sec %.2f usr %.2f sys %.2f cpu %3d%% (%.1f MB/sec)\n",
             $i, $Opt{repeat_decode}, $blob_size, $blob_size / MB,
@@ -372,9 +372,9 @@ my $decoder= Sereal::Decoder->new;
         printf("data is of unexpected type\n");
     }
     if (@dt) {
-        my %stats= stats(@dt);
+        my %stats = stats(@dt);
         for my $k (qw(wall cpu)) {
-            my $avg= $stats{$k}{avg};
+            my $avg = $stats{$k}{avg};
             printf(
                 "decode %-4s avg %.2f sec (%.1f MB/sec) stddev %.2f sec (%.2f) min %.2f med %.2f max %.2f\n",
                 $k,
@@ -384,7 +384,7 @@ my $decoder= Sereal::Decoder->new;
         }
     }
     if ( $Opt{size} ) {
-        $dt= timeit( sub { $data_size= total_size($data); } );
+        $dt = timeit( sub { $data_size = total_size($data); } );
         printf(
             "data size %d bytes (%.1fMB) %.1f sec\n",
             $data_size, $data_size / MB, $dt->wall

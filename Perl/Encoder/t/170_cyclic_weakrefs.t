@@ -4,7 +4,7 @@ use warnings;
 use File::Spec;
 use Scalar::Util qw /weaken/;
 
-local $|= 1;
+local $| = 1;
 
 use lib File::Spec->catdir(qw(t lib));
 
@@ -13,12 +13,12 @@ BEGIN {
         if !-d 't';
 }
 
-use Sereal::TestSet qw(:all);
+use Sereal::TestSet  qw(:all);
 use Sereal::BulkTest qw(:all);
 use Test::More;
 use Sereal::Encoder;
 
-my $ok= have_encoder_and_decoder();
+my $ok = have_encoder_and_decoder();
 if ( not $ok ) {
     plan skip_all => 'Did not find right version of decoder';
 }
@@ -48,26 +48,26 @@ done_testing();
 exit;
 
 sub get_data {
-    my %args= @_;
+    my %args = @_;
 
     my @children;
 
-    my $root= {
+    my $root = {
         name     => 'root',
         children => \@children,
     };
 
-    my %hash= (
+    my %hash = (
         TREE         => $root,
         TREE_BY_NAME => {},
     );
 
     if ( $args{store_root_by_name} ) {
-        $hash{TREE_BY_NAME}{root}= $root;
+        $hash{TREE_BY_NAME}{root} = $root;
     }
 
     foreach my $i ( 0 .. 1 ) {
-        my $child= {
+        my $child = {
             PARENT => $root,
             NAME   => $i,
         };
@@ -79,15 +79,15 @@ sub get_data {
         push @children, $child;
 
         #  store it in the by-name cache
-        $hash{TREE_BY_NAME}{$i}= $child;
+        $hash{TREE_BY_NAME}{$i} = $child;
     }
 
     return \%hash;
 }
 
 sub test_save_and_reload {
-    my %args= @_;
-    my $data= get_data(%args);
+    my %args = @_;
+    my $data = get_data(%args);
 
     #diag '=== ARGS ARE:  ' . join ' ', %args;
 
@@ -98,18 +98,18 @@ sub test_save_and_reload {
         ? ', extra root ref stored'
         : ', extra root ref not stored';
 
-    my $encoder= Sereal::Encoder->new;
-    my $decoder= Sereal::Decoder->new;
+    my $encoder = Sereal::Encoder->new;
+    my $decoder = Sereal::Decoder->new;
     my ( $encoded_data, $decoded_data );
 
-    $encoded_data= eval { $encoder->encode($data) };
-    my $e= $@;
+    $encoded_data = eval { $encoder->encode($data) };
+    my $e = $@;
     ok( !$e, "Encoded without exception, $context_text" );
 
     #  no point testing if serialisation failed
     if ($encoded_data) {
         eval { $decoder->decode( $encoded_data, $decoded_data ) };
-        my $e= $@;
+        my $e = $@;
         ok( !$e, "Decoded using Sereal, $context_text" );
 
         is_deeply(

@@ -2,18 +2,18 @@ package Sereal::Decoder::Constants;
 use strict;
 use warnings;
 require Exporter;
-our @ISA= qw(Exporter);
+our @ISA = qw(Exporter);
 
-our $VERSION= '5.005';
+our $VERSION = '5.005';
 
 our ( @EXPORT_OK, %DEFINE, %TAG_INFO_HASH, @TAG_INFO_ARRAY );
 
-our %EXPORT_TAGS= ( all => \@EXPORT_OK );
+our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
 # start autoupdated section - do not modify directly
 
 BEGIN {
-    %DEFINE= (
+    %DEFINE = (
         "SRL_HDR_ALIAS"                            => 46,
         "SRL_HDR_ARRAY"                            => 43,
         "SRL_HDR_ARRAYREF"                         => 64,
@@ -95,7 +95,7 @@ BEGIN {
 
 use constant \%DEFINE;
 push @EXPORT_OK, keys %DEFINE;
-@TAG_INFO_ARRAY= (
+@TAG_INFO_ARRAY = (
 
     # autoupdated by Sereal.git:Perl/shared/author_tools/update_from_header.pl do not modify directly!
     {
@@ -1358,7 +1358,7 @@ push @EXPORT_OK, keys %DEFINE;
         "value"      => 127
     } );
 
-$TAG_INFO_HASH{ chr $_ }= $TAG_INFO_ARRAY[$_] for 0 .. 127;
+$TAG_INFO_HASH{ chr $_ } = $TAG_INFO_ARRAY[$_] for 0 .. 127;
 push @EXPORT_OK, qw(%TAG_INFO_HASH @TAG_INFO_ARRAY);
 
 # stop autoupdated section - do not modify directly!

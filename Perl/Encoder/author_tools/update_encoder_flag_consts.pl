@@ -6,12 +6,12 @@ my %sets;
 my %flag_consts;
 my %flag_names;
 my ( @flags, @static, @volatile );
-my @files= ( "srl_encoder.h", "srl_compress.h" );
+my @files = ( "srl_encoder.h", "srl_compress.h" );
 foreach my $file ( sort @files ) {
     open my $fh, "<", $file
         or die "Failed to open '$file' for read: $!";
 
-    my $line= "";
+    my $line = "";
     while (<$fh>) {
         chomp;
         $line .= $_;
@@ -20,24 +20,24 @@ foreach my $file ( sort @files ) {
             || $line =~ m/(\w+(VOLATILE_FLAGS))\s+(.*)/s )
         {
             #print;
-            my $full_name= $1;
-            my $name= $2;
-            my $value= $3;
+            my $full_name = $1;
+            my $name      = $2;
+            my $value     = $3;
             $name =~ s/_?ENCODER_?//g;
-            $flag_names{$full_name}= $name;
+            $flag_names{$full_name} = $name;
             if ( $value =~ s/UL\z// ) {
-                $flag_consts{$full_name}= 0 + eval $value;
+                $flag_consts{$full_name} = 0 + eval $value;
             }
             else {
                 $value =~ s/(SRL_F_\w+)/\$flag_consts{$1}/g;
-                $sets{ "SRL_F_ENCODER_" . $name }= 0 + eval $value;
+                $sets{ "SRL_F_ENCODER_" . $name } = 0 + eval $value;
             }
         }
-        $line= "";
+        $line = "";
     }
     foreach my $key ( sort { $flag_consts{$a} <=> $flag_consts{$b} } keys %flag_consts ) {
         if ( defined $sets{SRL_F_ENCODER_VOLATILE_FLAGS} ) {
-            my $is_volatile= $flag_consts{$key} & $sets{SRL_F_ENCODER_VOLATILE_FLAGS};
+            my $is_volatile = $flag_consts{$key} & $sets{SRL_F_ENCODER_VOLATILE_FLAGS};
             push @static,   $is_volatile ? undef             : $flag_names{$key};
             push @volatile, $is_volatile ? $flag_names{$key} : undef;
         }
@@ -45,15 +45,15 @@ foreach my $file ( sort @files ) {
     }
 }
 
-my %consts= ( %sets, %flag_consts );
-$consts{_FLAG_NAME}= \@flags;
+my %consts = ( %sets, %flag_consts );
+$consts{_FLAG_NAME} = \@flags;
 if (@volatile) {
-    $consts{_FLAG_NAME_VOLATILE}= \@volatile;
-    $consts{_FLAG_NAME_STATIC}= \@static;
+    $consts{_FLAG_NAME_VOLATILE} = \@volatile;
+    $consts{_FLAG_NAME_STATIC}   = \@static;
 }
 
-my $infile= "lib/Sereal/Encoder.pm";
-my $outfile= "$infile.new";
+my $infile  = "lib/Sereal/Encoder.pm";
+my $outfile = "$infile.new";
 open my $fh, "<", $infile
     or die "Failed to read '$infile': $!";
 open my $ofh, ">", $outfile
@@ -61,7 +61,7 @@ open my $ofh, ">", $outfile
 while (<$fh>) {
     if (/#begin generated/) {
         print $ofh $_;
-        my $s= Data::Dumper->new( [ \%consts ] )->Sortkeys(1)->Terse(1)->Dump();
+        my $s = Data::Dumper->new( [ \%consts ] )->Sortkeys(1)->Terse(1)->Dump();
         chop($s);
         $s .= "; #end generated\n";
         print $ofh $s;

@@ -6,21 +6,19 @@ use warnings;
 use ExtUtils::MakeMaker;
 use Config;
 
-our $VERSION= '5.005'; # what version are we and what version of Decoder do we need.
-$VERSION = eval $VERSION or die "WTF: $VERSION: $@"; # deal with underbars
+our $VERSION = '5.005';    # what version are we and what version of Decoder do we need.
+$VERSION = eval $VERSION or die "WTF: $VERSION: $@";    # deal with underbars
 
-my $shared_dir= "../shared";
-my $its_our_repo_file= "../this_is_the_Sereal_repo.txt";
-my $in_source_repo= ( -d "../../.git" &&
-                      -d $shared_dir &&
-                      -e $its_our_repo_file );
-my $do_prompt= !$in_source_repo || $ENV{CPAN_COMPAT};
+my $shared_dir        = "../shared";
+my $its_our_repo_file = "../this_is_the_Sereal_repo.txt";
+my $in_source_repo    = ( -d "../../.git" && -d $shared_dir && -e $its_our_repo_file );
+my $do_prompt         = !$in_source_repo || $ENV{CPAN_COMPAT};
 
 unshift @INC, ".", "./inc";
 unshift @INC, $shared_dir, "$shared_dir/inc"
     if $in_source_repo;
 
-my $module= "Sereal::Encoder";
+my $module = "Sereal::Encoder";
 require inc::Sereal::BuildTools;
 if ($in_source_repo) {
     inc::Sereal::BuildTools::link_files($shared_dir);
@@ -34,27 +32,33 @@ if ($in_source_repo) {
 #     #define MINIZ_HAS_64BIT_REGISTERS 1
 # Or you can set USE_UNALIGNED in the env before running Makefile.PL
 
-if ($do_prompt and !defined $ENV{USE_UNALIGNED}) {
-    my $use_unaligned= prompt("USE_UNALIGNED not set in env. Use unaligned loads and stores? yes/no","no");
+if ( $do_prompt and !defined $ENV{USE_UNALIGNED} ) {
+    my $use_unaligned =
+        prompt( "USE_UNALIGNED not set in env. Use unaligned loads and stores? yes/no", "no" );
     $ENV{USE_UNALIGNED} = $use_unaligned eq "yes";
-} else {
+}
+else {
     $ENV{USE_UNALIGNED} ||= 1;
-    $ENV{USE_UNALIGNED} = 0 if $ENV{USE_UNALIGNED} ne 1
-                            && $ENV{USE_UNALIGNED} ne "yes";
+    $ENV{USE_UNALIGNED} = 0
+        if $ENV{USE_UNALIGNED} ne 1
+        && $ENV{USE_UNALIGNED} ne "yes";
 }
 
-if ($do_prompt and !defined $ENV{NO_ASM} and !defined $ENV{ZSTD_DISABLE_ASM}) {
-    my $use_asm= prompt("neither NO_ASM nor ZSTD_DISABLE_ASM set in env. Use assembly in ZSTD? yes/no","yes");
+if ( $do_prompt and !defined $ENV{NO_ASM} and !defined $ENV{ZSTD_DISABLE_ASM} ) {
+    my $use_asm = prompt(
+        "neither NO_ASM nor ZSTD_DISABLE_ASM set in env. Use assembly in ZSTD? yes/no",
+        "yes"
+    );
     $ENV{NO_ASM} = $use_asm ne "yes";
 }
 
-my $optimize= inc::Sereal::BuildTools::build_optimize();
+my $optimize = inc::Sereal::BuildTools::build_optimize();
 
-my $libs= '';
-my $subdirs= [];
-my $objects= '$(BASEEXT)$(OBJ_EXT) srl_encoder$(OBJ_EXT)';
-my $defines= inc::Sereal::BuildTools::build_defines('ENABLE_DANGEROUS_HACKS');
-my $inc= '-I.';
+my $libs    = '';
+my $subdirs = [];
+my $objects = '$(BASEEXT)$(OBJ_EXT) srl_encoder$(OBJ_EXT)';
+my $defines = inc::Sereal::BuildTools::build_defines('ENABLE_DANGEROUS_HACKS');
+my $inc     = '-I.';
 $inc .= ' -I/usr/local/include'
     if $^O =~ /openbsd/;
 
@@ -62,9 +66,10 @@ $inc .= ' -I/usr/local/include'
 inc::Sereal::BuildTools::check_external_libraries( \$libs, \$defines, \$objects, $subdirs );
 
 if ( $defines !~ /HAVE_CSNAPPY/ ) {
+
     # from Compress::Snappy
     require Devel::CheckLib;
-    my $ctz= Devel::CheckLib::check_lib(
+    my $ctz = Devel::CheckLib::check_lib(
         lib      => 'c',
         function => 'return (__builtin_ctzll(0x100000000LL) != 32);'
     ) ? '-DHAVE_BUILTIN_CTZ' : '';
@@ -102,26 +107,26 @@ inc::Sereal::BuildTools::WriteMakefile(
         'ExtUtils::ParseXS' => '2.21',
     },
     CONFIGURE_REQUIRES => {
-        'Devel::CheckLib'       => '1.16',
-        'ExtUtils::MakeMaker'   => '7.0',
+        'Devel::CheckLib'     => '1.16',
+        'ExtUtils::MakeMaker' => '7.0',
     },
     NAME         => $module,
     VERSION_FROM => 'lib/Sereal/Encoder.pm',    # finds $VERSION
     PREREQ_PM    => {
         'Sereal::Decoder' => $VERSION,
-        'XSLoader' => 0,
+        'XSLoader'        => 0,
     },                                          # e.g., Module::Name => 1.1
     LICENSE       => 'perl',
     ABSTRACT_FROM => 'lib/Sereal/Encoder.pm',
     AUTHOR        => 'Steffen Mueller <smueller@cpan.org>, Yves Orton <yves@cpan.org>',
-    LIBS          => [$libs],   # e.g., '-lm'
+    LIBS          => [$libs],                                                             # e.g., '-lm'
     DEFINE        => $defines,
-    INC      => $inc,           # e.g., '-I. -I/usr/local/include'
-    OPTIMIZE => $optimize,
-    DIR      => $subdirs,
-    OBJECT   => $objects,
-    test     => {
+    INC           => $inc,                                                                # e.g., '-I. -I/usr/local/include'
+    OPTIMIZE      => $optimize,
+    DIR           => $subdirs,
+    OBJECT        => $objects,
+    test          => {
         TESTS => "t/*.t t/*/*/*.t",
     },
 );
-$ENV{OPTIMIZE}= $optimize;
+$ENV{OPTIMIZE} = $optimize;
