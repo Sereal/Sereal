@@ -9,17 +9,8 @@ from sereal import exception
 
 
 class SrlDecoder(object):
-    def __init__(self, object_factory=None, **settings):
+    def __init__(self, object_factory=None, bin_mode_classic=True):
         super(SrlDecoder, self).__init__()
-
-        # default decode behaviour settings
-        self.settings = {
-            const.SETTING_BIN_MODE_CLASSIC: True
-        }
-
-        for k in self.settings:
-            if k in settings:
-                self.settings[k] = settings[k]
 
         self.header = {
             'version': None,
@@ -31,6 +22,7 @@ class SrlDecoder(object):
         self.body_offset = 0
         self.copy_depth = 0
         self.object_factory = object_factory if object_factory is not None else self._default_object_factory
+        self.bin_mode_classic = bin_mode_classic
 
     def decode(self, byte_str):
         self.reader = reader.SrlDocumentReader(byte_str)
@@ -222,14 +214,14 @@ class SrlDecoder(object):
 
     def _decode_binary(self):
         ln = self.reader.read_varint()
-        if self.settings[const.SETTING_BIN_MODE_CLASSIC]:
+        if self.bin_mode_classic:
             return self.reader.read_str(ln)
         else:
             return self.reader.read_bin(ln)
 
     def _decode_short_binary(self, tag):
         ln = tag & const.SRL_SHORT_BINARY_LEN
-        if self.settings[const.SETTING_BIN_MODE_CLASSIC]:
+        if self.bin_mode_classic:
             return self.reader.read_str(ln)
         else:
             return self.reader.read_bin(ln)
