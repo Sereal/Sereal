@@ -212,8 +212,10 @@ srl_decompress_body_zstd(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner, size_t 
     old_pos = buf->pos;
     bytes_consumed = compressed_packet_len + SRL_RDR_POS_OFS(buf);
 
-    uncompressed_packet_len = ZSTD_getDecompressedSize((const void *)buf->pos, (size_t) compressed_packet_len);
+    uncompressed_packet_len = ZSTD_getFrameContentSize((const void *)buf->pos, (size_t) compressed_packet_len);
     if (expect_false(uncompressed_packet_len == 0))
+        SRL_RDR_ERROR(buf, "Invalid zstd packet with no data");
+    if (expect_false(uncompressed_packet_len >= ZSTD_CONTENTSIZE_ERROR))
         SRL_RDR_ERROR(buf, "Invalid zstd packet with unknown uncompressed size");
 
     /* Allocate output buffer and swap it into place within the decoder. */
