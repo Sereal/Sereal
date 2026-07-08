@@ -62,9 +62,7 @@ print $fh q{
 CC       = } . $Config{cc} . q{
 CPPFLAGS+= -I. -I./common -DXXH_NAMESPACE=ZSTD_
 CFLAGS  ?= -O3
-CFLAGS  += -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 \
-           -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef \
-           -Wpointer-arith
+CFLAGS  += } . $Config{ccflags} . q{
 CFLAGS  += $(MOREFLAGS)
 AR       = ar
 ARFLAGS  = rcs

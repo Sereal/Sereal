@@ -13,6 +13,10 @@ from the the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+5.007
+    * Use $Config{ccflags} to compile ztd with. Should fix AIX.
+      Thanks to Thomas Seeling for the suggestion.
+
 5.006
     * Use miniz 3.1.1
     * Avoid deprecated ZSTD api.
