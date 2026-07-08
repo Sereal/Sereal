@@ -51,6 +51,7 @@ use constant #begin generated
   'SRL_F_DECODER_REUSE' => 1,
   'SRL_F_DECODER_SET_READONLY' => 32768,
   'SRL_F_DECODER_SET_READONLY_SCALARS' => 65536,
+  'SRL_F_DECODER_THAW_DENY_RAW' => 1048576,
   'SRL_F_DECODER_USE_UNDEF' => 16384,
   'SRL_F_DECODER_VALIDATE_UTF8' => 256,
   'SRL_F_DECODER_VOLATILE_FLAGS' => 133150,
@@ -74,7 +75,8 @@ use constant #begin generated
                     'SET_READONLY_SCALARS',
                     'DECOMPRESS_ZSTD',
                     'REFUSE_ZSTD',
-                    'NO_THAW_OBJECTS'
+                    'NO_THAW_OBJECTS',
+                    'THAW_DENY_RAW'
                   ],
   '_FLAG_NAME_STATIC' => [
                            'REUSE',
@@ -96,7 +98,8 @@ use constant #begin generated
                            'SET_READONLY_SCALARS',
                            undef,
                            'REFUSE_ZSTD',
-                           'NO_THAW_OBJECTS'
+                           'NO_THAW_OBJECTS',
+                           'THAW_DENY_RAW'
                          ],
   '_FLAG_NAME_VOLATILE' => [
                              undef,
@@ -117,6 +120,7 @@ use constant #begin generated
                              undef,
                              undef,
                              'DECOMPRESS_ZSTD',
+                             undef,
                              undef,
                              undef
                            ]
@@ -250,6 +254,44 @@ blessing them. Defaults to off. See the section C<ROBUSTNESS> below.
 If set, the decoder will deserialize frozen objects in the objects stream as an
 array ref of arguments that would be passed into the THAW subroutine instead of
 calling THAW itself.
+
+=head3 thaw_allow_classes
+
+An allow-list restricting which classes may have their C<THAW> method invoked
+while decoding a frozen object (see L</FREEZE/THAW CALLBACK MECHANISM>). This is
+useful as a defensive measure when decoding untrusted input, since C<THAW> runs
+arbitrary code in the named class. It may be one of:
+
+=over 4
+
+=item * an array ref of class names, e.g. C<< ['My::Class', 'Other::Class'] >>
+
+=item * a hash ref whose keys with a true value are the allowed class names,
+e.g. C<< { 'My::Class' => 1 } >>
+
+=item * a code ref predicate, called as C<< $cb->($classname) >> once per frozen
+object, that returns a true value to allow C<THAW>
+
+=back
+
+When a frozen object's class is not allowed, the behaviour is controlled by
+L</thaw_deny_action>. This option only has an effect where C<THAW> would
+otherwise be called; it is moot under C<refuse_objects> or C<no_thaw_objects>.
+When not set (the default), every frozen object is thawed as before.
+
+=head3 thaw_deny_action
+
+Controls what happens when C<thaw_allow_classes> is set and a frozen object's
+class is B<not> allowed. Accepts a string:
+
+=over 4
+
+=item * C<'croak'> (the default) - throw an exception.
+
+=item * C<'raw'> - do not call C<THAW>; instead yield the raw argument array
+blessed into C<Sereal::Decoder::THAW_args>, exactly as C<no_thaw_objects> does.
+
+=back
 
 =head3 validate_utf8
 

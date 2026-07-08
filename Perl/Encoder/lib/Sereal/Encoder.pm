@@ -33,6 +33,7 @@ $full_consts=
   'SRL_F_DEDUPE_STRINGS' => 2048,
   'SRL_F_ENABLE_FREEZE_SUPPORT' => 16384,
   'SRL_F_ENCODER_COMPRESS_FLAGS_MASK' => 262592,
+  'SRL_F_FREEZE_DENY_SERIALIZE' => 1048576,
   'SRL_F_NOWARN_UNKNOWN_OVERLOAD' => 512,
   'SRL_F_NO_BLESS_OBJECTS' => 8192,
   'SRL_F_REUSE_ENCODER' => 2,
@@ -269,6 +270,43 @@ Beware that using this functionality means a significant slowdown for
 object serialization. Even when serializing objects without a C<FREEZE>
 method, the additional method look up will cost a small amount of runtime.
 Yes, C<Sereal::Encoder> is so fast that this may make a difference.
+
+=head3 freeze_allow_classes
+
+An allow-list restricting which classes may have their C<FREEZE> method
+invoked. Setting this option implies C<freeze_callbacks> (so you do not need to
+enable both). It may be one of:
+
+=over 4
+
+=item * an array ref of class names, e.g. C<< ['My::Class', 'Other::Class'] >>
+
+=item * a hash ref whose keys with a true value are the allowed class names,
+e.g. C<< { 'My::Class' => 1 } >>
+
+=item * a code ref predicate, called as C<< $cb->($classname, $object) >> for
+each object that has a C<FREEZE> method, that returns a true value to allow
+C<FREEZE>
+
+=back
+
+Classes that do not have a C<FREEZE> method are unaffected (they serialize as
+usual). When an object's class has a C<FREEZE> method but is not allowed, the
+behaviour is controlled by L</freeze_deny_action>.
+
+=head3 freeze_deny_action
+
+Controls what happens when C<freeze_allow_classes> is set and an object whose
+class has a C<FREEZE> method is B<not> allowed. Accepts a string:
+
+=over 4
+
+=item * C<'croak'> (the default) - throw an exception.
+
+=item * C<'serialize'> - do not call C<FREEZE>; serialize the object normally
+(as an ordinary blessed reference).
+
+=back
 
 =head3 no_bless_objects
 
