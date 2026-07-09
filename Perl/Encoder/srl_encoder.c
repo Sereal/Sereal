@@ -555,9 +555,9 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
             if ( val && SvOK(val) ) {
                 STRLEN alen;
                 char *astr = SvPV(val, alen);
-                if (alen == 9 && memEQ(astr, "serialize", 9))
+                if (memEQs(astr, alen, "serialize"))
                     SRL_ENC_SET_OPTION(enc, SRL_F_FREEZE_DENY_SERIALIZE);
-                else if (!(alen == 5 && memEQ(astr, "croak", 5)))
+                else if (!memEQs(astr, alen, "croak"))
                     croak("The 'freeze_deny_action' option must be 'croak' or 'serialize'");
             }
 
