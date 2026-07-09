@@ -563,8 +563,9 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
 
             if ( want_freeze ) {
                 if (SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS))
-                    croak("The no_bless_objects and freeze_callback_support "
-                          "options are mutually exclusive");
+                    croak("The no_bless_objects option is mutually exclusive "
+                          "with freeze support (freeze_callbacks / "
+                          "freeze_allow_classes)");
                 SRL_ENC_SET_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT);
                 enc->sereal_string_sv = newSVpvs("Sereal");
             }
