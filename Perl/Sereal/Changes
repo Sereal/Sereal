@@ -13,6 +13,11 @@ from the the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+5.008
+    * Decoder now supports C<thaw_allow_classes> and C<thaw_deny_action>
+      to control thaw callbacks during decoding. Thanks to James Rouzier
+      for the patches.
+
 5.007
     * Use $Config{ccflags} to compile ztd with. Should fix AIX.
       Thanks to Thomas Seeling for the suggestion.

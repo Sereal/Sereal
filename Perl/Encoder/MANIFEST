@@ -60,6 +60,7 @@ t/040_tied_hash.t
 t/110_nobless.t
 t/120_hdr_data.t
 t/130_freezethaw.t
+t/131_freeze_allow.t
 t/160_recursion.t
 t/170_cyclic_weakrefs.t
 t/180_magic_array.t

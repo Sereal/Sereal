@@ -5,6 +5,11 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 5 of the *
 *          encoder!                                            *
 ****************************************************************
+5.008
+    * Decoder now supports C<thaw_allow_classes> and C<thaw_deny_action>
+      to control thaw callbacks during decoding. Thanks to James Rouzier
+      for the patches.
+
 5.007
     * Use $Config{ccflags} to compile ztd with. Should fix AIX.
       Thanks to Thomas Seeling for the suggestion.
