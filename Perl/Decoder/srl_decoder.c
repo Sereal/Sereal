@@ -133,6 +133,7 @@ SRL_STATIC_INLINE void srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *clas
 SRL_STATIC_INLINE SV * srl_follow_refp_alias_reference(pTHX_ srl_decoder_t *dec, UV offset);
 SRL_STATIC_INLINE AV * srl_follow_objectv_reference(pTHX_ srl_decoder_t *dec, UV offset);
 SRL_STATIC_INLINE void srl_thaw_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *sv);
+SRL_STATIC_INLINE int srl_thaw_class_allowed(pTHX_ srl_decoder_t *dec, HV *class_stash);
 
 /* FIXME unimplemented!!! */
 SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
@@ -267,6 +268,57 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
             }
         }
 
+        /* thaw_allow_classes: only THAW the listed classes. Accepts an array
+         * ref (list of names), a hash ref (keys with a true value) or a code
+         * ref (predicate called with the class name). */
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_THAW_ALLOW_CLASSES);
+        if ( val && SvOK(val) ) {
+            SV *rv = SvROK(val) ? SvRV(val) : NULL;
+            if (rv && SvTYPE(rv) == SVt_PVAV) {
+                AV *av = (AV*)rv;
+                SSize_t i, len = av_len(av) + 1;
+                dec->thaw_allow_hash = newHV();
+                for (i = 0; i < len; i++) {
+                    SV **elem = av_fetch(av, i, 0);
+                    if (elem && SvOK(*elem)) {
+                        STRLEN klen;
+                        char *kstr = SvPV(*elem, klen);
+                        (void)hv_store(dec->thaw_allow_hash, kstr, SvUTF8(*elem) ? -(I32)klen : (I32)klen, &PL_sv_yes, 0);
+                    }
+                }
+            }
+            else if (rv && SvTYPE(rv) == SVt_PVHV) {
+                HV *src = (HV*)rv;
+                HE *ent;
+                dec->thaw_allow_hash = newHV();
+                hv_iterinit(src);
+                while ((ent = hv_iternext(src))) {
+                    if (SvTRUE(HeVAL(ent))) {
+                        STRLEN klen;
+                        char *kstr = HePV(ent, klen);
+                        (void)hv_store(dec->thaw_allow_hash, kstr, HeUTF8(ent) ? -(I32)klen : (I32)klen, &PL_sv_yes, 0);
+                    }
+                }
+            }
+            else if (rv && SvTYPE(rv) == SVt_PVCV) {
+                dec->thaw_allow_cb = newRV_inc(rv);
+            }
+            else {
+                croak("The 'thaw_allow_classes' option must be an array ref, "
+                      "hash ref or code ref");
+            }
+        }
+
+        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_THAW_DENY_ACTION);
+        if ( val && SvOK(val) ) {
+            STRLEN alen;
+            char *astr = SvPV(val, alen);
+            if (memEQs(astr, alen, "raw"))
+                SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_THAW_DENY_RAW);
+            else if (!memEQs(astr, alen, "croak"))
+                croak("The 'thaw_deny_action' option must be 'croak' or 'raw'");
+        }
+
         my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_VALIDATE_UTF8);
         if ( val && SvTRUE(val) )
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8);
@@ -381,6 +433,16 @@ srl_build_decoder_struct_alike(pTHX_ srl_decoder_t *proto)
         SvREFCNT_inc(dec->alias_cache);
     }
 
+    /* thaw allow-list is immutable config; share it with the clone. */
+    if (proto->thaw_allow_hash) {
+        dec->thaw_allow_hash = proto->thaw_allow_hash;
+        SvREFCNT_inc((SV*)dec->thaw_allow_hash);
+    }
+    if (proto->thaw_allow_cb) {
+        dec->thaw_allow_cb = proto->thaw_allow_cb;
+        SvREFCNT_inc(dec->thaw_allow_cb);
+    }
+
     SRL_RDR_CLEAR(&dec->buf);
     dec->pbuf = &dec->buf;
     dec->flags = proto->flags;
@@ -410,6 +472,14 @@ srl_destroy_decoder(pTHX_ srl_decoder_t *dec)
     }
     if (dec->alias_cache)
         SvREFCNT_dec(dec->alias_cache);
+    if (dec->thaw_allow_hash) {
+        SvREFCNT_dec((SV*)dec->thaw_allow_hash);
+        dec->thaw_allow_hash = NULL;
+    }
+    if (dec->thaw_allow_cb) {
+        SvREFCNT_dec(dec->thaw_allow_cb);
+        dec->thaw_allow_cb = NULL;
+    }
     Safefree(dec);
 }
 
@@ -763,6 +833,58 @@ srl_fetch_register_frozen_object(pTHX_ srl_decoder_t *dec, SV *item, const int p
     return NULL;
 }
 
+/* Decide whether the given class is allowed to have its THAW method invoked,
+ * according to the thaw_allow_classes option. Returns true when no allow-list
+ * is configured (the default), so ordinary decoding is unaffected. */
+SRL_STATIC_INLINE int
+srl_thaw_class_allowed(pTHX_ srl_decoder_t *dec, HV *class_stash)
+{
+    const char *classname;
+    STRLEN classname_len;
+    int is_utf8;
+
+    if (!dec->thaw_allow_hash && !dec->thaw_allow_cb)
+        return 1; /* no allow-list configured: allow everything */
+
+    classname = HvNAME_get(class_stash);
+    classname_len = HvNAMELEN_get(class_stash);
+#if PERL_VERSION >= 16
+    is_utf8 = HvNAMEUTF8(class_stash) ? 1 : 0;
+#else
+    is_utf8 = 0;
+#endif
+
+    if (dec->thaw_allow_hash) {
+        return hv_exists(dec->thaw_allow_hash, classname,
+                         is_utf8 ? -(I32)classname_len : (I32)classname_len) ? 1 : 0;
+    }
+    else {
+        /* code ref predicate: $cb->($classname) */
+        int allowed = 0;
+        int count;
+        SV *name_sv;
+        dSP;
+
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+        name_sv = sv_2mortal(newSVpvn(classname, classname_len));
+        if (is_utf8) SvUTF8_on(name_sv);
+        XPUSHs(name_sv);
+        PUTBACK;
+        count = call_sv(dec->thaw_allow_cb, G_SCALAR);
+        SPAGAIN;
+        if (count >= 1) {
+            SV *res = POPs;
+            allowed = SvTRUE(res) ? 1 : 0;
+        }
+        PUTBACK;
+        FREETMPS;
+        LEAVE;
+        return allowed;
+    }
+}
+
 SRL_STATIC_INLINE void
 srl_finalize_structure(pTHX_ srl_decoder_t *dec)
 {
@@ -866,13 +988,25 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
             HV *class_stash = (HV*)srl_fetch_register_frozen_object(aTHX_ dec, sv, 0);
             AV *additional_refs= NULL;
             IV fixups = 0;
+            int thaw_this = 1; /* cleared if class is denied but fallback allowed */
             if (SvTYPE(class_stash) == SVt_PVAV) {
                 additional_refs = (AV*)class_stash;
                 fixups = av_len(additional_refs); /* no +1 because we do it before the class_stash shift */
                 class_stash = (HV *)av_shift((AV*)additional_refs);
                 SvREFCNT_dec(class_stash);
             }
-            if (nothaw) {
+            /* Enforce the thaw allow-list (if any). A disallowed class either
+             * croaks (default) or falls back to the raw-args behavior below. */
+            if (!nothaw && !srl_thaw_class_allowed(aTHX_ dec, class_stash)) {
+                if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_THAW_DENY_RAW)) {
+                    thaw_this = 0;
+                } else {
+                    SRL_RDR_ERRORf1(dec->pbuf,
+                        "THAW not allowed for class '%s' (not in thaw_allow_classes)",
+                        HvNAME(class_stash));
+                }
+            }
+            if (nothaw || !thaw_this) {
                 /* do not actually thaw. In order to make it easier to find these cases in a dump
                  * we push the class name into the AV, and then bless it into a special class
                  * private to the Sereal project. */

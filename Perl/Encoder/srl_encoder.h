@@ -42,6 +42,9 @@ typedef struct {
                               /* only used if SRL_F_ENABLE_FREEZE_SUPPORT is set. */
     SV *sereal_string_sv;     /* SV that says "Sereal" for FREEZE support */
     SV *scratch_sv;           /* SV used by encoder for scratch operations */
+
+    HV *freeze_allow_hash;    /* set of class names allowed to be FROZEN, or NULL */
+    SV *freeze_allow_cb;      /* coderef predicate (RV to CV) deciding FREEZE, or NULL */
 } srl_encoder_t;
 
 typedef struct {
@@ -143,6 +146,11 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
  */
 
 #define SRL_F_USE_STANDARD_DOUBLE                  0x80000UL
+
+/* If set, an object whose class is not in the freeze allow-list is serialized
+ * normally (as a blessed reference) instead of via its FREEZE method. If not
+ * set (the default), a disallowed class causes an exception. */
+#define SRL_F_FREEZE_DENY_SERIALIZE               0x100000UL
 
 /* ====================================================================
  * oper flags
@@ -248,6 +256,12 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
 #define SRL_ENC_OPT_STR_USE_STANDARD_DOUBLE "use_standard_double"
 #define SRL_ENC_OPT_IDX_USE_STANDARD_DOUBLE 21
 
-#define SRL_ENC_OPT_COUNT 22
+#define SRL_ENC_OPT_STR_FREEZE_ALLOW_CLASSES "freeze_allow_classes"
+#define SRL_ENC_OPT_IDX_FREEZE_ALLOW_CLASSES 22
+
+#define SRL_ENC_OPT_STR_FREEZE_DENY_ACTION "freeze_deny_action"
+#define SRL_ENC_OPT_IDX_FREEZE_DENY_ACTION 23
+
+#define SRL_ENC_OPT_COUNT 24
 
 #endif

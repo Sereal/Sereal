@@ -33,6 +33,9 @@ struct srl_decoder {
     AV* weakref_av;
     AV* thaw_av;                        /* AV of refs which have to be thawed */
 
+    HV* thaw_allow_hash;                /* set of class names allowed to be THAWed, or NULL */
+    SV* thaw_allow_cb;                  /* coderef predicate (RV to CV) deciding THAW, or NULL */
+
     AV* alias_cache; /* used to cache integers of different sizes. */
     IV alias_varint_under;
 
@@ -139,6 +142,11 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 /* Persistent flag: Make the decoder forget to thaw */
 #define SRL_F_DECODER_NO_THAW_OBJECTS           0x00080000UL
 
+/* If set, a frozen object whose class is not in the thaw allow-list is not
+ * THAWed but instead yielded as the raw arg array (as no_thaw_objects does).
+ * If not set (the default), a disallowed class causes an exception. */
+#define SRL_F_DECODER_THAW_DENY_RAW             0x00100000UL
+
 
 #define SRL_F_DECODER_ALIAS_CHECK_FLAGS   ( SRL_F_DECODER_ALIAS_SMALLINT | SRL_F_DECODER_ALIAS_VARINT | SRL_F_DECODER_USE_UNDEF )
 #define SRL_F_DECODER_READONLY_FLAGS   ( SRL_F_DECODER_SET_READONLY | SRL_F_DECODER_SET_READONLY_SCALARS )
@@ -220,10 +228,16 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_DEC_OPT_STR_NO_THAW_OBJECTS            "no_thaw_objects"
 #define SRL_DEC_OPT_IDX_NO_THAW_OBJECTS            17
 
+#define SRL_DEC_OPT_STR_THAW_ALLOW_CLASSES         "thaw_allow_classes"
+#define SRL_DEC_OPT_IDX_THAW_ALLOW_CLASSES         18
+
+#define SRL_DEC_OPT_STR_THAW_DENY_ACTION           "thaw_deny_action"
+#define SRL_DEC_OPT_IDX_THAW_DENY_ACTION           19
+
 /* NOTE WELL: WHEN YOU ADD AN OPTION YOU **MUST** ADD A
  * CORRESPONDING CALL TO SRL_INIT_OPTION() to Decoder.xs */
 
-#define SRL_DEC_OPT_COUNT                           18
+#define SRL_DEC_OPT_COUNT                           20
 
 #if ((PERL_VERSION > 10) || (PERL_VERSION == 10 && PERL_SUBVERSION > 1 ))
 #   define MODERN_REGEXP

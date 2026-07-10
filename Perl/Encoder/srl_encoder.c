@@ -94,6 +94,7 @@ SRL_STATIC_INLINE void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
 SRL_STATIC_INLINE void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
 SRL_STATIC_INLINE int srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement);
 SRL_STATIC_INLINE SV *srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent);
+SRL_STATIC_INLINE int srl_freeze_class_allowed(pTHX_ srl_encoder_t *enc, HV *stash, SV *src);
 SRL_STATIC_INLINE PTABLE_t *srl_init_string_hash(srl_encoder_t *enc);
 SRL_STATIC_INLINE PTABLE_t *srl_init_ref_hash(srl_encoder_t *enc);
 SRL_STATIC_INLINE PTABLE_t *srl_init_freezeobj_svhash(srl_encoder_t *enc);
@@ -412,6 +413,10 @@ srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
         PTABLE_free(enc->weak_seenhash);
     if (enc->string_deduper_hv != NULL)
         SvREFCNT_dec(enc->string_deduper_hv);
+    if (enc->freeze_allow_hash != NULL)
+        SvREFCNT_dec((SV*)enc->freeze_allow_hash);
+    if (enc->freeze_allow_cb != NULL)
+        SvREFCNT_dec(enc->freeze_allow_cb);
 
     SvREFCNT_dec(enc->sereal_string_sv);
     SvREFCNT_dec(enc->scratch_sv);
@@ -496,13 +501,74 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
         if ( val && SvTRUE(val) )
             SRL_ENC_SET_OPTION(enc, SRL_F_NO_BLESS_OBJECTS);
 
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_FREEZE_CALLBACKS);
-        if ( val && SvTRUE(val) ) {
-            if (SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS))
-                croak("The no_bless_objects and freeze_callback_support "
-                      "options are mutually exclusive");
-            SRL_ENC_SET_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT);
-            enc->sereal_string_sv = newSVpvs("Sereal");
+        {
+            int want_freeze = 0;
+
+            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_FREEZE_CALLBACKS);
+            if ( val && SvTRUE(val) )
+                want_freeze = 1;
+
+            /* freeze_allow_classes: only invoke FREEZE for the listed classes.
+             * Accepts an array ref (list of names), a hash ref (keys with a
+             * true value) or a code ref (predicate called with the class name
+             * and the object). Providing it implies freeze support. */
+            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_FREEZE_ALLOW_CLASSES);
+            if ( val && SvOK(val) ) {
+                SV *rv = SvROK(val) ? SvRV(val) : NULL;
+                if (rv && SvTYPE(rv) == SVt_PVAV) {
+                    AV *av = (AV*)rv;
+                    SSize_t i, len = av_len(av) + 1;
+                    enc->freeze_allow_hash = newHV();
+                    for (i = 0; i < len; i++) {
+                        SV **elem = av_fetch(av, i, 0);
+                        if (elem && SvOK(*elem)) {
+                            STRLEN klen;
+                            char *kstr = SvPV(*elem, klen);
+                            (void)hv_store(enc->freeze_allow_hash, kstr, SvUTF8(*elem) ? -(I32)klen : (I32)klen, &PL_sv_yes, 0);
+                        }
+                    }
+                }
+                else if (rv && SvTYPE(rv) == SVt_PVHV) {
+                    HV *src = (HV*)rv;
+                    HE *ent;
+                    enc->freeze_allow_hash = newHV();
+                    hv_iterinit(src);
+                    while ((ent = hv_iternext(src))) {
+                        if (SvTRUE(HeVAL(ent))) {
+                            STRLEN klen;
+                            char *kstr = HePV(ent, klen);
+                            (void)hv_store(enc->freeze_allow_hash, kstr, HeUTF8(ent) ? -(I32)klen : (I32)klen, &PL_sv_yes, 0);
+                        }
+                    }
+                }
+                else if (rv && SvTYPE(rv) == SVt_PVCV) {
+                    enc->freeze_allow_cb = newRV_inc(rv);
+                }
+                else {
+                    croak("The 'freeze_allow_classes' option must be an array "
+                          "ref, hash ref or code ref");
+                }
+                want_freeze = 1;
+            }
+
+            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_FREEZE_DENY_ACTION);
+            if ( val && SvOK(val) ) {
+                STRLEN alen;
+                char *astr = SvPV(val, alen);
+                if (memEQs(astr, alen, "serialize"))
+                    SRL_ENC_SET_OPTION(enc, SRL_F_FREEZE_DENY_SERIALIZE);
+                else if (!memEQs(astr, alen, "croak"))
+                    croak("The 'freeze_deny_action' option must be 'croak' or 'serialize'");
+            }
+
+            if ( want_freeze ) {
+                if (SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS))
+                    croak("The no_bless_objects option is mutually exclusive "
+                          "with freeze support (freeze_callbacks / "
+                          "freeze_allow_classes)");
+                SRL_ENC_SET_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT);
+                enc->sereal_string_sv = newSVpvs("Sereal");
+            }
         }
 
         my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_COMPRESS);
@@ -662,6 +728,15 @@ srl_build_encoder_struct_alike(pTHX_ srl_encoder_t *proto)
     enc->compress_threshold = proto->compress_threshold;
     if (expect_false(SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT))) {
         enc->sereal_string_sv = newSVpvs("Sereal");
+    }
+    /* freeze allow-list is immutable config; share it with the clone. */
+    if (proto->freeze_allow_hash) {
+        enc->freeze_allow_hash = proto->freeze_allow_hash;
+        SvREFCNT_inc((SV*)enc->freeze_allow_hash);
+    }
+    if (proto->freeze_allow_cb) {
+        enc->freeze_allow_cb = proto->freeze_allow_cb;
+        SvREFCNT_inc(enc->freeze_allow_cb);
     }
     enc->protocol_version = proto->protocol_version;
     enc->scratch_sv= newSViv(0);
@@ -876,6 +951,60 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
     }
 }
 
+/* Decide whether the given class is allowed to have its FREEZE method invoked,
+ * according to the freeze_allow_classes option. Returns true when no allow-list
+ * is configured (the default), so ordinary encoding is unaffected. */
+SRL_STATIC_INLINE int
+srl_freeze_class_allowed(pTHX_ srl_encoder_t *enc, HV *stash, SV *src)
+{
+    const char *classname;
+    STRLEN classname_len;
+    int is_utf8;
+
+    if (!enc->freeze_allow_hash && !enc->freeze_allow_cb)
+        return 1; /* no allow-list configured: allow everything */
+
+    classname = HvNAME_get(stash);
+    classname_len = HvNAMELEN_get(stash);
+#if PERL_VERSION >= 16
+    is_utf8 = HvNAMEUTF8(stash) ? 1 : 0;
+#else
+    is_utf8 = 0;
+#endif
+
+    if (enc->freeze_allow_hash) {
+        return hv_exists(enc->freeze_allow_hash, classname,
+                         is_utf8 ? -(I32)classname_len : (I32)classname_len) ? 1 : 0;
+    }
+    else {
+        /* code ref predicate: $cb->($classname, $object) */
+        int allowed = 0;
+        int count;
+        SV *name_sv;
+        dSP;
+
+        ENTER;
+        SAVETMPS;
+        PUSHMARK(SP);
+        EXTEND(SP, 2);
+        name_sv = sv_2mortal(newSVpvn(classname, classname_len));
+        if (is_utf8) SvUTF8_on(name_sv);
+        PUSHs(name_sv);
+        PUSHs(src);
+        PUTBACK;
+        count = call_sv(enc->freeze_allow_cb, G_SCALAR);
+        SPAGAIN;
+        if (count >= 1) {
+            SV *res = POPs;
+            allowed = SvTRUE(res) ? 1 : 0;
+        }
+        PUTBACK;
+        FREETMPS;
+        LEAVE;
+        return allowed;
+    }
+}
+
 /* Dumps the tag and class name of an object doing all necessary callbacks or
  * exception-throwing.
  * The provided SV must already have been identified as a Perl object
@@ -896,7 +1025,19 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
 
         if (expect_false( method != NULL )) {
             SV *replacement= NULL;
-            PTABLE_t *freezeobj_svhash = SRL_GET_FREEZEOBJ_SVHASH(enc);
+            PTABLE_t *freezeobj_svhash;
+
+            /* Enforce the freeze allow-list (if any). A disallowed class either
+             * croaks (default) or is serialized normally (freeze_deny_action
+             * => 'serialize'), which we signal by returning NULL here. */
+            if (expect_false( !srl_freeze_class_allowed(aTHX_ enc, stash, src) )) {
+                if (SRL_ENC_HAVE_OPTION(enc, SRL_F_FREEZE_DENY_SERIALIZE))
+                    return NULL;
+                croak("FREEZE not allowed for class '%s' (not in freeze_allow_classes)",
+                      HvNAME(stash));
+            }
+
+            freezeobj_svhash = SRL_GET_FREEZEOBJ_SVHASH(enc);
             if (SvREFCNT(referent)>1) {
                 replacement= (SV *) PTABLE_fetch(freezeobj_svhash, referent);
             }
