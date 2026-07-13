@@ -15,10 +15,10 @@ var solarSystem = map[string]interface{}{
 	"age":    4568,
 	"stars":  []string{"Sun"},
 	"planets": []struct {
-		pos                int
-		name               string
-		mass_earths        float64
-		notable_satellites []string
+		Pos               int
+		Name              string
+		MassEarths        float64
+		NotableSatellites []string `sereal:"NotableSatellites,omitempty"`
 	}{
 		{1, "Mercury", 0.055, []string{}},
 		{2, "Venus", 0.815, []string{}},
@@ -33,8 +33,16 @@ var solarSystem = map[string]interface{}{
 
 func BenchmarkEncodeComplexDataWithHeader(b *testing.B) {
 	enc := sereal.NewEncoderV3()
+	enc.StructAsMap = false
+
+	data, err := enc.MarshalWithHeader(solarSystemMeta, solarSystem)
+	if err != nil {
+		b.Log(err)
+		b.FailNow()
+	}
 
 	b.ResetTimer()
+	b.ReportMetric(float64(len(data)), "bytes")
 	for i := 0; i < b.N; i++ {
 		_, err := enc.MarshalWithHeader(solarSystemMeta, solarSystem)
 		if err != nil {
@@ -47,8 +55,15 @@ func BenchmarkEncodeAndSnappyComplexDataWithHeader(b *testing.B) {
 	enc := sereal.NewEncoderV3()
 	enc.Compression = sereal.SnappyCompressor{Incremental: true}
 	enc.CompressionThreshold = 0
+	enc.StructAsMap = false
+
+	data, err := enc.MarshalWithHeader(solarSystemMeta, solarSystem)
+	if err != nil {
+		b.FailNow()
+	}
 
 	b.ResetTimer()
+	b.ReportMetric(float64(len(data)), "bytes")
 	for i := 0; i < b.N; i++ {
 		_, err := enc.MarshalWithHeader(solarSystemMeta, solarSystem)
 		if err != nil {
@@ -61,8 +76,15 @@ func BenchmarkEncodeAndZlibComplexDataWithHeader(b *testing.B) {
 	enc := sereal.NewEncoderV3()
 	enc.Compression = sereal.ZlibCompressor{Level: sereal.ZlibDefaultCompression}
 	enc.CompressionThreshold = 0
+	enc.StructAsMap = false
+
+	data, err := enc.MarshalWithHeader(solarSystemMeta, solarSystem)
+	if err != nil {
+		b.FailNow()
+	}
 
 	b.ResetTimer()
+	b.ReportMetric(float64(len(data)), "bytes")
 	for i := 0; i < b.N; i++ {
 		_, err := enc.MarshalWithHeader(solarSystemMeta, solarSystem)
 		if err != nil {
