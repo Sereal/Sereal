@@ -13,6 +13,11 @@ from the the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+5.009
+    * Only use Perl's C<$Config{ccflags}> when building bundled zstd on
+      AIX / IBM toolchains, or when C<SEREAL_ZSTD_USE_CONFIG_CCFLAGS> is
+      set. Other platforms now use the normal zstd build flags again.
+
 5.008
     * Decoder now supports C<thaw_allow_classes> and C<thaw_deny_action>
       to control thaw callbacks during decoding. Thanks to James Rouzier

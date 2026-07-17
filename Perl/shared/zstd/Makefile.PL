@@ -17,6 +17,15 @@ my @S_files = (
 
 my @source_files = @c_files;
 my $disable_asm  = "";
+my $use_config_ccflags =
+       $ENV{SEREAL_ZSTD_USE_CONFIG_CCFLAGS}
+    || $Config{osname} eq 'aix'
+    || $Config{cc} =~ /\b(?:xlc|xlclang|ibm)\b/i;
+my $zstd_cflags = $use_config_ccflags
+    ? $Config{ccflags}
+    : '-fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 '
+    . '-Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef '
+    . '-Wpointer-arith';
 if ( $ENV{NO_ASM} || $ENV{ZSTD_DISABLE_ASM} ) {
     $disable_asm = "CPPFLAGS += -DZSTD_DISABLE_ASM\n";
 }
@@ -62,7 +71,7 @@ print $fh q{
 CC       = } . $Config{cc} . q{
 CPPFLAGS+= -I. -I./common -DXXH_NAMESPACE=ZSTD_
 CFLAGS  ?= -O3
-CFLAGS  += } . $Config{ccflags} . q{
+CFLAGS  += } . $zstd_cflags . q{
 CFLAGS  += $(MOREFLAGS)
 AR       = ar
 ARFLAGS  = rcs
