@@ -63,7 +63,8 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         java:
-          - "8"
+          - "17"
+          - "21"
     steps:
       - name: Checkout code
         uses: actions/checkout@v2

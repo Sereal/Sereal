@@ -8,8 +8,7 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.compiler.release>17</maven.compiler.release>
 
     <jackson.version>2.18.8</jackson.version>
     <jackson-databind.version>2.18.9</jackson-databind.version>

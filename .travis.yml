@@ -14,7 +14,7 @@ rvm:
 
 language: java
 jdk:
-  - openjdk8
+  - openjdk17
 cache:
   directories:
     - '$HOME/.m2/repository'
