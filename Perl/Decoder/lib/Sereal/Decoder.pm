@@ -791,7 +791,7 @@ Yves Orton E<lt>demerphq@gmail.comE<gt>
 
 Damian Gryski
 
-Steffen Mueller E<lt>smueller@cpan.orgE<gt>
+Steffen Mueller E<lt>cpan@steffen-mueller.netE<gt>
 
 Rafaël Garcia-Suarez
 

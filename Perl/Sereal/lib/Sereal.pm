@@ -236,7 +236,7 @@ L<https://groups.google.com/forum/?fromgroups#!forum/sereal-dev>
 
 =head1 AUTHOR
 
-Steffen Mueller E<lt>smueller@cpan.orgE<gt>
+Steffen Mueller E<lt>cpan@steffen-mueller.netE<gt>
 
 =head1 ACKNOWLEDGMENT
 

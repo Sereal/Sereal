@@ -32,7 +32,7 @@ File modified for the Linux Kernel by
 Zeev Tarantov <zeev.tarantov@gmail.com>
 
 File modified for Sereal by
-Steffen Mueller <smueller@cpan.org>
+Steffen Mueller <cpan@steffen-mueller.net>
 */
 
 #include "csnappy_internal.h"

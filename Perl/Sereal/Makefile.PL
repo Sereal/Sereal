@@ -60,7 +60,7 @@ WriteMakefile1(
     },                                  # e.g., Module::Name => 1.1
     LICENSE       => 'perl',
     ABSTRACT_FROM => 'lib/Sereal.pm',
-    AUTHOR        => 'Steffen Mueller <smueller@cpan.org>, Yves Orton <yves@cpan.org>',
+    AUTHOR        => 'Steffen Mueller <cpan@steffen-mueller.net>, Yves Orton <yves@cpan.org>',
     test          => {
         TESTS => "t/*.t t/*/*/*.t",
     },

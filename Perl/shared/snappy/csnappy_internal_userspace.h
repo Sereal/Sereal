@@ -33,7 +33,7 @@ File modified by
 Zeev Tarantov <zeev.tarantov@gmail.com>
 
 File modified for Sereal by
-Steffen Mueller <smueller@cpan.org>
+Steffen Mueller <cpan@steffen-mueller.net>
 Yves Orton <demerphq@gmail.com>
 
 */

@@ -101,7 +101,7 @@ inc::Sereal::BuildTools::WriteMakefile(
     },                                          # e.g., Module::Name => 1.1
     LICENSE       => 'perl',
     ABSTRACT_FROM => 'lib/Sereal/Decoder.pm',
-    AUTHOR        => 'Steffen Mueller <smueller@cpan.org>, Yves Orton <yves@cpan.org>',
+    AUTHOR        => 'Steffen Mueller <cpan@steffen-mueller.net>, Yves Orton <yves@cpan.org>',
     LIBS          => [$libs],                                                             # e.g., '-lm'
     DEFINE        => $defines,
     INC           => $inc,                                                                # e.g., '-I. -I/usr/local/include'
