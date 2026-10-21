@@ -22,7 +22,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         go:
-          - '1.21'
+          - '1.24'
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -30,6 +30,7 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go }}
+          cache-dependency-path: Go/sereal/go.sum
 
       - name: Set up perl
         uses: shogo82148/actions-setup-perl@v1
