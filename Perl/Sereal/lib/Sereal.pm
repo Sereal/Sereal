@@ -1,5 +1,5 @@
 package Sereal;
-use 5.008;
+use 5.014;
 use strict;
 use warnings;
 our $VERSION    = '5.011';
@@ -162,6 +162,8 @@ a user of both encoder and decoder, it is enough to depend on a particular
 version of C<Sereal> and you'll get the most recent released versions
 of C<Sereal::Encoder> and C<Sereal::Decoder> whose version is smaller than
 or equal to the version of C<Sereal> you depend on.
+
+This distribution requires Perl 5.14 or newer.
 
 The protocol specification and many other bits of documentation
 can be found in the github repository. Right now, the specification is at

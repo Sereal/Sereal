@@ -14,7 +14,11 @@ from the the Encoder and Decoder changelogs:
 *          Decoder independently.                              *
 ****************************************************************
 5.011
-    * Robustness fixes
+    * Robustness fixes. Thanks to Steffen Mueller and kumar-Prakash07.
+    * Preserve zstd deprecation warnings when building with IBM XL C on AIX.
+    * Raise the minimum supported Perl version to 5.14.
+    * Fix the Sereal::Decoder prerequisite version in generated Sereal-Encoder
+      package metadata. See https://github.com/Sereal/Sereal/issues/317
 
 5.010
     * Reset the pending frozen-object state at the start of every decode.

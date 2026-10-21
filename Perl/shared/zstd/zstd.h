@@ -68,6 +68,8 @@ extern "C" {
 #    define ZSTD_DEPRECATED(message) __attribute__((deprecated))
 #  elif defined(_MSC_VER)
 #    define ZSTD_DEPRECATED(message) __declspec(deprecated(message))
+#  elif defined(__IBMC__)
+#    define ZSTD_DEPRECATED(message) __attribute__((deprecated))
 #  else
 #    pragma message("WARNING: You need to implement ZSTD_DEPRECATED for this compiler")
 #    define ZSTD_DEPRECATED(message)

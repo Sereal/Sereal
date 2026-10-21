@@ -65,7 +65,7 @@ inc::Sereal::BuildTools::check_external_libraries( \$libs, \$defines, \$objects,
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 inc::Sereal::BuildTools::WriteMakefile(
-    MIN_PERL_VERSION => '5.008',
+    MIN_PERL_VERSION => '5.014',
     META_MERGE       => {
         resources => {
             repository => {

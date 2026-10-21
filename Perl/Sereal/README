@@ -23,6 +23,8 @@ DESCRIPTION
     whose version is smaller than or equal to the version of "Sereal" you
     depend on.
 
+    This distribution requires Perl 5.14 or newer.
+
     The protocol specification and many other bits of documentation can be
     found in the github repository. Right now, the specification is at
     <https://github.com/Sereal/Sereal/blob/master/sereal_spec.pod>, there is

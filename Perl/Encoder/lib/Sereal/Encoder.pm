@@ -1,5 +1,5 @@
 package Sereal::Encoder;
-use 5.008;
+use 5.014;
 use strict;
 use warnings;
 use Carp qw/croak/;
@@ -150,6 +150,7 @@ This library implements an efficient, compact-output, and feature-rich
 serializer using a binary protocol called I<Sereal>.
 Its sister module L<Sereal::Decoder> implements a decoder for this format.
 The two are released separately to allow for independent and safer upgrading.
+This distribution requires Perl 5.14 or newer.
 If you care greatly about performance, consider reading the L<Sereal::Performance>
 documentation after finishing this document.
 
@@ -641,7 +642,7 @@ environment anyway.
 
 =head1 THREAD-SAFETY
 
-C<Sereal::Encoder> is thread-safe on Perl's 5.8.7 and higher. This means
+C<Sereal::Encoder> is thread-safe on Perl 5.14 and higher. This means
 "thread-safe" in the sense that if you create a new thread, all
 C<Sereal::Encoder> objects will become a reference to undef in the new
 thread. This might change in a future release to become a full clone

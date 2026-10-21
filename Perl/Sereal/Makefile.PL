@@ -28,7 +28,7 @@ inc::Sereal::BuildTools::link_files( $shared_dir, "tests_only" ) if $in_source_r
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 WriteMakefile1(
-    MIN_PERL_VERSION => '5.008',
+    MIN_PERL_VERSION => '5.014',
     META_MERGE       => {
         resources => {
             repository => {

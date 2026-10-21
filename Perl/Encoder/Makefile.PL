@@ -79,7 +79,7 @@ if ( $defines !~ /HAVE_CSNAPPY/ ) {
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 inc::Sereal::BuildTools::WriteMakefile(
-    MIN_PERL_VERSION => '5.008',
+    MIN_PERL_VERSION => '5.014',
     META_MERGE       => {
         resources => {
             repository => {

@@ -1,5 +1,5 @@
 package Sereal::Decoder;
-use 5.008;
+use 5.014;
 use strict;
 use warnings;
 use Carp qw/croak/;
@@ -208,11 +208,13 @@ and feature-rich binary protocol called I<Sereal>.
 Its sister module L<Sereal::Encoder> implements an encoder for this format.
 The two are released separately to allow for independent and safer upgrading.
 
+This distribution requires Perl 5.14 or newer.
+
 The Sereal protocol versions that are compatible with this decoder
-implementation are currently protocol versions 1, 2, 3 and 4. As it stands, it
-will refuse to attempt to decode future versions of the protocol, but if
+implementation are currently protocol versions 1, 2, 3, 4 and 5. As it stands,
+it will refuse to attempt to decode future versions of the protocol, but if
 necessary there is likely going to be an option to decode the parts of the
-input that are compatible with version 4 of the protocol. The protocol was
+input that are compatible with version 5 of the protocol. The protocol was
 designed to allow for this.
 
 The protocol specification and many other bits of documentation
@@ -766,7 +768,7 @@ tuning thereof.
 
 =head1 THREAD-SAFETY
 
-C<Sereal::Decoder> is thread-safe on Perl's 5.8.7 and higher. This means
+C<Sereal::Decoder> is thread-safe on Perl 5.14 and higher. This means
 "thread-safe" in the sense that if you create a new thread, all
 C<Sereal::Decoder> objects will become a reference to undef in the new
 thread. This might change in a future release to become a full clone

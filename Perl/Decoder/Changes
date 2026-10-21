@@ -6,7 +6,9 @@ Revision history for Perl extension Sereal-Decoder
 *          encoder!                                            *
 ****************************************************************
 5.011
-    * Robustness fixes
+    * Robustness fixes. Thanks to Steffen Mueller and kumar-Prakash07.
+    * Preserve zstd deprecation warnings when building with IBM XL C on AIX.
+    * Raise the minimum supported Perl version to 5.14.
 
 5.010
     * Reset the pending frozen-object state (thaw_av and ref_thawhash) at the
