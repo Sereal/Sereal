@@ -5,6 +5,9 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 5 of the *
 *          encoder!                                            *
 ****************************************************************
+5.011
+    * Robustness fixes
+
 5.010
     * Reset the pending frozen-object state (thaw_av and ref_thawhash) at the
       start of every decode. A decode that died before srl_finalize_structure
