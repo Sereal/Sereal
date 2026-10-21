@@ -32,7 +32,7 @@ done_testing();
 
 sub run_tests {
     my ( $extra_name, $opt_hash ) = @_;
-    setup_tests(5);
+    setup_tests(6);
     foreach my $bt (@BasicTests) {
         my ( undef, $expect, $name, @alternate ) = @$bt;
 
@@ -47,7 +47,8 @@ sub run_tests {
             $x = Header() . $x;
         }
 
-        my $enc = Sereal::Encoder->new( $opt_hash ? $opt_hash : () );
+        my $enc_options = { protocol_version => 6, %{ $opt_hash || {} } };
+        my $enc         = Sereal::Encoder->new($enc_options);
         my $out;
         eval {
             $out = $enc->encode( $bt->[0] );    # must use bt here or we get a copy

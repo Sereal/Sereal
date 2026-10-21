@@ -697,9 +697,9 @@ sub check_for_dependency_issues {
     my $other_version = $have_version{$Other}
         or return "No $Other available to test with.";
 
-    if ( !$min_v and $0 =~ m!/v(\d+)/! ) {
+    if ( !$min_v and $0 =~ m![\\/]v(\d+)[\\/]! ) {
         $min_v = $1;
-        if ( $Config{usequadmath} || $Config{uselongdouble} ) {
+        if ( ( $Config{usequadmath} || $Config{uselongdouble} ) && $min_v < 5 ) {
             $min_v = 5;
         }
     }
@@ -754,6 +754,9 @@ sub _get_roundtrip_tests {
         [ "largeish negative int -302001",   -302001 ],
         [ "largeish negative int -1234567",  -1234567 ],
         [ "largeish negative int -12345678", -12345678 ],
+        [ "negative int -16",                -16 ],
+        [ "negative int -17",                -17 ],
+        [ "negative int -33",                -33 ],
 
         (
             map { [ "integer: $_", 0 + $_ ] } (
@@ -954,6 +957,12 @@ sub _get_roundtrip_tests {
         [ "undef",             [ \undef,   \undef ] ],
     );
 
+    if ( $PROTO_VERSION >= 6 ) {
+        push @ScalarRoundtripTests,
+            [ "binary Perl v-string", v01.002.003 ],
+            [ "UTF8 Perl v-string",   v01.002.0300 ];
+    }
+
     my @blessed_array_check1;
     $blessed_array_check1[0] = "foo";
     $blessed_array_check1[1] = bless \$blessed_array_check1[0], "BlessedArrayCheck";
@@ -1150,6 +1159,15 @@ sub _cmp_str {
     return $ret;
 }
 
+sub _vstring_spelling {
+    require B;
+    my $sv = B::svref_2object( $_[0] );
+    for my $magic ( $sv->MAGIC ) {
+        return $magic->PTR if $magic->TYPE eq 'V';
+    }
+    return;
+}
+
 our $deep_cmp_name;    # set by deep_cmp()
 
 sub _test_deep_cmp {
@@ -1201,7 +1219,10 @@ sub _deep_cmp {
                     and return $cmp;
             }
         }
-        elsif ( reftype($x) eq "SCALAR" or reftype($x) eq "REF" ) {
+        elsif (reftype($x) eq "SCALAR"
+            or reftype($x) eq "REF"
+            or reftype($x) eq "VSTRING" )
+        {
             return _deep_cmp( $$x, $$y, $seenx, $seeny );
         }
         elsif ( reftype($x) eq "REGEXP" ) {
@@ -1213,6 +1234,10 @@ sub _deep_cmp {
         }
     }
     else {
+        my $x_is_vstring = ( reftype( \$x ) || "" ) eq "VSTRING";
+        my $y_is_vstring = ( reftype( \$y ) || "" ) eq "VSTRING";
+        $cmp = _test( "vstring mismatch", $x_is_vstring, $y_is_vstring )
+            and return $cmp;
         if (    $deep_cmp_name !~ /v5/
             and $deep_cmp_name =~ /float/
             and $x             =~ /^-?\d+\.\d+\z/
@@ -1229,6 +1254,10 @@ sub _deep_cmp {
         }
         $cmp = _cmp_str( $x, $y )
             and return $cmp;
+        if ($x_is_vstring) {
+            $cmp = _test( "vstring spelling", _vstring_spelling( \$x ), _vstring_spelling( \$y ) )
+                and return $cmp;
+        }
     }
     return "";
 }
@@ -1428,38 +1457,6 @@ sub run_roundtrip_tests_internal {
                     or do { $failed++; next };    #test
                 deep_cmp( $encoded3, $encoded, "$name ($ename, $mname, encoded3 vs encoded)" )
                     or do { $failed++; next };    #test
-
-                if ( $ENV{SEREAL_TEST_SAVE_OUTPUT} and $mname eq 'object-oriented' ) {
-                    use File::Path;
-                    my $combined_name = "$ename - $name";
-                    if ( !$seen_name{$combined_name} ) {
-                        my @clean = ( $ename, $name );
-                        s/[^\w.-]+/_/g, s/__+/_/g for @clean;
-                        my $cleaned = join "/", @clean;
-                        my ( $v, $p, $d ) = File::Spec->splitpath($0);
-                        my $dir = File::Spec->catpath(
-                            $v,
-                            File::Spec->catdir(
-                                File::Spec->splitdir($p),
-                                "data", $clean[0] ) );
-                        mkpath $dir unless -d $dir;
-                        my $base = "$dir/$clean[1].enc";
-                        $seen_name{$combined_name} = $base;
-                        for my $f (
-                            [ "", $encoded ],
-                            $encoded ne $encoded2 ? [ "2", $encoded2 ] : () )
-                        {
-                            my $file = $base . $f->[0];
-                            next if -e $file;
-                            open my $fh, ">", $file
-                                or die "Can't open '$file' for writing: $!";
-                            binmode($fh);
-                            print $fh $f->[1];
-                            close $fh;
-                        }
-                        diag "Wrote sample files for '$combined_name' to $base";
-                    }
-                }
             }
             pass("$name ($ename, $mname)");
         }    # end method type

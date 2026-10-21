@@ -85,6 +85,7 @@ extern "C" {
 SRL_STATIC_INLINE void srl_clear_seen_hashes(pTHX_ srl_encoder_t *enc);
 static void srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src);
 SRL_STATIC_INLINE void srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src);
+static void srl_dump_vstring(pTHX_ srl_encoder_t *enc, SV *src);
 SRL_STATIC_INLINE void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8);
 SRL_STATIC_INLINE void srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc);
 SRL_STATIC_INLINE void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcnt);
@@ -307,14 +308,15 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
 
 #define CALL_SRL_DUMP_SV(enc, src) STMT_START {                                  \
     if (!(src)) {                                                                   \
-        srl_buf_cat_char(&(enc)->buf, SRL_HDR_CANONICAL_UNDEF); /* is this right? */\
+        srl_buf_cat_char(&(enc)->buf,                                              \
+            (enc)->protocol_version >= 3 ? SRL_HDR_CANONICAL_UNDEF : SRL_HDR_UNDEF);\
     }                                                                               \
     else                                                                            \
     {                                                                               \
 	svtype svt;								    \
 	SvGETMAGIC(src);							    \
 	svt= SvTYPE((src));							    \
-        if (svt < SVt_PVMG &&                                                       \
+	if (svt < SVt_PVMG &&                                                         \
             SvREFCNT((src)) == 1 &&                                                 \
             !SvROK((src))                                                           \
         ) {                                                                         \
@@ -330,7 +332,8 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
 
 #define CALL_SRL_DUMP_SVP(enc, srcp) STMT_START {                                   \
     if (!(srcp)) {                                                                  \
-        srl_buf_cat_char(&(enc)->buf, SRL_HDR_CANONICAL_UNDEF); /* is this right? */\
+        srl_buf_cat_char(&(enc)->buf,                                              \
+            (enc)->protocol_version >= 3 ? SRL_HDR_CANONICAL_UNDEF : SRL_HDR_UNDEF);\
     } else {                                                                        \
         SV *src= *srcp;                                                             \
         CALL_SRL_DUMP_SV(enc,src);                                                  \
@@ -562,6 +565,8 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
             }
 
             if ( want_freeze ) {
+                if (enc->protocol_version < 2)
+                    croak("FREEZE/THAW callbacks require Sereal protocol version 2 or later");
                 if (SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS))
                     croak("The no_bless_objects option is mutually exclusive "
                           "with freeze support (freeze_callbacks / "
@@ -598,8 +603,8 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
                 break;
             case 3:
                 SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_ZSTD);
-                if (enc->protocol_version < 3)
-                    croak("zstd compression was introduced in protocol version 3 and you are asking for only version %i", (int)enc->protocol_version);
+                if (enc->protocol_version < 4)
+                    croak("zstd compression was introduced in protocol version 4 and you are asking for only version %i", (int)enc->protocol_version);
 
                 enc->compress_level = 3; /* default compression level */
                 my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_COMPRESS_LEVEL);
@@ -945,8 +950,14 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
             srl_buf_cat_char(&enc->buf, hdr);
         }
         else {
-            /* Needs ZIGZAG */
-            srl_buf_cat_zigzag(aTHX_ &enc->buf, SRL_HDR_ZIGZAG, num);
+            if (enc->protocol_version >= 6) {
+                /* NEG_VARINT stores the absolute value as an unsigned varint. */
+                const UV magnitude = (UV)(-(num + 1)) + 1;
+                srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_NEG_VARINT, magnitude);
+            } else {
+                /* Protocol versions through 5 use ZIGZAG for large negatives. */
+                srl_buf_cat_zigzag(aTHX_ &enc->buf, SRL_HDR_ZIGZAG, num);
+            }
         }
     }
 }
@@ -1765,6 +1776,66 @@ srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_ut
     enc->buf.pos += src_len;
 }
 
+static void
+srl_dump_vstring(pTHX_ srl_encoder_t *enc, SV *src)
+{
+    STRLEN len;
+    const char *spelling;
+    const U8 ext_tag = SvUTF8(src) ? SRL_EXT_VSTRING_UTF8 : SRL_EXT_VSTRING_BINARY;
+#ifdef SvVSTRING
+    spelling = SvVSTRING(src, len);
+#else
+    {
+        MAGIC *vstring_mg = SvVSTRING_mg(src);
+        if (!vstring_mg || !vstring_mg->mg_ptr || vstring_mg->mg_len < 0) {
+            srl_dump_svpv(aTHX_ enc, src);
+            return;
+        }
+        spelling = vstring_mg->mg_ptr;
+        len = (STRLEN)vstring_mg->mg_len;
+    }
+#endif
+    if (!spelling) {
+        srl_dump_svpv(aTHX_ enc, src);
+        return;
+    }
+    if (len >= I32_MAX) {
+        srl_dump_svpv(aTHX_ enc, src);
+        return;
+    }
+    {
+        SV *roundtrip = sv_2mortal(newSV(0));
+        const char *spelling_end = spelling + len;
+        const char *parsed;
+        STRLEN src_len, roundtrip_len;
+        const char *src_pv;
+        const char *roundtrip_pv;
+        (void)sv_grow(roundtrip, len + 1);
+        parsed = scan_vstring(spelling, spelling_end, roundtrip);
+        if (parsed != spelling_end) {
+            srl_dump_svpv(aTHX_ enc, src);
+            return;
+        }
+        src_pv = SvPV(src, src_len);
+        roundtrip_pv = SvPV(roundtrip, roundtrip_len);
+        if (src_len != roundtrip_len
+            || !!SvUTF8(src) != !!SvUTF8(roundtrip)
+            || memNE(src_pv, roundtrip_pv, src_len))
+        {
+            /* The magic spelling and PV can diverge after mutation. In that
+             * case preserve the actual scalar value as an ordinary string. */
+            srl_dump_svpv(aTHX_ enc, src);
+            return;
+        }
+    }
+    BUF_SIZE_ASSERT(&enc->buf, 2 + SRL_MAX_VARINT_LENGTH + len);
+    srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_EXTEND);
+    srl_buf_cat_char_nocheck(&enc->buf, ext_tag);
+    srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, 0, len);
+    Copy(spelling, enc->buf.pos, len, char);
+    enc->buf.pos += len;
+}
+
 #ifdef HAS_HV_BACKREFS
 AV *
 srl_hv_backreferences_p_safe(pTHX_ HV *hv) {
@@ -1904,7 +1975,10 @@ redo_dump:
     }
 
     /* --------------------------------- */
-    _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt)
+    if (enc->protocol_version >= 6 && SvVOK(src)) {
+        srl_dump_vstring(aTHX_ enc, src);
+    }
+    else _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt)
     else
 #if defined(MODERN_REGEXP) && defined(REGEXP_NO_LONGER_POK)
     /* Only need to enter here if we have rather modern regexps AND they're

@@ -52,7 +52,8 @@
 #define SRL_HDR_FALSE           ((char)58)      /* false (PL_sv_no)  */
 #define SRL_HDR_TRUE            ((char)59)      /* true  (PL_sv_yes) */
 
-#define SRL_HDR_MANY            ((char)60)      /* <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 2) */
+#define SRL_HDR_RESERVED_8      ((char)60)      /* reserved */
+#define SRL_HDR_MANY            SRL_HDR_RESERVED_8 /* deprecated alias */
 #define SRL_HDR_PACKET_START    ((char)61)      /* (first byte of magic string in header) */
 
 

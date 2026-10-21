@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION    = '5.011';
+our $VERSION    = '6.000_001';
 our $XS_VERSION = $VERSION; $VERSION = eval $VERSION;
 
 # Make sure to keep these constants in sync with the C code in srl_encoder.c.
@@ -69,7 +69,8 @@ $full_consts=
                     'SORT_KEYS_PERL',
                     'SORT_KEYS_PERL_REV',
                     'COMPRESS_ZSTD',
-                    'USE_STANDARD_DOUBLE'
+                    'USE_STANDARD_DOUBLE',
+                    'FREEZE_DENY_SERIALIZE'
                   ]
 }; #end generated
 }
@@ -155,7 +156,10 @@ If you care greatly about performance, consider reading the L<Sereal::Performanc
 documentation after finishing this document.
 
 The Sereal protocol version emitted by this encoder implementation is currently
-protocol version 5 by default.
+protocol version 6 by default. When explicitly asked to emit protocol version 5
+or earlier, it uses the integer encodings defined for that version.
+Protocol version 6 documents require a decoder with protocol version 6 support,
+so upgrade the decoder before switching the encoder to its default output.
 
 The protocol specification and many other bits of documentation
 can be found in the github repository. Right now, the specification is at
@@ -187,6 +191,9 @@ constants (exportable from the C<Sereal::Encoder> module):
 Snappy (named constant: C<SRL_SNAPPY>), Zlib (C<SRL_ZLIB>) and Zstd (C<SRL_ZSTD>).
 For your convenience, there is also a C<SRL_UNCOMPRESSED>
 constant.
+Zlib requires protocol version 3 or later, and Zstd requires protocol version
+4 or later. The encoder throws an error if either is requested for an older
+protocol version.
 
 If this option is set, then the Snappy-related options below
 are ignored. They are otherwise recognized for compatibility only.
@@ -260,6 +267,8 @@ C<no_bless_objects>.
 =head3 freeze_callbacks
 
 This option was introduced in Sereal v2 and needs a Sereal v2 decoder.
+It cannot be used when C<protocol_version> is set to 1; the encoder throws an
+error because FREEZE/THAW tags require protocol version 2 or later.
 
 If this option is set, the encoder will check for and possibly invoke
 the C<FREEZE> method on any object in the input data. An object that

@@ -334,7 +334,6 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 		case tag >= typeSHORT_BINARY_0 && tag < typeSHORT_BINARY_0+32:
 			idx += 1 + int(tag&0x1F)
 
-		// case tag == typeMANY: TODO
 		case tag == typePACKET_START:
 			return errors.New("unexpected start of new document")
 
@@ -575,7 +574,6 @@ LOOP:
 			return errors.New("unexpected start of new document")
 
 		default:
-			// TODO typeMANY
 			return fmt.Errorf("unknown tag: %d (0x%x) at offset %d", tag, tag, didx)
 		}
 

@@ -172,6 +172,11 @@ sub parse_sv {
     elsif ( $o == SRL_HDR_ZIGZAG ) {
         printf "ZIGZAG: %d\n", zigzag();
     }
+    elsif ( $o == SRL_HDR_NEG_VARINT ) {
+        my $magnitude = varint();
+        die "NEG_VARINT magnitude must be nonzero" unless $magnitude;
+        printf "NEG_VARINT: -%u\n", $magnitude;
+    }
     elsif ( SRL_HDR_POS_LOW <= $o && $o <= SRL_HDR_POS_HIGH ) {
         printf "POS: %u\n", $o;
     }
@@ -194,6 +199,22 @@ sub parse_sv {
         printf(
             ( $o == SRL_HDR_STR_UTF8 ? "STR_UTF8" : "BINARY" ) . "(%u): '%s' (%s)\n", $l,
             encode_utf8($str), unpack( "H*", encode_utf8($str) ) );
+    }
+    elsif ( $o == SRL_HDR_EXTEND ) {
+        my $ext = ord( _chop_data_prefix(1) );
+        $done .= chr($ext);
+        die "Unknown extended tag ID $ext\n"
+            unless $ext == SRL_EXT_VSTRING_BINARY || $ext == SRL_EXT_VSTRING_UTF8;
+
+        # The VSTRING payload is its original spelling. The extension ID
+        # describes the encoding of the PV reconstructed from that spelling.
+        my $l   = varint();
+        my $str = _chop_data_prefix($l);
+        $done .= $str;
+        $str = decode_utf8($str) if $ext == SRL_EXT_VSTRING_UTF8;
+        printf "VSTRING-%s spelling(%u): '%s' (%s)\n",
+            $ext == SRL_EXT_VSTRING_UTF8 ? "UTF8" : "BINARY",
+            $l, encode_utf8($str), unpack( "H*", encode_utf8($str) );
     }
     elsif ( $o == SRL_HDR_FLOAT ) {
         printf "FLOAT(%f)\n", parse_float();
@@ -289,6 +310,12 @@ sub parse_sv {
     }
     elsif ( $o == SRL_HDR_TRUE ) {
         printf "TRUE\n";
+    }
+    elsif ( $o == SRL_HDR_NO ) {
+        printf "NO (Perl boolean false)\n";
+    }
+    elsif ( $o == SRL_HDR_YES ) {
+        printf "YES (Perl boolean true)\n";
 
     }
     else {

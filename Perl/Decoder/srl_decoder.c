@@ -744,6 +744,9 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
         if (   dec->encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
             || dec->encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL)
         {
+            if (dec->encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
+                && dec->proto_version >= 2)
+                SRL_RDR_ERROR(dec->pbuf, "Non-incremental Snappy compression requires protocol version 1");
             if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_SNAPPY) )) {
                 SRL_RDR_ERROR(dec->pbuf, "Sereal document is compressed with Snappy, "
                               "but this decoder is configured to refuse Snappy-compressed input.");
@@ -753,6 +756,8 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
         else
         if (dec->encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB)
         {
+            if (dec->proto_version < 3)
+                SRL_RDR_ERROR(dec->pbuf, "ZLIB compression requires protocol version 3 or later");
             if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_ZLIB) )) {
                 SRL_RDR_ERROR(dec->pbuf, "Sereal document is compressed with ZLIB, "
                               "but this decoder is configured to refuse ZLIB-compressed input.");
@@ -762,6 +767,8 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
         else
         if (dec->encoding_flags == SRL_PROTOCOL_ENCODING_ZSTD)
         {
+            if (dec->proto_version < 4)
+                SRL_RDR_ERROR(dec->pbuf, "Zstd compression requires protocol version 4 or later");
             if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_ZSTD) )) {
                 SRL_RDR_ERROR(dec->pbuf, "Sereal document is compressed with ZSTD, "
                               "but this decoder is configured to refuse ZSTD-compressed input.");
@@ -1187,6 +1194,25 @@ srl_read_zigzag_into(pTHX_ srl_decoder_t *dec, SV* into, SV **container, const U
     srl_setiv(aTHX_ dec, into, container, track_it, srl_read_zigzag_iv(aTHX_ dec));
 }
 
+SRL_STATIC_INLINE IV
+srl_read_neg_varint_iv(pTHX_ srl_decoder_t *dec)
+{
+    UV magnitude = srl_read_varint_uv(aTHX_ dec->pbuf);
+    const UV iv_min_magnitude = (UV)IV_MAX + 1;
+    if (expect_false(magnitude == 0 || magnitude > iv_min_magnitude)) {
+        SRL_RDR_ERRORf1(dec->pbuf, "Invalid NEG_VARINT magnitude %"UVuf, magnitude);
+    }
+    if (expect_false(magnitude == iv_min_magnitude))
+        return IV_MIN;
+    return -(IV)magnitude;
+}
+
+SRL_STATIC_INLINE void
+srl_read_neg_varint_into(pTHX_ srl_decoder_t *dec, SV* into, SV **container, const U8 *track_it)
+{
+    srl_setiv(aTHX_ dec, into, container, track_it, srl_read_neg_varint_iv(aTHX_ dec));
+}
+
 
 SRL_STATIC_INLINE void
 srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
@@ -1210,6 +1236,29 @@ srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
         SvUTF8_off(into);
     }
     dec->buf.pos+= len;
+}
+
+SRL_STATIC_INLINE void
+srl_read_vstring(pTHX_ srl_decoder_t *dec, SV* into, int is_utf8)
+{
+    UV len = srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading extended VSTRING");
+    if (expect_false(dec->max_string_length != 0 && len > dec->max_string_length))
+        SRL_RDR_ERRORf2(dec->pbuf, "Got input v-string spelling with %u bytes, but the configured maximum is just %u",
+                (int)len, (int)dec->max_string_length);
+    SRL_RDR_ASSERT_SPACE(dec->pbuf, len, " while reading extended VSTRING payload");
+    if (expect_false(len == 0 || len >= I32_MAX))
+        SRL_RDR_ERROR(dec->pbuf, "Invalid extended VSTRING spelling length");
+    (void)sv_grow(into, len + 1);
+    {
+        const char *spelling = (const char *)dec->buf.pos;
+        const char *spelling_end = spelling + len;
+        const char *parsed = scan_vstring(spelling, spelling_end, into);
+        if (expect_false(parsed != spelling_end))
+            SRL_RDR_ERROR(dec->pbuf, "Invalid extended VSTRING spelling");
+    }
+    if (expect_false(!!SvUTF8(into) != !!is_utf8))
+        SRL_RDR_ERROR(dec->pbuf, "VSTRING extension ID does not match the decoded string encoding");
+    dec->buf.pos += len;
 }
 
 /* declare a union so that we are guaranteed the right alignment
@@ -2048,8 +2097,17 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 SRL_STATIC_INLINE SV *
 srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into)
 {
-    /* FIXME unimplemented!!! */
-    SRL_RDR_ERROR_UNIMPLEMENTED(dec->pbuf, SRL_HDR_EXTEND,"EXTEND");
+    U8 ext_tag;
+    if (expect_false(dec->proto_version < 6))
+        SRL_RDR_ERROR(dec->pbuf, "EXTEND tag requires protocol version 6 or later");
+    SRL_RDR_ASSERT_SPACE(dec->pbuf, 1, " while reading extended tag ID");
+    ext_tag = *dec->buf.pos++;
+    if (ext_tag == SRL_EXT_VSTRING_BINARY)
+        srl_read_vstring(aTHX_ dec, into, 0);
+    else if (ext_tag == SRL_EXT_VSTRING_UTF8)
+        srl_read_vstring(aTHX_ dec, into, 1);
+    else
+        SRL_RDR_ERRORf1(dec->pbuf, "Unknown extended tag ID %u", (unsigned int)ext_tag);
     return into;
 }
 
@@ -2118,22 +2176,42 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
         CASE_SRL_HDR_ARRAYREF:      srl_read_array(aTHX_ dec, into, tag); is_ref = 1; break;
         case SRL_HDR_VARINT:        srl_read_varint_into(aTHX_ dec, into, container, track_it); break;
         case SRL_HDR_ZIGZAG:        srl_read_zigzag_into(aTHX_ dec, into, container, track_it); break;
+        case SRL_HDR_NEG_VARINT:
+            if (expect_false(dec->proto_version < 6))
+                SRL_RDR_ERROR(dec->pbuf, "NEG_VARINT tag requires protocol version 6");
+            srl_read_neg_varint_into(aTHX_ dec, into, container, track_it);
+            break;
 
         case SRL_HDR_FLOAT:         srl_read_float(aTHX_ dec, into);                  break;
 
-        case SRL_HDR_FLOAT_128:     srl_read_float_128(aTHX_ dec, into);              break;
+        case SRL_HDR_FLOAT_128:
+            if (expect_false(dec->proto_version < 5))
+                SRL_RDR_ERROR(dec->pbuf, "FLOAT_128 tag requires protocol version 5 or later");
+            srl_read_float_128(aTHX_ dec, into);
+            break;
 
         case SRL_HDR_DOUBLE:        srl_read_double(aTHX_ dec, into);                 break;
 
         case SRL_HDR_LONG_DOUBLE:   srl_read_long_double(aTHX_ dec, into);            break;
 
-        case SRL_HDR_NO:            /* fallthrough */
+        case SRL_HDR_NO:
+            if (expect_false(dec->proto_version < 5))
+                SRL_RDR_ERROR(dec->pbuf, "NO tag requires protocol version 5 or later");
+            sv_setsv(into, &PL_sv_no);
+            break;
         case SRL_HDR_FALSE:         sv_setsv(into, &PL_sv_no);                        break;
 
-        case SRL_HDR_YES:           /* fallthrough */
+        case SRL_HDR_YES:
+            if (expect_false(dec->proto_version < 5))
+                SRL_RDR_ERROR(dec->pbuf, "YES tag requires protocol version 5 or later");
+            sv_setsv(into, &PL_sv_yes);
+            break;
         case SRL_HDR_TRUE:          sv_setsv(into, &PL_sv_yes);                       break;
 
-        case SRL_HDR_CANONICAL_UNDEF: /* fallthrough (XXX: is this right?)*/
+        case SRL_HDR_CANONICAL_UNDEF:
+            if (expect_false(dec->proto_version < 3))
+                SRL_RDR_ERROR(dec->pbuf, "CANONICAL_UNDEF tag requires protocol version 3 or later");
+            /* fall through */
         case SRL_HDR_UNDEF:
         {
             if (container && SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_USE_UNDEF)){
@@ -2154,8 +2232,14 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
         case SRL_HDR_REFN:          srl_read_refn(aTHX_ dec, into);         is_ref=1; break;
         case SRL_HDR_REFP:          srl_read_refp(aTHX_ dec, into);         is_ref=1; break;
         case SRL_HDR_OBJECT_FREEZE:
+            if (expect_false(dec->proto_version < 2))
+                SRL_RDR_ERROR(dec->pbuf, "FREEZE object tags require protocol version 2 or later");
+            srl_read_object(aTHX_ dec, into, tag, 0); is_ref=1; break;
         case SRL_HDR_OBJECT:        srl_read_object(aTHX_ dec, into, tag, 0); is_ref=1; break;
         case SRL_HDR_OBJECTV_FREEZE:
+            if (expect_false(dec->proto_version < 2))
+                SRL_RDR_ERROR(dec->pbuf, "FREEZE object tags require protocol version 2 or later");
+            srl_read_objectv(aTHX_ dec, into, tag); is_ref=1; break;
         case SRL_HDR_OBJECTV:       srl_read_objectv(aTHX_ dec, into, tag); is_ref=1; break;
         case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into);                   break;
         case SRL_HDR_EXTEND:        srl_read_extend(aTHX_ dec, into);                 break;

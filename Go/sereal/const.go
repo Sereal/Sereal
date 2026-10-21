@@ -60,7 +60,7 @@ const (
 	typeCANONICAL_UNDEF = 0x39
 	typeFALSE           = 0x3a
 	typeTRUE            = 0x3b
-	typeMANY            = 0x3c
+	typeRESERVED_1      = 0x3c
 	typePACKET_START    = 0x3d
 	typeEXTEND          = 0x3e
 	typePAD             = 0x3f

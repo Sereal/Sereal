@@ -672,6 +672,7 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
             switch (tag) {
                 case SRL_HDR_VARINT:
                 case SRL_HDR_ZIGZAG:
+                case SRL_HDR_NEG_VARINT:
                     srl_read_varint_uv(aTHX_ mrg->pibuf); /* TODO test/implement srl_skip_varint() */
                     break;
 
@@ -684,6 +685,17 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
                     length = srl_read_varint_uv_length(aTHX_ mrg->pibuf, " while reading BINARY or STR_UTF8");
                     mrg->ibuf.pos += length;
                     break;
+
+                case SRL_HDR_EXTEND: {
+                    U8 ext_tag;
+                    SRL_RDR_ASSERT_SPACE(mrg->pibuf, 1, " while reading extended tag ID");
+                    ext_tag = *mrg->ibuf.pos++;
+                    if (ext_tag != SRL_EXT_VSTRING_BINARY && ext_tag != SRL_EXT_VSTRING_UTF8)
+                        SRL_RDR_ERROR(mrg->pibuf, "Unknown extended tag ID");
+                    length = srl_read_varint_uv_length(aTHX_ mrg->pibuf, " while reading extended VSTRING");
+                    mrg->ibuf.pos += length;
+                    break;
+                }
 
                 case SRL_HDR_HASH:
                 case SRL_HDR_ARRAY:
@@ -711,7 +723,6 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
                         case SRL_HDR_PAD:
                         case SRL_HDR_REFN:
                         case SRL_HDR_WEAKEN:
-                        case SRL_HDR_EXTEND:
                         case SRL_HDR_REGEXP:
                         case SRL_HDR_OBJECT:
                         case SRL_HDR_OBJECT_FREEZE:
@@ -789,6 +800,19 @@ read_again:
                 srl_copy_varint(aTHX_ mrg);
                 break;
 
+            case SRL_HDR_NEG_VARINT:
+                if (mrg->protocol_version >= 6) {
+                    srl_buf_cat_tag_nocheck(mrg, tag);
+                    srl_copy_varint(aTHX_ mrg);
+                } else {
+                    UV magnitude = srl_read_varint_uv(aTHX_ mrg->pibuf);
+                    if (expect_false(magnitude == 0 || magnitude > (UV)IV_MAX + 1))
+                        SRL_RDR_ERROR(mrg->pibuf, "Invalid NEG_VARINT magnitude");
+                    srl_buf_cat_varint(aTHX_ &mrg->obuf, SRL_HDR_ZIGZAG,
+                                       (magnitude << 1) - 1);
+                }
+                break;
+
             case SRL_HDR_FLOAT:         srl_buf_copy_content_nocheck(aTHX_ mrg, 5);  break;
             case SRL_HDR_DOUBLE:        srl_buf_copy_content_nocheck(aTHX_ mrg, 9);  break;
             case SRL_HDR_LONG_DOUBLE:   srl_buf_copy_content_nocheck(aTHX_ mrg, 17); break;
@@ -835,9 +859,28 @@ read_again:
 
                     case SRL_HDR_REFN:
                     case SRL_HDR_WEAKEN:
-                    case SRL_HDR_EXTEND:
                         srl_buf_cat_tag_nocheck(mrg, tag);
                         goto read_again;
+
+                    case SRL_HDR_EXTEND: {
+                        U8 ext_tag;
+                        mrg->ibuf.pos++; /* skip EXTEND tag */
+                        SRL_RDR_ASSERT_SPACE(mrg->pibuf, 1, " while reading extended tag ID");
+                        ext_tag = *mrg->ibuf.pos++;
+                        if (ext_tag != SRL_EXT_VSTRING_BINARY && ext_tag != SRL_EXT_VSTRING_UTF8)
+                            SRL_RDR_ERROR(mrg->pibuf, "Unknown extended tag ID");
+                        length = srl_read_varint_uv_length(aTHX_ mrg->pibuf, " while reading extended VSTRING");
+                        if (mrg->protocol_version >= 6) {
+                            srl_buf_cat_char_nocheck(&mrg->obuf, SRL_HDR_EXTEND);
+                            srl_buf_cat_char_nocheck(&mrg->obuf, ext_tag);
+                            srl_buf_cat_varint_nocheck(aTHX_ &mrg->obuf, 0, length);
+                        } else {
+                            /* Older output cannot preserve v-string magic; retain its PV string. */
+                            srl_buf_cat_varint_nocheck(aTHX_ &mrg->obuf, ext_tag, length);
+                        }
+                        srl_buf_copy_content_nocheck(aTHX_ mrg, length);
+                        break;
+                    }
 
                     case SRL_HDR_OBJECT:
                     case SRL_HDR_OBJECT_FREEZE:

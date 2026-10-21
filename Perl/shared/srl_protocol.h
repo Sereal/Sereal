@@ -61,13 +61,13 @@
     OBJECTV_FREEZE    | "3"  |  51 | 0x33 | 0b00110011 | <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT)
     NO                | "4"  |  52 | 0x34 | 0b00110100 | SvIsBOOL() == PL_No,  5.36 and later only (json false)
     YES               | "5"  |  53 | 0x35 | 0b00110101 | SvIsBOOL() == PL_Yes, 5.36 and later only (json true)
-    RESERVED_0        | "6"  |  54 | 0x36 | 0b00110110 |
-    RESERVED_1        | "7"  |  55 | 0x37 | 0b00110111 |
+    RESERVED_0        | "6"  |  54 | 0x36 | 0b00110110 | reserved
+    RESERVED_1        | "7"  |  55 | 0x37 | 0b00110111 | reserved
     FLOAT_128         | "8"  |  56 | 0x38 | 0b00111000 | quadmath _float128
     CANONICAL_UNDEF   | "9"  |  57 | 0x39 | 0b00111001 | undef (PL_sv_undef) - "the" Perl undef (see notes)
     FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no)
     TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes)
-    MANY              | "<"  |  60 | 0x3c | 0b00111100 | <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3)
+    NEG_VARINT        | "<"  |  60 | 0x3c | 0b00111100 | <VARINT> - absolute value of a negative integer, protocol v6
     PACKET_START      | "="  |  61 | 0x3d | 0b00111101 | (first byte of magic string in header)
     EXTEND            | ">"  |  62 | 0x3e | 0b00111110 | <BYTE> - for additional tags
     PAD               | "?"  |  63 | 0x3f | 0b00111111 | (ignored tag, skip to next byte)
@@ -155,7 +155,7 @@
 #define SRL_MAGIC_STRING_HIGHBIT_UTF8_UINT_LE   0x72B3C33D      /* first four bytes of SRL_MAGIC_STRING encoded as UTF8, little endian */
 #define SRL_MAGIC_STRING_HIGHBIT_UTF8_UINT_BE   0x3DC3B372      /* first four bytes of SRL_MAGIC_STRING encoded as UTF8, big endian */
 
-#define SRL_PROTOCOL_VERSION            ( 5 )
+#define SRL_PROTOCOL_VERSION            ( 6 )
 #define SRL_PROTOCOL_VERSION_BITS       ( 4 )           /* how many bits we use for the version, the rest go to the encoding */
 #define SRL_PROTOCOL_VERSION_MASK       ( ( 1 << SRL_PROTOCOL_VERSION_BITS ) - 1 )
 
@@ -216,7 +216,8 @@
 
 /* Note: Can do reserved check with a range now, but as we start using
  *       them, might have to explicit == check later. */
-#define SRL_HDR_RESERVED        ((U8)54)
+#define SRL_HDR_RESERVED        ((U8)54)      /* reserved */
+#define SRL_HDR_RESERVED_1      ((U8)55)
 #define SRL_HDR_RESERVED_LOW    ((U8)54)
 #define SRL_HDR_RESERVED_HIGH   ((U8)55)
 
@@ -225,11 +226,13 @@
 #define SRL_HDR_FALSE           ((U8)58)      /* false (PL_sv_no)  */
 #define SRL_HDR_TRUE            ((U8)59)      /* true  (PL_sv_yes) */
 
-#define SRL_HDR_MANY            ((U8)60)      /* <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3) */
+#define SRL_HDR_NEG_VARINT      ((U8)60)      /* <VARINT> - absolute value of a negative integer, protocol v6 */
 #define SRL_HDR_PACKET_START    ((U8)61)      /* (first byte of magic string in header) */
 
 
 #define SRL_HDR_EXTEND          ((U8)62)      /* <BYTE> - for additional tags */
+#define SRL_EXT_VSTRING_BINARY  SRL_HDR_BINARY
+#define SRL_EXT_VSTRING_UTF8    SRL_HDR_STR_UTF8
 #define SRL_HDR_PAD             ((U8)63)      /* (ignored tag, skip to next byte) */
 #define SRL_HDR_ARRAYREF        ((U8)64)      /* [<ITEM-TAG> ...] - count of items in low 4 bits (ARRAY must be refcnt=1)*/
 #define SRL_MASK_ARRAYREF_COUNT ((U8)15)      /* mask to get low bits from tag */

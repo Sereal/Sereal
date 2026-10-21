@@ -55,6 +55,9 @@ When working only in one distribution, targeted `perl Makefile.PL && make test` 
 
 - Library behavior changes should come with tests.
 - User-visible behavior changes should come with documentation updates.
+- Every new protocol tag or EXTEND subtype must also be implemented in
+  [`shared/author_tools/hobodecoder.pl`](./shared/author_tools/hobodecoder.pl),
+  including consuming its complete payload and displaying its meaning.
 - Protocol, freeze/thaw, security, malformed-input, and version-compatibility changes should usually add or extend regression tests.
 - Prefer small, self-contained, incremental patches that build toward the goal.
 - If the task requires a larger cross-cutting patch, call that out explicitly in the commit message and changelog text.

@@ -5,6 +5,10 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 5 of the *
 *          encoder!                                            *
 ****************************************************************
+6.000_001
+    * Decode protocol v6 NEG_VARINT values while retaining ZIGZAG support.
+    * Reconstruct Perl v-strings from extended VSTRING tags in protocol v6.
+
 5.011
     * Robustness fixes. Thanks to Steffen Mueller and kumar-Prakash07.
     * Preserve zstd deprecation warnings when building with IBM XL C on AIX.

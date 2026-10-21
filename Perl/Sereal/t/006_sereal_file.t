@@ -8,8 +8,9 @@ BEGIN {
     lib->import('lib')
         if !-d 't';
 }
-use Sereal::TestSet qw(:all);
-use Sereal          qw(
+use Sereal::TestSet            qw(:all);
+use Sereal::Encoder::Constants qw(SRL_PROTOCOL_VERSION);
+use Sereal                     qw(
     get_sereal_decoder
     get_sereal_encoder
     clear_sereal_object_cache
@@ -110,18 +111,21 @@ my $source = { foo => 1 };
 {
     my $encoded = encode_sereal( ["foo"] );
     my $decoded = decode_sereal($encoded);
-    is( $decoded->[0],               "foo", "encode_sereal/decode_sereal seem to work" );
-    is( looks_like_sereal($encoded), 5,     "functional looks_like_sereal() works as expected" );
+    is( $decoded->[0], "foo", "encode_sereal/decode_sereal seem to work" );
     is(
-        Sereal::Decoder->new()->looks_like_sereal($encoded), 5,
+        looks_like_sereal($encoded), SRL_PROTOCOL_VERSION,
+        "functional looks_like_sereal() works as expected"
+    );
+    is(
+        Sereal::Decoder->new()->looks_like_sereal($encoded), SRL_PROTOCOL_VERSION,
         "object method looks_like_sereal() works as expected"
     );
     is(
-        Sereal::Decoder->looks_like_sereal($encoded), 5,
+        Sereal::Decoder->looks_like_sereal($encoded), SRL_PROTOCOL_VERSION,
         "class method looks_like_sereal() works as expected"
     );
     is(
-        scalar_looks_like_sereal($encoded), 5,
+        scalar_looks_like_sereal($encoded), SRL_PROTOCOL_VERSION,
         "functional scalar_looks_like_sereal() works as expected"
     );
     my $eval_ok = eval q{

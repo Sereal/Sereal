@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION    = '5.011';
+our $VERSION    = '6.000_001';
 our $XS_VERSION = $VERSION; $VERSION = eval $VERSION;
 
 use Exporter 'import';
@@ -211,11 +211,13 @@ The two are released separately to allow for independent and safer upgrading.
 This distribution requires Perl 5.14 or newer.
 
 The Sereal protocol versions that are compatible with this decoder
-implementation are currently protocol versions 1, 2, 3, 4 and 5. As it stands,
+implementation are currently protocol versions 1, 2, 3, 4, 5 and 6. As it stands,
 it will refuse to attempt to decode future versions of the protocol, but if
 necessary there is likely going to be an option to decode the parts of the
-input that are compatible with version 5 of the protocol. The protocol was
+input that are compatible with version 6 of the protocol. The protocol was
 designed to allow for this.
+Tags and compression formats that require a newer protocol version than the
+version declared in a document are rejected.
 
 The protocol specification and many other bits of documentation
 can be found in the github repository. Right now, the specification is at

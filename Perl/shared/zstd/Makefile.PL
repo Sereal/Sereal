@@ -21,7 +21,8 @@ my $use_config_ccflags =
        $ENV{SEREAL_ZSTD_USE_CONFIG_CCFLAGS}
     || $Config{osname} eq 'aix'
     || $Config{cc} =~ /\b(?:xlc|xlclang|ibm)\b/i;
-my $zstd_cflags = $use_config_ccflags
+my $zstd_cflags =
+      $use_config_ccflags
     ? $Config{ccflags}
     : '-fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 '
     . '-Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef '

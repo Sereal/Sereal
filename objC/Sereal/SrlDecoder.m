@@ -335,10 +335,7 @@ static void create_decoders_lookup()
         return srl_decode(dec);
     };
     
-    decoders[SRL_HDR_MANY] = ^id (srl_decoder_t *dec) {
-        @throw [NSException exceptionWithName:@"Unimplemented" reason:@"Unimplemented" userInfo:nil];
-        return nil;
-    };
+    decoders[SRL_HDR_RESERVED_6] = decoders[SRL_HDR_PAD];
     
     // make the reserved headers behave like padding (they are not used yet ... so we just skip over)
     for (char i = SRL_HDR_RESERVED_LOW; i <= SRL_HDR_RESERVED_HIGH; i++) {

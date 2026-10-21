@@ -79,6 +79,7 @@ SRL_STATIC_INLINE int _parse(pTHX_ srl_splitter_t * splitter);
 SRL_STATIC_INLINE void _read_tag(pTHX_ srl_splitter_t * splitter, char tag);
 SRL_STATIC_INLINE void _read_varint(srl_splitter_t * splitter);
 SRL_STATIC_INLINE void _read_zigzag(srl_splitter_t * splitter);
+SRL_STATIC_INLINE void _read_neg_varint(srl_splitter_t * splitter);
 SRL_STATIC_INLINE void _read_float(srl_splitter_t * splitter);
 SRL_STATIC_INLINE void _read_double(srl_splitter_t * splitter);
 SRL_STATIC_INLINE void _read_long_double(srl_splitter_t * splitter);
@@ -629,6 +630,7 @@ _read_tag(pTHX_ srl_splitter_t * splitter, char tag)
         switch (tag) {
             case SRL_HDR_VARINT:         _read_varint(splitter);       break;
             case SRL_HDR_ZIGZAG:         _read_zigzag(splitter);       break;
+            case SRL_HDR_NEG_VARINT:     _read_neg_varint(splitter);   break;
             case SRL_HDR_FLOAT:          _read_float(splitter);        break;
             case SRL_HDR_DOUBLE:         _read_double(splitter);       break;
             case SRL_HDR_LONG_DOUBLE:    _read_long_double(splitter);  break;
@@ -649,7 +651,20 @@ _read_tag(pTHX_ srl_splitter_t * splitter, char tag)
             case SRL_HDR_OBJECTV_FREEZE: _read_objectv(aTHX_ splitter, 1);   break;
             case SRL_HDR_ALIAS:          _read_alias(aTHX_ splitter);        break;
             case SRL_HDR_COPY:           _read_copy(aTHX_ splitter);         break;
-            case SRL_HDR_EXTEND:         /* no op */                      break;
+            case SRL_HDR_EXTEND: {
+                U8 ext_tag;
+                UV len;
+                if (splitter->pos >= splitter->input_str_end)
+                    croak("Truncated extended tag ID");
+                ext_tag = *splitter->pos++;
+                if (ext_tag != SRL_EXT_VSTRING_BINARY && ext_tag != SRL_EXT_VSTRING_UTF8)
+                    croak("Unknown extended tag ID");
+                len = _read_varint_uv_nocheck(splitter);
+                if (len > (UV)(splitter->input_str_end - splitter->pos))
+                    croak("Truncated extended VSTRING payload");
+                splitter->pos += len;
+                break;
+            }
             case SRL_HDR_REGEXP:         _read_regexp(splitter);       break;
             case SRL_HDR_PAD:            /* no op */                      break;
             default:                     croak("Unexpected tag value");   break;
@@ -666,6 +681,11 @@ SRL_STATIC_INLINE void _read_varint(srl_splitter_t * splitter) {
 SRL_STATIC_INLINE void _read_zigzag(srl_splitter_t * splitter) {
     _read_varint_uv_nocheck(splitter);
     SRL_SPLITTER_TRACE(" * ZIGZAG %s", "");
+}
+
+SRL_STATIC_INLINE void _read_neg_varint(srl_splitter_t * splitter) {
+    _read_varint_uv_nocheck(splitter);
+    SRL_SPLITTER_TRACE(" * NEG_VARINT %s", "");
 }
 
 SRL_STATIC_INLINE void _read_float(srl_splitter_t * splitter) {

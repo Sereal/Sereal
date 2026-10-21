@@ -13,6 +13,10 @@ from the the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+6.000_001
+    * Protocol v6 adds NEG_VARINT for negative integers below -16.
+    * Protocol v6 adds extended VSTRING tags to preserve Perl v-strings.
+
 5.011
     * Robustness fixes. Thanks to Steffen Mueller and kumar-Prakash07.
     * Preserve zstd deprecation warnings when building with IBM XL C on AIX.

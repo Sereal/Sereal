@@ -209,7 +209,7 @@ sub update_srl_taginfo_h {
                 map {
                     sprintf "#define SRL_HDR_%-*s %3d",
                         $max_name_length + 3, $_->{name}, $_->{value}
-                } grep { $_->{masked} } @meta
+                } grep { $_->{masked} && !exists $define{ "SRL_HDR_" . $_->{name} } } @meta
             ),
             "", (
                 map {

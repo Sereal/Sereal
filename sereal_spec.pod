@@ -12,7 +12,7 @@ This document describes the format and encoding of a Sereal data packet.
 
 =head1 VERSION
 
-This is the Sereal specification version 5.00.
+This is the Sereal specification version 6.00.
 
 The integer part of the document version corresponds to
 the Sereal protocol version. For details on incompatible changes between
@@ -83,8 +83,8 @@ A single byte, of which the high 4 bits are used to represent the "type"
 of the document, and the low 4 bits used to represent the version of the
 Sereal protocol the document complies with.
 
-Up until now there have been versions 1, 2, 3 and 4, 5 of the Sereal protocol.
-So the low four bits will be one of those values in little-endian.
+The currently defined protocol versions are 1 through 6. The low four bits
+contain the version number.
 
 Currently only five types are defined:
 
@@ -145,6 +145,14 @@ following it. See L</"NOTES ON IMPLEMENTATION"> below for a discussion on
 how to implement this efficiently.
 
 This compression format is new in v4 of the specification.
+
+=item Z<>5
+
+Reserved for future use. No document type 5 compression format is defined.
+
+=item Z<>6
+
+Reserved for future use. No document type 6 compression format is defined.
 
 =back
 
@@ -293,13 +301,13 @@ header.
     OBJECTV_FREEZE    | "3"  |  51 | 0x33 | 0b00110011 | <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT)
     NO                | "4"  |  52 | 0x34 | 0b00110100 | SvIsBOOL() == PL_No,  5.36 and later only (json false)
     YES               | "5"  |  53 | 0x35 | 0b00110101 | SvIsBOOL() == PL_Yes, 5.36 and later only (json true)
-    RESERVED_0        | "6"  |  54 | 0x36 | 0b00110110 |
-    RESERVED_1        | "7"  |  55 | 0x37 | 0b00110111 |
+    RESERVED_0        | "6"  |  54 | 0x36 | 0b00110110 | reserved
+    RESERVED_1        | "7"  |  55 | 0x37 | 0b00110111 | reserved
     FLOAT_128         | "8"  |  56 | 0x38 | 0b00111000 | quadmath _float128
     CANONICAL_UNDEF   | "9"  |  57 | 0x39 | 0b00111001 | undef (PL_sv_undef) - "the" Perl undef (see notes)
     FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no)
     TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes)
-    MANY              | "<"  |  60 | 0x3c | 0b00111100 | <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3)
+    NEG_VARINT        | "<"  |  60 | 0x3c | 0b00111100 | <VARINT> - absolute value of a negative integer, protocol v6
     PACKET_START      | "="  |  61 | 0x3d | 0b00111101 | (first byte of magic string in header)
     EXTEND            | ">"  |  62 | 0x3e | 0b00111110 | <BYTE> - for additional tags
     PAD               | "?"  |  63 | 0x3f | 0b00111111 | (ignored tag, skip to next byte)
@@ -519,10 +527,32 @@ accordingly, otherwise they are free to treat CANONICAL_UNDEF the same as UNDEF.
 
 =head1 PROTOCOL CHANGES
 
+=head2 Protocol Version 6
+
+The NEG_VARINT tag encodes a negative integer as the tag followed by a varint
+containing the integer's absolute value. The magnitude must be nonzero. In
+protocol version 6 and later, encoders use NEG_VARINT for integers below -16;
+the compact NEG tags continue to represent -1 through -16. Encoders producing
+protocol version 5 or earlier continue to use ZIGZAG for these larger negative
+integers. Decoders must continue to accept ZIGZAG for compatibility with older
+documents.
+
+Protocol version 6 adds extended tags C<VSTRING-BINARY> and C<VSTRING-UTF8>.
+They are encoded as EXTEND followed by the corresponding extended-tag ID
+(0x26, the BINARY tag value, or 0x27, the STR_UTF8 tag value), then a length
+varint and the original v-string spelling. The spelling is the sole payload:
+decoders use it to reconstruct both the v-string PV and its original spelling
+magic. VSTRING-BINARY is used when the reconstructed PV is not UTF-8 flagged;
+VSTRING-UTF8 is used when it is UTF-8 flagged. Decoders reject an extension ID
+that does not match the encoding of the reconstructed PV.
+
 =head2 Protocol Version 5
 
-Add, the NO and YES tags to represent perl 5.36 booleans (basically JSON true/false)
-as well as FLOAT_128.
+Protocol version 5 adds the NO and YES tags for Perl's distinct boolean values
+(C<PL_No> and C<PL_Yes>), available in Perl 5.36 and later. These correspond to
+JSON false and true, respectively, and have no payload. The FLOAT_128 tag is
+also added for the quadmath C<__float128> value type; it is followed by the
+binary floating-point value, and requires quadmath support to decode.
 
 =head2 Protocol Version 4
 

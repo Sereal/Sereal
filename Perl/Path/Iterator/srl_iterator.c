@@ -507,6 +507,7 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
 
                     case SRL_HDR_VARINT:
                     case SRL_HDR_ZIGZAG:
+                    case SRL_HDR_NEG_VARINT:
                         srl_skip_varint(aTHX_ iter->pbuf);
                         break;
 
@@ -532,6 +533,18 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
                         length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading BINARY or STR_UTF8");
                         iter->buf.pos += length; /* TODO assert length */
                         break;
+
+                    case SRL_HDR_EXTEND: {
+                        U8 ext_tag;
+                        SRL_ITER_ASSERT_EOF(iter, "extended tag ID");
+                        ext_tag = *iter->buf.pos++;
+                        if (ext_tag != SRL_EXT_VSTRING_BINARY && ext_tag != SRL_EXT_VSTRING_UTF8)
+                            SRL_RDR_ERROR(iter->pbuf, "Unknown extended tag ID");
+                        length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading extended VSTRING");
+                        SRL_RDR_ASSERT_SPACE(iter->pbuf, length, " while reading extended VSTRING payload");
+                        iter->buf.pos += length;
+                        break;
+                    }
 
                     case SRL_HDR_COPY:
                         /* COPY is only used for deduping strings in hashes so consider as simple tag */
@@ -713,6 +726,7 @@ srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n)
 
                     case SRL_HDR_VARINT:
                     case SRL_HDR_ZIGZAG:
+                    case SRL_HDR_NEG_VARINT:
                         srl_skip_varint(aTHX_ iter->pbuf);
                         break;
 
@@ -740,6 +754,18 @@ srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n)
                                                           " while reading BINARY or STR_UTF8");
                         iter->buf.pos += length;
                         break;
+
+                    case SRL_HDR_EXTEND: {
+                        U8 ext_tag;
+                        SRL_ITER_ASSERT_EOF(iter, "extended tag ID");
+                        ext_tag = *iter->buf.pos++;
+                        if (ext_tag != SRL_EXT_VSTRING_BINARY && ext_tag != SRL_EXT_VSTRING_UTF8)
+                            SRL_RDR_ERROR(iter->pbuf, "Unknown extended tag ID");
+                        length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading extended VSTRING");
+                        SRL_RDR_ASSERT_SPACE(iter->pbuf, length, " while reading extended VSTRING payload");
+                        iter->buf.pos += length;
+                        break;
+                    }
 
                     case SRL_HDR_COPY:
                     case SRL_HDR_REFP:
@@ -958,8 +984,10 @@ read_again:
         CASE_SRL_HDR_SHORT_BINARY:
         case SRL_HDR_BINARY:
         case SRL_HDR_STR_UTF8:
+        case SRL_HDR_EXTEND:
         case SRL_HDR_VARINT:
         case SRL_HDR_ZIGZAG:
+        case SRL_HDR_NEG_VARINT:
         case SRL_HDR_FLOAT:
         case SRL_HDR_DOUBLE:
         case SRL_HDR_LONG_DOUBLE:
@@ -1074,8 +1102,10 @@ read_item:
         CASE_SRL_HDR_SHORT_BINARY:
         case SRL_HDR_BINARY:
         case SRL_HDR_STR_UTF8:
+        case SRL_HDR_EXTEND:
         case SRL_HDR_VARINT:
         case SRL_HDR_ZIGZAG:
+        case SRL_HDR_NEG_VARINT:
         case SRL_HDR_FLOAT:
         case SRL_HDR_DOUBLE:
         case SRL_HDR_LONG_DOUBLE:
@@ -1146,8 +1176,10 @@ read_ref:
         CASE_SRL_HDR_SHORT_BINARY:
         case SRL_HDR_BINARY:
         case SRL_HDR_STR_UTF8:
+        case SRL_HDR_EXTEND:
         case SRL_HDR_VARINT:
         case SRL_HDR_ZIGZAG:
+        case SRL_HDR_NEG_VARINT:
         case SRL_HDR_FLOAT:
         case SRL_HDR_DOUBLE:
         case SRL_HDR_LONG_DOUBLE:

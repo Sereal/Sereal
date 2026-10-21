@@ -151,7 +151,9 @@ declare module Sereal {
         CANONICAL_UNDEF = 57,
         FALSE = 58,
         TRUE = 59,
+        /** @deprecated Reserved; use RESERVED_5 for metadata. */
         MANY = 60,
+        RESERVED_5 = 60,
         PACKET_START = 61,
         EXTEND = 62,
         PAD = 63,

@@ -1,1 +1,0 @@
-../v1/snappy_canon.t

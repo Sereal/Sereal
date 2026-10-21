@@ -29,14 +29,16 @@ my %tag_tests = (
     'SRL_HDR_STR_UTF8' => chr(0x27),
 );
 
-for my $name (sort keys %tag_tests) {
-    my $tag = $tag_tests{$name};
+for my $name ( sort keys %tag_tests ) {
+    my $tag    = $tag_tests{$name};
     my $packet = $header_v4 . $tag;
     eval { decode_sereal($packet); 1 };
     my $err = $@;
-    ok($err, "Truncated packet ending at tag $name fails cleanly");
-    like($err, qr/end of packet|corrupt|near \d+/i,
-         "Error message for $name indicates packet truncated or corrupt");
+    ok( $err, "Truncated packet ending at tag $name fails cleanly" );
+    like(
+        $err, qr/end of packet|corrupt|near \d+/i,
+        "Error message for $name indicates packet truncated or corrupt"
+    );
 }
 
 # Test 11-12: Truncated multi-byte varint where continuation bit is set
@@ -45,9 +47,11 @@ for my $name (sort keys %tag_tests) {
     my $packet = $header_v4 . chr(0x20) . chr(0x85);
     eval { decode_sereal($packet); 1 };
     my $err = $@;
-    ok($err, "Truncated multi-byte varint fails cleanly");
-    like($err, qr/end of packet/i,
-         "Error indicates end of packet reached before varint parsed");
+    ok( $err, "Truncated multi-byte varint fails cleanly" );
+    like(
+        $err, qr/end of packet/i,
+        "Error indicates end of packet reached before varint parsed"
+    );
 }
 
 # Test 13-14: Tiny valid packet (< 11 bytes total) decodes correctly via safe reader.
@@ -56,6 +60,6 @@ for my $name (sort keys %tag_tests) {
     my $packet = $header_v4 . chr(0x20) . chr(42);
     my $val;
     eval { $val = decode_sereal($packet); 1 };
-    is($@, '', "Tiny packet (< 11 bytes) decodes without error");
-    is($val, 42, "Tiny packet correctly decoded varint value 42");
+    is( $@,   '', "Tiny packet (< 11 bytes) decodes without error" );
+    is( $val, 42, "Tiny packet correctly decoded varint value 42" );
 }

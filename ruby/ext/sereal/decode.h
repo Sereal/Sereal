@@ -85,7 +85,7 @@ static VALUE (*READERS[256])(sereal_t *, u8) = {
         s_default_reader, /* XXX */                     // 57   SRL_HDR_RESERVED_HIGH
         s_read_false,                                   // 58   SRL_HDR_FALSE
         s_read_true,                                    // 59   SRL_HDR_TRUE
-        s_default_reader, /* XXX */                     // 60   SRL_HDR_MANY
+        s_default_reader, /* reserved */                // 60   SRL_HDR_RESERVED_8
         s_default_reader, /* XXX */                     // 61   SRL_HDR_PACKET_START
         s_read_extend,                                  // 62   SRL_HDR_EXTEND
         s_read_pad,                                     // 63   SRL_HDR_PAD

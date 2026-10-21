@@ -27,12 +27,12 @@ our ( %FREEZE_CALLED, %THAW_CALLED );
     package FA::Allowed;
     sub new    { bless { n => $_[1] }, $_[0] }
     sub FREEZE { $FREEZE_CALLED{'FA::Allowed'}++; return $_[0]->{n} }
-    sub THAW   { $THAW_CALLED{'FA::Allowed'}++; my ( $c, $s, $n ) = @_; return $c->new($n) }
+    sub THAW   { $THAW_CALLED{'FA::Allowed'}++;   my ( $c, $s, $n ) = @_; return $c->new($n) }
 
     package FA::Denied;
     sub new    { bless { n => $_[1] }, $_[0] }
     sub FREEZE { $FREEZE_CALLED{'FA::Denied'}++; return $_[0]->{n} }
-    sub THAW   { $THAW_CALLED{'FA::Denied'}++; my ( $c, $s, $n ) = @_; return $c->new($n) }
+    sub THAW   { $THAW_CALLED{'FA::Denied'}++;   my ( $c, $s, $n ) = @_; return $c->new($n) }
 
     package FA::Plain;
     sub new { bless { n => $_[1] }, $_[0] }    # no FREEZE method
@@ -44,9 +44,12 @@ my $dec = Sereal::Decoder->new();
 #    round-trips through THAW.
 {
     local ( %FREEZE_CALLED, %THAW_CALLED );
-    my $enc = Sereal::Encoder->new( { freeze_allow_classes => ['FA::Allowed'] } );
+    my $enc  = Sereal::Encoder->new( { freeze_allow_classes => ['FA::Allowed'] } );
     my $blob = $enc->encode( FA::Allowed->new(11) );
-    ok( $FREEZE_CALLED{'FA::Allowed'}, 'allowed class: FREEZE was invoked (freeze support auto-enabled)' );
+    ok(
+        $FREEZE_CALLED{'FA::Allowed'},
+        'allowed class: FREEZE was invoked (freeze support auto-enabled)'
+    );
     my $o = $dec->decode($blob);
     isa_ok( $o, 'FA::Allowed', 'allowed class round-trips' );
     ok( $THAW_CALLED{'FA::Allowed'}, '  ... via THAW' );
@@ -57,8 +60,10 @@ my $dec = Sereal::Decoder->new();
 {
     local ( %FREEZE_CALLED, %THAW_CALLED );
     my $enc = Sereal::Encoder->new( { freeze_allow_classes => ['FA::Allowed'] } );
-    ok( !eval { $enc->encode( FA::Denied->new(22) ); 1 },
-        'disallowed class croaks (default action)' );
+    ok(
+        !eval { $enc->encode( FA::Denied->new(22) ); 1 },
+        'disallowed class croaks (default action)'
+    );
     like( $@, qr/FREEZE not allowed for class 'FA::Denied'/, '  ... with a helpful message' );
     ok( !$FREEZE_CALLED{'FA::Denied'}, '  ... and FREEZE was never invoked' );
 }
@@ -66,13 +71,15 @@ my $dec = Sereal::Decoder->new();
 # 3. freeze_deny_action => 'serialize' serializes the disallowed object normally.
 {
     local ( %FREEZE_CALLED, %THAW_CALLED );
-    my $enc = Sereal::Encoder->new(
-        {   freeze_allow_classes => ['FA::Allowed'],
-            freeze_deny_action   => 'serialize',
-        }
-    );
+    my $enc = Sereal::Encoder->new( {
+        freeze_allow_classes => ['FA::Allowed'],
+        freeze_deny_action   => 'serialize',
+    } );
     my $blob = $enc->encode( FA::Denied->new(22) );
-    ok( !$FREEZE_CALLED{'FA::Denied'}, 'serialize action: FREEZE not invoked for disallowed class' );
+    ok(
+        !$FREEZE_CALLED{'FA::Denied'},
+        'serialize action: FREEZE not invoked for disallowed class'
+    );
     my $o = $dec->decode($blob);
     isa_ok( $o, 'FA::Denied', 'serialize action: object serialized as a plain blessed ref' );
     ok( !$THAW_CALLED{'FA::Denied'}, '  ... and THAW was not called' );
@@ -81,7 +88,7 @@ my $dec = Sereal::Decoder->new();
 
 # 4. Classes without a FREEZE method are unaffected by the allow-list.
 {
-    my $enc = Sereal::Encoder->new( { freeze_allow_classes => ['FA::Allowed'] } );
+    my $enc  = Sereal::Encoder->new( { freeze_allow_classes => ['FA::Allowed'] } );
     my $blob = $enc->encode( FA::Plain->new(33) );
     my $o    = $dec->decode($blob);
     isa_ok( $o, 'FA::Plain', 'class without FREEZE is unaffected' );
@@ -92,25 +99,40 @@ my $dec = Sereal::Decoder->new();
 {
     local ( %FREEZE_CALLED, %THAW_CALLED );
     my $enc = Sereal::Encoder->new( { freeze_allow_classes => { 'FA::Allowed' => 1 } } );
-    isa_ok( $dec->decode( $enc->encode( FA::Allowed->new(1) ) ), 'FA::Allowed', 'hash-ref allow works' );
+    isa_ok(
+        $dec->decode( $enc->encode( FA::Allowed->new(1) ) ), 'FA::Allowed',
+        'hash-ref allow works'
+    );
     ok( !eval { $enc->encode( FA::Denied->new(2) ); 1 }, 'hash-ref allow: false/absent disallows' );
 }
 {
     local ( %FREEZE_CALLED, %THAW_CALLED );
     my @seen;
-    my $enc = Sereal::Encoder->new(
-        { freeze_allow_classes => sub { push @seen, [ $_[0], ref $_[1] ]; $_[0] eq 'FA::Allowed' } } );
-    isa_ok( $dec->decode( $enc->encode( FA::Allowed->new(1) ) ), 'FA::Allowed', 'code-ref allow works' );
-    is_deeply( $seen[0], [ 'FA::Allowed', 'FA::Allowed' ],
-        '  ... predicate received class name and the object' );
-    ok( !eval { $enc->encode( FA::Denied->new(2) ); 1 }, 'code-ref allow: predicate false disallows' );
+    my $enc = Sereal::Encoder->new( {
+            freeze_allow_classes => sub { push @seen, [ $_[0], ref $_[1] ]; $_[0] eq 'FA::Allowed' }
+        } );
+    isa_ok(
+        $dec->decode( $enc->encode( FA::Allowed->new(1) ) ), 'FA::Allowed',
+        'code-ref allow works'
+    );
+    is_deeply(
+        $seen[0], [ 'FA::Allowed', 'FA::Allowed' ],
+        '  ... predicate received class name and the object'
+    );
+    ok(
+        !eval { $enc->encode( FA::Denied->new(2) ); 1 },
+        'code-ref allow: predicate false disallows'
+    );
 }
 
 # 6. Bad option values are rejected at construction.
 {
-    ok( !eval { Sereal::Encoder->new( { freeze_allow_classes => 'scalar' } ); 1 },
-        'invalid freeze_allow_classes type croaks' );
-    ok( !eval {
+    ok(
+        !eval { Sereal::Encoder->new( { freeze_allow_classes => 'scalar' } ); 1 },
+        'invalid freeze_allow_classes type croaks'
+    );
+    ok(
+        !eval {
             Sereal::Encoder->new(
                 { freeze_allow_classes => ['FA::Allowed'], freeze_deny_action => 'nope' } );
             1;
@@ -123,8 +145,10 @@ my $dec = Sereal::Decoder->new();
 {
     local ( %FREEZE_CALLED, %THAW_CALLED );
     my $enc = Sereal::Encoder->new( { freeze_allow_classes => ['FA::Allowed'] } );
-    ok( !eval { $enc->encode( [ FA::Allowed->new(1), FA::Denied->new(2) ] ); 1 },
-        'mixed structure: a single disallowed member croaks the whole encode' );
+    ok(
+        !eval { $enc->encode( [ FA::Allowed->new(1), FA::Denied->new(2) ] ); 1 },
+        'mixed structure: a single disallowed member croaks the whole encode'
+    );
 
     my $ser = Sereal::Encoder->new(
         { freeze_allow_classes => ['FA::Allowed'], freeze_deny_action => 'serialize' } );
@@ -142,18 +166,21 @@ my $dec = Sereal::Decoder->new();
     my $a   = FA::Allowed->new(42);
     my $out = $dec->decode( $enc->encode( [ $a, $a ] ) );
     isa_ok( $out->[0], 'FA::Allowed', 'refint: allowed frozen object thawed' );
-    is( $out->[0], $out->[1], 'refint: both references are the same thawed object' );
+    is( $out->[0], $out->[1],             'refint: both references are the same thawed object' );
     is( $FREEZE_CALLED{'FA::Allowed'}, 1, 'refint: FREEZE was invoked only once' );
 }
 
 # 9. The functional interface honors the allow-list too.
 {
     local ( %FREEZE_CALLED, %THAW_CALLED );
-    my $blob = Sereal::Encoder::encode_sereal( FA::Allowed->new(7),
+    my $blob = Sereal::Encoder::encode_sereal(
+        FA::Allowed->new(7),
         { freeze_allow_classes => ['FA::Allowed'] } );
     isa_ok( $dec->decode($blob), 'FA::Allowed', 'encode_sereal honors freeze_allow_classes' );
-    ok( !eval {
-            Sereal::Encoder::encode_sereal( FA::Denied->new(8),
+    ok(
+        !eval {
+            Sereal::Encoder::encode_sereal(
+                FA::Denied->new(8),
                 { freeze_allow_classes => ['FA::Allowed'] } );
             1;
         },
@@ -168,12 +195,12 @@ my $dec = Sereal::Decoder->new();
     package FA::ReInner;
     sub new    { bless { v => $_[1] }, $_[0] }
     sub FREEZE { $FREEZE_CALLED{'FA::ReInner'}++; return $_[0]->{v} }
-    sub THAW   { my ( $c, $ser, $v ) = @_; return $c->new($v) }
+    sub THAW   { my ( $c, $ser, $v ) = @_;        return $c->new($v) }
 
     package FA::ReOuter;
     our $ENC;
     sub new    { bless {}, $_[0] }
-    sub FREEZE { return $ENC->encode( FA::ReInner->new(7) ) }    # re-entrant encode
+    sub FREEZE { return $ENC->encode( FA::ReInner->new(7) ) }                              # re-entrant encode
     sub THAW   { my ( $c, $ser, $blob ) = @_; return bless { inner_blob => $blob }, $c }
 }
 {
@@ -181,10 +208,14 @@ my $dec = Sereal::Decoder->new();
 
     # FA::ReInner is NOT allowed: the nested (cloned) encode must enforce it.
     $FA::ReOuter::ENC = Sereal::Encoder->new( { freeze_allow_classes => ['FA::ReOuter'] } );
-    ok( !eval { $FA::ReOuter::ENC->encode( FA::ReOuter->new ); 1 },
-        're-entrant clone enforces the allow-list' );
-    like( $@, qr/FREEZE not allowed for class 'FA::ReInner'/,
-        '  ... naming the disallowed nested class' );
+    ok(
+        !eval { $FA::ReOuter::ENC->encode( FA::ReOuter->new ); 1 },
+        're-entrant clone enforces the allow-list'
+    );
+    like(
+        $@, qr/FREEZE not allowed for class 'FA::ReInner'/,
+        '  ... naming the disallowed nested class'
+    );
 
     # Now allow the nested class too: the nested encode succeeds.
     $FA::ReOuter::ENC =

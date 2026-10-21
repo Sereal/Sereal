@@ -71,7 +71,7 @@ static const char * const tag_name[] = {
 	"CANONICAL_UNDEF",   /* "9"   57 0x39 0b00111001 */
 	"FALSE",             /* ":"   58 0x3a 0b00111010 */
 	"TRUE",              /* ";"   59 0x3b 0b00111011 */
-	"MANY",              /* "<"   60 0x3c 0b00111100 */
+	"NEG_VARINT",        /* "<"   60 0x3c 0b00111100 */
 	"PACKET_START",      /* "="   61 0x3d 0b00111101 */
 	"EXTEND",            /* ">"   62 0x3e 0b00111110 */
 	"PAD",               /* "?"   63 0x3f 0b00111111 */
@@ -174,7 +174,6 @@ static const char * const tag_name[] = {
 #define SRL_HDR_NEG_2                 30
 #define SRL_HDR_NEG_1                 31
 #define SRL_HDR_RESERVED_0            54
-#define SRL_HDR_RESERVED_1            55
 #define SRL_HDR_ARRAYREF_0            64
 #define SRL_HDR_ARRAYREF_1            65
 #define SRL_HDR_ARRAYREF_2            66

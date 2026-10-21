@@ -22,8 +22,10 @@ if ( not $ok ) {
     plan skip_all => 'Did not find right version of encoder';
 }
 else {
+    require Sereal::Encoder::Constants;
     plan tests => 24;
-    my %tests = (
+    my $wire_version = Sereal::Encoder::Constants::SRL_PROTOCOL_VERSION();
+    my %tests        = (
         snappy => Sereal::Encoder::SRL_SNAPPY(),
         zlib   => Sereal::Encoder::SRL_ZLIB(),
         zstd   => eval { Sereal::Encoder::SRL_ZSTD() },
@@ -52,7 +54,11 @@ else {
         my $hugeblob = $enc->encode(MONSTER_BLOB);
 
         # Snappy compression
-        ok( abs( vec( $hugeblob, 4, 8 ) - 36 ) <= 1 );
+        my $snappy_flag =
+            $wire_version >= 2
+            ? Sereal::Encoder::Constants::SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL()
+            : Sereal::Encoder::Constants::SRL_PROTOCOL_ENCODING_SNAPPY();
+        ok( abs( vec( $hugeblob, 4, 8 ) - ( $snappy_flag | $wire_version ) ) <= 1 );
 
         # Lets validate we have the expected uncompress size: 100MB
         is( vec( $hugeblob, 10, 8 ), 134 );
@@ -80,7 +86,12 @@ else {
         my $hugeblob = $enc->encode(MONSTER_BLOB);
 
         # zlib compression
-        ok( abs( vec( $hugeblob, 4, 8 ) - 52 ) <= 1 );
+        ok(
+            abs(
+                vec( $hugeblob, 4, 8 ) -
+                    ( Sereal::Encoder::Constants::SRL_PROTOCOL_ENCODING_ZLIB() | $wire_version )
+            ) <= 1
+        );
 
         # Lets validate we have the expected uncompress size: 100MB
         is( vec( $hugeblob, 6, 8 ), 134 );
@@ -110,7 +121,12 @@ else {
         my $hugeblob = $enc->encode(MONSTER_BLOB);
 
         # zstd compression
-        ok( abs( vec( $hugeblob, 4, 8 ) - 68 ) <= 1 );
+        ok(
+            abs(
+                vec( $hugeblob, 4, 8 ) -
+                    ( Sereal::Encoder::Constants::SRL_PROTOCOL_ENCODING_ZSTD() | $wire_version )
+            ) <= 1
+        );
 
         # Lets validate we have the expected uncompress size: 100MB
         is( vec( $hugeblob, 25, 8 ), 129 );

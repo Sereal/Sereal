@@ -102,9 +102,9 @@ inc::Sereal::BuildTools::WriteMakefile(
     LICENSE       => 'perl',
     ABSTRACT_FROM => 'lib/Sereal/Decoder.pm',
     AUTHOR        => 'Steffen Mueller <cpan@steffen-mueller.net>, Yves Orton <yves@cpan.org>',
-    LIBS          => [$libs],                                                             # e.g., '-lm'
+    LIBS          => [$libs],                                                                    # e.g., '-lm'
     DEFINE        => $defines,
-    INC           => $inc,                                                                # e.g., '-I. -I/usr/local/include'
+    INC           => $inc,                                                                       # e.g., '-I. -I/usr/local/include'
     OPTIMIZE      => $optimize,
     OBJECT        => $objects,
     DIR           => $subdirs,

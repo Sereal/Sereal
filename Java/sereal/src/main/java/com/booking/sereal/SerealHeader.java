@@ -51,14 +51,15 @@ public interface SerealHeader {
   byte SRL_HDR_OBJECTV_FREEZE    = (byte)  51; /*  51 0x33 0b00110011 <OFFSET-VARINT> <ITEM-TAG> - (OBJECTV_FREEZE is to OBJECT_FREEZE as OBJECTV is to OBJECT) */
   byte SRL_HDR_NO                = (byte)  52; /*  52 0x34 0b00110100 SvIsBOOL() == PL_No,  5.36 and later only (json false) */
   byte SRL_HDR_YES               = (byte)  53; /*  53 0x35 0b00110101 SvIsBOOL() == PL_Yes, 5.36 and later only (json true) */
-  byte SRL_HDR_RESERVED          = (byte)  54; /*  54 0x36 0b00110110  */
-  byte SRL_HDR_RESERVED_LOW      = (byte)  54; /*  54 0x36 0b00110110  */
-  byte SRL_HDR_RESERVED_HIGH     = (byte)  55; /*  55 0x37 0b00110111  */
+  byte SRL_HDR_RESERVED          = (byte)  54; /*  54 0x36 0b00110110 reserved */
+  byte SRL_HDR_RESERVED_LOW      = (byte)  54; /*  54 0x36 0b00110110 reserved */
+  byte SRL_HDR_RESERVED_1        = (byte)  55; /*  55 0x37 0b00110111 reserved */
+  byte SRL_HDR_RESERVED_HIGH     = (byte)  55; /*  55 0x37 0b00110111 reserved */
   byte SRL_HDR_FLOAT_128         = (byte)  56; /*  56 0x38 0b00111000 quadmath _float128 */
   byte SRL_HDR_CANONICAL_UNDEF   = (byte)  57; /*  57 0x39 0b00111001 undef (PL_sv_undef) - "the" Perl undef (see notes) */
   byte SRL_HDR_FALSE             = (byte)  58; /*  58 0x3a 0b00111010 false (PL_sv_no) */
   byte SRL_HDR_TRUE              = (byte)  59; /*  59 0x3b 0b00111011 true  (PL_sv_yes) */
-  byte SRL_HDR_MANY              = (byte)  60; /*  60 0x3c 0b00111100 <LEN-VARINT> <TYPE-BYTE> <TAG-DATA> - repeated tag (not done yet, will be implemented in version 3) */
+  byte SRL_HDR_NEG_VARINT        = (byte)  60; /*  60 0x3c 0b00111100 <VARINT> - absolute value of a negative integer, protocol v6 */
   byte SRL_HDR_PACKET_START      = (byte)  61; /*  61 0x3d 0b00111101 (first byte of magic string in header) */
   byte SRL_HDR_EXTEND            = (byte)  62; /*  62 0x3e 0b00111110 <BYTE> - for additional tags */
   byte SRL_HDR_PAD               = (byte)  63; /*  63 0x3f 0b00111111 (ignored tag, skip to next byte) */

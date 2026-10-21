@@ -38,34 +38,36 @@ my $frozen_doc = "=\xf3rl\x05\x00Qaa2cFrz\x28\x2b\x01fsecret";
 my $good_doc   = "=\xf3rl\x05\x00Raceplainab2cFrz\x28\x2b\x01eother";
 
 {
+
     package Frz;
+
     sub THAW {
-        my ($class, $serializer, $data) = @_;
+        my ( $class, $serializer, $data ) = @_;
         return bless \$data, 'Thawed';
     }
 }
 
 sub check_good {
-    my ($out, $label) = @_;
-    return 0 unless ok(ref($out) eq 'HASH', "$label: decoded a hash");
+    my ( $out, $label ) = @_;
+    return 0 unless ok( ref($out) eq 'HASH', "$label: decoded a hash" );
     my $ok = 1;
-    $ok &&= is(ref($out->{b}), 'Thawed', "$label: frozen value was thawed");
-    $ok &&= is(${ $out->{b} // \'' }, 'other', "$label: thawed value is intact");
-    $ok &&= is($out->{c}, 'plain', "$label: sibling value is intact");
+    $ok &&= is( ref( $out->{b} ),      'Thawed', "$label: frozen value was thawed" );
+    $ok &&= is( ${ $out->{b} // \'' }, 'other',  "$label: thawed value is intact" );
+    $ok &&= is( $out->{c},             'plain',  "$label: sibling value is intact" );
     return $ok;
 }
 
 # Control: the good document on its own decodes correctly.
-check_good(Sereal::Decoder->new->decode($good_doc), "virgin decoder");
+check_good( Sereal::Decoder->new->decode($good_doc), "virgin decoder" );
 
 # Every truncation that makes the decode fail must leave the decoder clean enough
 # to handle the next document. Sweeping rather than picking one offset keeps this
 # robust if the document layout ever changes.
 my $swept = 0;
-for my $cut (6 .. length($frozen_doc) - 1) {
+for my $cut ( 6 .. length($frozen_doc) - 1 ) {
     my $decoder = Sereal::Decoder->new;
 
-    my $died = !eval { $decoder->decode(substr($frozen_doc, 0, $cut)); 1 };
+    my $died = !eval { $decoder->decode( substr( $frozen_doc, 0, $cut ) ); 1 };
     next unless $died;    # only interested in cuts that actually fail
     $swept++;
 
@@ -76,10 +78,10 @@ for my $cut (6 .. length($frozen_doc) - 1) {
     }
     [], "cut=$cut: reusing the decoder produces no warnings";
 
-    check_good($out, "cut=$cut");
+    check_good( $out, "cut=$cut" );
 }
 
-ok($swept > 0, "at least one truncation failed to decode (swept $swept)");
+ok( $swept > 0, "at least one truncation failed to decode (swept $swept)" );
 
 pass("Alive");
 

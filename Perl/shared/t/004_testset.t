@@ -32,6 +32,17 @@ my $l = "ba\xDF";
 my $u = $l;
 utf8::upgrade($u);
 ok( _cmp_str( $l, $u ) );
+my $vstring                               = v01.002.003;
+my $same_value_different_vstring_spelling = v1.2.3;
+ok( !_test_deep_cmp( $vstring, $vstring ), 'identical v-strings compare equal' );
+ok(
+    _test_deep_cmp( $vstring, $same_value_different_vstring_spelling ),
+    'v-string spelling is part of roundtrip equality',
+);
+ok(
+    !_test_deep_cmp( \$vstring, \$vstring ),
+    'references to identical v-strings compare equal',
+);
 pass();
 done_testing();
 

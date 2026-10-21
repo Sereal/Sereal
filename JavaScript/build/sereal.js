@@ -201,6 +201,7 @@ var Sereal;
         Tags[Tags["FALSE"] = 58] = "FALSE";
         Tags[Tags["TRUE"] = 59] = "TRUE";
         Tags[Tags["MANY"] = 60] = "MANY";
+        Tags[Tags["RESERVED_5"] = 60] = "RESERVED_5";
         Tags[Tags["PACKET_START"] = 61] = "PACKET_START";
         Tags[Tags["EXTEND"] = 62] = "EXTEND";
         Tags[Tags["PAD"] = 63] = "PAD";
