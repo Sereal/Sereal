@@ -140,6 +140,7 @@ t/903_reentrancy.t
 t/903_regr_oob_copy_shortbinary.t
 t/904_regr_thaw_state_reuse.t
 t/905_regr_truncated_varint.t
+t/906_regr_oob_offset_underflow.t
 t/data/corpus
 t/lib/Sereal/BulkTest.pm
 t/lib/Sereal/TestSet.pm

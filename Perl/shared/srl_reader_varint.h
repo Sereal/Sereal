@@ -178,9 +178,10 @@ srl_read_varint_uv_offset(pTHX_ srl_reader_buffer_t *buf, const char * const err
 {
     const UV offset= srl_read_varint_uv(aTHX_ buf);
     /* A "copy" reference can only refer to things that precede it
-     * in the same body. This check asserts that it at least does not
-     * refer to anything that is yet to be decoded. */
-    if (expect_false( buf->body_pos + offset >= buf->pos )) {
+     * in the same body. Compare the offset to the number of bytes already
+     * decoded instead of adding an uncontrolled UV to body_pos as
+     * that pointer addition can wrap below body_pos for a large offset. */
+    if (expect_false( offset >= (UV)(buf->pos - buf->body_pos) )) {
         SRL_RDR_ERRORf4(buf, "Corrupted packet%s. Offset %"UVuf" points past current position %"UVuf" in packet with length of %"UVuf" bytes long",
                          errstr, offset, (UV)SRL_RDR_POS_OFS(buf), (UV)SRL_RDR_SIZE(buf));
     }
