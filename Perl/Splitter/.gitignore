@@ -39,3 +39,5 @@ t/004_testset.t
 inc
 qsort.h
 zstd/
+srl_checksum_policy.h
+srl_siphash.h

@@ -48,3 +48,5 @@ zstd/
 inc
 miniz.c
 miniz.h
+srl_checksum_policy.h
+srl_siphash.h
