@@ -19,6 +19,7 @@ Sereal-*.tar.gz
 t/005_flags.t
 t/095_checksum_policy.t
 t/096_build_tools.t
+t/097_checksum_versions.t
 t/004_testset.t
 t/data/corpus
 t/700_roundtrip/
