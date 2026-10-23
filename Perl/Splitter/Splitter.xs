@@ -12,11 +12,12 @@ typedef srl_splitter_t * Sereal__Splitter;
 MODULE = Sereal::Splitter		PACKAGE = Sereal::Splitter
 PROTOTYPES: DISABLE
 
-Sereal::Splitter
+SV *
 new_xs(CLASS, opt)
+    const char *CLASS;
     HV *opt;
   CODE:
-    RETVAL = srl_build_splitter_struct(aTHX_ opt);
+    RETVAL = srl_build_splitter_object(aTHX_ CLASS, opt);
   OUTPUT: RETVAL
 
 void
