@@ -36,6 +36,9 @@ Revision history for Perl extension Sereal-Encoder
     * Keep cached key/class identities alive across callbacks, preventing
       deleted storage from being reused as a different COPY target while
       preserving deduplication for non-mutating callbacks.
+    * Leave the caller's each() iterator in place when encoding an untied
+      hash. Hashes with reference values, sort_keys and freeze_callbacks
+      reset it, so encoding a hash inside an each() loop over it looped forever.
     * Retain the selected FREEZE method across allow-list predicates that
       delete or replace its symbol-table entry.
     * Keep objects alive while freeze_allow_classes predicates run, including

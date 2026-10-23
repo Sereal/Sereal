@@ -552,6 +552,10 @@ Normally C<Sereal::Encoder> will output hashes in whatever order is convenient,
 generally that used by perl to actually store the hash, or whatever order
 was returned by a tied hash.
 
+Encoding a hash that is not tied leaves the caller's C<each()> iterator for
+that hash where it was, with or without this option, so a hash may be encoded
+from inside an C<each()> loop over it.
+
 If this option is enabled then the Encoder will sort the keys before outputting
 them. It uses more memory, and is quite a bit slower than the default.
 

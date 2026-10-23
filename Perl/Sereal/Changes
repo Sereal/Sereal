@@ -20,6 +20,7 @@ from the the Encoder and Decoder changelogs:
     * Restore Encoder COPY deduplication of Latin-1 hash keys given as UTF-8.
     * Replace DEADLY with UNDEF_DEADLY (EXTEND 0xff), decoded as undef by
       default, with configurable warning or rejection in the Decoder.
+    * Encoding a hash no longer resets the caller's each() iterator over it.
     * Preserve shared hash key COPY targets and selected FREEZE methods across
       Encoder callbacks; retain Decoder arguments before output-reset callbacks.
     * Fix object lifetime across Encoder allow-list predicates and prevent

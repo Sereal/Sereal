@@ -71,6 +71,7 @@ t/042_magic_strings.t
 t/043_alias_scalar_refs.t
 t/044_magic_integers.t
 t/044_magical_arrays.t
+t/045_each_iterator.t
 t/046_shared_key_dedup.t
 t/095_checksum_policy.t
 t/096_build_tools.t
