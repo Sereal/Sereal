@@ -42,8 +42,8 @@ inc::Sereal::BuildTools::WriteMakefile(
         'Test::Differences' => 0,
         'Scalar::Util' => 0,
         'Data::Dumper' => 0,
-        'Sereal::Encoder' => 4.004,
-        'Sereal::Decoder' => 4.004,
+        'Sereal::Encoder' => '6.000_001',
+        'Sereal::Decoder' => '6.000_001',
     },
     BUILD_REQUIRES => {
         'File::Find' => 0,

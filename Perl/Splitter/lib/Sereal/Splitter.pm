@@ -108,7 +108,8 @@ use strict;
 use warnings;
 use Carp;
 
-our $VERSION     = '0.840';
+our $VERSION     = '0.900_001';
+our $XS_VERSION  = $VERSION; $VERSION = eval $VERSION;
 
 use constant SRL_UNCOMPRESSED => 0;
 use constant SRL_SNAPPY       => 1;
@@ -193,6 +194,6 @@ sub new {
 
 use XSLoader;
 
-XSLoader::load(__PACKAGE__, $Sereal::Splitter::VERSION);
+XSLoader::load(__PACKAGE__, $XS_VERSION);
 
 1;

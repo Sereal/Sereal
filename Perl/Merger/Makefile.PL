@@ -58,11 +58,16 @@ inc::Sereal::BuildTools::WriteMakefile(
         },
         'meta-spec' => { version => 2 },
     },
+    TEST_REQUIRES => {
+        'Test::More' => 0.88,
+        'Test::LongString' => 0,
+        'Data::Dumper' => 0,
+        'Sereal::Encoder' => '6.000_001',
+        'Sereal::Decoder' => '6.000_001',
+    },
     BUILD_REQUIRES => {
         'File::Find' => 0,
         'File::Path' => 0,
-        'Sereal::Encoder' => '4.000',
-        'Sereal::Decoder' => '4.000',
         'ExtUtils::ParseXS' => '2.21',
     },
     CONFIGURE_REQUIRES => {

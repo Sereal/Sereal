@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION    = '4.004';
+our $VERSION    = '6.000_001';
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 
 # not for public consumption, just for testing.
@@ -40,7 +40,7 @@ our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
 
 sub CLONE_SKIP {1}
 
-XSLoader::load(__PACKAGE__, $Sereal::Merger::VERSION);
+XSLoader::load(__PACKAGE__, $XS_VERSION);
 
 1;
 

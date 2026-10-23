@@ -1,5 +1,18 @@
 Revision history for Perl extension Sereal-Path
 
+6.000_001
+  * Sereal::Path::Iterator reads protocol v5 and v6 documents: YES/NO
+    booleans, FLOAT_128 and keyed checksums (checksum_policy and
+    checksum_vN_key options, also accepted by Sereal::Path->new)
+  * decode() now accepts tags newer than protocol v1, such as booleans,
+    NEG_VARINT and v-strings, and decodes REFP targets again
+  * bounds-check FLOAT/DOUBLE/LONG_DOUBLE payloads; LONG_DOUBLE is
+    sizeof(long double) like in Sereal::Decoder
+  * fix PAD swallowing the tag after it in step_in() and next()
+  * link against installed zstd/miniz when they are used
+  * fix configuring in a git worktree
+  * bump Sereal prereq version to 6.000_001
+
 4.004 Nov 13 2017
   * fix Devel::CheckLib
   * convert C++ comments to C comments

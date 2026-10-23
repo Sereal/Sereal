@@ -1,0 +1,16 @@
+Revision history for Perl extension Sereal-Merger
+
+6.000_001
+  * read protocol v5 and v6 documents: YES/NO booleans, FLOAT_128, zstd
+    compression and keyed checksums (checksum_policy, checksum_vN_key)
+  * when writing an older protocol version, rewrite YES/NO to TRUE/FALSE
+    and CANONICAL_UNDEF to UNDEF, and refuse FLOAT_128
+  * fix compressed output, which could not be decoded; add
+    compress => SRL_ZLIB and SRL_ZSTD, a compress_level option, and
+    export the SRL_* compression constants
+  * bounds-check fixed-size payloads; LONG_DOUBLE is sizeof(long double)
+  * fix misaligned loads when hashing strings for dedupe_strings
+  * bump Sereal prereq version to 6.000_001
+
+4.004 Nov 13 2017
+  * last release before this file existed
