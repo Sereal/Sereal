@@ -18,11 +18,20 @@ use constant SRL_TOP_LEVEL_SCALAR => 0;
 use constant SRL_TOP_LEVEL_ARRAY  => 1;
 use constant SRL_TOP_LEVEL_HASH   => 2;
 
+use constant SRL_UNCOMPRESSED => 0;
+use constant SRL_SNAPPY       => 1;
+use constant SRL_ZLIB         => 2;
+use constant SRL_ZSTD         => 3;
+
 use Exporter 'import';
 our @EXPORT_OK = qw(
     SRL_TOP_LEVEL_SCALAR
     SRL_TOP_LEVEL_ARRAY
     SRL_TOP_LEVEL_HASH
+    SRL_UNCOMPRESSED
+    SRL_SNAPPY
+    SRL_ZLIB
+    SRL_ZSTD
 );
 
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
@@ -81,13 +90,17 @@ by default.
 =head3 compress
 
 If this option provided and true, compression of the document body is enabled.
-As of Sereal version 3, two different compression techniques are supported
-and can be enabled by setting C<compress> to the respective named
-constants (exportable from the C<Sereal::Merger> module):
-Snappy (named constant: C<SRL_SNAPPY>),
-and Zlib (C<SRL_ZLIB>).
-For your convenience, there is also a C<SRL_UNCOMPRESSED>
-constant.
+Three compression techniques are supported and can be enabled by setting
+C<compress> to the respective named constants (exportable from the
+C<Sereal::Merger> module): Snappy (named constant: C<SRL_SNAPPY>), Zlib
+(C<SRL_ZLIB>, protocol version 3 or later) and Zstd (C<SRL_ZSTD>, protocol
+version 4 or later). For your convenience, there is also a C<SRL_UNCOMPRESSED>
+constant. A body that does not get smaller is left uncompressed.
+
+=head3 compress_level
+
+The Zlib or Zstd compression level. Defaults to the zlib default for
+C<SRL_ZLIB> and to 3 for C<SRL_ZSTD>, like L<Sereal::Encoder>.
 
 =head3 max_recursion_depth
 

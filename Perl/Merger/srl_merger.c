@@ -108,6 +108,10 @@ extern "C" {
 #define SRL_PREALLOCATE_FOR_USER_HEADER 1024
 #define SRL_MINIMALISTIC_HEADER_SIZE 6 /* =srl + 1 byte for version + 1 byte for header */
 
+/* Defaults matching Sereal::Encoder */
+#define DEFAULT_ZLIB_LEVEL MZ_DEFAULT_COMPRESSION
+#define DEFAULT_ZSTD_LEVEL 3
+
 #if !defined(HAVE_CSNAPPY)
 # include "snappy/csnappy_decompress.c"
 #endif
@@ -256,20 +260,41 @@ srl_build_merger_struct(pTHX_ HV *opt)
         if (svp && SvTRUE(*svp))
             SRL_MRG_SET_OPTION(mrg, SRL_F_DEDUPE_STRINGS);
 
+        /* See also Merger.pm's constants */
         svp = hv_fetchs(opt, "compress", 0);
         if (svp && SvOK(*svp)) {
+            U32 min_version = 0;
             switch (SvIV(*svp)) {
                 case 0: /* uncompressed */
                     break;
 
                 case 1: /* snappy incremental */
                     SRL_MRG_SET_OPTION(mrg, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
+                    min_version = 2;
+                    break;
+
+                case 2:
+                    SRL_MRG_SET_OPTION(mrg, SRL_F_COMPRESS_ZLIB);
+                    mrg->compress_level = DEFAULT_ZLIB_LEVEL;
+                    min_version = 3;
+                    break;
+
+                case 3:
+                    SRL_MRG_SET_OPTION(mrg, SRL_F_COMPRESS_ZSTD);
+                    mrg->compress_level = DEFAULT_ZSTD_LEVEL;
+                    min_version = 4;
                     break;
 
                 default:
                     croak("Invalid Sereal compression format");
             }
+            if (mrg->protocol_version < min_version)
+                croak("This compression requires protocol version %u or later", (unsigned int) min_version);
         }
+
+        svp = hv_fetchs(opt, "compress_level", 0);
+        if (svp && SvOK(*svp))
+            mrg->compress_level = (int) SvIV(*svp);
 
         svp = hv_fetchs(opt, "max_recursion_depth", 0);
         if (svp && SvOK(*svp))
@@ -453,6 +478,7 @@ srl_merger_finish(pTHX_ srl_merger_t *mrg, SV *user_header_src)
     UV end_offset;
     UV body_offset;
     UV srl_start_offset = 0;
+    STRLEN doc_len;
 
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
@@ -555,16 +581,29 @@ srl_merger_finish(pTHX_ srl_merger_t *mrg, SV *user_header_src)
     }
 
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
+    assert(srl_start_offset <= (UV) BUF_POS_OFS(&mrg->obuf));
 
-    if (SRL_MRG_HAVE_OPTION(mrg, SRL_F_COMPRESS_SNAPPY_INCREMENTAL)) {
-        srl_compress_body(aTHX_ &mrg->obuf, body_offset, mrg->flags, 0, &mrg->snappy_workmem);
-        SRL_UPDATE_BODY_POS(&mrg->obuf, mrg->protocol_version);
+    /* the document is at srl_start_offset, its body right after body_pos */
+    doc_len = (STRLEN) BUF_POS_OFS(&mrg->obuf) - srl_start_offset - 1;
+
+    if (mrg->flags & SRL_F_COMPRESS_FLAGS_MASK) {
+        /* srl_compress_body() needs a buffer that starts with the header;
+         * compressing a copy also leaves the merge state alone */
+        srl_buffer_t doc;
+        SV *out;
+        const STRLEN header_len = (STRLEN) body_offset + 1 - srl_start_offset;
+
+        if (expect_false(srl_buf_init_buffer(aTHX_ &doc, doc_len + 1) != 0))
+            croak("Out of memory");
+        srl_buf_cat_str(&doc, (const char *) mrg->obuf.start + srl_start_offset, doc_len);
+        srl_compress_body(aTHX_ &doc, header_len, mrg->flags & SRL_F_COMPRESS_FLAGS_MASK,
+                          mrg->compress_level, &mrg->snappy_workmem);
+        out = newSVpvn((char *) doc.start, BUF_POS_OFS(&doc));
+        srl_buf_free_buffer(aTHX_ &doc);
+        return out;
     }
 
-    assert(srl_start_offset <= (UV) BUF_POS_OFS(&mrg->obuf));
-    DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
-
-    return newSVpvn((char *) mrg->obuf.start + srl_start_offset, BUF_POS_OFS(&mrg->obuf) - srl_start_offset - 1);
+    return newSVpvn((char *) mrg->obuf.start + srl_start_offset, doc_len);
 }
 
 SRL_STATIC_INLINE srl_merger_t *
@@ -597,6 +636,7 @@ srl_empty_merger_struct(pTHX)
     mrg->tracked_offsets_tbl = NULL;
     mrg->tracked_offsets = NULL;
     mrg->snappy_workmem = NULL;
+    mrg->compress_level = 0;
     mrg->flags = 0;
     return mrg;
 }

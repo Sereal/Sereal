@@ -39,6 +39,7 @@ typedef struct {
     srl_checksum_config_t checksum;       /* how to treat checksummed input documents */
 
     void *snappy_workmem;                 /* lazily allocated if and only if using Snappy */
+    int compress_level;                   /* level for Zlib or Zstd compression */
 } srl_merger_t;
 
 srl_merger_t *srl_build_merger_struct(pTHX_ HV *opt);         /* constructor from options */
