@@ -9,7 +9,7 @@ $VERSION = eval $VERSION or die "WTF: $VERSION: $@";    # deal with underbars
 
 my $shared_dir        = "../shared";
 my $its_our_repo_file = "../this_is_the_Sereal_repo.txt";
-my $in_source_repo = ( -d "../../.git" and -d $shared_dir and -e "../this_is_the_Sereal_repo.txt" );
+my $in_source_repo = ( -e "../../.git" and -d $shared_dir and -e "../this_is_the_Sereal_repo.txt" );
 
 unshift @INC, ".", "./inc";
 unshift @INC, $shared_dir, "$shared_dir/inc"

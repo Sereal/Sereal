@@ -27,7 +27,7 @@ sub get_git_top_dir {
         my $tdir = File::Spec->catdir( map File::Spec->updir, 1 .. $d );
         my $gdir = File::Spec->catdir( $tdir,                 '.git' );
         return $tdir
-            if -d $gdir;
+            if -e $gdir;
     }
     return ();
 }

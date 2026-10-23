@@ -11,7 +11,7 @@ use Config;
 # we use differently from Encoder/Decoder as we do not want the shared
 # tests. we could probably manage this stuff better.
 my $shared_dir = "../shared";
-my $in_source_repo = -d "../../.git" && -d $shared_dir;
+my $in_source_repo = -e "../../.git" && -d $shared_dir;
 
 my $module = "Sereal::Splitter";
 
