@@ -15,7 +15,10 @@ inc::Sereal::BuildTools::link_files($shared_dir, 'bare_minimum') if $in_source_r
 my $libs = '';
 my $subdirs = [ 'Iterator', 'Tie' ];
 my $defines = inc::Sereal::BuildTools::build_defines();
-my $objects = '$(BASEEXT)$(OBJ_EXT) srl_path$(OBJ_EXT) Iterator/srl_iterator.o Iterator/srl_decoder.o Iterator/miniz.o Iterator/zstd/libzstd.o';
+my $objects = '$(BASEEXT)$(OBJ_EXT) srl_path$(OBJ_EXT) Iterator/srl_iterator$(OBJ_EXT) Iterator/srl_decoder$(OBJ_EXT)';
+
+# Prefer external libraries over the ones bundled in Iterator/.
+inc::Sereal::BuildTools::check_external_libraries_from_dir(\$libs, \$defines, \$objects, 'Iterator');
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.

@@ -142,6 +142,16 @@ sub check_external_libraries {
     }
 }
 
+# For a distribution that links the objects built in another directory
+# (Sereal::Path and Sereal::Path::Tie link Sereal::Path::Iterator's): add the
+# installed libraries to link with, or else the bundled objects from $dir.
+sub check_external_libraries_from_dir {
+    my ( $libs, $defines, $objects, $dir ) = @_;
+    my $dir_objects = '';
+    check_external_libraries( $libs, $defines, \$dir_objects, [] );
+    $$objects .= join '', map { " $dir/$_" } split ' ', $dir_objects;
+}
+
 sub build_defines {
     my (@defs) = @_;
 
