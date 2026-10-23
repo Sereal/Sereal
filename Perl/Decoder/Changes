@@ -6,6 +6,9 @@ Revision history for Perl extension Sereal-Decoder
 *          encoder!                                            *
 ****************************************************************
 6.000_001
+    * Detect callbacks (THAW, thaw_allow_classes, DESTROY) that modify the
+      input scalar while header user data is being decoded, and fail
+      instead of reading the freed buffer while decoding the body.
     * Reset caller-supplied output scalars before decoding into them.
       Reusing a scalar that held a string could crash perl, one that held
       a reference leaked the old referent, and a literal undef argument

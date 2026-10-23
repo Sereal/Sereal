@@ -822,6 +822,11 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset, int copy_
     if (expect_false( start_offset > len )) {
         SRL_RDR_ERROR(dec->pbuf, "Start offset is beyond input string length");
     }
+    /* Only track the input when the buffer is its own PV (not, say, the
+     * result of an overloaded stringification held elsewhere). */
+    dec->input_sv = (SvPOKp(src) && (unsigned char *)SvPVX(src) == tmp) ? src : NULL;
+    dec->input_start = tmp;
+    dec->input_len = len;
     dec->buf.start= dec->buf.pos= tmp + start_offset;
     dec->buf.end= dec->buf.start + len - start_offset;
     dec->packet_has_checksum = 0;
@@ -1044,6 +1049,26 @@ srl_validate_sereal_checksum(pTHX_ SV *src, SV *key, UV offset)
     return srl_checksum_matches(aTHX_ &buf, &envelope, key_bytes);
 }
 
+/* Header user data is decoded and finalized (running THAW methods,
+ * thaw_allow_classes callbacks and possibly DESTROY) before the body is
+ * parsed, and the body is then read from the same input buffer. A callback
+ * that modified the input scalar may have reallocated or freed that buffer,
+ * so verify the PV pointer and length are unchanged before reading on.
+ * Use SvPVX/SvCUR so that no magic is invoked. */
+SRL_STATIC_INLINE void
+srl_assert_input_unchanged(pTHX_ srl_decoder_t *dec)
+{
+    SV * const sv = dec->input_sv;
+    if (sv == NULL)
+        return;
+    if (expect_false( !SvPOKp(sv)
+                      || (const unsigned char *)SvPVX(sv) != dec->input_start
+                      || SvCUR(sv) != dec->input_len ))
+    {
+        SRL_RDR_ERROR(dec->pbuf, "Sereal input scalar was modified by a callback during decoding");
+    }
+}
+
 SRL_STATIC_INLINE void
 srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
 {
@@ -1157,6 +1182,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
                 srl_clear_decoder_body_state(aTHX_ dec); /* clean up for the main body decode */
                 dec->buf.end = packet_end;
                 dec->buf.pos = header_end;
+                srl_assert_input_unchanged(aTHX_ dec);
             }
             else {
                 /* Either off in bitfield or no user data wanted, skip to end of header */

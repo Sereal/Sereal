@@ -51,6 +51,9 @@ struct srl_decoder {
     UV checksummed_packet_length;
     const U8 *checksummed_payload;
     U32 flags_readonly;
+    SV *input_sv;                       /* SV whose PV the buffer points into, or NULL */
+    const unsigned char *input_start;   /* PV of input_sv when the buffer was set up */
+    STRLEN input_len;                   /* SvCUR of input_sv when the buffer was set up */
 };
 
 typedef struct {
