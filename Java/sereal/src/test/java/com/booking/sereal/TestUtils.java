@@ -17,6 +17,34 @@ public class TestUtils {
     return bytes;
   }
 
+  /**
+   * @param s hex digits, optionally separated by whitespace
+   * @return the decoded bytes
+   */
+  public static byte[] hex(String s) {
+    String digits = s.replaceAll("\\s+", "");
+    if (digits.length() % 2 != 0) {
+      throw new IllegalArgumentException("Odd number of hex digits");
+    }
+    byte[] bytes = new byte[digits.length() / 2];
+    for (int i = 0; i < bytes.length; ++i) {
+      bytes[i] = (byte) Integer.parseInt(digits.substring(2 * i, 2 * i + 2), 16);
+    }
+    return bytes;
+  }
+
+  /**
+   * @param b bytes
+   * @return lowercase hex digits
+   */
+  public static String toHex(byte[] b) {
+    StringBuilder sb = new StringBuilder();
+    for (byte x : b) {
+      sb.append(String.format("%02x", x & 0xff));
+    }
+    return sb.toString();
+  }
+
   public static byte[] byteArrayNested(Object... ints) {
     byte[] bytes = new byte[Math.max(ints.length, 10)];
     int index = 0;

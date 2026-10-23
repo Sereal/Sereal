@@ -145,30 +145,11 @@ public class Encoder {
 
   private static void finishHeader(
       byte[] compressedBytes, long compressedSize, int headerSize, int sizeLength) {
-    int after = encodeVarint(compressedSize, compressedBytes, headerSize);
+    int after = SerealChecksum.encodeVarint(compressedSize, compressedBytes, headerSize);
     if (after != headerSize + sizeLength) compressedBytes[after - 1] |= (byte) 0x80;
   }
 
-  private static int varintLength(long n) {
-    int length = 0;
 
-    while (Long.compareUnsigned(n, 127) > 0) {
-      n >>>= 7;
-      length++;
-    }
-
-    return length + 1;
-  }
-
-  private static int encodeVarint(long n, byte[] buffer, int pos) {
-    while (n > 127) {
-      buffer[pos++] = (byte) ((n & 127) | 128);
-      n >>= 7;
-    }
-    buffer[pos++] = (byte) n;
-
-    return pos;
-  }
 
   // write header and version/encoding
   private void init(Object header, boolean hasHeader) throws SerealException {
@@ -202,7 +183,7 @@ public class Encoder {
       bytes[(int) originalSize + 1] = 0x01;
     } else {
       // we were too optimistic
-      int sizeLength = varintLength(suffixSize);
+      int sizeLength = SerealChecksum.varintLength(suffixSize);
 
       // make space
       ensureAvailable(sizeLength - 1);
@@ -215,7 +196,7 @@ public class Encoder {
       size += sizeLength - 1;
 
       // now write size and 8bit bitfield
-      encodeVarint(suffixSize, bytes, (int) originalSize);
+      SerealChecksum.encodeVarint(suffixSize, bytes, (int) originalSize);
       bytes[(int) originalSize + sizeLength] = 0x01;
     }
 
@@ -257,7 +238,7 @@ public class Encoder {
 
   private void compressSnappy() throws SerealException {
     int maxSize = Snappy.maxCompressedLength((int) size - headerSize);
-    int sizeLength = encoding == 2 ? varintLength(maxSize) : 0;
+    int sizeLength = encoding == 2 ? SerealChecksum.varintLength(maxSize) : 0;
 
     // I don't think there is any point in overallocating here
     if ((headerSize + sizeLength + maxSize) > compressedBytes.length)
@@ -295,8 +276,8 @@ public class Encoder {
 
     int sourceSize = (int) size - headerSize;
     int maxSize = zlibMaxSize(sourceSize);
-    int sizeLength = varintLength(sourceSize);
-    int sizeLength2 = varintLength(maxSize);
+    int sizeLength = SerealChecksum.varintLength(sourceSize);
+    int sizeLength2 = SerealChecksum.varintLength(maxSize);
     int pos = 0;
 
     // I don't think there is any point in overallocating here
@@ -305,7 +286,7 @@ public class Encoder {
 
     System.arraycopy(bytes, 0, compressedBytes, 0, headerSize);
     pos += headerSize;
-    pos = encodeVarint(sourceSize, compressedBytes, pos);
+    pos = SerealChecksum.encodeVarint(sourceSize, compressedBytes, pos);
 
     // varint-encoded 0, filling all space
     int encodedSizePos = pos;
@@ -322,13 +303,13 @@ public class Encoder {
       return;
     }
 
-    int after = encodeVarint(compressed, compressedBytes, encodedSizePos);
+    int after = SerealChecksum.encodeVarint(compressed, compressedBytes, encodedSizePos);
     if (after != headerSize + sizeLength + sizeLength2) compressedBytes[after - 1] |= (byte) 0x80;
   }
 
   private void compressZstd() throws SerealException {
     long maxSize = Zstd.compressBound((int) size - headerSize);
-    int sizeLength = varintLength(maxSize);
+    int sizeLength = SerealChecksum.varintLength(maxSize);
 
     if (headerSize + sizeLength + maxSize > Integer.MAX_VALUE)
       throw new SerealException(

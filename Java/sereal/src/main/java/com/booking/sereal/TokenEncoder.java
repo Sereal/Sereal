@@ -211,7 +211,7 @@ public class TokenEncoder {
 
   private static void finishHeader(
     byte[] compressedBytes, long compressedSize, int headerSize, int sizeLength) {
-    int after = encodeVarint(compressedSize, compressedBytes, headerSize);
+    int after = SerealChecksum.encodeVarint(compressedSize, compressedBytes, headerSize);
     if (after != headerSize + sizeLength) {
       compressedBytes[after - 1] |= (byte) 0x80;
     }
@@ -274,7 +274,7 @@ public class TokenEncoder {
       bytes[originalSize + 1] = 0x01;
     } else {
       // we were too optimistic
-      int sizeLength = varintLength(suffixSize);
+      int sizeLength = SerealChecksum.varintLength(suffixSize);
 
       // make space
       ensureAvailable(sizeLength - 1);
@@ -288,7 +288,7 @@ public class TokenEncoder {
       headerSize = size;
 
       // now write size and 8bit bitfield
-      encodeVarint(suffixSize, bytes, originalSize);
+      SerealChecksum.encodeVarint(suffixSize, bytes, originalSize);
       bytes[originalSize + sizeLength] = 0x01;
     }
     currentContext = new Context(null, CONTEXT_HEADER, -1, 0);
@@ -666,7 +666,7 @@ public class TokenEncoder {
 
   private void appendCharBuffer(CharBuffer string) throws SerealException {
     int maxLength = string.length() * 3;
-    int varintLenght = varintLength(maxLength);
+    int varintLenght = SerealChecksum.varintLength(maxLength);
     ensureAvailable( maxLength + varintLenght + 1);
     appendByteUnsafe(SerealHeader.SRL_HDR_STR_UTF8);
     utf8Encoder.reset();
@@ -677,7 +677,7 @@ public class TokenEncoder {
       throw new SerealException(result.toString());
     }
     int actualLength = out.position() - stringStart;
-    for (int varintEnd = encodeVarint(actualLength, bytes, size); varintEnd < stringStart; ++varintEnd) {
+    for (int varintEnd = SerealChecksum.encodeVarint(actualLength, bytes, size); varintEnd < stringStart; ++varintEnd) {
       bytes[varintEnd - 1] |= (byte) 0x80;
       bytes[varintEnd] = (byte) 0x00;
     }
@@ -845,14 +845,14 @@ public class TokenEncoder {
     checkCount(currentContext);
     if (currentContext.expectedCount == -1) {
       if (currentContext.count > 127) {
-        int lenght = varintLength(currentContext.count);
+        int lenght = SerealChecksum.varintLength(currentContext.count);
         ensureAvailable(lenght);
         System.arraycopy(bytes, currentContext.position + 1,
             bytes, currentContext.position + lenght,
             size - currentContext.position - 1);
         size += lenght - 1;
       }
-      encodeVarint(currentContext.count, bytes, currentContext.position);
+      SerealChecksum.encodeVarint(currentContext.count, bytes, currentContext.position);
     }
     currentContext = currentContext.outer;
   }
@@ -931,14 +931,14 @@ public class TokenEncoder {
     checkCount(currentContext);
     if (currentContext.expectedCount == -1) {
       if (currentContext.count > 127) {
-        int lenght = varintLength(currentContext.count);
+        int lenght = SerealChecksum.varintLength(currentContext.count);
         ensureAvailable(lenght);
         System.arraycopy(bytes, currentContext.position + 1,
             bytes, currentContext.position + lenght,
             size - currentContext.position - 1);
         size += lenght - 1;
       }
-      encodeVarint(currentContext.count, bytes, currentContext.position);
+      SerealChecksum.encodeVarint(currentContext.count, bytes, currentContext.position);
     }
     currentContext = currentContext.outer;
   }
@@ -1027,7 +1027,7 @@ public class TokenEncoder {
 
   private void compressSnappy() throws SerealException {
     int maxSize = Snappy.maxCompressedLength(size - headerSize);
-    int sizeLength = encoding == SerealHeader.SRL_ENCODING_SNAPPY ? varintLength(maxSize) : 0;
+    int sizeLength = encoding == SerealHeader.SRL_ENCODING_SNAPPY ? SerealChecksum.varintLength(maxSize) : 0;
 
     // I don't think there is any point in overallocating here
     if ((headerSize + sizeLength + maxSize) > compressedBytes.length) {
@@ -1066,8 +1066,8 @@ public class TokenEncoder {
 
     int sourceSize = size - headerSize;
     int maxSize = zlibMaxSize(sourceSize);
-    int sizeLength = varintLength(sourceSize);
-    int sizeLength2 = varintLength(maxSize);
+    int sizeLength = SerealChecksum.varintLength(sourceSize);
+    int sizeLength2 = SerealChecksum.varintLength(maxSize);
     int pos = 0;
 
     // I don't think there is any point in overallocating here
@@ -1077,7 +1077,7 @@ public class TokenEncoder {
 
     System.arraycopy(bytes, 0, compressedBytes, 0, headerSize);
     pos += headerSize;
-    pos = encodeVarint(sourceSize, compressedBytes, pos);
+    pos = SerealChecksum.encodeVarint(sourceSize, compressedBytes, pos);
 
     // varint-encoded 0, filling all space
     int encodedSizePos = pos;
@@ -1096,7 +1096,7 @@ public class TokenEncoder {
       return;
     }
 
-    int after = encodeVarint(compressed, compressedBytes, encodedSizePos);
+    int after = SerealChecksum.encodeVarint(compressed, compressedBytes, encodedSizePos);
     if (after != headerSize + sizeLength + sizeLength2) {
       compressedBytes[after - 1] |= (byte) 0x80;
     }
@@ -1104,7 +1104,7 @@ public class TokenEncoder {
 
   private void compressZstd() throws SerealException {
     long maxSize = Zstd.compressBound(size - headerSize);
-    int sizeLength = varintLength(maxSize);
+    int sizeLength = SerealChecksum.varintLength(maxSize);
 
     if (headerSize + sizeLength + maxSize > Integer.MAX_VALUE) {
       throw new SerealException(
@@ -1158,13 +1158,13 @@ public class TokenEncoder {
 
   private void appendVarint(long n) {
     ensureAvailable(MAX_VARINT_LENGTH);
-    size = encodeVarint(n, bytes, size);
+    size = SerealChecksum.encodeVarint(n, bytes, size);
   }
 
   private void appendZigZag(long n) {
     ensureAvailable(MAX_VARINT_LENGTH + 1);
     appendByteUnsafe(SerealHeader.SRL_HDR_ZIGZAG);
-    size = encodeVarint((n << 1) ^ (n >> 63), bytes, size); // note the signed right shift
+    size = SerealChecksum.encodeVarint((n << 1) ^ (n >> 63), bytes, size); // note the signed right shift
   }
 
   private void setTrackBit(int offset) {
@@ -1185,26 +1185,7 @@ public class TokenEncoder {
     return false;
   }
 
-  private static int varintLength(long n) {
-    int length = 0;
 
-    while (Long.compareUnsigned(n, 127) > 0) {
-      n >>>= 7;
-      length++;
-    }
-
-    return length + 1;
-  }
-
-  private static int encodeVarint(long n, byte[] buffer, int pos) {
-    while (Long.compareUnsigned(n, 127) > 0) {
-      buffer[pos++] = (byte) ((n & 127) | 128);
-      n >>>= 7;
-    }
-    buffer[pos++] = (byte) n;
-
-    return pos;
-  }
 
   private void ensureAvailable(int required) {
     long total = required + size;
