@@ -162,6 +162,11 @@ func (m *Merger) Append(b []byte) (int, error) {
 		return 0, err
 	}
 
+	// the merged document cannot carry the checksums of its inputs
+	if docHeader.hasChecksum {
+		return 0, ErrChecksummedDocument
+	}
+
 	doc := mergerDoc{
 		buf:        b[headerSize+docHeader.suffixSize:],
 		version:    int(docHeader.version),
@@ -169,7 +174,7 @@ func (m *Merger) Append(b []byte) (int, error) {
 		bodyOffset: -1, // 1-based offsets
 	}
 
-	decomp, err := documentDecompressor(docHeader.version, docHeader.doctype)
+	decomp, err := documentDecompressor(docHeader.version, docHeader.doctype, false)
 
 	if decomp != nil {
 		if doc.buf, err = decomp.decompress(nil, doc.buf); err != nil {

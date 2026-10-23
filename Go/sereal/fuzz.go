@@ -23,7 +23,7 @@ func Fuzz(data []byte) int {
 	}
 
 	switch header.version {
-	case 1, 2, 3:
+	case 1, 2, 3, 4, 5, 6:
 		break
 	default:
 		return 0
@@ -99,7 +99,7 @@ func FuzzStructure(data []byte) int {
 	}
 
 	switch header.version {
-	case 1, 2, 3:
+	case 1, 2, 3, 4, 5, 6:
 		break
 	default:
 		return 0

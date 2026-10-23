@@ -40,6 +40,12 @@ const (
 	ChecksumIgnoreWarn
 )
 
+// warnings passed to Decoder.ChecksumWarningHandler
+const (
+	checksumWarnNoKey   = "decoding checksummed document without authentication: no matching checksum key is configured"
+	checksumWarnIgnored = "ignoring checksum authentication by request"
+)
+
 // checksumTagLength returns the tag length of a known checksum type, or 0
 func checksumTagLength(typ byte) int {
 	switch typ {
