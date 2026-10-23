@@ -89,6 +89,9 @@ public class TokenEncoder {
   private int headerSize, headerOffset;
   private final int zstdCompressionLevel;
   private boolean hasHeader;
+  // the single checksum key (protocol version 6) and the checksum type it selects
+  private final byte[] checksumKey;
+  private final int checksumType;
 
   /** Create an new {@code TokenEncoder} with default options. */
   public TokenEncoder() {
@@ -105,6 +108,10 @@ public class TokenEncoder {
     compressionType = options.compressionType();
     zstdCompressionLevel = options.zstdCompressionLevel();
     compressionThreshold = (int) options.compressionThreshold();
+
+    byte[][] keys = options.checksumKeys();
+    checksumType = Encoder.checkChecksumOptions(keys, options.checksumPolicy(), protocolVersion);
+    checksumKey = checksumType < 0 ? null : keys[checksumType].clone();
 
     if (compressionType == CompressionType.SNAPPY) {
       encoding = protocolVersion == 1 ? SerealHeader.SRL_ENCODING_SNAPPY_LEGACY : SerealHeader.SRL_ENCODING_SNAPPY;
@@ -348,7 +355,23 @@ public class TokenEncoder {
       // we did not do compression after all
       markNotCompressed();
     }
+    if (checksumKey != null) {
+      protect();
+    }
     currentContext = currentContext.outer;
+  }
+
+  // wrap the (possibly compressed) document in a checksum envelope; the result is served
+  // through compressedBytes/compressedSize like a compressed document
+  private void protect() {
+    byte[] signed;
+    if (compressedSize != 0) {
+      signed = SerealChecksum.protect(compressedBytes, compressedSize, headerSize, checksumType, checksumKey);
+    } else {
+      signed = SerealChecksum.protect(bytes, size, headerSize, checksumType, checksumKey);
+    }
+    compressedBytes = signed;
+    compressedSize = signed.length;
   }
 
   private void checkCount(Context context) throws SerealException {
@@ -485,6 +508,10 @@ public class TokenEncoder {
     if (l < 0) {
       if (l > -17) {
         appendByte((byte) (SerealHeader.SRL_HDR_NEG_LOW | (l + 32)));
+      } else if (protocolVersion >= 6) {
+        // magnitude as an unsigned varint: -Long.MIN_VALUE wraps to 2^63, which is what we want
+        appendByte(SerealHeader.SRL_HDR_NEG_VARINT);
+        appendVarint(-l);
       } else {
         appendZigZag(l);
       }
@@ -496,6 +523,68 @@ public class TokenEncoder {
         appendVarint(l);
       }
     }
+  }
+
+  /**
+   * Append a Perl v-string (Sereal {@code EXTEND} + {@code VSTRING} tags, protocol version 6+).
+   *
+   * @param vstring Value to be appended.
+   *
+   * @throws SerealException value cannot be encoded.
+   */
+  public void appendVString(PerlVString vstring) throws SerealException {
+    byte[] spelling = vstring.spellingBytes();
+    appendVString(spelling, 0, spelling.length);
+  }
+
+  /**
+   * Append a Perl v-string given its spelling (e.g. {@code v1.2.3}) as ASCII bytes
+   * (Sereal {@code EXTEND} + {@code VSTRING} tags, protocol version 6+).
+   * <p>
+   * The binary/UTF-8 variant is derived from the spelling.
+   *
+   * @param spelling Buffer containing the spelling.
+   * @param offset Start of the spelling.
+   * @param length Length of the spelling.
+   *
+   * @throws SerealException the spelling is not a valid v-string, or the protocol version is below 6.
+   */
+  public void appendVString(byte[] spelling, int offset, int length) throws SerealException {
+    if (protocolVersion < 6) {
+      throw new SerealException("v-strings require Sereal protocol version 6");
+    }
+    int kind = VStrings.classify(spelling, offset, length);
+    if (kind == VStrings.INVALID) {
+      throw new SerealException("Invalid v-string spelling");
+    }
+    currentContext.count++;
+    trackOffset = size;
+    ensureAvailable(2 + MAX_VARINT_LENGTH + length);
+    appendByteUnsafe(SerealHeader.SRL_HDR_EXTEND);
+    appendByteUnsafe(kind == VStrings.UTF8 ? SerealHeader.SRL_EXT_VSTRING_UTF8 : SerealHeader.SRL_EXT_VSTRING_BINARY);
+    size = SerealChecksum.encodeVarint(length, bytes, size);
+    appendBytesUnsafe(spelling, offset, length);
+  }
+
+  /**
+   * Append a 128-bit quadmath float as its 16 raw bytes (Sereal {@code FLOAT_128} tag, protocol version 5+).
+   *
+   * @param float128 Exactly 16 bytes.
+   *
+   * @throws SerealException value cannot be encoded.
+   */
+  public void appendFloat128(byte[] float128) throws SerealException {
+    if (protocolVersion < 5) {
+      throw new SerealException("FLOAT_128 requires Sereal protocol version 5");
+    }
+    if (float128 == null || float128.length != 16) {
+      throw new SerealException("FLOAT_128 requires exactly 16 bytes");
+    }
+    currentContext.count++;
+    trackOffset = size;
+    ensureAvailable(17);
+    appendByteUnsafe(SerealHeader.SRL_HDR_FLOAT_128);
+    appendBytesUnsafe(float128);
   }
 
   /**
