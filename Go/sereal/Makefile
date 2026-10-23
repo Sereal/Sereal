@@ -1,3 +1,5 @@
+# protocol version of the perl-generated compat corpus (1..6); TestCorpus
+# re-encodes it at the same version
 CORPUS_PROTO_VER ?= 4
 CORPUS_COMPRESS ?= SRL_UNCOMPRESSED
 
@@ -41,8 +43,10 @@ test_files:
 test_files/VERSION_$(CORPUS_PROTO_VER):
 	rm -f test_freeze/VERSION_*
 
+# a corpus of another protocol version may hold more tests than the new one
+# (v6 adds the v-string tests): drop it so no stale test files survive
 test_dir/VERSION_$(CORPUS_PROTO_VER):
-	rm -f test_dir/VERSION_*
+	rm -f test_dir/VERSION_* test_dir/test_data_* test_dir/test_name_*
 
 test_dir/COMPRESS_$(CORPUS_COMPRESS):
 	rm -f test_dir/COMPRESS_*
