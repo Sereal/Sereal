@@ -569,6 +569,16 @@ srl_empty_encoder_struct(pTHX)
     return enc;
 }
 
+/* Construction has no encoded state to clear. Keep a completed encoder
+ * through scope exit, but release all partial state if an option croaks. */
+static void
+srl_encoder_constructor_cleanup(pTHX_ void *p)
+{
+    srl_encoder_t *enc = (srl_encoder_t *)p;
+    if (!SRL_ENC_HAVE_OPTION(enc, SRL_F_REUSE_ENCODER))
+        srl_destroy_encoder(aTHX_ enc);
+}
+
 #define my_hv_fetchs(he,val,opt,idx) STMT_START {                   \
     he = hv_fetch_ent(opt, options[idx].sv, 0, options[idx].hash);  \
     if (he)                                                         \
@@ -612,7 +622,9 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     }
     srl_validate_checksum_keys(aTHX_ checksum_keys, checksum_policy);
 
+    ENTER;
     enc = srl_empty_encoder_struct(aTHX);
+    SAVEDESTRUCTOR_X(&srl_encoder_constructor_cleanup, (void *)enc);
     enc->checksum_policy = checksum_policy;
     enc->flags = 0;
     enc->scratch_sv= newSViv(0);
@@ -881,7 +893,6 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
                         warn("The '%s' key is longer than 16 bytes; extra bytes are ignored and may contain unused entropy. Use Sereal::Encoder::prepare_checksum_key() to normalize it", option_name);
                 }
                 if (enc->protocol_version < 6) {
-                    srl_destroy_encoder(aTHX_ enc);
                     croak("The '%s' option requires Sereal protocol version 6 or later", option_name);
                 }
                 Zero(enc->checksum_keys[version], sizeof(enc->checksum_keys[version]), U8);
@@ -893,12 +904,14 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
             }
         }
         if (enc->checksum_key_mask & (enc->checksum_key_mask - 1)) {
-            srl_destroy_encoder(aTHX_ enc);
             croak("Specify only one of 'checksum_v0_key', 'checksum_v1_key', or 'checksum_v2_key' on the encoder");
         }
     }
 
     DEBUG_ASSERT_BUF_SANE(&enc->buf);
+    SRL_ENC_SET_OPTION(enc, SRL_F_REUSE_ENCODER);
+    LEAVE;
+    SRL_ENC_RESET_OPTION(enc, SRL_F_REUSE_ENCODER);
     return enc;
 }
 
