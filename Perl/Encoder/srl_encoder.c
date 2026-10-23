@@ -42,6 +42,16 @@ extern "C" {
 #define HAS_SV2OBJ
 #endif
 
+/* Marks hash keys that are not in the shared string table; the flag was
+ * renamed across perl versions. */
+#if defined(HVhek_NOTSHARED)
+#define SRL_HVhek_NOTSHARED HVhek_NOTSHARED
+#elif defined(HVhek_UNSHARED)
+#define SRL_HVhek_NOTSHARED HVhek_UNSHARED
+#else
+#define SRL_HVhek_NOTSHARED 0
+#endif
+
 /* hv_backreferences_p is not marked as exported in embed.fnc in any perl */
 #if (PERL_VERSION >= 10)
 #define HAS_HV_BACKREFS
@@ -1940,6 +1950,31 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 
 /* Shared key strings are immutable, so their pointers can identify COPY
  * targets. This table is separate from scalar-value alias deduplication. */
+#if PERL_VERSION >= 10
+/* newSVhek() upgrades a WASUTF8 key into a private copy, which cannot retain
+ * the shared entry. Build the shared-hash-key scalar by hand instead, exactly
+ * as newSVhek() does for every other shared key; the scalar is only ever
+ * freed, never read, and sv_clear() releases the entry for us. Perls before
+ * 5.18 have no SvIsCOW_on() and mark such scalars READONLY and FAKE, as
+ * their newSVhek() does. */
+SRL_STATIC_INLINE SV *
+srl_new_shared_hek_sv(pTHX_ HEK *hek)
+{
+    SV *sv = newSV_type(SVt_PV);
+    SvPV_set(sv, (char *)HEK_KEY(share_hek_hek(hek)));
+    SvCUR_set(sv, HEK_LEN(hek));
+    SvLEN_set(sv, 0);
+#ifdef SvIsCOW_on
+    SvIsCOW_on(sv);
+#else
+    SvREADONLY_on(sv);
+    SvFAKE_on(sv);
+#endif
+    SvPOK_on(sv);
+    return sv;
+}
+#endif
+
 SRL_STATIC_INLINE int
 srl_dump_shared_hk(pTHX_ srl_encoder_t *enc, const char *str, SV *key_sv, HE *key_he)
 {
@@ -1951,10 +1986,22 @@ srl_dump_shared_hk(pTHX_ srl_encoder_t *enc, const char *str, SV *key_sv, HE *ke
         return 1;
     }
     /* A later callback may delete this key. Keep its shared storage alive
-     * so a different key cannot reuse the pointer cached above. Some keys
-     * (e.g. WASUTF8 keys) become independent strings when copied; only cache
-     * the pointer when the keeper actually shares the original allocation. */
-    keeper = key_sv ? newSVsv_flags(key_sv, SV_NOSTEAL) : newSVhek(HeKEY_hek(key_he));
+     * so a different key cannot reuse the pointer cached above. Only cache
+     * the pointer when the keeper actually shares the original allocation.
+     * A COW key scalar is never WASUTF8, so copying it always shares. */
+    if (key_sv) {
+        keeper = newSVsv_flags(key_sv, SV_NOSTEAL);
+    }
+    else {
+        HEK *hek = HeKEY_hek(key_he);
+#if PERL_VERSION >= 10
+        keeper = (HEK_WASUTF8(hek) && !(HEK_FLAGS(hek) & SRL_HVhek_NOTSHARED))
+               ? srl_new_shared_hek_sv(aTHX_ hek)
+               : newSVhek(hek);
+#else
+        keeper = newSVhek(hek);
+#endif
+    }
     if (SvIsCOW_shared_hash(keeper) && SvPVX(keeper) == str) {
         SAVEFREESV(keeper);
         PTABLE_store(string_seenhash, (void *)str, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
