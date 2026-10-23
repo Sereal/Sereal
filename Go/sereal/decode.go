@@ -441,6 +441,20 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 	case tag == typeZIGZAG:
 		*ptr, idx, err = d.decodeZigzag(by, idx)
 
+	case tag == typeNEG_VARINT:
+		var val int
+		if val, idx, err = d.decodeNegVarint(by, idx); err != nil {
+			return 0, err
+		}
+		*ptr = val
+
+	case tag == typeEXTEND:
+		var val interface{}
+		if val, idx, err = d.decodeExtend(by, idx); err != nil {
+			return 0, err
+		}
+		*ptr = val
+
 	case tag == typeFLOAT:
 		*ptr, idx, err = d.decodeFloat(by, idx)
 
@@ -634,6 +648,85 @@ func (d *Decoder) decodeVarint(by []byte, idx int) (int, int, error) {
 func (d *Decoder) decodeZigzag(by []byte, idx int) (int, int, error) {
 	i, sz, err := varintdecode(by[idx:])
 	return int(-(1 + (uint64(i) >> 1))), idx + sz, err
+}
+
+// decodeNegVarint decodes the magnitude following a NEG_VARINT tag
+// (protocol version 6): the value is minus the magnitude, which must be in
+// 1..2^63
+func (d *Decoder) decodeNegVarint(by []byte, idx int) (int, int, error) {
+	if d.docVersion < 6 {
+		return 0, 0, ErrCorrupt{errNegVarintVersion}
+	}
+
+	n, sz, err := varintdecode(by[idx:])
+	if err != nil {
+		return 0, 0, err
+	}
+
+	m := uint64(n)
+	if m == 0 || m > 1<<63 {
+		return 0, 0, ErrCorrupt{errBadNegVarint}
+	}
+
+	// m == 2^63 wraps to math.MinInt64, which is the intended value
+	return int(-int64(m)), idx + sz, nil
+}
+
+// decodeExtend decodes the id following an EXTEND tag (protocol version 6)
+// and its payload. The only values are v-strings, returned as *PerlVString.
+func (d *Decoder) decodeExtend(by []byte, idx int) (interface{}, int, error) {
+	if d.docVersion < 6 {
+		return nil, 0, ErrCorrupt{errExtendVersion}
+	}
+
+	if idx >= len(by) {
+		return nil, 0, ErrTruncated
+	}
+
+	id := by[idx]
+	idx++
+
+	switch id {
+	case extDEADLY:
+		return nil, 0, ErrDeadlyTag
+	case extVSTRING_BINARY, extVSTRING_UTF8:
+		return d.decodeVString(by, idx, id == extVSTRING_UTF8)
+	}
+
+	return nil, 0, ErrCorrupt{errUnknownExtend}
+}
+
+// decodeVString decodes <len varint> <spelling> of an EXTEND VSTRING; the
+// id (isUTF8) must match the encoding perl derives from the spelling
+func (d *Decoder) decodeVString(by []byte, idx int, isUTF8 bool) (*PerlVString, int, error) {
+	if idx >= len(by) {
+		return nil, 0, ErrTruncated
+	}
+
+	ln, sz, err := varintdecode(by[idx:])
+	if err != nil {
+		return nil, 0, err
+	}
+	idx += sz
+
+	if ln < 0 || ln > len(by)-idx {
+		return nil, 0, ErrTruncated
+	}
+
+	if ln == 0 {
+		return nil, 0, ErrCorrupt{errBadVString}
+	}
+
+	spelling := by[idx : idx+ln]
+	utf8, ok := parseVString(spelling)
+	if !ok {
+		return nil, 0, ErrCorrupt{errBadVString}
+	}
+	if utf8 != isUTF8 {
+		return nil, 0, ErrCorrupt{errVStringEncoding}
+	}
+
+	return &PerlVString{Spelling: string(spelling)}, idx + ln, nil
 }
 
 func (d *Decoder) decodeFloat(by []byte, idx int) (float32, int, error) {
@@ -907,6 +1000,22 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 			return 0, err
 		}
 		setInt(ptr, val)
+
+	case tag == typeNEG_VARINT:
+		var val int
+		if val, idx, err = d.decodeNegVarint(by, idx); err != nil {
+			return 0, err
+		}
+		setInt(ptr, val)
+
+	case tag == typeEXTEND:
+		var val interface{}
+		if val, idx, err = d.decodeExtend(by, idx); err != nil {
+			return 0, err
+		}
+		if err = setVString(ptr, val.(*PerlVString)); err != nil {
+			return 0, err
+		}
 
 	case tag == typeFLOAT:
 		var val float32
@@ -1440,6 +1549,27 @@ func setInt(ptr reflect.Value, i int) {
 	}
 }
 
+var (
+	perlVStringType    = reflect.TypeOf(PerlVString{})
+	perlVStringPtrType = reflect.TypeOf(&PerlVString{})
+)
+
+// setVString stores a decoded v-string into a PerlVString, *PerlVString,
+// compatible interface or string (its spelling) target
+func setVString(ptr reflect.Value, v *PerlVString) error {
+	switch {
+	case ptr.Type() == perlVStringType:
+		ptr.Set(reflect.ValueOf(*v))
+	case perlVStringPtrType.AssignableTo(ptr.Type()):
+		ptr.Set(reflect.ValueOf(v))
+	case ptr.Kind() == reflect.String:
+		ptr.SetString(v.Spelling)
+	default:
+		return &reflect.ValueError{Method: "sereal.setVString", Kind: ptr.Kind()}
+	}
+	return nil
+}
+
 func setBinary(ptr reflect.Value, val []byte) {
 	switch ptr.Kind() {
 	case reflect.Slice:
@@ -1464,6 +1594,11 @@ func setBinary(ptr reflect.Value, val []byte) {
 func varintdecode(by []byte) (n int, sz int, err error) {
 	s := uint(0) // shift count
 	for i, b := range by {
+		if i == 9 && b > 1 {
+			// the tenth byte may only hold bit 63: anything else overflows
+			return 0, i + 1, ErrCorrupt{errBadVarint}
+		}
+
 		n |= int(b&0x7f) << s
 		s += 7
 
