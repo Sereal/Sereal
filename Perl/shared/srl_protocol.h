@@ -239,7 +239,7 @@
 
 
 #define SRL_HDR_EXTEND          ((U8)62)      /* <BYTE> - for additional tags */
-#define SRL_EXT_DEADLY          ((U8)0) /* Always fail when parsed; no payload */
+#define SRL_EXT_UNDEF_DEADLY    ((U8)255) /* Undef diagnostic sentinel; encoders MUST NOT emit it; no payload */
 #define SRL_EXT_VSTRING_BINARY  SRL_HDR_BINARY
 #define SRL_EXT_VSTRING_UTF8    SRL_HDR_STR_UTF8
 #define SRL_HDR_PAD             ((U8)63)      /* (ignored tag, skip to next byte) */

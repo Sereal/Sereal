@@ -621,11 +621,18 @@ protocol version 5 or earlier continue to use ZIGZAG for these larger negative
 integers. Decoders must continue to accept ZIGZAG for compatibility with older
 documents.
 
-Protocol version 6 reserves extended-tag ID 0 for C<DEADLY>, encoded as
-C<EXTEND 0> (bytes C<3e 00>), with no payload. A decoder encountering this
-value MUST fail. It is an explicit diagnostic sentinel, not a terminator:
-encoders do not append it to ordinary output, and concatenated documents
-retain their existing framing. These bytes inside a string are ordinary data.
+Protocol version 6 reserves extended-tag ID 255 (C<0xff>) for
+C<UNDEF_DEADLY>, encoded as C<EXTEND 255> (bytes C<3e ff>), with no payload.
+Decoders MUST treat this value as an ordinary undef by default. A decoder
+may offer an C<undef_deadly_policy> setting: C<undef> silently decodes it as
+undef, C<warn> warns on each encounter and decodes it as undef, and C<die>
+rejects the document with an exception.
+
+A compliant encoder MUST NOT emit C<UNDEF_DEADLY> as a value tag. It is a
+diagnostic sentinel, not a terminator, and MUST NOT be appended to encoded
+documents. Concatenated documents retain their existing framing. The same
+bytes occurring inside a string or compressed payload are ordinary data,
+not an encounter with this tag. Extended-tag ID 0 is unassigned.
 
 Protocol version 6 adds extended tags C<VSTRING-BINARY> and C<VSTRING-UTF8>.
 They are encoded as EXTEND followed by the corresponding extended-tag ID

@@ -6,6 +6,9 @@ Revision history for Perl extension Sereal-Decoder
 *          encoder!                                            *
 ****************************************************************
 6.000_001
+    * Replace DEADLY with UNDEF_DEADLY at extended-tag ID 0xff. Decode it as
+      undef by default, with undef_deadly_policy options to warn or die.
+      Compliant encoders must never emit this diagnostic sentinel.
     * Release partially constructed decoder state when an invalid option,
       wide-character checksum key, or fatal warning interrupts construction.
     * Use static custom-op descriptors instead of heap allocations left behind

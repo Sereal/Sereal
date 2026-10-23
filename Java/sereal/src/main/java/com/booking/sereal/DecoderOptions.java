@@ -24,6 +24,8 @@ public class DecoderOptions {
   private byte[] checksumV2Key;
   private SerealChecksum.Policy checksumPolicy = SerealChecksum.Policy.VERIFY_IF_AVAILABLE;
   private Consumer<String> checksumWarningHandler = SerealChecksum::defaultWarning;
+  private String undefDeadlyPolicy = "undef";
+  private Consumer<String> undefDeadlyWarningHandler = SerealChecksum::defaultWarning;
 
   // Size to use on the buffer used to read the data. Defaults to 1KB
   private int decodeBufferSize = 1024;
@@ -219,6 +221,42 @@ public class DecoderOptions {
    */
   public Consumer<String> checksumWarningHandler() {
     return checksumWarningHandler;
+  }
+
+  /**
+   * How the diagnostic UNDEF_DEADLY tag (EXTEND 255) is handled: {@code "undef"}
+   * (default), {@code "warn"}, or {@code "die"}. Compliant encoders never emit it.
+   *
+   * @return the diagnostic undef policy
+   */
+  public String undefDeadlyPolicy() {
+    return undefDeadlyPolicy;
+  }
+
+  /**
+   * Receives UNDEF_DEADLY warnings under the {@code "warn"} policy.
+   * The default handler prints to {@code System.err}.
+   *
+   * @return the warning handler
+   */
+  public Consumer<String> undefDeadlyWarningHandler() {
+    return undefDeadlyWarningHandler;
+  }
+
+  public DecoderOptions undefDeadlyPolicy(String policy) {
+    if (!"undef".equals(policy) && !"warn".equals(policy) && !"die".equals(policy)) {
+      throw new IllegalArgumentException("Invalid undef_deadly_policy; expected 'undef', 'warn', or 'die'");
+    }
+    undefDeadlyPolicy = policy;
+    return this;
+  }
+
+  public DecoderOptions undefDeadlyWarningHandler(Consumer<String> handler) {
+    if (handler == null) {
+      throw new IllegalArgumentException("undefDeadlyWarningHandler must not be null");
+    }
+    undefDeadlyWarningHandler = handler;
+    return this;
   }
 
   // the three key slots indexed by checksum type (not copied)

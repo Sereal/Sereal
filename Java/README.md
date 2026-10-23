@@ -46,6 +46,15 @@ New values:
 * YES/NO (v5) decode as `true`/`false`; NEG_VARINT (v6) decodes as a `Long`.
   At protocol version 6 the encoders write integers below -16 as NEG_VARINT.
 
+The diagnostic `UNDEF_DEADLY` extension uses ID 255 (bytes `3e ff`). Both
+decoders treat it as an ordinary undef by default. Set
+`DecoderOptions.undefDeadlyPolicy("warn")` to warn per encounter and return
+undef, or `"die"` to throw; `"undef"` selects the silent default.
+`undefDeadlyWarningHandler(...)` accepts a warning consumer (stderr by default).
+The object decoder honors `preserveUndef`; the token decoder returns `UNDEF`.
+Compliant encoders must never emit this tag. Extension ID 0 is unassigned;
+these bytes inside string data remain ordinary data.
+
 ### Keyed checksums
 
 A v6 document can carry a keyed SipHash checksum ("envelope") that the

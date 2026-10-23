@@ -152,7 +152,7 @@ SRL_STATIC_INLINE SV *srl_thaw_object(pTHX_ srl_decoder_t *dec, HV *class_stash,
 SRL_STATIC_INLINE int srl_thaw_class_allowed(pTHX_ srl_decoder_t *dec, HV *class_stash);
 
 /* FIXME unimplemented!!! */
-SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
+SRL_STATIC_INLINE int srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 
 #define DEPTH_INCREMENT(dec) STMT_START {                                           \
     if (expect_false(++dec->recursion_depth > dec->max_recursion_depth)) {                        \
@@ -245,6 +245,7 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     SV *val;
     HE *he;
     U8 checksum_policy = SRL_CHECKSUM_POLICY_VERIFY_IF_AVAILABLE;
+    U8 undef_deadly_policy = SRL_UNDEF_DEADLY_UNDEF;
     SV *checksum_keys[3] = { NULL, NULL, NULL };
     int key_options_present = 0;
     U8 version;
@@ -275,11 +276,28 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     }
     srl_validate_checksum_keys(aTHX_ checksum_keys, checksum_policy);
 
+    val = NULL;
+    if (opt != NULL)
+        my_hv_fetchs(he, val, opt, SRL_DEC_OPT_IDX_UNDEF_DEADLY_POLICY);
+    if (val && SvOK(val)) {
+        STRLEN len;
+        const char *policy = SvPVbyte(val, len);
+        if (memEQs(policy, len, "undef"))
+            undef_deadly_policy = SRL_UNDEF_DEADLY_UNDEF;
+        else if (memEQs(policy, len, "warn"))
+            undef_deadly_policy = SRL_UNDEF_DEADLY_WARN;
+        else if (memEQs(policy, len, "die"))
+            undef_deadly_policy = SRL_UNDEF_DEADLY_DIE;
+        else
+            croak("Invalid undef_deadly_policy; expected 'undef', 'warn', or 'die'");
+    }
+
     ENTER;
     Newxz(dec, 1, srl_decoder_t);
     SAVEDESTRUCTOR_X(&srl_decoder_destructor_hook, (void *)dec);
 
     dec->checksum_policy = checksum_policy;
+    dec->undef_deadly_policy = undef_deadly_policy;
     dec->ref_seenhash = PTABLE_new();
     dec->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
      /* 0 == any number for array, hash & string */
@@ -522,6 +540,7 @@ srl_build_decoder_struct_alike(pTHX_ srl_decoder_t *proto)
     dec->max_uncompressed_size = proto->max_uncompressed_size;
     dec->checksum_key_mask = proto->checksum_key_mask;
     dec->checksum_policy = proto->checksum_policy;
+    dec->undef_deadly_policy = proto->undef_deadly_policy;
     Copy(proto->checksum_keys, dec->checksum_keys, sizeof(dec->checksum_keys), U8);
 
     if (proto->alias_cache) {
@@ -2673,7 +2692,9 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
     }
 }
 
-SRL_STATIC_INLINE SV *
+/* Returns true for UNDEF_DEADLY so the caller can use the ordinary UNDEF
+ * path, including use_undef aliasing and the original tag's tracking bit. */
+SRL_STATIC_INLINE int
 srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into)
 {
     U8 ext_tag;
@@ -2681,15 +2702,22 @@ srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into)
         SRL_RDR_ERROR(dec->pbuf, "EXTEND tag requires protocol version 6 or later");
     SRL_RDR_ASSERT_SPACE(dec->pbuf, 1, " while reading extended tag ID");
     ext_tag = *dec->buf.pos++;
-    if (ext_tag == SRL_EXT_DEADLY)
-        SRL_RDR_ERROR(dec->pbuf, "Encountered DEADLY extended tag");
+    if (ext_tag == SRL_EXT_UNDEF_DEADLY) {
+        if (dec->undef_deadly_policy == SRL_UNDEF_DEADLY_DIE)
+            SRL_RDR_ERROR(dec->pbuf, "Encountered UNDEF_DEADLY extended tag");
+        if (dec->undef_deadly_policy == SRL_UNDEF_DEADLY_WARN) {
+            warn("Encountered UNDEF_DEADLY extended tag");
+            srl_assert_input_unchanged(aTHX_ dec);
+        }
+        return 1;
+    }
     else if (ext_tag == SRL_EXT_VSTRING_BINARY)
         srl_read_vstring(aTHX_ dec, into, 0);
     else if (ext_tag == SRL_EXT_VSTRING_UTF8)
         srl_read_vstring(aTHX_ dec, into, 1);
     else
         SRL_RDR_ERRORf1(dec->pbuf, "Unknown extended tag ID %u", (unsigned int)ext_tag);
-    return into;
+    return 0;
 }
 
 SRL_STATIC_INLINE void
@@ -2846,7 +2874,12 @@ srl_read_single_value_ex(pTHX_ srl_decoder_t *dec, SV* into, SV** container, int
             srl_read_objectv(aTHX_ dec, into, tag); is_ref=1; break;
         case SRL_HDR_OBJECTV:       srl_read_objectv(aTHX_ dec, into, tag); is_ref=1; break;
         case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into); is_ref=SvROK(into) ? 1 : 0; break;
-        case SRL_HDR_EXTEND:        srl_read_extend(aTHX_ dec, into);                 break;
+        case SRL_HDR_EXTEND:
+            if (srl_read_extend(aTHX_ dec, into)) {
+                tag = SRL_HDR_UNDEF;
+                goto read_tag;
+            }
+            break;
         case SRL_HDR_HASH:
             if (expect_false(!is_refn_referent))
                 SRL_RDR_ERROR(dec->pbuf, "Corrupted packet. HASH tag is only valid as the referent of a REFN");

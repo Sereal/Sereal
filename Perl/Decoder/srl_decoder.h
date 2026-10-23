@@ -46,6 +46,7 @@ struct srl_decoder {
     U8 encoding_flags;
     U8 checksum_key_mask;
     U8 checksum_policy;
+    U8 undef_deadly_policy;
     U8 packet_has_checksum;
     U8 checksum_keys[3][16]; /* indexed by checksum version */
     UV checksummed_packet_length;
@@ -159,6 +160,10 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
  * If not set (the default), a disallowed class causes an exception. */
 #define SRL_F_DECODER_THAW_DENY_RAW             0x00100000UL
 
+#define SRL_UNDEF_DEADLY_UNDEF 0
+#define SRL_UNDEF_DEADLY_WARN  1
+#define SRL_UNDEF_DEADLY_DIE   2
+
 
 #define SRL_F_DECODER_ALIAS_CHECK_FLAGS   ( SRL_F_DECODER_ALIAS_SMALLINT | SRL_F_DECODER_ALIAS_VARINT | SRL_F_DECODER_USE_UNDEF )
 #define SRL_F_DECODER_READONLY_FLAGS   ( SRL_F_DECODER_SET_READONLY | SRL_F_DECODER_SET_READONLY_SCALARS )
@@ -254,11 +259,13 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_DEC_OPT_IDX_CHECKSUM_POLICY             22
 #define SRL_DEC_OPT_STR_CHECKSUM_V2_KEY             "checksum_v2_key"
 #define SRL_DEC_OPT_IDX_CHECKSUM_V2_KEY             23
+#define SRL_DEC_OPT_STR_UNDEF_DEADLY_POLICY         "undef_deadly_policy"
+#define SRL_DEC_OPT_IDX_UNDEF_DEADLY_POLICY         24
 
 /* NOTE WELL: WHEN YOU ADD AN OPTION YOU **MUST** ADD A
  * CORRESPONDING CALL TO SRL_INIT_OPTION() to Decoder.xs */
 
-#define SRL_DEC_OPT_COUNT                           24
+#define SRL_DEC_OPT_COUNT                           25
 
 #if ((PERL_VERSION > 10) || (PERL_VERSION == 10 && PERL_SUBVERSION > 1 ))
 #   define MODERN_REGEXP

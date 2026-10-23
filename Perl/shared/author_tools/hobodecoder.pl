@@ -282,19 +282,23 @@ sub parse_sv {
     elsif ( $o == SRL_HDR_EXTEND ) {
         my $ext = ord( _chop_data_prefix(1) );
         $done .= chr($ext);
-        die "Encountered DEADLY extended tag\n" if $ext == SRL_EXT_DEADLY;
-        die "Unknown extended tag ID $ext\n"
-            unless $ext == SRL_EXT_VSTRING_BINARY || $ext == SRL_EXT_VSTRING_UTF8;
+        if ($ext == SRL_EXT_UNDEF_DEADLY) {
+            print "UNDEF_DEADLY (undef; must not be emitted by an encoder)\n";
+        }
+        else {
+            die "Unknown extended tag ID $ext\n"
+                unless $ext == SRL_EXT_VSTRING_BINARY || $ext == SRL_EXT_VSTRING_UTF8;
 
-        # The VSTRING payload is its original spelling. The extension ID
-        # describes the encoding of the PV reconstructed from that spelling.
-        my $l   = varint();
-        my $str = _chop_data_prefix($l);
-        $done .= $str;
-        $str = decode_utf8($str) if $ext == SRL_EXT_VSTRING_UTF8;
-        printf "VSTRING-%s spelling(%u): '%s' (%s)\n",
-            $ext == SRL_EXT_VSTRING_UTF8 ? "UTF8" : "BINARY",
-            $l, encode_utf8($str), unpack( "H*", encode_utf8($str) );
+            # The VSTRING payload is its original spelling. The extension ID
+            # describes the encoding of the PV reconstructed from that spelling.
+            my $l   = varint();
+            my $str = _chop_data_prefix($l);
+            $done .= $str;
+            $str = decode_utf8($str) if $ext == SRL_EXT_VSTRING_UTF8;
+            printf "VSTRING-%s spelling(%u): '%s' (%s)\n",
+                $ext == SRL_EXT_VSTRING_UTF8 ? "UTF8" : "BINARY",
+                $l, encode_utf8($str), unpack( "H*", encode_utf8($str) );
+        }
     }
     elsif ( $o == SRL_HDR_FLOAT ) {
         printf "FLOAT(%f)\n", parse_float();

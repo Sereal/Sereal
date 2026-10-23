@@ -84,6 +84,8 @@ public class TokenDecoder {
   private final byte[][] checksumKeys;
   private final SerealChecksum.Policy checksumPolicy;
   private final Consumer<String> checksumWarningHandler;
+  private final String undefDeadlyPolicy;
+  private final Consumer<String> undefDeadlyWarningHandler;
   // only applied to v-string spellings
   private final int maxStringLength;
 
@@ -131,6 +133,8 @@ public class TokenDecoder {
     checksumKeys = options.checksumKeys();
     checksumPolicy = options.checksumPolicy();
     checksumWarningHandler = options.checksumWarningHandler();
+    undefDeadlyPolicy = options.undefDeadlyPolicy();
+    undefDeadlyWarningHandler = options.undefDeadlyWarningHandler();
     maxStringLength = options.maxStringLength();
     Decoder.checkChecksumOptions(checksumKeys, checksumPolicy);
   }
@@ -440,8 +444,14 @@ public class TokenDecoder {
     checkNoEOD();
     int id = data[position++] & 0xff;
     switch (id) {
-      case SerealHeader.SRL_EXT_DEADLY:
-        throw new SerealException("Encountered DEADLY extended tag");
+      case SerealHeader.SRL_EXT_UNDEF_DEADLY:
+        if ("die".equals(undefDeadlyPolicy)) {
+          throw new SerealException("Encountered UNDEF_DEADLY extended tag");
+        }
+        if ("warn".equals(undefDeadlyPolicy)) {
+          undefDeadlyWarningHandler.accept("Encountered UNDEF_DEADLY extended tag");
+        }
+        return SerealToken.UNDEF;
       case SerealHeader.SRL_EXT_VSTRING_BINARY:
         readVString(false);
         return SerealToken.VSTRING;

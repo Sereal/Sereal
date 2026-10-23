@@ -19,7 +19,7 @@ BEGIN {
         "SRL_CHECKSUM_VERSION_SIPHASH_2_4_128"     => 1,
         "SRL_CHECKSUM_VERSION_SIPHASH_2_4_64"      => 0,
         "SRL_CHECKSUM_VERSION_SIPHASH_3_6_128"     => 2,
-        "SRL_EXT_DEADLY"                           => 0,
+        "SRL_EXT_UNDEF_DEADLY"                     => 255,
         "SRL_EXT_VSTRING_BINARY"                   => 38,
         "SRL_EXT_VSTRING_UTF8"                     => 39,
         "SRL_HDR_ALIAS"                            => 46,

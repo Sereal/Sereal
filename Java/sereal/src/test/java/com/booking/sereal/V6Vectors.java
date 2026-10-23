@@ -106,7 +106,7 @@ public final class V6Vectors {
 
   // must fail
 
-  public static final String DEADLY = "3df3726c06003e00";
+  public static final String UNDEF_DEADLY = "3df3726c06003eff";
   public static final String NEG_VARINT_ZERO = "3df3726c06003c00";
   public static final String NEG_VARINT_TOO_BIG = "3df3726c06003c81808080808080808001";
   public static final String NEG_VARINT_V5 = "3df3726c05003c11";

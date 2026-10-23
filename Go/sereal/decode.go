@@ -101,6 +101,14 @@ type Decoder struct {
 	// os.Stderr prefixed with "sereal: ".
 	ChecksumWarningHandler func(msg string)
 
+	// UndefDeadlyPolicy handles EXTEND 0xff: "undef" (the default, also ""),
+	// "warn" (decode as undef and warn), or "die" (return ErrUndefDeadlyTag).
+	// No compliant encoder emits this diagnostic tag.
+	UndefDeadlyPolicy string
+	// UndefDeadlyWarningHandler receives warnings for UndefDeadlyPolicy "warn".
+	// nil writes them to os.Stderr, prefixed with "sereal: ".
+	UndefDeadlyWarningHandler func(msg string)
+
 	docVersion byte // protocol version of the document being decoded
 }
 
@@ -189,6 +197,11 @@ func documentDecompressor(version byte, doctype documentType, hasChecksum bool) 
 
 // UnmarshalHeaderBody parses the Sereal-encoded buffer b extracts the header and body data into vheader and vbody, respectively
 func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody interface{}) (err error) {
+	switch d.UndefDeadlyPolicy {
+	case "", "undef", "warn", "die":
+	default:
+		return fmt.Errorf("invalid undef_deadly_policy %q; expected undef, warn, or die", d.UndefDeadlyPolicy)
+	}
 	defer func() {
 		if r := recover(); r != nil {
 			if _, ok := r.(runtime.Error); ok {
@@ -673,7 +686,7 @@ func (d *Decoder) decodeNegVarint(by []byte, idx int) (int, int, error) {
 }
 
 // decodeExtend decodes the id following an EXTEND tag (protocol version 6)
-// and its payload. The only values are v-strings, returned as *PerlVString.
+// and its payload: v-strings (*PerlVString) or the diagnostic UNDEF_DEADLY.
 func (d *Decoder) decodeExtend(by []byte, idx int) (interface{}, int, error) {
 	if d.docVersion < 6 {
 		return nil, 0, ErrCorrupt{errExtendVersion}
@@ -687,8 +700,22 @@ func (d *Decoder) decodeExtend(by []byte, idx int) (interface{}, int, error) {
 	idx++
 
 	switch id {
-	case extDEADLY:
-		return nil, 0, ErrDeadlyTag
+	case extUNDEF_DEADLY:
+		if d.UndefDeadlyPolicy == "die" {
+			return nil, 0, ErrUndefDeadlyTag
+		}
+		if d.UndefDeadlyPolicy == "warn" {
+			const message = "encountered UNDEF_DEADLY extended tag"
+			if d.UndefDeadlyWarningHandler != nil {
+				d.UndefDeadlyWarningHandler(message)
+			} else {
+				fmt.Fprintln(os.Stderr, "sereal:", message)
+			}
+		}
+		if d.PerlCompat {
+			return &PerlUndef{}, idx, nil
+		}
+		return nil, idx, nil
 	case extVSTRING_BINARY, extVSTRING_UTF8:
 		return d.decodeVString(by, idx, id == extVSTRING_UTF8)
 	}
@@ -1013,8 +1040,12 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		if val, idx, err = d.decodeExtend(by, idx); err != nil {
 			return 0, err
 		}
-		if err = setVString(ptr, val.(*PerlVString)); err != nil {
-			return 0, err
+		if vstring, ok := val.(*PerlVString); ok {
+			if err = setVString(ptr, vstring); err != nil {
+				return 0, err
+			}
+		} else {
+			d.setUndef(ptr, false)
 		}
 
 	case tag == typeFLOAT:
@@ -1107,17 +1138,7 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		idx, err = d.decodeArrayViaReflection(by, idx, int(tag&0x0f), ptr)
 
 	case tag == typeUNDEF, tag == typeCANONICAL_UNDEF:
-		if d.PerlCompat && tag == typeCANONICAL_UNDEF {
-			ptr.Set(reflect.ValueOf(perlCanonicalUndef))
-		} else if d.PerlCompat {
-			ptr.Set(reflect.ValueOf(&PerlUndef{}))
-		} else {
-			if ptrKind == reflect.Ptr || ptrKind == reflect.Map || ptrKind == reflect.Slice {
-				ptr.Set(reflect.Zero(ptr.Type()))
-			} else {
-				// maybe panic
-			}
-		}
+		d.setUndef(ptr, tag == typeCANONICAL_UNDEF)
 
 	case tag == typeCOPY:
 		if d.copyDepth > 0 {
@@ -1534,6 +1555,19 @@ func (d *Decoder) decodeObjectFreezeViaReflection(by []byte, idx int, ptr reflec
 	}
 
 	return idx, err
+}
+
+func (d *Decoder) setUndef(ptr reflect.Value, canonical bool) {
+	if d.PerlCompat && canonical {
+		ptr.Set(reflect.ValueOf(perlCanonicalUndef))
+	} else if d.PerlCompat {
+		ptr.Set(reflect.ValueOf(&PerlUndef{}))
+	} else {
+		switch ptr.Kind() {
+		case reflect.Ptr, reflect.Map, reflect.Slice:
+			ptr.Set(reflect.Zero(ptr.Type()))
+		}
+	}
 }
 
 func setInt(ptr reflect.Value, i int) {

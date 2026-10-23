@@ -35,7 +35,7 @@ var (
 	// protocol version 6 body tags
 	ErrVStringVersion = errors.New("sereal: v-strings require protocol version 6 or later")
 	ErrBadVString     = errors.New("sereal: invalid v-string spelling")
-	ErrDeadlyTag      = errors.New("sereal: encountered DEADLY extended tag")
+	ErrUndefDeadlyTag = errors.New("sereal: encountered UNDEF_DEADLY extended tag")
 )
 
 // ErrCorrupt is returned if the sereal document was corrupt

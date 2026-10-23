@@ -23,7 +23,8 @@ public interface SerealHeader {
   int SRL_ENCODING_BASE_MASK = 0x07;
 
   // ids following SRL_HDR_EXTEND (protocol version 6+)
-  byte SRL_EXT_DEADLY = 0;
+  // Diagnostic undef sentinel. Compliant encoders must never emit it.
+  int SRL_EXT_UNDEF_DEADLY = 0xff;
   byte SRL_EXT_VSTRING_BINARY = 0x26;
   byte SRL_EXT_VSTRING_UTF8 = 0x27;
 

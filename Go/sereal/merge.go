@@ -644,8 +644,9 @@ func extendSize(b []byte) (int, error) {
 	}
 
 	switch b[1] {
-	case extDEADLY:
-		return 2, nil
+	case extUNDEF_DEADLY:
+		// A merger must not copy this diagnostic tag into encoded output.
+		return 0, ErrUndefDeadlyTag
 	case extVSTRING_BINARY, extVSTRING_UTF8:
 		ln, sz, err := varintdecode(b[2:])
 		if err != nil {

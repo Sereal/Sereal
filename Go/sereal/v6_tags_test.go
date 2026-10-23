@@ -167,15 +167,66 @@ func TestDecodeVString(t *testing.T) {
 	}
 }
 
-func TestDecodeDeadly(t *testing.T) {
-	var got interface{}
-	if err := Unmarshal(mustHex(t, "3df3726c06003e00"), &got); err != ErrDeadlyTag {
-		t.Errorf("error = %v, want ErrDeadlyTag", err)
+func TestDecodeUndefDeadly(t *testing.T) {
+	for _, policy := range []string{"", "undef", "warn", "die"} {
+		for _, perlCompat := range []bool{false, true} {
+			var warnings []string
+			d := &Decoder{PerlCompat: perlCompat, UndefDeadlyPolicy: policy,
+				UndefDeadlyWarningHandler: func(msg string) { warnings = append(warnings, msg) }}
+			var got interface{}
+			err := d.Unmarshal(mustHex(t, "3df3726c0600423eff3eff"), &got)
+			if policy == "die" {
+				if err != ErrUndefDeadlyTag {
+					t.Fatalf("die: %v", err)
+				}
+				continue
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := []interface{}{nil, nil}
+			if perlCompat {
+				want = []interface{}{&PerlUndef{}, &PerlUndef{}}
+			}
+			if perlCompat {
+				got = *(got.(*[]interface{}))
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("%q compat=%v: got %#v, want %#v", policy, perlCompat, got, want)
+			}
+			count := 0
+			if policy == "warn" {
+				count = 2
+			}
+			if len(warnings) != count {
+				t.Errorf("%q: warnings = %v", policy, warnings)
+			}
+		}
 	}
-
-	var s string
-	if err := Unmarshal(mustHex(t, "3df3726c06003e00"), &s); err != ErrDeadlyTag {
-		t.Errorf("error = %v, want ErrDeadlyTag", err)
+	// Reflection must treat this exactly like an ordinary UNDEF, too.
+	for _, target := range []interface{}{new(string), new(map[string]int), new([]int), new(*int)} {
+		if err := Unmarshal(mustHex(t, "3df3726c06003eff"), target); err != nil {
+			t.Errorf("%T: %v", target, err)
+		}
+		if err := (&Decoder{UndefDeadlyPolicy: "die"}).Unmarshal(mustHex(t, "3df3726c06003eff"), target); err != ErrUndefDeadlyTag {
+			t.Errorf("%T die: %v", target, err)
+		}
+	}
+	var got interface{}
+	for _, bad := range []string{"ignore", "UNDEF", "0"} {
+		if err := (&Decoder{UndefDeadlyPolicy: bad}).Unmarshal(mustHex(t, "3df3726c060007"), &got); err == nil {
+			t.Errorf("accepted policy %q", bad)
+		}
+	}
+	// These bytes inside a string are data, not a tag.
+	if err := (&Decoder{UndefDeadlyPolicy: "die"}).Unmarshal(mustHex(t, "3df3726c0600623eff"), &got); err != nil {
+		t.Fatal(err)
+	}
+	if err := Unmarshal(mustHex(t, "3df3726c06003e00"), &got); err != (ErrCorrupt{errUnknownExtend}) {
+		t.Errorf("unassigned extension 0: %v", err)
+	}
+	if err := Unmarshal(mustHex(t, "3df3726c05003eff"), &got); err != (ErrCorrupt{errExtendVersion}) {
+		t.Errorf("v5: %v", err)
 	}
 }
 

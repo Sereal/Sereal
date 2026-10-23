@@ -118,7 +118,7 @@ t/910_regr_copy_key_varint_error.t
 t/911_regr_zero_offset.t
 t/912_regr_copy_boundary.t
 t/913_regr_v1_header_offsets.t
-t/914_deadly.t
+t/914_undef_deadly.t
 t/915_checksum_boundaries.t
 t/916_header_suffix_boundary.t
 t/917_vstring_boundary.t

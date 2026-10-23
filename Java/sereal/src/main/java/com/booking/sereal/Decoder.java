@@ -52,6 +52,8 @@ public class Decoder implements SerealHeader {
   private final byte[][] checksumKeys;
   private final SerealChecksum.Policy checksumPolicy;
   private final Consumer<String> checksumWarningHandler;
+  private final String undefDeadlyPolicy;
+  private final Consumer<String> undefDeadlyWarningHandler;
 
   private byte[] data;
   private int position, end;
@@ -105,6 +107,8 @@ public class Decoder implements SerealHeader {
     checksumKeys = options.checksumKeys();
     checksumPolicy = options.checksumPolicy();
     checksumWarningHandler = options.checksumWarningHandler();
+    undefDeadlyPolicy = options.undefDeadlyPolicy();
+    undefDeadlyWarningHandler = options.undefDeadlyWarningHandler();
     checkChecksumOptions(checksumKeys, checksumPolicy);
   }
 
@@ -799,8 +803,14 @@ public class Decoder implements SerealHeader {
     checkNoEOD();
     int id = data[position++] & 0xff;
     switch (id) {
-      case SRL_EXT_DEADLY:
-        throw new SerealException("Encountered DEADLY extended tag");
+      case SRL_EXT_UNDEF_DEADLY:
+        if ("die".equals(undefDeadlyPolicy)) {
+          throw new SerealException("Encountered UNDEF_DEADLY extended tag");
+        }
+        if ("warn".equals(undefDeadlyPolicy)) {
+          undefDeadlyWarningHandler.accept("Encountered UNDEF_DEADLY extended tag");
+        }
+        return preserveUndef ? new PerlUndef() : null;
       case SRL_EXT_VSTRING_BINARY:
         return readVString(false);
       case SRL_EXT_VSTRING_UTF8:

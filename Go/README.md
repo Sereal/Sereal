@@ -40,6 +40,13 @@ which encodes negative integers below -16 as `NEG_VARINT` and perl v-strings
 (`sereal.PerlVString`) as `EXTEND VSTRING`. A zero-value `Encoder{}` still
 writes version 3.
 
+`UNDEF_DEADLY` is the diagnostic extension `EXTEND 255` (bytes `3e ff`).
+`Decoder.UndefDeadlyPolicy` accepts `"undef"` (default, also `""`), `"warn"`
+(decode as undef and warn per encounter), or `"die"` (`ErrUndefDeadlyTag`).
+`UndefDeadlyWarningHandler` receives these warnings; nil prints to stderr.
+No compliant encoder may emit this tag; the merger rejects it. Extension
+ID 0 remains unassigned. The byte sequence inside string data is ordinary data.
+
 Version 6 documents can carry a keyed SipHash checksum envelope. An encoder
 signs with exactly one of `ChecksumV0Key` (SipHash-2-4, 64-bit),
 `ChecksumV1Key` (SipHash-2-4-128) or `ChecksumV2Key` (SipHash-3-6-128); a

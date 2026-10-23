@@ -85,7 +85,7 @@ const (
 
 // ids following the EXTEND tag (protocol version 6)
 const (
-	extDEADLY         = 0x00 // decoding must fail
+	extUNDEF_DEADLY   = 0xff // diagnostic undef; compliant encoders must not emit this tag
 	extVSTRING_BINARY = 0x26 // v-string, no component above 127
 	extVSTRING_UTF8   = 0x27 // v-string with a component above 127
 )

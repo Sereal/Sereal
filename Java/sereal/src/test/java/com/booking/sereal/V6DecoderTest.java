@@ -291,8 +291,20 @@ public class V6DecoderTest {
   }
 
   @Test
-  public void deadly() {
-    assertFails("Encountered DEADLY extended tag", () -> decode(keyed(), V6Vectors.DEADLY));
+  public void undefDeadly() throws SerealException {
+    assertEquals(null, decode(keyed(), V6Vectors.UNDEF_DEADLY));
+    assertEquals(null, decode(keyed().undefDeadlyPolicy("undef"), V6Vectors.UNDEF_DEADLY));
+    assertTrue(decode(keyed().preserveUndef(true), V6Vectors.UNDEF_DEADLY) instanceof PerlUndef);
+    assertEquals(null, decode(keyed().undefDeadlyPolicy("warn")
+        .undefDeadlyWarningHandler(warnings::add), V6Vectors.UNDEF_DEADLY));
+    assertEquals(1, warnings.size());
+    assertTrue(warnings.get(0).contains("UNDEF_DEADLY"));
+    assertFails("Encountered UNDEF_DEADLY extended tag",
+        () -> decode(keyed().undefDeadlyPolicy("die"), V6Vectors.UNDEF_DEADLY));
+    assertFails("Unknown extended tag ID 0", () -> decode(keyed(), "3df3726c06003e00"));
+    assertThrows(IllegalArgumentException.class, () -> keyed().undefDeadlyPolicy("ignore"));
+    assertThrows(IllegalArgumentException.class, () -> keyed().undefDeadlyPolicy(null));
+    assertThrows(IllegalArgumentException.class, () -> keyed().undefDeadlyWarningHandler(null));
     assertFails("Unknown extended tag ID 5", () -> decode(keyed(), V6Vectors.EXTEND_UNKNOWN_5));
     assertFails("EXTEND tag requires protocol version 6 or later", () -> decode(keyed(), V6Vectors.EXTEND_V5));
     assertFails("Unexpected end of data", () -> decode(keyed(), "3df3726c06003e"));

@@ -294,8 +294,16 @@ public class V6TokenDecoderTest {
   }
 
   @Test
-  public void deadly() {
-    assertFails("Encountered DEADLY extended tag", () -> body(keyed(), V6Vectors.DEADLY));
+  public void undefDeadly() throws SerealException {
+    assertEquals("UNDEF", single(keyed(), V6Vectors.UNDEF_DEADLY));
+    assertEquals("UNDEF", single(keyed().undefDeadlyPolicy("undef"), V6Vectors.UNDEF_DEADLY));
+    assertEquals("UNDEF", single(keyed().undefDeadlyPolicy("warn")
+        .undefDeadlyWarningHandler(warnings::add), V6Vectors.UNDEF_DEADLY));
+    assertEquals(1, warnings.size());
+    assertTrue(warnings.get(0).contains("UNDEF_DEADLY"));
+    assertFails("Encountered UNDEF_DEADLY extended tag",
+        () -> body(keyed().undefDeadlyPolicy("die"), V6Vectors.UNDEF_DEADLY));
+    assertFails("Unknown extended tag ID 0", () -> body(keyed(), "3df3726c06003e00"));
     assertFails("Unknown extended tag ID 5", () -> body(keyed(), V6Vectors.EXTEND_UNKNOWN_5));
     assertFails("EXTEND tag requires protocol version 6 or later", () -> body(keyed(), V6Vectors.EXTEND_V5));
   }

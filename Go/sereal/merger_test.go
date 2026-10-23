@@ -58,3 +58,11 @@ func TestMergerSizesV6Tags(t *testing.T) {
 		t.Errorf("merged document %x lacks the v-string followed by NEG_VARINT", b)
 	}
 }
+
+func TestMergerRefusesUndefDeadly(t *testing.T) {
+	for _, doc := range []string{"3df3726c06003eff", "3df3726c0600413eff"} {
+		if _, err := NewMergerV3().Append(mustHex(t, doc)); err != ErrUndefDeadlyTag {
+			t.Errorf("Append(%s) = %v; want ErrUndefDeadlyTag", doc, err)
+		}
+	}
+}

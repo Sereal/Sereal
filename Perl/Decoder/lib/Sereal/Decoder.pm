@@ -426,6 +426,36 @@ repeating configuration work; it does not avoid per-packet authentication work.
 If set, the decoder will refuse Snappy-compressed input data. This can be
 desirable for robustness. See the section C<ROBUSTNESS> below.
 
+=head3 undef_deadly_policy
+
+Controls decoding of the protocol v6 C<UNDEF_DEADLY> extended tag
+(C<EXTEND 0xff>, bytes C<3e ff>). Accepted values are:
+
+=over 4
+
+=item * C<undef> (default)
+
+Decode it silently as ordinary undef.
+
+=item * C<warn>
+
+Warn each time the tag is encountered, then decode it as ordinary undef.
+
+=item * C<die>
+
+Throw an exception when the tag is encountered.
+
+=back
+
+An omitted or undefined option selects C<undef>. Other values are rejected
+at construction. C<use_undef> and reference tracking apply as for ordinary
+undef. Bytes inside string payloads or beyond the decoded document are not
+parsed as tags and do not trigger this policy.
+
+No compliant encoder may emit this code sequence as a value tag.
+C<Sereal::Encoder> never emits it; ordinary undef values use the normal
+undef tags. It is a diagnostic sentinel and is not a document terminator.
+
 =head3 refuse_objects
 
 If set, the decoder will refuse deserializing any objects in the input stream and
