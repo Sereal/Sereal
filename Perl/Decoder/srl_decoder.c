@@ -121,6 +121,7 @@ SRL_STATIC_INLINE void srl_read_single_value_ex(pTHX_ srl_decoder_t *dec, SV* in
 SRL_STATIC_INLINE void srl_finalize_structure(pTHX_ srl_decoder_t *dec);             /* optional finalize structure logic */
 SRL_STATIC_INLINE void srl_clear_decoder(pTHX_ srl_decoder_t *dec);                 /* clean up decoder after a dump */
 SRL_STATIC_INLINE void srl_clear_thaw_state(pTHX_ srl_decoder_t *dec);              /* discard pending frozen-object state */
+SRL_STATIC_INLINE void srl_assert_input_unchanged(pTHX_ srl_decoder_t *dec);        /* croak if a callback modified the input */
 
 /* the internal routines to handle each kind of object we have to deserialize */
 SRL_STATIC_INLINE void srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into);
@@ -635,6 +636,9 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
     srl_reset_output_sv(aTHX_ body_into);
     dec = srl_begin_decoding(aTHX_ origdec, src, start_offset, 0);
     srl_read_header(aTHX_ dec, header_into);
+    /* Header user data may have run callbacks (THAW, thaw_allow_classes,
+     * DESTROY) that modified the input; the body is read from it next. */
+    srl_assert_input_unchanged(aTHX_ dec);
     if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY) )) {
         dec->bytes_consumed = srl_decompress_body_snappy(aTHX_ dec->pbuf, dec->encoding_flags, NULL, dec->max_uncompressed_size);
         origdec->bytes_consumed = dec->bytes_consumed;
@@ -1202,7 +1206,6 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
                 srl_clear_decoder_body_state(aTHX_ dec); /* clean up for the main body decode */
                 dec->buf.end = packet_end;
                 dec->buf.pos = header_end;
-                srl_assert_input_unchanged(aTHX_ dec);
             }
             else {
                 /* Either off in bitfield or no user data wanted, skip to end of header */

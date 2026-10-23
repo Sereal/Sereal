@@ -85,6 +85,21 @@ for my $mode (qw(read unrelated)) {
     check_dies( $dec, "thaw_allow_classes callback clears input" );
 }
 
+# decode_only_header reads nothing after the header, so a harmless append
+# to the input by THAW must not make it die; decode_with_header on the same
+# packet still has a body to read and must.
+{
+    local $MODE = 'append';
+    $PKT = $packet;
+    my $h = eval { Sereal::Decoder->new->decode_only_header($PKT) };
+    is( $@, '', "decode_only_header: THAW append to input does not die" );
+    is( ref($h), 'ARRAY', "decode_only_header: header is an array" );
+    is( ref( $h && $h->[0] ), 'Mutator', "decode_only_header: header object thawed" );
+
+    $PKT = $packet;
+    check_dies( Sereal::Decoder->new, "decode_with_header after header-only case" );
+}
+
 # the decoder object stays usable after a rejected decode
 {
     local $MODE = 'assign';
