@@ -36,7 +36,7 @@ sub decode_in_child {
 use Sereal::Decoder;
 my $packet = pack("H*", "%s");
 eval { Sereal::Decoder->new({%s})->decode($packet) };
-print $@ =~ /Insufficient memory/ ? "caught\n" : "unexpected: $@\n";
+print $@ =~ /Insufficient memory|too large for this platform/ ? "caught\n" : "unexpected: $@\n";
 CODE
     my $out = '';
     my $pid = open(my $fh, '-|') // die "fork failed: $!";
@@ -56,7 +56,10 @@ foreach my $case (
     my ($name, $packet) = @$case;
     my ($status, $out) = decode_in_child($packet);
     is($status, 0, "$name: decoder process survives");
-    is($out, "caught\n", "$name: dies with a catchable exception");
+    # Match a line rather than the whole output: allocator diagnostics such
+    # as a sanitizer's "failed to allocate" warning may precede it.
+    like($out, qr/^caught$/m, "$name: dies with a catchable exception");
+    unlike($out, qr/^unexpected/m, "$name: no unexpected error");
 }
 
 foreach my $case (
