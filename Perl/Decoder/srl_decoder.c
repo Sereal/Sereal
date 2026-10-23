@@ -590,6 +590,25 @@ srl_decoder_destructor_hook(pTHX_ void *p)
     }
 }
 
+/* Caller-supplied output scalars may already hold a value: a string
+ * (possibly copy-on-write), a reference, an object. The value readers
+ * expect a fresh scalar and write into it directly, so reset it the way
+ * an assignment would. That releases a previous referent (running its
+ * DESTROY), drops old string buffers and flags, and refuses read-only
+ * destinations such as a literal undef argument. Fresh mortals are
+ * untouched. Must run after srl_begin_decoding() has copied an input
+ * that aliases one of the outputs. */
+SRL_STATIC_INLINE void
+srl_reset_output_sv(pTHX_ SV *into)
+{
+    if (!into)
+        return;
+    if (SvREADONLY(into))
+        croak("%s", PL_no_modify);
+    if (SvTYPE(into) != SVt_NULL || SvOK(into))
+        sv_setsv(into, &PL_sv_undef);
+}
+
 /* Logic shared by the various decoder entry points. */
 SRL_STATIC_INLINE void
 srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into, SV *body_into, UV start_offset)
@@ -602,6 +621,8 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
     if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL)
         && (src == body_into || src == header_into))
         SRL_RDR_ERROR(dec->pbuf, "Incremental decode input and output must be different scalars");
+    srl_reset_output_sv(aTHX_ header_into);
+    srl_reset_output_sv(aTHX_ body_into);
     srl_read_header(aTHX_ dec, header_into);
     if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY) )) {
         dec->bytes_consumed = srl_decompress_body_snappy(aTHX_ dec->pbuf, dec->encoding_flags, NULL, dec->max_uncompressed_size);
@@ -657,6 +678,8 @@ srl_decode_header_into(pTHX_ srl_decoder_t *origdec, SV *src, SV* header_into, U
     dec = srl_begin_decoding(aTHX_ origdec, src, start_offset, src == header_into);
     if (header_into == NULL)
         header_into = sv_newmortal();
+    else
+        srl_reset_output_sv(aTHX_ header_into);
     srl_read_header(aTHX_ dec, header_into);
     return header_into;
 }
@@ -788,6 +811,12 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset, int copy_
         src = sv_2mortal(newSVsv(src));
     if (SvUTF8(src))
         sv_utf8_downgrade(src, 0);
+
+    /* Hold a reference to the input for the duration of the decode:
+     * resetting an output scalar or application code running inside a
+     * callback must not be able to free the scalar we are reading. */
+    SvREFCNT_inc_simple_void_NN(src);
+    SAVEFREESV(src);
 
     tmp = (unsigned char*)SvPV(src, len);
     if (expect_false( start_offset > len )) {

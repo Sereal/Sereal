@@ -138,6 +138,7 @@ t/931_checksum_inspection.t
 t/932_input_alias_incremental.t
 t/933_copy_alias_keys.t
 t/935_regr_bare_aggregate_tags.t
+t/936_regr_output_scalar_reuse.t
 t/data/corpus
 t/lib/Sereal/BulkTest.pm
 t/lib/Sereal/TestSet.pm

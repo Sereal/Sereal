@@ -6,6 +6,10 @@ Revision history for Perl extension Sereal-Decoder
 *          encoder!                                            *
 ****************************************************************
 6.000_001
+    * Reset caller-supplied output scalars before decoding into them.
+      Reusing a scalar that held a string could crash perl, one that held
+      a reference leaked the old referent, and a literal undef argument
+      was written through. Read-only destinations are now refused.
     * Reject ARRAY and HASH tags that are not the referent of a REFN.
       They used to turn the destination scalar into an array or hash
       body in place, which is not a valid Perl value.
