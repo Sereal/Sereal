@@ -40,9 +40,16 @@ struct srl_decoder {
     IV alias_varint_under;
 
     UV bytes_consumed;
+    UV min_backref_offset;             /* First byte of the active body */
     UV recursion_depth;                 /* Recursion depth of current decoder */
     U8 proto_version;
     U8 encoding_flags;
+    U8 checksum_key_mask;
+    U8 checksum_policy;
+    U8 packet_has_checksum;
+    U8 checksum_keys[2][16];
+    UV checksummed_packet_length;
+    const U8 *checksummed_payload;
     U32 flags_readonly;
 };
 
@@ -53,6 +60,8 @@ typedef struct {
 
 /* utility routine */
 IV srl_validate_header_version_pv_len(pTHX_ char *strdata, STRLEN len);
+SV *srl_get_sereal_checksum(pTHX_ SV *src, UV offset);
+int srl_validate_sereal_checksum(pTHX_ SV *src, SV *key, UV offset);
 
 /* constructor; don't need destructor, this sets up a callback */
 srl_decoder_t *srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options);
@@ -234,10 +243,17 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_DEC_OPT_STR_THAW_DENY_ACTION           "thaw_deny_action"
 #define SRL_DEC_OPT_IDX_THAW_DENY_ACTION           19
 
+#define SRL_DEC_OPT_STR_CHECKSUM_V0_KEY            "checksum_v0_key"
+#define SRL_DEC_OPT_IDX_CHECKSUM_V0_KEY            20
+#define SRL_DEC_OPT_STR_CHECKSUM_V1_KEY            "checksum_v1_key"
+#define SRL_DEC_OPT_IDX_CHECKSUM_V1_KEY            21
+#define SRL_DEC_OPT_STR_CHECKSUM_POLICY             "checksum_policy"
+#define SRL_DEC_OPT_IDX_CHECKSUM_POLICY             22
+
 /* NOTE WELL: WHEN YOU ADD AN OPTION YOU **MUST** ADD A
  * CORRESPONDING CALL TO SRL_INIT_OPTION() to Decoder.xs */
 
-#define SRL_DEC_OPT_COUNT                           20
+#define SRL_DEC_OPT_COUNT                           23
 
 #if ((PERL_VERSION > 10) || (PERL_VERSION == 10 && PERL_SUBVERSION > 1 ))
 #   define MODERN_REGEXP

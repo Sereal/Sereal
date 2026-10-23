@@ -4,6 +4,7 @@ author_tools/different_sereal_docs.sh
 author_tools/freeze_thaw_timing.pl
 author_tools/hobodecoder.pl
 author_tools/numeric_str_length.c
+author_tools/siphash_vectors.c
 author_tools/stringify_test.c
 author_tools/update_encoder_flag_consts.pl
 author_tools/update_from_header.pl
@@ -22,6 +23,7 @@ miniz.h
 ppport.h
 ptable.h
 qsort.h
+SECURITY.md
 snappy/csnappy.h
 snappy/csnappy_compat.h
 snappy/csnappy_compress.c
@@ -30,6 +32,7 @@ snappy/csnappy_internal.h
 snappy/csnappy_internal_userspace.h
 srl_buffer.h
 srl_buffer_types.h
+srl_checksum_policy.h
 srl_common.h
 srl_compress.h
 srl_encoder.c
@@ -42,6 +45,7 @@ srl_reader_error.h
 srl_reader_misc.h
 srl_reader_types.h
 srl_reader_varint.h
+srl_siphash.h
 srl_stack.h
 srl_taginfo.h
 t/001_load.t
@@ -58,6 +62,8 @@ t/021_sort_keys_option.t
 t/022_canonical_refs.t
 t/030_canonical_vs_test_deep.t
 t/040_tied_hash.t
+t/095_checksum_policy.t
+t/096_build_tools.t
 t/110_nobless.t
 t/120_hdr_data.t
 t/130_freezethaw.t
@@ -74,6 +80,7 @@ t/700_roundtrip/v2/plain.t
 t/700_roundtrip/v3/plain.t
 t/700_roundtrip/v4/plain.t
 t/700_roundtrip/v5/plain.t
+t/700_roundtrip/v6/checksum.t
 t/700_roundtrip/v6/dedudep_strings.t
 t/700_roundtrip/v6/freeze_thaw.t
 t/700_roundtrip/v6/plain.t

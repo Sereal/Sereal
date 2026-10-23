@@ -10,10 +10,11 @@
 
 #include "srl_encoder.h"
 #include "srl_buffer.h"
+#include "srl_common.h"
+#include "srl_protocol.h"
+#include "srl_siphash.h"
 
 /* Generated code for exposing C constants to Perl */
-#include "srl_protocol.h"
-
 #include "ptable.h"
 
 #ifndef GvCV_set
@@ -132,7 +133,7 @@ THX_ck_entersub_args_sereal_encode_with_object(pTHX_ OP *entersubop, GV *namegv,
 
   /* attach the spliced-out args as children of the custom op, while
    * deleting the stub op created by newUNOP() */
-  op_sibling_splice(newop, NULL, 1, firstargop);
+  op_free(op_sibling_splice(newop, NULL, 1, firstargop));
 
 #endif
 
@@ -164,6 +165,75 @@ START_MY_CXT
 MODULE = Sereal::Encoder        PACKAGE = Sereal::Encoder
 PROTOTYPES: DISABLE
 
+SV *
+prepare_checksum_key(key = NULL, opt_key = NULL)
+    SV *key;
+    SV *opt_key;
+  PREINIT:
+    STRLEN key_len = 0;
+    STRLEN opt_key_len = 0;
+    const U8 *key_bytes = (const U8 *)"";
+    const U8 *opt_key_bytes = (const U8 *)"";
+    U8 digest[16];
+  CODE:
+    if (key && SvOK(key))
+        key_bytes = (const U8 *)SvPVbyte(key, key_len);
+    if (opt_key && SvOK(opt_key)) {
+        opt_key_bytes = (const U8 *)SvPVbyte(opt_key, opt_key_len);
+    }
+    srl_siphash_prepare_key(key_bytes, (size_t)key_len,
+                            opt_key_bytes, (size_t)opt_key_len, digest);
+    RETVAL = newSVpvn((const char *)digest, sizeof(digest));
+  OUTPUT: RETVAL
+
+SV *
+siphash24(data, key)
+    SV *data;
+    SV *key;
+  PREINIT:
+    STRLEN data_len;
+    STRLEN key_len;
+    const U8 *data_bytes;
+    const U8 *key_bytes;
+    srl_siphash_ctx sip;
+    srl_u64 digest;
+    U8 digest_bytes[8];
+    unsigned int i;
+  CODE:
+    data_bytes = (const U8 *)SvPVbyte(data, data_len);
+    key_bytes = (const U8 *)SvPVbyte(key, key_len);
+    if (key_len != 16)
+      croak("siphash24 key must be exactly 16 bytes");
+    srl_siphash_init_rounds(&sip, key_bytes, 2, 4, 0);
+    srl_siphash_update(&sip, data_bytes, (size_t)data_len);
+    digest = srl_siphash_final64(&sip);
+    for (i = 0; i < 8; i++)
+      digest_bytes[i] = (U8)(digest >> (8 * i));
+    RETVAL = newSVpvn((const char *)digest_bytes, sizeof(digest_bytes));
+  OUTPUT: RETVAL
+
+SV *
+siphash36(data, key)
+    SV *data;
+    SV *key;
+  PREINIT:
+    STRLEN data_len;
+    STRLEN key_len;
+    const U8 *data_bytes;
+    const U8 *key_bytes;
+    srl_siphash_ctx sip;
+    U8 digest[16];
+  CODE:
+    data_bytes = (const U8 *)SvPVbyte(data, data_len);
+    key_bytes = (const U8 *)SvPVbyte(key, key_len);
+    if (key_len != 16)
+      croak("siphash36 key must be exactly 16 bytes");
+    srl_siphash_init_rounds(&sip, key_bytes, 3, 6, 1);
+    srl_siphash_update(&sip, data_bytes, (size_t)data_len);
+    srl_siphash_final128(&sip, digest);
+    RETVAL = newSVpvn((const char *)digest, sizeof(digest));
+  OUTPUT: RETVAL
+
 BOOT:
 {
   {
@@ -192,6 +262,9 @@ BOOT:
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_USE_STANDARD_DOUBLE,      SRL_ENC_OPT_STR_USE_STANDARD_DOUBLE    );
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_FREEZE_ALLOW_CLASSES,     SRL_ENC_OPT_STR_FREEZE_ALLOW_CLASSES   );
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_FREEZE_DENY_ACTION,       SRL_ENC_OPT_STR_FREEZE_DENY_ACTION     );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_V0_KEY,          SRL_ENC_OPT_STR_CHECKSUM_V0_KEY        );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_V1_KEY,          SRL_ENC_OPT_STR_CHECKSUM_V1_KEY        );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_POLICY,          SRL_ENC_OPT_STR_CHECKSUM_POLICY        );
   }
 #if USE_CUSTOM_OPS
   {

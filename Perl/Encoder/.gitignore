@@ -22,8 +22,10 @@ ptable.h
 Sereal-Encoder-*.tar.gz
 snappy
 srl_common.h
+srl_checksum_policy.h
 srl_inline.h
 srl_protocol.h
+srl_siphash.h
 srl_taginfo.h
 srl_reader.h
 srl_reader_decompress.h
@@ -37,6 +39,8 @@ srl_stack.h
 t/002_have_enc_and_dec.t
 t/004_testset.t
 t/005_flags.t
+t/095_checksum_policy.t
+t/096_build_tools.t
 t/700_roundtrip
 t/data
 t/lib

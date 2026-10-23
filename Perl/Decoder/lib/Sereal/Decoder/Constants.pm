@@ -14,6 +14,11 @@ our %EXPORT_TAGS = ( all => \@EXPORT_OK );
 
 BEGIN {
     %DEFINE = (
+        "SRL_CHECKSUM_TAG_LENGTH_128"              => 16,
+        "SRL_CHECKSUM_TAG_LENGTH_64"               => 8,
+        "SRL_CHECKSUM_VERSION_SIPHASH_2_4_64"      => 0,
+        "SRL_CHECKSUM_VERSION_SIPHASH_3_6_128"     => 1,
+        "SRL_EXT_DEADLY"                           => 0,
         "SRL_EXT_VSTRING_BINARY"                   => 38,
         "SRL_EXT_VSTRING_UTF8"                     => 39,
         "SRL_HDR_ALIAS"                            => 46,
@@ -81,6 +86,8 @@ BEGIN {
         "SRL_MASK_SHORT_BINARY_LEN"                => 31,
         "SRL_NEG_MIN_SIZE"                         => 16,
         "SRL_POS_MAX_SIZE"                         => 15,
+        "SRL_PROTOCOL_ENCODING_BASE_MASK"          => 112,
+        "SRL_PROTOCOL_ENCODING_CHECKSUM"           => 128,
         "SRL_PROTOCOL_ENCODING_MASK"               => 240,
         "SRL_PROTOCOL_ENCODING_RAW"                => 0,
         "SRL_PROTOCOL_ENCODING_SNAPPY"             => 16,

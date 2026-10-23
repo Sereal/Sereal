@@ -14,8 +14,7 @@ from the the Encoder and Decoder changelogs:
 *          Decoder independently.                              *
 ****************************************************************
 6.000_001
-    * Protocol v6 adds NEG_VARINT for negative integers below -16.
-    * Protocol v6 adds extended VSTRING tags to preserve Perl v-strings.
+    * New tags, better testing and robustness fixes.
 
 5.011
     * Robustness fixes. Thanks to Steffen Mueller and kumar-Prakash07.

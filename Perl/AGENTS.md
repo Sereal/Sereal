@@ -133,6 +133,12 @@ Guidelines:
 
 ## Testing guidance
 
+- Reuse the packet-building and inspection helpers in
+  `shared/t/lib/Sereal/TestSet.pm` (for example `varint`, `Header`,
+  `short_string`, and `read_varint_at`) rather than defining equivalent
+  helpers in individual test files. Check the shared helpers before adding
+  a test-local utility; add generally useful missing helpers to the shared
+  module instead.
 - For core encoder/decoder behavior changes, test both directions when relevant:
   - new encoder output can be decoded correctly
   - current decoder still handles older serialized data

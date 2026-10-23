@@ -36,6 +36,10 @@ typedef struct {
     HV *string_deduper_hv;    /* track strings we have seen before, by content */
 
     void *snappy_workmem;     /* lazily allocated if and only if using Snappy */
+    U8 checksum_keys[2][16];
+    U8 checksum_key_mask;
+    U8 checksum_policy;
+    U8 siphash_version;
     IV compress_threshold;    /* do not compress things smaller than this even if compression enabled */
     IV compress_level;        /* For ZLIB and ZSTD, the compression level */
 
@@ -262,6 +266,14 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
 #define SRL_ENC_OPT_STR_FREEZE_DENY_ACTION "freeze_deny_action"
 #define SRL_ENC_OPT_IDX_FREEZE_DENY_ACTION 23
 
-#define SRL_ENC_OPT_COUNT 24
+#define SRL_ENC_OPT_STR_CHECKSUM_V0_KEY "checksum_v0_key"
+#define SRL_ENC_OPT_IDX_CHECKSUM_V0_KEY 24
+#define SRL_ENC_OPT_STR_CHECKSUM_V1_KEY "checksum_v1_key"
+#define SRL_ENC_OPT_IDX_CHECKSUM_V1_KEY 25
+
+#define SRL_ENC_OPT_STR_CHECKSUM_POLICY "checksum_policy"
+#define SRL_ENC_OPT_IDX_CHECKSUM_POLICY 26
+
+#define SRL_ENC_OPT_COUNT 27
 
 #endif

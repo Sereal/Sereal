@@ -13,6 +13,7 @@ extern "C" {
 #endif
 
 #include <stdlib.h>
+#include <string.h>
 
 #ifndef PERL_VERSION
 #    include <patchlevel.h>
@@ -53,6 +54,112 @@ extern "C" {
 #include "srl_buffer.h"
 #include "srl_compress.h"
 #include "qsort.h"
+#include "srl_siphash.h"
+#include "srl_checksum_policy.h"
+
+SRL_STATIC_INLINE void
+srl_encode_u64_le(srl_u64 value, U8 out[8])
+{
+    U8 i;
+    for (i = 0; i < 8; i++)
+        out[i] = (U8)(value >> (8 * i));
+}
+
+SRL_STATIC_INLINE size_t
+srl_encode_varint_uv(UV value, U8 *out)
+{
+    size_t len = 0;
+    while (value >= 0x80) {
+        out[len++] = (U8)((value & 0x7f) | 0x80);
+        value >>= 7;
+    }
+    out[len++] = (U8)value;
+    return len;
+}
+
+/* Add the version-6 integrity envelope around the existing raw/compressed
+ * payload. The MAC covers the packet header, checksum version, payload length,
+ * and payload; only the tag bytes themselves are excluded. */
+SRL_STATIC_INLINE void
+srl_protect_packet(pTHX_ srl_encoder_t *enc)
+{
+    U8 checksum_len_bytes[SRL_MAX_VARINT_LENGTH];
+    U8 payload_len_bytes[SRL_MAX_VARINT_LENGTH];
+    U8 tag_bytes[SRL_CHECKSUM_TAG_LENGTH_128];
+    size_t tag_len;
+    size_t checksum_len_varint_size;
+    size_t payload_len_varint_size;
+    size_t prefix_len;
+    size_t payload_len;
+    size_t extra_len;
+    const U8 *p;
+    U8 *envelope;
+    UV suffix_len = 0;
+    unsigned int shift = 0;
+    U8 byte;
+    U8 *tag;
+    U8 *payload_len_field;
+    U8 *payload;
+    srl_u64 digest;
+    srl_siphash_ctx sip;
+
+    p = (const U8 *)enc->buf.start + SRL_MAGIC_STRLEN + 1;
+    do {
+        if (p >= (const U8 *)enc->buf.pos)
+            croak("Internal error: missing Sereal header suffix length");
+        byte = *p++;
+        if (shift >= sizeof(UV) * 8 ||
+            (shift == sizeof(UV) * 8 - 1 && (byte & 0x7e)))
+            croak("Internal error: invalid Sereal header suffix length");
+        suffix_len |= ((UV)(byte & 0x7f)) << shift;
+        shift += 7;
+    } while (byte & 0x80);
+
+    if (suffix_len > (UV)((const U8 *)enc->buf.pos - p))
+        croak("Internal error: Sereal header suffix exceeds packet");
+    p += (size_t)suffix_len;
+    prefix_len = (size_t)(p - (const U8 *)enc->buf.start);
+    payload_len = (size_t)((const U8 *)enc->buf.pos - p);
+    if ((size_t)(UV)payload_len != payload_len)
+        croak("Sereal packet payload is too large for this platform's UV type");
+
+    tag_len = enc->siphash_version == SRL_CHECKSUM_VERSION_SIPHASH_3_6_128
+        ? SRL_CHECKSUM_TAG_LENGTH_128 : SRL_CHECKSUM_TAG_LENGTH_64;
+
+    checksum_len_varint_size = srl_encode_varint_uv((UV)tag_len, checksum_len_bytes);
+    payload_len_varint_size = srl_encode_varint_uv((UV)payload_len, payload_len_bytes);
+    extra_len = 1 + checksum_len_varint_size + tag_len + payload_len_varint_size;
+    BUF_SIZE_ASSERT(&enc->buf, extra_len);
+
+    /* BUF_SIZE_ASSERT may relocate the buffer. Recompute packet pointers. */
+    envelope = (U8 *)enc->buf.start + prefix_len;
+    p = envelope;
+    payload_len = (size_t)((const U8 *)enc->buf.pos - p);
+    memmove(envelope + extra_len, p, payload_len);
+    envelope[0] = enc->siphash_version;
+    Copy(checksum_len_bytes, envelope + 1, checksum_len_varint_size, U8);
+    tag = envelope + 1 + checksum_len_varint_size;
+    Zero(tag, tag_len, U8);
+    payload_len_field = tag + tag_len;
+    Copy(payload_len_bytes, payload_len_field, payload_len_varint_size, U8);
+    payload = payload_len_field + payload_len_varint_size;
+    enc->buf.pos += extra_len;
+
+    /* The high bit of the document-type nibble marks the protected form. */
+    enc->buf.start[SRL_MAGIC_STRLEN] |= SRL_PROTOCOL_ENCODING_CHECKSUM;
+
+    srl_siphash_init(&sip, enc->checksum_keys[enc->siphash_version], enc->siphash_version);
+    srl_siphash_update(&sip, (const U8 *)enc->buf.start, (size_t)(tag - (const U8 *)enc->buf.start));
+    srl_siphash_update(&sip, payload_len_field, payload_len_varint_size);
+    srl_siphash_update(&sip, payload, payload_len);
+    if (enc->siphash_version == SRL_CHECKSUM_VERSION_SIPHASH_3_6_128) {
+        srl_siphash_final128(&sip, tag_bytes);
+        Copy(tag_bytes, tag, SRL_CHECKSUM_TAG_LENGTH_128, U8);
+    } else {
+        digest = srl_siphash_final64(&sip);
+        srl_encode_u64_le(digest, tag);
+    }
+}
 
 /* The ENABLE_DANGEROUS_HACKS (passed through from ENV via Makefile.PL) enables
  * optimizations that may make the code so cozy with a particular version of the
@@ -463,8 +570,36 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     srl_encoder_t *enc;
     SV *val;
     HE *he;
+    U8 checksum_policy;
+    SV *checksum_keys[2];
+    int key_options_present = 0;
+    U8 version;
+
+    val = NULL;
+    if (opt != NULL)
+        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CHECKSUM_POLICY);
+    checksum_policy = srl_get_checksum_policy(aTHX_ val);
+    for (version = 0; version <= 1; version++) {
+        val = NULL;
+        he = NULL;
+        if (opt != NULL) {
+            const U32 idx = version == 0 ? SRL_ENC_OPT_IDX_CHECKSUM_V0_KEY
+                                        : SRL_ENC_OPT_IDX_CHECKSUM_V1_KEY;
+            my_hv_fetchs(he, val, opt, idx);
+        }
+        checksum_keys[version] = val;
+        if (he != NULL)
+            key_options_present = 1;
+    }
+    if (!key_options_present) {
+        SV *default_key = get_sv("Sereal::DefaultKey", 0);
+        checksum_keys[1] = default_key; /* default to SipHash-3-6-128 */
+    }
+    for (version = 0; version <= 1; version++)
+        srl_validate_checksum_key(aTHX_ checksum_keys[version], version, checksum_policy);
 
     enc = srl_empty_encoder_struct(aTHX);
+    enc->checksum_policy = checksum_policy;
     enc->flags = 0;
     enc->scratch_sv= newSViv(0);
 
@@ -716,6 +851,40 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
         SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
     }
 
+    {
+        U8 version;
+        for (version = 0; version <= 1; version++) {
+            const char *option_name = version == 0
+                ? "checksum_v0_key" : "checksum_v1_key";
+            val = checksum_keys[version];
+            if (val && SvOK(val)) {
+                STRLEN key_len;
+                char *key = SvPVbyte(val, key_len);
+                if (key_len != sizeof(enc->checksum_keys[version])) {
+                    if (key_len < sizeof(enc->checksum_keys[version]))
+                        warn("The '%s' key is shorter than 16 bytes; padding with nulls. Use Sereal::Encoder::prepare_checksum_key() to normalize it", option_name);
+                    else
+                        warn("The '%s' key is longer than 16 bytes; extra bytes are ignored and may contain unused entropy. Use Sereal::Encoder::prepare_checksum_key() to normalize it", option_name);
+                }
+                if (enc->protocol_version < 6) {
+                    srl_destroy_encoder(aTHX_ enc);
+                    croak("The '%s' option requires Sereal protocol version 6 or later", option_name);
+                }
+                Zero(enc->checksum_keys[version], sizeof(enc->checksum_keys[version]), U8);
+                Copy(key, enc->checksum_keys[version],
+                     key_len < sizeof(enc->checksum_keys[version])
+                        ? key_len : sizeof(enc->checksum_keys[version]), U8);
+                enc->checksum_key_mask |= (U8)(1U << version);
+            }
+        }
+        if (enc->checksum_key_mask == 3) {
+            srl_destroy_encoder(aTHX_ enc);
+            croak("Specify only one of 'checksum_v0_key' or 'checksum_v1_key' on the encoder");
+        }
+        if (enc->checksum_key_mask == 2)
+            enc->siphash_version = SRL_CHECKSUM_VERSION_SIPHASH_3_6_128;
+    }
+
     DEBUG_ASSERT_BUF_SANE(&enc->buf);
     return enc;
 }
@@ -744,6 +913,10 @@ srl_build_encoder_struct_alike(pTHX_ srl_encoder_t *proto)
         SvREFCNT_inc(enc->freeze_allow_cb);
     }
     enc->protocol_version = proto->protocol_version;
+    enc->checksum_key_mask = proto->checksum_key_mask;
+    enc->checksum_policy = proto->checksum_policy;
+    enc->siphash_version = proto->siphash_version;
+    Copy(proto->checksum_keys, enc->checksum_keys, sizeof(enc->checksum_keys), U8);
     enc->scratch_sv= newSViv(0);
     DEBUG_ASSERT_BUF_SANE(&enc->buf);
     return enc;
@@ -899,13 +1072,11 @@ srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
     } else {
         assert(HAS_LONG_FLOAT);
         BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(nv)); /* tag + payload */
-        srl_buf_cat_char_nocheck(&enc->buf,
 #ifdef HAS_QUADMATH
-                SRL_HDR_FLOAT_128
+        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_FLOAT_128);
 #else
-                SRL_HDR_LONG_DOUBLE
+        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_LONG_DOUBLE);
 #endif
-        );
         Copy((char *)&nv, enc->buf.pos, sizeof(nv), char);
 #if SRL_EXTENDED_PRECISION_LONG_DOUBLE
         /* x86 uses an 80 bit extended precision. on 64 bit machines
@@ -1193,6 +1364,8 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
     U32 compress_flags;
 
     enc = srl_prepare_encoder(aTHX_ enc);
+    if (enc->checksum_policy == SRL_CHECKSUM_POLICY_REQUIRE && !enc->checksum_key_mask)
+        croak("checksum_policy 'require' needs a 'checksum_v0_key' or 'checksum_v1_key' to encode");
     compress_flags= SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_FLAGS_MASK);
 
     if (expect_false(compress_flags))
@@ -1236,6 +1409,9 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
     }
+
+    if (enc->checksum_key_mask)
+        srl_protect_packet(aTHX_ enc);
 
     /* NOT doing a
      *   SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);

@@ -2,6 +2,7 @@
 use strict;
 use warnings;
 use Data::Dumper;
+use Config;
 
 use Getopt::Long qw(GetOptions);
 use Encode       qw(encode_utf8 decode_utf8);
@@ -46,8 +47,34 @@ BEGIN {
 
 my $done;
 my $data;
+my $packet_remainder;
 my $hlen   = -1;
 my $indent = "";
+my $opt;
+my %siphash_function;
+
+sub _load_siphash_function {
+    my ($version) = @_;
+    return $siphash_function{$version} if $siphash_function{$version};
+    for my $module (qw(Sereal::Decoder Sereal::Encoder)) {
+        ( my $file = "$module.pm" ) =~ s{::}{/}g;
+        next unless eval { require $file; 1 };
+        my $function = $version == 0 ? 'siphash24' : 'siphash36';
+        my $code     = $module->can($function) or next;
+        return $siphash_function{$version} = $code;
+    }
+    die "Could not load a Sereal module with SipHash support\n";
+}
+
+sub _constant_time_equal {
+    my ( $left, $right ) = @_;
+    return 0 unless length($left) == length($right);
+    my $different = 0;
+    for my $i ( 0 .. length($left) - 1 ) {
+        $different |= ord( substr( $left, $i, 1 ) ) ^ ord( substr( $right, $i, 1 ) );
+    }
+    return $different == 0;
+}
 
 sub _chop_data_prefix {
     my ($len) = @_;
@@ -67,6 +94,7 @@ sub parse_header {
     if ( length($hdr) ) {
         print "Header($len): " . join( " ", map ord, split //, $hdr ) . "\n";
         if ( $proto_version >= 2 && ( ord( substr( $hdr, 0, 1 ) ) & 1 ) ) {    # if first bit set => user header data
+            $done .= substr( $hdr, 0, 1 );
             print "Found user data in header:\n";
             my $tmp_data = $data;                                              # dance necessary because $data is treated as a global :( hobo, hobo, hobo!
             $data = substr( $hdr, 1 );
@@ -74,14 +102,62 @@ sub parse_header {
             $data = $tmp_data;
             print "End of user data in header. Body:\n";
         }
+        else {
+            $done .= $hdr;
+        }
     }
     else {
         print "Empty Header.\n";
     }
 
-    my $encoding = ord($flags) & SRL_PROTOCOL_ENCODING_MASK;
+    my $encoding    = ord($flags) & SRL_PROTOCOL_ENCODING_MASK;
+    my $checksummed = ( $encoding & SRL_PROTOCOL_ENCODING_CHECKSUM ) != 0;
+    $encoding &= SRL_PROTOCOL_ENCODING_BASE_MASK;
 
     printf "%i %i %i\n", $encoding, ord(SRL_PROTOCOL_ENCODING_MASK), ord($flags);
+    $packet_remainder = undef;
+    if ($checksummed) {
+        die "Checksummed packets require protocol version 6 or later\n"
+            if $proto_version < 6;
+
+        my $checksum_type = ord( _chop_data_prefix(1) );
+        $done .= chr($checksum_type);
+        my $tag_len         = varint();
+        my $checksum_prefix = $done;
+        my $tag             = _chop_data_prefix($tag_len);
+        $done .= $tag;
+        my $payload_len_start = length($done);
+        my $payload_len       = varint();
+        my $payload_len_bytes = substr( $done, $payload_len_start );
+        die "Checksummed payload length exceeds available input\n"
+            if $payload_len > length($data);
+        $packet_remainder = substr( $data, $payload_len, length($data) - $payload_len, '' );
+        my $wire_payload = $data;
+        printf "Checksum type %u, tag length %u bytes, encoded payload length %u bytes.\n",
+            $checksum_type, $tag_len, $payload_len;
+        my $expected_len = $checksum_type == 0 ? 8 : $checksum_type == 1 ? 16 : undef;
+        die "Invalid SipHash checksum length $tag_len for type $checksum_type\n"
+            if defined($expected_len) && $tag_len != $expected_len;
+        my $key =
+              $checksum_type == 0 ? $opt->{checksum_v0_key}
+            : $checksum_type == 1 ? $opt->{checksum_v1_key}
+            :                       undef;
+
+        if ( defined($expected_len) && defined($key) ) {
+            my $siphash = _load_siphash_function($checksum_type);
+            my $actual  = $siphash->( $checksum_prefix . $payload_len_bytes . $wire_payload, $key );
+            die "SipHash checksum verification failed\n"
+                unless _constant_time_equal( $tag, $actual );
+            printf "SipHash-%s checksum verified: %s\n",
+                $checksum_type == 0 ? '2-4' : '3-6-128', unpack( 'H*', $tag );
+        }
+        else {
+            printf "SipHash tag (%u bytes, %s): %s\n",
+                $tag_len,
+                defined($expected_len) ? 'not verified (no matching key)' : 'unknown type, skipped',
+                unpack( 'H*', $tag );
+        }
+    }
     if ( $encoding == SRL_PROTOCOL_ENCODING_RAW ) {
         print "Header says: Document body is uncompressed.\n";
     }
@@ -203,6 +279,7 @@ sub parse_sv {
     elsif ( $o == SRL_HDR_EXTEND ) {
         my $ext = ord( _chop_data_prefix(1) );
         $done .= chr($ext);
+        die "Encountered DEADLY extended tag\n" if $ext == SRL_EXT_DEADLY;
         die "Unknown extended tag ID $ext\n"
             unless $ext == SRL_EXT_VSTRING_BINARY || $ext == SRL_EXT_VSTRING_UTF8;
 
@@ -352,23 +429,24 @@ sub parse_hv {
 
 # super inefficient
 sub varint {
-    my $x      = 0;
-    my $lshift = 0;
-    while ( length($data) && ord( substr( $data, 0, 1 ) ) & 0x80 ) {
+    my $uv_bits   = 8 * $Config{uvsize};
+    my $max_bytes = int( ( $uv_bits + 6 ) / 7 );
+    my ( $x, $lshift ) = ( 0, 0 );
+    for my $index ( 0 .. $max_bytes - 1 ) {
+        die "premature end of varint" unless length $data;
         my $c = ord( _chop_data_prefix(1) );
         $done .= chr($c);
-        $x      += ( $c & 0x7F ) << $lshift;
+        my $part = $c & 0x7f;
+        if ( $index == $max_bytes - 1 ) {
+            my $bits_left = $uv_bits - $lshift;
+            my $max_part  = ( 1 << $bits_left ) - 1;
+            die "varint too big" if $part > $max_part;
+        }
+        $x |= $part << $lshift;
+        return $x unless $c & 0x80;
         $lshift += 7;
     }
-    if ( length($data) ) {
-        my $c = ord( _chop_data_prefix(1) );
-        $done .= chr($c);
-        $x += $c << $lshift;
-    }
-    else {
-        die "premature end of varint";
-    }
-    return $x;
+    die "varint too long";
 }
 
 sub _zigzag {
@@ -381,9 +459,32 @@ sub zigzag {
 }
 
 GetOptions(
-    my $opt = {},
+    $opt = {},
     'e|stderr',
+    'checksum-v0-key=s',
+    'checksum-v1-key=s',
+    'checksum-v0-key-hex=s',
+    'checksum-v1-key-hex=s',
 );
+
+for my $version ( 0, 1 ) {
+    my $plain_name   = "checksum_v${version}_key";
+    my $hex_name     = "checksum_v${version}_key_hex";
+    my $plain_option = "checksum-v${version}-key";
+    my $hex_option   = "checksum-v${version}-key-hex";
+    die "Specify only one of --$plain_option and --$hex_option\n"
+        if defined( $opt->{$plain_option} ) && defined( $opt->{$hex_option} );
+    if ( defined $opt->{$hex_option} ) {
+        die "--$hex_option expects an even number of hexadecimal digits\n"
+            if $opt->{$hex_option} =~ /[^0-9a-fA-F]/ || length( $opt->{$hex_option} ) % 2;
+        $opt->{$plain_name} = pack( 'H*', $opt->{$hex_option} );
+    }
+    elsif ( defined $opt->{$plain_option} ) {
+        $opt->{$plain_name} = $opt->{$plain_option};
+    }
+    die "--checksum-v${version}-key must be exactly 16 bytes\n"
+        if defined( $opt->{$plain_name} ) && length( $opt->{$plain_name} ) != 16;
+}
 
 $| = 1;
 if ( $opt->{e} ) {
@@ -404,4 +505,6 @@ while ( length $data ) {
     print "--- End header\n";
     $done = parse_sv("");
     print "--- End Document\n";
+    $data             = $packet_remainder if defined $packet_remainder;
+    $packet_remainder = undef;
 }

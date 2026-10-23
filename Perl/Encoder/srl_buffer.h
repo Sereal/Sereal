@@ -217,6 +217,7 @@ srl_buf_cat_char_nocheck_int(pTHX_ srl_buffer_t *buf, const char c)
  * see: https://developers.google.com/protocol-buffers/docs/encoding#types
  *
  */
+/* Currently unused; retained as a reference for debugging.
 #define srl_varint_size(x) (    \
     z <= (1UL << 7)  ? 1 :    \
     z <= (1UL << 14) ? 2 :    \
@@ -228,8 +229,7 @@ srl_buf_cat_char_nocheck_int(pTHX_ srl_buffer_t *buf, const char c)
     z <= (1UL << 56) ? 8 :    \
     z <= (1UL << 63) ? 9 :    \
                      10 )
-
-
+*/
 SRL_STATIC_INLINE void
 srl_buf_cat_varint_raw_nocheck(pTHX_ srl_buffer_t *buf, UV value) {
     DEBUG_ASSERT_BUF_SANE(buf);

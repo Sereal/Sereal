@@ -29,6 +29,19 @@ my $no_exception = eval {
 };
 ok( !$no_exception );
 
+# Plain ARRAY tags also recurse, even though they are not the compact
+# ARRAYREF tags emitted for ordinary Perl array references. Every value-reader
+# call must count toward the limit so malformed packets cannot bypass it.
+my $plain_arrays = Header();
+$plain_arrays .= chr(SRL_HDR_ARRAY) . chr(1) for 1 .. 1000;
+$plain_arrays .= integer(1);
+my $plain_arrays_ok = eval {
+    decode_sereal( $plain_arrays, { max_recursion_depth => 1 } );
+    1;
+};
+ok( !$plain_arrays_ok, 'plain ARRAY nesting is subject to recursion limit' );
+like( $@, qr/Reached recursion limit/, 'plain ARRAY nesting reports the recursion limit' );
+
 done_testing();
 note("All done folks!");
 

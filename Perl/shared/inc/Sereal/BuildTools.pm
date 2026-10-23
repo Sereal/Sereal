@@ -227,9 +227,20 @@ sub build_optimize {
         }
     }
 
-    # silence warning about STMT_START and STMT_END.
-    $OPTIMIZE .= " -Wno-compound-token-split-by-macro"
-        if $clang;
+    # Older Apple Clang releases do not recognize this warning. Probe with
+    # unknown warnings promoted to errors before adding the suppression (#302).
+    if ($clang) {
+        require Devel::CheckLib;
+        if (
+            Devel::CheckLib::check_lib(
+                header      => 'stddef.h',
+                ccflags     => '-Werror=unknown-warning-option -Wno-compound-token-split-by-macro',
+                not_execute => 1,
+            ) )
+        {
+            $OPTIMIZE .= " -Wno-compound-token-split-by-macro";
+        }
+    }
 
     return $OPTIMIZE;
 }

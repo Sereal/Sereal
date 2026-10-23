@@ -10,6 +10,11 @@ our $XS_VERSION = $VERSION; $VERSION = eval $VERSION;
 
 use Exporter 'import';
 our @EXPORT_OK = qw(
+    prepare_checksum_key
+    get_sereal_checksum
+    validate_sereal_checksum
+    siphash24
+    siphash36
     decode_sereal
     looks_like_sereal
     decode_sereal_with_header_data
@@ -28,6 +33,20 @@ our @EXPORT = ( ( caller() )[1] eq '-e' ? @EXPORT_OK : () );
 
 sub CLONE_SKIP { 1 }
 XSLoader::load( 'Sereal::Decoder', $XS_VERSION );
+unless ($Sereal::_DefaultKeyInitialized) {
+    if ( !defined($Sereal::DefaultKey) && defined( $ENV{SEREAL_DEFAULT_KEY} ) ) {
+        my $key = $ENV{SEREAL_DEFAULT_KEY};
+        if ( $key =~ /\A[0-9a-fA-F]{32}\z/ ) {
+            $Sereal::DefaultKey = pack( 'H*', $key );
+        }
+        else {
+            warn
+                "SEREAL_DEFAULT_KEY is not exactly 32 hexadecimal characters; normalizing with Sereal::Decoder::prepare_checksum_key()\n";
+            $Sereal::DefaultKey = prepare_checksum_key($key);
+        }
+    }
+    $Sereal::_DefaultKeyInitialized = 1;
+}
 #start-no-tidy
 use constant #begin generated
 {
@@ -229,6 +248,64 @@ L<https://github.com/Sereal/Sereal/wiki/Sereal-Comparison-Graphs>.
 
 =head1 CLASS METHODS
 
+=head2 get_sereal_checksum
+
+  my $tag = Sereal::Decoder::get_sereal_checksum($packet);
+  my $hex = defined($tag) ? unpack('H*', $tag) : undef;
+  my $tag = Sereal::Decoder::get_sereal_checksum($stream, $offset);
+
+Returns the raw checksum bytes stored in the envelope, or C<undef> for an
+unsigned packet. It checks framing and declared lengths, including the presence
+of the declared payload, but does not authenticate, decompress, decode, or run
+callbacks. Malformed framing raises an exception. It can inspect an unknown
+checksum type, whose tag length need not be 8 or 16 bytes. Retrieving a tag does
+not establish its validity. Bytes following the declared packet are ignored.
+
+=head2 validate_sereal_checksum
+
+  my $valid = Sereal::Decoder::validate_sereal_checksum($packet);
+  my $valid = Sereal::Decoder::validate_sereal_checksum($packet, $key16);
+  my $valid = Sereal::Decoder::validate_sereal_checksum($stream, $key16, $offset);
+
+Verifies packet authentication without decompressing or decoding its contents.
+Returns true for a valid tag and false for a mismatch or an unsigned packet.
+Malformed framing, unknown checksum types, missing keys for checksummed input,
+and keys of a size other than 16 bytes raise exceptions. An omitted key uses
+C<$Sereal::DefaultKey>; an explicitly undefined key does not supply a key.
+The packet selects the SipHash variant. This function always verifies,
+regardless of C<checksum_policy> or its environment default.
+
+A valid checksum authenticates the protected bytes, not their validity as a
+Sereal value or their suitability for your application. Validation performs
+one MAC pass over the protected bytes. Decoding the packet afterward with
+verification enabled repeats that work. Both checksum functions support custom
+opcodes for direct calls and the same behavior through XSUB calls via code
+references. They can also be imported from the Sereal wrapper.
+
+=head2 prepare_checksum_key
+
+  my $key16 = Sereal::Decoder::prepare_checksum_key($key);
+  my $key16 = Sereal::Decoder::prepare_checksum_key($key, $opt_key);
+  my $empty_key16 = Sereal::Decoder::prepare_checksum_key();
+
+Returns a deterministic 16-byte normalization of a byte string using
+SipHash-2-4-128. It first computes SipHash-2-4-128 of C<Out damned spot!>
+followed by the optional C<$opt_key>, keyed by C<Call me Ishmael.>, then uses
+that result as the key to SipHash-2-4-128 of C<Luke, I am your father.>
+followed by C<$key>. Both arguments default to the empty string. This only
+normalizes the length; it does not add entropy or replace a password KDF.
+
+=head2 siphash24 and siphash36
+
+  my $tag8  = Sereal::Decoder::siphash24($bytes, $key16);
+  my $tag16 = Sereal::Decoder::siphash36($bytes, $key16);
+
+Compute a raw SipHash tag for a byte string and an exactly 16-byte key.
+C<siphash24()> returns the eight-byte SipHash-2-4 result; C<siphash36()>
+returns the 16-byte SipHash-3-6-128 result. These low-level helpers are
+provided for tooling that needs to inspect or verify Sereal checksum
+envelopes. The returned values are binary strings.
+
 =head2 new
 
 Constructor. Optionally takes a hash reference as first parameter. This hash
@@ -237,6 +314,99 @@ encoder.
 
 Currently, the following options are recognized, none of them are on
 by default.
+
+=head3 checksum_v0_key
+
+A 16-byte key used to verify protocol version 6 checksum type 0 tags
+(SipHash-2-4, 64-bit tags). When verification is enabled, the checksum is
+verified before decompression or body decoding. See L</checksum_policy>.
+
+=head3 checksum_v1_key
+
+A 16-byte key used to verify protocol version 6 checksum type 1 tags
+(SipHash-3-6-128, 128-bit tags). A decoder can have either or both key types.
+The packet's checksum type selects the key.
+
+Under C<'die'> or C<'require'>, keys must be exactly 16 bytes. The other policies
+retain the existing behavior of padding shorter keys or truncating longer keys
+with a warning. Use C<prepare_checksum_key()> explicitly to normalize a key.
+Authentication does not make data from a malicious key holder safe to decode.
+
+=head3 Shared default key
+
+C<$Sereal::DefaultKey> supplies a default when neither checksum key option is
+present. It contains the raw 16 key bytes, not hexadecimal text. A default
+Decoder key is used for both supported checksum types. Explicit key options
+replace the default configuration; supplying an explicit C<undef> key also
+suppresses the default.
+
+The first load of Sereal::Encoder or Sereal::Decoder initializes this shared
+variable from C<SEREAL_DEFAULT_KEY>, unless application code has already set it.
+Exactly 32 hexadecimal characters are decoded to 16 bytes. Other lengths or
+non-hexadecimal values are passed unchanged to C<prepare_checksum_key()>, with
+a warning that does not include the secret. Normalization does not add entropy
+or turn a weak password into a strong key. If the environment variable is
+absent, no default key is installed. Loading the other module does not reset
+an initialized default, and subsequent environment changes do not affect it.
+
+Code can set or localize the shared variable:
+
+  local $Sereal::DefaultKey = $key16;
+  my $decoder = Sereal::Decoder->new({ checksum_policy => 'require' });
+
+New encoders and decoders copy its current value. Existing objects retain their
+keys. Localizing it to C<undef> disables the default for new objects in that
+scope. Cached objects, including objects returned by the Sereal wrapper's
+cache helpers, retain the configuration they were created with.
+
+=head3 checksum_policy
+
+Controls checksum verification. Accepted values are:
+
+=over 4
+
+=item * C<'verify-if-available'> - verify when a matching key is configured;
+otherwise warn and decode without authentication. This is the built-in default.
+
+=item * C<'die'> - reject checksummed packets with an unsupported checksum
+type, a missing matching key, or an invalid authentication tag.
+
+=item * C<'require'> - apply C<'die'> semantics when decoding. On the Encoder,
+this policy also requires a key before encoding can produce a packet. It does
+not require a key merely to create a Decoder.
+
+=item * C<'ignore'> - skip verification silently, even if a key is configured.
+
+=item * C<'ignore-warn'> - skip verification and warn for each checksummed packet.
+
+=back
+
+Set C<SEREAL_CHECKSUM_POLICY> to one of these names to override the default
+for new encoders and decoders, including the functional interfaces:
+
+  SEREAL_CHECKSUM_POLICY=require perl my_application.pl
+
+An explicitly defined C<checksum_policy> option takes precedence. An omitted
+or undefined option uses the environment default. An unset or empty environment
+variable uses C<'verify-if-available'>. Invalid values cause construction to
+fail. The environment is read at construction; existing objects and recursive
+clones retain their policy.
+
+This is a default, not a mandatory process-wide restriction: explicit options
+can override it. B<All policies still accept unsigned input packets.> An
+application that requires authentication on every received packet must reject
+unprotected packet types at its input boundary. Both strict policies require
+exactly 16 key bytes, whether supplied explicitly or through C<$Sereal::DefaultKey>.
+
+Verification makes an additional pass over the protected header and encoded
+payload, adding CPU work proportional to their size. Compressed payloads are
+authenticated in compressed form before decompression. The SipHash variants
+have different round counts and tag sizes; benchmark representative workloads.
+With a matching key, C<'die'>, C<'require'>, and C<'verify-if-available'> do the
+same MAC verification work. The ignore policies skip that work and provide
+no authentication, but still parse and validate the envelope framing. Warnings
+and their logging can add overhead on every packet. Reusing objects avoids
+repeating configuration work; it does not avoid per-packet authentication work.
 
 =head3 refuse_snappy
 
@@ -349,7 +519,8 @@ Sereal.
 If set to a non-zero value (default: 0), then C<Sereal::Decoder> will
 destructively parse Sereal documents out of a variable. Every time a Sereal
 document is successfully parsed it is removed from the front of the string
-it is parsed from.
+it is parsed from. Input and output must be different scalars in this mode.
+When used with an offset, removal includes the prefix before that offset.
 
 This means you can do this:
 
@@ -426,6 +597,11 @@ In other words,
 
 This is an unfortunate side-effect of perls standard copy semantics of
 assignment. Possibly one day we will have an alternative to this.
+
+Application callbacks, including THAW methods, must not modify the input scalar
+while a decode call is active. The decoder reads directly from its buffer.
+Input and output may otherwise use the same scalar; the decoder copies the
+input for this case. Incremental mode requires separate input and output.
 
 =head2 decode_with_header
 
@@ -691,39 +867,49 @@ time, and it should be much faster than looks_like_sereal.
 
 =head1 ROBUSTNESS
 
-This implementation of a Sereal decoder tries to be as robust to invalid
-input data as reasonably possible. This means that it should never
-(though read on) segfault. It may, however, cause a large malloc
-to fail. Generally speaking, invalid data should cause a Perl-trappable
-exception. The one exception is that for Snappy-compressed Sereal documents,
-the Snappy library may cause segmentation faults (invalid reads or writes).
-This should only be a problem if you do not checksum your data (internal
-checksum support is a To-Do) or if you accept data from potentially
-malicious sources.
+The distribution includes F<SECURITY.md>, covering trusted input, packet
+authentication, supported versions, and private vulnerability reporting. The
+current policy is also available at
+L<https://github.com/Sereal/Sereal/security/policy>. Report suspected
+vulnerabilities privately at
+L<https://github.com/Sereal/Sereal/security/advisories/new>.
 
-It requires a lot of run-time boundary checks to prevent decoder
-segmentation faults on invalid data. We implemented them in the
-lightest way possible. Adding robustness against running out of memory
-would cause an very significant run-time overhead. In most cases of
-random garbage (with valid header no less) when a malloc() fails due
-to invalid data, the problem was caused by a very large array or
-string length. This kind of very large malloc can then fail, being
-trappable from Perl. Only when packet causes many repeated allocations
-do you risk causing a hard OOM error from the kernel that cannot be
-trapped because Perl may require some small allocations to succeed
-before the now-invalid memory is released. It is at least not entirely
-trivial to craft a Sereal document that causes this behaviour.
+The decoder validates packet structure and bounds before using packet data,
+and malformed input should normally produce a Perl exception. This is a
+security goal, not a guarantee that every malformed packet is safe or that the
+implementation has no vulnerabilities. Treat packets from untrusted or
+attacker-influenced sources as hostile input, keep Sereal::Decoder updated, and
+do not use successful decoding as a substitute for validating the resulting
+values in the application.
 
-Finally, deserializing proper objects is potentially a problem because
-classes can define a destructor. Thus, the data fed to the decoder can
-cause the (deferred) execution of any destructor in your application.
-That's why the C<refuse_objects> option exists and what the C<no_bless_objects>
-can be used for as well. Later on, we may or may not provide a facility to
-whitelist classes. Furthermore, if the encoder emitted any objects using
-C<FREEZE> callbacks, the C<THAW> class method may be invoked on the
-respective classes. If you can't trust the source of your Sereal documents,
-you may want to use the C<refuse_objects> option. For more details on
-the C<FREEZE/THAW> mechanism, please refer to L<Sereal::Encoder>.
+Decoding can consume substantial CPU and memory even when a packet is valid.
+The resource limits below default to unlimited (zero):
+C<max_num_hash_entries>, C<max_num_array_entries>, C<max_string_length>, and
+C<max_uncompressed_size>. Set limits appropriate to the application when
+decoding data whose size or producer is not controlled. The recursion limit
+defaults to 10000, which can still be too high for some Perl builds; lower it
+when appropriate. These decoder limits do not replace process-level CPU and
+memory limits. In particular, a checksum does not limit the cost of decoding
+a packet from someone who knows the key.
+
+Protocol version 6 checksums authenticate only packets that use a checksum
+envelope. The default policy verifies when the matching key is configured;
+without one it warns and decodes without authentication. Use
+C<checksum_policy =E<gt> 'die'> to reject checksummed packets that cannot be
+verified. Unchecksummed packet types remain accepted under this policy. An
+application that requires every packet to be authenticated must also ensure
+that it accepts only protected packet types. Checksums are not encryption, do
+not prevent replay, and do not make data safe to deserialize when the key
+holder is malicious or compromised. Packets without a checksum have no
+cryptographic integrity check provided by Sereal.
+
+Object handling can execute application code or cause later destructor code
+to run. Use C<refuse_objects> when objects are not expected. For frozen objects,
+C<no_thaw_objects> prevents C<THAW> calls, while C<thaw_allow_classes> can
+restrict which classes may run them. Do not assume that disabling module
+autoloading makes callbacks safe: already loaded classes can still have their
+C<THAW> methods invoked unless these controls are used. See
+L</FREEZE/THAW CALLBACK MECHANISM> for details.
 
 =head1 FREEZE/THAW CALLBACK MECHANISM
 
@@ -755,6 +941,11 @@ order in which they are thawed is defined to be LIFO, thus the arguments
 to a THAW method will themselves be thawed (if need be) before the call
 to the containing objects THAW method. Thawing occurs only after all
 simple objects have been blessed into their appropriate object form.
+
+Each frozen argument array must belong to a single C<OBJECT_FREEZE> or
+C<OBJECTV_FREEZE> declaration. Conflicting declarations are rejected rather
+than replacing the class associated with that array. Further references to
+the same frozen object may use C<REFP> normally.
 
 The FREEZE/THAW mechanism is inspired by the equivalent mechanism in
 L<CBOR::XS>. The general mechanism is documented in the

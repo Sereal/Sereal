@@ -11,6 +11,7 @@
 #include "srl_common.h"
 #include "srl_decoder.h"
 #include "srl_protocol.h"
+#include "srl_siphash.h"
 
 #ifndef GvCV_set
 # define GvCV_set(gv, cv) (GvCV(gv) = (cv))
@@ -66,6 +67,32 @@ S_croak_xs_usage(pTHX_ const CV *const cv, const char *const params)
 #define OPOPT_OUTARG_BODY   (1<<3)
 #define OPOPT_OUTARG_HEADER (1<<4)
 #define OPOPT_LOOKS_LIKE    (1<<5)
+#define OPOPT_CHECKSUM      (1<<6)
+#define OPOPT_VALIDATE_CHECKSUM (1<<7)
+
+static void
+THX_pp1_checksum(pTHX_ U8 opopt, U8 arity)
+{
+    const int validate = (opopt & OPOPT_VALIDATE_CHECKSUM) != 0;
+    const int want_result = GIMME_V != G_VOID;
+    SV *src, *key = NULL, *offset_sv = NULL, *result;
+    UV offset;
+    dSP;
+    if (arity == 3 || (!validate && arity == 2))
+        offset_sv = POPs;
+    if (validate && arity >= 2)
+        key = POPs;
+    src = POPs;
+    PUTBACK;
+    offset = offset_sv ? SvUV(offset_sv) : 0;
+    result = validate
+        ? boolSV(srl_validate_sereal_checksum(aTHX_ src, key, offset))
+        : sv_2mortal(srl_get_sereal_checksum(aTHX_ src, offset));
+    SPAGAIN;
+    if (want_result)
+        XPUSHs(result);
+    PUTBACK;
+}
 
 #define pp1_sereal_decode(opopt) THX_pp1_sereal_decode(aTHX_ opopt)
 static void
@@ -176,6 +203,20 @@ THX_pp_looks_like_sereal(pTHX)
 }
 
 static OP *
+THX_pp_get_sereal_checksum(pTHX)
+{
+    THX_pp1_checksum(aTHX_ PL_op->op_private, PL_op->op_private & 3);
+    return NORMAL;
+}
+
+static OP *
+THX_pp_validate_sereal_checksum(pTHX)
+{
+    THX_pp1_checksum(aTHX_ PL_op->op_private, PL_op->op_private & 3);
+    return NORMAL;
+}
+
+static OP *
 THX_ck_entersub_args_sereal_decoder(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
 {
 
@@ -215,6 +256,9 @@ THX_ck_entersub_args_sereal_decoder(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
     /* If we get here, we can replace the entersub with a suitable
      * custom OP. */
 
+    if (opopt & OPOPT_CHECKSUM) {
+        opopt |= arity;
+    } else {
     if (arity > min_arity && (opopt & OPOPT_DO_BODY)) {
         opopt |= OPOPT_OUTARG_BODY;
         min_arity++;
@@ -222,6 +266,7 @@ THX_ck_entersub_args_sereal_decoder(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
 
     if (arity > min_arity)
         opopt |= OPOPT_OUTARG_HEADER;
+    }
 
 #ifdef op_sibling_splice
     /* op_sibling_splice is new in 5.31 and we have to do things differenly */
@@ -243,13 +288,15 @@ THX_ck_entersub_args_sereal_decoder(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
 
     newop->op_type    = OP_CUSTOM;
     newop->op_private = opopt;
-    newop->op_ppaddr = opopt & OPOPT_LOOKS_LIKE ? THX_pp_looks_like_sereal : THX_pp_sereal_decode;
+    newop->op_ppaddr = opopt & OPOPT_CHECKSUM
+        ? (opopt & OPOPT_VALIDATE_CHECKSUM ? THX_pp_validate_sereal_checksum : THX_pp_get_sereal_checksum)
+        : (opopt & OPOPT_LOOKS_LIKE ? THX_pp_looks_like_sereal : THX_pp_sereal_decode);
 
 #ifdef op_sibling_splice
 
     /* attach the spliced-out args as children of the custom op, while
      * deleting the stub op created by newUNOP() */
-    op_sibling_splice(newop, NULL, 1, firstargop);
+    op_free(op_sibling_splice(newop, NULL, 1, firstargop));
 
 #endif
 
@@ -257,6 +304,20 @@ THX_ck_entersub_args_sereal_decoder(pTHX_ OP *entersubop, GV *namegv, SV *ckobj)
 }
 
 #endif /* USE_CUSTOM_OPS */
+
+static void
+THX_xsfunc_checksum(pTHX_ CV *cv)
+{
+    dMARK;
+    dSP;
+    SSize_t arity = SP - MARK;
+    I32 cv_private = CvXSUBANY(cv).any_i32;
+    U8 opopt = cv_private & 0xff;
+    U8 max_arity = (cv_private >> 16) & 0xff;
+    if (arity < 1 || arity > max_arity)
+        croak_xs_usage(cv, opopt & OPOPT_VALIDATE_CHECKSUM ? "packet [, key [, offset]]" : "packet [, offset]");
+    THX_pp1_checksum(aTHX_ opopt, (U8)arity);
+}
 
 static void
 THX_xsfunc_sereal_decode(pTHX_ CV *cv)
@@ -312,6 +373,75 @@ START_MY_CXT
 MODULE = Sereal::Decoder        PACKAGE = Sereal::Decoder
 PROTOTYPES: DISABLE
 
+SV *
+prepare_checksum_key(key = NULL, opt_key = NULL)
+    SV *key;
+    SV *opt_key;
+  PREINIT:
+    STRLEN key_len = 0;
+    STRLEN opt_key_len = 0;
+    const U8 *key_bytes = (const U8 *)"";
+    const U8 *opt_key_bytes = (const U8 *)"";
+    U8 digest[16];
+  CODE:
+    if (key && SvOK(key))
+        key_bytes = (const U8 *)SvPVbyte(key, key_len);
+    if (opt_key && SvOK(opt_key)) {
+        opt_key_bytes = (const U8 *)SvPVbyte(opt_key, opt_key_len);
+    }
+    srl_siphash_prepare_key(key_bytes, (size_t)key_len,
+                            opt_key_bytes, (size_t)opt_key_len, digest);
+    RETVAL = newSVpvn((const char *)digest, sizeof(digest));
+  OUTPUT: RETVAL
+
+SV *
+siphash24(data, key)
+    SV *data;
+    SV *key;
+  PREINIT:
+    STRLEN data_len;
+    STRLEN key_len;
+    const U8 *data_bytes;
+    const U8 *key_bytes;
+    srl_siphash_ctx sip;
+    srl_u64 digest;
+    U8 digest_bytes[8];
+    unsigned int i;
+  CODE:
+    data_bytes = (const U8 *)SvPVbyte(data, data_len);
+    key_bytes = (const U8 *)SvPVbyte(key, key_len);
+    if (key_len != 16)
+      croak("siphash24 key must be exactly 16 bytes");
+    srl_siphash_init_rounds(&sip, key_bytes, 2, 4, 0);
+    srl_siphash_update(&sip, data_bytes, (size_t)data_len);
+    digest = srl_siphash_final64(&sip);
+    for (i = 0; i < 8; i++)
+      digest_bytes[i] = (U8)(digest >> (8 * i));
+    RETVAL = newSVpvn((const char *)digest_bytes, sizeof(digest_bytes));
+  OUTPUT: RETVAL
+
+SV *
+siphash36(data, key)
+    SV *data;
+    SV *key;
+  PREINIT:
+    STRLEN data_len;
+    STRLEN key_len;
+    const U8 *data_bytes;
+    const U8 *key_bytes;
+    srl_siphash_ctx sip;
+    U8 digest[16];
+  CODE:
+    data_bytes = (const U8 *)SvPVbyte(data, data_len);
+    key_bytes = (const U8 *)SvPVbyte(key, key_len);
+    if (key_len != 16)
+      croak("siphash36 key must be exactly 16 bytes");
+    srl_siphash_init_rounds(&sip, key_bytes, 3, 6, 1);
+    srl_siphash_update(&sip, data_bytes, (size_t)data_len);
+    srl_siphash_final128(&sip, digest);
+    RETVAL = newSVpvn((const char *)digest, sizeof(digest));
+  OUTPUT: RETVAL
+
 BOOT:
 {
     struct {
@@ -349,6 +479,9 @@ BOOT:
         SRL_INIT_OPTION( SRL_DEC_OPT_IDX_NO_THAW_OBJECTS,            SRL_DEC_OPT_STR_NO_THAW_OBJECTS            );
         SRL_INIT_OPTION( SRL_DEC_OPT_IDX_THAW_ALLOW_CLASSES,         SRL_DEC_OPT_STR_THAW_ALLOW_CLASSES         );
         SRL_INIT_OPTION( SRL_DEC_OPT_IDX_THAW_DENY_ACTION,           SRL_DEC_OPT_STR_THAW_DENY_ACTION           );
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_CHECKSUM_V0_KEY,            SRL_DEC_OPT_STR_CHECKSUM_V0_KEY            );
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_CHECKSUM_V1_KEY,            SRL_DEC_OPT_STR_CHECKSUM_V1_KEY            );
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_CHECKSUM_POLICY,            SRL_DEC_OPT_STR_CHECKSUM_POLICY            );
     }
 #if USE_CUSTOM_OPS
     {
@@ -449,6 +582,29 @@ BOOT:
 #endif /* USE_CUSTOM_OPS */
         cv = newXS("Sereal::Decoder::looks_like_sereal", THX_xsfunc_looks_like_sereal, __FILE__);
         CvXSUBANY(cv).any_i32 = 0x020100 | OPOPT_LOOKS_LIKE;
+    }
+}
+
+BOOT:
+{
+    int checksum_i;
+    for (checksum_i = 0; checksum_i < 2; checksum_i++) {
+        const char *name = checksum_i ? "Sereal::Decoder::validate_sereal_checksum"
+                                     : "Sereal::Decoder::get_sereal_checksum";
+        CV *cv = newXSproto_portable(name, THX_xsfunc_checksum, __FILE__, checksum_i ? "$;$$" : "$;$");
+        CvXSUBANY(cv).any_i32 = OPOPT_CHECKSUM
+            | (checksum_i ? OPOPT_VALIDATE_CHECKSUM | 0x030100 : 0x020100);
+#if USE_CUSTOM_OPS
+        {
+            XOP *xop;
+            Newxz(xop, 1, XOP);
+            XopENTRY_set(xop, xop_name, checksum_i ? "validate_sereal_checksum" : "get_sereal_checksum");
+            XopENTRY_set(xop, xop_desc, checksum_i ? "validate_sereal_checksum" : "get_sereal_checksum");
+            XopENTRY_set(xop, xop_class, OA_UNOP);
+            Perl_custom_op_register(aTHX_ checksum_i ? THX_pp_validate_sereal_checksum : THX_pp_get_sereal_checksum, xop);
+        }
+        cv_set_call_checker(cv, THX_ck_entersub_args_sereal_decoder, (SV*)cv);
+#endif
     }
 }
 

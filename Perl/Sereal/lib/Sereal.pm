@@ -13,6 +13,8 @@ use Sereal::Encoder 6.000_001 qw(
     SRL_ZSTD
 );
 use Sereal::Decoder 6.000_001 qw(
+    get_sereal_checksum
+    validate_sereal_checksum
     decode_sereal
     looks_like_sereal
     decode_sereal_with_header_data
@@ -27,6 +29,8 @@ use Sereal::Decoder 6.000_001 qw(
 
 use Exporter 'import';
 our @EXPORT_OK = qw(
+    get_sereal_checksum
+    validate_sereal_checksum
     get_sereal_decoder
     get_sereal_encoder
     clear_sereal_object_cache
@@ -222,6 +226,18 @@ Read a sereal packet from a file. See Sereal::Decoder::decode_from_file().
 =head2 read_sereal($FILENAME,$OPTS,$ROOT)
 
 alias for read_sereal_file()
+
+=head1 SECURITY
+
+Restrict decoding to trusted sources and protect serialized packets against
+tampering. See L<Sereal::Decoder/ROBUSTNESS> for packet authentication,
+resource limits, and object handling controls.
+
+The distribution includes F<SECURITY.md>. The current policy and private
+vulnerability reporting instructions are available at
+L<https://github.com/Sereal/Sereal/security/policy>. Report suspected
+vulnerabilities privately at
+L<https://github.com/Sereal/Sereal/security/advisories/new>.
 
 =head1 BUGS, CONTACT AND SUPPORT
 

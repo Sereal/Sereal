@@ -20,7 +20,7 @@ use Sereal::Decoder::Constants qw(:all);
 # bad input. This obviously shouldn't segfault and neither leak
 # memory.
 
-plan tests => 88;
+plan tests => 124;
 my ( $ok, $out, $err );
 
 SCOPE: {
@@ -31,6 +31,46 @@ SCOPE: {
 
     my $bad_nested_packet = Header() . array( integer(1), 7777 );
     check_fail( $bad_nested_packet, qr/Sereal: Error/, "Random crap in packet" );
+
+    my $duplicate_key = "key-" . ( "x" x 80 );
+    my $duplicate_key_token =
+        chr(SRL_HDR_BINARY) . varint( length($duplicate_key) ) . $duplicate_key;
+    my $duplicate_key_packet = Header() . hash(
+        $duplicate_key_token, integer(1),
+        $duplicate_key_token, integer(2),
+    );
+    my $duplicate_key_prefix = substr( $duplicate_key, 0, 16 );
+    my $duplicate_key_suffix = substr( $duplicate_key, -16 );
+    check_fail(
+        $duplicate_key_packet,
+        qr/duplicate key '\Q$duplicate_key_prefix\E' \.\.\. 52 bytes elided \.\.\. '\Q$duplicate_key_suffix\E' in hash/,
+        "Duplicate-key error keeps a bounded key prefix",
+    );
+
+    my $not_worth_eliding_key = "y" x 59;
+    my $not_worth_eliding_token =
+        chr(SRL_HDR_BINARY) . varint( length($not_worth_eliding_key) ) . $not_worth_eliding_key;
+    check_fail(
+        Header() . hash(
+            $not_worth_eliding_token, integer(1),
+            $not_worth_eliding_token, integer(2),
+        ),
+        qr/duplicate key '\Q$not_worth_eliding_key\E' in hash/,
+        "Duplicate-key error keeps the full key when elision is not shorter",
+    );
+
+    my $escaped_duplicate_key = "a'b\\\0";
+    my $escaped_duplicate_key_token =
+        chr(SRL_HDR_BINARY) . varint( length($escaped_duplicate_key) ) . $escaped_duplicate_key;
+    my $escaped_duplicate_key_display = "a" . "\\'" . "b" . "\\\\" . "\\x00";
+    check_fail(
+        Header() . hash(
+            $escaped_duplicate_key_token, integer(1),
+            $escaped_duplicate_key_token, integer(2),
+        ),
+        qr/duplicate key '\Q$escaped_duplicate_key_display\E' in hash/,
+        "Duplicate-key error escapes binary key bytes",
+    );
 
     my $obj_packet =
         Header() . chr(SRL_HDR_OBJECT) . short_string("Foo") . chr(SRL_HDR_REFN) . integer(1);
@@ -90,6 +130,19 @@ SCOPE: {
     check_fail(
         $string_packet, qr/Sereal: Error/, "Setting array limit option (999)",
         { max_string_length => 999 } );
+
+    check_fail(
+        Header() . short_string("ab"), qr/Sereal: Error/,
+        "String length limit also applies to short strings",
+        { max_string_length => 1 } );
+    check_fail(
+        Header() . hash( short_string("ab"), integer(1) ), qr/Sereal: Error/,
+        "String length limit also applies to hash keys",
+        { max_string_length => 1 } );
+    check_fail(
+        Header() . chr(SRL_HDR_OBJECT) . short_string("Foo") . chr(SRL_HDR_REFN) . integer(1),
+        qr/Sereal: Error/, "String length limit also applies to class names",
+        { max_string_length => 1 } );
 
     my $valid_packet = Header(2) . short_string("foo");
     my $foo          = decode_sereal($valid_packet);

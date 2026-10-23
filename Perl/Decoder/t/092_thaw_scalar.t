@@ -48,14 +48,31 @@ my $encoder_freeze = Sereal::Encoder->new( { freeze_callbacks => 1 } );
 
 my $secret = "SECRET";
 
-ok(
-    $secret,
+is(
     decode_sereal( $encoder_freeze->encode( Rot13->new($secret) ) ),
+    $secret,
+    'THAW returns the decoded scalar',
 );
 
-ok(
-    { secret => $secret },
+is_deeply(
     decode_sereal( $encoder_freeze->encode( { secret => Rot13->new($secret) } ) ),
+    { secret => $secret },
+    'THAW scalar return is installed in its container',
 );
+
+{
+
+    package ScalarReturn;
+    sub FREEZE { return $_[0]->[0] }
+    sub THAW   { return $_[2] }
+}
+
+for my $value ( undef, 0, '', 42, 'text' ) {
+    my $object = bless [$value], 'ScalarReturn';
+    is_deeply(
+        decode_sereal( $encoder_freeze->encode( [$object] ) ), [$value],
+        'THAW preserves ' . ( defined($value) ? "scalar '$value'" : 'undef' ),
+    );
+}
 
 done_testing;

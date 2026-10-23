@@ -19,6 +19,7 @@ my @tests = (
 if ( have_encoder_and_decoder() ) {
     my $num_tests = 0;
     $num_tests += ( ( 16 + $_->[0] + 2 ) * 2 ) for @tests;
+    $num_tests += 2;
     plan tests => $num_tests;
 }
 else {
@@ -58,4 +59,11 @@ foreach my $test (@tests) {
     ok( !$eval_ok, "$opt: expect modification of \$got->{$up_to} to die" );
     like( $error, qr/read-only/, "$opt: expect an error about read-only values" );
 }
+
+my $large_alias_threshold = eval {
+    Sereal::Decoder->new( { alias_varint_under => '18446744073709551615' } );
+    1;
+};
+ok( !$large_alias_threshold, 'reject alias threshold too large for cache indexing' );
+like( $@, qr/alias_varint_under/, 'oversized alias threshold reports the option' );
 

@@ -66,11 +66,14 @@ srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
     if (0) {
         b_sv = sv_2mortal( newSV(header_len + body_len + 1 ));
     } else {
-        STRLEN total_requested= header_len + body_len + 1;
+        STRLEN total_requested;
+        STRLEN max_str_len = (STRLEN)~(STRLEN)0;
         char *tmp_buf;
 
-        if (total_requested < body_len)
+        if (expect_false(body_len == max_str_len
+                || header_len > max_str_len - body_len - 1))
             croak("Decompressed buffer is impossibly large. Refusing to decode.");
+        total_requested = header_len + body_len + 1;
 
         Newx(tmp_buf,total_requested,char);
 
@@ -78,11 +81,15 @@ srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
             croak("Insufficient memory to '%s' decompress. Size compressed=%"UVuf" uncompressed=%"UVuf,
                 compression_type, compressed_len, total_requested );
 
+        /* This allocation is installed directly as a Perl PV, so keep its
+         * mandatory trailing NUL even though the decoder uses explicit lengths. */
+        tmp_buf[total_requested - 1] = '\0';
+
         b_sv= sv_newmortal();
         sv_upgrade(b_sv,SVt_PV);
         SvPVX(b_sv)= tmp_buf;
         SvPOK_on(b_sv);
-        SvCUR(b_sv)= header_len + body_len;
+        SvCUR(b_sv)= total_requested - 1;
         SvLEN(b_sv)= total_requested;
     }
     b = (srl_reader_char_ptr) SvPVX(b_sv);
@@ -108,7 +115,7 @@ srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, U8 encoding_flags, SV
     SV *buf_sv;
     int header_len;
     int decompress_ok;
-    uint32_t dest_len;
+    uint32_t dest_len, expected_dest_len;
     UV bytes_consumed;
 
     srl_reader_char_ptr old_pos;
@@ -119,6 +126,9 @@ srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, U8 encoding_flags, SV
         : (STRLEN) SRL_RDR_SPACE_LEFT(buf);
 
     /* All bufl's above here, or we break C89 compilers */
+    if (expect_false( (STRLEN)(uint32_t)compressed_packet_len != compressed_packet_len ))
+        SRL_RDR_ERROR(buf, "Snappy-compressed packet is too large for the Snappy decoder");
+
     old_pos = buf->pos;
     bytes_consumed = compressed_packet_len + SRL_RDR_POS_OFS(buf);
     header_len = csnappy_get_uncompressed_length((char *)buf->pos,
@@ -127,6 +137,8 @@ srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, U8 encoding_flags, SV
 
     if (header_len == CSNAPPY_E_HEADER_BAD)
         SRL_RDR_ERROR(buf, "Invalid Snappy header in Snappy-compressed Sereal packet");
+
+    expected_dest_len = dest_len;
 
     /* Allocate output buffer and swap it into place within the bufoder. */
     buf_sv = srl_realloc_empty_buffer(aTHX_ buf, sereal_header_len, (STRLEN)dest_len,
@@ -141,6 +153,15 @@ srl_decompress_body_snappy(pTHX_ srl_reader_buffer_t *buf, U8 encoding_flags, SV
     if (expect_false( decompress_ok != 0 )) {
         SRL_RDR_ERRORf1(buf, "Snappy decompression of Sereal packet payload failed with error %i!",
                         decompress_ok);
+    }
+
+    /* The Snappy block header sizes the output buffer, but the raw decoder
+     * reports the number of bytes actually produced through dest_len. Do not
+     * let a short stream expose the unwritten tail as Sereal input. */
+    if (expect_false( dest_len != expected_dest_len )) {
+        SRL_RDR_ERRORf2(buf,
+            "Snappy uncompressed size mismatch: packet declares %"UVuf" bytes, stream produced %"UVuf" bytes",
+            (UV)expected_dest_len, (UV)dest_len);
     }
 
     return bytes_consumed;
@@ -162,11 +183,17 @@ srl_decompress_body_zlib(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner, size_t 
     UV bytes_consumed;
     srl_reader_char_ptr old_pos;
     const STRLEN sereal_header_len = (STRLEN)SRL_RDR_POS_OFS(buf);
-    const STRLEN uncompressed_packet_len = (STRLEN)srl_read_varint_uv(aTHX_ buf);
+    const UV uncompressed_packet_len_uv = srl_read_varint_uv(aTHX_ buf);
+    const STRLEN uncompressed_packet_len = (STRLEN)uncompressed_packet_len_uv;
     const STRLEN compressed_packet_len =
         (STRLEN)srl_read_varint_uv_length(aTHX_ buf, " while reading compressed packet size");
 
     SRL_RDR_ASSERT_SPACE(buf, compressed_packet_len, " while reading compressed packet");
+    if (expect_false( (UV)uncompressed_packet_len != uncompressed_packet_len_uv
+            || (UV)(mz_ulong)uncompressed_packet_len_uv != uncompressed_packet_len_uv ))
+        SRL_RDR_ERROR(buf, "ZLIB uncompressed size is too large for this platform");
+    if (expect_false( (STRLEN)(mz_ulong)compressed_packet_len != compressed_packet_len ))
+        SRL_RDR_ERROR(buf, "ZLIB-compressed packet is too large for the zlib decoder");
 
     /* All decl's above here, or we break C89 compilers */
     old_pos = buf->pos;
@@ -183,6 +210,16 @@ srl_decompress_body_zlib(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner, size_t 
 
     if (expect_false( decompress_ok != Z_OK )) {
         SRL_RDR_ERRORf1(buf, "ZLIB decompression of Sereal packet payload failed with error %i!", decompress_ok);
+    }
+
+    /* The packet's uncompressed-length field is used to size buf->end before
+     * decompression. mz_uncompress also reports the actual output length in
+     * tmp; accepting a shorter stream would leave the rest of that buffer
+     * uninitialized but still readable by the Sereal parser. */
+    if (expect_false( tmp != (mz_ulong)uncompressed_packet_len )) {
+        SRL_RDR_ERRORf2(buf,
+            "ZLIB uncompressed size mismatch: packet declares %"UVuf" bytes, stream produced %"UVuf" bytes",
+            (UV)uncompressed_packet_len, (UV)tmp);
     }
 
     return bytes_consumed;
@@ -217,6 +254,9 @@ srl_decompress_body_zstd(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner, size_t 
         SRL_RDR_ERROR(buf, "Invalid zstd packet with no data");
     if (expect_false(uncompressed_packet_len >= ZSTD_CONTENTSIZE_ERROR))
         SRL_RDR_ERROR(buf, "Invalid zstd packet with unknown uncompressed size");
+    if (expect_false( (unsigned long long)(STRLEN)uncompressed_packet_len != uncompressed_packet_len
+            || (unsigned long long)(size_t)uncompressed_packet_len != uncompressed_packet_len ))
+        SRL_RDR_ERROR(buf, "Zstd uncompressed size is too large for this platform");
 
     /* Allocate output buffer and swap it into place within the decoder. */
     buf_sv = srl_realloc_empty_buffer(aTHX_ buf, sereal_header_len, (STRLEN) uncompressed_packet_len,
@@ -229,6 +269,12 @@ srl_decompress_body_zstd(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner, size_t 
     if (expect_false( ZSTD_isError(decompress_code) )) {
         SRL_RDR_ERRORf1(buf, "Zstd decompression of Sereal packet payload failed with error %s!",
                         ZSTD_getErrorName(decompress_code));
+    }
+
+    if (expect_false( decompress_code != (size_t)uncompressed_packet_len )) {
+        SRL_RDR_ERRORf2(buf,
+            "Zstd uncompressed size mismatch: packet declares %"UVuf" bytes, stream produced %"UVuf" bytes",
+            (UV)uncompressed_packet_len, (UV)decompress_code);
     }
 
     return bytes_consumed;

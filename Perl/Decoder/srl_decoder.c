@@ -64,6 +64,8 @@ extern "C" {
 #include "srl_reader_decompress.h"
 #include "srl_protocol.h"
 #include "srl_taginfo.h"
+#include "srl_siphash.h"
+#include "srl_checksum_policy.h"
 
 /* 5.8.8 and earlier have a nasty bug in their handling of overloading:
  * The overload-flag is set on the referer of the blessed object instead of
@@ -91,6 +93,17 @@ extern "C" {
 #  define USE_588_WORKAROUND 1
 #endif
 
+/* V1 offsets are relative to the packet, so nonzero offsets can still
+ * address header bytes. V2+ offsets start at one within each body. */
+SRL_STATIC_INLINE UV
+srl_read_backref_offset(pTHX_ srl_decoder_t *dec, const char *errstr)
+{
+    const UV ofs = srl_read_varint_uv_offset(aTHX_ dec->pbuf, errstr);
+    if (expect_false(ofs < dec->min_backref_offset))
+        SRL_RDR_ERRORf1(dec->pbuf, "Back-reference offset points before the document body%s", errstr);
+    return ofs;
+}
+
 /* predeclare all our subs so we have one definitive authority for their signatures */
 SRL_STATIC_INLINE SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char * const tag_name);
 
@@ -101,7 +114,7 @@ void srl_decoder_destructor_hook(pTHX_ void *p);                    /* destructo
 
 /* the top level components of the decode process - called by srl_decode_into() */
 /* srl_begin_decoding: set up the decoder to handle a given var */
-SRL_STATIC_INLINE srl_decoder_t *srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset);
+SRL_STATIC_INLINE srl_decoder_t *srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset, int copy_input);
 SRL_STATIC_INLINE void srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data); /* read/validate header */
 SRL_STATIC_INLINE void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container); /* main recursive dump routine */
 SRL_STATIC_INLINE void srl_finalize_structure(pTHX_ srl_decoder_t *dec);             /* optional finalize structure logic */
@@ -133,7 +146,7 @@ SRL_STATIC_INLINE void srl_track_sv(pTHX_ srl_decoder_t *dec, const U8 *track_po
 SRL_STATIC_INLINE void srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into);
 SRL_STATIC_INLINE SV * srl_follow_refp_alias_reference(pTHX_ srl_decoder_t *dec, UV offset);
 SRL_STATIC_INLINE AV * srl_follow_objectv_reference(pTHX_ srl_decoder_t *dec, UV offset);
-SRL_STATIC_INLINE void srl_thaw_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *sv);
+SRL_STATIC_INLINE SV *srl_thaw_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *sv);
 SRL_STATIC_INLINE int srl_thaw_class_allowed(pTHX_ srl_decoder_t *dec, HV *class_stash);
 
 /* FIXME unimplemented!!! */
@@ -147,6 +160,15 @@ SRL_STATIC_INLINE SV *srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 } STMT_END
 
 #define DEPTH_DECREMENT(dec) dec->recursion_depth--
+
+#define SRL_CHECK_MAX_STRING_LENGTH(dec, len, kind) STMT_START {                  \
+    if (expect_false((dec)->max_string_length != 0                            \
+                     && (UV)(len) > (dec)->max_string_length)) {             \
+        SRL_RDR_ERRORf3((dec)->pbuf,                                          \
+            "Got input %s with length %"UVuf", configured maximum is %"UVuf, \
+            (kind), (UV)(len), (UV)(dec)->max_string_length);                 \
+    }                                                                          \
+} STMT_END
 
 #define IS_SRL_HDR_ARRAYREF(tag) (((tag) & SRL_HDR_ARRAYREF) == SRL_HDR_ARRAYREF)
 #define IS_SRL_HDR_HASHREF(tag) (((tag) & SRL_HDR_HASHREF) == SRL_HDR_HASHREF)
@@ -203,7 +225,7 @@ S_read_varint_uv_length_char_ptr(pTHX_ const unsigned char **from, const unsigne
     srl_reader_buffer_t buf;
     buf.pos = *from;
     buf.end = end;
-    buf.start = NULL; /* meh */
+    buf.start = buf.pos; /* Keep error-offset pointer arithmetic defined. */
     rv = srl_read_varint_uv_length(aTHX_ &buf, errstr);
     *from = buf.pos;
     return rv;
@@ -220,9 +242,41 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     srl_decoder_t *dec;
     SV *val;
     HE *he;
+    U8 checksum_policy = SRL_CHECKSUM_POLICY_VERIFY_IF_AVAILABLE;
+    SV *checksum_keys[2];
+    int key_options_present = 0;
+    U8 version;
+
+    /* Resolve and validate the default before allocating decoder state, so
+     * an invalid environment value cannot leak a partially built decoder.
+     * Explicit options take precedence, including over an invalid default. */
+    val = NULL;
+    if (opt != NULL)
+        my_hv_fetchs(he, val, opt, SRL_DEC_OPT_IDX_CHECKSUM_POLICY);
+    checksum_policy = srl_get_checksum_policy(aTHX_ val);
+    for (version = 0; version <= 1; version++) {
+        val = NULL;
+        he = NULL;
+        if (opt != NULL) {
+            const U32 idx = version == 0 ? SRL_DEC_OPT_IDX_CHECKSUM_V0_KEY
+                                        : SRL_DEC_OPT_IDX_CHECKSUM_V1_KEY;
+            my_hv_fetchs(he, val, opt, idx);
+        }
+        checksum_keys[version] = val;
+        if (he != NULL)
+            key_options_present = 1;
+    }
+    if (!key_options_present) {
+        SV *default_key = get_sv("Sereal::DefaultKey", 0);
+        checksum_keys[0] = checksum_keys[1] = default_key;
+    }
+    for (version = 0; version <= 1; version++)
+        srl_validate_checksum_key(aTHX_ checksum_keys[version], version, checksum_policy);
 
     Newxz(dec, 1, srl_decoder_t);
 
+    dec->checksum_policy = checksum_policy == SRL_CHECKSUM_POLICY_REQUIRE
+                         ? SRL_CHECKSUM_POLICY_DIE : checksum_policy;
     dec->ref_seenhash = PTABLE_new();
     dec->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
      /* 0 == any number for array, hash & string */
@@ -234,7 +288,27 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     SRL_RDR_CLEAR(&dec->buf);
     dec->pbuf = &dec->buf;
 
-    /* load options */
+    for (version = 0; version <= 1; version++) {
+        const char *option_name = version == 0 ? "checksum_v0_key" : "checksum_v1_key";
+        val = checksum_keys[version];
+        if (val && SvOK(val)) {
+            STRLEN key_len;
+            char *key = SvPVbyte(val, key_len);
+            if (key_len != sizeof(dec->checksum_keys[version])) {
+                if (key_len < sizeof(dec->checksum_keys[version]))
+                    warn("The '%s' key is shorter than 16 bytes; padding with nulls. Use Sereal::Decoder::prepare_checksum_key() to normalize it", option_name);
+                else
+                    warn("The '%s' key is longer than 16 bytes; extra bytes are ignored and may contain unused entropy. Use Sereal::Decoder::prepare_checksum_key() to normalize it", option_name);
+            }
+            Zero(dec->checksum_keys[version], sizeof(dec->checksum_keys[version]), U8);
+            Copy(key, dec->checksum_keys[version],
+                 key_len < sizeof(dec->checksum_keys[version])
+                    ? key_len : sizeof(dec->checksum_keys[version]), U8);
+            dec->checksum_key_mask |= (U8)(1U << version);
+        }
+    }
+
+    /* load remaining options */
     if (opt != NULL) {
         my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_REFUSE_SNAPPY);
         if ( val && SvTRUE(val) )
@@ -355,17 +429,25 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
          * well. */
         my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_ALIAS_VARINT_UNDER);
         if ( val && SvTRUE(val)) {
+            UV max_alias_varint_under = (UV)IV_MAX;
+            UV alias_varint_under = SvUV(val);
+            UV max_u32 = (UV)(U32)~(U32)0;
+            if (max_alias_varint_under > max_u32)
+                max_alias_varint_under = max_u32;
+            max_alias_varint_under -= 16;
+            if (expect_false(alias_varint_under > max_alias_varint_under))
+                croak("The 'alias_varint_under' option is too large for the decoder's alias cache");
             /* if they use this then they automatically imply doing it for
              * smallint as well */
             SRL_DEC_SET_OPTION(dec,SRL_F_DECODER_ALIAS_SMALLINT);
             SRL_DEC_SET_OPTION(dec,SRL_F_DECODER_ALIAS_VARINT);
-            if (SvUV(val) < 16) {
+            if (alias_varint_under < 16) {
                 /* too small, just enable for SMALLINT (POS/NEG)*/
                 dec->alias_varint_under= 16;
             } else {
                 /* larger than POS/NEG range, also alias some VARINTs */
                 /* anything smaller than this number will be aliased */
-                dec->alias_varint_under= SvUV(val);
+                dec->alias_varint_under= (IV)alias_varint_under;
             }
             /* create the alias cache */
             dec->alias_cache= newAV();
@@ -428,6 +510,9 @@ srl_build_decoder_struct_alike(pTHX_ srl_decoder_t *proto)
     dec->max_num_array_entries = proto->max_num_array_entries;
     dec->max_string_length = proto->max_string_length;
     dec->max_uncompressed_size = proto->max_uncompressed_size;
+    dec->checksum_key_mask = proto->checksum_key_mask;
+    dec->checksum_policy = proto->checksum_policy;
+    Copy(proto->checksum_keys, dec->checksum_keys, sizeof(dec->checksum_keys), U8);
 
     if (proto->alias_cache) {
         dec->alias_cache = proto->alias_cache;
@@ -511,7 +596,11 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
     srl_decoder_t *dec;
 
     assert(origdec != NULL);
-    dec = srl_begin_decoding(aTHX_ origdec, src, start_offset);
+    dec = srl_begin_decoding(aTHX_ origdec, src, start_offset,
+        src == body_into || src == header_into);
+    if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL)
+        && (src == body_into || src == header_into))
+        SRL_RDR_ERROR(dec->pbuf, "Incremental decode input and output must be different scalars");
     srl_read_header(aTHX_ dec, header_into);
     if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY) )) {
         dec->bytes_consumed = srl_decompress_body_snappy(aTHX_ dec->pbuf, dec->encoding_flags, NULL, dec->max_uncompressed_size);
@@ -526,6 +615,7 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
 
     /* this function *MUST* be called right after srl_decompress* functions */
     SRL_RDR_UPDATE_BODY_POS(dec->pbuf, dec->proto_version);
+    dec->min_backref_offset = (UV)(dec->buf.pos - dec->buf.body_pos);
 
     /* The actual document body deserialization: */
     srl_read_single_value(aTHX_ dec, body_into, NULL);
@@ -540,11 +630,18 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
         origdec->bytes_consumed = dec->bytes_consumed;
     }
 
+    if (expect_false(dec->packet_has_checksum
+                     && dec->bytes_consumed != dec->checksummed_packet_length))
+        SRL_RDR_ERRORf2(dec->pbuf,
+            "Checksummed Sereal payload length mismatch (%"UVuf" bytes consumed, packet length is %"UVuf" bytes)",
+            dec->bytes_consumed, dec->checksummed_packet_length);
+
     if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL)) {
         STRLEN len;
-        char *pv= SvPV(src,len);
-        /* check the length here? do something different if the string is now exhausted? */
-        sv_chop(src, pv + dec->bytes_consumed);
+        char *pv = SvPVbyte(src, len);
+        if (start_offset > len || dec->bytes_consumed > len - start_offset)
+            SRL_RDR_ERROR(dec->pbuf, "Consumed bytes exceed incremental input length");
+        sv_chop(src, pv + start_offset + dec->bytes_consumed);
     }
 
     srl_clear_decoder(aTHX_ dec);
@@ -556,7 +653,7 @@ srl_decode_header_into(pTHX_ srl_decoder_t *origdec, SV *src, SV* header_into, U
 {
     srl_decoder_t *dec;
     assert(origdec != NULL);
-    dec = srl_begin_decoding(aTHX_ origdec, src, start_offset);
+    dec = srl_begin_decoding(aTHX_ origdec, src, start_offset, src == header_into);
     if (header_into == NULL)
         header_into = sv_newmortal();
     srl_read_header(aTHX_ dec, header_into);
@@ -650,7 +747,7 @@ srl_clear_thaw_state(pTHX_ srl_decoder_t *dec)
 }
 
 SRL_STATIC_INLINE srl_decoder_t *
-srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset)
+srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset, int copy_input)
 {
     STRLEN len;
     unsigned char *tmp;
@@ -681,20 +778,15 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset)
     /* Register our structure for destruction on scope exit */
     SAVEDESTRUCTOR_X(&srl_decoder_destructor_hook, (void *)dec);
 
-    if (SvUTF8(src)) {
-        /* If we are being asked to decode a utf8-on string then we
-         * make a mortal copy, and then try to downgrade the copy.
-         * The downgrade will croak if it cannot successfully downgrade
-         * the buffer. If it is sucessful then decode the downgraded
-         * copy.
-         * Note, we do not make the copy when we are in destructive parsing mode
-         * as we then are expected to modify the original string.
-         */
-        if ( ! SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL) ) {
-            src= sv_mortalcopy(src);
-        }
+    /* Copy only when the API's output aliases its input, or when a UTF-8
+     * downgrade must leave the caller's scalar alone. newSVsv does not steal
+     * the PV of a temporary input (unlike sv_mortalcopy on newer Perls).
+     * Application callbacks must not modify input during decoding. */
+    if (copy_input || (SvUTF8(src)
+            && !SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL)))
+        src = sv_2mortal(newSVsv(src));
+    if (SvUTF8(src))
         sv_utf8_downgrade(src, 0);
-    }
 
     tmp = (unsigned char*)SvPV(src, len);
     if (expect_false( start_offset > len )) {
@@ -702,6 +794,9 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset)
     }
     dec->buf.start= dec->buf.pos= tmp + start_offset;
     dec->buf.end= dec->buf.start + len - start_offset;
+    dec->packet_has_checksum = 0;
+    dec->checksummed_packet_length = 0;
+    dec->checksummed_payload = NULL;
     SRL_RDR_SET_BODY_POS(dec->pbuf, dec->buf.start);
     dec->bytes_consumed = 0;
 
@@ -712,6 +807,216 @@ IV
 srl_validate_header_version_pv_len(pTHX_ char *strdata, STRLEN len)
 {
     return srl_validate_header_version(aTHX_ (srl_reader_char_ptr) strdata, len);
+}
+
+SRL_STATIC_INLINE U32
+srl_read_u32_le(const U8 *p)
+{
+    return ((U32)p[0])       | ((U32)p[1] << 8)  |
+           ((U32)p[2] << 16) | ((U32)p[3] << 24);
+}
+
+SRL_STATIC_INLINE void
+srl_write_u64_le(U8 *p, srl_u64 value)
+{
+    U8 i;
+    for (i = 0; i < 8; i++)
+        p[i] = (U8)(value >> (8 * i));
+}
+
+typedef struct {
+    U8 checksum_type;
+    const U8 *tag;
+    size_t tag_len;
+    const U8 *payload_len_start;
+    size_t payload_len_varint_size;
+    const U8 *payload;
+    size_t payload_len;
+} srl_checksum_envelope_t;
+
+SRL_STATIC_INLINE void
+srl_read_checksum_envelope(pTHX_ srl_reader_buffer_t *buf, srl_checksum_envelope_t *envelope)
+{
+    UV tag_len_uv, payload_len_uv;
+    size_t available;
+    int known_type;
+    SRL_RDR_ASSERT_SPACE(buf, 1, " while reading the checksum type");
+    envelope->checksum_type = *buf->pos++;
+    known_type = envelope->checksum_type == SRL_CHECKSUM_VERSION_SIPHASH_2_4_64
+              || envelope->checksum_type == SRL_CHECKSUM_VERSION_SIPHASH_3_6_128;
+    tag_len_uv = srl_read_varint_uv(aTHX_ buf);
+    envelope->tag_len = (size_t)tag_len_uv;
+    if (expect_false((UV)envelope->tag_len != tag_len_uv))
+        SRL_RDR_ERROR(buf, "Sereal checksum length is too large for this platform");
+    available = (size_t)(buf->end - buf->pos);
+    if (expect_false(envelope->tag_len > available))
+        SRL_RDR_ERROR(buf, "Sereal checksum length exceeds the available input");
+
+    if (known_type) {
+        const size_t expected_len = envelope->checksum_type == SRL_CHECKSUM_VERSION_SIPHASH_2_4_64
+            ? SRL_CHECKSUM_TAG_LENGTH_64 : SRL_CHECKSUM_TAG_LENGTH_128;
+        if (expect_false(envelope->tag_len != expected_len))
+            SRL_RDR_ERRORf2(buf, "Invalid checksum length %"UVuf" for checksum type %u",
+                            tag_len_uv, envelope->checksum_type);
+    }
+
+    envelope->tag = buf->pos;
+    envelope->payload_len_start = envelope->tag + envelope->tag_len;
+    buf->pos = (U8 *)envelope->payload_len_start;
+    payload_len_uv = srl_read_varint_uv(aTHX_ buf);
+    envelope->payload_len_varint_size = (size_t)(buf->pos - envelope->payload_len_start);
+    envelope->payload = buf->pos;
+    envelope->payload_len = (size_t)payload_len_uv;
+    if (expect_false((UV)envelope->payload_len != payload_len_uv))
+        SRL_RDR_ERROR(buf, "Checksummed Sereal payload length is too large for this platform");
+    if (expect_false(envelope->payload_len > (size_t)(buf->end - envelope->payload)))
+        SRL_RDR_ERROR(buf, "Checksummed Sereal payload length exceeds the available input");
+
+}
+
+SRL_STATIC_INLINE int
+srl_checksum_matches(pTHX_ srl_reader_buffer_t *buf, const srl_checksum_envelope_t *envelope, const U8 *key)
+{
+    U8 actual[SRL_CHECKSUM_TAG_LENGTH_128];
+    U8 expected[SRL_CHECKSUM_TAG_LENGTH_128];
+    U8 mismatch = 0;
+    U8 i;
+    srl_siphash_ctx sip;
+    Copy(envelope->tag, expected, envelope->tag_len, U8);
+    srl_siphash_init(&sip, key, envelope->checksum_type);
+    srl_siphash_update(&sip, (const U8 *)buf->start, (size_t)(envelope->tag - buf->start));
+    srl_siphash_update(&sip, envelope->payload_len_start, envelope->payload_len_varint_size);
+    srl_siphash_update(&sip, envelope->payload, envelope->payload_len);
+    if (envelope->checksum_type == SRL_CHECKSUM_VERSION_SIPHASH_3_6_128) {
+        srl_siphash_final128(&sip, actual);
+    } else {
+        srl_u64 digest = srl_siphash_final64(&sip);
+        srl_write_u64_le(actual, digest);
+    }
+    for (i = 0; i < envelope->tag_len; i++)
+        mismatch |= (U8)(actual[i] ^ expected[i]);
+    return mismatch == 0;
+}
+
+SRL_STATIC_INLINE void
+srl_process_checksum_envelope(pTHX_ srl_decoder_t *dec)
+{
+    srl_reader_buffer_t *buf = dec->pbuf;
+    srl_checksum_envelope_t envelope;
+    int known_type, has_key, verify;
+    srl_read_checksum_envelope(aTHX_ buf, &envelope);
+    known_type = envelope.checksum_type == SRL_CHECKSUM_VERSION_SIPHASH_2_4_64
+              || envelope.checksum_type == SRL_CHECKSUM_VERSION_SIPHASH_3_6_128;
+    has_key = known_type && (dec->checksum_key_mask & (U8)(1U << envelope.checksum_type));
+    if (dec->checksum_policy == SRL_CHECKSUM_POLICY_DIE && !known_type)
+        SRL_RDR_ERRORf1(buf, "Unsupported Sereal checksum type %u", envelope.checksum_type);
+    if (dec->checksum_policy == SRL_CHECKSUM_POLICY_DIE && !has_key) {
+        if (envelope.checksum_type == SRL_CHECKSUM_VERSION_SIPHASH_2_4_64)
+            SRL_RDR_ERROR(buf, "Checksummed Sereal document requires a 'checksum_v0_key'");
+        else
+            SRL_RDR_ERROR(buf, "Checksummed Sereal document requires a 'checksum_v1_key'");
+    }
+    verify = has_key && (dec->checksum_policy == SRL_CHECKSUM_POLICY_VERIFY_IF_AVAILABLE
+                         || dec->checksum_policy == SRL_CHECKSUM_POLICY_DIE);
+    if (dec->checksum_policy == SRL_CHECKSUM_POLICY_IGNORE_WARN)
+        warn("Ignoring Sereal checksum authentication by request");
+    else if (dec->checksum_policy == SRL_CHECKSUM_POLICY_VERIFY_IF_AVAILABLE && !has_key)
+        warn("Decoding checksummed Sereal document without authentication: no matching checksum key is configured");
+    if (verify && !srl_checksum_matches(aTHX_ buf, &envelope, dec->checksum_keys[envelope.checksum_type]))
+        SRL_RDR_ERROR(buf, "Sereal packet checksum verification failed");
+
+    dec->checksummed_packet_length = (UV)((envelope.payload - buf->start) + envelope.payload_len);
+    dec->checksummed_payload = envelope.payload;
+    buf->pos = (U8 *)envelope.payload;
+    buf->end = (U8 *)envelope.payload + envelope.payload_len;
+}
+
+/* Inspect framing only: no decoder construction, decompression, callbacks,
+ * policy-dependent fallback, or changes to the supplied packet. */
+SRL_STATIC_INLINE int
+srl_inspect_checksum(pTHX_ SV *src, UV offset, srl_reader_buffer_t *buf, srl_checksum_envelope_t *envelope)
+{
+    STRLEN len;
+    char *bytes;
+    IV header;
+    U8 version, encoding;
+    UV suffix_len;
+    SvGETMAGIC(src);
+    if (SvROK(src))
+        croak("Cannot inspect a reference as a Sereal packet");
+    bytes = SvPVbyte(src, len);
+    if (offset > len)
+        croak("Sereal checksum offset is outside the input");
+    SRL_RDR_CLEAR(buf);
+    buf->start = buf->pos = (U8 *)bytes + offset;
+    buf->end = (U8 *)bytes + len;
+    header = srl_validate_header_version(aTHX_ buf->pos, (STRLEN)SRL_RDR_SPACE_LEFT(buf));
+    if (header < 1)
+        SRL_RDR_ERROR(buf, "Bad Sereal header while inspecting checksum");
+    version = (U8)header & SRL_PROTOCOL_VERSION_MASK;
+    encoding = (U8)header & SRL_PROTOCOL_ENCODING_BASE_MASK;
+    if (version > SRL_PROTOCOL_VERSION)
+        SRL_RDR_ERRORf1(buf, "Unsupported Sereal protocol version %u", version);
+    if (encoding > SRL_PROTOCOL_ENCODING_ZSTD)
+        SRL_RDR_ERROR(buf, "Unknown Sereal encoding while inspecting checksum");
+    if (((U8)header & SRL_PROTOCOL_ENCODING_CHECKSUM) && version < 6)
+        SRL_RDR_ERROR(buf, "Checksummed Sereal documents require protocol version 6 or later");
+    if ((encoding == SRL_PROTOCOL_ENCODING_SNAPPY && version >= 2
+            && !((U8)header & SRL_PROTOCOL_ENCODING_CHECKSUM))
+            || (encoding == SRL_PROTOCOL_ENCODING_ZLIB && version < 3)
+            || (encoding == SRL_PROTOCOL_ENCODING_ZSTD && version < 4))
+        SRL_RDR_ERROR(buf, "Sereal compression is not supported by this protocol version");
+    buf->pos += 5;
+    suffix_len = srl_read_varint_uv(aTHX_ buf);
+    if (suffix_len > (UV)SRL_RDR_SPACE_LEFT(buf))
+        SRL_RDR_ERROR(buf, "Sereal header suffix exceeds the available input");
+    buf->pos += suffix_len;
+    if (!((U8)header & SRL_PROTOCOL_ENCODING_CHECKSUM))
+        return 0;
+    srl_read_checksum_envelope(aTHX_ buf, envelope);
+    return 1;
+}
+
+SV *
+srl_get_sereal_checksum(pTHX_ SV *src, UV offset)
+{
+    srl_reader_buffer_t buf;
+    srl_checksum_envelope_t envelope;
+    if (!srl_inspect_checksum(aTHX_ src, offset, &buf, &envelope))
+        return newSV(0);
+    return newSVpvn((const char *)envelope.tag, envelope.tag_len);
+}
+
+int
+srl_validate_sereal_checksum(pTHX_ SV *src, SV *key, UV offset)
+{
+    srl_reader_buffer_t buf;
+    srl_checksum_envelope_t envelope;
+    STRLEN key_len;
+    U8 key_bytes[16];
+    int has_key = 0;
+    /* Key FETCH/stringification can execute Perl code and mutate src. Resolve
+     * it before retaining pointers into the packet, and copy the key bytes. */
+    if (!key)
+        key = get_sv("Sereal::DefaultKey", 0);
+    if (key) {
+        SvGETMAGIC(key);
+        if (SvOK(key)) {
+            const U8 *bytes = (const U8 *)SvPVbyte(key, key_len);
+            if (key_len != sizeof(key_bytes))
+                croak("validate_sereal_checksum key must be exactly 16 bytes");
+            Copy(bytes, key_bytes, sizeof(key_bytes), U8);
+            has_key = 1;
+        }
+    }
+    if (!srl_inspect_checksum(aTHX_ src, offset, &buf, &envelope))
+        return 0;
+    if (envelope.checksum_type != SRL_CHECKSUM_VERSION_SIPHASH_2_4_64
+            && envelope.checksum_type != SRL_CHECKSUM_VERSION_SIPHASH_3_6_128)
+        SRL_RDR_ERRORf1(&buf, "Unsupported Sereal checksum type %u", envelope.checksum_type);
+    if (!has_key)
+        croak("validate_sereal_checksum requires a key or a defined $Sereal::DefaultKey");
+    return srl_checksum_matches(aTHX_ &buf, &envelope, key_bytes);
 }
 
 SRL_STATIC_INLINE void
@@ -731,7 +1036,11 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
 
         dec->proto_version  = (U8)(proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
         dec->encoding_flags = (U8)(proto_version_and_encoding_flags_int & SRL_PROTOCOL_ENCODING_MASK);
+        dec->packet_has_checksum = (dec->encoding_flags & SRL_PROTOCOL_ENCODING_CHECKSUM) != 0;
+        dec->encoding_flags &= SRL_PROTOCOL_ENCODING_BASE_MASK;
 
+        if (expect_false(dec->packet_has_checksum && dec->proto_version < 6))
+            SRL_RDR_ERROR(dec->pbuf, "Checksummed Sereal documents require protocol version 6 or later");
         if (expect_false( dec->proto_version == 1 ))
             SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_PROTOCOL_V1); /* compat mode */
         else if (expect_false( dec->proto_version > SRL_PROTOCOL_VERSION || dec->proto_version < 1 ))
@@ -745,7 +1054,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
             || dec->encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL)
         {
             if (dec->encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
-                && dec->proto_version >= 2)
+                && dec->proto_version >= 2 && !dec->packet_has_checksum)
                 SRL_RDR_ERROR(dec->pbuf, "Non-incremental Snappy compression requires protocol version 1");
             if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_SNAPPY) )) {
                 SRL_RDR_ERROR(dec->pbuf, "Sereal document is compressed with Snappy, "
@@ -784,6 +1093,14 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
         /* Must do this via a temporary as it modifes dec->buf.pos itself */
         header_len= srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading header");
 
+        if (dec->packet_has_checksum) {
+            const U8 * const suffix_start = dec->buf.pos;
+            SRL_RDR_ASSERT_SPACE(dec->pbuf, header_len, " while reading checksummed header suffix");
+            dec->buf.pos += header_len;
+            srl_process_checksum_envelope(aTHX_ dec);
+            dec->buf.pos = suffix_start;
+        }
+
         if (dec->proto_version > 1 && header_len) {
             /* We have a protocol V2+ extensible header:
              *  - 8bit bitfield
@@ -796,17 +1113,26 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
 
             bitfield = *(dec->buf.pos++);
             if (bitfield & SRL_PROTOCOL_HDR_USER_DATA && header_user_data != NULL) {
+                const U8 * const packet_end = dec->buf.end;
+                const U8 * const header_end = dec->buf.pos + (header_len - 1);
+
                 /* Do an actual document body deserialization for the user data: */
+                /* Keep this read within the declared header suffix. Otherwise a
+                 * truncated metadata value can consume bytes from the main body. */
+                dec->buf.end = header_end;
                 SRL_RDR_UPDATE_BODY_POS(dec->pbuf, dec->proto_version);
+                dec->min_backref_offset = (UV)(dec->buf.pos - dec->buf.body_pos);
                 srl_read_single_value(aTHX_ dec, header_user_data, NULL);
                 if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE))) {
                     srl_finalize_structure(aTHX_ dec);
                 }
                 srl_clear_decoder_body_state(aTHX_ dec); /* clean up for the main body decode */
+                dec->buf.end = packet_end;
+                dec->buf.pos = header_end;
             }
             else {
                 /* Either off in bitfield or no user data wanted, skip to end of header */
-                SRL_RDR_ASSERT_SPACE(dec->pbuf, header_len, " while reading header packet");
+                SRL_RDR_ASSERT_SPACE(dec->pbuf, header_len - 1, " while reading header packet");
                 dec->buf.pos += header_len - 1; /* header_len includes bitfield */
             }
         }
@@ -815,6 +1141,9 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
              * protocol version. */
             dec->buf.pos += header_len;
         }
+
+        if (dec->packet_has_checksum)
+            dec->buf.pos = (srl_reader_char_ptr)dec->checksummed_payload;
     }
 }
 
@@ -928,6 +1257,23 @@ srl_thaw_class_allowed(pTHX_ srl_decoder_t *dec, HV *class_stash)
     }
 }
 
+/* Replace the complete value: THAW may return a scalar as well as a reference.
+ * sv_setsv also releases old strong ownership or unregisters a weak backref. */
+SRL_STATIC_INLINE void
+srl_replace_thawed_object(pTHX_ SV *into, SV *replacement)
+{
+    const int readonly = SvREADONLY(into);
+    const int weak = SvWEAKREF(into);
+    SvREADONLY_off(into);
+    /* A mortal return value must survive every fixup; normal sv_setsv can
+     * steal a temporary's contents on the first assignment. */
+    sv_setsv_flags(into, replacement, SV_GMAGIC|SV_NOSTEAL);
+    if (weak && SvROK(into))
+        sv_rvweaken(into);
+    if (readonly)
+        SvREADONLY_on(into);
+}
+
 SRL_STATIC_INLINE void
 srl_finalize_structure(pTHX_ srl_decoder_t *dec)
 {
@@ -954,8 +1300,6 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
      * normal cache mechanism to handle multiple references.
      */
 
-    if (dec->weakref_av)
-        av_clear(dec->weakref_av);
     if (dec->ref_stashes) {
         /* The iterator could be leaked on exceptions if not for PTABLE_FLAG_AUTOCLEAN. */
         PTABLE_ITER_t *it = PTABLE_iter_new_flags(dec->ref_stashes, PTABLE_FLAG_AUTOCLEAN);
@@ -967,13 +1311,26 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
         while ( NULL != (ent = PTABLE_iter_next(it)) ) {
             HV *stash = (HV* )ent->value;
             AV *ref_bless_av  = (AV *) PTABLE_fetch(dec->ref_bless_av, ent->key);
-            I32 len;
+            SSize_t len;
             if (expect_false( !stash || !ref_bless_av )) {
                 PTABLE_iter_free(it);
                 SRL_RDR_ERROR(dec->pbuf, "missing stash or ref_bless_av!");
             }
-            for( len= av_len(ref_bless_av) + 1 ; len > 0 ; len-- ) {
+            for( len= av_len(ref_bless_av) ; len >= 0 ; len-- ) {
                 SV* obj= av_pop(ref_bless_av); /*note that av_pop does NOT refcnt dec the sv*/
+                if (expect_false(!obj)) {
+                    PTABLE_iter_free(it);
+                    SRL_RDR_ERROR(dec->pbuf, "object missing from ref_bless_av array?");
+                }
+                /* Keep weak targets alive until blessing is finished. A weak
+                 * target with refcount one is owned only by weakref_av and will
+                 * disappear when that keepalive is released. Do not bless it
+                 * (and thereby run DESTROY), or inspect an expired reference. */
+                if (!SvROK(obj)
+                        || (SvWEAKREF(obj) && SvREFCNT(SvRV(obj)) == 1)) {
+                    SvREFCNT_dec(obj);
+                    continue;
+                }
                 if (SvREFCNT(obj)>1) {
                     /* It is possible that someone handcrafts a hash with a key collision,
                      * which could trick us into effectively blessing an object and then
@@ -982,26 +1339,21 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
                      * we refcount dec is higher than 1. If it is 1 then we just destroy the 
                      * object.
                      * */
-                    if (expect_true( obj )) {
 #if USE_588_WORKAROUND
-                        /* was blessed early, don't rebless */
+                    /* was blessed early, don't rebless */
 #else
-                        if (!nobless) {
-                            if ( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_READONLY_FLAGS) && SvREADONLY(SvRV(obj))) {
-                                /* the referenced scalar was readonly, temporary 
-                                   set it rw to bless its reference */
-                                SvREADONLY_off(SvRV(obj));
-                                sv_bless(obj, stash);
-                                SvREADONLY_on(SvRV(obj));
-                            } else {
-                                sv_bless(obj, stash);
-                            }
+                    if (!nobless) {
+                        if ( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_READONLY_FLAGS) && SvREADONLY(SvRV(obj))) {
+                            /* the referenced scalar was readonly, temporary
+                               set it rw to bless its reference */
+                            SvREADONLY_off(SvRV(obj));
+                            sv_bless(obj, stash);
+                            SvREADONLY_on(SvRV(obj));
+                        } else {
+                            sv_bless(obj, stash);
                         }
-#endif
-                    } else {
-                        PTABLE_iter_free(it);
-                        SRL_RDR_ERROR(dec->pbuf, "object missing from ref_bless_av array?");
                     }
+#endif
                 } else {
                     warn("Not blessing object that would be DESTROYed immediately. Malformed packet?");
                 }
@@ -1010,12 +1362,18 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
         }
         PTABLE_iter_free(it);
     }
+    /* Release temporary ownership only after surviving ordinary objects have
+     * been blessed and their readonly flags restored. Weak-only targets were
+     * deliberately left unblessed, so their release cannot invoke DESTROY. */
+    if (dec->weakref_av)
+        av_clear(dec->weakref_av);
+
     /* And finally after all the simple blessing is done we need to handle any FROZEN
      * objects by calling their THAW method. We have to do this last as their frozen
      * representation may contain simple objects created during the bless phase above.
      */
     if (dec->thaw_av) {
-        IV thaw_av_len= av_len(dec->thaw_av) + 1;
+        SSize_t thaw_av_len= av_len(dec->thaw_av);
         HV *debug_class= NULL;
 
         /* Everything should be blessed now, so call thaw on each FROZEN
@@ -1026,12 +1384,23 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
          * the class stash and any additional items that need to be fixed
          * in it.
          */
-        for ( ; thaw_av_len > 0 ; thaw_av_len-- ) {
-            SV *sv = av_pop(dec->thaw_av);
-            HV *class_stash = (HV*)srl_fetch_register_frozen_object(aTHX_ dec, sv, 0);
+        for ( ; thaw_av_len >= 0 ; thaw_av_len-- ) {
+            /* Once popped, this ownership must also be released if a THAW
+             * method or allow-list callback croaks before the loop ends. */
+            SV *sv = sv_2mortal(av_pop(dec->thaw_av));
+            HV *class_stash;
             AV *additional_refs= NULL;
-            IV fixups = 0;
+            SSize_t fixups = 0;
             int thaw_this = 1; /* cleared if class is denied but fallback allowed */
+            /* Releasing weakref_av can expire a weak-only frozen argument
+             * array too. There is no object left to thaw in that case. */
+            if (!SvROK(sv)) {
+                continue;
+            }
+            class_stash = (HV*)srl_fetch_register_frozen_object(aTHX_ dec, sv, 0);
+            if (expect_false(!class_stash)) {
+                SRL_RDR_ERROR(dec->pbuf, "Missing class for frozen object");
+            }
             if (SvTYPE(class_stash) == SVt_PVAV) {
                 additional_refs = (AV*)class_stash;
                 fixups = av_len(additional_refs); /* no +1 because we do it before the class_stash shift */
@@ -1055,24 +1424,29 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
                  * private to the Sereal project. */
                 char *classname = HvNAME(class_stash);
                 AV *av= (AV*)SvRV(sv);
+                const int readonly = SvREADONLY((SV*)av);
+                SV *name_sv = newSVpvn(classname, strlen(classname));
                 if (!debug_class) {
                     debug_class = gv_stashpvs("Sereal::Decoder::THAW_args",1);
                 }
-                av_push(av,newSVpvn(classname, strlen(classname)));
+                if (dec->flags_readonly)
+                    SvREADONLY_on(name_sv);
+                SvREADONLY_off((SV*)av);
+                av_push(av, name_sv);
                 sv_bless(sv,debug_class);
+                if (readonly)
+                    SvREADONLY_on((SV*)av);
             } else {
-                /* thaw the first ref. */
-                srl_thaw_object(aTHX_ dec, class_stash, sv);
+                /* Keep the returned value alive until all weak and strong
+                 * references have been replaced. */
+                SV *replacement = srl_thaw_object(aTHX_ dec, class_stash, sv);
+                srl_replace_thawed_object(aTHX_ sv, replacement);
                 /* if there are any additional refs then stitch them in */
                 for ( ; fixups > 0; fixups--) {
-                    SV* into = av_pop(additional_refs);
-                    SvREFCNT_dec(SvRV(into));
-                    SvRV_set(into, SvRV(sv));
-                    SvREFCNT_inc(SvRV(sv));
-                    SvREFCNT_dec(into);
+                    SV* into = sv_2mortal(av_pop(additional_refs));
+                    srl_replace_thawed_object(aTHX_ into, replacement);
                 }
             }
-            SvREFCNT_dec(sv);
         }
     }
 }
@@ -1083,7 +1457,15 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
 SRL_STATIC_INLINE void
 srl_track_sv(pTHX_ srl_decoder_t *dec, const U8 *track_pos, SV *sv)
 {
-    PTABLE_store(dec->ref_seenhash, (void *)(track_pos - dec->buf.body_pos), (void *)sv);
+    /* A run of PADs can have several tracked offsets for the same value.
+     * Update all of them when aliasing replaces the destination scalar. */
+    do {
+        if (*track_pos & SRL_HDR_TRACK_FLAG)
+            PTABLE_store(dec->ref_seenhash, (void *)(track_pos - dec->buf.body_pos), (void *)sv);
+        if ((*track_pos & ~SRL_HDR_TRACK_FLAG) != SRL_HDR_PAD)
+            break;
+        ++track_pos;
+    } while (track_pos < dec->buf.pos);
 }
 
 
@@ -1219,10 +1601,7 @@ srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
 {
     UV len= srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading string");
     /* Limit the maximum size of the string that we accept to whatever was configured */
-    if (expect_false( dec->max_string_length != 0 && len > dec->max_string_length )) {
-        SRL_RDR_ERRORf2(dec->pbuf, "Got input string with %u characters, but the configured maximum is just %u",
-                (int)len, (int)dec->max_string_length);
-    }
+    SRL_CHECK_MAX_STRING_LENGTH(dec, len, "string");
     if (expect_false(is_utf8 && SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8))) {
         /* checks for invalid byte sequences. */
         if (expect_false( !is_utf8_string((U8*)dec->buf.pos, len) )) {
@@ -1242,15 +1621,16 @@ SRL_STATIC_INLINE void
 srl_read_vstring(pTHX_ srl_decoder_t *dec, SV* into, int is_utf8)
 {
     UV len = srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading extended VSTRING");
-    if (expect_false(dec->max_string_length != 0 && len > dec->max_string_length))
-        SRL_RDR_ERRORf2(dec->pbuf, "Got input v-string spelling with %u bytes, but the configured maximum is just %u",
-                (int)len, (int)dec->max_string_length);
+    SRL_CHECK_MAX_STRING_LENGTH(dec, len, "v-string spelling");
     SRL_RDR_ASSERT_SPACE(dec->pbuf, len, " while reading extended VSTRING payload");
     if (expect_false(len == 0 || len >= I32_MAX))
         SRL_RDR_ERROR(dec->pbuf, "Invalid extended VSTRING spelling length");
     (void)sv_grow(into, len + 1);
     {
-        const char *spelling = (const char *)dec->buf.pos;
+        /* scan_vstring() can inspect the byte at its end pointer. Isolate
+         * the spelling from subsequent tags and supply a terminating NUL. */
+        SV * const spelling_sv = sv_2mortal(newSVpvn((const char *)dec->buf.pos, len));
+        const char *spelling = SvPVX(spelling_sv);
         const char *spelling_end = spelling + len;
         const char *parsed = scan_vstring(spelling, spelling_end, into);
         if (expect_false(parsed != spelling_end))
@@ -1349,7 +1729,6 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
         len= tag & 15;
         SRL_sv_set_rv_to(into, referent);
         into= referent;
-        DEPTH_INCREMENT(dec);
     } else {
         len= srl_read_varint_uv_count(aTHX_ dec->pbuf, " while reading ARRAY");
         (void)SvUPGRADE(into, SVt_PVAV);
@@ -1378,8 +1757,6 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
             srl_read_single_value(aTHX_ dec, *av_array, av_array);
         }
     }
-    if (tag)
-        DEPTH_DECREMENT(dec);
 }
 
 #ifndef HV_FETCH_LVALUE
@@ -1394,6 +1771,41 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
 #   define HvRITER_set(sv,v) HvRITER(sv) = v
 #endif
 
+/* Escape a key for a single-quoted diagnostic. If the escaped form would
+ * exceed limit, return limit + 1 without writing past the caller's buffer. */
+SRL_STATIC_INLINE STRLEN
+srl_escape_key_for_error(char *dst, const U8 *src, UV len, STRLEN limit)
+{
+    static const char hex[] = "0123456789ABCDEF";
+    STRLEN escaped = 0;
+    UV i;
+
+    for (i = 0; i < len; i++) {
+        const U8 c = src[i];
+        STRLEN width = (c >= 0x20 && c <= 0x7E && c != '\\' && c != '\'') ? 1
+                     : (c == '\\' || c == '\'') ? 2 : 4;
+        if (width > limit - escaped)
+            return limit + 1;
+        if (dst) {
+            if (width == 1) {
+                dst[escaped] = (char)c;
+            } else if (width == 2) {
+                dst[escaped] = '\\';
+                dst[escaped + 1] = (char)c;
+            } else {
+                dst[escaped] = '\\';
+                dst[escaped + 1] = 'x';
+                dst[escaped + 2] = hex[c >> 4];
+                dst[escaped + 3] = hex[c & 0x0F];
+            }
+        }
+        escaped += width;
+    }
+    if (dst)
+        dst[escaped] = '\0';
+    return escaped;
+}
+
 SRL_STATIC_INLINE void
 srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
     UV num_keys;
@@ -1402,7 +1814,6 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         num_keys= tag & 15;
         SRL_sv_set_rv_to(into, referent);
         into= referent;
-        DEPTH_INCREMENT(dec);
     } else {
         num_keys= srl_read_varint_uv_count(aTHX_ dec->pbuf, " while reading HASH");
         (void)SvUPGRADE(into, SVt_PVHV);
@@ -1430,25 +1841,33 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         const U8 *from;
         U8 tag;
         SV **fetched_sv;
+        UV key_len_uv;
 #ifndef OLDHASH
         U32 flags= 0;
 #endif
         KEYLENTYPE key_len;
+        const UV keys_before = HvKEYS((HV *)into);
 
         SRL_RDR_ASSERT_SPACE(dec->pbuf,1," while reading key tag byte for HASH");
         tag= (*dec->buf.pos++)&127;
         if (IS_SRL_HDR_SHORT_BINARY(tag)) {
-            key_len= (KEYLENTYPE)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+            key_len_uv= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+            SRL_CHECK_MAX_STRING_LENGTH(dec, key_len_uv, "hash key");
+            key_len= (KEYLENTYPE)key_len_uv;
             SRL_RDR_ASSERT_SPACE(dec->pbuf,key_len," while reading string/SHORT_BINARY key");
             from= dec->buf.pos;
             dec->buf.pos += key_len;
         } else if (tag == SRL_HDR_BINARY) {
-            key_len= (KEYLENTYPE)srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading string/BINARY key");
+            key_len_uv= srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading string/BINARY key");
+            SRL_CHECK_MAX_STRING_LENGTH(dec, key_len_uv, "hash key");
+            key_len= (KEYLENTYPE)key_len_uv;
             SRL_RDR_ASSERT_SPACE(dec->pbuf,key_len," while reading binary key");
             from= dec->buf.pos;
             dec->buf.pos += key_len;
         } else if (tag == SRL_HDR_STR_UTF8) {
-            key_len= (KEYLENTYPE)srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading UTF8 key");
+            key_len_uv= srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading UTF8 key");
+            SRL_CHECK_MAX_STRING_LENGTH(dec, key_len_uv, "hash key");
+            key_len= (KEYLENTYPE)key_len_uv;
             SRL_RDR_ASSERT_SPACE(dec->pbuf,key_len," while reading string key");
             from= dec->buf.pos;
             dec->buf.pos += key_len;
@@ -1459,25 +1878,31 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
 #endif
         } else if (tag == SRL_HDR_COPY) {
             const U8 *copytag_start = dec->buf.pos - 1;
-            UV ofs= srl_read_varint_uv_offset(aTHX_ dec->pbuf, " while reading COPY tag");
+            UV ofs= srl_read_backref_offset(aTHX_ dec, " while reading COPY tag");
             from= dec->buf.body_pos + ofs;
-            tag= *from++;
+            tag= *from++ & ~SRL_HDR_TRACK_FLAG;
             if (IS_SRL_HDR_SHORT_BINARY(tag)) {
-                key_len= (KEYLENTYPE)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+                key_len_uv= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+                SRL_CHECK_MAX_STRING_LENGTH(dec, key_len_uv, "hash key");
+                key_len= (KEYLENTYPE)key_len_uv;
             }
             else
             if (tag == SRL_HDR_BINARY) {
-                key_len = (KEYLENTYPE)S_read_varint_uv_length_char_ptr(
-                    aTHX_ &from, dec->buf.end,
+                key_len_uv = S_read_varint_uv_length_char_ptr(
+                    aTHX_ &from, copytag_start,
                     " while reading binary key via COPY"
                 );
+                SRL_CHECK_MAX_STRING_LENGTH(dec, key_len_uv, "hash key");
+                key_len = (KEYLENTYPE)key_len_uv;
             }
             else
             if (tag == SRL_HDR_STR_UTF8) {
-                key_len = (KEYLENTYPE)S_read_varint_uv_length_char_ptr(
-                    aTHX_ &from, dec->buf.end,
+                key_len_uv = S_read_varint_uv_length_char_ptr(
+                    aTHX_ &from, copytag_start,
                     " while reading UTF8-encoded key via COPY"
                 );
+                SRL_CHECK_MAX_STRING_LENGTH(dec, key_len_uv, "hash key");
+                key_len = (KEYLENTYPE)key_len_uv;
 #ifdef OLDHASH
                 key_len= -key_len;
 #else
@@ -1487,7 +1912,8 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
             else {
                 SRL_RDR_ERROR_BAD_COPY(dec->pbuf, SRL_HDR_HASH);
             }
-            if (expect_false(from + key_len > copytag_start)) {
+            if (expect_false(from > copytag_start
+                    || (UV)(copytag_start - from) < key_len_uv)) {
                 SRL_RDR_ERRORf2(dec->pbuf,
                     COPY_OFFSET_ERROR_FMT_PREFIX " while reading key",(int)ofs,(int)key_len);
             }
@@ -1506,14 +1932,44 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
             SRL_RDR_ERROR_PANIC(dec->pbuf, "failed to hv_store");
         }
         else
-        if ( expect_false( SvTYPE(*fetched_sv) != SVt_NULL ) ) {
+        if ( expect_false( (UV)HvKEYS((HV *)into) == keys_before ) ) {
+            char prefix[65], suffix[65], display[192], full_key[192];
+            STRLEN full_key_len;
+            int display_len;
             /* sv_dump(*fetched_sv); */
-            SRL_RDR_ERRORf2(dec->pbuf, "duplicate key '%.*s' in hash", (int) key_len, (char *)from);
+            if (key_len_uv > 32) {
+                STRLEN prefix_len = srl_escape_key_for_error(prefix, from, 16, 64);
+                STRLEN suffix_len = srl_escape_key_for_error(suffix,
+                    from + key_len_uv - 16, 16, 64);
+
+                display_len = my_snprintf(display, sizeof(display),
+                    "'%.*s' ... %"UVuf" bytes elided ... '%.*s'",
+                    (int)prefix_len, prefix, key_len_uv - 32,
+                    (int)suffix_len, suffix);
+                if (expect_false(display_len < 0
+                        || (size_t)display_len >= sizeof(display)))
+                    SRL_RDR_ERROR(dec->pbuf, "duplicate key in hash");
+                full_key_len = srl_escape_key_for_error(NULL, from,
+                    key_len_uv, (STRLEN)display_len - 2);
+                if ((STRLEN)display_len < full_key_len + 2)
+                    SRL_RDR_ERRORf2(dec->pbuf,
+                        "duplicate key %.*s in hash",
+                        display_len, display);
+            }
+            full_key_len = srl_escape_key_for_error(full_key, from,
+                key_len_uv, sizeof(full_key) - 3);
+            if (expect_false(full_key_len >= sizeof(full_key) - 2))
+                SRL_RDR_ERROR(dec->pbuf, "duplicate key in hash");
+            display_len = my_snprintf(display, sizeof(display),
+                "'%.*s'", (int)full_key_len, full_key);
+            if (expect_false(display_len < 0
+                    || (size_t)display_len >= sizeof(display)))
+                SRL_RDR_ERROR(dec->pbuf, "duplicate key in hash");
+            SRL_RDR_ERRORf2(dec->pbuf,
+                "duplicate key %.*s in hash", display_len, display);
         }
         srl_read_single_value(aTHX_ dec, *fetched_sv, fetched_sv );
     }
-    if (tag)
-        DEPTH_DECREMENT(dec);
 }
 
 /* read reference to next thing */
@@ -1556,9 +2012,7 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
     }
     SRL_sv_set_rv_to(into, referent);
     if (!tag) {
-        DEPTH_INCREMENT(dec);
         srl_read_single_value(aTHX_ dec, referent, NULL);
-        DEPTH_DECREMENT(dec);
     }
 }
 
@@ -1606,7 +2060,7 @@ SRL_STATIC_INLINE void
 srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into)
 {
     /* something we did before */
-    UV ofs= srl_read_varint_uv_offset(aTHX_ dec->pbuf, " while reading REFP tag");
+    UV ofs= srl_read_backref_offset(aTHX_ dec, " while reading REFP tag");
     SV *referent= srl_fetch_item(aTHX_ dec, ofs, "REFP");
 
 #ifdef FOLLOW_REFERENCES_IF_NOT_STASHED
@@ -1675,7 +2129,7 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
     if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS) ))
         SRL_RDR_ERROR_REFUSE_OBJECT(dec->pbuf);
 
-    ofs= srl_read_varint_uv_offset(aTHX_ dec->pbuf, " while reading OBJECTV(_FREEZE) classname");
+    ofs= srl_read_backref_offset(aTHX_ dec, " while reading OBJECTV(_FREEZE) classname");
 
     if (expect_false( !dec->ref_bless_av )) {
 #ifdef FOLLOW_REFERENCES_IF_NOT_STASHED
@@ -1707,6 +2161,9 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
         /* now deparse the thing we are going to bless */
         srl_read_single_value(aTHX_ dec, into, NULL);
 
+        if (expect_false(!SvROK(into)))
+            SRL_RDR_ERROR(dec->pbuf, "OBJECT(V) must be followed by a reference");
+
         /* and also stuff it into the av - we dont have to do any more book-keeping */
         av_push(av, SvREFCNT_inc(into));
 
@@ -1732,6 +2189,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
     AV *av= NULL;
     STRLEN storepos= 0;
     UV ofs= 0;
+    UV key_len_uv= 0;
     I32 flags= GV_ADD;
     U8 tag;
     U32 key_len = 0;
@@ -1752,14 +2210,20 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
     tag= *dec->buf.pos++;
 
     if (IS_SRL_HDR_SHORT_BINARY(tag)) {
-        key_len= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+        key_len_uv= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+        SRL_CHECK_MAX_STRING_LENGTH(dec, key_len_uv, "class name");
+        key_len= (U32)key_len_uv;
         from= dec->buf.pos;
         SRL_RDR_ASSERT_SPACE(dec->pbuf,key_len," while reading short binary");
         dec->buf.pos += key_len;
     }
     else
     if (tag == SRL_HDR_STR_UTF8) {
-        key_len= srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading UTF8 class name");
+        key_len_uv= srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading UTF8 class name");
+        SRL_CHECK_MAX_STRING_LENGTH(dec, key_len_uv, "class name");
+        if (expect_false((UV)(U32)key_len_uv != key_len_uv))
+            SRL_RDR_ERROR(dec->pbuf, "Class name is too large for this platform");
+        key_len= (U32)key_len_uv;
         flags = flags | SVf_UTF8;
         from= dec->buf.pos;
         SRL_RDR_ASSERT_SPACE(dec->pbuf,key_len," while reading utf8 string");
@@ -1767,7 +2231,11 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
     }
     else
     if (tag == SRL_HDR_BINARY) {
-        key_len= srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading string/BINARY class name");
+        key_len_uv= srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading string/BINARY class name");
+        SRL_CHECK_MAX_STRING_LENGTH(dec, key_len_uv, "class name");
+        if (expect_false((UV)(U32)key_len_uv != key_len_uv))
+            SRL_RDR_ERROR(dec->pbuf, "Class name is too large for this platform");
+        key_len= (U32)key_len_uv;
         from= dec->buf.pos;
         SRL_RDR_ASSERT_SPACE(dec->pbuf,key_len," while reading binary");
         dec->buf.pos += key_len;
@@ -1775,7 +2243,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
     else
     if (tag == SRL_HDR_COPY) {
         const U8 *copytag_start = dec->buf.pos - 1;
-        ofs= srl_read_varint_uv_offset(aTHX_ dec->pbuf, " while reading COPY class name");
+        ofs= srl_read_backref_offset(aTHX_ dec, " while reading COPY class name");
         storepos= ofs;
         /* if this string was seen before as part of a classname then we expect
          * a stash available below. However it might have been serialized as a key
@@ -1789,35 +2257,45 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
          * to deserialize the class name */
         if (!class_stash) {
             from= dec->buf.body_pos + ofs;
-            tag= *from++;
+            tag= *from++ & ~SRL_HDR_TRACK_FLAG;
             if (IS_SRL_HDR_SHORT_BINARY(tag)) {
-                key_len= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+                key_len_uv= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+                SRL_CHECK_MAX_STRING_LENGTH(dec, key_len_uv, "class name");
+                key_len= (U32)key_len_uv;
             }
             else
             if (tag == SRL_HDR_BINARY) {
-                key_len = (KEYLENTYPE)S_read_varint_uv_length_char_ptr(
-                    aTHX_ &from, dec->buf.end,
+                key_len_uv = S_read_varint_uv_length_char_ptr(
+                    aTHX_ &from, copytag_start,
                     " while reading class name via COPY"
                 );
+                SRL_CHECK_MAX_STRING_LENGTH(dec, key_len_uv, "class name");
+                if (expect_false((UV)(U32)key_len_uv != key_len_uv))
+                    SRL_RDR_ERROR(dec->pbuf, "Class name is too large for this platform");
+                key_len = (U32)key_len_uv;
             }
             else
             if (tag == SRL_HDR_STR_UTF8) {
-                key_len = (KEYLENTYPE)S_read_varint_uv_length_char_ptr(
-                    aTHX_ &from, dec->buf.end,
+                key_len_uv = S_read_varint_uv_length_char_ptr(
+                    aTHX_ &from, copytag_start,
                     " while reading UTF8 class name via COPY"
                 );
+                SRL_CHECK_MAX_STRING_LENGTH(dec, key_len_uv, "class name");
+                if (expect_false((UV)(U32)key_len_uv != key_len_uv))
+                    SRL_RDR_ERROR(dec->pbuf, "Class name is too large for this platform");
+                key_len = (U32)key_len_uv;
                 flags = flags | SVf_UTF8;
-                if (!is_utf8_string(from, key_len)) {
-                    SRL_RDR_ERROR_PANIC(dec->pbuf, "utf8 flagged classname is not actually utf8");
-                }
             }
             else {
                 SRL_RDR_ERROR_BAD_COPY(dec->pbuf, SRL_HDR_OBJECT);
             }
-            if (expect_false(from + key_len > copytag_start)) {
+            if (expect_false(from > copytag_start
+                    || (UV)(copytag_start - from) < key_len_uv)) {
                 SRL_RDR_ERRORf2(dec->pbuf,
                     COPY_OFFSET_ERROR_FMT_PREFIX " while reading classname",(int)ofs,(int)ofs+key_len);
             }
+            if ((flags & SVf_UTF8) && !is_utf8_string(from, key_len))
+                SRL_RDR_ERROR_PANIC(dec->pbuf, "utf8 flagged classname is not actually utf8");
         }
     } else {
         SRL_RDR_ERROR_UNEXPECTED(dec->pbuf, tag, "a class name");
@@ -1867,6 +2345,8 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
 
         /* now deparse the thing we are going to bless */
         srl_read_single_value(aTHX_ dec, into, NULL);
+        if (expect_false(!SvROK(into)))
+            SRL_RDR_ERROR(dec->pbuf, "OBJECT(V) must be followed by a reference");
 
 #if USE_588_WORKAROUND
         /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */
@@ -1896,10 +2376,16 @@ srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
     srl_read_single_value(aTHX_ dec, into, NULL);
 
     /* validate that we actually deparsed an AV */
-    assert(SvROK(into) && SvTYPE(SvRV(into)) == SVt_PVAV);
+    if (expect_false(!SvROK(into) || SvTYPE(SvRV(into)) != SVt_PVAV))
+        SRL_RDR_ERROR(dec->pbuf, "Corrupted packet. OBJECT(V)_FREEZE must be followed by an array reference");
 
     if (!dec->ref_thawhash)
         SAFE_PTABLE_NEW(dec->ref_thawhash);
+
+    /* REFP may reuse a frozen object, but a second frozen declaration must
+     * not overwrite the class/fixup record for the same argument array. */
+    if (expect_false(PTABLE_find(dec->ref_thawhash, (void *)SvRV(into))))
+        SRL_RDR_ERROR(dec->pbuf, "Frozen argument array is already assigned to an object");
 
     /* we need to do this *after* we have called srl_read_single_value() as
        we use the address of the AV that into references as the key to find the
@@ -1910,7 +2396,7 @@ srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
 /* Invoke a THAW callback on the given class. Pass in the next item in the
  * decoder stream. This is implementing the FREEZE/THAW part of
  * SRL_HDR_OBJECT_FREEZE and SRL_HDR_OBJECTV_FREEZE. */
-SRL_STATIC_INLINE void
+SRL_STATIC_INLINE SV *
 srl_thaw_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
 {
     GV *method = gv_fetchmethod_autoload(class_stash, "THAW", 0);
@@ -1931,8 +2417,14 @@ srl_thaw_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
     arg_av= (AV*)SvRV(into);
     {
         int count;
-        int arg_av_len = av_len(arg_av)+1;
+        SSize_t arg_av_len = av_len(arg_av);
         dSP;
+
+        /* Leave room for the class and serializer arguments before either
+         * adding to the array index or passing a count to EXTEND. */
+        if (expect_false(arg_av_len > I32_MAX - 3))
+            SRL_RDR_ERROR(dec->pbuf, "Too many THAW arguments for the Perl stack");
+        ++arg_av_len;
 
         ENTER;
         SAVETMPS;
@@ -1946,7 +2438,11 @@ srl_thaw_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
         PUSHs(sv_2mortal(newSVpvs("Sereal")));
         /* Push the args into the stack */
         for (count=0 ; count < arg_av_len; count++) {
-            PUSHs((SV*)*av_fetch(arg_av, count, 0));
+            /* An earlier THAW callback may have deleted elements through a
+             * shared reference to this argument array. Perl passes holes as
+             * undef when expanding an array into a function call. */
+            SV **arg = av_fetch(arg_av, count, 0);
+            PUSHs(arg ? *arg : &PL_sv_undef);
         }
 
         PUTBACK;
@@ -1964,19 +2460,7 @@ srl_thaw_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
         FREETMPS;
         LEAVE;
     }
-    SvREFCNT_dec(arg_av);
-
-    if (replacement != NULL) {
-        if (SvROK(replacement)) {
-            SvRV_set(into,  SvRV(replacement));
-            SvREFCNT_inc(SvRV(replacement));
-        } else {
-            sv_setsv(into, newSVsv(replacement));
-        }
-        SvREFCNT_dec(replacement);
-    } else {
-        SvRV_set(into, newSV(0));
-    }
+    return sv_2mortal(replacement ? replacement : newSV(0));
 }
 
 
@@ -2102,7 +2586,9 @@ srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into)
         SRL_RDR_ERROR(dec->pbuf, "EXTEND tag requires protocol version 6 or later");
     SRL_RDR_ASSERT_SPACE(dec->pbuf, 1, " while reading extended tag ID");
     ext_tag = *dec->buf.pos++;
-    if (ext_tag == SRL_EXT_VSTRING_BINARY)
+    if (ext_tag == SRL_EXT_DEADLY)
+        SRL_RDR_ERROR(dec->pbuf, "Encountered DEADLY extended tag");
+    else if (ext_tag == SRL_EXT_VSTRING_BINARY)
         srl_read_vstring(aTHX_ dec, into, 0);
     else if (ext_tag == SRL_EXT_VSTRING_UTF8)
         srl_read_vstring(aTHX_ dec, into, 1);
@@ -2115,19 +2601,24 @@ SRL_STATIC_INLINE void
 srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
 {
     const U8 *copytag_start = dec->buf.pos - 1;
-    UV ofs= srl_read_varint_uv_offset(aTHX_ dec->pbuf, " while reading COPY tag");
+    UV ofs= srl_read_backref_offset(aTHX_ dec, " while reading COPY tag");
     const U8 *target_start = dec->buf.body_pos + ofs;
+    const U8 *packet_end = dec->buf.end;
 
     if (expect_false( dec->save_pos )) {
         SRL_RDR_ERRORf2(dec->pbuf, "nested COPY at offset %d and %d",
                 (int)(dec->save_pos - dec->buf.body_pos), (int)ofs );
     }
-    if (expect_false( target_start > copytag_start )) {
-        SRL_RDR_ERRORf1(dec->pbuf, "COPY target %d must preceed its own offset", (int)ofs);
+    if (expect_false( target_start >= copytag_start )) {
+        SRL_RDR_ERRORf1(dec->pbuf, "COPY target %d must precede its own tag", (int)ofs);
     }
     dec->save_pos= dec->buf.pos;
     dec->buf.pos= target_start;
+    /* Bound the entire copied value, including lengths and nested values,
+     * to bytes preceding COPY. Checking only its start is insufficient. */
+    dec->buf.end= copytag_start;
     srl_read_single_value(aTHX_ dec, into, NULL);
+    dec->buf.end= packet_end;
     dec->buf.pos= dec->save_pos;
     dec->save_pos= 0;
 }
@@ -2152,6 +2643,13 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
     int is_ref = 0;
     const U8 *track_it = NULL;
 
+    /* Count every recursive value parse here. Counting only reference
+     * container tags misses plain ARRAY/HASH, object payloads, WEAKEN, and
+     * other tags that recurse through srl_read_single_value(). A crafted
+     * packet could otherwise exhaust the C stack without reaching the
+     * configured recursion limit. */
+    DEPTH_INCREMENT(dec);
+
   read_again:
     if (expect_false( SRL_RDR_DONE(dec->pbuf) ))
         SRL_RDR_ERROR(dec->pbuf, "unexpected end of input stream while expecting a single value");
@@ -2168,6 +2666,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
             break;
         CASE_SRL_HDR_SHORT_BINARY:
             len= (STRLEN)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
+            SRL_CHECK_MAX_STRING_LENGTH(dec, len, "string");
             SRL_RDR_ASSERT_SPACE(dec->pbuf, len, " while reading ascii string");
             sv_setpvn(into,(char*)dec->buf.pos,len);
             dec->buf.pos += len;
@@ -2241,7 +2740,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
                 SRL_RDR_ERROR(dec->pbuf, "FREEZE object tags require protocol version 2 or later");
             srl_read_objectv(aTHX_ dec, into, tag); is_ref=1; break;
         case SRL_HDR_OBJECTV:       srl_read_objectv(aTHX_ dec, into, tag); is_ref=1; break;
-        case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into);                   break;
+        case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into); is_ref=SvROK(into) ? 1 : 0; break;
         case SRL_HDR_EXTEND:        srl_read_extend(aTHX_ dec, into);                 break;
         case SRL_HDR_HASH:          srl_read_hash(aTHX_ dec, into, 0);                break;
         case SRL_HDR_ARRAY:         srl_read_array(aTHX_ dec, into, 0);               break;
@@ -2252,7 +2751,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
             SV *alias;
             if (!container)
                 SRL_RDR_ERROR(dec->pbuf, "ALIAS tag not inside container, corrupt packet?");
-            offset= srl_read_varint_uv_offset(aTHX_ dec->pbuf," while reading ALIAS tag");
+            offset= srl_read_backref_offset(aTHX_ dec," while reading ALIAS tag");
             alias= srl_fetch_item(aTHX_ dec, offset, "ALIAS");
 #ifdef FOLLOW_REFERENCES_IF_NOT_STASHED
             if (!alias) alias= srl_follow_refp_alias_reference(aTHX_ dec, offset);
@@ -2262,6 +2761,7 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
             *container= alias;
             if (track_it)
                 srl_track_sv(aTHX_ dec, track_it, alias);
+            DEPTH_DECREMENT(dec);
             return;
         }
         break;
@@ -2273,14 +2773,20 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
         default:
             if (tag & SRL_HDR_TRACK_FLAG) {
                 tag= tag & ~SRL_HDR_TRACK_FLAG;
-                track_it = dec->buf.pos-1;
-                srl_track_sv(aTHX_ dec, track_it, into);
+                if (!track_it)
+                    track_it = dec->buf.pos-1;
+                srl_track_sv(aTHX_ dec, dec->buf.pos-1, into);
                 goto read_tag;
             } else { 
                 SRL_RDR_ERROR_UNEXPECTED(dec->pbuf, tag, " single value");
             }
         break;
     }
+
+    /* UNDEF and integer aliasing may have replaced and freed the original
+     * destination. Apply readonly flags to the value now in the container. */
+    if (container)
+        into = *container;
 
     /* they want us to set all SVs readonly, or only the non-ref */
 #define SUPPORT_READONLY 1
@@ -2301,5 +2807,6 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
 #endif
 
 
+    DEPTH_DECREMENT(dec);
     return;
 }

@@ -19,8 +19,9 @@ $base =~ s/%d/\\d+/g;
 # offset points one byte inside a previously-decoded BINARY's content,
 # where the planted byte matches the SHORT_BINARY tag pattern
 # (0x60..0x7F). srl_read_object (class name) and srl_read_hash (key)
-# both had unchecked SHORT_BINARY-inline COPY branches; the fix bounds
-# `from + key_len` against `dec->buf.end` and croaks on overrun.
+# both had unchecked SHORT_BINARY-inline COPY branches; the decoder must
+# reject a copied string that runs past the COPY tag without forming an
+# out-of-range pointer while checking its length.
 
 sub build_packet {
     my ($container_bytes) = @_;

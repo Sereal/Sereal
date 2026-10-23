@@ -79,7 +79,7 @@ our @EXPORT_OK = qw(
     Header
     TRACK_FLAG
     hobodecode
-    integer short_string varint array array_fbit
+    integer short_string varint read_varint_at array array_fbit
     hash dump_bless
     have_encoder_and_decoder
     check_for_dependency_issues
@@ -199,6 +199,31 @@ sub varint {
     }
     $out .= chr($n);
     return $out;
+}
+
+sub read_varint_at {
+    my ( $bytes, $offset ) = @_;
+    my $length = length($bytes);
+    die "varint offset is outside input" if $offset < 0 || $offset > $length;
+
+    my $uv_bits   = 8 * $Config{uvsize};
+    my $max_bytes = int( ( $uv_bits + 6 ) / 7 );
+    my ( $value, $shift ) = ( 0, 0 );
+    for my $index ( 0 .. $max_bytes - 1 ) {
+        die "truncated varint" if $offset >= $length;
+        my $byte = ord( substr( $bytes, $offset++, 1 ) );
+        my $part = $byte & 0x7f;
+        if ( $index == $max_bytes - 1 ) {
+            my $bits_left = $uv_bits - $shift;
+            my $max_part  = ( 1 << $bits_left ) - 1;
+            die "varint too big" if $part > $max_part;
+        }
+        $value |= $part << $shift;
+        return ( $value, $offset ) unless $byte & 0x80;
+        $shift += 7;
+    }
+
+    die "varint too long";
 }
 
 our $PROTO_VERSION;

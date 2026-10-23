@@ -6,9 +6,7 @@ Revision history for Perl extension Sereal-Encoder
 *          encoder!                                            *
 ****************************************************************
 6.000_001
-    * Emit protocol v6 by default, using NEG_VARINT for integers below -16;
-      retain ZIGZAG when protocol v5 or earlier is requested.
-    * Encode Perl v-strings with extended VSTRING tags in protocol v6.
+    * New tags, better testing and robustness fixes.
 
 5.011
     * Robustness fixes. Thanks to Steffen Mueller and kumar-Prakash07.

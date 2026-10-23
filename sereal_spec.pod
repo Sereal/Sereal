@@ -84,9 +84,12 @@ of the document, and the low 4 bits used to represent the version of the
 Sereal protocol the document complies with.
 
 The currently defined protocol versions are 1 through 6. The low four bits
-contain the version number.
+contain the version number. The high four bits select the document encoding.
+Protocol version 6 reserves the high bit of this type field to indicate a
+keyed checksum envelope; the protected type is 8 plus the corresponding
+unprotected type (0 through 4).
 
-Currently only five types are defined:
+The unprotected base types are:
 
 =over 4
 
@@ -154,10 +157,58 @@ Reserved for future use. No document type 5 compression format is defined.
 
 Reserved for future use. No document type 6 compression format is defined.
 
+=item Z<>7
+
+Reserved for future use. No document type 7 compression format is defined.
+
 =back
 
-Additional compression types are envisaged and will be assigned type
-numbers by the maintainers of the protocol.
+For protocol version 6, types 8 through 12 are the keyed-checksum forms of
+base types 0 through 4, respectively. Their payload encoding and compression
+framing are identical to the corresponding base type.
+The protected form of base type 1 is valid in protocol version 6; its payload
+extent is delimited by the checksum envelope length.
+
+Types 5 through 7 and 13 through 15 are reserved for future use.
+
+=head4 Keyed checksum envelope (protocol version 6)
+
+The checksum type bit indicates that the following envelope occurs after the
+optional header suffix and before any compression-specific framing or body:
+
+  <CHECKSUM-TYPE-U8> <CHECKSUM-LENGTH-VARINT> <CHECKSUM>
+  <PAYLOAD-LENGTH-VARINT> <PAYLOAD>
+
+Checksum type 0 specifies SipHash-2-4 with a 16-byte secret key and a
+64-bit output. The tag is the unsigned 64-bit little-endian SipHash output.
+Checksum type 1 specifies SipHash-3-6-128 with the same key size and a
+128-bit output; the tag is two consecutive unsigned 64-bit little-endian
+words. The checksum length and payload length are unsigned varints. The
+checksum length is the number of bytes in the checksum field. Types 0 and 1
+require lengths of 8 and 16 bytes respectively. The payload length is the
+number of bytes in the encoded payload following its length field, including
+any compression-specific framing.
+
+The SipHash input is the complete packet from MAGIC through the checksum type
+and checksum-length varint, followed by the payload-length varint and the
+complete encoded payload. The checksum field itself is omitted from the
+SipHash input. Encoders may initially write zeroes in the checksum field and
+fill it after writing the lengths and payload. This covers the header,
+optional header suffix, checksum type, both lengths, compression framing, and
+payload. Decoders that verify the checksum must do so before processing
+compression framing or decompressing the payload.
+
+Decoders must bounds-check both lengths before skipping or reading their
+corresponding fields. An unknown checksum type can be skipped using its
+checksum-length varint when the decoder's checksum policy allows it; a decoder
+cannot verify such a checksum. A decoder's default policy may warn and decode
+without authentication when no matching key is configured. Implementations
+may provide a policy that instead rejects such packets, or explicitly ignores
+checksum authentication. Supplying a key does not require packets to be
+protected; unprotected packet types remain valid.
+
+This is a keyed integrity check, not encryption. Version 0 has a 64-bit tag;
+version 1 has a 128-bit tag.
 
 =head3 HEADER-SUFFIX-SIZE
 
@@ -537,6 +588,12 @@ protocol version 5 or earlier continue to use ZIGZAG for these larger negative
 integers. Decoders must continue to accept ZIGZAG for compatibility with older
 documents.
 
+Protocol version 6 reserves extended-tag ID 0 for C<DEADLY>, encoded as
+C<EXTEND 0> (bytes C<3e 00>), with no payload. A decoder encountering this
+value MUST fail. It is an explicit diagnostic sentinel, not a terminator:
+encoders do not append it to ordinary output, and concatenated documents
+retain their existing framing. These bytes inside a string are ordinary data.
+
 Protocol version 6 adds extended tags C<VSTRING-BINARY> and C<VSTRING-UTF8>.
 They are encoded as EXTEND followed by the corresponding extended-tag ID
 (0x26, the BINARY tag value, or 0x27, the STR_UTF8 tag value), then a length
@@ -545,6 +602,10 @@ decoders use it to reconstruct both the v-string PV and its original spelling
 magic. VSTRING-BINARY is used when the reconstructed PV is not UTF-8 flagged;
 VSTRING-UTF8 is used when it is UTF-8 flagged. Decoders reject an extension ID
 that does not match the encoding of the reconstructed PV.
+
+Protocol version 6 also defines keyed checksum types 8 through 12. See
+L</"Keyed checksum envelope (protocol version 6)"> for the envelope layout
+and verification rules.
 
 =head2 Protocol Version 5
 

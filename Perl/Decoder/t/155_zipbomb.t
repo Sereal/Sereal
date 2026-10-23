@@ -23,7 +23,7 @@ if ( not $ok ) {
 }
 else {
     require Sereal::Encoder::Constants;
-    plan tests => 24;
+    plan tests => 28;
     my $wire_version = Sereal::Encoder::Constants::SRL_PROTOCOL_VERSION();
     my %tests        = (
         snappy => Sereal::Encoder::SRL_SNAPPY(),
@@ -82,6 +82,18 @@ else {
     }
 
     {
+        # Incremental Snappy packet declaring four uncompressed bytes, while
+        # the block contains only ARRAYREF_3 and two integer items. Without
+        # checking the length returned by csnappy_decompress_noheader(), the
+        # decoder treated one unwritten output byte as the third array item.
+        my $short_output =
+            "=\xF3rl" . chr(0x24) . chr(0) . chr(5) . chr(4) . chr(8) . chr(0x43) . chr(1) . chr(1);
+        my $decoded_ok = eval { $dec->decode($short_output); 1 };
+        ok( !$decoded_ok, 'Snappy output shorter than declared is rejected' );
+        like( $@, qr/Snappy uncompressed size mismatch/, 'Snappy size mismatch is reported' );
+    }
+
+    {
         my $enc      = Sereal::Encoder->new( { compress => $tests{zlib} } );
         my $hugeblob = $enc->encode(MONSTER_BLOB);
 
@@ -112,6 +124,15 @@ else {
             qr/^Sereal: Error: ZLIB decompression of Sereal packet payload failed with error -5!/,
             'zlib zipbomb was defused with MZ_BUF_ERROR',
         );
+
+        # A valid zlib stream may produce fewer bytes than the Sereal length
+        # field advertises. The decoder must reject the mismatch rather than
+        # treating the unwritten end of its output buffer as packet data.
+        my $short_output = $enc->encode( 'a' x 10_000 );
+        substr( $short_output, 6, 1, chr( ord( substr( $short_output, 6, 1 ) ) + 1 ) );
+        my $decoded_ok = eval { $dec->decode($short_output); 1 };
+        ok( !$decoded_ok, 'zlib output shorter than declared is rejected' );
+        like( $@, qr/ZLIB uncompressed size mismatch/, 'zlib size mismatch is reported' );
     }
 
     SKIP: {

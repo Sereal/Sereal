@@ -82,6 +82,9 @@ use Exporter 'import';
 our @EXPORT_OK = ( qw(
         encode_sereal
         encode_sereal_with_header_data
+        prepare_checksum_key
+        siphash24
+        siphash36
         sereal_encode_with_object
     ),
     sort { $a cmp $b } (
@@ -99,6 +102,20 @@ our @EXPORT = ( ( caller() )[1] eq '-e' ? @EXPORT_OK : () );
 sub CLONE_SKIP { 1 }
 
 XSLoader::load( 'Sereal::Encoder', $XS_VERSION );
+unless ($Sereal::_DefaultKeyInitialized) {
+    if ( !defined($Sereal::DefaultKey) && defined( $ENV{SEREAL_DEFAULT_KEY} ) ) {
+        my $key = $ENV{SEREAL_DEFAULT_KEY};
+        if ( $key =~ /\A[0-9a-fA-F]{32}\z/ ) {
+            $Sereal::DefaultKey = pack( 'H*', $key );
+        }
+        else {
+            warn
+                "SEREAL_DEFAULT_KEY is not exactly 32 hexadecimal characters; normalizing with Sereal::Encoder::prepare_checksum_key()\n";
+            $Sereal::DefaultKey = prepare_checksum_key($key);
+        }
+    }
+    $Sereal::_DefaultKeyInitialized = 1;
+}
 
 sub encode_to_file {
     my ( $self, $file, $struct, $append ) = @_;
@@ -173,6 +190,32 @@ at the L</"PERFORMANCE"> section below.
 
 =head1 CLASS METHODS
 
+=head2 prepare_checksum_key
+
+  my $key16 = Sereal::Encoder::prepare_checksum_key($key);
+  my $key16 = Sereal::Encoder::prepare_checksum_key($key, $opt_key);
+  my $empty_key16 = Sereal::Encoder::prepare_checksum_key();
+
+Returns a deterministic 16-byte normalization of a byte string. It first
+computes SipHash-2-4-128 of C<Out damned spot!> followed by the optional
+C<$opt_key>, using C<Call me Ishmael.> as its 16-byte key. It then uses that
+result as the key to SipHash-2-4-128 of C<Luke, I am your father.> followed by
+C<$key>. Both arguments default to the empty string. This is a convenience for
+producing the required checksum-key size; it does not add entropy or replace a
+password KDF. Pass the returned value as C<checksum_v0_key> or
+C<checksum_v1_key> to both encoder and decoder.
+
+=head2 siphash24 and siphash36
+
+  my $tag8  = Sereal::Encoder::siphash24($bytes, $key16);
+  my $tag16 = Sereal::Encoder::siphash36($bytes, $key16);
+
+Compute a raw SipHash tag for a byte string and an exactly 16-byte key.
+C<siphash24()> returns the eight-byte SipHash-2-4 result; C<siphash36()>
+returns the 16-byte SipHash-3-6-128 result. These low-level helpers are
+provided for tooling that needs to inspect or verify Sereal checksum
+envelopes. The returned values are binary strings.
+
 =head2 new
 
 Constructor. Optionally takes a hash reference as first parameter. This hash
@@ -181,6 +224,84 @@ encoder.
 
 Currently, the following options are recognized, none of them are on
 by default.
+
+=head3 checksum_policy
+
+C<'require'> makes encoding fail unless a checksum key is available, either
+explicitly or through C<$Sereal::DefaultKey>. It never silently produces an
+unsigned packet. A key is not needed merely to construct an Encoder.
+
+The policy also accepts C<'die'>, C<'verify-if-available'>, C<'ignore'>, and
+C<'ignore-warn'> for consistency with the Decoder. These values do not require
+an encoding key. All policies produce a checksum when a key is configured;
+the ignore policies control verification on the Decoder, not checksum emission.
+C<'die'> and C<'require'> require exactly 16 key bytes instead of padding or
+truncating them. Other policies retain normalization with a warning.
+
+C<SEREAL_CHECKSUM_POLICY> sets the policy default for new Encoder and Decoder
+objects. An explicitly defined C<checksum_policy> option overrides it. An
+omitted or undefined option uses the environment. An unset or empty variable
+uses C<'verify-if-available'>. Invalid values cause construction to fail.
+Reused objects and recursive clones retain their original configuration.
+
+=head3 Shared default key
+
+C<$Sereal::DefaultKey> holds raw key bytes shared with the Decoder. If neither
+checksum key option is present, a defined default enables SipHash-3-6-128
+(type 1, 128-bit tags) and requires protocol version 6 or later. An explicit
+key option replaces the default configuration; explicit C<undef> suppresses
+it. Only one key type may be configured on an Encoder.
+
+The first load of either module initializes C<$Sereal::DefaultKey> from
+C<SEREAL_DEFAULT_KEY>, unless code has already set the package variable.
+Exactly 32 hexadecimal characters are decoded to 16 bytes. Other input is
+normalized with C<prepare_checksum_key()> and a warning that omits the secret.
+Loading the other module does not reset the default. Normalization does not
+add entropy or replace a password KDF.
+
+  local $Sereal::DefaultKey = $key16;
+  my $encoder = Sereal::Encoder->new({ checksum_policy => 'require' });
+
+New objects copy the current default. Existing objects, including cached
+wrapper objects, retain their keys. Localize the variable to C<undef> to
+disable the default in a scope. The environment is read for the key only at
+module load, while the policy default is read at object construction.
+
+=head3 checksum_v0_key
+
+If set, the encoder emits protocol version 6 packets with
+a SipHash-2-4 authentication tag (format version 0). The tag covers the packet
+header and encoded payload, including the checksum type, checksum-length
+varint, payload-length varint, and compression framing. The checksum tag is
+written before the payload length, then filled after the complete payload is
+available. This option requires
+protocol version 6 or later. The matching decoder must be configured with the
+same key. The key is not included in the packet. This provides integrity and
+authentication, not encryption. Packets encoded without an explicit or default checksum key remain
+unprotected. Under permissive policies, keys shorter than 16 bytes are padded with null
+bytes and longer keys are truncated, with a warning in either case. Strict
+policies require exactly 16 bytes. Use
+C<prepare_checksum_key()> to normalize a key explicitly.
+
+=head3 checksum_v1_key
+
+If set, the encoder emits protocol version 6 packets with
+a SipHash-3-6-128 authentication tag (format version 1). The tag covers the
+same packet data as C<checksum_v0_key>, with a 16-byte output. This option
+requires protocol version 6 or later. The matching decoder must be configured
+with the same key. Set only one of C<checksum_v0_key> and C<checksum_v1_key> on
+an encoder. The selected key option both enables checksumming and selects its
+format. Under permissive policies, keys that are not 16 bytes are padded or truncated
+with a warning; strict policies reject them.
+C<prepare_checksum_key()> can normalize them explicitly.
+
+Generating a checksum adds CPU work proportional to the protected header and
+encoded payload size. The decoder incurs corresponding work to verify it.
+When compression is enabled, the checksum protects the compressed payload.
+The two SipHash variants use different round counts and tag sizes, so their
+cost may differ. Benchmark representative packets and consider the decoder's
+C<checksum_policy>, including its verification and warning behavior; see
+L<Sereal::Decoder/checksum_policy>.
 
 =head3 compress
 
@@ -907,6 +1028,20 @@ variables that SRL_HDR_TRUE and SRL_HDR_FALSE may still be generated, but beyond
 being readonly these are equivalent to SRL_HDR_YES and SRL_HDR_NO.
 
 =back
+
+=head1 SECURITY
+
+Restrict decoding to trusted sources and protect serialized packets against
+tampering. Protocol version 6 supports optional SipHash authentication with
+64-bit or 128-bit tags; configure the matching keys and enforce verification
+at the receiver. See L<Sereal::Decoder/ROBUSTNESS> for decoder controls and
+the limits of checksum enforcement.
+
+The distribution includes F<SECURITY.md>. The current policy and private
+vulnerability reporting instructions are available at
+L<https://github.com/Sereal/Sereal/security/policy>. Report suspected
+vulnerabilities privately at
+L<https://github.com/Sereal/Sereal/security/advisories/new>.
 
 =head1 BUGS, CONTACT AND SUPPORT
 
