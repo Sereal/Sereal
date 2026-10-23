@@ -59,6 +59,33 @@ child_survives(
     'alternating value types in reused output scalars'
 );
 
+# Resetting an output that holds an object runs its DESTROY, which may
+# replace the input scalar. The reset must happen before the decoder
+# captures the input buffer, so the new input is decoded rather than the
+# freed old buffer being read.
+child_survives(
+    q{
+        our $blob = Header(6) . "\x51\x61k\x01";
+        package Clobber { sub DESTROY { $main::blob = main::Header(6) . "\x26\x80\x20" . ( 'x' x 4096 ) } }
+        my $dec = Sereal::Decoder->new;
+        my $out = bless {}, 'Clobber';
+        $dec->decode( $blob, $out );
+        die "unexpected result" unless !ref $out && $out eq 'x' x 4096;
+    },
+    'output DESTROY replacing the input scalar'
+);
+child_survives(
+    q{
+        our $blob = Header(6, "\x63hdr") . "\x51\x61k\x01";
+        package Clobber { sub DESTROY { $main::blob = main::Header(6, "\x26\x80\x20" . ( 'y' x 4096 )) . "\x01" } }
+        my $dec = Sereal::Decoder->new;
+        my $hdr = bless {}, 'Clobber';
+        $dec->decode_only_header( $blob, $hdr );
+        die "unexpected header" unless !ref $hdr && $hdr eq 'y' x 4096;
+    },
+    'header output DESTROY replacing the input scalar'
+);
+
 # A previous referent must be released, not leaked.
 {
     package Counted;

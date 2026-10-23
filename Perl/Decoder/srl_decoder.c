@@ -596,8 +596,10 @@ srl_decoder_destructor_hook(pTHX_ void *p)
  * an assignment would. That releases a previous referent (running its
  * DESTROY), drops old string buffers and flags, and refuses read-only
  * destinations such as a literal undef argument. Fresh mortals are
- * untouched. Must run after srl_begin_decoding() has copied an input
- * that aliases one of the outputs. */
+ * untouched. Must run after an input that aliases one of the outputs has
+ * been copied, and before srl_begin_decoding() sets up the input buffer:
+ * a DESTROY run by the reset may modify or free the input scalar's
+ * string, so the buffer must only be captured afterwards. */
 SRL_STATIC_INLINE void
 srl_reset_output_sv(pTHX_ SV *into)
 {
@@ -614,15 +616,24 @@ SRL_STATIC_INLINE void
 srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into, SV *body_into, UV start_offset)
 {
     srl_decoder_t *dec;
+    int aliased;
 
     assert(origdec != NULL);
-    dec = srl_begin_decoding(aTHX_ origdec, src, start_offset,
-        src == body_into || src == header_into);
-    if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL)
-        && (src == body_into || src == header_into))
-        SRL_RDR_ERROR(dec->pbuf, "Incremental decode input and output must be different scalars");
+    aliased = (src == body_into || src == header_into);
+    if (expect_false( SRL_DEC_HAVE_OPTION(origdec, SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL)
+                      && aliased ))
+        /* No input buffer is set up yet (origdec's may be NULL), so report
+         * offset 1 directly as SRL_RDR_ERROR() would for a fresh buffer. */
+        croak(SRL_RDR_BASE_ERROR_FORMAT("%s"),
+            "Incremental decode input and output must be different scalars",
+            (UV)1, __FILE__, __LINE__);
+    /* Copy an aliased input and reset the outputs before the input buffer
+     * is captured; see srl_reset_output_sv(). */
+    if (aliased)
+        src = sv_2mortal(newSVsv(src));
     srl_reset_output_sv(aTHX_ header_into);
     srl_reset_output_sv(aTHX_ body_into);
+    dec = srl_begin_decoding(aTHX_ origdec, src, start_offset, 0);
     srl_read_header(aTHX_ dec, header_into);
     if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_SNAPPY) )) {
         dec->bytes_consumed = srl_decompress_body_snappy(aTHX_ dec->pbuf, dec->encoding_flags, NULL, dec->max_uncompressed_size);
@@ -675,11 +686,17 @@ srl_decode_header_into(pTHX_ srl_decoder_t *origdec, SV *src, SV* header_into, U
 {
     srl_decoder_t *dec;
     assert(origdec != NULL);
-    dec = srl_begin_decoding(aTHX_ origdec, src, start_offset, src == header_into);
-    if (header_into == NULL)
+    if (header_into == NULL) {
         header_into = sv_newmortal();
-    else
+    }
+    else {
+        /* Copy an aliased input and reset the output before the input
+         * buffer is captured; see srl_reset_output_sv(). */
+        if (src == header_into)
+            src = sv_2mortal(newSVsv(src));
         srl_reset_output_sv(aTHX_ header_into);
+    }
+    dec = srl_begin_decoding(aTHX_ origdec, src, start_offset, 0);
     srl_read_header(aTHX_ dec, header_into);
     return header_into;
 }
