@@ -66,6 +66,7 @@ extern "C" {
 #include "srl_taginfo.h"
 #include "srl_siphash.h"
 #include "srl_checksum_policy.h"
+#include "srl_reader_checksum.h"
 
 /* 5.8.8 and earlier have a nasty bug in their handling of overloading:
  * The overload-flag is set on the referer of the blessed object instead of
@@ -277,7 +278,7 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
 
     Newxz(dec, 1, srl_decoder_t);
 
-    dec->checksum_policy = checksum_policy;
+    dec->checksum.policy = checksum_policy;
     dec->ref_seenhash = PTABLE_new();
     dec->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
      /* 0 == any number for array, hash & string */
@@ -289,26 +290,9 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     SRL_RDR_CLEAR(&dec->buf);
     dec->pbuf = &dec->buf;
 
-    for (version = 0; version <= 2; version++) {
-        const char *option_name;
-        option_name = srl_checksum_key_option_name(version);
-        val = checksum_keys[version];
-        if (val && SvOK(val)) {
-            STRLEN key_len;
-            char *key = SvPVbyte(val, key_len);
-            if (key_len != sizeof(dec->checksum_keys[version])) {
-                if (key_len < sizeof(dec->checksum_keys[version]))
-                    warn("The '%s' key is shorter than 16 bytes; padding with nulls. Use Sereal::Decoder::prepare_checksum_key() to normalize it", option_name);
-                else
-                    warn("The '%s' key is longer than 16 bytes; extra bytes are ignored and may contain unused entropy. Use Sereal::Decoder::prepare_checksum_key() to normalize it", option_name);
-            }
-            Zero(dec->checksum_keys[version], sizeof(dec->checksum_keys[version]), U8);
-            Copy(key, dec->checksum_keys[version],
-                 key_len < sizeof(dec->checksum_keys[version])
-                    ? key_len : sizeof(dec->checksum_keys[version]), U8);
-            dec->checksum_key_mask |= (U8)(1U << version);
-        }
-    }
+    for (version = 0; version <= 2; version++)
+        srl_checksum_store_key(aTHX_ dec->checksum.keys[version], &dec->checksum.key_mask,
+                               version, checksum_keys[version]);
 
     /* load remaining options */
     if (opt != NULL) {
@@ -512,9 +496,7 @@ srl_build_decoder_struct_alike(pTHX_ srl_decoder_t *proto)
     dec->max_num_array_entries = proto->max_num_array_entries;
     dec->max_string_length = proto->max_string_length;
     dec->max_uncompressed_size = proto->max_uncompressed_size;
-    dec->checksum_key_mask = proto->checksum_key_mask;
-    dec->checksum_policy = proto->checksum_policy;
-    Copy(proto->checksum_keys, dec->checksum_keys, sizeof(dec->checksum_keys), U8);
+    dec->checksum = proto->checksum;
 
     if (proto->alias_cache) {
         dec->alias_cache = proto->alias_cache;
@@ -892,112 +874,12 @@ srl_read_u32_le(const U8 *p)
 }
 
 SRL_STATIC_INLINE void
-srl_write_u64_le(U8 *p, srl_u64 value)
-{
-    U8 i;
-    for (i = 0; i < 8; i++)
-        p[i] = (U8)(value >> (8 * i));
-}
-
-typedef struct {
-    U8 checksum_type;
-    const U8 *tag;
-    size_t tag_len;
-    const U8 *payload_len_start;
-    size_t payload_len_varint_size;
-    const U8 *payload;
-    size_t payload_len;
-} srl_checksum_envelope_t;
-
-SRL_STATIC_INLINE void
-srl_read_checksum_envelope(pTHX_ srl_reader_buffer_t *buf, srl_checksum_envelope_t *envelope)
-{
-    UV tag_len_uv, payload_len_uv;
-    size_t available;
-    int known_type;
-    SRL_RDR_ASSERT_SPACE(buf, 1, " while reading the checksum type");
-    envelope->checksum_type = *buf->pos++;
-    known_type = srl_checksum_tag_length(envelope->checksum_type) != 0;
-    tag_len_uv = srl_read_varint_uv(aTHX_ buf);
-    envelope->tag_len = (size_t)tag_len_uv;
-    if (expect_false((UV)envelope->tag_len != tag_len_uv))
-        SRL_RDR_ERROR(buf, "Sereal checksum length is too large for this platform");
-    available = (size_t)(buf->end - buf->pos);
-    if (expect_false(envelope->tag_len > available))
-        SRL_RDR_ERROR(buf, "Sereal checksum length exceeds the available input");
-
-    if (known_type) {
-        const size_t expected_len = srl_checksum_tag_length(envelope->checksum_type);
-        if (expect_false(envelope->tag_len != expected_len))
-            SRL_RDR_ERRORf2(buf, "Invalid checksum length %"UVuf" for checksum type %u",
-                            tag_len_uv, envelope->checksum_type);
-    }
-
-    envelope->tag = buf->pos;
-    envelope->payload_len_start = envelope->tag + envelope->tag_len;
-    buf->pos = (U8 *)envelope->payload_len_start;
-    payload_len_uv = srl_read_varint_uv(aTHX_ buf);
-    envelope->payload_len_varint_size = (size_t)(buf->pos - envelope->payload_len_start);
-    envelope->payload = buf->pos;
-    envelope->payload_len = (size_t)payload_len_uv;
-    if (expect_false((UV)envelope->payload_len != payload_len_uv))
-        SRL_RDR_ERROR(buf, "Checksummed Sereal payload length is too large for this platform");
-    if (expect_false(envelope->payload_len > (size_t)(buf->end - envelope->payload)))
-        SRL_RDR_ERROR(buf, "Checksummed Sereal payload length exceeds the available input");
-
-}
-
-SRL_STATIC_INLINE int
-srl_checksum_matches(pTHX_ srl_reader_buffer_t *buf, const srl_checksum_envelope_t *envelope, const U8 *key)
-{
-    U8 actual[SRL_CHECKSUM_TAG_LENGTH_128];
-    U8 expected[SRL_CHECKSUM_TAG_LENGTH_128];
-    U8 mismatch = 0;
-    U8 i;
-    srl_siphash_ctx sip;
-    /* callers validate known types first; this keeps a future caller from overrunning the stack buffers */
-    if (expect_false(envelope->tag_len > sizeof(expected)))
-        SRL_RDR_ERROR(buf, "Sereal checksum tag is too long to verify");
-    Copy(envelope->tag, expected, envelope->tag_len, U8);
-    srl_siphash_init(&sip, key, envelope->checksum_type);
-    srl_siphash_update(&sip, (const U8 *)buf->start, (size_t)(envelope->tag - buf->start));
-    srl_siphash_update(&sip, envelope->payload_len_start, envelope->payload_len_varint_size);
-    srl_siphash_update(&sip, envelope->payload, envelope->payload_len);
-    if (envelope->tag_len == SRL_CHECKSUM_TAG_LENGTH_128) {
-        srl_siphash_final128(&sip, actual);
-    } else {
-        srl_u64 digest = srl_siphash_final64(&sip);
-        srl_write_u64_le(actual, digest);
-    }
-    for (i = 0; i < envelope->tag_len; i++)
-        mismatch |= (U8)(actual[i] ^ expected[i]);
-    return mismatch == 0;
-}
-
-SRL_STATIC_INLINE void
 srl_process_checksum_envelope(pTHX_ srl_decoder_t *dec)
 {
     srl_reader_buffer_t *buf = dec->pbuf;
     srl_checksum_envelope_t envelope;
-    int known_type, has_key, verify;
-    const int strict = dec->checksum_policy == SRL_CHECKSUM_POLICY_DIE
-                    || dec->checksum_policy == SRL_CHECKSUM_POLICY_REQUIRE;
     srl_read_checksum_envelope(aTHX_ buf, &envelope);
-    known_type = srl_checksum_tag_length(envelope.checksum_type) != 0;
-    has_key = known_type && (dec->checksum_key_mask & (U8)(1U << envelope.checksum_type));
-    if (strict && !known_type)
-        SRL_RDR_ERRORf1(buf, "Unsupported Sereal checksum type %u", envelope.checksum_type);
-    if (strict && !has_key) {
-        SRL_RDR_ERRORf1(buf, "Checksummed Sereal document requires a '%s'",
-                       srl_checksum_key_option_name(envelope.checksum_type));
-    }
-    verify = has_key && (dec->checksum_policy == SRL_CHECKSUM_POLICY_VERIFY_IF_AVAILABLE || strict);
-    if (dec->checksum_policy == SRL_CHECKSUM_POLICY_IGNORE_WARN)
-        warn("Ignoring Sereal checksum authentication by request");
-    else if (dec->checksum_policy == SRL_CHECKSUM_POLICY_VERIFY_IF_AVAILABLE && !has_key)
-        warn("Decoding checksummed Sereal document without authentication: no matching checksum key is configured");
-    if (verify && !srl_checksum_matches(aTHX_ buf, &envelope, dec->checksum_keys[envelope.checksum_type]))
-        SRL_RDR_ERROR(buf, "Sereal packet checksum verification failed");
+    srl_checksum_apply_policy(aTHX_ buf, &envelope, &dec->checksum);
 
     dec->checksummed_packet_length = (UV)((envelope.payload - buf->start) + envelope.payload_len);
     dec->checksummed_payload = envelope.payload;
@@ -1132,7 +1014,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
         dec->packet_has_checksum = (dec->encoding_flags & SRL_PROTOCOL_ENCODING_CHECKSUM) != 0;
         dec->encoding_flags &= SRL_PROTOCOL_ENCODING_BASE_MASK;
 
-        if (dec->checksum_policy == SRL_CHECKSUM_POLICY_REQUIRE && !dec->packet_has_checksum)
+        if (dec->checksum.policy == SRL_CHECKSUM_POLICY_REQUIRE && !dec->packet_has_checksum)
             SRL_RDR_ERROR(dec->pbuf, "checksum_policy 'require_key' requires a checksummed packet");
 
         if (expect_false(dec->packet_has_checksum && dec->proto_version < 6))

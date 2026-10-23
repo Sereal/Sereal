@@ -14,4 +14,14 @@ struct srl_reader_buffer {
 typedef struct srl_reader_buffer srl_reader_buffer_t;
 typedef srl_reader_buffer_t * srl_reader_buffer_ptr;
 
+#define SRL_CHECKSUM_KEY_LENGTH 16
+
+/* Checksum settings of a reader: the policy and the keys it was given,
+ * indexed by checksum type. Bit N of key_mask is set when keys[N] is set. */
+typedef struct {
+    unsigned char policy;
+    unsigned char key_mask;
+    unsigned char keys[3][SRL_CHECKSUM_KEY_LENGTH];
+} srl_checksum_config_t;
+
 #endif

@@ -41,3 +41,4 @@ qsort.h
 zstd/
 srl_checksum_policy.h
 srl_siphash.h
+srl_reader_checksum.h

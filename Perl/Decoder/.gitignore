@@ -50,3 +50,4 @@ typemap
 qsort.h
 zstd
 *.srl
+srl_reader_checksum.h

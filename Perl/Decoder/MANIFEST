@@ -37,6 +37,7 @@ srl_decoder.h
 srl_inline.h
 srl_protocol.h
 srl_reader.h
+srl_reader_checksum.h
 srl_reader_decompress.h
 srl_reader_error.h
 srl_reader_misc.h
