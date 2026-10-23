@@ -4,7 +4,8 @@ package com.booking.sereal;
  * V-string spelling rules for the protocol version 6 EXTEND VSTRING tags (mirrors Perl's
  * {@code scan_vstring}).
  *
- * <p>A spelling matches {@code ^v?[0-9_]*(\.[0-9_]+)*$}. Each component's value is its digits
+ * <p>A spelling matches {@code ^v?[0-9_]*(\.[0-9][0-9_]*)*$}: a component after a dot must start
+ * with a digit. Each component's value is its digits
  * (underscores ignored, leading zeros allowed) read as an unsigned 64-bit integer with wraparound;
  * an empty component is 0. The decoded string is UTF-8 (id {@code 0x27}) iff any component is
  * greater than 127, otherwise binary (id {@code 0x26}).
@@ -34,18 +35,16 @@ final class VStrings {
     boolean utf8 = false;
     boolean first = true;
     while (true) {
+      // components after a '.' must start with a digit
+      if (!first && (pos == end || !isDigit(s[pos]))) {
+        return INVALID;
+      }
       long value = 0;
-      int digits = 0;
       while (pos < end && (isDigit(s[pos]) || s[pos] == '_')) {
         if (s[pos] != '_') {
           value = value * 10 + (s[pos] - '0'); // wraps like a C UV
         }
-        digits++;
         pos++;
-      }
-      // components after a '.' need at least one digit or underscore
-      if (!first && digits == 0) {
-        return INVALID;
       }
       if (Long.compareUnsigned(value, 127) > 0) {
         utf8 = true;

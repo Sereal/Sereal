@@ -19,7 +19,7 @@ public class VStringsTest {
   @Test
   public void classify() {
     String[] binary = {"v1.2.3", "1.2.3", "1.2", "1", "v", ".1", "v1_0.2", "01.002.003", "v_1", "v1_", "v127",
-      "v18446744073709551621"};
+      "v18446744073709551621", "1.1_", "_", "_.1", "1_.2", "v.1"};
     for (String s : binary) {
       assertEquals(s, VStrings.BINARY, classify(s));
     }
@@ -27,7 +27,8 @@ public class VStringsTest {
     for (String s : utf8) {
       assertEquals(s, VStrings.UTF8, classify(s));
     }
-    String[] invalid = {"v1..2", "1.", "x", "v1.2.3x", ""};
+    // a component after a dot must start with a digit (verified against the Perl decoder)
+    String[] invalid = {"v1..2", "1.", "x", "v1.2.3x", "", "1._", "._", "1._1", "1.__", "1.2._3"};
     for (String s : invalid) {
       assertEquals(s, VStrings.INVALID, classify(s));
     }
