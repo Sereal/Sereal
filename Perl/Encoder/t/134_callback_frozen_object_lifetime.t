@@ -40,6 +40,10 @@ our ( $predicate_freezes, $predicate_destroys );
     sub FREEZE  { $main::predicate_freezes++;             return $_[0]{name} }
     sub THAW    { my ( $class, $serializer, $name ) = @_; bless { name => $name }, $class }
     sub DESTROY { $main::predicate_destroys++ }
+
+    package AllowCbFreeze;
+    sub FREEZE { return 'allowed' }
+    sub THAW   { my ( $class, $serializer, $name ) = @_; bless { name => $name }, $class }
 }
 
 my @filler = map { "element $_ " x 8 } 1 .. 50;
@@ -87,6 +91,30 @@ for my $version ( 2 .. 6 ) {
         skip 'encode/decode failed', 2 if $error;
         is( ref($decoded),      'DropSelfFreeze', "v$version: the dropped object keeps its class" );
         is( $decoded->{name},   'dropped',        "v$version: and its frozen payload" );
+    }
+
+    # The freeze_allow_classes callback is user code too, and runs before
+    # FREEZE; it may also drop the last reference to the object.
+    {
+        my @warnings;
+        local $SIG{__WARN__} = sub { push @warnings, @_ };
+        %cache = ( obj => bless( {}, 'AllowCbFreeze' ) );
+        my $decoded = eval {
+            my $encoder = Sereal::Encoder->new( {
+                protocol_version     => $version,
+                freeze_callbacks     => 1,
+                freeze_allow_classes => sub { delete $main::cache{obj}; 1 },
+            } );
+            Sereal::Decoder->new->decode( $encoder->encode( $cache{obj} ) );
+        };
+        my $error = $@;
+        ok( !$error, "v$version: allow-classes callback dropping the object still encodes" ) or diag($error);
+        SKIP: {
+            skip 'encode/decode failed', 2 if $error;
+            is( ref($decoded),    'AllowCbFreeze', "v$version: the dropped object keeps its class" );
+            is( $decoded->{name}, 'allowed',       "v$version: and its frozen payload" );
+        }
+        is_deeply( \@warnings, [], "v$version: no warnings from the allow-classes callback case" );
     }
 }
 
