@@ -66,6 +66,7 @@ t/041_sorted_hash_keys.t
 t/042_magic_strings.t
 t/043_alias_scalar_refs.t
 t/044_magic_integers.t
+t/044_magical_arrays.t
 t/095_checksum_policy.t
 t/096_build_tools.t
 t/097_checksum_versions.t
