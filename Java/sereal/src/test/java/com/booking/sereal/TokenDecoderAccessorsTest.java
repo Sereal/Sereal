@@ -140,6 +140,52 @@ public class TokenDecoderAccessorsTest {
     assertFalse(decoder.isHashKey());
   }
 
+  @Test
+  public void vstring() throws SerealException {
+    // 3df3726c0600 3e 26 06 "v1.2.3"
+    TokenDecoder decoder = setupDecoderFromHex(V6Vectors.VSTRING_1_2_3);
+
+    assertEquals(SerealToken.VSTRING, decoder.poisonNextToken());
+    assertEquals(SerealToken.VSTRING, decoder.currentToken());
+    assertEquals(1, decoder.tokenOffset());
+    assertFalse(decoder.binaryIsUtf8());
+    assertEquals(9, decoder.binarySliceStart());
+    assertEquals(15, decoder.binarySliceEnd());
+    assertEquals(6, decoder.binarySliceLength());
+    assertEquals("v1.2.3", new String(decoder.decoderBuffer(), decoder.binarySliceStart(),
+        decoder.binarySliceLength(), java.nio.charset.StandardCharsets.ISO_8859_1));
+
+    assertEquals(SerealToken.END, decoder.poisonNextToken());
+
+    decoder = setupDecoderFromHex(V6Vectors.VSTRING_300_1);
+    assertEquals(SerealToken.VSTRING, decoder.poisonNextToken());
+    assertTrue(decoder.binaryIsUtf8());
+  }
+
+  @Test
+  public void float128() throws SerealException {
+    // 3df3726c0500 38 <16 bytes>
+    TokenDecoder decoder = setupDecoderFromHex(V6Vectors.FLOAT128_V5);
+
+    assertEquals(SerealToken.FLOAT128, decoder.poisonNextToken());
+    assertEquals(1, decoder.tokenOffset());
+    assertEquals(7, decoder.binarySliceStart());
+    assertEquals(23, decoder.binarySliceEnd());
+    assertEquals(16, decoder.binarySliceLength());
+    assertEquals(15, decoder.decoderBuffer()[decoder.binarySliceEnd() - 1]);
+
+    assertEquals(SerealToken.END, decoder.poisonNextToken());
+  }
+
+  private TokenDecoder setupDecoderFromHex(String hex) throws SerealException {
+    TokenDecoder decoder = new TokenDecoder();
+
+    decoder.setData(TestUtils.hex(hex));
+    decoder.prepareDecodeBody();
+
+    return decoder;
+  }
+
   private TokenDecoder setupDecoder(Object value) throws SerealException {
     Encoder encoder = new Encoder();
     TokenDecoder decoder = new TokenDecoder();

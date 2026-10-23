@@ -134,5 +134,22 @@ public enum SerealToken {
   /**
    * Returned after the end of a sub-decode.
    */
-  SUBDECODE_END;
+  SUBDECODE_END,
+  /**
+   * A 128-bit quadmath floating point number (protocol version 5+).
+   * <p>
+   * Java has no matching type: the 16 raw bytes are available through
+   * {@link TokenDecoder#binarySliceStart()}/{@link TokenDecoder#binarySliceEnd()}
+   * (see also {@link Float128}).
+   */
+  FLOAT128,
+  /**
+   * A Perl v-string (protocol version 6+).
+   * <p>
+   * The spelling (e.g. {@code v1.2.3}) is available through
+   * {@link TokenDecoder#binarySliceStart()}/{@link TokenDecoder#binarySliceEnd()};
+   * {@link TokenDecoder#binaryIsUtf8()} tells whether Perl flags the string as UTF-8
+   * (see also {@link PerlVString}).
+   */
+  VSTRING;
 }
