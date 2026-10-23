@@ -1212,6 +1212,17 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
             SV *replacement= NULL;
             PTABLE_t *freezeobj_svhash;
 
+            /* The freeze_allow_classes callback and FREEZE may drop the
+             * last reference to the object, or to the reference being
+             * serialized, from elsewhere in the structure. Both are still
+             * used after they return (class name, weak reference
+             * bookkeeping, normal serialization of a denied class), so
+             * keep them alive until the encode finishes. */
+            SvREFCNT_inc_simple_void_NN(src);
+            SAVEFREESV(src);
+            SvREFCNT_inc_simple_void_NN(referent);
+            SAVEFREESV(referent);
+
             /* Enforce the freeze allow-list (if any). A disallowed class either
              * croaks (default) or is serialized normally (freeze_deny_action
              * => 'serialize'), which we signal by returning NULL here. */
@@ -1229,16 +1240,6 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
             if (!replacement) {
                 int count;
                 dSP;
-
-                /* The callback may drop the last reference to the object,
-                 * or to the reference being serialized, from elsewhere in
-                 * the structure. Both are still used after it returns
-                 * (class name, weak reference bookkeeping), so keep them
-                 * alive until the encode finishes. */
-                SvREFCNT_inc_simple_void_NN(src);
-                SAVEFREESV(src);
-                SvREFCNT_inc_simple_void_NN(referent);
-                SAVEFREESV(referent);
 
                 ENTER;
                 SAVETMPS;
