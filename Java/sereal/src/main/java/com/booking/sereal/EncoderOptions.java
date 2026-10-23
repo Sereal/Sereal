@@ -1,5 +1,7 @@
 package com.booking.sereal;
 
+import java.util.function.Consumer;
+
 public class EncoderOptions {
   private boolean perlRefs = false;
   private boolean perlAlias = false;
@@ -13,6 +15,12 @@ public class EncoderOptions {
   private int maxNumMapEntries = 0;
   private int maxNumArrayEntries = 0;
   private int maxStringLength = 0;
+
+  private byte[] checksumV0Key;
+  private byte[] checksumV1Key;
+  private byte[] checksumV2Key;
+  private SerealChecksum.Policy checksumPolicy = SerealChecksum.Policy.VERIFY_IF_AVAILABLE;
+  private Consumer<String> checksumWarningHandler = SerealChecksum::defaultWarning;
 
   public boolean perlReferences() {
     return perlRefs;
@@ -110,6 +118,57 @@ public class EncoderOptions {
   }
 
   /**
+   * Key for checksum type 0 (SipHash-2-4, 64-bit tag).
+   *
+   * @return a copy of the key, or {@code null} if not set
+   */
+  public byte[] checksumV0Key() {
+    return SerealChecksum.copyKey(checksumV0Key);
+  }
+
+  /**
+   * Key for checksum type 1 (SipHash-2-4-128).
+   *
+   * @return a copy of the key, or {@code null} if not set
+   */
+  public byte[] checksumV1Key() {
+    return SerealChecksum.copyKey(checksumV1Key);
+  }
+
+  /**
+   * Key for checksum type 2 (SipHash-3-6-128).
+   *
+   * @return a copy of the key, or {@code null} if not set
+   */
+  public byte[] checksumV2Key() {
+    return SerealChecksum.copyKey(checksumV2Key);
+  }
+
+  /**
+   * How checksum envelopes are handled. Defaults to {@link SerealChecksum.Policy#VERIFY_IF_AVAILABLE}.
+   *
+   * @return the checksum policy
+   */
+  public SerealChecksum.Policy checksumPolicy() {
+    return checksumPolicy;
+  }
+
+  /**
+   * Receives checksum warnings (unauthenticated decoding, ignored checksums). The default handler
+   * prints {@code "Sereal: " + msg} to {@code System.err}.
+   *
+   * @return the warning handler
+   */
+  public Consumer<String> checksumWarningHandler() {
+    return checksumWarningHandler;
+  }
+
+  // the three key slots indexed by checksum type (not copied)
+  byte[][] checksumKeys() {
+    return new byte[][] {checksumV0Key, checksumV1Key, checksumV2Key};
+  }
+
+  /**
    *
    * @param perlReferences {@code true} if perlReferences are supported, {@code false} otherwise.
    * @return EncoderOptions
@@ -127,7 +186,7 @@ public class EncoderOptions {
   }
 
   public EncoderOptions protocolVersion(int protocolVersion) {
-    if (protocolVersion < 1 || protocolVersion > 4) {
+    if (protocolVersion < 1 || protocolVersion > 6) {
       throw new IllegalArgumentException("Unknown Sereal version " + protocolVersion);
     }
     this.protocolVersion = protocolVersion;
@@ -182,6 +241,61 @@ public class EncoderOptions {
 
   public EncoderOptions maxStringLength(int maxStringLength) {
     this.maxStringLength = maxStringLength;
+
+    return this;
+  }
+
+  /**
+   * Set the key for checksum type 0 (SipHash-2-4, 64-bit tag). Keys must be exactly 16 bytes; use
+   * {@link SerealChecksum#prepareKey(byte[], byte[])} to derive one from an arbitrary secret.
+   *
+   * @param key 16-byte key (copied), or {@code null} to clear it
+   * @return EncoderOptions
+   */
+  public EncoderOptions checksumV0Key(byte[] key) {
+    this.checksumV0Key = SerealChecksum.checkKey(key, "checksumV0Key");
+
+    return this;
+  }
+
+  /**
+   * Set the key for checksum type 1 (SipHash-2-4-128). Keys must be exactly 16 bytes.
+   *
+   * @param key 16-byte key (copied), or {@code null} to clear it
+   * @return EncoderOptions
+   */
+  public EncoderOptions checksumV1Key(byte[] key) {
+    this.checksumV1Key = SerealChecksum.checkKey(key, "checksumV1Key");
+
+    return this;
+  }
+
+  /**
+   * Set the key for checksum type 2 (SipHash-3-6-128). Keys must be exactly 16 bytes.
+   *
+   * @param key 16-byte key (copied), or {@code null} to clear it
+   * @return EncoderOptions
+   */
+  public EncoderOptions checksumV2Key(byte[] key) {
+    this.checksumV2Key = SerealChecksum.checkKey(key, "checksumV2Key");
+
+    return this;
+  }
+
+  public EncoderOptions checksumPolicy(SerealChecksum.Policy checksumPolicy) {
+    if (checksumPolicy == null) {
+      throw new IllegalArgumentException("checksumPolicy must not be null");
+    }
+    this.checksumPolicy = checksumPolicy;
+
+    return this;
+  }
+
+  public EncoderOptions checksumWarningHandler(Consumer<String> checksumWarningHandler) {
+    if (checksumWarningHandler == null) {
+      throw new IllegalArgumentException("checksumWarningHandler must not be null");
+    }
+    this.checksumWarningHandler = checksumWarningHandler;
 
     return this;
   }
