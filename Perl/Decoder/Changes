@@ -18,7 +18,10 @@ Revision history for Perl extension Sereal-Decoder
       was written through. Read-only destinations are now refused.
     * Reject ARRAY and HASH tags that are not the referent of a REFN.
       They used to turn the destination scalar into an array or hash
-      body in place, which is not a valid Perl value.
+      body in place, which is not a valid Perl value. Documents from
+      encoders that omit the REFN around nested aggregates (for example
+      the Go encoder without PerlCompat) were never usable as Perl values
+      and are now rejected with a clear error.
     * New tags, better testing and robustness fixes.
     * Make require_key fail construction without a configured key in both
       Encoder and Decoder, and reject unsigned or unverifiable decoder input.

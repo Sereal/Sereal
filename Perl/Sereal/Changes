@@ -28,6 +28,15 @@ from the the Encoder and Decoder changelogs:
       original alias targets when decoding COPY.
     * Handle callback mutation and magical strings safely in Encoder, and
       document require_key as the key-requiring checksum policy.
+    * Reset caller-supplied output scalars before decoding into them, and
+      refuse read-only destinations.
+    * Detect header callbacks that modify the input scalar while decoding,
+      instead of reading a freed buffer.
+    * Fail with a catchable exception when a compressed document declares an
+      impossibly large uncompressed size.
+    * Reject ARRAY and HASH tags that are not the referent of a REFN.
+    * Keep objects alive across FREEZE when it drops their last reference,
+      and fix encoding of non-tied magical arrays such as @- and @+.
 
 5.011
     * Robustness fixes. Thanks to Steffen Mueller and kumar-Prakash07.
