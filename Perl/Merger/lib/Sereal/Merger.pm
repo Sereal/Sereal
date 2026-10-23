@@ -59,8 +59,13 @@ Sereal::Merger - A tool to merge Sereal documents into single one
 
 This library provides a way of merging multiple Sereal documents into one.
 
-The Sereal protocol version emitted by merger is currently protocol version 3
-by default.
+The Sereal protocol version emitted by the merger is the most recent one
+(currently 6) by default; see L</protocol_version>.
+
+Input documents may use any protocol version up to the current one, and may
+be compressed with Snappy, Zlib or Zstd. Protocol version 6 documents may
+carry a keyed checksum, which is verified according to the checksum options
+below, exactly as L<Sereal::Decoder> does.
 
 =head1 CLASS METHODS
 
@@ -111,6 +116,23 @@ however this may change in the future.
 Specifies the version of the Sereal protocol to emit. Valid are integers
 between 1 and the current version. If not specified, the most recent protocol
 version will be used.
+
+Input tags that the chosen version lacks are rewritten where an equivalent
+exists: NEG_VARINT becomes ZIGZAG and v-strings lose their v-string magic
+below version 6, YES and NO become TRUE and FALSE below version 5, and
+CANONICAL_UNDEF becomes UNDEF below version 3. FLOAT_128 values cannot be
+merged into output below version 5.
+
+=head3 checksum_policy, checksum_v0_key, checksum_v1_key, checksum_v2_key
+
+These control how checksummed (protocol version 6) input documents are
+authenticated. They take the same values and have the same defaults as the
+L<Sereal::Decoder> options of the same names, including
+C<$Sereal::DefaultKey> and the C<SEREAL_CHECKSUM_POLICY> environment
+variable. With the default policy, a checksummed document is verified when a
+matching key is configured, and merged unverified with a warning otherwise.
+
+The merged output carries no checksum.
 
 =head3 top_level_element
 

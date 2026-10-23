@@ -35,6 +35,8 @@ typedef struct {
     U32 cnt_of_merged_elements;           /* total count of merged elements so far */
     U32 protocol_version;                 /* the version of the Sereal protocol to emit. */
     U32 flags;                            /* flag-like options: See SRL_F_* defines */
+    U8 input_protocol_version;            /* protocol version of the document being appended */
+    srl_checksum_config_t checksum;       /* how to treat checksummed input documents */
 
     void *snappy_workmem;                 /* lazily allocated if and only if using Snappy */
 } srl_merger_t;
