@@ -6,6 +6,8 @@ Revision history for Perl extension Sereal-Decoder
 *          encoder!                                            *
 ****************************************************************
 6.000_001
+    * Release partially constructed decoder state when an invalid option,
+      wide-character checksum key, or fatal warning interrupts construction.
     * Use static custom-op descriptors instead of heap allocations left behind
       at full interpreter destruction.
     * Avoid undefined behaviour from unaligned FLOAT, DOUBLE, and LONG_DOUBLE

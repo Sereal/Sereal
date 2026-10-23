@@ -237,7 +237,7 @@ S_read_varint_uv_length_char_ptr(pTHX_ const unsigned char **from, const unsigne
 /* PUBLIC ROUTINES */
 
 /* Builds the C-level configuration and state struct.
- * Automatically freed at scope boundary. */
+ * Construction errors release partially allocated state. */
 srl_decoder_t *
 srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
 {
@@ -275,7 +275,9 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     }
     srl_validate_checksum_keys(aTHX_ checksum_keys, checksum_policy);
 
+    ENTER;
     Newxz(dec, 1, srl_decoder_t);
+    SAVEDESTRUCTOR_X(&srl_decoder_destructor_hook, (void *)dec);
 
     dec->checksum_policy = checksum_policy;
     dec->ref_seenhash = PTABLE_new();
@@ -495,6 +497,12 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     dec->flags_readonly= SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_SET_READONLY ) ? 1 :
                          SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_SET_READONLY_SCALARS) ? 2 :
                          0;
+    /* Keep the completed decoder when leaving the constructor's cleanup
+     * scope. Its empty buffer makes the reuse hook a no-op. The caller
+     * decides whether subsequent decodes should reuse this structure. */
+    SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REUSE);
+    LEAVE;
+    SRL_DEC_UNSET_OPTION(dec, SRL_F_DECODER_REUSE);
     return dec;
 }
 
