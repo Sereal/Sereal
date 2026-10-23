@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"reflect"
 	"runtime"
 	"strings"
@@ -17,6 +18,7 @@ type serealHeader struct {
 	suffixStart int
 	suffixSize  int
 	suffixFlags uint8
+	hasChecksum bool // a protocol version 6 checksum envelope follows the suffix
 }
 
 func readHeader(b []byte) (serealHeader, error) {
@@ -29,8 +31,9 @@ func readHeader(b []byte) (serealHeader, error) {
 
 	var h serealHeader
 
-	h.doctype = documentType(b[4] >> 4)
+	h.doctype = documentType((b[4] >> 4) & doctypeMask)
 	h.version = b[4] & 0x0f
+	h.hasChecksum = b[4]&checksumFlag != 0
 
 	validHeader := false
 
@@ -84,6 +87,21 @@ type Decoder struct {
 	PerlCompat bool
 	// DisableReferentialIntegrity produces a decoded data structure where Perl references are never decoded as Go pointers
 	DisableReferentialIntegrity bool
+
+	// ChecksumV0Key, ChecksumV1Key and ChecksumV2Key are the keys used to
+	// verify protocol version 6 checksummed documents of checksum type 0
+	// (SipHash-2-4), 1 (SipHash-2-4-128) and 2 (SipHash-3-6-128). Use
+	// PrepareChecksumKey to derive a key from arbitrary bytes.
+	ChecksumV0Key, ChecksumV1Key, ChecksumV2Key *[16]byte
+	// ChecksumPolicy selects how checksummed documents are verified; the
+	// zero value is ChecksumVerifyIfAvailable.
+	ChecksumPolicy ChecksumPolicy
+	// ChecksumWarningHandler receives checksum warnings, such as decoding a
+	// checksummed document without a matching key. nil prints them to
+	// os.Stderr prefixed with "sereal: ".
+	ChecksumWarningHandler func(msg string)
+
+	docVersion byte // protocol version of the document being decoded
 }
 
 type decompressor interface {
@@ -118,16 +136,23 @@ func checkHeader(b []byte) (serealHeader, error) {
 	}
 
 	switch header.version {
-	case 1, 2, 3, 4, 5:
+	case 1, 2, 3, 4, 5, 6:
 		break
 	default:
 		return header, fmt.Errorf("document version '%d' not yet supported", header.version)
 	}
 
+	if header.hasChecksum && header.version < 6 {
+		return header, ErrChecksumVersion
+	}
+
 	return header, nil
 }
 
-func documentDecompressor(version byte, doctype documentType) (decompressor, error) {
+// documentDecompressor returns the decompressor for doctype, or nil for a raw
+// document. Legacy (non-incremental) snappy is only valid in v1 documents and
+// inside a checksum envelope, whose payload length delimits it.
+func documentDecompressor(version byte, doctype documentType, hasChecksum bool) (decompressor, error) {
 	var decomp decompressor
 
 	switch doctype {
@@ -135,7 +160,7 @@ func documentDecompressor(version byte, doctype documentType) (decompressor, err
 		// nothing
 
 	case serealSnappy:
-		if version != 1 {
+		if version != 1 && !hasChecksum {
 			return nil, ErrBadSnappy
 		}
 		decomp = SnappyCompressor{Incremental: false}
@@ -184,16 +209,44 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 		return err
 	}
 
-	decomp, err := documentDecompressor(header.version, header.doctype)
+	if d.ChecksumPolicy == ChecksumRequireKey {
+		if d.ChecksumV0Key == nil && d.ChecksumV1Key == nil && d.ChecksumV2Key == nil {
+			return ErrChecksumKeyRequired
+		}
+		if !header.hasChecksum {
+			return ErrChecksumRequired
+		}
+	}
+
+	decomp, err := documentDecompressor(header.version, header.doctype, header.hasChecksum)
 	if err != nil {
 		return err
 	}
 
-	bodyStart := headerSize + header.suffixSize
+	headerEnd := headerSize + header.suffixSize
 
-	if bodyStart > len(b) || bodyStart < 0 {
+	if headerEnd > len(b) || header.suffixSize < 0 {
 		return ErrCorrupt{errBadOffset}
 	}
+
+	// the body is b[bodyStart:bodyEnd]; a checksum envelope bounds it to the
+	// payload, which is authenticated before anything else is decoded
+	bodyStart, bodyEnd := headerEnd, len(b)
+
+	if header.hasChecksum {
+		env, err := readChecksumEnvelope(b, headerEnd)
+		if err != nil {
+			return err
+		}
+
+		if err := d.applyChecksumPolicy(b, env); err != nil {
+			return err
+		}
+
+		bodyStart, bodyEnd = env.payloadStart, env.payloadEnd
+	}
+
+	d.docVersion = header.version
 
 	if vheader != nil && header.suffixSize != 1 {
 		d.tracked = make(map[int]reflect.Value)
@@ -207,9 +260,9 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 		header.suffixFlags = b[header.suffixStart]
 		if header.suffixFlags&1 == 1 {
 			if ptr, ok := vheader.(*interface{}); ok && *ptr == nil {
-				_, err = d.decode(b[:bodyStart], header.suffixStart+1, ptr)
+				_, err = d.decode(b[:headerEnd], header.suffixStart+1, ptr)
 			} else {
-				_, err = d.decodeViaReflection(b[:bodyStart], header.suffixStart+1, headerValue.Elem())
+				_, err = d.decodeViaReflection(b[:headerEnd], header.suffixStart+1, headerValue.Elem())
 			}
 		}
 	}
@@ -218,15 +271,31 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 		/* XXX instead of creating an uncompressed copy of the document,
 		 *     it would be more flexible to use a sort of "Reader" interface */
 		if decomp != nil {
-			decompBody, err := decomp.decompress(nil, b[bodyStart:])
+			payload := b[bodyStart:bodyEnd]
+
+			if header.hasChecksum {
+				// the compression framing must end exactly at the payload end
+				n, err := compressedPayloadLength(header.doctype, payload)
+				if err != nil {
+					return err
+				}
+				if n != len(payload) {
+					return ErrChecksumPayloadLength
+				}
+			}
+
+			decompBody, err := decomp.decompress(nil, payload)
 			if err != nil {
 				return err
 			}
 
-			newBody := make([]byte, 0, len(b[:bodyStart])+len(decompBody))
+			// offsets in the body are relative to its start, so keep the
+			// bytes before it in place
+			newBody := make([]byte, 0, bodyStart+len(decompBody))
 			newBody = append(newBody, b[:bodyStart]...)
 			newBody = append(newBody, decompBody...)
 			b = newBody
+			bodyEnd = len(b)
 		}
 
 		d.tracked = make(map[int]reflect.Value)
@@ -245,15 +314,83 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 			}
 		} else {
 			// serealv2 documents have 1-based offsets :/
+			var idx int
+			body := b[bodyStart-1 : bodyEnd]
 			if ptr, ok := vbody.(*interface{}); ok && *ptr == nil {
-				_, err = d.decode(b[bodyStart-1:], 1, ptr)
+				idx, err = d.decode(body, 1, ptr)
 			} else {
-				_, err = d.decodeViaReflection(b[bodyStart-1:], 1, bodyValue.Elem())
+				idx, err = d.decodeViaReflection(body, 1, bodyValue.Elem())
+			}
+
+			// an uncompressed checksummed payload must hold exactly one value
+			if err == nil && header.hasChecksum && decomp == nil && idx != len(body) {
+				err = ErrChecksumPayloadLength
 			}
 		}
 	}
 
 	return err
+}
+
+// checksumKey returns the configured key for checksum type typ, or nil
+func (d *Decoder) checksumKey(typ byte) *[16]byte {
+	switch typ {
+	case checksumSipHash24:
+		return d.ChecksumV0Key
+	case checksumSipHash24_128:
+		return d.ChecksumV1Key
+	case checksumSipHash36_128:
+		return d.ChecksumV2Key
+	}
+	return nil
+}
+
+// applyChecksumPolicy decides, following perl's
+// srl_process_checksum_envelope, whether the envelope env of b is verified,
+// skipped with a warning, skipped silently or rejected
+func (d *Decoder) applyChecksumPolicy(b []byte, env checksumEnvelope) error {
+	policy := d.ChecksumPolicy
+
+	switch policy {
+	case ChecksumVerifyIfAvailable, ChecksumDie, ChecksumRequireKey, ChecksumIgnore, ChecksumIgnoreWarn:
+	default:
+		return fmt.Errorf("sereal: unknown checksum policy %d", policy)
+	}
+
+	strict := policy == ChecksumDie || policy == ChecksumRequireKey
+	key := d.checksumKey(env.typ)
+	hasKey := env.known && key != nil
+
+	if strict && !env.known {
+		return ErrChecksumUnknownType
+	}
+
+	if strict && !hasKey {
+		return ErrChecksumKeyMissing
+	}
+
+	verify := hasKey && (policy == ChecksumVerifyIfAvailable || strict)
+
+	if policy == ChecksumIgnoreWarn {
+		d.warn(checksumWarnIgnored)
+	} else if policy == ChecksumVerifyIfAvailable && !hasKey {
+		d.warn(checksumWarnNoKey)
+	}
+
+	if verify && !checksumMatches(b, env, key) {
+		return ErrChecksumMismatch
+	}
+
+	return nil
+}
+
+// warn passes msg to the ChecksumWarningHandler, or prints it to os.Stderr
+func (d *Decoder) warn(msg string) {
+	if d.ChecksumWarningHandler != nil {
+		d.ChecksumWarningHandler(msg)
+		return
+	}
+	fmt.Fprintln(os.Stderr, "sereal: "+msg)
 }
 
 /****************************************************************
@@ -1413,7 +1550,12 @@ func DecompressDocument(dst, b []byte) (r []byte, err error) {
 		return nil, err
 	}
 
-	decomp, err := documentDecompressor(header.version, header.doctype)
+	// decompressing would invalidate the checksum, and re-signing needs a key
+	if header.hasChecksum {
+		return nil, ErrChecksummedDocument
+	}
+
+	decomp, err := documentDecompressor(header.version, header.doctype, false)
 	if err != nil {
 		return nil, err
 	}
