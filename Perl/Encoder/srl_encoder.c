@@ -1571,8 +1571,17 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
     }
     if (!n)
         return;
-    /* I can't decide if this should make me feel dirty */
-    if (SvMAGICAL(src) && mg_find((SV *)src, PERL_MAGIC_tied)) {
+    /* I can't decide if this should make me feel dirty.
+     * av_fetch()/av_len() honour array magic: tied arrays and regdata
+     * arrays such as @-, @+ and @{^CAPTURE} report their elements and
+     * length through magic, and AvARRAY() need not hold them. The raw
+     * AvARRAY() walk is only valid for arrays without such magic. Other
+     * array magic (e.g. the arylen_p magic that $#array attaches) leaves
+     * the elements in AvARRAY(), so mirror av_fetch() and only check for
+     * tie and regdata magic; those arrays keep the snapshot below. */
+    if (SvRMAGICAL(src)
+        && (mg_find((SV *)src, PERL_MAGIC_tied)
+            || mg_find((SV *)src, PERL_MAGIC_regdata))) {
         UV i;
         for (i = 0; i < n; ++i) {
             SV *value;
