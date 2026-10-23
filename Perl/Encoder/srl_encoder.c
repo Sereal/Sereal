@@ -1651,13 +1651,78 @@ srl_dump_hv_unsorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, UV n)
     } while ( he_ptr < he_end );
 }
 
+/* Walking a hash with hv_iterinit()/hv_iternext() resets the iterator that
+ * a caller's each() relies on. For hashes that keep their iterator in the
+ * HV (i.e. not tied ones), save it before such a walk and restore it after. */
+typedef struct {
+    I32 riter;
+    HE *eiter;
+    int lazydel;
+} srl_hv_iter_state_t;
+
+SRL_STATIC_INLINE void
+srl_hv_iter_save(pTHX_ HV *hv, srl_hv_iter_state_t *st)
+{
+    st->riter = HvRITER_get(hv);
+    st->eiter = HvEITER_get(hv);
+    /* When the caller deleted its current each() entry, perl unlinks the HE
+     * but defers freeing it (HvLAZYDEL) until the iterator moves on;
+     * hv_iterinit() would free it now, while the caller still owns it. Hide
+     * the flag across the walk and restore it together with the entry. */
+    st->lazydel = HvLAZYDEL(hv) ? 1 : 0;
+    HvLAZYDEL_off(hv);
+}
+
+SRL_STATIC_INLINE void
+srl_hv_iter_restore(pTHX_ HV *hv, const srl_hv_iter_state_t *st)
+{
+    HE *eiter = st->eiter;
+    if (eiter && !st->lazydel) {
+        /* A callback that ran during the walk (FETCH, FREEZE, DESTROY, ...) may
+         * have deleted or moved the caller's current entry. While the walk owns
+         * HvEITER, perl frees a deleted entry immediately instead of deferring
+         * it, so only restore the pointer if it is still linked where it was. */
+        HE *he = NULL;
+        /* SvOOK: belt and braces, the walk's hv_iternext() re-creates the aux. */
+        if (HvARRAY(hv) && SvOOK((SV *)hv) && st->riter >= 0) {
+            /* Under PERL_HASH_RANDOMIZE_KEYS, RITER is a position in
+             * iteration order, not a bucket number: the bucket is
+             * (riter ^ xhv_rand) & HvMAX, as PERL_HASH_ITER_BUCKET()
+             * computes it. If xhv_rand changed during the walk (a split),
+             * the lookup legitimately fails and EITER is dropped; perl
+             * already documents iteration after insertion as undefined.
+             * RITER >= 0 implies the HV has its aux struct. */
+#ifdef PERL_HASH_RANDOMIZE_KEYS
+            const STRLEN bucket = ((STRLEN)st->riter ^ (STRLEN)HvAUX(hv)->xhv_rand) & HvMAX(hv);
+#else
+            const STRLEN bucket = (STRLEN)st->riter;
+#endif
+            if (bucket <= HvMAX(hv))
+                for (he = HvARRAY(hv)[bucket]; he; he = HeNEXT(he))
+                    if (he == eiter) break;
+        }
+        if (!he) eiter = NULL;
+    }
+    /* A lazily-deleted entry is already unlinked and owned by the iterator
+     * alone; with the flag off nothing freed it during the walk. */
+    HvRITER_set(hv, st->riter);
+    HvEITER_set(hv, eiter);
+    if (st->lazydel && eiter)
+        HvLAZYDEL_on(hv);
+}
+
 SRL_STATIC_INLINE void
 srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
 {
     HE *he;
     UV i= 0;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
+    /* Tied hashes keep their iterator in Perl (FIRSTKEY/NEXTKEY). */
+    const int keep_iter = !mg_find((SV *)src, PERL_MAGIC_tied);
+    srl_hv_iter_state_t iter_state;
 
+    if (keep_iter)
+        srl_hv_iter_save(aTHX_ src, &iter_state);
     (void)hv_iterinit(src); /* return value not reliable according to API docs */
     while ((he = hv_iternext(src))) {
         SV *v;
@@ -1670,6 +1735,8 @@ srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
     }
     if (expect_false( i != n ))
         croak("Panic: cannot serialize a tied hash which changes its size!");
+    if (keep_iter)
+        srl_hv_iter_restore(aTHX_ src, &iter_state);
 }
 
 /* sorting hashes - nothing in perl is easy. ever.
@@ -1784,6 +1851,9 @@ srl_dump_hv_sv(pTHX_ srl_encoder_t *enc, HV *src, const UV n, HE_SV *array)
     HE *he;
     UV i= 0;
     const int is_tie= SvMAGICAL(src);
+    /* Tied hashes keep their iterator in Perl (FIRSTKEY/NEXTKEY). */
+    const int keep_iter = !(is_tie && mg_find((SV *)src, PERL_MAGIC_tied));
+    srl_hv_iter_state_t iter_state;
 
     /* This sub is used for ties, and for hashes with SV keys in them,
      * when callbacks may change the hash, and for SORT_KEYS_PERL. It is the slowest way
@@ -1794,6 +1864,8 @@ srl_dump_hv_sv(pTHX_ srl_encoder_t *enc, HV *src, const UV n, HE_SV *array)
      * if we wish.
      */
 
+    if (keep_iter)
+        srl_hv_iter_save(aTHX_ src, &iter_state);
     (void)hv_iterinit(src); /* return value not reliable according to API docs */
     {
         HE_SV *array_end;
@@ -1817,6 +1889,8 @@ srl_dump_hv_sv(pTHX_ srl_encoder_t *enc, HV *src, const UV n, HE_SV *array)
         }
         if (expect_false( i != n ))
             croak("Panic: can not serialize a %s hash which changes it size!", is_tie ? "tied" : "untied");
+        if (keep_iter)
+            srl_hv_iter_restore(aTHX_ src, &iter_state);
 
         if (SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS))
             srl_qsort(aTHX_ enc, n, array);
@@ -1835,11 +1909,13 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
 {
     HE *he;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
+    srl_hv_iter_state_t iter_state;
 
     /* This sub is used only for untied hashes and when the user wants
      * sorted keys, but not necessarily the order that perl would use. 
      */
 
+    srl_hv_iter_save(aTHX_ src, &iter_state);
     (void)hv_iterinit(src); /* return value not reliable according to API docs */
     {
         HE_SV *array;
@@ -1857,6 +1933,7 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
             array_ptr->val.he = he;
             array_ptr++;
         }
+        srl_hv_iter_restore(aTHX_ src, &iter_state);
         
         srl_qsort(aTHX_ enc, n, array);
 

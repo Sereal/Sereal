@@ -6,6 +6,9 @@ Revision history for Perl extension Sereal-Encoder
 *          encoder!                                            *
 ****************************************************************
 6.000_001
+    * Leave the caller's each() iterator in place when encoding an untied
+      hash. Hashes with reference values, sort_keys and freeze_callbacks
+      reset it, so encoding a hash inside an each() loop over it looped forever.
     * Retain shared key storage while its address identifies a COPY target,
       preventing callback deletion and address reuse from changing later keys.
     * Retain the selected FREEZE method across allow-list predicates that
