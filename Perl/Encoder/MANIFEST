@@ -74,6 +74,7 @@ t/130_freezethaw.t
 t/131_freeze_allow.t
 t/132_callback_hash_mutation.t
 t/133_callback_array_mutation.t
+t/134_callback_frozen_object_lifetime.t
 t/160_recursion.t
 t/170_cyclic_weakrefs.t
 t/171_weakref_rewrites.t

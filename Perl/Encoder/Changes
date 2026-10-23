@@ -6,6 +6,9 @@ Revision history for Perl extension Sereal-Encoder
 *          encoder!                                            *
 ****************************************************************
 6.000_001
+    * Keep the object being frozen alive across its own FREEZE call; a
+      FREEZE that dropped the last reference to its object left the
+      encoder reading a freed referent for the class name.
     * New tags, better testing and robustness fixes.
     * Retain array elements and hash entries before encoding values that can
       invoke Perl, including tied values and nested references.
