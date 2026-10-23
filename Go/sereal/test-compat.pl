@@ -33,7 +33,7 @@ sub slurp {
 # 100% reliable and accurate. To mitigate it we also maintain a counter holding
 # a total number of tests to be skipped.
 #
-my $skip_total = 216;
+my $skip_total = 222;
 my %skip = map { $_ => 1 } (
     'array ref to aliases blessed array',
     'array ref to aliases complex hash',
@@ -88,6 +88,10 @@ my %skip = map { $_ => 1 } (
     'array ref to aliases long utf8 string',
     'array ref to aliases more complex',
     'array ref to aliases more escapes',
+    # Scalar alias identity is deliberately not preserved by the Go codec.
+    'array ref to aliases negative int -16',
+    'array ref to aliases negative int -17',
+    'array ref to aliases negative int -33',
     'array ref to aliases negative big num',
     'array ref to aliases negative float',
     'array ref to aliases negative small float',
@@ -226,6 +230,9 @@ my %skip = map { $_ => 1 } (
     'array ref to scalar refs to same integer: 1e3',
     'array ref to scalar refs to same largeish int',
     'array ref to scalar refs to same largeish negative int',
+    'array ref to scalar refs to same negative int -16',
+    'array ref to scalar refs to same negative int -17',
+    'array ref to scalar refs to same negative int -33',
     'array ref to scalar refs to same negative big num',
     'array ref to scalar refs to same float 0.1',
     'array ref to scalar refs to same float 0.2',
