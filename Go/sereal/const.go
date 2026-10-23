@@ -68,3 +68,10 @@ const (
 	typeHASHREF_0       = 0x50
 	typeSHORT_BINARY_0  = 0x60
 )
+
+// checksum types of the protocol version 6 keyed checksum envelope
+const (
+	checksumSipHash24     = 0 // SipHash-2-4, 64-bit tag
+	checksumSipHash24_128 = 1 // SipHash-2-4-128, 128-bit tag
+	checksumSipHash36_128 = 2 // SipHash-3-6-128, 128-bit tag
+)
