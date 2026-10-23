@@ -13,6 +13,7 @@ import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
@@ -48,6 +49,10 @@ public class Decoder implements SerealHeader {
   private final int maxNumArrayEntries;
   private final int maxStringLength;
 
+  private final byte[][] checksumKeys;
+  private final SerealChecksum.Policy checksumPolicy;
+  private final Consumer<String> checksumWarningHandler;
+
   private byte[] data;
   private int position, end;
   private ByteArray originalData;
@@ -58,6 +63,10 @@ public class Decoder implements SerealHeader {
   private int baseOffset = Integer.MAX_VALUE;
   private long userHeaderPosition = -1;
   private long userHeaderSize = -1;
+  // checksum envelope (protocol version 6): the body lives in [payloadStart, payloadEnd)
+  private boolean hasChecksum;
+  private int payloadStart = -1;
+  private int payloadEnd = -1;
   private Inflater inflater;
 
   private int recursionDepth = 0;
@@ -92,6 +101,18 @@ public class Decoder implements SerealHeader {
     maxNumMapEntries = options.maxNumMapEntries();
     maxNumArrayEntries = options.maxNumArrayEntries();
     maxStringLength = options.maxStringLength();
+
+    checksumKeys = options.checksumKeys();
+    checksumPolicy = options.checksumPolicy();
+    checksumWarningHandler = options.checksumWarningHandler();
+    checkChecksumOptions(checksumKeys, checksumPolicy);
+  }
+
+  static void checkChecksumOptions(byte[][] keys, SerealChecksum.Policy policy) {
+    if (policy == SerealChecksum.Policy.REQUIRE_KEY
+        && keys[0] == null && keys[1] == null && keys[2] == null) {
+      throw new IllegalArgumentException("checksum policy REQUIRE_KEY requires at least one checksum key");
+    }
   }
 
   private void checkHeader() throws SerealException {
@@ -143,16 +164,26 @@ public class Decoder implements SerealHeader {
       throw new SerealException("Invalid Sereal header: no protocol/version byte");
     }
 
-    int protoAndFlags = data[position++];
-    protocolVersion = protoAndFlags & 15; // 4 bits for version
+    int protoAndFlags = data[position++] & 0xff;
+    protocolVersion = protoAndFlags & SRL_PROTOCOL_VERSION_MASK; // 4 bits for version
+    hasChecksum = (protoAndFlags & SRL_ENCODING_CHECKSUM_FLAG & 0xff) != 0;
 
-    if (protocolVersion < 0 || protocolVersion > 4) {
+    if (protocolVersion < 1 || protocolVersion > 6) {
       throw new SerealException(
           String.format("Invalid Sereal header: unsupported protocol version %d", protocolVersion));
     }
+    if (hasChecksum && protocolVersion < 6) {
+      throw new SerealException("Checksummed Sereal documents require protocol version 6 or later");
+    }
+    if (!hasChecksum && checksumPolicy == SerealChecksum.Policy.REQUIRE_KEY) {
+      throw new SerealException("checksum_policy 'require_key' requires a checksummed packet");
+    }
 
-    encoding = (protoAndFlags & ~15) >> 4;
-    if ((encoding == 1 || encoding == 2) && refuseSnappy) {
+    encoding = (protoAndFlags >> 4) & SRL_ENCODING_BASE_MASK;
+    if (encoding == 1 && protocolVersion >= 2 && !hasChecksum) {
+      // without an envelope, legacy Snappy data runs to the end of the input
+      throw new SerealException("Non-incremental Snappy compression requires protocol version 1");
+    } else if ((encoding == 1 || encoding == 2) && refuseSnappy) {
       throw new SerealException("Unsupported encoding: Snappy");
     } else if (encoding == 3 && refuseZlib) {
       throw new SerealException("Unsupported encoding: Zlib");
@@ -222,9 +253,28 @@ public class Decoder implements SerealHeader {
   private void parseHeader() throws SerealException {
     if (userHeaderSize >= 0) return;
 
-    checkHeader();
-    checkProtoAndFlags();
-    checkHeaderSuffix();
+    try {
+      checkHeader();
+      checkProtoAndFlags();
+      checkHeaderSuffix();
+
+      if (hasChecksum) {
+        // verify before exposing header data or decompressing anything
+        SerealChecksum.Envelope envelope = SerealChecksum.process(data, originalData.start, position, end,
+            checksumKeys, checksumPolicy, checksumWarningHandler);
+        payloadStart = envelope.payloadStart;
+        payloadEnd = envelope.payloadEnd;
+      } else {
+        payloadStart = position;
+        payloadEnd = end;
+      }
+    } catch (SerealException | RuntimeException e) {
+      // leave the header unparsed, so that a later call cannot skip the checks
+      userHeaderPosition = userHeaderSize = -1;
+      position = originalData.start;
+      end = originalData.start + originalData.length;
+      throw e;
+    }
   }
 
   /**
@@ -244,6 +294,8 @@ public class Decoder implements SerealHeader {
 
     parseHeader();
 
+    position = payloadStart;
+    end = payloadEnd;
     if (encoding != 0) {
       if (encoding == 1 || encoding == 2) uncompressSnappy();
       else if (encoding == 3) uncompressZlib();
@@ -264,17 +316,21 @@ public class Decoder implements SerealHeader {
     } catch (StackOverflowError error) {
       throw new SerealException("StackOverflowError: Reached recursion limit during deserialization");
     }
+    if (hasChecksum && encoding == 0 && position != payloadEnd) {
+      throw new SerealException(SerealChecksum.PAYLOAD_LENGTH_MISMATCH);
+    }
 
     return out;
   }
 
   private void uncompressSnappy() throws SerealException {
-    int len = originalData.length - (position - originalData.start);
+    int len = end - position;
     int pos = protocolVersion == 1 ? position : originalData.start;
 
     if (encoding == 2) {
       len = (int) read_varint();
     }
+    checkCompressedEnd(len);
 
     byte[] uncompressed;
     try {
@@ -307,6 +363,7 @@ public class Decoder implements SerealHeader {
     }
 
     long compressedLength = read_varint();
+    checkCompressedEnd(compressedLength);
     inflater.setInput(originalData.array, position, (int) compressedLength);
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
       byte[] buffer = new byte[this.decodeBufferSize];
@@ -332,6 +389,7 @@ public class Decoder implements SerealHeader {
 
   private void uncompressZstd() throws SerealException {
     int len = (int) read_varint();
+    checkCompressedEnd(len);
 
     byte[] compressedData = Arrays.copyOfRange(originalData.array, position, position + len);
     long decompressedSize = Zstd.decompressedSize(compressedData);
@@ -350,6 +408,13 @@ public class Decoder implements SerealHeader {
     this.data = uncompressed;
     this.position = 0;
     this.end = uncompressed.length;
+  }
+
+  // in a checksummed document the compressed data must end exactly at the payload end
+  private void checkCompressedEnd(long compressedLength) throws SerealException {
+    if (hasChecksum && compressedLength != payloadEnd - position) {
+      throw new SerealException(SerealChecksum.PAYLOAD_LENGTH_MISMATCH);
+    }
   }
 
   /**
@@ -557,6 +622,27 @@ public class Decoder implements SerealHeader {
         case SRL_HDR_FALSE:
           out = false;
           break;
+        case SRL_HDR_YES:
+          checkMinVersion(5, "YES tag requires protocol version 5 or later");
+          out = Boolean.TRUE;
+          break;
+        case SRL_HDR_NO:
+          checkMinVersion(5, "NO tag requires protocol version 5 or later");
+          out = Boolean.FALSE;
+          break;
+        case SRL_HDR_FLOAT_128:
+          checkMinVersion(5, "FLOAT_128 tag requires protocol version 5 or later");
+          checkAvailable(16);
+          out = new Float128(Arrays.copyOfRange(data, position, position + 16));
+          position += 16;
+          break;
+        case SRL_HDR_NEG_VARINT:
+          checkMinVersion(6, "NEG_VARINT tag requires protocol version 6");
+          out = readNegVarint();
+          break;
+        case SRL_HDR_EXTEND:
+          out = readExtend();
+          break;
         case SRL_HDR_UNDEF:
           if (preserveUndef) out = new PerlUndef();
           else out = null;
@@ -684,6 +770,70 @@ public class Decoder implements SerealHeader {
     }
 
     return out;
+  }
+
+  private void checkMinVersion(int version, String message) throws SerealException {
+    if (protocolVersion < version) {
+      throw new SerealException(message);
+    }
+  }
+
+  private void checkAvailable(long length) throws SerealException {
+    if (length > end - position) {
+      throw new SerealException("Unexpected end of data at byte " + end);
+    }
+  }
+
+  // NEG_VARINT: the magnitude of a negative integer, 1..2^63 (2^63 is Long.MIN_VALUE)
+  private long readNegVarint() throws SerealException {
+    checkNoEOD();
+    long magnitude = read_varint();
+    if (magnitude == 0 || Long.compareUnsigned(magnitude, Long.MIN_VALUE) > 0) {
+      throw new SerealException("Invalid NEG_VARINT magnitude " + Long.toUnsignedString(magnitude));
+    }
+    return -magnitude;
+  }
+
+  private Object readExtend() throws SerealException {
+    checkMinVersion(6, "EXTEND tag requires protocol version 6 or later");
+    checkNoEOD();
+    int id = data[position++] & 0xff;
+    switch (id) {
+      case SRL_EXT_DEADLY:
+        throw new SerealException("Encountered DEADLY extended tag");
+      case SRL_EXT_VSTRING_BINARY:
+        return readVString(false);
+      case SRL_EXT_VSTRING_UTF8:
+        return readVString(true);
+      default:
+        throw new SerealException("Unknown extended tag ID " + id);
+    }
+  }
+
+  private PerlVString readVString(boolean utf8) throws SerealException {
+    checkNoEOD();
+    long length = read_varint();
+    if (maxStringLength != 0 && Long.compareUnsigned(length, maxStringLength) > 0) {
+      throw new SerealException("Got input string with " + Long.toUnsignedString(length)
+          + " characters, but the configured maximum is just " + maxStringLength);
+    }
+    if (length < 0) {
+      throw new SerealException("Unexpected end of data at byte " + end);
+    }
+    checkAvailable(length);
+    if (length == 0) {
+      throw new SerealException("Invalid extended VSTRING spelling length");
+    }
+    int kind = VStrings.classify(data, position, (int) length);
+    if (kind == VStrings.INVALID) {
+      throw new SerealException("Invalid extended VSTRING spelling");
+    }
+    if ((kind == VStrings.UTF8) != utf8) {
+      throw new SerealException("VSTRING extension ID does not match the decoded string encoding");
+    }
+    String spelling = new String(data, position, (int) length, charset_latin1);
+    position += (int) length;
+    return new PerlVString(spelling);
   }
 
   /**
@@ -883,6 +1033,8 @@ public class Decoder implements SerealHeader {
     protocolVersion = encoding = -1;
     baseOffset = Integer.MAX_VALUE;
     userHeaderPosition = userHeaderSize = -1;
+    hasChecksum = false;
+    payloadStart = payloadEnd = -1;
     resetTracked();
   }
 
