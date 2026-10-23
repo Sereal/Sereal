@@ -14,6 +14,8 @@ from the the Encoder and Decoder changelogs:
 *          Decoder independently.                              *
 ****************************************************************
 6.000_001
+    * Preserve shared hash key COPY targets and selected FREEZE methods across
+      Encoder callbacks; retain Decoder arguments before output-reset callbacks.
     * Fix object lifetime across Encoder allow-list predicates and prevent
       changing tied integers from corrupting output tags.
     * New tags, better testing and robustness fixes.

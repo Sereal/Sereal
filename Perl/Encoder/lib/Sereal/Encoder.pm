@@ -444,6 +444,8 @@ C<FREEZE>
 
 The encoder retains the object across the predicate and any subsequent
 C<FREEZE> call, even if the callback removes its last external reference.
+It also retains the C<FREEZE> method selected before the predicate runs;
+replacing that method affects subsequent invocations.
 
 Classes that do not have a C<FREEZE> method are unaffected (they serialize as
 usual). When an object's class has a C<FREEZE> method but is not allowed, the
@@ -584,6 +586,10 @@ the encoder will disable the detection and elimination of repeated hash
 keys. This only has an effect for serializing structures containing hashes.
 By skipping the detection of repeated hash keys, performance goes up a bit,
 but the size of the output can potentially be much larger.
+
+With key sharing enabled, shared key storage is retained until encoding
+finishes, so a callback deleting an earlier key cannot change a later
+C<COPY> target.
 
 Do not disable this unless you have a reason to.
 

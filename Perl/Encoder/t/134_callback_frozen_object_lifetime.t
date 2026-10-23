@@ -157,4 +157,42 @@ for my $version ( 2 .. 6 ) {
         }
     }
 }
+# Method lookup happens before the predicate. Removing or replacing the glob
+# must not free the CV selected for this invocation.
+{
+    package MethodLifetime;
+    sub THAW { my ($class, $format, $value) = @_; bless {value => $value}, $class }
+}
+my $freeze_name = 'MethodLifetime::FREEZE';
+for my $version (2 .. 6) {
+    for my $change (qw(delete replace)) {
+        my $replacement_calls = 0;
+        {
+            no strict 'refs';
+            no warnings 'redefine';
+            *{$freeze_name} = sub { return 'selected' };
+        }
+        my $object = bless {}, 'MethodLifetime';
+        my $encoder = Sereal::Encoder->new({
+            protocol_version => $version,
+            freeze_allow_classes => sub {
+                delete $MethodLifetime::{FREEZE};
+                if ($change eq 'replace') {
+                    no strict 'refs';
+                    no warnings 'redefine';
+                    *{$freeze_name} = sub { $replacement_calls++; return 'replacement' };
+                }
+                return 1;
+            },
+        });
+        my $decoded = eval { Sereal::Decoder->new->decode($encoder->encode($object)) };
+        my $error = $@;
+        ok(!$error, "v$version $change: method survives the predicate") or diag($error);
+        SKIP: {
+            skip 'encode/decode failed', 2 if $error;
+            is($decoded->{value}, 'selected', "v$version $change: selected FREEZE is invoked");
+            is($replacement_calls, 0, "v$version $change: replacement applies to future calls");
+        }
+    }
+}
 done_testing();

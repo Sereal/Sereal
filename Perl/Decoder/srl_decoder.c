@@ -620,6 +620,19 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
     int aliased;
 
     assert(origdec != NULL);
+    /* Resetting either output can run DESTROY and remove the last owning
+     * reference to any of these scalars. Retain the arguments before that
+     * happens; capture the input PV only after the resets, as before. */
+    SvREFCNT_inc_simple_void_NN(src);
+    SAVEFREESV(src);
+    if (header_into) {
+        SvREFCNT_inc_simple_void_NN(header_into);
+        SAVEFREESV(header_into);
+    }
+    if (body_into) {
+        SvREFCNT_inc_simple_void_NN(body_into);
+        SAVEFREESV(body_into);
+    }
     aliased = (src == body_into || src == header_into);
     if (expect_false( SRL_DEC_HAVE_OPTION(origdec, SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL)
                       && aliased ))
@@ -690,6 +703,12 @@ srl_decode_header_into(pTHX_ srl_decoder_t *origdec, SV *src, SV* header_into, U
 {
     srl_decoder_t *dec;
     assert(origdec != NULL);
+    SvREFCNT_inc_simple_void_NN(src);
+    SAVEFREESV(src);
+    if (header_into) {
+        SvREFCNT_inc_simple_void_NN(header_into);
+        SAVEFREESV(header_into);
+    }
     if (header_into == NULL) {
         header_into = sv_newmortal();
     }

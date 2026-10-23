@@ -6,6 +6,8 @@ Revision history for Perl extension Sereal-Decoder
 *          encoder!                                            *
 ****************************************************************
 6.000_001
+    * Retain input and output scalars before resetting caller-supplied outputs,
+      so DESTROY can remove their owning entries without freeing active arguments.
     * A compressed document declaring an impossibly large uncompressed
       size now fails with a catchable exception instead of terminating
       the process in perl's allocator.

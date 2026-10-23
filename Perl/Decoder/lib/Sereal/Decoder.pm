@@ -611,8 +611,12 @@ In other words,
 This is an unfortunate side-effect of perls standard copy semantics of
 assignment. Possibly one day we will have an alternative to this.
 
-Application callbacks, including THAW methods, must not modify the input scalar
-while a decode call is active. The decoder reads directly from its buffer.
+Caller-supplied outputs are cleared before parsing begins. This releases their
+previous values and may run C<DESTROY>; the input and output scalars remain
+retained during the reset.
+
+Once parsing begins, application callbacks, including THAW methods, must not
+modify the input scalar. The decoder reads directly from its buffer.
 Input and output may otherwise use the same scalar; the decoder copies the
 input for this case. Incremental mode requires separate input and output.
 

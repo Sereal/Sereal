@@ -6,6 +6,10 @@ Revision history for Perl extension Sereal-Encoder
 *          encoder!                                            *
 ****************************************************************
 6.000_001
+    * Retain shared key storage while its address identifies a COPY target,
+      preventing callback deletion and address reuse from changing later keys.
+    * Retain the selected FREEZE method across allow-list predicates that
+      delete or replace its symbol-table entry.
     * Keep objects alive while freeze_allow_classes predicates run, including
       predicates that drop the object's owning reference and then deny FREEZE.
     * Read cached integer values without invoking FETCH again while writing

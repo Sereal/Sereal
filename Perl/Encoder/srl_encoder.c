@@ -1212,6 +1212,7 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
         if (expect_false( method != NULL )) {
             SV *replacement= NULL;
             PTABLE_t *freezeobj_svhash;
+            CV *freeze_cv = GvCV(method);
 
             /* Either the allow-list predicate or FREEZE may drop the last
              * reference to the object or the reference being serialized.
@@ -1220,6 +1221,9 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
             SAVEFREESV(src);
             SvREFCNT_inc_simple_void_NN(referent);
             SAVEFREESV(referent);
+            /* The predicate may delete or replace the method's glob too. */
+            SvREFCNT_inc_simple_void_NN((SV *)freeze_cv);
+            SAVEFREESV((SV *)freeze_cv);
 
             /* Enforce the freeze allow-list (if any). A disallowed class either
              * croaks (default) or is serialized normally (freeze_deny_action
@@ -1250,7 +1254,7 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
                 PTABLE_store(freezeobj_svhash, referent, replacement);
 
                 PUTBACK;
-                count = call_sv((SV *)GvCV(method), G_ARRAY);
+                count = call_sv((SV *)freeze_cv, G_ARRAY);
                 /* TODO explore method lookup caching */
                 SPAGAIN;
 
@@ -1937,15 +1941,26 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 /* Shared key strings are immutable, so their pointers can identify COPY
  * targets. This table is separate from scalar-value alias deduplication. */
 SRL_STATIC_INLINE int
-srl_dump_shared_hk(pTHX_ srl_encoder_t *enc, const char *str)
+srl_dump_shared_hk(pTHX_ srl_encoder_t *enc, const char *str, SV *key_sv, HE *key_he)
 {
     PTABLE_t *string_seenhash = SRL_GET_STR_PTR_SEENHASH(enc);
     const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, str);
+    SV *keeper;
     if (oldoffset != 0) {
         srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_COPY, (UV)oldoffset);
         return 1;
     }
-    PTABLE_store(string_seenhash, (void *)str, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
+    /* A later callback may delete this key. Keep its shared storage alive
+     * so a different key cannot reuse the pointer cached above. Some keys
+     * (e.g. WASUTF8 keys) become independent strings when copied; only cache
+     * the pointer when the keeper actually shares the original allocation. */
+    keeper = key_sv ? newSVsv_flags(key_sv, SV_NOSTEAL) : newSVhek(HeKEY_hek(key_he));
+    if (SvIsCOW_shared_hash(keeper) && SvPVX(keeper) == str) {
+        SAVEFREESV(keeper);
+        PTABLE_store(string_seenhash, (void *)str, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
+    } else {
+        SvREFCNT_dec(keeper);
+    }
     return 0;
 }
 
@@ -1978,7 +1993,7 @@ srl_dump_hk_sv(pTHX_ srl_encoder_t *enc, SV *src)
     if (!SRL_ENC_HAVE_OPTION(enc, SRL_F_DEDUPE_STRINGS)
         && SvIsCOW_shared_hash(src)
         && SRL_ENC_HAVE_OPTION(enc, SRL_F_SHARED_HASHKEYS)
-        && srl_dump_shared_hk(aTHX_ enc, str))
+        && srl_dump_shared_hk(aTHX_ enc, str, src, NULL))
         return;
 
     srl_dump_hk_pv(aTHX_ enc, str, len, SvUTF8(src));
@@ -2015,7 +2030,7 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
 #endif
             )
         {
-            if (srl_dump_shared_hk(aTHX_ enc, str))
+            if (srl_dump_shared_hk(aTHX_ enc, str, NULL, src))
                 return;
         }
         len= HeKLEN(src);

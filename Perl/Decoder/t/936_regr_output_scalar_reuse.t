@@ -111,4 +111,42 @@ child_survives(
     ok( !$ok2, 'a literal string output argument is refused' );
 }
 
+# The input SV itself may disappear during the output reset, independently
+# of its PV being changed. Each entry point must retain it before DESTROY.
+for my $api (qw(decode decode_only_header decode_with_header)) {
+    child_survives(
+        q{
+            our %cache = (packet => Header(6, "\x63hdr") . "\x51\x61k\x01");
+            package DeleteInput { sub DESTROY { delete $main::cache{packet} } }
+            my $dec = Sereal::Decoder->new;
+            my $out = bless {}, 'DeleteInput';
+        } . (
+            $api eq 'decode' ? q{
+                $dec->decode($cache{packet}, $out);
+                die 'wrong body' unless $out->{k} == 1;
+            } : $api eq 'decode_only_header' ? q{
+                $dec->decode_only_header($cache{packet}, $out);
+                die 'wrong header' unless $out eq 'hdr';
+            } : q{
+                my $hdr;
+                $dec->decode_with_header($cache{packet}, $out, $hdr);
+                die 'wrong header/body' unless $hdr eq 'hdr' && $out->{k} == 1;
+            }
+        ),
+        "$api output DESTROY deleting the input's owning entry"
+    );
+}
+child_survives(
+    q{
+        our %outputs;
+        package DeleteOtherOutput { sub DESTROY { delete $main::outputs{body} } }
+        my $dec = Sereal::Decoder->new;
+        $outputs{header} = bless {}, 'DeleteOtherOutput';
+        $outputs{body} = 'old body';
+        my $blob = Header(6, "\x63hdr") . "\x51\x61k\x01";
+        $dec->decode_with_header($blob, $outputs{body}, $outputs{header});
+        die 'wrong header' unless $outputs{header} eq 'hdr';
+    },
+    'header output DESTROY deleting the body output owning entry'
+);
 done_testing;
