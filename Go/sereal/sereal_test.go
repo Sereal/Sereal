@@ -192,7 +192,7 @@ func TestRoundtripCompat(t *testing.T) {
  */
 func TestCorpus(t *testing.T) {
 
-	e := &Encoder{PerlCompat: true}
+	e := &Encoder{PerlCompat: true, version: corpusVersion(t)}
 	d := &Decoder{PerlCompat: true}
 
 	_ = e
@@ -254,6 +254,23 @@ func TestCorpus(t *testing.T) {
 
 		ioutil.WriteFile(corpusFile+"-go.out", b, 0600)
 	}
+}
+
+// corpusVersion returns the protocol version the test_dir corpus was written
+// with (the Makefile's CORPUS_PROTO_VER, recorded as test_dir/VERSION_<n>),
+// or 3 when it is unknown
+func corpusVersion(t *testing.T) int {
+	files, _ := filepath.Glob("test_dir/VERSION_*")
+	if len(files) != 1 {
+		return 3
+	}
+
+	version, err := strconv.Atoi(strings.TrimPrefix(filepath.Base(files[0]), "VERSION_"))
+	if err != nil || version < 1 || version > MaxProtocolVersion {
+		t.Fatalf("bad corpus version file %s", files[0])
+	}
+
+	return version
 }
 
 func TestSnappyArray(t *testing.T) { testCompressedArray(t, "snappy", SnappyCompressor{true}) }
