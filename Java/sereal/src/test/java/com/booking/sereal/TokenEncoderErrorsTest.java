@@ -123,4 +123,23 @@ public class TokenEncoderErrorsTest {
     encoder.endHeader();
     encoder.endHeader();
   }
+
+  @Test
+  public void float128WrongLength() throws SerealException {
+    exceptionRule.expect(SerealException.class);
+    exceptionRule.expectMessage("FLOAT_128 requires exactly 16 bytes");
+
+    TokenEncoder v5 = new TokenEncoder(new EncoderOptions().protocolVersion(5));
+    v5.startDocument();
+    v5.appendFloat128(new byte[15]);
+  }
+
+  @Test
+  public void vstringBeforeV6() throws SerealException {
+    exceptionRule.expect(SerealException.class);
+    exceptionRule.expectMessage("v-strings require Sereal protocol version 6");
+
+    encoder.startDocument();
+    encoder.appendVString(new PerlVString("v1.2.3"));
+  }
 }
