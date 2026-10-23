@@ -6,6 +6,8 @@ Revision history for Perl extension Sereal-Decoder
 *          encoder!                                            *
 ****************************************************************
 6.000_001
+    * Avoid undefined behaviour from unaligned FLOAT, DOUBLE, and LONG_DOUBLE
+      loads on x86 by copying payload bytes into aligned storage.
     * Retain input and output scalars before resetting caller-supplied outputs,
       so DESTROY can remove their owning entries without freeing active arguments.
     * A compressed document declaring an impossibly large uncompressed

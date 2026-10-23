@@ -1755,27 +1755,20 @@ union myfloat {
 #endif
 };
 
-/* XXX Most (if not all?) non-x86 platforms are strict in their
- * floating point alignment.  So maybe this logic should be the other
- * way: default to strict, and do sloppy only if x86? */
+/* Wire payloads may start at any byte offset. Copy into aligned storage
+ * even on CPUs that support unaligned loads: a misaligned typed pointer
+ * dereference is undefined in C. Constant-size copies can be optimized
+ * into unaligned loads where the target supports them. */
 
 SRL_STATIC_INLINE void
 srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
     SRL_RDR_ASSERT_SPACE(dec->pbuf, sizeof(float), " while reading FLOAT");
-#if SRL_USE_ALIGNED_LOADS_AND_STORES
     Copy(dec->buf.pos,val.c,sizeof(float),U8);
-#else
-    val.f= *((float *)dec->buf.pos);
-#endif
     sv_setnv(into, (NV)val.f);
     dec->buf.pos+= sizeof(float);
 }
-
-/* XXX Most (if not all?) non-x86 platforms are strict in their
- * floating point alignment.  So maybe this logic should be the other
- * way: default to strict, and do sloppy only if x86? */
 
 SRL_STATIC_INLINE void
 srl_read_float_128(pTHX_ srl_decoder_t *dec, SV* into)
@@ -1798,11 +1791,7 @@ srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
     SRL_RDR_ASSERT_SPACE(dec->pbuf, sizeof(double), " while reading DOUBLE");
-#if SRL_USE_ALIGNED_LOADS_AND_STORES
     Copy(dec->buf.pos,val.c,sizeof(double),U8);
-#else
-    val.d= *((double *)dec->buf.pos);
-#endif
     sv_setnv(into, (NV)val.d);
     dec->buf.pos+= sizeof(double);
 }
@@ -1813,11 +1802,7 @@ srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
     SRL_RDR_ASSERT_SPACE(dec->pbuf, sizeof(long double), " while reading LONG_DOUBLE");
-#if SRL_USE_ALIGNED_LOADS_AND_STORES
     Copy(dec->buf.pos,val.c,sizeof(long double),U8);
-#else
-    val.ld= *((long double *)dec->buf.pos);
-#endif
     sv_setnv(into, (NV)val.ld);
     dec->buf.pos+= sizeof(long double);
 }
