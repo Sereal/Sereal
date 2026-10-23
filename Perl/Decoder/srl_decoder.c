@@ -915,6 +915,9 @@ srl_checksum_matches(pTHX_ srl_reader_buffer_t *buf, const srl_checksum_envelope
     U8 mismatch = 0;
     U8 i;
     srl_siphash_ctx sip;
+    /* callers validate known types first; this keeps a future caller from overrunning the stack buffers */
+    if (expect_false(envelope->tag_len > sizeof(expected)))
+        SRL_RDR_ERROR(buf, "Sereal checksum tag is too long to verify");
     Copy(envelope->tag, expected, envelope->tag_len, U8);
     srl_siphash_init(&sip, key, envelope->checksum_type);
     srl_siphash_update(&sip, (const U8 *)buf->start, (size_t)(envelope->tag - buf->start));
