@@ -146,7 +146,7 @@ SRL_STATIC_INLINE void srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 o
 
 SRL_STATIC_INLINE void srl_track_sv(pTHX_ srl_decoder_t *dec, const U8 *track_pos, SV *sv);
 SRL_STATIC_INLINE void srl_read_frozen_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into);
-SRL_STATIC_INLINE SV * srl_follow_refp_alias_reference(pTHX_ srl_decoder_t *dec, UV offset);
+SRL_STATIC_INLINE SV * srl_follow_refp_alias_reference(pTHX_ srl_decoder_t *dec, UV offset, int is_refn_referent);
 SRL_STATIC_INLINE AV * srl_follow_objectv_reference(pTHX_ srl_decoder_t *dec, UV offset);
 SRL_STATIC_INLINE SV *srl_thaw_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *sv);
 SRL_STATIC_INLINE int srl_thaw_class_allowed(pTHX_ srl_decoder_t *dec, HV *class_stash);
@@ -2104,7 +2104,7 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
 }
 
 SRL_STATIC_INLINE SV *
-srl_follow_refp_alias_reference(pTHX_ srl_decoder_t *dec, UV offset)
+srl_follow_refp_alias_reference(pTHX_ srl_decoder_t *dec, UV offset, int is_refn_referent)
 {
     SV* into = sv_2mortal(FRESH_SV());
     srl_reader_char_ptr orig_pos = dec->buf.pos;
@@ -2115,7 +2115,9 @@ srl_follow_refp_alias_reference(pTHX_ srl_decoder_t *dec, UV offset)
     }
 
     dec->buf.pos = new_pos;
-    srl_read_single_value(aTHX_ dec, into, NULL);
+    /* a REFP target is the referent of the original REFN, so it may be a
+     * bare ARRAY or HASH tag; an ALIAS target never is */
+    srl_read_single_value_ex(aTHX_ dec, into, NULL, is_refn_referent);
     dec->buf.pos = orig_pos;
     return into;
 }
@@ -2152,7 +2154,7 @@ srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into)
 
 #ifdef FOLLOW_REFERENCES_IF_NOT_STASHED
     if (referent == NULL)
-        referent = srl_follow_refp_alias_reference(aTHX_ dec, ofs);
+        referent = srl_follow_refp_alias_reference(aTHX_ dec, ofs, 1);
 #endif
 
     (void)SvREFCNT_inc(referent);
@@ -2859,7 +2861,7 @@ srl_read_single_value_ex(pTHX_ srl_decoder_t *dec, SV* into, SV** container, int
             offset= srl_read_backref_offset(aTHX_ dec," while reading ALIAS tag");
             alias= srl_fetch_item(aTHX_ dec, offset, "ALIAS");
 #ifdef FOLLOW_REFERENCES_IF_NOT_STASHED
-            if (!alias) alias= srl_follow_refp_alias_reference(aTHX_ dec, offset);
+            if (!alias) alias= srl_follow_refp_alias_reference(aTHX_ dec, offset, 0);
 #endif
             SvREFCNT_inc(alias);
             SvREFCNT_dec(into);
