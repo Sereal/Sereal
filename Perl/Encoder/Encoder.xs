@@ -291,12 +291,12 @@ BOOT:
   }
 #if USE_CUSTOM_OPS
   {
-    XOP *xop;
-    Newxz(xop, 1, XOP);
-    XopENTRY_set(xop, xop_name, "sereal_encode_with_object");
-    XopENTRY_set(xop, xop_desc, "sereal_encode_with_object");
-    XopENTRY_set(xop, xop_class, OA_UNOP);
-    Perl_custom_op_register(aTHX_ THX_pp_sereal_encode_with_object, xop);
+    /* Perl borrows this descriptor; it must outlive every interpreter. */
+    static const XOP xop = {
+      XOPf_xop_name | XOPf_xop_desc | XOPf_xop_class,
+      "sereal_encode_with_object", "sereal_encode_with_object", OA_UNOP
+    };
+    Perl_custom_op_register(aTHX_ THX_pp_sereal_encode_with_object, &xop);
   }
 #endif /* USE_CUSTOM_OPS */
   {

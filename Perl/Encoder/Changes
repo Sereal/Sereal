@@ -8,6 +8,8 @@ Revision history for Perl extension Sereal-Encoder
 6.000_001
     * Restore COPY deduplication of hash keys given as UTF-8 strings that fit
       in Latin-1 (WASUTF8 keys), lost when shared keys started being retained.
+    * Use a static custom-op descriptor instead of a heap allocation left behind
+      at full interpreter destruction.
     * Retain shared key storage while its address identifies a COPY target,
       preventing callback deletion and address reuse from changing later keys.
     * Retain the selected FREEZE method across allow-list predicates that

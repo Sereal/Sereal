@@ -508,12 +508,12 @@ BOOT:
     }
 #if USE_CUSTOM_OPS
     {
-        XOP *xop;
-        Newxz(xop, 1, XOP);
-        XopENTRY_set(xop, xop_name, "sereal_decode_with_object");
-        XopENTRY_set(xop, xop_desc, "sereal_decode_with_object");
-        XopENTRY_set(xop, xop_class, OA_UNOP);
-        Perl_custom_op_register(aTHX_ THX_pp_sereal_decode, xop);
+        /* Perl borrows this descriptor; it must outlive every interpreter. */
+        static const XOP xop = {
+            XOPf_xop_name | XOPf_xop_desc | XOPf_xop_class,
+            "sereal_decode_with_object", "sereal_decode_with_object", OA_UNOP
+        };
+        Perl_custom_op_register(aTHX_ THX_pp_sereal_decode, &xop);
     }
 #endif /* USE_CUSTOM_OPS */
     for (i = sizeof(funcs_to_install)/sizeof(*fti); i--; ) {
@@ -588,12 +588,11 @@ BOOT:
 {
 #if USE_CUSTOM_OPS
     {
-        XOP *xop;
-        Newxz(xop, 1, XOP);
-        XopENTRY_set(xop, xop_name, "scalar_looks_like_sereal");
-        XopENTRY_set(xop, xop_desc, "scalar_looks_like_sereal");
-        XopENTRY_set(xop, xop_class, OA_UNOP);
-        Perl_custom_op_register(aTHX_ THX_pp_looks_like_sereal, xop);
+        static const XOP xop = {
+            XOPf_xop_name | XOPf_xop_desc | XOPf_xop_class,
+            "scalar_looks_like_sereal", "scalar_looks_like_sereal", OA_UNOP
+        };
+        Perl_custom_op_register(aTHX_ THX_pp_looks_like_sereal, &xop);
     }
 #endif /* USE_CUSTOM_OPS */
     {
@@ -619,12 +618,13 @@ BOOT:
             | (checksum_i ? OPOPT_VALIDATE_CHECKSUM | 0x030100 : 0x020100);
 #if USE_CUSTOM_OPS
         {
-            XOP *xop;
-            Newxz(xop, 1, XOP);
-            XopENTRY_set(xop, xop_name, checksum_i ? "validate_sereal_checksum" : "get_sereal_checksum");
-            XopENTRY_set(xop, xop_desc, checksum_i ? "validate_sereal_checksum" : "get_sereal_checksum");
-            XopENTRY_set(xop, xop_class, OA_UNOP);
-            Perl_custom_op_register(aTHX_ checksum_i ? THX_pp_validate_sereal_checksum : THX_pp_get_sereal_checksum, xop);
+            static const XOP xops[2] = {
+                { XOPf_xop_name | XOPf_xop_desc | XOPf_xop_class,
+                  "get_sereal_checksum", "get_sereal_checksum", OA_UNOP },
+                { XOPf_xop_name | XOPf_xop_desc | XOPf_xop_class,
+                  "validate_sereal_checksum", "validate_sereal_checksum", OA_UNOP }
+            };
+            Perl_custom_op_register(aTHX_ checksum_i ? THX_pp_validate_sereal_checksum : THX_pp_get_sereal_checksum, &xops[checksum_i]);
         }
         cv_set_call_checker(cv, THX_ck_entersub_args_sereal_decoder, (SV*)cv);
 #endif
