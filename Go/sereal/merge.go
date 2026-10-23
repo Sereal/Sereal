@@ -276,11 +276,18 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 		case tag < typeVARINT,
 			tag == typePAD, tag == typeREFN, tag == typeWEAKEN,
 			tag == typeUNDEF, tag == typeCANONICAL_UNDEF,
-			tag == typeTRUE, tag == typeFALSE, tag == typeEXTEND,
+			tag == typeTRUE, tag == typeFALSE,
 			tag == typeREGEXP, tag == typeOBJECT, tag == typeOBJECT_FREEZE:
 			idx++
 
-		case tag == typeVARINT, tag == typeZIGZAG:
+		case tag == typeEXTEND:
+			ln, err := extendSize(buf[idx:])
+			if err != nil {
+				return err
+			}
+			idx += ln
+
+		case tag == typeVARINT, tag == typeZIGZAG, tag == typeNEG_VARINT:
 			_, sz, err := varintdecode(buf[idx+1:])
 			if err != nil {
 				return err
@@ -412,20 +419,28 @@ LOOP:
 			mbuf = append(mbuf, dbuf[didx])
 			didx++
 
-		case tag == typePAD, tag == typeREFN, tag == typeWEAKEN, tag == typeEXTEND:
+		case tag == typePAD, tag == typeREFN, tag == typeWEAKEN:
 			// this elemets are fake ones, so stack counter should not be decreased
 			// but, I don't want to create another if-branch, so fake it
 			stack[level]++
 			mbuf = append(mbuf, dbuf[didx])
 			didx++
 
-		case tag == typeVARINT, tag == typeZIGZAG:
+		case tag == typeVARINT, tag == typeZIGZAG, tag == typeNEG_VARINT:
 			_, sz, err := varintdecode(dbuf[didx+1:])
 			if err != nil {
 				return err
 			}
 			mbuf = append(mbuf, dbuf[didx:didx+sz+1]...)
 			didx += sz + 1
+
+		case tag == typeEXTEND:
+			ln, err := extendSize(dbuf[didx:])
+			if err != nil {
+				return err
+			}
+			mbuf = append(mbuf, dbuf[didx:didx+ln]...)
+			didx += ln
 
 		case tag == typeFLOAT:
 			mbuf = append(mbuf, dbuf[didx:didx+5]...)
@@ -619,6 +634,30 @@ func (m *Merger) expectedElements(b []byte) (int, int, error) {
 	}
 
 	return 1, 0, nil // by default expect only one element
+}
+
+// extendSize returns the size of the EXTEND element at the start of b: the
+// tag, the id and, for v-strings, the length varint and spelling
+func extendSize(b []byte) (int, error) {
+	if len(b) < 2 {
+		return 0, errors.New("truncated EXTEND tag")
+	}
+
+	switch b[1] {
+	case extDEADLY:
+		return 2, nil
+	case extVSTRING_BINARY, extVSTRING_UTF8:
+		ln, sz, err := varintdecode(b[2:])
+		if err != nil {
+			return 0, err
+		}
+		if ln < 0 || ln > len(b)-2-sz {
+			return 0, fmt.Errorf("truncated document, expect %d bytes", ln)
+		}
+		return 2 + sz + ln, nil
+	}
+
+	return 0, fmt.Errorf("unknown extended tag id: %d (0x%x)", b[1], b[1])
 }
 
 func isShallowStringish(tag byte) bool {
