@@ -51,3 +51,5 @@ qsort.h
 zstd
 *.srl
 srl_reader_checksum.h
+srl_reader_header.h
+srl_reader_skip.h
