@@ -22,8 +22,19 @@ type Encoder struct {
 	DisableFREEZE        bool       // should we disable the FREEZE tag, which calls MarshalBinary
 	ExpectedSize         uint       // give a hint to encoder about expected size of encoded data
 	MaxRecursionDepth    int        // maximum recursion depth
-	version              int        // default version to encode
-	tcache               tagsCache
+
+	// ChecksumV0Key, ChecksumV1Key and ChecksumV2Key sign the document with a
+	// protocol version 6 keyed checksum envelope of type 0 (SipHash-2-4), 1
+	// (SipHash-2-4-128) or 2 (SipHash-3-6-128). At most one may be set, and
+	// only with protocol version 6 or later. Use PrepareChecksumKey to derive
+	// a key from arbitrary bytes.
+	ChecksumV0Key, ChecksumV1Key, ChecksumV2Key *[16]byte
+	// ChecksumPolicy ChecksumRequireKey makes encoding fail unless a checksum
+	// key is set; the other policies only affect decoding.
+	ChecksumPolicy ChecksumPolicy
+
+	version int // default version to encode
+	tcache  tagsCache
 }
 
 type marshalState struct {
@@ -80,6 +91,15 @@ func NewEncoderV5() *Encoder {
 	}
 }
 
+// NewEncoderV6 returns a new Encoder that encodes version 6
+func NewEncoderV6() *Encoder {
+	return &Encoder{
+		PerlCompat:           false,
+		CompressionThreshold: 1024,
+		version:              6,
+	}
+}
+
 var defaultEncoder = NewEncoderV3()
 
 // Marshal encodes body with the default encoder
@@ -112,6 +132,11 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 	// uninitialized encoder? set to the most recent supported protocol version
 	if e.version == 0 {
 		e.version = ProtocolVersion
+	}
+
+	checksumKey, checksumType, err := e.checksumKey()
+	if err != nil {
+		return nil, err
 	}
 
 	encHeader := make([]byte, headerSize, 32)
@@ -161,7 +186,7 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		if len(encBody) >= len(encHeader) {
 			encBody = encBody[len(encHeader):] // trim hacky bytes
 		}
-	case 2, 3, 4, 5:
+	case 2, 3, 4, 5, 6:
 		encBody = append(encBody, 0) // hack for 1-based offsets
 		encBody, err = e.encode(encBody, body, false, false, &state, remainingDepth)
 		if len(encBody) >= 1 {
@@ -214,7 +239,37 @@ func (e *Encoder) MarshalWithHeader(header interface{}, body interface{}) (b []b
 		encHeader[4] |= byte(doctype) << 4
 	}
 
-	return append(encHeader, encBody...), nil
+	doc := append(encHeader, encBody...)
+
+	// the checksum covers the compressed payload
+	if checksumKey != nil {
+		doc = protectPacket(doc, len(encHeader), checksumType, checksumKey)
+	}
+
+	return doc, nil
+}
+
+// checksumKey returns the configured checksum key and its type, or a nil key
+// when the document is not to be signed
+func (e *Encoder) checksumKey() (key *[16]byte, typ byte, err error) {
+	keys := 0
+	for t, k := range []*[16]byte{e.ChecksumV0Key, e.ChecksumV1Key, e.ChecksumV2Key} {
+		if k != nil {
+			key, typ = k, byte(t)
+			keys++
+		}
+	}
+
+	switch {
+	case keys > 1:
+		return nil, 0, ErrChecksumMultipleKeys
+	case keys == 1 && e.version < 6:
+		return nil, 0, ErrChecksumKeyVersion
+	case keys == 0 && e.ChecksumPolicy == ChecksumRequireKey:
+		return nil, 0, ErrChecksumKeyRequired
+	}
+
+	return key, typ, nil
 }
 
 /*************************************
@@ -301,6 +356,9 @@ func (e *Encoder) encode(b []byte, v interface{}, isKeyOrClass bool, isRefNext b
 		b = append(b, typeFLOAT128)
 		b = append(b, value.Bytes[:]...)
 
+	case PerlVString:
+		b, err = e.encodeVString(b, value)
+
 	case PerlObject:
 		b = append(b, typeOBJECT)
 		b = e.encodeBytes(b, []byte(value.Class), true, state.strTable)
@@ -345,6 +403,10 @@ func (e *Encoder) encodeInt(by []byte, k reflect.Kind, i int64) []byte {
 	case i > 15:
 		by = append(by, typeVARINT)
 		by = varint(by, uint(i))
+	case i < 0 && k == reflect.Int && e.version >= 6:
+		// the magnitude -i, computed without overflowing for math.MinInt64
+		by = append(by, typeNEG_VARINT)
+		by = varint(by, uint(-(i+1))+1)
 	case i < 0:
 		n := uint(i)
 		if k == reflect.Int {
@@ -358,6 +420,28 @@ func (e *Encoder) encodeInt(by []byte, k reflect.Kind, i int64) []byte {
 	}
 
 	return by
+}
+
+// encodeVString emits a v-string as EXTEND VSTRING-BINARY or VSTRING-UTF8
+// (protocol version 6), choosing the id perl derives from the spelling
+func (e *Encoder) encodeVString(by []byte, v PerlVString) ([]byte, error) {
+	if e.version < 6 {
+		return nil, ErrVStringVersion
+	}
+
+	isUTF8, ok := parseVString([]byte(v.Spelling))
+	if !ok {
+		return nil, ErrBadVString
+	}
+
+	id := byte(extVSTRING_BINARY)
+	if isUTF8 {
+		id = extVSTRING_UTF8
+	}
+
+	by = append(by, typeEXTEND, id)
+	by = varint(by, uint(len(v.Spelling)))
+	return append(by, v.Spelling...), nil
 }
 
 func (e *Encoder) encodeFloat(by []byte, f float32) []byte {
@@ -667,6 +751,8 @@ func (e *Encoder) encodePointer(by []byte, rv reflect.Value, state *marshalState
 		case PerlYes:
 			return e.encode(by, rv.Elem(), false, false, state, remainingDepth)
 		case Float128:
+			return e.encode(by, rv.Elem(), false, false, state, remainingDepth)
+		case PerlVString:
 			return e.encode(by, rv.Elem(), false, false, state, remainingDepth)
 		}
 	}
