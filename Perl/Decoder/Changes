@@ -6,6 +6,9 @@ Revision history for Perl extension Sereal-Decoder
 *          encoder!                                            *
 ****************************************************************
 6.000_001
+    * A compressed document declaring an impossibly large uncompressed
+      size now fails with a catchable exception instead of terminating
+      the process in perl's allocator.
     * Detect callbacks (THAW, thaw_allow_classes, DESTROY) that modify the
       input scalar while header user data is being decoded, and fail
       instead of reading the freed buffer while decoding the body.

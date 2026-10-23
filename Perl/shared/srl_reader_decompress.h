@@ -75,7 +75,9 @@ srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
             croak("Decompressed buffer is impossibly large. Refusing to decode.");
         total_requested = header_len + body_len + 1;
 
-        Newx(tmp_buf,total_requested,char);
+        /* Not Newx(): safesysmalloc() exits the process on failure, so the
+         * check below would never run. A document can declare any size. */
+        tmp_buf = (char *)PerlMem_malloc(total_requested);
 
         if (!tmp_buf)
             croak("Insufficient memory to '%s' decompress. Size compressed=%"UVuf" uncompressed=%"UVuf,
