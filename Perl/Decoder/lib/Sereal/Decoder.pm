@@ -295,16 +295,22 @@ that result as the key to SipHash-2-4-128 of C<Luke, I am your father.>
 followed by C<$key>. Both arguments default to the empty string. This only
 normalizes the length; it does not add entropy or replace a password KDF.
 
-=head2 siphash24 and siphash36
+=head2 siphash24, siphash24_128 and siphash36
 
   my $tag8  = Sereal::Decoder::siphash24($bytes, $key16);
+  my $tag16 = Sereal::Decoder::siphash24_128($bytes, $key16);
   my $tag16 = Sereal::Decoder::siphash36($bytes, $key16);
 
 Compute a raw SipHash tag for a byte string and an exactly 16-byte key.
-C<siphash24()> returns the eight-byte SipHash-2-4 result; C<siphash36()>
+C<siphash24()> returns the eight-byte SipHash-2-4 result,
+C<siphash24_128()> returns the 16-byte SipHash-2-4-128 result, and C<siphash36()>
 returns the 16-byte SipHash-3-6-128 result. These low-level helpers are
 provided for tooling that needs to inspect or verify Sereal checksum
 envelopes. The returned values are binary strings.
+
+In SipHash-c-d, c is the compression round count per message block and d is
+the round count in each finalization stage. The 128 suffix specifies the tag
+size. See the authors' L<SipHash variant documentation|https://github.com/veorq/SipHash#variants>.
 
 =head2 new
 
@@ -324,19 +330,24 @@ verified before decompression or body decoding. See L</checksum_policy>.
 =head3 checksum_v1_key
 
 A 16-byte key used to verify protocol version 6 checksum type 1 tags
-(SipHash-3-6-128, 128-bit tags). A decoder can have either or both key types.
-The packet's checksum type selects the key.
+(SipHash-2-4-128, 128-bit tags).
 
-Under C<'die'> or C<'require'>, keys must be exactly 16 bytes. The other policies
+=head3 checksum_v2_key
+
+A 16-byte key used to verify protocol version 6 checksum type 2 tags
+(SipHash-3-6-128, 128-bit tags). A decoder can have any combination of the
+three key types. The packet's checksum type selects the key.
+
+Under C<'die'> or C<'require_key'>, keys must be exactly 16 bytes. The other policies
 retain the existing behavior of padding shorter keys or truncating longer keys
 with a warning. Use C<prepare_checksum_key()> explicitly to normalize a key.
 Authentication does not make data from a malicious key holder safe to decode.
 
 =head3 Shared default key
 
-C<$Sereal::DefaultKey> supplies a default when neither checksum key option is
+C<$Sereal::DefaultKey> supplies a default when no checksum key option is
 present. It contains the raw 16 key bytes, not hexadecimal text. A default
-Decoder key is used for both supported checksum types. Explicit key options
+Decoder key is used for all three supported checksum types. Explicit key options
 replace the default configuration; supplying an explicit C<undef> key also
 suppresses the default.
 
@@ -352,7 +363,7 @@ an initialized default, and subsequent environment changes do not affect it.
 Code can set or localize the shared variable:
 
   local $Sereal::DefaultKey = $key16;
-  my $decoder = Sereal::Decoder->new({ checksum_policy => 'require' });
+  my $decoder = Sereal::Decoder->new({ checksum_policy => 'require_key' });
 
 New encoders and decoders copy its current value. Existing objects retain their
 keys. Localizing it to C<undef> disables the default for new objects in that
@@ -371,9 +382,12 @@ otherwise warn and decode without authentication. This is the built-in default.
 =item * C<'die'> - reject checksummed packets with an unsupported checksum
 type, a missing matching key, or an invalid authentication tag.
 
-=item * C<'require'> - apply C<'die'> semantics when decoding. On the Encoder,
-this policy also requires a key before encoding can produce a packet. It does
-not require a key merely to create a Decoder.
+=item * C<'require_key'> - require a configured checksum key at construction,
+reject unsigned packets, and fail if a packet's checksum cannot be verified.
+Encoder construction also requires a key under this policy, and encoding always
+produces a checksummed packet. Encoder and Decoder key configurations are
+independent; C<$Sereal::DefaultKey> supplies a shared default.
+C<'require'> is an alias for C<'require_key'>.
 
 =item * C<'ignore'> - skip verification silently, even if a key is configured.
 
@@ -384,7 +398,7 @@ not require a key merely to create a Decoder.
 Set C<SEREAL_CHECKSUM_POLICY> to one of these names to override the default
 for new encoders and decoders, including the functional interfaces:
 
-  SEREAL_CHECKSUM_POLICY=require perl my_application.pl
+  SEREAL_CHECKSUM_POLICY=require_key perl my_application.pl
 
 An explicitly defined C<checksum_policy> option takes precedence. An omitted
 or undefined option uses the environment default. An unset or empty environment
@@ -393,16 +407,15 @@ fail. The environment is read at construction; existing objects and recursive
 clones retain their policy.
 
 This is a default, not a mandatory process-wide restriction: explicit options
-can override it. B<All policies still accept unsigned input packets.> An
-application that requires authentication on every received packet must reject
-unprotected packet types at its input boundary. Both strict policies require
-exactly 16 key bytes, whether supplied explicitly or through C<$Sereal::DefaultKey>.
+can override it. C<'require_key'> rejects unsigned input packets; the other
+policies accept them. Both strict policies require every configured key to have
+exactly 16 bytes, whether supplied explicitly or through C<$Sereal::DefaultKey>.
 
 Verification makes an additional pass over the protected header and encoded
 payload, adding CPU work proportional to their size. Compressed payloads are
 authenticated in compressed form before decompression. The SipHash variants
 have different round counts and tag sizes; benchmark representative workloads.
-With a matching key, C<'die'>, C<'require'>, and C<'verify-if-available'> do the
+With a matching key, C<'die'>, C<'require_key'>, and C<'verify-if-available'> do the
 same MAC verification work. The ignore policies skip that work and provide
 no authentication, but still parse and validate the envelope framing. Warnings
 and their logging can add overhead on every packet. Reusing objects avoids

@@ -2,89 +2,70 @@
 
 ## Decoding and trust
 
-We work to harden Sereal against malformed packets and malicious input, and
-we treat vulnerabilities in the decoder as defects to investigate and fix.
-This is a security goal, not a guarantee that decoding arbitrary input is safe.
-Users are expected to take prudent measures to restrict decoding to trusted
-sources and to protect packets against tampering in transit and storage.
+We work to make Sereal reject malformed packets safely, and we treat decoder
+crashes, memory corruption and failures to enforce configured limits as defects
+to investigate and fix. We cannot guarantee that every malformed packet is
+handled correctly, and reports of inputs that expose these problems are welcome.
 
-Successful decoding does not establish that data is trustworthy. Validate the
-decoded values for your application, set appropriate decoder size and recursion
-limits, and apply process-level CPU and memory limits where needed. Object
-decoding can invoke application code, including THAW methods and destructors.
-Reject objects when they are not required; otherwise restrict the classes and
-callbacks your application permits.
+Successful decoding does not establish that the data is trustworthy. In
+particular, decoding Perl objects can invoke application code through THAW
+methods and destructors, even when the packet is well formed. Decoder size and
+recursion limits constrain deserialization; they do not limit the runtime or
+memory use of those callbacks.
 
 ## Packet authentication
 
 The Perl implementation provides optional keyed checksums in protocol version 6
-for fast packet authentication: SipHash-2-4 with a 64-bit authentication tag
-(`checksum_v0_key`) or SipHash-3-6-128 with a 128-bit authentication tag
-(`checksum_v1_key`). Both use a 128-bit secret key. These are message
-authentication codes (MACs), not public-key signatures. Tag size alone is not
-a guarantee of an equivalent overall security level.
+for packet authentication: [SipHash-2-4](https://github.com/veorq/SipHash#variants)
+with a 64-bit tag (`checksum_v0_key`),
+SipHash-2-4-128 with a 128-bit tag (`checksum_v1_key`), or SipHash-3-6-128 with a
+128-bit tag (`checksum_v2_key`). These are message authentication codes (MACs),
+and all use a 128-bit secret key. The MAC covers
+the packet header and encoded payload, including compression framing, and
+verification precedes decompression.
 
-Use a random 16-byte secret key shared only with trusted producers and consumers.
-Authentication does not provide encryption or replay protection, and it does
-not protect against a malicious or compromised key holder.
+A valid tag establishes that the packet was produced by a holder of the key
+and has not been altered. It provides neither confidentiality nor replay
+protection, and cannot distinguish a trusted producer from a compromised key
+holder.
 
-Verification must be enforced by the receiving application. Configure the
-matching decoder key and `checksum_policy => 'die'` to reject checksummed
-packets that cannot be verified. `SEREAL_CHECKSUM_POLICY=die` sets this
-default for newly created decoders; explicit decoder options take precedence.
-Use `checksum_policy => 'require'`, or set `SEREAL_CHECKSUM_POLICY=require`,
-to require a key for encoding and apply `die` verification rules when decoding.
-Both strict policies require exactly 16 key bytes. The shared
-`$Sereal::DefaultKey` can supply the key to both modules. On the first module
-load, `SEREAL_DEFAULT_KEY` initializes it from 32 hexadecimal characters; other
-input is normalized with `prepare_checksum_key()` and a warning. Code may set
-or localize the package variable for new objects. Normalization does not add
-entropy. Explicit key options take precedence over the default.
-The built-in default policy warns and continues when
-no matching key is available. **Even with `checksum_policy => 'die'`, ordinary
-packets without a checksum are accepted.** Applications that require
-authentication must also reject unprotected packet types at their input
-boundary. See the Sereal::Decoder documentation for the complete option details.
+Verification depends on the decoder's checksum policy. The default verifies
+when a matching key is available and otherwise warns and continues without
+authentication. The `die` policy rejects protected packets with an unsupported
+checksum type, a missing key for that checksum type, or an invalid tag.
+The `require_key` policy requires a configured key on both Encoder and Decoder.
+Encoding always produces a checksummed packet; decoding rejects packets without
+checksums and fails if verification cannot succeed. Both strict policies require
+all configured keys to be exactly 16 bytes. `require` is an alias for `require_key`.
 
-If your application requires stronger assurances, confidentiality, replay
-protection, or interoperability with implementations that lack these checksums,
-protect Sereal payloads with an established external MAC or authenticated
-encryption envelope appropriate to your requirements. Verify that protection
-before passing the payload to Sereal. An unkeyed checksum alone does not
-authenticate the source or prevent deliberate tampering.
+Encoder and Decoder keys are configured independently. `$Sereal::DefaultKey`
+provides a shared default when explicit key options are absent. The policy can
+be set explicitly or through `SEREAL_CHECKSUM_POLICY`; explicit options take
+precedence. Policies other than `require_key` still accept packets without a
+checksum.
+The Encoder and Decoder documentation describes key configuration and the
+remaining policy options.
 
-Checksum generation and verification add CPU work proportional to the protected
-packet size. The decoder's policy determines whether it verifies the MAC and
-whether it emits warnings; warning handling and logging also have a cost.
-Benchmark representative workloads with the authentication policy you intend
-to deploy. Skipping verification removes authentication, so performance tuning
-must preserve your application's trust requirements.
+Generating or verifying a tag makes an additional pass over the protected
+bytes.
 
 ## Supported versions
 
-Use the latest release of the Sereal implementation you deploy. Upgrade the
-decoder before upgrading the encoder so that it can read the encoder's output.
-Security fixes are made in current releases; do not assume older releases
-receive backported fixes. Check which protocol versions and security options
-your chosen implementation supports.
+Security fixes are made in current releases; older releases do not have a
+guaranteed backport schedule. Decoder upgrades precede Encoder upgrades so
+that readers understand the packets produced during a rollout. Protocol and
+authentication support differ between language implementations.
 
 ## Reporting a vulnerability
 
-Please report suspected vulnerabilities privately using
-[Report a vulnerability](https://github.com/Sereal/Sereal/security/advisories/new)
-on the Sereal repository's Security page. Follow
-[GitHub's private vulnerability reporting guidance](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/report-privately).
-Do not put exploit details or sensitive data in a public issue before a fix
-and disclosure have been coordinated.
+Please report suspected vulnerabilities privately through
+[GitHub Security Advisories](https://github.com/Sereal/Sereal/security/advisories/new)
+so we can investigate and coordinate a fix before disclosure. A reproducer or
+minimal packet, together with the affected implementation, version and platform,
+helps us reproduce the failure. Expected and observed behavior, relevant decoder
+settings and the suspected impact help establish its scope.
 
-Include the affected Sereal implementation and version, Perl or other runtime
-version, platform, reproduction steps or a minimal test packet, and the expected
-and observed behavior. Explain the security impact and any relevant decoder
-options. Patches and regression tests are welcome. Share sensitive reproduction
-material only through the private report.
-
-We aim to respond promptly and work with reporters to validate the issue,
-develop a fix, and coordinate disclosure through GitHub Security Advisories.
-We cannot guarantee a response or resolution deadline. Ordinary bugs and
-support questions belong in the
+We work with reporters to validate issues, develop fixes and coordinate
+disclosure through the private advisory. Patches and regression tests are welcome.
+Ordinary bugs and support questions belong in the
 [public issue tracker](https://github.com/Sereal/Sereal/issues).

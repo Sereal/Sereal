@@ -1,7 +1,8 @@
 /*
  * Small, portable SipHash implementation shared by the Encoder and Decoder.
  *
- * Version 0 is SipHash-2-4 with a 64-bit result. Version 1 is SipHash-3-6-128.
+ * Version 0 is SipHash-2-4-64, version 1 is SipHash-2-4-128, and version 2
+ * is SipHash-3-6-128.
  * The 128-bit output follows the SipHash-128 initialization/finalization
  * convention (v1 ^= 0xee, then v2 ^= 0xee and v1 ^= 0xdd).
  */
@@ -84,8 +85,23 @@ srl_siphash_init(srl_siphash_ctx *ctx, const U8 key[16], U8 version)
 {
     if (version == SRL_CHECKSUM_VERSION_SIPHASH_3_6_128)
         srl_siphash_init_rounds(ctx, key, 3, 6, 1);
+    else if (version == SRL_CHECKSUM_VERSION_SIPHASH_2_4_128)
+        srl_siphash_init_rounds(ctx, key, 2, 4, 1);
     else
         srl_siphash_init_rounds(ctx, key, 2, 4, 0);
+}
+
+/* Zero means an unsupported version; callers must validate before indexing
+ * key slots or using a tag length. */
+SRL_STATIC_INLINE size_t
+srl_checksum_tag_length(U8 version)
+{
+    if (version == SRL_CHECKSUM_VERSION_SIPHASH_2_4_64)
+        return 8;
+    if (version == SRL_CHECKSUM_VERSION_SIPHASH_2_4_128
+            || version == SRL_CHECKSUM_VERSION_SIPHASH_3_6_128)
+        return 16;
+    return 0;
 }
 
 SRL_STATIC_INLINE void

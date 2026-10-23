@@ -123,8 +123,7 @@ srl_protect_packet(pTHX_ srl_encoder_t *enc)
     if ((size_t)(UV)payload_len != payload_len)
         croak("Sereal packet payload is too large for this platform's UV type");
 
-    tag_len = enc->siphash_version == SRL_CHECKSUM_VERSION_SIPHASH_3_6_128
-        ? SRL_CHECKSUM_TAG_LENGTH_128 : SRL_CHECKSUM_TAG_LENGTH_64;
+    tag_len = srl_checksum_tag_length(enc->siphash_version);
 
     checksum_len_varint_size = srl_encode_varint_uv((UV)tag_len, checksum_len_bytes);
     payload_len_varint_size = srl_encode_varint_uv((UV)payload_len, payload_len_bytes);
@@ -152,7 +151,7 @@ srl_protect_packet(pTHX_ srl_encoder_t *enc)
     srl_siphash_update(&sip, (const U8 *)enc->buf.start, (size_t)(tag - (const U8 *)enc->buf.start));
     srl_siphash_update(&sip, payload_len_field, payload_len_varint_size);
     srl_siphash_update(&sip, payload, payload_len);
-    if (enc->siphash_version == SRL_CHECKSUM_VERSION_SIPHASH_3_6_128) {
+    if (tag_len == SRL_CHECKSUM_TAG_LENGTH_128) {
         srl_siphash_final128(&sip, tag_bytes);
         Copy(tag_bytes, tag, SRL_CHECKSUM_TAG_LENGTH_128, U8);
     } else {
@@ -198,6 +197,7 @@ SRL_STATIC_INLINE void srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc);
 SRL_STATIC_INLINE void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcnt);
 SRL_STATIC_INLINE void srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcnt);
 SRL_STATIC_INLINE void srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys);
+SRL_STATIC_INLINE void srl_dump_hk_sv(pTHX_ srl_encoder_t *enc, SV *src);
 SRL_STATIC_INLINE void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
 SRL_STATIC_INLINE void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
 SRL_STATIC_INLINE int srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement);
@@ -480,6 +480,8 @@ srl_clear_seen_hashes(pTHX_ srl_encoder_t *enc)
         PTABLE_clear(enc->weak_seenhash);
     if (enc->string_deduper_hv != NULL)
         hv_clear(enc->string_deduper_hv);
+    if (enc->string_alias_hv != NULL)
+        hv_clear(enc->string_alias_hv);
 }
 
 void
@@ -523,6 +525,8 @@ srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
         PTABLE_free(enc->weak_seenhash);
     if (enc->string_deduper_hv != NULL)
         SvREFCNT_dec(enc->string_deduper_hv);
+    if (enc->string_alias_hv != NULL)
+        SvREFCNT_dec(enc->string_alias_hv);
     if (enc->freeze_allow_hash != NULL)
         SvREFCNT_dec((SV*)enc->freeze_allow_hash);
     if (enc->freeze_allow_cb != NULL)
@@ -571,7 +575,7 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     SV *val;
     HE *he;
     U8 checksum_policy;
-    SV *checksum_keys[2];
+    SV *checksum_keys[3] = { NULL, NULL, NULL };
     int key_options_present = 0;
     U8 version;
 
@@ -579,12 +583,13 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     if (opt != NULL)
         my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CHECKSUM_POLICY);
     checksum_policy = srl_get_checksum_policy(aTHX_ val);
-    for (version = 0; version <= 1; version++) {
+    for (version = 0; version <= 2; version++) {
         val = NULL;
         he = NULL;
         if (opt != NULL) {
             const U32 idx = version == 0 ? SRL_ENC_OPT_IDX_CHECKSUM_V0_KEY
-                                        : SRL_ENC_OPT_IDX_CHECKSUM_V1_KEY;
+                          : version == 1 ? SRL_ENC_OPT_IDX_CHECKSUM_V1_KEY
+                                         : SRL_ENC_OPT_IDX_CHECKSUM_V2_KEY;
             my_hv_fetchs(he, val, opt, idx);
         }
         checksum_keys[version] = val;
@@ -593,10 +598,9 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     }
     if (!key_options_present) {
         SV *default_key = get_sv("Sereal::DefaultKey", 0);
-        checksum_keys[1] = default_key; /* default to SipHash-3-6-128 */
+        checksum_keys[2] = default_key; /* default to SipHash-3-6-128 */
     }
-    for (version = 0; version <= 1; version++)
-        srl_validate_checksum_key(aTHX_ checksum_keys[version], version, checksum_policy);
+    srl_validate_checksum_keys(aTHX_ checksum_keys, checksum_policy);
 
     enc = srl_empty_encoder_struct(aTHX);
     enc->checksum_policy = checksum_policy;
@@ -853,9 +857,9 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
 
     {
         U8 version;
-        for (version = 0; version <= 1; version++) {
-            const char *option_name = version == 0
-                ? "checksum_v0_key" : "checksum_v1_key";
+        for (version = 0; version <= 2; version++) {
+            const char *option_name;
+            option_name = srl_checksum_key_option_name(version);
             val = checksum_keys[version];
             if (val && SvOK(val)) {
                 STRLEN key_len;
@@ -875,14 +879,13 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
                      key_len < sizeof(enc->checksum_keys[version])
                         ? key_len : sizeof(enc->checksum_keys[version]), U8);
                 enc->checksum_key_mask |= (U8)(1U << version);
+                enc->siphash_version = version;
             }
         }
-        if (enc->checksum_key_mask == 3) {
+        if (enc->checksum_key_mask & (enc->checksum_key_mask - 1)) {
             srl_destroy_encoder(aTHX_ enc);
-            croak("Specify only one of 'checksum_v0_key' or 'checksum_v1_key' on the encoder");
+            croak("Specify only one of 'checksum_v0_key', 'checksum_v1_key', or 'checksum_v2_key' on the encoder");
         }
-        if (enc->checksum_key_mask == 2)
-            enc->siphash_version = SRL_CHECKSUM_VERSION_SIPHASH_3_6_128;
     }
 
     DEBUG_ASSERT_BUF_SANE(&enc->buf);
@@ -1365,7 +1368,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
 
     enc = srl_prepare_encoder(aTHX_ enc);
     if (enc->checksum_policy == SRL_CHECKSUM_POLICY_REQUIRE && !enc->checksum_key_mask)
-        croak("checksum_policy 'require' needs a 'checksum_v0_key' or 'checksum_v1_key' to encode");
+        croak("checksum_policy 'require_key' needs a 'checksum_v0_key', 'checksum_v1_key', or 'checksum_v2_key' to encode");
     compress_flags= SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_FLAGS_MASK);
 
     if (expect_false(compress_flags))
@@ -1431,6 +1434,8 @@ srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *user_he
     ){
         /* If not wasting more than 2x memory - FIXME fungible */
         SV *sv = sv_2mortal(newSV_type(SVt_PV));
+        BUF_SIZE_ASSERT(&enc->buf, 1);
+        *enc->buf.pos = '\0'; /* terminate the PV without adding to the packet */
         SvPV_set(sv, (char *) enc->buf.start);
         SvLEN_set(sv, BUF_SIZE(&enc->buf));
         SvCUR_set(sv, BUF_POS_OFS(&enc->buf));
@@ -1461,9 +1466,9 @@ srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
             const ptrdiff_t offset = (ptrdiff_t)ent->value;
             if ( offset ) {
                 srl_buffer_char *pos = enc->buf.body_pos + offset;
-                assert(*pos == SRL_HDR_WEAKEN);
+                assert((*pos & ~SRL_HDR_TRACK_FLAG) == SRL_HDR_WEAKEN);
                 if (DEBUGHACK) warn("setting byte at offset %"UVuf" to PAD", (UV)offset);
-                *pos = SRL_HDR_PAD;
+                *pos = (srl_buffer_char)((*pos & SRL_HDR_TRACK_FLAG) | SRL_HDR_PAD);
             }
         }
 
@@ -1716,15 +1721,14 @@ srl_qsort(pTHX_ srl_encoder_t *enc, const UV n, HE_SV *array)
 
 
 SRL_STATIC_INLINE void
-srl_dump_hv_sorted_sv_slow(pTHX_ srl_encoder_t *enc, HV *src, const UV n, HE_SV *array)
+srl_dump_hv_sv(pTHX_ srl_encoder_t *enc, HV *src, const UV n, HE_SV *array)
 {
     HE *he;
     UV i= 0;
-    const int do_share_keys = HvSHAREKEYS((SV *)src);
-    const int is_tie= !array;
+    const int is_tie= SvMAGICAL(src);
 
     /* This sub is used for ties, and for hashes with SV keys in them,
-     * and when the user requests SORT_KEYS_PERL, it is the slowest way
+     * when callbacks may change the hash, and for SORT_KEYS_PERL. It is the slowest way
      * and most memory hungry way to serialize a hash. We will use the 
      * full perl api for extracting the contents of the hash, which fortifies
      * us against ties, and we will convert all keys into mortal
@@ -1745,15 +1749,20 @@ srl_dump_hv_sorted_sv_slow(pTHX_ srl_encoder_t *enc, HV *src, const UV n, HE_SV 
                 croak("Panic: cannot serialize a %s hash which changes its size!",is_tie ? "tied" : "untied");
             array[i].key.sv= hv_iterkeysv(he);
             array[i].val.sv= hv_iterval(src,he);
+            /* A later FREEZE or stringification callback may delete this
+             * entry. Retain the scalar itself to preserve aliases too. */
+            SvREFCNT_inc(array[i].val.sv);
+            SAVEFREESV(array[i].val.sv);
             i++;
         }
         if (expect_false( i != n ))
             croak("Panic: can not serialize a %s hash which changes it size!", is_tie ? "tied" : "untied");
 
-        srl_qsort(aTHX_ enc, n, array);
+        if (SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS))
+            srl_qsort(aTHX_ enc, n, array);
 
         while ( array < array_end ) {
-            CALL_SRL_DUMP_SV(enc, array->key.sv);
+            srl_dump_hk_sv(aTHX_ enc, array->key.sv);
             CALL_SRL_DUMP_SV(enc, array->val.sv);
             array++;
         }
@@ -1826,11 +1835,16 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
     }
 
     if ( n ) {
-        if ( SvMAGICAL(src) || SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS_PERL) ) {
+        if (SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT | SRL_F_STRINGIFY_UNKNOWN)) {
+            /* Snapshot keys and retain values before callbacks can invalidate
+             * live HEs, including in the unsorted and fast-sort paths. */
+            srl_dump_hv_sv(aTHX_ enc, src, n, NULL);
+        }
+        else if ( SvMAGICAL(src) || SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS_PERL) ) {
             /* SORT_KEYS_PERL implies SORT_KEYS, but we check for either just to be
              * careful - yves*/
             if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS|SRL_F_SORT_KEYS_PERL) ) {
-                srl_dump_hv_sorted_sv_slow(aTHX_ enc, src, n, NULL);
+                srl_dump_hv_sv(aTHX_ enc, src, n, NULL);
             }
             else {
                 srl_dump_hv_unsorted_mg(aTHX_ enc, src, n);
@@ -1848,6 +1862,56 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 }
 
 
+
+/* Shared key strings are immutable, so their pointers can identify COPY
+ * targets. This table is separate from scalar-value alias deduplication. */
+SRL_STATIC_INLINE int
+srl_dump_shared_hk(pTHX_ srl_encoder_t *enc, const char *str)
+{
+    PTABLE_t *string_seenhash = SRL_GET_STR_PTR_SEENHASH(enc);
+    const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, str);
+    if (oldoffset != 0) {
+        srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_COPY, (UV)oldoffset);
+        return 1;
+    }
+    PTABLE_store(string_seenhash, (void *)str, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
+    return 0;
+}
+
+SRL_STATIC_INLINE void
+srl_dump_hk_pv(pTHX_ srl_encoder_t *enc, const char *str, STRLEN len, int is_utf8)
+{
+    /* Keys share string definitions with values, but never enter the table
+     * of scalar values that can be aliased. Keep only literal COPY targets. */
+    if (SRL_ENC_HAVE_OPTION(enc, SRL_F_DEDUPE_STRINGS)
+        && SRL_ENC_HAVE_OPTION(enc, SRL_F_SHARED_HASHKEYS))
+    {
+        HV *strings = SRL_GET_STR_DEDUPER_HV(enc);
+        SV **entry = hv_fetch(strings, str, is_utf8 ? -(I32)len : (I32)len, 1);
+        if (!entry)
+            croak("out of memory (hv_fetch returned NULL)");
+        if (SvIOK(*entry)) {
+            srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_COPY, SvUV(*entry));
+            return;
+        }
+        sv_setuv(*entry, (UV)BODY_POS_OFS(&enc->buf));
+    }
+    srl_dump_pv(aTHX_ enc, str, len, is_utf8);
+}
+
+SRL_STATIC_INLINE void
+srl_dump_hk_sv(pTHX_ srl_encoder_t *enc, SV *src)
+{
+    STRLEN len;
+    const char *str = SvPV(src, len);
+    if (!SRL_ENC_HAVE_OPTION(enc, SRL_F_DEDUPE_STRINGS)
+        && SvIsCOW_shared_hash(src)
+        && SRL_ENC_HAVE_OPTION(enc, SRL_F_SHARED_HASHKEYS)
+        && srl_dump_shared_hk(aTHX_ enc, str))
+        return;
+
+    srl_dump_hk_pv(aTHX_ enc, str, len, SvUTF8(src));
+}
 
 SRL_STATIC_INLINE void
 srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
@@ -1873,34 +1937,25 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
          * don't move in the shared key storage -- otherwise, we'd have to
          * compare strings / keep a full string hash table. */
         if ( share_keys && SRL_ENC_HAVE_OPTION(enc, SRL_F_SHARED_HASHKEYS) /* only enter branch if shared hk's enabled */
+             && !SRL_ENC_HAVE_OPTION(enc, SRL_F_DEDUPE_STRINGS)
 #if PERL_VERSION >= 10
              && (!DO_SHARED_HASH_ENTRY_REFCOUNT_CHECK
                 || src->he_valu.hent_refcount > 1)
 #endif
             )
         {
-            PTABLE_t *string_seenhash = SRL_GET_STR_PTR_SEENHASH(enc);
-            const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, str);
-            if (oldoffset != 0) {
-                /* Issue COPY instead of literal hash key string */
-                srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_COPY, (UV)oldoffset);
+            if (srl_dump_shared_hk(aTHX_ enc, str))
                 return;
-            }
-            else {
-                /* remember current offset before advancing it */
-                const ptrdiff_t newoffset = BODY_POS_OFS(&enc->buf);
-                PTABLE_store(string_seenhash, (void *)str, INT2PTR(void *, newoffset));
-            }
         }
         len= HeKLEN(src);
         mode= HeKWASUTF8(src) ? 2 :  HeKUTF8(src) ? 1 : 0;
     }
     if (mode == 2) { /* must convert back to utf8 */
         char* utf8= (char *)Perl_bytes_to_utf8(aTHX_ (U8 *)str, &len);
-        srl_dump_pv(aTHX_ enc, utf8, len, 1);
+        srl_dump_hk_pv(aTHX_ enc, utf8, len, 1);
         Safefree(utf8);
     } else {
-        srl_dump_pv(aTHX_ enc, str, len, mode);
+        srl_dump_hk_pv(aTHX_ enc, str, len, mode);
     }
 }
 
@@ -1908,25 +1963,48 @@ SRL_STATIC_INLINE void
 srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src)
 {
     STRLEN len;
-    const char * const str= SvPV(src, len);
+    const char *str= SvPV(src, len);
     if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_DEDUPE_STRINGS) && len > 3 ) {
         HV *string_deduper_hv= SRL_GET_STR_DEDUPER_HV(enc);
-        HE *dupe_offset_he= hv_fetch_ent(string_deduper_hv, src, 1, 0);
+        HE *dupe_offset_he;
+
+        if (SvGMAGICAL(src)) {
+            /* Hashing a magical SV would invoke FETCH again after its PV and
+             * length were captured. Hash the same bytes and UTF-8 flag that
+             * will be emitted, without calling user code a second time. */
+            SV *snapshot = sv_2mortal(newSVpvn(str, len));
+            if (SvUTF8(src))
+                SvUTF8_on(snapshot);
+            src = snapshot;
+            str = SvPVX(snapshot);
+        }
+
+        if (SRL_ENC_HAVE_OPTION(enc, SRL_F_ALIASED_DEDUPE_STRINGS)) {
+            HE *alias_he;
+            SV *alias_ofs;
+            if (enc->string_alias_hv == NULL)
+                enc->string_alias_hv = newHV();
+            alias_he = hv_fetch_ent(enc->string_alias_hv, src, 1, 0);
+            if (!alias_he)
+                croak("out of memory (hv_fetch_ent returned NULL)");
+            alias_ofs = HeVAL(alias_he);
+            if (SvIOK(alias_ofs)) {
+                SRL_SET_TRACK_FLAG(*(enc->buf.body_pos + SvUV(alias_ofs)));
+                srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_ALIAS, SvUV(alias_ofs));
+                return;
+            }
+            /* This value may be emitted as COPY of a key. It still creates
+             * an SV which subsequent values may alias at this offset. */
+            sv_setuv(alias_ofs, (UV)BODY_POS_OFS(&enc->buf));
+        }
+
+        dupe_offset_he= hv_fetch_ent(string_deduper_hv, src, 1, 0);
         if (!dupe_offset_he) {
             croak("out of memory (hv_fetch_ent returned NULL)");
         } else {
-            const char out_tag= SRL_ENC_HAVE_OPTION(enc, SRL_F_ALIASED_DEDUPE_STRINGS)
-                                ? SRL_HDR_ALIAS
-                                : SRL_HDR_COPY;
             SV *ofs_sv= HeVAL(dupe_offset_he);
             if (SvIOK(ofs_sv)) {
-                /* emit copy or alias */
-                if (out_tag == SRL_HDR_ALIAS)
-                    SRL_SET_TRACK_FLAG(*(enc->buf.body_pos + SvUV(ofs_sv)));
-                srl_buf_cat_varint(aTHX_ &enc->buf, out_tag, SvIV(ofs_sv));
-                return;
-            } else if (SvUOK(ofs_sv)) {
-                srl_buf_cat_varint(aTHX_ &enc->buf, out_tag, SvUV(ofs_sv));
+                srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_COPY, SvUV(ofs_sv));
                 return;
             } else {
                 /* start tracking this string */
@@ -2043,6 +2121,7 @@ srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
     SV* refsv= NULL;
     SV* replacement= NULL;
     UV weakref_ofs= 0;              /* preserved between loops */
+    UV weak_rewrite_ofs= 0;         /* WEAKEN tag for the current RV traversal */
     SSize_t ref_rewrite_pos= 0;      /* preserved between loops - note SSize_t is a perl define */
     assert(src);
 
@@ -2167,6 +2246,7 @@ redo_dump:
     if (SvROK(src)) {
         /* dump references */
         SV *referent= SvRV(src);
+        weak_rewrite_ofs= 0;
 /* assert()-like hack to be compiled out by default */
 #ifndef NDEBUG
         if (!referent) {
@@ -2177,6 +2257,7 @@ redo_dump:
         if (expect_false( SvWEAKREF(src) )) {
             if (DEBUGHACK) warn("Is weakref %p", src);
             weakref_ofs= BODY_POS_OFS(&enc->buf);
+            weak_rewrite_ofs= weakref_ofs;
             srl_buf_cat_char(&enc->buf, SRL_HDR_WEAKEN);
         }
 
@@ -2235,6 +2316,12 @@ redo_dump:
                          * want to serialize around for REFP and ALIAS output */               \
                         PTABLE_t *ref_seenhash= SRL_GET_REF_SEENHASH(enc);                     \
                         PTABLE_delete(ref_seenhash, src);                                      \
+                        if (weak_rewrite_ofs) {                                                \
+                            srl_buffer_char *weak_pos= (enc)->buf.body_pos + weak_rewrite_ofs; \
+                            *weak_pos= (srl_buffer_char)((*weak_pos & SRL_HDR_TRACK_FLAG) |   \
+                                                         SRL_HDR_PAD);                         \
+                            PTABLE_delete(SRL_GET_WEAK_SEENHASH(enc), src);                    \
+                        }                                                                      \
                         enc->buf.pos= enc->buf.body_pos + ref_rewrite_pos;                     \
                     }                                                                          \
                     srl_buf_cat_char(&(enc)->buf, SRL_HDR_UNDEF);                              \
@@ -2242,6 +2329,7 @@ redo_dump:
                 else if ( SRL_ENC_HAVE_OPTION((enc), SRL_F_STRINGIFY_UNKNOWN) ) {              \
                     STRLEN len;                                                                \
                     char *str;                                                                 \
+                    SV *stringified;                                                           \
                     if (SRL_ENC_HAVE_OPTION((enc), SRL_F_WARN_UNKNOWN)) {                      \
                         /* In theory, we need to warn about stringifying this unsupported      \
                          * item. However, if the SRL_F_NOWARN_UNKNOWN_OVERLOAD option is set,  \
@@ -2263,11 +2351,18 @@ redo_dump:
                          * want to serialize around for REFP and ALIAS output */               \
                         PTABLE_t *ref_seenhash= SRL_GET_REF_SEENHASH(enc);                     \
                         PTABLE_delete(ref_seenhash, src);                                      \
+                        if (weak_rewrite_ofs) {                                                \
+                            srl_buffer_char *weak_pos= (enc)->buf.body_pos + weak_rewrite_ofs; \
+                            *weak_pos= (srl_buffer_char)((*weak_pos & SRL_HDR_TRACK_FLAG) |   \
+                                                         SRL_HDR_PAD);                         \
+                            PTABLE_delete(SRL_GET_WEAK_SEENHASH(enc), src);                    \
+                        }                                                                      \
                         enc->buf.pos= enc->buf.body_pos + ref_rewrite_pos;                     \
-                        str = SvPV((refsv), len);                                              \
-                    } else                                                                     \
-                        str = SvPV((src), len);                                                \
-                    srl_dump_pv(aTHX_ (enc), (str), len, SvUTF8(src));                         \
+                    }                                                                          \
+                    stringified = sv_2mortal(newSV(0));                                        \
+                    sv_copypv(stringified, ref_rewrite_pos ? refsv : src);                      \
+                    str = SvPV(stringified, len);                                              \
+                    srl_dump_pv(aTHX_ (enc), (str), len, SvUTF8(stringified));                  \
                 }                                                                              \
                 else {                                                                         \
                     croak("Found type %u %s(0x%p), but it is not representable "               \

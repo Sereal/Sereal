@@ -243,7 +243,7 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     SV *val;
     HE *he;
     U8 checksum_policy = SRL_CHECKSUM_POLICY_VERIFY_IF_AVAILABLE;
-    SV *checksum_keys[2];
+    SV *checksum_keys[3] = { NULL, NULL, NULL };
     int key_options_present = 0;
     U8 version;
 
@@ -254,12 +254,13 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     if (opt != NULL)
         my_hv_fetchs(he, val, opt, SRL_DEC_OPT_IDX_CHECKSUM_POLICY);
     checksum_policy = srl_get_checksum_policy(aTHX_ val);
-    for (version = 0; version <= 1; version++) {
+    for (version = 0; version <= 2; version++) {
         val = NULL;
         he = NULL;
         if (opt != NULL) {
             const U32 idx = version == 0 ? SRL_DEC_OPT_IDX_CHECKSUM_V0_KEY
-                                        : SRL_DEC_OPT_IDX_CHECKSUM_V1_KEY;
+                          : version == 1 ? SRL_DEC_OPT_IDX_CHECKSUM_V1_KEY
+                                         : SRL_DEC_OPT_IDX_CHECKSUM_V2_KEY;
             my_hv_fetchs(he, val, opt, idx);
         }
         checksum_keys[version] = val;
@@ -268,15 +269,13 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     }
     if (!key_options_present) {
         SV *default_key = get_sv("Sereal::DefaultKey", 0);
-        checksum_keys[0] = checksum_keys[1] = default_key;
+        checksum_keys[0] = checksum_keys[1] = checksum_keys[2] = default_key;
     }
-    for (version = 0; version <= 1; version++)
-        srl_validate_checksum_key(aTHX_ checksum_keys[version], version, checksum_policy);
+    srl_validate_checksum_keys(aTHX_ checksum_keys, checksum_policy);
 
     Newxz(dec, 1, srl_decoder_t);
 
-    dec->checksum_policy = checksum_policy == SRL_CHECKSUM_POLICY_REQUIRE
-                         ? SRL_CHECKSUM_POLICY_DIE : checksum_policy;
+    dec->checksum_policy = checksum_policy;
     dec->ref_seenhash = PTABLE_new();
     dec->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
      /* 0 == any number for array, hash & string */
@@ -288,8 +287,9 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     SRL_RDR_CLEAR(&dec->buf);
     dec->pbuf = &dec->buf;
 
-    for (version = 0; version <= 1; version++) {
-        const char *option_name = version == 0 ? "checksum_v0_key" : "checksum_v1_key";
+    for (version = 0; version <= 2; version++) {
+        const char *option_name;
+        option_name = srl_checksum_key_option_name(version);
         val = checksum_keys[version];
         if (val && SvOK(val)) {
             STRLEN key_len;
@@ -842,8 +842,7 @@ srl_read_checksum_envelope(pTHX_ srl_reader_buffer_t *buf, srl_checksum_envelope
     int known_type;
     SRL_RDR_ASSERT_SPACE(buf, 1, " while reading the checksum type");
     envelope->checksum_type = *buf->pos++;
-    known_type = envelope->checksum_type == SRL_CHECKSUM_VERSION_SIPHASH_2_4_64
-              || envelope->checksum_type == SRL_CHECKSUM_VERSION_SIPHASH_3_6_128;
+    known_type = srl_checksum_tag_length(envelope->checksum_type) != 0;
     tag_len_uv = srl_read_varint_uv(aTHX_ buf);
     envelope->tag_len = (size_t)tag_len_uv;
     if (expect_false((UV)envelope->tag_len != tag_len_uv))
@@ -853,8 +852,7 @@ srl_read_checksum_envelope(pTHX_ srl_reader_buffer_t *buf, srl_checksum_envelope
         SRL_RDR_ERROR(buf, "Sereal checksum length exceeds the available input");
 
     if (known_type) {
-        const size_t expected_len = envelope->checksum_type == SRL_CHECKSUM_VERSION_SIPHASH_2_4_64
-            ? SRL_CHECKSUM_TAG_LENGTH_64 : SRL_CHECKSUM_TAG_LENGTH_128;
+        const size_t expected_len = srl_checksum_tag_length(envelope->checksum_type);
         if (expect_false(envelope->tag_len != expected_len))
             SRL_RDR_ERRORf2(buf, "Invalid checksum length %"UVuf" for checksum type %u",
                             tag_len_uv, envelope->checksum_type);
@@ -887,7 +885,7 @@ srl_checksum_matches(pTHX_ srl_reader_buffer_t *buf, const srl_checksum_envelope
     srl_siphash_update(&sip, (const U8 *)buf->start, (size_t)(envelope->tag - buf->start));
     srl_siphash_update(&sip, envelope->payload_len_start, envelope->payload_len_varint_size);
     srl_siphash_update(&sip, envelope->payload, envelope->payload_len);
-    if (envelope->checksum_type == SRL_CHECKSUM_VERSION_SIPHASH_3_6_128) {
+    if (envelope->tag_len == SRL_CHECKSUM_TAG_LENGTH_128) {
         srl_siphash_final128(&sip, actual);
     } else {
         srl_u64 digest = srl_siphash_final64(&sip);
@@ -904,20 +902,18 @@ srl_process_checksum_envelope(pTHX_ srl_decoder_t *dec)
     srl_reader_buffer_t *buf = dec->pbuf;
     srl_checksum_envelope_t envelope;
     int known_type, has_key, verify;
+    const int strict = dec->checksum_policy == SRL_CHECKSUM_POLICY_DIE
+                    || dec->checksum_policy == SRL_CHECKSUM_POLICY_REQUIRE;
     srl_read_checksum_envelope(aTHX_ buf, &envelope);
-    known_type = envelope.checksum_type == SRL_CHECKSUM_VERSION_SIPHASH_2_4_64
-              || envelope.checksum_type == SRL_CHECKSUM_VERSION_SIPHASH_3_6_128;
+    known_type = srl_checksum_tag_length(envelope.checksum_type) != 0;
     has_key = known_type && (dec->checksum_key_mask & (U8)(1U << envelope.checksum_type));
-    if (dec->checksum_policy == SRL_CHECKSUM_POLICY_DIE && !known_type)
+    if (strict && !known_type)
         SRL_RDR_ERRORf1(buf, "Unsupported Sereal checksum type %u", envelope.checksum_type);
-    if (dec->checksum_policy == SRL_CHECKSUM_POLICY_DIE && !has_key) {
-        if (envelope.checksum_type == SRL_CHECKSUM_VERSION_SIPHASH_2_4_64)
-            SRL_RDR_ERROR(buf, "Checksummed Sereal document requires a 'checksum_v0_key'");
-        else
-            SRL_RDR_ERROR(buf, "Checksummed Sereal document requires a 'checksum_v1_key'");
+    if (strict && !has_key) {
+        SRL_RDR_ERRORf1(buf, "Checksummed Sereal document requires a '%s'",
+                       srl_checksum_key_option_name(envelope.checksum_type));
     }
-    verify = has_key && (dec->checksum_policy == SRL_CHECKSUM_POLICY_VERIFY_IF_AVAILABLE
-                         || dec->checksum_policy == SRL_CHECKSUM_POLICY_DIE);
+    verify = has_key && (dec->checksum_policy == SRL_CHECKSUM_POLICY_VERIFY_IF_AVAILABLE || strict);
     if (dec->checksum_policy == SRL_CHECKSUM_POLICY_IGNORE_WARN)
         warn("Ignoring Sereal checksum authentication by request");
     else if (dec->checksum_policy == SRL_CHECKSUM_POLICY_VERIFY_IF_AVAILABLE && !has_key)
@@ -1011,8 +1007,7 @@ srl_validate_sereal_checksum(pTHX_ SV *src, SV *key, UV offset)
     }
     if (!srl_inspect_checksum(aTHX_ src, offset, &buf, &envelope))
         return 0;
-    if (envelope.checksum_type != SRL_CHECKSUM_VERSION_SIPHASH_2_4_64
-            && envelope.checksum_type != SRL_CHECKSUM_VERSION_SIPHASH_3_6_128)
+    if (!srl_checksum_tag_length(envelope.checksum_type))
         SRL_RDR_ERRORf1(&buf, "Unsupported Sereal checksum type %u", envelope.checksum_type);
     if (!has_key)
         croak("validate_sereal_checksum requires a key or a defined $Sereal::DefaultKey");
@@ -1038,6 +1033,9 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
         dec->encoding_flags = (U8)(proto_version_and_encoding_flags_int & SRL_PROTOCOL_ENCODING_MASK);
         dec->packet_has_checksum = (dec->encoding_flags & SRL_PROTOCOL_ENCODING_CHECKSUM) != 0;
         dec->encoding_flags &= SRL_PROTOCOL_ENCODING_BASE_MASK;
+
+        if (dec->checksum_policy == SRL_CHECKSUM_POLICY_REQUIRE && !dec->packet_has_checksum)
+            SRL_RDR_ERROR(dec->pbuf, "checksum_policy 'require_key' requires a checksummed packet");
 
         if (expect_false(dec->packet_has_checksum && dec->proto_version < 6))
             SRL_RDR_ERROR(dec->pbuf, "Checksummed Sereal documents require protocol version 6 or later");
@@ -1457,6 +1455,12 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
 SRL_STATIC_INLINE void
 srl_track_sv(pTHX_ srl_decoder_t *dec, const U8 *track_pos, SV *sv)
 {
+    /* COPY creates a new value at its own offset. Re-reading its source
+     * must neither replace an existing alias target nor register a key as
+     * a value. The COPY tag's own tracking is handled before save_pos is set. */
+    if (dec->save_pos)
+        return;
+
     /* A run of PADs can have several tracked offsets for the same value.
      * Update all of them when aliasing replaces the destination scalar. */
     do {

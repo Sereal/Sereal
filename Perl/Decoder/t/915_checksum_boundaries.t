@@ -3,6 +3,8 @@ use strict;
 use warnings;
 use Test::More;
 use Sereal::Decoder;
+use lib 't/lib';
+use Sereal::TestSet qw(checksum_tag);
 
 my $key    = 'Out damned spot!';
 my $deadly = "\x3e\0";
@@ -15,9 +17,7 @@ sub envelope {
     my $prefix = "=\xf3rl" . chr( 0x86 | $encoding ) . "\0" . chr($type) . chr( $type ? 16 : 8 );
     my $tail   = chr( length($payload) ) . $payload;
     my $mac =
-        $type
-        ? Sereal::Decoder::siphash36( $prefix . $tail, $key )
-        : Sereal::Decoder::siphash24( $prefix . $tail, $key );
+        checksum_tag($type, $prefix . $tail, $key);
     return $prefix . $mac . $tail;
 }
 
@@ -34,7 +34,7 @@ my @streams = (
         pack( 'H*', '0a28b52ffd200109000061' )
     ],
 );
-for my $type ( 0, 1 ) {
+for my $type ( 0, 1, 2 ) {
     for my $policy ( 'die', 'ignore' ) {
         my $dec =
             Sereal::Decoder->new( { "checksum_v${type}_key" => $key, checksum_policy => $policy } );

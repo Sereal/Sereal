@@ -7,6 +7,20 @@ Revision history for Perl extension Sereal-Encoder
 ****************************************************************
 6.000_001
     * New tags, better testing and robustness fixes.
+    * Make require_key fail construction without a configured key in both
+      Encoder and Decoder, and reject unsigned or unverifiable decoder input.
+    * Assign checksum versions 0, 1, and 2 to SipHash-2-4/64,
+      SipHash-2-4/128, and SipHash-3-6/128 respectively.
+      The default remains SipHash-3-6/128, now using version 2.
+    * Preserve references to weak slots and encode unsupported weak references
+      safely when using undef_unknown or stringify_unknown.
+    * Keep hash keys as strings when sorting, and share strings between keys
+      and values with COPY while reserving ALIAS for scalar values.
+    * Snapshot hash entries when invoking FREEZE or stringification callbacks,
+      so deleting sibling entries cannot invalidate hash traversal.
+    * Preserve string bytes and UTF-8 flags through tied-value deduplication
+      and overloaded stringification; NUL-terminate reused output buffers.
+    * Name the authentication-required policy require_key; retain require as an alias.
 
 5.011
     * Robustness fixes. Thanks to Steffen Mueller and kumar-Prakash07.

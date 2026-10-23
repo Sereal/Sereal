@@ -64,6 +64,7 @@ t/092_thaw_scalar.t
 t/094_thaw_allow.t
 t/095_checksum_policy.t
 t/096_build_tools.t
+t/097_checksum_versions.t
 t/110_nobless.t
 t/150_dec_exception.t
 t/155_zipbomb.t
@@ -135,6 +136,7 @@ t/929_thaw_exception_cleanup.t
 t/930_checksum_policy_env.t
 t/931_checksum_inspection.t
 t/932_input_alias_incremental.t
+t/933_copy_alias_keys.t
 t/data/corpus
 t/lib/Sereal/BulkTest.pm
 t/lib/Sereal/TestSet.pm

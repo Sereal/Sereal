@@ -47,7 +47,7 @@ struct srl_decoder {
     U8 checksum_key_mask;
     U8 checksum_policy;
     U8 packet_has_checksum;
-    U8 checksum_keys[2][16];
+    U8 checksum_keys[3][16]; /* indexed by checksum version */
     UV checksummed_packet_length;
     const U8 *checksummed_payload;
     U32 flags_readonly;
@@ -249,11 +249,13 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_DEC_OPT_IDX_CHECKSUM_V1_KEY            21
 #define SRL_DEC_OPT_STR_CHECKSUM_POLICY             "checksum_policy"
 #define SRL_DEC_OPT_IDX_CHECKSUM_POLICY             22
+#define SRL_DEC_OPT_STR_CHECKSUM_V2_KEY             "checksum_v2_key"
+#define SRL_DEC_OPT_IDX_CHECKSUM_V2_KEY             23
 
 /* NOTE WELL: WHEN YOU ADD AN OPTION YOU **MUST** ADD A
  * CORRESPONDING CALL TO SRL_INIT_OPTION() to Decoder.xs */
 
-#define SRL_DEC_OPT_COUNT                           23
+#define SRL_DEC_OPT_COUNT                           24
 
 #if ((PERL_VERSION > 10) || (PERL_VERSION == 10 && PERL_SUBVERSION > 1 ))
 #   define MODERN_REGEXP

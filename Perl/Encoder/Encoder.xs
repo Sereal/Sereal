@@ -213,6 +213,28 @@ siphash24(data, key)
   OUTPUT: RETVAL
 
 SV *
+siphash24_128(data, key)
+    SV *data;
+    SV *key;
+  PREINIT:
+    STRLEN data_len;
+    STRLEN key_len;
+    const U8 *data_bytes;
+    const U8 *key_bytes;
+    srl_siphash_ctx sip;
+    U8 digest[16];
+  CODE:
+    data_bytes = (const U8 *)SvPVbyte(data, data_len);
+    key_bytes = (const U8 *)SvPVbyte(key, key_len);
+    if (key_len != 16)
+      croak("siphash24_128 key must be exactly 16 bytes");
+    srl_siphash_init_rounds(&sip, key_bytes, 2, 4, 1);
+    srl_siphash_update(&sip, data_bytes, (size_t)data_len);
+    srl_siphash_final128(&sip, digest);
+    RETVAL = newSVpvn((const char *)digest, sizeof(digest));
+  OUTPUT: RETVAL
+
+SV *
 siphash36(data, key)
     SV *data;
     SV *key;
@@ -264,6 +286,7 @@ BOOT:
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_FREEZE_DENY_ACTION,       SRL_ENC_OPT_STR_FREEZE_DENY_ACTION     );
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_V0_KEY,          SRL_ENC_OPT_STR_CHECKSUM_V0_KEY        );
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_V1_KEY,          SRL_ENC_OPT_STR_CHECKSUM_V1_KEY        );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_V2_KEY,          SRL_ENC_OPT_STR_CHECKSUM_V2_KEY        );
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_POLICY,          SRL_ENC_OPT_STR_CHECKSUM_POLICY        );
   }
 #if USE_CUSTOM_OPS

@@ -33,10 +33,11 @@ typedef struct {
                                * Possibly this should be replaced with freezeobj_svhash, but this works fine.
                                */
     ptable_ptr freezeobj_svhash; /* ptr table for tracking objects and their frozen replacments via FREEZE */
-    HV *string_deduper_hv;    /* track strings we have seen before, by content */
+    HV *string_deduper_hv;    /* literal string offsets, by content, for COPY */
+    HV *string_alias_hv;      /* first scalar value offsets, by content, for ALIAS */
 
     void *snappy_workmem;     /* lazily allocated if and only if using Snappy */
-    U8 checksum_keys[2][16];
+    U8 checksum_keys[3][16]; /* indexed by checksum version */
     U8 checksum_key_mask;
     U8 checksum_policy;
     U8 siphash_version;
@@ -274,6 +275,9 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
 #define SRL_ENC_OPT_STR_CHECKSUM_POLICY "checksum_policy"
 #define SRL_ENC_OPT_IDX_CHECKSUM_POLICY 26
 
-#define SRL_ENC_OPT_COUNT 27
+#define SRL_ENC_OPT_STR_CHECKSUM_V2_KEY "checksum_v2_key"
+#define SRL_ENC_OPT_IDX_CHECKSUM_V2_KEY 27
+
+#define SRL_ENC_OPT_COUNT 28
 
 #endif

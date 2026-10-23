@@ -67,7 +67,7 @@ my $prefix = Header(6);
 substr( $prefix, 4, 1 ) = chr(0x86);
 $prefix .= "\x01" . varint(16);
 my $tail   = varint(2) . "\x41\x07";
-my $signed = $prefix . Sereal::Decoder::siphash36( $prefix . $tail, $key ) . $tail;
+my $signed = $prefix . Sereal::Decoder::siphash24_128( $prefix . $tail, $key ) . $tail;
 my $packet = 'prefix' . $signed;
 my $dec    = Sereal::Decoder->new( { checksum_v1_key => $key, checksum_policy => 'die' } );
 $dec->decode_with_offset( $packet, 6, $packet );

@@ -4,31 +4,28 @@ use warnings;
 use Test::More;
 use Sereal::Decoder;
 use lib 't/lib';
-use Sereal::TestSet qw(Header short_string varint);
+use Sereal::TestSet qw(Header short_string varint checksum_tag);
 
 local $ENV{SEREAL_CHECKSUM_POLICY};
 delete $ENV{SEREAL_CHECKSUM_POLICY};
 local $Sereal::DefaultKey;
 my $key = 'Out damned spot!';
 my @packets;
-for my $type ( 0, 1 ) {
+for my $type ( 0, 1, 2 ) {
     my $header = Header(6);
     substr( $header, 4, 1 ) = chr(0x86);
     my $prefix = $header . chr($type) . varint( $type ? 16 : 8 );
     my $tail   = varint(1) . "\x07";
-    my $tag =
-        $type
-        ? Sereal::Decoder::siphash36( $prefix . $tail, $key )
-        : Sereal::Decoder::siphash24( $prefix . $tail, $key );
-    my $good = $prefix . $tag . $tail;
-    my $bad  = $good;
+    my $tag    = checksum_tag( $type, $prefix . $tail, $key );
+    my $good   = $prefix . $tag . $tail;
+    my $bad    = $good;
     substr( $bad, length($prefix), 1 ) = chr( ord( substr( $tag, 0, 1 ) ) ^ 1 );
-    push @packets, [ $good, $bad ];
+    $packets[$type] = [ $good, $bad ];
 }
 
 for my $policy ( 'verify-if-available', 'die', 'ignore', 'ignore-warn' ) {
     $ENV{SEREAL_CHECKSUM_POLICY} = $policy;
-    for my $type ( 0, 1 ) {
+    for my $type ( 0, 1, 2 ) {
         for my $has_key ( 0, 1 ) {
             my %options = $has_key ? ( "checksum_v${type}_key" => $key ) : ();
             my $dec     = Sereal::Decoder->new( \%options );
@@ -147,15 +144,18 @@ is(
 );
 
 for my $source ( 'option', 'environment' ) {
-    $ENV{SEREAL_CHECKSUM_POLICY} = $source eq 'environment' ? 'require' : 'ignore';
-    my %policy = $source eq 'option' ? ( checksum_policy => 'require' ) : ();
+    $ENV{SEREAL_CHECKSUM_POLICY} = $source eq 'environment' ? 'require_key' : 'ignore';
+    my %policy = $source eq 'option' ? ( checksum_policy => 'require_key' ) : ();
     for my $keys (
-        { checksum_v0_key => $key }, { checksum_v1_key => $key },
-        { checksum_v0_key => $key, checksum_v1_key => $key } )
+        { checksum_v0_key => $key }, { checksum_v1_key => $key }, { checksum_v2_key => $key },
+        { checksum_v0_key => $key, checksum_v1_key => $key },
+        { checksum_v0_key => $key, checksum_v2_key => $key },
+        { checksum_v1_key => $key, checksum_v2_key => $key },
+        { checksum_v0_key => $key, checksum_v1_key => $key, checksum_v2_key => $key } )
     {
         my %options = ( %policy, %$keys );
         my $dec     = Sereal::Decoder->new( \%options );
-        for my $type ( 0, 1 ) {
+        for my $type ( 0, 1, 2 ) {
             for my $tampered ( 0, 1 ) {
                 my ( $out, @warnings );
                 {
@@ -186,13 +186,14 @@ for my $source ( 'option', 'environment' ) {
             }
         }
         for my $version ( 1 .. 6 ) {
-            is(
-                $dec->decode( Header($version) . "\x07" ), 7,
-                "$source require retains die semantics for unsigned v$version packets"
+            eval { $dec->decode( Header($version) . "\x07" ); 1 };
+            like(
+                $@, qr/require_key.*checksummed packet/,
+                "$source require_key rejects unsigned v$version packets"
             );
         }
         my $unknown = $packets[0][0];
-        substr( $unknown, length( Header(6) ), 1 ) = chr(2);
+        substr( $unknown, length( Header(6) ), 1 ) = chr(3);
         eval { $dec->decode($unknown); 1 };
         like(
             $@, qr/Unsupported Sereal checksum type/,
@@ -205,15 +206,21 @@ for my $source ( 'option', 'environment' ) {
         );
     }
 }
-$ENV{SEREAL_CHECKSUM_POLICY} = 'require';
-is(
-    Sereal::Decoder->new->decode( Header(6) . "\x07" ), 7,
-    'environment require keeps die semantics for unsigned packets without a key'
+$ENV{SEREAL_CHECKSUM_POLICY} = 'require_key';
+eval { Sereal::Decoder->new; 1 };
+like(
+    $@, qr/checksum_policy 'require_key'.*checksum key/,
+    'environment require_key rejects keyless decoder construction'
+);
+eval { Sereal::Decoder::decode_sereal( Header(6) . "\x07" ); 1 };
+like(
+    $@, qr/checksum_policy 'require_key'.*checksum key/,
+    'environment require_key rejects unsigned input without a configured key'
 );
 eval { Sereal::Decoder::decode_sereal( $packets[0][0] ); 1 };
 like(
-    $@, qr/requires a 'checksum_v0_key'/,
-    'environment require rejects authenticated packets without a matching key'
+    $@, qr/checksum_policy 'require_key'.*checksum key/,
+    'environment require_key rejects authenticated packets without a configured key'
 );
 is(
     Sereal::Decoder->new( { checksum_policy => 'die' } )->decode( Header(6) . "\x07" ), 7,
@@ -221,7 +228,7 @@ is(
 );
 $ENV{SEREAL_CHECKSUM_POLICY} = 'invalid';
 is(
-    Sereal::Decoder->new( { checksum_policy => 'require', checksum_v0_key => $key } )
+    Sereal::Decoder->new( { checksum_policy => 'require_key', checksum_v0_key => $key } )
         ->decode( $packets[0][0] ), 7,
     'explicit require with a key overrides an invalid environment default'
 );
@@ -258,5 +265,35 @@ like(
     $ReenterChecksumEnv::error, qr/requires a 'checksum_v1_key'/,
     'recursive decoder clone retains the original policy despite environment changes'
 );
+
+$ReenterChecksumEnv::decoder = Sereal::Decoder->new( {
+    checksum_policy => 'require_key', checksum_v0_key => $key,
+} );
+$ReenterChecksumEnv::packet = Header(6) . "\x07";
+is(
+    $ReenterChecksumEnv::decoder->decode($outer), 7,
+    'require_key authenticates the outer packet before invoking THAW'
+);
+like(
+    $ReenterChecksumEnv::error, qr/require_key.*checksummed packet/,
+    'recursive decoder clone still rejects unsigned input after the environment changes'
+);
+
+{
+
+    package UnsignedHeaderCallback;
+    our $called = 0;
+    sub THAW { $called++; return 7 }
+}
+my $unsigned_header = Header(
+    6,
+    "\x32" . short_string('UnsignedHeaderCallback') . "\x40"
+) . "\x07";
+eval { $ReenterChecksumEnv::decoder->decode_only_header($unsigned_header); 1 };
+like(
+    $@, qr/require_key.*checksummed packet/,
+    'require_key rejects unsigned metadata before decoding it'
+);
+is( $UnsignedHeaderCallback::called, 0, 'unsigned metadata never invokes THAW' );
 
 done_testing;
