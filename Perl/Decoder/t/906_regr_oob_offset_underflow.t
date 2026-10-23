@@ -23,7 +23,7 @@ plan tests    => 2;
 # dereferenced that address.
 my $header          = "=\xF3rl" . chr(0x04) . chr(0x00);
 my $uv_max_minus_15 = chr(0xF0) . ( chr(0xFF) x 8 ) . chr(0x01);
-my $body            = chr(0x2B) . chr(0x02)                        # ARRAY count=2
+my $body            = chr(0x28) . chr(0x2B) . chr(0x02)            # REFN ARRAY count=2
     . chr(0x25)                                                    # UNDEF
     . chr(0x2F) . $uv_max_minus_15;                                # COPY with underflowing offset
 my $packet = $header . $body;

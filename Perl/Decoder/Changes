@@ -6,6 +6,9 @@ Revision history for Perl extension Sereal-Decoder
 *          encoder!                                            *
 ****************************************************************
 6.000_001
+    * Reject ARRAY and HASH tags that are not the referent of a REFN.
+      They used to turn the destination scalar into an array or hash
+      body in place, which is not a valid Perl value.
     * New tags, better testing and robustness fixes.
     * Make require_key fail construction without a configured key in both
       Encoder and Decoder, and reject unsigned or unverifiable decoder input.

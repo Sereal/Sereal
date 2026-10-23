@@ -9,9 +9,10 @@ use Sereal::Decoder qw(decode_sereal);
 # helper's bounded varint reader must report the malformed length without
 # doing pointer arithmetic relative to a NULL buffer start.
 my $header = "=\xF3rl" . chr(4) . chr(0);
-my $body   = chr(0x2B) . chr(2)                     # ARRAY(2)
-    . chr(0x26) . chr(2) . chr(0x26) . chr(0x80)    # BINARY payload
-    . chr(0x2A) . chr(1) . chr(0x2F) . chr(5)       # HASH(1), COPY(5)
+my $body   = chr(0x28) . chr(0x2B) . chr(2)         # REFN ARRAY(2)
+    . chr(0x26) . chr(2) . chr(0x26) . chr(0x80)    # BINARY payload (body offset 6)
+    . chr(0x28) . chr(0x2A) . chr(1)                # REFN HASH(1)
+    . chr(0x2F) . chr(6)                            # COPY(6): key copied from the BINARY tag
     . chr(1);                                       # value
 
 eval { decode_sereal( $header . $body ); 1 };

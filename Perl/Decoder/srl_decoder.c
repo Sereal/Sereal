@@ -117,6 +117,7 @@ void srl_decoder_destructor_hook(pTHX_ void *p);                    /* destructo
 SRL_STATIC_INLINE srl_decoder_t *srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset, int copy_input);
 SRL_STATIC_INLINE void srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data); /* read/validate header */
 SRL_STATIC_INLINE void srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container); /* main recursive dump routine */
+SRL_STATIC_INLINE void srl_read_single_value_ex(pTHX_ srl_decoder_t *dec, SV* into, SV** container, int is_refn_referent);
 SRL_STATIC_INLINE void srl_finalize_structure(pTHX_ srl_decoder_t *dec);             /* optional finalize structure logic */
 SRL_STATIC_INLINE void srl_clear_decoder(pTHX_ srl_decoder_t *dec);                 /* clean up decoder after a dump */
 SRL_STATIC_INLINE void srl_clear_thaw_state(pTHX_ srl_decoder_t *dec);              /* discard pending frozen-object state */
@@ -2016,7 +2017,7 @@ srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into)
     }
     SRL_sv_set_rv_to(into, referent);
     if (!tag) {
-        srl_read_single_value(aTHX_ dec, referent, NULL);
+        srl_read_single_value_ex(aTHX_ dec, referent, NULL, 1);
     }
 }
 
@@ -2642,6 +2643,16 @@ srl_decode_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
 SRL_STATIC_INLINE void
 srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
 {
+    srl_read_single_value_ex(aTHX_ dec, into, container, 0);
+}
+
+/* is_refn_referent is set only by srl_read_refn(). An ARRAY or HASH tag
+ * describes the aggregate itself, which in Perl can only exist behind a
+ * reference; anywhere else it would turn the destination scalar into an
+ * AV/HV body in place. */
+SRL_STATIC_INLINE void
+srl_read_single_value_ex(pTHX_ srl_decoder_t *dec, SV* into, SV** container, int is_refn_referent)
+{
     STRLEN len;
     U8 tag;
     int is_ref = 0;
@@ -2746,8 +2757,16 @@ srl_read_single_value(pTHX_ srl_decoder_t *dec, SV* into, SV** container)
         case SRL_HDR_OBJECTV:       srl_read_objectv(aTHX_ dec, into, tag); is_ref=1; break;
         case SRL_HDR_COPY:          srl_read_copy(aTHX_ dec, into); is_ref=SvROK(into) ? 1 : 0; break;
         case SRL_HDR_EXTEND:        srl_read_extend(aTHX_ dec, into);                 break;
-        case SRL_HDR_HASH:          srl_read_hash(aTHX_ dec, into, 0);                break;
-        case SRL_HDR_ARRAY:         srl_read_array(aTHX_ dec, into, 0);               break;
+        case SRL_HDR_HASH:
+            if (expect_false(!is_refn_referent))
+                SRL_RDR_ERROR(dec->pbuf, "Corrupted packet. HASH tag is only valid as the referent of a REFN");
+            srl_read_hash(aTHX_ dec, into, 0);
+            break;
+        case SRL_HDR_ARRAY:
+            if (expect_false(!is_refn_referent))
+                SRL_RDR_ERROR(dec->pbuf, "Corrupted packet. ARRAY tag is only valid as the referent of a REFN");
+            srl_read_array(aTHX_ dec, into, 0);
+            break;
         case SRL_HDR_REGEXP:        srl_read_regexp(aTHX_ dec, into);                 break;
         case SRL_HDR_ALIAS:
         {
