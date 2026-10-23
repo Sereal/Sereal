@@ -147,6 +147,10 @@ where the varint signifies the length of the zstd-compressed blob
 following it. See L</"NOTES ON IMPLEMENTATION"> below for a discussion on
 how to implement this efficiently.
 
+The Zstandard frame MUST include C<Frame_Content_Size>, the uncompressed
+body length. Decoders may require this size to allocate their output buffer.
+Encoders must include it even for small bodies when compression is forced.
+
 This compression format is new in v4 of the specification.
 
 =item Z<>5

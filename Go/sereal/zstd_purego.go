@@ -6,7 +6,12 @@ package sereal
 import "github.com/klauspost/compress/zstd"
 
 func zstdEncode(buf []byte, level int) ([]byte, error) {
-	encoder, err := zstd.NewWriter(nil, zstd.WithEncoderLevel(zstd.EncoderLevelFromZstd(level)))
+	encoder, err := zstd.NewWriter(nil,
+		zstd.WithEncoderLevel(zstd.EncoderLevelFromZstd(level)),
+		// Perl's decoder needs Frame_Content_Size to allocate its output buffer.
+		// EncodeAll otherwise omits it for inputs smaller than 256 bytes.
+		zstd.WithSingleSegment(true),
+	)
 	if err != nil {
 		return nil, err
 	}

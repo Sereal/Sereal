@@ -12,6 +12,10 @@ To use C implementations of snappy and zlib instead of pure-Go ones:
 
     $ go get -tags clibs github.com/Sereal/Sereal/Go/sereal
 
+Zstd frames include the uncompressed content size for compatibility with
+Perl's decoder, including small bodies when `CompressionThreshold = 0`
+forces compression. Both the pure-Go and `clibs` backends support this.
+
 Hack
 ----
 
