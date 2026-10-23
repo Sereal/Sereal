@@ -5,9 +5,17 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
+import com.booking.sereal.DecoderOptions;
+import com.booking.sereal.EncoderOptions;
+import com.booking.sereal.Float128;
+import com.booking.sereal.PerlVString;
+import com.booking.sereal.SerealChecksum;
 import com.booking.sereal.SerealException;
 import com.booking.sereal.TokenEncoder;
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonLocation;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
@@ -504,8 +512,84 @@ public class SerealParserTest {
     }
   }
 
+  // Perl Sereal::Encoder->new({checksum_v2_key => "0123456789abcdef"})->encode(7)
+  private static final String RAW_V2KEY_7 = "3df3726c860002100f8ddc80c103af28700d68f7d168aa3b0107";
+  private static final byte[] KEY = "0123456789abcdef".getBytes(StandardCharsets.ISO_8859_1);
+
+  private static byte[] hex(String s) {
+    byte[] out = new byte[s.length() / 2];
+    for (int i = 0; i < out.length; i++) {
+      out[i] = (byte) Integer.parseInt(s.substring(2 * i, 2 * i + 2), 16);
+    }
+    return out;
+  }
+
+  @Test
+  public void parseVString() throws SerealException, IOException {
+    SerealParser parser = setupParser(new EncoderOptions().protocolVersion(6), encoder -> {
+      encoder.startHash(1);
+      encoder.appendString("v");
+      encoder.appendVString(new PerlVString("v1.2.3"));
+      encoder.endHash();
+    });
+
+    assertEquals(JsonToken.START_OBJECT, parser.nextToken());
+    assertEquals(JsonToken.FIELD_NAME, parser.nextToken());
+    assertEquals("v", parser.getCurrentName());
+    assertEquals(JsonToken.VALUE_STRING, parser.nextToken());
+    assertEquals("v1.2.3", parser.getText());
+    assertEquals(JsonToken.END_OBJECT, parser.nextToken());
+
+    assertNull(parser.nextToken());
+  }
+
+  @Test
+  public void parseFloat128() throws SerealException, IOException {
+    byte[] bytes = new byte[16];
+    for (int i = 0; i < 16; i++) {
+      bytes[i] = (byte) i;
+    }
+    SerealParser parser = setupParser(new EncoderOptions().protocolVersion(5), encoder -> encoder.appendFloat128(bytes));
+
+    assertEquals(JsonToken.VALUE_EMBEDDED_OBJECT, parser.nextToken());
+    assertNull(parser.getText());
+    assertEquals(new Float128(bytes), parser.getEmbeddedObject());
+
+    assertNull(parser.nextToken());
+  }
+
+  @Test
+  public void parseNegVarint() throws SerealException, IOException {
+    SerealParser parser = setupParser(new EncoderOptions().protocolVersion(6), encoder -> encoder.appendLong(-1000));
+
+    assertEquals(JsonToken.VALUE_NUMBER_INT, parser.nextToken());
+    assertEquals(-1000, parser.getLongValue());
+
+    assertNull(parser.nextToken());
+  }
+
+  @Test
+  public void parseChecksummedDocument() throws IOException {
+    SerealFactory keyed = new SerealFactory(null, new DecoderOptions().checksumV2Key(KEY));
+    JsonParser parser = keyed.createParser(hex(RAW_V2KEY_7));
+
+    assertEquals(JsonToken.VALUE_NUMBER_INT, parser.nextToken());
+    assertEquals(7, parser.getIntValue());
+    assertNull(parser.nextToken());
+
+    byte[] wrongKey = "AAAAAAAAAAAAAAAA".getBytes(StandardCharsets.ISO_8859_1);
+    SerealFactory strict = new SerealFactory(null,
+        new DecoderOptions().checksumV2Key(wrongKey).checksumPolicy(SerealChecksum.Policy.DIE));
+    JsonParseException e = assertThrows(JsonParseException.class, () -> strict.createParser(hex(RAW_V2KEY_7)));
+    assertTrue(e.getCause().getMessage(), e.getCause().getMessage().contains("verification failed"));
+  }
+
   private SerealParser setupParser(Emit e) throws IOException, SerealException {
-    TokenEncoder encoder = new TokenEncoder();
+    return setupParser(new EncoderOptions(), e);
+  }
+
+  private SerealParser setupParser(EncoderOptions options, Emit e) throws IOException, SerealException {
+    TokenEncoder encoder = new TokenEncoder(options);
 
     encoder.startDocument();
     e.emit(encoder);
