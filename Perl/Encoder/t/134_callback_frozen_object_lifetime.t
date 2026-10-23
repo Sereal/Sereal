@@ -22,6 +22,7 @@ if ( !have_encoder_and_decoder() ) {
 
 our @parent;
 our %cache;
+our ( $predicate_freezes, $predicate_destroys );
 {
 
     package ClearParentFreeze;
@@ -34,6 +35,11 @@ our %cache;
     package DropSelfFreeze;
     sub FREEZE { delete $main::cache{obj}; return 'dropped' }
     sub THAW   { my ( $class, $serializer, $name ) = @_; bless { name => $name }, $class }
+
+    package PredicateVictim;
+    sub FREEZE  { $main::predicate_freezes++;             return $_[0]{name} }
+    sub THAW    { my ( $class, $serializer, $name ) = @_; bless { name => $name }, $class }
+    sub DESTROY { $main::predicate_destroys++ }
 }
 
 my @filler = map { "element $_ " x 8 } 1 .. 50;
@@ -81,6 +87,46 @@ for my $version ( 2 .. 6 ) {
         skip 'encode/decode failed', 2 if $error;
         is( ref($decoded),      'DropSelfFreeze', "v$version: the dropped object keeps its class" );
         is( $decoded->{name},   'dropped',        "v$version: and its frozen payload" );
+    }
+}
+
+# The allow-list predicate runs before FREEZE, and may remove the same owning
+# reference. Retention must cover acceptance, ordinary serialization and croak.
+for my $version ( 2 .. 6 ) {
+    for my $action (qw(allow serialize croak)) {
+        ( $predicate_freezes, $predicate_destroys ) = ( 0, 0 );
+        %cache = ( obj => bless( { name => 'retained' }, 'PredicateVictim' ) );
+        my $encoder = Sereal::Encoder->new( {
+            protocol_version     => $version,
+            freeze_allow_classes => sub { delete $cache{obj}; return $action eq 'allow' },
+            freeze_deny_action   => $action eq 'serialize' ? 'serialize' : 'croak',
+        } );
+        my $packet = eval { $encoder->encode( $cache{obj} ) };
+        my $error  = $@;
+        my $label  = "v$version predicate=$action";
+        is_deeply( \%cache, {}, "$label: predicate removed the owning reference" );
+        is( $predicate_destroys, 1, "$label: source object is released exactly once" );
+        is(
+            $predicate_freezes, $action eq 'allow' ? 1 : 0,
+            "$label: FREEZE follows the predicate decision"
+        );
+        if ( $action eq 'croak' ) {
+            like(
+                $error, qr/FREEZE not allowed for class 'PredicateVictim'/,
+                "$label: denial throws the intended exception"
+            );
+        }
+        else {
+            ok( !$error, "$label: encoding survives the predicate" ) or diag($error);
+            my $decoded      = eval { Sereal::Decoder->new->decode($packet) };
+            my $decode_error = $@;
+            ok( !$decode_error, "$label: packet decodes" ) or diag($decode_error);
+            SKIP: {
+                skip 'encode/decode failed', 2 if $error || $decode_error;
+                isa_ok( $decoded, 'PredicateVictim', "$label: object class survives" );
+                is( $decoded->{name}, 'retained', "$label: object contents survive" );
+            }
+        }
     }
 }
 done_testing();

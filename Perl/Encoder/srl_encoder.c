@@ -1104,9 +1104,10 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
      *      we're just wasting some space. */
     /* TODO optimize! */
 
-    /* FIXME find a way to express the condition without repeated SvIV/SvUV */
-    if (expect_true( SvIOK_UV(src) || SvIV(src) >= 0 )) {
-        const UV num = SvUV(src); /* FIXME is SvUV_nomg good enough because of the GET magic in dump_sv? SvUVX after having checked the flags? */
+    /* The caller has already fetched magic. Use that same value for the
+     * sign check and payload instead of invoking FETCH again. */
+    if (expect_true( SvIOK_UV(src) || SvIV_nomg(src) >= 0 )) {
+        const UV num = SvUV_nomg(src);
         if (num <= 15) {
             /* encodable as POS */
             hdr = SRL_HDR_POS_LOW | (unsigned char)num;
@@ -1117,7 +1118,7 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
         }
     }
     else {
-        const IV num = SvIV(src);
+        const IV num = SvIV_nomg(src);
         if (num >= -16) {
             /* encodable as NEG */
             hdr = SRL_HDR_NEG_LOW | ((unsigned char)num + 32);
@@ -1212,6 +1213,14 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
             SV *replacement= NULL;
             PTABLE_t *freezeobj_svhash;
 
+            /* Either the allow-list predicate or FREEZE may drop the last
+             * reference to the object or the reference being serialized.
+             * Both are still needed afterwards, including on denial. */
+            SvREFCNT_inc_simple_void_NN(src);
+            SAVEFREESV(src);
+            SvREFCNT_inc_simple_void_NN(referent);
+            SAVEFREESV(referent);
+
             /* Enforce the freeze allow-list (if any). A disallowed class either
              * croaks (default) or is serialized normally (freeze_deny_action
              * => 'serialize'), which we signal by returning NULL here. */
@@ -1229,16 +1238,6 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
             if (!replacement) {
                 int count;
                 dSP;
-
-                /* The callback may drop the last reference to the object,
-                 * or to the reference being serialized, from elsewhere in
-                 * the structure. Both are still used after it returns
-                 * (class name, weak reference bookkeeping), so keep them
-                 * alive until the encode finishes. */
-                SvREFCNT_inc_simple_void_NN(src);
-                SAVEFREESV(src);
-                SvREFCNT_inc_simple_void_NN(referent);
-                SAVEFREESV(referent);
 
                 ENTER;
                 SAVETMPS;

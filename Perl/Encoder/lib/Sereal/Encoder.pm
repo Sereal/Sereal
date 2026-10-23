@@ -442,6 +442,9 @@ C<FREEZE>
 
 =back
 
+The encoder retains the object across the predicate and any subsequent
+C<FREEZE> call, even if the callback removes its last external reference.
+
 Classes that do not have a C<FREEZE> method are unaffected (they serialize as
 usual). When an object's class has a C<FREEZE> method but is not allowed, the
 behaviour is controlled by L</freeze_deny_action>.
