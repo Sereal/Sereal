@@ -2,6 +2,7 @@ package com.booking.sereal.jackson;
 
 import com.booking.sereal.ByteArray;
 import com.booking.sereal.DecoderOptions;
+import com.booking.sereal.Float128;
 import com.booking.sereal.SerealException;
 import com.booking.sereal.SerealToken;
 import com.booking.sereal.TokenDecoder;
@@ -111,7 +112,10 @@ public class SerealParser extends ParserMinimalBase {
         case SUBDECODE_END:
           return nextToken();
         case REGEXP:
+        case FLOAT128:
           return (_currToken = JsonToken.VALUE_EMBEDDED_OBJECT);
+        case VSTRING:
+          return (_currToken = JsonToken.VALUE_STRING);
         default:
           throw this._formatError("Unsupported Sereal token %s", serealToken);
       }
@@ -206,6 +210,7 @@ public class SerealParser extends ParserMinimalBase {
           StandardCharsets.UTF_8
         );
       case BINARY:
+      case VSTRING: // the v-string spelling, e.g. "v1.2.3"
         return new String(
           tokenDecoder.decoderBuffer(),
           tokenDecoder.binarySliceStart(),
@@ -221,6 +226,7 @@ public class SerealParser extends ParserMinimalBase {
       case UNSIGNED_LONG:
         return tokenDecoder.bigintValue().toString();
       case REGEXP:
+      case FLOAT128:
         return null; // so getEmbeddedObject is called
       case ARRAY_START:
         return "[";
@@ -381,6 +387,12 @@ public class SerealParser extends ParserMinimalBase {
           );
 
           return Pattern.compile(pattern, flags);
+        case FLOAT128:
+          return new Float128(Arrays.copyOfRange(
+            tokenDecoder.decoderBuffer(),
+            tokenDecoder.binarySliceStart(),
+            tokenDecoder.binarySliceEnd()
+          ));
         default:
           return null;
       }
