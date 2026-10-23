@@ -1,7 +1,11 @@
 package com.booking.sereal;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class TestUtils {
   public static byte[] byteArray(int... ints) {
@@ -43,6 +47,35 @@ public class TestUtils {
       sb.append(String.format("%02x", x & 0xff));
     }
     return sb.toString();
+  }
+
+  /**
+   * Make decoded structures comparable with {@code equals}: byte strings ({@code byte[]}, which
+   * has identity equality) become ISO-8859-1 Strings, recursively through maps and lists.
+   *
+   * @param value decoded value
+   * @return normalized copy
+   */
+  @SuppressWarnings("unchecked")
+  public static Object normalize(Object value) {
+    if (value instanceof byte[]) {
+      return new String((byte[]) value, StandardCharsets.ISO_8859_1);
+    } else if (value instanceof Latin1String) {
+      return value.toString();
+    } else if (value instanceof Map) {
+      Map<Object, Object> out = new HashMap<>();
+      for (Map.Entry<Object, Object> e : ((Map<Object, Object>) value).entrySet()) {
+        out.put(e.getKey(), normalize(e.getValue()));
+      }
+      return out;
+    } else if (value instanceof List) {
+      List<Object> out = new ArrayList<>();
+      for (Object o : (List<Object>) value) {
+        out.add(normalize(o));
+      }
+      return out;
+    }
+    return value;
   }
 
   public static byte[] byteArrayNested(Object... ints) {
