@@ -24,6 +24,12 @@ our %parent;
     package RemoveSiblingString;
     use overload '""' => sub { $_[0]->() }, fallback => 1;
 }
+{
+
+    package RemoveSiblingFetch;
+    sub TIESCALAR { bless [ $_[1] ], $_[0] }
+    sub FETCH     { delete $main::parent{ $_[0][0] }; return 'value' }
+}
 
 my @sorts = @ARGV ? @ARGV : ( 0 .. 3 );
 for my $version ( 2 .. 6 ) {
@@ -55,6 +61,44 @@ for my $version ( 2 .. 6 ) {
             SKIP: {
                 skip 'encode/decode failed', 2 if $error;
                 is_deeply( $decoded, $expected, "$label: captured entries survive callbacks" );
+                is_deeply( \%parent, {},        "$label: both callbacks ran" );
+            }
+        }
+    }
+}
+
+# A non-magical hash can invoke Perl through tied values or their descendants,
+# without freeze_callbacks or stringify_unknown being enabled.
+for my $version ( 1 .. 6 ) {
+    for my $sort (@sorts) {
+        for my $nested ( 0, 1 ) {
+            %parent = ( a => undef, b => undef );
+            if ($nested) {
+                for my $key (qw(a b)) {
+                    my @inner = (undef);
+                    tie $inner[0], 'RemoveSiblingFetch', $key eq 'a' ? 'b' : 'a';
+                    $parent{$key} = \@inner;
+                }
+            }
+            else {
+                tie $parent{a}, 'RemoveSiblingFetch', 'b';
+                tie $parent{b}, 'RemoveSiblingFetch', 'a';
+            }
+            my $decoded = eval {
+                Sereal::Decoder->new->decode(
+                    Sereal::Encoder->new( {
+                            protocol_version => $version, sort_keys => $sort,
+                        }
+                    )->encode( \%parent ) );
+            };
+            my $error = $@;
+            my $label = "v$version sort=$sort nested=$nested";
+            ok( !$error, "$label: tied values cannot truncate a hash" ) or diag($error);
+            SKIP: {
+                skip 'encode/decode failed', 2 if $error;
+                my $expected =
+                    $nested ? { a => ['value'], b => ['value'] } : { a => 'value', b => 'value' };
+                is_deeply( $decoded, $expected, "$label: captured entries survive FETCH" );
                 is_deeply( \%parent, {},        "$label: both callbacks ran" );
             }
         }

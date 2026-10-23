@@ -411,11 +411,12 @@ was serialized using its C<FREEZE> method will have its corresponding
 C<THAW> class method called during deserialization. The exact semantics
 are documented below under L</"FREEZE/THAW CALLBACK MECHANISM">.
 
-With callback support enabled, each hash's keys and value scalars are retained
-before its entries are encoded. A callback deleting a sibling entry therefore
-does not remove that entry from the packet being written. This is not a deep
+For ordinary arrays and hashes whose elements may invoke Perl code, the
+encoder retains the elements before encoding them. This also covers callbacks
+reached through tied values and nested references. Deleting a sibling element
+therefore does not remove it from the packet being written. This is not a deep
 snapshot: callbacks can still change the contents of retained scalars and
-referenced data structures.
+referenced data structures. Tied containers are read through their tie methods.
 
 Beware that using this functionality means a significant slowdown for
 object serialization. Even when serializing objects without a C<FREEZE>
@@ -632,6 +633,12 @@ Hash keys always use string or C<COPY> tags. A value can C<COPY> an earlier
 key string, creating a value that subsequent equal values can C<ALIAS>.
 Keys can also C<COPY> earlier value strings. Keys themselves never become
 alias targets.
+
+Scalar referents use C<COPY> for duplicate text: C<ALIAS> replaces an array or
+hash value slot and cannot appear directly after C<REFN>. Distinct scalar
+referents remain distinct; repeated references to the same scalar still share
+that scalar. A string first emitted as a scalar referent can be an alias target
+for a later array or hash value.
 
 =head3 use_standard_double
 

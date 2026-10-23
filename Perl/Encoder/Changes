@@ -7,6 +7,10 @@ Revision history for Perl extension Sereal-Encoder
 ****************************************************************
 6.000_001
     * New tags, better testing and robustness fixes.
+    * Retain array elements and hash entries before encoding values that can
+      invoke Perl, including tied values and nested references.
+    * Use COPY rather than ALIAS for duplicate strings inside scalar references,
+      preserving valid packets and scalar referent identity.
     * Make require_key fail construction without a configured key in both
       Encoder and Decoder, and reject unsigned or unverifiable decoder input.
     * Assign checksum versions 0, 1, and 2 to SipHash-2-4/64,

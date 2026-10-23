@@ -468,6 +468,11 @@ created value at the COPY offset. Rereading a COPY source must not register
 new alias targets at source offsets or replace the values already tracked
 at those offsets.
 
+ALIAS replaces a value slot in an array or hash. It cannot be used as the
+immediate referent of REFN. To create a new scalar referent with the contents
+of an earlier string, an encoder can use REFN followed by COPY; REFP instead
+creates a reference to an existing tracked value.
+
 COPY tags are forbidden from referring to another COPY tag, and are also
 forbidden from referring to anything containing a COPY tag, with the
 exception that a COPY tag used as a value may refer to an tag that uses

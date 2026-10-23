@@ -190,8 +190,8 @@ srl_protect_packet(pTHX_ srl_encoder_t *enc)
 /* some static function declarations */
 SRL_STATIC_INLINE void srl_clear_seen_hashes(pTHX_ srl_encoder_t *enc);
 static void srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src);
-SRL_STATIC_INLINE void srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src);
-static void srl_dump_vstring(pTHX_ srl_encoder_t *enc, SV *src);
+SRL_STATIC_INLINE void srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src, int allow_alias);
+static void srl_dump_vstring(pTHX_ srl_encoder_t *enc, SV *src, int allow_alias);
 SRL_STATIC_INLINE void srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8);
 SRL_STATIC_INLINE void srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc);
 SRL_STATIC_INLINE void srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcnt);
@@ -320,7 +320,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
 #define _SRL_CHECK_BOOL(enc, src, svt)
 #endif
 
-#define _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt)                        \
+#define _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt, allow_alias)                        \
     if (SvPOK(src)) {                                                       \
         STRLEN L;                                                           \
         char *PV= SvPV(src, L);                                             \
@@ -333,7 +333,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
                 }                                                           \
                 else {                                                      \
                     /* must be a string */                                  \
-                    srl_dump_svpv(aTHX_ enc, src);                          \
+                    srl_dump_svpv(aTHX_ enc, src, allow_alias);                          \
                 }                                                           \
             }                                                               \
             else                                                            \
@@ -346,7 +346,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
                  : ( L < 2 || PV[0] != '-' || PV[1] == '0' || !isDIGIT(PV[1]) ) \
                 )                                                           \
             ) {                                                             \
-                srl_dump_svpv(aTHX_ enc, src);                              \
+                srl_dump_svpv(aTHX_ enc, src, allow_alias);                              \
             }                                                               \
             else {                                                          \
                 if ( SvNOK(src) ) {                                         \
@@ -354,7 +354,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
                     /* int is the same as the buffer */                     \
                     sv_setiv(enc->scratch_sv,SvIV(src));                    \
                     if ( sv_cmp(enc->scratch_sv,src) ) {                    \
-                        srl_dump_svpv(aTHX_ enc, src);                      \
+                        srl_dump_svpv(aTHX_ enc, src, allow_alias);                      \
                     } else {                                                \
                         srl_dump_ivuv(aTHX_ enc, src);                      \
                     }                                                       \
@@ -375,7 +375,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
                   : ( PV[0] != '-' || PV[1] == '.' || (PV[1] == '0' && PV[2] != '.')) \
                 )                                                           \
             ) {                                                             \
-                srl_dump_svpv(aTHX_ enc, src);                              \
+                srl_dump_svpv(aTHX_ enc, src, allow_alias);                              \
             }                                                               \
             else {                                                          \
                 srl_dump_nv(aTHX_ enc, src);                                \
@@ -383,7 +383,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
         }                                                                   \
         else {                                                              \
             DO_POK_REGEXP(enc,src,svt)                                      \
-            srl_dump_svpv(aTHX_ enc, src);                                  \
+            srl_dump_svpv(aTHX_ enc, src, allow_alias);                                  \
         }                                                                   \
     }                                                                       \
     else                                                                    \
@@ -400,7 +400,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
     /* if its POK or POKp, then we treat it as a string */              \
     if (SvPOKp(src)) {                                                  \
         DO_POK_REGEXP(enc,src,svt)                                      \
-        srl_dump_svpv(aTHX_ enc, src);                                  \
+        srl_dump_svpv(aTHX_ enc, src, allow_alias);                                  \
     }                                                                   \
     else                                                                \
     /* if its IOKp then we treat it as an int */                        \
@@ -427,7 +427,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
             SvREFCNT((src)) == 1 &&                                                 \
             !SvROK((src))                                                           \
         ) {                                                                         \
-            _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt)                            \
+            _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt, 1)                            \
             else {                                                                  \
                 srl_dump_sv(aTHX_ (enc), (src));                                    \
             }                                                                       \
@@ -1532,6 +1532,14 @@ srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
 #define BUF_SIZE_ASSERT_HV(b, n) \
         BUF_SIZE_ASSERT((b), 2 + SRL_MAX_VARINT_LENGTH + (2 * ASSUME_BYTES_PER_TAG * (n) ) )
 
+/* A reference can lead to magical descendants even when callbacks are not
+ * enabled in the encoder. The plain-scalar path cannot call back into Perl. */
+SRL_STATIC_INLINE int
+srl_may_call_perl(SV *sv)
+{
+    return sv && (SvROK(sv) || SvTYPE(sv) >= SVt_PVMG);
+}
+
 SRL_STATIC_INLINE void
 srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
 {
@@ -1553,15 +1561,42 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
     if (!n)
         return;
     /* I can't decide if this should make me feel dirty */
-    if (SvMAGICAL(src)) {
+    if (SvMAGICAL(src) && mg_find((SV *)src, PERL_MAGIC_tied)) {
         UV i;
         for (i = 0; i < n; ++i) {
+            SV *value;
             svp = av_fetch(src, i, 0);
-            CALL_SRL_DUMP_SVP(enc, svp);
+            value = svp ? *svp : NULL;
+            if (value) {
+                SvREFCNT_inc(value);
+                SAVEFREESV(value);
+            }
+            CALL_SRL_DUMP_SV(enc, value);
         }
     } else {
+        UV i;
+        int needs_snapshot = 0;
         SV **end;
         svp= AvARRAY(src);
+        for (i = 0; i < n; i++) {
+            if (srl_may_call_perl(svp[i])) {
+                needs_snapshot = 1;
+                break;
+            }
+        }
+        if (needs_snapshot) {
+            SV **values;
+            Newx(values, n, SV *);
+            SAVEFREEPV(values);
+            Copy(svp, values, n, SV *);
+            for (i = 0; i < n; i++) {
+                if (values[i]) {
+                    SvREFCNT_inc(values[i]);
+                    SAVEFREESV(values[i]);
+                }
+            }
+            svp = values;
+        }
         end= svp + n;
         for ( ; svp < end ; svp++) {
             /* we cannot have a null *svp so we do not use CALL_SRL_DUMP_SVP() here */
@@ -1749,8 +1784,10 @@ srl_dump_hv_sv(pTHX_ srl_encoder_t *enc, HV *src, const UV n, HE_SV *array)
                 croak("Panic: cannot serialize a %s hash which changes its size!",is_tie ? "tied" : "untied");
             array[i].key.sv= hv_iterkeysv(he);
             array[i].val.sv= hv_iterval(src,he);
-            /* A later FREEZE or stringification callback may delete this
-             * entry. Retain the scalar itself to preserve aliases too. */
+            /* Magic or a callback in any descendant may delete this entry.
+             * Retain the scalars themselves to preserve aliases too. */
+            SvREFCNT_inc(array[i].key.sv);
+            SAVEFREESV(array[i].key.sv);
             SvREFCNT_inc(array[i].val.sv);
             SAVEFREESV(array[i].val.sv);
             i++;
@@ -1816,14 +1853,29 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 {
     HE *he;
     UV n;
-    if ( SvMAGICAL(src) ) {
+    int needs_snapshot = 0;
+    if ( SvMAGICAL(src) && mg_find((SV *)src, PERL_MAGIC_tied) ) {
         /* for tied hashes, we have to iterate to find the number of entries. Alas... */
         n= 0;
         (void)hv_iterinit(src); /* return value not reliable according to API docs */
         while ((he = hv_iternext(src))) { ++n; }
     }
     else {
+        HE **bucket;
+        HE **end;
         n= HvUSEDKEYS(src);
+        if (n) {
+            bucket = HvARRAY(src);
+            end = bucket + HvMAX(src) + 1;
+            while (bucket < end && !needs_snapshot) {
+                for (he = *bucket++; he; he = HeNEXT(he)) {
+                    if (HeKLEN(he) == HEf_SVKEY || srl_may_call_perl(HeVAL(he))) {
+                        needs_snapshot = 1;
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     BUF_SIZE_ASSERT_HV(&enc->buf, n);
@@ -1835,7 +1887,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
     }
 
     if ( n ) {
-        if (SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT | SRL_F_STRINGIFY_UNKNOWN)) {
+        if (needs_snapshot || SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT | SRL_F_STRINGIFY_UNKNOWN)) {
             /* Snapshot keys and retain values before callbacks can invalidate
              * live HEs, including in the unsorted and fast-sort paths. */
             srl_dump_hv_sv(aTHX_ enc, src, n, NULL);
@@ -1960,7 +2012,7 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
 }
 
 SRL_STATIC_INLINE void
-srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src)
+srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src, int allow_alias)
 {
     STRLEN len;
     const char *str= SvPV(src, len);
@@ -1988,14 +2040,17 @@ srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src)
             if (!alias_he)
                 croak("out of memory (hv_fetch_ent returned NULL)");
             alias_ofs = HeVAL(alias_he);
-            if (SvIOK(alias_ofs)) {
+            /* REFN needs a new referent, not a container-slot ALIAS. Leave
+             * its scalar in ref_seenhash and use COPY for repeated text. */
+            if (SvIOK(alias_ofs) && allow_alias) {
                 SRL_SET_TRACK_FLAG(*(enc->buf.body_pos + SvUV(alias_ofs)));
                 srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_ALIAS, SvUV(alias_ofs));
                 return;
             }
             /* This value may be emitted as COPY of a key. It still creates
              * an SV which subsequent values may alias at this offset. */
-            sv_setuv(alias_ofs, (UV)BODY_POS_OFS(&enc->buf));
+            if (!SvIOK(alias_ofs))
+                sv_setuv(alias_ofs, (UV)BODY_POS_OFS(&enc->buf));
         }
 
         dupe_offset_he= hv_fetch_ent(string_deduper_hv, src, 1, 0);
@@ -2031,7 +2086,7 @@ srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_ut
 }
 
 static void
-srl_dump_vstring(pTHX_ srl_encoder_t *enc, SV *src)
+srl_dump_vstring(pTHX_ srl_encoder_t *enc, SV *src, int allow_alias)
 {
     STRLEN len;
     const char *spelling;
@@ -2042,7 +2097,7 @@ srl_dump_vstring(pTHX_ srl_encoder_t *enc, SV *src)
     {
         MAGIC *vstring_mg = SvVSTRING_mg(src);
         if (!vstring_mg || !vstring_mg->mg_ptr || vstring_mg->mg_len < 0) {
-            srl_dump_svpv(aTHX_ enc, src);
+            srl_dump_svpv(aTHX_ enc, src, allow_alias);
             return;
         }
         spelling = vstring_mg->mg_ptr;
@@ -2050,11 +2105,11 @@ srl_dump_vstring(pTHX_ srl_encoder_t *enc, SV *src)
     }
 #endif
     if (!spelling) {
-        srl_dump_svpv(aTHX_ enc, src);
+        srl_dump_svpv(aTHX_ enc, src, allow_alias);
         return;
     }
     if (len >= I32_MAX) {
-        srl_dump_svpv(aTHX_ enc, src);
+        srl_dump_svpv(aTHX_ enc, src, allow_alias);
         return;
     }
     {
@@ -2067,7 +2122,7 @@ srl_dump_vstring(pTHX_ srl_encoder_t *enc, SV *src)
         (void)sv_grow(roundtrip, len + 1);
         parsed = scan_vstring(spelling, spelling_end, roundtrip);
         if (parsed != spelling_end) {
-            srl_dump_svpv(aTHX_ enc, src);
+            srl_dump_svpv(aTHX_ enc, src, allow_alias);
             return;
         }
         src_pv = SvPV(src, src_len);
@@ -2078,7 +2133,7 @@ srl_dump_vstring(pTHX_ srl_encoder_t *enc, SV *src)
         {
             /* The magic spelling and PV can diverge after mutation. In that
              * case preserve the actual scalar value as an ordinary string. */
-            srl_dump_svpv(aTHX_ enc, src);
+            srl_dump_svpv(aTHX_ enc, src, allow_alias);
             return;
         }
     }
@@ -2231,9 +2286,9 @@ redo_dump:
 
     /* --------------------------------- */
     if (enc->protocol_version >= 6 && SvVOK(src)) {
-        srl_dump_vstring(aTHX_ enc, src);
+        srl_dump_vstring(aTHX_ enc, src, !ref_rewrite_pos);
     }
-    else _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt)
+    else _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt, !ref_rewrite_pos)
     else
 #if defined(MODERN_REGEXP) && defined(REGEXP_NO_LONGER_POK)
     /* Only need to enter here if we have rather modern regexps AND they're

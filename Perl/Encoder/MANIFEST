@@ -64,6 +64,7 @@ t/030_canonical_vs_test_deep.t
 t/040_tied_hash.t
 t/041_sorted_hash_keys.t
 t/042_magic_strings.t
+t/043_alias_scalar_refs.t
 t/095_checksum_policy.t
 t/096_build_tools.t
 t/097_checksum_versions.t
@@ -72,6 +73,7 @@ t/120_hdr_data.t
 t/130_freezethaw.t
 t/131_freeze_allow.t
 t/132_callback_hash_mutation.t
+t/133_callback_array_mutation.t
 t/160_recursion.t
 t/170_cyclic_weakrefs.t
 t/171_weakref_rewrites.t
