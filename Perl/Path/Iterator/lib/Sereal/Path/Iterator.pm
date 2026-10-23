@@ -97,6 +97,19 @@ Sereal document as first argument and uses C<set> to set it.
 
   my $spi = Sereal::Path::Iterator->new(encode_sereal({}));
 
+An options hash reference may follow the document. The options
+C<checksum_policy>, C<checksum_v0_key>, C<checksum_v1_key> and
+C<checksum_v2_key> control how checksummed (protocol version 6) documents
+are authenticated. They take the same values and have the same defaults as
+the L<Sereal::Decoder> options of the same names, including
+C<$Sereal::DefaultKey> and the C<SEREAL_CHECKSUM_POLICY> environment
+variable. They apply to every document given to C<set>.
+
+  my $spi = Sereal::Path::Iterator->new($document, { checksum_v2_key => $key });
+
+Documents of any protocol version up to the current one are supported,
+compressed with Snappy, Zlib or Zstd or not.
+
 =head2 set
 
 As alternative to passing serialized document to C<new> you can call this
