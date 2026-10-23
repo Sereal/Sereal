@@ -46,6 +46,10 @@ public class Encoder {
   private final int maxNumArrayEntries;
   private final int maxStringLength;
 
+  // the single checksum key (protocol version 6) and the checksum type it selects
+  private final byte[] checksumKey;
+  private final int checksumType;
+
   private final byte[] HEADER =
       new byte[] {
         (byte) (SerealHeader.MAGIC >> 24),
@@ -101,7 +105,14 @@ public class Encoder {
     maxNumArrayEntries = options.maxNumArrayEntries();
     maxStringLength = options.maxStringLength();
 
+    byte[][] keys = options.checksumKeys();
+    checksumType = checkChecksumOptions(keys, options.checksumPolicy(), protocolVersion);
+    checksumKey = checksumType < 0 ? null : keys[checksumType].clone();
+
     switch (protocolVersion) {
+      case 6:
+      case 5:
+        // same body encodings as protocol version 4
       case 4:
         encoding =
             compressionType.equals(CompressionType.ZSTD)
@@ -133,6 +144,30 @@ public class Encoder {
       aliases = new IdentityMap();
       maybeAliases = new IdentityMap();
     }
+  }
+
+  /**
+   * Validate the encoder's checksum options.
+   *
+   * @return the checksum type selected by the configured key, -1 when there is none
+   */
+  static int checkChecksumOptions(byte[][] keys, SerealChecksum.Policy policy, int protocolVersion) {
+    int type = -1;
+    for (int i = 0; i < keys.length; i++) {
+      if (keys[i] != null) {
+        if (type >= 0) {
+          throw new IllegalArgumentException("Specify only one of checksumV0Key, checksumV1Key or checksumV2Key");
+        }
+        type = i;
+      }
+    }
+    if (type >= 0 && protocolVersion < 6) {
+      throw new IllegalArgumentException("Checksum keys require Sereal protocol version 6 or later");
+    }
+    if (type < 0 && policy == SerealChecksum.Policy.REQUIRE_KEY) {
+      throw new IllegalArgumentException("checksum policy REQUIRE_KEY requires at least one checksum key");
+    }
+    return type;
   }
 
   private static void prepareHeader(
@@ -234,6 +269,19 @@ public class Encoder {
   private void markNotCompressed() {
     compressedSize = 0;
     bytes[4] &= (byte) 0xf;
+  }
+
+  // wrap the (possibly compressed) document in a checksum envelope; the result is served
+  // through compressedBytes/compressedSize like a compressed document
+  private void protect() {
+    byte[] signed;
+    if (compressedSize != 0) {
+      signed = SerealChecksum.protect(compressedBytes, (int) compressedSize, headerSize, checksumType, checksumKey);
+    } else {
+      signed = SerealChecksum.protect(bytes, (int) size, headerSize, checksumType, checksumKey);
+    }
+    compressedBytes = signed;
+    compressedSize = signed.length;
   }
 
   private void compressSnappy() throws SerealException {
@@ -516,6 +564,10 @@ public class Encoder {
       markNotCompressed();
     }
 
+    if (checksumKey != null) {
+      protect();
+    }
+
     return this;
   }
 
@@ -553,6 +605,10 @@ public class Encoder {
       appendStringType((String) obj);
     } else if (type == Latin1String.class) {
       appendStringType((Latin1String) obj);
+    } else if (type == PerlVString.class) {
+      appendVString((PerlVString) obj);
+    } else if (type == Float128.class) {
+      appendFloat128((Float128) obj);
     } else if (type == byte[].class) {
       appendStringType((byte[]) obj);
     } else if (type.isArray()) {
@@ -858,10 +914,33 @@ public class Encoder {
     trackForCopy(str, location);
   }
 
+  private void appendVString(PerlVString vstring) throws SerealException {
+    if (protocolVersion < 6) {
+      throw new SerealException("v-strings require Sereal protocol version 6");
+    }
+    byte[] spelling = vstring.spellingBytes();
+    appendByte(SerealHeader.SRL_HDR_EXTEND);
+    appendByte(vstring.isUtf8() ? SerealHeader.SRL_EXT_VSTRING_UTF8 : SerealHeader.SRL_EXT_VSTRING_BINARY);
+    appendVarint(spelling.length);
+    appendBytes(spelling);
+  }
+
+  private void appendFloat128(Float128 value) throws SerealException {
+    if (protocolVersion < 5) {
+      throw new SerealException("FLOAT_128 requires Sereal protocol version 5");
+    }
+    appendByte(SerealHeader.SRL_HDR_FLOAT_128);
+    appendBytes(value.bytes());
+  }
+
   private void appendNumber(long l) {
     if (l < 0) {
       if (l > -17) {
         appendByte((byte) (SerealHeader.SRL_HDR_NEG_LOW | (l + 32)));
+      } else if (protocolVersion >= 6) {
+        // magnitude as an unsigned varint: -Long.MIN_VALUE wraps to 2^63, which is what we want
+        appendByte(SerealHeader.SRL_HDR_NEG_VARINT);
+        appendVarint(-l);
       } else {
         appendZigZag(l);
       }
