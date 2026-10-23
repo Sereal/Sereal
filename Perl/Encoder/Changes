@@ -8,6 +8,9 @@ Revision history for Perl extension Sereal-Encoder
 6.000_001
     * Restore COPY deduplication of hash keys given as UTF-8 strings that fit
       in Latin-1 (WASUTF8 keys), lost when shared keys started being retained.
+    * Avoid container snapshots and shared-key keepers for input graphs that
+      cannot invoke Perl callbacks. Scan both body and header without invoking
+      magic, and retain all container elements when callbacks are possible.
     * Release partially constructed encoder state when option validation,
       checksum key conversion, or a fatal warning interrupts construction.
     * Use a static custom-op descriptor instead of a heap allocation left behind

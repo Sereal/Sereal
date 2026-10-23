@@ -511,7 +511,7 @@ srl_clear_encoder(pTHX_ srl_encoder_t *enc)
 
     SRL_SET_BODY_POS(&enc->buf, enc->buf.start);
 
-    SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);
+    SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY | SRL_OF_ENCODER_NEEDS_RETENTION);
 }
 
 void
@@ -1398,6 +1398,110 @@ srl_prepare_encoder(pTHX_ srl_encoder_t *enc)
     return enc;
 }
 
+/* Inspect the entire input without fetching magic, iterating tied containers,
+ * stringifying values, or calling methods. If anything might run Perl, select
+ * retaining traversal for every container, before walking any of its children.
+ * Use an explicit stack and a visited table: neither deep graphs nor cycles
+ * can make the scan overflow the C stack or miss a magical descendant. */
+SRL_STATIC_INLINE int
+srl_needs_retention(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
+{
+    SV *pending_sv;
+    SV **pending;
+    STRLEN used = 0;
+    STRLEN capacity = 64;
+    PTABLE_t *seen = NULL;
+    int needed = 0;
+
+    if (!user_header_src && !SvROK(src) && SvTYPE(src) < SVt_PVMG && !SvMAGICAL(src))
+        return 0;
+
+    ENTER;
+    SAVETMPS;
+    pending_sv = sv_2mortal(newSV(capacity * sizeof(SV *)));
+    pending = (SV **)SvPVX(pending_sv);
+
+#define SRL_SCAN_PUSH(value) STMT_START {                                      \
+    if (used == capacity) {                                                   \
+        if (capacity > ((STRLEN)~(STRLEN)0) / (2 * sizeof(SV *)))              \
+            croak("Input graph is too large to inspect");                    \
+        capacity *= 2;                                                       \
+        SvGROW(pending_sv, capacity * sizeof(SV *));                           \
+        pending = (SV **)SvPVX(pending_sv);                                   \
+    }                                                                        \
+    pending[used++] = (value);                                               \
+} STMT_END
+
+    SRL_SCAN_PUSH(src);
+    if (user_header_src)
+        SRL_SCAN_PUSH(user_header_src);
+    while (used) {
+        SV *value = pending[--used];
+        while (value) {
+            svtype type = SvTYPE(value);
+            if (SvMAGICAL(value) || SvOBJECT(value)) {
+                needed = 1;
+                goto finished;
+            }
+            if (SvROK(value)) {
+                SV *referent = SvRV(value);
+                /* Unique strong edges cannot close a reachable cycle. Track
+                 * shared RV scalars as well as shared referents (aliases can
+                 * share the RV without raising its referent's count), and
+                 * always track weak edges, which do not raise either count. */
+                if (SvREFCNT(value) > 1 || SvREFCNT(referent) > 1 || SvWEAKREF(value)) {
+                    if (!seen)
+                        seen = SRL_GET_REF_SEENHASH(enc);
+                    if (PTABLE_fetch(seen, referent))
+                        break;
+                    PTABLE_store(seen, referent, INT2PTR(void *, 1));
+                }
+                value = referent;
+                continue;
+            }
+            if (type == SVt_PVAV) {
+                AV *array = (AV *)value;
+                SSize_t i;
+                SV **values = AvARRAY(array);
+                for (i = AvFILLp(array); i >= 0; --i)
+                    SRL_SCAN_PUSH(values[i]);
+            }
+            else if (type == SVt_PVHV) {
+                HV *hash = (HV *)value;
+                HE **buckets = HvARRAY(hash);
+                if (buckets) {
+                    UV i;
+                    for (i = 0; i <= HvMAX(hash); ++i) {
+                        HE *entry;
+                        for (entry = buckets[i]; entry; entry = HeNEXT(entry)) {
+                            if (HeKLEN(entry) == HEf_SVKEY) {
+                                needed = 1;
+                                goto finished;
+                            }
+                            if (HeVAL(entry) != &PL_sv_placeholder)
+                                SRL_SCAN_PUSH(HeVAL(entry));
+                        }
+                    }
+                }
+            }
+            else if (type >= SVt_PVMG) {
+                /* Lvalues, regexps and unsupported types take the conservative
+                 * path, including types that can warn or stringify. */
+                needed = 1;
+                goto finished;
+            }
+            break;
+        }
+    }
+finished:
+    if (seen)
+        PTABLE_clear(seen);
+    FREETMPS;
+    LEAVE;
+#undef SRL_SCAN_PUSH
+    return needed;
+}
+
 SRL_STATIC_INLINE srl_encoder_t *
 srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
 {
@@ -1406,6 +1510,8 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
     enc = srl_prepare_encoder(aTHX_ enc);
     if (enc->checksum_policy == SRL_CHECKSUM_POLICY_REQUIRE && !enc->checksum_key_mask)
         croak("checksum_policy 'require_key' needs a 'checksum_v0_key', 'checksum_v1_key', or 'checksum_v2_key' to encode");
+    if (srl_needs_retention(aTHX_ enc, src, user_header_src))
+        SRL_ENC_SET_OPER_FLAG(enc, SRL_OF_ENCODER_NEEDS_RETENTION);
     compress_flags= SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_FLAGS_MASK);
 
     if (expect_false(compress_flags))
@@ -1569,14 +1675,6 @@ srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
 #define BUF_SIZE_ASSERT_HV(b, n) \
         BUF_SIZE_ASSERT((b), 2 + SRL_MAX_VARINT_LENGTH + (2 * ASSUME_BYTES_PER_TAG * (n) ) )
 
-/* A reference can lead to magical descendants even when callbacks are not
- * enabled in the encoder. The plain-scalar path cannot call back into Perl. */
-SRL_STATIC_INLINE int
-srl_may_call_perl(SV *sv)
-{
-    return sv && (SvROK(sv) || SvTYPE(sv) >= SVt_PVMG);
-}
-
 SRL_STATIC_INLINE void
 srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
 {
@@ -1621,16 +1719,9 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
         }
     } else {
         UV i;
-        int needs_snapshot = 0;
         SV **end;
         svp= AvARRAY(src);
-        for (i = 0; i < n; i++) {
-            if (srl_may_call_perl(svp[i])) {
-                needs_snapshot = 1;
-                break;
-            }
-        }
-        if (needs_snapshot) {
+        if (SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_NEEDS_RETENTION)) {
             SV **values;
             Newx(values, n, SV *);
             SAVEFREEPV(values);
@@ -1899,7 +1990,6 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 {
     HE *he;
     UV n;
-    int needs_snapshot = 0;
     if ( SvMAGICAL(src) && mg_find((SV *)src, PERL_MAGIC_tied) ) {
         /* for tied hashes, we have to iterate to find the number of entries. Alas... */
         n= 0;
@@ -1907,21 +1997,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
         while ((he = hv_iternext(src))) { ++n; }
     }
     else {
-        HE **bucket;
-        HE **end;
         n= HvUSEDKEYS(src);
-        if (n) {
-            bucket = HvARRAY(src);
-            end = bucket + HvMAX(src) + 1;
-            while (bucket < end && !needs_snapshot) {
-                for (he = *bucket++; he; he = HeNEXT(he)) {
-                    if (HeKLEN(he) == HEf_SVKEY || srl_may_call_perl(HeVAL(he))) {
-                        needs_snapshot = 1;
-                        break;
-                    }
-                }
-            }
-        }
     }
 
     BUF_SIZE_ASSERT_HV(&enc->buf, n);
@@ -1933,7 +2009,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
     }
 
     if ( n ) {
-        if (needs_snapshot || SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT | SRL_F_STRINGIFY_UNKNOWN)) {
+        if (SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_NEEDS_RETENTION)) {
             /* Snapshot keys and retain values before callbacks can invalidate
              * live HEs, including in the unsorted and fast-sort paths. */
             srl_dump_hv_sv(aTHX_ enc, src, n, NULL);
@@ -1997,6 +2073,12 @@ srl_dump_shared_hk(pTHX_ srl_encoder_t *enc, const char *str, SV *key_sv, HE *ke
     if (oldoffset != 0) {
         srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_COPY, (UV)oldoffset);
         return 1;
+    }
+    if (!SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_NEEDS_RETENTION)) {
+        /* The complete scan ruled out callbacks, so these keys cannot be
+         * deleted while their addresses identify COPY targets. */
+        PTABLE_store(string_seenhash, (void *)str, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
+        return 0;
     }
     /* A later callback may delete this key. Keep its shared storage alive
      * so a different key cannot reuse the pointer cached above. Only cache

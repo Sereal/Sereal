@@ -1,4 +1,5 @@
 author_tools/bench.pl
+author_tools/bench_retention.pl
 author_tools/decode.pl
 author_tools/different_sereal_docs.sh
 author_tools/freeze_thaw_timing.pl
@@ -79,6 +80,7 @@ t/132_callback_hash_mutation.t
 t/133_callback_array_mutation.t
 t/134_callback_frozen_object_lifetime.t
 t/135_constructor_cleanup.t
+t/136_retention_scan.t
 t/160_recursion.t
 t/170_cyclic_weakrefs.t
 t/171_weakref_rewrites.t
