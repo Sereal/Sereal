@@ -7,6 +7,5 @@ For more information on Sereal, please see
 http://blog.booking.com/sereal-a-binary-data-serialization-format.html
 and
 http://github.com/Sereal/Sereal
-
 */
 package sereal
