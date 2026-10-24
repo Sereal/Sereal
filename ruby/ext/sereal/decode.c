@@ -1,4 +1,11 @@
 #include "sereal.h"
+/* the decoder state is freed by the rb_ensure handler in method_sereal_decode,
+   so raising must leave it alone */
+#undef s_raise
+#define s_raise(what,ex,arg...)         \
+do {                                    \
+    rb_exc_raise(rb_exc_new_str(ex,rb_sprintf(arg))); \
+} while(0);
 #include "buffer.h"
 #include "decode.h"
 #include "snappy/csnappy_decompress.c"
@@ -296,14 +303,20 @@ VALUE sereal_to_rb_object(sereal_t *s) {
     return Qnil;
 }
 
-VALUE method_sereal_decode(VALUE self, VALUE args) {
+struct s_decode_args {
+    sereal_t *s;
+    VALUE args;
+};
+
+static VALUE s_decode(VALUE v_args) {
+    sereal_t *s = ((struct s_decode_args *) v_args)->s;
+    VALUE args = ((struct s_decode_args *) v_args)->args;
     u32 argc = RARRAY_LEN(args);
     if (argc < 1)
         rb_raise(rb_eArgError,"need at least 1 argument (object)");
     VALUE payload = rb_ary_entry(args,0);
 
     u8 have_block = rb_block_given_p();
-    sereal_t *s = s_create();
     if (argc == 2) {
         VALUE flags = rb_ary_entry(args,1);
         if (flags != Qnil && flags != Qfalse) {
@@ -335,16 +348,12 @@ again:
     if (s->flags & __STREAM) {
         s->size = 0;
         s->rsize = 0;
-        if (s_read_stream(s,__MIN_SIZE) < 0) {
-            s_destroy(s);
+        if (s_read_stream(s,__MIN_SIZE) < 0)
             return Qnil;
-        }
     } else {
         u32 size = RSTRING_LEN(payload) - offset;
-        if ((RSTRING_LEN(payload) > 0 && offset > (u32) RSTRING_LEN(payload)) || (offset > 0 && size < __MIN_SIZE)) {
-            s_destroy(s);
+        if ((RSTRING_LEN(payload) > 0 && offset > (u32) RSTRING_LEN(payload)) || (offset > 0 && size < __MIN_SIZE))
             return Qnil;
-        }
         if (size < __MIN_SIZE)
             s_raise(s,rb_eTypeError,"size(%d) is less then min packet size %d, offset: %" PRIu64,size,__MIN_SIZE,offset);
 
@@ -431,8 +440,16 @@ again:
         if (s->pos < s->size) {
             s_raise(s,rb_eTypeError,"there is still some data left in the buffer, use block read, otherwise we are losing it");
         }
-        s_destroy(s);
         return result;
     }
 }
 
+static VALUE s_decode_ensure(VALUE v_args) {
+    s_destroy(((struct s_decode_args *) v_args)->s);
+    return Qnil;
+}
+
+VALUE method_sereal_decode(VALUE self, VALUE args) {
+    struct s_decode_args a = { s_create(), args };
+    return rb_ensure(s_decode,(VALUE) &a,s_decode_ensure,(VALUE) &a);
+}
