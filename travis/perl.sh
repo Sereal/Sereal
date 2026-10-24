@@ -21,6 +21,8 @@ perl Makefile.PL
 make
 popd
 
+export PERL5LIB="$PWD/Perl/Decoder/blib/lib:$PWD/Perl/Decoder/blib/arch:$PWD/Perl/Encoder/blib/lib:$PWD/Perl/Encoder/blib/arch${PERL5LIB:+:$PERL5LIB}"
+
 pushd Perl/Decoder
 make test
 popd
