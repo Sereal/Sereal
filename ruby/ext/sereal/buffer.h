@@ -99,7 +99,7 @@ static inline int s_read_stream(sereal_t *s, u32 end) {
         u32 req = end - s->size;
         u32 left = s->buffer.size - s->buffer.pos;
         if (left == 0) {
-            size_t rc = read(s->fd,s->buffer.data,BUFSIZ);
+            ssize_t rc = read(s->fd,s->buffer.data,BUFSIZ);
             if (rc <= 0)
                 return -1;
             s->buffer.size = (u32) rc;
