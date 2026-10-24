@@ -383,17 +383,34 @@ var Sereal;
             this.perlRefs = false;
             this.preservePadding = false;
             this.debug = false;
+            this.maxDepth = 1000; // stays well below the stack depth of common engines
+            this.depth = 0;
+            this.inCopy = false;
             this.tagReaders = new Array(128);
             this.mapTagReaders();
         }
         Decoder.prototype.init = function (data) {
             this.tracked = {};
+            // a previous document that threw may have left these set
+            this.depth = 0;
+            this.inCopy = false;
             if (data instanceof Sereal.DataReader)
                 this.reader = data;
             else
                 this.reader = new Sereal.DataReader(data);
         };
         Decoder.prototype.decodeDocument = function (data) {
+            try {
+                return this._decodeDocument(data);
+            }
+            catch (e) {
+                // report malformed input from DataView, RegExp etc. as our own exception
+                if (e instanceof Sereal.SerealException)
+                    throw e;
+                throw new Sereal.SerealException(e && e.name ? e.name + ": " + e.message : String(e));
+            }
+        };
+        Decoder.prototype._decodeDocument = function (data) {
             if (data != null) {
                 this.init(data);
             }
@@ -402,18 +419,23 @@ var Sereal;
             doc.header = new Sereal.SerealDocumentHeader();
             doc.header.magic = this.reader.readInt32();
             if (doc.header.magic != Sereal.Consts.MAGIC)
-                throw new Error();
+                throw new Sereal.SerealException("bad magic");
             var versionAndType = this.reader.readByte();
             doc.header.version = versionAndType & 15;
             doc.header.type = (versionAndType & ~15) >> 4;
-            doc.header.header_suffix_size = this.reader.readVarInt();
+            if (doc.header.version >= 2)
+                doc.header.header_suffix_size = this.reader.readVarInt();
             if (doc.header.header_suffix_size > 0) {
+                if (doc.header.header_suffix_size > this.reader.remaining())
+                    throw new Sereal.SerealException("header suffix extends past the end of the document");
+                var suffixEnd = this.reader.pos + doc.header.header_suffix_size;
                 doc.header.eight_bit_field = { value: this.reader.readByte() };
                 doc.header.eight_bit_field.has_user_metadata = doc.header.eight_bit_field.value.to8BitString().last() == "1";
                 if (doc.header.eight_bit_field.has_user_metadata) {
                     var md = this.reader.readBytes(doc.header.header_suffix_size - 1);
                     doc.user_metadata = this.decodeDocumentBody(md);
                 }
+                this.reader.pos = suffixEnd;
             }
             if (doc.header.type == 3) {
                 doc.header.body_uncompressed_length = this.reader.readVarInt();
@@ -451,7 +473,10 @@ var Sereal;
             var func = this.tagReaders[tag];
             if (func == null)
                 throw new Sereal.SerealException("Tag not supported: " + tag);
+            if (++this.depth > this.maxDepth)
+                throw new Sereal.SerealException("nesting deeper than " + this.maxDepth);
             var out = func.call(this, tag, trackPos);
+            this.depth--;
             if (trackPos != null)
                 this.track(trackPos, out);
             if (this.debug)
@@ -548,7 +573,8 @@ var Sereal;
                 var keyObject = this.read();
                 var key = keyObject;
                 var val = this.read();
-                hash[key] = val;
+                // defineProperty keeps a "__proto__" key an own property instead of setting the prototype
+                Object.defineProperty(hash, key, { value: val, enumerable: true, writable: true, configurable: true });
             }
             return hash;
         };
@@ -680,13 +706,20 @@ var Sereal;
         * @throws SerealException
         */
         Decoder.prototype.read_copy = function () {
+            if (this.inCopy)
+                throw new Sereal.SerealException("COPY tag inside COPY");
+            var tagPos = this.reader.pos - 1;
             var copyPos = this.read_varint();
+            if (copyPos < 1 || copyPos > tagPos)
+                throw new Sereal.SerealException("COPY offset " + copyPos + " is not before the COPY tag");
             copyPos--; //indexes are 1 based in sereal, 0 based in the reader.
             var currentPos = this.reader.pos;
             if (this.debug)
                 console.log("copy_tag - jumping from " + currentPos + " to " + copyPos);
             this.reader.pos = copyPos;
+            this.inCopy = true;
             var copy = this.read();
+            this.inCopy = false;
             this.reader.pos = currentPos; // go back to where we were
             if (this.debug)
                 console.log("copy_tag - after reading from " + copyPos + " jumping back from " + this.reader.pos + " to " + currentPos);

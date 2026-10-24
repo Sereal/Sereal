@@ -261,10 +261,14 @@ declare module Sereal {
         private preservePadding;
         private doc;
         private debug;
+        private maxDepth;
+        private depth;
+        private inCopy;
         private tagReaders;
         constructor();
         init(data: any): void;
         decodeDocument(data?: any): SerealDocument;
+        private _decodeDocument(data?);
         decodeDocumentBody(data: Uint8Array): any;
         read(): any;
         deflate(): Uint8Array;
