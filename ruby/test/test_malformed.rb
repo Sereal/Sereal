@@ -38,4 +38,9 @@ class TestSerealMalformed < Test::Unit::TestCase
     assert_equal(300000, result.size)
     assert_equal(1, result.last)
   end
+
+  def test_snappy_short_output
+    # SNAPPY body declares 4096 uncompressed bytes but its stream produces fewer
+    assert_raise(TypeError) { Sereal.decode(srl('3df3726c1300 80200826fd1f')) }
+  end
 end

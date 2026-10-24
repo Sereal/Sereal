@@ -397,10 +397,13 @@ again:
             s_raise(s,rb_eTypeError,"invalid snappy header");
 
         u8 *uncompressed = s_alloc_or_raise(s,uncompressed_len);
-        int done = csnappy_decompress(s_get_p_req_inclusive(s,compressed_len),
-                                      compressed_len,
-                                      (char *) uncompressed,
-                                      uncompressed_len) == CSNAPPY_E_OK ? 1 : 0;
+        // the stream may end before filling the declared length, so check what was produced
+        u32 produced_len = uncompressed_len;
+        int done = csnappy_decompress_noheader((char *) s_get_p_req_inclusive(s,compressed_len) + snappy_header_len,
+                                               compressed_len - snappy_header_len,
+                                               (char *) uncompressed,
+                                               &produced_len) == CSNAPPY_E_OK &&
+                   produced_len == uncompressed_len ? 1 : 0;
         if (!done)
             s_raise(s,rb_eTypeError, "decompression failed error: %d type: %d, unompressed size: %u compressed size: %" PRIu64,
                                       done,is_compressed,uncompressed_len,compressed_len);
