@@ -16,6 +16,8 @@ Revision history for Perl extension Sereal-Merger
     string and copied bytes from past the end of the input
   * check the regexp modifiers tag without its track bit and bounds-check
     it, and check for the end of input after OBJECT
+  * fix a heap overflow writing EXTEND items once wider COPY offsets in
+    the output had used up the space reserved for the input
   * bump Sereal prereq version to 6.000_001
 
 4.004 Nov 13 2017

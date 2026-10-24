@@ -873,6 +873,7 @@ read_again:
                         length = srl_read_extend_header(aTHX_ mrg->pibuf, mrg->input_protocol_version, &ext_tag);
                         if (ext_tag == SRL_EXT_UNDEF_DEADLY)
                             SRL_RDR_ERROR(mrg->pibuf, "Cannot emit UNDEF_DEADLY extended tag");
+                        GROW_BUF(&mrg->obuf, 2 + SRL_MAX_VARINT_LENGTH);
                         if (mrg->protocol_version >= 6) {
                             srl_buf_cat_char_nocheck(&mrg->obuf, SRL_HDR_EXTEND);
                             srl_buf_cat_char_nocheck(&mrg->obuf, ext_tag);
@@ -1177,6 +1178,7 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
             }
         } else if (strtable_entry) {
             /* issue OBJECT tag and update strtable entry */
+            GROW_BUF(&mrg->obuf, 1);
             srl_buf_cat_char_nocheck(&mrg->obuf, objtag);
 
             mrg->ibuf.pos = strtag_ptr; /* reset input buffer to start */
@@ -1188,6 +1190,7 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
                                       mrg->ibuf.pos - total_length, total_length);
         } else {
             /* issue OBJECT tag */
+            GROW_BUF(&mrg->obuf, 1);
             srl_buf_cat_char_nocheck(&mrg->obuf, objtag);
 
             mrg->ibuf.pos = strtag_ptr;

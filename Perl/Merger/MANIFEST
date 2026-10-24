@@ -59,6 +59,7 @@ t/030_compress.t
 t/040_dedupe_strings.t
 t/050_v1_input.t
 t/060_malformed.t
+t/070_buffer_growth.t
 t/lib/Sereal/BulkTest.pm
 t/lib/Sereal/TestSet.pm
 TODO
