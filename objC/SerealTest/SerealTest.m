@@ -65,6 +65,17 @@ static char encoded_test[] = {
     ASSERT_REJECTS("=srl\x02\x00\x3f\x24\x01\x02", @"a truncated LONG_DOUBLE");
 }
 
+- (void)testTruncatedHeader
+{
+    ASSERT_REJECTS("=sr", @"a packet shorter than the magic");
+    ASSERT_REJECTS("=SRL\x02\x00\x01", @"a bad magic");
+    // header suffix varint missing or cut short
+    ASSERT_REJECTS("=srl\x02", @"a packet without a header suffix length");
+    ASSERT_REJECTS("=srl\x02\x80", @"a truncated header suffix length");
+    // snappy packet without the compressed length varint
+    ASSERT_REJECTS("=srl\x22\x00", @"a snappy packet without a length");
+}
+
 - (void)setUp
 {
     [super setUp];

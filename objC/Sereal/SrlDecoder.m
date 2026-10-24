@@ -394,6 +394,14 @@ static void create_decoders_lookup()
     }
 }
 
+static NSError *decode_error(NSString *errorMessage)
+{
+    return [NSError errorWithDomain:@"SrlDecoder"
+                               code:-1
+                           userInfo:[NSDictionary dictionaryWithObject:errorMessage
+                                                                forKey:NSLocalizedDescriptionKey]];
+}
+
 @implementation SrlDecoder
 
 @synthesize error;
@@ -416,13 +424,16 @@ static void create_decoders_lookup()
     ssize_t index = 0;
     char *bytes = (char *)[someData bytes];
     
+    error = nil;
     if (someData.length < 5) {
         NSLog(@"Buffer too short");
+        error = decode_error(@"Buffer too short");
         return nil;
     }
     uint32 magic = *((uint32 *)bytes);
     if (magic != SRL_MAGIC_STRING_UINT_LE) {
         NSLog(@"Bad SRL Magic, skipping packet");
+        error = decode_error(@"Bad SRL Magic");
         return nil;
     }
     
@@ -434,6 +445,7 @@ static void create_decoders_lookup()
     char type = (vtype&0xf0) >> 4;
     if (type != 0 && type != 2) {
         NSLog(@"Compression type %d not supported, only 0 and 2 are supported in this implementation", type);
+        error = decode_error([NSString stringWithFormat:@"Compression type %d not supported", type]);
         return nil;
     }
     
@@ -447,55 +459,53 @@ static void create_decoders_lookup()
         .td  = CFBridgingRetain([[NSMutableDictionary alloc] init])
     };
     
-    // header suffix
-    long long suffixSize = read_varint(&dec);
-    
-    // skip the optional suffix for now;
-    index += suffixSize;
-    if (type == 2) {
-        ssize_t blen = read_varint(&dec);
-        if (blen) {
-            uint32_t ulen = 0;
-            index++;
-            int ret = csnappy_get_uncompressed_length(bytes+index, blen, &ulen);
-            if (ret == CSNAPPY_E_HEADER_BAD) {
-                NSLog(@"Malformed csnappy header");
-                return nil;
-            }
-            char *uncompressed = malloc(ulen);
-            
-            ret = csnappy_decompress(bytes+index, blen, uncompressed, ulen);
-            
-            if (ret != CSNAPPY_E_OK) {
-                NSLog(@"csnappy_decompress returned an error: %d", ret);
-                return nil;
-            }
-            
-            dec.hdr = uncompressed;
-            dec.len = ulen;
-            index = -1;
-        } else {
-            NSLog(@"Can't read the length for the compressed buffer");
-            return nil;
-        }
-    }
-    
-    if (version > 1)
-        dec.bdy = index;
-    // from here bytes points to the uncompressed body
     id object = nil;
     @try {
+        // header suffix
+        long long suffixSize = read_varint(&dec);
+        
+        // skip the optional suffix for now;
+        index += suffixSize;
+        if (type == 2) {
+            ssize_t blen = read_varint(&dec);
+            if (blen) {
+                uint32_t ulen = 0;
+                index++;
+                int ret = csnappy_get_uncompressed_length(bytes+index, blen, &ulen);
+                if (ret == CSNAPPY_E_HEADER_BAD) {
+                    NSLog(@"Malformed csnappy header");
+                    return nil;
+                }
+                char *uncompressed = malloc(ulen);
+                
+                ret = csnappy_decompress(bytes+index, blen, uncompressed, ulen);
+                
+                if (ret != CSNAPPY_E_OK) {
+                    NSLog(@"csnappy_decompress returned an error: %d", ret);
+                    return nil;
+                }
+                
+                dec.hdr = uncompressed;
+                dec.len = ulen;
+                index = -1;
+            } else {
+                NSLog(@"Can't read the length for the compressed buffer");
+                return nil;
+            }
+        }
+        
+        if (version > 1)
+            dec.bdy = index;
+
+        // from here bytes points to the uncompressed body
         object = srl_decode(&dec);
-        error = nil;
     }
     @catch (NSException *exception) {
-        NSString *errorMessage = [NSString stringWithFormat:@"Can't decode: %@", exception];
-        error = [NSError errorWithDomain:@"SrlDecoder"
-                                    code:-1
-                                userInfo:[NSDictionary dictionaryWithObject:errorMessage
-                                                                     forKey:NSLocalizedDescriptionKey]];
+        error = decode_error([NSString stringWithFormat:@"Can't decode: %@", exception]);
     }
-    CFBridgingRelease(dec.td);
+    @finally {
+        CFBridgingRelease(dec.td);
+    }
     return object;
 }
 
