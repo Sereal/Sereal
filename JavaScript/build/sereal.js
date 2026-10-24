@@ -383,6 +383,9 @@ var Sereal;
             this.perlRefs = false;
             this.preservePadding = false;
             this.debug = false;
+            this.maxDepth = 1000; // stays well below the stack depth of common engines
+            this.depth = 0;
+            this.inCopy = false;
             this.tagReaders = new Array(128);
             this.mapTagReaders();
         }
@@ -451,7 +454,10 @@ var Sereal;
             var func = this.tagReaders[tag];
             if (func == null)
                 throw new Sereal.SerealException("Tag not supported: " + tag);
+            if (++this.depth > this.maxDepth)
+                throw new Sereal.SerealException("nesting deeper than " + this.maxDepth);
             var out = func.call(this, tag, trackPos);
+            this.depth--;
             if (trackPos != null)
                 this.track(trackPos, out);
             if (this.debug)
@@ -680,13 +686,20 @@ var Sereal;
         * @throws SerealException
         */
         Decoder.prototype.read_copy = function () {
+            if (this.inCopy)
+                throw new Sereal.SerealException("COPY tag inside COPY");
+            var tagPos = this.reader.pos - 1;
             var copyPos = this.read_varint();
+            if (copyPos < 1 || copyPos > tagPos)
+                throw new Sereal.SerealException("COPY offset " + copyPos + " is not before the COPY tag");
             copyPos--; //indexes are 1 based in sereal, 0 based in the reader.
             var currentPos = this.reader.pos;
             if (this.debug)
                 console.log("copy_tag - jumping from " + currentPos + " to " + copyPos);
             this.reader.pos = copyPos;
+            this.inCopy = true;
             var copy = this.read();
+            this.inCopy = false;
             this.reader.pos = currentPos; // go back to where we were
             if (this.debug)
                 console.log("copy_tag - after reading from " + copyPos + " jumping back from " + this.reader.pos + " to " + currentPos);

@@ -261,6 +261,9 @@ declare module Sereal {
         private preservePadding;
         private doc;
         private debug;
+        private maxDepth;
+        private depth;
+        private inCopy;
         private tagReaders;
         constructor();
         init(data: any): void;
