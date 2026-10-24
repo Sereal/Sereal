@@ -401,12 +401,19 @@ public class Decoder implements SerealHeader {
   }
 
   private void uncompressZstd() throws SerealException {
-    int len = (int) read_varint();
-    checkCompressedEnd(len);
+    long compressedLength = read_varint();
+    checkCompressedEnd(compressedLength);
+    if (compressedLength < 0 || compressedLength > end - position) {
+      throw new SerealException("Zstd compressed data exceeds the available input");
+    }
+    int len = (int) compressedLength;
 
     byte[] compressedData = Arrays.copyOfRange(originalData.array, position, position + len);
     long decompressedSize = Zstd.decompressedSize(compressedData);
 
+    if (decompressedSize <= 0) {
+      throw new SerealException("Invalid zstd frame: unknown or empty decompressed size");
+    }
     if (decompressedSize > this.maxSize) {
       throw new SerealException("The expected uncompressed size is larger than the allowed maximum size");
     }
@@ -440,6 +447,7 @@ public class Decoder implements SerealHeader {
     if (maxNumArrayEntries != 0 && length > maxNumArrayEntries) {
       throw new SerealException("Got input array with " + length + " entries, but the configured maximum is just " + maxNumArrayEntries);
     }
+    checkAvailable(length); // every element takes at least one byte
 
     Object[] out = new Object[length];
     if (track != 0) { // track ourself
@@ -464,6 +472,7 @@ public class Decoder implements SerealHeader {
     if (maxNumArrayEntries != 0 && length > maxNumArrayEntries) {
       throw new SerealException("Got input array with " + length + " entries, but the configured maximum is just " + maxNumArrayEntries);
     }
+    checkAvailable(length); // every element takes at least one byte
 
     List<Object> out = typeMapper.makeArray(length);
     if (track != 0) { // track ourself
@@ -482,8 +491,12 @@ public class Decoder implements SerealHeader {
    *
    * <p>For some reason we call them Latin1Strings.
    */
-  private byte[] read_binary() {
-    int length = (int) read_varint();
+  private byte[] read_binary() throws SerealException {
+    int length = readLength();
+    if (maxStringLength != 0 && length > maxStringLength) {
+      throw new SerealException("Got input string with " + length + " characters, but the configured maximum is just " + maxStringLength);
+    }
+    checkAvailable(length);
     byte[] out = Arrays.copyOfRange(data, position, position + length);
 
     position += length;
@@ -496,6 +509,7 @@ public class Decoder implements SerealHeader {
     if (maxNumMapEntries != 0 && num_keys > maxNumMapEntries) {
       throw new SerealException("Got input hash with " + num_keys + " entries, but the configured maximum is just " + maxNumMapEntries);
     }
+    checkAvailable(2L * num_keys); // every key and value takes at least one byte
 
     Map<String, Object> hash = typeMapper.makeMap((int) num_keys);
     if (track != 0) { // track ourself
@@ -509,6 +523,15 @@ public class Decoder implements SerealHeader {
     }
 
     return hash;
+  }
+
+  // a count or length, which must fit in an int
+  private int readLength() throws SerealException {
+    long length = read_varint();
+    if (length < 0 || length > Integer.MAX_VALUE) {
+      throw new SerealException("Invalid length " + Long.toUnsignedString(length) + " at byte " + position);
+    }
+    return (int) length;
   }
 
   private Object get_tracked_item() {
@@ -754,16 +777,16 @@ public class Decoder implements SerealHeader {
           break;
         case SRL_HDR_HASH:
           depthIncrement();
-          Object hash = readMap((int) read_varint(), track);
+          Object hash = readMap(readLength(), track);
           out = hash;
           depthDecrement();
           break;
         case SRL_HDR_ARRAY:
           depthIncrement();
           if (useObjectArray) {
-            out = readNativeArray((int) read_varint(), track);
+            out = readNativeArray(readLength(), track);
           } else {
-            out = readList((int) read_varint(), track);
+            out = readList(readLength(), track);
           }
           depthDecrement();
           break;
