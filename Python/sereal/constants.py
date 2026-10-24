@@ -29,3 +29,7 @@ SRL_TYPE_HASHREF_0                  = 80
 SRL_TYPE_SHORT_BINARY_0             = 96
 
 SETTING_BIN_MODE_CLASSIC = 'bin_mode_classic'
+
+# nesting depth at which decoding stops with an SrlError; each level costs
+# about three Python frames, so this stays below the default recursion limit
+SRL_MAX_RECURSION_DEPTH = 200

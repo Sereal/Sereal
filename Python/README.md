@@ -28,3 +28,4 @@ Basic implementation of the Sereal protocol in Python.
 - Python 3.5+
 - No Python encoder
 - Not Perl compatible
+- Only uncompressed documents; Snappy and Zlib bodies are rejected
