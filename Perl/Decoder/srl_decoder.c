@@ -2416,6 +2416,11 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
     /* At this point we may or may not have a class stash. If they used a Copy there
      * is a decent chance we do. */
     SRL_ASSERT_REF_PTR_TABLES(dec);
+    /* A COPY of this OBJECT tag re-reads an inline class name at the same
+     * offset; reuse its registration so objects queued earlier against it
+     * are still blessed. */
+    if (!class_stash)
+        class_stash= (HV *) PTABLE_fetch(dec->ref_stashes, (void *)storepos);
     if (!class_stash) {
         /* no class stash - so we need to look it up and then store it away for future use */
         class_stash= gv_stashpvn((char *)from, key_len, flags);
