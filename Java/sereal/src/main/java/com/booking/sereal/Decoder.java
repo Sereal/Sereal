@@ -414,6 +414,9 @@ public class Decoder implements SerealHeader {
     if (compressedLength < 0 || compressedLength > end - position) {
       throw new SerealException("Zstd compressed data exceeds the available input");
     }
+    if (compressedLength == 0) {
+      throw new SerealException("Empty zstd compressed data");
+    }
     int len = (int) compressedLength;
 
     byte[] compressedData = Arrays.copyOfRange(originalData.array, position, position + len);
