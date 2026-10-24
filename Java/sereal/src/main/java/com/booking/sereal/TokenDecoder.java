@@ -88,6 +88,7 @@ public class TokenDecoder {
   private final Consumer<String> undefDeadlyWarningHandler;
   // only applied to v-string spellings
   private final int maxStringLength;
+  private final int maxBufferSize;
 
   private byte[] data;
   private int position, end;
@@ -136,11 +137,16 @@ public class TokenDecoder {
     undefDeadlyPolicy = options.undefDeadlyPolicy();
     undefDeadlyWarningHandler = options.undefDeadlyWarningHandler();
     maxStringLength = options.maxStringLength();
+    maxBufferSize = options.maxBufferSize();
     Decoder.checkChecksumOptions(checksumKeys, checksumPolicy);
   }
 
-  private void checkHeaderSuffix() {
-    int suffixSize = (int) readVarint();
+  private void checkHeaderSuffix() throws SerealException {
+    long suffixLength = readVarint();
+    if (suffixLength < 0 || suffixLength > end - position) {
+      throw new SerealException("Sereal header suffix exceeds the available input");
+    }
+    int suffixSize = (int) suffixLength;
 
     userHeaderSize = 0;
     userHeaderPosition = position + suffixSize;
@@ -339,23 +345,28 @@ public class TokenDecoder {
   }
 
   private void uncompressSnappy() throws SerealException {
-    int len = end - position;
+    long compressedLength = end - position;
     int pos = encoding == SerealHeader.SRL_ENCODING_SNAPPY_LEGACY ? position : originalData.start;
 
     if (encoding == SerealHeader.SRL_ENCODING_SNAPPY) {
-      len = (int) readVarint();
+      compressedLength = readVarint();
     }
-    checkCompressedEnd(len);
+    checkCompressedEnd(compressedLength);
+    // snappy-java's native code trusts offset and length: keep them inside the document
+    if (position < 0 || position > end || compressedLength < 0 || compressedLength > end - position) {
+      throw new SerealException("Snappy compressed data exceeds the available input");
+    }
+    int len = (int) compressedLength;
     byte[] uncompressed;
     try {
       if (!Snappy.isValidCompressedBuffer(
           originalData.array, position, len))
         throw new SerealException("Invalid snappy data");
-      uncompressed =
-          new byte
-              [pos
-                  + Snappy.uncompressedLength(
-                      originalData.array, position, len)];
+      int uncompressedLength = Snappy.uncompressedLength(originalData.array, position, len);
+      if (uncompressedLength < 0 || (long) pos + uncompressedLength > maxBufferSize) {
+        throw new SerealException("The expected uncompressed size is larger than the allowed maximum size");
+      }
+      uncompressed = new byte[pos + uncompressedLength];
       Snappy.uncompress(
           originalData.array, position, len, uncompressed, pos);
     } catch (IOException e) {
