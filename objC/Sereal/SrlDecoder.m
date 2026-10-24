@@ -512,7 +512,7 @@ static NSError *decode_error(NSString *errorMessage)
         // header suffix
         long long suffixSize = read_varint(&dec);
         CHECK_REMAINING((&dec), suffixSize);
-        
+
         // skip the optional suffix for now;
         index += suffixSize;
         if (type == 2) {
@@ -529,15 +529,15 @@ static NSError *decode_error(NSString *errorMessage)
                     @throw [NSException exceptionWithName:@"SnappyError"
                                                    reason:[NSString stringWithFormat:@"Can't allocate %u bytes for the uncompressed buffer", ulen]
                                                  userInfo:nil];
-                
+
                 uint32_t olen = ulen;
                 int ret = csnappy_decompress_noheader(bytes+index+hlen, (uint32_t)blen-hlen, uncompressed, &olen);
-                
+
                 if (ret != CSNAPPY_E_OK || olen != ulen)
                     @throw [NSException exceptionWithName:@"SnappyError"
                                                    reason:[NSString stringWithFormat:@"csnappy_decompress returned %d after %u of %u bytes", ret, olen, ulen]
                                                  userInfo:nil];
-                
+
                 dec.hdr = uncompressed;
                 dec.len = ulen;
                 index = -1;
@@ -545,7 +545,7 @@ static NSError *decode_error(NSString *errorMessage)
                 @throw [NSException exceptionWithName:@"SnappyError" reason:@"Can't read the length for the compressed buffer" userInfo:nil];
             }
         }
-        
+
         if (version > 1)
             dec.bdy = index;
 
