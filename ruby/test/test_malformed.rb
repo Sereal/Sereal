@@ -79,4 +79,50 @@ class TestSerealMalformed < Test::Unit::TestCase
     50000.times { begin; Sereal.decode(bad); rescue RegexpError; end }
     assert_operator(rss_kb - before, :<, 20 * 1024, 'rss grew by more than 20 MiB')
   end
+
+  def test_reference_to_untracked_offset
+    # ARRAYREF(2): tracked POS 1, then REFP to offset 40, which holds nothing
+    assert_raise(ArgumentError) { Sereal.decode(srl('3df3726c0300 42 81 2928')) }
+    # REFP to offset 2, the tracked POS 1, still works
+    assert_equal([1, 1], Sereal.decode(srl('3df3726c0300 42 81 2902')))
+    # ALIAS to an offset past the end of the document
+    assert_raise(ArgumentError) { Sereal.decode(srl('3df3726c0300 42 81 2eff7f')) }
+  end
+
+  def test_copy_offset_must_point_backwards
+    # ARRAYREF(2): COPY(3) points forward at its own varint byte
+    assert_raise(ArgumentError) { Sereal.decode(srl('3df3726c0300 42 2f03 01')) }
+    # COPY(0) points into the header
+    assert_raise(ArgumentError) { Sereal.decode(srl('3df3726c0300 42 2f00 01')) }
+    # COPY(2) points at itself
+    assert_raise(ArgumentError) { Sereal.decode(srl('3df3726c0300 42 2f02 01')) }
+    # COPY(2) of the string at offset 2 is fine
+    assert_equal(%w[abc abc], Sereal.decode(srl('3df3726c0300 42 63616263 2f02')))
+  end
+
+  def test_header_suffix
+    # header suffix size 256 (two byte varint) in an 8 byte document
+    assert_raise(RangeError) { Sereal.decode(srl('3df3726c03 8002 01')) }
+    # a one byte suffix (empty bitfield) is skipped
+    assert_equal(1, Sereal.decode(srl('3df3726c03 01 00 01')))
+  end
+
+  def test_protocol_version
+    # protocol version 1 used absolute offsets
+    assert_raise(TypeError) { Sereal.decode(srl('3df3726c01 00 01')) }
+    # protocol version 0 and 7 are not defined
+    assert_raise(TypeError) { Sereal.decode(srl('3df3726c00 00 01')) }
+    assert_raise(TypeError) { Sereal.decode(srl('3df3726c07 00 01')) }
+  end
+
+  def test_unsupported_document_type
+    # zlib (3) and zstd (4) bodies must not be parsed as raw
+    assert_raise(TypeError) { Sereal.decode(srl('3df3726c33 00 01')) }
+    assert_raise(TypeError) { Sereal.decode(srl('3df3726c44 00 01')) }
+  end
+
+  def test_unaligned_double
+    # ARRAYREF(2): POS 1, DOUBLE 1.5 at an odd address (sanitizer builds flag misaligned loads)
+    assert_equal([1, 1.5], Sereal.decode(srl('3df3726c0300 42 01 23 000000000000f83f')))
+  end
 end

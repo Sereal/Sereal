@@ -193,18 +193,28 @@ static VALUE s_read_extend(sereal_t *s, u8 tag) {
 static VALUE s_read_ref(sereal_t *s, u8 tag) {
     if (s->tracked == Qnil)
         s_raise(s,rb_eArgError,"there are no references stored");
+    u32 tag_pos = s->pos - 1;
     u64 off = s_get_varint_bang(s);
-    VALUE object = rb_hash_lookup(s->tracked,INT2FIX(off + s->hdr_end));
+    // the referenced item must start before this tag and have been tracked
+    VALUE object = Qundef;
+    if (off > 0 && off - 1 < tag_pos - s->hdr_end)
+        object = rb_hash_lookup2(s->tracked,INT2FIX(off + s->hdr_end),Qundef);
+    if (object == Qundef)
+        s_raise(s,rb_eArgError,"no tracked item at offset %" PRIu64,off);
     SD(s,"reading reference from offset: %" PRIu64 ", id: %d",off + s->hdr_end,FIX2INT(rb_obj_id(object)));
     return object;
 }
 
+// the target must start strictly before the tag that points at it
 #define TRAVEL(s,__stored)                                              \
     do {                                                                \
-        u32 offset = ((u32) s_get_varint_bang(s)) - 1;                  \
+        u32 tag_pos = s->pos - 1;                                       \
+        u64 offset = s_get_varint_bang(s);                              \
+        if (offset == 0 || offset - 1 >= tag_pos - s->hdr_end)          \
+            s_raise(s,rb_eArgError,"bad offset %" PRIu64 " for tag %d",offset,tag); \
         __stored = s->pos;                                              \
-        s->pos = offset + s->hdr_end;                                   \
-        SD(s,"going back offset: %d, stored position: %d (tag: %d) new pos: %d",offset,stored_pos,tag,s->pos); \
+        s->pos = (u32) (offset - 1) + s->hdr_end;                       \
+        SD(s,"going back offset: %" PRIu64 ", stored position: %d (tag: %d) new pos: %d",offset,stored_pos,tag,s->pos); \
     } while(0)
 #define BACK(s,__stored)                                \
     do {                                                \
@@ -367,9 +377,13 @@ again:
         s_raise(s,rb_eTypeError,"invalid header: %d (%x) vs %x",magic,magic,SRL_MAGIC_STRING_UINT_LE);
 
     u8 version = s_get_u8_bang(s);
-    u8 suffix = s_get_varint_bang(s);
-    if (suffix > 0)
-        s_raise(s,rb_eTypeError,"HEADER-SUFFIX-SIZE is not supported yet");
+    // version 1 offsets are absolute, which this decoder does not handle
+    if ((version & SRL_PROTOCOL_VERSION_MASK) < 2 || (version & SRL_PROTOCOL_VERSION_MASK) > SRL_PROTOCOL_VERSION_MAX)
+        s_raise(s,rb_eTypeError,"unsupported protocol version %d",version & SRL_PROTOCOL_VERSION_MASK);
+
+    // skip the header suffix (and any user meta data in it)
+    u64 suffix = s_get_varint_bang(s);
+    s_get_p_at_pos_bang(s,s->pos,suffix);
 
     u8 is_compressed;
 
@@ -377,8 +391,10 @@ again:
         is_compressed = __SNAPPY;
     } else if ((version & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_SNAPPY_INCR) {
         is_compressed = __SNAPPY_INCR;
-    } else {
+    } else if ((version & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_RAW) {
         is_compressed = __RAW;
+    } else {
+        s_raise(s,rb_eTypeError,"unsupported document type %d",(version & SRL_PROTOCOL_ENCODING_MASK) >> SRL_PROTOCOL_VERSION_BITS);
     }
 
     SD(s,"initialized (s) with compression type: %d",is_compressed);
