@@ -246,6 +246,7 @@ typedef struct srl_encoder_frame {
     SV *tie_object;
     HE *borrowed_entry;
     SV *borrowed_key;
+    SV *active_sorted_key;
     int key_guard;
     int sorted_keyed;
 } srl_encoder_frame;
@@ -258,13 +259,75 @@ srl_frame_push(srl_encoder_t *enc, srl_encoder_frame *frame, SV *container)
     enc->frames = frame;
 }
 
+/* Callback-heavy encodes add many entries to this table on every run.
+ * Recycle at most 4096 entries (about 96 KiB on 64-bit platforms) across
+ * runs of a reusable Encoder. The spare entries contain no live SV refs. */
+#define SRL_CALLBACK_SPARE_LIMIT 4096
+
 SRL_STATIC_INLINE void
 srl_callback_hold(pTHX_ srl_encoder_t *enc, SV *value)
 {
-    if (value && !PTABLE_fetch(enc->callback_seen, value)) {
-        PTABLE_store(enc->callback_seen, value, INT2PTR(void *, 1));
-        av_push(enc->callback_keepalive, SvREFCNT_inc(value));
+    PTABLE_t *table;
+    PTABLE_ENTRY_t *entry;
+    UV bucket;
+
+    if (!value)
+        return;
+    table = enc->callback_seen;
+    if (PTABLE_find(table, value))
+        return;
+    if (enc->callback_spare) {
+        entry = enc->callback_spare;
+        enc->callback_spare = entry->next;
+        enc->callback_spare_count--;
+    } else {
+        Newx(entry, 1, PTABLE_ENTRY_t);
     }
+    bucket = PTABLE_HASH(value) & table->tbl_max;
+    entry->key = value;
+    entry->value = INT2PTR(void *, 1);
+    entry->next = table->tbl_ary[bucket];
+    table->tbl_ary[bucket] = entry;
+    table->tbl_items++;
+    if (entry->next && table->tbl_items > table->tbl_max)
+        PTABLE_grow(table);
+    av_push(enc->callback_keepalive, SvREFCNT_inc(value));
+}
+
+SRL_STATIC_INLINE void
+srl_callback_clear_seen(srl_encoder_t *enc)
+{
+    PTABLE_t *table = enc->callback_seen;
+    UV i;
+    if (!table || !table->tbl_items)
+        return;
+    for (i = 0; i <= table->tbl_max; i++) {
+        PTABLE_ENTRY_t *entry = table->tbl_ary[i];
+        while (entry) {
+            PTABLE_ENTRY_t *next = entry->next;
+            if (enc->callback_spare_count < SRL_CALLBACK_SPARE_LIMIT) {
+                entry->next = enc->callback_spare;
+                enc->callback_spare = entry;
+                enc->callback_spare_count++;
+            } else {
+                Safefree(entry);
+            }
+            entry = next;
+        }
+        table->tbl_ary[i] = NULL;
+    }
+    table->tbl_items = 0;
+}
+
+SRL_STATIC_INLINE void
+srl_callback_free_spare(srl_encoder_t *enc)
+{
+    while (enc->callback_spare) {
+        PTABLE_ENTRY_t *entry = enc->callback_spare;
+        enc->callback_spare = entry->next;
+        Safefree(entry);
+    }
+    enc->callback_spare_count = 0;
 }
 
 /* Both SVs and HEKs are aligned. Tag SV identities so one offset table can
@@ -353,7 +416,9 @@ srl_callback_begin(pTHX_ srl_encoder_t *enc, SV *value, SV *reference)
                 /* Keep just this borrowed key so an O(1) lookup can prove
                  * that the current HE is still live after the callback. */
                 frame->borrowed_entry = *frame->cursor;
-                frame->borrowed_key = sv_2mortal(newSVhek(HeKEY_hek(frame->borrowed_entry)));
+                frame->borrowed_key = frame->active_sorted_key
+                    ? frame->active_sorted_key
+                    : sv_2mortal(newSVhek(HeKEY_hek(frame->borrowed_entry)));
                 frame->key_guard = 1;
             }
             if (frame->sorted && !frame->sorted_keyed) {
@@ -714,7 +779,7 @@ srl_clear_encoder(pTHX_ srl_encoder_t *enc)
     enc->frames = NULL;
     enc->root_src = enc->header_src = NULL;
     if (enc->callback_seen)
-        PTABLE_clear(enc->callback_seen);
+        srl_callback_clear_seen(enc);
     srl_clear_seen_hashes(aTHX_ enc);
     if (enc->callback_keepalive)
         av_clear(enc->callback_keepalive);
@@ -735,6 +800,7 @@ srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
     SvREFCNT_dec(enc->callback_keepalive);
     if (enc->callback_seen)
         PTABLE_free(enc->callback_seen);
+    srl_callback_free_spare(enc);
     srl_buf_free_buffer(aTHX_ &enc->buf);
 
     /* Free tmp buffer only if it was allocated at all. */
@@ -2236,6 +2302,9 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
         array_end = array + n;
         for ( array_end= array + n; array < array_end; array++ ) {
             SV *v;
+            /* A previous callback retained the future keys. Reuse that
+             * stable key for validation of this entry's callbacks. */
+            frame->active_sorted_key = frame->sorted_keyed ? array->key.sv : NULL;
             if (frame->sorted_keyed) {
                 he = hv_fetch_ent(src, array->key.sv, 0, 0);
                 if (!he || he != array->val.he)
@@ -2261,6 +2330,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
     srl_frame_push(enc, &frame, (SV *)src);
     frame.cursor = NULL;
     frame.sorted = NULL;
+    frame.active_sorted_key = NULL;
     if ( SvMAGICAL(src) && mg_find((SV *)src, PERL_MAGIC_tied) ) {
         /* for tied hashes, we have to iterate to find the number of entries. Alas... */
         n= 0;

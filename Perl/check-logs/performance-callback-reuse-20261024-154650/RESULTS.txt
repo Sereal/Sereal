@@ -1,0 +1,58 @@
+Encoder callback performance investigation, 2026-10-24
+
+Base commit: 58e69d039a94480d9ad43ddbd5dc20b62e03a7ce (before this patch).
+Current: same source plus the Encoder-only callback entry pool and sorted-key reuse.
+Comparison release: installed Sereal::Encoder 5.010.
+All benchmark variants used Perl 5.44.0, GCC -O3 builds, protocol 5, no
+compression/checksum, CPU 0, fixed hash seeds, persistent workers, and
+Dumbbench with at least 30 retained calibrated samples per process block.
+Input setup was outside the timed operation. Each paired run checked equal
+packet length. Controller, worker, fixture, and raw sample JSON are here.
+
+Paired against exact pre-change code (two reversed process orders):
+  freeze-100: current 31.93/32.42 us, before 34.89/35.11 us;
+    8.47%/7.66% less time.
+  sorted-freeze-1000: current 694.38/694.30 us, before 770.05/776.53 us;
+    9.83%/10.59% less time.
+  medium ordinary objects: 2.87% to 6.34% less time; medium plain hash:
+    3.48% to 3.66% less time. The patch does not alter their main data paths,
+    so these smaller gains may be code-layout or measurement effects.
+  Packet lengths matched in every paired run (1212, 19906, 981, 942 bytes).
+
+Against installed 5.010, FREEZE remains slower:
+  freeze-100: current 32.43/32.67 us, installed 25.10/24.72 us in quiet
+    blocks 3/4; 29.2%/32.2% slower.
+  sorted-freeze-1000: current 698.75/701.47 us, installed 480.27/482.60 us
+    in quiet blocks 3/4; 45.5%/45.4% slower.
+  Earlier installed blocks had more contention, especially sorted block 2;
+    all raw blocks are retained. Ordinary medium timings also varied under
+    contention, so they do not support a claim of a stable release delta.
+
+Callgrind, equal work before and after patch:
+  freeze-100: 143,751,572 -> 129,705,007 instructions (9.8% fewer).
+  sorted-freeze-1000: 475,588,039 -> 434,421,608 (8.7% fewer).
+  Installed 5.010 used 97,113,620 and 312,315,082 respectively.
+  Profiles include startup, so instruction percentages are diagnostic rather
+  than timings. FREEZE method invocation work was unchanged. The residual
+  sorted profile has more Perl_hv_common (~29.0m vs ~15.5m instructions),
+  Perl_av_store (~12.3m vs ~2.7m), Perl_sv_clear (~21.3m vs ~11.2m), and
+  allocator work than 5.010. These arise from validating borrowed entries
+  and retaining values around callbacks. The patch removes repeated PTABLE
+  entry allocation and an extra sorted-key SV allocation per later entry;
+  it does not eliminate the remaining callback safety cost.
+
+Tests after patch:
+  Native full Encoder: 74 files / 157169 tests PASS.
+  Threaded Perl 5.42 full Encoder: 74 files / 157170 tests PASS.
+  Perl 5.14.4, UBSan, ASan callback focus: 9 files / 3533 tests PASS each.
+  Valgrind with PERL_DESTRUCT_LEVEL=2: new stress test 243 tests PASS,
+    0 errors, 0 definite/indirect leaks.
+  New test exercises reuse across encodes, UTF-8 and ASCII sorted keys,
+    weak old-object release, and a table larger than the 4096-entry pool.
+
+The pool retains up to 4096 PTABLE entries (about 96 KiB on 64-bit systems)
+per long-lived Encoder after a large callback-heavy encode. The remaining
+FREEZE slowdown is substantial, so this is an incremental improvement and
+not a release performance sign-off. Next optimization candidate: reduce
+sorted-entry hv_fetch_ent and callback_keepalive AV work without weakening
+the mutation checks; benchmark and test any replacement independently.

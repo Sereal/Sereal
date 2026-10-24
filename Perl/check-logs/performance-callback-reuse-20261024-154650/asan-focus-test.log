@@ -1,0 +1,20 @@
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Encoder.bs blib/arch/auto/Sereal/Encoder/Encoder.bs 644
+make[1]: Entering directory '/tmp/sereal-retention-EJwVZf/sanitized/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/tmp/sereal-retention-EJwVZf/sanitized/Perl/Encoder/zstd'
+make[1]: Entering directory '/tmp/sereal-retention-EJwVZf/sanitized/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'test_dynamic'.
+make[1]: Leaving directory '/tmp/sereal-retention-EJwVZf/sanitized/Perl/Encoder/zstd'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/132* t/133* t/134* t/137* t/138* t/140* t/141* t/143* t/144*
+t/132_callback_hash_mutation.t ........... ok
+t/133_callback_array_mutation.t .......... ok
+t/134_callback_frozen_object_lifetime.t .. ok
+t/137_callback_fetch_once.t .............. ok
+t/138_callback_same_size_mutation.t ...... ok
+t/140_sorted_callback_cursor.t ........... ok
+t/141_predicate_callback_lifetime.t ...... ok
+t/143_freeze_cache_ownership.t ........... ok
+t/144_callback_reuse_stress.t ............ ok
+All tests successful.
+Files=9, Tests=3533,  1 wallclock secs ( 0.12 usr  0.04 sys +  1.06 cusr  0.23 csys =  1.45 CPU)
+Result: PASS

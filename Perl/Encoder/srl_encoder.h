@@ -38,6 +38,8 @@ typedef struct {
     HV *string_alias_hv;      /* first scalar value offsets, by content, for ALIAS */
     struct srl_encoder_frame *frames; /* live C traversal state, not input snapshots */
     ptable_ptr callback_seen;
+    struct PTABLE_entry *callback_spare; /* reusable callback_seen entries */
+    UV callback_spare_count;
     SV *root_src, *header_src; /* borrowed until the first callback */
     AV *callback_keepalive;   /* values borrowed across actual Perl callbacks */
 

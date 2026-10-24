@@ -92,6 +92,7 @@ t/140_sorted_callback_cursor.t
 t/141_predicate_callback_lifetime.t
 t/142_cached_integer_values.t
 t/143_freeze_cache_ownership.t
+t/144_callback_reuse_stress.t
 t/160_recursion.t
 t/170_cyclic_weakrefs.t
 t/171_weakref_rewrites.t

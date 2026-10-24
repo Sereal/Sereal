@@ -6,6 +6,8 @@ Revision history for Perl extension Sereal-Encoder
 *          encoder!                                            *
 ****************************************************************
 6.000_001
+    * Reuse bounded callback bookkeeping entries across encodes and reuse
+      retained sorted keys during callback validation, reducing FREEZE overhead.
     * Preserve FREEZE cache hits for weak references and predicates that drop
       the object's last owner, avoiding repeated callbacks.
     * Read already-cached nonnegative integers directly, avoiding redundant

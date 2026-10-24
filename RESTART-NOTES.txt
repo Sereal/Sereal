@@ -318,3 +318,14 @@ Main worktree has Changes, MANIFEST, srl_encoder.c and staged new t/140_sorted_c
 2026-10-24 continued Encoder investigation completed this round:
 /home/demerphq/git_tree/Sereal/Perl/check-logs/performance-installed-5010-final-20261024-142837/RESULTS.txt
 Staged: Encoder Changes/MANIFEST/srl_encoder.c and new tests140,141,142. Main HEAD stillf17b6149. Full native/threaded156765/156766 PASS; ASan/UBSan/5.14 focus4185 PASS; Valgrind1368 PASS. Added predicate bool overload UAF fix; unified FREEZE retention; cached integer conversion bypass (~9% ordinary-object improvement). Latest direct5.010 ordinary objects ~parity, arrays18-19% faster, flatints25% faster. FREEZE still35-65% slower due guarded callbacks; see report. Existing tests unchanged. No push/release.
+
+2026-10-24 callback reuse investigation after 58e69d03:
+/home/demerphq/git_tree/Sereal/Perl/check-logs/performance-callback-reuse-20261024-154650/RESULTS.txt
+Encoder-only bounded PTABLE entry pool and sorted callback key reuse improve
+FREEZE100 7.7-8.5%, sorted FREEZE1000 9.8-10.6% against exact pre-change code.
+Native/threaded full suites (74 files, 157169/157170 tests), Perl5.14,
+UBSan and ASan focus (9 files/3533), Valgrind new stress (243, zero errors
+and definite/indirect leaks) all pass. Installed 5.010 still leads FREEZE100
+by ~30% and sorted FREEZE1000 by ~45% in quiet paired runs. Remaining profile
+cost is callback lifetime AV work and sorted hash validation; no release
+performance sign-off. This note and report are to be committed with changes.
