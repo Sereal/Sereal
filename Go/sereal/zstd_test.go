@@ -30,7 +30,7 @@ func TestZstdFrameContentSize(t *testing.T) {
 			if !header.HasFCS || header.FrameContentSize != uint64(size) {
 				t.Fatalf("HasFCS=%v FrameContentSize=%d; want true, %d", header.HasFCS, header.FrameContentSize, size)
 			}
-			decoded, err := (ZstdCompressor{}).decompress(nil, compressed)
+			decoded, err := (ZstdCompressor{}).decompress(nil, compressed, DefaultMaxUncompressedSize)
 			if err != nil || !bytes.Equal(decoded, body) {
 				t.Fatalf("Zstd round trip failed: %v", err)
 			}
