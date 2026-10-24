@@ -15,7 +15,8 @@
 #define BUF_POS_OFS(buf) (((buf)->pos) - ((buf)->start))
 #define BUF_SPACE(buf) (((buf)->end) - ((buf)->pos))
 #define BUF_SIZE(buf) (((buf)->end) - ((buf)->start))
-#define BUF_NEED_GROW(buf, minlen) ((size_t)BUF_SPACE(buf) <= minlen)
+/* a negative BUF_SPACE() (pos past end) must not wrap to "plenty of room" */
+#define BUF_NEED_GROW(buf, minlen) (BUF_SPACE(buf) < 0 || (size_t)BUF_SPACE(buf) <= (minlen))
 #define BUF_NEED_GROW_TOTAL(buf, minlen) ((size_t)BUF_SIZE(buf) <= minlen)
 #define BUF_NOT_DONE(buf) ((buf)->pos < (buf)->end)
 #define BUF_DONE(buf) ((buf)->pos >= (buf)->end)
