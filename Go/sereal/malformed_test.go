@@ -421,3 +421,145 @@ func TestMergerMaxRecursionDepth(t *testing.T) {
 		}
 	}
 }
+
+func TestMergerMalformed(t *testing.T) {
+	tests := []struct {
+		name string
+		doc  string
+	}{
+		// truncated REGEXP, OBJECT, OBJECT_FREEZE: no pattern or class name
+		{"regexp truncated", "3df3726c030031"},
+		{"object truncated", "3df3726c03002c"},
+		{"object_freeze truncated", "3df3726c030032"},
+		// truncated fixed-width items
+		{"float truncated", "3df3726c03002200"},
+		{"double truncated", "3df3726c0300230000"},
+		{"long double truncated", "3df3726c030024000000"},
+		{"short binary 1 truncated", "3df3726c030061"},
+		// "=srl" v1 with document type 4 (zstd) holding a truncated FLOAT
+		{"v1 zstd", "3d73726c410022"},
+		// ARRAY of 5 holding one element, HASHREF_1 holding a key only
+		{"array short", "3df3726c03002b0501"},
+		{"hashref short", "3df3726c0300516161"},
+		{"arrayref short", "3df3726c03004201"},
+		// ARRAY and HASH counts of 2^32, which uint32 truncates to 0
+		{"array count 2^32", "3df3726c03002b808080801001"},
+		{"hash count 2^31", "3df3726c03002a808080800801"},
+		// an empty body
+		{"empty body", "3df3726c0300"},
+		// COPY offset 0 (before the body) and pointing at itself
+		{"copy before body", "3df3726c0301002f00"},
+		{"copy itself", "3df3726c03002f01"},
+	}
+
+	for _, tt := range tests {
+		for _, flat := range []bool{false, true} {
+			for _, top := range []topLevelElementType{TopLevelArray, TopLevelArrayRef} {
+				m := NewMerger()
+				m.KeepFlat = flat
+				m.TopLevelElement = top
+				doc := mustHex(t, tt.doc)
+				err := callNoPanic(t, tt.name, func() error {
+					_, err := m.Append(doc)
+					return err
+				})
+				if err == nil {
+					t.Errorf("%s: Merger{KeepFlat: %v, TopLevelElement: %v}.Append(%s) succeeded, want an error", tt.name, flat, top, tt.doc)
+				}
+			}
+		}
+	}
+}
+
+func TestMergerReadsOnlyLen(t *testing.T) {
+	// ARRAYREF_2 holding a DOUBLE truncated after its tag, in a buffer
+	// whose capacity holds other data
+	doc := mustHex(t, "3df3726c03004223")
+	buf := append(append([]byte{}, doc...), bytes.Repeat([]byte{0xaa}, 32)...)[:len(doc)]
+
+	m := NewMerger()
+	err := callNoPanic(t, "append", func() error {
+		_, err := m.Append(buf)
+		return err
+	})
+	if err == nil {
+		out, _ := m.Finish()
+		t.Errorf("Append(%x) succeeded, merged %x", doc, out)
+	}
+}
+
+// mergeRoundTrip merges docs and returns the decoded result
+func mergeRoundTrip(t *testing.T, m *Merger, docs ...[]byte) interface{} {
+	t.Helper()
+	for _, doc := range docs {
+		if _, err := m.Append(doc); err != nil {
+			t.Fatalf("Append(%x): %v", doc, err)
+		}
+	}
+	out, err := m.Finish()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var v interface{}
+	if err := Unmarshal(out, &v); err != nil {
+		t.Fatalf("Unmarshal(%x): %v", out, err)
+	}
+	return v
+}
+
+func TestMergerRoundTrip(t *testing.T) {
+	tests := []struct {
+		name string
+		doc  string
+	}{
+		// ["xxxxxxxxxx", "ab" (tracked), REFP to "ab"]
+		{"refp", "3df3726c0300436a78787878787878787878e26162290d"},
+		// ["xxxxxxxxxx", "ab" (tracked), ALIAS of "ab"]
+		{"alias", "3df3726c0300436a78787878787878787878e262612e0d"},
+		// v1, absolute offsets: ["abcd", "zz", COPY of "abcd"]
+		{"v1 copy", "3d73726c0100436461626364627a7a2f07"},
+		// v1 with a header suffix
+		{"v1 copy suffix", "3d73726c0102000043646162636462797a2f09"},
+		// a single integer
+		{"integer", "3df3726c030001"},
+	}
+
+	for _, tt := range tests {
+		for _, flat := range []bool{false, true} {
+			doc := mustHex(t, tt.doc)
+			var want interface{}
+			if err := Unmarshal(doc, &want); err != nil {
+				t.Fatalf("%s: Unmarshal(%s): %v", tt.name, tt.doc, err)
+			}
+
+			m := NewMerger()
+			m.KeepFlat = flat
+			var got interface{}
+			if callNoPanic(t, tt.name, func() error { got = mergeRoundTrip(t, m, doc); return nil }) != nil {
+				continue
+			}
+
+			wantMerged := []interface{}{want}
+			if s, ok := want.([]interface{}); ok && flat {
+				wantMerged = s
+			}
+			if !reflect.DeepEqual(got, wantMerged) {
+				t.Errorf("%s: KeepFlat %v: merged %s decodes to %#v, want %#v", tt.name, flat, tt.doc, got, wantMerged)
+			}
+		}
+	}
+}
+
+func TestMergerFailedAppend(t *testing.T) {
+	// a failed Append must not leave entries for its strings behind
+	m := NewMerger()
+	m.DedupeStrings = true
+	if _, err := m.Append(mustHex(t, "3df3726c03002b026461626364")); err == nil {
+		t.Errorf("Append of a short array succeeded")
+	}
+	got := mergeRoundTrip(t, m, mustHex(t, "3df3726c0300416461626364"))
+	want := []interface{}{[]interface{}{[]byte("abcd")}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("merged %#v, want %#v", got, want)
+	}
+}

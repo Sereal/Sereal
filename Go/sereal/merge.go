@@ -49,7 +49,8 @@ type Merger struct {
 	// Specifically, consider two arrays [A,B,C] and [D,E,F]:
 	// - when KeepFlat == false, the result of merging is [[A,B,C],[D,E,F]]
 	// - when KeepFlat == true, the result is [A,B,C,D,E,F]
-	//   This mode is relevant only to top level elements
+	//   This mode is relevant only to top level elements; a document whose
+	//   top level is not an array is appended as a single element
 	KeepFlat bool
 
 	// give a hint to encoder about expected size of encoded data
@@ -167,6 +168,9 @@ func (m *Merger) Append(b []byte) (int, error) {
 		return 0, errors.New("finished document")
 	}
 
+	// never read past len(b), even where the capacity allows it
+	b = b[:len(b):len(b)]
+
 	docHeader, err := readHeader(b)
 	if err != nil {
 		return 0, err
@@ -177,14 +181,23 @@ func (m *Merger) Append(b []byte) (int, error) {
 		return 0, ErrChecksummedDocument
 	}
 
+	bodyStart := headerSize + docHeader.suffixSize
 	doc := mergerDoc{
-		buf:        b[headerSize+docHeader.suffixSize:],
+		buf:        b[bodyStart:],
 		version:    int(docHeader.version),
 		startIdx:   0,
 		bodyOffset: -1, // 1-based offsets
 	}
 
+	if doc.version == 1 {
+		// offsets are relative to the start of the document
+		doc.bodyOffset = -bodyStart
+	}
+
 	decomp, err := documentDecompressor(docHeader.version, docHeader.doctype, false)
+	if err != nil {
+		return 0, err
+	}
 
 	if decomp != nil {
 		if doc.buf, err = decomp.decompress(nil, doc.buf, uncompressedLimit(m.MaxUncompressedSize)); err != nil {
@@ -210,10 +223,25 @@ func (m *Merger) Append(b []byte) (int, error) {
 	// second pass: do the work
 	if err := m.mergeItems(&doc); err != nil {
 		m.buf = m.buf[0:lastElementOffset] // remove appended stuff
+		m.forgetFrom(lastElementOffset - m.bodyOffset)
 		return 0, err
 	}
 
 	return m.length - oldLength, nil
+}
+
+// forgetFrom drops the deduplication entries at merged offsets from offs on
+func (m *Merger) forgetFrom(offs int) {
+	for s, o := range m.strTable {
+		if o >= offs {
+			delete(m.strTable, s)
+		}
+	}
+	for s, o := range m.objTable {
+		if o >= offs {
+			delete(m.objTable, s)
+		}
+	}
 }
 
 // Finish is called to terminate the merging process
@@ -340,7 +368,8 @@ func (m *Merger) buildTrackTable(doc *mergerDoc) error {
 			if err != nil {
 				return err
 			}
-			if offset < 0 || offset >= idx {
+			// the target must lie in the body, before this tag
+			if offset < -doc.bodyOffset || offset >= idx-doc.bodyOffset {
 				return fmt.Errorf("tag %d refers to invalid offset: %d", tag, offset)
 			}
 
@@ -381,7 +410,7 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 	if err != nil {
 		return err
 	}
-	if expElements < 0 || expElements > math.MaxUint32 {
+	if expElements < 0 || expElements > len(dbuf)-didx {
 		return fmt.Errorf("bad amount of expected elements: %d", expElements)
 	}
 
@@ -457,21 +486,23 @@ LOOP:
 			mbuf = append(mbuf, dbuf[didx:didx+ln]...)
 			didx += ln
 
-		case tag == typeFLOAT:
-			mbuf = append(mbuf, dbuf[didx:didx+5]...)
-			didx += 5 // 4 bytes + tag
-
-		case tag == typeDOUBLE:
-			mbuf = append(mbuf, dbuf[didx:didx+9]...)
-			didx += 9 // 8 bytes + tag
-
-		case tag == typeLONG_DOUBLE:
-			mbuf = append(mbuf, dbuf[didx:didx+17]...)
-			didx += 17 // 16 bytes + tag
-
-		case tag == typeSHORT_BINARY_0+1:
-			mbuf = append(mbuf, dbuf[didx:didx+2]...)
-			didx += 2
+		case tag == typeFLOAT, tag == typeDOUBLE, tag == typeLONG_DOUBLE, tag == typeSHORT_BINARY_0+1:
+			var length int
+			switch tag {
+			case typeFLOAT:
+				length = 5 // 4 bytes + tag
+			case typeDOUBLE:
+				length = 9 // 8 bytes + tag
+			case typeLONG_DOUBLE:
+				length = 17 // 16 bytes + tag
+			default:
+				length = 2
+			}
+			if length > len(dbuf)-didx {
+				return ErrTruncated
+			}
+			mbuf = append(mbuf, dbuf[didx:didx+length]...)
+			didx += length
 
 		case tag == typeBINARY, tag == typeSTR_UTF8, tag > typeSHORT_BINARY_0+1 && tag < typeSHORT_BINARY_0+32:
 			// I don't want to call readString here because of performance reasons:
@@ -527,7 +558,7 @@ LOOP:
 			didx += sz + 1
 
 			if tag == typeALIAS || tag == typeREFP {
-				mbuf[targetOffset] |= trackFlag
+				mbuf[targetOffset+m.bodyOffset] |= trackFlag
 			} else if tag == typeOBJECTV || tag == typeOBJECTV_FREEZE {
 				stack = append(stack, 1)
 			}
@@ -538,7 +569,8 @@ LOOP:
 				return err
 
 			}
-			if ln < 0 {
+			// every element takes at least one byte
+			if ln < 0 || ln > len(dbuf)-didx || (tag == typeHASH && ln > (len(dbuf)-didx)/2) {
 				return errors.New("bad array or hash length")
 			}
 
@@ -625,15 +657,26 @@ LOOP:
 		}
 	}
 
+	// the document must hold every element its arrays and hashes declare
+	for _, n := range stack {
+		if n&^hashKeysValuesFlag != 0 {
+			return ErrTruncated
+		}
+	}
+
 	m.length += expElements
 	m.buf = mbuf
 	return nil
 }
 
 func (m *Merger) expectedElements(b []byte) (int, int, error) {
-	if m.KeepFlat {
+	// a top level that is not an array is merged as a single element
+	if m.KeepFlat && len(b) > 0 {
 		tag0 := b[0] &^ trackFlag
-		tag1 := b[1] &^ trackFlag
+		var tag1 byte
+		if len(b) > 1 {
+			tag1 = b[1] &^ trackFlag
+		}
 
 		switch m.TopLevelElement {
 		case TopLevelArray:
@@ -685,6 +728,10 @@ func isShallowStringish(tag byte) bool {
 }
 
 func readString(buf []byte) (int, []byte, error) {
+	if len(buf) == 0 {
+		return 0, nil, ErrTruncated
+	}
+
 	tag := buf[0]
 	tag &^= trackFlag
 
