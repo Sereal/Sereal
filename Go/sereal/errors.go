@@ -20,6 +20,8 @@ var (
 
 	ErrMaxRecursionLimit = errors.New("sereal: recursion limit exceeded")
 
+	ErrMaxUncompressedSize = errors.New("sereal: uncompressed document exceeds the maximum size")
+
 	// protocol version 6 checksum envelope
 	ErrChecksumVersion       = errors.New("sereal: checksummed documents require protocol version 6 or later")
 	ErrChecksumRequired      = errors.New("sereal: checksum policy require_key requires a checksummed document")
@@ -51,6 +53,7 @@ var (
 	errUntrackedOffsetAlias = "untracked offset for alias"
 	errNestedCOPY           = "bad nested copy tag"
 	errBadVarint            = "bad varint"
+	errBadUncompressedSize  = "bad uncompressed size"
 	errFreezeNotRefnArray   = "OBJECT_FREEZE value not REFN+ARRAY"
 	errFreezeNotArray       = "OBJECT_FREEZE value not an array"
 	errFreezeMultipleElts   = "OBJECT_FREEZE array contains multiple elements"

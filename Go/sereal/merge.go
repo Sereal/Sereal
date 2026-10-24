@@ -55,6 +55,11 @@ type Merger struct {
 	// give a hint to encoder about expected size of encoded data
 	ExpectedSize uint
 
+	// MaxUncompressedSize is the largest decompressed input body accepted,
+	// in bytes; 0 means DefaultMaxUncompressedSize and a negative value
+	// disables the limit
+	MaxUncompressedSize int
+
 	// moved bool fields here to make struct smaller
 	inited   bool
 	finished bool
@@ -177,7 +182,7 @@ func (m *Merger) Append(b []byte) (int, error) {
 	decomp, err := documentDecompressor(docHeader.version, docHeader.doctype, false)
 
 	if decomp != nil {
-		if doc.buf, err = decomp.decompress(nil, doc.buf); err != nil {
+		if doc.buf, err = decomp.decompress(nil, doc.buf, uncompressedLimit(m.MaxUncompressedSize)); err != nil {
 			return 0, err
 		}
 	}

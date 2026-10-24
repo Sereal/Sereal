@@ -1,8 +1,11 @@
 package sereal
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
+	"runtime"
 	"testing"
 )
 
@@ -137,6 +140,137 @@ func TestHeaderOffsetsRelativeToSuffix(t *testing.T) {
 		var h interface{}
 		if err := NewDecoder().UnmarshalHeader(b, &h); err != nil || !reflect.DeepEqual(h, hdr) {
 			t.Errorf("UnmarshalHeader(%x) = %#v, %v, want %#v", b, h, err, hdr)
+		}
+	}
+}
+
+// allocated returns the number of bytes allocated while running fn
+func allocated(fn func()) uint64 {
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	fn()
+	runtime.ReadMemStats(&after)
+	return after.TotalAlloc - before.TotalAlloc
+}
+
+func TestMalformedCompressedLength(t *testing.T) {
+	tests := []struct {
+		name string
+		doc  string
+		// the error must be ErrMaxUncompressedSize
+		tooLarge bool
+	}{
+		// zlib: declared uncompressed length 2^62, then a valid empty stream
+		{"zlib length 2^62", "3df3726c330080808080808080804009789c63040000020002", true},
+		// zlib: declared uncompressed length -2^63
+		{"zlib length negative", "3df3726c33008080808080808080800109789c63040000020002", false},
+		// zlib: declared uncompressed length 8 GiB
+		{"zlib length 8 GiB", "3df3726c3300808080802009789c63040000020002", true},
+		// snappy: declared decoded length 4 GiB - 1
+		{"snappy length 4 GiB", "3df3726c230007ffffffff0f0001", true},
+		// zstd: frame content size 512 MiB in a 22-byte frame
+		{"zstd frame content size 512 MiB", "3df3726c44001028b52ffde00000002000000000010000", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc := mustHex(t, tt.doc)
+			check := func(what string, err error) {
+				t.Helper()
+				if err == nil {
+					t.Errorf("%s: succeeded, want an error", what)
+				} else if tt.tooLarge && !errors.Is(err, ErrMaxUncompressedSize) {
+					t.Errorf("%s: error %v, want ErrMaxUncompressedSize", what, err)
+				}
+			}
+
+			var err error
+			n := allocated(func() {
+				err = callNoPanic(t, "unmarshal", func() error {
+					var v interface{}
+					return Unmarshal(doc, &v)
+				})
+			})
+			check("Unmarshal", err)
+			if n > 64<<20 {
+				t.Errorf("Unmarshal allocated %d MiB", n>>20)
+			}
+
+			n = allocated(func() {
+				err = callNoPanic(t, "merge", func() error {
+					_, err := NewMerger().Append(doc)
+					return err
+				})
+			})
+			check("Merger.Append", err)
+			if n > 64<<20 {
+				t.Errorf("Merger.Append allocated %d MiB", n>>20)
+			}
+
+			n = allocated(func() {
+				err = callNoPanic(t, "decompress", func() error {
+					_, err := DecompressDocument(nil, doc)
+					return err
+				})
+			})
+			check("DecompressDocument", err)
+			if n > 64<<20 {
+				t.Errorf("DecompressDocument allocated %d MiB", n>>20)
+			}
+		})
+	}
+}
+
+func TestDecompressDocumentEmptyBody(t *testing.T) {
+	// a snappy document whose body decompresses to nothing, decompressed
+	// into a non-empty buffer that is too short to be reused
+	doc := mustHex(t, "3df3726c23000100")
+	var got []byte
+	err := callNoPanic(t, "decompress", func() (err error) {
+		got, err = DecompressDocument(make([]byte, 4), doc)
+		return err
+	})
+	if err != nil || !bytes.Equal(got, mustHex(t, "3df3726c0300")) {
+		t.Errorf("DecompressDocument(%x) = %x, %v, want 3df3726c0300", doc, got, err)
+	}
+}
+
+func TestMaxUncompressedSize(t *testing.T) {
+	body := bytes.Repeat([]byte("sereal"), 200000) // 1.2 MB, compresses well
+
+	for _, comp := range []compressor{SnappyCompressor{Incremental: true}, ZlibCompressor{}, ZstdCompressor{}} {
+		e := NewEncoderV4()
+		e.Compression = comp
+		doc, err := e.Marshal(body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(doc) > len(body)/10 {
+			t.Fatalf("%T: document of %d bytes is not compressed", comp, len(doc))
+		}
+
+		for _, tt := range []struct {
+			limit int
+			ok    bool
+		}{{1 << 20, false}, {2 << 20, true}, {0, true}, {-1, true}} {
+			d := NewDecoder()
+			d.MaxUncompressedSize = tt.limit
+			var got []byte
+			err := d.Unmarshal(doc, &got)
+			if tt.ok && (err != nil || !bytes.Equal(got, body)) {
+				t.Errorf("%T: Unmarshal with MaxUncompressedSize %d: %v", comp, tt.limit, err)
+			} else if !tt.ok && !errors.Is(err, ErrMaxUncompressedSize) {
+				t.Errorf("%T: Unmarshal with MaxUncompressedSize %d: error %v, want ErrMaxUncompressedSize", comp, tt.limit, err)
+			}
+
+			m := NewMerger()
+			m.MaxUncompressedSize = tt.limit
+			_, err = m.Append(doc)
+			if tt.ok && err != nil {
+				t.Errorf("%T: Merger.Append with MaxUncompressedSize %d: %v", comp, tt.limit, err)
+			} else if !tt.ok && !errors.Is(err, ErrMaxUncompressedSize) {
+				t.Errorf("%T: Merger.Append with MaxUncompressedSize %d: error %v, want ErrMaxUncompressedSize", comp, tt.limit, err)
+			}
 		}
 	}
 }

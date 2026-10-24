@@ -2,6 +2,8 @@ package sereal
 
 import (
 	"math"
+
+	"github.com/klauspost/compress/zstd"
 )
 
 // ZstdCompressor compresses a Sereal document using the zstd format.
@@ -41,7 +43,7 @@ func (c ZstdCompressor) compress(buf []byte) ([]byte, error) {
 	return head, nil
 }
 
-func (c ZstdCompressor) decompress(d, buf []byte) ([]byte, error) {
+func (c ZstdCompressor) decompress(d, buf []byte, limit int) ([]byte, error) {
 	// Read the claimed length of the compressed document
 	ln, sz, err := varintdecode(buf)
 	if err != nil {
@@ -54,5 +56,32 @@ func (c ZstdCompressor) decompress(d, buf []byte) ([]byte, error) {
 
 	buf = buf[sz : sz+ln]
 
-	return zstdDecode(d, buf)
+	if err := zstdCheckFrameSize(buf, limit); err != nil {
+		return nil, err
+	}
+
+	return zstdDecode(d, buf, limit)
+}
+
+// zstdMaxRatio bounds the decompressed size of zstd data: no block (at
+// least an RLE block's 4 bytes) decompresses to more than 128 KiB
+const zstdMaxRatio = 128 << 10 / 4
+
+// zstdCheckFrameSize rejects a first frame whose declared content size is
+// above limit (if not negative) or more than the frame could hold; the
+// decoder preallocates the declared size
+func zstdCheckFrameSize(buf []byte, limit int) error {
+	var h zstd.Header
+	if err := h.Decode(buf); err != nil || !h.HasFCS {
+		return nil // left to the decoder
+	}
+
+	if limit >= 0 && h.FrameContentSize > uint64(limit) {
+		return ErrMaxUncompressedSize
+	}
+	if h.FrameContentSize > zstdMaxRatio*uint64(len(buf)) {
+		return ErrCorrupt{errBadUncompressedSize}
+	}
+
+	return nil
 }

@@ -35,7 +35,11 @@ func (c SnappyCompressor) compress(b []byte) ([]byte, error) {
 	return b, nil
 }
 
-func (c SnappyCompressor) decompress(d, b []byte) ([]byte, error) {
+// snappyMaxRatio bounds the decoded size of snappy data: no element
+// expands by more than 64 bytes from 3
+const snappyMaxRatio = 22
+
+func (c SnappyCompressor) decompress(d, b []byte, limit int) ([]byte, error) {
 	if c.Incremental {
 		ln, sz, err := varintdecode(b)
 		if err != nil {
@@ -46,6 +50,18 @@ func (c SnappyCompressor) decompress(d, b []byte) ([]byte, error) {
 			return nil, ErrCorrupt{errBadOffset}
 		}
 		b = b[sz : sz+ln]
+	}
+
+	// snappy.Decode allocates the declared length up front
+	n, err := snappy.DecodedLen(b)
+	if err != nil {
+		return nil, err
+	}
+	if limit >= 0 && n > limit {
+		return nil, ErrMaxUncompressedSize
+	}
+	if n > snappyMaxRatio*len(b) {
+		return nil, ErrCorrupt{errBadUncompressedSize}
 	}
 
 	decompressed, err := snappy.Decode(d, b)
