@@ -2,9 +2,9 @@ package Sereal;
 use 5.014;
 use strict;
 use warnings;
-our $VERSION    = '6.000_001';
+our $VERSION    = '6.000_002';
 our $XS_VERSION = $VERSION; $VERSION = eval $VERSION;
-use Sereal::Encoder 6.000_001 qw(
+use Sereal::Encoder 6.000_002 qw(
     encode_sereal
     sereal_encode_with_object
     SRL_UNCOMPRESSED
@@ -12,7 +12,7 @@ use Sereal::Encoder 6.000_001 qw(
     SRL_ZLIB
     SRL_ZSTD
 );
-use Sereal::Decoder 6.000_001 qw(
+use Sereal::Decoder 6.000_002 qw(
     get_sereal_checksum
     validate_sereal_checksum
     decode_sereal
