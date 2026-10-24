@@ -1,5 +1,6 @@
 # encoding: utf-8
 require 'test/unit'
+require 'tempfile'
 require ENV['USE_CURRENT_DIRECTORY'] ? File.absolute_path(File.join(File.dirname(__FILE__),'..','lib','sereal')) : 'sereal'
 
 # decoding of malformed or hostile documents: every case must raise, never crash
@@ -124,5 +125,17 @@ class TestSerealMalformed < Test::Unit::TestCase
   def test_unaligned_double
     # ARRAYREF(2): POS 1, DOUBLE 1.5 at an odd address (sanitizer builds flag misaligned loads)
     assert_equal([1, 1.5], Sereal.decode(srl('3df3726c0300 42 01 23 000000000000f83f')))
+  end
+
+  def test_stream_read_error
+    # read() on a write-only file fails with -1, which must end the stream
+    # rather than be taken as a 4 GiB read
+    Tempfile.create('sereal') do |tmp|
+      File.open(tmp.path, 'w') do |f|
+        yielded = false
+        assert_nil(Sereal.decode(f) { yielded = true })
+        assert(!yielded)
+      end
+    end
   end
 end
