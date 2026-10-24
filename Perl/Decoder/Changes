@@ -22,6 +22,7 @@ Revision history for Perl extension Sereal-Decoder
       permanently, even with no_bless_objects.
     * The max_* limit options must be non-negative integers. Negative values
       used to disable the limit entirely and fractions were truncated.
+      Fetch tied limit values once before validating them.
     * A COPY of an OBJECT tag no longer registers its class a second time,
       which left the objects decoded before the COPY unblessed.
     * Refuse to bless the shared integers used by alias_smallint and
