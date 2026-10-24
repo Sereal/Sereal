@@ -162,28 +162,33 @@ static inline u8 s_get_u8_bang(sereal_t *s) {
     return r;
 }
 
+/* the input has no alignment, so copy multi byte values out instead of dereferencing */
 static inline u32 s_get_u32_bang(sereal_t *s) {
-    u32 *r = (u32 *) s_get_p_at_pos(s,s->pos,sizeof(u32) - 1); /* current position + 3 bytes */
-    s->pos += sizeof(*r);
-    return *r;
+    u32 r;
+    COPY(s_get_p_at_pos(s,s->pos,sizeof(r) - 1),&r,sizeof(r)); /* current position + 3 bytes */
+    s->pos += sizeof(r);
+    return r;
 }
 
 static inline float s_get_float_bang(sereal_t *s) {
-    float *f = (float *) s_get_p_at_pos(s,s->pos,sizeof(*f) - 1);
-    s->pos += sizeof(*f);
-    return *f;
+    float f;
+    COPY(s_get_p_at_pos(s,s->pos,sizeof(f) - 1),&f,sizeof(f));
+    s->pos += sizeof(f);
+    return f;
 }
 
 static inline double s_get_double_bang(sereal_t *s) {
-    double *d = (double *) s_get_p_at_pos(s,s->pos,sizeof(*d) - 1);
-    s->pos += sizeof(*d);
-    return *d;
+    double d;
+    COPY(s_get_p_at_pos(s,s->pos,sizeof(d) - 1),&d,sizeof(d));
+    s->pos += sizeof(d);
+    return d;
 }
 
 static inline long double s_get_long_double_bang(sereal_t *s) {
-    long double *d = (long double *) s_get_p_at_pos(s,s->pos,sizeof(*d) - 1);
-    s->pos += sizeof(*d);
-    return *d;
+    long double d;
+    COPY(s_get_p_at_pos(s,s->pos,sizeof(d) - 1),&d,sizeof(d));
+    s->pos += sizeof(d);
+    return d;
 }
 
 static inline u32 s_shift_position_bang(sereal_t *s, u32 len) {
