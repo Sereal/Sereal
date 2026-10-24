@@ -20,11 +20,17 @@ typedef struct __srl_decoder_t {
     BOOL     cpy;
     BOOL     b2s;
     CFTypeRef td;
+    NSUInteger depth;
+    NSUInteger maxdepth;
 } srl_decoder_t;
 
 typedef id (^srl_decoder)(srl_decoder_t *);
 
 static srl_decoder decoders[128];
+
+// lower than the Perl decoder's 10000: each level costs ~100-300 bytes of C stack, so 10000
+// levels overflow the 512KB stack of a secondary thread, which kills the process uncatchably
+#define SRL_DEFAULT_MAX_RECURSION_DEPTH 1000
 
 #define ADVANCE_OFFSET(__dec, __size) {\
     *__dec->ofx += __size;\
@@ -74,6 +80,10 @@ static id srl_decode(srl_decoder_t *dec)
     NSMutableDictionary *trackingDictionary = (__bridge NSMutableDictionary *)(dec->td);
 
     id obj = nil;
+    if (++dec->depth > dec->maxdepth)
+        @throw [NSException exceptionWithName:@"RecursionLimit"
+                                       reason:[NSString stringWithFormat:@"Reached recursion limit (%lu) during deserialization", (unsigned long)dec->maxdepth]
+                                     userInfo:nil];
     ADVANCE_OFFSET(dec, 1);
     // NOTE: the tracking flag will be ignored if we are decoding a copy command
     BOOL track = (dec->hdr[*dec->ofx] & SRL_HDR_TRACK_FLAG && !dec->cpy);
@@ -89,6 +99,7 @@ static id srl_decode(srl_decoder_t *dec)
                                        reason:[NSString stringWithFormat:@"Can't decode: Unknown header %02x", hdr]
                                      userInfo:nil];
     }
+    dec->depth--;
     return obj;
 }
 
@@ -112,7 +123,9 @@ static ssize_t read_backref_offset(srl_decoder_t *dec, ssize_t tag)
     .ofx = &__ofx,\
     .bdy = __src->bdy,\
     .cpy = YES,\
-    .b2s = __src->b2s\
+    .b2s = __src->b2s,\
+    .depth = __src->depth,\
+    .maxdepth = __src->maxdepth\
 }\
 
 static inline void fill_array(NSMutableArray *array, int items, srl_decoder_t *dec)
@@ -283,6 +296,8 @@ static void create_decoders_lookup()
     };
     
     decoders[SRL_HDR_OBJECTV_FREEZE] = ^id (srl_decoder_t *dec) {
+        if (dec->cpy)
+            @throw [NSException exceptionWithName:@"nested_copy" reason:@"Can't nest OBJECTV_FREEZE inside COPY headers" userInfo:nil];
         ssize_t tag = *dec->ofx;
         ssize_t offset = read_backref_offset(dec, tag);
         srl_decoder_t copy_dec = COPY_DECODER(dec, offset, tag);
@@ -312,6 +327,8 @@ static void create_decoders_lookup()
     };
     
     decoders[SRL_HDR_OBJECTV] = ^id (srl_decoder_t *dec) {
+        if (dec->cpy)
+            @throw [NSException exceptionWithName:@"nested_copy" reason:@"Can't nest OBJECTV inside COPY headers" userInfo:nil];
         ssize_t tag = *dec->ofx;
         ssize_t offset = read_backref_offset(dec, tag);
         srl_decoder_t copy_dec = COPY_DECODER(dec, offset, tag);
@@ -421,6 +438,15 @@ static NSError *decode_error(NSString *errorMessage)
 @implementation SrlDecoder
 
 @synthesize error;
+@synthesize maxRecursionDepth;
+
+- (id)init
+{
+    self = [super init];
+    if (self)
+        maxRecursionDepth = SRL_DEFAULT_MAX_RECURSION_DEPTH;
+    return self;
+}
 
 + (void)initialize
 {
@@ -472,6 +498,7 @@ static NSError *decode_error(NSString *errorMessage)
         .bdy = 0,
         .cpy = NO,
         .b2s = self.binaryStrings,
+        .maxdepth = self.maxRecursionDepth,
         .td  = CFBridgingRetain([[NSMutableDictionary alloc] init])
     };
     

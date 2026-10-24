@@ -93,6 +93,33 @@ static char encoded_test[] = {
     ASSERT_REJECTS("=srl\x02\x80\x80\xc0\xff\xff\xff\xff\xff\xff\x01\x01", @"a negative header suffix length");
 }
 
+- (void)testRecursionLimits
+{
+    // [ "ab", OBJECTV("ab") 1, OBJECTV(-> the first OBJECTV) 1 ]: an OBJECTV inside an OBJECTV's class name
+    ASSERT_REJECTS("=srl\x02\x00\x43\x62" "ab" "\x2d\x02\x01\x2d\x05\x01", @"an OBJECTV nested in an OBJECTV");
+    // { "ab" => OBJECTV_FREEZE("ab") "", "cd" => OBJECTV(-> the OBJECTV_FREEZE) 1 }
+    ASSERT_REJECTS("=srl\x02\x00\x52\x62" "ab" "\x33\x02\x60\x62" "cd" "\x2d\x05\x01", @"an OBJECTV_FREEZE nested in an OBJECTV");
+
+    // 100000 nested REFN tags around an integer, far deeper than the default limit
+    NSMutableData *deep = [NSMutableData dataWithBytes:"=srl\x02\x00" length:6];
+    [deep increaseLengthBy:100000];
+    memset((char *)deep.mutableBytes + 6, 0x28, 100000);
+    [deep appendBytes:"\x01" length:1];
+    [self assertRejects:deep.bytes length:deep.length what:@"100000 nested references"];
+
+    // the limit is configurable: 20 levels pass with the default and fail with a limit of 10
+    NSMutableData *shallow = [NSMutableData dataWithBytes:"=srl\x02\x00" length:6];
+    [shallow increaseLengthBy:19];
+    memset((char *)shallow.mutableBytes + 6, 0x28, 19);
+    [shallow appendBytes:"\x01" length:1];
+    SrlDecoder *decoder = [[SrlDecoder alloc] init];
+    NSError *err = nil;
+    STAssertEqualObjects([decoder decode:shallow error:&err], @1, @"20 nested levels should decode");
+    decoder.maxRecursionDepth = 10;
+    STAssertNil([decoder decode:shallow error:&err], @"20 nested levels should exceed a limit of 10");
+    STAssertNotNil(err, @"no error reported for exceeding the recursion limit");
+}
+
 - (void)setUp
 {
     [super setUp];
