@@ -31,11 +31,16 @@ Miscellaneous utils:
 Decoder limits
 --------------
 
-`Decoder` and `Merger` reject a compressed body that decompresses to more than
-`MaxUncompressedSize` bytes with `ErrMaxUncompressedSize`. The zero value means
-`DefaultMaxUncompressedSize` (1 GiB) and a negative value disables the limit.
-Declared lengths are checked before memory is allocated for them.
-`DecompressDocument` always uses the default limit.
+`Decoder` and `Merger` have two limits on untrusted input. For both, the zero
+value selects the default and a negative value disables the limit.
+
+- `MaxRecursionDepth` (default `DefaultMaxRecursionDepth`, 10000, as perl's
+  `max_recursion_depth`) bounds how deeply values may nest; deeper documents
+  fail with `ErrMaxRecursionLimit`.
+- `MaxUncompressedSize` (default `DefaultMaxUncompressedSize`, 1 GiB) bounds
+  the size a compressed body may decompress to; larger bodies fail with
+  `ErrMaxUncompressedSize`. Declared lengths are checked before memory is
+  allocated for them. `DecompressDocument` always uses the default limit.
 
 Protocol v6 and checksums
 -------------------------
