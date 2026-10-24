@@ -55,7 +55,8 @@ func zstdDecode(d, buf []byte, limit int) ([]byte, error) {
 		return nil, err
 	}
 
-	res, err := dec.DecodeAll(buf, d)
+	// DecodeAll appends; d is a buffer to decompress into, like snappy's
+	res, err := dec.DecodeAll(buf, d[:0])
 	if errors.Is(err, zstd.ErrDecoderSizeExceeded) {
 		return nil, ErrMaxUncompressedSize
 	}
