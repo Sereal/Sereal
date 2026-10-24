@@ -14,6 +14,9 @@ module Sereal {
         private preservePadding = false;
         private doc: SerealDocument;
         private debug: boolean = false;
+        private maxDepth: number = 1000;  // stays well below the stack depth of common engines
+        private depth: number = 0;
+        private inCopy: boolean = false;
         private tagReaders: Array<(tag?: number, trackPos?: number) => any> = new Array(128);
 
         constructor() {
@@ -97,7 +100,10 @@ module Sereal {
             var func = this.tagReaders[tag];
             if (func == null)
                 throw new SerealException("Tag not supported: " + tag);
+            if (++this.depth > this.maxDepth)
+                throw new SerealException("nesting deeper than " + this.maxDepth);
             var out = func.call(this, tag, trackPos);
+            this.depth--;
 
             if (trackPos != null)  // we double-track arrays ATM (but they just overwrite)
                 this.track(trackPos, out);
@@ -349,13 +355,20 @@ module Sereal {
         */
         read_copy(): any {
 
+            if (this.inCopy)
+                throw new SerealException("COPY tag inside COPY");
+            var tagPos = this.reader.pos - 1;
             var copyPos = this.read_varint();
+            if (copyPos < 1 || copyPos > tagPos)
+                throw new SerealException("COPY offset " + copyPos + " is not before the COPY tag");
             copyPos--;   //indexes are 1 based in sereal, 0 based in the reader.
             var currentPos = this.reader.pos;
             if (this.debug) console.log("copy_tag - jumping from " + currentPos + " to "+copyPos);
 
             this.reader.pos = copyPos;
+            this.inCopy = true;
             var copy = this.read();
+            this.inCopy = false;
             this.reader.pos = currentPos; // go back to where we were
             if (this.debug) console.log("copy_tag - after reading from " +copyPos + " jumping back from " + this.reader.pos + " to " + currentPos);
 
