@@ -619,6 +619,11 @@ srl_reset_output_sv(pTHX_ SV *into)
         croak("%s", PL_no_modify);
     if (SvTYPE(into) != SVt_NULL || SvOK(into))
         sv_setsv(into, &PL_sv_undef);
+    /* Assignment turns a regexp copy back into a plain scalar; anything
+     * still not one (an array, hash, code or compiled regexp body) would
+     * be written through by the value readers. */
+    if (expect_false( SvTYPE(into) > SVt_PVMG ))
+        croak("Sereal: Error: cannot decode into a %s", sv_reftype(into, 0));
 }
 
 /* Logic shared by the various decoder entry points. */
@@ -2487,7 +2492,18 @@ SRL_STATIC_INLINE void
 srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 {
     SV *sv_pat= sv_2mortal(FRESH_SV());
+    U8 pat_tag;
+    /* The pattern must be a string. Given a reference to an existing
+     * regexp, CALLREGCOMP returns that regexp itself. A COPY may only
+     * point at a string, which is checked after reading it. */
+    SRL_RDR_ASSERT_SPACE(dec->pbuf, 1, " while reading regexp pattern tag");
+    pat_tag= *dec->buf.pos & ~SRL_HDR_TRACK_FLAG;
+    if (expect_false( !IS_SRL_HDR_SHORT_BINARY(pat_tag) && pat_tag != SRL_HDR_BINARY
+                      && pat_tag != SRL_HDR_STR_UTF8 && pat_tag != SRL_HDR_COPY ))
+        SRL_RDR_ERROR(dec->pbuf, "Corrupted packet. REGEXP pattern must be a string");
     srl_read_single_value(aTHX_ dec, sv_pat, NULL);
+    if (expect_false( SvROK(sv_pat) || SvTYPE(sv_pat) > SVt_PVMG || !SvPOK(sv_pat) ))
+        SRL_RDR_ERROR(dec->pbuf, "Corrupted packet. REGEXP pattern must be a string");
     SRL_RDR_ASSERT_SPACE(dec->pbuf, 1, " while reading regexp modifer tag");
     /* For now we will serialize the flags as ascii strings. Maybe we should use
      * something else but this is easy to debug and understand - since the modifiers
@@ -2524,38 +2540,16 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 #ifdef MODERN_REGEXP
         {
             SV *referent;
-            SV tmp;
-            /* This is ugly. We have to swap out the insides of our SV
-             * with the one we get back from CALLREGCOMP, as there is no
-             * way to get it to fill our SV.
-             *
-             * As far as I understand this works because of how the SV
-             * is laid out. Needs to be verified with someone who knows
-             * better.
-             */
 
             /* compile the regex */
             referent= (SV*)CALLREGCOMP(sv_pat, flags);
             if (!referent)
                 SRL_RDR_ERROR(dec->pbuf, "bad regexp pattern");
 
-            /* make sure the SV came from us (it should) and
-             * is bodyless */
-            assert( SvTYPE(into) == SVt_NULL );
-
-#define SWAP_DEBUG 0
-            if (SWAP_DEBUG) { warn("before swap:"); sv_dump(into); sv_dump(referent); }
-
-            /* Swap the contents of the two heads. */
-            Copy(into, &tmp, 1, SV);
-            Copy((SV*)referent, into, 1, SV);
-            Copy(&tmp, (SV*)referent, 1, SV);
-            SvREFCNT(referent)= SvREFCNT(into);
-            SvREFCNT(into)= SvREFCNT(&tmp);
-
-            if (SWAP_DEBUG) { warn("after swap:"); sv_dump(into); sv_dump(referent); }
-
-            /* and now throw away the head we got from the regexp engine. */
+            /* Store a copy, as qr// and ${qr//} do: perl only hands out
+             * copies of a compiled regexp, and relies on that when one is
+             * assigned to or freed. sv_setsv() makes the copy. */
+            sv_setsv(into, referent);
             SvREFCNT_dec(referent);
         }
 #elif defined( TRANSITION_REGEXP )

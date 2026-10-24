@@ -17,6 +17,11 @@ Revision history for Perl extension Sereal-Decoder
       tag or at the header bytes of a protocol version 1 document, and zero
       the header area of the decompression buffer so no uninitialized bytes
       can be reached through an offset.
+    * Decode REGEXP values as copies of the compiled regexp, as qr// and
+      ${qr//} produce, instead of the compiled regexp itself. Assigning to a
+      decoded bare regexp, or freeing a copy of a decoded qr//, could crash.
+      The REGEXP pattern must now be a string, and output scalars that are
+      not plain scalars (e.g. globs) are refused.
     * decode_with_offset() with an offset past the end of the input now
       reports the offset and input length without touching the unset buffer.
     * Avoid undefined behaviour from unaligned FLOAT, DOUBLE, and LONG_DOUBLE
