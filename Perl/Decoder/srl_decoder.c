@@ -1340,10 +1340,11 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
          * We defer to the end like this so that we only bless data structures
          * if the entire deserialization completes. */
         while ( NULL != (ent = PTABLE_iter_next(it)) ) {
-            HV *stash = (HV* )ent->value;
+            SV *class_entry = (SV *)ent->value; /* see srl_class_stash() */
+            HV *stash = NULL;
             AV *ref_bless_av  = (AV *) PTABLE_fetch(dec->ref_bless_av, ent->key);
             SSize_t len;
-            if (expect_false( !stash || !ref_bless_av )) {
+            if (expect_false( !class_entry || !ref_bless_av )) {
                 PTABLE_iter_free(it);
                 SRL_RDR_ERROR(dec->pbuf, "missing stash or ref_bless_av!");
             }
@@ -1374,6 +1375,12 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
                     /* was blessed early, don't rebless */
 #else
                     if (!nobless) {
+                        if (!stash) {
+                            /* updating the current entry's value is safe while iterating */
+                            if (SvTYPE(class_entry) != SVt_PVHV)
+                                ent->value = (void *)gv_stashsv(class_entry, GV_ADD);
+                            stash = (HV *)ent->value;
+                        }
                         if ( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_READONLY_FLAGS) && SvREADONLY(SvRV(obj))) {
                             /* the referenced scalar was readonly, temporary
                                set it rw to bless its reference */
@@ -2151,6 +2158,21 @@ srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into)
     }
 }
 
+/* dec->ref_stashes maps the offset of a class name to its stash, or to
+ * the class name itself (a mortal string) while no package of that name
+ * exists: reading a class name must not create a package, as that is
+ * permanent. Returns the stash, creating the package if necessary. */
+SRL_STATIC_INLINE HV *
+srl_class_stash(pTHX_ srl_decoder_t *dec, UV pos, SV *class_entry)
+{
+    HV *stash;
+    if (SvTYPE(class_entry) == SVt_PVHV)
+        return (HV *)class_entry;
+    stash= gv_stashsv(class_entry, GV_ADD);
+    PTABLE_store(dec->ref_stashes, (void *)pos, (void *)stash);
+    return stash;
+}
+
 /* With alias_smallint/alias_varint_under, small integers decode to
  * read-only scalars from dec->alias_cache, shared by every decode on this
  * decoder and its clones. A REFP can make one the referent of an OBJECT,
@@ -2198,11 +2220,11 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
 
     /* checking tag: SRL_HDR_OBJECTV_FREEZE or SRL_HDR_OBJECTV? */
     if (expect_false( obj_tag == SRL_HDR_OBJECTV_FREEZE )) {
-        HV *class_stash= (HV *) PTABLE_fetch(dec->ref_stashes, (void *)ofs);
-        if (expect_false( class_stash == NULL ))
+        SV *class_entry= (SV *) PTABLE_fetch(dec->ref_stashes, (void *)ofs);
+        if (expect_false( class_entry == NULL ))
             SRL_RDR_ERROR(dec->pbuf, "Corrupted packet. OBJECTV(_FREEZE) used without "
                           "preceding OBJECT(_FREEZE) to define classname");
-        srl_read_frozen_object(aTHX_ dec, class_stash, into);
+        srl_read_frozen_object(aTHX_ dec, srl_class_stash(aTHX_ dec, ofs, class_entry), into);
     } else {
         /* SRL_HDR_OBJECTV, not SRL_HDR_OBJECTV_FREEZE */
         /* now deparse the thing we are going to bless */
@@ -2218,12 +2240,12 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
 #if USE_588_WORKAROUND
         {
             /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */
-            HV *class_stash= PTABLE_fetch(dec->ref_stashes, (void *)ofs);
-            if (expect_false( class_stash == NULL ))
+            SV *class_entry= PTABLE_fetch(dec->ref_stashes, (void *)ofs);
+            if (expect_false( class_entry == NULL ))
                 SRL_RDR_ERROR(dec->pbuf, "Corrupted packet. OBJECTV(_FREEZE) used without "
                               "preceding OBJECT(_FREEZE) to define classname");
             if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS))
-                sv_bless(into, class_stash);
+                sv_bless(into, srl_class_stash(aTHX_ dec, ofs, class_entry));
         }
 #endif
     }
@@ -2233,7 +2255,7 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
 SRL_STATIC_INLINE void
 srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_name_only)
 {
-    HV *class_stash= NULL;
+    SV *class_entry= NULL; /* stash or class name, see srl_class_stash() */
     AV *av= NULL;
     STRLEN storepos= 0;
     UV ofs= 0;
@@ -2299,11 +2321,11 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
          * anymore. So first we check if we have a stash. If we do, then we can avoid
          * some work. */
         if (expect_true( dec->ref_stashes != NULL )) {
-            class_stash= (HV *) PTABLE_fetch(dec->ref_stashes, (void *)ofs);
+            class_entry= (SV *) PTABLE_fetch(dec->ref_stashes, (void *)ofs);
         }
-        /* Check if we actually got a class_stash back. If we didn't then we need
+        /* Check if we actually got a class_entry back. If we didn't then we need
          * to deserialize the class name */
-        if (!class_stash) {
+        if (!class_entry) {
             from= dec->buf.body_pos + ofs;
             tag= *from++ & ~SRL_HDR_TRACK_FLAG;
             if (IS_SRL_HDR_SHORT_BINARY(tag)) {
@@ -2355,12 +2377,17 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
     /* A COPY of this OBJECT tag re-reads an inline class name at the same
      * offset; reuse its registration so objects queued earlier against it
      * are still blessed. */
-    if (!class_stash)
-        class_stash= (HV *) PTABLE_fetch(dec->ref_stashes, (void *)storepos);
-    if (!class_stash) {
-        /* no class stash - so we need to look it up and then store it away for future use */
-        class_stash= gv_stashpvn((char *)from, key_len, flags);
-        PTABLE_store(dec->ref_stashes, (void *)storepos, (void *)class_stash);
+    if (!class_entry)
+        class_entry= (SV *) PTABLE_fetch(dec->ref_stashes, (void *)storepos);
+    if (!class_entry) {
+        /* no class stash - so we need to look it up and then store it away
+         * for future use. Only a frozen object needs the package now; for
+         * the others it is created when they are blessed. */
+        class_entry= (SV *) gv_stashpvn((char *)from, key_len,
+            obj_tag == SRL_HDR_OBJECT_FREEZE ? flags : flags & ~GV_ADD);
+        if (!class_entry)
+            class_entry= sv_2mortal(newSVpvn_flags((char *)from, key_len, flags & SVf_UTF8));
+        PTABLE_store(dec->ref_stashes, (void *)storepos, (void *)class_entry);
         /* Since this is the first time we have seen this stash then it is the first time
          * that we have stored an item in the ref_bless_av hash as well. So create a new one
          * and store it away. */
@@ -2386,7 +2413,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
 
     SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE);
     if (expect_false( obj_tag == SRL_HDR_OBJECT_FREEZE )) {
-        srl_read_frozen_object(aTHX_ dec, class_stash, into);
+        srl_read_frozen_object(aTHX_ dec, srl_class_stash(aTHX_ dec, storepos, class_entry), into);
     } else {
 
         /* We now have a stash so we /could/ bless... except that
@@ -2405,7 +2432,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
 #if USE_588_WORKAROUND
         /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */
         if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS))
-            sv_bless(into, class_stash);
+            sv_bless(into, srl_class_stash(aTHX_ dec, storepos, class_entry));
 #endif
     }
 }
