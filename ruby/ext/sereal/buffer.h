@@ -114,23 +114,26 @@ static inline int s_read_stream(sereal_t *s, u32 end) {
     return 1;
 }
 
-static inline void *s_get_p_at_pos(sereal_t *s, u32 pos,u32 req) {
+static inline void *s_get_p_at_pos(sereal_t *s, u32 pos,u64 req) {
     // returning s->data[pos], so we just make size count from 0
-    if (unlikely(pos + req >= s->size)) {
+    // compare against what is left so that pos + req can not wrap
+    if (unlikely(pos >= s->size || req >= s->size - pos)) {
         if (unlikely(s->flags & __STREAM)) {
+            if (req >= (u64) UINT32_MAX - pos)
+                s_raise(s,rb_eRangeError,"stream request for %" PRIu64 " bytes is too big",req);
             if (s_read_stream(s,pos + req + 1) < 0) {
-                s_raise(s,rb_eRangeError,"stream request for %d bytes failed (err: %s)",
+                s_raise(s,rb_eRangeError,"stream request for %" PRIu64 " bytes failed (err: %s)",
                         req,strerror(errno));
             }
         } else {
             u32 size = s->size;
-            s_raise(s,rb_eRangeError,"position is out of bounds (%d + %d >  %d)",pos,req,size);
+            s_raise(s,rb_eRangeError,"position is out of bounds (%u + %" PRIu64 " >  %u)",pos,req,size);
         }
     }
     return &s->data[pos];
 }
 
-static inline void *s_get_p_at_pos_bang(sereal_t *s, u32 pos,u32 req) {
+static inline void *s_get_p_at_pos_bang(sereal_t *s, u32 pos,u64 req) {
     void *p = s_get_p_at_pos(s,pos,req);
     s->pos += req;
     return p;
@@ -139,10 +142,10 @@ static inline void *s_get_p_at_pos_bang(sereal_t *s, u32 pos,u32 req) {
 static inline void *s_end_p(sereal_t *s) {
     return s_get_p_at_pos(s,s->size - 1,0);
 }
-static inline void *s_get_p_req_inclusive(sereal_t *s, int req) {
+static inline void *s_get_p_req_inclusive(sereal_t *s, u64 req) {
     return s_get_p_at_pos(s,s->pos,req > 0 ? req - 1 : 0);
 }
-static inline void *s_get_p_req(sereal_t *s, int req) {
+static inline void *s_get_p_req(sereal_t *s, u64 req) {
     return s_get_p_at_pos(s,s->pos,req);
 }
 static inline void *s_get_p(sereal_t *s) {

@@ -105,10 +105,12 @@ static VALUE s_read_rb_string_bang(sereal_t *s,u8 t) {
     u32 len = 0;
     VALUE string;
 // len - 1: we also use the current byte, similar to u32,float.. casts
+// the length is bounds checked at full width before it is narrowed
 #define RETURN_STRING(fx_l,fx_gen)              \
     do {                                        \
-        len       = (u32) fx_l;                 \
-        char *ptr = (char *) (len == 0 ? 0 : s_get_p_req_inclusive(s,len)); \
+        u64 len64 = fx_l;                       \
+        char *ptr = (char *) (len64 == 0 ? 0 : s_get_p_req_inclusive(s,len64)); \
+        len       = (u32) len64;                \
         string    = fx_gen;                     \
         s_shift_position_bang(s,len);           \
         return string;                          \
@@ -370,7 +372,7 @@ again:
 
     if (is_compressed) {
         u32 uncompressed_len;
-        u32 compressed_len;
+        u64 compressed_len;
 
         if (is_compressed == __SNAPPY_INCR) {
             compressed_len = s_get_varint_bang(s);
@@ -380,7 +382,7 @@ again:
 
             compressed_len = s->size - s->pos;
         }
-        SD(s,"compressed len: %d",compressed_len);
+        SD(s,"compressed len: %" PRIu64,compressed_len);
         if (s->flags & __STREAM)
             s_get_p_req_inclusive(s,compressed_len);
 
@@ -396,7 +398,7 @@ again:
                                       (char *) uncompressed,
                                       uncompressed_len) == CSNAPPY_E_OK ? 1 : 0;
         if (!done)
-            s_raise(s,rb_eTypeError, "decompression failed error: %d type: %d, unompressed size: %d compressed size: %d",
+            s_raise(s,rb_eTypeError, "decompression failed error: %d type: %d, unompressed size: %u compressed size: %" PRIu64,
                                       done,is_compressed,uncompressed_len,compressed_len);
 
         s_free_data_if_not_mine(s);
