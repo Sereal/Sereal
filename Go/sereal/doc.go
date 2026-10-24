@@ -14,11 +14,14 @@ Encoder's ChecksumV0Key, ChecksumV1Key or ChecksumV2Key fields to sign a
 document, and set the same key and a ChecksumPolicy on the Decoder to verify
 it; GetChecksum and ValidateChecksum inspect a document without decoding it.
 
-Decoder limits: a compressed body may decompress to at most
-MaxUncompressedSize bytes (on the Decoder and the Merger; 0 means
-DefaultMaxUncompressedSize, 1 GiB, and a negative value disables the limit).
-Larger bodies, and declared lengths the compressed data cannot hold, are
-rejected with ErrMaxUncompressedSize or ErrCorrupt before the memory is
-allocated. DecompressDocument always applies the default limit.
+Decoder limits: the Decoder and the Merger have two limits, where 0 selects
+the default and a negative value disables the limit. MaxRecursionDepth
+(default DefaultMaxRecursionDepth, 10000, as in perl) bounds the nesting of
+values; deeper documents are rejected with ErrMaxRecursionLimit.
+MaxUncompressedSize (default DefaultMaxUncompressedSize, 1 GiB) bounds the
+size a compressed body may decompress to; larger bodies, and declared
+lengths the compressed data cannot hold, are rejected with
+ErrMaxUncompressedSize or ErrCorrupt before the memory is allocated.
+DecompressDocument always applies the default size limit.
 */
 package sereal

@@ -87,6 +87,7 @@ type Decoder struct {
 	tcache    tagsCache
 	copyDepth int
 	minOffset int // offsets below this point before the body (or header) being decoded
+	depth     int // nesting of the value being decoded
 
 	// PerlCompat produced a decoded data structure that preserves as much as possible the original Perl structure
 	PerlCompat bool
@@ -113,6 +114,10 @@ type Decoder struct {
 	// UndefDeadlyWarningHandler receives warnings for UndefDeadlyPolicy "warn".
 	// nil writes them to os.Stderr, prefixed with "sereal: ".
 	UndefDeadlyWarningHandler func(msg string)
+	// MaxRecursionDepth is the deepest nesting of values accepted; 0 means
+	// DefaultMaxRecursionDepth and a negative value disables the limit
+	MaxRecursionDepth int
+
 	// MaxUncompressedSize is the largest decompressed body accepted, in
 	// bytes; 0 means DefaultMaxUncompressedSize and a negative value
 	// disables the limit
@@ -124,6 +129,26 @@ type Decoder struct {
 // DefaultMaxUncompressedSize is the default limit on the size of a
 // decompressed document body
 const DefaultMaxUncompressedSize = 1 << 30
+
+// DefaultMaxRecursionDepth is the default limit on the nesting of decoded
+// values, as in perl's Sereal::Decoder
+const DefaultMaxRecursionDepth = 10000
+
+// enter descends one nesting level; it returns ErrMaxRecursionLimit when
+// that exceeds MaxRecursionDepth. Each call is paired with leave.
+func (d *Decoder) enter() error {
+	d.depth++
+	limit := d.MaxRecursionDepth
+	if limit == 0 {
+		limit = DefaultMaxRecursionDepth
+	}
+	if limit > 0 && d.depth > limit {
+		return ErrMaxRecursionLimit
+	}
+	return nil
+}
+
+func (d *Decoder) leave() { d.depth-- }
 
 // uncompressedLimit returns the effective decompressed size limit for the
 // option value n; a negative result means no limit
@@ -245,6 +270,8 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 	if err != nil {
 		return err
 	}
+
+	d.depth = 0
 
 	if d.ChecksumPolicy == ChecksumRequireKey {
 		if d.ChecksumV0Key == nil && d.ChecksumV1Key == nil && d.ChecksumV2Key == nil {
@@ -443,6 +470,11 @@ func (d *Decoder) warn(msg string) {
 func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 	if idx < 0 || idx >= len(by) {
 		return 0, ErrTruncated
+	}
+
+	defer d.leave()
+	if err := d.enter(); err != nil {
+		return 0, err
 	}
 
 	tag := by[idx]
@@ -1011,6 +1043,11 @@ func (d *Decoder) decodeRegexp(by []byte, idx int) (*PerlRegexp, int, error) {
 func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (int, error) {
 	if idx < 0 || idx >= len(by) {
 		return 0, ErrTruncated
+	}
+
+	defer d.leave()
+	if err := d.enter(); err != nil {
+		return 0, err
 	}
 
 	ptrKind := ptr.Kind()

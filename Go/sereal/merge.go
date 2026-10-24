@@ -55,6 +55,11 @@ type Merger struct {
 	// give a hint to encoder about expected size of encoded data
 	ExpectedSize uint
 
+	// MaxRecursionDepth is the deepest nesting of arrays, hashes and
+	// objects accepted in an input document; 0 means
+	// DefaultMaxRecursionDepth and a negative value disables the limit
+	MaxRecursionDepth int
+
 	// MaxUncompressedSize is the largest decompressed input body accepted,
 	// in bytes; 0 means DefaultMaxUncompressedSize and a negative value
 	// disables the limit
@@ -390,6 +395,11 @@ func (m *Merger) mergeItems(doc *mergerDoc) error {
 	stack := make([]uint32, 0, 16) // preallocate 16 nested levels
 	stack = append(stack, uint32(expElements))
 
+	maxDepth := m.MaxRecursionDepth
+	if maxDepth == 0 {
+		maxDepth = DefaultMaxRecursionDepth
+	}
+
 LOOP:
 	for didx < len(dbuf) {
 		tag := dbuf[didx]
@@ -600,6 +610,10 @@ LOOP:
 
 		default:
 			return fmt.Errorf("unknown tag: %d (0x%x) at offset %d", tag, tag, didx)
+		}
+
+		if maxDepth > 0 && len(stack) > maxDepth {
+			return ErrMaxRecursionLimit
 		}
 
 		stack[level]--

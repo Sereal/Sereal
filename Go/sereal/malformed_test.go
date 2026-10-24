@@ -274,3 +274,150 @@ func TestMaxUncompressedSize(t *testing.T) {
 		}
 	}
 }
+
+// deepDoc returns a v3 document whose body is prefix repeated n times
+// followed by leaf
+func deepDoc(prefix []byte, n int, leaf ...byte) []byte {
+	doc := []byte{0x3d, 0xf3, 0x72, 0x6c, 0x03, 0x00}
+	doc = append(doc, bytes.Repeat(prefix, n)...)
+	return append(doc, leaf...)
+}
+
+func TestMaxRecursionDepth(t *testing.T) {
+	refn := []byte{typeREFN}
+	arrayref1 := []byte{typeARRAYREF_0 + 1}
+	array1 := []byte{typeARRAY, 0x01}
+	hashref1 := []byte{typeHASHREF_0 + 1, typeSHORT_BINARY_0 + 1, 'k'}
+	weaken := []byte{typeWEAKEN, typeREFN}
+
+	decoders := map[string]func(d *Decoder, doc []byte) error{
+		"iface": func(d *Decoder, doc []byte) error {
+			var v interface{}
+			return d.Unmarshal(doc, &v)
+		},
+		"perl": func(d *Decoder, doc []byte) error {
+			d.PerlCompat = true
+			var v interface{}
+			return d.Unmarshal(doc, &v)
+		},
+		"struct": func(d *Decoder, doc []byte) error {
+			var s malformedS
+			return d.Unmarshal(doc, &s)
+		},
+		"slice": func(d *Decoder, doc []byte) error {
+			var s []interface{}
+			return d.Unmarshal(doc, &s)
+		},
+	}
+
+	for _, nest := range []struct {
+		name   string
+		prefix []byte
+		leaf   []byte
+		paths  []string
+	}{
+		{"refn", refn, []byte{typeHASHREF_0}, []string{"iface", "perl", "struct"}},
+		{"arrayref", arrayref1, []byte{0x01}, []string{"iface", "perl", "slice"}},
+		{"array", array1, []byte{0x01}, []string{"iface", "perl", "slice"}},
+		{"hashref", hashref1, []byte{0x01}, []string{"iface", "perl", "struct"}},
+		{"weaken", weaken, []byte{0x01}, []string{"iface", "perl"}},
+	} {
+		for _, path := range nest.paths {
+			dec := decoders[path]
+
+			for _, tt := range []struct {
+				limit, depth int
+				ok           bool
+			}{
+				{0, 20000, false},
+				{100, 150, false},
+				{100, 40, true},
+				{-1, 20000, true},
+			} {
+				d := NewDecoder()
+				d.MaxRecursionDepth = tt.limit
+				doc := deepDoc(nest.prefix, tt.depth, nest.leaf...)
+				err := callNoPanic(t, nest.name+"/"+path, func() error { return dec(d, doc) })
+				if tt.ok && err != nil {
+					t.Errorf("%s/%s: depth %d, MaxRecursionDepth %d: %v", nest.name, path, tt.depth, tt.limit, err)
+				} else if !tt.ok && !errors.Is(err, ErrMaxRecursionLimit) {
+					t.Errorf("%s/%s: depth %d, MaxRecursionDepth %d: error %v, want ErrMaxRecursionLimit", nest.name, path, tt.depth, tt.limit, err)
+				}
+			}
+		}
+	}
+
+	// user header data
+	hdr := []byte{0x3d, 0xf3, 0x72, 0x6c, 0x03}
+	suffix := append([]byte{0x01}, bytes.Repeat(refn, 20000)...)
+	suffix = append(suffix, 0x01)
+	hdr = varint(hdr, uint(len(suffix)))
+	hdr = append(append(hdr, suffix...), 0x01)
+	var h interface{}
+	if err := callNoPanic(t, "header", func() error { return NewDecoder().UnmarshalHeader(hdr, &h) }); !errors.Is(err, ErrMaxRecursionLimit) {
+		t.Errorf("UnmarshalHeader of 20000 nested REFN: error %v, want ErrMaxRecursionLimit", err)
+	}
+}
+
+func TestMaxRecursionDepthStack(t *testing.T) {
+	if testing.Short() {
+		t.Skip("builds a 10 MB document")
+	}
+	// ten million nested REFN would overflow the goroutine stack
+	body, err := ZlibCompressor{}.compress(append(bytes.Repeat([]byte{typeREFN}, 10000000), 0x01))
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := append([]byte{0x3d, 0xf3, 0x72, 0x6c, 0x33, 0x00}, body...)
+	for _, perl := range []bool{false, true} {
+		d := NewDecoder()
+		d.PerlCompat = perl
+		var v interface{}
+		if err := d.Unmarshal(doc, &v); !errors.Is(err, ErrMaxRecursionLimit) {
+			t.Errorf("PerlCompat %v: error %v, want ErrMaxRecursionLimit", perl, err)
+		}
+	}
+}
+
+func TestMaxRecursionDepthPerlRefnMemory(t *testing.T) {
+	// each PerlCompat REFN level creates a new pointer type, which reflect
+	// keeps forever: the depth limit bounds that
+	doc := deepDoc([]byte{typeREFN}, 20000, 0x01)
+	var err error
+	n := allocated(func() {
+		d := NewDecoder()
+		d.PerlCompat = true
+		var v interface{}
+		err = callNoPanic(t, "perl", func() error { return d.Unmarshal(doc, &v) })
+	})
+	if !errors.Is(err, ErrMaxRecursionLimit) {
+		t.Errorf("error %v, want ErrMaxRecursionLimit", err)
+	}
+	if n > 200<<20 {
+		t.Errorf("allocated %d MiB", n>>20)
+	}
+}
+
+func TestMergerMaxRecursionDepth(t *testing.T) {
+	for _, tt := range []struct {
+		limit, depth int
+		ok           bool
+	}{
+		{0, 20000, false},
+		{100, 150, false},
+		{100, 40, true},
+		{-1, 20000, true},
+	} {
+		for _, prefix := range [][]byte{{typeARRAYREF_0 + 1}, {typeHASHREF_0 + 1, typeSHORT_BINARY_0 + 1, 'k'}} {
+			m := NewMerger()
+			m.MaxRecursionDepth = tt.limit
+			doc := deepDoc(prefix, tt.depth, 0x01)
+			err := callNoPanic(t, "merge", func() error { _, err := m.Append(doc); return err })
+			if tt.ok && err != nil {
+				t.Errorf("depth %d, MaxRecursionDepth %d: %v", tt.depth, tt.limit, err)
+			} else if !tt.ok && !errors.Is(err, ErrMaxRecursionLimit) {
+				t.Errorf("depth %d, MaxRecursionDepth %d: error %v, want ErrMaxRecursionLimit", tt.depth, tt.limit, err)
+			}
+		}
+	}
+}
