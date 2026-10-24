@@ -68,6 +68,9 @@ extern "C" {
 #include "srl_reader_error.h"
 #include "srl_reader_varint.h"
 #include "srl_reader_decompress.h"
+#include "srl_reader_checksum.h"
+#include "srl_reader_header.h"
+#include "srl_reader_skip.h"
 
 #define SRL_RDR_BODY_POS_OFS_(buf) ((buf).pos - (buf).body_pos)
 #define srl_stack_push_and_set(_iter, _tag, _length, _stack_ptr) STMT_START {   \
@@ -78,6 +81,28 @@ extern "C" {
     (_stack_ptr)->end = 0;                                                      \
     (_stack_ptr)->tag = (_tag);                                                 \
 } STMT_END
+
+/* every self-contained value, in the shape of the CASE_SRL_HDR_* macros */
+#define CASE_SRL_ITER_SCALAR      \
+    CASE_SRL_HDR_POS:             \
+    CASE_SRL_HDR_NEG:             \
+    CASE_SRL_HDR_SHORT_BINARY:    \
+    case SRL_HDR_BINARY:          \
+    case SRL_HDR_STR_UTF8:        \
+    case SRL_HDR_EXTEND:          \
+    case SRL_HDR_VARINT:          \
+    case SRL_HDR_ZIGZAG:          \
+    case SRL_HDR_NEG_VARINT:      \
+    case SRL_HDR_FLOAT:           \
+    case SRL_HDR_DOUBLE:          \
+    case SRL_HDR_LONG_DOUBLE:     \
+    case SRL_HDR_FLOAT_128:       \
+    case SRL_HDR_TRUE:            \
+    case SRL_HDR_FALSE:           \
+    case SRL_HDR_YES:             \
+    case SRL_HDR_NO:              \
+    case SRL_HDR_UNDEF:           \
+    case SRL_HDR_CANONICAL_UNDEF
 
 #define SRL_ITER_STACK_PREALLOCATE (32)
 #define SRL_ITER_STACK_ROOT_TAG SRL_HDR_PACKET_START
@@ -219,38 +244,50 @@ srl_debug_tabulator(pTHX_ srl_iterator_t *iter)
     return (const char *) buf; /* XXX */
 }
 
-srl_iterator_t *
-srl_build_iterator_struct(pTHX_ HV *opt)
-{
-    srl_iterator_t *iter = NULL;
-    Newx(iter, 1, srl_iterator_t);
-    if (iter == NULL) croak("Out of memory");
-    srl_init_iterator(aTHX_ iter, opt);
-    return iter;
-}
-
-void
-srl_init_iterator(pTHX_ srl_iterator_t *iter, HV *opt)
+/* returns non-zero if out of memory */
+SRL_STATIC_INLINE int
+srl_init_iterator_with_checksum(pTHX_ srl_iterator_t *iter, const srl_checksum_config_t *checksum)
 {
     assert(iter != NULL);
 
-    if (expect_false(srl_stack_init(aTHX_ &iter->stack, SRL_ITER_STACK_PREALLOCATE) != 0)) {
-        Safefree(iter);
-        croak("Out of memory");
-    }
+    if (expect_false(srl_stack_init(aTHX_ &iter->stack, SRL_ITER_STACK_PREALLOCATE) != 0))
+        return 1;
 
     SRL_RDR_CLEAR(&iter->buf);
     iter->pbuf = &iter->buf;
     iter->pstack = &iter->stack;
     iter->document = NULL;
     iter->dec = NULL;
+    iter->protocol_version = 0;
+    iter->checksum = *checksum;
+    return 0;
+}
 
-    /* load options */
-    if (opt != NULL) {
-        /* svp = hv_fetchs(opt, "dedupe_strings", 0);
-        if (svp && SvTRUE(*svp))
-            SRL_iter_SET_OPTION(iter, SRL_F_DEDUPE_STRINGS); */
+srl_iterator_t *
+srl_build_iterator_struct(pTHX_ HV *opt)
+{
+    srl_iterator_t *iter = NULL;
+    srl_checksum_config_t checksum;
+
+    /* validate the options before allocating anything */
+    srl_checksum_config_from_hv(aTHX_ &checksum, opt);
+
+    Newx(iter, 1, srl_iterator_t);
+    if (iter == NULL) croak("Out of memory");
+    if (expect_false(srl_init_iterator_with_checksum(aTHX_ iter, &checksum) != 0)) {
+        Safefree(iter);
+        croak("Out of memory");
     }
+    return iter;
+}
+
+void
+srl_init_iterator(pTHX_ srl_iterator_t *iter, HV *opt)
+{
+    srl_checksum_config_t checksum;
+    srl_checksum_config_from_hv(aTHX_ &checksum, opt);
+    if (expect_false(srl_init_iterator_with_checksum(aTHX_ iter, &checksum) != 0))
+        croak("Out of memory");
 }
 
 void
@@ -272,6 +309,8 @@ srl_shallow_copy_iterator(pTHX_ srl_iterator_t *from, srl_iterator_t *to)
     to->pstack = &to->stack;
     to->pbuf = &to->buf;
     to->dec = NULL;
+    to->protocol_version = from->protocol_version;
+    to->checksum = from->checksum;
 
     assert(to->buf.pos == from->buf.pos);
 }
@@ -302,11 +341,7 @@ srl_iterator_set(pTHX_ srl_iterator_t *iter, SV *src)
 {
     SV *sv;
     STRLEN len;
-    UV header_len;
-    U8 encoding_flags;
-    U8 protocol_version;
     srl_reader_char_ptr tmp;
-    IV proto_version_and_encoding_flags_int;
     srl_iterator_stack_ptr stack_ptr = NULL;
 
     if (iter->document) {
@@ -321,53 +356,13 @@ srl_iterator_set(pTHX_ srl_iterator_t *iter, SV *src)
     iter->buf.start = iter->buf.pos = tmp;
     iter->buf.end = iter->buf.start + len;
 
-    proto_version_and_encoding_flags_int = srl_validate_header_version(aTHX_ iter->buf.start, len);
-
-    if (proto_version_and_encoding_flags_int < 1) {
-        if (proto_version_and_encoding_flags_int == 0)
-            SRL_RDR_ERROR(iter->pbuf, "Bad Sereal header: It seems your document was accidentally UTF-8 encoded");
-        else
-            SRL_RDR_ERROR(iter->pbuf, "Bad Sereal header: Not a valid Sereal document.");
-    }
-
-    iter->buf.pos += 5;
-    encoding_flags = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_ENCODING_MASK);
-    protocol_version = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
-
-    if (expect_false(protocol_version > SRL_PROTOCOL_VERSION || protocol_version < 1)) {
-        SRL_RDR_ERRORf1(iter->pbuf, "Unsupported Sereal protocol version %u", (unsigned int) protocol_version);
-    }
-
-    /* skip header in any case */
-    header_len = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading header");
-    iter->buf.pos += header_len;
-
-    if (encoding_flags == SRL_PROTOCOL_ENCODING_RAW) {
-        /* no op */
-    } else if (   encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
-               || encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL)
-    {
-        srl_decompress_body_snappy(aTHX_ iter->pbuf, encoding_flags, &sv, 0);
+    iter->protocol_version = srl_reader_open_document(aTHX_ iter->pbuf, &iter->checksum, &sv);
+    if (sv) {
+        /* the body was decompressed into a new buffer, which we now own */
         SvREFCNT_dec(iter->document);
         SvREFCNT_inc(sv);
         iter->document = sv;
-    } else if (encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB) {
-        srl_decompress_body_zlib(aTHX_ iter->pbuf, &sv, 0);
-        SvREFCNT_dec(iter->document);
-        SvREFCNT_inc(sv);
-        iter->document = sv;
-    } else if (encoding_flags == SRL_PROTOCOL_ENCODING_ZSTD) {
-        srl_decompress_body_zstd(aTHX_ iter->pbuf, &sv, 0);
-        SvREFCNT_dec(iter->document);
-        SvREFCNT_inc(sv);
-        iter->document = sv;
-    } else {
-        SRL_RDR_ERROR(iter->pbuf, "Sereal document encoded in an unknown format");
     }
-
-    /* this function *MUST* be called after calling srl_decompress_body* */
-    SRL_RDR_UPDATE_BODY_POS(iter->pbuf, protocol_version);
-    DEBUG_ASSERT_RDR_SANE(iter->pbuf);
 
     srl_stack_push_and_set(iter, SRL_ITER_STACK_ROOT_TAG, 1, stack_ptr);
     srl_iterator_reset(aTHX_ iter);
@@ -466,21 +461,13 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
         /* No code which decrease step, next or stack's counters should be added here.
          * Otherwise the counters will be decreased twicer for tags like REFN, WEAKEN , etc. */
 
-        switch (tag & 0xE0) {
-            case 0x0: /* POS_0 .. NEG_1 */
-                break;
-
-            case 0x40: /* ARRAYREF_0 .. HASHREF_15 */
-                /* for HASHREF_0 .. HASHREF_15 multiple length by two */
-                length = (tag & 0xF) << ((tag & 0x10) ? 1 : 0);
-                srl_stack_push_and_set(iter, tag, length, stack_ptr);
-                break;
-
-            case 0x60: /* SHORT_BINARY_0 .. SHORT_BINARY_31 */
-                iter->buf.pos += SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
-                break;
-
-            default:
+        if (srl_reader_skip_scalar(aTHX_ iter->pbuf, tag, iter->protocol_version, 0)) {
+            /* stepped over a self-contained value */
+        } else if ((tag & 0xE0) == 0x40) { /* ARRAYREF_0 .. HASHREF_15 */
+            /* for HASHREF_0 .. HASHREF_15 multiple length by two */
+            length = (tag & 0xF) << ((tag & 0x10) ? 1 : 0);
+            srl_stack_push_and_set(iter, tag, length, stack_ptr);
+        } else {
                 switch (tag) {
                     case SRL_HDR_REFN:
                         srl_iterator_read_refn(aTHX_ iter, &tag, &length);
@@ -505,46 +492,11 @@ srl_iterator_step_in(pTHX_ srl_iterator_t *iter, UV n)
                         srl_stack_push_and_set(iter, tag, length, stack_ptr);
                         break;
 
-                    case SRL_HDR_VARINT:
-                    case SRL_HDR_ZIGZAG:
-                    case SRL_HDR_NEG_VARINT:
-                        srl_skip_varint(aTHX_ iter->pbuf);
-                        break;
-
-                    case SRL_HDR_FLOAT:         iter->buf.pos += 4;      break;
-                    case SRL_HDR_DOUBLE:        iter->buf.pos += 8;      break;
-                    case SRL_HDR_LONG_DOUBLE:   iter->buf.pos += 16;     break;
-
-                    case SRL_HDR_TRUE:
-                    case SRL_HDR_FALSE:
-                    case SRL_HDR_UNDEF:
-                    case SRL_HDR_CANONICAL_UNDEF:
-                        break;
-
                     case SRL_HDR_WEAKEN:
                         goto read_again;
 
-                    case SRL_HDR_PAD:
-                        while (SRL_RDR_NOT_DONE(iter->pbuf) && *iter->buf.pos++ == SRL_HDR_PAD) {};
+                    case SRL_HDR_PAD: /* read_again steps over one PAD at a time */
                         goto read_again;
-
-                    case SRL_HDR_BINARY:
-                    case SRL_HDR_STR_UTF8:
-                        length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading BINARY or STR_UTF8");
-                        iter->buf.pos += length; /* TODO assert length */
-                        break;
-
-                    case SRL_HDR_EXTEND: {
-                        U8 ext_tag;
-                        SRL_ITER_ASSERT_EOF(iter, "extended tag ID");
-                        ext_tag = *iter->buf.pos++;
-                        if (ext_tag != SRL_EXT_VSTRING_BINARY && ext_tag != SRL_EXT_VSTRING_UTF8)
-                            SRL_RDR_ERROR(iter->pbuf, "Unknown extended tag ID");
-                        length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading extended VSTRING");
-                        SRL_RDR_ASSERT_SPACE(iter->pbuf, length, " while reading extended VSTRING payload");
-                        iter->buf.pos += length;
-                        break;
-                    }
 
                     case SRL_HDR_COPY:
                         /* COPY is only used for deduping strings in hashes so consider as simple tag */
@@ -698,21 +650,13 @@ srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n)
         /* No code which decrease step, next or stack's counters should be added here.
          * Otherwise the counters will be decreased twicer for tags like REFN, WEAKEN , etc. */
 
-        switch (tag & 0xE0) {
-            case 0x0: /* POS_0 .. NEG_1 */
-                break;
-
-            case 0x40: /* ARRAYREF_0 .. HASHREF_15 */
-                /* for HASHREF_0 .. HASHREF_15 multiple length by two */
-                length = (tag & 0xF) << ((tag & 0x10) ? 1 : 0);
-                srl_stack_push_and_set(iter, tag, length, stack_ptr);
-                break;
-
-            case 0x60: /* SHORT_BINARY_0 .. SHORT_BINARY_31 */
-                iter->buf.pos += SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
-                break;
-
-            default:
+        if (srl_reader_skip_scalar(aTHX_ iter->pbuf, tag, iter->protocol_version, 0)) {
+            /* stepped over a self-contained value */
+        } else if ((tag & 0xE0) == 0x40) { /* ARRAYREF_0 .. HASHREF_15 */
+            /* for HASHREF_0 .. HASHREF_15 multiple length by two */
+            length = (tag & 0xF) << ((tag & 0x10) ? 1 : 0);
+            srl_stack_push_and_set(iter, tag, length, stack_ptr);
+        } else {
                 switch (tag) {
                     case SRL_HDR_HASH:
                         length = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading HASH");
@@ -724,48 +668,12 @@ srl_iterator_next(pTHX_ srl_iterator_t *iter, UV n)
                         srl_stack_push_and_set(iter, tag, length, stack_ptr);
                         break;
 
-                    case SRL_HDR_VARINT:
-                    case SRL_HDR_ZIGZAG:
-                    case SRL_HDR_NEG_VARINT:
-                        srl_skip_varint(aTHX_ iter->pbuf);
-                        break;
-
-                    case SRL_HDR_FLOAT:         iter->buf.pos += 4;      break;
-                    case SRL_HDR_DOUBLE:        iter->buf.pos += 8;      break;
-                    case SRL_HDR_LONG_DOUBLE:   iter->buf.pos += 16;     break;
-
-                    case SRL_HDR_TRUE:
-                    case SRL_HDR_FALSE:
-                    case SRL_HDR_UNDEF:
-                    case SRL_HDR_CANONICAL_UNDEF:
-                        break;
-
                     case SRL_HDR_REFN:
                     case SRL_HDR_WEAKEN:
                         goto read_again;
 
-                    case SRL_HDR_PAD:
-                        while (SRL_RDR_NOT_DONE(iter->pbuf) && *iter->buf.pos++ == SRL_HDR_PAD) {};
+                    case SRL_HDR_PAD: /* read_again steps over one PAD at a time */
                         goto read_again;
-
-                    case SRL_HDR_BINARY:
-                    case SRL_HDR_STR_UTF8:
-                        length = srl_read_varint_uv_length(aTHX_ iter->pbuf,
-                                                          " while reading BINARY or STR_UTF8");
-                        iter->buf.pos += length;
-                        break;
-
-                    case SRL_HDR_EXTEND: {
-                        U8 ext_tag;
-                        SRL_ITER_ASSERT_EOF(iter, "extended tag ID");
-                        ext_tag = *iter->buf.pos++;
-                        if (ext_tag != SRL_EXT_VSTRING_BINARY && ext_tag != SRL_EXT_VSTRING_UTF8)
-                            SRL_RDR_ERROR(iter->pbuf, "Unknown extended tag ID");
-                        length = srl_read_varint_uv_length(aTHX_ iter->pbuf, " while reading extended VSTRING");
-                        SRL_RDR_ASSERT_SPACE(iter->pbuf, length, " while reading extended VSTRING payload");
-                        iter->buf.pos += length;
-                        break;
-                    }
 
                     case SRL_HDR_COPY:
                     case SRL_HDR_REFP:
@@ -979,22 +887,7 @@ read_again:
             if (length_out) *length_out = SRL_HDR_ARRAYREF_LEN_FROM_TAG(tag);
             break;
 
-        CASE_SRL_HDR_POS:
-        CASE_SRL_HDR_NEG:
-        CASE_SRL_HDR_SHORT_BINARY:
-        case SRL_HDR_BINARY:
-        case SRL_HDR_STR_UTF8:
-        case SRL_HDR_EXTEND:
-        case SRL_HDR_VARINT:
-        case SRL_HDR_ZIGZAG:
-        case SRL_HDR_NEG_VARINT:
-        case SRL_HDR_FLOAT:
-        case SRL_HDR_DOUBLE:
-        case SRL_HDR_LONG_DOUBLE:
-        case SRL_HDR_TRUE:
-        case SRL_HDR_FALSE:
-        case SRL_HDR_UNDEF:
-        case SRL_HDR_CANONICAL_UNDEF:
+        CASE_SRL_ITER_SCALAR:
             type |= SRL_ITERATOR_INFO_SCALAR;
             break;
 
@@ -1097,22 +990,7 @@ read_item:
             if (length_out) *length_out = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading ARRAY");
             break;
 
-        CASE_SRL_HDR_POS:
-        CASE_SRL_HDR_NEG:
-        CASE_SRL_HDR_SHORT_BINARY:
-        case SRL_HDR_BINARY:
-        case SRL_HDR_STR_UTF8:
-        case SRL_HDR_EXTEND:
-        case SRL_HDR_VARINT:
-        case SRL_HDR_ZIGZAG:
-        case SRL_HDR_NEG_VARINT:
-        case SRL_HDR_FLOAT:
-        case SRL_HDR_DOUBLE:
-        case SRL_HDR_LONG_DOUBLE:
-        case SRL_HDR_TRUE:
-        case SRL_HDR_FALSE:
-        case SRL_HDR_UNDEF:
-        case SRL_HDR_CANONICAL_UNDEF:
+        CASE_SRL_ITER_SCALAR:
             type |= SRL_ITERATOR_INFO_SCALAR;
             break;
 
@@ -1171,22 +1049,7 @@ read_ref:
             if (length_out) *length_out = srl_read_varint_uv_count(aTHX_ iter->pbuf, " while reading ARRAY");
             break;
 
-        CASE_SRL_HDR_POS:
-        CASE_SRL_HDR_NEG:
-        CASE_SRL_HDR_SHORT_BINARY:
-        case SRL_HDR_BINARY:
-        case SRL_HDR_STR_UTF8:
-        case SRL_HDR_EXTEND:
-        case SRL_HDR_VARINT:
-        case SRL_HDR_ZIGZAG:
-        case SRL_HDR_NEG_VARINT:
-        case SRL_HDR_FLOAT:
-        case SRL_HDR_DOUBLE:
-        case SRL_HDR_LONG_DOUBLE:
-        case SRL_HDR_TRUE:
-        case SRL_HDR_FALSE:
-        case SRL_HDR_UNDEF:
-        case SRL_HDR_CANONICAL_UNDEF:
+        CASE_SRL_ITER_SCALAR:
             type |= SRL_ITERATOR_INFO_SCALAR;
             break;
 
@@ -1242,6 +1105,12 @@ srl_iterator_decode(pTHX_ srl_iterator_t *iter)
 
     Copy(&iter->buf, &iter->dec->buf, 1, srl_reader_buffer_t);
     DEBUG_ASSERT_RDR_SANE(iter->dec->pbuf);
+
+    /* the decoder never reads the header, so it has to be told which
+     * protocol version's tags to accept */
+    iter->dec->proto_version = iter->protocol_version;
+    if (iter->protocol_version == 1)
+        iter->dec->flags |= SRL_F_DECODER_PROTOCOL_V1;
 
     tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
     SRL_ITER_REPORT_TAG(iter, tag);

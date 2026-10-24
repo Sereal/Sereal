@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 my $shared_dir = "../../shared";
-my $in_source_repo = -d "../../../.git" && -d $shared_dir;
+my $in_source_repo = -e "../../../.git" && -d $shared_dir;
 unshift @INC, "..", "../inc";
 unshift @INC, $shared_dir, "$shared_dir/inc" if $in_source_repo;
 
@@ -48,8 +48,8 @@ inc::Sereal::BuildTools::WriteMakefile(
         'Test::Exception' => 0.38,
         'Scalar::Util' => 0,
         'Data::Dumper' => 0,
-        'Sereal::Encoder' => 4.004,
-        'Sereal::Decoder' => 4.004,
+        'Sereal::Encoder' => '6.000_001',
+        'Sereal::Decoder' => '6.000_001',
     },
     BUILD_REQUIRES => {
         'File::Find' => 0,

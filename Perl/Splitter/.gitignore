@@ -39,3 +39,8 @@ t/004_testset.t
 inc
 qsort.h
 zstd/
+srl_checksum_policy.h
+srl_siphash.h
+srl_reader_checksum.h
+srl_reader_header.h
+srl_reader_skip.h

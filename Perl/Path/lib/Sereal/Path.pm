@@ -6,7 +6,7 @@ use Carp qw/croak/;
 use XSLoader;
 use Sereal::Path::Iterator;
 
-our $VERSION = '4.004';
+our $VERSION = '6.000_001';
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 
 XSLoader::load(__PACKAGE__, $XS_VERSION);
@@ -89,11 +89,17 @@ please use appropriate link above.
   # $result1 will contain [ 'bar', 'barbar' ]
   my $result1 = $sp->traverse('$[*][foo]');
 
+  # checksummed documents are authenticated with the Sereal::Decoder options
+  my $sp2 = Sereal::Path->new($document, { checksum_v2_key => $key });
+
 =head2 Description
 
 Sereal::Path for Sereal is the same as XPath for XML or JSONPath for JSON.
 Sereal::Path can directly work with encoded Sereal document. In other words,
 there is no need to decode a document before executing queries against it.
+
+An options hash reference may follow the document in C<new>; it is passed on
+to L<Sereal::Path::Iterator>, see there for the supported options.
 
 As of first public release of Sereal::Path, it's considered to be in beta phase
 and is not ready for production usage.

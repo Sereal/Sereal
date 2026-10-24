@@ -6,10 +6,10 @@ Sereal::Splitter - splits a Sereal blob in chunks of roughly the same size
 
 =head1 SYNOPSIS
 
-  use Sereal::Splitter qw(SRL_ZLIB create_header_data_template);
+  use Sereal::Splitter qw(SRL_ZSTD create_header_data_template);
 
   my $splitter = Sereal::Splitter->new(
-    { input => $data, chunk_size => 1, compress => SRL_ZLIB,
+    { input => $data, chunk_size => 1, compress => SRL_ZSTD,
       header_data_template => create_header_data_template(
         { date => time(), elements_count => '__$CNT__' }
       )
@@ -21,6 +21,10 @@ Sereal::Splitter - splits a Sereal blob in chunks of roughly the same size
 
 =head1 DESCRIPTION
 
+Input containing the diagnostic C<UNDEF_DEADLY> tag (C<EXTEND 0xff>) is
+rejected: a compliant encoder must never emit that tag in a chunk. The same
+bytes inside a string payload remain ordinary data.
+
 This library implements an efficient way of splitting a Sereal blob into
 smaller chunks. Currently, it only works with ArrayRefs Sereal blobs, like
 this:
@@ -28,6 +32,10 @@ this:
   [ $element_1, $element_2, ..., $element_n ]
 
 In the future, it may also work with HashRefs.
+
+The input may use any Sereal protocol version up to the current one, and may
+be compressed with Snappy, Zlib or Zstd. Each chunk has the protocol version
+of the input (at least 3), since chunk bodies are copied from it.
 
 
 =head1 CONSTRUCTOR
@@ -46,9 +54,29 @@ Mandatory, positive Int, the approximate size of the B<uncompressed> chunk
 
 =head3 compress
 
-Optional, Int, one of SRL_UNCOMPRESSED, SRL_SNAPPY or SRL_ZLIB. These constant
-can be exported at use time. If set, indicates how chunks must be compressed.
-Defaults to SRL_UNCOMPRESSED.
+Optional, Int, one of SRL_UNCOMPRESSED, SRL_SNAPPY, SRL_ZLIB or SRL_ZSTD. These
+constants can be exported at use time. If set, indicates how chunks must be
+compressed. Defaults to SRL_UNCOMPRESSED. A chunk that does not get smaller is
+left uncompressed. Zstd compression makes chunks protocol version 4 at least.
+
+=head3 compress_level
+
+Optional, Int, the compression level. Defaults to the zlib default for
+SRL_ZLIB and to 3 for SRL_ZSTD, like L<Sereal::Encoder>.
+
+=head3 max_recursion_depth
+
+Optional, positive Int, how deeply nested an element may be, counting the
+references that the splitter has to follow. Defaults to 10000; deeper input
+is rejected.
+
+=head3 checksum_policy, checksum_v0_key, checksum_v1_key, checksum_v2_key
+
+Optional. These control how a checksummed (protocol version 6) input is
+authenticated. They take the same values and have the same defaults as the
+L<Sereal::Decoder> options of the same names, including
+C<$Sereal::DefaultKey> and the C<SEREAL_CHECKSUM_POLICY> environment variable.
+Chunks carry no checksum.
 
 =head3 header_data_template
 
@@ -84,11 +112,13 @@ use strict;
 use warnings;
 use Carp;
 
-our $VERSION     = '0.840';
+our $VERSION     = '0.900_001';
+our $XS_VERSION  = $VERSION; $VERSION = eval $VERSION;
 
 use constant SRL_UNCOMPRESSED => 0;
 use constant SRL_SNAPPY       => 1;
 use constant SRL_ZLIB         => 2;
+use constant SRL_ZSTD         => 3;
 
 use IO::File;
 
@@ -97,6 +127,7 @@ our @EXPORT_OK = qw(
   SRL_UNCOMPRESSED
   SRL_SNAPPY
   SRL_ZLIB
+  SRL_ZSTD
   create_header_data_template
 );
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
@@ -108,6 +139,13 @@ our %EXPORT_TAGS = (all => \@EXPORT_OK);
 Given a structure, will return a Sereal *body*, that can be used as value for
 the C<header_data_template> constructor option.
 
+An optional second argument is the protocol version to encode the header
+with. A chunk has the protocol version of the input it was split from, so
+the header must not use tags that are newer than that: pass the input's
+protocol version if the input is older than the current protocol, and the
+header holds values (such as integers below -16, or v-strings) that newer
+protocol versions encode differently.
+
 This function loads C<Sereal::Encoder> if it's not already loaded.
 
 =cut
@@ -115,8 +153,9 @@ This function loads C<Sereal::Encoder> if it's not already loaded.
 sub create_header_data_template {
     require Sereal::Encoder;
     require Sereal::Encoder::Constants;
-    my ($struct) = @_;
-    my $blob = Sereal::Encoder::encode_sereal_with_header_data(1, $struct);
+    my ($struct, $protocol_version) = @_;
+    my $blob = Sereal::Encoder::encode_sereal_with_header_data(1, $struct,
+        defined $protocol_version ? { protocol_version => $protocol_version } : ());
 
 
     my $fh = IO::File->new(\$blob, 'r')
@@ -159,6 +198,6 @@ sub new {
 
 use XSLoader;
 
-XSLoader::load(__PACKAGE__, $Sereal::Splitter::VERSION);
+XSLoader::load(__PACKAGE__, $XS_VERSION);
 
 1;

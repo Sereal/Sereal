@@ -44,11 +44,9 @@ struct srl_decoder {
     UV recursion_depth;                 /* Recursion depth of current decoder */
     U8 proto_version;
     U8 encoding_flags;
-    U8 checksum_key_mask;
-    U8 checksum_policy;
     U8 undef_deadly_policy;
     U8 packet_has_checksum;
-    U8 checksum_keys[3][16]; /* indexed by checksum version */
+    srl_checksum_config_t checksum;     /* checksum_policy and the keys indexed by checksum version */
     UV checksummed_packet_length;
     const U8 *checksummed_payload;
     U32 flags_readonly;

@@ -9,6 +9,7 @@ typedef struct {
     struct srl_iterator *iter;
     AV *expr;       /* srl_path_t do *NOT* own expr */
     AV *results;    /* srl_path_t own results */
+    HV *opt;        /* constructor options, passed on to the iterators it builds */
     int i_own_iterator;
 } srl_path_t;
 

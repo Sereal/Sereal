@@ -30,6 +30,8 @@ struct srl_iterator {
     srl_stack_ptr pstack;
     SV *document;
     struct srl_decoder *dec;
+    U8 protocol_version;                /* of the current document */
+    srl_checksum_config_t checksum;     /* how to treat checksummed documents */
 };
 
 /* constructor/destructor */

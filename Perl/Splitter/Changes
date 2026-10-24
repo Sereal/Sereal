@@ -1,5 +1,22 @@
 Revision history for Perl extension Sereal-Splitter
 
+0.900_001
+  * reject UNDEF_DEADLY (EXTEND 0xff) rather than emitting it in a chunk
+  * Upgrade Sereal::Decoder FIRST: chunks of a protocol v5 or v6 input are
+    now protocol v5 or v6 documents. Chunks carry the protocol version of
+    their input (at least 3, or 4 with zstd) instead of always claiming v3,
+    which produced undecodable chunks from v6 input
+  * read v5 and v6 input: YES/NO booleans, FLOAT_128, zstd compression and
+    keyed checksums (checksum_policy, checksum_vN_key options)
+  * compress => SRL_SNAPPY and SRL_ZSTD, and a compress_level option
+  * bounds-check all input; reject truncated documents
+  * new max_recursion_depth option (default 10000) stops REFP/COPY loops
+  * fix a PAD before a value taking that value's place
+  * splitters no longer share their lookup tables
+  * create_header_data_template() takes an optional protocol version
+  * built on the reader, buffer and compression code shared with
+    Sereal::Encoder and Sereal::Decoder; uthash is no longer bundled
+
 0.840
   * additional fixes for bad crafting of COPY and OBJECTs tags
 
