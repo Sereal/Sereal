@@ -36,6 +36,16 @@ static srl_decoder decoders[128];
     }\
 }
 
+// throws unless __size more bytes follow the current offset
+#define CHECK_REMAINING(__dec, __size) {\
+    if ((__size) < 0 || (unsigned long long)(__size) > (unsigned long long)(__dec->len - *__dec->ofx - 1)) {\
+        @throw [NSException exceptionWithName:@"BufferOverrun"\
+                                       reason:[NSString stringWithFormat:@"%s (%s:%d) : %@",\
+                                                __FUNCTION__, __FILE__, __LINE__, @"Buffer overrun (truncated?)"]\
+                                     userInfo:nil];\
+    }\
+}
+
 static long long read_varint(srl_decoder_t *dec)
 {
     unsigned lshift = 0;
@@ -138,25 +148,28 @@ static void create_decoders_lookup()
     };
     
     decoders[SRL_HDR_FLOAT] = ^id (srl_decoder_t *dec) {
-        ADVANCE_OFFSET(dec, 1);
-        float flNumber = *((float *)(dec->hdr + *dec->ofx));
-        ADVANCE_OFFSET(dec, sizeof(float) - 1);
+        float flNumber;
+        CHECK_REMAINING(dec, sizeof(float));
+        memcpy(&flNumber, dec->hdr + *dec->ofx + 1, sizeof(float));
+        *dec->ofx += sizeof(float);
         NSNumber *number = [NSNumber numberWithFloat:flNumber];
         return number;
     };
     
     decoders[SRL_HDR_DOUBLE] = ^id (srl_decoder_t *dec) {
-        ADVANCE_OFFSET(dec, 1);
-        double dNumber = *((double *)(dec->hdr + *dec->ofx));
-        ADVANCE_OFFSET(dec, sizeof(double) - 1);
+        double dNumber;
+        CHECK_REMAINING(dec, sizeof(double));
+        memcpy(&dNumber, dec->hdr + *dec->ofx + 1, sizeof(double));
+        *dec->ofx += sizeof(double);
         NSNumber *number = [NSNumber numberWithDouble:dNumber];
         return number;
     };
     
     decoders[SRL_HDR_LONG_DOUBLE] = ^id (srl_decoder_t *dec) {
-        ADVANCE_OFFSET(dec, 1);
-        long double ldNumber = *((long double *)(dec->hdr + *dec->ofx));
-        ADVANCE_OFFSET(dec, sizeof(long double) - 1);
+        long double ldNumber;
+        CHECK_REMAINING(dec, sizeof(long double));
+        memcpy(&ldNumber, dec->hdr + *dec->ofx + 1, sizeof(long double));
+        *dec->ofx += sizeof(long double);
         NSNumber *number = [NSNumber numberWithDouble:ldNumber];
         return number;
     };
@@ -167,9 +180,9 @@ static void create_decoders_lookup()
     
     decoders[SRL_HDR_BINARY] = ^id (srl_decoder_t *dec) {
         long long bytes = read_varint(dec);
-        ADVANCE_OFFSET(dec, 1);
-        NSData *data = [NSData dataWithBytes:(dec->hdr + *dec->ofx) length:bytes];
-        ADVANCE_OFFSET(dec, bytes - 1);
+        CHECK_REMAINING(dec, bytes);
+        NSData *data = [NSData dataWithBytes:(dec->hdr + *dec->ofx + 1) length:bytes];
+        *dec->ofx += bytes;
         if (dec->b2s) {
             NSString *string = [[NSString alloc] initWithData:data encoding:NSISOLatin1StringEncoding];
             if (string && strlen(string.UTF8String) == bytes)
@@ -180,11 +193,11 @@ static void create_decoders_lookup()
     
     decoders[SRL_HDR_STR_UTF8] = ^id (srl_decoder_t *dec) {
         long long bytes = read_varint(dec);
-        ADVANCE_OFFSET(dec, 1);
-        NSString *str = [[NSString alloc] initWithBytes:dec->hdr + *dec->ofx
+        CHECK_REMAINING(dec, bytes);
+        NSString *str = [[NSString alloc] initWithBytes:dec->hdr + *dec->ofx + 1
                                                  length:bytes
                                                encoding:NSUTF8StringEncoding];
-        ADVANCE_OFFSET(dec, bytes - 1);
+        *dec->ofx += bytes;
         return str;
     };
     

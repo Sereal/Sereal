@@ -10,6 +10,7 @@
 #import "Sereal.h"
 #import "SrlObject.h"
 #import "SrlEncoder.h"
+#import "SrlDecoder.h"
 #import <Foundation/Foundation.h>
 
 static Sereal *sereal = nil;
@@ -38,6 +39,31 @@ static char encoded_test[] = {
 };
 
 @implementation SerealTest
+
+// malformed packets must come back as nil plus an error, never as an exception or a crash
+- (void)assertRejects:(const char *)bytes length:(size_t)length what:(NSString *)what
+{
+    NSData *data = [NSData dataWithBytes:bytes length:length];
+    SrlDecoder *decoder = [[SrlDecoder alloc] init];
+    NSError *err = nil;
+    id obj = nil;
+    STAssertNoThrow(obj = [decoder decode:data error:&err], @"decoder threw on %@", what);
+    STAssertNil(obj, @"decoder accepted %@", what);
+    STAssertNotNil(err, @"no error reported for %@", what);
+}
+
+#define ASSERT_REJECTS(__packet, __what) [self assertRejects:(__packet) length:sizeof(__packet) - 1 what:(__what)]
+
+- (void)testTruncatedValues
+{
+    // BINARY / STR_UTF8 declaring 1000 bytes with only 2 present
+    ASSERT_REJECTS("=srl\x02\x00\x26\xe8\x07" "ab", @"a truncated BINARY");
+    ASSERT_REJECTS("=srl\x02\x00\x27\xe8\x07" "ab", @"a truncated STR_UTF8");
+    // FLOAT / DOUBLE / LONG_DOUBLE with one or two payload bytes
+    ASSERT_REJECTS("=srl\x02\x00\x3f\x22\x01", @"a truncated FLOAT");
+    ASSERT_REJECTS("=srl\x02\x00\x3f\x23\x01", @"a truncated DOUBLE");
+    ASSERT_REJECTS("=srl\x02\x00\x3f\x24\x01\x02", @"a truncated LONG_DOUBLE");
+}
 
 - (void)setUp
 {
