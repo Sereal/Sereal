@@ -32,6 +32,17 @@ module Sereal {
         }
 
         decodeDocument(data?: any) {
+            try {
+                return this._decodeDocument(data);
+            } catch (e) {
+                // report malformed input from DataView, RegExp etc. as our own exception
+                if (e instanceof SerealException)
+                    throw e;
+                throw new SerealException(e && e.name ? e.name + ": " + e.message : String(e));
+            }
+        }
+
+        private _decodeDocument(data?: any) {
             if (data != null) {
                 this.init(data);
             }
@@ -43,21 +54,26 @@ module Sereal {
 
             doc.header.magic = this.reader.readInt32();
             if (doc.header.magic != Consts.MAGIC)
-                throw new Error();
+                throw new SerealException("bad magic");
 
             var versionAndType = this.reader.readByte();
 
             doc.header.version= versionAndType & 15;
             doc.header.type = (versionAndType & ~15) >> 4;
 
-            doc.header.header_suffix_size = this.reader.readVarInt();
+            if (doc.header.version >= 2)
+                doc.header.header_suffix_size = this.reader.readVarInt();
             if (doc.header.header_suffix_size > 0) {
+                if (doc.header.header_suffix_size > this.reader.remaining())
+                    throw new SerealException("header suffix extends past the end of the document");
+                var suffixEnd = this.reader.pos + doc.header.header_suffix_size;
                 doc.header.eight_bit_field = { value: this.reader.readByte() };
                 doc.header.eight_bit_field.has_user_metadata = doc.header.eight_bit_field.value.to8BitString().last() == "1";
                 if (doc.header.eight_bit_field.has_user_metadata) {
                     var md = this.reader.readBytes(doc.header.header_suffix_size - 1);
                     doc.user_metadata = this.decodeDocumentBody(md);
                 }
+                this.reader.pos = suffixEnd;
             }
 
 

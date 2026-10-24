@@ -268,6 +268,7 @@ declare module Sereal {
         constructor();
         init(data: any): void;
         decodeDocument(data?: any): SerealDocument;
+        private _decodeDocument(data?);
         decodeDocumentBody(data: Uint8Array): any;
         read(): any;
         deflate(): Uint8Array;
