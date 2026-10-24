@@ -1,0 +1,356 @@
+diff --git a/Perl/Encoder/Changes b/Perl/Encoder/Changes
+index 7f6a7c67..828f56ba 100644
+--- a/Perl/Encoder/Changes
++++ b/Perl/Encoder/Changes
+@@ -36,6 +36,9 @@ Revision history for Perl extension Sereal-Encoder
+     * Keep cached key/class identities alive across callbacks, preventing
+       deleted storage from being reused as a different COPY target while
+       preserving deduplication for non-mutating callbacks.
++    * Leave the caller's each() iterator in place when encoding an untied
++      hash. Hashes with reference values, sort_keys and freeze_callbacks
++      reset it, so encoding a hash inside an each() loop over it looped forever.
+     * Retain the selected FREEZE method across allow-list predicates that
+       delete or replace its symbol-table entry.
+     * Keep objects alive while freeze_allow_classes predicates run, including
+diff --git a/Perl/Encoder/MANIFEST b/Perl/Encoder/MANIFEST
+index ac89f0b8..1ce8f6ec 100644
+--- a/Perl/Encoder/MANIFEST
++++ b/Perl/Encoder/MANIFEST
+@@ -71,6 +71,7 @@ t/042_magic_strings.t
+ t/043_alias_scalar_refs.t
+ t/044_magic_integers.t
+ t/044_magical_arrays.t
++t/045_each_iterator.t
+ t/046_shared_key_dedup.t
+ t/095_checksum_policy.t
+ t/096_build_tools.t
+diff --git a/Perl/Encoder/lib/Sereal/Encoder.pm b/Perl/Encoder/lib/Sereal/Encoder.pm
+index 07507f63..18c9f5e4 100644
+--- a/Perl/Encoder/lib/Sereal/Encoder.pm
++++ b/Perl/Encoder/lib/Sereal/Encoder.pm
+@@ -552,6 +552,10 @@ Normally C<Sereal::Encoder> will output hashes in whatever order is convenient,
+ generally that used by perl to actually store the hash, or whatever order
+ was returned by a tied hash.
+ 
++Encoding a hash that is not tied leaves the caller's C<each()> iterator for
++that hash where it was, with or without this option, so a hash may be encoded
++from inside an C<each()> loop over it.
++
+ If this option is enabled then the Encoder will sort the keys before outputting
+ them. It uses more memory, and is quite a bit slower than the default.
+ 
+diff --git a/Perl/Encoder/srl_encoder.c b/Perl/Encoder/srl_encoder.c
+index 648492af..f461571f 100644
+--- a/Perl/Encoder/srl_encoder.c
++++ b/Perl/Encoder/srl_encoder.c
+@@ -1914,14 +1914,79 @@ srl_dump_hv_unsorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, UV n)
+         croak("Sereal: input hash was modified during encoding");
+ }
+ 
++/* Walking a hash with hv_iterinit()/hv_iternext() resets the iterator that
++ * a caller's each() relies on. For hashes that keep their iterator in the
++ * HV (i.e. not tied ones), save it before such a walk and restore it after. */
++typedef struct {
++    I32 riter;
++    HE *eiter;
++    int lazydel;
++} srl_hv_iter_state_t;
++
++SRL_STATIC_INLINE void
++srl_hv_iter_save(pTHX_ HV *hv, srl_hv_iter_state_t *st)
++{
++    st->riter = HvRITER_get(hv);
++    st->eiter = HvEITER_get(hv);
++    /* When the caller deleted its current each() entry, perl unlinks the HE
++     * but defers freeing it (HvLAZYDEL) until the iterator moves on;
++     * hv_iterinit() would free it now, while the caller still owns it. Hide
++     * the flag across the walk and restore it together with the entry. */
++    st->lazydel = HvLAZYDEL(hv) ? 1 : 0;
++    HvLAZYDEL_off(hv);
++}
++
++SRL_STATIC_INLINE void
++srl_hv_iter_restore(pTHX_ HV *hv, const srl_hv_iter_state_t *st)
++{
++    HE *eiter = st->eiter;
++    if (eiter && !st->lazydel) {
++        /* A callback that ran during the walk (FETCH, FREEZE, DESTROY, ...) may
++         * have deleted or moved the caller's current entry. While the walk owns
++         * HvEITER, perl frees a deleted entry immediately instead of deferring
++         * it, so only restore the pointer if it is still linked where it was. */
++        HE *he = NULL;
++        /* SvOOK: belt and braces, the walk's hv_iternext() re-creates the aux. */
++        if (HvARRAY(hv) && SvOOK((SV *)hv) && st->riter >= 0) {
++            /* Under PERL_HASH_RANDOMIZE_KEYS, RITER is a position in
++             * iteration order, not a bucket number: the bucket is
++             * (riter ^ xhv_rand) & HvMAX, as PERL_HASH_ITER_BUCKET()
++             * computes it. If xhv_rand changed during the walk (a split),
++             * the lookup legitimately fails and EITER is dropped; perl
++             * already documents iteration after insertion as undefined.
++             * RITER >= 0 implies the HV has its aux struct. */
++#ifdef PERL_HASH_RANDOMIZE_KEYS
++            const STRLEN bucket = ((STRLEN)st->riter ^ (STRLEN)HvAUX(hv)->xhv_rand) & HvMAX(hv);
++#else
++            const STRLEN bucket = (STRLEN)st->riter;
++#endif
++            if (bucket <= HvMAX(hv))
++                for (he = HvARRAY(hv)[bucket]; he; he = HeNEXT(he))
++                    if (he == eiter) break;
++        }
++        if (!he) eiter = NULL;
++    }
++    /* A lazily-deleted entry is already unlinked and owned by the iterator
++     * alone; with the flag off nothing freed it during the walk. */
++    HvRITER_set(hv, st->riter);
++    HvEITER_set(hv, eiter);
++    if (st->lazydel && eiter)
++        HvLAZYDEL_on(hv);
++}
++
+ SRL_STATIC_INLINE void
+ srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
+ {
+     HE *he = NULL;
+     UV i= 0;
+     const int do_share_keys = HvSHAREKEYS((SV *)src);
++    /* Tied hashes keep their iterator in Perl (FIRSTKEY/NEXTKEY). */
++    const int keep_iter = !mg_find((SV *)src, PERL_MAGIC_tied);
++    srl_hv_iter_state_t iter_state;
+     enc->frames->cursor = &he;
+ 
++    if (keep_iter)
++        srl_hv_iter_save(aTHX_ src, &iter_state);
+     srl_hv_iterinit(aTHX_ enc, src); /* return value not reliable according to API docs */
+     while ((he = srl_hv_iternext(aTHX_ enc, src))) {
+         SV *v;
+@@ -1934,6 +1999,8 @@ srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
+     }
+     if (expect_false( i != n ))
+         croak("Panic: cannot serialize a tied hash which changes its size!");
++    if (keep_iter)
++        srl_hv_iter_restore(aTHX_ src, &iter_state);
+ }
+ 
+ /* sorting hashes - nothing in perl is easy. ever.
+@@ -2048,6 +2115,9 @@ srl_dump_hv_sv(pTHX_ srl_encoder_t *enc, HV *src, const UV n, HE_SV *array)
+     HE *he = NULL;
+     UV i= 0;
+     const int is_tie= SvMAGICAL(src);
++    /* Tied hashes keep their iterator in Perl (FIRSTKEY/NEXTKEY). */
++    const int keep_iter = !(is_tie && mg_find((SV *)src, PERL_MAGIC_tied));
++    srl_hv_iter_state_t iter_state;
+ 
+     /* This sub is used for ties, hashes with SV keys, and SORT_KEYS_PERL.
+      * Only keys are collected for sorting; values are fetched at use.
+@@ -2059,6 +2129,8 @@ srl_dump_hv_sv(pTHX_ srl_encoder_t *enc, HV *src, const UV n, HE_SV *array)
+      * if we wish.
+      */
+ 
++    if (keep_iter)
++        srl_hv_iter_save(aTHX_ src, &iter_state);
+     enc->frames->cursor = &he;
+     srl_hv_iterinit(aTHX_ enc, src); /* return value not reliable according to API docs */
+     {
+@@ -2095,6 +2167,8 @@ srl_dump_hv_sv(pTHX_ srl_encoder_t *enc, HV *src, const UV n, HE_SV *array)
+         }
+         if (expect_false( i != n ))
+             croak("Panic: can not serialize a %s hash which changes it size!", is_tie ? "tied" : "untied");
++        if (keep_iter)
++            srl_hv_iter_restore(aTHX_ src, &iter_state);
+ 
+         he = NULL;
+         if (SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS))
+@@ -2121,6 +2195,7 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
+ {
+     HE *he = NULL;
+     const int do_share_keys = HvSHAREKEYS((SV *)src);
++    srl_hv_iter_state_t iter_state;
+     srl_encoder_frame *frame = enc->frames;
+     frame->cursor = &he;
+     frame->sorted_keyed = 0;
+@@ -2129,6 +2204,7 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
+      * sorted keys, but not necessarily the order that perl would use. 
+      */
+ 
++    srl_hv_iter_save(aTHX_ src, &iter_state);
+     srl_hv_iterinit(aTHX_ enc, src); /* return value not reliable according to API docs */
+     {
+         HE_SV *array;
+@@ -2139,6 +2215,7 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
+         array_ptr = array;
+         while ((he = srl_hv_iternext(aTHX_ enc, src))) {
+             if (HeKLEN(he) == HEf_SVKEY) {
++                srl_hv_iter_restore(aTHX_ src, &iter_state);
+                 srl_dump_hv_sv(aTHX_ enc, src, n, array);
+                 return;
+             }
+@@ -2150,6 +2227,7 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
+             array_ptr->val.he = he;
+             array_ptr++;
+         }
++        srl_hv_iter_restore(aTHX_ src, &iter_state);
+         
+         frame->sorted = array;
+         frame->sorted_count = n;
+diff --git a/Perl/Encoder/t/045_each_iterator.t b/Perl/Encoder/t/045_each_iterator.t
+new file mode 100644
+index 00000000..f3323b41
+--- /dev/null
++++ b/Perl/Encoder/t/045_each_iterator.t
+@@ -0,0 +1,156 @@
++#!perl
++use strict;
++use warnings;
++use File::Spec;
++use Test::More;
++use lib File::Spec->catdir(qw(t lib));
++BEGIN { lib->import('lib') if !-d 't' }
++use Sereal::TestSet qw(have_encoder_and_decoder);
++use Sereal::Encoder;
++
++if ( !have_encoder_and_decoder() ) {
++    plan skip_all => 'Did not find right version of decoder';
++    exit 0;
++}
++
++# Encoding a hash must not disturb the iterator that a caller's each() loop
++# over the same hash relies on. Every loop is bounded so a regression shows
++# up as a failure instead of a hang.
++
++our ( %target, $current_key, $grown, $in_encode );
++
++{
++
++    package EachIterFreeze;
++    sub FREEZE { return $_[0]{v} }
++    sub THAW   { my ( $class, $serializer, $v ) = @_; bless { v => $v }, $class }
++}
++{
++
++    package EachIterDeleteCurrent;
++    sub TIESCALAR { bless [ $_[1] ], $_[0] }
++
++    sub FETCH {
++        delete $main::target{$main::current_key} if defined $main::current_key;
++        return $_[0][0];
++    }
++    sub STORE { $_[0][0] = $_[1] }
++}
++{
++
++    package EachIterGrow;
++    sub TIESCALAR { bless [ $_[1] ], $_[0] }
++
++    sub FETCH {
++        if ( $main::in_encode && !$main::grown++ ) {
++            $main::target{"grow_$_"} = $_ for 1 .. 64;
++        }
++        return $_[0][0];
++    }
++    sub STORE { $_[0][0] = $_[1] }
++}
++
++# Returns how many entries each() visited, stopping at twice the hash size.
++sub count_each_while_encoding {
++    my ( $enc, $hash ) = @_;
++    my $limit = 2 * scalar( keys %$hash );
++    my $n     = 0;
++    while ( my ( $k, $v ) = each %$hash ) {
++        $n++;
++        last if $n > $limit;
++        $enc->encode($hash);
++    }
++    keys %$hash;    # reset the iterator for the next case
++    return $n;
++}
++
++# Enough keys that several share a bucket, so restoring the iterator into
++# the wrong bucket loses entries deterministically.
++my $n_keys = 200;
++
++my @cases = (
++    [ 'reference values, default options', 1, {} ],
++    [ 'reference values, sort_keys',       1, { sort_keys => 1 } ],
++    [ 'plain values, default options',     0, {} ],
++    [ 'plain values, sort_keys',           0, { sort_keys => 1 } ],
++    [ 'reference values, freeze_callbacks', 2, { freeze_callbacks => 1 } ],
++);
++
++for my $case (@cases) {
++    my ( $name, $kind, $opts ) = @$case;
++    my %h;
++    for my $i ( 1 .. $n_keys ) {
++        $h{"k$i"} =
++              $kind == 2 ? bless( { v => $i }, 'EachIterFreeze' )
++            : $kind == 1 ? [$i]
++            :              $i;
++    }
++    my $enc = Sereal::Encoder->new($opts);
++    is( count_each_while_encoding( $enc, \%h ), $n_keys,"each() sees every key once: $name" );
++}
++
++{
++    my %h = map { ( "k$_" => [$_] ) } 1 .. 5;
++    my $enc = Sereal::Encoder->new;
++    my $n = 0;
++    while ( my ( $k, $v ) = each %h ) {
++        $n++;
++        last if $n > 20;
++        delete $h{$k};
++        $enc->encode( \%h );
++    }
++    is( $n, 5, 'each() sees every key when deleting the current entry before encoding' );
++    is( scalar( keys %h ), 0, 'hash is empty after deleting every entry' );
++}
++
++{
++    %target = ();
++    for my $i ( 1 .. 5 ) {
++        $target{"k$i"} = undef;
++        tie $target{"k$i"}, 'EachIterDeleteCurrent', $i;
++    }
++    my $enc = Sereal::Encoder->new;
++    my $n = 0;
++    while ( my ( $k, $v ) = each %target ) {
++        $n++;
++        last if $n > 20;
++        $current_key = $k;
++        eval { $enc->encode( \%target ); 1 };
++    }
++    $current_key = undef;
++    ok( $n <= 20, "each() loop terminates when a callback deletes the current entry ($n iterations)" );
++    %target = ();
++}
++
++{
++    %target = ();
++    $grown  = 0;
++    for my $i ( 1 .. 5 ) {
++        $target{"k$i"} = undef;
++        tie $target{"k$i"}, 'EachIterGrow', $i;
++    }
++    my $enc = Sereal::Encoder->new;
++    my $n = 0;
++    # The 64 keys added during the first encode may legitimately be visited by
++    # the rest of the loop, so this case needs a larger bound.
++    while ( my ( $k, $v ) = each %target ) {
++        $n++;
++        last if $n > 100;
++        local $in_encode = 1;
++        eval { $enc->encode( \%target ); 1 };
++    }
++    ok( $n <= 100, "each() loop terminates when a callback splits the hash ($n iterations)" );
++    ok( $grown, 'the growing callback ran' );
++    %target = ();
++}
++
++# An untied hash with magic of its own: the iterator lives in the HV and must
++# be kept just like for a plain hash.
++SKIP: {
++    my $expected = scalar( keys %ENV );
++    skip "need at least 2 environment variables, have $expected", 1 if $expected < 2;
++    my $enc = Sereal::Encoder->new;
++    is( count_each_while_encoding( $enc, \%ENV ), $expected, "each() sees every key once: %ENV" );
++}
++
++done_testing;

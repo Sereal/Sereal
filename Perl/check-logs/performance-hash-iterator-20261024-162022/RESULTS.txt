@@ -1,0 +1,30 @@
+Hash-iterator integration benchmark, 2026-10-24
+
+Baseline: yves/v6_wip at 67f9f071, copied with its built Encoder blib to
+/tmp/sereal-hashiterator-baseline/Perl/Encoder before rebasing the change.
+Current: rebased hash-iterator commit fe7e9f75. The later C90 declaration
+reorder in b1242af8 has no runtime effect and was not separately benchmarked.
+
+Same Perl 5.44, protocol 5, no compression/checksum, fixed hash seed, CPU 0,
+preconstructed input, persistent workers, Dumbbench 0.505. Two fresh-process
+blocks reversed variant order; at least 30 retained samples each. Percentages
+are current versus baseline (positive means slower):
+
+  medium-objects        +1.77%, +1.14%
+  medium-plain          +4.87%, +4.13%
+  freeze-100           -12.56%, -1.76%
+  sorted-freeze-1000    -1.32%, -1.52%
+
+Packet lengths matched in every case. Freeze-100 changed substantially
+between blocks and should not be treated as a stable gain. The plain-hash
+slowdown reproduced in both blocks even though that traversal path is not
+changed by the iterator guard; binary layout is a plausible explanation,
+not yet demonstrated. Earlier benchmark results for this branch should not
+be relabeled as results after the hash-iterator change.
+
+Validation: native Encoder suite 73 files/156926 tests passed. Focused ASan
+and Perl 5.14.4 runs each passed 3 files/1607 tests. Xcode/ObjC testing is
+unavailable on this Linux host and unrelated to this benchmark.
+
+Raw JSON samples, worker/controller sources, per-case logs, and metadata are
+in this directory.
