@@ -24,6 +24,8 @@ Revision history for Perl extension Sereal-Merger
     no longer resolve into another (or a failed) document
   * check COPY targets without their track bit, and reject a COPY of a
     COPY, like Sereal::Decoder
+  * fix spurious "recursion limit" errors on wide documents: REFN, WEAKEN,
+    OBJECTV and PAD each leaked one level of the recursion counter
   * bump Sereal prereq version to 6.000_001
 
 4.004 Nov 13 2017

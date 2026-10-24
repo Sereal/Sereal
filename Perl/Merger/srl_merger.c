@@ -743,14 +743,14 @@ srl_merge_single_value(pTHX_ srl_merger_t *mrg)
     UV length, offset;
     ptable_entry_ptr ptable_entry;
 
+    /* once per call: the tags that goto read_again are not decremented again */
+    if (expect_false(++mrg->recursion_depth > mrg->max_recursion_depth))
+        SRL_RDR_ERRORf1(mrg->pibuf, "Reached recursion limit (%lu) during merging", mrg->max_recursion_depth);
 
 read_again:
     assert(mrg->recursion_depth >= 0);
     DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
-
-    if (expect_false(++mrg->recursion_depth > mrg->max_recursion_depth))
-        SRL_RDR_ERRORf1(mrg->pibuf, "Reached recursion limit (%lu) during merging", mrg->max_recursion_depth);
 
     ptable_entry = NULL;
     if (expect_false(SRL_RDR_DONE(mrg->pibuf)))
