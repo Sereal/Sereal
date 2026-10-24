@@ -46,4 +46,28 @@ subtest "end of input after OBJECT" => sub {
     merge_fails("${v6}2c", qr/Unexpected termination|Premature end/, "OBJECT without a class name");
 };
 
+subtest "references into earlier documents" => sub {
+    # REFN [ 0, [] (tracked at offset 4), REFP to 4 ], valid
+    my $doc1 = pack("H*", "${v6}284300c02904");
+    # [ "xy", REFP to 4 ]: offset 4 is inside "xy", but was tracked in doc1
+    my $doc2 = pack("H*", "${v6}42627879" . "2904");
+    # ARRAYREF_4 with three elements, which fails after tracking offset 3
+    my $docF = pack("H*", "${v6}4400c02903");
+    # [ "AAAAAAAA", REFP to 3 ]: offset 3 is inside the string
+    my $doc3 = pack("H*", "${v6}42684141414141414141" . "2903");
+
+    my $mrg = Sereal::Merger->new();
+    $mrg->append($doc1);
+    ok(!eval { $mrg->append($doc2); 1 }, "a REFP to an offset only tracked in an earlier document is rejected");
+    like($@, qr/bad target offset/, "with a bad offset error");
+    is_deeply(eval { decode_sereal($mrg->finish()) }, [ decode_sereal($doc1) ], "and the output holds the first document only");
+
+    $mrg = Sereal::Merger->new();
+    $mrg->append($doc1);
+    ok(!eval { $mrg->append($docF); 1 }, "a truncated document is rejected");
+    ok(!eval { $mrg->append($doc3); 1 }, "a REFP to an offset tracked by a failed document is rejected");
+    like($@, qr/bad target offset/, "with a bad offset error");
+    is_deeply(eval { decode_sereal($mrg->finish()) }, [ decode_sereal($doc1) ], "and the output holds the first document only");
+};
+
 done_testing;

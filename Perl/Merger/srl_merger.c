@@ -669,6 +669,11 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
     if (mrg->tracked_offsets)
         srl_stack_clear(mrg->tracked_offsets);
 
+    /* offsets are per document: entries left by earlier (or failed and
+     * rolled back) documents must not resolve references in this one */
+    if (mrg->tracked_offsets_tbl)
+        PTABLE_clear(mrg->tracked_offsets_tbl);
+
     while (expect_true(BUF_NOT_DONE(mrg->pibuf))) {
         /* since we're doing full pass, it's not necessary to
          * add items into tracked_offsets here. They will be added
