@@ -1081,7 +1081,16 @@ SV *
 srl_iterator_decode_and_next(pTHX_ srl_iterator_t *iter)
 {
     SV *sv = srl_iterator_decode(aTHX_ iter);
-    iter->pbuf->pos = iter->dec->pbuf->pos;
+
+    /* srl_iterator_decode() leaves iter->buf.pos at the decoded tag. For an
+     * ALIAS the decoder read the alias target, so its position is just past
+     * the target: resume just past the ALIAS instead. */
+    if ((*iter->buf.pos & ~SRL_HDR_TRACK_FLAG) == SRL_HDR_ALIAS) {
+        iter->buf.pos++;
+        srl_skip_varint(aTHX_ iter->pbuf);
+    } else {
+        iter->pbuf->pos = iter->dec->pbuf->pos;
+    }
     iter->stack.ptr->idx++;
 
     DEBUG_ASSERT_RDR_SANE(iter->pbuf);
