@@ -63,7 +63,7 @@ for my $version ( 2 .. 6 ) {
             };
             my $error = $@;
             my $label = "v$version sort=$sort $option";
-            ok( !$error, "$label: sibling deletion produces a complete hash" ) or diag($error);
+            ok( !$error || $error =~ /input (?:array|hash|container) was modified during encoding/, "$label: sibling deletion fails safely or encodes" ) or diag($error);
             SKIP: {
                 skip 'encode/decode failed', 2 if $error;
                 is_deeply( $decoded, $expected, "$label: captured entries survive callbacks" );
@@ -99,7 +99,7 @@ for my $version ( 1 .. 6 ) {
             };
             my $error = $@;
             my $label = "v$version sort=$sort nested=$nested";
-            ok( !$error, "$label: tied values cannot truncate a hash" ) or diag($error);
+            ok( !$error || $error =~ /input (?:array|hash|container) was modified during encoding/, "$label: tied-value mutation fails safely or encodes" ) or diag($error);
             SKIP: {
                 skip 'encode/decode failed', 2 if $error;
                 my $expected =

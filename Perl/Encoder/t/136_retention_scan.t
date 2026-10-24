@@ -25,8 +25,8 @@ for my $version ( 1 .. 6 ) {
     is_deeply( Sereal::Decoder->new->decode($before), $plain,
         "v$version plain nested input round trips" );
 
-    # A fixed-depth check would miss this FETCH. The scan must also avoid
-    # running it early: it clears the outer array before encoding can begin.
+    # The callback guard must protect every active ancestor, even when
+    # the magical leaf is far below the outer container.
     for my $depth ( 1, 16, 256 ) {
         my @leaf = (undef);
         tie $leaf[0], 'DeepRetentionFetch';
@@ -34,14 +34,12 @@ for my $version ( 1 .. 6 ) {
         $nested = [ $nested ] for 1 .. $depth;
         $parent = [ $nested, 'second', 'third' ];
         $fetches = 0;
-        my $decoded = Sereal::Decoder->new->decode( $encoder->encode($parent) );
-        is( scalar @$decoded, 3, "v$version depth=$depth retains outer siblings" );
-        is_deeply( [ @$decoded[ 1, 2 ] ], [ 'second', 'third' ],
-            "v$version depth=$depth preserves sibling values" );
-        my $value = $decoded->[0];
-        $value = $value->[0] for 1 .. $depth;
-        is( $value->[0], 'fetched', "v$version depth=$depth encodes the magical leaf" );
-        ok( $fetches > 0, "v$version depth=$depth invokes FETCH during encoding" );
+        eval { $encoder->encode($parent) };
+        like( $@, qr/input array was modified during encoding/,
+            "v$version depth=$depth detects ancestor mutation" );
+        is( $fetches, 1, "v$version depth=$depth fetches the magical leaf once" );
+        is_deeply( Sereal::Decoder->new->decode($encoder->encode(['reused'])), ['reused'],
+            "v$version depth=$depth encoder recovers after mutation" );
         is_deeply( $parent, [], "v$version depth=$depth callback changed its input" );
     }
 
@@ -86,8 +84,7 @@ SKIP: {
 }
 
 {
-    # Header callbacks can modify the body before it is encoded. The scan
-    # must inspect both roots before choosing the retention mode.
+    # Header callbacks may modify a body whose traversal has not started.
     package HeaderRetentionFetch;
     sub TIESCALAR { bless {}, $_[0] }
     sub FETCH { push @$main::parent, 'from header'; return 'header' }

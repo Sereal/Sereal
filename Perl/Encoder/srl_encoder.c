@@ -227,6 +227,215 @@ SRL_STATIC_INLINE HV *srl_init_string_deduper_hv(pTHX_ srl_encoder_t *enc);
  *       freeing it. */
 SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src);
 
+/* Borrow ordinary input while traversing it. Only an actual call into Perl
+ * needs strong references and a check that cached iteration storage survived.
+ * These frames describe live C state; they do not copy container contents. */
+typedef struct srl_encoder_frame {
+    struct srl_encoder_frame *parent;
+    SV *container;
+    HE **cursor;
+    HE_SV *sorted;
+    UV sorted_count;
+    /* Captured only when a callback is about to run. */
+    void *storage;
+    SSize_t limit;
+    UV count;
+    svtype kind;
+    int opaque;
+    MAGIC *tie;
+    SV *tie_object;
+    HE *borrowed_entry;
+    SV *borrowed_key;
+    int key_guard;
+} srl_encoder_frame;
+
+SRL_STATIC_INLINE void
+srl_frame_push(srl_encoder_t *enc, srl_encoder_frame *frame, SV *container)
+{
+    frame->parent = enc->frames;
+    frame->container = container;
+    enc->frames = frame;
+}
+
+SRL_STATIC_INLINE void
+srl_callback_hold(pTHX_ srl_encoder_t *enc, SV *value)
+{
+    if (value && !PTABLE_fetch(enc->callback_seen, value)) {
+        PTABLE_store(enc->callback_seen, value, INT2PTR(void *, 1));
+        av_push(enc->callback_keepalive, SvREFCNT_inc(value));
+    }
+}
+
+/* Both SVs and HEKs are aligned. Tag SV identities so one offset table can
+ * distinguish class/object identities from shared hash-key identities. */
+#define SRL_CLASS_ID(value) INT2PTR(void *, PTR2UV(value) | (UV)1)
+
+SRL_STATIC_INLINE void
+srl_callback_hold_key(pTHX_ srl_encoder_t *enc, HEK *hek)
+{
+    /* newSVhek upgrades WASUTF8 keys into private copies. Keep the actual
+     * shared allocation instead; this scalar is only used for its lifetime. */
+    SV *keeper = newSV_type(SVt_PV);
+    SvPV_set(keeper, (char *)HEK_KEY(share_hek_hek(hek)));
+    SvCUR_set(keeper, HEK_LEN(hek));
+    SvLEN_set(keeper, 0);
+#ifdef SvIsCOW_on
+    SvIsCOW_on(keeper);
+#else
+    SvREADONLY_on(keeper);
+    SvFAKE_on(keeper);
+#endif
+    SvPOK_on(keeper);
+    if (HEK_UTF8(hek))
+        SvUTF8_on(keeper);
+    av_push(enc->callback_keepalive, keeper);
+}
+
+static void
+srl_callback_begin(pTHX_ srl_encoder_t *enc, SV *value, SV *reference)
+{
+    srl_encoder_frame *frame;
+    if (!SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_HAS_CALLBACKS)) {
+        if (!enc->callback_keepalive)
+            enc->callback_keepalive = newAV();
+        if (!enc->callback_seen)
+            enc->callback_seen = PTABLE_new();
+        srl_callback_hold(aTHX_ enc, enc->root_src);
+        srl_callback_hold(aTHX_ enc, enc->header_src);
+        /* Keep previously tracked identities alive before user code can
+         * release them and recycle their addresses. */
+        if (enc->ref_seenhash) {
+            PTABLE_ITER_t *it = PTABLE_iter_new(enc->ref_seenhash);
+            PTABLE_ENTRY_t *entry;
+            while ((entry = PTABLE_iter_next(it)))
+                srl_callback_hold(aTHX_ enc, (SV *)entry->key);
+            PTABLE_iter_free(it);
+        }
+        if (enc->str_seenhash) {
+            PTABLE_ITER_t *it = PTABLE_iter_new(enc->str_seenhash);
+            PTABLE_ENTRY_t *entry;
+            while ((entry = PTABLE_iter_next(it))) {
+                if (PTR2UV(entry->key) & (UV)1)
+                    srl_callback_hold(aTHX_ enc, INT2PTR(SV *, PTR2UV(entry->key) & ~(UV)1));
+                else
+                    srl_callback_hold_key(aTHX_ enc, (HEK *)entry->key);
+            }
+            PTABLE_iter_free(it);
+        }
+        SRL_ENC_SET_OPER_FLAG(enc, SRL_OF_ENCODER_HAS_CALLBACKS);
+    }
+    srl_callback_hold(aTHX_ enc, value);
+    srl_callback_hold(aTHX_ enc, reference);
+    for (frame = enc->frames; frame; frame = frame->parent) {
+        SV *container = frame->container;
+        srl_callback_hold(aTHX_ enc, container);
+        frame->kind = SvTYPE(container);
+        frame->tie = SvRMAGICAL(container) ? mg_find(container, PERL_MAGIC_tied) : NULL;
+        frame->opaque = frame->tie != NULL;
+        if (frame->opaque) {
+            frame->tie_object = frame->tie->mg_obj;
+            srl_callback_hold(aTHX_ enc, frame->tie_object);
+            continue;
+        }
+        if (frame->kind == SVt_PVAV) {
+            frame->storage = AvARRAY((AV *)container);
+            frame->limit = AvFILLp((AV *)container);
+        } else {
+            HV *hash = (HV *)container;
+            UV i;
+            frame->storage = HvARRAY(hash);
+            frame->limit = HvMAX(hash);
+            frame->count = HvUSEDKEYS(hash);
+            frame->key_guard = 0;
+            if (!SvMAGICAL(hash) && frame->cursor && *frame->cursor
+                && HeKLEN(*frame->cursor) >= 0) {
+                /* Keep just this borrowed key so an O(1) lookup can prove
+                 * that the current HE is still live after the callback. */
+                frame->borrowed_entry = *frame->cursor;
+                frame->borrowed_key = sv_2mortal(newSVhek(HeKEY_hek(frame->borrowed_entry)));
+                frame->key_guard = 1;
+            }
+            if (frame->sorted) {
+                for (i = 0; i < frame->sorted_count; i++)
+                    srl_callback_hold(aTHX_ enc, frame->sorted[i].key.sv);
+            }
+        }
+    }
+}
+
+static void
+srl_callback_end(pTHX_ srl_encoder_t *enc)
+{
+    srl_encoder_frame *frame;
+    for (frame = enc->frames; frame; frame = frame->parent) {
+        SV *container = frame->container;
+        if (!container)
+            continue;
+        if (frame->opaque) {
+            MAGIC *tie = SvRMAGICAL(container) ? mg_find(container, PERL_MAGIC_tied) : NULL;
+            if (tie != frame->tie || tie->mg_obj != frame->tie_object)
+                croak("Sereal: input tied container was modified during encoding");
+            continue;
+        }
+        if (SvTYPE(container) != frame->kind)
+            croak("Sereal: input container was modified during encoding");
+        if (frame->kind == SVt_PVAV) {
+            if (AvARRAY((AV *)container) != frame->storage || AvFILLp((AV *)container) != frame->limit)
+                croak("Sereal: input array was modified during encoding");
+        } else {
+            HV *hash = (HV *)container;
+            HE **buckets = HvARRAY(hash);
+            UV i;
+            HE *current = frame->cursor ? *frame->cursor : NULL;
+            int found = current == NULL;
+            PTABLE_t *live = NULL;
+            if (buckets != frame->storage || HvMAX(hash) != (UV)frame->limit
+                || HvUSEDKEYS(hash) != frame->count)
+                croak("Sereal: input hash was modified during encoding");
+            if (!frame->sorted && frame->key_guard) {
+                if (SvMAGICAL(hash)
+                    || hv_fetch_ent(hash, frame->borrowed_key, 0, 0) != frame->borrowed_entry)
+                    croak("Sereal: input hash was modified during encoding");
+                continue;
+            }
+            if (frame->sorted)
+                live = PTABLE_new();
+            if (buckets && (current || live)) {
+                for (i = 0; i <= HvMAX(hash); i++) {
+                    HE *entry;
+                    for (entry = buckets[i]; entry; entry = HeNEXT(entry)) {
+                        if (entry == current)
+                            found = 1;
+                        if (live)
+                            PTABLE_store(live, entry, INT2PTR(void *, 1));
+                    }
+                }
+            }
+            if (live) {
+                for (i = 0; i < frame->sorted_count; i++) {
+                    if (!PTABLE_fetch(live, frame->sorted[i].val.he)) {
+                        found = 0;
+                        break;
+                    }
+                }
+                PTABLE_free(live);
+            }
+            if (!found)
+                croak("Sereal: input hash was modified during encoding");
+        }
+    }
+}
+
+SRL_STATIC_INLINE void
+srl_getmagic(pTHX_ srl_encoder_t *enc, SV *value, SV *reference)
+{
+    if (SvGMAGICAL(value)) {
+        srl_callback_begin(aTHX_ enc, value, reference);
+        SvGETMAGIC(value);
+        srl_callback_end(aTHX_ enc);
+    }
+}
+
 #define SRL_GET_STR_DEDUPER_HV(enc) ( (enc)->string_deduper_hv == NULL          \
                                     ? srl_init_string_deduper_hv(aTHX_ enc)     \
                                    : (enc)->string_deduper_hv )
@@ -333,10 +542,10 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
 #define _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt, allow_alias)                        \
     if (SvPOK(src)) {                                                       \
         STRLEN L;                                                           \
-        char *PV= SvPV(src, L);                                             \
+        char *PV= SvPV_nomg(src, L);                                             \
         if ( SvIOK(src) ) {                                                 \
             _SRL_CHECK_BOOL(enc, src, svt)                                  \
-            if ( SvIV(src) == 0 ) {                                         \
+            if ( SvIV_nomg(src) == 0 ) {                                         \
                 if ( L == 1 && PV[0] == '0' ) {                             \
                     /* its a true 0 */                                      \
                     srl_buf_cat_char(&enc->buf, SRL_HDR_POS + 0);           \
@@ -351,7 +560,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
                 !L ||                                                       \
                 !isDIGIT(PV[L-1]) ||                                        \
                 (                                                           \
-                 SvIV(src) > 0                                              \
+                 SvIV_nomg(src) > 0                                              \
                  ? ( PV[0] == '0' || !isDIGIT(PV[0]) )                      \
                  : ( L < 2 || PV[0] != '-' || PV[1] == '0' || !isDIGIT(PV[1]) ) \
                 )                                                           \
@@ -362,8 +571,8 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
                 if ( SvNOK(src) ) {                                         \
                     /* fallback to checking if the canonical stringified*/  \
                     /* int is the same as the buffer */                     \
-                    sv_setiv(enc->scratch_sv,SvIV(src));                    \
-                    if ( sv_cmp(enc->scratch_sv,src) ) {                    \
+                    sv_setiv(enc->scratch_sv,SvIV_nomg(src));                    \
+                    if ( sv_cmp_flags(enc->scratch_sv,src,0) ) {                    \
                         srl_dump_svpv(aTHX_ enc, src, allow_alias);                      \
                     } else {                                                \
                         srl_dump_ivuv(aTHX_ enc, src);                      \
@@ -380,7 +589,7 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
                 !isDIGIT(PV[L-1]) ||                                        \
                 PV[L-1] == '0' ||                                           \
                  (                                                          \
-                  SvNV(src) > 0.0                                           \
+                  SvNV_nomg(src) > 0.0                                           \
                   ? ( PV[0] == '.' || (PV[0] == '0' && PV[1] != '.') )      \
                   : ( PV[0] != '-' || PV[1] == '.' || (PV[1] == '0' && PV[2] != '.')) \
                 )                                                           \
@@ -431,7 +640,6 @@ SRL_STATIC_INLINE srl_encoder_t *srl_dump_data_structure(pTHX_ srl_encoder_t *en
     else                                                                            \
     {                                                                               \
 	svtype svt;								    \
-	SvGETMAGIC(src);							    \
 	svt= SvTYPE((src));							    \
 	if (svt < SVt_PVMG &&                                                         \
             SvREFCNT((src)) == 1 &&                                                 \
@@ -503,7 +711,13 @@ srl_clear_encoder(pTHX_ srl_encoder_t *enc)
     }
 
     enc->recursion_depth = 0;
+    enc->frames = NULL;
+    enc->root_src = enc->header_src = NULL;
+    if (enc->callback_seen)
+        PTABLE_clear(enc->callback_seen);
     srl_clear_seen_hashes(aTHX_ enc);
+    if (enc->callback_keepalive)
+        av_clear(enc->callback_keepalive);
 
     enc->buf.pos = enc->buf.start;
     /* tmp_buf.start may be NULL for an unused tmp_buf, but so what? */
@@ -511,12 +725,16 @@ srl_clear_encoder(pTHX_ srl_encoder_t *enc)
 
     SRL_SET_BODY_POS(&enc->buf, enc->buf.start);
 
-    SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY | SRL_OF_ENCODER_NEEDS_RETENTION);
+    SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY | SRL_OF_ENCODER_HAS_CALLBACKS);
 }
 
 void
 srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
 {
+    enc->frames = NULL;
+    SvREFCNT_dec(enc->callback_keepalive);
+    if (enc->callback_seen)
+        PTABLE_free(enc->callback_seen);
     srl_buf_free_buffer(aTHX_ &enc->buf);
 
     /* Free tmp buffer only if it was allocated at all. */
@@ -1071,7 +1289,7 @@ srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src, const U32 compre
 SRL_STATIC_INLINE void
 srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
 {
-    NV nv= SvNV(src);
+    NV nv= SvNV_nomg(src);
     MS_VC6_WORKAROUND_VOLATILE float f= (float)nv;
     MS_VC6_WORKAROUND_VOLATILE double d= (double)nv;
 #ifdef HAS_QUADMATH
@@ -1201,7 +1419,9 @@ srl_freeze_class_allowed(pTHX_ srl_encoder_t *enc, HV *stash, SV *src)
         PUSHs(name_sv);
         PUSHs(src);
         PUTBACK;
+        srl_callback_begin(aTHX_ enc, src, NULL);
         count = call_sv(enc->freeze_allow_cb, G_SCALAR);
+        srl_callback_end(aTHX_ enc);
         SPAGAIN;
         if (count >= 1) {
             SV *res = POPs;
@@ -1223,7 +1443,7 @@ srl_freeze_class_allowed(pTHX_ srl_encoder_t *enc, HV *stash, SV *src)
 SRL_STATIC_INLINE SV *
 srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
 {
-    assert(sv_isobject(src)); /* duplicate asserts are "free" */
+    assert(SvROK(src) && SvOBJECT(referent));
 
     /* Check for FREEZE support */
     if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT) )) {
@@ -1277,7 +1497,9 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
                 PTABLE_store(freezeobj_svhash, referent, replacement);
 
                 PUTBACK;
+                srl_callback_begin(aTHX_ enc, src, referent);
                 count = call_sv((SV *)freeze_cv, G_ARRAY);
+                srl_callback_end(aTHX_ enc);
                 /* TODO explore method lookup caching */
                 SPAGAIN;
 
@@ -1321,7 +1543,7 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement)
         int is_av_or_hv= (svt == SVt_PVAV || svt== SVt_PVHV);
         ptrdiff_t oldoffset= is_av_or_hv
                            ? 0
-                           : (ptrdiff_t)PTABLE_fetch(string_seenhash, referent);
+                           : (ptrdiff_t)PTABLE_fetch(string_seenhash, SRL_CLASS_ID(referent));
 
         if (oldoffset) {
             return 0;
@@ -1330,7 +1552,7 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement)
             if (SRL_UNSUPPORTED_SvTYPE(svt)) {
                 return 0;
             }
-            oldoffset= (ptrdiff_t)PTABLE_fetch(string_seenhash, (SV *)stash);
+            oldoffset= (ptrdiff_t)PTABLE_fetch(string_seenhash, SRL_CLASS_ID(stash));
         }
 
         if (oldoffset != 0) {
@@ -1353,7 +1575,9 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement)
             srl_buf_cat_char(&enc->buf, expect_false(replacement) ? SRL_HDR_OBJECT_FREEZE : SRL_HDR_OBJECT);
 
             /* remember current offset before advancing it */
-            PTABLE_store(string_seenhash, (void *)stash, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
+            PTABLE_store(string_seenhash, SRL_CLASS_ID(stash), INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
+            if (SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_HAS_CALLBACKS))
+                srl_callback_hold(aTHX_ enc, (SV *)stash);
 
             /* HvNAMEUTF8 not in older perls and it would be 0 for those anyway */
 #if PERL_VERSION >= 16
@@ -1366,7 +1590,9 @@ srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement)
             return 0;
         } else {
             /* use the string_seenhash to track which items we have seen before */
-            PTABLE_store(string_seenhash, (void *)referent, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
+            PTABLE_store(string_seenhash, SRL_CLASS_ID(referent), INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
+            if (SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_HAS_CALLBACKS))
+                srl_callback_hold(aTHX_ enc, referent);
             return 1;
         }
     }
@@ -1398,120 +1624,16 @@ srl_prepare_encoder(pTHX_ srl_encoder_t *enc)
     return enc;
 }
 
-/* Inspect the entire input without fetching magic, iterating tied containers,
- * stringifying values, or calling methods. If anything might run Perl, select
- * retaining traversal for every container, before walking any of its children.
- * Use an explicit stack and a visited table: neither deep graphs nor cycles
- * can make the scan overflow the C stack or miss a magical descendant. */
-SRL_STATIC_INLINE int
-srl_needs_retention(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
-{
-    SV *pending_sv;
-    SV **pending;
-    STRLEN used = 0;
-    STRLEN capacity = 64;
-    PTABLE_t *seen = NULL;
-    int needed = 0;
-
-    if (!user_header_src && !SvROK(src) && SvTYPE(src) < SVt_PVMG && !SvMAGICAL(src))
-        return 0;
-
-    ENTER;
-    SAVETMPS;
-    pending_sv = sv_2mortal(newSV(capacity * sizeof(SV *)));
-    pending = (SV **)SvPVX(pending_sv);
-
-#define SRL_SCAN_PUSH(value) STMT_START {                                      \
-    if (used == capacity) {                                                   \
-        if (capacity > ((STRLEN)~(STRLEN)0) / (2 * sizeof(SV *)))              \
-            croak("Input graph is too large to inspect");                    \
-        capacity *= 2;                                                       \
-        SvGROW(pending_sv, capacity * sizeof(SV *));                           \
-        pending = (SV **)SvPVX(pending_sv);                                   \
-    }                                                                        \
-    pending[used++] = (value);                                               \
-} STMT_END
-
-    SRL_SCAN_PUSH(src);
-    if (user_header_src)
-        SRL_SCAN_PUSH(user_header_src);
-    while (used) {
-        SV *value = pending[--used];
-        while (value) {
-            svtype type = SvTYPE(value);
-            if (SvMAGICAL(value) || SvOBJECT(value)) {
-                needed = 1;
-                goto finished;
-            }
-            if (SvROK(value)) {
-                SV *referent = SvRV(value);
-                /* Unique strong edges cannot close a reachable cycle. Track
-                 * shared RV scalars as well as shared referents (aliases can
-                 * share the RV without raising its referent's count), and
-                 * always track weak edges, which do not raise either count. */
-                if (SvREFCNT(value) > 1 || SvREFCNT(referent) > 1 || SvWEAKREF(value)) {
-                    if (!seen)
-                        seen = SRL_GET_REF_SEENHASH(enc);
-                    if (PTABLE_fetch(seen, referent))
-                        break;
-                    PTABLE_store(seen, referent, INT2PTR(void *, 1));
-                }
-                value = referent;
-                continue;
-            }
-            if (type == SVt_PVAV) {
-                AV *array = (AV *)value;
-                SSize_t i;
-                SV **values = AvARRAY(array);
-                for (i = AvFILLp(array); i >= 0; --i)
-                    SRL_SCAN_PUSH(values[i]);
-            }
-            else if (type == SVt_PVHV) {
-                HV *hash = (HV *)value;
-                HE **buckets = HvARRAY(hash);
-                if (buckets) {
-                    UV i;
-                    for (i = 0; i <= HvMAX(hash); ++i) {
-                        HE *entry;
-                        for (entry = buckets[i]; entry; entry = HeNEXT(entry)) {
-                            if (HeKLEN(entry) == HEf_SVKEY) {
-                                needed = 1;
-                                goto finished;
-                            }
-                            if (HeVAL(entry) != &PL_sv_placeholder)
-                                SRL_SCAN_PUSH(HeVAL(entry));
-                        }
-                    }
-                }
-            }
-            else if (type >= SVt_PVMG) {
-                /* Lvalues, regexps and unsupported types take the conservative
-                 * path, including types that can warn or stringify. */
-                needed = 1;
-                goto finished;
-            }
-            break;
-        }
-    }
-finished:
-    if (seen)
-        PTABLE_clear(seen);
-    FREETMPS;
-    LEAVE;
-#undef SRL_SCAN_PUSH
-    return needed;
-}
-
 SRL_STATIC_INLINE srl_encoder_t *
 srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
 {
     U32 compress_flags;
 
     enc = srl_prepare_encoder(aTHX_ enc);
+    enc->root_src = src;
+    enc->header_src = user_header_src;
     if (enc->checksum_policy == SRL_CHECKSUM_POLICY_REQUIRE && !enc->checksum_key_mask)
         croak("checksum_policy 'require_key' needs a 'checksum_v0_key', 'checksum_v1_key', or 'checksum_v2_key' to encode");
-    if (srl_needs_retention(aTHX_ enc, src, user_header_src))
-        SRL_ENC_SET_OPER_FLAG(enc, SRL_OF_ENCODER_NEEDS_RETENTION);
     compress_flags= SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_FLAGS_MASK);
 
     if (expect_false(compress_flags))
@@ -1680,8 +1802,16 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
 {
     UV n;
     SV **svp;
+    srl_encoder_frame frame;
+    int magic = SvRMAGICAL(src) && (mg_find((SV *)src, PERL_MAGIC_tied)
+                                    || mg_find((SV *)src, PERL_MAGIC_regdata));
 
+    srl_frame_push(enc, &frame, (SV *)src);
+    if (magic)
+        srl_callback_begin(aTHX_ enc, NULL, NULL);
     n = av_len(src)+1;
+    if (magic)
+        srl_callback_end(aTHX_ enc);
 
     /* heuristic: n is virtually the min. size of any element */
     BUF_SIZE_ASSERT_AV(&enc->buf, n);
@@ -1693,68 +1823,74 @@ srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
         /* header and num. elements */
         srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_ARRAY, n);
     }
-    if (!n)
-        return;
-    /* I can't decide if this should make me feel dirty.
-     * av_fetch()/av_len() honour array magic: tied arrays and regdata
-     * arrays such as @-, @+ and @{^CAPTURE} report their elements and
-     * length through magic, and AvARRAY() need not hold them. The raw
-     * AvARRAY() walk is only valid for arrays without such magic. Other
-     * array magic (e.g. the arylen_p magic that $#array attaches) leaves
-     * the elements in AvARRAY(), so mirror av_fetch() and only check for
-     * tie and regdata magic; those arrays keep the snapshot below. */
-    if (SvRMAGICAL(src)
-        && (mg_find((SV *)src, PERL_MAGIC_tied)
-            || mg_find((SV *)src, PERL_MAGIC_regdata))) {
+    if (n) {
         UV i;
-        for (i = 0; i < n; ++i) {
-            SV *value;
-            svp = av_fetch(src, i, 0);
-            value = svp ? *svp : NULL;
-            if (value) {
-                SvREFCNT_inc(value);
-                SAVEFREESV(value);
-            }
-            CALL_SRL_DUMP_SV(enc, value);
-        }
-    } else {
-        UV i;
-        SV **end;
-        svp= AvARRAY(src);
-        if (SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_NEEDS_RETENTION)) {
-            SV **values;
-            Newx(values, n, SV *);
-            SAVEFREEPV(values);
-            Copy(svp, values, n, SV *);
+        if (magic) {
             for (i = 0; i < n; i++) {
-                if (values[i]) {
-                    SvREFCNT_inc(values[i]);
-                    SAVEFREESV(values[i]);
-                }
+                SV *value;
+                srl_callback_begin(aTHX_ enc, NULL, NULL);
+                svp = av_fetch(src, i, 0);
+                srl_callback_end(aTHX_ enc);
+                value = svp ? *svp : NULL;
+                CALL_SRL_DUMP_SV(enc, value);
             }
-            svp = values;
-        }
-        end= svp + n;
-        for ( ; svp < end ; svp++) {
-            /* we cannot have a null *svp so we do not use CALL_SRL_DUMP_SVP() here */
-            CALL_SRL_DUMP_SV(enc, *svp);
+        } else {
+            svp = AvARRAY(src);
+            for (i = 0; i < n; i++) {
+                CALL_SRL_DUMP_SV(enc, svp[i]);
+            }
         }
     }
+    enc->frames = frame.parent;
+}
+
+/* Magical container APIs may enter Perl before returning their borrowed SV. */
+SRL_STATIC_INLINE void
+srl_hv_iterinit(pTHX_ srl_encoder_t *enc, HV *hash)
+{
+    int magic = SvMAGICAL(hash);
+    if (magic) srl_callback_begin(aTHX_ enc, NULL, NULL);
+    (void)hv_iterinit(hash);
+    if (magic) srl_callback_end(aTHX_ enc);
+}
+
+SRL_STATIC_INLINE HE *
+srl_hv_iternext(pTHX_ srl_encoder_t *enc, HV *hash)
+{
+    HE *entry;
+    int magic = SvMAGICAL(hash);
+    if (magic) srl_callback_begin(aTHX_ enc, NULL, NULL);
+    entry = hv_iternext(hash);
+    if (magic) srl_callback_end(aTHX_ enc);
+    return entry;
+}
+
+SRL_STATIC_INLINE SV *
+srl_hv_iterval(pTHX_ srl_encoder_t *enc, HV *hash, HE *entry)
+{
+    SV *value;
+    int magic = SvMAGICAL(hash);
+    if (magic) srl_callback_begin(aTHX_ enc, NULL, NULL);
+    value = hv_iterval(hash, entry);
+    if (magic) srl_callback_end(aTHX_ enc);
+    return value;
 }
 
 SRL_STATIC_INLINE void
 srl_dump_hv_unsorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, UV n)
 {
-    HE *he;
+    HE *he = NULL;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
     HE **he_ptr= HvARRAY(src);
     HE **he_end= he_ptr + HvMAX(src) + 1;
+    enc->frames->cursor = &he;
 
     do {
         for (he= *he_ptr++; he; he= HeNEXT(he) ) {
             SV *v= HeVAL(he);
             if (v != &PL_sv_placeholder) {
                 srl_dump_hk(aTHX_ enc, he, do_share_keys);
+                v = HeVAL(he);
                 CALL_SRL_DUMP_SV(enc, v);
                 if (--n == 0) {
                     he_ptr= he_end;
@@ -1763,22 +1899,25 @@ srl_dump_hv_unsorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, UV n)
             }
         }
     } while ( he_ptr < he_end );
+    if (n)
+        croak("Sereal: input hash was modified during encoding");
 }
 
 SRL_STATIC_INLINE void
 srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
 {
-    HE *he;
+    HE *he = NULL;
     UV i= 0;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
+    enc->frames->cursor = &he;
 
-    (void)hv_iterinit(src); /* return value not reliable according to API docs */
-    while ((he = hv_iternext(src))) {
+    srl_hv_iterinit(aTHX_ enc, src); /* return value not reliable according to API docs */
+    while ((he = srl_hv_iternext(aTHX_ enc, src))) {
         SV *v;
         if (expect_false( i == n ))
             croak("Panic: cannot serialize a tied hash which changes its size!");
-        v= hv_iterval(src, he);
         srl_dump_hk(aTHX_ enc, he, do_share_keys);
+        v= srl_hv_iterval(aTHX_ enc, src, he);
         CALL_SRL_DUMP_SV(enc, v);
         ++i;
     }
@@ -1895,12 +2034,13 @@ srl_qsort(pTHX_ srl_encoder_t *enc, const UV n, HE_SV *array)
 SRL_STATIC_INLINE void
 srl_dump_hv_sv(pTHX_ srl_encoder_t *enc, HV *src, const UV n, HE_SV *array)
 {
-    HE *he;
+    HE *he = NULL;
     UV i= 0;
     const int is_tie= SvMAGICAL(src);
 
-    /* This sub is used for ties, and for hashes with SV keys in them,
-     * when callbacks may change the hash, and for SORT_KEYS_PERL. It is the slowest way
+    /* This sub is used for ties, hashes with SV keys, and SORT_KEYS_PERL.
+     * Only keys are collected for sorting; values are fetched at use.
+     * It is the slowest way
      * and most memory hungry way to serialize a hash. We will use the 
      * full perl api for extracting the contents of the hash, which fortifies
      * us against ties, and we will convert all keys into mortal
@@ -1908,7 +2048,8 @@ srl_dump_hv_sv(pTHX_ srl_encoder_t *enc, HV *src, const UV n, HE_SV *array)
      * if we wish.
      */
 
-    (void)hv_iterinit(src); /* return value not reliable according to API docs */
+    enc->frames->cursor = &he;
+    srl_hv_iterinit(aTHX_ enc, src); /* return value not reliable according to API docs */
     {
         HE_SV *array_end;
         if (!array) {
@@ -1916,28 +2057,48 @@ srl_dump_hv_sv(pTHX_ srl_encoder_t *enc, HV *src, const UV n, HE_SV *array)
             SAVEFREEPV(array);
         }
         array_end= array + n;
-        while ((he = hv_iternext(src))) {
+        while ((he = srl_hv_iternext(aTHX_ enc, src))) {
+            SV *key;
+            int magic_key = is_tie || HeKLEN(he) == HEf_SVKEY;
             if (expect_false( i == n ))
                 croak("Panic: cannot serialize a %s hash which changes its size!",is_tie ? "tied" : "untied");
-            array[i].key.sv= hv_iterkeysv(he);
-            array[i].val.sv= hv_iterval(src,he);
-            /* Magic or a callback in any descendant may delete this entry.
-             * Retain the scalars themselves to preserve aliases too. */
-            SvREFCNT_inc(array[i].key.sv);
-            SAVEFREESV(array[i].key.sv);
-            SvREFCNT_inc(array[i].val.sv);
-            SAVEFREESV(array[i].val.sv);
+            if (magic_key) srl_callback_begin(aTHX_ enc, NULL, NULL);
+            key = hv_iterkeysv(he);
+            if (magic_key) srl_callback_end(aTHX_ enc);
+            if (SvGMAGICAL(key) || SvROK(key)) {
+                STRLEN len;
+                const char *pv;
+                srl_callback_begin(aTHX_ enc, key, NULL);
+                SvGETMAGIC(key);
+                pv = SvPV_nomg(key, len);
+                array[i].key.sv = sv_2mortal(newSVpvn(pv, len));
+                if (SvUTF8(key)) SvUTF8_on(array[i].key.sv);
+                srl_callback_end(aTHX_ enc);
+            } else {
+                int magical = SvMAGICAL(key);
+                if (magical) srl_callback_begin(aTHX_ enc, key, NULL);
+                array[i].key.sv = sv_2mortal(newSVsv_flags(key, 0));
+                if (magical) srl_callback_end(aTHX_ enc);
+            }
             i++;
         }
         if (expect_false( i != n ))
             croak("Panic: can not serialize a %s hash which changes it size!", is_tie ? "tied" : "untied");
 
+        he = NULL;
         if (SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS))
             srl_qsort(aTHX_ enc, n, array);
 
         while ( array < array_end ) {
+            SV *value;
+            if (is_tie) srl_callback_begin(aTHX_ enc, NULL, NULL);
+            he = hv_fetch_ent(src, array->key.sv, 0, 0);
+            if (is_tie) srl_callback_end(aTHX_ enc);
+            if (!he)
+                croak("Sereal: input hash was modified during encoding");
+            value = HeVAL(he);
             srl_dump_hk_sv(aTHX_ enc, array->key.sv);
-            CALL_SRL_DUMP_SV(enc, array->val.sv);
+            CALL_SRL_DUMP_SV(enc, value);
             array++;
         }
     }
@@ -1947,14 +2108,14 @@ srl_dump_hv_sv(pTHX_ srl_encoder_t *enc, HV *src, const UV n, HE_SV *array)
 SRL_STATIC_INLINE void
 srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
 {
-    HE *he;
+    HE *he = NULL;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
 
     /* This sub is used only for untied hashes and when the user wants
      * sorted keys, but not necessarily the order that perl would use. 
      */
 
-    (void)hv_iterinit(src); /* return value not reliable according to API docs */
+    srl_hv_iterinit(aTHX_ enc, src); /* return value not reliable according to API docs */
     {
         HE_SV *array;
         HE_SV *array_ptr;
@@ -1962,7 +2123,11 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
         Newx(array, n, HE_SV);
         SAVEFREEPV(array);
         array_ptr = array;
-        while ((he = hv_iternext(src))) {
+        while ((he = srl_hv_iternext(aTHX_ enc, src))) {
+            if (HeKLEN(he) == HEf_SVKEY) {
+                srl_dump_hv_sv(aTHX_ enc, src, n, array);
+                return;
+            }
             if ( HeKWASUTF8(he) ) {
                 array_ptr->key.sv= hv_iterkeysv(he);
             } else {
@@ -1972,14 +2137,16 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
             array_ptr++;
         }
         
+        enc->frames->sorted = array;
+        enc->frames->sorted_count = n;
         srl_qsort(aTHX_ enc, n, array);
 
         array_end = array + n;
         for ( array_end= array + n; array < array_end; array++ ) {
             SV *v;
             he = array->val.he;
-            v = hv_iterval(src, he);
             srl_dump_hk(aTHX_ enc, he, do_share_keys);
+            v = srl_hv_iterval(aTHX_ enc, src, he);
             CALL_SRL_DUMP_SV(enc, v);
         }
     }
@@ -1988,13 +2155,17 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
 SRL_STATIC_INLINE void
 srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
 {
-    HE *he;
+    HE *he = NULL;
     UV n;
+    srl_encoder_frame frame;
+    srl_frame_push(enc, &frame, (SV *)src);
+    frame.cursor = NULL;
+    frame.sorted = NULL;
     if ( SvMAGICAL(src) && mg_find((SV *)src, PERL_MAGIC_tied) ) {
         /* for tied hashes, we have to iterate to find the number of entries. Alas... */
         n= 0;
-        (void)hv_iterinit(src); /* return value not reliable according to API docs */
-        while ((he = hv_iternext(src))) { ++n; }
+        srl_hv_iterinit(aTHX_ enc, src); /* return value not reliable according to API docs */
+        while ((he = srl_hv_iternext(aTHX_ enc, src))) { ++n; }
     }
     else {
         n= HvUSEDKEYS(src);
@@ -2009,12 +2180,7 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
     }
 
     if ( n ) {
-        if (SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_NEEDS_RETENTION)) {
-            /* Snapshot keys and retain values before callbacks can invalidate
-             * live HEs, including in the unsorted and fast-sort paths. */
-            srl_dump_hv_sv(aTHX_ enc, src, n, NULL);
-        }
-        else if ( SvMAGICAL(src) || SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS_PERL) ) {
+        if ( SvMAGICAL(src) || SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS_PERL) ) {
             /* SORT_KEYS_PERL implies SORT_KEYS, but we check for either just to be
              * careful - yves*/
             if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS|SRL_F_SORT_KEYS_PERL) ) {
@@ -2033,76 +2199,27 @@ srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
             }
         }
     }
+    enc->frames = frame.parent;
 }
 
 
 
 /* Shared key strings are immutable, so their pointers can identify COPY
  * targets. This table is separate from scalar-value alias deduplication. */
-#if PERL_VERSION >= 10
-/* newSVhek() upgrades a WASUTF8 key into a private copy, which cannot retain
- * the shared entry. Build the shared-hash-key scalar by hand instead, exactly
- * as newSVhek() does for every other shared key; the scalar is only ever
- * freed, never read, and sv_clear() releases the entry for us. Perls before
- * 5.18 have no SvIsCOW_on() and mark such scalars READONLY and FAKE, as
- * their newSVhek() does. */
-SRL_STATIC_INLINE SV *
-srl_new_shared_hek_sv(pTHX_ HEK *hek)
-{
-    SV *sv = newSV_type(SVt_PV);
-    SvPV_set(sv, (char *)HEK_KEY(share_hek_hek(hek)));
-    SvCUR_set(sv, HEK_LEN(hek));
-    SvLEN_set(sv, 0);
-#ifdef SvIsCOW_on
-    SvIsCOW_on(sv);
-#else
-    SvREADONLY_on(sv);
-    SvFAKE_on(sv);
-#endif
-    SvPOK_on(sv);
-    return sv;
-}
-#endif
-
 SRL_STATIC_INLINE int
-srl_dump_shared_hk(pTHX_ srl_encoder_t *enc, const char *str, SV *key_sv, HE *key_he)
+srl_dump_shared_hk(pTHX_ srl_encoder_t *enc, HEK *hek)
 {
-    PTABLE_t *string_seenhash = SRL_GET_STR_PTR_SEENHASH(enc);
-    const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(string_seenhash, str);
-    SV *keeper;
-    if (oldoffset != 0) {
-        srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_COPY, (UV)oldoffset);
+    PTABLE_t *seen = SRL_GET_STR_PTR_SEENHASH(enc);
+    const ptrdiff_t offset = (ptrdiff_t)PTABLE_fetch(seen, hek);
+    if (HEK_FLAGS(hek) & SRL_HVhek_NOTSHARED)
+        return 0;
+    if (offset) {
+        srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_COPY, (UV)offset);
         return 1;
     }
-    if (!SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_NEEDS_RETENTION)) {
-        /* The complete scan ruled out callbacks, so these keys cannot be
-         * deleted while their addresses identify COPY targets. */
-        PTABLE_store(string_seenhash, (void *)str, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
-        return 0;
-    }
-    /* A later callback may delete this key. Keep its shared storage alive
-     * so a different key cannot reuse the pointer cached above. Only cache
-     * the pointer when the keeper actually shares the original allocation.
-     * A COW key scalar is never WASUTF8, so copying it always shares. */
-    if (key_sv) {
-        keeper = newSVsv_flags(key_sv, SV_NOSTEAL);
-    }
-    else {
-        HEK *hek = HeKEY_hek(key_he);
-#if PERL_VERSION >= 10
-        keeper = (HEK_WASUTF8(hek) && !(HEK_FLAGS(hek) & SRL_HVhek_NOTSHARED))
-               ? srl_new_shared_hek_sv(aTHX_ hek)
-               : newSVhek(hek);
-#else
-        keeper = newSVhek(hek);
-#endif
-    }
-    if (SvIsCOW_shared_hash(keeper) && SvPVX(keeper) == str) {
-        SAVEFREESV(keeper);
-        PTABLE_store(string_seenhash, (void *)str, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
-    } else {
-        SvREFCNT_dec(keeper);
-    }
+    PTABLE_store(seen, hek, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
+    if (SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_HAS_CALLBACKS))
+        srl_callback_hold_key(aTHX_ enc, hek);
     return 0;
 }
 
@@ -2135,7 +2252,7 @@ srl_dump_hk_sv(pTHX_ srl_encoder_t *enc, SV *src)
     if (!SRL_ENC_HAVE_OPTION(enc, SRL_F_DEDUPE_STRINGS)
         && SvIsCOW_shared_hash(src)
         && SRL_ENC_HAVE_OPTION(enc, SRL_F_SHARED_HASHKEYS)
-        && srl_dump_shared_hk(aTHX_ enc, str, src, NULL))
+        && srl_dump_shared_hk(aTHX_ enc, SvSHARED_HEK_FROM_PV(SvPVX(src))))
         return;
 
     srl_dump_hk_pv(aTHX_ enc, str, len, SvUTF8(src));
@@ -2151,8 +2268,8 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
     if (HeKLEN(src) == HEf_SVKEY) {
         SV *sv = HeSVKEY(src);
 
-        SvGETMAGIC(sv);
-        str = SvPV(sv, len);
+        srl_getmagic(aTHX_ enc, sv, NULL);
+        str = SvPV_nomg(sv, len);
         mode= SvUTF8(sv) ? 1 : 0;
 
     }
@@ -2172,7 +2289,7 @@ srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
 #endif
             )
         {
-            if (srl_dump_shared_hk(aTHX_ enc, str, NULL, src))
+            if (srl_dump_shared_hk(aTHX_ enc, HeKEY_hek(src)))
                 return;
         }
         len= HeKLEN(src);
@@ -2191,7 +2308,7 @@ SRL_STATIC_INLINE void
 srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src, int allow_alias)
 {
     STRLEN len;
-    const char *str= SvPV(src, len);
+    const char *str= SvPV_nomg(src, len);
     if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_DEDUPE_STRINGS) && len > 3 ) {
         HV *string_deduper_hv= SRL_GET_STR_DEDUPER_HV(enc);
         HE *dupe_offset_he;
@@ -2301,7 +2418,7 @@ srl_dump_vstring(pTHX_ srl_encoder_t *enc, SV *src, int allow_alias)
             srl_dump_svpv(aTHX_ enc, src, allow_alias);
             return;
         }
-        src_pv = SvPV(src, src_len);
+        src_pv = SvPV_nomg(src, src_len);
         roundtrip_pv = SvPV(roundtrip, roundtrip_len);
         if (src_len != roundtrip_len
             || !!SvUTF8(src) != !!SvUTF8(roundtrip)
@@ -2368,7 +2485,24 @@ redo_dump:
     refcount = SvREFCNT(src);
     DEBUG_ASSERT_BUF_SANE(&enc->buf);
     if ( SvMAGICAL(src) ) {
-        SvGETMAGIC(src);
+        /* An aliased magical value already has its wire representation.
+         * Do not FETCH it again merely to emit an ALIAS/REFP to that value. */
+        if (SvGMAGICAL(src) && enc->ref_seenhash) {
+            const ptrdiff_t offset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, src);
+            if (offset) {
+                if (ref_rewrite_pos) {
+                    enc->buf.pos = enc->buf.body_pos + ref_rewrite_pos;
+                    srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_REFP, (UV)offset);
+                } else {
+                    srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_ALIAS, (UV)offset);
+                }
+                SRL_SET_TRACK_FLAG(*(enc->buf.body_pos + offset));
+                --enc->recursion_depth;
+                return;
+            }
+        }
+        srl_getmagic(aTHX_ enc, src, refsv);
+        svt = SvTYPE(src);
 #ifdef HAS_HV_BACKREFS
         if (svt != SVt_PVHV)
 #endif
@@ -2437,6 +2571,8 @@ redo_dump:
             }
             if (DEBUGHACK) warn("storing %p as %"UVuf, src, (UV)BODY_POS_OFS(&enc->buf));
             PTABLE_store(ref_seenhash, src, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
+            if (SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_HAS_CALLBACKS))
+                srl_callback_hold(aTHX_ enc, src);
         }
     }
 
@@ -2494,7 +2630,7 @@ redo_dump:
 
         ref_rewrite_pos= BODY_POS_OFS(&enc->buf);
 
-        if ( expect_false( sv_isobject(src) ) ) {
+        if ( expect_false( SvOBJECT(referent) ) ) {
             /* Write bless operator with class name */
             replacement= srl_get_frozen_object(aTHX_ enc, src, referent);
             if (srl_dump_classname(aTHX_ enc, referent, replacement)) {
@@ -2538,10 +2674,13 @@ redo_dump:
 #define SRL_HANDLE_UNSUPPORTED_SvTYPE(enc, src, svt, refsv, ref_rewrite_pos)                     \
             STMT_START {                                                                       \
                 if ( SRL_ENC_HAVE_OPTION((enc), SRL_F_UNDEF_UNKNOWN) ) {                       \
-                    if (SRL_ENC_HAVE_OPTION((enc), SRL_F_WARN_UNKNOWN))                        \
+                    if (SRL_ENC_HAVE_OPTION((enc), SRL_F_WARN_UNKNOWN)) {                      \
+                        srl_callback_begin(aTHX_ enc, src, refsv);                              \
                         warn("Found type %u %s(0x%p), but it is not representable "            \
                              "by the Sereal encoding format; will encode as an "               \
                              "undefined value", (svt), sv_reftype((src),0),(src));             \
+                        srl_callback_end(aTHX_ enc);                                          \
+                    }                                                                          \
                     if (ref_rewrite_pos) {                                                     \
                         /* make sure we don't keep a reference to the thing that we do not     \
                          * want to serialize around for REFP and ALIAS output */               \
@@ -2561,6 +2700,7 @@ redo_dump:
                     STRLEN len;                                                                \
                     char *str;                                                                 \
                     SV *stringified;                                                           \
+                    SV *string_source;                                                         \
                     if (SRL_ENC_HAVE_OPTION((enc), SRL_F_WARN_UNKNOWN)) {                      \
                         /* In theory, we need to warn about stringifying this unsupported      \
                          * item. However, if the SRL_F_NOWARN_UNKNOWN_OVERLOAD option is set,  \
@@ -2572,9 +2712,11 @@ redo_dump:
                              || !SvOBJECT(src)                                                 \
                              || !Gv_AMG(SvSTASH(src)))                                         \
                         {                                                                      \
+                            srl_callback_begin(aTHX_ enc, src, refsv);                        \
                             warn("Found type %u %s(0x%p), but it is not representable "        \
                                  "by the Sereal encoding format; will encode as a "            \
                                  "stringified form", (svt), sv_reftype((src),0),(src));        \
+                            srl_callback_end(aTHX_ enc);                                      \
                         }                                                                      \
                     }                                                                          \
                     if (ref_rewrite_pos) {                                                     \
@@ -2591,8 +2733,11 @@ redo_dump:
                         enc->buf.pos= enc->buf.body_pos + ref_rewrite_pos;                     \
                     }                                                                          \
                     stringified = sv_2mortal(newSV(0));                                        \
-                    sv_copypv(stringified, ref_rewrite_pos ? refsv : src);                      \
-                    str = SvPV(stringified, len);                                              \
+                    srl_callback_begin(aTHX_ enc, src, refsv);                                \
+                    string_source = sv_2mortal(newSVsv_flags(ref_rewrite_pos ? refsv : src, 0));                                \
+                    sv_copypv(stringified, string_source);                                    \
+                    srl_callback_end(aTHX_ enc);                                              \
+                    str = SvPV_nomg(stringified, len);                                              \
                     srl_dump_pv(aTHX_ (enc), (str), len, SvUTF8(stringified));                  \
                 }                                                                              \
                 else {                                                                         \

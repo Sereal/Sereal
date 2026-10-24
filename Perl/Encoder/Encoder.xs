@@ -56,6 +56,9 @@ THX_pp1_sereal_encode_with_object(pTHX_ U8 has_hdr)
   }
   /* we should never have an IV smaller than a PTR */
   enc= INT2PTR(srl_encoder_t *,SvIV(encoder_sv));
+  /* User code may clear the variable containing the encoder while it runs.
+   * Keep the owner alive until the encode cleanup hook has finished. */
+  SAVEFREESV(SvREFCNT_inc(encoder_sv));
 
   if (header_sv && !SvOK(header_sv))
     header_sv = NULL;

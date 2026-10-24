@@ -10,8 +10,9 @@ use Sereal::Encoder;
 #       author_tools/bench_retention.pl --case records --count 200000
 # Compare separate processes built with the same Perl and compiler flags.
 # Peak RSS includes construction of the input as well as encoding it.
-my ( $case, $count, $iterations ) = ( 'records', 200000, 9 );
-GetOptions( 'case=s' => \$case, 'count=i' => \$count, 'iterations=i' => \$iterations )
+my ( $case, $count, $iterations, $protocol_version ) = ( 'records', 200000, 9, 6 );
+GetOptions( 'case=s' => \$case, 'count=i' => \$count, 'iterations=i' => \$iterations,
+    'protocol-version=i' => \$protocol_version )
     or die "Usage: $0 --case records|arrays|scalars|keys --count N --iterations N\n";
 die "count and iterations must be positive\n" unless $count > 0 && $iterations > 0;
 
@@ -35,7 +36,7 @@ else {
     die "Unknown case '$case'\n";
 }
 
-my $encoder = Sereal::Encoder->new( { protocol_version => 6, checksum_v0_key => undef } );
+my $encoder = Sereal::Encoder->new( { protocol_version => $protocol_version, checksum_v0_key => undef } );
 my $bytes = length $encoder->encode($data); # warm up the reusable encoder
 my @seconds;
 for ( 1 .. $iterations ) {
@@ -48,6 +49,8 @@ for ( 1 .. $iterations ) {
 printf "case=%s count=%d iterations=%d bytes=%d median_ms=%.3f min_ms=%.3f\n",
     $case, $count, $iterations, $bytes,
     1000 * $seconds[ int( @seconds / 2 ) ], 1000 * $seconds[0];
+printf "Perl=%s Encoder=%s protocol=%d module=%s\n", $^V, $Sereal::Encoder::VERSION,
+    $protocol_version, $INC{'Sereal/Encoder.pm'};
 
 __END__
 
@@ -67,6 +70,8 @@ C<Perl/Encoder> directory, run this script with the local build loaded:
 Use C<--case arrays --count 300000> for the single-element-array case.
 The script also supplies flat C<scalars> and unique hash C<keys> cases.
 Run the revisions sequentially to avoid competing benchmark processes.
+Use C<--protocol-version 5> when comparing with an installed v5 release;
+the default remains protocol version 6.
 
 Sample measurements on Linux x86-64, Perl 5.44.0, GCC 13, C<-O3>, with
 nine timed encodes after one warm-up encode:
@@ -84,8 +89,12 @@ the complete input scan that selects retention only when Perl callbacks
 are possible. Peak RSS includes input construction, encoder state and
 the returned packet. Measurements depend on the machine and allocator.
 
-The scan removes most of the nested-container regression, but still adds
+That historical scan removed most of the nested-container regression, but still added
 work compared with the historical encoder, including for flat scalars.
-Inputs with magic, objects or unsupported types keep the retaining path.
+That implementation retained input graphs containing magic, objects or unsupported types.
+
+The current encoder instead guards actual callback boundaries in a single
+traversal. It keeps borrowed state alive long enough to detect unsafe mutation
+and throw, without a whole-graph pre-scan or container-value snapshots.
 
 =cut

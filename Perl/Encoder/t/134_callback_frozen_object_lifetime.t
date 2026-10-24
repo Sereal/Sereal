@@ -71,7 +71,7 @@ for my $version ( 2 .. 6 ) {
             };
             my $error = $@;
             my $label = "v$version $how $option";
-            ok( !$error, "$label: freeing the array from a callback still produces a complete array" ) or diag($error);
+            ok( !$error || $error =~ /input (?:array|hash|container) was modified during encoding/, "$label: freeing the array from a callback fails safely or encodes" ) or diag($error);
             SKIP: {
                 skip 'encode/decode failed', 1 if $error;
                 is_deeply( $decoded, $expected, "$label: captured elements survive the callback" );
@@ -145,7 +145,7 @@ for my $version ( 2 .. 6 ) {
             );
         }
         else {
-            ok( !$error, "$label: encoding survives the predicate" ) or diag($error);
+            ok( !$error || $error =~ /input (?:array|hash|container) was modified during encoding/, "$label: encoding survives the predicate" ) or diag($error);
             my $decoded      = eval { Sereal::Decoder->new->decode($packet) };
             my $decode_error = $@;
             ok( !$decode_error, "$label: packet decodes" ) or diag($decode_error);

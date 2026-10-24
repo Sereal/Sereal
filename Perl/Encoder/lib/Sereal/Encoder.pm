@@ -411,12 +411,15 @@ was serialized using its C<FREEZE> method will have its corresponding
 C<THAW> class method called during deserialization. The exact semantics
 are documented below under L</"FREEZE/THAW CALLBACK MECHANISM">.
 
-For ordinary arrays and hashes whose elements may invoke Perl code, the
-encoder retains the elements before encoding them. This also covers callbacks
-reached through tied values and nested references. Deleting a sibling element
-therefore does not remove it from the packet being written. This is not a deep
-snapshot: callbacks can still change the contents of retained scalars and
-referenced data structures. Tied containers are read through their tie methods.
+Do not modify the input graph while it is being encoded. The encoder may
+throw an exception when it detects a callback changing a container being
+traversed. It does not take a snapshot or promise to encode the original
+values after such mutation. Callbacks reached through tied values and nested
+references are subject to the same rule.
+
+Tied containers are read through their tie methods. Each value is fetched
+once per traversal occurrence; a scalar string may be captured separately
+for deduplication so this does not invoke FETCH again.
 
 Beware that using this functionality means a significant slowdown for
 object serialization. Even when serializing objects without a C<FREEZE>
@@ -587,9 +590,9 @@ keys. This only has an effect for serializing structures containing hashes.
 By skipping the detection of repeated hash keys, performance goes up a bit,
 but the size of the output can potentially be much larger.
 
-With key sharing enabled, shared key storage is retained until encoding
-finishes, so a callback deleting an earlier key cannot change a later
-C<COPY> target.
+When callbacks run, the encoder retains cached key and class identities so
+their addresses cannot be recycled as different C<COPY> targets. This retains
+cache metadata rather than taking a snapshot of container values.
 
 Do not disable this unless you have a reason to.
 

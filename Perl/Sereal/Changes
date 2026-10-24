@@ -14,6 +14,9 @@ from the the Encoder and Decoder changelogs:
 *          Decoder independently.                              *
 ****************************************************************
 6.000_001
+    * Encode without a whole-graph scan or container snapshots. Protect live
+      values around callbacks, reject detected mutation, and FETCH each value
+      once per occurrence.
     * Restore Encoder COPY deduplication of Latin-1 hash keys given as UTF-8.
     * Replace DEADLY with UNDEF_DEADLY (EXTEND 0xff), decoded as undef by
       default, with configurable warning or rejection in the Decoder.

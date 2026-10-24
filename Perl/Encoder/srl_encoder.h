@@ -15,6 +15,7 @@
 #include "srl_buffer_types.h"
 
 typedef struct PTABLE * ptable_ptr;
+struct srl_encoder_frame;
 typedef struct {
     srl_buffer_t buf;
     srl_buffer_t tmp_buf;     /* temporary buffer for swapping */
@@ -35,6 +36,10 @@ typedef struct {
     ptable_ptr freezeobj_svhash; /* ptr table for tracking objects and their frozen replacments via FREEZE */
     HV *string_deduper_hv;    /* literal string offsets, by content, for COPY */
     HV *string_alias_hv;      /* first scalar value offsets, by content, for ALIAS */
+    struct srl_encoder_frame *frames; /* live C traversal state, not input snapshots */
+    ptable_ptr callback_seen;
+    SV *root_src, *header_src; /* borrowed until the first callback */
+    AV *callback_keepalive;   /* values borrowed across actual Perl callbacks */
 
     void *snappy_workmem;     /* lazily allocated if and only if using Snappy */
     U8 checksum_keys[3][16]; /* indexed by checksum version */
@@ -162,8 +167,8 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
  */
 /* Set while the encoder is in active use / dirty */
 #define SRL_OF_ENCODER_DIRTY                 1UL
-/* Retain container elements and COPY targets when the input can run Perl. */
-#define SRL_OF_ENCODER_NEEDS_RETENTION       2UL
+/* A Perl callback has run during this encode. */
+#define SRL_OF_ENCODER_HAS_CALLBACKS         2UL
 
 #define SRL_ENC_HAVE_OPTION(enc, flag_num) ((enc)->flags & (flag_num))
 #define SRL_ENC_SET_OPTION(enc, flag_num) STMT_START {(enc)->flags |= (flag_num);}STMT_END

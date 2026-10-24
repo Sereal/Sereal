@@ -8,15 +8,18 @@ Revision history for Perl extension Sereal-Encoder
 6.000_001
     * Restore COPY deduplication of hash keys given as UTF-8 strings that fit
       in Latin-1 (WASUTF8 keys), lost when shared keys started being retained.
-    * Avoid container snapshots and shared-key keepers for input graphs that
-      cannot invoke Perl callbacks. Scan both body and header without invoking
-      magic, and retain all container elements when callbacks are possible.
+    * Encode in one traversal, retaining borrowed values only around actual
+      callbacks. Reject detected container mutation instead of snapshotting
+      the input graph. Preserve shared-key deduplication on ordinary data.
+    * Fetch magical and tied values once per occurrence, including references
+      returned by FETCH and values passed to stringification.
     * Release partially constructed encoder state when option validation,
       checksum key conversion, or a fatal warning interrupts construction.
     * Use a static custom-op descriptor instead of a heap allocation left behind
       at full interpreter destruction.
-    * Retain shared key storage while its address identifies a COPY target,
-      preventing callback deletion and address reuse from changing later keys.
+    * Keep cached key/class identities alive across callbacks, preventing
+      deleted storage from being reused as a different COPY target while
+      preserving deduplication for non-mutating callbacks.
     * Retain the selected FREEZE method across allow-list predicates that
       delete or replace its symbol-table entry.
     * Keep objects alive while freeze_allow_classes predicates run, including
@@ -32,8 +35,8 @@ Revision history for Perl extension Sereal-Encoder
       FREEZE that dropped the last reference to its object left the
       encoder reading a freed referent for the class name.
     * New tags, better testing and robustness fixes.
-    * Retain array elements and hash entries before encoding values that can
-      invoke Perl, including tied values and nested references.
+    * Protect active containers and borrowed values across callbacks, including
+      tied values and nested references, and reject detected mutation safely.
     * Use COPY rather than ALIAS for duplicate strings inside scalar references,
       preserving valid packets and scalar referent identity.
     * Make require_key fail construction without a configured key in both
@@ -45,8 +48,8 @@ Revision history for Perl extension Sereal-Encoder
       safely when using undef_unknown or stringify_unknown.
     * Keep hash keys as strings when sorting, and share strings between keys
       and values with COPY while reserving ALIAS for scalar values.
-    * Snapshot hash entries when invoking FREEZE or stringification callbacks,
-      so deleting sibling entries cannot invalidate hash traversal.
+    * Validate live hash traversal state after FREEZE, stringification and
+      magical access before dereferencing cached entries again.
     * Preserve string bytes and UTF-8 flags through tied-value deduplication
       and overloaded stringification; NUL-terminate reused output buffers.
     * Name the authentication-required policy require_key; retain require as an alias.
