@@ -571,9 +571,9 @@ and later documents. The defined IDs are:
 
       ID | Name           | Follow
     -----+----------------+---------------------------------------------
-    0x00 | DEADLY         | none - decoding must fail
     0x26 | VSTRING-BINARY | <LEN-VARINT> <SPELLING> - v-string, binary
     0x27 | VSTRING-UTF8   | <LEN-VARINT> <SPELLING> - v-string, UTF-8
+    0xff | UNDEF_DEADLY   | none - decode as undef by default; never encode
 
 All other IDs are reserved. Because the payload of an unknown ID cannot be
 skipped, a decoder must reject a document containing one. See
@@ -761,8 +761,8 @@ accordingly, otherwise they are free to treat CANONICAL_UNDEF the same as UNDEF.
 
 =head2 Protocol Version 6
 
-Protocol version 6 adds the NEG_VARINT tag, the EXTEND tag with its first
-three extended-tag IDs, and the keyed checksum envelope. NEG_VARINT and
+Protocol version 6 adds the NEG_VARINT tag, the EXTEND tag with its three
+defined extended-tag IDs, and the keyed checksum envelope. NEG_VARINT and
 EXTEND are only valid in protocol version 6 and later documents; decoders
 reject them in older documents.
 
@@ -776,7 +776,7 @@ protocol version 5 or earlier continue to use ZIGZAG for these larger negative
 integers. Decoders must accept ZIGZAG in every protocol version, including
 version 6, for compatibility with older encoders.
 
-=head3 DEADLY
+=head3 UNDEF_DEADLY
 
 Protocol version 6 reserves extended-tag ID 255 (C<0xff>) for
 C<UNDEF_DEADLY>, encoded as C<EXTEND 255> (bytes C<3e ff>), with no payload.
