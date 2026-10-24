@@ -88,6 +88,7 @@ type Decoder struct {
 	copyDepth int
 	minOffset int // offsets below this point before the body (or header) being decoded
 	depth     int // nesting of the value being decoded
+	maxDepth  int // effective MaxRecursionDepth
 
 	// PerlCompat produced a decoded data structure that preserves as much as possible the original Perl structure
 	PerlCompat bool
@@ -127,21 +128,16 @@ const DefaultMaxUncompressedSize = 1 << 30
 // values, as in perl's Sereal::Decoder
 const DefaultMaxRecursionDepth = 10000
 
-// enter descends one nesting level; it returns ErrMaxRecursionLimit when
-// that exceeds MaxRecursionDepth. Each call is paired with leave.
-func (d *Decoder) enter() error {
-	d.depth++
-	limit := d.MaxRecursionDepth
-	if limit == 0 {
-		limit = DefaultMaxRecursionDepth
+// maxRecursionDepth returns the effective MaxRecursionDepth
+func (d *Decoder) maxRecursionDepth() int {
+	switch {
+	case d.MaxRecursionDepth == 0:
+		return DefaultMaxRecursionDepth
+	case d.MaxRecursionDepth < 0:
+		return math.MaxInt
 	}
-	if limit > 0 && d.depth > limit {
-		return ErrMaxRecursionLimit
-	}
-	return nil
+	return d.MaxRecursionDepth
 }
-
-func (d *Decoder) leave() { d.depth-- }
 
 // uncompressedLimit returns the effective decompressed size limit for the
 // option value n; a negative result means no limit
@@ -250,7 +246,8 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 		return err
 	}
 
-	d.depth = 0
+	// a panic skips the depth decrements, so start afresh
+	d.depth, d.maxDepth = 0, d.maxRecursionDepth()
 
 	if d.ChecksumPolicy == ChecksumRequireKey {
 		if d.ChecksumV0Key == nil && d.ChecksumV1Key == nil && d.ChecksumV2Key == nil {
@@ -462,13 +459,19 @@ func (d *Decoder) warn(msg string) {
  * Decode document of unknown structure (i.e. without reflection)
  ****************************************************************/
 func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
+	// no defer: decodeValue has too many returns for an open-coded one
+	if d.depth >= d.maxDepth {
+		return 0, ErrMaxRecursionLimit
+	}
+	d.depth++
+	idx, err := d.decodeValue(by, idx, ptr)
+	d.depth--
+	return idx, err
+}
+
+func (d *Decoder) decodeValue(by []byte, idx int, ptr *interface{}) (int, error) {
 	if idx < 0 || idx >= len(by) {
 		return 0, ErrTruncated
-	}
-
-	defer d.leave()
-	if err := d.enter(); err != nil {
-		return 0, err
 	}
 
 	tag := by[idx]
@@ -1021,13 +1024,18 @@ func (d *Decoder) decodeRegexp(by []byte, idx int) (*PerlRegexp, int, error) {
  * Decode document with predefined structure (have to use reflection)
  ********************************************************************/
 func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (int, error) {
+	if d.depth >= d.maxDepth {
+		return 0, ErrMaxRecursionLimit
+	}
+	d.depth++
+	idx, err := d.decodeValueViaReflection(by, idx, ptr)
+	d.depth--
+	return idx, err
+}
+
+func (d *Decoder) decodeValueViaReflection(by []byte, idx int, ptr reflect.Value) (int, error) {
 	if idx < 0 || idx >= len(by) {
 		return 0, ErrTruncated
-	}
-
-	defer d.leave()
-	if err := d.enter(); err != nil {
-		return 0, err
 	}
 
 	ptrKind := ptr.Kind()
