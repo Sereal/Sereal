@@ -433,7 +433,6 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
     SSize_t i;
     SV **svptr;
     srl_reader_char_ptr body_start;
-    STRLEN size = 0;
     SSize_t tidx = av_len(src);
 
     if (mrg->obuf_last_successfull_offset) {
@@ -454,17 +453,13 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
         if (expect_false(svptr == NULL))
             croak("av_fetch returned NULL");
 
-        size += SvLEN(*svptr);
-    }
-
-    /* preallocate space in obuf in one go,
-     * of course this's is very rough estimation */
-    GROW_BUF(&mrg->obuf, size);
-
-    for (i = 0; i <= tidx; ++i) {
-        srl_set_input_buffer(aTHX_ mrg, *av_fetch(src, i, 0));
+        srl_set_input_buffer(aTHX_ mrg, *svptr);
         body_start = mrg->ibuf.pos;
         srl_build_track_table(aTHX_ mrg);
+
+        /* preallocate space in obuf for this document, as append() does;
+         * SvLEN of the inputs is no estimate (it is 0 for shared hash keys) */
+        GROW_BUF(&mrg->obuf, (size_t) SRL_RDR_SIZE(mrg->pibuf));
 
         /* save current offset as last successfull */
         mrg->obuf_last_successfull_offset = BODY_POS_OFS(&mrg->obuf);

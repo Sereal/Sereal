@@ -18,6 +18,8 @@ Revision history for Perl extension Sereal-Merger
     it, and check for the end of input after OBJECT
   * fix a heap overflow writing EXTEND items once wider COPY offsets in
     the output had used up the space reserved for the input
+  * append_all() reserves output space per document from its length,
+    not once from SvLEN of the inputs (0 for hash keys)
   * bump Sereal prereq version to 6.000_001
 
 4.004 Nov 13 2017

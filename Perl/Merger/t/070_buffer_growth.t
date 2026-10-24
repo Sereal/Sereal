@@ -58,4 +58,16 @@ is(length($out_copy), 5, "output COPY offsets are wider than the input ones");
 is(length($out), length($expected), "output has the expected length");
 ok($out eq $expected, "output has the expected bytes");
 
+# append_all() must not size its reservation from SvLEN: it is 0 for the
+# shared hash key scalars that keys() returns
+{
+    my $doc = $header . "\x28\x2B" . varint(200) . ($ext x 200);
+    my %h = ($doc => 1);
+    my $mrg = Sereal::Merger->new();
+    my $out = eval { $mrg->append_all([ keys %h ]); $mrg->finish() };
+    ok(defined $out, "keys() of a hash are merged by append_all") or diag $@;
+    ok(defined $out && $out eq $header . "\x28\x2B\x01" . ("\x3F" x 4) . substr($doc, length $header),
+       "with the expected bytes");
+}
+
 done_testing;
