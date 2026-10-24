@@ -9,6 +9,7 @@ struct srl_reader_buffer {
     srl_reader_char_ptr end;      /* ptr to end of input buffer */
     srl_reader_char_ptr pos;      /* ptr to current possition */
     srl_reader_char_ptr body_pos; /* in Sereal V2, all offsets are relative to the body */
+    srl_reader_char_ptr body_start; /* first byte of the body; in V1 offsets can point before it */
 };
 
 typedef struct srl_reader_buffer srl_reader_buffer_t;

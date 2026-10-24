@@ -96,6 +96,9 @@ srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
         /* This allocation is installed directly as a Perl PV, so keep its
          * mandatory trailing NUL even though the decoder uses explicit lengths. */
         tmp_buf[total_requested - 1] = '\0';
+        /* Nothing writes the header bytes, but they are inside the buffer
+         * (and V1 offsets are relative to them): never expose them unset. */
+        Zero(tmp_buf, header_len, char);
 
         b_sv= sv_newmortal();
         sv_upgrade(b_sv,SVt_PV);
