@@ -1,4 +1,11 @@
 #include "sereal.h"
+/* the decoder state is freed by the rb_ensure handler in method_sereal_decode,
+   so raising must leave it alone */
+#undef s_raise
+#define s_raise(what,ex,arg...)         \
+do {                                    \
+    rb_exc_raise(rb_exc_new_str(ex,rb_sprintf(arg))); \
+} while(0);
 #include "buffer.h"
 #include "decode.h"
 #include "snappy/csnappy_decompress.c"
@@ -61,12 +68,16 @@ static VALUE s_read_small_negative_int(sereal_t *s, u8 tag) {
 }
 
 /* ARRAY */
-static inline VALUE s_read_array_with_len(sereal_t *s, u32 len) {
-    VALUE arr[len];
-    register u32 i;
+static inline VALUE s_read_array_with_len(sereal_t *s, u64 len) {
+    // every element takes at least one byte, so the count can not exceed what is left
+    if (!(s->flags & __STREAM) && (s->pos > s->size || len > s->size - s->pos))
+        s_raise(s,rb_eRangeError,"array count %" PRIu64 " exceeds the remaining %u bytes",
+                len,s->size - s->pos);
+    VALUE arr = rb_ary_new_capa((s->flags & __STREAM) ? 0 : (long) len);
+    u64 i;
     for (i = 0; i < len; i++)
-        arr[i] = sereal_to_rb_object(s);
-    return rb_ary_new4(len,arr);
+        rb_ary_push(arr,sereal_to_rb_object(s));
+    return arr;
 }
 
 /* ARRAY */ 
@@ -105,10 +116,12 @@ static VALUE s_read_rb_string_bang(sereal_t *s,u8 t) {
     u32 len = 0;
     VALUE string;
 // len - 1: we also use the current byte, similar to u32,float.. casts
+// the length is bounds checked at full width before it is narrowed
 #define RETURN_STRING(fx_l,fx_gen)              \
     do {                                        \
-        len       = (u32) fx_l;                 \
-        char *ptr = (char *) (len == 0 ? 0 : s_get_p_req_inclusive(s,len)); \
+        u64 len64 = fx_l;                       \
+        char *ptr = (char *) (len64 == 0 ? 0 : s_get_p_req_inclusive(s,len64)); \
+        len       = (u32) len64;                \
         string    = fx_gen;                     \
         s_shift_position_bang(s,len);           \
         return string;                          \
@@ -180,18 +193,28 @@ static VALUE s_read_extend(sereal_t *s, u8 tag) {
 static VALUE s_read_ref(sereal_t *s, u8 tag) {
     if (s->tracked == Qnil)
         s_raise(s,rb_eArgError,"there are no references stored");
+    u32 tag_pos = s->pos - 1;
     u64 off = s_get_varint_bang(s);
-    VALUE object = rb_hash_lookup(s->tracked,INT2FIX(off + s->hdr_end));
+    // the referenced item must start before this tag and have been tracked
+    VALUE object = Qundef;
+    if (off > 0 && off - 1 < tag_pos - s->hdr_end)
+        object = rb_hash_lookup2(s->tracked,INT2FIX(off + s->hdr_end),Qundef);
+    if (object == Qundef)
+        s_raise(s,rb_eArgError,"no tracked item at offset %" PRIu64,off);
     SD(s,"reading reference from offset: %" PRIu64 ", id: %d",off + s->hdr_end,FIX2INT(rb_obj_id(object)));
     return object;
 }
 
+// the target must start strictly before the tag that points at it
 #define TRAVEL(s,__stored)                                              \
     do {                                                                \
-        u32 offset = ((u32) s_get_varint_bang(s)) - 1;                  \
+        u32 tag_pos = s->pos - 1;                                       \
+        u64 offset = s_get_varint_bang(s);                              \
+        if (offset == 0 || offset - 1 >= tag_pos - s->hdr_end)          \
+            s_raise(s,rb_eArgError,"bad offset %" PRIu64 " for tag %d",offset,tag); \
         __stored = s->pos;                                              \
-        s->pos = offset + s->hdr_end;                                   \
-        SD(s,"going back offset: %d, stored position: %d (tag: %d) new pos: %d",offset,stored_pos,tag,s->pos); \
+        s->pos = (u32) (offset - 1) + s->hdr_end;                       \
+        SD(s,"going back offset: %" PRIu64 ", stored position: %d (tag: %d) new pos: %d",offset,stored_pos,tag,s->pos); \
     } while(0)
 #define BACK(s,__stored)                                \
     do {                                                \
@@ -290,14 +313,20 @@ VALUE sereal_to_rb_object(sereal_t *s) {
     return Qnil;
 }
 
-VALUE method_sereal_decode(VALUE self, VALUE args) {
+struct s_decode_args {
+    sereal_t *s;
+    VALUE args;
+};
+
+static VALUE s_decode(VALUE v_args) {
+    sereal_t *s = ((struct s_decode_args *) v_args)->s;
+    VALUE args = ((struct s_decode_args *) v_args)->args;
     u32 argc = RARRAY_LEN(args);
     if (argc < 1)
         rb_raise(rb_eArgError,"need at least 1 argument (object)");
     VALUE payload = rb_ary_entry(args,0);
 
     u8 have_block = rb_block_given_p();
-    sereal_t *s = s_create();
     if (argc == 2) {
         VALUE flags = rb_ary_entry(args,1);
         if (flags != Qnil && flags != Qfalse) {
@@ -329,16 +358,12 @@ again:
     if (s->flags & __STREAM) {
         s->size = 0;
         s->rsize = 0;
-        if (s_read_stream(s,__MIN_SIZE) < 0) {
-            s_destroy(s);
+        if (s_read_stream(s,__MIN_SIZE) < 0)
             return Qnil;
-        }
     } else {
         u32 size = RSTRING_LEN(payload) - offset;
-        if ((RSTRING_LEN(payload) > 0 && offset > (u32) RSTRING_LEN(payload)) || (offset > 0 && size < __MIN_SIZE)) {
-            s_destroy(s);
+        if ((RSTRING_LEN(payload) > 0 && offset > (u32) RSTRING_LEN(payload)) || (offset > 0 && size < __MIN_SIZE))
             return Qnil;
-        }
         if (size < __MIN_SIZE)
             s_raise(s,rb_eTypeError,"size(%d) is less then min packet size %d, offset: %" PRIu64,size,__MIN_SIZE,offset);
 
@@ -352,9 +377,13 @@ again:
         s_raise(s,rb_eTypeError,"invalid header: %d (%x) vs %x",magic,magic,SRL_MAGIC_STRING_UINT_LE);
 
     u8 version = s_get_u8_bang(s);
-    u8 suffix = s_get_varint_bang(s);
-    if (suffix > 0)
-        s_raise(s,rb_eTypeError,"HEADER-SUFFIX-SIZE is not supported yet");
+    // version 1 offsets are absolute, which this decoder does not handle
+    if ((version & SRL_PROTOCOL_VERSION_MASK) < 2 || (version & SRL_PROTOCOL_VERSION_MASK) > SRL_PROTOCOL_VERSION_MAX)
+        s_raise(s,rb_eTypeError,"unsupported protocol version %d",version & SRL_PROTOCOL_VERSION_MASK);
+
+    // skip the header suffix (and any user meta data in it)
+    u64 suffix = s_get_varint_bang(s);
+    s_get_p_at_pos_bang(s,s->pos,suffix);
 
     u8 is_compressed;
 
@@ -362,15 +391,17 @@ again:
         is_compressed = __SNAPPY;
     } else if ((version & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_SNAPPY_INCR) {
         is_compressed = __SNAPPY_INCR;
-    } else {
+    } else if ((version & SRL_PROTOCOL_ENCODING_MASK) == SRL_PROTOCOL_ENCODING_RAW) {
         is_compressed = __RAW;
+    } else {
+        s_raise(s,rb_eTypeError,"unsupported document type %d",(version & SRL_PROTOCOL_ENCODING_MASK) >> SRL_PROTOCOL_VERSION_BITS);
     }
 
     SD(s,"initialized (s) with compression type: %d",is_compressed);
 
     if (is_compressed) {
         u32 uncompressed_len;
-        u32 compressed_len;
+        u64 compressed_len;
 
         if (is_compressed == __SNAPPY_INCR) {
             compressed_len = s_get_varint_bang(s);
@@ -380,7 +411,7 @@ again:
 
             compressed_len = s->size - s->pos;
         }
-        SD(s,"compressed len: %d",compressed_len);
+        SD(s,"compressed len: %" PRIu64,compressed_len);
         if (s->flags & __STREAM)
             s_get_p_req_inclusive(s,compressed_len);
 
@@ -391,13 +422,18 @@ again:
             s_raise(s,rb_eTypeError,"invalid snappy header");
 
         u8 *uncompressed = s_alloc_or_raise(s,uncompressed_len);
-        int done = csnappy_decompress(s_get_p_req_inclusive(s,compressed_len),
-                                      compressed_len,
-                                      (char *) uncompressed,
-                                      uncompressed_len) == CSNAPPY_E_OK ? 1 : 0;
-        if (!done)
-            s_raise(s,rb_eTypeError, "decompression failed error: %d type: %d, unompressed size: %d compressed size: %d",
+        // the stream may end before filling the declared length, so check what was produced
+        u32 produced_len = uncompressed_len;
+        int done = csnappy_decompress_noheader((char *) s_get_p_req_inclusive(s,compressed_len) + snappy_header_len,
+                                               compressed_len - snappy_header_len,
+                                               (char *) uncompressed,
+                                               &produced_len) == CSNAPPY_E_OK &&
+                   produced_len == uncompressed_len ? 1 : 0;
+        if (!done) {
+            free(uncompressed); // not owned by s yet, s_destroy would miss it
+            s_raise(s,rb_eTypeError, "decompression failed error: %d type: %d, unompressed size: %u compressed size: %" PRIu64,
                                       done,is_compressed,uncompressed_len,compressed_len);
+        }
 
         s_free_data_if_not_mine(s);
         s->data = uncompressed;
@@ -420,8 +456,16 @@ again:
         if (s->pos < s->size) {
             s_raise(s,rb_eTypeError,"there is still some data left in the buffer, use block read, otherwise we are losing it");
         }
-        s_destroy(s);
         return result;
     }
 }
 
+static VALUE s_decode_ensure(VALUE v_args) {
+    s_destroy(((struct s_decode_args *) v_args)->s);
+    return Qnil;
+}
+
+VALUE method_sereal_decode(VALUE self, VALUE args) {
+    struct s_decode_args a = { s_create(), args };
+    return rb_ensure(s_decode,(VALUE) &a,s_decode_ensure,(VALUE) &a);
+}

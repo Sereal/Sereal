@@ -3,6 +3,7 @@
 #define SRL_MAGIC_STRING_UINT_LE_HB  0x6c72f33d      /* "=\xF3rl" */
 
 #define SRL_PROTOCOL_VERSION            ( 2 )           /* this is the first. for some reason we did not use 0 */
+#define SRL_PROTOCOL_VERSION_MAX        ( 6 )           /* newest protocol version the spec defines */
 #define SRL_PROTOCOL_VERSION_BITS       ( 4 )           /* how many bits we use for the version, the rest go to the encoding */
 #define SRL_PROTOCOL_VERSION_MASK       ( ( 1 << SRL_PROTOCOL_VERSION_BITS ) - 1 )
 

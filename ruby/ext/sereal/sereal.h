@@ -60,11 +60,13 @@ typedef struct _sereal          sereal_t;
         }                                                               \
     } while(0);
 
+/* format the message first: its arguments may read the state s_destroy frees */
 #define s_raise(what,ex,arg...)         \
 do {                                    \
     SD(s,"s_raise");                    \
+    VALUE __msg = rb_sprintf(arg);      \
     s_destroy(what);                    \
-    rb_raise(ex,##arg);                 \
+    rb_exc_raise(rb_exc_new_str(ex,__msg)); \
 } while(0);
 
 struct _sereal {

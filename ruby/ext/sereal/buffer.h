@@ -99,7 +99,7 @@ static inline int s_read_stream(sereal_t *s, u32 end) {
         u32 req = end - s->size;
         u32 left = s->buffer.size - s->buffer.pos;
         if (left == 0) {
-            size_t rc = read(s->fd,s->buffer.data,BUFSIZ);
+            ssize_t rc = read(s->fd,s->buffer.data,BUFSIZ);
             if (rc <= 0)
                 return -1;
             s->buffer.size = (u32) rc;
@@ -114,23 +114,26 @@ static inline int s_read_stream(sereal_t *s, u32 end) {
     return 1;
 }
 
-static inline void *s_get_p_at_pos(sereal_t *s, u32 pos,u32 req) {
+static inline void *s_get_p_at_pos(sereal_t *s, u32 pos,u64 req) {
     // returning s->data[pos], so we just make size count from 0
-    if (unlikely(pos + req >= s->size)) {
+    // compare against what is left so that pos + req can not wrap
+    if (unlikely(pos >= s->size || req >= s->size - pos)) {
         if (unlikely(s->flags & __STREAM)) {
+            if (req >= (u64) UINT32_MAX - pos)
+                s_raise(s,rb_eRangeError,"stream request for %" PRIu64 " bytes is too big",req);
             if (s_read_stream(s,pos + req + 1) < 0) {
-                s_raise(s,rb_eRangeError,"stream request for %d bytes failed (err: %s)",
+                s_raise(s,rb_eRangeError,"stream request for %" PRIu64 " bytes failed (err: %s)",
                         req,strerror(errno));
             }
         } else {
             u32 size = s->size;
-            s_raise(s,rb_eRangeError,"position is out of bounds (%d + %d >  %d)",pos,req,size);
+            s_raise(s,rb_eRangeError,"position is out of bounds (%u + %" PRIu64 " >  %u)",pos,req,size);
         }
     }
     return &s->data[pos];
 }
 
-static inline void *s_get_p_at_pos_bang(sereal_t *s, u32 pos,u32 req) {
+static inline void *s_get_p_at_pos_bang(sereal_t *s, u32 pos,u64 req) {
     void *p = s_get_p_at_pos(s,pos,req);
     s->pos += req;
     return p;
@@ -139,10 +142,10 @@ static inline void *s_get_p_at_pos_bang(sereal_t *s, u32 pos,u32 req) {
 static inline void *s_end_p(sereal_t *s) {
     return s_get_p_at_pos(s,s->size - 1,0);
 }
-static inline void *s_get_p_req_inclusive(sereal_t *s, int req) {
+static inline void *s_get_p_req_inclusive(sereal_t *s, u64 req) {
     return s_get_p_at_pos(s,s->pos,req > 0 ? req - 1 : 0);
 }
-static inline void *s_get_p_req(sereal_t *s, int req) {
+static inline void *s_get_p_req(sereal_t *s, u64 req) {
     return s_get_p_at_pos(s,s->pos,req);
 }
 static inline void *s_get_p(sereal_t *s) {
@@ -159,28 +162,33 @@ static inline u8 s_get_u8_bang(sereal_t *s) {
     return r;
 }
 
+/* the input has no alignment, so copy multi byte values out instead of dereferencing */
 static inline u32 s_get_u32_bang(sereal_t *s) {
-    u32 *r = (u32 *) s_get_p_at_pos(s,s->pos,sizeof(u32) - 1); /* current position + 3 bytes */
-    s->pos += sizeof(*r);
-    return *r;
+    u32 r;
+    COPY(s_get_p_at_pos(s,s->pos,sizeof(r) - 1),&r,sizeof(r)); /* current position + 3 bytes */
+    s->pos += sizeof(r);
+    return r;
 }
 
 static inline float s_get_float_bang(sereal_t *s) {
-    float *f = (float *) s_get_p_at_pos(s,s->pos,sizeof(*f) - 1);
-    s->pos += sizeof(*f);
-    return *f;
+    float f;
+    COPY(s_get_p_at_pos(s,s->pos,sizeof(f) - 1),&f,sizeof(f));
+    s->pos += sizeof(f);
+    return f;
 }
 
 static inline double s_get_double_bang(sereal_t *s) {
-    double *d = (double *) s_get_p_at_pos(s,s->pos,sizeof(*d) - 1);
-    s->pos += sizeof(*d);
-    return *d;
+    double d;
+    COPY(s_get_p_at_pos(s,s->pos,sizeof(d) - 1),&d,sizeof(d));
+    s->pos += sizeof(d);
+    return d;
 }
 
 static inline long double s_get_long_double_bang(sereal_t *s) {
-    long double *d = (long double *) s_get_p_at_pos(s,s->pos,sizeof(*d) - 1);
-    s->pos += sizeof(*d);
-    return *d;
+    long double d;
+    COPY(s_get_p_at_pos(s,s->pos,sizeof(d) - 1),&d,sizeof(d));
+    s->pos += sizeof(d);
+    return d;
 }
 
 static inline u32 s_shift_position_bang(sereal_t *s, u32 len) {
