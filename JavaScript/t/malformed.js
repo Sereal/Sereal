@@ -76,5 +76,24 @@ decodes(repeat("41", 3) + "01", [[[1]]], "shallow nesting");
 // HASHREF_2 {"a": 1, "a": 2}: a repeated key keeps the last value
 decodes("52616101616102", { a: 2 }, "repeated hash key");
 
+// header suffix of 3 bytes with no user metadata (bit field 0x00) followed by
+// two more suffix bytes and the body 1: the suffix bytes used to be read as the body
+decodes("01", 1, "header suffix without metadata is skipped", "3df3726c0303000506");
+// header suffix of 3 bytes with user metadata 5, body 1
+(function () {
+    var doc = new Sereal.Decoder().decodeDocument(new CtxUint8Array(Buffer.from("3df3726c0303010500" + "01", "hex")));
+    ok(doc.body === 1 && doc.user_metadata === 5, "header suffix with metadata", JSON.stringify([doc.body, doc.user_metadata]));
+})();
+// header suffix of 5 bytes with only two bytes left in the document
+rejects("01", /suffix/, "header suffix past end", "3df3726c030500");
+// bad magic
+rejects("01", /magic/, "bad magic", "3df3726d0300");
+// ARRAY with a count of 2^32-1 and no elements
+rejects("2bffffffff0f", /./, "array count past end");
+// STR_UTF8 of length 1000 with two bytes left
+rejects("27e8076162", /./, "string length past end");
+// REGEXP with pattern "(" and no flags
+rejects("31612860", /./, "invalid regexp");
+
 if (failed) process.exitCode = 1;
 console.log(failed ? "# " + failed + " of " + count + " failed" : "# all " + count + " passed");
