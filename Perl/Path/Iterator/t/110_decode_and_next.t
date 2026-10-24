@@ -44,4 +44,14 @@ subtest "descode simple hash", sub {
     is($spi->decode_and_next(), 'bar', 'decode bar');
 };
 
+subtest "decode array with an alias", sub {
+    # REFN ARRAY [ "aaaa" (tracked), ALIAS to it, "zzzz" ]: decode_and_next()
+    # used to resume after the alias target instead of after the ALIAS
+    my $spi = Sereal::Path::Iterator->new(pack("H*", "3df3726c0600282b03e4616161612e04647a7a7a7a"));
+    $spi->step_in();
+    is($spi->decode_and_next(), 'aaaa', 'decode aaaa');
+    is($spi->decode_and_next(), 'aaaa', 'decode the alias of aaaa');
+    is($spi->decode_and_next(), 'zzzz', 'decode zzzz');
+};
+
 done_testing();

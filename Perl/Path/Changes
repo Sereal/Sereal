@@ -21,6 +21,7 @@ Revision history for Perl extension Sereal-Path
     of them took exponential time
   * reject protocol v1 offsets that point into the header, which for a
     compressed document exposed bytes that were never written
+  * decode_and_next() continues after an ALIAS rather than after its target
   * bump Sereal prereq version to 6.000_001
 
 4.004 Nov 13 2017
