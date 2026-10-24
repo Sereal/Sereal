@@ -1,0 +1,146 @@
+[
+  {
+    "case": "arrays",
+    "block": 1,
+    "before_us": 6496.97059934059,
+    "after_us": 5336.1989017655005,
+    "change_percent": -17.866352938289452,
+    "before_error_percent": 0.4985966266798421,
+    "after_error_percent": 0.5882957613241804
+  },
+  {
+    "case": "arrays",
+    "block": 2,
+    "before_us": 7757.278284286001,
+    "after_us": 6280.0865318733295,
+    "change_percent": -19.04265514626481,
+    "before_error_percent": 0.43474440283819304,
+    "after_error_percent": 0.2879021957171861
+  },
+  {
+    "case": "freeze-1",
+    "block": 1,
+    "before_us": 0.475200625908667,
+    "after_us": 0.676902155023293,
+    "change_percent": 42.445552071598655,
+    "before_error_percent": 0.4913261376634198,
+    "after_error_percent": 0.5477577974554536
+  },
+  {
+    "case": "freeze-1",
+    "block": 2,
+    "before_us": 0.5168222211749329,
+    "after_us": 0.6956658542801349,
+    "change_percent": 34.6044782475921,
+    "before_error_percent": 0.3951020472721037,
+    "after_error_percent": 0.6245842897181801
+  },
+  {
+    "case": "freeze-100",
+    "block": 1,
+    "before_us": 26.8616447760531,
+    "after_us": 36.384327432353494,
+    "change_percent": 35.45085468775828,
+    "before_error_percent": 0.4879116771682564,
+    "after_error_percent": 0.49240439484496545
+  },
+  {
+    "case": "freeze-100",
+    "block": 2,
+    "before_us": 24.9785780192529,
+    "after_us": 35.940282584500004,
+    "change_percent": 43.884421910639084,
+    "before_error_percent": 0.44495031825951886,
+    "after_error_percent": 0.4747637944494805
+  },
+  {
+    "case": "medium-objects",
+    "block": 1,
+    "before_us": 1.7651262952865698,
+    "after_us": 1.7290920734770001,
+    "change_percent": -2.0414528923959896,
+    "before_error_percent": 0.48146167561809433,
+    "after_error_percent": 0.46909105509667937
+  },
+  {
+    "case": "medium-objects",
+    "block": 2,
+    "before_us": 1.78098788181575,
+    "after_us": 1.7539726457165,
+    "change_percent": -1.5168680469463736,
+    "before_error_percent": 0.4857570473254762,
+    "after_error_percent": 0.515236144308651
+  },
+  {
+    "case": "medium-plain",
+    "block": 1,
+    "before_us": 1.58853442723352,
+    "after_us": 1.50926383188694,
+    "change_percent": -4.990171694587198,
+    "before_error_percent": 0.46114234827171485,
+    "after_error_percent": 0.4955528347871801
+  },
+  {
+    "case": "medium-plain",
+    "block": 2,
+    "before_us": 1.6267732777382,
+    "after_us": 1.54260898274943,
+    "change_percent": -5.17369544610351,
+    "before_error_percent": 0.4948190216874755,
+    "after_error_percent": 0.4990194692010609
+  },
+  {
+    "case": "records",
+    "block": 1,
+    "before_us": 34207.9176291,
+    "after_us": 33389.0825460583,
+    "change_percent": -2.3937004640853354,
+    "before_error_percent": 0.4524989845909819,
+    "after_error_percent": 0.49504477242653117
+  },
+  {
+    "case": "records",
+    "block": 2,
+    "before_us": 34570.2495290233,
+    "after_us": 34508.9865041935,
+    "change_percent": -0.177213140386423,
+    "before_error_percent": 0.36320797599015325,
+    "after_error_percent": 0.4520335913652056
+  },
+  {
+    "case": "scalars",
+    "block": 1,
+    "before_us": 1275.64880686733,
+    "after_us": 963.1654749995,
+    "change_percent": -24.496031367380013,
+    "before_error_percent": 0.383995728707952,
+    "after_error_percent": 0.44668968472235404
+  },
+  {
+    "case": "scalars",
+    "block": 2,
+    "before_us": 1491.96377315067,
+    "after_us": 1123.051405466,
+    "change_percent": -24.726630386313964,
+    "before_error_percent": 0.34491953352809795,
+    "after_error_percent": 0.38098099960779785
+  },
+  {
+    "case": "sorted-freeze-1000",
+    "block": 1,
+    "before_us": 496.472293159581,
+    "after_us": 820.5523596415669,
+    "change_percent": 65.276566476554,
+    "before_error_percent": 0.4635406294759832,
+    "after_error_percent": 0.428343420774241
+  },
+  {
+    "case": "sorted-freeze-1000",
+    "block": 2,
+    "before_us": 490.380783458033,
+    "after_us": 807.3702988251,
+    "change_percent": 64.64150432888958,
+    "before_error_percent": 0.3552432087782952,
+    "after_error_percent": 0.26675867547819104
+  }
+]

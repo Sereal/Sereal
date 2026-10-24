@@ -1,0 +1,15 @@
+Perl=v5.44.0 Encoder=5.01 Decoder=5.01 protocol=5
+Encoder module: /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/site_perl/5.44.0/x86_64-linux/Sereal/Encoder.pm
+Decoder module: /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/site_perl/5.44.0/x86_64-linux/Sereal/Decoder.pm
+Sereal OO (srl)                                   942 bytes  69.32% of strbl
+Storable (strbl)                                 1359 bytes
+
+* Timing encoders
+        Rate srl
+srl 546132/s  --
+
+* Timing decoders
+        Rate srl
+srl 204799/s  --
+
+peak_rss_kb=13008

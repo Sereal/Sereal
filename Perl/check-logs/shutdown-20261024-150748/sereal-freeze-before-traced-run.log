@@ -1,0 +1,104 @@
+make: Entering directory '/tmp/sereal-review/pre-ownership/Perl/Encoder'
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Encoder.bs blib/arch/auto/Sereal/Encoder/Encoder.bs 644
+cd zstd && make all
+make[1]: Entering directory '/tmp/sereal-review/pre-ownership/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/tmp/sereal-review/pre-ownership/Perl/Encoder/zstd'
+make[1]: Entering directory '/tmp/sereal-review/pre-ownership/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/tmp/sereal-review/pre-ownership/Perl/Encoder/zstd'
+make[1]: Entering directory '/tmp/sereal-review/pre-ownership/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'test_dynamic'.
+make[1]: Leaving directory '/tmp/sereal-review/pre-ownership/Perl/Encoder/zstd'
+PERL_DL_NONLAZY=1 valgrind --tool=memcheck --trace-children=yes --leak-check=full --show-leak-kinds=definite,indirect --errors-for-leak-kinds=definite,indirect --error-exitcode=99 --suppressions=/home/demerphq/git_tree/Sereal/Perl/shared/author_tools/valgrind.supp --log-file=/tmp/sereal-freeze-before-traced.%p.log /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/143_freeze_cache_ownership.t
+
+#   Failed test 'v2 weak=0 drop=predicate invokes FREEZE once for the same referent'
+#   at t/143_freeze_cache_ownership.t line 41.
+#          got: '2'
+#     expected: '1'
+
+#   Failed test 'v2 weak=1 drop=freeze invokes FREEZE once for the same referent'
+#   at t/143_freeze_cache_ownership.t line 41.
+#          got: '2'
+#     expected: '1'
+
+#   Failed test 'v2 weak=1 drop=predicate invokes FREEZE once for the same referent'
+#   at t/143_freeze_cache_ownership.t line 41.
+#          got: '2'
+#     expected: '1'
+
+#   Failed test 'v3 weak=0 drop=predicate invokes FREEZE once for the same referent'
+#   at t/143_freeze_cache_ownership.t line 41.
+#          got: '2'
+#     expected: '1'
+
+#   Failed test 'v3 weak=1 drop=freeze invokes FREEZE once for the same referent'
+#   at t/143_freeze_cache_ownership.t line 41.
+#          got: '2'
+#     expected: '1'
+
+#   Failed test 'v3 weak=1 drop=predicate invokes FREEZE once for the same referent'
+#   at t/143_freeze_cache_ownership.t line 41.
+#          got: '2'
+#     expected: '1'
+
+#   Failed test 'v4 weak=0 drop=predicate invokes FREEZE once for the same referent'
+#   at t/143_freeze_cache_ownership.t line 41.
+#          got: '2'
+#     expected: '1'
+
+#   Failed test 'v4 weak=1 drop=freeze invokes FREEZE once for the same referent'
+#   at t/143_freeze_cache_ownership.t line 41.
+#          got: '2'
+#     expected: '1'
+
+#   Failed test 'v4 weak=1 drop=predicate invokes FREEZE once for the same referent'
+#   at t/143_freeze_cache_ownership.t line 41.
+#          got: '2'
+#     expected: '1'
+
+#   Failed test 'v5 weak=0 drop=predicate invokes FREEZE once for the same referent'
+#   at t/143_freeze_cache_ownership.t line 41.
+#          got: '2'
+#     expected: '1'
+
+#   Failed test 'v5 weak=1 drop=freeze invokes FREEZE once for the same referent'
+#   at t/143_freeze_cache_ownership.t line 41.
+#          got: '2'
+#     expected: '1'
+
+#   Failed test 'v5 weak=1 drop=predicate invokes FREEZE once for the same referent'
+#   at t/143_freeze_cache_ownership.t line 41.
+#          got: '2'
+#     expected: '1'
+
+#   Failed test 'v6 weak=0 drop=predicate invokes FREEZE once for the same referent'
+#   at t/143_freeze_cache_ownership.t line 41.
+#          got: '2'
+#     expected: '1'
+
+#   Failed test 'v6 weak=1 drop=freeze invokes FREEZE once for the same referent'
+#   at t/143_freeze_cache_ownership.t line 41.
+#          got: '2'
+#     expected: '1'
+
+#   Failed test 'v6 weak=1 drop=predicate invokes FREEZE once for the same referent'
+#   at t/143_freeze_cache_ownership.t line 41.
+#          got: '2'
+#     expected: '1'
+# Looks like you failed 15 tests of 150.
+t/143_freeze_cache_ownership.t .. 
+Dubious, test returned 15 (wstat 3840, 0xf00)
+Failed 15/150 subtests 
+
+Test Summary Report
+-------------------
+t/143_freeze_cache_ownership.t (Wstat: 3840 (exited 15) Tests: 150 Failed: 15)
+  Failed tests:  12, 22, 27, 42, 52, 57, 72, 82, 87, 102
+                112, 117, 132, 142, 147
+  Non-zero exit status: 15
+Files=1, Tests=150,  5 wallclock secs ( 0.66 usr  0.01 sys +  4.01 cusr  0.07 csys =  4.75 CPU)
+Result: FAIL
+Failed 1/1 test programs. 15/150 subtests failed.
+make: *** [Makefile:1120: test_dynamic] Error 15
+make: Leaving directory '/tmp/sereal-review/pre-ownership/Perl/Encoder'

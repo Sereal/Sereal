@@ -1,0 +1,8 @@
+/home/demerphq/.cpanm/work/1792580624.1365740/Sereal-Encoder-5.010/Makefile
+CC = gcc
+CCFLAGS = -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
+OPTIMIZE = -O3
+Perl/Encoder/Makefile
+CC = gcc
+CCFLAGS = -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64
+OPTIMIZE = -O3

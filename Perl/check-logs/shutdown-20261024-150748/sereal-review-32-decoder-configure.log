@@ -1,0 +1,15 @@
+USE_UNALIGNED not set in env. Use unaligned loads and stores? yes/no [no] no
+neither NO_ASM nor ZSTD_DISABLE_ASM set in env. Use assembly in ZSTD? yes/no [yes] yes
+Using bundled csnappy code
+Using bundled miniz code
+Warning: prerequisite Test::Deep 0 not found.
+Warning: prerequisite Test::Differences 0 not found.
+Warning: prerequisite Test::LongString 0 not found.
+Warning: prerequisite Test::Warn 0 not found.
+Using bundled zstd code
+Checking if your kit is complete...
+Looks good
+# Running zstd/Makefile.PL
+Generating a Unix-style Makefile
+Writing Makefile for Sereal::Decoder
+Writing MYMETA.yml and MYMETA.json

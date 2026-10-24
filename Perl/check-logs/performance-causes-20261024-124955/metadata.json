@@ -1,0 +1,56 @@
+{
+  "commit": "f17b6149",
+  "plan": [
+    [
+      "smalltable",
+      "freeze-1",
+      2
+    ],
+    [
+      "smalltable",
+      "freeze-100",
+      2
+    ],
+    [
+      "noguards",
+      "freeze-1",
+      1
+    ],
+    [
+      "noguards",
+      "freeze-100",
+      1
+    ],
+    [
+      "noowner",
+      "medium-objects",
+      1
+    ],
+    [
+      "noowner",
+      "medium-plain",
+      1
+    ],
+    [
+      "noowner",
+      "freeze-1",
+      1
+    ],
+    [
+      "noframes",
+      "medium-objects",
+      2
+    ],
+    [
+      "noframes",
+      "medium-plain",
+      2
+    ],
+    [
+      "notag",
+      "medium-objects",
+      2
+    ]
+  ],
+  "notes": "Isolated diagnostic controls. Only smalltable is a candidate safe change. Other builds intentionally omit safety mechanisms and must never be released. Same worker, timing method and flags as the longer benchmark. 20 retained samples, 0.5% target, max40. Variant order reverses for second block."
+}

@@ -1,0 +1,22 @@
+==51== Memcheck, a memory error detector
+==51== Copyright (C) 2002-2022, and GNU GPL'd, by Julian Seward et al.
+==51== Using Valgrind-3.22.0 and LibVEX; rerun with -h for copyright info
+==51== Command: /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl -MExtUtils::Command::MM -MTest::Harness -e undef\ *Test::Harness::Switches;\ test_harness(0,\ 'blib/lib',\ 'blib/arch') t/046_shared_key_dedup.t t/132_callback_hash_mutation.t t/133_callback_array_mutation.t t/134_callback_frozen_object_lifetime.t t/136_retention_scan.t t/137_callback_fetch_once.t t/138_callback_same_size_mutation.t t/139_callback_encoder_lifetime.t
+==51== Parent PID: 50
+==51== 
+==51== 
+==51== HEAP SUMMARY:
+==51==     in use at exit: 20,477 bytes in 24 blocks
+==51==   total heap usage: 121,031 allocs, 121,007 frees, 22,774,275 bytes allocated
+==51== 
+==51== LEAK SUMMARY:
+==51==    definitely lost: 0 bytes in 0 blocks
+==51==    indirectly lost: 0 bytes in 0 blocks
+==51==      possibly lost: 0 bytes in 0 blocks
+==51==    still reachable: 9,978 bytes in 23 blocks
+==51==         suppressed: 10,499 bytes in 1 blocks
+==51== Reachable blocks (those to which a pointer was found) are not shown.
+==51== To see them, rerun with: --leak-check=full --show-leak-kinds=all
+==51== 
+==51== For lists of detected and suppressed errors, rerun with: -s
+==51== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)

@@ -1,0 +1,83 @@
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Encoder.bs blib/arch/auto/Sereal/Encoder/Encoder.bs 644
+cd zstd && make all
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'test_dynamic'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/*.t t/*/*/*.t
+t/001_load.t .................................. ok
+t/002_constants.t ............................. ok
+# Testing with both encoder and decoder.
+# Sereal::Decoder v6.000001
+# Sereal::Encoder v6.000001
+t/002_have_enc_and_dec.t ...................... ok
+t/003_ptable.t ................................ ok
+t/004_testset.t ............................... ok
+t/005_flags.t ................................. ok
+t/010_desperate.t ............................. ok
+t/011_aliased_dedupe.t ........................ ok
+t/015_protocol_v6.t ........................... ok
+t/020_sort_keys.t ............................. ok
+t/021_sort_keys_option.t ...................... ok
+t/022_canonical_refs.t ........................ ok
+t/030_canonical_vs_test_deep.t ................ ok
+t/040_tied_hash.t ............................. ok
+t/041_sorted_hash_keys.t ...................... ok
+t/042_magic_strings.t ......................... ok
+t/043_alias_scalar_refs.t ..................... ok
+t/044_magic_integers.t ........................ ok
+t/044_magical_arrays.t ........................ ok
+t/046_shared_key_dedup.t ...................... ok
+t/095_checksum_policy.t ....................... ok
+t/096_build_tools.t ........................... ok
+t/097_checksum_versions.t ..................... ok
+t/110_nobless.t ............................... ok
+t/120_hdr_data.t .............................. ok
+t/130_freezethaw.t ............................ ok
+t/131_freeze_allow.t .......................... ok
+t/132_callback_hash_mutation.t ................ ok
+t/133_callback_array_mutation.t ............... ok
+t/134_callback_frozen_object_lifetime.t ....... ok
+t/135_constructor_cleanup.t ................... ok
+t/136_retention_scan.t ........................ ok
+t/160_recursion.t ............................. ok
+t/170_cyclic_weakrefs.t ....................... ok
+t/171_weakref_rewrites.t ...................... ok
+t/180_magic_array.t ........................... ok
+t/190_customop.t .............................. ok
+t/200_bulk.t .................................. ok
+t/300_fail.t .................................. ok
+t/400_evil.t .................................. ok
+t/700_roundtrip/v1/plain.t .................... ok
+t/700_roundtrip/v2/plain.t .................... ok
+t/700_roundtrip/v3/plain.t .................... ok
+t/700_roundtrip/v4/plain.t .................... ok
+t/700_roundtrip/v5/plain.t .................... ok
+t/700_roundtrip/v6/checksum.t ................. ok
+t/700_roundtrip/v6/dedudep_strings.t .......... ok
+t/700_roundtrip/v6/freeze_thaw.t .............. ok
+t/700_roundtrip/v6/plain.t .................... ok
+t/700_roundtrip/v6/plain_canon.t .............. ok
+t/700_roundtrip/v6/readonly.t ................. ok
+t/700_roundtrip/v6/snappy.t ................... ok
+t/700_roundtrip/v6/snappy_and_warn_unknown.t .. ok
+t/700_roundtrip/v6/snappy_canon.t ............. ok
+t/700_roundtrip/v6/snappy_incr.t .............. ok
+t/700_roundtrip/v6/snappy_incr_canon.t ........ ok
+t/700_roundtrip/v6/sort_keys.t ................ ok
+t/700_roundtrip/v6/sort_keys_perl.t ........... ok
+t/700_roundtrip/v6/sort_keys_perl_rev.t ....... ok
+t/700_roundtrip/v6/zlib.t ..................... ok
+t/700_roundtrip/v6/zlib_force.t ............... ok
+t/700_roundtrip/v6/zstd.t ..................... ok
+t/700_roundtrip/v6/zstd_force.t ............... ok
+t/800_threads.t ............................... skipped: Perl not compiled with 'useithreads'
+t/900_reentrancy.t ............................ ok
+All tests successful.
+Files=65, Tests=154769, 46 wallclock secs (10.69 usr  0.84 sys + 43.56 cusr  1.67 csys = 56.76 CPU)
+Result: PASS

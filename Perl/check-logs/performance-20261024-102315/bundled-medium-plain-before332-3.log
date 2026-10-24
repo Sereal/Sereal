@@ -1,0 +1,15 @@
+Perl=v5.44.0 Encoder=6.000001 Decoder=6.000001 protocol=5
+Encoder module: /tmp/sereal-perf-9wexqb1r/before332/Perl/Encoder/blib/lib/Sereal/Encoder.pm
+Decoder module: /tmp/sereal-perf-9wexqb1r/before332/Perl/Decoder/blib/lib/Sereal/Decoder.pm
+Sereal OO (srl)                                   942 bytes  69.32% of strbl
+Storable (strbl)                                 1359 bytes
+
+* Timing encoders
+        Rate srl
+srl 472615/s  --
+
+* Timing decoders
+        Rate srl
+srl 218453/s  --
+
+peak_rss_kb=13812

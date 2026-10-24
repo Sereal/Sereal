@@ -1,0 +1,19 @@
+Encoder performance audit, f17b6149 versus installed 5.010
+
+Confirmed avoidable costs:
+- callback_seen uses PTABLE_new(), 512 initial buckets. Clearing a nonempty table scans all buckets on every encode. PTABLE_new_size(3), eight buckets with normal automatic growth, changes the FREEZE1 result from 0.952/0.961 us to 0.674/0.669 us in two run orders, roughly 30% faster. FREEZE100 is essentially unchanged (control changes +1.62%/-1.62%). This is a diagnostic build, not a branch edit.
+- Sorted hash frames rebuild a live-HE PTABLE, iterate all buckets, and validate all sorted HEs after EACH callback. With a callback per entry this is quadratic. A direct nine-sample scaling probe reproduces: installed sorted 100/1000 entries 0.0347/0.4716 ms; current 0.3871/48.7045 ms. Current unsorted 1000 entries 0.6191 ms; installed 0.3056 ms. Sorted results are simple warm median measurements, not Dumbbench confidence estimates. Safety requires validating a handle before using it, not revalidating every future handle after every callback.
+
+Justified safety work:
+- Retain active containers/values before callbacks can free them, and validate cached array/hash iteration state after callbacks before using it again.
+- Keep active Encoder owner and called FREEZE CV alive; regressions include real ASan UAF reproductions.
+- Retain shared HEK/class/reference identities after callbacks become possible to prevent dangling identities/address recycling while preserving normal output deduplication. No whole-container value snapshots or graph pre-scan.
+- Isolated noguards diagnostic removes most of FREEZE overhead: 0.924 to 0.488 us for FREEZE1; 36.57 to 28.70 us for FREEZE100. This unsafe control is never a release candidate.
+
+Additional observations and uncertainty:
+- FREEZE currently retains src/referent using both SAVEFREESV and callback_keepalive. The initial refcount increment also makes a subsequent SvREFCNT(referent)>1 lookup test always true. This is redundant work worth simplifying, but it is not independently quantified here and changes must preserve predicate and method lifetime safety.
+- Pointer tags alone do not explain the ordinary-object slowdown: notag controls are 0.67% and 0.71% slower. Removing frame bookkeeping improves ordinary objects 0.39% and 2.67%; plain data results cross parity. Removing the owner guard yields a noisy/worse object result that misses requested precision. Removing the per-value v6 vstring check varies from 9.6% faster to 0.7% faster, so do not attribute the whole observed difference to that condition.
+- Callgrind with 20,000 ordinary-object encodes shows encode entry inclusive instructions increasing from 492,633,092 to 525,152,433 (~6.6%). There is additional ordinary encoding work, but the exact wall-time contribution of each change remains incompletely isolated. Do not claim the entire 8% is an unavoidable safety cost.
+
+All library changes for these experiments are isolated under /tmp/sereal-cause.
+The workspace branch remains f17b6149. No checks were removed in the real branch.

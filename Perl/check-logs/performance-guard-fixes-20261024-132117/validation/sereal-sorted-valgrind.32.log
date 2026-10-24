@@ -1,0 +1,22 @@
+==32== Memcheck, a memory error detector
+==32== Copyright (C) 2002-2022, and GNU GPL'd, by Julian Seward et al.
+==32== Using Valgrind-3.22.0 and LibVEX; rerun with -h for copyright info
+==32== Command: /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl t/139_callback_encoder_lifetime.t
+==32== Parent PID: 22
+==32== 
+==32== 
+==32== HEAP SUMMARY:
+==32==     in use at exit: 27,109 bytes in 39 blocks
+==32==   total heap usage: 95,041 allocs, 95,002 frees, 19,198,450 bytes allocated
+==32== 
+==32== LEAK SUMMARY:
+==32==    definitely lost: 0 bytes in 0 blocks
+==32==    indirectly lost: 0 bytes in 0 blocks
+==32==      possibly lost: 0 bytes in 0 blocks
+==32==    still reachable: 16,364 bytes in 38 blocks
+==32==         suppressed: 10,745 bytes in 1 blocks
+==32== Reachable blocks (those to which a pointer was found) are not shown.
+==32== To see them, rerun with: --leak-check=full --show-leak-kinds=all
+==32== 
+==32== For lists of detected and suppressed errors, rerun with: -s
+==32== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)

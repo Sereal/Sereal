@@ -1,0 +1,9 @@
+{
+  "baseline": "/tmp/sereal-iteration/pre-retention",
+  "label": "predicate-boundary",
+  "cases": [
+    "freeze-allow-100",
+    "medium-objects"
+  ],
+  "notes": "Dumbbench 0.505, persistent Perl5.44 workers, protocol5, CPU0, fixed hash seeds, internally measured batches >=0.2s. 30 retained samples minimum, 0.5% target, max60. Two fresh-process blocks with reversed order. No concurrent tests/builds."
+}

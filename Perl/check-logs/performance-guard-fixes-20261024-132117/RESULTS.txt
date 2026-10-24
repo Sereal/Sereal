@@ -1,0 +1,23 @@
+Implemented: small callback-seen table with automatic growth; sorted hash key metadata retained once on first callback, entries looked up and checked at use; no entire-hash validation after each callback. Sorted-state flag uses existing frame padding and is initialized only in the sorted path.
+
+Before = unmodified f17b6149. After = working-tree.patch. Same persistent Perl 5.44 workers, protocol5, CPU0, fixed hash seeds. Two independent process blocks with reversed order. Raw samples, Dumbbench estimates and uncertainties are in the JSON files; paired-results.csv contains the comparisons. All 16 results reached the 0.5% target and at least 30 retained samples. These uncertainties are not 95% confidence intervals.
+
+FREEZE1: 0.984 -> 0.684 us; 1.163 -> 0.696 us (30.5% / 40.1% faster).
+Sorted FREEZE1000: 46.203 -> 0.803 ms; 48.376 -> 0.812 ms (57.5x / 59.6x faster).
+Ordinary medium objects: 0.61% faster / 2.32% slower.
+Plain medium hashes: 1.31% / 1.73% slower. Small remaining ordinary-path costs still need profiling; the earlier ~8% object difference against 5.010 is not fixed by this change.
+All packet sizes matched.
+
+Validation of final code:
+- Full native 5.44 Encoder: 69 files / 156064 tests PASS.
+- Full threaded 5.42 Encoder: 69 files / 156065 tests PASS.
+- ASan, UBSan, Perl 5.14.4 focus: 11 files / 3484 tests PASS each.
+- Final Valgrind focus: 3 files / 415 tests PASS, zero errors and definite/indirect leaks.
+- Earlier larger focused Valgrind run of the same algorithm before the frame layout refinement: 9 files / 3433 tests PASS.
+- New t/140_sorted_callback_cursor.t staged early; checks safe deletion/current or future entry replacement, value-at-use behavior and Encoder reuse across protocols2..6 and all sort modes.
+
+Remaining work:
+1. Simplify duplicate source/referent retention around FREEZE by using the same callback guard for allow-list predicates and FREEZE. Pass the original referent explicitly; preserve Encoder owner, selected CV, acceptance/denial/exception and FETCH-once lifetime guarantees. Do not merely remove refcounts.
+2. Audit all user-code entry points while doing that cleanup, including overloaded/magical predicate truth conversion (SvTRUE currently follows callback_end; this is an unverified concern to reproduce).
+3. Attribute and reduce remaining ordinary-path overhead with controlled builds and instruction profiling, then repeat the longer installed5.010 comparisons. Do not claim it is an unavoidable safety cost.
+No release or push performed. Fixes are uncommitted local changes.

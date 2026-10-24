@@ -1,0 +1,117 @@
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Decoder.bs blib/arch/auto/Sereal/Decoder/Decoder.bs 644
+cd zstd && make all
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Decoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Decoder/zstd'
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Decoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Decoder/zstd'
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Decoder/zstd'
+make[1]: Nothing to be done for 'test_dynamic'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Decoder/zstd'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/*.t t/*/*/*.t
+# Perl Regexp Internals Type = MODERN_REGEXP
+t/001_load.t .................................. ok
+# Testing with both encoder and decoder.
+# Sereal::Decoder v6.000001
+# Sereal::Encoder v6.000001
+t/002_have_enc_and_dec.t ...................... ok
+t/004_testset.t ............................... ok
+t/005_flags.t ................................. ok
+t/010_desperate.t ............................. ok
+t/015_protocol_v6.t ........................... ok
+t/020_incremental.t ........................... ok
+t/030_looks_like_sereal.t ..................... ok
+t/040_special_vars.t .......................... ok
+t/060_each.t .................................. ok
+t/070_alias_options.t ......................... ok
+t/071_alias_reserealize.t ..................... ok
+t/080_set_readonly.t .......................... ok
+t/090_thaw.t .................................. ok
+t/091_thaw_order.t ............................ ok
+t/092_thaw_scalar.t ........................... ok
+t/094_thaw_allow.t ............................ ok
+t/095_checksum_policy.t ....................... ok
+t/096_build_tools.t ........................... ok
+t/097_checksum_versions.t ..................... ok
+t/110_nobless.t ............................... ok
+t/150_dec_exception.t ......................... ok
+t/155_zipbomb.t ............................... ok
+t/160_recursion.t ............................. ok
+t/190_customop.t .............................. ok
+t/195_backcompat.t ............................ ok
+t/200_bulk.t .................................. ok
+t/210_bulk_readonly.t ......................... ok
+t/300_overload.t .............................. ok
+t/400_evil.t .................................. ok
+t/400_utf8validate.t .......................... ok
+t/500_utf8decoding.t .......................... ok
+t/550_decode_into.t ........................... ok
+t/700_roundtrip/v1/plain.t .................... ok
+t/700_roundtrip/v2/plain.t .................... ok
+t/700_roundtrip/v3/plain.t .................... ok
+t/700_roundtrip/v4/plain.t .................... ok
+t/700_roundtrip/v5/plain.t .................... ok
+t/700_roundtrip/v6/checksum.t ................. ok
+t/700_roundtrip/v6/dedudep_strings.t .......... ok
+t/700_roundtrip/v6/freeze_thaw.t .............. ok
+t/700_roundtrip/v6/plain.t .................... ok
+t/700_roundtrip/v6/plain_canon.t .............. ok
+t/700_roundtrip/v6/readonly.t ................. ok
+t/700_roundtrip/v6/snappy.t ................... ok
+t/700_roundtrip/v6/snappy_and_warn_unknown.t .. ok
+t/700_roundtrip/v6/snappy_canon.t ............. ok
+t/700_roundtrip/v6/snappy_incr.t .............. ok
+t/700_roundtrip/v6/snappy_incr_canon.t ........ ok
+t/700_roundtrip/v6/sort_keys.t ................ ok
+t/700_roundtrip/v6/sort_keys_perl.t ........... ok
+t/700_roundtrip/v6/sort_keys_perl_rev.t ....... ok
+t/700_roundtrip/v6/zlib.t ..................... ok
+t/700_roundtrip/v6/zlib_force.t ............... ok
+t/700_roundtrip/v6/zstd.t ..................... ok
+t/700_roundtrip/v6/zstd_force.t ............... ok
+t/800_threads.t ............................... skipped: Perl not compiled with 'useithreads'
+t/900_regr_issue_15.t ......................... ok
+t/901_regr_segv.t ............................. ok
+t/902_bad_input.t ............................. ok
+t/903_reentrancy.t ............................ ok
+t/903_regr_oob_copy_shortbinary.t ............. ok
+t/904_regr_thaw_state_reuse.t ................. ok
+t/905_regr_truncated_varint.t ................. ok
+t/906_regr_oob_offset_underflow.t ............. ok
+t/907_regr_varint_overflow.t .................. ok
+t/908_regr_header_user_data_boundary.t ........ ok
+t/909_regr_frozen_object_payload.t ............ ok
+t/910_regr_copy_key_varint_error.t ............ ok
+t/911_regr_zero_offset.t ...................... ok
+t/912_regr_copy_boundary.t .................... ok
+t/913_regr_v1_header_offsets.t ................ ok
+t/914_undef_deadly.t .......................... ok
+t/915_checksum_boundaries.t ................... ok
+t/916_header_suffix_boundary.t ................ ok
+t/917_vstring_boundary.t ...................... ok
+t/918_object_payload.t ........................ ok
+t/919_weak_object_blessing.t .................. ok
+t/920_duplicate_undef_keys.t .................. ok
+t/921_weak_frozen_objects.t ................... ok
+t/922_thaw_replacements.t ..................... ok
+t/923_thaw_argument_mutation.t ................ ok
+t/924_container_count_boundaries.t ............ ok
+t/925_copy_classname_boundaries.t ............. ok
+t/926_tracked_pad_alias.t ..................... ok
+t/927_copy_readonly.t ......................... ok
+t/928_shared_frozen_arguments.t ............... ok
+t/929_thaw_exception_cleanup.t ................ ok
+t/930_checksum_policy_env.t ................... ok
+t/931_checksum_inspection.t ................... ok
+t/932_input_alias_incremental.t ............... ok
+t/933_copy_alias_keys.t ....................... ok
+t/935_regr_bare_aggregate_tags.t .............. ok
+t/936_regr_output_scalar_reuse.t .............. ok
+t/937_regr_header_callback_input_mutation.t ... ok
+t/938_regr_huge_decompressed_size.t ........... ok
+t/939_regr_unaligned_floats.t ................. ok
+t/940_regr_constructor_cleanup.t .............. ok
+All tests successful.
+Files=98, Tests=192385, 53 wallclock secs (12.20 usr  1.00 sys + 49.39 cusr  2.62 csys = 65.21 CPU)
+Result: PASS

@@ -1,0 +1,2488 @@
+--------------------------------------------------------------------------------
+Profile data file '/tmp/sereal-iteration/current-debug.callgrind' (creator: callgrind-3.22.0)
+--------------------------------------------------------------------------------
+I1 cache: 
+D1 cache: 
+LL cache: 
+Timerange: Basic block 0 - 148912244
+Trigger: Program termination
+Profiled target:  /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl /tmp/sereal-cause/profile.pl (PID 51, part 1)
+Events recorded:  Ir
+Events shown:     Ir
+Event sort order: Ir
+Thresholds:       99
+Include dirs:     
+User annotated:   /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c
+Auto-annotation:  on
+
+--------------------------------------------------------------------------------
+Ir                   
+--------------------------------------------------------------------------------
+651,015,641 (100.0%)  PROGRAM TOTALS
+
+--------------------------------------------------------------------------------
+Ir                    file:function
+--------------------------------------------------------------------------------
+148,360,031 (22.79%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c:srl_dump_sv.part.0'2 [/tmp/sereal-iteration/debug-current/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so]
+ 77,260,000 (11.87%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c:srl_dump_hv_unsorted_nomg [/tmp/sereal-iteration/debug-current/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so]
+ 40,289,668 ( 6.19%)  ???:Perl_sv_2uv_flags [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+ 36,166,385 ( 5.56%)  ./malloc/./malloc/malloc.c:_int_free [/usr/lib/x86_64-linux-gnu/libc.so.6]
+ 31,240,000 ( 4.80%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/ptable.h:srl_dump_hv_unsorted_nomg
+ 24,060,000 ( 3.70%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_buffer.h:srl_buf_cat_varint [/tmp/sereal-iteration/debug-current/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so]
+ 23,799,546 ( 3.66%)  ./malloc/./malloc/malloc.c:malloc [/usr/lib/x86_64-linux-gnu/libc.so.6]
+ 19,960,024 ( 3.07%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/ptable.h:srl_dump_sv.part.0'2
+ 19,360,000 ( 2.97%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c:srl_dump_ivuv [/tmp/sereal-iteration/debug-current/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so]
+ 14,750,672 ( 2.27%)  ./malloc/./malloc/malloc.c:free [/usr/lib/x86_64-linux-gnu/libc.so.6]
+ 14,440,000 ( 2.22%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_buffer.h:srl_dump_hv_unsorted_nomg
+ 12,774,250 ( 1.96%)  ./malloc/./malloc/malloc.c:_int_malloc [/usr/lib/x86_64-linux-gnu/libc.so.6]
+ 12,680,000 ( 1.95%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/ptable.h:PTABLE_find.isra.0 [/tmp/sereal-iteration/debug-current/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so]
+ 12,000,000 ( 1.84%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_buffer.h:srl_dump_ivuv
+ 10,629,697 ( 1.63%)  ./string/../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S:__memcpy_avx_unaligned_erms [/usr/lib/x86_64-linux-gnu/libc.so.6]
+ 10,559,280 ( 1.62%)  ???:Perl_safesysmalloc [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+  8,880,012 ( 1.36%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c:srl_dump_svpv [/tmp/sereal-iteration/debug-current/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so]
+  8,800,000 ( 1.35%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/ptable.h:srl_clear_encoder
+  8,240,004 ( 1.27%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c:srl_dump_sv.part.0 [/tmp/sereal-iteration/debug-current/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so]
+  8,220,000 ( 1.26%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_buffer.h:srl_dump_sv.part.0'2
+  6,160,000 ( 0.95%)  /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE/sv_inline.h:srl_dump_ivuv
+  4,071,020 ( 0.63%)  ???:Perl_sv_clear [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+  3,441,599 ( 0.53%)  ???:Perl_leave_scope [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+  3,380,969 ( 0.52%)  ???:Perl_yyparse'2 [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+  3,360,000 ( 0.52%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/ptable.h:PTABLE_store.isra.0 [/tmp/sereal-iteration/debug-current/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so]
+  3,341,881 ( 0.51%)  ???:Perl_hv_common [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+  3,280,000 ( 0.50%)  /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE/sv_inline.h:srl_dump_hv_unsorted_nomg
+  2,673,310 ( 0.41%)  ???:Perl_sv_clean_objs [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+  2,640,092 ( 0.41%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_buffer.h:srl_dump_svpv
+  2,640,000 ( 0.41%)  /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE/sv_inline.h:srl_dump_svpv
+  2,413,323 ( 0.37%)  ???:Perl_pp_entersub [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+  2,200,000 ( 0.34%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_buffer.h:srl_buf_cat_char_int [/tmp/sereal-iteration/debug-current/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so]
+  2,126,028 ( 0.33%)  ./csu/./csu/errno-loc.c:__errno_location [/usr/lib/x86_64-linux-gnu/libc.so.6]
+  2,120,007 ( 0.33%)  ???:0x00000000051672c0 [???]
+  2,115,372 ( 0.32%)  ???:Perl_safesysfree [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+  2,040,000 ( 0.31%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c:srl_dump_pv [/tmp/sereal-iteration/debug-current/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so]
+  1,937,001 ( 0.30%)  ???:Perl_pp_iter [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+  1,656,240 ( 0.25%)  ???:Perl_sv_free2 [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+  1,580,427 ( 0.24%)  ./malloc/./malloc/arena.c:free
+  1,560,570 ( 0.24%)  ???:Perl_av_len [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+  1,546,231 ( 0.24%)  ???:Perl_newSVsv_flags_NN [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+  1,520,000 ( 0.23%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/Encoder.xs:THX_xsfunc_sereal_encode_with_object [/tmp/sereal-iteration/debug-current/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so]
+  1,440,000 ( 0.22%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c:srl_dump_data_structure_mortal_sv [/tmp/sereal-iteration/debug-current/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so]
+  1,268,280 ( 0.19%)  ???:Perl_sv_2mortal [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+  1,179,825 ( 0.18%)  ???:Perl_pp_padsv [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+  1,142,431 ( 0.18%)  ???:Perl_free_tmps [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+  1,063,014 ( 0.16%)  ???:0x0000000000151940 [???]
+  1,062,591 ( 0.16%)  ???:Perl_pp_method_named [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+  1,060,000 ( 0.16%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c:srl_clear_encoder [/tmp/sereal-iteration/debug-current/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so]
+  1,057,482 ( 0.16%)  ???:0x00000000001512b0 [???]
+  1,053,460 ( 0.16%)  ???:0x00000000001514e0 [???]
+  1,040,005 ( 0.16%)  ???:0x00000000051679a0 [???]
+  1,000,019 ( 0.15%)  ???:0x0000000005167d60 [???]
+  1,000,007 ( 0.15%)  ???:0x0000000005167780 [???]
+    966,258 ( 0.15%)  ???:Perl_scan_str [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    960,000 ( 0.15%)  /usr/include/x86_64-linux-gnu/bits/string_fortified.h:srl_dump_svpv
+    942,239 ( 0.14%)  ???:S_opmethod_stash [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    935,332 ( 0.14%)  ???:yyl_try [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    907,787 ( 0.14%)  ???:Perl_Slab_Alloc [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    880,000 ( 0.14%)  /usr/include/x86_64-linux-gnu/bits/string_fortified.h:srl_dump_hv_unsorted_nomg
+    874,563 ( 0.13%)  ???:Perl_newSViv [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    871,162 ( 0.13%)  ???:Perl_yylex [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    770,947 ( 0.12%)  ???:Perl_newSVpvn [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    759,042 ( 0.12%)  ./string/../sysdeps/x86_64/multiarch/memset-vec-unaligned-erms.S:__memset_chk_avx2_unaligned_erms [/usr/lib/x86_64-linux-gnu/libc.so.6]
+    740,000 ( 0.11%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c:srl_write_header [/tmp/sereal-iteration/debug-current/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so]
+    684,851 ( 0.11%)  ???:Perl_scalar [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    621,068 ( 0.10%)  ???:Perl_sv_setpvn_fresh.part.0 [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    614,774 ( 0.09%)  ???:S_parse_ident [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    603,294 ( 0.09%)  ???:Perl_pp_unstack [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    594,767 ( 0.09%)  ???:Perl_gv_fetchpvn_flags [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    582,994 ( 0.09%)  ???:S_scan_const [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    567,288 ( 0.09%)  ???:Perl_runops_standard [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    520,005 ( 0.08%)  ???:0x0000000005167410 [???]
+    507,192 ( 0.08%)  ???:S_pad_findlex [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    477,090 ( 0.07%)  ???:Perl_av_make [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    460,100 ( 0.07%)  ???:Perl_more_sv [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    422,090 ( 0.06%)  ./string/../sysdeps/x86_64/multiarch/strcmp-avx2.S:__strcmp_avx2 [/usr/lib/x86_64-linux-gnu/libc.so.6]
+    388,777 ( 0.06%)  ???:Perl_pp_flop [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    383,388 ( 0.06%)  ???:Perl_sv_gets [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    353,910 ( 0.05%)  ???:Perl_save_pushptr [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    321,632 ( 0.05%)  ???:Perl_savetmps [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    314,269 ( 0.05%)  ???:Perl_lex_next_chunk [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    305,115 ( 0.05%)  ???:Perl_pp_pushmark [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    303,690 ( 0.05%)  ???:Perl_save_destructor_x [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    303,535 ( 0.05%)  ???:S_gen_constant_list [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    301,291 ( 0.05%)  ???:Perl_grok_uint_by_base [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    277,482 ( 0.04%)  ???:Perl_lex_read_space [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    277,175 ( 0.04%)  ???:S_optimize_op [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    274,827 ( 0.04%)  ???:S_pad_findlex'2 [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    270,715 ( 0.04%)  ???:Perl_rpeep [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    270,612 ( 0.04%)  ???:Perl_push_scope [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    267,224 ( 0.04%)  ???:Perl_op_clear [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    265,966 ( 0.04%)  ???:yyl_keylookup.constprop.0 [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    260,000 ( 0.04%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_compress.h:srl_write_header
+    251,000 ( 0.04%)  ???:Perl_rpeep'2 [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    247,758 ( 0.04%)  ???:S_finalize_op [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    245,161 ( 0.04%)  ./malloc/./malloc/malloc.c:calloc [/usr/lib/x86_64-linux-gnu/libc.so.6]
+    244,677 ( 0.04%)  ./malloc/./malloc/malloc.c:realloc [/usr/lib/x86_64-linux-gnu/libc.so.6]
+    240,000 ( 0.04%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c:srl_dump_sv [/tmp/sereal-iteration/debug-current/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so]
+    240,000 ( 0.04%)  /usr/include/x86_64-linux-gnu/bits/string_fortified.h:srl_dump_pv
+    233,192 ( 0.04%)  ???:yyl_fake_eof.isra.0 [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    225,510 ( 0.03%)  ???:Perl_pop_scope [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    223,695 ( 0.03%)  ???:S_regmatch [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    220,784 ( 0.03%)  ???:Perl_grok_bslash_x [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    219,775 ( 0.03%)  ???:Perl_op_linklist [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    213,647 ( 0.03%)  ???:Perl_scalarvoid [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    212,065 ( 0.03%)  ???:Perl_op_free.part.0 [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    201,236 ( 0.03%)  ./malloc/./malloc/malloc.c:_int_realloc [/usr/lib/x86_64-linux-gnu/libc.so.6]
+    200,000 ( 0.03%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_buffer.h:srl_write_header
+    196,021 ( 0.03%)  ???:Perl_op_sibling_splice [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    191,219 ( 0.03%)  ???:Perl_newUNOP [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    190,514 ( 0.03%)  ./string/../sysdeps/x86_64/multiarch/memcmp-avx2-movbe.S:__memcmp_avx2_movbe [/usr/lib/x86_64-linux-gnu/libc.so.6]
+    182,431 ( 0.03%)  ???:Perl_skipspace_flags [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    180,025 ( 0.03%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_buffer.h:srl_dump_sv.part.0
+    178,546 ( 0.03%)  ???:Perl_yyparse [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    169,738 ( 0.03%)  ???:S_share_hek_flags [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    166,918 ( 0.03%)  ???:Perl_pad_findmy_pvn [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    163,620 ( 0.03%)  ???:Perl_pad_alloc [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    163,584 ( 0.03%)  ???:S_fold_constants [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    163,188 ( 0.03%)  ???:S_link_freed_op [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    162,497 ( 0.02%)  ./elf/./elf/dl-lookup.c:do_lookup_x [/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2]
+    154,981 ( 0.02%)  ???:S_scan_ident [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    145,696 ( 0.02%)  ./string/../sysdeps/x86_64/multiarch/memset-vec-unaligned-erms.S:__memset_avx2_unaligned_erms [/usr/lib/x86_64-linux-gnu/libc.so.6]
+    142,470 ( 0.02%)  ./string/../sysdeps/x86_64/multiarch/memchr-avx2.S:__memchr_avx2 [/usr/lib/x86_64-linux-gnu/libc.so.6]
+    140,000 ( 0.02%)  /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE/sv_inline.h:THX_xsfunc_sereal_encode_with_object
+    138,414 ( 0.02%)  ???:Perl_newSVOP [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    137,192 ( 0.02%)  ???:Perl_newLISTOP [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    131,479 ( 0.02%)  ???:Perl_newSV_type [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    130,514 ( 0.02%)  ./malloc/./malloc/malloc.c:malloc_consolidate [/usr/lib/x86_64-linux-gnu/libc.so.6]
+    130,367 ( 0.02%)  ???:Perl_Slab_Free [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    128,795 ( 0.02%)  ???:sbox32_hash_with_state.constprop.0 [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    126,336 ( 0.02%)  ./malloc/./malloc/arena.c:malloc
+    126,209 ( 0.02%)  ???:S_maybe_multiconcat [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    124,693 ( 0.02%)  ???:yyl_dollar [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    120,000 ( 0.02%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_buffer.h:srl_dump_pv
+    119,127 ( 0.02%)  ???:S_perl_hash_siphash_1_3_with_state_64.constprop.0 [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    111,608 ( 0.02%)  ???:Perl_newBINOP [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    109,630 ( 0.02%)  ???:Perl_newSTATEOP [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    108,877 ( 0.02%)  ???:perl_construct [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    107,838 ( 0.02%)  ???:Perl_newOP [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    106,951 ( 0.02%)  ???:Perl_sv_upgrade [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    104,692 ( 0.02%)  ???:Perl_op_lvalue_flags [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    104,448 ( 0.02%)  ???:Perl_scan_word [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    102,940 ( 0.02%)  ???:Perl_list [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+    101,267 ( 0.02%)  ???:S_incline [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+     96,760 ( 0.01%)  ???:Perl_av_extend_guts [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+     94,458 ( 0.01%)  ???:Perl_sv_grow [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+     93,500 ( 0.01%)  ???:Perl_safesysrealloc [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+     85,101 ( 0.01%)  ???:Perl_save_strlen [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+     83,910 ( 0.01%)  ???:Perl_ck_fun [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+     83,264 ( 0.01%)  ./elf/../sysdeps/x86_64/dl-machine.h:_dl_relocate_object
+     81,180 ( 0.01%)  ???:Perl_newSVpvn_flags [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+     80,000 ( 0.01%)  /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE/inline.h:THX_xsfunc_sereal_encode_with_object
+     80,000 ( 0.01%)  /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c:srl_destructor_hook [/tmp/sereal-iteration/debug-current/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so]
+     79,422 ( 0.01%)  ./string/../sysdeps/x86_64/multiarch/strlen-avx2.S:__strlen_avx2 [/usr/lib/x86_64-linux-gnu/libc.so.6]
+     77,712 ( 0.01%)  ???:Perl_sv_setsv_flags [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+     75,933 ( 0.01%)  ???:Perl_ck_rvconst [/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl]
+
+--------------------------------------------------------------------------------
+-- Auto-annotated source: /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_buffer.h
+--------------------------------------------------------------------------------
+Ir                 
+
+-- line 62 ----------------------------------------
+        .           #define DEBUG_ASSERT_BUF_SANE(buf)                                          \
+        .               assert(((buf)->start <= (buf)->pos) && ((buf)->pos <= (buf)->end))
+        .           #endif
+        .           
+        .           /* Allocate a virgin buffer (but not the buffer struct) */
+        .           SRL_STATIC_INLINE int
+        .           srl_buf_init_buffer(pTHX_ srl_buffer_t *buf, const STRLEN init_size)
+        .           {
+        3 ( 0.00%)      Newx(buf->start, init_size, srl_buffer_char);
+      898 ( 0.00%)  => ???:0x0000000005167780 (1x)
+        2 ( 0.00%)      if (expect_false( buf->start == NULL ))
+        .                   return 1;
+        2 ( 0.00%)      buf->end = buf->start + init_size - 1;
+        1 ( 0.00%)      buf->pos = buf->start;
+        1 ( 0.00%)      buf->body_pos = buf->start; /* SRL_SET_BODY_POS(enc, enc->buf.start) equiv */
+        .               return 0;
+        .           }
+        .           
+        .           /* Free a buffer (but not the buffer struct) */
+        .           SRL_STATIC_INLINE void
+        .           srl_buf_free_buffer(pTHX_ srl_buffer_t *buf)
+        .           {
+        2 ( 0.00%)      Safefree(buf->start);
+      212 ( 0.00%)  => ???:0x0000000005167d60 (1x)
+        .           }
+        .           
+        .           /* Copy one buffer to another (shallowly!) */
+        .           SRL_STATIC_INLINE void
+        .           srl_buf_copy_buffer(pTHX_ srl_buffer_t *src, srl_buffer_t *dest)
+        .           {
+        .               Copy(src, dest, 1, srl_buffer_t);
+        .           }
+-- line 91 ----------------------------------------
+-- line 100 ----------------------------------------
+        .               Copy(&tmp, buf2, 1, srl_buffer_t);
+        .           }
+        .           
+        .           /* old_size + (new_size / 4) */
+        .           #define OVERALLOC_FUNC(cur_size,req_size) (cur_size + (req_size >> 2))
+        .           
+        .           SRL_STATIC_INLINE void
+        .           srl_buf_grow_nocheck(pTHX_ srl_buffer_t *buf, const size_t minlen)
+       24 ( 0.00%)  {
+       22 ( 0.00%)      const size_t pos_ofs= BUF_POS_OFS(buf); /* have to store the offset of pos */
+       19 ( 0.00%)      const ptrdiff_t body_ofs= buf->body_pos - buf->start; /* have to store the offset of the body */
+        .           #ifdef MEMDEBUG
+        .               const size_t new_size = minlen;
+        .           #else
+        8 ( 0.00%)      const size_t cur_size = BUF_SIZE(buf);
+       31 ( 0.00%)      const size_t tmp_size = OVERALLOC_FUNC(cur_size, minlen);
+       26 ( 0.00%)      const size_t new_size = (minlen > tmp_size) ? minlen : tmp_size;
+        .           #endif
+        .           
+        .               DEBUG_ASSERT_BUF_SANE(buf);
+        .               /* assert that Renew means GROWING the buffer */
+        .               assert(buf->start + new_size > buf->end);
+        .           
+       28 ( 0.00%)      Renew(buf->start, new_size, srl_buffer_char);
+    1,792 ( 0.00%)  => ???:0x0000000005167d80 (4x)
+       18 ( 0.00%)      if (buf->start == NULL)
+        .                   croak("Out of memory!");
+        .               if (0) warn("Renew(%ld)", new_size);
+        .           
+       18 ( 0.00%)      buf->end = (srl_buffer_char*) (buf->start + new_size);
+       18 ( 0.00%)      buf->pos = buf->start + pos_ofs;
+       20 ( 0.00%)      SRL_SET_BODY_POS(buf, buf->start + body_ofs);
+        .           
+        .               DEBUG_ASSERT_BUF_SANE(buf);
+        .               assert(buf->end - buf->start > (ptrdiff_t)0);
+        .               assert(buf->pos - buf->start >= (ptrdiff_t)0);
+        .               /* The following is checking against -1 because SRL_UPDATE_BODY_POS
+        .                * will actually set the body_pos to pos-1, where pos can be 0.
+        .                * This works out fine in the end, but is admittedly a bit shady.
+        .                * FIXME */
+        .               assert(buf->body_pos - buf->start >= (ptrdiff_t)-1);
+       29 ( 0.00%)  }
+        .           
+        .           #define BUF_SIZE_ASSERT(buf, minlen)                                    \
+        .             STMT_START {                                                          \
+        .               DEBUG_ASSERT_BUF_SANE(buf);                                         \
+        .               if (BUF_NEED_GROW(buf, minlen))                                     \
+        .                 srl_buf_grow_nocheck(aTHX_ (buf), (BUF_SIZE(buf) + minlen));      \
+        .               DEBUG_ASSERT_BUF_SANE(buf);                                         \
+        .             } STMT_END
+-- line 148 ----------------------------------------
+-- line 168 ----------------------------------------
+        .           #define srl_buf_cat_str_s(buf, str) srl_buf_cat_str(buf, ("" str ""), sizeof(str)-1)
+        .           
+        .           SRL_STATIC_INLINE void
+        .           srl_buf_cat_str_nocheck_int(pTHX_ srl_buffer_t *buf, const char *str, size_t len)
+        .           {
+        .               DEBUG_ASSERT_BUF_SANE(buf);
+        .               DEBUG_ASSERT_BUF_SPACE(buf, len);
+        .               Copy(str, buf->pos, len, char);
+   40,000 ( 0.01%)      buf->pos += len;
+        .               DEBUG_ASSERT_BUF_SANE(buf);
+        .           }
+        .           #define srl_buf_cat_str_nocheck(buf, str, len) srl_buf_cat_str_nocheck_int(aTHX_ buf, str, len)
+        .           /* see perl.git:handy.h STR_WITH_LEN macro for explanation of the below code */
+        .           #define srl_buf_cat_str_s_nocheck(buf, str) srl_buf_cat_str_nocheck(buf, ("" str ""), sizeof(str)-1)
+        .           
+        .           SRL_STATIC_INLINE void
+        .           srl_buf_cat_char_int(pTHX_ srl_buffer_t *buf, const char c)
+  700,000 ( 0.11%)  {
+        .               DEBUG_ASSERT_BUF_SANE(buf);
+9,440,000 ( 1.45%)      BUF_SIZE_ASSERT(buf, 1);
+        .               DEBUG_ASSERT_BUF_SPACE(buf, 1);
+3,840,000 ( 0.59%)      *buf->pos++ = c;
+        .               DEBUG_ASSERT_BUF_SANE(buf);
+  600,000 ( 0.09%)  }
+        .           #define srl_buf_cat_char(buf, c) srl_buf_cat_char_int(aTHX_ buf, c)
+        .           
+        .           SRL_STATIC_INLINE void
+        .           srl_buf_cat_char_nocheck_int(pTHX_ srl_buffer_t *buf, const char c)
+        .           {
+        .               DEBUG_ASSERT_BUF_SANE(buf);
+        .               DEBUG_ASSERT_BUF_SPACE(buf, 1);
+  140,000 ( 0.02%)      *buf->pos++ = c;
+        .               DEBUG_ASSERT_BUF_SANE(buf);
+  500,000 ( 0.08%)  }
+        .           #define srl_buf_cat_char_nocheck(buf, c) srl_buf_cat_char_nocheck_int(aTHX_ buf, c)
+        .           
+        .           /*
+        .            * This implements "varint" and "zigzag varint" types as used in protobufs, etc.
+        .            *
+        .            * varint is a variable length encoding of unsigned integers, where the low
+        .            * 7 bits of the input value are encoded into each byte of output, with the high bit
+        .            * used as a flag to indicate there is another byte worth of bits to be read.
+-- line 209 ----------------------------------------
+-- line 229 ----------------------------------------
+        .               z <= (1UL << 56) ? 8 :    \
+        .               z <= (1UL << 63) ? 9 :    \
+        .                                10 )
+        .           */
+        .           SRL_STATIC_INLINE void
+        .           srl_buf_cat_varint_raw_nocheck(pTHX_ srl_buffer_t *buf, UV value) {
+        .               DEBUG_ASSERT_BUF_SANE(buf);
+        .               DEBUG_ASSERT_BUF_SPACE(buf, SRL_MAX_VARINT_LENGTH);
+6,840,000 ( 1.05%)      while (value >= 0x80) {                     /* while we are larger than 7 bits long */
+3,480,000 ( 0.53%)          *buf->pos++ = (value & 0x7f) | 0x80;    /* write out the least significant 7 bits, set the high bit */
+  580,000 ( 0.09%)          value >>= 7;                            /* shift off the 7 least significant bits */
+        .               }
+9,760,000 ( 1.50%)      *buf->pos++ = (U8)value;                    /* encode the last 7 bits without the high bit being set */
+        .               DEBUG_ASSERT_BUF_SANE(buf);
+        .           }
+        .           
+        .           SRL_STATIC_INLINE UV
+        .           srl_zigzag_iv(IV value) {
+        .               /* >> of a negative IV is implementation-defined; all supported compilers give all ones */
+   40,000 ( 0.01%)      return ((UV)value << 1) ^ (UV)(value >> (sizeof(IV) * 8 - 1));
+        .           }
+        .           
+        .           SRL_STATIC_INLINE void
+        .           srl_buf_cat_zigzag_raw_nocheck(pTHX_ srl_buffer_t *buf, const IV value) {
+        .               srl_buf_cat_varint_raw_nocheck(aTHX_ buf, srl_zigzag_iv(value));
+        .           }
+        .           
+        .           SRL_STATIC_INLINE void
+        .           srl_buf_cat_varint_nocheck(pTHX_ srl_buffer_t *buf, const char tag, UV value) {
+        .               DEBUG_ASSERT_BUF_SPACE(buf, 1);
+        .               if (expect_true( tag ))
+8,100,000 ( 1.24%)          *buf->pos++ = tag;
+        .               srl_buf_cat_varint_raw_nocheck(aTHX_ buf, value);
+  240,000 ( 0.04%)  }
+        .           
+        .           SRL_STATIC_INLINE void
+        .           srl_buf_cat_zigzag_nocheck(pTHX_ srl_buffer_t *buf, const char tag, const IV value) {
+        .               srl_buf_cat_varint_nocheck(aTHX_ buf, tag, srl_zigzag_iv(value));
+        .           }
+        .           
+        .           SRL_STATIC_INLINE void
+6,200,000 ( 0.95%)  srl_buf_cat_varint(pTHX_ srl_buffer_t *buf, const char tag, const UV value) {
+        .               /* this implements "varint" from google protocol buffers */
+8,560,000 ( 1.31%)      BUF_SIZE_ASSERT(buf, SRL_MAX_VARINT_LENGTH + 1); /* always allocate space for the tag, overalloc is harmless */
+        .               srl_buf_cat_varint_nocheck(aTHX_ buf, tag, value);
+5,000,000 ( 0.77%)  }
+        .           
+        .           SRL_STATIC_INLINE void
+        .           srl_buf_cat_zigzag(pTHX_ srl_buffer_t *buf, const char tag, const IV value) {
+        .               srl_buf_cat_varint(aTHX_ buf, tag, srl_zigzag_iv(value));
+        .           }
+        .           
+        .           #endif
+
+--------------------------------------------------------------------------------
+-- Auto-annotated source: /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE/inline.h
+--------------------------------------------------------------------------------
+Ir              
+
+-- line 409 ----------------------------------------
+     .           {
+     .               PERL_ARGS_ASSERT_POPMARK;
+     .           
+     .               DEBUG_s(DEBUG_v(PerlIO_printf(Perl_debug_log,
+     .                                            "MARK pop  %p %" IVdf "\n",
+     .                                             (PL_markstack_ptr-1),
+     .                                             (IV)*(PL_markstack_ptr-1))));
+     .               assert((PL_markstack_ptr > PL_markstack) || !"MARK underflow");
+80,011 ( 0.01%)      return *PL_markstack_ptr--;
+     .           }
+     .           
+     .           /*
+     .           =for apidoc_section $rpp
+     .           
+     .           =for apidoc rpp_extend
+     .           Ensures that there is space on the stack to push C<n> items, extending it
+     .           if necessary.
+-- line 425 ----------------------------------------
+-- line 4789 ----------------------------------------
+     .                * LONG AS the caller acts on the return before calling it again. */
+     .           
+     .               char * ret;
+     .               dTHX;
+     .           
+     .               /* Can't mortalize without stacks.  khw believes that no other threads
+     .                * should be running, so no need to lock things, and this may be during a
+     .                * phase when locking isn't even available */
+     4 ( 0.00%)      if (UNLIKELY(PL_scopestack_ix == 0)) {
+     2 ( 0.00%)          return getenv(str);
+     .               }
+     .           
+     .           #ifdef PERL_MEM_LOG
+     .           
+     .               /* A major complication arises under PERL_MEM_LOG.  When that is active,
+     .                * every memory allocation may result in logging, depending on the value of
+     .                * ENV{PERL_MEM_LOG} at the moment.  That means, as we create the SV for
+     .                * saving ENV{foo}'s value (but before saving it), the logging code will
+-- line 4806 ----------------------------------------
+-- line 4927 ----------------------------------------
+     .                * same as any other getenv(), returning the full value, not just the
+     .                * significant part, and having its value saved.  Set the flag that
+     .                * indicates any call to this routine will be a recursion from here */
+     .               PL_mem_log[0] = 0x1;
+     .           
+     .           #endif
+     .           
+     .               /* Now get the value of the real desired variable, and save a copy */
+     2 ( 0.00%)      ret = getenv(str);
+ 1,742 ( 0.00%)  => ???:0x0000000005167190 (1x)
+     .           
+     2 ( 0.00%)      if (ret != NULL) {
+     .                   ret = SvPVX( newSVpvn_flags(ret, strlen(ret) ,SVs_TEMP) );
+     .               }
+     .           
+     .               GETENV_UNLOCK;
+     .           
+     .           #ifdef PERL_MEM_LOG
+     .           
+     .               /* Clear the buffer */
+-- line 4945 ----------------------------------------
+
+--------------------------------------------------------------------------------
+-- Auto-annotated source: /tmp/sereal-iteration/debug-current/Perl/Encoder/Encoder.xs
+--------------------------------------------------------------------------------
+Ir               
+
+-- line 32 ----------------------------------------
+      .           THX_pp1_sereal_encode_with_object(pTHX_ U8 has_hdr)
+      .           {
+      .             SV *encoder_ref_sv, *encoder_sv, *body_sv, *header_sv;
+      .             srl_encoder_t *enc;
+      .             char *stash_name;
+      .             SV *ret_sv;
+      .             dSP;
+      .           
+ 80,000 ( 0.01%)    header_sv = has_hdr ? POPs : NULL;
+ 60,000 ( 0.01%)    body_sv = POPs;
+      .             PUTBACK;
+      .           
+ 20,000 ( 0.00%)    encoder_ref_sv = TOPs;
+      .           
+520,000 ( 0.08%)    if (!expect_true(
+440,784 ( 0.07%)  => ???:0x0000000005167870 (20,000x)
+      .                   encoder_ref_sv &&
+      .                   SvROK(encoder_ref_sv) &&
+      .                   (encoder_sv = SvRV(encoder_ref_sv)) &&
+      .                   SvOBJECT(encoder_sv) &&
+      .                   (stash_name= HvNAME(SvSTASH(encoder_sv))) &&
+      .                   !strcmp(stash_name, "Sereal::Encoder")
+      .                ))
+      .             {
+      .               croak("handle is not a Sereal::Encoder handle");
+      .             }
+      .             /* we should never have an IV smaller than a PTR */
+      .             enc= INT2PTR(srl_encoder_t *,SvIV(encoder_sv));
+      .             /* User code may clear the variable containing the encoder while it runs.
+      .              * Keep the owner alive until the encode cleanup hook has finished. */
+ 60,000 ( 0.01%)    SAVEFREESV(SvREFCNT_inc(encoder_sv));
+340,641 ( 0.05%)  => ???:0x0000000005167af0 (20,000x)
+      .           
+ 40,000 ( 0.01%)    if (header_sv && !SvOK(header_sv))
+      .               header_sv = NULL;
+      .           
+      .             /* We always copy the string since we might reuse the string buffer. That
+      .              * means we already have to do a malloc and we might as well use the
+      .              * opportunity to allocate only as much memory as we really need to hold
+      .              * the output. */
+120,000 ( 0.02%)    ret_sv= srl_dump_data_structure_mortal_sv(aTHX_ enc, body_sv, header_sv, SRL_ENC_SV_COPY_ALWAYS);
+520,511,749 (79.95%)  => ???:0x00000000051674e0 (20,000x)
+ 20,000 ( 0.00%)    SPAGAIN;
+ 20,000 ( 0.00%)    TOPs = ret_sv;
+      .           }
+      .           
+      .           #if USE_CUSTOM_OPS
+      .           
+      .           static OP *
+      .           THX_pp_sereal_encode_with_object(pTHX)
+      .           {
+      .             pp1_sereal_encode_with_object(PL_op->op_private);
+-- line 80 ----------------------------------------
+-- line 142 ----------------------------------------
+      .           
+      .             return newop;
+      .           }
+      .           
+      .           #endif /* USE_CUSTOM_OPS */
+      .           
+      .           static void
+      .           THX_xsfunc_sereal_encode_with_object(pTHX_ CV *cv)
+160,000 ( 0.02%)  {
+ 80,000 ( 0.01%)    dMARK;
+ 40,000 ( 0.01%)    dSP;
+ 80,000 ( 0.01%)    SSize_t arity = SP - MARK;
+      .             PERL_UNUSED_ARG(cv);
+ 60,000 ( 0.01%)    if (arity < 2 || arity > 3)
+      .               croak("bad Sereal encoder usage");
+      .             pp1_sereal_encode_with_object(arity == 3);
+160,000 ( 0.02%)  }
+      .           
+      .           #define MY_CXT_KEY "Sereal::Encoder::_stash" XS_VERSION
+      .           
+      .           typedef struct {
+      .               sv_with_hash options[SRL_ENC_OPT_COUNT];
+      .           } my_cxt_t;
+      .           
+      .           START_MY_CXT
+-- line 166 ----------------------------------------
+-- line 258 ----------------------------------------
+      .               srl_siphash_final128(&sip, digest);
+      .               RETVAL = newSVpvn((const char *)digest, sizeof(digest));
+      .             OUTPUT: RETVAL
+      .           
+      .           BOOT:
+      .           {
+      .             {
+      .             MY_CXT_INIT;
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_ALIASED_DEDUPE_STRINGS,   SRL_ENC_OPT_STR_ALIASED_DEDUPE_STRINGS );
+    787 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CANONICAL,                SRL_ENC_OPT_STR_CANONICAL              );
+    156 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CANONICAL_REFS,           SRL_ENC_OPT_STR_CANONICAL_REFS         );
+    401 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_COMPRESS,                 SRL_ENC_OPT_STR_COMPRESS               );
+    156 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_COMPRESS_LEVEL,           SRL_ENC_OPT_STR_COMPRESS_LEVEL         );
+    156 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_COMPRESS_THRESHOLD,       SRL_ENC_OPT_STR_COMPRESS_THRESHOLD     );
+    154 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CROAK_ON_BLESS,           SRL_ENC_OPT_STR_CROAK_ON_BLESS         );
+    156 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_DEDUPE_STRINGS,           SRL_ENC_OPT_STR_DEDUPE_STRINGS         );
+    156 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_FREEZE_CALLBACKS,         SRL_ENC_OPT_STR_FREEZE_CALLBACKS       );
+    154 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_MAX_RECURSION_DEPTH,      SRL_ENC_OPT_STR_MAX_RECURSION_DEPTH    );
+    562 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_NO_BLESS_OBJECTS,         SRL_ENC_OPT_STR_NO_BLESS_OBJECTS       );
+    292 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_NO_SHARED_HASHKEYS,       SRL_ENC_OPT_STR_NO_SHARED_HASHKEYS     );
+    292 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_PROTOCOL_VERSION,         SRL_ENC_OPT_STR_PROTOCOL_VERSION       );
+    292 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_SNAPPY,                   SRL_ENC_OPT_STR_SNAPPY                 );
+    296 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_SNAPPY_INCR,              SRL_ENC_OPT_STR_SNAPPY_INCR            );
+    294 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_SNAPPY_THRESHOLD,         SRL_ENC_OPT_STR_SNAPPY_THRESHOLD       );
+    292 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_SORT_KEYS,                SRL_ENC_OPT_STR_SORT_KEYS              );
+    294 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_STRINGIFY_UNKNOWN,        SRL_ENC_OPT_STR_STRINGIFY_UNKNOWN      );
+    292 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_UNDEF_UNKNOWN,            SRL_ENC_OPT_STR_UNDEF_UNKNOWN          );
+    294 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_USE_PROTOCOL_V1,          SRL_ENC_OPT_STR_USE_PROTOCOL_V1        );
+    294 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_WARN_UNKNOWN,             SRL_ENC_OPT_STR_WARN_UNKNOWN           );
+    294 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_USE_STANDARD_DOUBLE,      SRL_ENC_OPT_STR_USE_STANDARD_DOUBLE    );
+    292 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_FREEZE_ALLOW_CLASSES,     SRL_ENC_OPT_STR_FREEZE_ALLOW_CLASSES   );
+    292 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_FREEZE_DENY_ACTION,       SRL_ENC_OPT_STR_FREEZE_DENY_ACTION     );
+    292 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_V0_KEY,          SRL_ENC_OPT_STR_CHECKSUM_V0_KEY        );
+    294 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_V1_KEY,          SRL_ENC_OPT_STR_CHECKSUM_V1_KEY        );
+    294 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_V2_KEY,          SRL_ENC_OPT_STR_CHECKSUM_V2_KEY        );
+    294 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      5 ( 0.00%)    SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_POLICY,          SRL_ENC_OPT_STR_CHECKSUM_POLICY        );
+    294 ( 0.00%)  => ???:0x00000000051681a0 (1x)
+      .             }
+      .           #if USE_CUSTOM_OPS
+      .             {
+      .               /* Perl borrows this descriptor; it must outlive every interpreter. */
+      .               static const XOP xop = {
+      .                 XOPf_xop_name | XOPf_xop_desc | XOPf_xop_class,
+      .                 "sereal_encode_with_object", "sereal_encode_with_object", OA_UNOP
+      .               };
+      3 ( 0.00%)      Perl_custom_op_register(aTHX_ THX_pp_sereal_encode_with_object, &xop);
+  1,949 ( 0.00%)  => ???:0x0000000005167630 (1x)
+      .             }
+      .           #endif /* USE_CUSTOM_OPS */
+      .             {
+      .               GV *gv;
+      7 ( 0.00%)      CV *cv = newXSproto_portable("Sereal::Encoder::sereal_encode_with_object",
+  4,639 ( 0.00%)  => ???:0x0000000005167cd0 (1x)
+      .                           THX_xsfunc_sereal_encode_with_object, __FILE__, "$$;$");
+      .           #if USE_CUSTOM_OPS
+      4 ( 0.00%)      cv_set_call_checker(cv, THX_ck_entersub_args_sereal_encode_with_object, (SV*)cv);
+  1,143 ( 0.00%)  => ???:0x00000000051681b0 (1x)
+      .           #endif /* USE_CUSTOM_OPS */
+      4 ( 0.00%)      gv = gv_fetchpv("Sereal::Encoder::encode", GV_ADDMULTI, SVt_PVCV);
+  3,009 ( 0.00%)  => ???:0x00000000051678d0 (1x)
+      2 ( 0.00%)      GvCV_set(gv, cv);
+      .             }
+      .           }
+      .           
+      .           srl_encoder_t *
+      .           new(CLASS, opt = NULL)
+      .               char *CLASS;
+      .               HV *opt;
+      .             PREINIT:
+      .               dMY_CXT;
+      .             CODE:
+      3 ( 0.00%)      RETVAL = srl_build_encoder_struct(aTHX_ opt, MY_CXT.options);
+ 11,758 ( 0.00%)  => ???:0x0000000005167eb0 (1x)
+      1 ( 0.00%)      RETVAL->flags |= SRL_F_REUSE_ENCODER;
+      .             OUTPUT: RETVAL
+      .           
+      .           void
+      .           DESTROY(enc)
+      .               srl_encoder_t *enc;
+      .             CODE:
+      1 ( 0.00%)      srl_destroy_encoder(aTHX_ enc);
+  2,429 ( 0.00%)  => ???:0x0000000005167bb0 (1x)
+      .           
+      .           U32
+      .           flags(enc)
+      .               srl_encoder_t *enc;
+      .             CODE:
+      .               RETVAL = enc->flags;
+      .             OUTPUT: RETVAL
+      .           
+-- line 340 ----------------------------------------
+
+--------------------------------------------------------------------------------
+-- Auto-annotated source: /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_compress.h
+--------------------------------------------------------------------------------
+Ir              
+
+-- line 84 ----------------------------------------
+     .                       croak("Out of memory!");
+     .               }
+     .           }
+     .           
+     .           /* Destroy working buffer */
+     .           SRL_STATIC_INLINE void
+     .           srl_destroy_snappy_workmem(pTHX_ void *workmem)
+     .           {
+     2 ( 0.00%)      Safefree(workmem);
+     6 ( 0.00%)  => ???:0x0000000005167d60 (1x)
+     .           }
+     .           
+     .           SRL_STATIC_INLINE U8
+     .           srl_get_compression_header_flag(const U32 compress_flags)
+     .           {
+40,000 ( 0.01%)      if (compress_flags & SRL_F_COMPRESS_SNAPPY) {
+20,000 ( 0.00%)          return SRL_PROTOCOL_ENCODING_SNAPPY;
+40,000 ( 0.01%)      } else if (compress_flags & SRL_F_COMPRESS_SNAPPY_INCREMENTAL) {
+20,000 ( 0.00%)          return SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL;
+40,000 ( 0.01%)      } else if (compress_flags & SRL_F_COMPRESS_ZLIB) {
+20,000 ( 0.00%)          return SRL_PROTOCOL_ENCODING_ZLIB;
+80,000 ( 0.01%)      } else if (compress_flags & SRL_F_COMPRESS_ZSTD) {
+     .                   return SRL_PROTOCOL_ENCODING_ZSTD;
+     .               } else {
+     .                   return SRL_PROTOCOL_ENCODING_RAW;
+     .               }
+     .           }
+     .           
+     .           /* Sets the compression header flag */
+     .           SRL_STATIC_INLINE void
+-- line 112 ----------------------------------------
+
+--------------------------------------------------------------------------------
+-- User-annotated source: /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c
+--------------------------------------------------------------------------------
+Ir                  
+
+-- line 108 ----------------------------------------
+         .               unsigned int shift = 0;
+         .               U8 byte;
+         .               U8 *tag;
+         .               U8 *payload_len_field;
+         .               U8 *payload;
+         .               srl_u64 digest;
+         .               srl_siphash_ctx sip;
+         .           
+    20,000 ( 0.00%)      p = (const U8 *)enc->buf.start + SRL_MAGIC_STRLEN + 1;
+         .               do {
+    20,000 ( 0.00%)          if (p >= (const U8 *)enc->buf.pos)
+         .                       croak("Internal error: missing Sereal header suffix length");
+         .                   byte = *p++;
+         .                   if (shift >= sizeof(UV) * 8 ||
+         .                       (shift == sizeof(UV) * 8 - 1 && (byte & 0x7e)))
+         .                       croak("Internal error: invalid Sereal header suffix length");
+         .                   suffix_len |= ((UV)(byte & 0x7f)) << shift;
+         .                   shift += 7;
+         .               } while (byte & 0x80);
+-- line 126 ----------------------------------------
+-- line 248 ----------------------------------------
+         .               SV *borrowed_key;
+         .               int key_guard;
+         .               int sorted_keyed;
+         .           } srl_encoder_frame;
+         .           
+         .           SRL_STATIC_INLINE void
+         .           srl_frame_push(srl_encoder_t *enc, srl_encoder_frame *frame, SV *container)
+         .           {
+ 1,000,000 ( 0.15%)      frame->parent = enc->frames;
+   260,000 ( 0.04%)      frame->container = container;
+ 1,000,000 ( 0.15%)      enc->frames = frame;
+         .           }
+         .           
+         .           SRL_STATIC_INLINE void
+         .           srl_callback_hold(pTHX_ srl_encoder_t *enc, SV *value)
+         .           {
+         .               if (value && !PTABLE_fetch(enc->callback_seen, value)) {
+         .                   PTABLE_store(enc->callback_seen, value, INT2PTR(void *, 1));
+         .                   av_push(enc->callback_keepalive, SvREFCNT_inc(value));
+-- line 266 ----------------------------------------
+-- line 667 ----------------------------------------
+         .           
+         .           /* This is fired when we exit the Perl pseudo-block.
+         .            * It frees our encoder and all. Put encoder-level cleanup
+         .            * logic here so that we can simply use croak/longjmp for
+         .            * exception handling. Makes life vastly easier!
+         .            */
+         .           void
+         .           srl_destructor_hook(pTHX_ void *p)
+    20,000 ( 0.00%)  {
+         .               srl_encoder_t *enc = (srl_encoder_t *)p;
+         .               /* Do not auto-destroy encoder if set to be re-used */
+    40,000 ( 0.01%)      if (!SRL_ENC_HAVE_OPTION(enc, SRL_F_REUSE_ENCODER)) {
+         .                   /* Exception cleanup. Under normal operation, we should have
+         .                    * assigned NULL to buf_start after we're done. */
+         .                   srl_destroy_encoder(aTHX_ enc);
+         .               }
+         .               else {
+    20,000 ( 0.00%)          srl_clear_encoder(aTHX_ enc);
+63,921,610 ( 9.82%)  => ???:0x0000000005168220 (20,000x)
+         .               }
+         .           }
+         .           
+         .           SRL_STATIC_INLINE void
+         .           srl_clear_seen_hashes(pTHX_ srl_encoder_t *enc)
+         .           {
+    60,000 ( 0.01%)      if (enc->ref_seenhash != NULL)
+         .                   PTABLE_clear(enc->ref_seenhash);
+    60,000 ( 0.01%)      if (enc->freezeobj_svhash != NULL)
+         .                   PTABLE_clear_dec(aTHX_ enc->freezeobj_svhash);
+    60,000 ( 0.01%)      if (enc->str_seenhash != NULL)
+         .                   PTABLE_clear(enc->str_seenhash);
+    60,000 ( 0.01%)      if (enc->weak_seenhash != NULL)
+         .                   PTABLE_clear(enc->weak_seenhash);
+    60,000 ( 0.01%)      if (enc->string_deduper_hv != NULL)
+         .                   hv_clear(enc->string_deduper_hv);
+    60,000 ( 0.01%)      if (enc->string_alias_hv != NULL)
+         .                   hv_clear(enc->string_alias_hv);
+         .           }
+         .           
+         .           void
+         .           srl_clear_encoder(pTHX_ srl_encoder_t *enc)
+   180,000 ( 0.03%)  {
+         .               /* TODO I think this could just be made an assert. */
+    40,000 ( 0.01%)      if (!SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY)) {
+         .                   warn("Sereal Encoder being cleared but in virgin state. That is unexpected.");
+         .               }
+         .           
+    20,000 ( 0.00%)      enc->recursion_depth = 0;
+    20,000 ( 0.00%)      enc->frames = NULL;
+    40,000 ( 0.01%)      enc->root_src = enc->header_src = NULL;
+    60,000 ( 0.01%)      if (enc->callback_seen)
+         .                   PTABLE_clear(enc->callback_seen);
+         .               srl_clear_seen_hashes(aTHX_ enc);
+    60,000 ( 0.01%)      if (enc->callback_keepalive)
+         .                   av_clear(enc->callback_keepalive);
+         .           
+    60,000 ( 0.01%)      enc->buf.pos = enc->buf.start;
+         .               /* tmp_buf.start may be NULL for an unused tmp_buf, but so what? */
+    40,000 ( 0.01%)      enc->tmp_buf.pos = enc->tmp_buf.start;
+         .           
+         .               SRL_SET_BODY_POS(&enc->buf, enc->buf.start);
+         .           
+    20,000 ( 0.00%)      SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY | SRL_OF_ENCODER_HAS_CALLBACKS);
+   160,000 ( 0.02%)  }
+         .           
+         .           void
+         .           srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
+         7 ( 0.00%)  {
+         1 ( 0.00%)      enc->frames = NULL;
+         1 ( 0.00%)      SvREFCNT_dec(enc->callback_keepalive);
+         3 ( 0.00%)      if (enc->callback_seen)
+         .                   PTABLE_free(enc->callback_seen);
+         .               srl_buf_free_buffer(aTHX_ &enc->buf);
+         .           
+         .               /* Free tmp buffer only if it was allocated at all. */
+         3 ( 0.00%)      if (enc->tmp_buf.start != NULL)
+         .                   srl_buf_free_buffer(aTHX_ &enc->tmp_buf);
+         .           
+         .               srl_destroy_snappy_workmem(aTHX_ enc->snappy_workmem);
+         .           
+         3 ( 0.00%)      if (enc->ref_seenhash != NULL)
+         .                   PTABLE_free(enc->ref_seenhash);
+         3 ( 0.00%)      if (enc->freezeobj_svhash != NULL)
+         .                   PTABLE_free(enc->freezeobj_svhash);
+         3 ( 0.00%)      if (enc->str_seenhash != NULL)
+         .                   PTABLE_free(enc->str_seenhash);
+         3 ( 0.00%)      if (enc->weak_seenhash != NULL)
+         .                   PTABLE_free(enc->weak_seenhash);
+         3 ( 0.00%)      if (enc->string_deduper_hv != NULL)
+         .                   SvREFCNT_dec(enc->string_deduper_hv);
+         3 ( 0.00%)      if (enc->string_alias_hv != NULL)
+         .                   SvREFCNT_dec(enc->string_alias_hv);
+         3 ( 0.00%)      if (enc->freeze_allow_hash != NULL)
+         .                   SvREFCNT_dec((SV*)enc->freeze_allow_hash);
+         3 ( 0.00%)      if (enc->freeze_allow_cb != NULL)
+         .                   SvREFCNT_dec(enc->freeze_allow_cb);
+         .           
+         1 ( 0.00%)      SvREFCNT_dec(enc->sereal_string_sv);
+         1 ( 0.00%)      SvREFCNT_dec(enc->scratch_sv);
+         .           
+         2 ( 0.00%)      Safefree(enc);
+        93 ( 0.00%)  => ???:0x0000000005167d60 (1x)
+         5 ( 0.00%)  }
+         .           
+         .           /* allocate an empty encoder struct - flags still to be set up */
+         .           SRL_STATIC_INLINE srl_encoder_t *
+         .           srl_empty_encoder_struct(pTHX)
+         .           {
+         .               srl_encoder_t *enc;
+         4 ( 0.00%)      Newxz(enc, 1, srl_encoder_t);
+       976 ( 0.00%)  => ???:0x0000000005167b00 (1x)
+         2 ( 0.00%)      if (enc == NULL)
+         .                   croak("Out of memory");
+         .           
+         .               /* Init buffer struct */
+         .               if (expect_false( srl_buf_init_buffer(aTHX_ &(enc->buf), INITIALIZATION_SIZE) != 0 )) {
+         .                   Safefree(enc);
+         .                   croak("Out of memory");
+         .               }
+         .           
+         1 ( 0.00%)      enc->protocol_version = SRL_PROTOCOL_VERSION;
+         1 ( 0.00%)      enc->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
+         .           
+         .               return enc;
+         .           }
+         .           
+         .           /* Construction has no encoded state to clear. Keep a completed encoder
+         .            * through scope exit, but release all partial state if an option croaks. */
+         .           static void
+         .           srl_encoder_constructor_cleanup(pTHX_ void *p)
+         1 ( 0.00%)  {
+         .               srl_encoder_t *enc = (srl_encoder_t *)p;
+         2 ( 0.00%)      if (!SRL_ENC_HAVE_OPTION(enc, SRL_F_REUSE_ENCODER))
+         .                   srl_destroy_encoder(aTHX_ enc);
+         1 ( 0.00%)  }
+         .           
+         .           #define my_hv_fetchs(he,val,opt,idx) STMT_START {                   \
+         .               he = hv_fetch_ent(opt, options[idx].sv, 0, options[idx].hash);  \
+         .               if (he)                                                         \
+         .                   val= HeVAL(he);                                             \
+         .               else                                                            \
+         .                   val= NULL;                                                  \
+         .           } STMT_END
+         .           
+         .           /* Builds the C-level configuration and state struct. */
+         .           srl_encoder_t *
+         .           srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
+        13 ( 0.00%)  {
+         .               srl_encoder_t *enc;
+         .               SV *val;
+         .               HE *he;
+         .               U8 checksum_policy;
+         3 ( 0.00%)      SV *checksum_keys[3] = { NULL, NULL, NULL };
+         .               int key_options_present = 0;
+         .               U8 version;
+         .           
+         .               val = NULL;
+         2 ( 0.00%)      if (opt != NULL)
+        13 ( 0.00%)          my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CHECKSUM_POLICY);
+       685 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .               checksum_policy = srl_get_checksum_policy(aTHX_ val);
+         7 ( 0.00%)      for (version = 0; version <= 2; version++) {
+         .                   val = NULL;
+         .                   he = NULL;
+         .                   if (opt != NULL) {
+         .                       const U32 idx = version == 0 ? SRL_ENC_OPT_IDX_CHECKSUM_V0_KEY
+        10 ( 0.00%)                            : version == 1 ? SRL_ENC_OPT_IDX_CHECKSUM_V1_KEY
+         .                                                    : SRL_ENC_OPT_IDX_CHECKSUM_V2_KEY;
+        45 ( 0.00%)              my_hv_fetchs(he, val, opt, idx);
+       371 ( 0.00%)  => ???:0x0000000005167d20 (3x)
+         .                   }
+         7 ( 0.00%)          checksum_keys[version] = val;
+         .                   if (he != NULL)
+         1 ( 0.00%)              key_options_present = 1;
+         .               }
+         4 ( 0.00%)      if (!key_options_present) {
+         .                   SV *default_key = get_sv("Sereal::DefaultKey", 0);
+         .                   checksum_keys[2] = default_key; /* default to SipHash-3-6-128 */
+         .               }
+         .               srl_validate_checksum_keys(aTHX_ checksum_keys, checksum_policy);
+         .           
+         1 ( 0.00%)      ENTER;
+       611 ( 0.00%)  => ???:0x0000000005168060 (1x)
+         .               enc = srl_empty_encoder_struct(aTHX);
+         3 ( 0.00%)      SAVEDESTRUCTOR_X(&srl_encoder_constructor_cleanup, (void *)enc);
+       686 ( 0.00%)  => ???:0x0000000005168080 (1x)
+         1 ( 0.00%)      enc->checksum_policy = checksum_policy;
+         1 ( 0.00%)      enc->flags = 0;
+         3 ( 0.00%)      enc->scratch_sv= newSViv(0);
+       591 ( 0.00%)  => ???:0x00000000051680b0 (1x)
+         .           
+         .               /* load options */
+         2 ( 0.00%)      if (opt != NULL) {
+         2 ( 0.00%)          int undef_unknown = 0;
+         2 ( 0.00%)          int compression_format = 0;
+         .                   /* SRL_F_SHARED_HASHKEYS on by default */
+        14 ( 0.00%)          my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_NO_SHARED_HASHKEYS);
+       129 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                   if ( !val || !SvTRUE(val) )
+         1 ( 0.00%)              SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
+         .           
+         .                   /* Needs to be before the snappy options */
+         .                   /* enc->protocol_version defaults to SRL_PROTOCOL_VERSION. */
+        15 ( 0.00%)          my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_PROTOCOL_VERSION);
+       163 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         5 ( 0.00%)          if (val && SvOK(val)) {
+         1 ( 0.00%)              enc->protocol_version = SvUV(val);
+         2 ( 0.00%)              if (enc->protocol_version < 1
+         1 ( 0.00%)                  || enc->protocol_version > SRL_PROTOCOL_VERSION)
+         .                       {
+         .                           croak("Specified Sereal protocol version (%"UVuf") is invalid",
+         .                                 (UV)enc->protocol_version);
+         .                       }
+         .                   }
+         .                   else {
+         .                       /* Compatibility with the old way to specify older protocol version */
+         .                       my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_USE_PROTOCOL_V1);
+         .                       if ( val && SvTRUE(val) )
+         .                           enc->protocol_version = 1;
+         .                   }
+         .           
+        14 ( 0.00%)          my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CROAK_ON_BLESS);
+       129 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                   if ( val && SvTRUE(val) )
+         .                       SRL_ENC_SET_OPTION(enc, SRL_F_CROAK_ON_BLESS);
+         .           
+        14 ( 0.00%)          my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_NO_BLESS_OBJECTS);
+       129 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                   if ( val && SvTRUE(val) )
+         .                       SRL_ENC_SET_OPTION(enc, SRL_F_NO_BLESS_OBJECTS);
+         .           
+         .                   {
+         1 ( 0.00%)              int want_freeze = 0;
+         .           
+        14 ( 0.00%)              my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_FREEZE_CALLBACKS);
+       104 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                       if ( val && SvTRUE(val) )
+         .                           want_freeze = 1;
+         .           
+         .                       /* freeze_allow_classes: only invoke FREEZE for the listed classes.
+         .                        * Accepts an array ref (list of names), a hash ref (keys with a
+         .                        * true value) or a code ref (predicate called with the class name
+         .                        * and the object). Providing it implies freeze support. */
+        14 ( 0.00%)              my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_FREEZE_ALLOW_CLASSES);
+       104 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                       if ( val && SvOK(val) ) {
+         .                           SV *rv = SvROK(val) ? SvRV(val) : NULL;
+         .                           if (rv && SvTYPE(rv) == SVt_PVAV) {
+         .                               AV *av = (AV*)rv;
+         .                               SSize_t i, len = av_len(av) + 1;
+         .                               enc->freeze_allow_hash = newHV();
+         .                               for (i = 0; i < len; i++) {
+         .                                   SV **elem = av_fetch(av, i, 0);
+-- line 905 ----------------------------------------
+-- line 928 ----------------------------------------
+         .                           }
+         .                           else {
+         .                               croak("The 'freeze_allow_classes' option must be an array "
+         .                                     "ref, hash ref or code ref");
+         .                           }
+         .                           want_freeze = 1;
+         .                       }
+         .           
+        14 ( 0.00%)              my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_FREEZE_DENY_ACTION);
+       129 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                       if ( val && SvOK(val) ) {
+         .                           STRLEN alen;
+         .                           char *astr = SvPV(val, alen);
+         .                           if (memEQs(astr, alen, "serialize"))
+         .                               SRL_ENC_SET_OPTION(enc, SRL_F_FREEZE_DENY_SERIALIZE);
+         .                           else if (!memEQs(astr, alen, "croak"))
+         .                               croak("The 'freeze_deny_action' option must be 'croak' or 'serialize'");
+         .                       }
+         .           
+         2 ( 0.00%)              if ( want_freeze ) {
+         .                           if (enc->protocol_version < 2)
+         .                               croak("FREEZE/THAW callbacks require Sereal protocol version 2 or later");
+         .                           if (SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS))
+         .                               croak("The no_bless_objects option is mutually exclusive "
+         .                                     "with freeze support (freeze_callbacks / "
+         .                                     "freeze_allow_classes)");
+         .                           SRL_ENC_SET_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT);
+         .                           enc->sereal_string_sv = newSVpvs("Sereal");
+         .                       }
+         .                   }
+         .           
+        14 ( 0.00%)          my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_COMPRESS);
+       104 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                   if (val) {
+         .                       compression_format = SvIV(val);
+         .           
+         .                       /* See also Encoder.pm's constants */
+         .                       switch (compression_format) {
+         .                       case 0: /* uncompressed */
+         .                           break;
+         .                       case 1:
+-- line 966 ----------------------------------------
+-- line 996 ----------------------------------------
+         .                           break;
+         .                       default:
+         .                           croak("Invalid Sereal compression format");
+         .                       }
+         .                   }
+         .                   else {
+         .                       /* Only bother with old compression options if necessary */
+         .           
+        14 ( 0.00%)              my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_SNAPPY_INCR);
+       104 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                       if ( val && SvTRUE(val) ) {
+         .                           SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
+         .                           compression_format = 1;
+         .                       }
+         .                        else {
+         .                           /* snappy_incr >> snappy */
+        14 ( 0.00%)                  my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_SNAPPY);
+       104 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                           if ( val && SvTRUE(val) ) {
+         .                               /* incremental is the new black in V2 */
+         .                               if (expect_true( enc->protocol_version > 1 ))
+         .                                   SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
+         .                               else
+         .                                   SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY);
+         .                               compression_format = 1;
+         .                           }
+         .                       }
+         .                   }
+         .           
+        14 ( 0.00%)          my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_UNDEF_UNKNOWN);
+       104 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                   if ( val && SvTRUE(val) ) {
+         2 ( 0.00%)              undef_unknown = 1;
+         .                       SRL_ENC_SET_OPTION(enc, SRL_F_UNDEF_UNKNOWN);
+         .                   }
+         .           
+        14 ( 0.00%)          my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_SORT_KEYS);
+       104 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                   if ( !val )
+        14 ( 0.00%)              my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CANONICAL);
+       104 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                   if ( val && SvTRUE(val) ) {
+         .                       SRL_ENC_SET_OPTION(enc, SRL_F_SORT_KEYS);
+         .                       if (SvIV(val) > 1) {
+         .                           SRL_ENC_SET_OPTION(enc, SRL_F_SORT_KEYS_PERL);
+         .                           if (SvIV(val) > 2) {
+         .                               SRL_ENC_SET_OPTION(enc, SRL_F_SORT_KEYS_PERL_REV);
+         .                           }
+         .                       }
+         .                   }
+         .           
+        14 ( 0.00%)          my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CANONICAL_REFS);
+       129 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                   if ( !val )
+        14 ( 0.00%)              my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CANONICAL);
+       104 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                   if ( val && SvTRUE(val) )
+         .                       SRL_ENC_SET_OPTION(enc, SRL_F_CANONICAL_REFS);
+         .           
+        14 ( 0.00%)          my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_ALIASED_DEDUPE_STRINGS);
+       104 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                   if ( val && SvTRUE(val) )
+         .                       SRL_ENC_SET_OPTION(enc, SRL_F_ALIASED_DEDUPE_STRINGS | SRL_F_DEDUPE_STRINGS);
+         .                   else {
+        14 ( 0.00%)              my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_DEDUPE_STRINGS);
+       104 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                       if ( val && SvTRUE(val) )
+         .                           SRL_ENC_SET_OPTION(enc, SRL_F_DEDUPE_STRINGS);
+         .                   }
+         .           
+        14 ( 0.00%)          my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_STRINGIFY_UNKNOWN);
+       104 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                   if ( val && SvTRUE(val) ) {
+         .                       if (expect_false( undef_unknown ))
+         .                           croak("'undef_unknown' and 'stringify_unknown' "
+         .                                 "options are mutually exclusive");
+         .                       SRL_ENC_SET_OPTION(enc, SRL_F_STRINGIFY_UNKNOWN);
+         .                   }
+         .           
+        14 ( 0.00%)          my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_WARN_UNKNOWN);
+       104 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                   if ( val && SvTRUE(val) ) {
+         .                       SRL_ENC_SET_OPTION(enc, SRL_F_WARN_UNKNOWN);
+         .                       if (SvIV(val) < 0)
+         .                           SRL_ENC_SET_OPTION(enc, SRL_F_NOWARN_UNKNOWN_OVERLOAD);
+         .                   }
+         .           
+         2 ( 0.00%)          if (compression_format) {
+         .                       enc->compress_threshold = 1024;
+         .                       my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_COMPRESS_THRESHOLD);
+         .                       if ( val && SvOK(val) )
+         .                           enc->compress_threshold = SvIV(val);
+         .                       else if (compression_format == 1) {
+         .                           /* compression_format==1 is some sort of Snappy */
+         .                           my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_SNAPPY_THRESHOLD);
+         .                           if ( val && SvOK(val) )
+         .                               enc->compress_threshold = SvIV(val);
+         .                       }
+         .                   }
+         .           
+        14 ( 0.00%)          my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_MAX_RECURSION_DEPTH);
+       104 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                   if ( val && SvTRUE(val) )
+         .                       enc->max_recursion_depth = SvUV(val);
+         .           
+        14 ( 0.00%)          my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_USE_STANDARD_DOUBLE);
+       104 ( 0.00%)  => ???:0x0000000005167d20 (1x)
+         .                   if ( val && SvTRUE(val) )
+         .                       SRL_ENC_SET_OPTION(enc, SRL_F_USE_STANDARD_DOUBLE);
+         .               }
+         .               else {
+         .                   /* SRL_F_SHARED_HASHKEYS on by default */
+         .                   SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
+         .               }
+         .           
+         .               {
+         .                   U8 version;
+         7 ( 0.00%)          for (version = 0; version <= 2; version++) {
+         .                       const char *option_name;
+         .                       option_name = srl_checksum_key_option_name(version);
+         3 ( 0.00%)              val = checksum_keys[version];
+         9 ( 0.00%)              if (val && SvOK(val)) {
+         .                           STRLEN key_len;
+         .                           char *key = SvPVbyte(val, key_len);
+         .                           if (key_len != sizeof(enc->checksum_keys[version])) {
+         .                               if (key_len < sizeof(enc->checksum_keys[version]))
+         .                                   warn("The '%s' key is shorter than 16 bytes; padding with nulls. Use Sereal::Encoder::prepare_checksum_key() to normalize it", option_name);
+         .                               else
+         .                                   warn("The '%s' key is longer than 16 bytes; extra bytes are ignored and may contain unused entropy. Use Sereal::Encoder::prepare_checksum_key() to normalize it", option_name);
+         .                           }
+-- line 1112 ----------------------------------------
+-- line 1116 ----------------------------------------
+         .                           Zero(enc->checksum_keys[version], sizeof(enc->checksum_keys[version]), U8);
+         .                           Copy(key, enc->checksum_keys[version],
+         .                                key_len < sizeof(enc->checksum_keys[version])
+         .                                   ? key_len : sizeof(enc->checksum_keys[version]), U8);
+         .                           enc->checksum_key_mask |= (U8)(1U << version);
+         .                           enc->siphash_version = version;
+         .                       }
+         .                   }
+         4 ( 0.00%)          if (enc->checksum_key_mask & (enc->checksum_key_mask - 1)) {
+         .                       croak("Specify only one of 'checksum_v0_key', 'checksum_v1_key', or 'checksum_v2_key' on the encoder");
+         .                   }
+         .               }
+         .           
+         .               DEBUG_ASSERT_BUF_SANE(&enc->buf);
+         1 ( 0.00%)      SRL_ENC_SET_OPTION(enc, SRL_F_REUSE_ENCODER);
+         1 ( 0.00%)      LEAVE;
+       702 ( 0.00%)  => ???:0x0000000005167440 (1x)
+         1 ( 0.00%)      SRL_ENC_RESET_OPTION(enc, SRL_F_REUSE_ENCODER);
+         .               return enc;
+        12 ( 0.00%)  }
+         .           
+         .           /* clone an encoder without current state */
+         .           srl_encoder_t *
+         .           srl_build_encoder_struct_alike(pTHX_ srl_encoder_t *proto)
+         .           {
+         .               srl_encoder_t *enc;
+         .               enc = srl_empty_encoder_struct(aTHX);
+         .           
+-- line 1142 ----------------------------------------
+-- line 1164 ----------------------------------------
+         .               enc->scratch_sv= newSViv(0);
+         .               DEBUG_ASSERT_BUF_SANE(&enc->buf);
+         .               return enc;
+         .           }
+         .           
+         .           SRL_STATIC_INLINE PTABLE_t *
+         .           srl_init_string_hash(srl_encoder_t *enc)
+         .           {
+         1 ( 0.00%)      enc->str_seenhash = PTABLE_new_size(4);
+         1 ( 0.00%)      return enc->str_seenhash;
+         .           }
+         .           
+         .           SRL_STATIC_INLINE PTABLE_t *
+         .           srl_init_ref_hash(srl_encoder_t *enc)
+         .           {
+         1 ( 0.00%)      enc->ref_seenhash = PTABLE_new_size(4);
+         1 ( 0.00%)      return enc->ref_seenhash;
+         .           }
+         .           
+         .           SRL_STATIC_INLINE PTABLE_t *
+         .           srl_init_weak_hash(srl_encoder_t *enc)
+         .           {
+         .               enc->weak_seenhash = PTABLE_new_size(3);
+         .               return enc->weak_seenhash;
+         .           }
+-- line 1188 ----------------------------------------
+-- line 1199 ----------------------------------------
+         .           {
+         .               enc->string_deduper_hv = newHV();
+         .               return enc->string_deduper_hv;
+         .           }
+         .           
+         .           
+         .           void
+         .           srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src, const U32 compress_flags)
+   260,000 ( 0.04%)  {
+         .               /* 4th to 8th bit are flags. Using 4th for snappy flag. FIXME needs to go in spec. */
+         .           
+         .               U8 flags= srl_get_compression_header_flag(compress_flags);
+    60,000 ( 0.01%)      const U8 version_and_flags = (U8)enc->protocol_version | flags;
+         .           
+         .               /* 4 byte magic string + proto version
+         .                * + potentially uncompressed size varint
+         .                * +  1 byte varint that indicates zero-length header */
+   120,000 ( 0.02%)      BUF_SIZE_ASSERT(&enc->buf, sizeof(SRL_MAGIC_STRING) + 1 + 1);
+    40,000 ( 0.01%)      if (expect_true( enc->protocol_version > 2 ))
+         .                 srl_buf_cat_str_s_nocheck(&enc->buf, SRL_MAGIC_STRING_HIGHBIT);
+         .               else
+         .                 srl_buf_cat_str_s_nocheck(&enc->buf, SRL_MAGIC_STRING);
+         .               srl_buf_cat_char_nocheck(&enc->buf, version_and_flags);
+    40,000 ( 0.01%)      if (user_header_src == NULL) {
+         .                   srl_buf_cat_char_nocheck(&enc->buf, '\0'); /* variable header length (0 right now) */
+         .               }
+         .               else {
+         .                   STRLEN user_data_len;
+         .           
+         .                   if (expect_false( enc->protocol_version < 2 ))
+         .                       croak("Cannot serialize user header data in Sereal protocol V1 mode!");
+         .           
+-- line 1230 ----------------------------------------
+-- line 1251 ----------------------------------------
+         .                   /* Encode bitfield */
+         .                   srl_buf_cat_char_nocheck(&enc->buf, '\1');
+         .                   /* Copy user header data */
+         .                   Copy(enc->tmp_buf.start, enc->buf.pos, user_data_len, char);
+         .                   enc->buf.pos += user_data_len;
+         .           
+         .                   enc->tmp_buf.pos = enc->tmp_buf.start; /* reset tmp buffer just to be clean */
+         .               }
+   220,000 ( 0.03%)  }
+         .           
+         .           /* The following is to handle the fact that under normal build options
+         .            * VC6 will compare all floating point at 80 bits of precision, regardless
+         .            * regardless of the type.
+         .            * By setting the vars to "volatile" we avoid this behavior.
+         .            * Hopefully this fixes various remaining Win32 test failures we see.
+         .            *
+         .            * Note this patch could not have been written without Bulk88's help.
+-- line 1267 ----------------------------------------
+-- line 1333 ----------------------------------------
+         .                   enc->buf.pos += sizeof(nv);
+         .               }
+         .           }
+         .           
+         .           
+         .           /* Code for serializing any SINGLE integer type */
+         .           SRL_STATIC_INLINE void
+         .           srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
+ 6,160,000 ( 0.95%)  {
+         .               char hdr;
+         .               /* TODO for the time being, we just won't ever use NUMLIST types because that's
+         .                *      a fair amount of extra implementation work. The decoders won't care and
+         .                *      we're just wasting some space. */
+         .               /* TODO optimize! */
+         .           
+         .               /* The caller has already fetched magic. Use that same value for the
+         .                * sign check and payload instead of invoking FETCH again. */
+ 7,160,000 ( 1.10%)      if (expect_true( SvIOK_UV(src) || SvIV_nomg(src) >= 0 )) {
+         .                   const UV num = SvUV_nomg(src);
+ 2,120,000 ( 0.33%)          if (num <= 15) {
+         .                       /* encodable as POS */
+         .                       hdr = SRL_HDR_POS_LOW | (unsigned char)num;
+         .                       srl_buf_cat_char(&enc->buf, hdr);
+         .                   }
+         .                   else {
+         .                       srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_VARINT, num);
+         .                   }
+         .               }
+         .               else {
+         .                   const IV num = SvIV_nomg(src);
+    40,000 ( 0.01%)          if (num >= -16) {
+         .                       /* encodable as NEG */
+         .                       hdr = SRL_HDR_NEG_LOW | ((unsigned char)num + 32);
+         .                       srl_buf_cat_char(&enc->buf, hdr);
+         .                   }
+         .                   else {
+    40,000 ( 0.01%)              if (enc->protocol_version >= 6) {
+         .                           /* NEG_VARINT stores the absolute value as an unsigned varint. */
+         .                           const UV magnitude = (UV)(-(num + 1)) + 1;
+         .                           srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_NEG_VARINT, magnitude);
+         .                       } else {
+         .                           /* Protocol versions through 5 use ZIGZAG for large negatives. */
+         .                           srl_buf_cat_zigzag(aTHX_ &enc->buf, SRL_HDR_ZIGZAG, num);
+         .                       }
+         .                   }
+         .               }
+ 5,280,000 ( 0.81%)  }
+         .           
+         .           /* Decide whether the given class is allowed to have its FREEZE method invoked,
+         .            * according to the freeze_allow_classes option. Returns true when no allow-list
+         .            * is configured (the default), so ordinary encoding is unaffected. */
+         .           SRL_STATIC_INLINE int
+         .           srl_freeze_class_allowed(pTHX_ srl_encoder_t *enc, HV *stash, SV *src, SV *referent)
+         .           {
+         .               const char *classname;
+-- line 1387 ----------------------------------------
+-- line 1442 ----------------------------------------
+         .            * If the return value is not NULL, then it's the actual object content that
+         .            * needs to be serialized by the caller. */
+         .           SRL_STATIC_INLINE SV *
+         .           srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
+         .           {
+         .               assert(SvROK(src) && SvOBJECT(referent));
+         .           
+         .               /* Check for FREEZE support */
+ 1,380,000 ( 0.21%)      if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT) )) {
+         .                   HV *stash = SvSTASH(referent);
+         .                   GV *method = NULL;
+         .                   assert(stash != NULL);
+         .                   method = gv_fetchmethod_autoload(stash, "FREEZE", 0);
+         .           
+         .                   if (expect_false( method != NULL )) {
+         .                       SV *replacement= NULL;
+         .                       PTABLE_t *freezeobj_svhash;
+-- line 1458 ----------------------------------------
+-- line 1523 ----------------------------------------
+         .            * Caller then has to output the actual reference payload.
+         .            * If it returns 1 it means the classname was written out and should NOT
+         .            * be overwritten by the ref rewrite logic (which handles REFP).
+         .            * If it returns 0 it means no classname was output. */
+         .           SRL_STATIC_INLINE int
+         .           srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement)
+         .           {
+         .               /* Check that we actually want to support objects */
+   920,000 ( 0.14%)      if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_CROAK_ON_BLESS)) ) {
+         .                   croak("Attempted to serialize blessed reference. Serializing objects "
+         .                           "using Sereal::Encoder was explicitly disabled using the "
+         .                           "'croak_on_bless' option.");
+   920,000 ( 0.14%)      } else if (expect_false( SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS) )) {
+         .                   return 0;
+         .               } else {
+ 1,380,000 ( 0.21%)          const HV *stash = SvSTASH(referent);
+ 1,380,000 ( 0.21%)          PTABLE_t *string_seenhash = SRL_GET_STR_PTR_SEENHASH(enc);
+   460,000 ( 0.07%)          svtype svt= SvTYPE(referent);
+   460,000 ( 0.07%)          int is_av_or_hv= (svt == SVt_PVAV || svt== SVt_PVHV);
+         .                   ptrdiff_t oldoffset= is_av_or_hv
+         .                                      ? 0
+   920,000 ( 0.14%)                             : (ptrdiff_t)PTABLE_fetch(string_seenhash, SRL_CLASS_ID(referent));
+         .           
+         .                   if (oldoffset) {
+         .                       return 0;
+         .                   } else {
+   920,000 ( 0.14%)              svt= replacement ? SvTYPE(replacement) : SvTYPE(referent);
+         .                       if (SRL_UNSUPPORTED_SvTYPE(svt)) {
+         .                           return 0;
+         .                       }
+ 1,380,000 ( 0.21%)              oldoffset= (ptrdiff_t)PTABLE_fetch(string_seenhash, SRL_CLASS_ID(stash));
+         .                   }
+         .           
+   800,000 ( 0.12%)          if (oldoffset != 0) {
+         .                       /* Issue COPY instead of literal class name string */
+ 2,400,000 ( 0.37%)              srl_buf_cat_varint(aTHX_ &enc->buf,
+15,000,000 ( 2.30%)  => /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_buffer.h:srl_buf_cat_varint (400,000x)
+         .                                                expect_false(replacement) ? SRL_HDR_OBJECTV_FREEZE : SRL_HDR_OBJECTV,
+         .                                                (UV)oldoffset);
+         .                   }
+         .                   else {
+   660,000 ( 0.10%)              const char *class_name = HvNAME_get(stash);
+   240,000 ( 0.04%)              const size_t len = HvNAMELEN_get(stash);
+         .           
+         .                       /* First save this new string (well, the HV * that it is represented by) into the string
+         .                        * dedupe table.
+         .                        * By saving the ptr to the HV, we only dedupe class names with class names, though
+         .                        * this seems a small price to pay for not having to keep a full string table.
+         .                        * At least, we can safely use the same PTABLE to store the ptrs to hashkeys since
+         .                        * the set of pointers will never collide.
+         .                        * /me bows to Yves for the delightfully evil hack. */
+   420,000 ( 0.06%)              srl_buf_cat_char(&enc->buf, expect_false(replacement) ? SRL_HDR_OBJECT_FREEZE : SRL_HDR_OBJECT);
+ 1,320,000 ( 0.20%)  => /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_buffer.h:srl_buf_cat_char_int (60,000x)
+         .           
+         .                       /* remember current offset before advancing it */
+   300,000 ( 0.05%)              PTABLE_store(string_seenhash, SRL_CLASS_ID(stash), INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
+ 7,860,270 ( 1.21%)  => /tmp/sereal-iteration/debug-current/Perl/Encoder/ptable.h:PTABLE_store.isra.0 (60,000x)
+   180,000 ( 0.03%)              if (SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_HAS_CALLBACKS))
+         .                           srl_callback_hold(aTHX_ enc, (SV *)stash);
+         .           
+         .                       /* HvNAMEUTF8 not in older perls and it would be 0 for those anyway */
+         .           #if PERL_VERSION >= 16
+ 1,140,000 ( 0.18%)              srl_dump_pv(aTHX_ enc, class_name, len, HvNAMEUTF8(stash));
+ 3,480,973 ( 0.53%)  => /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c:srl_dump_pv (60,000x)
+         .           #else
+         .                       srl_dump_pv(aTHX_ enc, class_name, len, 0);
+         .           #endif
+         .                   }
+   920,000 ( 0.14%)          if (is_av_or_hv) {
+         .                       return 0;
+         .                   } else {
+         .                       /* use the string_seenhash to track which items we have seen before */
+   460,000 ( 0.07%)              PTABLE_store(string_seenhash, SRL_CLASS_ID(referent), INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
+         .                       if (SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_HAS_CALLBACKS))
+         .                           srl_callback_hold(aTHX_ enc, referent);
+         .                       return 1;
+         .                   }
+         .               }
+         .               return 0;
+         .           }
+         .           
+-- line 1599 ----------------------------------------
+-- line 1603 ----------------------------------------
+         .            * routine with Perl. */
+         .           SRL_STATIC_INLINE srl_encoder_t *
+         .           srl_prepare_encoder(pTHX_ srl_encoder_t *enc)
+         .           {
+         .               /* Check whether encoder is in use and create a new one on the
+         .                * fly if necessary. Should only happen in edge cases such as
+         .                * FREEZE hooks that serialize things using the same encoder
+         .                * object. */
+   100,000 ( 0.02%)      if (SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY)) {
+         .                   srl_encoder_t * const proto = enc;
+         .                   enc = srl_build_encoder_struct_alike(aTHX_ proto);
+         .                   SRL_ENC_RESET_OPTION(enc, SRL_F_REUSE_ENCODER);
+         .               }
+         .               /* Set to being in use */;
+    40,000 ( 0.01%)      SRL_ENC_SET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);
+         .           
+         .               /* Register our structure for destruction on scope exit */
+    60,000 ( 0.01%)      SAVEDESTRUCTOR_X(&srl_destructor_hook, (void *)enc);
+   340,000 ( 0.05%)  => ???:0x0000000005168080 (20,000x)
+         .           
+         .               return enc;
+         .           }
+         .           
+         .           SRL_STATIC_INLINE srl_encoder_t *
+         .           srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
+         .           {
+         .               U32 compress_flags;
+         .           
+         .               enc = srl_prepare_encoder(aTHX_ enc);
+    20,000 ( 0.00%)      enc->root_src = src;
+    20,000 ( 0.00%)      enc->header_src = user_header_src;
+    40,000 ( 0.01%)      if (enc->checksum_policy == SRL_CHECKSUM_POLICY_REQUIRE && !enc->checksum_key_mask)
+         .                   croak("checksum_policy 'require_key' needs a 'checksum_v0_key', 'checksum_v1_key', or 'checksum_v2_key' to encode");
+    20,000 ( 0.00%)      compress_flags= SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_FLAGS_MASK);
+         .           
+    60,000 ( 0.01%)      if (expect_false(compress_flags))
+         .               { /* Have some sort of compression */
+         .                   ptrdiff_t sereal_header_len;
+         .                   STRLEN uncompressed_body_length;
+         .                   const STRLEN max_len = (1L << 32) - 1;
+         .           
+         .                   /* Alas, have to write entire packet first since the header length
+         .                    * will determine offsets. */
+         .                   srl_write_header(aTHX_ enc, user_header_src, compress_flags);
+-- line 1645 ----------------------------------------
+-- line 1665 ----------------------------------------
+         .                                         &enc->snappy_workmem);
+         .           
+         .                       SRL_ENC_UPDATE_BODY_POS(enc);
+         .                       DEBUG_ASSERT_BUF_SANE(&enc->buf);
+         .                   }
+         .               } /* End of "want compression?" */
+         .               else
+         .               {
+    80,000 ( 0.01%)          srl_write_header(aTHX_ enc, user_header_src, compress_flags);
+ 1,260,884 ( 0.19%)  => ???:0x00000000051671e0 (20,000x)
+   100,000 ( 0.02%)          SRL_ENC_UPDATE_BODY_POS(enc);
+         .                   srl_dump_sv(aTHX_ enc, src);
+         .                   srl_fixup_weakrefs(aTHX_ enc);
+         .               }
+         .           
+    40,000 ( 0.01%)      if (enc->checksum_key_mask)
+         .                   srl_protect_packet(aTHX_ enc);
+         .           
+         .               /* NOT doing a
+         .                *   SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY);
+         .                * here because we're relying on the SAVEDESTRUCTOR_X call. */
+         .               return enc;
+         .           }
+         .           
+         .           SV *
+         .           srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src, const U32 flags)
+   240,000 ( 0.04%)  {
+         .               assert(enc);
+         .               enc = srl_dump_data_structure(aTHX_ enc, src, user_header_src);
+         .               assert(enc->buf.start && enc->buf.pos && enc->buf.pos > enc->buf.start);
+         .           
+    60,000 ( 0.01%)      if ( flags && /* for now simpler and equivalent to: flags == SRL_ENC_SV_REUSE_MAYBE */
+    40,000 ( 0.01%)           (BUF_POS_OFS(&enc->buf) > 20 && BUF_SPACE(&enc->buf) < BUF_POS_OFS(&enc->buf) )
+         .               ){
+         .                   /* If not wasting more than 2x memory - FIXME fungible */
+         .                   SV *sv = sv_2mortal(newSV_type(SVt_PV));
+         .                   BUF_SIZE_ASSERT(&enc->buf, 1);
+         .                   *enc->buf.pos = '\0'; /* terminate the PV without adding to the packet */
+         .                   SvPV_set(sv, (char *) enc->buf.start);
+         .                   SvLEN_set(sv, BUF_SIZE(&enc->buf));
+         .                   SvCUR_set(sv, BUF_POS_OFS(&enc->buf));
+         .                   SvPOK_on(sv);
+         .                   enc->buf.start = enc->buf.pos = NULL; /* no need to free these guys now */
+         .                   return sv;
+         .               }
+         .           
+   120,000 ( 0.02%)      return sv_2mortal(newSVpvn((char *)enc->buf.start, (STRLEN)BUF_POS_OFS(&enc->buf)));
+ 5,360,000 ( 0.82%)  => ???:0x00000000051681a0 (20,000x)
+   440,597 ( 0.07%)  => ???:0x0000000005167ce0 (20,000x)
+   140,000 ( 0.02%)  }
+         .           
+         .           SRL_STATIC_INLINE void
+         .           srl_fixup_weakrefs(pTHX_ srl_encoder_t *enc)
+         .           {
+    20,000 ( 0.00%)      PTABLE_t *weak_seenhash = SRL_GET_WEAK_SEENHASH_OR_NULL(enc);
+    40,000 ( 0.01%)      if (!weak_seenhash)
+         .                   return;
+         .           
+         .               {
+         .                   PTABLE_ITER_t *it = PTABLE_iter_new(weak_seenhash);
+         .                   PTABLE_ENTRY_t *ent;
+         .           
+         .                   /* we now walk the weak_seenhash and set any tags it points
+         .                    * at to the PAD opcode, this basically turns the first weakref
+-- line 1725 ----------------------------------------
+-- line 1796 ----------------------------------------
+         .                   BUF_SIZE_ASSERT((b), 2 + SRL_MAX_VARINT_LENGTH + (2 * ASSUME_BYTES_PER_TAG * (n) ) )
+         .           
+         .           SRL_STATIC_INLINE void
+         .           srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
+         .           {
+         .               UV n;
+         .               SV **svp;
+         .               srl_encoder_frame frame;
+   520,000 ( 0.08%)      int magic = SvRMAGICAL(src) && (mg_find((SV *)src, PERL_MAGIC_tied)
+         .                                               || mg_find((SV *)src, PERL_MAGIC_regdata));
+         .           
+         .               srl_frame_push(enc, &frame, (SV *)src);
+         .               if (magic)
+         .                   srl_callback_begin(aTHX_ enc, NULL, NULL);
+ 1,560,000 ( 0.24%)      n = av_len(src)+1;
+   160,557 ( 0.02%)  => ???:0x0000000005167410 (20,000x)
+         .               if (magic)
+         .                   srl_callback_end(aTHX_ enc);
+         .           
+         .               /* heuristic: n is virtually the min. size of any element */
+ 2,080,004 ( 0.32%)      BUF_SIZE_ASSERT_AV(&enc->buf, n);
+         .           
+ 1,480,000 ( 0.23%)      if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
+         .                   enc->buf.pos--; /* backup over previous REFN */
+   480,000 ( 0.07%)          srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_ARRAYREF + n);
+         .               } else {
+         .                   /* header and num. elements */
+         .                   srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_ARRAY, n);
+         .               }
+   520,000 ( 0.08%)      if (n) {
+         .                   UV i;
+   440,000 ( 0.07%)          if (magic) {
+         .                       for (i = 0; i < n; i++) {
+         .                           SV *value;
+         .                           srl_callback_begin(aTHX_ enc, NULL, NULL);
+         .                           svp = av_fetch(src, i, 0);
+         .                           srl_callback_end(aTHX_ enc);
+         .                           value = svp ? *svp : NULL;
+         .                           CALL_SRL_DUMP_SV(enc, value);
+         .                       }
+         .                   } else {
+   220,000 ( 0.03%)              svp = AvARRAY(src);
+ 3,800,000 ( 0.58%)              for (i = 0; i < n; i++) {
+19,340,000 ( 2.97%)                  CALL_SRL_DUMP_SV(enc, svp[i]);
+72,720,000 (11.17%)  => /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c:srl_dump_ivuv (880,000x)
+         .                       }
+         .                   }
+         .               }
+ 1,000,000 ( 0.15%)      enc->frames = frame.parent;
+   500,000 ( 0.08%)  }
+         .           
+         .           /* Magical container APIs may enter Perl before returning their borrowed SV. */
+         .           SRL_STATIC_INLINE void
+         .           srl_hv_iterinit(pTHX_ srl_encoder_t *enc, HV *hash)
+         .           {
+         .               int magic = SvMAGICAL(hash);
+         .               if (magic) srl_callback_begin(aTHX_ enc, NULL, NULL);
+         .               (void)hv_iterinit(hash);
+-- line 1851 ----------------------------------------
+-- line 1871 ----------------------------------------
+         .               if (magic) srl_callback_begin(aTHX_ enc, NULL, NULL);
+         .               value = hv_iterval(hash, entry);
+         .               if (magic) srl_callback_end(aTHX_ enc);
+         .               return value;
+         .           }
+         .           
+         .           SRL_STATIC_INLINE void
+         .           srl_dump_hv_unsorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, UV n)
+ 2,880,000 ( 0.44%)  {
+   240,000 ( 0.04%)      HE *he = NULL;
+   240,000 ( 0.04%)      const int do_share_keys = HvSHAREKEYS((SV *)src);
+   240,000 ( 0.04%)      HE **he_ptr= HvARRAY(src);
+ 1,200,000 ( 0.18%)      HE **he_end= he_ptr + HvMAX(src) + 1;
+   720,000 ( 0.11%)      enc->frames->cursor = &he;
+         .           
+         .               do {
+12,540,000 ( 1.93%)          for (he= *he_ptr++; he; he= HeNEXT(he) ) {
+         .                       SV *v= HeVAL(he);
+ 1,880,000 ( 0.29%)              if (v != &PL_sv_placeholder) {
+         .                           srl_dump_hk(aTHX_ enc, he, do_share_keys);
+ 1,880,000 ( 0.29%)                  v = HeVAL(he);
+13,020,000 ( 2.00%)                  CALL_SRL_DUMP_SV(enc, v);
+18,481,896 ( 2.84%)  => /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c:srl_dump_svpv (240,000x)
+ 4,640,000 ( 0.71%)  => /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c:srl_dump_sv (40,000x)
+ 1,880,000 ( 0.29%)                  if (--n == 0) {
+   480,000 ( 0.07%)                      he_ptr= he_end;
+         .                               break;
+         .                           }
+         .                       }
+         .                   }
+ 3,360,000 ( 0.52%)      } while ( he_ptr < he_end );
+   720,000 ( 0.11%)      if (n)
+         .                   croak("Sereal: input hash was modified during encoding");
+ 2,640,000 ( 0.41%)  }
+         .           
+         .           SRL_STATIC_INLINE void
+         .           srl_dump_hv_unsorted_mg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
+         .           {
+         .               HE *he = NULL;
+         .               UV i= 0;
+         .               const int do_share_keys = HvSHAREKEYS((SV *)src);
+         .               enc->frames->cursor = &he;
+-- line 1910 ----------------------------------------
+-- line 2163 ----------------------------------------
+         .           
+         .           SRL_STATIC_INLINE void
+         .           srl_dump_hv(pTHX_ srl_encoder_t *enc, HV *src, U32 refcount)
+         .           {
+         .               HE *he = NULL;
+         .               UV n;
+         .               srl_encoder_frame frame;
+         .               srl_frame_push(enc, &frame, (SV *)src);
+   480,000 ( 0.07%)      frame.cursor = NULL;
+         .               frame.sorted = NULL;
+   480,000 ( 0.07%)      if ( SvMAGICAL(src) && mg_find((SV *)src, PERL_MAGIC_tied) ) {
+         .                   /* for tied hashes, we have to iterate to find the number of entries. Alas... */
+         .                   n= 0;
+         .                   srl_hv_iterinit(aTHX_ enc, src); /* return value not reliable according to API docs */
+         .                   while ((he = srl_hv_iternext(aTHX_ enc, src))) { ++n; }
+         .               }
+         .               else {
+   960,000 ( 0.15%)          n= HvUSEDKEYS(src);
+         .               }
+         .           
+ 1,680,028 ( 0.26%)      BUF_SIZE_ASSERT_HV(&enc->buf, n);
+     2,189 ( 0.00%)  => /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_buffer.h:srl_buf_grow_nocheck (4x)
+ 1,000,000 ( 0.15%)      if (n < 16 && refcount == 1 && !SRL_ENC_HAVE_OPTION(enc,SRL_F_CANONICAL_REFS)) {
+    20,000 ( 0.00%)          enc->buf.pos--; /* backup over the previous REFN */
+    40,000 ( 0.01%)          srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_HASHREF + n);
+         .               } else {
+         .                   srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_HASH, n);
+         .               }
+         .           
+   480,000 ( 0.07%)      if ( n ) {
+ 1,680,000 ( 0.26%)          if ( SvMAGICAL(src) || SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS_PERL) ) {
+         .                       /* SORT_KEYS_PERL implies SORT_KEYS, but we check for either just to be
+         .                        * careful - yves*/
+         .                       if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS|SRL_F_SORT_KEYS_PERL) ) {
+         .                           srl_dump_hv_sv(aTHX_ enc, src, n, NULL);
+         .                       }
+         .                       else {
+         .                           srl_dump_hv_unsorted_mg(aTHX_ enc, src, n);
+         .                       }
+         .                   }
+         .                   else {
+   480,000 ( 0.07%)              if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_SORT_KEYS) ) {
+   720,000 ( 0.11%)                  srl_dump_hv_sorted_nomg(aTHX_ enc, src, n);
+         .                       }
+         .                       else {
+   240,000 ( 0.04%)                  srl_dump_hv_unsorted_nomg(aTHX_ enc, src, n);
+384,162,740 (59.01%)  => /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c:srl_dump_hv_unsorted_nomg (240,000x)
+         .                       }
+         .                   }
+         .               }
+   240,000 ( 0.04%)      enc->frames = frame.parent;
+         .           }
+         .           
+         .           
+         .           
+         .           /* Shared key strings are immutable, so their pointers can identify COPY
+         .            * targets. This table is separate from scalar-value alias deduplication. */
+         .           SRL_STATIC_INLINE int
+         .           srl_dump_shared_hk(pTHX_ srl_encoder_t *enc, HEK *hek)
+         .           {
+ 3,760,000 ( 0.58%)      PTABLE_t *seen = SRL_GET_STR_PTR_SEENHASH(enc);
+         .               const ptrdiff_t offset = (ptrdiff_t)PTABLE_fetch(seen, hek);
+ 1,880,000 ( 0.29%)      if (HEK_FLAGS(hek) & SRL_HVhek_NOTSHARED)
+         .                   return 0;
+ 1,440,000 ( 0.22%)      if (offset) {
+   720,000 ( 0.11%)          srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_COPY, (UV)offset);
+         .                   return 1;
+         .               }
+ 1,380,000 ( 0.21%)      PTABLE_store(seen, hek, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
+   440,000 ( 0.07%)      if (SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_HAS_CALLBACKS))
+         .                   srl_callback_hold_key(aTHX_ enc, hek);
+         .               return 0;
+         .           }
+         .           
+         .           SRL_STATIC_INLINE void
+         .           srl_dump_hk_pv(pTHX_ srl_encoder_t *enc, const char *str, STRLEN len, int is_utf8)
+         .           {
+         .               /* Keys share string definitions with values, but never enter the table
+         .                * of scalar values that can be aliased. Keep only literal COPY targets. */
+   880,000 ( 0.14%)      if (SRL_ENC_HAVE_OPTION(enc, SRL_F_DEDUPE_STRINGS)
+         .                   && SRL_ENC_HAVE_OPTION(enc, SRL_F_SHARED_HASHKEYS))
+         .               {
+         .                   HV *strings = SRL_GET_STR_DEDUPER_HV(enc);
+         .                   SV **entry = hv_fetch(strings, str, is_utf8 ? -(I32)len : (I32)len, 1);
+         .                   if (!entry)
+         .                       croak("out of memory (hv_fetch returned NULL)");
+         .                   if (SvIOK(*entry)) {
+         .                       srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_COPY, SvUV(*entry));
+-- line 2248 ----------------------------------------
+-- line 2269 ----------------------------------------
+         .           
+         .           SRL_STATIC_INLINE void
+         .           srl_dump_hk(pTHX_ srl_encoder_t *enc, HE *src, const int share_keys)
+         .           {
+         .               char *str;
+         .               STRLEN len;
+         .               char mode;
+         .           
+ 3,760,000 ( 0.58%)      if (HeKLEN(src) == HEf_SVKEY) {
+         .                   SV *sv = HeSVKEY(src);
+         .           
+         .                   srl_getmagic(aTHX_ enc, sv, NULL);
+         .                   str = SvPV_nomg(sv, len);
+         .                   mode= SvUTF8(sv) ? 1 : 0;
+         .           
+         .               }
+         .               else {
+   940,000 ( 0.14%)          str = HeKEY(src);
+         .                   /* This logic is an optimization for output space: We keep track of
+         .                    * all seen hash key strings that are in perl's shared string storage.
+         .                    * If we see one again, we just emit a COPY instruction.
+         .                    * This means that we only need to keep a ptr table since the strings
+         .                    * don't move in the shared key storage -- otherwise, we'd have to
+         .                    * compare strings / keep a full string hash table. */
+ 2,820,000 ( 0.43%)          if ( share_keys && SRL_ENC_HAVE_OPTION(enc, SRL_F_SHARED_HASHKEYS) /* only enter branch if shared hk's enabled */
+         .                        && !SRL_ENC_HAVE_OPTION(enc, SRL_F_DEDUPE_STRINGS)
+         .           #if PERL_VERSION >= 10
+ 3,760,000 ( 0.58%)               && (!DO_SHARED_HASH_ENTRY_REFCOUNT_CHECK
+         .                           || src->he_valu.hent_refcount > 1)
+         .           #endif
+         .                       )
+         .                   {
+         .                       if (srl_dump_shared_hk(aTHX_ enc, HeKEY_hek(src)))
+   720,000 ( 0.11%)                  return;
+         .                   }
+ 1,100,000 ( 0.17%)          len= HeKLEN(src);
+ 1,320,000 ( 0.20%)          mode= HeKWASUTF8(src) ? 2 :  HeKUTF8(src) ? 1 : 0;
+         .               }
+         .               if (mode == 2) { /* must convert back to utf8 */
+         .                   char* utf8= (char *)Perl_bytes_to_utf8(aTHX_ (U8 *)str, &len);
+         .                   srl_dump_hk_pv(aTHX_ enc, utf8, len, 1);
+         .                   Safefree(utf8);
+         .               } else {
+         .                   srl_dump_hk_pv(aTHX_ enc, str, len, mode);
+         .               }
+         .           }
+         .           
+         .           SRL_STATIC_INLINE void
+         .           srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src, int allow_alias)
+ 2,400,000 ( 0.37%)  {
+         .               STRLEN len;
+         .               const char *str= SvPV_nomg(src, len);
+   480,000 ( 0.07%)      if ( SRL_ENC_HAVE_OPTION(enc, SRL_F_DEDUPE_STRINGS) && len > 3 ) {
+         .                   HV *string_deduper_hv= SRL_GET_STR_DEDUPER_HV(enc);
+         .                   HE *dupe_offset_he;
+         .           
+         .                   if (SvGMAGICAL(src)) {
+         .                       /* Hashing a magical SV would invoke FETCH again after its PV and
+         .                        * length were captured. Hash the same bytes and UTF-8 flag that
+         .                        * will be emitted, without calling user code a second time. */
+         .                       SV *snapshot = sv_2mortal(newSVpvn(str, len));
+-- line 2329 ----------------------------------------
+-- line 2365 ----------------------------------------
+         .                           return;
+         .                       } else {
+         .                           /* start tracking this string */
+         .                           sv_setuv(ofs_sv, (UV)BODY_POS_OFS(&enc->buf));
+         .                       }
+         .                   }
+         .               }
+         .               srl_dump_pv(aTHX_ enc, str, len, SvUTF8(src));
+ 2,640,000 ( 0.41%)  }
+         .           
+         .           SRL_STATIC_INLINE void
+         .           srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8)
+   660,000 ( 0.10%)  {
+ 4,120,012 ( 0.63%)      BUF_SIZE_ASSERT(&enc->buf, 1 + SRL_MAX_VARINT_LENGTH + src_len); /* overallocate a bit sometimes */
+ 1,040,000 ( 0.16%)      if (is_utf8) {
+         .                   srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_STR_UTF8, src_len);
+ 1,040,000 ( 0.16%)      } else if (src_len <= SRL_MASK_SHORT_BINARY_LEN) {
+   840,000 ( 0.13%)          srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_SHORT_BINARY_LOW | (char)src_len);
+         .               } else {
+         .                   srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_BINARY, src_len);
+         .               }
+         .               Copy(src, enc->buf.pos, src_len, char);
+   520,000 ( 0.08%)      enc->buf.pos += src_len;
+   480,000 ( 0.07%)  }
+         .           
+         .           static void
+         .           srl_dump_vstring(pTHX_ srl_encoder_t *enc, SV *src, int allow_alias)
+         .           {
+         .               STRLEN len;
+         .               const char *spelling;
+         .               const U8 ext_tag = SvUTF8(src) ? SRL_EXT_VSTRING_UTF8 : SRL_EXT_VSTRING_BINARY;
+         .           #ifdef SvVSTRING
+-- line 2396 ----------------------------------------
+-- line 2464 ----------------------------------------
+         .           /* TODO decide when to use the IV, when to use the PV, and when
+         .            *      to use the NV slots of the SV.
+         .            *      Safest simple solution seems "prefer string" (fuck dualvars).
+         .            *      Potentially better but slower: If we would choose the string,
+         .            *      then try int-to-string (respective float-to-string) conversion
+         .            *      and strcmp. If same, then use int or float.
+         .            */
+         .           static void
+ 9,120,000 ( 1.40%)  srl_dump_sv(pTHX_ srl_encoder_t *enc, SV *src)
+         .           {
+         .               UV refcount;
+         .               svtype svt;
+         .               MAGIC *mg;
+         .               AV *backrefs;
+ 2,280,000 ( 0.35%)      SV* refsv= NULL;
+   760,000 ( 0.12%)      SV* replacement= NULL;
+   760,000 ( 0.12%)      UV weakref_ofs= 0;              /* preserved between loops */
+         .               UV weak_rewrite_ofs= 0;         /* WEAKEN tag for the current RV traversal */
+   760,000 ( 0.12%)      SSize_t ref_rewrite_pos= 0;      /* preserved between loops - note SSize_t is a perl define */
+         .               assert(src);
+         .           
+ 6,000,000 ( 0.92%)      if (expect_false( ++enc->recursion_depth == enc->max_recursion_depth )) {
+201,540,000 (30.96%)  => /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_encoder.c:srl_dump_sv.part.0'2 (460,000x)
+         .                   croak("Hit maximum recursion depth (%"UVuf"), aborting serialization",
+         .                         (UV)enc->max_recursion_depth);
+         .               }
+         .           
+         .           redo_dump:
+         .               mg= NULL;
+         .               backrefs= NULL;
+ 2,960,000 ( 0.45%)      svt = SvTYPE(src);
+ 1,480,000 ( 0.23%)      refcount = SvREFCNT(src);
+         .               DEBUG_ASSERT_BUF_SANE(&enc->buf);
+ 2,960,000 ( 0.45%)      if ( SvMAGICAL(src) ) {
+         .                   /* An aliased magical value already has its wire representation.
+         .                    * Do not FETCH it again merely to emit an ALIAS/REFP to that value. */
+         .                   if (SvGMAGICAL(src) && enc->ref_seenhash) {
+         .                       const ptrdiff_t offset = (ptrdiff_t)PTABLE_fetch(enc->ref_seenhash, src);
+         .                       if (offset) {
+         .                           if (ref_rewrite_pos) {
+         .                               enc->buf.pos = enc->buf.body_pos + ref_rewrite_pos;
+         .                               srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_REFP, (UV)offset);
+         .                           } else {
+         .                               srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_ALIAS, (UV)offset);
+         .                           }
+         .                           SRL_SET_TRACK_FLAG(*(enc->buf.body_pos + offset));
+   760,000 ( 0.12%)                  --enc->recursion_depth;
+         .                           return;
+         .                       }
+         .                   }
+         .                   srl_getmagic(aTHX_ enc, src, refsv);
+         .                   svt = SvTYPE(src);
+         .           #ifdef HAS_HV_BACKREFS
+         .                   if (svt != SVt_PVHV)
+         .           #endif
+         .                       mg = mg_find(src, PERL_MAGIC_backref);
+         .               }
+         .           #ifdef HAS_HV_BACKREFS
+ 4,800,000 ( 0.74%)      if (expect_false( svt == SVt_PVHV && SvOOK(src) )) {
+         .                   backrefs= srl_hv_backreferences_p_safe(aTHX_ (HV *)src);
+         .                   if (DEBUGHACK) warn("backreferences %p", src);
+         .               }
+         .           #endif
+         .               if (expect_false( mg || backrefs )) {
+         .                   PTABLE_t *weak_seenhash= SRL_GET_WEAK_SEENHASH(enc);
+         .                   PTABLE_ENTRY_t *pe= PTABLE_find(weak_seenhash, src);
+         .                   if (!pe) {
+-- line 2529 ----------------------------------------
+-- line 2538 ----------------------------------------
+         .                           pe->value= INT2PTR(void *, weakref_ofs);
+         .                   }
+         .                   refcount++;
+         .                   weakref_ofs= 0;
+         .               }
+         .           
+         .               /* check if we have seen this scalar before, and track it so
+         .                * if we see it again we recognize it */
+ 4,440,000 ( 0.68%)      if ( expect_false( refcount > 1 ) ) {
+ 1,760,000 ( 0.27%)          if (src == &PL_sv_undef && enc->protocol_version >=3 ) {
+         .                       srl_buf_cat_char(&enc->buf, SRL_HDR_CANONICAL_UNDEF);
+         .                       --enc->recursion_depth;
+         .                       return;
+         .                   }
+         .                   else
+   880,000 ( 0.14%)          if (src == &PL_sv_yes) {
+         .                       srl_buf_cat_char(&enc->buf, SRL_HDR_TRUE);
+         .                       --enc->recursion_depth;
+         .                       return;
+         .                   }
+         .                   else
+ 1,320,000 ( 0.20%)          if (src == &PL_sv_no) {
+         .                       srl_buf_cat_char(&enc->buf, SRL_HDR_FALSE);
+         .                       --enc->recursion_depth;
+         .                       return;
+         .                   }
+         .                   else {
+ 1,759,999 ( 0.27%)              PTABLE_t *ref_seenhash= SRL_GET_REF_SEENHASH(enc);
+         .                       const ptrdiff_t oldoffset = (ptrdiff_t)PTABLE_fetch(ref_seenhash, src);
+   440,000 ( 0.07%)              if (expect_false(oldoffset)) {
+         .                           /* we have seen it before, so we do not need to bless it again */
+   660,000 ( 0.10%)                  if (ref_rewrite_pos) {
+         .                               if (DEBUGHACK) warn("ref to %p as %"UVuf, src, (UV)oldoffset);
+   440,000 ( 0.07%)                      enc->buf.pos= enc->buf.body_pos + ref_rewrite_pos;
+ 1,320,000 ( 0.20%)                      srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_REFP, (UV)oldoffset);
+ 9,060,000 ( 1.39%)  => /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_buffer.h:srl_buf_cat_varint (220,000x)
+         .                           } else {
+         .                               if (DEBUGHACK) warn("alias to %p as %"UVuf, src, (UV)oldoffset);
+         .                               srl_buf_cat_varint(aTHX_ &enc->buf, SRL_HDR_ALIAS, (UV)oldoffset);
+         .                           }
+   440,000 ( 0.07%)                  SRL_SET_TRACK_FLAG(*(enc->buf.body_pos + oldoffset));
+   440,000 ( 0.07%)                  --enc->recursion_depth;
+   220,000 ( 0.03%)                  return;
+         .                       }
+         .                       if (DEBUGHACK) warn("storing %p as %"UVuf, src, (UV)BODY_POS_OFS(&enc->buf));
+   440,000 ( 0.07%)              PTABLE_store(ref_seenhash, src, INT2PTR(void *, BODY_POS_OFS(&enc->buf)));
+   440,000 ( 0.07%)              if (SRL_ENC_HAVE_OPER_FLAG(enc, SRL_OF_ENCODER_HAS_CALLBACKS))
+         .                           srl_callback_hold(aTHX_ enc, src);
+         .                   }
+         .               }
+         .           
+ 2,520,000 ( 0.39%)      if (expect_false( weakref_ofs != 0 )) {
+         .                   sv_dump(src);
+         .                   croak("Corrupted weakref? weakref_ofs should be 0, but got %"UVuf" (this should not happen)", weakref_ofs);
+         .               }
+         .           
+ 2,520,000 ( 0.39%)      if (replacement) {
+         .                   if (SvROK(replacement))  {
+         .                       src= SvRV(replacement);
+         .                   } else {
+         .                       src= replacement;
+         .                   }
+         .                   replacement= NULL;
+         .                   svt = SvTYPE(src);
+         .                   /* plus one ensures that later on we get REFN/ARRAY and not ARRAYREF - This is horrible tho. needs to be revisited another day */
+         .                   refcount= SvREFCNT(src) + 1;
+         .                   /* We could, but do not do the following:*/
+         .                   /* goto redo_dump; */
+         .                   /* Probably a "proper" solution would, but there are nits there that I dont want to chase right now. */
+         .               }
+         .           
+         .               /* --------------------------------- */
+ 6,300,000 ( 0.97%)      if (enc->protocol_version >= 6 && SvVOK(src)) {
+         .                   srl_dump_vstring(aTHX_ enc, src, !ref_rewrite_pos);
+         .               }
+15,120,000 ( 2.32%)      else _SRL_IF_SIMPLE_DIRECT_DUMP_SV(enc, src, svt, !ref_rewrite_pos)
+         .               else
+         .           #if defined(MODERN_REGEXP) && defined(REGEXP_NO_LONGER_POK)
+         .               /* Only need to enter here if we have rather modern regexps AND they're
+         .                * NO LONGER POK (5.17.6 and up). */
+         .               if ( expect_false( svt == SVt_REGEXP ) ) {
+         .                   srl_dump_regexp(aTHX_ enc, src);
+         .               }
+         .               else
+         .           #endif
+ 2,520,000 ( 0.39%)      if (SvROK(src)) {
+         .                   /* dump references */
+ 1,440,000 ( 0.22%)          SV *referent= SvRV(src);
+         .                   weak_rewrite_ofs= 0;
+         .           /* assert()-like hack to be compiled out by default */
+         .           #ifndef NDEBUG
+         .                   if (!referent) {
+         .                       sv_dump(src);
+         .                       assert(referent);
+         .                   }
+         .           #endif
+ 2,160,000 ( 0.33%)          if (expect_false( SvWEAKREF(src) )) {
+         .                       if (DEBUGHACK) warn("Is weakref %p", src);
+         .                       weakref_ofs= BODY_POS_OFS(&enc->buf);
+         .                       weak_rewrite_ofs= weakref_ofs;
+         .                       srl_buf_cat_char(&enc->buf, SRL_HDR_WEAKEN);
+         .                   }
+         .           
+ 3,600,000 ( 0.55%)          ref_rewrite_pos= BODY_POS_OFS(&enc->buf);
+         .           
+ 1,440,000 ( 0.22%)          if ( expect_false( SvOBJECT(referent) ) ) {
+         .                       /* Write bless operator with class name */
+         .                       replacement= srl_get_frozen_object(aTHX_ enc, src, referent);
+         .                       if (srl_dump_classname(aTHX_ enc, referent, replacement)) {
+         .                           /* 1 means we should not rewrite away the classname */
+         .                           ref_rewrite_pos= BODY_POS_OFS(&enc->buf);
+         .                       }
+         .                   }
+         .           
+         .                   srl_buf_cat_char(&enc->buf, SRL_HDR_REFN);
+   720,000 ( 0.11%)          refsv= src;
+         .                   src= referent;
+         .           
+         .                   if (DEBUGHACK) warn("Going to redo %p", src);
+   720,000 ( 0.11%)          goto redo_dump;
+         .               }
+         .               else
+         .           #ifndef MODERN_REGEXP
+         .               if (
+         .                   svt == SVt_PVMG &&
+         .                   ((SvFLAGS(src) & (SVs_OBJECT|SVf_OK|SVs_GMG|SVs_SMG|SVs_RMG)) == (SVs_OBJECT|BFD_Svs_SMG_OR_RMG)) &&
+         .                   (mg = mg_find(src, PERL_MAGIC_qr))
+         .               ) {
+         .                   /* Houston, we have a regex! */
+         .                   srl_dump_regexp(aTHX_ enc, (SV*)mg); /* yes the SV* cast makes me feel dirty too */
+         .               }
+         .               else
+         .           #endif
+ 2,700,000 ( 0.41%)      if (svt == SVt_PVHV) {
+         .                   srl_dump_hv(aTHX_ enc, (HV *)src, refcount);
+         .               }
+         .               else
+   600,000 ( 0.09%)      if (svt == SVt_PVAV) {
+   260,000 ( 0.04%)          srl_dump_av(aTHX_ enc, (AV *)src, refcount);
+         .               }
+         .               else
+    80,000 ( 0.01%)      if ( ! SvOK(src) ) { /* undef and weird shit */
+   200,000 ( 0.03%)          if ( SRL_UNSUPPORTED_SvTYPE(svt) ) {
+         .                       /* we exclude magic, because magic sv's can be undef too */
+         .                       /* called when we find an unsupported type/reference. May either throw exception
+         .                        * or write ONE (nested or single) item to the buffer. */
+         .           #define SRL_HANDLE_UNSUPPORTED_SvTYPE(enc, src, svt, refsv, ref_rewrite_pos)                     \
+         .                       STMT_START {                                                                       \
+         .                           if ( SRL_ENC_HAVE_OPTION((enc), SRL_F_UNDEF_UNKNOWN) ) {                       \
+         .                               if (SRL_ENC_HAVE_OPTION((enc), SRL_F_WARN_UNKNOWN)) {                      \
+         .                                   srl_callback_begin(aTHX_ enc, src, refsv);                              \
+-- line 2687 ----------------------------------------
+-- line 2749 ----------------------------------------
+         .                               str = SvPV_nomg(stringified, len);                                              \
+         .                               srl_dump_pv(aTHX_ (enc), (str), len, SvUTF8(stringified));                  \
+         .                           }                                                                              \
+         .                           else {                                                                         \
+         .                               croak("Found type %u %s(0x%p), but it is not representable "               \
+         .                                     "by the Sereal encoding format", (svt), sv_reftype((src),0),(src));  \
+         .                           }                                                                              \
+         .                       } STMT_END
+   200,000 ( 0.03%)              SRL_HANDLE_UNSUPPORTED_SvTYPE(enc, src, svt, refsv, ref_rewrite_pos);
+   880,000 ( 0.14%)  => /tmp/sereal-iteration/debug-current/Perl/Encoder/srl_buffer.h:srl_buf_cat_char_int (40,000x)
+         .                   }
+   160,000 ( 0.02%)          else if (src == &PL_sv_undef && enc->protocol_version >= 3 ) {
+         .                       srl_buf_cat_char(&enc->buf, SRL_HDR_CANONICAL_UNDEF);
+         .                   } else {
+         .                       srl_buf_cat_char(&enc->buf, SRL_HDR_UNDEF);
+         .                   }
+         .               }
+         .               else {
+         .                   SRL_HANDLE_UNSUPPORTED_SvTYPE(enc, src, svt, refsv, ref_rewrite_pos);
+         .           #undef SRL_HANDLE_UNSUPPORTED_SvTYPE
+         .               }
+ 1,080,000 ( 0.17%)      --enc->recursion_depth;
+ 8,360,000 ( 1.28%)  }
+
+--------------------------------------------------------------------------------
+-- Auto-annotated source: /usr/include/x86_64-linux-gnu/bits/string_fortified.h
+--------------------------------------------------------------------------------
+Ir                 
+
+-- line 21 ----------------------------------------
+        .           #ifndef _STRING_H
+        .           # error "Never use <bits/string_fortified.h> directly; include <string.h> instead."
+        .           #endif
+        .           
+        .           __fortify_function void *
+        .           __NTH (memcpy (void *__restrict __dest, const void *__restrict __src,
+        .           	       size_t __len))
+        .           {
+2,100,000 ( 0.32%)    return __builtin___memcpy_chk (__dest, __src, __len,
+1,080,973 ( 0.17%)  => ???:0x00000000051679a0 (60,000x)
+        .           				 __glibc_objsize0 (__dest));
+        .           }
+        .           
+        .           __fortify_function void *
+        .           __NTH (memmove (void *__dest, const void *__src, size_t __len))
+        .           {
+        .             return __builtin___memmove_chk (__dest, __src, __len,
+        .           				  __glibc_objsize0 (__dest));
+-- line 37 ----------------------------------------
+
+--------------------------------------------------------------------------------
+-- Auto-annotated source: /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE/sv_inline.h
+--------------------------------------------------------------------------------
+Ir                 
+
+-- line 599 ----------------------------------------
+        .           =cut
+        .           */
+        .           
+        .           PERL_STATIC_INLINE void
+        .           Perl_SvGETMAGIC(pTHX_ SV *sv)
+        .           {
+        .               PERL_ARGS_ASSERT_SVGETMAGIC;
+        .           
+        3 ( 0.00%)      if (UNLIKELY(SvGMAGICAL(sv))) {
+        .                   mg_get(sv);
+        .               }
+        .           }
+        .           
+        .           PERL_STATIC_INLINE bool
+        .           Perl_SvTRUE(pTHX_ SV *sv)
+        .           {
+        .               PERL_ARGS_ASSERT_SVTRUE;
+-- line 615 ----------------------------------------
+-- line 666 ----------------------------------------
+        .           }
+        .           
+        .           PERL_STATIC_INLINE SV *
+        .           Perl_SvREFCNT_inc(SV *sv)
+        .           {
+        .               PERL_ARGS_ASSERT_SVREFCNT_INC;
+        .           
+        .               if (LIKELY(sv != NULL))
+   20,000 ( 0.00%)          SvREFCNT(sv)++;
+        .               return sv;
+        .           }
+        .           
+        .           PERL_STATIC_INLINE SV *
+        .           Perl_SvREFCNT_inc_NN(SV *sv)
+        .           {
+        .               PERL_ARGS_ASSERT_SVREFCNT_INC_NN;
+        .           
+-- line 682 ----------------------------------------
+-- line 693 ----------------------------------------
+        .                   SvREFCNT(sv)++;
+        .           }
+        .           
+        .           PERL_STATIC_INLINE void
+        .           Perl_SvREFCNT_dec(pTHX_ SV *sv)
+        .           {
+        .               PERL_ARGS_ASSERT_SVREFCNT_DEC;
+        .           
+        6 ( 0.00%)      if (LIKELY(sv != NULL)) {
+        1 ( 0.00%)          U32 rc = SvREFCNT(sv);
+        2 ( 0.00%)          if (LIKELY(rc > 1))
+        .                       SvREFCNT(sv) = rc - 1;
+        .                   else
+        2 ( 0.00%)              Perl_sv_free2(aTHX_ sv, rc);
+      636 ( 0.00%)  => ???:0x0000000005168040 (1x)
+        .               }
+        .           }
+        .           
+        .           PERL_STATIC_INLINE SV *
+        .           Perl_SvREFCNT_dec_ret_NULL(pTHX_ SV *sv)
+        .           {
+        .               PERL_ARGS_ASSERT_SVREFCNT_DEC_RET_NULL;
+        .               Perl_SvREFCNT_dec(aTHX_ sv);
+-- line 714 ----------------------------------------
+-- line 824 ----------------------------------------
+        .           =cut
+        .           */
+        .           
+        .           PERL_STATIC_INLINE IV
+        .           Perl_SvIV(pTHX_ SV *sv)
+        .           {
+        .               PERL_ARGS_ASSERT_SVIV;
+        .           
+   80,003 ( 0.01%)      if (SvIOK_nog(sv))
+   40,003 ( 0.01%)          return SvIVX(sv);
+        .               return sv_2iv(sv);
+        .           }
+        .           
+        .           PERL_STATIC_INLINE UV
+        .           Perl_SvUV(pTHX_ SV *sv)
+        .           {
+        .               PERL_ARGS_ASSERT_SVUV;
+        .           
+        3 ( 0.00%)      if (SvUOK_nog(sv))
+        .                   return SvUVX(sv);
+        2 ( 0.00%)      return sv_2uv(sv);
+      668 ( 0.00%)  => ???:0x00000000051672c0 (1x)
+        .           }
+        .           
+        .           PERL_STATIC_INLINE NV
+        .           Perl_SvNV(pTHX_ SV *sv)
+        .           {
+        .               PERL_ARGS_ASSERT_SVNV;
+        .           
+        .               if (SvNOK_nog(sv))
+-- line 852 ----------------------------------------
+-- line 854 ----------------------------------------
+        .               return sv_2nv(sv);
+        .           }
+        .           
+        .           PERL_STATIC_INLINE IV
+        .           Perl_SvIV_nomg(pTHX_ SV *sv)
+        .           {
+        .               PERL_ARGS_ASSERT_SVIV_NOMG;
+        .           
+1,760,000 ( 0.27%)      if (SvIOK(sv))
+  880,000 ( 0.14%)          return SvIVX(sv);
+        .               return sv_2iv_flags(sv, 0);
+        .           }
+        .           
+        .           PERL_STATIC_INLINE UV
+        .           Perl_SvUV_nomg(pTHX_ SV *sv)
+        .           {
+        .               PERL_ARGS_ASSERT_SVUV_NOMG;
+        .           
+        .               if (SvUOK(sv))
+  200,000 ( 0.03%)          return SvUVX(sv);
+4,240,000 ( 0.65%)      return sv_2uv_flags(sv, 0);
+7,200,000 ( 1.11%)  => ???:0x00000000051672c0 (180,000x)
+        .           }
+        .           
+        .           PERL_STATIC_INLINE NV
+        .           Perl_SvNV_nomg(pTHX_ SV *sv)
+        .           {
+        .               PERL_ARGS_ASSERT_SVNV_NOMG;
+        .           
+        .               if (SvNOK(sv))
+-- line 882 ----------------------------------------
+-- line 937 ----------------------------------------
+        .           {
+        .               PERL_ARGS_ASSERT_SVPV_HELPER;
+        .           
+        .               /* 'type' should be known at compile time, so this is reduced to a single
+        .                * conditional at runtime */
+        .               if (   (type == SvPVbyte_type_      && SvPOK_byte_nog(sv))
+        .                   || (type == SvPVforce_type_     && SvPOK_pure_nogthink(sv))
+        .                   || (type == SvPVutf8_type_      && SvPOK_utf8_nog(sv))
+2,400,004 ( 0.37%)          || (type == SvPVnormal_type_    && SvPOK_nog(sv))
+        .                   || (type == SvPVutf8_pure_type_ && SvPOK_utf8_pure_nogthink(sv))
+        .                   || (type == SvPVbyte_pure_type_ && SvPOK_byte_pure_nogthink(sv))
+        .              ) {
+        .                   if (lp) {
+1,640,000 ( 0.25%)              *lp = SvCUR(sv);
+        .                   }
+        .           
+        .                   /* Similarly 'return_flags is known at compile time, so this becomes
+        .                    * branchless */
+        .                   if (return_flags & SV_MUTABLE_RETURN) {
+        .                       return SvPVX_mutable(sv);
+        .                   }
+        .                   else if(return_flags & SV_CONST_RETURN) {
+        .                       return (char *) SvPVX_const(sv);
+        .                   }
+        .                   else {
+  960,002 ( 0.15%)              return SvPVX(sv);
+        .                   }
+        .               }
+        .           
+        .               if (or_null) {  /* This is also known at compile time */
+        .                   if (flags & SV_GMAGIC) {    /* As is this */
+        .                       SvGETMAGIC(sv);
+        .                   }
+        .           
+-- line 970 ----------------------------------------
+
+--------------------------------------------------------------------------------
+-- Auto-annotated source: /tmp/sereal-iteration/debug-current/Perl/Encoder/ptable.h
+--------------------------------------------------------------------------------
+Ir                  
+
+-- line 14 ----------------------------------------
+         .           #include "ppport.h"
+         .           
+         .           #if PTRSIZE == 8
+         .               /*
+         .                * This is one of Thomas Wang's hash functions for 64-bit integers from:
+         .                * http://www.concentric.net/~Ttwang/tech/inthash.htm
+         .                */
+         .               SRL_STATIC_INLINE U32 ptr_hash(PTRV u) {
+ 7,600,000 ( 1.17%)          u = (~u) + (u << 18);
+ 5,700,000 ( 0.88%)          u = u ^ (u >> 31);
+ 3,800,000 ( 0.58%)          u = u * 21;
+11,400,000 ( 1.75%)          u = u ^ (u >> 11);
+         .                   u = u + (u << 6);
+ 5,700,000 ( 0.88%)          u = u ^ (u >> 22);
+         .                   return (U32)u;
+         .               }
+         .           #else
+         .               /*
+         .                * This is one of Bob Jenkins' hash functions for 32-bit integers
+         .                * from: http://burtleburtle.net/bob/hash/integer.html
+         .                */
+         .               SRL_STATIC_INLINE U32 ptr_hash(PTRV u) {
+-- line 35 ----------------------------------------
+-- line 87 ----------------------------------------
+         .           SRL_STATIC_INLINE PTABLE_ENTRY_t * PTABLE_iter_next(PTABLE_ITER_t *iter);
+         .           SRL_STATIC_INLINE void PTABLE_iter_free(PTABLE_ITER_t *iter);
+         .           
+         .           /* create a new pointer => pointer table */
+         .           SRL_STATIC_INLINE PTABLE_t *
+         .           PTABLE_new_size(const U8 size_base2_exponent)
+         .           {
+         .               PTABLE_t *tbl;
+         7 ( 0.00%)      Newxz(tbl, 1, PTABLE_t);
+       375 ( 0.00%)  => ???:0x0000000005167b00 (2x)
+         4 ( 0.00%)      tbl->tbl_max = (1 << size_base2_exponent) - 1;
+         .               tbl->tbl_items = 0;
+         3 ( 0.00%)      tbl->cur_iter = NULL;
+        10 ( 0.00%)      Newxz(tbl->tbl_ary, tbl->tbl_max + 1, PTABLE_ENTRY_t*);
+       646 ( 0.00%)  => ???:0x0000000005167b00 (2x)
+         .               return tbl;
+         .           }
+         .           
+         .           SRL_STATIC_INLINE PTABLE_t *
+         .           PTABLE_new(void)
+         .           {
+         .               return PTABLE_new_size(9);
+         .           }
+         .           
+         .           /* map an existing pointer using a table */
+         .           SRL_STATIC_INLINE PTABLE_ENTRY_t *
+         .           PTABLE_find(PTABLE_t *tbl, const void *key) {
+         .               PTABLE_ENTRY_t *tblent;
+         .               const UV hash = PTABLE_HASH(key);
+ 7,420,000 ( 1.14%)      tblent = tbl->tbl_ary[hash & tbl->tbl_max];
+ 6,200,000 ( 0.95%)      for (; tblent; tblent = tblent->next) {
+ 4,120,000 ( 0.63%)          if (tblent->key == key)
+         .                       return tblent;
+         .               }
+         .               return NULL;
+   400,000 ( 0.06%)  }
+         .           
+         .           SRL_STATIC_INLINE void *
+         .           PTABLE_fetch(PTABLE_t *tbl, const void *key)
+         .           {
+ 1,840,000 ( 0.28%)      PTABLE_ENTRY_t const *const tblent = PTABLE_find(tbl, key);
+12,680,000 ( 1.95%)  => /tmp/sereal-iteration/debug-current/Perl/Encoder/ptable.h:PTABLE_find.isra.0 (460,000x)
+ 2,260,000 ( 0.35%)      return tblent ? tblent->value : NULL;
+         .           }
+         .           
+         .           /* double the hash bucket size of an existing ptr table */
+         .           
+         .           SRL_STATIC_INLINE void
+         .           PTABLE_grow(PTABLE_t *tbl)
+         .           {
+         .               PTABLE_ENTRY_t **ary = tbl->tbl_ary;
+-- line 134 ----------------------------------------
+-- line 157 ----------------------------------------
+         .                       }
+         .                   }
+         .               }
+         .           }
+         .           
+         .           /* add a new entry to a pointer => pointer table */
+         .           
+         .           SRL_STATIC_INLINE PTABLE_ENTRY_t *
+   600,000 ( 0.09%)  PTABLE_store(PTABLE_t *tbl, void *key, void *value)
+         .           {
+         .               PTABLE_ENTRY_t *tblent = PTABLE_find(tbl, key);
+         .           
+   180,000 ( 0.03%)      if (tblent) {
+         .                   tblent->value = value;
+         .               } else {
+         .                   const UV entry = PTABLE_HASH(key) & tbl->tbl_max;
+ 2,100,000 ( 0.32%)          Newx(tblent, 1, PTABLE_ENTRY_t);
+ 4,500,270 ( 0.69%)  => ???:0x0000000005167780 (60,000x)
+         .           
+   500,000 ( 0.08%)          tblent->key = key;
+   720,000 ( 0.11%)          tblent->value = value;
+ 2,380,000 ( 0.37%)          tblent->next = tbl->tbl_ary[entry];
+   500,000 ( 0.08%)          tbl->tbl_ary[entry] = tblent;
+ 1,500,000 ( 0.23%)          tbl->tbl_items++;
+ 1,360,000 ( 0.21%)          if (tblent->next && (tbl->tbl_items > tbl->tbl_max))
+         .                       PTABLE_grow(tbl);
+         .               }
+         .           
+         .               return tblent;
+   480,000 ( 0.07%)  }
+         .           
+         .           
+         .           /* remove all the entries from a ptr table */
+         .           
+         .           SRL_STATIC_INLINE void
+         .           PTABLE_clear(PTABLE_t *tbl)
+         .           {
+    80,004 ( 0.01%)      if (tbl && tbl->tbl_items) {
+    40,000 ( 0.01%)          register PTABLE_ENTRY_t * * const array = tbl->tbl_ary;
+    80,000 ( 0.01%)          UV riter = tbl->tbl_max;
+         .           
+         .                   do {
+   640,000 ( 0.10%)              PTABLE_ENTRY_t *entry = array[riter];
+         .           
+ 2,660,000 ( 0.41%)              while (entry) {
+         .                           PTABLE_ENTRY_t * const oentry = entry;
+ 1,000,000 ( 0.15%)                  entry = entry->next;
+   500,000 ( 0.08%)                  Safefree(oentry);
+54,020,626 ( 8.30%)  => ???:0x0000000005167d60 (500,000x)
+         .                       }
+         .           
+         .                       /* chocolateboy 2008-01-08
+         .                        *
+         .                        * make sure we clear the array entry, so that subsequent probes fail
+         .                        */
+         .           
+   640,000 ( 0.10%)              array[riter] = NULL;
+ 3,120,000 ( 0.48%)          } while (riter--);
+         .           
+    40,000 ( 0.01%)          tbl->tbl_items = 0;
+         .               }
+         .           }
+         .           
+         .           SRL_STATIC_INLINE void
+         .           PTABLE_clear_dec(pTHX_ PTABLE_t *tbl)
+         .           {
+         .               if (tbl && tbl->tbl_items) {
+         .                   register PTABLE_ENTRY_t * * const array = tbl->tbl_ary;
+-- line 222 ----------------------------------------
+-- line 248 ----------------------------------------
+         .           /* remove one entry from a ptr table */
+         .           
+         .           SRL_STATIC_INLINE void
+         .           PTABLE_delete(PTABLE_t *tbl, void *key)
+         .           {
+         .               PTABLE_ENTRY_t *tblent;
+         .               PTABLE_ENTRY_t *tblent_prev;
+         .           
+   480,000 ( 0.07%)      if (!tbl || !tbl->tbl_items) {
+         .                   return;
+         .               } else {
+         .                   const UV hash = PTABLE_HASH(key);
+         .                   tblent_prev = NULL;
+         .                   tblent = tbl->tbl_ary[hash & tbl->tbl_max];
+         .           
+         .                   for (; tblent; tblent_prev = tblent, tblent = tblent->next) {
+         .                       if (tblent->key == key) {
+-- line 264 ----------------------------------------
+-- line 370 ----------------------------------------
+         .           
+         .           SRL_STATIC_INLINE void
+         .           PTABLE_free(PTABLE_t *tbl)
+         .           {
+         .               if (!tbl)
+         .                   return;
+         .           
+         .               PTABLE_clear(tbl);
+         6 ( 0.00%)      if (tbl->cur_iter) {
+         .                   PTABLE_ITER_t *it = tbl->cur_iter;
+         .                   tbl->cur_iter = NULL; /* avoid circular checks */
+         .                   PTABLE_iter_free(it);
+         .               }
+         4 ( 0.00%)      Safefree(tbl->tbl_ary);
+       275 ( 0.00%)  => ???:0x0000000005167d60 (2x)
+         4 ( 0.00%)      Safefree(tbl);
+       228 ( 0.00%)  => ???:0x0000000005167d60 (2x)
+         .           }
+         .           
+         .           #endif
+
+--------------------------------------------------------------------------------
+The following files chosen for auto-annotation could not be found:
+--------------------------------------------------------------------------------
+  ./csu/./csu/errno-loc.c
+  ./elf/../sysdeps/x86_64/dl-machine.h
+  ./elf/./elf/dl-lookup.c
+  ./malloc/./malloc/arena.c
+  ./malloc/./malloc/malloc.c
+  ./string/../sysdeps/x86_64/multiarch/memchr-avx2.S
+  ./string/../sysdeps/x86_64/multiarch/memcmp-avx2-movbe.S
+  ./string/../sysdeps/x86_64/multiarch/memmove-vec-unaligned-erms.S
+  ./string/../sysdeps/x86_64/multiarch/memset-vec-unaligned-erms.S
+  ./string/../sysdeps/x86_64/multiarch/strcmp-avx2.S
+  ./string/../sysdeps/x86_64/multiarch/strlen-avx2.S
+
+--------------------------------------------------------------------------------
+Ir                   
+--------------------------------------------------------------------------------
+423,981,110 (65.13%)  events annotated
+

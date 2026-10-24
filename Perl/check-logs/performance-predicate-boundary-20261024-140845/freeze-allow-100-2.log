@@ -1,0 +1,6 @@
+freeze-allow-100 encode block=2 previous: {"case":"freeze-allow-100","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-iteration/pre-retention/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":1212,"operation":"encode","batch_size":4096}
+freeze-allow-100 encode block=2 current: {"case":"freeze-allow-100","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":1212,"operation":"encode","batch_size":4096}
+previous: Ran 30 iterations (0 outliers).
+previous: Rounded run time per iteration (seconds): 4.980e-05 +/- 2.0e-07 (0.4%)
+current: Ran 30 iterations (0 outliers).
+current: Rounded run time per iteration (seconds): 4.909e-05 +/- 2.2e-07 (0.5%)

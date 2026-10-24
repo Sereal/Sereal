@@ -1,0 +1,1527 @@
+/tmp/sereal-merge332-li5djdrv/Perl/Decoder /tmp/sereal-merge332-li5djdrv/Perl
+Using bundled csnappy code
+Using bundled miniz code
+Using bundled zstd code
+Checking if your kit is complete...
+Looks good
+# Running zstd/Makefile.PL
+Generating a Unix-style Makefile
+Writing Makefile for Sereal::Decoder
+Writing MYMETA.yml and MYMETA.json
+cp lib/Sereal/Decoder/Constants.pm blib/lib/Sereal/Decoder/Constants.pm
+cp lib/Sereal/Decoder.pm blib/lib/Sereal/Decoder.pm
+cp lib/Sereal/Performance.pm blib/lib/Sereal/Performance.pm
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Decoder/zstd'
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/debug.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/entropy_common.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/error_private.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/fse_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/pool.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/threading.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/xxhash.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/zstd_common.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/fse_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/hist.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/huf_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_literals.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_sequences.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_superblock.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_double_fast.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_fast.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_lazy.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_ldm.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_opt.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_preSplit.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstdmt_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/huf_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/zstd_ddict.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/zstd_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith  -fno-tree-vectorize -c decompress/zstd_decompress_block.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/huf_decompress_amd64.S
+compiling static library
+ar rcs libzstd.o *.o
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Decoder/zstd'
+Running Mkbootstrap for Decoder ()
+chmod 644 "Decoder.bs"
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Decoder.bs blib/arch/auto/Sereal/Decoder/Decoder.bs 644
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/ExtUtils/xsubpp"  -typemap '/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/ExtUtils/typemap' -typemap '/tmp/sereal-merge332-li5djdrv/Perl/Decoder/typemap'  Decoder.xs > Decoder.xsc
+mv Decoder.xsc Decoder.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DMINIZ_USE_UNALIGNED_LOAD_AND_STORE=1 -DMINIZ_UNALIGNED_USE_MEMCOPY Decoder.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DMINIZ_USE_UNALIGNED_LOAD_AND_STORE=1 -DMINIZ_UNALIGNED_USE_MEMCOPY srl_decoder.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DMINIZ_USE_UNALIGNED_LOAD_AND_STORE=1 -DMINIZ_UNALIGNED_USE_MEMCOPY miniz.c
+rm -f blib/arch/auto/Sereal/Decoder/Decoder.so
+ccache gcc  -shared -O2 -L/usr/local/lib -fstack-protector-strong  Decoder.o srl_decoder.o miniz.o zstd/libzstd.o  -o blib/arch/auto/Sereal/Decoder/Decoder.so  \
+      \
+  
+chmod 755 blib/arch/auto/Sereal/Decoder/Decoder.so
+/tmp/sereal-merge332-li5djdrv/Perl
+/tmp/sereal-merge332-li5djdrv/Perl/Encoder /tmp/sereal-merge332-li5djdrv/Perl
+Using bundled csnappy code
+Using bundled miniz code
+Using bundled zstd code
+Warning: prerequisite Sereal::Decoder 6.000001 not found.
+Checking if your kit is complete...
+Looks good
+# Running zstd/Makefile.PL
+Generating a Unix-style Makefile
+Writing Makefile for Sereal::Encoder
+Writing MYMETA.yml and MYMETA.json
+cp lib/Sereal/Encoder/Constants.pm blib/lib/Sereal/Encoder/Constants.pm
+cp lib/Sereal/Encoder.pm blib/lib/Sereal/Encoder.pm
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Encoder/zstd'
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/debug.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/entropy_common.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/error_private.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/fse_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/pool.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/threading.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/xxhash.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/zstd_common.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/fse_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/hist.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/huf_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_literals.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_sequences.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_superblock.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_double_fast.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_fast.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_lazy.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_ldm.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_opt.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_preSplit.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstdmt_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/huf_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/zstd_ddict.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/zstd_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith  -fno-tree-vectorize -c decompress/zstd_decompress_block.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/huf_decompress_amd64.S
+compiling static library
+ar rcs libzstd.o *.o
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Encoder/zstd'
+Running Mkbootstrap for Encoder ()
+chmod 644 "Encoder.bs"
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Encoder.bs blib/arch/auto/Sereal/Encoder/Encoder.bs 644
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/ExtUtils/xsubpp"  -typemap '/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/ExtUtils/typemap' -typemap '/tmp/sereal-merge332-li5djdrv/Perl/Encoder/typemap'  Encoder.xs > Encoder.xsc
+mv Encoder.xsc Encoder.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DMINIZ_USE_UNALIGNED_LOAD_AND_STORE=1 -DMINIZ_UNALIGNED_USE_MEMCOPY -DHAVE_BUILTIN_CTZ Encoder.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DMINIZ_USE_UNALIGNED_LOAD_AND_STORE=1 -DMINIZ_UNALIGNED_USE_MEMCOPY -DHAVE_BUILTIN_CTZ srl_encoder.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DMINIZ_USE_UNALIGNED_LOAD_AND_STORE=1 -DMINIZ_UNALIGNED_USE_MEMCOPY -DHAVE_BUILTIN_CTZ miniz.c
+rm -f blib/arch/auto/Sereal/Encoder/Encoder.so
+ccache gcc  -shared -O2 -L/usr/local/lib -fstack-protector-strong  Encoder.o srl_encoder.o miniz.o zstd/libzstd.o  -o blib/arch/auto/Sereal/Encoder/Encoder.so  \
+      \
+  
+chmod 755 blib/arch/auto/Sereal/Encoder/Encoder.so
+/tmp/sereal-merge332-li5djdrv/Perl
+/tmp/sereal-merge332-li5djdrv/Perl/Decoder /tmp/sereal-merge332-li5djdrv/Perl
+Using bundled csnappy code
+Using bundled miniz code
+Using bundled zstd code
+# Running zstd/Makefile.PL
+Generating a Unix-style Makefile
+Writing Makefile for Sereal::Decoder
+Writing MYMETA.yml and MYMETA.json
+Running Mkbootstrap for Decoder ()
+chmod 644 "Decoder.bs"
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Decoder.bs blib/arch/auto/Sereal/Decoder/Decoder.bs 644
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DMINIZ_USE_UNALIGNED_LOAD_AND_STORE=1 -DMINIZ_UNALIGNED_USE_MEMCOPY Decoder.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DMINIZ_USE_UNALIGNED_LOAD_AND_STORE=1 -DMINIZ_UNALIGNED_USE_MEMCOPY srl_decoder.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DMINIZ_USE_UNALIGNED_LOAD_AND_STORE=1 -DMINIZ_UNALIGNED_USE_MEMCOPY miniz.c
+cd zstd && make all
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Decoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Decoder/zstd'
+rm -f blib/arch/auto/Sereal/Decoder/Decoder.so
+ccache gcc  -shared -O2 -L/usr/local/lib -fstack-protector-strong  Decoder.o srl_decoder.o miniz.o zstd/libzstd.o  -o blib/arch/auto/Sereal/Decoder/Decoder.so  \
+      \
+  
+chmod 755 blib/arch/auto/Sereal/Decoder/Decoder.so
+Skip blib/lib/Sereal/Performance.pm (unchanged)
+Skip blib/lib/Sereal/Decoder/Constants.pm (unchanged)
+Skip blib/lib/Sereal/Decoder.pm (unchanged)
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Decoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Decoder/zstd'
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Decoder/zstd'
+make[1]: Nothing to be done for 'test_dynamic'.
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Decoder/zstd'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/*.t t/*/*/*.t
+# Perl Regexp Internals Type = MODERN_REGEXP
+t/001_load.t .................................. ok
+# Testing with both encoder and decoder.
+# Sereal::Decoder v6.000001
+# Sereal::Encoder v6.000001
+t/002_have_enc_and_dec.t ...................... ok
+t/004_testset.t ............................... ok
+t/005_flags.t ................................. ok
+t/010_desperate.t ............................. ok
+t/015_protocol_v6.t ........................... ok
+t/020_incremental.t ........................... ok
+t/030_looks_like_sereal.t ..................... ok
+t/040_special_vars.t .......................... ok
+t/060_each.t .................................. ok
+t/070_alias_options.t ......................... ok
+t/071_alias_reserealize.t ..................... ok
+t/080_set_readonly.t .......................... ok
+t/090_thaw.t .................................. ok
+t/091_thaw_order.t ............................ ok
+t/092_thaw_scalar.t ........................... ok
+t/094_thaw_allow.t ............................ ok
+t/095_checksum_policy.t ....................... ok
+t/096_build_tools.t ........................... ok
+t/097_checksum_versions.t ..................... ok
+t/110_nobless.t ............................... ok
+t/150_dec_exception.t ......................... ok
+t/155_zipbomb.t ............................... ok
+t/160_recursion.t ............................. ok
+t/190_customop.t .............................. ok
+t/195_backcompat.t ............................ ok
+t/200_bulk.t .................................. ok
+t/210_bulk_readonly.t ......................... ok
+t/300_overload.t .............................. ok
+t/400_evil.t .................................. ok
+t/400_utf8validate.t .......................... ok
+t/500_utf8decoding.t .......................... ok
+t/550_decode_into.t ........................... ok
+t/700_roundtrip/v1/plain.t .................... ok
+t/700_roundtrip/v2/plain.t .................... ok
+t/700_roundtrip/v3/plain.t .................... ok
+t/700_roundtrip/v4/plain.t .................... ok
+t/700_roundtrip/v5/plain.t .................... ok
+t/700_roundtrip/v6/checksum.t ................. ok
+t/700_roundtrip/v6/dedudep_strings.t .......... ok
+t/700_roundtrip/v6/freeze_thaw.t .............. ok
+t/700_roundtrip/v6/plain.t .................... ok
+t/700_roundtrip/v6/plain_canon.t .............. ok
+t/700_roundtrip/v6/readonly.t ................. ok
+t/700_roundtrip/v6/snappy.t ................... ok
+t/700_roundtrip/v6/snappy_and_warn_unknown.t .. ok
+t/700_roundtrip/v6/snappy_canon.t ............. ok
+t/700_roundtrip/v6/snappy_incr.t .............. ok
+t/700_roundtrip/v6/snappy_incr_canon.t ........ ok
+t/700_roundtrip/v6/sort_keys.t ................ ok
+t/700_roundtrip/v6/sort_keys_perl.t ........... ok
+t/700_roundtrip/v6/sort_keys_perl_rev.t ....... ok
+t/700_roundtrip/v6/zlib.t ..................... ok
+t/700_roundtrip/v6/zlib_force.t ............... ok
+t/700_roundtrip/v6/zstd.t ..................... ok
+t/700_roundtrip/v6/zstd_force.t ............... ok
+t/800_threads.t ............................... ok
+t/900_regr_issue_15.t ......................... ok
+t/901_regr_segv.t ............................. ok
+t/902_bad_input.t ............................. ok
+t/903_reentrancy.t ............................ ok
+t/903_regr_oob_copy_shortbinary.t ............. ok
+t/904_regr_thaw_state_reuse.t ................. ok
+t/905_regr_truncated_varint.t ................. ok
+t/906_regr_oob_offset_underflow.t ............. ok
+t/907_regr_varint_overflow.t .................. ok
+t/908_regr_header_user_data_boundary.t ........ ok
+t/909_regr_frozen_object_payload.t ............ ok
+t/910_regr_copy_key_varint_error.t ............ ok
+t/911_regr_zero_offset.t ...................... ok
+t/912_regr_copy_boundary.t .................... ok
+t/913_regr_v1_header_offsets.t ................ ok
+t/914_undef_deadly.t .......................... ok
+t/915_checksum_boundaries.t ................... ok
+t/916_header_suffix_boundary.t ................ ok
+t/917_vstring_boundary.t ...................... ok
+t/918_object_payload.t ........................ ok
+t/919_weak_object_blessing.t .................. ok
+t/920_duplicate_undef_keys.t .................. ok
+t/921_weak_frozen_objects.t ................... ok
+t/922_thaw_replacements.t ..................... ok
+t/923_thaw_argument_mutation.t ................ ok
+t/924_container_count_boundaries.t ............ ok
+t/925_copy_classname_boundaries.t ............. ok
+t/926_tracked_pad_alias.t ..................... ok
+t/927_copy_readonly.t ......................... ok
+t/928_shared_frozen_arguments.t ............... ok
+t/929_thaw_exception_cleanup.t ................ ok
+t/930_checksum_policy_env.t ................... ok
+t/931_checksum_inspection.t ................... ok
+t/932_input_alias_incremental.t ............... ok
+t/933_copy_alias_keys.t ....................... ok
+t/935_regr_bare_aggregate_tags.t .............. ok
+t/936_regr_output_scalar_reuse.t .............. ok
+t/937_regr_header_callback_input_mutation.t ... ok
+t/938_regr_huge_decompressed_size.t ........... ok
+t/939_regr_unaligned_floats.t ................. ok
+t/940_regr_constructor_cleanup.t .............. ok
+All tests successful.
+Files=98, Tests=192386, 51 wallclock secs (12.00 usr  0.93 sys + 48.71 cusr  2.39 csys = 64.03 CPU)
+Result: PASS
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Manifest=mkmanifest" -e mkmanifest
+Added to MANIFEST: srl_reader_header.h
+Added to MANIFEST: srl_reader_skip.h
+rm -rf Sereal-Decoder-6.000_001
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Manifest=manicopy,maniread" \
+	-e "manicopy(maniread(),'Sereal-Decoder-6.000_001', 'best');"
+mkdir Sereal-Decoder-6.000_001
+mkdir Sereal-Decoder-6.000_001/t
+mkdir Sereal-Decoder-6.000_001/t/700_roundtrip
+mkdir Sereal-Decoder-6.000_001/t/700_roundtrip/v1
+mkdir Sereal-Decoder-6.000_001/zstd
+mkdir Sereal-Decoder-6.000_001/zstd/compress
+mkdir Sereal-Decoder-6.000_001/zstd/common
+mkdir Sereal-Decoder-6.000_001/author_tools
+mkdir Sereal-Decoder-6.000_001/t/700_roundtrip/v2
+mkdir Sereal-Decoder-6.000_001/t/700_roundtrip/v6
+mkdir Sereal-Decoder-6.000_001/inc
+mkdir Sereal-Decoder-6.000_001/inc/Sereal
+mkdir Sereal-Decoder-6.000_001/t/lib
+mkdir Sereal-Decoder-6.000_001/t/lib/Sereal
+mkdir Sereal-Decoder-6.000_001/lib
+mkdir Sereal-Decoder-6.000_001/lib/Sereal
+mkdir Sereal-Decoder-6.000_001/xt
+mkdir Sereal-Decoder-6.000_001/zstd/decompress
+mkdir Sereal-Decoder-6.000_001/snappy
+mkdir Sereal-Decoder-6.000_001/lib/Sereal/Decoder
+mkdir Sereal-Decoder-6.000_001/t/700_roundtrip/v5
+mkdir Sereal-Decoder-6.000_001/t/data
+mkdir Sereal-Decoder-6.000_001/inc/Devel
+mkdir Sereal-Decoder-6.000_001/t/700_roundtrip/v3
+mkdir Sereal-Decoder-6.000_001/t/700_roundtrip/v4
+Generating META.yml
+Generating META.json
+tar cvf Sereal-Decoder-6.000_001.tar Sereal-Decoder-6.000_001
+Sereal-Decoder-6.000_001/
+Sereal-Decoder-6.000_001/srl_protocol.h
+Sereal-Decoder-6.000_001/Decoder.xs
+Sereal-Decoder-6.000_001/Makefile.PL
+Sereal-Decoder-6.000_001/miniz.c
+Sereal-Decoder-6.000_001/inc/
+Sereal-Decoder-6.000_001/inc/Sereal/
+Sereal-Decoder-6.000_001/inc/Sereal/BuildTools.pm
+Sereal-Decoder-6.000_001/inc/Devel/
+Sereal-Decoder-6.000_001/inc/Devel/CheckLib.pm
+Sereal-Decoder-6.000_001/srl_decoder.h
+Sereal-Decoder-6.000_001/srl_reader_error.h
+Sereal-Decoder-6.000_001/srl_reader_varint.h
+Sereal-Decoder-6.000_001/srl_siphash.h
+Sereal-Decoder-6.000_001/srl_common.h
+Sereal-Decoder-6.000_001/ptable.h
+Sereal-Decoder-6.000_001/META.json
+Sereal-Decoder-6.000_001/srl_checksum_policy.h
+Sereal-Decoder-6.000_001/srl_reader_decompress.h
+Sereal-Decoder-6.000_001/lib/
+Sereal-Decoder-6.000_001/lib/Sereal/
+Sereal-Decoder-6.000_001/lib/Sereal/Decoder/
+Sereal-Decoder-6.000_001/lib/Sereal/Decoder/Constants.pm
+Sereal-Decoder-6.000_001/lib/Sereal/Decoder.pm
+Sereal-Decoder-6.000_001/lib/Sereal/Performance.pm
+Sereal-Decoder-6.000_001/ppport.h
+Sereal-Decoder-6.000_001/srl_reader_types.h
+Sereal-Decoder-6.000_001/INSTALL
+Sereal-Decoder-6.000_001/META.yml
+Sereal-Decoder-6.000_001/srl_reader.h
+Sereal-Decoder-6.000_001/MANIFEST
+Sereal-Decoder-6.000_001/author_tools/
+Sereal-Decoder-6.000_001/author_tools/update_decoder_flag_consts.pl
+Sereal-Decoder-6.000_001/author_tools/valgrind.supp
+Sereal-Decoder-6.000_001/author_tools/bench.pl
+Sereal-Decoder-6.000_001/author_tools/numeric_str_length.c
+Sereal-Decoder-6.000_001/author_tools/freeze_thaw_timing.pl
+Sereal-Decoder-6.000_001/author_tools/siphash_vectors.c
+Sereal-Decoder-6.000_001/author_tools/hobodecoder.pl
+Sereal-Decoder-6.000_001/author_tools/decode.pl
+Sereal-Decoder-6.000_001/author_tools/bench_retention.pl
+Sereal-Decoder-6.000_001/author_tools/stringify_test.c
+Sereal-Decoder-6.000_001/author_tools/different_sereal_docs.sh
+Sereal-Decoder-6.000_001/author_tools/update_from_header.pl
+Sereal-Decoder-6.000_001/srl_reader_skip.h
+Sereal-Decoder-6.000_001/srl_reader_misc.h
+Sereal-Decoder-6.000_001/SECURITY.md
+Sereal-Decoder-6.000_001/srl_reader_header.h
+Sereal-Decoder-6.000_001/miniz.h
+Sereal-Decoder-6.000_001/typemap
+Sereal-Decoder-6.000_001/srl_stack.h
+Sereal-Decoder-6.000_001/snappy/
+Sereal-Decoder-6.000_001/snappy/csnappy_compat.h
+Sereal-Decoder-6.000_001/snappy/csnappy_internal_userspace.h
+Sereal-Decoder-6.000_001/snappy/csnappy_compress.c
+Sereal-Decoder-6.000_001/snappy/csnappy_internal.h
+Sereal-Decoder-6.000_001/snappy/csnappy.h
+Sereal-Decoder-6.000_001/snappy/csnappy_decompress.c
+Sereal-Decoder-6.000_001/t/
+Sereal-Decoder-6.000_001/t/928_shared_frozen_arguments.t
+Sereal-Decoder-6.000_001/t/002_have_enc_and_dec.t
+Sereal-Decoder-6.000_001/t/926_tracked_pad_alias.t
+Sereal-Decoder-6.000_001/t/200_bulk.t
+Sereal-Decoder-6.000_001/t/940_regr_constructor_cleanup.t
+Sereal-Decoder-6.000_001/t/931_checksum_inspection.t
+Sereal-Decoder-6.000_001/t/925_copy_classname_boundaries.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/freeze_thaw.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/sort_keys_perl_rev.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/zstd.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/plain_canon.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/dedudep_strings.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/snappy.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/snappy_canon.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/sort_keys.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/readonly.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/zlib_force.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/checksum.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/plain.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/zlib.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/snappy_incr_canon.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/zstd_force.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/snappy_incr.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/sort_keys_perl.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v6/snappy_and_warn_unknown.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v3/
+Sereal-Decoder-6.000_001/t/700_roundtrip/v3/plain.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v5/
+Sereal-Decoder-6.000_001/t/700_roundtrip/v5/plain.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v1/
+Sereal-Decoder-6.000_001/t/700_roundtrip/v1/plain.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v2/
+Sereal-Decoder-6.000_001/t/700_roundtrip/v2/plain.t
+Sereal-Decoder-6.000_001/t/700_roundtrip/v4/
+Sereal-Decoder-6.000_001/t/700_roundtrip/v4/plain.t
+Sereal-Decoder-6.000_001/t/210_bulk_readonly.t
+Sereal-Decoder-6.000_001/t/015_protocol_v6.t
+Sereal-Decoder-6.000_001/t/550_decode_into.t
+Sereal-Decoder-6.000_001/t/091_thaw_order.t
+Sereal-Decoder-6.000_001/t/910_regr_copy_key_varint_error.t
+Sereal-Decoder-6.000_001/t/020_incremental.t
+Sereal-Decoder-6.000_001/t/071_alias_reserealize.t
+Sereal-Decoder-6.000_001/t/919_weak_object_blessing.t
+Sereal-Decoder-6.000_001/t/900_regr_issue_15.t
+Sereal-Decoder-6.000_001/t/902_bad_input.t
+Sereal-Decoder-6.000_001/t/300_overload.t
+Sereal-Decoder-6.000_001/t/090_thaw.t
+Sereal-Decoder-6.000_001/t/930_checksum_policy_env.t
+Sereal-Decoder-6.000_001/t/094_thaw_allow.t
+Sereal-Decoder-6.000_001/t/922_thaw_replacements.t
+Sereal-Decoder-6.000_001/t/935_regr_bare_aggregate_tags.t
+Sereal-Decoder-6.000_001/t/lib/
+Sereal-Decoder-6.000_001/t/lib/Sereal/
+Sereal-Decoder-6.000_001/t/lib/Sereal/BulkTest.pm
+Sereal-Decoder-6.000_001/t/lib/Sereal/TestSet.pm
+Sereal-Decoder-6.000_001/t/914_undef_deadly.t
+Sereal-Decoder-6.000_001/t/916_header_suffix_boundary.t
+Sereal-Decoder-6.000_001/t/911_regr_zero_offset.t
+Sereal-Decoder-6.000_001/t/070_alias_options.t
+Sereal-Decoder-6.000_001/t/data/
+Sereal-Decoder-6.000_001/t/data/corpus
+Sereal-Decoder-6.000_001/t/080_set_readonly.t
+Sereal-Decoder-6.000_001/t/918_object_payload.t
+Sereal-Decoder-6.000_001/t/901_regr_segv.t
+Sereal-Decoder-6.000_001/t/917_vstring_boundary.t
+Sereal-Decoder-6.000_001/t/907_regr_varint_overflow.t
+Sereal-Decoder-6.000_001/t/155_zipbomb.t
+Sereal-Decoder-6.000_001/t/924_container_count_boundaries.t
+Sereal-Decoder-6.000_001/t/903_regr_oob_copy_shortbinary.t
+Sereal-Decoder-6.000_001/t/906_regr_oob_offset_underflow.t
+Sereal-Decoder-6.000_001/t/400_evil.t
+Sereal-Decoder-6.000_001/t/095_checksum_policy.t
+Sereal-Decoder-6.000_001/t/092_thaw_scalar.t
+Sereal-Decoder-6.000_001/t/110_nobless.t
+Sereal-Decoder-6.000_001/t/908_regr_header_user_data_boundary.t
+Sereal-Decoder-6.000_001/t/190_customop.t
+Sereal-Decoder-6.000_001/t/920_duplicate_undef_keys.t
+Sereal-Decoder-6.000_001/t/904_regr_thaw_state_reuse.t
+Sereal-Decoder-6.000_001/t/040_special_vars.t
+Sereal-Decoder-6.000_001/t/915_checksum_boundaries.t
+Sereal-Decoder-6.000_001/t/912_regr_copy_boundary.t
+Sereal-Decoder-6.000_001/t/400_utf8validate.t
+Sereal-Decoder-6.000_001/t/001_load.t
+Sereal-Decoder-6.000_001/t/800_threads.t
+Sereal-Decoder-6.000_001/t/927_copy_readonly.t
+Sereal-Decoder-6.000_001/t/195_backcompat.t
+Sereal-Decoder-6.000_001/t/010_desperate.t
+Sereal-Decoder-6.000_001/t/936_regr_output_scalar_reuse.t
+Sereal-Decoder-6.000_001/t/096_build_tools.t
+Sereal-Decoder-6.000_001/t/160_recursion.t
+Sereal-Decoder-6.000_001/t/909_regr_frozen_object_payload.t
+Sereal-Decoder-6.000_001/t/005_flags.t
+Sereal-Decoder-6.000_001/t/905_regr_truncated_varint.t
+Sereal-Decoder-6.000_001/t/903_reentrancy.t
+Sereal-Decoder-6.000_001/t/933_copy_alias_keys.t
+Sereal-Decoder-6.000_001/t/932_input_alias_incremental.t
+Sereal-Decoder-6.000_001/t/929_thaw_exception_cleanup.t
+Sereal-Decoder-6.000_001/t/921_weak_frozen_objects.t
+Sereal-Decoder-6.000_001/t/500_utf8decoding.t
+Sereal-Decoder-6.000_001/t/030_looks_like_sereal.t
+Sereal-Decoder-6.000_001/t/097_checksum_versions.t
+Sereal-Decoder-6.000_001/t/150_dec_exception.t
+Sereal-Decoder-6.000_001/t/923_thaw_argument_mutation.t
+Sereal-Decoder-6.000_001/t/060_each.t
+Sereal-Decoder-6.000_001/t/913_regr_v1_header_offsets.t
+Sereal-Decoder-6.000_001/t/004_testset.t
+Sereal-Decoder-6.000_001/t/939_regr_unaligned_floats.t
+Sereal-Decoder-6.000_001/t/937_regr_header_callback_input_mutation.t
+Sereal-Decoder-6.000_001/t/938_regr_huge_decompressed_size.t
+Sereal-Decoder-6.000_001/xt/
+Sereal-Decoder-6.000_001/xt/900_rand.t
+Sereal-Decoder-6.000_001/srl_taginfo.h
+Sereal-Decoder-6.000_001/Changes
+Sereal-Decoder-6.000_001/zstd/
+Sereal-Decoder-6.000_001/zstd/Makefile.PL
+Sereal-Decoder-6.000_001/zstd/zstd.h
+Sereal-Decoder-6.000_001/zstd/zstd_errors.h
+Sereal-Decoder-6.000_001/zstd/decompress/
+Sereal-Decoder-6.000_001/zstd/decompress/huf_decompress.c
+Sereal-Decoder-6.000_001/zstd/decompress/zstd_ddict.c
+Sereal-Decoder-6.000_001/zstd/decompress/zstd_decompress_block.h
+Sereal-Decoder-6.000_001/zstd/decompress/zstd_decompress_block.c
+Sereal-Decoder-6.000_001/zstd/decompress/zstd_decompress.c
+Sereal-Decoder-6.000_001/zstd/decompress/zstd_ddict.h
+Sereal-Decoder-6.000_001/zstd/decompress/huf_decompress_amd64.S
+Sereal-Decoder-6.000_001/zstd/decompress/zstd_decompress_internal.h
+Sereal-Decoder-6.000_001/zstd/common/
+Sereal-Decoder-6.000_001/zstd/common/huf.h
+Sereal-Decoder-6.000_001/zstd/common/threading.h
+Sereal-Decoder-6.000_001/zstd/common/xxhash.h
+Sereal-Decoder-6.000_001/zstd/common/bits.h
+Sereal-Decoder-6.000_001/zstd/common/pool.c
+Sereal-Decoder-6.000_001/zstd/common/mem.h
+Sereal-Decoder-6.000_001/zstd/common/debug.h
+Sereal-Decoder-6.000_001/zstd/common/zstd_errors.h
+Sereal-Decoder-6.000_001/zstd/common/fse_decompress.c
+Sereal-Decoder-6.000_001/zstd/common/error_private.c
+Sereal-Decoder-6.000_001/zstd/common/error_private.h
+Sereal-Decoder-6.000_001/zstd/common/cpu.h
+Sereal-Decoder-6.000_001/zstd/common/zstd_common.c
+Sereal-Decoder-6.000_001/zstd/common/allocations.h
+Sereal-Decoder-6.000_001/zstd/common/compiler.h
+Sereal-Decoder-6.000_001/zstd/common/threading.c
+Sereal-Decoder-6.000_001/zstd/common/bitstream.h
+Sereal-Decoder-6.000_001/zstd/common/zstd_trace.h
+Sereal-Decoder-6.000_001/zstd/common/debug.c
+Sereal-Decoder-6.000_001/zstd/common/zstd_internal.h
+Sereal-Decoder-6.000_001/zstd/common/fse.h
+Sereal-Decoder-6.000_001/zstd/common/pool.h
+Sereal-Decoder-6.000_001/zstd/common/xxhash.c
+Sereal-Decoder-6.000_001/zstd/common/portability_macros.h
+Sereal-Decoder-6.000_001/zstd/common/entropy_common.c
+Sereal-Decoder-6.000_001/zstd/common/zstd_deps.h
+Sereal-Decoder-6.000_001/zstd/compress/
+Sereal-Decoder-6.000_001/zstd/compress/zstd_lazy.c
+Sereal-Decoder-6.000_001/zstd/compress/zstd_compress_literals.h
+Sereal-Decoder-6.000_001/zstd/compress/zstd_compress_internal.h
+Sereal-Decoder-6.000_001/zstd/compress/zstd_compress_sequences.c
+Sereal-Decoder-6.000_001/zstd/compress/zstd_opt.c
+Sereal-Decoder-6.000_001/zstd/compress/zstd_compress_superblock.c
+Sereal-Decoder-6.000_001/zstd/compress/zstd_lazy.h
+Sereal-Decoder-6.000_001/zstd/compress/zstd_compress_literals.c
+Sereal-Decoder-6.000_001/zstd/compress/zstd_cwksp.h
+Sereal-Decoder-6.000_001/zstd/compress/zstd_ldm_geartab.h
+Sereal-Decoder-6.000_001/zstd/compress/zstd_double_fast.h
+Sereal-Decoder-6.000_001/zstd/compress/fse_compress.c
+Sereal-Decoder-6.000_001/zstd/compress/zstd_ldm.c
+Sereal-Decoder-6.000_001/zstd/compress/zstd_fast.h
+Sereal-Decoder-6.000_001/zstd/compress/zstd_compress_superblock.h
+Sereal-Decoder-6.000_001/zstd/compress/zstd_opt.h
+Sereal-Decoder-6.000_001/zstd/compress/zstd_compress.c
+Sereal-Decoder-6.000_001/zstd/compress/hist.h
+Sereal-Decoder-6.000_001/zstd/compress/zstd_preSplit.c
+Sereal-Decoder-6.000_001/zstd/compress/zstd_fast.c
+Sereal-Decoder-6.000_001/zstd/compress/zstd_preSplit.h
+Sereal-Decoder-6.000_001/zstd/compress/hist.c
+Sereal-Decoder-6.000_001/zstd/compress/zstdmt_compress.c
+Sereal-Decoder-6.000_001/zstd/compress/zstd_double_fast.c
+Sereal-Decoder-6.000_001/zstd/compress/zstd_compress_sequences.h
+Sereal-Decoder-6.000_001/zstd/compress/zstdmt_compress.h
+Sereal-Decoder-6.000_001/zstd/compress/huf_compress.c
+Sereal-Decoder-6.000_001/zstd/compress/clevels.h
+Sereal-Decoder-6.000_001/zstd/compress/zstd_ldm.h
+Sereal-Decoder-6.000_001/zstd/zdict.h
+Sereal-Decoder-6.000_001/srl_decoder.c
+Sereal-Decoder-6.000_001/srl_inline.h
+Sereal-Decoder-6.000_001/srl_reader_checksum.h
+rm -rf Sereal-Decoder-6.000_001
+gzip --best Sereal-Decoder-6.000_001.tar
+Created Sereal-Decoder-6.000_001.tar.gz
+/tmp/sereal-merge332-li5djdrv/Perl
+/tmp/sereal-merge332-li5djdrv/Perl/Encoder /tmp/sereal-merge332-li5djdrv/Perl
+Using bundled csnappy code
+Using bundled miniz code
+Using bundled zstd code
+Warning: prerequisite Sereal::Decoder 6.000001 not found.
+# Running zstd/Makefile.PL
+Generating a Unix-style Makefile
+Writing Makefile for Sereal::Encoder
+Writing MYMETA.yml and MYMETA.json
+Running Mkbootstrap for Encoder ()
+chmod 644 "Encoder.bs"
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Encoder.bs blib/arch/auto/Sereal/Encoder/Encoder.bs 644
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DMINIZ_USE_UNALIGNED_LOAD_AND_STORE=1 -DMINIZ_UNALIGNED_USE_MEMCOPY -DHAVE_BUILTIN_CTZ Encoder.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DMINIZ_USE_UNALIGNED_LOAD_AND_STORE=1 -DMINIZ_UNALIGNED_USE_MEMCOPY -DHAVE_BUILTIN_CTZ srl_encoder.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DMINIZ_USE_UNALIGNED_LOAD_AND_STORE=1 -DMINIZ_UNALIGNED_USE_MEMCOPY -DHAVE_BUILTIN_CTZ miniz.c
+cd zstd && make all
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Encoder/zstd'
+rm -f blib/arch/auto/Sereal/Encoder/Encoder.so
+ccache gcc  -shared -O2 -L/usr/local/lib -fstack-protector-strong  Encoder.o srl_encoder.o miniz.o zstd/libzstd.o  -o blib/arch/auto/Sereal/Encoder/Encoder.so  \
+      \
+  
+chmod 755 blib/arch/auto/Sereal/Encoder/Encoder.so
+Skip blib/lib/Sereal/Encoder.pm (unchanged)
+Skip blib/lib/Sereal/Encoder/Constants.pm (unchanged)
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Encoder/zstd'
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'test_dynamic'.
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Encoder/zstd'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/*.t t/*/*/*.t
+t/001_load.t .................................. ok
+t/002_constants.t ............................. ok
+# Testing with both encoder and decoder.
+# Sereal::Decoder v6.000001
+# Sereal::Encoder v6.000001
+t/002_have_enc_and_dec.t ...................... ok
+t/003_ptable.t ................................ ok
+t/004_testset.t ............................... ok
+t/005_flags.t ................................. ok
+t/010_desperate.t ............................. ok
+t/011_aliased_dedupe.t ........................ ok
+t/015_protocol_v6.t ........................... ok
+t/020_sort_keys.t ............................. ok
+t/021_sort_keys_option.t ...................... ok
+t/022_canonical_refs.t ........................ ok
+t/030_canonical_vs_test_deep.t ................ ok
+t/040_tied_hash.t ............................. ok
+t/041_sorted_hash_keys.t ...................... ok
+t/042_magic_strings.t ......................... ok
+t/043_alias_scalar_refs.t ..................... ok
+t/044_magic_integers.t ........................ ok
+t/044_magical_arrays.t ........................ ok
+t/046_shared_key_dedup.t ...................... ok
+t/095_checksum_policy.t ....................... ok
+t/096_build_tools.t ........................... ok
+t/097_checksum_versions.t ..................... ok
+t/110_nobless.t ............................... ok
+t/120_hdr_data.t .............................. ok
+t/130_freezethaw.t ............................ ok
+t/131_freeze_allow.t .......................... ok
+t/132_callback_hash_mutation.t ................ ok
+t/133_callback_array_mutation.t ............... ok
+t/134_callback_frozen_object_lifetime.t ....... ok
+t/135_constructor_cleanup.t ................... ok
+t/136_retention_scan.t ........................ ok
+t/160_recursion.t ............................. ok
+t/170_cyclic_weakrefs.t ....................... ok
+t/171_weakref_rewrites.t ...................... ok
+t/180_magic_array.t ........................... ok
+t/190_customop.t .............................. ok
+t/200_bulk.t .................................. ok
+t/300_fail.t .................................. ok
+t/400_evil.t .................................. ok
+t/700_roundtrip/v1/plain.t .................... ok
+t/700_roundtrip/v2/plain.t .................... ok
+t/700_roundtrip/v3/plain.t .................... ok
+t/700_roundtrip/v4/plain.t .................... ok
+t/700_roundtrip/v5/plain.t .................... ok
+t/700_roundtrip/v6/checksum.t ................. ok
+t/700_roundtrip/v6/dedudep_strings.t .......... ok
+t/700_roundtrip/v6/freeze_thaw.t .............. ok
+t/700_roundtrip/v6/plain.t .................... ok
+t/700_roundtrip/v6/plain_canon.t .............. ok
+t/700_roundtrip/v6/readonly.t ................. ok
+t/700_roundtrip/v6/snappy.t ................... ok
+t/700_roundtrip/v6/snappy_and_warn_unknown.t .. ok
+t/700_roundtrip/v6/snappy_canon.t ............. ok
+t/700_roundtrip/v6/snappy_incr.t .............. ok
+t/700_roundtrip/v6/snappy_incr_canon.t ........ ok
+t/700_roundtrip/v6/sort_keys.t ................ ok
+t/700_roundtrip/v6/sort_keys_perl.t ........... ok
+t/700_roundtrip/v6/sort_keys_perl_rev.t ....... ok
+t/700_roundtrip/v6/zlib.t ..................... ok
+t/700_roundtrip/v6/zlib_force.t ............... ok
+t/700_roundtrip/v6/zstd.t ..................... ok
+t/700_roundtrip/v6/zstd_force.t ............... ok
+t/800_threads.t ............................... ok
+t/900_reentrancy.t ............................ ok
+All tests successful.
+Files=65, Tests=154770, 34 wallclock secs ( 6.18 usr  0.55 sys + 32.03 cusr  1.31 csys = 40.07 CPU)
+Result: PASS
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Manifest=mkmanifest" -e mkmanifest
+Added to MANIFEST: srl_reader_checksum.h
+Added to MANIFEST: srl_reader_header.h
+Added to MANIFEST: srl_reader_skip.h
+rm -rf Sereal-Encoder-6.000_001
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Manifest=manicopy,maniread" \
+	-e "manicopy(maniread(),'Sereal-Encoder-6.000_001', 'best');"
+mkdir Sereal-Encoder-6.000_001
+mkdir Sereal-Encoder-6.000_001/t
+mkdir Sereal-Encoder-6.000_001/t/700_roundtrip
+mkdir Sereal-Encoder-6.000_001/t/700_roundtrip/v6
+mkdir Sereal-Encoder-6.000_001/zstd
+mkdir Sereal-Encoder-6.000_001/zstd/common
+mkdir Sereal-Encoder-6.000_001/author_tools
+mkdir Sereal-Encoder-6.000_001/zstd/compress
+mkdir Sereal-Encoder-6.000_001/t/data
+mkdir Sereal-Encoder-6.000_001/snappy
+mkdir Sereal-Encoder-6.000_001/zstd/decompress
+mkdir Sereal-Encoder-6.000_001/t/700_roundtrip/v1
+mkdir Sereal-Encoder-6.000_001/t/700_roundtrip/v3
+mkdir Sereal-Encoder-6.000_001/lib
+mkdir Sereal-Encoder-6.000_001/lib/Sereal
+mkdir Sereal-Encoder-6.000_001/lib/Sereal/Encoder
+mkdir Sereal-Encoder-6.000_001/inc
+mkdir Sereal-Encoder-6.000_001/inc/Sereal
+mkdir Sereal-Encoder-6.000_001/t/lib
+mkdir Sereal-Encoder-6.000_001/t/lib/Sereal
+mkdir Sereal-Encoder-6.000_001/t/700_roundtrip/v4
+mkdir Sereal-Encoder-6.000_001/inc/Devel
+mkdir Sereal-Encoder-6.000_001/t/700_roundtrip/v5
+mkdir Sereal-Encoder-6.000_001/t/700_roundtrip/v2
+Generating META.yml
+Generating META.json
+tar cvf Sereal-Encoder-6.000_001.tar Sereal-Encoder-6.000_001
+Sereal-Encoder-6.000_001/
+Sereal-Encoder-6.000_001/srl_protocol.h
+Sereal-Encoder-6.000_001/Makefile.PL
+Sereal-Encoder-6.000_001/miniz.c
+Sereal-Encoder-6.000_001/srl_buffer_types.h
+Sereal-Encoder-6.000_001/inc/
+Sereal-Encoder-6.000_001/inc/Sereal/
+Sereal-Encoder-6.000_001/inc/Sereal/BuildTools.pm
+Sereal-Encoder-6.000_001/inc/Devel/
+Sereal-Encoder-6.000_001/inc/Devel/CheckLib.pm
+Sereal-Encoder-6.000_001/srl_reader_error.h
+Sereal-Encoder-6.000_001/srl_reader_varint.h
+Sereal-Encoder-6.000_001/srl_siphash.h
+Sereal-Encoder-6.000_001/srl_common.h
+Sereal-Encoder-6.000_001/ptable.h
+Sereal-Encoder-6.000_001/META.json
+Sereal-Encoder-6.000_001/srl_checksum_policy.h
+Sereal-Encoder-6.000_001/srl_reader_decompress.h
+Sereal-Encoder-6.000_001/lib/
+Sereal-Encoder-6.000_001/lib/Sereal/
+Sereal-Encoder-6.000_001/lib/Sereal/Encoder/
+Sereal-Encoder-6.000_001/lib/Sereal/Encoder/Constants.pm
+Sereal-Encoder-6.000_001/lib/Sereal/Encoder.pm
+Sereal-Encoder-6.000_001/ppport.h
+Sereal-Encoder-6.000_001/srl_reader_types.h
+Sereal-Encoder-6.000_001/INSTALL
+Sereal-Encoder-6.000_001/qsort.h
+Sereal-Encoder-6.000_001/META.yml
+Sereal-Encoder-6.000_001/srl_reader.h
+Sereal-Encoder-6.000_001/srl_buffer.h
+Sereal-Encoder-6.000_001/MANIFEST
+Sereal-Encoder-6.000_001/author_tools/
+Sereal-Encoder-6.000_001/author_tools/valgrind.supp
+Sereal-Encoder-6.000_001/author_tools/bench.pl
+Sereal-Encoder-6.000_001/author_tools/numeric_str_length.c
+Sereal-Encoder-6.000_001/author_tools/freeze_thaw_timing.pl
+Sereal-Encoder-6.000_001/author_tools/update_encoder_flag_consts.pl
+Sereal-Encoder-6.000_001/author_tools/siphash_vectors.c
+Sereal-Encoder-6.000_001/author_tools/hobodecoder.pl
+Sereal-Encoder-6.000_001/author_tools/decode.pl
+Sereal-Encoder-6.000_001/author_tools/bench_retention.pl
+Sereal-Encoder-6.000_001/author_tools/stringify_test.c
+Sereal-Encoder-6.000_001/author_tools/different_sereal_docs.sh
+Sereal-Encoder-6.000_001/author_tools/update_from_header.pl
+Sereal-Encoder-6.000_001/srl_reader_skip.h
+Sereal-Encoder-6.000_001/srl_reader_misc.h
+Sereal-Encoder-6.000_001/srl_encoder.c
+Sereal-Encoder-6.000_001/SECURITY.md
+Sereal-Encoder-6.000_001/srl_reader_header.h
+Sereal-Encoder-6.000_001/miniz.h
+Sereal-Encoder-6.000_001/typemap
+Sereal-Encoder-6.000_001/srl_stack.h
+Sereal-Encoder-6.000_001/snappy/
+Sereal-Encoder-6.000_001/snappy/csnappy_compat.h
+Sereal-Encoder-6.000_001/snappy/csnappy_internal_userspace.h
+Sereal-Encoder-6.000_001/snappy/csnappy_compress.c
+Sereal-Encoder-6.000_001/snappy/csnappy_internal.h
+Sereal-Encoder-6.000_001/snappy/csnappy.h
+Sereal-Encoder-6.000_001/snappy/csnappy_decompress.c
+Sereal-Encoder-6.000_001/t/
+Sereal-Encoder-6.000_001/t/002_have_enc_and_dec.t
+Sereal-Encoder-6.000_001/t/200_bulk.t
+Sereal-Encoder-6.000_001/t/043_alias_scalar_refs.t
+Sereal-Encoder-6.000_001/t/900_reentrancy.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/freeze_thaw.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/sort_keys_perl_rev.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/zstd.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/plain_canon.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/dedudep_strings.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/snappy.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/snappy_canon.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/sort_keys.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/readonly.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/zlib_force.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/checksum.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/plain.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/zlib.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/snappy_incr_canon.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/zstd_force.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/snappy_incr.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/sort_keys_perl.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v6/snappy_and_warn_unknown.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v3/
+Sereal-Encoder-6.000_001/t/700_roundtrip/v3/plain.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v5/
+Sereal-Encoder-6.000_001/t/700_roundtrip/v5/plain.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v1/
+Sereal-Encoder-6.000_001/t/700_roundtrip/v1/plain.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v2/
+Sereal-Encoder-6.000_001/t/700_roundtrip/v2/plain.t
+Sereal-Encoder-6.000_001/t/700_roundtrip/v4/
+Sereal-Encoder-6.000_001/t/700_roundtrip/v4/plain.t
+Sereal-Encoder-6.000_001/t/015_protocol_v6.t
+Sereal-Encoder-6.000_001/t/042_magic_strings.t
+Sereal-Encoder-6.000_001/t/030_canonical_vs_test_deep.t
+Sereal-Encoder-6.000_001/t/120_hdr_data.t
+Sereal-Encoder-6.000_001/t/040_tied_hash.t
+Sereal-Encoder-6.000_001/t/011_aliased_dedupe.t
+Sereal-Encoder-6.000_001/t/170_cyclic_weakrefs.t
+Sereal-Encoder-6.000_001/t/134_callback_frozen_object_lifetime.t
+Sereal-Encoder-6.000_001/t/300_fail.t
+Sereal-Encoder-6.000_001/t/136_retention_scan.t
+Sereal-Encoder-6.000_001/t/lib/
+Sereal-Encoder-6.000_001/t/lib/Sereal/
+Sereal-Encoder-6.000_001/t/lib/Sereal/BulkTest.pm
+Sereal-Encoder-6.000_001/t/lib/Sereal/TestSet.pm
+Sereal-Encoder-6.000_001/t/046_shared_key_dedup.t
+Sereal-Encoder-6.000_001/t/131_freeze_allow.t
+Sereal-Encoder-6.000_001/t/data/
+Sereal-Encoder-6.000_001/t/data/corpus
+Sereal-Encoder-6.000_001/t/044_magical_arrays.t
+Sereal-Encoder-6.000_001/t/400_evil.t
+Sereal-Encoder-6.000_001/t/095_checksum_policy.t
+Sereal-Encoder-6.000_001/t/110_nobless.t
+Sereal-Encoder-6.000_001/t/020_sort_keys.t
+Sereal-Encoder-6.000_001/t/190_customop.t
+Sereal-Encoder-6.000_001/t/130_freezethaw.t
+Sereal-Encoder-6.000_001/t/002_constants.t
+Sereal-Encoder-6.000_001/t/132_callback_hash_mutation.t
+Sereal-Encoder-6.000_001/t/041_sorted_hash_keys.t
+Sereal-Encoder-6.000_001/t/003_ptable.t
+Sereal-Encoder-6.000_001/t/021_sort_keys_option.t
+Sereal-Encoder-6.000_001/t/001_load.t
+Sereal-Encoder-6.000_001/t/800_threads.t
+Sereal-Encoder-6.000_001/t/010_desperate.t
+Sereal-Encoder-6.000_001/t/096_build_tools.t
+Sereal-Encoder-6.000_001/t/160_recursion.t
+Sereal-Encoder-6.000_001/t/022_canonical_refs.t
+Sereal-Encoder-6.000_001/t/135_constructor_cleanup.t
+Sereal-Encoder-6.000_001/t/005_flags.t
+Sereal-Encoder-6.000_001/t/180_magic_array.t
+Sereal-Encoder-6.000_001/t/133_callback_array_mutation.t
+Sereal-Encoder-6.000_001/t/097_checksum_versions.t
+Sereal-Encoder-6.000_001/t/044_magic_integers.t
+Sereal-Encoder-6.000_001/t/171_weakref_rewrites.t
+Sereal-Encoder-6.000_001/t/004_testset.t
+Sereal-Encoder-6.000_001/srl_encoder.h
+Sereal-Encoder-6.000_001/Encoder.xs
+Sereal-Encoder-6.000_001/srl_taginfo.h
+Sereal-Encoder-6.000_001/Changes
+Sereal-Encoder-6.000_001/zstd/
+Sereal-Encoder-6.000_001/zstd/Makefile.PL
+Sereal-Encoder-6.000_001/zstd/zstd.h
+Sereal-Encoder-6.000_001/zstd/zstd_errors.h
+Sereal-Encoder-6.000_001/zstd/decompress/
+Sereal-Encoder-6.000_001/zstd/decompress/huf_decompress.c
+Sereal-Encoder-6.000_001/zstd/decompress/zstd_ddict.c
+Sereal-Encoder-6.000_001/zstd/decompress/zstd_decompress_block.h
+Sereal-Encoder-6.000_001/zstd/decompress/zstd_decompress_block.c
+Sereal-Encoder-6.000_001/zstd/decompress/zstd_decompress.c
+Sereal-Encoder-6.000_001/zstd/decompress/zstd_ddict.h
+Sereal-Encoder-6.000_001/zstd/decompress/huf_decompress_amd64.S
+Sereal-Encoder-6.000_001/zstd/decompress/zstd_decompress_internal.h
+Sereal-Encoder-6.000_001/zstd/common/
+Sereal-Encoder-6.000_001/zstd/common/huf.h
+Sereal-Encoder-6.000_001/zstd/common/threading.h
+Sereal-Encoder-6.000_001/zstd/common/xxhash.h
+Sereal-Encoder-6.000_001/zstd/common/bits.h
+Sereal-Encoder-6.000_001/zstd/common/pool.c
+Sereal-Encoder-6.000_001/zstd/common/mem.h
+Sereal-Encoder-6.000_001/zstd/common/debug.h
+Sereal-Encoder-6.000_001/zstd/common/zstd_errors.h
+Sereal-Encoder-6.000_001/zstd/common/fse_decompress.c
+Sereal-Encoder-6.000_001/zstd/common/error_private.c
+Sereal-Encoder-6.000_001/zstd/common/error_private.h
+Sereal-Encoder-6.000_001/zstd/common/cpu.h
+Sereal-Encoder-6.000_001/zstd/common/zstd_common.c
+Sereal-Encoder-6.000_001/zstd/common/allocations.h
+Sereal-Encoder-6.000_001/zstd/common/compiler.h
+Sereal-Encoder-6.000_001/zstd/common/threading.c
+Sereal-Encoder-6.000_001/zstd/common/bitstream.h
+Sereal-Encoder-6.000_001/zstd/common/zstd_trace.h
+Sereal-Encoder-6.000_001/zstd/common/debug.c
+Sereal-Encoder-6.000_001/zstd/common/zstd_internal.h
+Sereal-Encoder-6.000_001/zstd/common/fse.h
+Sereal-Encoder-6.000_001/zstd/common/pool.h
+Sereal-Encoder-6.000_001/zstd/common/xxhash.c
+Sereal-Encoder-6.000_001/zstd/common/portability_macros.h
+Sereal-Encoder-6.000_001/zstd/common/entropy_common.c
+Sereal-Encoder-6.000_001/zstd/common/zstd_deps.h
+Sereal-Encoder-6.000_001/zstd/compress/
+Sereal-Encoder-6.000_001/zstd/compress/zstd_lazy.c
+Sereal-Encoder-6.000_001/zstd/compress/zstd_compress_literals.h
+Sereal-Encoder-6.000_001/zstd/compress/zstd_compress_internal.h
+Sereal-Encoder-6.000_001/zstd/compress/zstd_compress_sequences.c
+Sereal-Encoder-6.000_001/zstd/compress/zstd_opt.c
+Sereal-Encoder-6.000_001/zstd/compress/zstd_compress_superblock.c
+Sereal-Encoder-6.000_001/zstd/compress/zstd_lazy.h
+Sereal-Encoder-6.000_001/zstd/compress/zstd_compress_literals.c
+Sereal-Encoder-6.000_001/zstd/compress/zstd_cwksp.h
+Sereal-Encoder-6.000_001/zstd/compress/zstd_ldm_geartab.h
+Sereal-Encoder-6.000_001/zstd/compress/zstd_double_fast.h
+Sereal-Encoder-6.000_001/zstd/compress/fse_compress.c
+Sereal-Encoder-6.000_001/zstd/compress/zstd_ldm.c
+Sereal-Encoder-6.000_001/zstd/compress/zstd_fast.h
+Sereal-Encoder-6.000_001/zstd/compress/zstd_compress_superblock.h
+Sereal-Encoder-6.000_001/zstd/compress/zstd_opt.h
+Sereal-Encoder-6.000_001/zstd/compress/zstd_compress.c
+Sereal-Encoder-6.000_001/zstd/compress/hist.h
+Sereal-Encoder-6.000_001/zstd/compress/zstd_preSplit.c
+Sereal-Encoder-6.000_001/zstd/compress/zstd_fast.c
+Sereal-Encoder-6.000_001/zstd/compress/zstd_preSplit.h
+Sereal-Encoder-6.000_001/zstd/compress/hist.c
+Sereal-Encoder-6.000_001/zstd/compress/zstdmt_compress.c
+Sereal-Encoder-6.000_001/zstd/compress/zstd_double_fast.c
+Sereal-Encoder-6.000_001/zstd/compress/zstd_compress_sequences.h
+Sereal-Encoder-6.000_001/zstd/compress/zstdmt_compress.h
+Sereal-Encoder-6.000_001/zstd/compress/huf_compress.c
+Sereal-Encoder-6.000_001/zstd/compress/clevels.h
+Sereal-Encoder-6.000_001/zstd/compress/zstd_ldm.h
+Sereal-Encoder-6.000_001/zstd/zdict.h
+Sereal-Encoder-6.000_001/srl_inline.h
+Sereal-Encoder-6.000_001/srl_compress.h
+Sereal-Encoder-6.000_001/srl_reader_checksum.h
+rm -rf Sereal-Encoder-6.000_001
+gzip --best Sereal-Encoder-6.000_001.tar
+Created Sereal-Encoder-6.000_001.tar.gz
+/tmp/sereal-merge332-li5djdrv/Perl
+/tmp/sereal-merge332-li5djdrv/Perl/Sereal /tmp/sereal-merge332-li5djdrv/Perl
+Checking if your kit is complete...
+Looks good
+Generating a Unix-style Makefile
+Writing Makefile for Sereal
+Writing MYMETA.yml and MYMETA.json
+cp lib/Sereal.pm blib/lib/Sereal.pm
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/*.t t/*/*/*.t
+t/001_load.t .................................. ok
+t/002_constants.t ............................. ok
+t/002_export.t ................................ ok
+# Testing with both encoder and decoder.
+# Sereal::Decoder v6.000001
+# Sereal::Encoder v6.000001
+t/002_have_enc_and_dec.t ...................... ok
+t/003_basic.t ................................. ok
+t/003_ptable.t ................................ ok
+t/004_testset.t ............................... ok
+t/005_flags.t ................................. ok
+t/006_sereal_file.t ........................... ok
+t/010_checksum_helpers.t ...................... ok
+t/010_desperate.t ............................. ok
+t/011_aliased_dedupe.t ........................ ok
+t/020_incremental.t ........................... ok
+t/020_sort_keys.t ............................. ok
+t/021_sort_keys_option.t ...................... ok
+t/022_canonical_refs.t ........................ ok
+t/030_canonical_vs_test_deep.t ................ ok
+t/030_looks_like_sereal.t ..................... ok
+t/040_special_vars.t .......................... ok
+t/040_tied_hash.t ............................. ok
+t/060_each.t .................................. ok
+t/070_alias_options.t ......................... ok
+t/080_set_readonly.t .......................... ok
+t/095_checksum_policy.t ....................... ok
+t/096_build_tools.t ........................... skipped: Build helpers are not shipped with this distribution
+t/097_checksum_versions.t ..................... ok
+t/110_nobless.t ............................... ok
+t/120_hdr_data.t .............................. ok
+t/130_freezethaw.t ............................ ok
+t/150_dec_exception.t ......................... ok
+t/160_recursion.t ............................. ok
+t/170_cyclic_weakrefs.t ....................... ok
+t/200_bulk.t .................................. ok
+t/210_bulk_readonly.t ......................... ok
+t/300_fail.t .................................. ok
+t/300_overload.t .............................. ok
+t/400_evil.t .................................. ok
+t/400_utf8validate.t .......................... ok
+t/500_utf8decoding.t .......................... ok
+t/550_decode_into.t ........................... ok
+t/700_roundtrip/v1/plain.t .................... ok
+t/700_roundtrip/v2/plain.t .................... ok
+t/700_roundtrip/v3/plain.t .................... ok
+t/700_roundtrip/v4/plain.t .................... ok
+t/700_roundtrip/v5/plain.t .................... ok
+t/700_roundtrip/v6/checksum.t ................. ok
+t/700_roundtrip/v6/dedudep_strings.t .......... ok
+t/700_roundtrip/v6/freeze_thaw.t .............. ok
+t/700_roundtrip/v6/plain.t .................... ok
+t/700_roundtrip/v6/plain_canon.t .............. ok
+t/700_roundtrip/v6/readonly.t ................. ok
+t/700_roundtrip/v6/snappy.t ................... ok
+t/700_roundtrip/v6/snappy_and_warn_unknown.t .. ok
+t/700_roundtrip/v6/snappy_canon.t ............. ok
+t/700_roundtrip/v6/snappy_incr.t .............. ok
+t/700_roundtrip/v6/snappy_incr_canon.t ........ ok
+t/700_roundtrip/v6/sort_keys.t ................ ok
+t/700_roundtrip/v6/sort_keys_perl.t ........... ok
+t/700_roundtrip/v6/sort_keys_perl_rev.t ....... ok
+t/700_roundtrip/v6/zlib.t ..................... ok
+t/700_roundtrip/v6/zlib_force.t ............... ok
+t/700_roundtrip/v6/zstd.t ..................... ok
+t/700_roundtrip/v6/zstd_force.t ............... ok
+t/800_threads.t ............................... ok
+t/900_reentrancy.t ............................ ok
+t/900_regr_issue_15.t ......................... ok
+t/901_regr_segv.t ............................. ok
+t/902_bad_input.t ............................. ok
+t/903_reentrancy.t ............................ ok
+All tests successful.
+Files=69, Tests=153986, 32 wallclock secs ( 6.13 usr  0.57 sys + 31.00 cusr  1.30 csys = 39.00 CPU)
+Result: PASS
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Manifest=mkmanifest" -e mkmanifest
+rm -rf Sereal-6.000_001
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Manifest=manicopy,maniread" \
+	-e "manicopy(maniread(),'Sereal-6.000_001', 'best');"
+mkdir Sereal-6.000_001
+mkdir Sereal-6.000_001/t
+mkdir Sereal-6.000_001/t/700_roundtrip
+mkdir Sereal-6.000_001/t/700_roundtrip/v6
+mkdir Sereal-6.000_001/t/700_roundtrip/v4
+mkdir Sereal-6.000_001/inc
+mkdir Sereal-6.000_001/inc/Sereal
+mkdir Sereal-6.000_001/t/lib
+mkdir Sereal-6.000_001/t/lib/Sereal
+mkdir Sereal-6.000_001/lib
+mkdir Sereal-6.000_001/t/700_roundtrip/v3
+mkdir Sereal-6.000_001/t/700_roundtrip/v5
+mkdir Sereal-6.000_001/t/700_roundtrip/v2
+mkdir Sereal-6.000_001/t/data
+mkdir Sereal-6.000_001/t/700_roundtrip/v1
+Generating META.yml
+Generating META.json
+tar cvf Sereal-6.000_001.tar Sereal-6.000_001
+Sereal-6.000_001/
+Sereal-6.000_001/Makefile.PL
+Sereal-6.000_001/inc/
+Sereal-6.000_001/inc/Sereal/
+Sereal-6.000_001/inc/Sereal/BuildTools.pm
+Sereal-6.000_001/README
+Sereal-6.000_001/META.json
+Sereal-6.000_001/lib/
+Sereal-6.000_001/lib/Sereal.pm
+Sereal-6.000_001/META.yml
+Sereal-6.000_001/MANIFEST
+Sereal-6.000_001/SECURITY.md
+Sereal-6.000_001/t/
+Sereal-6.000_001/t/002_have_enc_and_dec.t
+Sereal-6.000_001/t/200_bulk.t
+Sereal-6.000_001/t/900_reentrancy.t
+Sereal-6.000_001/t/700_roundtrip/
+Sereal-6.000_001/t/700_roundtrip/v6/
+Sereal-6.000_001/t/700_roundtrip/v6/freeze_thaw.t
+Sereal-6.000_001/t/700_roundtrip/v6/sort_keys_perl_rev.t
+Sereal-6.000_001/t/700_roundtrip/v6/zstd.t
+Sereal-6.000_001/t/700_roundtrip/v6/plain_canon.t
+Sereal-6.000_001/t/700_roundtrip/v6/dedudep_strings.t
+Sereal-6.000_001/t/700_roundtrip/v6/snappy.t
+Sereal-6.000_001/t/700_roundtrip/v6/snappy_canon.t
+Sereal-6.000_001/t/700_roundtrip/v6/sort_keys.t
+Sereal-6.000_001/t/700_roundtrip/v6/readonly.t
+Sereal-6.000_001/t/700_roundtrip/v6/zlib_force.t
+Sereal-6.000_001/t/700_roundtrip/v6/checksum.t
+Sereal-6.000_001/t/700_roundtrip/v6/plain.t
+Sereal-6.000_001/t/700_roundtrip/v6/zlib.t
+Sereal-6.000_001/t/700_roundtrip/v6/snappy_incr_canon.t
+Sereal-6.000_001/t/700_roundtrip/v6/zstd_force.t
+Sereal-6.000_001/t/700_roundtrip/v6/snappy_incr.t
+Sereal-6.000_001/t/700_roundtrip/v6/sort_keys_perl.t
+Sereal-6.000_001/t/700_roundtrip/v6/snappy_and_warn_unknown.t
+Sereal-6.000_001/t/700_roundtrip/v3/
+Sereal-6.000_001/t/700_roundtrip/v3/plain.t
+Sereal-6.000_001/t/700_roundtrip/v5/
+Sereal-6.000_001/t/700_roundtrip/v5/plain.t
+Sereal-6.000_001/t/700_roundtrip/v1/
+Sereal-6.000_001/t/700_roundtrip/v1/plain.t
+Sereal-6.000_001/t/700_roundtrip/v2/
+Sereal-6.000_001/t/700_roundtrip/v2/plain.t
+Sereal-6.000_001/t/700_roundtrip/v4/
+Sereal-6.000_001/t/700_roundtrip/v4/plain.t
+Sereal-6.000_001/t/210_bulk_readonly.t
+Sereal-6.000_001/t/550_decode_into.t
+Sereal-6.000_001/t/030_canonical_vs_test_deep.t
+Sereal-6.000_001/t/120_hdr_data.t
+Sereal-6.000_001/t/040_tied_hash.t
+Sereal-6.000_001/t/020_incremental.t
+Sereal-6.000_001/t/900_regr_issue_15.t
+Sereal-6.000_001/t/902_bad_input.t
+Sereal-6.000_001/t/300_overload.t
+Sereal-6.000_001/t/011_aliased_dedupe.t
+Sereal-6.000_001/t/170_cyclic_weakrefs.t
+Sereal-6.000_001/t/300_fail.t
+Sereal-6.000_001/t/lib/
+Sereal-6.000_001/t/lib/Sereal/
+Sereal-6.000_001/t/lib/Sereal/BulkTest.pm
+Sereal-6.000_001/t/lib/Sereal/TestSet.pm
+Sereal-6.000_001/t/070_alias_options.t
+Sereal-6.000_001/t/data/
+Sereal-6.000_001/t/data/corpus
+Sereal-6.000_001/t/080_set_readonly.t
+Sereal-6.000_001/t/901_regr_segv.t
+Sereal-6.000_001/t/400_evil.t
+Sereal-6.000_001/t/095_checksum_policy.t
+Sereal-6.000_001/t/110_nobless.t
+Sereal-6.000_001/t/020_sort_keys.t
+Sereal-6.000_001/t/130_freezethaw.t
+Sereal-6.000_001/t/040_special_vars.t
+Sereal-6.000_001/t/002_constants.t
+Sereal-6.000_001/t/003_ptable.t
+Sereal-6.000_001/t/021_sort_keys_option.t
+Sereal-6.000_001/t/400_utf8validate.t
+Sereal-6.000_001/t/001_load.t
+Sereal-6.000_001/t/006_sereal_file.t
+Sereal-6.000_001/t/800_threads.t
+Sereal-6.000_001/t/010_desperate.t
+Sereal-6.000_001/t/096_build_tools.t
+Sereal-6.000_001/t/160_recursion.t
+Sereal-6.000_001/t/022_canonical_refs.t
+Sereal-6.000_001/t/005_flags.t
+Sereal-6.000_001/t/903_reentrancy.t
+Sereal-6.000_001/t/002_export.t
+Sereal-6.000_001/t/500_utf8decoding.t
+Sereal-6.000_001/t/030_looks_like_sereal.t
+Sereal-6.000_001/t/097_checksum_versions.t
+Sereal-6.000_001/t/150_dec_exception.t
+Sereal-6.000_001/t/060_each.t
+Sereal-6.000_001/t/003_basic.t
+Sereal-6.000_001/t/010_checksum_helpers.t
+Sereal-6.000_001/t/004_testset.t
+Sereal-6.000_001/Changes
+rm -rf Sereal-6.000_001
+gzip --best Sereal-6.000_001.tar
+Created Sereal-6.000_001.tar.gz
+/tmp/sereal-merge332-li5djdrv/Perl
+All is well!
+Using bundled csnappy code
+Using bundled miniz code
+Using bundled zstd code
+Checking if your kit is complete...
+Looks good
+# Running zstd/Makefile.PL
+Generating a Unix-style Makefile
+Writing Makefile for Sereal::Merger
+Writing MYMETA.yml and MYMETA.json
+cp lib/Sereal/Merger/Constants.pm blib/lib/Sereal/Merger/Constants.pm
+cp lib/Sereal/Merger.pm blib/lib/Sereal/Merger.pm
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Merger/zstd'
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/debug.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/entropy_common.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/error_private.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/fse_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/pool.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/threading.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/xxhash.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/zstd_common.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/fse_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/hist.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/huf_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_literals.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_sequences.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_superblock.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_double_fast.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_fast.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_lazy.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_ldm.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_opt.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_preSplit.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstdmt_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/huf_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/zstd_ddict.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/zstd_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith  -fno-tree-vectorize -c decompress/zstd_decompress_block.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/huf_decompress_amd64.S
+compiling static library
+ar rcs libzstd.o *.o
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Merger/zstd'
+Running Mkbootstrap for Merger ()
+chmod 644 "Merger.bs"
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Merger.bs blib/arch/auto/Sereal/Merger/Merger.bs 644
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/ExtUtils/xsubpp"  -typemap '/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/ExtUtils/typemap' -typemap '/tmp/sereal-merge332-li5djdrv/Perl/Merger/typemap'  Merger.xs > Merger.xsc
+mv Merger.xsc Merger.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DHAVE_BUILTIN_CTZ Merger.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DHAVE_BUILTIN_CTZ srl_merger.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DHAVE_BUILTIN_CTZ miniz.c
+rm -f blib/arch/auto/Sereal/Merger/Merger.so
+ccache gcc  -shared -O2 -L/usr/local/lib -fstack-protector-strong  Merger.o srl_merger.o miniz.o zstd/libzstd.o  -o blib/arch/auto/Sereal/Merger/Merger.so  \
+      \
+  
+chmod 755 blib/arch/auto/Sereal/Merger/Merger.so
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Merger.bs blib/arch/auto/Sereal/Merger/Merger.bs 644
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Merger/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Merger/zstd'
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Merger/zstd'
+make[1]: Nothing to be done for 'test_dynamic'.
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Merger/zstd'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/*.t
+t/001_load.t ............ ok
+t/003_strtable.t ........ ok
+t/004_testset.t ......... ok
+t/010_desperate.t ....... ok
+t/020_v5_v6_input.t ..... ok
+t/030_compress.t ........ ok
+t/040_dedupe_strings.t .. ok
+All tests successful.
+Files=7, Tests=244,  0 wallclock secs ( 0.02 usr  0.00 sys +  0.22 cusr  0.03 csys =  0.27 CPU)
+Result: PASS
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Manifest=fullcheck" -e fullcheck
+Not in MANIFEST: author_tools/bench_retention.pl
+Using bundled csnappy code
+Using bundled miniz code
+Using bundled zstd code
+Checking if your kit is complete...
+Looks good
+# Running zstd/Makefile.PL
+Generating a Unix-style Makefile
+Writing Makefile for Sereal::Splitter
+Writing MYMETA.yml and MYMETA.json
+cp lib/Sereal/Splitter/Constants.pm blib/lib/Sereal/Splitter/Constants.pm
+cp lib/Sereal/Splitter.pm blib/lib/Sereal/Splitter.pm
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Splitter/zstd'
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/debug.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/entropy_common.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/error_private.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/fse_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/pool.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/threading.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/xxhash.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/zstd_common.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/fse_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/hist.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/huf_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_literals.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_sequences.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_superblock.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_double_fast.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_fast.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_lazy.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_ldm.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_opt.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_preSplit.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstdmt_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/huf_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/zstd_ddict.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/zstd_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith  -fno-tree-vectorize -c decompress/zstd_decompress_block.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/huf_decompress_amd64.S
+compiling static library
+ar rcs libzstd.o *.o
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Splitter/zstd'
+Running Mkbootstrap for Splitter ()
+chmod 644 "Splitter.bs"
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Splitter.bs blib/arch/auto/Sereal/Splitter/Splitter.bs 644
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/ExtUtils/xsubpp"  -typemap '/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/ExtUtils/typemap' -typemap '/tmp/sereal-merge332-li5djdrv/Perl/Splitter/typemap'  Splitter.xs > Splitter.xsc
+mv Splitter.xsc Splitter.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"0.900_001\" -DXS_VERSION=\"0.900_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DHAVE_BUILTIN_CTZ Splitter.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"0.900_001\" -DXS_VERSION=\"0.900_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DHAVE_BUILTIN_CTZ srl_splitter.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"0.900_001\" -DXS_VERSION=\"0.900_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DHAVE_BUILTIN_CTZ miniz.c
+rm -f blib/arch/auto/Sereal/Splitter/Splitter.so
+ccache gcc  -shared -O2 -L/usr/local/lib -fstack-protector-strong  Splitter.o srl_splitter.o miniz.o zstd/libzstd.o  -o blib/arch/auto/Sereal/Splitter/Splitter.so  \
+      \
+  
+chmod 755 blib/arch/auto/Sereal/Splitter/Splitter.so
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Splitter.bs blib/arch/auto/Sereal/Splitter/Splitter.bs 644
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Splitter/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Splitter/zstd'
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Splitter/zstd'
+make[1]: Nothing to be done for 'test_dynamic'.
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Splitter/zstd'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/*.t
+t/01_basic.t ................. ok
+t/02_big.t ................... ok
+t/03_header_data_template.t .. ok
+t/04_v5_v6.t ................. ok
+All tests successful.
+Files=4, Tests=42,  0 wallclock secs ( 0.02 usr  0.00 sys +  0.40 cusr  0.03 csys =  0.45 CPU)
+Result: PASS
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Manifest=fullcheck" -e fullcheck
+Not in MANIFEST: author_tools/bench_retention.pl
+Using bundled csnappy code
+Using bundled miniz code
+Using bundled zstd code
+Checking if your kit is complete...
+Warning: the following files are missing in your kit:
+	Iterator/author_tools/bench.pl
+	Iterator/author_tools/decode.pl
+	Iterator/author_tools/different_sereal_docs.sh
+	Iterator/author_tools/freeze_thaw_timing.pl
+	Iterator/author_tools/hobodecoder.pl
+	Iterator/author_tools/numeric_str_length.c
+	Iterator/author_tools/siphash_vectors.c
+	Iterator/author_tools/stringify_test.c
+	Iterator/author_tools/update_from_header.pl
+	Iterator/author_tools/valgrind.supp
+	Iterator/inc/Devel/CheckLib.pm
+	Iterator/inc/Sereal/BuildTools.pm
+	Iterator/miniz.c
+	Iterator/miniz.h
+	Iterator/ppport.h
+	Iterator/ptable.h
+	Iterator/qsort.h
+	Iterator/snappy/csnappy.h
+	Iterator/snappy/csnappy_compat.h
+	Iterator/snappy/csnappy_compress.c
+	Iterator/snappy/csnappy_decompress.c
+	Iterator/snappy/csnappy_internal.h
+	Iterator/snappy/csnappy_internal_userspace.h
+	Iterator/srl_checksum_policy.h
+	Iterator/srl_common.h
+	Iterator/srl_decoder.c
+	Iterator/srl_decoder.h
+	Iterator/srl_inline.h
+	Iterator/srl_protocol.h
+	Iterator/srl_reader.h
+	Iterator/srl_reader_checksum.h
+	Iterator/srl_reader_decompress.h
+	Iterator/srl_reader_error.h
+	Iterator/srl_reader_header.h
+	Iterator/srl_reader_misc.h
+	Iterator/srl_reader_skip.h
+	Iterator/srl_reader_types.h
+	Iterator/srl_reader_varint.h
+	Iterator/srl_siphash.h
+	Iterator/srl_stack.h
+	Iterator/srl_taginfo.h
+	Iterator/typemap
+	Iterator/zstd/common/allocations.h
+	Iterator/zstd/common/bits.h
+	Iterator/zstd/common/bitstream.h
+	Iterator/zstd/common/compiler.h
+	Iterator/zstd/common/cpu.h
+	Iterator/zstd/common/debug.c
+	Iterator/zstd/common/debug.h
+	Iterator/zstd/common/entropy_common.c
+	Iterator/zstd/common/error_private.c
+	Iterator/zstd/common/error_private.h
+	Iterator/zstd/common/fse.h
+	Iterator/zstd/common/fse_decompress.c
+	Iterator/zstd/common/huf.h
+	Iterator/zstd/common/mem.h
+	Iterator/zstd/common/pool.c
+	Iterator/zstd/common/pool.h
+	Iterator/zstd/common/portability_macros.h
+	Iterator/zstd/common/threading.c
+	Iterator/zstd/common/threading.h
+	Iterator/zstd/common/xxhash.c
+	Iterator/zstd/common/xxhash.h
+	Iterator/zstd/common/zstd_common.c
+	Iterator/zstd/common/zstd_deps.h
+	Iterator/zstd/common/zstd_errors.h
+	Iterator/zstd/common/zstd_internal.h
+	Iterator/zstd/common/zstd_trace.h
+	Iterator/zstd/compress/clevels.h
+	Iterator/zstd/compress/fse_compress.c
+	Iterator/zstd/compress/hist.c
+	Iterator/zstd/compress/hist.h
+	Iterator/zstd/compress/huf_compress.c
+	Iterator/zstd/compress/zstd_compress.c
+	Iterator/zstd/compress/zstd_compress_internal.h
+	Iterator/zstd/compress/zstd_compress_literals.c
+	Iterator/zstd/compress/zstd_compress_literals.h
+	Iterator/zstd/compress/zstd_compress_sequences.c
+	Iterator/zstd/compress/zstd_compress_sequences.h
+	Iterator/zstd/compress/zstd_compress_superblock.c
+	Iterator/zstd/compress/zstd_compress_superblock.h
+	Iterator/zstd/compress/zstd_cwksp.h
+	Iterator/zstd/compress/zstd_double_fast.c
+	Iterator/zstd/compress/zstd_double_fast.h
+	Iterator/zstd/compress/zstd_fast.c
+	Iterator/zstd/compress/zstd_fast.h
+	Iterator/zstd/compress/zstd_lazy.c
+	Iterator/zstd/compress/zstd_lazy.h
+	Iterator/zstd/compress/zstd_ldm.c
+	Iterator/zstd/compress/zstd_ldm.h
+	Iterator/zstd/compress/zstd_ldm_geartab.h
+	Iterator/zstd/compress/zstd_opt.c
+	Iterator/zstd/compress/zstd_opt.h
+	Iterator/zstd/compress/zstd_preSplit.c
+	Iterator/zstd/compress/zstd_preSplit.h
+	Iterator/zstd/compress/zstdmt_compress.c
+	Iterator/zstd/compress/zstdmt_compress.h
+	Iterator/zstd/decompress/huf_decompress.c
+	Iterator/zstd/decompress/huf_decompress_amd64.S
+	Iterator/zstd/decompress/zstd_ddict.c
+	Iterator/zstd/decompress/zstd_ddict.h
+	Iterator/zstd/decompress/zstd_decompress.c
+	Iterator/zstd/decompress/zstd_decompress_block.c
+	Iterator/zstd/decompress/zstd_decompress_block.h
+	Iterator/zstd/decompress/zstd_decompress_internal.h
+	Iterator/zstd/Makefile.PL
+	Iterator/zstd/zdict.h
+	Iterator/zstd/zstd.h
+	Iterator/zstd/zstd_errors.h
+	Tie/inc/Devel/CheckLib.pm
+	Tie/inc/Sereal/BuildTools.pm
+	Tie/ppport.h
+	Tie/srl_common.h
+	Tie/srl_inline.h
+	Tie/srl_iterator.h
+	Tie/srl_protocol.h
+	Tie/srl_reader_error.h
+	Tie/srl_reader_types.h
+	Tie/srl_stack.h
+	Tie/srl_taginfo.h
+	Tie/typemap
+Please inform the author.
+Using bundled csnappy code
+Using bundled miniz code
+Using bundled zstd code
+# Running zstd/Makefile.PL
+Writing MYMETA.yml and MYMETA.json
+Using bundled csnappy code
+Using bundled miniz code
+Using bundled zstd code
+Writing MYMETA.yml and MYMETA.json
+Generating a Unix-style Makefile
+Writing Makefile for Sereal::Path
+Writing MYMETA.yml and MYMETA.json
+cp fixver-sp.pl blib/lib/Sereal/fixver-sp.pl
+cp lib/Sereal/Path/Constants.pm blib/lib/Sereal/Path/Constants.pm
+cp lib/Sereal/Path.pm blib/lib/Sereal/Path.pm
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Iterator'
+cp lib/Sereal/Path/Iterator.pm ../blib/lib/Sereal/Path/Iterator.pm
+make[2]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Iterator/zstd'
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/debug.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/entropy_common.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/error_private.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/fse_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/pool.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/threading.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/xxhash.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/zstd_common.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/fse_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/hist.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/huf_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_literals.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_sequences.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_superblock.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_double_fast.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_fast.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_lazy.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_ldm.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_opt.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_preSplit.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstdmt_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/huf_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/zstd_ddict.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/zstd_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith  -fno-tree-vectorize -c decompress/zstd_decompress_block.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/huf_decompress_amd64.S
+compiling static library
+ar rcs libzstd.o *.o
+make[2]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Iterator/zstd'
+Running Mkbootstrap for Iterator ()
+chmod 644 "Iterator.bs"
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Iterator.bs ../blib/arch/auto/Sereal/Path/Iterator/Iterator.bs 644
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/ExtUtils/xsubpp"  -typemap '/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/ExtUtils/typemap' -typemap '/tmp/sereal-merge332-li5djdrv/Perl/Path/Iterator/typemap'  Iterator.xs > Iterator.xsc
+mv Iterator.xsc Iterator.c
+gcc -c -I.  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE" -DNDEBUG -DMINIZ_NO_STDIO  -DNDEBUG -DMINIZ_NO_STDIO -DFOLLOW_REFERENCES_IF_NOT_STASHED Iterator.c
+gcc -c -I.  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE" -DNDEBUG -DMINIZ_NO_STDIO  -DNDEBUG -DMINIZ_NO_STDIO -DFOLLOW_REFERENCES_IF_NOT_STASHED srl_iterator.c
+gcc -c -I.  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE" -DNDEBUG -DMINIZ_NO_STDIO  -DNDEBUG -DMINIZ_NO_STDIO -DFOLLOW_REFERENCES_IF_NOT_STASHED srl_decoder.c
+gcc -c -I.  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE" -DNDEBUG -DMINIZ_NO_STDIO  -DNDEBUG -DMINIZ_NO_STDIO -DFOLLOW_REFERENCES_IF_NOT_STASHED miniz.c
+rm -f ../blib/arch/auto/Sereal/Path/Iterator/Iterator.so
+ccache gcc  -shared -O2 -L/usr/local/lib -fstack-protector-strong  Iterator.o srl_iterator.o srl_decoder.o miniz.o zstd/libzstd.o  -o ../blib/arch/auto/Sereal/Path/Iterator/Iterator.so  \
+      \
+  
+chmod 755 ../blib/arch/auto/Sereal/Path/Iterator/Iterator.so
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Iterator'
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Tie'
+cp lib/Sereal/Path/Tie.pm ../blib/lib/Sereal/Path/Tie.pm
+Running Mkbootstrap for Tie ()
+chmod 644 "Tie.bs"
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Tie.bs ../blib/arch/auto/Sereal/Path/Tie/Tie.bs 644
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/ExtUtils/xsubpp"  -typemap '/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/ExtUtils/typemap' -typemap '/tmp/sereal-merge332-li5djdrv/Perl/Path/Tie/typemap'  Tie.xs > Tie.xsc
+mv Tie.xsc Tie.c
+gcc -c -I.  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE" -DNDEBUG -DMINIZ_NO_STDIO  -DNDEBUG -DMINIZ_NO_STDIO Tie.c
+rm -f ../blib/arch/auto/Sereal/Path/Tie/Tie.so
+ccache gcc  -shared -O2 -L/usr/local/lib -fstack-protector-strong  Tie.o ../Iterator/srl_iterator.o ../Iterator/srl_decoder.o ../Iterator/miniz.o ../Iterator/zstd/libzstd.o  -o ../blib/arch/auto/Sereal/Path/Tie/Tie.so  \
+      \
+  
+chmod 755 ../blib/arch/auto/Sereal/Path/Tie/Tie.so
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Tie'
+Running Mkbootstrap for Path ()
+chmod 644 "Path.bs"
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Path.bs blib/arch/auto/Sereal/Path/Path.bs 644
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/ExtUtils/xsubpp"  -typemap '/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/ExtUtils/typemap' -typemap '/tmp/sereal-merge332-li5djdrv/Perl/Path/typemap'  Path.xs > Path.xsc
+mv Path.xsc Path.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO Path.c
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO srl_path.c
+rm -f blib/arch/auto/Sereal/Path/Path.so
+ccache gcc  -shared -O2 -L/usr/local/lib -fstack-protector-strong  Path.o srl_path.o Iterator/srl_iterator.o Iterator/srl_decoder.o Iterator/miniz.o Iterator/zstd/libzstd.o  -o blib/arch/auto/Sereal/Path/Path.so  \
+      \
+  
+chmod 755 blib/arch/auto/Sereal/Path/Path.so
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Path.bs blib/arch/auto/Sereal/Path/Path.bs 644
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Iterator'
+make[2]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Iterator/zstd'
+make[2]: Nothing to be done for 'all'.
+make[2]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Iterator/zstd'
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Iterator.bs ../blib/arch/auto/Sereal/Path/Iterator/Iterator.bs 644
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Iterator'
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Tie'
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Tie.bs ../blib/arch/auto/Sereal/Path/Tie/Tie.bs 644
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Tie'
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Iterator'
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Iterator.bs ../blib/arch/auto/Sereal/Path/Iterator/Iterator.bs 644
+make[2]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Iterator/zstd'
+make[2]: Nothing to be done for 'all'.
+make[2]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Iterator/zstd'
+make[2]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Iterator/zstd'
+make[2]: Nothing to be done for 'test_dynamic'.
+make[2]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Iterator/zstd'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, '../blib/lib', '../blib/arch')" t/*.t t/*/*/*.t
+t/001_load.t ............. ok
+t/005_interface.t ........ ok
+t/010_info.t ............. ok
+t/020_step_in.t .......... ok
+t/030_step_next.t ........ ok
+t/040_step_out.t ......... ok
+t/050_rewind.t ........... ok
+t/060_eof.t .............. ok
+t/070_array.t ............ ok
+t/080_hash.t ............. ok
+t/100_decoder.t .......... ok
+t/110_decode_and_next.t .. ok
+t/120_varint_overflow.t .. ok
+t/130_v5_v6.t ............ ok
+All tests successful.
+Files=14, Tests=88,  0 wallclock secs ( 0.03 usr  0.01 sys +  0.41 cusr  0.06 csys =  0.51 CPU)
+Result: PASS
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Iterator'
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Tie'
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Tie.bs ../blib/arch/auto/Sereal/Path/Tie/Tie.bs 644
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, '../blib/lib', '../blib/arch')" t/*.t t/*/*/*.t
+t/001_load.t ............ ok
+t/010_new.t ............. ok
+t/100_tie.t ............. ok
+t/110_tie_autovivify.t .. ok
+All tests successful.
+Files=4, Tests=9,  0 wallclock secs ( 0.01 usr  0.00 sys +  0.10 cusr  0.02 csys =  0.13 CPU)
+Result: PASS
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Path/Tie'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/*.t t/*/*/*.t
+t/001_load.t ............. ok
+t/003_is_star.t .......... ok
+t/020_interface.t ........ ok
+t/030_quiery_syntax.t .... ok
+t/040_simple_queries.t ... ok
+t/050_complex_queries.t .. ok
+All tests successful.
+Files=6, Tests=80,  0 wallclock secs ( 0.01 usr  0.00 sys +  0.15 cusr  0.04 csys =  0.20 CPU)
+Result: PASS
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Manifest=fullcheck" -e fullcheck
+Not in MANIFEST: Iterator/author_tools/bench_retention.pl

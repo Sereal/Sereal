@@ -1,0 +1,20 @@
+make: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Encoder'
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Encoder.bs blib/arch/auto/Sereal/Encoder/Encoder.bs 644
+cd zstd && make all
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'test_dynamic'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+PERL_DL_NONLAZY=1 valgrind --tool=memcheck --trace-children=yes --track-origins=yes --leak-check=full --show-leak-kinds=definite,indirect --errors-for-leak-kinds=definite,indirect --error-exitcode=99 --suppressions=/home/demerphq/git_tree/Sereal/Perl/shared/author_tools/valgrind.supp --log-file=/tmp/sereal-sorted-final-valgrind.%p.log /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/134*.t t/139*.t t/140*.t
+t/134_callback_frozen_object_lifetime.t .. ok
+t/139_callback_encoder_lifetime.t ........ ok
+t/140_sorted_callback_cursor.t ........... ok
+All tests successful.
+Files=3, Tests=415, 20 wallclock secs ( 1.64 usr  0.03 sys + 18.32 cusr  0.35 csys = 20.34 CPU)
+Result: PASS
+make: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Encoder'

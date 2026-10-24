@@ -1,0 +1,86 @@
+make: Entering directory '/tmp/sereal-retention-EJwVZf/after/Perl/Encoder'
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Encoder.bs blib/arch/auto/Sereal/Encoder/Encoder.bs 644
+cd zstd && make all
+make[1]: Entering directory '/tmp/sereal-retention-EJwVZf/after/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/tmp/sereal-retention-EJwVZf/after/Perl/Encoder/zstd'
+make[1]: Entering directory '/tmp/sereal-retention-EJwVZf/after/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/tmp/sereal-retention-EJwVZf/after/Perl/Encoder/zstd'
+make[1]: Entering directory '/tmp/sereal-retention-EJwVZf/after/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'test_dynamic'.
+make[1]: Leaving directory '/tmp/sereal-retention-EJwVZf/after/Perl/Encoder/zstd'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/141_predicate_callback_lifetime.t
+=================================================================
+==29==ERROR: AddressSanitizer: heap-use-after-free on address 0x5030000a8ee8 at pc 0x7ac0a773067d bp 0x7ffd1321d1e0 sp 0x7ffd1321d1d0
+READ of size 8 at 0x5030000a8ee8 thread T0
+    #0 0x7ac0a773067c in srl_dump_av /tmp/sereal-retention-EJwVZf/after/Perl/Encoder/srl_encoder.c:1840
+    #1 0x7ac0a7727024 in srl_dump_sv /tmp/sereal-retention-EJwVZf/after/Perl/Encoder/srl_encoder.c:2677
+    #2 0x7ac0a7731a14 in srl_dump_data_structure /tmp/sereal-retention-EJwVZf/after/Perl/Encoder/srl_encoder.c:1677
+    #3 0x7ac0a7731a14 in srl_dump_data_structure_mortal_sv /tmp/sereal-retention-EJwVZf/after/Perl/Encoder/srl_encoder.c:1694
+    #4 0x7ac0a77043a8 in THX_pp1_sereal_encode_with_object /tmp/sereal-retention-EJwVZf/after/Perl/Encoder/Encoder.xs:70
+    #5 0x7ac0a770454a in THX_xsfunc_sereal_encode_with_object /tmp/sereal-retention-EJwVZf/after/Perl/Encoder/Encoder.xs:157
+    #6 0x5aae1da4666c in Perl_pp_entersub (/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl+0xfe66c) (BuildId: 74fa3bb24153c84ac4f69721f868dbcc424116ac)
+    #7 0x5aae1dac5232 in Perl_runops_standard (/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl+0x17d232) (BuildId: 74fa3bb24153c84ac4f69721f868dbcc424116ac)
+    #8 0x5aae1d9bb795 in perl_run (/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl+0x73795) (BuildId: 74fa3bb24153c84ac4f69721f868dbcc424116ac)
+    #9 0x5aae1d9923c1 in main (/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl+0x4a3c1) (BuildId: 74fa3bb24153c84ac4f69721f868dbcc424116ac)
+    #10 0x7ac0aa62a1c9 in __libc_start_call_main ../sysdeps/nptl/libc_start_call_main.h:58
+    #11 0x7ac0aa62a28a in __libc_start_main_impl ../csu/libc-start.c:360
+    #12 0x5aae1d992404 in _start (/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl+0x4a404) (BuildId: 74fa3bb24153c84ac4f69721f868dbcc424116ac)
+
+0x5030000a8ee8 is located 8 bytes inside of 32-byte region [0x5030000a8ee0,0x5030000a8f00)
+freed by thread T0 here:
+    #0 0x7ac0aaafc4d8 in free ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:52
+    #1 0x5aae1d9c363e in Perl_av_undef (/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl+0x7b63e) (BuildId: 74fa3bb24153c84ac4f69721f868dbcc424116ac)
+
+previously allocated by thread T0 here:
+    #0 0x7ac0aaafd9c7 in malloc ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:69
+    #1 0x5aae1db0cfc9 in Perl_safesysmalloc (/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl+0x1c4fc9) (BuildId: 74fa3bb24153c84ac4f69721f868dbcc424116ac)
+
+SUMMARY: AddressSanitizer: heap-use-after-free /tmp/sereal-retention-EJwVZf/after/Perl/Encoder/srl_encoder.c:1840 in srl_dump_av
+Shadow bytes around the buggy address:
+  0x5030000a8c00: fa fa fd fd fd fa fa fa fd fd fd fd fa fa fd fd
+  0x5030000a8c80: fd fd fa fa fd fd fd fd fa fa fd fd fd fd fa fa
+  0x5030000a8d00: fd fd fd fd fa fa fd fd fd fd fa fa fd fd fd fd
+  0x5030000a8d80: fa fa fd fd fd fd fa fa fd fd fd fd fa fa fd fd
+  0x5030000a8e00: fd fd fa fa fd fd fd fa fa fa fd fd fd fd fa fa
+=>0x5030000a8e80: 00 00 00 fa fa fa fd fd fd fd fa fa fd[fd]fd fd
+  0x5030000a8f00: fa fa 00 00 00 fa fa fa fd fd fd fd fa fa 00 00
+  0x5030000a8f80: 00 00 fa fa 00 00 00 fa fa fa fd fd fd fa fa fa
+  0x5030000a9000: 00 00 00 00 fa fa 00 00 00 fa fa fa fd fd fd fd
+  0x5030000a9080: fa fa fd fd fd fa fa fa 00 00 00 fa fa fa 00 00
+  0x5030000a9100: 00 fa fa fa fd fd fd fa fa fa fd fd fd fd fa fa
+Shadow byte legend (one shadow byte represents 8 application bytes):
+  Addressable:           00
+  Partially addressable: 01 02 03 04 05 06 07 
+  Heap left redzone:       fa
+  Freed heap region:       fd
+  Stack left redzone:      f1
+  Stack mid redzone:       f2
+  Stack right redzone:     f3
+  Stack after return:      f5
+  Stack use after scope:   f8
+  Global redzone:          f9
+  Global init order:       f6
+  Poisoned by user:        f7
+  Container overflow:      fc
+  Array cookie:            ac
+  Intra object redzone:    bb
+  ASan internal:           fe
+  Left alloca redzone:     ca
+  Right alloca redzone:    cb
+==29==ABORTING
+t/141_predicate_callback_lifetime.t .. 
+Dubious, test returned 1 (wstat 256, 0x100)
+All 17 subtests passed 
+
+Test Summary Report
+-------------------
+t/141_predicate_callback_lifetime.t (Wstat: 256 (exited 1) Tests: 17 Failed: 0)
+  Non-zero exit status: 1
+  Parse errors: No plan found in TAP output
+Files=1, Tests=17,  1 wallclock secs ( 0.01 usr  0.00 sys +  0.12 cusr  0.03 csys =  0.16 CPU)
+Result: FAIL
+Failed 1/1 test programs. 0/17 subtests failed.
+make: *** [Makefile:1118: test_dynamic] Error 1
+make: Leaving directory '/tmp/sereal-retention-EJwVZf/after/Perl/Encoder'

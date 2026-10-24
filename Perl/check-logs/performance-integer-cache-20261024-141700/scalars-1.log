@@ -1,0 +1,8 @@
+scalars encode block=1 current: {"case":"scalars","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":783486,"operation":"encode","batch_size":256}
+scalars encode block=1 previous: {"case":"scalars","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-iteration/pre-integer/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":783486,"operation":"encode","batch_size":256}
+current: Reached maximum number of iterations. Stopping. Precision not reached.
+previous: Reached maximum number of iterations. Stopping. Precision not reached.
+current: Ran 60 iterations (0 outliers).
+current: Rounded run time per iteration (seconds): 9.622e-04 +/- 5.5e-06 (0.6%)
+previous: Ran 60 iterations (2 outliers).
+previous: Rounded run time per iteration (seconds): 1.4033e-03 +/- 8.2e-06 (0.6%)

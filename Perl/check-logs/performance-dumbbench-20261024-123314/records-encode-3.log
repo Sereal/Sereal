@@ -1,0 +1,6 @@
+records encode block=3 installed: {"case":"records","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/site_perl/5.44.0/x86_64-linux/Sereal/Encoder.pm","encoder":5.01,"bytes":7855866,"operation":"encode","batch_size":8}
+records encode block=3 current: {"case":"records","decoder":6.000001,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":7855866,"operation":"encode","batch_size":8}
+installed: Ran 35 iterations (3 outliers).
+installed: Rounded run time per iteration (seconds): 3.4508e-02 +/- 5.9e-05 (0.2%)
+current: Ran 33 iterations (1 outliers).
+current: Rounded run time per iteration (seconds): 3.5070e-02 +/- 8.7e-05 (0.2%)

@@ -1,0 +1,40 @@
+{'variant': 'control', 'case': 'medium-objects', 'repeat': 1, 'ms': 0.00907391612071938, 'bytes': 1094}
+{'variant': 'object-check', 'case': 'medium-objects', 'repeat': 1, 'ms': 0.0029070950561941476, 'bytes': 981}
+{'variant': 'no-scan', 'case': 'medium-objects', 'repeat': 1, 'ms': 0.0023091648443507437, 'bytes': 981}
+{'variant': 'control', 'case': 'records', 'repeat': 1, 'ms': 61.856, 'bytes': 7855866}
+{'variant': 'object-check', 'case': 'records', 'repeat': 1, 'ms': 62.367, 'bytes': 7855866}
+{'variant': 'no-scan', 'case': 'records', 'repeat': 1, 'ms': 44.969, 'bytes': 7855866}
+{'variant': 'control', 'case': 'arrays', 'repeat': 1, 'ms': 11.74, 'bytes': 1483486}
+{'variant': 'object-check', 'case': 'arrays', 'repeat': 1, 'ms': 12.18, 'bytes': 1483486}
+{'variant': 'no-scan', 'case': 'arrays', 'repeat': 1, 'ms': 8.605, 'bytes': 1483486}
+{'variant': 'control', 'case': 'scalars', 'repeat': 1, 'ms': 2.105, 'bytes': 783486}
+{'variant': 'object-check', 'case': 'scalars', 'repeat': 1, 'ms': 2.001, 'bytes': 783486}
+{'variant': 'no-scan', 'case': 'scalars', 'repeat': 1, 'ms': 1.975, 'bytes': 783486}
+{'variant': 'control', 'case': 'medium-objects', 'repeat': 2, 'ms': 0.009522086479589407, 'bytes': 1094}
+{'variant': 'object-check', 'case': 'medium-objects', 'repeat': 2, 'ms': 0.0028979039460758035, 'bytes': 981}
+{'variant': 'no-scan', 'case': 'medium-objects', 'repeat': 2, 'ms': 0.002267028786731534, 'bytes': 981}
+{'variant': 'control', 'case': 'records', 'repeat': 2, 'ms': 60.871, 'bytes': 7855866}
+{'variant': 'object-check', 'case': 'records', 'repeat': 2, 'ms': 63.097, 'bytes': 7855866}
+{'variant': 'no-scan', 'case': 'records', 'repeat': 2, 'ms': 44.467, 'bytes': 7855866}
+{'variant': 'control', 'case': 'arrays', 'repeat': 2, 'ms': 11.434, 'bytes': 1483486}
+{'variant': 'object-check', 'case': 'arrays', 'repeat': 2, 'ms': 11.584, 'bytes': 1483486}
+{'variant': 'no-scan', 'case': 'arrays', 'repeat': 2, 'ms': 8.614, 'bytes': 1483486}
+{'variant': 'control', 'case': 'scalars', 'repeat': 2, 'ms': 2.267, 'bytes': 783486}
+{'variant': 'object-check', 'case': 'scalars', 'repeat': 2, 'ms': 2.135, 'bytes': 783486}
+{'variant': 'no-scan', 'case': 'scalars', 'repeat': 2, 'ms': 1.601, 'bytes': 783486}
+{'variant': 'control', 'case': 'medium-objects', 'repeat': 3, 'ms': 0.009545810343840088, 'bytes': 1094}
+{'variant': 'object-check', 'case': 'medium-objects', 'repeat': 3, 'ms': 0.0029596131193730356, 'bytes': 981}
+{'variant': 'no-scan', 'case': 'medium-objects', 'repeat': 3, 'ms': 0.0022452333695564316, 'bytes': 981}
+{'variant': 'control', 'case': 'records', 'repeat': 3, 'ms': 64.406, 'bytes': 7855866}
+{'variant': 'object-check', 'case': 'records', 'repeat': 3, 'ms': 65.932, 'bytes': 7855866}
+{'variant': 'no-scan', 'case': 'records', 'repeat': 3, 'ms': 44.426, 'bytes': 7855866}
+{'variant': 'control', 'case': 'arrays', 'repeat': 3, 'ms': 12.025, 'bytes': 1483486}
+{'variant': 'object-check', 'case': 'arrays', 'repeat': 3, 'ms': 11.881, 'bytes': 1483486}
+{'variant': 'no-scan', 'case': 'arrays', 'repeat': 3, 'ms': 8.9, 'bytes': 1483486}
+{'variant': 'control', 'case': 'scalars', 'repeat': 3, 'ms': 1.986, 'bytes': 783486}
+{'variant': 'object-check', 'case': 'scalars', 'repeat': 3, 'ms': 2.149, 'bytes': 783486}
+{'variant': 'no-scan', 'case': 'scalars', 'repeat': 3, 'ms': 1.597, 'bytes': 783486}
+medium-objects {'control': 0.009522086479589407, 'object-check': 0.0029070950561941476, 'no-scan': 0.002267028786731534}
+records {'control': 61.856, 'object-check': 63.097, 'no-scan': 44.467}
+arrays {'control': 11.74, 'object-check': 11.881, 'no-scan': 8.614}
+scalars {'control': 2.105, 'object-check': 2.135, 'no-scan': 1.601}

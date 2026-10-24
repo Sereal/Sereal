@@ -1,0 +1,37 @@
+Encoder investigation: final comparison with installed 5.010
+
+Implemented in staged changes on top of f17b6149:
+- Small callback bookkeeping table, automatic growth.
+- Sorted hash entries validated immediately before use after callbacks; key metadata retained once, values read at use. No per-callback complete-hash scan.
+- Predicate truth conversion is inside mutation validation. New regression reproduces an ASan heap-use-after-free before the fix when boolean overload clears the active array.
+- Source/reference retention unified for FREEZE and allow-list predicates. Selected method and active Encoder owner protections remain.
+- Public cached nonnegative IV/UV values read directly, skipping unnecessary signed-to-unsigned conversion. Negative values already use the inline signed cached-value path. Fallback conversions use _nomg, since magical inputs have already been FETCHed once. Comments explain the contract and both caller paths.
+
+All existing test files unchanged in this round. Added 140 (180 tests), 141 (125 tests), 142 (576 tests). No existing tests deleted or weakened.
+Full native: 71 files / 156765 tests PASS.
+Full threaded: 71 files / 156766 tests PASS.
+ASan / UBSan / Perl5.14.4: 13 focused files / 4185 tests PASS each.
+Valgrind: 6 focused files / 1368 tests PASS, no errors or definite/indirect leaks.
+Integer/dualvar packets: 234 byte-for-byte identical before/after integer optimization, protocols1..6.
+
+Regular isolated comparisons (two process blocks, reversed order):
+- Predicate boundary fix: no added measured cost.
+- Duplicate lifetime cleanup: FREEZE100 2.9-3.7% faster; ordinary objects unchanged.
+- Cached integer optimization: ordinary objects 8.7-8.8%, plain hashes 11.6-12.3%, nested records 9.0-10.0%, flat integers 29.9-31.4% faster than the immediately previous version.
+Callgrind 20k ordinary encodes: encode-entry inclusive instructions 523033174 -> 480833412. sv_2uv_flags instructions 40289668 -> 9668 (remaining startup work). This conversion cost also existed in 5.010; it is an independent optimization, not a claim that it caused the entire original regression.
+
+Fresh final comparison against installed 5.010 (same GCC/-O3, Perl5.44, protocol5, no compression/checksum, CPU0, fixed hash seeds; all input setup excluded; 30 retained calibrated samples minimum per result):
+- Ordinary objects 1.5-2.0% faster (rough parity).
+- Plain medium hashes 5.0-5.2% faster.
+- Nested records 0.2-2.4% faster (rough parity).
+- Nested arrays 17.9-19.0% faster.
+- Flat integers 24.5-24.7% faster.
+- One FREEZE object 34.6-42.4% slower, 0.68-0.70us versus 0.48-0.52us.
+- 100 FREEZE objects 35.5-43.9% slower, about36us versus25-27us.
+- 1000 sorted FREEZE objects 64.6-65.3% slower, 0.81-0.82ms versus0.49-0.50ms. Earlier quadratic implementation took46-49ms.
+All benchmark packet lengths matched. These are encoding comparisons, not decoding. The reported Dumbbench robust errors are not 95% confidence intervals; some hit the 60-sample cap, with actual error about0.6% against a0.5% target. Raw data and process-block comparisons are preserved.
+
+Remaining:
+- Ordinary-object regression no longer appears in these workloads. Callback encoding still pays for preserving active identities and validating iteration state. Profile remaining guard allocations/lookups before claiming the entire residual cost is unavoidable. A possible further cleanup is retaining FREEZE CVs only across intervening predicates, but first verify interpreter/XSUB and old-Perl lifetime guarantees; this has NOT been changed.
+- Separate Decoder performance costs from the earlier benchmark remain unaddressed in this Encoder investigation.
+- No release or push. Current fixes are staged, not committed.

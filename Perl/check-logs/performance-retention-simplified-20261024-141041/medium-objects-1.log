@@ -1,0 +1,6 @@
+medium-objects encode block=1 current: {"case":"medium-objects","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":981,"operation":"encode","batch_size":131072}
+medium-objects encode block=1 previous: {"case":"medium-objects","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-iteration/boundary/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":981,"operation":"encode","batch_size":131072}
+current: Ran 39 iterations (8 outliers).
+current: Rounded run time per iteration (seconds): 1.9179e-06 +/- 4.4e-09 (0.2%)
+previous: Ran 32 iterations (2 outliers).
+previous: Rounded run time per iteration (seconds): 1.9239e-06 +/- 8.4e-09 (0.4%)

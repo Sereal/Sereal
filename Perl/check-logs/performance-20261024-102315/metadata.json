@@ -1,0 +1,10 @@
+{
+  "started": "2026-10-24T10:23:15.688320",
+  "perl": "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl",
+  "cpu": "model name\t: 11th Gen Intel(R) Core(TM) i7-1185G7 @ 3.00GHz",
+  "cpu_affinity": 0,
+  "protocol_core": 5,
+  "protocol_tools": 4,
+  "before332": "816daee0a031c06fccb1c5e4016f587cda4dc0c6",
+  "notes": "Installed 5.010 build flags unknown; before332 and merged332 both built with GCC -O3. Three process runs per case. No concurrent benchmark/build jobs."
+}

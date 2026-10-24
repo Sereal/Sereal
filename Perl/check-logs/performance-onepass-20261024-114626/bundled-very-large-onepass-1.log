@@ -1,0 +1,15 @@
+Perl=v5.44.0 Encoder=6.000001 Decoder=6.000001 protocol=5
+Encoder module: /home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm
+Decoder module: /home/demerphq/git_tree/Sereal/Perl/Decoder/blib/lib/Sereal/Decoder.pm
+Sereal OO (srl)                                295215 bytes  75.45% of strbl
+Storable (strbl)                               391286 bytes
+
+* Timing encoders
+      Rate srl
+srl 1185/s  --
+
+* Timing decoders
+     Rate srl
+srl 499/s  --
+
+peak_rss_kb=37636

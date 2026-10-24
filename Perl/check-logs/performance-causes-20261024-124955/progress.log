@@ -1,0 +1,108 @@
+Logs: /home/demerphq/git_tree/Sereal/Perl/check-logs/performance-causes-20261024-124955
+START smalltable-freeze-1-1
+freeze-1 encode block=1 current: {"case":"freeze-1","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":22,"operation":"encode","batch_size":262144}
+freeze-1 encode block=1 smalltable: {"case":"freeze-1","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-cause/smalltable/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":22,"operation":"encode","batch_size":524288}
+current: Ran 22 iterations (2 outliers).
+current: Rounded run time per iteration (seconds): 9.519e-07 +/- 1.1e-09 (0.1%)
+smalltable: Ran 23 iterations (3 outliers).
+smalltable: Rounded run time per iteration (seconds): 6.742e-07 +/- 1.1e-09 (0.2%)
+START smalltable-freeze-1-2
+freeze-1 encode block=2 smalltable: {"case":"freeze-1","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-cause/smalltable/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":22,"operation":"encode","batch_size":524288}
+freeze-1 encode block=2 current: {"case":"freeze-1","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":22,"operation":"encode","batch_size":262144}
+smalltable: Ran 21 iterations (0 outliers).
+smalltable: Rounded run time per iteration (seconds): 6.688e-07 +/- 1.5e-09 (0.2%)
+current: Ran 22 iterations (2 outliers).
+current: Rounded run time per iteration (seconds): 9.614e-07 +/- 3.2e-09 (0.3%)
+START smalltable-freeze-100-1
+freeze-100 encode block=1 current: {"case":"freeze-100","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":1212,"operation":"encode","batch_size":8192}
+freeze-100 encode block=1 smalltable: {"case":"freeze-100","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-cause/smalltable/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":1212,"operation":"encode","batch_size":8192}
+current: Ran 20 iterations (0 outliers).
+current: Rounded run time per iteration (seconds): 3.580e-05 +/- 1.0e-07 (0.3%)
+smalltable: Ran 20 iterations (0 outliers).
+smalltable: Rounded run time per iteration (seconds): 3.638e-05 +/- 1.7e-07 (0.5%)
+START smalltable-freeze-100-2
+freeze-100 encode block=2 smalltable: {"case":"freeze-100","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-cause/smalltable/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":1212,"operation":"encode","batch_size":8192}
+freeze-100 encode block=2 current: {"case":"freeze-100","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":1212,"operation":"encode","batch_size":8192}
+smalltable: Ran 22 iterations (2 outliers).
+smalltable: Rounded run time per iteration (seconds): 3.633e-05 +/- 1.3e-07 (0.3%)
+current: Ran 23 iterations (3 outliers).
+current: Rounded run time per iteration (seconds): 3.6928e-05 +/- 8.2e-08 (0.2%)
+START noguards-freeze-1-1
+freeze-1 encode block=1 current: {"case":"freeze-1","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":22,"operation":"encode","batch_size":262144}
+freeze-1 encode block=1 noguards: {"case":"freeze-1","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-cause/noguards/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":22,"operation":"encode","batch_size":524288}
+current: Ran 30 iterations (10 outliers).
+current: Rounded run time per iteration (seconds): 9.2361e-07 +/- 2.9e-10 (0.0%)
+noguards: Ran 20 iterations (0 outliers).
+noguards: Rounded run time per iteration (seconds): 4.878e-07 +/- 1.8e-09 (0.4%)
+START noguards-freeze-100-1
+freeze-100 encode block=1 current: {"case":"freeze-100","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":1212,"operation":"encode","batch_size":8192}
+freeze-100 encode block=1 noguards: {"case":"freeze-100","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-cause/noguards/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":1212,"operation":"encode","batch_size":8192}
+current: Ran 23 iterations (1 outliers).
+current: Rounded run time per iteration (seconds): 3.6570e-05 +/- 8.3e-08 (0.2%)
+noguards: Ran 22 iterations (2 outliers).
+noguards: Rounded run time per iteration (seconds): 2.8698e-05 +/- 5.2e-08 (0.2%)
+START noowner-medium-objects-1
+medium-objects encode block=1 current: {"case":"medium-objects","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":981,"operation":"encode","batch_size":131072}
+medium-objects encode block=1 noowner: {"case":"medium-objects","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-cause/noowner/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":981,"operation":"encode","batch_size":131072}
+noowner: Reached maximum number of iterations. Stopping. Precision not reached.
+current: Ran 25 iterations (3 outliers).
+current: Rounded run time per iteration (seconds): 1.8579e-06 +/- 4.0e-09 (0.2%)
+noowner: Ran 40 iterations (1 outliers).
+noowner: Rounded run time per iteration (seconds): 2.104e-06 +/- 1.7e-08 (0.8%)
+START noowner-medium-plain-1
+medium-plain encode block=1 current: {"case":"medium-plain","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":942,"operation":"encode","batch_size":131072}
+medium-plain encode block=1 noowner: {"case":"medium-plain","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-cause/noowner/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":942,"operation":"encode","batch_size":131072}
+current: Ran 21 iterations (1 outliers).
+current: Rounded run time per iteration (seconds): 1.6648e-06 +/- 7.3e-09 (0.4%)
+noowner: Ran 21 iterations (1 outliers).
+noowner: Rounded run time per iteration (seconds): 1.6415e-06 +/- 4.6e-09 (0.3%)
+START noowner-freeze-1-1
+freeze-1 encode block=1 current: {"case":"freeze-1","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":22,"operation":"encode","batch_size":262144}
+freeze-1 encode block=1 noowner: {"case":"freeze-1","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-cause/noowner/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":22,"operation":"encode","batch_size":262144}
+current: Ran 20 iterations (0 outliers).
+current: Rounded run time per iteration (seconds): 9.747e-07 +/- 3.0e-09 (0.3%)
+noowner: Ran 23 iterations (0 outliers).
+noowner: Rounded run time per iteration (seconds): 9.639e-07 +/- 4.3e-09 (0.4%)
+START noframes-medium-objects-1
+medium-objects encode block=1 current: {"case":"medium-objects","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":981,"operation":"encode","batch_size":131072}
+medium-objects encode block=1 noframes: {"case":"medium-objects","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-cause/noframes/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":981,"operation":"encode","batch_size":131072}
+current: Ran 21 iterations (1 outliers).
+current: Rounded run time per iteration (seconds): 1.7900e-06 +/- 1.6e-09 (0.1%)
+noframes: Ran 23 iterations (3 outliers).
+noframes: Rounded run time per iteration (seconds): 1.7830e-06 +/- 2.5e-09 (0.1%)
+START noframes-medium-objects-2
+medium-objects encode block=2 noframes: {"case":"medium-objects","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-cause/noframes/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":981,"operation":"encode","batch_size":131072}
+medium-objects encode block=2 current: {"case":"medium-objects","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":981,"operation":"encode","batch_size":131072}
+noframes: Ran 32 iterations (12 outliers).
+noframes: Rounded run time per iteration (seconds): 1.76840e-06 +/- 9.2e-10 (0.1%)
+current: Ran 28 iterations (8 outliers).
+current: Rounded run time per iteration (seconds): 1.81682e-06 +/- 9.2e-10 (0.1%)
+START noframes-medium-plain-1
+medium-plain encode block=1 current: {"case":"medium-plain","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":942,"operation":"encode","batch_size":131072}
+medium-plain encode block=1 noframes: {"case":"medium-plain","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-cause/noframes/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":942,"operation":"encode","batch_size":131072}
+current: Ran 29 iterations (9 outliers).
+current: Rounded run time per iteration (seconds): 1.56830e-06 +/- 8.9e-10 (0.1%)
+noframes: Ran 25 iterations (5 outliers).
+noframes: Rounded run time per iteration (seconds): 1.5965e-06 +/- 2.6e-09 (0.2%)
+START noframes-medium-plain-2
+medium-plain encode block=2 noframes: {"case":"medium-plain","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-cause/noframes/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":942,"operation":"encode","batch_size":131072}
+medium-plain encode block=2 current: {"case":"medium-plain","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":942,"operation":"encode","batch_size":131072}
+noframes: Ran 20 iterations (0 outliers).
+noframes: Rounded run time per iteration (seconds): 1.6088e-06 +/- 5.9e-09 (0.4%)
+current: Ran 24 iterations (4 outliers).
+current: Rounded run time per iteration (seconds): 1.6350e-06 +/- 4.3e-09 (0.3%)
+START notag-medium-objects-1
+medium-objects encode block=1 current: {"case":"medium-objects","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":981,"operation":"encode","batch_size":131072}
+medium-objects encode block=1 notag: {"case":"medium-objects","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-cause/notag/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":981,"operation":"encode","batch_size":131072}
+current: Ran 20 iterations (0 outliers).
+current: Rounded run time per iteration (seconds): 1.8519e-06 +/- 6.8e-09 (0.4%)
+notag: Ran 21 iterations (1 outliers).
+notag: Rounded run time per iteration (seconds): 1.8643e-06 +/- 6.4e-09 (0.3%)
+START notag-medium-objects-2
+medium-objects encode block=2 notag: {"case":"medium-objects","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-cause/notag/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":981,"operation":"encode","batch_size":131072}
+medium-objects encode block=2 current: {"case":"medium-objects","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":981,"operation":"encode","batch_size":131072}
+notag: Ran 23 iterations (3 outliers).
+notag: Rounded run time per iteration (seconds): 1.8467e-06 +/- 4.9e-09 (0.3%)
+current: Ran 21 iterations (1 outliers).
+current: Rounded run time per iteration (seconds): 1.8336e-06 +/- 7.5e-09 (0.4%)
+Completed diagnostic comparisons.

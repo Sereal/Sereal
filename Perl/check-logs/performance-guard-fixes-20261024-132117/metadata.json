@@ -1,0 +1,13 @@
+{
+  "base": "f17b6149",
+  "baseline": "/tmp/sereal-cause/prefix",
+  "current": "/home/demerphq/git_tree/Sereal",
+  "cases": [
+    "freeze-1",
+    "sorted-freeze-1000",
+    "medium-objects",
+    "medium-plain"
+  ],
+  "blocks": 2,
+  "notes": "Same persistent Perl5.44 workers, protocol5, fixed hash seed, CPU0, internally timed calibrated batches >=0.2s. 30 retained samples minimum, 0.5% Dumbbench target, max60. Prefix is unmodified HEAD, current contains small callback table and sorted-entry-at-use validation; sorted_keyed occupies existing frame padding and is initialized only in the sorted path. Reversed order in second block. No tests or builds run during timing."
+}

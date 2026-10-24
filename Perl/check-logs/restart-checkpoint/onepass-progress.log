@@ -1,0 +1,415 @@
+Logs: /home/demerphq/git_tree/Sereal/Perl/check-logs/performance-onepass-20261024-114626
+bundled-tiny-installed-5.010-1: done
+bundled-tiny-onepass-1: done
+bundled-small-installed-5.010-1: done
+bundled-small-onepass-1: done
+bundled-medium-objects-installed-5.010-1: done
+bundled-medium-objects-onepass-1: done
+bundled-medium-plain-installed-5.010-1: done
+bundled-medium-plain-onepass-1: done
+bundled-large-installed-5.010-1: done
+bundled-large-onepass-1: done
+bundled-very-large-installed-5.010-1: done
+bundled-very-large-onepass-1: done
+bundled-tiny-onepass-2: done
+bundled-tiny-installed-5.010-2: done
+bundled-small-onepass-2: done
+bundled-small-installed-5.010-2: done
+bundled-medium-objects-onepass-2: done
+bundled-medium-objects-installed-5.010-2: done
+bundled-medium-plain-onepass-2: done
+bundled-medium-plain-installed-5.010-2: done
+bundled-large-onepass-2: done
+bundled-large-installed-5.010-2: done
+bundled-very-large-onepass-2: done
+bundled-very-large-installed-5.010-2: done
+bundled-tiny-installed-5.010-3: done
+bundled-tiny-onepass-3: done
+bundled-small-installed-5.010-3: done
+bundled-small-onepass-3: done
+bundled-medium-objects-installed-5.010-3: done
+bundled-medium-objects-onepass-3: done
+bundled-medium-plain-installed-5.010-3: done
+bundled-medium-plain-onepass-3: done
+bundled-large-installed-5.010-3: done
+bundled-large-onepass-3: done
+bundled-very-large-installed-5.010-3: done
+bundled-very-large-onepass-3: done
+retention-records-installed-5.010-1: done
+retention-records-onepass-1: done
+retention-arrays-installed-5.010-1: done
+retention-arrays-onepass-1: done
+retention-scalars-installed-5.010-1: done
+retention-scalars-onepass-1: done
+retention-keys-installed-5.010-1: done
+retention-keys-onepass-1: done
+retention-records-installed-5.010-2: done
+retention-records-onepass-2: done
+retention-arrays-installed-5.010-2: done
+retention-arrays-onepass-2: done
+retention-scalars-installed-5.010-2: done
+retention-scalars-onepass-2: done
+retention-keys-installed-5.010-2: done
+retention-keys-onepass-2: done
+retention-records-installed-5.010-3: done
+retention-records-onepass-3: done
+retention-arrays-installed-5.010-3: done
+retention-arrays-onepass-3: done
+retention-scalars-installed-5.010-3: done
+retention-scalars-onepass-3: done
+retention-keys-installed-5.010-3: done
+retention-keys-onepass-3: done
+[
+  {
+    "phase": "bundled",
+    "case": "large",
+    "operation": "decoders",
+    "variant": "installed-5.010",
+    "median_ms": 0.1841620626151013,
+    "min_ms": 0.18248175182481752,
+    "max_ms": 0.18733608092918697,
+    "bytes": 73014,
+    "peak_rss_kb": 19068
+  },
+  {
+    "phase": "bundled",
+    "case": "large",
+    "operation": "decoders",
+    "variant": "onepass",
+    "median_ms": 0.2332633543270352,
+    "min_ms": 0.23121387283236994,
+    "max_ms": 0.24113817217265493,
+    "bytes": 73014,
+    "peak_rss_kb": 19836
+  },
+  {
+    "phase": "bundled",
+    "case": "large",
+    "operation": "encoders",
+    "variant": "installed-5.010",
+    "median_ms": 0.12696800406297612,
+    "min_ms": 0.12388503468780972,
+    "max_ms": 0.1281722635221738,
+    "bytes": 73014,
+    "peak_rss_kb": 19068
+  },
+  {
+    "phase": "bundled",
+    "case": "large",
+    "operation": "encoders",
+    "variant": "onepass",
+    "median_ms": 0.13785497656465398,
+    "min_ms": 0.13672409078479628,
+    "max_ms": 0.13802622498274672,
+    "bytes": 73014,
+    "peak_rss_kb": 19836
+  },
+  {
+    "phase": "bundled",
+    "case": "medium-objects",
+    "operation": "decoders",
+    "variant": "installed-5.010",
+    "median_ms": 0.006019237482995654,
+    "min_ms": 0.005853567163829638,
+    "max_ms": 0.0061296669751932376,
+    "bytes": 981,
+    "peak_rss_kb": 13112
+  },
+  {
+    "phase": "bundled",
+    "case": "medium-objects",
+    "operation": "decoders",
+    "variant": "onepass",
+    "median_ms": 0.006394188961072178,
+    "min_ms": 0.006219795119948749,
+    "max_ms": 0.006394188961072178,
+    "bytes": 981,
+    "peak_rss_kb": 13868
+  },
+  {
+    "phase": "bundled",
+    "case": "medium-objects",
+    "operation": "encoders",
+    "variant": "installed-5.010",
+    "median_ms": 0.0017438646482014653,
+    "min_ms": 0.0017424122303399273,
+    "max_ms": 0.001790366040336947,
+    "bytes": 981,
+    "peak_rss_kb": 13112
+  },
+  {
+    "phase": "bundled",
+    "case": "medium-objects",
+    "operation": "encoders",
+    "variant": "onepass",
+    "median_ms": 0.001883370404340792,
+    "min_ms": 0.001813614806351279,
+    "max_ms": 0.0019502225203895764,
+    "bytes": 981,
+    "peak_rss_kb": 13868
+  },
+  {
+    "phase": "bundled",
+    "case": "medium-plain",
+    "operation": "decoders",
+    "variant": "installed-5.010",
+    "median_ms": 0.0043538647080080635,
+    "min_ms": 0.0042724817992275356,
+    "max_ms": 0.004633533810896218,
+    "bytes": 942,
+    "peak_rss_kb": 13092
+  },
+  {
+    "phase": "bundled",
+    "case": "medium-plain",
+    "operation": "decoders",
+    "variant": "onepass",
+    "median_ms": 0.004708430444711255,
+    "min_ms": 0.004621242929498318,
+    "max_ms": 0.004708430444711255,
+    "bytes": 942,
+    "peak_rss_kb": 13864
+  },
+  {
+    "phase": "bundled",
+    "case": "medium-plain",
+    "operation": "encoders",
+    "variant": "installed-5.010",
+    "median_ms": 0.0015694768149037519,
+    "min_ms": 0.0015404143098327727,
+    "max_ms": 0.0016276068157663017,
+    "bytes": 942,
+    "peak_rss_kb": 13092
+  },
+  {
+    "phase": "bundled",
+    "case": "medium-plain",
+    "operation": "encoders",
+    "variant": "onepass",
+    "median_ms": 0.001598542129577825,
+    "min_ms": 0.0015840103657638336,
+    "max_ms": 0.0016130749402355734,
+    "bytes": 942,
+    "peak_rss_kb": 13864
+  },
+  {
+    "phase": "bundled",
+    "case": "small",
+    "operation": "decoders",
+    "variant": "installed-5.010",
+    "median_ms": 0.00038873598606770223,
+    "min_ms": 0.0003851029842400455,
+    "max_ms": 0.00039963505326935444,
+    "bytes": 74,
+    "peak_rss_kb": 13084
+  },
+  {
+    "phase": "bundled",
+    "case": "small",
+    "operation": "decoders",
+    "variant": "onepass",
+    "median_ms": 0.0004403249598203474,
+    "min_ms": 0.0004316058023357643,
+    "max_ms": 0.0004534043183134085,
+    "bytes": 74,
+    "peak_rss_kb": 13756
+  },
+  {
+    "phase": "bundled",
+    "case": "small",
+    "operation": "encoders",
+    "variant": "installed-5.010",
+    "median_ms": 0.0002692087148245163,
+    "min_ms": 0.0002526783270976534,
+    "max_ms": 0.0002695719332485979,
+    "bytes": 74,
+    "peak_rss_kb": 13084
+  },
+  {
+    "phase": "bundled",
+    "case": "small",
+    "operation": "encoders",
+    "variant": "onepass",
+    "median_ms": 0.00026448575241700306,
+    "min_ms": 0.00026194255023599715,
+    "max_ms": 0.0002739316255705311,
+    "bytes": 74,
+    "peak_rss_kb": 13756
+  },
+  {
+    "phase": "bundled",
+    "case": "tiny",
+    "operation": "decoders",
+    "variant": "installed-5.010",
+    "median_ms": 0.0001389639680327288,
+    "min_ms": 0.00013232232023483508,
+    "max_ms": 0.00014032635700849465,
+    "bytes": 7,
+    "peak_rss_kb": 12952
+  },
+  {
+    "phase": "bundled",
+    "case": "tiny",
+    "operation": "decoders",
+    "variant": "onepass",
+    "median_ms": 0.00016058060809306994,
+    "min_ms": 0.00015903656918679195,
+    "max_ms": 0.0001621246631657467,
+    "bytes": 7,
+    "peak_rss_kb": 13756
+  },
+  {
+    "phase": "bundled",
+    "case": "tiny",
+    "operation": "encoders",
+    "variant": "installed-5.010",
+    "median_ms": 0.00012751988863943164,
+    "min_ms": 0.00012751988863943164,
+    "max_ms": 0.00012988136376471004,
+    "bytes": 7,
+    "peak_rss_kb": 12952
+  },
+  {
+    "phase": "bundled",
+    "case": "tiny",
+    "operation": "encoders",
+    "variant": "onepass",
+    "median_ms": 0.0001360575316551453,
+    "min_ms": 0.00013232232023483508,
+    "max_ms": 0.0001360575316551453,
+    "bytes": 7,
+    "peak_rss_kb": 13756
+  },
+  {
+    "phase": "bundled",
+    "case": "very-large",
+    "operation": "decoders",
+    "variant": "installed-5.010",
+    "median_ms": 1.7857142857142858,
+    "min_ms": 1.733102253032929,
+    "max_ms": 1.8181818181818181,
+    "bytes": 295215,
+    "peak_rss_kb": 36864
+  },
+  {
+    "phase": "bundled",
+    "case": "very-large",
+    "operation": "decoders",
+    "variant": "onepass",
+    "median_ms": 2.0202020202020203,
+    "min_ms": 2.004008016032064,
+    "max_ms": 2.1691973969631237,
+    "bytes": 295215,
+    "peak_rss_kb": 37636
+  },
+  {
+    "phase": "bundled",
+    "case": "very-large",
+    "operation": "encoders",
+    "variant": "installed-5.010",
+    "median_ms": 0.7930214115781126,
+    "min_ms": 0.78125,
+    "max_ms": 0.8203445447087777,
+    "bytes": 295215,
+    "peak_rss_kb": 36864
+  },
+  {
+    "phase": "bundled",
+    "case": "very-large",
+    "operation": "encoders",
+    "variant": "onepass",
+    "median_ms": 0.8438818565400844,
+    "min_ms": 0.8250825082508251,
+    "max_ms": 0.8517887563884157,
+    "bytes": 295215,
+    "peak_rss_kb": 37636
+  },
+  {
+    "phase": "retention",
+    "case": "arrays",
+    "operation": "encode",
+    "variant": "installed-5.010",
+    "median_ms": 7.149,
+    "min_ms": 7.145,
+    "max_ms": 12.546,
+    "bytes": 1483486,
+    "peak_rss_kb": 79848
+  },
+  {
+    "phase": "retention",
+    "case": "arrays",
+    "operation": "encode",
+    "variant": "onepass",
+    "median_ms": 6.858,
+    "min_ms": 6.652,
+    "max_ms": 6.928,
+    "bytes": 1483486,
+    "peak_rss_kb": 79968
+  },
+  {
+    "phase": "retention",
+    "case": "keys",
+    "operation": "encode",
+    "variant": "installed-5.010",
+    "median_ms": 113.126,
+    "min_ms": 111.95,
+    "max_ms": 113.894,
+    "bytes": 4372381,
+    "peak_rss_kb": 153396
+  },
+  {
+    "phase": "retention",
+    "case": "keys",
+    "operation": "encode",
+    "variant": "onepass",
+    "median_ms": 114.155,
+    "min_ms": 113.608,
+    "max_ms": 115.309,
+    "bytes": 4372381,
+    "peak_rss_kb": 153532
+  },
+  {
+    "phase": "retention",
+    "case": "records",
+    "operation": "encode",
+    "variant": "installed-5.010",
+    "median_ms": 39.406,
+    "min_ms": 39.304,
+    "max_ms": 41.257,
+    "bytes": 7855866,
+    "peak_rss_kb": 314396
+  },
+  {
+    "phase": "retention",
+    "case": "records",
+    "operation": "encode",
+    "variant": "onepass",
+    "median_ms": 39.659,
+    "min_ms": 39.52,
+    "max_ms": 39.912,
+    "bytes": 7855866,
+    "peak_rss_kb": 314584
+  },
+  {
+    "phase": "retention",
+    "case": "scalars",
+    "operation": "encode",
+    "variant": "installed-5.010",
+    "median_ms": 1.194,
+    "min_ms": 1.143,
+    "max_ms": 1.241,
+    "bytes": 783486,
+    "peak_rss_kb": 24400
+  },
+  {
+    "phase": "retention",
+    "case": "scalars",
+    "operation": "encode",
+    "variant": "onepass",
+    "median_ms": 1.292,
+    "min_ms": 1.291,
+    "max_ms": 1.298,
+    "bytes": 783486,
+    "peak_rss_kb": 24576
+  }
+]

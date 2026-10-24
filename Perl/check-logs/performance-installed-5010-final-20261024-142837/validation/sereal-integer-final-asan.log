@@ -1,0 +1,36 @@
+make: Entering directory '/tmp/sereal-retention-EJwVZf/after/Perl/Encoder'
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Encoder.bs blib/arch/auto/Sereal/Encoder/Encoder.bs 644
+gcc -c  -I. -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O1 -g -fno-omit-frame-pointer -fsanitize=address   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DMINIZ_USE_UNALIGNED_LOAD_AND_STORE=1 -DMINIZ_UNALIGNED_USE_MEMCOPY -DHAVE_BUILTIN_CTZ srl_encoder.c
+cd zstd && make all
+make[1]: Entering directory '/tmp/sereal-retention-EJwVZf/after/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/tmp/sereal-retention-EJwVZf/after/Perl/Encoder/zstd'
+rm -f blib/arch/auto/Sereal/Encoder/Encoder.so
+gcc  -shared -O2 -L/usr/local/lib -fstack-protector-strong -fsanitize=address  Encoder.o srl_encoder.o miniz.o zstd/libzstd.o  -o blib/arch/auto/Sereal/Encoder/Encoder.so  \
+      \
+  
+chmod 755 blib/arch/auto/Sereal/Encoder/Encoder.so
+make[1]: Entering directory '/tmp/sereal-retention-EJwVZf/after/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/tmp/sereal-retention-EJwVZf/after/Perl/Encoder/zstd'
+make[1]: Entering directory '/tmp/sereal-retention-EJwVZf/after/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'test_dynamic'.
+make[1]: Leaving directory '/tmp/sereal-retention-EJwVZf/after/Perl/Encoder/zstd'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/046*.t t/130*.t t/131*.t t/132*.t t/133*.t t/134*.t t/136*.t t/137*.t t/138*.t t/139*.t t/140*.t t/141*.t t/142*.t
+t/046_shared_key_dedup.t ................. ok
+t/130_freezethaw.t ....................... ok
+t/131_freeze_allow.t ..................... ok
+t/132_callback_hash_mutation.t ........... ok
+t/133_callback_array_mutation.t .......... ok
+t/134_callback_frozen_object_lifetime.t .. ok
+t/136_retention_scan.t ................... ok
+t/137_callback_fetch_once.t .............. ok
+t/138_callback_same_size_mutation.t ...... ok
+t/139_callback_encoder_lifetime.t ........ ok
+t/140_sorted_callback_cursor.t ........... ok
+t/141_predicate_callback_lifetime.t ...... ok
+t/142_cached_integer_values.t ............ ok
+All tests successful.
+Files=13, Tests=4185,  2 wallclock secs ( 0.33 usr  0.06 sys +  2.15 cusr  0.42 csys =  2.96 CPU)
+Result: PASS
+make: Leaving directory '/tmp/sereal-retention-EJwVZf/after/Perl/Encoder'

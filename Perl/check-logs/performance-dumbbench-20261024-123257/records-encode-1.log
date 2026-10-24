@@ -1,0 +1,2 @@
+syntax error at /home/demerphq/git_tree/Sereal/Perl/check-logs/performance-dumbbench-20261024-123257/controller.pl line 19, near "} qw(Encoder Decoder)"
+BEGIN not safe after errors--compilation aborted at /home/demerphq/git_tree/Sereal/Perl/check-logs/performance-dumbbench-20261024-123257/controller.pl line 53.

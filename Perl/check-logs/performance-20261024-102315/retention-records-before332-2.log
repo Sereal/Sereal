@@ -1,0 +1,3 @@
+case=records count=200000 iterations=9 bytes=7855866 median_ms=57.678 min_ms=57.173
+Perl=v5.44.0 Encoder=6.000001 protocol=5 module=/tmp/sereal-perf-9wexqb1r/before332/Perl/Encoder/blib/lib/Sereal/Encoder.pm
+peak_rss_kb=262648

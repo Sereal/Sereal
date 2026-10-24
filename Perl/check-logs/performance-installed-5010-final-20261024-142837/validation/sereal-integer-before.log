@@ -1,0 +1,18 @@
+make: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Encoder'
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Encoder.bs blib/arch/auto/Sereal/Encoder/Encoder.bs 644
+cd zstd && make all
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'test_dynamic'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/142_cached_integer_values.t
+t/142_cached_integer_values.t .. ok
+All tests successful.
+Files=1, Tests=576,  0 wallclock secs ( 0.02 usr  0.00 sys +  0.08 cusr  0.00 csys =  0.10 CPU)
+Result: PASS
+make: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Encoder'

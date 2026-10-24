@@ -1,0 +1,3 @@
+case=keys count=300000 iterations=9 bytes=4372381 median_ms=122.874 min_ms=106.808
+Perl=v5.44.0 Encoder=6.000001 protocol=5 module=/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm
+peak_rss_kb=153656

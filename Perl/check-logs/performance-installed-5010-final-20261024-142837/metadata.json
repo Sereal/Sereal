@@ -1,0 +1,21 @@
+{
+  "baseline": "/tmp/sereal-iteration/installed-reference",
+  "label": "installed-5010-final",
+  "cases": [
+    "medium-objects",
+    "medium-plain",
+    "records",
+    "arrays",
+    "scalars",
+    "freeze-1",
+    "freeze-100",
+    "sorted-freeze-1000"
+  ],
+  "notes": "Dumbbench 0.505, persistent Perl5.44 workers, protocol5, CPU0, fixed hash seeds, internally measured batches >=0.2s. 30 retained samples minimum, 0.5% target, max60. Two fresh-process blocks with reversed order. No concurrent tests/builds.",
+  "total_samples": 1289,
+  "max_reported_uncertainty_percent": 0.6245842897181801,
+  "binaries": {
+    "/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so": "07cade82a17e4aaa1a713fa4da0b8adee00b9d7a67b1fa133cbf513263ad832f",
+    "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/site_perl/5.44.0/x86_64-linux/auto/Sereal/Encoder/Encoder.so": "c55579ad7dd04d35fe4de20f8428b7eae8f50dffa7198eb90b70774cea86e35b"
+  }
+}

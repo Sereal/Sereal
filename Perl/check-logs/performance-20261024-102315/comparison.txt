@@ -1,0 +1,30 @@
+bundled   large           decoders stable=   0.18734   +27.5% before=   0.24108 merged=   0.23889 PR=   -0.9%
+bundled   large           encoders stable=   0.13060   +23.5% before=   0.15926 merged=   0.16129 PR=   +1.3%
+bundled   medium-objects  decoders stable=   0.00628    +2.8% before=   0.00678 merged=   0.00645 PR=   -4.8%
+bundled   medium-objects  encoders stable=   0.00174  +364.1% before=   0.00809 merged=   0.00809 PR=   -0.1%
+bundled   medium-plain    decoders stable=   0.00439    +7.1% before=   0.00475 merged=   0.00471 PR=   -0.9%
+bundled   medium-plain    encoders stable=   0.00157   +44.0% before=   0.00218 merged=   0.00226 PR=   +3.8%
+bundled   small           decoders stable=   0.00040   +10.2% before=   0.00045 merged=   0.00044 PR=   -1.6%
+bundled   small           encoders stable=   0.00027   +24.9% before=   0.00033 merged=   0.00033 PR=   +0.0%
+bundled   tiny            decoders stable=   0.00014   +21.2% before=   0.00017 merged=   0.00017 PR=   -3.5%
+bundled   tiny            encoders stable=   0.00013   +45.4% before=   0.00018 merged=   0.00019 PR=   +3.1%
+bundled   very-large      decoders stable=   1.87970   +28.2% before=   2.15054 merged=   2.40964 PR=  +12.0%
+bundled   very-large      encoders stable=   0.85179   +26.1% before=   1.04603 merged=   1.07411 PR=   +2.7%
+retention arrays          encode   stable=   7.00700   +45.8% before=  10.09800 merged=  10.21900 PR=   +1.2%
+  RSS KiB: {'installed-5.010': 79936, 'before332': 82436, 'merged332': 82468} bytes={'installed-5.010': 1483486, 'before332': 1483486, 'merged332': 1483486}
+retention keys            encode   stable= 111.17400   +10.6% before= 123.36800 merged= 122.92500 PR=   -0.4%
+  RSS KiB: {'installed-5.010': 153388, 'before332': 153656, 'merged332': 153680} bytes={'installed-5.010': 4372381, 'before332': 4372381, 'merged332': 4372381}
+retention records         encode   stable=  38.93500   +49.0% before=  57.67800 merged=  58.02400 PR=   +0.6%
+  RSS KiB: {'installed-5.010': 314532, 'before332': 262664, 'merged332': 262720} bytes={'installed-5.010': 7855866, 'before332': 7855866, 'merged332': 7855866}
+retention scalars         encode   stable=   1.21400   +37.2% before=   1.64500 merged=   1.66600 PR=   +1.3%
+  RSS KiB: {'installed-5.010': 24460, 'before332': 26284, 'merged332': 26292} bytes={'installed-5.010': 783486, 'before332': 783486, 'merged332': 783486}
+tools     merger          merger   stable=      n/a        n/a before=   0.81439 merged=   0.87762 PR=   +7.8%
+tools     path-all        path-all stable=      n/a        n/a before=   1.74899 merged=   1.78618 PR=   +2.1%
+tools     path-last       path-last stable=      n/a        n/a before=   0.32420 merged=   0.34738 PR=   +7.1%
+tools     splitter        splitter stable=      n/a        n/a before=   2.42319 merged=   2.25320 PR=   -7.0%
+
+Longer follow-up for very-large Decoder (--duration=-4, three separate processes):
+Median ms: {'installed-5.010': 1.9120458891013383, 'before332': 2.197802197802198, 'merged332': 2.242152466367713}
+Change after #332: +2.0%; change versus installed 5.010: +17.3%
+Both installed and local Encoder binaries identify GCC 13.3.0. Before/after #332 Encoder binary SHA-256 hashes are identical.
+The initial very-large Decoder samples had substantial variation; prefer the longer follow-up above.

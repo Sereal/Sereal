@@ -1,0 +1,11 @@
+--- srl_encoder.c
++++ probe-no-scan/srl_encoder.c
+@@ -1510,7 +1510,7 @@
+     enc = srl_prepare_encoder(aTHX_ enc);
+     if (enc->checksum_policy == SRL_CHECKSUM_POLICY_REQUIRE && !enc->checksum_key_mask)
+         croak("checksum_policy 'require_key' needs a 'checksum_v0_key', 'checksum_v1_key', or 'checksum_v2_key' to encode");
+-    if (srl_needs_retention(aTHX_ enc, src, user_header_src))
++    if (0 && srl_needs_retention(aTHX_ enc, src, user_header_src))
+         SRL_ENC_SET_OPER_FLAG(enc, SRL_OF_ENCODER_NEEDS_RETENTION);
+     compress_flags= SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_FLAGS_MASK);
+ 

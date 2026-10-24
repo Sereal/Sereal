@@ -1,0 +1,75 @@
+Using bundled csnappy code
+Using bundled miniz code
+Using bundled zstd code
+Checking if your kit is complete...
+Looks good
+# Running zstd/Makefile.PL
+Generating a Unix-style Makefile
+Writing Makefile for Sereal::Merger
+Writing MYMETA.yml and MYMETA.json
+cp lib/Sereal/Merger.pm blib/lib/Sereal/Merger.pm
+cp lib/Sereal/Merger/Constants.pm blib/lib/Sereal/Merger/Constants.pm
+cp lib/Sereal/Merger/Constants.pm.bak blib/lib/Sereal/Merger/Constants.pm.bak
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Merger/zstd'
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/debug.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/entropy_common.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/error_private.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/fse_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/pool.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/threading.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/xxhash.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/zstd_common.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/fse_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/hist.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/huf_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_literals.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_sequences.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_superblock.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_double_fast.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_fast.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_lazy.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_ldm.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_opt.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_preSplit.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstdmt_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/huf_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/zstd_ddict.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/zstd_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith  -fno-tree-vectorize -c decompress/zstd_decompress_block.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/huf_decompress_amd64.S
+compiling static library
+ar rcs libzstd.o *.o
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Merger/zstd'
+Running Mkbootstrap for Merger ()
+chmod 644 "Merger.bs"
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Merger.bs blib/arch/auto/Sereal/Merger/Merger.bs 644
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/ExtUtils/xsubpp" -noprototypes -typemap '/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/ExtUtils/typemap' -typemap '/home/demerphq/git_tree/Sereal/Perl/Merger/typemap'  Merger.xs > Merger.xsc
+mv Merger.xsc Merger.c
+gcc -c  -I. -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DHAVE_BUILTIN_CTZ Merger.c
+gcc -c  -I. -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DHAVE_BUILTIN_CTZ srl_merger.c
+gcc -c  -I. -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DHAVE_BUILTIN_CTZ miniz.c
+rm -f blib/arch/auto/Sereal/Merger/Merger.so
+gcc  -shared -O2 -L/usr/local/lib -fstack-protector-strong  Merger.o srl_merger.o miniz.o zstd/libzstd.o  -o blib/arch/auto/Sereal/Merger/Merger.so  \
+      \
+  
+chmod 755 blib/arch/auto/Sereal/Merger/Merger.so
+Manifying 1 pod document
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Merger.bs blib/arch/auto/Sereal/Merger/Merger.bs 644
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Merger/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Merger/zstd'
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Merger/zstd'
+make[1]: Nothing to be done for 'test_dynamic'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Merger/zstd'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/*.t
+t/001_load.t ............ ok
+t/003_strtable.t ........ ok
+t/004_testset.t ......... ok
+t/010_desperate.t ....... ok
+t/020_v5_v6_input.t ..... ok
+t/030_compress.t ........ ok
+t/040_dedupe_strings.t .. ok
+All tests successful.
+Files=7, Tests=244,  1 wallclock secs ( 0.03 usr  0.01 sys +  0.31 cusr  0.06 csys =  0.41 CPU)
+Result: PASS

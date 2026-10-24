@@ -1,0 +1,6 @@
+sorted-freeze-1000 encode block=2 prefix: {"case":"sorted-freeze-1000","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-cause/prefix/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":19906,"operation":"encode","batch_size":4}
+sorted-freeze-1000 encode block=2 current: {"case":"sorted-freeze-1000","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":19906,"operation":"encode","batch_size":256}
+prefix: Ran 34 iterations (4 outliers).
+prefix: Rounded run time per iteration (seconds): 4.838e-02 +/- 1.5e-04 (0.3%)
+current: Ran 31 iterations (0 outliers).
+current: Rounded run time per iteration (seconds): 8.118e-04 +/- 3.0e-06 (0.4%)

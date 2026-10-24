@@ -1,0 +1,17 @@
+Completed 2026-10-24T12:41:00.638585 in 466.3 seconds.
+48 individual Dumbbench results, 1599 total samples.
+All runs reached 0.5% target precision and at least 30 retained samples.
+
+Positive change = slower. Errors in paired-results.csv are stock Dumbbench uncertainties, not 95% confidence intervals.
+arrays           blocks=3 installed=  6534.935us current=  6297.734us change= -4.40% range=[ -4.46%, -3.29%] samples=207
+freeze-1         blocks=3 installed=     0.458us current=     0.993us change=+116.72% range=[+116.20%,+117.56%] samples=190
+freeze-100       blocks=3 installed=    28.693us current=    37.241us change=+28.83% range=[+27.09%,+29.98%] samples=197
+keys             blocks=3 installed=116572.824us current=116244.390us change= -0.26% range=[ -0.74%, +0.58%] samples=194
+medium-objects   blocks=3 installed=     1.740us current=     1.867us change= +8.22% range=[ +5.49%, +9.43%] samples=196
+medium-plain     blocks=3 installed=     1.589us current=     1.642us change= +3.32% range=[ +1.76%, +3.32%] samples=214
+records          blocks=3 installed= 34007.890us current= 34546.852us change= +1.58% range=[ +1.27%, +1.63%] samples=198
+scalars          blocks=3 installed=  1283.807us current=  1305.477us change= +1.69% range=[ -2.50%, +3.25%] samples=203
+
+The object and FREEZE costs repeated in all three process comparisons.
+The large nested-container regression is gone; the callback costs still merit optimization.
+These measurements cover encoding, not decoding.

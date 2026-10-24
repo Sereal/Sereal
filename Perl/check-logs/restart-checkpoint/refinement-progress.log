@@ -1,0 +1,12 @@
+refine-very-large-decoder-installed-5.010-1 {'variant': 'installed-5.010', 'repeat': 1, 'ms': 1.8656716417910448}
+refine-very-large-decoder-before332-1 {'variant': 'before332', 'repeat': 1, 'ms': 2.3094688221709005}
+refine-very-large-decoder-merged332-1 {'variant': 'merged332', 'repeat': 1, 'ms': 2.202643171806167}
+refine-very-large-decoder-before332-2 {'variant': 'before332', 'repeat': 2, 'ms': 2.197802197802198}
+refine-very-large-decoder-merged332-2 {'variant': 'merged332', 'repeat': 2, 'ms': 2.386634844868735}
+refine-very-large-decoder-installed-5.010-2 {'variant': 'installed-5.010', 'repeat': 2, 'ms': 1.9841269841269842}
+refine-very-large-decoder-merged332-3 {'variant': 'merged332', 'repeat': 3, 'ms': 2.242152466367713}
+refine-very-large-decoder-installed-5.010-3 {'variant': 'installed-5.010', 'repeat': 3, 'ms': 1.9120458891013383}
+refine-very-large-decoder-before332-3 {'variant': 'before332', 'repeat': 3, 'ms': 2.1739130434782608}
+installed-5.010 median_ms 1.9120458891013383 min 1.8656716417910448 max 1.9841269841269842
+before332 median_ms 2.197802197802198 min 2.1739130434782608 max 2.3094688221709005
+merged332 median_ms 2.242152466367713 min 2.202643171806167 max 2.386634844868735

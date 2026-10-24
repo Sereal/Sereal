@@ -1,0 +1,22 @@
+==58== Memcheck, a memory error detector
+==58== Copyright (C) 2002-2022, and GNU GPL'd, by Julian Seward et al.
+==58== Using Valgrind-3.22.0 and LibVEX; rerun with -h for copyright info
+==58== Command: /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl t/136_retention_scan.t
+==58== Parent PID: 51
+==58== 
+==58== 
+==58== HEAP SUMMARY:
+==58==     in use at exit: 27,138 bytes in 39 blocks
+==58==   total heap usage: 118,288 allocs, 118,249 frees, 21,089,236 bytes allocated
+==58== 
+==58== LEAK SUMMARY:
+==58==    definitely lost: 0 bytes in 0 blocks
+==58==    indirectly lost: 0 bytes in 0 blocks
+==58==      possibly lost: 0 bytes in 0 blocks
+==58==    still reachable: 16,364 bytes in 38 blocks
+==58==         suppressed: 10,774 bytes in 1 blocks
+==58== Reachable blocks (those to which a pointer was found) are not shown.
+==58== To see them, rerun with: --leak-check=full --show-leak-kinds=all
+==58== 
+==58== For lists of detected and suppressed errors, rerun with: -s
+==58== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)

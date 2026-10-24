@@ -1,0 +1,10 @@
+{
+  "started": "2026-10-24T11:46:26.952319",
+  "perl": "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl",
+  "cpu": "model name\t: 11th Gen Intel(R) Core(TM) i7-1185G7 @ 3.00GHz",
+  "cpu_affinity": 0,
+  "protocol_core": 5,
+  "protocol_tools": 4,
+  "base_commit": "816daee0a031c06fccb1c5e4016f587cda4dc0c6",
+  "notes": "Installed 5.010 build flags unknown; One-pass encoder built with GCC -O3; installed build flags unknown. Pinning is on actual callbacks, with no whole-graph pre-scan. Three process runs per case. No concurrent benchmark/build jobs."
+}

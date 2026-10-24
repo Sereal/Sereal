@@ -1,0 +1,3 @@
+case=splitter count=10000 iterations=9 loops=5 bytes=239007 median_ms=2.423191 min_ms=2.383375
+Perl=v5.44.0 Encoder=6.000001 Decoder=6.000001 Merger=4.004 Splitter=0.840 Path=4.004
+peak_rss_kb=22692

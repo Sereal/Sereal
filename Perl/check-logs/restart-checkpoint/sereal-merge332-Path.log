@@ -1,0 +1,280 @@
+Using bundled csnappy code
+Using bundled miniz code
+Using bundled zstd code
+Checking if your kit is complete...
+Warning: the following files are missing in your kit:
+	Iterator/author_tools/bench.pl
+	Iterator/author_tools/decode.pl
+	Iterator/author_tools/different_sereal_docs.sh
+	Iterator/author_tools/freeze_thaw_timing.pl
+	Iterator/author_tools/hobodecoder.pl
+	Iterator/author_tools/numeric_str_length.c
+	Iterator/author_tools/siphash_vectors.c
+	Iterator/author_tools/stringify_test.c
+	Iterator/author_tools/update_from_header.pl
+	Iterator/author_tools/valgrind.supp
+	Iterator/inc/Devel/CheckLib.pm
+	Iterator/inc/Sereal/BuildTools.pm
+	Iterator/miniz.c
+	Iterator/miniz.h
+	Iterator/ppport.h
+	Iterator/ptable.h
+	Iterator/qsort.h
+	Iterator/snappy/csnappy.h
+	Iterator/snappy/csnappy_compat.h
+	Iterator/snappy/csnappy_compress.c
+	Iterator/snappy/csnappy_decompress.c
+	Iterator/snappy/csnappy_internal.h
+	Iterator/snappy/csnappy_internal_userspace.h
+	Iterator/srl_checksum_policy.h
+	Iterator/srl_common.h
+	Iterator/srl_decoder.c
+	Iterator/srl_decoder.h
+	Iterator/srl_inline.h
+	Iterator/srl_protocol.h
+	Iterator/srl_reader.h
+	Iterator/srl_reader_checksum.h
+	Iterator/srl_reader_decompress.h
+	Iterator/srl_reader_error.h
+	Iterator/srl_reader_header.h
+	Iterator/srl_reader_misc.h
+	Iterator/srl_reader_skip.h
+	Iterator/srl_reader_types.h
+	Iterator/srl_reader_varint.h
+	Iterator/srl_siphash.h
+	Iterator/srl_stack.h
+	Iterator/srl_taginfo.h
+	Iterator/typemap
+	Iterator/zstd/common/allocations.h
+	Iterator/zstd/common/bits.h
+	Iterator/zstd/common/bitstream.h
+	Iterator/zstd/common/compiler.h
+	Iterator/zstd/common/cpu.h
+	Iterator/zstd/common/debug.c
+	Iterator/zstd/common/debug.h
+	Iterator/zstd/common/entropy_common.c
+	Iterator/zstd/common/error_private.c
+	Iterator/zstd/common/error_private.h
+	Iterator/zstd/common/fse.h
+	Iterator/zstd/common/fse_decompress.c
+	Iterator/zstd/common/huf.h
+	Iterator/zstd/common/mem.h
+	Iterator/zstd/common/pool.c
+	Iterator/zstd/common/pool.h
+	Iterator/zstd/common/portability_macros.h
+	Iterator/zstd/common/threading.c
+	Iterator/zstd/common/threading.h
+	Iterator/zstd/common/xxhash.c
+	Iterator/zstd/common/xxhash.h
+	Iterator/zstd/common/zstd_common.c
+	Iterator/zstd/common/zstd_deps.h
+	Iterator/zstd/common/zstd_errors.h
+	Iterator/zstd/common/zstd_internal.h
+	Iterator/zstd/common/zstd_trace.h
+	Iterator/zstd/compress/clevels.h
+	Iterator/zstd/compress/fse_compress.c
+	Iterator/zstd/compress/hist.c
+	Iterator/zstd/compress/hist.h
+	Iterator/zstd/compress/huf_compress.c
+	Iterator/zstd/compress/zstd_compress.c
+	Iterator/zstd/compress/zstd_compress_internal.h
+	Iterator/zstd/compress/zstd_compress_literals.c
+	Iterator/zstd/compress/zstd_compress_literals.h
+	Iterator/zstd/compress/zstd_compress_sequences.c
+	Iterator/zstd/compress/zstd_compress_sequences.h
+	Iterator/zstd/compress/zstd_compress_superblock.c
+	Iterator/zstd/compress/zstd_compress_superblock.h
+	Iterator/zstd/compress/zstd_cwksp.h
+	Iterator/zstd/compress/zstd_double_fast.c
+	Iterator/zstd/compress/zstd_double_fast.h
+	Iterator/zstd/compress/zstd_fast.c
+	Iterator/zstd/compress/zstd_fast.h
+	Iterator/zstd/compress/zstd_lazy.c
+	Iterator/zstd/compress/zstd_lazy.h
+	Iterator/zstd/compress/zstd_ldm.c
+	Iterator/zstd/compress/zstd_ldm.h
+	Iterator/zstd/compress/zstd_ldm_geartab.h
+	Iterator/zstd/compress/zstd_opt.c
+	Iterator/zstd/compress/zstd_opt.h
+	Iterator/zstd/compress/zstd_preSplit.c
+	Iterator/zstd/compress/zstd_preSplit.h
+	Iterator/zstd/compress/zstdmt_compress.c
+	Iterator/zstd/compress/zstdmt_compress.h
+	Iterator/zstd/decompress/huf_decompress.c
+	Iterator/zstd/decompress/huf_decompress_amd64.S
+	Iterator/zstd/decompress/zstd_ddict.c
+	Iterator/zstd/decompress/zstd_ddict.h
+	Iterator/zstd/decompress/zstd_decompress.c
+	Iterator/zstd/decompress/zstd_decompress_block.c
+	Iterator/zstd/decompress/zstd_decompress_block.h
+	Iterator/zstd/decompress/zstd_decompress_internal.h
+	Iterator/zstd/Makefile.PL
+	Iterator/zstd/zdict.h
+	Iterator/zstd/zstd.h
+	Iterator/zstd/zstd_errors.h
+	Tie/inc/Devel/CheckLib.pm
+	Tie/inc/Sereal/BuildTools.pm
+	Tie/ppport.h
+	Tie/srl_common.h
+	Tie/srl_inline.h
+	Tie/srl_iterator.h
+	Tie/srl_protocol.h
+	Tie/srl_reader_error.h
+	Tie/srl_reader_types.h
+	Tie/srl_stack.h
+	Tie/srl_taginfo.h
+	Tie/typemap
+Please inform the author.
+Using bundled csnappy code
+Using bundled miniz code
+Using bundled zstd code
+# Running zstd/Makefile.PL
+Writing MYMETA.yml and MYMETA.json
+Using bundled csnappy code
+Using bundled miniz code
+Using bundled zstd code
+Writing MYMETA.yml and MYMETA.json
+Generating a Unix-style Makefile
+Writing Makefile for Sereal::Path
+Writing MYMETA.yml and MYMETA.json
+cp fixver-sp.pl blib/lib/Sereal/fixver-sp.pl
+cp lib/Sereal/Path/Constants.pm blib/lib/Sereal/Path/Constants.pm
+cp lib/Sereal/Path.pm blib/lib/Sereal/Path.pm
+cp lib/Sereal/Path/Constants.pm.bak blib/lib/Sereal/Path/Constants.pm.bak
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Path/Iterator'
+cp lib/Sereal/Path/Iterator.pm ../blib/lib/Sereal/Path/Iterator.pm
+make[2]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Path/Iterator/zstd'
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/debug.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/entropy_common.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/error_private.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/fse_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/pool.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/threading.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/xxhash.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c common/zstd_common.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/fse_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/hist.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/huf_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_literals.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_sequences.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_compress_superblock.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_double_fast.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_fast.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_lazy.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_ldm.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_opt.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstd_preSplit.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c compress/zstdmt_compress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/huf_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/zstd_ddict.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/zstd_decompress.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith  -fno-tree-vectorize -c decompress/zstd_decompress_block.c
+gcc -I. -I./common -DXXH_NAMESPACE=ZSTD_ -DZSTD_LEGACY_SUPPORT=0 -O3 -fPIC -Wall -Wextra -Wcast-qual -Wcast-align -Wshadow -Wstrict-aliasing=1 -Wswitch-enum -Wdeclaration-after-statement -Wstrict-prototypes -Wundef -Wpointer-arith   -c decompress/huf_decompress_amd64.S
+compiling static library
+ar rcs libzstd.o *.o
+make[2]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Path/Iterator/zstd'
+Running Mkbootstrap for Iterator ()
+chmod 644 "Iterator.bs"
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Iterator.bs ../blib/arch/auto/Sereal/Path/Iterator/Iterator.bs 644
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/ExtUtils/xsubpp" -noprototypes -typemap '/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/ExtUtils/typemap' -typemap '/home/demerphq/git_tree/Sereal/Perl/Path/Iterator/typemap'  Iterator.xs > Iterator.xsc
+mv Iterator.xsc Iterator.c
+gcc -c -I.  -I. -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE" -DNDEBUG -DMINIZ_NO_STDIO  -DNDEBUG -DMINIZ_NO_STDIO -DFOLLOW_REFERENCES_IF_NOT_STASHED Iterator.c
+gcc -c -I.  -I. -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE" -DNDEBUG -DMINIZ_NO_STDIO  -DNDEBUG -DMINIZ_NO_STDIO -DFOLLOW_REFERENCES_IF_NOT_STASHED srl_iterator.c
+gcc -c -I.  -I. -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE" -DNDEBUG -DMINIZ_NO_STDIO  -DNDEBUG -DMINIZ_NO_STDIO -DFOLLOW_REFERENCES_IF_NOT_STASHED srl_decoder.c
+gcc -c -I.  -I. -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE" -DNDEBUG -DMINIZ_NO_STDIO  -DNDEBUG -DMINIZ_NO_STDIO -DFOLLOW_REFERENCES_IF_NOT_STASHED miniz.c
+rm -f ../blib/arch/auto/Sereal/Path/Iterator/Iterator.so
+gcc  -shared -O2 -L/usr/local/lib -fstack-protector-strong  Iterator.o srl_iterator.o srl_decoder.o miniz.o zstd/libzstd.o  -o ../blib/arch/auto/Sereal/Path/Iterator/Iterator.so  \
+      \
+  
+chmod 755 ../blib/arch/auto/Sereal/Path/Iterator/Iterator.so
+Manifying 1 pod document
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Path/Iterator'
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Path/Tie'
+cp lib/Sereal/Path/Tie.pm ../blib/lib/Sereal/Path/Tie.pm
+Running Mkbootstrap for Tie ()
+chmod 644 "Tie.bs"
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Tie.bs ../blib/arch/auto/Sereal/Path/Tie/Tie.bs 644
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/ExtUtils/xsubpp" -noprototypes -typemap '/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/ExtUtils/typemap' -typemap '/home/demerphq/git_tree/Sereal/Perl/Path/Tie/typemap'  Tie.xs > Tie.xsc
+mv Tie.xsc Tie.c
+gcc -c -I.  -I. -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE" -DNDEBUG -DMINIZ_NO_STDIO  -DNDEBUG -DMINIZ_NO_STDIO Tie.c
+rm -f ../blib/arch/auto/Sereal/Path/Tie/Tie.so
+gcc  -shared -O2 -L/usr/local/lib -fstack-protector-strong  Tie.o ../Iterator/srl_iterator.o ../Iterator/srl_decoder.o ../Iterator/miniz.o ../Iterator/zstd/libzstd.o  -o ../blib/arch/auto/Sereal/Path/Tie/Tie.so  \
+      \
+  
+chmod 755 ../blib/arch/auto/Sereal/Path/Tie/Tie.so
+Manifying 1 pod document
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Path/Tie'
+Running Mkbootstrap for Path ()
+chmod 644 "Path.bs"
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Path.bs blib/arch/auto/Sereal/Path/Path.bs 644
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/ExtUtils/xsubpp" -noprototypes -typemap '/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/ExtUtils/typemap' -typemap '/home/demerphq/git_tree/Sereal/Perl/Path/typemap'  Path.xs > Path.xsc
+mv Path.xsc Path.c
+gcc -c  -I. -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE"  -DNDEBUG -DMINIZ_NO_STDIO Path.c
+gcc -c  -I. -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/5.44.0/x86_64-linux/CORE"  -DNDEBUG -DMINIZ_NO_STDIO srl_path.c
+rm -f blib/arch/auto/Sereal/Path/Path.so
+gcc  -shared -O2 -L/usr/local/lib -fstack-protector-strong  Path.o srl_path.o Iterator/srl_iterator.o Iterator/srl_decoder.o Iterator/miniz.o Iterator/zstd/libzstd.o  -o blib/arch/auto/Sereal/Path/Path.so  \
+      \
+  
+chmod 755 blib/arch/auto/Sereal/Path/Path.so
+Manifying 1 pod document
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Path.bs blib/arch/auto/Sereal/Path/Path.bs 644
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Path/Iterator'
+make[2]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Path/Iterator/zstd'
+make[2]: Nothing to be done for 'all'.
+make[2]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Path/Iterator/zstd'
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Iterator.bs ../blib/arch/auto/Sereal/Path/Iterator/Iterator.bs 644
+Manifying 1 pod document
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Path/Iterator'
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Path/Tie'
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Tie.bs ../blib/arch/auto/Sereal/Path/Tie/Tie.bs 644
+Manifying 1 pod document
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Path/Tie'
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Path/Iterator'
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Iterator.bs ../blib/arch/auto/Sereal/Path/Iterator/Iterator.bs 644
+make[2]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Path/Iterator/zstd'
+make[2]: Nothing to be done for 'all'.
+make[2]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Path/Iterator/zstd'
+make[2]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Path/Iterator/zstd'
+make[2]: Nothing to be done for 'test_dynamic'.
+make[2]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Path/Iterator/zstd'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, '../blib/lib', '../blib/arch')" t/*.t t/*/*/*.t
+t/001_load.t ............. ok
+t/005_interface.t ........ ok
+t/010_info.t ............. ok
+t/020_step_in.t .......... ok
+t/030_step_next.t ........ ok
+t/040_step_out.t ......... ok
+t/050_rewind.t ........... ok
+t/060_eof.t .............. ok
+t/070_array.t ............ ok
+t/080_hash.t ............. ok
+t/100_decoder.t .......... ok
+t/110_decode_and_next.t .. ok
+t/120_varint_overflow.t .. ok
+t/130_v5_v6.t ............ ok
+All tests successful.
+Files=14, Tests=88,  1 wallclock secs ( 0.03 usr  0.02 sys +  0.50 cusr  0.09 csys =  0.64 CPU)
+Result: PASS
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Path/Iterator'
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Path/Tie'
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Tie.bs ../blib/arch/auto/Sereal/Path/Tie/Tie.bs 644
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, '../blib/lib', '../blib/arch')" t/*.t t/*/*/*.t
+t/001_load.t ............ ok
+t/010_new.t ............. ok
+t/100_tie.t ............. ok
+t/110_tie_autovivify.t .. ok
+All tests successful.
+Files=4, Tests=9,  0 wallclock secs ( 0.01 usr  0.01 sys +  0.13 cusr  0.02 csys =  0.17 CPU)
+Result: PASS
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Path/Tie'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/*.t t/*/*/*.t
+t/001_load.t ............. ok
+t/003_is_star.t .......... ok
+t/020_interface.t ........ ok
+t/030_quiery_syntax.t .... ok
+t/040_simple_queries.t ... ok
+t/050_complex_queries.t .. ok
+All tests successful.
+Files=6, Tests=80,  0 wallclock secs ( 0.02 usr  0.00 sys +  0.19 cusr  0.04 csys =  0.25 CPU)
+Result: PASS

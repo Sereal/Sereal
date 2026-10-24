@@ -1,0 +1,74 @@
+[
+  {
+    "case": "freeze-1",
+    "block": 1,
+    "before_us": 0.7082439360355,
+    "after_us": 0.675529964958933,
+    "change_percent": -4.619025933308841,
+    "before_error_percent": 0.16121014625382976,
+    "after_error_percent": 0.33640676417091614
+  },
+  {
+    "case": "freeze-1",
+    "block": 2,
+    "before_us": 0.692119149784733,
+    "after_us": 0.6746910330461,
+    "change_percent": -2.5180804120292777,
+    "before_error_percent": 0.40969473566135944,
+    "after_error_percent": 0.31030726708863166
+  },
+  {
+    "case": "freeze-100",
+    "block": 1,
+    "before_us": 37.8383740956853,
+    "after_us": 36.753893017770004,
+    "change_percent": -2.8660879433478725,
+    "before_error_percent": 0.4863952309951671,
+    "after_error_percent": 0.3607089397777101
+  },
+  {
+    "case": "freeze-100",
+    "block": 2,
+    "before_us": 37.2476848395333,
+    "after_us": 35.8679606731467,
+    "change_percent": -3.7041877161777648,
+    "before_error_percent": 0.14536914235405574,
+    "after_error_percent": 0.3297278672332041
+  },
+  {
+    "case": "freeze-allow-100",
+    "block": 1,
+    "before_us": 49.53357435385,
+    "after_us": 48.283435245596706,
+    "change_percent": -2.5238217200373003,
+    "before_error_percent": 0.4993914708202668,
+    "after_error_percent": 0.4305293765998381
+  },
+  {
+    "case": "freeze-allow-100",
+    "block": 2,
+    "before_us": 48.9827376237467,
+    "after_us": 48.630565441953294,
+    "change_percent": -0.7189720274488609,
+    "before_error_percent": 0.459165128967964,
+    "after_error_percent": 0.44074093123886166
+  },
+  {
+    "case": "medium-objects",
+    "block": 1,
+    "before_us": 1.92393117726067,
+    "after_us": 1.9179364333416098,
+    "change_percent": -0.31158827248672916,
+    "before_error_percent": 0.43775810974557255,
+    "after_error_percent": 0.22804060326756825
+  },
+  {
+    "case": "medium-objects",
+    "block": 2,
+    "before_us": 1.8768759679763298,
+    "after_us": 1.876020299567,
+    "change_percent": -0.045590034926634715,
+    "before_error_percent": 0.22268678765195848,
+    "after_error_percent": 0.29737392889423686
+  }
+]

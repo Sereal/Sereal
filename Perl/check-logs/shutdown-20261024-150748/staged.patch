@@ -1,0 +1,517 @@
+diff --git a/Perl/Encoder/Changes b/Perl/Encoder/Changes
+index 25348488..f520526d 100644
+--- a/Perl/Encoder/Changes
++++ b/Perl/Encoder/Changes
+@@ -6,6 +6,19 @@ Revision history for Perl extension Sereal-Encoder
+ *          encoder!                                            *
+ ****************************************************************
+ 6.000_001
++    * Preserve FREEZE cache hits for weak references and predicates that drop
++      the object's last owner, avoiding repeated callbacks.
++    * Read already-cached nonnegative integers directly, avoiding redundant
++      signed-to-unsigned conversion while preserving FETCH-once behavior.
++    * Use callback lifetime guards for FREEZE arguments and allow-list
++      predicates without retaining the same values twice.
++    * Check for container mutation after FREEZE predicate result conversion,
++      including overloaded boolean results.
++    * Avoid quadratic encoding time for sorted hashes whose values invoke
++      FREEZE or other callbacks. Detect removed entries before reading them,
++      without rescanning the entire hash after every callback.
++    * Start callback bookkeeping tables small and grow them as needed to reduce
++      cleanup cost for small inputs.
+     * Restore COPY deduplication of hash keys given as UTF-8 strings that fit
+       in Latin-1 (WASUTF8 keys), lost when shared keys started being retained.
+     * Encode in one traversal, retaining borrowed values only around actual
+diff --git a/Perl/Encoder/MANIFEST b/Perl/Encoder/MANIFEST
+index 20594e6f..ac89f0b8 100644
+--- a/Perl/Encoder/MANIFEST
++++ b/Perl/Encoder/MANIFEST
+@@ -87,6 +87,10 @@ t/136_retention_scan.t
+ t/137_callback_fetch_once.t
+ t/138_callback_same_size_mutation.t
+ t/139_callback_encoder_lifetime.t
++t/140_sorted_callback_cursor.t
++t/141_predicate_callback_lifetime.t
++t/142_cached_integer_values.t
++t/143_freeze_cache_ownership.t
+ t/160_recursion.t
+ t/170_cyclic_weakrefs.t
+ t/171_weakref_rewrites.t
+diff --git a/Perl/Encoder/srl_encoder.c b/Perl/Encoder/srl_encoder.c
+index 93b520fe..648492af 100644
+--- a/Perl/Encoder/srl_encoder.c
++++ b/Perl/Encoder/srl_encoder.c
+@@ -212,7 +212,7 @@ SRL_STATIC_INLINE void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
+ SRL_STATIC_INLINE void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
+ SRL_STATIC_INLINE int srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement);
+ SRL_STATIC_INLINE SV *srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent);
+-SRL_STATIC_INLINE int srl_freeze_class_allowed(pTHX_ srl_encoder_t *enc, HV *stash, SV *src);
++SRL_STATIC_INLINE int srl_freeze_class_allowed(pTHX_ srl_encoder_t *enc, HV *stash, SV *src, SV *referent);
+ SRL_STATIC_INLINE PTABLE_t *srl_init_string_hash(srl_encoder_t *enc);
+ SRL_STATIC_INLINE PTABLE_t *srl_init_ref_hash(srl_encoder_t *enc);
+ SRL_STATIC_INLINE PTABLE_t *srl_init_freezeobj_svhash(srl_encoder_t *enc);
+@@ -247,6 +247,7 @@ typedef struct srl_encoder_frame {
+     HE *borrowed_entry;
+     SV *borrowed_key;
+     int key_guard;
++    int sorted_keyed;
+ } srl_encoder_frame;
+ 
+ SRL_STATIC_INLINE void
+@@ -299,7 +300,7 @@ srl_callback_begin(pTHX_ srl_encoder_t *enc, SV *value, SV *reference)
+         if (!enc->callback_keepalive)
+             enc->callback_keepalive = newAV();
+         if (!enc->callback_seen)
+-            enc->callback_seen = PTABLE_new();
++            enc->callback_seen = PTABLE_new_size(3);
+         srl_callback_hold(aTHX_ enc, enc->root_src);
+         srl_callback_hold(aTHX_ enc, enc->header_src);
+         /* Keep previously tracked identities alive before user code can
+@@ -355,9 +356,22 @@ srl_callback_begin(pTHX_ srl_encoder_t *enc, SV *value, SV *reference)
+                 frame->borrowed_key = sv_2mortal(newSVhek(HeKEY_hek(frame->borrowed_entry)));
+                 frame->key_guard = 1;
+             }
+-            if (frame->sorted) {
+-                for (i = 0; i < frame->sorted_count; i++)
+-                    srl_callback_hold(aTHX_ enc, frame->sorted[i].key.sv);
++            if (frame->sorted && !frame->sorted_keyed) {
++                /* The sort already needs this key list. Before the first
++                 * callback, give remaining borrowed HEs stable lookup keys.
++                 * Validate each HE immediately before use instead of scanning
++                 * the entire hash after every callback. Values are still
++                 * fetched at use. */
++                for (i = 0; i < frame->sorted_count; i++) {
++                    HE_SV *item = &frame->sorted[i];
++                    if (item->key.sv) {
++                        srl_callback_hold(aTHX_ enc, item->key.sv);
++                    } else {
++                        item->key.sv = newSVhek(HeKEY_hek(item->val.he));
++                        av_push(enc->callback_keepalive, item->key.sv);
++                    }
++                }
++                frame->sorted_keyed = 1;
+             }
+         }
+     }
+@@ -388,37 +402,23 @@ srl_callback_end(pTHX_ srl_encoder_t *enc)
+             UV i;
+             HE *current = frame->cursor ? *frame->cursor : NULL;
+             int found = current == NULL;
+-            PTABLE_t *live = NULL;
+             if (buckets != frame->storage || HvMAX(hash) != (UV)frame->limit
+                 || HvUSEDKEYS(hash) != frame->count)
+                 croak("Sereal: input hash was modified during encoding");
+-            if (!frame->sorted && frame->key_guard) {
++            if (frame->key_guard) {
+                 if (SvMAGICAL(hash)
+                     || hv_fetch_ent(hash, frame->borrowed_key, 0, 0) != frame->borrowed_entry)
+                     croak("Sereal: input hash was modified during encoding");
+                 continue;
+             }
+-            if (frame->sorted)
+-                live = PTABLE_new();
+-            if (buckets && (current || live)) {
++            if (buckets && current) {
+                 for (i = 0; i <= HvMAX(hash); i++) {
+                     HE *entry;
+                     for (entry = buckets[i]; entry; entry = HeNEXT(entry)) {
+                         if (entry == current)
+                             found = 1;
+-                        if (live)
+-                            PTABLE_store(live, entry, INT2PTR(void *, 1));
+-                    }
+-                }
+-            }
+-            if (live) {
+-                for (i = 0; i < frame->sorted_count; i++) {
+-                    if (!PTABLE_fetch(live, frame->sorted[i].val.he)) {
+-                        found = 0;
+-                        break;
+                     }
+                 }
+-                PTABLE_free(live);
+             }
+             if (!found)
+                 croak("Sereal: input hash was modified during encoding");
+@@ -1345,10 +1345,19 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
+      *      we're just wasting some space. */
+     /* TODO optimize! */
+ 
+-    /* The caller has already fetched magic. Use that same value for the
+-     * sign check and payload instead of invoking FETCH again. */
++    /* Entry contract: CALL_SRL_DUMP_SV's fast path passes nonmagical scalars;
++     * srl_dump_sv's general path runs srl_getmagic first when needed. If src
++     * is still magical, sign and payload must use that cached value: another
++     * FETCH could return something different. Use _nomg conversions here.
++     * They suppress FETCH, but may still do numeric conversion; a public
++     * cached integer lets us avoid that conversion as well. */
+     if (expect_true( SvIOK_UV(src) || SvIV_nomg(src) >= 0 )) {
+-        const UV num = SvUV_nomg(src);
++        /* A public cached IV is already known nonnegative here. Read its
++         * slot directly instead of asking Perl to convert a signed IV to UV.
++         * Keep conversion for private numeric caches and other SV types. */
++        const UV num = SvIOK(src)
++                       ? (SvIsUV(src) ? SvUVX(src) : (UV)SvIVX(src))
++                       : SvUV_nomg(src);
+         if (num <= 15) {
+             /* encodable as POS */
+             hdr = SRL_HDR_POS_LOW | (unsigned char)num;
+@@ -1382,7 +1391,7 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
+  * according to the freeze_allow_classes option. Returns true when no allow-list
+  * is configured (the default), so ordinary encoding is unaffected. */
+ SRL_STATIC_INLINE int
+-srl_freeze_class_allowed(pTHX_ srl_encoder_t *enc, HV *stash, SV *src)
++srl_freeze_class_allowed(pTHX_ srl_encoder_t *enc, HV *stash, SV *src, SV *referent)
+ {
+     const char *classname;
+     STRLEN classname_len;
+@@ -1419,14 +1428,15 @@ srl_freeze_class_allowed(pTHX_ srl_encoder_t *enc, HV *stash, SV *src)
+         PUSHs(name_sv);
+         PUSHs(src);
+         PUTBACK;
+-        srl_callback_begin(aTHX_ enc, src, NULL);
++        srl_callback_begin(aTHX_ enc, src, referent);
+         count = call_sv(enc->freeze_allow_cb, G_SCALAR);
+-        srl_callback_end(aTHX_ enc);
+         SPAGAIN;
+         if (count >= 1) {
+             SV *res = POPs;
+             allowed = SvTRUE(res) ? 1 : 0;
+         }
++        /* Boolean overload may execute user code just like the predicate. */
++        srl_callback_end(aTHX_ enc);
+         PUTBACK;
+         FREETMPS;
+         LEAVE;
+@@ -1456,14 +1466,15 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
+             SV *replacement= NULL;
+             PTABLE_t *freezeobj_svhash;
+             CV *freeze_cv = GvCV(method);
+-
+-            /* Either the allow-list predicate or FREEZE may drop the last
+-             * reference to the object or the reference being serialized.
+-             * Both are still needed afterwards, including on denial. */
+-            SvREFCNT_inc_simple_void_NN(src);
+-            SAVEFREESV(src);
+-            SvREFCNT_inc_simple_void_NN(referent);
+-            SAVEFREESV(referent);
++            /* Weak RVs do not contribute to the referent's refcount. Capture
++             * this before a predicate can clear the last ordinary owner or
++             * overwrite src; our keepalive may then be its only reference. */
++            const int may_have_frozen = SvREFCNT(referent) > 1 || SvWEAKREF(src);
++
++            /* The callback guard retains src and its original referent for
++             * either user-code entry. Do not also retain them on the save
++             * stack: that duplicates ownership and defeats the cache's
++             * unshared-referent shortcut below. */
+             /* The predicate may delete or replace the method's glob too. */
+             SvREFCNT_inc_simple_void_NN((SV *)freeze_cv);
+             SAVEFREESV((SV *)freeze_cv);
+@@ -1471,7 +1482,7 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
+             /* Enforce the freeze allow-list (if any). A disallowed class either
+              * croaks (default) or is serialized normally (freeze_deny_action
+              * => 'serialize'), which we signal by returning NULL here. */
+-            if (expect_false( !srl_freeze_class_allowed(aTHX_ enc, stash, src) )) {
++            if (expect_false( !srl_freeze_class_allowed(aTHX_ enc, stash, src, referent) )) {
+                 if (SRL_ENC_HAVE_OPTION(enc, SRL_F_FREEZE_DENY_SERIALIZE))
+                     return NULL;
+                 croak("FREEZE not allowed for class '%s' (not in freeze_allow_classes)",
+@@ -1479,7 +1490,7 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
+             }
+ 
+             freezeobj_svhash = SRL_GET_FREEZEOBJ_SVHASH(enc);
+-            if (SvREFCNT(referent)>1) {
++            if (may_have_frozen) {
+                 replacement= (SV *) PTABLE_fetch(freezeobj_svhash, referent);
+             }
+             if (!replacement) {
+@@ -2110,6 +2121,9 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
+ {
+     HE *he = NULL;
+     const int do_share_keys = HvSHAREKEYS((SV *)src);
++    srl_encoder_frame *frame = enc->frames;
++    frame->cursor = &he;
++    frame->sorted_keyed = 0;
+ 
+     /* This sub is used only for untied hashes and when the user wants
+      * sorted keys, but not necessarily the order that perl would use. 
+@@ -2137,17 +2151,25 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
+             array_ptr++;
+         }
+         
+-        enc->frames->sorted = array;
+-        enc->frames->sorted_count = n;
++        frame->sorted = array;
++        frame->sorted_count = n;
+         srl_qsort(aTHX_ enc, n, array);
+ 
+         array_end = array + n;
+         for ( array_end= array + n; array < array_end; array++ ) {
+             SV *v;
+-            he = array->val.he;
++            if (frame->sorted_keyed) {
++                he = hv_fetch_ent(src, array->key.sv, 0, 0);
++                if (!he || he != array->val.he)
++                    croak("Sereal: input hash was modified during encoding");
++            } else {
++                he = array->val.he;
++            }
+             srl_dump_hk(aTHX_ enc, he, do_share_keys);
+             v = srl_hv_iterval(aTHX_ enc, src, he);
+             CALL_SRL_DUMP_SV(enc, v);
++            frame->sorted = array + 1;
++            --frame->sorted_count;
+         }
+     }
+ }
+diff --git a/Perl/Encoder/t/140_sorted_callback_cursor.t b/Perl/Encoder/t/140_sorted_callback_cursor.t
+new file mode 100644
+index 00000000..1531d4b7
+--- /dev/null
++++ b/Perl/Encoder/t/140_sorted_callback_cursor.t
+@@ -0,0 +1,59 @@
++#!perl
++use strict;
++use warnings;
++use File::Spec;
++use Test::More;
++use lib File::Spec->catdir(qw(t lib));
++BEGIN { lib->import('lib') if !-d 't' }
++use Sereal::TestSet qw(have_encoder_and_decoder);
++use Sereal::Encoder;
++plan skip_all => 'decoder unavailable' unless have_encoder_and_decoder();
++
++our $callback;
++{
++    package SerealSortedCursorFreeze;
++    sub FREEZE { $main::callback->($_[0]{key}); return $_[0]{key} }
++    sub THAW { bless {key => $_[2]}, $_[0] }
++}
++
++for my $version (2 .. 6) {
++    for my $sort (1 .. 3) {
++        my $encoder = Sereal::Encoder->new({
++            protocol_version => $version, sort_keys => $sort, freeze_callbacks => 1,
++        });
++        for my $mutation (qw(none replace_value delete_future replace_future delete_current)) {
++            my %input = map { my $key = sprintf 'key-%02d', $_;
++                ($key => bless({key => $key}, 'SerealSortedCursorFreeze')) } 1 .. 20;
++            my $ran = 0;
++            my $victim;
++            local $callback = sub {
++                my ($current) = @_;
++                return if $ran++;
++                ($victim) = grep { $_ ne $current } sort keys %input;
++                if ($mutation eq 'replace_value') { $input{$victim} = 'new value' }
++                elsif ($mutation eq 'delete_future') { delete $input{$victim} }
++                elsif ($mutation eq 'replace_future') {
++                    delete $input{$victim};
++                    $input{'replacement'} = 'replacement';
++                }
++                elsif ($mutation eq 'delete_current') {
++                    delete $input{$current};
++                    $input{'replacement'} = 'replacement';
++                }
++            };
++            my $packet = eval { $encoder->encode(\%input) };
++            my $error = $@;
++            my $label = "v$version sort=$sort $mutation";
++            if ($mutation eq 'none' || $mutation eq 'replace_value') {
++                is($error, '', "$label encodes");
++                my $decoded = eval { Sereal::Decoder->new->decode($packet) };
++                is_deeply($decoded, \%input, "$label reads values at use without snapshots");
++            } else {
++                like($error, qr/input hash was modified during encoding/, "$label rejects stale iteration state");
++            }
++            is_deeply(Sereal::Decoder->new->decode($encoder->encode([7])), [7],
++                "$label encoder remains reusable");
++        }
++    }
++}
++done_testing;
+diff --git a/Perl/Encoder/t/141_predicate_callback_lifetime.t b/Perl/Encoder/t/141_predicate_callback_lifetime.t
+new file mode 100644
+index 00000000..f7708322
+--- /dev/null
++++ b/Perl/Encoder/t/141_predicate_callback_lifetime.t
+@@ -0,0 +1,73 @@
++#!perl
++use strict;
++use warnings;
++use File::Spec;
++use Test::More;
++use lib File::Spec->catdir(qw(t lib));
++BEGIN { lib->import('lib') if !-d 't' }
++use Sereal::TestSet qw(have_encoder_and_decoder);
++use Sereal::Encoder;
++plan skip_all => 'decoder unavailable' unless have_encoder_and_decoder();
++
++our ($freezes, $destroys, $truths, @input);
++{
++    package SerealPredicateObject;
++    sub FREEZE { ++$main::freezes; return 'kept alive' }
++    sub THAW { bless {value => $_[2]}, $_[0] }
++    sub DESTROY { ++$main::destroys }
++
++    package SerealPredicateTruth;
++    use overload bool => sub { ++$main::truths; $_[0]->() }, fallback => 1;
++
++}
++
++for my $version (2 .. 6) {
++    for my $action (qw(allow serialize croak)) {
++        ($freezes, $destroys) = (0, 0);
++        my $object = bless {value => 'kept alive'}, 'SerealPredicateObject';
++        my $encoder = Sereal::Encoder->new({
++            protocol_version => $version,
++            freeze_allow_classes => sub { undef $object; undef $_[1]; return $action eq 'allow' },
++            freeze_deny_action => $action eq 'serialize' ? 'serialize' : 'croak',
++        });
++        my $packet = eval { $encoder->encode($object) };
++        my $error = $@;
++        my $label = "v$version predicate overwrites argument $action";
++        ok(!defined $object, "$label changes the original reference");
++        is($destroys, 1, "$label releases the original referent once");
++        is($freezes, $action eq 'allow' ? 1 : 0, "$label follows the decision");
++        if ($action eq 'croak') {
++            like($error, qr/FREEZE not allowed for class 'SerealPredicateObject'/, "$label throws");
++        } else {
++            is($error, '', "$label encodes");
++            my $decoded = Sereal::Decoder->new->decode($packet);
++            is($decoded->{value}, 'kept alive', "$label retains the referent through use");
++        }
++        is_deeply(Sereal::Decoder->new->decode($encoder->encode([7])), [7], "$label encoder remains reusable");
++    }
++
++    for my $action (qw(clear throw)) {
++        ($freezes, $truths) = (0, 0);
++        @input = (bless({value => 'first'}, 'SerealPredicateObject'), 'second', 'third');
++        my $encoder = Sereal::Encoder->new({
++            protocol_version => $version,
++            freeze_allow_classes => sub {
++                return bless sub {
++                    die "predicate truth failure\n" if $action eq 'throw';
++                    undef @input;
++                    return 1;
++                }, 'SerealPredicateTruth';
++            },
++        });
++        eval { $encoder->encode(\@input) };
++        my $error = $@;
++        my $label = "v$version overloaded predicate truth $action";
++        like($error, $action eq 'throw' ? qr/predicate truth failure/ : qr/input array was modified during encoding/,
++            "$label throws before stale state is used");
++        is($truths, 1, "$label converts the result once");
++        is($freezes, 0, "$label never calls FREEZE");
++        is_deeply(Sereal::Decoder->new->decode($encoder->encode([7])), [7], "$label encoder remains reusable");
++        @input = ();
++    }
++}
++done_testing;
+diff --git a/Perl/Encoder/t/142_cached_integer_values.t b/Perl/Encoder/t/142_cached_integer_values.t
+new file mode 100644
+index 00000000..7b699ef4
+--- /dev/null
++++ b/Perl/Encoder/t/142_cached_integer_values.t
+@@ -0,0 +1,44 @@
++#!perl
++use strict;
++use warnings;
++use File::Spec;
++use Scalar::Util qw(dualvar refaddr);
++use Test::More;
++use lib File::Spec->catdir(qw(t lib));
++BEGIN { lib->import('lib') if !-d 't' }
++use Sereal::TestSet qw(have_encoder_and_decoder);
++use Sereal::Encoder;
++plan skip_all => 'decoder unavailable' unless have_encoder_and_decoder();
++{
++    package SerealCachedIntegerFetch;
++    sub TIESCALAR { bless {value => $_[1], count => 0}, $_[0] }
++    sub FETCH { ++$_[0]{count}; $_[0]{value} }
++}
++my $uvmax = ~0;
++my $ivmax = $uvmax >> 1;
++my $ivmin = -$ivmax - 1;
++my @values = (0, 1, 15, 16, 127, 128, 255, 256, 16383, 16384,
++    65535, 65536, 2147483647, $ivmax, $uvmax, -1, -16, -17, $ivmin);
++for my $version (1 .. 6) {
++    my $encoder = Sereal::Encoder->new({protocol_version => $version});
++    for my $value (@values) {
++        my $label = "v$version integer=$value";
++        my $shared = $value;
++        my $data = [$value, \$shared, \$shared];
++        my $packet = $encoder->encode($data);
++        my $decoded = Sereal::Decoder->new->decode($packet);
++        is_deeply($decoded, $data, "$label direct and referenced values round trip");
++        is(refaddr($decoded->[1]), refaddr($decoded->[2]), "$label preserves shared references");
++        is($encoder->encode($data), $packet, "$label has stable output on Encoder reuse");
++
++        my @magic = (undef);
++        my $tie = tie $magic[0], 'SerealCachedIntegerFetch', $value;
++        is_deeply(Sereal::Decoder->new->decode($encoder->encode(\@magic)), [$value],
++            "$label encodes the fetched integer");
++        is($tie->{count}, 1, "$label FETCHes once");
++    }
++    my $dual = dualvar(37, 'use the string');
++    is($encoder->encode([$dual]), $encoder->encode(['use the string']),
++        "v$version cached numeric value does not override a dualvar string");
++}
++done_testing;
+diff --git a/Perl/Encoder/t/143_freeze_cache_ownership.t b/Perl/Encoder/t/143_freeze_cache_ownership.t
+new file mode 100644
+index 00000000..498607ca
+--- /dev/null
++++ b/Perl/Encoder/t/143_freeze_cache_ownership.t
+@@ -0,0 +1,51 @@
++#!perl
++use strict;
++use warnings;
++use File::Spec;
++use Scalar::Util qw(weaken);
++use Test::More;
++use lib File::Spec->catdir(qw(t lib));
++BEGIN { lib->import('lib') if !-d 't' }
++use Sereal::TestSet qw(have_encoder_and_decoder);
++use Sereal::Encoder;
++plan skip_all => 'decoder unavailable' unless have_encoder_and_decoder();
++
++our ($owner, $calls, $destroys, $drop);
++{
++    package SerealFreezeCacheOwner;
++    sub FREEZE {
++        ++$main::calls;
++        undef $main::owner if $main::drop eq 'freeze';
++        return 'payload';
++    }
++    sub DESTROY { ++$main::destroys }
++}
++for my $version (2 .. 6) {
++    for my $weak (0, 1) {
++        for my $how (qw(keep freeze predicate)) {
++            ($calls, $destroys, $drop) = (0, 0, $how);
++            $owner = bless {}, 'SerealFreezeCacheOwner';
++            my $data = [$owner, $owner];
++            if ($weak) { weaken($data->[0]); weaken($data->[1]) }
++            my %options = (protocol_version => $version, freeze_callbacks => 1);
++            $options{freeze_allow_classes} = sub {
++                undef $owner;
++                undef $_[1];
++                return 1;
++            } if $how eq 'predicate';
++            my $encoder = Sereal::Encoder->new(\%options);
++            my $packet = eval { $encoder->encode($data) };
++            my $error = $@;
++            my $label = "v$version weak=$weak drop=$how";
++            is($error, '', "$label encodes safely");
++            is($calls, 1, "$label invokes FREEZE once for the same referent");
++            ok(defined $packet, "$label produces a packet");
++            is_deeply(Sereal::Decoder->new->decode($encoder->encode([7])), [7],
++                "$label Encoder remains reusable");
++            undef $owner;
++            undef $data;
++            is($destroys, 1, "$label releases the original object once");
++        }
++    }
++}
++done_testing;

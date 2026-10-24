@@ -1,0 +1,34 @@
+Logs: /home/demerphq/git_tree/Sereal/Perl/check-logs/performance-predicate-boundary-20261024-140845
+START freeze-allow-100-1
+freeze-allow-100 encode block=1 current: {"case":"freeze-allow-100","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":1212,"operation":"encode","batch_size":8192}
+freeze-allow-100 encode block=1 previous: {"case":"freeze-allow-100","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-iteration/pre-retention/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":1212,"operation":"encode","batch_size":4096}
+current: Ran 30 iterations (0 outliers).
+current: Rounded run time per iteration (seconds): 4.873e-05 +/- 2.2e-07 (0.4%)
+previous: Ran 30 iterations (0 outliers).
+previous: Rounded run time per iteration (seconds): 4.987e-05 +/- 2.0e-07 (0.4%)
+START medium-objects-1
+medium-objects encode block=1 current: {"case":"medium-objects","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":981,"operation":"encode","batch_size":131072}
+medium-objects encode block=1 previous: {"case":"medium-objects","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-iteration/pre-retention/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":981,"operation":"encode","batch_size":131072}
+current: Ran 31 iterations (1 outliers).
+current: Rounded run time per iteration (seconds): 1.8959e-06 +/- 7.2e-09 (0.4%)
+previous: Ran 32 iterations (2 outliers).
+previous: Rounded run time per iteration (seconds): 1.9099e-06 +/- 9.2e-09 (0.5%)
+START freeze-allow-100-2
+freeze-allow-100 encode block=2 previous: {"case":"freeze-allow-100","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-iteration/pre-retention/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":1212,"operation":"encode","batch_size":4096}
+freeze-allow-100 encode block=2 current: {"case":"freeze-allow-100","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":1212,"operation":"encode","batch_size":4096}
+previous: Ran 30 iterations (0 outliers).
+previous: Rounded run time per iteration (seconds): 4.980e-05 +/- 2.0e-07 (0.4%)
+current: Ran 30 iterations (0 outliers).
+current: Rounded run time per iteration (seconds): 4.909e-05 +/- 2.2e-07 (0.5%)
+START medium-objects-2
+medium-objects encode block=2 previous: {"case":"medium-objects","decoder":5.01,"perl":"v5.44.0","encoder_path":"/tmp/sereal-iteration/pre-retention/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":981,"operation":"encode","batch_size":131072}
+medium-objects encode block=2 current: {"case":"medium-objects","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":981,"operation":"encode","batch_size":131072}
+previous: Ran 31 iterations (1 outliers).
+previous: Rounded run time per iteration (seconds): 1.9203e-06 +/- 7.1e-09 (0.4%)
+current: Ran 36 iterations (0 outliers).
+current: Rounded run time per iteration (seconds): 1.9165e-06 +/- 8.9e-09 (0.5%)
+{'case': 'freeze-allow-100', 'block': 1, 'before_us': 49.872252629266704, 'after_us': 48.7273757073567, 'change_percent': -2.295619029725049, 'before_error_percent': 0.39717632069122655, 'after_error_percent': 0.44239961809401734}
+{'case': 'freeze-allow-100', 'block': 2, 'before_us': 49.804747787143306, 'after_us': 49.090571753636695, 'change_percent': -1.4339517119108192, 'before_error_percent': 0.4092906484663863, 'after_error_percent': 0.45461679991051435}
+{'case': 'medium-objects', 'block': 1, 'before_us': 1.90990400141067, 'after_us': 1.8958660667746698, 'change_percent': -0.7350073420251291, 'before_error_percent': 0.48063644484490037, 'after_error_percent': 0.37713752142851104}
+{'case': 'medium-objects', 'block': 2, 'before_us': 1.9203225316419998, 'after_us': 1.9165145484197201, 'change_percent': -0.1982991481656815, 'before_error_percent': 0.370016406328739, 'after_error_percent': 0.46693085558427644}
+Completed.

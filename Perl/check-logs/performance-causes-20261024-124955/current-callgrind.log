@@ -1,0 +1,11 @@
+==7== Callgrind, a call-graph generating cache profiler
+==7== Copyright (C) 2002-2017, and GNU GPL'd, by Josef Weidendorfer et al.
+==7== Using Valgrind-3.22.0 and LibVEX; rerun with -h for copyright info
+==7== Command: /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl /home/demerphq/git_tree/Sereal/Perl/check-logs/performance-causes-20261024-124955/profile.pl
+==7== 
+==7== For interactive control, run 'callgrind_control -h'.
+==7== 
+==7== Events    : Ir
+==7== Collected : 653109670
+==7== 
+==7== I   refs:      653,109,670

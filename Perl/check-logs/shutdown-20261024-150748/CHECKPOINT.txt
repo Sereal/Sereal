@@ -1,0 +1,91 @@
+SHUTDOWN CHECKPOINT — latest state, supersedes historical notes below
+
+User explicitly requested a good shutdown point. STOP work after checkpoint;
+do not resume benchmarks/builds until the user asks to resume.
+
+Workspace /home/demerphq/git_tree/Sereal; branch yves/v6_wip;
+HEAD f17b6149 (Encoder: guard callback mutation without graph snapshots).
+Seven changed paths are STAGED, NOT COMMITTED:
+  Perl/Encoder/Changes, MANIFEST, srl_encoder.c
+  new tests140_sorted_callback_cursor.t,141_predicate_callback_lifetime.t,
+  142_cached_integer_values.t,143_freeze_cache_ownership.t.
+No existing test files removed or weakened in this round.
+Untracked Perl/check-logs/ and RESTART-NOTES.txt are intentional.
+No push/release. Earlier local merge/rebase of PR332 remains unpublished.
+
+Implemented staged fixes:
+1. Callback table starts at8 buckets, grows normally.
+2. Sorted-hash callbacks retain remaining key metadata once and validate each
+   cached HE by key lookup immediately before use; values are not snapshotted.
+3. Overloaded predicate truth conversion is inside the mutation check; t141
+   reproduces ASan UAF before this fix.
+4. Duplicate src/referent SAVEFREESV removed; callback guards explicitly retain
+   original referent for both predicates and FREEZE. Encoder-owner and CV
+   retention remain. No whole-graph pre-scan or container value snapshots.
+5. Public cached nonnegative IV/UV read directly instead of redundant UV
+   conversion. Negative IVs already use inline signed cached reads. Comments
+   explain both call paths and FETCH-once/_nomg contract; private caches retain
+   conversion fallback. t142 tests signed/unsigned boundaries, aliases and FETCH.
+6. Review found a real new edge case in (4): dropping the last ordinary owner
+   could cause repeated weak references or a predicate overwriting src to miss
+   the FREEZE cache. t143 FAILED15/150 cases before fix, now passes. Cache lookup
+   eligibility is captured BEFORE predicate mutation, with weak RVs accounted
+   for explicitly. Do not revert this to a post-predicate refcount check.
+
+LATEST CODE VALIDATION (all finished):
+  Full native Perl5.44: 72 files /156915 tests PASS.
+  Full threaded Perl5.42: 72 files /156916 tests PASS.
+  Focus ASan/UBSan/Perl5.14.4: 7 files /1299 tests PASS each.
+  Focus native: 9 files /1569 tests PASS.
+  Valgrind WITH --trace-children=yes: 4 files /510 tests PASS; zero errors,
+  definite and indirect leaks. Earlier review wrappers without trace-children
+  did not instrument test subprocesses; do NOT count them as child validation.
+  Before-cache-fix traced run fails15 assertions; Valgrind did not report lost
+  blocks at full interpreter destruction. No independently measured leak claim.
+
+Performance BEFORE the latest ownership/cache fix:
+  Artifact: Perl/check-logs/performance-installed-5010-final-20261024-142837/RESULTS.txt
+  Benchmarked every isolated optimization, using Dumbbench0.505 controlling
+  persistent native Perl5.44 workers, CPU0, protocol5, -O3, fixed hash seed,
+  already-constructed data, internally timed >=0.2s batches; >=30 retained
+  samples per result, two process blocks with reversed order. Raw samples saved.
+  Latest vs installed5.010: objects1.5-2.0% faster (rough parity), plain hashes5%
+  faster, nested records0.2-2.4% faster (rough parity), arrays18-19% faster,
+  flat integers25% faster. FREEZE remains35-65% slower than5.010. Sorted1000
+  FREEZE objects ~0.81ms, versus0.49ms installed and46-49ms quadratic version.
+  Integer optimization alone: objects~9%, records9-10%, flat ints30% faster.
+  234 integer/dualvar packets byte-identical before/after, protocols1..6.
+  These benchmarks PRECEDE the latest cache-ownership correction: benchmark
+  that correction first on resume; do not relabel earlier results as after it.
+  Separate Decoder performance costs from earlier work remain unaddressed.
+
+Next work on explicit resume:
+1. Benchmark cache-ownership fix against /tmp/sereal-review/pre-ownership.
+   Reusable driver: /tmp/sereal-iteration/bench.py BASELINE LABEL CASE...
+   Suggested: freeze-1 freeze-100 freeze-allow-100 medium-objects.
+   Drivers/raw results also saved under Perl/check-logs/ if /tmp disappears.
+2. Continue profiling remaining callback guard cost; preserve all tests and
+   benchmark each isolated change. Potential conditional CV pinning needs
+   proof for interpreted/XSUB methods and old Perls before changing ownership.
+3. Optional32-bit validation started but NOT run. Existing Perl:
+   /tmp/sereal-sol-tools/perl32/bin/perl, ivsize=ptrsize=4,
+   cc=/tmp/sereal-sol-tools/gcc32. Sandbox blocks32-bit system calls; run needed
+   commands with managed escalation. Isolated source trees copied WITHOUT build
+   artifacts to /tmp/sereal-review/32/Perl/{Decoder,Encoder}; shared symlink to
+   repo. Decoder Makefile.PL completed outside sandbox; no make/build/tests and
+   no Encoder configuration yet. Do not claim32-bit test coverage.
+4. Refresh remote state before any eventual publish; no release signoff yet.
+
+Temporary validation trees (may disappear on environment restart):
+  /tmp/sereal-retention-EJwVZf/after/Perl/Encoder (ASan)
+  /tmp/sereal-retention-EJwVZf/sanitized/Perl/Encoder (UBSan)
+  /tmp/sereal-merge332-li5djdrv/Perl/Encoder (threaded5.42)
+  /tmp/sereal-fix-matrix-7hGVQP/oldest/Perl/Encoder (5.14, SSIZE workaround)
+Pure Perl test deps: /tmp/sereal-sol-tools/testlib.
+Main Perl5.44: /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl.
+Shell default Perl5.36; never load native workspace .so with that Perl.
+
+All started validation and benchmark processes have finished. No new work
+started after shutdown request; only checkpoint/staging/status actions.
+
+Persistent shutdown artifacts: /home/demerphq/git_tree/Sereal/Perl/check-logs/shutdown-20261024-150748

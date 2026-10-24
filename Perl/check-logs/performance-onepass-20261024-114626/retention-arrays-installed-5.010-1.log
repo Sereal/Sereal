@@ -1,0 +1,3 @@
+case=arrays count=300000 iterations=9 bytes=1483486 median_ms=7.145 min_ms=6.805
+Perl=v5.44.0 Encoder=5.01 protocol=5 module=/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/site_perl/5.44.0/x86_64-linux/Sereal/Encoder.pm
+peak_rss_kb=79840

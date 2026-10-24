@@ -1,0 +1,17 @@
+{
+  "started": "2026-10-24T12:32:57.983637",
+  "commit": "f17b61492f6693259279272f7249fe9deb78dd43",
+  "cpu": "model name\t: 11th Gen Intel(R) Core(TM) i7-1185G7 @ 3.00GHz",
+  "cpu_affinity": 0,
+  "protocol": 5,
+  "initial_samples": 30,
+  "max_samples": 60,
+  "target_precision": 0.005,
+  "process_blocks": 3,
+  "timed_batch_min_seconds": 0.2,
+  "methodology": "Dumbbench 0.505 controls persistent Perl 5.44 workers; single_run returns internally measured CLOCK_MONOTONIC batch time divided by encode count. Construction, warmup, IPC, and startup excluded. No dry-run subtraction. Stock MAD outlier filtering. Three new-process blocks with variant order reversed in block 2. Fixed Perl hash seeds. Same compiler and -O3 in installed/current Makefiles.",
+  "binaries": {
+    "/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/arch/auto/Sereal/Encoder/Encoder.so": "7d1625f1dd7b5a98c02d7cc8acfad789f7336a1641816e4c7f5626cad6aaf76c",
+    "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/site_perl/5.44.0/x86_64-linux/auto/Sereal/Encoder/Encoder.so": "c55579ad7dd04d35fe4de20f8428b7eae8f50dffa7198eb90b70774cea86e35b"
+  }
+}

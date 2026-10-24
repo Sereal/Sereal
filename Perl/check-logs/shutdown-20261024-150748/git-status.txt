@@ -1,0 +1,9 @@
+M  Perl/Encoder/Changes
+M  Perl/Encoder/MANIFEST
+M  Perl/Encoder/srl_encoder.c
+A  Perl/Encoder/t/140_sorted_callback_cursor.t
+A  Perl/Encoder/t/141_predicate_callback_lifetime.t
+A  Perl/Encoder/t/142_cached_integer_values.t
+A  Perl/Encoder/t/143_freeze_cache_ownership.t
+?? Perl/check-logs/
+?? RESTART-NOTES.txt

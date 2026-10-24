@@ -1,0 +1,5 @@
+Isolated diagnostic probes on known callback-free inputs; not changes to the working branch.
+medium-objects: median_ms={'control': 0.009522086479589407, 'object-check': 0.0029070950561941476, 'no-scan': 0.002267028786731534}; bytes={'control': '1094', 'object-check': '981', 'no-scan': '981'}
+records: median_ms={'control': 61.856, 'object-check': 63.097, 'no-scan': 44.467}; bytes={'control': '7855866', 'object-check': '7855866', 'no-scan': '7855866'}
+arrays: median_ms={'control': 11.74, 'object-check': 11.881, 'no-scan': 8.614}; bytes={'control': '1483486', 'object-check': '1483486', 'no-scan': '1483486'}
+scalars: median_ms={'control': 2.105, 'object-check': 2.135, 'no-scan': 1.601}; bytes={'control': '783486', 'object-check': '783486', 'no-scan': '783486'}

@@ -1,0 +1,11 @@
+--- srl_encoder.c
++++ probe-object-check/srl_encoder.c
+@@ -1439,7 +1439,7 @@
+         SV *value = pending[--used];
+         while (value) {
+             svtype type = SvTYPE(value);
+-            if (SvMAGICAL(value) || SvOBJECT(value)) {
++            if (SvMAGICAL(value) || (SvOBJECT(value) && SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT))) {
+                 needed = 1;
+                 goto finished;
+             }

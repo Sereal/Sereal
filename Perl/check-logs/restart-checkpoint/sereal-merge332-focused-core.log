@@ -1,0 +1,41 @@
+make: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Decoder'
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Decoder.bs blib/arch/auto/Sereal/Decoder/Decoder.bs 644
+cd zstd && make all
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Decoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Decoder/zstd'
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Decoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Decoder/zstd'
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Decoder/zstd'
+make[1]: Nothing to be done for 'test_dynamic'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Decoder/zstd'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/914_undef_deadly.t t/915_checksum_boundaries.t t/937_regr_header_callback_input_mutation.t t/940_regr_constructor_cleanup.t
+t/914_undef_deadly.t ......................... ok
+t/915_checksum_boundaries.t .................. ok
+t/937_regr_header_callback_input_mutation.t .. ok
+t/940_regr_constructor_cleanup.t ............. ok
+All tests successful.
+Files=4, Tests=322,  1 wallclock secs ( 0.05 usr  0.01 sys +  0.49 cusr  0.08 csys =  0.63 CPU)
+Result: PASS
+make: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Decoder'
+make: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Encoder'
+"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Encoder.bs blib/arch/auto/Sereal/Encoder/Encoder.bs 644
+cd zstd && make all
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Entering directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'test_dynamic'.
+make[1]: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Encoder/zstd'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/046_shared_key_dedup.t t/135_constructor_cleanup.t t/136_retention_scan.t
+t/046_shared_key_dedup.t ..... ok
+t/135_constructor_cleanup.t .. ok
+t/136_retention_scan.t ....... ok
+All tests successful.
+Files=3, Tests=317,  0 wallclock secs ( 0.05 usr  0.01 sys +  0.39 cusr  0.03 csys =  0.48 CPU)
+Result: PASS
+make: Leaving directory '/home/demerphq/git_tree/Sereal/Perl/Encoder'
