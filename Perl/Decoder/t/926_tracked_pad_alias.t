@@ -196,7 +196,9 @@ for my $version ( 1 .. 6 ) {
                 $@, qr/unexpected end of input|Unexpected termination|end of packet reached/,
                 "v$version truncated tracked PAD value fails cleanly"
             );
-            eval { $dec->decode( $header . "\x41\x2e" . varint( $base + 1 ) ); 1 };
+            # an ALIAS after the formerly tracked offset, which now holds an
+            # untracked value (an ALIAS cannot point at its own tag)
+            eval { $dec->decode( $header . "\x42\x00\x2e" . varint( $base + 1 ) ); 1 };
             like(
                 $@, qr/references an unknown item/,
                 "v$version failed decode does not leave a tracked offset behind"
