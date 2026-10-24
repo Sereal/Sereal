@@ -68,4 +68,15 @@ class TestSerealMalformed < Test::Unit::TestCase
     # SNAPPY body declaring 0xffffffff uncompressed bytes in a 13 byte document
     assert_raise(TypeError, NoMemoryError) { Sereal.decode(srl('3df3726c1300 ffffffff0f 0061')) }
   end
+
+  def test_ruby_exception_frees_state
+    # REGEXP with pattern "(": RegexpError escapes from inside the decoder
+    bad = srl('3df3726c0300 31 6128 60')
+    assert_raise(RegexpError) { Sereal.decode(bad) }
+    before = rss_kb
+    omit('can not measure RSS') if before == 0
+    omit('freed memory is held in quarantine under ASan') if ENV['ASAN_OPTIONS']
+    50000.times { begin; Sereal.decode(bad); rescue RegexpError; end }
+    assert_operator(rss_kb - before, :<, 20 * 1024, 'rss grew by more than 20 MiB')
+  end
 end
