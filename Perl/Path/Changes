@@ -16,6 +16,9 @@ Revision history for Perl extension Sereal-Path
   * reject a COPY, REFP, ALIAS or OBJECTV offset that does not point before
     its own tag: a COPY or ALIAS of itself made info() and Sereal::Path
     queries loop forever
+  * decode() reads each untracked REFP/ALIAS target once: a reference to
+    an enclosing item recursed until the C stack overflowed, and chains
+    of them took exponential time
   * bump Sereal prereq version to 6.000_001
 
 4.004 Nov 13 2017
