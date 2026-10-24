@@ -406,6 +406,10 @@ srl_parse_array_range(pTHX_ srl_path_t *path, int expr_idx, SV *route, int *rang
                        idx, (int) srl_iterator_stack_depth(aTHX_ iter));
 
         srl_parse_next_int(aTHX_ path, expr_idx + 1, route, idx);
+
+        /* idx += step must not overflow I32 */
+        if (step >= stop - idx)
+            break;
     }
 }
 

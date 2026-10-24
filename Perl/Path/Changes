@@ -22,6 +22,8 @@ Revision history for Perl extension Sereal-Path
   * reject protocol v1 offsets that point into the header, which for a
     compressed document exposed bytes that were never written
   * decode_and_next() continues after an ALIAS rather than after its target
+  * fix a signed overflow stepping through an array range with a large
+    step, such as $[1::2147483647]
   * bump Sereal prereq version to 6.000_001
 
 4.004 Nov 13 2017
