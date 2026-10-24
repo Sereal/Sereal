@@ -9,6 +9,13 @@ use Sereal::Path;
 
 my $header = "=\xF3rl" . chr(6) . chr(0);
 
+sub varint {
+    my ($n) = @_;
+    my $s = '';
+    while ($n >= 0x80) { $s .= chr(($n & 0x7f) | 0x80); $n >>= 7 }
+    return $s . chr($n);
+}
+
 # run $code on an iterator over the packet; returns false with the error
 # in $@ if it croaks
 sub iter_ok {
@@ -53,6 +60,35 @@ subtest "back-references to their own tag" => sub {
     # ARRAYREF_1 [ ALIAS to itself ]
     like(in_child(10, sub { my $it = Sereal::Path::Iterator->new($header . "\x41\x2e\x02"); $it->step_in(); $it->info() }),
          qr/^error: .*Offset 2 points past/, "info() rejects an ALIAS to itself");
+};
+
+subtest "decode() of references to untracked items" => sub {
+    plan skip_all => "needs fork" unless $Config{d_fork};
+    # HASHREF_1 { k => ALIAS/REFP to the enclosing, untracked hash }: this
+    # was read again and again until the recursion limit, and overflowed
+    # the C stack on the way there
+    for my $tag ("\x2e", "\x29") {
+        my $packet = $header . "\x51\x61k" . $tag . "\x01";
+        is(in_child(30, sub { Sereal::Path::Iterator->new($packet)->decode() }), "ok",
+           sprintf("reference (tag %02x) to the enclosing item is decoded", ord $tag));
+    }
+
+    # REFN ARRAY [ [], ( ARRAYREF_2 [ REFP to the previous level x 2 ] ) x 40 ]:
+    # every level was read twice per reference to it, 2**40 times in all
+    my $levels = 40;
+    my $body = "\x28\x2b" . chr($levels + 1);
+    my $prev = length($body) + 1;
+    $body .= "\x40";
+    for (1 .. $levels) {
+        my $ofs = length($body) + 1;
+        $body .= "\x42" . ("\x29" . varint($prev)) x 2;
+        $prev = $ofs;
+    }
+    my $got;
+    is(in_child(30, sub { $got = Sereal::Path::Iterator->new($header . $body)->decode();
+                          die "wrong result\n" unless ref $got eq 'ARRAY' && @$got == $levels + 1
+                                                  && ref ${ $got->[-1][0] } eq 'ARRAY' }),
+       "ok", "a chain of references to untracked items is decoded once per item");
 };
 
 subtest "end of input after a reference tag" => sub {

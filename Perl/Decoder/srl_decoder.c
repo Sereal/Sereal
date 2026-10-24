@@ -2023,6 +2023,13 @@ srl_follow_refp_alias_reference(pTHX_ srl_decoder_t *dec, UV offset, int is_refn
         SRL_RDR_ERROR(dec->pbuf, "Corrupted packed. Reference offset points forward!");
     }
 
+    /* Remember the target before reading it, as if it had been tracked:
+     * a reference inside it to the same offset (a cycle) then finds it
+     * instead of reading it again until the recursion limit, and so does
+     * every later reference, which would otherwise read it again each
+     * time (exponentially often for a chain of such references). */
+    PTABLE_store(dec->ref_seenhash, (void *)offset, (void *)into);
+
     dec->buf.pos = new_pos;
     /* a REFP target is the referent of the original REFN, so it may be a
      * bare ARRAY or HASH tag; an ALIAS target never is */
