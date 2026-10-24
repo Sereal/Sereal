@@ -380,6 +380,9 @@ public class TokenDecoder {
     inflater.reset();
 
     long uncompressedLength = readVarint();
+    if (uncompressedLength < 0 || uncompressedLength > maxBufferSize) {
+      throw new SerealException("The expected uncompressed size is larger than the allowed maximum size");
+    }
     long compressedLength = readVarint();
     checkCompressedEnd(compressedLength);
     inflater.setInput(originalData.array, position, (int) compressedLength);
@@ -398,13 +401,20 @@ public class TokenDecoder {
   }
 
   private void uncompressZstd() throws SerealException {
-    int len = (int) readVarint();
-    checkCompressedEnd(len);
+    long compressedLength = readVarint();
+    checkCompressedEnd(compressedLength);
+    if (compressedLength < 0 || compressedLength > end - position) {
+      throw new SerealException("Zstd compressed data exceeds the available input");
+    }
+    int len = (int) compressedLength;
 
     byte[] compressedData = Arrays.copyOfRange(originalData.array, position, position + len);
     long decompressedSize = Zstd.decompressedSize(compressedData);
-    if (decompressedSize > Integer.MAX_VALUE) {
-      throw new SerealException("Decompressed size exceeds integer MAX_VALUE: " + decompressedSize);
+    if (decompressedSize <= 0) {
+      throw new SerealException("Invalid zstd frame: unknown or empty decompressed size");
+    }
+    if (decompressedSize > maxBufferSize) {
+      throw new SerealException("The expected uncompressed size is larger than the allowed maximum size");
     }
 
     byte[] uncompressed = new byte[(int) decompressedSize];
@@ -497,6 +507,15 @@ public class TokenDecoder {
     binarySliceStart = position;
     binarySliceEnd = position + length;
     position += length;
+  }
+
+  // an element count, bounded by the remaining input at bytesPerElement bytes each
+  private int readCount(int bytesPerElement) throws SerealException {
+    long count = readVarint();
+    if (count < 0 || count > (end - position) / bytesPerElement) {
+      throw new SerealException("Invalid element count " + Long.toUnsignedString(count) + " at byte " + position);
+    }
+    return (int) count;
   }
 
   // top bit set (0x80) means next byte is 7 bits more more varint
@@ -685,11 +704,12 @@ public class TokenDecoder {
           currentContext.remaining++;
           return (currentToken = SerealToken.WEAKEN);
         case SerealHeader.SRL_HDR_HASH:
-          int numKeys = (int) readVarint();
+          // every key and value takes at least one byte
+          int numKeys = readCount(2);
           currentContext = new Context(currentContext, CONTEXT_HASH, numKeys * 2);
           return (currentToken = SerealToken.HASH_START);
         case SerealHeader.SRL_HDR_ARRAY:
-          int length = (int) readVarint();
+          int length = readCount(1);
           currentContext = new Context(currentContext, CONTEXT_ARRAY, length);
           return (currentToken = SerealToken.ARRAY_START);
         case SerealHeader.SRL_HDR_REGEXP:

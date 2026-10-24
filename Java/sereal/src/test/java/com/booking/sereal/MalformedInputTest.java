@@ -5,6 +5,8 @@ import static org.junit.Assert.assertThrows;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 import org.xerial.snappy.Snappy;
 
@@ -114,5 +116,121 @@ public class MalformedInputTest {
     doc[7] = (byte) (compressed.length >> 7);
     System.arraycopy(compressed, 0, doc, 8, compressed.length);
     assertRejected(doc, new DecoderOptions().maxBufferSize(1024));
+  }
+
+  // ---- allocation bounds -------------------------------------------------------------------
+
+  // fails the test when a container is presized beyond what the input could hold
+  private static final class BoundedTypeMapper extends DefaultTypeMapper {
+    private final int limit;
+    private final boolean objectArray;
+
+    BoundedTypeMapper(int limit, boolean objectArray) {
+      this.limit = limit;
+      this.objectArray = objectArray;
+    }
+
+    @Override
+    public boolean useObjectArray() {
+      return objectArray;
+    }
+
+    @Override
+    public List<Object> makeArray(int size) {
+      if (size < 0 || size > limit) {
+        throw new AssertionError("array presized to " + size + " entries");
+      }
+      return super.makeArray(size);
+    }
+
+    @Override
+    public Map<String, Object> makeMap(int size) {
+      if (size < 0 || size > limit) {
+        throw new AssertionError("map presized to " + size + " entries");
+      }
+      return super.makeMap(size);
+    }
+  }
+
+  private static void assertContainerRejected(String packet) {
+    byte[] data = hex(packet);
+    for (boolean objectArray : new boolean[] {false, true}) {
+      DecoderOptions options =
+          new DecoderOptions().typeMapper(new BoundedTypeMapper(data.length, objectArray));
+      assertThrows(SerealException.class, () -> decode(new ByteArray(data), options));
+    }
+    assertThrows(SerealException.class, () -> drain(new ByteArray(data), new DecoderOptions()));
+  }
+
+  @Test
+  public void containerCountLargerThanInput() {
+    // ARRAY with 0x7fffffff elements, then a single element
+    assertContainerRejected("3df3726c03002bffffffff0701");
+    // HASH with 0x7fffffff pairs, then a single pair
+    assertContainerRejected("3df3726c03002affffffff07616101");
+    // ARRAY / HASH with 0xffffffff entries: negative once narrowed to an int
+    assertContainerRejected("3df3726c03002bffffffff0f");
+    assertContainerRejected("3df3726c03002affffffff0f");
+  }
+
+  @Test
+  public void hashCountOverflow() {
+    // HASH with 0x80000001 pairs: twice that wraps to 2 in int arithmetic, so the single pair
+    // that follows looked like a complete hash
+    assertContainerRejected("3df3726c03002a8180808008616101");
+  }
+
+  @Test
+  public void binaryLengthLargerThanInput() {
+    // BINARY of 0x7fffffff and 0xffffffff bytes, with no data
+    assertThrows(SerealException.class, () -> decode(hex("3df3726c030026ffffffff07")));
+    assertThrows(SerealException.class, () -> decode(hex("3df3726c030026ffffffff0f")));
+  }
+
+  @Test
+  public void binaryLongerThanMaxStringLength() throws Exception {
+    // a complete 2000-byte BINARY, with maxStringLength 1000
+    byte[] doc = new byte[6 + 3 + 2000];
+    System.arraycopy(hex("3df3726c030026d00f"), 0, doc, 0, 9);
+    assertThrows(SerealException.class,
+        () -> decode(new ByteArray(doc), new DecoderOptions().maxStringLength(1000)));
+    decode(new ByteArray(doc), new DecoderOptions().maxStringLength(2000));
+  }
+
+  @Test
+  public void zstdCompressedLengthLargerThanInput() {
+    // compressed length 0x7ffffff0 and 0x7fffffff for a 4-byte frame
+    assertRejected("3df3726c4400f0ffffff0728b52ffd");
+    assertRejected("3df3726c4400ffffffff0728b52ffd");
+    // compressed length 0xffffffff: negative once narrowed to an int
+    assertRejected("3df3726c4400ffffffff0f28b52ffd");
+  }
+
+  @Test
+  public void zstdFrameContentSize() {
+    // frame header declares 0x7fffff00 bytes of content
+    assertRejected("3df3726c44000c28b52ffda000ffff7f010000");
+    // frame header without a content size
+    assertRejected("3df3726c44000928b52ffd0000010000");
+  }
+
+  @Test
+  public void zlibUncompressedLengthLargerThanLimit() {
+    // uncompressed length 0x7fffffff and 0xffffffff, 1 byte of compressed data
+    assertRejected("3df3726c3300ffffffff070100");
+    assertRejected("3df3726c3300ffffffff0f0100");
+  }
+
+  @Test
+  public void compressedBodyLargerThanMaxBufferSize() throws Exception {
+    for (EncoderOptions.CompressionType type : new EncoderOptions.CompressionType[] {
+        EncoderOptions.CompressionType.SNAPPY, EncoderOptions.CompressionType.ZLIB,
+        EncoderOptions.CompressionType.ZSTD}) {
+      Encoder encoder = new Encoder(new EncoderOptions().protocolVersion(4)
+          .compressionThreshold(0).compressionType(type));
+      byte[] doc = encoder.write(new byte[4096]).getData();
+      drain(new ByteArray(doc), new DecoderOptions());
+      assertRejected(doc, new DecoderOptions().maxBufferSize(1024));
+    }
   }
 }
