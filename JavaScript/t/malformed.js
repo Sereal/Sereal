@@ -34,6 +34,15 @@ function rejects(hexBody, re, name, header) {
         ok(isOwn && re.test(e.msg), name, (e && e.constructor && e.constructor.name) + ": " + (isOwn ? e.msg : e.message));
     }
 }
+function rejectsWith(fn, re, name) {
+    try {
+        fn();
+        ok(false, name, "no exception");
+    } catch (e) {
+        var isOwn = e instanceof Sereal.SerealException;
+        ok(isOwn && re.test(e.msg), name, (e && e.constructor && e.constructor.name) + ": " + (isOwn ? e.msg : e.message));
+    }
+}
 function decodes(hexBody, expected, name, header) {
     try {
         var res = JSON.stringify(decode(hexBody, header));
@@ -94,6 +103,37 @@ rejects("2bffffffff0f", /./, "array count past end");
 rejects("27e8076162", /./, "string length past end");
 // REGEXP with pattern "(" and no flags
 rejects("31612860", /./, "invalid regexp");
+
+// ARRAYREF_3 ["a", COPY to offset 2, COPY to offset 4]: the second COPY targets the first,
+// so the error is raised while the decoder is inside a COPY
+var NESTED_COPY = "4361612f022f04";
+// ARRAYREF_2 [SHORT_BINARY_1 "a", COPY to offset 2]
+var VALID_COPY = "4261612f02";
+(function () {
+    var dec = new Sereal.Decoder();
+    rejectsWith(function () { dec.decodeDocument(new CtxUint8Array(Buffer.from(HEADER + NESTED_COPY, "hex"))); },
+        /COPY/, "reused decoder: decodeDocument rejects nested copy");
+    var res;
+    try { res = JSON.stringify(dec.decodeDocument(new CtxUint8Array(Buffer.from(HEADER + VALID_COPY, "hex"))).body); }
+    catch (e) { res = "threw " + (e.msg || e.message); }
+    ok(res === '["a","a"]', "reused decoder: decodeDocument then decodes a valid copy", res);
+
+    // the same through init() and read(), which reuse this decoder's own state
+    dec = new Sereal.Decoder();
+    dec.init(new CtxUint8Array(Buffer.from(NESTED_COPY, "hex")));
+    rejectsWith(function () { dec.read(); }, /COPY/, "reused decoder: read rejects nested copy");
+    dec.init(new CtxUint8Array(Buffer.from(VALID_COPY, "hex")));
+    try { res = JSON.stringify(dec.read()); } catch (e) { res = "threw " + (e.msg || e.message); }
+    ok(res === '["a","a"]', "reused decoder: read then decodes a valid copy", res);
+
+    // a document rejected for nesting must not count against the next one
+    dec = new Sereal.Decoder();
+    dec.init(new CtxUint8Array(Buffer.from(repeat("41", 1001) + "01", "hex")));
+    rejectsWith(function () { dec.read(); }, /nesting/, "reused decoder: read rejects deep nesting");
+    dec.init(new CtxUint8Array(Buffer.from(repeat("41", 999) + "01", "hex")));
+    try { dec.read(); res = "ok"; } catch (e) { res = "threw " + (e.msg || e.message); }
+    ok(res === "ok", "reused decoder: read then decodes 999 levels", res);
+})();
 
 if (failed) process.exitCode = 1;
 console.log(failed ? "# " + failed + " of " + count + " failed" : "# all " + count + " passed");

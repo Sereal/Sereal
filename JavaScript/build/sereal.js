@@ -391,6 +391,9 @@ var Sereal;
         }
         Decoder.prototype.init = function (data) {
             this.tracked = {};
+            // a previous document that threw may have left these set
+            this.depth = 0;
+            this.inCopy = false;
             if (data instanceof Sereal.DataReader)
                 this.reader = data;
             else
