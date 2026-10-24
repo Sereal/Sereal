@@ -7,7 +7,7 @@ use lib File::Spec->catdir(qw(t lib));
 BEGIN { lib->import('lib') if !-d 't' }
 
 use Test::More;
-use Scalar::Util qw(weaken);
+use Scalar::Util    qw(weaken);
 use Sereal::TestSet qw(Header);
 use Sereal::Decoder qw(decode_sereal);
 
@@ -21,24 +21,26 @@ sub allow_with_marker {
 }
 
 for my $case (
-    [ 'deny action', { thaw_deny_action => 'invalid' }, qr/thaw_deny_action/ ],
+    [ 'deny action',     { thaw_deny_action   => 'invalid' },              qr/thaw_deny_action/ ],
     [ 'alias threshold', { alias_varint_under => '18446744073709551615' }, qr/alias_varint_under/ ],
-) {
+    )
+{
     my ( $name, $extra, $error ) = @$case;
     for my $functional ( 0, 1 ) {
         my $marker = {};
-        my $weak = $marker;
+        my $weak   = $marker;
         weaken($weak);
         my $options = { thaw_allow_classes => allow_with_marker($marker), %$extra };
         undef $marker;
         my $ok = eval {
-            $functional ? decode_sereal( Header(6) . chr(7), $options )
-                        : Sereal::Decoder->new($options);
+            $functional
+                ? decode_sereal( Header(6) . chr(7), $options )
+                : Sereal::Decoder->new($options);
             1;
         };
         my $caught = $@;
         undef $options;
-        my $label = ($functional ? 'functional' : 'object') . " invalid $name";
+        my $label = ( $functional ? 'functional' : 'object' ) . " invalid $name";
         ok( !$ok, "$label is rejected" );
         like( $caught, $error, "$label preserves its exception" );
         ok( !defined $weak, "$label releases the retained callback" );
@@ -61,12 +63,15 @@ for my $version ( 0 .. 2 ) {
         1;
     };
     ok( !$ok, "fatal checksum v$version warning is propagated" );
-    like( $@, qr/key warning became an exception/, "fatal checksum v$version warning is preserved" );
+    like(
+        $@, qr/key warning became an exception/,
+        "fatal checksum v$version warning is preserved"
+    );
 }
 
 {
     my $marker = {};
-    my $weak = $marker;
+    my $weak   = $marker;
     weaken($weak);
     my $decoder = Sereal::Decoder->new( { thaw_allow_classes => allow_with_marker($marker) } );
     undef $marker;
@@ -79,7 +84,7 @@ for my $version ( 0 .. 2 ) {
 
 {
     my $marker = {};
-    my $weak = $marker;
+    my $weak   = $marker;
     weaken($weak);
     my $options = { thaw_allow_classes => allow_with_marker($marker) };
     undef $marker;

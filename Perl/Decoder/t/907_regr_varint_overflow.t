@@ -28,8 +28,8 @@ my @cases = (
     [ scalar_safe_reader => $header . chr(0x20) . $overflow ],
     [ scalar_fast_reader => $header . chr(0x20) . $overflow . ( chr(0) x 16 ) ],
     [ array_count        => $header . chr(0x28) . chr(0x2B) . $overflow . chr(1) ],
-    [ hash_count         => $header . chr(0x28) . chr(0x2A) . $overflow . chr(0x61) . 'k' . chr(1) ],
-    [ binary_length      => $header . chr(0x26) . $overflow . 'SECRET' ],
+    [ hash_count    => $header . chr(0x28) . chr(0x2A) . $overflow . chr(0x61) . 'k' . chr(1) ],
+    [ binary_length => $header . chr(0x26) . $overflow . 'SECRET' ],
 );
 
 for my $case (@cases) {

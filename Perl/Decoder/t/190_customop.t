@@ -31,7 +31,8 @@ sub custom_op_metadata {
         next unless $$op;
         my $name = $op->name;
         $metadata{$name} = $op->desc
-            if $name =~ /\A(?:sereal_|scalar_looks_like_sereal|get_sereal_checksum|validate_sereal_checksum)/;
+            if $name =~
+            /\A(?:sereal_|scalar_looks_like_sereal|get_sereal_checksum|validate_sereal_checksum)/;
         push @pending, $op->sibling;
         push @pending, $op->first if $op->can('first');
     }
@@ -53,8 +54,10 @@ my $have_custom_ops = $] >= 5.014;
 
 SKIP: {
     skip 'custom ops are unavailable on this Perl', 1 unless $have_custom_ops;
-    is_deeply( custom_op_metadata($decoder_probe), \%expected_decoder,
-        'all four decoder custom ops keep distinct names and descriptions' );
+    is_deeply(
+        custom_op_metadata($decoder_probe), \%expected_decoder,
+        'all four decoder custom ops keep distinct names and descriptions'
+    );
 }
 
 my $encoder_probe;
@@ -65,22 +68,25 @@ if ( have_encoder_and_decoder() ) {
 my $expected_encoder = { sereal_encode_with_object => 'sereal_encode_with_object' };
 SKIP: {
     skip 'encoder custom op is unavailable', 1 unless $encoder_probe && $have_custom_ops;
-    is_deeply( custom_op_metadata($encoder_probe), $expected_encoder,
-        'encoder custom op keeps its name and description' );
+    is_deeply(
+        custom_op_metadata($encoder_probe), $expected_encoder,
+        'encoder custom op keeps its name and description'
+    );
 }
 
 SKIP: {
     skip 'threaded custom ops are unavailable', 5 unless $Config{useithreads} && $have_custom_ops;
     require threads;
-    my $result = threads->create(sub {
-        my $decoder = Sereal::Decoder->new;
-        return [
-            custom_op_metadata($decoder_probe),
-            $encoder_probe ? custom_op_metadata($encoder_probe) : undef,
-            sereal_decode_with_object($decoder, $empty_array_as_sereal),
-            scalar_looks_like_sereal($empty_array_as_sereal),
-        ];
-    })->join;
+    my $result = threads->create(
+        sub {
+            my $decoder = Sereal::Decoder->new;
+            return [
+                custom_op_metadata($decoder_probe),
+                $encoder_probe ? custom_op_metadata($encoder_probe) : undef,
+                sereal_decode_with_object( $decoder, $empty_array_as_sereal ),
+                scalar_looks_like_sereal($empty_array_as_sereal),
+            ];
+        } )->join;
     is_deeply( $result->[0], \%expected_decoder, 'cloned decoder custom-op metadata works' );
     SKIP: {
         skip 'encoder is unavailable', 1 unless $encoder_probe;
@@ -88,8 +94,10 @@ SKIP: {
     }
     is_deeply( $result->[2], [], 'custom-op decoding works in the child interpreter' );
     is( $result->[3], 4, 'custom-op inspection works in the child interpreter' );
-    is_deeply( custom_op_metadata($decoder_probe), \%expected_decoder,
-        'parent metadata survives child interpreter destruction' );
+    is_deeply(
+        custom_op_metadata($decoder_probe), \%expected_decoder,
+        'parent metadata survives child interpreter destruction'
+    );
 }
 
 done_testing();

@@ -26,7 +26,10 @@ my $int_packet    = Header(6) . "\x05";             # 5
 # so they run in a child process whose exit status is the assertion.
 sub child_survives {
     my ( $code, $name ) = @_;
-    my $status = system( $^X, '-Mblib', '-It/lib', '-MSereal::Decoder', '-MSereal::TestSet=Header', '-e', $code );
+    my $status =
+        system( $^X, '-Mblib', '-It/lib', '-MSereal::Decoder', '-MSereal::TestSet=Header', '-e',
+        $code
+        );
     is( $status, 0, "$name: child exits cleanly" );
 }
 
@@ -88,18 +91,19 @@ child_survives(
 
 # A previous referent must be released, not leaked.
 {
+
     package Counted;
     my $live = 0;
     sub new     { $live++; bless {}, shift }
     sub DESTROY { $live-- }
-    sub live    {$live}
+    sub live    { $live }
 }
 {
     my $out = Counted->new;
     is( Counted::live(), 1, 'one live object before decoding over it' );
     $dec->decode( $hash_packet, $out );
     is( Counted::live(), 0, 'decoding into a scalar releases the previous referent' );
-    is( $out->{k}, 1, 'and stores the decoded value' );
+    is( $out->{k},       1, 'and stores the decoded value' );
 }
 
 # Read-only destinations are refused instead of being written through.
@@ -121,13 +125,16 @@ for my $api (qw(decode decode_only_header decode_with_header)) {
             my $dec = Sereal::Decoder->new;
             my $out = bless {}, 'DeleteInput';
         } . (
-            $api eq 'decode' ? q{
+            $api eq 'decode'
+            ? q{
                 $dec->decode($cache{packet}, $out);
                 die 'wrong body' unless $out->{k} == 1;
-            } : $api eq 'decode_only_header' ? q{
+            }
+            : $api eq 'decode_only_header' ? q{
                 $dec->decode_only_header($cache{packet}, $out);
                 die 'wrong header' unless $out eq 'hdr';
-            } : q{
+            }
+            : q{
                 my $hdr;
                 $dec->decode_with_header($cache{packet}, $out, $hdr);
                 die 'wrong header/body' unless $hdr eq 'hdr' && $out->{k} == 1;

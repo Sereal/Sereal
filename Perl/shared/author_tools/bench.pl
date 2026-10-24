@@ -1,5 +1,6 @@
 use strict;
 use warnings;
+
 # Set this only when deliberately benchmarking installed modules. Otherwise
 # keep using the distribution's local build, as this script always has.
 # Example installed comparison with common wire format:

@@ -19,8 +19,7 @@ for my $type ( 0, 1, 2 ) {
             substr( $header, 4, 1 ) = chr(0x86);
             my $prefix = $header . chr($type) . varint( $type ? 16 : 8 );
             my $tail   = varint( length($payload) ) . $payload;
-            my $tag =
-                checksum_tag($type, $prefix . $tail, $key);
+            my $tag    = checksum_tag( $type, $prefix . $tail, $key );
             my $packet = $prefix . $tag . $tail;
             my $label =
                 "type=$type suffix=" . ( defined($suffix) ? 1 : 0 ) . ' bytes=' . length($payload);

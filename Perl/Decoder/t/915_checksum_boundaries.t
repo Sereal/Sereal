@@ -16,8 +16,7 @@ sub envelope {
     die 'fixture too large' if length($payload) >= 128;
     my $prefix = "=\xf3rl" . chr( 0x86 | $encoding ) . "\0" . chr($type) . chr( $type ? 16 : 8 );
     my $tail   = chr( length($payload) ) . $payload;
-    my $mac =
-        checksum_tag($type, $prefix . $tail, $key);
+    my $mac    = checksum_tag( $type, $prefix . $tail, $key );
     return $prefix . $mac . $tail;
 }
 
@@ -36,9 +35,10 @@ my @streams = (
 );
 for my $type ( 0, 1, 2 ) {
     for my $policy ( 'die', 'ignore' ) {
-        my $dec =
-            Sereal::Decoder->new( { "checksum_v${type}_key" => $key, checksum_policy => $policy,
-                undef_deadly_policy => 'die' } );
+        my $dec = Sereal::Decoder->new( {
+            "checksum_v${type}_key" => $key, checksum_policy => $policy,
+            undef_deadly_policy     => 'die'
+        } );
         my $label = "checksum $type policy $policy";
         for my $case (
             [ 'empty body',    '' ],         [ 'short string',    "\x61" ],
@@ -62,7 +62,10 @@ for my $type ( 0, 1, 2 ) {
             "$label concatenated envelopes work"
         );
         eval { $dec->decode( envelope( $type, 0, $deadly ) ) };
-        like( $@, qr/Encountered UNDEF_DEADLY/, "$label signed UNDEF_DEADLY is fatal under die policy" );
+        like(
+            $@, qr/Encountered UNDEF_DEADLY/,
+            "$label signed UNDEF_DEADLY is fatal under die policy"
+        );
         for my $stream (@streams) {
             my ( $name, $encoding, $complete, $incomplete_body ) = @$stream;
             $p = envelope( $type, $encoding, $complete );

@@ -29,7 +29,7 @@ sub link_files {
     my $exclude_tests = $mode eq "without_tests";
     my $tests_only    = $mode eq "tests_only";
     my $bare_minimum  = $mode eq "bare_minimum";
-    my $test_lib_only = $mode eq "test_lib";    # shared test helpers, not the test suites
+    my $test_lib_only = $mode eq "test_lib";        # shared test helpers, not the test suites
 
     # This fires from a git source tree only.
     # Right now, all devs are on Linux. Feel free to make portable.

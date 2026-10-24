@@ -26,14 +26,14 @@ our ( $predicate_freezes, $predicate_destroys );
 {
 
     package ClearParentFreeze;
-    sub FREEZE { $main::clear->(); return $_[0]{name} }
+    sub FREEZE { $main::clear->();                       return $_[0]{name} }
     sub THAW   { my ( $class, $serializer, $name ) = @_; bless { name => $name }, $class }
 
     package ClearParentString;
     use overload '""' => sub { $_[0]->() }, fallback => 1;
 
     package DropSelfFreeze;
-    sub FREEZE { delete $main::cache{obj}; return 'dropped' }
+    sub FREEZE { delete $main::cache{obj};               return 'dropped' }
     sub THAW   { my ( $class, $serializer, $name ) = @_; bless { name => $name }, $class }
 
     package PredicateVictim;
@@ -47,9 +47,9 @@ our ( $predicate_freezes, $predicate_destroys );
 }
 
 my @filler = map { "element $_ " x 8 } 1 .. 50;
-my %clear = (
+my %clear  = (
     undef   => sub { undef @parent },
-    realloc => sub { @parent = ( ("y" x 30) x 400 ) },
+    realloc => sub { @parent = ( ( "y" x 30 ) x 400 ) },
 );
 
 for my $version ( 2 .. 6 ) {
@@ -62,16 +62,21 @@ for my $version ( 2 .. 6 ) {
                 $expected = [ bless( { name => 'first' }, 'ClearParentFreeze' ), @filler ];
             }
             else {
-                @parent   = ( bless( sub { $clear->(); 'first value' }, 'ClearParentString' ), @filler );
+                @parent =
+                    ( bless( sub { $clear->(); 'first value' }, 'ClearParentString' ), @filler );
                 $expected = [ 'first value', @filler ];
             }
             my $decoded = eval {
-                my $encoder = Sereal::Encoder->new( { protocol_version => $version, $option => 1 } );
+                my $encoder =
+                    Sereal::Encoder->new( { protocol_version => $version, $option => 1 } );
                 Sereal::Decoder->new->decode( $encoder->encode( \@parent ) );
             };
             my $error = $@;
             my $label = "v$version $how $option";
-            ok( !$error || $error =~ /input (?:array|hash|container) was modified during encoding/, "$label: freeing the array from a callback fails safely or encodes" ) or diag($error);
+            ok(
+                !$error || $error =~ /input (?:array|hash|container) was modified during encoding/,
+                "$label: freeing the array from a callback fails safely or encodes"
+            ) or diag($error);
             SKIP: {
                 skip 'encode/decode failed', 1 if $error;
                 is_deeply( $decoded, $expected, "$label: captured elements survive the callback" );
@@ -82,15 +87,17 @@ for my $version ( 2 .. 6 ) {
     # The object being frozen may lose its last reference inside FREEZE.
     %cache = ( obj => bless( {}, 'DropSelfFreeze' ) );
     my $decoded = eval {
-        my $encoder = Sereal::Encoder->new( { protocol_version => $version, freeze_callbacks => 1 } );
+        my $encoder =
+            Sereal::Encoder->new( { protocol_version => $version, freeze_callbacks => 1 } );
         Sereal::Decoder->new->decode( $encoder->encode( $cache{obj} ) );
     };
     my $error = $@;
-    ok( !$error, "v$version: FREEZE dropping the last reference to its object still encodes" ) or diag($error);
+    ok( !$error, "v$version: FREEZE dropping the last reference to its object still encodes" )
+        or diag($error);
     SKIP: {
         skip 'encode/decode failed', 2 if $error;
-        is( ref($decoded),      'DropSelfFreeze', "v$version: the dropped object keeps its class" );
-        is( $decoded->{name},   'dropped',        "v$version: and its frozen payload" );
+        is( ref($decoded),    'DropSelfFreeze', "v$version: the dropped object keeps its class" );
+        is( $decoded->{name}, 'dropped',        "v$version: and its frozen payload" );
     }
 
     # The freeze_allow_classes callback is user code too, and runs before
@@ -108,11 +115,12 @@ for my $version ( 2 .. 6 ) {
             Sereal::Decoder->new->decode( $encoder->encode( $cache{obj} ) );
         };
         my $error = $@;
-        ok( !$error, "v$version: allow-classes callback dropping the object still encodes" ) or diag($error);
+        ok( !$error, "v$version: allow-classes callback dropping the object still encodes" )
+            or diag($error);
         SKIP: {
             skip 'encode/decode failed', 2 if $error;
-            is( ref($decoded),    'AllowCbFreeze', "v$version: the dropped object keeps its class" );
-            is( $decoded->{name}, 'allowed',       "v$version: and its frozen payload" );
+            is( ref($decoded), 'AllowCbFreeze', "v$version: the dropped object keeps its class" );
+            is( $decoded->{name}, 'allowed',    "v$version: and its frozen payload" );
         }
         is_deeply( \@warnings, [], "v$version: no warnings from the allow-classes callback case" );
     }
@@ -145,7 +153,10 @@ for my $version ( 2 .. 6 ) {
             );
         }
         else {
-            ok( !$error || $error =~ /input (?:array|hash|container) was modified during encoding/, "$label: encoding survives the predicate" ) or diag($error);
+            ok(
+                !$error || $error =~ /input (?:array|hash|container) was modified during encoding/,
+                "$label: encoding survives the predicate"
+            ) or diag($error);
             my $decoded      = eval { Sereal::Decoder->new->decode($packet) };
             my $decode_error = $@;
             ok( !$decode_error, "$label: packet decodes" ) or diag($decode_error);
@@ -157,14 +168,16 @@ for my $version ( 2 .. 6 ) {
         }
     }
 }
+
 # Method lookup happens before the predicate. Removing or replacing the glob
 # must not free the CV selected for this invocation.
 {
+
     package MethodLifetime;
-    sub THAW { my ($class, $format, $value) = @_; bless {value => $value}, $class }
+    sub THAW { my ( $class, $format, $value ) = @_; bless { value => $value }, $class }
 }
 my $freeze_name = 'MethodLifetime::FREEZE';
-for my $version (2 .. 6) {
+for my $version ( 2 .. 6 ) {
     for my $change (qw(delete replace)) {
         my $replacement_calls = 0;
         {
@@ -172,26 +185,26 @@ for my $version (2 .. 6) {
             no warnings 'redefine';
             *{$freeze_name} = sub { return 'selected' };
         }
-        my $object = bless {}, 'MethodLifetime';
-        my $encoder = Sereal::Encoder->new({
-            protocol_version => $version,
-            freeze_allow_classes => sub {
-                delete $MethodLifetime::{FREEZE};
-                if ($change eq 'replace') {
-                    no strict 'refs';
-                    no warnings 'redefine';
-                    *{$freeze_name} = sub { $replacement_calls++; return 'replacement' };
-                }
-                return 1;
-            },
-        });
-        my $decoded = eval { Sereal::Decoder->new->decode($encoder->encode($object)) };
-        my $error = $@;
-        ok(!$error, "v$version $change: method survives the predicate") or diag($error);
+        my $object  = bless {}, 'MethodLifetime';
+        my $encoder = Sereal::Encoder->new( {
+                protocol_version     => $version,
+                freeze_allow_classes => sub {
+                    delete $MethodLifetime::{FREEZE};
+                    if ( $change eq 'replace' ) {
+                        no strict 'refs';
+                        no warnings 'redefine';
+                        *{$freeze_name} = sub { $replacement_calls++; return 'replacement' };
+                    }
+                    return 1;
+                },
+            } );
+        my $decoded = eval { Sereal::Decoder->new->decode( $encoder->encode($object) ) };
+        my $error   = $@;
+        ok( !$error, "v$version $change: method survives the predicate" ) or diag($error);
         SKIP: {
             skip 'encode/decode failed', 2 if $error;
-            is($decoded->{value}, 'selected', "v$version $change: selected FREEZE is invoked");
-            is($replacement_calls, 0, "v$version $change: replacement applies to future calls");
+            is( $decoded->{value},  'selected', "v$version $change: selected FREEZE is invoked" );
+            is( $replacement_calls, 0, "v$version $change: replacement applies to future calls" );
         }
     }
 }

@@ -69,7 +69,10 @@ for my $version ( 1 .. 6 ) {
                     Sereal::Encoder->new( \%options )->encode( \@parent ) );
             };
             my $error = $@;
-            ok( !$error || $error =~ /input (?:array|hash|container) was modified during encoding/, "$label: array mutation fails safely or encodes" ) or diag($error);
+            ok(
+                !$error || $error =~ /input (?:array|hash|container) was modified during encoding/,
+                "$label: array mutation fails safely or encodes"
+            ) or diag($error);
             SKIP: {
                 skip 'encode/decode failed', 1 if $error;
                 is_deeply( $decoded, $expected, "$label: captured elements survive" );

@@ -45,8 +45,10 @@ EOC
     my ( $status, $output ) = run_child($code);
     is( $status, 0, "v$version: encoding \\\@- and \\\@+ exits cleanly" )
         or diag($output);
-    like( $output, qr/^decoded=\[\[1,1,2,3\],\[4,2,3,4\]\]$/m,
-        "v$version: \\\@- and \\\@+ round-trip" );
+    like(
+        $output, qr/^decoded=\[\[1,1,2,3\],\[4,2,3,4\]\]$/m,
+        "v$version: \\\@- and \\\@+ round-trip"
+    );
 }
 
 SKIP: {
@@ -62,16 +64,18 @@ EOC
 }
 
 {
+
     package MyTiedArray;
     sub TIEARRAY  { my ( $class, @values ) = @_; return bless [@values], $class }
-    sub FETCH     { my ( $self, $i ) = @_; return "fetched:" . $self->[$i] }
+    sub FETCH     { my ( $self,  $i )      = @_; return "fetched:" . $self->[$i] }
     sub FETCHSIZE { my ($self) = @_; return scalar @$self }
 }
 
 {
+
     package MyTiedScalar;
     sub TIESCALAR { my ( $class, $value ) = @_; return bless \$value, $class }
-    sub FETCH     { my ($self) = @_; return "scalar:" . $$self }
+    sub FETCH { my ($self) = @_; return "scalar:" . $$self }
 }
 
 for my $version ( 1 .. 6 ) {
@@ -79,14 +83,18 @@ for my $version ( 1 .. 6 ) {
 
     tie my @tied, 'MyTiedArray', qw(x y z);
     my $decoded = Sereal::Decoder->new->decode( $enc->encode( [ \@tied ] ) );
-    is_deeply( $decoded, [ [qw(fetched:x fetched:y fetched:z)] ],
-        "v$version: tied array round-trips its FETCHed values" );
+    is_deeply(
+        $decoded, [ [qw(fetched:x fetched:y fetched:z)] ],
+        "v$version: tied array round-trips its FETCHed values"
+    );
 
     my @plain = ( 1, undef, 3 );
     tie $plain[1], 'MyTiedScalar', 'two';
     $decoded = Sereal::Decoder->new->decode( $enc->encode( [ \@plain ] ) );
-    is_deeply( $decoded, [ [ 1, 'scalar:two', 3 ] ],
-        "v$version: plain array with a tied scalar element round-trips" );
+    is_deeply(
+        $decoded, [ [ 1, 'scalar:two', 3 ] ],
+        "v$version: plain array with a tied scalar element round-trips"
+    );
 }
 
 done_testing();

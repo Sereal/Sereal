@@ -25,12 +25,13 @@ use re qw(regexp_pattern);
 sub child_survives {
     my ( $code, $name ) = @_;
     my $status = system( $^X, '-Mblib', '-It/lib', '-MSereal::Decoder', '-MSereal::Encoder',
-        '-MSereal::TestSet=Header', '-e', 'use strict; use warnings; ' . $code );
+        '-MSereal::TestSet=Header', '-e', 'use strict; use warnings; ' . $code
+    );
     is( $status, 0, "$name: child exits cleanly" );
 }
 
 my $re_body = "\x31\x63abc\x61i";    # REGEXP, SHORT_BINARY "abc", SHORT_BINARY "i"
-my %bare = (
+my %bare    = (
     'bare REGEXP as the document body' => $re_body,
     'bare REGEXP as an array element'  => "\x41" . $re_body,
     'bare REGEXP as a hash value'      => "\x51\x61k" . $re_body,
@@ -101,7 +102,8 @@ for my $version ( 3, 6 ) {
 for my $hex (
     '3df3726c0300282b03b161616030290431290460',    # [REGEXP|T "a" "", WEAKEN REFP(4), REGEXP REFP(4) ""]
     '3df3726c0600282b02b161616031290460',          # [REGEXP|T "a" "i", REGEXP REFP(4) ""]
-) {
+    )
+{
     my $ok = eval { $dec->decode( pack 'H*', $hex ); 1 };
     ok( !$ok, "$hex: REFP as a REGEXP pattern is rejected" );
     like( $@, qr/REGEXP pattern must be a string/, "$hex: with a clear error" );
@@ -112,7 +114,10 @@ for my $version ( 3, 6 ) {
     my $enc = Sereal::Encoder->new( { protocol_version => $version } );
     my $r   = $dec->decode( $enc->encode( { re => qr/ab+c/i, obj => bless( qr/x/, 'Foo' ) } ) );
     is( ref( $r->{re} ), 'Regexp', "v$version qr// is a Regexp" );
-    is_deeply( [ regexp_pattern( $r->{re} ) ], [ 'ab+c', 'i' ], "v$version qr// keeps pattern and flags" );
+    is_deeply(
+        [ regexp_pattern( $r->{re} ) ], [ 'ab+c', 'i' ],
+        "v$version qr// keeps pattern and flags"
+    );
     is( ref( $r->{obj} ), 'Foo', "v$version blessed regexp keeps its class" );
     ok( 'x' =~ $r->{obj}, "v$version blessed regexp matches" );
     my $shared = qr/q/;

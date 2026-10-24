@@ -282,7 +282,7 @@ sub parse_sv {
     elsif ( $o == SRL_HDR_EXTEND ) {
         my $ext = ord( _chop_data_prefix(1) );
         $done .= chr($ext);
-        if ($ext == SRL_EXT_UNDEF_DEADLY) {
+        if ( $ext == SRL_EXT_UNDEF_DEADLY ) {
             print "UNDEF_DEADLY (undef; must not be emitted by an encoder)\n";
         }
         else {

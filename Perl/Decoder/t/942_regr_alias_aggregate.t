@@ -22,7 +22,8 @@ for my $case (
     [ '3df3726c0300282b0228ab002e05',         'array element aliasing a tracked ARRAY' ],
     [ '3df3726c030028ab012e02',               'element of a tracked ARRAY aliasing that ARRAY' ],
     [ '3df3726c0300282a02616128aa0061622e07', 'hash value aliasing a tracked HASH' ],
-) {
+    )
+{
     my ( $hex, $name ) = @$case;
     my $ok = eval { $dec->decode( pack 'H*', $hex ); 1 };
     ok( !$ok, "$name is rejected" );
@@ -38,7 +39,10 @@ for my $version ( 3, 6 ) {
     is_deeply( $r, [ ('abcdef') x 4 ], "v$version aliased strings decode" );
     $r->[1] = 5;
     $_ .= 'z' for @$r;
-    is( "@$r", join( ' ', ('5zzzz') x 4 ), "v$version aliased elements are assignable and stay aliased" );
+    is(
+        "@$r", join( ' ', ('5zzzz') x 4 ),
+        "v$version aliased elements are assignable and stay aliased"
+    );
 }
 
 done_testing;

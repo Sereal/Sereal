@@ -69,10 +69,10 @@ sub count_each_while_encoding {
 my $n_keys = 200;
 
 my @cases = (
-    [ 'reference values, default options', 1, {} ],
-    [ 'reference values, sort_keys',       1, { sort_keys => 1 } ],
-    [ 'plain values, default options',     0, {} ],
-    [ 'plain values, sort_keys',           0, { sort_keys => 1 } ],
+    [ 'reference values, default options',  1, {} ],
+    [ 'reference values, sort_keys',        1, { sort_keys => 1 } ],
+    [ 'plain values, default options',      0, {} ],
+    [ 'plain values, sort_keys',            0, { sort_keys        => 1 } ],
     [ 'reference values, freeze_callbacks', 2, { freeze_callbacks => 1 } ],
 );
 
@@ -86,13 +86,13 @@ for my $case (@cases) {
             :              $i;
     }
     my $enc = Sereal::Encoder->new($opts);
-    is( count_each_while_encoding( $enc, \%h ), $n_keys,"each() sees every key once: $name" );
+    is( count_each_while_encoding( $enc, \%h ), $n_keys, "each() sees every key once: $name" );
 }
 
 {
-    my %h = map { ( "k$_" => [$_] ) } 1 .. 5;
+    my %h   = map { ( "k$_" => [$_] ) } 1 .. 5;
     my $enc = Sereal::Encoder->new;
-    my $n = 0;
+    my $n   = 0;
     while ( my ( $k, $v ) = each %h ) {
         $n++;
         last if $n > 20;
@@ -110,7 +110,7 @@ for my $case (@cases) {
         tie $target{"k$i"}, 'EachIterDeleteCurrent', $i;
     }
     my $enc = Sereal::Encoder->new;
-    my $n = 0;
+    my $n   = 0;
     while ( my ( $k, $v ) = each %target ) {
         $n++;
         last if $n > 20;
@@ -118,7 +118,10 @@ for my $case (@cases) {
         eval { $enc->encode( \%target ); 1 };
     }
     $current_key = undef;
-    ok( $n <= 20, "each() loop terminates when a callback deletes the current entry ($n iterations)" );
+    ok(
+        $n <= 20,
+        "each() loop terminates when a callback deletes the current entry ($n iterations)"
+    );
     %target = ();
 }
 
@@ -130,7 +133,8 @@ for my $case (@cases) {
         tie $target{"k$i"}, 'EachIterGrow', $i;
     }
     my $enc = Sereal::Encoder->new;
-    my $n = 0;
+    my $n   = 0;
+
     # The 64 keys added during the first encode may legitimately be visited by
     # the rest of the loop, so this case needs a larger bound.
     while ( my ( $k, $v ) = each %target ) {
@@ -140,7 +144,7 @@ for my $case (@cases) {
         eval { $enc->encode( \%target ); 1 };
     }
     ok( $n <= 100, "each() loop terminates when a callback splits the hash ($n iterations)" );
-    ok( $grown, 'the growing callback ran' );
+    ok( $grown,    'the growing callback ran' );
     %target = ();
 }
 

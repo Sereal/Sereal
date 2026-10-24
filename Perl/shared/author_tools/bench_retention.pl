@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use Getopt::Long qw(GetOptions);
-use Time::HiRes qw(time);
+use Time::HiRes  qw(time);
 use Sereal::Encoder;
 
 # Run from Encoder with its local build on the load path, for example:
@@ -11,17 +11,22 @@ use Sereal::Encoder;
 # Compare separate processes built with the same Perl and compiler flags.
 # Peak RSS includes construction of the input as well as encoding it.
 my ( $case, $count, $iterations, $protocol_version ) = ( 'records', 200000, 9, 6 );
-GetOptions( 'case=s' => \$case, 'count=i' => \$count, 'iterations=i' => \$iterations,
-    'protocol-version=i' => \$protocol_version )
-    or die "Usage: $0 --case records|arrays|scalars|keys --count N --iterations N\n";
+GetOptions(
+    'case=s'             => \$case, 'count=i' => \$count, 'iterations=i' => \$iterations,
+    'protocol-version=i' => \$protocol_version
+) or die "Usage: $0 --case records|arrays|scalars|keys --count N --iterations N\n";
 die "count and iterations must be positive\n" unless $count > 0 && $iterations > 0;
 
 my $data;
 if ( $case eq 'records' ) {
-    $data = [ map { +{
-        id => $_, name => "name-$_", tags => [ 1, 2, 3 ],
-        meta => { a => 1, b => [$_] },
-    } } 1 .. $count ];
+    $data = [
+        map {
+            +{
+                id   => $_, name => "name-$_", tags => [ 1, 2, 3 ],
+                meta => { a => 1, b => [$_] },
+            }
+        } 1 .. $count
+    ];
 }
 elsif ( $case eq 'arrays' ) {
     $data = [ map { [$_] } 1 .. $count ];
@@ -36,11 +41,12 @@ else {
     die "Unknown case '$case'\n";
 }
 
-my $encoder = Sereal::Encoder->new( { protocol_version => $protocol_version, checksum_v0_key => undef } );
-my $bytes = length $encoder->encode($data); # warm up the reusable encoder
+my $encoder =
+    Sereal::Encoder->new( { protocol_version => $protocol_version, checksum_v0_key => undef } );
+my $bytes = length $encoder->encode($data);    # warm up the reusable encoder
 my @seconds;
 for ( 1 .. $iterations ) {
-    my $start = time;
+    my $start  = time;
     my $packet = $encoder->encode($data);
     push @seconds, time - $start;
     die "packet size changed between iterations\n" unless length($packet) == $bytes;

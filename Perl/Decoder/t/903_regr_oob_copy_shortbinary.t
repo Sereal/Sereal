@@ -32,8 +32,8 @@ sub build_packet {
     # decoder reads 31 bytes for the inline SHORT_BINARY length,
     # overrunning buf.end by 26 bytes without the fix.
     my $binary_content = ( chr(0x42) x 29 ) . chr(0x7F);
-    my $body           = chr(0x28) . chr(0x2B) . chr(0x02) # REFN ARRAY count=2
-        . chr(0x26) . chr(0x1E)                            # BINARY length=30
+    my $body           = chr(0x28) . chr(0x2B) . chr(0x02)    # REFN ARRAY count=2
+        . chr(0x26) . chr(0x1E)                               # BINARY length=30
         . $binary_content . $container_bytes;
     return $header . $body;
 }
@@ -53,7 +53,8 @@ sub build_packet {
 # HASH variant: REFN + HASH(1) + COPY(35) + UNDEF. The COPY-target byte is
 # decoded as the hash key.
 {
-    my $packet = build_packet( chr(0x28) . chr(0x2A) . chr(0x01) . chr(0x2F) . chr(35) . chr(0x25) );
+    my $packet =
+        build_packet( chr(0x28) . chr(0x2A) . chr(0x01) . chr(0x2F) . chr(35) . chr(0x25) );
     eval { decode_sereal($packet) };
     like(
         $@,

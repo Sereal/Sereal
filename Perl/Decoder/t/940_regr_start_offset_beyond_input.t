@@ -30,7 +30,10 @@ for my $version ( 1 .. 6 ) {
         );
         is( $dec->decode($packet), 1, "v$version $round decoder: still decodes afterwards" );
     }
-    is( $dec->decode_with_offset( "x" x 3 . $packet, 3 ), 1, "v$version an in-range offset still decodes" );
+    is(
+        $dec->decode_with_offset( "x" x 3 . $packet, 3 ), 1,
+        "v$version an in-range offset still decodes"
+    );
 }
 
 done_testing;

@@ -99,11 +99,11 @@ our $use_objectv = 1;
 use constant TRACK_FLAG => 128;
 
 sub checksum_tag {
-    my ($type, $bytes, $key) = @_;
-    my %functions = (0 => 'siphash24', 1 => 'siphash24_128', 2 => 'siphash36');
-    my $name = $functions{$type} or die "Unknown checksum type $type";
-    my $function = $Class->can($name) or die "$Class does not provide $name";
-    return $function->($bytes, $key);
+    my ( $type, $bytes, $key ) = @_;
+    my %functions = ( 0 => 'siphash24', 1 => 'siphash24_128', 2 => 'siphash36' );
+    my $name      = $functions{$type}  or die "Unknown checksum type $type";
+    my $function  = $Class->can($name) or die "$Class does not provide $name";
+    return $function->( $bytes, $key );
 }
 
 sub hobodecode {
@@ -387,20 +387,25 @@ sub setup_tests {
             [ { foooo => "barrr" }, { barrr => "foooo" } ],
             sub {
                 my $opt = shift;
-                if (($opt->{dedupe_strings} || $opt->{aliased_dedupe_strings})
-                    && !$opt->{no_shared_hashkeys}) {
-                    my $d = array_head(2) . hash_head(2);
+                if ( ( $opt->{dedupe_strings} || $opt->{aliased_dedupe_strings} )
+                    && !$opt->{no_shared_hashkeys} )
+                {
+                    my $d       = array_head(2) . hash_head(2);
                     my $key_pos = offset($d);
                     $d .= short_string("foooo");
                     my $value_pos = offset($d);
-                    return $d . short_string("barrr") . hash_head(2)
-                        . chr(SRL_HDR_COPY) . varint($value_pos)
-                        . chr(SRL_HDR_COPY) . varint($key_pos);
+                    return
+                          $d
+                        . short_string("barrr")
+                        . hash_head(2)
+                        . chr(SRL_HDR_COPY)
+                        . varint($value_pos)
+                        . chr(SRL_HDR_COPY)
+                        . varint($key_pos);
                 }
                 return array(
                     hash( short_string("foooo"), short_string("barrr") ),
-                    hash( short_string("barrr"), short_string("foooo") )
-                );
+                    hash( short_string("barrr"), short_string("foooo") ) );
             },
             "ary ref of hash refs without repeated strings"
         ],
@@ -409,23 +414,24 @@ sub setup_tests {
             sub {
                 my $opt = shift;
                 if ( $opt->{dedupe_strings} || $opt->{aliased_dedupe_strings} ) {
-                    my $tag = $opt->{aliased_dedupe_strings} ? SRL_HDR_ALIAS : SRL_HDR_COPY;
-                    my $d   = array_head(2) . hash_head(2);
+                    my $tag     = $opt->{aliased_dedupe_strings} ? SRL_HDR_ALIAS : SRL_HDR_COPY;
+                    my $d       = array_head(2) . hash_head(2);
                     my $key_pos = offset($d);
                     $d .= short_string("foooo");
                     my $pos = offset($d);
-                    my $first_value = $opt->{no_shared_hashkeys}
+                    my $first_value =
+                        $opt->{no_shared_hashkeys}
                         ? short_string("foooo")
                         : chr(SRL_HDR_COPY) . varint($key_pos);
-                    substr($first_value, 0, 1) = chr(ord($first_value) | TRACK_FLAG)
+                    substr( $first_value, 0, 1 ) = chr( ord($first_value) | TRACK_FLAG )
                         if $opt->{aliased_dedupe_strings};
                     $d .=
                           $first_value
                         . hash_head(2)
                         . short_string("foooo2")
                         . chr($tag)
-                        . varint($opt->{aliased_dedupe_strings} || $opt->{no_shared_hashkeys}
-                                 ? $pos : $key_pos);
+                        . varint( $opt->{aliased_dedupe_strings}
+                            || $opt->{no_shared_hashkeys} ? $pos : $key_pos );
                     return $d;
                 }
                 else {

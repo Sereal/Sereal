@@ -123,17 +123,21 @@ SKIP: {
     );
 }
 
-for my $version (1, 2) {
+for my $version ( 1, 2 ) {
     SKIP: {
         skip 'hobodecoder is not included in this distribution', 2
             unless -f 'author_tools/hobodecoder.pl';
-        my $packet = Sereal::Encoder->new({"checksum_v${version}_key" => $key1})->encode($plain_value);
-        my ($status, $out, $err) = run_hobodecoder($packet,
-            "--checksum-v${version}-key-hex=" . unpack('H*', $key1));
-        is($status, 0, "hobodecoder accepts checksum version $version") or diag($err);
+        my $packet =
+            Sereal::Encoder->new( { "checksum_v${version}_key" => $key1 } )->encode($plain_value);
+        my ( $status, $out, $err ) = run_hobodecoder(
+            $packet,
+            "--checksum-v${version}-key-hex=" . unpack( 'H*', $key1 ) );
+        is( $status, 0, "hobodecoder accepts checksum version $version" ) or diag($err);
         my $variant = $version == 1 ? '2-4-128' : '3-6-128';
-        like($out, qr/SipHash-\Q$variant\E checksum verified/,
-             "hobodecoder identifies version $version correctly");
+        like(
+            $out, qr/SipHash-\Q$variant\E checksum verified/,
+            "hobodecoder identifies version $version correctly"
+        );
     }
 }
 
