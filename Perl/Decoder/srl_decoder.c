@@ -860,7 +860,10 @@ srl_begin_decoding(pTHX_ srl_decoder_t *dec, SV *src, UV start_offset, int copy_
 
     tmp = (unsigned char*)SvPV(src, len);
     if (expect_false( start_offset > len )) {
-        SRL_RDR_ERROR(dec->pbuf, "Start offset is beyond input string length");
+        /* dec->buf is not set up for this input yet, so report offset 1
+         * directly as SRL_RDR_ERROR() would for a fresh buffer. */
+        croak(SRL_RDR_BASE_ERROR_FORMAT("Start offset %"UVuf" is beyond input string length %"UVuf),
+            (UV)start_offset, (UV)len, (UV)1, __FILE__, __LINE__);
     }
     /* Only track the input when the buffer is its own PV (not, say, the
      * result of an overloaded stringification held elsewhere). */
