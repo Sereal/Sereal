@@ -854,6 +854,14 @@ read_again:
                         mrg->ibuf.pos++; /* skip tag in input buffer */
                         offset = srl_read_varint_uv_offset(aTHX_ mrg->pibuf, " while reading COPY/ALIAS/REFP");
                         offset = srl_lookup_tracked_offset(aTHX_ mrg, offset); /* convert ibuf offset to obuf offset */
+
+                        /* By Sereal spec a COPY tag cannot reffer to another COPY tag */
+                        if (tag == SRL_HDR_COPY
+                            && expect_false((*(mrg->obuf.body_pos + offset) & ~SRL_HDR_TRACK_FLAG) == SRL_HDR_COPY))
+                        {
+                            SRL_RDR_ERROR_BAD_COPY(mrg->pibuf, SRL_HDR_COPY);
+                        }
+
                         srl_buf_cat_varint(aTHX_ &mrg->obuf, tag, offset);
 
                         if (tag == SRL_HDR_REFP || tag == SRL_HDR_ALIAS) {
@@ -1097,7 +1105,7 @@ srl_merge_stringish(pTHX_ srl_merger_t *mrg)
         offset = srl_read_varint_uv_offset(aTHX_ mrg->pibuf, " while reading COPY");
         offset = srl_lookup_tracked_offset(aTHX_ mrg, offset); /* convert ibuf offset to obuf offset */
 
-        newtag = *(mrg->obuf.body_pos + offset);
+        newtag = *(mrg->obuf.body_pos + offset) & ~SRL_HDR_TRACK_FLAG;
         if (expect_false(newtag != SRL_HDR_BINARY && newtag != SRL_HDR_STR_UTF8 && newtag < SRL_HDR_SHORT_BINARY_LOW)) {
             SRL_RDR_ERROR_BAD_COPY(mrg->pibuf, newtag);
         }
@@ -1199,7 +1207,7 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
         UV offset = srl_read_varint_uv_offset(aTHX_ mrg->pibuf, " while reading COPY");
         offset = srl_lookup_tracked_offset(aTHX_ mrg, offset); /* convert ibuf offset to obuf offset */
 
-        newtag = *(mrg->obuf.body_pos + offset);
+        newtag = *(mrg->obuf.body_pos + offset) & ~SRL_HDR_TRACK_FLAG;
         if (expect_false(newtag != SRL_HDR_BINARY && newtag != SRL_HDR_STR_UTF8 && newtag < SRL_HDR_SHORT_BINARY_LOW)) {
             SRL_RDR_ERROR_BAD_COPY(mrg->pibuf, newtag);
         }

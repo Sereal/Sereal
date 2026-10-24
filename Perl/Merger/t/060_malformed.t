@@ -70,4 +70,16 @@ subtest "references into earlier documents" => sub {
     is_deeply(eval { decode_sereal($mrg->finish()) }, [ decode_sereal($doc1) ], "and the output holds the first document only");
 };
 
+subtest "COPY targets" => sub {
+    # ARRAYREF_3 [ [] (tracked), REFP to it, { COPY of the tracked [] => 1 } ]:
+    # with the track bit set the target tag looked like a SHORT_BINARY
+    merge_fails("${v6}43c02902512f0201", qr/bad COPY tag/, "hash key COPY of a tracked non-string");
+    # ARRAYREF_3 [ "abcd", COPY of "abcd", COPY of that COPY ]
+    merge_fails("${v6}4364616263642f022f07", qr/bad COPY tag/, "COPY of a COPY");
+
+    # a COPY of a string is fine
+    my $out = merge_packets({}, pack("H*", "${v6}4264616263642f02"));
+    is_deeply(eval { decode_sereal($out) }, [ [ "abcd", "abcd" ] ], "COPY of a string is merged");
+};
+
 done_testing;
