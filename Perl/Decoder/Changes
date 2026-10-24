@@ -17,6 +17,8 @@ Revision history for Perl extension Sereal-Decoder
       tag or at the header bytes of a protocol version 1 document, and zero
       the header area of the decompression buffer so no uninitialized bytes
       can be reached through an offset.
+    * decode_with_offset() with an offset past the end of the input now
+      reports the offset and input length without touching the unset buffer.
     * Avoid undefined behaviour from unaligned FLOAT, DOUBLE, and LONG_DOUBLE
       loads on x86 by copying payload bytes into aligned storage.
     * Retain input and output scalars before resetting caller-supplied outputs,
