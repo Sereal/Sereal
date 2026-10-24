@@ -23,4 +23,19 @@ class TestSerealMalformed < Test::Unit::TestCase
     # 110 nested ARRAYREF(1): the depth error must not touch freed decoder state
     assert_raise(ArgumentError) { Sereal.decode(srl('3df3726c0300' + '41' * 110 + '01')) }
   end
+
+  def test_array_count
+    # ARRAY declaring 0xffffffff elements in a 13 byte document
+    assert_raise(RangeError) { Sereal.decode(srl('3df3726c0300 2b ffffffff0f 01')) }
+    # ARRAY with no elements
+    assert_equal([], Sereal.decode(srl('3df3726c0300 2b 00')))
+  end
+
+  def test_large_array_in_thread
+    # a valid 300000 element ARRAY must not need a stack frame sized by its count
+    doc = srl('3df3726c0300 2b e0a712') + ("\x01" * 300000).b
+    result = Thread.new { Sereal.decode(doc) }.value
+    assert_equal(300000, result.size)
+    assert_equal(1, result.last)
+  end
 end
