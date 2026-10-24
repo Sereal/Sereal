@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/zlib"
 	"fmt"
+	"io"
 	"sync"
 )
 
@@ -46,6 +47,10 @@ func zlibEncode(buf []byte, level int) ([]byte, error) {
 	return comp.Bytes(), nil
 }
 
+// zlibMaxRatio bounds the inflated size of deflate data
+const zlibMaxRatio = 1032
+
+// zlibDecode inflates buf, which must hold exactly uln (>= 0) bytes
 func zlibDecode(uln int, buf []byte) ([]byte, error) {
 	zr, err := zlib.NewReader(bytes.NewReader(buf))
 	if err != nil {
@@ -53,12 +58,22 @@ func zlibDecode(uln int, buf []byte) ([]byte, error) {
 	}
 	defer zr.Close()
 
-	dec := bytes.NewBuffer(make([]byte, 0, uln))
-	_, err = dec.ReadFrom(zr)
+	// uln is untrusted: preallocate no more than buf can inflate to and
+	// read at most one byte more than uln
+	prealloc := uln
+	if prealloc/zlibMaxRatio > len(buf) {
+		prealloc = zlibMaxRatio * len(buf)
+	}
+
+	dec := bytes.NewBuffer(make([]byte, 0, prealloc))
+	_, err = dec.ReadFrom(io.LimitReader(zr, int64(uln)+1))
 	if err != nil {
 		return nil, err
 	}
 
-	// XXX Perhaps check if the number of read bytes == uln
+	if dec.Len() != uln {
+		return nil, ErrCorrupt{errBadUncompressedSize}
+	}
+
 	return dec.Bytes(), nil
 }

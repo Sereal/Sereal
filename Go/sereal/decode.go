@@ -113,12 +113,31 @@ type Decoder struct {
 	// UndefDeadlyWarningHandler receives warnings for UndefDeadlyPolicy "warn".
 	// nil writes them to os.Stderr, prefixed with "sereal: ".
 	UndefDeadlyWarningHandler func(msg string)
+	// MaxUncompressedSize is the largest decompressed body accepted, in
+	// bytes; 0 means DefaultMaxUncompressedSize and a negative value
+	// disables the limit
+	MaxUncompressedSize int
 
 	docVersion byte // protocol version of the document being decoded
 }
 
+// DefaultMaxUncompressedSize is the default limit on the size of a
+// decompressed document body
+const DefaultMaxUncompressedSize = 1 << 30
+
+// uncompressedLimit returns the effective decompressed size limit for the
+// option value n; a negative result means no limit
+func uncompressedLimit(n int) int {
+	if n == 0 {
+		return DefaultMaxUncompressedSize
+	}
+	return n
+}
+
+// decompressor decompresses a document body of at most limit bytes (no
+// limit if negative)
 type decompressor interface {
-	decompress(d, b []byte) ([]byte, error)
+	decompress(d, b []byte, limit int) ([]byte, error)
 }
 
 // NewDecoder returns a decoder with default flags
@@ -307,7 +326,7 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 				}
 			}
 
-			decompBody, err := decomp.decompress(nil, payload)
+			decompBody, err := decomp.decompress(nil, payload, uncompressedLimit(d.MaxUncompressedSize))
 			if err != nil {
 				return err
 			}
@@ -1735,6 +1754,8 @@ func instantiateZero(typ reflect.Type) reflect.Value {
 // DecompressDocument changes the compression type of a Sereal document without performing a full re-serialization
 //
 // One use case is to use this before decoding, to avoid the implicit allocation.
+// Bodies that decompress to more than DefaultMaxUncompressedSize bytes are
+// rejected with ErrMaxUncompressedSize.
 func DecompressDocument(dst, b []byte) (r []byte, err error) {
 	header, err := checkHeader(b)
 	if err != nil {
@@ -1765,7 +1786,7 @@ func DecompressDocument(dst, b []byte) (r []byte, err error) {
 			decompressInto = nil
 		}
 
-		decompBody, err := decomp.decompress(decompressInto, b[bodyStart:])
+		decompBody, err := decomp.decompress(decompressInto, b[bodyStart:], DefaultMaxUncompressedSize)
 		if err != nil {
 			return nil, err
 		}
@@ -1788,9 +1809,12 @@ func DecompressDocument(dst, b []byte) (r []byte, err error) {
 	return dst, nil
 }
 
-// hasSameBuffer returns true if the two slices share the same array (it only works for slices with capacity > 0)
+// hasSameBuffer returns true if the two slices share the same array (slices with capacity 0 share nothing)
 func hasSameBuffer(a, b []byte) bool {
 	aCap, bCap := cap(a), cap(b)
+	if aCap == 0 || bCap == 0 {
+		return false
+	}
 	aExt, bExt := a[:aCap], b[:bCap]
 
 	return &aExt[aCap-1] == &bExt[bCap-1]

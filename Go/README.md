@@ -32,6 +32,15 @@ Miscellaneous utils:
     $ cd $GOPATH/src/github.com/Sereal/Sereal/Go/sereal
     $ perl -Mblib=../../Perl/Encoder/blib -MSereal::Encoder -e'print encode_sereal({foo => [42, "bar"]})' | go run cmd/dsrl/main.go
 
+Decoder limits
+--------------
+
+`Decoder` and `Merger` reject a compressed body that decompresses to more than
+`MaxUncompressedSize` bytes with `ErrMaxUncompressedSize`. The zero value means
+`DefaultMaxUncompressedSize` (1 GiB) and a negative value disables the limit.
+Declared lengths are checked before memory is allocated for them.
+`DecompressDocument` always uses the default limit.
+
 Protocol v6 and checksums
 -------------------------
 
