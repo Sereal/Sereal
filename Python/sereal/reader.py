@@ -71,7 +71,10 @@ class SrlDocumentReader(object):
 
     def read_str(self, slen, str_encoding='utf-8'):
         val = self._read_exact(slen)
-        return bytes.decode(val, encoding=str_encoding)
+        try:
+            return bytes.decode(val, encoding=str_encoding)
+        except UnicodeDecodeError as e:
+            raise exception.SrlError('bad string: invalid {}: {}'.format(str_encoding, e))
 
     def read_bin(self, slen):
         return self._read_exact(slen)

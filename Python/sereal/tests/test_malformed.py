@@ -1,3 +1,4 @@
+import re
 import unittest
 
 from sereal.decoder import SrlDecoder
@@ -53,6 +54,48 @@ class TestMalformed(unittest.TestCase):
 
     def test_empty_body(self):
         self.assertRejected('', 'unexpected end of input')
+
+    def test_deep_nesting(self):
+        # 10000 nested ARRAYREF_1 tags around the integer 1
+        self.assertRejected('41' * 10000 + '01', 'nesting')
+
+    def test_moderate_nesting(self):
+        value = decode('41' * 100 + '01')
+        for _ in range(100):
+            value = value[0]
+        self.assertEqual(value, 1)
+
+    def test_refp_untracked(self):
+        # REFP to offset 5, which was never tracked
+        self.assertRejected('2905', 'not a tracked item')
+
+    def test_objectv_untracked(self):
+        # OBJECTV naming its class by offset 5, which was never tracked
+        self.assertRejected('2d0501', 'not a tracked item')
+
+    def test_unhashable_key(self):
+        # HASHREF_1 whose key is an ARRAYREF_0
+        self.assertRejected('514001', 'hash key')
+
+    def test_bad_utf8(self):
+        # STR_UTF8 of length 2 holding bytes that are not UTF-8
+        self.assertRejected('2702fffe', 'utf-8')
+
+    def test_regexp_flags_not_a_string(self):
+        # REGEXP with pattern "a" and the integer 5 as its flags
+        self.assertRejected('31616105', 'regexp')
+
+    def test_regexp_unknown_flag(self):
+        # REGEXP with pattern "a" and flags "q"
+        self.assertRejected('3161616171', 'regexp')
+
+    def test_regexp_bad_pattern(self):
+        # REGEXP with pattern "(" and no flags
+        self.assertRejected('31612860', 'regexp')
+
+    def test_regexp_valid(self):
+        # REGEXP with pattern "a" and flags "i"
+        self.assertEqual(decode('3161616169'), re.compile('a', re.I))
 
 
 if __name__ == '__main__':

@@ -30,10 +30,12 @@ class SrlDecoder(object):
         self.perl_compatible = False
         self.body_offset = 0
         self.copy_depth = 0
+        self.depth = 0
         self.object_factory = object_factory if object_factory is not None else self._default_object_factory
 
     def decode(self, byte_str):
         self.reader = reader.SrlDocumentReader(byte_str)
+        self.depth = 0
 
         self._decode_header()
         self.body_offset = self.reader.tell()
@@ -117,8 +119,18 @@ class SrlDecoder(object):
         elif tag == const.SRL_TYPE_REGEXP:
             pattern = self._decode_bytes()
             flags = self._decode_bytes()
+            if isinstance(flags, bytes):
+                flags = flags.decode('latin-1')
+            if not isinstance(flags, str):
+                raise exception.SrlError('bad regexp: flags are not a string')
+            for f in flags:
+                if f.upper() not in re.RegexFlag.__members__:
+                    raise exception.SrlError('bad regexp: unsupported flag {!r}'.format(f))
             python_flags = reduce(lambda x, y: x | re.RegexFlag[str(y).upper()], flags, 0)
-            return re.compile(pattern, python_flags)
+            try:
+                return re.compile(pattern, python_flags)
+            except (re.error, TypeError, ValueError) as e:
+                raise exception.SrlError('bad regexp: {}'.format(e))
 
         elif tag == const.SRL_TYPE_CANONICAL_UNDEF:
             return None
@@ -156,7 +168,13 @@ class SrlDecoder(object):
             tag = tag & ~const.SRL_TRACK_BIT
             track_pos = self.reader.tell() - self.body_offset
 
-        return self._track_item(track_pos, self._decode_tag(tag))
+        self.depth += 1
+        if self.depth > const.SRL_MAX_RECURSION_DEPTH:
+            raise exception.SrlError('bad document: nesting deeper than {}'.format(const.SRL_MAX_RECURSION_DEPTH))
+        item = self._decode_tag(tag)
+        self.depth -= 1
+
+        return self._track_item(track_pos, item)
 
     def _get_copy(self):
         if self.copy_depth > 0:
@@ -194,6 +212,10 @@ class SrlDecoder(object):
 
         for i in range(0, ln):
             key = self._decode_bytes()
+            try:
+                hash(key)
+            except TypeError:
+                raise exception.SrlError('bad hash key: unhashable {}'.format(type(key).__name__))
             h[key] = self._decode_bytes()
 
         return h
@@ -206,7 +228,7 @@ class SrlDecoder(object):
 
     def _decode_objectv(self):
         key = self.reader.read_varint()
-        name = self.tracked_items[key]
+        name = self._get_tracked_item(key)
         data = self._decode_bytes()
         return self.object_factory(classname=name, data=data)
 
@@ -249,6 +271,11 @@ class SrlDecoder(object):
         self.tracked_items[track_pos] = item
         return item
 
+    def _get_tracked_item(self, key):
+        if key not in self.tracked_items:
+            raise exception.SrlError('bad offset: {} is not a tracked item'.format(key))
+        return self.tracked_items[key]
+
     def _decode_refp(self):
         key = self.reader.read_varint()
-        return self.tracked_items[key]
+        return self._get_tracked_item(key)
