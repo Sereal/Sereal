@@ -6,6 +6,8 @@ Revision history for Perl extension Sereal-Decoder
 *          encoder!                                            *
 ****************************************************************
 6.000_001
+    * Reject ALIAS tags that refer to a tracked ARRAY or HASH. They stored
+      the aggregate itself as an element or value, which crashed perl.
     * Decode REGEXP values as copies of the compiled regexp, as qr// and
       ${qr//} produce, instead of the compiled regexp itself. Assigning to a
       decoded bare regexp, or freeing a copy of a decoded qr//, could crash.

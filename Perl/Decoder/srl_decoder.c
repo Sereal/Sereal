@@ -2858,6 +2858,12 @@ srl_read_single_value_ex(pTHX_ srl_decoder_t *dec, SV* into, SV** container, int
 #ifdef FOLLOW_REFERENCES_IF_NOT_STASHED
             if (!alias) alias= srl_follow_refp_alias_reference(aTHX_ dec, offset);
 #endif
+            /* A tracked ARRAY/HASH tag tracks the aggregate itself, which
+             * cannot be stored as an element or value; encoders only
+             * emit ALIAS for scalars. */
+            if (expect_false( SvTYPE(alias) >= SVt_PVAV ))
+                SRL_RDR_ERRORf1(dec->pbuf, "Corrupted packet. ALIAS tag refers to a %s, not a scalar",
+                    sv_reftype(alias, 0));
             SvREFCNT_inc(alias);
             SvREFCNT_dec(into);
             *container= alias;
