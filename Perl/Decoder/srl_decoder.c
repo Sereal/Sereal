@@ -645,6 +645,9 @@ srl_reset_output_sv(pTHX_ SV *into)
         return;
     if (SvREADONLY(into))
         croak("%s", PL_no_modify);
+    /* Assigning undef to a glob warns before the later type check runs. */
+    if (SvTYPE(into) == SVt_PVGV)
+        croak("Sereal: Error: cannot decode into a GLOB");
     if (SvTYPE(into) != SVt_NULL || SvOK(into))
         sv_setsv(into, &PL_sv_undef);
     /* Assignment turns a regexp copy back into a plain scalar; anything

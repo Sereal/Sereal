@@ -140,9 +140,12 @@ for my $version ( 3, 6 ) {
 # through.
 {
     no warnings 'once';
+    my @warnings;
+    local $SIG{__WARN__} = sub { push @warnings, @_ };
     my $ok = eval { $dec->decode( Header(6) . "\x05", *main::some_glob ); 1 };
     ok( !$ok, 'a glob as the output scalar is refused' );
     like( $@, qr/cannot decode into a GLOB/, 'with a clear error' );
+    is_deeply( \@warnings, [], 'refusing a glob does not warn' );
 }
 
 done_testing;
