@@ -17,6 +17,8 @@ Revision history for Perl extension Sereal-Decoder
       tag or at the header bytes of a protocol version 1 document, and zero
       the header area of the decompression buffer so no uninitialized bytes
       can be reached through an offset.
+    * A COPY of an OBJECT tag no longer registers its class a second time,
+      which left the objects decoded before the COPY unblessed.
     * Refuse to bless the shared integers used by alias_smallint and
       alias_varint_under. With set_readonly the decoder blessed them, and
       they stayed blessed for every later decode on that decoder.
