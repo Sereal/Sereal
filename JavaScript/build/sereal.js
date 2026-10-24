@@ -554,7 +554,8 @@ var Sereal;
                 var keyObject = this.read();
                 var key = keyObject;
                 var val = this.read();
-                hash[key] = val;
+                // defineProperty keeps a "__proto__" key an own property instead of setting the prototype
+                Object.defineProperty(hash, key, { value: val, enumerable: true, writable: true, configurable: true });
             }
             return hash;
         };
