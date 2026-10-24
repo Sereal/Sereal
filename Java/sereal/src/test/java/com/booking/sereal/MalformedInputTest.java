@@ -1,10 +1,15 @@
 package com.booking.sereal;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.StandardCharsets;
+import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
@@ -52,6 +57,56 @@ public class MalformedInputTest {
   private static void assertRejected(byte[] packet, DecoderOptions options) {
     assertThrows(SerealException.class, () -> decode(new ByteArray(packet), options));
     assertThrows(SerealException.class, () -> drain(new ByteArray(packet), options));
+  }
+
+  static byte[] concat(byte[]... parts) {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    for (byte[] part : parts) {
+      out.write(part, 0, part.length);
+    }
+    return out.toByteArray();
+  }
+
+  static byte[] repeat(int b, int count) {
+    byte[] out = new byte[count];
+    Arrays.fill(out, (byte) b);
+    return out;
+  }
+
+  static byte[] varint(long n) {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    while (Long.compareUnsigned(n, 0x7f) > 0) {
+      out.write((int) ((n & 0x7f) | 0x80));
+      n >>>= 7;
+    }
+    out.write((int) n);
+    return out.toByteArray();
+  }
+
+  /**
+   * An ARRAY of levels + 1 elements: an ARRAYREF_2 [1, 1], then levels ARRAYREF_2 elements each
+   * holding two COPYs of the previous element (which are themselves COPYs), doubling the work per
+   * level.
+   */
+  static byte[] copyExpansion(int levels) {
+    ByteArrayOutputStream body = new ByteArrayOutputStream();
+    body.write(0x2b);
+    body.write(varint(levels + 1), 0, varint(levels + 1).length);
+    int prev = body.size() + 1;
+    body.write(0x42);
+    body.write(0x01);
+    body.write(0x01);
+    for (int i = 0; i < levels; i++) {
+      int cur = body.size() + 1;
+      byte[] ref = varint(prev);
+      body.write(0x42);
+      body.write(0x2f);
+      body.write(ref, 0, ref.length);
+      body.write(0x2f);
+      body.write(ref, 0, ref.length);
+      prev = cur;
+    }
+    return concat(hex("3df3726c0300"), body.toByteArray());
   }
 
   // a document followed by unrelated bytes in the same array
@@ -232,5 +287,147 @@ public class MalformedInputTest {
       drain(new ByteArray(doc), new DecoderOptions());
       assertRejected(doc, new DecoderOptions().maxBufferSize(1024));
     }
+  }
+
+  // ---- COPY and recursion ------------------------------------------------------------------
+
+  @Test(timeout = 10000)
+  public void copyOfCopyExpansion() {
+    // COPY targets that contain COPYs: forbidden, and exponential when followed
+    assertThrows(SerealException.class, () -> decode(copyExpansion(18)));
+  }
+
+  @Test(timeout = 10000)
+  public void copyOfCopyExpansionLarge() {
+    // 141 bytes that expand to 2^26 copies
+    assertThrows(SerealException.class, () -> decode(copyExpansion(26)));
+  }
+
+  @Test
+  public void copyTargetNotBeforeTag() {
+    // COPY to offset 0, to itself, and forward to the following element
+    assertRejected("3df3726c03002f00");
+    assertRejected("3df3726c03002f01");
+    assertRejected("3df3726c0300422f0401");
+    // COPY of the enclosing ARRAYREF_1 (TokenDecoder leaves following COPYs to its caller)
+    assertThrows(SerealException.class, () -> decode(hex("3df3726c0300412f01")));
+  }
+
+  @Test
+  public void stringCopyOfCopy() {
+    // HASHREF_3 {a: 1, COPY 2: 2, COPY 5: 3}: the third key copies the second key's COPY tag
+    assertRejected("3df3726c030053616101" + "2f0202" + "2f0503");
+  }
+
+  @Test
+  public void stringCopyOfString() throws Exception {
+    // HASHREF_3 {a: 1, COPY 2: 2, COPY 2: 3}: keys copying a plain string are fine
+    @SuppressWarnings("unchecked")
+    Map<String, Object> out = (Map<String, Object>) decode(hex("3df3726c030053616101" + "2f0202" + "2f0203"));
+    assertEquals(3L, out.get("a"));
+    drain(new ByteArray(hex("3df3726c030053616101" + "2f0202" + "2f0203")), new DecoderOptions());
+  }
+
+  @Test
+  public void objectvClassNameLoop() {
+    // OBJECTV whose class name offset points at a COPY of itself
+    assertRejected("3df3726c03002d032f03");
+  }
+
+  @Test
+  public void padRunIsSkippedWithoutRecursion() throws Exception {
+    // a million PAD tags before the value: valid, and must not recurse per PAD
+    byte[] doc = concat(hex("3df3726c0300"), repeat(0x3f, 1_000_000), hex("01"));
+    assertEquals(1L, decode(doc));
+    assertEquals(1, drain(new ByteArray(doc), new DecoderOptions()));
+  }
+
+  @Test
+  public void userHeaderPadRun() throws Exception {
+    // a user header made of a million PAD tags and a value
+    byte[] doc = concat(hex("3df3726c03"), varint(1_000_002), hex("01"), repeat(0x3f, 1_000_000),
+        hex("01"), hex("01"));
+    Decoder decoder = new Decoder();
+    decoder.setData(doc);
+    assertEquals(1L, decoder.decodeHeader());
+    assertEquals(1L, decoder.decode());
+
+    TokenDecoder tokens = new TokenDecoder();
+    tokens.setData(doc);
+    tokens.prepareDecodeHeader();
+    assertEquals(SerealToken.LONG, tokens.nextToken());
+    assertEquals(SerealToken.END, tokens.nextToken());
+  }
+
+  @Test
+  public void userHeaderRecursionLimit() {
+    // a user header nesting a million REFN tags
+    byte[] doc = concat(hex("3df3726c03"), varint(1_000_002), hex("01"), repeat(0x28, 1_000_000),
+        hex("01"), hex("01"));
+    for (DecoderOptions options : new DecoderOptions[] {
+        new DecoderOptions(), new DecoderOptions().perlReferences(true)}) {
+      Decoder decoder = new Decoder(options);
+      decoder.setData(doc);
+      assertThrows(SerealException.class, decoder::decodeHeader);
+    }
+  }
+
+  @Test
+  public void recursionLimitCountsEveryNestingTag() throws Exception {
+    DecoderOptions limited = new DecoderOptions().maxRecursionDepth(100);
+    DecoderOptions limitedPerl = new DecoderOptions().maxRecursionDepth(100).perlReferences(true);
+    byte[] header = hex("3df3726c0300");
+    // 200 nested REFN, WEAKEN REFN and OBJECT tags around a value
+    byte[] refn = concat(header, repeat(0x28, 200), hex("01"));
+    byte[] weaken = concat(header, repeat(0x30, 200), hex("2801"));
+    ByteArrayOutputStream objects = new ByteArrayOutputStream();
+    for (int i = 0; i < 200; i++) {
+      objects.write(0x2c);
+      objects.write(0x61);
+      objects.write('a');
+    }
+    byte[] object = concat(header, objects.toByteArray(), hex("01"));
+    for (byte[] doc : new byte[][] {refn, weaken, object}) {
+      assertThrows(SerealException.class, () -> decode(new ByteArray(doc), limitedPerl));
+      assertThrows(SerealException.class, () -> decode(new ByteArray(doc), limited));
+      decode(new ByteArray(doc), new DecoderOptions());
+    }
+  }
+
+  @Test
+  public void repeatedStringsUseCopy() throws Exception {
+    List<Object> rows = new ArrayList<>();
+    for (int i = 0; i < 3; i++) {
+      Map<String, Object> row = new LinkedHashMap<>();
+      row.put("name", "Some::Class");
+      row.put("text", "repeated text");
+      row.put("object", new PerlObject("Some::Class", new PerlReference(row.get("text"))));
+      rows.add(row);
+    }
+    for (int version = 1; version <= 6; version++) {
+      byte[] doc = new Encoder(new EncoderOptions().protocolVersion(version)).write(rows).getData();
+      assertTrue("uses COPY", indexOf(doc, (byte) 0x2f) >= 0);
+      assertTrue("uses OBJECTV", indexOf(doc, (byte) 0x2d) >= 0);
+      @SuppressWarnings("unchecked")
+      List<Object> out = (List<Object>) decode(doc);
+      assertEquals(3, out.size());
+      for (Object o : out) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> row = (Map<String, Object>) o;
+        assertEquals("Some::Class", row.get("name"));
+        assertEquals("repeated text", row.get("text"));
+        assertEquals("Some::Class", ((PerlObject) row.get("object")).getName());
+      }
+      drain(new ByteArray(doc), new DecoderOptions());
+    }
+  }
+
+  private static int indexOf(byte[] haystack, byte needle) {
+    for (int i = 6; i < haystack.length; i++) {
+      if (haystack[i] == needle) {
+        return i;
+      }
+    }
+    return -1;
   }
 }

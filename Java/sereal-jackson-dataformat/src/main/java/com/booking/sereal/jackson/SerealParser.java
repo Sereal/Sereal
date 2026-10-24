@@ -18,7 +18,10 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -36,9 +39,16 @@ public class SerealParser extends ParserMinimalBase {
   private ObjectCodec objectCodec;
   private SerealReaderContext parsingContext;
   private SerealToken serealToken = SerealToken.NONE;
+  private final int maxRecursionDepth;
+  // nesting of arrays, hashes and followed references
+  private int depth;
+  // offsets of the REFP/ALIAS/COPY targets being followed, innermost last
+  private final ArrayDeque<Integer> followedStack = new ArrayDeque<>();
+  private final Set<Integer> followed = new HashSet<>();
 
   SerealParser(DecoderOptions decoderOptions, byte[] data, int offset, int len, ObjectCodec objectCodec) throws IOException {
     this.objectCodec = objectCodec;
+    this.maxRecursionDepth = decoderOptions.maxRecursionDepth();
     this.parsingContext = new SerealReaderContext();
     try {
       this.tokenDecoder = new TokenDecoder(decoderOptions);
@@ -52,6 +62,9 @@ public class SerealParser extends ParserMinimalBase {
   @Override
   public JsonToken nextToken() throws IOException {
     try {
+      // REFN, WEAKEN and OBJECT tags wrapping the next value
+      int wrappers = 0;
+      for (;;) {
       serealToken = tokenDecoder.nextToken();
 
       switch (serealToken) {
@@ -67,15 +80,19 @@ public class SerealParser extends ParserMinimalBase {
             return (_currToken = JsonToken.VALUE_STRING);
           }
         case ARRAY_START:
+          enterNesting();
           parsingContext = new SerealReaderContext(parsingContext, 1, -1);
           return (_currToken = JsonToken.START_ARRAY);
         case ARRAY_END:
+          depth--;
           parsingContext = parsingContext.getParent();
           return (_currToken = JsonToken.END_ARRAY);
         case HASH_START:
+          enterNesting();
           parsingContext = new SerealReaderContext(parsingContext, 2, -1);
           return (_currToken = JsonToken.START_OBJECT);
         case HASH_END:
+          depth--;
           parsingContext = parsingContext.getParent();
           return (_currToken = JsonToken.END_OBJECT);
         case END:
@@ -102,15 +119,30 @@ public class SerealParser extends ParserMinimalBase {
         case WEAKEN:
         case REFN:
         case OBJECT_START:
+          if (++wrappers > maxRecursionDepth) {
+            throw recursionLimitError();
+          }
+          continue;
         case OBJECT_END:
-          return nextToken();
+          continue;
         case REFP:
         case ALIAS:
         case COPY:
-          tokenDecoder.startSubDecode(tokenDecoder.backreferenceOffset());
-          return nextToken();
+          int target = tokenDecoder.backreferenceOffset();
+          // following a reference to a value that encloses it would never end
+          if (!followed.add(target)) {
+            throw this._constructError(String.format(
+              "Sereal format error: reference at offset %d to the enclosing value at offset %d",
+              tokenDecoder.tokenOffset(), target));
+          }
+          followedStack.addLast(target);
+          enterNesting();
+          tokenDecoder.startSubDecode(target);
+          continue;
         case SUBDECODE_END:
-          return nextToken();
+          followed.remove(followedStack.removeLast());
+          depth--;
+          continue;
         case REGEXP:
         case FLOAT128:
           return (_currToken = JsonToken.VALUE_EMBEDDED_OBJECT);
@@ -119,9 +151,21 @@ public class SerealParser extends ParserMinimalBase {
         default:
           throw this._formatError("Unsupported Sereal token %s", serealToken);
       }
+      }
     } catch (SerealException e) {
       throw this._constructError("Sereal format error", e);
     }
+  }
+
+  private void enterNesting() throws JsonParseException {
+    if (++depth > maxRecursionDepth) {
+      throw recursionLimitError();
+    }
+  }
+
+  private JsonParseException recursionLimitError() {
+    return this._constructError(
+      "Sereal format error: reached recursion limit (" + maxRecursionDepth + ") during deserialization");
   }
 
   @Override
