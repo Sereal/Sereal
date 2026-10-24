@@ -1137,8 +1137,9 @@ srl_iterator_decode(pTHX_ srl_iterator_t *iter)
 SRL_STATIC_INLINE void
 srl_iterator_read_refn(pTHX_ srl_iterator_t *iter, U8 *tag_out, UV *length_out)
 {
-    U8 tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
+    U8 tag;
     SRL_ITER_ASSERT_EOF(iter, "tag");
+    tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
     SRL_ITER_REPORT_TAG(iter, tag);
 
     switch (tag) {
@@ -1212,6 +1213,7 @@ srl_iterator_read_object(pTHX_ srl_iterator_t *iter, int is_objectv, U8 *tag_out
         srl_iterator_read_stringish(aTHX_ iter, NULL, NULL); /* <STR-TAG> */
     }
 
+    SRL_ITER_ASSERT_EOF(iter, "reference tag");
     tag = *iter->buf.pos & ~SRL_HDR_TRACK_FLAG;
     SRL_ITER_REPORT_TAG(iter, tag);
     iter->buf.pos++;

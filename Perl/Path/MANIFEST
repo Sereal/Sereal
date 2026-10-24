@@ -61,6 +61,7 @@ Iterator/t/100_decoder.t
 Iterator/t/110_decode_and_next.t
 Iterator/t/120_varint_overflow.t
 Iterator/t/130_v5_v6.t
+Iterator/t/140_malformed.t
 Iterator/typemap
 Iterator/zstd/common/allocations.h
 Iterator/zstd/common/bits.h
