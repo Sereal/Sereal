@@ -2215,6 +2215,22 @@ srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into)
     }
 }
 
+/* With alias_smallint/alias_varint_under, small integers decode to
+ * read-only scalars from dec->alias_cache, shared by every decode on this
+ * decoder and its clones. A REFP can make one the referent of an OBJECT,
+ * and blessing it (set_readonly lifts the read-only flag to do so) would
+ * leave the shared integer blessed for later decodes. */
+SRL_STATIC_INLINE void
+srl_refuse_blessing_alias(pTHX_ srl_decoder_t *dec, SV *referent)
+{
+    if (dec->alias_cache && SvIOK(referent) && !SvIsUV(referent)
+        && IS_IV_ALIAS(dec, SvIVX(referent))
+        && AvARRAY(dec->alias_cache)[SvIVX(referent) + 16] == referent)
+    {
+        SRL_RDR_ERROR(dec->pbuf, "Corrupted packet. Cannot bless a shared alias value");
+    }
+}
+
 SRL_STATIC_INLINE void
 srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
 {
@@ -2258,6 +2274,7 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
 
         if (expect_false(!SvROK(into)))
             SRL_RDR_ERROR(dec->pbuf, "OBJECT(V) must be followed by a reference");
+        srl_refuse_blessing_alias(aTHX_ dec, SvRV(into));
 
         /* and also stuff it into the av - we dont have to do any more book-keeping */
         av_push(av, SvREFCNT_inc(into));
@@ -2442,6 +2459,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
         srl_read_single_value(aTHX_ dec, into, NULL);
         if (expect_false(!SvROK(into)))
             SRL_RDR_ERROR(dec->pbuf, "OBJECT(V) must be followed by a reference");
+        srl_refuse_blessing_alias(aTHX_ dec, SvRV(into));
 
 #if USE_588_WORKAROUND
         /* See 'define USE_588_WORKAROUND' above for a discussion of what this does. */
