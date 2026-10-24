@@ -236,6 +236,24 @@ S_read_varint_uv_length_char_ptr(pTHX_ const unsigned char **from, const unsigne
 
 /* PUBLIC ROUTINES */
 
+/* Reads a limit option. SvUV() alone turns -1 into UV_MAX (no limit) and
+ * truncates fractions, so require a non-negative integer. */
+SRL_STATIC_INLINE UV
+srl_limit_option_uv(pTHX_ SV *val, const char *name)
+{
+    NV nv;
+    if (SvIOK(val))
+        if (SvIsUV(val) || SvIVX(val) >= 0)
+            return SvUV(val);
+    if (looks_like_number(val)) {
+        nv= SvNV(val);
+        if (nv >= 0 && nv < UV_MAX_P1 && nv == Perl_floor(nv))
+            return (UV)nv;
+    }
+    croak("The '%s' option must be a non-negative integer", name);
+    return 0; /* not reached */
+}
+
 /* Builds the C-level configuration and state struct.
  * Automatically freed at scope boundary. */
 srl_decoder_t *
@@ -402,23 +420,23 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
 
         my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_MAX_RECURSION_DEPTH);
         if ( val && SvTRUE(val) )
-            dec->max_recursion_depth = SvUV(val);
+            dec->max_recursion_depth = srl_limit_option_uv(aTHX_ val, "max_recursion_depth");
 
         my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_MAX_NUM_HASH_ENTRIES);
         if ( val && SvTRUE(val) )
-            dec->max_num_hash_entries = SvUV(val);
+            dec->max_num_hash_entries = srl_limit_option_uv(aTHX_ val, "max_num_hash_entries");
 
         my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_MAX_NUM_ARRAY_ENTRIES);
         if ( val && SvTRUE(val) )
-            dec->max_num_array_entries = SvUV(val);
+            dec->max_num_array_entries = srl_limit_option_uv(aTHX_ val, "max_num_array_entries");
 
         my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_MAX_STRING_LENGTH);
         if ( val && SvTRUE(val) )
-            dec->max_string_length = SvUV(val);
+            dec->max_string_length = srl_limit_option_uv(aTHX_ val, "max_string_length");
 
         my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_MAX_UNCOMPRESSED_SIZE);
         if ( val && SvTRUE(val) )
-            dec->max_uncompressed_size = SvUV(val);
+            dec->max_uncompressed_size = srl_limit_option_uv(aTHX_ val, "max_uncompressed_size");
 
         my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_DESTRUCTIVE_INCREMENTAL);
         if ( val && SvTRUE(val) )

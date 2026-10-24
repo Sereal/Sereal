@@ -6,6 +6,8 @@ Revision history for Perl extension Sereal-Decoder
 *          encoder!                                            *
 ****************************************************************
 6.000_001
+    * The max_* limit options must be non-negative integers. Negative values
+      used to disable the limit entirely and fractions were truncated.
     * A COPY of an OBJECT tag no longer registers its class a second time,
       which left the objects decoded before the COPY unblessed.
     * Refuse to bless the shared integers used by alias_smallint and
