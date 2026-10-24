@@ -12,6 +12,8 @@ Revision history for Perl extension Sereal-Merger
   * fix misaligned loads when hashing strings for dedupe_strings
   * fix merging protocol v1 input, which started reading at the magic
     string and copied bytes from past the end of the input
+  * check the regexp modifiers tag without its track bit and bounds-check
+    it, and check for the end of input after OBJECT
   * bump Sereal prereq version to 6.000_001
 
 4.004 Nov 13 2017

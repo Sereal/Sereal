@@ -892,10 +892,13 @@ read_again:
                         srl_buf_cat_tag_nocheck(mrg, tag);
                         srl_merge_stringish(aTHX_ mrg);
 
-                        tag = *mrg->ibuf.pos;
+                        SRL_RDR_ASSERT_SPACE(mrg->pibuf, 1, " while reading regexp modifiers");
+                        tag = *mrg->ibuf.pos & ~SRL_HDR_TRACK_FLAG;
                         if (expect_false(tag < SRL_HDR_SHORT_BINARY_LOW))
                             SRL_RDR_ERROR_UNEXPECTED(mrg->pibuf, tag, "SRL_HDR_SHORT_BINARY");
 
+                        SRL_RDR_ASSERT_SPACE(mrg->pibuf, SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) + 1,
+                                             " while reading regexp modifiers");
                         srl_buf_copy_content_nocheck(aTHX_ mrg, SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) + 1);
                         break;
 
@@ -1121,7 +1124,8 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
 
     mrg->ibuf.pos++; /* skip object tag */
 
-    strtag = *mrg->ibuf.pos & ~SRL_HDR_TRACK_FLAG;
+    SRL_RDR_ASSERT_SPACE(mrg->pibuf, 1, " while reading OBJECT class name");
+    strtag =*mrg->ibuf.pos & ~SRL_HDR_TRACK_FLAG;
     SRL_REPORT_CURRENT_TAG(mrg, strtag);
 
     if (mrg->tracked_offsets && !srl_stack_empty(mrg->tracked_offsets)) {
