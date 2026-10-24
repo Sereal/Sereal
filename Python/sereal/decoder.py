@@ -54,7 +54,8 @@ class SrlDecoder(object):
         if doc_version not in [3, 4]:
             raise exception.SrlError('bad header: unsupported protocol version {}'.format(doc_version))
 
-        if doc_type < 0 or doc_type > 3:
+        # only raw bodies are supported; compressed ones would be parsed as raw
+        if doc_type != 0:
             raise exception.SrlError('bad header: unsupported document type {}'.format(doc_type))
 
         header_suffix_size = self.reader.read_varint()
@@ -180,8 +181,13 @@ class SrlDecoder(object):
         if self.copy_depth > 0:
             raise exception.SrlError('bad nested copy tag: recursive copy tag found')
 
+        tag_pos = self.reader.tell() - 1
         copy_pos = self.reader.read_varint()
         copy_pos += self.body_offset-1
+
+        # offsets are 1-based from the body start and must point before the tag
+        if copy_pos < self.body_offset or copy_pos >= tag_pos:
+            raise exception.SrlError('bad copy tag: offset {} is not before the copy tag'.format(copy_pos - self.body_offset + 1))
 
         curr_pos = self.reader.tell()
 
