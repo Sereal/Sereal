@@ -76,6 +76,23 @@ static char encoded_test[] = {
     ASSERT_REJECTS("=srl\x22\x00", @"a snappy packet without a length");
 }
 
+- (void)testBadOffsets
+{
+    // COPY / OBJECTV / OBJECTV_FREEZE offsets far past the end, and ones that wrap to before the body
+    ASSERT_REJECTS("=srl\x02\x00\x2f\xa0\x8d\x06", @"a COPY past the end");
+    ASSERT_REJECTS("=srl\x02\x00\x2f\x80\x80\xc0\xff\xff\xff\xff\xff\xff\x01", @"a COPY before the body");
+    ASSERT_REJECTS("=srl\x02\x00\x2d\xa0\x8d\x06\x01", @"an OBJECTV past the end");
+    ASSERT_REJECTS("=srl\x02\x00\x2d\x80\x80\xc0\xff\xff\xff\xff\xff\xff\x01\x01", @"an OBJECTV before the body");
+    ASSERT_REJECTS("=srl\x02\x00\x33\x80\x80\xc0\xff\xff\xff\xff\xff\xff\x01\x01", @"an OBJECTV_FREEZE before the body");
+    // [COPY -> body offset 4, "ab"]: a COPY whose target follows it
+    ASSERT_REJECTS("=srl\x02\x00\x42\x2f\x04\x62" "ab", @"a forward COPY");
+    // [ "ab", COPY -> body offset 2 ]: offset 2 is the "ab" tag, but body offset 0 is not a tag
+    ASSERT_REJECTS("=srl\x02\x00\x42\x62" "ab" "\x2f\x00", @"a COPY to body offset 0");
+    // header suffix length past the end, or wrapping negative
+    ASSERT_REJECTS("=srl\x02\xa0\x8d\x06\x01", @"a header suffix past the end");
+    ASSERT_REJECTS("=srl\x02\x80\x80\xc0\xff\xff\xff\xff\xff\xff\x01\x01", @"a negative header suffix length");
+}
+
 - (void)setUp
 {
     [super setUp];

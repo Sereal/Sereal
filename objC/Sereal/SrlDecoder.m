@@ -92,10 +92,23 @@ static id srl_decode(srl_decoder_t *dec)
     return obj;
 }
 
-#define COPY_DECODER(__src, __ofx) \
+// reads the offset of a COPY/OBJECTV/OBJECTV_FREEZE tag sitting at __tag and returns the
+// position the copy decoder starts from; the target must be inside the body and precede the tag
+static ssize_t read_backref_offset(srl_decoder_t *dec, ssize_t tag)
+{
+    unsigned long long ofs = read_varint(dec);
+    if (ofs == 0 || ofs >= (unsigned long long)(tag - dec->bdy))
+        @throw [NSException exceptionWithName:@"BadOffset"
+                                       reason:[NSString stringWithFormat:@"Offset %llu to copied data does not precede its tag", ofs]
+                                     userInfo:nil];
+    return dec->bdy + (ssize_t)ofs - 1;
+}
+
+// the copied item must end before the tag that refers to it
+#define COPY_DECODER(__src, __ofx, __tag) \
 {\
     .hdr = __src->hdr,\
-    .len = __src->len,\
+    .len = __tag,\
     .ofx = &__ofx,\
     .bdy = __src->bdy,\
     .cpy = YES,\
@@ -229,8 +242,9 @@ static void create_decoders_lookup()
             // TODO - we are already inside a copy ... we need to throw an exception
             @throw [NSException exceptionWithName:@"nested_copy" reason:@"Can't nest COPY headers" userInfo:nil];
         }
-        ssize_t offset = read_varint(dec) + dec->bdy - 1;
-        srl_decoder_t copy_dec = COPY_DECODER(dec, offset);
+        ssize_t tag = *dec->ofx;
+        ssize_t offset = read_backref_offset(dec, tag);
+        srl_decoder_t copy_dec = COPY_DECODER(dec, offset, tag);
         return srl_decode(&copy_dec);
     };
     
@@ -269,8 +283,9 @@ static void create_decoders_lookup()
     };
     
     decoders[SRL_HDR_OBJECTV_FREEZE] = ^id (srl_decoder_t *dec) {
-        ssize_t offset = read_varint(dec) + dec->bdy - 1;
-        srl_decoder_t copy_dec = COPY_DECODER(dec, offset);
+        ssize_t tag = *dec->ofx;
+        ssize_t offset = read_backref_offset(dec, tag);
+        srl_decoder_t copy_dec = COPY_DECODER(dec, offset, tag);
         NSString *className = srl_decode(&copy_dec);
         id object = srl_decode(dec);
         if ([object isKindOfClass:[NSData class]]) {
@@ -297,8 +312,9 @@ static void create_decoders_lookup()
     };
     
     decoders[SRL_HDR_OBJECTV] = ^id (srl_decoder_t *dec) {
-        ssize_t offset = read_varint(dec) + dec->bdy - 1;
-        srl_decoder_t copy_dec = COPY_DECODER(dec, offset);
+        ssize_t tag = *dec->ofx;
+        ssize_t offset = read_backref_offset(dec, tag);
+        srl_decoder_t copy_dec = COPY_DECODER(dec, offset, tag);
         NSString *className = srl_decode(&copy_dec);
         id object = srl_decode(dec);
         return [SrlObject srlObject:className data:object];
@@ -463,6 +479,7 @@ static NSError *decode_error(NSString *errorMessage)
     @try {
         // header suffix
         long long suffixSize = read_varint(&dec);
+        CHECK_REMAINING((&dec), suffixSize);
         
         // skip the optional suffix for now;
         index += suffixSize;
