@@ -15,6 +15,9 @@ Revision history for Perl extension Sereal-Path
   * fix configuring in a git worktree
   * check for the end of input before reading the tag after REFN and
     after an OBJECT class name
+  * reject a COPY, REFP, ALIAS or OBJECTV offset that does not point before
+    its own tag: a COPY or ALIAS of itself made info() and Sereal::Path
+    queries loop forever
   * bump Sereal prereq version to 6.000_001
 
 4.004 Nov 13 2017
