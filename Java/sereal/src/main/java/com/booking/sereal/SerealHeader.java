@@ -16,6 +16,18 @@ public interface SerealHeader {
   byte SRL_ENCODING_ZLIB = 3;
   byte SRL_ENCODING_ZSTD = 4;
 
+  // version-type byte: low nibble = protocol version, bits 4-6 = base encoding,
+  // bit 7 = keyed checksum envelope present (protocol version 6+)
+  int SRL_PROTOCOL_VERSION_MASK = 0x0f;
+  byte SRL_ENCODING_CHECKSUM_FLAG = (byte) 0x80;
+  int SRL_ENCODING_BASE_MASK = 0x07;
+
+  // ids following SRL_HDR_EXTEND (protocol version 6+)
+  // Diagnostic undef sentinel. Compliant encoders must never emit it.
+  int SRL_EXT_UNDEF_DEADLY = 0xff;
+  byte SRL_EXT_VSTRING_BINARY = 0x26;
+  byte SRL_EXT_VSTRING_UTF8 = 0x27;
+
   /*
   	Note: Despite this interface already being named SerealHeader we still use SRL_HDR_
   			as a prefix so grepping will show both these and the C ones.

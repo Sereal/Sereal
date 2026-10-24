@@ -89,6 +89,9 @@ public class TokenEncoder {
   private int headerSize, headerOffset;
   private final int zstdCompressionLevel;
   private boolean hasHeader;
+  // the single checksum key (protocol version 6) and the checksum type it selects
+  private final byte[] checksumKey;
+  private final int checksumType;
 
   /** Create an new {@code TokenEncoder} with default options. */
   public TokenEncoder() {
@@ -105,6 +108,10 @@ public class TokenEncoder {
     compressionType = options.compressionType();
     zstdCompressionLevel = options.zstdCompressionLevel();
     compressionThreshold = (int) options.compressionThreshold();
+
+    byte[][] keys = options.checksumKeys();
+    checksumType = Encoder.checkChecksumOptions(keys, options.checksumPolicy(), protocolVersion);
+    checksumKey = checksumType < 0 ? null : keys[checksumType].clone();
 
     if (compressionType == CompressionType.SNAPPY) {
       encoding = protocolVersion == 1 ? SerealHeader.SRL_ENCODING_SNAPPY_LEGACY : SerealHeader.SRL_ENCODING_SNAPPY;
@@ -211,7 +218,7 @@ public class TokenEncoder {
 
   private static void finishHeader(
     byte[] compressedBytes, long compressedSize, int headerSize, int sizeLength) {
-    int after = encodeVarint(compressedSize, compressedBytes, headerSize);
+    int after = SerealChecksum.encodeVarint(compressedSize, compressedBytes, headerSize);
     if (after != headerSize + sizeLength) {
       compressedBytes[after - 1] |= (byte) 0x80;
     }
@@ -274,7 +281,7 @@ public class TokenEncoder {
       bytes[originalSize + 1] = 0x01;
     } else {
       // we were too optimistic
-      int sizeLength = varintLength(suffixSize);
+      int sizeLength = SerealChecksum.varintLength(suffixSize);
 
       // make space
       ensureAvailable(sizeLength - 1);
@@ -288,7 +295,7 @@ public class TokenEncoder {
       headerSize = size;
 
       // now write size and 8bit bitfield
-      encodeVarint(suffixSize, bytes, originalSize);
+      SerealChecksum.encodeVarint(suffixSize, bytes, originalSize);
       bytes[originalSize + sizeLength] = 0x01;
     }
     currentContext = new Context(null, CONTEXT_HEADER, -1, 0);
@@ -348,7 +355,23 @@ public class TokenEncoder {
       // we did not do compression after all
       markNotCompressed();
     }
+    if (checksumKey != null) {
+      protect();
+    }
     currentContext = currentContext.outer;
+  }
+
+  // wrap the (possibly compressed) document in a checksum envelope; the result is served
+  // through compressedBytes/compressedSize like a compressed document
+  private void protect() {
+    byte[] signed;
+    if (compressedSize != 0) {
+      signed = SerealChecksum.protect(compressedBytes, compressedSize, headerSize, checksumType, checksumKey);
+    } else {
+      signed = SerealChecksum.protect(bytes, size, headerSize, checksumType, checksumKey);
+    }
+    compressedBytes = signed;
+    compressedSize = signed.length;
   }
 
   private void checkCount(Context context) throws SerealException {
@@ -485,6 +508,10 @@ public class TokenEncoder {
     if (l < 0) {
       if (l > -17) {
         appendByte((byte) (SerealHeader.SRL_HDR_NEG_LOW | (l + 32)));
+      } else if (protocolVersion >= 6) {
+        // magnitude as an unsigned varint: -Long.MIN_VALUE wraps to 2^63, which is what we want
+        appendByte(SerealHeader.SRL_HDR_NEG_VARINT);
+        appendVarint(-l);
       } else {
         appendZigZag(l);
       }
@@ -496,6 +523,68 @@ public class TokenEncoder {
         appendVarint(l);
       }
     }
+  }
+
+  /**
+   * Append a Perl v-string (Sereal {@code EXTEND} + {@code VSTRING} tags, protocol version 6+).
+   *
+   * @param vstring Value to be appended.
+   *
+   * @throws SerealException value cannot be encoded.
+   */
+  public void appendVString(PerlVString vstring) throws SerealException {
+    byte[] spelling = vstring.spellingBytes();
+    appendVString(spelling, 0, spelling.length);
+  }
+
+  /**
+   * Append a Perl v-string given its spelling (e.g. {@code v1.2.3}) as ASCII bytes
+   * (Sereal {@code EXTEND} + {@code VSTRING} tags, protocol version 6+).
+   * <p>
+   * The binary/UTF-8 variant is derived from the spelling.
+   *
+   * @param spelling Buffer containing the spelling.
+   * @param offset Start of the spelling.
+   * @param length Length of the spelling.
+   *
+   * @throws SerealException the spelling is not a valid v-string, or the protocol version is below 6.
+   */
+  public void appendVString(byte[] spelling, int offset, int length) throws SerealException {
+    if (protocolVersion < 6) {
+      throw new SerealException("v-strings require Sereal protocol version 6");
+    }
+    int kind = VStrings.classify(spelling, offset, length);
+    if (kind == VStrings.INVALID) {
+      throw new SerealException("Invalid v-string spelling");
+    }
+    currentContext.count++;
+    trackOffset = size;
+    ensureAvailable(2 + MAX_VARINT_LENGTH + length);
+    appendByteUnsafe(SerealHeader.SRL_HDR_EXTEND);
+    appendByteUnsafe(kind == VStrings.UTF8 ? SerealHeader.SRL_EXT_VSTRING_UTF8 : SerealHeader.SRL_EXT_VSTRING_BINARY);
+    size = SerealChecksum.encodeVarint(length, bytes, size);
+    appendBytesUnsafe(spelling, offset, length);
+  }
+
+  /**
+   * Append a 128-bit quadmath float as its 16 raw bytes (Sereal {@code FLOAT_128} tag, protocol version 5+).
+   *
+   * @param float128 Exactly 16 bytes.
+   *
+   * @throws SerealException value cannot be encoded.
+   */
+  public void appendFloat128(byte[] float128) throws SerealException {
+    if (protocolVersion < 5) {
+      throw new SerealException("FLOAT_128 requires Sereal protocol version 5");
+    }
+    if (float128 == null || float128.length != 16) {
+      throw new SerealException("FLOAT_128 requires exactly 16 bytes");
+    }
+    currentContext.count++;
+    trackOffset = size;
+    ensureAvailable(17);
+    appendByteUnsafe(SerealHeader.SRL_HDR_FLOAT_128);
+    appendBytesUnsafe(float128);
   }
 
   /**
@@ -666,7 +755,7 @@ public class TokenEncoder {
 
   private void appendCharBuffer(CharBuffer string) throws SerealException {
     int maxLength = string.length() * 3;
-    int varintLenght = varintLength(maxLength);
+    int varintLenght = SerealChecksum.varintLength(maxLength);
     ensureAvailable( maxLength + varintLenght + 1);
     appendByteUnsafe(SerealHeader.SRL_HDR_STR_UTF8);
     utf8Encoder.reset();
@@ -677,7 +766,7 @@ public class TokenEncoder {
       throw new SerealException(result.toString());
     }
     int actualLength = out.position() - stringStart;
-    for (int varintEnd = encodeVarint(actualLength, bytes, size); varintEnd < stringStart; ++varintEnd) {
+    for (int varintEnd = SerealChecksum.encodeVarint(actualLength, bytes, size); varintEnd < stringStart; ++varintEnd) {
       bytes[varintEnd - 1] |= (byte) 0x80;
       bytes[varintEnd] = (byte) 0x00;
     }
@@ -845,14 +934,14 @@ public class TokenEncoder {
     checkCount(currentContext);
     if (currentContext.expectedCount == -1) {
       if (currentContext.count > 127) {
-        int lenght = varintLength(currentContext.count);
+        int lenght = SerealChecksum.varintLength(currentContext.count);
         ensureAvailable(lenght);
         System.arraycopy(bytes, currentContext.position + 1,
             bytes, currentContext.position + lenght,
             size - currentContext.position - 1);
         size += lenght - 1;
       }
-      encodeVarint(currentContext.count, bytes, currentContext.position);
+      SerealChecksum.encodeVarint(currentContext.count, bytes, currentContext.position);
     }
     currentContext = currentContext.outer;
   }
@@ -931,14 +1020,14 @@ public class TokenEncoder {
     checkCount(currentContext);
     if (currentContext.expectedCount == -1) {
       if (currentContext.count > 127) {
-        int lenght = varintLength(currentContext.count);
+        int lenght = SerealChecksum.varintLength(currentContext.count);
         ensureAvailable(lenght);
         System.arraycopy(bytes, currentContext.position + 1,
             bytes, currentContext.position + lenght,
             size - currentContext.position - 1);
         size += lenght - 1;
       }
-      encodeVarint(currentContext.count, bytes, currentContext.position);
+      SerealChecksum.encodeVarint(currentContext.count, bytes, currentContext.position);
     }
     currentContext = currentContext.outer;
   }
@@ -1027,7 +1116,7 @@ public class TokenEncoder {
 
   private void compressSnappy() throws SerealException {
     int maxSize = Snappy.maxCompressedLength(size - headerSize);
-    int sizeLength = encoding == SerealHeader.SRL_ENCODING_SNAPPY ? varintLength(maxSize) : 0;
+    int sizeLength = encoding == SerealHeader.SRL_ENCODING_SNAPPY ? SerealChecksum.varintLength(maxSize) : 0;
 
     // I don't think there is any point in overallocating here
     if ((headerSize + sizeLength + maxSize) > compressedBytes.length) {
@@ -1066,8 +1155,8 @@ public class TokenEncoder {
 
     int sourceSize = size - headerSize;
     int maxSize = zlibMaxSize(sourceSize);
-    int sizeLength = varintLength(sourceSize);
-    int sizeLength2 = varintLength(maxSize);
+    int sizeLength = SerealChecksum.varintLength(sourceSize);
+    int sizeLength2 = SerealChecksum.varintLength(maxSize);
     int pos = 0;
 
     // I don't think there is any point in overallocating here
@@ -1077,7 +1166,7 @@ public class TokenEncoder {
 
     System.arraycopy(bytes, 0, compressedBytes, 0, headerSize);
     pos += headerSize;
-    pos = encodeVarint(sourceSize, compressedBytes, pos);
+    pos = SerealChecksum.encodeVarint(sourceSize, compressedBytes, pos);
 
     // varint-encoded 0, filling all space
     int encodedSizePos = pos;
@@ -1096,7 +1185,7 @@ public class TokenEncoder {
       return;
     }
 
-    int after = encodeVarint(compressed, compressedBytes, encodedSizePos);
+    int after = SerealChecksum.encodeVarint(compressed, compressedBytes, encodedSizePos);
     if (after != headerSize + sizeLength + sizeLength2) {
       compressedBytes[after - 1] |= (byte) 0x80;
     }
@@ -1104,7 +1193,7 @@ public class TokenEncoder {
 
   private void compressZstd() throws SerealException {
     long maxSize = Zstd.compressBound(size - headerSize);
-    int sizeLength = varintLength(maxSize);
+    int sizeLength = SerealChecksum.varintLength(maxSize);
 
     if (headerSize + sizeLength + maxSize > Integer.MAX_VALUE) {
       throw new SerealException(
@@ -1158,13 +1247,13 @@ public class TokenEncoder {
 
   private void appendVarint(long n) {
     ensureAvailable(MAX_VARINT_LENGTH);
-    size = encodeVarint(n, bytes, size);
+    size = SerealChecksum.encodeVarint(n, bytes, size);
   }
 
   private void appendZigZag(long n) {
     ensureAvailable(MAX_VARINT_LENGTH + 1);
     appendByteUnsafe(SerealHeader.SRL_HDR_ZIGZAG);
-    size = encodeVarint((n << 1) ^ (n >> 63), bytes, size); // note the signed right shift
+    size = SerealChecksum.encodeVarint((n << 1) ^ (n >> 63), bytes, size); // note the signed right shift
   }
 
   private void setTrackBit(int offset) {
@@ -1185,26 +1274,7 @@ public class TokenEncoder {
     return false;
   }
 
-  private static int varintLength(long n) {
-    int length = 0;
 
-    while (Long.compareUnsigned(n, 127) > 0) {
-      n >>>= 7;
-      length++;
-    }
-
-    return length + 1;
-  }
-
-  private static int encodeVarint(long n, byte[] buffer, int pos) {
-    while (Long.compareUnsigned(n, 127) > 0) {
-      buffer[pos++] = (byte) ((n & 127) | 128);
-      n >>>= 7;
-    }
-    buffer[pos++] = (byte) n;
-
-    return pos;
-  }
 
   private void ensureAvailable(int required) {
     long total = required + size;

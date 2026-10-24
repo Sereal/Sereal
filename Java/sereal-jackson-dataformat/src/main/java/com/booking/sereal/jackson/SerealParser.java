@@ -2,6 +2,7 @@ package com.booking.sereal.jackson;
 
 import com.booking.sereal.ByteArray;
 import com.booking.sereal.DecoderOptions;
+import com.booking.sereal.Float128;
 import com.booking.sereal.SerealException;
 import com.booking.sereal.SerealToken;
 import com.booking.sereal.TokenDecoder;
@@ -17,8 +18,12 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  *  A {@link com.fasterxml.jackson.core.JsonParser} implementation for Sereal.
@@ -35,9 +40,16 @@ public class SerealParser extends ParserMinimalBase {
   private ObjectCodec objectCodec;
   private SerealReaderContext parsingContext;
   private SerealToken serealToken = SerealToken.NONE;
+  private final int maxRecursionDepth;
+  // nesting of arrays, hashes and followed references
+  private int depth;
+  // offsets of the REFP/ALIAS/COPY targets being followed, innermost last
+  private final ArrayDeque<Integer> followedStack = new ArrayDeque<>();
+  private final Set<Integer> followed = new HashSet<>();
 
   SerealParser(DecoderOptions decoderOptions, byte[] data, int offset, int len, ObjectCodec objectCodec) throws IOException {
     this.objectCodec = objectCodec;
+    this.maxRecursionDepth = decoderOptions.maxRecursionDepth();
     this.parsingContext = new SerealReaderContext();
     try {
       this.tokenDecoder = new TokenDecoder(decoderOptions);
@@ -51,6 +63,9 @@ public class SerealParser extends ParserMinimalBase {
   @Override
   public JsonToken nextToken() throws IOException {
     try {
+      // REFN, WEAKEN and OBJECT tags wrapping the next value
+      int wrappers = 0;
+      for (;;) {
       serealToken = tokenDecoder.nextToken();
 
       switch (serealToken) {
@@ -66,15 +81,19 @@ public class SerealParser extends ParserMinimalBase {
             return (_currToken = JsonToken.VALUE_STRING);
           }
         case ARRAY_START:
+          enterNesting();
           parsingContext = new SerealReaderContext(parsingContext, 1, -1);
           return (_currToken = JsonToken.START_ARRAY);
         case ARRAY_END:
+          depth--;
           parsingContext = parsingContext.getParent();
           return (_currToken = JsonToken.END_ARRAY);
         case HASH_START:
+          enterNesting();
           parsingContext = new SerealReaderContext(parsingContext, 2, -1);
           return (_currToken = JsonToken.START_OBJECT);
         case HASH_END:
+          depth--;
           parsingContext = parsingContext.getParent();
           return (_currToken = JsonToken.END_OBJECT);
         case END:
@@ -101,23 +120,53 @@ public class SerealParser extends ParserMinimalBase {
         case WEAKEN:
         case REFN:
         case OBJECT_START:
+          if (++wrappers > maxRecursionDepth) {
+            throw recursionLimitError();
+          }
+          continue;
         case OBJECT_END:
-          return nextToken();
+          continue;
         case REFP:
         case ALIAS:
         case COPY:
-          tokenDecoder.startSubDecode(tokenDecoder.backreferenceOffset());
-          return nextToken();
+          int target = tokenDecoder.backreferenceOffset();
+          // following a reference to a value that encloses it would never end
+          if (!followed.add(target)) {
+            throw this._constructError(String.format(
+              "Sereal format error: reference at offset %d to the enclosing value at offset %d",
+              tokenDecoder.tokenOffset(), target));
+          }
+          followedStack.addLast(target);
+          enterNesting();
+          tokenDecoder.startSubDecode(target);
+          continue;
         case SUBDECODE_END:
-          return nextToken();
+          followed.remove(followedStack.removeLast());
+          depth--;
+          continue;
         case REGEXP:
+        case FLOAT128:
           return (_currToken = JsonToken.VALUE_EMBEDDED_OBJECT);
+        case VSTRING:
+          return (_currToken = JsonToken.VALUE_STRING);
         default:
           throw this._formatError("Unsupported Sereal token %s", serealToken);
+      }
       }
     } catch (SerealException e) {
       throw this._constructError("Sereal format error", e);
     }
+  }
+
+  private void enterNesting() throws JsonParseException {
+    if (++depth > maxRecursionDepth) {
+      throw recursionLimitError();
+    }
+  }
+
+  private JsonParseException recursionLimitError() {
+    return this._constructError(
+      "Sereal format error: reached recursion limit (" + maxRecursionDepth + ") during deserialization");
   }
 
   @Override
@@ -206,6 +255,7 @@ public class SerealParser extends ParserMinimalBase {
           StandardCharsets.UTF_8
         );
       case BINARY:
+      case VSTRING: // the v-string spelling, e.g. "v1.2.3"
         return new String(
           tokenDecoder.decoderBuffer(),
           tokenDecoder.binarySliceStart(),
@@ -221,6 +271,7 @@ public class SerealParser extends ParserMinimalBase {
       case UNSIGNED_LONG:
         return tokenDecoder.bigintValue().toString();
       case REGEXP:
+      case FLOAT128:
         return null; // so getEmbeddedObject is called
       case ARRAY_START:
         return "[";
@@ -380,7 +431,17 @@ public class SerealParser extends ParserMinimalBase {
             tokenDecoder.regexpFlagsSliceEnd()
           );
 
-          return Pattern.compile(pattern, flags);
+          try {
+            return Pattern.compile(pattern, flags);
+          } catch (PatternSyntaxException e) {
+            throw this._constructError("Sereal format error: invalid regexp", e);
+          }
+        case FLOAT128:
+          return new Float128(Arrays.copyOfRange(
+            tokenDecoder.decoderBuffer(),
+            tokenDecoder.binarySliceStart(),
+            tokenDecoder.binarySliceEnd()
+          ));
         default:
           return null;
       }

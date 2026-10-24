@@ -79,10 +79,11 @@ public class TokenDecoderErrorsTest {
   @Test
   public void badEncoding() throws SerealException {
     exceptionRule.expect(SerealException.class);
-    exceptionRule.expectMessage("Unsupported Sereal body encoding 15");
+    exceptionRule.expectMessage("Unsupported Sereal body encoding 7");
 
+    // bit 7 is the checksum flag since protocol v6: the base encoding is bits 4-6
     byte[] data = v1Document();
-    data[4] = (byte) 0xf1;
+    data[4] = (byte) 0x71;
 
     decoder.setData(data);
     decoder.prepareDecodeHeader();

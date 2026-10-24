@@ -1,9 +1,11 @@
 package com.booking.sereal;
 
 import com.github.luben.zstd.Zstd;
+import com.github.luben.zstd.ZstdException;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.Arrays;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
@@ -38,6 +40,8 @@ public class TokenDecoder {
     private final int type;
     private int total, remaining;
     private int originalPosition;
+    // a sub-decode started for a COPY token
+    private boolean isCopy;
 
     Context(Context outer, int type, int remaining) {
       this.outer = outer;
@@ -80,6 +84,15 @@ public class TokenDecoder {
   private static final int CONTEXT_OBJECT = 3;
   private static final int CONTEXT_SUBDECODE = 4;
 
+  private final byte[][] checksumKeys;
+  private final SerealChecksum.Policy checksumPolicy;
+  private final Consumer<String> checksumWarningHandler;
+  private final String undefDeadlyPolicy;
+  private final Consumer<String> undefDeadlyWarningHandler;
+  // only applied to v-string spellings
+  private final int maxStringLength;
+  private final int maxBufferSize;
+
   private byte[] data;
   private int position, end;
   private byte[] bodyData;
@@ -90,10 +103,18 @@ public class TokenDecoder {
   private int baseOffset = Integer.MAX_VALUE;
   private int userHeaderPosition = -1;
   private int userHeaderSize = -1;
+  // checksum envelope (protocol version 6): the body lives in [payloadStart, payloadEnd)
+  private boolean hasChecksum;
+  private int payloadStart = -1;
+  private int payloadEnd = -1;
+  // true while iterating over an uncompressed checksummed body, which must end at payloadEnd
+  private boolean checkPayloadEnd;
   private Inflater inflater;
   private byte[] bigintBuffer;
 
   private Context currentContext;
+  // number of enclosing sub-decodes following a COPY
+  private int copyDepth;
   private SerealToken currentToken = SerealToken.NONE;
   private boolean isSecondTime;
   private int trackOffset, tokenOffset;
@@ -115,10 +136,22 @@ public class TokenDecoder {
    * @param options {@link DecoderOptions} to use
    */
   public TokenDecoder(DecoderOptions options) {
+    checksumKeys = options.checksumKeys();
+    checksumPolicy = options.checksumPolicy();
+    checksumWarningHandler = options.checksumWarningHandler();
+    undefDeadlyPolicy = options.undefDeadlyPolicy();
+    undefDeadlyWarningHandler = options.undefDeadlyWarningHandler();
+    maxStringLength = options.maxStringLength();
+    maxBufferSize = options.maxBufferSize();
+    Decoder.checkChecksumOptions(checksumKeys, checksumPolicy);
   }
 
-  private void checkHeaderSuffix() {
-    int suffixSize = (int) readVarint();
+  private void checkHeaderSuffix() throws SerealException {
+    long suffixLength = readVarint();
+    if (suffixLength < 0 || suffixLength > end - position) {
+      throw new SerealException("Sereal header suffix exceeds the available input");
+    }
+    int suffixSize = (int) suffixLength;
 
     userHeaderSize = 0;
     userHeaderPosition = position + suffixSize;
@@ -144,11 +177,13 @@ public class TokenDecoder {
             + ((data[position + 1] & 0xff) << 16)
             + ((data[position + 2] & 0xff) << 8)
             + (data[position + 3] & 0xff);
-    protocolVersion = data[position + 4] & 15; // 4 bits for version
+    int versionAndType = data[position + 4] & 0xff;
+    protocolVersion = versionAndType & SerealHeader.SRL_PROTOCOL_VERSION_MASK; // 4 bits for version
+    hasChecksum = (versionAndType & SerealHeader.SRL_ENCODING_CHECKSUM_FLAG & 0xff) != 0;
     if (magic != SerealHeader.MAGIC && magic != SerealHeader.MAGIC_V3) {
       throw new SerealException(
         String.format("Invalid Sereal header (%08x): doesn't match magic", magic));
-    } else if (protocolVersion < 1 || protocolVersion > 4) {
+    } else if (protocolVersion < 1 || protocolVersion > 6) {
       throw new SerealException(
           String.format("Invalid Sereal header: unsupported protocol version %d", protocolVersion));
     } else if (magic == SerealHeader.MAGIC && protocolVersion > 2) {
@@ -159,11 +194,22 @@ public class TokenDecoder {
         String.format("Invalid Sereal header: magic v3 with protocol version %d", protocolVersion));
     }
 
-    encoding = (data[position + 4] >> 4) & 0xf;
+    if (hasChecksum && protocolVersion < 6) {
+      throw new SerealException("Checksummed Sereal documents require protocol version 6 or later");
+    }
+    if (!hasChecksum && checksumPolicy == SerealChecksum.Policy.REQUIRE_KEY) {
+      throw new SerealException("checksum_policy 'require_key' requires a checksummed packet");
+    }
+
+    encoding = (versionAndType >> 4) & SerealHeader.SRL_ENCODING_BASE_MASK;
     if (encoding > 4) {
       throw new SerealException("Unsupported Sereal body encoding " + encoding);
     }
     for (AllowedEncoding allowedEncoding : ALLOWED_ENCODINGS) {
+      // inside an envelope the payload is delimited, so legacy Snappy is allowed again
+      if (hasChecksum && encoding == SerealHeader.SRL_ENCODING_SNAPPY_LEGACY) {
+        break;
+      }
       if (allowedEncoding.encoding == encoding) {
         if (protocolVersion < allowedEncoding.minVersion || protocolVersion > allowedEncoding.maxVersion) {
           throw new SerealException(String.format("Unsupported encoding %d (%s) for Sereal protocol %d",
@@ -216,11 +262,13 @@ public class TokenDecoder {
     data = originalData.array;
     position = userHeaderPosition;
     end = userHeaderPosition + userHeaderSize;
+    checkPayloadEnd = false;
 
     // because offsets start at 1
     baseOffset = position - 1;
 
     currentContext = new Context(null, CONTEXT_ROOT, 1);
+    copyDepth = 0;
   }
 
   private void parseHeader() throws SerealException {
@@ -238,8 +286,26 @@ public class TokenDecoder {
     end = originalData.start + originalData.length;
     position = originalData.start;
 
-    checkMagicProtoAndFlags();
-    checkHeaderSuffix();
+    try {
+      checkMagicProtoAndFlags();
+      checkHeaderSuffix();
+
+      int bodyStart = userHeaderPosition + userHeaderSize;
+      if (hasChecksum) {
+        // verify before exposing header data or decompressing anything
+        SerealChecksum.Envelope envelope = SerealChecksum.process(data, originalData.start, bodyStart, end,
+            checksumKeys, checksumPolicy, checksumWarningHandler);
+        payloadStart = envelope.payloadStart;
+        payloadEnd = envelope.payloadEnd;
+      } else {
+        payloadStart = bodyStart;
+        payloadEnd = end;
+      }
+    } catch (SerealException | RuntimeException e) {
+      // leave the header unparsed, so that a later call cannot skip the checks
+      userHeaderPosition = userHeaderSize = -1;
+      throw e;
+    }
   }
 
   /**
@@ -252,8 +318,9 @@ public class TokenDecoder {
 
     if (bodyData == null) {
       if (encoding != 0) {
-        position = userHeaderPosition + userHeaderSize;
-        end = originalData.length;
+        data = originalData.array;
+        position = payloadStart;
+        end = payloadEnd;
         if (encoding == SerealHeader.SRL_ENCODING_SNAPPY_LEGACY || encoding == SerealHeader.SRL_ENCODING_SNAPPY) {
           uncompressSnappy();
         } else if (encoding == SerealHeader.SRL_ENCODING_ZLIB) {
@@ -262,15 +329,16 @@ public class TokenDecoder {
           uncompressZstd();
         }
       } else {
-        bodyData = data;
-        bodyPosition = userHeaderPosition + userHeaderSize;
-        bodySize = originalData.start + originalData.length;
+        bodyData = originalData.array;
+        bodyPosition = payloadStart;
+        bodySize = payloadEnd;
       }
     }
 
     data = bodyData;
     position = bodyPosition;
     end = bodySize;
+    checkPayloadEnd = hasChecksum && encoding == 0;
 
     if (protocolVersion == 1) {
       baseOffset = 0;
@@ -280,25 +348,32 @@ public class TokenDecoder {
     }
 
     currentContext = new Context(null, CONTEXT_ROOT, 1);
+    copyDepth = 0;
   }
 
   private void uncompressSnappy() throws SerealException {
-    int len = originalData.length - (position - originalData.start);
+    long compressedLength = end - position;
     int pos = encoding == SerealHeader.SRL_ENCODING_SNAPPY_LEGACY ? position : originalData.start;
 
     if (encoding == SerealHeader.SRL_ENCODING_SNAPPY) {
-      len = (int) readVarint();
+      compressedLength = readVarint();
     }
+    checkCompressedEnd(compressedLength);
+    // snappy-java's native code trusts offset and length: keep them inside the document
+    if (position < 0 || position > end || compressedLength < 0 || compressedLength > end - position) {
+      throw new SerealException("Snappy compressed data exceeds the available input");
+    }
+    int len = (int) compressedLength;
     byte[] uncompressed;
     try {
       if (!Snappy.isValidCompressedBuffer(
           originalData.array, position, len))
         throw new SerealException("Invalid snappy data");
-      uncompressed =
-          new byte
-              [pos
-                  + Snappy.uncompressedLength(
-                      originalData.array, position, len)];
+      int uncompressedLength = Snappy.uncompressedLength(originalData.array, position, len);
+      if (uncompressedLength < 0 || (long) pos + uncompressedLength > maxBufferSize) {
+        throw new SerealException("The expected uncompressed size is larger than the allowed maximum size");
+      }
+      uncompressed = new byte[pos + uncompressedLength];
       Snappy.uncompress(
           originalData.array, position, len, uncompressed, pos);
     } catch (IOException e) {
@@ -316,7 +391,14 @@ public class TokenDecoder {
     inflater.reset();
 
     long uncompressedLength = readVarint();
+    if (uncompressedLength < 0 || uncompressedLength > maxBufferSize) {
+      throw new SerealException("The expected uncompressed size is larger than the allowed maximum size");
+    }
     long compressedLength = readVarint();
+    checkCompressedEnd(compressedLength);
+    if (compressedLength < 0 || compressedLength > end - position) {
+      throw new SerealException("Zlib compressed data exceeds the available input");
+    }
     inflater.setInput(originalData.array, position, (int) compressedLength);
     byte[] uncompressed = new byte[(int) uncompressedLength];
     try {
@@ -333,16 +415,37 @@ public class TokenDecoder {
   }
 
   private void uncompressZstd() throws SerealException {
-    int len = (int) readVarint();
+    long compressedLength = readVarint();
+    checkCompressedEnd(compressedLength);
+    if (compressedLength < 0 || compressedLength > end - position) {
+      throw new SerealException("Zstd compressed data exceeds the available input");
+    }
+    if (compressedLength == 0) {
+      throw new SerealException("Empty zstd compressed data");
+    }
+    int len = (int) compressedLength;
 
     byte[] compressedData = Arrays.copyOfRange(originalData.array, position, position + len);
-    long decompressedSize = Zstd.decompressedSize(compressedData);
-    if (decompressedSize > Integer.MAX_VALUE) {
-      throw new SerealException("Decompressed size exceeds integer MAX_VALUE: " + decompressedSize);
+    long decompressedSize;
+    try {
+      decompressedSize = Zstd.decompressedSize(compressedData);
+    } catch (ZstdException e) {
+      throw new SerealException(e);
+    }
+    if (decompressedSize <= 0) {
+      throw new SerealException("Invalid zstd frame: unknown or empty decompressed size");
+    }
+    if (decompressedSize > maxBufferSize) {
+      throw new SerealException("The expected uncompressed size is larger than the allowed maximum size");
     }
 
     byte[] uncompressed = new byte[(int) decompressedSize];
-    long status = Zstd.decompress(uncompressed, compressedData);
+    long status;
+    try {
+      status = Zstd.decompress(uncompressed, compressedData);
+    } catch (ZstdException e) {
+      throw new SerealException(e);
+    }
     if (Zstd.isError(status)) {
       throw new SerealException(Zstd.getErrorName(status));
     }
@@ -351,28 +454,130 @@ public class TokenDecoder {
     this.bodySize = uncompressed.length;
   }
 
-  private void readBinary() {
-    int length = (int) readVarint();
+  // in a checksummed document the compressed data must end exactly at the payload end
+  private void checkCompressedEnd(long compressedLength) throws SerealException {
+    if (hasChecksum && compressedLength != payloadEnd - position) {
+      throw new SerealException(SerealChecksum.PAYLOAD_LENGTH_MISMATCH);
+    }
+  }
+
+  private void checkMinVersion(int version, String message) throws SerealException {
+    if (protocolVersion < version) {
+      throw new SerealException(message);
+    }
+  }
+
+  private void checkAvailable(long length) throws SerealException {
+    if (length > end - position) {
+      throw new SerealException("Unexpected end of data at byte " + end);
+    }
+  }
+
+  // NEG_VARINT: the magnitude of a negative integer, 1..2^63 (2^63 is Long.MIN_VALUE)
+  private long readNegVarint() throws SerealException {
+    checkNoEOD();
+    long magnitude = readVarint();
+    if (magnitude == 0 || Long.compareUnsigned(magnitude, Long.MIN_VALUE) > 0) {
+      throw new SerealException("Invalid NEG_VARINT magnitude " + Long.toUnsignedString(magnitude));
+    }
+    return -magnitude;
+  }
+
+  private SerealToken readExtend() throws SerealException {
+    checkMinVersion(6, "EXTEND tag requires protocol version 6 or later");
+    checkNoEOD();
+    int id = data[position++] & 0xff;
+    switch (id) {
+      case SerealHeader.SRL_EXT_UNDEF_DEADLY:
+        if ("die".equals(undefDeadlyPolicy)) {
+          throw new SerealException("Encountered UNDEF_DEADLY extended tag");
+        }
+        if ("warn".equals(undefDeadlyPolicy)) {
+          undefDeadlyWarningHandler.accept("Encountered UNDEF_DEADLY extended tag");
+        }
+        return SerealToken.UNDEF;
+      case SerealHeader.SRL_EXT_VSTRING_BINARY:
+        readVString(false);
+        return SerealToken.VSTRING;
+      case SerealHeader.SRL_EXT_VSTRING_UTF8:
+        readVString(true);
+        return SerealToken.VSTRING;
+      default:
+        throw new SerealException("Unknown extended tag ID " + id);
+    }
+  }
+
+  private void readVString(boolean utf8) throws SerealException {
+    checkNoEOD();
+    long length = readVarint();
+    if (maxStringLength != 0 && Long.compareUnsigned(length, maxStringLength) > 0) {
+      throw new SerealException("Got input string with " + Long.toUnsignedString(length)
+          + " characters, but the configured maximum is just " + maxStringLength);
+    }
+    if (length < 0) {
+      throw new SerealException("Unexpected end of data at byte " + end);
+    }
+    checkAvailable(length);
+    if (length == 0) {
+      throw new SerealException("Invalid extended VSTRING spelling length");
+    }
+    int kind = VStrings.classify(data, position, (int) length);
+    if (kind == VStrings.INVALID) {
+      throw new SerealException("Invalid extended VSTRING spelling");
+    }
+    if ((kind == VStrings.UTF8) != utf8) {
+      throw new SerealException("VSTRING extension ID does not match the decoded string encoding");
+    }
+    binaryIsUtf8 = utf8;
+    binarySliceStart = position;
+    binarySliceEnd = position + (int) length;
+    position += (int) length;
+  }
+
+  private void readBinary() throws SerealException {
+    int length = readLength();
     binaryIsUtf8 = false;
     binarySliceStart = position;
     binarySliceEnd = position + length;
     position += length;
   }
 
-  // top bit set (0x80) means next byte is 7 bits more more varint
-  private long readVarint() {
-    long uv = 0;
-    int lshift = 0;
-
-    byte b = data[position++];
-    while ((position < end) && (b < 0)) {
-      uv |= ((long) b & 127) << lshift; // add 7 bits
-      lshift += 7;
-      b = data[position++];
+  // a string length, which must fit in the remaining input
+  private int readLength() throws SerealException {
+    long length = readVarint();
+    if (length < 0) {
+      throw new SerealException("Invalid length " + Long.toUnsignedString(length) + " at byte " + position);
     }
-    uv |= (long) b << lshift; // add final (or first if there is only 1)
+    checkAvailable(length);
+    return (int) length;
+  }
 
-    return uv;
+  // an element count, bounded by the remaining input at bytesPerElement bytes each
+  private int readCount(int bytesPerElement) throws SerealException {
+    long count = readVarint();
+    if (count < 0 || count > (end - position) / bytesPerElement) {
+      throw new SerealException("Invalid element count " + Long.toUnsignedString(count) + " at byte " + position);
+    }
+    return (int) count;
+  }
+
+  // top bit set (0x80) means next byte is 7 bits more more varint; at most 10 bytes
+  private long readVarint() throws SerealException {
+    long uv = 0;
+
+    for (int lshift = 0; ; lshift += 7) {
+      if (position >= end) {
+        throw new SerealException("Unexpected end of data at byte " + position);
+      }
+      if (lshift > 63) {
+        throw new SerealException("Varint too long at byte " + position);
+      }
+      byte b = data[position++];
+      uv |= ((long) b & 127) << lshift; // add 7 bits
+      if (b >= 0) {
+        return uv;
+      }
+    }
   }
 
   /**
@@ -391,6 +596,11 @@ public class TokenDecoder {
       currentContext = popped.outer;
       switch (popped.type) {
         case CONTEXT_ROOT:
+          if (checkPayloadEnd && position != payloadEnd) {
+            // undo the pop, so the error is reported again on a retry
+            currentContext = popped;
+            throw new SerealException(SerealChecksum.PAYLOAD_LENGTH_MISMATCH);
+          }
           return (currentToken = SerealToken.END);
         case CONTEXT_ARRAY:
           return (currentToken = SerealToken.ARRAY_END);
@@ -399,6 +609,9 @@ public class TokenDecoder {
         case CONTEXT_OBJECT:
           return (currentToken = SerealToken.OBJECT_END);
         case CONTEXT_SUBDECODE:
+          if (popped.isCopy) {
+            copyDepth--;
+          }
           position = popped.originalPosition;
           return (currentToken = SerealToken.SUBDECODE_END);
       }
@@ -407,6 +620,11 @@ public class TokenDecoder {
     checkNoEOD();
 
     byte tag = data[position++];
+    // skip padding iteratively: a long run of PAD tags must not recurse
+    while ((byte) (tag & ~SerealHeader.SRL_HDR_TRACK_FLAG) == SerealHeader.SRL_HDR_PAD) {
+      checkNoEOD();
+      tag = data[position++];
+    }
 
     tokenOffset = position - 1 - baseOffset;
     trackOffset = 0;
@@ -461,6 +679,7 @@ public class TokenDecoder {
           longValue = readZigzag();
           return (currentToken = SerealToken.LONG);
         case SerealHeader.SRL_HDR_FLOAT:
+          checkAvailable(4);
           int floatBits =
               ((data[position + 3] & 0xff) << 24)
                   + ((data[position + 2] & 0xff) << 16)
@@ -470,6 +689,7 @@ public class TokenDecoder {
           floatValue = Float.intBitsToFloat(floatBits);
           return (currentToken = SerealToken.FLOAT);
         case SerealHeader.SRL_HDR_DOUBLE:
+          checkAvailable(8);
           long doubleBits =
               ((long) (data[position + 7] & 0xff) << 56)
                   + ((long) (data[position + 6] & 0xff) << 48)
@@ -486,6 +706,26 @@ public class TokenDecoder {
           return (currentToken = SerealToken.TRUE);
         case SerealHeader.SRL_HDR_FALSE:
           return (currentToken = SerealToken.FALSE);
+        case SerealHeader.SRL_HDR_YES:
+          checkMinVersion(5, "YES tag requires protocol version 5 or later");
+          return (currentToken = SerealToken.TRUE);
+        case SerealHeader.SRL_HDR_NO:
+          checkMinVersion(5, "NO tag requires protocol version 5 or later");
+          return (currentToken = SerealToken.FALSE);
+        case SerealHeader.SRL_HDR_FLOAT_128:
+          checkMinVersion(5, "FLOAT_128 tag requires protocol version 5 or later");
+          checkAvailable(16);
+          binaryIsUtf8 = false;
+          binarySliceStart = position;
+          binarySliceEnd = position + 16;
+          position += 16;
+          return (currentToken = SerealToken.FLOAT128);
+        case SerealHeader.SRL_HDR_NEG_VARINT:
+          checkMinVersion(6, "NEG_VARINT tag requires protocol version 6");
+          longValue = readNegVarint();
+          return (currentToken = SerealToken.LONG);
+        case SerealHeader.SRL_HDR_EXTEND:
+          return (currentToken = readExtend());
         case SerealHeader.SRL_HDR_UNDEF:
           return (currentToken = SerealToken.UNDEF);
         case SerealHeader.SRL_HDR_CANONICAL_UNDEF:
@@ -500,7 +740,7 @@ public class TokenDecoder {
           currentContext.remaining++;
           return (currentToken = SerealToken.REFN);
         case SerealHeader.SRL_HDR_REFP:
-          backreferenceOffset = (int) readVarint();
+          backreferenceOffset = readBackreference(position - 1);
           return (currentToken = SerealToken.REFP);
         case SerealHeader.SRL_HDR_OBJECT:
           currentContext = new Context(currentContext, CONTEXT_OBJECT, 1);
@@ -508,31 +748,34 @@ public class TokenDecoder {
           return (currentToken = SerealToken.OBJECT_START);
         case SerealHeader.SRL_HDR_OBJECTV:
           currentContext = new Context(currentContext, CONTEXT_OBJECT, 1);
-          readStringCopy();
+          // the class name offset may point at an OBJECT's class name, itself possibly a COPY
+          readStringCopy(position - 1, true);
           return (currentToken = SerealToken.OBJECT_START);
         case SerealHeader.SRL_HDR_COPY:
-          backreferenceOffset = (int) readVarint();
+          backreferenceOffset = readCopyTarget(position - 1);
+          // a COPY target may not contain a COPY, except for hash keys and class names
+          if (copyDepth > 0 && !isHashKey()) {
+            throw new SerealException("Nested COPY at offset " + tokenOffset + " inside another COPY");
+          }
           return (currentToken = SerealToken.COPY);
         case SerealHeader.SRL_HDR_ALIAS:
-          backreferenceOffset = (int) readVarint();
+          backreferenceOffset = readBackreference(position - 1);
           return (currentToken = SerealToken.ALIAS);
         case SerealHeader.SRL_HDR_WEAKEN:
           currentContext.remaining++;
           return (currentToken = SerealToken.WEAKEN);
         case SerealHeader.SRL_HDR_HASH:
-          int numKeys = (int) readVarint();
+          // every key and value takes at least one byte
+          int numKeys = readCount(2);
           currentContext = new Context(currentContext, CONTEXT_HASH, numKeys * 2);
           return (currentToken = SerealToken.HASH_START);
         case SerealHeader.SRL_HDR_ARRAY:
-          int length = (int) readVarint();
+          int length = readCount(1);
           currentContext = new Context(currentContext, CONTEXT_ARRAY, length);
           return (currentToken = SerealToken.ARRAY_START);
         case SerealHeader.SRL_HDR_REGEXP:
           readRegexp();
           return (currentToken = SerealToken.REGEXP);
-        case SerealHeader.SRL_HDR_PAD:
-          currentContext.remaining++;
-          return nextToken();
         default:
           throw new SerealException("Tag not supported: " + tag);
       }
@@ -553,8 +796,16 @@ public class TokenDecoder {
    * @throws SerealException Token cannot be decoded.
    */
   public void startSubDecode(int offset) throws SerealException {
+    long target = (long) offset + baseOffset;
+    if (offset < 1 || target < 0 || target >= end) {
+      throw new SerealException("Sub-decode offset " + offset + " is outside the document");
+    }
     currentContext = new Context(currentContext, CONTEXT_SUBDECODE, 1, position);
-    position = offset + baseOffset;
+    if (currentToken == SerealToken.COPY && offset == backreferenceOffset) {
+      currentContext.isCopy = true;
+      copyDepth++;
+    }
+    position = (int) target;
   }
 
   /**
@@ -662,7 +913,8 @@ public class TokenDecoder {
   /**
    * All binary/string values are slices of this array.
    * <p>
-   * Defined for {@link SerealToken#UTF8}, {@link SerealToken#BINARY}, {@link SerealToken#OBJECT_START} and {@link SerealToken#REGEXP}.
+   * Defined for {@link SerealToken#UTF8}, {@link SerealToken#BINARY}, {@link SerealToken#OBJECT_START}, {@link SerealToken#REGEXP},
+   * {@link SerealToken#VSTRING} and {@link SerealToken#FLOAT128}.
    *
    * @return Token binary data
    */
@@ -673,7 +925,8 @@ public class TokenDecoder {
   /**
    * @return Start offset of the current binary/string in {@link TokenDecoder#decoderBuffer()}.
    * <p>
-   * Defined for {@link SerealToken#UTF8}, {@link SerealToken#BINARY}, {@link SerealToken#OBJECT_START} and {@link SerealToken#REGEXP}.
+   * Defined for {@link SerealToken#UTF8}, {@link SerealToken#BINARY}, {@link SerealToken#OBJECT_START}, {@link SerealToken#REGEXP},
+   * {@link SerealToken#VSTRING} and {@link SerealToken#FLOAT128}.
    */
   public int binarySliceStart() {
     return binarySliceStart;
@@ -682,7 +935,8 @@ public class TokenDecoder {
   /**
    * @return End offset of the current binary/string in {@link TokenDecoder#decoderBuffer()}.
    * <p>
-   * Defined for {@link SerealToken#UTF8}, {@link SerealToken#BINARY}, {@link SerealToken#OBJECT_START} and {@link SerealToken#REGEXP}.
+   * Defined for {@link SerealToken#UTF8}, {@link SerealToken#BINARY}, {@link SerealToken#OBJECT_START}, {@link SerealToken#REGEXP},
+   * {@link SerealToken#VSTRING} and {@link SerealToken#FLOAT128}.
    */
   public int binarySliceEnd() {
     return binarySliceEnd;
@@ -691,7 +945,8 @@ public class TokenDecoder {
   /**
    * @return Length of the current binary/string.
    * <p>
-   * Defined for {@link SerealToken#UTF8}, {@link SerealToken#BINARY}, {@link SerealToken#OBJECT_START} and {@link SerealToken#REGEXP}.
+   * Defined for {@link SerealToken#UTF8}, {@link SerealToken#BINARY}, {@link SerealToken#OBJECT_START}, {@link SerealToken#REGEXP},
+   * {@link SerealToken#VSTRING} and {@link SerealToken#FLOAT128}.
    */
   public int binarySliceLength() {
     return binarySliceEnd - binarySliceStart;
@@ -727,7 +982,9 @@ public class TokenDecoder {
   /**
    * @return {@code true} if the byte slice between {@link TokenDecoder#binarySliceStart()}/{@link TokenDecoder#binarySliceEnd()} is UTF-8 encoded.
    * <p>
-   * Always {@code true} for {@link SerealToken#UTF8}, always {@code false} for {@link SerealToken#BINARY}.
+   * Always {@code true} for {@link SerealToken#UTF8}, always {@code false} for {@link SerealToken#BINARY}
+   * and {@link SerealToken#FLOAT128}. For {@link SerealToken#VSTRING} the slice is the ASCII spelling and this
+   * tells whether Perl flags the decoded string as UTF-8.
    */
   public boolean binaryIsUtf8() {
     return binaryIsUtf8;
@@ -751,32 +1008,60 @@ public class TokenDecoder {
     return context.type == CONTEXT_HASH && (context.remaining & 1) == 1;
   }
 
-  private void readShortBinary(byte tag) {
+  private void readShortBinary(byte tag) throws SerealException {
     int length = tag & SerealHeader.SRL_MASK_SHORT_BINARY_LEN;
+    checkAvailable(length);
     binaryIsUtf8 = false;
     binarySliceStart = position;
     binarySliceEnd = position + length;
     position += length;
   }
 
-  private void readStringCopy() throws SerealException {
-    int originalPosition = (int) readVarint();
+  /**
+   * Re-read the string at a previous offset, for a COPY used as a class name, and for OBJECTV
+   * class names.
+   *
+   * @param tag position of the COPY or OBJECTV tag
+   * @param allowCopyTarget whether the target may itself be a COPY (only for OBJECTV, whose
+   *     target is an OBJECT's class name)
+   */
+  private void readStringCopy(int tag, boolean allowCopyTarget) throws SerealException {
+    int originalOffset = allowCopyTarget ? readBackreference(tag) : readCopyTarget(tag);
     int currentPosition = position; // remember where we parked
 
-    position = originalPosition + baseOffset;
+    position = originalOffset + baseOffset;
     readString();
     position = currentPosition; // go back to where we were
   }
 
-  private void readUTF8() {
-    int length = (int) readVarint();
+  // read a REFP/ALIAS/OBJECTV offset, which must point strictly before the tag at position tag
+  private int readBackreference(int tag) throws SerealException {
+    long offset = readVarint();
+    long target = baseOffset + offset;
+    if (offset < 1 || target < 0 || target >= tag) {
+      throw new SerealException("Backreference " + offset + " at byte " + tag + " must precede its own tag");
+    }
+    return (int) offset;
+  }
+
+  // a COPY offset is a backreference whose target is not itself a COPY
+  private int readCopyTarget(int tag) throws SerealException {
+    int offset = readBackreference(tag);
+    if ((byte) (data[offset + baseOffset] & ~SerealHeader.SRL_HDR_TRACK_FLAG) == SerealHeader.SRL_HDR_COPY) {
+      throw new SerealException("COPY at byte " + tag + " refers to another COPY");
+    }
+    return offset;
+  }
+
+  private void readUTF8() throws SerealException {
+    int length = readLength();
     binaryIsUtf8 = true;
     binarySliceStart = position;
     binarySliceEnd = position + length;
     position += length;
   }
 
-  private long readZigzag() {
+  private long readZigzag() throws SerealException {
     long n = readVarint();
 
     return (n >>> 1) ^ (-(n & 1)); // note the unsigned right shift
@@ -810,7 +1095,7 @@ public class TokenDecoder {
     } else if (tag == SerealHeader.SRL_HDR_STR_UTF8) {
       readUTF8();
     } else if (tag == SerealHeader.SRL_HDR_COPY) {
-      readStringCopy();
+      readStringCopy(position - 1, false);
     } else {
       throw new SerealException("Tag " + tag + " is not a string tag");
     }
@@ -848,7 +1133,10 @@ public class TokenDecoder {
     protocolVersion = encoding = -1;
     baseOffset = Integer.MAX_VALUE;
     userHeaderPosition = userHeaderSize = -1;
+    hasChecksum = checkPayloadEnd = false;
+    payloadStart = payloadEnd = -1;
     isSecondTime = false;
+    copyDepth = 0;
   }
 
   /**

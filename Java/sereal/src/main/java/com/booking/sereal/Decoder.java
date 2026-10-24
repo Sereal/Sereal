@@ -2,6 +2,7 @@ package com.booking.sereal;
 
 import com.booking.sereal.impl.RefpMap;
 import com.github.luben.zstd.Zstd;
+import com.github.luben.zstd.ZstdException;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
@@ -13,7 +14,9 @@ import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
@@ -48,6 +51,12 @@ public class Decoder implements SerealHeader {
   private final int maxNumArrayEntries;
   private final int maxStringLength;
 
+  private final byte[][] checksumKeys;
+  private final SerealChecksum.Policy checksumPolicy;
+  private final Consumer<String> checksumWarningHandler;
+  private final String undefDeadlyPolicy;
+  private final Consumer<String> undefDeadlyWarningHandler;
+
   private byte[] data;
   private int position, end;
   private ByteArray originalData;
@@ -58,9 +67,15 @@ public class Decoder implements SerealHeader {
   private int baseOffset = Integer.MAX_VALUE;
   private long userHeaderPosition = -1;
   private long userHeaderSize = -1;
+  // checksum envelope (protocol version 6): the body lives in [payloadStart, payloadEnd)
+  private boolean hasChecksum;
+  private int payloadStart = -1;
+  private int payloadEnd = -1;
   private Inflater inflater;
 
   private int recursionDepth = 0;
+  // set while decoding the target of a COPY tag, which may not contain another COPY
+  private boolean inCopy;
 
   /** Create a new Decoder with default options. */
   public Decoder() {
@@ -92,6 +107,20 @@ public class Decoder implements SerealHeader {
     maxNumMapEntries = options.maxNumMapEntries();
     maxNumArrayEntries = options.maxNumArrayEntries();
     maxStringLength = options.maxStringLength();
+
+    checksumKeys = options.checksumKeys();
+    checksumPolicy = options.checksumPolicy();
+    checksumWarningHandler = options.checksumWarningHandler();
+    undefDeadlyPolicy = options.undefDeadlyPolicy();
+    undefDeadlyWarningHandler = options.undefDeadlyWarningHandler();
+    checkChecksumOptions(checksumKeys, checksumPolicy);
+  }
+
+  static void checkChecksumOptions(byte[][] keys, SerealChecksum.Policy policy) {
+    if (policy == SerealChecksum.Policy.REQUIRE_KEY
+        && keys[0] == null && keys[1] == null && keys[2] == null) {
+      throw new IllegalArgumentException("checksum policy REQUIRE_KEY requires at least one checksum key");
+    }
   }
 
   private void checkHeader() throws SerealException {
@@ -112,12 +141,16 @@ public class Decoder implements SerealHeader {
     }
   }
 
-  private void checkHeaderSuffix() {
+  private void checkHeaderSuffix() throws SerealException {
     long suffix_size = read_varint();
     long basePosition = position;
+    if (suffix_size < 0 || suffix_size > end - position) {
+      throw new SerealException("Sereal header suffix exceeds the available input");
+    }
 
     userHeaderSize = 0;
-    if (suffix_size > 0) {
+    // protocol version 1 never looks inside the suffix
+    if (protocolVersion >= 2 && suffix_size > 0) {
       byte bitfield = data[position++];
 
       if ((bitfield & 0x01) == 0x01) {
@@ -143,16 +176,26 @@ public class Decoder implements SerealHeader {
       throw new SerealException("Invalid Sereal header: no protocol/version byte");
     }
 
-    int protoAndFlags = data[position++];
-    protocolVersion = protoAndFlags & 15; // 4 bits for version
+    int protoAndFlags = data[position++] & 0xff;
+    protocolVersion = protoAndFlags & SRL_PROTOCOL_VERSION_MASK; // 4 bits for version
+    hasChecksum = (protoAndFlags & SRL_ENCODING_CHECKSUM_FLAG & 0xff) != 0;
 
-    if (protocolVersion < 0 || protocolVersion > 4) {
+    if (protocolVersion < 1 || protocolVersion > 6) {
       throw new SerealException(
           String.format("Invalid Sereal header: unsupported protocol version %d", protocolVersion));
     }
+    if (hasChecksum && protocolVersion < 6) {
+      throw new SerealException("Checksummed Sereal documents require protocol version 6 or later");
+    }
+    if (!hasChecksum && checksumPolicy == SerealChecksum.Policy.REQUIRE_KEY) {
+      throw new SerealException("checksum_policy 'require_key' requires a checksummed packet");
+    }
 
-    encoding = (protoAndFlags & ~15) >> 4;
-    if ((encoding == 1 || encoding == 2) && refuseSnappy) {
+    encoding = (protoAndFlags >> 4) & SRL_ENCODING_BASE_MASK;
+    if (encoding == 1 && protocolVersion >= 2 && !hasChecksum) {
+      // without an envelope, legacy Snappy data runs to the end of the input
+      throw new SerealException("Non-incremental Snappy compression requires protocol version 1");
+    } else if ((encoding == 1 || encoding == 2) && refuseSnappy) {
       throw new SerealException("Unsupported encoding: Snappy");
     } else if (encoding == 3 && refuseZlib) {
       throw new SerealException("Unsupported encoding: Zlib");
@@ -205,12 +248,16 @@ public class Decoder implements SerealHeader {
     if (userHeaderSize <= 0) throw new SerealException("Sereal user header not present");
     byte[] originalData = data;
     int originalPosition = position, originalSize = end;
+    recursionDepth = 0;
+    inCopy = false;
     try {
       data = originalData;
       end = (int) (userHeaderPosition + userHeaderSize);
       position = (int) userHeaderPosition;
 
       return readSingleValue();
+    } catch (StackOverflowError error) {
+      throw new SerealException("StackOverflowError: Reached recursion limit during deserialization");
     } finally {
       data = originalData;
       end = originalSize;
@@ -222,9 +269,28 @@ public class Decoder implements SerealHeader {
   private void parseHeader() throws SerealException {
     if (userHeaderSize >= 0) return;
 
-    checkHeader();
-    checkProtoAndFlags();
-    checkHeaderSuffix();
+    try {
+      checkHeader();
+      checkProtoAndFlags();
+      checkHeaderSuffix();
+
+      if (hasChecksum) {
+        // verify before exposing header data or decompressing anything
+        SerealChecksum.Envelope envelope = SerealChecksum.process(data, originalData.start, position, end,
+            checksumKeys, checksumPolicy, checksumWarningHandler);
+        payloadStart = envelope.payloadStart;
+        payloadEnd = envelope.payloadEnd;
+      } else {
+        payloadStart = position;
+        payloadEnd = end;
+      }
+    } catch (SerealException | RuntimeException e) {
+      // leave the header unparsed, so that a later call cannot skip the checks
+      userHeaderPosition = userHeaderSize = -1;
+      position = originalData.start;
+      end = originalData.start + originalData.length;
+      throw e;
+    }
   }
 
   /**
@@ -237,6 +303,7 @@ public class Decoder implements SerealHeader {
   public Object decode() throws SerealException {
 
     recursionDepth = 0;
+    inCopy = false;
 
     if (data == null) {
       throw new SerealException("No data set");
@@ -244,6 +311,8 @@ public class Decoder implements SerealHeader {
 
     parseHeader();
 
+    position = payloadStart;
+    end = payloadEnd;
     if (encoding != 0) {
       if (encoding == 1 || encoding == 2) uncompressSnappy();
       else if (encoding == 3) uncompressZlib();
@@ -264,17 +333,26 @@ public class Decoder implements SerealHeader {
     } catch (StackOverflowError error) {
       throw new SerealException("StackOverflowError: Reached recursion limit during deserialization");
     }
+    if (hasChecksum && encoding == 0 && position != payloadEnd) {
+      throw new SerealException(SerealChecksum.PAYLOAD_LENGTH_MISMATCH);
+    }
 
     return out;
   }
 
   private void uncompressSnappy() throws SerealException {
-    int len = originalData.length - (position - originalData.start);
+    long compressedLength = end - position;
     int pos = protocolVersion == 1 ? position : originalData.start;
 
     if (encoding == 2) {
-      len = (int) read_varint();
+      compressedLength = read_varint();
     }
+    checkCompressedEnd(compressedLength);
+    // snappy-java's native code trusts offset and length: keep them inside the document
+    if (position < 0 || position > end || compressedLength < 0 || compressedLength > end - position) {
+      throw new SerealException("Snappy compressed data exceeds the available input");
+    }
+    int len = (int) compressedLength;
 
     byte[] uncompressed;
     try {
@@ -282,7 +360,7 @@ public class Decoder implements SerealHeader {
         throw new SerealException("Invalid snappy data");
       }
       int uncompressedLength = Snappy.uncompressedLength(originalData.array, position, len);
-      if (uncompressedLength > this.maxSize) {
+      if (uncompressedLength < 0 || (long) pos + uncompressedLength > this.maxSize) {
         throw new SerealException("The expected uncompressed size is larger than the allowed maximum size");
       }
       uncompressed = new byte[pos + uncompressedLength];
@@ -307,6 +385,10 @@ public class Decoder implements SerealHeader {
     }
 
     long compressedLength = read_varint();
+    checkCompressedEnd(compressedLength);
+    if (compressedLength < 0 || compressedLength > end - position) {
+      throw new SerealException("Zlib compressed data exceeds the available input");
+    }
     inflater.setInput(originalData.array, position, (int) compressedLength);
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
       byte[] buffer = new byte[this.decodeBufferSize];
@@ -331,11 +413,27 @@ public class Decoder implements SerealHeader {
   }
 
   private void uncompressZstd() throws SerealException {
-    int len = (int) read_varint();
+    long compressedLength = read_varint();
+    checkCompressedEnd(compressedLength);
+    if (compressedLength < 0 || compressedLength > end - position) {
+      throw new SerealException("Zstd compressed data exceeds the available input");
+    }
+    if (compressedLength == 0) {
+      throw new SerealException("Empty zstd compressed data");
+    }
+    int len = (int) compressedLength;
 
     byte[] compressedData = Arrays.copyOfRange(originalData.array, position, position + len);
-    long decompressedSize = Zstd.decompressedSize(compressedData);
+    long decompressedSize;
+    try {
+      decompressedSize = Zstd.decompressedSize(compressedData);
+    } catch (ZstdException e) {
+      throw new SerealException(e);
+    }
 
+    if (decompressedSize <= 0) {
+      throw new SerealException("Invalid zstd frame: unknown or empty decompressed size");
+    }
     if (decompressedSize > this.maxSize) {
       throw new SerealException("The expected uncompressed size is larger than the allowed maximum size");
     }
@@ -343,13 +441,25 @@ public class Decoder implements SerealHeader {
       throw new SerealException("Decompressed size exceeds integer MAX_VALUE: " + decompressedSize);
     }
     byte[] uncompressed = new byte[(int) decompressedSize];
-    long status = Zstd.decompress(uncompressed, compressedData);
+    long status;
+    try {
+      status = Zstd.decompress(uncompressed, compressedData);
+    } catch (ZstdException e) {
+      throw new SerealException(e);
+    }
     if (Zstd.isError(status)) {
       throw new SerealException(Zstd.getErrorName(status));
     }
     this.data = uncompressed;
     this.position = 0;
     this.end = uncompressed.length;
+  }
+
+  // in a checksummed document the compressed data must end exactly at the payload end
+  private void checkCompressedEnd(long compressedLength) throws SerealException {
+    if (hasChecksum && compressedLength != payloadEnd - position) {
+      throw new SerealException(SerealChecksum.PAYLOAD_LENGTH_MISMATCH);
+    }
   }
 
   /**
@@ -362,6 +472,7 @@ public class Decoder implements SerealHeader {
     if (maxNumArrayEntries != 0 && length > maxNumArrayEntries) {
       throw new SerealException("Got input array with " + length + " entries, but the configured maximum is just " + maxNumArrayEntries);
     }
+    checkAvailable(length); // every element takes at least one byte
 
     Object[] out = new Object[length];
     if (track != 0) { // track ourself
@@ -386,6 +497,7 @@ public class Decoder implements SerealHeader {
     if (maxNumArrayEntries != 0 && length > maxNumArrayEntries) {
       throw new SerealException("Got input array with " + length + " entries, but the configured maximum is just " + maxNumArrayEntries);
     }
+    checkAvailable(length); // every element takes at least one byte
 
     List<Object> out = typeMapper.makeArray(length);
     if (track != 0) { // track ourself
@@ -404,8 +516,12 @@ public class Decoder implements SerealHeader {
    *
    * <p>For some reason we call them Latin1Strings.
    */
-  private byte[] read_binary() {
-    int length = (int) read_varint();
+  private byte[] read_binary() throws SerealException {
+    int length = readLength();
+    if (maxStringLength != 0 && length > maxStringLength) {
+      throw new SerealException("Got input string with " + length + " characters, but the configured maximum is just " + maxStringLength);
+    }
+    checkAvailable(length);
     byte[] out = Arrays.copyOfRange(data, position, position + length);
 
     position += length;
@@ -418,6 +534,7 @@ public class Decoder implements SerealHeader {
     if (maxNumMapEntries != 0 && num_keys > maxNumMapEntries) {
       throw new SerealException("Got input hash with " + num_keys + " entries, but the configured maximum is just " + maxNumMapEntries);
     }
+    checkAvailable(2L * num_keys); // every key and value takes at least one byte
 
     Map<String, Object> hash = typeMapper.makeMap((int) num_keys);
     if (track != 0) { // track ourself
@@ -433,26 +550,42 @@ public class Decoder implements SerealHeader {
     return hash;
   }
 
-  private Object get_tracked_item() {
-    long offset = read_varint();
-    return tracked.get(offset);
+  // a count or length, which must fit in an int
+  private int readLength() throws SerealException {
+    long length = read_varint();
+    if (length < 0 || length > Integer.MAX_VALUE) {
+      throw new SerealException("Invalid length " + Long.toUnsignedString(length) + " at byte " + position);
+    }
+    return (int) length;
   }
 
-  // top bit set (0x80) means next byte is 7 bits more more varint
-  private long read_varint() {
+  private Object get_tracked_item() throws SerealException {
+    long offset = read_varint();
+    Object item = tracked.get(offset);
+    if (item == RefpMap.NOT_FOUND) {
+      throw new SerealException("ALIAS to offset " + offset + ", which is not tracked");
+    }
+    return item;
+  }
+
+  // top bit set (0x80) means next byte is 7 bits more more varint; at most 10 bytes
+  private long read_varint() throws SerealException {
 
     long uv = 0;
-    int lshift = 0;
 
-    byte b = data[position++];
-    while ((position < end) && (b < 0)) {
+    for (int lshift = 0; ; lshift += 7) {
+      if (position >= end) {
+        throw new SerealException("Unexpected end of data at byte " + position);
+      }
+      if (lshift > 63) {
+        throw new SerealException("Varint too long at byte " + position);
+      }
+      byte b = data[position++];
       uv |= ((long) b & 127) << lshift; // add 7 bits
-      lshift += 7;
-      b = data[position++];
+      if (b >= 0) {
+        return uv;
+      }
     }
-    uv |= (long) b << lshift; // add final (or first if there is only 1)
-
-    return uv;
   }
 
   private Object readSingleValue() throws SerealException {
@@ -460,6 +593,11 @@ public class Decoder implements SerealHeader {
     checkNoEOD();
 
     byte tag = data[position++];
+    // skip padding iteratively: a long run of PAD tags must not recurse
+    while ((byte) (tag & ~SRL_HDR_TRACK_FLAG) == SRL_HDR_PAD) {
+      checkNoEOD();
+      tag = data[position++];
+    }
 
     int track = 0;
     if ((tag & SRL_HDR_TRACK_FLAG) != 0) {
@@ -528,6 +666,7 @@ public class Decoder implements SerealHeader {
           out = zz;
           break;
         case SRL_HDR_FLOAT:
+          checkAvailable(4);
           int floatBits =
               ((int) (data[position + 3] & 0xff) << 24)
                   + ((int) (data[position + 2] & 0xff) << 16)
@@ -538,6 +677,7 @@ public class Decoder implements SerealHeader {
           out = f;
           break;
         case SRL_HDR_DOUBLE:
+          checkAvailable(8);
           long doubleBits =
               ((long) (data[position + 7] & 0xff) << 56)
                   + ((long) (data[position + 6] & 0xff) << 48)
@@ -556,6 +696,27 @@ public class Decoder implements SerealHeader {
           break;
         case SRL_HDR_FALSE:
           out = false;
+          break;
+        case SRL_HDR_YES:
+          checkMinVersion(5, "YES tag requires protocol version 5 or later");
+          out = Boolean.TRUE;
+          break;
+        case SRL_HDR_NO:
+          checkMinVersion(5, "NO tag requires protocol version 5 or later");
+          out = Boolean.FALSE;
+          break;
+        case SRL_HDR_FLOAT_128:
+          checkMinVersion(5, "FLOAT_128 tag requires protocol version 5 or later");
+          checkAvailable(16);
+          out = new Float128(Arrays.copyOfRange(data, position, position + 16));
+          position += 16;
+          break;
+        case SRL_HDR_NEG_VARINT:
+          checkMinVersion(6, "NEG_VARINT tag requires protocol version 6");
+          out = readNegVarint();
+          break;
+        case SRL_HDR_EXTEND:
+          out = readExtend();
           break;
         case SRL_HDR_UNDEF:
           if (preserveUndef) out = new PerlUndef();
@@ -584,7 +745,9 @@ public class Decoder implements SerealHeader {
             if (track != 0) { // track ourself
               track_stuff(track, refn);
             }
+            depthIncrement();
             refn.setValue(readSingleValue());
+            depthDecrement();
             out = refn;
           } else {
             depthIncrement();
@@ -607,7 +770,9 @@ public class Decoder implements SerealHeader {
                 String.format(
                     "Encountered object in input, but the 'refuseObject' option is in effect at offset %d of input",
                     position));
+          depthIncrement();
           Object obj = readObject();
+          depthDecrement();
           out = obj;
           break;
         case SRL_HDR_OBJECTV:
@@ -616,11 +781,16 @@ public class Decoder implements SerealHeader {
                 String.format(
                     "Encountered object in input, but the 'refuseObject' option is in effect at offset %d of input",
                     position));
-          String className = readStringCopy();
+          // the class name offset may point at an OBJECT's class name, itself possibly a COPY
+          String className = readStringCopy(position - 1, true);
+          depthIncrement();
           out = readObject(className);
+          depthDecrement();
           break;
         case SRL_HDR_COPY:
+          depthIncrement();
           Object copy = read_copy();
+          depthDecrement();
           out = copy;
           break;
         case SRL_HDR_ALIAS:
@@ -634,13 +804,18 @@ public class Decoder implements SerealHeader {
           break;
         case SRL_HDR_WEAKEN:
           // so the next thing HAS to be a ref (afaict) which means we can track it
+          depthIncrement();
           if (perlRefs) {
             PerlReference placeHolder = new PerlReference(null);
             // track early for weak references
             if (track != 0) { // track ourself
               track_stuff(track, placeHolder);
             }
-            placeHolder.setValue(((PerlReference) readSingleValue()).getValue());
+            Object ref = readSingleValue();
+            if (!(ref instanceof PerlReference)) {
+              throw new SerealException("WEAKEN must be followed by a reference");
+            }
+            placeHolder.setValue(((PerlReference) ref).getValue());
             WeakReference<PerlReference> wref = new WeakReference<PerlReference>(placeHolder);
             out = wref;
           } else {
@@ -652,19 +827,20 @@ public class Decoder implements SerealHeader {
             WeakReference<Object> wref = new WeakReference<Object>(ref);
             out = wref;
           }
+          depthDecrement();
           break;
         case SRL_HDR_HASH:
           depthIncrement();
-          Object hash = readMap((int) read_varint(), track);
+          Object hash = readMap(readLength(), track);
           out = hash;
           depthDecrement();
           break;
         case SRL_HDR_ARRAY:
           depthIncrement();
           if (useObjectArray) {
-            out = readNativeArray((int) read_varint(), track);
+            out = readNativeArray(readLength(), track);
           } else {
-            out = readList((int) read_varint(), track);
+            out = readList(readLength(), track);
           }
           depthDecrement();
           break;
@@ -672,8 +848,6 @@ public class Decoder implements SerealHeader {
           Pattern pattern = read_regex();
           out = pattern;
           break;
-        case SRL_HDR_PAD:
-          return readSingleValue();
         default:
           throw new SerealException("Tag not supported: " + tag);
       }
@@ -686,13 +860,84 @@ public class Decoder implements SerealHeader {
     return out;
   }
 
+  private void checkMinVersion(int version, String message) throws SerealException {
+    if (protocolVersion < version) {
+      throw new SerealException(message);
+    }
+  }
+
+  private void checkAvailable(long length) throws SerealException {
+    if (length > end - position) {
+      throw new SerealException("Unexpected end of data at byte " + end);
+    }
+  }
+
+  // NEG_VARINT: the magnitude of a negative integer, 1..2^63 (2^63 is Long.MIN_VALUE)
+  private long readNegVarint() throws SerealException {
+    checkNoEOD();
+    long magnitude = read_varint();
+    if (magnitude == 0 || Long.compareUnsigned(magnitude, Long.MIN_VALUE) > 0) {
+      throw new SerealException("Invalid NEG_VARINT magnitude " + Long.toUnsignedString(magnitude));
+    }
+    return -magnitude;
+  }
+
+  private Object readExtend() throws SerealException {
+    checkMinVersion(6, "EXTEND tag requires protocol version 6 or later");
+    checkNoEOD();
+    int id = data[position++] & 0xff;
+    switch (id) {
+      case SRL_EXT_UNDEF_DEADLY:
+        if ("die".equals(undefDeadlyPolicy)) {
+          throw new SerealException("Encountered UNDEF_DEADLY extended tag");
+        }
+        if ("warn".equals(undefDeadlyPolicy)) {
+          undefDeadlyWarningHandler.accept("Encountered UNDEF_DEADLY extended tag");
+        }
+        return preserveUndef ? new PerlUndef() : null;
+      case SRL_EXT_VSTRING_BINARY:
+        return readVString(false);
+      case SRL_EXT_VSTRING_UTF8:
+        return readVString(true);
+      default:
+        throw new SerealException("Unknown extended tag ID " + id);
+    }
+  }
+
+  private PerlVString readVString(boolean utf8) throws SerealException {
+    checkNoEOD();
+    long length = read_varint();
+    if (maxStringLength != 0 && Long.compareUnsigned(length, maxStringLength) > 0) {
+      throw new SerealException("Got input string with " + Long.toUnsignedString(length)
+          + " characters, but the configured maximum is just " + maxStringLength);
+    }
+    if (length < 0) {
+      throw new SerealException("Unexpected end of data at byte " + end);
+    }
+    checkAvailable(length);
+    if (length == 0) {
+      throw new SerealException("Invalid extended VSTRING spelling length");
+    }
+    int kind = VStrings.classify(data, position, (int) length);
+    if (kind == VStrings.INVALID) {
+      throw new SerealException("Invalid extended VSTRING spelling");
+    }
+    if ((kind == VStrings.UTF8) != utf8) {
+      throw new SerealException("VSTRING extension ID does not match the decoded string encoding");
+    }
+    String spelling = new String(data, position, (int) length, charset_latin1);
+    position += (int) length;
+    return new PerlVString(spelling);
+  }
+
   /**
    * Read a short binary ISO-8859-1 (latin1) string, the lower bits of the tag hold the length
    *
    * @param tag the Sereal SHORT_BINARY_* tag
    */
-  private byte[] read_short_binary(byte tag) {
+  private byte[] read_short_binary(byte tag) throws SerealException {
     int length = tag & SRL_MASK_SHORT_BINARY_LEN;
+    checkAvailable(length);
     byte[] buf = Arrays.copyOfRange(data, position, position + length);
     position += length;
     return buf;
@@ -713,42 +958,72 @@ public class Decoder implements SerealHeader {
    * may refer to an tag that uses a COPY tag for a classname or hash key.
    */
   private Object read_copy() throws SerealException {
+    int copyTag = position - 1;
+    int originalPosition = copyTarget(copyTag);
+    if (inCopy) {
+      throw new SerealException("Nested COPY at byte " + copyTag + " inside another COPY");
+    }
+    int currentPosition = position, currentEnd = end; // remember where we parked
 
-    int originalPosition = (int) read_varint();
-    int currentPosition = position; // remember where we parked
-
-    position = originalPosition + baseOffset;
+    position = originalPosition;
+    // the copied value, including anything nested in it, must precede the COPY tag
+    end = copyTag;
+    inCopy = true;
     Object copy = readSingleValue();
+    inCopy = false;
+    end = currentEnd;
     position = currentPosition; // go back to where we were
 
     return copy;
   }
 
-  private String readStringCopy() throws SerealException {
-    int originalPosition = (int) read_varint();
+  /**
+   * Re-read the string at a previous offset, for a COPY used as a hash key or class name, and for
+   * OBJECTV class names.
+   *
+   * @param tag position of the COPY or OBJECTV tag
+   * @param allowCopyTarget whether the target may itself be a COPY (only for OBJECTV, whose
+   *     target is an OBJECT's class name)
+   */
+  private String readStringCopy(int tag, boolean allowCopyTarget) throws SerealException {
+    int originalPosition = copyTarget(tag);
+    if (!allowCopyTarget && data[originalPosition] == SRL_HDR_COPY) {
+      throw new SerealException("COPY at byte " + tag + " refers to another COPY");
+    }
     int currentPosition = position; // remember where we parked
 
-    position = originalPosition + baseOffset;
+    position = originalPosition;
     String copy = readString();
     position = currentPosition; // go back to where we were
 
     return copy;
   }
 
-  private String read_UTF8() throws SerealException {
-    int length = (int) read_varint();
-    int originalPosition = position;
+  // read a backreference offset, which must point strictly before the tag at position tag
+  private int copyTarget(int tag) throws SerealException {
+    long offset = read_varint();
+    long target = baseOffset + offset;
+    if (offset < 1 || target < 0 || target >= tag) {
+      throw new SerealException("COPY target " + offset + " at byte " + tag + " must precede its own tag");
+    }
+    return (int) target;
+  }
 
-    position += length;
+  private String read_UTF8() throws SerealException {
+    int length = readLength();
+    int originalPosition = position;
 
     if (maxStringLength != 0 && length > maxStringLength) {
       throw new SerealException("Got input string with " + length + " characters, but the configured maximum is just " + maxStringLength);
     }
+    checkAvailable(length);
+
+    position += length;
 
     return new String(data, originalPosition, length, charset_utf8);
   }
 
-  private long read_zigzag() {
+  private long read_zigzag() throws SerealException {
 
     long n = read_varint();
 
@@ -769,9 +1044,11 @@ public class Decoder implements SerealHeader {
     }
 
     // now read modifiers
+    checkNoEOD();
     byte tag = data[position++];
     if ((tag & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW) {
       int length = tag & SRL_MASK_SHORT_BINARY_LEN;
+      checkAvailable(length);
       while (length-- > 0) {
         byte value = data[position++];
         switch (value) {
@@ -799,7 +1076,11 @@ public class Decoder implements SerealHeader {
           "Expecting SRL_HDR_SHORT_BINARY for modifiers of regexp, got: " + tag);
     }
 
-    return Pattern.compile(regex, flags);
+    try {
+      return Pattern.compile(regex, flags);
+    } catch (PatternSyntaxException e) {
+      throw new SerealException(e);
+    }
   }
 
   private Object readObject() throws SerealException {
@@ -822,13 +1103,15 @@ public class Decoder implements SerealHeader {
 
     if ((tag & SRL_HDR_SHORT_BINARY_LOW) == SRL_HDR_SHORT_BINARY_LOW) {
       int length = tag & SRL_MASK_SHORT_BINARY_LEN;
+      checkAvailable(length);
       String string = new String(data, position, length, charset_latin1);
 
       position += length;
 
       return string;
     } else if (tag == SRL_HDR_BINARY) {
-      int length = (int) read_varint();
+      int length = readLength();
+      checkAvailable(length);
       String string = new String(data, position, length, charset_latin1);
 
       position += length;
@@ -837,7 +1120,7 @@ public class Decoder implements SerealHeader {
     } else if (tag == SRL_HDR_STR_UTF8) {
       return read_UTF8();
     } else if (tag == SRL_HDR_COPY) {
-      return readStringCopy();
+      return readStringCopy(position - 1, false);
     } else {
       throw new SerealException("Tag " + tag + " is not a string tag");
     }
@@ -883,6 +1166,8 @@ public class Decoder implements SerealHeader {
     protocolVersion = encoding = -1;
     baseOffset = Integer.MAX_VALUE;
     userHeaderPosition = userHeaderSize = -1;
+    hasChecksum = false;
+    payloadStart = payloadEnd = -1;
     resetTracked();
   }
 
