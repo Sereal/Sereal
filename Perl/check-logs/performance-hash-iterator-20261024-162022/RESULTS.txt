@@ -23,8 +23,9 @@ not yet demonstrated. Earlier benchmark results for this branch should not
 be relabeled as results after the hash-iterator change.
 
 Validation: native Encoder suite 73 files/156926 tests passed. Focused ASan
-and Perl 5.14.4 runs each passed 3 files/1607 tests. Xcode/ObjC testing is
-unavailable on this Linux host and unrelated to this benchmark.
+and Perl 5.14.4 runs each passed 3 files/1607 tests. Focused threaded Perl
+5.42 passed 4 files/1608 tests, including t/800_threads.t. Xcode/ObjC testing
+is unavailable on this Linux host and unrelated to this benchmark.
 
 Raw JSON samples, worker/controller sources, per-case logs, and metadata are
 in this directory.

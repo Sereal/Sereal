@@ -1,0 +1,28 @@
+make: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Encoder'
+"/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Encoder.bs blib/arch/auto/Sereal/Encoder/Encoder.bs 644
+gcc -c  -I. -D_REENTRANT -D_GNU_SOURCE -fwrapv -fno-strict-aliasing -pipe -fstack-protector-strong -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O3   -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/lib/5.42.2/x86_64-linux-thread-multi/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DMINIZ_USE_UNALIGNED_LOAD_AND_STORE=1 -DMINIZ_UNALIGNED_USE_MEMCOPY -DHAVE_BUILTIN_CTZ srl_encoder.c
+cd zstd && make all
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Encoder/zstd'
+rm -f blib/arch/auto/Sereal/Encoder/Encoder.so
+ccache gcc  -shared -O2 -L/usr/local/lib -fstack-protector-strong  Encoder.o srl_encoder.o miniz.o zstd/libzstd.o  -o blib/arch/auto/Sereal/Encoder/Encoder.so  \
+      \
+  
+chmod 755 blib/arch/auto/Sereal/Encoder/Encoder.so
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Encoder/zstd'
+make[1]: Entering directory '/tmp/sereal-merge332-li5djdrv/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'test_dynamic'.
+make[1]: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Encoder/zstd'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.42.2-thread-multi/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/045_each_iterator.t t/132_callback_hash_mutation.t t/140_sorted_callback_cursor.t t/800_threads.t
+Use of each() on hash after insertion without resetting hash iterator results in undefined behavior, Perl interpreter: 0x596cdd5d12a0 at t/045_each_iterator.t line 136.
+t/045_each_iterator.t ........... ok
+t/132_callback_hash_mutation.t .. ok
+t/140_sorted_callback_cursor.t .. ok
+t/800_threads.t ................. ok
+All tests successful.
+Files=4, Tests=1608,  1 wallclock secs ( 0.06 usr  0.01 sys +  0.54 cusr  0.06 csys =  0.67 CPU)
+Result: PASS
+make: Leaving directory '/tmp/sereal-merge332-li5djdrv/Perl/Encoder'

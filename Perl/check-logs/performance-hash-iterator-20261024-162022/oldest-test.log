@@ -1,0 +1,22 @@
+make: Entering directory '/tmp/sereal-fix-matrix-7hGVQP/oldest/Perl/Encoder'
+"/home/demerphq/perl5/perlbrew/perls/perl-5.14.4/bin/perl" -MExtUtils::Command::MM -e 'cp_nonempty' -- Encoder.bs blib/arch/auto/Sereal/Encoder/Encoder.bs 644
+ccache gcc -c  -I. -fwrapv -fno-strict-aliasing -pipe -fstack-protector -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DSSize_t_MAX=SSIZE_MAX -O3 -Werror=declaration-after-statement    -DVERSION=\"6.000_001\" -DXS_VERSION=\"6.000_001\" -fPIC "-I/home/demerphq/perl5/perlbrew/perls/perl-5.14.4/lib/5.14.4/x86_64-linux/CORE"  -DNDEBUG -DMINIZ_NO_STDIO -DMINIZ_USE_UNALIGNED_LOAD_AND_STORE=1 -DMINIZ_UNALIGNED_USE_MEMCOPY -DHAVE_BUILTIN_CTZ srl_encoder.c
+rm -f blib/arch/auto/Sereal/Encoder/Encoder.so
+ccache gcc  -shared -O2 -L/usr/local/lib -fstack-protector  Encoder.o srl_encoder.o miniz.o zstd/libzstd.o  -o blib/arch/auto/Sereal/Encoder/Encoder.so  \
+      \
+  
+chmod 755 blib/arch/auto/Sereal/Encoder/Encoder.so
+make[1]: Entering directory '/tmp/sereal-fix-matrix-7hGVQP/oldest/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'all'.
+make[1]: Leaving directory '/tmp/sereal-fix-matrix-7hGVQP/oldest/Perl/Encoder/zstd'
+make[1]: Entering directory '/tmp/sereal-fix-matrix-7hGVQP/oldest/Perl/Encoder/zstd'
+make[1]: Nothing to be done for 'test_dynamic'.
+make[1]: Leaving directory '/tmp/sereal-fix-matrix-7hGVQP/oldest/Perl/Encoder/zstd'
+PERL_DL_NONLAZY=1 "/home/demerphq/perl5/perlbrew/perls/perl-5.14.4/bin/perl" "-MExtUtils::Command::MM" "-MTest::Harness" "-e" "undef *Test::Harness::Switches; test_harness(0, 'blib/lib', 'blib/arch')" t/045_each_iterator.t t/132_callback_hash_mutation.t t/140_sorted_callback_cursor.t
+t/045_each_iterator.t ........... ok
+t/132_callback_hash_mutation.t .. ok
+t/140_sorted_callback_cursor.t .. ok
+All tests successful.
+Files=3, Tests=1607,  0 wallclock secs ( 0.06 usr  0.01 sys +  0.41 cusr  0.02 csys =  0.50 CPU)
+Result: PASS
+make: Leaving directory '/tmp/sereal-fix-matrix-7hGVQP/oldest/Perl/Encoder'
