@@ -59,6 +59,10 @@ func readHeader(b []byte) (serealHeader, error) {
 		return serealHeader{}, err
 	}
 
+	if ln < 0 || ln > len(b)-headerSize-sz {
+		return serealHeader{}, ErrCorrupt{errBadOffset}
+	}
+
 	h.suffixSize = ln + sz
 	h.suffixStart = headerSize + sz
 
@@ -82,6 +86,7 @@ type Decoder struct {
 	umcache   map[string]reflect.Type
 	tcache    tagsCache
 	copyDepth int
+	minOffset int // offsets below this point before the body (or header) being decoded
 
 	// PerlCompat produced a decoded data structure that preserves as much as possible the original Perl structure
 	PerlCompat bool
@@ -261,7 +266,8 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 
 	d.docVersion = header.version
 
-	if vheader != nil && header.suffixSize != 1 {
+	// an empty suffix is a zero length; it may be spelt as a padded varint
+	if vheader != nil && header.suffixSize != header.suffixStart-headerSize {
 		d.tracked = make(map[int]reflect.Value)
 		defer func() { d.tracked = nil }()
 
@@ -270,12 +276,16 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 			return ErrHeaderPointer
 		}
 
-		header.suffixFlags = b[header.suffixStart]
+		// header offsets are relative to the suffix flags byte
+		suffix := b[header.suffixStart:headerEnd]
+		d.minOffset = 1
+
+		header.suffixFlags = suffix[0]
 		if header.suffixFlags&1 == 1 {
 			if ptr, ok := vheader.(*interface{}); ok && *ptr == nil {
-				_, err = d.decode(b[:headerEnd], header.suffixStart+1, ptr)
+				_, err = d.decode(suffix, 1, ptr)
 			} else {
-				_, err = d.decodeViaReflection(b[:headerEnd], header.suffixStart+1, headerValue.Elem())
+				_, err = d.decodeViaReflection(suffix, 1, headerValue.Elem())
 			}
 		}
 	}
@@ -320,6 +330,7 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 		}
 
 		if header.version == 1 {
+			d.minOffset = bodyStart
 			if ptr, ok := vbody.(*interface{}); ok && *ptr == nil {
 				_, err = d.decode(b, bodyStart, ptr)
 			} else {
@@ -329,6 +340,7 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 			// serealv2 documents have 1-based offsets :/
 			var idx int
 			body := b[bodyStart-1 : bodyEnd]
+			d.minOffset = 1
 			if ptr, ok := vbody.(*interface{}); ok && *ptr == nil {
 				idx, err = d.decode(body, 1, ptr)
 			} else {
@@ -578,7 +590,7 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		if offs < 0 || offs >= idx {
+		if d.badOffset(offs, idx-1) {
 			return 0, ErrCorrupt{errBadOffset}
 		}
 		idx += sz
@@ -644,6 +656,12 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 
 	//fmt.Printf("stop decode: tag %d (0x%x)\n", int(tag), int(tag))
 	return idx, err
+}
+
+// badOffset reports whether a back-reference offset found in the tag at
+// tagIdx does not point into the part of the document decoded before it
+func (d *Decoder) badOffset(offs, tagIdx int) bool {
+	return offs < d.minOffset || offs >= tagIdx
 }
 
 func (d *Decoder) decodeInt(tag byte) int {
@@ -932,7 +950,7 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 		if err != nil {
 			return nil, 0, err
 		}
-		if offs < 0 || offs >= idx {
+		if d.badOffset(offs, idx-1) {
 			return nil, 0, ErrCorrupt{errBadOffset}
 		}
 		idx += sz
@@ -1150,7 +1168,7 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		if err != nil {
 			return 0, err
 		}
-		if offs < 0 || offs >= idx {
+		if d.badOffset(offs, idx-1) {
 			return 0, ErrCorrupt{errBadOffset}
 		}
 		idx += sz
@@ -1348,12 +1366,11 @@ func (d *Decoder) decodeREFP(by []byte, idx int) (reflect.Value, int, error) {
 		var res reflect.Value
 		return res, 0, err
 	}
-	idx += sz
-
-	if offs < 0 || offs >= idx {
+	if d.badOffset(offs, idx-1) {
 		var res reflect.Value
 		return res, 0, ErrCorrupt{errBadOffset}
 	}
+	idx += sz
 
 	rv, ok := d.tracked[offs]
 	if !ok {
@@ -1392,12 +1409,11 @@ func (d *Decoder) decodeALIAS(by []byte, idx int) (reflect.Value, int, error) {
 		var res reflect.Value
 		return res, 0, err
 	}
-	idx += sz
-
-	if offs < 0 || offs >= idx {
+	if d.badOffset(offs, idx-1) {
 		var res reflect.Value
 		return res, 0, ErrCorrupt{errBadOffset}
 	}
+	idx += sz
 
 	rv, ok := d.tracked[offs]
 	if !ok {
@@ -1439,6 +1455,9 @@ func (d *Decoder) decodeObjectViaReflection(by []byte, idx int, ptr reflect.Valu
 		if err != nil {
 			return 0, err
 		}
+		if d.badOffset(offs, idx-1) {
+			return 0, ErrCorrupt{errBadOffset}
+		}
 		idx += sz
 		className, _, err = d.decodeStringish(by, offs)
 	}
@@ -1473,6 +1492,9 @@ func (d *Decoder) decodeObjectFreezeViaReflection(by []byte, idx int, ptr reflec
 		offs, sz, err := varintdecode(by[idx:])
 		if err != nil {
 			return 0, err
+		}
+		if d.badOffset(offs, idx-1) {
+			return 0, ErrCorrupt{errBadOffset}
 		}
 		idx += sz
 		className, _, err = d.decodeStringish(by, offs)
