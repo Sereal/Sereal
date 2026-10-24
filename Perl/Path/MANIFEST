@@ -152,6 +152,7 @@ t/020_interface.t
 t/030_quiery_syntax.t
 t/040_simple_queries.t
 t/050_complex_queries.t
+t/060_malformed.t
 t/playground.pl
 Tie/inc/Devel/CheckLib.pm
 Tie/inc/Sereal/BuildTools.pm
