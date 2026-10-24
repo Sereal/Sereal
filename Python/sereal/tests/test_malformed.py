@@ -121,6 +121,25 @@ class TestMalformed(unittest.TestCase):
         # document type 3 (zlib) with a raw body that is not compressed
         self.assertRejected('01', 'document type', header='3df3726c3300')
 
+    def test_reused_decoder_forgets_tracked_items(self):
+        decoder = SrlDecoder()
+        # ARRAYREF_2 [SHORT_BINARY_1 "a" with the track bit set, REFP to offset 2]
+        self.assertEqual(decoder.decode(bytes.fromhex(HEADER + '42e1612902')), ['a', 'a'])
+        # REFP to offset 2, which was only tracked in the previous document
+        with self.assertRaises(SrlError) as cm:
+            decoder.decode(bytes.fromhex(HEADER + '2902'))
+        self.assertIn('not a tracked item', str(cm.exception))
+
+    def test_reused_decoder_after_failed_copy(self):
+        decoder = SrlDecoder()
+        # ARRAYREF_3 ["a", COPY to offset 2, COPY to offset 4]: the second COPY
+        # targets the first, so the error is raised while inside a COPY
+        with self.assertRaises(SrlError) as cm:
+            decoder.decode(bytes.fromhex(HEADER + '4361612f022f04'))
+        self.assertIn('copy', str(cm.exception))
+        # ARRAYREF_2 [SHORT_BINARY_1 "a", COPY to offset 2]
+        self.assertEqual(decoder.decode(bytes.fromhex(HEADER + '4261612f02')), ['a', 'a'])
+
 
 if __name__ == '__main__':
     unittest.main()
