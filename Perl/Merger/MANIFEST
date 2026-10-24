@@ -58,6 +58,7 @@ t/020_v5_v6_input.t
 t/030_compress.t
 t/040_dedupe_strings.t
 t/050_v1_input.t
+t/060_malformed.t
 t/lib/Sereal/BulkTest.pm
 t/lib/Sereal/TestSet.pm
 TODO
