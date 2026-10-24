@@ -61,12 +61,16 @@ static VALUE s_read_small_negative_int(sereal_t *s, u8 tag) {
 }
 
 /* ARRAY */
-static inline VALUE s_read_array_with_len(sereal_t *s, u32 len) {
-    VALUE arr[len];
-    register u32 i;
+static inline VALUE s_read_array_with_len(sereal_t *s, u64 len) {
+    // every element takes at least one byte, so the count can not exceed what is left
+    if (!(s->flags & __STREAM) && (s->pos > s->size || len > s->size - s->pos))
+        s_raise(s,rb_eRangeError,"array count %" PRIu64 " exceeds the remaining %u bytes",
+                len,s->size - s->pos);
+    VALUE arr = rb_ary_new_capa((s->flags & __STREAM) ? 0 : (long) len);
+    u64 i;
     for (i = 0; i < len; i++)
-        arr[i] = sereal_to_rb_object(s);
-    return rb_ary_new4(len,arr);
+        rb_ary_push(arr,sereal_to_rb_object(s));
+    return arr;
 }
 
 /* ARRAY */ 
