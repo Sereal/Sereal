@@ -23,5 +23,10 @@ size a compressed body may decompress to; larger bodies, and declared
 lengths the compressed data cannot hold, are rejected with
 ErrMaxUncompressedSize or ErrCorrupt before the memory is allocated.
 DecompressDocument always applies the default size limit.
+
+A panic while decoding, merging or inspecting a document, including one
+raised by a user UnmarshalBinary method, is returned as an error; runtime
+errors and panic values that are neither errors nor strings are wrapped in
+ErrDecodePanic.
 */
 package sereal

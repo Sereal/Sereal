@@ -194,7 +194,13 @@ func inspectChecksum(b []byte) (env checksumEnvelope, signed bool, err error) {
 // document is not checksummed. It works for checksum types this package
 // cannot verify and returns an error when the header or envelope framing is
 // malformed.
-func GetChecksum(b []byte) ([]byte, error) {
+func GetChecksum(b []byte) (sum []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			sum, err = nil, recoverError(r)
+		}
+	}()
+
 	env, signed, err := inspectChecksum(b)
 	if err != nil || !signed {
 		return nil, err
@@ -210,7 +216,13 @@ func GetChecksum(b []byte) ([]byte, error) {
 // checksummed, and an error for malformed framing, an unsupported checksum
 // type or a nil key on a checksummed document. Only the envelope is checked;
 // the payload is not decoded.
-func ValidateChecksum(b []byte, key *[16]byte) (bool, error) {
+func ValidateChecksum(b []byte, key *[16]byte) (ok bool, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			ok, err = false, recoverError(r)
+		}
+	}()
+
 	env, signed, err := inspectChecksum(b)
 	if err != nil || !signed {
 		return false, err

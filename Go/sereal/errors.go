@@ -22,6 +22,10 @@ var (
 
 	ErrMaxUncompressedSize = errors.New("sereal: uncompressed document exceeds the maximum size")
 
+	// ErrDecodePanic wraps a panic recovered while decoding, merging or
+	// inspecting a document
+	ErrDecodePanic = errors.New("sereal: panic during decode")
+
 	// protocol version 6 checksum envelope
 	ErrChecksumVersion       = errors.New("sereal: checksummed documents require protocol version 6 or later")
 	ErrChecksumRequired      = errors.New("sereal: checksum policy require_key requires a checksummed document")
