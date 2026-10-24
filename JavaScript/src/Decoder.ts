@@ -25,6 +25,9 @@ module Sereal {
 
         init(data: any) {
             this.tracked = {};
+            // a previous document that threw may have left these set
+            this.depth = 0;
+            this.inCopy = false;
             if (data instanceof DataReader)
                 this.reader = <DataReader>data;
             else
