@@ -20,6 +20,8 @@ Revision history for Perl extension Sereal-Merger
     the output had used up the space reserved for the input
   * append_all() reserves output space per document from its length,
     not once from SvLEN of the inputs (0 for hash keys)
+  * forget the tracked offsets of earlier documents, so a reference can
+    no longer resolve into another (or a failed) document
   * bump Sereal prereq version to 6.000_001
 
 4.004 Nov 13 2017
