@@ -108,6 +108,13 @@ srl_splitter_jump(pTHX_ srl_splitter_t *splitter, UV offset)
     splitter->chunk_iter_start = buf->pos;
 }
 
+/* the tag, without its track bit, at a back-reference that
+ * srl_read_varint_uv_offset() has checked */
+#define SRL_SPLITTER_TARGET_TAG(buf, offset) (*((buf)->body_pos + (offset)) & ~SRL_HDR_TRACK_FLAG)
+#define SRL_SPLITTER_TARGET_IS_TRACKED(buf, offset) (*((buf)->body_pos + (offset)) & SRL_HDR_TRACK_FLAG)
+#define SRL_SPLITTER_IS_STRING_TAG(tag) \
+    ((tag) >= SRL_HDR_SHORT_BINARY_LOW || (tag) == SRL_HDR_BINARY || (tag) == SRL_HDR_STR_UTF8)
+
 /* chunk output */
 
 SRL_STATIC_INLINE void
@@ -501,8 +508,13 @@ srl_splitter_read_refp(pTHX_ srl_splitter_t *splitter)
                                 splitter->tag_is_tracked ? SRL_HDR_REFP | SRL_HDR_TRACK_FLAG : SRL_HDR_REFP,
                                 PTR2UV(new_offset));
     } else {
-        /* otherwise copy the referent here, behind a REFN */
-        U8 refn = splitter->tag_is_tracked ? SRL_HDR_REFN | SRL_HDR_TRACK_FLAG : SRL_HDR_REFN;
+        /* otherwise copy the referent here, behind a REFN; only a tracked
+         * item can be referenced, which also stops the copy from being
+         * expanded again for every reference in this chunk */
+        U8 refn;
+        if (expect_false(!SRL_SPLITTER_TARGET_IS_TRACKED(buf, offset)))
+            SRL_RDR_ERRORf1(buf, "REFP(%"UVuf") references an unknown item", offset);
+        refn = splitter->tag_is_tracked ? SRL_HDR_REFN | SRL_HDR_TRACK_FLAG : SRL_HDR_REFN;
         srl_splitter_cat(aTHX_ splitter, &refn, 1);
         srl_splitter_deeper(aTHX_ splitter);
         srl_splitter_jump(aTHX_ splitter, offset);
@@ -516,6 +528,9 @@ srl_splitter_read_objectv(pTHX_ srl_splitter_t *splitter, int is_freeze)
     const U8 *tag_pos = buf->pos - 1;
     const UV offset = srl_read_varint_uv_offset(aTHX_ buf, " while reading OBJECTV");
     U8 tag = is_freeze ? SRL_HDR_OBJECT_FREEZE : SRL_HDR_OBJECT;
+
+    if (expect_false(!SRL_SPLITTER_IS_STRING_TAG(SRL_SPLITTER_TARGET_TAG(buf, offset))))
+        SRL_RDR_ERRORf1(buf, "OBJECTV class name at offset %"UVuf" is not a string", offset);
 
     /* Replace the OBJECTV with an OBJECT and a copy of the class name;
      * string deduplication may turn the copy back into a COPY. */
@@ -539,6 +554,11 @@ srl_splitter_read_copy(pTHX_ srl_splitter_t *splitter)
     srl_reader_buffer_t *buf = SRL_SPLITTER_BUF(splitter);
     const U8 *tag_pos = buf->pos - 1;
     const UV offset = srl_read_varint_uv_offset(aTHX_ buf, " while reading COPY");
+
+    /* as in the Decoder, a COPY cannot be reached while expanding another
+     * one: only strings are copied, which also keeps the expansion linear */
+    if (expect_false(!SRL_SPLITTER_IS_STRING_TAG(SRL_SPLITTER_TARGET_TAG(buf, offset))))
+        SRL_RDR_ERRORf1(buf, "COPY target at offset %"UVuf" is not a string", offset);
 
     srl_splitter_flush(aTHX_ splitter, tag_pos, NULL);
     srl_splitter_deeper(aTHX_ splitter);
@@ -567,7 +587,10 @@ srl_splitter_read_alias(pTHX_ srl_splitter_t *splitter)
     if (new_offset) {
         srl_splitter_cat_varint(aTHX_ splitter, SRL_HDR_ALIAS, PTR2UV(new_offset));
     } else {
-        /* otherwise duplicate the value here */
+        /* otherwise duplicate the value here; only a tracked item can be
+         * aliased */
+        if (expect_false(!SRL_SPLITTER_TARGET_IS_TRACKED(buf, offset)))
+            SRL_RDR_ERRORf1(buf, "ALIAS(%"UVuf") references an unknown item", offset);
         srl_splitter_deeper(aTHX_ splitter);
         srl_splitter_jump(aTHX_ splitter, offset);
     }

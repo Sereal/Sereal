@@ -102,13 +102,14 @@ subtest "malformed input" => sub {
     ok(!eval { resplit(substr($doc, 0, -5)); 1 }, "truncated input is rejected");
     like($@, qr/Unexpected termination of packet|end of packet/, "with a bounds error");
 
-    # [ REFP to the enclosing ARRAY ]: following it never terminates
+    # [ REFP to the enclosing, untracked ARRAY ]: following it would never
+    # terminate
     my $loop = "=\xF3rl\x03\x00" . "\x28\x2b\x01" . "\x29\x02";
     local $SIG{ALRM} = sub { die "timed out\n" };
     alarm 10;
     ok(!eval { resplit($loop, max_recursion_depth => 100); 1 }, "self-referencing REFP is rejected");
     alarm 0;
-    like($@, qr/recursion limit/, "by the recursion limit");
+    like($@, qr/references an unknown item/, "as a reference to an untracked item");
 };
 
 subtest "independent splitters" => sub {
