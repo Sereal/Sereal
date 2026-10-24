@@ -213,6 +213,10 @@ srl_read_varint_uv_offset(pTHX_ srl_reader_buffer_t *buf, const char * const err
         SRL_RDR_ERRORf1(buf,
             "Corrupted packet%s. Offset 0 does not point into the document body",
             errstr);
+    /* In V1 the offsets of the header bytes are nonzero too; after
+     * decompression the header bytes were never even written. */
+    if (expect_false(offset < (UV)(buf->body_start - buf->body_pos)))
+        SRL_RDR_ERRORf1(buf, "Back-reference offset points before the document body%s", errstr);
     /* A "copy" reference can only refer to things that precede its tag
      * in the same body; an offset pointing at the tag itself would make
      * readers that follow it loop forever. Compare the offset to the tag's

@@ -91,6 +91,21 @@ subtest "decode() of references to untracked items" => sub {
        "ok", "a chain of references to untracked items is decoded once per item");
 };
 
+subtest "protocol v1 offsets into the header" => sub {
+    # v1 offsets count from the start of the packet, so offsets 1 to 5 point
+    # into the header; after decompression that is memory that was never
+    # written. HASHREF_1 { COPY of offset 1 => 1 }
+    my $body = "\x51\x2f\x01\x01";
+    my $snappy = "=srl\x11\x00" . chr(length $body) . chr((length($body) - 1) << 2) . $body;
+    for ([ "raw", "=srl\x01\x00" . $body ], [ "snappy", $snappy ]) {
+        my ($name, $packet) = @$_;
+        my $iter = Sereal::Path::Iterator->new($packet);
+        $iter->step_in();
+        ok(!eval { $iter->hash_key(); 1 }, "$name: COPY of a header byte is rejected");
+        like($@, qr/points before the document body/, "$name: error message");
+    }
+};
+
 subtest "end of input after a reference tag" => sub {
     # REFN as the last byte
     ok(!iter_ok("\x28", sub { $_[0]->step_in() }), "REFN at the end of input is rejected");

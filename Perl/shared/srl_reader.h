@@ -19,16 +19,19 @@
     (buf)->end = NULL;                                                         \
     (buf)->pos = NULL;                                                         \
     (buf)->body_pos = NULL;                                                    \
+    (buf)->body_start = NULL;                                                  \
 } STMT_END
 
 /* Sereal v1 and newer version use start body offset from different positions */
 #define SRL_RDR_SET_BODY_POS(buf, pos) ((buf)->body_pos = (pos))
+/* call with buf->pos at the first byte of the body */
 #define SRL_RDR_UPDATE_BODY_POS(buf, protocol_version) STMT_START {            \
     if (expect_false((protocol_version) == 1)) {                               \
         SRL_RDR_SET_BODY_POS((buf), (buf)->start);                             \
     } else {                                                                   \
         SRL_RDR_SET_BODY_POS((buf), (buf)->pos - 1);                           \
     }                                                                          \
+    (buf)->body_start = (buf)->pos;                                            \
 } STMT_END
 
 #define SRL_RDR_ASSERT_SPACE(buf, len, msg) STMT_START {                       \

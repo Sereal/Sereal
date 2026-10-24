@@ -16,6 +16,8 @@ Revision history for Perl extension Sereal-Splitter
   * reject a COPY of anything but a string, an OBJECTV whose class name
     is not a string, and a REFP or ALIAS to an untracked item, like
     Sereal::Decoder: expanding them could take exponential time and space
+  * reject protocol v1 offsets that point into the header, which for a
+    compressed document exposed bytes that were never written
   * built on the reader, buffer and compression code shared with
     Sereal::Encoder and Sereal::Decoder; uthash is no longer bundled
 

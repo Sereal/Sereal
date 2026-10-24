@@ -94,4 +94,17 @@ subtest "references to untracked items" => sub {
     is_deeply([ map { @{ decode_sereal($_) } } @chunks ], [ [], \[] ], "and copies the item");
 };
 
+subtest "protocol v1 offsets into the header" => sub {
+    # v1 offsets count from the start of the packet, so offsets 1 to 5 point
+    # into the header; after decompression that is memory that was never
+    # written. REFN ARRAY [ "q", COPY of offset 1 ]
+    my $body = "\x28\x2b\x02\x61q\x2f\x01";
+    my $snappy = "=srl\x11\x00" . chr(length $body) . chr((length($body) - 1) << 2) . $body;
+    for ([ "raw", "=srl\x01\x00" . $body ], [ "snappy", $snappy ]) {
+        my ($name, $packet) = @$_;
+        ok(!split_packet($packet), "$name: COPY of a header byte is rejected");
+        like($@, qr/points before the document body/, "$name: error message");
+    }
+};
+
 done_testing;
