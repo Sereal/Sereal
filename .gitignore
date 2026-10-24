@@ -5,3 +5,6 @@
 
 .idea/
 .vscode/
+
+# Local test, sanitizer, and benchmark output.
+/.sereal-check-logs/

@@ -3,6 +3,7 @@ export SEREAL_USE_BUNDLED_LIBS=1
 git clean -dfX &&
 pushd Decoder && perl Makefile.PL && make && popd &&
 pushd Encoder && perl Makefile.PL && make && popd &&
+export PERL5LIB="$PWD/Decoder/blib/lib:$PWD/Decoder/blib/arch:$PWD/Encoder/blib/lib:$PWD/Encoder/blib/arch${PERL5LIB:+:$PERL5LIB}" &&
 pushd Decoder && perl Makefile.PL && make test && make manifest && make dist && popd &&
 pushd Encoder && perl Makefile.PL && make test && make manifest && make dist && popd &&
 pushd Sereal && perl Makefile.PL && make test && make manifest && make dist && popd &&
