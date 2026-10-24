@@ -2195,10 +2195,10 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
 {
     HE *he = NULL;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
+    srl_hv_iter_state_t iter_state;
     srl_encoder_frame *frame = enc->frames;
     frame->cursor = &he;
     frame->sorted_keyed = 0;
-    srl_hv_iter_state_t iter_state;
 
     /* This sub is used only for untied hashes and when the user wants
      * sorted keys, but not necessarily the order that perl would use. 
