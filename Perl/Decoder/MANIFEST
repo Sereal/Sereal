@@ -147,6 +147,13 @@ t/937_regr_header_callback_input_mutation.t
 t/938_regr_huge_decompressed_size.t
 t/939_regr_unaligned_floats.t
 t/940_regr_constructor_cleanup.t
+t/940_regr_start_offset_beyond_input.t
+t/941_regr_regexp_copies.t
+t/942_regr_alias_aggregate.t
+t/943_regr_bless_alias_cache.t
+t/944_regr_copy_object_tag.t
+t/945_regr_limit_options.t
+t/946_regr_class_stash_creation.t
 t/data/corpus
 t/lib/Sereal/BulkTest.pm
 t/lib/Sereal/TestSet.pm
