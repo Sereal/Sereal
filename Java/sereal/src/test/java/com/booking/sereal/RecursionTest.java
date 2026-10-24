@@ -11,6 +11,7 @@ import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 public class RecursionTest {
@@ -201,7 +202,10 @@ public class RecursionTest {
             List<Object> decodedData = (List<Object>) decoder.decode();
             fail("Expected StackOverflowError");
         } catch (SerealException ex) {
-            assertEquals("StackOverflowError: Reached recursion limit during deserialization", ex.getMessage());
+            // which limit trips first depends on the stack frame sizes, i.e. on JIT compilation
+            assertTrue(ex.getMessage(),
+                ex.getMessage().equals("StackOverflowError: Reached recursion limit during deserialization")
+                    || ex.getMessage().equals("Reached recursion limit (10000) during deserialization"));
             throwException = true;
         }
 
