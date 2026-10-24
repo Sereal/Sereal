@@ -603,3 +603,36 @@ func TestUnmarshalerPanic(t *testing.T) {
 		}
 	}
 }
+
+func TestDecompressDocumentReusesDst(t *testing.T) {
+	body := []interface{}{"hello world", "hello world", 42}
+	for _, comp := range []compressor{SnappyCompressor{Incremental: true}, ZlibCompressor{}, ZstdCompressor{}} {
+		e := NewEncoderV4()
+		e.Compression = comp
+		e.CompressionThreshold = 0
+		doc, err := e.Marshal(body)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		for _, dst := range [][]byte{nil, make([]byte, 4), bytes.Repeat([]byte{0xaa}, len(doc)), bytes.Repeat([]byte{0xaa}, 4*len(doc))} {
+			out, err := DecompressDocument(dst, doc)
+			if err != nil {
+				t.Errorf("%T: DecompressDocument(dst of %d bytes): %v", comp, len(dst), err)
+				continue
+			}
+			var got interface{}
+			if err := Unmarshal(out, &got); err != nil {
+				t.Errorf("%T: dst of %d bytes: Unmarshal(%x): %v", comp, len(dst), out, err)
+				continue
+			}
+			var want interface{}
+			if err := Unmarshal(doc, &want); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("%T: dst of %d bytes: decompressed document %x decodes to %#v, want %#v", comp, len(dst), out, got, want)
+			}
+		}
+	}
+}
