@@ -62,5 +62,19 @@ decodes("4261612f02", ["a", "a"], "valid copy");
 rejects(repeat("41", 100000) + "01", /nesting/, "deep nesting");
 decodes(repeat("41", 3) + "01", [[[1]]], "shallow nesting");
 
+// HASHREF_1 {"__proto__": HASHREF_1 {"polluted": 1}}: used to replace the decoded object's prototype
+(function () {
+    var h = decode("51695f5f70726f746f5f5f5168706f6c6c7574656401");
+    var CtxObject = vm.runInContext("Object", ctx);
+    ok(Object.getPrototypeOf(h) === CtxObject.prototype, "__proto__ key leaves the prototype alone");
+    ok(h.polluted === undefined, "__proto__ key does not add inherited properties");
+    ok(Object.prototype.hasOwnProperty.call(h, "__proto__") && JSON.stringify(Object.keys(h)) === '["__proto__"]',
+        "__proto__ key is an own enumerable property");
+    ok(Object.getOwnPropertyDescriptor(h, "__proto__") && Object.getOwnPropertyDescriptor(h, "__proto__").value.polluted === 1,
+        "__proto__ key keeps its value");
+})();
+// HASHREF_2 {"a": 1, "a": 2}: a repeated key keeps the last value
+decodes("52616101616102", { a: 2 }, "repeated hash key");
+
 if (failed) process.exitCode = 1;
 console.log(failed ? "# " + failed + " of " + count + " failed" : "# all " + count + " passed");
