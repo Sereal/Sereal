@@ -97,6 +97,30 @@ class TestMalformed(unittest.TestCase):
         # REGEXP with pattern "a" and flags "i"
         self.assertEqual(decode('3161616169'), re.compile('a', re.I))
 
+    def test_copy_offset_zero(self):
+        # COPY to offset 0, which points at the last header byte
+        self.assertRejected('2f00', 'copy')
+
+    def test_copy_offset_zero_in_array(self):
+        # ARRAYREF_2 [1, COPY to offset 0]
+        self.assertRejected('42012f00', 'copy')
+
+    def test_copy_forward(self):
+        # ARRAYREF_2 [COPY to offset 3, 1]: the target is after the COPY tag
+        self.assertRejected('422f0301', 'copy')
+
+    def test_copy_valid(self):
+        # ARRAYREF_2 [SHORT_BINARY_1 "a", COPY to offset 2]
+        self.assertEqual(decode('4261612f02'), ['a', 'a'])
+
+    def test_snappy_document_type(self):
+        # document type 1 (snappy) with a raw body that is not compressed
+        self.assertRejected('01', 'document type', header='3df3726c1300')
+
+    def test_zlib_document_type(self):
+        # document type 3 (zlib) with a raw body that is not compressed
+        self.assertRejected('01', 'document type', header='3df3726c3300')
+
 
 if __name__ == '__main__':
     unittest.main()
