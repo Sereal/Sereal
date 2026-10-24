@@ -134,6 +134,13 @@ static char encoded_test[] = {
     ASSERT_REJECTS("=srl\x22\x00\x06\xff\xff\xff\xff\xff\xff", @"a malformed snappy header");
 }
 
+- (void)testHugeCounts
+{
+    // ARRAY / HASH declaring 2^32-1 elements in a 13-byte packet
+    ASSERT_REJECTS("=srl\x02\x00\x2b\xff\xff\xff\xff\x0f\x01", @"an ARRAY count past the end");
+    ASSERT_REJECTS("=srl\x02\x00\x2a\xff\xff\xff\xff\x0f\x01", @"a HASH count past the end");
+}
+
 - (void)setUp
 {
     [super setUp];

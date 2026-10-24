@@ -263,6 +263,8 @@ static void create_decoders_lookup()
     
     decoders[SRL_HDR_HASH] = ^id (srl_decoder_t *dec) {
         long long count = read_varint(dec);
+        // every element takes at least one byte, so a larger count can't be satisfied
+        CHECK_REMAINING(dec, count);
         NSMutableDictionary *dict = [[NSMutableDictionary alloc] initWithCapacity:count];
         fill_dictionary(dict, (int)count, dec);
         return dict;
@@ -270,6 +272,8 @@ static void create_decoders_lookup()
     
     decoders[SRL_HDR_ARRAY] = ^id (srl_decoder_t *dec) {
         long long count = read_varint(dec);
+        // every element takes at least one byte, so a larger count can't be satisfied
+        CHECK_REMAINING(dec, count);
         NSMutableArray *array = [[NSMutableArray alloc] initWithCapacity:count];
         fill_array(array, (int)count, dec);
         return array;
