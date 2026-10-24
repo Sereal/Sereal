@@ -159,7 +159,7 @@ func (m *Merger) initMerger() error {
 }
 
 // Append adds the sereal document b and returns the number of elements added to the top-level structure
-func (m *Merger) Append(b []byte) (int, error) {
+func (m *Merger) Append(b []byte) (n int, err error) {
 	if err := m.initMerger(); err != nil {
 		return 0, err
 	}
@@ -167,6 +167,15 @@ func (m *Merger) Append(b []byte) (int, error) {
 	if m.finished {
 		return 0, errors.New("finished document")
 	}
+
+	start := len(m.buf)
+	defer func() {
+		if r := recover(); r != nil {
+			m.buf = m.buf[:start]
+			m.forgetFrom(start - m.bodyOffset)
+			n, err = 0, recoverError(r)
+		}
+	}()
 
 	// never read past len(b), even where the capacity allows it
 	b = b[:len(b):len(b)]
@@ -245,7 +254,13 @@ func (m *Merger) forgetFrom(offs int) {
 }
 
 // Finish is called to terminate the merging process
-func (m *Merger) Finish() ([]byte, error) {
+func (m *Merger) Finish() (b []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			b, err = nil, recoverError(r)
+		}
+	}()
+
 	if err := m.initMerger(); err != nil {
 		return m.buf, err
 	}

@@ -241,16 +241,7 @@ func documentDecompressor(version byte, doctype documentType, hasChecksum bool) 
 func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody interface{}) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			if _, ok := r.(runtime.Error); ok {
-				panic(r)
-			}
-
-			switch t := r.(type) {
-			case string:
-				err = errors.New(t)
-			case error:
-				err = t
-			}
+			err = recoverError(r)
 		}
 	}()
 
@@ -389,6 +380,21 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 	}
 
 	return err
+}
+
+// recoverError converts a value recovered from a panic into an error:
+// runtime errors and values that are neither errors nor strings are wrapped
+// in ErrDecodePanic
+func recoverError(r interface{}) error {
+	switch t := r.(type) {
+	case runtime.Error:
+		return fmt.Errorf("%w: %w", ErrDecodePanic, t)
+	case error:
+		return t
+	case string:
+		return errors.New(t)
+	}
+	return fmt.Errorf("%w: %v", ErrDecodePanic, r)
 }
 
 // checksumKey returns the configured key for checksum type typ, or nil
@@ -1761,6 +1767,12 @@ func instantiateZero(typ reflect.Type) reflect.Value {
 // Bodies that decompress to more than DefaultMaxUncompressedSize bytes are
 // rejected with ErrMaxUncompressedSize.
 func DecompressDocument(dst, b []byte) (r []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = recoverError(r)
+		}
+	}()
+
 	header, err := checkHeader(b)
 	if err != nil {
 		return nil, err

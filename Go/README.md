@@ -42,6 +42,10 @@ value selects the default and a negative value disables the limit.
   `ErrMaxUncompressedSize`. Declared lengths are checked before memory is
   allocated for them. `DecompressDocument` always uses the default limit.
 
+A panic while decoding, merging or inspecting a document, including one raised
+by a user `UnmarshalBinary` method, is returned as an error; runtime errors and
+panic values that are neither errors nor strings wrap `ErrDecodePanic`.
+
 Protocol v6 and checksums
 -------------------------
 

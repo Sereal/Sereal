@@ -19,7 +19,13 @@ func callNoPanic(t *testing.T, what string, fn func() error) (err error) {
 			err = fmt.Errorf("panic: %v", r)
 		}
 	}()
-	return fn()
+	err = fn()
+	// the library recovers its own panics, but malformed input must be
+	// caught by a check before it gets that far
+	if errors.Is(err, ErrDecodePanic) {
+		t.Errorf("%s: %v", what, err)
+	}
+	return err
 }
 
 type malformedS struct {
@@ -561,5 +567,39 @@ func TestMergerFailedAppend(t *testing.T) {
 	want := []interface{}{[]interface{}{[]byte("abcd")}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("merged %#v, want %#v", got, want)
+	}
+}
+
+// panickingUnmarshaler panics from UnmarshalBinary with the value in with
+type panickingUnmarshaler struct{ with interface{} }
+
+func (p *panickingUnmarshaler) UnmarshalBinary([]byte) error {
+	if p.with == nil {
+		var s []int
+		_ = s[len(s)+1] // a runtime error
+	}
+	panic(p.with)
+}
+
+func TestUnmarshalerPanic(t *testing.T) {
+	// OBJECT_FREEZE "T" holding [ "x" ]
+	doc := mustHex(t, "3df3726c0300326154282b016178")
+
+	for _, with := range []interface{}{42, struct{ msg string }{"user code failed"}, "a string", nil} {
+		v := panickingUnmarshaler{with: with}
+		var err error
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Errorf("panic with %#v escaped Unmarshal: %v", with, r)
+				}
+			}()
+			err = Unmarshal(doc, &v)
+		}()
+		if err == nil {
+			t.Errorf("Unmarshal with UnmarshalBinary panicking with %#v returned no error", with)
+		} else if _, isString := with.(string); !isString && !errors.Is(err, ErrDecodePanic) {
+			t.Errorf("Unmarshal with UnmarshalBinary panicking with %#v: error %v, want ErrDecodePanic", with, err)
+		}
 	}
 }
