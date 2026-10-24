@@ -6,6 +6,9 @@ Revision history for Perl extension Sereal-Encoder
 *          encoder!                                            *
 ****************************************************************
 6.000_001
+    * Treat a write position past the end of the output buffer as needing
+      growth in BUF_NEED_GROW instead of wrapping to "plenty of room"
+      (shared with Sereal::Merger).
     * Restore COPY deduplication of hash keys given as UTF-8 strings that fit
       in Latin-1 (WASUTF8 keys), lost when shared keys started being retained.
     * Retain shared key storage while its address identifies a COPY target,
