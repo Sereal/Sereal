@@ -17,4 +17,7 @@
 
 // assume binary/shortbinary contains strings (perl compatibility)
 @property (nonatomic, assign) BOOL binaryStrings;
+
+// nesting depth past which decoding fails (default 1000, which fits a 512KB thread stack)
+@property (nonatomic, assign) NSUInteger maxRecursionDepth;
 @end

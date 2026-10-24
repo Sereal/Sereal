@@ -10,6 +10,7 @@
 #import "Sereal.h"
 #import "SrlObject.h"
 #import "SrlEncoder.h"
+#import "SrlDecoder.h"
 #import <Foundation/Foundation.h>
 
 static Sereal *sereal = nil;
@@ -38,6 +39,107 @@ static char encoded_test[] = {
 };
 
 @implementation SerealTest
+
+// malformed packets must come back as nil plus an error, never as an exception or a crash
+- (void)assertRejects:(const char *)bytes length:(size_t)length what:(NSString *)what
+{
+    NSData *data = [NSData dataWithBytes:bytes length:length];
+    SrlDecoder *decoder = [[SrlDecoder alloc] init];
+    NSError *err = nil;
+    id obj = nil;
+    STAssertNoThrow(obj = [decoder decode:data error:&err], @"decoder threw on %@", what);
+    STAssertNil(obj, @"decoder accepted %@", what);
+    STAssertNotNil(err, @"no error reported for %@", what);
+}
+
+#define ASSERT_REJECTS(__packet, __what) [self assertRejects:(__packet) length:sizeof(__packet) - 1 what:(__what)]
+
+- (void)testTruncatedValues
+{
+    // BINARY / STR_UTF8 declaring 1000 bytes with only 2 present
+    ASSERT_REJECTS("=srl\x02\x00\x26\xe8\x07" "ab", @"a truncated BINARY");
+    ASSERT_REJECTS("=srl\x02\x00\x27\xe8\x07" "ab", @"a truncated STR_UTF8");
+    // FLOAT / DOUBLE / LONG_DOUBLE with one or two payload bytes
+    ASSERT_REJECTS("=srl\x02\x00\x3f\x22\x01", @"a truncated FLOAT");
+    ASSERT_REJECTS("=srl\x02\x00\x3f\x23\x01", @"a truncated DOUBLE");
+    ASSERT_REJECTS("=srl\x02\x00\x3f\x24\x01\x02", @"a truncated LONG_DOUBLE");
+}
+
+- (void)testTruncatedHeader
+{
+    ASSERT_REJECTS("=sr", @"a packet shorter than the magic");
+    ASSERT_REJECTS("=SRL\x02\x00\x01", @"a bad magic");
+    // header suffix varint missing or cut short
+    ASSERT_REJECTS("=srl\x02", @"a packet without a header suffix length");
+    ASSERT_REJECTS("=srl\x02\x80", @"a truncated header suffix length");
+    // snappy packet without the compressed length varint
+    ASSERT_REJECTS("=srl\x22\x00", @"a snappy packet without a length");
+}
+
+- (void)testBadOffsets
+{
+    // COPY / OBJECTV / OBJECTV_FREEZE offsets far past the end, and ones that wrap to before the body
+    ASSERT_REJECTS("=srl\x02\x00\x2f\xa0\x8d\x06", @"a COPY past the end");
+    ASSERT_REJECTS("=srl\x02\x00\x2f\x80\x80\xc0\xff\xff\xff\xff\xff\xff\x01", @"a COPY before the body");
+    ASSERT_REJECTS("=srl\x02\x00\x2d\xa0\x8d\x06\x01", @"an OBJECTV past the end");
+    ASSERT_REJECTS("=srl\x02\x00\x2d\x80\x80\xc0\xff\xff\xff\xff\xff\xff\x01\x01", @"an OBJECTV before the body");
+    ASSERT_REJECTS("=srl\x02\x00\x33\x80\x80\xc0\xff\xff\xff\xff\xff\xff\x01\x01", @"an OBJECTV_FREEZE before the body");
+    // [COPY -> body offset 4, "ab"]: a COPY whose target follows it
+    ASSERT_REJECTS("=srl\x02\x00\x42\x2f\x04\x62" "ab", @"a forward COPY");
+    // [ "ab", COPY -> body offset 2 ]: offset 2 is the "ab" tag, but body offset 0 is not a tag
+    ASSERT_REJECTS("=srl\x02\x00\x42\x62" "ab" "\x2f\x00", @"a COPY to body offset 0");
+    // header suffix length past the end, or wrapping negative
+    ASSERT_REJECTS("=srl\x02\xa0\x8d\x06\x01", @"a header suffix past the end");
+    ASSERT_REJECTS("=srl\x02\x80\x80\xc0\xff\xff\xff\xff\xff\xff\x01\x01", @"a negative header suffix length");
+}
+
+- (void)testRecursionLimits
+{
+    // [ "ab", OBJECTV("ab") 1, OBJECTV(-> the first OBJECTV) 1 ]: an OBJECTV inside an OBJECTV's class name
+    ASSERT_REJECTS("=srl\x02\x00\x43\x62" "ab" "\x2d\x02\x01\x2d\x05\x01", @"an OBJECTV nested in an OBJECTV");
+    // { "ab" => OBJECTV_FREEZE("ab") "", "cd" => OBJECTV(-> the OBJECTV_FREEZE) 1 }
+    ASSERT_REJECTS("=srl\x02\x00\x52\x62" "ab" "\x33\x02\x60\x62" "cd" "\x2d\x05\x01", @"an OBJECTV_FREEZE nested in an OBJECTV");
+
+    // 100000 nested REFN tags around an integer, far deeper than the default limit
+    NSMutableData *deep = [NSMutableData dataWithBytes:"=srl\x02\x00" length:6];
+    [deep increaseLengthBy:100000];
+    memset((char *)deep.mutableBytes + 6, 0x28, 100000);
+    [deep appendBytes:"\x01" length:1];
+    [self assertRejects:deep.bytes length:deep.length what:@"100000 nested references"];
+
+    // the limit is configurable: 20 levels pass with the default and fail with a limit of 10
+    NSMutableData *shallow = [NSMutableData dataWithBytes:"=srl\x02\x00" length:6];
+    [shallow increaseLengthBy:19];
+    memset((char *)shallow.mutableBytes + 6, 0x28, 19);
+    [shallow appendBytes:"\x01" length:1];
+    SrlDecoder *decoder = [[SrlDecoder alloc] init];
+    NSError *err = nil;
+    STAssertEqualObjects([decoder decode:shallow error:&err], @1, @"20 nested levels should decode");
+    decoder.maxRecursionDepth = 10;
+    STAssertNil([decoder decode:shallow error:&err], @"20 nested levels should exceed a limit of 10");
+    STAssertNotNil(err, @"no error reported for exceeding the recursion limit");
+}
+
+- (void)testBadSnappy
+{
+    // compressed length longer than the packet
+    ASSERT_REJECTS("=srl\x22\x00\xa0\x8d\x06\x05\x10" "abcde", @"a snappy length past the end");
+    // zero compressed length
+    ASSERT_REJECTS("=srl\x22\x00\x00", @"a zero snappy length");
+    // snappy stream declares 64 bytes but its single literal produces 5
+    ASSERT_REJECTS("=srl\x22\x00\x07\x40\x10" "abcde", @"a snappy stream shorter than its declared length");
+    // snappy stream declares ~4GB
+    ASSERT_REJECTS("=srl\x22\x00\x07\xf0\xff\xff\xff\x0f\x04" "a", @"a snappy stream with a huge declared length");
+    // malformed snappy length header
+    ASSERT_REJECTS("=srl\x22\x00\x06\xff\xff\xff\xff\xff\xff", @"a malformed snappy header");
+}
+
+- (void)testHugeCounts
+{
+    // ARRAY / HASH declaring 2^32-1 elements in a 13-byte packet
+    ASSERT_REJECTS("=srl\x02\x00\x2b\xff\xff\xff\xff\x0f\x01", @"an ARRAY count past the end");
+    ASSERT_REJECTS("=srl\x02\x00\x2a\xff\xff\xff\xff\x0f\x01", @"a HASH count past the end");
+}
 
 - (void)setUp
 {
