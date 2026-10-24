@@ -4,7 +4,7 @@ use warnings;
 use Test::More;
 use Sereal::Decoder qw(get_sereal_checksum validate_sereal_checksum);
 use lib 't/lib';
-use Sereal::TestSet qw(Header varint);
+use Sereal::TestSet qw(Header varint checksum_tag);
 use B::Concise;
 
 local $ENV{SEREAL_CHECKSUM_POLICY} = 'ignore';
@@ -12,7 +12,7 @@ local $Sereal::DefaultKey;
 my $key       = pack( 'C*', 0 .. 15 );
 my $getter    = \&get_sereal_checksum;
 my $validator = \&validate_sereal_checksum;
-for my $type ( 0, 1 ) {
+for my $type ( 0, 1, 2 ) {
     for my $suffix ( undef, "\x07" ) {
         for my $payload ( "\x07", "\x3e\0", "\x26" . varint(130) . ( 'x' x 130 ) ) {
             my $header = Header( 6, $suffix );
@@ -20,9 +20,7 @@ for my $type ( 0, 1 ) {
             my $prefix = $header . chr($type) . varint( $type ? 16 : 8 );
             my $tail   = varint( length($payload) ) . $payload;
             my $tag =
-                $type
-                ? Sereal::Decoder::siphash36( $prefix . $tail, $key )
-                : Sereal::Decoder::siphash24( $prefix . $tail, $key );
+                checksum_tag($type, $prefix . $tail, $key);
             my $packet = $prefix . $tag . $tail;
             my $label =
                 "type=$type suffix=" . ( defined($suffix) ? 1 : 0 ) . ' bytes=' . length($payload);
@@ -68,7 +66,7 @@ for my $type ( 0, 1 ) {
             eval { $validator->( $packet, 'short' ); 1 };
             like( $@, qr/exactly 16 bytes/, "$label short validation key is rejected" );
             my $unknown = $packet;
-            substr( $unknown, length($header), 1 ) = chr(2);
+            substr( $unknown, length($header), 1 ) = chr(3);
             is(
                 get_sereal_checksum($unknown), $tag,
                 "$label unknown checksum type can be inspected"

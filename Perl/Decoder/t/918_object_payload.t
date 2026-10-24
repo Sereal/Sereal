@@ -19,8 +19,10 @@ for my $version ( 1 .. 6 ) {
             my $objectv = "\x42" . $object . "\x40\x2d" . chr( $version == 1 ? 8 : 3 );
             for my $prefix ( $object, $objectv ) {
                 eval { $dec->decode( $header . $prefix . $payload ) };
+                # Bare ARRAY/HASH payloads are rejected even earlier, as
+                # aggregates outside a REFN (t/935).
                 like(
-                    $@, qr/OBJECT\(V\) must be followed by a reference/,
+                    $@, qr/OBJECT\(V\) must be followed by a reference|only valid as the referent of a REFN/,
                     "$label rejects non-reference payload " . unpack( 'H*', $prefix . $payload ) );
             }
         }

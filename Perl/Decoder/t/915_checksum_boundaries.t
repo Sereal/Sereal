@@ -3,9 +3,11 @@ use strict;
 use warnings;
 use Test::More;
 use Sereal::Decoder;
+use lib 't/lib';
+use Sereal::TestSet qw(checksum_tag);
 
 my $key    = 'Out damned spot!';
-my $deadly = "\x3e\0";
+my $deadly = "\x3e\xff";
 
 # All fixture lengths fit in a single varint byte. Authenticate the deliberately
 # incomplete payload itself, so rejection tests bounds rather than MAC failure.
@@ -15,9 +17,7 @@ sub envelope {
     my $prefix = "=\xf3rl" . chr( 0x86 | $encoding ) . "\0" . chr($type) . chr( $type ? 16 : 8 );
     my $tail   = chr( length($payload) ) . $payload;
     my $mac =
-        $type
-        ? Sereal::Decoder::siphash36( $prefix . $tail, $key )
-        : Sereal::Decoder::siphash24( $prefix . $tail, $key );
+        checksum_tag($type, $prefix . $tail, $key);
     return $prefix . $mac . $tail;
 }
 
@@ -34,10 +34,11 @@ my @streams = (
         pack( 'H*', '0a28b52ffd200109000061' )
     ],
 );
-for my $type ( 0, 1 ) {
+for my $type ( 0, 1, 2 ) {
     for my $policy ( 'die', 'ignore' ) {
         my $dec =
-            Sereal::Decoder->new( { "checksum_v${type}_key" => $key, checksum_policy => $policy } );
+            Sereal::Decoder->new( { "checksum_v${type}_key" => $key, checksum_policy => $policy,
+                undef_deadly_policy => 'die' } );
         my $label = "checksum $type policy $policy";
         for my $case (
             [ 'empty body',    '' ],         [ 'short string',    "\x61" ],
@@ -61,7 +62,7 @@ for my $type ( 0, 1 ) {
             "$label concatenated envelopes work"
         );
         eval { $dec->decode( envelope( $type, 0, $deadly ) ) };
-        like( $@, qr/Encountered DEADLY/, "$label signed DEADLY is fatal" );
+        like( $@, qr/Encountered UNDEF_DEADLY/, "$label signed UNDEF_DEADLY is fatal under die policy" );
         for my $stream (@streams) {
             my ( $name, $encoding, $complete, $incomplete_body ) = @$stream;
             $p = envelope( $type, $encoding, $complete );
@@ -77,7 +78,7 @@ for my $type ( 0, 1 ) {
             eval { $dec->decode( envelope( $type, $encoding, $truncated ) . $last . $deadly ) };
             ok( $@ ne '', "$label $name cannot take compressed continuation outside envelope" );
             unlike(
-                $@, qr/checksum verification failed|Encountered DEADLY/,
+                $@, qr/checksum verification failed|Encountered UNDEF_DEADLY/,
                 "$label $name rejection is a compressed-input boundary failure"
             );
         }

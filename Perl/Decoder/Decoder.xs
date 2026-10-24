@@ -421,6 +421,28 @@ siphash24(data, key)
   OUTPUT: RETVAL
 
 SV *
+siphash24_128(data, key)
+    SV *data;
+    SV *key;
+  PREINIT:
+    STRLEN data_len;
+    STRLEN key_len;
+    const U8 *data_bytes;
+    const U8 *key_bytes;
+    srl_siphash_ctx sip;
+    U8 digest[16];
+  CODE:
+    data_bytes = (const U8 *)SvPVbyte(data, data_len);
+    key_bytes = (const U8 *)SvPVbyte(key, key_len);
+    if (key_len != 16)
+      croak("siphash24_128 key must be exactly 16 bytes");
+    srl_siphash_init_rounds(&sip, key_bytes, 2, 4, 1);
+    srl_siphash_update(&sip, data_bytes, (size_t)data_len);
+    srl_siphash_final128(&sip, digest);
+    RETVAL = newSVpvn((const char *)digest, sizeof(digest));
+  OUTPUT: RETVAL
+
+SV *
 siphash36(data, key)
     SV *data;
     SV *key;
@@ -481,16 +503,18 @@ BOOT:
         SRL_INIT_OPTION( SRL_DEC_OPT_IDX_THAW_DENY_ACTION,           SRL_DEC_OPT_STR_THAW_DENY_ACTION           );
         SRL_INIT_OPTION( SRL_DEC_OPT_IDX_CHECKSUM_V0_KEY,            SRL_DEC_OPT_STR_CHECKSUM_V0_KEY            );
         SRL_INIT_OPTION( SRL_DEC_OPT_IDX_CHECKSUM_V1_KEY,            SRL_DEC_OPT_STR_CHECKSUM_V1_KEY            );
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_CHECKSUM_V2_KEY,            SRL_DEC_OPT_STR_CHECKSUM_V2_KEY            );
         SRL_INIT_OPTION( SRL_DEC_OPT_IDX_CHECKSUM_POLICY,            SRL_DEC_OPT_STR_CHECKSUM_POLICY            );
+        SRL_INIT_OPTION( SRL_DEC_OPT_IDX_UNDEF_DEADLY_POLICY,        SRL_DEC_OPT_STR_UNDEF_DEADLY_POLICY        );
     }
 #if USE_CUSTOM_OPS
     {
-        XOP *xop;
-        Newxz(xop, 1, XOP);
-        XopENTRY_set(xop, xop_name, "sereal_decode_with_object");
-        XopENTRY_set(xop, xop_desc, "sereal_decode_with_object");
-        XopENTRY_set(xop, xop_class, OA_UNOP);
-        Perl_custom_op_register(aTHX_ THX_pp_sereal_decode, xop);
+        /* Perl borrows this descriptor; it must outlive every interpreter. */
+        static const XOP xop = {
+            XOPf_xop_name | XOPf_xop_desc | XOPf_xop_class,
+            "sereal_decode_with_object", "sereal_decode_with_object", OA_UNOP
+        };
+        Perl_custom_op_register(aTHX_ THX_pp_sereal_decode, &xop);
     }
 #endif /* USE_CUSTOM_OPS */
     for (i = sizeof(funcs_to_install)/sizeof(*fti); i--; ) {
@@ -565,12 +589,11 @@ BOOT:
 {
 #if USE_CUSTOM_OPS
     {
-        XOP *xop;
-        Newxz(xop, 1, XOP);
-        XopENTRY_set(xop, xop_name, "scalar_looks_like_sereal");
-        XopENTRY_set(xop, xop_desc, "scalar_looks_like_sereal");
-        XopENTRY_set(xop, xop_class, OA_UNOP);
-        Perl_custom_op_register(aTHX_ THX_pp_looks_like_sereal, xop);
+        static const XOP xop = {
+            XOPf_xop_name | XOPf_xop_desc | XOPf_xop_class,
+            "scalar_looks_like_sereal", "scalar_looks_like_sereal", OA_UNOP
+        };
+        Perl_custom_op_register(aTHX_ THX_pp_looks_like_sereal, &xop);
     }
 #endif /* USE_CUSTOM_OPS */
     {
@@ -596,12 +619,13 @@ BOOT:
             | (checksum_i ? OPOPT_VALIDATE_CHECKSUM | 0x030100 : 0x020100);
 #if USE_CUSTOM_OPS
         {
-            XOP *xop;
-            Newxz(xop, 1, XOP);
-            XopENTRY_set(xop, xop_name, checksum_i ? "validate_sereal_checksum" : "get_sereal_checksum");
-            XopENTRY_set(xop, xop_desc, checksum_i ? "validate_sereal_checksum" : "get_sereal_checksum");
-            XopENTRY_set(xop, xop_class, OA_UNOP);
-            Perl_custom_op_register(aTHX_ checksum_i ? THX_pp_validate_sereal_checksum : THX_pp_get_sereal_checksum, xop);
+            static const XOP xops[2] = {
+                { XOPf_xop_name | XOPf_xop_desc | XOPf_xop_class,
+                  "get_sereal_checksum", "get_sereal_checksum", OA_UNOP },
+                { XOPf_xop_name | XOPf_xop_desc | XOPf_xop_class,
+                  "validate_sereal_checksum", "validate_sereal_checksum", OA_UNOP }
+            };
+            Perl_custom_op_register(aTHX_ checksum_i ? THX_pp_validate_sereal_checksum : THX_pp_get_sereal_checksum, &xops[checksum_i]);
         }
         cv_set_call_checker(cv, THX_ck_entersub_args_sereal_decoder, (SV*)cv);
 #endif

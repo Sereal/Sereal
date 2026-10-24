@@ -27,8 +27,8 @@ my $uv_max_as_string =
 my @cases = (
     [ scalar_safe_reader => $header . chr(0x20) . $overflow ],
     [ scalar_fast_reader => $header . chr(0x20) . $overflow . ( chr(0) x 16 ) ],
-    [ array_count        => $header . chr(0x2B) . $overflow . chr(1) ],
-    [ hash_count         => $header . chr(0x2A) . $overflow . chr(0x61) . 'k' . chr(1) ],
+    [ array_count        => $header . chr(0x28) . chr(0x2B) . $overflow . chr(1) ],
+    [ hash_count         => $header . chr(0x28) . chr(0x2A) . $overflow . chr(0x61) . 'k' . chr(1) ],
     [ binary_length      => $header . chr(0x26) . $overflow . 'SECRET' ],
 );
 
@@ -55,8 +55,8 @@ my @prefixes      = (
     [ 'ZIGZAG',               $header . "\x21" ],
     [ 'BINARY length',        $header . "\x26" ],
     [ 'UTF8 length',          $header . "\x27" ],
-    [ 'ARRAY count',          $header . "\x2b" ],
-    [ 'HASH count',           $header . "\x2a" ],
+    [ 'ARRAY count',          $header . "\x28\x2b" ],
+    [ 'HASH count',           $header . "\x28\x2a" ],
     [ 'COPY offset',          $header . "\x2f" ],
     [ 'REFP offset',          $header . "\x29" ],
     [ 'header suffix length', substr( $header, 0, 5 ) ],

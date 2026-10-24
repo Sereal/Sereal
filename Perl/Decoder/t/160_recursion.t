@@ -29,11 +29,12 @@ my $no_exception = eval {
 };
 ok( !$no_exception );
 
-# Plain ARRAY tags also recurse, even though they are not the compact
+# Plain REFN+ARRAY pairs also recurse, even though they are not the compact
 # ARRAYREF tags emitted for ordinary Perl array references. Every value-reader
 # call must count toward the limit so malformed packets cannot bypass it.
+# (A bare ARRAY tag without its REFN is rejected outright, see t/935.)
 my $plain_arrays = Header();
-$plain_arrays .= chr(SRL_HDR_ARRAY) . chr(1) for 1 .. 1000;
+$plain_arrays .= chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY) . chr(1) for 1 .. 1000;
 $plain_arrays .= integer(1);
 my $plain_arrays_ok = eval {
     decode_sereal( $plain_arrays, { max_recursion_depth => 1 } );
