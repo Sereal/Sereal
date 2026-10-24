@@ -389,9 +389,13 @@ srl_destroy_merger(pTHX_ srl_merger_t *mrg)
 void
 srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
 {
+    srl_reader_char_ptr body_start;
     assert(mrg != NULL);
 
     srl_set_input_buffer(aTHX_ mrg, src);
+    /* the merge pass starts at the first body tag, which is not
+     * body_pos + 1 in protocol v1: there body_pos is the packet start */
+    body_start = mrg->ibuf.pos;
     srl_build_track_table(aTHX_ mrg);
 
     if (mrg->obuf_last_successfull_offset) {
@@ -416,7 +420,7 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
     mrg->obuf_last_successfull_offset = BODY_POS_OFS(&mrg->obuf);
 
     mrg->recursion_depth = 0;
-    mrg->ibuf.pos = mrg->ibuf.body_pos + 1;
+    mrg->ibuf.pos = body_start;
     srl_merge_single_value(aTHX_ mrg);
 
     mrg->cnt_of_merged_elements++;
@@ -428,6 +432,7 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
 {
     SSize_t i;
     SV **svptr;
+    srl_reader_char_ptr body_start;
     STRLEN size = 0;
     SSize_t tidx = av_len(src);
 
@@ -458,13 +463,14 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
 
     for (i = 0; i <= tidx; ++i) {
         srl_set_input_buffer(aTHX_ mrg, *av_fetch(src, i, 0));
+        body_start = mrg->ibuf.pos;
         srl_build_track_table(aTHX_ mrg);
 
         /* save current offset as last successfull */
         mrg->obuf_last_successfull_offset = BODY_POS_OFS(&mrg->obuf);
 
         mrg->recursion_depth = 0;
-        mrg->ibuf.pos = mrg->ibuf.body_pos + 1;
+        mrg->ibuf.pos = body_start;
         srl_merge_single_value(aTHX_ mrg);
 
         mrg->cnt_of_merged_elements++;
