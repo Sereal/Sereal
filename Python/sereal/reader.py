@@ -2,12 +2,15 @@ import os
 from io import BytesIO
 import struct
 
+from sereal import exception
+
 
 class SrlDocumentReader(object):
     def __init__(self, byte_str):
         super(SrlDocumentReader, self).__init__()
         self.stream = BytesIO(byte_str)
         self.stream.seek(0, os.SEEK_SET)
+        self.length = len(byte_str)
 
     def _read_unpack(self, fmt):
         '''
@@ -16,13 +19,18 @@ class SrlDocumentReader(object):
         position will advance by the number of bytes read.
         '''
         plen = struct.calcsize(fmt)
-        b = self.stream.read(plen)
-
-        if plen != len(b):
-            return 0
+        b = self._read_exact(plen)
 
         value = struct.unpack(fmt, b)[0]
         return value
+
+    def _read_exact(self, n):
+        if n > self.remaining():
+            raise exception.SrlError('unexpected end of input')
+        return self.stream.read(n)
+
+    def remaining(self):
+        return self.length - self.stream.tell()
 
     def tell(self):
         return self.stream.tell()
@@ -37,7 +45,7 @@ class SrlDocumentReader(object):
         shift = 0
         result = 0
         while True:
-            i = ord(self.stream.read(1))
+            i = ord(self._read_exact(1))
             result |= (i & 0x7f) << shift
             shift += 7
             if not (i & 0x80):
@@ -62,11 +70,8 @@ class SrlDocumentReader(object):
         return self._read_unpack(fmt)
 
     def read_str(self, slen, str_encoding='utf-8'):
-        fmt = '{0}s'.format(slen)
-        val = self._read_unpack(fmt)
+        val = self._read_exact(slen)
         return bytes.decode(val, encoding=str_encoding)
 
     def read_bin(self, slen):
-        fmt = '{0}s'.format(slen)
-        val = self._read_unpack(fmt)
-        return val
+        return self._read_exact(slen)

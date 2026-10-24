@@ -58,7 +58,7 @@ class SrlDecoder(object):
         header_suffix_size = self.reader.read_varint()
         if header_suffix_size:
             # Skipping the suffix.
-            self.reader._read_unpack('{0}s'.format(header_suffix_size))
+            self.reader.read_bin(header_suffix_size)
 
         self.header['version'] = doc_version
         self.header['type'] = doc_type
@@ -176,6 +176,9 @@ class SrlDecoder(object):
         return copy
 
     def _decode_array(self, ln):
+        # every element takes at least one byte
+        if ln > self.reader.remaining():
+            raise exception.SrlError('bad array: count {} exceeds remaining input'.format(ln))
         a = []
 
         for i in range(0, ln):
@@ -184,6 +187,9 @@ class SrlDecoder(object):
         return a
 
     def _decode_hash(self, ln):
+        # every key and every value takes at least one byte
+        if ln * 2 > self.reader.remaining():
+            raise exception.SrlError('bad hash: count {} exceeds remaining input'.format(ln))
         h = {}
 
         for i in range(0, ln):
