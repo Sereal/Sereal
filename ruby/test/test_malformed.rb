@@ -18,4 +18,9 @@ class TestSerealMalformed < Test::Unit::TestCase
     # SNAPPY_INCR with compressed length 0xfffffff6
     assert_raise(RangeError) { Sereal.decode(srl('3df3726c2300 f6ffffff0f c0843dfc3f420f0078')) }
   end
+
+  def test_max_depth
+    # 110 nested ARRAYREF(1): the depth error must not touch freed decoder state
+    assert_raise(ArgumentError) { Sereal.decode(srl('3df3726c0300' + '41' * 110 + '01')) }
+  end
 end
