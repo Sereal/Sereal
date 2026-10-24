@@ -133,12 +133,16 @@ public class Decoder implements SerealHeader {
     }
   }
 
-  private void checkHeaderSuffix() {
+  private void checkHeaderSuffix() throws SerealException {
     long suffix_size = read_varint();
     long basePosition = position;
+    if (suffix_size < 0 || suffix_size > end - position) {
+      throw new SerealException("Sereal header suffix exceeds the available input");
+    }
 
     userHeaderSize = 0;
-    if (suffix_size > 0) {
+    // protocol version 1 never looks inside the suffix
+    if (protocolVersion >= 2 && suffix_size > 0) {
       byte bitfield = data[position++];
 
       if ((bitfield & 0x01) == 0x01) {
@@ -324,13 +328,18 @@ public class Decoder implements SerealHeader {
   }
 
   private void uncompressSnappy() throws SerealException {
-    int len = end - position;
+    long compressedLength = end - position;
     int pos = protocolVersion == 1 ? position : originalData.start;
 
     if (encoding == 2) {
-      len = (int) read_varint();
+      compressedLength = read_varint();
     }
-    checkCompressedEnd(len);
+    checkCompressedEnd(compressedLength);
+    // snappy-java's native code trusts offset and length: keep them inside the document
+    if (position < 0 || position > end || compressedLength < 0 || compressedLength > end - position) {
+      throw new SerealException("Snappy compressed data exceeds the available input");
+    }
+    int len = (int) compressedLength;
 
     byte[] uncompressed;
     try {
@@ -338,7 +347,7 @@ public class Decoder implements SerealHeader {
         throw new SerealException("Invalid snappy data");
       }
       int uncompressedLength = Snappy.uncompressedLength(originalData.array, position, len);
-      if (uncompressedLength > this.maxSize) {
+      if (uncompressedLength < 0 || (long) pos + uncompressedLength > this.maxSize) {
         throw new SerealException("The expected uncompressed size is larger than the allowed maximum size");
       }
       uncompressed = new byte[pos + uncompressedLength];
