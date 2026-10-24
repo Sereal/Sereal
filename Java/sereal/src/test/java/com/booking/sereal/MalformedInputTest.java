@@ -430,4 +430,160 @@ public class MalformedInputTest {
     }
     return -1;
   }
+
+  // ---- bounded reads -----------------------------------------------------------------------
+
+  // {description, packet}: each must fail with a SerealException in Decoder and TokenDecoder
+  private static final String[][] TRUNCATED_OR_OUT_OF_RANGE = {
+    {"VARINT with its continuation byte missing", "3df3726c030020"},
+    {"VARINT longer than 10 bytes", "3df3726c030020ffffffffffffffffffffff01"},
+    {"FLOAT with no data", "3df3726c030022"},
+    {"DOUBLE with 1 of 8 bytes", "3df3726c03002300"},
+    {"header suffix of 5 bytes, none present", "3df3726c0305"},
+    {"checksummed v6 with a 0x7fffffff-byte header suffix", "3df3726c86ffffffff0700000000"},
+    {"user header running past the end", "3df3726c03100122"},
+    {"v6 user header running past the end", "3df3726c062b033e260676"},
+    {"COPY to offset 0xfffffff0", "3df3726c03002ff0ffffff0f"},
+    {"REFP to offset 0xfffffff0", "3df3726c030029f0ffffff0f"},
+    {"REGEXP with its modifiers missing", "3df3726c0300316161"},
+    {"zlib compressed length 0x1000 for 10 bytes", "3df3726c33000a8020789c63040000020002"},
+    {"zlib compressed length 0xffffffff", "3df3726c33000affffffff0f789c63040000020002"},
+    {"zstd frame that is garbage", "3df3726c44000e6761726261676567617262616765"},
+    {"zstd compressed length 0x9e for 5 bytes", "3df3726c45009e0128b52ffd20"},
+    {"zstd frame of 5 bytes with a corrupt block", "3df3726c45000828b52ffd2005ffffff"},
+    {"STR_UTF8 of 16 bytes, 2 present", "3df3726c030027106162"},
+    {"BINARY of 16 bytes, 2 present", "3df3726c030026106162"},
+    {"SHORT_BINARY_31 with 2 bytes present", "3df3726c03007f6162"},
+    {"hash key BINARY of 16 bytes, 2 present", "3df3726c030051261061620101"},
+    {"hash key SHORT_BINARY_31 with 2 bytes present", "3df3726c0300517f6162"},
+    {"ALIAS to a later offset", "3df3726c03002e05"},
+  };
+
+  @Test
+  public void truncatedOrOutOfRangeInput() {
+    DecoderOptions[] variants = {
+      new DecoderOptions(), new DecoderOptions().perlReferences(true).perlAliases(true)
+    };
+    List<String> problems = new ArrayList<>();
+    for (String[] c : TRUNCATED_OR_OUT_OF_RANGE) {
+      byte[] packet = hex(c[1]);
+      for (DecoderOptions options : variants) {
+        collect(problems, () -> assertDecodeFails(c[0], packet, options));
+      }
+      collect(problems, () -> assertTokensFail(c[0], packet));
+    }
+    assertTrue(String.join("\n", problems), problems.isEmpty());
+  }
+
+  private static void collect(List<String> problems, Runnable check) {
+    try {
+      check.run();
+    } catch (AssertionError e) {
+      problems.add(e.getMessage());
+    }
+  }
+
+  // {description, packet}: Decoder only, as the token stream neither compiles regexps nor
+  // tracks values
+  private static final String[][] INVALID_FOR_DECODER = {
+    {"REGEXP with an invalid pattern", "3df3726c030031612860"},
+    {"ALIAS to an untracked offset", "3df3726c0300422e0101"},
+  };
+
+  @Test
+  public void invalidForDecoder() {
+    List<String> problems = new ArrayList<>();
+    for (String[] c : INVALID_FOR_DECODER) {
+      collect(problems, () -> assertDecodeFails(c[0], hex(c[1]), new DecoderOptions()));
+      collect(problems, () -> assertDecodeFails(c[0], hex(c[1]),
+          new DecoderOptions().perlReferences(true).perlAliases(true)));
+    }
+    assertTrue(String.join("\n", problems), problems.isEmpty());
+  }
+
+  @Test
+  public void weakenOfNonReference() {
+    // WEAKEN followed by an integer, and by a tracked UNDEF (v2)
+    List<String> problems = new ArrayList<>();
+    for (String packet : new String[] {"3df3726c03003001", "3d73726c020030b9"}) {
+      DecoderOptions options = new DecoderOptions().perlReferences(true);
+      collect(problems, () -> assertDecodeFails(packet, hex(packet), options));
+    }
+    assertTrue(String.join("\n", problems), problems.isEmpty());
+  }
+
+  private static void assertDecodeFails(String what, byte[] packet, DecoderOptions options) {
+    Decoder decoder = new Decoder(options);
+    decoder.setData(packet);
+    try {
+      if (decoder.hasHeader()) {
+        decoder.decodeHeader();
+      }
+      decoder.decode();
+    } catch (SerealException expected) {
+      return;
+    } catch (Throwable t) {
+      throw new AssertionError("Decoder, " + what + ": " + t, t);
+    }
+    throw new AssertionError("Decoder, " + what + ": no SerealException");
+  }
+
+  private static void assertTokensFail(String what, byte[] packet) {
+    TokenDecoder decoder = new TokenDecoder();
+    decoder.setData(packet);
+    try {
+      if (decoder.hasHeader()) {
+        decoder.prepareDecodeHeader();
+        drainChecked(decoder);
+      }
+      decoder.prepareDecodeBody();
+      drainChecked(decoder);
+    } catch (SerealException expected) {
+      return;
+    } catch (Throwable t) {
+      throw new AssertionError("TokenDecoder, " + what + ": " + t, t);
+    }
+    throw new AssertionError("TokenDecoder, " + what + ": no SerealException");
+  }
+
+  // drains the tokens, failing if a string slice is outside the decoder buffer
+  private static void drainChecked(TokenDecoder decoder) throws SerealException {
+    SerealToken token;
+    while ((token = decoder.nextToken()) != SerealToken.END) {
+      if (token == SerealToken.BINARY || token == SerealToken.UTF8
+          || token == SerealToken.REGEXP || token == SerealToken.FLOAT128) {
+        assertTrue(token + " slice", decoder.binarySliceStart() >= 0
+            && decoder.binarySliceStart() <= decoder.binarySliceEnd()
+            && decoder.binarySliceEnd() <= decoder.decoderBuffer().length);
+      }
+    }
+  }
+
+  @Test
+  public void stringsEndAtTheDocumentEnd() throws Exception {
+    // BINARY of 40 bytes, SHORT_BINARY_31 and STR_UTF8 of 16 bytes, with 2 bytes in the document
+    // and other data after it in the same array
+    List<String> problems = new ArrayList<>();
+    for (String packet : new String[] {
+        "3df3726c030026286162", "3df3726c03007f6162", "3df3726c030027106162",
+        "3df3726c030026216162"}) {
+      byte[] doc = hex(packet);
+      ByteArray slice = slice(doc, doc.length);
+      collect(problems, () -> assertThrows("Decoder " + packet, SerealException.class,
+          () -> decode(slice, new DecoderOptions())));
+      collect(problems, () -> assertThrows("TokenDecoder " + packet, SerealException.class,
+          () -> drain(slice, new DecoderOptions())));
+    }
+    assertTrue(String.join("\n", problems), problems.isEmpty());
+    // the same strings, complete, decode from the slice
+    ByteArray complete = slice(hex("3df3726c030026026162"), 10);
+    assertArrayEquals("ab".getBytes(StandardCharsets.ISO_8859_1),
+        (byte[]) decode(complete, new DecoderOptions()));
+    TokenDecoder tokens = new TokenDecoder();
+    tokens.setData(complete);
+    tokens.prepareDecodeBody();
+    assertEquals(SerealToken.BINARY, tokens.nextToken());
+    assertEquals(2, tokens.binarySliceLength());
+    assertEquals(SerealToken.END, tokens.nextToken());
+  }
 }

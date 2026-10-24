@@ -1,6 +1,7 @@
 package com.booking.sereal;
 
 import com.github.luben.zstd.Zstd;
+import com.github.luben.zstd.ZstdException;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.util.Arrays;
@@ -395,6 +396,9 @@ public class TokenDecoder {
     }
     long compressedLength = readVarint();
     checkCompressedEnd(compressedLength);
+    if (compressedLength < 0 || compressedLength > end - position) {
+      throw new SerealException("Zlib compressed data exceeds the available input");
+    }
     inflater.setInput(originalData.array, position, (int) compressedLength);
     byte[] uncompressed = new byte[(int) uncompressedLength];
     try {
@@ -419,7 +423,12 @@ public class TokenDecoder {
     int len = (int) compressedLength;
 
     byte[] compressedData = Arrays.copyOfRange(originalData.array, position, position + len);
-    long decompressedSize = Zstd.decompressedSize(compressedData);
+    long decompressedSize;
+    try {
+      decompressedSize = Zstd.decompressedSize(compressedData);
+    } catch (ZstdException e) {
+      throw new SerealException(e);
+    }
     if (decompressedSize <= 0) {
       throw new SerealException("Invalid zstd frame: unknown or empty decompressed size");
     }
@@ -428,7 +437,12 @@ public class TokenDecoder {
     }
 
     byte[] uncompressed = new byte[(int) decompressedSize];
-    long status = Zstd.decompress(uncompressed, compressedData);
+    long status;
+    try {
+      status = Zstd.decompress(uncompressed, compressedData);
+    } catch (ZstdException e) {
+      throw new SerealException(e);
+    }
     if (Zstd.isError(status)) {
       throw new SerealException(Zstd.getErrorName(status));
     }
@@ -517,12 +531,22 @@ public class TokenDecoder {
     position += (int) length;
   }
 
-  private void readBinary() {
-    int length = (int) readVarint();
+  private void readBinary() throws SerealException {
+    int length = readLength();
     binaryIsUtf8 = false;
     binarySliceStart = position;
     binarySliceEnd = position + length;
     position += length;
+  }
+
+  // a string length, which must fit in the remaining input
+  private int readLength() throws SerealException {
+    long length = readVarint();
+    if (length < 0) {
+      throw new SerealException("Invalid length " + Long.toUnsignedString(length) + " at byte " + position);
+    }
+    checkAvailable(length);
+    return (int) length;
   }
 
   // an element count, bounded by the remaining input at bytesPerElement bytes each
@@ -534,20 +558,23 @@ public class TokenDecoder {
     return (int) count;
   }
 
-  // top bit set (0x80) means next byte is 7 bits more more varint
-  private long readVarint() {
+  // top bit set (0x80) means next byte is 7 bits more more varint; at most 10 bytes
+  private long readVarint() throws SerealException {
     long uv = 0;
-    int lshift = 0;
 
-    byte b = data[position++];
-    while ((position < end) && (b < 0)) {
+    for (int lshift = 0; ; lshift += 7) {
+      if (position >= end) {
+        throw new SerealException("Unexpected end of data at byte " + position);
+      }
+      if (lshift > 63) {
+        throw new SerealException("Varint too long at byte " + position);
+      }
+      byte b = data[position++];
       uv |= ((long) b & 127) << lshift; // add 7 bits
-      lshift += 7;
-      b = data[position++];
+      if (b >= 0) {
+        return uv;
+      }
     }
-    uv |= (long) b << lshift; // add final (or first if there is only 1)
-
-    return uv;
   }
 
   /**
@@ -649,6 +676,7 @@ public class TokenDecoder {
           longValue = readZigzag();
           return (currentToken = SerealToken.LONG);
         case SerealHeader.SRL_HDR_FLOAT:
+          checkAvailable(4);
           int floatBits =
               ((data[position + 3] & 0xff) << 24)
                   + ((data[position + 2] & 0xff) << 16)
@@ -658,6 +686,7 @@ public class TokenDecoder {
           floatValue = Float.intBitsToFloat(floatBits);
           return (currentToken = SerealToken.FLOAT);
         case SerealHeader.SRL_HDR_DOUBLE:
+          checkAvailable(8);
           long doubleBits =
               ((long) (data[position + 7] & 0xff) << 56)
                   + ((long) (data[position + 6] & 0xff) << 48)
@@ -976,8 +1005,9 @@ public class TokenDecoder {
     return context.type == CONTEXT_HASH && (context.remaining & 1) == 1;
   }
 
-  private void readShortBinary(byte tag) {
+  private void readShortBinary(byte tag) throws SerealException {
     int length = tag & SerealHeader.SRL_MASK_SHORT_BINARY_LEN;
+    checkAvailable(length);
     binaryIsUtf8 = false;
     binarySliceStart = position;
     binarySliceEnd = position + length;
@@ -1020,15 +1050,15 @@ public class TokenDecoder {
     return offset;
   }
 
-  private void readUTF8() {
-    int length = (int) readVarint();
+  private void readUTF8() throws SerealException {
+    int length = readLength();
     binaryIsUtf8 = true;
     binarySliceStart = position;
     binarySliceEnd = position + length;
     position += length;
   }
 
-  private long readZigzag() {
+  private long readZigzag() throws SerealException {
     long n = readVarint();
 
     return (n >>> 1) ^ (-(n & 1)); // note the unsigned right shift
