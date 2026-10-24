@@ -56,6 +56,9 @@ THX_pp1_sereal_encode_with_object(pTHX_ U8 has_hdr)
   }
   /* we should never have an IV smaller than a PTR */
   enc= INT2PTR(srl_encoder_t *,SvIV(encoder_sv));
+  /* User code may clear the variable containing the encoder while it runs.
+   * Keep the owner alive until the encode cleanup hook has finished. */
+  SAVEFREESV(SvREFCNT_inc(encoder_sv));
 
   if (header_sv && !SvOK(header_sv))
     header_sv = NULL;
@@ -213,6 +216,28 @@ siphash24(data, key)
   OUTPUT: RETVAL
 
 SV *
+siphash24_128(data, key)
+    SV *data;
+    SV *key;
+  PREINIT:
+    STRLEN data_len;
+    STRLEN key_len;
+    const U8 *data_bytes;
+    const U8 *key_bytes;
+    srl_siphash_ctx sip;
+    U8 digest[16];
+  CODE:
+    data_bytes = (const U8 *)SvPVbyte(data, data_len);
+    key_bytes = (const U8 *)SvPVbyte(key, key_len);
+    if (key_len != 16)
+      croak("siphash24_128 key must be exactly 16 bytes");
+    srl_siphash_init_rounds(&sip, key_bytes, 2, 4, 1);
+    srl_siphash_update(&sip, data_bytes, (size_t)data_len);
+    srl_siphash_final128(&sip, digest);
+    RETVAL = newSVpvn((const char *)digest, sizeof(digest));
+  OUTPUT: RETVAL
+
+SV *
 siphash36(data, key)
     SV *data;
     SV *key;
@@ -264,16 +289,17 @@ BOOT:
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_FREEZE_DENY_ACTION,       SRL_ENC_OPT_STR_FREEZE_DENY_ACTION     );
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_V0_KEY,          SRL_ENC_OPT_STR_CHECKSUM_V0_KEY        );
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_V1_KEY,          SRL_ENC_OPT_STR_CHECKSUM_V1_KEY        );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_V2_KEY,          SRL_ENC_OPT_STR_CHECKSUM_V2_KEY        );
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_POLICY,          SRL_ENC_OPT_STR_CHECKSUM_POLICY        );
   }
 #if USE_CUSTOM_OPS
   {
-    XOP *xop;
-    Newxz(xop, 1, XOP);
-    XopENTRY_set(xop, xop_name, "sereal_encode_with_object");
-    XopENTRY_set(xop, xop_desc, "sereal_encode_with_object");
-    XopENTRY_set(xop, xop_class, OA_UNOP);
-    Perl_custom_op_register(aTHX_ THX_pp_sereal_encode_with_object, xop);
+    /* Perl borrows this descriptor; it must outlive every interpreter. */
+    static const XOP xop = {
+      XOPf_xop_name | XOPf_xop_desc | XOPf_xop_class,
+      "sereal_encode_with_object", "sereal_encode_with_object", OA_UNOP
+    };
+    Perl_custom_op_register(aTHX_ THX_pp_sereal_encode_with_object, &xop);
   }
 #endif /* USE_CUSTOM_OPS */
   {

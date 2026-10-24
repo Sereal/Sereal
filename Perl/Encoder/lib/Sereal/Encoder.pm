@@ -202,19 +202,25 @@ C<$opt_key>, using C<Call me Ishmael.> as its 16-byte key. It then uses that
 result as the key to SipHash-2-4-128 of C<Luke, I am your father.> followed by
 C<$key>. Both arguments default to the empty string. This is a convenience for
 producing the required checksum-key size; it does not add entropy or replace a
-password KDF. Pass the returned value as C<checksum_v0_key> or
-C<checksum_v1_key> to both encoder and decoder.
+password KDF. Pass the returned value as C<checksum_v0_key>,
+C<checksum_v1_key>, or C<checksum_v2_key> to both encoder and decoder.
 
-=head2 siphash24 and siphash36
+=head2 siphash24, siphash24_128 and siphash36
 
   my $tag8  = Sereal::Encoder::siphash24($bytes, $key16);
+  my $tag16 = Sereal::Encoder::siphash24_128($bytes, $key16);
   my $tag16 = Sereal::Encoder::siphash36($bytes, $key16);
 
 Compute a raw SipHash tag for a byte string and an exactly 16-byte key.
-C<siphash24()> returns the eight-byte SipHash-2-4 result; C<siphash36()>
+C<siphash24()> returns the eight-byte SipHash-2-4 result,
+C<siphash24_128()> returns the 16-byte SipHash-2-4-128 result, and C<siphash36()>
 returns the 16-byte SipHash-3-6-128 result. These low-level helpers are
 provided for tooling that needs to inspect or verify Sereal checksum
 envelopes. The returned values are binary strings.
+
+In SipHash-c-d, c is the compression round count per message block and d is
+the round count in each finalization stage. The 128 suffix specifies the tag
+size. See the authors' L<SipHash variant documentation|https://github.com/veorq/SipHash#variants>.
 
 =head2 new
 
@@ -227,15 +233,17 @@ by default.
 
 =head3 checksum_policy
 
-C<'require'> makes encoding fail unless a checksum key is available, either
-explicitly or through C<$Sereal::DefaultKey>. It never silently produces an
-unsigned packet. A key is not needed merely to construct an Encoder.
+C<'require_key'> requires a configured checksum key, either explicitly or
+through C<$Sereal::DefaultKey>. Construction fails without a key, and every
+encoded packet has a checksum. On the Decoder this policy also requires a
+configured key and rejects unsigned packets or failed verification.
+C<'require'> is an alias for C<'require_key'>.
 
 The policy also accepts C<'die'>, C<'verify-if-available'>, C<'ignore'>, and
 C<'ignore-warn'> for consistency with the Decoder. These values do not require
 an encoding key. All policies produce a checksum when a key is configured;
 the ignore policies control verification on the Decoder, not checksum emission.
-C<'die'> and C<'require'> require exactly 16 key bytes instead of padding or
+C<'die'> and C<'require_key'> require exactly 16 key bytes instead of padding or
 truncating them. Other policies retain normalization with a warning.
 
 C<SEREAL_CHECKSUM_POLICY> sets the policy default for new Encoder and Decoder
@@ -246,9 +254,9 @@ Reused objects and recursive clones retain their original configuration.
 
 =head3 Shared default key
 
-C<$Sereal::DefaultKey> holds raw key bytes shared with the Decoder. If neither
+C<$Sereal::DefaultKey> holds raw key bytes shared with the Decoder. If no
 checksum key option is present, a defined default enables SipHash-3-6-128
-(type 1, 128-bit tags) and requires protocol version 6 or later. An explicit
+(type 2, 128-bit tags) and requires protocol version 6 or later. An explicit
 key option replaces the default configuration; explicit C<undef> suppresses
 it. Only one key type may be configured on an Encoder.
 
@@ -260,7 +268,7 @@ Loading the other module does not reset the default. Normalization does not
 add entropy or replace a password KDF.
 
   local $Sereal::DefaultKey = $key16;
-  my $encoder = Sereal::Encoder->new({ checksum_policy => 'require' });
+  my $encoder = Sereal::Encoder->new({ checksum_policy => 'require_key' });
 
 New objects copy the current default. Existing objects, including cached
 wrapper objects, retain their keys. Localize the variable to C<undef> to
@@ -285,12 +293,18 @@ C<prepare_checksum_key()> to normalize a key explicitly.
 
 =head3 checksum_v1_key
 
+If set, the encoder emits protocol version 6 packets with a SipHash-2-4-128
+authentication tag (checksum version 1). This has the same coverage and key
+requirements as C<checksum_v0_key>, with a 16-byte tag instead of eight bytes.
+
+=head3 checksum_v2_key
+
 If set, the encoder emits protocol version 6 packets with
-a SipHash-3-6-128 authentication tag (format version 1). The tag covers the
+a SipHash-3-6-128 authentication tag (checksum version 2). The tag covers the
 same packet data as C<checksum_v0_key>, with a 16-byte output. This option
 requires protocol version 6 or later. The matching decoder must be configured
-with the same key. Set only one of C<checksum_v0_key> and C<checksum_v1_key> on
-an encoder. The selected key option both enables checksumming and selects its
+with the same key. Set only one of C<checksum_v0_key>, C<checksum_v1_key>, or
+C<checksum_v2_key> on an encoder. The selected key option both enables checksumming and selects its
 format. Under permissive policies, keys that are not 16 bytes are padded or truncated
 with a warning; strict policies reject them.
 C<prepare_checksum_key()> can normalize them explicitly.
@@ -298,7 +312,7 @@ C<prepare_checksum_key()> can normalize them explicitly.
 Generating a checksum adds CPU work proportional to the protected header and
 encoded payload size. The decoder incurs corresponding work to verify it.
 When compression is enabled, the checksum protects the compressed payload.
-The two SipHash variants use different round counts and tag sizes, so their
+The SipHash variants use different round counts and tag sizes, so their
 cost may differ. Benchmark representative packets and consider the decoder's
 C<checksum_policy>, including its verification and warning behavior; see
 L<Sereal::Decoder/checksum_policy>.
@@ -397,6 +411,16 @@ was serialized using its C<FREEZE> method will have its corresponding
 C<THAW> class method called during deserialization. The exact semantics
 are documented below under L</"FREEZE/THAW CALLBACK MECHANISM">.
 
+Do not modify the input graph while it is being encoded. The encoder may
+throw an exception when it detects a callback changing a container being
+traversed. It does not take a snapshot or promise to encode the original
+values after such mutation. Callbacks reached through tied values and nested
+references are subject to the same rule.
+
+Tied containers are read through their tie methods. Each value is fetched
+once per traversal occurrence; a scalar string may be captured separately
+for deduplication so this does not invoke FETCH again.
+
 Beware that using this functionality means a significant slowdown for
 object serialization. Even when serializing objects without a C<FREEZE>
 method, the additional method look up will cost a small amount of runtime.
@@ -420,6 +444,11 @@ each object that has a C<FREEZE> method, that returns a true value to allow
 C<FREEZE>
 
 =back
+
+The encoder retains the object across the predicate and any subsequent
+C<FREEZE> call, even if the callback removes its last external reference.
+It also retains the C<FREEZE> method selected before the predicate runs;
+replacing that method affects subsequent invocations.
 
 Classes that do not have a C<FREEZE> method are unaffected (they serialize as
 usual). When an object's class has a C<FREEZE> method but is not allowed, the
@@ -451,6 +480,8 @@ See also the C<croak_on_bless> option above for more details.
 If set, unknown/unsupported data structures will be encoded as C<undef>
 instead of throwing an exception.
 
+Weak references to unsupported values are also replaced by C<undef>.
+
 Mutually exclusive with C<stringify_unknown>.
 See also C<warn_unknown> below.
 
@@ -459,6 +490,9 @@ See also C<warn_unknown> below.
 If set, unknown/unsupported data structures will be stringified and
 encoded as that string instead of throwing an exception. The
 stringification may cause a warning to be emitted by perl.
+
+Weak references to unsupported values are also replaced by their stringified
+values. Overloaded stringification preserves the returned string's UTF-8 flag.
 
 Mutually exclusive with C<undef_unknown>.
 See also C<warn_unknown> below.
@@ -518,6 +552,10 @@ Normally C<Sereal::Encoder> will output hashes in whatever order is convenient,
 generally that used by perl to actually store the hash, or whatever order
 was returned by a tied hash.
 
+Encoding a hash that is not tied leaves the caller's C<each()> iterator for
+that hash where it was, with or without this option, so a hash may be encoded
+from inside an C<each()> loop over it.
+
 If this option is enabled then the Encoder will sort the keys before outputting
 them. It uses more memory, and is quite a bit slower than the default.
 
@@ -556,6 +594,10 @@ keys. This only has an effect for serializing structures containing hashes.
 By skipping the detection of repeated hash keys, performance goes up a bit,
 but the size of the output can potentially be much larger.
 
+When callbacks run, the encoder retains cached key and class identities so
+their addresses cannot be recycled as different C<COPY> targets. This retains
+cache metadata rather than taking a snapshot of container values.
+
 Do not disable this unless you have a reason to.
 
 =head3 dedupe_strings
@@ -566,6 +608,9 @@ has a performance and memory penalty during encoding so it defaults to off.
 On the other hand, data structures with many duplicated strings will see a
 significant reduction in the size of the encoded form. Currently only strings
 longer than 3 characters will be deduped, however this may change in the future.
+
+For tied scalars, deduplication uses a captured string value so that later
+C<FETCH> calls cannot change the bytes or UTF-8 flag being indexed.
 
 Note that Sereal will perform certain types of deduping automatically even
 without this option. In particular class names and hash keys (see also the
@@ -599,6 +644,17 @@ but at the cost of potential action at a distance due to the aliasing.
 
 I<Beware:> The test suite currently does not cover this option as well as it
 probably should. Patches welcome.
+
+Hash keys always use string or C<COPY> tags. A value can C<COPY> an earlier
+key string, creating a value that subsequent equal values can C<ALIAS>.
+Keys can also C<COPY> earlier value strings. Keys themselves never become
+alias targets.
+
+Scalar referents use C<COPY> for duplicate text: C<ALIAS> replaces an array or
+hash value slot and cannot appear directly after C<REFN>. Distinct scalar
+referents remain distinct; repeated references to the same scalar still share
+that scalar. A string first emitted as a scalar referent can be an alias target
+for a later array or hash value.
 
 =head3 use_standard_double
 
@@ -1031,16 +1087,26 @@ being readonly these are equivalent to SRL_HDR_YES and SRL_HDR_NO.
 
 =head1 SECURITY
 
-Restrict decoding to trusted sources and protect serialized packets against
-tampering. Protocol version 6 supports optional SipHash authentication with
-64-bit or 128-bit tags; configure the matching keys and enforce verification
-at the receiver. See L<Sereal::Decoder/ROBUSTNESS> for decoder controls and
-the limits of checksum enforcement.
+Encoding can invoke application code through C<FREEZE> callbacks, tied values,
+and magic. The callback controls above govern when those methods run; encoding
+does not make their side effects safe.
 
-The distribution includes F<SECURITY.md>. The current policy and private
-vulnerability reporting instructions are available at
+Protocol version 6 can carry a keyed SipHash checksum over the packet header
+and encoded payload, including compression framing. Configure one of the
+C<checksum_v0_key>, C<checksum_v1_key>, or C<checksum_v2_key> options to emit
+one. C<checksum_policy =E<gt> 'require_key'> requires a configured key and
+ensures that every packet this Encoder emits has a checksum. Without a key,
+packets are not authenticated by Sereal.
+
+The receiving Decoder must have the matching key and enforce verification.
+Use its C<'require_key'> policy when unsigned packets must be rejected;
+C<'die'> still accepts unsigned packets. A checksum does not encrypt the
+packet, prevent replay, or establish that a key holder is trustworthy. See
+L<Sereal::Decoder/ROBUSTNESS> for decoder limits and object handling controls.
+
+The project-wide security policy and private reporting instructions are at
 L<https://github.com/Sereal/Sereal/security/policy>. Report suspected
-vulnerabilities privately at
+vulnerabilities through
 L<https://github.com/Sereal/Sereal/security/advisories/new>.
 
 =head1 BUGS, CONTACT AND SUPPORT

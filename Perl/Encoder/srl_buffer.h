@@ -15,7 +15,8 @@
 #define BUF_POS_OFS(buf) (((buf)->pos) - ((buf)->start))
 #define BUF_SPACE(buf) (((buf)->end) - ((buf)->pos))
 #define BUF_SIZE(buf) (((buf)->end) - ((buf)->start))
-#define BUF_NEED_GROW(buf, minlen) ((size_t)BUF_SPACE(buf) <= minlen)
+/* a negative BUF_SPACE() (pos past end) must not wrap to "plenty of room" */
+#define BUF_NEED_GROW(buf, minlen) (BUF_SPACE(buf) < 0 || (size_t)BUF_SPACE(buf) <= (minlen))
 #define BUF_NEED_GROW_TOTAL(buf, minlen) ((size_t)BUF_SIZE(buf) <= minlen)
 #define BUF_NOT_DONE(buf) ((buf)->pos < (buf)->end)
 #define BUF_DONE(buf) ((buf)->pos >= (buf)->end)
@@ -107,7 +108,7 @@ SRL_STATIC_INLINE void
 srl_buf_grow_nocheck(pTHX_ srl_buffer_t *buf, const size_t minlen)
 {
     const size_t pos_ofs= BUF_POS_OFS(buf); /* have to store the offset of pos */
-    const size_t body_ofs= buf->body_pos - buf->start; /* have to store the offset of the body */
+    const ptrdiff_t body_ofs= buf->body_pos - buf->start; /* have to store the offset of the body */
 #ifdef MEMDEBUG
     const size_t new_size = minlen;
 #else
@@ -244,7 +245,8 @@ srl_buf_cat_varint_raw_nocheck(pTHX_ srl_buffer_t *buf, UV value) {
 
 SRL_STATIC_INLINE UV
 srl_zigzag_iv(IV value) {
-    return (UV)((value << 1) ^ (value >> (sizeof(IV) * 8 - 1)));
+    /* >> of a negative IV is implementation-defined; all supported compilers give all ones */
+    return ((UV)value << 1) ^ (UV)(value >> (sizeof(IV) * 8 - 1));
 }
 
 SRL_STATIC_INLINE void
