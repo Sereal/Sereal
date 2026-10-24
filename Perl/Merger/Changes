@@ -10,6 +10,8 @@ Revision history for Perl extension Sereal-Merger
     export the SRL_* compression constants
   * bounds-check fixed-size payloads; LONG_DOUBLE is sizeof(long double)
   * fix misaligned loads when hashing strings for dedupe_strings
+  * fix merging protocol v1 input, which started reading at the magic
+    string and copied bytes from past the end of the input
   * bump Sereal prereq version to 6.000_001
 
 4.004 Nov 13 2017
