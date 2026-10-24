@@ -22,6 +22,8 @@ Revision history for Perl extension Sereal-Merger
     not once from SvLEN of the inputs (0 for hash keys)
   * forget the tracked offsets of earlier documents, so a reference can
     no longer resolve into another (or a failed) document
+  * check COPY targets without their track bit, and reject a COPY of a
+    COPY, like Sereal::Decoder
   * bump Sereal prereq version to 6.000_001
 
 4.004 Nov 13 2017
