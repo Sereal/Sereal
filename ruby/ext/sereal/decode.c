@@ -404,9 +404,11 @@ again:
                                                (char *) uncompressed,
                                                &produced_len) == CSNAPPY_E_OK &&
                    produced_len == uncompressed_len ? 1 : 0;
-        if (!done)
+        if (!done) {
+            free(uncompressed); // not owned by s yet, s_destroy would miss it
             s_raise(s,rb_eTypeError, "decompression failed error: %d type: %d, unompressed size: %u compressed size: %" PRIu64,
                                       done,is_compressed,uncompressed_len,compressed_len);
+        }
 
         s_free_data_if_not_mine(s);
         s->data = uncompressed;

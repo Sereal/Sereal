@@ -43,4 +43,29 @@ class TestSerealMalformed < Test::Unit::TestCase
     # SNAPPY body declares 4096 uncompressed bytes but its stream produces fewer
     assert_raise(TypeError) { Sereal.decode(srl('3df3726c1300 80200826fd1f')) }
   end
+
+  def rss_kb
+    if File.readable?('/proc/self/status')
+      File.read('/proc/self/status')[/^VmRSS:\s+(\d+)/, 1].to_i
+    else
+      `ps -o rss= -p #{Process.pid}`.to_i
+    end
+  end
+
+  def test_snappy_failure_frees_buffer
+    # a valid 1 MiB SNAPPY document with a truncated copy op appended: the
+    # body decompresses fully and then fails, which must not leak the buffer
+    bad = Sereal.encode("\0".b * (1 << 20), Sereal::SNAPPY) + "\xff".b
+    assert_raise(TypeError) { Sereal.decode(bad) }
+    before = rss_kb
+    omit('can not measure RSS') if before == 0
+    omit('freed memory is held in quarantine under ASan') if ENV['ASAN_OPTIONS']
+    200.times { assert_raise(TypeError) { Sereal.decode(bad) } }
+    assert_operator(rss_kb - before, :<, 50 * 1024, 'rss grew by more than 50 MiB')
+  end
+
+  def test_snappy_huge_uncompressed_length
+    # SNAPPY body declaring 0xffffffff uncompressed bytes in a 13 byte document
+    assert_raise(TypeError, NoMemoryError) { Sereal.decode(srl('3df3726c1300 ffffffff0f 0061')) }
+  end
 end
