@@ -112,8 +112,7 @@ srl_build_path_struct(pTHX_ HV *opt)
     path->expr = NULL;
     path->results = NULL;
     path->i_own_iterator = 0;
-
-    if (opt != NULL) {}
+    path->opt = opt ? (HV *) SvREFCNT_inc((SV *) opt) : NULL;
     return path;
 }
 
@@ -122,6 +121,7 @@ srl_destroy_path(pTHX_ srl_path_t *path)
 {
     CLEAR_RESULTS(path);
     CLEAR_ITERATOR(path);
+    SvREFCNT_dec((SV *) path->opt);
     Safefree(path);
 }
 
@@ -136,7 +136,7 @@ srl_path_set(pTHX_ srl_path_t *path, SV *src)
         path->iter = INT2PTR(srl_iterator_ptr, SvIV((SV*) SvRV(src)));
         path->i_own_iterator = 0;
     } else if (SvPOK(src)) {
-        path->iter = srl_build_iterator_struct(aTHX_ NULL);
+        path->iter = srl_build_iterator_struct(aTHX_ path->opt);
         path->i_own_iterator = 1;
         srl_iterator_set(aTHX_ path->iter, src);
     } else {
@@ -406,6 +406,10 @@ srl_parse_array_range(pTHX_ srl_path_t *path, int expr_idx, SV *route, int *rang
                        idx, (int) srl_iterator_stack_depth(aTHX_ iter));
 
         srl_parse_next_int(aTHX_ path, expr_idx + 1, route, idx);
+
+        /* idx += step must not overflow I32 */
+        if (step >= stop - idx)
+            break;
     }
 }
 

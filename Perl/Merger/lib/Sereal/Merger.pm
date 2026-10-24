@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION    = '4.004';
+our $VERSION    = '6.000_001';
 our $XS_VERSION = $VERSION; $VERSION= eval $VERSION;
 
 # not for public consumption, just for testing.
@@ -18,11 +18,20 @@ use constant SRL_TOP_LEVEL_SCALAR => 0;
 use constant SRL_TOP_LEVEL_ARRAY  => 1;
 use constant SRL_TOP_LEVEL_HASH   => 2;
 
+use constant SRL_UNCOMPRESSED => 0;
+use constant SRL_SNAPPY       => 1;
+use constant SRL_ZLIB         => 2;
+use constant SRL_ZSTD         => 3;
+
 use Exporter 'import';
 our @EXPORT_OK = qw(
     SRL_TOP_LEVEL_SCALAR
     SRL_TOP_LEVEL_ARRAY
     SRL_TOP_LEVEL_HASH
+    SRL_UNCOMPRESSED
+    SRL_SNAPPY
+    SRL_ZLIB
+    SRL_ZSTD
 );
 
 our %EXPORT_TAGS = (all => \@EXPORT_OK);
@@ -31,7 +40,7 @@ our @EXPORT = ((caller())[1] eq '-e' ? @EXPORT_OK : ());
 
 sub CLONE_SKIP {1}
 
-XSLoader::load(__PACKAGE__, $Sereal::Merger::VERSION);
+XSLoader::load(__PACKAGE__, $XS_VERSION);
 
 1;
 
@@ -59,8 +68,18 @@ Sereal::Merger - A tool to merge Sereal documents into single one
 
 This library provides a way of merging multiple Sereal documents into one.
 
-The Sereal protocol version emitted by merger is currently protocol version 3
-by default.
+Input containing the diagnostic C<UNDEF_DEADLY> tag (C<EXTEND 0xff>) is
+rejected: it is intended primarily for decoder tests, and a compliant encoder
+must never emit that tag. The same bytes inside a string payload remain
+ordinary data.
+
+The Sereal protocol version emitted by the merger is the most recent one
+(currently 6) by default; see L</protocol_version>.
+
+Input documents may use any protocol version up to the current one, and may
+be compressed with Snappy, Zlib or Zstd. Protocol version 6 documents may
+carry a keyed checksum, which is verified according to the checksum options
+below, exactly as L<Sereal::Decoder> does.
 
 =head1 CLASS METHODS
 
@@ -76,13 +95,17 @@ by default.
 =head3 compress
 
 If this option provided and true, compression of the document body is enabled.
-As of Sereal version 3, two different compression techniques are supported
-and can be enabled by setting C<compress> to the respective named
-constants (exportable from the C<Sereal::Merger> module):
-Snappy (named constant: C<SRL_SNAPPY>),
-and Zlib (C<SRL_ZLIB>).
-For your convenience, there is also a C<SRL_UNCOMPRESSED>
-constant.
+Three compression techniques are supported and can be enabled by setting
+C<compress> to the respective named constants (exportable from the
+C<Sereal::Merger> module): Snappy (named constant: C<SRL_SNAPPY>), Zlib
+(C<SRL_ZLIB>, protocol version 3 or later) and Zstd (C<SRL_ZSTD>, protocol
+version 4 or later). For your convenience, there is also a C<SRL_UNCOMPRESSED>
+constant. A body that does not get smaller is left uncompressed.
+
+=head3 compress_level
+
+The Zlib or Zstd compression level. Defaults to the zlib default for
+C<SRL_ZLIB> and to 3 for C<SRL_ZSTD>, like L<Sereal::Encoder>.
 
 =head3 max_recursion_depth
 
@@ -111,6 +134,23 @@ however this may change in the future.
 Specifies the version of the Sereal protocol to emit. Valid are integers
 between 1 and the current version. If not specified, the most recent protocol
 version will be used.
+
+Input tags that the chosen version lacks are rewritten where an equivalent
+exists: NEG_VARINT becomes ZIGZAG and v-strings lose their v-string magic
+below version 6, YES and NO become TRUE and FALSE below version 5, and
+CANONICAL_UNDEF becomes UNDEF below version 3. FLOAT_128 values cannot be
+merged into output below version 5.
+
+=head3 checksum_policy, checksum_v0_key, checksum_v1_key, checksum_v2_key
+
+These control how checksummed (protocol version 6) input documents are
+authenticated. They take the same values and have the same defaults as the
+L<Sereal::Decoder> options of the same names, including
+C<$Sereal::DefaultKey> and the C<SEREAL_CHECKSUM_POLICY> environment
+variable. With the default policy, a checksummed document is verified when a
+matching key is configured, and merged unverified with a warning otherwise.
+
+The merged output carries no checksum.
 
 =head3 top_level_element
 

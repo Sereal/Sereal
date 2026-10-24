@@ -14,7 +14,11 @@ from the the Encoder and Decoder changelogs:
 *          Decoder independently.                              *
 ****************************************************************
 6.000_001
-    * New tags, better testing and robustness fixes.
+    * Introduce support for v-strings and checksums, rework negative number
+      storage and the security policy, and include bug fixes and robustness
+      improvements.
+    * Thanks to Matt Koscica and Oz Kaiser (@tatikoma), with assistance from
+      Claude Code and Codex.
 
 5.011
     * Robustness fixes. Thanks to Steffen Mueller and kumar-Prakash07.

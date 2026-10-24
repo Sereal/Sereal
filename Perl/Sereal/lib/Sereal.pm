@@ -231,10 +231,11 @@ alias for read_sereal_file()
 
 Restrict decoding to trusted sources and protect serialized packets against
 tampering. See L<Sereal::Decoder/ROBUSTNESS> for packet authentication,
-resource limits, and object handling controls.
+resource limits, and object handling controls, and L<Sereal::Encoder/SECURITY>
+for encoding and checksum guidance.
 
-The distribution includes F<SECURITY.md>. The current policy and private
-vulnerability reporting instructions are available at
+The project-wide security policy and private vulnerability reporting
+instructions are available at
 L<https://github.com/Sereal/Sereal/security/policy>. Report suspected
 vulnerabilities privately at
 L<https://github.com/Sereal/Sereal/security/advisories/new>.

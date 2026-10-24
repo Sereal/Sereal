@@ -22,8 +22,8 @@
    Altered by Yves Orton to match Perl's hash interface, and to
    return a 32 bit hash.
 
-   Note uses unaligned 64 bit loads - will NOT work on machines with
-   strict alginment requirements.
+   Loads go through memcpy(), which compilers turn into plain loads where
+   unaligned access is allowed, and which is safe where it is not.
 
    Also this code may not be suitable for big-endian machines.
 */
@@ -34,14 +34,19 @@ S_perl_hash_murmur_hash_64a (const unsigned char * const seed, const unsigned ch
 {
         const U64TYPE m = 0xc6a4a7935bd1e995;
         const int r = 47;
-        U64TYPE h = *((U64TYPE*)seed) ^ len;
-        const U64TYPE * data = (const U64TYPE *)str;
-        const U64TYPE * end = data + (len/8);
+        U64TYPE h;
+        const unsigned char * data = str;
+        const unsigned char * end = data + (len & ~(STRLEN)7);
         const unsigned char * data2;
+
+        memcpy(&h, seed, sizeof(h));
+        h ^= len;
 
         while(data != end)
         {
-            U64TYPE k = *data++;
+            U64TYPE k;
+            memcpy(&k, data, sizeof(k));
+            data += sizeof(k);
 
             k *= m;
             k ^= k >> r;
@@ -51,7 +56,7 @@ S_perl_hash_murmur_hash_64a (const unsigned char * const seed, const unsigned ch
             h *= m;
         }
 
-        data2 = (const unsigned char *)data;
+        data2 = data;
 
         switch(len & 7)
         {
@@ -79,8 +84,7 @@ S_perl_hash_murmur_hash_64a (const unsigned char * const seed, const unsigned ch
    Altered by Yves Orton to match Perl's hash interface and return
    a 32 bit value
 
-   Note uses unaligned 32 bit loads - will NOT work on machines with
-   strict alginment requirements.
+   Loads go through memcpy(), see above.
 
    Also this code may not be suitable for big-endian machines.
 */
@@ -92,20 +96,24 @@ S_perl_hash_murmur_hash_64b (const unsigned char * const seed, const unsigned ch
         const U32 m = 0x5bd1e995;
         const int r = 24;
 
-        U32 h1 = ((U32 *)seed)[0] ^ len;
-        U32 h2 = ((U32 *)seed)[1];
+        U32 h1, h2;
+        const unsigned char * data = str;
 
-        const U32 * data = (const U32 *)str;
+        memcpy(&h1, seed, sizeof(h1));
+        memcpy(&h2, seed + sizeof(h1), sizeof(h2));
+        h1 ^= len;
 
         while(len >= 8)
         {
             U32 k1, k2;
-            k1 = *data++;
+            memcpy(&k1, data, sizeof(k1));
+            data += sizeof(k1);
             k1 *= m; k1 ^= k1 >> r; k1 *= m;
             h1 *= m; h1 ^= k1;
             len -= 4;
 
-            k2 = *data++;
+            memcpy(&k2, data, sizeof(k2));
+            data += sizeof(k2);
             k2 *= m; k2 ^= k2 >> r; k2 *= m;
             h2 *= m; h2 ^= k2;
             len -= 4;
@@ -113,7 +121,9 @@ S_perl_hash_murmur_hash_64b (const unsigned char * const seed, const unsigned ch
 
         if(len >= 4)
         {
-            U32 k1 = *data++;
+            U32 k1;
+            memcpy(&k1, data, sizeof(k1));
+            data += sizeof(k1);
             k1 *= m; k1 ^= k1 >> r; k1 *= m;
             h1 *= m; h1 ^= k1;
             len -= 4;
@@ -121,9 +131,9 @@ S_perl_hash_murmur_hash_64b (const unsigned char * const seed, const unsigned ch
 
         switch(len)
         {
-            case 3: h2 ^= ((unsigned char*)data)[2] << 16;  /* fallthrough */
-            case 2: h2 ^= ((unsigned char*)data)[1] << 8;   /* fallthrough */
-            case 1: h2 ^= ((unsigned char*)data)[0];        /* fallthrough */
+            case 3: h2 ^= data[2] << 16;  /* fallthrough */
+            case 2: h2 ^= data[1] << 8;   /* fallthrough */
+            case 1: h2 ^= data[0];        /* fallthrough */
                     h2 *= m;
         };
 
@@ -147,10 +157,8 @@ S_perl_hash_murmur_hash_64b (const unsigned char * const seed, const unsigned ch
 /* hash function has to return 4 bytes long value i.e. U32 */
 
 #if PTRSIZE == 8
-#   define PERL_HASH_SEED_BYTES 8
 #   define STRTABLE_HASH(str, len) S_perl_hash_murmur_hash_64a(PERL_HASH_SEED, (U8*) (str), (len))
 #else
-#   define PERL_HASH_SEED_BYTES 8
 #   define STRTABLE_HASH(str, len) S_perl_hash_murmur_hash_64b(PERL_HASH_SEED, (U8*) (str), (len))
 #endif
 

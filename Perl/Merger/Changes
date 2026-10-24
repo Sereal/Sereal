@@ -1,0 +1,32 @@
+Revision history for Perl extension Sereal-Merger
+
+6.000_001
+  * reject UNDEF_DEADLY (EXTEND 0xff) rather than copying this forbidden
+    diagnostic tag into encoded output
+  * read protocol v5 and v6 documents: YES/NO booleans, FLOAT_128, zstd
+    compression and keyed checksums (checksum_policy, checksum_vN_key)
+  * when writing an older protocol version, rewrite YES/NO to TRUE/FALSE
+    and CANONICAL_UNDEF to UNDEF, and refuse FLOAT_128
+  * fix compressed output, which could not be decoded; add
+    compress => SRL_ZLIB and SRL_ZSTD, a compress_level option, and
+    export the SRL_* compression constants
+  * bounds-check fixed-size payloads; LONG_DOUBLE is sizeof(long double)
+  * fix misaligned loads when hashing strings for dedupe_strings
+  * fix merging protocol v1 input, which started reading at the magic
+    string and copied bytes from past the end of the input
+  * check the regexp modifiers tag without its track bit and bounds-check
+    it, and check for the end of input after OBJECT
+  * fix a heap overflow writing EXTEND items once wider COPY offsets in
+    the output had used up the space reserved for the input
+  * append_all() reserves output space per document from its length,
+    not once from SvLEN of the inputs (0 for hash keys)
+  * forget the tracked offsets of earlier documents, so a reference can
+    no longer resolve into another (or a failed) document
+  * check COPY targets without their track bit, and reject a COPY of a
+    COPY, like Sereal::Decoder
+  * fix spurious "recursion limit" errors on wide documents: REFN, WEAKEN,
+    OBJECTV and PAD each leaked one level of the recursion counter
+  * bump Sereal prereq version to 6.000_001
+
+4.004 Nov 13 2017
+  * last release before this file existed

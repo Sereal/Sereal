@@ -1,5 +1,33 @@
 Revision history for Perl extension Sereal-Path
 
+6.000_001
+  * treat UNDEF_DEADLY (EXTEND 0xff) as ordinary undef when reading or
+    skipping a value
+  * Sereal::Path::Iterator reads protocol v5 and v6 documents: YES/NO
+    booleans, FLOAT_128 and keyed checksums (checksum_policy and
+    checksum_vN_key options, also accepted by Sereal::Path->new)
+  * decode() now accepts tags newer than protocol v1, such as booleans,
+    NEG_VARINT and v-strings, and decodes REFP targets again
+  * bounds-check FLOAT/DOUBLE/LONG_DOUBLE payloads; LONG_DOUBLE is
+    sizeof(long double) like in Sereal::Decoder
+  * fix PAD swallowing the tag after it in step_in() and next()
+  * link against installed zstd/miniz when they are used
+  * fix configuring in a git worktree
+  * check for the end of input before reading the tag after REFN and
+    after an OBJECT class name
+  * reject a COPY, REFP, ALIAS or OBJECTV offset that does not point before
+    its own tag: a COPY or ALIAS of itself made info() and Sereal::Path
+    queries loop forever
+  * decode() reads each untracked REFP/ALIAS target once: a reference to
+    an enclosing item recursed until the C stack overflowed, and chains
+    of them took exponential time
+  * reject protocol v1 offsets that point into the header, which for a
+    compressed document exposed bytes that were never written
+  * decode_and_next() continues after an ALIAS rather than after its target
+  * fix a signed overflow stepping through an array range with a large
+    step, such as $[1::2147483647]
+  * bump Sereal prereq version to 6.000_001
+
 4.004 Nov 13 2017
   * fix Devel::CheckLib
   * convert C++ comments to C comments

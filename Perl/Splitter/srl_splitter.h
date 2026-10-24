@@ -4,51 +4,50 @@
 #include "EXTERN.h"
 #include "perl.h"
 
-typedef struct {
-    UV * data;
-    UV size;
-    UV top;
-} srl_splitter_stack_t;
+#include "srl_reader_types.h"
+#include "srl_buffer_types.h"
+
+#define srl_stack_type_t UV
+#include "srl_stack.h"
 
 /* the splitter main struct */
 typedef struct {
-    SV* input_sv;
-    char * input_str;
-    char * input_str_end;
-    char * pos;
-    char * input_body_pos;
-    UV input_nb_elts;
+    /* input: buf.body_pos is the input body, buf.pos the parsing position */
+    srl_reader_buffer_t buf;
+    srl_reader_buffer_ptr pbuf;
+    SV *input_sv;                       /* owns the input buffer, or its decompressed copy */
+    U8 input_protocol_version;
+    UV input_nb_elts;                   /* number of elements of the top level array */
+    srl_checksum_config_t checksum;     /* how to treat a checksummed input */
 
-    int deepness;
+    /* what is left to do, see the ST_* values below */
+    srl_stack_t status_stack;
+    UV deepness;
+    UV max_recursion_depth;
 
-    STRLEN input_len;
-    UV size_limit;
-    U32 flags;
-    srl_splitter_stack_t * status_stack;
-    /* srl_splitter_stack_t * output_stack; */
-
-    SV* header_sv;
-    char* header_str;
+    /* user header template, and where in it to store the element count */
+    SV *header_sv;
+    const char *header_str;
     STRLEN header_len;
     IV header_count_idx;
 
-    UV chunk_size;
-    char* chunk_start;
-    char* chunk_iter_start;
-    char* chunk_body_pos;
-    SV* chunk;
+    /* the chunk being built */
+    srl_buffer_t chunk;
+    UV size_limit;                      /* approximate size of a chunk body */
+    UV chunk_size;                      /* bytes of elements copied into the chunk */
     UV chunk_nb_elts;
-    IV chunk_offset_delta;
+    const unsigned char *chunk_iter_start; /* input bytes from here on are still to be copied */
+    U32 compress_flags;                 /* SRL_F_COMPRESS_* */
+    int compress_level;
+    void *snappy_workmem;
 
-    /* The current position, from the chunk body point of view, + 1*/
-    UV chunk_current_offset;
-
-    IV compression_format;
-    IV compression_level;
+    /* per chunk lookup tables */
+    struct PTABLE *offset_tbl;          /* input body offset of a tracked tag -> its offset in the chunk */
+    HV *dedupe_binary;                  /* string content -> offset of its tag in the chunk */
+    HV *dedupe_utf8;
 
     bool tag_is_tracked;
     bool dont_check_for_duplicate;
-
 } srl_splitter_t;
 
 enum {
@@ -60,7 +59,7 @@ enum {
     ST_DONT_CHECK_FOR_DUPLICATE
 };
 
-srl_splitter_t * srl_build_splitter_struct(pTHX_ HV *opt);
+SV * srl_build_splitter_object(pTHX_ const char *class_name, HV *opt); /* new reference to a blessed splitter */
 void srl_destroy_splitter(pTHX_ srl_splitter_t *splitter);
 SV* srl_splitter_next_chunk(pTHX_ srl_splitter_t * splitter);
 

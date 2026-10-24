@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 my $shared_dir = "../../shared";
-my $in_source_repo = -d "../../../.git" && -d $shared_dir;
+my $in_source_repo = -e "../../../.git" && -d $shared_dir;
 unshift @INC, "..", "../inc";
 unshift @INC, $shared_dir, "$shared_dir/inc" if $in_source_repo;
 
@@ -20,8 +20,11 @@ if ($in_source_repo) {
 
 my $libs = '';
 my $subdirs = [];
-my $objects = '$(BASEEXT)$(OBJ_EXT) ../Iterator/srl_iterator.o ../Iterator/srl_decoder.o ../Iterator/miniz.o ../Iterator/zstd/libzstd.o';
+my $objects = '$(BASEEXT)$(OBJ_EXT) ../Iterator/srl_iterator$(OBJ_EXT) ../Iterator/srl_decoder$(OBJ_EXT)';
 my $defines = inc::Sereal::BuildTools::build_defines();
+
+# Prefer external libraries over the ones bundled in ../Iterator/.
+inc::Sereal::BuildTools::check_external_libraries_from_dir(\$libs, \$defines, \$objects, '../Iterator');
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
@@ -45,8 +48,8 @@ inc::Sereal::BuildTools::WriteMakefile(
         'Test::Differences' => 0,
         'Scalar::Util' => 0,
         'Data::Dumper' => 0,
-        'Sereal::Encoder' => 4.004,
-        'Sereal::Decoder' => 4.004,
+        'Sereal::Encoder' => '6.000_001',
+        'Sereal::Decoder' => '6.000_001',
     },
     BUILD_REQUIRES => {
         'File::Find' => 0,

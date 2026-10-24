@@ -7,7 +7,7 @@ use Sereal::TestSet ();
 use Sereal          qw(encode_sereal decode_sereal get_sereal_checksum validate_sereal_checksum);
 
 local $Sereal::DefaultKey = pack( 'C*', 0 .. 15 );
-local $ENV{SEREAL_CHECKSUM_POLICY} = 'require';
+local $ENV{SEREAL_CHECKSUM_POLICY} = 'require_key';
 my $packet = encode_sereal( [ 7, 'wrapper' ] );
 is( length( get_sereal_checksum($packet) ), 16, 'wrapper exports checksum inspection' );
 ok( validate_sereal_checksum($packet), 'wrapper exports checksum validation with shared default' );

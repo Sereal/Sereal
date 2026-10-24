@@ -7,14 +7,14 @@ use ExtUtils::MakeMaker;
 use Config;
 
 my $shared_dir = "../shared";
-my $in_source_repo = -d "../../.git" && -d $shared_dir;
+my $in_source_repo = -e "../../.git" && -d $shared_dir;
 
 my $module = "Sereal::Merger";
 
 unshift @INC, ".", "./inc";
 unshift @INC, $shared_dir, "$shared_dir/inc" if $in_source_repo;
 require inc::Sereal::BuildTools;
-inc::Sereal::BuildTools::link_files($shared_dir) if $in_source_repo;
+inc::Sereal::BuildTools::link_files($shared_dir, "test_lib") if $in_source_repo;
 inc::Sereal::BuildTools::generate_constant_includes($module) if $in_source_repo;
 
 # TODO Configure/optimize for miniz:
@@ -58,11 +58,16 @@ inc::Sereal::BuildTools::WriteMakefile(
         },
         'meta-spec' => { version => 2 },
     },
+    TEST_REQUIRES => {
+        'Test::More' => 0.88,
+        'Test::LongString' => 0,
+        'Data::Dumper' => 0,
+        'Sereal::Encoder' => '6.000_001',
+        'Sereal::Decoder' => '6.000_001',
+    },
     BUILD_REQUIRES => {
         'File::Find' => 0,
         'File::Path' => 0,
-        'Sereal::Encoder' => '4.000',
-        'Sereal::Decoder' => '4.000',
         'ExtUtils::ParseXS' => '2.21',
     },
     CONFIGURE_REQUIRES => {

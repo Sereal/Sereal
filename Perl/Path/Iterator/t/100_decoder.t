@@ -23,6 +23,17 @@ subtest "decode REFP", sub {
     is_deeply($spi->decode(), $a, 'decode array');
 };
 
+subtest "decode REFP to hash", sub {
+    my $h = { a => 1, b => [ 2, 3 ] };
+    my $spi = Sereal::Path::Iterator->new(encode_sereal(
+        [ $h, $h ],
+    ));
+
+    $spi->step_in();
+    $spi->next();
+    is_deeply($spi->decode(), $h, 'decode hash');
+};
+
 subtest "decode nested REFP", sub {
     my $a = [ 1, 2, 3 ];
     my $b = [ 4, 5, 6, $a ];

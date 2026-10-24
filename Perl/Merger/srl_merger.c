@@ -108,6 +108,10 @@ extern "C" {
 #define SRL_PREALLOCATE_FOR_USER_HEADER 1024
 #define SRL_MINIMALISTIC_HEADER_SIZE 6 /* =srl + 1 byte for version + 1 byte for header */
 
+/* Defaults matching Sereal::Encoder */
+#define DEFAULT_ZLIB_LEVEL MZ_DEFAULT_COMPRESSION
+#define DEFAULT_ZSTD_LEVEL 3
+
 #if !defined(HAVE_CSNAPPY)
 # include "snappy/csnappy_decompress.c"
 #endif
@@ -128,6 +132,9 @@ extern "C" {
 #include "srl_reader_misc.h"
 #include "srl_reader_varint.h"
 #include "srl_reader_decompress.h"
+#include "srl_reader_checksum.h"
+#include "srl_reader_header.h"
+#include "srl_reader_skip.h"
 #include "srl_buffer.h"
 #include "srl_compress.h"
 
@@ -208,7 +215,13 @@ srl_build_merger_struct(pTHX_ HV *opt)
     SV **svp;
     int i;
 
+    srl_checksum_config_t checksum;
+
+    /* validate the checksum options before allocating anything */
+    srl_checksum_config_from_hv(aTHX_ &checksum, opt);
+
     mrg = srl_empty_merger_struct(aTHX);
+    mrg->checksum = checksum;
 
     /* load options */
     if (opt != NULL) {
@@ -247,20 +260,41 @@ srl_build_merger_struct(pTHX_ HV *opt)
         if (svp && SvTRUE(*svp))
             SRL_MRG_SET_OPTION(mrg, SRL_F_DEDUPE_STRINGS);
 
+        /* See also Merger.pm's constants */
         svp = hv_fetchs(opt, "compress", 0);
         if (svp && SvOK(*svp)) {
+            U32 min_version = 0;
             switch (SvIV(*svp)) {
                 case 0: /* uncompressed */
                     break;
 
                 case 1: /* snappy incremental */
                     SRL_MRG_SET_OPTION(mrg, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
+                    min_version = 2;
+                    break;
+
+                case 2:
+                    SRL_MRG_SET_OPTION(mrg, SRL_F_COMPRESS_ZLIB);
+                    mrg->compress_level = DEFAULT_ZLIB_LEVEL;
+                    min_version = 3;
+                    break;
+
+                case 3:
+                    SRL_MRG_SET_OPTION(mrg, SRL_F_COMPRESS_ZSTD);
+                    mrg->compress_level = DEFAULT_ZSTD_LEVEL;
+                    min_version = 4;
                     break;
 
                 default:
                     croak("Invalid Sereal compression format");
             }
+            if (mrg->protocol_version < min_version)
+                croak("This compression requires protocol version %u or later", (unsigned int) min_version);
         }
+
+        svp = hv_fetchs(opt, "compress_level", 0);
+        if (svp && SvOK(*svp))
+            mrg->compress_level = (int) SvIV(*svp);
 
         svp = hv_fetchs(opt, "max_recursion_depth", 0);
         if (svp && SvOK(*svp))
@@ -355,9 +389,13 @@ srl_destroy_merger(pTHX_ srl_merger_t *mrg)
 void
 srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
 {
+    srl_reader_char_ptr body_start;
     assert(mrg != NULL);
 
     srl_set_input_buffer(aTHX_ mrg, src);
+    /* the merge pass starts at the first body tag, which is not
+     * body_pos + 1 in protocol v1: there body_pos is the packet start */
+    body_start = mrg->ibuf.pos;
     srl_build_track_table(aTHX_ mrg);
 
     if (mrg->obuf_last_successfull_offset) {
@@ -382,7 +420,7 @@ srl_merger_append(pTHX_ srl_merger_t *mrg, SV *src)
     mrg->obuf_last_successfull_offset = BODY_POS_OFS(&mrg->obuf);
 
     mrg->recursion_depth = 0;
-    mrg->ibuf.pos = mrg->ibuf.body_pos + 1;
+    mrg->ibuf.pos = body_start;
     srl_merge_single_value(aTHX_ mrg);
 
     mrg->cnt_of_merged_elements++;
@@ -394,7 +432,7 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
 {
     SSize_t i;
     SV **svptr;
-    STRLEN size = 0;
+    srl_reader_char_ptr body_start;
     SSize_t tidx = av_len(src);
 
     if (mrg->obuf_last_successfull_offset) {
@@ -415,22 +453,19 @@ srl_merger_append_all(pTHX_ srl_merger_t *mrg, AV *src)
         if (expect_false(svptr == NULL))
             croak("av_fetch returned NULL");
 
-        size += SvLEN(*svptr);
-    }
-
-    /* preallocate space in obuf in one go,
-     * of course this's is very rough estimation */
-    GROW_BUF(&mrg->obuf, size);
-
-    for (i = 0; i <= tidx; ++i) {
-        srl_set_input_buffer(aTHX_ mrg, *av_fetch(src, i, 0));
+        srl_set_input_buffer(aTHX_ mrg, *svptr);
+        body_start = mrg->ibuf.pos;
         srl_build_track_table(aTHX_ mrg);
+
+        /* preallocate space in obuf for this document, as append() does;
+         * SvLEN of the inputs is no estimate (it is 0 for shared hash keys) */
+        GROW_BUF(&mrg->obuf, (size_t) SRL_RDR_SIZE(mrg->pibuf));
 
         /* save current offset as last successfull */
         mrg->obuf_last_successfull_offset = BODY_POS_OFS(&mrg->obuf);
 
         mrg->recursion_depth = 0;
-        mrg->ibuf.pos = mrg->ibuf.body_pos + 1;
+        mrg->ibuf.pos = body_start;
         srl_merge_single_value(aTHX_ mrg);
 
         mrg->cnt_of_merged_elements++;
@@ -444,6 +479,7 @@ srl_merger_finish(pTHX_ srl_merger_t *mrg, SV *user_header_src)
     UV end_offset;
     UV body_offset;
     UV srl_start_offset = 0;
+    STRLEN doc_len;
 
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
 
@@ -546,16 +582,29 @@ srl_merger_finish(pTHX_ srl_merger_t *mrg, SV *user_header_src)
     }
 
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
+    assert(srl_start_offset <= (UV) BUF_POS_OFS(&mrg->obuf));
 
-    if (SRL_MRG_HAVE_OPTION(mrg, SRL_F_COMPRESS_SNAPPY_INCREMENTAL)) {
-        srl_compress_body(aTHX_ &mrg->obuf, body_offset, mrg->flags, 0, &mrg->snappy_workmem);
-        SRL_UPDATE_BODY_POS(&mrg->obuf, mrg->protocol_version);
+    /* the document is at srl_start_offset, its body right after body_pos */
+    doc_len = (STRLEN) BUF_POS_OFS(&mrg->obuf) - srl_start_offset - 1;
+
+    if (mrg->flags & SRL_F_COMPRESS_FLAGS_MASK) {
+        /* srl_compress_body() needs a buffer that starts with the header;
+         * compressing a copy also leaves the merge state alone */
+        srl_buffer_t doc;
+        SV *out;
+        const STRLEN header_len = (STRLEN) body_offset + 1 - srl_start_offset;
+
+        if (expect_false(srl_buf_init_buffer(aTHX_ &doc, doc_len + 1) != 0))
+            croak("Out of memory");
+        srl_buf_cat_str(&doc, (const char *) mrg->obuf.start + srl_start_offset, doc_len);
+        srl_compress_body(aTHX_ &doc, header_len, mrg->flags & SRL_F_COMPRESS_FLAGS_MASK,
+                          mrg->compress_level, &mrg->snappy_workmem);
+        out = newSVpvn((char *) doc.start, BUF_POS_OFS(&doc));
+        srl_buf_free_buffer(aTHX_ &doc);
+        return out;
     }
 
-    assert(srl_start_offset <= (UV) BUF_POS_OFS(&mrg->obuf));
-    DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
-
-    return newSVpvn((char *) mrg->obuf.start + srl_start_offset, BUF_POS_OFS(&mrg->obuf) - srl_start_offset - 1);
+    return newSVpvn((char *) mrg->obuf.start + srl_start_offset, doc_len);
 }
 
 SRL_STATIC_INLINE srl_merger_t *
@@ -588,6 +637,7 @@ srl_empty_merger_struct(pTHX)
     mrg->tracked_offsets_tbl = NULL;
     mrg->tracked_offsets = NULL;
     mrg->snappy_workmem = NULL;
+    mrg->compress_level = 0;
     mrg->flags = 0;
     return mrg;
 }
@@ -596,11 +646,7 @@ SRL_STATIC_INLINE void
 srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
 {
     STRLEN len;
-    UV header_len;
-    U8 encoding_flags;
-    U8 protocol_version;
     srl_buffer_char *tmp;
-    IV proto_version_and_encoding_flags_int;
 
     SRL_RDR_CLEAR(&mrg->ibuf);
 
@@ -608,54 +654,25 @@ srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
     mrg->ibuf.start = mrg->ibuf.pos = tmp;
     mrg->ibuf.end = mrg->ibuf.start + len;
 
-    proto_version_and_encoding_flags_int = srl_validate_header_version(aTHX_ (srl_reader_char_ptr) mrg->ibuf.start, len);
-
-    if (proto_version_and_encoding_flags_int < 1) {
-        if (proto_version_and_encoding_flags_int == 0)
-            SRL_RDR_ERROR(mrg->pibuf, "Bad Sereal header: It seems your document was accidentally UTF-8 encoded");
-        else
-            SRL_RDR_ERROR(mrg->pibuf, "Bad Sereal header: Not a valid Sereal document.");
-    }
-
-    mrg->ibuf.pos += 5;
-    encoding_flags = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_ENCODING_MASK);
-    protocol_version = (U8) (proto_version_and_encoding_flags_int & SRL_PROTOCOL_VERSION_MASK);
-
-    if (expect_false(protocol_version > SRL_PROTOCOL_VERSION || protocol_version < 1)) {
-        SRL_RDR_ERRORf1(mrg->pibuf, "Unsupported Sereal protocol version %u", (unsigned int) protocol_version);
-    }
-
-    /* skip header in any case */
-    header_len = srl_read_varint_uv_length(aTHX_ mrg->pibuf, " while reading header");
-    mrg->ibuf.pos += header_len;
-
-    if (encoding_flags == SRL_PROTOCOL_ENCODING_RAW) {
-        /* no op */
-    } else if (   encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY
-               || encoding_flags == SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL)
-    {
-        srl_decompress_body_snappy(aTHX_ mrg->pibuf, encoding_flags, NULL, 0);
-    } else if (encoding_flags == SRL_PROTOCOL_ENCODING_ZLIB) {
-        srl_decompress_body_zlib(aTHX_ mrg->pibuf, NULL, 0);
-    } else {
-        SRL_RDR_ERROR(mrg->pibuf, "Sereal document encoded in an unknown format");
-    }
-
-    /* this functions *MUST* be called after srl_decompress_body* */
-    SRL_RDR_UPDATE_BODY_POS(mrg->pibuf, protocol_version);
-    DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
+    /* a decompressed body lives in a mortal, which outlives this merge */
+    mrg->input_protocol_version = srl_reader_open_document(aTHX_ mrg->pibuf, &mrg->checksum, NULL);
 }
 
 SRL_STATIC_INLINE void
 srl_build_track_table(pTHX_ srl_merger_t *mrg)
 {
     U8 tag;
-    UV offset, length;
+    UV offset;
 
     DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
 
     if (mrg->tracked_offsets)
         srl_stack_clear(mrg->tracked_offsets);
+
+    /* offsets are per document: entries left by earlier (or failed and
+     * rolled back) documents must not resolve references in this one */
+    if (mrg->tracked_offsets_tbl)
+        PTABLE_clear(mrg->tracked_offsets_tbl);
 
     while (expect_true(BUF_NOT_DONE(mrg->pibuf))) {
         /* since we're doing full pass, it's not necessary to
@@ -666,74 +683,41 @@ srl_build_track_table(pTHX_ srl_merger_t *mrg)
         SRL_REPORT_CURRENT_TAG(mrg, tag);
         mrg->ibuf.pos++;
 
-        if (tag >= SRL_HDR_SHORT_BINARY_LOW) {
-            mrg->ibuf.pos += SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag);
-        } else if (tag > SRL_HDR_NEG_HIGH && tag < SRL_HDR_ARRAYREF_LOW) {
-            switch (tag) {
-                case SRL_HDR_VARINT:
-                case SRL_HDR_ZIGZAG:
-                case SRL_HDR_NEG_VARINT:
-                    srl_read_varint_uv(aTHX_ mrg->pibuf); /* TODO test/implement srl_skip_varint() */
-                    break;
+        /* This pass also bounds-checks every payload, which lets the merge
+         * pass copy payloads without checking them again. */
+        if (srl_reader_skip_scalar(aTHX_ mrg->pibuf, tag, mrg->input_protocol_version, 1))
+            continue;
 
-                case SRL_HDR_FLOAT:         mrg->ibuf.pos += 4;     break;
-                case SRL_HDR_DOUBLE:        mrg->ibuf.pos += 8;     break;
-                case SRL_HDR_LONG_DOUBLE:   mrg->ibuf.pos += 16;    break;
+        if (tag >= SRL_HDR_ARRAYREF_LOW && tag <= SRL_HDR_HASHREF_HIGH)
+            continue;
 
-                case SRL_HDR_BINARY:
-                case SRL_HDR_STR_UTF8:
-                    length = srl_read_varint_uv_length(aTHX_ mrg->pibuf, " while reading BINARY or STR_UTF8");
-                    mrg->ibuf.pos += length;
-                    break;
+        switch (tag) {
+            case SRL_HDR_HASH:
+            case SRL_HDR_ARRAY:
+                srl_read_varint_uv_count(aTHX_ mrg->pibuf, " while reading ARRAY or HASH");
+                break;
 
-                case SRL_HDR_EXTEND: {
-                    U8 ext_tag;
-                    SRL_RDR_ASSERT_SPACE(mrg->pibuf, 1, " while reading extended tag ID");
-                    ext_tag = *mrg->ibuf.pos++;
-                    if (ext_tag != SRL_EXT_VSTRING_BINARY && ext_tag != SRL_EXT_VSTRING_UTF8)
-                        SRL_RDR_ERROR(mrg->pibuf, "Unknown extended tag ID");
-                    length = srl_read_varint_uv_length(aTHX_ mrg->pibuf, " while reading extended VSTRING");
-                    mrg->ibuf.pos += length;
-                    break;
-                }
+            case SRL_HDR_COPY:
+            case SRL_HDR_REFP:
+            case SRL_HDR_ALIAS:
+            case SRL_HDR_OBJECTV:
+            case SRL_HDR_OBJECTV_FREEZE:
+                offset = srl_read_varint_uv_offset(aTHX_ mrg->pibuf, " while reading COPY, OBJECTV or OBJECTV_FREEZE");
+                srl_stack_push_val(SRL_GET_TRACKED_OFFSETS(mrg), offset);
+                break;
 
-                case SRL_HDR_HASH:
-                case SRL_HDR_ARRAY:
-                    srl_read_varint_uv_count(aTHX_ mrg->pibuf, " while reading ARRAY or HASH");
-                    break;
+            case SRL_HDR_PAD:
+            case SRL_HDR_REFN:
+            case SRL_HDR_WEAKEN:
+            case SRL_HDR_REGEXP:
+            case SRL_HDR_OBJECT:
+            case SRL_HDR_OBJECT_FREEZE:
+                /* noop */
+                break;
 
-                case SRL_HDR_TRUE:
-                case SRL_HDR_FALSE:
-                case SRL_HDR_UNDEF:
-                case SRL_HDR_CANONICAL_UNDEF:
-                    /* noop */
-                    break;
-
-                default:
-                    switch (tag) {
-                        case SRL_HDR_COPY:
-                        case SRL_HDR_REFP:
-                        case SRL_HDR_ALIAS:
-                        case SRL_HDR_OBJECTV:
-                        case SRL_HDR_OBJECTV_FREEZE:
-                            offset = srl_read_varint_uv_offset(aTHX_ mrg->pibuf, " while reading COPY, OBJECTV or OBJECTV_FREEZE");
-                            srl_stack_push_val(SRL_GET_TRACKED_OFFSETS(mrg), offset);
-                            break;
-
-                        case SRL_HDR_PAD:
-                        case SRL_HDR_REFN:
-                        case SRL_HDR_WEAKEN:
-                        case SRL_HDR_REGEXP:
-                        case SRL_HDR_OBJECT:
-                        case SRL_HDR_OBJECT_FREEZE:
-                            /* noop */
-                            break;
-
-                        default:
-                            SRL_RDR_ERROR_UNIMPLEMENTED(mrg->pibuf, tag, "");
-                            break;
-                    }
-            }
+            default:
+                SRL_RDR_ERROR_UNIMPLEMENTED(mrg->pibuf, tag, SRL_TAG_NAME(tag));
+                break;
         }
     }
 
@@ -759,14 +743,14 @@ srl_merge_single_value(pTHX_ srl_merger_t *mrg)
     UV length, offset;
     ptable_entry_ptr ptable_entry;
 
+    /* once per call: the tags that goto read_again are not decremented again */
+    if (expect_false(++mrg->recursion_depth > mrg->max_recursion_depth))
+        SRL_RDR_ERRORf1(mrg->pibuf, "Reached recursion limit (%lu) during merging", mrg->max_recursion_depth);
 
 read_again:
     assert(mrg->recursion_depth >= 0);
     DEBUG_ASSERT_RDR_SANE(mrg->pibuf);
     DEBUG_ASSERT_BUF_SANE(&mrg->obuf);
-
-    if (expect_false(++mrg->recursion_depth > mrg->max_recursion_depth))
-        SRL_RDR_ERRORf1(mrg->pibuf, "Reached recursion limit (%lu) during merging", mrg->max_recursion_depth);
 
     ptable_entry = NULL;
     if (expect_false(SRL_RDR_DONE(mrg->pibuf)))
@@ -813,14 +797,35 @@ read_again:
                 }
                 break;
 
-            case SRL_HDR_FLOAT:         srl_buf_copy_content_nocheck(aTHX_ mrg, 5);  break;
-            case SRL_HDR_DOUBLE:        srl_buf_copy_content_nocheck(aTHX_ mrg, 9);  break;
-            case SRL_HDR_LONG_DOUBLE:   srl_buf_copy_content_nocheck(aTHX_ mrg, 17); break;
+            /* payload sizes plus one for the tag */
+            case SRL_HDR_FLOAT:         srl_buf_copy_content_nocheck(aTHX_ mrg, SRL_FLOAT_SIZE + 1);       break;
+            case SRL_HDR_DOUBLE:        srl_buf_copy_content_nocheck(aTHX_ mrg, SRL_DOUBLE_SIZE + 1);      break;
+            case SRL_HDR_LONG_DOUBLE:   srl_buf_copy_content_nocheck(aTHX_ mrg, SRL_LONG_DOUBLE_SIZE + 1); break;
+
+            case SRL_HDR_FLOAT_128:
+                if (expect_false(mrg->protocol_version < 5))
+                    SRL_RDR_ERRORf1(mrg->pibuf, "FLOAT_128 tag cannot be merged into protocol version %u output",
+                                    (unsigned int) mrg->protocol_version);
+                srl_buf_copy_content_nocheck(aTHX_ mrg, SRL_FLOAT_128_SIZE + 1);
+                break;
+
+            /* older protocols have no distinct booleans or canonical undef;
+             * fall back to the closest tag they do have */
+            case SRL_HDR_YES:
+                srl_buf_cat_tag_nocheck(mrg, mrg->protocol_version >= 5 ? tag : SRL_HDR_TRUE);
+                break;
+
+            case SRL_HDR_NO:
+                srl_buf_cat_tag_nocheck(mrg, mrg->protocol_version >= 5 ? tag : SRL_HDR_FALSE);
+                break;
+
+            case SRL_HDR_CANONICAL_UNDEF:
+                srl_buf_cat_tag_nocheck(mrg, mrg->protocol_version >= 3 ? tag : SRL_HDR_UNDEF);
+                break;
 
             case SRL_HDR_TRUE:
             case SRL_HDR_FALSE:
             case SRL_HDR_UNDEF:
-            case SRL_HDR_CANONICAL_UNDEF:
                 srl_buf_cat_tag_nocheck(mrg, tag);
                 break;
 
@@ -849,6 +854,14 @@ read_again:
                         mrg->ibuf.pos++; /* skip tag in input buffer */
                         offset = srl_read_varint_uv_offset(aTHX_ mrg->pibuf, " while reading COPY/ALIAS/REFP");
                         offset = srl_lookup_tracked_offset(aTHX_ mrg, offset); /* convert ibuf offset to obuf offset */
+
+                        /* By Sereal spec a COPY tag cannot reffer to another COPY tag */
+                        if (tag == SRL_HDR_COPY
+                            && expect_false((*(mrg->obuf.body_pos + offset) & ~SRL_HDR_TRACK_FLAG) == SRL_HDR_COPY))
+                        {
+                            SRL_RDR_ERROR_BAD_COPY(mrg->pibuf, SRL_HDR_COPY);
+                        }
+
                         srl_buf_cat_varint(aTHX_ &mrg->obuf, tag, offset);
 
                         if (tag == SRL_HDR_REFP || tag == SRL_HDR_ALIAS) {
@@ -865,11 +878,10 @@ read_again:
                     case SRL_HDR_EXTEND: {
                         U8 ext_tag;
                         mrg->ibuf.pos++; /* skip EXTEND tag */
-                        SRL_RDR_ASSERT_SPACE(mrg->pibuf, 1, " while reading extended tag ID");
-                        ext_tag = *mrg->ibuf.pos++;
-                        if (ext_tag != SRL_EXT_VSTRING_BINARY && ext_tag != SRL_EXT_VSTRING_UTF8)
-                            SRL_RDR_ERROR(mrg->pibuf, "Unknown extended tag ID");
-                        length = srl_read_varint_uv_length(aTHX_ mrg->pibuf, " while reading extended VSTRING");
+                        length = srl_read_extend_header(aTHX_ mrg->pibuf, mrg->input_protocol_version, &ext_tag);
+                        if (ext_tag == SRL_EXT_UNDEF_DEADLY)
+                            SRL_RDR_ERROR(mrg->pibuf, "Cannot emit UNDEF_DEADLY extended tag");
+                        GROW_BUF(&mrg->obuf, 2 + SRL_MAX_VARINT_LENGTH);
                         if (mrg->protocol_version >= 6) {
                             srl_buf_cat_char_nocheck(&mrg->obuf, SRL_HDR_EXTEND);
                             srl_buf_cat_char_nocheck(&mrg->obuf, ext_tag);
@@ -891,10 +903,13 @@ read_again:
                         srl_buf_cat_tag_nocheck(mrg, tag);
                         srl_merge_stringish(aTHX_ mrg);
 
-                        tag = *mrg->ibuf.pos;
+                        SRL_RDR_ASSERT_SPACE(mrg->pibuf, 1, " while reading regexp modifiers");
+                        tag = *mrg->ibuf.pos & ~SRL_HDR_TRACK_FLAG;
                         if (expect_false(tag < SRL_HDR_SHORT_BINARY_LOW))
                             SRL_RDR_ERROR_UNEXPECTED(mrg->pibuf, tag, "SRL_HDR_SHORT_BINARY");
 
+                        SRL_RDR_ASSERT_SPACE(mrg->pibuf, SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) + 1,
+                                             " while reading regexp modifiers");
                         srl_buf_copy_content_nocheck(aTHX_ mrg, SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(tag) + 1);
                         break;
 
@@ -1092,7 +1107,7 @@ srl_merge_stringish(pTHX_ srl_merger_t *mrg)
         offset = srl_read_varint_uv_offset(aTHX_ mrg->pibuf, " while reading COPY");
         offset = srl_lookup_tracked_offset(aTHX_ mrg, offset); /* convert ibuf offset to obuf offset */
 
-        newtag = *(mrg->obuf.body_pos + offset);
+        newtag = *(mrg->obuf.body_pos + offset) & ~SRL_HDR_TRACK_FLAG;
         if (expect_false(newtag != SRL_HDR_BINARY && newtag != SRL_HDR_STR_UTF8 && newtag < SRL_HDR_SHORT_BINARY_LOW)) {
             SRL_RDR_ERROR_BAD_COPY(mrg->pibuf, newtag);
         }
@@ -1120,7 +1135,8 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
 
     mrg->ibuf.pos++; /* skip object tag */
 
-    strtag = *mrg->ibuf.pos & ~SRL_HDR_TRACK_FLAG;
+    SRL_RDR_ASSERT_SPACE(mrg->pibuf, 1, " while reading OBJECT class name");
+    strtag =*mrg->ibuf.pos & ~SRL_HDR_TRACK_FLAG;
     SRL_REPORT_CURRENT_TAG(mrg, strtag);
 
     if (mrg->tracked_offsets && !srl_stack_empty(mrg->tracked_offsets)) {
@@ -1170,6 +1186,7 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
             }
         } else if (strtable_entry) {
             /* issue OBJECT tag and update strtable entry */
+            GROW_BUF(&mrg->obuf, 1);
             srl_buf_cat_char_nocheck(&mrg->obuf, objtag);
 
             mrg->ibuf.pos = strtag_ptr; /* reset input buffer to start */
@@ -1181,6 +1198,7 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
                                       mrg->ibuf.pos - total_length, total_length);
         } else {
             /* issue OBJECT tag */
+            GROW_BUF(&mrg->obuf, 1);
             srl_buf_cat_char_nocheck(&mrg->obuf, objtag);
 
             mrg->ibuf.pos = strtag_ptr;
@@ -1191,7 +1209,7 @@ srl_merge_object(pTHX_ srl_merger_t *mrg, const U8 objtag)
         UV offset = srl_read_varint_uv_offset(aTHX_ mrg->pibuf, " while reading COPY");
         offset = srl_lookup_tracked_offset(aTHX_ mrg, offset); /* convert ibuf offset to obuf offset */
 
-        newtag = *(mrg->obuf.body_pos + offset);
+        newtag = *(mrg->obuf.body_pos + offset) & ~SRL_HDR_TRACK_FLAG;
         if (expect_false(newtag != SRL_HDR_BINARY && newtag != SRL_HDR_STR_UTF8 && newtag < SRL_HDR_SHORT_BINARY_LOW)) {
             SRL_RDR_ERROR_BAD_COPY(mrg->pibuf, newtag);
         }

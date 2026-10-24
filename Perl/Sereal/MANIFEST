@@ -29,6 +29,7 @@ t/070_alias_options.t
 t/080_set_readonly.t
 t/095_checksum_policy.t
 t/096_build_tools.t
+t/097_checksum_versions.t
 t/110_nobless.t
 t/120_hdr_data.t
 t/130_freezethaw.t

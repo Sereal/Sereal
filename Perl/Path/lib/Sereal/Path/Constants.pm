@@ -4,7 +4,7 @@ use warnings;
 require Exporter;
 our @ISA= qw(Exporter);
 
-our $VERSION= '4.004'; # Don't forget to update the TestCompat set for testing against installed encoders!
+our $VERSION = '6.000_001'; # Don't forget to update the TestCompat set for testing against installed encoders!
 
 our ( @EXPORT_OK, %DEFINE, %TAG_INFO_HASH, @TAG_INFO_ARRAY );
 
@@ -16,9 +16,10 @@ BEGIN {
     %DEFINE= (
         "SRL_CHECKSUM_TAG_LENGTH_128"              => 16,
         "SRL_CHECKSUM_TAG_LENGTH_64"               => 8,
+        "SRL_CHECKSUM_VERSION_SIPHASH_2_4_128"     => 1,
         "SRL_CHECKSUM_VERSION_SIPHASH_2_4_64"      => 0,
-        "SRL_CHECKSUM_VERSION_SIPHASH_3_6_128"     => 1,
-        "SRL_EXT_DEADLY"                           => 0,
+        "SRL_CHECKSUM_VERSION_SIPHASH_3_6_128"     => 2,
+        "SRL_EXT_UNDEF_DEADLY"                     => 255,
         "SRL_EXT_VSTRING_BINARY"                   => 38,
         "SRL_EXT_VSTRING_UTF8"                     => 39,
         "SRL_HDR_ALIAS"                            => 46,
