@@ -6,6 +6,19 @@ Revision history for Perl extension Sereal-Encoder
 *          encoder!                                            *
 ****************************************************************
 6.000_001
+    * Preserve FREEZE cache hits for weak references and predicates that drop
+      the object's last owner, avoiding repeated callbacks.
+    * Read already-cached nonnegative integers directly, avoiding redundant
+      signed-to-unsigned conversion while preserving FETCH-once behavior.
+    * Use callback lifetime guards for FREEZE arguments and allow-list
+      predicates without retaining the same values twice.
+    * Check for container mutation after FREEZE predicate result conversion,
+      including overloaded boolean results.
+    * Avoid quadratic encoding time for sorted hashes whose values invoke
+      FREEZE or other callbacks. Detect removed entries before reading them,
+      without rescanning the entire hash after every callback.
+    * Start callback bookkeeping tables small and grow them as needed to reduce
+      cleanup cost for small inputs.
     * Restore COPY deduplication of hash keys given as UTF-8 strings that fit
       in Latin-1 (WASUTF8 keys), lost when shared keys started being retained.
     * Encode in one traversal, retaining borrowed values only around actual

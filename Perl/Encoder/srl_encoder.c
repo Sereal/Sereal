@@ -212,7 +212,7 @@ SRL_STATIC_INLINE void srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src);
 SRL_STATIC_INLINE void srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src);
 SRL_STATIC_INLINE int srl_dump_classname(pTHX_ srl_encoder_t *enc, SV *referent, SV *replacement);
 SRL_STATIC_INLINE SV *srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent);
-SRL_STATIC_INLINE int srl_freeze_class_allowed(pTHX_ srl_encoder_t *enc, HV *stash, SV *src);
+SRL_STATIC_INLINE int srl_freeze_class_allowed(pTHX_ srl_encoder_t *enc, HV *stash, SV *src, SV *referent);
 SRL_STATIC_INLINE PTABLE_t *srl_init_string_hash(srl_encoder_t *enc);
 SRL_STATIC_INLINE PTABLE_t *srl_init_ref_hash(srl_encoder_t *enc);
 SRL_STATIC_INLINE PTABLE_t *srl_init_freezeobj_svhash(srl_encoder_t *enc);
@@ -247,6 +247,7 @@ typedef struct srl_encoder_frame {
     HE *borrowed_entry;
     SV *borrowed_key;
     int key_guard;
+    int sorted_keyed;
 } srl_encoder_frame;
 
 SRL_STATIC_INLINE void
@@ -299,7 +300,7 @@ srl_callback_begin(pTHX_ srl_encoder_t *enc, SV *value, SV *reference)
         if (!enc->callback_keepalive)
             enc->callback_keepalive = newAV();
         if (!enc->callback_seen)
-            enc->callback_seen = PTABLE_new();
+            enc->callback_seen = PTABLE_new_size(3);
         srl_callback_hold(aTHX_ enc, enc->root_src);
         srl_callback_hold(aTHX_ enc, enc->header_src);
         /* Keep previously tracked identities alive before user code can
@@ -355,9 +356,22 @@ srl_callback_begin(pTHX_ srl_encoder_t *enc, SV *value, SV *reference)
                 frame->borrowed_key = sv_2mortal(newSVhek(HeKEY_hek(frame->borrowed_entry)));
                 frame->key_guard = 1;
             }
-            if (frame->sorted) {
-                for (i = 0; i < frame->sorted_count; i++)
-                    srl_callback_hold(aTHX_ enc, frame->sorted[i].key.sv);
+            if (frame->sorted && !frame->sorted_keyed) {
+                /* The sort already needs this key list. Before the first
+                 * callback, give remaining borrowed HEs stable lookup keys.
+                 * Validate each HE immediately before use instead of scanning
+                 * the entire hash after every callback. Values are still
+                 * fetched at use. */
+                for (i = 0; i < frame->sorted_count; i++) {
+                    HE_SV *item = &frame->sorted[i];
+                    if (item->key.sv) {
+                        srl_callback_hold(aTHX_ enc, item->key.sv);
+                    } else {
+                        item->key.sv = newSVhek(HeKEY_hek(item->val.he));
+                        av_push(enc->callback_keepalive, item->key.sv);
+                    }
+                }
+                frame->sorted_keyed = 1;
             }
         }
     }
@@ -388,37 +402,23 @@ srl_callback_end(pTHX_ srl_encoder_t *enc)
             UV i;
             HE *current = frame->cursor ? *frame->cursor : NULL;
             int found = current == NULL;
-            PTABLE_t *live = NULL;
             if (buckets != frame->storage || HvMAX(hash) != (UV)frame->limit
                 || HvUSEDKEYS(hash) != frame->count)
                 croak("Sereal: input hash was modified during encoding");
-            if (!frame->sorted && frame->key_guard) {
+            if (frame->key_guard) {
                 if (SvMAGICAL(hash)
                     || hv_fetch_ent(hash, frame->borrowed_key, 0, 0) != frame->borrowed_entry)
                     croak("Sereal: input hash was modified during encoding");
                 continue;
             }
-            if (frame->sorted)
-                live = PTABLE_new();
-            if (buckets && (current || live)) {
+            if (buckets && current) {
                 for (i = 0; i <= HvMAX(hash); i++) {
                     HE *entry;
                     for (entry = buckets[i]; entry; entry = HeNEXT(entry)) {
                         if (entry == current)
                             found = 1;
-                        if (live)
-                            PTABLE_store(live, entry, INT2PTR(void *, 1));
                     }
                 }
-            }
-            if (live) {
-                for (i = 0; i < frame->sorted_count; i++) {
-                    if (!PTABLE_fetch(live, frame->sorted[i].val.he)) {
-                        found = 0;
-                        break;
-                    }
-                }
-                PTABLE_free(live);
             }
             if (!found)
                 croak("Sereal: input hash was modified during encoding");
@@ -1345,10 +1345,19 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
      *      we're just wasting some space. */
     /* TODO optimize! */
 
-    /* The caller has already fetched magic. Use that same value for the
-     * sign check and payload instead of invoking FETCH again. */
+    /* Entry contract: CALL_SRL_DUMP_SV's fast path passes nonmagical scalars;
+     * srl_dump_sv's general path runs srl_getmagic first when needed. If src
+     * is still magical, sign and payload must use that cached value: another
+     * FETCH could return something different. Use _nomg conversions here.
+     * They suppress FETCH, but may still do numeric conversion; a public
+     * cached integer lets us avoid that conversion as well. */
     if (expect_true( SvIOK_UV(src) || SvIV_nomg(src) >= 0 )) {
-        const UV num = SvUV_nomg(src);
+        /* A public cached IV is already known nonnegative here. Read its
+         * slot directly instead of asking Perl to convert a signed IV to UV.
+         * Keep conversion for private numeric caches and other SV types. */
+        const UV num = SvIOK(src)
+                       ? (SvIsUV(src) ? SvUVX(src) : (UV)SvIVX(src))
+                       : SvUV_nomg(src);
         if (num <= 15) {
             /* encodable as POS */
             hdr = SRL_HDR_POS_LOW | (unsigned char)num;
@@ -1382,7 +1391,7 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
  * according to the freeze_allow_classes option. Returns true when no allow-list
  * is configured (the default), so ordinary encoding is unaffected. */
 SRL_STATIC_INLINE int
-srl_freeze_class_allowed(pTHX_ srl_encoder_t *enc, HV *stash, SV *src)
+srl_freeze_class_allowed(pTHX_ srl_encoder_t *enc, HV *stash, SV *src, SV *referent)
 {
     const char *classname;
     STRLEN classname_len;
@@ -1419,14 +1428,15 @@ srl_freeze_class_allowed(pTHX_ srl_encoder_t *enc, HV *stash, SV *src)
         PUSHs(name_sv);
         PUSHs(src);
         PUTBACK;
-        srl_callback_begin(aTHX_ enc, src, NULL);
+        srl_callback_begin(aTHX_ enc, src, referent);
         count = call_sv(enc->freeze_allow_cb, G_SCALAR);
-        srl_callback_end(aTHX_ enc);
         SPAGAIN;
         if (count >= 1) {
             SV *res = POPs;
             allowed = SvTRUE(res) ? 1 : 0;
         }
+        /* Boolean overload may execute user code just like the predicate. */
+        srl_callback_end(aTHX_ enc);
         PUTBACK;
         FREETMPS;
         LEAVE;
@@ -1456,14 +1466,15 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
             SV *replacement= NULL;
             PTABLE_t *freezeobj_svhash;
             CV *freeze_cv = GvCV(method);
+            /* Weak RVs do not contribute to the referent's refcount. Capture
+             * this before a predicate can clear the last ordinary owner or
+             * overwrite src; our keepalive may then be its only reference. */
+            const int may_have_frozen = SvREFCNT(referent) > 1 || SvWEAKREF(src);
 
-            /* Either the allow-list predicate or FREEZE may drop the last
-             * reference to the object or the reference being serialized.
-             * Both are still needed afterwards, including on denial. */
-            SvREFCNT_inc_simple_void_NN(src);
-            SAVEFREESV(src);
-            SvREFCNT_inc_simple_void_NN(referent);
-            SAVEFREESV(referent);
+            /* The callback guard retains src and its original referent for
+             * either user-code entry. Do not also retain them on the save
+             * stack: that duplicates ownership and defeats the cache's
+             * unshared-referent shortcut below. */
             /* The predicate may delete or replace the method's glob too. */
             SvREFCNT_inc_simple_void_NN((SV *)freeze_cv);
             SAVEFREESV((SV *)freeze_cv);
@@ -1471,7 +1482,7 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
             /* Enforce the freeze allow-list (if any). A disallowed class either
              * croaks (default) or is serialized normally (freeze_deny_action
              * => 'serialize'), which we signal by returning NULL here. */
-            if (expect_false( !srl_freeze_class_allowed(aTHX_ enc, stash, src) )) {
+            if (expect_false( !srl_freeze_class_allowed(aTHX_ enc, stash, src, referent) )) {
                 if (SRL_ENC_HAVE_OPTION(enc, SRL_F_FREEZE_DENY_SERIALIZE))
                     return NULL;
                 croak("FREEZE not allowed for class '%s' (not in freeze_allow_classes)",
@@ -1479,7 +1490,7 @@ srl_get_frozen_object(pTHX_ srl_encoder_t *enc, SV *src, SV *referent)
             }
 
             freezeobj_svhash = SRL_GET_FREEZEOBJ_SVHASH(enc);
-            if (SvREFCNT(referent)>1) {
+            if (may_have_frozen) {
                 replacement= (SV *) PTABLE_fetch(freezeobj_svhash, referent);
             }
             if (!replacement) {
@@ -2110,6 +2121,9 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
 {
     HE *he = NULL;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
+    srl_encoder_frame *frame = enc->frames;
+    frame->cursor = &he;
+    frame->sorted_keyed = 0;
 
     /* This sub is used only for untied hashes and when the user wants
      * sorted keys, but not necessarily the order that perl would use. 
@@ -2137,17 +2151,25 @@ srl_dump_hv_sorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, const UV n)
             array_ptr++;
         }
         
-        enc->frames->sorted = array;
-        enc->frames->sorted_count = n;
+        frame->sorted = array;
+        frame->sorted_count = n;
         srl_qsort(aTHX_ enc, n, array);
 
         array_end = array + n;
         for ( array_end= array + n; array < array_end; array++ ) {
             SV *v;
-            he = array->val.he;
+            if (frame->sorted_keyed) {
+                he = hv_fetch_ent(src, array->key.sv, 0, 0);
+                if (!he || he != array->val.he)
+                    croak("Sereal: input hash was modified during encoding");
+            } else {
+                he = array->val.he;
+            }
             srl_dump_hk(aTHX_ enc, he, do_share_keys);
             v = srl_hv_iterval(aTHX_ enc, src, he);
             CALL_SRL_DUMP_SV(enc, v);
+            frame->sorted = array + 1;
+            --frame->sorted_count;
         }
     }
 }
