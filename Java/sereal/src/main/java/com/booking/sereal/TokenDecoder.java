@@ -39,6 +39,8 @@ public class TokenDecoder {
     private final int type;
     private int total, remaining;
     private int originalPosition;
+    // a sub-decode started for a COPY token
+    private boolean isCopy;
 
     Context(Context outer, int type, int remaining) {
       this.outer = outer;
@@ -110,6 +112,8 @@ public class TokenDecoder {
   private byte[] bigintBuffer;
 
   private Context currentContext;
+  // number of enclosing sub-decodes following a COPY
+  private int copyDepth;
   private SerealToken currentToken = SerealToken.NONE;
   private boolean isSecondTime;
   private int trackOffset, tokenOffset;
@@ -263,6 +267,7 @@ public class TokenDecoder {
     baseOffset = position - 1;
 
     currentContext = new Context(null, CONTEXT_ROOT, 1);
+    copyDepth = 0;
   }
 
   private void parseHeader() throws SerealException {
@@ -342,6 +347,7 @@ public class TokenDecoder {
     }
 
     currentContext = new Context(null, CONTEXT_ROOT, 1);
+    copyDepth = 0;
   }
 
   private void uncompressSnappy() throws SerealException {
@@ -573,6 +579,9 @@ public class TokenDecoder {
         case CONTEXT_OBJECT:
           return (currentToken = SerealToken.OBJECT_END);
         case CONTEXT_SUBDECODE:
+          if (popped.isCopy) {
+            copyDepth--;
+          }
           position = popped.originalPosition;
           return (currentToken = SerealToken.SUBDECODE_END);
       }
@@ -581,6 +590,11 @@ public class TokenDecoder {
     checkNoEOD();
 
     byte tag = data[position++];
+    // skip padding iteratively: a long run of PAD tags must not recurse
+    while ((byte) (tag & ~SerealHeader.SRL_HDR_TRACK_FLAG) == SerealHeader.SRL_HDR_PAD) {
+      checkNoEOD();
+      tag = data[position++];
+    }
 
     tokenOffset = position - 1 - baseOffset;
     trackOffset = 0;
@@ -694,7 +708,7 @@ public class TokenDecoder {
           currentContext.remaining++;
           return (currentToken = SerealToken.REFN);
         case SerealHeader.SRL_HDR_REFP:
-          backreferenceOffset = (int) readVarint();
+          backreferenceOffset = readBackreference(position - 1);
           return (currentToken = SerealToken.REFP);
         case SerealHeader.SRL_HDR_OBJECT:
           currentContext = new Context(currentContext, CONTEXT_OBJECT, 1);
@@ -702,13 +716,18 @@ public class TokenDecoder {
           return (currentToken = SerealToken.OBJECT_START);
         case SerealHeader.SRL_HDR_OBJECTV:
           currentContext = new Context(currentContext, CONTEXT_OBJECT, 1);
-          readStringCopy();
+          // the class name offset may point at an OBJECT's class name, itself possibly a COPY
+          readStringCopy(position - 1, true);
           return (currentToken = SerealToken.OBJECT_START);
         case SerealHeader.SRL_HDR_COPY:
-          backreferenceOffset = (int) readVarint();
+          backreferenceOffset = readCopyTarget(position - 1);
+          // a COPY target may not contain a COPY, except for hash keys and class names
+          if (copyDepth > 0 && !isHashKey()) {
+            throw new SerealException("Nested COPY at offset " + tokenOffset + " inside another COPY");
+          }
           return (currentToken = SerealToken.COPY);
         case SerealHeader.SRL_HDR_ALIAS:
-          backreferenceOffset = (int) readVarint();
+          backreferenceOffset = readBackreference(position - 1);
           return (currentToken = SerealToken.ALIAS);
         case SerealHeader.SRL_HDR_WEAKEN:
           currentContext.remaining++;
@@ -725,9 +744,6 @@ public class TokenDecoder {
         case SerealHeader.SRL_HDR_REGEXP:
           readRegexp();
           return (currentToken = SerealToken.REGEXP);
-        case SerealHeader.SRL_HDR_PAD:
-          currentContext.remaining++;
-          return nextToken();
         default:
           throw new SerealException("Tag not supported: " + tag);
       }
@@ -748,8 +764,16 @@ public class TokenDecoder {
    * @throws SerealException Token cannot be decoded.
    */
   public void startSubDecode(int offset) throws SerealException {
+    long target = (long) offset + baseOffset;
+    if (offset < 1 || target < 0 || target >= end) {
+      throw new SerealException("Sub-decode offset " + offset + " is outside the document");
+    }
     currentContext = new Context(currentContext, CONTEXT_SUBDECODE, 1, position);
-    position = offset + baseOffset;
+    if (currentToken == SerealToken.COPY && offset == backreferenceOffset) {
+      currentContext.isCopy = true;
+      copyDepth++;
+    }
+    position = (int) target;
   }
 
   /**
@@ -960,13 +984,40 @@ public class TokenDecoder {
     position += length;
   }
 
-  private void readStringCopy() throws SerealException {
-    int originalPosition = (int) readVarint();
+  /**
+   * Re-read the string at a previous offset, for a COPY used as a class name, and for OBJECTV
+   * class names.
+   *
+   * @param tag position of the COPY or OBJECTV tag
+   * @param allowCopyTarget whether the target may itself be a COPY (only for OBJECTV, whose
+   *     target is an OBJECT's class name)
+   */
+  private void readStringCopy(int tag, boolean allowCopyTarget) throws SerealException {
+    int originalOffset = allowCopyTarget ? readBackreference(tag) : readCopyTarget(tag);
     int currentPosition = position; // remember where we parked
 
-    position = originalPosition + baseOffset;
+    position = originalOffset + baseOffset;
     readString();
     position = currentPosition; // go back to where we were
+  }
+
+  // read a REFP/ALIAS/OBJECTV offset, which must point strictly before the tag at position tag
+  private int readBackreference(int tag) throws SerealException {
+    long offset = readVarint();
+    long target = baseOffset + offset;
+    if (offset < 1 || target < 0 || target >= tag) {
+      throw new SerealException("Backreference " + offset + " at byte " + tag + " must precede its own tag");
+    }
+    return (int) offset;
+  }
+
+  // a COPY offset is a backreference whose target is not itself a COPY
+  private int readCopyTarget(int tag) throws SerealException {
+    int offset = readBackreference(tag);
+    if ((byte) (data[offset + baseOffset] & ~SerealHeader.SRL_HDR_TRACK_FLAG) == SerealHeader.SRL_HDR_COPY) {
+      throw new SerealException("COPY at byte " + tag + " refers to another COPY");
+    }
+    return offset;
   }
 
   private void readUTF8() {
@@ -1011,7 +1062,7 @@ public class TokenDecoder {
     } else if (tag == SerealHeader.SRL_HDR_STR_UTF8) {
       readUTF8();
     } else if (tag == SerealHeader.SRL_HDR_COPY) {
-      readStringCopy();
+      readStringCopy(position - 1, false);
     } else {
       throw new SerealException("Tag " + tag + " is not a string tag");
     }
@@ -1052,6 +1103,7 @@ public class TokenDecoder {
     hasChecksum = checkPayloadEnd = false;
     payloadStart = payloadEnd = -1;
     isSecondTime = false;
+    copyDepth = 0;
   }
 
   /**

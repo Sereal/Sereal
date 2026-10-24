@@ -72,6 +72,8 @@ public class Decoder implements SerealHeader {
   private Inflater inflater;
 
   private int recursionDepth = 0;
+  // set while decoding the target of a COPY tag, which may not contain another COPY
+  private boolean inCopy;
 
   /** Create a new Decoder with default options. */
   public Decoder() {
@@ -244,12 +246,16 @@ public class Decoder implements SerealHeader {
     if (userHeaderSize <= 0) throw new SerealException("Sereal user header not present");
     byte[] originalData = data;
     int originalPosition = position, originalSize = end;
+    recursionDepth = 0;
+    inCopy = false;
     try {
       data = originalData;
       end = (int) (userHeaderPosition + userHeaderSize);
       position = (int) userHeaderPosition;
 
       return readSingleValue();
+    } catch (StackOverflowError error) {
+      throw new SerealException("StackOverflowError: Reached recursion limit during deserialization");
     } finally {
       data = originalData;
       end = originalSize;
@@ -295,6 +301,7 @@ public class Decoder implements SerealHeader {
   public Object decode() throws SerealException {
 
     recursionDepth = 0;
+    inCopy = false;
 
     if (data == null) {
       throw new SerealException("No data set");
@@ -561,6 +568,11 @@ public class Decoder implements SerealHeader {
     checkNoEOD();
 
     byte tag = data[position++];
+    // skip padding iteratively: a long run of PAD tags must not recurse
+    while ((byte) (tag & ~SRL_HDR_TRACK_FLAG) == SRL_HDR_PAD) {
+      checkNoEOD();
+      tag = data[position++];
+    }
 
     int track = 0;
     if ((tag & SRL_HDR_TRACK_FLAG) != 0) {
@@ -706,7 +718,9 @@ public class Decoder implements SerealHeader {
             if (track != 0) { // track ourself
               track_stuff(track, refn);
             }
+            depthIncrement();
             refn.setValue(readSingleValue());
+            depthDecrement();
             out = refn;
           } else {
             depthIncrement();
@@ -729,7 +743,9 @@ public class Decoder implements SerealHeader {
                 String.format(
                     "Encountered object in input, but the 'refuseObject' option is in effect at offset %d of input",
                     position));
+          depthIncrement();
           Object obj = readObject();
+          depthDecrement();
           out = obj;
           break;
         case SRL_HDR_OBJECTV:
@@ -738,11 +754,16 @@ public class Decoder implements SerealHeader {
                 String.format(
                     "Encountered object in input, but the 'refuseObject' option is in effect at offset %d of input",
                     position));
-          String className = readStringCopy();
+          // the class name offset may point at an OBJECT's class name, itself possibly a COPY
+          String className = readStringCopy(position - 1, true);
+          depthIncrement();
           out = readObject(className);
+          depthDecrement();
           break;
         case SRL_HDR_COPY:
+          depthIncrement();
           Object copy = read_copy();
+          depthDecrement();
           out = copy;
           break;
         case SRL_HDR_ALIAS:
@@ -756,6 +777,7 @@ public class Decoder implements SerealHeader {
           break;
         case SRL_HDR_WEAKEN:
           // so the next thing HAS to be a ref (afaict) which means we can track it
+          depthIncrement();
           if (perlRefs) {
             PerlReference placeHolder = new PerlReference(null);
             // track early for weak references
@@ -774,6 +796,7 @@ public class Decoder implements SerealHeader {
             WeakReference<Object> wref = new WeakReference<Object>(ref);
             out = wref;
           }
+          depthDecrement();
           break;
         case SRL_HDR_HASH:
           depthIncrement();
@@ -794,8 +817,6 @@ public class Decoder implements SerealHeader {
           Pattern pattern = read_regex();
           out = pattern;
           break;
-        case SRL_HDR_PAD:
-          return readSingleValue();
         default:
           throw new SerealException("Tag not supported: " + tag);
       }
@@ -905,26 +926,55 @@ public class Decoder implements SerealHeader {
    * may refer to an tag that uses a COPY tag for a classname or hash key.
    */
   private Object read_copy() throws SerealException {
+    int copyTag = position - 1;
+    int originalPosition = copyTarget(copyTag);
+    if (inCopy) {
+      throw new SerealException("Nested COPY at byte " + copyTag + " inside another COPY");
+    }
+    int currentPosition = position, currentEnd = end; // remember where we parked
 
-    int originalPosition = (int) read_varint();
-    int currentPosition = position; // remember where we parked
-
-    position = originalPosition + baseOffset;
+    position = originalPosition;
+    // the copied value, including anything nested in it, must precede the COPY tag
+    end = copyTag;
+    inCopy = true;
     Object copy = readSingleValue();
+    inCopy = false;
+    end = currentEnd;
     position = currentPosition; // go back to where we were
 
     return copy;
   }
 
-  private String readStringCopy() throws SerealException {
-    int originalPosition = (int) read_varint();
+  /**
+   * Re-read the string at a previous offset, for a COPY used as a hash key or class name, and for
+   * OBJECTV class names.
+   *
+   * @param tag position of the COPY or OBJECTV tag
+   * @param allowCopyTarget whether the target may itself be a COPY (only for OBJECTV, whose
+   *     target is an OBJECT's class name)
+   */
+  private String readStringCopy(int tag, boolean allowCopyTarget) throws SerealException {
+    int originalPosition = copyTarget(tag);
+    if (!allowCopyTarget && data[originalPosition] == SRL_HDR_COPY) {
+      throw new SerealException("COPY at byte " + tag + " refers to another COPY");
+    }
     int currentPosition = position; // remember where we parked
 
-    position = originalPosition + baseOffset;
+    position = originalPosition;
     String copy = readString();
     position = currentPosition; // go back to where we were
 
     return copy;
+  }
+
+  // read a backreference offset, which must point strictly before the tag at position tag
+  private int copyTarget(int tag) throws SerealException {
+    long offset = read_varint();
+    long target = baseOffset + offset;
+    if (offset < 1 || target < 0 || target >= tag) {
+      throw new SerealException("COPY target " + offset + " at byte " + tag + " must precede its own tag");
+    }
+    return (int) target;
   }
 
   private String read_UTF8() throws SerealException {
@@ -1029,7 +1079,7 @@ public class Decoder implements SerealHeader {
     } else if (tag == SRL_HDR_STR_UTF8) {
       return read_UTF8();
     } else if (tag == SRL_HDR_COPY) {
-      return readStringCopy();
+      return readStringCopy(position - 1, false);
     } else {
       throw new SerealException("Tag " + tag + " is not a string tag");
     }
