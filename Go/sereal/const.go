@@ -1,7 +1,13 @@
 package sereal
 
-// ProtocolVersion is a maximum version supported by the sereal package.
+// ProtocolVersion is the protocol version a zero-value Encoder emits (and the
+// version NewMerger produces). The decoder accepts every version up to
+// MaxProtocolVersion.
 const ProtocolVersion = 3
+
+// MaxProtocolVersion is the highest protocol version the sereal package can
+// decode and encode (see NewEncoderV6).
+const MaxProtocolVersion = 6
 
 // magicHeadrBytes is a magic string for header. Every packet in protocol
 // version 1 and 2 starts with this.
@@ -20,6 +26,14 @@ const magicHeaderBytesHighBit = uint32(0x6c72f33d) // "=\xF3rl"
 const magicHeaderBytesHighBitUTF8 = uint32(0x72b3c33d) // "=\xC3\xB3r"
 
 const headerSize = 5 // 4 magic + 1 version-type
+
+// checksumFlag is bit 7 of the version-type byte: when set (protocol version 6
+// and later) a keyed checksum envelope follows the header suffix.
+const checksumFlag = byte(0x80)
+
+// doctypeMask extracts the base document type from the high nibble of the
+// version-type byte once it has been shifted down by 4.
+const doctypeMask = byte(0x07)
 
 type documentType int
 
@@ -60,11 +74,25 @@ const (
 	typeCANONICAL_UNDEF = 0x39
 	typeFALSE           = 0x3a
 	typeTRUE            = 0x3b
-	typeRESERVED_1      = 0x3c
+	typeNEG_VARINT      = 0x3c
 	typePACKET_START    = 0x3d
 	typeEXTEND          = 0x3e
 	typePAD             = 0x3f
 	typeARRAYREF_0      = 0x40
 	typeHASHREF_0       = 0x50
 	typeSHORT_BINARY_0  = 0x60
+)
+
+// ids following the EXTEND tag (protocol version 6)
+const (
+	extUNDEF_DEADLY   = 0xff // diagnostic undef; compliant encoders must not emit this tag
+	extVSTRING_BINARY = 0x26 // v-string, no component above 127
+	extVSTRING_UTF8   = 0x27 // v-string with a component above 127
+)
+
+// checksum types of the protocol version 6 keyed checksum envelope
+const (
+	checksumSipHash24     = 0 // SipHash-2-4, 64-bit tag
+	checksumSipHash24_128 = 1 // SipHash-2-4-128, 128-bit tag
+	checksumSipHash36_128 = 2 // SipHash-3-6-128, 128-bit tag
 )

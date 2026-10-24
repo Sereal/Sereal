@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
 	"reflect"
 	"runtime"
 	"strings"
@@ -17,6 +18,7 @@ type serealHeader struct {
 	suffixStart int
 	suffixSize  int
 	suffixFlags uint8
+	hasChecksum bool // a protocol version 6 checksum envelope follows the suffix
 }
 
 func readHeader(b []byte) (serealHeader, error) {
@@ -29,8 +31,9 @@ func readHeader(b []byte) (serealHeader, error) {
 
 	var h serealHeader
 
-	h.doctype = documentType(b[4] >> 4)
+	h.doctype = documentType((b[4] >> 4) & doctypeMask)
 	h.version = b[4] & 0x0f
+	h.hasChecksum = b[4]&checksumFlag != 0
 
 	validHeader := false
 
@@ -56,6 +59,10 @@ func readHeader(b []byte) (serealHeader, error) {
 		return serealHeader{}, err
 	}
 
+	if ln < 0 || ln > len(b)-headerSize-sz {
+		return serealHeader{}, ErrCorrupt{errBadOffset}
+	}
+
 	h.suffixSize = ln + sz
 	h.suffixStart = headerSize + sz
 
@@ -79,15 +86,79 @@ type Decoder struct {
 	umcache   map[string]reflect.Type
 	tcache    tagsCache
 	copyDepth int
+	minOffset int // offsets below this point before the body (or header) being decoded
+	depth     int // nesting of the value being decoded
+	maxDepth  int // effective MaxRecursionDepth
 
 	// PerlCompat produced a decoded data structure that preserves as much as possible the original Perl structure
 	PerlCompat bool
 	// DisableReferentialIntegrity produces a decoded data structure where Perl references are never decoded as Go pointers
 	DisableReferentialIntegrity bool
+
+	// ChecksumV0Key, ChecksumV1Key and ChecksumV2Key are the keys used to
+	// verify protocol version 6 checksummed documents of checksum type 0
+	// (SipHash-2-4), 1 (SipHash-2-4-128) and 2 (SipHash-3-6-128). Use
+	// PrepareChecksumKey to derive a key from arbitrary bytes.
+	ChecksumV0Key, ChecksumV1Key, ChecksumV2Key *[16]byte
+	// ChecksumPolicy selects how checksummed documents are verified; the
+	// zero value is ChecksumVerifyIfAvailable.
+	ChecksumPolicy ChecksumPolicy
+	// ChecksumWarningHandler receives checksum warnings, such as decoding a
+	// checksummed document without a matching key. nil prints them to
+	// os.Stderr prefixed with "sereal: ".
+	ChecksumWarningHandler func(msg string)
+
+	// UndefDeadlyPolicy handles EXTEND 0xff: "undef" (the default, also ""),
+	// "warn" (decode as undef and warn), or "die" (return ErrUndefDeadlyTag).
+	// No compliant encoder emits this diagnostic tag.
+	UndefDeadlyPolicy string
+	// UndefDeadlyWarningHandler receives warnings for UndefDeadlyPolicy "warn".
+	// nil writes them to os.Stderr, prefixed with "sereal: ".
+	UndefDeadlyWarningHandler func(msg string)
+	// MaxRecursionDepth is the deepest nesting of values accepted; 0 means
+	// DefaultMaxRecursionDepth and a negative value disables the limit
+	MaxRecursionDepth int
+
+	// MaxUncompressedSize is the largest decompressed body accepted, in
+	// bytes; 0 means DefaultMaxUncompressedSize and a negative value
+	// disables the limit
+	MaxUncompressedSize int
+
+	docVersion byte // protocol version of the document being decoded
 }
 
+// DefaultMaxUncompressedSize is the default limit on the size of a
+// decompressed document body
+const DefaultMaxUncompressedSize = 1 << 30
+
+// DefaultMaxRecursionDepth is the default limit on the nesting of decoded
+// values, as in perl's Sereal::Decoder
+const DefaultMaxRecursionDepth = 10000
+
+// maxRecursionDepth returns the effective MaxRecursionDepth
+func (d *Decoder) maxRecursionDepth() int {
+	switch {
+	case d.MaxRecursionDepth == 0:
+		return DefaultMaxRecursionDepth
+	case d.MaxRecursionDepth < 0:
+		return math.MaxInt
+	}
+	return d.MaxRecursionDepth
+}
+
+// uncompressedLimit returns the effective decompressed size limit for the
+// option value n; a negative result means no limit
+func uncompressedLimit(n int) int {
+	if n == 0 {
+		return DefaultMaxUncompressedSize
+	}
+	return n
+}
+
+// decompressor decompresses a document body of at most limit bytes (no
+// limit if negative)
 type decompressor interface {
-	decompress(d, b []byte) ([]byte, error)
+	decompress(d, b []byte, limit int) ([]byte, error)
 }
 
 // NewDecoder returns a decoder with default flags
@@ -118,16 +189,23 @@ func checkHeader(b []byte) (serealHeader, error) {
 	}
 
 	switch header.version {
-	case 1, 2, 3, 4, 5:
+	case 1, 2, 3, 4, 5, 6:
 		break
 	default:
 		return header, fmt.Errorf("document version '%d' not yet supported", header.version)
 	}
 
+	if header.hasChecksum && header.version < 6 {
+		return header, ErrChecksumVersion
+	}
+
 	return header, nil
 }
 
-func documentDecompressor(version byte, doctype documentType) (decompressor, error) {
+// documentDecompressor returns the decompressor for doctype, or nil for a raw
+// document. Legacy (non-incremental) snappy is only valid in v1 documents and
+// inside a checksum envelope, whose payload length delimits it.
+func documentDecompressor(version byte, doctype documentType, hasChecksum bool) (decompressor, error) {
 	var decomp decompressor
 
 	switch doctype {
@@ -135,7 +213,7 @@ func documentDecompressor(version byte, doctype documentType) (decompressor, err
 		// nothing
 
 	case serealSnappy:
-		if version != 1 {
+		if version != 1 && !hasChecksum {
 			return nil, ErrBadSnappy
 		}
 		decomp = SnappyCompressor{Incremental: false}
@@ -164,18 +242,14 @@ func documentDecompressor(version byte, doctype documentType) (decompressor, err
 
 // UnmarshalHeaderBody parses the Sereal-encoded buffer b extracts the header and body data into vheader and vbody, respectively
 func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody interface{}) (err error) {
+	switch d.UndefDeadlyPolicy {
+	case "", "undef", "warn", "die":
+	default:
+		return fmt.Errorf("invalid undef_deadly_policy %q; expected undef, warn, or die", d.UndefDeadlyPolicy)
+	}
 	defer func() {
 		if r := recover(); r != nil {
-			if _, ok := r.(runtime.Error); ok {
-				panic(r)
-			}
-
-			switch t := r.(type) {
-			case string:
-				err = errors.New(t)
-			case error:
-				err = t
-			}
+			err = recoverError(r)
 		}
 	}()
 
@@ -184,18 +258,50 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 		return err
 	}
 
-	decomp, err := documentDecompressor(header.version, header.doctype)
+	// a panic skips the depth decrements, so start afresh
+	d.depth, d.maxDepth = 0, d.maxRecursionDepth()
+
+	if d.ChecksumPolicy == ChecksumRequireKey {
+		if d.ChecksumV0Key == nil && d.ChecksumV1Key == nil && d.ChecksumV2Key == nil {
+			return ErrChecksumKeyRequired
+		}
+		if !header.hasChecksum {
+			return ErrChecksumRequired
+		}
+	}
+
+	decomp, err := documentDecompressor(header.version, header.doctype, header.hasChecksum)
 	if err != nil {
 		return err
 	}
 
-	bodyStart := headerSize + header.suffixSize
+	headerEnd := headerSize + header.suffixSize
 
-	if bodyStart > len(b) || bodyStart < 0 {
+	if headerEnd > len(b) || header.suffixSize < 0 {
 		return ErrCorrupt{errBadOffset}
 	}
 
-	if vheader != nil && header.suffixSize != 1 {
+	// the body is b[bodyStart:bodyEnd]; a checksum envelope bounds it to the
+	// payload, which is authenticated before anything else is decoded
+	bodyStart, bodyEnd := headerEnd, len(b)
+
+	if header.hasChecksum {
+		env, err := readChecksumEnvelope(b, headerEnd)
+		if err != nil {
+			return err
+		}
+
+		if err := d.applyChecksumPolicy(b, env); err != nil {
+			return err
+		}
+
+		bodyStart, bodyEnd = env.payloadStart, env.payloadEnd
+	}
+
+	d.docVersion = header.version
+
+	// an empty suffix is a zero length; it may be spelt as a padded varint
+	if vheader != nil && header.suffixSize != header.suffixStart-headerSize {
 		d.tracked = make(map[int]reflect.Value)
 		defer func() { d.tracked = nil }()
 
@@ -204,12 +310,16 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 			return ErrHeaderPointer
 		}
 
-		header.suffixFlags = b[header.suffixStart]
+		// header offsets are relative to the suffix flags byte
+		suffix := b[header.suffixStart:headerEnd]
+		d.minOffset = 1
+
+		header.suffixFlags = suffix[0]
 		if header.suffixFlags&1 == 1 {
 			if ptr, ok := vheader.(*interface{}); ok && *ptr == nil {
-				_, err = d.decode(b[:bodyStart], header.suffixStart+1, ptr)
+				_, err = d.decode(suffix, 1, ptr)
 			} else {
-				_, err = d.decodeViaReflection(b[:bodyStart], header.suffixStart+1, headerValue.Elem())
+				_, err = d.decodeViaReflection(suffix, 1, headerValue.Elem())
 			}
 		}
 	}
@@ -218,15 +328,31 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 		/* XXX instead of creating an uncompressed copy of the document,
 		 *     it would be more flexible to use a sort of "Reader" interface */
 		if decomp != nil {
-			decompBody, err := decomp.decompress(nil, b[bodyStart:])
+			payload := b[bodyStart:bodyEnd]
+
+			if header.hasChecksum {
+				// the compression framing must end exactly at the payload end
+				n, err := compressedPayloadLength(header.doctype, payload)
+				if err != nil {
+					return err
+				}
+				if n != len(payload) {
+					return ErrChecksumPayloadLength
+				}
+			}
+
+			decompBody, err := decomp.decompress(nil, payload, uncompressedLimit(d.MaxUncompressedSize))
 			if err != nil {
 				return err
 			}
 
-			newBody := make([]byte, 0, len(b[:bodyStart])+len(decompBody))
+			// offsets in the body are relative to its start, so keep the
+			// bytes before it in place
+			newBody := make([]byte, 0, bodyStart+len(decompBody))
 			newBody = append(newBody, b[:bodyStart]...)
 			newBody = append(newBody, decompBody...)
 			b = newBody
+			bodyEnd = len(b)
 		}
 
 		d.tracked = make(map[int]reflect.Value)
@@ -238,6 +364,7 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 		}
 
 		if header.version == 1 {
+			d.minOffset = bodyStart
 			if ptr, ok := vbody.(*interface{}); ok && *ptr == nil {
 				_, err = d.decode(b, bodyStart, ptr)
 			} else {
@@ -245,10 +372,18 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 			}
 		} else {
 			// serealv2 documents have 1-based offsets :/
+			var idx int
+			body := b[bodyStart-1 : bodyEnd]
+			d.minOffset = 1
 			if ptr, ok := vbody.(*interface{}); ok && *ptr == nil {
-				_, err = d.decode(b[bodyStart-1:], 1, ptr)
+				idx, err = d.decode(body, 1, ptr)
 			} else {
-				_, err = d.decodeViaReflection(b[bodyStart-1:], 1, bodyValue.Elem())
+				idx, err = d.decodeViaReflection(body, 1, bodyValue.Elem())
+			}
+
+			// an uncompressed checksummed payload must hold exactly one value
+			if err == nil && header.hasChecksum && decomp == nil && idx != len(body) {
+				err = ErrChecksumPayloadLength
 			}
 		}
 	}
@@ -256,10 +391,97 @@ func (d *Decoder) UnmarshalHeaderBody(b []byte, vheader interface{}, vbody inter
 	return err
 }
 
+// recoverError converts a value recovered from a panic into an error:
+// runtime errors and values that are neither errors nor strings are wrapped
+// in ErrDecodePanic
+func recoverError(r interface{}) error {
+	switch t := r.(type) {
+	case runtime.Error:
+		return fmt.Errorf("%w: %w", ErrDecodePanic, t)
+	case error:
+		return t
+	case string:
+		return errors.New(t)
+	}
+	return fmt.Errorf("%w: %v", ErrDecodePanic, r)
+}
+
+// checksumKey returns the configured key for checksum type typ, or nil
+func (d *Decoder) checksumKey(typ byte) *[16]byte {
+	switch typ {
+	case checksumSipHash24:
+		return d.ChecksumV0Key
+	case checksumSipHash24_128:
+		return d.ChecksumV1Key
+	case checksumSipHash36_128:
+		return d.ChecksumV2Key
+	}
+	return nil
+}
+
+// applyChecksumPolicy decides, following perl's
+// srl_process_checksum_envelope, whether the envelope env of b is verified,
+// skipped with a warning, skipped silently or rejected
+func (d *Decoder) applyChecksumPolicy(b []byte, env checksumEnvelope) error {
+	policy := d.ChecksumPolicy
+
+	switch policy {
+	case ChecksumVerifyIfAvailable, ChecksumDie, ChecksumRequireKey, ChecksumIgnore, ChecksumIgnoreWarn:
+	default:
+		return fmt.Errorf("sereal: unknown checksum policy %d", policy)
+	}
+
+	strict := policy == ChecksumDie || policy == ChecksumRequireKey
+	key := d.checksumKey(env.typ)
+	hasKey := env.known && key != nil
+
+	if strict && !env.known {
+		return ErrChecksumUnknownType
+	}
+
+	if strict && !hasKey {
+		return ErrChecksumKeyMissing
+	}
+
+	verify := hasKey && (policy == ChecksumVerifyIfAvailable || strict)
+
+	if policy == ChecksumIgnoreWarn {
+		d.warn(checksumWarnIgnored)
+	} else if policy == ChecksumVerifyIfAvailable && !hasKey {
+		d.warn(checksumWarnNoKey)
+	}
+
+	if verify && !checksumMatches(b, env, key) {
+		return ErrChecksumMismatch
+	}
+
+	return nil
+}
+
+// warn passes msg to the ChecksumWarningHandler, or prints it to os.Stderr
+func (d *Decoder) warn(msg string) {
+	if d.ChecksumWarningHandler != nil {
+		d.ChecksumWarningHandler(msg)
+		return
+	}
+	fmt.Fprintln(os.Stderr, "sereal: "+msg)
+}
+
 /****************************************************************
  * Decode document of unknown structure (i.e. without reflection)
  ****************************************************************/
 func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
+	// no defer: decodeValue has too many returns for an open-coded one
+	if d.depth >= d.maxDepth {
+		return 0, ErrMaxRecursionLimit
+	}
+	d.depth++
+	idx, err := d.decodeValue(by, idx, ptr)
+	d.depth--
+	return idx, err
+}
+
+func (d *Decoder) decodeValue(by []byte, idx int, ptr *interface{}) (int, error) {
 	if idx < 0 || idx >= len(by) {
 		return 0, ErrTruncated
 	}
@@ -303,6 +525,20 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 
 	case tag == typeZIGZAG:
 		*ptr, idx, err = d.decodeZigzag(by, idx)
+
+	case tag == typeNEG_VARINT:
+		var val int
+		if val, idx, err = d.decodeNegVarint(by, idx); err != nil {
+			return 0, err
+		}
+		*ptr = val
+
+	case tag == typeEXTEND:
+		var val interface{}
+		if val, idx, err = d.decodeExtend(by, idx); err != nil {
+			return 0, err
+		}
+		*ptr = val
 
 	case tag == typeFLOAT:
 		*ptr, idx, err = d.decodeFloat(by, idx)
@@ -414,7 +650,7 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		if offs < 0 || offs >= idx {
+		if d.badOffset(offs, idx-1) {
 			return 0, ErrCorrupt{errBadOffset}
 		}
 		idx += sz
@@ -482,6 +718,12 @@ func (d *Decoder) decode(by []byte, idx int, ptr *interface{}) (int, error) {
 	return idx, err
 }
 
+// badOffset reports whether a back-reference offset found in the tag at
+// tagIdx does not point into the part of the document decoded before it
+func (d *Decoder) badOffset(offs, tagIdx int) bool {
+	return offs < d.minOffset || offs >= tagIdx
+}
+
 func (d *Decoder) decodeInt(tag byte) int {
 	if (tag & 0x10) == 0x10 {
 		return int(tag) - 32 // negative number
@@ -497,6 +739,99 @@ func (d *Decoder) decodeVarint(by []byte, idx int) (int, int, error) {
 func (d *Decoder) decodeZigzag(by []byte, idx int) (int, int, error) {
 	i, sz, err := varintdecode(by[idx:])
 	return int(-(1 + (uint64(i) >> 1))), idx + sz, err
+}
+
+// decodeNegVarint decodes the magnitude following a NEG_VARINT tag
+// (protocol version 6): the value is minus the magnitude, which must be in
+// 1..2^63
+func (d *Decoder) decodeNegVarint(by []byte, idx int) (int, int, error) {
+	if d.docVersion < 6 {
+		return 0, 0, ErrCorrupt{errNegVarintVersion}
+	}
+
+	n, sz, err := varintdecode(by[idx:])
+	if err != nil {
+		return 0, 0, err
+	}
+
+	m := uint64(n)
+	if m == 0 || m > 1<<63 {
+		return 0, 0, ErrCorrupt{errBadNegVarint}
+	}
+
+	// m == 2^63 wraps to math.MinInt64, which is the intended value
+	return int(-int64(m)), idx + sz, nil
+}
+
+// decodeExtend decodes the id following an EXTEND tag (protocol version 6)
+// and its payload: v-strings (*PerlVString) or the diagnostic UNDEF_DEADLY.
+func (d *Decoder) decodeExtend(by []byte, idx int) (interface{}, int, error) {
+	if d.docVersion < 6 {
+		return nil, 0, ErrCorrupt{errExtendVersion}
+	}
+
+	if idx >= len(by) {
+		return nil, 0, ErrTruncated
+	}
+
+	id := by[idx]
+	idx++
+
+	switch id {
+	case extUNDEF_DEADLY:
+		if d.UndefDeadlyPolicy == "die" {
+			return nil, 0, ErrUndefDeadlyTag
+		}
+		if d.UndefDeadlyPolicy == "warn" {
+			const message = "encountered UNDEF_DEADLY extended tag"
+			if d.UndefDeadlyWarningHandler != nil {
+				d.UndefDeadlyWarningHandler(message)
+			} else {
+				fmt.Fprintln(os.Stderr, "sereal:", message)
+			}
+		}
+		if d.PerlCompat {
+			return &PerlUndef{}, idx, nil
+		}
+		return nil, idx, nil
+	case extVSTRING_BINARY, extVSTRING_UTF8:
+		return d.decodeVString(by, idx, id == extVSTRING_UTF8)
+	}
+
+	return nil, 0, ErrCorrupt{errUnknownExtend}
+}
+
+// decodeVString decodes <len varint> <spelling> of an EXTEND VSTRING; the
+// id (isUTF8) must match the encoding perl derives from the spelling
+func (d *Decoder) decodeVString(by []byte, idx int, isUTF8 bool) (*PerlVString, int, error) {
+	if idx >= len(by) {
+		return nil, 0, ErrTruncated
+	}
+
+	ln, sz, err := varintdecode(by[idx:])
+	if err != nil {
+		return nil, 0, err
+	}
+	idx += sz
+
+	if ln < 0 || ln > len(by)-idx {
+		return nil, 0, ErrTruncated
+	}
+
+	if ln == 0 {
+		return nil, 0, ErrCorrupt{errBadVString}
+	}
+
+	spelling := by[idx : idx+ln]
+	utf8, ok := parseVString(spelling)
+	if !ok {
+		return nil, 0, ErrCorrupt{errBadVString}
+	}
+	if utf8 != isUTF8 {
+		return nil, 0, ErrCorrupt{errVStringEncoding}
+	}
+
+	return &PerlVString{Spelling: string(spelling)}, idx + ln, nil
 }
 
 func (d *Decoder) decodeFloat(by []byte, idx int) (float32, int, error) {
@@ -675,7 +1010,7 @@ func (d *Decoder) decodeStringish(by []byte, idx int) ([]byte, int, error) {
 		if err != nil {
 			return nil, 0, err
 		}
-		if offs < 0 || offs >= idx {
+		if d.badOffset(offs, idx-1) {
 			return nil, 0, ErrCorrupt{errBadOffset}
 		}
 		idx += sz
@@ -715,6 +1050,16 @@ func (d *Decoder) decodeRegexp(by []byte, idx int) (*PerlRegexp, int, error) {
  * Decode document with predefined structure (have to use reflection)
  ********************************************************************/
 func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (int, error) {
+	if d.depth >= d.maxDepth {
+		return 0, ErrMaxRecursionLimit
+	}
+	d.depth++
+	idx, err := d.decodeValueViaReflection(by, idx, ptr)
+	d.depth--
+	return idx, err
+}
+
+func (d *Decoder) decodeValueViaReflection(by []byte, idx int, ptr reflect.Value) (int, error) {
 	if idx < 0 || idx >= len(by) {
 		return 0, ErrTruncated
 	}
@@ -770,6 +1115,26 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 			return 0, err
 		}
 		setInt(ptr, val)
+
+	case tag == typeNEG_VARINT:
+		var val int
+		if val, idx, err = d.decodeNegVarint(by, idx); err != nil {
+			return 0, err
+		}
+		setInt(ptr, val)
+
+	case tag == typeEXTEND:
+		var val interface{}
+		if val, idx, err = d.decodeExtend(by, idx); err != nil {
+			return 0, err
+		}
+		if vstring, ok := val.(*PerlVString); ok {
+			if err = setVString(ptr, vstring); err != nil {
+				return 0, err
+			}
+		} else {
+			d.setUndef(ptr, false)
+		}
 
 	case tag == typeFLOAT:
 		var val float32
@@ -861,17 +1226,7 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		idx, err = d.decodeArrayViaReflection(by, idx, int(tag&0x0f), ptr)
 
 	case tag == typeUNDEF, tag == typeCANONICAL_UNDEF:
-		if d.PerlCompat && tag == typeCANONICAL_UNDEF {
-			ptr.Set(reflect.ValueOf(perlCanonicalUndef))
-		} else if d.PerlCompat {
-			ptr.Set(reflect.ValueOf(&PerlUndef{}))
-		} else {
-			if ptrKind == reflect.Ptr || ptrKind == reflect.Map || ptrKind == reflect.Slice {
-				ptr.Set(reflect.Zero(ptr.Type()))
-			} else {
-				// maybe panic
-			}
-		}
+		d.setUndef(ptr, tag == typeCANONICAL_UNDEF)
 
 	case tag == typeCOPY:
 		if d.copyDepth > 0 {
@@ -883,7 +1238,7 @@ func (d *Decoder) decodeViaReflection(by []byte, idx int, ptr reflect.Value) (in
 		if err != nil {
 			return 0, err
 		}
-		if offs < 0 || offs >= idx {
+		if d.badOffset(offs, idx-1) {
 			return 0, ErrCorrupt{errBadOffset}
 		}
 		idx += sz
@@ -1081,12 +1436,11 @@ func (d *Decoder) decodeREFP(by []byte, idx int) (reflect.Value, int, error) {
 		var res reflect.Value
 		return res, 0, err
 	}
-	idx += sz
-
-	if offs < 0 || offs >= idx {
+	if d.badOffset(offs, idx-1) {
 		var res reflect.Value
 		return res, 0, ErrCorrupt{errBadOffset}
 	}
+	idx += sz
 
 	rv, ok := d.tracked[offs]
 	if !ok {
@@ -1125,12 +1479,11 @@ func (d *Decoder) decodeALIAS(by []byte, idx int) (reflect.Value, int, error) {
 		var res reflect.Value
 		return res, 0, err
 	}
-	idx += sz
-
-	if offs < 0 || offs >= idx {
+	if d.badOffset(offs, idx-1) {
 		var res reflect.Value
 		return res, 0, ErrCorrupt{errBadOffset}
 	}
+	idx += sz
 
 	rv, ok := d.tracked[offs]
 	if !ok {
@@ -1172,6 +1525,9 @@ func (d *Decoder) decodeObjectViaReflection(by []byte, idx int, ptr reflect.Valu
 		if err != nil {
 			return 0, err
 		}
+		if d.badOffset(offs, idx-1) {
+			return 0, ErrCorrupt{errBadOffset}
+		}
 		idx += sz
 		className, _, err = d.decodeStringish(by, offs)
 	}
@@ -1206,6 +1562,9 @@ func (d *Decoder) decodeObjectFreezeViaReflection(by []byte, idx int, ptr reflec
 		offs, sz, err := varintdecode(by[idx:])
 		if err != nil {
 			return 0, err
+		}
+		if d.badOffset(offs, idx-1) {
+			return 0, ErrCorrupt{errBadOffset}
 		}
 		idx += sz
 		className, _, err = d.decodeStringish(by, offs)
@@ -1290,6 +1649,19 @@ func (d *Decoder) decodeObjectFreezeViaReflection(by []byte, idx int, ptr reflec
 	return idx, err
 }
 
+func (d *Decoder) setUndef(ptr reflect.Value, canonical bool) {
+	if d.PerlCompat && canonical {
+		ptr.Set(reflect.ValueOf(perlCanonicalUndef))
+	} else if d.PerlCompat {
+		ptr.Set(reflect.ValueOf(&PerlUndef{}))
+	} else {
+		switch ptr.Kind() {
+		case reflect.Ptr, reflect.Map, reflect.Slice:
+			ptr.Set(reflect.Zero(ptr.Type()))
+		}
+	}
+}
+
 func setInt(ptr reflect.Value, i int) {
 	switch ptr.Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -1301,6 +1673,27 @@ func setInt(ptr reflect.Value, i int) {
 	default:
 		panic(&reflect.ValueError{Method: "sereal.setInt", Kind: ptr.Kind()})
 	}
+}
+
+var (
+	perlVStringType    = reflect.TypeOf(PerlVString{})
+	perlVStringPtrType = reflect.TypeOf(&PerlVString{})
+)
+
+// setVString stores a decoded v-string into a PerlVString, *PerlVString,
+// compatible interface or string (its spelling) target
+func setVString(ptr reflect.Value, v *PerlVString) error {
+	switch {
+	case ptr.Type() == perlVStringType:
+		ptr.Set(reflect.ValueOf(*v))
+	case perlVStringPtrType.AssignableTo(ptr.Type()):
+		ptr.Set(reflect.ValueOf(v))
+	case ptr.Kind() == reflect.String:
+		ptr.SetString(v.Spelling)
+	default:
+		return &reflect.ValueError{Method: "sereal.setVString", Kind: ptr.Kind()}
+	}
+	return nil
 }
 
 func setBinary(ptr reflect.Value, val []byte) {
@@ -1327,6 +1720,11 @@ func setBinary(ptr reflect.Value, val []byte) {
 func varintdecode(by []byte) (n int, sz int, err error) {
 	s := uint(0) // shift count
 	for i, b := range by {
+		if i == 9 && b > 1 {
+			// the tenth byte may only hold bit 63: anything else overflows
+			return 0, i + 1, ErrCorrupt{errBadVarint}
+		}
+
 		n |= int(b&0x7f) << s
 		s += 7
 
@@ -1407,13 +1805,26 @@ func instantiateZero(typ reflect.Type) reflect.Value {
 // DecompressDocument changes the compression type of a Sereal document without performing a full re-serialization
 //
 // One use case is to use this before decoding, to avoid the implicit allocation.
+// Bodies that decompress to more than DefaultMaxUncompressedSize bytes are
+// rejected with ErrMaxUncompressedSize.
 func DecompressDocument(dst, b []byte) (r []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = recoverError(r)
+		}
+	}()
+
 	header, err := checkHeader(b)
 	if err != nil {
 		return nil, err
 	}
 
-	decomp, err := documentDecompressor(header.version, header.doctype)
+	// decompressing would invalidate the checksum, and re-signing needs a key
+	if header.hasChecksum {
+		return nil, ErrChecksummedDocument
+	}
+
+	decomp, err := documentDecompressor(header.version, header.doctype, false)
 	if err != nil {
 		return nil, err
 	}
@@ -1432,7 +1843,7 @@ func DecompressDocument(dst, b []byte) (r []byte, err error) {
 			decompressInto = nil
 		}
 
-		decompBody, err := decomp.decompress(decompressInto, b[bodyStart:])
+		decompBody, err := decomp.decompress(decompressInto, b[bodyStart:], DefaultMaxUncompressedSize)
 		if err != nil {
 			return nil, err
 		}
@@ -1455,9 +1866,12 @@ func DecompressDocument(dst, b []byte) (r []byte, err error) {
 	return dst, nil
 }
 
-// hasSameBuffer returns true if the two slices share the same array (it only works for slices with capacity > 0)
+// hasSameBuffer returns true if the two slices share the same array (slices with capacity 0 share nothing)
 func hasSameBuffer(a, b []byte) bool {
 	aCap, bCap := cap(a), cap(b)
+	if aCap == 0 || bCap == 0 {
+		return false
+	}
 	aExt, bExt := a[:aCap], b[:bCap]
 
 	return &aExt[aCap-1] == &bExt[bCap-1]

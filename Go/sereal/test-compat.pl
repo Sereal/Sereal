@@ -33,7 +33,12 @@ sub slurp {
 # 100% reliable and accurate. To mitigate it we also maintain a counter holding
 # a total number of tests to be skipped.
 #
-my $skip_total = 222;
+my ($corpus_version) = map { m/VERSION_([0-9]+)$/; $1 } glob("test_dir/VERSION_*");
+$corpus_version //= 3;
+
+# protocol version 6 corpora also contain the two v-string tests wrapped in
+# aliases, which fail like every other alias test
+my $skip_total = 222 + ($corpus_version >= 6 ? 2 : 0);
 my %skip = map { $_ => 1 } (
     'array ref to aliases blessed array',
     'array ref to aliases complex hash',
@@ -130,6 +135,9 @@ my %skip = map { $_ => 1 } (
     'array ref to aliases undef',
     'array ref to aliases utf8 string',
     'array ref to aliases var strings',
+    # Only present in protocol version 6 corpora.
+    'array ref to aliases binary Perl v-string',
+    'array ref to aliases UTF8 Perl v-string',
     'array ref to aliases troublesome num/strs',
     "array ref to aliases  troublesome num/strs '    1    '",
     "array ref to aliases  troublesome num/strs '0.0'",

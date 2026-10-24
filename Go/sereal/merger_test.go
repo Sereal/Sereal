@@ -1,6 +1,7 @@
 package sereal
 
 import (
+	"bytes"
 	"io/ioutil"
 	"math/rand"
 	"path/filepath"
@@ -34,6 +35,34 @@ func BenchmarkMerger(b *testing.B) {
 		_, err := m.Append(buf)
 		if err != nil {
 			b.Fatal(err)
+		}
+	}
+}
+
+func TestMergerSizesV6Tags(t *testing.T) {
+	m := NewMergerV3()
+	for _, doc := range []string{"3df3726c06003e260676312e322e33", "3df3726c06003ce807"} {
+		if _, err := m.Append(mustHex(t, doc)); err != nil {
+			t.Fatalf("Append(%s) error: %v", doc, err)
+		}
+	}
+
+	b, err := m.Finish()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vstring := bytes.Index(b, mustHex(t, "3e260676312e322e33"))
+	negVarint := bytes.Index(b, mustHex(t, "3ce807"))
+	if vstring < 0 || negVarint < vstring {
+		t.Errorf("merged document %x lacks the v-string followed by NEG_VARINT", b)
+	}
+}
+
+func TestMergerRefusesUndefDeadly(t *testing.T) {
+	for _, doc := range []string{"3df3726c06003eff", "3df3726c0600413eff"} {
+		if _, err := NewMergerV3().Append(mustHex(t, doc)); err != ErrUndefDeadlyTag {
+			t.Errorf("Append(%s) = %v; want ErrUndefDeadlyTag", doc, err)
 		}
 	}
 }
