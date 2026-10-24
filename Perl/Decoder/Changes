@@ -17,6 +17,9 @@ Revision history for Perl extension Sereal-Decoder
       tag or at the header bytes of a protocol version 1 document, and zero
       the header area of the decompression buffer so no uninitialized bytes
       can be reached through an offset.
+    * Refuse to bless the shared integers used by alias_smallint and
+      alias_varint_under. With set_readonly the decoder blessed them, and
+      they stayed blessed for every later decode on that decoder.
     * Reject ALIAS tags that refer to a tracked ARRAY or HASH. They stored
       the aggregate itself as an element or value, which crashed perl.
     * Decode REGEXP values as copies of the compiled regexp, as qr// and
