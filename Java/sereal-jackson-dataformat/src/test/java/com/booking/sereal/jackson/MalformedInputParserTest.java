@@ -163,4 +163,21 @@ public class MalformedInputParserTest {
       assertEquals("repeated text", row.get("text").asText());
     }
   }
+
+  // ---- bounded reads -----------------------------------------------------------------------
+
+  @Test
+  public void stringsPastTheEnd() {
+    // BINARY of 16 bytes and SHORT_BINARY_31, with 2 bytes present
+    assertRejected("3df3726c030026106162");
+    assertRejected("3df3726c03007f6162");
+    // STR_UTF8 of 16 bytes, 2 present
+    assertRejected("3df3726c030027106162");
+  }
+
+  @Test
+  public void invalidRegexpPattern() {
+    // REGEXP with the pattern "(" and no modifiers
+    assertRejected("3df3726c030031612860");
+  }
 }

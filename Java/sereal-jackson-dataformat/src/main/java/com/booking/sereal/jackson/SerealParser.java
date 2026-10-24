@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  *  A {@link com.fasterxml.jackson.core.JsonParser} implementation for Sereal.
@@ -430,7 +431,11 @@ public class SerealParser extends ParserMinimalBase {
             tokenDecoder.regexpFlagsSliceEnd()
           );
 
-          return Pattern.compile(pattern, flags);
+          try {
+            return Pattern.compile(pattern, flags);
+          } catch (PatternSyntaxException e) {
+            throw this._constructError("Sereal format error: invalid regexp", e);
+          }
         case FLOAT128:
           return new Float128(Arrays.copyOfRange(
             tokenDecoder.decoderBuffer(),
