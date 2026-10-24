@@ -120,6 +120,20 @@ static char encoded_test[] = {
     STAssertNotNil(err, @"no error reported for exceeding the recursion limit");
 }
 
+- (void)testBadSnappy
+{
+    // compressed length longer than the packet
+    ASSERT_REJECTS("=srl\x22\x00\xa0\x8d\x06\x05\x10" "abcde", @"a snappy length past the end");
+    // zero compressed length
+    ASSERT_REJECTS("=srl\x22\x00\x00", @"a zero snappy length");
+    // snappy stream declares 64 bytes but its single literal produces 5
+    ASSERT_REJECTS("=srl\x22\x00\x07\x40\x10" "abcde", @"a snappy stream shorter than its declared length");
+    // snappy stream declares ~4GB
+    ASSERT_REJECTS("=srl\x22\x00\x07\xf0\xff\xff\xff\x0f\x04" "a", @"a snappy stream with a huge declared length");
+    // malformed snappy length header
+    ASSERT_REJECTS("=srl\x22\x00\x06\xff\xff\xff\xff\xff\xff", @"a malformed snappy header");
+}
+
 - (void)setUp
 {
     [super setUp];

@@ -503,6 +503,7 @@ static NSError *decode_error(NSString *errorMessage)
     };
     
     id object = nil;
+    char *uncompressed = NULL;
     @try {
         // header suffix
         long long suffixSize = read_varint(&dec);
@@ -512,29 +513,32 @@ static NSError *decode_error(NSString *errorMessage)
         index += suffixSize;
         if (type == 2) {
             ssize_t blen = read_varint(&dec);
-            if (blen) {
+            CHECK_REMAINING((&dec), blen);
+            if (blen && blen <= UINT32_MAX) {
                 uint32_t ulen = 0;
                 index++;
-                int ret = csnappy_get_uncompressed_length(bytes+index, blen, &ulen);
-                if (ret == CSNAPPY_E_HEADER_BAD) {
-                    NSLog(@"Malformed csnappy header");
-                    return nil;
-                }
-                char *uncompressed = malloc(ulen);
+                int hlen = csnappy_get_uncompressed_length(bytes+index, (uint32_t)blen, &ulen);
+                if (hlen < 0)
+                    @throw [NSException exceptionWithName:@"SnappyError" reason:@"Malformed csnappy header" userInfo:nil];
+                uncompressed = malloc(ulen ? ulen : 1);
+                if (!uncompressed)
+                    @throw [NSException exceptionWithName:@"SnappyError"
+                                                   reason:[NSString stringWithFormat:@"Can't allocate %u bytes for the uncompressed buffer", ulen]
+                                                 userInfo:nil];
                 
-                ret = csnappy_decompress(bytes+index, blen, uncompressed, ulen);
+                uint32_t olen = ulen;
+                int ret = csnappy_decompress_noheader(bytes+index+hlen, (uint32_t)blen-hlen, uncompressed, &olen);
                 
-                if (ret != CSNAPPY_E_OK) {
-                    NSLog(@"csnappy_decompress returned an error: %d", ret);
-                    return nil;
-                }
+                if (ret != CSNAPPY_E_OK || olen != ulen)
+                    @throw [NSException exceptionWithName:@"SnappyError"
+                                                   reason:[NSString stringWithFormat:@"csnappy_decompress returned %d after %u of %u bytes", ret, olen, ulen]
+                                                 userInfo:nil];
                 
                 dec.hdr = uncompressed;
                 dec.len = ulen;
                 index = -1;
             } else {
-                NSLog(@"Can't read the length for the compressed buffer");
-                return nil;
+                @throw [NSException exceptionWithName:@"SnappyError" reason:@"Can't read the length for the compressed buffer" userInfo:nil];
             }
         }
         
@@ -549,6 +553,7 @@ static NSError *decode_error(NSString *errorMessage)
     }
     @finally {
         CFBridgingRelease(dec.td);
+        free(uncompressed);
     }
     return object;
 }
