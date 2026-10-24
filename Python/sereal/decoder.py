@@ -35,6 +35,8 @@ class SrlDecoder(object):
 
     def decode(self, byte_str):
         self.reader = reader.SrlDocumentReader(byte_str)
+        self.tracked_items = {}
+        self.copy_depth = 0
         self.depth = 0
 
         self._decode_header()
