@@ -1,0 +1,191 @@
+==7== Memcheck, a memory error detector
+==7== Copyright (C) 2002-2022, and GNU GPL'd, by Julian Seward et al.
+==7== Using Valgrind-3.22.0 and LibVEX; rerun with -h for copyright info
+==7== Command: /home/demerphq/perl5/perlbrew/perls/perl-5.44.0/bin/perl -Mblib -It/lib t/945_regr_limit_options.t
+==7==
+ok 1 - max_recursion_depth => -1 is refused
+ok 2 - max_recursion_depth => -1: with a clear error
+ok 3 - max_recursion_depth => 0.5 is refused
+ok 4 - max_recursion_depth => 0.5: with a clear error
+ok 5 - max_recursion_depth => 2.5 is refused
+ok 6 - max_recursion_depth => 2.5: with a clear error
+ok 7 - max_recursion_depth => -0.5 is refused
+ok 8 - max_recursion_depth => -0.5: with a clear error
+ok 9 - max_recursion_depth => lots is refused
+ok 10 - max_recursion_depth => lots: with a clear error
+ok 11 - max_recursion_depth => Inf is refused
+ok 12 - max_recursion_depth => Inf: with a clear error
+ok 13 - max_recursion_depth => 0 is accepted
+ok 14 - max_recursion_depth => 1 is accepted
+ok 15 - max_recursion_depth => 10 is accepted
+ok 16 - max_recursion_depth => 100 is accepted
+ok 17 - max_recursion_depth => 1000000 is accepted
+ok 18 - max_recursion_depth => 4294967296 is accepted
+ok 19 - max_num_hash_entries => -1 is refused
+ok 20 - max_num_hash_entries => -1: with a clear error
+ok 21 - max_num_hash_entries => 0.5 is refused
+ok 22 - max_num_hash_entries => 0.5: with a clear error
+ok 23 - max_num_hash_entries => 2.5 is refused
+ok 24 - max_num_hash_entries => 2.5: with a clear error
+ok 25 - max_num_hash_entries => -0.5 is refused
+ok 26 - max_num_hash_entries => -0.5: with a clear error
+ok 27 - max_num_hash_entries => lots is refused
+ok 28 - max_num_hash_entries => lots: with a clear error
+ok 29 - max_num_hash_entries => Inf is refused
+ok 30 - max_num_hash_entries => Inf: with a clear error
+ok 31 - max_num_hash_entries => 0 is accepted
+ok 32 - max_num_hash_entries => 1 is accepted
+ok 33 - max_num_hash_entries => 10 is accepted
+ok 34 - max_num_hash_entries => 100 is accepted
+ok 35 - max_num_hash_entries => 1000000 is accepted
+ok 36 - max_num_hash_entries => 4294967296 is accepted
+ok 37 - max_num_array_entries => -1 is refused
+ok 38 - max_num_array_entries => -1: with a clear error
+ok 39 - max_num_array_entries => 0.5 is refused
+ok 40 - max_num_array_entries => 0.5: with a clear error
+ok 41 - max_num_array_entries => 2.5 is refused
+ok 42 - max_num_array_entries => 2.5: with a clear error
+ok 43 - max_num_array_entries => -0.5 is refused
+ok 44 - max_num_array_entries => -0.5: with a clear error
+ok 45 - max_num_array_entries => lots is refused
+ok 46 - max_num_array_entries => lots: with a clear error
+ok 47 - max_num_array_entries => Inf is refused
+ok 48 - max_num_array_entries => Inf: with a clear error
+ok 49 - max_num_array_entries => 0 is accepted
+ok 50 - max_num_array_entries => 1 is accepted
+ok 51 - max_num_array_entries => 10 is accepted
+ok 52 - max_num_array_entries => 100 is accepted
+ok 53 - max_num_array_entries => 1000000 is accepted
+ok 54 - max_num_array_entries => 4294967296 is accepted
+ok 55 - max_string_length => -1 is refused
+ok 56 - max_string_length => -1: with a clear error
+ok 57 - max_string_length => 0.5 is refused
+ok 58 - max_string_length => 0.5: with a clear error
+ok 59 - max_string_length => 2.5 is refused
+ok 60 - max_string_length => 2.5: with a clear error
+ok 61 - max_string_length => -0.5 is refused
+ok 62 - max_string_length => -0.5: with a clear error
+ok 63 - max_string_length => lots is refused
+ok 64 - max_string_length => lots: with a clear error
+ok 65 - max_string_length => Inf is refused
+ok 66 - max_string_length => Inf: with a clear error
+ok 67 - max_string_length => 0 is accepted
+ok 68 - max_string_length => 1 is accepted
+ok 69 - max_string_length => 10 is accepted
+ok 70 - max_string_length => 100 is accepted
+ok 71 - max_string_length => 1000000 is accepted
+ok 72 - max_string_length => 4294967296 is accepted
+ok 73 - max_uncompressed_size => -1 is refused
+ok 74 - max_uncompressed_size => -1: with a clear error
+ok 75 - max_uncompressed_size => 0.5 is refused
+ok 76 - max_uncompressed_size => 0.5: with a clear error
+ok 77 - max_uncompressed_size => 2.5 is refused
+ok 78 - max_uncompressed_size => 2.5: with a clear error
+ok 79 - max_uncompressed_size => -0.5 is refused
+ok 80 - max_uncompressed_size => -0.5: with a clear error
+ok 81 - max_uncompressed_size => lots is refused
+ok 82 - max_uncompressed_size => lots: with a clear error
+ok 83 - max_uncompressed_size => Inf is refused
+ok 84 - max_uncompressed_size => Inf: with a clear error
+ok 85 - max_uncompressed_size => 0 is accepted
+ok 86 - max_uncompressed_size => 1 is accepted
+ok 87 - max_uncompressed_size => 10 is accepted
+ok 88 - max_uncompressed_size => 100 is accepted
+ok 89 - max_uncompressed_size => 1000000 is accepted
+ok 90 - max_uncompressed_size => 4294967296 is accepted
+ok 91 - max_recursion_depth tied FETCH -1 is validated
+ok 92 - max_recursion_depth tied FETCH -1 has a useful error
+ok 93 - max_recursion_depth tied FETCH -1 runs once
+ok 94 - max_recursion_depth tied FETCH 0.5 is validated
+ok 95 - max_recursion_depth tied FETCH 0.5 has a useful error
+ok 96 - max_recursion_depth tied FETCH 0.5 runs once
+ok 97 - max_recursion_depth tied FETCH 0 is validated
+ok 98 - max_recursion_depth tied FETCH 0 runs once
+ok 99 - max_recursion_depth tied FETCH undef is validated
+ok 100 - max_recursion_depth tied FETCH undef runs once
+ok 101 - max_recursion_depth tied FETCH 7 is validated
+ok 102 - max_recursion_depth tied FETCH 7 runs once
+ok 103 - max_recursion_depth rejects the first, negative FETCH result
+ok 104 - max_recursion_depth rejects a changing tied value with the limit error
+ok 105 - max_recursion_depth does not read the changed second value
+ok 106 - max_num_hash_entries tied FETCH -1 is validated
+ok 107 - max_num_hash_entries tied FETCH -1 has a useful error
+ok 108 - max_num_hash_entries tied FETCH -1 runs once
+ok 109 - max_num_hash_entries tied FETCH 0.5 is validated
+ok 110 - max_num_hash_entries tied FETCH 0.5 has a useful error
+ok 111 - max_num_hash_entries tied FETCH 0.5 runs once
+ok 112 - max_num_hash_entries tied FETCH 0 is validated
+ok 113 - max_num_hash_entries tied FETCH 0 runs once
+ok 114 - max_num_hash_entries tied FETCH undef is validated
+ok 115 - max_num_hash_entries tied FETCH undef runs once
+ok 116 - max_num_hash_entries tied FETCH 7 is validated
+ok 117 - max_num_hash_entries tied FETCH 7 runs once
+ok 118 - max_num_hash_entries rejects the first, negative FETCH result
+ok 119 - max_num_hash_entries rejects a changing tied value with the limit error
+ok 120 - max_num_hash_entries does not read the changed second value
+ok 121 - max_num_array_entries tied FETCH -1 is validated
+ok 122 - max_num_array_entries tied FETCH -1 has a useful error
+ok 123 - max_num_array_entries tied FETCH -1 runs once
+ok 124 - max_num_array_entries tied FETCH 0.5 is validated
+ok 125 - max_num_array_entries tied FETCH 0.5 has a useful error
+ok 126 - max_num_array_entries tied FETCH 0.5 runs once
+ok 127 - max_num_array_entries tied FETCH 0 is validated
+ok 128 - max_num_array_entries tied FETCH 0 runs once
+ok 129 - max_num_array_entries tied FETCH undef is validated
+ok 130 - max_num_array_entries tied FETCH undef runs once
+ok 131 - max_num_array_entries tied FETCH 7 is validated
+ok 132 - max_num_array_entries tied FETCH 7 runs once
+ok 133 - max_num_array_entries rejects the first, negative FETCH result
+ok 134 - max_num_array_entries rejects a changing tied value with the limit error
+ok 135 - max_num_array_entries does not read the changed second value
+ok 136 - max_string_length tied FETCH -1 is validated
+ok 137 - max_string_length tied FETCH -1 has a useful error
+ok 138 - max_string_length tied FETCH -1 runs once
+ok 139 - max_string_length tied FETCH 0.5 is validated
+ok 140 - max_string_length tied FETCH 0.5 has a useful error
+ok 141 - max_string_length tied FETCH 0.5 runs once
+ok 142 - max_string_length tied FETCH 0 is validated
+ok 143 - max_string_length tied FETCH 0 runs once
+ok 144 - max_string_length tied FETCH undef is validated
+ok 145 - max_string_length tied FETCH undef runs once
+ok 146 - max_string_length tied FETCH 7 is validated
+ok 147 - max_string_length tied FETCH 7 runs once
+ok 148 - max_string_length rejects the first, negative FETCH result
+ok 149 - max_string_length rejects a changing tied value with the limit error
+ok 150 - max_string_length does not read the changed second value
+ok 151 - max_uncompressed_size tied FETCH -1 is validated
+ok 152 - max_uncompressed_size tied FETCH -1 has a useful error
+ok 153 - max_uncompressed_size tied FETCH -1 runs once
+ok 154 - max_uncompressed_size tied FETCH 0.5 is validated
+ok 155 - max_uncompressed_size tied FETCH 0.5 has a useful error
+ok 156 - max_uncompressed_size tied FETCH 0.5 runs once
+ok 157 - max_uncompressed_size tied FETCH 0 is validated
+ok 158 - max_uncompressed_size tied FETCH 0 runs once
+ok 159 - max_uncompressed_size tied FETCH undef is validated
+ok 160 - max_uncompressed_size tied FETCH undef runs once
+ok 161 - max_uncompressed_size tied FETCH 7 is validated
+ok 162 - max_uncompressed_size tied FETCH 7 runs once
+ok 163 - max_uncompressed_size rejects the first, negative FETCH result
+ok 164 - max_uncompressed_size rejects a changing tied value with the limit error
+ok 165 - max_uncompressed_size does not read the changed second value
+ok 166 - max_recursion_depth => 3 rejects a five level document
+ok 167 - max_recursion_depth => "10" accepts it
+ok 168 - max_string_length => 2 rejects a three byte string
+ok 169 - max_num_array_entries => 0 means no limit
+1..169
+==7==
+==7== HEAP SUMMARY:
+==7==     in use at exit: 23,722 bytes in 35 blocks
+==7==   total heap usage: 102,411 allocs, 102,376 frees, 20,465,085 bytes allocated
+==7==
+==7== LEAK SUMMARY:
+==7==    definitely lost: 0 bytes in 0 blocks
+==7==    indirectly lost: 0 bytes in 0 blocks
+==7==      possibly lost: 0 bytes in 0 blocks
+==7==    still reachable: 14,672 bytes in 34 blocks
+==7==         suppressed: 9,050 bytes in 1 blocks
+==7== Reachable blocks (those to which a pointer was found) are not shown.
+==7== To see them, rerun with: --leak-check=full --show-leak-kinds=all
+==7==
+==7== For lists of detected and suppressed errors, rerun with: -s
+==7== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)

@@ -1,0 +1,6 @@
+medium-plain decode block=1 current: {"case":"medium-plain","decoder":6.000001,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":942,"operation":"decode","batch_size":32768}
+medium-plain decode block=1 pre332: {"case":"medium-plain","decoder":6.000001,"perl":"v5.44.0","encoder_path":"/tmp/sereal-perf-9wexqb1r/before332/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":942,"operation":"decode","batch_size":32768}
+current: Ran 39 iterations (9 outliers).
+current: Rounded run time per iteration (seconds): 6.3727e-06 +/- 1.4e-09 (0.0%)
+pre332: Ran 46 iterations (14 outliers).
+pre332: Rounded run time per iteration (seconds): 6.4811e-06 +/- 3.8e-09 (0.1%)

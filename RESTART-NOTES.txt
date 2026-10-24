@@ -1,4 +1,92 @@
-SHUTDOWN CHECKPOINT — latest state, supersedes historical notes below
+FINAL PERL AUDIT — 2026-10-24, supersedes the integration checkpoint below
+
+Freshly rebuilt native Encoder and Decoder and compared them with installed
+5.010 using Dumbbench, persistent Perl 5.44 workers, two reversed process
+orders, fixed CPU/hash seed, and at least 30 retained samples per result.
+Raw samples, driver scripts, logs, and analysis are in
+Perl/check-logs/performance-final-audit-20261024-1700/RESULTS.txt.
+Protocol 5 versus installed 5.010: ordinary Encoder objects +0.3-0.9%, plain
+hashes 2.3-2.5% faster, 200k records +0.5-1.6%; FREEZE100 +28-29% and sorted
+FREEZE1000 +60-61% slower. Decoder medium objects +8.6-10.1%, plain hashes
++5.5-7.9%, records +2.8%, arrays +2.3-3.8%, large hash +12.7-13.4%.
+Protocol 6 Decoder versus the saved pre-#332 build: plain hash and large hash
+roughly parity, arrays 2.3-2.9% faster, records mixed -0.6/+1.1%.
+Thus the latest integration did not introduce a sustained Decoder slowdown in
+those v6 workloads, but the v5 comparison still shows real Decoder costs.
+The residual FREEZE Encoder slowdown remains a release performance concern;
+the earlier 46-48ms quadratic sorted path is fixed to about 1.1ms.
+
+Final code audit found Decoder max_* options with tied values fetched twice:
+the preliminary SvTRUE check invoked FETCH, then numeric validation invoked
+it again. A callback could change the numeric value between checks. Fixed by
+snapshotting magic once inside srl_limit_option_uv and doing the truth check
+there; zero still retains the historical default behavior. Extended
+t/945_regr_limit_options.t with all five limit options, negative/fractional/
+zero/undef/positive tied values and changing FETCH results. Focus test was red
+before the fix (15/134 assertions), then green (169/169). Full native Decoder
+105 files/192763 tests and Encoder 73 files/156926 tests passed. Focused
+Valgrind with PERL_DESTRUCT_LEVEL=2 found zero errors and zero definite or
+indirect leaks. Encoder/Decoder test manifests contain every top-level .t.
+
+Fresh origin fetch found no new Atomicstack tips or open PRs. The two
+patch-different commits on the older magical-arrays branch are semantically
+present as 18d9ab1b (tied/regdata arrays through av_fetch) and b1ddd5e8
+(retaining frozen objects across allow-list callbacks), then refined by the
+later callback-guard changes. Their behaviors have tests. ObjC still needs
+macOS/Xcode validation. No release was made.
+
+INTEGRATION CHECKPOINT — 2026-10-24, supersedes the shutdown checkpoint below
+
+The user resumed work and asked to rebase Atomicstack's new branches onto
+yves/v6_wip, then authorized pushing as each validation finished. All listed
+branches have been integrated as linear commits, pushed to origin/yves/v6_wip,
+and the working tree was clean before this note update. PR #332 and PR #334
+were closed after their rebased contents landed; neither was merged through
+GitHub. No release was made.
+
+Integrated in order: updated splitter_merger_path (#332, 15 follow-up commits),
+malformed_input_fixes_perl/go/java/javascript/python/ruby/objc, hash-iterator,
+and spec_v6_update (#334). Local integration branches retain the rebased
+commit series. Conflict resolutions preserved both the UNDEF_DEADLY and
+Merger buffer checks, callback traversal guards, and changelog entries.
+Additional commits added the Perl Decoder test MANIFEST entries, updated a
+Go zstd test for its new decompressor signature, kept the iterator guard
+C90-compatible, and corrected the spec from DEADLY ID 0 to UNDEF_DEADLY ID
+255 with default undef, optional warn/die, and no compliant encoder output.
+
+Validation for this integration:
+  PR #332: full native Decoder 98 files/192385 tests and Encoder 72/156915;
+    Merger 11/262, Splitter 5/45, and Path suites passed with local blibs.
+  Perl malformed input: full native Decoder 105 files/192688 tests passed.
+  Go: go test ./... passed in default and clibs modes.
+  Java: offline Maven parent reactor tests passed.
+  JavaScript: node malformed.js 26 checks passed; TypeScript 5.9.3
+    --noEmit passed in tmux window 0:sereal-tsc. A newer TypeScript rejects
+    the project's legacy tsconfig; use the pinned version.
+  Python: 27 unittest cases passed.
+  Ruby: Ruby 3.3.13 native extension built under /tmp; malformed suite
+    15 tests/232 assertions passed.
+  ObjC: source reviewed and rebased; Xcode/Foundation unavailable on Linux,
+    so macOS compilation/tests remain to be run.
+  Hash iterator: full native Encoder 73 files/156926 tests; ASan and Perl
+    5.14 each 3 files/1607 tests; threaded Perl 5.42 4 files/1608 tests.
+  Spec: podchecker passed, and extension ID agrees with srl_protocol.h.
+
+Hash-iterator benchmark and raw samples:
+Perl/check-logs/performance-hash-iterator-20261024-162022/RESULTS.txt.
+Relative to the immediately preceding built Encoder, medium plain hashes
+were 4.1-4.9% slower and ordinary objects 1.1-1.8% slower in two process
+orders. Sorted FREEZE hashes were 1.3-1.5% faster. The plain-hash path was
+not changed by the iterator guard; the cause of this measured difference is
+not proven. Earlier remaining FREEZE and Decoder performance concerns from
+the shutdown checkpoint are still open. Do not treat this as release signoff.
+
+The previous instruction to stop at the shutdown checkpoint has been lifted
+by the user's explicit request to integrate these branches. The historical
+notes below remain for earlier context; their HEAD/staging/push statements
+are superseded by this section.
+
+SHUTDOWN CHECKPOINT — prior state, superseded by integration checkpoint above
 
 User explicitly requested a good shutdown point. STOP work after checkpoint;
 do not resume benchmarks/builds until the user asks to resume.

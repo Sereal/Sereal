@@ -1,0 +1,59 @@
+Encoder and Decoder performance audit, 2026-10-24
+
+Current: yves/v6_wip at dc7c5cc1, both native modules freshly rebuilt with
+Perl 5.44 and GCC 13.3 -O3 before the measurements. The subsequent Decoder
+tied-limit-option fix affects construction only; construction is outside the
+timed loop. The protocol-6 comparison ran after that fix was rebuilt.
+
+Method: Dumbbench 0.505 controlling persistent Perl 5.44 workers pinned to
+CPU 0, fixed hash seed, preconstructed inputs, batches calibrated to >=0.2s.
+Each case has two fresh-process blocks with reversed variant order, at least
+30 retained samples per variant/block, and <=0.44% reported relative error.
+The reported errors are Dumbbench estimates, not 95% confidence intervals.
+Packet lengths matched between variants in every case. No compression or
+checksum; reuse one Encoder/Decoder object in each worker. Raw JSON samples,
+per-case logs and exact worker/controller/fixture sources are in the two
+subdirectories. Positive percentages mean current is slower.
+
+Against installed Encoder/Decoder 5.010, protocol 5:
+
+  case                         block 1      block 2
+  encode medium objects         +0.94%       +0.26%
+  encode medium plain hashes    -2.46%       -2.31%
+  encode 200k records           +1.61%       +0.50%
+  encode 100 FREEZE objects    +28.99%      +28.15%
+  encode 1000 sorted FREEZE    +60.59%      +61.06%
+  decode medium objects         +8.64%      +10.14%
+  decode medium plain hashes    +5.49%       +7.89%
+  decode 200k records           +2.78%       +2.84%
+  decode 300k arrays            +3.82%       +2.28%
+  decode 300k hash entries     +12.67%      +13.36%
+
+The callback-heavy Encoder regressions remain material. The prior quadratic
+sorted-callback path is fixed: current 1000-object timings are 1.09-1.11ms,
+not the earlier 46-48ms. The remaining cost includes callback retention and
+iteration validation; an isolated no-guards diagnostic previously removed
+much of it but was unsafe. We have not isolated the exact contribution of
+each remaining guard, so this is not a release performance signoff.
+
+Against the saved pre-PR-332 build at 816daee0, protocol 6, Decoder only:
+
+  case                         block 1      block 2
+  decode medium plain hashes    -1.67%       -0.13%
+  decode 200k records           -0.55%       +1.14%
+  decode 300k arrays            -2.30%       -2.86%
+  decode 300k hash entries      -0.88%       -0.84%
+
+These results show no sustained Decoder slowdown from the latest branch
+integrations in the four tested v6 workloads. The 5.010 Decoder difference
+predates PR #332 and includes intervening v6 and hardening work; this audit
+does not attribute it to one change. Installed 5.010 cannot encode protocol 6,
+so it was compared at protocol 5 only. Compiler flags of that installed
+build are unknown, although it was built with GCC 13.3 on Perl 5.44.
+
+Post-benchmark validation with the tied-limit-option fix: full native Decoder
+105 files/192763 tests and Encoder 73 files/156926 tests passed. Focused
+Valgrind with PERL_DESTRUCT_LEVEL=2 passed 169 limit-option assertions with
+zero errors and zero definite/indirect leaks. The three validation logs are
+stored here. Code review and remaining integration limits are recorded in
+RESTART-NOTES.txt.

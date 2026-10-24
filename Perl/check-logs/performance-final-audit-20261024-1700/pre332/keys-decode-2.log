@@ -1,0 +1,6 @@
+keys decode block=2 pre332: {"case":"keys","decoder":6.000001,"perl":"v5.44.0","encoder_path":"/tmp/sereal-perf-9wexqb1r/before332/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":4372381,"operation":"decode","batch_size":4}
+keys decode block=2 current: {"case":"keys","decoder":6.000001,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":4372381,"operation":"decode","batch_size":4}
+pre332: Ran 31 iterations (1 outliers).
+pre332: Rounded run time per iteration (seconds): 5.725e-02 +/- 1.8e-04 (0.3%)
+current: Ran 30 iterations (0 outliers).
+current: Rounded run time per iteration (seconds): 5.677e-02 +/- 1.6e-04 (0.3%)

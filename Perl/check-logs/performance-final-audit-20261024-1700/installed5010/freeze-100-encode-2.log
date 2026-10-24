@@ -1,0 +1,6 @@
+freeze-100 encode block=2 installed: {"case":"freeze-100","decoder":5.01,"perl":"v5.44.0","encoder_path":"/home/demerphq/perl5/perlbrew/perls/perl-5.44.0/lib/site_perl/5.44.0/x86_64-linux/Sereal/Encoder.pm","encoder":5.01,"bytes":1212,"operation":"encode","batch_size":8192}
+freeze-100 encode block=2 current: {"case":"freeze-100","decoder":6.000001,"perl":"v5.44.0","encoder_path":"/home/demerphq/git_tree/Sereal/Perl/Encoder/blib/lib/Sereal/Encoder.pm","encoder":6.000001,"bytes":1212,"operation":"encode","batch_size":4096}
+installed: Ran 33 iterations (3 outliers).
+installed: Rounded run time per iteration (seconds): 3.8866e-05 +/- 7.2e-08 (0.2%)
+current: Ran 33 iterations (3 outliers).
+current: Rounded run time per iteration (seconds): 4.981e-05 +/- 1.3e-07 (0.3%)
