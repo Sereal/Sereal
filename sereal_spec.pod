@@ -12,7 +12,7 @@ This document describes the format and encoding of a Sereal data packet.
 
 =head1 VERSION
 
-This is the Sereal specification version 6.00.
+This is the Sereal specification version 6.01.
 
 The integer part of the document version corresponds to
 the Sereal protocol version. For details on incompatible changes between
@@ -30,6 +30,12 @@ up of two parts, the document header and the document body.
 A compliant Sereal decoder must detect invalid documents and handle them
 as a safe exception in the respective implementation language.
 That is to say, without a crash or worse.
+
+Invalid documents include, among other things, truncated input, lengths or
+offsets that point outside the document, tags that are not defined for the
+document's protocol version, reserved tags, unknown extended-tag IDs, and
+structural violations such as the COPY, ALIAS and aggregate rules described
+below. A decoder must bounds-check every length and offset before using it.
 
 =head3 Little Endian
 
@@ -71,8 +77,9 @@ makes it easy to detect when a Sereal document has been accidentally UTF-8
 encoded because the \xF3 is translated to \xC3\xB3.
 
 Decoders are required to support the magic string associated to the protocol
-versions they can decode, so if a decoder can handle v1, v2, v3 and v4 then it
-should handle both magic header.
+versions they can decode, so a decoder that handles protocol versions 1
+through 6 must accept both magic strings, and must accept each one only with
+the protocol versions it belongs to.
 
 It is an error to use a new magic header on a v1 or v2 packet, and it is
 an error to use the old magic header in v3 or later.
@@ -104,7 +111,10 @@ B<This is not a valid document type for Sereal protocol version 2 and up!>
 In Sereal protocol version 1, this used to be
 "Compressed Sereal format, using Google's Snappy compression internally."
 It has long been advised to prefer I<2>, "incremental-decoding-enabled
-compressed Sereal," wherever possible.
+compressed Sereal," wherever possible. The payload is a Snappy blob without
+a length prefix, extending to the end of the document. Protocol version 6
+accepts the keyed-checksum form of this type (type 9) because the checksum
+envelope supplies the missing length; see below.
 
 =item Z<>2
 
@@ -147,6 +157,10 @@ where the varint signifies the length of the zstd-compressed blob
 following it. See L</"NOTES ON IMPLEMENTATION"> below for a discussion on
 how to implement this efficiently.
 
+The Zstandard frame MUST include C<Frame_Content_Size>, the uncompressed
+body length. Decoders may require this size to allocate their output buffer.
+Encoders must include it even for small bodies when compression is forced.
+
 This compression format is new in v4 of the specification.
 
 =item Z<>5
@@ -169,7 +183,8 @@ framing are identical to the corresponding base type.
 The protected form of base type 1 is valid in protocol version 6; its payload
 extent is delimited by the checksum envelope length.
 
-Types 5 through 7 and 13 through 15 are reserved for future use.
+Types 5 through 7 and 13 through 15 are reserved for future use. A decoder
+encountering a reserved type must reject the document.
 
 =head4 Keyed checksum envelope (protocol version 6)
 
@@ -181,22 +196,37 @@ optional header suffix and before any compression-specific framing or body:
 
 Checksum type 0 specifies SipHash-2-4 with a 16-byte secret key and a
 64-bit output. The tag is the unsigned 64-bit little-endian SipHash output.
-Checksum type 1 specifies SipHash-3-6-128 with the same key size and a
-128-bit output; the tag is two consecutive unsigned 64-bit little-endian
-words. The checksum length and payload length are unsigned varints. The
-checksum length is the number of bytes in the checksum field. Types 0 and 1
-require lengths of 8 and 16 bytes respectively. The payload length is the
-number of bytes in the encoded payload following its length field, including
-any compression-specific framing.
+Checksum type 1 specifies SipHash-2-4-128 and checksum type 2 specifies
+SipHash-3-6-128, both with a 16-byte secret key and a 128-bit output. Their tags
+are two consecutive unsigned 64-bit little-endian words, using the SipHash-128
+initialization and finalization convention (C<v1 ^= 0xee> after loading the
+key, then C<v2 ^= 0xee> before the first and C<v1 ^= 0xdd> before the second
+finalization). In SipHash-c-d, c is the number
+of compression rounds per message block and d is the number of rounds in
+each finalization stage. Thus 2-4 and 3-6 specify round counts, independently
+of the 64- or 128-bit tag size. See the authors'
+L<SipHash variant documentation|https://github.com/veorq/SipHash#variants>.
+All other checksum types are reserved. Implementations refer to the checksum
+type as the checksum I<version> in their option names (for example
+C<checksum_v2_key>); the numbering is the same.
+
+The checksum length and payload length are unsigned varints. The checksum
+length is the number of bytes in the checksum field. Type 0 requires 8 bytes;
+types 1 and 2 require 16 bytes. The payload length is the number of bytes in
+the encoded payload following its length field, including any
+compression-specific framing. It must cover the payload exactly: a decoder
+that finishes the body, or its compression framing, at any other position
+must reject the document.
 
 The SipHash input is the complete packet from MAGIC through the checksum type
 and checksum-length varint, followed by the payload-length varint and the
 complete encoded payload. The checksum field itself is omitted from the
 SipHash input. Encoders may initially write zeroes in the checksum field and
 fill it after writing the lengths and payload. This covers the header,
-optional header suffix, checksum type, both lengths, compression framing, and
-payload. Decoders that verify the checksum must do so before processing
-compression framing or decompressing the payload.
+optional header suffix (including any user meta data), checksum type, both
+lengths, compression framing, and payload. Decoders that verify the checksum
+must do so before interpreting the header suffix, before processing
+compression framing and before decompressing the payload.
 
 Decoders must bounds-check both lengths before skipping or reading their
 corresponding fields. An unknown checksum type can be skipped using its
@@ -207,8 +237,58 @@ may provide a policy that instead rejects such packets, or explicitly ignores
 checksum authentication. Supplying a key does not require packets to be
 protected; unprotected packet types remain valid.
 
-This is a keyed integrity check, not encryption. Version 0 has a 64-bit tag;
-version 1 has a 128-bit tag.
+The Perl, Go and Java implementations share the following policy names and
+semantics. They are not part of the wire format, but new implementations are
+encouraged to offer the same choices:
+
+=over 4
+
+=item verify-if-available
+
+The default. Verify when a key for the packet's checksum type is configured;
+otherwise warn and decode without authentication. Unprotected packets are
+accepted.
+
+=item die
+
+Verify, and reject a protected packet whose checksum type is unsupported,
+whose key is not configured, or whose tag does not match. Unprotected packets
+are accepted.
+
+=item require_key
+
+As C<die>, and additionally reject unprotected packets. A key must be
+configured when the decoder (or encoder) is created.
+
+=item ignore, ignore-warn
+
+Skip verification. The envelope framing is still validated. C<ignore-warn>
+emits a warning for every protected packet.
+
+=back
+
+A checksum mismatch is always an error when the tag is verified.
+
+This is a keyed integrity check, not encryption. Type 0 has a 64-bit tag;
+types 1 and 2 have 128-bit tags. The key is never written to the document.
+
+=head4 Key preparation (informative)
+
+The key is 16 raw bytes. So that keys derived from the same secret agree
+across implementations, Perl (C<prepare_checksum_key>), Go
+(C<PrepareChecksumKey>) and Java (C<SerealChecksum.prepareKey>) derive a key
+from an arbitrary-length secret C<KEY> and an optional second secret
+C<OPT_KEY> (empty by default) as:
+
+  K1  = SipHash-2-4-128( key = "Call me Ishmael.",
+                         msg = "Out damned spot!" . OPT_KEY )
+  OUT = SipHash-2-4-128( key = K1,
+                         msg = "Luke, I am your father." . KEY )
+
+Both SipHash outputs use the 128-bit convention described above and are
+taken as 16 little-endian bytes. This is a normalization step that produces
+the required key size; it does not add entropy and is not a substitute for a
+password-based key derivation function.
 
 =head3 HEADER-SUFFIX-SIZE
 
@@ -233,10 +313,11 @@ may be empty or have the following format:
 
 =item 8bit-BITFIELD
 
-If not present, all bits are assumed off. In version 2 and 3 of the protocol,
-only the least significant bit is meaningful: If set, the bitfield is
+If not present, all bits are assumed off. In protocol version 2 and later,
+only the least significant bit is defined: If set, the bitfield is
 followed by the C<E<lt>USER-META-DATAE<gt>>. If not set, there is
-no user meta data.
+no user meta data. The remaining seven bits are reserved. Encoders must
+leave them clear and decoders ignore them.
 
 =item OPT-USER-META-DATA
 
@@ -244,7 +325,9 @@ If the least significant bit of the preceding bitfield is set, this
 may be an arbitrary Sereal document body. Like any other Sereal
 document body, it is self-contained and can be deserialized independently
 from any other document bodies in the Sereal document. This document
-body is NEVER compressed.
+body is NEVER compressed. It is decoded with the rules of the document's
+protocol version, its offsets are relative to its own start, and in a
+checksummed document it is covered by the checksum.
 
 This is intended for embedding small amounts of meta data, such as
 routing information, in a document that allows users to avoid
@@ -261,7 +344,14 @@ The body is made up of tagged data items:
 
 Tagged items can be containers that hold other tagged items.
 At the top level, the body holds only ONE tagged item (often
-an array or hash) that holds others.
+a reference to an array or hash) that holds others.
+
+The ARRAY and HASH tags describe an aggregate rather than a value. They are
+valid only as the item immediately following a REFN tag (PAD bytes may
+intervene, and the aggregate tag may carry the track flag); the compact
+ARRAYREF and HASHREF tags include the reference. A bare ARRAY or HASH tag
+anywhere else, including at the top level of a body, as an array element,
+hash value, class name, or COPY target, is invalid.
 
 =head3 TAG
 
@@ -429,6 +519,73 @@ header.
 
 =for autoupdater stop
 
+=head3 Integers
+
+Integers from 0 to 15 are encoded in the POS tags and integers from -16
+to -1 in the NEG tags, with no payload. VARINT carries an unsigned integer
+as a varint. ZIGZAG carries a signed integer as a zigzag-encoded varint
+(C<<< (n << 1) ^ (n >> 63) >>> for a 64-bit value, with an arithmetic right
+shift) and is valid in every protocol version. NEG_VARINT, new in protocol
+version 6, carries a negative integer as a varint holding its absolute
+value; the magnitude must not be zero. Encoders producing protocol version 6
+use NEG_VARINT for integers below -16, and ZIGZAG for them in protocol
+version 5 and earlier. Decoders accept both in protocol version 6 documents.
+
+The reference implementations represent integers as 64-bit values. A decoder
+may reject a varint, zigzag or magnitude that does not fit its native
+integer range; the Perl, Go and Java decoders accept NEG_VARINT magnitudes
+up to 2**63 inclusive.
+
+=head3 Floating Point
+
+FLOAT is followed by a 4-byte IEEE 754 binary32 value and DOUBLE by an 8-byte
+IEEE 754 binary64 value, both little endian. FLOAT_128, new in protocol
+version 5, is followed by a 16-byte IEEE 754 binary128 value (the quadmath
+C<__float128> type), little endian. Decoders without native support for the
+type may expose the raw bytes or reject the value; the Go and Java decoders
+return the 16 bytes unchanged.
+
+LONG_DOUBLE is followed by the encoder platform's native C<long double>, in
+its native size and layout: 16 bytes on most 64-bit platforms, where x86 uses
+80-bit extended precision followed by six zero bytes, and 8 or 12 bytes on
+some others. Only the Perl implementation reads and writes it, and only
+between platforms with the same C<long double>. Encoders that need
+portability should use DOUBLE (see the Perl encoder's C<use_standard_double>
+option) or FLOAT_128.
+
+=head3 Booleans
+
+FALSE and TRUE, present since protocol version 1, have no payload and
+represent Perl's immortal boolean values C<PL_sv_no> and C<PL_sv_yes>.
+NO and YES, new in protocol version 5, represent the distinct boolean type
+introduced in Perl 5.36 (values for which C<SvIsBOOL()> is true). In Perl
+both pairs decode to the same values, C<PL_sv_no> and C<PL_sv_yes>. Other
+languages map all four tags to their native false and true. NO and YES are
+only valid in protocol version 5 and later documents.
+
+=head3 Extended Tags
+
+EXTEND is followed by a one-byte extended-tag ID that selects the actual tag,
+and then by that tag's payload. EXTEND is only valid in protocol version 6
+and later documents. The defined IDs are:
+
+      ID | Name           | Follow
+    -----+----------------+---------------------------------------------
+    0x26 | VSTRING-BINARY | <LEN-VARINT> <SPELLING> - v-string, binary
+    0x27 | VSTRING-UTF8   | <LEN-VARINT> <SPELLING> - v-string, UTF-8
+    0xff | UNDEF_DEADLY   | none - decode as undef by default; never encode
+
+All other IDs are reserved. Because the payload of an unknown ID cannot be
+skipped, a decoder must reject a document containing one. See
+L</"Protocol Version 6"> for the semantics of these tags.
+
+=head3 Reserved Tags
+
+RESERVED_0 and RESERVED_1 have no defined payload and must not appear in a
+document; decoders reject them. PACKET_START is not a body tag: it is the
+first byte of the magic string and is listed so that a header can never be
+mistaken for a body tag.
+
 =head3 The Track Bit And Cyclic Data Structures
 
 The protocol uses a combination of the offset of a tracked tag and the
@@ -454,8 +611,17 @@ this. Its argument is a varint which is the offset of a previously
 emitted tag, and decoders are to behave as though the tag it references
 was inserted into the packet stream as a replacement for the COPY tag.
 
-Note, that in this case the track flag is B<not> set. It is assumed the
-decoder can jump back to reread the tag from its location alone.
+COPY does not require the referenced item to have its track flag set: the
+decoder can reread the tag from its location alone. The COPY tag itself may
+have its track flag set so that later ALIAS tags can refer to the newly
+created value at the COPY offset. Rereading a COPY source must not register
+new alias targets at source offsets or replace the values already tracked
+at those offsets.
+
+ALIAS replaces a value slot in an array or hash. It cannot be used as the
+immediate referent of REFN. To create a new scalar referent with the contents
+of an earlier string, an encoder can use REFN followed by COPY; REFP instead
+creates a reference to an existing tracked value.
 
 COPY tags are forbidden from referring to another COPY tag, and are also
 forbidden from referring to anything containing a COPY tag, with the
@@ -497,11 +663,26 @@ Perl and another language as some languages, eg Javascript cannot properly
 handle such data. It is extremely rare to see code that actually makes
 use of such codepoints, and Perl will not do so on its own.
 
+Protocol version 6 adds a fourth, special-purpose string representation for
+Perl v-strings as extended tags. See L</"Protocol Version 6">.
 
 =head3 Hash Keys
 
 Hash keys are always one of the string types, or a COPY tag referencing a
 string.
+
+Hash keys MUST NOT be encoded as ALIAS tags or used as ALIAS targets. A key
+identifies an entry by its string contents; it is not an aliasable value slot.
+Keys may reuse strings from earlier keys or values using COPY, and values may
+also use COPY to reuse an earlier key string.
+
+When a value is encoded as COPY of a key string, decoding it creates a value
+which can subsequently be aliased. The encoder may set TRACK_FLAG on that
+COPY tag and use ALIAS tags referring to the value's COPY offset. Those ALIAS
+tags refer to the value, not to the original key. As with all COPY tags, the
+COPY itself must refer directly to a string definition, never to another COPY
+tag. Encoders that deduplicate both keys and values must distinguish reusable
+string definitions from aliasable values.
 
 =head3 Handling Objects
 
@@ -580,30 +761,72 @@ accordingly, otherwise they are free to treat CANONICAL_UNDEF the same as UNDEF.
 
 =head2 Protocol Version 6
 
+Protocol version 6 adds the NEG_VARINT tag, the EXTEND tag with its three
+defined extended-tag IDs, and the keyed checksum envelope. NEG_VARINT and
+EXTEND are only valid in protocol version 6 and later documents; decoders
+reject them in older documents.
+
+=head3 NEG_VARINT
+
 The NEG_VARINT tag encodes a negative integer as the tag followed by a varint
 containing the integer's absolute value. The magnitude must be nonzero. In
 protocol version 6 and later, encoders use NEG_VARINT for integers below -16;
 the compact NEG tags continue to represent -1 through -16. Encoders producing
 protocol version 5 or earlier continue to use ZIGZAG for these larger negative
-integers. Decoders must continue to accept ZIGZAG for compatibility with older
-documents.
+integers. Decoders must accept ZIGZAG in every protocol version, including
+version 6, for compatibility with older encoders.
 
-Protocol version 6 reserves extended-tag ID 0 for C<DEADLY>, encoded as
-C<EXTEND 0> (bytes C<3e 00>), with no payload. A decoder encountering this
-value MUST fail. It is an explicit diagnostic sentinel, not a terminator:
-encoders do not append it to ordinary output, and concatenated documents
-retain their existing framing. These bytes inside a string are ordinary data.
+=head3 UNDEF_DEADLY
 
-Protocol version 6 adds extended tags C<VSTRING-BINARY> and C<VSTRING-UTF8>.
-They are encoded as EXTEND followed by the corresponding extended-tag ID
-(0x26, the BINARY tag value, or 0x27, the STR_UTF8 tag value), then a length
-varint and the original v-string spelling. The spelling is the sole payload:
-decoders use it to reconstruct both the v-string PV and its original spelling
-magic. VSTRING-BINARY is used when the reconstructed PV is not UTF-8 flagged;
-VSTRING-UTF8 is used when it is UTF-8 flagged. Decoders reject an extension ID
-that does not match the encoding of the reconstructed PV.
+Protocol version 6 reserves extended-tag ID 255 (C<0xff>) for
+C<UNDEF_DEADLY>, encoded as C<EXTEND 255> (bytes C<3e ff>), with no payload.
+It is intended primarily for testing decoder behavior and diagnostics; normal
+Sereal data should not contain it.
+Decoders MUST treat this value as an ordinary undef by default. A decoder
+may offer an C<undef_deadly_policy> setting: C<undef> silently decodes it as
+undef, C<warn> warns on each encounter and decodes it as undef, and C<die>
+rejects the document with an exception.
 
-Protocol version 6 also defines keyed checksum types 8 through 12. See
+A compliant encoder MUST NOT emit C<UNDEF_DEADLY> as a value tag. It is a
+diagnostic sentinel, not a terminator, and MUST NOT be appended to encoded
+documents. Concatenated documents retain their existing framing. The same
+bytes occurring inside a string or compressed payload are ordinary data,
+not an encounter with this tag. Extended-tag ID 0 is unassigned.
+
+=head3 VSTRING-BINARY and VSTRING-UTF8
+
+Protocol version 6 adds extended tags C<VSTRING-BINARY> and C<VSTRING-UTF8>
+for Perl v-strings (version literals such as C<v1.2.3> or C<65.66.67>). They
+are encoded as EXTEND followed by the corresponding extended-tag ID (0x26,
+the BINARY tag value, or 0x27, the STR_UTF8 tag value), then a length varint
+and the original v-string spelling. The spelling is the sole payload: a
+decoder reconstructs the string value from it, and Perl additionally keeps
+the spelling as the string's v-string magic.
+
+The spelling must be non-empty and must match
+
+  ^v?[0-9_]*(\.[0-9][0-9_]*)*$
+
+that is, an optional leading C<v>, then dot-separated components, where
+every component after a dot starts with a digit. Each component's value is
+its decimal digits with underscores ignored, read as an unsigned 64-bit
+integer with wraparound; an empty first component has the value zero. The
+reconstructed string has one character per component, with that
+component's value as its code point. VSTRING-UTF8 is used when any
+component is greater than 127, since the string then needs UTF-8 encoding;
+VSTRING-BINARY is used otherwise. In Perl terms, the ID tells whether the
+reconstructed PV is UTF-8 flagged. Decoders reject an empty spelling, a
+spelling that does not match the grammar, and an ID that does not match
+the components.
+
+Languages without a v-string type may carry the spelling as a string; the
+Go and Java implementations provide a dedicated v-string type that
+preserves it.
+
+=head3 Keyed checksums
+
+Protocol version 6 also defines keyed checksum types 8 through 12, the
+checksum envelope and checksum types 0 through 2. See
 L</"Keyed checksum envelope (protocol version 6)"> for the envelope layout
 and verification rules.
 
@@ -611,9 +834,15 @@ and verification rules.
 
 Protocol version 5 adds the NO and YES tags for Perl's distinct boolean values
 (C<PL_No> and C<PL_Yes>), available in Perl 5.36 and later. These correspond to
-JSON false and true, respectively, and have no payload. The FLOAT_128 tag is
-also added for the quadmath C<__float128> value type; it is followed by the
-binary floating-point value, and requires quadmath support to decode.
+JSON false and true, respectively, and have no payload. See L</"Booleans">.
+
+The FLOAT_128 tag is also added for the quadmath C<__float128> value type; it
+is followed by the 16-byte little-endian IEEE 754 binary128 value. Decoders
+without native quadmath support may expose the raw bytes or reject the value.
+See L</"Floating Point">.
+
+NO, YES and FLOAT_128 are only valid in protocol version 5 and later
+documents.
 
 =head2 Protocol Version 4
 
@@ -642,7 +871,7 @@ the second varint indicates the length of the compressed document.
 
 Additionally there is the new CANONICAL_UNDEF tag, used to represent Perl's
 canonical, shared undefined value (PL_sv_undef) in certain edge cases.
-See L<Dealing with undefined values> for details.
+See L</"Dealing with undefined values"> for details.
 
 =head2 Protocol Version 2
 
@@ -696,10 +925,49 @@ padding bytes B<except the last>, which you set to 0 (NUL). For details
 on why that works, please refer to the Google ProtoBuf documentation
 referenced earlier. With this specially crafted varint, any normal
 varint parsing function will treat it as a single varint and skip right
-to the start of theSnappy-compressed blob. The varint is a correct
+to the start of the Snappy-compressed blob. The varint is a correct
 varint, just not in the canonical form. With this modified plan, you
 should only need one extra malloc, and (beyond that which the Snappy
 implementation does), no extra, large memcpy operations.
+
+=head1 IMPLEMENTATIONS
+
+The implementations in the Sereal repository supported the following protocol
+versions when this revision of the specification was written (October 2026).
+This list is informative and will go out of date; the README of each
+implementation is authoritative.
+
+=over 4
+
+=item Perl (C<Perl/>)
+
+Reference implementation. Encodes and decodes protocol versions 1 through 6
+(default 6) with Snappy, zlib and zstd compression, all three checksum types,
+and the LONG_DOUBLE and FLOAT_128 tags where the perl supports them.
+
+=item Go (C<Go/sereal>)
+
+Decodes protocol versions 1 through 6, including all checksum types and the
+v-string extended tags. Encodes protocol version 3 by default and version 6
+through C<NewEncoderV6()>. Does not decode LONG_DOUBLE; FLOAT_128 is carried
+as its raw bytes.
+
+=item Java (C<Java/>)
+
+Decodes protocol versions 1 through 6 in C<Decoder>, C<TokenDecoder> and the
+jackson data format, including all checksum types and the v-string extended
+tags. Encodes protocol versions 1 through 6 (default 4). Does not decode
+LONG_DOUBLE; FLOAT_128 is carried as its raw bytes.
+
+=item Python, Ruby, JavaScript, Objective-C, Erlang
+
+Older ports that predate protocol version 5. They handle the protocol
+version 1 to 4 feature set (the Python decoder accepts versions 3 and 4, the
+JavaScript decoder up to version 3, Ruby and Objective-C write version 2)
+and do not understand the NO, YES, FLOAT_128, NEG_VARINT and EXTEND tags or
+the checksum envelope.
+
+=back
 
 =head1 AUTHOR
 
@@ -723,7 +991,7 @@ and CPAN, for which the authors would like to express their gratitude.
 
 Copyright (C) 2012, 2013, 2014 by Steffen Mueller
 
-Copyright (C) 2012, 2013, 2014 by Yves Orton
+Copyright (C) 2012, 2013, 2014, 2026 by Yves Orton
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.

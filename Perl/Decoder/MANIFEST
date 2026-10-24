@@ -23,7 +23,6 @@ miniz.c
 miniz.h
 ppport.h
 ptable.h
-SECURITY.md
 snappy/csnappy.h
 snappy/csnappy_compat.h
 snappy/csnappy_compress.c

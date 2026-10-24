@@ -59,7 +59,7 @@ sub _load_siphash_function {
     for my $module (qw(Sereal::Decoder Sereal::Encoder)) {
         ( my $file = "$module.pm" ) =~ s{::}{/}g;
         next unless eval { require $file; 1 };
-        my $function = $version == 0 ? 'siphash24' : 'siphash36';
+        my $function = $version == 0 ? 'siphash24' : $version == 1 ? 'siphash24_128' : 'siphash36';
         my $code     = $module->can($function) or next;
         return $siphash_function{$version} = $code;
     }
@@ -135,12 +135,14 @@ sub parse_header {
         my $wire_payload = $data;
         printf "Checksum type %u, tag length %u bytes, encoded payload length %u bytes.\n",
             $checksum_type, $tag_len, $payload_len;
-        my $expected_len = $checksum_type == 0 ? 8 : $checksum_type == 1 ? 16 : undef;
+        my $expected_len =
+            $checksum_type == 0 ? 8 : ( $checksum_type == 1 || $checksum_type == 2 ) ? 16 : undef;
         die "Invalid SipHash checksum length $tag_len for type $checksum_type\n"
             if defined($expected_len) && $tag_len != $expected_len;
         my $key =
               $checksum_type == 0 ? $opt->{checksum_v0_key}
             : $checksum_type == 1 ? $opt->{checksum_v1_key}
+            : $checksum_type == 2 ? $opt->{checksum_v2_key}
             :                       undef;
 
         if ( defined($expected_len) && defined($key) ) {
@@ -149,7 +151,8 @@ sub parse_header {
             die "SipHash checksum verification failed\n"
                 unless _constant_time_equal( $tag, $actual );
             printf "SipHash-%s checksum verified: %s\n",
-                $checksum_type == 0 ? '2-4' : '3-6-128', unpack( 'H*', $tag );
+                $checksum_type == 0 ? '2-4' : $checksum_type == 1 ? '2-4-128' : '3-6-128',
+                unpack( 'H*', $tag );
         }
         else {
             printf "SipHash tag (%u bytes, %s): %s\n",
@@ -279,19 +282,23 @@ sub parse_sv {
     elsif ( $o == SRL_HDR_EXTEND ) {
         my $ext = ord( _chop_data_prefix(1) );
         $done .= chr($ext);
-        die "Encountered DEADLY extended tag\n" if $ext == SRL_EXT_DEADLY;
-        die "Unknown extended tag ID $ext\n"
-            unless $ext == SRL_EXT_VSTRING_BINARY || $ext == SRL_EXT_VSTRING_UTF8;
+        if ($ext == SRL_EXT_UNDEF_DEADLY) {
+            print "UNDEF_DEADLY (undef; must not be emitted by an encoder)\n";
+        }
+        else {
+            die "Unknown extended tag ID $ext\n"
+                unless $ext == SRL_EXT_VSTRING_BINARY || $ext == SRL_EXT_VSTRING_UTF8;
 
-        # The VSTRING payload is its original spelling. The extension ID
-        # describes the encoding of the PV reconstructed from that spelling.
-        my $l   = varint();
-        my $str = _chop_data_prefix($l);
-        $done .= $str;
-        $str = decode_utf8($str) if $ext == SRL_EXT_VSTRING_UTF8;
-        printf "VSTRING-%s spelling(%u): '%s' (%s)\n",
-            $ext == SRL_EXT_VSTRING_UTF8 ? "UTF8" : "BINARY",
-            $l, encode_utf8($str), unpack( "H*", encode_utf8($str) );
+            # The VSTRING payload is its original spelling. The extension ID
+            # describes the encoding of the PV reconstructed from that spelling.
+            my $l   = varint();
+            my $str = _chop_data_prefix($l);
+            $done .= $str;
+            $str = decode_utf8($str) if $ext == SRL_EXT_VSTRING_UTF8;
+            printf "VSTRING-%s spelling(%u): '%s' (%s)\n",
+                $ext == SRL_EXT_VSTRING_UTF8 ? "UTF8" : "BINARY",
+                $l, encode_utf8($str), unpack( "H*", encode_utf8($str) );
+        }
     }
     elsif ( $o == SRL_HDR_FLOAT ) {
         printf "FLOAT(%f)\n", parse_float();
@@ -463,11 +470,13 @@ GetOptions(
     'e|stderr',
     'checksum-v0-key=s',
     'checksum-v1-key=s',
+    'checksum-v2-key=s',
     'checksum-v0-key-hex=s',
     'checksum-v1-key-hex=s',
+    'checksum-v2-key-hex=s',
 );
 
-for my $version ( 0, 1 ) {
+for my $version ( 0, 1, 2 ) {
     my $plain_name   = "checksum_v${version}_key";
     my $hex_name     = "checksum_v${version}_key_hex";
     my $plain_option = "checksum-v${version}-key";

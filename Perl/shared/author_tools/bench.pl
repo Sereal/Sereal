@@ -1,6 +1,10 @@
 use strict;
 use warnings;
-use blib;
+# Set this only when deliberately benchmarking installed modules. Otherwise
+# keep using the distribution's local build, as this script always has.
+# Example installed comparison with common wire format:
+# SEREAL_BENCH_INSTALLED=1 perl bench.pl --only='^srl$' --encoder --decoder --protocol-version=5
+use if !$ENV{SEREAL_BENCH_INSTALLED}, 'blib';
 use Benchmark       qw(cmpthese :hireswallclock);
 use Sereal::Decoder qw(decode_sereal sereal_decode_with_object);
 use Sereal::Encoder qw(encode_sereal sereal_encode_with_object);
@@ -12,6 +16,7 @@ require bytes;
 
 GetOptions(
     'secs|duration=f'                    => \( my $duration           = -5 ),
+    'protocol-version=i'                 => \( my $protocol_version   = undef ),
     'encoder'                            => \( my $encoder            = 0 ),
     'decoder'                            => \( my $decoder            = 0 ),
     'dump|d'                             => \( my $dump               = 0 ),
@@ -36,6 +41,13 @@ $encoder = 1 if not $encoder and not $decoder;
 
 #our %opt = @ARGV;
 our %opt;
+$opt{protocol_version} = $protocol_version if defined $protocol_version;
+unless ($dump) {
+    printf "Perl=%s Encoder=%s Decoder=%s protocol=%s\n",
+        $^V, $Sereal::Encoder::VERSION, $Sereal::Decoder::VERSION,
+        defined($protocol_version) ? $protocol_version : 'default';
+    print "Encoder module: $INC{'Sereal/Encoder.pm'}\nDecoder module: $INC{'Sereal/Decoder.pm'}\n";
+}
 
 my $data_set_name;
 srand(0);

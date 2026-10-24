@@ -75,7 +75,19 @@ srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
             croak("Decompressed buffer is impossibly large. Refusing to decode.");
         total_requested = header_len + body_len + 1;
 
-        Newx(tmp_buf,total_requested,char);
+        /* safesysmalloc() exits the process on failure unless PL_nomemok
+         * is set; a document can declare any size, so let it return NULL.
+         * Sizes beyond SSize_t_MAX are refused up front: no allocation can
+         * satisfy them, and DEBUGGING perls croak on them with PL_nomemok
+         * still set. */
+        if (expect_false(total_requested > (STRLEN)SSize_t_MAX)) {
+            tmp_buf = NULL;
+        }
+        else {
+            PL_nomemok = TRUE;
+            Newx(tmp_buf, total_requested, char);
+            PL_nomemok = FALSE;
+        }
 
         if (!tmp_buf)
             croak("Insufficient memory to '%s' decompress. Size compressed=%"UVuf" uncompressed=%"UVuf,
@@ -84,6 +96,9 @@ srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
         /* This allocation is installed directly as a Perl PV, so keep its
          * mandatory trailing NUL even though the decoder uses explicit lengths. */
         tmp_buf[total_requested - 1] = '\0';
+        /* Nothing writes the header bytes, but they are inside the buffer
+         * (and V1 offsets are relative to them): never expose them unset. */
+        Zero(tmp_buf, header_len, char);
 
         b_sv= sv_newmortal();
         sv_upgrade(b_sv,SVt_PV);

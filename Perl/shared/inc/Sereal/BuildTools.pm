@@ -29,6 +29,7 @@ sub link_files {
     my $exclude_tests = $mode eq "without_tests";
     my $tests_only    = $mode eq "tests_only";
     my $bare_minimum  = $mode eq "bare_minimum";
+    my $test_lib_only = $mode eq "test_lib";    # shared test helpers, not the test suites
 
     # This fires from a git source tree only.
     # Right now, all devs are on Linux. Feel free to make portable.
@@ -44,6 +45,7 @@ sub link_files {
                     s/^\Q$shared_dir\E\/?// or die $_;
                     return unless $_;
                     return if $exclude_tests && m#^/?t/#;
+                    return if $test_lib_only && m#^/?t/# && !m#^/?t/lib(?:/|$)#;
                     return if $tests_only    && !m#^/?t/#;
                     return if $bare_minimum  && !exists $bare_minimum_files{$_};
 
@@ -138,6 +140,16 @@ sub check_external_libraries {
         push @{$subdirs}, 'zstd';
         $$objects .= ' zstd/libzstd$(OBJ_EXT)';
     }
+}
+
+# For a distribution that links the objects built in another directory
+# (Sereal::Path and Sereal::Path::Tie link Sereal::Path::Iterator's): add the
+# installed libraries to link with, or else the bundled objects from $dir.
+sub check_external_libraries_from_dir {
+    my ( $libs, $defines, $objects, $dir ) = @_;
+    my $dir_objects = '';
+    check_external_libraries( $libs, $defines, \$dir_objects, [] );
+    $$objects .= join '', map { " $dir/$_" } split ' ', $dir_objects;
 }
 
 sub build_defines {

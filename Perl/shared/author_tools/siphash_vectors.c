@@ -2,9 +2,9 @@
  * Shared SipHash implementation checks.
  *
  * The SipHash-2-4 values are the reference vectors from
- * https://github.com/veorq/SipHash. The 3-6-128 check compares one-shot input
- * with differently chunked updates; its sample outputs are printed so they
- * can be recorded as local regression vectors.
+ * https://github.com/veorq/SipHash (vectors.h), for both 64- and 128-bit
+ * outputs. The 3-6-128 samples are local regression vectors. All versions
+ * are checked with one-shot and differently chunked updates.
  */
 #include <inttypes.h>
 #include <stdint.h>
@@ -13,8 +13,11 @@
 
 typedef uint8_t U8;
 typedef uint64_t U64;
+#define U64TYPE uint64_t
 #define SRL_STATIC_INLINE static inline
-#define SRL_CHECKSUM_VERSION_SIPHASH_3_6_128 1
+#define SRL_CHECKSUM_VERSION_SIPHASH_2_4_64 0
+#define SRL_CHECKSUM_VERSION_SIPHASH_2_4_128 1
+#define SRL_CHECKSUM_VERSION_SIPHASH_3_6_128 2
 #include "../srl_siphash.h"
 
 static const U64 siphash24_vectors[64] = {
@@ -36,6 +39,14 @@ static const U64 siphash24_vectors[64] = {
     0x6ca4ecb15c5f91e1ULL, 0x9f626da15c9625f3ULL, 0xe51b38608ef25f57ULL, 0x958a324ceb064572ULL
 };
 
+static const U8 siphash24_128_vectors[][16] = {
+    { 0xa3,0x81,0x7f,0x04,0xba,0x25,0xa8,0xe6,0x6d,0xf6,0x72,0x14,0xc7,0x55,0x02,0x93 },
+    { 0xda,0x87,0xc1,0xd8,0x6b,0x99,0xaf,0x44,0x34,0x76,0x59,0x11,0x9b,0x22,0xfc,0x45 },
+    { 0x54,0x93,0xe9,0x99,0x33,0xb0,0xa8,0x11,0x7e,0x08,0xec,0x0f,0x97,0xcf,0xc3,0xd9 },
+    { 0x6e,0xe2,0xa4,0xca,0x67,0xb0,0x54,0xbb,0xfd,0x33,0x15,0xbf,0x85,0x23,0x05,0x77 },
+    { 0x51,0x50,0xd1,0x77,0x2f,0x50,0x83,0x4a,0x50,0x3e,0x06,0x9a,0x97,0x3f,0xbd,0x7c },
+};
+
 static const size_t siphash36_128_lengths[] = { 0, 1, 15, 16, 63 };
 static const U8 siphash36_128_vectors[][16] = {
     { 0x37,0x22,0x8a,0x2b,0x7a,0x1e,0x50,0x5b,0x60,0xae,0x19,0xc4,0x86,0x95,0xeb,0x27 },
@@ -50,6 +61,7 @@ main(void)
 {
     U8 key[16], input[64];
     size_t i, len;
+    U8 version;
 
     for (i = 0; i < sizeof(key); i++)
         key[i] = (U8)i;
@@ -58,7 +70,7 @@ main(void)
 
     for (len = 0; len < 64; len++) {
         srl_siphash_ctx ctx;
-        srl_siphash_init_rounds(&ctx, key, 2, 4, 0);
+        srl_siphash_init(&ctx, key, 0);
         srl_siphash_update(&ctx, input, len);
         if (srl_siphash_final64(&ctx) != siphash24_vectors[len]) {
             fprintf(stderr, "SipHash-2-4 vector %lu failed\n", (unsigned long)len);
@@ -66,35 +78,37 @@ main(void)
         }
     }
 
-    /* Verify incremental update handling for SipHash-3-6-128 across all tail
-     * and block boundaries. Emit a handful of stable outputs for regression. */
-    for (len = 0; len < 64; len++) {
-        srl_siphash_ctx one_shot, chunked;
-        U8 expected[16], actual[16];
-        size_t first = len / 3;
-        size_t second = (len - first) / 2;
-        srl_siphash_init(&one_shot, key, 1);
-        srl_siphash_update(&one_shot, input, len);
-        srl_siphash_final128(&one_shot, expected);
+    /* Both 128-bit versions must use the correct rounds and remain stable
+     * across every tail/block boundary. */
+    for (version = 1; version <= 2; version++) {
+        for (len = 0; len < 64; len++) {
+            srl_siphash_ctx one_shot, chunked;
+            U8 expected[16], actual[16];
+            size_t first = len / 3;
+            size_t second = (len - first) / 2;
+            srl_siphash_init(&one_shot, key, version);
+            srl_siphash_update(&one_shot, input, len);
+            srl_siphash_final128(&one_shot, expected);
 
-        srl_siphash_init(&chunked, key, 1);
-        srl_siphash_update(&chunked, input, first);
-        srl_siphash_update(&chunked, input + first, second);
-        srl_siphash_update(&chunked, input + first + second, len - first - second);
-        srl_siphash_final128(&chunked, actual);
-        if (memcmp(expected, actual, sizeof(expected)) != 0) {
-            fprintf(stderr, "SipHash-3-6-128 chunked vector %lu failed\n", (unsigned long)len);
-            return 1;
-        }
-        for (i = 0; i < sizeof(siphash36_128_lengths) / sizeof(siphash36_128_lengths[0]); i++) {
-            if (len == siphash36_128_lengths[i] &&
-                memcmp(expected, siphash36_128_vectors[i], sizeof(expected)) != 0) {
-                fprintf(stderr, "SipHash-3-6-128 stored vector %lu failed\n", (unsigned long)len);
+            srl_siphash_init(&chunked, key, version);
+            srl_siphash_update(&chunked, input, first);
+            srl_siphash_update(&chunked, input + first, second);
+            srl_siphash_update(&chunked, input + first + second, len - first - second);
+            srl_siphash_final128(&chunked, actual);
+            if (memcmp(expected, actual, sizeof(expected)) != 0) {
+                fprintf(stderr, "SipHash version %u chunked vector %lu failed\n", version, (unsigned long)len);
                 return 1;
+            }
+            for (i = 0; i < sizeof(siphash36_128_lengths) / sizeof(siphash36_128_lengths[0]); i++) {
+                const U8 *vector = version == 1 ? siphash24_128_vectors[i] : siphash36_128_vectors[i];
+                if (len == siphash36_128_lengths[i] && memcmp(expected, vector, sizeof(expected)) != 0) {
+                    fprintf(stderr, "SipHash version %u stored vector %lu failed\n", version, (unsigned long)len);
+                    return 1;
+                }
             }
         }
     }
 
-    puts("SipHash-2-4 reference vectors and SipHash-3-6-128 vectors passed");
+    puts("SipHash versions 0, 1, and 2 reference/regression vectors passed");
     return 0;
 }

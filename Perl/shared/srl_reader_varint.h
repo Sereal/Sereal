@@ -199,9 +199,12 @@ srl_read_varint_uv(pTHX_ srl_reader_buffer_t *buf)
     }
 }
 
+/* buf->pos must be just past the tag (COPY, REFP, ALIAS, OBJECTV) whose
+ * offset is read, so that the tag is at buf->pos - 1 */
 SRL_STATIC_INLINE UV
 srl_read_varint_uv_offset(pTHX_ srl_reader_buffer_t *buf, const char * const errstr)
 {
+    const UV tag_ofs= (UV)(buf->pos - 1 - buf->body_pos);
     const UV offset= srl_read_varint_uv(aTHX_ buf);
     /* V2+ body offsets are one-based: zero points immediately before the
      * body, into uninitialized header space after decompression. In V1,
@@ -210,11 +213,16 @@ srl_read_varint_uv_offset(pTHX_ srl_reader_buffer_t *buf, const char * const err
         SRL_RDR_ERRORf1(buf,
             "Corrupted packet%s. Offset 0 does not point into the document body",
             errstr);
-    /* A "copy" reference can only refer to things that precede it
-     * in the same body. Compare the offset to the number of bytes already
-     * decoded instead of adding an uncontrolled UV to body_pos as
+    /* In V1 the offsets of the header bytes are nonzero too; after
+     * decompression the header bytes were never even written. */
+    if (expect_false(offset < (UV)(buf->body_start - buf->body_pos)))
+        SRL_RDR_ERRORf1(buf, "Back-reference offset points before the document body%s", errstr);
+    /* A "copy" reference can only refer to things that precede its tag
+     * in the same body; an offset pointing at the tag itself would make
+     * readers that follow it loop forever. Compare the offset to the tag's
+     * offset instead of adding an uncontrolled UV to body_pos as
      * that pointer addition can wrap below body_pos for a large offset. */
-    if (expect_false( offset >= (UV)(buf->pos - buf->body_pos) )) {
+    if (expect_false( offset >= tag_ofs )) {
         SRL_RDR_ERRORf4(buf, "Corrupted packet%s. Offset %"UVuf" points past current position %"UVuf" in packet with length of %"UVuf" bytes long",
                          errstr, offset, (UV)SRL_RDR_POS_OFS(buf), (UV)SRL_RDR_SIZE(buf));
     }

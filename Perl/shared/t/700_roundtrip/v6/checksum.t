@@ -111,7 +111,7 @@ SKIP: {
         run_hobodecoder( $packet1, '--checksum-v1-key-hex=' . unpack( 'H*', $key1 ) );
     is( $hobo_status, 0, 'hobodecoder accepts a checksummed compressed packet with its key' );
     like(
-        $hobo_out, qr/SipHash-3-6-128 checksum verified/,
+        $hobo_out, qr/SipHash-2-4-128 checksum verified/,
         'hobodecoder verifies the checksum before decompressing'
     );
     ( $hobo_status, $hobo_out, $hobo_err ) =
@@ -121,6 +121,20 @@ SKIP: {
         $hobo_err, qr/checksum verification failed/i,
         'hobodecoder reports checksum verification failure'
     );
+}
+
+for my $version (1, 2) {
+    SKIP: {
+        skip 'hobodecoder is not included in this distribution', 2
+            unless -f 'author_tools/hobodecoder.pl';
+        my $packet = Sereal::Encoder->new({"checksum_v${version}_key" => $key1})->encode($plain_value);
+        my ($status, $out, $err) = run_hobodecoder($packet,
+            "--checksum-v${version}-key-hex=" . unpack('H*', $key1));
+        is($status, 0, "hobodecoder accepts checksum version $version") or diag($err);
+        my $variant = $version == 1 ? '2-4-128' : '3-6-128';
+        like($out, qr/SipHash-\Q$variant\E checksum verified/,
+             "hobodecoder identifies version $version correctly");
+    }
 }
 
 sub checksum_tag_offset {

@@ -19,27 +19,26 @@ my $decode_op = eval 'sub { Sereal::Decoder::sereal_decode_with_object($_[0], $_
 die $@ unless $decode_op;
 
 for my $source ( 'option', 'environment' ) {
-    $ENV{SEREAL_CHECKSUM_POLICY} = $source eq 'environment' ? 'require' : 'ignore';
-    my %policy = $source eq 'option' ? ( checksum_policy => 'require' ) : ();
-    my $enc    = Sereal::Encoder->new( \%policy );
-    eval { $encode_op->($enc); 1 };
-    like(
-        $@, qr/checksum_policy 'require'.*key.*encode/,
-        "$source require applies through the encoding opcode"
-    );
-    for ( 1 .. 3 ) {
-        eval { $enc->encode(7); 1 };
+    $ENV{SEREAL_CHECKSUM_POLICY} = $source eq 'environment' ? 'require_key' : 'ignore';
+    my %policy = $source eq 'option' ? ( checksum_policy => 'require_key' ) : ();
+    for my $class ( 'Sereal::Encoder', 'Sereal::Decoder' ) {
+        eval { $class->new( \%policy ); 1 };
         like(
-            $@, qr/checksum_policy 'require'.*key.*encode/,
-            "$source require rejects keyless encoding"
+            $@, qr/checksum_policy 'require_key'.*checksum key/,
+            "$source require_key rejects keyless $class construction"
         );
     }
     eval { Sereal::Encoder::encode_sereal( 7, \%policy ); 1 };
     like(
-        $@, qr/checksum_policy 'require'.*key.*encode/,
-        "$source require applies to functional encoding"
+        $@, qr/checksum_policy 'require_key'.*checksum key/,
+        "$source require_key rejects keyless functional encoding"
     );
-    for my $type ( 0, 1 ) {
+    eval { Sereal::Decoder::decode_sereal( Header(6) . "\x07", \%policy ); 1 };
+    like(
+        $@, qr/checksum_policy 'require_key'.*checksum key/,
+        "$source require_key rejects keyless functional decoding of unsigned input"
+    );
+    for my $type ( 0, 1, 2 ) {
         my %options = ( %policy, "checksum_v${type}_key" => $key );
         my $packet  = Sereal::Encoder->new( \%options )->encode( [ 7, 'authenticated' ] );
         my $dec     = Sereal::Decoder->new( \%options );
@@ -54,16 +53,66 @@ for my $source ( 'option', 'environment' ) {
         substr( $packet, -1, 1 ) = chr( ord( substr( $packet, -1 ) ) ^ 1 );
         eval { $dec->decode($packet); 1 };
         like( $@, qr/checksum verification failed/, "$source require rejects tampering" );
-        is(
-            $dec->decode( Header(6) . "\x07" ), 7,
-            "$source require preserves die semantics for unsigned input"
+        eval { $dec->decode( Header(6) . "\x07" ); 1 };
+        like(
+            $@, qr/require_key.*checksummed packet/,
+            "$source require_key rejects unsigned input with a key configured"
         );
     }
 }
 delete $ENV{SEREAL_CHECKSUM_POLICY};
+for my $source ( 'option', 'environment' ) {
+    local $ENV{SEREAL_CHECKSUM_POLICY} = $source eq 'environment' ? 'require' : 'ignore';
+    my %policy = $source eq 'option' ? ( checksum_policy => 'require' ) : ();
+    eval { Sereal::Encoder->new( \%policy )->encode(7); 1 };
+    like(
+        $@, qr/checksum_policy 'require_key'.*checksum key/,
+        "$source legacy require retains require_key semantics"
+    );
+    my %options = ( %policy, checksum_v1_key => $key );
+    my $decoder = Sereal::Decoder->new( \%options );
+    eval { $decode_op->( $decoder, Header(6) . "\x07" ); 1 };
+    like(
+        $@, qr/require_key.*checksummed packet/,
+        "$source require alias rejects unsigned input through the decoder opcode"
+    );
+    my $packet = Sereal::Encoder->new( \%options )->encode(7);
+    is(
+        Sereal::Decoder->new( \%options )->decode($packet), 7,
+        "$source legacy require authenticates like require_key"
+    );
+}
 for my $class ( 'Sereal::Encoder', 'Sereal::Decoder' ) {
-    for my $policy ( 'die', 'require' ) {
-        for my $type ( 0, 1 ) {
+    for my $policy ( 'require_key', 'require' ) {
+        local $ENV{SEREAL_CHECKSUM_POLICY} = $policy;
+        local $Sereal::DefaultKey;
+        for my $options ( undef, {}, { checksum_policy => undef } ) {
+            eval { defined($options) ? $class->new($options) : $class->new; 1 };
+            like(
+                $@, qr/checksum_policy 'require_key'.*checksum key/,
+                "$class $policy rejects a missing key through the environment default"
+            );
+        }
+        ok(
+            $class->new( { checksum_policy => 'die' } ),
+            "$class explicit die permits a keyless configuration"
+        );
+        {
+            local $Sereal::DefaultKey = $key;
+            ok( $class->new, "$class $policy accepts the shared default key" );
+            for my $type ( 0, 1, 2 ) {
+                eval { $class->new( { "checksum_v${type}_key" => undef } ); 1 };
+                like(
+                    $@, qr/checksum_policy 'require_key'.*checksum key/,
+                    "$class $policy explicit undef type $type suppresses the default and fails"
+                );
+            }
+        }
+    }
+}
+for my $class ( 'Sereal::Encoder', 'Sereal::Decoder' ) {
+    for my $policy ( 'die', 'require_key', 'require' ) {
+        for my $type ( 0, 1, 2 ) {
             for my $length ( 0, 1, 15, 17, 32 ) {
                 eval {
                     $class->new(
@@ -95,12 +144,12 @@ for my $class ( 'Sereal::Encoder', 'Sereal::Decoder' ) {
 }
 {
     local $Sereal::DefaultKey = $key;
-    my $enc    = Sereal::Encoder->new( { checksum_policy => 'require' } );
-    my $dec    = Sereal::Decoder->new( { checksum_policy => 'require' } );
+    my $enc    = Sereal::Encoder->new( { checksum_policy => 'require_key' } );
+    my $dec    = Sereal::Decoder->new( { checksum_policy => 'require_key' } );
     my $packet = $enc->encode('default');
-    is( ord( substr( $packet, 6, 1 ) ), 1, 'shared default selects a 128-bit tag for encoding' );
+    is( ord( substr( $packet, 6, 1 ) ), 2, 'shared default selects SipHash-3-6-128 for encoding' );
     is( $dec->decode($packet),          'default', 'both modules use the shared default' );
-    for my $type ( 0, 1 ) {
+    for my $type ( 0, 1, 2 ) {
         my $explicit = Sereal::Encoder->new( { "checksum_v${type}_key" => $other } )->encode(7);
         is(
             Sereal::Decoder->new( { "checksum_v${type}_key" => $other } )->decode($explicit), 7,
@@ -116,9 +165,9 @@ for my $class ( 'Sereal::Encoder', 'Sereal::Decoder' ) {
     }
     {
         local $Sereal::DefaultKey = $other;
-        my $inner = Sereal::Encoder->new( { checksum_policy => 'require' } )->encode('inner');
+        my $inner = Sereal::Encoder->new( { checksum_policy => 'require_key' } )->encode('inner');
         is(
-            Sereal::Decoder->new( { checksum_policy => 'require' } )->decode($inner), 'inner',
+            Sereal::Decoder->new( { checksum_policy => 'require_key' } )->decode($inner), 'inner',
             'localized default applies to new objects'
         );
         eval { $dec->decode($inner); 1 };
