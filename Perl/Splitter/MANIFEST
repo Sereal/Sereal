@@ -54,6 +54,7 @@ t/01_basic.t
 t/02_big.t
 t/03_header_data_template.t
 t/04_v5_v6.t
+t/05_malformed.t
 typemap
 zstd/common/allocations.h
 zstd/common/bits.h

@@ -14,6 +14,9 @@ Revision history for Perl extension Sereal-Splitter
   * fix a PAD before a value taking that value's place
   * splitters no longer share their lookup tables
   * create_header_data_template() takes an optional protocol version
+  * reject a COPY of anything but a string, an OBJECTV whose class name
+    is not a string, and a REFP or ALIAS to an untracked item, like
+    Sereal::Decoder: expanding them could take exponential time and space
   * built on the reader, buffer and compression code shared with
     Sereal::Encoder and Sereal::Decoder; uthash is no longer bundled
 
