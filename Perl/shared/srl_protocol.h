@@ -45,7 +45,7 @@
     DOUBLE            | "#"  |  35 | 0x23 | 0b00100011 | <IEEE-DOUBLE>
     LONG_DOUBLE       | "\$" |  36 | 0x24 | 0b00100100 | <IEEE-LONG-DOUBLE>
     UNDEF             | "%"  |  37 | 0x25 | 0b00100101 | None - Perl undef var; eg my $var= undef;
-    BINARY            | "&"  |  38 | 0x26 | 0b00100110 | <LEN-VARINT> <BYTES> - binary/(latin1) string
+    BINARY            | "&"  |  38 | 0x26 | 0b00100110 | <LEN-VARINT> <BYTES> - binary/native string
     STR_UTF8          | "'"  |  39 | 0x27 | 0b00100111 | <LEN-VARINT> <UTF8> - utf8 string
     REFN              | "("  |  40 | 0x28 | 0b00101000 | <ITEM-TAG>    - ref to next item
     REFP              | ")"  |  41 | 0x29 | 0b00101001 | <OFFSET-VARINT> - ref to previous item stored at offset
@@ -103,7 +103,7 @@
     HASHREF_13        | "]"  |  93 | 0x5d | 0b01011101 |
     HASHREF_14        | "^"  |  94 | 0x5e | 0b01011110 |
     HASHREF_15        | "_"  |  95 | 0x5f | 0b01011111 | [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1)
-    SHORT_BINARY_0    | "`"  |  96 | 0x60 | 0b01100000 | <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag
+    SHORT_BINARY_0    | "`"  |  96 | 0x60 | 0b01100000 | <BYTES> - binary/native string, length encoded in low 5 bits of tag
     SHORT_BINARY_1    | "a"  |  97 | 0x61 | 0b01100001 |
     SHORT_BINARY_2    | "b"  |  98 | 0x62 | 0b01100010 |
     SHORT_BINARY_3    | "c"  |  99 | 0x63 | 0b01100011 |
@@ -134,7 +134,7 @@
     SHORT_BINARY_28   | "|"  | 124 | 0x7c | 0b01111100 |
     SHORT_BINARY_29   | "}"  | 125 | 0x7d | 0b01111101 |
     SHORT_BINARY_30   | "~"  | 126 | 0x7e | 0b01111110 |
-    SHORT_BINARY_31   |      | 127 | 0x7f | 0b01111111 | <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag
+    SHORT_BINARY_31   |      | 127 | 0x7f | 0b01111111 | <BYTES> - binary/native string, length encoded in low 5 bits of tag
 
 =for autoupdater stop
 */
@@ -201,7 +201,7 @@
 #define SRL_HDR_DOUBLE          ((U8)35)      /* <IEEE-DOUBLE> */
 #define SRL_HDR_LONG_DOUBLE     ((U8)36)      /* <IEEE-LONG-DOUBLE> */
 #define SRL_HDR_UNDEF           ((U8)37)      /* None - Perl undef var; eg my $var= undef; */
-#define SRL_HDR_BINARY          ((U8)38)      /* <LEN-VARINT> <BYTES> - binary/(latin1) string */
+#define SRL_HDR_BINARY          ((U8)38)      /* <LEN-VARINT> <BYTES> - binary/native string */
 #define SRL_HDR_STR_UTF8        ((U8)39)      /* <LEN-VARINT> <UTF8> - utf8 string */
 
 #define SRL_HDR_REFN            ((U8)40)      /* <ITEM-TAG>    - ref to next item */
@@ -254,7 +254,7 @@
 #define SRL_HDR_HASHREF_LOW     ((U8)80)
 #define SRL_HDR_HASHREF_HIGH    ((U8)95)
 
-#define SRL_HDR_SHORT_BINARY    ((U8)96)      /* <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
+#define SRL_HDR_SHORT_BINARY    ((U8)96)      /* <BYTES> - binary/native string, length encoded in low 5 bits of tag */
 #define SRL_HDR_SHORT_BINARY_LOW       ((U8)96)
 #define SRL_HDR_SHORT_BINARY_HIGH      ((U8)127)
 #define SRL_MASK_SHORT_BINARY_LEN      ((U8)31)      /* mask to get length of SRL_HDR_SHORT_BINARY type tags */

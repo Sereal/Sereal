@@ -426,7 +426,7 @@ header.
     DOUBLE            | "#"  |  35 | 0x23 | 0b00100011 | <IEEE-DOUBLE>
     LONG_DOUBLE       | "\$" |  36 | 0x24 | 0b00100100 | <IEEE-LONG-DOUBLE>
     UNDEF             | "%"  |  37 | 0x25 | 0b00100101 | None - Perl undef var; eg my $var= undef;
-    BINARY            | "&"  |  38 | 0x26 | 0b00100110 | <LEN-VARINT> <BYTES> - binary/(latin1) string
+    BINARY            | "&"  |  38 | 0x26 | 0b00100110 | <LEN-VARINT> <BYTES> - binary/native string
     STR_UTF8          | "'"  |  39 | 0x27 | 0b00100111 | <LEN-VARINT> <UTF8> - utf8 string
     REFN              | "("  |  40 | 0x28 | 0b00101000 | <ITEM-TAG>    - ref to next item
     REFP              | ")"  |  41 | 0x29 | 0b00101001 | <OFFSET-VARINT> - ref to previous item stored at offset
@@ -484,7 +484,7 @@ header.
     HASHREF_13        | "]"  |  93 | 0x5d | 0b01011101 |
     HASHREF_14        | "^"  |  94 | 0x5e | 0b01011110 |
     HASHREF_15        | "_"  |  95 | 0x5f | 0b01011111 | [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1)
-    SHORT_BINARY_0    | "`"  |  96 | 0x60 | 0b01100000 | <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag
+    SHORT_BINARY_0    | "`"  |  96 | 0x60 | 0b01100000 | <BYTES> - binary/native string, length encoded in low 5 bits of tag
     SHORT_BINARY_1    | "a"  |  97 | 0x61 | 0b01100001 |
     SHORT_BINARY_2    | "b"  |  98 | 0x62 | 0b01100010 |
     SHORT_BINARY_3    | "c"  |  99 | 0x63 | 0b01100011 |
@@ -515,7 +515,7 @@ header.
     SHORT_BINARY_28   | "|"  | 124 | 0x7c | 0b01111100 |
     SHORT_BINARY_29   | "}"  | 125 | 0x7d | 0b01111101 |
     SHORT_BINARY_30   | "~"  | 126 | 0x7e | 0b01111110 |
-    SHORT_BINARY_31   |      | 127 | 0x7f | 0b01111111 | <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag
+    SHORT_BINARY_31   |      | 127 | 0x7f | 0b01111111 | <BYTES> - binary/native string, length encoded in low 5 bits of tag
 
 =for autoupdater stop
 
@@ -636,6 +636,10 @@ is STR_UTF8 which is expected to contain valid canonical UTF8 encoded
 unicode text data. Under normal circumstances a decoder is not expected
 to validate that this is actually the case, and is allowed to simply
 extract the data verbatim.
+
+The tag table describes SHORT_BINARY and BINARY as "binary/native": their
+contents may be arbitrary binary data or text in the application's native
+encoding.
 
 SHORT_BINARY stores the length of the string in the tag itself and is used
 for strings of less than 32 characters long. Both BINARY and STR_UTF8

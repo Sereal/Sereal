@@ -47,7 +47,7 @@ public interface SerealHeader {
   byte SRL_HDR_DOUBLE            = (byte)  35; /*  35 0x23 0b00100011 <IEEE-DOUBLE> */
   byte SRL_HDR_LONG_DOUBLE       = (byte)  36; /*  36 0x24 0b00100100 <IEEE-LONG-DOUBLE> */
   byte SRL_HDR_UNDEF             = (byte)  37; /*  37 0x25 0b00100101 None - Perl undef var; eg my $var= undef; */
-  byte SRL_HDR_BINARY            = (byte)  38; /*  38 0x26 0b00100110 <LEN-VARINT> <BYTES> - binary/(latin1) string */
+  byte SRL_HDR_BINARY            = (byte)  38; /*  38 0x26 0b00100110 <LEN-VARINT> <BYTES> - binary/native string */
   byte SRL_HDR_STR_UTF8          = (byte)  39; /*  39 0x27 0b00100111 <LEN-VARINT> <UTF8> - utf8 string */
   byte SRL_HDR_REFN              = (byte)  40; /*  40 0x28 0b00101000 <ITEM-TAG>    - ref to next item */
   byte SRL_HDR_REFP              = (byte)  41; /*  41 0x29 0b00101001 <OFFSET-VARINT> - ref to previous item stored at offset */
@@ -81,9 +81,9 @@ public interface SerealHeader {
   byte SRL_HDR_HASHREF           = (byte)  80; /*  80 0x50 0b01010000 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
   byte SRL_HDR_HASHREF_LOW       = (byte)  80; /*  80 0x50 0b01010000 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
   byte SRL_HDR_HASHREF_HIGH      = (byte)  95; /*  95 0x5f 0b01011111 [<KEY-TAG> <ITEM-TAG> ...] - count in low 4 bits, key/value pairs (HASH must be refcnt=1) */
-  byte SRL_HDR_SHORT_BINARY      = (byte)  96; /*  96 0x60 0b01100000 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
-  byte SRL_HDR_SHORT_BINARY_LOW  = (byte)  96; /*  96 0x60 0b01100000 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
-  byte SRL_HDR_SHORT_BINARY_HIGH = (byte) 127; /* 127 0x7f 0b01111111 <BYTES> - binary/latin1 string, length encoded in low 5 bits of tag */
+  byte SRL_HDR_SHORT_BINARY      = (byte)  96; /*  96 0x60 0b01100000 <BYTES> - binary/native string, length encoded in low 5 bits of tag */
+  byte SRL_HDR_SHORT_BINARY_LOW  = (byte)  96; /*  96 0x60 0b01100000 <BYTES> - binary/native string, length encoded in low 5 bits of tag */
+  byte SRL_HDR_SHORT_BINARY_HIGH = (byte) 127; /* 127 0x7f 0b01111111 <BYTES> - binary/native string, length encoded in low 5 bits of tag */
   byte SRL_HDR_TRACK_FLAG        = (byte) 128; /* 128 0x80 0b10000000 if this bit is set track the item */
 /*
 * NOTE the above section is auto-updated by Sereal.git:Perl/shared/author_tools/update_from_header.pl

@@ -486,7 +486,7 @@ push @EXPORT_OK, keys %DEFINE;
 
     # autoupdated by Sereal.git:Perl/shared/author_tools/update_from_header.pl do not modify directly!
     {
-        "comment"    => "<LEN-VARINT> <BYTES> - binary/(latin1) string",
+        "comment"    => "<LEN-VARINT> <BYTES> - binary/native string",
         "name"       => "BINARY",
         "type_name"  => "BINARY",
         "type_value" => 38,
@@ -1050,7 +1050,7 @@ push @EXPORT_OK, keys %DEFINE;
 
     # autoupdated by Sereal.git:Perl/shared/author_tools/update_from_header.pl do not modify directly!
     {
-        "comment"    => "<BYTES> - binary/latin1 string, length encoded in low 5 bits of tag",
+        "comment"    => "<BYTES> - binary/native string, length encoded in low 5 bits of tag",
         "masked"     => 1,
         "masked_val" => 0,
         "name"       => "SHORT_BINARY_0",
