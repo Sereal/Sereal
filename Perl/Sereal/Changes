@@ -13,6 +13,10 @@ from the the Encoder and Decoder changelogs:
 * to version 6 anywhere in the fleet. Encoder 6 can emit v6     *
 * packets, which require Decoder 6 to read.                     *
 ****************************************************************
+Unreleased
+    * Preserve regexp modifiers and reject modifiers unsupported by the
+      receiving Perl with a version-specific error. Upgrade the Decoder first.
+
 6.000_003
     * Build and test fixes, including compatibility corpus tests.
     * Improve checksum configuration and argument processing.

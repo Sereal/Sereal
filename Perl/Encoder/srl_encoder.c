@@ -1864,13 +1864,19 @@ srl_dump_regexp(pTHX_ srl_encoder_t *enc, SV *sv)
        modifiers" in this scenario, and the default character set
     */
 
-#ifdef REGEXP_DEPENDS_CHARSET
+#if PERL_VERSION >= 14 || (PERL_VERSION == 13 && PERL_SUBVERSION >= 10)
+    /* REGEX_DEPENDS_CHARSET is an enum, not a preprocessor feature macro.
+     * Charset modifiers first appeared in 5.13.10 (stable 5.14). Omit /d:
+     * the decoder compiles with zero flags, independently of caller hints. */
     if (get_regex_charset(RX_EXTFLAGS(re)) != REGEX_DEPENDS_CHARSET) {
-        STRLEN len;
-        const char* const name = get_regex_charset_name(RX_EXTFLAGS(re),
-                                                        &len);
-        Copy(name, reflags + left, len, char);
-        left += len;
+        switch (get_regex_charset(RX_EXTFLAGS(re))) {
+            case REGEX_LOCALE_CHARSET: reflags[left++] = 'l'; break;
+            case REGEX_UNICODE_CHARSET: reflags[left++] = 'u'; break;
+            case REGEX_ASCII_RESTRICTED_CHARSET: reflags[left++] = 'a'; break;
+            case REGEX_ASCII_MORE_RESTRICTED_CHARSET:
+                reflags[left++] = 'a'; reflags[left++] = 'a'; break;
+            default: croak("Cannot serialize regexp with unknown character set");
+        }
     }
 #endif
     fptr = INT_PAT_MODS;

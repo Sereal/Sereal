@@ -495,6 +495,10 @@ but only if Snappy compression is enabled.
 If this option is set, then the encoder will refuse to serialize blessed
 references and throw an exception instead.
 
+This includes regexp objects (C<qr//>), which Perl treats as blessed references
+in the C<Regexp> class, even when the application has not explicitly blessed
+them.
+
 This can be important because blessed references can mean executing
 a destructor on a remote system or generally executing code based on
 data.
@@ -1136,6 +1140,19 @@ In a nutshell, the C<canonical> option may be sufficient for an application
 which is simply serializing a cache key, and thus there's little harm in an
 occasional false-negative, but think carefully before applying Sereal in other
 use-cases.
+
+=head1 REGULAR EXPRESSIONS
+
+Regexp serialization preserves C</m>, C</s>, C</i>, C</x>, C</xx>, C</p>,
+C</n> and the character set modes C</d>, C</l>, C</u>, C</a> and C</aa>.
+The default C</d> mode is implicit in the serialized modifier string.
+This applies to every Sereal protocol version.
+
+The receiving Decoder must support these modifiers. In particular, C</n>
+requires Perl 5.22 or later and C</xx> requires Perl 5.26 or later. Older
+Sereal decoders may discard C</xx> semantics or reject other modifiers even
+on a sufficiently new Perl. Upgrade the Decoder before emitting these
+regexps. See L<Sereal::Decoder/REGULAR EXPRESSIONS> for portability limits.
 
 =head1 KNOWN ISSUES
 

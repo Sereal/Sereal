@@ -666,6 +666,24 @@ use of such codepoints, and Perl will not do so on its own.
 Protocol version 6 adds a fourth, special-purpose string representation for
 Perl v-strings as extended tags. See L</"Protocol Version 6">.
 
+=head3 Regular Expressions
+
+REGEXP is followed by a pattern string tag and a SHORT_BINARY modifier string.
+Modifiers describe the compiled pattern, not match or substitution operators.
+Perl matching modifiers are C<m>, C<s>, C<i>, C<x>, C<xx>, C<p>, C<n>, and
+one character set mode: C<d>, C<l>, C<u>, C<a>, or C<aa>. An omitted character
+set mode means C<d>. Two or more C<x> characters select C<xx> semantics;
+two C<a> characters select C<aa> semantics. Neither may be collapsed into
+a single flag. Conflicting character set modes, repeated C<d>, C<l> or C<u>,
+and more than two C<a> characters are invalid.
+
+In Perl, C<m>, C<s>, C<i> and C<x> are available by 5.000; C<p> first shipped
+in 5.10; C<d>, C<l>, C<u>, C<a> and C<aa> in 5.14; C<n> in 5.22; and C<xx>
+in 5.26. A decoder unable to implement a modifier must reject it rather than
+silently change the pattern's meaning. These modifiers do not require a new
+Sereal protocol version. Regexp syntax, Unicode tables and locale behavior
+can still differ between implementations and versions.
+
 =head3 Hash Keys
 
 Hash keys are always one of the string types, or a COPY tag referencing a

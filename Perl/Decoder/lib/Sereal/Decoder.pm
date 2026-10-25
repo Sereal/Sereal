@@ -996,6 +996,23 @@ Note that this version cannot be called as a method. It is normally executed
 as a custom opcode, as such errors about its usage may be caught at compile
 time, and it should be much faster than looks_like_sereal.
 
+=head1 REGULAR EXPRESSIONS
+
+The Decoder restores the regexp pattern and its matching modifiers, including
+the character set modes C</d>, C</l>, C</u>, C</a> and C</aa>, C</n> (no unnamed
+captures), and C</xx> (extended whitespace handling inside character classes).
+It also preserves C</m>, C</s>, C</i>, C</x> and C</p>.
+
+C</p> first shipped in Perl 5.10; the character set modifiers in Perl 5.14;
+C</n> in Perl 5.22; and C</xx> in Perl 5.26. A modifier unavailable on the
+receiving Perl causes an exception naming the modifier and the required
+stable Perl version. Unknown modifier bytes and conflicting character set
+modes are rejected. These checks apply to every Sereal protocol version.
+
+Preserving modifiers does not freeze the regexp engine, Unicode tables, or
+the execution locale. Those can still change matching behavior between hosts
+or Perl versions.
+
 =head1 ROBUSTNESS
 
 The project-wide security policy, supported-version guidance, and private

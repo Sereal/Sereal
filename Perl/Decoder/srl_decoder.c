@@ -2618,6 +2618,9 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
     if ( expect_true( IS_SRL_HDR_SHORT_BINARY(*dec->buf.pos) ) ) {
         U8 mod_len= SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(*dec->buf.pos++);
         U32 flags= 0;
+        U8 seen_x = 0;
+        U8 a_count = 0;
+        U8 charset = 0;
         SRL_RDR_ASSERT_SPACE(dec->pbuf, mod_len, " while reading regexp modifiers");
         while (mod_len > 0) {
             mod_len--;
@@ -2632,15 +2635,62 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
                     flags= flags | PMf_FOLD;
                     break;
                 case 'x':
+                    if (seen_x) {
+                        /* The bit was reserved in 5.21, but /xx was only
+                         * implemented in 5.25.9 (stable 5.26). */
+#if PERL_VERSION > 25 || (PERL_VERSION == 25 && PERL_SUBVERSION >= 9)
+                        flags |= PMf_EXTENDED_MORE;
+#else
+                        SRL_RDR_ERROR(dec->pbuf, "Regexp modifier '/xx' requires Perl 5.26 or later");
+#endif
+                    }
+                    seen_x = 1;
                     flags= flags | PMf_EXTENDED;
                     break;
-#ifdef REGEXP_HAS_P_MODIFIER
-                case 'p':
-                    flags = flags | PMf_KEEPCOPY;
-                    break;
+                case 'n':
+#ifdef PMf_NOCAPTURE
+                    flags |= PMf_NOCAPTURE;
+#else
+                    SRL_RDR_ERROR(dec->pbuf, "Regexp modifier '/n' requires Perl 5.22 or later");
 #endif
+                    break;
+                case 'p':
+#ifdef REGEXP_HAS_P_MODIFIER
+                    flags = flags | PMf_KEEPCOPY;
+#else
+                    SRL_RDR_ERROR(dec->pbuf, "Regexp modifier '/p' requires Perl 5.10 or later");
+#endif
+                    break;
+                case 'd':
+                case 'l':
+                case 'u':
+                case 'a': {
+                    U8 modifier = dec->buf.pos[-1];
+                    if (charset && charset != modifier)
+                        SRL_RDR_ERROR(dec->pbuf, "Conflicting regexp character set modifiers");
+                    if (charset == modifier && modifier != 'a')
+                        SRL_RDR_ERRORf1(dec->pbuf, "Repeated regexp character set modifier '/%c'", modifier);
+                    charset = modifier;
+                    if (modifier == 'a' && ++a_count > 2)
+                        SRL_RDR_ERROR(dec->pbuf, "Invalid regexp modifier '/aaa'");
+#if PERL_VERSION >= 14 || (PERL_VERSION == 13 && PERL_SUBVERSION >= 10)
+                    switch (modifier) {
+                        case 'd': set_regex_charset(&flags, REGEX_DEPENDS_CHARSET); break;
+                        case 'l': set_regex_charset(&flags, REGEX_LOCALE_CHARSET); break;
+                        case 'u': set_regex_charset(&flags, REGEX_UNICODE_CHARSET); break;
+                        case 'a':
+                            set_regex_charset(&flags, a_count == 2
+                                ? REGEX_ASCII_MORE_RESTRICTED_CHARSET
+                                : REGEX_ASCII_RESTRICTED_CHARSET);
+                            break;
+                    }
+#else
+                    SRL_RDR_ERRORf1(dec->pbuf, "Regexp modifier '/%c' requires Perl 5.14 or later", modifier);
+#endif
+                    break;
+                }
                 default:
-                    SRL_RDR_ERROR(dec->pbuf, "bad modifier");
+                    SRL_RDR_ERRORf1(dec->pbuf, "Unsupported regexp modifier byte 0x%02x", (unsigned int)dec->buf.pos[-1]);
                     break;
             }
         }

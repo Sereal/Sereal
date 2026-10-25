@@ -70,6 +70,7 @@ t/094_thaw_allow.t
 t/095_checksum_policy.t
 t/096_build_tools.t
 t/097_checksum_versions.t
+t/106_regexp_modifiers.t
 t/110_nobless.t
 t/150_dec_exception.t
 t/155_zipbomb.t
