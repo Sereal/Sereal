@@ -8,6 +8,7 @@ Revision history for Perl extension Sereal-Encoder
 * packets, which require Decoder 6 to read.                     *
 ****************************************************************
 Unreleased
+    * Include a self-contained plain-text SECURITY file in release archives. Fixes #305.
     * Preserve regexp character set modifiers and round-trip /n and /xx.
       Upgrade the Decoder before emitting these modifiers. Fixes issue #180.
 

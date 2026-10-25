@@ -8,6 +8,7 @@ Revision history for Perl extension Sereal-Decoder
 * packets, which require Decoder 6 to read.                     *
 ****************************************************************
 Unreleased
+    * Include a self-contained plain-text SECURITY file in release archives. Fixes #305.
     * Restore all Perl regexp matching modifiers, including /n and /xx.
       Report the required Perl version for unsupported modifiers. Fixes #180.
 

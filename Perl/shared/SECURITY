@@ -1,0 +1,55 @@
+SECURITY POLICY FOR THE SEREAL PERL DISTRIBUTIONS
+
+This policy applies to Sereal::Encoder, Sereal::Decoder, and the Sereal
+wrapper distribution.
+
+REPORTING A VULNERABILITY
+
+Report suspected vulnerabilities privately through GitHub Security Advisories:
+
+    https://github.com/Sereal/Sereal/security/advisories/new
+
+This lets us investigate and coordinate a fix before disclosure. Include a
+reproducer or minimal packet, the affected module and version, Perl version,
+platform, relevant settings, expected and observed behavior, and the suspected
+impact when available.
+
+We work with reporters to validate issues, develop fixes, and coordinate
+disclosure through the private advisory. Patches and regression tests are
+welcome. Ordinary bugs and support questions belong in the public issue tracker:
+
+    https://github.com/Sereal/Sereal/issues
+
+SUPPORTED VERSIONS
+
+Security fixes are made in current releases; older releases have no guaranteed
+backport schedule. Upgrade decoders before encoders so readers understand the
+packets produced during a rollout.
+
+SCOPE AND CONTROLS
+
+The Perl implementation is Sereal's reference implementation. Malformed input
+should fail with controlled exceptions. Known decoder crashes, memory
+corruption, and bypasses of configured limits must be fixed before release.
+This is a maintenance standard, not a guarantee that every malformed packet
+is handled correctly.
+
+Successful decoding does not make the resulting values trustworthy. Object
+callbacks and destructors can execute application code. Consult the installed
+documentation for the controls available in your version:
+
+    perldoc Sereal::Decoder
+        ROBUSTNESS, resource limits, object controls, and checksum verification
+        policies.
+
+    perldoc Sereal::Encoder
+        SECURITY, callbacks, and checksum emission.
+
+Protocol v6 checksums authenticate packets only with a matching secret key
+and a decoder policy that rejects unsigned or unverifiable packets. They do
+not encrypt data or prevent replay.
+
+The project-wide security policy describes the scope of the other language
+implementations:
+
+    https://github.com/Sereal/Sereal/security/policy

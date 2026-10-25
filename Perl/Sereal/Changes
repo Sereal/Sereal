@@ -14,6 +14,7 @@ from the the Encoder and Decoder changelogs:
 * packets, which require Decoder 6 to read.                     *
 ****************************************************************
 Unreleased
+    * Include a self-contained plain-text SECURITY file in release archives. Fixes #305.
     * Preserve regexp modifiers and reject modifiers unsupported by the
       receiving Perl with a version-specific error. Upgrade the Decoder first.
 
