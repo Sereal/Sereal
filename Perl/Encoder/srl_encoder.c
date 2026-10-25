@@ -2649,6 +2649,24 @@ srl_hv_backreferences_p_safe(pTHX_ HV *hv) {
 }
 #endif
 
+/* Build diagnostics from the referent's type and stash, never from overloaded
+ * stringification. Keep the class name's UTF-8 flag for warn/croak. */
+SRL_STATIC_INLINE SV *
+srl_unsupported_type_name(pTHX_ SV *src)
+{
+    SV *name = sv_2mortal(newSVpvs(""));
+    if (SvOBJECT(src)) {
+        sv_setpv(name, sv_reftype(src, 1));
+#if PERL_VERSION >= 16
+        if (HvNAMEUTF8(SvSTASH(src)))
+            SvUTF8_on(name);
+#endif
+        sv_catpvs(name, "=");
+    }
+    sv_catpv(name, sv_reftype(src, 0));
+    return name;
+}
+
 /* Dumps generic SVs and delegates
  * to more specialized functions for RVs, etc. */
 /* TODO decide when to use the IV, when to use the PV, and when
@@ -2875,9 +2893,9 @@ redo_dump:
                 if ( SRL_ENC_HAVE_OPTION((enc), SRL_F_UNDEF_UNKNOWN) ) {                       \
                     if (SRL_ENC_HAVE_OPTION((enc), SRL_F_WARN_UNKNOWN)) {                      \
                         srl_callback_begin(aTHX_ enc, src, refsv);                              \
-                        warn("Found type %u %s(0x%p), but it is not representable "            \
+                        warn("Found type %u %"SVf"(0x%p), but it is not representable "        \
                              "by the Sereal encoding format; will encode as an "               \
-                             "undefined value", (svt), sv_reftype((src),0),(src));             \
+                             "undefined value", (svt), SVfARG(srl_unsupported_type_name(aTHX_ src)),(src)); \
                         srl_callback_end(aTHX_ enc);                                          \
                     }                                                                          \
                     if (ref_rewrite_pos) {                                                     \
@@ -2912,9 +2930,9 @@ redo_dump:
                              || !Gv_AMG(SvSTASH(src)))                                         \
                         {                                                                      \
                             srl_callback_begin(aTHX_ enc, src, refsv);                        \
-                            warn("Found type %u %s(0x%p), but it is not representable "        \
+                            warn("Found type %u %"SVf"(0x%p), but it is not representable "    \
                                  "by the Sereal encoding format; will encode as a "            \
-                                 "stringified form", (svt), sv_reftype((src),0),(src));        \
+                                 "stringified form", (svt), SVfARG(srl_unsupported_type_name(aTHX_ src)),(src)); \
                             srl_callback_end(aTHX_ enc);                                      \
                         }                                                                      \
                     }                                                                          \
@@ -2940,8 +2958,8 @@ redo_dump:
                     srl_dump_pv(aTHX_ (enc), (str), len, SvUTF8(stringified));                  \
                 }                                                                              \
                 else {                                                                         \
-                    croak("Found type %u %s(0x%p), but it is not representable "               \
-                          "by the Sereal encoding format", (svt), sv_reftype((src),0),(src));  \
+                    croak("Found type %u %"SVf"(0x%p), but it is not representable "           \
+                          "by the Sereal encoding format", (svt), SVfARG(srl_unsupported_type_name(aTHX_ src)),(src)); \
                 }                                                                              \
             } STMT_END
             SRL_HANDLE_UNSUPPORTED_SvTYPE(enc, src, svt, refsv, ref_rewrite_pos);

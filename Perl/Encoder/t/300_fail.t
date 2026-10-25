@@ -22,9 +22,6 @@ BEGIN {
         plan skip_all => 'Did not find right version of decoder';
         exit 0;
     }
-    else {
-        plan tests => 19;
-    }
 }
 use Sereal::Decoder;
 
@@ -169,3 +166,51 @@ SCOPE: {
     qr/Sereal/,
         "warn_unknown == -1 warns about stringified sub without overloading";
 }
+
+{
+    package UnsupportedDiagnosticOverload;
+    our $calls = 0;
+    use overload '""' => sub { ++$calls; 'overloaded-code' }, fallback => 1;
+}
+
+my @diagnostic_cases = (
+    [ 'plain CODE', sub {}, 'CODE', 0 ],
+    [ 'blessed CODE', bless(sub {}, 'UnsupportedDiagnostic'), 'UnsupportedDiagnostic=CODE', 0 ],
+    [ 'overloaded CODE', bless(sub {}, 'UnsupportedDiagnosticOverload'),
+        'UnsupportedDiagnosticOverload=CODE', 1 ],
+);
+if ($] >= 5.016) {
+    my $class = "UnsupportedDiagnostic::\x{100}";
+    push @diagnostic_cases, [ 'Unicode class', bless(sub {}, $class), "$class=CODE", 0 ];
+}
+for my $case (@diagnostic_cases) {
+    my ($label, $value, $type, $overloaded) = @$case;
+    for my $mode ('exception', 'undef_unknown', 'stringify_unknown') {
+        my %options = $mode eq 'exception' ? () : ($mode => 1, warn_unknown => 1);
+        my $encoder = Sereal::Encoder->new(\%options);
+        my @warnings;
+        local $SIG{__WARN__} = sub { push @warnings, @_ };
+        local $UnsupportedDiagnosticOverload::calls = 0;
+        my $success = eval { $encoder->encode($value); 1 };
+        my $error = $@;
+        my $diagnostic = $mode eq 'exception' ? $error : join('', @warnings);
+        like($diagnostic,
+            qr/^Found type \d+ \Q$type\E\(0x[0-9a-f]+\), but it is not representable /i,
+            "$label $mode reports class and underlying type");
+        if ($mode eq 'exception') {
+            ok(!$success, "$label unsupported value still throws");
+            is(scalar @warnings, 0, "$label exception does not also warn");
+        }
+        else {
+            is($error, '', "$label $mode still encodes");
+            is(scalar @warnings, 1, "$label $mode warns once");
+        }
+        is($UnsupportedDiagnosticOverload::calls,
+            $mode eq 'stringify_unknown' && $overloaded ? 1 : 0,
+            "$label $mode diagnostic does not invoke stringification");
+        is(Sereal::Decoder->new->decode($encoder->encode(7)), 7,
+            "$label $mode leaves encoder reusable");
+    }
+}
+
+done_testing;

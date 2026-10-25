@@ -617,6 +617,10 @@ data structures just the same as for a positive value with one
 exception: For blessed, unsupported items that have string overloading,
 we silently stringify without warning.
 
+Unsupported-type exceptions and warnings include the class name of blessed
+values, for example C<My::Class=CODE(0x...)>. Formatting the diagnostic does
+not invoke overloaded stringification.
+
 =head3 max_recursion_depth
 
 C<Sereal::Encoder> is recursive. If you pass it a Perl data structure
