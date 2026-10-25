@@ -141,14 +141,14 @@ below version 6, YES and NO become TRUE and FALSE below version 5, and
 CANONICAL_UNDEF becomes UNDEF below version 3. FLOAT_128 values cannot be
 merged into output below version 5.
 
-=head3 checksum_policy, checksum_v0_key, checksum_v1_key, checksum_v2_key
+=head3 checksum_policy, checksum_key, checksum_mode, checksum_key_v1, checksum_key_v2, checksum_key_v3
 
 These control how checksummed (protocol version 6) input documents are
-authenticated. They take the same values and have the same defaults as the
-L<Sereal::Decoder> options of the same names, including
-C<$Sereal::DefaultKey> and the C<SEREAL_CHECKSUM_POLICY> environment
-variable. With the default policy, a checksummed document is verified when a
-matching key is configured, and merged unverified with a warning otherwise.
+authenticated. They accept the same values and follow the same defaults as
+L<Sereal::Decoder>, including its package defaults, the shared C<$Sereal::*>
+defaults, and the corresponding environment variables. With the default
+policy, a checksummed document is verified when a matching key is configured,
+and merged unverified with a warning otherwise.
 
 The merged output carries no checksum.
 

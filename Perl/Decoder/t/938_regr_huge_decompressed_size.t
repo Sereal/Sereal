@@ -8,6 +8,8 @@ BEGIN { lib->import('lib') if !-d 't' }
 
 use Test::More;
 use Sereal::Decoder;
+use File::Spec;
+use Sereal::TestSet::Corpus qw(read_packet);
 
 # A compressed document declares its uncompressed size, and the decoder
 # allocates the output buffer from that number before inflating anything.
@@ -79,18 +81,14 @@ foreach my $case (
     );
 }
 
-SKIP: {
-    skip 'Sereal::Encoder not available', 1
-        if !eval { require Sereal::Encoder; Sereal::Encoder->VERSION(3.002); 1 };
-    my $data = { a => [ ( "x" x 100 ) x 10 ] };
-    my $enc  = Sereal::Encoder->new( {
-            compress           => Sereal::Encoder::SRL_ZLIB(),
-            compress_threshold => 0,
-        } )->encode($data);
-    is_deeply(
-        Sereal::Decoder->new->decode($enc), $data,
-        'normal zlib round trip still works'
-    );
-}
+my $data = { a => [ ( "x" x 100 ) x 10 ] };
+my $normal_zlib = read_packet(
+    File::Spec->catdir( 't', 'data', 'packet_corpus' ),
+    'decoder-features', 'huge_decompressed_size/normal_zlib'
+);
+is_deeply(
+    Sereal::Decoder->new->decode($normal_zlib), $data,
+    'normal zlib corpus packet still decodes'
+);
 
 done_testing();

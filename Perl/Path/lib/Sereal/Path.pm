@@ -90,7 +90,7 @@ please use appropriate link above.
   my $result1 = $sp->traverse('$[*][foo]');
 
   # checksummed documents are authenticated with the Sereal::Decoder options
-  my $sp2 = Sereal::Path->new($document, { checksum_v2_key => $key });
+  my $sp2 = Sereal::Path->new($document, { checksum_key_v3 => $key });
 
 =head2 Description
 

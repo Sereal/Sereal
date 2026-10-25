@@ -36,7 +36,7 @@ my @streams = (
 for my $type ( 0, 1, 2 ) {
     for my $policy ( 'die', 'ignore' ) {
         my $dec = Sereal::Decoder->new( {
-            "checksum_v${type}_key" => $key, checksum_policy => $policy,
+            ( "checksum_key_v" . ( $type + 1 ) ) => $key, checksum_policy => $policy,
             undef_deadly_policy     => 'die'
         } );
         my $label = "checksum $type policy $policy";

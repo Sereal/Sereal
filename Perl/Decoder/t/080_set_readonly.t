@@ -9,58 +9,30 @@ BEGIN {
     lib->import('lib')
         if !-d 't';
 }
-use Sereal::TestSet qw(:all);
 use Sereal::Decoder;
-use Scalar::Util qw(reftype weaken);
+use Scalar::Util qw(reftype);
+use Sereal::TestSet::Corpus qw(read_packet);
 
 my @tests = (
     [ set_readonly => 1 ],
 );
 
-if ( have_encoder_and_decoder() ) {
-    my $num_tests = 62;
-    plan tests => $num_tests;
+my $packet = read_packet(
+    File::Spec->catdir( 't', 'data', 'packet_corpus' ),
+    'decoder-features', 'set_readonly'
+);
+my $dec  = Sereal::Decoder->new( { set_readonly         => 1 } );
+my $dec2 = Sereal::Decoder->new( { set_readonly_scalars => 1 } );
+my $got  = $dec->decode($packet);
+my $got2 = $dec2->decode($packet);
+undef $dec;
+undef $dec2;
+
+for my $name ( sort keys %$got ) {
+    _recurse( $got->{$name},  '', $name, 0 );
+    _recurse( $got2->{$name}, '', $name, 1 );
 }
-else {
-    plan skip_all => 'Did not find right version of encoder';
-}
-
-my $foo = bless( [ 1, 2, 3 ], "foo" );
-
-my $weak_blessed_href = bless( { blah => 'bat', hash => { t => 1 } }, 'SomeClass' );
-weaken( $weak_blessed_href->{foo} = $weak_blessed_href );
-my $struct = {
-    hashref               => { a => [ "b", 5, bless( { foo => "bar" }, "SomeClass" ) ] },
-    blessed_ref_with_refs => bless(
-        { foo => { bar => 'test' }, bar => ['baz'], empty_href => {}, empty_aref => [] }, 'Blah'
-    ),
-    string            => "foobar",
-    arrayref          => ["foobar"],
-    blessed_arrayref  => $foo,
-    weak_blessed_href => $weak_blessed_href,
-};
-
-foreach my $name ( keys %$struct ) {
-
-    local $_ = $struct->{$name};
-    my $enc  = Sereal::Encoder->new;
-    my $dec  = Sereal::Decoder->new( { set_readonly         => 1 } );
-    my $dec2 = Sereal::Decoder->new( { set_readonly_scalars => 1 } );
-
-    my $got;
-    $dec->decode( $enc->encode($_), $got );
-    my $got2;
-    $dec2->decode( $enc->encode($_), $got2 );
-
-    # undef the decoder to make sure if it blows up on DESTROY it does it before we test.
-    undef $dec;
-    undef $dec2;
-    undef $enc;
-
-    _recurse( $got,  '', $name, 0 );
-    _recurse( $got2, '', $name, 1 );
-
-}
+done_testing();
 
 sub _recurse {
     my ( $s, $path, $name, $scalars_only ) = @_;

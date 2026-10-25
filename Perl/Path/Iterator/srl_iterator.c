@@ -1110,7 +1110,7 @@ srl_iterator_decode(pTHX_ srl_iterator_t *iter)
     SRL_ITER_ASSERT_STACK(iter);
 
     if (iter->dec) srl_clear_decoder_body_state(aTHX_ iter->dec);
-    else iter->dec = srl_build_decoder_struct(aTHX_ NULL, NULL);
+    else iter->dec = srl_build_decoder_struct(aTHX_ NULL, NULL, NULL, NULL);
 
     Copy(&iter->buf, &iter->dec->buf, 1, srl_reader_buffer_t);
     DEBUG_ASSERT_RDR_SANE(iter->dec->pbuf);

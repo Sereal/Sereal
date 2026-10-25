@@ -59,7 +59,7 @@ sub _load_siphash_function {
     for my $module (qw(Sereal::Decoder Sereal::Encoder)) {
         ( my $file = "$module.pm" ) =~ s{::}{/}g;
         next unless eval { require $file; 1 };
-        my $function = $version == 0 ? 'siphash24' : $version == 1 ? 'siphash24_128' : 'siphash36';
+        my $function = $version == 0 ? 'siphash24' : $version == 1 ? 'siphash24_128' : 'siphash36_128';
         my $code     = $module->can($function) or next;
         return $siphash_function{$version} = $code;
     }
@@ -140,9 +140,9 @@ sub parse_header {
         die "Invalid SipHash checksum length $tag_len for type $checksum_type\n"
             if defined($expected_len) && $tag_len != $expected_len;
         my $key =
-              $checksum_type == 0 ? $opt->{checksum_v0_key}
-            : $checksum_type == 1 ? $opt->{checksum_v1_key}
-            : $checksum_type == 2 ? $opt->{checksum_v2_key}
+              $checksum_type == 0 ? $opt->{checksum_key_v1}
+            : $checksum_type == 1 ? $opt->{checksum_key_v2}
+            : $checksum_type == 2 ? $opt->{checksum_key_v3}
             :                       undef;
 
         if ( defined($expected_len) && defined($key) ) {
@@ -477,8 +477,8 @@ GetOptions(
 );
 
 for my $version ( 0, 1, 2 ) {
-    my $plain_name   = "checksum_v${version}_key";
-    my $hex_name     = "checksum_v${version}_key_hex";
+    my $plain_name   = "checksum_key_v" . ( $version + 1 );
+    my $hex_name     = "checksum_key_v" . ( $version + 1 ) . "_hex";
     my $plain_option = "checksum-v${version}-key";
     my $hex_option   = "checksum-v${version}-key-hex";
     die "Specify only one of --$plain_option and --$hex_option\n"

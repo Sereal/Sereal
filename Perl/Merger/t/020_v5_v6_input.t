@@ -54,14 +54,14 @@ subtest "compressed input" => sub {
 };
 
 subtest "checksummed input (protocol v6)" => sub {
-    my $doc = Sereal::Encoder->new({ checksum_v2_key => $key })->encode({ a => [ 1, 2 ] });
+    my $doc = Sereal::Encoder->new({ checksum_key_v3 => $key })->encode({ a => [ 1, 2 ] });
 
-    my $out = merge_docs({ checksum_v2_key => $key, checksum_policy => 'die' }, $doc);
+    my $out = merge_docs({ checksum_key_v3 => $key, checksum_policy => 'die' }, $doc);
     is_deeply(decode_sereal($out), [ { a => [ 1, 2 ] } ], "verified and merged");
 
     my $tampered = $doc;
     substr($tampered, -1, 1) ^= "\x01";
-    ok(!eval { merge_docs({ checksum_v2_key => $key, checksum_policy => 'die' }, $tampered); 1 },
+    ok(!eval { merge_docs({ checksum_key_v3 => $key, checksum_policy => 'die' }, $tampered); 1 },
        "tampered input is rejected");
     like($@, qr/checksum verification failed/, "with the checksum error");
 
@@ -73,9 +73,21 @@ subtest "checksummed input (protocol v6)" => sub {
     like("@warnings", qr/without authentication/, "and warned about it");
 
     my $plain = Sereal::Encoder->new->encode(1);
-    ok(!eval { merge_docs({ checksum_v2_key => $key, checksum_policy => 'require_key' }, $plain); 1 },
+    ok(!eval { merge_docs({ checksum_key_v3 => $key, checksum_policy => 'require_key' }, $plain); 1 },
        "require_key rejects unprotected input");
     like($@, qr/requires a checksummed packet/, "with the policy error");
+
+    my $generic_doc = Sereal::Encoder->new({ checksum_key => $key, checksum_mode => 'v3' })
+        ->encode({ generic => 'key and mode' });
+    my $generic_out = merge_docs({
+        checksum_key => $key, checksum_mode => 'none', checksum_policy => 'require_v2',
+    }, $generic_doc);
+    is_deeply(decode_sereal($generic_out), [ { generic => 'key and mode' } ],
+        'reader uses document mode and honors the minimum policy');
+    my $weaker = Sereal::Encoder->new({ checksum_key_v1 => $key })->encode([ 'weaker' ]);
+    ok(!eval { merge_docs({ checksum_key => $key, checksum_policy => 'require_v2' }, $weaker); 1 },
+        'reader rejects a checksum below its minimum');
+    like($@, qr/requires checksum mode v2 or higher/, 'minimum error identifies the required level');
 };
 
 subtest "FLOAT_128 (protocol v5)" => sub {

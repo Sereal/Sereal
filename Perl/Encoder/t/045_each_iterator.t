@@ -17,6 +17,9 @@ if ( !have_encoder_and_decoder() ) {
 # over the same hash relies on. Every loop is bounded so a regression shows
 # up as a failure instead of a hang.
 
+my @unexpected_warnings;
+local $SIG{__WARN__} = sub { push @unexpected_warnings, @_ };
+
 our ( %target, $current_key, $grown, $in_encode );
 
 {
@@ -134,10 +137,16 @@ for my $case (@cases) {
     }
     my $enc = Sereal::Encoder->new;
     my $n   = 0;
+    my @iterator_warnings;
 
     # The 64 keys added during the first encode may legitimately be visited by
-    # the rest of the loop, so this case needs a larger bound.
-    while ( my ( $k, $v ) = each %target ) {
+    # the rest of the loop, so this case needs a larger bound. Perl may warn
+    # on the next each() after that deliberate insertion. Capture warnings
+    # only while advancing the iterator; other warnings fail the test below.
+    while ( my ( $k, $v ) = do {
+        local $SIG{__WARN__} = sub { push @iterator_warnings, @_ };
+        each %target;
+    } ) {
         $n++;
         last if $n > 100;
         local $in_encode = 1;
@@ -145,6 +154,10 @@ for my $case (@cases) {
     }
     ok( $n <= 100, "each() loop terminates when a callback splits the hash ($n iterations)" );
     ok( $grown,    'the growing callback ran' );
+    my @unexpected = grep {
+        !/^Use of each\(\) on hash after insertion without resetting hash iterator results in undefined behavior(?:, Perl interpreter: 0x[0-9a-f]+)? at /i
+    } @iterator_warnings;
+    is_deeply( \@unexpected, [], 'iterator advance emitted only the expected insertion warning' );
     %target = ();
 }
 
@@ -157,4 +170,5 @@ SKIP: {
     is( count_each_while_encoding( $enc, \%ENV ), $expected, "each() sees every key once: %ENV" );
 }
 
+is_deeply( \@unexpected_warnings, [], 'no unexpected warnings while exercising hash iterators' );
 done_testing;

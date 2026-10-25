@@ -4,7 +4,7 @@ Revision history for Perl extension Sereal-Merger
   * reject UNDEF_DEADLY (EXTEND 0xff) rather than copying this forbidden
     diagnostic tag into encoded output
   * read protocol v5 and v6 documents: YES/NO booleans, FLOAT_128, zstd
-    compression and keyed checksums (checksum_policy, checksum_vN_key)
+    compression and keyed checksums (checksum_policy, checksum_key_vN)
   * when writing an older protocol version, rewrite YES/NO to TRUE/FALSE
     and CANONICAL_UNDEF to UNDEF, and refuse FLOAT_128
   * fix compressed output, which could not be decoded; add

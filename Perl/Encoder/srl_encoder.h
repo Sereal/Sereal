@@ -44,8 +44,8 @@ typedef struct {
     AV *callback_keepalive;   /* values borrowed across actual Perl callbacks */
 
     void *snappy_workmem;     /* lazily allocated if and only if using Snappy */
-    U8 checksum_keys[3][16]; /* indexed by checksum version */
-    U8 checksum_key_mask;
+    U8 checksum_key[16];
+    U8 checksum_key_set;
     U8 checksum_policy;
     U8 siphash_version;
     IV compress_threshold;    /* do not compress things smaller than this even if compression enabled */
@@ -75,7 +75,9 @@ typedef struct {
 } HE_SV;
 
 /* constructor from options */
-srl_encoder_t *srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options);
+srl_encoder_t *srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options,
+                                        const U8 *known_option_heads,
+                                        const U8 *known_option_next);
 
 /* clone; "constructor from prototype" */
 srl_encoder_t *srl_build_encoder_struct_alike(pTHX_ srl_encoder_t *proto);
@@ -199,9 +201,15 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
 #endif
 
 /* Options Parsing related code */
+#define SRL_OPTION_INDEX_BUCKETS 64
 #define SRL_INIT_OPTION(idx, str) STMT_START {                          \
     MY_CXT.options[idx].sv = newSVpvn((str ""), (sizeof(str) - 1));     \
     PERL_HASH(MY_CXT.options[idx].hash, (str ""), (sizeof(str) - 1));   \
+    {                                                                   \
+        U32 bucket = MY_CXT.options[idx].hash & (SRL_OPTION_INDEX_BUCKETS - 1); \
+        MY_CXT.known_option_next[idx] = MY_CXT.known_option_heads[bucket]; \
+        MY_CXT.known_option_heads[bucket] = (idx) + 1;                   \
+    }                                                                   \
 } STMT_END
 
 #define SRL_ENC_OPT_STR_ALIASED_DEDUPE_STRINGS "aliased_dedupe_strings"
@@ -276,17 +284,25 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
 #define SRL_ENC_OPT_STR_FREEZE_DENY_ACTION "freeze_deny_action"
 #define SRL_ENC_OPT_IDX_FREEZE_DENY_ACTION 23
 
-#define SRL_ENC_OPT_STR_CHECKSUM_V0_KEY "checksum_v0_key"
-#define SRL_ENC_OPT_IDX_CHECKSUM_V0_KEY 24
-#define SRL_ENC_OPT_STR_CHECKSUM_V1_KEY "checksum_v1_key"
-#define SRL_ENC_OPT_IDX_CHECKSUM_V1_KEY 25
+#define SRL_ENC_OPT_STR_CHECKSUM_KEY_V1 "checksum_key_v1"
+#define SRL_ENC_OPT_IDX_CHECKSUM_KEY_V1 24
+#define SRL_ENC_OPT_STR_CHECKSUM_KEY_V2 "checksum_key_v2"
+#define SRL_ENC_OPT_IDX_CHECKSUM_KEY_V2 25
 
 #define SRL_ENC_OPT_STR_CHECKSUM_POLICY "checksum_policy"
 #define SRL_ENC_OPT_IDX_CHECKSUM_POLICY 26
 
-#define SRL_ENC_OPT_STR_CHECKSUM_V2_KEY "checksum_v2_key"
-#define SRL_ENC_OPT_IDX_CHECKSUM_V2_KEY 27
+#define SRL_ENC_OPT_STR_CHECKSUM_KEY_V3 "checksum_key_v3"
+#define SRL_ENC_OPT_IDX_CHECKSUM_KEY_V3 27
 
-#define SRL_ENC_OPT_COUNT 28
+#define SRL_ENC_OPT_STR_UNKNOWN_OPTION_POLICY "unknown_option_policy"
+#define SRL_ENC_OPT_IDX_UNKNOWN_OPTION_POLICY 28
+
+#define SRL_ENC_OPT_STR_CHECKSUM_KEY "checksum_key"
+#define SRL_ENC_OPT_IDX_CHECKSUM_KEY 29
+#define SRL_ENC_OPT_STR_CHECKSUM_MODE "checksum_mode"
+#define SRL_ENC_OPT_IDX_CHECKSUM_MODE 30
+
+#define SRL_ENC_OPT_COUNT 31
 
 #endif

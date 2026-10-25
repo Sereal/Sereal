@@ -11,58 +11,32 @@ BEGIN {
     lib->import('lib')
         if !-d 't';
 }
-use Sereal::TestSet qw(have_encoder_and_decoder);
-
-BEGIN {
-    my $ok = have_encoder_and_decoder();
-    if ( not $ok ) {
-        plan skip_all => 'Did not find right version of encoder';
-        done_testing();
-        exit(0);
-    }
-}
-require Sereal::Encoder;
+use Sereal::TestSet::Corpus qw(read_packet);
 use Sereal::Decoder qw(decode_sereal);
 
-# Each test below will use the supplied encoder against
-# the supplied input data structure and will compare how
-# the decoder behaves with its output marked as utf8 or not
-my @tests = ( {
-        # First round of tests, with a snappy-compressed structure,
-        # crafted to yield high-bit data points
-        encoder => Sereal::Encoder->new( { snappy => 1, snappy_threshold => 0 } ),
-        input   => {
-            foo                => 'bar',
-            f111               => 'bar',
-            f1111              => 'bar',
-            f11111             => 'bar',
-            f111111            => 'bar',
-            f1111111           => 'bar',
-            f11111111          => 'bar',
-            f111111111         => 'bar',
-            f1111111111        => 'bar',
-            f11111111111       => 'bar',
-            f111111111111      => 'bar',
-            f1111111111111     => 'bar',
-            f11111111111111    => 'bar',
-            f111111111111111   => 'bar',
-            f1111111111111111  => 'bar',
-            f11111111111111111 => 'bar',
+my $corpus = File::Spec->catdir(qw(t data packet_corpus));
+my @tests = (
+    {
+        packet => read_packet( $corpus, 'decoder-features', 'utf8decoding/snappy' ),
+        input  => {
+            foo => 'bar', f111 => 'bar', f1111 => 'bar', f11111 => 'bar',
+            f111111 => 'bar', f1111111 => 'bar', f11111111 => 'bar',
+            f111111111 => 'bar', f1111111111 => 'bar', f11111111111 => 'bar',
+            f111111111111 => 'bar', f1111111111111 => 'bar',
+            f11111111111111 => 'bar', f111111111111111 => 'bar',
+            f1111111111111111 => 'bar', f11111111111111111 => 'bar',
         },
     },
     {
-        # Second round of testing, this time do not use snappy, but
-        # encode directly utf8 data
-        encoder => Sereal::Encoder->new,
-        input   => { therefore => "\x{2234}" },
+        packet => read_packet( $corpus, 'decoder-features', 'utf8decoding/plain' ),
+        input  => { therefore => "\x{2234}" },
     },
 );
 plan tests => 9 * @tests;
 
 # The testing routine
-sub encode_and_encode {
-    my ( $encoder, $input ) = @_;
-    my $s1 = $encoder->encode($input);
+sub decode_with_utf8_flag {
+    my ( $s1, $input ) = @_;
     my $s2 = $s1;
     ok( !utf8::is_utf8($s1), "encoder returns a string without the utf8 flag" );
     $s2 = encode( "utf8", $s2 );
@@ -86,5 +60,5 @@ sub encode_and_encode {
 }
 
 for my $t (@tests) {
-    encode_and_encode( $t->{encoder}, $t->{input} );
+    decode_with_utf8_flag( $t->{packet}, $t->{input} );
 }

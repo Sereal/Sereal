@@ -11,11 +11,8 @@ BEGIN {
 use Test::More;
 use Sereal::TestSet qw(:all);
 use Sereal::Decoder qw(decode_sereal);
+use Sereal::TestSet::Corpus qw(read_packet);
 use Data::Dumper    qw(Dumper);
-
-if ( !have_encoder_and_decoder() ) {
-    plan skip_all => 'Did not find right version of encoder';
-}
 
 sub dd {
     local $Data::Dumper::Indent   = 0;
@@ -102,23 +99,25 @@ my $struct = FooOutside->new(
     FooOutside->new( {}, FooInside->new( {}, 'fourth/inner' ) ),
 );
 
-my $srl = Sereal::Encoder::encode_sereal( $struct, { freeze_callbacks => 1, canonical => 1 } );
+my $corpus = File::Spec->catdir(qw(t data packet_corpus));
+my $srl = read_packet( $corpus, 'decoder-features', 'thaw/order' );
 my $dec = decode_sereal($srl);
 
+my @expected_steps = (
+    "FooOutside::FREEZE(bless( {'attrs' => {'attr1' => 'foobar','bar' => bless( {'attrs' => {},'inside' => {'0' => 'should_be_first'}}, 'FooInside' )},'inside' => {'0' => bless( {'attrs' => {},'inside' => {'0' => 'second/not_frozen','1' => 'third/not_frozen'}}, 'FooInside' ),'1' => bless( {'attrs' => {},'inside' => {'0' => bless( {'attrs' => {},'inside' => {'0' => 'fourth/inner'}}, 'FooInside' )}}, 'FooOutside' )}}, 'FooOutside' ))",
+    "FooInside::FREEZE(bless( {'attrs' => {},'inside' => {'0' => 'should_be_first'}}, 'FooInside' ))",
+    "FooInside::FREEZE(bless( {'attrs' => {},'inside' => {'0' => 'second/not_frozen','1' => 'third/not_frozen'}}, 'FooInside' ))",
+    "FooOutside::FREEZE(bless( {'attrs' => {},'inside' => {'0' => bless( {'attrs' => {},'inside' => {'0' => 'fourth/inner'}}, 'FooInside' )}}, 'FooOutside' ))",
+    "FooInside::FREEZE(bless( {'attrs' => {},'inside' => {'0' => 'fourth/inner'}}, 'FooInside' ))",
+    "FooInside::THAW({'attrs' => {},'inside' => ['fourth/inner']})",
+    "FooOutside::THAW({'attrs' => {},'inside' => [bless( {'attrs' => {},'inside' => {'0' => 'fourth/inner'}}, 'FooInside' )]})",
+    "FooInside::THAW({'attrs' => {},'inside' => ['second/not_frozen','third/not_frozen']})",
+    "FooInside::THAW({'attrs' => {},'inside' => ['should_be_first']})",
+    "FooOutside::THAW({'attrs' => {'attr1' => 'foobar','bar' => bless( {'attrs' => {},'inside' => {'0' => 'should_be_first'}}, 'FooInside' )},'inside' => [bless( {'attrs' => {},'inside' => {'0' => 'second/not_frozen','1' => 'third/not_frozen'}}, 'FooInside' ),bless( {'attrs' => {},'inside' => {'0' => bless( {'attrs' => {},'inside' => {'0' => 'fourth/inner'}}, 'FooInside' )}}, 'FooOutside' )]})"
+);
 is_deeply(
-    \@steps, [
-        "FooOutside::FREEZE(bless( {'attrs' => {'attr1' => 'foobar','bar' => bless( {'attrs' => {},'inside' => {'0' => 'should_be_first'}}, 'FooInside' )},'inside' => {'0' => bless( {'attrs' => {},'inside' => {'0' => 'second/not_frozen','1' => 'third/not_frozen'}}, 'FooInside' ),'1' => bless( {'attrs' => {},'inside' => {'0' => bless( {'attrs' => {},'inside' => {'0' => 'fourth/inner'}}, 'FooInside' )}}, 'FooOutside' )}}, 'FooOutside' ))",
-        "FooInside::FREEZE(bless( {'attrs' => {},'inside' => {'0' => 'should_be_first'}}, 'FooInside' ))",
-        "FooInside::FREEZE(bless( {'attrs' => {},'inside' => {'0' => 'second/not_frozen','1' => 'third/not_frozen'}}, 'FooInside' ))",
-        "FooOutside::FREEZE(bless( {'attrs' => {},'inside' => {'0' => bless( {'attrs' => {},'inside' => {'0' => 'fourth/inner'}}, 'FooInside' )}}, 'FooOutside' ))",
-        "FooInside::FREEZE(bless( {'attrs' => {},'inside' => {'0' => 'fourth/inner'}}, 'FooInside' ))",
-        "FooInside::THAW({'attrs' => {},'inside' => ['fourth/inner']})",
-        "FooOutside::THAW({'attrs' => {},'inside' => [bless( {'attrs' => {},'inside' => {'0' => 'fourth/inner'}}, 'FooInside' )]})",
-        "FooInside::THAW({'attrs' => {},'inside' => ['second/not_frozen','third/not_frozen']})",
-        "FooInside::THAW({'attrs' => {},'inside' => ['should_be_first']})",
-        "FooOutside::THAW({'attrs' => {'attr1' => 'foobar','bar' => bless( {'attrs' => {},'inside' => {'0' => 'should_be_first'}}, 'FooInside' )},'inside' => [bless( {'attrs' => {},'inside' => {'0' => 'second/not_frozen','1' => 'third/not_frozen'}}, 'FooInside' ),bless( {'attrs' => {},'inside' => {'0' => bless( {'attrs' => {},'inside' => {'0' => 'fourth/inner'}}, 'FooInside' )}}, 'FooOutside' )]})"
-    ],
-    "freeze/thaw sequence for nested objects was as expected"
+    \@steps, [ @expected_steps[ 5 .. $#expected_steps ] ],
+    "thaw sequence for nested objects was as expected"
     )
     or do {
     if ( $ENV{DUMP_STEPS} ) {
@@ -129,5 +128,14 @@ is_deeply(
 
 is_deeply( $dec, $struct, "And the final structures match according to is_deeply()" );
 is( dd($dec), dd($struct), "And the final structures match according to Dumper" );
+
+if ( have_encoder_and_decoder() ) {
+    @steps = ();
+    my $live_packet = Sereal::Encoder::encode_sereal(
+        $struct, { freeze_callbacks => 1, canonical => 1 } );
+    my $live_decoded = decode_sereal($live_packet);
+    is_deeply( \@steps, \@expected_steps, 'live Encoder and Decoder preserve the full FREEZE/THAW sequence' );
+    is_deeply( $live_decoded, $struct, 'live Encoder round-trips the nested object structure' );
+}
 
 done_testing;

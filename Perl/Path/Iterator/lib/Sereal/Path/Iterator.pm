@@ -97,15 +97,15 @@ Sereal document as first argument and uses C<set> to set it.
 
   my $spi = Sereal::Path::Iterator->new(encode_sereal({}));
 
-An options hash reference may follow the document. The options
-C<checksum_policy>, C<checksum_v0_key>, C<checksum_v1_key> and
-C<checksum_v2_key> control how checksummed (protocol version 6) documents
-are authenticated. They take the same values and have the same defaults as
-the L<Sereal::Decoder> options of the same names, including
-C<$Sereal::DefaultKey> and the C<SEREAL_CHECKSUM_POLICY> environment
-variable. They apply to every document given to C<set>.
+An options hash reference may follow the document. The checksum options
+C<checksum_policy>, C<checksum_key>, C<checksum_mode>, C<checksum_key_v1>,
+C<checksum_key_v2> and C<checksum_key_v3> control how checksummed (protocol
+version 6) documents are authenticated. They accept the same values and
+follow the same defaults as L<Sereal::Decoder>, including its package
+defaults, the shared C<$Sereal::*> defaults, and the corresponding environment
+variables. They apply to every document given to C<set>.
 
-  my $spi = Sereal::Path::Iterator->new($document, { checksum_v2_key => $key });
+  my $spi = Sereal::Path::Iterator->new($document, { checksum_key_v3 => $key });
 
 Documents of any protocol version up to the current one are supported,
 compressed with Snappy, Zlib or Zstd or not.

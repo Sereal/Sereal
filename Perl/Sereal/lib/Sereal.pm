@@ -2,9 +2,9 @@ package Sereal;
 use 5.014;
 use strict;
 use warnings;
-our $VERSION    = '6.000_002';
+our $VERSION    = '6.000_003';
 our $XS_VERSION = $VERSION; $VERSION = eval $VERSION;
-use Sereal::Encoder 6.000_002 qw(
+use Sereal::Encoder 6.000_003 qw(
     encode_sereal
     sereal_encode_with_object
     SRL_UNCOMPRESSED
@@ -12,7 +12,7 @@ use Sereal::Encoder 6.000_002 qw(
     SRL_ZLIB
     SRL_ZSTD
 );
-use Sereal::Decoder 6.000_002 qw(
+use Sereal::Decoder 6.000_003 qw(
     get_sereal_checksum
     validate_sereal_checksum
     decode_sereal
@@ -226,6 +226,46 @@ Read a sereal packet from a file. See Sereal::Decoder::decode_from_file().
 =head2 read_sereal($FILENAME,$OPTS,$ROOT)
 
 alias for read_sereal_file()
+
+=head1 CHECKSUM CONFIGURATION
+
+Encoder and Decoder accept C<checksum_key> and C<checksum_mode>. The aliases
+C<checksum_key_v1>, C<checksum_key_v2>, and C<checksum_key_v3> each set the
+same key and mode together:
+
+  checksum_key_v2 => $key
+  # equivalent to:
+  checksum_key => $key, checksum_mode => 2
+
+Duplicate key assignments warn when the values match and die when they
+differ. On Encoder, duplicate mode assignments warn, including identical
+assignments, and select the highest numeric mode. Constructor arguments
+take precedence over package defaults.
+
+Decoder uses the key with the algorithm specified in each document. It
+accepts C<checksum_mode> for shared configurations, but that option does not
+restrict or disable verification. Set C<checksum_policy> to C<'require_v1'>,
+C<'require_v2'>, or C<'require_v3'> to require authentication at that level or
+higher. Existing C<'require_key'> and C<'require'> policies mean C<'require_v1'>.
+Encoder rejects a key/mode configuration that cannot satisfy the policy.
+
+The shared package defaults C<$Sereal::ChecksumMode> and
+C<$Sereal::DefaultKey> configure Encoder's mode and both modules' key. They can also
+be initialized at module startup with C<SEREAL_CHECKSUM_MODE> and
+C<SEREAL_DEFAULT_KEY>. The mode accepts C<'none'> or C<'v1'>, C<'v2'>, and
+C<'v3'> (also numeric C<0> through C<3>); C<'v1'> through C<'v3'> select wire
+checksum types 0 through 2. The shared key is raw key bytes; the environment
+value is decoded from 32 hexadecimal characters or normalized as a key.
+
+Checksum configuration resolves in this order: constructor options,
+module-specific package defaults, then the shared package defaults. The
+Encoder and Decoder have separate C<DefaultKey> and C<ChecksumPolicy> package
+variables and environment variables for module-specific defaults. Encoder
+also has its own C<ChecksumMode> default, which is C<'v3'> when unspecified.
+Decoder's algorithm always comes from the document. See
+L<Sereal::Encoder/checksum_key>, L<Sereal::Encoder/checksum_mode>,
+L<Sereal::Decoder/checksum_key>, and L<Sereal::Decoder/checksum_mode> for the
+complete option and environment variable details.
 
 =head1 SECURITY
 

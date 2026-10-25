@@ -5,16 +5,29 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION    = '6.000_002';
+our $VERSION    = '6.000_003';
 our $XS_VERSION = $VERSION; $VERSION = eval $VERSION;
+
+our $ChecksumPolicy;
+our $UnknownOptionPolicy;
+our $DefaultKey;
+$Sereal::ChecksumPolicy = $ENV{SEREAL_CHECKSUM_POLICY}
+    if !defined($Sereal::ChecksumPolicy) && defined($ENV{SEREAL_CHECKSUM_POLICY}) && length($ENV{SEREAL_CHECKSUM_POLICY});
+$ChecksumPolicy = $ENV{SEREAL_DECODER_CHECKSUM_POLICY}
+    if !defined($ChecksumPolicy) && defined($ENV{SEREAL_DECODER_CHECKSUM_POLICY}) && length($ENV{SEREAL_DECODER_CHECKSUM_POLICY});
+$Sereal::UnknownOptionPolicy = $ENV{SEREAL_UNKNOWN_OPTION_POLICY}
+    if !defined($Sereal::UnknownOptionPolicy) && defined($ENV{SEREAL_UNKNOWN_OPTION_POLICY}) && length($ENV{SEREAL_UNKNOWN_OPTION_POLICY});
+$UnknownOptionPolicy = $ENV{SEREAL_DECODER_UNKNOWN_OPTION_POLICY}
+    if !defined($UnknownOptionPolicy) && defined($ENV{SEREAL_DECODER_UNKNOWN_OPTION_POLICY}) && length($ENV{SEREAL_DECODER_UNKNOWN_OPTION_POLICY});
 
 use Exporter 'import';
 our @EXPORT_OK = qw(
     prepare_checksum_key
+    siphash24_128
     get_sereal_checksum
     validate_sereal_checksum
     siphash24
-    siphash36
+    siphash36_128
     decode_sereal
     looks_like_sereal
     decode_sereal_with_header_data
@@ -33,6 +46,16 @@ our @EXPORT = ( ( caller() )[1] eq '-e' ? @EXPORT_OK : () );
 
 sub CLONE_SKIP { 1 }
 XSLoader::load( 'Sereal::Decoder', $XS_VERSION );
+if ( !defined($DefaultKey) && defined( $ENV{SEREAL_DECODER_DEFAULT_KEY} ) ) {
+    my $key = $ENV{SEREAL_DECODER_DEFAULT_KEY};
+    if ( $key =~ /\A[0-9a-fA-F]{32}\z/ ) {
+        $DefaultKey = pack( 'H*', $key );
+    }
+    else {
+        warn "SEREAL_DECODER_DEFAULT_KEY is not exactly 32 hexadecimal characters; normalizing with Sereal::Decoder::prepare_checksum_key()\n";
+        $DefaultKey = prepare_checksum_key($key);
+    }
+}
 unless ($Sereal::_DefaultKeyInitialized) {
     if ( !defined($Sereal::DefaultKey) && defined( $ENV{SEREAL_DEFAULT_KEY} ) ) {
         my $key = $ENV{SEREAL_DEFAULT_KEY};
@@ -295,16 +318,19 @@ that result as the key to SipHash-2-4-128 of C<Luke, I am your father.>
 followed by C<$key>. Both arguments default to the empty string. This only
 normalizes the length; it does not add entropy or replace a password KDF.
 
-=head2 siphash24, siphash24_128 and siphash36
+=head2 siphash24, siphash24_128 and siphash36_128
 
   my $tag8  = Sereal::Decoder::siphash24($bytes, $key16);
   my $tag16 = Sereal::Decoder::siphash24_128($bytes, $key16);
-  my $tag16 = Sereal::Decoder::siphash36($bytes, $key16);
+  my $tag16 = Sereal::Decoder::siphash36_128($bytes, $key16);
+  my $tag16_default = Sereal::Decoder::siphash36_128($bytes);
 
 Compute a raw SipHash tag for a byte string and an exactly 16-byte key.
 C<siphash24()> returns the eight-byte SipHash-2-4 result,
-C<siphash24_128()> returns the 16-byte SipHash-2-4-128 result, and C<siphash36()>
-returns the 16-byte SipHash-3-6-128 result. These low-level helpers are
+C<siphash24_128()> returns the 16-byte SipHash-2-4-128 result, and C<siphash36_128()>
+returns the 16-byte SipHash-3-6-128 result. Each helper accepts an omitted key,
+which defaults to sixteen null bytes. Explicit keys must be exactly 16 bytes.
+These low-level helpers are
 provided for tooling that needs to inspect or verify Sereal checksum
 envelopes. The returned values are binary strings.
 
@@ -321,38 +347,61 @@ encoder.
 Currently, the following options are recognized, none of them are on
 by default.
 
-=head3 checksum_v0_key
+=head3 checksum_key
 
-A 16-byte key used to verify protocol version 6 checksum type 0 tags
-(SipHash-2-4, 64-bit tags). When verification is enabled, the checksum is
-verified before decompression or body decoding. See L</checksum_policy>.
+A 16-byte key used to verify every supported checksum type. The document
+selects the checksum algorithm. C<checksum_key_v1>, C<checksum_key_v2>, and
+C<checksum_key_v3> are aliases for this same key; their suffix does not
+restrict which documents the Decoder can verify.
 
-=head3 checksum_v1_key
+Supplying the key through multiple options warns when the values are
+identical and dies when they differ. Constructor keys take precedence over
+package defaults. Use C<checksum_policy> to require authentication or a
+minimum checksum level, or to skip verification.
 
-A 16-byte key used to verify protocol version 6 checksum type 1 tags
-(SipHash-2-4-128, 128-bit tags).
+=head3 checksum_mode
 
-=head3 checksum_v2_key
+Accepted and validated for configurations shared with L<Sereal::Encoder>.
+Values are C<0>/C<'none'>, C<1>/C<'v1'>, C<2>/C<'v2'>, and C<3>/C<'v3'>.
+This option does not select or disable Decoder verification; the document
+specifies the checksum type and C<checksum_policy> governs verification.
+Checksum mode package and environment defaults apply to Encoder only.
 
-A 16-byte key used to verify protocol version 6 checksum type 2 tags
-(SipHash-3-6-128, 128-bit tags). A decoder can have any combination of the
-three key types. The packet's checksum type selects the key.
+=head3 checksum_key_v1
 
-Under C<'die'> or C<'require_key'>, keys must be exactly 16 bytes. The other policies
+Alias for C<checksum_key>. Encoder also selects mode 1 with this option;
+Decoder verifies any supported type using the key.
+
+=head3 checksum_key_v2
+
+Alias for C<checksum_key>. Encoder also selects mode 2 with this option;
+Decoder verifies any supported type using the key.
+
+=head3 checksum_key_v3
+
+Alias for C<checksum_key>. Encoder also selects mode 3 with this option;
+Decoder verifies any supported type using the key.
+
+Under C<'die'> or a C<'require'> policy, keys must be exactly 16 bytes. The other policies
 retain the existing behavior of padding shorter keys or truncating longer keys
 with a warning. Use C<prepare_checksum_key()> explicitly to normalize a key.
 Authentication does not make data from a malicious key holder safe to decode.
 
 =head3 Shared default key
 
-C<$Sereal::DefaultKey> supplies a default when no checksum key option is
-present. It contains the raw 16 key bytes, not hexadecimal text. A default
-Decoder key is used for all three supported checksum types. Explicit key options
+C<$Sereal::DefaultKey> supplies a shared default when no checksum key option is
+present. C<$Sereal::Decoder::DefaultKey> can override the Decoder's default.
+Both contain raw key bytes, not hexadecimal text. A default Decoder key is
+used for all three supported checksum types. Explicit key options
 replace the default configuration; supplying an explicit C<undef> key also
 suppresses the default.
 
 The first load of Sereal::Encoder or Sereal::Decoder initializes this shared
 variable from C<SEREAL_DEFAULT_KEY>, unless application code has already set it.
+The Decoder-specific C<SEREAL_DECODER_DEFAULT_KEY> initializes
+C<$Sereal::Decoder::DefaultKey> the same way. Constructor key options take
+precedence over the Decoder-specific default, which takes precedence over the
+shared default.
 Exactly 32 hexadecimal characters are decoded to 16 bytes. Other lengths or
 non-hexadecimal values are passed unchanged to C<prepare_checksum_key()>, with
 a warning that does not include the secret. Normalization does not add entropy
@@ -388,6 +437,18 @@ Encoder construction also requires a key under this policy, and encoding always
 produces a checksummed packet. Encoder and Decoder key configurations are
 independent; C<$Sereal::DefaultKey> supplies a shared default.
 C<'require'> is an alias for C<'require_key'>.
+C<'require_v1'> is another alias for C<'require_key'>.
+
+=item * C<'require_v2'> - require a key and accept only authenticated v2 or v3
+checksums (wire types 1 or 2). Unsigned packets and v1 checksums are rejected.
+
+=item * C<'require_v3'> - require a key and accept only authenticated v3
+checksums (wire type 2). Unsigned packets and lower checksum modes are rejected.
+
+These minimum levels are enforced before decompression or body decoding.
+The same policies on Encoder require a key and a selected encoding mode at
+least as high as the requested minimum; inconsistent settings are rejected.
+
 
 =item * C<'ignore'> - skip verification silently, even if a key is configured.
 
@@ -395,16 +456,37 @@ C<'require'> is an alias for C<'require_key'>.
 
 =back
 
-Set C<SEREAL_CHECKSUM_POLICY> to one of these names to override the default
-for new encoders and decoders, including the functional interfaces:
+Set C<SEREAL_CHECKSUM_POLICY> to choose a shared default, or set
+C<SEREAL_DECODER_CHECKSUM_POLICY> for a Decoder-specific default. These
+environment variables initialize C<$Sereal::ChecksumPolicy> and
+C<$Sereal::Decoder::ChecksumPolicy> at module startup if those variables are
+not already defined:
 
   SEREAL_CHECKSUM_POLICY=require_key perl my_application.pl
 
-An explicitly defined C<checksum_policy> option takes precedence. An omitted
-or undefined option uses the environment default. An unset or empty environment
-variable uses C<'verify-if-available'>. Invalid values cause construction to
-fail. The environment is read at construction; existing objects and recursive
-clones retain their policy.
+The constructor option takes precedence over the Decoder-specific package
+variable, which takes precedence over the shared package variable. An unset
+policy uses C<'verify-if-available'>. Invalid selected values cause
+construction to fail. Existing objects and recursive clones retain their
+policy.
+
+=head3 unknown_option_policy
+
+Controls how this module handles unrecognized keys in its configuration hash.
+C<'warn'> warns for each unknown key and continues; this is the default.
+C<'die'> throws an exception, and C<'ignore'> silently ignores unknown keys.
+The same key and policy values are supported by Sereal::Encoder.
+
+The environment variables C<SEREAL_UNKNOWN_OPTION_POLICY> and
+C<SEREAL_DECODER_UNKNOWN_OPTION_POLICY> initialize the shared
+C<$Sereal::UnknownOptionPolicy> and Decoder-specific
+C<$Sereal::Decoder::UnknownOptionPolicy> defaults at module startup, when the
+corresponding package variable is undefined. The setting is resolved from
+lowest to highest priority: the shared package variable, the Decoder-specific
+package variable, and the constructor option. If none is set, the policy is
+C<'warn'>. Undefined package or constructor values fall through to the next
+source. Accepted values are C<'warn'>, C<'die'>, and C<'ignore'>; any other
+selected value throws an exception.
 
 This is a default, not a mandatory process-wide restriction: explicit options
 can override it. C<'require_key'> rejects unsigned input packets; the other

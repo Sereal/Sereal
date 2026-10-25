@@ -92,16 +92,16 @@ subtest "truncated payloads" => sub {
 };
 
 subtest "checksummed documents (protocol v6)" => sub {
-    my $doc = Sereal::Encoder->new({ checksum_v2_key => $key })->encode([ 'a', { b => 2 } ]);
+    my $doc = Sereal::Encoder->new({ checksum_key_v3 => $key })->encode([ 'a', { b => 2 } ]);
 
-    my $spi = Sereal::Path::Iterator->new($doc, { checksum_v2_key => $key, checksum_policy => 'die' });
+    my $spi = Sereal::Path::Iterator->new($doc, { checksum_key_v3 => $key, checksum_policy => 'die' });
     $spi->step_in();
     $spi->next();
     is_deeply($spi->decode(), { b => 2 }, 'verified and iterated');
 
     my $tampered = $doc;
     substr($tampered, -1, 1) ^= "\x01";
-    ok(!eval { Sereal::Path::Iterator->new($tampered, { checksum_v2_key => $key, checksum_policy => 'die' }); 1 },
+    ok(!eval { Sereal::Path::Iterator->new($tampered, { checksum_key_v3 => $key, checksum_policy => 'die' }); 1 },
        'tampered document is rejected');
     like($@, qr/checksum verification failed/, 'with the checksum error');
 
@@ -113,8 +113,21 @@ subtest "checksummed documents (protocol v6)" => sub {
     is($spi->decode(), 'a', 'iterated without a key under the default policy');
     like("@warnings", qr/without authentication/, 'and warned about it');
 
-    my $sp = Sereal::Path->new($doc, { checksum_v2_key => $key, checksum_policy => 'die' });
+    my $sp = Sereal::Path->new($doc, { checksum_key_v3 => $key, checksum_policy => 'die' });
     is($sp->value('$[1].b'), 2, 'Sereal::Path passes the checksum options on');
+
+    my $generic_doc = Sereal::Encoder->new({ checksum_key => $key, checksum_mode => 'v3' })
+        ->encode([ 'generic key and mode' ]);
+    $spi = Sereal::Path::Iterator->new($generic_doc, {
+        checksum_key => $key, checksum_mode => 'none', checksum_policy => 'require_v2',
+    });
+    $spi->step_in();
+    is($spi->decode(), 'generic key and mode', 'reader uses document mode and honors the minimum policy');
+    my $weaker = Sereal::Encoder->new({ checksum_key_v1 => $key })->encode([ 'weaker' ]);
+    ok(!eval { Sereal::Path::Iterator->new($weaker, {
+        checksum_key => $key, checksum_policy => 'require_v2',
+    }); 1 }, 'reader rejects a checksum below its minimum');
+    like($@, qr/requires checksum mode v2 or higher/, 'minimum error identifies the required level');
 } if eval { require Sereal::Path; 1 };
 
 done_testing();

@@ -9,17 +9,12 @@ BEGIN { lib->import('lib') if !-d 't' }
 use Test::More;
 use Sereal::TestSet qw(Header);
 use Sereal::Decoder;
+use Sereal::TestSet::Corpus qw(read_packet);
 
 # Header user data is decoded and finalized (THAW methods, thaw_allow_classes
 # callbacks, DESTROY) before the main body is parsed, and the body is then
 # read from the same input buffer. A callback that modifies the input scalar
 # used to leave the decoder reading freed memory; it must die instead.
-
-BEGIN {
-    if ( !eval { require Sereal::Encoder; Sereal::Encoder->VERSION(3.002); 1 } ) {
-        plan skip_all => 'Sereal::Encoder not available';
-    }
-}
 
 our $PKT;
 our $UNRELATED;
@@ -41,9 +36,10 @@ package main;
 
 my $err_re = qr/input scalar was modified by a callback during decoding/;
 
-my $enc    = Sereal::Encoder->new( { freeze_callbacks => 1 } );
-my $body   = { map { ( "key$_" => "value$_" x 20 ) } 1 .. 200 };
-my $packet = $enc->encode( $body, [ bless( {}, 'Mutator' ) ] );
+my $packet = read_packet(
+    File::Spec->catdir( 't', 'data', 'packet_corpus' ),
+    'decoder-features', 'header_callback_input_mutation'
+);
 
 sub check_ok {
     my ( $dec, $name ) = @_;

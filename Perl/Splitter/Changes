@@ -7,7 +7,7 @@ Revision history for Perl extension Sereal-Splitter
     their input (at least 3, or 4 with zstd) instead of always claiming v3,
     which produced undecodable chunks from v6 input
   * read v5 and v6 input: YES/NO booleans, FLOAT_128, zstd compression and
-    keyed checksums (checksum_policy, checksum_vN_key options)
+    keyed checksums (checksum_policy, checksum_key_vN options)
   * compress => SRL_SNAPPY and SRL_ZSTD, and a compress_level option
   * bounds-check all input; reject truncated documents
   * new max_recursion_depth option (default 10000) stops REFP/COPY loops

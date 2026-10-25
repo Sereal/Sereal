@@ -126,8 +126,10 @@ t/700_roundtrip/v6/zstd_force.t
 t/800_threads.t
 t/900_reentrancy.t
 t/data/corpus
+t/data/packet_corpus/corpus.pack
 t/lib/Sereal/BulkTest.pm
 t/lib/Sereal/TestSet.pm
+t/lib/Sereal/TestSet/Corpus.pm
 typemap
 zstd/common/allocations.h
 zstd/common/bits.h

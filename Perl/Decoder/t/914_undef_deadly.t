@@ -8,7 +8,8 @@ use Test::More;
 use Scalar::Util qw(refaddr);
 use IPC::Open3;
 use Symbol                     qw(gensym);
-use Sereal::TestSet            qw(Header varint have_encoder_and_decoder);
+use Sereal::TestSet            qw(Header varint);
+use Sereal::TestSet::Corpus    qw(read_packet);
 use Sereal::Decoder            qw(decode_sereal);
 use Sereal::Decoder::Constants qw(:all);
 
@@ -133,11 +134,10 @@ for my $body ( chr(SRL_HDR_EXTEND), chr(SRL_HDR_EXTEND) . chr(0) ) {
 }
 eval { Sereal::Decoder->new->decode( Header(5) . $tag ) };
 like( $@, qr/EXTEND tag requires protocol version 6/, 'sentinel requires protocol v6' );
-SKIP: {
-    skip 'encoder is unavailable', 1 unless have_encoder_and_decoder();
-    my $packet = Sereal::Encoder->new( { protocol_version => 6 } )->encode(undef);
-    isnt( $packet, $header . $tag, 'compliant encoder never emits the sentinel for undef' );
-}
+# Generated with Sereal::Encoder 6; this keeps the decoder test independent
+# of the installed encoder version.
+my $undef_packet = read_v6_corpus('undef');
+isnt( $undef_packet, $header . $tag, 'compliant encoder never emits the sentinel for undef' );
 {
     my ( $in, $out );
     my $err = gensym;
@@ -152,3 +152,11 @@ SKIP: {
     like( $stdout, qr/UNDEF_DEADLY.*undef/, 'hobodecoder displays its name and undef meaning' );
 }
 done_testing;
+
+sub read_v6_corpus {
+    my ($name) = @_;
+    return read_packet(
+        File::Spec->catdir( 't', 'data', 'packet_corpus' ),
+        'decoder-regressions', "v6/$name"
+    );
+}

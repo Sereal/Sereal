@@ -1,5 +1,7 @@
 *~
-author_tools
+author_tools/*
+!author_tools/generate_decoder_corpus.pl
+!author_tools/generate_roundtrip_corpus.pl
 *.bak
 blib/
 callgrind.out.*

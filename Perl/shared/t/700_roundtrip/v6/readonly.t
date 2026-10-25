@@ -14,13 +14,7 @@ BEGIN {
 use Sereal::TestSet qw(:all);
 use Test::More;
 
-my $ok = have_encoder_and_decoder();
-if ( not $ok ) {
-    plan skip_all => 'Did not find right version of encoder';
-}
-else {
-    run_roundtrip_tests( 'readonly', { set_readonly => 1 } );
-}
+run_roundtrip_profile_tests( 'readonly', { set_readonly => 1 }, { set_readonly => 1 } );
 
 pass();
 done_testing();

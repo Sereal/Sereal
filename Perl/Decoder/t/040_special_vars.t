@@ -2,21 +2,15 @@ use strict;
 use warnings;
 use Test::More;
 use File::Spec;
+use Sereal::Decoder;
 use lib File::Spec->catdir(qw(t lib));
 
 BEGIN {
     lib->import('lib')
         if !-d 't';
 }
-use Sereal::TestSet qw(:all);
-
-if ( have_encoder_and_decoder(3.005003) ) {
-    plan tests => 6;
-}
-else {
-    plan skip_all => 'Did not find right version of encoder';
-}
-my $enc = Sereal::Encoder->new;
+use Sereal::TestSet::Corpus qw(read_packet);
+plan tests => 6;
 my $dec = Sereal::Decoder->new;
 
 sub desc_special($) {
@@ -35,21 +29,19 @@ sub desc_special($) {
 }
 
 foreach (
-    [ "ref undef",     \undef(), ],
-    [ "ref undef var", \do { my $z = undef }, ],
-    [ "ref false",     \!1, ],
-    [ "ref false var", \do { my $z = !1 }, ],
-    [ "ref true",      \!0, ],
-    [ "ref true var ", \do { my $z = !0 }, ],
+    [ "ref undef",     \undef(),          'special/ref_undef' ],
+    [ "ref undef var", \do { my $z = undef }, 'special/ref_undef_var' ],
+    [ "ref false",     \!1,                'special/ref_false' ],
+    [ "ref false var", \do { my $z = !1 },  'special/ref_false_var' ],
+    [ "ref true",      \!0,                'special/ref_true' ],
+    [ "ref true var ", \do { my $z = !0 },  'special/ref_true_var' ],
     )
 {
-    my ( $name, $var, $todo ) = @$_;
-    TODO: {
-        todo_skip $todo, 1 if $todo;
-        my $want = desc_special($var);
-        is( desc_special( $dec->decode( $enc->encode($var) ) ), $want, $name . " ($want)" );
-
-        #use Devel::Peek;
-        #Dump($dec->decode( $enc->encode($var) ) );
-    }
+    my ( $name, $var, $corpus_name ) = @$_;
+    my $want = desc_special($var);
+    my $packet = read_packet(
+        File::Spec->catdir( 't', 'data', 'packet_corpus' ),
+        'decoder-features', $corpus_name
+    );
+    is( desc_special( $dec->decode($packet) ), $want, $name . " ($want)" );
 }

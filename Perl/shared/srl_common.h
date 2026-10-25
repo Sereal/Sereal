@@ -2,6 +2,82 @@
 #define SRL_COMMON_H_
 
 #include "srl_inline.h"
+#include <string.h>
+
+#define SRL_UNKNOWN_OPTION_POLICY_WARN   0
+#define SRL_UNKNOWN_OPTION_POLICY_DIE    1
+#define SRL_UNKNOWN_OPTION_POLICY_IGNORE 2
+
+SRL_STATIC_INLINE U8
+srl_parse_unknown_option_policy(pTHX_ const char *policy, STRLEN len,
+                                const char *source)
+{
+    if (len == sizeof("warn") - 1 && memEQ(policy, "warn", len))
+        return SRL_UNKNOWN_OPTION_POLICY_WARN;
+    if (len == sizeof("die") - 1 && memEQ(policy, "die", len))
+        return SRL_UNKNOWN_OPTION_POLICY_DIE;
+    if (len == sizeof("ignore") - 1 && memEQ(policy, "ignore", len))
+        return SRL_UNKNOWN_OPTION_POLICY_IGNORE;
+    croak("Invalid %s; expected 'warn', 'die', or 'ignore'", source);
+    return SRL_UNKNOWN_OPTION_POLICY_WARN; /* not reached */
+}
+
+SRL_STATIC_INLINE U8
+srl_get_unknown_option_policy(pTHX_ SV *option_value, const char *module_policy_var)
+{
+    SV *value = option_value;
+    STRLEN len;
+    const char *policy;
+
+    if (value && SvGMAGICAL(value))
+        SvGETMAGIC(value);
+    if (value && SvOK(value)) {
+        policy = SvPVbyte(value, len);
+        return srl_parse_unknown_option_policy(aTHX_ policy, len, "unknown_option_policy");
+    }
+
+    value = get_sv(module_policy_var, 0);
+    if (value && SvGMAGICAL(value))
+        SvGETMAGIC(value);
+    if (value && SvOK(value)) {
+        policy = SvPVbyte(value, len);
+        return srl_parse_unknown_option_policy(aTHX_ policy, len, module_policy_var);
+    }
+
+    value = get_sv("Sereal::UnknownOptionPolicy", 0);
+    if (value && SvGMAGICAL(value))
+        SvGETMAGIC(value);
+    if (value && SvOK(value)) {
+        policy = SvPVbyte(value, len);
+        return srl_parse_unknown_option_policy(aTHX_ policy, len, "$Sereal::UnknownOptionPolicy");
+    }
+
+    return SRL_UNKNOWN_OPTION_POLICY_WARN;
+}
+
+/* Constructors collect unknown names during their option loop, then resolve
+ * the policy once all supplied options (including the policy itself) are read. */
+SRL_STATIC_INLINE void
+srl_handle_unknown_option_keys(pTHX_ AV *keys, SV *policy_value,
+                                const char *module, const char *module_policy_var)
+{
+    U8 policy = srl_get_unknown_option_policy(aTHX_ policy_value, module_policy_var);
+    if (keys && av_len(keys) >= 0 && policy != SRL_UNKNOWN_OPTION_POLICY_IGNORE) {
+        SV *key_list = sv_2mortal(newSVpvs(""));
+        SSize_t i;
+        for (i = 0; i <= av_len(keys); i++) {
+            SV **key = av_fetch(keys, i, 0);
+            if (i)
+                sv_catpvs(key_list, ", ");
+            sv_catpvs(key_list, "'");
+            sv_catsv(key_list, *key);
+            sv_catpvs(key_list, "'");
+        }
+        if (policy == SRL_UNKNOWN_OPTION_POLICY_DIE)
+            croak("Unknown option keys passed to %s: %s", module, SvPV_nolen(key_list));
+        warn("Unknown option keys passed to %s: %s", module, SvPV_nolen(key_list));
+    }
+}
 
 /* inspired by JSON::XS code */
 #if __GNUC__ >= 3

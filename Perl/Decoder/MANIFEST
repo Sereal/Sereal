@@ -3,6 +3,8 @@ author_tools/bench_retention.pl
 author_tools/decode.pl
 author_tools/different_sereal_docs.sh
 author_tools/freeze_thaw_timing.pl
+author_tools/generate_decoder_corpus.pl
+author_tools/generate_roundtrip_corpus.pl
 author_tools/hobodecoder.pl
 author_tools/numeric_str_length.c
 author_tools/siphash_vectors.c
@@ -154,8 +156,10 @@ t/944_regr_copy_object_tag.t
 t/945_regr_limit_options.t
 t/946_regr_class_stash_creation.t
 t/data/corpus
+t/data/packet_corpus/corpus.pack
 t/lib/Sereal/BulkTest.pm
 t/lib/Sereal/TestSet.pm
+t/lib/Sereal/TestSet/Corpus.pm
 typemap
 xt/900_rand.t
 zstd/common/allocations.h

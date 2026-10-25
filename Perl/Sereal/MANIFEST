@@ -74,5 +74,7 @@ t/901_regr_segv.t
 t/902_bad_input.t
 t/903_reentrancy.t
 t/data/corpus
+t/data/packet_corpus/corpus.pack
 t/lib/Sereal/BulkTest.pm
 t/lib/Sereal/TestSet.pm
+t/lib/Sereal/TestSet/Corpus.pm

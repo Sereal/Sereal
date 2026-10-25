@@ -34,7 +34,10 @@ sub get_git_top_dir {
 
 BEGIN {
     if ( defined( my $top_dir = get_git_top_dir() ) ) {
-        for my $need ( 'Encoder', 'Decoder' ) {
+        my @need = -e 'lib/Sereal.pm' || -e 'lib/Sereal/Encoder.pm'
+            ? ( 'Encoder', 'Decoder' )
+            : ('Decoder');
+        for my $need (@need) {
             my $blib_dir = File::Spec->catdir( $top_dir, 'Perl', $need, "blib" );
             if ( -d $blib_dir ) {
                 require blib;
@@ -84,6 +87,10 @@ our @EXPORT_OK = qw(
     have_encoder_and_decoder
     check_for_dependency_issues
     run_roundtrip_tests
+    run_roundtrip_version_tests
+    run_roundtrip_corpus_tests
+    run_roundtrip_profile_tests
+    roundtrip_corpus_name
     write_test_files
     $use_objectv
     setup_tests
@@ -100,7 +107,7 @@ use constant TRACK_FLAG => 128;
 
 sub checksum_tag {
     my ( $type, $bytes, $key ) = @_;
-    my %functions = ( 0 => 'siphash24', 1 => 'siphash24_128', 2 => 'siphash36' );
+    my %functions = ( 0 => 'siphash24', 1 => 'siphash24_128', 2 => 'siphash36_128' );
     my $name      = $functions{$type}  or die "Unknown checksum type $type";
     my $function  = $Class->can($name) or die "$Class does not provide $name";
     return $function->( $bytes, $key );
@@ -800,7 +807,7 @@ my $sum = $eng0e0 + $eng0e1 + $eng2;
 
 sub encoder_required {
     my ( $ver, $name ) = @_;
-    return "" . ( $Sereal::Encoder::VERSION < $ver ? "TODO " : "" ) . $name;
+    return "" . ( !defined($Sereal::Encoder::VERSION) || $Sereal::Encoder::VERSION < $ver ? "TODO " : "" ) . $name;
 }
 
 sub _get_roundtrip_tests {
@@ -1122,6 +1129,113 @@ sub run_roundtrip_tests {
     run_roundtrip_tests_internal( $name . $suffix, $opts );
 }
 
+sub roundtrip_corpus_name {
+    my ( $index, $name ) = @_;
+    $name =~ s/TODO //g;
+    return sprintf( 'roundtrip/%05u/%s', $index + 1, $name );
+}
+
+sub _protocol_version_from_test_path {
+    return $1 if $0 =~ m![\\/]v(\d+)[\\/]!;
+    die "Failed to detect protocol version from test path\n";
+}
+
+sub _installed_encoder_protocol_version {
+    return unless eval {
+        require Sereal::Encoder;
+        require Sereal::Encoder::Constants;
+        1;
+    };
+    return eval { Sereal::Encoder::Constants::SRL_PROTOCOL_VERSION() };
+}
+
+sub _should_run_live_encoder_roundtrips {
+    my ($proto_version) = @_;
+    return 1 if $Class eq 'Sereal::Encoder';
+    my $encoder_protocol = _installed_encoder_protocol_version();
+    return defined($encoder_protocol) && $encoder_protocol == $proto_version;
+}
+
+sub _run_live_roundtrip_layer {
+    my ( $description, $proto_version, $callback ) = @_;
+    subtest $description => sub {
+        unless ( _should_run_live_encoder_roundtrips($proto_version) ) {
+            plan skip_all => "live Encoder round trips are covered by the matching protocol suite";
+        }
+        require Sereal::Encoder;
+        require Sereal::Decoder;
+        $callback->();
+        done_testing();
+    };
+}
+
+sub run_roundtrip_version_tests {
+    my ($name) = @_;
+    my $proto_version = _protocol_version_from_test_path();
+    my $corpus = File::Spec->catdir( 't', 'data', 'packet_corpus' );
+    require Sereal::TestSet::Corpus;
+    my $source = "roundtrip-v$proto_version-plain";
+    die "Missing required packet corpus source '$source'"
+        unless Sereal::TestSet::Corpus::has_source( $corpus, $source );
+
+    run_roundtrip_corpus_tests($corpus);
+    _run_live_roundtrip_layer(
+        "live Encoder round trips (protocol v$proto_version)",
+        $proto_version,
+        sub { run_roundtrip_tests($name) },
+    );
+}
+
+sub run_roundtrip_corpus_tests {
+    my ( $root, $profile, $decoder_opts ) = @_;
+    $profile ||= 'plain';
+    my $proto_version = _protocol_version_from_test_path();
+
+    setup_tests($proto_version);
+    require Sereal::Decoder;
+    require Sereal::TestSet::Corpus;
+    my $source = "roundtrip-v$proto_version-$profile";
+    my %available = map { $_ => 1 } Sereal::TestSet::Corpus::packet_names( $root, $source );
+    my $decoder = Sereal::Decoder->new( {
+        %{ $decoder_opts || {} },
+    } );
+    my @tests   = _get_roundtrip_tests();
+    for my $index ( 0 .. $#tests ) {
+        my ( $name, $expected ) = @{ $tests[$index] };
+        my $logical_name = roundtrip_corpus_name( $index, $name );
+        unless ( $available{$logical_name} ) {
+            SKIP: {
+                skip( "$name (not included in the compact corpus)", 2 );
+            }
+            next;
+        }
+        my $packet = Sereal::TestSet::Corpus::read_packet( $root, $source, $logical_name );
+        my ( $ok, $decoded, $error );
+        {
+            local $@;
+            $ok = eval { $decoded = $decoder->decode($packet); 1 };
+            $error = $@ unless $ok;
+        }
+        ok( $ok, "$name (stored encoder corpus, decoding)" ) or do { diag $error; next };
+        deep_cmp( $decoded, $expected, "$name (stored encoder corpus, decoded vs data)" );
+    }
+}
+
+sub run_roundtrip_profile_tests {
+    my ( $profile, $opts, $decoder_opts ) = @_;
+    my $corpus = File::Spec->catdir( 't', 'data', 'packet_corpus' );
+    require Sereal::TestSet::Corpus;
+    my $has_corpus = Sereal::TestSet::Corpus::has_source(
+        $corpus, "roundtrip-v6-$profile"
+    );
+    plan skip_all => "Missing required stored v6 $profile corpus" unless $has_corpus;
+    run_roundtrip_corpus_tests( $corpus, $profile, $decoder_opts );
+    _run_live_roundtrip_layer( "live Encoder round trips (v6 $profile)", 6, sub {
+        $opts = $opts->() if ref($opts) eq 'CODE';
+        run_roundtrip_tests( $profile, $opts );
+    } );
+}
+
 sub _test {
     my ( $msg, $v1, $v2 ) = @_;
 
@@ -1335,6 +1449,37 @@ sub deep_cmp {
     return 1;
 }
 
+sub _roundtrip_decoder_options {
+    my ($encoder_options) = @_;
+    my %decoder_keys = map { $_ => 1 } qw(
+        alias_smallint alias_varint_under incremental max_num_hash_entries
+        max_recursion_depth no_bless_objects refuse_objects refuse_snappy
+        refuse_zlib set_readonly set_readonly_scalars use_undef validate_utf8
+        refuse_zstd max_num_array_entries max_string_length max_uncompressed_size
+        no_thaw_objects thaw_allow_classes thaw_deny_action checksum_key_v1
+        checksum_key_v2 checksum_policy checksum_key_v3 undef_deadly_policy
+    );
+    my %decoder_options = map { $_ => $encoder_options->{$_} }
+        grep { exists $decoder_keys{$_} } keys %{ $encoder_options || {} };
+    return \%decoder_options;
+}
+
+sub _roundtrip_encoder_options {
+    my ($options) = @_;
+    my %encoder_keys = map { $_ => 1 } qw(
+        aliased_dedupe_strings canonical canonical_refs compress compress_level
+        compress_threshold croak_on_bless dedupe_strings freeze_callbacks
+        max_recursion_depth no_bless_objects no_shared_hashkeys protocol_version
+        snappy snappy_incr snappy_threshold sort_keys stringify_unknown undef_unknown
+        use_protocol_v1 warn_unknown use_standard_double freeze_allow_classes
+        freeze_deny_action checksum_key_v1 checksum_key_v2 checksum_policy
+        checksum_key_v3
+    );
+    my %encoder_options = map { $_ => $options->{$_} }
+        grep { exists $encoder_keys{$_} } keys %{ $options || {} };
+    return \%encoder_options;
+}
+
 sub run_roundtrip_tests_internal {
     my ( $ename, $opt, $encode_decode_callbacks ) = @_;
     require Data::Dumper;
@@ -1358,8 +1503,10 @@ sub run_roundtrip_tests_internal {
 
     my $failed = 0;
 
-    my $decoder = Sereal::Decoder->new($opt);
-    my $encoder = Sereal::Encoder->new($opt);
+    my $decoder_opt = _roundtrip_decoder_options($opt);
+    my $encoder_opt = _roundtrip_encoder_options($opt);
+    my $decoder = Sereal::Decoder->new($decoder_opt);
+    my $encoder = Sereal::Encoder->new($encoder_opt);
     my %seen_name;
     my @RoundtripTests = _get_roundtrip_tests();
     foreach my $rt (@RoundtripTests) {
@@ -1378,8 +1525,8 @@ sub run_roundtrip_tests_internal {
             ],
             [
                 'functional simple',
-                sub { Sereal::Encoder::encode_sereal( $_[0], $opt ) },
-                sub { Sereal::Decoder::decode_sereal( $_[0], $opt ) }
+                sub { Sereal::Encoder::encode_sereal( $_[0], $encoder_opt ) },
+                sub { Sereal::Decoder::decode_sereal( $_[0], $decoder_opt ) }
             ],
             [
                 'functional with object',

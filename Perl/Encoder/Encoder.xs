@@ -161,6 +161,8 @@ THX_xsfunc_sereal_encode_with_object(pTHX_ CV *cv)
 
 typedef struct {
     sv_with_hash options[SRL_ENC_OPT_COUNT];
+    U8 known_option_heads[SRL_OPTION_INDEX_BUCKETS];
+    U8 known_option_next[SRL_ENC_OPT_COUNT];
 } my_cxt_t;
 
 START_MY_CXT
@@ -190,7 +192,7 @@ prepare_checksum_key(key = NULL, opt_key = NULL)
   OUTPUT: RETVAL
 
 SV *
-siphash24(data, key)
+siphash24(data, key = NULL)
     SV *data;
     SV *key;
   PREINIT:
@@ -202,11 +204,17 @@ siphash24(data, key)
     srl_u64 digest;
     U8 digest_bytes[8];
     unsigned int i;
+    static const U8 zero_key[16] = { 0 };
   CODE:
     data_bytes = (const U8 *)SvPVbyte(data, data_len);
-    key_bytes = (const U8 *)SvPVbyte(key, key_len);
-    if (key_len != 16)
-      croak("siphash24 key must be exactly 16 bytes");
+    if (key == NULL) {
+      key_bytes = zero_key;
+    }
+    else {
+      key_bytes = (const U8 *)SvPVbyte(key, key_len);
+      if (key_len != 16)
+        croak("siphash24 key must be exactly 16 bytes");
+    }
     srl_siphash_init_rounds(&sip, key_bytes, 2, 4, 0);
     srl_siphash_update(&sip, data_bytes, (size_t)data_len);
     digest = srl_siphash_final64(&sip);
@@ -216,7 +224,7 @@ siphash24(data, key)
   OUTPUT: RETVAL
 
 SV *
-siphash24_128(data, key)
+siphash24_128(data, key = NULL)
     SV *data;
     SV *key;
   PREINIT:
@@ -226,11 +234,17 @@ siphash24_128(data, key)
     const U8 *key_bytes;
     srl_siphash_ctx sip;
     U8 digest[16];
+    static const U8 zero_key[16] = { 0 };
   CODE:
     data_bytes = (const U8 *)SvPVbyte(data, data_len);
-    key_bytes = (const U8 *)SvPVbyte(key, key_len);
-    if (key_len != 16)
-      croak("siphash24_128 key must be exactly 16 bytes");
+    if (key == NULL) {
+      key_bytes = zero_key;
+    }
+    else {
+      key_bytes = (const U8 *)SvPVbyte(key, key_len);
+      if (key_len != 16)
+        croak("siphash24_128 key must be exactly 16 bytes");
+    }
     srl_siphash_init_rounds(&sip, key_bytes, 2, 4, 1);
     srl_siphash_update(&sip, data_bytes, (size_t)data_len);
     srl_siphash_final128(&sip, digest);
@@ -238,7 +252,7 @@ siphash24_128(data, key)
   OUTPUT: RETVAL
 
 SV *
-siphash36(data, key)
+siphash36_128(data, key = NULL)
     SV *data;
     SV *key;
   PREINIT:
@@ -248,11 +262,17 @@ siphash36(data, key)
     const U8 *key_bytes;
     srl_siphash_ctx sip;
     U8 digest[16];
+    static const U8 zero_key[16] = { 0 };
   CODE:
     data_bytes = (const U8 *)SvPVbyte(data, data_len);
-    key_bytes = (const U8 *)SvPVbyte(key, key_len);
-    if (key_len != 16)
-      croak("siphash36 key must be exactly 16 bytes");
+    if (key == NULL) {
+      key_bytes = zero_key;
+    }
+    else {
+      key_bytes = (const U8 *)SvPVbyte(key, key_len);
+      if (key_len != 16)
+        croak("siphash36_128 key must be exactly 16 bytes");
+    }
     srl_siphash_init_rounds(&sip, key_bytes, 3, 6, 1);
     srl_siphash_update(&sip, data_bytes, (size_t)data_len);
     srl_siphash_final128(&sip, digest);
@@ -263,6 +283,8 @@ BOOT:
 {
   {
   MY_CXT_INIT;
+  Zero(MY_CXT.known_option_heads, SRL_OPTION_INDEX_BUCKETS, U8);
+  Zero(MY_CXT.known_option_next, SRL_ENC_OPT_COUNT, U8);
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_ALIASED_DEDUPE_STRINGS,   SRL_ENC_OPT_STR_ALIASED_DEDUPE_STRINGS );
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CANONICAL,                SRL_ENC_OPT_STR_CANONICAL              );
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CANONICAL_REFS,           SRL_ENC_OPT_STR_CANONICAL_REFS         );
@@ -287,10 +309,13 @@ BOOT:
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_USE_STANDARD_DOUBLE,      SRL_ENC_OPT_STR_USE_STANDARD_DOUBLE    );
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_FREEZE_ALLOW_CLASSES,     SRL_ENC_OPT_STR_FREEZE_ALLOW_CLASSES   );
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_FREEZE_DENY_ACTION,       SRL_ENC_OPT_STR_FREEZE_DENY_ACTION     );
-  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_V0_KEY,          SRL_ENC_OPT_STR_CHECKSUM_V0_KEY        );
-  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_V1_KEY,          SRL_ENC_OPT_STR_CHECKSUM_V1_KEY        );
-  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_V2_KEY,          SRL_ENC_OPT_STR_CHECKSUM_V2_KEY        );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_KEY_V1,          SRL_ENC_OPT_STR_CHECKSUM_KEY_V1        );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_KEY_V2,          SRL_ENC_OPT_STR_CHECKSUM_KEY_V2        );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_KEY_V3,          SRL_ENC_OPT_STR_CHECKSUM_KEY_V3        );
   SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_POLICY,          SRL_ENC_OPT_STR_CHECKSUM_POLICY        );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_UNKNOWN_OPTION_POLICY,    SRL_ENC_OPT_STR_UNKNOWN_OPTION_POLICY  );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_KEY,             SRL_ENC_OPT_STR_CHECKSUM_KEY           );
+  SRL_INIT_OPTION( SRL_ENC_OPT_IDX_CHECKSUM_MODE,            SRL_ENC_OPT_STR_CHECKSUM_MODE          );
   }
 #if USE_CUSTOM_OPS
   {
@@ -321,7 +346,8 @@ new(CLASS, opt = NULL)
   PREINIT:
     dMY_CXT;
   CODE:
-    RETVAL = srl_build_encoder_struct(aTHX_ opt, MY_CXT.options);
+    RETVAL = srl_build_encoder_struct(aTHX_ opt, MY_CXT.options,
+                                      MY_CXT.known_option_heads, MY_CXT.known_option_next);
     RETVAL->flags |= SRL_F_REUSE_ENCODER;
   OUTPUT: RETVAL
 
@@ -346,7 +372,8 @@ encode_sereal(src, opt = NULL)
     srl_encoder_t *enc;
     dMY_CXT;
   PPCODE:
-    enc = srl_build_encoder_struct(aTHX_ opt, MY_CXT.options);
+    enc = srl_build_encoder_struct(aTHX_ opt, MY_CXT.options,
+                                   MY_CXT.known_option_heads, MY_CXT.known_option_next);
     assert(enc != NULL);
     /* Avoid copy by stealing string buffer if it is not too large.
      * This makes sense in the functional interface since the string
@@ -365,7 +392,8 @@ encode_sereal_with_header_data(src, hdr_user_data_src, opt = NULL)
   PPCODE:
     if (!SvOK(hdr_user_data_src))
       hdr_user_data_src = NULL;
-    enc = srl_build_encoder_struct(aTHX_ opt, MY_CXT.options);
+    enc = srl_build_encoder_struct(aTHX_ opt, MY_CXT.options,
+                                   MY_CXT.known_option_heads, MY_CXT.known_option_next);
     assert(enc != NULL);
     /* Avoid copy by stealing string buffer if it is not too large.
      * This makes sense in the functional interface since the string

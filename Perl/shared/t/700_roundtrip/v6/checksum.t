@@ -9,68 +9,52 @@ BEGIN { lib->import('lib') if !-d 't' }
 use Test::More;
 use IPC::Open3      qw(open3);
 use Symbol          qw(gensym);
-use Sereal::TestSet qw(Header read_varint_at);
-use Sereal::Encoder;
+use Sereal::TestSet qw(read_varint_at);
 use Sereal::Decoder;
-use Sereal::Encoder::Constants qw(SRL_PROTOCOL_ENCODING_CHECKSUM);
+use Sereal::Decoder::Constants qw(SRL_PROTOCOL_ENCODING_CHECKSUM);
+use Sereal::TestSet::Corpus qw(read_packet);
+
+my $corpus = File::Spec->catdir( 't', 'data', 'packet_corpus' );
+my $checksum_flag = SRL_PROTOCOL_ENCODING_CHECKSUM();
 
 my $sip_key = pack( 'C*', 0 .. 15 );
-is(
-    unpack( 'H*', Sereal::Encoder::siphash24( '', $sip_key ) ),
-    '310e0edd47db6f72', 'Encoder exposes the SipHash-2-4 primitive'
-);
 is(
     unpack( 'H*', Sereal::Decoder::siphash24( '', $sip_key ) ),
     '310e0edd47db6f72', 'Decoder exposes the SipHash-2-4 primitive'
 );
 is(
-    unpack( 'H*', Sereal::Encoder::siphash36( '', $sip_key ) ),
-    '37228a2b7a1e505b60ae19c48695eb27', 'Encoder exposes SipHash-3-6-128'
-);
-is(
-    unpack( 'H*', Sereal::Decoder::siphash36( '', $sip_key ) ),
+    unpack( 'H*', Sereal::Decoder::siphash36_128( '', $sip_key ) ),
     '37228a2b7a1e505b60ae19c48695eb27', 'Decoder exposes SipHash-3-6-128'
 );
 
 my $key0     = 'Out damned spot!';
 my $key1     = 'Call me Ishmael.';
-my $prepared = Sereal::Encoder::prepare_checksum_key( 'some key', 'optional' );
+my $prepared = Sereal::Decoder::prepare_checksum_key( 'some key', 'optional' );
 is( length($prepared), 16, 'prepare_checksum_key returns 16 bytes' );
 is(
     unpack( 'H*', $prepared ), '0c5fa2723161734cd1d1080d782a1db5',
     'prepare_checksum_key output is stable'
 );
 is(
-    Sereal::Decoder::prepare_checksum_key( 'some key', 'optional' ), $prepared,
-    'Encoder and Decoder key preparation agree'
-);
-is(
-    Sereal::Encoder::prepare_checksum_key(), Sereal::Encoder::prepare_checksum_key( '', '' ),
+    Sereal::Decoder::prepare_checksum_key(), Sereal::Decoder::prepare_checksum_key( '', '' ),
     'omitted key arguments default to empty strings'
 );
 
 my $plain_value = 'checksummed Sereal payload';
-my $enc0        = Sereal::Encoder->new( { protocol_version => 6, checksum_v0_key => $key0 } );
-my $enc1        = Sereal::Encoder->new( {
-    protocol_version   => 6,
-    checksum_v1_key    => $key1,
-    compress           => 2,
-    compress_threshold => 1,
-} );
-my $packet0 = $enc0->encode($plain_value);
-my $packet1 = $enc1->encode( $plain_value x 100 );
+my $packet0 = read_packet( $corpus, 'decoder-features', 'checksum/v0' );
+my $packet1 = read_packet( $corpus, 'decoder-features', 'checksum/v1-compressed' );
 
 ok(
-    ord( substr( $packet0, 4, 1 ) ) & SRL_PROTOCOL_ENCODING_CHECKSUM,
+    ord( substr( $packet0, 4, 1 ) ) & $checksum_flag,
     'v0 packet sets the checksum flag'
 );
 ok(
-    ord( substr( $packet1, 4, 1 ) ) & SRL_PROTOCOL_ENCODING_CHECKSUM,
+    ord( substr( $packet1, 4, 1 ) ) & $checksum_flag,
     'v1 compressed packet sets the checksum flag'
 );
 
-my $dec0 = Sereal::Decoder->new( { checksum_v0_key => $key0, checksum_policy => 'die' } );
-my $dec1 = Sereal::Decoder->new( { checksum_v1_key => $key1, checksum_policy => 'die' } );
+my $dec0 = Sereal::Decoder->new( { checksum_key_v1 => $key0, checksum_policy => 'die' } );
+my $dec1 = Sereal::Decoder->new( { checksum_key_v2 => $key1, checksum_policy => 'die' } );
 is( $dec0->decode($packet0), $plain_value, 'v0 packet verifies and decodes' );
 is(
     $dec1->decode($packet1), $plain_value x 100,
@@ -83,7 +67,7 @@ sub run_hobodecoder {
     my $stderr = gensym;
     my $pid    = open3(
         $stdin, $stdout,             $stderr,
-        $^X,    '-Mblib=../Encoder', '-Mblib=../Decoder',
+        $^X,    '-Mblib',
         'author_tools/hobodecoder.pl', @args
     );
     binmode $stdin;
@@ -127,8 +111,7 @@ for my $version ( 1, 2 ) {
     SKIP: {
         skip 'hobodecoder is not included in this distribution', 2
             unless -f 'author_tools/hobodecoder.pl';
-        my $packet =
-            Sereal::Encoder->new( { "checksum_v${version}_key" => $key1 } )->encode($plain_value);
+        my $packet = read_packet( $corpus, 'decoder-features', "checksum/v$version" );
         my ( $status, $out, $err ) = run_hobodecoder(
             $packet,
             "--checksum-v${version}-key-hex=" . unpack( 'H*', $key1 ) );
@@ -220,13 +203,13 @@ like(
 
 $ok = eval { Sereal::Decoder->new( { checksum_policy => 'die' } )->decode($packet0); 1 };
 ok( !$ok, 'die policy rejects a checksummed packet without a key' );
-like( $@, qr/requires a 'checksum_v0_key'/, 'missing-key error names the required option' );
+like( $@, qr/requires a 'checksum_key'/, 'missing-key error names the required option' );
 
 $ok = eval { Sereal::Decoder->new( { checksum_policy => 'invalid' } ); 1 };
 ok( !$ok, 'invalid checksum policy is rejected' );
 like( $@, qr/Invalid checksum_policy/, 'invalid-policy error is descriptive' );
 
-my $plain_packet = Sereal::Encoder->new( { protocol_version => 6 } )->encode($plain_value);
+my $plain_packet = read_packet( $corpus, 'decoder-features', 'checksum/plain' );
 is(
     Sereal::Decoder->new( { checksum_policy => 'die' } )->decode($plain_packet), $plain_value,
     'die policy still accepts packets without a checksum'

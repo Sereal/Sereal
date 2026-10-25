@@ -27,12 +27,11 @@ for my $case (
     [ 'freeze protocol',   { protocol_version   => 1 },                    qr/protocol version 2/ ],
     [ 'no blessing',       { no_bless_objects   => 1 },                    qr/mutually exclusive/ ],
     [ 'unknown options', { undef_unknown   => 1, stringify_unknown => 1 }, qr/mutually exclusive/ ],
-    [ 'wide key',        { checksum_v0_key => "\x{100}" },                 qr/Wide character/ ],
+    [ 'wide key',        { checksum_key_v1 => "\x{100}" },                 qr/Wide character/ ],
     [
-        'checksum protocol', { protocol_version => 5, checksum_v0_key => $key },
+        'checksum protocol', { protocol_version => 5, checksum_key_v1 => $key },
         qr/protocol version 6/
     ],
-    [ 'multiple keys', { checksum_v0_key => $key, checksum_v1_key => $key }, qr/Specify only one/ ],
     )
 {
     my ( $name, $extra, $error ) = @$case;
@@ -55,9 +54,18 @@ for my $case (
     }
 }
 
+{
+    my $ok = eval { Sereal::Encoder->new( {
+        checksum_key_v1 => $key,
+        checksum_key_v2 => 'fedcba9876543210',
+    } ); 1 };
+    ok( !$ok, 'different versioned checksum keys are rejected' );
+    like( $@, qr/Different keys were supplied for checksum_key/, 'different versioned checksum keys explain the conflict' );
+}
+
 for my $version ( 0 .. 2 ) {
     local $SIG{__WARN__} = sub { die "key warning became an exception\n" };
-    my $ok = eval { Sereal::Encoder->new( { "checksum_v${version}_key" => 'short' } ); 1 };
+    my $ok = eval { Sereal::Encoder->new( { ( "checksum_key_v" . ( $version + 1 ) ) => 'short' } ); 1 };
     ok( !$ok, "fatal checksum v$version warning is propagated" );
     like(
         $@, qr/key warning became an exception/,
@@ -93,6 +101,66 @@ for my $version ( 0 .. 2 ) {
         skip 'decoder is unavailable', 1 unless have_encoder_and_decoder();
         is( Sereal::Decoder->new->decode($packet), 7, 'functional packet decodes correctly' );
     }
+}
+
+subtest 'constructor option dependencies do not depend on argument order' => sub {
+    local $Sereal::DefaultKey;
+    local $Sereal::Encoder::DefaultKey;
+    my $data = { z => [('repeat' x 50) x 4], a => [1, 2, 3] };
+    for my $case (
+        [ 'explicit protocol overrides old alias',
+          { protocol_version => 2, use_protocol_v1 => 1 }, { protocol_version => 2 } ],
+        [ 'undefined protocol falls back to old alias',
+          { protocol_version => undef, use_protocol_v1 => 1 }, { protocol_version => 1 } ],
+        [ 'explicit compression disables old aliases',
+          { compress => 0, snappy => 1, snappy_incr => 1 }, { compress => 0 } ],
+        [ 'explicit compression format overrides old aliases',
+          { compress => 2, snappy => 1, snappy_incr => 1, protocol_version => 3,
+            compress_level => 5, compress_threshold => 0 },
+          { compress => 2, protocol_version => 3, compress_level => 5, compress_threshold => 0 } ],
+        [ 'Snappy framing uses final protocol',
+          { snappy => 1, protocol_version => 2, use_protocol_v1 => 1, compress_threshold => 0 },
+          { snappy => 1, protocol_version => 2, compress_threshold => 0 } ],
+        [ 'general threshold overrides Snappy threshold',
+          { compress => 1, compress_threshold => 1000000, snappy_threshold => 0 }, { compress => 0 } ],
+        [ 'undefined general threshold falls back to Snappy threshold',
+          { compress => 1, compress_threshold => undef, snappy_threshold => 0 },
+          { compress => 1, compress_threshold => 0 } ],
+        [ 'explicit false canonical settings override alias',
+          { canonical => 3, sort_keys => 0, canonical_refs => 0 }, { canonical => 0 } ],
+        [ 'sort mode overrides canonical sort mode',
+          { canonical => 3, sort_keys => 1 }, { sort_keys => 1, canonical_refs => 1 } ],
+        [ 'undefined sort setting overrides alias',
+          { canonical => 1, sort_keys => undef }, { sort_keys => 0, canonical_refs => 1 } ],
+        [ 'undefined reference setting overrides alias',
+          { canonical => 1, canonical_refs => undef }, { sort_keys => 1, canonical_refs => 0 } ],
+        [ 'aliased dedupe implies dedupe regardless of explicit false',
+          { aliased_dedupe_strings => 1, dedupe_strings => 0 }, { aliased_dedupe_strings => 1 } ],
+        [ 'false alias permits ordinary dedupe',
+          { aliased_dedupe_strings => 0, dedupe_strings => 1 }, { dedupe_strings => 1 } ],
+    ) {
+        my ($name, $options, $expected) = @$case;
+        my $actual = Sereal::Encoder->new({ checksum_key => undef, %$options })->encode($data);
+        my $reference = Sereal::Encoder->new({ checksum_key => undef, %$expected })->encode($data);
+        is($actual, $reference, $name);
+    }
+};
+
+{
+    my $options = { protocol_version => 6, freeze_deny_action => 'serialize' };
+    $options->{freeze_allow_classes} = $options;
+    my $encoder = Sereal::Encoder->new($options);
+    delete $options->{freeze_allow_classes}; # Break the test's reference cycle.
+    ok($encoder, 'allow-list can reuse the options hash without resetting its iterator');
+    ok(length($encoder->encode(7)), 'encoder constructed with a self-referential allow-list works');
+
+    $options = { protocol_version => 1 };
+    $options->{freeze_allow_classes} = $options;
+    eval { Sereal::Encoder->new($options); 1 };
+    my $error = $@;
+    delete $options->{freeze_allow_classes};
+    like($error, qr/protocol version 2 or later/,
+        'self-referential allow-list does not skip the protocol setting');
 }
 
 done_testing();

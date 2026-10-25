@@ -50,8 +50,9 @@ srl_reader_open_document(pTHX_ srl_reader_buffer_t *buf, const srl_checksum_conf
         SRL_RDR_ERRORf1(buf, "Unsupported Sereal protocol version %u", (unsigned int)version);
     if (expect_false(has_checksum && version < 6))
         SRL_RDR_ERROR(buf, "Checksummed Sereal documents require protocol version 6 or later");
-    if (expect_false(!has_checksum && checksum->policy == SRL_CHECKSUM_POLICY_REQUIRE))
-        SRL_RDR_ERROR(buf, "checksum_policy 'require_key' requires a checksummed packet");
+    if (expect_false(!has_checksum && srl_checksum_required_mode(checksum->policy)))
+        SRL_RDR_ERRORf1(buf, "checksum_policy '%s' requires a checksummed packet",
+                        srl_checksum_policy_name(checksum->policy));
 
     switch (encoding) {
         case SRL_PROTOCOL_ENCODING_RAW:

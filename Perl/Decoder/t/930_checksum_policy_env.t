@@ -6,8 +6,8 @@ use Sereal::Decoder;
 use lib 't/lib';
 use Sereal::TestSet qw(Header short_string varint checksum_tag);
 
-local $ENV{SEREAL_CHECKSUM_POLICY};
-delete $ENV{SEREAL_CHECKSUM_POLICY};
+local $Sereal::ChecksumPolicy;
+$Sereal::ChecksumPolicy = undef;
 local $Sereal::DefaultKey;
 my $key = 'Out damned spot!';
 my @packets;
@@ -24,10 +24,11 @@ for my $type ( 0, 1, 2 ) {
 }
 
 for my $policy ( 'verify-if-available', 'die', 'ignore', 'ignore-warn' ) {
-    $ENV{SEREAL_CHECKSUM_POLICY} = $policy;
+    $Sereal::ChecksumPolicy = $policy;
     for my $type ( 0, 1, 2 ) {
         for my $has_key ( 0, 1 ) {
-            my %options = $has_key ? ( "checksum_v${type}_key" => $key ) : ();
+            my $key_option = "checksum_key_v" . ( $type + 1 );
+            my %options = $has_key ? ( $key_option => $key ) : ();
             my $dec     = Sereal::Decoder->new( \%options );
             for my $tampered ( 0, 1 ) {
                 my ( @warnings, $out, $error );
@@ -40,7 +41,7 @@ for my $policy ( 'verify-if-available', 'die', 'ignore', 'ignore-warn' ) {
                 my $verify = $policy eq 'die' || $policy eq 'verify-if-available';
                 if ( $policy eq 'die' && !$has_key ) {
                     like(
-                        $error, qr/requires a 'checksum_v${type}_key'/,
+                        $error, qr/requires a 'checksum_key'/,
                         "$label rejects missing key"
                     );
                 }
@@ -72,7 +73,7 @@ for my $policy ( 'verify-if-available', 'die', 'ignore', 'ignore-warn' ) {
         eval { $dec->decode( $packets[0][0] ); 1 };
         if ( $policy eq 'die' ) {
             like(
-                $@, qr/requires a 'checksum_v0_key'/,
+                $@, qr/requires a 'checksum_key'/,
                 "$policy applies without an explicit policy"
             );
         }
@@ -83,7 +84,7 @@ for my $policy ( 'verify-if-available', 'die', 'ignore', 'ignore-warn' ) {
     local $SIG{__WARN__} = sub { };
     eval { Sereal::Decoder::decode_sereal( $packets[0][0] ); 1 };
     if ( $policy eq 'die' ) {
-        like( $@, qr/requires a 'checksum_v0_key'/, "$policy applies to functional decoding" );
+        like( $@, qr/requires a 'checksum_key'/, "$policy applies to functional decoding" );
     }
     else {
         is( $@, '', "$policy applies to functional decoding" );
@@ -91,13 +92,13 @@ for my $policy ( 'verify-if-available', 'die', 'ignore', 'ignore-warn' ) {
 }
 
 for my $environment ( 'die', 'invalid' ) {
-    $ENV{SEREAL_CHECKSUM_POLICY} = $environment;
+    $Sereal::ChecksumPolicy = $environment;
     for my $policy ( 'verify-if-available', 'die', 'ignore', 'ignore-warn' ) {
         my ( @warnings, $out );
         {
             local $SIG{__WARN__} = sub { push @warnings, @_ };
             my $dec =
-                Sereal::Decoder->new( { checksum_policy => $policy, checksum_v0_key => $key } );
+                Sereal::Decoder->new( { checksum_policy => $policy, checksum_key_v1 => $key } );
             $out = $dec->decode( $packets[0][0] );
         }
         is( $out, 7, "explicit $policy overrides $environment environment default" );
@@ -108,18 +109,18 @@ for my $environment ( 'die', 'invalid' ) {
     }
 }
 for my $invalid ( 'invalid', 'DIE', ' die', 'die ', '0' ) {
-    $ENV{SEREAL_CHECKSUM_POLICY} = $invalid;
+    $Sereal::ChecksumPolicy = $invalid;
     for ( 1 .. 3 ) {
         eval { Sereal::Decoder->new; 1 };
         like(
-            $@, qr/Invalid SEREAL_CHECKSUM_POLICY/,
+            $@, qr/Invalid \$Sereal::ChecksumPolicy/,
             "invalid environment policy '$invalid' fails at construction"
         );
     }
 }
 for my $environment ( undef, '' ) {
-    $ENV{SEREAL_CHECKSUM_POLICY} = $environment;
-    delete $ENV{SEREAL_CHECKSUM_POLICY} unless defined $environment;
+    $Sereal::ChecksumPolicy = $environment;
+    $Sereal::ChecksumPolicy = undef unless defined($environment) && length($environment);
     my @warnings;
     {
         local $SIG{__WARN__} = sub { push @warnings, @_ };
@@ -133,28 +134,44 @@ for my $environment ( undef, '' ) {
         'original default warns about missing key'
     );
 }
-$ENV{SEREAL_CHECKSUM_POLICY} = 'die';
+$Sereal::ChecksumPolicy = 'die';
 my $existing = Sereal::Decoder->new;
-$ENV{SEREAL_CHECKSUM_POLICY} = 'ignore';
+$Sereal::ChecksumPolicy = 'ignore';
 eval { $existing->decode( $packets[0][0] ); 1 };
-like( $@, qr/requires a 'checksum_v0_key'/, 'environment changes do not alter existing decoders' );
+like( $@, qr/requires a 'checksum_key'/, 'environment changes do not alter existing decoders' );
 is(
     Sereal::Decoder->new->decode( $packets[0][0] ), 7,
     'new decoders read the changed environment'
 );
 
 for my $source ( 'option', 'environment' ) {
-    $ENV{SEREAL_CHECKSUM_POLICY} = $source eq 'environment' ? 'require_key' : 'ignore';
+    $Sereal::ChecksumPolicy = $source eq 'environment' ? 'require_key' : 'ignore';
     my %policy = $source eq 'option' ? ( checksum_policy => 'require_key' ) : ();
     for my $keys (
-        { checksum_v0_key => $key }, { checksum_v1_key => $key }, { checksum_v2_key => $key },
-        { checksum_v0_key => $key, checksum_v1_key => $key },
-        { checksum_v0_key => $key, checksum_v2_key => $key },
-        { checksum_v1_key => $key, checksum_v2_key => $key },
-        { checksum_v0_key => $key, checksum_v1_key => $key, checksum_v2_key => $key } )
+        { checksum_key_v1 => $key }, { checksum_key_v2 => $key }, { checksum_key_v3 => $key },
+        { checksum_key_v1 => $key, checksum_key_v2 => $key },
+        { checksum_key_v1 => $key, checksum_key_v3 => $key },
+        { checksum_key_v2 => $key, checksum_key_v3 => $key },
+        { checksum_key_v1 => $key, checksum_key_v2 => $key, checksum_key_v3 => $key } )
     {
         my %options = ( %policy, %$keys );
-        my $dec     = Sereal::Decoder->new( \%options );
+        my $selected_type = exists $keys->{checksum_key_v3} ? 2
+                          : exists $keys->{checksum_key_v2} ? 1 : 0;
+        my $key_count = scalar grep { exists $keys->{$_} }
+            qw(checksum_key_v1 checksum_key_v2 checksum_key_v3);
+        my @constructor_warnings;
+        my $dec;
+        {
+            local $SIG{__WARN__} = sub { push @constructor_warnings, @_ };
+            $dec = Sereal::Decoder->new( \%options );
+        }
+        if ($key_count > 1) {
+            like(join('', @constructor_warnings), qr/Attempt to set checksum_key more than once/,
+                "$source warns when versioned aliases assign the key more than once");
+        }
+        else {
+            is_deeply(\@constructor_warnings, [], "$source accepts one versioned key without warning");
+        }
         for my $type ( 0, 1, 2 ) {
             for my $tampered ( 0, 1 ) {
                 my ( $out, @warnings );
@@ -163,13 +180,7 @@ for my $source ( 'option', 'environment' ) {
                     eval { $out = $dec->decode( $packets[$type][$tampered] ); 1 };
                 }
                 my $error = $@;
-                if ( !exists $keys->{"checksum_v${type}_key"} ) {
-                    like(
-                        $error, qr/requires a 'checksum_v${type}_key'/,
-                        "$source require rejects packets needing the other key"
-                    );
-                }
-                elsif ($tampered) {
+                if ($tampered) {
                     like(
                         $error, qr/checksum verification failed/,
                         "$source require rejects tampering"
@@ -199,14 +210,19 @@ for my $source ( 'option', 'environment' ) {
             $@, qr/Unsupported Sereal checksum type/,
             "$source require rejects unknown checksum types"
         );
+        my %functional_options = (
+            %policy,
+            checksum_key  => $key,
+            checksum_mode => 'v' . ( $selected_type + 1 ),
+        );
         is(
-            Sereal::Decoder::decode_sereal( $packets[0][0], { %options, checksum_v0_key => $key } ),
+            Sereal::Decoder::decode_sereal( $packets[$selected_type][0], \%functional_options ),
             7,
             "$source require works through the functional interface"
         );
     }
 }
-$ENV{SEREAL_CHECKSUM_POLICY} = 'require_key';
+$Sereal::ChecksumPolicy = 'require_key';
 eval { Sereal::Decoder->new; 1 };
 like(
     $@, qr/checksum_policy 'require_key'.*checksum key/,
@@ -226,9 +242,9 @@ is(
     Sereal::Decoder->new( { checksum_policy => 'die' } )->decode( Header(6) . "\x07" ), 7,
     'explicit die overrides environment require without a key'
 );
-$ENV{SEREAL_CHECKSUM_POLICY} = 'invalid';
+$Sereal::ChecksumPolicy = 'invalid';
 is(
-    Sereal::Decoder->new( { checksum_policy => 'require_key', checksum_v0_key => $key } )
+    Sereal::Decoder->new( { checksum_policy => 'require_key', checksum_key_v1 => $key } )
         ->decode( $packets[0][0] ), 7,
     'explicit require with a key overrides an invalid environment default'
 );
@@ -239,7 +255,7 @@ is(
     our ( $decoder, $packet, $error );
 
     sub THAW {
-        local $ENV{SEREAL_CHECKSUM_POLICY} = 'ignore';
+        local $Sereal::ChecksumPolicy = 'ignore';
         eval { $decoder->decode($packet); 1 };
         $error = $@;
         return 7;
@@ -248,9 +264,9 @@ is(
 
 # A THAW callback can change the environment and reenter the same decoder.
 # Its internal clone must inherit the original policy, not the new default.
-$ENV{SEREAL_CHECKSUM_POLICY} = 'die';
-local $ReenterChecksumEnv::decoder = Sereal::Decoder->new( { checksum_v0_key => $key } );
-local $ReenterChecksumEnv::packet  = $packets[1][0];
+$Sereal::ChecksumPolicy = 'die';
+local $ReenterChecksumEnv::decoder = Sereal::Decoder->new( { checksum_key_v1 => $key } );
+local $ReenterChecksumEnv::packet  = $packets[1][1];
 my $payload = "\x32" . short_string('ReenterChecksumEnv') . "\x40";
 my $prefix  = Header(6);
 substr( $prefix, 4, 1 ) = chr(0x86);
@@ -262,12 +278,12 @@ is(
     'outer THAW completes after nested authentication error'
 );
 like(
-    $ReenterChecksumEnv::error, qr/requires a 'checksum_v1_key'/,
+    $ReenterChecksumEnv::error, qr/checksum verification failed/,
     'recursive decoder clone retains the original policy despite environment changes'
 );
 
 $ReenterChecksumEnv::decoder = Sereal::Decoder->new( {
-    checksum_policy => 'require_key', checksum_v0_key => $key,
+    checksum_policy => 'require_key', checksum_key_v1 => $key,
 } );
 $ReenterChecksumEnv::packet = Header(6) . "\x07";
 is(

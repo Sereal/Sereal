@@ -8,7 +8,7 @@ BEGIN {
         if !-d 't';
 }
 
-use Sereal::TestSet qw(:all);
+use Sereal::TestSet::Corpus qw(read_packet);
 use Test::More tests => 2;
 use Sereal::Decoder;
 
@@ -19,31 +19,19 @@ use Sereal::Decoder;
 my $dec;
 
 package Foo;
-sub FREEZE { my $x = Sereal::Encoder->new->encode( $_[0]->{a} ); return $x; }
 sub THAW   { bless( { a => $dec->decode( $_[2] ) }, $_[0] ) }
 
 package main;
 
-SKIP: {
-    my $have_enc = have_encoder_and_decoder();
-    if ( not $have_enc ) {
-        skip "Need encoder for Snappy regression tests", 2;
-    }
-    else {
-        $dec = Sereal::Decoder->new;
-        my $z = [ bless( { a => 42 }, "Foo" ) ];
-        push @$z, $z;
-        my $a = Sereal::Encoder->new( { freeze_callbacks => 1 } )->encode($z);
-        my $b;
-        my $err;
-        eval {
-            $b = $dec->decode($a);
-            1;
-        } or do {
-            $err = $@ || 'Zombie error';
-        };
-        ok( !$err, "Decoding did not barf" )
-            or diag("Decoding barfed with '$err'");
-        is_deeply( $b, $z, "Output from decoding is correct" );
-    }
-}
+$dec = Sereal::Decoder->new;
+my $expected = [ bless( { a => 42 }, 'Foo' ) ];
+push @$expected, $expected;
+my $packet = read_packet(
+    File::Spec->catdir( 't', 'data', 'packet_corpus' ),
+    'decoder-features', 'reentrancy/freeze_thaw'
+);
+my ( $decoded, $error );
+eval { $decoded = $dec->decode($packet); 1 }
+    or $error = $@ || 'Zombie error';
+ok( !$error, 'Decoding did not barf' ) or diag("Decoding barfed with '$error'");
+is_deeply( $decoded, $expected, 'Output from decoding is correct' );

@@ -4,7 +4,6 @@ use warnings;
 use Data::Dumper;
 use File::Spec;
 
-# These tests use an installed Encoder.
 # Purpose: See if we correctly set overload magic on deserialized
 #          objects in funny circumstances.
 
@@ -16,25 +15,12 @@ BEGIN {
 }
 
 use Sereal::TestSet qw(:all);
+use Sereal::TestSet::Corpus qw(read_packet);
 use Test::More;
 use Sereal::Decoder;
 
-my $ok = have_encoder_and_decoder();
-if ( not $ok ) {
-    plan skip_all => 'Did not find right version of encoder';
-    done_testing();
-    exit(0);
-}
-
-require Sereal::Encoder;
-
-my $encoder = Sereal::Encoder->new( {
-    stringify_unknown => 1,
-    warn_unknown      => 1,
-} );
-
-# encode before any overload is known
-my $s = $encoder->encode( bless( { foo => "123" } => "Str" ) );
+my $corpus = File::Spec->catdir(qw(t data packet_corpus));
+my $s = read_packet( $corpus, 'decoder-features', 'overload/unknown_object' );
 
 my $decoder = Sereal::Decoder->new();
 
@@ -66,11 +52,6 @@ is( $Str::Called, 1, "overload invoked once" );
 
 # Second try at breaking things
 SCOPE: {
-    my $enc = Sereal::Encoder->new( {
-        warn_unknown      => 1,
-        stringify_unknown => 1,
-    } );
-
     my $dec = Sereal::Decoder->new;
 
     package Foo;
@@ -78,9 +59,7 @@ SCOPE: {
 
     package main;
 
-    my $p = bless( { str => "asd" } => 'Foo' );
-    my $h = [ $p, $p ];
-    my $s = $enc->encode($h);
+    my $s = read_packet( $corpus, 'decoder-features', 'overload/repeated_object' );
     my $d = $dec->decode($s);
 
     #warn "$_" for @$d;

@@ -8,8 +8,8 @@ BEGIN { lib->import('lib') if !-d 't' }
 
 use Test::More;
 use Sereal::TestSet qw(Header);
+use Sereal::TestSet::Corpus qw(read_packet);
 use Sereal::Decoder;
-use Sereal::Encoder;
 use re qw(regexp_pattern);
 
 # A decoded REGEXP used to be the compiled regexp itself, swapped into the
@@ -24,7 +24,7 @@ use re qw(regexp_pattern);
 # exit status is the assertion.
 sub child_survives {
     my ( $code, $name ) = @_;
-    my $status = system( $^X, '-Mblib', '-It/lib', '-MSereal::Decoder', '-MSereal::Encoder',
+    my $status = system( $^X, '-Mblib', '-It/lib', '-MSereal::Decoder',
         '-MSereal::TestSet=Header', '-e', 'use strict; use warnings; ' . $code
     );
     is( $status, 0, "$name: child exits cleanly" );
@@ -73,9 +73,10 @@ for my $version ( 3, 6 ) {
         },
         "v$version assigning to a decoded bare REGEXP hash value"
     );
+    my $blob_code = 'my $blob = pack "H*", "'
+        . unpack( 'H*', read_protocol_corpus( $version, 'regexp_object' ) ) . '";';
     child_survives(
-        qq{ my \$v = $version; } . q{
-            my $blob = Sereal::Encoder->new( { protocol_version => $v } )->encode( { re => qr/ab+c/i } );
+        $blob_code . q{
             my $r = Sereal::Decoder->new->decode($blob);
             my $c = ${ $r->{re} };
             ${ $r->{re} } = 1;
@@ -89,7 +90,7 @@ for my $version ( 3, 6 ) {
             my ( $out, @copies );
             for ( 1 .. 50 ) { $dec->decode( $H . "\x31\x63abc\x61i", $out ); push @copies, $out; }
             for (@copies) { die "no match" unless "xabcx" =~ $_ }
-            my $blob = Sereal::Encoder->new->encode(qr/ab+c/i);
+            my $blob = $H . "\x31\x64ab+c\x61i";
             my @refs;
             for ( 1 .. 50 ) { $dec->decode( $blob, $out ); push @refs, $out; }
             for (@refs) { die "no match" unless "xABBc" =~ $_ }
@@ -110,9 +111,10 @@ for my $hex (
 }
 
 # Round trips keep the class and the modifiers.
+# Protocol 3 and 6 packets are checked in so these Decoder cases do not need
+# an installed Encoder to create their inputs.
 for my $version ( 3, 6 ) {
-    my $enc = Sereal::Encoder->new( { protocol_version => $version } );
-    my $r   = $dec->decode( $enc->encode( { re => qr/ab+c/i, obj => bless( qr/x/, 'Foo' ) } ) );
+    my $r = $dec->decode( read_protocol_corpus( $version, 'regexp_object' ) );
     is( ref( $r->{re} ), 'Regexp', "v$version qr// is a Regexp" );
     is_deeply(
         [ regexp_pattern( $r->{re} ) ], [ 'ab+c', 'i' ],
@@ -120,12 +122,10 @@ for my $version ( 3, 6 ) {
     );
     is( ref( $r->{obj} ), 'Foo', "v$version blessed regexp keeps its class" );
     ok( 'x' =~ $r->{obj}, "v$version blessed regexp matches" );
-    my $shared = qr/q/;
-    $r = $dec->decode( $enc->encode( [ $shared, $shared ] ) );
+    $r = $dec->decode( read_protocol_corpus( $version, 'regexp_shared' ) );
     is( $r->[0], $r->[1], "v$version a regexp referenced twice is one value" );
     ok( 'q' =~ $r->[1], "v$version and matches through the REFP" );
-    my $x = ${qr/abc/i};
-    $r = $dec->decode( $enc->encode( [ $x, \$x ] ) );
+    $r = $dec->decode( read_protocol_corpus( $version, 'regexp_copy' ) );
     ok( 'ABC' =~ $r->[0], "v$version a copied regexp round-trips" );
 }
 
@@ -149,3 +149,11 @@ for my $version ( 3, 6 ) {
 }
 
 done_testing;
+
+sub read_protocol_corpus {
+    my ( $version, $name ) = @_;
+    return read_packet(
+        File::Spec->catdir( 't', 'data', 'packet_corpus' ),
+        'decoder-regressions', "v$version/$name"
+    );
+}

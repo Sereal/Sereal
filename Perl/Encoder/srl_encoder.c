@@ -157,7 +157,7 @@ srl_protect_packet(pTHX_ srl_encoder_t *enc)
     /* The high bit of the document-type nibble marks the protected form. */
     enc->buf.start[SRL_MAGIC_STRLEN] |= SRL_PROTOCOL_ENCODING_CHECKSUM;
 
-    srl_siphash_init(&sip, enc->checksum_keys[enc->siphash_version], enc->siphash_version);
+    srl_siphash_init(&sip, enc->checksum_key, enc->siphash_version);
     srl_siphash_update(&sip, (const U8 *)enc->buf.start, (size_t)(tag - (const U8 *)enc->buf.start));
     srl_siphash_update(&sip, payload_len_field, payload_len_varint_size);
     srl_siphash_update(&sip, payload, payload_len);
@@ -863,333 +863,355 @@ srl_encoder_constructor_cleanup(pTHX_ void *p)
         srl_destroy_encoder(aTHX_ enc);
 }
 
-#define my_hv_fetchs(he,val,opt,idx) STMT_START {                   \
-    he = hv_fetch_ent(opt, options[idx].sv, 0, options[idx].hash);  \
-    if (he)                                                         \
-        val= HeVAL(he);                                             \
-    else                                                            \
-        val= NULL;                                                  \
-} STMT_END
+static U32
+srl_encoder_option_id(pTHX_ sv_with_hash *options, U32 option_count,
+                      const U8 *known_option_heads, const U8 *known_option_next,
+                      U32 key_hash, const char *key_bytes, STRLEN key_len)
+{
+    U8 indexed = known_option_heads[key_hash & (SRL_OPTION_INDEX_BUCKETS - 1)];
+    while (indexed) {
+        U32 option_id = (U32)indexed - 1;
+        STRLEN known_len;
+        const char *known_bytes;
+        if (options[option_id].hash == key_hash) {
+            known_bytes = SvPV(options[option_id].sv, known_len);
+            if (key_len == known_len && memEQ(key_bytes, known_bytes, key_len))
+                return option_id;
+        }
+        indexed = known_option_next[option_id];
+    }
+    return option_count;
+}
 
 /* Builds the C-level configuration and state struct. */
 srl_encoder_t *
-srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options)
+srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options,
+                         const U8 *known_option_heads, const U8 *known_option_next)
 {
     srl_encoder_t *enc;
+    HE *entry;
     SV *val;
-    HE *he;
-    U8 checksum_policy;
-    SV *checksum_keys[3] = { NULL, NULL, NULL };
-    int key_options_present = 0;
-    U8 version;
-
-    val = NULL;
-    if (opt != NULL)
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CHECKSUM_POLICY);
-    checksum_policy = srl_get_checksum_policy(aTHX_ val);
-    for (version = 0; version <= 2; version++) {
-        val = NULL;
-        he = NULL;
-        if (opt != NULL) {
-            const U32 idx = version == 0 ? SRL_ENC_OPT_IDX_CHECKSUM_V0_KEY
-                          : version == 1 ? SRL_ENC_OPT_IDX_CHECKSUM_V1_KEY
-                                         : SRL_ENC_OPT_IDX_CHECKSUM_V2_KEY;
-            my_hv_fetchs(he, val, opt, idx);
-        }
-        checksum_keys[version] = val;
-        if (he != NULL)
-            key_options_present = 1;
-    }
-    if (!key_options_present) {
-        SV *default_key = get_sv("Sereal::DefaultKey", 0);
-        checksum_keys[2] = default_key; /* default to SipHash-3-6-128 */
-    }
-    srl_validate_checksum_keys(aTHX_ checksum_keys, checksum_policy);
+    SV *freeze_allow_classes_value = NULL;
+    SV *checksum_key = NULL;
+    SV *checksum_policy_value = NULL;
+    SV *unknown_option_policy_value = NULL;
+    AV *unknown_option_keys = NULL;
+    SV *canonical_value = NULL;
+    SV *sort_keys_value = NULL;
+    SV *canonical_refs_value = NULL;
+    SV *compress_level_value = NULL;
+    SV *compress_threshold_value = NULL;
+    SV *snappy_threshold_value = NULL;
+    int checksum_mode = SRL_CHECKSUM_MODE_UNSET;
+    int protocol_version_set = 0;
+    int use_protocol_v1 = 0;
+    int compression_set = 0;
+    IV compression_format = 0;
+    int snappy = 0;
+    int snappy_incr = 0;
+    int want_freeze = 0;
 
     ENTER;
     enc = srl_empty_encoder_struct(aTHX);
     SAVEDESTRUCTOR_X(&srl_encoder_constructor_cleanup, (void *)enc);
-    enc->checksum_policy = checksum_policy;
-    enc->flags = 0;
-    enc->scratch_sv= newSViv(0);
+    enc->scratch_sv = newSViv(0);
+    SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
 
-    /* load options */
+    /* Visit supplied options once. Independent settings are applied here;
+     * aliases and settings that depend on one another are resolved below. */
     if (opt != NULL) {
-        int undef_unknown = 0;
-        int compression_format = 0;
-        /* SRL_F_SHARED_HASHKEYS on by default */
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_NO_SHARED_HASHKEYS);
-        if ( !val || !SvTRUE(val) )
-            SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
-
-        /* Needs to be before the snappy options */
-        /* enc->protocol_version defaults to SRL_PROTOCOL_VERSION. */
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_PROTOCOL_VERSION);
-        if (val && SvOK(val)) {
-            enc->protocol_version = SvUV(val);
-            if (enc->protocol_version < 1
-                || enc->protocol_version > SRL_PROTOCOL_VERSION)
-            {
-                croak("Specified Sereal protocol version (%"UVuf") is invalid",
-                      (UV)enc->protocol_version);
+        hv_iterinit(opt);
+        while ((entry = hv_iternext(opt))) {
+            SV *key = hv_iterkeysv(entry);
+            STRLEN key_len;
+            const char *key_bytes = SvPV(key, key_len);
+            U32 option_id = srl_encoder_option_id(aTHX_ options, SRL_ENC_OPT_COUNT,
+                                                   known_option_heads, known_option_next,
+                                                   HeHASH(entry), key_bytes, key_len);
+            if (option_id == SRL_ENC_OPT_COUNT) {
+                if (!unknown_option_keys)
+                    unknown_option_keys = (AV *)sv_2mortal((SV *)newAV());
+                av_push(unknown_option_keys, newSVsv(key));
+                continue;
             }
-        }
-        else {
-            /* Compatibility with the old way to specify older protocol version */
-            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_USE_PROTOCOL_V1);
-            if ( val && SvTRUE(val) )
-                enc->protocol_version = 1;
-        }
-
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CROAK_ON_BLESS);
-        if ( val && SvTRUE(val) )
-            SRL_ENC_SET_OPTION(enc, SRL_F_CROAK_ON_BLESS);
-
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_NO_BLESS_OBJECTS);
-        if ( val && SvTRUE(val) )
-            SRL_ENC_SET_OPTION(enc, SRL_F_NO_BLESS_OBJECTS);
-
-        {
-            int want_freeze = 0;
-
-            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_FREEZE_CALLBACKS);
-            if ( val && SvTRUE(val) )
-                want_freeze = 1;
-
-            /* freeze_allow_classes: only invoke FREEZE for the listed classes.
-             * Accepts an array ref (list of names), a hash ref (keys with a
-             * true value) or a code ref (predicate called with the class name
-             * and the object). Providing it implies freeze support. */
-            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_FREEZE_ALLOW_CLASSES);
-            if ( val && SvOK(val) ) {
-                SV *rv = SvROK(val) ? SvRV(val) : NULL;
-                if (rv && SvTYPE(rv) == SVt_PVAV) {
-                    AV *av = (AV*)rv;
-                    SSize_t i, len = av_len(av) + 1;
-                    enc->freeze_allow_hash = newHV();
-                    for (i = 0; i < len; i++) {
-                        SV **elem = av_fetch(av, i, 0);
-                        if (elem && SvOK(*elem)) {
-                            STRLEN klen;
-                            char *kstr = SvPV(*elem, klen);
-                            (void)hv_store(enc->freeze_allow_hash, kstr, SvUTF8(*elem) ? -(I32)klen : (I32)klen, &PL_sv_yes, 0);
-                        }
-                    }
-                }
-                else if (rv && SvTYPE(rv) == SVt_PVHV) {
-                    HV *src = (HV*)rv;
-                    HE *ent;
-                    enc->freeze_allow_hash = newHV();
-                    hv_iterinit(src);
-                    while ((ent = hv_iternext(src))) {
-                        if (SvTRUE(HeVAL(ent))) {
-                            STRLEN klen;
-                            char *kstr = HePV(ent, klen);
-                            (void)hv_store(enc->freeze_allow_hash, kstr, HeUTF8(ent) ? -(I32)klen : (I32)klen, &PL_sv_yes, 0);
-                        }
-                    }
-                }
-                else if (rv && SvTYPE(rv) == SVt_PVCV) {
-                    enc->freeze_allow_cb = newRV_inc(rv);
-                }
-                else {
-                    croak("The 'freeze_allow_classes' option must be an array "
-                          "ref, hash ref or code ref");
-                }
-                want_freeze = 1;
-            }
-
-            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_FREEZE_DENY_ACTION);
-            if ( val && SvOK(val) ) {
-                STRLEN alen;
-                char *astr = SvPV(val, alen);
-                if (memEQs(astr, alen, "serialize"))
-                    SRL_ENC_SET_OPTION(enc, SRL_F_FREEZE_DENY_SERIALIZE);
-                else if (!memEQs(astr, alen, "croak"))
-                    croak("The 'freeze_deny_action' option must be 'croak' or 'serialize'");
-            }
-
-            if ( want_freeze ) {
-                if (enc->protocol_version < 2)
-                    croak("FREEZE/THAW callbacks require Sereal protocol version 2 or later");
-                if (SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS))
-                    croak("The no_bless_objects option is mutually exclusive "
-                          "with freeze support (freeze_callbacks / "
-                          "freeze_allow_classes)");
-                SRL_ENC_SET_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT);
-                enc->sereal_string_sv = newSVpvs("Sereal");
-            }
-        }
-
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_COMPRESS);
-        if (val) {
-            compression_format = SvIV(val);
-
-            /* See also Encoder.pm's constants */
-            switch (compression_format) {
-            case 0: /* uncompressed */
+            val = HeVAL(entry);
+            switch (option_id) {
+            case SRL_ENC_OPT_IDX_NO_SHARED_HASHKEYS:
+                if (SvTRUE(val))
+                    SRL_ENC_RESET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
                 break;
-            case 1:
-                SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
-                break;
-            case 2:
-                SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_ZLIB);
-                if (enc->protocol_version < 3)
-                    croak("Zlib compression was introduced in protocol version 3 and you are asking for only version %i", (int)enc->protocol_version);
-
-                enc->compress_level = MZ_DEFAULT_COMPRESSION;
-                my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_COMPRESS_LEVEL);
-                if ( val && SvTRUE(val) ) {
-                    IV lvl = SvIV(val);
-                    if (expect_false( lvl < 1 || lvl > 10 )) /* Sekrit: compression lvl 10 is a miniz thing that doesn't exist in normal zlib */
-                        croak("'compress_level' needs to be between 1 and 9");
-                    enc->compress_level = lvl;
+            case SRL_ENC_OPT_IDX_PROTOCOL_VERSION:
+                if (SvOK(val)) {
+                    enc->protocol_version = SvUV(val);
+                    if (enc->protocol_version < 1 || enc->protocol_version > SRL_PROTOCOL_VERSION)
+                        croak("Specified Sereal protocol version (%"UVuf") is invalid",
+                              (UV)enc->protocol_version);
+                    protocol_version_set = 1;
                 }
                 break;
-            case 3:
-                SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_ZSTD);
-                if (enc->protocol_version < 4)
-                    croak("zstd compression was introduced in protocol version 4 and you are asking for only version %i", (int)enc->protocol_version);
-
-                enc->compress_level = 3; /* default compression level */
-                my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_COMPRESS_LEVEL);
-                if ( val && SvTRUE(val) ) {
-                    IV lvl = SvIV(val);
-                    if (expect_false( lvl < 1 || lvl > 22 )) /* TODO: ZSTD_maxCLevel() */
-                        croak("'compress_level' needs to be between 1 and 22");
-                    enc->compress_level = lvl;
+            case SRL_ENC_OPT_IDX_USE_PROTOCOL_V1:
+                use_protocol_v1 = SvTRUE(val) ? 1 : 0;
+                break;
+            case SRL_ENC_OPT_IDX_CROAK_ON_BLESS:
+                if (SvTRUE(val))
+                    SRL_ENC_SET_OPTION(enc, SRL_F_CROAK_ON_BLESS);
+                break;
+            case SRL_ENC_OPT_IDX_NO_BLESS_OBJECTS:
+                if (SvTRUE(val))
+                    SRL_ENC_SET_OPTION(enc, SRL_F_NO_BLESS_OBJECTS);
+                break;
+            case SRL_ENC_OPT_IDX_FREEZE_CALLBACKS:
+                if (SvTRUE(val))
+                    want_freeze = 1;
+                break;
+            case SRL_ENC_OPT_IDX_FREEZE_ALLOW_CLASSES:
+                freeze_allow_classes_value = val;
+                break;
+            case SRL_ENC_OPT_IDX_FREEZE_DENY_ACTION:
+                if (SvOK(val)) {
+                    STRLEN len;
+                    const char *action = SvPV(val, len);
+                    if (memEQs(action, len, "serialize"))
+                        SRL_ENC_SET_OPTION(enc, SRL_F_FREEZE_DENY_SERIALIZE);
+                    else if (!memEQs(action, len, "croak"))
+                        croak("The 'freeze_deny_action' option must be 'croak' or 'serialize'");
                 }
+                break;
+            case SRL_ENC_OPT_IDX_COMPRESS:
+                compression_set = 1;
+                compression_format = SvIV(val);
+                break;
+            case SRL_ENC_OPT_IDX_SNAPPY:
+                snappy = SvTRUE(val) ? 1 : 0;
+                break;
+            case SRL_ENC_OPT_IDX_SNAPPY_INCR:
+                snappy_incr = SvTRUE(val) ? 1 : 0;
+                break;
+            case SRL_ENC_OPT_IDX_COMPRESS_LEVEL:
+                compress_level_value = val;
+                break;
+            case SRL_ENC_OPT_IDX_COMPRESS_THRESHOLD:
+                compress_threshold_value = val;
+                break;
+            case SRL_ENC_OPT_IDX_SNAPPY_THRESHOLD:
+                snappy_threshold_value = val;
+                break;
+            case SRL_ENC_OPT_IDX_UNDEF_UNKNOWN:
+                if (SvTRUE(val))
+                    SRL_ENC_SET_OPTION(enc, SRL_F_UNDEF_UNKNOWN);
+                break;
+            case SRL_ENC_OPT_IDX_STRINGIFY_UNKNOWN:
+                if (SvTRUE(val))
+                    SRL_ENC_SET_OPTION(enc, SRL_F_STRINGIFY_UNKNOWN);
+                break;
+            case SRL_ENC_OPT_IDX_WARN_UNKNOWN:
+                if (SvTRUE(val)) {
+                    SRL_ENC_SET_OPTION(enc, SRL_F_WARN_UNKNOWN);
+                    if (SvIV(val) < 0)
+                        SRL_ENC_SET_OPTION(enc, SRL_F_NOWARN_UNKNOWN_OVERLOAD);
+                }
+                break;
+            case SRL_ENC_OPT_IDX_SORT_KEYS:
+                sort_keys_value = val;
+                break;
+            case SRL_ENC_OPT_IDX_CANONICAL_REFS:
+                canonical_refs_value = val;
+                break;
+            case SRL_ENC_OPT_IDX_CANONICAL:
+                canonical_value = val;
+                break;
+            case SRL_ENC_OPT_IDX_ALIASED_DEDUPE_STRINGS:
+                if (SvTRUE(val))
+                    SRL_ENC_SET_OPTION(enc, SRL_F_ALIASED_DEDUPE_STRINGS | SRL_F_DEDUPE_STRINGS);
+                break;
+            case SRL_ENC_OPT_IDX_DEDUPE_STRINGS:
+                if (SvTRUE(val))
+                    SRL_ENC_SET_OPTION(enc, SRL_F_DEDUPE_STRINGS);
+                break;
+            case SRL_ENC_OPT_IDX_MAX_RECURSION_DEPTH:
+                if (SvTRUE(val))
+                    enc->max_recursion_depth = SvUV(val);
+                break;
+            case SRL_ENC_OPT_IDX_USE_STANDARD_DOUBLE:
+                if (SvTRUE(val))
+                    SRL_ENC_SET_OPTION(enc, SRL_F_USE_STANDARD_DOUBLE);
+                break;
+            case SRL_ENC_OPT_IDX_UNKNOWN_OPTION_POLICY:
+                unknown_option_policy_value = val;
+                break;
+            case SRL_ENC_OPT_IDX_CHECKSUM_POLICY:
+                checksum_policy_value = val;
+                break;
+            case SRL_ENC_OPT_IDX_CHECKSUM_KEY:
+                srl_set_checksum_key(aTHX_ &checksum_key, val);
+                break;
+            case SRL_ENC_OPT_IDX_CHECKSUM_MODE:
+                srl_set_checksum_mode(aTHX_ &checksum_mode,
+                                      srl_checksum_mode_from_sv(aTHX_ val, "checksum_mode"));
+                break;
+            case SRL_ENC_OPT_IDX_CHECKSUM_KEY_V1:
+                srl_set_checksum_key(aTHX_ &checksum_key, val);
+                srl_set_checksum_mode(aTHX_ &checksum_mode, SRL_CHECKSUM_MODE_V1);
+                break;
+            case SRL_ENC_OPT_IDX_CHECKSUM_KEY_V2:
+                srl_set_checksum_key(aTHX_ &checksum_key, val);
+                srl_set_checksum_mode(aTHX_ &checksum_mode, SRL_CHECKSUM_MODE_V2);
+                break;
+            case SRL_ENC_OPT_IDX_CHECKSUM_KEY_V3:
+                srl_set_checksum_key(aTHX_ &checksum_key, val);
+                srl_set_checksum_mode(aTHX_ &checksum_mode, SRL_CHECKSUM_MODE_V3);
                 break;
             default:
-                croak("Invalid Sereal compression format");
+                croak("Internal error: unhandled Encoder option ID %u", (unsigned int)option_id);
             }
         }
-        else {
-            /* Only bother with old compression options if necessary */
-
-            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_SNAPPY_INCR);
-            if ( val && SvTRUE(val) ) {
-                SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
-                compression_format = 1;
-            }
-             else {
-                /* snappy_incr >> snappy */
-                my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_SNAPPY);
-                if ( val && SvTRUE(val) ) {
-                    /* incremental is the new black in V2 */
-                    if (expect_true( enc->protocol_version > 1 ))
-                        SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
-                    else
-                        SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY);
-                    compression_format = 1;
-                }
-            }
-        }
-
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_UNDEF_UNKNOWN);
-        if ( val && SvTRUE(val) ) {
-            undef_unknown = 1;
-            SRL_ENC_SET_OPTION(enc, SRL_F_UNDEF_UNKNOWN);
-        }
-
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_SORT_KEYS);
-        if ( !val )
-            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CANONICAL);
-        if ( val && SvTRUE(val) ) {
-            SRL_ENC_SET_OPTION(enc, SRL_F_SORT_KEYS);
-            if (SvIV(val) > 1) {
-                SRL_ENC_SET_OPTION(enc, SRL_F_SORT_KEYS_PERL);
-                if (SvIV(val) > 2) {
-                    SRL_ENC_SET_OPTION(enc, SRL_F_SORT_KEYS_PERL_REV);
-                }
-            }
-        }
-
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CANONICAL_REFS);
-        if ( !val )
-            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_CANONICAL);
-        if ( val && SvTRUE(val) )
-            SRL_ENC_SET_OPTION(enc, SRL_F_CANONICAL_REFS);
-
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_ALIASED_DEDUPE_STRINGS);
-        if ( val && SvTRUE(val) )
-            SRL_ENC_SET_OPTION(enc, SRL_F_ALIASED_DEDUPE_STRINGS | SRL_F_DEDUPE_STRINGS);
-        else {
-            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_DEDUPE_STRINGS);
-            if ( val && SvTRUE(val) )
-                SRL_ENC_SET_OPTION(enc, SRL_F_DEDUPE_STRINGS);
-        }
-
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_STRINGIFY_UNKNOWN);
-        if ( val && SvTRUE(val) ) {
-            if (expect_false( undef_unknown ))
-                croak("'undef_unknown' and 'stringify_unknown' "
-                      "options are mutually exclusive");
-            SRL_ENC_SET_OPTION(enc, SRL_F_STRINGIFY_UNKNOWN);
-        }
-
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_WARN_UNKNOWN);
-        if ( val && SvTRUE(val) ) {
-            SRL_ENC_SET_OPTION(enc, SRL_F_WARN_UNKNOWN);
-            if (SvIV(val) < 0)
-                SRL_ENC_SET_OPTION(enc, SRL_F_NOWARN_UNKNOWN_OVERLOAD);
-        }
-
-        if (compression_format) {
-            enc->compress_threshold = 1024;
-            my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_COMPRESS_THRESHOLD);
-            if ( val && SvOK(val) )
-                enc->compress_threshold = SvIV(val);
-            else if (compression_format == 1) {
-                /* compression_format==1 is some sort of Snappy */
-                my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_SNAPPY_THRESHOLD);
-                if ( val && SvOK(val) )
-                    enc->compress_threshold = SvIV(val);
-            }
-        }
-
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_MAX_RECURSION_DEPTH);
-        if ( val && SvTRUE(val) )
-            enc->max_recursion_depth = SvUV(val);
-
-        my_hv_fetchs(he, val, opt, SRL_ENC_OPT_IDX_USE_STANDARD_DOUBLE);
-        if ( val && SvTRUE(val) )
-            SRL_ENC_SET_OPTION(enc, SRL_F_USE_STANDARD_DOUBLE);
-    }
-    else {
-        /* SRL_F_SHARED_HASHKEYS on by default */
-        SRL_ENC_SET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
     }
 
-    {
-        U8 version;
-        for (version = 0; version <= 2; version++) {
-            const char *option_name;
-            option_name = srl_checksum_key_option_name(version);
-            val = checksum_keys[version];
-            if (val && SvOK(val)) {
-                STRLEN key_len;
-                char *key = SvPVbyte(val, key_len);
-                if (key_len != sizeof(enc->checksum_keys[version])) {
-                    if (key_len < sizeof(enc->checksum_keys[version]))
-                        warn("The '%s' key is shorter than 16 bytes; padding with nulls. Use Sereal::Encoder::prepare_checksum_key() to normalize it", option_name);
-                    else
-                        warn("The '%s' key is longer than 16 bytes; extra bytes are ignored and may contain unused entropy. Use Sereal::Encoder::prepare_checksum_key() to normalize it", option_name);
+    /* Traverse nested allow-lists after the options loop: the allow-list
+     * may be the options hash itself, whose iterator must not be reset. */
+    val = freeze_allow_classes_value;
+    if ( val && SvOK(val) ) {
+        SV *rv = SvROK(val) ? SvRV(val) : NULL;
+        if (rv && SvTYPE(rv) == SVt_PVAV) {
+            AV *av = (AV*)rv;
+            SSize_t i, len = av_len(av) + 1;
+            enc->freeze_allow_hash = newHV();
+            for (i = 0; i < len; i++) {
+                SV **elem = av_fetch(av, i, 0);
+                if (elem && SvOK(*elem)) {
+                    STRLEN klen;
+                    char *kstr = SvPV(*elem, klen);
+                    (void)hv_store(enc->freeze_allow_hash, kstr, SvUTF8(*elem) ? -(I32)klen : (I32)klen, &PL_sv_yes, 0);
                 }
-                if (enc->protocol_version < 6) {
-                    croak("The '%s' option requires Sereal protocol version 6 or later", option_name);
-                }
-                Zero(enc->checksum_keys[version], sizeof(enc->checksum_keys[version]), U8);
-                Copy(key, enc->checksum_keys[version],
-                     key_len < sizeof(enc->checksum_keys[version])
-                        ? key_len : sizeof(enc->checksum_keys[version]), U8);
-                enc->checksum_key_mask |= (U8)(1U << version);
-                enc->siphash_version = version;
             }
         }
-        if (enc->checksum_key_mask & (enc->checksum_key_mask - 1)) {
-            croak("Specify only one of 'checksum_v0_key', 'checksum_v1_key', or 'checksum_v2_key' on the encoder");
+        else if (rv && SvTYPE(rv) == SVt_PVHV) {
+            HV *src = (HV*)rv;
+            HE *ent;
+            enc->freeze_allow_hash = newHV();
+            hv_iterinit(src);
+            while ((ent = hv_iternext(src))) {
+                if (SvTRUE(HeVAL(ent))) {
+                    STRLEN klen;
+                    char *kstr = HePV(ent, klen);
+                    (void)hv_store(enc->freeze_allow_hash, kstr, HeUTF8(ent) ? -(I32)klen : (I32)klen, &PL_sv_yes, 0);
+                }
+            }
         }
+        else if (rv && SvTYPE(rv) == SVt_PVCV) {
+            enc->freeze_allow_cb = newRV_inc(rv);
+        }
+        else {
+            croak("The 'freeze_allow_classes' option must be an array "
+                  "ref, hash ref or code ref");
+        }
+        want_freeze = 1;
+    }
+
+    srl_handle_unknown_option_keys(aTHX_ unknown_option_keys, unknown_option_policy_value,
+                                    "Sereal::Encoder", "Sereal::Encoder::UnknownOptionPolicy");
+
+    if (!protocol_version_set && use_protocol_v1)
+        enc->protocol_version = 1;
+    if (want_freeze) {
+        if (enc->protocol_version < 2)
+            croak("FREEZE/THAW callbacks require Sereal protocol version 2 or later");
+        if (SRL_ENC_HAVE_OPTION(enc, SRL_F_NO_BLESS_OBJECTS))
+            croak("The no_bless_objects option is mutually exclusive "
+                  "with freeze support (freeze_callbacks / freeze_allow_classes)");
+        SRL_ENC_SET_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT);
+        enc->sereal_string_sv = newSVpvs("Sereal");
+    }
+    if (SRL_ENC_HAVE_OPTION(enc, SRL_F_UNDEF_UNKNOWN)
+            && SRL_ENC_HAVE_OPTION(enc, SRL_F_STRINGIFY_UNKNOWN))
+        croak("'undef_unknown' and 'stringify_unknown' options are mutually exclusive");
+
+    val = sort_keys_value ? sort_keys_value : canonical_value;
+    if (val && SvTRUE(val)) {
+        SRL_ENC_SET_OPTION(enc, SRL_F_SORT_KEYS);
+        if (SvIV(val) > 1) {
+            SRL_ENC_SET_OPTION(enc, SRL_F_SORT_KEYS_PERL);
+            if (SvIV(val) > 2)
+                SRL_ENC_SET_OPTION(enc, SRL_F_SORT_KEYS_PERL_REV);
+        }
+    }
+    val = canonical_refs_value ? canonical_refs_value : canonical_value;
+    if (val && SvTRUE(val))
+        SRL_ENC_SET_OPTION(enc, SRL_F_CANONICAL_REFS);
+
+    if (!compression_set && (snappy_incr || snappy))
+        compression_format = 1;
+    switch (compression_format) {
+    case 0:
+        break;
+    case 1:
+        if (compression_set || snappy_incr || enc->protocol_version > 1)
+            SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY_INCREMENTAL);
+        else
+            SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_SNAPPY);
+        break;
+    case 2:
+        if (enc->protocol_version < 3)
+            croak("Zlib compression was introduced in protocol version 3 and you are asking for only version %i", (int)enc->protocol_version);
+        SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_ZLIB);
+        enc->compress_level = MZ_DEFAULT_COMPRESSION;
+        if (compress_level_value && SvTRUE(compress_level_value)) {
+            IV level = SvIV(compress_level_value);
+            if (expect_false(level < 1 || level > 10))
+                croak("'compress_level' needs to be between 1 and 9");
+            enc->compress_level = level;
+        }
+        break;
+    case 3:
+        if (enc->protocol_version < 4)
+            croak("zstd compression was introduced in protocol version 4 and you are asking for only version %i", (int)enc->protocol_version);
+        SRL_ENC_SET_OPTION(enc, SRL_F_COMPRESS_ZSTD);
+        enc->compress_level = 3;
+        if (compress_level_value && SvTRUE(compress_level_value)) {
+            IV level = SvIV(compress_level_value);
+            if (expect_false(level < 1 || level > 22))
+                croak("'compress_level' needs to be between 1 and 22");
+            enc->compress_level = level;
+        }
+        break;
+    default:
+        croak("Invalid Sereal compression format");
+    }
+    if (compression_format) {
+        enc->compress_threshold = 1024;
+        if (compress_threshold_value && SvOK(compress_threshold_value))
+            enc->compress_threshold = SvIV(compress_threshold_value);
+        else if (compression_format == 1 && snappy_threshold_value && SvOK(snappy_threshold_value))
+            enc->compress_threshold = SvIV(snappy_threshold_value);
+    }
+
+    enc->checksum_policy = srl_get_checksum_policy(aTHX_ checksum_policy_value, "Sereal::Encoder::ChecksumPolicy");
+    if (checksum_mode == SRL_CHECKSUM_MODE_UNSET)
+        checksum_mode = srl_get_default_checksum_mode(aTHX_ "Sereal::Encoder::ChecksumMode",
+                                                      SRL_CHECKSUM_MODE_V3);
+    if (!checksum_key)
+        checksum_key = srl_get_default_checksum_key(aTHX_ "Sereal::Encoder::DefaultKey");
+    if (checksum_mode == SRL_CHECKSUM_MODE_NONE)
+        checksum_key = NULL;
+    srl_validate_checksum_key(aTHX_ checksum_key, "checksum_key", enc->checksum_policy);
+    srl_validate_checksum_required_key(aTHX_ checksum_key, enc->checksum_policy);
+    srl_validate_checksum_required_mode(aTHX_ checksum_mode, enc->checksum_policy);
+    if (checksum_key && SvOK(checksum_key)) {
+        STRLEN key_len;
+        char *key = SvPVbyte(checksum_key, key_len);
+        if (key_len != sizeof(enc->checksum_key)) {
+            if (key_len < sizeof(enc->checksum_key))
+                warn("The 'checksum_key' key is shorter than 16 bytes; padding with nulls. Use Sereal::Encoder::prepare_checksum_key() to normalize it");
+            else
+                warn("The 'checksum_key' key is longer than 16 bytes; extra bytes are ignored and may contain unused entropy. Use Sereal::Encoder::prepare_checksum_key() to normalize it");
+        }
+        if (enc->protocol_version < 6)
+            croak("The 'checksum_key' option requires Sereal protocol version 6 or later");
+        Zero(enc->checksum_key, sizeof(enc->checksum_key), U8);
+        Copy(key, enc->checksum_key,
+             key_len < sizeof(enc->checksum_key) ? key_len : sizeof(enc->checksum_key), U8);
+        enc->checksum_key_set = 1;
+        enc->siphash_version = checksum_mode - 1;
     }
 
     DEBUG_ASSERT_BUF_SANE(&enc->buf);
@@ -1223,10 +1245,10 @@ srl_build_encoder_struct_alike(pTHX_ srl_encoder_t *proto)
         SvREFCNT_inc(enc->freeze_allow_cb);
     }
     enc->protocol_version = proto->protocol_version;
-    enc->checksum_key_mask = proto->checksum_key_mask;
+    enc->checksum_key_set = proto->checksum_key_set;
     enc->checksum_policy = proto->checksum_policy;
     enc->siphash_version = proto->siphash_version;
-    Copy(proto->checksum_keys, enc->checksum_keys, sizeof(enc->checksum_keys), U8);
+    Copy(proto->checksum_key, enc->checksum_key, sizeof(enc->checksum_key), U8);
     enc->scratch_sv= newSViv(0);
     DEBUG_ASSERT_BUF_SANE(&enc->buf);
     return enc;
@@ -1709,8 +1731,9 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
     enc = srl_prepare_encoder(aTHX_ enc);
     enc->root_src = src;
     enc->header_src = user_header_src;
-    if (enc->checksum_policy == SRL_CHECKSUM_POLICY_REQUIRE && !enc->checksum_key_mask)
-        croak("checksum_policy 'require_key' needs a 'checksum_v0_key', 'checksum_v1_key', or 'checksum_v2_key' to encode");
+    if (srl_checksum_required_mode(enc->checksum_policy) && !enc->checksum_key_set)
+        croak("checksum_policy '%s' requires a checksum key to encode",
+              srl_checksum_policy_name(enc->checksum_policy));
     compress_flags= SRL_ENC_HAVE_OPTION(enc, SRL_F_COMPRESS_FLAGS_MASK);
 
     if (expect_false(compress_flags))
@@ -1755,7 +1778,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
         srl_fixup_weakrefs(aTHX_ enc);
     }
 
-    if (enc->checksum_key_mask)
+    if (enc->checksum_key_set)
         srl_protect_packet(aTHX_ enc);
 
     /* NOT doing a

@@ -81,13 +81,13 @@ subtest "compressed output" => sub {
 
 subtest "checksummed input (protocol v6)" => sub {
     my $data = [ { a => 1 }, { b => 2 } ];
-    my $doc = Sereal::Encoder->new({ checksum_v2_key => $key })->encode($data);
+    my $doc = Sereal::Encoder->new({ checksum_key_v3 => $key })->encode($data);
 
-    is_deeply(scalar resplit($doc, checksum_v2_key => $key, checksum_policy => 'die'), $data, "verified and split");
+    is_deeply(scalar resplit($doc, checksum_key_v3 => $key, checksum_policy => 'die'), $data, "verified and split");
 
     my $tampered = $doc;
     substr($tampered, -1, 1) ^= "\x01";
-    ok(!eval { resplit($tampered, checksum_v2_key => $key, checksum_policy => 'die'); 1 },
+    ok(!eval { resplit($tampered, checksum_key_v3 => $key, checksum_policy => 'die'); 1 },
        "tampered input is rejected");
     like($@, qr/checksum verification failed/, "with the checksum error");
 
@@ -95,6 +95,16 @@ subtest "checksummed input (protocol v6)" => sub {
     my @warnings = warnings_of(sub { local $Sereal::DefaultKey; $elements = resplit($doc) });
     is_deeply($elements, $data, "split without a key under the default policy");
     like("@warnings", qr/without authentication/, "and warned about it");
+
+    my $generic_doc = Sereal::Encoder->new({ checksum_key => $key, checksum_mode => 'v3' })
+        ->encode($data);
+    is_deeply(scalar resplit($generic_doc,
+        checksum_key => $key, checksum_mode => 'none', checksum_policy => 'require_v2'),
+        $data, 'reader uses document mode and honors the minimum policy');
+    my $weaker = Sereal::Encoder->new({ checksum_key_v1 => $key })->encode([ 'weaker' ]);
+    ok(!eval { scalar resplit($weaker, checksum_key => $key, checksum_policy => 'require_v2'); 1 },
+        'reader rejects a checksum below its minimum');
+    like($@, qr/requires checksum mode v2 or higher/, 'minimum error identifies the required level');
 };
 
 subtest "UNDEF_DEADLY must not be emitted" => sub {

@@ -7,12 +7,16 @@ from the the Encoder and Decoder changelogs:
    * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
 
 ****************************************************************
-* Warning: For a seamless upgrade, upgrade to version 5        *
-*          of the decoder before upgrading to version 5 of the *
-*          encoder! This may mean you should NOT install the   *
-*          Sereal package and instead install the Encoder or   *
-*          Decoder independently.                              *
+* Sereal 6 is a major release. For a site-wide rollout, upgrade *
+* Sereal::Decoder to version 6 on every node first. Verify the   *
+* Decoder rollout is complete before upgrading Sereal::Encoder  *
+* to version 6 anywhere in the fleet. Encoder 6 can emit v6     *
+* packets, which require Decoder 6 to read.                     *
 ****************************************************************
+6.000_003
+    * Build and test fixes, including compatibility corpus tests.
+    * Improve checksum configuration and argument processing.
+
 6.000_002
     * Handle VSTRING properly, NEG_VARINT for negative ints, add CHECKSUM support, robustness fixes
 

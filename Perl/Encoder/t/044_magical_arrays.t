@@ -19,7 +19,8 @@ sub run_child {
     die "fork failed: $!" if !defined $pid;
     if ( !$pid ) {
         open( STDERR, '>&', \*STDOUT ) or die "dup STDERR failed: $!";
-        exec( $^X, '-Mblib', '-Mblib=../Decoder/blib', '-e', $code )
+        my @decoder_blib = -d '../Decoder/blib' ? ('-Mblib=../Decoder') : ();
+        exec( $^X, '-Mblib', @decoder_blib, '-e', $code )
             or die "exec failed: $!";
     }
     my $output = do { local $/; <$fh> };

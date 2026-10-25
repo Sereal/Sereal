@@ -9,7 +9,7 @@ BEGIN {
         if !-d 't';
 }
 
-use Sereal::TestSet qw(:all);
+use Sereal::TestSet::Corpus qw(read_packet);
 use Test::More tests => 3;
 use Sereal::Decoder;
 
@@ -19,29 +19,16 @@ use Sereal::Decoder;
 # Snappy compression was broken by assuming remaining document length
 # is the same as compressed-data-length.
 
-SKIP: {
-    my $have_enc = have_encoder_and_decoder();
-    if ( not $have_enc ) {
-        skip "Need encoder for Snappy regression tests", 3;
-    }
-    else {
-        require Sereal::Encoder;
+my $corpus = File::Spec->catdir( 't', 'data', 'packet_corpus' );
+my $decoder = Sereal::Decoder->new();
+my $single = read_packet( $corpus, 'decoder-features', 'issue15/single' );
+my $joined = read_packet( $corpus, 'decoder-features', 'issue15/concatenated' );
 
-        my $encoder = Sereal::Encoder->new( { snappy_incr => 1, snappy_threshold => 1 } );
-        my $decoder = Sereal::Decoder->new();
+# Establish base behaviour from an Encoder-generated corpus packet.
+is( $decoder->decode($single), 'foo', 'normal decode' );
 
-        # establish base behaviour
-        ok( $decoder->decode( $encoder->encode("foo") ), 'normal decode' );
-
-        # build test string with data after first document
-        my $str;
-        foreach my $i ( 0 .. 1 ) {
-            $str .= $encoder->encode("foo");
-        }
-
-        ok( _decode_with_offset( $str, $decoder ), 'decode with offset' );
-    }
-}    # end SKIP block
+# Decode concatenated packets and verify decode_with_offset advances correctly.
+is_deeply( _decode_with_offset( $joined, $decoder ), [ 'foo', 'foo' ], 'decode with offset' );
 
 sub _decode_with_offset {
     my ( $value, $decoder ) = @_;

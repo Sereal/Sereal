@@ -11,18 +11,9 @@ BEGIN {
         if !-d 't';
 }
 
-use Sereal::TestSet qw(:all);
+use Sereal::TestSet qw(run_roundtrip_version_tests);
 use Test::More;
 
-my $version;
-
-my $ok = have_encoder_and_decoder();
-if ( not $ok ) {
-    plan skip_all => 'Did not find right version of encoder';
-}
-else {
-    run_roundtrip_tests("plain");
-}
-
+run_roundtrip_version_tests('plain');
 pass();
 done_testing();

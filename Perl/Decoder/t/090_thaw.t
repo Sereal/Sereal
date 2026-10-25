@@ -12,11 +12,8 @@ BEGIN {
 use Test::More;
 use Sereal::TestSet qw(:all);
 use Sereal::Decoder qw(decode_sereal);
+use Sereal::TestSet::Corpus qw(read_packet);
 use Data::Dumper;
-
-if ( !have_encoder_and_decoder() ) {
-    plan skip_all => 'Did not find right version of encoder';
-}
 
 my $last_thaw_arg;
 {
@@ -40,8 +37,7 @@ my $last_thaw_arg;
     }
 }
 
-my $encoder_plain  = Sereal::Encoder->new();
-my $encoder_freeze = Sereal::Encoder->new( { freeze_callbacks => 1 } );
+my $corpus = File::Spec->catdir(qw(t data packet_corpus));
 
 sub strip_white {
     my $s = $_[0];
@@ -84,14 +80,16 @@ my @test_data = ( {
     },
 );
 
-for my $data (@test_data) {
+for my $index ( 0 .. $#test_data ) {
+    my $data = $test_data[$index];
+    my $plain = read_packet( $corpus, 'decoder-features', 'thaw/090/plain/' . ( $index + 1 ) );
+    my $freeze = read_packet( $corpus, 'decoder-features', 'thaw/090/freeze/' . ( $index + 1 ) );
     ok no_warnings {
-        decode_sereal( $encoder_plain->encode( $data->{data} ) );
+        decode_sereal($plain);
     }, "Plain round-trip on $data->{description}";
 
     ok no_warnings {
-        my $encoded = $encoder_freeze->encode( $data->{data} );
-        decode_sereal($encoded);
+        decode_sereal($freeze);
     }, "FREEZE/THAW round-trip on $data->{description}";
 }
 my $want = strip_white(<<'EOF_THAW_ARG');
@@ -111,7 +109,7 @@ $VAR1 = bless(
 );
 EOF_STRUCT
 my $decoded = decode_sereal(
-    $encoder_freeze->encode( $test_data[-1]{data} ),
+    read_packet( $corpus, 'decoder-features', 'thaw/090/freeze/5' ),
     { no_thaw_objects => 1 } );
 is(
     strip_white( Dumper($decoded) ),
@@ -122,7 +120,7 @@ $want = strip_white(<<'EOF_STRUCT');
 $VAR1 = bless( { 'pattern' => {} }, 'Matcher' );
 EOF_STRUCT
 $decoded = decode_sereal(
-    $encoder_freeze->encode( $test_data[-1]{data} ),
+    read_packet( $corpus, 'decoder-features', 'thaw/090/freeze/5' ),
     { no_thaw_objects => 0, no_bless_objects => 1 } );
 is(
     strip_white( Dumper($decoded) ),
@@ -133,7 +131,7 @@ $want = strip_white(<<'EOF_STRUCT');
 $VAR1 = bless( [ [ {} ], '22', 'Matcher' ], 'Sereal::Decoder::THAW_args' );
 EOF_STRUCT
 $decoded = decode_sereal(
-    $encoder_freeze->encode( $test_data[-1]{data} ),
+    read_packet( $corpus, 'decoder-features', 'thaw/090/freeze/5' ),
     { no_bless_objects => 1 } );
 is(
     strip_white( Dumper($decoded) ),

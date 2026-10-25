@@ -109,7 +109,9 @@ srl_read_backref_offset(pTHX_ srl_decoder_t *dec, const char *errstr)
 SRL_STATIC_INLINE SV *srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char * const tag_name);
 
 /* these three are "Public" */
-srl_decoder_t *srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options);  /* constructor - called from ->new() */
+srl_decoder_t *srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
+                                        const U8 *known_option_heads,
+                                        const U8 *known_option_next); /* constructor */
 void srl_destroy_decoder(pTHX_ srl_decoder_t *dec);                 /* destructor  - called from ->DESTROY() */
 void srl_decoder_destructor_hook(pTHX_ void *p);                    /* destructor hook - called automagically */
 
@@ -211,13 +213,25 @@ srl_ptable_debug_dump(pTHX_ PTABLE_t *tbl)
     PTABLE_debug_dump(tbl, srl_ptable_debug_callback);
 }
 
-#define my_hv_fetchs(he,val,opt,idx) STMT_START {                   \
-    he = hv_fetch_ent(opt, options[idx].sv, 0, options[idx].hash);  \
-    if (he)                                                         \
-        val= HeVAL(he);                                             \
-    else                                                            \
-        val= NULL;                                                  \
-} STMT_END
+static U32
+srl_decoder_option_id(pTHX_ sv_with_hash *options, U32 option_count,
+                      const U8 *known_option_heads, const U8 *known_option_next,
+                      U32 key_hash, const char *key_bytes, STRLEN key_len)
+{
+    U8 indexed = known_option_heads[key_hash & (SRL_OPTION_INDEX_BUCKETS - 1)];
+    while (indexed) {
+        U32 option_id = (U32)indexed - 1;
+        STRLEN known_len;
+        const char *known_bytes;
+        if (options[option_id].hash == key_hash) {
+            known_bytes = SvPV(options[option_id].sv, known_len);
+            if (key_len == known_len && memEQ(key_bytes, known_bytes, key_len))
+                return option_id;
+        }
+        indexed = known_option_next[option_id];
+    }
+    return option_count;
+}
 
 /* Multiple places in this file that want to use srl_read_varint_uv_length
  * but don't have a buffer struct handy. */
@@ -265,65 +279,25 @@ srl_limit_option_uv(pTHX_ SV *val, const char *name)
 /* Builds the C-level configuration and state struct.
  * Construction errors release partially allocated state. */
 srl_decoder_t *
-srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
+srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
+                         const U8 *known_option_heads, const U8 *known_option_next)
 {
     srl_decoder_t *dec;
     SV *val;
-    HE *he;
     U8 checksum_policy = SRL_CHECKSUM_POLICY_VERIFY_IF_AVAILABLE;
     U8 undef_deadly_policy = SRL_UNDEF_DEADLY_UNDEF;
-    SV *checksum_keys[3] = { NULL, NULL, NULL };
-    int key_options_present = 0;
-    U8 version;
-
-    /* Resolve and validate the default before allocating decoder state, so
-     * an invalid environment value cannot leak a partially built decoder.
-     * Explicit options take precedence, including over an invalid default. */
-    val = NULL;
-    if (opt != NULL)
-        my_hv_fetchs(he, val, opt, SRL_DEC_OPT_IDX_CHECKSUM_POLICY);
-    checksum_policy = srl_get_checksum_policy(aTHX_ val);
-    for (version = 0; version <= 2; version++) {
-        val = NULL;
-        he = NULL;
-        if (opt != NULL) {
-            const U32 idx = version == 0 ? SRL_DEC_OPT_IDX_CHECKSUM_V0_KEY
-                          : version == 1 ? SRL_DEC_OPT_IDX_CHECKSUM_V1_KEY
-                                         : SRL_DEC_OPT_IDX_CHECKSUM_V2_KEY;
-            my_hv_fetchs(he, val, opt, idx);
-        }
-        checksum_keys[version] = val;
-        if (he != NULL)
-            key_options_present = 1;
-    }
-    if (!key_options_present) {
-        SV *default_key = get_sv("Sereal::DefaultKey", 0);
-        checksum_keys[0] = checksum_keys[1] = checksum_keys[2] = default_key;
-    }
-    srl_validate_checksum_keys(aTHX_ checksum_keys, checksum_policy);
-
-    val = NULL;
-    if (opt != NULL)
-        my_hv_fetchs(he, val, opt, SRL_DEC_OPT_IDX_UNDEF_DEADLY_POLICY);
-    if (val && SvOK(val)) {
-        STRLEN len;
-        const char *policy = SvPVbyte(val, len);
-        if (memEQs(policy, len, "undef"))
-            undef_deadly_policy = SRL_UNDEF_DEADLY_UNDEF;
-        else if (memEQs(policy, len, "warn"))
-            undef_deadly_policy = SRL_UNDEF_DEADLY_WARN;
-        else if (memEQs(policy, len, "die"))
-            undef_deadly_policy = SRL_UNDEF_DEADLY_DIE;
-        else
-            croak("Invalid undef_deadly_policy; expected 'undef', 'warn', or 'die'");
-    }
+    SV *thaw_allow_classes_value = NULL;
+    SV *checksum_key = NULL;
+    SV *checksum_policy_value = NULL;
+    SV *unknown_option_policy_value = NULL;
+    AV *unknown_option_keys = NULL;
+    SV *alias_smallint_value = NULL;
+    SV *alias_varint_under_value = NULL;
 
     ENTER;
     Newxz(dec, 1, srl_decoder_t);
     SAVEDESTRUCTOR_X(&srl_decoder_destructor_hook, (void *)dec);
 
-    dec->checksum.policy = checksum_policy;
-    dec->undef_deadly_policy = undef_deadly_policy;
     dec->ref_seenhash = PTABLE_new();
     dec->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
      /* 0 == any number for array, hash & string */
@@ -335,50 +309,158 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
     SRL_RDR_CLEAR(&dec->buf);
     dec->pbuf = &dec->buf;
 
-    for (version = 0; version <= 2; version++)
-        srl_checksum_store_key(aTHX_ dec->checksum.keys[version], &dec->checksum.key_mask,
-                               version, checksum_keys[version]);
-
-    /* load remaining options */
-    if (opt != NULL) {
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_REFUSE_SNAPPY);
-        if ( val && SvTRUE(val) )
-            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_SNAPPY);
-
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_REFUSE_ZLIB);
-        if ( val && SvTRUE(val) )
-            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_ZLIB);
-
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_REFUSE_ZSTD);
-        if ( val && SvTRUE(val) )
-            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_ZSTD);
-
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_REFUSE_OBJECTS);
-        if ( val && SvTRUE(val) )
-            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS);
-
-        {
-            int thaw_set = 0;
-            my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_NO_THAW_OBJECTS);
-            if ( val ) {
-                thaw_set= 1;
-                if (SvTRUE(val))
-                    SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NO_THAW_OBJECTS);
-            }
-
-            my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_NO_BLESS_OBJECTS);
-            if ( val && SvTRUE(val) ) {
-                SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS);
-                if (!thaw_set)
-                    SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NO_THAW_OBJECTS);
+    /* Dispatch supplied options by their precomputed IDs. Dependent options
+     * are collected here and resolved after the loop. */
+    {
+        U32 option_id;
+        HE *entry;
+        int no_thaw_set = 0;
+        int no_thaw = 0;
+        int no_bless = 0;
+        if (opt != NULL) {
+            hv_iterinit(opt);
+            while ((entry = hv_iternext(opt))) {
+                SV *key = hv_iterkeysv(entry);
+                STRLEN key_len;
+                const char *key_bytes = SvPV(key, key_len);
+                option_id = srl_decoder_option_id(aTHX_ options, SRL_DEC_OPT_COUNT,
+                                                  known_option_heads, known_option_next,
+                                                  HeHASH(entry), key_bytes, key_len);
+                if (option_id == SRL_DEC_OPT_COUNT) {
+                    if (!unknown_option_keys)
+                        unknown_option_keys = (AV *)sv_2mortal((SV *)newAV());
+                    av_push(unknown_option_keys, newSVsv(key));
+                    continue;
+                }
+                val = HeVAL(entry);
+                switch (option_id) {
+                case SRL_DEC_OPT_IDX_ALIAS_SMALLINT:
+                    alias_smallint_value = val;
+                    break;
+                case SRL_DEC_OPT_IDX_ALIAS_VARINT_UNDER:
+                    alias_varint_under_value = val;
+                    break;
+                case SRL_DEC_OPT_IDX_CHECKSUM_KEY_V1:
+                    srl_set_checksum_key(aTHX_ &checksum_key, val);
+                    break;
+                case SRL_DEC_OPT_IDX_CHECKSUM_KEY_V2:
+                    srl_set_checksum_key(aTHX_ &checksum_key, val);
+                    break;
+                case SRL_DEC_OPT_IDX_CHECKSUM_POLICY:
+                    checksum_policy_value = val;
+                    break;
+                case SRL_DEC_OPT_IDX_CHECKSUM_KEY:
+                    srl_set_checksum_key(aTHX_ &checksum_key, val);
+                    break;
+                case SRL_DEC_OPT_IDX_CHECKSUM_MODE:
+                    /* Accepted for shared Encoder/Decoder configuration. The
+                     * document, not this option, selects the reader algorithm. */
+                    (void)srl_checksum_mode_from_sv(aTHX_ val, "checksum_mode");
+                    break;
+                case SRL_DEC_OPT_IDX_CHECKSUM_KEY_V3:
+                    srl_set_checksum_key(aTHX_ &checksum_key, val);
+                    break;
+                case SRL_DEC_OPT_IDX_UNDEF_DEADLY_POLICY:
+                    if (SvOK(val)) {
+                        STRLEN len;
+                        const char *policy = SvPVbyte(val, len);
+                        if (memEQs(policy, len, "undef"))
+                            undef_deadly_policy = SRL_UNDEF_DEADLY_UNDEF;
+                        else if (memEQs(policy, len, "warn"))
+                            undef_deadly_policy = SRL_UNDEF_DEADLY_WARN;
+                        else if (memEQs(policy, len, "die"))
+                            undef_deadly_policy = SRL_UNDEF_DEADLY_DIE;
+                        else
+                            croak("Invalid undef_deadly_policy; expected 'undef', 'warn', or 'die'");
+                    }
+                    break;
+                case SRL_DEC_OPT_IDX_UNKNOWN_OPTION_POLICY:
+                    unknown_option_policy_value = val;
+                    break;
+                case SRL_DEC_OPT_IDX_DESTRUCTIVE_INCREMENTAL:
+                    if (SvTRUE(val))
+                        SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL);
+                    break;
+                case SRL_DEC_OPT_IDX_MAX_NUM_HASH_ENTRIES:
+                    dec->max_num_hash_entries = srl_limit_option_uv(aTHX_ val, "max_num_hash_entries");
+                    break;
+                case SRL_DEC_OPT_IDX_MAX_RECURSION_DEPTH: {
+                    UV limit = srl_limit_option_uv(aTHX_ val, "max_recursion_depth");
+                    if (limit)
+                        dec->max_recursion_depth = limit;
+                    break;
+                }
+                case SRL_DEC_OPT_IDX_REFUSE_OBJECTS:
+                    if (SvTRUE(val))
+                        SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS);
+                    break;
+                case SRL_DEC_OPT_IDX_REFUSE_SNAPPY:
+                    if (SvTRUE(val))
+                        SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_SNAPPY);
+                    break;
+                case SRL_DEC_OPT_IDX_REFUSE_ZLIB:
+                    if (SvTRUE(val))
+                        SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_ZLIB);
+                    break;
+                case SRL_DEC_OPT_IDX_SET_READONLY:
+                    if (SvTRUE(val))
+                        SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_SET_READONLY);
+                    break;
+                case SRL_DEC_OPT_IDX_SET_READONLY_SCALARS:
+                    if (SvTRUE(val))
+                        SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_SET_READONLY_SCALARS);
+                    break;
+                case SRL_DEC_OPT_IDX_USE_UNDEF:
+                    if (SvTRUE(val))
+                        SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_USE_UNDEF);
+                    break;
+                case SRL_DEC_OPT_IDX_VALIDATE_UTF8:
+                    if (SvTRUE(val))
+                        SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8);
+                    break;
+                case SRL_DEC_OPT_IDX_REFUSE_ZSTD:
+                    if (SvTRUE(val))
+                        SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_ZSTD);
+                    break;
+                case SRL_DEC_OPT_IDX_MAX_NUM_ARRAY_ENTRIES:
+                    dec->max_num_array_entries = srl_limit_option_uv(aTHX_ val, "max_num_array_entries");
+                    break;
+                case SRL_DEC_OPT_IDX_MAX_STRING_LENGTH:
+                    dec->max_string_length = srl_limit_option_uv(aTHX_ val, "max_string_length");
+                    break;
+                case SRL_DEC_OPT_IDX_MAX_UNCOMPRESSED_SIZE:
+                    dec->max_uncompressed_size = srl_limit_option_uv(aTHX_ val, "max_uncompressed_size");
+                    break;
+                case SRL_DEC_OPT_IDX_NO_THAW_OBJECTS:
+                    no_thaw_set = 1;
+                    no_thaw = SvTRUE(val) ? 1 : 0;
+                    break;
+                case SRL_DEC_OPT_IDX_THAW_ALLOW_CLASSES:
+                    thaw_allow_classes_value = val;
+                    break;
+                case SRL_DEC_OPT_IDX_THAW_DENY_ACTION:
+                    if (SvOK(val)) {
+                        STRLEN alen;
+                        char *astr = SvPV(val, alen);
+                        if (memEQs(astr, alen, "raw"))
+                            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_THAW_DENY_RAW);
+                        else if (!memEQs(astr, alen, "croak"))
+                            croak("The 'thaw_deny_action' option must be 'croak' or 'raw'");
+                    }
+                    break;
+                case SRL_DEC_OPT_IDX_NO_BLESS_OBJECTS:
+                    no_bless = SvTRUE(val) ? 1 : 0;
+                    break;
+                default:
+                    croak("Internal error: unhandled Decoder option ID %u", (unsigned int)option_id);
+                }
             }
         }
 
-        /* thaw_allow_classes: only THAW the listed classes. Accepts an array
-         * ref (list of names), a hash ref (keys with a true value) or a code
-         * ref (predicate called with the class name). */
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_THAW_ALLOW_CLASSES);
-        if ( val && SvOK(val) ) {
+        /* Traverse nested allow-lists after the options loop: the allow-list
+         * may be the options hash itself, whose iterator must not be reset. */
+        val = thaw_allow_classes_value;
+        if (val && SvOK(val)) {
             SV *rv = SvROK(val) ? SvRV(val) : NULL;
             if (rv && SvTYPE(rv) == SVt_PVAV) {
                 AV *av = (AV*)rv;
@@ -410,59 +492,36 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
                 dec->thaw_allow_cb = newRV_inc(rv);
             }
             else {
-                croak("The 'thaw_allow_classes' option must be an array ref, "
-                      "hash ref or code ref");
+                croak("The 'thaw_allow_classes' option must be an array ref, hash ref or code ref");
             }
         }
 
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_THAW_DENY_ACTION);
-        if ( val && SvOK(val) ) {
-            STRLEN alen;
-            char *astr = SvPV(val, alen);
-            if (memEQs(astr, alen, "raw"))
-                SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_THAW_DENY_RAW);
-            else if (!memEQs(astr, alen, "croak"))
-                croak("The 'thaw_deny_action' option must be 'croak' or 'raw'");
+        srl_handle_unknown_option_keys(aTHX_ unknown_option_keys, unknown_option_policy_value,
+                                        "Sereal::Decoder", "Sereal::Decoder::UnknownOptionPolicy");
+
+        if (no_thaw)
+            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NO_THAW_OBJECTS);
+        if (no_bless) {
+            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS);
+            if (!no_thaw_set)
+                SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NO_THAW_OBJECTS);
         }
 
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_VALIDATE_UTF8);
-        if ( val && SvTRUE(val) )
-            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8);
+        checksum_policy = srl_get_checksum_policy(
+            aTHX_ checksum_policy_value, "Sereal::Decoder::ChecksumPolicy");
+        if (!checksum_key)
+            checksum_key = srl_get_default_checksum_key(aTHX_ "Sereal::Decoder::DefaultKey");
+        srl_validate_checksum_key(aTHX_ checksum_key, "checksum_key", checksum_policy);
+        srl_validate_checksum_required_key(aTHX_ checksum_key, checksum_policy);
+        dec->checksum.policy = checksum_policy;
+        dec->undef_deadly_policy = undef_deadly_policy;
+        srl_checksum_store_key(aTHX_ dec->checksum.key, &dec->checksum.has_key,
+                               checksum_key, "checksum_key");
 
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_MAX_RECURSION_DEPTH);
-        if (val) {
-            UV limit = srl_limit_option_uv(aTHX_ val, "max_recursion_depth");
-            if (limit)
-                dec->max_recursion_depth = limit;
-        }
-
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_MAX_NUM_HASH_ENTRIES);
-        if (val)
-            dec->max_num_hash_entries = srl_limit_option_uv(aTHX_ val, "max_num_hash_entries");
-
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_MAX_NUM_ARRAY_ENTRIES);
-        if (val)
-            dec->max_num_array_entries = srl_limit_option_uv(aTHX_ val, "max_num_array_entries");
-
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_MAX_STRING_LENGTH);
-        if (val)
-            dec->max_string_length = srl_limit_option_uv(aTHX_ val, "max_string_length");
-
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_MAX_UNCOMPRESSED_SIZE);
-        if (val)
-            dec->max_uncompressed_size = srl_limit_option_uv(aTHX_ val, "max_uncompressed_size");
-
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_DESTRUCTIVE_INCREMENTAL);
-        if ( val && SvTRUE(val) )
-            SRL_DEC_SET_OPTION(dec,SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL);
-
-        /* see if they want us to alias varints, value is an unsigned integer.
-         * setting it to a true value smaller than 16 is the same as
-         * using the "alias_smallint" option. Setting it to a true value larger
-         * than 15 enables aliasing of smallints, and implies "alias_smallint" as
-         * well. */
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_ALIAS_VARINT_UNDER);
-        if ( val && SvTRUE(val)) {
+        /* alias_varint_under implies smallint aliasing; explicit alias_smallint
+         * is used only when the varint threshold did not enable it already. */
+        val = alias_varint_under_value;
+        if (val && SvTRUE(val)) {
             UV max_alias_varint_under = (UV)IV_MAX;
             UV alias_varint_under = SvUV(val);
             UV max_u32 = (UV)(U32)~(U32)0;
@@ -471,58 +530,24 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options)
             max_alias_varint_under -= 16;
             if (expect_false(alias_varint_under > max_alias_varint_under))
                 croak("The 'alias_varint_under' option is too large for the decoder's alias cache");
-            /* if they use this then they automatically imply doing it for
-             * smallint as well */
-            SRL_DEC_SET_OPTION(dec,SRL_F_DECODER_ALIAS_SMALLINT);
-            SRL_DEC_SET_OPTION(dec,SRL_F_DECODER_ALIAS_VARINT);
-            if (alias_varint_under < 16) {
-                /* too small, just enable for SMALLINT (POS/NEG)*/
-                dec->alias_varint_under= 16;
-            } else {
-                /* larger than POS/NEG range, also alias some VARINTs */
-                /* anything smaller than this number will be aliased */
-                dec->alias_varint_under= (IV)alias_varint_under;
-            }
-            /* create the alias cache */
-            dec->alias_cache= newAV();
+            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_ALIAS_SMALLINT);
+            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_ALIAS_VARINT);
+            dec->alias_varint_under = alias_varint_under < 16 ? 16 : (IV)alias_varint_under;
+            dec->alias_cache = newAV();
         }
-        /* they can enable aliasing of SMALLINT's alone */
-        if ( !SRL_DEC_HAVE_OPTION(dec,SRL_F_DECODER_ALIAS_SMALLINT) ) {
-            my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_ALIAS_SMALLINT);
-            if (val && SvTRUE(val))
-            {
-                /* set the flag */
-                SRL_DEC_SET_OPTION(dec,SRL_F_DECODER_ALIAS_SMALLINT);
-                /* create the alias cache */
-                dec->alias_cache= newAV();
-                dec->alias_varint_under=16;
+        else {
+            val = alias_smallint_value;
+            if (val && SvTRUE(val)) {
+                SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_ALIAS_SMALLINT);
+                dec->alias_cache = newAV();
+                dec->alias_varint_under = 16;
             }
         }
 
         if (dec->alias_varint_under) {
-            /* extend it to the right size 16 for NEG,
-             * dec->alias_varint_under is at least 15, and 1 more for zero,
-             * so we allocate enough for POS/NEG as well as for the additional varints*/
             av_extend(dec->alias_cache, 16 + dec->alias_varint_under);
-            AvFILLp(dec->alias_cache)= 16 + dec->alias_varint_under - 1; /* remove 1 as this is $#ary */
+            AvFILLp(dec->alias_cache)= 16 + dec->alias_varint_under - 1;
         }
-
-        /* check if they want us to use &PL_sv_undef for SRL_HEADER_UNDEF
-         * even if this might break referential integrity. */
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_USE_UNDEF);
-        if ( val && SvTRUE(val))
-            SRL_DEC_SET_OPTION(dec,SRL_F_DECODER_USE_UNDEF);
-
-        /* check if they want us to set all SVs readonly. */
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_SET_READONLY);
-        if ( val && SvTRUE(val))
-            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_SET_READONLY);
-
-        /* check if they want us to set normal scalars readonly. */
-        my_hv_fetchs(he,val,opt, SRL_DEC_OPT_IDX_SET_READONLY_SCALARS);
-        if ( val && SvTRUE(val))
-            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_SET_READONLY_SCALARS);
-
     }
     dec->flags_readonly= SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_SET_READONLY ) ? 1 :
                          SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_SET_READONLY_SCALARS) ? 2 :
@@ -1020,7 +1045,7 @@ srl_validate_sereal_checksum(pTHX_ SV *src, SV *key, UV offset)
     /* Key FETCH/stringification can execute Perl code and mutate src. Resolve
      * it before retaining pointers into the packet, and copy the key bytes. */
     if (!key)
-        key = get_sv("Sereal::DefaultKey", 0);
+        key = srl_get_default_checksum_key(aTHX_ "Sereal::Decoder::DefaultKey");
     if (key) {
         SvGETMAGIC(key);
         if (SvOK(key)) {
@@ -1036,7 +1061,7 @@ srl_validate_sereal_checksum(pTHX_ SV *src, SV *key, UV offset)
     if (!srl_checksum_tag_length(envelope.checksum_type))
         SRL_RDR_ERRORf1(&buf, "Unsupported Sereal checksum type %u", envelope.checksum_type);
     if (!has_key)
-        croak("validate_sereal_checksum requires a key or a defined $Sereal::DefaultKey");
+        croak("validate_sereal_checksum requires a key or a defined Decoder or shared default checksum key");
     return srl_checksum_matches(aTHX_ &buf, &envelope, key_bytes);
 }
 
@@ -1080,8 +1105,9 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
         dec->packet_has_checksum = (dec->encoding_flags & SRL_PROTOCOL_ENCODING_CHECKSUM) != 0;
         dec->encoding_flags &= SRL_PROTOCOL_ENCODING_BASE_MASK;
 
-        if (dec->checksum.policy == SRL_CHECKSUM_POLICY_REQUIRE && !dec->packet_has_checksum)
-            SRL_RDR_ERROR(dec->pbuf, "checksum_policy 'require_key' requires a checksummed packet");
+        if (srl_checksum_required_mode(dec->checksum.policy) && !dec->packet_has_checksum)
+            SRL_RDR_ERRORf1(dec->pbuf, "checksum_policy '%s' requires a checksummed packet",
+                            srl_checksum_policy_name(dec->checksum.policy));
 
         if (expect_false(dec->packet_has_checksum && dec->proto_version < 6))
             SRL_RDR_ERROR(dec->pbuf, "Checksummed Sereal documents require protocol version 6 or later");

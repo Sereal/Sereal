@@ -112,34 +112,35 @@ srl_checksum_apply_policy(pTHX_ srl_reader_buffer_t *buf, const srl_checksum_env
 {
     const U8 policy = cfg->policy;
     int known_type, has_key, verify;
-    const int strict = policy == SRL_CHECKSUM_POLICY_DIE
-                    || policy == SRL_CHECKSUM_POLICY_REQUIRE;
+    const int strict = srl_checksum_policy_is_strict(policy);
+    const U8 minimum = srl_checksum_required_mode(policy);
     known_type = srl_checksum_tag_length(envelope->checksum_type) != 0;
-    has_key = known_type && (cfg->key_mask & (U8)(1U << envelope->checksum_type));
+    has_key = known_type && cfg->has_key;
     if (strict && !known_type)
         SRL_RDR_ERRORf1(buf, "Unsupported Sereal checksum type %u", envelope->checksum_type);
+    if (minimum && envelope->checksum_type + 1 < minimum)
+        SRL_RDR_ERRORf2(buf, "checksum_policy '%s' requires checksum mode v%u or higher",
+                        srl_checksum_policy_name(policy), (unsigned int)minimum);
     if (strict && !has_key) {
-        SRL_RDR_ERRORf1(buf, "Checksummed Sereal document requires a '%s'",
-                       srl_checksum_key_option_name(envelope->checksum_type));
+        SRL_RDR_ERROR(buf, "Checksummed Sereal document requires a 'checksum_key'");
     }
     verify = has_key && (policy == SRL_CHECKSUM_POLICY_VERIFY_IF_AVAILABLE || strict);
     if (policy == SRL_CHECKSUM_POLICY_IGNORE_WARN)
         warn("Ignoring Sereal checksum authentication by request");
     else if (policy == SRL_CHECKSUM_POLICY_VERIFY_IF_AVAILABLE && !has_key)
         warn("Decoding checksummed Sereal document without authentication: no matching checksum key is configured");
-    if (verify && !srl_checksum_matches(aTHX_ buf, envelope, cfg->keys[envelope->checksum_type]))
+    if (verify && !srl_checksum_matches(aTHX_ buf, envelope, cfg->key))
         SRL_RDR_ERROR(buf, "Sereal packet checksum verification failed");
 }
 
 /* Store one checksum key, padding or truncating it to 16 bytes with a
- * warning. The policy-specific length checks have already been done by
- * srl_validate_checksum_keys(). An undefined key leaves the slot unset. */
+ * warning. Policy-specific length checks have already been done. */
 SRL_STATIC_INLINE void
-srl_checksum_store_key(pTHX_ U8 key_out[SRL_CHECKSUM_KEY_LENGTH], U8 *key_mask, U8 version, SV *val)
+srl_checksum_store_key(pTHX_ U8 key_out[SRL_CHECKSUM_KEY_LENGTH], U8 *has_key, SV *val,
+                       const char *option_name)
 {
     if (val && SvOK(val)) {
         STRLEN key_len;
-        const char *option_name = srl_checksum_key_option_name(version);
         char *key = SvPVbyte(val, key_len);
         if (key_len != SRL_CHECKSUM_KEY_LENGTH) {
             if (key_len < SRL_CHECKSUM_KEY_LENGTH)
@@ -150,22 +151,19 @@ srl_checksum_store_key(pTHX_ U8 key_out[SRL_CHECKSUM_KEY_LENGTH], U8 *key_mask, 
         Zero(key_out, SRL_CHECKSUM_KEY_LENGTH, U8);
         Copy(key, key_out,
              key_len < SRL_CHECKSUM_KEY_LENGTH ? key_len : SRL_CHECKSUM_KEY_LENGTH, U8);
-        *key_mask |= (U8)(1U << version);
+        *has_key = 1;
     }
 }
 
-/* Load the decoder-compatible checksum options (checksum_policy,
- * checksum_v0_key, checksum_v1_key, checksum_v2_key) from an options hash.
- * Without any key option, $Sereal::DefaultKey supplies all three keys. */
+/* Load the same checksum options and defaults as the Decoder constructor. */
 SRL_STATIC_INLINE void
 srl_checksum_config_from_hv(pTHX_ srl_checksum_config_t *cfg, HV *opt)
 {
     static const char * const key_options[3] = {
-        "checksum_v0_key", "checksum_v1_key", "checksum_v2_key"
+        "checksum_key_v1", "checksum_key_v2", "checksum_key_v3"
     };
-    SV *keys[3] = { NULL, NULL, NULL };
+    SV *checksum_key = NULL;
     SV *policy = NULL;
-    int key_options_present = 0;
     U8 version;
     SV **svp;
 
@@ -173,22 +171,27 @@ srl_checksum_config_from_hv(pTHX_ srl_checksum_config_t *cfg, HV *opt)
         svp = hv_fetchs(opt, "checksum_policy", 0);
         if (svp)
             policy = *svp;
+        svp = hv_fetchs(opt, "checksum_key", 0);
+        if (svp)
+            srl_set_checksum_key(aTHX_ &checksum_key, *svp);
+        svp = hv_fetchs(opt, "checksum_mode", 0);
+        if (svp)
+            (void)srl_checksum_mode_from_sv(aTHX_ *svp, "checksum_mode");
         for (version = 0; version <= 2; version++) {
             svp = hv_fetch(opt, key_options[version], (I32)strlen(key_options[version]), 0);
             if (svp) {
-                keys[version] = *svp;
-                key_options_present = 1;
+                srl_set_checksum_key(aTHX_ &checksum_key, *svp);
             }
         }
     }
-    if (!key_options_present)
-        keys[0] = keys[1] = keys[2] = get_sv("Sereal::DefaultKey", 0);
+    if (!checksum_key)
+        checksum_key = srl_get_default_checksum_key(aTHX_ "Sereal::Decoder::DefaultKey");
 
     Zero(cfg, 1, srl_checksum_config_t);
-    cfg->policy = srl_get_checksum_policy(aTHX_ policy);
-    srl_validate_checksum_keys(aTHX_ keys, cfg->policy);
-    for (version = 0; version <= 2; version++)
-        srl_checksum_store_key(aTHX_ cfg->keys[version], &cfg->key_mask, version, keys[version]);
+    cfg->policy = srl_get_checksum_policy(aTHX_ policy, "Sereal::Decoder::ChecksumPolicy");
+    srl_validate_checksum_key(aTHX_ checksum_key, "checksum_key", cfg->policy);
+    srl_validate_checksum_required_key(aTHX_ checksum_key, cfg->policy);
+    srl_checksum_store_key(aTHX_ cfg->key, &cfg->has_key, checksum_key, "checksum_key");
 }
 
 #endif

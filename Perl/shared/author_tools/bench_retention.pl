@@ -42,7 +42,7 @@ else {
 }
 
 my $encoder =
-    Sereal::Encoder->new( { protocol_version => $protocol_version, checksum_v0_key => undef } );
+    Sereal::Encoder->new( { protocol_version => $protocol_version, checksum_key_v1 => undef } );
 my $bytes = length $encoder->encode($data);    # warm up the reusable encoder
 my @seconds;
 for ( 1 .. $iterations ) {

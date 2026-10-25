@@ -1,0 +1,1 @@
+../../../../../shared/t/lib/Sereal/TestSet/Corpus.pm

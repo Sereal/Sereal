@@ -12,10 +12,11 @@ BEGIN {
 
 use Test::More;
 use Sereal::TestSet qw(:all);
+use Sereal::TestSet::Corpus qw(read_packet);
+use File::Spec;
+use Sereal::Decoder;
 
-if ( !have_encoder_and_decoder() ) {
-    plan skip_all => 'Did not find right version of encoder';
-}
+my $corpus = File::Spec->catdir(qw(t data packet_corpus));
 
 # Two classes with FREEZE/THAW so we can exercise the allow-list.
 {
@@ -31,9 +32,8 @@ if ( !have_encoder_and_decoder() ) {
     sub THAW   { my ( $class, $ser, $n ) = @_; return $class->new($n) }
 }
 
-my $enc          = Sereal::Encoder->new( { freeze_callbacks => 1 } );
-my $allowed_blob = $enc->encode( TA::Allowed->new(11) );
-my $denied_blob  = $enc->encode( TA::Denied->new(22) );
+my $allowed_blob = read_packet( $corpus, 'decoder-features', 'thaw_allow/allowed' );
+my $denied_blob  = read_packet( $corpus, 'decoder-features', 'thaw_allow/denied' );
 
 # 1. No allow-list: everything thaws as before (backwards compatible).
 {
@@ -125,7 +125,7 @@ my $denied_blob  = $enc->encode( TA::Denied->new(22) );
 
 # 8. A structure mixing allowed and disallowed objects.
 {
-    my $mixed = $enc->encode( [ TA::Allowed->new(1), TA::Denied->new(2) ] );
+    my $mixed = read_packet( $corpus, 'decoder-features', 'thaw_allow/mixed' );
 
     my $dec = Sereal::Decoder->new( { thaw_allow_classes => ['TA::Allowed'] } );
     ok(
@@ -142,8 +142,7 @@ my $denied_blob  = $enc->encode( TA::Denied->new(22) );
 
 # 9. Referential integrity: several references to one allowed frozen object.
 {
-    my $a    = TA::Allowed->new(42);
-    my $blob = $enc->encode( [ $a, $a ] );
+    my $blob = read_packet( $corpus, 'decoder-features', 'thaw_allow/refint' );
     my $dec  = Sereal::Decoder->new( { thaw_allow_classes => ['TA::Allowed'] } );
     my $out  = $dec->decode($blob);
     isa_ok( $out->[0], 'TA::Allowed', 'refint: allowed object is thawed' );
@@ -189,8 +188,8 @@ my $denied_blob  = $enc->encode( TA::Denied->new(22) );
     sub THAW   { my ( $c, $ser, $blob ) = @_; return bless { inner => $DEC->decode($blob) }, $c }
 }
 {
-    $TA::Outer::INNER_BLOB = $enc->encode( TA::Inner->new(99) );
-    my $outer_blob = $enc->encode( TA::Outer->new );
+    $TA::Outer::INNER_BLOB = read_packet( $corpus, 'decoder-features', 'thaw_allow/inner' );
+    my $outer_blob = read_packet( $corpus, 'decoder-features', 'thaw_allow/reentrant' );
 
     # TA::Inner is NOT allowed: the nested (cloned) decode must enforce it.
     $TA::Outer::DEC = Sereal::Decoder->new( { thaw_allow_classes => ['TA::Outer'] } );

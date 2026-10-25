@@ -51,7 +51,7 @@ for my $case (
 # decoder and its tables. Valgrind must find no leaked constructor state.
 for my $version ( 0 .. 2 ) {
     my $ok = eval {
-        Sereal::Decoder->new( { "checksum_v${version}_key" => "\x{100}" } );
+        Sereal::Decoder->new( { ( "checksum_key_v" . ( $version + 1 ) ) => "\x{100}" } );
         1;
     };
     ok( !$ok, "wide checksum v$version key is rejected" );
@@ -59,7 +59,7 @@ for my $version ( 0 .. 2 ) {
 
     local $SIG{__WARN__} = sub { die "key warning became an exception\n" };
     $ok = eval {
-        Sereal::Decoder->new( { "checksum_v${version}_key" => 'short' } );
+        Sereal::Decoder->new( { ( "checksum_key_v" . ( $version + 1 ) ) => 'short' } );
         1;
     };
     ok( !$ok, "fatal checksum v$version warning is propagated" );
@@ -91,6 +91,23 @@ for my $version ( 0 .. 2 ) {
     is( decode_sereal( Header(6) . chr(7), $options ), 7, 'functional decoding still works' );
     undef $options;
     ok( !defined $weak, 'successful functional decoding releases its temporary decoder' );
+}
+
+{
+    my $options = { thaw_deny_action => 'raw' };
+    $options->{thaw_allow_classes} = $options;
+    my $decoder = Sereal::Decoder->new($options);
+    delete $options->{thaw_allow_classes}; # Break the test's reference cycle.
+    is($decoder->decode(Header(6) . chr(7)), 7,
+        'allow-list can reuse the options hash without resetting its iterator');
+
+    $options = { unknown_option_policy => 'die', misspelled_option => 1 };
+    $options->{thaw_allow_classes} = $options;
+    eval { Sereal::Decoder->new($options); 1 };
+    my $error = $@;
+    delete $options->{thaw_allow_classes};
+    like($error, qr/Unknown option keys.*misspelled_option/,
+        'self-referential allow-list does not skip the unknown-option policy');
 }
 
 done_testing();

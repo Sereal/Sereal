@@ -38,10 +38,13 @@ sub link_files {
         require File::Find;
         require File::Path;
         require File::Spec;
+        require File::Basename;
+        my $project_root = File::Spec->rel2abs('.');
+        my $shared_root  = File::Spec->rel2abs( $shared_dir, $project_root );
         File::Find::find( {
                 no_chdir => 1,
                 wanted   => sub {
-                    my $f = $_;
+                    my $source_path = $_;
                     s/^\Q$shared_dir\E\/?// or die $_;
                     return unless $_;
                     return if $exclude_tests && m#^/?t/#;
@@ -49,25 +52,27 @@ sub link_files {
                     return if $tests_only    && !m#^/?t/#;
                     return if $bare_minimum  && !exists $bare_minimum_files{$_};
 
-                    if ( -d $f ) {
+                    if ( -d $source_path ) {
                         File::Path::mkpath($_);
                     }
-                    elsif ( -f $f ) {
-                        return if $f =~ /(?:\.bak|\.sw[po]|~)$/;
-                        my @d     = File::Spec->splitdir($_);
-                        my $fname = pop @d;
-                        my $ref   = join "/", ("..") x scalar(@d);
-                        my $subd  = join "/", @d;
-                        chdir $subd if length($ref);
-                        my $srcfname = join( "/", grep length, $ref, $shared_dir, $subd, $fname );
+                    elsif ( -f $source_path ) {
+                        return if $source_path =~ /(?:\.bak|\.sw[po]|~)$/;
+                        my $relative_path = $_;
+                        my $target_path = File::Spec->catfile(
+                            $project_root, File::Spec->splitdir($relative_path)
+                        );
+                        my $source_abs = File::Spec->catfile(
+                            $shared_root, File::Spec->splitdir($relative_path)
+                        );
                         if ( OSNAME eq 'MSWin32' ) {
-                            die "link($srcfname, $fname) failed: $!"
-                                unless link( $srcfname, $fname );    #only NTFS implements it
+                            die "link($source_abs, $target_path) failed: $!"
+                                unless link( $source_abs, $target_path );    #only NTFS implements it
                         }
                         else {
-                            symlink( $srcfname, $fname );
+                            my $target_dir  = File::Basename::dirname($target_path);
+                            my $link_target = File::Spec->abs2rel( $source_abs, $target_dir );
+                            symlink( $link_target, $target_path );
                         }
-                        chdir($ref) if length($ref);
                     }
                 },
             },

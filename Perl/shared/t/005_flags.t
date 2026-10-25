@@ -10,24 +10,19 @@ BEGIN {
         if !-d 't';
 }
 use Sereal::TestSet qw(:all);
+use Sereal::TestSet::Corpus qw(read_packet);
+use Sereal::Decoder;
 
-if ( have_encoder_and_decoder(3.005003) ) {
-    run_tests( "plain",                  {} );
-    run_tests( "no_shared_hk",           { no_shared_hashkeys     => 1 } );
-    run_tests( "dedupe_strings",         { dedupe_strings         => 1 } );
-    run_tests( "aliased_dedupe_strings", { aliased_dedupe_strings => 1 } );
-    done_testing();
-}
-else {
-    plan skip_all => "Did not find right version of encoder/decoder";
-}
+run_tests( "plain",                  {} );
+run_tests( "no_shared_hk",           { no_shared_hashkeys     => 1 } );
+run_tests( "dedupe_strings",         { dedupe_strings         => 1 } );
+run_tests( "aliased_dedupe_strings", { aliased_dedupe_strings => 1 } );
+done_testing();
 
 sub run_tests {
     my ( $extra_name, $opt_hash ) = @_;
-    $opt_hash->{protocol_version} = 3;
-
-    my $encoder = Sereal::Encoder->new($opt_hash);
-    my $decoder = Sereal::Decoder->new($opt_hash);
+    my $decoder = Sereal::Decoder->new;
+    my $corpus = File::Spec->catdir(qw(t data packet_corpus));
 
     # We must recreate these tests each time we run_tests()
     # as the tests we execute actually change the state
@@ -64,8 +59,8 @@ sub run_tests {
 
     foreach my $test ( sort keys %tests ) {
         my $test_name = "$test - $extra_name";
-        my $encoded   = $encoder->encode( $tests{$test} );
-        my $decoded   = $decoder->decode($encoded);
+        my $packet = read_packet( $corpus, 'decoder-features', "flags/$extra_name/$test" );
+        my $decoded = $decoder->decode($packet);
 
         TODO: {
             # we must do this test before we test numeric equivalence

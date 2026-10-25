@@ -11,30 +11,33 @@ BEGIN {
 }
 use Sereal::TestSet qw(:all);
 use Sereal::Decoder;
+use Sereal::TestSet::Corpus qw(read_packet);
 
-if ( have_encoder_and_decoder() ) {
-    plan tests => 1004;
-}
-else {
-    plan skip_all => 'Did not find right version of encoder';
-}
-
-my $e = Sereal::Encoder->new();
+plan tests => 1004;
 my $d = Sereal::Decoder->new();
+my $corpus = File::Spec->catdir( 't', 'data', 'packet_corpus' );
+my @cases = (
+    [ 'each/alpha',      26 ],
+    [ 'each/upper',      26 ],
+    [ 'each/small_nums', 101 ],
+    [ 'each/large_nums', 513 ],
+    [ 'each/distinct',   26 ],
+);
 
-for ( 1 .. 1000, [ 'a' .. 'z' ], [ 'A' .. 'Z' ], [ 0 .. 100 ], [ 10000 .. 10512 ] ) {
-    my %hash;
-    if ( ref $_ ) {
-        $hash{$_}++ for @$_;
-    }
-    else {
-        $hash{ rand() }++ for 1 .. 26;
-    }
-    my $undump = $d->decode( $e->encode( \%hash ) );
+sub check_each {
+    my ( $corpus, $decoder, $name, $expected ) = @_;
+    my $packet = read_packet( $corpus, 'decoder-features', $name );
+    my $undump = $decoder->decode($packet);
     my $count  = 0;
     while ( my ( $h, $k ) = each %$undump ) {
         $count++;
     }
-    is( $count, keys %hash, "Got the expected count of keys: [ @{[ sort keys %hash ]} ]" );
+    is( $count, $expected, "each iterates all keys in $name" );
 }
+
+for ( 1 .. 1000 ) {
+    my $case = $cases[ $_ % @cases ];
+    check_each( $corpus, $d, @$case );
+}
+check_each( $corpus, $d, @{ $cases[$_] } ) for 0 .. 3;
 

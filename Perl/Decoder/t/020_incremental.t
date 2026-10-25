@@ -13,6 +13,7 @@ BEGIN {
 }
 
 use Sereal::TestSet qw(:all);
+use Sereal::TestSet::Corpus qw(read_packet);
 use Test::More tests => 8 + ( 2 * 6 ) + ( 31 * 3 );
 use Sereal::Decoder            qw(decode_sereal);
 use Sereal::Decoder::Constants qw(:all);
@@ -68,47 +69,28 @@ SCOPE: {
     is( $data, '', "Data is gone after incremental parsing utf8 mode" );
 }
 
-SKIP: {
-    my $have_enc = have_encoder_and_decoder();
-    if ( not $have_enc ) {
-        skip "Need encoder for chunk tests", 31 * 3;
-    }
-    else {
-        require Sereal::Encoder;
-        Sereal::Encoder->import( "encode_sereal", "SRL_ZLIB" );
-
-        for my $tuple (
-            [ raw         => [] ],
-            [ snappy_incr => [ { snappy_incr => 1 } ] ],
-            [ zlib        => [ { compress    => SRL_ZLIB() } ] ] )
-        {
-            my ( $name, $opts ) = @$tuple;
-            my $data;
-            my $n = 30;
-            $data .= encode_sereal( $_, @$opts ) for 1 .. $n;
-            my $decoder = Sereal::Decoder->new;
-            my @out;
-            my $pos = 0;
-            my $ok  = eval {
-                while (1) {
-                    push @out, $decoder->decode_with_offset( $data, $pos );
-                    $pos += $decoder->bytes_consumed;
-                    last
-                        if $pos >= length($data)
-                        or not $decoder->bytes_consumed;
-                }
-                1;
-            };
-            my $err = $@ || 'Zombie error';
-            ok( $ok, "incremental decoder ($name) had no hissy fit" )
-                or note( "Error: $err. Data structures decoded up to that point:\n"
-                    . Data::Dumper::Dumper( \@out ) );
-
-            is(
-                $out[ $_ - 1 ], $_,
-                "Decoding multiple packets from single string works ($name: $_)"
-            ) for 1 .. $n;
+my $corpus = File::Spec->catdir(qw(t data packet_corpus));
+for my $name (qw(raw snappy_incr zlib)) {
+    my $data = read_packet( $corpus, 'decoder-features', "incremental/$name" );
+    my $decoder = Sereal::Decoder->new;
+    my @out;
+    my $pos = 0;
+    my $ok  = eval {
+        while (1) {
+            push @out, $decoder->decode_with_offset( $data, $pos );
+            $pos += $decoder->bytes_consumed;
+            last if $pos >= length($data) || !$decoder->bytes_consumed;
         }
-    }
+        1;
+    };
+    my $err = $@ || 'Zombie error';
+    ok( $ok, "incremental decoder ($name) had no hissy fit" )
+        or note( "Error: $err. Data structures decoded up to that point:\n"
+            . Data::Dumper::Dumper( \@out ) );
+
+    is(
+        $out[ $_ - 1 ], $_,
+        "Decoding multiple packets from single string works ($name: $_)"
+    ) for 1 .. 30;
 }
 

@@ -8,8 +8,10 @@ BEGIN { lib->import('lib') if !-d 't' }
 
 use Test::More;
 use Config;
+use File::Spec;
 use Scalar::Util               qw(reftype);
 use Sereal::TestSet            qw(Header varint);
+use Sereal::TestSet::Corpus    qw(read_packet);
 use Sereal::Decoder            qw(decode_sereal);
 use Sereal::Decoder::Constants qw(:all);
 
@@ -148,12 +150,19 @@ decode_fails(
     'FLOAT_128 in v4',
 );
 SKIP: {
-    skip 'this perl was not built with quadmath', 1
+    skip 'this perl was not built with quadmath', 2
         unless ( $Config{usequadmath} || '' ) eq 'define';
+    my $corpus_packet = read_packet(
+        File::Spec->catdir( 't', 'data', 'packet_corpus' ),
+        'quadmath-encoder', 'float128/precision',
+    );
+    is( substr( $corpus_packet, 6, 1 ), chr(SRL_HDR_FLOAT_128),
+        'quadmath corpus packet contains FLOAT_128' );
+    my $expected = 1.000000000000000000000000000001;
     is(
-        decode_sereal( packet( 5, chr(SRL_HDR_FLOAT_128) . ( "\0" x 16 ) ) ),
-        0,
-        'v5 FLOAT_128 decodes a quadmath zero',
+        sprintf( '%.35g', decode_sereal($corpus_packet) ),
+        sprintf( '%.35g', $expected ),
+        'quadmath corpus packet preserves FLOAT_128 precision',
     );
 }
 
