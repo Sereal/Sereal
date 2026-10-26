@@ -151,8 +151,6 @@ jobs:
         perl: ['5.30.3', '5.44.0']
         perl-threaded: [false, true]
     env:
-      PERLBREW_ROOT: ${{ runner.temp }}/perlbrew32
-      PERLBREW_HOME: ${{ runner.temp }}/perlbrew32-home
       SEREAL_USE_BUNDLED_LIBS: '1'
     steps:
       - name: Checkout code
@@ -173,6 +171,8 @@ jobs:
 
       - name: Build 32-bit Perl
         env:
+          PERLBREW_ROOT: ${{ runner.temp }}/perlbrew32
+          PERLBREW_HOME: ${{ runner.temp }}/perlbrew32-home
           SEREAL_CI_PERL_VERSION: ${{ matrix.perl }}
           SEREAL_CI_PERL_THREADED: ${{ matrix.perl-threaded }}
         run: |
