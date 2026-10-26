@@ -140,3 +140,73 @@ jobs:
 
       - name: Build and test
         run: ./travis/perl.sh
+
+  perl-32:
+    name: Perl ${{ matrix.perl }} (32-bit, threaded=${{ matrix.perl-threaded }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        perl: ['5.30.3', '5.44.0']
+        perl-threaded: [false, true]
+    env:
+      PERLBREW_ROOT: ${{ runner.temp }}/perlbrew32
+      PERLBREW_HOME: ${{ runner.temp }}/perlbrew32-home
+      SEREAL_USE_BUNDLED_LIBS: '1'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up bootstrap Perl
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: '5'
+
+      - name: Install 32-bit build tools
+        run: |
+          sudo dpkg --add-architecture i386
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-multilib libc6-dev-i386 libcrypt-dev:i386
+          cpanm --notest App::perlbrew Devel::PatchPerl
+
+      - name: Build 32-bit Perl
+        env:
+          SEREAL_CI_PERL_VERSION: ${{ matrix.perl }}
+          SEREAL_CI_PERL_THREADED: ${{ matrix.perl-threaded }}
+        run: |
+          perlbrew init
+          if [[ "$SEREAL_CI_PERL_THREADED" == true ]]; then
+            thread_flags=(-Dusethreads -Duseithreads)
+          else
+            thread_flags=(-Uusethreads -Uuseithreads)
+          fi
+          if ! perlbrew install --notest -j 2 --as ci-32bit \
+            -Dcc='gcc -m32' -Dld='gcc -m32' \
+            -Dlddlflags='-shared -m32' \
+            -Uuse64bitint -Uuse64bitall \
+            "${thread_flags[@]}" "perl-$SEREAL_CI_PERL_VERSION"; then
+            tail -n 200 "$PERLBREW_ROOT/build.perl-$SEREAL_CI_PERL_VERSION.log"
+            exit 1
+          fi
+          perlbrew install-cpanm
+          printf '%s\n' "$PERLBREW_ROOT/bin" \
+            "$PERLBREW_ROOT/perls/ci-32bit/bin" >> "$GITHUB_PATH"
+
+      - name: Verify 32-bit Perl configuration
+        env:
+          SEREAL_CI_PERL_THREADED: ${{ matrix.perl-threaded }}
+        run: |
+          perl -MConfig -e '
+            for my $size (qw(ptrsize ivsize uvsize)) {
+              die "$size must be 4, got $Config{$size}\n"
+                unless $Config{$size} == 4;
+            }
+            my $threaded = $Config{useithreads} eq "define";
+            die "Unexpected threading configuration\n"
+              unless !!$threaded == ($ENV{SEREAL_CI_PERL_THREADED} eq "true");
+          '
+
+      - name: Build and test
+        run: ./travis/perl.sh

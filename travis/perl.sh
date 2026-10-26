@@ -30,3 +30,8 @@ popd
 pushd Perl/Encoder
 make test
 popd
+
+pushd Perl/Sereal
+perl Makefile.PL
+make test
+popd
