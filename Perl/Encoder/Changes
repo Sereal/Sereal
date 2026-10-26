@@ -14,6 +14,9 @@ Unreleased
     * Preserve regexp character set modifiers and round-trip /n and /xx.
       Upgrade the Decoder before emitting these modifiers. Fixes issue #180.
 
+6.000_004
+    * More build fixes, test fixes, and option processing fixes.
+
 6.000_003
     * Fix builds and tests, including compatibility corpus tests.
     * Improve checksum configuration and policies.

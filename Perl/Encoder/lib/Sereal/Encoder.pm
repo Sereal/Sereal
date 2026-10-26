@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION    = '6.000_003';
+our $VERSION    = '6.000_004';
 our $XS_VERSION = $VERSION; $VERSION = eval $VERSION;
 
 our $ChecksumPolicy;

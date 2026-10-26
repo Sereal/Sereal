@@ -19,6 +19,9 @@ Unreleased
     * Preserve regexp modifiers and reject modifiers unsupported by the
       receiving Perl with a version-specific error. Upgrade the Decoder first.
 
+6.000_004
+    * More build fixes, test fixes, and option processing fixes.
+
 6.000_003
     * Build and test fixes, including compatibility corpus tests.
     * Improve checksum configuration and argument processing.
