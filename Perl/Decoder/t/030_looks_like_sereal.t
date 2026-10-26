@@ -82,6 +82,7 @@ foreach my $t (@tests) {
 
 SKIP: {
     skip "Build test only needs to run on linux", 1 if $^O ne "linux";
+    skip "Test::MemoryGrowth is disabled on Perl 5.30", 1 if $] >= 5.030 && $] < 5.031;
     skip "Test requires Test::MemoryGrowth",      1 if !eval "require Test::MemoryGrowth; 1";
     Test::MemoryGrowth::no_growth(
         sub { looks_like_sereal( doc( 1, 3, 1 ) ) },

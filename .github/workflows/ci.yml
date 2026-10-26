@@ -112,6 +112,7 @@ jobs:
         run: ./travis/java.sh
 
   perl:
+    name: Perl ${{ matrix.perl }} (64bit, ${{ matrix.perl-threaded && 'threaded' || 'unthreaded' }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:
@@ -142,7 +143,7 @@ jobs:
         run: ./travis/perl.sh
 
   perl-32:
-    name: Perl ${{ matrix.perl }} (32-bit, threaded=${{ matrix.perl-threaded }})
+    name: Perl ${{ matrix.perl }} (32bit, ${{ matrix.perl-threaded && 'threaded' || 'unthreaded' }})
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:

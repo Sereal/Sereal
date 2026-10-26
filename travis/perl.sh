@@ -9,7 +9,10 @@ cpanm Test::Differences
 cpanm Test::Exception
 cpanm Test::LongString
 cpanm Test::Warn
-cpanm Test::MemoryGrowth
+# Exclude Test::MemoryGrowth on Perl 5.30, including dependency self-tests.
+if perl -e 'exit($] >= 5.030 && $] < 5.031 ? 1 : 0)'; then
+    cpanm Test::MemoryGrowth
+fi
 
 pushd Perl/Decoder
 perl Makefile.PL
