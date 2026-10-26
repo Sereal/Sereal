@@ -7,6 +7,7 @@ use lib File::Spec->catdir(qw(t lib));
 BEGIN { lib->import('lib') if !-d 't' }
 
 use Test::More;
+use Config;
 use Sereal::Decoder;
 use File::Spec;
 use Sereal::TestSet::Corpus qw(read_packet);
@@ -27,16 +28,20 @@ my $zlib_2_53 = $SRL_MAGIC . chr(0x36) . chr(0) . "\x80\x80\x80\x80\x80\x80\x80\
 
 # v6, type 4 = zstd, empty header suffix; compressed size varint, then a
 # zstd frame header (single segment, 8-byte content size) declaring 2^53.
-my $zstd_frame = "\x28\xB5\x2F\xFD" . "\xE0" . pack( "Q<", 2**53 );
+my $zstd_frame = "\x28\xB5\x2F\xFD" . "\xE0" . pack( "V2", 0, 2**21 );
 my $zstd_2_53  = $SRL_MAGIC . chr(0x46) . chr(0) . chr( length $zstd_frame ) . $zstd_frame;
 
 sub decode_in_child {
     my ( $packet, $opts ) = @_;
     my $code = sprintf( <<'CODE', unpack( "H*", $packet ), $opts || '' );
 use Sereal::Decoder;
+use Config;
 my $packet = pack("H*", "%s");
+my $expected_error = $Config{uvsize} < 8
+    ? qr/too large for this platform|varint (?:too big|overflows U32)/
+    : qr/Insufficient memory|too large for this platform/;
 eval { Sereal::Decoder->new({%s})->decode($packet) };
-print $@ =~ /Insufficient memory|too large for this platform/ ? "caught\n" : "unexpected: $@\n";
+print $@ =~ $expected_error ? "caught\n" : "unexpected: $@\n";
 CODE
     my $out = '';
     my $pid = open( my $fh, '-|' ) // die "fork failed: $!";
@@ -74,11 +79,15 @@ foreach my $case (
         Sereal::Decoder->new( { max_uncompressed_size => 1024 } )->decode($packet);
         1;
     };
+    my $error = $@;
     ok( !$ok, "$name: rejected by max_uncompressed_size" );
-    like(
-        $@, qr/expected uncompressed size is larger than the allowed maximum/,
-        "$name: max_uncompressed_size error message"
-    );
+    # A 32-bit decoder rejects the size before it can compare it with the
+    # configured limit: zlib's varint overflows UV, and zstd's size overflows
+    # STRLEN/size_t. Both are controlled rejections, not allocation failures.
+    my $expected_error = $Config{uvsize} < 8
+        ? ( $name =~ /^zlib/ ? qr/varint (?:too big|overflows U32)/ : qr/too large for this platform/ )
+        : qr/expected uncompressed size is larger than the allowed maximum/;
+    like( $error, $expected_error, "$name: size rejected before allocation" );
 }
 
 my $data = { a => [ ( "x" x 100 ) x 10 ] };

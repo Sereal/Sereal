@@ -5,6 +5,7 @@ use warnings;
 use Exporter qw(import);
 use File::Path qw(mkpath remove_tree);
 use File::Spec;
+use Config;
 
 our @EXPORT_OK = qw(
     write_packet_set read_packet has_source packet_names remove_sources
@@ -41,6 +42,23 @@ sub _write_file {
 
 sub _pack_path { return File::Spec->catfile( $_[0], 'corpus.pack' ) }
 
+# The archive uses an eight-byte little-endian offset even on Perls without
+# native 64-bit integers, where pack/unpack's Q template is unavailable.
+sub _pack_offset {
+    my ($offset) = @_;
+    die 'Corpus offset exceeds the native integer range'
+        if $Config{uvsize} < 8 && $offset > 4294967295;
+    return pack( 'V2', $offset, $Config{uvsize} >= 8 ? $offset >> 32 : 0 );
+}
+
+sub _unpack_offset {
+    my ($bytes) = @_;
+    my ( $low, $high ) = unpack 'V2', $bytes;
+    die 'Corpus offset exceeds the native integer range'
+        if $Config{uvsize} < 8 && $high;
+    return $high ? ( $high << 32 ) | $low : $low;
+}
+
 sub _load_pack_index {
     my ($root) = @_;
     my $path = _pack_path($root);
@@ -52,7 +70,7 @@ sub _load_pack_index {
     open my $fh, '<:raw', $path or die "Failed to read '$path': $!";
     read( $fh, my $header, 16 ) == 16 or die "Truncated corpus header in '$path'";
     die "Invalid corpus magic in '$path'" unless substr( $header, 0, 8 ) eq "SRLPC02\n";
-    my $index_offset = unpack 'Q<', substr( $header, 8, 8 );
+    my $index_offset = _unpack_offset( substr( $header, 8, 8 ) );
     seek( $fh, $index_offset, 0 ) or die "Failed to seek to corpus index in '$path': $!";
     local $/;
     my $text = <$fh>;
@@ -269,7 +287,7 @@ sub pack_corpus {
     my $path = _pack_path($root);
     my $tmp  = "$path.$$";
     open my $out, '>:raw', $tmp or die "Failed to write '$tmp': $!";
-    print {$out} "SRLPC02\n", pack( 'Q<', 0 ) or die "Failed to write corpus header: $!";
+    print {$out} "SRLPC02\n", _pack_offset(0) or die "Failed to write corpus header: $!";
     my %packet_offsets;
     for my $hash ( sort keys %packets ) {
         my $packet_path = File::Spec->catfile( $root, 'packets', "$hash.srl" );
@@ -291,7 +309,7 @@ sub pack_corpus {
     }
     print {$out} $index or die "Failed to write corpus index: $!";
     seek( $out, 8, 0 ) or die "Failed to seek to corpus header: $!";
-    print {$out} pack( 'Q<', $index_offset ) or die "Failed to update corpus index offset: $!";
+    print {$out} _pack_offset($index_offset) or die "Failed to update corpus index offset: $!";
     close $out or die "Failed to close '$tmp': $!";
     rename $tmp, $path or die "Failed to rename '$tmp' to '$path': $!";
 

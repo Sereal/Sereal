@@ -813,7 +813,7 @@ sub encoder_required {
 sub _get_roundtrip_tests {
     my @ScalarRoundtripTests = (
 
-        # name, structure
+        # name, structure, optional minimum UV width for stored integer fixtures
         [ "undef",                           undef ],
         [ "small int",                       3 ],
         [ "small negative int",              -8 ],
@@ -826,7 +826,12 @@ sub _get_roundtrip_tests {
         [ "negative int -33",                -33 ],
 
         (
-            map { [ "integer: $_", 0 + $_ ] } (
+            # The stored corpus encodes these as integers on a 64-bit Perl.
+            # A native 32-bit live encoder can instead use a floating value.
+            map {
+                [ "integer: $_", 0 + $_,
+                    $_ < -2147483648 || $_ > 4294967295 ? 64 : 32 ]
+            } (
 
                 # IV bounds of 8 bits
                 -1, 0, 1, -127, -128, -129, 42, 126, 127, 128, 129, 254, 255, 256, 257,
@@ -1018,7 +1023,7 @@ sub _get_roundtrip_tests {
         [ "escaped string",    "\\012\345\267\145123\\277ABC\\x{DF}456" ],
         [ "more escapes",      "\\0123\0124" ],
         [ "ref to undef",      \undef ],
-        [ "negative big num",  -4123456789 ],
+        [ "negative big num",  -4123456789, 64 ],
         [ "positive big num",  4123456789 ],
         [ "eng-ref",           [ \$eng0e0, \$eng0e1, \$eng2 ] ],
         [ "undef",             [ \undef,   \undef ] ],
@@ -1056,14 +1061,14 @@ sub _get_roundtrip_tests {
             [ { foo => 1 }, { foo => 2 } ]
         ],
 
-        ( map { [ "scalar ref to " . $_->[0],        ( \( $_->[1] ) ) ] } @ScalarRoundtripTests ),
-        ( map { [ "nested scalar ref to " . $_->[0], ( \\( $_->[1] ) ) ] } @ScalarRoundtripTests ),
-        ( map { [ "array ref to " . $_->[0],         ( [ $_->[1] ] ) ] } @ScalarRoundtripTests ),
-        ( map { [ "hash ref to " . $_->[0], ( { foo => $_->[1] } ) ] } @ScalarRoundtripTests ),
+        ( map { [ "scalar ref to " . $_->[0],        ( \( $_->[1] ) ), $_->[2] ] } @ScalarRoundtripTests ),
+        ( map { [ "nested scalar ref to " . $_->[0], ( \\( $_->[1] ) ), $_->[2] ] } @ScalarRoundtripTests ),
+        ( map { [ "array ref to " . $_->[0],         ( [ $_->[1] ] ), $_->[2] ] } @ScalarRoundtripTests ),
+        ( map { [ "hash ref to " . $_->[0], ( { foo => $_->[1] } ), $_->[2] ] } @ScalarRoundtripTests ),
 
         # ---
         (
-            map { [ "array ref to duplicate " . $_->[0], ( [ $_->[1], $_->[1] ] ) ] }
+            map { [ "array ref to duplicate " . $_->[0], ( [ $_->[1], $_->[1] ] ), $_->[2] ] }
                 @ScalarRoundtripTests
         ),
         (
@@ -1072,7 +1077,7 @@ sub _get_roundtrip_tests {
                     "AoA of duplicates " . $_->[0],
                     ( [
                             $_->[1], [ $_->[1], $_->[1] ], $_->[1], [ $_->[1], $_->[1], $_->[1] ],
-                            $_->[1] ] ) ]
+                            $_->[1] ] ), $_->[2] ]
             } @ScalarRoundtripTests
         ),
 
@@ -1081,14 +1086,14 @@ sub _get_roundtrip_tests {
             map { [
                     "array ref to aliases " . $_->[0], (
                         sub { \@_ }
-                            ->( $_->[1], $_->[1] ) ) ]
+                            ->( $_->[1], $_->[1] ) ), $_->[2] ]
             } @ScalarRoundtripTests
         ),
         (
             map {
                 [
                     "array ref to scalar refs to same " . $_->[0],
-                    ( [ \( $_->[1] ), \( $_->[1] ) ] ) ]
+                    ( [ \( $_->[1] ), \( $_->[1] ) ] ), $_->[2] ]
             } @ScalarRoundtripTests
         ),
     );
@@ -1201,8 +1206,14 @@ sub run_roundtrip_corpus_tests {
     } );
     my @tests   = _get_roundtrip_tests();
     for my $index ( 0 .. $#tests ) {
-        my ( $name, $expected ) = @{ $tests[$index] };
+        my ( $name, $expected, $required_uv_bits ) = @{ $tests[$index] };
         my $logical_name = roundtrip_corpus_name( $index, $name );
+        if ( $required_uv_bits && 8 * $Config{uvsize} < $required_uv_bits ) {
+            SKIP: {
+                skip( "$name (stored integer requires $required_uv_bits-bit UVs)", 2 );
+            }
+            next;
+        }
         unless ( $available{$logical_name} ) {
             SKIP: {
                 skip( "$name (not included in the compact corpus)", 2 );

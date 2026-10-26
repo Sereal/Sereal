@@ -76,6 +76,7 @@ t/046_shared_key_dedup.t
 t/095_checksum_policy.t
 t/096_build_tools.t
 t/097_checksum_versions.t
+t/098_corpus_portability.t
 t/106_regexp_modifiers.t
 t/110_nobless.t
 t/120_hdr_data.t

@@ -8,6 +8,7 @@ Revision history for Perl extension Sereal-Encoder
 * packets, which require Decoder 6 to read.                     *
 ****************************************************************
 Unreleased
+    * Make the shared packet corpus portable to 32-bit Perls.
     * Include class names in unsupported-type errors and warnings. Fixes #191.
     * Include a self-contained plain-text SECURITY file in release archives. Fixes #305.
     * Preserve regexp character set modifiers and round-trip /n and /xx.

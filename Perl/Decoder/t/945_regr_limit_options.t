@@ -7,6 +7,7 @@ use lib File::Spec->catdir(qw(t lib));
 BEGIN { lib->import('lib') if !-d 't' }
 
 use Test::More;
+use Config;
 use Sereal::TestSet qw(Header);
 use Sereal::Decoder;
 
@@ -25,7 +26,7 @@ my @options = qw(
 );
 
 for my $opt (@options) {
-    for my $bad ( -1, 0.5, 2.5, -0.5, 'lots', 9**9**9 ) {
+    for my $bad ( -1, 0.5, 2.5, -0.5, 'lots', 9**9**9, 2**(8 * $Config{uvsize}) ) {
         my $ok = eval { Sereal::Decoder->new( { $opt => $bad } ); 1 };
         ok( !$ok, "$opt => $bad is refused" );
         like(
@@ -33,7 +34,9 @@ for my $opt (@options) {
             "$opt => $bad: with a clear error"
         );
     }
-    for my $good ( 0, 1, 10, '100', 1e6, 4294967296 ) {
+    my @good = ( 0, 1, 10, '100', 1e6, ~0 );
+    push @good, 4294967296 if $Config{uvsize} >= 8;
+    for my $good (@good) {
         my $ok = eval { Sereal::Decoder->new( { $opt => $good } ); 1 };
         ok( $ok, "$opt => $good is accepted" ) or diag $@;
     }
