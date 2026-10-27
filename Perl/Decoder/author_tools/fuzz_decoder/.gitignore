@@ -1,0 +1,8 @@
+/stage_asan/
+/corpus/
+/corpus_run/
+/fuzz_decode
+crash-*
+oom-*
+timeout-*
+*.log
