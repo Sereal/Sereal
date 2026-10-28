@@ -39,6 +39,12 @@ This repo also contains adjacent projects such as `Path/`, `Merger/`, and `Split
   - `./make_all`
 - Regenerate shared headers/constants and perltidy Perl files:
   - `./clean_regen_and_tidy`
+- Repository-only Decoder fuzz testing:
+  - `author_tools/fuzz_decoder/build.sh`
+  - `author_tools/fuzz_decoder/run.sh -max_total_time=300`
+  - See `author_tools/fuzz_decoder/README.md` for prerequisites. This builds
+    an instrumented Decoder and cleans its normal build. Keep this tool
+    outside the CPAN distribution manifests.
 
 `./make_all` currently does this:
 

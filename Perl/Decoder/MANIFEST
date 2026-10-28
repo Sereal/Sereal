@@ -232,8 +232,3 @@ zstd/Makefile.PL
 zstd/zdict.h
 zstd/zstd.h
 zstd/zstd_errors.h
-author_tools/fuzz_decoder/README.md
-author_tools/fuzz_decoder/build.sh
-author_tools/fuzz_decoder/run.sh
-author_tools/fuzz_decoder/fuzz_decode.c
-author_tools/fuzz_decoder/gen_seeds.pl

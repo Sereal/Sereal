@@ -1114,6 +1114,17 @@ C<Sereal::Decoder> objects will become a reference to undef in the new
 thread. This might change in a future release to become a full clone
 of the decoder object.
 
+=head1 DEVELOPMENT TESTING
+
+The Git repository includes an ASan and libFuzzer harness for Decoder
+in F<Perl/author_tools/fuzz_decoder>. It builds Decoder with sanitizer
+and coverage instrumentation and uses L<Sereal::Encoder> to generate seed
+packets. It is a repository development tool, distributed separately from
+the CPAN modules, and is not run by C<make test>.
+
+See the L<harness README|https://github.com/Sereal/Sereal/tree/main/Perl/author_tools/fuzz_decoder>
+for requirements and build and run instructions.
+
 =head1 BUGS, CONTACT AND SUPPORT
 
 For reporting bugs, please use the github bug tracker at

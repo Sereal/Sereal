@@ -14,7 +14,7 @@
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
-DEC="$HERE/../.."                 # Perl/Decoder
+DEC="$HERE/../../Decoder"         # Perl/Decoder
 STAGE="$HERE/stage_asan"
 CLANG=${CLANG:-clang}
 

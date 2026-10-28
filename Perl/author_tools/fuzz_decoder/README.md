@@ -4,6 +4,10 @@ A coverage-guided, in-process fuzzer for the decode path (protocol v1–v6,
 including the v6 keyed-checksum envelope and all four compressors). Intended as
 an independent memory-safety signal to run before a release.
 
+This tool lives in `Perl/author_tools/fuzz_decoder` in the Git repository.
+It is not included in the Encoder or Decoder CPAN distributions and is not
+run by `make test`. The target is Decoder; Encoder generates seed packets.
+
 ## How it works
 
 `fuzz_decode.c` embeds a Perl interpreter and loads an **ASan + SanitizerCoverage
@@ -31,9 +35,16 @@ offset, checksum and decompression paths are being exercised.
 ## Use
 
 ```sh
+cd Perl/author_tools/fuzz_decoder    # from the repository root
 ./build.sh          # builds stage_asan/Decoder.so (ASan+cov) and ./fuzz_decode
 ./run.sh -max_total_time=300    # generates seeds if needed, then fuzzes
 ```
+
+`build.sh` cleans and rebuilds `Perl/Decoder` with ASan and coverage
+instrumentation, installs it under this tool's `stage_asan/`, then cleans
+the Decoder build again. Rebuild Decoder normally before returning to
+ordinary development. Build Encoder separately or provide an installed
+Encoder for seed generation.
 
 `run.sh` passes any extra args through to libFuzzer and sets the `ASAN_OPTIONS`
 described below. To inspect which decoder functions a corpus reaches:

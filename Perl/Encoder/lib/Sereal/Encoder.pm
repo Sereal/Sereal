@@ -1234,6 +1234,17 @@ L<https://github.com/Sereal/Sereal/security/policy>. Report suspected
 vulnerabilities through
 L<https://github.com/Sereal/Sereal/security/advisories/new>.
 
+=head1 DEVELOPMENT TESTING
+
+The Git repository includes an ASan and libFuzzer harness for
+L<Sereal::Decoder> in F<Perl/author_tools/fuzz_decoder>. It uses Encoder
+to generate seed packets and builds Decoder with sanitizer and coverage
+instrumentation. It is a repository development tool, distributed separately
+from the CPAN modules, and is not run by C<make test>.
+
+See the L<harness README|https://github.com/Sereal/Sereal/tree/main/Perl/author_tools/fuzz_decoder>
+for requirements and build and run instructions.
+
 =head1 BUGS, CONTACT AND SUPPORT
 
 For reporting bugs, please use the github bug tracker at
