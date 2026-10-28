@@ -156,6 +156,26 @@ Guidelines:
   - older Perl compatibility, especially 5.8-era constraints still reflected in the codebase
 - Existing tests such as `Decoder/t/195_backcompat.t` and files under `shared/t/700_roundtrip/` are important indicators of compatibility expectations.
 
+### Mixed-version tests before release
+
+- Before releasing, test the generated distribution archives in isolated
+  directories outside this checkout. Source-repo `blib` wiring can hide
+  dependencies on the matching development Encoder or Decoder.
+- Test Decoder with no Encoder installed, with the previous stable Encoder,
+  and with the matching release Encoder. Test Encoder with its minimum
+  supported Decoder and with the matching release Decoder. Respect declared
+  prerequisites; do not require an older Decoder to read newer protocols.
+- Keep Decoder coverage running when Encoder is absent or too old for a
+  feature or protocol. Use checked-in packet corpus input from a capable
+  Encoder, plus hand-built wire packets where appropriate. Gate only the
+  optional live Encoder round trips on the version that implements the
+  behavior under test; loading successfully is not a capability check.
+- When adding Encoder-dependent tests, add or regenerate the corresponding
+  corpus fixtures and verify the old/absent Encoder paths before release.
+  Test every protocol the suite requests without asking an older Encoder
+  to emit an unsupported protocol. Record the module pairings and results
+  alongside the normal release validation.
+
 ## Editing guidance
 
 - Keep changes narrow and local when possible.

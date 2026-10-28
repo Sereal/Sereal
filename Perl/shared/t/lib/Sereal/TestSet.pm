@@ -85,6 +85,7 @@ our @EXPORT_OK = qw(
     integer short_string varint read_varint_at array array_fbit checksum_tag
     hash dump_bless
     have_encoder_and_decoder
+    regexp_modifier_test_cases
     check_for_dependency_issues
     run_roundtrip_tests
     run_roundtrip_version_tests
@@ -736,6 +737,38 @@ sub setup_tests {
                     short_string("1") ]
             ),
         ],
+    );
+}
+
+sub regexp_modifier_test_cases {
+    # First stable releases: /msix are present in Perl 5.000, /p is 5.10,
+    # /dluaa is 5.14, /n is 5.22 and /xx is 5.26. Check the development
+    # introductions too: a reserved flag bit does not imply working /xx.
+    # Perl origin/blead commits: 87e95b7ff3 (/p), 94b03d7d32 (charset
+    # suffixes), 41d7c59e80 (/n), and 77c8f26370 (/xx).
+    my $charset       = $] >= 5.013010;
+    my $nocapture     = $] >= 5.021008;
+    my $extended_more = $] >= 5.025009;
+    return (
+        [ 'm',         '^b',           "a\nb",     1, 1 ],
+        [ 's',         'a.b',          "a\nb",     1, 1 ],
+        [ 'i',         'a',            'A',        1, 1 ],
+        [ 'x',         'a b',          'ab',       1, 1 ],
+        [ 'p',         'a',            'a',        1, $] >= 5.010 ],
+        [ 'd',         '\\w',          "\xe9",     0, $charset ],
+        [ 'u',         '\\w',          "\xe9",     1, $charset ],
+        [ 'ui',        'foo\\xdf',     'fooss',    1, $charset ],
+        [ 'l',         '[[:alpha:]]',  'a',        1, $charset ],
+        [ 'a',         '\\w',          "\xe9",     0, $charset ],
+        [ 'ai',        'k',            "\x{212a}", 1, $charset ],
+        [ 'aai',       'k',            "\x{212a}", 0, $charset ],
+        [ 'n',         '(a)',          'a',        1, $nocapture ],
+        [ 'xx',        '[ a]',         ' ',        0, $extended_more ],
+        [ 'xx',        '[ a]',         'a',        1, $extended_more ],
+        [ 'xxx',       '[ a]',         ' ',        0, $extended_more ],
+        [ 'uimsxnp',   '^(a) . b$',    "A\nb",     1, $charset && $nocapture ],
+        [ 'aaimsxxnp', '^([ a]) . b$', "A\nb",     1, $extended_more ],
+        [ '',          '(?i:a)',       'A',        1, 1 ],
     );
 }
 

@@ -9,7 +9,12 @@ use Sereal::Encoder;
 use Sereal::Encoder::Constants qw(SRL_HDR_FLOAT_128);
 use Sereal::Decoder;
 use Scalar::Util qw(weaken);
+use Sereal::TestSet qw(regexp_modifier_test_cases);
 use Sereal::TestSet::Corpus qw(write_packet_set prune_unreferenced unpack_corpus pack_corpus);
+
+# Regenerate only with an Encoder and Perl supporting the full modifier matrix.
+die "Regexp modifier corpus generation requires Perl 5.26 or later\n" if $] < 5.026;
+Sereal::Encoder->VERSION('6.000004');
 
 my %packets;
 my $root = File::Spec->catdir( 't', 'data', 'packet_corpus' );
@@ -384,5 +389,19 @@ if ( ( $Config{usequadmath} || '' ) eq 'define' ) {
     );
     print "Wrote quadmath-encoder manifest $quadmath_manifest\n";
 }
+my %regexp_packets;
+for my $version (1 .. 6) {
+    my $encoder = Sereal::Encoder->new({ protocol_version => $version });
+    for my $case (regexp_modifier_test_cases()) {
+        my ($modifiers, $pattern) = @$case;
+        my $regexp = eval 'qr/' . $pattern . '/' . $modifiers;
+        die "Cannot compile corpus regexp /$pattern/$modifiers: $@" if $@;
+        my $name = "v$version/" . unpack('H*', $modifiers) . '/' . unpack('H*', $pattern);
+        $regexp_packets{$name} = $encoder->encode($regexp);
+    }
+}
+write_packet_set($root, 'regexp-modifiers', Sereal::Encoder->VERSION, \%regexp_packets);
+print "Wrote regexp-modifiers corpus\n";
+
 prune_unreferenced($root);
 pack_corpus($root);

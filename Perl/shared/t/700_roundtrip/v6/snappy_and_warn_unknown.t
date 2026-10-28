@@ -7,6 +7,7 @@ use lib File::Spec->catdir(qw(t lib));
 BEGIN { lib->import('lib') if !-d 't' }
 
 use Test::More;
+use Sereal::TestSet ();
 use Sereal::Decoder;
 use Sereal::Decoder::Constants qw(SRL_PROTOCOL_VERSION_MASK);
 use Sereal::TestSet::Corpus qw(read_packet);

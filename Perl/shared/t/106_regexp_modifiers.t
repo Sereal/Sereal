@@ -3,40 +3,16 @@ use strict;
 use warnings;
 use lib 't/lib';
 use Test::More;
-use Sereal::TestSet qw(Header short_string have_encoder_and_decoder);
+use File::Spec;
+use Sereal::TestSet qw(Header short_string have_encoder_and_decoder regexp_modifier_test_cases);
 use Sereal::Decoder;
+use Sereal::TestSet::Corpus qw(read_packet);
 use re qw(regexp_pattern);
 
-# First stable releases: /msix are present in Perl 5.000, /p is 5.10,
-# /dluaa is 5.14, /n is 5.22 and /xx is 5.26. Check the development
-# introductions too: a reserved flag bit does not imply working /xx.
-# Perl origin/blead commits: 87e95b7ff3 (/p), 94b03d7d32 (charset
-# suffixes), 41d7c59e80 (/n), and 77c8f26370 (/xx).
-my $charset       = $] >= 5.013010;
-my $nocapture     = $] >= 5.021008;
-my $extended_more = $] >= 5.025009;
-my $both          = have_encoder_and_decoder();
-my @cases         = (
-    [ 'm',         '^b',           "a\nb",     1, 1 ],
-    [ 's',         'a.b',          "a\nb",     1, 1 ],
-    [ 'i',         'a',            'A',        1, 1 ],
-    [ 'x',         'a b',          'ab',       1, 1 ],
-    [ 'p',         'a',            'a',        1, $] >= 5.010 ],
-    [ 'd',         '\\w',          "\xe9",     0, $charset ],
-    [ 'u',         '\\w',          "\xe9",     1, $charset ],
-    [ 'ui',        'foo\\xdf',     'fooss',    1, $charset ],
-    [ 'l',         '[[:alpha:]]',  'a',        1, $charset ],
-    [ 'a',         '\\w',          "\xe9",     0, $charset ],
-    [ 'ai',        'k',            "\x{212a}", 1, $charset ],
-    [ 'aai',       'k',            "\x{212a}", 0, $charset ],
-    [ 'n',         '(a)',          'a',        1, $nocapture ],
-    [ 'xx',        '[ a]',         ' ',        0, $extended_more ],
-    [ 'xx',        '[ a]',         'a',        1, $extended_more ],
-    [ 'xxx',       '[ a]',         ' ',        0, $extended_more ],
-    [ 'uimsxnp',   '^(a) . b$',    "A\nb",     1, $charset && $nocapture ],
-    [ 'aaimsxxnp', '^([ a]) . b$', "A\nb",     1, $extended_more ],
-    [ '',          '(?i:a)',       'A',        1, 1 ],
-);
+# Live round trips need the encoder that first preserved these modifiers.
+my $both = have_encoder_and_decoder('6.000004');
+my @cases = regexp_modifier_test_cases();
+my $corpus = File::Spec->catdir('t', 'data', 'packet_corpus');
 my $decoder = Sereal::Decoder->new;
 
 sub check_regexp {
@@ -83,6 +59,9 @@ for my $version ( 1 .. 6 ) {
         is( $@, '', "$name decodes" );
         next if !$decoded;
         check_regexp( $decoded, $original, $text, $matches, "$name wire" );
+        my $fixture = read_packet($corpus, 'regexp-modifiers',
+            "v$version/" . unpack('H*', $modifiers) . '/' . unpack('H*', $pattern));
+        check_regexp($decoder->decode($fixture), $original, $text, $matches, "$name corpus");
         if ($both) {
             my $encoder   = Sereal::Encoder->new( { protocol_version => $version } );
             my $roundtrip = $decoder->decode( $encoder->encode($original) );
