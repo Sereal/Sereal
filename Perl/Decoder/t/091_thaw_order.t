@@ -130,12 +130,16 @@ is_deeply( $dec, $struct, "And the final structures match according to is_deeply
 is( dd($dec), dd($struct), "And the final structures match according to Dumper" );
 
 if ( have_encoder_and_decoder() ) {
-    @steps = ();
-    my $live_packet = Sereal::Encoder::encode_sereal(
-        $struct, { freeze_callbacks => 1, canonical => 1 } );
-    my $live_decoded = decode_sereal($live_packet);
-    is_deeply( \@steps, \@expected_steps, 'live Encoder and Decoder preserve the full FREEZE/THAW sequence' );
-    is_deeply( $live_decoded, $struct, 'live Encoder round-trips the nested object structure' );
+    SKIP: {
+        skip 'Encoder 2.x does not preserve this nested FREEZE traversal order', 2
+            if $Sereal::Encoder::VERSION < 3.0;
+        @steps = ();
+        my $live_packet = Sereal::Encoder::encode_sereal(
+            $struct, { freeze_callbacks => 1, canonical => 1 } );
+        my $live_decoded = decode_sereal($live_packet);
+        is_deeply( \@steps, \@expected_steps, 'live Encoder and Decoder preserve the full FREEZE/THAW sequence' );
+        is_deeply( $live_decoded, $struct, 'live Encoder round-trips the nested object structure' );
+    }
 }
 
 done_testing;

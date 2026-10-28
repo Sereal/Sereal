@@ -13,6 +13,9 @@ Unreleased
     * Restore all Perl regexp matching modifiers, including /n and /xx.
       Report the required Perl version for unsupported modifiers. Fixes #180.
 
+6.000_005
+    * Fix/improve backcompat-test
+
 6.000_004
     * More build fixes, test fixes, and option processing fixes.
 

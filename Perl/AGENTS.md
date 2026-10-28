@@ -176,6 +176,12 @@ Guidelines:
   to emit an unsupported protocol. Record the module pairings and results
   alongside the normal release validation.
 
+- `author_tools/encoder_compat_matrix.pl` runs a persistent, isolated matrix
+  against the latest stable Encoder release in each major (2 and up), plus
+  `main` for the current major. See
+  `author_tools/README.encoder_compat_matrix.md` for selection, workspace,
+  corpus, and failure-reporting behavior.
+
 ## Editing guidance
 
 - Keep changes narrow and local when possible.

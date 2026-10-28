@@ -61,7 +61,7 @@ SKIP: {
 }
 
 my $encoder_probe;
-if ( have_encoder_and_decoder() ) {
+if ( have_encoder_and_decoder() && $Sereal::Encoder::VERSION >= 3.0 ) {
     $encoder_probe = eval q{sub { Sereal::Encoder::sereal_encode_with_object($_[0], $_[1]) }};
     die $@ unless $encoder_probe;
 }

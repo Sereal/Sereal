@@ -1556,6 +1556,15 @@ sub run_roundtrip_tests_internal {
     foreach my $rt (@RoundtripTests) {
         my ( $name, $data ) = @$rt;
 
+        if ( $name =~ /regexp/i && defined($Sereal::Encoder::VERSION)
+            && $Sereal::Encoder::VERSION < 4.025 )
+        {
+            SKIP: {
+                skip( "live Encoder $Sereal::Encoder::VERSION does not preserve regexp references", 5 );
+            }
+            next;
+        }
+
         if ( $failed > 20 ) {
             fail("too many test failures to continue");
             last;
