@@ -13,29 +13,23 @@ from the the Encoder and Decoder changelogs:
 * to version 6 anywhere in the fleet. Encoder 6 can emit v6     *
 * packets, which require Decoder 6 to read.                     *
 ****************************************************************
-Unreleased
-    * Make the shared packet corpus portable to 32-bit Perls.
-    * Include a self-contained plain-text SECURITY file in release archives. Fixes #305.
-    * Preserve regexp modifiers and reject modifiers unsupported by the
-      receiving Perl with a version-specific error. Upgrade the Decoder first.
-
-6.000_005
-    * Fix/improve backcompat-test
-
-6.000_004
-    * More build fixes, test fixes, and option processing fixes.
-
-6.000_003
-    * Build and test fixes, including compatibility corpus tests.
-    * Improve checksum configuration and argument processing.
-
-6.000_002
-    * Handle VSTRING properly, NEG_VARINT for negative ints, add CHECKSUM support, robustness fixes
-
-6.000_001
-    * Introduce support for v-strings and checksums, rework negative number
-      storage and the security policy, and include bug fixes and robustness
-      improvements.
+6.001
+    * Add protocol v6 VSTRING extension tags, NEG_VARINT, and keyed
+      SipHash checksums. Upgrade Decoder to version 6 everywhere before
+      upgrading Encoder or emitting v6 packets.
+    * Add checksum keys, modes, policies, defaults, and checksum helper
+      functions in Encoder and Decoder.
+    * Preserve regexp modifiers, including /n and /xx. Upgrade Decoder
+      before emitting these modifiers.
+    * Ship a SECURITY policy in release archives and improve the protocol
+      specification, build and compatibility tests, and general robustness.
+    * Reported fixes: regexp modifiers
+      (https://github.com/Sereal/Sereal/issues/180 and
+      https://github.com/Sereal/Sereal/issues/262), and unsupported-type
+      diagnostics (https://github.com/Sereal/Sereal/issues/191).
+      Related work: specification
+      (https://github.com/Sereal/Sereal/issues/218) and packaged security
+      policy (https://github.com/Sereal/Sereal/issues/305).
     * Thanks to Matt Koscica and Oz Kaiser (@tatikoma), with assistance from
       Claude Code and Codex.
 
