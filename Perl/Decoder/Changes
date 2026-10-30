@@ -7,6 +7,21 @@ Revision history for Perl extension Sereal-Decoder
 * to version 6 anywhere in the fleet. Encoder 6 can emit v6     *
 * packets, which require Decoder 6 to read.                     *
 ****************************************************************
+6.002
+    * Keep the Decoder alive when a callback clears its handle variable,
+      preventing use-after-free during decoding and cleanup.
+    * Restore builds on older supported Perls without SSize_t_MAX.
+    * Run output DESTROY callbacks before capturing the input buffer on
+      Perl 5.24, matching other supported Perls.
+    * Avoid corrupting regexp buffers during read-only cleanup on Perl 5.14.
+    * Inspect undef aliases without creating writable slots on older Perls.
+      Account for Perl 5.14/5.16's regexp-copy lifetime limitation in tests.
+    * Fix huge-size test expectations for 32-bit Perls with 64-bit integers
+      and format allocation diagnostics with the correct argument types.
+    * Skip only hobodecoder decompression checks when its optional
+      Compress::Zlib dependency is unavailable, and show child errors.
+    * Report the actual missing dependency when skipping t/400_evil.t.
+
 6.001
     * Read protocol v6 VSTRING extension tags, NEG_VARINT, and keyed
       SipHash checksums while retaining support for older packets.

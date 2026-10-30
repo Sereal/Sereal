@@ -8,7 +8,7 @@ use Test::More;
 use Scalar::Util qw(refaddr);
 use IPC::Open3;
 use Symbol                     qw(gensym);
-use Sereal::TestSet            qw(Header varint);
+use Sereal::TestSet            qw(Header varint array_slot_ref);
 use Sereal::TestSet::Corpus    qw(read_packet);
 use Sereal::Decoder            qw(decode_sereal);
 use Sereal::Decoder::Constants qw(:all);
@@ -78,7 +78,7 @@ for my $use_undef ( 0, 1 ) {
     my $value   = Sereal::Decoder->new( { use_undef => $use_undef } )->decode($packet);
     is_deeply( $value, [ undef, undef ], "use_undef=$use_undef decodes a tracked sentinel" );
     is(
-        refaddr( \$value->[0] ), refaddr( \$value->[1] ),
+        refaddr( array_slot_ref($value, 0) ), refaddr( array_slot_ref($value, 1) ),
         'ALIAS targets the original undef scalar'
     );
 }

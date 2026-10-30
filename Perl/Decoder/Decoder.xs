@@ -131,6 +131,9 @@ THX_pp1_sereal_decode(pTHX_ U8 opopt)
     }
 
     decoder = (srl_decoder_t *)SvIV(decoder_sv);
+    /* A callback may clear the variable holding this handle. Retain its
+     * referent, which owns the C decoder, until decode cleanup has run. */
+    SAVEFREESV(SvREFCNT_inc(decoder_sv));
     if (expect_true(opopt & OPOPT_DO_BODY)) {
         if (opopt & OPOPT_DO_HEADER) {
              srl_decode_all_into(aTHX_ decoder, src_sv, header_into,

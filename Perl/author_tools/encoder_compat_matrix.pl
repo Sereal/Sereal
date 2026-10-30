@@ -47,30 +47,42 @@ sub select_refs {
     return { map { $_ => $selected{$_} } sort { $a <=> $b } keys %selected };
 }
 sub existing_branch_worktree {
-    my ($branch, $log) = @_;
-    return undef if !defined $branch;
-    return undef if run_cmd(['git', 'worktree', 'list', '--porcelain'], $ROOT, {}, $log);
+    my ($branch, $log, $root) = @_;
+    $root ||= $ROOT;
+    return () if !defined $branch;
+    die "cannot list worktrees; see $log\n" if run_cmd(['git', 'worktree', 'list', '--porcelain'], $root, {}, $log);
     open my $fh, '<', $log or die $!;
     my ($path, $found);
     while (my $line = <$fh>) {
         chomp $line;
         if ($line =~ /^worktree (.+)$/) { $path = $1 }
-        elsif ($line eq "branch refs/heads/$branch") { $found = $path }
+        elsif ($line eq "branch refs/heads/$branch") {
+            # A stale registration can coexist with its replacement. Prefer
+            # an existing checkout regardless of Git's listing order.
+            $found = $path if !defined($found) || -e File::Spec->catfile($path, '.git');
+        }
     }
     close $fh;
-    return $found;
+    # Temporary workspaces may have been removed without unregistering their
+    # worktrees. Allow Git to replace only that stale branch registration.
+    return ($found, defined($found) && !-e File::Spec->catfile($found, '.git'));
 }
 sub run_cmd {
     my ($cmd, $cwd, $env, $log) = @_;
     my $pid = fork();
     die "fork failed: $!" unless defined $pid;
     if (!$pid) {
-        open STDOUT, '>', $log or die "open $log: $!";
-        open STDERR, '>&STDOUT' or die "redirect stderr: $!";
-        chdir $cwd or die "chdir $cwd: $!";
-        %ENV = (%ENV, %{$env || {}});
-        exec {$cmd->[0]} @$cmd;
-        die "exec $cmd->[0]: $!";
+        # Do not unwind into the caller's matrix-entry eval in the child.
+        eval {
+            open STDOUT, '>', $log or die "open $log: $!";
+            open STDERR, '>&STDOUT' or die "redirect stderr: $!";
+            chdir $cwd or die "chdir $cwd: $!";
+            %ENV = (%ENV, %{$env || {}});
+            exec {$cmd->[0]} @$cmd;
+            die "exec $cmd->[0]: $!";
+        };
+        print STDERR $@;
+        _exit(255);
     }
     waitpid($pid, 0);
     return 255 if $? == -1;
@@ -105,7 +117,35 @@ if ($self_test) {
     my $signal_status = run_cmd([$^X, '-e', 'kill 9, $$'], $ROOT, {}, $signal_log);
     unlink $signal_log;
     die "child signal exit was not reported as failure\n" unless $signal_status == 137;
-    print "selection checks passed\n";
+    my $failure_dir = tempdir('sereal-matrix-child-XXXXXX', TMPDIR => 1, CLEANUP => 1);
+    my $failure_log = File::Spec->catfile($failure_dir, 'failure.log');
+    my $parent = $$;
+    my $setup_status = eval { run_cmd([$^X, '-e', 'exit 0'], File::Spec->catdir($failure_dir, 'missing'), {}, $failure_log) };
+    _exit(42) if $$ != $parent;
+    die "child setup failure was not reported\n" unless $setup_status == 255;
+    my $exec_status = eval { run_cmd([File::Spec->catfile($failure_dir, 'missing-command')], $ROOT, {}, $failure_log) };
+    _exit(42) if $$ != $parent;
+    die "child exec failure was not reported\n" unless $exec_status == 255;
+    my $repo = File::Spec->catdir($failure_dir, 'repo');
+    my $old = File::Spec->catdir($failure_dir, 'old');
+    my $replacement = File::Spec->catdir($failure_dir, 'replacement');
+    make_path($repo);
+    for my $cmd (
+        ['git', 'init', '-q'],
+        ['git', '-c', 'user.name=Matrix self-test', '-c', 'user.email=matrix@example.invalid',
+         'commit', '--allow-empty', '--no-gpg-sign', '-qm', 'Fixture'],
+        ['git', 'worktree', 'add', '-b', 'matrix-test', $old],
+    ) {
+        die "worktree fixture setup failed; see $failure_log\n" if run_cmd($cmd, $repo, {}, $failure_log);
+    }
+    rename $old, "$old-moved" or die "move fixture: $!";
+    my ($existing, $stale) = existing_branch_worktree('matrix-test', $failure_log, $repo);
+    die "missing worktree was not detected\n" unless $existing eq $old && $stale;
+    die "stale worktree replacement failed\n"
+        if run_cmd(['git', 'worktree', 'add', '--force', $replacement, 'matrix-test'], $repo, {}, $failure_log);
+    ($existing, $stale) = existing_branch_worktree('matrix-test', $failure_log, $repo);
+    die "live replacement worktree was not preferred\n" unless $existing eq $replacement && !$stale;
+    print "selection, child-process, and worktree checks passed\n";
     exit 0;
 }
 
@@ -160,12 +200,12 @@ for my $major (sort { $a <=> $b } keys %$refs) {
                 @cmd = ('git', 'worktree', 'add', '--detach', $wt, $ref);
             }
             else {
-                my $existing = existing_branch_worktree($branch, File::Spec->catfile($work_dir, "worktree-list-$major.log"));
-                if ($existing) { $wt = $existing }
+                my ($existing, $stale) = existing_branch_worktree($branch, File::Spec->catfile($work_dir, "worktree-list-$major.log"));
+                if ($existing && !$stale) { $wt = $existing }
                 else {
                     my $local = run_cmd(['git', 'show-ref', '--verify', '--quiet', "refs/heads/$branch"], $ROOT, {}, File::Spec->devnull());
                     my $remote = run_cmd(['git', 'show-ref', '--verify', '--quiet', "refs/remotes/origin/$branch"], $ROOT, {}, File::Spec->devnull());
-                    @cmd = $local == 0 ? ('git', 'worktree', 'add', $wt, $branch)
+                    @cmd = $local == 0 ? ('git', 'worktree', 'add', ($stale ? '--force' : ()), $wt, $branch)
                         : $remote == 0 ? ('git', 'worktree', 'add', '-b', $branch, $wt, "origin/$branch")
                         : ('git', 'worktree', 'add', '-b', $branch, $wt, $ref);
                 }

@@ -673,6 +673,12 @@ srl_reset_output_sv(pTHX_ SV *into)
     /* Assigning undef to a glob warns before the later type check runs. */
     if (SvTYPE(into) == SVt_PVGV)
         croak("Sereal: Error: cannot decode into a GLOB");
+    /* Perl 5.24's sv_setsv() can mortalize the old referent instead of
+     * releasing it immediately. Run a strong referent's DESTROY now,
+     * before capturing the input buffer, on every supported Perl. Weak
+     * references do not own their referents and need only the reset below. */
+    if (SvROK(into) && !SvWEAKREF(into))
+        sv_unref_flags(into, SV_IMMEDIATE_UNREF);
     if (SvTYPE(into) != SVt_NULL || SvOK(into))
         sv_setsv(into, &PL_sv_undef);
     /* Assignment turns a regexp copy back into a plain scalar; anything
@@ -2993,6 +2999,15 @@ srl_read_single_value_ex(pTHX_ srl_decoder_t *dec, SV* into, SV** container, int
         if (
              dec->flags_readonly == 1 || !is_ref
         ) {
+#if PERL_VERSION < 16
+            /* Perl 5.14 mistakes FAKE + READONLY regexp copies for shared
+             * hash-key strings during cleanup. A readonly regexp cannot
+             * be assigned to, so it does not need FAKE's coercion hook. */
+            if (is_ref && SvTYPE(SvRV(into)) == SVt_REGEXP)
+                SvFAKE_off(SvRV(into));
+            if (SvTYPE(into) == SVt_REGEXP)
+                SvFAKE_off(into);
+#endif
             if (is_ref && !SvREADONLY(SvRV(into)) ) {
                 SvREADONLY_on(SvRV(into));
             }

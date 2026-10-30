@@ -7,6 +7,15 @@ Revision history for Perl extension Sereal-Encoder
 * to version 6 anywhere in the fleet. Encoder 6 can emit v6     *
 * packets, which require Decoder 6 to read.                     *
 ****************************************************************
+6.002
+    * Preserve unsigned tied integer values on older Perls instead of
+      converting their private cached values through a signed integer.
+    * Keep sorted-key wire expectations independent of Perl's temporary
+      hash reference counts.
+    * Report the actual missing dependency when skipping t/400_evil.t.
+    * Skip only hobodecoder decompression checks when its optional
+      Compress::Zlib dependency is unavailable, and show child errors.
+
 6.001
     * Add protocol v6 support for VSTRING extension tags, NEG_VARINT, and
       keyed SipHash checksums. Upgrade Decoder to version 6 throughout the

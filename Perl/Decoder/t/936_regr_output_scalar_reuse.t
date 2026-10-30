@@ -7,6 +7,7 @@ use lib File::Spec->catdir(qw(t lib));
 BEGIN { lib->import('lib') if !-d 't' }
 
 use Test::More;
+use Scalar::Util qw(weaken);
 use Sereal::TestSet qw(Header);
 use Sereal::Decoder;
 
@@ -65,7 +66,8 @@ child_survives(
 # Resetting an output that holds an object runs its DESTROY, which may
 # replace the input scalar. The reset must happen before the decoder
 # captures the input buffer, so the new input is decoded rather than the
-# freed old buffer being read.
+# freed old buffer being read. In particular, Perl 5.24's sv_setsv() alone
+# can defer DESTROY until the end of the statement.
 child_survives(
     q{
         our $blob = Header(6) . "\x51\x61k\x01";
@@ -88,6 +90,18 @@ child_survives(
     },
     'header output DESTROY replacing the input scalar'
 );
+child_survives(
+    q{
+        our $blob = Header(6, "\x63hdr") . "\x51\x61k\x01";
+        package Clobber { sub DESTROY { $main::blob = main::Header(6, "\x63new") . "\x05" } }
+        my $dec = Sereal::Decoder->new;
+        my $hdr = bless {}, 'Clobber';
+        my $out;
+        $dec->decode_with_header( $blob, $out, $hdr );
+        die "unexpected header/body" unless $hdr eq 'new' && $out == 5;
+    },
+    'combined output DESTROY replacing the input scalar'
+);
 
 # A previous referent must be released, not leaked.
 {
@@ -104,6 +118,14 @@ child_survives(
     $dec->decode( $hash_packet, $out );
     is( Counted::live(), 0, 'decoding into a scalar releases the previous referent' );
     is( $out->{k},       1, 'and stores the decoded value' );
+}
+{
+    my $owner = Counted->new;
+    my $out = $owner;
+    weaken($out);
+    $dec->decode( $hash_packet, $out );
+    is( Counted::live(), 1, 'resetting a weak output preserves the referent owner' );
+    is( $out->{k}, 1, 'a weak output is replaced with the decoded value' );
 }
 
 # Read-only destinations are refused instead of being written through.
@@ -156,4 +178,45 @@ child_survives(
     },
     'header output DESTROY deleting the body output owning entry'
 );
+# The handle's referent owns the C decoder. A callback can clear the
+# variable used to pass the handle, so retaining only the argument SV
+# would not keep that owner alive. Exercise XS methods and custom ops.
+for my $style (qw(method function)) {
+    for my $case (
+        [ 'decode', '', '$blob, $out', q{die 'wrong body' unless $out == 5;} ],
+        [ 'decode_only_header', '_only_header', '$blob, $out',
+            q{die 'wrong header' unless $out eq 'hdr';} ],
+        [ 'decode_with_header', '_with_header', '$blob, $out, $hdr',
+            q{die 'wrong header/body' unless $out == 5 && $hdr eq 'hdr';} ] )
+    {
+        my $call = $style eq 'method'
+            ? '$dec->' . $case->[0] . '(' . $case->[2] . ');'
+            : 'Sereal::Decoder::sereal_decode' . $case->[1]
+                . '_with_object($dec, ' . $case->[2] . ');';
+        child_survives(
+            q{
+                our ($dec, $in_callback, $freed_in_callback) = (undef, 0, 0);
+                my $real_destroy = \&Sereal::Decoder::DESTROY;
+                {
+                    no warnings 'redefine';
+                    *Sereal::Decoder::DESTROY = sub {
+                        $freed_in_callback ||= $in_callback;
+                        $real_destroy->(@_);
+                    };
+                }
+                package DropDecoder {
+                    sub DESTROY { local $main::in_callback = 1; undef $main::dec; }
+                }
+                $dec = Sereal::Decoder->new;
+                my $blob = Header(6, "\x63hdr") . "\x05";
+                my $out = bless {}, 'DropDecoder';
+                my $hdr;
+            } . $call . q{
+                die 'handle variable was not cleared' if defined $dec;
+                die 'decoder owner destroyed inside callback' if $freed_in_callback;
+            } . $case->[3],
+            "$style $case->[0] output DESTROY clearing the decoder handle"
+        );
+    }
+}
 done_testing;

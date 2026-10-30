@@ -13,6 +13,12 @@ from the the Encoder and Decoder changelogs:
 * to version 6 anywhere in the fleet. Encoder 6 can emit v6     *
 * packets, which require Decoder 6 to read.                     *
 ****************************************************************
+6.002
+    * Prevent Decoder callbacks from freeing an active Decoder handle.
+    * Fix older-Perl build and Decoder compatibility issues and improve
+      test portability and missing-dependency diagnostics.
+    * Preserve unsigned tied integer values when encoding on older Perls.
+
 6.001
     * Add protocol v6 VSTRING extension tags, NEG_VARINT, and keyed
       SipHash checksums. Upgrade Decoder to version 6 everywhere before

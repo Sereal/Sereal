@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION    = '6.001';
+our $VERSION    = '6.002';
 our $XS_VERSION = $VERSION; $VERSION = eval $VERSION;
 
 our $ChecksumPolicy;
@@ -1012,6 +1012,17 @@ modes are rejected. These checks apply to every Sereal protocol version.
 Preserving modifiers does not freeze the regexp engine, Unicode tables, or
 the execution locale. Those can still change matching behavior between hosts
 or Perl versions.
+
+Perl 5.14 and 5.16 have a core regexp-copy lifetime bug: a scalar copy of a
+regexp can become invalid if the original regexp scalar is overwritten. Keep the
+original alive and unchanged while its scalar copies are in use, including
+when reusing an explicit decoder output scalar. This also affects regexps
+created by Perl's own C<eval> and C<qr//>; Perl 5.18 and later avoid it.
+
+Perl 5.20 also has a core cleanup issue for read-only bare regexp values in
+lexicals: scope cleanup can raise C<Modification of a read-only value attempted>.
+This occurs with regexps created by Perl itself as well. Prefer regexp
+references on that Perl when using read-only values.
 
 =head1 ROBUSTNESS
 

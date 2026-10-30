@@ -18,8 +18,8 @@ BEGIN {
 use Sereal::TestSet qw(:all);
 use Test::More;
 
-if ( not have_encoder_and_decoder() ) {
-    plan skip_all => 'Did not find right version of decoder';
+if ( my $reason = check_for_dependency_issues() ) {
+    plan skip_all => $reason;
     exit 0;
 }
 

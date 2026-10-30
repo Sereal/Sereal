@@ -21,9 +21,12 @@ and `results.json`. The named historical branches and worktrees remain in the
 Git repository and are reused across runs, including when a new temporary
 workspace is created. Keep the workspace to investigate failures or replay the
 corpus. Use `--work-dir PATH` to choose a stable location for repeat runs.
+If a historical worktree's directory was deleted, the runner recreates that
+branch's worktree in the new workspace, preserving the branch's commits.
 `--fetch` explicitly fetches tags and `main`; otherwise only local refs are
 used. `--corpus-only` skips the full Decoder suite. `--self-test` runs focused
-version-selection checks without creating worktrees.
+version-selection, child-process failure, and stale-worktree recovery checks
+in a disposable repository.
 
 Stable selection compares numeric version components and excludes underscore
 development releases. `main` supplies the current module major; stable majors

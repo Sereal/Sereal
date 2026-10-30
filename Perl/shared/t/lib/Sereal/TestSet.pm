@@ -85,6 +85,7 @@ our @EXPORT_OK = qw(
     integer short_string varint read_varint_at array array_fbit checksum_tag
     hash dump_bless
     have_encoder_and_decoder
+    array_slot_ref
     regexp_modifier_test_cases
     check_for_dependency_issues
     run_roundtrip_tests
@@ -770,6 +771,18 @@ sub regexp_modifier_test_cases {
         [ 'aaimsxxnp', '^([ a]) . b$', "A\nb",     1, $extended_more ],
         [ '',          '(?i:a)',       'A',        1, 1 ],
     );
+}
+
+# Inspect an array slot without asking av_fetch() for an lvalue. Older
+# Perls replace PL_sv_undef with a fresh scalar when evaluating \$array->[$i],
+# which would destroy the alias identity these tests are inspecting.
+sub array_slot_ref {
+    my ( $array, $index ) = @_;
+    require B;
+    my @slots = B::svref_2object($array)->ARRAY;
+    my $slot = $slots[$index];
+    return \undef if ref($slot) eq 'B::SPECIAL' && $$slot == 1;
+    return $slot->object_2svref;
 }
 
 sub have_encoder_and_decoder {

@@ -8,6 +8,11 @@
 #include "srl_reader_varint.h"
 #include "srl_protocol.h"
 
+/* Older supported Perls do not define this allocation limit. */
+#ifndef SSize_t_MAX
+# define SSize_t_MAX ((SSize_t)(~(Size_t)0 >> 1))
+#endif
+
 #if defined(HAVE_CSNAPPY)
     #include <csnappy.h>
 #else
@@ -91,7 +96,7 @@ srl_realloc_empty_buffer(pTHX_ srl_reader_buffer_t *buf,
 
         if (!tmp_buf)
             croak("Insufficient memory to '%s' decompress. Size compressed=%"UVuf" uncompressed=%"UVuf,
-                compression_type, compressed_len, total_requested );
+                compression_type, (UV)compressed_len, (UV)total_requested );
 
         /* This allocation is installed directly as a Perl PV, so keep its
          * mandatory trailing NUL even though the decoder uses explicit lengths. */

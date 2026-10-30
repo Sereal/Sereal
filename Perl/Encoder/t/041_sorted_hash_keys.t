@@ -33,19 +33,23 @@ if ( !have_encoder_and_decoder() ) {
 }
 
 for my $version ( 1 .. 6 ) {
+    # Anonymous hash refcounts vary between Perls. Use the canonical
+    # reference form so this checks COPY/ALIAS offsets independently.
+    my $hash_header = chr(SRL_HDR_REFN) . chr(SRL_HDR_HASH) . varint(2);
     my $base_offset  = $version == 1 ? length( Header($version) ) : 1;
-    my $key_offset   = $base_offset + 1;
+    my $key_offset   = $base_offset + length($hash_header);
     my $value_offset = $key_offset + length( short_string('bbbb') );
     for my $alias ( 0, 1 ) {
         my $option = $alias ? 'aliased_dedupe_strings' : 'dedupe_strings';
         my $packet = Sereal::Encoder->new( {
                 protocol_version => $version,
+                canonical_refs   => 1,
                 sort_keys        => 2,
                 $option          => 1,
             } )->encode( { bbbb => 'bbbb', cccc => 'bbbb' } );
         my $expected =
               Header($version)
-            . chr( SRL_HDR_HASHREF + 2 )
+            . $hash_header
             . short_string('bbbb')
             . chr( SRL_HDR_COPY | ( $alias ? SRL_HDR_TRACK_FLAG : 0 ) )
             . varint($key_offset)

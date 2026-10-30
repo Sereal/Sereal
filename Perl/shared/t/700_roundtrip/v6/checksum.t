@@ -91,13 +91,18 @@ SKIP: {
         $hobo_out, qr/SipHash-2-4 checksum verified/,
         'hobodecoder verifies the SipHash-2-4 checksum'
     );
-    ( $hobo_status, $hobo_out, $hobo_err ) =
-        run_hobodecoder( $packet1, '--checksum-v1-key-hex=' . unpack( 'H*', $key1 ) );
-    is( $hobo_status, 0, 'hobodecoder accepts a checksummed compressed packet with its key' );
-    like(
-        $hobo_out, qr/SipHash-2-4-128 checksum verified/,
-        'hobodecoder verifies the checksum before decompressing'
-    );
+    SKIP: {
+        skip 'hobodecoder needs Compress::Zlib to inspect zlib-compressed packets', 2
+            unless eval { require Compress::Zlib; 1 };
+        ( $hobo_status, $hobo_out, $hobo_err ) =
+            run_hobodecoder( $packet1, '--checksum-v1-key-hex=' . unpack( 'H*', $key1 ) );
+        is( $hobo_status, 0, 'hobodecoder accepts a checksummed compressed packet with its key' )
+            or diag($hobo_err);
+        like(
+            $hobo_out, qr/SipHash-2-4-128 checksum verified/,
+            'hobodecoder verifies the checksum before decompressing'
+        );
+    }
     ( $hobo_status, $hobo_out, $hobo_err ) =
         run_hobodecoder( $packet1, '--checksum-v1-key-hex=' . unpack( 'H*', 'wrong key wrong!' ) );
     isnt( $hobo_status, 0, 'hobodecoder rejects a compressed packet with the wrong key' );

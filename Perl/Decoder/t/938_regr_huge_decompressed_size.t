@@ -81,11 +81,12 @@ foreach my $case (
     };
     my $error = $@;
     ok( !$ok, "$name: rejected by max_uncompressed_size" );
-    # A 32-bit decoder rejects the size before it can compare it with the
-    # configured limit: zlib's varint overflows UV, and zstd's size overflows
-    # STRLEN/size_t. Both are controlled rejections, not allocation failures.
-    my $expected_error = $Config{uvsize} < 8
-        ? ( $name =~ /^zlib/ ? qr/varint (?:too big|overflows U32)/ : qr/too large for this platform/ )
+    # A 32-bit decoder rejects the size before comparing the configured
+    # limit. With 32-bit UVs, zlib's varint already overflows; with 64-bit
+    # UVs, it instead overflows STRLEN/size_t, as zstd's frame size does.
+    my $expected_error = $Config{ptrsize} < 8
+        ? ( $name =~ /^zlib/ && $Config{uvsize} < 8
+            ? qr/varint (?:too big|overflows U32)/ : qr/too large for this platform/ )
         : qr/expected uncompressed size is larger than the allowed maximum/;
     like( $error, $expected_error, "$name: size rejected before allocation" );
 }

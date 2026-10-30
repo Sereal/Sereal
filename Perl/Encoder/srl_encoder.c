@@ -1437,13 +1437,15 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
      * srl_dump_sv's general path runs srl_getmagic first when needed. If src
      * is still magical, sign and payload must use that cached value: another
      * FETCH could return something different. Use _nomg conversions here.
-     * They suppress FETCH, but may still do numeric conversion; a public
-     * cached integer lets us avoid that conversion as well. */
-    if (expect_true( SvIOK_UV(src) || SvIV_nomg(src) >= 0 )) {
-        /* A public cached IV is already known nonnegative here. Read its
+     * They suppress FETCH, but may still do numeric conversion. A private
+     * integer cache is also valid after FETCH: older Perls may leave only
+     * that cache set, and converting its UV through IV loses the sign. */
+    if (expect_true( (SvIOKp(src) && SvIsUV(src))
+                    || (SvIOKp(src) ? SvIVX(src) : SvIV_nomg(src)) >= 0 )) {
+        /* A cached IV is already known nonnegative here. Read its
          * slot directly instead of asking Perl to convert a signed IV to UV.
-         * Keep conversion for private numeric caches and other SV types. */
-        const UV num = SvIOK(src)
+         * Keep conversion for SVs without a cached integer. */
+        const UV num = SvIOKp(src)
                        ? (SvIsUV(src) ? SvUVX(src) : (UV)SvIVX(src))
                        : SvUV_nomg(src);
         if (num <= 15) {
@@ -1456,7 +1458,7 @@ srl_dump_ivuv(pTHX_ srl_encoder_t *enc, SV *src)
         }
     }
     else {
-        const IV num = SvIV_nomg(src);
+        const IV num = SvIOKp(src) ? SvIVX(src) : SvIV_nomg(src);
         if (num >= -16) {
             /* encodable as NEG */
             hdr = SRL_HDR_NEG_LOW | ((unsigned char)num + 32);

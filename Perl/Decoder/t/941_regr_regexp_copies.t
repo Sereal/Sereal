@@ -49,6 +49,27 @@ for my $version ( 1 .. 6 ) {
 
 for my $version ( 3, 6 ) {
     my $prelude = qq{ my \$dec = Sereal::Decoder->new; my \$H = Header($version); };
+    for my $option (qw(set_readonly set_readonly_scalars)) {
+        for my $case (
+            [ 'bare', $re_body ], [ 'reference', "\x28" . $re_body ],
+            [ 'array', "\x41" . $re_body ], [ 'hash', "\x51\x61k" . $re_body ] )
+        {
+            child_survives(
+                qq{my \$dec = Sereal::Decoder->new({ $option => 1 }); my \$H = Header($version);}
+                    . 'my $body = pack "H*", "' . unpack( 'H*', $case->[1] ) . '";'
+                    . q{
+                        # Avoid lexical-pad cleanup coercing a readonly
+                        # bare REGEXP back to a scalar on older Perls.
+                        our $out;
+                        $dec->decode($H . $body, $out);
+                        if (ref($out) eq 'ARRAY') { die 'no match' unless 'ABC' =~ $out->[0]; }
+                        elsif (ref($out) eq 'HASH') { die 'no match' unless 'ABC' =~ $out->{k}; }
+                        else { die 'no match' unless 'ABC' =~ $out; }
+                    },
+                "v$version $option $case->[0] regexp survives cleanup"
+            );
+        }
+    }
     child_survives(
         $prelude . q{
             my $out; $dec->decode( $H . "\x31\x63abc\x61i", $out );
@@ -79,24 +100,32 @@ for my $version ( 3, 6 ) {
         $blob_code . q{
             my $r = Sereal::Decoder->new->decode($blob);
             my $c = ${ $r->{re} };
-            ${ $r->{re} } = 1;
+            # Perl 5.14/5.16's reg_temp_copy() keeps the mutable original as
+            # its mother_re. Replacing it invalidates the copy even for
+            # qr// returned by eval, independently of Sereal.
+            if ($] < 5.018) { undef $r; }
+            else { ${ $r->{re} } = 1; }
             die "no match" unless "xabbbc" =~ $c;
             undef $c; undef $r;
         },
         "v$version copy of a decoded qr// outlives the reference"
     );
-    child_survives(
-        $prelude . q{
-            my ( $out, @copies );
-            for ( 1 .. 50 ) { $dec->decode( $H . "\x31\x63abc\x61i", $out ); push @copies, $out; }
-            for (@copies) { die "no match" unless "xabcx" =~ $_ }
-            my $blob = $H . "\x31\x64ab+c\x61i";
-            my @refs;
-            for ( 1 .. 50 ) { $dec->decode( $blob, $out ); push @refs, $out; }
-            for (@refs) { die "no match" unless "xABBc" =~ $_ }
-        },
-        "v$version decoding regexps repeatedly into one output scalar"
-    );
+    SKIP: {
+        skip 'Perl 5.14/5.16 cannot preserve regexp copies when their original is overwritten', 1
+            if $] < 5.018;
+        child_survives(
+            $prelude . q{
+                my ( $out, @copies );
+                for ( 1 .. 50 ) { $dec->decode( $H . "\x31\x63abc\x61i", $out ); push @copies, $out; }
+                for (@copies) { die "no match" unless "xabcx" =~ $_ }
+                my $blob = $H . "\x31\x64ab+c\x61i";
+                my @refs;
+                for ( 1 .. 50 ) { $dec->decode( $blob, $out ); push @refs, $out; }
+                for (@refs) { die "no match" unless "xABBc" =~ $_ }
+            },
+            "v$version decoding regexps repeatedly into one output scalar"
+        );
+    }
 }
 
 # The pattern must be a string, not a reference to an earlier REGEXP.
