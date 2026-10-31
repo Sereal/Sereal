@@ -13,6 +13,10 @@ from the the Encoder and Decoder changelogs:
 * to version 6 anywhere in the fleet. Encoder 6 can emit v6     *
 * packets, which require Decoder 6 to read.                     *
 ****************************************************************
+Unreleased
+    * Fix hobodecoder compatibility with BusyBox od and checksum test
+      diagnostics for child processes terminated by signals.
+
 6.002
     * Prevent Decoder callbacks from freeing an active Decoder handle.
     * Fix older-Perl build and Decoder compatibility issues and improve

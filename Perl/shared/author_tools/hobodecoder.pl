@@ -503,7 +503,7 @@ if ( $opt->{e} ) {
 local $/ = undef;
 $data = <STDIN>;
 
-open my $fh, "| od -tu1c" or die $!;
+open my $fh, '|-', 'od', '-t', 'u1', '-t', 'c' or die $!;
 print $fh $data;
 close $fh;
 

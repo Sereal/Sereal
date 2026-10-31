@@ -7,6 +7,10 @@ Revision history for Perl extension Sereal-Encoder
 * to version 6 anywhere in the fleet. Encoder 6 can emit v6     *
 * packets, which require Decoder 6 to read.                     *
 ****************************************************************
+Unreleased
+    * Use portable od arguments in hobodecoder for BusyBox systems and
+      report signal termination correctly in checksum tests.
+
 6.002
     * Preserve unsigned tied integer values on older Perls instead of
       converting their private cached values through a signed integer.

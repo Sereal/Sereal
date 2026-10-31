@@ -77,8 +77,9 @@ sub run_hobodecoder {
     close $stdin;
     my $out = do { local $/; <$stdout> // '' };
     my $err = do { local $/; <$stderr> // '' };
-    waitpid( $pid, 0 );
-    return ( $? >> 8, $out, $err );
+    waitpid( $pid, 0 ) == $pid or die "waitpid: $!";
+    my $status = $?;
+    return ( $status & 127 ? 128 + ( $status & 127 ) : $status >> 8, $out, $err );
 }
 
 SKIP: {
@@ -86,7 +87,8 @@ SKIP: {
         unless -f 'author_tools/hobodecoder.pl';
     my ( $hobo_status, $hobo_out, $hobo_err ) =
         run_hobodecoder( $packet0, '--checksum-v0-key-hex=' . unpack( 'H*', $key0 ) );
-    is( $hobo_status, 0, 'hobodecoder accepts a checksummed raw packet with its key' );
+    is( $hobo_status, 0, 'hobodecoder accepts a checksummed raw packet with its key' )
+        or diag($hobo_err);
     like(
         $hobo_out, qr/SipHash-2-4 checksum verified/,
         'hobodecoder verifies the SipHash-2-4 checksum'
