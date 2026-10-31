@@ -214,6 +214,11 @@ Albert Lee
 
 #define __SNAPPY_STRICT_ALIGN
 
+#elif defined(__HAIKU__)
+
+/* Haiku has endian.h but no byteswap.h; use the fallbacks below. */
+#include <endian.h>
+
 #elif defined(__GNUC__) || defined(__ANDROID__) || defined(__CYGWIN__)
 
 #include <endian.h>

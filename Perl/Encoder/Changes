@@ -8,6 +8,7 @@ Revision history for Perl extension Sereal-Encoder
 * packets, which require Decoder 6 to read.                     *
 ****************************************************************
 Unreleased
+    * Fix bundled Snappy builds on Haiku, which has no byteswap.h.
     * Use portable od arguments in hobodecoder for BusyBox systems and
       report signal termination correctly in checksum tests.
 
