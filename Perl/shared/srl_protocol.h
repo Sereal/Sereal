@@ -43,7 +43,7 @@
     ZIGZAG            | "!"  |  33 | 0x21 | 0b00100001 | <ZIGZAG-VARINT> - Zigzag variable length integer
     FLOAT             | "\"" |  34 | 0x22 | 0b00100010 | <IEEE-FLOAT>
     DOUBLE            | "#"  |  35 | 0x23 | 0b00100011 | <IEEE-DOUBLE>
-    LONG_DOUBLE       | "\$" |  36 | 0x24 | 0b00100100 | <IEEE-LONG-DOUBLE>
+    LONG_DOUBLE       | "\$" |  36 | 0x24 | 0b00100100 | <NATIVE-LONG-DOUBLE> - v7 requires a declaration
     UNDEF             | "%"  |  37 | 0x25 | 0b00100101 | None - Perl undef var; eg my $var= undef;
     BINARY            | "&"  |  38 | 0x26 | 0b00100110 | <LEN-VARINT> <BYTES> - binary/native string
     STR_UTF8          | "'"  |  39 | 0x27 | 0b00100111 | <LEN-VARINT> <UTF8> - utf8 string
@@ -63,7 +63,7 @@
     YES               | "5"  |  53 | 0x35 | 0b00110101 | SvIsBOOL() == PL_Yes, 5.36 and later only (json true)
     RESERVED_0        | "6"  |  54 | 0x36 | 0b00110110 | reserved
     RESERVED_1        | "7"  |  55 | 0x37 | 0b00110111 | reserved
-    FLOAT_128         | "8"  |  56 | 0x38 | 0b00111000 | quadmath _float128
+    FLOAT_128         | "8"  |  56 | 0x38 | 0b00111000 | IEEE binary128
     CANONICAL_UNDEF   | "9"  |  57 | 0x39 | 0b00111001 | undef (PL_sv_undef) - "the" Perl undef (see notes)
     FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no)
     TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes)
@@ -155,7 +155,7 @@
 #define SRL_MAGIC_STRING_HIGHBIT_UTF8_UINT_LE   0x72B3C33D      /* first four bytes of SRL_MAGIC_STRING encoded as UTF8, little endian */
 #define SRL_MAGIC_STRING_HIGHBIT_UTF8_UINT_BE   0x3DC3B372      /* first four bytes of SRL_MAGIC_STRING encoded as UTF8, big endian */
 
-#define SRL_PROTOCOL_VERSION            ( 6 )
+#define SRL_PROTOCOL_VERSION            ( 7 )
 #define SRL_PROTOCOL_VERSION_BITS       ( 4 )           /* how many bits we use for the version, the rest go to the encoding */
 #define SRL_PROTOCOL_VERSION_MASK       ( ( 1 << SRL_PROTOCOL_VERSION_BITS ) - 1 )
 
@@ -199,7 +199,7 @@
 #define SRL_HDR_ZIGZAG          ((U8)33)      /* <ZIGZAG-VARINT> - Zigzag variable length integer */
 #define SRL_HDR_FLOAT           ((U8)34)      /* <IEEE-FLOAT> */
 #define SRL_HDR_DOUBLE          ((U8)35)      /* <IEEE-DOUBLE> */
-#define SRL_HDR_LONG_DOUBLE     ((U8)36)      /* <IEEE-LONG-DOUBLE> */
+#define SRL_HDR_LONG_DOUBLE     ((U8)36)      /* <NATIVE-LONG-DOUBLE> - v7 requires a declaration */
 #define SRL_HDR_UNDEF           ((U8)37)      /* None - Perl undef var; eg my $var= undef; */
 #define SRL_HDR_BINARY          ((U8)38)      /* <LEN-VARINT> <BYTES> - binary/native string */
 #define SRL_HDR_STR_UTF8        ((U8)39)      /* <LEN-VARINT> <UTF8> - utf8 string */
@@ -229,7 +229,7 @@
 #define SRL_HDR_RESERVED_LOW    ((U8)54)
 #define SRL_HDR_RESERVED_HIGH   ((U8)55)
 
-#define SRL_HDR_FLOAT_128       ((U8)56)      /* quadmath _float128 */
+#define SRL_HDR_FLOAT_128       ((U8)56)      /* IEEE binary128 */
 #define SRL_HDR_CANONICAL_UNDEF ((U8)57)      /* undef (PL_sv_undef) - "the" Perl undef (see notes) */
 #define SRL_HDR_FALSE           ((U8)58)      /* false (PL_sv_no)  */
 #define SRL_HDR_TRUE            ((U8)59)      /* true  (PL_sv_yes) */
@@ -239,6 +239,7 @@
 
 
 #define SRL_HDR_EXTEND          ((U8)62)      /* <BYTE> - for additional tags */
+#define SRL_EXT_DECLARE         ((U8)1) /* v7 declaration: length-prefixed kind and descriptor */
 #define SRL_EXT_UNDEF_DEADLY    ((U8)255) /* Undef diagnostic sentinel; encoders MUST NOT emit it; no payload */
 #define SRL_EXT_VSTRING_BINARY  SRL_HDR_BINARY
 #define SRL_EXT_VSTRING_UTF8    SRL_HDR_STR_UTF8
@@ -261,7 +262,47 @@
 
 #define SRL_HDR_TRACK_FLAG      ((U8)128)         /* if this bit is set track the item */
 
-/* TODO */
+/* Native LONG_DOUBLE needs document-wide ABI information that portable
+ * floats do not require. A prefix declaration records that information once
+ * instead of attaching a descriptor to every value. It belongs in the body
+ * because decompression does not depend on it; this also keeps declarations
+ * within the compressed and, when enabled, authenticated payload.
+ *
+ * Protocol v7 declarations live at the start of the decompressed body:
+ *   EXTEND, SRL_EXT_DECLARE, payload-length VARINT, kind VARINT, descriptor
+ * The payload length includes the kind varint and descriptor. Declarations
+ * produce no value, must precede the root value, cannot be tracked, and may
+ * occur only once per kind. Unknown kinds must be rejected. Their state is
+ * local to one document; they are forbidden in header user data.
+ *
+ * SRL_DECL_* is the declaration-kind registry. update_from_header.pl derives
+ * SRL_DECL_NAME() and Perl %DECLARATION_NAME from these constants; extended
+ * tag IDs similarly populate Perl %EXT_TAG_NAME. Keeping the names here
+ * prevents C diagnostics and the hobodecoder from acquiring separate lists
+ * that drift when the protocol grows. A new registry entry still requires
+ * descriptor documentation and parser support; a generated name alone does
+ * not establish how a reader should interpret the declaration.
+ *
+ * LONG_DOUBLE descriptor: FORMAT-ID-U8, NATIVE-BYTE-LENGTH-U8 (two bytes).
+ * FORMAT-ID uses the SRL_LD_* representations below; bit 7 means big endian,
+ * clear means little endian. Known layouts require matching format and size,
+ * and their padding must be zeroed. Opaque storage requires explicit reader
+ * trust in the producer's ABI; unknown padding cannot be identified or cleared.
+ * Each subsequent LONG_DOUBLE carries only its native value bytes.
+ */
+#define SRL_DECL_LONG_DOUBLE    ( 1 ) /* <FORMAT-ID-U8> <NATIVE-BYTE-LENGTH-U8> */
+
+/* These are representation IDs within a LONG_DOUBLE descriptor, independent
+ * of primary tags, extended tags and declaration kinds. OPAQUE makes no
+ * layout claim: it preserves the producer's raw native object, including any
+ * unidentified padding. Its high bit records host integer byte order only. */
+#define SRL_LD_BINARY64     1
+#define SRL_LD_X87          2
+#define SRL_LD_BINARY128    3
+#define SRL_LD_DOUBLEDOUBLE 4
+#define SRL_LD_OPAQUE       127
+#define SRL_LD_BIG_ENDIAN   128
+
 
 #define SRL_SET_TRACK_FLAG(where) ((where) |= SRL_HDR_TRACK_FLAG)
 

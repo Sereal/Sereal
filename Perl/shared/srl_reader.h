@@ -15,6 +15,7 @@
 #define SRL_RDR_BODY_POS_OFS(buf)   ((buf)->pos -  (buf)->body_pos)
 
 #define SRL_RDR_CLEAR(buf) STMT_START {                                        \
+    (buf)->long_double_size = 0;                                              \
     (buf)->start = NULL;                                                       \
     (buf)->end = NULL;                                                         \
     (buf)->pos = NULL;                                                         \

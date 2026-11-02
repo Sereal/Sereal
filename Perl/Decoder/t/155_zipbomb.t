@@ -46,7 +46,7 @@ for my $name ( sort keys %cases ) {
     like( $@, qr/^The expected uncompressed size is larger than the allowed maximum size/,
         "$name packet over the configured limit is rejected" );
 
-    is( ord( substr( $packet, 4, 1 ) ), $case->{encoding} | SRL_PROTOCOL_VERSION(),
+    is( ord( substr( $packet, 4, 1 ) ) & SRL_PROTOCOL_ENCODING_BASE_MASK(), $case->{encoding},
         "$name corpus packet uses the expected compression format" );
     is_deeply(
         [ unpack 'C4', substr( $packet, $case->{offset}, 4 ) ],

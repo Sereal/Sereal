@@ -7,7 +7,7 @@ use lib File::Spec->catdir(qw(t lib));
 BEGIN { lib->import('lib') if !-d 't' }
 
 use Test::More;
-use Sereal::TestSet            qw(Header);
+use Sereal::TestSet            qw(Header floating_point_wire_cases);
 use Sereal::Decoder            qw(decode_sereal);
 use Sereal::Decoder::Constants qw(:all);
 
@@ -41,4 +41,18 @@ for my $case (
     }
 }
 
+# Portable v7 values and explicitly ordered legacy binary128 values take
+# conversion paths in addition to the native copies above. Offsetting each
+# packet exercises those paths without assuming aligned input storage.
+my $portable = Sereal::Decoder->new({legacy_float_byteorder => 'little'});
+for my $version (5 .. 7) {
+    for my $case (floating_point_wire_cases()) {
+        my ($name, $tag, $hex, $expected) = @$case;
+        next if $version < 7 && $tag != SRL_HDR_FLOAT_128;
+        for my $padding (0 .. 15) {
+            my $packet = Header($version) . (chr(SRL_HDR_PAD) x $padding) . chr($tag) . pack('H*', $hex);
+            is($portable->decode($packet), $expected, "v$version $name after $padding PAD bytes");
+        }
+    }
+}
 done_testing();

@@ -1,6 +1,9 @@
 #ifndef SRL_TAGINFO_H
 #define SRL_TAGINFO_H
 
+#include "srl_inline.h"
+
+#define SRL_DECL_NAME(kind) (srl_declaration_name(kind))
 #define SRL_TAG_NAME(tag) (tag_name[(tag) & 127])
 
 /*
@@ -140,6 +143,15 @@ static const char * const tag_name[] = {
 	"SHORT_BINARY_30",   /* "~"  126 0x7e 0b01111110 */
 	"SHORT_BINARY_31"    /*      127 0x7f 0b01111111 */
 };
+
+SRL_STATIC_INLINE const char *
+srl_declaration_name(UV kind)
+{
+    switch (kind) {
+        case 1: return "LONG_DOUBLE";
+        default: return "UNKNOWN";
+    }
+}
 
 #define SRL_HDR_POS_0                  0
 #define SRL_HDR_POS_1                  1

@@ -87,6 +87,8 @@ our @EXPORT_OK = qw(
     have_encoder_and_decoder
     array_slot_ref
     regexp_modifier_test_cases
+    floating_point_wire_cases
+    native_long_double_wire_cases
     check_for_dependency_issues
     run_roundtrip_tests
     run_roundtrip_version_tests
@@ -773,6 +775,48 @@ sub regexp_modifier_test_cases {
     );
 }
 
+# These IEEE payloads are specified as bytes rather than emitted by the
+# Encoder. Otherwise a matching Encoder/Decoder byte-order mistake could
+# pass a round trip. Ties, sticky bits and subnormal boundaries exercise the
+# precision loss that occurs when binary128 is read into a smaller NV.
+sub floating_point_wire_cases {
+    return (
+        [ 'float/half', 34, '0000003f', 0.5, 1 ],
+        [ 'float/negative', 34, '0000c0bf', -1.5, 1 ],
+        [ 'double/tenth', 35, '9a9999999999b93f', unpack('d', pack('d', 0.1)), 1 ],
+        [ 'binary128/extended', 56, '0010000000000000000000000000ff3f', 1 + 2**-100, 5 ],
+        [ 'binary128/tie', 56, '0000000000000008000000000000ff3f', 1 + 2**-53, 5 ],
+        [ 'binary128/sticky', 56, '0100000000000008000000000000ff3f', (($Config{nvsize} || 8) == 8 ? 1 + 2**-52 : 1 + 2**-53 + 2**-112), 5 ],
+        [ 'binary128/double-subnormal', 56, '0000000000000000000000000000cd3b', 2**-1074, 5 ],
+        [ 'binary128/underflow-tie', 56, '0000000000000000000000000000cc3b', 2**-1075, 5 ],
+        [ 'binary128/underflow-sticky', 56, '0100000000000000000000000000cc3b',
+            (($Config{nvsize} || 8) == 8 ? 2**-1074 : 2**-1075 + 2**-1187), 5 ],
+        [ 'binary128/minimum-subnormal', 56, '01000000000000000000000000000000', 2**-16494, 5 ],
+        [ 'binary128/negative-zero', 56, '00000000000000000000000000000080', -(0.0), 5 ],
+    );
+}
+
+# The exact value -1/8 isolates representation and storage layout from
+# decimal rounding. These are constructed examples of native formats, not
+# captures from every corresponding ABI. They test declaration validation;
+# live producers are still needed to test their own padding and emission.
+sub native_long_double_wire_cases {
+    my $double = pack('H*', '000000000000c0bf');
+    my $x87 = pack('H*', '0000000000000080fcbf');
+    my $quad = pack('H*', '0000000000000000000000000000fcbf');
+    my $dd = pack('H*', '0000000000000000000000000000c0bf');
+    return (
+        [ 'binary64-le', 1, $double ],
+        [ 'binary64-be', 0x81, scalar reverse($double) ],
+        [ 'x87-le12', 2, $x87 . ("\0" x 2) ],
+        [ 'x87-le16', 2, $x87 . ("\0" x 6) ],
+        [ 'binary128-le', 3, $quad ],
+        [ 'binary128-be', 0x83, scalar reverse($quad) ],
+        [ 'double-double-le', 4, $dd ],
+        [ 'double-double-be', 0x84, scalar reverse($dd) ],
+    );
+}
+
 # Inspect an array slot without asking av_fetch() for an lvalue. Older
 # Perls replace PL_sv_undef with a fresh scalar when evaluating \$array->[$i],
 # which would destroy the alias identity these tests are inspecting.
@@ -1247,7 +1291,11 @@ sub run_roundtrip_corpus_tests {
     require Sereal::TestSet::Corpus;
     my $source = "roundtrip-v$proto_version-$profile";
     my %available = map { $_ => 1 } Sereal::TestSet::Corpus::packet_names( $root, $source );
+    # These checked-in legacy packets were generated on a little-endian
+    # host. Select that known source order explicitly; live old-protocol
+    # tests below still exercise the platform's native-order behavior.
     my $decoder = Sereal::Decoder->new( {
+        legacy_float_byteorder => 'little',
         %{ $decoder_opts || {} },
     } );
     my @tests   = _get_roundtrip_tests();

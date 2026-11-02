@@ -60,6 +60,7 @@ extern "C" {
 #include "srl_protocol.h"
 #include "srl_encoder.h"
 #include "srl_common.h"
+#include "srl_float.h"
 #include "ptable.h"
 #include "srl_buffer.h"
 #include "srl_compress.h"
@@ -936,6 +937,19 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options,
             }
             val = HeVAL(entry);
             switch (option_id) {
+            case SRL_ENC_OPT_IDX_FLOAT_TYPE:
+                {
+                    STRLEN len;
+                    const char *type = SvPV(val, len);
+                    if (memEQs(type, len, "native")) {
+#if defined(USE_LONG_DOUBLE) && !defined(HAS_QUADMATH)
+                        SRL_ENC_SET_OPTION(enc, SRL_F_USE_NATIVE_LONG_DOUBLE);
+#endif
+                    } else if (!memEQs(type, len, "std")) {
+                        croak("Invalid float_type; expected std or native");
+                    }
+                }
+                break;
             case SRL_ENC_OPT_IDX_NO_SHARED_HASHKEYS:
                 if (SvTRUE(val))
                     SRL_ENC_RESET_OPTION(enc, SRL_F_SHARED_HASHKEYS);
@@ -1185,6 +1199,10 @@ srl_build_encoder_struct(pTHX_ HV *opt, sv_with_hash *options,
             enc->compress_threshold = SvIV(snappy_threshold_value);
     }
 
+    if (SRL_ENC_HAVE_OPTION(enc, SRL_F_USE_NATIVE_LONG_DOUBLE)
+        && SRL_ENC_HAVE_OPTION(enc, SRL_F_USE_STANDARD_DOUBLE))
+        croak("float_type 'native' and use_standard_double are mutually exclusive");
+
     enc->checksum_policy = srl_get_checksum_policy(aTHX_ checksum_policy_value, "Sereal::Encoder::ChecksumPolicy");
     if (checksum_mode == SRL_CHECKSUM_MODE_UNSET)
         checksum_mode = srl_get_default_checksum_mode(aTHX_ "Sereal::Encoder::ChecksumMode",
@@ -1324,7 +1342,9 @@ srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src, const U32 compre
         /* Write document body (for header) into separate buffer */
         srl_buf_swap_buffer(aTHX_ &enc->tmp_buf, &enc->buf);
         SRL_ENC_UPDATE_BODY_POS(enc);
+        enc->encoding_header = 1;
         srl_dump_sv(aTHX_ enc, user_header_src);
+        enc->encoding_header = 0;
         srl_fixup_weakrefs(aTHX_ enc); /* more bodies to follow */
         srl_clear_seen_hashes(aTHX_ enc); /* more bodies to follow */
 
@@ -1373,23 +1393,55 @@ srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src, const U32 compre
 #endif
 
 
+/* Native values are copied only after the caller selects that representation
+ * or a legacy protocol requires it. Known x87 padding can be cleared; opaque
+ * layouts deliberately retain raw storage because their padding is unknown. */
+SRL_STATIC_INLINE void
+srl_dump_native_nv(pTHX_ srl_encoder_t *enc, NV nv, U8 tag)
+{
+    BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(nv));
+    srl_buf_cat_char_nocheck(&enc->buf, tag);
+    Copy((char *)&nv, enc->buf.pos, sizeof(nv), char);
+#if defined(USE_LONG_DOUBLE) && !defined(HAS_QUADMATH)
+    if ((srl_native_long_double_format() & 127) == SRL_LD_X87)
+        memset(enc->buf.pos + 10, 0, sizeof(nv) - 10);
+#endif
+    enc->buf.pos += sizeof(nv);
+}
+
 /* Code for serializing floats */
 SRL_STATIC_INLINE void
 srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
 {
     NV nv= SvNV_nomg(src);
-    MS_VC6_WORKAROUND_VOLATILE float f= (float)nv;
-    MS_VC6_WORKAROUND_VOLATILE double d= (double)nv;
+    MS_VC6_WORKAROUND_VOLATILE float f;
+    MS_VC6_WORKAROUND_VOLATILE double d;
+    /* An unidentified native representation must not depend on our ability
+     * to produce compact IEEE values. Raw output avoids those conversions
+     * and preserves same-ABI round trips even when the layout is unnamed. */
+    if (enc->protocol_version >= 7 && !enc->encoding_header
+        && SRL_ENC_HAVE_OPTION(enc, SRL_F_USE_NATIVE_LONG_DOUBLE)
+        && !srl_native_long_double_format()) {
+        srl_dump_native_nv(aTHX_ enc, nv, SRL_HDR_LONG_DOUBLE);
+        return;
+    }
+    f = (float)nv;
+    d = (double)nv;
 #ifdef HAS_QUADMATH
 #define LONG_FLOAT_MIN_VER 5
 #else
 #define LONG_FLOAT_MIN_VER 4
 #endif
-    /* TODO: this logic could be reworked to not duplicate so much code, which will help on win32 */
+    /* Compact IEEE representations retain exact values without the cost of
+     * extended storage. Wider values use portable binary128 unless native
+     * output was selected or the requested legacy protocol predates it. */
     if ( f == nv || nv != nv ) {
         BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(f)); /* tag + payload */
         srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_FLOAT);
-        Copy((char *)&f, enc->buf.pos, sizeof(f), char);
+        if (enc->protocol_version >= 7)
+            srl_copy_float_little_endian(aTHX_ enc->buf.pos, (const U8 *)&f);
+        else
+            Copy((char *)&f, enc->buf.pos, sizeof(f), char);
         enc->buf.pos += sizeof(f);
     } else if (
         !HAS_LONG_FLOAT ||
@@ -1399,26 +1451,24 @@ srl_dump_nv(pTHX_ srl_encoder_t *enc, SV *src)
     ) {
         BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(d)); /* tag + payload */
         srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_DOUBLE);
-        Copy((char *)&d, enc->buf.pos, sizeof(d), char);
+        if (enc->protocol_version >= 7)
+            srl_copy_double_little_endian(aTHX_ enc->buf.pos, (const U8 *)&d);
+        else
+            Copy((char *)&d, enc->buf.pos, sizeof(d), char);
         enc->buf.pos += sizeof(d);
+    } else if (enc->protocol_version >= 7
+               && (!SRL_ENC_HAVE_OPTION(enc, SRL_F_USE_NATIVE_LONG_DOUBLE) || enc->encoding_header)) {
+        BUF_SIZE_ASSERT(&enc->buf, 17);
+        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_FLOAT_128);
+        srl_nv_to_binary128(nv, enc->buf.pos);
+        enc->buf.pos += 16;
     } else {
         assert(HAS_LONG_FLOAT);
-        BUF_SIZE_ASSERT(&enc->buf, 1 + sizeof(nv)); /* tag + payload */
 #ifdef HAS_QUADMATH
-        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_FLOAT_128);
+        srl_dump_native_nv(aTHX_ enc, nv, SRL_HDR_FLOAT_128);
 #else
-        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_LONG_DOUBLE);
+        srl_dump_native_nv(aTHX_ enc, nv, SRL_HDR_LONG_DOUBLE);
 #endif
-        Copy((char *)&nv, enc->buf.pos, sizeof(nv), char);
-#if SRL_EXTENDED_PRECISION_LONG_DOUBLE
-        /* x86 uses an 80 bit extended precision. on 64 bit machines
-         * this is 16 bytes long, and on 32 bits its is 12 bytes long.
-         * the unused 2/6 bytes are not necessarily zeroed, potentially
-         * allowing internal memory to be exposed. We therefore zero
-         * the unused bytes here. */
-        memset(enc->buf.pos+10, 0, sizeof(nv) - 10);
-#endif
-        enc->buf.pos += sizeof(nv);
     }
 }
 
@@ -1725,12 +1775,34 @@ srl_prepare_encoder(pTHX_ srl_encoder_t *enc)
     return enc;
 }
 
+/* Selecting native output establishes a layout for the whole document.
+ * Emit its declaration before traversing values, even if that traversal
+ * eventually finds no extended value. A preliminary scan would add a second
+ * walk and could invoke magic or callbacks before normal serialization.
+ * Callers place this prefix inside the body so compression and checksums
+ * cover the declaration together with the values that depend on it. */
+SRL_STATIC_INLINE void
+srl_write_declarations(pTHX_ srl_encoder_t *enc)
+{
+    if (enc->protocol_version >= 7
+        && SRL_ENC_HAVE_OPTION(enc, SRL_F_USE_NATIVE_LONG_DOUBLE)) {
+        BUF_SIZE_ASSERT(&enc->buf, 6);
+        srl_buf_cat_char_nocheck(&enc->buf, SRL_HDR_EXTEND);
+        srl_buf_cat_char_nocheck(&enc->buf, SRL_EXT_DECLARE);
+        srl_buf_cat_char_nocheck(&enc->buf, 3); /* declaration payload length */
+        srl_buf_cat_char_nocheck(&enc->buf, SRL_DECL_LONG_DOUBLE);
+        srl_buf_cat_char_nocheck(&enc->buf, srl_native_long_double_declaration_format());
+        srl_buf_cat_char_nocheck(&enc->buf, sizeof(long double));
+    }
+}
+
 SRL_STATIC_INLINE srl_encoder_t *
 srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
 {
     U32 compress_flags;
 
     enc = srl_prepare_encoder(aTHX_ enc);
+    enc->encoding_header = 0;
     enc->root_src = src;
     enc->header_src = user_header_src;
     if (srl_checksum_required_mode(enc->checksum_policy) && !enc->checksum_key_set)
@@ -1749,6 +1821,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
         srl_write_header(aTHX_ enc, user_header_src, compress_flags);
         sereal_header_len = BUF_POS_OFS(&enc->buf);
         SRL_ENC_UPDATE_BODY_POS(enc);
+        srl_write_declarations(aTHX_ enc);
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
         assert(BUF_POS_OFS(&enc->buf) > sereal_header_len);
@@ -1776,6 +1849,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
     {
         srl_write_header(aTHX_ enc, user_header_src, compress_flags);
         SRL_ENC_UPDATE_BODY_POS(enc);
+        srl_write_declarations(aTHX_ enc);
         srl_dump_sv(aTHX_ enc, src);
         srl_fixup_weakrefs(aTHX_ enc);
     }

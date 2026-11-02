@@ -33,6 +33,8 @@ t/096_build_tools.t
 t/097_checksum_versions.t
 t/098_corpus_portability.t
 t/106_regexp_modifiers.t
+t/107_float_byteorder.t
+t/108_declarations.t
 t/110_nobless.t
 t/120_hdr_data.t
 t/130_freezethaw.t
@@ -70,6 +72,7 @@ t/700_roundtrip/v6/zlib.t
 t/700_roundtrip/v6/zlib_force.t
 t/700_roundtrip/v6/zstd.t
 t/700_roundtrip/v6/zstd_force.t
+t/700_roundtrip/v7/plain.t
 t/800_threads.t
 t/900_reentrancy.t
 t/900_regr_issue_15.t

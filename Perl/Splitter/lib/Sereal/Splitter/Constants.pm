@@ -19,6 +19,8 @@ BEGIN {
         "SRL_CHECKSUM_VERSION_SIPHASH_2_4_128"     => 1,
         "SRL_CHECKSUM_VERSION_SIPHASH_2_4_64"      => 0,
         "SRL_CHECKSUM_VERSION_SIPHASH_3_6_128"     => 2,
+        "SRL_DECL_LONG_DOUBLE"                     => 1,
+        "SRL_EXT_DECLARE"                          => 1,
         "SRL_EXT_UNDEF_DEADLY"                     => 255,
         "SRL_EXT_VSTRING_BINARY"                   => 38,
         "SRL_EXT_VSTRING_UTF8"                     => 39,
@@ -72,6 +74,12 @@ BEGIN {
         "SRL_HDR_WEAKEN"                           => 48,
         "SRL_HDR_YES"                              => 53,
         "SRL_HDR_ZIGZAG"                           => 33,
+        "SRL_LD_BIG_ENDIAN"                        => 128,
+        "SRL_LD_BINARY128"                         => 3,
+        "SRL_LD_BINARY64"                          => 1,
+        "SRL_LD_DOUBLEDOUBLE"                      => 4,
+        "SRL_LD_OPAQUE"                            => 127,
+        "SRL_LD_X87"                               => 2,
         "SRL_MAGIC_STRING"                         => "=srl",
         "SRL_MAGIC_STRING_HIGHBIT"                 => "=\363rl",
         "SRL_MAGIC_STRING_HIGHBIT_UINT_BE"         => 1039364716,
@@ -468,7 +476,7 @@ push @EXPORT_OK, keys %DEFINE;
 
     # autoupdated by Sereal.git:Perl/shared/author_tools/update_from_header.pl do not modify directly!
     {
-        "comment"    => "<IEEE-LONG-DOUBLE>",
+        "comment"    => "<NATIVE-LONG-DOUBLE> - v7 requires a declaration",
         "name"       => "LONG_DOUBLE",
         "type_name"  => "LONG_DOUBLE",
         "type_value" => 36,
@@ -655,7 +663,7 @@ push @EXPORT_OK, keys %DEFINE;
 
     # autoupdated by Sereal.git:Perl/shared/author_tools/update_from_header.pl do not modify directly!
     {
-        "comment"    => "quadmath _float128",
+        "comment"    => "IEEE binary128",
         "name"       => "FLOAT_128",
         "type_name"  => "FLOAT_128",
         "type_value" => 56,
@@ -1370,7 +1378,16 @@ push @EXPORT_OK, keys %DEFINE;
     } );
 
 $TAG_INFO_HASH{ chr $_ }= $TAG_INFO_ARRAY[$_] for 0 .. 127;
-push @EXPORT_OK, qw(%TAG_INFO_HASH @TAG_INFO_ARRAY);
+our %EXT_TAG_NAME= (
+    "1"   => "DECLARE",
+    "255" => "UNDEF_DEADLY",
+    "38"  => "VSTRING_BINARY",
+    "39"  => "VSTRING_UTF8"
+);
+
+our %DECLARATION_NAME= ( "1" => "LONG_DOUBLE" );
+
+push @EXPORT_OK, qw(%TAG_INFO_HASH @TAG_INFO_ARRAY %EXT_TAG_NAME %DECLARATION_NAME);
 
 # stop autoupdated section - do not modify directly!
 

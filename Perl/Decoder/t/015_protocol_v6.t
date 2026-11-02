@@ -149,9 +149,7 @@ decode_fails(
     qr/FLOAT_128 tag requires protocol version 5/,
     'FLOAT_128 in v4',
 );
-SKIP: {
-    skip 'this perl was not built with quadmath', 2
-        unless ( $Config{usequadmath} || '' ) eq 'define';
+{
     my $corpus_packet = read_packet(
         File::Spec->catdir( 't', 'data', 'packet_corpus' ),
         'quadmath-encoder', 'float128/precision',
@@ -160,9 +158,9 @@ SKIP: {
         'quadmath corpus packet contains FLOAT_128' );
     my $expected = 1.000000000000000000000000000001;
     is(
-        sprintf( '%.35g', decode_sereal($corpus_packet) ),
+        sprintf( '%.35g', Sereal::Decoder->new({legacy_float_byteorder => 'little'})->decode($corpus_packet) ),
         sprintf( '%.35g', $expected ),
-        'quadmath corpus packet preserves FLOAT_128 precision',
+        'quadmath corpus packet converts FLOAT_128 to the native NV',
     );
 }
 

@@ -226,11 +226,11 @@ srl_build_merger_struct(pTHX_ HV *opt)
     /* load options */
     if (opt != NULL) {
         /* Needs to be before the snappy options */
-        /* mrg->protocol_version defaults to SRL_PROTOCOL_VERSION. */
+        /* mrg->protocol_version defaults to SRL_READER_MAX_PROTOCOL_VERSION. */
         svp = hv_fetchs(opt, "protocol_version", 0);
         if (svp && SvOK(*svp)) {
             mrg->protocol_version = SvUV(*svp);
-            if (mrg->protocol_version < 1 || mrg->protocol_version > SRL_PROTOCOL_VERSION) {
+            if (mrg->protocol_version < 1 || mrg->protocol_version > SRL_READER_MAX_PROTOCOL_VERSION) {
                 croak("Specified Sereal protocol version ('%lu') is invalid",
                       (unsigned long) mrg->protocol_version);
             }
@@ -631,7 +631,7 @@ srl_empty_merger_struct(pTHX)
     mrg->cnt_of_merged_elements = 0;
     mrg->obuf_padding_bytes_offset = 0;
     mrg->obuf_last_successfull_offset = 0;
-    mrg->protocol_version = SRL_PROTOCOL_VERSION;
+    mrg->protocol_version = SRL_READER_MAX_PROTOCOL_VERSION;
     mrg->classname_deduper_tbl = NULL;
     mrg->string_deduper_tbl = NULL;
     mrg->tracked_offsets_tbl = NULL;

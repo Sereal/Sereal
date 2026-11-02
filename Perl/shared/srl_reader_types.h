@@ -5,6 +5,11 @@ typedef const unsigned char srl_reader_char_t;
 typedef srl_reader_char_t * srl_reader_char_ptr;
 
 struct srl_reader_buffer {
+    /* Zero means this document has no native LONG_DOUBLE declaration.
+     * A nonzero size is recorded only after the reader validates its layout.
+     * Clearing it between documents prevents a reused reader from accepting
+     * undeclared values using an earlier document's interpretation. */
+    UV long_double_size;
     srl_reader_char_ptr start;    /* ptr to "physical" start of input buffer */
     srl_reader_char_ptr end;      /* ptr to end of input buffer */
     srl_reader_char_ptr pos;      /* ptr to current possition */

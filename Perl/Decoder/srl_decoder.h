@@ -159,6 +159,12 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
  * THAWed but instead yielded as the raw arg array (as no_thaw_objects does).
  * If not set (the default), a disallowed class causes an exception. */
 #define SRL_F_DECODER_THAW_DENY_RAW             0x00100000UL
+/* Persistent flag: read legacy native-order floating-point payloads. */
+#define SRL_F_DECODER_USE_NATIVE_FLOATS         0x00200000UL
+#define SRL_F_DECODER_FLOAT_BYTEORDER_SET       0x00400000UL
+#define SRL_F_DECODER_BIG_ENDIAN_FLOATS         0x00800000UL
+/* Explicit caller trust permits unidentified native storage on a matching ABI. */
+#define SRL_F_DECODER_ALLOW_UNKNOWN_LONG_DOUBLE 0x01000000UL
 
 #define SRL_UNDEF_DEADLY_UNDEF 0
 #define SRL_UNDEF_DEADLY_WARN  1
@@ -279,7 +285,13 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 /* NOTE WELL: WHEN YOU ADD AN OPTION YOU **MUST** ADD A
  * CORRESPONDING CALL TO SRL_INIT_OPTION() to Decoder.xs */
 
-#define SRL_DEC_OPT_COUNT                           28
+#define SRL_DEC_OPT_STR_LEGACY_FLOAT_BYTEORDER           "legacy_float_byteorder"
+#define SRL_DEC_OPT_IDX_LEGACY_FLOAT_BYTEORDER           28
+
+#define SRL_DEC_OPT_STR_ALLOW_UNKNOWN_LONG_DOUBLE       "allow_unknown_long_double"
+#define SRL_DEC_OPT_IDX_ALLOW_UNKNOWN_LONG_DOUBLE       29
+
+#define SRL_DEC_OPT_COUNT                           30
 
 #if ((PERL_VERSION > 10) || (PERL_VERSION == 10 && PERL_SUBVERSION > 1 ))
 #   define MODERN_REGEXP

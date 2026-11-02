@@ -2,23 +2,25 @@ package Sereal::Encoder::Constants;
 use strict;
 use warnings;
 require Exporter;
-our @ISA = qw(Exporter);
+our @ISA= qw(Exporter);
 
-our $VERSION = '6.003';
+our $VERSION= '7.000_001';
 
 our ( @EXPORT_OK, %DEFINE, %TAG_INFO_HASH, @TAG_INFO_ARRAY );
 
-our %EXPORT_TAGS = ( all => \@EXPORT_OK );
+our %EXPORT_TAGS= ( all => \@EXPORT_OK );
 
 # start autoupdated section - do not modify directly
 
 BEGIN {
-    %DEFINE = (
+    %DEFINE= (
         "SRL_CHECKSUM_TAG_LENGTH_128"              => 16,
         "SRL_CHECKSUM_TAG_LENGTH_64"               => 8,
         "SRL_CHECKSUM_VERSION_SIPHASH_2_4_128"     => 1,
         "SRL_CHECKSUM_VERSION_SIPHASH_2_4_64"      => 0,
         "SRL_CHECKSUM_VERSION_SIPHASH_3_6_128"     => 2,
+        "SRL_DECL_LONG_DOUBLE"                     => 1,
+        "SRL_EXT_DECLARE"                          => 1,
         "SRL_EXT_UNDEF_DEADLY"                     => 255,
         "SRL_EXT_VSTRING_BINARY"                   => 38,
         "SRL_EXT_VSTRING_UTF8"                     => 39,
@@ -72,6 +74,12 @@ BEGIN {
         "SRL_HDR_WEAKEN"                           => 48,
         "SRL_HDR_YES"                              => 53,
         "SRL_HDR_ZIGZAG"                           => 33,
+        "SRL_LD_BIG_ENDIAN"                        => 128,
+        "SRL_LD_BINARY128"                         => 3,
+        "SRL_LD_BINARY64"                          => 1,
+        "SRL_LD_DOUBLEDOUBLE"                      => 4,
+        "SRL_LD_OPAQUE"                            => 127,
+        "SRL_LD_X87"                               => 2,
         "SRL_MAGIC_STRING"                         => "=srl",
         "SRL_MAGIC_STRING_HIGHBIT"                 => "=\363rl",
         "SRL_MAGIC_STRING_HIGHBIT_UINT_BE"         => 1039364716,
@@ -97,7 +105,7 @@ BEGIN {
         "SRL_PROTOCOL_ENCODING_ZSTD"               => 64,
         "SRL_PROTOCOL_HDR_CONTINUE"                => 8,
         "SRL_PROTOCOL_HDR_USER_DATA"               => 1,
-        "SRL_PROTOCOL_VERSION"                     => 6,
+        "SRL_PROTOCOL_VERSION"                     => 7,
         "SRL_PROTOCOL_VERSION_BITS"                => 4,
         "SRL_PROTOCOL_VERSION_MASK"                => 15
     );
@@ -106,7 +114,7 @@ BEGIN {
 
 use constant \%DEFINE;
 push @EXPORT_OK, keys %DEFINE;
-@TAG_INFO_ARRAY = (
+@TAG_INFO_ARRAY= (
 
     # autoupdated by Sereal.git:Perl/shared/author_tools/update_from_header.pl do not modify directly!
     {
@@ -468,7 +476,7 @@ push @EXPORT_OK, keys %DEFINE;
 
     # autoupdated by Sereal.git:Perl/shared/author_tools/update_from_header.pl do not modify directly!
     {
-        "comment"    => "<IEEE-LONG-DOUBLE>",
+        "comment"    => "<NATIVE-LONG-DOUBLE> - v7 requires a declaration",
         "name"       => "LONG_DOUBLE",
         "type_name"  => "LONG_DOUBLE",
         "type_value" => 36,
@@ -655,7 +663,7 @@ push @EXPORT_OK, keys %DEFINE;
 
     # autoupdated by Sereal.git:Perl/shared/author_tools/update_from_header.pl do not modify directly!
     {
-        "comment"    => "quadmath _float128",
+        "comment"    => "IEEE binary128",
         "name"       => "FLOAT_128",
         "type_name"  => "FLOAT_128",
         "type_value" => 56,
@@ -1369,8 +1377,17 @@ push @EXPORT_OK, keys %DEFINE;
         "value"      => 127
     } );
 
-$TAG_INFO_HASH{ chr $_ } = $TAG_INFO_ARRAY[$_] for 0 .. 127;
-push @EXPORT_OK, qw(%TAG_INFO_HASH @TAG_INFO_ARRAY);
+$TAG_INFO_HASH{ chr $_ }= $TAG_INFO_ARRAY[$_] for 0 .. 127;
+our %EXT_TAG_NAME= (
+    "1"   => "DECLARE",
+    "255" => "UNDEF_DEADLY",
+    "38"  => "VSTRING_BINARY",
+    "39"  => "VSTRING_UTF8"
+);
+
+our %DECLARATION_NAME= ( "1" => "LONG_DOUBLE" );
+
+push @EXPORT_OK, qw(%TAG_INFO_HASH @TAG_INFO_ARRAY %EXT_TAG_NAME %DECLARATION_NAME);
 
 # stop autoupdated section - do not modify directly!
 1;

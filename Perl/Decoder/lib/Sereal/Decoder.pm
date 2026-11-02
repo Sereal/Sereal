@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION    = '6.003';
+our $VERSION    = '7.000_001';
 our $XS_VERSION = $VERSION; $VERSION = eval $VERSION;
 
 our $ChecksumPolicy;
@@ -76,11 +76,14 @@ use constant #begin generated
   'SRL_F_DECODER_ALIAS_CHECK_FLAGS' => 28672,
   'SRL_F_DECODER_ALIAS_SMALLINT' => 4096,
   'SRL_F_DECODER_ALIAS_VARINT' => 8192,
+  'SRL_F_DECODER_ALLOW_UNKNOWN_LONG_DOUBLE' => 16777216,
+  'SRL_F_DECODER_BIG_ENDIAN_FLOATS' => 8388608,
   'SRL_F_DECODER_DECOMPRESS_SNAPPY' => 8,
   'SRL_F_DECODER_DECOMPRESS_ZLIB' => 16,
   'SRL_F_DECODER_DECOMPRESS_ZSTD' => 131072,
   'SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL' => 1024,
   'SRL_F_DECODER_DIRTY' => 2,
+  'SRL_F_DECODER_FLOAT_BYTEORDER_SET' => 4194304,
   'SRL_F_DECODER_NEEDS_FINALIZE' => 4,
   'SRL_F_DECODER_NO_BLESS_OBJECTS' => 512,
   'SRL_F_DECODER_NO_THAW_OBJECTS' => 524288,
@@ -94,6 +97,7 @@ use constant #begin generated
   'SRL_F_DECODER_SET_READONLY' => 32768,
   'SRL_F_DECODER_SET_READONLY_SCALARS' => 65536,
   'SRL_F_DECODER_THAW_DENY_RAW' => 1048576,
+  'SRL_F_DECODER_USE_NATIVE_FLOATS' => 2097152,
   'SRL_F_DECODER_USE_UNDEF' => 16384,
   'SRL_F_DECODER_VALIDATE_UTF8' => 256,
   'SRL_F_DECODER_VOLATILE_FLAGS' => 133150,
@@ -118,7 +122,11 @@ use constant #begin generated
                     'DECOMPRESS_ZSTD',
                     'REFUSE_ZSTD',
                     'NO_THAW_OBJECTS',
-                    'THAW_DENY_RAW'
+                    'THAW_DENY_RAW',
+                    'USE_NATIVE_FLOATS',
+                    'FLOAT_BYTEORDER_SET',
+                    'BIG_ENDIAN_FLOATS',
+                    'ALLOW_UNKNOWN_LONG_DOUBLE'
                   ],
   '_FLAG_NAME_STATIC' => [
                            'REUSE',
@@ -141,7 +149,11 @@ use constant #begin generated
                            undef,
                            'REFUSE_ZSTD',
                            'NO_THAW_OBJECTS',
-                           'THAW_DENY_RAW'
+                           'THAW_DENY_RAW',
+                           'USE_NATIVE_FLOATS',
+                           'FLOAT_BYTEORDER_SET',
+                           'BIG_ENDIAN_FLOATS',
+                           'ALLOW_UNKNOWN_LONG_DOUBLE'
                          ],
   '_FLAG_NAME_VOLATILE' => [
                              undef,
@@ -162,6 +174,10 @@ use constant #begin generated
                              undef,
                              undef,
                              'DECOMPRESS_ZSTD',
+                             undef,
+                             undef,
+                             undef,
+                             undef,
                              undef,
                              undef,
                              undef
@@ -252,12 +268,8 @@ The two are released separately to allow for independent and safer upgrading.
 
 This distribution requires Perl 5.14 or newer.
 
-The Sereal protocol versions that are compatible with this decoder
-implementation are currently protocol versions 1, 2, 3, 4, 5 and 6. As it stands,
-it will refuse to attempt to decode future versions of the protocol, but if
-necessary there is likely going to be an option to decode the parts of the
-input that are compatible with version 6 of the protocol. The protocol was
-designed to allow for this.
+This decoder supports Sereal protocol versions 1 through 7 and rejects
+unsupported protocol versions.
 Tags and compression formats that require a newer protocol version than the
 version declared in a document are rejected.
 
@@ -341,11 +353,8 @@ size. See the authors' L<SipHash variant documentation|https://github.com/veorq/
 =head2 new
 
 Constructor. Optionally takes a hash reference as first parameter. This hash
-reference may contain any number of options that influence the behaviour of the
-encoder.
-
-Currently, the following options are recognized, none of them are on
-by default.
+reference may contain options that influence the behaviour of the decoder.
+The recognized options and their defaults are described below.
 
 =head3 checksum_key
 
@@ -470,6 +479,23 @@ policy uses C<'verify-if-available'>. Invalid selected values cause
 construction to fail. Existing objects and recursive clones retain their
 policy.
 
+Checksum package and environment settings provide defaults for new objects;
+explicit constructor options can override them. C<'require_key'>,
+C<'require_v2'> and C<'require_v3'> reject unsigned packets. C<'die'> accepts
+unsigned packets but fails when a checksummed packet cannot be verified.
+C<'die'> and all C<'require'> policies require configured keys to contain
+exactly 16 bytes, including keys supplied through C<$Sereal::DefaultKey>.
+
+Verification makes an additional pass over the protected header and encoded
+payload, adding CPU work proportional to their size. Compressed payloads are
+authenticated before decompression. The SipHash variants use different round
+counts and tag sizes, so their cost depends on the selected variant and the
+workload. With a matching key, C<'die'>, C<'require_key'> and
+C<'verify-if-available'> perform the same verification work. Ignore policies
+still validate the envelope framing but provide no authentication. Object
+reuse avoids repeated configuration work, not the verification pass for each
+packet; warnings and their logging can add per-packet overhead as well.
+
 =head3 unknown_option_policy
 
 Controls how this module handles unrecognized keys in its configuration hash.
@@ -488,20 +514,27 @@ C<'warn'>. Undefined package or constructor values fall through to the next
 source. Accepted values are C<'warn'>, C<'die'>, and C<'ignore'>; any other
 selected value throws an exception.
 
-This is a default, not a mandatory process-wide restriction: explicit options
-can override it. C<'require_key'> rejects unsigned input packets; the other
-policies accept them. Both strict policies require every configured key to have
-exactly 16 bytes, whether supplied explicitly or through C<$Sereal::DefaultKey>.
+=head3 legacy_float_byteorder
 
-Verification makes an additional pass over the protected header and encoded
-payload, adding CPU work proportional to their size. Compressed payloads are
-authenticated in compressed form before decompression. The SipHash variants
-have different round counts and tag sizes; benchmark representative workloads.
-With a matching key, C<'die'>, C<'require_key'>, and C<'verify-if-available'> do the
-same MAC verification work. The ignore policies skip that work and provide
-no authentication, but still parse and validate the envelope framing. Warnings
-and their logging can add overhead on every packet. Reusing objects avoids
-repeating configuration work; it does not avoid per-packet authentication work.
+Selects the source byte order for floating-point values in protocol versions
+1 through 6. Accepted values are C<'native'> (the default), C<'little'>, and
+C<'big'>. Set this when reading protocol v1 through v6 data from a machine
+with a different, known byte order. It has no effect on protocol v7.
+
+This option does not convert between different native extended formats.
+See L</FLOATING-POINT INTEROPERABILITY> for details.
+
+=head3 allow_unknown_long_double
+
+Allows protocol v7 native extended values with an unidentified layout to be
+read using the local C<long double> representation.  This option is off by
+default.  Enable it only for data from a matching Perl build and ABI.
+Storage sizes must still match, and known format or byte-order mismatches
+remain errors.
+
+  my $decoder = Sereal::Decoder->new({ allow_unknown_long_double => 1 });
+
+See L</FLOATING-POINT INTEROPERABILITY> for the limits of this mode.
 
 =head3 refuse_snappy
 
@@ -1023,6 +1056,62 @@ Perl 5.20 also has a core cleanup issue for read-only bare regexp values in
 lexicals: scope cleanup can raise C<Modification of a read-only value attempted>.
 This occurs with regexps created by Perl itself as well. Prefer regexp
 references on that Perl when using read-only values.
+
+=head1 FLOATING-POINT INTEROPERABILITY
+
+=head2 Perl builds and numeric formats
+
+Most Perl builds store floating-point numbers as C<double>, normally IEEE
+754 binary64. Long-double and quadmath builds support greater precision or
+range. Quadmath uses IEEE binary128; C<long double> varies by platform.
+Perl's C<Config> module reports its internal floating-point type (NV) in
+C<$Config{nvtype}>. Platforms can also differ in byte order.
+
+Encoding and decoding make separate decisions. The encoder chooses a
+stored representation from the producer's NV type. The decoder decides
+whether to accept that representation, then converts accepted values to
+its local NV type. Input options control interpretation and acceptance;
+they do not change the local NV type or increase its precision or range.
+A successful read can therefore involve rounding or loss of range.
+
+=head2 Reading protocol v7
+
+Protocol v7 uses little-endian IEEE binary32, binary64, and binary128 by
+default. The decoder handles byte order automatically and can read binary128
+without quadmath support. No special option is needed.
+
+Values are rounded to the local NV precision when necessary, using
+nearest/even rounding. Overflow produces signed infinity; underflow can
+produce a subnormal value or signed zero. NaN payload bits are not preserved.
+Use a Perl build with sufficient precision and range if these losses are
+unacceptable.
+
+=head2 Reading native long doubles
+
+A long-double producer can request native storage instead of portable
+storage. Protocol v7 identifies the native format, byte order, and storage
+size. The decoder rejects known layouts that do not match its own.
+
+Unknown layouts are rejected by default. Set
+C<allow_unknown_long_double =E<gt> 1> only when producer and reader use
+matching Perl builds and ABIs (native memory layouts). This trusts the
+stored bytes rather than converting them. The storage size must still
+match, and known format or byte-order mismatches remain errors. Only
+same-build value round trips are guaranteed for unknown layouts.
+
+=head2 Reading protocol versions 1 through 6
+
+These versions used the producer's native byte order without identifying
+it in the document. Extended values could also depend on the producer's
+native format and storage size. The decoder preserves the historical
+behavior by assuming its own native representation.
+
+When reading data from a different platform, obtain the producer's byte
+order and set C<legacy_float_byteorder =E<gt> 'little'> or C<'big'> as needed.
+This corrects byte order only; it cannot convert between different native
+extended formats or storage sizes. Do not infer byte order from apparently
+reasonable decoded numbers: the wrong order can also produce plausible
+values. This option has no effect on protocol v7.
 
 =head1 ROBUSTNESS
 

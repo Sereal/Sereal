@@ -56,6 +56,8 @@ extern "C" {
 #include "srl_decoder.h"
 
 #include "srl_common.h"
+#include "srl_float.h"
+#include "srl_reader_skip.h"
 #include "ptable.h"
 #include "srl_reader.h"
 #include "srl_reader_error.h"
@@ -376,6 +378,23 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
                     break;
                 case SRL_DEC_OPT_IDX_UNKNOWN_OPTION_POLICY:
                     unknown_option_policy_value = val;
+                    break;
+                case SRL_DEC_OPT_IDX_ALLOW_UNKNOWN_LONG_DOUBLE:
+                    if (SvTRUE(val))
+                        SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_ALLOW_UNKNOWN_LONG_DOUBLE);
+                    break;
+                case SRL_DEC_OPT_IDX_LEGACY_FLOAT_BYTEORDER:
+                    {
+                        STRLEN len;
+                        const char *order = SvPV(val, len);
+                        SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_FLOAT_BYTEORDER_SET);
+                        if (memEQs(order, len, "native"))
+                            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_USE_NATIVE_FLOATS);
+                        else if (memEQs(order, len, "big"))
+                            SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_BIG_ENDIAN_FLOATS);
+                        else if (!memEQs(order, len, "little"))
+                            croak("Invalid legacy_float_byteorder; expected native, little, or big");
+                    }
                     break;
                 case SRL_DEC_OPT_IDX_DESTRUCTIVE_INCREMENTAL:
                     if (SvTRUE(val))
@@ -743,8 +762,16 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
     SRL_RDR_UPDATE_BODY_POS(dec->pbuf, dec->proto_version);
     dec->min_backref_offset = (UV)(dec->buf.pos - dec->buf.body_pos);
 
+    srl_read_declarations(aTHX_ dec->pbuf, dec->proto_version,
+        SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_ALLOW_UNKNOWN_LONG_DOUBLE) != 0);
+    dec->min_backref_offset = (UV)(dec->buf.pos - dec->buf.body_pos);
+
     /* The actual document body deserialization: */
     srl_read_single_value(aTHX_ dec, body_into, NULL);
+    if (dec->proto_version >= 7 && SRL_RDR_SPACE_LEFT(dec->pbuf) >= 2
+        && ((*dec->buf.pos & ~SRL_HDR_TRACK_FLAG) == SRL_HDR_EXTEND)
+        && dec->buf.pos[1] == SRL_EXT_DECLARE)
+        SRL_RDR_ERROR(dec->pbuf, "Declaration outside document prefix");
     if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE))) {
         srl_finalize_structure(aTHX_ dec);
     }
@@ -1097,6 +1124,7 @@ srl_read_header(pTHX_ srl_decoder_t *dec, SV *header_user_data)
     UV header_len;
     IV proto_version_and_encoding_flags_int= srl_validate_header_version(aTHX_ dec->buf.pos, SRL_RDR_SPACE_LEFT(dec->pbuf));
 
+    dec->buf.long_double_size = 0;
     if ( expect_false(proto_version_and_encoding_flags_int < 1) ) {
         if (proto_version_and_encoding_flags_int == 0)
             SRL_RDR_ERROR(dec->pbuf, "Bad Sereal header: It seems your document was accidentally UTF-8 encoded");
@@ -1742,6 +1770,30 @@ union myfloat {
 #endif
 };
 
+SRL_STATIC_INLINE int
+srl_native_float_payload(srl_decoder_t *dec)
+{
+    if (dec->proto_version >= 7) return 0;
+    if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_FLOAT_BYTEORDER_SET))
+        return SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_USE_NATIVE_FLOATS) != 0;
+    return 1;
+}
+
+/* Legacy packets carry no byte-order marker, so an explicit source order
+ * comes from the caller's knowledge of the producer. Normalize that order
+ * for the portable float readers. The override cannot affect v7 portable
+ * values because those already have a defined little-endian wire order. */
+SRL_STATIC_INLINE const U8 *
+srl_ordered_float_payload(srl_decoder_t *dec, U8 *scratch, STRLEN len)
+{
+    STRLEN i;
+    if (dec->proto_version < 7 && SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_BIG_ENDIAN_FLOATS)) {
+        for (i = 0; i < len; i++) scratch[i] = dec->buf.pos[len - 1 - i];
+        return scratch;
+    }
+    return dec->buf.pos;
+}
+
 /* Wire payloads may start at any byte offset. Copy into aligned storage
  * even on CPUs that support unaligned loads: a misaligned typed pointer
  * dereference is undefined in C. Constant-size copies can be optimized
@@ -1751,8 +1803,12 @@ SRL_STATIC_INLINE void
 srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
+    U8 scratch[sizeof(float)];
     SRL_RDR_ASSERT_SPACE(dec->pbuf, sizeof(float), " while reading FLOAT");
-    Copy(dec->buf.pos,val.c,sizeof(float),U8);
+    if (srl_native_float_payload(dec))
+        Copy(dec->buf.pos,val.c,sizeof(float),U8);
+    else
+        srl_copy_float_little_endian(aTHX_ val.c, srl_ordered_float_payload(dec, scratch, sizeof(float)));
     sv_setnv(into, (NV)val.f);
     dec->buf.pos+= sizeof(float);
 }
@@ -1760,25 +1816,28 @@ srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
 SRL_STATIC_INLINE void
 srl_read_float_128(pTHX_ srl_decoder_t *dec, SV* into)
 {
-#ifdef HAS_QUADMATH
-    union myfloat val;
-    SRL_RDR_ASSERT_SPACE(dec->pbuf, sizeof(NV), " while reading FLOAT");
-    Copy(dec->buf.pos,val.c,sizeof(NV),U8);
-    sv_setnv(into, (NV)val.nv);
-    dec->buf.pos += sizeof(NV);
-#else
-    SRL_RDR_ERROR(dec->pbuf, "FLOAT_128 not supported. No quadmath support in this perl.");
-#endif
+    U8 bytes[16], scratch[16];
+    SRL_RDR_ASSERT_SPACE(dec->pbuf, 16, " while reading FLOAT_128");
+    if (srl_native_float_payload(dec)) {
+        /* Legacy quadmath used native byte order. */
+        srl_copy_little_endian(bytes, dec->buf.pos, 16);
+    } else {
+        Copy(srl_ordered_float_payload(dec, scratch, 16), bytes, 16, U8);
+    }
+    sv_setnv(into, srl_binary128_to_nv(bytes));
+    dec->buf.pos += 16;
 }
-
-
 
 SRL_STATIC_INLINE void
 srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
+    U8 scratch[sizeof(double)];
     SRL_RDR_ASSERT_SPACE(dec->pbuf, sizeof(double), " while reading DOUBLE");
-    Copy(dec->buf.pos,val.c,sizeof(double),U8);
+    if (srl_native_float_payload(dec))
+        Copy(dec->buf.pos,val.c,sizeof(double),U8);
+    else
+        srl_copy_double_little_endian(aTHX_ val.c, srl_ordered_float_payload(dec, scratch, sizeof(double)));
     sv_setnv(into, (NV)val.d);
     dec->buf.pos+= sizeof(double);
 }
@@ -1788,8 +1847,25 @@ SRL_STATIC_INLINE void
 srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
+    if (dec->proto_version >= 7 && !dec->buf.long_double_size)
+        SRL_RDR_ERROR(dec->pbuf, "LONG_DOUBLE requires a declaration");
     SRL_RDR_ASSERT_SPACE(dec->pbuf, sizeof(long double), " while reading LONG_DOUBLE");
-    Copy(dec->buf.pos,val.c,sizeof(long double),U8);
+    if (dec->proto_version >= 7) {
+        Copy(dec->buf.pos,val.c,sizeof(long double),U8);
+    } else if (srl_native_float_payload(dec))
+        Copy(dec->buf.pos,val.c,sizeof(long double),U8);
+    else {
+        U8 format = srl_native_long_double_format();
+        STRLEN i, value_bytes = (format & 127) == SRL_LD_X87 ? 10 : sizeof(long double);
+        int source_big = SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_BIG_ENDIAN_FLOATS) != 0;
+        if (!format)
+            SRL_RDR_ERROR(dec->pbuf, "Cannot override unknown legacy LONG_DOUBLE layout");
+        Zero(val.c, sizeof(long double), U8);
+        if (source_big == ((format & SRL_LD_BIG_ENDIAN) != 0))
+            Copy(dec->buf.pos, val.c, value_bytes, U8);
+        else
+            for (i = 0; i < value_bytes; i++) val.c[i] = dec->buf.pos[value_bytes - 1 - i];
+    }
     sv_setnv(into, (NV)val.ld);
     dec->buf.pos+= sizeof(long double);
 }
@@ -2753,6 +2829,11 @@ srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into)
         SRL_RDR_ERROR(dec->pbuf, "EXTEND tag requires protocol version 6 or later");
     SRL_RDR_ASSERT_SPACE(dec->pbuf, 1, " while reading extended tag ID");
     ext_tag = *dec->buf.pos++;
+    if (ext_tag == SRL_EXT_DECLARE) {
+        if (dec->proto_version < 7)
+            SRL_RDR_ERROR(dec->pbuf, "DECLARE tag requires protocol version 7 or later");
+        SRL_RDR_ERROR(dec->pbuf, "Declaration outside document prefix");
+    }
     if (ext_tag == SRL_EXT_UNDEF_DEADLY) {
         if (dec->undef_deadly_policy == SRL_UNDEF_DEADLY_DIE)
             SRL_RDR_ERROR(dec->pbuf, "Encountered UNDEF_DEADLY extended tag");

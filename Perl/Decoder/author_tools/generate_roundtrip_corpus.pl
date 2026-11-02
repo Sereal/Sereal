@@ -12,10 +12,19 @@ use Sereal::TestSet::Corpus qw(
 
 my $root = File::Spec->catdir( 't', 'data', 'packet_corpus' );
 unpack_corpus($root);
-# Each wire protocol gets a compact baseline corpus. Larger stress cases stay
-# in the live round-trip suite, which runs when Encoder supports that protocol.
+# Each protocol gets a small baseline that Decoder can read without a live
+# matching Encoder. The 16 KiB limit below keeps oversized stress cases out
+# of the archive; those cases remain in the live round-trip suite. These
+# groups have stable names rather than ABI-specific names, so this generator
+# replaces a baseline instead of collecting additional native-layout sources.
+# README.corpus.md explains when that replacement is appropriate.
 my ( @tests, %v6_names );
-for my $version ( 1 .. 6 ) {
+my @versions = @ARGV ? @ARGV : (1 .. 7);
+die "Invalid protocol version\n" if grep { !/^[1-7]$/ } @versions;
+die "Legacy corpus sources require a little-endian generator; use version 7 on this platform\n"
+    if (grep { $_ < 7 } @versions)
+        && unpack('H*', pack('d', 1.0)) ne '000000000000f03f';
+for my $version (@versions) {
     setup_tests($version);
     my @version_tests = Sereal::TestSet::_get_roundtrip_tests();
     my $encoder = Sereal::Encoder->new( { protocol_version => $version } );
@@ -55,7 +64,7 @@ my %v6_profiles = (
     zstd_force        => { compress => Sereal::Encoder::SRL_ZSTD(), compress_threshold => 0 },
 );
 
-for my $profile ( sort keys %v6_profiles ) {
+for my $profile ( grep { grep { $_ == 6 } @versions } sort keys %v6_profiles ) {
     setup_tests(6);
     my $encoder = Sereal::Encoder->new( {
         protocol_version => 6,

@@ -13,6 +13,7 @@ my (
 my $max_name_length = 0;
 my %define;
 my %define_is_str;
+my ( %extended_tag_name, %declaration_name );
 
 my $ZERO = "Sereal.git:Perl/shared/author_tools/update_from_header.pl";
 
@@ -93,6 +94,25 @@ sub read_protocol {
     }
     close $fh;
     fill_range($_) for @fill;
+    # Names are derived from the protocol registry so diagnostics and tools
+    # stay consistent when a declaration is added. Extended tags and
+    # declaration kinds occupy separate namespaces and may share a number;
+    # duplicate numbers within either namespace would make its name ambiguous.
+    for my $full_name ( sort keys %define ) {
+        my $names;
+        my $name;
+        if ( $full_name =~ /^SRL_EXT_(.+)$/ ) {
+            ( $names, $name ) = ( \%extended_tag_name, $1 );
+        }
+        elsif ( $full_name =~ /^SRL_DECL_(.+)$/ ) {
+            ( $names, $name ) = ( \%declaration_name, $1 );
+        }
+        else { next; }
+        my $value = $define{$full_name};
+        die "Duplicate protocol name for ID $value ($full_name)" if exists $names->{$value};
+        $names->{$value} = $name;
+    }
+
     foreach my $pfx ( keys %name_to_value_expanded ) {
         $max_name_length = length($pfx) if $max_name_length < length($pfx);
     }
@@ -159,11 +179,20 @@ sub update_constants {
         Data::Dumper->new( [ \@meta ], ['*TAG_INFO_ARRAY'] )->Sortkeys(1)->Useqq(1)->Indent(1)
         ->Dump();
     $dump =~ s/^(\s*)\{/$1# autoupdated by $ZERO do not modify directly!\n$1\{/mg;
-    my $defines =
-        Data::Dumper->new( [ \%define ], ['*DEFINE'] )->Sortkeys(1)->Useqq(1)->Indent(1)->Dump;
-    $defines =~ s/^/    /mg;
-
+    my $names = join "\n", map {
+        'our ' . Data::Dumper->new( [ $_->[1] ], [ '*' . $_->[0] ] )
+            ->Sortkeys(1)->Useqq(1)->Indent(1)->Dump;
+    } [ 'EXT_TAG_NAME', \%extended_tag_name ], [ 'DECLARATION_NAME', \%declaration_name ];
     foreach my $mod_suffix (qw(Encoder Decoder Merger Splitter Path)) {
+        my %module_define = %define;
+        # These modules copy wire payloads while rewriting documents. Their
+        # constants must match the v6 ceiling in srl_reader_header.h; using the
+        # Encoder/Decoder maximum would advertise conversions they do not make.
+        $module_define{SRL_PROTOCOL_VERSION} = 6
+            unless $mod_suffix eq 'Encoder' || $mod_suffix eq 'Decoder';
+        my $defines =
+            Data::Dumper->new( [ \%module_define ], ['*DEFINE'] )->Sortkeys(1)->Useqq(1)->Indent(1)->Dump;
+        $defines =~ s/^/    /mg;
         my $file = "Perl/$mod_suffix/lib/Sereal/$mod_suffix/Constants.pm";
         replace_block(
             $file,
@@ -176,7 +205,8 @@ sub update_constants {
             "push \@EXPORT_OK, keys %DEFINE;",
             $dump,
             "\$TAG_INFO_HASH{chr \$_}= \$TAG_INFO_ARRAY[\$_] for 0 .. 127;",
-            "push \@EXPORT_OK, qw(%TAG_INFO_HASH \@TAG_INFO_ARRAY);",
+            $names,
+            "push \@EXPORT_OK, qw(%TAG_INFO_HASH \@TAG_INFO_ARRAY %EXT_TAG_NAME %DECLARATION_NAME);",
         );
         if (1) {
             system(   qq[perltidy -w -ple -bbb -bbc -bbs -nolq -l=100 -noll -nola -nwls='=' ]
@@ -205,6 +235,16 @@ sub update_srl_taginfo_h {
                 } 0 .. 127
             ),
             "};",
+            "",
+            "SRL_STATIC_INLINE const char *",
+            "srl_declaration_name(UV kind)",
+            "{",
+            "    switch (kind) {",
+            ( map { qq(        case $_: return "$declaration_name{$_}";) }
+                sort { $a <=> $b } keys %declaration_name ),
+            '        default: return "UNKNOWN";',
+            "    }",
+            "}",
             "", (
                 map {
                     sprintf "#define SRL_HDR_%-*s %3d",

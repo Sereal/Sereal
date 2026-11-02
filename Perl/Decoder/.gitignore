@@ -2,6 +2,9 @@
 author_tools/*
 !author_tools/generate_decoder_corpus.pl
 !author_tools/generate_roundtrip_corpus.pl
+!author_tools/generate_float_corpus.pl
+!author_tools/collect_float_corpus.pl
+!author_tools/README.corpus.md
 *.bak
 blib/
 callgrind.out.*

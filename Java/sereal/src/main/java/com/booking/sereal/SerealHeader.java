@@ -45,7 +45,7 @@ public interface SerealHeader {
   byte SRL_HDR_ZIGZAG            = (byte)  33; /*  33 0x21 0b00100001 <ZIGZAG-VARINT> - Zigzag variable length integer */
   byte SRL_HDR_FLOAT             = (byte)  34; /*  34 0x22 0b00100010 <IEEE-FLOAT> */
   byte SRL_HDR_DOUBLE            = (byte)  35; /*  35 0x23 0b00100011 <IEEE-DOUBLE> */
-  byte SRL_HDR_LONG_DOUBLE       = (byte)  36; /*  36 0x24 0b00100100 <IEEE-LONG-DOUBLE> */
+  byte SRL_HDR_LONG_DOUBLE       = (byte)  36; /*  36 0x24 0b00100100 <NATIVE-LONG-DOUBLE> - v7 requires a declaration */
   byte SRL_HDR_UNDEF             = (byte)  37; /*  37 0x25 0b00100101 None - Perl undef var; eg my $var= undef; */
   byte SRL_HDR_BINARY            = (byte)  38; /*  38 0x26 0b00100110 <LEN-VARINT> <BYTES> - binary/native string */
   byte SRL_HDR_STR_UTF8          = (byte)  39; /*  39 0x27 0b00100111 <LEN-VARINT> <UTF8> - utf8 string */
@@ -67,7 +67,7 @@ public interface SerealHeader {
   byte SRL_HDR_RESERVED_LOW      = (byte)  54; /*  54 0x36 0b00110110 reserved */
   byte SRL_HDR_RESERVED_1        = (byte)  55; /*  55 0x37 0b00110111 reserved */
   byte SRL_HDR_RESERVED_HIGH     = (byte)  55; /*  55 0x37 0b00110111 reserved */
-  byte SRL_HDR_FLOAT_128         = (byte)  56; /*  56 0x38 0b00111000 quadmath _float128 */
+  byte SRL_HDR_FLOAT_128         = (byte)  56; /*  56 0x38 0b00111000 IEEE binary128 */
   byte SRL_HDR_CANONICAL_UNDEF   = (byte)  57; /*  57 0x39 0b00111001 undef (PL_sv_undef) - "the" Perl undef (see notes) */
   byte SRL_HDR_FALSE             = (byte)  58; /*  58 0x3a 0b00111010 false (PL_sv_no) */
   byte SRL_HDR_TRUE              = (byte)  59; /*  59 0x3b 0b00111011 true  (PL_sv_yes) */

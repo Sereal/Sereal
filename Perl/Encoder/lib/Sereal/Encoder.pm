@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION    = '6.003';
+our $VERSION    = '7.000_001';
 our $XS_VERSION = $VERSION; $VERSION = eval $VERSION;
 
 our $ChecksumPolicy;
@@ -60,6 +60,7 @@ $full_consts=
   'SRL_F_SORT_KEYS_PERL_REV' => 131072,
   'SRL_F_STRINGIFY_UNKNOWN' => 16,
   'SRL_F_UNDEF_UNKNOWN' => 8,
+  'SRL_F_USE_NATIVE_LONG_DOUBLE' => 2097152,
   'SRL_F_USE_STANDARD_DOUBLE' => 524288,
   'SRL_F_WARN_UNKNOWN' => 32,
   '_FLAG_NAME' => [
@@ -87,7 +88,8 @@ $full_consts=
                     'SORT_KEYS_PERL_REV',
                     'COMPRESS_ZSTD',
                     'USE_STANDARD_DOUBLE',
-                    'FREEZE_DENY_SERIALIZE'
+                    'FREEZE_DENY_SERIALIZE',
+                    'USE_NATIVE_LONG_DOUBLE'
                   ]
 }; #end generated
 }
@@ -201,9 +203,10 @@ If you care greatly about performance, consider reading the L<Sereal::Performanc
 documentation after finishing this document.
 
 The Sereal protocol version emitted by this encoder implementation is currently
-protocol version 6 by default. When explicitly asked to emit protocol version 5
-or earlier, it uses the integer encodings defined for that version.
-Protocol version 6 documents require a decoder with protocol version 6 support,
+protocol version 7 by default. See L</FLOATING-POINT INTEROPERABILITY> for
+floating-point compatibility with protocol versions 1 through 6 and other
+Perl builds.
+Protocol version 7 documents require a decoder with protocol version 7 support,
 so upgrade the decoder before switching the encoder to its default output.
 
 The protocol specification and many other bits of documentation
@@ -376,7 +379,7 @@ package variable. Without a configured mode, Encoder defaults to C<'v3'>.
 
 Compatibility alias for C<checksum_key> with C<checksum_mode =E<gt> 'v1'>.
 
-If set, the encoder emits protocol version 6 packets with
+If set, the encoder emits protocol version 6 or later packets with
 a SipHash-2-4 authentication tag (format version 0). The tag covers the packet
 header and encoded payload, including the checksum type, checksum-length
 varint, payload-length varint, and compression framing. The checksum tag is
@@ -394,7 +397,7 @@ C<prepare_checksum_key()> to normalize a key explicitly.
 
 Compatibility alias for C<checksum_key> with C<checksum_mode =E<gt> 'v2'>.
 
-If set, the encoder emits protocol version 6 packets with a SipHash-2-4-128
+If set, the encoder emits protocol version 6 or later packets with a SipHash-2-4-128
 authentication tag (checksum version 1). This has the same coverage and key
 requirements as C<checksum_key_v1>, with a 16-byte tag instead of eight bytes.
 
@@ -402,7 +405,7 @@ requirements as C<checksum_key_v1>, with a 16-byte tag instead of eight bytes.
 
 Compatibility alias for C<checksum_key> with C<checksum_mode =E<gt> 'v3'>.
 
-If set, the encoder emits protocol version 6 packets with
+If set, the encoder emits protocol version 6 or later packets with
 a SipHash-3-6-128 authentication tag (checksum version 2). The tag covers the
 same packet data as C<checksum_key_v1>, with a 16-byte output. This option
 requires protocol version 6 or later. The matching decoder must be configured
@@ -768,14 +771,25 @@ referents remain distinct; repeated references to the same scalar still share
 that scalar. A string first emitted as a scalar referent can be an alias target
 for a later array or hash value.
 
+=head3 float_type
+
+Selects floating-point storage for protocol v7. C<'std'>, the default, uses
+portable IEEE formats. C<'native'> allows native extended-precision storage
+on long-double Perl builds. On ordinary double and quadmath builds,
+C<'native'> has no effect. Protocol versions 1 through 6 are unaffected.
+
+  my $encoder = Sereal::Encoder->new({ float_type => 'native' });
+
+On long-double builds, C<'native'> cannot be combined with
+C<use_standard_double>. See L</FLOATING-POINT INTEROPERABILITY> for portability
+and precision considerations.
+
 =head3 use_standard_double
 
-This option can be used to force Perls built with uselongdouble or quadmath
-to use DOUBLE instead of the native floating point. This can be helpful
-interoperating with Perls which do not support larger sized floats. Note
-that "uselongdouble" means different things in different places, so this
-option may be helpful for such builds. We do not enable this option by default
-for backwards compatibility reasons, and because doing so would lose precision.
+Limits floating-point output to double precision (IEEE binary64), even on
+Perl builds with extended precision. This option is off by default and can
+lose precision. It cannot be combined with C<float_type =E<gt> 'native'> on
+a long-double build. See L</FLOATING-POINT INTEROPERABILITY>.
 
 =head3 protocol_version
 
@@ -850,6 +864,66 @@ optionally followed by a hash reference of options (see documentation for C<new(
 
 This functional interface is significantly slower than the OO interface since
 it cannot reuse the encoder object.
+
+=head1 FLOATING-POINT INTEROPERABILITY
+
+=head2 Perl builds and numeric formats
+
+Most Perl builds store floating-point numbers as C<double>, normally IEEE
+754 binary64. Long-double and quadmath builds support greater precision or
+range. Quadmath uses IEEE binary128; C<long double> varies by platform.
+Perl's C<Config> module reports its internal floating-point type (NV) in
+C<$Config{nvtype}>. Platforms can also differ in byte order.
+
+Encoding and decoding make separate decisions. The encoder starts with its
+local NV type and chooses the representation to emit. The decoder decides
+whether to accept that representation, then converts it to its own NV type.
+Encoder options control the stored representation; they cannot increase the
+receiving Perl's precision or range.
+
+=head2 Encoding protocol v7
+
+By default, protocol v7 writes little-endian IEEE binary32, binary64, or
+binary128 values, using the smallest format that preserves the value.
+This applies to ordinary double, long-double, and quadmath builds; no
+option is needed to produce portable output.
+
+Binary128 preserves finite double, x87 extended, and quadmath values.
+Some IBM double-double values require rounding to fit binary128. NaN
+payload bits are not preserved. A reader with less precision or range may
+also lose information when converting the stored value to its own NV type.
+
+Use C<use_standard_double> if output must be limited to double precision.
+This can lose precision on long-double and quadmath builds.
+
+=head2 Encoding native long doubles
+
+On a long-double build, C<float_type =E<gt> 'native'> allows extended values
+to use the native representation. Choose this when native value fidelity
+matters more than portability. Ordinary double and quadmath builds are
+unaffected by this setting.
+
+The encoded document includes data on the long double's native format, byte
+order, and storage size so a decoder can reject obviously incompatible data.
+
+The encoder clears unused padding bytes in known layouts. For an unknown
+layout it stores the native bytes as they are, so padding may contain
+unrelated process memory, so the use of the native format is potentially risky
+on some platforms.  Such data requires a matching Perl build and ABI
+(native memory layout), and C<allow_unknown_long_double =E<gt> 1> on the
+decoder.  Only same-build value round trips are guaranteed for unknown layouts.
+
+=head2 Encoding protocol versions 1 through 6
+
+These versions retain their historical behavior: floating-point values use
+native byte order, and extended values can depend on the producer's native
+format and storage size. These properties are not identified in the document,
+which limits portability between platforms.
+
+Use protocol v7 for new data when readers support it. If protocol versions
+1 through 6 are required, readers must know the producer's format and byte
+order. The decoder's C<legacy_float_byteorder> option can correct a known
+byte-order difference, but not a difference in native extended format.
 
 =head1 PERFORMANCE
 

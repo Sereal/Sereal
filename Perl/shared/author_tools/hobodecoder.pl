@@ -10,6 +10,13 @@ our @constants;
 no warnings 'recursion';
 
 BEGIN {
+    # Binary128 conversion and native-layout validation use Decoder's
+    # implementation. In a repository build, the matching Decoder may exist
+    # only in blib, so make it available before loading the tool's constants.
+    if ( -f '../this_is_the_Sereal_repo.txt' && -d '../Decoder/blib' ) {
+        require blib;
+        blib->import('../Decoder');
+    }
     my $add_use_blib = "";
     my $use          = "";
     my @check;
@@ -59,8 +66,9 @@ sub _load_siphash_function {
     for my $module (qw(Sereal::Decoder Sereal::Encoder)) {
         ( my $file = "$module.pm" ) =~ s{::}{/}g;
         next unless eval { require $file; 1 };
-        my $function = $version == 0 ? 'siphash24' : $version == 1 ? 'siphash24_128' : 'siphash36_128';
-        my $code     = $module->can($function) or next;
+        my $function =
+            $version == 0 ? 'siphash24' : $version == 1 ? 'siphash24_128' : 'siphash36_128';
+        my $code = $module->can($function) or next;
         return $siphash_function{$version} = $code;
     }
     die "Could not load a Sereal module with SipHash support\n";
@@ -90,13 +98,21 @@ sub parse_header {
     my $hdr   = _chop_data_prefix($len);
 
     my $proto_version = ord($flags) & SRL_PROTOCOL_VERSION_MASK;
+    $opt->{protocol_version} = $proto_version;
+    delete $opt->{long_double_declaration};
     print "Sereal protocol version: $proto_version\n";
     if ( length($hdr) ) {
         print "Header($len): " . join( " ", map ord, split //, $hdr ) . "\n";
-        if ( $proto_version >= 2 && ( ord( substr( $hdr, 0, 1 ) ) & 1 ) ) {    # if first bit set => user header data
+        # The low suffix-flag bit identifies a serialized user-header value.
+        if ( $proto_version >= 2 && ( ord( substr( $hdr, 0, 1 ) ) & 1 ) )
+        {
             $done .= substr( $hdr, 0, 1 );
             print "Found user data in header:\n";
-            my $tmp_data = $data;                                              # dance necessary because $data is treated as a global :( hobo, hobo, hobo!
+            # parse_sv consumes the global input buffer. Temporarily replace
+            # it with the header's value, then restore the untouched body so
+            # reading metadata does not consume compressed document bytes.
+            my $tmp_data =
+                $data;
             $data = substr( $hdr, 1 );
             parse_sv("  ");
             $data = $tmp_data;
@@ -204,29 +220,87 @@ sub parse_float {
     $len_f ||= length( pack( "f", 0 ) );
     my $v = _chop_data_prefix($len_f);
     $done .= $v;
-    return unpack( "f", $v );
+    return unpack( $opt->{protocol_version} >= 7 ? 'f<' : 'f', $v );
 }
 
 sub parse_float_128 {
-    $len_F ||= length( pack( "F", 0 ) );
-    my $v = _chop_data_prefix($len_F);
+    my $v = _chop_data_prefix(16);
     $done .= $v;
-    return unpack( "F", $v );
+    require Sereal::Decoder;
+
+    # Perl's native unpack templates cannot convert binary128 on every NV
+    # build. A small synthetic packet delegates that conversion to Decoder,
+    # keeping the debugger consistent with the library's rounding behavior.
+    # This packet has no checksum, independently of the input packet's policy.
+    my $packet = "=\xF3rl" . chr( $opt->{protocol_version} ) . "\0" . chr(SRL_HDR_FLOAT_128) . $v;
+    return Sereal::Decoder->new( { checksum_policy => 'ignore',
+            allow_unknown_long_double => $opt->{'allow-unknown-long-double'} || 0 } )->decode($packet);
 }
 
 sub parse_double {
     $len_d ||= length( pack( "d", 0 ) );
     my $v = _chop_data_prefix($len_d);
     $done .= $v;
-    return unpack( "d", $v );
+    return unpack( $opt->{protocol_version} >= 7 ? 'd<' : 'd', $v );
 }
 
 sub parse_long_double {
+    if ( $opt->{protocol_version} >= 7 ) {
+        my $declaration = $opt->{long_double_declaration}
+            or die "LONG_DOUBLE requires a declaration\n";
+        my $v = _chop_data_prefix( $opt->{long_double_size} );
+        $done .= $v;
+        require Sereal::Decoder;
+        return Sereal::Decoder->new( { checksum_policy => 'ignore',
+            allow_unknown_long_double => $opt->{'allow-unknown-long-double'} || 0 } )
+            ->decode( "=\xF3rl\7\0" . $declaration . chr(SRL_HDR_LONG_DOUBLE) . $v );
+    }
     $len_D ||= eval { length( pack( "D", 0.0 ) ) };
     die "Long double not supported" unless $len_D;
     my $v = _chop_data_prefix($len_D);
     $done .= $v;
-    return unpack( "D", $v );
+    return unpack( 'D', $v );
+}
+
+sub parse_declarations {
+    return if $opt->{protocol_version} < 7;
+    my %seen;
+    while (length($data) >= 2
+        && ord( substr( $data, 0, 1 ) ) == SRL_HDR_EXTEND
+        && ord( substr( $data, 1, 1 ) ) == SRL_EXT_DECLARE )
+    {
+        my $start = length($done);
+        $done .= _chop_data_prefix(2);
+        my $len = varint();
+        die "Invalid declaration payload length\n" unless $len <= length($data);
+        my $declaration_end = length($done) + $len;
+        my $kind            = varint();
+        my $name = $DECLARATION_NAME{$kind};
+        die "Unknown declaration kind $kind\n" unless defined $name;
+        die "Duplicate declaration $name (kind $kind)\n" if $seen{$kind}++;
+        die "Unsupported declaration $name (kind $kind)\n" unless $kind == SRL_DECL_LONG_DOUBLE;
+        die "Invalid $name declaration length\n" unless $declaration_end - length($done) == 2;
+        my $payload = _chop_data_prefix(2);
+        $done .= $payload;
+        my ( $format, $size ) = unpack( 'CC', $payload );
+        $opt->{long_double_declaration} = substr( $done, $start );
+        $opt->{long_double_size}        = $size;
+        require Sereal::Decoder;
+
+        # A declaration is a promise about this document's native layout,
+        # even when no LONG_DOUBLE follows. Decoder validates that promise
+        # using a synthetic packet with an integer root, so the debugger
+        # reports the same incompatibility as the library.
+        Sereal::Decoder->new( { checksum_policy => 'ignore',
+            allow_unknown_long_double => $opt->{'allow-unknown-long-double'} || 0 } )
+            ->decode( "=\xF3rl\7\0" . $opt->{long_double_declaration} . "\0" );
+        my $order = $format & SRL_LD_BIG_ENDIAN ? 'big' : 'little';
+        my $layout = ( $format & 127 ) == SRL_LD_OPAQUE
+            ? "opaque native storage, $order-endian host"
+            : sprintf( 'format %u, %s endian', $format & 127, $order );
+        printf "%s %s (kind %u): %s, %u bytes\n",
+            $EXT_TAG_NAME{SRL_EXT_DECLARE()}, $name, $kind, $layout, $size;
+    }
 }
 
 my $fmt1       = "%06d/%06d: %02x%1s %03s %s";
@@ -275,13 +349,15 @@ sub parse_sv {
         my $str = _chop_data_prefix($l);    # fixme UTF8
         $done .= $str;
         $str = decode_utf8($str) if $o == SRL_HDR_STR_UTF8;
-        printf(
-            ( $o == SRL_HDR_STR_UTF8 ? "STR_UTF8" : "BINARY" ) . "(%u): '%s' (%s)\n", $l,
-            encode_utf8($str), unpack( "H*", encode_utf8($str) ) );
+        printf( ( $o == SRL_HDR_STR_UTF8 ? "STR_UTF8" : "BINARY" ) . "(%u): '%s' (%s)\n",
+            $l, encode_utf8($str), unpack( "H*", encode_utf8($str) ) );
     }
     elsif ( $o == SRL_HDR_EXTEND ) {
         my $ext = ord( _chop_data_prefix(1) );
         $done .= chr($ext);
+        if ( $ext == SRL_EXT_DECLARE ) {
+            die "Declaration outside document prefix\n";
+        }
         if ( $ext == SRL_EXT_UNDEF_DEADLY ) {
             print "UNDEF_DEADLY (undef; must not be emitted by an encoder)\n";
         }
@@ -465,16 +541,9 @@ sub zigzag {
     return _zigzag( varint() );
 }
 
-GetOptions(
-    $opt = {},
-    'e|stderr',
-    'checksum-v0-key=s',
-    'checksum-v1-key=s',
-    'checksum-v2-key=s',
-    'checksum-v0-key-hex=s',
-    'checksum-v1-key-hex=s',
-    'checksum-v2-key-hex=s',
-);
+GetOptions( $opt = {}, 'e|stderr', 'checksum-v0-key=s', 'checksum-v1-key=s', 'checksum-v2-key=s',
+    'checksum-v0-key-hex=s', 'checksum-v1-key-hex=s', 'checksum-v2-key-hex=s',
+    'allow-unknown-long-double', );
 
 for my $version ( 0, 1, 2 ) {
     my $plain_name   = "checksum_key_v" . ( $version + 1 );
@@ -512,6 +581,7 @@ print "\n\nTotal length: " . length($data) . "\n\n";
 while ( length $data ) {
     parse_header();
     print "--- End header\n";
+    parse_declarations();
     $done = parse_sv("");
     print "--- End Document\n";
     $data             = $packet_remainder if defined $packet_remainder;

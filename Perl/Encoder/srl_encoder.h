@@ -40,6 +40,7 @@ typedef struct {
     ptable_ptr callback_seen;
     struct PTABLE_entry *callback_spare; /* reusable callback_seen entries */
     UV callback_spare_count;
+    U8 encoding_header;
     SV *root_src, *header_src; /* borrowed until the first callback */
     AV *callback_keepalive;   /* values borrowed across actual Perl callbacks */
 
@@ -165,6 +166,7 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
  * normally (as a blessed reference) instead of via its FREEZE method. If not
  * set (the default), a disallowed class causes an exception. */
 #define SRL_F_FREEZE_DENY_SERIALIZE               0x100000UL
+#define SRL_F_USE_NATIVE_LONG_DOUBLE              0x200000UL
 
 /* ====================================================================
  * oper flags
@@ -303,6 +305,8 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
 #define SRL_ENC_OPT_STR_CHECKSUM_MODE "checksum_mode"
 #define SRL_ENC_OPT_IDX_CHECKSUM_MODE 30
 
-#define SRL_ENC_OPT_COUNT 31
+#define SRL_ENC_OPT_STR_FLOAT_TYPE "float_type"
+#define SRL_ENC_OPT_IDX_FLOAT_TYPE 31
+#define SRL_ENC_OPT_COUNT 32
 
 #endif

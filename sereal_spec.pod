@@ -39,11 +39,14 @@ below. A decoder must bounds-check every length and offset before using it.
 
 =head3 Little Endian
 
-All numeric data is in little endian format.
+Protocol v7 portable numeric data is little endian. Native LONG_DOUBLE is
+an explicitly declared exception; legacy Perl float behavior is described
+in L</Floating Point>.
 
 =head3 IEEE Floats
 
-Floating points types are in IEEE format.
+Portable floating-point types use IEEE binary formats. Native LONG_DOUBLE
+uses the format identified by its declaration.
 
 =head3 Varints
 
@@ -78,7 +81,7 @@ encoded because the \xF3 is translated to \xC3\xB3.
 
 Decoders are required to support the magic string associated to the protocol
 versions they can decode, so a decoder that handles protocol versions 1
-through 6 must accept both magic strings, and must accept each one only with
+through 7 must accept both magic strings, and must accept each one only with
 the protocol versions it belongs to.
 
 It is an error to use a new magic header on a v1 or v2 packet, and it is
@@ -90,7 +93,7 @@ A single byte, of which the high 4 bits are used to represent the "type"
 of the document, and the low 4 bits used to represent the version of the
 Sereal protocol the document complies with.
 
-The currently defined protocol versions are 1 through 6. The low four bits
+The currently defined protocol versions are 1 through 7. The low four bits
 contain the version number. The high four bits select the document encoding.
 Protocol version 6 reserves the high bit of this type field to indicate a
 keyed checksum envelope; the protected type is 8 plus the corresponding
@@ -424,7 +427,7 @@ header.
     ZIGZAG            | "!"  |  33 | 0x21 | 0b00100001 | <ZIGZAG-VARINT> - Zigzag variable length integer
     FLOAT             | "\"" |  34 | 0x22 | 0b00100010 | <IEEE-FLOAT>
     DOUBLE            | "#"  |  35 | 0x23 | 0b00100011 | <IEEE-DOUBLE>
-    LONG_DOUBLE       | "\$" |  36 | 0x24 | 0b00100100 | <IEEE-LONG-DOUBLE>
+    LONG_DOUBLE       | "\$" |  36 | 0x24 | 0b00100100 | <NATIVE-LONG-DOUBLE> - v7 requires a declaration
     UNDEF             | "%"  |  37 | 0x25 | 0b00100101 | None - Perl undef var; eg my $var= undef;
     BINARY            | "&"  |  38 | 0x26 | 0b00100110 | <LEN-VARINT> <BYTES> - binary/native string
     STR_UTF8          | "'"  |  39 | 0x27 | 0b00100111 | <LEN-VARINT> <UTF8> - utf8 string
@@ -444,7 +447,7 @@ header.
     YES               | "5"  |  53 | 0x35 | 0b00110101 | SvIsBOOL() == PL_Yes, 5.36 and later only (json true)
     RESERVED_0        | "6"  |  54 | 0x36 | 0b00110110 | reserved
     RESERVED_1        | "7"  |  55 | 0x37 | 0b00110111 | reserved
-    FLOAT_128         | "8"  |  56 | 0x38 | 0b00111000 | quadmath _float128
+    FLOAT_128         | "8"  |  56 | 0x38 | 0b00111000 | IEEE binary128
     CANONICAL_UNDEF   | "9"  |  57 | 0x39 | 0b00111001 | undef (PL_sv_undef) - "the" Perl undef (see notes)
     FALSE             | ":"  |  58 | 0x3a | 0b00111010 | false (PL_sv_no)
     TRUE              | ";"  |  59 | 0x3b | 0b00111011 | true  (PL_sv_yes)
@@ -538,20 +541,115 @@ up to 2**63 inclusive.
 
 =head3 Floating Point
 
-FLOAT is followed by a 4-byte IEEE 754 binary32 value and DOUBLE by an 8-byte
-IEEE 754 binary64 value, both little endian. FLOAT_128, new in protocol
-version 5, is followed by a 16-byte IEEE 754 binary128 value (the quadmath
-C<__float128> type), little endian. Decoders without native support for the
-type may expose the raw bytes or reject the value; the Go and Java decoders
-return the 16 bytes unchanged.
+A native floating-point memory image is not a portable representation.
+Machines can disagree on byte order, and C<long double> can denote different
+representations or storage sizes even when its name is the same. Protocol
+v7 separates portable interchange from explicit native storage so that a
+reader either has a defined conversion or can reject an incompatible
+layout before consuming its values.
 
-LONG_DOUBLE is followed by the encoder platform's native C<long double>, in
-its native size and layout: 16 bytes on most 64-bit platforms, where x86 uses
-80-bit extended precision followed by six zero bytes, and 8 or 12 bytes on
-some others. Only the Perl implementation reads and writes it, and only
-between platforms with the same C<long double>. Encoders that need
-portability should use DOUBLE (see the Perl encoder's C<use_standard_double>
-option) or FLOAT_128.
+In protocol v7, FLOAT is followed by four little-endian IEEE 754 binary32
+bytes, DOUBLE by eight little-endian IEEE 754 binary64 bytes, and FLOAT_128
+by sixteen little-endian IEEE 754 binary128 bytes. FLOAT_128 is available
+since protocol v5. A reader may round a portable value to its native
+precision. Rounding uses nearest/even, overflow produces signed
+infinity, and underflow produces subnormals or signed zero. NaN payload bits
+need not be retained.
+
+Older Perl implementations wrote floating-point payloads in native byte
+order in v1 through v6. Those protocol modes retain that behavior. Reading
+legacy packets from another architecture requires knowing its byte order
+out of band; no byte-order marker exists in those packets.
+
+IEEE binary128 provides a common representation for values that need more
+precision than binary64, without requiring readers to reproduce the
+producer's C ABI. Readers with smaller native types may lose precision.
+Even a double-double value with fewer than 113 usual precision bits can
+require rounding if its two components are widely separated. Native
+LONG_DOUBLE remains available for applications that prefer their native
+representation and accept the resulting ABI dependency.
+
+LONG_DOUBLE in v7 is explicitly native. It requires a LONG_DOUBLE declaration
+in the body prefix, with a matching native format, endianness and byte size.
+Its payload has exactly the declared storage size. Known layouts are checked
+against the reader's ABI. An unidentified layout requires an explicit reader
+option that trusts producer/consumer ABI compatibility, as described below.
+V1 through v6 retain their original undeclared native representation.
+
+=head3 Declarations (protocol v7)
+
+Declarations establish document-wide properties before the root value is
+read. Native layout information is declared once rather than repeated for
+every LONG_DOUBLE. It belongs in the body because it is not needed for
+decompression.
+
+After decompression, a v7 body is zero or more consecutive declarations
+followed by one root value. Declarations are part of the compressed and,
+when enabled, authenticated payload. They do not produce values and do not
+appear in the header suffix. Each declaration kind may occur at most once
+per document. Declarations after value decoding starts, including nested or
+tracked declarations, MUST be rejected. Reference offsets retain their
+normal body-relative numbering, but MUST NOT refer into the declaration
+prefix. All declaration state is local to its document.
+
+DECLARE uses extended tag ID 0x01 and requires protocol version 7.
+A declaration is encoded as:
+
+  <EXTEND 0x3e> <DECLARE 0x01> <DECLARATION-PAYLOAD-LENGTH-VARINT>
+  <KIND-VARINT> <DESCRIPTOR>
+
+The declaration payload length counts the kind varint and descriptor. It
+bounds descriptor parsing so malformed metadata cannot consume the next
+declaration or the root value. Knowing that length does not make an unknown
+kind safe to ignore: its meaning could change how later bytes are read.
+Unknown kinds therefore MUST be rejected.
+
+No declaration or native LONG_DOUBLE is permitted in header user data.
+Encoders use portable float types there so header metadata remains readable
+without decompressing the body or consulting its declarations.
+
+Declaration kind 1 describes LONG_DOUBLE. Its descriptor is exactly two
+bytes (the canonical declaration payload length is therefore 3, including
+the kind byte):
+
+  <FORMAT-ID-U8> <NATIVE-BYTE-LENGTH-U8>
+
+Bit 7 of FORMAT-ID indicates big-endian storage when set, little-endian
+storage when clear. Its low seven bits identify the representation:
+
+  1  IEEE binary64
+  2  x86 extended80 (native storage, including padding)
+  3  IEEE binary128
+  4  IBM double-double (fully little/big-endian component and byte order)
+  127  Opaque native storage (representation is unidentified)
+
+Representation, byte order and storage size describe different parts of
+an ABI. For example, two x87 producers can use the same value bits and byte
+order but different amounts of padding. For the recognized representations
+1 through 4, the combination of format ID, byte order and native byte length
+MUST match the reader's identified layout. Padding whose positions are known
+MUST be zeroed by the encoder. The native byte length is typically 8, 12 or 16.
+
+Format 127 records an opaque native object when the encoder cannot identify
+its representation. In this case bit 7 records the producer's integer byte
+order for diagnostics; it does not define the ordering of an unidentified
+floating-point layout. Opaque storage may include uninitialized padding,
+which cannot be located or cleared without knowing the ABI. It provides
+same-build value round trips, with no zero-padding, byte-for-byte padding
+preservation, or interoperability guarantee.
+
+A reader MUST reject an opaque or unrecognized representation by default.
+An explicit application option MAY instead assert that producer and consumer
+use matching native types and ABIs and permit a raw object copy. The
+storage size MUST still match the local C<long double> object. This trust
+option does not override a known format or byte-order mismatch when both
+representations are identified, and does not permit unknown declaration
+kinds. The application supplies ABI compatibility in this mode; the decoder
+does not establish it from matching storage sizes alone.
+
+Portable FLOAT, DOUBLE and FLOAT_128 values need no declaration. See
+L<Sereal::Encoder/FLOATING-POINT INTEROPERABILITY> and
+L<Sereal::Decoder/FLOATING-POINT INTEROPERABILITY> for Perl configuration.
 
 =head3 Booleans
 
@@ -571,13 +669,15 @@ and later documents. The defined IDs are:
 
       ID | Name           | Follow
     -----+----------------+---------------------------------------------
+    0x01 | DECLARE        | <PAYLOAD-LEN-VARINT> <KIND-VARINT> <DESCRIPTOR> - v7
     0x26 | VSTRING-BINARY | <LEN-VARINT> <SPELLING> - v-string, binary
     0x27 | VSTRING-UTF8   | <LEN-VARINT> <SPELLING> - v-string, UTF-8
     0xff | UNDEF_DEADLY   | none - decode as undef by default; never encode
 
 All other IDs are reserved. Because the payload of an unknown ID cannot be
 skipped, a decoder must reject a document containing one. See
-L</"Protocol Version 6"> for the semantics of these tags.
+L</"Protocol Version 6"> for the v6 tags and
+L</"Declarations (protocol v7)"> for DECLARE.
 
 =head3 Reserved Tags
 
@@ -781,6 +881,16 @@ accordingly, otherwise they are free to treat CANONICAL_UNDEF the same as UNDEF.
 
 =head1 PROTOCOL CHANGES
 
+=head2 Protocol Version 7
+
+Protocol version 7 fixes FLOAT, DOUBLE and FLOAT_128 wire byte order to
+little endian and introduces the EXTEND 0x01 DECLARE prefix. Native
+LONG_DOUBLE requires one document-local declaration of its format, byte
+order and storage size. Header framing, magic, compression and checksum
+encodings are unchanged. Earlier protocol modes retain their original
+native float behavior. See L</"Floating Point"> and
+L</"Declarations (protocol v7)">.
+
 =head2 Protocol Version 6
 
 Protocol version 6 adds the NEG_VARINT tag, the EXTEND tag with its three
@@ -859,8 +969,10 @@ Protocol version 5 adds the NO and YES tags for Perl's distinct boolean values
 JSON false and true, respectively, and have no payload. See L</"Booleans">.
 
 The FLOAT_128 tag is also added for the quadmath C<__float128> value type; it
-is followed by the 16-byte little-endian IEEE 754 binary128 value. Decoders
-without native quadmath support may expose the raw bytes or reject the value.
+is followed by a 16-byte IEEE 754 binary128 value. Legacy Perl Encoders
+wrote this value in native byte order; v7 fixes its wire order to little
+endian. Decoders without native quadmath support may convert with precision
+loss, expose the raw bytes or reject the value.
 See L</"Floating Point">.
 
 NO, YES and FLOAT_128 are only valid in protocol version 5 and later
@@ -955,7 +1067,7 @@ implementation does), no extra, large memcpy operations.
 =head1 IMPLEMENTATIONS
 
 The implementations in the Sereal repository supported the following protocol
-versions when this revision of the specification was written (October 2026).
+versions when this revision of the specification was written (November 2026).
 This list is informative and will go out of date; the README of each
 implementation is authoritative.
 
@@ -963,9 +1075,12 @@ implementation is authoritative.
 
 =item Perl (C<Perl/>)
 
-Reference implementation. Encodes and decodes protocol versions 1 through 6
-(default 6) with Snappy, zlib and zstd compression, all three checksum types,
-and the LONG_DOUBLE and FLOAT_128 tags where the perl supports them.
+Reference implementation. Encoder and Decoder support versions 1 through 7
+(default 7), Snappy, zlib and zstd, and all checksum types. V7 adds portable
+IEEE floats and native LONG_DOUBLE declarations. FLOAT_128 converts to the
+native NV on ordinary, long-double and quadmath Perls. Merger, Splitter and
+Path continue to support protocol versions through 6; they reject v7 input
+until their rewriting paths support its declaration and float rules.
 
 =item Go (C<Go/sereal>)
 

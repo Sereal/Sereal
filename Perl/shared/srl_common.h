@@ -3,6 +3,25 @@
 
 #include "srl_inline.h"
 #include <string.h>
+#include <float.h>
+
+/* Legacy quadmath packets use the host byte order for their complete
+ * binary128 payload. Reversing its bytes on a big-endian host normalizes
+ * that payload for the portable converter. This operation is symmetric,
+ * and callers provide separate source and destination storage. FLOAT and
+ * DOUBLE use the layout-aware helpers in srl_float.h because their word
+ * order need not follow integer byte order. */
+SRL_STATIC_INLINE void
+srl_copy_little_endian(U8 *dst, const U8 *src, STRLEN len)
+{
+#if BYTEORDER == 0x4321 || BYTEORDER == 0x87654321
+    STRLEN i;
+    for (i = 0; i < len; i++)
+        dst[i] = src[len - 1 - i];
+#else
+    memcpy(dst, src, len);
+#endif
+}
 
 #define SRL_UNKNOWN_OPTION_POLICY_WARN   0
 #define SRL_UNKNOWN_OPTION_POLICY_DIE    1
@@ -89,27 +108,11 @@ srl_handle_unknown_option_keys(pTHX_ AV *keys, SV *policy_value,
 #define expect_false(expr) expect((expr) != 0, 0)
 #define expect_true(expr)  expect((expr) != 0, 1)
 
-/* these defines are somewhat borrowed from miniz.c */
-#ifndef HAS_LONGDOUBLE
-#define SRL_EXTENDED_PRECISION_LONG_DOUBLE 0
-#endif
-
-#ifdef HAS_QUADMATH
-#define SRL_EXTENDED_PRECISION_LONG_DOUBLE 0
-#endif
-
 #define HAS_LONG_FLOAT (sizeof(NV) > sizeof(double))
 
 #if defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || defined(__i386) || defined(__i486__) || defined(__i486) || defined(i386) || defined(__ia64__) || defined(__x86_64__) || defined(__x86_64)
 /* SRL_X86_OR_X64_CPU is only used to help set the below macros. */
 #define SRL_X86_OR_X64_CPU
-#ifndef SRL_EXTENDED_PRECISION_LONG_DOUBLE
-#define SRL_EXTENDED_PRECISION_LONG_DOUBLE 1
-#endif
-#endif
-
-#ifndef SRL_EXTENDED_PRECISION_LONG_DOUBLE
-#define SRL_EXTENDED_PRECISION_LONG_DOUBLE 0
 #endif
 
 #ifndef SRL_USE_ALIGNED_LOADS_AND_STORES

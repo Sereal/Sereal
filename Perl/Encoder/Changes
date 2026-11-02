@@ -1,12 +1,21 @@
 Revision history for Perl extension Sereal-Encoder
 
 ****************************************************************
-* Sereal 6 is a major release. For a site-wide rollout, upgrade *
-* Sereal::Decoder to version 6 on every node first. Verify the   *
+* Sereal 7 is a major release. For a site-wide rollout, upgrade *
+* Sereal::Decoder to version 7 on every node first. Verify the   *
 * Decoder rollout is complete before upgrading Sereal::Encoder  *
-* to version 6 anywhere in the fleet. Encoder 6 can emit v6     *
-* packets, which require Decoder 6 to read.                     *
+* to version 7 anywhere in the fleet. Encoder 7 can emit v7     *
+* packets, which require Decoder 7 to read.                     *
 ****************************************************************
+7.000_001
+    * Emit protocol v7 with portable little-endian floating-point values,
+      using IEEE binary128 for extended values by default.
+    * Add float_type (std/native) for optional native long-double storage.
+      Documents identify its format, byte order and size; known padding is
+      cleared. Unknown layouts support explicitly trusted same-build reads.
+    * Preserve v1-v6 numeric output behavior and keep v7 header floats portable.
+    * Show declaration names in diagnostics and hobodecoder output.
+
 6.003
     * Fix bundled Snappy builds on Haiku, which has no byteswap.h.
     * Use portable od arguments in hobodecoder for BusyBox systems and
