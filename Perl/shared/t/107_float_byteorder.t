@@ -6,7 +6,7 @@ use Test::More;
 use Config;
 use Sereal::TestSet qw(Header floating_point_wire_cases);
 use Sereal::Decoder;
-use Sereal::TestSet::Corpus    qw(read_packet);
+use Sereal::TestSet::Corpus    qw(read_packet packet_names);
 use Sereal::Decoder::Constants qw(:all);
 
 # Fixed IEEE payload bytes provide an oracle independent of the Encoder and
@@ -79,6 +79,49 @@ for my $order ( 'little', 'big' ) {
             is( unpack( 'H*', pack( 'd<', $value ) ),
                 '0000000000000080', 'negative zero sign preserved' )
                 if $name eq 'binary128/negative-zero';
+        }
+    }
+}
+
+# These packets were captured from Fedora s390x, not built from local
+# floating-point objects. Keep the producer's binary64 rounding on wider
+# NV builds, and check zero's sign separately from numeric equality.
+my @producer_cases = (
+    [ 'half', SRL_HDR_FLOAT, '0000003f' ],
+    [ 'negative-one-and-half', SRL_HDR_FLOAT, '0000c0bf' ],
+    [ 'decimal-tenth', SRL_HDR_DOUBLE, '9a9999999999b93f' ],
+    [ 'third', SRL_HDR_DOUBLE, '555555555555d53f' ],
+    [ 'negative-zero', SRL_HDR_FLOAT, '00000080' ],
+    [ 'double-minimum-subnormal', SRL_HDR_DOUBLE, '0100000000000000' ],
+);
+for my $version (6, 7) {
+    my $profile = $version == 6 ? 'legacy-v6' : 'portable-v7';
+    my $source = "capture-s390x-linux-thread-multi-double-8-$profile";
+    my $reader = Sereal::Decoder->new(
+        $version == 6 ? { legacy_float_byteorder => 'big' } : {} );
+    is_deeply(
+        [ packet_names('t/data/packet_corpus', $source) ],
+        [ sort map { $_->[0] } @producer_cases ],
+        "Fedora s390x $profile contains all captured samples"
+    );
+    for my $case (@producer_cases) {
+        my ($name, $tag, $hex) = @$case;
+        my $little = pack('H*', $hex);
+        my $expected = unpack($tag == SRL_HDR_FLOAT ? 'f<' : 'd<', $little);
+        my $packet = read_packet('t/data/packet_corpus', $source, $name);
+        my $value = $reader->decode($packet);
+        cmp_ok($value, '==', $expected, "Fedora s390x v$version $name value");
+        is(unpack('H*', pack('d<', $value)), unpack('H*', pack('d<', $expected)),
+            "Fedora s390x v$version $name bits, including zero sign");
+        is($packet, Header($version) . chr($tag)
+                . ($version == 6 ? scalar reverse($little) : $little),
+            "Fedora s390x v$version $name matches expected wire bytes");
+        if ($version == 7 && $Sereal::TestSet::Class eq 'Sereal::Encoder') {
+            require Sereal::Encoder;
+            # A fresh NV avoids cached integer flags affecting tag selection.
+            my $nv = unpack('d', pack('d', $expected));
+            is(Sereal::Encoder->new({ protocol_version => 7 })->encode($nv),
+                $packet, "local v7 Encoder matches Fedora s390x $name");
         }
     }
 }

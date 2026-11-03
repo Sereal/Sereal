@@ -52,6 +52,27 @@ limits before importing them. A local round trip alone does not establish
 that another build can read the packets. Unknown native layouts provide only
 same-build value round-trip coverage.
 
+## Fedora s390x capture
+
+`capture-s390x-linux-thread-multi-double-8-legacy-v6` and
+`capture-s390x-linux-thread-multi-double-8-portable-v7` were supplied by
+pghmcfc in [issue #337](https://github.com/Sereal/Sereal/issues/337#issuecomment-6607065989).
+They were collected on 2026-11-03 with Fedora s390x, Perl 5.44.0
+(`s390x-linux-thread-multi`, 8-byte double NVs, big-endian byte order),
+and Encoder/Decoder 7.000001 at commit `f2afe4ef516836d04f0b0f37b0d771a677cba1eb`.
+All producer checkouts were reported clean. Native output was not collected.
+
+Each group contains six values: 0.5, -1.5, 0.1, 1/3, negative zero, and the
+smallest positive binary64 subnormal. Expectations for 0.1 and 1/3 use the
+producer's binary64 precision even when tests run on wider NV builds.
+`107_float_byteorder.t` checks values, signed zero, and wire bytes. Encoder
+tests also compare local v7 output with the captured portable packets.
+
+The original archive includes producer configuration, recipes, and local
+results. Its SHA-256 is
+`baaaafa85baa7cc8540046d9d22244f53e37f0030f9c8685bdaf6446857d3bd9`.
+Preserve these groups as producer captures; the generators do not recreate them.
+
 ## Regenerating groups
 
 Use a disposable checkout and build both modules with the Perl running the

@@ -8,6 +8,9 @@ Revision history for Perl extension Sereal-Decoder
 * packets, which require Decoder 7 to read.                     *
 ****************************************************************
 7.000_001
+    * Add Fedora s390x producer captures and regression coverage for legacy
+      big-endian and portable v7 floats, including signed zero and subnormals.
+      Thanks to pghmcfc for the platform report and corpus.
     * Read portable little-endian v7 floats, including IEEE binary128 on
       Perl builds without quadmath.
     * Validate v7 native long-double declarations and reject known layout

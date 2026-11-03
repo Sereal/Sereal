@@ -8,6 +8,9 @@ Revision history for Perl extension Sereal-Encoder
 * packets, which require Decoder 7 to read.                     *
 ****************************************************************
 7.000_001
+    * Add Fedora s390x producer captures and regression coverage for legacy
+      big-endian and portable v7 floats, including signed zero and subnormals.
+      Thanks to pghmcfc for the platform report and corpus.
     * Emit protocol v7 with portable little-endian floating-point values,
       using IEEE binary128 for extended values by default.
     * Add float_type (std/native) for optional native long-double storage.

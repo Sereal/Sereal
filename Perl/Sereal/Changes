@@ -14,6 +14,9 @@ from the the Encoder and Decoder changelogs:
 * packets, which require Decoder 7 to read.                     *
 ****************************************************************
 7.000_001
+    * Add Fedora s390x producer captures and regression coverage for legacy
+      big-endian and portable v7 floats, including signed zero and subnormals.
+      Thanks to pghmcfc for the platform report and corpus.
     * Add protocol v7 portable floating-point storage, with optional native
       long-double output and decoder checks for compatible native layouts.
     * Permit explicitly trusted same-build reads of unidentified native
