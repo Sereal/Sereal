@@ -352,335 +352,42 @@ size. See the authors' L<SipHash variant documentation|https://github.com/veorq/
 
 =head2 new
 
-Constructor. Optionally takes a hash reference as first parameter. This hash
-reference may contain options that influence the behaviour of the decoder.
-The recognized options and their defaults are described below.
+Constructs a decoder object. Optionally takes a hash reference of
+options. Defaults are given below.
 
-=head3 checksum_key
+=head3 General Options
 
-A 16-byte key used to verify every supported checksum type. The document
-selects the checksum algorithm. C<checksum_key_v1>, C<checksum_key_v2>, and
-C<checksum_key_v3> are aliases for this same key; their suffix does not
-restrict which documents the Decoder can verify.
+=head4 legacy_float_byteorder
 
-Supplying the key through multiple options warns when the values are
-identical and dies when they differ. Constructor keys take precedence over
-package defaults. Use C<checksum_policy> to require authentication or a
-minimum checksum level, or to skip verification.
-
-=head3 checksum_mode
-
-Accepted and validated for configurations shared with L<Sereal::Encoder>.
-Values are C<0>/C<'none'>, C<1>/C<'v1'>, C<2>/C<'v2'>, and C<3>/C<'v3'>.
-This option does not select or disable Decoder verification; the document
-specifies the checksum type and C<checksum_policy> governs verification.
-Checksum mode package and environment defaults apply to Encoder only.
-
-=head3 checksum_key_v1
-
-Alias for C<checksum_key>. Encoder also selects mode 1 with this option;
-Decoder verifies any supported type using the key.
-
-=head3 checksum_key_v2
-
-Alias for C<checksum_key>. Encoder also selects mode 2 with this option;
-Decoder verifies any supported type using the key.
-
-=head3 checksum_key_v3
-
-Alias for C<checksum_key>. Encoder also selects mode 3 with this option;
-Decoder verifies any supported type using the key.
-
-Under C<'die'> or a C<'require'> policy, keys must be exactly 16 bytes. The other policies
-retain the existing behavior of padding shorter keys or truncating longer keys
-with a warning. Use C<prepare_checksum_key()> explicitly to normalize a key.
-Authentication does not make data from a malicious key holder safe to decode.
-
-=head3 Shared default key
-
-C<$Sereal::DefaultKey> supplies a shared default when no checksum key option is
-present. C<$Sereal::Decoder::DefaultKey> can override the Decoder's default.
-Both contain raw key bytes, not hexadecimal text. A default Decoder key is
-used for all three supported checksum types. Explicit key options
-replace the default configuration; supplying an explicit C<undef> key also
-suppresses the default.
-
-The first load of Sereal::Encoder or Sereal::Decoder initializes this shared
-variable from C<SEREAL_DEFAULT_KEY>, unless application code has already set it.
-The Decoder-specific C<SEREAL_DECODER_DEFAULT_KEY> initializes
-C<$Sereal::Decoder::DefaultKey> the same way. Constructor key options take
-precedence over the Decoder-specific default, which takes precedence over the
-shared default.
-Exactly 32 hexadecimal characters are decoded to 16 bytes. Other lengths or
-non-hexadecimal values are passed unchanged to C<prepare_checksum_key()>, with
-a warning that does not include the secret. Normalization does not add entropy
-or turn a weak password into a strong key. If the environment variable is
-absent, no default key is installed. Loading the other module does not reset
-an initialized default, and subsequent environment changes do not affect it.
-
-Code can set or localize the shared variable:
-
-  local $Sereal::DefaultKey = $key16;
-  my $decoder = Sereal::Decoder->new({ checksum_policy => 'require_key' });
-
-New encoders and decoders copy its current value. Existing objects retain their
-keys. Localizing it to C<undef> disables the default for new objects in that
-scope. Cached objects, including objects returned by the Sereal wrapper's
-cache helpers, retain the configuration they were created with.
-
-=head3 checksum_policy
-
-Controls checksum verification. Accepted values are:
-
-=over 4
-
-=item * C<'verify-if-available'> - verify when a matching key is configured;
-otherwise warn and decode without authentication. This is the built-in default.
-
-=item * C<'die'> - reject checksummed packets with an unsupported checksum
-type, a missing matching key, or an invalid authentication tag.
-
-=item * C<'require_key'> - require a configured checksum key at construction,
-reject unsigned packets, and fail if a packet's checksum cannot be verified.
-Encoder construction also requires a key under this policy, and encoding always
-produces a checksummed packet. Encoder and Decoder key configurations are
-independent; C<$Sereal::DefaultKey> supplies a shared default.
-C<'require'> is an alias for C<'require_key'>.
-C<'require_v1'> is another alias for C<'require_key'>.
-
-=item * C<'require_v2'> - require a key and accept only authenticated v2 or v3
-checksums (wire types 1 or 2). Unsigned packets and v1 checksums are rejected.
-
-=item * C<'require_v3'> - require a key and accept only authenticated v3
-checksums (wire type 2). Unsigned packets and lower checksum modes are rejected.
-
-These minimum levels are enforced before decompression or body decoding.
-The same policies on Encoder require a key and a selected encoding mode at
-least as high as the requested minimum; inconsistent settings are rejected.
-
-
-=item * C<'ignore'> - skip verification silently, even if a key is configured.
-
-=item * C<'ignore-warn'> - skip verification and warn for each checksummed packet.
-
-=back
-
-Set C<SEREAL_CHECKSUM_POLICY> to choose a shared default, or set
-C<SEREAL_DECODER_CHECKSUM_POLICY> for a Decoder-specific default. These
-environment variables initialize C<$Sereal::ChecksumPolicy> and
-C<$Sereal::Decoder::ChecksumPolicy> at module startup if those variables are
-not already defined:
-
-  SEREAL_CHECKSUM_POLICY=require_key perl my_application.pl
-
-The constructor option takes precedence over the Decoder-specific package
-variable, which takes precedence over the shared package variable. An unset
-policy uses C<'verify-if-available'>. Invalid selected values cause
-construction to fail. Existing objects and recursive clones retain their
-policy.
-
-Checksum package and environment settings provide defaults for new objects;
-explicit constructor options can override them. C<'require_key'>,
-C<'require_v2'> and C<'require_v3'> reject unsigned packets. C<'die'> accepts
-unsigned packets but fails when a checksummed packet cannot be verified.
-C<'die'> and all C<'require'> policies require configured keys to contain
-exactly 16 bytes, including keys supplied through C<$Sereal::DefaultKey>.
-
-Verification makes an additional pass over the protected header and encoded
-payload, adding CPU work proportional to their size. Compressed payloads are
-authenticated before decompression. The SipHash variants use different round
-counts and tag sizes, so their cost depends on the selected variant and the
-workload. With a matching key, C<'die'>, C<'require_key'> and
-C<'verify-if-available'> perform the same verification work. Ignore policies
-still validate the envelope framing but provide no authentication. Object
-reuse avoids repeated configuration work, not the verification pass for each
-packet; warnings and their logging can add per-packet overhead as well.
-
-=head3 unknown_option_policy
-
-Controls how this module handles unrecognized keys in its configuration hash.
-C<'warn'> warns for each unknown key and continues; this is the default.
-C<'die'> throws an exception, and C<'ignore'> silently ignores unknown keys.
-The same key and policy values are supported by Sereal::Encoder.
-
-The environment variables C<SEREAL_UNKNOWN_OPTION_POLICY> and
-C<SEREAL_DECODER_UNKNOWN_OPTION_POLICY> initialize the shared
-C<$Sereal::UnknownOptionPolicy> and Decoder-specific
-C<$Sereal::Decoder::UnknownOptionPolicy> defaults at module startup, when the
-corresponding package variable is undefined. The setting is resolved from
-lowest to highest priority: the shared package variable, the Decoder-specific
-package variable, and the constructor option. If none is set, the policy is
-C<'warn'>. Undefined package or constructor values fall through to the next
-source. Accepted values are C<'warn'>, C<'die'>, and C<'ignore'>; any other
-selected value throws an exception.
-
-=head3 legacy_float_byteorder
-
-Selects the source byte order for floating-point values in protocol versions
-1 through 6. Accepted values are C<'native'> (the default), C<'little'>, and
-C<'big'>. Set this when reading protocol v1 through v6 data from a machine
-with a different, known byte order. It has no effect on protocol v7.
+Selects the source byte order for floating-point values in protocol
+versions 1 through 6. Accepted values are C<'native'> (the default),
+C<'little'>, and C<'big'>. Set this when reading protocol v1 through v6
+data from a machine with a different, known byte order. It has no effect
+on protocol v7.
 
 This option does not convert between different native extended formats.
 See L</FLOATING-POINT INTEROPERABILITY> for details.
 
-=head3 allow_unknown_long_double
+=head4 allow_unknown_long_double
 
-Allows protocol v7 native extended values with an unidentified layout to be
-read using the local C<long double> representation.  This option is off by
-default.  Enable it only for data from a matching Perl build and ABI.
-Storage sizes must still match, and known format or byte-order mismatches
-remain errors.
+Allows protocol v7 native extended values with an unidentified layout to
+be read using the local C<long double> representation. This option is
+off by default. Enable it only for data from a matching Perl build and
+ABI. Storage sizes must still match, and known format or byte-order
+mismatches remain errors.
 
   my $decoder = Sereal::Decoder->new({ allow_unknown_long_double => 1 });
 
 See L</FLOATING-POINT INTEROPERABILITY> for the limits of this mode.
 
-=head3 refuse_snappy
-
-If set, the decoder will refuse Snappy-compressed input data. This can be
-desirable for robustness. See the section C<ROBUSTNESS> below.
-
-=head3 undef_deadly_policy
-
-Controls decoding of the protocol v6 C<UNDEF_DEADLY> extended tag
-(C<EXTEND 0xff>, bytes C<3e ff>). Accepted values are:
-
-=over 4
-
-=item * C<undef> (default)
-
-Decode it silently as ordinary undef.
-
-=item * C<warn>
-
-Warn each time the tag is encountered, then decode it as ordinary undef.
-
-=item * C<die>
-
-Throw an exception when the tag is encountered.
-
-=back
-
-An omitted or undefined option selects C<undef>. Other values are rejected
-at construction. C<use_undef> and reference tracking apply as for ordinary
-undef. Bytes inside string payloads or beyond the decoded document are not
-parsed as tags and do not trigger this policy.
-
-No compliant encoder may emit this code sequence as a value tag.
-C<Sereal::Encoder> never emits it; ordinary undef values use the normal
-undef tags. It is intended primarily for testing decoder behavior and
-diagnostics, not for normal Sereal data. It is a diagnostic sentinel and is
-not a document terminator.
-
-=head3 refuse_objects
-
-If set, the decoder will refuse deserializing any objects in the input stream and
-instead throw an exception. Defaults to off. See the section C<ROBUSTNESS> below.
-
-=head3 no_bless_objects
-
-If set, the decoder will deserialize any objects in the input stream but without
-blessing them. Defaults to off. See the section C<ROBUSTNESS> below.
-
-=head3 no_thaw_objects
-
-If set, the decoder will deserialize frozen objects in the objects stream as an
-array ref of arguments that would be passed into the THAW subroutine instead of
-calling THAW itself.
-
-=head3 thaw_allow_classes
-
-An allow-list restricting which classes may have their C<THAW> method invoked
-while decoding a frozen object (see L</FREEZE/THAW CALLBACK MECHANISM>). This is
-useful as a defensive measure when decoding untrusted input, since C<THAW> runs
-arbitrary code in the named class. It may be one of:
-
-=over 4
-
-=item * an array ref of class names, e.g. C<< ['My::Class', 'Other::Class'] >>
-
-=item * a hash ref whose keys with a true value are the allowed class names,
-e.g. C<< { 'My::Class' => 1 } >>
-
-=item * a code ref predicate, called as C<< $cb->($classname) >> once per frozen
-object, that returns a true value to allow C<THAW>
-
-=back
-
-When a frozen object's class is not allowed, the behaviour is controlled by
-L</thaw_deny_action>. This option only has an effect where C<THAW> would
-otherwise be called; it is moot under C<refuse_objects> or C<no_thaw_objects>.
-When not set (the default), every frozen object is thawed as before.
-
-=head3 thaw_deny_action
-
-Controls what happens when C<thaw_allow_classes> is set and a frozen object's
-class is B<not> allowed. Accepts a string:
-
-=over 4
-
-=item * C<'croak'> (the default) - throw an exception.
-
-=item * C<'raw'> - do not call C<THAW>; instead yield the raw argument array
-blessed into C<Sereal::Decoder::THAW_args>, exactly as C<no_thaw_objects> does.
-
-=back
-
-=head3 validate_utf8
-
-If set, the decoder will refuse invalid UTF-8 byte sequences. This is off
-by default, but it's strongly encouraged to be turned on if you're dealing
-with any data that has been encoded by an external source (e.g. http cookies).
-
-=head3 max_recursion_depth
-
-C<Sereal::Decoder> is recursive. If you pass it a Sereal document that is deeply
-nested, it will eventually exhaust the C stack. Therefore, there is a limit on
-the depth of recursion that is accepted. It defaults to 10000 nested calls. You
-may choose to override this value with the C<max_recursion_depth> option.
-Beware that setting it too high can cause hard crashes.
-
-Do note that the setting is somewhat approximate. Setting it to 10000 may break at
-somewhere between 9997 and 10003 nested structures depending on their types.
-
-=head3 max_num_hash_entries
-
-If set to a non-zero value (default: 0), then C<Sereal::Decoder> will refuse
-to deserialize any hash/dictionary (or hash-based object) with more than
-that number of entries. This is to be able to respond quickly to any future
-hash-collision attacks on Perl's hash function, and also the memory exhaustion
-attacks on Sereal itself. For a gentle introduction to the topic from the
-cryptographic point of view, see L<http://en.wikipedia.org/wiki/Collision_attack>.
-
-=head3 max_num_array_entries
-
-If set to a non-zero value (default: 0), then C<Sereal::Decoder> will refuse
-to deserialize any array with more than that number of entries.
-This is to be able to respond quickly to any future memory exhaustion attacks on
-Sereal.
-
-=head3 max_string_length
-
-If set to a non-zero value (default: 0), then C<Sereal::Decoder> will refuse
-to deserialize any string with more than that number of characters.
-This is to be able to respond quickly to any future memory exhaustion attacks on
-Sereal.
-
-=head3 max_uncompressed_size
-
-If set to a non-zero value (default: 0), then C<Sereal::Decoder> will refuse
-to deserialize any blob with a size that exceds the value when uncompressed.
-This is to be able to respond quickly to any future memory exhaustion attacks on
-Sereal.
-
-=head3 incremental
+=head4 incremental
 
 If set to a non-zero value (default: 0), then C<Sereal::Decoder> will
-destructively parse Sereal documents out of a variable. Every time a Sereal
-document is successfully parsed it is removed from the front of the string
-it is parsed from. Input and output must be different scalars in this mode.
-When used with an offset, removal includes the prefix before that offset.
+destructively parse Sereal documents out of a variable. Every time a
+Sereal document is successfully parsed it is removed from the front of
+the string it is parsed from. Input and output must be different scalars
+in this mode. When used with an offset, removal includes the prefix
+before that offset.
 
 This means you can do this:
 
@@ -688,54 +395,239 @@ This means you can do this:
         my $data= decode_sereal($buffer,{incremental=>1});
     }
 
-=head3 alias_smallint
+=head4 alias_smallint
 
 If set to a true value then C<Sereal::Decoder> will share integers from
 -16 to 15 (encoded as either SRL_HDR_NEG and SRL_HDR_POS) as read-only
 aliases to a common SV.
 
-The result of this may be significant space savings in data structures with
-many integers in the specified range. The cost is more memory used by the
-decoder and a very modest speed penalty when deserializing.
+The result of this may be significant space savings in data structures
+with many integers in the specified range. The cost is more memory used
+by the decoder and a very modest speed penalty when deserializing.
 
-Note this option changes the structure of the dumped data. Use with caution.
+Note this option changes the structure of the dumped data. Use with
+caution.
 
 See also the "alias_varint_under" option.
 
-=head3 alias_varint_under
+=head4 alias_varint_under
 
 If set to a true positive integer smaller than 16 then this option is
-similar to setting "alias_smallint" and causes all integers from -16 to 15
-to be shared as read-only aliases to the same SV, except that this treatment
-ALSO applies to SRL_HDR_VARINT. If set to a value larger than 16 then this
-applies to all varints varints under the value set. (In general SRL_HDR_VARINT
-is used only for integers larger than 15, and SRL_HDR_NEG and SRL_HDR_POS are
-used for -16 to -1  and 0 to 15 respectively.)
+similar to setting "alias_smallint" and causes all integers from -16 to
+15 to be shared as read-only aliases to the same SV, except that this
+treatment ALSO applies to SRL_HDR_VARINT. If set to a value larger than
+16 then this applies to all varints varints under the value set. (In
+general SRL_HDR_VARINT is used only for integers larger than 15, and
+SRL_HDR_NEG and SRL_HDR_POS are used for -16 to -1 and 0 to 15
+respectively.)
 
-In simple terms if you want to share values larger than 16 then you should use
-this option, if you want to share only values in the -16 to 15 range then you
-should use the "alias_smallint" option instead.
+In simple terms if you want to share values larger than 16 then you
+should use this option, if you want to share only values in the -16 to
+15 range then you should use the "alias_smallint" option instead.
 
-The result of this may be significant space savings in data structures with
-many integers in the desire range. The cost is more memory used by the decoder
-and a very modest speed penalty when deserializing.
+The result of this may be significant space savings in data structures
+with many integers in the desire range. The cost is more memory used by
+the decoder and a very modest speed penalty when deserializing.
 
-Note this option changes the structure of the dumped data. Use with caution.
+Note this option changes the structure of the dumped data. Use with
+caution.
 
-=head3 use_undef
+=head4 use_undef
 
 If set to a true value then this any undef value to be deserialized as
 PL_sv_undef. This may change the structure of the data structure being
 dumped, do not enable this unless you know what you are doing.
 
-=head3 set_readonly
+=head4 set_readonly
 
-If set to a true value then the output will be completely readonly (deeply).
+If set to a true value then the output will be completely readonly
+(deeply).
 
-=head3 set_readonly_scalars
+=head4 set_readonly_scalars
 
-If set to a true value then scalars in the output will be readonly (deeply).
-References won't be readonly.
+If set to a true value then scalars in the output will be readonly
+(deeply). References won't be readonly.
+
+=head3 Security and Policy Related Options
+
+These options control authentication, object handling, input validation,
+and resource limits. See L</ROBUSTNESS> for guidance on untrusted input.
+
+=head4 checksum_key
+
+A 16-byte key used to verify checksummed input. If omitted, the
+configured default key is used; explicit C<undef> suppresses that
+default. See L</CHECKSUM CONFIGURATION> for package and environment
+defaults.
+
+The packet selects the checksum algorithm. C<checksum_policy> controls
+verification and key-length validation.
+
+Supplying multiple key options warns if their values are identical and
+throws an exception if they differ.
+
+=head4 checksum_mode
+
+Accepted for configurations shared with Encoder. Values are C<'none'> or
+C<0>, C<'v1'> or C<1>, C<'v2'> or C<2>, and C<'v3'> or C<3>. The packet
+determines the algorithm; use C<checksum_policy> to control
+verification. This option and mode defaults do not change Decoder
+behavior.
+
+=head4 checksum_policy
+
+Controls checksum verification and whether unsigned input is accepted.
+The default is C<'verify-if-available'>. Accepted values are:
+
+=over 4
+
+=item * C<'verify-if-available'> - verify when the checksum type is
+supported and a key is configured; reject a failed verification.
+Otherwise warn and decode without authentication.
+
+=item * C<'die'> - reject checksummed packets that cannot be verified,
+including unsupported checksum types, missing keys and invalid tags.
+Unsigned packets are accepted.
+
+=item * C<'require_key'> - require a key at construction and reject
+every packet that is unsigned or cannot be verified. C<'require'> and
+C<'require_v1'> are aliases.
+
+=item * C<'require_v2'> - require a key and accept only verified packets
+using checksum mode v2 or v3.
+
+=item * C<'require_v3'> - require a key and accept only verified packets
+using checksum mode v3.
+
+=item * C<'ignore'> - skip verification silently, even when a key is
+configured.
+
+=item * C<'ignore-warn'> - skip verification and warn for each
+checksummed packet.
+
+=back
+
+The v1, v2 and v3 names refer to checksum modes. Policies other than the
+C<'require'> policies accept unsigned packets. C<'die'> and the
+C<'require'> policies require exactly 16 key bytes; other policies pad
+or truncate keys with a warning. Required checksum modes are checked
+before decompression or body decoding. See L</PERFORMANCE> for
+verification costs.
+
+=head4 checksum_key_v1
+
+Compatibility alias for C<checksum_key>. It can verify every supported
+checksum type; the suffix does not restrict accepted input.
+
+=head4 checksum_key_v2
+
+Compatibility alias for C<checksum_key>. It can verify every supported
+checksum type; the suffix does not restrict accepted input.
+
+=head4 checksum_key_v3
+
+Compatibility alias for C<checksum_key>. It can verify every supported
+checksum type; the suffix does not restrict accepted input.
+
+=head4 refuse_objects
+
+Rejects objects with an exception. This option is off by default. See
+L</ROBUSTNESS> for object-handling considerations.
+
+=head4 no_bless_objects
+
+Decodes ordinary serialized objects without blessing them. This option
+is off by default. See C<no_thaw_objects> to prevent C<THAW> callbacks.
+
+=head4 no_thaw_objects
+
+Returns frozen objects as argument arrays blessed into
+C<Sereal::Decoder::THAW_args> instead of calling C<THAW>. This option is
+off by default. See L</FREEZE/THAW CALLBACK MECHANISM> for the array
+layout.
+
+=head4 thaw_allow_classes
+
+Restricts which classes may invoke C<THAW>. Accepts an array reference
+of class names, a hash reference with true values for allowed names, or
+a predicate C<< $cb->($classname) >> called once per frozen object and
+returning true to allow the call. Without this option, all classes are
+allowed.
+
+For a denied class, see L</thaw_deny_action>. This option has no effect
+when C<refuse_objects> or C<no_thaw_objects> prevents thawing. See
+L</FREEZE/THAW CALLBACK MECHANISM> for callback behavior.
+
+=head4 thaw_deny_action
+
+Action when C<thaw_allow_classes> denies a C<THAW> call: C<'croak'>
+throws an exception (the default); C<'raw'> returns the argument array
+blessed into C<Sereal::Decoder::THAW_args>, as C<no_thaw_objects> does.
+
+=head4 refuse_snappy
+
+Rejects Snappy-compressed documents. This option is off by default.
+
+=head4 refuse_zstd
+
+Rejects Zstd-compressed documents. This option is off by default.
+
+=head4 validate_utf8
+
+Rejects invalid UTF-8 byte sequences in text strings. This option is off
+by default. Enable it when input must contain valid UTF-8.
+
+=head4 max_recursion_depth
+
+Maximum recursion depth, default 10000. The limit is approximate and
+depends on the structures encountered. Deep recursion can exhaust the C
+stack; raising this limit can cause a crash. See L</ROBUSTNESS>.
+
+=head4 max_num_hash_entries
+
+Maximum entries in a hash or hash-based object. Zero means unlimited
+(the default). Input exceeding the limit is rejected. See L</ROBUSTNESS>
+for resource limits.
+
+=head4 max_num_array_entries
+
+Maximum entries in an array. Zero means unlimited (the default). Input
+exceeding the limit is rejected. See L</ROBUSTNESS> for resource limits.
+
+=head4 max_string_length
+
+Maximum encoded string length in bytes. Zero means unlimited (the
+default). Input exceeding the limit is rejected. See L</ROBUSTNESS> for
+resource limits.
+
+=head4 max_uncompressed_size
+
+Maximum uncompressed document size in bytes. Zero means unlimited (the
+default). Input exceeding the limit is rejected. See L</ROBUSTNESS> for
+resource limits.
+
+=head4 undef_deadly_policy
+
+Controls the diagnostic C<UNDEF_DEADLY> value introduced in protocol
+version 6. C<'undef'> decodes it silently as ordinary undef (the
+default); C<'warn'> warns and decodes it; C<'die'> throws an exception.
+An omitted or undefined option selects C<'undef'>; other values are
+rejected at construction. C<use_undef> and reference tracking apply as
+for ordinary undef.
+
+=head4 unknown_option_policy
+
+Controls unrecognized constructor keys: C<'warn'> warns and continues
+(the default), C<'die'> throws an exception, and C<'ignore'> ignores
+them. Invalid policy values throw an exception.
+
+C<SEREAL_UNKNOWN_OPTION_POLICY> and
+C<SEREAL_DECODER_UNKNOWN_OPTION_POLICY> initialize
+C<$Sereal::UnknownOptionPolicy> and
+C<$Sereal::Decoder::UnknownOptionPolicy> at module load if undefined. At
+construction, the first defined value wins: the option, the
+Decoder-specific package variable, then the shared package variable.
+Otherwise C<'warn'> is used.
 
 =head1 INSTANCE METHODS
 
@@ -1113,6 +1005,61 @@ extended formats or storage sizes. Do not infer byte order from apparently
 reasonable decoded numbers: the wrong order can also produce plausible
 values. This option has no effect on protocol v7.
 
+=head1 CHECKSUM CONFIGURATION
+
+For per-object settings, see L</checksum_key>, L</checksum_mode>, and
+L</checksum_policy>. Package and environment defaults are described
+below.
+
+=head2 Shared default key
+
+C<$Sereal::DefaultKey> supplies a shared default when no checksum key
+option is present. C<$Sereal::Decoder::DefaultKey> can override the
+Decoder's default. Both contain raw key bytes, not hexadecimal text. A
+default Decoder key is used for all three supported checksum types.
+Explicit key options replace the default configuration; supplying an
+explicit C<undef> key also suppresses the default.
+
+The first load of Sereal::Encoder or Sereal::Decoder initializes this
+shared variable from C<SEREAL_DEFAULT_KEY>, unless application code has
+already set it. The Decoder-specific C<SEREAL_DECODER_DEFAULT_KEY>
+initializes C<$Sereal::Decoder::DefaultKey> the same way. Constructor
+key options take precedence over the Decoder-specific default, which
+takes precedence over the shared default. Exactly 32 hexadecimal
+characters are decoded to 16 bytes. Other lengths or non-hexadecimal
+values are passed unchanged to C<prepare_checksum_key()>, with a warning
+that does not include the secret. Normalization does not add entropy or
+turn a weak password into a strong key. If the environment variable is
+absent, no default key is installed. Loading the other module does not
+reset an initialized default, and subsequent environment changes do not
+affect it.
+
+Code can set or localize the shared variable:
+
+  local $Sereal::DefaultKey = $key16;
+  my $decoder = Sereal::Decoder->new({ checksum_policy => 'require_key' });
+
+New encoders and decoders copy its current value. Existing objects
+retain their keys. Localizing it to C<undef> disables the default for
+new objects in that scope. Cached objects, including objects returned by
+the Sereal wrapper's cache helpers, retain the configuration they were
+created with.
+
+=head2 Default policy
+
+C<SEREAL_CHECKSUM_POLICY> sets the shared default;
+C<SEREAL_DECODER_CHECKSUM_POLICY> sets the Decoder-specific default. At
+module startup they initialize C<$Sereal::ChecksumPolicy> and
+C<$Sereal::Decoder::ChecksumPolicy> when those variables are undefined.
+
+  SEREAL_CHECKSUM_POLICY=require_key perl my_application.pl
+
+The constructor option overrides the Decoder-specific package variable,
+which overrides the shared package variable. If none is defined, the
+policy is C<'verify-if-available'>. Invalid values cause construction to
+fail. Existing objects and recursive clones retain their configured
+policy.
+
 =head1 ROBUSTNESS
 
 The project-wide security policy, supported-version guidance, and private
@@ -1202,9 +1149,19 @@ serializer identifier for the callbacks.
 
 =head1 PERFORMANCE
 
-Please refer to the L<Sereal::Performance> document
-that has more detailed information about Sereal performance and
-tuning thereof.
+See L<Sereal::Performance> for general performance and tuning
+information.
+
+Checksum verification makes an additional pass over the protected header
+and encoded payload. Its CPU cost grows with their size and depends on
+the SipHash variant. Compressed payloads are verified before
+decompression. With a configured key, all verifying policies perform the
+same verification work for a given packet. Ignore policies skip
+authentication but still validate the envelope framing.
+
+Reusing a decoder avoids repeated configuration work; each packet still
+requires verification. Warnings and their logging can also add
+per-packet cost.
 
 =head1 THREAD-SAFETY
 
