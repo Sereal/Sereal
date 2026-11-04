@@ -17,7 +17,11 @@ perl Perl/author_tools/encoder_compat_matrix.pl
 
 By default, a unique persistent workspace is created under the system temp
 directory. It contains build snapshots, build and test logs, generated corpora,
-and `results.json`. The named historical branches and worktrees remain in the
+and `results.json`. The runner prints the workspace path at startup and a
+PASS/FAIL summary at completion. Failures include the error, full log path,
+and the last 30 lines of the failed step's log. Use `--json` to print the
+full JSON report instead of the summary; progress goes to standard error.
+The named historical branches and worktrees remain in the
 Git repository and are reused across runs, including when a new temporary
 workspace is created. Keep the workspace to investigate failures or replay the
 corpus. Use `--work-dir PATH` to choose a stable location for repeat runs.
@@ -25,8 +29,8 @@ If a historical worktree's directory was deleted, the runner recreates that
 branch's worktree in the new workspace, preserving the branch's commits.
 `--fetch` explicitly fetches tags and `main`; otherwise only local refs are
 used. `--corpus-only` skips the full Decoder suite. `--self-test` runs focused
-version-selection, child-process failure, and stale-worktree recovery checks
-in a disposable repository.
+version-selection, child-process failure, result reporting, and
+stale-worktree recovery checks in a disposable repository.
 
 Stable selection compares numeric version components and excludes underscore
 development releases. `main` supplies the current module major; stable majors

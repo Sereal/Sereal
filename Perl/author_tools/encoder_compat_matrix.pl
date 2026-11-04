@@ -18,13 +18,14 @@ my $SCRIPT = abs_path($0);
 my $ROOT = abs_path(File::Spec->catdir((File::Spec->splitpath($SCRIPT))[1], '..'));
 my $DECODER = File::Spec->catdir($ROOT, 'Decoder');
 my $TOOLS = File::Spec->catdir($ROOT, 'author_tools');
-my ($plan, $fetch, $corpus_only, $self_test, $work_dir);
+my ($plan, $fetch, $corpus_only, $self_test, $work_dir, $json);
 GetOptions(
     'plan' => \$plan,
     'fetch' => \$fetch,
     'corpus-only' => \$corpus_only,
     'self-test' => \$self_test,
     'work-dir=s' => \$work_dir,
+    'json' => \$json,
 ) or die "Invalid options\n";
 
 sub newer {
@@ -110,6 +111,60 @@ sub copy_snapshot {
     }, $from);
 }
 
+sub matrix_failures {
+    my ($results) = @_;
+    return scalar grep {
+        $_->{status} ne 'passed' && $_->{status} ne 'corpus passed'
+    } values %{$results->{entries}};
+}
+
+sub record_entry_failure {
+    my ($entry, $error, $workspace) = @_;
+    $error =~ s/\s+\z//;
+    $entry->{status} = 'BUILD/CORPUS FAIL';
+    $entry->{error} = $error;
+    # die may append a source location after the log path.
+    $entry->{failure_log} = File::Spec->rel2abs($1, $workspace)
+        if $error =~ /\bsee ([^\n]+?\.log)(?:\s+at |\z)/;
+}
+
+# Keep the complete report on disk, but make the terminal useful when this
+# command stops a release recipe. Failed suites need their diagnostic tail
+# as well as a log path; a JSON status alone hides the test harness summary.
+sub report_results {
+    my ($results, $out, $as_json) = @_;
+    if ($as_json) {
+        print {$out} JSON::PP->new->canonical->pretty->encode($results);
+        return;
+    }
+    print {$out} "Encoder compatibility matrix\n";
+    for my $major (sort { $a <=> $b } keys %{$results->{entries}}) {
+        my $entry = $results->{entries}{$major};
+        my $passed = $entry->{status} eq 'passed' || $entry->{status} eq 'corpus passed';
+        printf {$out} "  %s Encoder %s (%s): %s\n",
+            $passed ? 'PASS' : 'FAIL', $major, $entry->{ref}, $entry->{status};
+        next if $passed;
+        print {$out} "    $entry->{error}\n" if $entry->{error};
+        if (my $log = $entry->{failure_log}) {
+            print {$out} "    Log: $log\n";
+            if (open my $fh, '<', $log) {
+                my @tail;
+                while (my $line = <$fh>) {
+                    push @tail, $line;
+                    shift @tail if @tail > 30;
+                }
+                close $fh;
+                print {$out} "      $_" for @tail;
+                print {$out} "\n" if @tail && $tail[-1] !~ /\n\z/;
+            }
+        }
+    }
+    my $failed = matrix_failures($results);
+    printf {$out} "Result: %s (%d passed, %d failed)\n",
+        $failed ? 'FAIL' : 'PASS', scalar(keys %{$results->{entries}}) - $failed, $failed;
+    print {$out} "Full report: ", File::Spec->catfile($results->{workspace}, 'results.json'), "\n";
+}
+
 if ($self_test) {
     my $selected = select_refs([qw(Sereal-Encoder-0.37 Sereal-Encoder-1.99 Sereal-Encoder-2.09 Sereal-Encoder-2.12 Sereal-Encoder-2.100 Sereal-Encoder-3.015 Sereal-Encoder-4.025 Sereal-Encoder-5.011 Sereal-Encoder-6.000_004)], 6);
     die "numeric version selection failed\n" unless join(',', map { $selected->{$_} } sort { $a <=> $b } keys %$selected) eq 'Sereal-Encoder-2.12,Sereal-Encoder-3.015,Sereal-Encoder-4.025,Sereal-Encoder-5.011,main';
@@ -126,6 +181,41 @@ if ($self_test) {
     my $exec_status = eval { run_cmd([File::Spec->catfile($failure_dir, 'missing-command')], $ROOT, {}, $failure_log) };
     _exit(42) if $$ != $parent;
     die "child exec failure was not reported\n" unless $exec_status == 255;
+    my $test_status = run_cmd([$^X, '-e', 'print "Failed test: fixture diagnostic\n"; exit 2'],
+                             $ROOT, {}, $failure_log);
+    my $report = {
+        workspace => $failure_dir,
+        entries => {
+            2 => { ref => 'old', status => 'passed' },
+            7 => { ref => 'main', status => 'Decoder suite failed',
+                   error => "Decoder suite failed (exit $test_status)", failure_log => $failure_log },
+        },
+    };
+    open my $summary_fh, '>', \my $summary or die $!;
+    report_results($report, $summary_fh, 0);
+    close $summary_fh;
+    die "failed suite report omitted diagnostics\n"
+        unless $summary =~ /FAIL Encoder 7/ && $summary =~ /exit 2/
+            && index($summary, $failure_log) >= 0 && $summary =~ /fixture diagnostic/
+            && $summary =~ /Result: FAIL \(1 passed, 1 failed\)/
+            && matrix_failures($report) == 1;
+    open my $json_fh, '>', \my $json_text or die $!;
+    report_results($report, $json_fh, 1);
+    close $json_fh;
+    die "JSON reporting lost failure details\n"
+        unless JSON::PP->new->decode($json_text)->{entries}{7}{failure_log} eq $failure_log;
+    eval { die "Encoder build failed (exit $test_status); see failure.log" };
+    my $build_error = $@;
+    $report->{entries}{7} = {};
+    record_entry_failure($report->{entries}{7}, $build_error, $failure_dir);
+    die "build failure log path was lost after die added a source location\n"
+        unless $report->{entries}{7}{failure_log} eq $failure_log;
+    delete $report->{entries}{7};
+    open $summary_fh, '>', \$summary or die $!;
+    report_results($report, $summary_fh, 0);
+    close $summary_fh;
+    die "successful matrix report marked as failure\n"
+        unless !matrix_failures($report) && $summary =~ /Result: PASS \(1 passed, 0 failed\)/;
     my $repo = File::Spec->catdir($failure_dir, 'repo');
     my $old = File::Spec->catdir($failure_dir, 'old');
     my $replacement = File::Spec->catdir($failure_dir, 'replacement');
@@ -145,7 +235,7 @@ if ($self_test) {
         if run_cmd(['git', 'worktree', 'add', '--force', $replacement, 'matrix-test'], $repo, {}, $failure_log);
     ($existing, $stale) = existing_branch_worktree('matrix-test', $failure_log, $repo);
     die "live replacement worktree was not preferred\n" unless $existing eq $replacement && !$stale;
-    print "selection, child-process, and worktree checks passed\n";
+    print "selection, child-process, reporting, and worktree checks passed\n";
     exit 0;
 }
 
@@ -180,15 +270,17 @@ if ($plan) {
 $work_dir ||= tempdir('sereal-encoder-matrix-XXXXXX', TMPDIR => 1, CLEANUP => 0);
 $work_dir = abs_path($work_dir) || do { make_path($work_dir); abs_path($work_dir) };
 make_path($work_dir);
+print STDERR "Matrix workspace: $work_dir\n";
 $ENV{CCACHE_DIR} = File::Spec->catdir($work_dir, 'ccache');
 make_path($ENV{CCACHE_DIR});
 my %results = (workspace => $work_dir, selection => $refs, commits => \%commits, entries => {});
 my $decoder_configure = run_cmd([$^X, 'Makefile.PL'], $DECODER, {}, File::Spec->catfile($work_dir, 'current-decoder-configure.log'));
-die "current Decoder configure failed; see current-decoder-configure.log" if $decoder_configure;
+die "current Decoder configure failed (exit $decoder_configure); see $work_dir/current-decoder-configure.log\n" if $decoder_configure;
 my $decoder_build = run_cmd(['make', '-j2'], $DECODER, {}, File::Spec->catfile($work_dir, 'current-decoder-build.log'));
-die "current Decoder build failed; see current-decoder-build.log" if $decoder_build;
+die "current Decoder build failed (exit $decoder_build); see $work_dir/current-decoder-build.log\n" if $decoder_build;
 for my $major (sort { $a <=> $b } keys %$refs) {
     my $ref = $refs->{$major};
+    print STDERR "Testing Encoder $major ($ref)...\n";
     my $entry = $results{entries}{$major} = { ref => $ref, commit => $commits{$major}, status => 'pending' };
     my $wt = $major == $current_major ? $ROOT : File::Spec->catdir($work_dir, 'worktrees', "major-$major");
     my $branch = $major == $current_major ? undef : "maint_perl/v$major";
@@ -260,9 +352,9 @@ for my $major (sort { $a <=> $b } keys %$refs) {
         }
         my %build_env = (USE_UNALIGNED => 1, NO_ASM => 1);
         my $rc = run_cmd([$^X, 'Makefile.PL'], $src, \%build_env, File::Spec->catfile($work_dir, "encoder-$major-configure.log"));
-        die "Encoder configure failed; see encoder-$major-configure.log" if $rc;
+        die "Encoder configure failed (exit $rc); see encoder-$major-configure.log" if $rc;
         $rc = run_cmd(['make', '-j2'], $src, {}, File::Spec->catfile($work_dir, "encoder-$major-build.log"));
-        die "Encoder build failed; see encoder-$major-build.log" if $rc;
+        die "Encoder build failed (exit $rc); see encoder-$major-build.log" if $rc;
         my $corpus = File::Spec->catdir($work_dir, 'corpora', "encoder-major-$major");
         make_path($corpus);
         my $encoder_lib = File::Spec->catdir($src, 'blib', 'lib');
@@ -271,32 +363,35 @@ for my $major (sort { $a <=> $b } keys %$refs) {
                        File::Spec->catfile($TOOLS, 'encoder_compat_cases.pl'),
                        File::Spec->catdir($encoder_lib, 'Sereal'), $corpus, $ref, $commits{$major}, $source_commit],
                       $src, $env, File::Spec->catfile($work_dir, "corpus-generate-$major.log"));
-        die "corpus generation failed; see corpus-generate-$major.log" if $rc;
+        die "corpus generation failed (exit $rc); see corpus-generate-$major.log" if $rc;
         my $current_perl5lib = join($Config{path_sep}, File::Spec->catdir($DECODER, 'blib', 'lib'), File::Spec->catdir($DECODER, 'blib', 'arch'), File::Spec->catdir($ROOT, 'shared', 't', 'lib'));
         $rc = run_cmd([$^X, File::Spec->catfile($TOOLS, 'encoder_compat_validate.pl'),
                        File::Spec->catfile($TOOLS, 'encoder_compat_cases.pl'), $corpus,
                        File::Spec->catdir($DECODER, 'blib', 'lib', 'Sereal')],
                       $DECODER, { PERL5LIB => $current_perl5lib }, File::Spec->catfile($work_dir, "corpus-validate-$major.log"));
-        die "current Decoder rejected historical corpus; see corpus-validate-$major.log" if $rc;
+        die "current Decoder rejected historical corpus (exit $rc); see corpus-validate-$major.log" if $rc;
         $entry->{corpus} = $corpus;
         $entry->{status} = 'corpus passed';
         unless ($corpus_only) {
             my $test_lib = join($Config{path_sep}, File::Spec->catdir($DECODER, 'blib', 'lib'), File::Spec->catdir($DECODER, 'blib', 'arch'),
                                 File::Spec->catdir($src, 'blib', 'lib'), File::Spec->catdir($src, 'blib', 'arch'), File::Spec->catdir($ROOT, 'shared', 't', 'lib'));
             $rc = run_cmd(['make', "PERL=$^X", 'test'], $DECODER, { PERL5LIB => $test_lib }, File::Spec->catfile($work_dir, "decoder-suite-$major.log"));
-            if ($rc) { $entry->{status} = 'Decoder suite failed'; $entry->{suite_exit} = $rc }
+            if ($rc) {
+                $entry->{status} = 'Decoder suite failed';
+                $entry->{suite_exit} = $rc;
+                $entry->{error} = "Decoder suite failed (exit $rc)";
+                $entry->{failure_log} = File::Spec->catfile($work_dir, "decoder-suite-$major.log");
+            }
             else { $entry->{status} = 'passed' }
         }
         1;
     };
     if (!$ok) {
-        my $error = $@ || 'unknown failure';
-        $error =~ s/\s+\z//;
-        $entry->{status} = 'BUILD/CORPUS FAIL';
-        $entry->{error} = $error;
+        record_entry_failure($entry, $@ || 'unknown failure', $work_dir);
     }
 }
 open my $out, '>', File::Spec->catfile($work_dir, 'results.json') or die $!;
 print {$out} JSON::PP->new->canonical->pretty->encode(\%results); close $out;
-print JSON::PP->new->canonical->pretty->encode(\%results);
-exit scalar(grep { $_->{status} ne 'passed' && $_->{status} ne 'corpus passed' } values %{$results{entries}}) ? 1 : 0;
+report_results(\%results, \*STDOUT, $json);
+my $exit_status = matrix_failures(\%results) ? 1 : 0;
+exit $exit_status;
