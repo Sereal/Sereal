@@ -7,20 +7,35 @@ from the the Encoder and Decoder changelogs:
    * https://github.com/Sereal/Sereal/blob/master/Perl/Encoder/Changes
 
 ****************************************************************
-* Sereal 7 is a major release. For a site-wide rollout, upgrade *
-* Sereal::Decoder to version 7 on every node first. Verify the   *
-* Decoder rollout is complete before upgrading Sereal::Encoder  *
-* to version 7 anywhere in the fleet. Encoder 7 can emit v7     *
-* packets, which require Decoder 7 to read.                     *
+* Sereal 7 is a major release. Developers concerned with       *
+* security or portability should upgrade as soon as possible.  *
+*                                                              *
+* Upgrade Sereal::Decoder to version 7 on every reader FIRST.  *
+* Verify that rollout is complete before upgrading             *
+* Sereal::Encoder to version 7 on any writer. V7 packets       *
+* require a version 7 Decoder.                                 *
 ****************************************************************
-7.000_001
-    * Add Fedora s390x producer captures and regression coverage for legacy
-      big-endian and portable v7 floats, including signed zero and subnormals.
-      Thanks to pghmcfc for the platform report and corpus.
-    * Add protocol v7 portable floating-point storage, with optional native
-      long-double output and decoder checks for compatible native layouts.
-    * Permit explicitly trusted same-build reads of unidentified native
-      layouts. Protocol v1-v6 modes retain their existing wire behavior.
+
+7.001
+    * Roll up the v6 features and portability fixes with protocol v7.
+      Upgrade Decoder to version 7 throughout the fleet before emitting
+      v7 packets.
+    * Use portable little-endian IEEE floating-point storage by default,
+      including IEEE binary128 for extended values. Offer explicit
+      native long-double storage with reader compatibility checks and
+      optional same-build trust for unidentified layouts.
+    * Include protocol v6 v-string and negative-integer support, keyed
+      SipHash checksums, checksum keys, modes, policies, defaults and
+      helper functions. Preserve regexp modifiers, including /n and /xx.
+    * Preserve protocol v1-v6 numeric wire behavior and support a known
+      source byte order when decoding legacy floats.
+    * Include callback lifetime, older-Perl, Perl 5.24, 32-bit, Haiku
+      and BusyBox fixes. Extend stored corpus coverage with Fedora s390x
+      producer captures; thanks to pghmcfc for the report and corpus
+      (issue #337).
+    * Ship the shared SECURITY policy and improve the protocol
+      specification and security, checksum and floating-point
+      documentation.
 
 6.003
     * Fix Encoder and Decoder builds on Haiku.

@@ -1,25 +1,47 @@
 Revision history for Perl extension Sereal-Decoder
 
 ****************************************************************
-* Sereal 7 is a major release. For a site-wide rollout, upgrade *
-* Sereal::Decoder to version 7 on every node first. Verify the   *
-* Decoder rollout is complete before upgrading Sereal::Encoder  *
-* to version 7 anywhere in the fleet. Encoder 7 can emit v7     *
-* packets, which require Decoder 7 to read.                     *
+* Sereal 7 is a major release. Developers concerned with       *
+* security or portability should upgrade as soon as possible.  *
+*                                                              *
+* Upgrade Sereal::Decoder to version 7 on every reader FIRST.  *
+* Verify that rollout is complete before upgrading             *
+* Sereal::Encoder to version 7 on any writer. V7 packets       *
+* require a version 7 Decoder.                                 *
 ****************************************************************
-7.000_001
-    * Add Fedora s390x producer captures and regression coverage for legacy
-      big-endian and portable v7 floats, including signed zero and subnormals.
-      Thanks to pghmcfc for the platform report and corpus.
-    * Read portable little-endian v7 floats, including IEEE binary128 on
-      Perl builds without quadmath.
-    * Validate v7 native long-double declarations and reject known layout
-      mismatches. Add allow_unknown_long_double for explicitly trusted
-      same-ABI reads of unidentified layouts; storage sizes must still match.
-    * Preserve v1-v6 native floating-point behavior and add
-      legacy_float_byteorder to select a known source byte order.
-    * Show declaration names in diagnostics and hobodecoder output.
-    * Add a floating-point corpus collector for platform reports.
+
+7.001
+    * Read protocol versions 1 through 7. Decode portable little-endian
+      v7 floats, including IEEE binary128 on Perl builds without
+      quadmath, converting values to the local NV type.
+    * Validate v7 native long-double declarations and reject known
+      format, byte-order and size mismatches. Add
+      allow_unknown_long_double for explicitly trusted same-build reads
+      of unidentified layouts; storage sizes must still match.
+    * Preserve native floating-point behavior for protocol v1-v6 input.
+      Add legacy_float_byteorder for older data with a known source byte
+      order.
+    * Include protocol v6 v-string and negative-integer support, keyed
+      SipHash verification, checksum keys, modes, policies and defaults.
+      Add prepare_checksum_key(), get_sereal_checksum() and
+      validate_sereal_checksum().
+    * Restore regexp character-set modifiers, /n and /xx, and report the
+      required Perl version for unsupported modifiers.
+    * Harden malformed-input and object handling. Retain Decoder handles
+      across callbacks, and run output DESTROY callbacks before
+      capturing input on Perl 5.24.
+    * Restore older-Perl builds, avoid read-only regexp buffer
+      corruption on Perl 5.14, and correct 32-bit size handling and
+      allocation diagnostics.
+    * Fix bundled Snappy builds on Haiku and hobodecoder compatibility
+      with BusyBox od. Improve optional-dependency diagnostics.
+    * Extend independent wire-format and stored corpus coverage,
+      including real Fedora s390x producer captures. Add a
+      floating-point corpus collector and named declarations in
+      diagnostics and hobodecoder. Thanks to pghmcfc for the report and
+      corpus (issue #337).
+    * Ship the shared SECURITY policy and clarify security, checksum and
+      floating-point interoperability documentation.
 
 6.003
     * Fix bundled Snappy builds on Haiku, which has no byteswap.h.
