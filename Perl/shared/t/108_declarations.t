@@ -14,6 +14,9 @@ use Sereal::Decoder::Constants qw(:all);
 my $native = eval { pack( 'D', -0.125 ) };
 my $format;
 my $perl_kind = defined( $Config{longdblkind} ) ? $Config{longdblkind} : 'UNKNOWN';
+# On Perls whose NV is double, pack D can return eight bytes even when
+# C long double (used by the decoder) occupies 12 or 16 bytes.
+$native = undef if defined($native) && length($native) != $Config{longdblsize};
 # Some Perls omit pack D when long double is just double (kind zero).
 $native = pack( 'd', -0.125 )
     if !defined($native) && $perl_kind eq '0' && $Config{longdblsize} == 8;
@@ -46,7 +49,7 @@ if ( !defined($native) ) {
     }
 }
 # Older Perls may lack pack D and longdblkind on a known x86 ABI.
-if ( !defined($native) && $Config{archname} =~ /^(?:x86_64|i[3-6]86)-/
+if ( !defined($native) && $Config{archname} =~ /^(?:amd64|x86_64|i[3-6]86)-/
     && ( $Config{longdblsize} == 12 || $Config{longdblsize} == 16 ) )
 {
     $format = 2;

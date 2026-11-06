@@ -16,6 +16,10 @@ from the the Encoder and Decoder changelogs:
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.001_001
+    * Fix native long-double test portability on older FreeBSD Perls and
+      bound the Decoder randomized stress test for limited-memory hosts.
+
 7.001
     * Roll up the v6 features and portability fixes with protocol v7.
       Upgrade Decoder to version 7 throughout the fleet before emitting

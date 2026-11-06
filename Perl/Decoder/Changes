@@ -10,6 +10,12 @@ Revision history for Perl extension Sereal-Decoder
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.001_001
+    * Identify native long-double layouts correctly in tests on older
+      FreeBSD Perls whose pack D size differs from C long double.
+    * Bound the randomized Decoder stress test and reduce its TAP memory
+      use while covering both v1 and v2 packets.
+
 7.001
     * Read protocol versions 1 through 7. Decode portable little-endian
       v7 floats, including IEEE binary128 on Perl builds without

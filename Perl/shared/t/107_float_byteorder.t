@@ -143,7 +143,7 @@ ok( $nan != $nan, 'binary128 quiet NaN' );
 # storage size. Selecting little endian changes only their byte order; it
 # does not claim that another ABI with a different format can read them.
 SKIP: {
-    skip 'long-double packing unavailable', 12 unless eval { pack( 'D<', 0.1 ); 1 };
+    skip 'long-double packing unavailable', 12 unless eval { defined pack( 'D<', 0.1 ) };
     for my $version ( 1 .. 6 ) {
         my $prefix = Header($version) . chr(SRL_HDR_LONG_DOUBLE);
         is(
