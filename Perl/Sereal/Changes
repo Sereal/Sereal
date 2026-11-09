@@ -13,6 +13,9 @@ from the the Encoder and Decoder changelogs:
 *          Sereal package and instead install the Encoder or   *
 *          Decoder independently.                              *
 ****************************************************************
+5.012
+    * Require Encoder and Decoder 5.012 for the varint overflow fix.
+
 5.011
     * Robustness fixes. Thanks to Steffen Mueller and kumar-Prakash07.
     * Preserve zstd deprecation warnings when building with IBM XL C on AIX.

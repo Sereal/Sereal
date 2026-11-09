@@ -19,6 +19,13 @@ srl_skip_varint(pTHX_ srl_reader_buffer_t *buf)
     if (expect_false( SRL_RDR_DONE(buf) ))
         SRL_RDR_ERROR(buf, "end of packet reached before varint parsed");
 
+    if (expect_false( !max_varint_len ))
+        SRL_RDR_ERROR(buf, "varint too long");
+
+    if (expect_false( max_varint_len == 1
+            && (sizeof(UV) == sizeof(U32) ? *buf->pos > 0x0F : *buf->pos > 0x01) ))
+        SRL_RDR_ERROR(buf, "varint too big");
+
     buf->pos++;
 }
 
@@ -48,7 +55,12 @@ srl_read_varint_uv_safe(pTHX_ srl_reader_buffer_t *buf)
     }
 
     if (expect_true( SRL_RDR_NOT_DONE(buf) )) {
-        uv |= ((UV)*buf->pos++ << lshift);
+        const U8 terminal = *buf->pos;
+        if (expect_false( lshift >= (sizeof(UV) * 8)
+                || (UV)terminal > (UV_MAX >> lshift) ))
+            SRL_RDR_ERROR(buf, "varint too big");
+        uv |= ((UV)terminal << lshift);
+        buf->pos++;
     } else {
         SRL_RDR_ERROR(buf, "end of packet reached before varint parsed");
     }
@@ -84,7 +96,12 @@ srl_read_varint_uv_safe(pTHX_ srl_reader_buffer_t *buf)
                                                                             \
     b = *(ptr++); part2  = b      ; if (!(b & 0x80)) break;                 \
     part2 -= 0x80;                                                          \
-    b = *(ptr++); part2 += b <<  7; if (!(b & 0x80)) break;                 \
+    b = *(ptr++); part2 += b <<  7;                                        \
+    if (!(b & 0x80)) {                                                     \
+        if (expect_false( b > 1 ))                                         \
+            SRL_RDR_ERROR(buf, "varint too big");                         \
+        break;                                                             \
+    }                                                                      \
     /* "part2 -= 0x80 << 7" is irrelevant because (0x80 << 7) << 56 is 0. */\
                                                                             \
     /* We have overrun the maximum size of a varint (10 bytes).  The data   \

@@ -5,6 +5,9 @@ Revision history for Perl extension Sereal-Decoder
 *          of the decoder before upgrading to version 5 of the *
 *          encoder!                                            *
 ****************************************************************
+5.012
+    * Reject varints that exceed the native integer range.
+
 5.011
     * Robustness fixes. Thanks to Steffen Mueller and kumar-Prakash07.
     * Preserve zstd deprecation warnings when building with IBM XL C on AIX.
