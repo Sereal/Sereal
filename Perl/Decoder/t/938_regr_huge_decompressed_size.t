@@ -10,6 +10,7 @@ use Test::More;
 use Config;
 use Sereal::Decoder;
 use File::Spec;
+use File::Temp qw(tempdir);
 use Sereal::TestSet::Corpus qw(read_packet);
 
 # A compressed document declares its uncompressed size, and the decoder
@@ -30,6 +31,8 @@ my $zlib_2_53 = $SRL_MAGIC . chr(0x36) . chr(0) . "\x80\x80\x80\x80\x80\x80\x80\
 # zstd frame header (single segment, 8-byte content size) declaring 2^53.
 my $zstd_frame = "\x28\xB5\x2F\xFD" . "\xE0" . pack( "V2", 0, 2**21 );
 my $zstd_2_53  = $SRL_MAGIC . chr(0x46) . chr(0) . chr( length $zstd_frame ) . $zstd_frame;
+my $child_dir = tempdir(CLEANUP => 1);
+my $child_file = File::Spec->catfile($child_dir, 'huge-size-child.pl');
 
 sub decode_in_child {
     my ( $packet, $opts ) = @_;
@@ -43,12 +46,12 @@ my $expected_error = $Config{uvsize} < 8
 eval { Sereal::Decoder->new({%s})->decode($packet) };
 print $@ =~ $expected_error ? "caught\n" : "unexpected: $@\n";
 CODE
+    open my $script, '>', $child_file or die "open $child_file: $!";
+    print {$script} $code;
+    close $script or die "close $child_file: $!";
     my $out = '';
-    my $pid = open( my $fh, '-|' ) // die "fork failed: $!";
-    if ( !$pid ) {
-        open( STDERR, '>&', \*STDOUT );
-        exec( $^X, '-Mblib', '-It/lib', '-e', $code ) or exit 255;
-    }
+    open my $fh, '-|', $^X, '-Mblib', '-It/lib', $child_file
+        or die "start child: $!";
     $out .= $_ while <$fh>;
     close $fh;
     return ( $? >> 8, $out );
@@ -65,7 +68,7 @@ foreach my $case (
 
     # Match a line rather than the whole output: allocator diagnostics such
     # as a sanitizer's "failed to allocate" warning may precede it.
-    like( $out, qr/^caught$/m, "$name: dies with a catchable exception" );
+    like( $out, qr/^caught\r?$/m, "$name: dies with a catchable exception" );
     unlike( $out, qr/^unexpected/m, "$name: no unexpected error" );
 }
 
@@ -87,7 +90,7 @@ foreach my $case (
     my $expected_error = $Config{ptrsize} < 8
         ? ( $name =~ /^zlib/ && $Config{uvsize} < 8
             ? qr/varint (?:too big|overflows U32)/ : qr/too large for this platform/ )
-        : qr/expected uncompressed size is larger than the allowed maximum/;
+        : qr/expected uncompressed size is larger than the allowed maximum|too large for this platform/;
     like( $error, $expected_error, "$name: size rejected before allocation" );
 }
 

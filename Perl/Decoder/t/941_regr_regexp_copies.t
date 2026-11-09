@@ -11,6 +11,7 @@ use Sereal::TestSet qw(Header);
 use Sereal::TestSet::Corpus qw(read_packet);
 use Sereal::Decoder;
 use re qw(regexp_pattern);
+use File::Temp qw(tempdir);
 
 # A decoded REGEXP used to be the compiled regexp itself, swapped into the
 # destination scalar. Perl only ever hands out copies of a compiled regexp
@@ -22,11 +23,14 @@ use re qw(regexp_pattern);
 
 # These cases used to crash perl, so they run in a child process whose
 # exit status is the assertion.
+my $child_dir = tempdir(CLEANUP => 1);
+my $child_file = File::Spec->catfile($child_dir, 'regexp-copy-child.pl');
 sub child_survives {
     my ( $code, $name ) = @_;
-    my $status = system( $^X, '-Mblib', '-It/lib', '-MSereal::Decoder',
-        '-MSereal::TestSet=Header', '-e', 'use strict; use warnings; ' . $code
-    );
+    open my $script, '>', $child_file or die "open $child_file: $!";
+    print {$script} "use strict; use warnings; use Sereal::Decoder; use Sereal::TestSet qw(Header);\n", $code;
+    close $script or die "close $child_file: $!";
+    my $status = system( $^X, '-Mblib', '-It/lib', $child_file );
     is( $status, 0, "$name: child exits cleanly" );
 }
 

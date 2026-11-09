@@ -10,6 +10,10 @@ Revision history for Perl extension Sereal-Decoder
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.001_002
+    * Dump hobodecoder packet bytes in Perl without od.
+    * Make child-process regression tests portable on Windows.
+
 7.001_001
     * Identify native long-double layouts correctly in tests on older
       FreeBSD Perls whose pack D size differs from C long double.

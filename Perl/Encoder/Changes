@@ -10,6 +10,9 @@ Revision history for Perl extension Sereal-Encoder
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.001_002
+    * Make the magical-array child-process test portable on Windows.
+
 7.001_001
     * Identify native long-double layouts correctly in shared tests on
       older FreeBSD Perls whose pack D size differs from C long double.

@@ -65,6 +65,7 @@ sub link_files {
                             $shared_root, File::Spec->splitdir($relative_path)
                         );
                         if ( OSNAME eq 'MSWin32' ) {
+                            return if -e $target_path;
                             die "link($source_abs, $target_path) failed: $!"
                                 unless link( $source_abs, $target_path );    #only NTFS implements it
                         }

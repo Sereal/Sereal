@@ -7,7 +7,7 @@ BEGIN { lib->import('lib') if !-d 't' }
 use Test::More;
 use Scalar::Util qw(refaddr);
 use IPC::Open3;
-use Symbol                     qw(gensym);
+use File::Temp                 qw(tempfile);
 use Sereal::TestSet            qw(Header varint array_slot_ref);
 use Sereal::TestSet::Corpus    qw(read_packet);
 use Sereal::Decoder            qw(decode_sereal);
@@ -139,15 +139,28 @@ like( $@, qr/EXTEND tag requires protocol version 6/, 'sentinel requires protoco
 my $undef_packet = read_v6_corpus('undef');
 isnt( $undef_packet, $header . $tag, 'compliant encoder never emits the sentinel for undef' );
 {
-    my ( $in, $out );
-    my $err = gensym;
-    my $pid = open3( $in, $out, $err, $^X, '-Mblib', 'author_tools/hobodecoder.pl' );
+    my ($in) = tempfile(UNLINK => 1);
+    my ($out) = tempfile(UNLINK => 1);
+    my ($err) = tempfile(UNLINK => 1);
     binmode $in;
     print {$in} $header . $tag;
-    close $in;
+    seek( $in, 0, 0 ) or die "seek stdin: $!";
+    # open3 resolves <&NAME and >&NAME against named filehandles. Alias the
+    # temporary files so the child reads and writes them without pipes;
+    # pipe-based capture stalled this test on Windows.
+    local ( *HOBOSTDIN, *HOBOSTDOUT, *HOBOSTDERR );
+    *HOBOSTDIN  = $in;
+    *HOBOSTDOUT = $out;
+    *HOBOSTDERR = $err;
+    my $pid = open3(
+        '<&HOBOSTDIN', '>&HOBOSTDOUT', '>&HOBOSTDERR',
+        $^X, '-Mblib', 'author_tools/hobodecoder.pl'
+    );
+    waitpid( $pid, 0 );
+    seek( $out, 0, 0 ) or die "seek stdout: $!";
+    seek( $err, 0, 0 ) or die "seek stderr: $!";
     my $stdout = do { local $/; <$out> };
     my $stderr = do { local $/; <$err> };
-    waitpid( $pid, 0 );
     is( $?, 0, 'hobodecoder can inspect the sentinel' ) or diag $stderr;
     like( $stdout, qr/UNDEF_DEADLY.*undef/, 'hobodecoder displays its name and undef meaning' );
 }

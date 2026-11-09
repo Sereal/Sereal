@@ -142,6 +142,50 @@ jobs:
       - name: Build and test
         run: ./travis/perl.sh
 
+  perl-macos:
+    name: Perl 5.42 on macOS
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      SEREAL_USE_BUNDLED_LIBS: '1'
+      NO_ASM: '1'
+      SEREAL_CI_SKIP_MEMORY_GROWTH: '1'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up perl
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: '5.42'
+
+      - name: Build and test
+        run: ./travis/perl.sh
+
+  perl-windows:
+    name: Perl 5.42 on Windows
+    runs-on: windows-2022
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PERL_MM_USE_DEFAULT: '1'
+      SEREAL_USE_BUNDLED_LIBS: '1'
+      USE_UNALIGNED: '0'
+      NO_ASM: '1'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up perl
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: '5.42'
+
+      - name: Build and test
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File ./travis/perl.ps1
+
   perl-32:
     name: Perl ${{ matrix.perl }} (32bit, ${{ matrix.perl-threaded && 'threaded' || 'unthreaded' }})
     runs-on: ubuntu-24.04

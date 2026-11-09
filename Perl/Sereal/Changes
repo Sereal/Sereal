@@ -16,6 +16,9 @@ from the the Encoder and Decoder changelogs:
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.001_002
+    * Add Windows and macOS Perl CI and remove hobodecoder's od dependency.
+
 7.001_001
     * Fix native long-double test portability on older FreeBSD Perls and
       bound the Decoder randomized stress test for limited-memory hosts.

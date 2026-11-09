@@ -569,13 +569,22 @@ if ( $opt->{e} ) {
     select(STDERR);
 }
 
+sub dump_bytes {
+    my ($bytes) = @_;
+    print "Hex dump:\n";
+    for ( my $offset = 0; $offset < length($bytes); $offset += 16 ) {
+        my @octets = unpack( 'C*', substr( $bytes, $offset, 16 ) );
+        my $hex = join ' ', map { sprintf '%02x', $_ } @octets;
+        my $ascii = join '', map { $_ >= 32 && $_ <= 126 ? chr($_) : '.' } @octets;
+        printf "%08x  %-47s  |%s|\n", $offset, $hex, $ascii;
+    }
+}
+
+binmode STDIN;
 local $/ = undef;
 $data = <STDIN>;
 
-open my $fh, '|-', 'od', '-t', 'u1', '-t', 'c' or die $!;
-print $fh $data;
-close $fh;
-
+dump_bytes($data);
 print "\n\nTotal length: " . length($data) . "\n\n";
 
 while ( length $data ) {

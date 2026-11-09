@@ -2,6 +2,7 @@
 use strict;
 use warnings;
 use File::Spec;
+use File::Temp qw(tempdir);
 use Test::More;
 use lib File::Spec->catdir(qw(t lib));
 BEGIN { lib->import('lib') if !-d 't' }
@@ -13,16 +14,16 @@ plan skip_all => 'Did not find right version of decoder' if !have_encoder_and_de
 # Non-tied magical arrays such as @- and @+ (regdata magic) report their
 # length through magic while AvARRAY() holds no elements. Encoding them used
 # to read past the array and crash, so run each case in a child perl.
+my $child_dir = tempdir(CLEANUP => 1);
+my $child_file = File::Spec->catfile($child_dir, 'magical-array-child.pl');
 sub run_child {
     my ($code) = @_;
-    my $pid = open( my $fh, '-|' );
-    die "fork failed: $!" if !defined $pid;
-    if ( !$pid ) {
-        open( STDERR, '>&', \*STDOUT ) or die "dup STDERR failed: $!";
-        my @decoder_blib = -d '../Decoder/blib' ? ('-Mblib=../Decoder') : ();
-        exec( $^X, '-Mblib', @decoder_blib, '-e', $code )
-            or die "exec failed: $!";
-    }
+    open my $script, '>', $child_file or die "open $child_file: $!";
+    print {$script} $code;
+    close $script or die "close $child_file: $!";
+    my @decoder_blib = -d '../Decoder/blib' ? ('-Mblib=../Decoder') : ();
+    open my $fh, '-|', $^X, '-Mblib', @decoder_blib, $child_file
+        or die "start child: $!";
     my $output = do { local $/; <$fh> };
     close($fh);
     return ( $?, defined $output ? $output : '' );
@@ -47,7 +48,7 @@ EOC
     is( $status, 0, "v$version: encoding \\\@- and \\\@+ exits cleanly" )
         or diag($output);
     like(
-        $output, qr/^decoded=\[\[1,1,2,3\],\[4,2,3,4\]\]$/m,
+        $output, qr/^decoded=\[\[1,1,2,3\],\[4,2,3,4\]\]\r?$/m,
         "v$version: \\\@- and \\\@+ round-trip"
     );
 }
@@ -61,7 +62,7 @@ print "decoded=", flat( decode_sereal($payload) ), "\n";
 EOC
     my ( $status, $output ) = run_child($code);
     is( $status, 0, 'encoding \@{^CAPTURE} exits cleanly' ) or diag($output);
-    like( $output, qr/^decoded=\[\[b,c,d\]\]$/m, '\@{^CAPTURE} round-trips' );
+    like( $output, qr/^decoded=\[\[b,c,d\]\]\r?$/m, '\@{^CAPTURE} round-trips' );
 }
 
 {

@@ -8,7 +8,7 @@ BEGIN { lib->import('lib') if !-d 't' }
 
 use Test::More;
 use IPC::Open3      qw(open3);
-use Symbol          qw(gensym);
+use File::Temp      qw(tempfile);
 use Sereal::TestSet qw(read_varint_at);
 use Sereal::Decoder;
 use Sereal::Decoder::Constants qw(SRL_PROTOCOL_ENCODING_CHECKSUM);
@@ -63,22 +63,32 @@ is(
 
 sub run_hobodecoder {
     my ( $packet, @args ) = @_;
-    my ( $stdin, $stdout );
-    my $stderr = gensym;
+    my ($stdin) = tempfile(UNLINK => 1);
+    my ($stdout) = tempfile(UNLINK => 1);
+    my ($stderr) = tempfile(UNLINK => 1);
+    binmode $stdin;
+    print {$stdin} $packet;
+    seek( $stdin, 0, 0 ) or die "seek stdin: $!";
+    # open3's <&NAME and >&NAME forms duplicate existing handles into the
+    # child. These local globs give it names for our temporary files, so no
+    # input or output pipe can block the Windows test process.
+    local ( *HOBOSTDIN, *HOBOSTDOUT, *HOBOSTDERR );
+    *HOBOSTDIN  = $stdin;
+    *HOBOSTDOUT = $stdout;
+    *HOBOSTDERR = $stderr;
     my $pid    = open3(
-        $stdin, $stdout,             $stderr,
+        '<&HOBOSTDIN', '>&HOBOSTDOUT', '>&HOBOSTDERR',
         $^X,    '-Mblib',
         'author_tools/hobodecoder.pl', @args
     );
-    binmode $stdin;
     binmode $stdout;
     binmode $stderr;
-    print {$stdin} $packet;
-    close $stdin;
-    my $out = do { local $/; <$stdout> // '' };
-    my $err = do { local $/; <$stderr> // '' };
     waitpid( $pid, 0 ) == $pid or die "waitpid: $!";
     my $status = $?;
+    seek( $stdout, 0, 0 ) or die "seek stdout: $!";
+    seek( $stderr, 0, 0 ) or die "seek stderr: $!";
+    my $out = do { local $/; <$stdout> // '' };
+    my $err = do { local $/; <$stderr> // '' };
     return ( $status & 127 ? 128 + ( $status & 127 ) : $status >> 8, $out, $err );
 }
 
@@ -89,6 +99,8 @@ SKIP: {
         run_hobodecoder( $packet0, '--checksum-v0-key-hex=' . unpack( 'H*', $key0 ) );
     is( $hobo_status, 0, 'hobodecoder accepts a checksummed raw packet with its key' )
         or diag($hobo_err);
+    like( $hobo_out, qr/^00000000  3d f3 72 6c /m,
+        'hobodecoder shows the packet in hex without od' );
     like(
         $hobo_out, qr/SipHash-2-4 checksum verified/,
         'hobodecoder verifies the SipHash-2-4 checksum'

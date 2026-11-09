@@ -8,6 +8,7 @@ use Sereal::TestSet qw(Header have_encoder_and_decoder);
 use Sereal::TestSet::Corpus qw(read_packet);
 use Test::More;
 use IPC::Open3 qw(open3);
+use File::Temp qw(tempdir);
 use Symbol     qw(gensym);
 use Sereal::Decoder;
 
@@ -445,6 +446,11 @@ require "$file.pm";
 die "second module overwrote default" unless $Sereal::DefaultKey eq 'replacement key!';
 print "ok\n";
 CHILD
+my $child_dir = tempdir(CLEANUP => 1);
+my $child_file = File::Spec->catfile($child_dir, 'checksum-policy-child.pl');
+open my $child_fh, '>', $child_file or die "open $child_file: $!";
+print {$child_fh} $child_code;
+close $child_fh or die "close $child_file: $!";
 local $ENV{SEREAL_DEFAULT_KEY};
 for my $input (
     undef, '0123456789abcdef' x 2, '0123456789ABCDEF' x 2,
@@ -460,14 +466,14 @@ for my $input (
         my $stderr = gensym;
         my $pid    = open3(
             my $in, my $out, $stderr,
-            $^X, ( map { ( '-I', $_ ) } grep { !ref } @INC ), '-e', $child_code, @$order
+            $^X, ( map { ( '-I', $_ ) } grep { !ref } @INC ), $child_file, @$order
         );
         close $in;
         my $stdout = do { local $/; <$out> };
         my $errors = do { local $/; <$stderr> };
         waitpid( $pid, 0 );
         is( $?,      0, "$order->[0] initializes the environment key correctly" ) or diag($errors);
-        is( $stdout, "ok\n", 'module load order preserves the application override' );
+        like( $stdout, qr/\Aok\r?\n\z/, 'module load order preserves the application override' );
     }
 }
 done_testing;
