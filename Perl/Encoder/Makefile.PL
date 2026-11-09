@@ -11,7 +11,7 @@ $VERSION = eval $VERSION or die "WTF: $VERSION: $@";    # deal with underbars
 
 my $shared_dir        = "../shared";
 my $its_our_repo_file = "../this_is_the_Sereal_repo.txt";
-my $in_source_repo    = ( -d "../../.git" && -d $shared_dir && -e $its_our_repo_file );
+my $in_source_repo    = ( -e "../../.git" && -d $shared_dir && -e $its_our_repo_file );
 my $do_prompt         = !$in_source_repo || $ENV{CPAN_COMPAT};
 
 unshift @INC, ".", "./inc";
