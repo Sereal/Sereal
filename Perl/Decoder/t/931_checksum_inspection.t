@@ -77,8 +77,12 @@ for my $type ( 0, 1, 2 ) {
             );
             my @tag = get_sereal_checksum($packet);
             is_deeply( \@tag, [$tag], "$label extraction returns one value in list context" );
+            my @xs_tag = $getter->($packet);
+            is_deeply( \@xs_tag, [$tag], "$label XSUB extraction returns one value in list context" );
             my @valid = validate_sereal_checksum( $packet, $key );
             is_deeply( \@valid, [1], "$label validation returns one value in list context" );
+            my @xs_valid = $validator->( $packet, $key );
+            is_deeply( \@xs_valid, [1], "$label XSUB validation returns one value in list context" );
             get_sereal_checksum($packet);
             validate_sereal_checksum( $packet, $key );
         }

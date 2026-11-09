@@ -191,29 +191,36 @@ THX_pp1_looks_like_sereal(pTHX)
 
 #if USE_CUSTOM_OPS
 
-static OP *
-THX_pp_sereal_decode(pTHX)
+/* Custom ops bypass the XSUB compatibility wrapper. Keep their arguments
+ * alive and give their results stack references on RC-stack Perls. */
+#ifdef PERL_RC_STACK
+# define SRL_PP(name, nargs) XSPP_wrapped(name, nargs, 0)
+#else
+# define SRL_PP(name, nargs) static OP *name(pTHX)
+#endif
+
+SRL_PP(THX_pp_sereal_decode,
+       2 + !!(PL_op->op_private & OPOPT_OFFSET)
+         + !!(PL_op->op_private & OPOPT_OUTARG_BODY)
+         + !!(PL_op->op_private & OPOPT_OUTARG_HEADER))
 {
     pp1_sereal_decode(PL_op->op_private);
     return NORMAL;
 }
 
-static OP *
-THX_pp_looks_like_sereal(pTHX)
+SRL_PP(THX_pp_looks_like_sereal, 1)
 {
     pp1_looks_like_sereal();
     return NORMAL;
 }
 
-static OP *
-THX_pp_get_sereal_checksum(pTHX)
+SRL_PP(THX_pp_get_sereal_checksum, PL_op->op_private & 3)
 {
     THX_pp1_checksum(aTHX_ PL_op->op_private, PL_op->op_private & 3);
     return NORMAL;
 }
 
-static OP *
-THX_pp_validate_sereal_checksum(pTHX)
+SRL_PP(THX_pp_validate_sereal_checksum, PL_op->op_private & 3)
 {
     THX_pp1_checksum(aTHX_ PL_op->op_private, PL_op->op_private & 3);
     return NORMAL;
