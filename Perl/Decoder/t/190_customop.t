@@ -5,7 +5,7 @@ use warnings;
 
 use File::Spec;
 use lib File::Spec->catdir(qw(t lib));
-use Sereal::TestSet qw(have_encoder_and_decoder);
+use Sereal::TestSet qw(have_encoder_and_decoder Header);
 use Sereal::Decoder qw(sereal_decode_with_object scalar_looks_like_sereal);
 use Test::More;
 use Data::Dumper;
@@ -22,6 +22,45 @@ is(
     "check that scalar_looks_like_sereal works as expected"
 );
 pass("did not segfault!");
+
+{
+    my @warnings;
+    local $SIG{__WARN__} = sub { push @warnings, @_ };
+    my @versions = ( 'before', scalar_looks_like_sereal($empty_array_as_sereal . ''), 'after' );
+    is_deeply( \@versions, [ 'before', 4, 'after' ], 'inspection preserves adjacent stack values' );
+    scalar_looks_like_sereal($empty_array_as_sereal . '');
+
+    my $packet = Header( 4, "\x07" ) . "\x40";
+    for my $suffix ( '', '_only_header', '_with_header', '_with_offset',
+                    '_only_header_with_offset', '_with_header_and_offset' ) {
+        my $body = $suffix !~ /only_header/;
+        my $header = $suffix =~ /header/;
+        my $offset = $suffix =~ /offset/;
+        my $expected = $header ? ( $body ? [ 7, [] ] : 7 ) : [];
+        for my $outputs ( 0 .. ( $body + $header ) ) {
+            my @expressions = ( '$_[0]', '$_[1]' );
+            push @expressions, '$_[2]' if $offset;
+            push @expressions, '$_[3]' if $outputs;
+            push @expressions, '$_[4]' if $outputs == 2;
+            my $name = "sereal_decode${suffix}_with_object";
+            my $probe = eval 'sub { Sereal::Decoder::' . $name
+                . '(' . join( ', ', @expressions ) . ') }';
+            die $@ unless $probe;
+            my @args = ( $srl_decoder, $offset ? 'prefix' . $packet : $packet, 6, undef, undef );
+            my $label = "$name with $outputs output arguments";
+            my $result = $probe->(@args);
+            is_deeply( $result, $expected, "$label in scalar context" );
+            my @results = ( 'before', $probe->(@args), 'after' );
+            is_deeply( \@results, [ 'before', $expected, 'after' ], "$label in list context" );
+            $probe->(@args);
+            is_deeply( $args[3], $body ? [] : 7, "$label fills the first output in void context" )
+                if $outputs;
+            is( $args[4], 7, "$label fills the header output in void context" )
+                if $outputs == 2;
+        }
+    }
+    is_deeply( \@warnings, [], 'custom ops balance stack references without warnings' );
+}
 
 sub custom_op_metadata {
     my ($code) = @_;
