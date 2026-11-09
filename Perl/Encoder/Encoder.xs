@@ -74,8 +74,13 @@ THX_pp1_sereal_encode_with_object(pTHX_ U8 has_hdr)
 
 #if USE_CUSTOM_OPS
 
+#ifdef PERL_RC_STACK
+/* Custom ops bypass the XSUB wrapper, so balance their stack references. */
+XSPP_wrapped(THX_pp_sereal_encode_with_object, 2 + !!PL_op->op_private, 0)
+#else
 static OP *
 THX_pp_sereal_encode_with_object(pTHX)
+#endif
 {
   pp1_sereal_encode_with_object(PL_op->op_private);
   return NORMAL;
