@@ -478,6 +478,17 @@ srl_callback_end(pTHX_ srl_encoder_t *enc)
                 continue;
             }
             if (buckets && current) {
+#ifdef XPERL_VERSION
+                const UV limit = HvENTRY_LIMIT(hash);
+                for (i = 0; i < limit; i++) {
+                    HE *entry;
+                    for (entry = HvENTRY_FIRST(hash, i); entry;
+                         entry = HvENTRY_NEXT(hash, entry)) {
+                        if (entry == current)
+                            found = 1;
+                    }
+                }
+#else
                 for (i = 0; i <= HvMAX(hash); i++) {
                     HE *entry;
                     for (entry = buckets[i]; entry; entry = HeNEXT(entry)) {
@@ -485,6 +496,7 @@ srl_callback_end(pTHX_ srl_encoder_t *enc)
                             found = 1;
                     }
                 }
+#endif
             }
             if (!found)
                 croak("Sereal: input hash was modified during encoding");
@@ -2063,6 +2075,26 @@ srl_dump_hv_unsorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, UV n)
 {
     HE *he = NULL;
     const int do_share_keys = HvSHAREKEYS((SV *)src);
+#ifdef XPERL_VERSION
+    UV i;
+    const UV limit = HvENTRY_LIMIT(src);
+    enc->frames->cursor = &he;
+
+    /* XPerl stores entries by position without bucket chains. */
+    for (i = 0; i < limit && n; i++) {
+        for (he = HvENTRY_FIRST(src, i); he;
+             he = HvENTRY_NEXT(src, he)) {
+            SV *v = HeVAL(he);
+            if (v != &PL_sv_placeholder) {
+                srl_dump_hk(aTHX_ enc, he, do_share_keys);
+                v = HeVAL(he);
+                CALL_SRL_DUMP_SV(enc, v);
+                if (--n == 0)
+                    break;
+            }
+        }
+    }
+#else
     HE **he_ptr= HvARRAY(src);
     HE **he_end= he_ptr + HvMAX(src) + 1;
     enc->frames->cursor = &he;
@@ -2081,6 +2113,7 @@ srl_dump_hv_unsorted_nomg(pTHX_ srl_encoder_t *enc, HV *src, UV n)
             }
         }
     } while ( he_ptr < he_end );
+#endif
     if (n)
         croak("Sereal: input hash was modified during encoding");
 }
@@ -2117,6 +2150,17 @@ srl_hv_iter_restore(pTHX_ HV *hv, const srl_hv_iter_state_t *st)
          * HvEITER, perl frees a deleted entry immediately instead of deferring
          * it, so only restore the pointer if it is still linked where it was. */
         HE *he = NULL;
+#ifdef XPERL_VERSION
+        if (HvARRAY(hv) && HvHasAUX(hv) && st->riter >= 0) {
+            UV i;
+            const UV limit = HvENTRY_LIMIT(hv);
+            for (i = 0; i < limit && !he; i++) {
+                for (he = HvENTRY_FIRST(hv, i); he;
+                     he = HvENTRY_NEXT(hv, he))
+                    if (he == eiter) break;
+            }
+        }
+#else
         /* SvOOK: belt and braces, the walk's hv_iternext() re-creates the aux. */
         if (HvARRAY(hv) && SvOOK((SV *)hv) && st->riter >= 0) {
             /* Under PERL_HASH_RANDOMIZE_KEYS, RITER is a position in
@@ -2135,6 +2179,7 @@ srl_hv_iter_restore(pTHX_ HV *hv, const srl_hv_iter_state_t *st)
                 for (he = HvARRAY(hv)[bucket]; he; he = HeNEXT(he))
                     if (he == eiter) break;
         }
+#endif
         if (!he) eiter = NULL;
     }
     /* A lazily-deleted entry is already unlinked and owned by the iterator
