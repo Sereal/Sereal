@@ -10,6 +10,9 @@ BEGIN { lib->import('lib') if !-d 't' }
 use Test::More;
 use Sereal::Decoder qw(decode_sereal);
 
+plan skip_all => 'Requires 32-bit or 64-bit UVs'
+    unless $Config{uvsize} == 4 || $Config{uvsize} == 8;
+
 my $header   = "=\xF3rl" . chr(4) . chr(0);
 my $overflow = $Config{uvsize} == 8
     ? ( chr(0x80) x 9 ) . chr(0x02)     # 2^64
