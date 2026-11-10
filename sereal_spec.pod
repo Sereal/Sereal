@@ -1078,9 +1078,11 @@ implementation is authoritative.
 Reference implementation. Encoder and Decoder support versions 1 through 7
 (default 7), Snappy, zlib and zstd, and all checksum types. V7 adds portable
 IEEE floats and native LONG_DOUBLE declarations. FLOAT_128 converts to the
-native NV on ordinary, long-double and quadmath Perls. Merger, Splitter and
-Path continue to support protocol versions through 6; they reject v7 input
-until their rewriting paths support its declaration and float rules.
+native NV on ordinary, long-double and quadmath Perls. Splitter and Path
+Iterator accept v7 input and preserve its declarations when creating v7
+chunks or decoding values. Merger accepts v7 input, validates declarations,
+and converts portable FLOAT and DOUBLE values before emitting v6 output.
+Merger does not yet emit v7 documents.
 
 =item Go (C<Go/sereal>)
 
