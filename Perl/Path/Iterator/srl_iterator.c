@@ -356,7 +356,8 @@ srl_iterator_set(pTHX_ srl_iterator_t *iter, SV *src)
     iter->buf.start = iter->buf.pos = tmp;
     iter->buf.end = iter->buf.start + len;
 
-    iter->protocol_version = srl_reader_open_document(aTHX_ iter->pbuf, &iter->checksum, &sv);
+    iter->protocol_version = srl_reader_open_document(aTHX_ iter->pbuf, &iter->checksum,
+                                                       &sv, SRL_READER_MAX_PROTOCOL_VERSION);
     if (sv) {
         /* the body was decompressed into a new buffer, which we now own */
         SvREFCNT_dec(iter->document);
@@ -754,7 +755,7 @@ srl_iterator_array_goto(pTHX_ srl_iterator_t *iter, I32 idx)
     srl_iterator_stack_ptr stack_ptr = iter->stack.ptr;
     IV nidx = srl_iterator_array_exists(aTHX_ iter, idx);
     if (nidx == SRL_ITER_NOT_FOUND) {
-        SRL_ITER_ERRORf1("Array index %d does not exists", idx);
+        SRL_ITER_ERRORf1("Array index %ld does not exist", (long)idx);
     }
 
     if (nidx == stack_ptr->idx) return;
@@ -794,7 +795,7 @@ srl_iterator_hash_key(pTHX_ srl_iterator_t *iter, const char **keyname, STRLEN *
     SRL_ITER_ASSERT_STACK(iter);
 
     if (expect_false(stack_ptr->idx % 2 != 0)) {
-        SRL_ITER_ERRORf1("Current stack index %d is not hash key", stack_ptr->idx);
+        SRL_ITER_ERRORf1("Current stack index %ld is not hash key", (long)stack_ptr->idx);
     }
 
     srl_iterator_read_stringish(aTHX_ iter, keyname, keyname_length_out);
@@ -1118,6 +1119,7 @@ srl_iterator_decode(pTHX_ srl_iterator_t *iter)
     /* the decoder never reads the header, so it has to be told which
      * protocol version's tags to accept */
     iter->dec->proto_version = iter->protocol_version;
+    iter->dec->min_backref_offset = (UV)(iter->buf.body_start - iter->buf.body_pos);
     if (iter->protocol_version == 1)
         iter->dec->flags |= SRL_F_DECODER_PROTOCOL_V1;
 

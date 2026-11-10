@@ -226,11 +226,12 @@ srl_build_merger_struct(pTHX_ HV *opt)
     /* load options */
     if (opt != NULL) {
         /* Needs to be before the snappy options */
-        /* mrg->protocol_version defaults to SRL_READER_MAX_PROTOCOL_VERSION. */
+        /* Merger emits at most v6, converting v7 portable float bytes to
+         * the native form expected by older protocols. */
         svp = hv_fetchs(opt, "protocol_version", 0);
         if (svp && SvOK(*svp)) {
             mrg->protocol_version = SvUV(*svp);
-            if (mrg->protocol_version < 1 || mrg->protocol_version > SRL_READER_MAX_PROTOCOL_VERSION) {
+            if (mrg->protocol_version < 1 || mrg->protocol_version > 6) {
                 croak("Specified Sereal protocol version ('%lu') is invalid",
                       (unsigned long) mrg->protocol_version);
             }
@@ -631,7 +632,7 @@ srl_empty_merger_struct(pTHX)
     mrg->cnt_of_merged_elements = 0;
     mrg->obuf_padding_bytes_offset = 0;
     mrg->obuf_last_successfull_offset = 0;
-    mrg->protocol_version = SRL_READER_MAX_PROTOCOL_VERSION;
+    mrg->protocol_version = 6;
     mrg->classname_deduper_tbl = NULL;
     mrg->string_deduper_tbl = NULL;
     mrg->tracked_offsets_tbl = NULL;
@@ -655,7 +656,8 @@ srl_set_input_buffer(pTHX_ srl_merger_t *mrg, SV *src)
     mrg->ibuf.end = mrg->ibuf.start + len;
 
     /* a decompressed body lives in a mortal, which outlives this merge */
-    mrg->input_protocol_version = srl_reader_open_document(aTHX_ mrg->pibuf, &mrg->checksum, NULL);
+    mrg->input_protocol_version = srl_reader_open_document(aTHX_ mrg->pibuf, &mrg->checksum,
+                                                           NULL, SRL_READER_MAX_PROTOCOL_VERSION);
 }
 
 SRL_STATIC_INLINE void
@@ -798,8 +800,18 @@ read_again:
                 break;
 
             /* payload sizes plus one for the tag */
-            case SRL_HDR_FLOAT:         srl_buf_copy_content_nocheck(aTHX_ mrg, SRL_FLOAT_SIZE + 1);       break;
-            case SRL_HDR_DOUBLE:        srl_buf_copy_content_nocheck(aTHX_ mrg, SRL_DOUBLE_SIZE + 1);      break;
+            case SRL_HDR_FLOAT:
+                srl_buf_copy_content_nocheck(aTHX_ mrg, SRL_FLOAT_SIZE + 1);
+                if (mrg->input_protocol_version >= 7)
+                    srl_copy_float_little_endian(aTHX_ mrg->obuf.pos - SRL_FLOAT_SIZE,
+                                                  mrg->ibuf.pos - SRL_FLOAT_SIZE);
+                break;
+            case SRL_HDR_DOUBLE:
+                srl_buf_copy_content_nocheck(aTHX_ mrg, SRL_DOUBLE_SIZE + 1);
+                if (mrg->input_protocol_version >= 7)
+                    srl_copy_double_little_endian(aTHX_ mrg->obuf.pos - SRL_DOUBLE_SIZE,
+                                                   mrg->ibuf.pos - SRL_DOUBLE_SIZE);
+                break;
             case SRL_HDR_LONG_DOUBLE:   srl_buf_copy_content_nocheck(aTHX_ mrg, SRL_LONG_DOUBLE_SIZE + 1); break;
 
             case SRL_HDR_FLOAT_128:

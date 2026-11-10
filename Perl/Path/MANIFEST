@@ -32,6 +32,8 @@ Iterator/srl_checksum_policy.h
 Iterator/srl_common.h
 Iterator/srl_decoder.c
 Iterator/srl_decoder.h
+Iterator/SECURITY
+Iterator/srl_float.h
 Iterator/srl_inline.h
 Iterator/srl_iterator.c
 Iterator/srl_iterator.h

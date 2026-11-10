@@ -226,7 +226,8 @@ srl_splitter_open_input(pTHX_ srl_splitter_t *splitter, SV *input)
     buf->start = buf->pos = (srl_reader_char_ptr)SvPVbyte(splitter->input_sv, len);
     buf->end = buf->start + len;
 
-    splitter->input_protocol_version = srl_reader_open_document(aTHX_ buf, &splitter->checksum, &decompressed);
+    splitter->input_protocol_version = srl_reader_open_document(aTHX_ buf, &splitter->checksum,
+                                                                 &decompressed, SRL_READER_MAX_PROTOCOL_VERSION);
     if (decompressed) {
         SvREFCNT_dec(splitter->input_sv);
         splitter->input_sv = SvREFCNT_inc(decompressed);
@@ -631,6 +632,12 @@ srl_splitter_next_chunk(pTHX_ srl_splitter_t *splitter)
         srl_buf_cat_char(chunk, '\0');
     header_len = BUF_POS_OFS(chunk);
     SRL_UPDATE_BODY_POS(chunk, version);
+
+    if (version >= 7) {
+        const U8 *declarations = splitter->buf.body_pos + 1;
+        STRLEN declarations_len = splitter->buf.body_start - declarations;
+        srl_buf_cat_str(chunk, (const char *)declarations, declarations_len);
+    }
 
     /* the element count is written as the largest possible count, and
      * shrunk to the real one once we know it */

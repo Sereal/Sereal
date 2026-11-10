@@ -14,15 +14,10 @@
 #include "srl_reader_misc.h"
 #include "srl_reader_decompress.h"
 #include "srl_reader_checksum.h"
+#include "srl_reader_skip.h"
 #include "srl_protocol.h"
 
-/* These readers rewrite packets by copying some value payloads unchanged.
- * Advertising v7 support would then risk labelling native v1-v6 float bytes
- * as portable bytes, or dropping the declaration needed by LONG_DOUBLE.
- * Their protocol ceiling remains v6 because the rewriting paths do not yet
- * implement those conversions and declaration propagation. Decoder uses a
- * separate opener that implements the v7 interpretation. */
-#define SRL_READER_MAX_PROTOCOL_VERSION 6
+#define SRL_READER_MAX_PROTOCOL_VERSION 7
 
 /* buf->start, buf->pos and buf->end must span the whole document. On
  * return buf->pos is at the first body tag, buf->body_pos is set for the
@@ -32,7 +27,8 @@
  * mortal SV, which is stored in *buf_owner if buf_owner is not NULL; it
  * is set to NULL otherwise. Returns the document's protocol version. */
 SRL_STATIC_INLINE U8
-srl_reader_open_document(pTHX_ srl_reader_buffer_t *buf, const srl_checksum_config_t *checksum, SV **buf_owner)
+srl_reader_open_document(pTHX_ srl_reader_buffer_t *buf, const srl_checksum_config_t *checksum,
+                         SV **buf_owner, U8 max_protocol_version)
 {
     UV header_len;
     U8 version, encoding;
@@ -54,7 +50,7 @@ srl_reader_open_document(pTHX_ srl_reader_buffer_t *buf, const srl_checksum_conf
     has_checksum = (version_and_encoding & SRL_PROTOCOL_ENCODING_CHECKSUM) != 0;
     buf->pos += SRL_MAGIC_STRLEN + 1;
 
-    if (expect_false(version > SRL_READER_MAX_PROTOCOL_VERSION))
+    if (expect_false(version > max_protocol_version))
         SRL_RDR_ERRORf1(buf, "Unsupported Sereal protocol version %u", (unsigned int)version);
     if (expect_false(has_checksum && version < 6))
         SRL_RDR_ERROR(buf, "Checksummed Sereal documents require protocol version 6 or later");
@@ -110,6 +106,7 @@ srl_reader_open_document(pTHX_ srl_reader_buffer_t *buf, const srl_checksum_conf
 
     /* this *MUST* come after srl_decompress_body_*() */
     SRL_RDR_UPDATE_BODY_POS(buf, version);
+    srl_read_declarations(aTHX_ buf, version, 0);
     DEBUG_ASSERT_RDR_SANE(buf);
     return version;
 }

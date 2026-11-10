@@ -17,6 +17,7 @@ lib/Sereal/Merger/Constants.pm
 Makefile.PL
 MANIFEST			This list of files
 Merger.xs
+SECURITY
 miniz.c
 miniz.h
 ppport.h
@@ -33,6 +34,7 @@ srl_buffer_types.h
 srl_checksum_policy.h
 srl_common.h
 srl_compress.h
+srl_float.h
 srl_inline.h
 srl_merger.c
 srl_merger.h
@@ -55,6 +57,7 @@ t/003_strtable.t
 t/004_testset.t
 t/010_desperate.t
 t/020_v5_v6_input.t
+t/021_v7_input.t
 t/030_compress.t
 t/040_dedupe_strings.t
 t/050_v1_input.t

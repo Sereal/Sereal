@@ -40,6 +40,36 @@ subtest "decode() knows the document's protocol version" => sub {
     is(sprintf('%vd', $spi->decode()), '1.2.3', 'decode a v-string (protocol v6 EXTEND)');
 };
 
+subtest "v7 portable floats and declarations" => sub {
+    my $doc = Sereal::Encoder->new({ protocol_version => 7 })->encode([ 0.5, 0.1, 'after' ]);
+    my $spi = Sereal::Path::Iterator->new($doc);
+    $spi->step_in();
+    is($spi->decode(), 0.5, 'decode v7 FLOAT');
+    $spi->next();
+    is($spi->decode(), 0.1, 'decode v7 DOUBLE');
+    $spi->next();
+    is($spi->decode(), 'after', 'step over v7 DOUBLE');
+
+    my $bad_declaration = "=\xF3rl\x07\x00\x3e\x01\x01\x7f\x01";
+    ok(!eval { Sereal::Path::Iterator->new($bad_declaration); 1 }, 'unknown declaration is rejected');
+    like($@, qr/Unknown declaration kind/, 'declaration error identifies the problem');
+};
+
+subtest "v7 LONG_DOUBLE uses its declaration during partial decode" => sub {
+    plan skip_all => 'requires a little-endian x87 long double ABI'
+        unless $Config{archname} =~ /(?:x86_64|i[3-6]86)/
+            && $Config{byteorder} =~ /^1234/
+            && ($Config{longdblsize} == 12 || $Config{longdblsize} == 16);
+    my $native = ("\0" x 7) . "\x80\xfe\x3f" . ("\0" x ($Config{longdblsize} - 10));
+    my $doc = "=\xF3rl\x07\x00\x3e\x01\x03\x01\x02"
+            . chr($Config{longdblsize}) . "\x42\x24" . $native . short_binary('after');
+    my $spi = Sereal::Path::Iterator->new($doc);
+    $spi->step_in();
+    is($spi->decode(), 0.5, 'decode declared LONG_DOUBLE');
+    $spi->next();
+    is($spi->decode(), 'after', 'step over declared LONG_DOUBLE');
+};
+
 subtest "UNDEF_DEADLY is an ordinary undef" => sub {
     for my $tag ("\x3e\xff", "\xbe\xff") {
         my $spi = Sereal::Path::Iterator->new(v6_doc(arrayref(2), $tag, short_binary("after")));

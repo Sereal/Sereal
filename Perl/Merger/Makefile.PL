@@ -62,8 +62,8 @@ inc::Sereal::BuildTools::WriteMakefile(
         'Test::More' => 0.88,
         'Test::LongString' => 0,
         'Data::Dumper' => 0,
-        'Sereal::Encoder' => '6.000_001',
-        'Sereal::Decoder' => '6.000_001',
+        'Sereal::Encoder' => '7.001_003',
+        'Sereal::Decoder' => '7.001_003',
     },
     BUILD_REQUIRES => {
         'File::Find' => 0,

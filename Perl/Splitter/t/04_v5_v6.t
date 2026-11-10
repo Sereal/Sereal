@@ -2,6 +2,7 @@
 use strict;
 use warnings;
 use Test::More;
+use Config;
 
 use Sereal::Splitter qw(:all);
 use Sereal::Encoder;
@@ -34,7 +35,7 @@ sub warnings_of {
 
 subtest "chunks keep the input's protocol version" => sub {
     my $data = [ -100, -200, v1.2.3, "x" ];
-    my ($elements, $chunks) = resplit(Sereal::Encoder->new->encode($data));
+    my ($elements, $chunks) = resplit(Sereal::Encoder->new({ protocol_version => 6 })->encode($data));
     is_deeply($elements, $data, "NEG_VARINT and v-strings (protocol v6) survive a split");
     is(version_of($chunks->[0]), 6, "chunk of a v6 document is v6");
 
@@ -45,6 +46,31 @@ subtest "chunks keep the input's protocol version" => sub {
     (undef, $chunks) = resplit($v4, header_data_template => create_header_data_template({ min => -100 }, 4));
     is_deeply(Sereal::Decoder::decode_sereal_with_header_data($chunks->[0]), [ { min => -100 }, [ 1 ] ],
               "a header template for an older protocol version");
+};
+
+subtest "v7 chunks keep portable floats and declarations" => sub {
+    my $data = [ 0.5, 0.1, 'after' ];
+    my ($elements, $chunks) = resplit(Sereal::Encoder->new({ protocol_version => 7 })->encode($data));
+    is_deeply($elements, $data, 'v7 FLOAT and DOUBLE values survive splitting');
+    is(version_of($chunks->[0]), 7, 'chunk retains protocol v7');
+
+    my $bad_declaration = "=\xF3rl\x07\x00\x3e\x01\x01\x7f\x01";
+    ok(!eval { resplit($bad_declaration); 1 }, 'unknown declaration is rejected');
+    like($@, qr/Unknown declaration kind/, 'declaration error identifies the problem');
+};
+
+subtest "v7 LONG_DOUBLE declaration is copied into each chunk" => sub {
+    plan skip_all => 'requires a little-endian x87 long double ABI'
+        unless $Config{archname} =~ /(?:x86_64|i[3-6]86)/
+            && $Config{byteorder} =~ /^1234/
+            && ($Config{longdblsize} == 12 || $Config{longdblsize} == 16);
+    my $native = ("\0" x 7) . "\x80\xfe\x3f" . ("\0" x ($Config{longdblsize} - 10));
+    my $doc = "=\xF3rl\x07\x00\x3e\x01\x03\x01\x02"
+            . chr($Config{longdblsize}) . "\x42\x24" . $native . "\x24" . $native;
+    my ($values, $chunks) = resplit($doc);
+    is_deeply($values, [ 0.5, 0.5 ], 'LONG_DOUBLE values survive splitting');
+    is(scalar @$chunks, 2, 'each value has its own chunk');
+    like($_, qr/\x3e\x01\x03\x01\x02/, 'declaration copied into a chunk') for @$chunks;
 };
 
 subtest "NO and YES tags (protocol v5)" => sub {

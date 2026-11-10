@@ -46,3 +46,5 @@ srl_siphash.h
 srl_reader_checksum.h
 srl_reader_header.h
 srl_reader_skip.h
+srl_float.h
+SECURITY
