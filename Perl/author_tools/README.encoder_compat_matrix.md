@@ -34,11 +34,14 @@ stale-worktree recovery checks in a disposable repository.
 
 Stable selection compares numeric version components and excludes underscore
 development releases. `main` supplies the current module major; stable majors
-below 2 are intentionally omitted. Persistent historical branches are named `maint_perl/v2` through
-`maint_perl/v5`. Existing local branch commits are reused without resetting;
-new checkouts track `origin/maint_perl/vN` when available, then fall back to
-the selected release tag. The invoking main checkout supplies the current
-major and the current candidate build.
+below 2 are intentionally omitted. Persistent historical branches are named
+`maint/v2` through `maint/v6`. Existing local branch commits are reused
+without resetting; new checkouts track `origin/maint/vN` when available,
+then fall back to the selected release tag. The invoking main checkout
+supplies the current major and the current candidate build.
+The 5.012 fixes are also present in 7.x, but `maint/v5` is a separate release
+line in Git history. The matrix checks 5.012 against that branch rather than
+requiring the v5 tag to be an ancestor of `main`.
 Historical source is copied from its worktree into an isolated source/build
 snapshot because old Makefile.PL files expect a real `.git` directory. The
 current major uses the invoking main checkout so an unreleased candidate is

@@ -261,8 +261,8 @@ for my $major (keys %$refs) {
     die "git rev-parse failed for $refs->{$major}\n" if run_cmd(['git', 'rev-parse', $commit_ref], $ROOT, {}, $log);
     open my $fh, '<', $log or die $!; chomp($commits{$major} = <$fh>); close $fh; unlink $log;
 }
+my %sources = map { $_ => ($_ == $current_major ? 'main' : "maint/v$_") } keys %$refs;
 if ($plan) {
-    my %sources = map { $_ => ($_ == $current_major ? 'main' : "maint_perl/v$_") } keys %$refs;
     print JSON::PP->new->canonical->pretty->encode({ selection => $refs, source_branches => \%sources, commits => \%commits });
     exit 0;
 }
@@ -283,7 +283,7 @@ for my $major (sort { $a <=> $b } keys %$refs) {
     print STDERR "Testing Encoder $major ($ref)...\n";
     my $entry = $results{entries}{$major} = { ref => $ref, commit => $commits{$major}, status => 'pending' };
     my $wt = $major == $current_major ? $ROOT : File::Spec->catdir($work_dir, 'worktrees', "major-$major");
-    my $branch = $major == $current_major ? undef : "maint_perl/v$major";
+    my $branch = $major == $current_major ? undef : $sources{$major};
     make_path(File::Spec->catdir($work_dir, 'worktrees'));
     my $ok = eval {
         unless ($major == $current_major || -e File::Spec->catfile($wt, '.git')) {
