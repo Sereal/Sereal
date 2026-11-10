@@ -44,7 +44,7 @@ public class TokenHeaderAndCompressionTest {
 
   @Test
   public void serealV1HeaderSnappy() throws IOException, SerealException {
-    byte[] compressedBody = new byte[30];
+    byte[] compressedBody = new byte[Snappy.maxCompressedLength(1)];
     int compressed = Snappy.compress(TestUtils.byteArray(0x0f), 0, 1, compressedBody, 0);
     if (compressed <= 1) {
       throw new IllegalStateException("Something went wrong");
