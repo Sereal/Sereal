@@ -167,6 +167,7 @@ srl_read_varint_u32_nocheck(pTHX_ srl_reader_buffer_t *buf)
     return part0;
 }
 
+#if UVSIZE > 4
 SRL_STATIC_INLINE UV
 srl_read_varint_u64_nocheck(pTHX_ srl_reader_buffer_t *buf)
 {
@@ -179,6 +180,7 @@ srl_read_varint_u64_nocheck(pTHX_ srl_reader_buffer_t *buf)
 
     return uv;
 }
+#endif
 
 SRL_STATIC_INLINE UV
 srl_read_varint_uv(pTHX_ srl_reader_buffer_t *buf)
@@ -189,11 +191,11 @@ srl_read_varint_uv(pTHX_ srl_reader_buffer_t *buf)
      * SRL_MAX_VARINT_LENGTH). Otherwise, use the safe byte-by-byte
      * reader which bounds-checks each byte against buf->end. */
     if (expect_true( buf->end - buf->pos >= SRL_MAX_VARINT_LENGTH )) {
-        if (sizeof(UV) == sizeof(U32)) {
-            return srl_read_varint_u32_nocheck(aTHX_ buf);
-        } else {
-            return srl_read_varint_u64_nocheck(aTHX_ buf);
-        }
+#if UVSIZE > 4
+        return srl_read_varint_u64_nocheck(aTHX_ buf);
+#else
+        return srl_read_varint_u32_nocheck(aTHX_ buf);
+#endif
     } else {
         return srl_read_varint_uv_safe(aTHX_ buf);
     }
