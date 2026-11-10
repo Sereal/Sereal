@@ -44,6 +44,28 @@
 #include "zstd/zstd.h"
 #endif
 
+/* Include the space reserved for the compressed-length varints. Compute in
+ * U64 because both bundled Snappy and miniz can wrap their 32-bit bounds. */
+SRL_STATIC_INLINE U64
+srl_compress_bound(STRLEN source_len, U32 compress_flags)
+{
+    const U64 len = (U64)source_len;
+
+    if (compress_flags & (SRL_F_COMPRESS_SNAPPY | SRL_F_COMPRESS_SNAPPY_INCREMENTAL)) {
+        return 32 + len + len / 6
+            + ((compress_flags & SRL_F_COMPRESS_SNAPPY_INCREMENTAL) ? SRL_MAX_VARINT_LENGTH : 0);
+    } else if (!(compress_flags & SRL_F_COMPRESS_ZSTD)) {
+        /* Mirror miniz's two bounds in a wide type, and allow an external
+         * miniz implementation to return a larger bound. */
+        const U64 bound1 = 128 + (len * 110) / 100;
+        const U64 bound2 = 128 + len + ((len / (31 * 1024)) + 1) * 5;
+        const U64 miniz_bound = (U64)mz_compressBound((mz_ulong)source_len);
+        const U64 bound = bound1 > bound2 ? bound1 : bound2;
+        return (bound > miniz_bound ? bound : miniz_bound) + 2 * SRL_MAX_VARINT_LENGTH;
+    }
+    return 0; /* zstd uses a size_t bound and has no 32-bit output limit */
+}
+
 /* Update a varint anywhere in the output stream with defined start and end
  * positions. This can produce non-canonical varints and is useful for filling
  * pre-allocated varints. */
@@ -154,20 +176,27 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
 
     DEBUG_ASSERT_BUF_SANE(buf);
 
+    if (uncompressed_body_length > (size_t)U32_MAX
+        || srl_compress_bound(uncompressed_body_length, compress_flags) > U32_MAX) {
+        warn("disabling compression as buffer is too large!");
+        srl_reset_compression_header_flag(buf);
+        return;
+    }
+
     /* Get estimated compressed payload length */
-    if (is_incremental_snappy) {
-        compressed_body_length = (size_t) csnappy_max_compressed_length(uncompressed_body_length);
-        compressed_body_length += SRL_MAX_VARINT_LENGTH; /* will have to embed compressed packet length as varint */
-    } else if (is_traditional_snappy) {
-        compressed_body_length = (size_t) csnappy_max_compressed_length(uncompressed_body_length);
+    if (is_incremental_snappy || is_traditional_snappy) {
+        compressed_body_length = (size_t)srl_compress_bound(uncompressed_body_length, compress_flags);
     } else if (is_zstd) {
         compressed_body_length = ZSTD_compressBound(uncompressed_body_length);
+        if (compressed_body_length > (size_t)~(size_t)0 - SRL_MAX_VARINT_LENGTH)
+            croak("Compressed Sereal packet is too large");
         compressed_body_length += SRL_MAX_VARINT_LENGTH; /* will have to embed compressed packet length as varint */
     } else {
-        compressed_body_length = (size_t) mz_compressBound(uncompressed_body_length);
-        compressed_body_length += SRL_MAX_VARINT_LENGTH; /* will have to embed uncommpressed packet length as varint */
-        compressed_body_length += SRL_MAX_VARINT_LENGTH; /* will have to embed compressed packet length as varint */
+        compressed_body_length = (size_t)srl_compress_bound(uncompressed_body_length, compress_flags);
     }
+
+    if (sereal_header_length >= (STRLEN)~(STRLEN)0 - compressed_body_length)
+        croak("Compressed Sereal packet is too large");
 
     /* Back up old buffer and allocate new one with correct size */
     srl_buf_copy_buffer(aTHX_ buf, &old_buf);
@@ -200,7 +229,11 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
                                     (void*) (old_buf.start + sereal_header_length), uncompressed_body_length,
                                     compress_level);
 
-        assert(ZSTD_isError(code) == 0);
+        if (ZSTD_isError(code)) {
+            srl_buf_swap_buffer(aTHX_ buf, &old_buf);
+            srl_buf_free_buffer(aTHX_ &old_buf);
+            croak("Zstd compression failed: %s", ZSTD_getErrorName(code));
+        }
         compressed_body_length = code;
     } else if (is_zlib) {
         mz_ulong dl = (mz_ulong) compressed_body_length;
@@ -212,8 +245,11 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
             compress_level
         );
 
-        (void)status;
-        assert(status == Z_OK);
+        if (status != Z_OK) {
+            srl_buf_swap_buffer(aTHX_ buf, &old_buf);
+            srl_buf_free_buffer(aTHX_ &old_buf);
+            croak("Zlib compression failed with error %d", status);
+        }
         compressed_body_length = (size_t) dl;
     }
 

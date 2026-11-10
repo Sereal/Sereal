@@ -12,7 +12,7 @@ BEGIN {
 use Test::More tests => 2;
 use Sereal::Decoder qw(decode_sereal);
 
-my $base = "Corrupted COPY tag, offset %d to %d must precede the tags own offset";
+my $base = "Corrupted COPY tag, offset %d with length %d must precede the tag's own offset";
 $base =~ s/%d/\\d+/g;
 
 # Regression coverage for the CWE-125 heap OOB read via a COPY tag whose

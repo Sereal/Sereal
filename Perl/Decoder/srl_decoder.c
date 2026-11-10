@@ -198,7 +198,10 @@ SRL_STATIC_INLINE int srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
         SvROK_on(into);                             \
     } STMT_END
 
-#define COPY_OFFSET_ERROR_FMT_PREFIX "Corrupted COPY tag, offset %d to %d must precede the tags own offset"
+/* COPY offsets and lengths are bounded by the addressable input buffer.
+ * UV matches that buffer's size on each Perl build; U32 would truncate
+ * valid offsets in raw packets larger than 4 GiB on 64-bit Perl. */
+#define COPY_OFFSET_ERROR_FMT_PREFIX "Corrupted COPY tag, offset %"UVuf" with length %"UVuf" must precede the tag's own offset"
 
 STATIC void
 srl_ptable_debug_callback(PTABLE_ENTRY_t *e)
@@ -2065,7 +2068,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
             if (expect_false(from > copytag_start
                     || (UV)(copytag_start - from) < key_len_uv)) {
                 SRL_RDR_ERRORf2(dec->pbuf,
-                    COPY_OFFSET_ERROR_FMT_PREFIX " while reading key",(int)ofs,(int)key_len);
+                    COPY_OFFSET_ERROR_FMT_PREFIX " while reading key", (UV)ofs, key_len_uv);
             }
         } else {
             SRL_RDR_ERROR_UNEXPECTED(dec->pbuf, tag, "a stringish type");
@@ -2483,7 +2486,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
             if (expect_false(from > copytag_start
                     || (UV)(copytag_start - from) < key_len_uv)) {
                 SRL_RDR_ERRORf2(dec->pbuf,
-                    COPY_OFFSET_ERROR_FMT_PREFIX " while reading classname",(int)ofs,(int)ofs+key_len);
+                    COPY_OFFSET_ERROR_FMT_PREFIX " while reading classname", (UV)ofs, key_len_uv);
             }
             if ((flags & SVf_UTF8) && !is_utf8_string(from, key_len))
                 SRL_RDR_ERROR_PANIC(dec->pbuf, "utf8 flagged classname is not actually utf8");

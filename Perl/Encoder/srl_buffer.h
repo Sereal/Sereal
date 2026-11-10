@@ -113,7 +113,8 @@ srl_buf_grow_nocheck(pTHX_ srl_buffer_t *buf, const size_t minlen)
     const size_t new_size = minlen;
 #else
     const size_t cur_size = BUF_SIZE(buf);
-    const size_t tmp_size = OVERALLOC_FUNC(cur_size, minlen);
+    const size_t tmp_size = (minlen >> 2) > (size_t)~(size_t)0 - cur_size
+        ? minlen : OVERALLOC_FUNC(cur_size, minlen);
     const size_t new_size = (minlen > tmp_size) ? minlen : tmp_size;
 #endif
 
@@ -124,7 +125,6 @@ srl_buf_grow_nocheck(pTHX_ srl_buffer_t *buf, const size_t minlen)
     Renew(buf->start, new_size, srl_buffer_char);
     if (buf->start == NULL)
         croak("Out of memory!");
-    if (0) warn("Renew(%ld)", new_size);
 
     buf->end = (srl_buffer_char*) (buf->start + new_size);
     buf->pos = buf->start + pos_ofs;
@@ -143,8 +143,11 @@ srl_buf_grow_nocheck(pTHX_ srl_buffer_t *buf, const size_t minlen)
 #define BUF_SIZE_ASSERT(buf, minlen)                                    \
   STMT_START {                                                          \
     DEBUG_ASSERT_BUF_SANE(buf);                                         \
-    if (BUF_NEED_GROW(buf, minlen))                                     \
+    if (BUF_NEED_GROW(buf, minlen)) {                                   \
+      if ((size_t)(minlen) > (size_t)~(size_t)0 - (size_t)BUF_SIZE(buf)) \
+        croak("Sereal output buffer is too large");                    \
       srl_buf_grow_nocheck(aTHX_ (buf), (BUF_SIZE(buf) + minlen));      \
+    }                                                                   \
     DEBUG_ASSERT_BUF_SANE(buf);                                         \
   } STMT_END
 
