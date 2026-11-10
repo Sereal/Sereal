@@ -17,9 +17,11 @@ my $perl_kind = defined( $Config{longdblkind} ) ? $Config{longdblkind} : 'UNKNOW
 # On Perls whose NV is double, pack D can return eight bytes even when
 # C long double (used by the decoder) occupies 12 or 16 bytes.
 $native = undef if defined($native) && length($native) != $Config{longdblsize};
-# Some Perls omit pack D when long double is just double (kind zero).
+# Older Perls omit pack D and longdblkind. When both Perl's NV and C long
+# double are eight-byte doubles, pack d supplies the native bytes instead.
 $native = pack( 'd', -0.125 )
-    if !defined($native) && $perl_kind eq '0' && $Config{longdblsize} == 8;
+    if !defined($native) && $Config{longdblsize} == 8 && $Config{doublesize} == 8
+    && ( $perl_kind eq '0' || ( $Config{nvtype} || '' ) eq 'double' );
 if ( defined($native) ) {
     for my $case ( native_long_double_wire_cases() ) {
         my $bytes = $native;
