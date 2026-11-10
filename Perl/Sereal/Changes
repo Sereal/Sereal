@@ -16,6 +16,13 @@ from the the Encoder and Decoder changelogs:
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.001_003
+    * Support refcounted Perl stacks in Decoder and Encoder custom ops,
+      and XPerl hash storage in Encoder.
+    * Fix native long-double declaration tests on older macOS Perls.
+    * Load local builds during release tests and use the canonical
+      maint/vN branches in the Encoder compatibility matrix.
+
 7.001_002
     * Add Windows and macOS Perl CI and remove hobodecoder's od dependency.
 

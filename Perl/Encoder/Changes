@@ -10,6 +10,13 @@ Revision history for Perl extension Sereal-Encoder
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.001_003
+    * Traverse XPerl hash storage through its entry API.
+    * Balance custom-op result references on Perl builds with
+      PERL_RC_STACK.
+    * Recognize native binary64 in shared declaration tests on older
+      Perls without pack D or longdblkind.
+
 7.001_002
     * Make the magical-array child-process test portable on Windows.
 

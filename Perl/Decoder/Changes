@@ -10,6 +10,12 @@ Revision history for Perl extension Sereal-Decoder
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.001_003
+    * Balance custom-op argument and result references on Perl builds
+      with PERL_RC_STACK.
+    * Recognize native binary64 in declaration tests on older Perls
+      without pack D or longdblkind, including macOS Perl 5.20.3.
+
 7.001_002
     * Dump hobodecoder packet bytes in Perl without od.
     * Make child-process regression tests portable on Windows.
