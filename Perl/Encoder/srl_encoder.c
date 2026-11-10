@@ -1826,7 +1826,7 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
     { /* Have some sort of compression */
         ptrdiff_t sereal_header_len;
         STRLEN uncompressed_body_length;
-        const STRLEN max_len = (1L << 32) - 1;
+        const STRLEN max_len = (STRLEN)U32_MAX;
 
         /* Alas, have to write entire packet first since the header length
          * will determine offsets. */
