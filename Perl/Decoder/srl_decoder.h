@@ -42,6 +42,7 @@ struct srl_decoder {
     UV bytes_consumed;
     UV min_backref_offset;             /* First byte of the active body */
     UV recursion_depth;                 /* Recursion depth of current decoder */
+    UV owed_bytes;                      /* Minimum bytes enclosing arrays/hashes have yet to read */
     U8 proto_version;
     U8 encoding_flags;
     U8 undef_deadly_policy;
