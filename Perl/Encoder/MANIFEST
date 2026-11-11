@@ -98,6 +98,9 @@ t/141_predicate_callback_lifetime.t
 t/142_cached_integer_values.t
 t/143_freeze_cache_ownership.t
 t/144_callback_reuse_stress.t
+t/145_refuse_regexp.t
+t/146_class_policy.t
+t/147_paranoid_float.t
 t/160_recursion.t
 t/170_cyclic_weakrefs.t
 t/171_weakref_rewrites.t
