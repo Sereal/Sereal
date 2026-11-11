@@ -10,6 +10,18 @@ Revision history for Perl extension Sereal-Encoder
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.001_004
+    * Add an opt-in paranoid preset that requires a checksum key, uses
+      IEEE double output, refuses objects by default, rejects unknown
+      options, and limits recursion to 2048. Explicit constructor
+      options can override each default.
+    * Add allow_classes, refuse_objects and track_classes for object
+      policy and per-class counts. Permit genuine Regexp objects through
+      refuse_objects; croak_on_bless still rejects them.
+    * Add allow_unsigned as an explicit checksum-policy opt-out. Lower
+      the normal recursion limit from 10000 to 8192. Document the
+      preset's precision and callback implications.
+
 7.001_003
     * Traverse XPerl hash storage through its entry API.
     * Balance custom-op result references on Perl builds with

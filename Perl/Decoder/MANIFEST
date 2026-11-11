@@ -167,6 +167,10 @@ t/943_regr_bless_alias_cache.t
 t/944_regr_copy_object_tag.t
 t/945_regr_limit_options.t
 t/946_regr_class_stash_creation.t
+t/947_default_max_uncompressed_size.t
+t/948_regr_forged_handle.t
+t/949_regr_nested_prealloc.t
+t/951_regr_deep_hashref.t
 t/data/corpus
 t/data/packet_corpus/corpus.pack
 t/lib/Sereal/BulkTest.pm

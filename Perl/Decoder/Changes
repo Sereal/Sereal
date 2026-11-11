@@ -10,6 +10,18 @@ Revision history for Perl extension Sereal-Decoder
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.001_004
+    * Add an opt-in paranoid preset for authenticated input, bounded
+      decompression and container sizes, UTF-8 validation, restricted
+      object blessing and THAW, and a recursion limit of 2048. Explicit
+      constructor options can override each default.
+    * Add allow_classes for ordinary and frozen objects and
+      track_classes for per-class object counts. Permit genuine Regexp
+      objects through refuse_objects unless an allowlist excludes them.
+    * Add allow_unsigned as an explicit checksum-policy opt-out. Lower
+      the normal recursion limit from 10000 to 8192. Clarify the trust
+      assumptions and limits of paranoid mode in the documentation.
+
 7.001_003
     * Balance custom-op argument and result references on Perl builds
       with PERL_RC_STACK.

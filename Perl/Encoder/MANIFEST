@@ -135,6 +135,7 @@ t/700_roundtrip/v6/zstd_force.t
 t/700_roundtrip/v7/plain.t
 t/800_threads.t
 t/900_reentrancy.t
+t/901_forged_handle.t
 t/data/corpus
 t/data/packet_corpus/corpus.pack
 t/lib/Sereal/BulkTest.pm

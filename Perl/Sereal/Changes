@@ -16,6 +16,14 @@ from the the Encoder and Decoder changelogs:
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.001_004
+    * Add opt-in paranoid presets for Decoder and Encoder with stricter
+      checksum, object and resource defaults; explicit options retain
+      control. Lower the normal recursion limit to 8192 and use 2048
+      under paranoid mode.
+    * Add allow_classes and track_classes to both modules, plus
+      refuse_objects to Encoder. Clarify security and module policies.
+
 7.001_003
     * Support refcounted Perl stacks in Decoder and Encoder custom ops,
       and XPerl hash storage in Encoder.
