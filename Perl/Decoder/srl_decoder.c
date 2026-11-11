@@ -48,7 +48,6 @@ extern "C" {
 #endif
 
 #define DEFAULT_MAX_RECUR_DEPTH 10000
-#define DEFAULT_MAX_UNCOMPRESSED_SIZE (256 * 1024 * 1024)
 
 #if defined(__GNUC__) || defined(__clang__)
 #   define SRL_NOINLINE __attribute__((noinline))
@@ -319,7 +318,7 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
     dec->max_num_hash_entries = 0;
     dec->max_num_array_entries = 0;
     dec->max_string_length = 0;
-    dec->max_uncompressed_size = DEFAULT_MAX_UNCOMPRESSED_SIZE;
+    dec->max_uncompressed_size = 0;
 
     SRL_RDR_CLEAR(&dec->buf);
     dec->pbuf = &dec->buf;
