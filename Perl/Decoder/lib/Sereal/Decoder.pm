@@ -1112,15 +1112,14 @@ encryption, do not prevent replay, and do not make data safe to deserialize
 when the key holder is malicious or compromised. Packets without a checksum
 have no cryptographic integrity check provided by Sereal.
 
-Accepting serialized objects is inherently insecure and requires trusting
-the producer of the packet.
-Object handling can execute application code or cause later destructor code
-to run. Use C<refuse_objects> when objects are not expected. For frozen objects,
-C<no_thaw_objects> prevents C<THAW> calls, while C<thaw_allow_classes> can
-restrict which classes may run them. Do not assume that disabling module
-autoloading makes callbacks safe: already loaded classes can still have their
-C<THAW> methods invoked unless these controls are used. See
-L</FREEZE/THAW CALLBACK MECHANISM> for details.
+Accepting serialized objects is B<inherently insecure> and requires trusting
+the producer of the packet. Object handling can execute application code or cause
+later destructor code to run. Use C<refuse_objects> when objects are not
+expected. For frozen objects, C<no_thaw_objects> prevents C<THAW> calls, while
+C<thaw_allow_classes> can restrict which classes may run them. Do not assume
+that disabling module autoloading makes callbacks safe: already loaded classes
+can still have their C<THAW> methods invoked unless these controls are used.
+See L</FREEZE/THAW CALLBACK MECHANISM> for details.
 
 =head1 FREEZE/THAW CALLBACK MECHANISM
 
