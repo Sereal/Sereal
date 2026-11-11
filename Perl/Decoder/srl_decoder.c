@@ -48,6 +48,7 @@ extern "C" {
 #endif
 
 #define DEFAULT_MAX_RECUR_DEPTH 10000
+#define DEFAULT_MAX_UNCOMPRESSED_SIZE (256 * 1024 * 1024)
 
 #if defined(__GNUC__) || defined(__clang__)
 #   define SRL_NOINLINE __attribute__((noinline))
@@ -317,7 +318,7 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
     dec->max_num_hash_entries = 0;
     dec->max_num_array_entries = 0;
     dec->max_string_length = 0;
-    dec->max_uncompressed_size = 0;
+    dec->max_uncompressed_size = DEFAULT_MAX_UNCOMPRESSED_SIZE;
 
     SRL_RDR_CLEAR(&dec->buf);
     dec->pbuf = &dec->buf;
@@ -459,7 +460,10 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
                     dec->max_string_length = srl_limit_option_uv(aTHX_ val, "max_string_length");
                     break;
                 case SRL_DEC_OPT_IDX_MAX_UNCOMPRESSED_SIZE:
-                    dec->max_uncompressed_size = srl_limit_option_uv(aTHX_ val, "max_uncompressed_size");
+                    if (SvGMAGICAL(val))
+                        val = sv_2mortal(newSVsv(val));
+                    if (SvOK(val))
+                        dec->max_uncompressed_size = srl_limit_option_uv(aTHX_ val, "max_uncompressed_size");
                     break;
                 case SRL_DEC_OPT_IDX_NO_THAW_OBJECTS:
                     no_thaw_set = 1;
@@ -897,6 +901,7 @@ srl_clear_decoder_body_state(pTHX_ srl_decoder_t *dec)
     srl_clear_thaw_state(aTHX_ dec);
 
     dec->recursion_depth = 0;
+    dec->owed_bytes = 0;
 }
 
 /* Discard the pending frozen-object bookkeeping.
@@ -1904,6 +1909,8 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
         SV **av_end;
 
         SRL_RDR_ASSERT_SPACE(dec->pbuf,len," while reading array contents, insufficient remaining tags for specified array size");
+        /* Nested containers must fit in the same remaining input. */
+        SRL_RDR_ASSERT_SPACE(dec->pbuf,len + dec->owed_bytes," while reading array contents, insufficient remaining tags for enclosing containers");
 
         /* make sure the array has room */
         av_extend((AV*)into, len-1);
@@ -1913,7 +1920,9 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
         av_array= AvARRAY((AV*)into);
         av_end= av_array + len;
 
+        dec->owed_bytes += len;
         for ( ; av_array < av_end ; av_array++) {
+            dec->owed_bytes--;
             *av_array = FRESH_SV();
             srl_read_single_value(aTHX_ dec, *av_array, av_array);
         }
@@ -2033,12 +2042,14 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
     }
 
     SRL_RDR_ASSERT_SPACE(dec->pbuf,num_keys*2," while reading hash contents, insufficient remaining tags for number of keys specified");
+    SRL_RDR_ASSERT_SPACE(dec->pbuf,num_keys*2 + dec->owed_bytes," while reading hash contents, insufficient remaining tags for enclosing containers");
 
     HvSHAREKEYS_on(into); /* apparently required on older perls */
 
     hv_ksplit((HV *)into, num_keys); /* make sure we have enough room */
     /* NOTE: contents of hash are stored VALUE/KEY, reverse from normal perl
      * storage, this is because it simplifies the hash storage logic somewhat */
+    dec->owed_bytes += num_keys * 2;
     for (; num_keys > 0 ; num_keys--) {
         const U8 *from;
         U8 tag;
@@ -2050,6 +2061,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         KEYLENTYPE key_len;
         const UV keys_before = HvKEYS((HV *)into);
 
+        dec->owed_bytes -= 2;
         SRL_RDR_ASSERT_SPACE(dec->pbuf,1," while reading key tag byte for HASH");
         tag= (*dec->buf.pos++)&127;
         if (IS_SRL_HDR_SHORT_BINARY(tag)) {
@@ -2878,6 +2890,7 @@ srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
     UV ofs= srl_read_backref_offset(aTHX_ dec, " while reading COPY tag");
     const U8 *target_start = dec->buf.body_pos + ofs;
     const U8 *packet_end = dec->buf.end;
+    const UV owed_bytes = dec->owed_bytes;
 
     if (expect_false( dec->save_pos )) {
         SRL_RDR_ERRORf2(dec->pbuf, "nested COPY at offset %d and %d",
@@ -2891,7 +2904,10 @@ srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
     /* Bound the entire copied value, including lengths and nested values,
      * to bytes preceding COPY. Checking only its start is insufficient. */
     dec->buf.end= copytag_start;
+    /* What enclosing containers owe lies after the COPY tag. */
+    dec->owed_bytes= 0;
     srl_read_single_value(aTHX_ dec, into, NULL);
+    dec->owed_bytes= owed_bytes;
     dec->buf.end= packet_end;
     dec->buf.pos= dec->save_pos;
     dec->save_pos= 0;
