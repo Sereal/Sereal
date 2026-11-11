@@ -554,9 +554,24 @@ a predicate C<< $cb->($classname) >> called once per frozen object and
 returning true to allow the call. Without this option, all classes are
 allowed.
 
+C<allowed_classes>, when set, is checked first. A class must pass both
+filters before C<THAW> is invoked.
+
 For a denied class, see L</thaw_deny_action>. This option has no effect
 when C<refuse_objects> or C<no_thaw_objects> prevents thawing. See
 L</FREEZE/THAW CALLBACK MECHANISM> for callback behavior.
+
+=head4 allowed_classes
+
+Restricts the classes that may be decoded as objects. Accepts an array
+reference of class names, a hash reference with true values for allowed
+names, or a predicate C<< $cb->($classname) >> returning true to allow
+the class. An unlisted class raises an exception. Without this option,
+all classes are allowed. This filter applies to ordinary and frozen
+objects; C<thaw_allow_classes> can further restrict C<THAW> calls.
+C<refuse_objects> rejects all serialized objects regardless of this list.
+C<no_bless_objects> skips the check for ordinary objects because they are
+not blessed.
 
 =head4 thaw_deny_action
 

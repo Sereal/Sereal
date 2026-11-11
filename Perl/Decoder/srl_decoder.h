@@ -35,6 +35,8 @@ struct srl_decoder {
 
     HV* thaw_allow_hash;                /* set of class names allowed to be THAWed, or NULL */
     SV* thaw_allow_cb;                  /* coderef predicate (RV to CV) deciding THAW, or NULL */
+    HV* allow_hash;                     /* classes allowed for ordinary blessing and THAW */
+    SV* allow_cb;
 
     AV* alias_cache; /* used to cache integers of different sizes. */
     IV alias_varint_under;
@@ -292,7 +294,10 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_DEC_OPT_STR_ALLOW_UNKNOWN_LONG_DOUBLE       "allow_unknown_long_double"
 #define SRL_DEC_OPT_IDX_ALLOW_UNKNOWN_LONG_DOUBLE       29
 
-#define SRL_DEC_OPT_COUNT                           30
+#define SRL_DEC_OPT_STR_ALLOWED_CLASSES             "allowed_classes"
+#define SRL_DEC_OPT_IDX_ALLOWED_CLASSES             30
+
+#define SRL_DEC_OPT_COUNT                           31
 
 #if ((PERL_VERSION > 10) || (PERL_VERSION == 10 && PERL_SUBVERSION > 1 ))
 #   define MODERN_REGEXP
