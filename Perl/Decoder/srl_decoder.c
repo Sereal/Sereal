@@ -49,6 +49,14 @@ extern "C" {
 
 #define DEFAULT_MAX_RECUR_DEPTH 10000
 
+#if defined(__GNUC__) || defined(__clang__)
+#   define SRL_NOINLINE __attribute__((noinline))
+#elif defined(_MSC_VER)
+#   define SRL_NOINLINE __declspec(noinline)
+#else
+#   define SRL_NOINLINE
+#endif
+
 #if !defined(HAVE_CSNAPPY)
 # include "snappy/csnappy_decompress.c"
 #endif
@@ -1959,6 +1967,47 @@ srl_escape_key_for_error(char *dst, const U8 *src, UV len, STRLEN limit)
     return escaped;
 }
 
+/* Out of line: its buffers would otherwise be part of every recursive
+ * srl_read_hash frame and shrink the depth that fits on the C stack. */
+SRL_NOINLINE static void
+srl_croak_duplicate_key(pTHX_ srl_decoder_t *dec, const U8 *from, UV key_len_uv)
+{
+    char prefix[65], suffix[65], display[192], full_key[192];
+    STRLEN full_key_len;
+    int display_len;
+
+    if (key_len_uv > 32) {
+        STRLEN prefix_len = srl_escape_key_for_error(prefix, from, 16, 64);
+        STRLEN suffix_len = srl_escape_key_for_error(suffix,
+            from + key_len_uv - 16, 16, 64);
+
+        display_len = my_snprintf(display, sizeof(display),
+            "'%.*s' ... %"UVuf" bytes elided ... '%.*s'",
+            (int)prefix_len, prefix, key_len_uv - 32,
+            (int)suffix_len, suffix);
+        if (expect_false(display_len < 0
+                || (size_t)display_len >= sizeof(display)))
+            SRL_RDR_ERROR(dec->pbuf, "duplicate key in hash");
+        full_key_len = srl_escape_key_for_error(NULL, from,
+            key_len_uv, (STRLEN)display_len - 2);
+        if ((STRLEN)display_len < full_key_len + 2)
+            SRL_RDR_ERRORf2(dec->pbuf,
+                "duplicate key %.*s in hash",
+                display_len, display);
+    }
+    full_key_len = srl_escape_key_for_error(full_key, from,
+        key_len_uv, sizeof(full_key) - 3);
+    if (expect_false(full_key_len >= sizeof(full_key) - 2))
+        SRL_RDR_ERROR(dec->pbuf, "duplicate key in hash");
+    display_len = my_snprintf(display, sizeof(display),
+        "'%.*s'", (int)full_key_len, full_key);
+    if (expect_false(display_len < 0
+            || (size_t)display_len >= sizeof(display)))
+        SRL_RDR_ERROR(dec->pbuf, "duplicate key in hash");
+    SRL_RDR_ERRORf2(dec->pbuf,
+        "duplicate key %.*s in hash", display_len, display);
+}
+
 SRL_STATIC_INLINE void
 srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
     UV num_keys;
@@ -2086,40 +2135,7 @@ srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag) {
         }
         else
         if ( expect_false( (UV)HvKEYS((HV *)into) == keys_before ) ) {
-            char prefix[65], suffix[65], display[192], full_key[192];
-            STRLEN full_key_len;
-            int display_len;
-            /* sv_dump(*fetched_sv); */
-            if (key_len_uv > 32) {
-                STRLEN prefix_len = srl_escape_key_for_error(prefix, from, 16, 64);
-                STRLEN suffix_len = srl_escape_key_for_error(suffix,
-                    from + key_len_uv - 16, 16, 64);
-
-                display_len = my_snprintf(display, sizeof(display),
-                    "'%.*s' ... %"UVuf" bytes elided ... '%.*s'",
-                    (int)prefix_len, prefix, key_len_uv - 32,
-                    (int)suffix_len, suffix);
-                if (expect_false(display_len < 0
-                        || (size_t)display_len >= sizeof(display)))
-                    SRL_RDR_ERROR(dec->pbuf, "duplicate key in hash");
-                full_key_len = srl_escape_key_for_error(NULL, from,
-                    key_len_uv, (STRLEN)display_len - 2);
-                if ((STRLEN)display_len < full_key_len + 2)
-                    SRL_RDR_ERRORf2(dec->pbuf,
-                        "duplicate key %.*s in hash",
-                        display_len, display);
-            }
-            full_key_len = srl_escape_key_for_error(full_key, from,
-                key_len_uv, sizeof(full_key) - 3);
-            if (expect_false(full_key_len >= sizeof(full_key) - 2))
-                SRL_RDR_ERROR(dec->pbuf, "duplicate key in hash");
-            display_len = my_snprintf(display, sizeof(display),
-                "'%.*s'", (int)full_key_len, full_key);
-            if (expect_false(display_len < 0
-                    || (size_t)display_len >= sizeof(display)))
-                SRL_RDR_ERROR(dec->pbuf, "duplicate key in hash");
-            SRL_RDR_ERRORf2(dec->pbuf,
-                "duplicate key %.*s in hash", display_len, display);
+            srl_croak_duplicate_key(aTHX_ dec, from, key_len_uv);
         }
         srl_read_single_value(aTHX_ dec, *fetched_sv, fetched_sv );
     }
