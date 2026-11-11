@@ -47,7 +47,12 @@ extern "C" {
 #   define FAST_IV 1
 #endif
 
+#if defined(__CYGWIN__)
+/* Cygwin's main thread stack is set by the Perl executable. */
+#define DEFAULT_MAX_RECUR_DEPTH 4096
+#else
 #define DEFAULT_MAX_RECUR_DEPTH 8192
+#endif
 #define PARANOID_MAX_RECUR_DEPTH 2048
 #define PARANOID_MAX_UNCOMPRESSED_SIZE (256 * 1024 * 1024)
 #define PARANOID_MAX_STRING_LENGTH (64 * 1024 * 1024)

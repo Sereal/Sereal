@@ -741,8 +741,9 @@ C<allow_classes> is defined.
 
 =head4 max_recursion_depth
 
-Maximum recursion depth, default 8192. The limit is approximate and
-depends on the structures encountered. Deep recursion can exhaust the C
+Maximum recursion depth, default 4096 on Cygwin and 8192 elsewhere. The
+limit is approximate and depends on the structures encountered. Deep
+recursion can exhaust the C
 stack; raising this limit can cause a crash.
 
 =head4 paranoid

@@ -194,7 +194,12 @@ srl_protect_packet(pTHX_ srl_encoder_t *enc)
 #   define DO_SHARED_HASH_ENTRY_REFCOUNT_CHECK 0
 #endif
 
+#if defined(__CYGWIN__)
+/* Cygwin's main thread stack is set by the Perl executable. */
+#define DEFAULT_MAX_RECUR_DEPTH 4096
+#else
 #define DEFAULT_MAX_RECUR_DEPTH 8192
+#endif
 #define PARANOID_MAX_RECUR_DEPTH 2048
 
 #define DEBUGHACK 0

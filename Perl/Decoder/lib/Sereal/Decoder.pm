@@ -619,8 +619,9 @@ must contain valid UTF-8 outside that preset.
 
 =head4 max_recursion_depth
 
-Maximum recursion depth, default 8192. The limit is approximate and
-depends on the structures encountered. Deep recursion can exhaust the C
+Maximum recursion depth, default 4096 on Cygwin and 8192 elsewhere. The
+limit is approximate and depends on the structures encountered. Deep
+recursion can exhaust the C
 stack; raising this limit can cause a crash. See L</ROBUSTNESS>.
 
 =head4 paranoid
@@ -1186,8 +1187,9 @@ The resource limits below default to unlimited (zero):
 C<max_num_hash_entries>, C<max_num_array_entries>, C<max_string_length>,
 and C<max_uncompressed_size>. Set limits appropriate to the application when
 decoding data whose size or producer is not controlled. The recursion limit
-defaults to 8192, which can still be too high for some Perl builds; lower it
-when appropriate, or use the C<paranoid> preset. These decoder limits do not
+defaults to 4096 on Cygwin and 8192 elsewhere, which can still be too
+high for some Perl builds; lower it when appropriate, or use the
+C<paranoid> preset. These decoder limits do not
 replace process-level CPU and memory limits. In particular, a checksum
 does not limit the cost of decoding a packet from someone who knows the
 key.
