@@ -47,7 +47,12 @@ extern "C" {
 #   define FAST_IV 1
 #endif
 
-#define DEFAULT_MAX_RECUR_DEPTH 10000
+#define DEFAULT_MAX_RECUR_DEPTH 8192
+#define PARANOID_MAX_RECUR_DEPTH 2048
+#define PARANOID_MAX_UNCOMPRESSED_SIZE (256 * 1024 * 1024)
+#define PARANOID_MAX_STRING_LENGTH (64 * 1024 * 1024)
+#define PARANOID_MAX_ARRAY_ENTRIES 1000000
+#define PARANOID_MAX_HASH_ENTRIES 250000
 
 #if defined(__GNUC__) || defined(__clang__)
 #   define SRL_NOINLINE __attribute__((noinline))
@@ -163,6 +168,7 @@ SRL_STATIC_INLINE SV * srl_follow_refp_alias_reference(pTHX_ srl_decoder_t *dec,
 SRL_STATIC_INLINE AV * srl_follow_objectv_reference(pTHX_ srl_decoder_t *dec, UV offset);
 SRL_STATIC_INLINE SV *srl_thaw_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *sv);
 SRL_STATIC_INLINE int srl_class_allowed(pTHX_ HV *allow_hash, SV *allow_cb, HV *class_stash);
+SRL_STATIC_INLINE void srl_track_class(pTHX_ srl_decoder_t *dec, SV *class_entry);
 
 /* FIXME unimplemented!!! */
 SRL_STATIC_INLINE int srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
@@ -301,6 +307,8 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
     U8 undef_deadly_policy = SRL_UNDEF_DEADLY_UNDEF;
     SV *thaw_allow_classes_value = NULL;
     SV *allowed_classes_value = NULL;
+    SV *allow_classes_value = NULL;
+    SV *track_classes_value = NULL;
     SV *checksum_key = NULL;
     SV *checksum_policy_value = NULL;
     SV *unknown_option_policy_value = NULL;
@@ -331,6 +339,14 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
         int no_thaw_set = 0;
         int no_thaw = 0;
         int no_bless = 0;
+        int paranoid = 0;
+        int refuse_objects_set = 0;
+        int max_uncompressed_size_set = 0;
+        int max_string_length_set = 0;
+        int max_array_entries_set = 0;
+        int max_hash_entries_set = 0;
+        int max_recursion_depth_set = 0;
+        int validate_utf8_set = 0;
         if (opt != NULL) {
             hv_iterinit(opt);
             while ((entry = hv_iternext(opt))) {
@@ -413,15 +429,26 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
                         SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_DESTRUCTIVE_INCREMENTAL);
                     break;
                 case SRL_DEC_OPT_IDX_MAX_NUM_HASH_ENTRIES:
-                    dec->max_num_hash_entries = srl_limit_option_uv(aTHX_ val, "max_num_hash_entries");
+                    if (SvGMAGICAL(val))
+                        val = sv_2mortal(newSVsv(val));
+                    if (SvOK(val)) {
+                        max_hash_entries_set = 1;
+                        dec->max_num_hash_entries = srl_limit_option_uv(aTHX_ val, "max_num_hash_entries");
+                    }
                     break;
                 case SRL_DEC_OPT_IDX_MAX_RECURSION_DEPTH: {
-                    UV limit = srl_limit_option_uv(aTHX_ val, "max_recursion_depth");
-                    if (limit)
-                        dec->max_recursion_depth = limit;
+                    if (SvGMAGICAL(val))
+                        val = sv_2mortal(newSVsv(val));
+                    if (SvOK(val)) {
+                        UV limit = srl_limit_option_uv(aTHX_ val, "max_recursion_depth");
+                        max_recursion_depth_set = 1;
+                        if (limit)
+                            dec->max_recursion_depth = limit;
+                    }
                     break;
                 }
                 case SRL_DEC_OPT_IDX_REFUSE_OBJECTS:
+                    refuse_objects_set = 1;
                     if (SvTRUE(val))
                         SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS);
                     break;
@@ -446,6 +473,7 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
                         SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_USE_UNDEF);
                     break;
                 case SRL_DEC_OPT_IDX_VALIDATE_UTF8:
+                    validate_utf8_set = 1;
                     if (SvTRUE(val))
                         SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8);
                     break;
@@ -454,16 +482,28 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
                         SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_ZSTD);
                     break;
                 case SRL_DEC_OPT_IDX_MAX_NUM_ARRAY_ENTRIES:
-                    dec->max_num_array_entries = srl_limit_option_uv(aTHX_ val, "max_num_array_entries");
+                    if (SvGMAGICAL(val))
+                        val = sv_2mortal(newSVsv(val));
+                    if (SvOK(val)) {
+                        max_array_entries_set = 1;
+                        dec->max_num_array_entries = srl_limit_option_uv(aTHX_ val, "max_num_array_entries");
+                    }
                     break;
                 case SRL_DEC_OPT_IDX_MAX_STRING_LENGTH:
-                    dec->max_string_length = srl_limit_option_uv(aTHX_ val, "max_string_length");
+                    if (SvGMAGICAL(val))
+                        val = sv_2mortal(newSVsv(val));
+                    if (SvOK(val)) {
+                        max_string_length_set = 1;
+                        dec->max_string_length = srl_limit_option_uv(aTHX_ val, "max_string_length");
+                    }
                     break;
                 case SRL_DEC_OPT_IDX_MAX_UNCOMPRESSED_SIZE:
                     if (SvGMAGICAL(val))
                         val = sv_2mortal(newSVsv(val));
-                    if (SvOK(val))
+                    if (SvOK(val)) {
+                        max_uncompressed_size_set = 1;
                         dec->max_uncompressed_size = srl_limit_option_uv(aTHX_ val, "max_uncompressed_size");
+                    }
                     break;
                 case SRL_DEC_OPT_IDX_NO_THAW_OBJECTS:
                     no_thaw_set = 1;
@@ -474,6 +514,15 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
                     break;
                 case SRL_DEC_OPT_IDX_ALLOWED_CLASSES:
                     allowed_classes_value = val;
+                    break;
+                case SRL_DEC_OPT_IDX_ALLOW_CLASSES:
+                    allow_classes_value = val;
+                    break;
+                case SRL_DEC_OPT_IDX_TRACK_CLASSES:
+                    track_classes_value = val;
+                    break;
+                case SRL_DEC_OPT_IDX_PARANOID:
+                    paranoid = SvTRUE(val) ? 1 : 0;
                     break;
                 case SRL_DEC_OPT_IDX_THAW_DENY_ACTION:
                     if (SvOK(val)) {
@@ -533,7 +582,17 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
             }
         }
 
-        val = allowed_classes_value;
+        val = track_classes_value;
+        if (val && SvOK(val)) {
+            SV *rv = SvROK(val) ? SvRV(val) : NULL;
+            if (!rv || SvTYPE(rv) != SVt_PVHV)
+                croak("The 'track_classes' option must be a hash ref");
+            dec->track_classes = (HV *)SvREFCNT_inc(rv);
+        }
+
+        if (allow_classes_value && allowed_classes_value)
+            croak("Specify only one of 'allow_classes' and 'allowed_classes'");
+        val = allow_classes_value ? allow_classes_value : allowed_classes_value;
         if (val && SvOK(val)) {
             SV *rv = SvROK(val) ? SvRV(val) : NULL;
             if (rv && SvTYPE(rv) == SVt_PVAV) {
@@ -566,8 +625,29 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
                 dec->allow_cb = newRV_inc(rv);
             }
             else {
-                croak("The 'allowed_classes' option must be an array ref, hash ref or code ref");
+                croak("The 'allow_classes' option must be an array ref, hash ref or code ref");
             }
+        }
+
+        if (paranoid) {
+            if (!max_recursion_depth_set)
+                dec->max_recursion_depth = PARANOID_MAX_RECUR_DEPTH;
+            if (!max_uncompressed_size_set)
+                dec->max_uncompressed_size = PARANOID_MAX_UNCOMPRESSED_SIZE;
+            if (!max_string_length_set)
+                dec->max_string_length = PARANOID_MAX_STRING_LENGTH;
+            if (!max_array_entries_set)
+                dec->max_num_array_entries = PARANOID_MAX_ARRAY_ENTRIES;
+            if (!max_hash_entries_set)
+                dec->max_num_hash_entries = PARANOID_MAX_HASH_ENTRIES;
+            if (!validate_utf8_set)
+                SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8);
+            if (!unknown_option_policy_value)
+                unknown_option_policy_value = sv_2mortal(newSVpvs("die"));
+            if (!refuse_objects_set && !dec->allow_hash && !dec->allow_cb)
+                SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS);
+            if (!no_thaw_set && !dec->thaw_allow_hash && !dec->thaw_allow_cb)
+                no_thaw = 1;
         }
 
         srl_handle_unknown_option_keys(aTHX_ unknown_option_keys, unknown_option_policy_value,
@@ -581,6 +661,11 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
                 SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NO_THAW_OBJECTS);
         }
 
+        /* Paranoid requires authentication unless the caller explicitly
+         * selects a different policy. Package defaults cannot silently
+         * weaken this preset. */
+        if (paranoid && (!checksum_policy_value || !SvOK(checksum_policy_value)))
+            checksum_policy_value = sv_2mortal(newSVpvs("require_key"));
         checksum_policy = srl_get_checksum_policy(
             aTHX_ checksum_policy_value, "Sereal::Decoder::ChecksumPolicy");
         if (!checksum_key)
@@ -674,6 +759,10 @@ srl_build_decoder_struct_alike(pTHX_ srl_decoder_t *proto)
         dec->allow_cb = proto->allow_cb;
         SvREFCNT_inc(dec->allow_cb);
     }
+    if (proto->track_classes) {
+        dec->track_classes = proto->track_classes;
+        SvREFCNT_inc((SV*)dec->track_classes);
+    }
 
     SRL_RDR_CLEAR(&dec->buf);
     dec->pbuf = &dec->buf;
@@ -719,6 +808,10 @@ srl_destroy_decoder(pTHX_ srl_decoder_t *dec)
     if (dec->allow_cb) {
         SvREFCNT_dec(dec->allow_cb);
         dec->allow_cb = NULL;
+    }
+    if (dec->track_classes) {
+        SvREFCNT_dec((SV*)dec->track_classes);
+        dec->track_classes = NULL;
     }
     Safefree(dec);
 }
@@ -1431,6 +1524,37 @@ srl_class_allowed(pTHX_ HV *allow_hash, SV *allow_cb, HV *class_stash)
     }
 }
 
+/* Count object tags, not references to objects. class_entry may still be a
+ * class-name scalar because ordinary blessing is deferred until finalize. */
+SRL_STATIC_INLINE void
+srl_track_class(pTHX_ srl_decoder_t *dec, SV *class_entry)
+{
+    const char *name;
+    STRLEN len;
+    int is_utf8;
+    SV **count;
+    if (!dec->track_classes)
+        return;
+    if (SvTYPE(class_entry) == SVt_PVHV) {
+        HV *stash = (HV *)class_entry;
+        name = HvNAME_get(stash);
+        len = HvNAMELEN_get(stash);
+#if PERL_VERSION >= 16
+        is_utf8 = HvNAMEUTF8(stash) ? 1 : 0;
+#else
+        is_utf8 = 0;
+#endif
+    } else {
+        name = SvPV(class_entry, len);
+        is_utf8 = SvUTF8(class_entry) ? 1 : 0;
+    }
+    count = hv_fetch(dec->track_classes, name,
+                     is_utf8 ? -(I32)len : (I32)len, 1);
+    if (!count)
+        croak("Could not update track_classes");
+    sv_inc(*count);
+}
+
 /* Replace the complete value: THAW may return a scalar as well as a reference.
  * sv_setsv also releases old strong ownership or unregisters a weak backref. */
 SRL_STATIC_INLINE void
@@ -1495,7 +1619,7 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
                 if (!srl_class_allowed(aTHX_ dec->allow_hash, dec->allow_cb, stash)) {
                     PTABLE_iter_free(it);
                     SRL_RDR_ERRORf1(dec->pbuf,
-                        "Object class '%s' is not in allowed_classes", HvNAME(stash));
+                        "Object class '%s' is not in allow_classes", HvNAME(stash));
                 }
             }
             PTABLE_iter_free(it);
@@ -1616,7 +1740,7 @@ srl_finalize_structure(pTHX_ srl_decoder_t *dec)
              * croaks (default) or falls back to the raw-args behavior below. */
             if (!srl_class_allowed(aTHX_ dec->allow_hash, dec->allow_cb, class_stash)) {
                 SRL_RDR_ERRORf1(dec->pbuf,
-                    "Object class '%s' is not in allowed_classes", HvNAME(class_stash));
+                    "Object class '%s' is not in allow_classes", HvNAME(class_stash));
             }
             if (!nothaw && !srl_class_allowed(aTHX_ dec->thaw_allow_hash, dec->thaw_allow_cb, class_stash)) {
                 if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_THAW_DENY_RAW)) {
@@ -1814,9 +1938,10 @@ srl_read_neg_varint_into(pTHX_ srl_decoder_t *dec, SV* into, SV **container, con
 SRL_STATIC_INLINE void
 srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
 {
-    UV len= srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading string");
+    UV len= srl_read_varint_uv(aTHX_ dec->pbuf);
     /* Limit the maximum size of the string that we accept to whatever was configured */
     SRL_CHECK_MAX_STRING_LENGTH(dec, len, "string");
+    SRL_RDR_ASSERT_SPACE(dec->pbuf, len, " while reading string");
     if (expect_false(is_utf8 && SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8))) {
         /* checks for invalid byte sequences. */
         if (expect_false( !is_utf8_string((U8*)dec->buf.pos, len) )) {
@@ -2423,13 +2548,41 @@ srl_refuse_blessing_alias(pTHX_ srl_decoder_t *dec, SV *referent)
     }
 }
 
+/* Perl changed qr// from a magical scalar to SVt_REGEXP. Check the
+ * referent, not just the class name: a packet can claim any class. */
+SRL_STATIC_INLINE int
+srl_is_canonical_regexp_object(pTHX_ SV *value, SV *class_entry)
+{
+    const char *class_name;
+    STRLEN class_len;
+
+    if (!SvROK(value) || !class_entry)
+        return 0;
+#ifdef MODERN_REGEXP
+    if (SvTYPE(SvRV(value)) != SVt_REGEXP)
+        return 0;
+#else
+    if (SvTYPE(SvRV(value)) != SVt_PVMG ||
+        !mg_find(SvRV(value), PERL_MAGIC_qr))
+        return 0;
+#endif
+    if (SvTYPE(class_entry) == SVt_PVHV) {
+        class_name = HvNAME_get((HV *)class_entry);
+        class_len = HvNAMELEN_get((HV *)class_entry);
+    } else {
+        class_name = SvPV(class_entry, class_len);
+    }
+    return class_name && class_len == 6 && memEQ(class_name, "Regexp", 6);
+}
+
 SRL_STATIC_INLINE void
 srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
 {
     AV *av= NULL;
     STRLEN ofs;
 
-    if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS) ))
+    if (expect_false( obj_tag == SRL_HDR_OBJECTV_FREEZE &&
+            SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS) ))
         SRL_RDR_ERROR_REFUSE_OBJECT(dec->pbuf);
 
     ofs= srl_read_backref_offset(aTHX_ dec, " while reading OBJECTV(_FREEZE) classname");
@@ -2452,6 +2605,13 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
             SRL_RDR_ERRORf1(dec->pbuf, "Corrupted packet. OBJECTV(_FREEZE) references unknown classname offset: %"UVuf, (UV)ofs);
     }
 
+    {
+        SV *class_entry = (SV *)PTABLE_fetch(dec->ref_stashes, (void *)ofs);
+        if (expect_false(!class_entry))
+            SRL_RDR_ERROR(dec->pbuf, "Missing class for OBJECTV(_FREEZE)");
+        srl_track_class(aTHX_ dec, class_entry);
+    }
+
     /* checking tag: SRL_HDR_OBJECTV_FREEZE or SRL_HDR_OBJECTV? */
     if (expect_false( obj_tag == SRL_HDR_OBJECTV_FREEZE )) {
         SV *class_entry= (SV *) PTABLE_fetch(dec->ref_stashes, (void *)ofs);
@@ -2466,6 +2626,11 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
 
         if (expect_false(!SvROK(into)))
             SRL_RDR_ERROR(dec->pbuf, "OBJECT(V) must be followed by a reference");
+        if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS))) {
+            SV *class_entry = (SV *)PTABLE_fetch(dec->ref_stashes, (void *)ofs);
+            if (!srl_is_canonical_regexp_object(aTHX_ into, class_entry))
+                SRL_RDR_ERROR_REFUSE_OBJECT(dec->pbuf);
+        }
         srl_refuse_blessing_alias(aTHX_ dec, SvRV(into));
 
         /* and also stuff it into the av - we dont have to do any more book-keeping */
@@ -2481,7 +2646,7 @@ srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag)
             if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS)) {
                 HV *stash = srl_class_stash(aTHX_ dec, ofs, class_entry);
                 if (!srl_class_allowed(aTHX_ dec->allow_hash, dec->allow_cb, stash))
-                    SRL_RDR_ERRORf1(dec->pbuf, "Object class '%s' is not in allowed_classes", HvNAME(stash));
+                    SRL_RDR_ERRORf1(dec->pbuf, "Object class '%s' is not in allow_classes", HvNAME(stash));
                 sv_bless(into, stash);
             }
         }
@@ -2503,7 +2668,8 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
     U32 key_len = 0;
     const U8 *from = NULL;
 
-    if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS) ))
+    if (expect_false( obj_tag == SRL_HDR_OBJECT_FREEZE &&
+            SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS) ))
         SRL_RDR_ERROR_REFUSE_OBJECT(dec->pbuf);
 
     /* Now find the class name - first check if this is a copy op
@@ -2649,6 +2815,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
     assert(obj_tag != 0);
 #endif
 
+    srl_track_class(aTHX_ dec, class_entry);
     SRL_DEC_SET_OPTION(dec, SRL_F_DECODER_NEEDS_FINALIZE);
     if (expect_false( obj_tag == SRL_HDR_OBJECT_FREEZE )) {
         srl_read_frozen_object(aTHX_ dec, srl_class_stash(aTHX_ dec, storepos, class_entry), into);
@@ -2665,6 +2832,9 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
         srl_read_single_value(aTHX_ dec, into, NULL);
         if (expect_false(!SvROK(into)))
             SRL_RDR_ERROR(dec->pbuf, "OBJECT(V) must be followed by a reference");
+        if (expect_false(SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REFUSE_OBJECTS) &&
+                !srl_is_canonical_regexp_object(aTHX_ into, class_entry)))
+            SRL_RDR_ERROR_REFUSE_OBJECT(dec->pbuf);
         srl_refuse_blessing_alias(aTHX_ dec, SvRV(into));
 
 #if USE_588_WORKAROUND
@@ -2672,7 +2842,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
         if (!SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_NO_BLESS_OBJECTS)) {
             HV *stash = srl_class_stash(aTHX_ dec, storepos, class_entry);
             if (!srl_class_allowed(aTHX_ dec->allow_hash, dec->allow_cb, stash))
-                SRL_RDR_ERRORf1(dec->pbuf, "Object class '%s' is not in allowed_classes", HvNAME(stash));
+                SRL_RDR_ERRORf1(dec->pbuf, "Object class '%s' is not in allow_classes", HvNAME(stash));
             sv_bless(into, stash);
         }
 #endif

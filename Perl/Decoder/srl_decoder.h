@@ -37,6 +37,7 @@ struct srl_decoder {
     SV* thaw_allow_cb;                  /* coderef predicate (RV to CV) deciding THAW, or NULL */
     HV* allow_hash;                     /* classes allowed for ordinary blessing and THAW */
     SV* allow_cb;
+    HV* track_classes;                  /* caller-owned counts of object tags */
 
     AV* alias_cache; /* used to cache integers of different sizes. */
     IV alias_varint_under;
@@ -297,7 +298,16 @@ void srl_decoder_destructor_hook(pTHX_ void *p);
 #define SRL_DEC_OPT_STR_ALLOWED_CLASSES             "allowed_classes"
 #define SRL_DEC_OPT_IDX_ALLOWED_CLASSES             30
 
-#define SRL_DEC_OPT_COUNT                           31
+#define SRL_DEC_OPT_STR_PARANOID                    "paranoid"
+#define SRL_DEC_OPT_IDX_PARANOID                    31
+
+#define SRL_DEC_OPT_STR_ALLOW_CLASSES               "allow_classes"
+#define SRL_DEC_OPT_IDX_ALLOW_CLASSES               32
+
+#define SRL_DEC_OPT_STR_TRACK_CLASSES               "track_classes"
+#define SRL_DEC_OPT_IDX_TRACK_CLASSES               33
+
+#define SRL_DEC_OPT_COUNT                           34
 
 #if ((PERL_VERSION > 10) || (PERL_VERSION == 10 && PERL_SUBVERSION > 1 ))
 #   define MODERN_REGEXP

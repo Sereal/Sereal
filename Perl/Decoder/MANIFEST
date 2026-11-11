@@ -72,7 +72,9 @@ t/090_thaw.t
 t/091_thaw_order.t
 t/092_thaw_scalar.t
 t/094_thaw_allow.t
+t/095_allow_classes.t
 t/095_checksum_policy.t
+t/095_paranoid.t
 t/096_build_tools.t
 t/097_checksum_versions.t
 t/098_corpus_portability.t

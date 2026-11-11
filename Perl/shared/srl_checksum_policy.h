@@ -48,7 +48,8 @@ srl_parse_checksum_policy(pTHX_ const char *policy, STRLEN len, const char *sour
 {
     if (len == sizeof("verify-if-available") - 1 && memEQ(policy, "verify-if-available", len))
         return SRL_CHECKSUM_POLICY_VERIFY_IF_AVAILABLE;
-    if (len == sizeof("die") - 1 && memEQ(policy, "die", len))
+    if ((len == sizeof("die") - 1 && memEQ(policy, "die", len))
+            || (len == sizeof("allow_unsigned") - 1 && memEQ(policy, "allow_unsigned", len)))
         return SRL_CHECKSUM_POLICY_DIE;
     if ((len == sizeof("require_key") - 1 && memEQ(policy, "require_key", len))
             || (len == sizeof("require") - 1 && memEQ(policy, "require", len))
@@ -62,7 +63,7 @@ srl_parse_checksum_policy(pTHX_ const char *policy, STRLEN len, const char *sour
         return SRL_CHECKSUM_POLICY_IGNORE;
     if (len == sizeof("ignore-warn") - 1 && memEQ(policy, "ignore-warn", len))
         return SRL_CHECKSUM_POLICY_IGNORE_WARN;
-    croak("Invalid %s; expected 'verify-if-available', 'die', 'require_key', 'require_v1', 'require_v2', 'require_v3', 'ignore', or 'ignore-warn'", source);
+    croak("Invalid %s; expected 'verify-if-available', 'die', 'allow_unsigned', 'require_key', 'require_v1', 'require_v2', 'require_v3', 'ignore', or 'ignore-warn'", source);
     return SRL_CHECKSUM_POLICY_VERIFY_IF_AVAILABLE; /* not reached */
 }
 
