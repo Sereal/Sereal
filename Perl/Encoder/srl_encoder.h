@@ -58,6 +58,9 @@ typedef struct {
 
     HV *freeze_allow_hash;    /* set of class names allowed to be FROZEN, or NULL */
     SV *freeze_allow_cb;      /* coderef predicate (RV to CV) deciding FREEZE, or NULL */
+    HV *allow_hash;           /* class names allowed to be encoded as objects */
+    SV *allow_cb;             /* coderef predicate deciding object classes */
+    HV *track_classes;        /* caller-owned hash of encoded object counts */
 } srl_encoder_t;
 
 typedef struct {
@@ -167,6 +170,7 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
  * set (the default), a disallowed class causes an exception. */
 #define SRL_F_FREEZE_DENY_SERIALIZE               0x100000UL
 #define SRL_F_USE_NATIVE_LONG_DOUBLE              0x200000UL
+#define SRL_F_REFUSE_OBJECTS                       0x400000UL
 
 /* ====================================================================
  * oper flags
@@ -307,6 +311,18 @@ SV *srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *use
 
 #define SRL_ENC_OPT_STR_FLOAT_TYPE "float_type"
 #define SRL_ENC_OPT_IDX_FLOAT_TYPE 31
-#define SRL_ENC_OPT_COUNT 32
+
+#define SRL_ENC_OPT_STR_ALLOW_CLASSES "allow_classes"
+#define SRL_ENC_OPT_IDX_ALLOW_CLASSES 32
+
+#define SRL_ENC_OPT_STR_TRACK_CLASSES "track_classes"
+#define SRL_ENC_OPT_IDX_TRACK_CLASSES 33
+
+#define SRL_ENC_OPT_STR_REFUSE_OBJECTS "refuse_objects"
+#define SRL_ENC_OPT_IDX_REFUSE_OBJECTS 34
+
+#define SRL_ENC_OPT_STR_PARANOID "paranoid"
+#define SRL_ENC_OPT_IDX_PARANOID 35
+#define SRL_ENC_OPT_COUNT 36
 
 #endif

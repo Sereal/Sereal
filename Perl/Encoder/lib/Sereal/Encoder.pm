@@ -572,7 +572,9 @@ portability and precision considerations.
 
 Limits floating-point output to double precision (IEEE binary64), even
 on Perl builds with extended precision. This option is off by default
-and can lose precision. It cannot be combined with C<float_type =E<gt>
+and can lose precision. C<paranoid> enables it unless explicitly set
+to false or C<float_type =E<gt> 'native'> is selected. It cannot be
+combined with C<float_type =E<gt>
 'native'> on a long-double build. See L</FLOATING-POINT
 INTEROPERABILITY>.
 
@@ -637,7 +639,8 @@ CONFIGURATION> for defaults.
 =head4 checksum_policy
 
 Controls whether encoding requires a checksum key and a minimum checksum
-mode. The default is C<'verify-if-available'>. Accepted values are:
+mode. The normal default is C<'verify-if-available'>; C<paranoid> defaults
+to C<'require_key'>. Accepted values are:
 
 =over 4
 
@@ -648,9 +651,12 @@ C<'require'> and C<'require_v1'> are aliases.
 
 =item * C<'require_v3'> - require a key and C<checksum_mode> v3.
 
-=item * C<'verify-if-available'>, C<'die'>, C<'ignore'>,
+=item * C<'verify-if-available'>, C<'die'>, C<'allow_unsigned'>, C<'ignore'>,
 C<'ignore-warn'> - allow encoding without a key. These names are shared
 with Decoder, where they also control verification.
+
+C<'allow_unsigned'> is an alias for C<'die'>. On the Decoder, it accepts
+unsigned packets but strictly verifies checksums when present.
 
 =back
 
@@ -691,6 +697,25 @@ Classes without C<FREEZE> serialize normally. For a denied class, see
 L</freeze_deny_action>. See L</FREEZE/THAW CALLBACK MECHANISM> for
 callback behavior and input-mutation restrictions.
 
+=head4 allow_classes
+
+Restricts which class names the Encoder may serialize as objects. Accepts
+an array reference of class names, a hash reference with true values for
+allowed names, or a predicate C<< $cb->($classname) >> returning true to
+allow the class. A denied class raises an exception before its C<FREEZE>
+method can run. This applies to ordinary and frozen objects, including
+regexps, which Encoder represents using the C<Regexp> class. With
+C<no_bless_objects>, class names are not serialized and this filter has no
+effect. C<freeze_allow_classes> can further restrict C<FREEZE> calls.
+
+=head4 track_classes
+
+Accepts a hash reference whose values are incremented for each ordinary or
+frozen object tag emitted, keyed by class name. Repeated references to an
+object do not add another count. The Encoder does not clear the hash between
+calls; the caller can reset it or accumulate counts across packets. A failed
+encode may leave partial counts in the hash.
+
 =head4 freeze_deny_action
 
 Action when C<freeze_allow_classes> denies a C<FREEZE> call: C<'croak'>
@@ -701,13 +726,83 @@ normally without calling C<FREEZE>.
 
 Rejects blessed references, including C<qr//> regular-expression
 objects, with an exception. This option is off by default and takes
-precedence over C<no_bless_objects>.
+precedence over C<no_bless_objects>. For new code, use C<refuse_objects>
+instead; C<croak_on_bless> remains for compatibility.
+
+=head4 refuse_objects
+
+Rejects blessed references before serializing them or calling C<FREEZE>,
+except for a C<Regexp> object whose referent is actually a regexp. An
+exempt regexp is serialized without calling C<FREEZE>. This is the Encoder
+counterpart to Decoder's C<refuse_objects>. It takes precedence over
+C<allow_classes> and C<no_bless_objects>. C<croak_on_bless> remains
+available for existing code. C<paranoid> enables C<refuse_objects> unless
+C<allow_classes> is defined.
 
 =head4 max_recursion_depth
 
-Maximum recursion depth, default 10000. The limit is approximate and
+Maximum recursion depth, default 8192. The limit is approximate and
 depends on the structures encountered. Deep recursion can exhaust the C
 stack; raising this limit can cause a crash.
+
+=head4 paranoid
+
+An opt-in preset for encoding data whose object behavior or output policy
+needs tighter control. It changes only defaults; explicit constructor
+settings take precedence, including false and zero values where supported.
+
+=over 4
+
+=item * Authentication: C<checksum_policy> defaults to C<'require_key'>.
+Construction requires C<checksum_key> or a configured default key, and
+every packet carries a checksum. A package-level policy default cannot
+silently weaken this rule. To permit unsigned output, explicitly set
+C<checksum_policy =E<gt> 'allow_unsigned'>. With a key configured, the
+Encoder still emits a checksum. To suppress a configured key as well, also
+set C<checksum_mode =E<gt> 'none'>. C<checksum_mode =E<gt> 'none'> alone
+conflicts with the paranoid checksum requirement.
+
+=item * Objects: C<refuse_objects> is enabled unless C<allow_classes> is
+defined. A real regexp in the canonical C<Regexp> class is exempt from
+C<refuse_objects>. A defined C<allow_classes> list filters all serialized
+object classes, including regexps; an empty list permits none. An allowed
+class is not necessarily safe to encode.
+
+=item * FREEZE: The preset does not enable callbacks. C<freeze_callbacks>
+or C<freeze_allow_classes> explicitly enables C<FREEZE> support. The latter
+also filters which classes may run it; C<allow_classes> is checked first.
+Callbacks can run application code.
+
+=item * Floats: C<use_standard_double> is enabled, so output uses at most
+IEEE double precision. This may lose extended precision. Explicit
+C<use_standard_double =E<gt> 0> restores wider output, which is portable
+binary128 under protocol v7 with C<float_type =E<gt> 'std'>. Explicit
+C<float_type =E<gt> 'native'> also overrides the preset and may use a
+native representation on long-double Perls. Older protocols have their
+own float portability limits.
+
+=item * Depth and configuration: C<max_recursion_depth> defaults to 2048
+and unknown constructor options are errors. Explicit
+C<max_recursion_depth> and C<unknown_option_policy> settings override
+these defaults. The recursion count is approximate and cannot guarantee
+safety on every C stack.
+
+=back
+
+For example, an application that deliberately emits unsigned packets can
+say:
+
+  my $encoder = Sereal::Encoder->new({
+      paranoid => 1,
+      checksum_policy => 'allow_unsigned',
+      checksum_mode => 'none',
+  });
+
+Encoding can still invoke application code through tied values and magic.
+A checksum authenticates possession of a key, not the safety of the data
+or its classes. Future releases may add restrictions to C<paranoid> when
+needed for security; specify explicit options where the exact policy must
+remain stable. See L</SECURITY>.
 
 =head4 unknown_option_policy
 
@@ -1264,8 +1359,10 @@ module startup they initialize C<$Sereal::ChecksumPolicy> and
 C<$Sereal::Encoder::ChecksumPolicy> when those variables are undefined.
 The constructor option overrides the Encoder-specific package variable,
 which overrides the shared package variable. If none is defined, the
-policy is C<'verify-if-available'>. Invalid values cause construction to
-fail. Existing objects and recursive clones retain their configured
+ordinary policy is C<'verify-if-available'>. C<paranoid> uses
+C<'require_key'> unless an explicit constructor policy is supplied, even
+when a package policy default exists. Invalid values cause construction
+to fail. Existing objects and recursive clones retain their configured
 policy.
 
 =head1 SECURITY
