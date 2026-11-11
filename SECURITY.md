@@ -26,6 +26,13 @@ It does not make the resulting values trustworthy. Some implementations can
 invoke application code while decoding objects or when decoded values are
 destroyed.
 
+For the Perl implementation, reports about the safety of handling untrusted
+input should state whether `paranoid` mode was enabled and list any overrides.
+We assess security claims against `paranoid` mode and its documented controls.
+Using Sereal without that mode assumes some trust in the serialized data.
+Class allowlists narrow which objects can be handled, but do not make an
+allowed class safe to encode or decode.
+
 Protocol version 6 can carry a keyed checksum in implementations that support
 it. Authentication requires a matching secret key and a decoder policy that
 rejects unsigned or unverifiable packets. Checksums do not encrypt data or

@@ -208,8 +208,16 @@ jobs:
 
       - name: Install 32-bit build tools
         run: |
+          # Cloud-init can replace ubuntu.sources while the runner starts.
+          sudo cloud-init status --wait
           sudo dpkg --add-architecture i386
-          sudo apt-get update
+          # The Noble runner's deb822 sources may list only amd64. Add i386
+          # there too so apt can find libcrypt-dev:i386. Use a signed Ubuntu
+          # mirror whose DNS is separate from the runner's Ubuntu mirrors.
+          sudo sed -i 's/^Architectures: amd64$/Architectures: amd64 i386/' /etc/apt/sources.list.d/ubuntu.sources
+          sudo sed -i 's|^URIs: mirror+file:/etc/apt/apt-mirrors.txt$|URIs: https://mirrors.edge.kernel.org/ubuntu|' /etc/apt/sources.list.d/ubuntu.sources
+          sudo apt-get update -o APT::Update::Error-Mode=any
+          grep -q '^URIs: https://mirrors.edge.kernel.org/ubuntu$' /etc/apt/sources.list.d/ubuntu.sources
           sudo apt-get install -y --no-install-recommends \
             gcc-multilib libc6-dev-i386 libcrypt-dev:i386
           cpanm --notest App::perlbrew Devel::PatchPerl

@@ -477,7 +477,8 @@ behavior.
 =head4 checksum_policy
 
 Controls checksum verification and whether unsigned input is accepted.
-The default is C<'verify-if-available'>. Accepted values are:
+The normal default is C<'verify-if-available'>; C<paranoid> defaults to
+C<'require_key'>. Accepted values are:
 
 =over 4
 
@@ -487,7 +488,8 @@ Otherwise warn and decode without authentication.
 
 =item * C<'die'> - reject checksummed packets that cannot be verified,
 including unsupported checksum types, missing keys and invalid tags.
-Unsigned packets are accepted.
+Unsigned packets are accepted. C<'allow_unsigned'> is an alias with a
+more descriptive name.
 
 =item * C<'require_key'> - require a key at construction and reject
 every packet that is unsigned or cannot be verified. C<'require'> and
@@ -531,8 +533,11 @@ checksum type; the suffix does not restrict accepted input.
 
 =head4 refuse_objects
 
-Rejects objects with an exception. This option is off by default. See
+Rejects objects with an exception, except for a C<Regexp> object whose
+decoded referent is actually a regexp. A packet merely claiming the
+C<Regexp> class is rejected. This option is off by default. See
 L</ROBUSTNESS> for object-handling considerations.
+C<paranoid> enables it unless C<allow_classes> is defined.
 
 =head4 no_bless_objects
 
@@ -544,7 +549,7 @@ is off by default. See C<no_thaw_objects> to prevent C<THAW> callbacks.
 Returns frozen objects as argument arrays blessed into
 C<Sereal::Decoder::THAW_args> instead of calling C<THAW>. This option is
 off by default. See L</FREEZE/THAW CALLBACK MECHANISM> for the array
-layout.
+layout. C<paranoid> enables it unless C<thaw_allow_classes> is defined.
 
 =head4 thaw_allow_classes
 
@@ -554,14 +559,14 @@ a predicate C<< $cb->($classname) >> called once per frozen object and
 returning true to allow the call. Without this option, all classes are
 allowed.
 
-C<allowed_classes>, when set, is checked first. A class must pass both
+C<allow_classes>, when set, is checked first. A class must pass both
 filters before C<THAW> is invoked.
 
 For a denied class, see L</thaw_deny_action>. This option has no effect
 when C<refuse_objects> or C<no_thaw_objects> prevents thawing. See
 L</FREEZE/THAW CALLBACK MECHANISM> for callback behavior.
 
-=head4 allowed_classes
+=head4 allow_classes
 
 Restricts the classes that may be decoded as objects. Accepts an array
 reference of class names, a hash reference with true values for allowed
@@ -569,9 +574,24 @@ names, or a predicate C<< $cb->($classname) >> returning true to allow
 the class. An unlisted class raises an exception. Without this option,
 all classes are allowed. This filter applies to ordinary and frozen
 objects; C<thaw_allow_classes> can further restrict C<THAW> calls.
-C<refuse_objects> rejects all serialized objects regardless of this list.
+C<paranoid> refuses objects when this option is absent, except for its
+genuine regexp exception.
+C<refuse_objects> takes precedence over this list, except for its genuine
+C<Regexp> exception.
 C<no_bless_objects> skips the check for ordinary objects because they are
 not blessed.
+
+C<allowed_classes> is accepted as a compatibility alias for this option.
+Specify only one name per constructor call.
+
+=head4 track_classes
+
+Accepts a hash reference whose values are incremented for each ordinary or
+frozen object tag decoded, keyed by class name. Repeated references to an
+object do not add another count. The Decoder does not clear the hash between
+calls; the caller can reset it or accumulate counts across packets. Classes
+are counted even with C<no_bless_objects> or C<no_thaw_objects>. A failed
+decode may leave partial counts in the hash.
 
 =head4 thaw_deny_action
 
@@ -583,6 +603,10 @@ blessed into C<Sereal::Decoder::THAW_args>, as C<no_thaw_objects> does.
 
 Rejects Snappy-compressed documents. This option is off by default.
 
+=head4 refuse_zlib
+
+Rejects zlib-compressed documents. This option is off by default.
+
 =head4 refuse_zstd
 
 Rejects Zstd-compressed documents. This option is off by default.
@@ -590,13 +614,72 @@ Rejects Zstd-compressed documents. This option is off by default.
 =head4 validate_utf8
 
 Rejects invalid UTF-8 byte sequences in text strings. This option is off
-by default. Enable it when input must contain valid UTF-8.
+by default and enabled by C<paranoid>. Enable it explicitly when input
+must contain valid UTF-8 outside that preset.
 
 =head4 max_recursion_depth
 
-Maximum recursion depth, default 10000. The limit is approximate and
+Maximum recursion depth, default 8192. The limit is approximate and
 depends on the structures encountered. Deep recursion can exhaust the C
 stack; raising this limit can cause a crash. See L</ROBUSTNESS>.
+
+=head4 paranoid
+
+An opt-in preset for decoding input whose producer or resource use is not
+fully trusted. It changes only defaults; an explicit constructor setting
+takes precedence, including false and zero values where supported.
+
+=over 4
+
+=item * Authentication: C<checksum_policy> defaults to C<'require_key'>.
+Construction requires C<checksum_key> or a configured default key, and
+decoding rejects unsigned or unverifiable packets. A package-level policy
+default cannot silently weaken this rule. To accept unsigned input,
+explicitly set C<checksum_policy =E<gt> 'allow_unsigned'>. That policy
+still rejects checksummed input it cannot verify. C<'ignore'> explicitly
+skips verification, even when a key is present.
+
+=item * Objects: C<refuse_objects> is enabled unless C<allow_classes>
+is defined. A real regexp in the canonical C<Regexp> class is exempt from
+C<refuse_objects>. A defined C<allow_classes> list filters both ordinary
+and frozen objects, including regexps; an empty list permits none.
+Permitted classes can still have unsafe methods or destructors.
+
+=item * THAW: C<no_thaw_objects> is enabled unless C<thaw_allow_classes>
+is defined. To run C<THAW> under this preset, the class must pass both
+C<allow_classes> and C<thaw_allow_classes>, or the caller must explicitly
+set C<no_thaw_objects =E<gt> 0> and allow the object through the other
+applicable controls. C<no_bless_objects> alone does not prevent C<THAW>.
+
+=item * Resources: C<max_recursion_depth> defaults to 2048,
+C<max_uncompressed_size> to 256 MiB, C<max_string_length> to 64 MiB,
+C<max_num_array_entries> to 1,000,000, and C<max_num_hash_entries> to
+250,000. Explicit zero disables the size and entry-count caps. Undefined
+values retain these preset limits. C<max_uncompressed_size> applies to
+compressed input, not the total size of an uncompressed packet.
+The recursion count is approximate and cannot guarantee safety on every
+C stack.
+
+=item * Validation: C<validate_utf8> is enabled and unknown constructor
+options are errors. Explicit C<validate_utf8> and
+C<unknown_option_policy> settings override these defaults.
+
+=back
+
+For example, an application that accepts unsigned packets but wants the
+other paranoid controls can say:
+
+  my $decoder = Sereal::Decoder->new({
+      paranoid => 1,
+      checksum_policy => 'allow_unsigned',
+  });
+
+This preset cannot guarantee that decoding untrusted input is safe. A
+checksum authenticates possession of a key, not the safety of the data or
+its classes. Set application-specific limits and validate decoded values.
+Future releases may add restrictions to C<paranoid> when needed for
+security; specify explicit options where the exact policy must remain
+stable.
 
 =head4 max_num_hash_entries
 
@@ -1071,8 +1154,10 @@ C<$Sereal::Decoder::ChecksumPolicy> when those variables are undefined.
 
 The constructor option overrides the Decoder-specific package variable,
 which overrides the shared package variable. If none is defined, the
-policy is C<'verify-if-available'>. Invalid values cause construction to
-fail. Existing objects and recursive clones retain their configured
+ordinary policy is C<'verify-if-available'>. C<paranoid> uses
+C<'require_key'> unless an explicit constructor policy is supplied, even
+when a package policy default exists. Invalid values cause construction
+to fail. Existing objects and recursive clones retain their configured
 policy.
 
 =head1 ROBUSTNESS
@@ -1091,15 +1176,21 @@ attacker-influenced sources as hostile input, keep Sereal::Decoder updated, and
 do not use successful decoding as a substitute for validating the resulting
 values in the application.
 
+Security assessments should state whether C<paranoid> was enabled and list
+any settings that override it. Without C<paranoid>, callers must trust the
+packet producer enough to accept the Decoder's ordinary object and resource
+defaults, or configure those controls explicitly.
+
 Decoding can consume substantial CPU and memory even when a packet is valid.
 The resource limits below default to unlimited (zero):
 C<max_num_hash_entries>, C<max_num_array_entries>, C<max_string_length>,
 and C<max_uncompressed_size>. Set limits appropriate to the application when
 decoding data whose size or producer is not controlled. The recursion limit
-defaults to 10000, which can still be too high for some Perl builds; lower it
-when appropriate. These decoder limits do not replace process-level CPU and
-memory limits. In particular, a checksum does not limit the cost of decoding
-a packet from someone who knows the key.
+defaults to 8192, which can still be too high for some Perl builds; lower it
+when appropriate, or use the C<paranoid> preset. These decoder limits do not
+replace process-level CPU and memory limits. In particular, a checksum
+does not limit the cost of decoding a packet from someone who knows the
+key.
 
 Protocol version 6 checksums authenticate only packets that use a checksum
 envelope. The default policy verifies when the matching key is configured;
