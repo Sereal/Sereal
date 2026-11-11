@@ -1,6 +1,10 @@
 use strict;
 use Test::More;
-plan $^O eq 'MSWin32' ? ( skip_all => 'main thread stack is 1-2 MiB' ) : ( tests => 2 );
+# Both native Windows and Cygwin use an executable-defined main thread stack.
+# This deliberately deep test needs more stack than their Perl builds may have.
+plan $^O eq 'MSWin32' || $^O eq 'cygwin'
+    ? ( skip_all => 'main thread stack may be too small for 9999 hashes' )
+    : ( tests => 2 );
 
 use Sereal::Decoder;
 
