@@ -13,6 +13,21 @@
 #include "srl_protocol.h"
 #include "srl_siphash.h"
 
+/* new() marks its handle; a blessed integer from elsewhere is not one. */
+static MGVTBL srl_handle_vtbl;
+static int
+srl_is_handle(SV *sv)
+{
+    MAGIC *mg;
+    if (SvTYPE(sv) < SVt_PVMG)
+        return 0;
+    for (mg = SvMAGIC(sv); mg; mg = mg->mg_moremagic)
+        if (mg->mg_type == PERL_MAGIC_ext && mg->mg_virtual == &srl_handle_vtbl)
+            return 1;
+    return 0;
+}
+#define SRL_IS_HANDLE(sv) srl_is_handle(sv)
+
 #ifndef GvCV_set
 # define GvCV_set(gv, cv) (GvCV(gv) = (cv))
 #endif
@@ -124,7 +139,8 @@ THX_pp1_sereal_decode(pTHX_ U8 opopt)
           (decoder_sv = SvRV(decoder_ref_sv)) &&
           SvOBJECT(decoder_sv) &&
           (stash_name = HvNAME(SvSTASH(decoder_sv))) &&
-          !strcmp(stash_name, "Sereal::Decoder")
+          !strcmp(stash_name, "Sereal::Decoder") &&
+          SRL_IS_HANDLE(decoder_sv)
        ))
     {
         croak("handle is not a Sereal::Decoder handle");

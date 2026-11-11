@@ -14,6 +14,21 @@
 #include "srl_protocol.h"
 #include "srl_siphash.h"
 
+/* new() marks its handle; a blessed integer from elsewhere is not one. */
+static MGVTBL srl_handle_vtbl;
+static int
+srl_is_handle(SV *sv)
+{
+    MAGIC *mg;
+    if (SvTYPE(sv) < SVt_PVMG)
+        return 0;
+    for (mg = SvMAGIC(sv); mg; mg = mg->mg_moremagic)
+        if (mg->mg_type == PERL_MAGIC_ext && mg->mg_virtual == &srl_handle_vtbl)
+            return 1;
+    return 0;
+}
+#define SRL_IS_HANDLE(sv) srl_is_handle(sv)
+
 /* Generated code for exposing C constants to Perl */
 #include "ptable.h"
 
@@ -49,7 +64,8 @@ THX_pp1_sereal_encode_with_object(pTHX_ U8 has_hdr)
         (encoder_sv = SvRV(encoder_ref_sv)) &&
         SvOBJECT(encoder_sv) &&
         (stash_name= HvNAME(SvSTASH(encoder_sv))) &&
-        !strcmp(stash_name, "Sereal::Encoder")
+        !strcmp(stash_name, "Sereal::Encoder") &&
+        SRL_IS_HANDLE(encoder_sv)
      ))
   {
     croak("handle is not a Sereal::Encoder handle");

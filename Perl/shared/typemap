@@ -1,6 +1,6 @@
 # O_OBJECT	-> link an opaque C or C++ object to a blessed Perl object.
-srl_encoder_t * O_OBJECT
-srl_decoder_t * O_OBJECT
+srl_encoder_t * O_SRL_HANDLE
+srl_decoder_t * O_SRL_HANDLE
 srl_merger_t  * O_OBJECT
 srl_path_t    * O_OBJECT
 srl_iterator_t * O_OBJECT
@@ -19,6 +19,10 @@ OUTPUT
 O_OBJECT
 	sv_setref_pv( $arg, CLASS, (void*)$var );
 
+O_SRL_HANDLE
+	sv_setref_pv( $arg, CLASS, (void*)$var );
+	sv_magicext( SvRV($arg), NULL, PERL_MAGIC_ext, &srl_handle_vtbl, NULL, 0 );
+
 ######################################################################
 INPUT
 
@@ -27,5 +31,13 @@ O_OBJECT
 		$var = INT2PTR($type, SvIV((SV*)SvRV( $arg )));
 	else{
 		warn( \"${Package}::$func_name() -- $var is not a blessed SV reference\" );
+		XSRETURN_UNDEF;
+	}
+
+O_SRL_HANDLE
+	if( sv_isobject($arg) && SRL_IS_HANDLE(SvRV($arg)) )
+		$var = INT2PTR($type, SvIV((SV*)SvRV( $arg )));
+	else{
+		warn( \"${Package}::$func_name() -- $var is not a ${Package} handle\" );
 		XSRETURN_UNDEF;
 	}
