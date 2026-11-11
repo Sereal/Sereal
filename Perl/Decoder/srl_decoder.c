@@ -48,6 +48,7 @@ extern "C" {
 #endif
 
 #define DEFAULT_MAX_RECUR_DEPTH 10000
+#define DEFAULT_MAX_UNCOMPRESSED_SIZE (256 * 1024 * 1024)
 
 #if !defined(HAVE_CSNAPPY)
 # include "snappy/csnappy_decompress.c"
@@ -309,7 +310,7 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
     dec->max_num_hash_entries = 0;
     dec->max_num_array_entries = 0;
     dec->max_string_length = 0;
-    dec->max_uncompressed_size = 0;
+    dec->max_uncompressed_size = DEFAULT_MAX_UNCOMPRESSED_SIZE;
 
     SRL_RDR_CLEAR(&dec->buf);
     dec->pbuf = &dec->buf;
@@ -451,7 +452,10 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
                     dec->max_string_length = srl_limit_option_uv(aTHX_ val, "max_string_length");
                     break;
                 case SRL_DEC_OPT_IDX_MAX_UNCOMPRESSED_SIZE:
-                    dec->max_uncompressed_size = srl_limit_option_uv(aTHX_ val, "max_uncompressed_size");
+                    if (SvGMAGICAL(val))
+                        val = sv_2mortal(newSVsv(val));
+                    if (SvOK(val))
+                        dec->max_uncompressed_size = srl_limit_option_uv(aTHX_ val, "max_uncompressed_size");
                     break;
                 case SRL_DEC_OPT_IDX_NO_THAW_OBJECTS:
                     no_thaw_set = 1;

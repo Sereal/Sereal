@@ -63,7 +63,7 @@ foreach my $case (
     )
 {
     my ( $name,   $packet ) = @$case;
-    my ( $status, $out )    = decode_in_child($packet);
+    my ( $status, $out )    = decode_in_child( $packet, "max_uncompressed_size => 0" );
     is( $status, 0, "$name: decoder process survives" );
 
     # Match a line rather than the whole output: allocator diagnostics such

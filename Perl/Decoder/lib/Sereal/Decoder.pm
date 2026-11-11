@@ -602,8 +602,8 @@ resource limits.
 
 =head4 max_uncompressed_size
 
-Maximum uncompressed document size in bytes. Zero means unlimited (the
-default). Input exceeding the limit is rejected. See L</ROBUSTNESS> for
+Maximum uncompressed document size in bytes, default 256 MiB (268435456).
+Zero means unlimited; undef keeps the default. Input exceeding the limit is rejected. See L</ROBUSTNESS> for
 resource limits.
 
 =head4 undef_deadly_policy
@@ -1078,8 +1078,8 @@ values in the application.
 
 Decoding can consume substantial CPU and memory even when a packet is valid.
 The resource limits below default to unlimited (zero):
-C<max_num_hash_entries>, C<max_num_array_entries>, C<max_string_length>, and
-C<max_uncompressed_size>. Set limits appropriate to the application when
+C<max_num_hash_entries>, C<max_num_array_entries>, and C<max_string_length>.
+C<max_uncompressed_size> defaults to 256 MiB. Set limits appropriate to the application when
 decoding data whose size or producer is not controlled. The recursion limit
 defaults to 10000, which can still be too high for some Perl builds; lower it
 when appropriate. These decoder limits do not replace process-level CPU and
