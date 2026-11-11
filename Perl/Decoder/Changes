@@ -10,7 +10,7 @@ Revision history for Perl extension Sereal-Decoder
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
-7.001_004
+7.002
     * Add an opt-in paranoid preset for authenticated input, bounded
       decompression and container sizes, UTF-8 validation, restricted
       object blessing and THAW, and a recursion limit of 2048. Explicit
@@ -19,24 +19,14 @@ Revision history for Perl extension Sereal-Decoder
       track_classes for per-class object counts. Permit genuine Regexp
       objects through refuse_objects unless an allowlist excludes them.
     * Add allow_unsigned as an explicit checksum-policy opt-out. Lower
-      the normal recursion limit from 10000 to 8192. Clarify the trust
-      assumptions and limits of paranoid mode in the documentation.
-
-7.001_003
+      the normal recursion limit from 10000 to 8192, or 4096 on Cygwin.
+      Clarify the trust assumptions and limits of paranoid mode.
     * Balance custom-op argument and result references on Perl builds
       with PERL_RC_STACK.
-    * Recognize native binary64 in declaration tests on older Perls
-      without pack D or longdblkind, including macOS Perl 5.20.3.
-
-7.001_002
-    * Dump hobodecoder packet bytes in Perl without od.
-    * Make child-process regression tests portable on Windows.
-
-7.001_001
-    * Identify native long-double layouts correctly in tests on older
-      FreeBSD Perls whose pack D size differs from C long double.
-    * Bound the randomized Decoder stress test and reduce its TAP memory
-      use while covering both v1 and v2 packets.
+    * Fix native floating-point declaration tests on older FreeBSD and
+      macOS Perls. Remove hobodecoder's od dependency and make child
+      tests portable on Windows. Bound randomized test runtime and TAP
+      memory use, and adapt deep-recursion tests to Cygwin's stack.
 
 7.001
     * Read protocol versions 1 through 7. Decode portable little-endian

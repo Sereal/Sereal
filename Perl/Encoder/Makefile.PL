@@ -6,7 +6,7 @@ use warnings;
 use ExtUtils::MakeMaker;
 use Config;
 
-our $VERSION = '7.001_004';    # what version are we and what version of Decoder do we need.
+our $VERSION = '7.002';    # what version are we and what version of Decoder do we need.
 $VERSION = eval $VERSION or die "WTF: $VERSION: $@";    # deal with underbars
 
 my $shared_dir        = "../shared";
