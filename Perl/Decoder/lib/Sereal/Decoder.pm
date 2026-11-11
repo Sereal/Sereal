@@ -1097,19 +1097,11 @@ encryption, do not prevent replay, and do not make data safe to deserialize
 when the key holder is malicious or compromised. Packets without a checksum
 have no cryptographic integrity check provided by Sereal.
 
-Only deserialize objects from a producer you trust to choose their classes
-and contents. A packet can name a loaded class and create a blessed value
-without running its constructor. Perl has no general way for Sereal to tell
-whether that value needs native XS state that was never serialized. Methods
-and destructors on such an object may then fail or run application code.
-Use C<refuse_objects> when objects are not expected, or C<no_bless_objects>
-to leave ordinary object values unblessed. For frozen objects,
-C<no_thaw_objects> prevents C<THAW> calls, while C<thaw_allow_classes> can
-restrict which classes may run them. C<no_thaw_objects> does not suppress
-destructors on ordinary blessed objects. Do not assume that disabling module
-autoloading makes callbacks safe: already loaded classes can still have their
-C<THAW> methods invoked unless these controls are used. See
-L</FREEZE/THAW CALLBACK MECHANISM> for details.
+Accepting serialized objects is inherently insecure and requires trusting
+the producer of the packet. Use C<refuse_objects> to reject objects or
+C<no_bless_objects> to decode ordinary objects without blessing them. For
+frozen objects, C<no_thaw_objects> and C<thaw_allow_classes> control C<THAW>
+callbacks. See L</FREEZE/THAW CALLBACK MECHANISM> for details.
 
 =head1 FREEZE/THAW CALLBACK MECHANISM
 
