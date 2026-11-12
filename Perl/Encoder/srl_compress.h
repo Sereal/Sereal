@@ -45,11 +45,18 @@
 #endif
 
 /* Include the space reserved for the compressed-length varints. Compute in
- * U64 because both bundled Snappy and miniz can wrap their 32-bit bounds. */
-SRL_STATIC_INLINE U64
+ * a wide type because both bundled Snappy and miniz can wrap their 32-bit
+ * bounds. U64 is absent on some 32-bit Perls even when C has long long. */
+#ifdef HAS_LONG_LONG
+typedef unsigned long long srl_compress_bound_t;
+#else
+typedef U64 srl_compress_bound_t;
+#endif
+
+SRL_STATIC_INLINE srl_compress_bound_t
 srl_compress_bound(STRLEN source_len, U32 compress_flags)
 {
-    const U64 len = (U64)source_len;
+    const srl_compress_bound_t len = (srl_compress_bound_t)source_len;
 
     if (compress_flags & (SRL_F_COMPRESS_SNAPPY | SRL_F_COMPRESS_SNAPPY_INCREMENTAL)) {
         return 32 + len + len / 6
@@ -57,10 +64,11 @@ srl_compress_bound(STRLEN source_len, U32 compress_flags)
     } else if (!(compress_flags & SRL_F_COMPRESS_ZSTD)) {
         /* Mirror miniz's two bounds in a wide type, and allow an external
          * miniz implementation to return a larger bound. */
-        const U64 bound1 = 128 + (len * 110) / 100;
-        const U64 bound2 = 128 + len + ((len / (31 * 1024)) + 1) * 5;
-        const U64 miniz_bound = (U64)mz_compressBound((mz_ulong)source_len);
-        const U64 bound = bound1 > bound2 ? bound1 : bound2;
+        const srl_compress_bound_t bound1 = 128 + (len * 110) / 100;
+        const srl_compress_bound_t bound2 = 128 + len + ((len / (31 * 1024)) + 1) * 5;
+        const srl_compress_bound_t miniz_bound =
+            (srl_compress_bound_t)mz_compressBound((mz_ulong)source_len);
+        const srl_compress_bound_t bound = bound1 > bound2 ? bound1 : bound2;
         return (bound > miniz_bound ? bound : miniz_bound) + 2 * SRL_MAX_VARINT_LENGTH;
     }
     return 0; /* zstd uses a size_t bound and has no 32-bit output limit */
