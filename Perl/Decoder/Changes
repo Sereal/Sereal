@@ -10,6 +10,9 @@ Revision history for Perl extension Sereal-Decoder
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.002_001
+    * Build issues on 32 bit perls, and x86 Darwin
+
 7.002
     * Add an opt-in paranoid preset for authenticated input, bounded
       decompression and container sizes, UTF-8 validation, restricted

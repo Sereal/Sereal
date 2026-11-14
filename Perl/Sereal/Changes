@@ -16,6 +16,9 @@ from the the Encoder and Decoder changelogs:
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.002_001
+    * Build issues on 32 bit perls, and x86 Darwin
+
 7.002
     * Add opt-in paranoid presets for Decoder and Encoder with stricter
       checksum, object and resource defaults; explicit options retain

@@ -10,6 +10,9 @@ Revision history for Perl extension Sereal-Encoder
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.002_001
+    * Build issues on 32 bit perls, and x86 Darwin
+
 7.002
     * Add an opt-in paranoid preset that requires a checksum key, uses
       IEEE double output, refuses objects by default, rejects unknown
