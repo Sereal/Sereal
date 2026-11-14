@@ -50,8 +50,12 @@ if ( !defined($native) ) {
             && $Config{longdblsize} == length( $case->[2] );
     }
 }
-# Older Perls may lack pack D and longdblkind on a known x86 ABI.
-if ( !defined($native) && $Config{archname} =~ /^(?:amd64|x86_64|i[3-6]86)-/
+# Older Perls may lack pack D and longdblkind on a known x86 ABI. Darwin's
+# archname omits the CPU, so use its uname to recognize that ABI as well.
+if ( !defined($native)
+    && ( $Config{archname} =~ /^(?:amd64|x86_64|i[3-6]86)-/
+        || ( $Config{osname} eq 'darwin'
+            && ( $Config{uname} || '' ) =~ /\b(?:x86_64|i[3-6]86)\b/ ) )
     && ( $Config{longdblsize} == 12 || $Config{longdblsize} == 16 ) )
 {
     $format = 2;
