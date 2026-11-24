@@ -10,6 +10,13 @@ Revision history for Perl extension Sereal-Encoder
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.004
+    * Update bundled zstd to 1.6.0, including upstream security fixes.
+    * Update bundled miniz to 3.1.2.
+    * Clarify checksum helper arguments, defaults and return values.
+      Document the helpers as exportable functions after the methods.
+      Explain when changes to defaults affect functions and objects.
+
 7.003
     * Restore compilation on Perl builds without a U64 typedef,
       including reported 32-bit and older-Perl configurations.

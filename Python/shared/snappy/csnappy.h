@@ -16,7 +16,12 @@ extern "C" {
 #ifndef __GNUC__
 #define __attribute__(x) /*NOTHING*/
 #endif
-#include <stdint.h>
+
+#if defined(__SUNPRO_C) || defined(_AIX)
+# include <inttypes.h>
+#else
+# include <stdint.h>
+#endif
 
 /*
  * Returns the maximal size of the compressed representation of

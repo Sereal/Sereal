@@ -1,0 +1,22 @@
+#!/bin/bash
+set -euo pipefail
+
+# Regenerate from a tagged release, excluding local and unreleased changes.
+# Usage: ./update_miniz [upstream-repository [release-tag]]
+# By default scratch files stay in the workspace's sibling tmp directory.
+# Set TMPDIR to override this location.
+perl_dir=$(cd -- "$(dirname -- "$0")" && pwd)
+repo=${1:-"$perl_dir/../../miniz"}
+version=${2:-3.1.2}
+tmp_root=${TMPDIR:-"$perl_dir/../../tmp"}
+mkdir -p "$tmp_root"
+tmpdir=$(mktemp -d "$tmp_root/miniz.XXXXXXXX")
+trap 'rm -rf -- "$tmpdir"' EXIT
+
+mkdir "$tmpdir/source"
+git -C "$repo" archive "$version" | tar -x -C "$tmpdir/source"
+cmake -S "$tmpdir/source" -B "$tmpdir/build" \
+    -DAMALGAMATE_SOURCES=ON -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF \
+    -DINSTALL_PROJECT=OFF
+cp "$tmpdir/build/amalgamation/miniz.c" "$perl_dir/shared/miniz.c"
+cp "$tmpdir/build/amalgamation/miniz.h" "$perl_dir/shared/miniz.h"

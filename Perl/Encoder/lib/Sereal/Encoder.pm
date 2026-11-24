@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION    = '7.003';
+our $VERSION    = '7.004';
 our $XS_VERSION = $VERSION; $VERSION = eval $VERSION;
 
 our $ChecksumPolicy;
@@ -220,41 +220,6 @@ For more information on getting the best performance out of Sereal, have a look
 at the L</"PERFORMANCE"> section below.
 
 =head1 CLASS METHODS
-
-=head2 prepare_checksum_key
-
-  my $key16 = Sereal::Encoder::prepare_checksum_key($key);
-  my $key16 = Sereal::Encoder::prepare_checksum_key($key, $opt_key);
-  my $empty_key16 = Sereal::Encoder::prepare_checksum_key();
-
-Returns a deterministic 16-byte normalization of a byte string. It first
-computes SipHash-2-4-128 of C<Out damned spot!> followed by the optional
-C<$opt_key>, using C<Call me Ishmael.> as its 16-byte key. It then uses that
-result as the key to SipHash-2-4-128 of C<Luke, I am your father.> followed by
-C<$key>. Both arguments default to the empty string. This is a convenience for
-producing the required checksum-key size; it does not add entropy or replace a
-password KDF. Pass the returned value as C<checksum_key_v1>,
-C<checksum_key_v2>, or C<checksum_key_v3> to both encoder and decoder.
-
-=head2 siphash24, siphash24_128 and siphash36_128
-
-  my $tag8  = Sereal::Encoder::siphash24($bytes, $key16);
-  my $tag16 = Sereal::Encoder::siphash24_128($bytes, $key16);
-  my $tag16 = Sereal::Encoder::siphash36_128($bytes, $key16);
-  my $tag16_default = Sereal::Encoder::siphash36_128($bytes);
-
-Compute a raw SipHash tag for a byte string and an exactly 16-byte key.
-C<siphash24()> returns the eight-byte SipHash-2-4 result,
-C<siphash24_128()> returns the 16-byte SipHash-2-4-128 result, and C<siphash36_128()>
-returns the 16-byte SipHash-3-6-128 result. Each helper accepts an omitted key,
-which defaults to sixteen null bytes. Explicit keys must be exactly 16 bytes.
-These low-level helpers are
-provided for tooling that needs to inspect or verify Sereal checksum
-envelopes. The returned values are binary strings.
-
-In SipHash-c-d, c is the compression round count per message block and d is
-the round count in each finalization stage. The 128 suffix specifies the tag
-size. See the authors' L<SipHash variant documentation|https://github.com/veorq/SipHash#variants>.
 
 =head2 new
 
@@ -844,6 +809,9 @@ Dies if any errors occur during writing the encoded data.
 
 =head1 EXPORTABLE FUNCTIONS
 
+You can import these functions by name or call them with their full package
+names, as shown below.
+
 =head2 sereal_encode_with_object
 
 The functional interface that is equivalent to using C<encode>. Takes an
@@ -863,6 +831,10 @@ by a hash reference of options (see documentation for C<new()>).
 This function cannot be used for encoding a data structure with a header.
 See C<encode_sereal_with_header_data>.
 
+Each call creates a new encoder. Options you omit use the defaults set at
+the time of the call. Changing a default does not change an existing
+encoder object, including one passed to C<sereal_encode_with_object>.
+
 This functional interface is significantly slower than the OO interface since
 it cannot reuse the encoder object.
 
@@ -872,8 +844,56 @@ The functional interface that is equivalent to using C<new> and C<encode>.
 Expects a data structure and a header to serialize as first and second arguments,
 optionally followed by a hash reference of options (see documentation for C<new()>).
 
+Each call creates a new encoder. Options you omit use the defaults set at
+the time of the call. Changing a default does not change an existing
+encoder object, including one passed to C<sereal_encode_with_object>.
+
 This functional interface is significantly slower than the OO interface since
 it cannot reuse the encoder object.
+
+=head2 prepare_checksum_key
+
+  my $key16 = Sereal::Encoder::prepare_checksum_key($key);
+  my $key16 = Sereal::Encoder::prepare_checksum_key($key, $opt_key);
+  my $empty_key16 = Sereal::Encoder::prepare_checksum_key();
+
+Converts the supplied strings into a 16-byte binary key. Use the result as
+C<checksum_key> in both the encoder and decoder.
+
+Both arguments default to C<''> (the empty string). Passing C<undef> also
+means C<''>. The same arguments always produce the same key. Calling
+C<prepare_checksum_key()> without arguments therefore returns a fixed key,
+not a random one.
+
+This function adjusts the key length. It does not make a weak key stronger
+and should not be used to turn a password into a key. Arguments must contain
+only byte values. A character above 255 causes an exception.
+
+The normalization first computes SipHash-2-4-128 of C<'Out damned spot!'>
+followed by C<$opt_key>, keyed by C<'Call me Ishmael.'>. It then uses that
+result as the key to SipHash-2-4-128 of C<'Luke, I am your father.'> followed
+by C<$key>.
+
+=head2 siphash24, siphash24_128 and siphash36_128
+
+  my $tag8  = Sereal::Encoder::siphash24($bytes, $key16);
+  my $tag16 = Sereal::Encoder::siphash24_128($bytes, $key16);
+  my $tag16 = Sereal::Encoder::siphash36_128($bytes, $key16);
+  my $tag16_default = Sereal::Encoder::siphash36_128($bytes);
+
+Computes a SipHash checksum of C<$bytes> and returns it as a binary string.
+C<siphash24()> returns 8 bytes. C<siphash24_128()> and C<siphash36_128()>
+each return 16 bytes.
+
+If you omit C<$key16>, the key is C<"\0" x 16> (16 zero bytes). These
+functions do not use C<DefaultKey>. Passing C<undef> or a key of any length
+other than 16 bytes causes an exception. A character above 255 in the data
+or key also causes an exception.
+
+The function names identify the SipHash variants: SipHash-2-4,
+SipHash-2-4-128, and SipHash-3-6-128. See the authors'
+L<SipHash variant documentation|https://github.com/veorq/SipHash#variants>
+for the differences between them.
 
 =head1 FLOATING-POINT INTEROPERABILITY
 
@@ -1314,13 +1334,14 @@ below.
 
 =head2 Shared default key
 
-C<$Sereal::DefaultKey> holds raw key bytes shared with the Decoder;
-C<$Sereal::Encoder::DefaultKey> can override the Encoder's default. If
-no checksum key option is present, a defined default supplies the key
-for the selected checksum mode. Checksums require protocol version 6 or
-later. An explicit key option replaces the default configuration;
-explicit C<undef> suppresses it. Only one key may be configured on an
-Encoder.
+If you do not pass a checksum key option, the Encoder uses
+C<$Sereal::Encoder::DefaultKey>. If that is undefined, it uses
+C<$Sereal::DefaultKey>, which is shared with the Decoder. Both variables
+hold key bytes, not hexadecimal text.
+
+A checksum key option overrides both defaults. Passing C<undef> as that
+option prevents the Encoder from using either default. An Encoder can have
+only one key. Checksums require protocol version 6 or later.
 
 The first load of either module initializes C<$Sereal::DefaultKey> from
 C<SEREAL_DEFAULT_KEY>, unless code has already set the package variable.
@@ -1336,14 +1357,20 @@ a weak key stronger.
   local $Sereal::DefaultKey = $key16;
   my $encoder = Sereal::Encoder->new({ checksum_policy => 'require_key' });
 
-New objects copy the current default. Existing objects, including cached
-wrapper objects, retain their keys. Localize the variable to C<undef> to
-disable the default in a scope. The environment is read at module load;
-package defaults are resolved when constructing each object.
+The Encoder copies the default key when you create an object. Changing the
+default later does not change that object's key. This also applies to
+objects kept in the Sereal wrapper's cache.
+
+Setting C<$Sereal::DefaultKey> to C<undef> removes the shared default.
+C<$Sereal::Encoder::DefaultKey> still applies if it is defined. To create an
+object without either default key, pass C<checksum_key =E<gt> undef>.
+
+Environment variables are read when the module loads. To change a default
+after that, set the Perl package variable.
 
 =head2 Default mode
 
-C<SEREAL_CHECKSUM_MODE> sets the shared default for new Encoder objects;
+C<SEREAL_CHECKSUM_MODE> sets the shared default for new Encoder objects.
 C<SEREAL_ENCODER_CHECKSUM_MODE> sets the Encoder-specific default. These
 initialize C<$Sereal::ChecksumMode> and
 C<$Sereal::Encoder::ChecksumMode> at module startup when those variables
@@ -1354,7 +1381,7 @@ C<'v3'>.
 
 =head2 Default policy
 
-C<SEREAL_CHECKSUM_POLICY> sets the shared default;
+C<SEREAL_CHECKSUM_POLICY> sets the shared default.
 C<SEREAL_ENCODER_CHECKSUM_POLICY> sets the Encoder-specific default. At
 module startup they initialize C<$Sereal::ChecksumPolicy> and
 C<$Sereal::Encoder::ChecksumPolicy> when those variables are undefined.

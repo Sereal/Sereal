@@ -145,6 +145,7 @@ typemap
 zstd/common/allocations.h
 zstd/common/bits.h
 zstd/common/bitstream.h
+zstd/common/bmi2.h
 zstd/common/compiler.h
 zstd/common/cpu.h
 zstd/common/debug.c

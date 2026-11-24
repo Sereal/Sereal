@@ -5,7 +5,7 @@ use warnings;
 use Carp qw/croak/;
 use XSLoader;
 
-our $VERSION    = '7.003';
+our $VERSION    = '7.004';
 our $XS_VERSION = $VERSION; $VERSION = eval $VERSION;
 
 our $ChecksumPolicy;
@@ -283,73 +283,6 @@ L<https://github.com/Sereal/Sereal/wiki/Sereal-Comparison-Graphs>.
 
 =head1 CLASS METHODS
 
-=head2 get_sereal_checksum
-
-  my $tag = Sereal::Decoder::get_sereal_checksum($packet);
-  my $hex = defined($tag) ? unpack('H*', $tag) : undef;
-  my $tag = Sereal::Decoder::get_sereal_checksum($stream, $offset);
-
-Returns the raw checksum bytes stored in the envelope, or C<undef> for an
-unsigned packet. It checks framing and declared lengths, including the presence
-of the declared payload, but does not authenticate, decompress, decode, or run
-callbacks. Malformed framing raises an exception. It can inspect an unknown
-checksum type, whose tag length need not be 8 or 16 bytes. Retrieving a tag does
-not establish its validity. Bytes following the declared packet are ignored.
-
-=head2 validate_sereal_checksum
-
-  my $valid = Sereal::Decoder::validate_sereal_checksum($packet);
-  my $valid = Sereal::Decoder::validate_sereal_checksum($packet, $key16);
-  my $valid = Sereal::Decoder::validate_sereal_checksum($stream, $key16, $offset);
-
-Verifies packet authentication without decompressing or decoding its contents.
-Returns true for a valid tag and false for a mismatch or an unsigned packet.
-Malformed framing, unknown checksum types, missing keys for checksummed input,
-and keys of a size other than 16 bytes raise exceptions. An omitted key uses
-C<$Sereal::DefaultKey>; an explicitly undefined key does not supply a key.
-The packet selects the SipHash variant. This function always verifies,
-regardless of C<checksum_policy> or its environment default.
-
-A valid checksum authenticates the protected bytes, not their validity as a
-Sereal value or their suitability for your application. Validation performs
-one MAC pass over the protected bytes. Decoding the packet afterward with
-verification enabled repeats that work. Both checksum functions support custom
-opcodes for direct calls and the same behavior through XSUB calls via code
-references. They can also be imported from the Sereal wrapper.
-
-=head2 prepare_checksum_key
-
-  my $key16 = Sereal::Decoder::prepare_checksum_key($key);
-  my $key16 = Sereal::Decoder::prepare_checksum_key($key, $opt_key);
-  my $empty_key16 = Sereal::Decoder::prepare_checksum_key();
-
-Returns a deterministic 16-byte normalization of a byte string using
-SipHash-2-4-128. It first computes SipHash-2-4-128 of C<Out damned spot!>
-followed by the optional C<$opt_key>, keyed by C<Call me Ishmael.>, then uses
-that result as the key to SipHash-2-4-128 of C<Luke, I am your father.>
-followed by C<$key>. Both arguments default to the empty string. This only
-normalizes the length; it does not add entropy or replace a password KDF.
-
-=head2 siphash24, siphash24_128 and siphash36_128
-
-  my $tag8  = Sereal::Decoder::siphash24($bytes, $key16);
-  my $tag16 = Sereal::Decoder::siphash24_128($bytes, $key16);
-  my $tag16 = Sereal::Decoder::siphash36_128($bytes, $key16);
-  my $tag16_default = Sereal::Decoder::siphash36_128($bytes);
-
-Compute a raw SipHash tag for a byte string and an exactly 16-byte key.
-C<siphash24()> returns the eight-byte SipHash-2-4 result,
-C<siphash24_128()> returns the 16-byte SipHash-2-4-128 result, and C<siphash36_128()>
-returns the 16-byte SipHash-3-6-128 result. Each helper accepts an omitted key,
-which defaults to sixteen null bytes. Explicit keys must be exactly 16 bytes.
-These low-level helpers are
-provided for tooling that needs to inspect or verify Sereal checksum
-envelopes. The returned values are binary strings.
-
-In SipHash-c-d, c is the compression round count per message block and d is
-the round count in each finalization stage. The 128 suffix specifies the tag
-size. See the authors' L<SipHash variant documentation|https://github.com/veorq/SipHash#variants>.
-
 =head2 new
 
 Constructs a decoder object. Optionally takes a hash reference of
@@ -541,15 +474,23 @@ C<paranoid> enables it unless C<allow_classes> is defined.
 
 =head4 no_bless_objects
 
-Decodes ordinary serialized objects without blessing them. This option
-is off by default. See C<no_thaw_objects> to prevent C<THAW> callbacks.
+Decodes ordinary serialized objects as unblessed references. This option
+is off by default.
+
+Setting C<no_bless_objects =E<gt> 1> also stops C<THAW> calls unless you
+explicitly set C<no_thaw_objects =E<gt> 0>. With that combination, ordinary
+objects remain unblessed, but frozen objects can call C<THAW> if the other
+object options allow it.
 
 =head4 no_thaw_objects
 
-Returns frozen objects as argument arrays blessed into
-C<Sereal::Decoder::THAW_args> instead of calling C<THAW>. This option is
-off by default. See L</FREEZE/THAW CALLBACK MECHANISM> for the array
-layout. C<paranoid> enables it unless C<thaw_allow_classes> is defined.
+Skips C<THAW> calls and returns each frozen object's arguments in an array
+blessed into C<Sereal::Decoder::THAW_args>. See
+L</FREEZE/THAW CALLBACK MECHANISM> for the array layout.
+
+This option is off by default. C<no_bless_objects =E<gt> 1> turns it on.
+C<paranoid> also turns it on unless C<thaw_allow_classes> is defined.
+You can override either default with C<no_thaw_objects =E<gt> 0>.
 
 =head4 thaw_allow_classes
 
@@ -646,11 +587,13 @@ C<refuse_objects>. A defined C<allow_classes> list filters both ordinary
 and frozen objects, including regexps; an empty list permits none.
 Permitted classes can still have unsafe methods or destructors.
 
-=item * THAW: C<no_thaw_objects> is enabled unless C<thaw_allow_classes>
-is defined. To run C<THAW> under this preset, the class must pass both
-C<allow_classes> and C<thaw_allow_classes>, or the caller must explicitly
-set C<no_thaw_objects =E<gt> 0> and allow the object through the other
-applicable controls. C<no_bless_objects> alone does not prevent C<THAW>.
+=item * THAW
+
+C<paranoid> disables C<THAW> calls unless you supply
+C<thaw_allow_classes> or explicitly set C<no_thaw_objects =E<gt> 0>.
+The other object controls still apply. C<refuse_objects> prevents the call
+if it is enabled. The class must pass any class filters you have supplied. If you also set C<no_bless_objects =E<gt> 1>, you must explicitly
+set C<no_thaw_objects =E<gt> 0> to permit C<THAW> calls.
 
 =item * Resources: C<max_recursion_depth> defaults to 2048,
 C<max_uncompressed_size> to 256 MiB, C<max_string_length> to 64 MiB,
@@ -907,6 +850,9 @@ function, not as a method (and which is typically much faster).
 
 =head1 EXPORTABLE FUNCTIONS
 
+You can import these functions by name or call them with their full package
+names, as shown below.
+
 =head2 sereal_decode_with_object
 
 The functional interface that is equivalent to using C<decode>. Takes a
@@ -998,6 +944,10 @@ by a hash reference of options (see documentation for C<new()>). Finally,
 C<decode_sereal> supports a third parameter, which is the output scalar
 to write to. See the documentation for C<decode> above for details.
 
+Each call creates a new decoder. Options you omit use the defaults set at
+the time of the call. Changing a default does not change an existing
+decoder object, including one passed to C<sereal_decode_with_object>.
+
 This functional interface is significantly slower than the OO interface since
 it cannot reuse the decoder object.
 
@@ -1009,6 +959,10 @@ by a hash reference of options (see documentation for C<new()>). Finally,
 C<decode_sereal> supports third and fourth parameters, which are the output scalars
 to write to. See the documentation for C<decode_with_header> above for details.
 
+Each call creates a new decoder. Options you omit use the defaults set at
+the time of the call. Changing a default does not change an existing
+decoder object, including one passed to C<sereal_decode_with_object>.
+
 This functional interface is significantly slower than the OO interface since
 it cannot reuse the decoder object.
 
@@ -1019,6 +973,101 @@ The functional interface that is equivalent to using C<looks_like_sereal>.
 Note that this version cannot be called as a method. It is normally executed
 as a custom opcode, as such errors about its usage may be caught at compile
 time, and it should be much faster than looks_like_sereal.
+
+=head2 get_sereal_checksum
+
+  my $tag = Sereal::Decoder::get_sereal_checksum($packet);
+  my $hex = defined($tag) ? unpack('H*', $tag) : undef;
+  my $tag = Sereal::Decoder::get_sereal_checksum($stream, $offset);
+
+Returns the checksum stored in C<$packet> as a binary string. Returns
+C<undef> if the packet has no checksum. To read a packet that starts partway
+through a string, pass its starting byte position as C<$offset>. The default
+is C<0>.
+
+This function reads the stored checksum. It does not check whether that
+checksum is correct and does not need a key. Use
+L</validate_sereal_checksum> to check it.
+
+Invalid packet headers or lengths cause an exception. The complete declared
+payload must be present. Bytes after the packet are ignored. The function
+can read a checksum even if its type is unknown. It does not decompress or
+decode the packet or call C<THAW>.
+
+=head2 validate_sereal_checksum
+
+  my $valid = Sereal::Decoder::validate_sereal_checksum($packet);
+  my $valid = Sereal::Decoder::validate_sereal_checksum($packet, $key16);
+  my $valid = Sereal::Decoder::validate_sereal_checksum($stream, $key16, $offset);
+
+Checks the packet's checksum using C<$key16>. Returns true if the checksum
+matches. Returns false if it does not match or the packet has no checksum.
+The packet specifies which checksum algorithm to use.
+
+If you omit the key, the function uses C<$Sereal::Decoder::DefaultKey>.
+If that variable is undefined, it uses C<$Sereal::DefaultKey>. It reads these
+variables each time you call it, so changes take effect on the next call.
+Passing C<undef> as the key prevents it from using either default.
+
+C<$offset> is the packet's starting byte position in the input string.
+It defaults to C<0>.
+
+The function throws an exception if the packet header or lengths are
+invalid, the checksum type is unknown, or a defined key is not 16 bytes
+long. A packet with a checksum also causes an exception if no key is
+available.
+
+This function always checks the checksum, regardless of C<checksum_policy>.
+It does not decompress or decode the packet. A matching checksum does not
+guarantee that the contents can be decoded or are safe for your application.
+Decoding the packet with checksum verification enabled checks it again.
+
+You can also import C<get_sereal_checksum> and C<validate_sereal_checksum>
+from L<Sereal>.
+
+=head2 prepare_checksum_key
+
+  my $key16 = Sereal::Decoder::prepare_checksum_key($key);
+  my $key16 = Sereal::Decoder::prepare_checksum_key($key, $opt_key);
+  my $empty_key16 = Sereal::Decoder::prepare_checksum_key();
+
+Converts the supplied strings into a 16-byte binary key. Use the result as
+C<checksum_key> in both the encoder and decoder.
+
+Both arguments default to C<''> (the empty string). Passing C<undef> also
+means C<''>. The same arguments always produce the same key. Calling
+C<prepare_checksum_key()> without arguments therefore returns a fixed key,
+not a random one.
+
+This function adjusts the key length. It does not make a weak key stronger
+and should not be used to turn a password into a key. Arguments must contain
+only byte values. A character above 255 causes an exception.
+
+The normalization first computes SipHash-2-4-128 of C<'Out damned spot!'>
+followed by C<$opt_key>, keyed by C<'Call me Ishmael.'>. It then uses that
+result as the key to SipHash-2-4-128 of C<'Luke, I am your father.'> followed
+by C<$key>.
+
+=head2 siphash24, siphash24_128 and siphash36_128
+
+  my $tag8  = Sereal::Decoder::siphash24($bytes, $key16);
+  my $tag16 = Sereal::Decoder::siphash24_128($bytes, $key16);
+  my $tag16 = Sereal::Decoder::siphash36_128($bytes, $key16);
+  my $tag16_default = Sereal::Decoder::siphash36_128($bytes);
+
+Computes a SipHash checksum of C<$bytes> and returns it as a binary string.
+C<siphash24()> returns 8 bytes. C<siphash24_128()> and C<siphash36_128()>
+each return 16 bytes.
+
+If you omit C<$key16>, the key is C<"\0" x 16> (16 zero bytes). These
+functions do not use C<DefaultKey>. Passing C<undef> or a key of any length
+other than 16 bytes causes an exception. A character above 255 in the data
+or key also causes an exception.
+
+The function names identify the SipHash variants: SipHash-2-4,
+SipHash-2-4-128, and SipHash-3-6-128. See the authors'
+L<SipHash variant documentation|https://github.com/veorq/SipHash#variants>
+for the differences between them.
 
 =head1 REGULAR EXPRESSIONS
 
@@ -1112,12 +1161,14 @@ below.
 
 =head2 Shared default key
 
-C<$Sereal::DefaultKey> supplies a shared default when no checksum key
-option is present. C<$Sereal::Decoder::DefaultKey> can override the
-Decoder's default. Both contain raw key bytes, not hexadecimal text. A
-default Decoder key is used for all three supported checksum types.
-Explicit key options replace the default configuration; supplying an
-explicit C<undef> key also suppresses the default.
+If you do not pass a checksum key option, the Decoder uses
+C<$Sereal::Decoder::DefaultKey>. If that is undefined, it uses
+C<$Sereal::DefaultKey>, which is shared with the Encoder. Both variables
+hold key bytes, not hexadecimal text. The default key applies to all three
+supported checksum types.
+
+A checksum key option overrides both defaults. Passing C<undef> as that
+option prevents the Decoder from using either default.
 
 The first load of Sereal::Encoder or Sereal::Decoder initializes this
 shared variable from C<SEREAL_DEFAULT_KEY>, unless application code has
@@ -1138,15 +1189,20 @@ Code can set or localize the shared variable:
   local $Sereal::DefaultKey = $key16;
   my $decoder = Sereal::Decoder->new({ checksum_policy => 'require_key' });
 
-New encoders and decoders copy its current value. Existing objects
-retain their keys. Localizing it to C<undef> disables the default for
-new objects in that scope. Cached objects, including objects returned by
-the Sereal wrapper's cache helpers, retain the configuration they were
-created with.
+The Decoder copies the default key when you create an object. Changing the
+default later does not change that object's key. This also applies to
+objects kept in the Sereal wrapper's cache.
+
+Setting C<$Sereal::DefaultKey> to C<undef> removes the shared default.
+C<$Sereal::Decoder::DefaultKey> still applies if it is defined. To create an
+object without either default key, pass C<checksum_key =E<gt> undef>.
+
+Environment variables are read when the module loads. To change a default
+after that, set the Perl package variable.
 
 =head2 Default policy
 
-C<SEREAL_CHECKSUM_POLICY> sets the shared default;
+C<SEREAL_CHECKSUM_POLICY> sets the shared default.
 C<SEREAL_DECODER_CHECKSUM_POLICY> sets the Decoder-specific default. At
 module startup they initialize C<$Sereal::ChecksumPolicy> and
 C<$Sereal::Decoder::ChecksumPolicy> when those variables are undefined.

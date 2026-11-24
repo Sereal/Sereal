@@ -171,6 +171,7 @@ t/947_default_max_uncompressed_size.t
 t/948_regr_forged_handle.t
 t/949_regr_nested_prealloc.t
 t/951_regr_deep_hashref.t
+t/952_regr_zlib_invalid_huffman.t
 t/data/corpus
 t/data/packet_corpus/corpus.pack
 t/lib/Sereal/BulkTest.pm
@@ -181,6 +182,7 @@ xt/900_rand.t
 zstd/common/allocations.h
 zstd/common/bits.h
 zstd/common/bitstream.h
+zstd/common/bmi2.h
 zstd/common/compiler.h
 zstd/common/cpu.h
 zstd/common/debug.c

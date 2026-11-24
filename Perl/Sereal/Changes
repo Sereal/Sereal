@@ -16,6 +16,13 @@ from the the Encoder and Decoder changelogs:
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.004
+    * Update bundled zstd to 1.6.0, including upstream security fixes.
+    * Update bundled miniz to 3.1.2, including malformed-input fixes.
+    * Clarify checksum defaults and helper functions in all three manuals.
+      Correct the Decoder documentation for default key selection and
+      the interaction between no_bless_objects and no_thaw_objects.
+
 7.003
     * Restore Encoder compilation on Perl builds without a U64 typedef
       and correct a false native long-double declaration test failure

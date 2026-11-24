@@ -2,9 +2,9 @@ package Sereal;
 use 5.014;
 use strict;
 use warnings;
-our $VERSION    = '7.003';
+our $VERSION    = '7.004';
 our $XS_VERSION = $VERSION; $VERSION = eval $VERSION;
-use Sereal::Encoder 7.003 qw(
+use Sereal::Encoder 7.004 qw(
     encode_sereal
     sereal_encode_with_object
     SRL_UNCOMPRESSED
@@ -12,7 +12,7 @@ use Sereal::Encoder 7.003 qw(
     SRL_ZLIB
     SRL_ZSTD
 );
-use Sereal::Decoder 7.003 qw(
+use Sereal::Decoder 7.004 qw(
     get_sereal_checksum
     validate_sereal_checksum
     decode_sereal
@@ -249,20 +249,42 @@ C<'require_v2'>, or C<'require_v3'> to require authentication at that level or
 higher. Existing C<'require_key'> and C<'require'> policies mean C<'require_v1'>.
 Encoder rejects a key/mode configuration that cannot satisfy the policy.
 
-The shared package defaults C<$Sereal::ChecksumMode> and
-C<$Sereal::DefaultKey> configure Encoder's mode and both modules' key. They can also
-be initialized at module startup with C<SEREAL_CHECKSUM_MODE> and
-C<SEREAL_DEFAULT_KEY>. The mode accepts C<'none'> or C<'v1'>, C<'v2'>, and
-C<'v3'> (also numeric C<0> through C<3>); C<'v1'> through C<'v3'> select wire
-checksum types 0 through 2. The shared key is raw key bytes; the environment
-value is decoded from 32 hexadecimal characters or normalized as a key.
+C<$Sereal::DefaultKey> sets a default key for both modules.
+C<$Sereal::ChecksumMode> sets the Encoder's default checksum mode.
+The corresponding environment variables are C<SEREAL_DEFAULT_KEY> and
+C<SEREAL_CHECKSUM_MODE>. They are read when the modules load.
 
-Checksum configuration resolves in this order: constructor options,
-module-specific package defaults, then the shared package defaults. The
-Encoder and Decoder have separate C<DefaultKey> and C<ChecksumPolicy> package
-variables and environment variables for module-specific defaults. Encoder
-also has its own C<ChecksumMode> default, which is C<'v3'> when unspecified.
-Decoder's algorithm always comes from the document. See
+Store key bytes in C<$Sereal::DefaultKey>. For C<SEREAL_DEFAULT_KEY>, use
+32 hexadecimal characters to specify a 16-byte key. Other values are
+converted with C<prepare_checksum_key()>.
+
+The mode accepts C<'none'>, C<'v1'>, C<'v2'>, and C<'v3'>, or the numbers
+C<0> through C<3>. C<'none'> disables checksums. The other modes select
+checksum types 0 through 2 in the packet format. The Encoder uses C<'v3'>
+if no default is set. The Decoder reads the algorithm from the packet.
+
+Options passed to C<new()> override the defaults. Each module also has
+its own default variables, such as C<$Sereal::Encoder::DefaultKey> and
+C<$Sereal::Decoder::DefaultKey>. These override the shared defaults.
+
+Both modules have their own C<ChecksumPolicy> variable as well. For example,
+C<$Sereal::Decoder::ChecksumPolicy> overrides C<$Sereal::ChecksumPolicy>.
+The Encoder also has C<$Sereal::Encoder::ChecksumMode> to override the
+shared mode. Each of these variables has a corresponding environment
+variable, described in the Encoder and Decoder documentation linked below.
+
+C<encode_sereal()> and C<decode_sereal()> create a new object on each call.
+If you change a default, the next call uses it for options you omit.
+Objects you have already created keep their original settings. This
+includes objects kept in the wrapper's cache.
+
+C<validate_sereal_checksum($packet)> checks C<$Sereal::Decoder::DefaultKey>
+each time you call it. If that variable is undefined, it uses
+C<$Sereal::DefaultKey>. To prevent it from using either default, pass
+C<undef> as the second argument.
+
+See L<Sereal::Decoder/validate_sereal_checksum> for the function's arguments
+and return value. See
 L<Sereal::Encoder/checksum_key>, L<Sereal::Encoder/checksum_mode>,
 L<Sereal::Decoder/checksum_key>, and L<Sereal::Decoder/checksum_mode> for the
 complete option and environment variable details.
