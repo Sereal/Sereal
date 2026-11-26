@@ -101,9 +101,6 @@ srl_buf_swap_buffer(pTHX_ srl_buffer_t *buf1, srl_buffer_t *buf2)
     Copy(&tmp, buf2, 1, srl_buffer_t);
 }
 
-/* old_size + (new_size / 4) */
-#define OVERALLOC_FUNC(cur_size,req_size) (cur_size + (req_size >> 2))
-
 static SRL_NOINLINE SRL_UNUSED void
 srl_buf_grow_nocheck(pTHX_ srl_buffer_t *buf, const size_t minlen)
 {
@@ -113,9 +110,11 @@ srl_buf_grow_nocheck(pTHX_ srl_buffer_t *buf, const size_t minlen)
     const size_t new_size = minlen;
 #else
     const size_t cur_size = BUF_SIZE(buf);
-    const size_t tmp_size = (minlen >> 2) > (size_t)~(size_t)0 - cur_size
-        ? minlen : OVERALLOC_FUNC(cur_size, minlen);
-    const size_t new_size = (minlen > tmp_size) ? minlen : tmp_size;
+    /* Grow 2x below 64 KiB to minimize early reallocs, then 1.5x above 64 KiB. */
+    const size_t grow_delta = (cur_size < 65536) ? cur_size : (cur_size >> 1);
+    const size_t target_size = (grow_delta > (size_t)~(size_t)0 - cur_size)
+        ? minlen : (cur_size + grow_delta);
+    const size_t new_size = (minlen > target_size) ? minlen : target_size;
 #endif
 
     DEBUG_ASSERT_BUF_SANE(buf);
@@ -144,9 +143,11 @@ srl_buf_grow_nocheck(pTHX_ srl_buffer_t *buf, const size_t minlen)
   STMT_START {                                                          \
     DEBUG_ASSERT_BUF_SANE(buf);                                         \
     if (expect_false(BUF_NEED_GROW(buf, minlen))) {                     \
-      if ((size_t)(minlen) > (size_t)~(size_t)0 - (size_t)BUF_SIZE(buf)) \
-        croak("Sereal output buffer is too large");                    \
-      srl_buf_grow_nocheck(aTHX_ (buf), (BUF_SIZE(buf) + minlen));      \
+      const size_t pos_ofs_ = (size_t)BUF_POS_OFS(buf);                 \
+      const size_t minlen_ = (size_t)(minlen);                          \
+      if (minlen_ >= (size_t)~(size_t)0 - pos_ofs_)                     \
+        croak("Sereal output buffer is too large");                     \
+      srl_buf_grow_nocheck(aTHX_ (buf), pos_ofs_ + minlen_ + 1);        \
     }                                                                   \
     DEBUG_ASSERT_BUF_SANE(buf);                                         \
   } STMT_END
@@ -154,8 +155,12 @@ srl_buf_grow_nocheck(pTHX_ srl_buffer_t *buf, const size_t minlen)
 #define BUF_SIZE_ASSERT_TOTAL(buf, minlen)                              \
   STMT_START {                                                          \
     DEBUG_ASSERT_BUF_SANE(buf);                                         \
-    if (expect_false(BUF_NEED_GROW_TOTAL(buf, minlen)))                 \
-      srl_buf_grow_nocheck(aTHX_ (buf), (minlen));                      \
+    if (expect_false(BUF_NEED_GROW_TOTAL(buf, minlen))) {               \
+      const size_t minlen_ = (size_t)(minlen);                          \
+      if (minlen_ == (size_t)~(size_t)0)                                \
+        croak("Sereal output buffer is too large");                     \
+      srl_buf_grow_nocheck(aTHX_ (buf), minlen_ + 1);                   \
+    }                                                                   \
     DEBUG_ASSERT_BUF_SANE(buf);                                         \
   } STMT_END
 

@@ -11,6 +11,12 @@
 #   define INITIALIZATION_SIZE 64
 #endif
 
+/* Cap retained buffer size on reusable encoders so an occasional huge
+ * packet does not permanently pin multi-MB buffers. */
+#ifndef SRL_ENC_BUF_REUSE_MAX_SIZE
+#   define SRL_ENC_BUF_REUSE_MAX_SIZE (1024 * 1024)
+#endif
+
 #include "srl_inline.h"
 #include "srl_buffer_types.h"
 #include "srl_str_dedupe.h"
