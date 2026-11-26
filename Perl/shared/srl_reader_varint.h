@@ -43,7 +43,7 @@ srl_varint_length(pTHX_ UV value)
     return ++length;
 }
 
-SRL_STATIC_INLINE UV
+static SRL_NOINLINE SRL_UNUSED UV
 srl_read_varint_uv_safe(pTHX_ srl_reader_buffer_t *buf)
 {
     UV uv= 0;
@@ -182,8 +182,8 @@ srl_read_varint_u64_nocheck(pTHX_ srl_reader_buffer_t *buf)
 }
 #endif
 
-SRL_STATIC_INLINE UV
-srl_read_varint_uv(pTHX_ srl_reader_buffer_t *buf)
+static SRL_NOINLINE SRL_UNUSED UV
+srl_read_varint_uv_multibyte(pTHX_ srl_reader_buffer_t *buf)
 {
     /* We can use the unrolled-loop version of varint decoding
      * IFF there is certainly enough space in the input buffer
@@ -199,6 +199,27 @@ srl_read_varint_uv(pTHX_ srl_reader_buffer_t *buf)
     } else {
         return srl_read_varint_uv_safe(aTHX_ buf);
     }
+}
+
+SRL_STATIC_INLINE UV
+srl_read_varint_uv(pTHX_ srl_reader_buffer_t *buf)
+{
+    const U8 *pos = buf->pos;
+    if (expect_true(pos < buf->end)) {
+        const UV b0 = *pos;
+        if (expect_true(!(b0 & 0x80))) {
+            buf->pos = pos + 1;
+            return b0;
+        }
+        if (expect_true(pos + 1 < buf->end)) {
+            const UV b1 = pos[1];
+            if (expect_true(!(b1 & 0x80))) {
+                buf->pos = pos + 2;
+                return (b0 & 0x7f) | (b1 << 7);
+            }
+        }
+    }
+    return srl_read_varint_uv_multibyte(aTHX_ buf);
 }
 
 /* buf->pos must be just past the tag (COPY, REFP, ALIAS, OBJECTV) whose

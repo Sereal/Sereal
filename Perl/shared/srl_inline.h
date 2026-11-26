@@ -13,5 +13,22 @@
 #   define SRL_STATIC_INLINE STATIC inline
 #endif
 
+#ifndef SRL_NOINLINE
+#   if defined(__clang__) || (defined(__GNUC__) && (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1)))
+#       define SRL_NOINLINE __attribute__((noinline))
+#   elif defined(_MSC_VER) && _MSC_VER >= 1300
+#       define SRL_NOINLINE __declspec(noinline)
+#   else
+#       define SRL_NOINLINE
+#   endif
+#endif
+
+#ifndef SRL_UNUSED
+#   if defined(__clang__) || defined(__GNUC__)
+#       define SRL_UNUSED __attribute__((unused))
+#   else
+#       define SRL_UNUSED
+#   endif
+#endif
 
 #endif

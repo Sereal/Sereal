@@ -173,6 +173,7 @@ t/949_regr_nested_prealloc.t
 t/951_regr_deep_hashref.t
 t/952_regr_zlib_invalid_huffman.t
 t/953_regr_empty_utf8_validate.t
+t/953_regr_varint_inlining.t
 t/data/corpus
 t/data/packet_corpus/corpus.pack
 t/lib/Sereal/BulkTest.pm
