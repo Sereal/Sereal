@@ -59,14 +59,6 @@ extern "C" {
 #define PARANOID_MAX_ARRAY_ENTRIES 1000000
 #define PARANOID_MAX_HASH_ENTRIES 250000
 
-#if defined(__GNUC__) || defined(__clang__)
-#   define SRL_NOINLINE __attribute__((noinline))
-#elif defined(_MSC_VER)
-#   define SRL_NOINLINE __declspec(noinline)
-#else
-#   define SRL_NOINLINE
-#endif
-
 #if !defined(HAVE_CSNAPPY)
 # include "snappy/csnappy_decompress.c"
 #endif
@@ -147,23 +139,23 @@ SRL_STATIC_INLINE void srl_clear_thaw_state(pTHX_ srl_decoder_t *dec);          
 SRL_STATIC_INLINE void srl_assert_input_unchanged(pTHX_ srl_decoder_t *dec);        /* croak if a callback modified the input */
 
 /* the internal routines to handle each kind of object we have to deserialize */
-SRL_STATIC_INLINE void srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into);
+static SRL_NOINLINE void srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into);
 
 SRL_STATIC_INLINE void srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag);
 SRL_STATIC_INLINE void srl_read_array(pTHX_ srl_decoder_t *dec, SV* into, U8 tag);
-SRL_STATIC_INLINE void srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into);
+static SRL_NOINLINE void srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into);
 
 SRL_STATIC_INLINE void srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_refn(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_weaken(pTHX_ srl_decoder_t *dec, SV* into);
-SRL_STATIC_INLINE void srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into);
+static SRL_NOINLINE void srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_double(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_float(pTHX_ srl_decoder_t *dec, SV* into);
-SRL_STATIC_INLINE void srl_read_float_128(pTHX_ srl_decoder_t *dec, SV* into);
+static SRL_NOINLINE void srl_read_float_128(pTHX_ srl_decoder_t *dec, SV* into);
 SRL_STATIC_INLINE void srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into);
 SRL_STATIC_INLINE void srl_read_varint_into(pTHX_ srl_decoder_t *dec, SV* into, SV** container, const U8 *track_it);
 SRL_STATIC_INLINE void srl_read_zigzag_into(pTHX_ srl_decoder_t *dec, SV* into, SV** container, const U8 *track_it);
-SRL_STATIC_INLINE void srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into);
+static SRL_NOINLINE SRL_UNUSED void srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into);
 SRL_STATIC_INLINE void srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_name_only);
 SRL_STATIC_INLINE void srl_read_objectv(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag);
 
@@ -176,7 +168,7 @@ SRL_STATIC_INLINE int srl_class_allowed(pTHX_ HV *allow_hash, SV *allow_cb, HV *
 SRL_STATIC_INLINE void srl_track_class(pTHX_ srl_decoder_t *dec, SV *class_entry);
 
 /* FIXME unimplemented!!! */
-SRL_STATIC_INLINE int srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
+static SRL_NOINLINE int srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into);
 
 #define DEPTH_INCREMENT(dec) STMT_START {                                           \
     if (expect_false(++dec->recursion_depth > dec->max_recursion_depth)) {                        \
@@ -1829,7 +1821,7 @@ srl_fetch_item(pTHX_ srl_decoder_t *dec, UV item, const char * const tag_name)
 /****************************************************************************
  * PRIVATE WORKER SUBS FOR DEPARSING                                        *
  ****************************************************************************/
-SRL_STATIC_INLINE void
+static SRL_NOINLINE void
 srl_alias_iv(pTHX_ srl_decoder_t *dec, SV **container, const U8 *track_it, IV iv)
 {
     SV *alias;
@@ -1962,7 +1954,7 @@ srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
     dec->buf.pos+= len;
 }
 
-SRL_STATIC_INLINE void
+static SRL_NOINLINE void
 srl_read_vstring(pTHX_ srl_decoder_t *dec, SV* into, int is_utf8)
 {
     UV len = srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading extended VSTRING");
@@ -2041,7 +2033,7 @@ srl_read_float(pTHX_ srl_decoder_t *dec, SV* into)
     dec->buf.pos+= sizeof(float);
 }
 
-SRL_STATIC_INLINE void
+static SRL_NOINLINE void
 srl_read_float_128(pTHX_ srl_decoder_t *dec, SV* into)
 {
     U8 bytes[16], scratch[16];
@@ -2071,7 +2063,7 @@ srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
 }
 
 
-SRL_STATIC_INLINE void
+static SRL_NOINLINE void
 srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 {
     union myfloat val;
@@ -2962,7 +2954,7 @@ srl_thaw_object(pTHX_ srl_decoder_t *dec, HV *class_stash, SV *into)
 }
 
 
-SRL_STATIC_INLINE void
+static SRL_NOINLINE SRL_UNUSED void
 srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into)
 {
     const UV len = srl_read_varint_uv_length(aTHX_ dec->pbuf, " while reading reserved");
@@ -2973,7 +2965,7 @@ srl_read_reserved(pTHX_ srl_decoder_t *dec, U8 tag, SV* into)
 }
 
 
-SRL_STATIC_INLINE void
+static SRL_NOINLINE void
 srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 {
     SV *sv_pat= sv_2mortal(FRESH_SV());
@@ -3117,7 +3109,7 @@ srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into)
 
 /* Returns true for UNDEF_DEADLY so the caller can use the ordinary UNDEF
  * path, including use_undef aliasing and the original tag's tracking bit. */
-SRL_STATIC_INLINE int
+static SRL_NOINLINE int
 srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into)
 {
     U8 ext_tag;
@@ -3148,7 +3140,7 @@ srl_read_extend(pTHX_ srl_decoder_t *dec, SV* into)
     return 0;
 }
 
-SRL_STATIC_INLINE void
+static SRL_NOINLINE void
 srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into)
 {
     const U8 *copytag_start = dec->buf.pos - 1;
