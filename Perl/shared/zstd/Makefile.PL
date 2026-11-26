@@ -97,7 +97,8 @@ default: lib
 
 libzstd.o: $(ZSTD_FILES)
 	@echo compiling static library
-	$(AR) $(ARFLAGS) libzstd.o *.o
+	$(RM) libzstd.o
+	$(AR) $(ARFLAGS) libzstd.o $(ZSTD_FILES)
 
 lib: libzstd.o
 

@@ -299,9 +299,19 @@ sub WriteMakefile {
     ExtUtils::MakeMaker::WriteMakefile(%params);
 }
 
+sub MY::subdir_x {
+    my ( $self, $dir ) = @_;
+    return $self->MM::subdir_x($dir) if $dir ne 'zstd';
+
+    # Both subdirectory builds and linking must use the same archive
+    # target, so parallel make starts only one recursive Zstd build.
+    return 'subdirs :: zstd/libzstd$(OBJ_EXT)' . "\n";
+}
+
 sub MY::postamble {
+    # Let the child make check its source dependencies on every build.
     return <<'MAKE_FRAG';
-zstd/libzstd$(OBJ_EXT): zstd/Makefile
+zstd/libzstd$(OBJ_EXT): zstd/Makefile FORCE
 	cd zstd && $(MAKE) all
 MAKE_FRAG
 }

@@ -16,6 +16,12 @@ from the the Encoder and Decoder changelogs:
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.007
+    * Fix bundled Zstd build races in Encoder and Decoder under parallel
+      make, including malformed archives and linker failures. Preserve
+      incremental rebuilds and exclude stale or unrelated archive
+      members.
+
 7.006
     * Fix Encoder and Decoder option lookup in cloned Perl threads,
       including children that outlive their parent thread. Preserve
