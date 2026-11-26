@@ -828,6 +828,10 @@ srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
         srl_buf_free_buffer(aTHX_ &enc->tmp_buf);
 
     srl_destroy_snappy_workmem(aTHX_ enc->snappy_workmem);
+    if (enc->zstd_cctx != NULL) {
+        ZSTD_freeCCtx((ZSTD_CCtx *)enc->zstd_cctx);
+        enc->zstd_cctx = NULL;
+    }
 
     if (enc->ref_seenhash != NULL)
         PTABLE_free(enc->ref_seenhash);
@@ -872,6 +876,7 @@ srl_empty_encoder_struct(pTHX)
 
     enc->protocol_version = SRL_PROTOCOL_VERSION;
     enc->max_recursion_depth = DEFAULT_MAX_RECUR_DEPTH;
+    enc->zstd_cctx = NULL;
 
     return enc;
 }
@@ -1328,6 +1333,8 @@ srl_build_encoder_struct_alike(pTHX_ srl_encoder_t *proto)
     enc->flags = proto->flags;
     enc->max_recursion_depth = proto->max_recursion_depth;
     enc->compress_threshold = proto->compress_threshold;
+    enc->compress_level = proto->compress_level;
+    enc->zstd_cctx = NULL;
     if (expect_false(SRL_ENC_HAVE_OPTION(enc, SRL_F_ENABLE_FREEZE_SUPPORT))) {
         enc->sereal_string_sv = newSVpvs("Sereal");
     }
@@ -1946,10 +1953,11 @@ srl_dump_data_structure(pTHX_ srl_encoder_t *enc, SV *src, SV *user_header_src)
             /* Don't bother with compression at all if we have less than $threshold bytes of payload */
             srl_reset_compression_header_flag(&enc->buf);
         }
-        else { /* Do Snappy or zlib compression of body */
-            srl_compress_body(aTHX_ &enc->buf, sereal_header_len,
-                              compress_flags, enc->compress_level,
-                              &enc->snappy_workmem);
+        else { /* Do Snappy, zlib, or zstd compression of body */
+            srl_compress_body_ctx(aTHX_ &enc->buf, sereal_header_len,
+                                  compress_flags, enc->compress_level,
+                                  &enc->snappy_workmem,
+                                  SRL_ENC_HAVE_OPTION(enc, SRL_F_REUSE_ENCODER) ? &enc->zstd_cctx : NULL);
 
             SRL_ENC_UPDATE_BODY_POS(enc);
             DEBUG_ASSERT_BUF_SANE(&enc->buf);

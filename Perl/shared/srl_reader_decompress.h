@@ -253,7 +253,7 @@ srl_decompress_body_zlib(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner, size_t 
  * SRL_RDR_UPDATE_BODY_POS right after existing from this function. */
 
 SRL_STATIC_INLINE UV
-srl_decompress_body_zstd(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner, size_t max_uncompressed_size)
+srl_decompress_body_zstd_ctx(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner, size_t max_uncompressed_size, void **zstd_dctx_ptr)
 {
     SV *buf_sv;
     UV bytes_consumed;
@@ -283,8 +283,19 @@ srl_decompress_body_zstd(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner, size_t 
             compressed_packet_len, "zstd", max_uncompressed_size);
     if (buf_owner) *buf_owner = buf_sv;
 
-    decompress_code = ZSTD_decompress((void *)buf->pos, (size_t) uncompressed_packet_len,
-                                      (void *)old_pos,  (size_t) compressed_packet_len);
+    if (zstd_dctx_ptr != NULL) {
+        if (expect_false(*zstd_dctx_ptr == NULL)) {
+            *zstd_dctx_ptr = (void *)ZSTD_createDCtx();
+            if (expect_false(*zstd_dctx_ptr == NULL))
+                croak("Out of memory allocating Zstd decompression context");
+        }
+        decompress_code = ZSTD_decompressDCtx((ZSTD_DCtx *)*zstd_dctx_ptr,
+                                              (void *)buf->pos, (size_t) uncompressed_packet_len,
+                                              (const void *)old_pos, (size_t) compressed_packet_len);
+    } else {
+        decompress_code = ZSTD_decompress((void *)buf->pos, (size_t) uncompressed_packet_len,
+                                          (void *)old_pos,  (size_t) compressed_packet_len);
+    }
 
     if (expect_false( ZSTD_isError(decompress_code) )) {
         SRL_RDR_ERRORf1(buf, "Zstd decompression of Sereal packet payload failed with error %s!",
@@ -298,6 +309,12 @@ srl_decompress_body_zstd(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner, size_t 
     }
 
     return bytes_consumed;
+}
+
+SRL_STATIC_INLINE UV
+srl_decompress_body_zstd(pTHX_ srl_reader_buffer_t *buf, SV** buf_owner, size_t max_uncompressed_size)
+{
+    return srl_decompress_body_zstd_ctx(aTHX_ buf, buf_owner, max_uncompressed_size, NULL);
 }
 
 #endif

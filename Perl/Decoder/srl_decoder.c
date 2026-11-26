@@ -327,6 +327,7 @@ srl_build_decoder_struct(pTHX_ HV *opt, sv_with_hash *options,
 
     SRL_RDR_CLEAR(&dec->buf);
     dec->pbuf = &dec->buf;
+    dec->zstd_dctx = NULL;
 
     /* Dispatch supplied options by their precomputed IDs. Dependent options
      * are collected here and resolved after the loop. */
@@ -763,6 +764,7 @@ srl_build_decoder_struct_alike(pTHX_ srl_decoder_t *proto)
 
     SRL_RDR_CLEAR(&dec->buf);
     dec->pbuf = &dec->buf;
+    dec->zstd_dctx = NULL;
     dec->flags = proto->flags;
     SRL_DEC_RESET_VOLATILE_FLAGS(dec);
 
@@ -773,6 +775,10 @@ srl_build_decoder_struct_alike(pTHX_ srl_decoder_t *proto)
 void
 srl_destroy_decoder(pTHX_ srl_decoder_t *dec)
 {
+    if (dec->zstd_dctx != NULL) {
+        ZSTD_freeDCtx((ZSTD_DCtx *)dec->zstd_dctx);
+        dec->zstd_dctx = NULL;
+    }
     PTABLE_free(dec->ref_seenhash);
     if (dec->ref_stashes) {
         PTABLE_free(dec->ref_stashes);
@@ -915,7 +921,8 @@ srl_decode_into_internal(pTHX_ srl_decoder_t *origdec, SV *src, SV *header_into,
         dec->bytes_consumed = srl_decompress_body_zlib(aTHX_ dec->pbuf, NULL, dec->max_uncompressed_size);
         origdec->bytes_consumed = dec->bytes_consumed;
     } else if (expect_false( SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_DECOMPRESS_ZSTD) )) {
-        dec->bytes_consumed = srl_decompress_body_zstd(aTHX_ dec->pbuf, NULL, dec->max_uncompressed_size);
+        dec->bytes_consumed = srl_decompress_body_zstd_ctx(aTHX_ dec->pbuf, NULL, dec->max_uncompressed_size,
+            SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_REUSE) ? &dec->zstd_dctx : NULL);
         origdec->bytes_consumed = dec->bytes_consumed;
     }
 

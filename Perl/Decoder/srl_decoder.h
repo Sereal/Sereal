@@ -57,6 +57,7 @@ struct srl_decoder {
     SV *input_sv;                       /* SV whose PV the buffer points into, or NULL */
     const unsigned char *input_start;   /* PV of input_sv when the buffer was set up */
     STRLEN input_len;                   /* SvCUR of input_sv when the buffer was set up */
+    void *zstd_dctx;                    /* lazily allocated ZSTD_DCtx for reusable decoder */
 };
 
 typedef struct {
