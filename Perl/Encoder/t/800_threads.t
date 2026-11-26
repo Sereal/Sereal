@@ -24,14 +24,17 @@ BEGIN {
 
 plan tests => 5;
 use threads;
+use Thread::Semaphore;
 use threads::shared;
 
 # Test 1-2: Parent thread loads Sereal::Encoder, spawns child t2, and exits
 # before t2 runs option parsing (verifies MY_CXT_CLONE isolates child MY_CXT).
 SCOPE: {
+    my $parent_exited = Thread::Semaphore->new(0);
     my $t1 = threads->create(sub {
         require Sereal::Encoder;
         my $t2 = threads->create(sub {
+            $parent_exited->down();
             my $enc = Sereal::Encoder->new({ canonical => 1, sort_keys => 1 });
             my $b1  = $enc->encode({ b => 2, a => 1 });
             my $b2  = Sereal::Encoder::encode_sereal(
@@ -44,6 +47,7 @@ SCOPE: {
     });
     my $t2 = $t1->join();
     ok( defined($t2), "Parent thread t1 exited cleanly" );
+    $parent_exited->up();
     is( $t2->join(), 1, "Child thread t2 parsed options safely after parent thread t1 exited" );
 }
 

@@ -10,6 +10,11 @@ Revision history for Perl extension Sereal-Decoder
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+Unreleased
+    * Give cloned threads their own option lookup data. Test option parsing
+      after the parent thread exits. Keep CLONE compatible with older
+      xsubpp versions. Thanks to Steffen Mueller.
+
 7.005
     * Fix a false native long-double test failure on Intel macOS with
       older Perls. Use Config's myuname value to identify the CPU and

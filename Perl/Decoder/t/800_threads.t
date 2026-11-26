@@ -17,14 +17,17 @@ BEGIN {
 
 plan tests => 5;
 use threads;
+use Thread::Semaphore;
 
 # Test 1-2: Parent thread loads Sereal::Decoder, spawns child t2, and exits
 # before t2 runs option parsing (verifies MY_CXT_CLONE isolates child MY_CXT).
 my $sample_packet = "=\xF3rl\x04\x00\x51\x61a\x01"; # { a => 1 }
 SCOPE: {
+    my $parent_exited = Thread::Semaphore->new(0);
     my $t1 = threads->create(sub {
         require Sereal::Decoder;
         my $t2 = threads->create(sub {
+            $parent_exited->down();
             my $dec = Sereal::Decoder->new({ refuse_objects => 1, validate_utf8 => 1 });
             my $d1  = $dec->decode($sample_packet);
             my $d2  = Sereal::Decoder::decode_sereal(
@@ -38,6 +41,7 @@ SCOPE: {
     });
     my $t2 = $t1->join();
     ok( defined($t2), "Parent thread t1 exited cleanly" );
+    $parent_exited->up();
     is( $t2->join(), 1, "Child thread t2 parsed options safely after parent thread t1 exited" );
 }
 
