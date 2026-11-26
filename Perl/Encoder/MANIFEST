@@ -52,6 +52,7 @@ srl_reader_types.h
 srl_reader_varint.h
 srl_siphash.h
 srl_stack.h
+srl_str_dedupe.h
 srl_taginfo.h
 t/001_load.t
 t/002_constants.t
