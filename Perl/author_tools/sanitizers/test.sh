@@ -21,7 +21,10 @@ ulimit -S -s "$stack_kb"
 unset PERL5OPT
 export PATH="$(dirname -- "$perl_bin"):$PATH"
 export PERL5LIB="$work/source/Perl/Decoder/blib/lib:$work/source/Perl/Decoder/blib/arch:$work/source/Perl/Encoder/blib/lib:$work/source/Perl/Encoder/blib/arch"
-export PERL_DESTRUCT_LEVEL=2 LD_PRELOAD="$runtime" PERL_DL_NONLAZY=1
+# Instrument Perl and its test children, without checking exit-time
+# allocations in reporting tools such as tail.
+export PERL_DESTRUCT_LEVEL=2 PERL_DL_NONLAZY=1
+unset LD_PRELOAD
 leaks=0
 [[ $mode == lsan ]] && leaks=1
 export ASAN_OPTIONS="${ASAN_OPTIONS:+$ASAN_OPTIONS:}detect_leaks=$leaks:halt_on_error=1:allocator_may_return_null=1"
@@ -32,13 +35,13 @@ printf 'PERL_DESTRUCT_LEVEL=2\nstack_kb=%s\nASAN_OPTIONS=%s\nLSAN_OPTIONS=%s\n' 
 
 # Distinguish runtime/sandbox failures from Sereal failures. In particular,
 # LSan needs to inspect other threads and cannot run under every sandbox.
-if ! "$perl_bin" -e 'print "Perl $] runtime preflight; PERL_DESTRUCT_LEVEL=$ENV{PERL_DESTRUCT_LEVEL}\n"' \
+if ! env LD_PRELOAD="$runtime" "$perl_bin" -e 'print "Perl $] runtime preflight; PERL_DESTRUCT_LEVEL=$ENV{PERL_DESTRUCT_LEVEL}\n"' \
     > "$work/logs/$mode-preflight.log" 2>&1; then
     cat "$work/logs/$mode-preflight.log"
     echo "$mode runtime preflight failed; Sereal tests were not run" >&2
     exit 1
 fi
-"$perl_bin" -MSereal::Decoder -MSereal::Encoder -e '
+env LD_PRELOAD="$runtime" "$perl_bin" -MSereal::Decoder -MSereal::Encoder -e '
     print "Decoder: $INC{q(Sereal/Decoder.pm)}\n";
     print "Encoder: $INC{q(Sereal/Encoder.pm)}\n";
 ' > "$work/logs/$mode-modules.log" 2>&1
@@ -55,7 +58,7 @@ for dist in Decoder Encoder Sereal; do
         shopt -s nullglob
         tests=( t/*.t t/*/*/*.t )
         [[ ${#tests[@]} != 0 ]] || { echo 'No test files found' >&2; exit 1; }
-        "$perl_bin" -MExtUtils::Command::MM -MTest::Harness -e \
+        env LD_PRELOAD="$runtime" "$perl_bin" -MExtUtils::Command::MM -MTest::Harness -e \
             'undef *Test::Harness::Switches; test_harness(0, "blib/lib", "blib/arch")' \
             "${tests[@]}"
     ) > "$work/logs/$mode-$dist.log" 2>&1; then

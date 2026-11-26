@@ -41,8 +41,9 @@ ASan runtime. Neither mode suppresses findings. Plain-Perl runtime preflight
 logs distinguish sandbox/ptrace failures from test failures. A failed LSan
 preflight is a failed validation, never a successful leak check.
 The test runner invokes MakeMaker's Perl test harness with the same file
-patterns as `make test`, avoiding loading libasan into make itself and
-mistaking make's process-exit allocations for Sereal leaks.
+patterns as `make test`. Only Perl and its test children preload libasan.
+Build and reporting tools run normally, so their exit-time allocations do
+not count as Sereal leaks.
 
 Build commands, compiler flags, Perl configuration, the tracked Perl diff,
 and per-distribution test output are retained under `logs/`. Successful
