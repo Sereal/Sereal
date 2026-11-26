@@ -10,6 +10,14 @@ Revision history for Perl extension Sereal-Encoder
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+Unreleased
+    * Pass the remaining output buffer capacity to compression libraries
+      after writing packet headers and length prefixes. Cover all supported
+      compression formats and protocol versions in round-trip tests.
+    * Give cloned threads their own option lookup data. Test option parsing
+      after the parent thread exits. Keep CLONE compatible with older
+      xsubpp versions. Thanks to Steffen Mueller.
+
 7.005
     * Fix a false native long-double test failure on Intel macOS with
       older Perls. Use Config's myuname value to identify the CPU in the

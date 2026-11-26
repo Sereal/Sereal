@@ -440,6 +440,7 @@ CLONE(...)
   CODE:
     MY_CXT_CLONE;
     srl_init_my_cxt(aTHX);
+
 #endif
 
 MODULE = Sereal::Encoder        PACKAGE = Sereal::Encoder::_ptabletest

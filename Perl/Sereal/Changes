@@ -16,6 +16,11 @@ from the the Encoder and Decoder changelogs:
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+Unreleased
+    * Fix compression buffer capacity reporting and option lookup data in
+      cloned threads. Preserve builds with older Perl XS parsers.
+      Thanks to Steffen Mueller.
+
 7.005
     * Fix a false native long-double test failure on Intel macOS with
       older Perls. Encoding and decoding behavior are unchanged.
