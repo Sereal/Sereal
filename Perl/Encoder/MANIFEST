@@ -139,6 +139,7 @@ t/900_reentrancy.t
 t/900_regr_compress_bounds.t
 t/901_forged_handle.t
 t/902_regr_scalar_fastpath.t
+t/903_regr_str_dedupe.t
 t/data/corpus
 t/data/packet_corpus/corpus.pack
 t/lib/Sereal/BulkTest.pm
