@@ -1949,7 +1949,7 @@ srl_read_string(pTHX_ srl_decoder_t *dec, int is_utf8, SV* into)
     SRL_RDR_ASSERT_SPACE(dec->pbuf, len, " while reading string");
     if (expect_false(is_utf8 && SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_VALIDATE_UTF8))) {
         /* checks for invalid byte sequences. */
-        if (expect_false( !is_utf8_string((U8*)dec->buf.pos, len) )) {
+        if (expect_false( len > 0 && !is_utf8_string((U8*)dec->buf.pos, len) )) {
             SRL_RDR_ERROR(dec->pbuf, "Invalid UTF8 byte sequence");
         }
     }
@@ -2773,7 +2773,7 @@ srl_read_object(pTHX_ srl_decoder_t *dec, SV* into, U8 obj_tag, int read_class_n
                 SRL_RDR_ERRORf2(dec->pbuf,
                     COPY_OFFSET_ERROR_FMT_PREFIX " while reading classname", (UV)ofs, key_len_uv);
             }
-            if ((flags & SVf_UTF8) && !is_utf8_string(from, key_len))
+            if ((flags & SVf_UTF8) && key_len > 0 && !is_utf8_string(from, key_len))
                 SRL_RDR_ERROR_PANIC(dec->pbuf, "utf8 flagged classname is not actually utf8");
         }
     } else {
