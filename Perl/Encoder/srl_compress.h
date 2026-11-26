@@ -178,6 +178,7 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
 
     size_t uncompressed_body_length = BUF_POS_OFS(buf) - sereal_header_length;
     size_t compressed_body_length;
+    size_t dst_capacity;
     srl_buffer_char *varint_start = NULL;
     srl_buffer_char *varint_end = NULL;
     srl_buffer_t old_buf;
@@ -224,8 +225,11 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
         varint_end = buf->pos - 1;
     }
 
+    assert(BUF_SPACE(buf) >= 0);
+    dst_capacity = (size_t)BUF_SPACE(buf);
+
     if (is_incremental_snappy || is_traditional_snappy) {
-        uint32_t len = (uint32_t) compressed_body_length;
+        uint32_t len = (uint32_t) dst_capacity;
         srl_init_snappy_workmem(aTHX_ workmem);
 
         csnappy_compress((char*) (old_buf.start + sereal_header_length), (uint32_t) uncompressed_body_length,
@@ -233,7 +237,7 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
 
         compressed_body_length = (size_t) len;
     } else if (is_zstd) {
-        size_t code = ZSTD_compress((void*) buf->pos, compressed_body_length,
+        size_t code = ZSTD_compress((void*) buf->pos, dst_capacity,
                                     (void*) (old_buf.start + sereal_header_length), uncompressed_body_length,
                                     compress_level);
 
@@ -244,7 +248,7 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
         }
         compressed_body_length = code;
     } else if (is_zlib) {
-        mz_ulong dl = (mz_ulong) compressed_body_length;
+        mz_ulong dl = (mz_ulong) dst_capacity;
         int status = mz_compress2(
             buf->pos,
             &dl,
