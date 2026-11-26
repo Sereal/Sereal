@@ -62,6 +62,10 @@ our (
     $enc_snappy,     $dec_snappy,
     $enc_zlib_fast,  $dec_zlib_fast,
     $enc_zlib_small, $dec_zlib_small,
+    $enc_dedupe,     $dec_dedupe,
+    $enc_adedupe,    $dec_adedupe,
+    $enc_zstd,       $dec_zstd,
+    $enc_zstd_fast,  $dec_zstd_fast,
     $jsonxs,         $msgpack, $dd_noindent, $dd_indent, $cbor
 );
 my $storable_tag = "strbl";
@@ -177,6 +181,57 @@ my %meta         = (
             $dec_zlib_small = Sereal::Decoder->new( %opt ? \%opt : () );
         },
     },
+    srl_dedupe => {
+        enc  => '$::enc_dedupe->encode($data);',
+        dec  => '$::dec_dedupe->decode($encoded);',
+        name => 'Sereal OO dedupe_strings',
+        init => sub {
+            $enc_dedupe = Sereal::Encoder->new( {
+                %opt,
+                dedupe_strings => 1,
+            } );
+            $dec_dedupe = Sereal::Decoder->new();
+        },
+    },
+    srl_adedupe => {
+        enc  => '$::enc_adedupe->encode($data);',
+        dec  => '$::dec_adedupe->decode($encoded);',
+        name => 'Sereal OO aliased_dedupe_strings',
+        init => sub {
+            $enc_adedupe = Sereal::Encoder->new( {
+                %opt,
+                aliased_dedupe_strings => 1,
+            } );
+            $dec_adedupe = Sereal::Decoder->new();
+        },
+    },
+    srl_zstd => {
+        enc  => '$::enc_zstd->encode($data);',
+        dec  => '$::dec_zstd->decode($encoded);',
+        name => 'Sereal OO zstd',
+        init => sub {
+            $enc_zstd = Sereal::Encoder->new( {
+                %opt,
+                compress           => Sereal::Encoder::SRL_ZSTD,
+                compress_threshold => 0,
+            } );
+            $dec_zstd = Sereal::Decoder->new();
+        },
+    },
+    srl_zstd_fast => {
+        enc  => '$::enc_zstd_fast->encode($data);',
+        dec  => '$::dec_zstd_fast->decode($encoded);',
+        name => 'Sereal OO zstd fast',
+        init => sub {
+            $enc_zstd_fast = Sereal::Encoder->new( {
+                %opt,
+                compress           => Sereal::Encoder::SRL_ZSTD,
+                compress_level     => 1,
+                compress_threshold => 0,
+            } );
+            $dec_zstd_fast = Sereal::Decoder->new();
+        },
+    },
 );
 if ($only) {
     my @pat = map { split /\s*,\s*/, $_ } @$only;
@@ -203,6 +258,7 @@ our %dec_bench;
 foreach my $key ( sort keys %meta ) {
     my $info = $meta{$key};
     $info->{tag} = $key;
+    next if $sereal_only and $key !~ /^srl/ and $key ne $storable_tag;
     next if $only    and not $only->{$key} and $key ne $storable_tag;
     next if $exclude and $exclude->{$key}  and $key ne $storable_tag;
     if ( my $use = $info->{use} ) {
@@ -225,6 +281,7 @@ foreach my $key ( sort keys %meta ) {
     $decoded{$key} = eval '$::x = ' . $info->{dec} . '; 1'
         or die "Failed to eval $info->{dec}: $@\n$encoded{$key}\n";
     $info->{size} = bytes::length( $encoded{$key} );
+    next if $sereal_only and $key !~ /^srl/;
     next if $only    and not $only->{$key};
     next if $exclude and $exclude->{$key};
     $enc_bench{$key} = '$::x_' . $key . ' = ' . $info->{enc};
