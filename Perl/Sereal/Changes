@@ -16,10 +16,12 @@ from the the Encoder and Decoder changelogs:
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
-Unreleased
-    * Fix compression buffer capacity reporting and option lookup data in
-      cloned threads. Preserve builds with older Perl XS parsers.
-      Thanks to Steffen Mueller.
+7.006
+    * Fix Encoder and Decoder option lookup in cloned Perl threads,
+      including children that outlive their parent thread. Preserve
+      builds with older Perl XS parsers.
+    * Correct Encoder output buffer capacity reporting for Snappy, Zlib
+      and Zstd compression. Thanks to Steffen Mueller for both fixes.
 
 7.005
     * Fix a false native long-double test failure on Intel macOS with
