@@ -45,6 +45,7 @@ typedef struct {
     AV *callback_keepalive;   /* values borrowed across actual Perl callbacks */
 
     void *snappy_workmem;     /* lazily allocated if and only if using Snappy */
+    void *zstd_cctx;          /* lazily allocated ZSTD_CCtx when reusing encoder */
     U8 checksum_key[16];
     U8 checksum_key_set;
     U8 checksum_policy;

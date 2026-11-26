@@ -161,15 +161,20 @@ srl_reset_compression_header_flag(srl_buffer_t *buf)
                               (*flags_and_version_byte & SRL_PROTOCOL_VERSION_MASK);
 }
 
-/* Compress body with one of available compressors (zlib, snappy).
+/* Cap payload size for retaining a ZSTD_CCtx so an occasional huge packet
+ * does not pin multi-MB compression tables on a reusable encoder. */
+#define SRL_ZSTD_CCTX_REUSE_MAX_LEN (512 * 1024)
+
+/* Compress body with one of available compressors (zlib, zstd, snappy).
  * The function sets/resets compression bits at version byte.
  * The caller has to adjust buf->body_pos by calling SRL_UPDATE_BODY_POS
  * right after exiting from srl_compress_body.
  */
 
 SRL_STATIC_INLINE void
-srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
-                  const U32 compress_flags, const int compress_level, void **workmem)
+srl_compress_body_ctx(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
+                      const U32 compress_flags, const int compress_level,
+                      void **workmem, void **zstd_cctx)
 {
     const int is_traditional_snappy = compress_flags & SRL_F_COMPRESS_SNAPPY;
     const int is_incremental_snappy = compress_flags & SRL_F_COMPRESS_SNAPPY_INCREMENTAL;
@@ -237,9 +242,27 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
 
         compressed_body_length = (size_t) len;
     } else if (is_zstd) {
-        size_t code = ZSTD_compress((void*) buf->pos, dst_capacity,
-                                    (void*) (old_buf.start + sereal_header_length), uncompressed_body_length,
-                                    compress_level);
+        size_t code;
+
+        if (zstd_cctx != NULL
+                && uncompressed_body_length <= (size_t)SRL_ZSTD_CCTX_REUSE_MAX_LEN) {
+            if (expect_false(*zstd_cctx == NULL)) {
+                *zstd_cctx = (void *)ZSTD_createCCtx();
+                if (expect_false(*zstd_cctx == NULL)) {
+                    srl_buf_swap_buffer(aTHX_ buf, &old_buf);
+                    srl_buf_free_buffer(aTHX_ &old_buf);
+                    croak("Out of memory allocating Zstd compression context");
+                }
+            }
+            code = ZSTD_compressCCtx((ZSTD_CCtx *)*zstd_cctx,
+                                     (void *)buf->pos, dst_capacity,
+                                     (const void *)(old_buf.start + sereal_header_length),
+                                     uncompressed_body_length, compress_level);
+        } else {
+            code = ZSTD_compress((void *)buf->pos, dst_capacity,
+                                 (const void *)(old_buf.start + sereal_header_length),
+                                 uncompressed_body_length, compress_level);
+        }
 
         if (ZSTD_isError(code)) {
             srl_buf_swap_buffer(aTHX_ buf, &old_buf);
@@ -286,6 +309,13 @@ srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
 
     srl_buf_free_buffer(aTHX_ &old_buf);
     DEBUG_ASSERT_BUF_SANE(buf);
+}
+
+SRL_STATIC_INLINE void
+srl_compress_body(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
+                  const U32 compress_flags, const int compress_level, void **workmem)
+{
+    srl_compress_body_ctx(aTHX_ buf, sereal_header_length, compress_flags, compress_level, workmem, NULL);
 }
 
 #endif
