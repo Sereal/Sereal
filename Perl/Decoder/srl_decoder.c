@@ -142,7 +142,7 @@ SRL_STATIC_INLINE void srl_assert_input_unchanged(pTHX_ srl_decoder_t *dec);    
 static SRL_NOINLINE void srl_read_copy(pTHX_ srl_decoder_t *dec, SV* into);
 
 SRL_STATIC_INLINE void srl_read_hash(pTHX_ srl_decoder_t *dec, SV* into, U8 tag);
-SRL_STATIC_INLINE void srl_read_array(pTHX_ srl_decoder_t *dec, SV* into, U8 tag);
+static SRL_NOINLINE void srl_read_array(pTHX_ srl_decoder_t *dec, SV* into, U8 tag);
 static SRL_NOINLINE void srl_read_regexp(pTHX_ srl_decoder_t *dec, SV* into);
 
 SRL_STATIC_INLINE void srl_read_refp(pTHX_ srl_decoder_t *dec, SV* into);
@@ -2055,18 +2055,24 @@ srl_read_float_128(pTHX_ srl_decoder_t *dec, SV* into)
     dec->buf.pos += 16;
 }
 
-SRL_STATIC_INLINE void
-srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
+SRL_STATIC_INLINE double
+srl_read_double_val(pTHX_ srl_decoder_t *dec)
 {
     union myfloat val;
     U8 scratch[sizeof(double)];
     SRL_RDR_ASSERT_SPACE(dec->pbuf, sizeof(double), " while reading DOUBLE");
     if (srl_native_float_payload(dec))
-        Copy(dec->buf.pos,val.c,sizeof(double),U8);
+        Copy(dec->buf.pos, val.c, sizeof(double), U8);
     else
         srl_copy_double_little_endian(aTHX_ val.c, srl_ordered_float_payload(dec, scratch, sizeof(double)));
-    sv_setnv(into, (NV)val.d);
-    dec->buf.pos+= sizeof(double);
+    dec->buf.pos += sizeof(double);
+    return val.d;
+}
+
+SRL_STATIC_INLINE void
+srl_read_double(pTHX_ srl_decoder_t *dec, SV* into)
+{
+    sv_setnv(into, (NV)srl_read_double_val(aTHX_ dec));
 }
 
 
@@ -2099,6 +2105,20 @@ srl_read_long_double(pTHX_ srl_decoder_t *dec, SV* into)
 
 
 SRL_STATIC_INLINE void
+srl_array_set_iv(pTHX_ srl_decoder_t *dec, SV **slot, IV iv)
+{
+    if (expect_false(IS_IV_ALIAS(dec, iv))) {
+        *slot = NULL;
+        srl_alias_iv(aTHX_ dec, slot, NULL, iv);
+    } else {
+        SV * const sv = newSViv(iv);
+        if (expect_false(dec->flags_readonly))
+            SvREADONLY_on(sv);
+        *slot = sv;
+    }
+}
+
+static SRL_NOINLINE void
 srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
     UV len;
     if (tag) {
@@ -2132,10 +2152,95 @@ srl_read_array(pTHX_ srl_decoder_t *dec, SV *into, U8 tag) {
         av_end= av_array + len;
 
         dec->owed_bytes += len;
+
+        /* Match DEPTH_INCREMENT parity: if entering an element would exceed
+         * max_recursion_depth, let srl_read_single_value handle it identically. */
+        if (expect_false(dec->recursion_depth >= dec->max_recursion_depth)) {
+            for ( ; av_array < av_end ; av_array++) {
+                dec->owed_bytes--;
+                *av_array = FRESH_SV();
+                srl_read_single_value(aTHX_ dec, *av_array, av_array);
+            }
+            return;
+        }
+
         for ( ; av_array < av_end ; av_array++) {
+            U8 elem_tag;
             dec->owed_bytes--;
-            *av_array = FRESH_SV();
-            srl_read_single_value(aTHX_ dec, *av_array, av_array);
+            if (expect_false(SRL_RDR_DONE(dec->pbuf))) {
+                *av_array = FRESH_SV();
+                srl_read_single_value(aTHX_ dec, *av_array, av_array);
+                continue;
+            }
+            elem_tag = *dec->buf.pos;
+            if (elem_tag <= SRL_HDR_NEG_HIGH) {
+                const IV iv = (elem_tag <= SRL_HDR_POS_HIGH)
+                    ? (IV)elem_tag
+                    : (IV)elem_tag - 32;
+                dec->buf.pos++;
+                srl_array_set_iv(aTHX_ dec, av_array, iv);
+            } else if (elem_tag >= SRL_HDR_SHORT_BINARY_LOW
+                    && elem_tag <= SRL_HDR_SHORT_BINARY_HIGH) {
+                const STRLEN slen = (STRLEN)SRL_HDR_SHORT_BINARY_LEN_FROM_TAG(elem_tag);
+                SV *sv;
+                dec->buf.pos++;
+                SRL_CHECK_MAX_STRING_LENGTH(dec, slen, "string");
+                SRL_RDR_ASSERT_SPACE(dec->pbuf, slen, " while reading ascii string");
+                sv = newSVpvn((const char *)dec->buf.pos, slen);
+                dec->buf.pos += slen;
+                if (expect_false(dec->flags_readonly))
+                    SvREADONLY_on(sv);
+                *av_array = sv;
+            } else {
+                switch (elem_tag) {
+                    case SRL_HDR_VARINT:
+                    {
+                        UV uv;
+                        dec->buf.pos++;
+                        uv = srl_read_varint_uv(aTHX_ dec->pbuf);
+                        if (expect_true(uv <= (UV)IV_MAX)) {
+                            srl_array_set_iv(aTHX_ dec, av_array, (IV)uv);
+                        } else {
+                            SV * const sv = newSVuv(uv);
+                            if (expect_false(dec->flags_readonly))
+                                SvREADONLY_on(sv);
+                            *av_array = sv;
+                        }
+                        break;
+                    }
+                    case SRL_HDR_DOUBLE:
+                    {
+                        SV *sv;
+                        dec->buf.pos++;
+                        sv = newSVnv((NV)srl_read_double_val(aTHX_ dec));
+                        if (expect_false(dec->flags_readonly))
+                            SvREADONLY_on(sv);
+                        *av_array = sv;
+                        break;
+                    }
+                    case SRL_HDR_CANONICAL_UNDEF:
+                        if (expect_false(dec->proto_version < 3)) {
+                            dec->buf.pos++;
+                            SRL_RDR_ERROR(dec->pbuf, "CANONICAL_UNDEF tag requires protocol version 3 or later");
+                        }
+                        /* fall through */
+                    case SRL_HDR_UNDEF:
+                        dec->buf.pos++;
+                        if (SRL_DEC_HAVE_OPTION(dec, SRL_F_DECODER_USE_UNDEF)) {
+                            *av_array = &PL_sv_undef;
+                        } else {
+                            SV * const sv = FRESH_SV();
+                            if (expect_false(dec->flags_readonly))
+                                SvREADONLY_on(sv);
+                            *av_array = sv;
+                        }
+                        break;
+                    default:
+                        *av_array = FRESH_SV();
+                        srl_read_single_value(aTHX_ dec, *av_array, av_array);
+                        break;
+                }
+            }
         }
     }
 }
