@@ -787,6 +787,20 @@ srl_clear_seen_hashes(pTHX_ srl_encoder_t *enc)
     srl_str_dedupe_clear(aTHX_ &enc->str_dedupe_tbl);
 }
 
+SRL_STATIC_INLINE void
+srl_reset_or_trim_buffer(pTHX_ srl_buffer_t *buf)
+{
+    if (buf->start == NULL)
+        return;
+    if ((size_t)BUF_SIZE(buf) > (size_t)SRL_ENC_BUF_REUSE_MAX_SIZE) {
+        srl_buf_free_buffer(aTHX_ buf);
+        buf->start = buf->pos = buf->end = buf->body_pos = NULL;
+    } else {
+        buf->pos = buf->start;
+        SRL_SET_BODY_POS(buf, buf->start);
+    }
+}
+
 void
 srl_clear_encoder(pTHX_ srl_encoder_t *enc)
 {
@@ -804,11 +818,8 @@ srl_clear_encoder(pTHX_ srl_encoder_t *enc)
     if (enc->callback_keepalive)
         av_clear(enc->callback_keepalive);
 
-    enc->buf.pos = enc->buf.start;
-    /* tmp_buf.start may be NULL for an unused tmp_buf, but so what? */
-    enc->tmp_buf.pos = enc->tmp_buf.start;
-
-    SRL_SET_BODY_POS(&enc->buf, enc->buf.start);
+    srl_reset_or_trim_buffer(aTHX_ &enc->buf);
+    srl_reset_or_trim_buffer(aTHX_ &enc->tmp_buf);
 
     SRL_ENC_RESET_OPER_FLAG(enc, SRL_OF_ENCODER_DIRTY | SRL_OF_ENCODER_HAS_CALLBACKS);
 }
@@ -821,7 +832,8 @@ srl_destroy_encoder(pTHX_ srl_encoder_t *enc)
     if (enc->callback_seen)
         PTABLE_free(enc->callback_seen);
     srl_callback_free_spare(enc);
-    srl_buf_free_buffer(aTHX_ &enc->buf);
+    if (enc->buf.start != NULL)
+        srl_buf_free_buffer(aTHX_ &enc->buf);
 
     /* Free tmp buffer only if it was allocated at all. */
     if (enc->tmp_buf.start != NULL)
@@ -1426,8 +1438,10 @@ srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src, const U32 compre
 
         /* Allocate tmp buffer for swapping if necessary,
          * will be cleaned up automatically */
-        if (enc->tmp_buf.start == NULL)
-            srl_buf_init_buffer(aTHX_ &enc->tmp_buf, INITIALIZATION_SIZE);
+        if (enc->tmp_buf.start == NULL) {
+            if (expect_false(srl_buf_init_buffer(aTHX_ &enc->tmp_buf, INITIALIZATION_SIZE) != 0))
+                croak("Out of memory");
+        }
 
         /* Write document body (for header) into separate buffer */
         srl_buf_swap_buffer(aTHX_ &enc->tmp_buf, &enc->buf);
@@ -1895,6 +1909,11 @@ srl_prepare_encoder(pTHX_ srl_encoder_t *enc)
     /* Register our structure for destruction on scope exit */
     SAVEDESTRUCTOR_X(&srl_destructor_hook, (void *)enc);
 
+    if (expect_false(enc->buf.start == NULL)) {
+        if (expect_false(srl_buf_init_buffer(aTHX_ &enc->buf, INITIALIZATION_SIZE) != 0))
+            croak("Out of memory");
+    }
+
     return enc;
 }
 
@@ -1988,18 +2007,21 @@ srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *user_he
     enc = srl_dump_data_structure(aTHX_ enc, src, user_header_src);
     assert(enc->buf.start && enc->buf.pos && enc->buf.pos > enc->buf.start);
 
-    if ( flags && /* for now simpler and equivalent to: flags == SRL_ENC_SV_REUSE_MAYBE */
-         (BUF_POS_OFS(&enc->buf) > 20 && BUF_SPACE(&enc->buf) < BUF_POS_OFS(&enc->buf) )
-    ){
-        /* If not wasting more than 2x memory - FIXME fungible */
-        SV *sv = sv_2mortal(newSV_type(SVt_PV));
+    if ( (flags || !SRL_ENC_HAVE_OPTION(enc, SRL_F_REUSE_ENCODER)
+               || (size_t)BUF_SIZE(&enc->buf) > (size_t)SRL_ENC_BUF_REUSE_MAX_SIZE) &&
+         (BUF_POS_OFS(&enc->buf) > 20 && BUF_SPACE(&enc->buf) < BUF_POS_OFS(&enc->buf)) )
+    {
+        /* Steal buffer if not wasting more than 2x memory (functional calls,
+         * one-off clones, or reusable encoders whose buffer exceeded the reuse cap). */
+        SV *sv;
         BUF_SIZE_ASSERT(&enc->buf, 1);
         *enc->buf.pos = '\0'; /* terminate the PV without adding to the packet */
+        sv = sv_2mortal(newSV_type(SVt_PV));
         SvPV_set(sv, (char *) enc->buf.start);
         SvLEN_set(sv, BUF_SIZE(&enc->buf));
         SvCUR_set(sv, BUF_POS_OFS(&enc->buf));
         SvPOK_on(sv);
-        enc->buf.start = enc->buf.pos = NULL; /* no need to free these guys now */
+        enc->buf.start = enc->buf.pos = enc->buf.end = enc->buf.body_pos = NULL;
         return sv;
     }
 
@@ -2108,12 +2130,18 @@ srl_is_canonical_regexp_object(pTHX_ SV *referent)
 #endif
 }
 
-#define ASSUME_BYTES_PER_TAG 4
-#define BUF_SIZE_ASSERT_AV(b,n) \
-        BUF_SIZE_ASSERT((b), 2 + SRL_MAX_VARINT_LENGTH + (1 * ASSUME_BYTES_PER_TAG * (n) ) )
-/* heuristic: 6 * n = liberal estimate of min size of n hashkeys */
-#define BUF_SIZE_ASSERT_HV(b, n) \
-        BUF_SIZE_ASSERT((b), 2 + SRL_MAX_VARINT_LENGTH + (2 * ASSUME_BYTES_PER_TAG * (n) ) )
+#define ASSUME_BYTES_PER_TAG 1
+#define BUF_SIZE_ASSERT_CONTAINER(b, n, per_elem)                           \
+    STMT_START {                                                            \
+        const UV n_ = (UV)(n);                                              \
+        const size_t overhead_ = (size_t)(2 + SRL_MAX_VARINT_LENGTH);       \
+        const size_t max_n_ = ((~(size_t)0) - overhead_) / (size_t)(per_elem); \
+        if (expect_false(n_ > max_n_))                                      \
+            croak("Sereal output buffer is too large");                     \
+        BUF_SIZE_ASSERT((b), overhead_ + (size_t)(per_elem) * (size_t)n_);  \
+    } STMT_END
+#define BUF_SIZE_ASSERT_AV(b, n) BUF_SIZE_ASSERT_CONTAINER((b), (n), 1 * ASSUME_BYTES_PER_TAG)
+#define BUF_SIZE_ASSERT_HV(b, n) BUF_SIZE_ASSERT_CONTAINER((b), (n), 2 * ASSUME_BYTES_PER_TAG)
 
 static SRL_NOINLINE void
 srl_dump_av(pTHX_ srl_encoder_t *enc, AV *src, U32 refcount)
