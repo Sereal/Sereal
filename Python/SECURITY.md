@@ -4,7 +4,9 @@ This implementation is experimental. Use it with caution, especially with
 untrusted input; it may contain bugs, including security bugs.
 We welcome expert help to maintain and improve this port.
 
-This is a basic decoder for uncompressed protocol versions 3 and 4. The
+This is a basic decoder for protocol versions 3 and 4, including Zlib,
+Zstandard, and optional Snappy compressed bodies (bounded by
+`max_uncompressed_size`, defaulting to 256 MiB). The
 [Python README](README.md) documents its supported input and the
 `object_factory` callback. It does not provide protocol v6 keyed checksum
 verification; a decoded packet has not thereby been authenticated.
