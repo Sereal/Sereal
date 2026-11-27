@@ -686,7 +686,7 @@ srl_getmagic(pTHX_ srl_encoder_t *enc, SV *value, SV *reference)
         }                                                                   \
         else {                                                              \
             DO_POK_REGEXP(enc,src,svt)                                      \
-            srl_dump_svpv_pv(aTHX_ enc, src, SvPVX(src), SvCUR(src), allow_alias); \
+            srl_dump_svpv_pv(aTHX_ enc, src, SvPVX_const(src), SvCUR(src), allow_alias); \
         }                                                                   \
     }                                                                       \
     else                                                                    \
@@ -1456,6 +1456,8 @@ srl_write_header(pTHX_ srl_encoder_t *enc, SV *user_header_src, const U32 compre
         user_data_len = BUF_POS_OFS(&enc->buf);
         srl_buf_swap_buffer(aTHX_ &enc->buf, &enc->tmp_buf);
 
+        if (expect_false((size_t)user_data_len > SRL_BUF_MAX_SIZE - (size_t)(1 + SRL_MAX_VARINT_LENGTH)))
+            croak("Sereal output buffer is too large");
         BUF_SIZE_ASSERT(&enc->buf, user_data_len + 1 + SRL_MAX_VARINT_LENGTH); /* +1 for bit field, +X for header len */
 
         /* Encode header length */
@@ -2014,7 +2016,16 @@ srl_dump_data_structure_mortal_sv(pTHX_ srl_encoder_t *enc, SV *src, SV *user_he
         /* Steal buffer if not wasting more than 2x memory (functional calls,
          * one-off clones, or reusable encoders whose buffer exceeded the reuse cap). */
         SV *sv;
-        BUF_SIZE_ASSERT(&enc->buf, 1);
+        if (expect_false(BUF_SPACE(&enc->buf) < 1)) {
+            const size_t pos_ofs_ = (size_t)BUF_POS_OFS(&enc->buf);
+            if (expect_false(pos_ofs_ >= SRL_BUF_MAX_SIZE))
+                croak("Sereal output buffer is too large");
+            Renew(enc->buf.start, pos_ofs_ + 1, srl_buffer_char);
+            if (expect_false(enc->buf.start == NULL))
+                croak("Out of memory!");
+            enc->buf.pos = enc->buf.start + pos_ofs_;
+            enc->buf.end = enc->buf.start + pos_ofs_ + 1;
+        }
         *enc->buf.pos = '\0'; /* terminate the PV without adding to the packet */
         sv = sv_2mortal(newSV_type(SVt_PV));
         SvPV_set(sv, (char *) enc->buf.start);
@@ -2135,7 +2146,7 @@ srl_is_canonical_regexp_object(pTHX_ SV *referent)
     STMT_START {                                                            \
         const UV n_ = (UV)(n);                                              \
         const size_t overhead_ = (size_t)(2 + SRL_MAX_VARINT_LENGTH);       \
-        const size_t max_n_ = ((~(size_t)0) - overhead_) / (size_t)(per_elem); \
+        const size_t max_n_ = (SRL_BUF_MAX_SIZE - overhead_) / (size_t)(per_elem); \
         if (expect_false(n_ > max_n_))                                      \
             croak("Sereal output buffer is too large");                     \
         BUF_SIZE_ASSERT((b), overhead_ + (size_t)(per_elem) * (size_t)n_);  \
@@ -2830,6 +2841,8 @@ srl_dump_svpv(pTHX_ srl_encoder_t *enc, SV *src, int allow_alias)
 SRL_STATIC_INLINE void
 srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_utf8)
 {
+    if (expect_false((size_t)src_len > SRL_BUF_MAX_SIZE - (size_t)(1 + SRL_MAX_VARINT_LENGTH)))
+        croak("Sereal output buffer is too large");
     BUF_SIZE_ASSERT(&enc->buf, 1 + SRL_MAX_VARINT_LENGTH + src_len); /* overallocate a bit sometimes */
     if (is_utf8) {
         srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_STR_UTF8, src_len);
@@ -2838,8 +2851,10 @@ srl_dump_pv(pTHX_ srl_encoder_t *enc, const char* src, STRLEN src_len, int is_ut
     } else {
         srl_buf_cat_varint_nocheck(aTHX_ &enc->buf, SRL_HDR_BINARY, src_len);
     }
-    Copy(src, enc->buf.pos, src_len, char);
-    enc->buf.pos += src_len;
+    if (src_len) {
+        Copy(src, enc->buf.pos, src_len, char);
+        enc->buf.pos += src_len;
+    }
 }
 
 static SRL_NOINLINE void

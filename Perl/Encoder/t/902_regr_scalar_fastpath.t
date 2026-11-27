@@ -119,7 +119,7 @@ SKIP: {
         16, 63, 64, 127, 128, 16383, 16384, 2147483647,
     );
     if ( $Config{ivsize} >= 8 ) {
-        push @ints, -9223372036854775808, 9223372036854775807, ~0;
+        push @ints, -9223372036854775807 - 1, 9223372036854775807, ~0;
     }
     is_deeply( $dec->decode( $enc->encode( \@ints ) ),    \@ints, 'v6 roundtrip small & large ints' );
     is_deeply( $dec->decode( $enc_v5->encode( \@ints ) ), \@ints, 'v5 roundtrip small & large ints (zigzag)' );
@@ -206,10 +206,31 @@ SKIP: {
 
     # Builtin booleans on Perl 5.36+ (copied booleans have SvREFCNT==1, SvPOK && SvIOK)
     if ( $] >= 5.036 ) {
-        my $bt = eval 'no warnings "experimental::builtin"; my $x = builtin::true();  $x';
-        my $bf = eval 'no warnings "experimental::builtin"; my $x = builtin::false(); $x';
-        my $rt_bool = $dec->decode( $enc->encode( [ $bt, $bf ] ) );
+        my $bt       = eval 'no warnings "experimental::builtin"; my $x = builtin::true();  $x';
+        my $bf       = eval 'no warnings "experimental::builtin"; my $x = builtin::false(); $x';
+        my $expected = chr( SRL_HDR_ARRAYREF_LOW + 2 ) . chr(SRL_HDR_YES) . chr(SRL_HDR_NO);
+        my $wire_v5  = $enc_v5->encode( [ $bt, $bf ] );
+        my $body_v5  = substr( $wire_v5, 6 );
+        is( $body_v5, $expected, 'v5 copied builtin booleans emit SRL_HDR_YES and SRL_HDR_NO' );
+        my $rt_bool = $dec->decode($wire_v5);
         ok( $rt_bool->[0] && !$rt_bool->[1], 'copied builtin booleans roundtrip' );
+
+        my $enc_v4  = Sereal::Encoder->new( { protocol_version => 4 } );
+        my $wire_v4 = $enc_v4->encode( [ $bt, $bf ] );
+        my $body_v4 = substr( $wire_v4, 6 );
+        isnt( $body_v4, $expected, 'v4 does not emit SRL_HDR_YES/SRL_HDR_NO for builtin booleans' );
+        my $rt_v4 = $dec->decode($wire_v4);
+        ok( $rt_v4->[0] && !$rt_v4->[1], 'v4 copied builtin booleans still roundtrip as truthy/falsy' );
+    }
+
+    # SvOOK (offset string) and SvIsCOW (shared hash key copy) with SvREFCNT == 1
+    {
+        my $ook = "prefix_hello_ook";
+        substr( $ook, 0, 7, '' );
+        my %src_h = ( shared_cow_key_value => 1 );
+        my ($cow) = keys %src_h;
+        my $rt_sc = $dec->decode( $enc->encode( [ $ook, $cow ] ) );
+        is_deeply( $rt_sc, [ 'hello_ook', 'shared_cow_key_value' ], 'SvOOK and SvIsCOW scalars roundtrip on fast path' );
     }
 
     # 7. Cold hash paths: sorted_nomg, sort_keys_perl (srl_dump_hv_sv), tied unsorted & sorted
