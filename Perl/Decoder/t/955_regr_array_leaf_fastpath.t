@@ -370,4 +370,113 @@ sub pack_double_be {
     }
 }
 
+# 7. Additional option interactions: ARRAYREF + use_undef + readonly,
+#    validate_utf8 fallback, incremental bytes_consumed, and re-entrant THAW.
+{
+    # ARRAYREF_5 with use_undef + set_readonly / set_readonly_scalars + alias_smallint
+    my $arr5 = $hdr6 . pack_arrayref(
+        chr( SRL_HDR_POS + 2 ),
+        chr(SRL_HDR_UNDEF),
+        chr(SRL_HDR_CANONICAL_UNDEF),
+        chr( SRL_HDR_NEG_LOW + 15 ),
+        pack_short_bin('ro'),
+    );
+    for my $opt_name ( 'set_readonly', 'set_readonly_scalars' ) {
+        my $d = Sereal::Decoder->new( {
+            $opt_name      => 1,
+            use_undef      => 1,
+            alias_smallint => 1,
+        } );
+        my $got = $d->decode($arr5);
+        ok( Internals::SvREADONLY( $got->[0] ), "ARRAYREF_5 $opt_name + alias_smallint: elem 0 readonly" );
+        ok( \$got->[1] == \undef && \$got->[2] == \undef,
+            "ARRAYREF_5 $opt_name + use_undef: aliases PL_sv_undef" );
+        ok( Internals::SvREADONLY( $got->[3] ), "ARRAYREF_5 $opt_name + alias_smallint: elem 3 readonly" );
+        ok( Internals::SvREADONLY( $got->[4] ), "ARRAYREF_5 $opt_name: short_binary readonly" );
+        is( $got->[4], 'ro', "ARRAYREF_5 $opt_name: short_binary value matches" );
+    }
+
+    # validate_utf8 => 1 with valid & invalid STR_UTF8 inside leaf array
+    my $valid_utf8_pkt = $hdr6 . pack_arrayref(
+        chr( SRL_HDR_POS + 1 ),
+        chr(SRL_HDR_STR_UTF8) . varint(3) . "\xe2\x98\x83",
+        pack_short_bin('end'),
+    );
+    my $bad_utf8_pkt = $hdr6 . pack_arrayref(
+        chr( SRL_HDR_POS + 1 ),
+        chr(SRL_HDR_STR_UTF8) . varint(2) . "\xff\xfe",
+    );
+    my $d_utf8 = Sereal::Decoder->new( { validate_utf8 => 1 } );
+    my $u_got  = $d_utf8->decode($valid_utf8_pkt);
+    is( $u_got->[0], 1, 'validate_utf8 leaf array: POS matches' );
+    is( $u_got->[1], "\x{2603}", 'validate_utf8 leaf array: valid UTF-8 string decoded' );
+    ok( utf8::is_utf8( $u_got->[1] ), 'validate_utf8 leaf array: UTF-8 flag set' );
+    is( $u_got->[2], 'end', 'validate_utf8 leaf array: trailing SHORT_BINARY matches' );
+    my $u_ok = eval { $d_utf8->decode($bad_utf8_pkt); 1 };
+    ok( !$u_ok, 'validate_utf8 leaf array: invalid STR_UTF8 croaks' );
+    like( $@, qr/Invalid UTF8 byte sequence/, 'validate_utf8 leaf array: error message matches' );
+
+    # incremental => 1 exact bytes_consumed on leaf array with trailing bytes
+    my $leaf_pkt = $hdr6 . pack_arrayref(
+        chr( SRL_HDR_POS + 4 ),
+        pack_short_bin('xy'),
+        chr(SRL_HDR_VARINT) . varint(300),
+        chr(SRL_HDR_UNDEF),
+    );
+    my $d_inc  = Sereal::Decoder->new( { incremental => 1 } );
+    my $stream = 'PREFIX' . $leaf_pkt . 'TRAILING';
+    my $i_got  = $d_inc->decode_with_offset( $stream, 6 );
+    is_deeply( $i_got, [ 4, 'xy', 300, undef ], 'incremental leaf array roundtrips' );
+    is( $d_inc->bytes_consumed, length($leaf_pkt), 'incremental leaf array bytes_consumed exact' );
+
+    # Re-entrant THAW preserves flags_readonly and alias_varint_under across _alike clone
+    {
+        package Local::RegrLeafThaw;
+        our ( $DECODER, $INNER_PKT, $INNER_OUT );
+
+        sub THAW {
+            my ( $class, $ser, $payload ) = @_;
+            $INNER_OUT = $DECODER->decode($INNER_PKT);
+            return bless { outer => $payload }, $class;
+        }
+    }
+
+    my $inner_leaf_pkt = $hdr6 . pack_plain_array(
+        chr( SRL_HDR_POS + 0 ),
+        chr( SRL_HDR_POS + 1 ),
+        pack_short_bin('abc'),
+        chr(SRL_HDR_UNDEF),
+        chr(SRL_HDR_VARINT) . varint(99),
+        chr(SRL_HDR_VARINT) . varint(99),
+        chr(SRL_HDR_VARINT) . varint(100),
+        chr(SRL_HDR_VARINT) . varint(100),
+    );
+    my $outer_thaw_pkt = $hdr6
+        . chr(SRL_HDR_OBJECT_FREEZE)
+        . pack_short_bin('Local::RegrLeafThaw')
+        . pack_arrayref( chr( SRL_HDR_POS + 7 ) );
+
+    for my $opt_name ( 'set_readonly', 'set_readonly_scalars' ) {
+        my $d_thaw = Sereal::Decoder->new( {
+            freeze_callbacks   => 1,
+            $opt_name          => 1,
+            alias_varint_under => 100,
+        } );
+        local $Local::RegrLeafThaw::DECODER   = $d_thaw;
+        local $Local::RegrLeafThaw::INNER_PKT = $inner_leaf_pkt;
+        local $Local::RegrLeafThaw::INNER_OUT;
+
+        my $outer = $d_thaw->decode($outer_thaw_pkt);
+        my $in    = $Local::RegrLeafThaw::INNER_OUT;
+        is( ref($outer), 'Local::RegrLeafThaw', "THAW re-entrancy ($opt_name): outer blessed" );
+        is_deeply( $in, [ 0, 1, 'abc', undef, 99, 99, 100, 100 ],
+            "THAW re-entrancy ($opt_name): inner leaf array values match" );
+        for my $i ( 0 .. $#$in ) {
+            ok( Internals::SvREADONLY( $in->[$i] ), "THAW re-entrancy ($opt_name): inner elem $i readonly" );
+        }
+        ok( \$in->[4] == \$in->[5], "THAW re-entrancy ($opt_name): alias_varint_under=100 aliases 99" );
+        ok( \$in->[6] != \$in->[7], "THAW re-entrancy ($opt_name): alias_varint_under=100 does not alias 100" );
+    }
+}
+
 done_testing();

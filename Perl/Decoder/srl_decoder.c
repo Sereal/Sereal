@@ -766,6 +766,8 @@ srl_build_decoder_struct_alike(pTHX_ srl_decoder_t *proto)
     dec->pbuf = &dec->buf;
     dec->zstd_dctx = NULL;
     dec->flags = proto->flags;
+    dec->flags_readonly = proto->flags_readonly;
+    dec->alias_varint_under = proto->alias_varint_under;
     SRL_DEC_RESET_VOLATILE_FLAGS(dec);
 
     return dec;
