@@ -613,7 +613,7 @@ srl_getmagic(pTHX_ srl_encoder_t *enc, SV *value, SV *reference)
             if (PV == PL_No) {                                  \
                 srl_buf_cat_char(&enc->buf, SRL_HDR_NO);        \
             } else {                                            \
-                assert(PV == Pl_Yes);                           \
+                assert(PV == PL_Yes);                           \
                 srl_buf_cat_char(&enc->buf, SRL_HDR_YES);       \
             }                                                   \
         }                                                       \
