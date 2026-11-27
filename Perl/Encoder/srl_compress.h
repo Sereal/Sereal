@@ -214,7 +214,11 @@ srl_compress_body_ctx(pTHX_ srl_buffer_t *buf, STRLEN sereal_header_length,
 
     /* Back up old buffer and allocate new one with correct size */
     srl_buf_copy_buffer(aTHX_ buf, &old_buf);
-    srl_buf_init_buffer(aTHX_ buf, sereal_header_length + compressed_body_length + 1);
+    if (expect_false(srl_buf_init_buffer(aTHX_ buf, sereal_header_length + compressed_body_length + 1) != 0)) {
+        srl_buf_swap_buffer(aTHX_ buf, &old_buf);
+        srl_buf_free_buffer(aTHX_ &old_buf);
+        croak("Out of memory");
+    }
 
     /* Copy Sereal header */
     Copy(old_buf.start, buf->pos, sereal_header_length, char);

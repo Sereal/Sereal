@@ -246,4 +246,51 @@ for my $n ( 0, 1, 15, 16, 64, 127, 128, 1000, 10000, 50000 ) {
     );
 }
 
+# 7. Exact BUF_SPACE == 1 steal boundary, ~1 MiB steady-state clamp, and
+#    >1 MiB incompressible Zstd + >1 MiB user header + v6 checksum combination.
+{
+    # Payloads whose exact packet length hits 62..65, 125..130, and 65534..65538 bytes
+    for my $len ( 50 .. 60, 114 .. 125, 65520 .. 65538, 1_048_565 .. 1_048_585 ) {
+        my $s = 'X' x $len;
+        my $pkt = encode_sereal($s);
+        is( $dec->decode($pkt), $s, "exact boundary len=$len encode_sereal roundtrip" );
+    }
+
+    # Steady-state ~980 KiB .. 1,040 KiB packets on a reusable encoder
+    my $re_1m = Sereal::Encoder->new();
+    for my $sz ( 980_000, 1_000_000, 1_040_000, 990_000 ) {
+        my $blob = 'M' x $sz;
+        my $pkt  = $re_1m->encode( { data => $blob } );
+        is_deeply( $dec->decode($pkt), { data => $blob }, "steady-state ~1MiB ($sz B) reuse roundtrip" );
+    }
+
+    # Combined >1 MiB user header + >1 MiB incompressible Zstd body + v6 checksum
+    my @chunks;
+    my $v = 987654321;
+    for ( 1 .. 300_000 ) {
+        $v = ( $v * 1103515245 + 12345 ) & 0x7fffffff;
+        push @chunks, pack( 'N', $v );
+    }
+    my $incomp_1_2m = join( '', @chunks );    # 1.2 MB incompressible
+    my $hdr_1_1m    = { h => 'H' x 1_100_000 };
+    my $ez = Sereal::Encoder->new( {
+        protocol_version   => 6,
+        compress           => SRL_ZSTD,
+        compress_threshold => 0,
+        checksum_key       => 'fedcba9876543210',
+    } );
+    my $dz = Sereal::Decoder->new( { checksum_key => 'fedcba9876543210' } );
+    my $pkt_combo = $ez->encode( $incomp_1_2m, $hdr_1_1m );
+    is_deeply(
+        $dz->decode_with_header($pkt_combo),
+        [ $hdr_1_1m, $incomp_1_2m ],
+        'combined >1 MiB header + >1 MiB incompressible Zstd body + v6 checksum roundtrip'
+    );
+    is_deeply(
+        $dz->decode_with_header( $ez->encode( 'tiny_after', { ok => 1 } ) ),
+        [ { ok => 1 }, 'tiny_after' ],
+        'reusable Zstd+checksum encoder clean after oversized combined packet'
+    );
+}
+
 done_testing();

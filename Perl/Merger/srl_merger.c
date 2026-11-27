@@ -75,13 +75,7 @@ extern "C" {
     );                                                               \
 } STMT_END
 
-#define GROW_BUF(buf, minlen) STMT_START {                            \
-    DEBUG_ASSERT_BUF_SANE(buf);                                       \
-    if (expect_false(BUF_NEED_GROW((buf), minlen))) {                 \
-        srl_buf_grow_nocheck(aTHX_ (buf), (BUF_SIZE(buf) + minlen));  \
-        DEBUG_ASSERT_BUF_SANE(buf);                                   \
-    }                                                                 \
-} STMT_END
+#define GROW_BUF(buf, minlen) BUF_SIZE_ASSERT((buf), (minlen))
 
 #define srl_buf_cat_tag_nocheck(mrg, tag) STMT_START { \
     GROW_BUF(&(mrg)->obuf, 1);                         \
