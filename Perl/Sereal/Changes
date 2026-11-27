@@ -16,6 +16,16 @@ from the the Encoder and Decoder changelogs:
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.008
+    * Improve Encoder and Decoder performance with faster scalar and
+      varint handling, more efficient string deduplication, and reuse of
+      Zstd contexts. Reduce Encoder buffer allocation and retention.
+    * Preserve compression, readonly and integer aliasing settings when
+      FREEZE/THAW callbacks reuse their encoder or decoder.
+    * Fix empty UTF-8 validation and builds with assertions enabled.
+      Existing wire formats and protocol compatibility are preserved.
+      Thanks to Steffen Mueller for these improvements and fixes.
+
 7.007
     * Fix bundled Zstd build races in Encoder and Decoder under parallel
       make, including malformed archives and linker failures. Preserve

@@ -4,7 +4,7 @@ use warnings;
 
 use ExtUtils::MakeMaker;
 use Cwd;
-our $VERSION = '7.007';
+our $VERSION = '7.008';
 $VERSION = eval $VERSION or die "WTF: $VERSION: $@";    # deal with underbars
 
 my $shared_dir        = "../shared";

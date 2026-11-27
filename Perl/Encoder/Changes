@@ -10,6 +10,22 @@ Revision history for Perl extension Sereal-Encoder
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+7.008
+    * Speed up scalar, string and small-varint encoding, and reduce
+      stack usage by keeping larger helpers out of the hot path.
+    * Reduce allocation overhead for dedupe_strings and
+      aliased_dedupe_strings with a single C string table. Preserve
+      binary/UTF-8 distinctions and reference tracking.
+    * Reuse Zstd compression contexts on reusable encoders for payloads
+      up to 512 KiB, avoiding repeated context allocation.
+    * Improve buffer growth and container preallocation. Limit retained
+      buffers on reusable encoders to 1 MiB after large payloads, and
+      strengthen buffer size and overflow checks.
+    * Preserve compression levels when FREEZE callbacks reuse the
+      encoder.
+    * Fix builds with assertions enabled on Perl 5.36 and later.
+      Thanks to Steffen Mueller for these improvements and fixes.
+
 7.007
     * Fix bundled Zstd build races under parallel make that can cause
       malformed archives and linker failures. Build the archive once
