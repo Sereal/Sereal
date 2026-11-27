@@ -45,11 +45,13 @@ class SrlDocumentReader(object):
         shift = 0
         result = 0
         while True:
-            i = ord(self._read_exact(1))
+            i = self.read_uint8()
+            if shift > 63 or (shift == 63 and i > 0x01):
+                raise exception.SrlError('bad varint: varint too large')
             result |= (i & 0x7f) << shift
-            shift += 7
             if not (i & 0x80):
                 break
+            shift += 7
 
         return result
 

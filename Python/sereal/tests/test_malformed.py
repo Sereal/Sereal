@@ -114,12 +114,16 @@ class TestMalformed(unittest.TestCase):
         self.assertEqual(decode('4261612f02'), ['a', 'a'])
 
     def test_snappy_document_type(self):
-        # document type 1 (snappy) with a raw body that is not compressed
+        # document type 1 (legacy non-incremental snappy) is invalid in v3/v4
         self.assertRejected('01', 'document type', header='3df3726c1300')
 
-    def test_zlib_document_type(self):
-        # document type 3 (zlib) with a raw body that is not compressed
-        self.assertRejected('01', 'document type', header='3df3726c3300')
+    def test_zlib_malformed_body(self):
+        # document type 3 (zlib) with a raw body that is not a valid zlib payload
+        self.assertRejected('01', 'unexpected end of input', header='3df3726c3300')
+
+    def test_zstd_v3_rejected(self):
+        # document type 4 (zstd) requires protocol version 4 or later
+        self.assertRejected('01', 'document type', header='3df3726c4300')
 
     def test_reused_decoder_forgets_tracked_items(self):
         decoder = SrlDecoder()
