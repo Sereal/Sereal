@@ -26,16 +26,19 @@ pass("did not segfault!");
 {
     my @warnings;
     local $SIG{__WARN__} = sub { push @warnings, @_ };
-    my @versions = ( 'before', scalar_looks_like_sereal($empty_array_as_sereal . ''), 'after' );
+    my @versions = ( 'before', scalar_looks_like_sereal( $empty_array_as_sereal . '' ), 'after' );
     is_deeply( \@versions, [ 'before', 4, 'after' ], 'inspection preserves adjacent stack values' );
-    scalar_looks_like_sereal($empty_array_as_sereal . '');
+    scalar_looks_like_sereal( $empty_array_as_sereal . '' );
 
     my $packet = Header( 4, "\x07" ) . "\x40";
-    for my $suffix ( '', '_only_header', '_with_header', '_with_offset',
-                    '_only_header_with_offset', '_with_header_and_offset' ) {
-        my $body = $suffix !~ /only_header/;
-        my $header = $suffix =~ /header/;
-        my $offset = $suffix =~ /offset/;
+    for my $suffix (
+        '', '_only_header', '_with_header', '_with_offset',
+        '_only_header_with_offset', '_with_header_and_offset'
+        )
+    {
+        my $body     = $suffix !~ /only_header/;
+        my $header   = $suffix =~ /header/;
+        my $offset   = $suffix =~ /offset/;
         my $expected = $header ? ( $body ? [ 7, [] ] : 7 ) : [];
         for my $outputs ( 0 .. ( $body + $header ) ) {
             my @expressions = ( '$_[0]', '$_[1]' );
@@ -43,11 +46,11 @@ pass("did not segfault!");
             push @expressions, '$_[3]' if $outputs;
             push @expressions, '$_[4]' if $outputs == 2;
             my $name = "sereal_decode${suffix}_with_object";
-            my $probe = eval 'sub { Sereal::Decoder::' . $name
-                . '(' . join( ', ', @expressions ) . ') }';
+            my $probe =
+                eval 'sub { Sereal::Decoder::' . $name . '(' . join( ', ', @expressions ) . ') }';
             die $@ unless $probe;
-            my @args = ( $srl_decoder, $offset ? 'prefix' . $packet : $packet, 6, undef, undef );
-            my $label = "$name with $outputs output arguments";
+            my @args   = ( $srl_decoder, $offset ? 'prefix' . $packet : $packet, 6, undef, undef );
+            my $label  = "$name with $outputs output arguments";
             my $result = $probe->(@args);
             is_deeply( $result, $expected, "$label in scalar context" );
             my @results = ( 'before', $probe->(@args), 'after' );

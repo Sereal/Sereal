@@ -19,7 +19,7 @@ my $header_snappy = SRL_MAGIC_STRING . chr( 1 + 16 ) . chr(0);
 my $decoder       = Sereal::Decoder->new;
 my $iterations    = $ENV{SEREAL_RAND_ITERATIONS} || 1000;
 for my $i ( 1 .. $iterations ) {
-    my $content = '';
+    my $content     = '';
     my $content_len = 200;
 
     #my $content_len = int( rand() * 200 );
@@ -36,7 +36,7 @@ for my $i ( 1 .. $iterations ) {
             my $out;
             my $ok;
             my $data = "$hdr->[1]$content";
-            my $len = $content_len;
+            my $len  = $content_len;
             while ( $len-- > 0 ) {
                 if ( $ENV{DEBUG_SEREAL} ) {
 
@@ -49,7 +49,8 @@ for my $i ( 1 .. $iterations ) {
                 chop $data;
             }
         }
-    } [], "Alive and no warnings ($i)";
+    }
+    [], "Alive and no warnings ($i)";
 }
 
 pass("Alive");

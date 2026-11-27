@@ -14,9 +14,9 @@ use Sereal::Decoder;
 use Sereal::TestSet::Corpus qw(read_packet);
 
 plan tests => 1004;
-my $d = Sereal::Decoder->new();
+my $d      = Sereal::Decoder->new();
 my $corpus = File::Spec->catdir( 't', 'data', 'packet_corpus' );
-my @cases = (
+my @cases  = (
     [ 'each/alpha',      26 ],
     [ 'each/upper',      26 ],
     [ 'each/small_nums', 101 ],

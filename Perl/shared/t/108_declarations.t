@@ -14,31 +14,37 @@ use Sereal::Decoder::Constants qw(:all);
 my $native = eval { pack( 'D', -0.125 ) };
 my $format;
 my $perl_kind = defined( $Config{longdblkind} ) ? $Config{longdblkind} : 'UNKNOWN';
+
 # On Perls whose NV is double, pack D can return eight bytes even when
 # C long double (used by the decoder) occupies 12 or 16 bytes.
 $native = undef if defined($native) && length($native) != $Config{longdblsize};
+
 # Older Perls omit pack D and longdblkind. When both Perl's NV and C long
 # double are eight-byte doubles, pack d supplies the native bytes instead.
 $native = pack( 'd', -0.125 )
-    if !defined($native) && $Config{longdblsize} == 8 && $Config{doublesize} == 8
+    if !defined($native)
+    && $Config{longdblsize} == 8
+    && $Config{doublesize} == 8
     && ( $perl_kind eq '0' || ( $Config{nvtype} || '' ) eq 'double' );
 if ( defined($native) ) {
     for my $case ( native_long_double_wire_cases() ) {
         my $bytes = $native;
         substr( $bytes, 10 ) = "\0" x ( length($bytes) - 10 )
             if $case->[1] == 2 && length($bytes) >= 10;
+
         # An exact double-double value may have either sign of zero in
         # its low component. That sign does not change the storage layout.
         if ( length($bytes) == 16 && ( $case->[1] & 127 ) == 4 ) {
-            my $low_offset = $case->[1] & 128 ? 8 : 0;
+            my $low_offset  = $case->[1] & 128 ? 8 : 0;
             my $sign_offset = $case->[1] & 128 ? 0 : 7;
-            my $low = substr( $bytes, $low_offset, 8 );
-            substr( $low, $sign_offset, 1 ) = chr( ord( substr( $low, $sign_offset, 1 ) ) & 127 );
-            substr( $bytes, $low_offset, 8 ) = $low if $low eq "\0" x 8;
+            my $low         = substr( $bytes, $low_offset, 8 );
+            substr( $low,   $sign_offset, 1 ) = chr( ord( substr( $low, $sign_offset, 1 ) ) & 127 );
+            substr( $bytes, $low_offset,  8 ) = $low if $low eq "\0" x 8;
         }
         $format = $case->[1] if $bytes eq $case->[2];
     }
 }
+
 # With no pack D, use Perl's declared IEEE/x87 layout. Double-double
 # requires inspecting the component order, not just its Perl kind number.
 if ( !defined($native) ) {
@@ -46,14 +52,18 @@ if ( !defined($native) ) {
     $format = $perl_kind_to_format{$perl_kind};
     for my $case ( native_long_double_wire_cases() ) {
         $native = $case->[2]
-            if defined($format) && $format == $case->[1]
+            if defined($format)
+            && $format == $case->[1]
             && $Config{longdblsize} == length( $case->[2] );
     }
 }
+
 # Older Perls may lack pack D and longdblkind on a known x86 ABI. Darwin's
 # archname omits the CPU, so use myuname to recognize that ABI as well.
-if ( !defined($native)
-    && ( $Config{archname} =~ /^(?:amd64|x86_64|i[3-6]86)-/
+if (
+    !defined($native)
+    && (
+        $Config{archname} =~ /^(?:amd64|x86_64|i[3-6]86)-/
         || ( $Config{osname} eq 'darwin'
             && ( $Config{myuname} || '' ) =~ /\b(?:x86_64|i[3-6]86)\b/ ) )
     && ( $Config{longdblsize} == 12 || $Config{longdblsize} == 16 ) )
@@ -87,7 +97,7 @@ for my $case (
     ],
     [ declaration( 0, 16 ) . "\0", qr/format mismatch/, 'unknown native format' ],
     [
-        chr( SRL_HDR_EXTEND | SRL_HDR_TRACK_FLAG )
+              chr( SRL_HDR_EXTEND | SRL_HDR_TRACK_FLAG )
             . chr(SRL_EXT_DECLARE)
             . varint(3)
             . varint(1)
@@ -121,7 +131,7 @@ SKIP: {
     my $prefix = declaration( $format, length($native) );
     my $value  = chr(SRL_HDR_LONG_DOUBLE) . $native;
     is( $dec->decode( $header . $prefix . $value ), -0.125, 'matching native descriptor decodes' );
-    is( $dec->decode( $header . $prefix . "\x07" ), 7,    'declaration does not produce a value' );
+    is( $dec->decode( $header . $prefix . "\x07" ), 7, 'declaration does not produce a value' );
     for my $case (
         [ $prefix . $prefix . "\0", qr/Duplicate/, 'duplicate kind' ],
         [
@@ -144,26 +154,31 @@ SKIP: {
         is( $dec->decode( $header . "\x07" ), 7, 'decoder state does not leak' );
     }
     my $trusted = Sereal::Decoder->new( { allow_unknown_long_double => 1 } );
-    eval { $trusted->decode( $header . declaration($format ^ 0x80, length($native)) . $value ) };
+    eval { $trusted->decode( $header . declaration( $format ^ 0x80, length($native) ) . $value ) };
     like( $@, qr/format mismatch/, 'trust does not override a known byte-order mismatch' );
     eval { $dec->decode( $header . $value ) };
     like( $@, qr/requires a declaration/, 'a declaration does not survive object reuse' );
 }
+
 # An opaque payload is a valid local C long-double object, but its format
 # declaration intentionally does not identify that layout. Default readers
 # reject it; explicitly trusted readers can recover the value on this ABI.
 SKIP: {
     skip 'native long-double bytes unavailable', 6 unless defined($native);
-    my $opaque = declaration( SRL_LD_OPAQUE, length($native) );
-    my $body = chr(SRL_HDR_LONG_DOUBLE) . $native;
+    my $opaque  = declaration( SRL_LD_OPAQUE, length($native) );
+    my $body    = chr(SRL_HDR_LONG_DOUBLE) . $native;
     my $trusted = Sereal::Decoder->new( { allow_unknown_long_double => 1 } );
     eval { $dec->decode( $header . $opaque . $body ) };
     like( $@, qr/format mismatch/, 'opaque storage requires explicit reader trust' );
-    is( $trusted->decode( $header . $opaque . $body ), -0.125,
-        'explicit trust reads opaque storage on the local ABI' );
-    is( $trusted->decode( $header . declaration(5, length($native)) . $body ), -0.125,
-        'explicit trust also permits an unrecognized future representation ID' );
-    eval { $trusted->decode( $header . declaration(SRL_LD_OPAQUE, length($native)+1) . $body ) };
+    is(
+        $trusted->decode( $header . $opaque . $body ), -0.125,
+        'explicit trust reads opaque storage on the local ABI'
+    );
+    is(
+        $trusted->decode( $header . declaration( 5, length($native) ) . $body ), -0.125,
+        'explicit trust also permits an unrecognized future representation ID'
+    );
+    eval { $trusted->decode( $header . declaration( SRL_LD_OPAQUE, length($native) + 1 ) . $body ) };
     like( $@, qr/format mismatch/, 'trust does not override a native storage-size mismatch' );
     eval { $trusted->decode( $header . $opaque . $opaque . $body ) };
     like( $@, qr/Duplicate/, 'trust does not permit duplicate declarations' );
@@ -196,8 +211,12 @@ if ( $Sereal::TestSet::Class eq 'Sereal::Encoder' ) {
         eval { Sereal::Encoder->new( { float_type => $type, unknown_option_policy => 'die' } ) };
         like( $@, qr/Invalid float_type/, 'invalid float_type is rejected' );
     }
-    my $strict_native = eval { Sereal::Decoder->new( { allow_unknown_long_double => 1,
-        unknown_option_policy => 'die' } ) };
+    my $strict_native = eval {
+        Sereal::Decoder->new( {
+            allow_unknown_long_double => 1,
+            unknown_option_policy     => 'die'
+        } );
+    };
     ok( $strict_native, 'native-reader trust is a recognized constructor option' );
     my $probe = 1 + 2**-60;
     is(
@@ -217,10 +236,10 @@ if ( $Sereal::TestSet::Class eq 'Sereal::Encoder' ) {
             for my $protected ( 0, 1 ) {
                 my $key = '0123456789abcdef';
                 my %opt = (
-                    protocol_version       => 7,
-                    float_type => 'native',
-                    compress               => $compression,
-                    compress_threshold     => 0
+                    protocol_version   => 7,
+                    float_type         => 'native',
+                    compress           => $compression,
+                    compress_threshold => 0
                 );
                 $opt{checksum_key} = $key if $protected;
                 my $encoder = Sereal::Encoder->new( \%opt );
@@ -272,19 +291,29 @@ if ( $Sereal::TestSet::Class eq 'Sereal::Encoder' ) {
             my $expected_bytes = pack( 'D', $value );
             substr( $expected_bytes, 10 ) = "\0" x ( length($expected_bytes) - 10 )
                 if defined($format) && ( $format & 127 ) == 2;
-            is( substr( $old, 7 ),
-                $expected_bytes, "v$version retains native value bytes with zero padding" );
+            is(
+                substr( $old, 7 ),
+                $expected_bytes, "v$version retains native value bytes with zero padding"
+            );
             is( $dec->decode($old), $value, "v$version native round trip" );
         }
     }
-    elsif (($Config{nvtype} || '') eq 'long double' && ($Config{nvsize} || 8) == 8 && defined($format)) {
-        ok(Sereal::Encoder->new({float_type => 'native'}), 'native alias of binary64 is supported');
+    elsif (( $Config{nvtype} || '' ) eq 'long double'
+        && ( $Config{nvsize} || 8 ) == 8
+        && defined($format) )
+    {
+        ok(
+            Sereal::Encoder->new( { float_type => 'native' } ),
+            'native alias of binary64 is supported'
+        );
     }
     elsif ( ( $Config{nvtype} || '' ) eq 'long double' ) {
-        my $encoder = Sereal::Encoder->new( { float_type => 'native' } );
-        my $reader = Sereal::Decoder->new( { allow_unknown_long_double => 1 } );
-        is( $reader->decode($encoder->encode($probe)), $probe,
-            'explicit native selection supports an unidentified local layout' );
+        my $encoder = Sereal::Encoder->new( { float_type                => 'native' } );
+        my $reader  = Sereal::Decoder->new( { allow_unknown_long_double => 1 } );
+        is(
+            $reader->decode( $encoder->encode($probe) ), $probe,
+            'explicit native selection supports an unidentified local layout'
+        );
     }
     else {
         is(

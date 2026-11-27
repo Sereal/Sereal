@@ -154,11 +154,16 @@ decode_fails(
         File::Spec->catdir( 't', 'data', 'packet_corpus' ),
         'quadmath-encoder', 'float128/precision',
     );
-    is( substr( $corpus_packet, 6, 1 ), chr(SRL_HDR_FLOAT_128),
-        'quadmath corpus packet contains FLOAT_128' );
+    is(
+        substr( $corpus_packet, 6, 1 ), chr(SRL_HDR_FLOAT_128),
+        'quadmath corpus packet contains FLOAT_128'
+    );
     my $expected = 1.000000000000000000000000000001;
     is(
-        sprintf( '%.35g', Sereal::Decoder->new({legacy_float_byteorder => 'little'})->decode($corpus_packet) ),
+        sprintf(
+            '%.35g',
+            Sereal::Decoder->new( { legacy_float_byteorder => 'little' } )->decode($corpus_packet)
+        ),
         sprintf( '%.35g', $expected ),
         'quadmath corpus packet converts FLOAT_128 to the native NV',
     );

@@ -10,4 +10,7 @@ like( $@, qr/enclosing containers/, "nested arrays cannot each claim the same in
 
 # [[1, 2], [3]]
 my $ok = "=\xF3rl\x03\x00" . "\x28\x2b\x02" . "\x28\x2b\x02\x01\x02" . "\x28\x2b\x01\x03";
-is_deeply( Sereal::Decoder->new->decode($ok), [ [ 1, 2 ], [3] ], "nested arrays that fit still decode" );
+is_deeply(
+    Sereal::Decoder->new->decode($ok), [ [ 1, 2 ], [3] ],
+    "nested arrays that fit still decode"
+);

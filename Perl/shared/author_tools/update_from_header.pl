@@ -94,6 +94,7 @@ sub read_protocol {
     }
     close $fh;
     fill_range($_) for @fill;
+
     # Names are derived from the protocol registry so diagnostics and tools
     # stay consistent when a declaration is added. Extended tags and
     # declaration kinds occupy separate namespaces and may share a number;
@@ -180,18 +181,21 @@ sub update_constants {
         ->Dump();
     $dump =~ s/^(\s*)\{/$1# autoupdated by $ZERO do not modify directly!\n$1\{/mg;
     my $names = join "\n", map {
-        'our ' . Data::Dumper->new( [ $_->[1] ], [ '*' . $_->[0] ] )
-            ->Sortkeys(1)->Useqq(1)->Indent(1)->Dump;
+        'our '
+            . Data::Dumper->new( [ $_->[1] ], [ '*' . $_->[0] ] )->Sortkeys(1)->Useqq(1)->Indent(1)
+            ->Dump;
     } [ 'EXT_TAG_NAME', \%extended_tag_name ], [ 'DECLARATION_NAME', \%declaration_name ];
     foreach my $mod_suffix (qw(Encoder Decoder Merger Splitter Path)) {
         my %module_define = %define;
+
         # These modules copy wire payloads while rewriting documents. Their
         # constants must match the v6 ceiling in srl_reader_header.h; using the
         # Encoder/Decoder maximum would advertise conversions they do not make.
         $module_define{SRL_PROTOCOL_VERSION} = 6
             unless $mod_suffix eq 'Encoder' || $mod_suffix eq 'Decoder';
         my $defines =
-            Data::Dumper->new( [ \%module_define ], ['*DEFINE'] )->Sortkeys(1)->Useqq(1)->Indent(1)->Dump;
+            Data::Dumper->new( [ \%module_define ], ['*DEFINE'] )->Sortkeys(1)->Useqq(1)->Indent(1)
+            ->Dump;
         $defines =~ s/^/    /mg;
         my $file = "Perl/$mod_suffix/lib/Sereal/$mod_suffix/Constants.pm";
         replace_block(
@@ -240,8 +244,10 @@ sub update_srl_taginfo_h {
             "srl_declaration_name(UV kind)",
             "{",
             "    switch (kind) {",
-            ( map { qq(        case $_: return "$declaration_name{$_}";) }
-                sort { $a <=> $b } keys %declaration_name ),
+            (
+                map  { qq(        case $_: return "$declaration_name{$_}";) }
+                sort { $a <=> $b } keys %declaration_name
+            ),
             '        default: return "UNKNOWN";',
             "    }",
             "}",

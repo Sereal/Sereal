@@ -7,7 +7,7 @@ use lib File::Spec->catdir(qw(t lib));
 BEGIN { lib->import('lib') if !-d 't' }
 
 use Test::More;
-use Scalar::Util qw(weaken);
+use Scalar::Util    qw(weaken);
 use Sereal::TestSet qw(Header);
 use Sereal::Decoder;
 
@@ -121,11 +121,11 @@ child_survives(
 }
 {
     my $owner = Counted->new;
-    my $out = $owner;
+    my $out   = $owner;
     weaken($out);
     $dec->decode( $hash_packet, $out );
     is( Counted::live(), 1, 'resetting a weak output preserves the referent owner' );
-    is( $out->{k}, 1, 'a weak output is replaced with the decoded value' );
+    is( $out->{k},       1, 'a weak output is replaced with the decoded value' );
 }
 
 # Read-only destinations are refused instead of being written through.
@@ -178,21 +178,29 @@ child_survives(
     },
     'header output DESTROY deleting the body output owning entry'
 );
+
 # The handle's referent owns the C decoder. A callback can clear the
 # variable used to pass the handle, so retaining only the argument SV
 # would not keep that owner alive. Exercise XS methods and custom ops.
 for my $style (qw(method function)) {
     for my $case (
         [ 'decode', '', '$blob, $out', q{die 'wrong body' unless $out == 5;} ],
-        [ 'decode_only_header', '_only_header', '$blob, $out',
-            q{die 'wrong header' unless $out eq 'hdr';} ],
-        [ 'decode_with_header', '_with_header', '$blob, $out, $hdr',
-            q{die 'wrong header/body' unless $out == 5 && $hdr eq 'hdr';} ] )
+        [
+            'decode_only_header', '_only_header', '$blob, $out',
+            q{die 'wrong header' unless $out eq 'hdr';}
+        ],
+        [
+            'decode_with_header', '_with_header', '$blob, $out, $hdr',
+            q{die 'wrong header/body' unless $out == 5 && $hdr eq 'hdr';}
+        ] )
     {
-        my $call = $style eq 'method'
+        my $call =
+            $style eq 'method'
             ? '$dec->' . $case->[0] . '(' . $case->[2] . ');'
-            : 'Sereal::Decoder::sereal_decode' . $case->[1]
-                . '_with_object($dec, ' . $case->[2] . ');';
+            : 'Sereal::Decoder::sereal_decode'
+            . $case->[1]
+            . '_with_object($dec, '
+            . $case->[2] . ');';
         child_survives(
             q{
                 our ($dec, $in_callback, $freed_in_callback) = (undef, 0, 0);

@@ -258,9 +258,9 @@ our %dec_bench;
 foreach my $key ( sort keys %meta ) {
     my $info = $meta{$key};
     $info->{tag} = $key;
-    next if $sereal_only and $key !~ /^srl/ and $key ne $storable_tag;
-    next if $only    and not $only->{$key} and $key ne $storable_tag;
-    next if $exclude and $exclude->{$key}  and $key ne $storable_tag;
+    next if $sereal_only and $key !~ /^srl/    and $key ne $storable_tag;
+    next if $only        and not $only->{$key} and $key ne $storable_tag;
+    next if $exclude     and $exclude->{$key}  and $key ne $storable_tag;
     if ( my $use = $info->{use} ) {
         $use = [$use] unless ref $use;
         $use = join ";\n", @$use, 1;
@@ -282,8 +282,8 @@ foreach my $key ( sort keys %meta ) {
         or die "Failed to eval $info->{dec}: $@\n$encoded{$key}\n";
     $info->{size} = bytes::length( $encoded{$key} );
     next if $sereal_only and $key !~ /^srl/;
-    next if $only    and not $only->{$key};
-    next if $exclude and $exclude->{$key};
+    next if $only        and not $only->{$key};
+    next if $exclude     and $exclude->{$key};
     $enc_bench{$key} = '$::x_' . $key . ' = ' . $info->{enc};
     $dec_bench{$key} = '$::x_' . $key . ' = ' . $info->{dec};
 }

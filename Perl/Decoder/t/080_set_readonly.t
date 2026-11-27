@@ -10,7 +10,7 @@ BEGIN {
         if !-d 't';
 }
 use Sereal::Decoder;
-use Scalar::Util qw(reftype);
+use Scalar::Util            qw(reftype);
 use Sereal::TestSet::Corpus qw(read_packet);
 
 my @tests = (

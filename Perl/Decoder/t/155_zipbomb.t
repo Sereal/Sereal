@@ -11,25 +11,27 @@ BEGIN {
 
 use Sereal::Decoder;
 use Sereal::Decoder::Constants qw(:all);
-use Sereal::TestSet::Corpus qw(read_packet);
+use Sereal::TestSet::Corpus    qw(read_packet);
 use Test::More;
 
 sub MAX_UNCOMPRESSED_SIZE () { 10 * 1024 * 1024 }    # 10 MiB
 
 my $corpus = File::Spec->catdir(qw(t data packet_corpus));
-my $dec = Sereal::Decoder->new( { max_uncompressed_size => MAX_UNCOMPRESSED_SIZE } );
-my %cases = (
+my $dec    = Sereal::Decoder->new( { max_uncompressed_size => MAX_UNCOMPRESSED_SIZE } );
+my %cases  = (
     snappy => {
         offset       => 10,
         encoding     => SRL_PROTOCOL_ENCODING_SNAPPY_INCREMENTAL(),
         size_bytes   => [ 134, 128, 128, 5 ],
-        forged_error => qr/^Sereal: Error: Snappy decompression of Sereal packet payload failed with error -3!/,
+        forged_error =>
+            qr/^Sereal: Error: Snappy decompression of Sereal packet payload failed with error -3!/,
     },
     zlib => {
         offset       => 6,
         encoding     => SRL_PROTOCOL_ENCODING_ZLIB(),
         size_bytes   => [ 134, 128, 128, 5 ],
-        forged_error => qr/^Sereal: Error: ZLIB decompression of Sereal packet payload failed with error -5!/,
+        forged_error =>
+            qr/^Sereal: Error: ZLIB decompression of Sereal packet payload failed with error -5!/,
     },
     zstd => {
         offset       => 25,
@@ -40,14 +42,18 @@ my %cases = (
 );
 
 for my $name ( sort keys %cases ) {
-    my $case = $cases{$name};
+    my $case   = $cases{$name};
     my $packet = read_packet( $corpus, 'decoder-features', "zipbomb/$name" );
     eval { $dec->decode($packet) };
-    like( $@, qr/^The expected uncompressed size is larger than the allowed maximum size/,
-        "$name packet over the configured limit is rejected" );
+    like(
+        $@, qr/^The expected uncompressed size is larger than the allowed maximum size/,
+        "$name packet over the configured limit is rejected"
+    );
 
-    is( ord( substr( $packet, 4, 1 ) ) & SRL_PROTOCOL_ENCODING_BASE_MASK(), $case->{encoding},
-        "$name corpus packet uses the expected compression format" );
+    is(
+        ord( substr( $packet, 4, 1 ) ) & SRL_PROTOCOL_ENCODING_BASE_MASK(), $case->{encoding},
+        "$name corpus packet uses the expected compression format"
+    );
     is_deeply(
         [ unpack 'C4', substr( $packet, $case->{offset}, 4 ) ],
         $case->{size_bytes},

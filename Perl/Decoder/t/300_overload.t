@@ -14,13 +14,13 @@ BEGIN {
         if !-d 't';
 }
 
-use Sereal::TestSet qw(:all);
+use Sereal::TestSet         qw(:all);
 use Sereal::TestSet::Corpus qw(read_packet);
 use Test::More;
 use Sereal::Decoder;
 
 my $corpus = File::Spec->catdir(qw(t data packet_corpus));
-my $s = read_packet( $corpus, 'decoder-features', 'overload/unknown_object' );
+my $s      = read_packet( $corpus, 'decoder-features', 'overload/unknown_object' );
 
 my $decoder = Sereal::Decoder->new();
 

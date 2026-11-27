@@ -34,7 +34,8 @@ sub get_git_top_dir {
 
 BEGIN {
     if ( defined( my $top_dir = get_git_top_dir() ) ) {
-        my @need = -e 'lib/Sereal.pm' || -e 'lib/Sereal/Encoder.pm'
+        my @need =
+            -e 'lib/Sereal.pm' || -e 'lib/Sereal/Encoder.pm'
             ? ( 'Encoder', 'Decoder' )
             : ('Decoder');
         for my $need (@need) {
@@ -744,6 +745,7 @@ sub setup_tests {
 }
 
 sub regexp_modifier_test_cases {
+
     # First stable releases: /msix are present in Perl 5.000, /p is 5.10,
     # /dluaa is 5.14, /n is 5.22 and /xx is 5.26. Check the development
     # introductions too: a reserved flag bit does not imply working /xx.
@@ -781,18 +783,23 @@ sub regexp_modifier_test_cases {
 # precision loss that occurs when binary128 is read into a smaller NV.
 sub floating_point_wire_cases {
     return (
-        [ 'float/half', 34, '0000003f', 0.5, 1 ],
-        [ 'float/negative', 34, '0000c0bf', -1.5, 1 ],
-        [ 'double/tenth', 35, '9a9999999999b93f', unpack('d', pack('d', 0.1)), 1 ],
-        [ 'binary128/extended', 56, '0010000000000000000000000000ff3f', 1 + 2**-100, 5 ],
-        [ 'binary128/tie', 56, '0000000000000008000000000000ff3f', 1 + 2**-53, 5 ],
-        [ 'binary128/sticky', 56, '0100000000000008000000000000ff3f', (($Config{nvsize} || 8) == 8 ? 1 + 2**-52 : 1 + 2**-53 + 2**-112), 5 ],
+        [ 'float/half',         34, '0000003f',         0.5,                             1 ],
+        [ 'float/negative',     34, '0000c0bf',         -1.5,                            1 ],
+        [ 'double/tenth',       35, '9a9999999999b93f', unpack( 'd', pack( 'd', 0.1 ) ), 1 ],
+        [ 'binary128/extended', 56, '0010000000000000000000000000ff3f', 1 + 2**-100,     5 ],
+        [ 'binary128/tie',      56, '0000000000000008000000000000ff3f', 1 + 2**-53,      5 ],
+        [
+            'binary128/sticky', 56, '0100000000000008000000000000ff3f',
+            ( ( $Config{nvsize} || 8 ) == 8 ? 1 + 2**-52 : 1 + 2**-53 + 2**-112 ), 5
+        ],
         [ 'binary128/double-subnormal', 56, '0000000000000000000000000000cd3b', 2**-1074, 5 ],
-        [ 'binary128/underflow-tie', 56, '0000000000000000000000000000cc3b', 2**-1075, 5 ],
-        [ 'binary128/underflow-sticky', 56, '0100000000000000000000000000cc3b',
-            (($Config{nvsize} || 8) == 8 ? 2**-1074 : 2**-1075 + 2**-1187), 5 ],
+        [ 'binary128/underflow-tie',    56, '0000000000000000000000000000cc3b', 2**-1075, 5 ],
+        [
+            'binary128/underflow-sticky', 56, '0100000000000000000000000000cc3b',
+            ( ( $Config{nvsize} || 8 ) == 8 ? 2**-1074 : 2**-1075 + 2**-1187 ), 5
+        ],
         [ 'binary128/minimum-subnormal', 56, '01000000000000000000000000000000', 2**-16494, 5 ],
-        [ 'binary128/negative-zero', 56, '00000000000000000000000000000080', -(0.0), 5 ],
+        [ 'binary128/negative-zero',     56, '00000000000000000000000000000080', -(0.0),    5 ],
     );
 }
 
@@ -801,18 +808,18 @@ sub floating_point_wire_cases {
 # captures from every corresponding ABI. They test declaration validation;
 # live producers are still needed to test their own padding and emission.
 sub native_long_double_wire_cases {
-    my $double = pack('H*', '000000000000c0bf');
-    my $x87 = pack('H*', '0000000000000080fcbf');
-    my $quad = pack('H*', '0000000000000000000000000000fcbf');
-    my $dd = pack('H*', '0000000000000000000000000000c0bf');
+    my $double = pack( 'H*', '000000000000c0bf' );
+    my $x87    = pack( 'H*', '0000000000000080fcbf' );
+    my $quad   = pack( 'H*', '0000000000000000000000000000fcbf' );
+    my $dd     = pack( 'H*', '0000000000000000000000000000c0bf' );
     return (
-        [ 'binary64-le', 1, $double ],
-        [ 'binary64-be', 0x81, scalar reverse($double) ],
-        [ 'x87-le12', 2, $x87 . ("\0" x 2) ],
-        [ 'x87-le16', 2, $x87 . ("\0" x 6) ],
-        [ 'binary128-le', 3, $quad ],
-        [ 'binary128-be', 0x83, scalar reverse($quad) ],
-        [ 'double-double-le', 4, $dd ],
+        [ 'binary64-le',      1,    $double ],
+        [ 'binary64-be',      0x81, scalar reverse($double) ],
+        [ 'x87-le12',         2,    $x87 . ( "\0" x 2 ) ],
+        [ 'x87-le16',         2,    $x87 . ( "\0" x 6 ) ],
+        [ 'binary128-le',     3,    $quad ],
+        [ 'binary128-be',     0x83, scalar reverse($quad) ],
+        [ 'double-double-le', 4,    $dd ],
         [ 'double-double-be', 0x84, scalar reverse($dd) ],
     );
 }
@@ -824,7 +831,7 @@ sub array_slot_ref {
     my ( $array, $index ) = @_;
     require B;
     my @slots = B::svref_2object($array)->ARRAY;
-    my $slot = $slots[$index];
+    my $slot  = $slots[$index];
     return \undef if ref($slot) eq 'B::SPECIAL' && $$slot == 1;
     return $slot->object_2svref;
 }
@@ -897,7 +904,10 @@ my $sum = $eng0e0 + $eng0e1 + $eng2;
 
 sub encoder_required {
     my ( $ver, $name ) = @_;
-    return "" . ( !defined($Sereal::Encoder::VERSION) || $Sereal::Encoder::VERSION < $ver ? "TODO " : "" ) . $name;
+    return
+          ""
+        . ( !defined($Sereal::Encoder::VERSION) || $Sereal::Encoder::VERSION < $ver ? "TODO " : "" )
+        . $name;
 }
 
 sub _get_roundtrip_tests {
@@ -918,9 +928,10 @@ sub _get_roundtrip_tests {
         (
             # The stored corpus encodes these as integers on a 64-bit Perl.
             # A native 32-bit live encoder can instead use a floating value.
-            map {
-                [ "integer: $_", 0 + $_,
-                    $_ < -2147483648 || $_ > 4294967295 ? 64 : 32 ]
+            map { [
+                    "integer: $_", 0 + $_,
+                    $_ < -2147483648 || $_ > 4294967295 ? 64 : 32
+                ]
             } (
 
                 # IV bounds of 8 bits
@@ -1151,10 +1162,16 @@ sub _get_roundtrip_tests {
             [ { foo => 1 }, { foo => 2 } ]
         ],
 
-        ( map { [ "scalar ref to " . $_->[0],        ( \( $_->[1] ) ), $_->[2] ] } @ScalarRoundtripTests ),
-        ( map { [ "nested scalar ref to " . $_->[0], ( \\( $_->[1] ) ), $_->[2] ] } @ScalarRoundtripTests ),
-        ( map { [ "array ref to " . $_->[0],         ( [ $_->[1] ] ), $_->[2] ] } @ScalarRoundtripTests ),
-        ( map { [ "hash ref to " . $_->[0], ( { foo => $_->[1] } ), $_->[2] ] } @ScalarRoundtripTests ),
+        ( map { [ "scalar ref to " . $_->[0], ( \( $_->[1] ) ), $_->[2] ] } @ScalarRoundtripTests ),
+        (
+            map { [ "nested scalar ref to " . $_->[0], ( \\( $_->[1] ) ), $_->[2] ] }
+                @ScalarRoundtripTests
+        ),
+        ( map { [ "array ref to " . $_->[0], ( [ $_->[1] ] ), $_->[2] ] } @ScalarRoundtripTests ),
+        (
+            map { [ "hash ref to " . $_->[0], ( { foo => $_->[1] } ), $_->[2] ] }
+                @ScalarRoundtripTests
+        ),
 
         # ---
         (
@@ -1167,16 +1184,21 @@ sub _get_roundtrip_tests {
                     "AoA of duplicates " . $_->[0],
                     ( [
                             $_->[1], [ $_->[1], $_->[1] ], $_->[1], [ $_->[1], $_->[1], $_->[1] ],
-                            $_->[1] ] ), $_->[2] ]
+                            $_->[1] ]
+                    ),
+                    $_->[2] ]
             } @ScalarRoundtripTests
         ),
 
         # ---
         (
-            map { [
+            map {
+                [
                     "array ref to aliases " . $_->[0], (
                         sub { \@_ }
-                            ->( $_->[1], $_->[1] ) ), $_->[2] ]
+                            ->( $_->[1], $_->[1] )
+                    ),
+                    $_->[2] ]
             } @ScalarRoundtripTests
         ),
         (
@@ -1265,9 +1287,9 @@ sub _run_live_roundtrip_layer {
 }
 
 sub run_roundtrip_version_tests {
-    my ($name) = @_;
+    my ($name)        = @_;
     my $proto_version = _protocol_version_from_test_path();
-    my $corpus = File::Spec->catdir( 't', 'data', 'packet_corpus' );
+    my $corpus        = File::Spec->catdir( 't', 'data', 'packet_corpus' );
     require Sereal::TestSet::Corpus;
     my $source = "roundtrip-v$proto_version-plain";
     die "Missing required packet corpus source '$source'"
@@ -1289,8 +1311,9 @@ sub run_roundtrip_corpus_tests {
     setup_tests($proto_version);
     require Sereal::Decoder;
     require Sereal::TestSet::Corpus;
-    my $source = "roundtrip-v$proto_version-$profile";
+    my $source    = "roundtrip-v$proto_version-$profile";
     my %available = map { $_ => 1 } Sereal::TestSet::Corpus::packet_names( $root, $source );
+
     # These checked-in legacy packets were generated on a little-endian
     # host. Select that known source order explicitly; live old-protocol
     # tests below still exercise the platform's native-order behavior.
@@ -1298,7 +1321,7 @@ sub run_roundtrip_corpus_tests {
         legacy_float_byteorder => 'little',
         %{ $decoder_opts || {} },
     } );
-    my @tests   = _get_roundtrip_tests();
+    my @tests = _get_roundtrip_tests();
     for my $index ( 0 .. $#tests ) {
         my ( $name, $expected, $required_uv_bits ) = @{ $tests[$index] };
         my $logical_name = roundtrip_corpus_name( $index, $name );
@@ -1318,7 +1341,7 @@ sub run_roundtrip_corpus_tests {
         my ( $ok, $decoded, $error );
         {
             local $@;
-            $ok = eval { $decoded = $decoder->decode($packet); 1 };
+            $ok    = eval { $decoded = $decoder->decode($packet); 1 };
             $error = $@ unless $ok;
         }
         ok( $ok, "$name (stored encoder corpus, decoding)" ) or do { diag $error; next };
@@ -1330,15 +1353,16 @@ sub run_roundtrip_profile_tests {
     my ( $profile, $opts, $decoder_opts ) = @_;
     my $corpus = File::Spec->catdir( 't', 'data', 'packet_corpus' );
     require Sereal::TestSet::Corpus;
-    my $has_corpus = Sereal::TestSet::Corpus::has_source(
-        $corpus, "roundtrip-v6-$profile"
-    );
+    my $has_corpus = Sereal::TestSet::Corpus::has_source( $corpus, "roundtrip-v6-$profile" );
     plan skip_all => "Missing required stored v6 $profile corpus" unless $has_corpus;
     run_roundtrip_corpus_tests( $corpus, $profile, $decoder_opts );
-    _run_live_roundtrip_layer( "live Encoder round trips (v6 $profile)", 6, sub {
-        $opts = $opts->() if ref($opts) eq 'CODE';
-        run_roundtrip_tests( $profile, $opts );
-    } );
+    _run_live_roundtrip_layer(
+        "live Encoder round trips (v6 $profile)",
+        6,
+        sub {
+            $opts = $opts->() if ref($opts) eq 'CODE';
+            run_roundtrip_tests( $profile, $opts );
+        } );
 }
 
 sub _test {
@@ -1610,18 +1634,22 @@ sub run_roundtrip_tests_internal {
 
     my $decoder_opt = _roundtrip_decoder_options($opt);
     my $encoder_opt = _roundtrip_encoder_options($opt);
-    my $decoder = Sereal::Decoder->new($decoder_opt);
-    my $encoder = Sereal::Encoder->new($encoder_opt);
+    my $decoder     = Sereal::Decoder->new($decoder_opt);
+    my $encoder     = Sereal::Encoder->new($encoder_opt);
     my %seen_name;
     my @RoundtripTests = _get_roundtrip_tests();
     foreach my $rt (@RoundtripTests) {
         my ( $name, $data ) = @$rt;
 
-        if ( $name =~ /regexp/i && defined($Sereal::Encoder::VERSION)
+        if (   $name =~ /regexp/i
+            && defined($Sereal::Encoder::VERSION)
             && $Sereal::Encoder::VERSION < 4.025 )
         {
             SKIP: {
-                skip( "live Encoder $Sereal::Encoder::VERSION does not preserve regexp references", 5 );
+                skip(
+                    "live Encoder $Sereal::Encoder::VERSION does not preserve regexp references",
+                    5
+                );
             }
             next;
         }

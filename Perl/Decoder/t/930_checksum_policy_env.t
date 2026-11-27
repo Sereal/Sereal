@@ -28,8 +28,8 @@ for my $policy ( 'verify-if-available', 'die', 'ignore', 'ignore-warn' ) {
     for my $type ( 0, 1, 2 ) {
         for my $has_key ( 0, 1 ) {
             my $key_option = "checksum_key_v" . ( $type + 1 );
-            my %options = $has_key ? ( $key_option => $key ) : ();
-            my $dec     = Sereal::Decoder->new( \%options );
+            my %options    = $has_key ? ( $key_option => $key ) : ();
+            my $dec        = Sereal::Decoder->new( \%options );
             for my $tampered ( 0, 1 ) {
                 my ( @warnings, $out, $error );
                 {
@@ -155,22 +155,29 @@ for my $source ( 'option', 'environment' ) {
         { checksum_key_v1 => $key, checksum_key_v2 => $key, checksum_key_v3 => $key } )
     {
         my %options = ( %policy, %$keys );
-        my $selected_type = exists $keys->{checksum_key_v3} ? 2
-                          : exists $keys->{checksum_key_v2} ? 1 : 0;
-        my $key_count = scalar grep { exists $keys->{$_} }
-            qw(checksum_key_v1 checksum_key_v2 checksum_key_v3);
+        my $selected_type =
+              exists $keys->{checksum_key_v3} ? 2
+            : exists $keys->{checksum_key_v2} ? 1
+            :                                   0;
+        my $key_count =
+            scalar grep { exists $keys->{$_} } qw(checksum_key_v1 checksum_key_v2 checksum_key_v3);
         my @constructor_warnings;
         my $dec;
         {
             local $SIG{__WARN__} = sub { push @constructor_warnings, @_ };
             $dec = Sereal::Decoder->new( \%options );
         }
-        if ($key_count > 1) {
-            like(join('', @constructor_warnings), qr/Attempt to set checksum_key more than once/,
-                "$source warns when versioned aliases assign the key more than once");
+        if ( $key_count > 1 ) {
+            like(
+                join( '', @constructor_warnings ), qr/Attempt to set checksum_key more than once/,
+                "$source warns when versioned aliases assign the key more than once"
+            );
         }
         else {
-            is_deeply(\@constructor_warnings, [], "$source accepts one versioned key without warning");
+            is_deeply(
+                \@constructor_warnings, [],
+                "$source accepts one versioned key without warning"
+            );
         }
         for my $type ( 0, 1, 2 ) {
             for my $tampered ( 0, 1 ) {

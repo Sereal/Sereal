@@ -11,7 +11,7 @@ BEGIN {
 }
 
 use Test::More;
-use Sereal::TestSet qw(:all);
+use Sereal::TestSet         qw(:all);
 use Sereal::TestSet::Corpus qw(read_packet);
 use File::Spec;
 use Sereal::Decoder;

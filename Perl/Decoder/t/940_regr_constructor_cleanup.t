@@ -97,17 +97,21 @@ for my $version ( 0 .. 2 ) {
     my $options = { thaw_deny_action => 'raw' };
     $options->{thaw_allow_classes} = $options;
     my $decoder = Sereal::Decoder->new($options);
-    delete $options->{thaw_allow_classes}; # Break the test's reference cycle.
-    is($decoder->decode(Header(6) . chr(7)), 7,
-        'allow-list can reuse the options hash without resetting its iterator');
+    delete $options->{thaw_allow_classes};    # Break the test's reference cycle.
+    is(
+        $decoder->decode( Header(6) . chr(7) ), 7,
+        'allow-list can reuse the options hash without resetting its iterator'
+    );
 
     $options = { unknown_option_policy => 'die', misspelled_option => 1 };
     $options->{thaw_allow_classes} = $options;
     eval { Sereal::Decoder->new($options); 1 };
     my $error = $@;
     delete $options->{thaw_allow_classes};
-    like($error, qr/Unknown option keys.*misspelled_option/,
-        'self-referential allow-list does not skip the unknown-option policy');
+    like(
+        $error, qr/Unknown option keys.*misspelled_option/,
+        'self-referential allow-list does not skip the unknown-option policy'
+    );
 }
 
 done_testing();

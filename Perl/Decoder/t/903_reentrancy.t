@@ -19,7 +19,7 @@ use Sereal::Decoder;
 my $dec;
 
 package Foo;
-sub THAW   { bless( { a => $dec->decode( $_[2] ) }, $_[0] ) }
+sub THAW { bless( { a => $dec->decode( $_[2] ) }, $_[0] ) }
 
 package main;
 

@@ -14,8 +14,9 @@ plan skip_all => 'Did not find right version of decoder' if !have_encoder_and_de
 # Non-tied magical arrays such as @- and @+ (regdata magic) report their
 # length through magic while AvARRAY() holds no elements. Encoding them used
 # to read past the array and crash, so run each case in a child perl.
-my $child_dir = tempdir(CLEANUP => 1);
-my $child_file = File::Spec->catfile($child_dir, 'magical-array-child.pl');
+my $child_dir  = tempdir( CLEANUP => 1 );
+my $child_file = File::Spec->catfile( $child_dir, 'magical-array-child.pl' );
+
 sub run_child {
     my ($code) = @_;
     open my $script, '>', $child_file or die "open $child_file: $!";

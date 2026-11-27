@@ -5,6 +5,7 @@ use lib 't/lib';
 use Sereal::Decoder;
 use Sereal::TestSet         qw(Header floating_point_wire_cases native_long_double_wire_cases);
 use Sereal::TestSet::Corpus qw(write_packet_set unpack_corpus pack_corpus prune_unreferenced);
+
 # The byte patterns are independent wire-format examples, so regeneration
 # does not depend on the build host's NV or long-double ABI. Native producer
 # captures serve a different purpose: they test what that compiler and Perl
@@ -28,19 +29,15 @@ for my $order ( 'little', 'big' ) {
 my %native;
 for my $case ( native_long_double_wire_cases() ) {
     my ( $name, $format, $payload ) = @$case;
+
     # The literal tag IDs and canonical descriptor length form an independent
     # wire-format oracle. Reusing the Encoder to build these packets would
     # allow the fixture to reproduce the encoding mistake it should detect.
-    $native{$name} =
-          Header(7)
-        . chr(62) # EXTEND
-        . chr(1)  # DECLARE
-        . chr(3)  # declaration payload length
-        . chr(1)  # LONG_DOUBLE declaration kind
-        . chr($format)
-        . chr( length($payload) )
-        . chr(36)
-        . $payload;
+    $native{$name} = Header(7) . chr(62)    # EXTEND
+        . chr(1)                            # DECLARE
+        . chr(3)                            # declaration payload length
+        . chr(1)                            # LONG_DOUBLE declaration kind
+        . chr($format) . chr( length($payload) ) . chr(36) . $payload;
 }
 write_packet_set( $root, 'native-long-double-v7', '7.000_001', \%native );
 prune_unreferenced($root);

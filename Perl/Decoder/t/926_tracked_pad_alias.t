@@ -34,14 +34,17 @@ for my $version ( 1 .. 6 ) {
             my $out = $dec->decode( $header . $body );
             is_deeply( [ @$out[ 0 .. 3 ] ], [ 7, ( $case->[2] ) x 3 ], "$label $case->[0] values" );
             is(
-                refaddr( array_slot_ref($out, 1) ), refaddr( array_slot_ref($out, 2) ),
+                refaddr( array_slot_ref( $out, 1 ) ), refaddr( array_slot_ref( $out, 2 ) ),
                 "$label first PAD aliases final scalar"
             );
             is(
-                refaddr( array_slot_ref($out, 1) ), refaddr( array_slot_ref($out, 3) ),
+                refaddr( array_slot_ref( $out, 1 ) ), refaddr( array_slot_ref( $out, 3 ) ),
                 "$label second PAD aliases final scalar"
             );
-            is( refaddr( $out->[4] ), refaddr( array_slot_ref($out, 1) ), "$label REFP sees final scalar" );
+            is(
+                refaddr( $out->[4] ), refaddr( array_slot_ref( $out, 1 ) ),
+                "$label REFP sees final scalar"
+            );
         }
     }
 }
@@ -143,16 +146,17 @@ for my $version ( 1 .. 6 ) {
                     # Perl treats PL_sv_undef in a hash as a placeholder;
                     # taking an lvalue reference to that slot attempts creation.
                     my $slot =
-                          $kind eq 'array'                             ? array_slot_ref($out->[1], 0)
-                        : !defined($expected) && $options->{use_undef} ? array_slot_ref($aliases, 0)
-                        :                                                \$out->[1]{v};
+                        $kind eq 'array' ? array_slot_ref( $out->[1], 0 )
+                        : !defined($expected)
+                        && $options->{use_undef} ? array_slot_ref( $aliases, 0 )
+                        : \$out->[1]{v};
                     my $count = @offsets + 2;
                     is_deeply(
                         [ @$aliases[ 0 .. $count - 1 ] ], [ ($expected) x $count ],
                         "$label values including chained aliases"
                     );
                     is_deeply(
-                        [ map { refaddr( array_slot_ref($aliases, $_) ) } 0 .. $count - 1 ],
+                        [ map { refaddr( array_slot_ref( $aliases, $_ ) ) } 0 .. $count - 1 ],
                         [ ( refaddr($slot) ) x $count ], "$label all ALIAS offsets share the slot"
                     );
                     is_deeply(

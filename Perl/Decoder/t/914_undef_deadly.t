@@ -78,7 +78,7 @@ for my $use_undef ( 0, 1 ) {
     my $value   = Sereal::Decoder->new( { use_undef => $use_undef } )->decode($packet);
     is_deeply( $value, [ undef, undef ], "use_undef=$use_undef decodes a tracked sentinel" );
     is(
-        refaddr( array_slot_ref($value, 0) ), refaddr( array_slot_ref($value, 1) ),
+        refaddr( array_slot_ref( $value, 0 ) ), refaddr( array_slot_ref( $value, 1 ) ),
         'ALIAS targets the original undef scalar'
     );
 }
@@ -134,17 +134,19 @@ for my $body ( chr(SRL_HDR_EXTEND), chr(SRL_HDR_EXTEND) . chr(0) ) {
 }
 eval { Sereal::Decoder->new->decode( Header(5) . $tag ) };
 like( $@, qr/EXTEND tag requires protocol version 6/, 'sentinel requires protocol v6' );
+
 # Generated with Sereal::Encoder 6; this keeps the decoder test independent
 # of the installed encoder version.
 my $undef_packet = read_v6_corpus('undef');
 isnt( $undef_packet, $header . $tag, 'compliant encoder never emits the sentinel for undef' );
 {
-    my ($in) = tempfile(UNLINK => 1);
-    my ($out) = tempfile(UNLINK => 1);
-    my ($err) = tempfile(UNLINK => 1);
+    my ($in)  = tempfile( UNLINK => 1 );
+    my ($out) = tempfile( UNLINK => 1 );
+    my ($err) = tempfile( UNLINK => 1 );
     binmode $in;
     print {$in} $header . $tag;
     seek( $in, 0, 0 ) or die "seek stdin: $!";
+
     # open3 resolves <&NAME and >&NAME against named filehandles. Alias the
     # temporary files so the child reads and writes them without pipes;
     # pipe-based capture stalled this test on Windows.
@@ -154,7 +156,7 @@ isnt( $undef_packet, $header . $tag, 'compliant encoder never emits the sentinel
     *HOBOSTDERR = $err;
     my $pid = open3(
         '<&HOBOSTDIN', '>&HOBOSTDOUT', '>&HOBOSTDERR',
-        $^X, '-Mblib', 'author_tools/hobodecoder.pl'
+        $^X,           '-Mblib',       'author_tools/hobodecoder.pl'
     );
     waitpid( $pid, 0 );
     seek( $out, 0, 0 ) or die "seek stdout: $!";

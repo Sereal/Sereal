@@ -7,10 +7,10 @@ use lib File::Spec->catdir(qw(t lib));
 BEGIN { lib->import('lib') if !-d 't' }
 
 use Test::More;
-use Sereal::TestSet qw(Header);
+use Sereal::TestSet         qw(Header);
 use Sereal::TestSet::Corpus qw(read_packet);
 use Sereal::Decoder;
-use re qw(regexp_pattern);
+use re         qw(regexp_pattern);
 use File::Temp qw(tempdir);
 
 # A decoded REGEXP used to be the compiled regexp itself, swapped into the
@@ -23,12 +23,14 @@ use File::Temp qw(tempdir);
 
 # These cases used to crash perl, so they run in a child process whose
 # exit status is the assertion.
-my $child_dir = tempdir(CLEANUP => 1);
-my $child_file = File::Spec->catfile($child_dir, 'regexp-copy-child.pl');
+my $child_dir  = tempdir( CLEANUP => 1 );
+my $child_file = File::Spec->catfile( $child_dir, 'regexp-copy-child.pl' );
+
 sub child_survives {
     my ( $code, $name ) = @_;
     open my $script, '>', $child_file or die "open $child_file: $!";
-    print {$script} "use strict; use warnings; use Sereal::Decoder; use Sereal::TestSet qw(Header);\n", $code;
+    print {$script}
+        "use strict; use warnings; use Sereal::Decoder; use Sereal::TestSet qw(Header);\n", $code;
     close $script or die "close $child_file: $!";
     my $status = system( $^X, '-Mblib', '-It/lib', $child_file );
     is( $status, 0, "$name: child exits cleanly" );
@@ -55,13 +57,13 @@ for my $version ( 3, 6 ) {
     my $prelude = qq{ my \$dec = Sereal::Decoder->new; my \$H = Header($version); };
     for my $option (qw(set_readonly set_readonly_scalars)) {
         for my $case (
-            [ 'bare', $re_body ], [ 'reference', "\x28" . $re_body ],
-            [ 'array', "\x41" . $re_body ], [ 'hash', "\x51\x61k" . $re_body ] )
+            [ 'bare',  $re_body ],          [ 'reference', "\x28" . $re_body ],
+            [ 'array', "\x41" . $re_body ], [ 'hash',      "\x51\x61k" . $re_body ] )
         {
             child_survives(
                 qq{my \$dec = Sereal::Decoder->new({ $option => 1 }); my \$H = Header($version);}
-                    . 'my $body = pack "H*", "' . unpack( 'H*', $case->[1] ) . '";'
-                    . q{
+                    . 'my $body = pack "H*", "'
+                    . unpack( 'H*', $case->[1] ) . '";' . q{
                         # Avoid lexical-pad cleanup coercing a readonly
                         # bare REGEXP back to a scalar on older Perls.
                         our $out;

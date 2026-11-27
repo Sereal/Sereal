@@ -12,18 +12,17 @@ BEGIN {
         if !-d 't';
 }
 use Sereal::TestSet::Corpus qw(read_packet);
-use Sereal::Decoder qw(decode_sereal);
+use Sereal::Decoder         qw(decode_sereal);
 
 my $corpus = File::Spec->catdir(qw(t data packet_corpus));
-my @tests = (
-    {
+my @tests  = ( {
         packet => read_packet( $corpus, 'decoder-features', 'utf8decoding/snappy' ),
         input  => {
-            foo => 'bar', f111 => 'bar', f1111 => 'bar', f11111 => 'bar',
-            f111111 => 'bar', f1111111 => 'bar', f11111111 => 'bar',
-            f111111111 => 'bar', f1111111111 => 'bar', f11111111111 => 'bar',
-            f111111111111 => 'bar', f1111111111111 => 'bar',
-            f11111111111111 => 'bar', f111111111111111 => 'bar',
+            foo               => 'bar', f111        => 'bar', f1111 => 'bar', f11111 => 'bar',
+            f111111           => 'bar', f1111111    => 'bar', f11111111    => 'bar',
+            f111111111        => 'bar', f1111111111 => 'bar', f11111111111 => 'bar',
+            f111111111111     => 'bar', f1111111111111     => 'bar',
+            f11111111111111   => 'bar', f111111111111111   => 'bar',
             f1111111111111111 => 'bar', f11111111111111111 => 'bar',
         },
     },

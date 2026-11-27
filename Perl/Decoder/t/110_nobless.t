@@ -12,13 +12,13 @@ BEGIN {
 }
 
 use Sereal::TestSet::Corpus qw(read_packet);
-use Sereal::TestSet qw(:all);
+use Sereal::TestSet         qw(:all);
 use Test::More;
 
-my $class = 'MyFoo';
-my %hash = ( x => 1 );
+my $class  = 'MyFoo';
+my %hash   = ( x => 1 );
 my $object = bless( \%hash, $class );
-my $blob = read_packet(
+my $blob   = read_packet(
     File::Spec->catdir( 't', 'data', 'packet_corpus' ),
     'decoder-features', 'nobless'
 );

@@ -19,10 +19,10 @@ use Sereal::Decoder;
 # Snappy compression was broken by assuming remaining document length
 # is the same as compressed-data-length.
 
-my $corpus = File::Spec->catdir( 't', 'data', 'packet_corpus' );
+my $corpus  = File::Spec->catdir( 't', 'data', 'packet_corpus' );
 my $decoder = Sereal::Decoder->new();
-my $single = read_packet( $corpus, 'decoder-features', 'issue15/single' );
-my $joined = read_packet( $corpus, 'decoder-features', 'issue15/concatenated' );
+my $single  = read_packet( $corpus, 'decoder-features', 'issue15/single' );
+my $joined  = read_packet( $corpus, 'decoder-features', 'issue15/concatenated' );
 
 # Establish base behaviour from an Encoder-generated corpus packet.
 is( $decoder->decode($single), 'foo', 'normal decode' );

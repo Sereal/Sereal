@@ -13,17 +13,29 @@ our $UnknownOptionPolicy;
 our $ChecksumMode;
 our $DefaultKey;
 $Sereal::ChecksumMode = $ENV{SEREAL_CHECKSUM_MODE}
-    if !defined($Sereal::ChecksumMode) && defined($ENV{SEREAL_CHECKSUM_MODE}) && length($ENV{SEREAL_CHECKSUM_MODE});
+    if !defined($Sereal::ChecksumMode)
+    && defined( $ENV{SEREAL_CHECKSUM_MODE} )
+    && length( $ENV{SEREAL_CHECKSUM_MODE} );
 $ChecksumMode = $ENV{SEREAL_ENCODER_CHECKSUM_MODE}
-    if !defined($ChecksumMode) && defined($ENV{SEREAL_ENCODER_CHECKSUM_MODE}) && length($ENV{SEREAL_ENCODER_CHECKSUM_MODE});
+    if !defined($ChecksumMode)
+    && defined( $ENV{SEREAL_ENCODER_CHECKSUM_MODE} )
+    && length( $ENV{SEREAL_ENCODER_CHECKSUM_MODE} );
 $Sereal::ChecksumPolicy = $ENV{SEREAL_CHECKSUM_POLICY}
-    if !defined($Sereal::ChecksumPolicy) && defined($ENV{SEREAL_CHECKSUM_POLICY}) && length($ENV{SEREAL_CHECKSUM_POLICY});
+    if !defined($Sereal::ChecksumPolicy)
+    && defined( $ENV{SEREAL_CHECKSUM_POLICY} )
+    && length( $ENV{SEREAL_CHECKSUM_POLICY} );
 $ChecksumPolicy = $ENV{SEREAL_ENCODER_CHECKSUM_POLICY}
-    if !defined($ChecksumPolicy) && defined($ENV{SEREAL_ENCODER_CHECKSUM_POLICY}) && length($ENV{SEREAL_ENCODER_CHECKSUM_POLICY});
+    if !defined($ChecksumPolicy)
+    && defined( $ENV{SEREAL_ENCODER_CHECKSUM_POLICY} )
+    && length( $ENV{SEREAL_ENCODER_CHECKSUM_POLICY} );
 $Sereal::UnknownOptionPolicy = $ENV{SEREAL_UNKNOWN_OPTION_POLICY}
-    if !defined($Sereal::UnknownOptionPolicy) && defined($ENV{SEREAL_UNKNOWN_OPTION_POLICY}) && length($ENV{SEREAL_UNKNOWN_OPTION_POLICY});
+    if !defined($Sereal::UnknownOptionPolicy)
+    && defined( $ENV{SEREAL_UNKNOWN_OPTION_POLICY} )
+    && length( $ENV{SEREAL_UNKNOWN_OPTION_POLICY} );
 $UnknownOptionPolicy = $ENV{SEREAL_ENCODER_UNKNOWN_OPTION_POLICY}
-    if !defined($UnknownOptionPolicy) && defined($ENV{SEREAL_ENCODER_UNKNOWN_OPTION_POLICY}) && length($ENV{SEREAL_ENCODER_UNKNOWN_OPTION_POLICY});
+    if !defined($UnknownOptionPolicy)
+    && defined( $ENV{SEREAL_ENCODER_UNKNOWN_OPTION_POLICY} )
+    && length( $ENV{SEREAL_ENCODER_UNKNOWN_OPTION_POLICY} );
 
 # Make sure to keep these constants in sync with the C code in srl_encoder.c.
 # I know they could be exported from C using things like ExtUtils::Constant,
@@ -53,6 +65,7 @@ $full_consts=
   'SRL_F_FREEZE_DENY_SERIALIZE' => 1048576,
   'SRL_F_NOWARN_UNKNOWN_OVERLOAD' => 512,
   'SRL_F_NO_BLESS_OBJECTS' => 8192,
+  'SRL_F_REFUSE_OBJECTS' => 4194304,
   'SRL_F_REUSE_ENCODER' => 2,
   'SRL_F_SHARED_HASHKEYS' => 1,
   'SRL_F_SORT_KEYS' => 1024,
@@ -89,7 +102,8 @@ $full_consts=
                     'COMPRESS_ZSTD',
                     'USE_STANDARD_DOUBLE',
                     'FREEZE_DENY_SERIALIZE',
-                    'USE_NATIVE_LONG_DOUBLE'
+                    'USE_NATIVE_LONG_DOUBLE',
+                    'REFUSE_OBJECTS'
                   ]
 }; #end generated
 }
@@ -128,7 +142,8 @@ if ( !defined($DefaultKey) && defined( $ENV{SEREAL_ENCODER_DEFAULT_KEY} ) ) {
         $DefaultKey = pack( 'H*', $key );
     }
     else {
-        warn "SEREAL_ENCODER_DEFAULT_KEY is not exactly 32 hexadecimal characters; normalizing with Sereal::Encoder::prepare_checksum_key()\n";
+        warn
+            "SEREAL_ENCODER_DEFAULT_KEY is not exactly 32 hexadecimal characters; normalizing with Sereal::Encoder::prepare_checksum_key()\n";
         $DefaultKey = prepare_checksum_key($key);
     }
 }

@@ -31,20 +31,21 @@ use threads::shared;
 # before t2 runs option parsing (verifies MY_CXT_CLONE isolates child MY_CXT).
 SCOPE: {
     my $parent_exited = Thread::Semaphore->new(0);
-    my $t1 = threads->create(sub {
-        require Sereal::Encoder;
-        my $t2 = threads->create(sub {
-            $parent_exited->down();
-            my $enc = Sereal::Encoder->new({ canonical => 1, sort_keys => 1 });
-            my $b1  = $enc->encode({ b => 2, a => 1 });
-            my $b2  = Sereal::Encoder::encode_sereal(
-                { b => 2, a => 1 },
-                { canonical => 1, sort_keys => 1 }
-            );
-            return ( defined($b1) && defined($b2) && $b1 eq $b2 ) ? 1 : 0;
-        });
-        return $t2;
-    });
+    my $t1            = threads->create(
+        sub {
+            require Sereal::Encoder;
+            my $t2 = threads->create(
+                sub {
+                    $parent_exited->down();
+                    my $enc = Sereal::Encoder->new( { canonical => 1, sort_keys => 1 } );
+                    my $b1  = $enc->encode( { b => 2, a => 1 } );
+                    my $b2  = Sereal::Encoder::encode_sereal(
+                        { b         => 2, a         => 1 },
+                        { canonical => 1, sort_keys => 1 } );
+                    return ( defined($b1) && defined($b2) && $b1 eq $b2 ) ? 1 : 0;
+                } );
+            return $t2;
+        } );
     my $t2 = $t1->join();
     ok( defined($t2), "Parent thread t1 exited cleanly" );
     $parent_exited->up();
@@ -68,17 +69,20 @@ SCOPE: {
 SCOPE: {
     my @threads = map {
         my $idx = $_;
-        threads->create(sub {
-            my $enc = Sereal::Encoder->new({ canonical => 1, sort_keys => 1 });
-            my $b1  = $enc->encode({ k => $idx, z => 1, a => 2 });
-            my $b2  = Sereal::Encoder::encode_sereal(
-                { k => $idx, z => 1, a => 2 },
-                { canonical => 1, sort_keys => 1 }
-            );
-            return ( defined($b1) && $b1 eq $b2 ) ? 1 : 0;
-        });
+        threads->create(
+            sub {
+                my $enc = Sereal::Encoder->new( { canonical => 1, sort_keys => 1 } );
+                my $b1  = $enc->encode( { k => $idx, z => 1, a => 2 } );
+                my $b2  = Sereal::Encoder::encode_sereal(
+                    { k => $idx, z => 1, a => 2 },
+                    { canonical => 1, sort_keys => 1 } );
+                return ( defined($b1) && $b1 eq $b2 ) ? 1 : 0;
+            } );
     } 1 .. 2;
     for my $i ( 0 .. $#threads ) {
-        is( $threads[$i]->join(), 1, "Concurrent child thread " . ($i + 1) . " encoded with options" );
+        is(
+            $threads[$i]->join(), 1,
+            "Concurrent child thread " . ( $i + 1 ) . " encoded with options"
+        );
     }
 }

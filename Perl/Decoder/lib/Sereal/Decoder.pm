@@ -12,13 +12,21 @@ our $ChecksumPolicy;
 our $UnknownOptionPolicy;
 our $DefaultKey;
 $Sereal::ChecksumPolicy = $ENV{SEREAL_CHECKSUM_POLICY}
-    if !defined($Sereal::ChecksumPolicy) && defined($ENV{SEREAL_CHECKSUM_POLICY}) && length($ENV{SEREAL_CHECKSUM_POLICY});
+    if !defined($Sereal::ChecksumPolicy)
+    && defined( $ENV{SEREAL_CHECKSUM_POLICY} )
+    && length( $ENV{SEREAL_CHECKSUM_POLICY} );
 $ChecksumPolicy = $ENV{SEREAL_DECODER_CHECKSUM_POLICY}
-    if !defined($ChecksumPolicy) && defined($ENV{SEREAL_DECODER_CHECKSUM_POLICY}) && length($ENV{SEREAL_DECODER_CHECKSUM_POLICY});
+    if !defined($ChecksumPolicy)
+    && defined( $ENV{SEREAL_DECODER_CHECKSUM_POLICY} )
+    && length( $ENV{SEREAL_DECODER_CHECKSUM_POLICY} );
 $Sereal::UnknownOptionPolicy = $ENV{SEREAL_UNKNOWN_OPTION_POLICY}
-    if !defined($Sereal::UnknownOptionPolicy) && defined($ENV{SEREAL_UNKNOWN_OPTION_POLICY}) && length($ENV{SEREAL_UNKNOWN_OPTION_POLICY});
+    if !defined($Sereal::UnknownOptionPolicy)
+    && defined( $ENV{SEREAL_UNKNOWN_OPTION_POLICY} )
+    && length( $ENV{SEREAL_UNKNOWN_OPTION_POLICY} );
 $UnknownOptionPolicy = $ENV{SEREAL_DECODER_UNKNOWN_OPTION_POLICY}
-    if !defined($UnknownOptionPolicy) && defined($ENV{SEREAL_DECODER_UNKNOWN_OPTION_POLICY}) && length($ENV{SEREAL_DECODER_UNKNOWN_OPTION_POLICY});
+    if !defined($UnknownOptionPolicy)
+    && defined( $ENV{SEREAL_DECODER_UNKNOWN_OPTION_POLICY} )
+    && length( $ENV{SEREAL_DECODER_UNKNOWN_OPTION_POLICY} );
 
 use Exporter 'import';
 our @EXPORT_OK = qw(
@@ -52,7 +60,8 @@ if ( !defined($DefaultKey) && defined( $ENV{SEREAL_DECODER_DEFAULT_KEY} ) ) {
         $DefaultKey = pack( 'H*', $key );
     }
     else {
-        warn "SEREAL_DECODER_DEFAULT_KEY is not exactly 32 hexadecimal characters; normalizing with Sereal::Decoder::prepare_checksum_key()\n";
+        warn
+            "SEREAL_DECODER_DEFAULT_KEY is not exactly 32 hexadecimal characters; normalizing with Sereal::Decoder::prepare_checksum_key()\n";
         $DefaultKey = prepare_checksum_key($key);
     }
 }

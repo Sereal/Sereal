@@ -7,12 +7,12 @@ use File::Spec;
 use Sereal::TestSet qw(Header short_string have_encoder_and_decoder regexp_modifier_test_cases);
 use Sereal::Decoder;
 use Sereal::TestSet::Corpus qw(read_packet);
-use re qw(regexp_pattern);
+use re                      qw(regexp_pattern);
 
 # Live round trips need the encoder that first preserved these modifiers.
-my $both = have_encoder_and_decoder('6.000004');
-my @cases = regexp_modifier_test_cases();
-my $corpus = File::Spec->catdir('t', 'data', 'packet_corpus');
+my $both    = have_encoder_and_decoder('6.000004');
+my @cases   = regexp_modifier_test_cases();
+my $corpus  = File::Spec->catdir( 't', 'data', 'packet_corpus' );
 my $decoder = Sereal::Decoder->new;
 
 sub check_regexp {
@@ -59,9 +59,10 @@ for my $version ( 1 .. 6 ) {
         is( $@, '', "$name decodes" );
         next if !$decoded;
         check_regexp( $decoded, $original, $text, $matches, "$name wire" );
-        my $fixture = read_packet($corpus, 'regexp-modifiers',
-            "v$version/" . unpack('H*', $modifiers) . '/' . unpack('H*', $pattern));
-        check_regexp($decoder->decode($fixture), $original, $text, $matches, "$name corpus");
+        my $fixture = read_packet(
+            $corpus, 'regexp-modifiers',
+            "v$version/" . unpack( 'H*', $modifiers ) . '/' . unpack( 'H*', $pattern ) );
+        check_regexp( $decoder->decode($fixture), $original, $text, $matches, "$name corpus" );
         if ($both) {
             my $encoder   = Sereal::Encoder->new( { protocol_version => $version } );
             my $roundtrip = $decoder->decode( $encoder->encode($original) );

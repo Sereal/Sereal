@@ -58,12 +58,12 @@ sub link_files {
                     elsif ( -f $source_path ) {
                         return if $source_path =~ /(?:\.bak|\.sw[po]|~)$/;
                         my $relative_path = $_;
-                        my $target_path = File::Spec->catfile(
-                            $project_root, File::Spec->splitdir($relative_path)
-                        );
+                        my $target_path   = File::Spec->catfile(
+                            $project_root,
+                            File::Spec->splitdir($relative_path) );
                         my $source_abs = File::Spec->catfile(
-                            $shared_root, File::Spec->splitdir($relative_path)
-                        );
+                            $shared_root,
+                            File::Spec->splitdir($relative_path) );
                         if ( OSNAME eq 'MSWin32' ) {
                             return if -e $target_path;
                             die "link($source_abs, $target_path) failed: $!"
@@ -309,6 +309,7 @@ sub MY::subdir_x {
 }
 
 sub MY::postamble {
+
     # Let the child make check its source dependencies on every build.
     return <<'MAKE_FRAG';
 zstd/libzstd$(OBJ_EXT): zstd/Makefile FORCE

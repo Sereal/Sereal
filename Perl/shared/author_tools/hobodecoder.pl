@@ -103,16 +103,16 @@ sub parse_header {
     print "Sereal protocol version: $proto_version\n";
     if ( length($hdr) ) {
         print "Header($len): " . join( " ", map ord, split //, $hdr ) . "\n";
+
         # The low suffix-flag bit identifies a serialized user-header value.
-        if ( $proto_version >= 2 && ( ord( substr( $hdr, 0, 1 ) ) & 1 ) )
-        {
+        if ( $proto_version >= 2 && ( ord( substr( $hdr, 0, 1 ) ) & 1 ) ) {
             $done .= substr( $hdr, 0, 1 );
             print "Found user data in header:\n";
+
             # parse_sv consumes the global input buffer. Temporarily replace
             # it with the header's value, then restore the untouched body so
             # reading metadata does not consume compressed document bytes.
-            my $tmp_data =
-                $data;
+            my $tmp_data = $data;
             $data = substr( $hdr, 1 );
             parse_sv("  ");
             $data = $tmp_data;
@@ -233,8 +233,10 @@ sub parse_float_128 {
     # keeping the debugger consistent with the library's rounding behavior.
     # This packet has no checksum, independently of the input packet's policy.
     my $packet = "=\xF3rl" . chr( $opt->{protocol_version} ) . "\0" . chr(SRL_HDR_FLOAT_128) . $v;
-    return Sereal::Decoder->new( { checksum_policy => 'ignore',
-            allow_unknown_long_double => $opt->{'allow-unknown-long-double'} || 0 } )->decode($packet);
+    return Sereal::Decoder->new( {
+            checksum_policy           => 'ignore',
+            allow_unknown_long_double => $opt->{'allow-unknown-long-double'} || 0
+        } )->decode($packet);
 }
 
 sub parse_double {
@@ -251,9 +253,10 @@ sub parse_long_double {
         my $v = _chop_data_prefix( $opt->{long_double_size} );
         $done .= $v;
         require Sereal::Decoder;
-        return Sereal::Decoder->new( { checksum_policy => 'ignore',
-            allow_unknown_long_double => $opt->{'allow-unknown-long-double'} || 0 } )
-            ->decode( "=\xF3rl\7\0" . $declaration . chr(SRL_HDR_LONG_DOUBLE) . $v );
+        return Sereal::Decoder->new( {
+                checksum_policy           => 'ignore',
+                allow_unknown_long_double => $opt->{'allow-unknown-long-double'} || 0
+            } )->decode( "=\xF3rl\7\0" . $declaration . chr(SRL_HDR_LONG_DOUBLE) . $v );
     }
     $len_D ||= eval { length( pack( "D", 0.0 ) ) };
     die "Long double not supported" unless $len_D;
@@ -275,7 +278,7 @@ sub parse_declarations {
         die "Invalid declaration payload length\n" unless $len <= length($data);
         my $declaration_end = length($done) + $len;
         my $kind            = varint();
-        my $name = $DECLARATION_NAME{$kind};
+        my $name            = $DECLARATION_NAME{$kind};
         die "Unknown declaration kind $kind\n" unless defined $name;
         die "Duplicate declaration $name (kind $kind)\n" if $seen{$kind}++;
         die "Unsupported declaration $name (kind $kind)\n" unless $kind == SRL_DECL_LONG_DOUBLE;
@@ -291,15 +294,17 @@ sub parse_declarations {
         # even when no LONG_DOUBLE follows. Decoder validates that promise
         # using a synthetic packet with an integer root, so the debugger
         # reports the same incompatibility as the library.
-        Sereal::Decoder->new( { checksum_policy => 'ignore',
-            allow_unknown_long_double => $opt->{'allow-unknown-long-double'} || 0 } )
-            ->decode( "=\xF3rl\7\0" . $opt->{long_double_declaration} . "\0" );
+        Sereal::Decoder->new( {
+                checksum_policy           => 'ignore',
+                allow_unknown_long_double => $opt->{'allow-unknown-long-double'} || 0
+            } )->decode( "=\xF3rl\7\0" . $opt->{long_double_declaration} . "\0" );
         my $order = $format & SRL_LD_BIG_ENDIAN ? 'big' : 'little';
-        my $layout = ( $format & 127 ) == SRL_LD_OPAQUE
+        my $layout =
+            ( $format & 127 ) == SRL_LD_OPAQUE
             ? "opaque native storage, $order-endian host"
             : sprintf( 'format %u, %s endian', $format & 127, $order );
         printf "%s %s (kind %u): %s, %u bytes\n",
-            $EXT_TAG_NAME{SRL_EXT_DECLARE()}, $name, $kind, $layout, $size;
+            $EXT_TAG_NAME{ SRL_EXT_DECLARE() }, $name, $kind, $layout, $size;
     }
 }
 
@@ -349,7 +354,8 @@ sub parse_sv {
         my $str = _chop_data_prefix($l);    # fixme UTF8
         $done .= $str;
         $str = decode_utf8($str) if $o == SRL_HDR_STR_UTF8;
-        printf( ( $o == SRL_HDR_STR_UTF8 ? "STR_UTF8" : "BINARY" ) . "(%u): '%s' (%s)\n",
+        printf(
+            ( $o == SRL_HDR_STR_UTF8 ? "STR_UTF8" : "BINARY" ) . "(%u): '%s' (%s)\n",
             $l, encode_utf8($str), unpack( "H*", encode_utf8($str) ) );
     }
     elsif ( $o == SRL_HDR_EXTEND ) {
@@ -541,9 +547,11 @@ sub zigzag {
     return _zigzag( varint() );
 }
 
-GetOptions( $opt = {}, 'e|stderr', 'checksum-v0-key=s', 'checksum-v1-key=s', 'checksum-v2-key=s',
+GetOptions(
+    $opt = {}, 'e|stderr', 'checksum-v0-key=s', 'checksum-v1-key=s', 'checksum-v2-key=s',
     'checksum-v0-key-hex=s', 'checksum-v1-key-hex=s', 'checksum-v2-key-hex=s',
-    'allow-unknown-long-double', );
+    'allow-unknown-long-double',
+);
 
 for my $version ( 0, 1, 2 ) {
     my $plain_name   = "checksum_key_v" . ( $version + 1 );
@@ -572,10 +580,10 @@ if ( $opt->{e} ) {
 sub dump_bytes {
     my ($bytes) = @_;
     print "Hex dump:\n";
-    for ( my $offset = 0; $offset < length($bytes); $offset += 16 ) {
+    for ( my $offset = 0 ; $offset < length($bytes) ; $offset += 16 ) {
         my @octets = unpack( 'C*', substr( $bytes, $offset, 16 ) );
-        my $hex = join ' ', map { sprintf '%02x', $_ } @octets;
-        my $ascii = join '', map { $_ >= 32 && $_ <= 126 ? chr($_) : '.' } @octets;
+        my $hex    = join ' ', map { sprintf '%02x', $_ } @octets;
+        my $ascii  = join '',  map { $_ >= 32 && $_ <= 126 ? chr($_) : '.' } @octets;
         printf "%08x  %-47s  |%s|\n", $offset, $hex, $ascii;
     }
 }

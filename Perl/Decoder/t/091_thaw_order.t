@@ -9,10 +9,10 @@ BEGIN {
         if !-d 't';
 }
 use Test::More;
-use Sereal::TestSet qw(:all);
-use Sereal::Decoder qw(decode_sereal);
+use Sereal::TestSet         qw(:all);
+use Sereal::Decoder         qw(decode_sereal);
 use Sereal::TestSet::Corpus qw(read_packet);
-use Data::Dumper    qw(Dumper);
+use Data::Dumper            qw(Dumper);
 
 sub dd {
     local $Data::Dumper::Indent   = 0;
@@ -100,8 +100,8 @@ my $struct = FooOutside->new(
 );
 
 my $corpus = File::Spec->catdir(qw(t data packet_corpus));
-my $srl = read_packet( $corpus, 'decoder-features', 'thaw/order' );
-my $dec = decode_sereal($srl);
+my $srl    = read_packet( $corpus, 'decoder-features', 'thaw/order' );
+my $dec    = decode_sereal($srl);
 
 my @expected_steps = (
     "FooOutside::FREEZE(bless( {'attrs' => {'attr1' => 'foobar','bar' => bless( {'attrs' => {},'inside' => {'0' => 'should_be_first'}}, 'FooInside' )},'inside' => {'0' => bless( {'attrs' => {},'inside' => {'0' => 'second/not_frozen','1' => 'third/not_frozen'}}, 'FooInside' ),'1' => bless( {'attrs' => {},'inside' => {'0' => bless( {'attrs' => {},'inside' => {'0' => 'fourth/inner'}}, 'FooInside' )}}, 'FooOutside' )}}, 'FooOutside' ))",
@@ -134,10 +134,13 @@ if ( have_encoder_and_decoder() ) {
         skip 'Encoder 2.x does not preserve this nested FREEZE traversal order', 2
             if $Sereal::Encoder::VERSION < 3.0;
         @steps = ();
-        my $live_packet = Sereal::Encoder::encode_sereal(
-            $struct, { freeze_callbacks => 1, canonical => 1 } );
+        my $live_packet =
+            Sereal::Encoder::encode_sereal( $struct, { freeze_callbacks => 1, canonical => 1 } );
         my $live_decoded = decode_sereal($live_packet);
-        is_deeply( \@steps, \@expected_steps, 'live Encoder and Decoder preserve the full FREEZE/THAW sequence' );
+        is_deeply(
+            \@steps, \@expected_steps,
+            'live Encoder and Decoder preserve the full FREEZE/THAW sequence'
+        );
         is_deeply( $live_decoded, $struct, 'live Encoder round-trips the nested object structure' );
     }
 }

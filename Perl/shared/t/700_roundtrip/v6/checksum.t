@@ -12,9 +12,9 @@ use File::Temp      qw(tempfile);
 use Sereal::TestSet qw(read_varint_at);
 use Sereal::Decoder;
 use Sereal::Decoder::Constants qw(SRL_PROTOCOL_ENCODING_CHECKSUM);
-use Sereal::TestSet::Corpus qw(read_packet);
+use Sereal::TestSet::Corpus    qw(read_packet);
 
-my $corpus = File::Spec->catdir( 't', 'data', 'packet_corpus' );
+my $corpus        = File::Spec->catdir( 't', 'data', 'packet_corpus' );
 my $checksum_flag = SRL_PROTOCOL_ENCODING_CHECKSUM();
 
 my $sip_key = pack( 'C*', 0 .. 15 );
@@ -41,8 +41,8 @@ is(
 );
 
 my $plain_value = 'checksummed Sereal payload';
-my $packet0 = read_packet( $corpus, 'decoder-features', 'checksum/v0' );
-my $packet1 = read_packet( $corpus, 'decoder-features', 'checksum/v1-compressed' );
+my $packet0     = read_packet( $corpus, 'decoder-features', 'checksum/v0' );
+my $packet1     = read_packet( $corpus, 'decoder-features', 'checksum/v1-compressed' );
 
 ok(
     ord( substr( $packet0, 4, 1 ) ) & $checksum_flag,
@@ -63,12 +63,13 @@ is(
 
 sub run_hobodecoder {
     my ( $packet, @args ) = @_;
-    my ($stdin) = tempfile(UNLINK => 1);
-    my ($stdout) = tempfile(UNLINK => 1);
-    my ($stderr) = tempfile(UNLINK => 1);
+    my ($stdin)  = tempfile( UNLINK => 1 );
+    my ($stdout) = tempfile( UNLINK => 1 );
+    my ($stderr) = tempfile( UNLINK => 1 );
     binmode $stdin;
     print {$stdin} $packet;
     seek( $stdin, 0, 0 ) or die "seek stdin: $!";
+
     # open3's <&NAME and >&NAME forms duplicate existing handles into the
     # child. These local globs give it names for our temporary files, so no
     # input or output pipe can block the Windows test process.
@@ -76,9 +77,9 @@ sub run_hobodecoder {
     *HOBOSTDIN  = $stdin;
     *HOBOSTDOUT = $stdout;
     *HOBOSTDERR = $stderr;
-    my $pid    = open3(
-        '<&HOBOSTDIN', '>&HOBOSTDOUT', '>&HOBOSTDERR',
-        $^X,    '-Mblib',
+    my $pid = open3(
+        '<&HOBOSTDIN',                 '>&HOBOSTDOUT', '>&HOBOSTDERR',
+        $^X,                           '-Mblib',
         'author_tools/hobodecoder.pl', @args
     );
     binmode $stdout;
@@ -99,8 +100,10 @@ SKIP: {
         run_hobodecoder( $packet0, '--checksum-v0-key-hex=' . unpack( 'H*', $key0 ) );
     is( $hobo_status, 0, 'hobodecoder accepts a checksummed raw packet with its key' )
         or diag($hobo_err);
-    like( $hobo_out, qr/^00000000  3d f3 72 6c /m,
-        'hobodecoder shows the packet in hex without od' );
+    like(
+        $hobo_out, qr/^00000000  3d f3 72 6c /m,
+        'hobodecoder shows the packet in hex without od'
+    );
     like(
         $hobo_out, qr/SipHash-2-4 checksum verified/,
         'hobodecoder verifies the SipHash-2-4 checksum'

@@ -12,8 +12,8 @@ BEGIN {
         if !-d 't';
 }
 
-use Sereal::TestSet qw(:all);
-use Sereal::Decoder qw(decode_sereal);
+use Sereal::TestSet            qw(:all);
+use Sereal::Decoder            qw(decode_sereal);
 use Sereal::Decoder::Constants qw(:all);
 use Test::More;
 
@@ -59,8 +59,8 @@ sub pack_double_be {
 
 # 1. All untracked leaf fast-path tags in both ARRAYREF_n and REFN+ARRAY
 {
-    my @pos_tags = map { chr( SRL_HDR_POS_LOW + $_ ) } 0 .. 15;
-    my @neg_tags = map { chr( SRL_HDR_NEG_LOW + $_ ) } 0 .. 15;    # -16..-1
+    my @pos_tags    = map { chr( SRL_HDR_POS_LOW + $_ ) } 0 .. 15;
+    my @neg_tags    = map { chr( SRL_HDR_NEG_LOW + $_ ) } 0 .. 15;    # -16..-1
     my @varint_vals = ( 0, 15, 16, 127, 128, 16384, 0x7fffffff );
     if ( $Config{uvsize} >= 8 ) {
         no warnings 'portable';
@@ -70,11 +70,11 @@ sub pack_double_be {
         push @varint_vals, 0x80000000, ~0;
     }
     my @varint_tags = map { chr(SRL_HDR_VARINT) . varint($_) } @varint_vals;
-    my @sstr_vals = map {
+    my @sstr_vals   = map {
         my $l = $_;
         join '', map { chr( ( $_ * 17 + $l ) & 0xff ) } 0 .. $l - 1;
     } 0 .. 31;
-    my @sstr_tags = map { pack_short_bin($_) } @sstr_vals;
+    my @sstr_tags  = map { pack_short_bin($_) } @sstr_vals;
     my @undef_tags = ( chr(SRL_HDR_UNDEF), chr(SRL_HDR_CANONICAL_UNDEF) );
     my @dbl_vals   = ( 0.0, -0.0, 1.5, -3.25, 1e100, -1e-100 );
     my @dbl_tags   = map { pack_double_native($_) } @dbl_vals;
@@ -97,7 +97,10 @@ sub pack_double_be {
             ok( !utf8::is_utf8( $got->[$i] ), "short_binary element $i is not utf8" );
         }
         else {
-            ok( defined( $got->[$i] ) && $got->[$i] == $expected[$i], "numeric element $i matches" );
+            ok(
+                defined( $got->[$i] ) && $got->[$i] == $expected[$i],
+                "numeric element $i matches"
+            );
         }
     }
 
@@ -105,13 +108,19 @@ sub pack_double_be {
     if ( $Config{uvsize} >= 8 ) {
         no warnings 'portable';
         my $uv_idx = 16 + 16 + @varint_vals - 2;    # 0x8000000000000000
-        is( sprintf( '%u', $got->[$uv_idx] ), '9223372036854775808', 'IV_MAX+1 UV preserved exactly' );
-        is( sprintf( '%u', $got->[ $uv_idx + 1 ] ), '18446744073709551615', 'UV_MAX preserved exactly' );
+        is(
+            sprintf( '%u', $got->[$uv_idx] ), '9223372036854775808',
+            'IV_MAX+1 UV preserved exactly'
+        );
+        is(
+            sprintf( '%u', $got->[ $uv_idx + 1 ] ), '18446744073709551615',
+            'UV_MAX preserved exactly'
+        );
     }
 
     # Also test compact ARRAYREF_0..15 specifically
     for my $n ( 0 .. 15 ) {
-        my @slice = @all_tags[ 0 .. $n - 1 ];
+        my @slice   = @all_tags[ 0 .. $n - 1 ];
         my $sub_got = decode_sereal( $hdr6 . pack_arrayref(@slice) );
         is( scalar(@$sub_got), $n, "ARRAYREF_$n length matches" );
         for my $i ( 0 .. $n - 1 ) {
@@ -129,11 +138,15 @@ sub pack_double_be {
 
     # CANONICAL_UNDEF rejected on protocol < 3 inside array fast path
     my $ok_v2 = eval {
-        decode_sereal( $hdr2 . pack_arrayref( chr( SRL_HDR_POS + 1 ), chr(SRL_HDR_CANONICAL_UNDEF) ) );
+        decode_sereal(
+            $hdr2 . pack_arrayref( chr( SRL_HDR_POS + 1 ), chr(SRL_HDR_CANONICAL_UNDEF) ) );
         1;
     };
     ok( !$ok_v2, 'CANONICAL_UNDEF in v2 array croaks' );
-    like( $@, qr/CANONICAL_UNDEF tag requires protocol version 3/, 'CANONICAL_UNDEF v2 error message' );
+    like(
+        $@, qr/CANONICAL_UNDEF tag requires protocol version 3/,
+        'CANONICAL_UNDEF v2 error message'
+    );
 }
 
 # 2. Mixed with tracked elements, ALIAS, COPY, nested containers, objects, PAD, booleans
@@ -157,10 +170,10 @@ sub pack_double_be {
     #   [14] PAD + POS(3)
     #   [15] TRUE
     my $body = '';
-    $body .= chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY) . varint(16);    # 3 bytes: offsets 1, 2, 3
+    $body .= chr(SRL_HDR_REFN) . chr(SRL_HDR_ARRAY) . varint(16);             # 3 bytes: offsets 1, 2, 3
     my $ofs_pos = length($body) + 1;
-    $body .= chr( SRL_HDR_POS + 7 | TRACK_FLAG );                    # 1 byte
-    $body .= chr(SRL_HDR_ALIAS) . varint($ofs_pos);                  # 2 bytes
+    $body .= chr( SRL_HDR_POS + 7 | TRACK_FLAG );                             # 1 byte
+    $body .= chr(SRL_HDR_ALIAS) . varint($ofs_pos);                           # 2 bytes
     my $ofs_str = length($body) + 1;
     $body .= chr( ( SRL_HDR_SHORT_BINARY_LOW + 3 ) | TRACK_FLAG ) . 'abc';    # 4 bytes
     $body .= chr(SRL_HDR_ALIAS) . varint($ofs_str);                           # 2 bytes
@@ -172,17 +185,22 @@ sub pack_double_be {
     $body .= chr( SRL_HDR_DOUBLE | TRACK_FLAG ) . pack( 'd', 2.5 );           # 9 bytes
     $body .= chr(SRL_HDR_ALIAS) . varint($ofs_dbl);                           # 2 bytes
     my $ofs_und = length($body) + 1;
-    $body .= chr( SRL_HDR_UNDEF | TRACK_FLAG );                               # 1 byte
-    $body .= chr(SRL_HDR_ALIAS) . varint($ofs_und);                           # 2 bytes
+    $body .= chr( SRL_HDR_UNDEF | TRACK_FLAG );                                                    # 1 byte
+    $body .= chr(SRL_HDR_ALIAS) . varint($ofs_und);                                                # 2 bytes
     $body .= pack_arrayref( chr( SRL_HDR_POS + 1 ), pack_short_bin('z') );
     $body .= chr( SRL_HDR_HASHREF + 1 ) . pack_short_bin('k') . chr(SRL_HDR_VARINT) . varint(42);
-    $body .= chr(SRL_HDR_OBJECT) . pack_short_bin('Foo') . chr( SRL_HDR_HASHREF + 1 ) . pack_short_bin('a') . chr( SRL_HDR_NEG_LOW + 15 );
+    $body .=
+          chr(SRL_HDR_OBJECT)
+        . pack_short_bin('Foo')
+        . chr( SRL_HDR_HASHREF + 1 )
+        . pack_short_bin('a')
+        . chr( SRL_HDR_NEG_LOW + 15 );
     $body .= chr(SRL_HDR_PAD) . chr( SRL_HDR_POS + 3 );
     $body .= chr(SRL_HDR_TRUE);
 
     my $got = decode_sereal( $hdr6 . $body );
     is( scalar(@$got), 16, 'mixed array length is 16' );
-    is( $got->[0], 7, 'tracked POS decoded' );
+    is( $got->[0],     7,  'tracked POS decoded' );
     ok( \$got->[0] == \$got->[1], 'ALIAS to tracked POS shares SV' );
     is( $got->[2], 'abc', 'tracked SHORT_BINARY decoded' );
     ok( \$got->[2] == \$got->[3], 'ALIAS to tracked SHORT_BINARY shares SV' );
@@ -191,22 +209,24 @@ sub pack_double_be {
     is( $got->[5], 999, 'tracked VARINT decoded' );
     ok( \$got->[5] == \$got->[6], 'ALIAS to tracked VARINT shares SV' );
     is( $got->[7], 2.5, 'tracked DOUBLE decoded' );
-    ok( \$got->[7] == \$got->[8], 'ALIAS to tracked DOUBLE shares SV' );
-    ok( !defined $got->[9], 'tracked UNDEF decoded' );
+    ok( \$got->[7] == \$got->[8],  'ALIAS to tracked DOUBLE shares SV' );
+    ok( !defined $got->[9],        'tracked UNDEF decoded' );
     ok( \$got->[9] == \$got->[10], 'ALIAS to tracked UNDEF shares SV' );
-    is_deeply( $got->[11], [ 1, 'z' ], 'nested ARRAYREF decoded' );
+    is_deeply( $got->[11], [ 1, 'z' ],  'nested ARRAYREF decoded' );
     is_deeply( $got->[12], { k => 42 }, 'nested HASHREF decoded' );
     is( blessed( $got->[13] ), 'Foo', 'nested OBJECT blessed' );
-    is( $got->[13]{a}, -1, 'nested OBJECT content decoded' );
-    is( $got->[14], 3, 'PAD + POS decoded' );
+    is( $got->[13]{a},         -1,    'nested OBJECT content decoded' );
+    is( $got->[14],            3,     'PAD + POS decoded' );
     ok( $got->[15], 'TRUE decoded' );
 }
 
 # 3. set_readonly and set_readonly_scalars
 {
     my @uv_item = ( $Config{uvsize} >= 8 )
-        ? ( do { no warnings 'portable'; chr(SRL_HDR_VARINT) . varint( 0x8000000000000001 ) } )
-        : ( chr(SRL_HDR_VARINT) . varint( 0x80000001 ) );
+        ? (
+        do { no warnings 'portable'; chr(SRL_HDR_VARINT) . varint(0x8000000000000001) }
+        )
+        : ( chr(SRL_HDR_VARINT) . varint(0x80000001) );
 
     my $pkt = $hdr6 . pack_arrayref(
         chr( SRL_HDR_POS + 5 ),
@@ -221,7 +241,7 @@ sub pack_double_be {
     );
 
     my $ro_all = decode_sereal( $pkt, { set_readonly => 1 } );
-    ok( Internals::SvREADONLY(@$ro_all), 'set_readonly: outer array is readonly' );
+    ok( Internals::SvREADONLY(@$ro_all),             'set_readonly: outer array is readonly' );
     ok( Internals::SvREADONLY( @{ $ro_all->[-1] } ), 'set_readonly: nested array is readonly' );
     for my $i ( 0 .. $#$ro_all ) {
         ok( Internals::SvREADONLY( $ro_all->[$i] ), "set_readonly: elem $i is readonly" );
@@ -229,11 +249,20 @@ sub pack_double_be {
 
     my $ro_sc = decode_sereal( $pkt, { set_readonly_scalars => 1 } );
     ok( !Internals::SvREADONLY(@$ro_sc), 'set_readonly_scalars: outer ARRAYREF is writable' );
-    ok( !Internals::SvREADONLY( @{ $ro_sc->[-1] } ), 'set_readonly_scalars: nested ARRAYREF is writable' );
+    ok(
+        !Internals::SvREADONLY( @{ $ro_sc->[-1] } ),
+        'set_readonly_scalars: nested ARRAYREF is writable'
+    );
     for my $i ( 0 .. $#$ro_sc - 1 ) {
-        ok( Internals::SvREADONLY( $ro_sc->[$i] ), "set_readonly_scalars: leaf elem $i is readonly" );
+        ok(
+            Internals::SvREADONLY( $ro_sc->[$i] ),
+            "set_readonly_scalars: leaf elem $i is readonly"
+        );
     }
-    ok( !Internals::SvREADONLY( $ro_sc->[-1] ), 'set_readonly_scalars: ref slot is not forced readonly' );
+    ok(
+        !Internals::SvREADONLY( $ro_sc->[-1] ),
+        'set_readonly_scalars: ref slot is not forced readonly'
+    );
 }
 
 # 4. alias_smallint, alias_varint_under, and use_undef
@@ -257,14 +286,14 @@ sub pack_double_be {
         ok( \$a1->[$i] == \$a1->[ $i + 32 ], "alias_smallint: slot $i aliased to " . ( $i + 32 ) );
         ok( Internals::SvREADONLY( $a1->[$i] ), "alias_smallint: slot $i is readonly" );
     }
-    ok( \$a1->[0] == \$a1->[64], 'alias_smallint: VARINT(0) shares alias with POS(0)' );
+    ok( \$a1->[0] == \$a1->[64],  'alias_smallint: VARINT(0) shares alias with POS(0)' );
     ok( \$a1->[15] == \$a1->[65], 'alias_smallint: VARINT(15) shares alias with POS(15)' );
     ok( !Internals::SvREADONLY( $a1->[66] ), 'alias_smallint: VARINT(16) is not readonly' );
 
     my $a2 = decode_sereal( $pkt, { alias_varint_under => 100 } );
-    ok( \$a2->[67] == \$a2->[68], 'alias_varint_under=100: VARINT(99) is aliased' );
-    ok( Internals::SvREADONLY( $a2->[67] ), 'alias_varint_under=100: VARINT(99) is readonly' );
-    ok( \$a2->[69] != \$a2->[70], 'alias_varint_under=100: VARINT(100) is NOT aliased' );
+    ok( \$a2->[67] == \$a2->[68],            'alias_varint_under=100: VARINT(99) is aliased' );
+    ok( Internals::SvREADONLY( $a2->[67] ),  'alias_varint_under=100: VARINT(99) is readonly' );
+    ok( \$a2->[69] != \$a2->[70],            'alias_varint_under=100: VARINT(100) is NOT aliased' );
     ok( !Internals::SvREADONLY( $a2->[69] ), 'alias_varint_under=100: VARINT(100) is writable' );
 
     my $upkt = $hdr6 . pack_arrayref(
@@ -273,12 +302,16 @@ sub pack_double_be {
         chr(SRL_HDR_UNDEF),
     );
     my $u_on = decode_sereal( $upkt, { use_undef => 1 } );
-    ok( \$u_on->[0] == \undef && \$u_on->[1] == \undef && \$u_on->[2] == \undef,
-        'use_undef=1: UNDEF and CANONICAL_UNDEF alias PL_sv_undef' );
+    ok(
+        \$u_on->[0] == \undef && \$u_on->[1] == \undef && \$u_on->[2] == \undef,
+        'use_undef=1: UNDEF and CANONICAL_UNDEF alias PL_sv_undef'
+    );
 
     my $u_off = decode_sereal( $upkt, { use_undef => 0 } );
-    ok( \$u_off->[0] != \$u_off->[1] && \$u_off->[0] != \undef,
-        'use_undef=0: UNDEF elements are distinct scalars' );
+    ok(
+        \$u_off->[0] != \$u_off->[1] && \$u_off->[0] != \undef,
+        'use_undef=0: UNDEF elements are distinct scalars'
+    );
     ok( !Internals::SvREADONLY( $u_off->[0] ), 'use_undef=0: UNDEF element is writable' );
 }
 
@@ -301,7 +334,10 @@ sub pack_double_be {
     );
     my $ok_str = eval { decode_sereal( $str_bad_pkt, { max_string_length => 5 } ); 1 };
     ok( !$ok_str, 'max_string_length=5 rejects SHORT_BINARY of len 6 mid-array' );
-    like( $@, qr/Got input string with length 6, configured maximum is 5/, 'max_string_length error matches' );
+    like(
+        $@, qr/Got input string with length 6, configured maximum is 5/,
+        'max_string_length error matches'
+    );
 
     my $flat_leaves = $hdr6 . pack_arrayref(
         chr( SRL_HDR_POS + 1 ),
@@ -314,7 +350,10 @@ sub pack_double_be {
     ok( !$ok_d1, 'max_recursion_depth=1 rejects 1-level array of leaves' );
     like( $@, qr/Reached recursion limit \(1\)/, 'max_recursion_depth=1 error matches' );
     my $got_d2 = decode_sereal( $flat_leaves, { max_recursion_depth => 2 } );
-    is_deeply( $got_d2, [ 1, 'ab', undef, 1000, 1.5 ], 'max_recursion_depth=2 allows 1-level array of leaves' );
+    is_deeply(
+        $got_d2, [ 1, 'ab', undef, 1000, 1.5 ],
+        'max_recursion_depth=2 allows 1-level array of leaves'
+    );
 
     my $nested_pkt = $hdr6 . pack_arrayref(
         chr( SRL_HDR_POS + 1 ),
@@ -333,31 +372,47 @@ sub pack_double_be {
 
 # 6. Malformed / truncated leaf arrays mid-loop (cleanup / Valgrind test)
 {
-    my @bad_cases = (
-        [
+    my @bad_cases = ( [
             'truncated SHORT_BINARY mid-loop',
-            $hdr6 . chr( SRL_HDR_ARRAYREF_LOW + 3 ) . pack_short_bin('12345') . chr( SRL_HDR_SHORT_BINARY_LOW + 5 ) . 'ab',
+            $hdr6
+                . chr( SRL_HDR_ARRAYREF_LOW + 3 )
+                . pack_short_bin('12345')
+                . chr( SRL_HDR_SHORT_BINARY_LOW + 5 ) . 'ab',
             qr/Unexpected termination of packet/,
         ],
         [
             'truncated VARINT mid-loop',
-            $hdr6 . chr( SRL_HDR_ARRAYREF_LOW + 3 ) . chr( SRL_HDR_POS + 1 ) . chr(SRL_HDR_VARINT) . "\x80\x80\x80",
+            $hdr6
+                . chr( SRL_HDR_ARRAYREF_LOW + 3 )
+                . chr( SRL_HDR_POS + 1 )
+                . chr(SRL_HDR_VARINT)
+                . "\x80\x80\x80",
             qr/end of packet reached before varint parsed/,
         ],
         [
             'truncated DOUBLE mid-loop',
-            $hdr6 . chr( SRL_HDR_ARRAYREF_LOW + 3 ) . chr( SRL_HDR_POS + 1 ) . chr(SRL_HDR_DOUBLE) . "\x00\x00\x00\x00",
+            $hdr6
+                . chr( SRL_HDR_ARRAYREF_LOW + 3 )
+                . chr( SRL_HDR_POS + 1 )
+                . chr(SRL_HDR_DOUBLE)
+                . "\x00\x00\x00\x00",
             qr/Unexpected termination of packet/,
         ],
         [
             'SRL_RDR_DONE mid-loop after multi-byte SHORT_BINARY',
+
             # Array claims 4 elements, packet has 4 bytes after array tag: SHORT_BINARY(3) "abc" consumes all 4 bytes!
             $hdr6 . chr( SRL_HDR_ARRAYREF_LOW + 4 ) . pack_short_bin('abc'),
             qr/unexpected end of input stream while expecting a single value/,
         ],
         [
             'unknown tag mid-loop after leaf elements',
-            $hdr6 . chr( SRL_HDR_ARRAYREF_LOW + 4 ) . chr( SRL_HDR_POS + 1 ) . pack_short_bin('xy') . chr(SRL_HDR_RESERVED) . chr( SRL_HDR_POS + 2 ),
+            $hdr6
+                . chr( SRL_HDR_ARRAYREF_LOW + 4 )
+                . chr( SRL_HDR_POS + 1 )
+                . pack_short_bin('xy')
+                . chr(SRL_HDR_RESERVED)
+                . chr( SRL_HDR_POS + 2 ),
             qr/Unexpected tag SRL_HDR_RESERVED/,
         ],
     );
@@ -388,10 +443,18 @@ sub pack_double_be {
             alias_smallint => 1,
         } );
         my $got = $d->decode($arr5);
-        ok( Internals::SvREADONLY( $got->[0] ), "ARRAYREF_5 $opt_name + alias_smallint: elem 0 readonly" );
-        ok( \$got->[1] == \undef && \$got->[2] == \undef,
-            "ARRAYREF_5 $opt_name + use_undef: aliases PL_sv_undef" );
-        ok( Internals::SvREADONLY( $got->[3] ), "ARRAYREF_5 $opt_name + alias_smallint: elem 3 readonly" );
+        ok(
+            Internals::SvREADONLY( $got->[0] ),
+            "ARRAYREF_5 $opt_name + alias_smallint: elem 0 readonly"
+        );
+        ok(
+            \$got->[1] == \undef && \$got->[2] == \undef,
+            "ARRAYREF_5 $opt_name + use_undef: aliases PL_sv_undef"
+        );
+        ok(
+            Internals::SvREADONLY( $got->[3] ),
+            "ARRAYREF_5 $opt_name + alias_smallint: elem 3 readonly"
+        );
         ok( Internals::SvREADONLY( $got->[4] ), "ARRAYREF_5 $opt_name: short_binary readonly" );
         is( $got->[4], 'ro', "ARRAYREF_5 $opt_name: short_binary value matches" );
     }
@@ -408,7 +471,7 @@ sub pack_double_be {
     );
     my $d_utf8 = Sereal::Decoder->new( { validate_utf8 => 1 } );
     my $u_got  = $d_utf8->decode($valid_utf8_pkt);
-    is( $u_got->[0], 1, 'validate_utf8 leaf array: POS matches' );
+    is( $u_got->[0], 1,          'validate_utf8 leaf array: POS matches' );
     is( $u_got->[1], "\x{2603}", 'validate_utf8 leaf array: valid UTF-8 string decoded' );
     ok( utf8::is_utf8( $u_got->[1] ), 'validate_utf8 leaf array: UTF-8 flag set' );
     is( $u_got->[2], 'end', 'validate_utf8 leaf array: trailing SHORT_BINARY matches' );
@@ -431,6 +494,7 @@ sub pack_double_be {
 
     # Re-entrant THAW preserves flags_readonly and alias_varint_under across _alike clone
     {
+
         package Local::RegrLeafThaw;
         our ( $DECODER, $INNER_PKT, $INNER_OUT );
 
@@ -451,7 +515,8 @@ sub pack_double_be {
         chr(SRL_HDR_VARINT) . varint(100),
         chr(SRL_HDR_VARINT) . varint(100),
     );
-    my $outer_thaw_pkt = $hdr6
+    my $outer_thaw_pkt =
+          $hdr6
         . chr(SRL_HDR_OBJECT_FREEZE)
         . pack_short_bin('Local::RegrLeafThaw')
         . pack_arrayref( chr( SRL_HDR_POS + 7 ) );
@@ -469,13 +534,24 @@ sub pack_double_be {
         my $outer = $d_thaw->decode($outer_thaw_pkt);
         my $in    = $Local::RegrLeafThaw::INNER_OUT;
         is( ref($outer), 'Local::RegrLeafThaw', "THAW re-entrancy ($opt_name): outer blessed" );
-        is_deeply( $in, [ 0, 1, 'abc', undef, 99, 99, 100, 100 ],
-            "THAW re-entrancy ($opt_name): inner leaf array values match" );
+        is_deeply(
+            $in, [ 0, 1, 'abc', undef, 99, 99, 100, 100 ],
+            "THAW re-entrancy ($opt_name): inner leaf array values match"
+        );
         for my $i ( 0 .. $#$in ) {
-            ok( Internals::SvREADONLY( $in->[$i] ), "THAW re-entrancy ($opt_name): inner elem $i readonly" );
+            ok(
+                Internals::SvREADONLY( $in->[$i] ),
+                "THAW re-entrancy ($opt_name): inner elem $i readonly"
+            );
         }
-        ok( \$in->[4] == \$in->[5], "THAW re-entrancy ($opt_name): alias_varint_under=100 aliases 99" );
-        ok( \$in->[6] != \$in->[7], "THAW re-entrancy ($opt_name): alias_varint_under=100 does not alias 100" );
+        ok(
+            \$in->[4] == \$in->[5],
+            "THAW re-entrancy ($opt_name): alias_varint_under=100 aliases 99"
+        );
+        ok(
+            \$in->[6] != \$in->[7],
+            "THAW re-entrancy ($opt_name): alias_varint_under=100 does not alias 100"
+        );
     }
 }
 

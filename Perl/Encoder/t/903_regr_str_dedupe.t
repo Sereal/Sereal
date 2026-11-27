@@ -8,8 +8,8 @@ use Test::More;
 use lib File::Spec->catdir(qw(t lib));
 BEGIN { lib->import('lib') if !-d 't' }
 
-use Sereal::TestSet qw(have_encoder_and_decoder);
-use Sereal::Encoder qw(encode_sereal_with_header_data);
+use Sereal::TestSet            qw(have_encoder_and_decoder);
+use Sereal::Encoder            qw(encode_sereal_with_header_data);
 use Sereal::Encoder::Constants qw(:all);
 
 plan skip_all => 'Did not find right version of decoder'
@@ -31,14 +31,14 @@ for my $version ( 1, 2, 6, 7 ) {
         my $s1    = "a";
         my $s2    = "ab";
         my $s3    = "abc";
-        my $short = "short_bin_12";                  # len 12 (SHORT_BINARY)
-        my $med   = "medium_str_0123456789_abc";     # len 25 (SHORT_BINARY)
-        my $long  = "long_binary_payload_" x 3;      # len 60 (BINARY)
-        my $utf_s = "\x{100}\x{200}\x{300}";         # len 6 bytes, STR_UTF8
-        my $utf_l = ("\x{2603}_snowman_" x 5);       # >= 32 bytes, STR_UTF8
+        my $short = "short_bin_12";                 # len 12 (SHORT_BINARY)
+        my $med   = "medium_str_0123456789_abc";    # len 25 (SHORT_BINARY)
+        my $long  = "long_binary_payload_" x 3;     # len 60 (BINARY)
+        my $utf_s = "\x{100}\x{200}\x{300}";        # len 6 bytes, STR_UTF8
+        my $utf_l = ( "\x{2603}_snowman_" x 5 );    # >= 32 bytes, STR_UTF8
 
         my $input = [
-            $s0, $s0, $s1, $s1, $s2, $s2, $s3, $s3,
+            $s0,    $s0,  $s1,   $s1,    $s2, $s2, $s3, $s3,
             $short, $med, $long, $utf_s, $utf_l,
             $short, $med, $long, $utf_s, $utf_l,
             $short, $med, $long, $utf_s, $utf_l,
@@ -52,7 +52,10 @@ for my $version ( 1, 2, 6, 7 ) {
 
         ok(
             length($pkt) < length($plain_pkt),
-            "v$version $opt: deduped packet (" . length($pkt) . "B) smaller than plain (" . length($plain_pkt) . "B)"
+            "v$version $opt: deduped packet ("
+                . length($pkt)
+                . "B) smaller than plain ("
+                . length($plain_pkt) . "B)"
         );
 
         my $dec = Sereal::Decoder->new( { validate_utf8 => 1 } )->decode($pkt);
@@ -78,9 +81,18 @@ for my $version ( 1, 2, 6, 7 ) {
                 );
             }
         }
-        ok( utf8::is_utf8( $dec->[11] ) && utf8::is_utf8( $dec->[16] ), "v$version $opt: short UTF-8 flag preserved" );
-        ok( utf8::is_utf8( $dec->[12] ) && utf8::is_utf8( $dec->[17] ), "v$version $opt: long UTF-8 flag preserved" );
-        ok( !utf8::is_utf8( $dec->[8] ) && !utf8::is_utf8( $dec->[10] ), "v$version $opt: binary flags stay off" );
+        ok(
+            utf8::is_utf8( $dec->[11] ) && utf8::is_utf8( $dec->[16] ),
+            "v$version $opt: short UTF-8 flag preserved"
+        );
+        ok(
+            utf8::is_utf8( $dec->[12] ) && utf8::is_utf8( $dec->[17] ),
+            "v$version $opt: long UTF-8 flag preserved"
+        );
+        ok(
+            !utf8::is_utf8( $dec->[8] ) && !utf8::is_utf8( $dec->[10] ),
+            "v$version $opt: binary flags stay off"
+        );
     }
 }
 
@@ -88,18 +100,18 @@ for my $version ( 1, 2, 6, 7 ) {
 #    including both multi-byte UTF-8 and upgraded ASCII strings)
 for my $version ( 1, 6 ) {
     for my $opt (qw(dedupe_strings aliased_dedupe_strings)) {
-        my $bin4  = "\xc3\xa9\xc3\xa9";                    # 4 raw bytes, SvUTF8 OFF
-        my $utf4  = make_utf8_same_bytes($bin4);           # exact same 4 raw bytes, SvUTF8 ON
-        my $bin40 = "\xc3\xa9" x 20;                       # 40 raw bytes, SvUTF8 OFF
-        my $utf40 = make_utf8_same_bytes($bin40);          # exact same 40 raw bytes, SvUTF8 ON
-        my $bin_k = "\xc3\xa9key";                         # 5 raw bytes, SvUTF8 OFF
-        my $utf_k = make_utf8_same_bytes($bin_k);          # exact same 5 raw bytes, SvUTF8 ON
+        my $bin4  = "\xc3\xa9\xc3\xa9";              # 4 raw bytes, SvUTF8 OFF
+        my $utf4  = make_utf8_same_bytes($bin4);     # exact same 4 raw bytes, SvUTF8 ON
+        my $bin40 = "\xc3\xa9" x 20;                 # 40 raw bytes, SvUTF8 OFF
+        my $utf40 = make_utf8_same_bytes($bin40);    # exact same 40 raw bytes, SvUTF8 ON
+        my $bin_k = "\xc3\xa9key";                   # 5 raw bytes, SvUTF8 OFF
+        my $utf_k = make_utf8_same_bytes($bin_k);    # exact same 5 raw bytes, SvUTF8 ON
         my $asc_b = "ascii_same_bytes";
         my $asc_u = "ascii_same_bytes";
         utf8::upgrade($asc_u);
 
         my $input = [
-            $bin4, $utf4, $bin4, $utf4,
+            $bin4,  $utf4,  $bin4,  $utf4,
             $bin40, $utf40, $bin40, $utf40,
             { $bin_k => $bin_k },
             { $utf_k => $utf_k },
@@ -107,7 +119,8 @@ for my $version ( 1, 6 ) {
             $asc_b, $asc_u, $asc_b, $asc_u,
         ];
 
-        my $enc = Sereal::Encoder->new( { protocol_version => $version, $opt => 1, sort_keys => 1 } );
+        my $enc =
+            Sereal::Encoder->new( { protocol_version => $version, $opt => 1, sort_keys => 1 } );
         my $pkt = $enc->encode($input);
         my $dec = Sereal::Decoder->new( { validate_utf8 => 1 } )->decode($pkt);
 
@@ -135,18 +148,42 @@ for my $version ( 1, 6 ) {
         ok( !utf8::is_utf8( $dec->[14] ), "v$version $opt: repeated ascii binary SvUTF8 OFF" );
         ok( utf8::is_utf8( $dec->[15] ),  "v$version $opt: repeated ascii upgraded SvUTF8 ON" );
 
-        isnt( refaddr( \$dec->[0] ),  refaddr( \$dec->[1] ),  "v$version $opt: bin4 != utf4 refaddr" );
-        isnt( refaddr( \$dec->[4] ),  refaddr( \$dec->[5] ),  "v$version $opt: bin40 != utf40 refaddr" );
-        isnt( refaddr( \$dec->[10] ), refaddr( \$dec->[11] ), "v$version $opt: bin_k != utf_k refaddr" );
-        isnt( refaddr( \$dec->[12] ), refaddr( \$dec->[13] ), "v$version $opt: ascii bin != ascii utf8 refaddr" );
+        isnt(
+            refaddr( \$dec->[0] ), refaddr( \$dec->[1] ),
+            "v$version $opt: bin4 != utf4 refaddr"
+        );
+        isnt(
+            refaddr( \$dec->[4] ), refaddr( \$dec->[5] ),
+            "v$version $opt: bin40 != utf40 refaddr"
+        );
+        isnt(
+            refaddr( \$dec->[10] ), refaddr( \$dec->[11] ),
+            "v$version $opt: bin_k != utf_k refaddr"
+        );
+        isnt(
+            refaddr( \$dec->[12] ), refaddr( \$dec->[13] ),
+            "v$version $opt: ascii bin != ascii utf8 refaddr"
+        );
 
         if ( $opt eq 'aliased_dedupe_strings' ) {
-            is( refaddr( \$dec->[0] ),  refaddr( \$dec->[2] ),  "v$version $opt: bin4 aliases bin4" );
-            is( refaddr( \$dec->[1] ),  refaddr( \$dec->[3] ),  "v$version $opt: utf4 aliases utf4" );
-            is( refaddr( \$dec->[4] ),  refaddr( \$dec->[6] ),  "v$version $opt: bin40 aliases bin40" );
-            is( refaddr( \$dec->[5] ),  refaddr( \$dec->[7] ),  "v$version $opt: utf40 aliases utf40" );
-            is( refaddr( \$dec->[12] ), refaddr( \$dec->[14] ), "v$version $opt: ascii bin aliases ascii bin" );
-            is( refaddr( \$dec->[13] ), refaddr( \$dec->[15] ), "v$version $opt: ascii utf8 aliases ascii utf8" );
+            is( refaddr( \$dec->[0] ), refaddr( \$dec->[2] ), "v$version $opt: bin4 aliases bin4" );
+            is( refaddr( \$dec->[1] ), refaddr( \$dec->[3] ), "v$version $opt: utf4 aliases utf4" );
+            is(
+                refaddr( \$dec->[4] ), refaddr( \$dec->[6] ),
+                "v$version $opt: bin40 aliases bin40"
+            );
+            is(
+                refaddr( \$dec->[5] ), refaddr( \$dec->[7] ),
+                "v$version $opt: utf40 aliases utf40"
+            );
+            is(
+                refaddr( \$dec->[12] ), refaddr( \$dec->[14] ),
+                "v$version $opt: ascii bin aliases ascii bin"
+            );
+            is(
+                refaddr( \$dec->[13] ), refaddr( \$dec->[15] ),
+                "v$version $opt: ascii utf8 aliases ascii utf8"
+            );
         }
     }
 }
@@ -162,30 +199,49 @@ for my $version ( 1, 6 ) {
     my $short_key  = "k2";
     my $empty_key  = "";
 
-    my $enc_dedupe = Sereal::Encoder->new( { protocol_version => $version, dedupe_strings => 1, sort_keys => 1 } );
-    my $enc_alias  = Sereal::Encoder->new( { protocol_version => $version, aliased_dedupe_strings => 1, sort_keys => 1 } );
-    my $enc_plain  = Sereal::Encoder->new( { protocol_version => $version, sort_keys => 1 } );
+    my $enc_dedupe = Sereal::Encoder->new(
+        { protocol_version => $version, dedupe_strings => 1, sort_keys => 1 } );
+    my $enc_alias = Sereal::Encoder->new(
+        { protocol_version => $version, aliased_dedupe_strings => 1, sort_keys => 1 } );
+    my $enc_plain = Sereal::Encoder->new( { protocol_version => $version, sort_keys => 1 } );
 
     # (a) Hash key first, then repeated scalar values (including empty and short keys)
     {
-        my $data = [
-            { $shared_val => $shared_val, $utf_key => $utf_key, $short_key => $short_key, $empty_key => "e1" },
+        my $data = [ {
+                $shared_val => $shared_val, $utf_key => $utf_key, $short_key => $short_key,
+                $empty_key  => "e1"
+            },
             $shared_val,
             $utf_key,
             $short_key,
-            { $shared_val => "other", $utf_key => "other2", $short_key => "other3", $empty_key => "e2" },
+            {
+                $shared_val => "other", $utf_key => "other2", $short_key => "other3",
+                $empty_key  => "e2"
+            },
         ];
 
         my $pkt_dedupe = $enc_dedupe->encode($data);
         my $pkt_alias  = $enc_alias->encode($data);
         my $pkt_plain  = $enc_plain->encode($data);
 
-        is( ( () = $pkt_dedupe =~ /\Q$shared_val\E/g ), 1, "v$version (a) dedupe: shared_val literal once" );
-        is( ( () = $pkt_alias =~ /\Q$shared_val\E/g ),  1, "v$version (a) aliased: shared_val literal once" );
+        is(
+            ( () = $pkt_dedupe =~ /\Q$shared_val\E/g ), 1,
+            "v$version (a) dedupe: shared_val literal once"
+        );
+        is(
+            ( () = $pkt_alias =~ /\Q$shared_val\E/g ), 1,
+            "v$version (a) aliased: shared_val literal once"
+        );
         my $utf_bytes = $utf_key;
         utf8::encode($utf_bytes);
-        is( ( () = $pkt_dedupe =~ /\Q$utf_bytes\E/g ), 1, "v$version (a) dedupe: utf_key literal once" );
-        is( ( () = $pkt_alias =~ /\Q$utf_bytes\E/g ),  1, "v$version (a) aliased: utf_key literal once" );
+        is(
+            ( () = $pkt_dedupe =~ /\Q$utf_bytes\E/g ), 1,
+            "v$version (a) dedupe: utf_key literal once"
+        );
+        is(
+            ( () = $pkt_alias =~ /\Q$utf_bytes\E/g ), 1,
+            "v$version (a) aliased: utf_key literal once"
+        );
         ok( length($pkt_alias) < length($pkt_plain), "v$version (a) aliased smaller than plain" );
 
         my $dec_alias = Sereal::Decoder->new( { validate_utf8 => 1 } )->decode($pkt_alias);
@@ -199,7 +255,10 @@ for my $version ( 1, 6 ) {
             "v$version (a) aliased: 2nd UTF-8 scalar aliases 1st scalar"
         );
         $dec_alias->[1] = "mutated";
-        is( $dec_alias->[0]{$shared_val}, "mutated", "v$version (a): aliased scalar values share SV" );
+        is(
+            $dec_alias->[0]{$shared_val}, "mutated",
+            "v$version (a): aliased scalar values share SV"
+        );
         ok( exists $dec_alias->[0]{$shared_val}, "v$version (a): hash key remains intact" );
 
         my $dec_dedupe = Sereal::Decoder->new( { validate_utf8 => 1 } )->decode($pkt_dedupe);
@@ -212,40 +271,64 @@ for my $version ( 1, 6 ) {
 
     # (b) Scalar (allow_alias=0 via \$a) first, then scalar(allow_alias=1), then scalar(allow_alias=1)
     {
-        my $a = $shared_val;
-        my $b = $shared_val;
+        my $a    = $shared_val;
+        my $b    = $shared_val;
         my $data = [ \$a, $shared_val, $shared_val, \$b ];
         my $pkt  = $enc_alias->encode($data);
         is( ( () = $pkt =~ /\Q$shared_val\E/g ), 1, "v$version (b) aliased: literal once" );
         my $dec = Sereal::Decoder->new->decode($pkt);
         is_deeply( $dec, $data, "v$version (b) aliased: roundtrip" );
-        is( refaddr( $dec->[0] ), refaddr( \$dec->[1] ), "v$version (b): 2nd scalar aliases 1st referent" );
-        is( refaddr( $dec->[0] ), refaddr( \$dec->[2] ), "v$version (b): 3rd scalar aliases 1st referent" );
-        isnt( refaddr( $dec->[0] ), refaddr( $dec->[3] ), "v$version (b): 2nd REFN keeps distinct referent" );
+        is(
+            refaddr( $dec->[0] ), refaddr( \$dec->[1] ),
+            "v$version (b): 2nd scalar aliases 1st referent"
+        );
+        is(
+            refaddr( $dec->[0] ), refaddr( \$dec->[2] ),
+            "v$version (b): 3rd scalar aliases 1st referent"
+        );
+        isnt(
+            refaddr( $dec->[0] ), refaddr( $dec->[3] ),
+            "v$version (b): 2nd REFN keeps distinct referent"
+        );
     }
 
     # (b2) Hash key -> scalar(allow_alias=0 via \$a) -> scalar(allow_alias=1) -> scalar(allow_alias=0 via \$b)
     {
-        my $a = $shared_val;
-        my $b = $shared_val;
+        my $a    = $shared_val;
+        my $b    = $shared_val;
         my $data = [ { $shared_val => 1 }, \$a, $shared_val, \$b, $shared_val ];
         my $pkt  = $enc_alias->encode($data);
         is( ( () = $pkt =~ /\Q$shared_val\E/g ), 1, "v$version (b2) aliased: literal once" );
         my $dec = Sereal::Decoder->new->decode($pkt);
         is_deeply( $dec, $data, "v$version (b2) aliased: roundtrip" );
-        is( refaddr( $dec->[1] ), refaddr( \$dec->[2] ), "v$version (b2): scalar aliases \$a referent (COPY of key)" );
-        is( refaddr( $dec->[1] ), refaddr( \$dec->[4] ), "v$version (b2): later scalar still aliases \$a referent" );
-        isnt( refaddr( $dec->[1] ), refaddr( $dec->[3] ), "v$version (b2): \$b stays a distinct referent" );
+        is(
+            refaddr( $dec->[1] ), refaddr( \$dec->[2] ),
+            "v$version (b2): scalar aliases \$a referent (COPY of key)"
+        );
+        is(
+            refaddr( $dec->[1] ), refaddr( \$dec->[4] ),
+            "v$version (b2): later scalar still aliases \$a referent"
+        );
+        isnt(
+            refaddr( $dec->[1] ), refaddr( $dec->[3] ),
+            "v$version (b2): \$b stays a distinct referent"
+        );
     }
 
     # (c) Scalar(allow_alias=1) first -> hash key -> scalar(allow_alias=1)
     {
         my $val_first = [ $shared_val, { $shared_val => 1 }, $shared_val ];
         my $vf_pkt    = $enc_alias->encode($val_first);
-        is( ( () = $vf_pkt =~ /\Q$shared_val\E/g ), 1, "v$version (c) aliased: val-first literal once" );
+        is(
+            ( () = $vf_pkt =~ /\Q$shared_val\E/g ), 1,
+            "v$version (c) aliased: val-first literal once"
+        );
         my $vf_dec = Sereal::Decoder->new->decode($vf_pkt);
         is_deeply( $vf_dec, $val_first, "v$version (c) aliased: val-first roundtrip" );
-        is( refaddr( \$vf_dec->[0] ), refaddr( \$vf_dec->[2] ), "v$version (c) aliased: val-first aliases" );
+        is(
+            refaddr( \$vf_dec->[0] ), refaddr( \$vf_dec->[2] ),
+            "v$version (c) aliased: val-first aliases"
+        );
     }
 
     # no_shared_hashkeys + dedupe_strings: keys are NOT shared, scalars ARE deduped
@@ -256,13 +339,19 @@ for my $version ( 1, 6 ) {
             no_shared_hashkeys => 1,
             sort_keys          => 1,
         } );
-        my $k = "unshared_key_string";
-        my $v = "deduped_scalar_value";
+        my $k    = "unshared_key_string";
+        my $v    = "deduped_scalar_value";
         my $data = [ { $k => $v }, { $k => $v }, $v ];
         my $pkt  = $enc_noshare->encode($data);
         is( ( () = $pkt =~ /\Q$k\E/g ), 2, "v$version no_shared_hashkeys: key appears twice" );
-        is( ( () = $pkt =~ /\Q$v\E/g ), 1, "v$version no_shared_hashkeys: scalar value still deduped" );
-        is_deeply( Sereal::Decoder->new->decode($pkt), $data, "v$version no_shared_hashkeys: roundtrip" );
+        is(
+            ( () = $pkt =~ /\Q$v\E/g ), 1,
+            "v$version no_shared_hashkeys: scalar value still deduped"
+        );
+        is_deeply(
+            Sereal::Decoder->new->decode($pkt), $data,
+            "v$version no_shared_hashkeys: roundtrip"
+        );
     }
 }
 
@@ -281,28 +370,40 @@ for my $version ( 2, 6, 7 ) {
         # Functional API
         my $pkt = encode_sereal_with_header_data(
             $body, $hdr,
-            { protocol_version => $version, $opt => 1, sort_keys => 1 }
-        );
-        my $dec = Sereal::Decoder->new( { validate_utf8 => 1 } );
+            { protocol_version => $version, $opt => 1, sort_keys => 1 } );
+        my $dec      = Sereal::Decoder->new( { validate_utf8 => 1 } );
         my $got_hdr  = $dec->decode_only_header($pkt);
         my $got_body = $dec->decode($pkt);
         my $got_both = $dec->decode_with_header($pkt);
 
-        is_deeply( $got_hdr,  $hdr,           "v$version $opt func header: decode_only_header" );
-        is_deeply( $got_body, $body,          "v$version $opt func header: decode body" );
+        is_deeply( $got_hdr,  $hdr,            "v$version $opt func header: decode_only_header" );
+        is_deeply( $got_body, $body,           "v$version $opt func header: decode body" );
         is_deeply( $got_both, [ $hdr, $body ], "v$version $opt func header: decode_with_header" );
 
         # Literal bytes for $shared appear exactly twice (once in header, once in body)
-        is( ( () = $pkt =~ /\Q$shared\E/g ), 2, "v$version $opt func header: shared string once in header + once in body" );
+        is(
+            ( () = $pkt =~ /\Q$shared\E/g ), 2,
+            "v$version $opt func header: shared string once in header + once in body"
+        );
 
         if ( $opt eq 'aliased_dedupe_strings' ) {
-            is( refaddr( \$got_hdr->[0] ),  refaddr( \$got_hdr->[2] ),  "v$version $opt: header strings aliased within header" );
-            is( refaddr( \$got_body->[0] ), refaddr( \$got_body->[2] ), "v$version $opt: body strings aliased within body" );
-            isnt( refaddr( \$got_both->[0][0] ), refaddr( \$got_both->[1][0] ), "v$version $opt: header and body never alias each other" );
+            is(
+                refaddr( \$got_hdr->[0] ), refaddr( \$got_hdr->[2] ),
+                "v$version $opt: header strings aliased within header"
+            );
+            is(
+                refaddr( \$got_body->[0] ), refaddr( \$got_body->[2] ),
+                "v$version $opt: body strings aliased within body"
+            );
+            isnt(
+                refaddr( \$got_both->[0][0] ), refaddr( \$got_both->[1][0] ),
+                "v$version $opt: header and body never alias each other"
+            );
         }
 
         # OO API reusing encoder across header+body calls
-        my $enc = Sereal::Encoder->new( { protocol_version => $version, $opt => 1, sort_keys => 1 } );
+        my $enc =
+            Sereal::Encoder->new( { protocol_version => $version, $opt => 1, sort_keys => 1 } );
         for my $call ( 1 .. 3 ) {
             my $p = $enc->encode( $body, $hdr );
             my $b = $dec->decode_with_header($p);
@@ -316,10 +417,9 @@ for my $version ( 2, 6, 7 ) {
     my @stress;
     my @unique_pool = map {
         $_ % 3 == 0
-            ? sprintf( "short_%04d", $_ )                       # SHORT_BINARY
-            : $_ % 3 == 1
-            ? sprintf( "long_payload_string_%04d_", $_ ) . ( "x" x 30 )    # BINARY
-            : sprintf( "utf8_\x{100}_%04d_", $_ ) . ( "\x{2603}" x 5 )     # STR_UTF8
+            ? sprintf( "short_%04d", $_ )                                                # SHORT_BINARY
+            : $_ % 3 == 1 ? sprintf( "long_payload_string_%04d_", $_ ) . ( "x" x 30 )    # BINARY
+            : sprintf( "utf8_\x{100}_%04d_", $_ ) . ( "\x{2603}" x 5 )                   # STR_UTF8
     } 0 .. 1999;
 
     for my $i ( 0 .. 49999 ) {
@@ -339,21 +439,34 @@ for my $version ( 2, 6, 7 ) {
         my $pkt = $enc->encode( \@stress );
         ok( length($pkt) > 100_000, "stress $opt: large payload encoded (" . length($pkt) . "B)" );
 
-        my $big_unique = [ map { sprintf( "big_unique_entry_%05d_", $_ ) . ( "Z" x 40 ) } 0 .. 49999 ];
+        my $big_unique =
+            [ map { sprintf( "big_unique_entry_%05d_", $_ ) . ( "Z" x 40 ) } 0 .. 49999 ];
         my $big_pkt = $enc->encode($big_unique);
-        ok( length($big_pkt) > 2 * 1024 * 1024, "stress $opt: >2 MiB payload (" . length($big_pkt) . "B)" );
+        ok(
+            length($big_pkt) > 2 * 1024 * 1024,
+            "stress $opt: >2 MiB payload (" . length($big_pkt) . "B)"
+        );
 
         my $dec1 = Sereal::Decoder->new( { validate_utf8 => 1 } )->decode($pkt);
         is( scalar(@$dec1), 50000, "stress $opt: 50k element count" );
         is_deeply( $dec1, \@stress, "stress $opt: 50k element roundtrip" );
         if ( $opt eq 'aliased_dedupe_strings' ) {
-            is( refaddr( \$dec1->[1] ), refaddr( \$dec1->[48001] ), "stress aliased: head/tail binary alias" );
-            is( refaddr( \$dec1->[2] ), refaddr( \$dec1->[48002] ), "stress aliased: head/tail utf8 alias" );
-            is( refaddr( \$dec1->[1] ), refaddr( \$dec1->[24001] ), "stress aliased: head/mid binary alias" );
+            is(
+                refaddr( \$dec1->[1] ), refaddr( \$dec1->[48001] ),
+                "stress aliased: head/tail binary alias"
+            );
+            is(
+                refaddr( \$dec1->[2] ), refaddr( \$dec1->[48002] ),
+                "stress aliased: head/tail utf8 alias"
+            );
+            is(
+                refaddr( \$dec1->[1] ), refaddr( \$dec1->[24001] ),
+                "stress aliased: head/mid binary alias"
+            );
         }
 
         my $dec2 = Sereal::Decoder->new->decode($big_pkt);
-        is( scalar(@$dec2), 50000, "stress $opt: >2 MiB 50k unique count" );
+        is( scalar(@$dec2), 50000,                "stress $opt: >2 MiB 50k unique count" );
         is( $dec2->[0],     $big_unique->[0],     "stress $opt: >2 MiB first elem" );
         is( $dec2->[25000], $big_unique->[25000], "stress $opt: >2 MiB mid elem" );
         is( $dec2->[49999], $big_unique->[49999], "stress $opt: >2 MiB last elem" );
@@ -362,18 +475,20 @@ for my $version ( 2, 6, 7 ) {
 
 # 6. SvGMAGICAL tied scalar returning strings
 {
+
     package RegrDedupeTied;
     sub TIESCALAR { bless { vals => $_[1], idx => 0 }, $_[0] }
+
     sub FETCH {
         my $self = shift;
-        my $v = $self->{vals}[ $self->{idx}++ ];
+        my $v    = $self->{vals}[ $self->{idx}++ ];
         return $v;
     }
 }
 {
     for my $opt (qw(dedupe_strings aliased_dedupe_strings)) {
-        tie my $t1, 'RegrDedupeTied', [ "tied_repeated_val", "tied_other" ];
-        tie my $t2, 'RegrDedupeTied', [ "tied_repeated_val", "tied_other" ];
+        tie my $t1, 'RegrDedupeTied', [ "tied_repeated_val",  "tied_other" ];
+        tie my $t2, 'RegrDedupeTied', [ "tied_repeated_val",  "tied_other" ];
         tie my $t3, 'RegrDedupeTied', [ "tied_utf8_\x{2603}", "tied_other" ];
         tie my $t4, 'RegrDedupeTied', [ "tied_utf8_\x{2603}", "tied_other" ];
 
@@ -382,7 +497,9 @@ for my $version ( 2, 6, 7 ) {
         my $dec = Sereal::Decoder->new( { validate_utf8 => 1 } )->decode($pkt);
         is_deeply(
             $dec,
-            [ "tied_repeated_val", "tied_repeated_val", "tied_utf8_\x{2603}", "tied_utf8_\x{2603}" ],
+            [
+                "tied_repeated_val", "tied_repeated_val", "tied_utf8_\x{2603}", "tied_utf8_\x{2603}"
+            ],
             "tied scalar $opt: FETCH called once per element and deduped"
         );
         if ( $opt eq 'aliased_dedupe_strings' ) {
@@ -395,9 +512,12 @@ for my $version ( 2, 6, 7 ) {
 # 7. Re-entrant FREEZE callback invoking the SAME $enc with dedupe_strings / aliased_dedupe_strings
 our $REENTRANT_ENC;
 {
+
     package RegrDedupeReentrant;
+
     sub FREEZE {
         my ($self) = @_;
+
         # Re-entrantly encode a large structure with overlapping AND distinct strings
         my @inner = (
             $self->{shared},
@@ -417,6 +537,7 @@ our $REENTRANT_ENC;
     }
 
     package RegrDedupeDieFreeze;
+
     sub FREEZE {
         my ($self) = @_;
         if ( $self->{reenter} ) {
@@ -431,10 +552,10 @@ our $REENTRANT_ENC;
         my $enc = Sereal::Encoder->new( { $opt => 1, freeze_callbacks => 1 } );
         local $REENTRANT_ENC = $enc;
 
-        my $shared = "outer_and_inner_shared_string";
+        my $shared     = "outer_and_inner_shared_string";
         my $outer_only = "outer_only_deduped_string";
-        my $obj = bless { shared => $shared }, 'RegrDedupeReentrant';
-        my $data = [
+        my $obj        = bless { shared => $shared }, 'RegrDedupeReentrant';
+        my $data       = [
             $shared,
             $outer_only,
             $obj,
@@ -447,25 +568,37 @@ our $REENTRANT_ENC;
         my $pkt = $enc->encode($data);
         my $dec = Sereal::Decoder->new( { validate_utf8 => 1 } )->decode($pkt);
 
-        is( $dec->[0], $shared, "reentrant $opt: outer[0] matches" );
-        is( $dec->[1], $outer_only, "reentrant $opt: outer[1] matches" );
-        is( $dec->[3], $shared, "reentrant $opt: outer[3] matches after FREEZE" );
-        is( $dec->[4], $outer_only, "reentrant $opt: outer[4] matches after FREEZE" );
+        is( $dec->[0], $shared,                   "reentrant $opt: outer[0] matches" );
+        is( $dec->[1], $outer_only,               "reentrant $opt: outer[1] matches" );
+        is( $dec->[3], $shared,                   "reentrant $opt: outer[3] matches after FREEZE" );
+        is( $dec->[4], $outer_only,               "reentrant $opt: outer[4] matches after FREEZE" );
         is( $dec->[5], "outer_utf8_\x{2603}_dup", "reentrant $opt: outer utf8[5]" );
         is( $dec->[6], "outer_utf8_\x{2603}_dup", "reentrant $opt: outer utf8[6]" );
 
         my $inner = $dec->[2]{decoded};
-        is( scalar(@$inner), 405, "reentrant $opt: inner decoded length" );
-        is( $inner->[0], $shared, "reentrant $opt: inner[0]" );
-        is( $inner->[1], $shared, "reentrant $opt: inner[1]" );
-        is( $inner->[402], $shared, "reentrant $opt: inner[402]" );
-        is( $inner->[403], "inner_utf8_\x{2603}_dup", "reentrant $opt: inner utf8" );
+        is( scalar(@$inner), 405,                       "reentrant $opt: inner decoded length" );
+        is( $inner->[0],     $shared,                   "reentrant $opt: inner[0]" );
+        is( $inner->[1],     $shared,                   "reentrant $opt: inner[1]" );
+        is( $inner->[402],   $shared,                   "reentrant $opt: inner[402]" );
+        is( $inner->[403],   "inner_utf8_\x{2603}_dup", "reentrant $opt: inner utf8" );
 
         if ( $opt eq 'aliased_dedupe_strings' ) {
-            is( refaddr( \$dec->[0] ), refaddr( \$dec->[3] ), "reentrant aliased: outer shared aliased across FREEZE" );
-            is( refaddr( \$dec->[1] ), refaddr( \$dec->[4] ), "reentrant aliased: outer_only aliased across FREEZE" );
-            is( refaddr( \$inner->[0] ), refaddr( \$inner->[1] ), "reentrant aliased: inner strings aliased independently" );
-            is( refaddr( \$inner->[0] ), refaddr( \$inner->[402] ), "reentrant aliased: inner head/tail aliased" );
+            is(
+                refaddr( \$dec->[0] ), refaddr( \$dec->[3] ),
+                "reentrant aliased: outer shared aliased across FREEZE"
+            );
+            is(
+                refaddr( \$dec->[1] ), refaddr( \$dec->[4] ),
+                "reentrant aliased: outer_only aliased across FREEZE"
+            );
+            is(
+                refaddr( \$inner->[0] ), refaddr( \$inner->[1] ),
+                "reentrant aliased: inner strings aliased independently"
+            );
+            is(
+                refaddr( \$inner->[0] ), refaddr( \$inner->[402] ),
+                "reentrant aliased: inner head/tail aliased"
+            );
         }
     }
 }
@@ -473,10 +606,11 @@ our $REENTRANT_ENC;
 # 8. Post-croak recovery on reusable encoder (croak_on_bless, FREEZE dying, header croak)
 {
     for my $opt (qw(dedupe_strings aliased_dedupe_strings)) {
+
         # 8a. croak_on_bless mid-encode after populating str_dedupe_tbl
         my $enc = Sereal::Encoder->new( { $opt => 1, croak_on_bless => 1 } );
         my @pre = map { "pre_croak_string_" . ( $_ % 200 ) } 1 .. 600;
-        my $ok = eval {
+        my $ok  = eval {
             $enc->encode( [ @pre, bless( { a => 1 }, 'ForbiddenClass' ), @pre ] );
             1;
         };
@@ -484,32 +618,42 @@ our $REENTRANT_ENC;
         like( $@, qr/croak_on_bless/, "post-croak $opt: expected error message" );
 
         # Immediately reuse the same encoder with overlapping and fresh strings
-        my $after = [ "pre_croak_string_1", "fresh_after_croak", "pre_croak_string_1", "fresh_after_croak" ];
+        my $after = [
+            "pre_croak_string_1", "fresh_after_croak", "pre_croak_string_1",
+            "fresh_after_croak"
+        ];
         my $pkt = $enc->encode($after);
         my $dec = Sereal::Decoder->new->decode($pkt);
         is_deeply( $dec, $after, "post-croak $opt: reusable encoder clean after croak_on_bless" );
         if ( $opt eq 'aliased_dedupe_strings' ) {
-            is( refaddr( \$dec->[0] ), refaddr( \$dec->[2] ), "post-croak aliased: overlapping string aliases cleanly" );
-            is( refaddr( \$dec->[1] ), refaddr( \$dec->[3] ), "post-croak aliased: fresh string aliases cleanly" );
+            is(
+                refaddr( \$dec->[0] ), refaddr( \$dec->[2] ),
+                "post-croak aliased: overlapping string aliases cleanly"
+            );
+            is(
+                refaddr( \$dec->[1] ), refaddr( \$dec->[3] ),
+                "post-croak aliased: fresh string aliases cleanly"
+            );
         }
 
         # 8b. croak_on_bless while encoding user header data
         $ok = eval {
             $enc->encode(
                 [ "body_after_hdr_croak", "body_after_hdr_croak" ],
-                [ "hdr_before_croak", "hdr_before_croak", bless( {}, 'ForbiddenHdr' ) ]
-            );
+                [ "hdr_before_croak",     "hdr_before_croak", bless( {}, 'ForbiddenHdr' ) ] );
             1;
         };
         ok( !$ok, "post-croak $opt: header croak_on_bless died as expected" );
         my $pkt_after_hdr = $enc->encode(
             [ "hdr_before_croak", "hdr_before_croak" ],
-            [ "hdr_before_croak", "hdr_before_croak" ]
-        );
+            [ "hdr_before_croak", "hdr_before_croak" ] );
         my $dec_after_hdr = Sereal::Decoder->new->decode_with_header($pkt_after_hdr);
         is_deeply(
             $dec_after_hdr,
-            [ [ "hdr_before_croak", "hdr_before_croak" ], [ "hdr_before_croak", "hdr_before_croak" ] ],
+            [
+                [ "hdr_before_croak", "hdr_before_croak" ],
+                [ "hdr_before_croak", "hdr_before_croak" ]
+            ],
             "post-croak $opt: reusable encoder clean after header croak"
         );
 
@@ -527,7 +671,8 @@ our $REENTRANT_ENC;
                 1;
             };
             ok( !$fok, "post-croak $opt: FREEZE die (reenter=$reenter) died as expected" );
-            my $fpkt = $fenc->encode( [ "before_freeze_die", "inner_before_die", "before_freeze_die" ] );
+            my $fpkt =
+                $fenc->encode( [ "before_freeze_die", "inner_before_die", "before_freeze_die" ] );
             my $fdec = Sereal::Decoder->new->decode($fpkt);
             is_deeply(
                 $fdec,
@@ -542,12 +687,12 @@ our $REENTRANT_ENC;
 #    to exercise table growth, clearing, and proportional shrinking.
 {
     for my $opt (qw(dedupe_strings aliased_dedupe_strings)) {
-        my $enc = Sereal::Encoder->new( { $opt => 1 } );
+        my $enc   = Sereal::Encoder->new( { $opt => 1 } );
         my @sizes = ( 50, 6000, 10, 300, 6000, 0, 250, 100, 5000, 15 );
         for my $round ( 0 .. $#sizes ) {
-            my $n = $sizes[$round];
+            my $n      = $sizes[$round];
             my $prefix = "round_${round}_unique_";
-            my @items = map {
+            my @items  = map {
                 my $s = $prefix . $_ . ( ( $_ % 2 ) ? "_\x{100}" : "_bin" );
                 ( $s, $s );
             } 1 .. $n;

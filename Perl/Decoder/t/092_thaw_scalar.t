@@ -10,8 +10,8 @@ BEGIN {
         if !-d 't';
 }
 use Test::More;
-use Sereal::TestSet qw(:all);
-use Sereal::Decoder qw(decode_sereal);
+use Sereal::TestSet         qw(:all);
+use Sereal::Decoder         qw(decode_sereal);
 use Sereal::TestSet::Corpus qw(read_packet);
 use Data::Dumper;
 
@@ -41,8 +41,8 @@ use Data::Dumper;
     }
 }
 
-my $corpus = File::Spec->catdir(qw(t data packet_corpus));
-my $rot13_packet = read_packet( $corpus, 'decoder-features', 'thaw_scalar/rot13' );
+my $corpus        = File::Spec->catdir(qw(t data packet_corpus));
+my $rot13_packet  = read_packet( $corpus, 'decoder-features', 'thaw_scalar/rot13' );
 my $return_packet = read_packet( $corpus, 'decoder-features', 'thaw_scalar/returns' );
 
 my $secret = "SECRET";
@@ -65,7 +65,8 @@ is_deeply(
 my $return_values = decode_sereal($return_packet);
 for my $i ( 0 .. $#$return_values ) {
     my $value = ( undef, 0, '', 42, 'text' )[$i];
-    is( $return_values->[$i], $value,
+    is(
+        $return_values->[$i], $value,
         'THAW preserves ' . ( defined($value) ? "scalar '$value'" : 'undef' ) );
 }
 

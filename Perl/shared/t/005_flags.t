@@ -9,7 +9,7 @@ BEGIN {
     lib->import('lib')
         if !-d 't';
 }
-use Sereal::TestSet qw(:all);
+use Sereal::TestSet         qw(:all);
 use Sereal::TestSet::Corpus qw(read_packet);
 use Sereal::Decoder;
 
@@ -22,7 +22,7 @@ done_testing();
 sub run_tests {
     my ( $extra_name, $opt_hash ) = @_;
     my $decoder = Sereal::Decoder->new;
-    my $corpus = File::Spec->catdir(qw(t data packet_corpus));
+    my $corpus  = File::Spec->catdir(qw(t data packet_corpus));
 
     # We must recreate these tests each time we run_tests()
     # as the tests we execute actually change the state
@@ -59,8 +59,8 @@ sub run_tests {
 
     foreach my $test ( sort keys %tests ) {
         my $test_name = "$test - $extra_name";
-        my $packet = read_packet( $corpus, 'decoder-features', "flags/$extra_name/$test" );
-        my $decoded = $decoder->decode($packet);
+        my $packet    = read_packet( $corpus, 'decoder-features', "flags/$extra_name/$test" );
+        my $decoded   = $decoder->decode($packet);
 
         TODO: {
             # we must do this test before we test numeric equivalence

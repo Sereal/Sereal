@@ -33,9 +33,10 @@ if ( !have_encoder_and_decoder() ) {
 }
 
 for my $version ( 1 .. 6 ) {
+
     # Anonymous hash refcounts vary between Perls. Use the canonical
     # reference form so this checks COPY/ALIAS offsets independently.
-    my $hash_header = chr(SRL_HDR_REFN) . chr(SRL_HDR_HASH) . varint(2);
+    my $hash_header  = chr(SRL_HDR_REFN) . chr(SRL_HDR_HASH) . varint(2);
     my $base_offset  = $version == 1 ? length( Header($version) ) : 1;
     my $key_offset   = $base_offset + length($hash_header);
     my $value_offset = $key_offset + length( short_string('bbbb') );

@@ -12,7 +12,7 @@ BEGIN {
         if !-d 't';
 }
 
-use Sereal::TestSet qw(:all);
+use Sereal::TestSet         qw(:all);
 use Sereal::TestSet::Corpus qw(read_packet);
 use Test::More tests => 8 + ( 2 * 6 ) + ( 31 * 3 );
 use Sereal::Decoder            qw(decode_sereal);
@@ -71,7 +71,7 @@ SCOPE: {
 
 my $corpus = File::Spec->catdir(qw(t data packet_corpus));
 for my $name (qw(raw snappy_incr zlib)) {
-    my $data = read_packet( $corpus, 'decoder-features', "incremental/$name" );
+    my $data    = read_packet( $corpus, 'decoder-features', "incremental/$name" );
     my $decoder = Sereal::Decoder->new;
     my @out;
     my $pos = 0;

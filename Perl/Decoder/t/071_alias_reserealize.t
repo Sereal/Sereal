@@ -29,12 +29,12 @@ my $v1 = [
 ];
 plan tests => 10 + @$v1 * 3;
 
-my $dec = Sereal::Decoder->new( { alias_varint_under => 100000 } );
-my $corpus = File::Spec->catdir( 't', 'data', 'packet_corpus' );
+my $dec       = Sereal::Decoder->new( { alias_varint_under => 100000 } );
+my $corpus    = File::Spec->catdir( 't', 'data', 'packet_corpus' );
 my $sereal_v1 = read_packet( $corpus, 'decoder-features', 'alias_reserialize/initial' );
 my $sereal_v2 = read_packet( $corpus, 'decoder-features', 'alias_reserialize/reencoded' );
-my $v2 = $dec->decode($sereal_v1);
-my $v3 = $dec->decode($sereal_v2);
+my $v2        = $dec->decode($sereal_v1);
+my $v3        = $dec->decode($sereal_v2);
 
 if (0) {
     diag "arrays: ";

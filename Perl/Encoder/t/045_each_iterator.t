@@ -143,10 +143,13 @@ for my $case (@cases) {
     # the rest of the loop, so this case needs a larger bound. Perl may warn
     # on the next each() after that deliberate insertion. Capture warnings
     # only while advancing the iterator; other warnings fail the test below.
-    while ( my ( $k, $v ) = do {
-        local $SIG{__WARN__} = sub { push @iterator_warnings, @_ };
-        each %target;
-    } ) {
+    while (
+        my ( $k, $v ) = do {
+            local $SIG{__WARN__} = sub { push @iterator_warnings, @_ };
+            each %target;
+        }
+        )
+    {
         $n++;
         last if $n > 100;
         local $in_encode = 1;

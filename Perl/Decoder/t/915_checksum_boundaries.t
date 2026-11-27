@@ -37,7 +37,7 @@ for my $type ( 0, 1, 2 ) {
     for my $policy ( 'die', 'ignore' ) {
         my $dec = Sereal::Decoder->new( {
             ( "checksum_key_v" . ( $type + 1 ) ) => $key, checksum_policy => $policy,
-            undef_deadly_policy     => 'die'
+            undef_deadly_policy                  => 'die'
         } );
         my $label = "checksum $type policy $policy";
         for my $case (

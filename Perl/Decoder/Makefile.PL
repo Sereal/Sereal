@@ -75,6 +75,7 @@ inc::Sereal::BuildTools::WriteMakefile(
                 web => 'https://github.com/Sereal/Sereal/issues',
             },
         },
+
         # Only the Linux leak test uses this module; absence must not
         # prevent installation on other platforms or Perl 5.30.
         prereqs => {

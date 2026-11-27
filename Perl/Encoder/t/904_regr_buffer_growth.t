@@ -22,6 +22,7 @@ use Sereal::Encoder::Constants qw(:all);
 use Test::More;
 
 {
+
     package Local::RegrBufFreeze;
     our $ENCODER;
     our $DIE_IN_FREEZE = 0;
@@ -69,7 +70,7 @@ for my $n ( 0, 1, 15, 16, 64, 127, 128, 1000, 10000, 50000 ) {
 {
     my $enc_canon = Sereal::Encoder->new( { sort_keys => 1 } );
     for my $n ( 0, 1, 15, 16, 100, 1000, 10000, 50000 ) {
-        my %h = map { ( "k$_" => ( $_ % 16 ) ) } 1 .. $n;
+        my %h      = map { ( "k$_" => ( $_ % 16 ) ) } 1 .. $n;
         my $pkt_fn = encode_sereal( \%h, { sort_keys => 1 } );
         my $pkt_oo = $enc_canon->encode( \%h );
 
@@ -86,8 +87,8 @@ for my $n ( 0, 1, 15, 16, 64, 127, 128, 1000, 10000, 50000 ) {
         my $s      = 'A' x $len;
         my $pkt_fn = encode_sereal($s);
         my $pkt_oo = $e->encode($s);
-        is( $pkt_oo, $pkt_fn, "large string len=$len: OO matches functional" );
-        is( $dec->decode($pkt_fn), $s, "large string len=$len: roundtrip ok" );
+        is( $pkt_oo,               $pkt_fn, "large string len=$len: OO matches functional" );
+        is( $dec->decode($pkt_fn), $s,      "large string len=$len: roundtrip ok" );
     }
 
     # Growing array of short strings crossing 64 KiB (~65 KB, ~120 KB)
@@ -96,20 +97,23 @@ for my $n ( 0, 1, 15, 16, 64, 127, 128, 1000, 10000, 50000 ) {
         my $pkt_fn = encode_sereal( \@arr );
         my $pkt_oo = $e->encode( \@arr );
         is( $pkt_oo, $pkt_fn, "growing string array count=$count: OO matches functional" );
-        is_deeply( $dec->decode($pkt_fn), \@arr, "growing string array count=$count: roundtrip ok" );
+        is_deeply(
+            $dec->decode($pkt_fn), \@arr,
+            "growing string array count=$count: roundtrip ok"
+        );
     }
 }
 
 # 4. Compression (Snappy, Snappy incr, Zlib, Zstd) across 64 KiB and >1 MiB
 {
     my @algos = (
-        [ 'snappy',      { compress => SRL_SNAPPY, compress_threshold => 0 } ],
-        [ 'snappy_incr', { snappy_incr => 1,       snappy_threshold => 0 } ],
-        [ 'zlib',        { compress => SRL_ZLIB,   compress_threshold => 0 } ],
-        [ 'zstd',        { compress => SRL_ZSTD,   compress_threshold => 0 } ],
+        [ 'snappy',      { compress    => SRL_SNAPPY, compress_threshold => 0 } ],
+        [ 'snappy_incr', { snappy_incr => 1,          snappy_threshold   => 0 } ],
+        [ 'zlib',        { compress    => SRL_ZLIB,   compress_threshold => 0 } ],
+        [ 'zstd',        { compress    => SRL_ZSTD,   compress_threshold => 0 } ],
     );
-    my $compressible = ( "Sereal buffer growth compression payload! " x 3000 );    # ~120 KB
-    my $huge_comp    = ( "Reusable encoder >2 MiB compression test!! " x 50000 ); # ~2.2 MB
+    my $compressible = ( "Sereal buffer growth compression payload! " x 3000 );      # ~120 KB
+    my $huge_comp    = ( "Reusable encoder >2 MiB compression test!! " x 50000 );    # ~2.2 MB
     my $incompressible;
     {
         my $v = 123456789;
@@ -125,11 +129,12 @@ for my $n ( 0, 1, 15, 16, 64, 127, 128, 1000, 10000, 50000 ) {
         my ( $name, $opts ) = @$algo;
         my $ec = Sereal::Encoder->new($opts);
         for my $case (
-            [ 'medium_comp',   $compressible ],
-            [ 'incompress',    $incompressible ],
-            [ 'huge_comp',     $huge_comp ],
-            [ 'tiny_after',    { ok => 1 } ],
-        ) {
+            [ 'medium_comp', $compressible ],
+            [ 'incompress',  $incompressible ],
+            [ 'huge_comp',   $huge_comp ],
+            [ 'tiny_after',  { ok => 1 } ],
+            )
+        {
             my ( $cname, $val ) = @$case;
             my $pkt_oo = $ec->encode($val);
             my $pkt_fn = encode_sereal( $val, $opts );
@@ -141,28 +146,32 @@ for my $n ( 0, 1, 15, 16, 64, 127, 128, 1000, 10000, 50000 ) {
 
 # 5. User header data across sizes (including >2 MiB header and >2 MiB body)
 {
-    my $eh = Sereal::Encoder->new();
+    my $eh        = Sereal::Encoder->new();
     my $huge_hdr  = { big => ( 'H' x 2_200_000 ) };
     my $huge_body = [ 'B' x 2_200_000, 42 ];
 
     for my $case (
-        [ 'small_hdr_small_body', { k => 1 }, { h => 2 } ],
-        [ 'huge_hdr_small_body',  { k => 3 }, $huge_hdr ],
-        [ 'small_hdr_huge_body',  $huge_body, { h => 4 } ],
+        [ 'small_hdr_small_body', { k => 1 },  { h => 2 } ],
+        [ 'huge_hdr_small_body',  { k => 3 },  $huge_hdr ],
+        [ 'small_hdr_huge_body',  $huge_body,  { h => 4 } ],
         [ 'tiny_after_huge_hdr',  [ 1, 2, 3 ], [ 4, 5 ] ],
-    ) {
+        )
+    {
         my ( $label, $body, $hdr ) = @$case;
         my $pkt_oo = $eh->encode( $body, $hdr );
         my $pkt_fn = encode_sereal_with_header_data( $body, $hdr );
         is( $pkt_oo, $pkt_fn, "header $label: OO matches functional wire bytes" );
-        is_deeply( $dec->decode_with_header($pkt_oo), [ $hdr, $body ], "header $label: roundtrip ok" );
+        is_deeply(
+            $dec->decode_with_header($pkt_oo), [ $hdr, $body ],
+            "header $label: roundtrip ok"
+        );
     }
 }
 
 # 6. Reusable encoder: >2 MiB payload followed by tiny payloads, repeated reuse,
 #    checksums, post-croak cleanup (body + header + FREEZE), and re-entrant FREEZE.
 {
-    my $re = Sereal::Encoder->new();
+    my $re         = Sereal::Encoder->new();
     my $huge_str   = 'Z' x 2_300_000;
     my $huge_array = [ map { $_ } 1 .. 50000 ];
 
@@ -190,7 +199,7 @@ for my $n ( 0, 1, 15, 16, 64, 127, 128, 1000, 10000, 50000 ) {
         protocol_version => 6,
         checksum_key     => '0123456789abcdef',
     } );
-    my $cd = Sereal::Decoder->new( { checksum_key => '0123456789abcdef' } );
+    my $cd  = Sereal::Decoder->new( { checksum_key => '0123456789abcdef' } );
     my $cp1 = $ce->encode( [ $huge_str, 99 ] );
     is_deeply( $cd->decode($cp1), [ $huge_str, 99 ], 'checksum >2 MiB payload roundtrip' );
     my $cp2 = $ce->encode( { small => 1 } );
@@ -198,7 +207,7 @@ for my $n ( 0, 1, 15, 16, 64, 127, 128, 1000, 10000, 50000 ) {
 
     # Post-croak cleanup after growing >2 MiB in body and in header
     my $croak_enc = Sereal::Encoder->new( { croak_on_bless => 1 } );
-    my $ok = eval { $croak_enc->encode( [ $huge_str, bless( {}, 'NoWay' ) ] ); 1 };
+    my $ok        = eval { $croak_enc->encode( [ $huge_str, bless( {}, 'NoWay' ) ] ); 1 };
     ok( !$ok, 'croak_on_bless in >2 MiB body died' );
     is_deeply(
         $dec->decode( $croak_enc->encode( { clean => 1 } ) ),
@@ -218,7 +227,7 @@ for my $n ( 0, 1, 15, 16, 64, 127, 128, 1000, 10000, 50000 ) {
     my $fe = Sereal::Encoder->new( { freeze_callbacks => 1 } );
     local $Local::RegrBufFreeze::ENCODER = $fe;
 
-    my $f1 = bless { inner => [ 1 .. 50 ] }, 'Local::RegrBufFreeze';
+    my $f1  = bless { inner => [ 1 .. 50 ] }, 'Local::RegrBufFreeze';
     my $fp1 = $fe->encode( [ $huge_str, $f1 ] );
     is_deeply(
         $dec->decode($fp1),
@@ -226,7 +235,7 @@ for my $n ( 0, 1, 15, 16, 64, 127, 128, 1000, 10000, 50000 ) {
         're-entrant FREEZE: >2 MiB outer + small inner'
     );
 
-    my $f2 = bless { inner => $huge_str }, 'Local::RegrBufFreeze';
+    my $f2  = bless { inner => $huge_str }, 'Local::RegrBufFreeze';
     my $fp2 = $fe->encode( [ 'small_outer', $f2 ] );
     is_deeply(
         $dec->decode($fp2),
@@ -251,7 +260,7 @@ for my $n ( 0, 1, 15, 16, 64, 127, 128, 1000, 10000, 50000 ) {
 {
     # Payloads whose exact packet length hits 62..65, 125..130, and 65534..65538 bytes
     for my $len ( 50 .. 60, 114 .. 125, 65520 .. 65538, 1_048_565 .. 1_048_585 ) {
-        my $s = 'X' x $len;
+        my $s   = 'X' x $len;
         my $pkt = encode_sereal($s);
         is( $dec->decode($pkt), $s, "exact boundary len=$len encode_sereal roundtrip" );
     }
@@ -261,7 +270,10 @@ for my $n ( 0, 1, 15, 16, 64, 127, 128, 1000, 10000, 50000 ) {
     for my $sz ( 980_000, 1_000_000, 1_040_000, 990_000 ) {
         my $blob = 'M' x $sz;
         my $pkt  = $re_1m->encode( { data => $blob } );
-        is_deeply( $dec->decode($pkt), { data => $blob }, "steady-state ~1MiB ($sz B) reuse roundtrip" );
+        is_deeply(
+            $dec->decode($pkt), { data => $blob },
+            "steady-state ~1MiB ($sz B) reuse roundtrip"
+        );
     }
 
     # Combined >1 MiB user header + >1 MiB incompressible Zstd body + v6 checksum
@@ -271,15 +283,15 @@ for my $n ( 0, 1, 15, 16, 64, 127, 128, 1000, 10000, 50000 ) {
         $v = ( $v * 1103515245 + 12345 ) & 0x7fffffff;
         push @chunks, pack( 'N', $v );
     }
-    my $incomp_1_2m = join( '', @chunks );    # 1.2 MB incompressible
+    my $incomp_1_2m = join( '', @chunks );        # 1.2 MB incompressible
     my $hdr_1_1m    = { h => 'H' x 1_100_000 };
-    my $ez = Sereal::Encoder->new( {
+    my $ez          = Sereal::Encoder->new( {
         protocol_version   => 6,
         compress           => SRL_ZSTD,
         compress_threshold => 0,
         checksum_key       => 'fedcba9876543210',
     } );
-    my $dz = Sereal::Decoder->new( { checksum_key => 'fedcba9876543210' } );
+    my $dz        = Sereal::Decoder->new( { checksum_key => 'fedcba9876543210' } );
     my $pkt_combo = $ez->encode( $incomp_1_2m, $hdr_1_1m );
     is_deeply(
         $dz->decode_with_header($pkt_combo),

@@ -20,21 +20,29 @@ use Sereal::TestSet qw(Header varint);
 # bogus bytes and returned a buffer error (-5), instead of a data error
 # (-3). Either error is acceptable here. Older external miniz libraries
 # must also reject the packet without leaving the decoder unusable.
-my @streams = (
-    [ first => '780105c001040000000010000000000000000000000000000000000000000000000000000000000000008002' ],
-    [ second => '780105c001040000000010000000000000000001000000000000000000000000000000000000000000000004' ],
+my @streams = ( [
+        first =>
+            '780105c001040000000010000000000000000000000000000000000000000000000000000000000000008002'
+    ],
+    [
+        second =>
+            '780105c001040000000010000000000000000001000000000000000000000000000000000000000000000004'
+    ],
 );
 
 for my $case (@streams) {
     my ( $name, $hex ) = @$case;
     my $stream = pack( 'H*', $hex ) . ( "\0" x 16 );
     my $header = Header(6);
-    substr( $header, 4, 1 ) = chr(0x36); # v6, zlib encoding
-    my $packet = $header . varint(1024) . varint( length $stream ) . $stream;
+    substr( $header, 4, 1 ) = chr(0x36);    # v6, zlib encoding
+    my $packet  = $header . varint(1024) . varint( length $stream ) . $stream;
     my $decoder = Sereal::Decoder->new;
-    my $ok = eval { $decoder->decode($packet); 1 };
+    my $ok      = eval { $decoder->decode($packet); 1 };
     ok( !$ok, "$name lookup: invalid Huffman code is rejected" );
-    like( $@, qr/ZLIB decompression .* failed with error -\d+!/, "$name lookup: reports a decompression error" );
+    like(
+        $@, qr/ZLIB decompression .* failed with error -\d+!/,
+        "$name lookup: reports a decompression error"
+    );
     is( $decoder->decode( Header(6) . "\x07" ), 7, "$name lookup: decoder remains usable" );
 }
 

@@ -4,7 +4,7 @@ use warnings;
 no warnings 'once';
 use lib 't/lib';
 use File::Spec;
-use Sereal::TestSet qw(Header have_encoder_and_decoder);
+use Sereal::TestSet         qw(Header have_encoder_and_decoder);
 use Sereal::TestSet::Corpus qw(read_packet);
 use Test::More;
 use IPC::Open3 qw(open3);
@@ -13,6 +13,7 @@ use Symbol     qw(gensym);
 use Sereal::Decoder;
 
 my $misspelled_key = pack( 'C*', 0 .. 15 );
+
 sub capture_warnings {
     my ($code) = @_;
     my @warnings;
@@ -29,121 +30,161 @@ sub capture_warnings {
     local $Sereal::UnknownOptionPolicy;
     local $Sereal::Decoder::UnknownOptionPolicy;
     delete $ENV{SEREAL_UNKNOWN_OPTION_POLICY};
-    $Sereal::UnknownOptionPolicy = undef;
+    $Sereal::UnknownOptionPolicy          = undef;
     $Sereal::Decoder::UnknownOptionPolicy = undef;
 
-    my ( $decoder, $warnings ) = capture_warnings(
-        sub { Sereal::Decoder->new( { checksum_key_v2_ky => $misspelled_key } ) } );
+    my ( $decoder, $warnings ) =
+        capture_warnings( sub { Sereal::Decoder->new( { checksum_key_v2_ky => $misspelled_key } ) }
+        );
     ok( $decoder, 'default unknown option policy keeps constructing the Decoder' );
-    like( join( '', @$warnings ), qr/Unknown option keys passed to Sereal::Decoder: .*checksum_key_v2_ky/,
-        'default policy warns about a misspelled checksum key' );
+    like(
+        join( '', @$warnings ),
+        qr/Unknown option keys passed to Sereal::Decoder: .*checksum_key_v2_ky/,
+        'default policy warns about a misspelled checksum key'
+    );
     is( scalar(@$warnings), 1, 'one warning summarizes the unknown keys' );
 
     ( $decoder, $warnings ) = capture_warnings(
         sub {
             Sereal::Decoder->new( {
-                checksum_key_v2_ky => $misspelled_key,
+                checksum_key_v2_ky   => $misspelled_key,
                 checksum_key_v3_typo => $misspelled_key,
             } );
         } );
     ok( $decoder, 'multiple unknown options still permit construction under warn policy' );
     is( scalar(@$warnings), 1, 'multiple unknown options produce one warning' );
-    like( join( '', @$warnings ), qr/checksum_key_v2_ky/, 'combined warning names the first unknown option' );
-    like( join( '', @$warnings ), qr/checksum_key_v3_typo/, 'combined warning names the second unknown option' );
+    like(
+        join( '', @$warnings ), qr/checksum_key_v2_ky/,
+        'combined warning names the first unknown option'
+    );
+    like(
+        join( '', @$warnings ), qr/checksum_key_v3_typo/,
+        'combined warning names the second unknown option'
+    );
 
     eval {
         Sereal::Decoder->new( {
-            checksum_key_v2_ky => $misspelled_key,
-            checksum_key_v3_typo => $misspelled_key,
+            checksum_key_v2_ky    => $misspelled_key,
+            checksum_key_v3_typo  => $misspelled_key,
             unknown_option_policy => 'die',
         } );
         1;
     };
-    like( $@, qr/Unknown option keys passed to Sereal::Decoder: (?=.*checksum_key_v2_ky)(?=.*checksum_key_v3_typo)/s,
-        "constructor 'die' policy reports all unknown keys together" );
+    like(
+        $@,
+        qr/Unknown option keys passed to Sereal::Decoder: (?=.*checksum_key_v2_ky)(?=.*checksum_key_v3_typo)/s,
+        "constructor 'die' policy reports all unknown keys together"
+    );
 
     ( my $decoded, $warnings ) = capture_warnings(
         sub {
             Sereal::Decoder::decode_sereal(
-                Header(6) . "\x07", { checksum_key_v2_ky => $misspelled_key } );
+                Header(6) . "\x07",
+                { checksum_key_v2_ky => $misspelled_key } );
         } );
     is( $decoded, 7, 'functional Decoder continues with an unknown key under the default policy' );
-    like( join( '', @$warnings ), qr/Unknown option keys passed to Sereal::Decoder: .*checksum_key_v2_ky/,
-        'functional Decoder warns about a misspelled checksum key' );
+    like(
+        join( '', @$warnings ),
+        qr/Unknown option keys passed to Sereal::Decoder: .*checksum_key_v2_ky/,
+        'functional Decoder warns about a misspelled checksum key'
+    );
 
-    eval { Sereal::Decoder->new( { checksum_key_v2_ky => $misspelled_key, unknown_option_policy => 'die' } ); 1 };
-    like( $@, qr/Unknown option keys passed to Sereal::Decoder: .*checksum_key_v2_ky/,
-        "constructor 'die' policy rejects an unknown key" );
+    eval {
+        Sereal::Decoder->new(
+            { checksum_key_v2_ky => $misspelled_key, unknown_option_policy => 'die' } ); 1;
+    };
+    like(
+        $@, qr/Unknown option keys passed to Sereal::Decoder: .*checksum_key_v2_ky/,
+        "constructor 'die' policy rejects an unknown key"
+    );
 
     ( $decoder, $warnings ) = capture_warnings(
         sub {
             Sereal::Decoder->new( {
-                checksum_key_v2_ky => $misspelled_key,
+                checksum_key_v2_ky    => $misspelled_key,
                 unknown_option_policy => 'ignore',
             } );
         } );
     ok( $decoder && !@$warnings, "constructor 'ignore' policy silently accepts an unknown key" );
 
     local $Sereal::UnknownOptionPolicy = 'ignore';
-    ( $decoder, $warnings ) = capture_warnings(
-        sub { Sereal::Decoder->new( { checksum_key_v2_ky => $misspelled_key } ) } );
+    ( $decoder, $warnings ) =
+        capture_warnings( sub { Sereal::Decoder->new( { checksum_key_v2_ky => $misspelled_key } ) }
+        );
     ok( $decoder && !@$warnings, 'shared package policy is applied' );
 
-    local $Sereal::UnknownOptionPolicy = 'die';
+    local $Sereal::UnknownOptionPolicy          = 'die';
     local $Sereal::Decoder::UnknownOptionPolicy = 'ignore';
-    ( $decoder, $warnings ) = capture_warnings(
-        sub { Sereal::Decoder->new( { checksum_key_v2_ky => $misspelled_key } ) } );
+    ( $decoder, $warnings ) =
+        capture_warnings( sub { Sereal::Decoder->new( { checksum_key_v2_ky => $misspelled_key } ) }
+        );
     ok( $decoder && !@$warnings, 'module policy takes precedence over the shared package policy' );
 
-    local $Sereal::UnknownOptionPolicy = 'ignore';
+    local $Sereal::UnknownOptionPolicy          = 'ignore';
     local $Sereal::Decoder::UnknownOptionPolicy = 'die';
     ( $decoder, $warnings ) = capture_warnings(
         sub {
             Sereal::Decoder->new( {
-                checksum_key_v2_ky => $misspelled_key,
+                checksum_key_v2_ky    => $misspelled_key,
                 unknown_option_policy => 'warn',
             } );
         } );
     ok( $decoder, 'constructor policy overrides the package policy' );
-    like( join( '', @$warnings ), qr/Unknown option keys passed to Sereal::Decoder: .*checksum_key_v2_ky/,
-        'constructor policy takes precedence over module, shared package, and environment policies' );
+    like(
+        join( '', @$warnings ),
+        qr/Unknown option keys passed to Sereal::Decoder: .*checksum_key_v2_ky/,
+        'constructor policy takes precedence over module, shared package, and environment policies'
+    );
 
-    local $Sereal::UnknownOptionPolicy = undef;
+    local $Sereal::UnknownOptionPolicy          = undef;
     local $Sereal::Decoder::UnknownOptionPolicy = undef;
-    ( $decoder, $warnings ) = capture_warnings(
-        sub { Sereal::Decoder->new( { checksum_key_v2_ky => $misspelled_key } ) } );
+    ( $decoder, $warnings ) =
+        capture_warnings( sub { Sereal::Decoder->new( { checksum_key_v2_ky => $misspelled_key } ) }
+        );
     ok( $decoder, 'default warn policy applies when no constructor or package policy is set' );
-    like( join( '', @$warnings ), qr/Unknown option keys passed to Sereal::Decoder: .*checksum_key_v2_ky/,
-        'default policy warns when no constructor or package policy is set' );
+    like(
+        join( '', @$warnings ),
+        qr/Unknown option keys passed to Sereal::Decoder: .*checksum_key_v2_ky/,
+        'default policy warns when no constructor or package policy is set'
+    );
 
     local $Sereal::UnknownOptionPolicy = 'invalid';
     eval { Sereal::Decoder->new; 1 };
-    like( $@, qr/Invalid \$Sereal::UnknownOptionPolicy/, 'invalid shared package policy is rejected' );
+    like(
+        $@, qr/Invalid \$Sereal::UnknownOptionPolicy/,
+        'invalid shared package policy is rejected'
+    );
 }
 
 unless ( have_encoder_and_decoder(6.000_003) ) {
-    my $corpus = File::Spec->catdir( 't', 'data', 'packet_corpus' );
+    my $corpus   = File::Spec->catdir( 't', 'data', 'packet_corpus' );
     my @fixtures = (
-        [ 0, 'Out damned spot!', 'checksum/v0',              'checksummed Sereal payload' ],
-        [ 1, 'Call me Ishmael.', 'checksum/v1-compressed',   'checksummed Sereal payload' x 100 ],
-        [ 1, 'Call me Ishmael.', 'checksum/v1',              'checksummed Sereal payload' ],
-        [ 2, 'Call me Ishmael.', 'checksum/v2',              'checksummed Sereal payload' ],
+        [ 0, 'Out damned spot!', 'checksum/v0',            'checksummed Sereal payload' ],
+        [ 1, 'Call me Ishmael.', 'checksum/v1-compressed', 'checksummed Sereal payload' x 100 ],
+        [ 1, 'Call me Ishmael.', 'checksum/v1',            'checksummed Sereal payload' ],
+        [ 2, 'Call me Ishmael.', 'checksum/v2',            'checksummed Sereal payload' ],
     );
     for my $fixture (@fixtures) {
         my ( $type, $key, $name, $expected ) = @$fixture;
-        my $packet = read_packet( $corpus, 'decoder-features', $name );
+        my $packet  = read_packet( $corpus, 'decoder-features', $name );
         my $decoder = Sereal::Decoder->new( {
-            checksum_policy => 'require_key',
+            checksum_policy                      => 'require_key',
             ( "checksum_key_v" . ( $type + 1 ) ) => $key,
         } );
-        is( $decoder->decode($packet), $expected, "corpus checksum type $type verifies and decodes" );
+        is(
+            $decoder->decode($packet), $expected,
+            "corpus checksum type $type verifies and decodes"
+        );
         ok(
             Sereal::Decoder::validate_sereal_checksum( $packet, $key ),
             "corpus checksum type $type validates"
         );
         substr( $packet, -1, 1 ) = chr( ord( substr( $packet, -1, 1 ) ) ^ 1 );
         eval { $decoder->decode($packet); 1 };
-        like( $@, qr/checksum verification failed/i, "corpus checksum type $type rejects tampering" );
+        like(
+            $@, qr/checksum verification failed/i,
+            "corpus checksum type $type rejects tampering"
+        );
     }
     eval {
         Sereal::Decoder->new( { checksum_policy => 'require_key' } )->decode( Header(6) . "\x07" );
@@ -154,8 +195,7 @@ unless ( have_encoder_and_decoder(6.000_003) ) {
     exit 0;
 }
 
-for my $case (
-    [
+for my $case ( [
         'constructor',
         sub { Sereal::Encoder->new( { checksum_key_v2_ky => $misspelled_key } ) },
     ],
@@ -165,29 +205,35 @@ for my $case (
     ],
     )
 {
-    my ( $name, $build ) = @$case;
+    my ( $name,    $build )    = @$case;
     my ( $encoder, $warnings ) = capture_warnings($build);
     ok( $encoder, "$name continues with a misspelled checksum key by default" );
-    like( join( '', @$warnings ), qr/Unknown option keys passed to Sereal::Encoder: .*checksum_key_v2_ky/,
-        "$name warns about a misspelled checksum key" );
+    like(
+        join( '', @$warnings ),
+        qr/Unknown option keys passed to Sereal::Encoder: .*checksum_key_v2_ky/,
+        "$name warns about a misspelled checksum key"
+    );
 }
 {
-    local $ENV{SEREAL_UNKNOWN_OPTION_POLICY} = 'ignore';
-    local $Sereal::UnknownOptionPolicy = 'warn';
+    local $ENV{SEREAL_UNKNOWN_OPTION_POLICY}    = 'ignore';
+    local $Sereal::UnknownOptionPolicy          = 'warn';
     local $Sereal::Encoder::UnknownOptionPolicy = 'die';
     eval {
         Sereal::Encoder->new( {
-            checksum_key_v2_ky => $misspelled_key,
+            checksum_key_v2_ky   => $misspelled_key,
             checksum_key_v3_typo => $misspelled_key,
         } );
         1;
     };
-    like( $@, qr/Unknown option keys passed to Sereal::Encoder: (?=.*checksum_key_v2_ky)(?=.*checksum_key_v3_typo)/s,
-        'Encoder package policy overrides shared package and environment policies' );
+    like(
+        $@,
+        qr/Unknown option keys passed to Sereal::Encoder: (?=.*checksum_key_v2_ky)(?=.*checksum_key_v3_typo)/s,
+        'Encoder package policy overrides shared package and environment policies'
+    );
     my ( $encoder, $warnings ) = capture_warnings(
         sub {
             Sereal::Encoder->new( {
-                checksum_key_v2_ky => $misspelled_key,
+                checksum_key_v2_ky    => $misspelled_key,
                 unknown_option_policy => 'ignore',
             } );
         } );
@@ -195,25 +241,33 @@ for my $case (
     my ( $many_encoder, $many_warnings ) = capture_warnings(
         sub {
             Sereal::Encoder->new( {
-                checksum_key_v2_ky => $misspelled_key,
-                checksum_key_v3_typo => $misspelled_key,
+                checksum_key_v2_ky    => $misspelled_key,
+                checksum_key_v3_typo  => $misspelled_key,
                 unknown_option_policy => 'warn',
             } );
         } );
     ok( $many_encoder, 'Encoder constructs with multiple unknown options under warn policy' );
     is( scalar(@$many_warnings), 1, 'Encoder combines multiple unknown options into one warning' );
-    like( join( '', @$many_warnings ), qr/(?=.*checksum_key_v2_ky)(?=.*checksum_key_v3_typo)/s,
-        'Encoder warning includes every unknown key' );
+    like(
+        join( '', @$many_warnings ), qr/(?=.*checksum_key_v2_ky)(?=.*checksum_key_v3_typo)/s,
+        'Encoder warning includes every unknown key'
+    );
 }
 eval { Sereal::Encoder->new( { unknown_option_policy => 'bad' } ); 1 };
 like( $@, qr/Invalid unknown_option_policy/, 'Encoder rejects an invalid constructor policy' );
-ok( Sereal::Encoder->new( { compress_threshold => 1 } ), 'recognized conditionally used Encoder option is accepted' );
-ok( Sereal::Decoder->new( { thaw_allow_classes => [] } ), 'recognized conditionally used Decoder option is accepted' );
+ok(
+    Sereal::Encoder->new( { compress_threshold => 1 } ),
+    'recognized conditionally used Encoder option is accepted'
+);
+ok(
+    Sereal::Decoder->new( { thaw_allow_classes => [] } ),
+    'recognized conditionally used Decoder option is accepted'
+);
 
 local $Sereal::ChecksumPolicy;
 local $Sereal::Encoder::ChecksumPolicy;
 local $Sereal::Decoder::ChecksumPolicy;
-$Sereal::ChecksumPolicy = undef;
+$Sereal::ChecksumPolicy          = undef;
 $Sereal::Encoder::ChecksumPolicy = undef;
 $Sereal::Decoder::ChecksumPolicy = undef;
 local $Sereal::DefaultKey;
@@ -289,20 +343,24 @@ for my $source ( 'option', 'package default' ) {
     );
 }
 {
-    local $Sereal::ChecksumPolicy = 'ignore';
+    local $Sereal::ChecksumPolicy          = 'ignore';
     local $Sereal::Encoder::ChecksumPolicy = 'require_key';
     local $Sereal::Decoder::ChecksumPolicy = 'require_key';
     for my $class ( 'Sereal::Encoder', 'Sereal::Decoder' ) {
         eval { $class->new; 1 };
-        like( $@, qr/checksum_policy 'require_key'.*checksum key/,
-            "$class package policy overrides the shared checksum policy" );
-        ok( $class->new( { checksum_policy => 'ignore' } ),
-            "$class constructor checksum policy overrides package defaults" );
+        like(
+            $@, qr/checksum_policy 'require_key'.*checksum key/,
+            "$class package policy overrides the shared checksum policy"
+        );
+        ok(
+            $class->new( { checksum_policy => 'ignore' } ),
+            "$class constructor checksum policy overrides package defaults"
+        );
     }
 }
 for my $class ( 'Sereal::Encoder', 'Sereal::Decoder' ) {
     for my $policy ( 'require_key', 'require' ) {
-        local $Sereal::ChecksumPolicy = $policy;
+        local $Sereal::ChecksumPolicy          = $policy;
         local $Sereal::Encoder::ChecksumPolicy = undef;
         local $Sereal::Decoder::ChecksumPolicy = undef;
         local $Sereal::DefaultKey;
@@ -335,8 +393,10 @@ for my $class ( 'Sereal::Encoder', 'Sereal::Decoder' ) {
         for my $type ( 0, 1, 2 ) {
             for my $length ( 0, 1, 15, 17, 32 ) {
                 eval {
-                    $class->new(
-                        { checksum_policy => $policy, ( "checksum_key_v" . ( $type + 1 ) ) => 'x' x $length } );
+                    $class->new( {
+                        checksum_policy                      => $policy,
+                        ( "checksum_key_v" . ( $type + 1 ) ) => 'x' x $length
+                    } );
                     1;
                 };
                 like(
@@ -370,9 +430,11 @@ for my $class ( 'Sereal::Encoder', 'Sereal::Decoder' ) {
     is( ord( substr( $packet, 6, 1 ) ), 2, 'shared default selects SipHash-3-6-128 for encoding' );
     is( $dec->decode($packet),          'default', 'both modules use the shared default' );
     for my $type ( 0, 1, 2 ) {
-        my $explicit = Sereal::Encoder->new( { ( "checksum_key_v" . ( $type + 1 ) ) => $other } )->encode(7);
+        my $explicit =
+            Sereal::Encoder->new( { ( "checksum_key_v" . ( $type + 1 ) ) => $other } )->encode(7);
         is(
-            Sereal::Decoder->new( { ( "checksum_key_v" . ( $type + 1 ) ) => $other } )->decode($explicit), 7,
+            Sereal::Decoder->new( { ( "checksum_key_v" . ( $type + 1 ) ) => $other } )
+                ->decode($explicit), 7,
             "explicit type $type key overrides the shared default"
         );
         eval { $dec->decode($explicit); 1 };
@@ -380,7 +442,8 @@ for my $class ( 'Sereal::Encoder', 'Sereal::Decoder' ) {
             $@, qr/checksum verification failed/,
             'default key does not replace an explicit key'
         );
-        my $same = Sereal::Encoder->new( { ( "checksum_key_v" . ( $type + 1 ) ) => $key } )->encode(7);
+        my $same =
+            Sereal::Encoder->new( { ( "checksum_key_v" . ( $type + 1 ) ) => $key } )->encode(7);
         is( $dec->decode($same), 7, "default decoder key verifies type $type" );
     }
     {
@@ -446,8 +509,8 @@ require "$file.pm";
 die "second module overwrote default" unless $Sereal::DefaultKey eq 'replacement key!';
 print "ok\n";
 CHILD
-my $child_dir = tempdir(CLEANUP => 1);
-my $child_file = File::Spec->catfile($child_dir, 'checksum-policy-child.pl');
+my $child_dir  = tempdir( CLEANUP => 1 );
+my $child_file = File::Spec->catfile( $child_dir, 'checksum-policy-child.pl' );
 open my $child_fh, '>', $child_file or die "open $child_file: $!";
 print {$child_fh} $child_code;
 close $child_fh or die "close $child_file: $!";
@@ -465,14 +528,14 @@ for my $input (
     {
         my $stderr = gensym;
         my $pid    = open3(
-            my $in, my $out, $stderr,
+            my $in,                                           my $out,     $stderr,
             $^X, ( map { ( '-I', $_ ) } grep { !ref } @INC ), $child_file, @$order
         );
         close $in;
         my $stdout = do { local $/; <$out> };
         my $errors = do { local $/; <$stderr> };
         waitpid( $pid, 0 );
-        is( $?,      0, "$order->[0] initializes the environment key correctly" ) or diag($errors);
+        is( $?, 0, "$order->[0] initializes the environment key correctly" ) or diag($errors);
         like( $stdout, qr/\Aok\r?\n\z/, 'module load order preserves the application override' );
     }
 }

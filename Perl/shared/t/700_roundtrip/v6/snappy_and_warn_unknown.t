@@ -10,10 +10,10 @@ use Test::More;
 use Sereal::TestSet ();
 use Sereal::Decoder;
 use Sereal::Decoder::Constants qw(SRL_PROTOCOL_VERSION_MASK);
-use Sereal::TestSet::Corpus qw(read_packet);
+use Sereal::TestSet::Corpus    qw(read_packet);
 
-my $corpus = File::Spec->catdir( 't', 'data', 'packet_corpus' );
-my $stored = read_packet( $corpus, 'decoder-features', 'snappy_and_warn_unknown/v6' );
+my $corpus  = File::Spec->catdir( 't', 'data', 'packet_corpus' );
+my $stored  = read_packet( $corpus, 'decoder-features', 'snappy_and_warn_unknown/v6' );
 my $decoder = Sereal::Decoder->new;
 my $decoded = $decoder->decode($stored);
 is( scalar(@$decoded), 2, 'stored v6 Snappy packet has both values' );

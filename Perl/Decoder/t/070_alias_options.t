@@ -30,7 +30,7 @@ foreach my $test (@tests) {
     my $dec = Sereal::Decoder->new( { $opt => $opt_val } );
 
     my $packet = read_packet( $corpus, 'decoder-features', "alias_options/$up_to" );
-    my $got = $dec->decode($packet);
+    my $got    = $dec->decode($packet);
 
     # undef the decoder to make sure if it blows up on DESTROY it does it before we test.
     undef $dec;

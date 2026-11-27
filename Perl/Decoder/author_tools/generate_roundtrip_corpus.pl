@@ -5,13 +5,14 @@ use File::Spec;
 use lib File::Spec->catdir(qw(t lib));
 
 use Sereal::Encoder;
-use Sereal::TestSet qw(setup_tests roundtrip_corpus_name);
+use Sereal::TestSet         qw(setup_tests roundtrip_corpus_name);
 use Sereal::TestSet::Corpus qw(
     write_packet_set prune_unreferenced unpack_corpus pack_corpus
 );
 
 my $root = File::Spec->catdir( 't', 'data', 'packet_corpus' );
 unpack_corpus($root);
+
 # Each protocol gets a small baseline that Decoder can read without a live
 # matching Encoder. The 16 KiB limit below keeps oversized stress cases out
 # of the archive; those cases remain in the live round-trip suite. These
@@ -19,25 +20,26 @@ unpack_corpus($root);
 # replaces a baseline instead of collecting additional native-layout sources.
 # README.corpus.md explains when that replacement is appropriate.
 my ( @tests, %v6_names );
-my @versions = @ARGV ? @ARGV : (1 .. 7);
+my @versions = @ARGV ? @ARGV : ( 1 .. 7 );
 die "Invalid protocol version\n" if grep { !/^[1-7]$/ } @versions;
 die "Legacy corpus sources require a little-endian generator; use version 7 on this platform\n"
-    if (grep { $_ < 7 } @versions)
-        && unpack('H*', pack('d', 1.0)) ne '000000000000f03f';
+    if ( grep { $_ < 7 } @versions )
+    && unpack( 'H*', pack( 'd', 1.0 ) ) ne '000000000000f03f';
+
 for my $version (@versions) {
     setup_tests($version);
     my @version_tests = Sereal::TestSet::_get_roundtrip_tests();
-    my $encoder = Sereal::Encoder->new( { protocol_version => $version } );
+    my $encoder       = Sereal::Encoder->new( { protocol_version => $version } );
     my %packets;
     for my $index ( 0 .. $#version_tests ) {
         my ( $name, $value ) = @{ $version_tests[$index] };
         my $logical_name = roundtrip_corpus_name( $index, $name );
-        my $packet = $encoder->encode($value);
+        my $packet       = $encoder->encode($value);
         next if length($packet) > 16 * 1024;
-        $packets{$logical_name} = $packet;
+        $packets{$logical_name}  = $packet;
         $v6_names{$logical_name} = 1 if $version == 6;
     }
-    my $source = "roundtrip-v$version-plain";
+    my $source        = "roundtrip-v$version-plain";
     my $manifest_hash = write_packet_set(
         $root, $source, Sereal::Encoder->VERSION, \%packets,
     );
@@ -47,24 +49,30 @@ for my $version (@versions) {
 }
 
 my %v6_profiles = (
-    plain_canonical   => { canonical => 1 },
-    'freeze-thaw'     => { freeze_callbacks => 1 },
-    dedupe_strings    => { dedupe_strings => 1 },
-    readonly          => { set_readonly => 1 },
-    sort_keys         => { sort_keys => 1 },
-    sort_keys_perl    => { sort_keys => 2 },
-    sort_keys_perl_rev => { sort_keys => 3 },
-    snappy            => { snappy => 1 },
-    snappy_incr       => { snappy_incr => 1 },
-    snappy_canon      => { snappy => 1, canonical => 1 },
-    snappy_incr_canon => { snappy_incr => 1, canonical => 1 },
-    zlib              => { compress => Sereal::Encoder::SRL_ZLIB() },
-    zlib_force        => { compress => Sereal::Encoder::SRL_ZLIB(), compress_threshold => 0 },
-    zstd              => { compress => Sereal::Encoder::SRL_ZSTD() },
-    zstd_force        => { compress => Sereal::Encoder::SRL_ZSTD(), compress_threshold => 0 },
+    plain_canonical    => { canonical        => 1 },
+    'freeze-thaw'      => { freeze_callbacks => 1 },
+    dedupe_strings     => { dedupe_strings   => 1 },
+    readonly           => { set_readonly     => 1 },
+    sort_keys          => { sort_keys        => 1 },
+    sort_keys_perl     => { sort_keys        => 2 },
+    sort_keys_perl_rev => { sort_keys        => 3 },
+    snappy             => { snappy           => 1 },
+    snappy_incr        => { snappy_incr      => 1 },
+    snappy_canon       => { snappy           => 1, canonical => 1 },
+    snappy_incr_canon  => { snappy_incr      => 1, canonical => 1 },
+    zlib               => { compress => Sereal::Encoder::SRL_ZLIB() },
+    zlib_force         => { compress => Sereal::Encoder::SRL_ZLIB(), compress_threshold => 0 },
+    zstd               => { compress => Sereal::Encoder::SRL_ZSTD() },
+    zstd_force         => { compress => Sereal::Encoder::SRL_ZSTD(), compress_threshold => 0 },
 );
 
-for my $profile ( grep { grep { $_ == 6 } @versions } sort keys %v6_profiles ) {
+for my $profile (
+    grep {
+        grep { $_ == 6 }
+            @versions
+    } sort keys %v6_profiles
+    )
+{
     setup_tests(6);
     my $encoder = Sereal::Encoder->new( {
         protocol_version => 6,
@@ -77,7 +85,7 @@ for my $profile ( grep { grep { $_ == 6 } @versions } sort keys %v6_profiles ) {
         next unless $v6_names{$logical_name};
         $packets{$logical_name} = $encoder->encode($value);
     }
-    my $source = "roundtrip-v6-$profile";
+    my $source        = "roundtrip-v6-$profile";
     my $manifest_hash = write_packet_set(
         $root, $source, Sereal::Encoder->VERSION, \%packets,
     );

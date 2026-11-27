@@ -10,7 +10,7 @@ use Test::More;
 use Config;
 use Sereal::Decoder;
 use File::Spec;
-use File::Temp qw(tempdir);
+use File::Temp              qw(tempdir);
 use Sereal::TestSet::Corpus qw(read_packet);
 
 # A compressed document declares its uncompressed size, and the decoder
@@ -31,8 +31,8 @@ my $zlib_2_53 = $SRL_MAGIC . chr(0x36) . chr(0) . "\x80\x80\x80\x80\x80\x80\x80\
 # zstd frame header (single segment, 8-byte content size) declaring 2^53.
 my $zstd_frame = "\x28\xB5\x2F\xFD" . "\xE0" . pack( "V2", 0, 2**21 );
 my $zstd_2_53  = $SRL_MAGIC . chr(0x46) . chr(0) . chr( length $zstd_frame ) . $zstd_frame;
-my $child_dir = tempdir(CLEANUP => 1);
-my $child_file = File::Spec->catfile($child_dir, 'huge-size-child.pl');
+my $child_dir  = tempdir( CLEANUP => 1 );
+my $child_file = File::Spec->catfile( $child_dir, 'huge-size-child.pl' );
 
 sub decode_in_child {
     my ( $packet, $opts ) = @_;
@@ -84,17 +84,22 @@ foreach my $case (
     };
     my $error = $@;
     ok( !$ok, "$name: rejected by max_uncompressed_size" );
+
     # A 32-bit decoder rejects the size before comparing the configured
     # limit. With 32-bit UVs, zlib's varint already overflows; with 64-bit
     # UVs, it instead overflows STRLEN/size_t, as zstd's frame size does.
-    my $expected_error = $Config{ptrsize} < 8
-        ? ( $name =~ /^zlib/ && $Config{uvsize} < 8
-            ? qr/varint (?:too big|overflows U32)/ : qr/too large for this platform/ )
+    my $expected_error =
+        $Config{ptrsize} < 8
+        ? (
+        $name =~ /^zlib/ && $Config{uvsize} < 8
+        ? qr/varint (?:too big|overflows U32)/
+        : qr/too large for this platform/
+        )
         : qr/expected uncompressed size is larger than the allowed maximum|too large for this platform/;
     like( $error, $expected_error, "$name: size rejected before allocation" );
 }
 
-my $data = { a => [ ( "x" x 100 ) x 10 ] };
+my $data        = { a => [ ( "x" x 100 ) x 10 ] };
 my $normal_zlib = read_packet(
     File::Spec->catdir( 't', 'data', 'packet_corpus' ),
     'decoder-features', 'huge_decompressed_size/normal_zlib'

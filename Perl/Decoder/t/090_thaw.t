@@ -10,8 +10,8 @@ BEGIN {
         if !-d 't';
 }
 use Test::More;
-use Sereal::TestSet qw(:all);
-use Sereal::Decoder qw(decode_sereal);
+use Sereal::TestSet         qw(:all);
+use Sereal::Decoder         qw(decode_sereal);
 use Sereal::TestSet::Corpus qw(read_packet);
 use Data::Dumper;
 
@@ -81,8 +81,8 @@ my @test_data = ( {
 );
 
 for my $index ( 0 .. $#test_data ) {
-    my $data = $test_data[$index];
-    my $plain = read_packet( $corpus, 'decoder-features', 'thaw/090/plain/' . ( $index + 1 ) );
+    my $data   = $test_data[$index];
+    my $plain  = read_packet( $corpus, 'decoder-features', 'thaw/090/plain/' . ( $index + 1 ) );
     my $freeze = read_packet( $corpus, 'decoder-features', 'thaw/090/freeze/' . ( $index + 1 ) );
     ok no_warnings {
         decode_sereal($plain);

@@ -26,7 +26,7 @@ my @options = qw(
 );
 
 for my $opt (@options) {
-    for my $bad ( -1, 0.5, 2.5, -0.5, 'lots', 9**9**9, 2**(8 * $Config{uvsize}) ) {
+    for my $bad ( -1, 0.5, 2.5, -0.5, 'lots', 9**9**9, 2**( 8 * $Config{uvsize} ) ) {
         my $ok = eval { Sereal::Decoder->new( { $opt => $bad } ); 1 };
         ok( !$ok, "$opt => $bad is refused" );
         like(
