@@ -523,7 +523,6 @@ sub pack_double_be {
 
     for my $opt_name ( 'set_readonly', 'set_readonly_scalars' ) {
         my $d_thaw = Sereal::Decoder->new( {
-            freeze_callbacks   => 1,
             $opt_name          => 1,
             alias_varint_under => 100,
         } );
