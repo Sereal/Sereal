@@ -10,6 +10,11 @@ Revision history for Perl extension Sereal-Encoder
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+Unreleased
+    * Fix bundled Zstd builds on Windows without a Unix rm command.
+    * Expand Perl portability CI and require report review and successful
+      CI for the release commit before tagging and uploading.
+
 7.008
     * Speed up scalar, string and small-varint encoding, and reduce
       stack usage by keeping larger helpers out of the hot path.

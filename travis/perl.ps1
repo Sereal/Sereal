@@ -28,6 +28,27 @@ if ($LASTEXITCODE -ne 0 -or !$make) {
     throw 'Could not determine the make command for this Perl'
 }
 
+# GitHub's Windows images can put Git's Unix utilities on PATH, masking
+# dependencies absent from ordinary Strawberry Perl installations.
+if ($env:SEREAL_CI_REJECT_UNIX_RM -eq '1') {
+    $guardDir = Join-Path ([IO.Path]::GetTempPath()) ('sereal-no-rm-' + [guid]::NewGuid())
+    New-Item -ItemType Directory -Path $guardDir | Out-Null
+    $guardSource = Join-Path $guardDir 'rm.c'
+    $guardExe = Join-Path $guardDir 'rm.exe'
+    @'
+#include <stdio.h>
+int main(void) {
+    fputs("Sereal must not require a Unix rm executable\n", stderr);
+    return 97;
+}
+'@ | Set-Content -Encoding ascii $guardSource
+    Run-Command 'gcc' @($guardSource, '-o', $guardExe)
+    $env:PATH = $guardDir + [IO.Path]::PathSeparator + $env:PATH
+    if ((Get-Command rm.exe -CommandType Application).Source -ne $guardExe) {
+        throw 'The Unix rm guard is not first on PATH'
+    }
+}
+
 In-Directory 'Perl/Decoder' {
     Run-Command 'perl' @('Makefile.PL')
     Run-Command $make @()

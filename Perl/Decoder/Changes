@@ -10,6 +10,13 @@ Revision history for Perl extension Sereal-Decoder
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+Unreleased
+    * Fix regression tests on older Perls and builds with wider NVs
+      than C doubles (issues #352 and #353).
+    * Fix bundled Zstd builds on Windows without a Unix rm command.
+    * Expand Perl portability CI and gate releases on fresh CPAN Testers
+      reviews and successful CI for the exact release commit.
+
 7.008
     * Speed up small-varint decoding and arrays of untracked scalar
       values. Reduce temporary allocations and stack usage while

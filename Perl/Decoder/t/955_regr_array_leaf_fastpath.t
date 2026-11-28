@@ -79,11 +79,14 @@ sub pack_double_be {
     my @dbl_vals   = ( 0.0, -0.0, 1.5, -3.25, 1e100, -1e-100 );
     my @dbl_tags   = map { pack_double_native($_) } @dbl_vals;
 
+    # DOUBLE carries C double precision even when Perl's NV is wider.
+    my @dbl_expected = map { unpack( 'd', pack( 'd', $_ ) ) } @dbl_vals;
+
     my @all_tags = (
         @pos_tags, @neg_tags, @varint_tags, @sstr_tags, @undef_tags, @dbl_tags,
     );
     my @expected = (
-        ( 0 .. 15 ), ( -16 .. -1 ), @varint_vals, @sstr_vals, ( undef, undef ), @dbl_vals,
+        ( 0 .. 15 ), ( -16 .. -1 ), @varint_vals, @sstr_vals, ( undef, undef ), @dbl_expected,
     );
 
     my $got = decode_sereal( $hdr6 . pack_arrayref(@all_tags) );
@@ -130,11 +133,11 @@ sub pack_double_be {
 
     # Portable v7 little-endian doubles and big-endian v6 override
     my $v7_dbls = decode_sereal( $hdr7 . pack_plain_array( map { pack_double_le($_) } @dbl_vals ) );
-    is_deeply( $v7_dbls, \@dbl_vals, 'v7 portable little-endian doubles in array fast path' );
+    is_deeply( $v7_dbls, \@dbl_expected, 'v7 portable little-endian doubles in array fast path' );
 
     my $be_dec = Sereal::Decoder->new( { legacy_float_byteorder => 'big' } );
     my $v6_be = $be_dec->decode( $hdr6 . pack_plain_array( map { pack_double_be($_) } @dbl_vals ) );
-    is_deeply( $v6_be, \@dbl_vals, 'v6 big-endian float override in array fast path' );
+    is_deeply( $v6_be, \@dbl_expected, 'v6 big-endian float override in array fast path' );
 
     # CANONICAL_UNDEF rejected on protocol < 3 inside array fast path
     my $ok_v2 = eval {
@@ -303,7 +306,9 @@ sub pack_double_be {
     );
     my $u_on = decode_sereal( $upkt, { use_undef => 1 } );
     ok(
-        \$u_on->[0] == \undef && \$u_on->[1] == \undef && \$u_on->[2] == \undef,
+               array_slot_ref( $u_on, 0 ) == \undef
+            && array_slot_ref( $u_on, 1 ) == \undef
+            && array_slot_ref( $u_on, 2 ) == \undef,
         'use_undef=1: UNDEF and CANONICAL_UNDEF alias PL_sv_undef'
     );
 
@@ -448,7 +453,7 @@ sub pack_double_be {
             "ARRAYREF_5 $opt_name + alias_smallint: elem 0 readonly"
         );
         ok(
-            \$got->[1] == \undef && \$got->[2] == \undef,
+            array_slot_ref( $got, 1 ) == \undef && array_slot_ref( $got, 2 ) == \undef,
             "ARRAYREF_5 $opt_name + use_undef: aliases PL_sv_undef"
         );
         ok(

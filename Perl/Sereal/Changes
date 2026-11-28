@@ -16,6 +16,12 @@ from the the Encoder and Decoder changelogs:
 * require a version 7 Decoder.                                 *
 ****************************************************************
 
+Unreleased
+    * Fix Decoder regression tests on older and wider-NV Perls, and
+      bundled Zstd builds on Windows without a Unix rm command.
+    * Add CPAN Testers review and exact-commit CI gates to the release
+      procedure, with broader Perl portability coverage.
+
 7.008
     * Improve Encoder and Decoder performance with faster scalar and
       varint handling, more efficient string deduplication, and reuse of

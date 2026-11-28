@@ -1,0 +1,568 @@
+{
+  "0c55b212-eab5-11f1-8831-9c506e8775ea": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "0dea96c4-ea6f-11f1-991a-a1cfa165ee6c": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "1053165e-eab8-11f1-a4a6-b88dbda1814d": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "12c852e4-eb14-11f1-9b8d-8ff66d8775ea": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "15fe6a86-eb12-11f1-b3d4-941e4a801dae": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "173788fc-eb0c-11f1-b830-92aefbf97456": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "46f71050-eb14-11f1-9b8d-8ff66d8775ea": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "4c8dcdba-eb0f-11f1-a79c-98ddc261798d": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "4e4bac4e-eab5-11f1-8831-9c506e8775ea": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "4e901db6-77c9-1014-8344-e614fb19fe64": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "shared/zstd/Makefile.PL now uses Perl ExtUtils::Command::rm_f.",
+      "author_tools/test_zstd_build.t: all 16 checks pass, including archive replacement and cleanup with a failing Unix rm shim.",
+      "Full build/test/dist flow passed. Native Windows execution has not been verified locally."
+    ],
+    "grade": "unknown",
+    "reason": "Bundled Zstd archive replacement used Unix rm, which these Windows Perl installations do not provide.",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "58bedea4-eb13-11f1-8eae-a16c0321f21c": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "5fcdb882-ea87-11f1-991a-a1cfa165ee6c": {
+    "distribution": "Sereal-Encoder",
+    "evidence": [
+      "Encoder/Makefile.PL and Decoder/Makefile.PL declare MIN_PERL_VERSION => 5.014.",
+      "The report configure output explicitly identifies the unsupported Perl version."
+    ],
+    "grade": "na",
+    "reason": "Expected support exclusion: report used a Perl older than the declared minimum 5.14.",
+    "reviewed_on": "2026-11-28",
+    "status": "external",
+    "version": "7.008"
+  },
+  "611ef0ee-eaae-11f1-a28f-6209cf400910": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "638b8990-eac3-11f1-a712-6b116e8775ea": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Encoder/Makefile.PL and Decoder/Makefile.PL declare MIN_PERL_VERSION => 5.014.",
+      "The report configure output explicitly identifies the unsupported Perl version."
+    ],
+    "grade": "na",
+    "reason": "Expected support exclusion: report used a Perl older than the declared minimum 5.14.",
+    "reviewed_on": "2026-11-28",
+    "status": "external",
+    "version": "7.008"
+  },
+  "676581a6-eac3-11f1-a712-6b116e8775ea": {
+    "distribution": "Sereal-Encoder",
+    "evidence": [
+      "Encoder/Makefile.PL and Decoder/Makefile.PL declare MIN_PERL_VERSION => 5.014.",
+      "The report configure output explicitly identifies the unsupported Perl version."
+    ],
+    "grade": "na",
+    "reason": "Expected support exclusion: report used a Perl older than the declared minimum 5.14.",
+    "reviewed_on": "2026-11-28",
+    "status": "external",
+    "version": "7.008"
+  },
+  "6a709fe2-ea6a-11f1-a6f5-ae4d07c346cf": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "shared/zstd/Makefile.PL now uses Perl ExtUtils::Command::rm_f.",
+      "author_tools/test_zstd_build.t: all 16 checks pass, including archive replacement and cleanup with a failing Unix rm shim.",
+      "Full build/test/dist flow passed. Native Windows execution has not been verified locally."
+    ],
+    "grade": "unknown",
+    "reason": "Bundled Zstd archive replacement used Unix rm, which these Windows Perl installations do not provide.",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "6f606f94-eb1b-11f1-9347-e3b351fe6e7c": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "72d8591e-eab4-11f1-8831-9c506e8775ea": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "7cce3fc8-ea6a-11f1-a6f5-ae4d07c346cf": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "shared/zstd/Makefile.PL now uses Perl ExtUtils::Command::rm_f.",
+      "author_tools/test_zstd_build.t: all 16 checks pass, including archive replacement and cleanup with a failing Unix rm shim.",
+      "Full build/test/dist flow passed. Native Windows execution has not been verified locally."
+    ],
+    "grade": "unknown",
+    "reason": "Bundled Zstd archive replacement used Unix rm, which these Windows Perl installations do not provide.",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "7d22a6fe-eb13-11f1-9b8d-8ff66d8775ea": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "7ea6092a-eb14-11f1-9b8d-8ff66d8775ea": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "819a98be-eaa9-11f1-9a9b-a56d83ce83d2": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "84e77d6c-eb16-11f1-9b8d-8ff66d8775ea": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Actual CPAN Decoder 7.008 archive downloaded 2026-11-28 contains regular miniz.c; source SHA256 e2c1aeb66eef9191d8c3feb164db2def2335a61d039bf04ed849f6b042433b30.",
+      "Installed-Zstd/bundled-miniz isolated Decoder build passed 85169 tests; three fresh make -j16 builds preserved miniz.c unchanged.",
+      "API report output exactly matches saved Report5 HTML."
+    ],
+    "grade": "unknown",
+    "next_action": "Reopen if it recurs or the smoker supplies evidence of a distribution defect; the cause has not been established and native ARM execution has not been verified locally.",
+    "reason": "Accepted as non-blocking at the maintainer's direction on 2026-11-28: suspected smoker build-directory or environment issue. The failure occurs before miniz compilation because its shipped source is missing. The cause remains unconfirmed.",
+    "reviewed_on": "2026-11-28",
+    "status": "external",
+    "version": "7.008"
+  },
+  "85f584dc-eb0d-11f1-a55f-b7eec9c760d1": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "883b42a6-eb1a-11f1-8c4c-fd6813324b69": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "890f9206-ea87-11f1-991a-a1cfa165ee6c": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Encoder/Makefile.PL and Decoder/Makefile.PL declare MIN_PERL_VERSION => 5.014.",
+      "The report configure output explicitly identifies the unsupported Perl version."
+    ],
+    "grade": "na",
+    "reason": "Expected support exclusion: report used a Perl older than the declared minimum 5.14.",
+    "reviewed_on": "2026-11-28",
+    "status": "external",
+    "version": "7.008"
+  },
+  "8d1d9034-eb11-11f1-a5bd-c2fdf063d8e6": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "8d6bcb76-eaaa-11f1-95a2-e73115ac2d71": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "98eb70a8-eb10-11f1-99ae-e97c4e5e39d6": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "a24c9950-eab7-11f1-b102-c49c769d6d36": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "a885c140-eaba-11f1-a120-cc8515cae509": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "b212a452-eb1a-11f1-8506-f7b51e696af9": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "b5b46616-eb0d-11f1-834d-c8d5be1e2352": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "bd553842-eb07-11f1-b29e-984b7f5efb73": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "bf3c574c-eab4-11f1-8831-9c506e8775ea": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "c99964aa-eb13-11f1-9b8d-8ff66d8775ea": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "cf13700e-eabb-11f1-8831-9c506e8775ea": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Encoder/Makefile.PL and Decoder/Makefile.PL declare MIN_PERL_VERSION => 5.014.",
+      "The report configure output explicitly identifies the unsupported Perl version."
+    ],
+    "grade": "na",
+    "reason": "Expected support exclusion: report used a Perl older than the declared minimum 5.14.",
+    "reviewed_on": "2026-11-28",
+    "status": "external",
+    "version": "7.008"
+  },
+  "d2db6cdc-eabb-11f1-8831-9c506e8775ea": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Encoder/Makefile.PL and Decoder/Makefile.PL declare MIN_PERL_VERSION => 5.014.",
+      "The report configure output explicitly identifies the unsupported Perl version."
+    ],
+    "grade": "na",
+    "reason": "Expected support exclusion: report used a Perl older than the declared minimum 5.14.",
+    "reviewed_on": "2026-11-28",
+    "status": "external",
+    "version": "7.008"
+  },
+  "d38268c4-eab2-11f1-8270-7b56d2400910": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "d3a54c62-eb1c-11f1-a318-9b45397861a8": {
+    "distribution": "Sereal-Encoder",
+    "evidence": [
+      "Encoder/Makefile.PL and Decoder/Makefile.PL declare MIN_PERL_VERSION => 5.014.",
+      "The report configure output explicitly identifies the unsupported Perl version."
+    ],
+    "grade": "na",
+    "reason": "Expected support exclusion: report used a Perl older than the declared minimum 5.14.",
+    "reviewed_on": "2026-11-28",
+    "status": "external",
+    "version": "7.008"
+  },
+  "e9c3baee-eab1-11f1-8e76-3dc8d1400910": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "ef69b12a-eaba-11f1-b8c9-acd1966efb7e": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "f0102704-eb13-11f1-9560-88dff72188fe": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  },
+  "f164ca68-eb0b-11f1-b3dd-f0465d93494a": {
+    "distribution": "Sereal-Decoder",
+    "evidence": [
+      "Decoder/t/953_regr_varint_inlining.t and Decoder/t/955_regr_array_leaf_fastpath.t contain the fixes.",
+      "All 600 assertions pass on Perl 5.16.3, standard Perl, Perl 5.38.5 with -Duselongdouble, and Perl 5.44.0 quadmath.",
+      "Full Decoder, Encoder and wrapper suites passed after the changes."
+    ],
+    "grade": "fail",
+    "reason": "Portable test expectations for C DOUBLE precision and non-mutating inspection of canonical undef array slots (issues #352 and #353).",
+    "reviewed_on": "2026-11-28",
+    "status": "fixed",
+    "version": "7.008"
+  }
+}

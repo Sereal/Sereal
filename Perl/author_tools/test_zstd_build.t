@@ -136,6 +136,23 @@ is(archive_calls(), 2, 'incremental rebuild writes the archive once');
 is_deeply(archive_members(), ['member.o'], 'incremental rebuild removes stale members');
 ok(run_logged(@build), 'repeat parallel build succeeds');
 is(archive_calls(), 2, 'repeat build does not rewrite an unchanged archive');
+
+# Strawberry Perl need not provide a Unix rm executable. Reject any such
+# invocation while exercising both archive replacement and wildcard cleanup.
+make_path('no-rm');
+write_file('no-rm/rm', "#!/bin/sh\necho 'unexpected Unix rm invocation' >&2\nexit 1\n");
+chmod 0755, 'no-rm/rm' or die $!;
+{
+    local $ENV{PATH} = "$work/no-rm:$ENV{PATH}";
+    utime time - 10, time - 10, 'zstd/libzstd.o' or die $!;
+    utime time - 5, time - 5, 'zstd/member.o' or die $!;
+    ok(run_logged($make, '-C', 'zstd', "AR=$^X $work/archive.pl"),
+        'archive replacement does not require Unix rm');
+    is_deeply(archive_members(), ['member.o'], 'portable removal preserves archive members');
+    ok(run_logged($make, '-C', 'zstd', 'clean'), 'cleanup does not require Unix rm');
+    ok(!-e 'zstd/member.o' && !-e 'zstd/stray.o' && !-e 'zstd/libzstd.o',
+        'portable cleanup removes objects and archive');
+}
 if ($ENV{SEREAL_BUILD_TEST_LOG}) {
     copy("$work/commands.log", $ENV{SEREAL_BUILD_TEST_LOG}) or die $!;
 }

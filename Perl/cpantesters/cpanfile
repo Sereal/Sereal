@@ -1,0 +1,14 @@
+requires 'perl', '5.014';
+requires 'LWP::UserAgent', '6.00';
+requires 'LWP::Protocol::https';
+requires 'HTTP::Cookies';
+requires 'HTTP::Date';
+requires 'HTTP::Message';
+requires 'URI';
+requires 'JSON::PP';
+requires 'Digest::SHA';
+
+on test => sub {
+    requires 'Test::More';
+    requires 'IO::Compress::Gzip';
+};

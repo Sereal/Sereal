@@ -37,6 +37,10 @@ This repo also contains adjacent projects such as `Path/`, `Merger/`, and `Split
   - `./clean_make_all`
 - Normal repo build/test/dist flow:
   - `./make_all`
+- Review fresh CPAN Testers results for the preceding published stable release:
+  - `perl cpantesters/fetch-reports.pl --version PREVIOUS_VERSION --check`
+  - See `cpantesters/README.md` for dependencies, rate limits, resumable
+    downloads, and the checked-in per-report review records.
 - Regenerate shared headers/constants and perltidy Perl files:
   - `./clean_regen_and_tidy`
 - Repository-only Decoder fuzz testing:
@@ -157,6 +161,18 @@ Guidelines:
 - Existing tests such as `Decoder/t/195_backcompat.t` and files under `shared/t/700_roundtrip/` are important indicators of compatibility expectations.
 
 ### Mixed-version tests before release
+
+- Refresh and review CPAN Testers reports for the previous published stable
+  Encoder and Decoder releases with `perl cpantesters/fetch-reports.pl
+  --version PREVIOUS_VERSION --check`.
+  Resolve new FAIL/UNKNOWN/NA reports and record reasons and evidence in
+  `cpantesters/triage.json`. A failed or incomplete fetch is not a clean
+  review. Keep this network check separate from ordinary local builds so
+  they remain usable offline.
+- Follow `RELEASING.md`. The release command chain must wait for the pushed
+  release commit's CI and its `Perl release checks` aggregate to succeed
+  before creating tags or uploading distributions. Older Perl, wide-NV,
+  Windows without Unix rm, 32-bit, and maintenance-tool checks are required.
 
 - Before releasing, test the generated distribution archives in isolated
   directories outside this checkout. Source-repo `blib` wiring can hide

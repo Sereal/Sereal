@@ -36,6 +36,25 @@ $to= $dev ? sprintf "%d.%03d_%03d", $major, $minor, $dev
           : sprintf "%d.%03d",      $major, $minor
 ;
 
+# Review the preceding published stable release, including when preparing
+# a developer release or repeating this command for the same target.
+my %previous;
+for my $file (@changes_files) {
+    open my $fh, '<', $file or die "Failed to read '$file': $!";
+    my $found;
+    while (my $line = <$fh>) {
+        next unless $line =~ /^(\d+\.\d{3})\s*$/;
+        next if $1 eq $to;
+        $previous{$1} = 1;
+        $found = 1;
+        last;
+    }
+    die "No preceding stable release in $file\n" unless $found;
+}
+die "Changelogs must agree on the previous stable release\n" unless keys(%previous) == 1;
+my ($previous_version) = keys %previous;
+my $previous_argument = shell_quote($previous_version);
+
 foreach my $file (@changes_files) {
     open my $in, "<", $file
         or die "Failed to open for read '$file': $!";
@@ -46,7 +65,9 @@ foreach my $file (@changes_files) {
     next if $changes =~ /^\Q$to\E\s*$/m;
 
     my $entry= "$to\n    * $reason\n\n";
-    if ($changes =~ /^\d+\.\d{3}(?:_\d{3})?\s*$/m) {
+    if ($changes =~ /^Unreleased[ \t]*\r?$/m) {
+        $changes =~ s/^Unreleased[ \t]*\r?\n/$to\n    * $reason\n/m;
+    } elsif ($changes =~ /^\d+\.\d{3}(?:_\d{3})?\s*$/m) {
         substr $changes, $-[0], 0, $entry;
     } else {
         $changes .= "\n" unless $changes =~ /\n\z/;
@@ -86,13 +107,16 @@ my $wrapper_tag_message = shell_quote("Release Sereal version $to ($reason)");
 
 print <<"EOF_TEXT";
 
+perl cpantesters/fetch-reports.pl --version $previous_argument --check &&
 ./clean_make_all &&
 perl author_tools/encoder_compat_matrix.pl &&
 git-compose-commit --subject $subject -a &&
+git push &&
+perl author_tools/check_release_ci.pl &&
 git tag Sereal-Decoder-$to -m$decoder_tag_message &&
 git tag Sereal-Encoder-$to -m$encoder_tag_message &&
 git tag Sereal-$to -m$wrapper_tag_message &&
-git push && git push --tags &&
+git push --tags &&
 cpan-upload-http -verbose Encoder/Sereal-Encoder-$to.tar.gz Decoder/Sereal-Decoder-$to.tar.gz Sereal/Sereal-$to.tar.gz
 
 EOF_TEXT

@@ -76,7 +76,7 @@ CFLAGS  += } . $zstd_cflags . q{
 CFLAGS  += $(MOREFLAGS)
 AR       = ar
 ARFLAGS  = rcs
-RM       = rm -f
+RM       = } . qq{"$^X" -MExtUtils::Command -e rm_f --} . q{
 
 ZSTD_FILES := } . join( ' ', @o_files ) . q{
 
