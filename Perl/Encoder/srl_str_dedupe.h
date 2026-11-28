@@ -50,9 +50,10 @@ typedef struct {
 } srl_str_dedupe_tbl_t;
 
 SRL_STATIC_INLINE U32
-srl_str_dedupe_hash(const char *str, STRLEN len, U32 utf8_flag)
+srl_str_dedupe_hash(pTHX_ const char *str, STRLEN len, U32 utf8_flag)
 {
     U32 h;
+    /* Older threaded Perls keep the PERL_HASH seed in interpreter state. */
     PERL_HASH(h, str ? str : "", len);
     return h ^ (utf8_flag ? 0x9e3779b9U : 0U);
 }
@@ -236,7 +237,7 @@ srl_str_dedupe_lookup_or_insert(pTHX_ srl_str_dedupe_tbl_t *tbl,
                                 UV current_ofs, int *found)
 {
     U32 utf8_flag = is_utf8 ? SRL_STR_DEDUPE_FLAG_UTF8 : 0U;
-    U32 hash = srl_str_dedupe_hash(str, len, utf8_flag);
+    U32 hash = srl_str_dedupe_hash(aTHX_ str, len, utf8_flag);
     UV mask;
     UV idx;
     srl_str_dedupe_slot_t *slot;

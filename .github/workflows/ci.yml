@@ -337,7 +337,7 @@ jobs:
         with:
           perl-version: '5'
       - name: Install report collector dependencies
-        run: cpanm --notest --installdeps Perl/cpantesters
+        run: cpanm --notest --installdeps ./Perl/cpantesters
       - name: Test maintenance tools without network requests
         working-directory: Perl
         run: |

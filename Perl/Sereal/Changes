@@ -17,6 +17,7 @@ from the the Encoder and Decoder changelogs:
 ****************************************************************
 
 7.009
+    * Fix Encoder builds on threaded Perl 5.14 and 5.16.
     * Fix Decoder test portability on older and extended-precision
       Perls. Fix bundled Zstd builds on Windows without Unix rm.
     * Broaden portability CI and require regeneration, CPAN Testers

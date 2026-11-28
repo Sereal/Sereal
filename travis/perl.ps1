@@ -44,7 +44,9 @@ int main(void) {
 '@ | Set-Content -Encoding ascii $guardSource
     Run-Command 'gcc' @($guardSource, '-o', $guardExe)
     $env:PATH = $guardDir + [IO.Path]::PathSeparator + $env:PATH
-    if ((Get-Command rm.exe -CommandType Application).Source -ne $guardExe) {
+    # Get-Command can return several applications with the same name.
+    $firstRm = Get-Command rm.exe -CommandType Application | Select-Object -First 1
+    if ($firstRm.Source -ne $guardExe) {
         throw 'The Unix rm guard is not first on PATH'
     }
 }

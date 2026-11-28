@@ -11,6 +11,7 @@ Revision history for Perl extension Sereal-Encoder
 ****************************************************************
 
 7.009
+    * Fix string deduplication builds on threaded Perl 5.14 and 5.16.
     * Fix bundled Zstd builds on Windows without a Unix rm command.
     * Expand portability CI. Require regeneration, CPAN Testers review
       and successful CI for the release commit before publication.

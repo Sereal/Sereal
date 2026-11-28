@@ -161,9 +161,10 @@ SKIP: {
     my $enc_lvl1 =
         Sereal::Encoder->new(
         { compress => Sereal::Encoder::SRL_ZSTD(), compress_level => 1, compress_threshold => 0 } );
-    my $enc_lvl9 =
-        Sereal::Encoder->new(
-        { compress => Sereal::Encoder::SRL_ZSTD(), compress_level => 9, compress_threshold => 0 } );
+    my $enc_lvl9 = Sereal::Encoder->new( {
+        compress  => Sereal::Encoder::SRL_ZSTD(), compress_level => 9, compress_threshold => 0,
+        canonical => 1
+    } );
     my $enc_zlib = Sereal::Encoder->new(
         { compress => Sereal::Encoder::SRL_ZLIB(), compress_threshold => 0 } );
     my $enc_snpy = Sereal::Encoder->new(
@@ -245,12 +246,18 @@ SKIP: {
 
 # 4. FREEZE / THAW re-entrancy using the SAME encoder and decoder (plus compress_level check)
     {
-        my $inner_enc_blob_len;
+        my $inner_enc_blob;
+
+        # Vary repeated runs so level 9 produces different output from the
+        # default level 3; a uniform repeated string compresses alike at both.
+        my $inner_payload = join '',
+            map { ( 'ZSTD_NESTED_' x ( 1 + $_ % 13 ) ) . ( $_ % 37 ) . ':' } 1 .. 1000;
         my $re_enc = Sereal::Encoder->new( {
             compress           => Sereal::Encoder::SRL_ZSTD(),
             compress_level     => 9,
             compress_threshold => 0,
             freeze_callbacks   => 1,
+            canonical          => 1,
         } );
         my $re_dec = Sereal::Decoder->new();
 
@@ -262,9 +269,9 @@ SKIP: {
                 my ( $self, $serializer ) = @_;
 
                 # Re-enter the same Zstd encoder inside FREEZE; verify it uses cloned compress_level
-                my $inner_data = { nested => ( 'ZSTD_NESTED_' x 80 ), id => $self->{id} };
+                my $inner_data = { nested => $inner_payload, id => $self->{id} };
                 my $inner_blob = $re_enc->encode($inner_data);
-                $inner_enc_blob_len = length($inner_blob);
+                $inner_enc_blob = $inner_blob;
                 return ( $self->{id}, $inner_blob );
             }
 
@@ -277,7 +284,9 @@ SKIP: {
             }
         }
 
-        my $standalone_inner = $enc_lvl9->encode( { nested => ( 'ZSTD_NESTED_' x 80 ), id => 7 } );
+        # Canonicalize keys and references so hash order and temporary
+        # reference counts cannot change the bytes being compressed.
+        my $standalone_inner = $enc_lvl9->encode( { nested => $inner_payload, id => 7 } );
         my $outer_obj        = bless { id => 7 }, 'ZstdCtxReentrantObj';
         my $outer_data       = { outer => $outer_obj, pad => ( 'OUTER_' x 80 ) };
         my $outer_blob       = $re_enc->encode($outer_data);
@@ -285,7 +294,7 @@ SKIP: {
             skip 'FREEZE clone compression levels require Encoder 7.008 or newer', 1
                 unless eval { Sereal::Encoder->VERSION('7.008'); 1 };
             is(
-                $inner_enc_blob_len, length($standalone_inner),
+                $inner_enc_blob, $standalone_inner,
                 're-entrant FREEZE clone preserves compress_level=9'
             );
         }
@@ -298,7 +307,7 @@ SKIP: {
         is( $outer_got->{outer}{id},        7, 'outer Zstd THAW id preserved' );
         is( $outer_got->{outer}{inner}{id}, 7, 're-entrant Zstd THAW inner id preserved' );
         is(
-            $outer_got->{outer}{inner}{nested}, ( 'ZSTD_NESTED_' x 80 ),
+            $outer_got->{outer}{inner}{nested}, $inner_payload,
             're-entrant Zstd THAW payload matches'
         );
     }

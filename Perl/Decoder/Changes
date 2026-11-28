@@ -11,6 +11,8 @@ Revision history for Perl extension Sereal-Decoder
 ****************************************************************
 
 7.009
+    * Make the Zstd re-entrancy test independent of hash order and
+      temporary reference counts, and distinguish compression levels.
     * Fix false regression-test failures on older Perls and builds
       with extended-precision NVs (issues #352 and #353).
     * Fix bundled Zstd builds on Windows without a Unix rm command.
