@@ -141,10 +141,17 @@ ok(
 
 # The archive remains newer than the child Makefile: only the child make
 # can detect that its object changed. The parent must still invoke it.
-my $object_time = ( stat 'zstd/member.o' )[9];
-utime $object_time - 30, $object_time - 30, 'Makefile.PL', 'zstd/Makefile.PL' or die $!;
-utime $object_time - 20, $object_time - 20, 'Makefile',    'zstd/Makefile'    or die $!;
-utime $object_time - 5,  $object_time - 5,  'zstd/libzstd.o' or die $!;
+my $archive_time = ( stat 'zstd/libzstd.o' )[9];
+cmp_ok(
+    $archive_time, '>', ( stat 'zstd/Makefile' )[9],
+    'archive is newer than the child Makefile'
+);
+
+# Do not backdate Makefiles: a freshly installed Perl can have Config.pm
+# and config.h newer than those artificial times, triggering regeneration.
+# Wait for the next filesystem timestamp tick before changing the object.
+select undef, undef, undef, 0.1 while time <= $archive_time;
+utime time, time, 'zstd/member.o' or die $!;
 ok( run_logged(@build), 'parallel incremental rebuild succeeds' );
 is( archive_calls(), 2, 'incremental rebuild writes the archive once' );
 is_deeply( archive_members(), ['member.o'], 'incremental rebuild removes stale members' );
