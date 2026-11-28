@@ -86,8 +86,11 @@ Current release flow:
 
 1. Run `perl fixver.pl VERSION REASON`
 2. Update all three `Changes` files
-3. Run the emitted `./clean_make_all`
-4. If clean, use the emitted `git commit`, `git tag`, `git push`, and upload commands
+3. Run the emitted CPAN Testers review, then `./clean_regen_and_tidy`
+   before every release, including developer releases
+4. Review the regenerated and formatted changes, then run the emitted
+   `./clean_make_all` and compatibility matrix
+5. Use the emitted commit, push, exact-commit CI check, tag, and upload commands
 
 Release commit format is strict:
 

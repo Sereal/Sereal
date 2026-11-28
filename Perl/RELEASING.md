@@ -56,8 +56,17 @@ Run `perl fixver.pl VERSION REASON`, review all three changelogs, and inspect
 the command chain it prints. It captures the preceding stable changelog
 version explicitly, including when preparing a developer release.
 
-The generated chain performs the report review, clean build/test/dist flow,
-and mixed-Encoder compatibility matrix before committing the release. It
+Every release, including developer releases, must run
+`./clean_regen_and_tidy` after the report review and before the clean
+build/test/dist flow. This regenerates shared headers and constants and
+formats the Perl sources, including maintainer tools and top-level scripts.
+It requires `perltidy` from Perl::Tidy to be installed.
+Review the resulting changes. Ensure new source files are tracked before
+running it: its clean steps remove untracked and ignored files.
+
+The generated chain performs the report review, regeneration and formatting,
+clean build/test/dist flow, and mixed-Encoder compatibility matrix before
+committing the release. Generation or formatting failures stop the chain. It
 then pushes the release commit and uses `author_tools/check_release_ci.pl`
 to wait for that exact commit's `ci.yml` push run and successful `Perl release
 checks` job. It refuses uncommitted tracked changes, a different revision,

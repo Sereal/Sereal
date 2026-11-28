@@ -2,7 +2,7 @@ use strict;
 use warnings;
 use Getopt::Long;
 
-my @files= qw(
+my @files = qw(
     Decoder/lib/Sereal/Decoder.pm
     Encoder/lib/Sereal/Encoder.pm
     Decoder/lib/Sereal/Decoder/Constants.pm
@@ -12,16 +12,16 @@ my @files= qw(
     Sereal/Makefile.PL
 );
 
-my @changes_files= qw(
+my @changes_files = qw(
     Decoder/Changes
     Encoder/Changes
     Sereal/Changes
 );
 
-my $to= shift @ARGV;
+my $to = shift @ARGV;
 
 die "usage: MAJOR.MINOR_(DEV) REASON" if !$to;
-my $reason= join " ", @ARGV;
+my $reason = join " ", @ARGV;
 die "usage: $0 VERSION REASON" if !$reason;
 
 sub shell_quote {
@@ -30,11 +30,12 @@ sub shell_quote {
     return "'$value'";
 }
 
-my ($major,$minor,$dev)= split/[_.]/, $to;
+my ( $major, $minor, $dev ) = split /[_.]/, $to;
 
-$to= $dev ? sprintf "%d.%03d_%03d", $major, $minor, $dev
-          : sprintf "%d.%03d",      $major, $minor
-;
+$to =
+    $dev
+    ? sprintf "%d.%03d_%03d", $major, $minor, $dev
+    : sprintf "%d.%03d", $major, $minor;
 
 # Review the preceding published stable release, including when preparing
 # a developer release or repeating this command for the same target.
@@ -42,7 +43,7 @@ my %previous;
 for my $file (@changes_files) {
     open my $fh, '<', $file or die "Failed to read '$file': $!";
     my $found;
-    while (my $line = <$fh>) {
+    while ( my $line = <$fh> ) {
         next unless $line =~ /^(\d+\.\d{3})\s*$/;
         next if $1 eq $to;
         $previous{$1} = 1;
@@ -59,17 +60,19 @@ foreach my $file (@changes_files) {
     open my $in, "<", $file
         or die "Failed to open for read '$file': $!";
     local $/;
-    my $changes= <$in>;
+    my $changes = <$in>;
     close $in;
 
     next if $changes =~ /^\Q$to\E\s*$/m;
 
-    my $entry= "$to\n    * $reason\n\n";
-    if ($changes =~ /^Unreleased[ \t]*\r?$/m) {
+    my $entry = "$to\n    * $reason\n\n";
+    if ( $changes =~ /^Unreleased[ \t]*\r?$/m ) {
         $changes =~ s/^Unreleased[ \t]*\r?\n/$to\n    * $reason\n/m;
-    } elsif ($changes =~ /^\d+\.\d{3}(?:_\d{3})?\s*$/m) {
+    }
+    elsif ( $changes =~ /^\d+\.\d{3}(?:_\d{3})?\s*$/m ) {
         substr $changes, $-[0], 0, $entry;
-    } else {
+    }
+    else {
         $changes .= "\n" unless $changes =~ /\n\z/;
         $changes .= $entry;
     }
@@ -80,12 +83,10 @@ foreach my $file (@changes_files) {
     close $out;
 }
 
-my %special= (
-    'Sereal/lib/Sereal.pm' => $to
-);
+my %special = ( 'Sereal/lib/Sereal.pm' => $to );
 
 foreach my $file (@files) {
-    my $to_str= $special{$file}||$to;
+    my $to_str = $special{$file} || $to;
     open my $in, "<", $file
         or die "Failed to open for read '$file': $!";
     unlink $file;
@@ -93,14 +94,14 @@ foreach my $file (@files) {
         or die "Failed to open for write '$file': $!";
     while (<$in>) {
         s/(\$VERSION\s*=\s*)'[^']+'/$1'$to_str'/g;
-        if ($special{$file}) {
+        if ( $special{$file} ) {
             s/(Sereal::(En|De)coder) (\d+\.\d+(?:_\d+)?)/$1 $to/g;
         }
         print $out $_;
     }
 }
 
-my $subject = shell_quote("Release v$to - $reason");
+my $subject             = shell_quote("Release v$to - $reason");
 my $decoder_tag_message = shell_quote("Release Sereal::Decoder version $to ($reason)");
 my $encoder_tag_message = shell_quote("Release Sereal::Encoder version $to ($reason)");
 my $wrapper_tag_message = shell_quote("Release Sereal version $to ($reason)");
@@ -108,6 +109,7 @@ my $wrapper_tag_message = shell_quote("Release Sereal version $to ($reason)");
 print <<"EOF_TEXT";
 
 perl cpantesters/fetch-reports.pl --version $previous_argument --check &&
+./clean_regen_and_tidy &&
 ./clean_make_all &&
 perl author_tools/encoder_compat_matrix.pl &&
 git-compose-commit --subject $subject -a &&

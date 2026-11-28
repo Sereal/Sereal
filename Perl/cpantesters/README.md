@@ -120,7 +120,8 @@ complements the local Perl/platform and mixed-module-version test matrices.
 
 `fixver.pl` determines the preceding stable version from the three changelogs,
 requires them to agree, and includes this check with that explicit version at
-the start of the release command chain. It also waits for successful CI on the
+the start of the release command chain, followed by mandatory regeneration
+and formatting before rebuilding. It also waits for successful CI on the
 pushed release commit before tagging or uploading. See `../RELEASING.md`.
 
 ## Verification

@@ -1,4 +1,8 @@
 #!/bin/bash
+set -euo pipefail
+
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+
 git clean -dfx
 echo updating headers
 perl shared/author_tools/update_from_header.pl
@@ -10,10 +14,14 @@ pushd Decoder
 echo updating Decoder flag constants
 perl author_tools/update_decoder_flag_consts.pl
 popd
-for f in $(find Decoder Encoder Sereal shared cpantesters author_tools Perl -name \*.pm -or -name \*.pl -or -name \*.PL -or -name \*.t)
-do 
-    echo Tidying $f
-    perltidy -w -b -it=2 -ple -bbb -bbc -bbs -nolq -l=100 -noll -nola -isbc -nolc -otr -kis -ci=4 -se -sot -sct -nsbl -fs -fsb='#start-no-tidy' -fse='#end-no-tidy' -boc -iscl $f
+{
+    find . -maxdepth 1 -type f \( -name '*.pm' -o -name '*.pl' -o -name '*.PL' -o -name '*.t' \) -print0
+    find Decoder Encoder Sereal shared cpantesters author_tools -type f \
+        \( -name '*.pm' -o -name '*.pl' -o -name '*.PL' -o -name '*.t' \) -print0
+} | while IFS= read -r -d '' file
+do
+    echo "Tidying $file"
+    perltidy -w -b -it=2 -ple -bbb -bbc -bbs -nolq -l=100 -noll -nola -isbc -nolc -otr -kis -ci=4 -se -sot -sct -nsbl -fs -fsb='#start-no-tidy' -fse='#end-no-tidy' -boc -iscl "$file"
 done
 # we don't own this file, so lets not mess with it
 git checkout shared/inc/Devel/CheckLib.pm

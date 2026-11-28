@@ -236,6 +236,7 @@ my $hdr = Header(6);
     my $dec_uu = Sereal::Decoder->new( { use_undef => 1 } );
     my $u_ro   = $dec_uu->decode($u_pkt);
     is_deeply( $u_ro, [ undef, undef, { a => undef, b => undef } ], 'use_undef elements decode' );
+
     # An lvalue array fetch can replace PL_sv_undef on older Perls.
     is( array_slot_ref( $u_ro, 0 ), \undef, 'use_undef array element uses PL_sv_undef' );
     eval { $u_ro->[2]{a} = 1 };

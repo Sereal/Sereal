@@ -3,10 +3,10 @@ use warnings;
 use Test::More;
 use Sereal::Decoder;
 require $ARGV[0];
-my $dir = $ARGV[1];
+my $dir        = $ARGV[1];
 my $module_dir = $ARGV[2] or die 'current Decoder module directory is required';
-my $loaded = $INC{'Sereal/Decoder.pm'} || '';
-die "wrong Decoder loaded: $loaded\n" unless index($loaded, $module_dir) == 0;
+my $loaded     = $INC{'Sereal/Decoder.pm'} || '';
+die "wrong Decoder loaded: $loaded\n" unless index( $loaded, $module_dir ) == 0;
 open my $mf, '<', "$dir/provenance.txt" or die $!;
 my ($version) = map { /^encoder_version=(.+)/ ? $1 : () } <$mf>;
 close $mf;
@@ -16,18 +16,19 @@ open my $validation, '>', "$dir/decoder-validation.txt" or die $!;
 print {$validation} "decoder_version=$Sereal::Decoder::VERSION\ndecoder_path=$loaded\n";
 close $validation;
 my $decoder = Sereal::Decoder->new();
-my @names = sort keys %$expected;
+my @names   = sort keys %$expected;
 plan tests => 2 * scalar(@names) + 2;
 my %decoded;
+
 for my $name (@names) {
     open my $fh, '<:raw', "$dir/$name.srl" or die $!;
     local $/;
     my $packet = <$fh>;
     close $fh;
     my $value = eval { $decoder->decode($packet) };
-    ok(!$@, "$name packet decodes") or diag $@;
+    ok( !$@, "$name packet decodes" ) or diag $@;
     $decoded{$name} = $value;
-    is_deeply($value, $expected->{$name}, "$name matches independent expected structure");
+    is_deeply( $value, $expected->{$name}, "$name matches independent expected structure" );
 }
-is($decoded{aliases}[0], $decoded{aliases}[1], 'shared reference identity is retained');
-is($decoded{cycle}{self}, $decoded{cycle}, 'cycle identity is retained');
+is( $decoded{aliases}[0],  $decoded{aliases}[1], 'shared reference identity is retained' );
+is( $decoded{cycle}{self}, $decoded{cycle},      'cycle identity is retained' );

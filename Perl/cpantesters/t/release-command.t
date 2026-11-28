@@ -31,8 +31,8 @@ ok( close($fh), 'generate release commands in an isolated fixture' );
 chdir $cwd or die $!;
 like(
     $commands,
-    qr{perl cpantesters/fetch-reports\.pl --version '7\.008' --check &&\s*\./clean_make_all &&\s*perl author_tools/encoder_compat_matrix\.pl &&\s*git-compose-commit}s,
-    'fresh report review gates the build, compatibility checks, and release commit'
+    qr{perl cpantesters/fetch-reports\.pl --version '7\.008' --check &&\s*\./clean_regen_and_tidy &&\s*\./clean_make_all &&\s*perl author_tools/encoder_compat_matrix\.pl &&\s*git-compose-commit}s,
+    'report review and regeneration precede the build, compatibility checks, and release commit'
 );
 like( $commands, qr/Release v7\.009/, 'release subject remains intact' );
 like(
